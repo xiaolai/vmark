@@ -89,7 +89,7 @@ fn topo_order(workflow: &RawWorkflow) -> Result<Vec<String>, String> {
 
 #[test]
 fn sample_workflow_parses() {
-    let workflow: RawWorkflow = serde_yaml::from_str(SAMPLE_WORKFLOW)
+    let workflow: RawWorkflow = serde_yaml_ng::from_str(SAMPLE_WORKFLOW)
         .expect("bundled sample workflow must parse as RawWorkflow");
 
     assert_eq!(workflow.name, "Triage and Translate");
@@ -101,7 +101,7 @@ fn sample_workflow_parses() {
 
 #[test]
 fn sample_workflow_structure_is_valid() {
-    let workflow: RawWorkflow = serde_yaml::from_str(SAMPLE_WORKFLOW).unwrap();
+    let workflow: RawWorkflow = serde_yaml_ng::from_str(SAMPLE_WORKFLOW).unwrap();
 
     let ids: Vec<String> = workflow.steps.iter().map(step_id).collect();
     assert_eq!(ids, vec!["rewrite", "translate", "save"]);
@@ -115,7 +115,7 @@ fn sample_workflow_structure_is_valid() {
 
 #[test]
 fn sample_workflow_genie_refs_resolve_against_bundled_catalog() {
-    let workflow: RawWorkflow = serde_yaml::from_str(SAMPLE_WORKFLOW).unwrap();
+    let workflow: RawWorkflow = serde_yaml_ng::from_str(SAMPLE_WORKFLOW).unwrap();
     let bundled: HashSet<&str> = default_genie_names().into_iter().collect();
 
     let mut genie_steps = 0;

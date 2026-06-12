@@ -467,11 +467,6 @@
   background: var(--accent-bg);
 }
 
-/* ---- Dark theme ---- */
-
-.dark-theme .genie-picker-backdrop {
-  background: var(--hover-bg-dark-strong);
-}
 
 .dark-theme .genie-picker {
   box-shadow: var(--popup-shadow-dark);

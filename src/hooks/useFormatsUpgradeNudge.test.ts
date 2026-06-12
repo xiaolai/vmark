@@ -12,7 +12,7 @@ vi.mock("@/services/ime/imeToast", () => ({
 }));
 
 const openSettingsMock = vi.fn(async () => {});
-vi.mock("@/utils/settingsWindow", () => ({
+vi.mock("@/services/navigation/settingsWindow", () => ({
   openSettingsWindow: (...args: unknown[]) => openSettingsMock(...args),
 }));
 

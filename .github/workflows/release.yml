@@ -84,7 +84,7 @@ jobs:
 
       - name: Create Release
         id: create-release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           tag_name: ${{ steps.get-version.outputs.version }}
           name: VMark ${{ steps.get-version.outputs.version }}
@@ -129,12 +129,14 @@ jobs:
           node-version: 22
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v6
+        uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6
         with:
           version: 10
 
       - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable branch
+        with:
+          toolchain: stable
 
       - uses: actions/cache@v5
         with:
@@ -173,7 +175,7 @@ jobs:
       - uses: ./.github/actions/setup-tauri-deps
 
       - name: Install frontend dependencies
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
 
       # Build MCP server sidecar for the target platform
       # NOTE: pkg binaries cannot be combined with lipo, so we build arch-specific binaries
@@ -183,7 +185,7 @@ jobs:
         env:
           SIDECAR_TARGET: ${{ matrix.sidecar_target }}
         run: |
-          pnpm install
+          pnpm install --frozen-lockfile
           pnpm build
           node scripts/build-sidecar.js --target $SIDECAR_TARGET
 
@@ -250,7 +252,7 @@ jobs:
         if: matrix.platform == 'windows-latest'
         working-directory: vmark-mcp-server
         run: |
-          pnpm install
+          pnpm install --frozen-lockfile
           pnpm build
           node scripts/build-sidecar.js
 
@@ -276,7 +278,7 @@ jobs:
         if: matrix.platform == 'ubuntu-22.04'
         working-directory: vmark-mcp-server
         run: |
-          pnpm install
+          pnpm install --frozen-lockfile
           pnpm build
           node scripts/build-sidecar.js
 
@@ -295,7 +297,7 @@ jobs:
           "$SIDECAR_PATH" --health-check
 
       - name: Build Tauri app
-        uses: tauri-apps/tauri-action@v0
+        uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5 # v0
         timeout-minutes: 45
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -473,13 +475,13 @@ jobs:
             -f version="$VERSION_NUM"
           echo "✅ Triggered Homebrew tap update for $VERSION_NUM"
 
-      - name: Clean up old releases (keep latest 2)
+      - name: Clean up old releases (keep latest 3, tags kept forever)
         continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
         run: |
-          KEEP=2
+          KEEP=3
 
           # List all published releases sorted by date (newest first), skip the first $KEEP
           OLD_TAGS=$(gh release list --repo "$REPO" --exclude-drafts --json tagName,publishedAt \
@@ -490,8 +492,23 @@ jobs:
             exit 0
           fi
 
+          # The Homebrew cask download 404s if we delete the release its URL
+          # points at (the tap update above is continue-on-error, so it can
+          # lag behind). Skip whatever version the cask currently ships.
+          CASK_VERSION=$(gh api repos/xiaolai/homebrew-tap/contents/Casks/vmark.rb \
+            --jq '.content' 2>/dev/null | base64 -d | grep -m1 '^  version "' \
+            | sed 's/.*version "\(.*\)".*/\1/' || echo "")
+          echo "Cask currently ships: ${CASK_VERSION:-unknown}"
+
           for tag in $OLD_TAGS; do
+            if [ -n "$CASK_VERSION" ] && [ "$tag" = "v$CASK_VERSION" ]; then
+              echo "Skipping $tag — the Homebrew cask still points at it"
+              continue
+            fi
             echo "Deleting release $tag..."
-            gh release delete "$tag" --repo "$REPO" --cleanup-tag --yes
+            # NEVER --cleanup-tag: deleting tags destroys provenance and can
+            # 404 the Homebrew cask URL if the tap still points at the old
+            # version (audit 20260612). Tags are nearly free — keep them.
+            gh release delete "$tag" --repo "$REPO" --yes
             echo "✅ Deleted $tag"
           done

@@ -16,7 +16,7 @@ import { findWordAtCursor } from "@/plugins/syntaxReveal/marks";
 import { copyImageToAssets, insertBlockImageNode } from "@/hooks/useImageOperations";
 import { copyMediaToAssets, insertBlockVideoNode, insertBlockAudioNode } from "@/hooks/useMediaOperations";
 import { getWindowLabel } from "@/hooks/useWindowFocus";
-import { readClipboardImagePath } from "@/utils/clipboardImagePath";
+import { readClipboardImagePath } from "@/services/media/clipboardImagePath";
 import { withReentryGuard } from "@/utils/reentryGuard";
 import { DEFAULT_MERMAID_DIAGRAM } from "@/plugins/mermaid/constants";
 import { DEFAULT_MARKMAP_CONTENT } from "@/plugins/markmap/constants";

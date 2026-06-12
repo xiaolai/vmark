@@ -18,6 +18,7 @@ use tokio_util::sync::CancellationToken;
 
 use super::step_config::StepConfig;
 use super::template;
+use super::untrusted;
 use crate::ai_provider::run_ai_prompt_collect;
 use crate::genies::types::GenieMetadata;
 
@@ -304,11 +305,23 @@ pub async fn execute_genie(
     // 1. Validate v1 input requirements.
     validate_input(&loaded.metadata, with_map)?;
 
-    // 2. Fill the template per ADR-2 aliases.
-    let prompt = template::fill(&loaded.template, with_map)
-        .map_err(|e| GenieStepError::Template(e.to_string()))?;
+    // 2. Fence untrusted with-values (document text, selections, file reads,
+    //    prior step outputs) so they read as data, not instructions, in the
+    //    prompt handed to autonomous CLI agents (audit 20260612 H13).
+    let nonce = untrusted::fence_nonce();
+    let (fenced_map, any_fenced) = untrusted::fence_untrusted(with_map, &nonce);
 
-    // 3. Call the AI provider with the resolved model (from step_config).
+    // 3. Fill the template per ADR-2 aliases, prepending the data-handling
+    //    preamble whenever fenced content is present.
+    let filled = template::fill(&loaded.template, &fenced_map)
+        .map_err(|e| GenieStepError::Template(e.to_string()))?;
+    let prompt = if any_fenced {
+        format!("{}{}", untrusted::untrusted_preamble(&nonce), filled)
+    } else {
+        filled
+    };
+
+    // 4. Call the AI provider with the resolved model (from step_config).
     // step_config.timeout_secs and approval are honored at the runner layer,
     // not here; this function is the provider-call atom only.
     let response = run_ai_prompt_collect(
@@ -324,7 +337,7 @@ pub async fn execute_genie(
     .await
     .map_err(GenieStepError::Provider)?;
 
-    // 4. Process the response per v1 output type.
+    // 5. Process the response per v1 output type.
     process_output(&loaded.metadata, response)
 }
 

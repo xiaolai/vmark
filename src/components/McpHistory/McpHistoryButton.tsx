@@ -32,7 +32,7 @@ import { rewriteAll } from "@/stores/mcpCheckpointPersistence";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useRevisionStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
-import { getCurrentWindowLabel } from "@/utils/workspaceStorage";
+import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import { imeToast as toast } from "@/services/ime/imeToast";
 import "./mcp-history.css";
 

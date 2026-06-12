@@ -6,10 +6,15 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // ---------------------------------------------------------------------------
 // Mocks — hoisted so vi.mock factories can reference them.
+const openUrlMock = vi.hoisted(() => vi.fn(async () => undefined));
 // ---------------------------------------------------------------------------
 
 const { mockEmit } = vi.hoisted(() => ({
   mockEmit: vi.fn(() => Promise.resolve()),
+}));
+
+vi.mock("@tauri-apps/plugin-opener", () => ({
+  openUrl: openUrlMock,
 }));
 
 vi.mock("@tauri-apps/api/webviewWindow", () => ({
@@ -146,5 +151,43 @@ describe("openFilepathLink", () => {
       "Failed to emit open-file:",
       expect.any(Error),
     );
+  });
+});
+
+describe("openExternalLink (scheme allowlist, audit 20260612)", () => {
+  beforeEach(async () => {
+    openUrlMock.mockClear();
+    const { useSettingsStore } = await import("@/stores/settingsStore");
+    useSettingsStore.getState().updateAdvancedSetting("customLinkProtocols", ["obsidian"]);
+  });
+
+  it.each(["https://example.com/a", "http://example.com", "mailto:a@b.c"])(
+    "opens allowlisted scheme %s",
+    async (href) => {
+      const { openExternalLink } = await import("./linkOpen");
+      await expect(openExternalLink(href)).resolves.toBe(true);
+      expect(openUrlMock).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it.each(["file:///etc/passwd", "javascript:alert(1)", "smb://host/share"])(
+    "blocks unsafe scheme %s",
+    async (href) => {
+      const { openExternalLink } = await import("./linkOpen");
+      await expect(openExternalLink(href)).resolves.toBe(false);
+      expect(openUrlMock).not.toHaveBeenCalled();
+    },
+  );
+
+  it("allows user-configured custom protocols", async () => {
+    const { openExternalLink } = await import("./linkOpen");
+    await expect(openExternalLink("obsidian://open?vault=x")).resolves.toBe(true);
+    expect(openUrlMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("blocks malformed URLs", async () => {
+    const { openExternalLink } = await import("./linkOpen");
+    await expect(openExternalLink("http://[broken")).resolves.toBe(false);
+    expect(openUrlMock).not.toHaveBeenCalled();
   });
 });

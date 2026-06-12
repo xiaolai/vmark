@@ -20,7 +20,7 @@ import type { NodeView } from "@tiptap/pm/view";
 import { useSettingsStore, type HtmlRenderingMode } from "@/stores/settingsStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
-import { getCurrentWindowLabel } from "@/utils/workspaceStorage";
+import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import { toggleSourceModeWithCheckpoint } from "@/hooks/useUnifiedHistory";
 import { sanitizeHtmlPreview } from "@/utils/sanitize";
 import type { CursorInfo } from "@/types/cursorSync";

@@ -58,12 +58,19 @@ describe("emitted legacy CSS vars (behavior-preserving contract)", () => {
     expect(sol["--alert-important"]).toBe("#6c71c4");
   });
 
-  it("dark mode does NOT emit --warning-* / --hover-bg / --contrast-text", () => {
+  it("dark mode does NOT emit --warning-* / --contrast-text / --subtle-bg", () => {
     // Preserves the historical quirk: dark mode inherits these from :root.
     const night = emittedVars("night");
     expect(night["--warning-color"]).toBeUndefined();
-    expect(night["--hover-bg"]).toBeUndefined();
     expect(night["--contrast-text"]).toBeUndefined();
     expect(night["--subtle-bg"]).toBeUndefined();
+  });
+
+  it("dark mode emits white-tint hover feedback (audit 20260612 H15)", () => {
+    // Deliberate change: the old quirk inherited light black tints, which
+    // are near-invisible on dark backgrounds.
+    const night = emittedVars("night");
+    expect(night["--hover-bg"]).toBe("rgba(255, 255, 255, 0.08)");
+    expect(night["--hover-bg-strong"]).toBe("rgba(255, 255, 255, 0.12)");
   });
 });

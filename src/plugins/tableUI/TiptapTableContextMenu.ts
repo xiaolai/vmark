@@ -14,6 +14,7 @@
  * @coordinates-with tiptap.ts — mounts/destroys this menu from the table UI plugin view
  * @module plugins/tableUI/TiptapTableContextMenu
  */
+import i18n from "@/i18n";
 import type { EditorView } from "@tiptap/pm/view";
 import { alignColumn, type TableAlignment, addColLeft, addColRight, addRowAbove, addRowBelow, deleteCurrentColumn, deleteCurrentRow, deleteCurrentTable, formatTable, isCurrentTableFitToWidth, toggleFitToWidth } from "./tableActions.tiptap";
 import { icons } from "@/utils/icons";
@@ -60,20 +61,20 @@ export class TiptapTableContextMenu {
     const alignAll = (alignment: TableAlignment) => () => alignColumn(this.editorView, alignment, true);
 
     const actions: MenuAction[] = [
-      { label: "Insert Row Above", icon: icons.rowAbove, action: () => addRowAbove(this.editorView) },
-      { label: "Insert Row Below", icon: icons.rowBelow, action: () => addRowBelow(this.editorView) },
-      { label: "Insert Column Left", icon: icons.colLeft, action: () => addColLeft(this.editorView) },
-      { label: "Insert Column Right", icon: icons.colRight, action: () => addColRight(this.editorView), dividerAfter: true },
-      { label: "Delete Row", icon: icons.deleteRow, action: () => deleteCurrentRow(this.editorView), danger: true },
-      { label: "Delete Column", icon: icons.deleteCol, action: () => deleteCurrentColumn(this.editorView), danger: true },
-      { label: "Delete Table", icon: icons.deleteTable, action: () => deleteCurrentTable(this.editorView), danger: true, dividerAfter: true },
-      { label: "Align Column Left", icon: icons.alignLeft, action: alignCol("left") },
-      { label: "Align Column Center", icon: icons.alignCenter, action: alignCol("center") },
-      { label: "Align Column Right", icon: icons.alignRight, action: alignCol("right"), dividerAfter: true },
-      { label: "Align All Left", icon: icons.alignAllLeft, action: alignAll("left") },
-      { label: "Align All Center", icon: icons.alignAllCenter, action: alignAll("center") },
-      { label: "Align All Right", icon: icons.alignAllRight, action: alignAll("right"), dividerAfter: true },
-      { label: "Format Table", icon: icons.formatTable, action: () => formatTable(this.editorView) },
+      { label: i18n.t("editor:tableMenu.insertRowAbove"), icon: icons.rowAbove, action: () => addRowAbove(this.editorView) },
+      { label: i18n.t("editor:tableMenu.insertRowBelow"), icon: icons.rowBelow, action: () => addRowBelow(this.editorView) },
+      { label: i18n.t("editor:tableMenu.insertColLeft"), icon: icons.colLeft, action: () => addColLeft(this.editorView) },
+      { label: i18n.t("editor:tableMenu.insertColRight"), icon: icons.colRight, action: () => addColRight(this.editorView), dividerAfter: true },
+      { label: i18n.t("editor:tableMenu.deleteRow"), icon: icons.deleteRow, action: () => deleteCurrentRow(this.editorView), danger: true },
+      { label: i18n.t("editor:tableMenu.deleteCol"), icon: icons.deleteCol, action: () => deleteCurrentColumn(this.editorView), danger: true },
+      { label: i18n.t("editor:tableMenu.deleteTable"), icon: icons.deleteTable, action: () => deleteCurrentTable(this.editorView), danger: true, dividerAfter: true },
+      { label: i18n.t("editor:tableMenu.alignColLeft"), icon: icons.alignLeft, action: alignCol("left") },
+      { label: i18n.t("editor:tableMenu.alignColCenter"), icon: icons.alignCenter, action: alignCol("center") },
+      { label: i18n.t("editor:tableMenu.alignColRight"), icon: icons.alignRight, action: alignCol("right"), dividerAfter: true },
+      { label: i18n.t("editor:tableMenu.alignAllLeft"), icon: icons.alignAllLeft, action: alignAll("left") },
+      { label: i18n.t("editor:tableMenu.alignAllCenter"), icon: icons.alignAllCenter, action: alignAll("center") },
+      { label: i18n.t("editor:tableMenu.alignAllRight"), icon: icons.alignAllRight, action: alignAll("right"), dividerAfter: true },
+      { label: i18n.t("editor:tableMenu.formatTable"), icon: icons.formatTable, action: () => formatTable(this.editorView) },
     ];
 
     // Per-table fit-to-width toggle — hidden when global toggle is ON
@@ -81,7 +82,7 @@ export class TiptapTableContextMenu {
     if (!globalFit) {
       const isFit = isCurrentTableFitToWidth(this.editorView);
       actions.push({
-        label: isFit ? "Natural Width" : "Fit to Width",
+        label: isFit ? i18n.t("editor:tableMenu.naturalWidth") : i18n.t("editor:tableMenu.fitToWidth"),
         icon: icons.fitToWidth,
         action: () => toggleFitToWidth(this.editorView),
       });

@@ -9,6 +9,7 @@ import {
   __resetRegistryForTests,
   getActionMetadata,
   parseUsesRef,
+  setActionMetadataFetchEnabled,
 } from "../registry";
 
 describe("parseUsesRef", () => {
@@ -167,5 +168,37 @@ describe("getActionMetadata", () => {
     });
     const second = await getActionMetadata("actions/checkout@v4");
     expect(second).not.toBeNull();
+  });
+});
+
+describe("setActionMetadataFetchEnabled (audit H28 network kill switch)", () => {
+  beforeEach(() => {
+    __resetRegistryForTests();
+    invokeMock.mockReset();
+  });
+
+  afterEach(() => {
+    setActionMetadataFetchEnabled(true);
+  });
+
+  it("returns null without invoking Tauri when fetching is disabled", async () => {
+    setActionMetadataFetchEnabled(false);
+    const result = await getActionMetadata("actions/checkout@v4");
+    expect(result).toBeNull();
+    expect(invokeMock).not.toHaveBeenCalled();
+  });
+
+  it("resumes fetching when re-enabled", async () => {
+    setActionMetadataFetchEnabled(false);
+    await getActionMetadata("actions/checkout@v4");
+    setActionMetadataFetchEnabled(true);
+    invokeMock.mockResolvedValueOnce({
+      kind: "ok",
+      from_cache: false,
+      metadata: { name: "Checkout", inputs: {}, outputs: {} },
+    });
+    const result = await getActionMetadata("actions/checkout@v4");
+    expect(result).not.toBeNull();
+    expect(invokeMock).toHaveBeenCalledTimes(1);
   });
 });

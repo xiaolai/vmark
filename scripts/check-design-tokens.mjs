@@ -79,6 +79,44 @@ for (const file of files) {
   }
 }
 
+// ── Undefined CSS custom property check (audit 20260612 H14) ────────────
+// A var(--x) with no definition anywhere and no fallback is
+// invalid-at-computed-value-time: the declaration silently becomes
+// auto/initial (this shipped a mispositioned, unpadded export control).
+// Tokens written from JS (useTheme/applyTheme) are collected from src too.
+{
+  const definedVars = new Set();
+  const defRe = /--[A-Za-z0-9-]+(?=\s*:)/g;
+  // CSS definitions across all stylesheets
+  for (const file of globSync("src/**/*.css")) {
+    const content = readFileSync(file, "utf8");
+    for (const m of content.matchAll(defRe)) definedVars.add(m[0]);
+  }
+  // JS-emitted tokens: setProperty("--x", ...) and "--x": value maps
+  for (const file of globSync("src/**/*.{ts,tsx}")) {
+    const content = readFileSync(file, "utf8");
+    for (const m of content.matchAll(/setProperty\(\s*["'`](--[A-Za-z0-9-]+)/g)) definedVars.add(m[1]);
+    for (const m of content.matchAll(/["'`](--[A-Za-z0-9-]+)["'`]\s*[:,]/g)) definedVars.add(m[1]);
+  }
+  const useRe = /var\(\s*(--[A-Za-z0-9-]+)\s*\)/g; // no-fallback uses only
+  for (const file of files) {
+    const content = readFileSync(file, "utf8");
+    for (const m of content.matchAll(useRe)) {
+      const name = m[1];
+      if (definedVars.has(name)) continue;
+      const line = content.slice(0, m.index).split("\n").length;
+      violations.push({
+        file,
+        line,
+        check: "undefined-css-var",
+        value: m[0],
+        message: `var(${name}) has no definition anywhere in src/ and no fallback — the declaration is silently dropped at computed-value time.`,
+        severity: "error",
+      });
+    }
+  }
+}
+
 // Report
 const errors = violations.filter((v) => v.severity === "error");
 const warnings = violations.filter((v) => v.severity === "warning");

@@ -8,7 +8,7 @@ import { memo, useState, useDeferredValue, useMemo, useRef, useCallback } from "
 import { useTranslation } from "react-i18next";
 import { ChevronRight, ChevronDown, Search, X } from "lucide-react";
 import { emitTo } from "@tauri-apps/api/event";
-import { getCurrentWindowLabel } from "@/utils/workspaceStorage";
+import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import { useUIStore } from "@/stores/uiStore";
 import { useDocumentContent } from "@/hooks/useDocumentState";
 import { perfStart, perfEnd } from "@/utils/perfLog";

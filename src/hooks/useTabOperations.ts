@@ -31,7 +31,7 @@ import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
-import { findOrphanedImages, deleteOrphanedImages } from "@/utils/orphanAssetCleanup";
+import { findOrphanedImages, deleteOrphanedImages } from "@/services/media/orphanAssetCleanup";
 import { cleanupTabState } from "@/hooks/tabCleanup";
 import { ask } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";

@@ -113,7 +113,3 @@
   color: var(--error-color);
 }
 
-/* Dark theme */
-.dark-theme .source-link-popup-btn:hover {
-  background: var(--hover-bg-dark);
-}

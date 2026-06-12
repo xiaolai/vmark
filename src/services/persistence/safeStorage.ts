@@ -6,7 +6,7 @@
  *   Surfaces a user-visible toast on the first quota failure per store key,
  *   so users know their data isn't being saved.
  *
- * @module utils/safeStorage
+ * @module services/persistence/safeStorage
  */
 
 import type { StateStorage } from "zustand/middleware";

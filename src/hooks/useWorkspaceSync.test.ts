@@ -8,7 +8,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook } from "@testing-library/react";
-import { setCurrentWindowLabel } from "@/utils/workspaceStorage";
+import { setCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 
 // Mock the workspace store's persist.rehydrate — must be before import
 const mockRehydrate = vi.hoisted(() => vi.fn());

@@ -17,7 +17,7 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { invoke } from "@tauri-apps/api/core";
-import { createSafeStorage } from "@/utils/safeStorage";
+import { createSafeStorage } from "@/services/persistence/safeStorage";
 import { isMacPlatform } from "@/utils/shortcutMatch";
 import { shortcutsWarn } from "@/utils/debug";
 import { errorMessage } from "@/utils/errorMessage";
@@ -163,6 +163,8 @@ export const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
 
   // === File ===
   { id: "newTab", label: "New Tab", category: "file", defaultKey: "Mod-t", description: "Create a new tab", scope: "global" },
+  { id: "nextTab", label: "Next Tab", category: "view", defaultKey: "Mod-Shift-]", description: "Switch to the next tab", scope: "global" },
+  { id: "prevTab", label: "Previous Tab", category: "view", defaultKey: "Mod-Shift-[", description: "Switch to the previous tab", scope: "global" },
   { id: "newFile", label: "New File", category: "file", defaultKey: "Mod-n", menuId: "new", scope: "global" },
   { id: "newWindow", label: "New Window", category: "file", defaultKey: "Mod-Shift-n", menuId: "new-window", scope: "global" },
   { id: "quickOpen", label: "Quick Open", category: "file", defaultKey: "Mod-o", menuId: "quick-open", scope: "global" },

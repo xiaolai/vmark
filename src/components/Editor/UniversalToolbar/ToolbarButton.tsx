@@ -8,6 +8,7 @@
  */
 import { useTranslation } from "react-i18next";
 import type { ToolbarGroupButton as ButtonDef } from "./toolbarGroups";
+import { toolbarGroupLabel } from "./toolbarI18n";
 
 interface ToolbarButtonProps {
   button: ButtonDef;
@@ -48,11 +49,15 @@ export function ToolbarButton({
   onClick,
 }: ToolbarButtonProps) {
   const { t } = useTranslation("editor");
+  // Resolve the translated label (hardcoded English is the fallback) —
+  // the toolbar.* keys existed in every locale but were never consumed
+  // (audit 20260612 H17).
+  const label = toolbarGroupLabel(t, button);
   // Show "Not available yet" tooltip for unimplemented buttons
-  let title = button.label;
+  let title = label;
 
   if (notImplemented) {
-    title = t("toolbar.notAvailable", { label: button.label });
+    title = t("toolbar.notAvailable", { label });
   }
 
   // Roving tabindex: only focused button has tabIndex=0 when focus is active
@@ -68,7 +73,7 @@ export function ToolbarButton({
       type="button"
       className={btnClass}
       title={title}
-      aria-label={button.label}
+      aria-label={label}
       aria-haspopup={ariaHasPopup}
       aria-expanded={ariaExpanded_}
       disabled={disabled || notImplemented}

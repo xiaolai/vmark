@@ -10,7 +10,7 @@ vi.mock("@/stores/tabStore", () => ({
   },
 }));
 
-vi.mock("@/utils/workspaceStorage", () => ({
+vi.mock("@/services/persistence/workspaceStorage", () => ({
   getCurrentWindowLabel: () => "main",
 }));
 

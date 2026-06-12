@@ -2,10 +2,10 @@
   "unsavedChanges": {
     "title": "Modifiche non salvate",
     "single": "Vuoi salvare le modifiche a \"{{title}}\"?",
-    "multiple": "Hai {{count}} documento non salvato:\n\n• {{list}}",
-    "multiple_plural": "Hai {{count}} documenti non salvati:\n\n• {{list}}",
-    "newDocsHint": "{{count}} nuovo documento richiederà un percorso di salvataggio.",
-    "newDocsHint_plural": "{{count}} nuovi documenti richiederanno un percorso di salvataggio.",
+    "multiple_one": "Hai {{count}} documento non salvato:\n\n• {{list}}",
+    "multiple_other": "Hai {{count}} documenti non salvati:\n\n• {{list}}",
+    "newDocsHint_one": "{{count}} nuovo documento richiederà un percorso di salvataggio.",
+    "newDocsHint_other": "{{count}} nuovi documenti richiederanno un percorso di salvataggio.",
     "openInNewWindow": "Questa finestra ha modifiche non salvate. Aprire lo spazio di lavoro in una nuova finestra?",
     "openInNewWindowOk": "Apri in nuova finestra",
     "openInNewWindowCancel": "Annulla",
@@ -19,8 +19,8 @@
   },
   "windowClose": {
     "pinnedTitle": "Chiudi finestra?",
-    "pinnedPrompt": "Questa finestra ha {{count}} scheda fissata. Chiudere comunque?",
-    "pinnedPrompt_plural": "Questa finestra ha {{count}} schede fissate. Chiudere comunque?",
+    "pinnedPrompt_one": "Questa finestra ha {{count}} scheda fissata. Chiudere comunque?",
+    "pinnedPrompt_other": "Questa finestra ha {{count}} schede fissate. Chiudere comunque?",
     "confirmClose": "Chiudi finestra"
   },
   "fileChanged": {

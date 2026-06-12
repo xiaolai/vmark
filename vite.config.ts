@@ -51,7 +51,6 @@ export default defineConfig(async () => ({
       "react-dom",
       "react-router-dom",
       "zustand",
-      "@tanstack/react-query",
     ],
   },
 
@@ -79,6 +78,10 @@ export default defineConfig(async () => ({
     chunkSizeWarningLimit: 2500,
     rollupOptions: {
       output: {
+        // Stable entry-chunk name so .size-limit.cjs can budget it with a
+        // glob — hash-pinned `index-<hash>*` globs silently rotted and the
+        // 1.2 MB entry chunk went unbudgeted (audit 20260612 H9).
+        entryFileNames: "assets/entry-[hash].js",
         manualChunks(id) {
           // Vite's preload helper is a tiny runtime module. Left to Rollup it
           // gets co-located into whichever vendor chunk is convenient
@@ -108,11 +111,12 @@ export default defineConfig(async () => ({
           // ~630 KB vendor-graph it pulls) on cold start — just to reach a ~20 KB
           // sanitizer. Isolating it keeps mermaid genuinely lazy.
           if (pkgName === "dompurify") return "vendor-dompurify";
-          // Plain `dagre` is used only by workflow layout (lib/workflow/layout.ts) which
+          // `@dagrejs/dagre` (maintained fork; audit 20260612) is used only by workflow
+          // layout (lib/workflow/layout.ts) which
           // is reached lazily through WorkflowSidePanel. Mermaid uses its own bundled
           // fork (`dagre-d3-es`), so isolating plain `dagre` is safe and removes ~150 KB
           // from the eagerly-loaded vendor-mermaid chunk.
-          if (pkgName === "dagre") return "vendor-dagre";
+          if (pkgName === "@dagrejs/dagre" || pkgName === "dagre") return "vendor-dagre";
           // Keep all mermaid-related packages together to avoid circular dependency issues.
           // Previously splitting mermaid, @mermaid-js/*, d3-*, dagre-d3-es caused
           // "this.clear is not a function" error in production builds.

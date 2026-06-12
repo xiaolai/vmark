@@ -24,7 +24,7 @@ import {
   buildAssetRelativePath,
 } from "@/utils/imageUtils";
 import { computeDataHash } from "@/utils/imageHash";
-import { findExistingImage, registerImageHash } from "@/utils/imageHashRegistry";
+import { findExistingImage, registerImageHash } from "@/services/media/imageHashRegistry";
 import { ensureAssetsFolder } from "@/hooks/useImageOperations";
 
 /** Skip hash-based dedup for files larger than 50 MB to avoid OOM. */

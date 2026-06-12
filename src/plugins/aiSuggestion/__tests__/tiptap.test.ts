@@ -214,6 +214,7 @@ describe("aiSuggestionExtension", () => {
       const state = createState("hello world");
       const suggestion = makeSuggestion({
         type: "replace",
+        wholeDoc: true,
         from: 0,
         to: 999, // beyond current doc
         newContent: "new content",
@@ -234,6 +235,7 @@ describe("aiSuggestionExtension", () => {
       const staleEnd = 5; // suggestion was created when doc was shorter
       const suggestion = makeSuggestion({
         type: "replace",
+        wholeDoc: true,
         from: 0,
         to: staleEnd, // stale — less than current docSize
         newContent: "replacement",
@@ -470,6 +472,21 @@ describe("aiSuggestionExtension", () => {
     it("handles empty suggestions map in decorations", () => {
       mockAiState.suggestions = new Map();
       expect(mockAiState.suggestions.size).toBe(0);
+    });
+
+    it("does NOT clamp a first-block suggestion starting at 0 without wholeDoc (cross-model review)", () => {
+      // A genie block-scope suggestion can legitimately start at position 0
+      // with to < docSize. Treating from===0 as a whole-doc sentinel made
+      // accept swallow the entire document.
+      const state = createState("hello world");
+      const suggestion = makeSuggestion({
+        type: "delete",
+        from: 0,
+        to: 5,
+      });
+      const result = applySuggestionToTr(state, state.tr, suggestion);
+      // Only [0,5) deleted — the tail of the document survives.
+      expect(result.doc.textContent).toContain("world");
     });
 
     it("handles suggestion with from=0 to=docSize (whole document)", () => {

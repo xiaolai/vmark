@@ -55,7 +55,7 @@ import { useLargeFileSessionStore } from "@/stores/documentStore";
 import { useShortcutsStore } from "@/stores/settingsStore";
 import { useMcpServer } from "@/hooks/useMcpServer";
 import { useMcpClients } from "@/hooks/useMcpClients";
-import { openSettingsWindow } from "@/utils/settingsWindow";
+import { openSettingsWindow } from "@/services/navigation/settingsWindow";
 import { StatusBarRight } from "./StatusBarRight";
 import { useStatusBarTabDrag } from "./useStatusBarTabDrag";
 import { useQuitFeedback } from "./useQuitFeedback";

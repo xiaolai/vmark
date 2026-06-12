@@ -6,7 +6,7 @@ import { useDocumentStore } from "@/stores/documentStore";
 
 // Mock crashRecovery module
 const mockWriteRecoverySnapshot = vi.fn();
-vi.mock("@/utils/crashRecovery", () => ({
+vi.mock("@/services/persistence/crashRecovery", () => ({
   writeRecoverySnapshot: (...args: unknown[]) => mockWriteRecoverySnapshot(...args),
 }));
 

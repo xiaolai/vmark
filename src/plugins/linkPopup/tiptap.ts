@@ -23,6 +23,7 @@ import { navigateToHeadingById } from "@/utils/headingSlug";
 import { classifyLinkAction, openLink } from "./operations";
 import { LinkPopupView } from "./LinkPopupView";
 import "./link-popup.css";
+import { openExternalLink } from "@/services/navigation/linkOpen";
 
 const linkPopupPluginKey = new PluginKey("linkPopup");
 
@@ -136,9 +137,9 @@ function handleClick(view: EditorView, pos: number, event: MouseEvent): boolean 
             return false;
           }
           if (action.kind === "external") {
-            import("@tauri-apps/plugin-opener").then(({ openUrl }) => {
-              openUrl(href).catch(linkPopupError);
-            }).catch(linkPopupError);
+            // Scheme-allowlisted opener (audit 20260612) — a hostile doc
+            // must not reach file:/javascript:/smb: via the OS opener.
+            openExternalLink(href).catch(linkPopupError);
             event.preventDefault();
             return true;
           }

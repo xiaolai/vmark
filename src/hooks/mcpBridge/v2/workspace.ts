@@ -22,7 +22,7 @@
  * @coordinates-with stores/tabStore.ts — createTab, closeTab, setActiveTab
  * @coordinates-with stores/documentStore.ts — initDocument, markSaved
  * @coordinates-with utils/saveToPath.ts — disk write with revision tracking
- * @coordinates-with utils/workspaceStorage.ts — getCurrentWindowLabel
+ * @coordinates-with services/persistence/workspaceStorage.ts — getCurrentWindowLabel
  * @module hooks/mcpBridge/v2/workspace
  */
 
@@ -32,7 +32,7 @@ import { useDocumentStore } from "@/stores/documentStore";
 import { useRevisionStore } from "@/stores/documentStore";
 import { getFileName } from "@/utils/paths";
 import { registerPendingSave, clearPendingSave } from "@/utils/pendingSaves";
-import { getCurrentWindowLabel } from "@/utils/workspaceStorage";
+import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import { respond } from "../utils";
 import { wrapHandler } from "./wrapHandler";
 import { v2ErrorString } from "./types";

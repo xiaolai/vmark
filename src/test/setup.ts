@@ -79,11 +79,29 @@ function resolveKey(key: string, defaultNs: string, opts?: Record<string, unknow
     localKey = key.slice(colonIdx + 1);
   }
   const dict = localeMap[namespace] ?? {};
-  // Try flat lookup first (for flat JSON like statusbar), then nested
+  // i18next v4 plural resolution (en rules): a numeric count selects the
+  // _one/_other suffixed key before the bare key (audit 20260612 H16).
+  if (typeof opts?.count === "number") {
+    const suffix = opts.count === 1 ? "one" : "other";
+    localKey = `${localKey}_${suffix}`;
+    const pluralFlat = (dict as Record<string, unknown>)[localKey];
+    const pluralTemplate = typeof pluralFlat === "string"
+      ? pluralFlat
+      : walkNestedKey(dict as Record<string, unknown>, localKey);
+    if (pluralTemplate !== undefined) {
+      return applyInterpolation(pluralTemplate, opts);
+    }
+    localKey = localKey.slice(0, -(suffix.length + 1));
+  }
+  // Try flat lookup first (for flat JSON like statusbar), then nested.
+  // A missing key honors opts.defaultValue before echoing the key —
+  // matching real i18next behavior.
   const flatTemplate = (dict as Record<string, unknown>)[localKey];
+  const fallback =
+    typeof opts?.defaultValue === "string" ? (opts.defaultValue as string) : key;
   const template = typeof flatTemplate === "string"
     ? flatTemplate
-    : (walkNestedKey(dict as Record<string, unknown>, localKey) ?? key);
+    : (walkNestedKey(dict as Record<string, unknown>, localKey) ?? fallback);
   return applyInterpolation(template, opts);
 }
 
@@ -262,12 +280,6 @@ vi.mock("@xterm/addon-search", () => ({
   })),
 }));
 
-vi.mock("@xterm/addon-serialize", () => ({
-  SerializeAddon: vi.fn(() => ({
-    serialize: vi.fn(() => ""),
-    dispose: vi.fn(),
-  })),
-}));
 
 vi.mock("@tauri-apps/api/path", () => ({
   homeDir: vi.fn(() => Promise.resolve("/Users/test")),

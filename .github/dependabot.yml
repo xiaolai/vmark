@@ -1,0 +1,41 @@
+# Dependabot — security updates for all manifests + freshness for pinned
+# action SHAs. Added per audit 20260612: `pnpm audit` in CI is
+# continue-on-error against a retired npm endpoint, so without this no
+# npm CVE scanning actually happens.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    # Security updates only — routine version bumps stay manual to keep
+    # the dependency review gate (scripts/check-new-deps.sh) meaningful.
+    open-pull-requests-limit: 5
+    groups:
+      npm-security:
+        applies-to: security-updates
+        patterns: ["*"]
+
+  - package-ecosystem: npm
+    directory: /vmark-mcp-server
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: npm
+    directory: /website
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: cargo
+    directory: /src-tauri
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5

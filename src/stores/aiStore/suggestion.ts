@@ -25,6 +25,8 @@ interface AiSuggestionActions {
     to: number;
     newContent?: string;
     originalContent?: string;
+    /** Explicit whole-document replace marker (see AiSuggestion.wholeDoc). */
+    wholeDoc?: boolean;
   }) => string;
 
   /** Accept a suggestion by ID. */
@@ -35,6 +37,16 @@ interface AiSuggestionActions {
 
   /** Remove a suggestion without dispatching accept/reject events. */
   removeSuggestion: (id: string) => void;
+
+  /**
+   * Batch-update suggestion ranges after a document change (position
+   * remapping). A `null` range dismisses the suggestion — its target text
+   * was edited or deleted, so the suggestion is stale. No accept/reject
+   * events are dispatched.
+   */
+  updateSuggestionRanges: (
+    updates: ReadonlyArray<{ id: string; range: { from: number; to: number } | null }>
+  ) => void;
 
   /** Accept all pending suggestions. */
   acceptAll: () => void;
@@ -108,6 +120,7 @@ export const useAiSuggestionStore = create<AiSuggestionState & AiSuggestionActio
         id,
         tabId: params.tabId,
         type: params.type,
+        wholeDoc: params.wholeDoc ?? false,
         from: params.from,
         to: params.to,
         newContent: params.newContent,
@@ -163,6 +176,31 @@ export const useAiSuggestionStore = create<AiSuggestionState & AiSuggestionActio
           new CustomEvent(AI_SUGGESTION_EVENTS.FOCUS_CHANGED, { detail: { id: newFocusedId } })
         );
       }
+    },
+
+    updateSuggestionRanges: (updates) => {
+      if (updates.length === 0) return;
+      const { suggestions, focusedSuggestionId } = get();
+      let changed = false;
+      const next = new Map(suggestions);
+      for (const { id, range } of updates) {
+        const existing = next.get(id);
+        if (!existing) continue;
+        if (range === null) {
+          next.delete(id);
+          changed = true;
+        } else if (range.from !== existing.from || range.to !== existing.to) {
+          next.set(id, { ...existing, from: range.from, to: range.to });
+          changed = true;
+        }
+      }
+      if (!changed) return;
+      let focusedId = focusedSuggestionId;
+      if (focusedId && !next.has(focusedId)) {
+        const sorted = Array.from(next.values()).sort((a, b) => a.from - b.from);
+        focusedId = sorted[0]?.id ?? null;
+      }
+      set({ suggestions: next, focusedSuggestionId: focusedId });
     },
 
     acceptAll: () => {

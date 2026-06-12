@@ -15,6 +15,7 @@
  *   - Wrapped in React.memo to avoid re-rendering all tabs when only one
  *     tab's active state changes; dirty/missing/divergent are per-tab selectors.
  *   - Uses role="tab" with aria-selected for accessibility; roving tabindex
+ *     plus Arrow/Home/End focus movement in tabKeyboard.ts (audit H27)
  *     (0 for active, -1 for others) enables keyboard navigation.
  *   - Close button is hidden for pinned tabs to prevent accidental closure.
  *   - CSS class composition uses cn() for conditional classes including

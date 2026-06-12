@@ -168,10 +168,6 @@
   line-height: var(--line-height-relaxed);
 }
 
-/* Dark theme */
-.dark-theme .quick-open-backdrop {
-  background: var(--hover-bg-dark-strong);
-}
 
 .dark-theme .quick-open {
   box-shadow: var(--popup-shadow-dark);

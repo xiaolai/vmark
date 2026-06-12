@@ -5,7 +5,7 @@
 // layered layout. ELK fallback for very large graphs is a follow-up
 // (>50 nodes per plan); this file ships dagre only.
 
-import dagre from "dagre";
+import dagre from "@dagrejs/dagre";
 import type { Edge, Node } from "@xyflow/react";
 import type { JobNodeData } from "./toGraph";
 

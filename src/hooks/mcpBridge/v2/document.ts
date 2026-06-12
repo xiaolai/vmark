@@ -44,7 +44,7 @@ import { useDocumentStore } from "@/stores/documentStore";
 import { useRevisionStore } from "@/stores/documentStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useEditorStore } from "@/stores/editorStore";
-import { getCurrentWindowLabel } from "@/utils/workspaceStorage";
+import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import {
   isWorkflowYaml,
   looksLikeWorkflowPath,

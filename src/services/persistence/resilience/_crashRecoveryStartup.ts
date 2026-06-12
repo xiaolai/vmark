@@ -28,7 +28,7 @@ import {
   deleteStaleRecoveryFiles,
   deleteRecoverySnapshot,
   type RecoverySnapshot,
-} from "@/utils/crashRecovery";
+} from "@/services/persistence/crashRecovery";
 import { crashRecoveryLog } from "@/utils/debug";
 import i18n from "@/i18n";
 import { errorMessage } from "@/utils/errorMessage";

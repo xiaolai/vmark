@@ -10,7 +10,7 @@
  *
  * @coordinates-with window_manager.rs — open_settings_window command
  * @coordinates-with SettingsPage.tsx — renders the settings UI in the new window
- * @module utils/settingsWindow
+ * @module services/navigation/settingsWindow
  */
 
 import { invoke } from "@tauri-apps/api/core";

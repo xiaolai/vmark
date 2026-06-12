@@ -8,7 +8,7 @@
 import { readText } from "@tauri-apps/plugin-clipboard-manager";
 import { exists } from "@tauri-apps/plugin-fs";
 import { homeDir, join } from "@tauri-apps/api/path";
-import { detectImagePath, type ImagePathResult } from "./imagePathDetection";
+import { detectImagePath, type ImagePathResult } from "@/utils/imagePathDetection";
 
 /**
  * Extended result with validation status.

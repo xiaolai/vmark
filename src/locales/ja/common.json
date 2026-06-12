@@ -61,5 +61,17 @@
   "format.codeCss": "CSS",
   "format.codeShell": "Shell",
   "format.codeRuby": "Ruby",
-  "format.codeLua": "Lua"
+  "format.codeLua": "Lua",
+  "tabMenu.moveToNewWindow": "新しいウィンドウに移動",
+  "tabMenu.pin": "ピン留め",
+  "tabMenu.unpin": "ピン留め解除",
+  "tabMenu.copyPath": "パスをコピー",
+  "tabMenu.copyRelativePath": "相対パスをコピー",
+  "tabMenu.restoreToDisk": "ディスクに復元",
+  "tabMenu.revertToSaved": "保存時の状態に戻す",
+  "tabMenu.close": "閉じる",
+  "tabMenu.closeOthers": "他を閉じる",
+  "tabMenu.closeTabsRight": "右側のタブを閉じる",
+  "tabMenu.closeUnpinned": "ピン留めされていないタブをすべて閉じる",
+  "tabMenu.closeAll": "すべて閉じる"
 }

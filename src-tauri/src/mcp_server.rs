@@ -37,6 +37,12 @@ static MCP_SERVER: Mutex<Option<CommandChild>> = Mutex::new(None);
 /// Bridge running state
 static BRIDGE_RUNNING: AtomicBool = AtomicBool::new(false);
 
+/// Monotonic start/stop generation. Each start (and stop) bumps it; a stale
+/// accept-loop's on_exit callback compares its captured generation and
+/// no-ops when superseded — otherwise a dying old loop could clobber the
+/// NEW bridge's state and delete its port file (audit 20260612).
+static BRIDGE_GENERATION: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
 /// Bridge port (stored when started)
 static BRIDGE_PORT: Mutex<Option<u16>> = Mutex::new(None);
 
@@ -56,8 +62,13 @@ pub struct McpServerStatus {
 /// The actual port is written to the app data directory (mcp-port) for sidecar discovery.
 #[command]
 pub async fn mcp_bridge_start(app: AppHandle, port: u16) -> Result<McpServerStatus, String> {
-    // Check if bridge is already running
-    if BRIDGE_RUNNING.load(Ordering::SeqCst) {
+    // Atomically claim the not-running -> running transition. The previous
+    // load-then-store pair let two concurrent starts both pass the check and
+    // spawn two servers, leaking an unkillable accept loop (audit 20260612).
+    if BRIDGE_RUNNING
+        .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+        .is_err()
+    {
         let current_port = BRIDGE_PORT.lock().map_err(|e| e.to_string())?.unwrap_or(port);
         return Ok(McpServerStatus {
             running: true,
@@ -66,10 +77,17 @@ pub async fn mcp_bridge_start(app: AppHandle, port: u16) -> Result<McpServerStat
         });
     }
 
+    let generation = BRIDGE_GENERATION.fetch_add(1, Ordering::SeqCst) + 1;
+
     // Start the bridge WebSocket server (returns actual port assigned by OS).
-    // The on_exit callback resets state if the server loop exits unexpectedly.
+    // The on_exit callback resets state if the server loop exits unexpectedly
+    // — but only if this instance is still the current generation.
     let app_for_cleanup = app.clone();
-    let actual_port = mcp_bridge::start_bridge(app.clone(), port, move || {
+    let actual_port = match mcp_bridge::start_bridge(app.clone(), port, move || {
+        if BRIDGE_GENERATION.load(Ordering::SeqCst) != generation {
+            log::debug!("[MCP] Stale bridge loop exited (gen {}) — state untouched", generation);
+            return;
+        }
         log::warn!("[MCP] Bridge server loop exited — resetting BRIDGE_RUNNING");
         BRIDGE_RUNNING.store(false, Ordering::SeqCst);
         if let Ok(mut p) = BRIDGE_PORT.lock() {
@@ -77,10 +95,16 @@ pub async fn mcp_bridge_start(app: AppHandle, port: u16) -> Result<McpServerStat
         }
         mcp_bridge::remove_port_file(&app_for_cleanup);
     })
-    .await?;
+    .await
+    {
+        Ok(p) => p,
+        Err(e) => {
+            // Release the claim so a later start can retry.
+            BRIDGE_RUNNING.store(false, Ordering::SeqCst);
+            return Err(e);
+        }
+    };
 
-    // Mark bridge as running with actual port
-    BRIDGE_RUNNING.store(true, Ordering::SeqCst);
     {
         let mut port_guard = BRIDGE_PORT.lock().map_err(|e| e.to_string())?;
         *port_guard = Some(actual_port);
@@ -104,6 +128,10 @@ pub async fn mcp_bridge_start(app: AppHandle, port: u16) -> Result<McpServerStat
 /// Stop the MCP bridge WebSocket server.
 #[command]
 pub async fn mcp_bridge_stop(app: AppHandle) -> Result<McpServerStatus, String> {
+    // Supersede any in-flight loop so its on_exit can't clobber state that
+    // a subsequent start writes (audit 20260612).
+    BRIDGE_GENERATION.fetch_add(1, Ordering::SeqCst);
+
     // Stop the bridge
     mcp_bridge::stop_bridge(&app).await;
 

@@ -6,7 +6,7 @@ vi.mock("@/plugins/sourcePopup/sourcePopupUtils", () => ({
   getAnchorRectFromRange: vi.fn(() => ({ top: 0, bottom: 20, left: 0, right: 100 })),
 }));
 
-vi.mock("@/utils/clipboardImagePath", () => ({
+vi.mock("@/services/media/clipboardImagePath", () => ({
   readClipboardImagePath: vi.fn(() => Promise.resolve(null)),
 }));
 
@@ -81,7 +81,7 @@ import { sourceActionError } from "@/utils/debug";
 import { unlinkAtCursor, insertImage, insertVideoTag, insertAudioTag } from "./sourceImageActions";
 import { insertText } from "./sourceAdapterHelpers";
 import { findMarkdownLinkAtPosition, findWikiLinkAtPosition } from "@/utils/markdownLinkPatterns";
-import { readClipboardImagePath } from "@/utils/clipboardImagePath";
+import { readClipboardImagePath } from "@/services/media/clipboardImagePath";
 import { copyImageToAssets } from "@/hooks/useImageOperations";
 import { getAnchorRectFromRange } from "@/plugins/sourcePopup/sourcePopupUtils";
 import { findWordAtCursorSource } from "./sourceAdapterLinks";

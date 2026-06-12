@@ -14,7 +14,7 @@
  *
  * @coordinates-with workspaceStore.ts — uses createWindowStorage for persist middleware
  * @coordinates-with window_manager.rs — assigns window labels on creation
- * @module utils/workspaceStorage
+ * @module services/persistence/workspaceStorage
  */
 import type { StateStorage } from "zustand/middleware";
 import { imeToast as toast } from "@/services/ime/imeToast";

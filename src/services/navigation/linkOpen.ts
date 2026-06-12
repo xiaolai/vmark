@@ -19,7 +19,7 @@
  * @coordinates-with src/hooks/useFileShortcuts.ts — handler for `open-file`
  * @coordinates-with src/plugins/linkPopup/tiptap.ts — Cmd+click entry point
  * @coordinates-with src/plugins/linkPopup/LinkPopupView.ts — popup open icon
- * @module utils/linkOpen
+ * @module services/navigation/linkOpen
  */
 
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
@@ -94,4 +94,37 @@ export async function openFilepathLink(
     linkPopupError("Failed to emit open-file:", error);
     return false;
   }
+}
+
+/** Schemes always allowed to reach the OS opener. */
+const SAFE_LINK_SCHEMES = ["http:", "https:", "mailto:"];
+
+/**
+ * Open an external link via the OS opener, iff its scheme is allowlisted:
+ * the built-in safe schemes plus the user's configured custom protocols
+ * (settings -> advanced -> customLinkProtocols). Blocks file:, javascript:,
+ * smb:, and anything else a hostile document could plant (audit 20260612).
+ * Returns true when the open was attempted.
+ */
+export async function openExternalLink(href: string): Promise<boolean> {
+  let parsed: URL;
+  try {
+    parsed = new URL(href);
+  } catch {
+    linkPopupError("Blocked malformed external link:", href);
+    return false;
+  }
+  const { useSettingsStore } = await import("@/stores/settingsStore");
+  const custom =
+    useSettingsStore.getState().advanced.customLinkProtocols ?? [];
+  const allowed =
+    SAFE_LINK_SCHEMES.includes(parsed.protocol) ||
+    custom.includes(parsed.protocol.replace(/:$/, ""));
+  if (!allowed) {
+    linkPopupError("Blocked unsafe URL scheme:", parsed.protocol, href);
+    return false;
+  }
+  const { openUrl } = await import("@tauri-apps/plugin-opener");
+  await openUrl(href);
+  return true;
 }

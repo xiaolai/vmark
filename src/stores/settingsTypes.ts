@@ -275,6 +275,18 @@ export interface AdvancedSettingsState {
    * Default: true.
    */
   workflowEditorPreserveYamlFormatting: boolean;
+  /**
+   * Fetch `action.yml` from referenced GitHub Actions over the network to
+   * populate the structured editor's `with:` form. Disable for a purely
+   * offline workflow viewer (audit 20260612 H28 — the privacy off-switch
+   * the website documents). Default: true.
+   */
+  workflowFetchActionMetadata: boolean;
+  /**
+   * Run the optional `actionlint` binary (when on PATH) on workflow files
+   * for richer diagnostics. Default: true (no effect without the binary).
+   */
+  workflowActionlint: boolean;
   // macOS only: clear `com.apple.quarantine` on the workspace root and its
   // direct .md children when opening a workspace. Without this, files marked
   // by apps like Mixin Messenger fail to open in a running VMark via Finder

@@ -23,7 +23,7 @@ import { useShortcutsStore } from "@/stores/settingsStore";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import { matchesShortcutEvent, isMacPlatform } from "@/utils/shortcutMatch";
 import { cleanupBeforeModeSwitch } from "@/services/assembly/modeSwitchCleanup";
-import { getCurrentWindowLabel } from "@/utils/workspaceStorage";
+import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import { toggleSourceModeWithCheckpoint } from "@/hooks/useUnifiedHistory";
 import { requestToggleTerminal } from "@/components/Terminal/terminalGate";
 import { useSettingsStore } from "@/stores/settingsStore";

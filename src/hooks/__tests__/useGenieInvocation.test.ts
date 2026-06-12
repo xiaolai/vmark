@@ -60,7 +60,7 @@ vi.mock("@/utils/debug", () => ({
 }));
 
 let mockWindowLabel = "main";
-vi.mock("@/utils/workspaceStorage", () => ({
+vi.mock("@/services/persistence/workspaceStorage", () => ({
   getCurrentWindowLabel: () => mockWindowLabel,
 }));
 

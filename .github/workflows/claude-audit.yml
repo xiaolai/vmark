@@ -8,10 +8,11 @@ on:
   # Allow manual trigger from Actions tab
   workflow_dispatch:
 
+# Least privilege: this workflow only reads the repo and files issues
+# (audit 20260612 — it previously held contents/pull-requests write).
 permissions:
-  contents: write
+  contents: read
   issues: write
-  pull-requests: write
   id-token: write
 
 concurrency:
@@ -27,7 +28,7 @@ jobs:
         with:
           fetch-depth: 1
 
-      - uses: anthropics/claude-code-action@v1
+      - uses: anthropics/claude-code-action@0cb4f3e5e764d2e00407d29b6bf0aa9df0976d88 # v1
         id: claude
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -51,10 +52,11 @@ jobs:
             ## Audit Dimensions
 
             ### 1. Menu system sync
-            `src-tauri/src/menu/default_menu.rs` and `custom_menu.rs` MUST define identical
-            menu structures. Check that every item, accelerator, and SF Symbol icon in one
-            file has a matching entry in the other. Cross-check accelerator format against
-            `src/stores/shortcutsStore.ts` (frontend) and `website/guide/shortcuts.md` (docs).
+            `src-tauri/src/menu/localized.rs` holds the single menu builder
+            (`create_localized_menu`) handling both default and custom shortcuts.
+            Cross-check accelerator format against
+            `src/stores/settingsStore/shortcuts.ts` (frontend) and
+            `website/guide/shortcuts.md` (docs).
             Verify SF Symbol names in `macos_menu.rs` are real (no invented names).
 
             ### 2. Zustand store safety
@@ -125,7 +127,7 @@ jobs:
             - Missing `.cmd` shim handling for Windows subprocess spawning
 
             ### 11. Test coverage & quality
-            603 test files, thresholds: statements 99.89%, branches 99.6%, functions 99.97%, lines 99.92%.
+            800+ test files; coverage thresholds live in `vitest.config.ts`.
             Check for:
             - Untested stores or hooks (every store/hook needs tests)
             - `any` usage in test files hiding type errors

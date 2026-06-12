@@ -349,11 +349,11 @@ $$`;
       expect(output).toBe(input);
     });
 
-    it("strips spurious escapes from plain text resembling a link with code", () => {
-      // Regression for scenario 3: when a paste falls through as plain text,
-      // remark-stringify defensively escapes `[`, `` ` ``, `]`, `(`, `)`.
-      // After SAFE_UNESCAPE_RE plus escape-aware buildCodeRanges, the output
-      // must equal the original text — no stray `\(` or trapped `\``.
+    it("keeps escapes on plain text resembling a link with code (round-trip fidelity)", () => {
+      // Audit H7: this text used to serialize unescaped, which re-parsed as a
+      // real link containing inline code — silent meaning change. The escape
+      // stripper must keep whatever escapes are needed so the text re-parses
+      // as the same single text node.
       const mdast = {
         type: "root" as const,
         children: [
@@ -368,8 +368,102 @@ $$`;
           },
         ],
       };
+      const output = serializeMdastToMarkdown(mdast);
+      const reparsed = parseMarkdownToMdast(output);
+      const para = reparsed.children[0] as { type: string; children: Array<{ type: string; value?: string }> };
+      expect(para.children).toHaveLength(1);
+      expect(para.children[0].type).toBe("text");
+      expect(para.children[0].value).toBe("ISC License. See [`LICENSE`](./LICENSE).");
+    });
+  });
+
+  describe("round-trip fidelity (audit H6/H7)", () => {
+    /** Build a root > paragraph > text mdast, as the PM→mdast converter does
+     *  for plain text the user typed in WYSIWYG mode. */
+    function textDoc(value: string) {
+      return {
+        type: "root" as const,
+        children: [
+          {
+            type: "paragraph" as const,
+            children: [{ type: "text" as const, value }],
+          },
+        ],
+      };
+    }
+
+    /** Serialize, reparse, and return the first paragraph's children. */
+    function roundTripChildren(value: string) {
+      const output = serializeMdastToMarkdown(textDoc(value));
+      const reparsed = parseMarkdownToMdast(output);
+      const para = reparsed.children[0] as { type: string; children: Array<{ type: string; value?: string }> };
+      return para.children;
+    }
+
+    it("preserves literal &#x20; in plain text (H6)", () => {
+      const children = roundTripChildren("use &#x20; for a space");
+      expect(children).toHaveLength(1);
+      expect(children[0].type).toBe("text");
+      expect(children[0].value).toBe("use &#x20; for a space");
+    });
+
+    it("preserves literal &#x20; inside fenced code blocks (H6)", () => {
+      const input = "```\nuse &#x20; for a space\n```";
+      const mdast = parseMarkdownToMdast(input);
       const output = serializeMdastToMarkdown(mdast).trim();
-      expect(output).toBe("ISC License. See [`LICENSE`](./LICENSE).");
+      expect(output).toBe(input);
+    });
+
+    it("preserves literal &#x20; inside inline code (H6)", () => {
+      const input = "`a&#x20;b` entity";
+      const mdast = parseMarkdownToMdast(input);
+      const output = serializeMdastToMarkdown(mdast).trim();
+      expect(output).toBe(input);
+    });
+
+    it("still converts serializer-emitted trailing-space entities to spaces", () => {
+      const output = serializeMdastToMarkdown(textDoc("hello "));
+      expect(output).not.toContain("&#x20;");
+      expect(output).toContain("hello");
+    });
+
+    it("escaped underscores stay plain text on round trip (H7)", () => {
+      const children = roundTripChildren("see _bar_ here");
+      expect(children).toHaveLength(1);
+      expect(children[0].type).toBe("text");
+      expect(children[0].value).toBe("see _bar_ here");
+    });
+
+    it("link-lookalike text stays plain text on round trip (H7)", () => {
+      const children = roundTripChildren("see [a](b) and more");
+      expect(children).toHaveLength(1);
+      expect(children[0].type).toBe("text");
+      expect(children[0].value).toBe("see [a](b) and more");
+    });
+
+    it("two dollar amounts stay plain text, not math, on round trip (H7)", () => {
+      const children = roundTripChildren("costs $5 and $10 today");
+      expect(children.every((c) => c.type !== "inlineMath")).toBe(true);
+      expect(children).toHaveLength(1);
+      expect(children[0].value).toBe("costs $5 and $10 today");
+    });
+
+    it("paired backticks in plain text do not become inline code on round trip (H7)", () => {
+      const children = roundTripChildren("run `cmd` now");
+      expect(children.every((c) => c.type !== "inlineCode")).toBe(true);
+      expect(children).toHaveLength(1);
+      expect(children[0].value).toBe("run `cmd` now");
+    });
+
+    it("paired asterisks in plain text do not become emphasis on round trip (H7)", () => {
+      const children = roundTripChildren("glob *.txt and *.md files");
+      expect(children.every((c) => c.type !== "emphasis")).toBe(true);
+    });
+
+    it("still strips escapes when provably safe (cosmetics retained)", () => {
+      // Single $ / lone brackets cannot form syntax — output stays clean.
+      const output = serializeMdastToMarkdown(textDoc("Price is $100 [approx]"));
+      expect(output.trim()).toBe("Price is $100 [approx]");
     });
   });
 

@@ -19,7 +19,7 @@
 import { Compartment, EditorState, type Extension } from "@codemirror/state";
 import { EditorView, keymap, drawSelection, dropCursor, lineNumbers } from "@codemirror/view";
 import { defaultKeymap, history } from "@codemirror/commands";
-import { getCurrentWindowLabel } from "@/utils/workspaceStorage";
+import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import { workflowWarn } from "@/utils/debug";
 import { performUnifiedUndo, performUnifiedRedo } from "@/hooks/useUnifiedHistory";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";

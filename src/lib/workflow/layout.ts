@@ -9,7 +9,7 @@
  * @module lib/workflow/layout
  */
 
-import dagre from "dagre";
+import dagre from "@dagrejs/dagre";
 import type { Node, Edge } from "@xyflow/react";
 import type { WorkflowGraph } from "./types";
 

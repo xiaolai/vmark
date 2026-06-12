@@ -2,10 +2,10 @@
   "unsavedChanges": {
     "title": "未保存的更改",
     "single": "要保存对\"{{title}}\"的更改吗？",
-    "multiple": "您有 {{count}} 个未保存的文档：\n\n• {{list}}",
-    "multiple_plural": "您有 {{count}} 个未保存的文档：\n\n• {{list}}",
-    "newDocsHint": "{{count}} 个新文档需要选择保存位置。",
-    "newDocsHint_plural": "{{count}} 个新文档需要选择保存位置。",
+    "multiple_one": "您有 {{count}} 个未保存的文档：\n\n• {{list}}",
+    "multiple_other": "您有 {{count}} 个未保存的文档：\n\n• {{list}}",
+    "newDocsHint_one": "{{count}} 个新文档需要选择保存位置。",
+    "newDocsHint_other": "{{count}} 个新文档需要选择保存位置。",
     "openInNewWindow": "此窗口有未保存的更改。改为在新窗口中打开工作区？",
     "openInNewWindowOk": "在新窗口中打开",
     "openInNewWindowCancel": "取消",
@@ -19,8 +19,8 @@
   },
   "windowClose": {
     "pinnedTitle": "关闭窗口?",
-    "pinnedPrompt": "此窗口有 {{count}} 个固定标签页。仍要关闭吗?",
-    "pinnedPrompt_plural": "此窗口有 {{count}} 个固定标签页。仍要关闭吗?",
+    "pinnedPrompt_one": "此窗口有 {{count}} 个固定标签页。仍要关闭吗?",
+    "pinnedPrompt_other": "此窗口有 {{count}} 个固定标签页。仍要关闭吗?",
     "confirmClose": "关闭窗口"
   },
   "fileChanged": {

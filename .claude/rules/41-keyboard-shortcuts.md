@@ -9,7 +9,7 @@ When modifying shortcuts, update ALL of these files:
 | File | Purpose | Format |
 |------|---------|--------|
 | `src-tauri/src/menu/localized.rs` | Menu accelerators — single `create_localized_menu` function | `Some("Alt+CmdOrCtrl+L")` |
-| `src/stores/shortcutsStore.ts` | Frontend defaults | `defaultKey: "Alt-Mod-l"` |
+| `src/stores/settingsStore/shortcuts.ts` | Frontend defaults | `defaultKey: "Alt-Mod-l"` |
 | `website/guide/shortcuts.md` | Documentation | `Alt + Mod + L` |
 
 ### Format Differences
@@ -29,7 +29,7 @@ When modifying shortcuts, update ALL of these files:
 grep -i "Some(\".*YourKey" src-tauri/src/menu/localized.rs
 
 # Check shortcutsStore.ts for existing defaults
-grep -i "defaultKey.*your-key" src/stores/shortcutsStore.ts
+grep -i "defaultKey.*your-key" src/stores/settingsStore/shortcuts.ts
 
 # Find all uses of a key combination
 grep -riE "Mod-Shift-n|CmdOrCtrl\+Shift\+N" src-tauri/ src/stores/
@@ -39,7 +39,7 @@ grep -riE "Mod-Shift-n|CmdOrCtrl\+Shift\+N" src-tauri/ src/stores/
 
 ```bash
 # List all shortcuts sorted by frequency (duplicates show count > 1)
-grep -oE 'defaultKey: "[^"]*"' src/stores/shortcutsStore.ts | sort | uniq -c | sort -rn
+grep -oE 'defaultKey: "[^"]*"' src/stores/settingsStore/shortcuts.ts | sort | uniq -c | sort -rn
 ```
 
 ## Update Procedure
@@ -52,7 +52,7 @@ The file has a single menu creation function that handles both default and custo
 
 Also update the corresponding label keys in `src-tauri/locales/en.yml` if the menu item text changes.
 
-### Step 2: Update shortcutsStore.ts
+### Step 2: Update settingsStore/shortcuts.ts
 
 Find the shortcut definition and update `defaultKey`:
 
@@ -71,7 +71,7 @@ Update `website/guide/shortcuts.md` in the appropriate table.
 cargo check --manifest-path src-tauri/Cargo.toml
 
 # Verify no duplicates
-grep -oE 'defaultKey: "[^"]*"' src/stores/shortcutsStore.ts | sort | uniq -c | sort -rn | head -5
+grep -oE 'defaultKey: "[^"]*"' src/stores/settingsStore/shortcuts.ts | sort | uniq -c | sort -rn | head -5
 ```
 
 ## Common Pitfalls
@@ -91,7 +91,7 @@ Some shortcuts are handled by frontend hooks that call `e.preventDefault()`:
 | Hook | Shortcuts Handled |
 |------|-------------------|
 | `useViewShortcuts.ts` | sourceMode, focusMode, typewriterMode, wordWrap, lineNumbers, toggleTerminal |
-| `useTabShortcuts.ts` | newTab, closeTab (Mod+W), toggleStatusBar |
+| `useTabShortcuts.ts` | newTab, closeTab (Mod+W), toggleStatusBar, nextTab/prevTab (Mod+Shift+]/[) |
 | `useFileExplorerShortcuts.ts` | toggleHiddenFiles |
 
 If you add a shortcut to the menu but the frontend intercepts it first, the menu event won't fire.

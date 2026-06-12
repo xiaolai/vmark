@@ -108,11 +108,12 @@ The `AGENTS.md` three-tier rule added.
   — circular dependency; tracked as the original plan's T12 work,
   not part of ADR-013.
 
-**Files still in `utils/` that import stores or Tauri** — there are
-~15 more (e.g. `reloadFromDisk`, `saveToPath`, `crashRecovery`,
-`startupMenuSync`, `largeFileRouting`, `pdfExportWindow`, `linkOpen`,
-`largeFilePrompts`, `clipboardImagePath`, `errorDialog`,
-`macQuarantineNotice`, `activeDocument`, `resolveMediaSrc`). Each is
-explicitly allowlisted in `.dependency-cruiser.cjs` via `pathNot`.
-The next pass of ADR-013 moves these out of `utils/` and removes the
-allowlist; deliberately deferred to keep this PR scoped.
+**Files still in `utils/` that import stores or Tauri** — RESOLVED
+2026-06-12 (audit H2): the remaining 12 Tauri/services/i18n-dependent
+utils files were migrated into services domains (`media/`,
+`persistence/`, `secrets/`, `dialogs/`, `navigation/`), and the tier is
+now actually gated by the `utils-no-platform` dependency-cruiser rule
+(sole sanctioned exception: `utils/debug`'s lazy plugin-log import).
+A companion `services-no-upward` rule freezes the known
+services→hooks/React inversions (audit H4, deferred) so they cannot
+grow.

@@ -8,7 +8,7 @@ import { useDocumentStore } from "@/stores/documentStore";
 const mockReadRecoverySnapshots = vi.fn();
 const mockDeleteStaleRecoveryFiles = vi.fn();
 const mockDeleteRecoverySnapshot = vi.fn();
-vi.mock("@/utils/crashRecovery", () => ({
+vi.mock("@/services/persistence/crashRecovery", () => ({
   readRecoverySnapshots: () => mockReadRecoverySnapshots(),
   deleteStaleRecoveryFiles: (...args: unknown[]) => mockDeleteStaleRecoveryFiles(...args),
   deleteRecoverySnapshot: (...args: unknown[]) => mockDeleteRecoverySnapshot(...args),

@@ -9,10 +9,17 @@
  *   startup over a malformed history file).
  *
  * Key decisions:
- *   - Append-on-push: minimal latency in the hot path.
+ *   - Append-on-push: a true O(1) `writeTextFile(..., { append: true })`
+ *     — never read-modify-write, which raced with itself and dropped
+ *     lines when two MCP writes landed back to back (audit H5).
+ *   - Serialized writers: every disk mutation (append/rewrite) flows
+ *     through one promise queue, so a rewrite can never interleave with
+ *     an in-flight append.
  *   - Rewrite-on-rehydrate: after loading, the in-memory retention
  *     compacts oldest entries; we mirror that compaction back to disk
- *     so the file doesn't grow unbounded between restarts.
+ *     so the file doesn't grow unbounded between restarts. Hydrate also
+ *     dedupes by id (newest wins) so a crash between append and rewrite
+ *     can never double-count a checkpoint.
  *   - Non-blocking writes: appendCheckpoint is fire-and-forget with
  *     error logging — a failed disk write must not break the MCP path.
  *
@@ -36,6 +43,19 @@ import { mcpBridgeError, mcpBridgeLog } from "@/utils/debug";
 const FILE_NAME = "mcp-checkpoints.jsonl";
 
 let cachedPath: string | null = null;
+
+/**
+ * Single writer queue: appends and rewrites are strictly ordered so they
+ * can never interleave. Failures don't break the chain — each task runs
+ * regardless of whether the previous one rejected.
+ */
+let writeQueue: Promise<void> = Promise.resolve();
+
+function enqueueWrite(task: () => Promise<void>): Promise<void> {
+  const run = writeQueue.then(task, task);
+  writeQueue = run.catch(() => undefined);
+  return run;
+}
 
 async function resolvePath(): Promise<string> {
   if (cachedPath !== null) return cachedPath;
@@ -65,20 +85,23 @@ export async function hydrateCheckpoints(): Promise<void> {
     if (await exists(path)) {
       text = await readTextFile(path);
     }
-    const checkpoints: MCPCheckpoint[] = [];
+    // Dedupe by id (newest line wins) — a crash between an append and a
+    // compacting rewrite could leave the same checkpoint twice.
+    const byId = new Map<string, MCPCheckpoint>();
     for (const line of text.split("\n")) {
       const trimmed = line.trim();
       if (!trimmed) continue;
       try {
         const parsed = JSON.parse(trimmed) as unknown;
         if (isCheckpoint(parsed)) {
-          checkpoints.push(parsed);
+          byId.set(parsed.id, parsed);
         }
       } catch {
         // Skip malformed line; keep going.
       }
     }
     // Sort newest-first to match the store's invariant.
+    const checkpoints = Array.from(byId.values());
     checkpoints.sort((a, b) => b.timestamp - a.timestamp);
     useMcpStore.getState().checkpointSetAll(checkpoints);
 
@@ -96,41 +119,43 @@ export async function hydrateCheckpoints(): Promise<void> {
  * Append one checkpoint to the persisted log. Fire-and-forget — errors
  * are logged but never thrown. Call this AFTER the in-memory push so
  * the store's id/timestamp are settled.
+ *
+ * Uses a true filesystem append (no read-modify-write) and the shared
+ * writer queue, so concurrent MCP writes can never drop each other's
+ * lines (audit H5).
  */
 export async function appendCheckpoint(
   cp: MCPCheckpoint,
 ): Promise<void> {
-  try {
-    const path = await resolvePath();
-    let existing = "";
-    if (await exists(path)) {
-      existing = await readTextFile(path);
+  return enqueueWrite(async () => {
+    try {
+      const path = await resolvePath();
+      await writeTextFile(path, JSON.stringify(cp) + "\n", { append: true });
+      mcpBridgeLog("Appended checkpoint", cp.id, cp.tool);
+    } catch (error) {
+      mcpBridgeError("Failed to append MCP checkpoint:", error);
     }
-    const next = existing.endsWith("\n") || existing === ""
-      ? existing + JSON.stringify(cp) + "\n"
-      : existing + "\n" + JSON.stringify(cp) + "\n";
-    await writeTextFile(path, next);
-    mcpBridgeLog("Appended checkpoint", cp.id, cp.tool);
-  } catch (error) {
-    mcpBridgeError("Failed to append MCP checkpoint:", error);
-  }
+  });
 }
 
 /**
  * Rewrite the persisted file to mirror the in-memory state. Used after
  * hydrate compaction and after explicit clears. Errors are logged.
+ * Queued behind any in-flight appends so the two can never interleave.
  */
 export async function rewriteAll(): Promise<void> {
-  try {
-    const path = await resolvePath();
-    const lines = useMcpStore
-      .getState()
-      .checkpoint.checkpoints.map((cp) => JSON.stringify(cp))
-      .join("\n");
-    await writeTextFile(path, lines.length > 0 ? lines + "\n" : "");
-  } catch (error) {
-    mcpBridgeError("Failed to rewrite MCP checkpoint log:", error);
-  }
+  return enqueueWrite(async () => {
+    try {
+      const path = await resolvePath();
+      const lines = useMcpStore
+        .getState()
+        .checkpoint.checkpoints.map((cp) => JSON.stringify(cp))
+        .join("\n");
+      await writeTextFile(path, lines.length > 0 ? lines + "\n" : "");
+    } catch (error) {
+      mcpBridgeError("Failed to rewrite MCP checkpoint log:", error);
+    }
+  });
 }
 
 function isCheckpoint(value: unknown): value is MCPCheckpoint {

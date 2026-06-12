@@ -166,7 +166,7 @@ The 15.5-second block is **not parse** — it is **ProseMirror ****`EditorView`*
 | Entry: drag-drop | `src/hooks/useDragDropOpen.ts` |
 | Entry: Open dialog / menu | `src/hooks/useFileOpen.ts` |
 | Entry: launch args / new window | `src/contexts/WindowContext.tsx` |
-| Effective-mode composition | `src/components/Editor/Editor.tsx`, `src/components/StatusBar/StatusBar.tsx`, `src/hooks/useUnifiedHistory.ts`, `src/hooks/useUnifiedMenuCommands.ts` |
+| Effective-mode composition | `src/lib/formats/adapters/markdown.tsx`, `src/components/StatusBar/StatusBar.tsx`, `src/hooks/useUnifiedHistory.ts`, `src/hooks/useUnifiedMenuCommands.ts` |
 | Deferred parse + indicator clear | `src/components/Editor/TiptapEditor.tsx` |
 | Tab-close cleanup | `src/hooks/tabCleanup.ts` |
 | User settings panel | `src/pages/settings/EditorSettings.tsx` |

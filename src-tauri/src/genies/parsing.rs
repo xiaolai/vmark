@@ -4,7 +4,7 @@
 //! and template content.
 //!
 //! Two parsing strategies are tried in order:
-//!   1. **Full YAML** via `serde_yaml::from_str` — handles nested objects
+//!   1. **Full YAML** via `serde_yaml_ng::from_str` — handles nested objects
 //!      (`input: { type: text, ... }`) needed by Genie v1.
 //!   2. **Flat key:value fallback** — used only when the frontmatter is
 //!      genuinely malformed YAML; preserves the lenient behavior expected by
@@ -74,7 +74,7 @@ pub fn parse_genie(content: &str, path: &str) -> Result<GenieContent, String> {
 
     // Parse via serde_yaml first (handles nested v1 forms).
     // On failure, fall back to the lenient flat parser for v0 compatibility.
-    let metadata = match serde_yaml::from_str::<serde_yaml::Value>(frontmatter_block) {
+    let metadata = match serde_yaml_ng::from_str::<serde_yaml_ng::Value>(frontmatter_block) {
         Ok(yaml) => metadata_from_yaml(&yaml, name.clone()),
         Err(_) => metadata_from_flat(frontmatter_block, name.clone()),
     };
@@ -83,19 +83,19 @@ pub fn parse_genie(content: &str, path: &str) -> Result<GenieContent, String> {
 }
 
 /// Read a string value from a YAML mapping by key.
-fn yaml_str<'a>(map: &'a serde_yaml::Mapping, key: &str) -> Option<&'a str> {
-    map.get(serde_yaml::Value::String(key.to_string()))
+fn yaml_str<'a>(map: &'a serde_yaml_ng::Mapping, key: &str) -> Option<&'a str> {
+    map.get(serde_yaml_ng::Value::String(key.to_string()))
         .and_then(|v| v.as_str())
 }
 
 /// Read a u64 value from a YAML mapping by key.
-fn yaml_u64(map: &serde_yaml::Mapping, key: &str) -> Option<u64> {
-    map.get(serde_yaml::Value::String(key.to_string()))
+fn yaml_u64(map: &serde_yaml_ng::Mapping, key: &str) -> Option<u64> {
+    map.get(serde_yaml_ng::Value::String(key.to_string()))
         .and_then(|v| v.as_u64())
 }
 
 /// Build metadata from a parsed YAML value.
-fn metadata_from_yaml(yaml: &serde_yaml::Value, name: String) -> GenieMetadata {
+fn metadata_from_yaml(yaml: &serde_yaml_ng::Value, name: String) -> GenieMetadata {
     let map = match yaml.as_mapping() {
         Some(m) => m,
         None => {
@@ -165,15 +165,15 @@ fn metadata_from_yaml(yaml: &serde_yaml::Value, name: String) -> GenieMetadata {
 /// the deprecated flat form (`input_type: text`, `input_accept: ...`,
 /// `input_description: ...`). Logs a warning when the flat form is used so
 /// authors know to migrate.
-fn parse_io_spec(map: &serde_yaml::Mapping, key: &str) -> Option<GenieIoSpec> {
+fn parse_io_spec(map: &serde_yaml_ng::Mapping, key: &str) -> Option<GenieIoSpec> {
     // Nested form preferred.
-    if let Some(nested) = map.get(serde_yaml::Value::String(key.to_string())) {
+    if let Some(nested) = map.get(serde_yaml_ng::Value::String(key.to_string())) {
         if let Some(nested_map) = nested.as_mapping() {
             let io_type = yaml_str(nested_map, "type")?.to_string();
             let accept = yaml_str(nested_map, "accept").map(String::from);
             let description = yaml_str(nested_map, "description").map(String::from);
             let schema = nested_map
-                .get(serde_yaml::Value::String("schema".to_string()))
+                .get(serde_yaml_ng::Value::String("schema".to_string()))
                 .and_then(|s| serde_json::to_value(s).ok());
             return Some(GenieIoSpec {
                 io_type,
@@ -210,8 +210,8 @@ fn parse_io_spec(map: &serde_yaml::Mapping, key: &str) -> Option<GenieIoSpec> {
 }
 
 /// Parse the `tags` field as either a YAML sequence or a comma-separated string.
-fn parse_tags(map: &serde_yaml::Mapping) -> Option<Vec<String>> {
-    let tags_val = map.get(serde_yaml::Value::String("tags".to_string()))?;
+fn parse_tags(map: &serde_yaml_ng::Mapping) -> Option<Vec<String>> {
+    let tags_val = map.get(serde_yaml_ng::Value::String("tags".to_string()))?;
     if let Some(seq) = tags_val.as_sequence() {
         let tags: Vec<String> = seq
             .iter()
@@ -242,7 +242,7 @@ fn parse_tags(map: &serde_yaml::Mapping) -> Option<Vec<String>> {
 /// Lenient fallback parser for genuinely-malformed YAML frontmatter.
 ///
 /// Splits each non-empty line on the first `:` and stores key→value pairs.
-/// Used only when `serde_yaml::from_str` fails outright. v1 features (nested
+/// Used only when `serde_yaml_ng::from_str` fails outright. v1 features (nested
 /// input/output, schema) are unavailable here — the whole point of the
 /// fallback is to keep v0 genies discoverable even when their frontmatter
 /// has non-YAML cruft.

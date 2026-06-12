@@ -215,7 +215,8 @@
   flex-shrink: 0;
 }
 
-.tab-pill:hover .tab-close {
+.tab-pill:hover .tab-close,
+.tab-pill:focus-within .tab-close {
   display: flex;
 }
 

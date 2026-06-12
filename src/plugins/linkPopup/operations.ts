@@ -14,7 +14,7 @@
  * @module plugins/linkPopup/operations
  */
 
-import { classifyHref, openFilepathLink } from "@/utils/linkOpen";
+import { classifyHref, openFilepathLink } from "@/services/navigation/linkOpen";
 import { linkPopupError } from "@/utils/debug";
 
 export type LinkAction =

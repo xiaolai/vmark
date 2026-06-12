@@ -10,7 +10,7 @@
 
 import type { EditorView } from "@codemirror/view";
 import { getAnchorRectFromRange } from "@/plugins/sourcePopup/sourcePopupUtils";
-import { readClipboardImagePath } from "@/utils/clipboardImagePath";
+import { readClipboardImagePath } from "@/services/media/clipboardImagePath";
 import { copyImageToAssets } from "@/hooks/useImageOperations";
 import { encodeMarkdownUrl } from "@/utils/markdownUrl";
 import { useDocumentStore } from "@/stores/documentStore";

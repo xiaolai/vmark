@@ -12,7 +12,7 @@
 
 import { useDocumentStore } from "@/stores/documentStore";
 import { getActiveTabId } from "@/services/navigation/activeDocument";
-import { getCurrentWindowLabel } from "@/utils/workspaceStorage";
+import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 
 /**
  * Check if a specific document is in read-only mode.

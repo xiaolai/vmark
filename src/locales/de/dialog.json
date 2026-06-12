@@ -2,10 +2,10 @@
   "unsavedChanges": {
     "title": "Nicht gespeicherte Änderungen",
     "single": "Möchten Sie die Änderungen an \"{{title}}\" speichern?",
-    "multiple": "Sie haben {{count}} nicht gespeichertes Dokument:\n\n• {{list}}",
-    "multiple_plural": "Sie haben {{count}} nicht gespeicherte Dokumente:\n\n• {{list}}",
-    "newDocsHint": "{{count}} neues Dokument benötigt einen Speicherort.",
-    "newDocsHint_plural": "{{count}} neue Dokumente benötigen einen Speicherort.",
+    "multiple_one": "Sie haben {{count}} nicht gespeichertes Dokument:\n\n• {{list}}",
+    "multiple_other": "Sie haben {{count}} nicht gespeicherte Dokumente:\n\n• {{list}}",
+    "newDocsHint_one": "{{count}} neues Dokument benötigt einen Speicherort.",
+    "newDocsHint_other": "{{count}} neue Dokumente benötigen einen Speicherort.",
     "openInNewWindow": "Dieses Fenster hat nicht gespeicherte Änderungen. Den Arbeitsbereich stattdessen in einem neuen Fenster öffnen?",
     "openInNewWindowOk": "In neuem Fenster öffnen",
     "openInNewWindowCancel": "Abbrechen",
@@ -19,8 +19,8 @@
   },
   "windowClose": {
     "pinnedTitle": "Fenster schließen?",
-    "pinnedPrompt": "Dieses Fenster hat {{count}} angepinnten Tab. Trotzdem schließen?",
-    "pinnedPrompt_plural": "Dieses Fenster hat {{count}} angepinnte Tabs. Trotzdem schließen?",
+    "pinnedPrompt_one": "Dieses Fenster hat {{count}} angepinnten Tab. Trotzdem schließen?",
+    "pinnedPrompt_other": "Dieses Fenster hat {{count}} angepinnte Tabs. Trotzdem schließen?",
     "confirmClose": "Fenster schließen"
   },
   "fileChanged": {

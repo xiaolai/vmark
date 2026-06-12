@@ -45,7 +45,7 @@ vi.mock("@/stores/aiStore", () => {
   };
 });
 
-vi.mock("@/utils/settingsWindow", () => ({
+vi.mock("@/services/navigation/settingsWindow", () => ({
   openSettingsWindow: vi.fn(),
 }));
 
@@ -244,7 +244,7 @@ describe("ProviderSwitcher", () => {
 
   describe("settings button", () => {
     it("calls onCloseAll and openSettingsWindow when clicked", async () => {
-      const { openSettingsWindow } = await import("@/utils/settingsWindow");
+      const { openSettingsWindow } = await import("@/services/navigation/settingsWindow");
 
       render(<ProviderSwitcher onClose={onClose} onCloseAll={onCloseAll} />);
 

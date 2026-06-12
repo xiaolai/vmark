@@ -2,10 +2,10 @@
   "unsavedChanges": {
     "title": "Modifications non enregistrées",
     "single": "Voulez-vous enregistrer les modifications apportées à « {{title}} » ?",
-    "multiple": "Vous avez {{count}} document non enregistré :\n\n• {{list}}",
-    "multiple_plural": "Vous avez {{count}} documents non enregistrés :\n\n• {{list}}",
-    "newDocsHint": "{{count}} nouveau document nécessitera un emplacement d'enregistrement.",
-    "newDocsHint_plural": "{{count}} nouveaux documents nécessiteront un emplacement d'enregistrement.",
+    "multiple_one": "Vous avez {{count}} document non enregistré :\n\n• {{list}}",
+    "multiple_other": "Vous avez {{count}} documents non enregistrés :\n\n• {{list}}",
+    "newDocsHint_one": "{{count}} nouveau document nécessitera un emplacement d'enregistrement.",
+    "newDocsHint_other": "{{count}} nouveaux documents nécessiteront un emplacement d'enregistrement.",
     "openInNewWindow": "Cette fenêtre contient des modifications non enregistrées. Ouvrir l'espace de travail dans une nouvelle fenêtre ?",
     "openInNewWindowOk": "Ouvrir dans une nouvelle fenêtre",
     "openInNewWindowCancel": "Annuler",
@@ -19,8 +19,8 @@
   },
   "windowClose": {
     "pinnedTitle": "Fermer la fenêtre ?",
-    "pinnedPrompt": "Cette fenêtre a {{count}} onglet épinglé. Fermer quand même ?",
-    "pinnedPrompt_plural": "Cette fenêtre a {{count}} onglets épinglés. Fermer quand même ?",
+    "pinnedPrompt_one": "Cette fenêtre a {{count}} onglet épinglé. Fermer quand même ?",
+    "pinnedPrompt_other": "Cette fenêtre a {{count}} onglets épinglés. Fermer quand même ?",
     "confirmClose": "Fermer la fenêtre"
   },
   "fileChanged": {

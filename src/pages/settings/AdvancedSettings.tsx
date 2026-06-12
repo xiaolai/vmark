@@ -45,6 +45,12 @@ export function AdvancedSettings() {
   const clearMacQuarantineOnOpen = useSettingsStore(
     (state) => state.advanced.clearMacQuarantineOnOpen
   );
+  const workflowFetchActionMetadata = useSettingsStore(
+    (state) => state.advanced.workflowFetchActionMetadata
+  );
+  const workflowActionlint = useSettingsStore(
+    (state) => state.advanced.workflowActionlint
+  );
   const updateAdvancedSetting = useSettingsStore((state) => state.updateAdvancedSetting);
   const isMac = isMacPlatform();
 
@@ -80,6 +86,30 @@ export function AdvancedSettings() {
           <Toggle
             checked={keepBothEditorsAlive}
             onChange={(v) => updateAdvancedSetting("keepBothEditorsAlive", v)}
+          />
+        </SettingRow>
+      </SettingsGroup>
+
+      {/* Workflow-file viewing/editing — these are the two toggles the
+          website documents (audit 20260612 H28); not devtools-gated because
+          the GHA viewer itself isn't. */}
+      <SettingsGroup title={t("workflowEditor:settings.groupTitle")}>
+        <SettingRow
+          label={t("workflowEditor:settings.fetchActionMetadata.label")}
+          description={t("workflowEditor:settings.fetchActionMetadata.description")}
+        >
+          <Toggle
+            checked={workflowFetchActionMetadata}
+            onChange={(v) => updateAdvancedSetting("workflowFetchActionMetadata", v)}
+          />
+        </SettingRow>
+        <SettingRow
+          label={t("workflowEditor:settings.actionlint.label")}
+          description={t("workflowEditor:settings.actionlint.description")}
+        >
+          <Toggle
+            checked={workflowActionlint}
+            onChange={(v) => updateAdvancedSetting("workflowActionlint", v)}
           />
         </SettingRow>
       </SettingsGroup>

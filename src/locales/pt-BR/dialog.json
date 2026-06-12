@@ -2,10 +2,10 @@
   "unsavedChanges": {
     "title": "Alterações não salvas",
     "single": "Deseja salvar as alterações em \"{{title}}\"?",
-    "multiple": "Você tem {{count}} documento não salvo:\n\n• {{list}}",
-    "multiple_plural": "Você tem {{count}} documentos não salvos:\n\n• {{list}}",
-    "newDocsHint": "{{count}} novo documento precisará de um local para salvar.",
-    "newDocsHint_plural": "{{count}} novos documentos precisarão de um local para salvar.",
+    "multiple_one": "Você tem {{count}} documento não salvo:\n\n• {{list}}",
+    "multiple_other": "Você tem {{count}} documentos não salvos:\n\n• {{list}}",
+    "newDocsHint_one": "{{count}} novo documento precisará de um local para salvar.",
+    "newDocsHint_other": "{{count}} novos documentos precisarão de um local para salvar.",
     "openInNewWindow": "Esta janela tem alterações não salvas. Abrir o espaço de trabalho em uma nova janela?",
     "openInNewWindowOk": "Abrir em nova janela",
     "openInNewWindowCancel": "Cancelar",
@@ -13,8 +13,8 @@
   },
   "windowClose": {
     "pinnedTitle": "Fechar janela?",
-    "pinnedPrompt": "Esta janela tem {{count}} aba fixada. Fechar mesmo assim?",
-    "pinnedPrompt_plural": "Esta janela tem {{count}} abas fixadas. Fechar mesmo assim?",
+    "pinnedPrompt_one": "Esta janela tem {{count}} aba fixada. Fechar mesmo assim?",
+    "pinnedPrompt_other": "Esta janela tem {{count}} abas fixadas. Fechar mesmo assim?",
     "confirmClose": "Fechar janela"
   },
   "fileChanged": {

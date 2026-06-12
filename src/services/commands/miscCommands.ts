@@ -19,8 +19,8 @@ import { clearAllHistory, clearWorkspaceHistory } from "@/hooks/useHistoryRecove
 import { historyLog, historyError, menuError } from "@/utils/debug";
 import { emitHistoryCleared } from "@/utils/historyTypes";
 import { withReentryGuard } from "@/utils/reentryGuard";
-import { runOrphanCleanup } from "@/utils/orphanAssetCleanup";
-import { openSettingsWindow } from "@/utils/settingsWindow";
+import { runOrphanCleanup } from "@/services/media/orphanAssetCleanup";
+import { openSettingsWindow } from "@/services/navigation/settingsWindow";
 
 const HELP_URL = "https://vmark.app/guide/";
 const SHORTCUTS_URL = "https://vmark.app/guide/shortcuts";

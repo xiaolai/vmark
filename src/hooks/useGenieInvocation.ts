@@ -42,7 +42,7 @@ import { useTabStore } from "@/stores/tabStore";
 import { useEditorStore } from "@/stores/editorStore";
 import { useGeniesStore } from "@/stores/aiStore";
 import { useGeniePickerStore } from "@/stores/geniePickerStore";
-import { getCurrentWindowLabel } from "@/utils/workspaceStorage";
+import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import { getExpandedSourcePeekRange, serializeSourcePeekRange } from "@/services/editor/sourcePeek";
 import { extractSurroundingContext } from "@/services/editor/extractContext";
 import { createMarkdownPasteSlice } from "@/plugins/markdownPaste/tiptap";
@@ -58,6 +58,8 @@ interface ExtractionResult {
   text: string;
   from: number;
   to: number;
+  /** True when the range covers the whole document (document scope). */
+  wholeDoc?: boolean;
   contextBefore?: string;
   contextAfter?: string;
 }
@@ -72,7 +74,7 @@ function extractContent(scope: GenieScope, contextRadius = 0): ExtractionResult 
     const activeTabId = useTabStore.getState().activeTabId.main;
     const doc = activeTabId ? useDocumentStore.getState().documents[activeTabId] : null;
     const content = doc?.content ?? "";
-    return { text: content, from: 0, to: content.length };
+    return { text: content, from: 0, to: content.length, wholeDoc: true };
   }
   /* v8 ignore stop */
 
@@ -111,7 +113,7 @@ function extractContent(scope: GenieScope, contextRadius = 0): ExtractionResult 
     case "document": {
       const text = serializeMarkdown(state.schema, doc);
       // Document scope — no context needed (content IS the document)
-      return { text, from: 0, to: doc.content.size };
+      return { text, from: 0, to: doc.content.size, wholeDoc: true };
     }
 
     /* v8 ignore start -- defensive: all valid scopes handled above */
@@ -296,6 +298,7 @@ export function useGenieInvocation() {
                 type: isInsert ? "insert" : "replace",
                 from: isInsert ? extraction.to : extraction.from,
                 to: extraction.to,
+                wholeDoc: !isInsert && (extraction.wholeDoc ?? false),
                 newContent: accumulated.trim(),
                 originalContent: isInsert ? "" : extraction.text,
               });
@@ -331,6 +334,7 @@ export function useGenieInvocation() {
                 type: isInsert ? "insert" : "replace",
                 from: isInsert ? extraction.to : extraction.from,
                 to: extraction.to,
+                wholeDoc: !isInsert && (extraction.wholeDoc ?? false),
                 newContent: accumulated.trim(),
                 originalContent: isInsert ? "" : extraction.text,
               });

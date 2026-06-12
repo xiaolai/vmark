@@ -4,7 +4,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-vi.mock("@/utils/workspaceStorage", () => ({
+vi.mock("@/services/persistence/workspaceStorage", () => ({
   getCurrentWindowLabel: () => "main",
 }));
 

@@ -353,7 +353,7 @@ pub async fn fetch_metadata(
         Err(err) => return err,
     };
 
-    let metadata: ActionMetadata = match serde_yaml::from_str(&yaml) {
+    let metadata: ActionMetadata = match serde_yaml_ng::from_str(&yaml) {
         Ok(m) => m,
         Err(e) => {
             return FetchResult::ParseError {

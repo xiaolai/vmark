@@ -76,8 +76,8 @@ Three files must stay in sync when adding or changing shortcuts:
 
 | File | Format |
 |------|--------|
-| `src-tauri/src/menu.rs` | `CmdOrCtrl+Shift+N` |
-| `src/stores/shortcutsStore.ts` | `Mod-Shift-n` |
+| `src-tauri/src/menu/localized.rs` | `CmdOrCtrl+Shift+N` |
+| `src/stores/settingsStore/shortcuts.ts` | `Mod-Shift-n` |
 | `website/guide/shortcuts.md` | `Mod + Shift + N` |
 
 See `.claude/rules/41-keyboard-shortcuts.md` for the full procedure.

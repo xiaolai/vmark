@@ -53,6 +53,78 @@ module.exports = {
       to: { path: "^src/(plugins|components|stores)/" },
     },
 
+    // Rule 3b: utils/ is leaf-pure — no Tauri, no services, no hooks, no
+    // React, no i18n (ADR-013). Audit 20260612 H2/H3: 12 Tauri-dependent
+    // files were migrated to services/ domains; this rule keeps utils pure.
+    {
+      name: "utils-no-platform",
+      severity: "error",
+      comment:
+        "ADR-013: src/utils/ may import only stdlib and other utils/. " +
+        "A file needing Tauri APIs, services, hooks, React, or i18n belongs in services/.",
+      from: {
+        path: "^src/utils/",
+        pathNot: [
+          // Debug loggers lazily import @tauri-apps/plugin-log behind a
+          // dynamic import; logging must stay importable from every tier,
+          // so this is the one sanctioned platform touch in utils/.
+          "^src/utils/debug",
+        ],
+      },
+      to: {
+        path: [
+          "@tauri-apps",
+          "^src/services/",
+          "^src/hooks/",
+          "^src/i18n",
+          "node_modules/react",
+        ],
+      },
+    },
+
+    // Rule 3c: services/ must not import upward (hooks/components/React).
+    // ADR-013 defines hooks/ as React adapters OVER services. The pathNot
+    // list freezes the violations known at audit 20260612 (finding H4,
+    // deferred) — do NOT add new entries; extract the logic into services/
+    // instead.
+    {
+      name: "services-no-upward",
+      severity: "error",
+      comment:
+        "ADR-013: src/services/ may import utils/, stores/, and Tauri APIs — " +
+        "not hooks/, components/, or React. Known violations are frozen " +
+        "pending the H4 inversion cleanup; new code must not extend this list.",
+      from: {
+        path: "^src/services/",
+        pathNot: [
+          // Tests may import hooks/components to mock them
+          "\\.test\\.(ts|tsx)$",
+          // Frozen H4 backlog — services importing business logic from hooks
+          "^src/services/assembly/sourceEditorExtensions\\.ts$",
+          "^src/services/commands/miscCommands\\.ts$",
+          "^src/services/commands/recentFilesCommands\\.ts$",
+          "^src/services/commands/recentWorkspacesCommands\\.ts$",
+          "^src/services/commands/viewCommands\\.ts$",
+          "^src/services/commands/workspaceCommands\\.ts$",
+          "^src/services/media/resolveMediaSrc\\.ts$",
+          "^src/services/persistence/saveToPath\\.ts$",
+          // Frozen H4 backlog — React adapters co-located in services
+          "^src/services/commands/useCommandBootstrap\\.ts$",
+          "^src/services/formats/formatSettingsBridge\\.ts$",
+          "^src/services/ime/imeToastPinAction\\.tsx$",
+          "^src/services/persistence/hotExit/useHotExitCaptureWarning\\.ts$",
+          "^src/services/persistence/resilience/_crashRecovery.*\\.ts$",
+          "^src/services/persistence/resilience/_hotExit.*\\.ts$",
+          // Sanctioned wiring seam: assembly composes editor extensions
+          // from plugins/components by design (de-facto wiring tier).
+          "^src/services/assembly/tiptapExtensions\\.ts$",
+        ],
+      },
+      to: {
+        path: ["^src/hooks/", "^src/components/", "node_modules/react"],
+      },
+    },
+
     // Rule 4: Cross-plugin imports only via shared/ or sourcePopup/
     //
     // Coordination plugins are exempted — they orchestrate multiple plugins

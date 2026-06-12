@@ -229,10 +229,6 @@
   line-height: var(--line-height-relaxed);
 }
 
-/* Dark theme */
-.dark-theme .content-search-backdrop {
-  background: var(--hover-bg-dark-strong);
-}
 
 .dark-theme .content-search {
   box-shadow: var(--popup-shadow-dark);

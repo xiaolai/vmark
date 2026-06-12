@@ -2,10 +2,10 @@
   "unsavedChanges": {
     "title": "Unsaved Changes",
     "single": "Do you want to save changes to \"{{title}}\"?",
-    "multiple": "You have {{count}} unsaved document:\n\n• {{list}}",
-    "multiple_plural": "You have {{count}} unsaved documents:\n\n• {{list}}",
-    "newDocsHint": "{{count}} new document will need a save location.",
-    "newDocsHint_plural": "{{count}} new documents will need a save location.",
+    "multiple_one": "You have {{count}} unsaved document:\n\n• {{list}}",
+    "multiple_other": "You have {{count}} unsaved documents:\n\n• {{list}}",
+    "newDocsHint_one": "{{count}} new document will need a save location.",
+    "newDocsHint_other": "{{count}} new documents will need a save location.",
     "openInNewWindow": "This window has unsaved changes. Open the workspace in a new window instead?",
     "openInNewWindowOk": "Open in New Window",
     "openInNewWindowCancel": "Cancel",
@@ -19,8 +19,8 @@
   },
   "windowClose": {
     "pinnedTitle": "Close Window?",
-    "pinnedPrompt": "This window has {{count}} pinned tab. Close anyway?",
-    "pinnedPrompt_plural": "This window has {{count}} pinned tabs. Close anyway?",
+    "pinnedPrompt_one": "This window has {{count}} pinned tab. Close anyway?",
+    "pinnedPrompt_other": "This window has {{count}} pinned tabs. Close anyway?",
     "confirmClose": "Close Window"
   },
   "fileChanged": {

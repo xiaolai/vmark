@@ -13,7 +13,7 @@ vi.mock("../../utils", () => ({
   respond: vi.fn(),
 }));
 
-vi.mock("@/utils/workspaceStorage", () => ({
+vi.mock("@/services/persistence/workspaceStorage", () => ({
   getCurrentWindowLabel: () => "main",
 }));
 

@@ -1,7 +1,7 @@
 # Audit Gap Remediation
 
 > Created: 2026-06-07
-> Status: **In progress** on branch `chore/audit-gap-remediation`.
+> Status: **Complete** — merged to main (header flipped during audit 20260612 remediation; the branch's work items shipped).
 > Source backlog: `dev-docs/audit/20260607-wi-audit-report.md` (§C L1–L21, §D, §E).
 > Mandate: fill ALL gaps incl. risky items; manual checks done via Tauri MCP.
 

@@ -131,6 +131,8 @@ These tokens are automatically updated by `useTheme.ts`:
 | `--selection-color` | Blue tint | Cyan tint |
 | `--md-char-color` | `#777777` | `#6a9955` |
 | `--accent-bg` | Blue 10% | Blue 12% |
+| `--hover-bg` | `rgba(0,0,0,0.04)` | `rgba(255,255,255,0.08)` |
+| `--hover-bg-strong` | `rgba(0,0,0,0.08)` | `rgba(255,255,255,0.12)` |
 | `--error-color` | `#cf222e` | `#f85149` |
 | `--error-bg` | `#ffebe9` | Red 15% |
 

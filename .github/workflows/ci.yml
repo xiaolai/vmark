@@ -11,7 +11,10 @@ permissions:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  # Never cancel main-branch runs: a release tag can point at a commit whose
+  # CI was cancelled by a faster push, shipping unverified code (audit
+  # 20260612, observed for v0.8.4). PRs still cancel superseded runs.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   # Frontend checks: lint, tests, build — platform-independent (jsdom + vite)
@@ -25,7 +28,7 @@ jobs:
           # against origin/main.
           fetch-depth: 0
 
-      - uses: pnpm/action-setup@v6
+      - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6
         with:
           version: 10
 
@@ -75,7 +78,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: pnpm/action-setup@v6
+      - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6
         with:
           version: 10
 
@@ -95,7 +98,7 @@ jobs:
       rust: ${{ steps.filter.outputs.rust }}
     steps:
       - uses: actions/checkout@v6
-      - uses: dorny/paths-filter@v4
+      - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4
         id: filter
         with:
           filters: |
@@ -117,7 +120,9 @@ jobs:
 
       - uses: ./.github/actions/setup-tauri-deps
 
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable branch
+        with:
+          toolchain: stable
 
       - uses: actions/cache@v5
         with:
@@ -144,7 +149,39 @@ jobs:
 
       - run: cargo test --manifest-path src-tauri/Cargo.toml
 
-      - name: Security audit (Rust)
+  # Gate job: required by branch protection (exact name "rust").
+  # Passes when rust-test succeeded OR was skipped (frontend-only PR);
+  # fails on any real rust-test failure so Rust-touching PRs cannot
+  # auto-merge with red Rust CI (audit 20260612 H26).
+  rust:
+    if: always()
+    needs: [changes, rust-test]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check result
+        env:
+          RESULT: ${{ needs.rust-test.result }}
         run: |
-          cargo install cargo-audit --quiet
-          cargo audit --file src-tauri/Cargo.lock
+          if [ "$RESULT" != "success" ] && [ "$RESULT" != "skipped" ]; then
+            echo "rust-test: $RESULT"
+            exit 1
+          fi
+
+  # cargo-audit is a lockfile-only, platform-independent check — one ubuntu
+  # job instead of compiling cargo-audit from source on all 3 OSes
+  # (audit 20260612: ~11 runner-minutes per CI run saved).
+  rust-audit:
+    needs: [changes]
+    if: needs.changes.outputs.rust == 'true' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install cargo-audit
+        uses: taiki-e/install-action@7a79fe8c3a13344501c80d99cae481c1c9085912 # v2.81.10
+        with:
+          tool: cargo-audit
+
+      - name: Security audit (Rust)
+        run: cargo audit --file src-tauri/Cargo.lock

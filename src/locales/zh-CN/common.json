@@ -61,5 +61,17 @@
   "format.codeCss": "CSS",
   "format.codeShell": "Shell",
   "format.codeRuby": "Ruby",
-  "format.codeLua": "Lua"
+  "format.codeLua": "Lua",
+  "tabMenu.moveToNewWindow": "移到新窗口",
+  "tabMenu.pin": "固定",
+  "tabMenu.unpin": "取消固定",
+  "tabMenu.copyPath": "复制路径",
+  "tabMenu.copyRelativePath": "复制相对路径",
+  "tabMenu.restoreToDisk": "恢复到磁盘",
+  "tabMenu.revertToSaved": "还原为已保存版本",
+  "tabMenu.close": "关闭",
+  "tabMenu.closeOthers": "关闭其他",
+  "tabMenu.closeTabsRight": "关闭右侧标签页",
+  "tabMenu.closeUnpinned": "关闭所有未固定标签页",
+  "tabMenu.closeAll": "全部关闭"
 }

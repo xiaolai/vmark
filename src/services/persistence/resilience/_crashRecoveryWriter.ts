@@ -13,7 +13,7 @@ import { useEffect, useRef } from "react";
 import { useWindowLabel } from "@/contexts/WindowContext";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
-import { writeRecoverySnapshot } from "@/utils/crashRecovery";
+import { writeRecoverySnapshot } from "@/services/persistence/crashRecovery";
 import { crashRecoveryLog } from "@/utils/debug";
 import { errorMessage } from "@/utils/errorMessage";
 

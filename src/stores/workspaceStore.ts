@@ -33,8 +33,8 @@ import {
   isTrusted,
   type WorkspaceIdentity,
 } from "@/utils/workspaceIdentity";
-import { windowScopedStorage } from "@/utils/workspaceStorage";
-import { createSafeStorage } from "@/utils/safeStorage";
+import { windowScopedStorage } from "@/services/persistence/workspaceStorage";
+import { createSafeStorage } from "@/services/persistence/safeStorage";
 import { invoke } from "@tauri-apps/api/core";
 import { getFileName } from "@/utils/pathUtils";
 import { recentWarn } from "@/utils/debug";

@@ -197,6 +197,21 @@ async function getLocalActionMetadata(
 }
 
 /**
+ * User-controlled network kill switch (settings → advanced →
+ * workflowFetchActionMetadata). lib/ may not import stores (ADR-013), so
+ * the settings bridge pushes the flag in. Defaults on, matching the
+ * setting's default. Local-ref resolution is filesystem-only and stays
+ * available regardless (audit 20260612 H28: the website promised this
+ * off-switch but it didn't exist).
+ */
+let remoteMetadataFetchEnabled = true;
+
+/** Enable/disable remote action.yml fetching. Wired from the settings bridge. */
+export function setActionMetadataFetchEnabled(enabled: boolean): void {
+  remoteMetadataFetchEnabled = enabled;
+}
+
+/**
  * Resolve action metadata. Memoized per uses-string for the lifetime of
  * the session. Returns null in all failure modes; never throws.
  *
@@ -207,11 +222,13 @@ export async function getActionMetadata(
   uses: string,
   context?: { workflowFile: string; wsRoot: string },
 ): Promise<ActionMetadata | null> {
-  // Local-action path (WI-B.1).
+  // Local-action path (WI-B.1) — filesystem only, not gated by the
+  // network toggle.
   if (isLocalUsesRef(uses)) {
     if (!context) return null;
     return getLocalActionMetadata(uses, context.workflowFile, context.wsRoot);
   }
+  if (!remoteMetadataFetchEnabled) return null;
   if (!parseUsesRef(uses)) return null;
 
   if (sessionCache.has(uses)) {
@@ -276,4 +293,5 @@ function normalizeMetadata(raw: ActionMetadata): ActionMetadata {
 export function __resetRegistryForTests(): void {
   sessionCache.clear();
   inflight.clear();
+  remoteMetadataFetchEnabled = true;
 }

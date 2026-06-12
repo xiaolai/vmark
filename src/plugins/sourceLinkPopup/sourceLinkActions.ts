@@ -121,10 +121,11 @@ export async function openLink(view: EditorView): Promise<void> {
     return;
   }
 
-  // External link - open in browser
+  // External link - open in browser (scheme-allowlisted opener,
+  // audit 20260612)
   try {
-    const { openUrl } = await import("@tauri-apps/plugin-opener");
-    await openUrl(href);
+    const { openExternalLink } = await import("@/services/navigation/linkOpen");
+    await openExternalLink(href);
   } catch (error) {
     /* v8 ignore next -- @preserve reason: dynamic import failure not tested */
     sourceActionError("Failed to open link:", error);

@@ -1,5 +1,9 @@
 // Phase 9 follow-up — DiagnosticsBanner tests.
 
+// NOTE: fixtures use GHA-ACTIONLINT-* codes (no locale entries) so their
+// fabricated messages render verbatim; real codes now resolve through
+// workflowEditor:diagnostics.<code> (audit 20260612 H18) — see the
+// localized-rendering test below.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, cleanup } from "@testing-library/react";
 import type { Diagnostic } from "@/lib/ghaWorkflow/types";
@@ -19,7 +23,7 @@ afterEach(() => {
 function makeDiag(overrides: Partial<Diagnostic> = {}): Diagnostic {
   return {
     severity: "warning",
-    code: "GHA-STEP-003",
+    code: "GHA-ACTIONLINT-test",
     message: "Step id was synthesized",
     ...overrides,
   };
@@ -35,15 +39,15 @@ describe("DiagnosticsBanner — render", () => {
     render(
       <DiagnosticsBanner
         diagnostics={[
-          makeDiag({ severity: "info", code: "GHA-STEP-003", message: "info" }),
+          makeDiag({ severity: "info", code: "GHA-ACTIONLINT-test", message: "info" }),
           makeDiag({
             severity: "error",
-            code: "GHA-PARSE-001",
+            code: "GHA-ACTIONLINT-parse",
             message: "parse error",
           }),
           makeDiag({
             severity: "warning",
-            code: "GHA-NEEDS-001",
+            code: "GHA-ACTIONLINT-needs",
             message: "warning",
           }),
         ]}
@@ -60,11 +64,11 @@ describe("DiagnosticsBanner — render", () => {
     render(
       <DiagnosticsBanner
         diagnostics={[
-          makeDiag({ severity: "error", code: "GHA-PARSE-001", message: "boom" }),
+          makeDiag({ severity: "error", code: "GHA-ACTIONLINT-parse", message: "boom" }),
         ]}
       />,
     );
-    expect(screen.getByText("GHA-PARSE-001")).toBeDefined();
+    expect(screen.getByText("GHA-ACTIONLINT-parse")).toBeDefined();
   });
 });
 
@@ -75,7 +79,7 @@ describe("DiagnosticsBanner — interaction", () => {
         diagnostics={[
           makeDiag({
             severity: "warning",
-            code: "GHA-NEEDS-001",
+            code: "GHA-ACTIONLINT-needs",
             message: "build references unknown",
             context: { jobId: "build" },
           }),
@@ -93,7 +97,7 @@ describe("DiagnosticsBanner — interaction", () => {
         diagnostics={[
           makeDiag({
             severity: "error",
-            code: "GHA-PARSE-001",
+            code: "GHA-ACTIONLINT-parse",
             message: "no context",
           }),
         ]}
@@ -125,7 +129,7 @@ describe("DiagnosticsBanner — interaction", () => {
         diagnostics={[
           makeDiag({
             severity: "error",
-            code: "GHA-PARSE-001",
+            code: "GHA-ACTIONLINT-parse",
             message: "missing jobs key",
             position: { startLine: 7, startCol: 3, endLine: 7, endCol: 8 },
           }),
@@ -160,7 +164,7 @@ describe("DiagnosticsBanner — interaction", () => {
         diagnostics={[
           makeDiag({
             severity: "error",
-            code: "GHA-NEEDS-001",
+            code: "GHA-ACTIONLINT-needs",
             message: "ref unknown",
             context: { jobId: "build" },
             position: { startLine: 1, startCol: 1, endLine: 1, endCol: 1 },
@@ -181,7 +185,7 @@ describe("DiagnosticsBanner — interaction", () => {
         diagnostics={[
           makeDiag({
             severity: "error",
-            code: "GHA-NEEDS-001",
+            code: "GHA-ACTIONLINT-needs",
             message: "ref unknown",
             context: { jobId: "build" },
             position: { startLine: 1, startCol: 1, endLine: 1, endCol: 1 },
@@ -196,7 +200,7 @@ describe("DiagnosticsBanner — interaction", () => {
   it("collapses to a count chip when there are >5 diagnostics", () => {
     const many: Diagnostic[] = Array.from({ length: 8 }, (_, i) => ({
       severity: "warning",
-      code: "GHA-STEP-003",
+      code: "GHA-ACTIONLINT-test",
       message: `synthesized id ${i}`,
     }));
     render(<DiagnosticsBanner diagnostics={many} />);
@@ -208,7 +212,7 @@ describe("DiagnosticsBanner — interaction", () => {
   it("expands all rows when the show-all button is clicked", () => {
     const many: Diagnostic[] = Array.from({ length: 8 }, (_, i) => ({
       severity: "warning",
-      code: "GHA-STEP-003",
+      code: "GHA-ACTIONLINT-test",
       message: `synthesized id ${i}`,
     }));
     render(<DiagnosticsBanner diagnostics={many} />);
@@ -242,7 +246,7 @@ describe("DiagnosticsBanner — per-row collapse", () => {
     // First row's message gone; the code stays.
     expect(screen.queryByText("first message")).toBeNull();
     expect(screen.getByText("second message")).toBeTruthy();
-    expect(screen.getAllByText(/GHA-STEP-003/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/GHA-ACTIONLINT-test/).length).toBeGreaterThan(0);
 
     // Click again to expand.
     fireEvent.click(chevrons[0]);

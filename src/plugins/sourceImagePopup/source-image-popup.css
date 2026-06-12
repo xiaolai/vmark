@@ -139,10 +139,6 @@
   color: var(--error-color);
 }
 
-/* Dark theme */
-.dark-theme .source-image-popup-btn:hover {
-  background: var(--hover-bg-dark);
-}
 
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {

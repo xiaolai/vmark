@@ -5,7 +5,7 @@
 
 ## Overview
 
-VMark uses CSS custom properties with five themes (white, paper, mint, sepia, night). Principles:
+VMark uses CSS custom properties with six themes (white, paper, mint, sepia, night, solarized). Principles:
 
 - **Token-first** — no hardcoded colors
 

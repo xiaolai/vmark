@@ -1,7 +1,7 @@
 /**
  * Tests for workspace storage utilities
  *
- * @module utils/workspaceStorage.test
+ * @module services/persistence/workspaceStorage.test
  */
 import { describe, it, expect, beforeEach, vi } from "vitest";
 

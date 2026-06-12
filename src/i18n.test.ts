@@ -23,6 +23,20 @@ describe("i18n initialization", () => {
     expect(i18n.language).toBe("en");
   });
 
+  it("resolves plural keys via v4 _one/_other suffixes (audit H16)", async () => {
+    // The legacy `_plural` suffix is dead under i18next v25 — these keys
+    // silently fell back to the singular form for every count.
+    const { default: i18n } = await import("./i18n");
+    await i18n.loadNamespaces("dialog");
+    const one = i18n.t("dialog:windowClose.pinnedPrompt", { count: 1 });
+    const many = i18n.t("dialog:windowClose.pinnedPrompt", { count: 3 });
+    expect(one).toContain("1 pinned tab.");
+    expect(many).toContain("3 pinned tabs.");
+    expect(
+      i18n.t("dialog:unsavedChanges.newDocsHint", { count: 2 })
+    ).toContain("2 new documents");
+  });
+
   it("has common as default namespace", async () => {
     const { default: i18n } = await import("./i18n");
     expect(i18n.options.defaultNS).toBe("common");

@@ -40,7 +40,7 @@ import { useUIStore } from "@/stores/uiStore";
 import { useEditorStore } from "@/stores/editorStore";
 import { useMcpStore } from "@/stores/mcpStore";
 import { appendCheckpoint } from "@/stores/mcpCheckpointPersistence";
-import { getCurrentWindowLabel } from "@/utils/workspaceStorage";
+import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import {
   isWorkflowYaml,
   looksLikeWorkflowPath,

@@ -30,7 +30,7 @@ import {
   buildAssetRelativePath,
 } from "@/utils/imageUtils";
 import { computeDataHash } from "@/utils/imageHash";
-import { findExistingImage, registerImageHash } from "@/utils/imageHashRegistry";
+import { findExistingImage, registerImageHash } from "@/services/media/imageHashRegistry";
 import { resizeImageIfNeeded } from "@/services/media/imageResize";
 
 /**

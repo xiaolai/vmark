@@ -7,7 +7,7 @@ vi.mock("@tauri-apps/api/core", () => ({
 
 const confirmOpenHugeFileMock = vi.fn();
 const showHugeFileRefusalMock = vi.fn();
-vi.mock("@/utils/largeFilePrompts", () => ({
+vi.mock("@/services/dialogs/largeFilePrompts", () => ({
   confirmOpenHugeFile: (...args: unknown[]) => confirmOpenHugeFileMock(...args),
   showHugeFileRefusal: (...args: unknown[]) => showHugeFileRefusalMock(...args),
 }));

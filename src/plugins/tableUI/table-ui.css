@@ -109,10 +109,6 @@
   box-shadow: var(--popup-shadow-dark);
 }
 
-.dark-theme .table-context-menu-item:hover {
-  background: var(--hover-bg-dark);
-}
-
 /* ===========================================
  * Column Resize Handle Styles
  * =========================================== */

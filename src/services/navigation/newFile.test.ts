@@ -33,12 +33,14 @@ import { useDocumentStore } from "@/stores/documentStore";
 
 describe("createUntitledTab", () => {
   const mockCreateTab = vi.fn();
+  const mockSetTabFormatId = vi.fn();
   const mockInitDocument = vi.fn();
 
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(useTabStore.getState).mockReturnValue({
       createTab: mockCreateTab,
+      setTabFormatId: mockSetTabFormatId,
     } as unknown as ReturnType<typeof useTabStore.getState>);
     vi.mocked(useDocumentStore.getState).mockReturnValue({
       initDocument: mockInitDocument,
@@ -81,18 +83,18 @@ describe("createUntitledTab", () => {
   it("does not override formatId when caller passes 'markdown'", () => {
     mockCreateTab.mockReturnValue("tab-md");
     createUntitledTab("main", "markdown");
-    expect(useTabStore.setState).not.toHaveBeenCalled();
+    expect(mockSetTabFormatId).not.toHaveBeenCalled();
   });
 
-  it("overrides formatId via setState when caller passes a registered non-markdown id", () => {
+  it("overrides formatId via the store action when caller passes a registered non-markdown id", () => {
     mockCreateTab.mockReturnValue("tab-txt");
     createUntitledTab("main", "txt");
-    expect(useTabStore.setState).toHaveBeenCalledOnce();
+    expect(mockSetTabFormatId).toHaveBeenCalledWith("tab-txt", "txt");
   });
 
   it("does not override when caller passes an unregistered formatId", () => {
     mockCreateTab.mockReturnValue("tab-fake");
     createUntitledTab("main", "no-such-format");
-    expect(useTabStore.setState).not.toHaveBeenCalled();
+    expect(mockSetTabFormatId).not.toHaveBeenCalled();
   });
 });

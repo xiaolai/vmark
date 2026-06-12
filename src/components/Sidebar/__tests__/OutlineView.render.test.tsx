@@ -26,7 +26,7 @@ vi.mock("@/utils/perfLog", () => ({
   perfEnd: vi.fn(),
 }));
 
-vi.mock("@/utils/workspaceStorage", () => ({
+vi.mock("@/services/persistence/workspaceStorage", () => ({
   getCurrentWindowLabel: () => "main",
 }));
 
