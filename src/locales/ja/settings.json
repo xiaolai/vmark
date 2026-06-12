@@ -697,5 +697,10 @@
   "about.resetSettings.label": "すべての設定をリセット",
   "about.resetSettings.description": "すべての設定をデフォルト値に戻す",
   "about.resetSettings.button": "デフォルトにリセット",
-  "about.resetSettings.confirm": "すべての設定をデフォルトにリセットしますか？この操作は取り消せません。"
+  "about.resetSettings.confirm": "すべての設定をデフォルトにリセットしますか？この操作は取り消せません。",
+  "integrations.ccSwitch.label": "CC-Switch",
+  "integrations.ccSwitch.description": "VMark の MCP サーバーを CC-Switch に渡し、そこで管理している AI CLI に同期します。",
+  "integrations.ccSwitch.add": "CC-Switch に追加",
+  "integrations.ccSwitch.opened": "CC-Switch のインポートリンクを開きました。",
+  "integrations.ccSwitch.binaryMissing": "先に VMark MCP サーバーのバイナリをビルドしてください。"
 }

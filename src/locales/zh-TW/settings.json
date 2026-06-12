@@ -702,5 +702,10 @@
   "about.resetSettings.label": "重設所有設定",
   "about.resetSettings.description": "將每一項設定還原為預設值",
   "about.resetSettings.button": "重設為預設值",
-  "about.resetSettings.confirm": "將所有設定重設為預設值？此操作無法復原。"
+  "about.resetSettings.confirm": "將所有設定重設為預設值？此操作無法復原。",
+  "integrations.ccSwitch.label": "CC-Switch",
+  "integrations.ccSwitch.description": "將 VMark 的 MCP 伺服器交給 CC-Switch，由它同步到你在其中管理的 AI CLI。",
+  "integrations.ccSwitch.add": "加入 CC-Switch",
+  "integrations.ccSwitch.opened": "已開啟 CC-Switch 匯入連結。",
+  "integrations.ccSwitch.binaryMissing": "請先建置 VMark MCP 伺服器二進位檔。"
 }

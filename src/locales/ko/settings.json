@@ -697,5 +697,10 @@
   "about.resetSettings.label": "모든 설정 초기화",
   "about.resetSettings.description": "모든 설정을 기본값으로 복원합니다",
   "about.resetSettings.button": "기본값으로 초기화",
-  "about.resetSettings.confirm": "모든 설정을 기본값으로 초기화할까요? 이 작업은 취소할 수 없습니다."
+  "about.resetSettings.confirm": "모든 설정을 기본값으로 초기화할까요? 이 작업은 취소할 수 없습니다.",
+  "integrations.ccSwitch.label": "CC-Switch",
+  "integrations.ccSwitch.description": "VMark의 MCP 서버를 CC-Switch로 전달하면 거기서 관리하는 AI CLI에 동기화됩니다.",
+  "integrations.ccSwitch.add": "CC-Switch에 추가",
+  "integrations.ccSwitch.opened": "CC-Switch 가져오기 링크를 열었습니다.",
+  "integrations.ccSwitch.binaryMissing": "먼저 VMark MCP 서버 바이너리를 빌드하세요."
 }

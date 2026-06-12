@@ -721,5 +721,10 @@
   "about.resetSettings.label": "Redefinir todas as configurações",
   "about.resetSettings.description": "Restaurar todas as configurações para seus valores padrão",
   "about.resetSettings.button": "Redefinir para os padrões",
-  "about.resetSettings.confirm": "Redefinir todas as configurações para os padrões? Isso não pode ser desfeito."
+  "about.resetSettings.confirm": "Redefinir todas as configurações para os padrões? Isso não pode ser desfeito.",
+  "integrations.ccSwitch.label": "CC-Switch",
+  "integrations.ccSwitch.description": "Encaminhe o servidor MCP do VMark para o CC-Switch, que o sincroniza com as CLIs de IA gerenciadas lá.",
+  "integrations.ccSwitch.add": "Adicionar ao CC-Switch",
+  "integrations.ccSwitch.opened": "Link de importação do CC-Switch aberto.",
+  "integrations.ccSwitch.binaryMissing": "Compile primeiro o binário do servidor MCP do VMark."
 }

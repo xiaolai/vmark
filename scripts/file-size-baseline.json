@@ -91,7 +91,7 @@
     "src/pages/settings/FilesImagesSettings.tsx": 363,
     "src/pages/settings/IntegrationsSettings.tsx": 394,
     "src/pages/settings/LanguageSettings.tsx": 360,
-    "src/pages/settings/McpConfigInstaller.tsx": 349,
+    "src/pages/settings/McpConfigInstaller.tsx": 318,
     "src/pages/settings/components.tsx": 621,
     "src/plugins/actions/actionDefinitions.ts": 537,
     "src/plugins/aiSuggestion/tiptap.ts": 575,

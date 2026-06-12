@@ -399,7 +399,7 @@
   "about.restartToUpdate": "Redémarrer pour mettre à jour",
   "about.restarting": "Redémarrage...",
   "about.autoUpdates.label": "Mises à jour automatiques",
-  "about.autoUpdates.description": "Vérifier les mises à jour au démarrage",
+  "about.autoUpdates.description": "Vérifier périodiquement les nouvelles versions",
   "about.checkForUpdates.label": "Vérifier les mises à jour",
   "about.checkNow": "Vérifier maintenant",
   "about.checking": "Vérification...",
@@ -745,5 +745,9 @@
   "about.resetSettings.description": "Restaurer chaque paramètre à sa valeur par défaut",
   "about.resetSettings.button": "Rétablir les valeurs par défaut",
   "about.resetSettings.confirm": "Réinitialiser tous les paramètres à leurs valeurs par défaut ? Cette action est irréversible.",
-  "about.autoUpdates.description": "Vérifier périodiquement les nouvelles versions"
+  "integrations.ccSwitch.label": "CC-Switch",
+  "integrations.ccSwitch.description": "Transmettez le serveur MCP de VMark à CC-Switch, qui le synchronise avec les CLI d'IA que vous y gérez.",
+  "integrations.ccSwitch.add": "Ajouter à CC-Switch",
+  "integrations.ccSwitch.opened": "Lien d'import CC-Switch ouvert.",
+  "integrations.ccSwitch.binaryMissing": "Compilez d'abord le binaire du serveur MCP de VMark."
 }

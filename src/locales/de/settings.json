@@ -755,5 +755,10 @@
   "advanced.workflowEditorPreserveYamlFormatting.description": "When the structured editor saves changes, preserve comments, anchors, and existing formatting through a CST round-trip. Disable to reformat through plain yaml.stringify on every save (drops comments).",
   "formats.nudge.title": "VMark now opens more than markdown",
   "formats.nudge.description": "JSON, TOML, Mermaid, HTML preview, and 12 code viewers are available — turn them on whenever you want.",
-  "formats.nudge.openSettings": "Open Settings"
+  "formats.nudge.openSettings": "Open Settings",
+  "integrations.ccSwitch.label": "CC-Switch",
+  "integrations.ccSwitch.description": "VMarks MCP-Server an CC-Switch übergeben, das ihn in die dort verwalteten KI-CLIs übernimmt.",
+  "integrations.ccSwitch.add": "Zu CC-Switch hinzufügen",
+  "integrations.ccSwitch.opened": "CC-Switch-Importlink geöffnet.",
+  "integrations.ccSwitch.binaryMissing": "Erstelle zuerst die VMark-MCP-Server-Binärdatei."
 }
