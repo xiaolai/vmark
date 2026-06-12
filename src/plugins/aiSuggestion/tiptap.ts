@@ -9,6 +9,9 @@
  *
  * Key decisions:
  *   - UNDO/REDO SAFE: Document is NOT modified until user accepts — all previews are decorations
+ *   - POSITION SAFE: stored from/to are remapped through every doc-changing
+ *     transaction (onTransaction → computeSuggestionRemap); suggestions whose
+ *     target text is edited directly are dismissed as stale
  *   - Insert: ghost text widget at position
  *   - Replace: original with strikethrough + ghost text for new content
  *   - Delete: original with strikethrough
@@ -22,6 +25,7 @@
 import i18n from "@/i18n";
 import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey, type EditorState, type Transaction } from "@tiptap/pm/state";
+import type { Mapping } from "@tiptap/pm/transform";
 import { Decoration, DecorationSet, type EditorView } from "@tiptap/pm/view";
 import { useAiSuggestionStore } from "@/stores/aiStore";
 import { useEditorStore } from "@/stores/editorStore";
@@ -199,9 +203,82 @@ export function isValidPosition(suggestion: AiSuggestion, docSize: number): bool
   return suggestion.from >= 0 && suggestion.to <= docSize && suggestion.from <= suggestion.to;
 }
 
+/**
+ * Whether any replaced region of the mapping strictly overlaps [from, to).
+ * Tracks the range through each step so multi-step transactions test against
+ * the right coordinate space.
+ */
+function rangeTouched(mapping: Mapping, from: number, to: number): boolean {
+  let f = from;
+  let t = to;
+  for (const stepMap of mapping.maps) {
+    let touched = false;
+    stepMap.forEach((oldStart, oldEnd) => {
+      if (oldStart < t && oldEnd > f) touched = true;
+      // A point suggestion (f === t) deleted by a covering range.
+      if (f === t && oldStart < f && oldEnd > f) touched = true;
+    });
+    if (touched) return true;
+    f = stepMap.map(f, 1);
+    t = stepMap.map(t, -1);
+    if (t < f) t = f;
+  }
+  return false;
+}
+
+/**
+ * Compute remapped suggestion ranges after a document-changing transaction
+ * (audit H8 — stored from/to are absolute and must follow the document).
+ *
+ * - Edits outside a suggestion's range shift it (content-tracking assoc).
+ * - Edits that touch the range content dismiss the suggestion (`range: null`)
+ *   — the user is rewriting the text the AI targeted, so it is stale.
+ * - Whole-document suggestions (from === 0) survive all edits: accept clamps
+ *   `to` to the live doc size (issue #805); only `to` is tracked for display.
+ *
+ * Exported for unit testing.
+ */
+export function computeSuggestionRemap(
+  suggestions: Iterable<AiSuggestion>,
+  mapping: Mapping
+): Array<{ id: string; range: { from: number; to: number } | null }> {
+  const updates: Array<{ id: string; range: { from: number; to: number } | null }> = [];
+  for (const s of suggestions) {
+    if (s.from === 0) {
+      updates.push({ id: s.id, range: { from: 0, to: mapping.map(s.to, -1) } });
+      continue;
+    }
+    if (rangeTouched(mapping, s.from, s.to)) {
+      updates.push({ id: s.id, range: null });
+      continue;
+    }
+    if (s.from === s.to) {
+      const pos = mapping.map(s.from, 1);
+      updates.push({ id: s.id, range: { from: pos, to: pos } });
+      continue;
+    }
+    updates.push({
+      id: s.id,
+      range: { from: mapping.map(s.from, 1), to: mapping.map(s.to, -1) },
+    });
+  }
+  return updates;
+}
+
 /** Tiptap extension that renders AI suggestion decorations and handles accept/reject shortcuts. */
 export const aiSuggestionExtension = Extension.create({
   name: "aiSuggestion",
+
+  // Remap pending suggestion positions through every document change so
+  // decorations and accept always target the intended text (audit H8).
+  onTransaction({ transaction }) {
+    if (!transaction.docChanged) return;
+    const store = useAiSuggestionStore.getState();
+    if (store.suggestions.size === 0) return;
+    store.updateSuggestionRanges(
+      computeSuggestionRemap(store.suggestions.values(), transaction.mapping)
+    );
+  },
 
   addKeyboardShortcuts() {
     return {
