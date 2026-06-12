@@ -36,6 +36,7 @@
 
 import { useState, type MouseEvent, type ReactElement } from "react";
 import { useTranslation } from "react-i18next";
+import { diagnosticMessage } from "./diagnosticI18n";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { EditorView as CMEditorView } from "@codemirror/view";
 import type { Diagnostic, Severity } from "@/lib/ghaWorkflow/types";
@@ -224,7 +225,7 @@ export function DiagnosticsBanner({
 
           const messageNode = (
             <span className="workflow-diagnostics-banner__message">
-              {diag.message}
+              {diagnosticMessage(t, diag)}
             </span>
           );
 

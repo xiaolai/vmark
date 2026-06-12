@@ -2,10 +2,10 @@
   "unsavedChanges": {
     "title": "Cambios sin guardar",
     "single": "¿Deseas guardar los cambios en \"{{title}}\"?",
-    "multiple": "Tienes {{count}} documento sin guardar:\n\n• {{list}}",
-    "multiple_plural": "Tienes {{count}} documentos sin guardar:\n\n• {{list}}",
-    "newDocsHint": "{{count}} documento nuevo necesitará una ubicación de guardado.",
-    "newDocsHint_plural": "{{count}} documentos nuevos necesitarán una ubicación de guardado.",
+    "multiple_one": "Tienes {{count}} documento sin guardar:\n\n• {{list}}",
+    "multiple_other": "Tienes {{count}} documentos sin guardar:\n\n• {{list}}",
+    "newDocsHint_one": "{{count}} documento nuevo necesitará una ubicación de guardado.",
+    "newDocsHint_other": "{{count}} documentos nuevos necesitarán una ubicación de guardado.",
     "openInNewWindow": "Esta ventana tiene cambios sin guardar. ¿Abrir el espacio de trabajo en una nueva ventana?",
     "openInNewWindowOk": "Abrir en nueva ventana",
     "openInNewWindowCancel": "Cancelar",
@@ -19,8 +19,8 @@
   },
   "windowClose": {
     "pinnedTitle": "¿Cerrar ventana?",
-    "pinnedPrompt": "Esta ventana tiene {{count}} pestaña fijada. ¿Cerrar de todos modos?",
-    "pinnedPrompt_plural": "Esta ventana tiene {{count}} pestañas fijadas. ¿Cerrar de todos modos?",
+    "pinnedPrompt_one": "Esta ventana tiene {{count}} pestaña fijada. ¿Cerrar de todos modos?",
+    "pinnedPrompt_other": "Esta ventana tiene {{count}} pestañas fijadas. ¿Cerrar de todos modos?",
     "confirmClose": "Cerrar ventana"
   },
   "fileChanged": {

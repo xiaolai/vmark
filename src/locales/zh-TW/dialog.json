@@ -2,10 +2,10 @@
   "unsavedChanges": {
     "title": "未儲存的變更",
     "single": "是否要儲存對「{{title}}」的變更？",
-    "multiple": "您有 {{count}} 份未儲存的文件：\n\n• {{list}}",
-    "multiple_plural": "您有 {{count}} 份未儲存的文件：\n\n• {{list}}",
-    "newDocsHint": "{{count}} 份新文件需要指定儲存位置。",
-    "newDocsHint_plural": "{{count}} 份新文件需要指定儲存位置。",
+    "multiple_one": "您有 {{count}} 份未儲存的文件：\n\n• {{list}}",
+    "multiple_other": "您有 {{count}} 份未儲存的文件：\n\n• {{list}}",
+    "newDocsHint_one": "{{count}} 份新文件需要指定儲存位置。",
+    "newDocsHint_other": "{{count}} 份新文件需要指定儲存位置。",
     "openInNewWindow": "此視窗有未儲存的變更。是否改為在新視窗開啟工作區？",
     "openInNewWindowOk": "在新視窗中開啟",
     "openInNewWindowCancel": "取消",
@@ -19,8 +19,8 @@
   },
   "windowClose": {
     "pinnedTitle": "關閉視窗?",
-    "pinnedPrompt": "此視窗有 {{count}} 個釘選分頁。仍要關閉嗎?",
-    "pinnedPrompt_plural": "此視窗有 {{count}} 個釘選分頁。仍要關閉嗎?",
+    "pinnedPrompt_one": "此視窗有 {{count}} 個釘選分頁。仍要關閉嗎?",
+    "pinnedPrompt_other": "此視窗有 {{count}} 個釘選分頁。仍要關閉嗎?",
     "confirmClose": "關閉視窗"
   },
   "fileChanged": {

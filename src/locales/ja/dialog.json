@@ -2,10 +2,10 @@
   "unsavedChanges": {
     "title": "未保存の変更",
     "single": "「{{title}}」への変更を保存しますか？",
-    "multiple": "{{count}}個の未保存ドキュメントがあります:\n\n• {{list}}",
-    "multiple_plural": "{{count}}個の未保存ドキュメントがあります:\n\n• {{list}}",
-    "newDocsHint": "{{count}}個の新しいドキュメントの保存場所を指定する必要があります。",
-    "newDocsHint_plural": "{{count}}個の新しいドキュメントの保存場所を指定する必要があります。",
+    "multiple_one": "{{count}}個の未保存ドキュメントがあります:\n\n• {{list}}",
+    "multiple_other": "{{count}}個の未保存ドキュメントがあります:\n\n• {{list}}",
+    "newDocsHint_one": "{{count}}個の新しいドキュメントの保存場所を指定する必要があります。",
+    "newDocsHint_other": "{{count}}個の新しいドキュメントの保存場所を指定する必要があります。",
     "openInNewWindow": "このウィンドウに未保存の変更があります。代わりに新しいウィンドウでワークスペースを開きますか？",
     "openInNewWindowOk": "新しいウィンドウで開く",
     "openInNewWindowCancel": "キャンセル",
@@ -19,8 +19,8 @@
   },
   "windowClose": {
     "pinnedTitle": "ウィンドウを閉じますか?",
-    "pinnedPrompt": "このウィンドウには {{count}} 個のピン留めされたタブがあります。閉じてもよろしいですか?",
-    "pinnedPrompt_plural": "このウィンドウには {{count}} 個のピン留めされたタブがあります。閉じてもよろしいですか?",
+    "pinnedPrompt_one": "このウィンドウには {{count}} 個のピン留めされたタブがあります。閉じてもよろしいですか?",
+    "pinnedPrompt_other": "このウィンドウには {{count}} 個のピン留めされたタブがあります。閉じてもよろしいですか?",
     "confirmClose": "ウィンドウを閉じる"
   },
   "fileChanged": {

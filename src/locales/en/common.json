@@ -28,12 +28,10 @@
   "noResults": "No results",
   "selectAll": "Select All",
   "deselectAll": "Deselect All",
-
   "aria.sidebar": "Sidebar",
   "aria.mainContent": "Main content",
   "aria.appTitleBar": "Application title bar",
   "aria.sidebarResize": "Resize sidebar (use Left and Right arrow keys)",
-
   "untitled": "Untitled",
   "unknown": "Unknown",
   "running": "Running",
@@ -43,7 +41,6 @@
   "closeTab": "Close {{title}}",
   "tabActions": "Tab actions",
   "resize": "Resize",
-
   "format.markdown": "Markdown",
   "format.txt": "Plain Text",
   "format.json": "JSON",
@@ -60,5 +57,17 @@
   "format.codeCss": "CSS",
   "format.codeShell": "Shell",
   "format.codeRuby": "Ruby",
-  "format.codeLua": "Lua"
+  "format.codeLua": "Lua",
+  "tabMenu.moveToNewWindow": "Move to New Window",
+  "tabMenu.pin": "Pin",
+  "tabMenu.unpin": "Unpin",
+  "tabMenu.copyPath": "Copy Path",
+  "tabMenu.copyRelativePath": "Copy Relative Path",
+  "tabMenu.restoreToDisk": "Restore to Disk",
+  "tabMenu.revertToSaved": "Revert to Saved",
+  "tabMenu.close": "Close",
+  "tabMenu.closeOthers": "Close Others",
+  "tabMenu.closeTabsRight": "Close Tabs to the Right",
+  "tabMenu.closeUnpinned": "Close All Unpinned Tabs",
+  "tabMenu.closeAll": "Close All"
 }

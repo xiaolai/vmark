@@ -253,10 +253,23 @@ function checkJsonLocales(): boolean {
 
   // Build map: namespace → source keys
   const sourceMap = new Map<string, string[]>();
+  let legacyPluralFound = false;
   for (const file of enFiles) {
     const keys = loadJsonKeys(join(enDir, file));
     sourceMap.set(file, keys);
+
+    // i18next v4+ resolves plurals via _one/_other; legacy v3 suffixes
+    // (_plural, _0) are silently dead — t() falls back to the singular
+    // base key for every count (audit 20260612 H16).
+    const legacy = keys.filter((k) => /_(plural|0)$/.test(k));
+    if (legacy.length > 0) {
+      console.error(
+        `[ERROR] en/${file} — dead legacy plural suffix (use _one/_other): ${legacy.join(", ")}`
+      );
+      legacyPluralFound = true;
+    }
   }
+  if (legacyPluralFound) return false;
 
   // Find other language directories
   const langDirs = readdirSync(localesDir, { withFileTypes: true })

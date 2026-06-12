@@ -15,6 +15,7 @@ import { forwardRef, useEffect, useMemo, useRef } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { isSeparator, type ToolbarMenuItem, type ToolbarActionItem } from "./toolbarGroups";
+import { toolbarItemLabel } from "./toolbarI18n";
 import type { ToolbarItemState } from "@/plugins/toolbarActions/enableRules";
 
 interface GroupDropdownItem {
@@ -265,13 +266,17 @@ const GroupDropdown = forwardRef<HTMLDivElement, GroupDropdownProps>(
                 }
               }}
               tabIndex={-1}
-              title={state.notImplemented ? t("toolbar.notAvailable", { label: actionItem.label }) : actionItem.label}
+              title={
+                state.notImplemented
+                  ? t("toolbar.notAvailable", { label: toolbarItemLabel(t, actionItem) })
+                  : toolbarItemLabel(t, actionItem)
+              }
             >
               <span
                 className="universal-toolbar-dropdown-icon"
                 dangerouslySetInnerHTML={{ __html: actionItem.icon }}
               />
-              <span className="universal-toolbar-dropdown-label">{actionItem.label}</span>
+              <span className="universal-toolbar-dropdown-label">{toolbarItemLabel(t, actionItem)}</span>
               {actionItem.shortcut && (
                 <span className="universal-toolbar-dropdown-shortcut">{actionItem.shortcut}</span>
               )}

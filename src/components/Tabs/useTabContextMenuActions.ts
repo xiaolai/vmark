@@ -250,24 +250,24 @@ export function useTabContextMenuActions({
   return useMemo(() => [
     {
       id: "moveToNewWindow",
-      label: "Move to New Window",
+      label: i18n.t("tabMenu.moveToNewWindow"),
       action: handleMoveToNewWindow,
       disabled: !canMoveToNewWindow,
     },
     {
       id: "pin",
-      label: tab.isPinned ? "Unpin" : "Pin",
+      label: tab.isPinned ? i18n.t("tabMenu.unpin") : i18n.t("tabMenu.pin"),
       action: handlePin,
     },
     {
       id: "copyPath",
-      label: "Copy Path",
+      label: i18n.t("tabMenu.copyPath"),
       action: handleCopyPath,
       disabled: !filePath,
     },
     {
       id: "copyRelativePath",
-      label: "Copy Relative Path",
+      label: i18n.t("tabMenu.copyRelativePath"),
       action: handleCopyRelativePath,
       disabled: !canCopyRelativePath,
     },
@@ -280,46 +280,46 @@ export function useTabContextMenuActions({
     ...(doc?.isMissing && filePath
       ? [{
           id: "restoreToDisk",
-          label: "Restore to Disk",
+          label: i18n.t("tabMenu.restoreToDisk"),
           action: handleRestoreToDisk,
         } satisfies TabMenuItem]
       : []),
     ...(doc?.isDirty && filePath && !doc?.isMissing
       ? [{
           id: "revertToSaved",
-          label: "Revert to Saved",
+          label: i18n.t("tabMenu.revertToSaved"),
           action: handleRevertToSaved,
         } satisfies TabMenuItem]
       : []),
     { id: "separator-1", label: "", action: () => {}, separator: true },
     {
       id: "close",
-      label: "Close",
+      label: i18n.t("tabMenu.close"),
       action: handleClose,
       disabled: tab.isPinned,
       shortcut: closeShortcutLabel,
     },
     {
       id: "closeOthers",
-      label: "Close Others",
+      label: i18n.t("tabMenu.closeOthers"),
       action: handleCloseOthers,
       disabled: !hasOtherTabs,
     },
     {
       id: "closeRight",
-      label: "Close Tabs to the Right",
+      label: i18n.t("tabMenu.closeTabsRight"),
       action: handleCloseToRight,
       disabled: !hasTabsToRight,
     },
     {
       id: "closeAllUnpinned",
-      label: "Close All Unpinned Tabs",
+      label: i18n.t("tabMenu.closeUnpinned"),
       action: handleCloseAllUnpinned,
       disabled: !hasUnpinnedTabs,
     },
     {
       id: "closeAll",
-      label: "Close All",
+      label: i18n.t("tabMenu.closeAll"),
       action: handleCloseAll,
     },
   ], [

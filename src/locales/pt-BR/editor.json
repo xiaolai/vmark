@@ -307,5 +307,21 @@
   "npm.optionalDependencies": "Optional dependencies",
   "python.optionalGroup": "Optional [{{group}}]",
   "python.poetryDependencies": "Poetry dependencies",
-  "python.poetryDevDependencies": "Poetry dev dependencies"
+  "python.poetryDevDependencies": "Poetry dev dependencies",
+  "tableMenu.insertRowAbove": "Inserir linha acima",
+  "tableMenu.insertRowBelow": "Inserir linha abaixo",
+  "tableMenu.insertColLeft": "Inserir coluna à esquerda",
+  "tableMenu.insertColRight": "Inserir coluna à direita",
+  "tableMenu.deleteRow": "Excluir linha",
+  "tableMenu.deleteCol": "Excluir coluna",
+  "tableMenu.deleteTable": "Excluir tabela",
+  "tableMenu.alignColLeft": "Alinhar coluna à esquerda",
+  "tableMenu.alignColCenter": "Centralizar coluna",
+  "tableMenu.alignColRight": "Alinhar coluna à direita",
+  "tableMenu.alignAllLeft": "Alinhar tudo à esquerda",
+  "tableMenu.alignAllCenter": "Centralizar tudo",
+  "tableMenu.alignAllRight": "Alinhar tudo à direita",
+  "tableMenu.formatTable": "Formatar tabela",
+  "tableMenu.fitToWidth": "Ajustar à largura",
+  "tableMenu.naturalWidth": "Largura natural"
 }

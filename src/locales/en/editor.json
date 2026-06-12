@@ -32,7 +32,6 @@
   "python.optionalGroup": "Optional [{{group}}]",
   "python.poetryDependencies": "Poetry dependencies",
   "python.poetryDevDependencies": "Poetry dev dependencies",
-
   "toolbar.group.heading": "Heading",
   "toolbar.group.inline": "Inline",
   "toolbar.group.list": "List",
@@ -40,7 +39,6 @@
   "toolbar.group.blockquote": "Blockquote",
   "toolbar.group.insert": "Insert",
   "toolbar.group.link": "Link",
-
   "toolbar.heading.paragraph": "Paragraph",
   "toolbar.heading.h1": "Heading 1",
   "toolbar.heading.h2": "Heading 2",
@@ -48,7 +46,6 @@
   "toolbar.heading.h4": "Heading 4",
   "toolbar.heading.h5": "Heading 5",
   "toolbar.heading.h6": "Heading 6",
-
   "toolbar.inline.bold": "Bold",
   "toolbar.inline.italic": "Italic",
   "toolbar.inline.underline": "Underline",
@@ -58,14 +55,12 @@
   "toolbar.inline.subscript": "Subscript",
   "toolbar.inline.code": "Inline Code",
   "toolbar.inline.clearFormatting": "Clear Formatting",
-
   "toolbar.list.bullet": "Bullet List",
   "toolbar.list.ordered": "Ordered List",
   "toolbar.list.task": "Task List",
   "toolbar.list.indent": "Indent",
   "toolbar.list.outdent": "Outdent",
   "toolbar.list.remove": "Remove List",
-
   "toolbar.table.insert": "Insert Table",
   "toolbar.table.rowAbove": "Row Above",
   "toolbar.table.rowBelow": "Row Below",
@@ -81,11 +76,9 @@
   "toolbar.table.alignAllCenter": "Align All Center",
   "toolbar.table.alignAllRight": "Align All Right",
   "toolbar.table.format": "Format Table",
-
   "toolbar.blockquote.blockquote": "Blockquote",
   "toolbar.blockquote.nestDeeper": "Nest Deeper",
   "toolbar.blockquote.unnest": "Unnest",
-
   "toolbar.insert.image": "Image",
   "toolbar.insert.video": "Video",
   "toolbar.insert.audio": "Audio",
@@ -100,27 +93,22 @@
   "toolbar.insert.alertWarning": "Alert Warning",
   "toolbar.insert.alertCaution": "Alert Caution",
   "toolbar.insert.divider": "Divider",
-
   "toolbar.link.hyperlink": "Hyperlink",
   "toolbar.link.bookmark": "Bookmark",
   "toolbar.link.wikiLink": "Wiki Link",
   "toolbar.link.footnote": "Footnote",
-
   "toolbar.notAvailable": "{{label}} — Not available yet",
   "toolbar.aria.headingLevels": "Heading levels",
   "toolbar.aria.groupOptions": "{{group}} options",
-
   "headingPicker.filter.placeholder": "Filter headings...",
   "headingPicker.empty.heading": "(empty heading)",
   "headingPicker.empty.noHeadings": "No headings in document",
   "headingPicker.empty.noMatch": "No headings match filter",
   "headingPicker.ariaLabel": "Heading picker",
-
   "imageMenu.ariaLabel": "Image actions",
   "imageMenu.changeImage": "Change Image...",
   "imageMenu.deleteImage": "Delete Image",
   "imageMenu.copyPath": "Copy Image Path",
-
   "findbar.toggleRegex": "Use Regular Expression",
   "findbar.toggleCase": "Match Case",
   "findbar.toggleWholeWord": "Whole Word",
@@ -136,41 +124,34 @@
   "findbar.close": "Close (Esc)",
   "findbar.noResults": "No results",
   "findbar.matchCount": "{{current}} of {{total}}",
-
   "dropZone.single": "Drop to insert image",
   "dropZone.multiple": "Drop to insert {{count}} images",
-
   "popup.link.url.placeholder": "URL...",
   "popup.link.openLink": "Open link",
   "popup.link.goToHeading": "Go to heading",
   "popup.link.copyUrl": "Copy URL",
   "popup.link.save": "Save",
   "popup.link.remove": "Remove link",
-
   "popup.linkCreate.text.placeholder": "Link text...",
   "popup.linkCreate.url.placeholder": "URL...",
   "popup.linkCreate.create": "Create link",
   "popup.linkCreate.cancel": "Cancel",
-
   "popup.footnote.content.placeholder": "Footnote content...",
   "popup.footnote.goToDefinition": "Go to definition",
   "popup.footnote.goToReference": "Go to reference",
   "popup.footnote.save": "Save (Enter)",
   "popup.footnote.remove": "Remove footnote",
-
   "popup.wikiLink.target.placeholder": "Target page",
   "popup.wikiLink.browse": "Browse for file",
   "popup.wikiLink.open": "Open linked file",
   "popup.wikiLink.copy": "Copy target",
   "popup.wikiLink.save": "Save",
   "popup.wikiLink.remove": "Remove wiki link",
-
   "popup.math.input.placeholder": "Enter LaTeX...",
   "popup.math.save": "Save",
   "popup.math.cancel": "Cancel",
   "popup.math.invalidLatex": "Invalid LaTeX",
   "popup.math.previewFailed": "LaTeX preview failed",
-
   "popup.media.src.placeholder": "Media source path or URL...",
   "popup.media.alt.placeholder": "Caption (alt text)...",
   "popup.media.title.placeholder": "Title (optional)...",
@@ -181,19 +162,16 @@
   "popup.media.toggleInline": "Convert to inline",
   "popup.media.toggleBlockInline": "Toggle block/inline",
   "popup.media.remove": "Remove media",
-
   "popup.sourceImage.src.placeholder": "Image URL or path...",
   "popup.sourceImage.alt.placeholder": "Caption (alt text)...",
   "popup.sourceImage.browse": "Browse local file",
   "popup.sourceImage.copy": "Copy path",
   "popup.sourceImage.remove": "Remove image",
-
   "popup.sourceWikiLink.target.placeholder": "Target page...",
   "popup.sourceWikiLink.browse": "Browse for file",
   "popup.sourceWikiLink.open": "Open linked file",
   "popup.sourceWikiLink.copy": "Copy target",
   "popup.sourceWikiLink.remove": "Remove wiki link",
-
   "quickOpen.placeholder": "Open file...",
   "quickOpen.recentPlaceholder": "Open recent file...",
   "quickOpen.ariaLabel": "Quick Open",
@@ -202,10 +180,8 @@
   "quickOpen.hintNavigate": "navigate",
   "quickOpen.hintOpen": "open",
   "quickOpen.hintClose": "close",
-
   "toolbar.ariaLabel": "Formatting toolbar",
   "toolbar.aiPrompts": "AI Prompts",
-
   "lint.E01": "Undefined reference: [{{ref}}]",
   "lint.E02": "Table row has {{actual}} cells but header has {{expected}}",
   "lint.E03": "Reversed link — did you mean [text](url)?",
@@ -223,7 +199,6 @@
   "lint.imageNotFound": "Image file not found: {{path}}",
   "lint.yamlParseError": "YAML: {{message}}",
   "lint.yamlParseWarning": "YAML: {{message}}",
-
   "plugin.exportPng": "Export as PNG",
   "plugin.zoomOut": "Zoom out",
   "plugin.zoomIn": "Zoom in",
@@ -234,13 +209,12 @@
   "plugin.cancel": "Cancel (Esc)",
   "plugin.save": "Save",
   "plugin.toggleLivePreview": "Toggle live preview",
-  "plugin.saveCmdEnter": "Save (\u2318+Enter)",
+  "plugin.saveCmdEnter": "Save (⌘+Enter)",
   "plugin.insertAsImage": "Insert as Image",
   "plugin.pasteAsText": "Paste as Text",
   "plugin.imageDetected": "Image detected",
   "plugin.acceptSuggestion": "Accept (Enter)",
   "plugin.rejectSuggestion": "Reject (Escape)",
-
   "preview.loading": "Loading…",
   "preview.noMediaPath": "No media path",
   "preview.pathResolutionFailed": "Path resolution failed",
@@ -253,11 +227,8 @@
   "preview.emptySvg": "Empty SVG",
   "preview.emptyWorkflow": "Empty workflow",
   "preview.emptyMath": "Empty math block",
-
   "frontmatter.label": "Frontmatter",
-
   "workflow.noPreview": "No workflow preview available",
-
   "sourceTable.menu.insertRowAbove": "Insert Row Above",
   "sourceTable.menu.insertRowBelow": "Insert Row Below",
   "sourceTable.menu.insertColumnLeft": "Insert Column Left",
@@ -271,5 +242,21 @@
   "sourceTable.menu.alignAllLeft": "Align All Left",
   "sourceTable.menu.alignAllCenter": "Align All Center",
   "sourceTable.menu.alignAllRight": "Align All Right",
-  "sourceTable.menu.formatTable": "Format Table"
+  "sourceTable.menu.formatTable": "Format Table",
+  "tableMenu.insertRowAbove": "Insert Row Above",
+  "tableMenu.insertRowBelow": "Insert Row Below",
+  "tableMenu.insertColLeft": "Insert Column Left",
+  "tableMenu.insertColRight": "Insert Column Right",
+  "tableMenu.deleteRow": "Delete Row",
+  "tableMenu.deleteCol": "Delete Column",
+  "tableMenu.deleteTable": "Delete Table",
+  "tableMenu.alignColLeft": "Align Column Left",
+  "tableMenu.alignColCenter": "Align Column Center",
+  "tableMenu.alignColRight": "Align Column Right",
+  "tableMenu.alignAllLeft": "Align All Left",
+  "tableMenu.alignAllCenter": "Align All Center",
+  "tableMenu.alignAllRight": "Align All Right",
+  "tableMenu.formatTable": "Format Table",
+  "tableMenu.fitToWidth": "Fit to Width",
+  "tableMenu.naturalWidth": "Natural Width"
 }

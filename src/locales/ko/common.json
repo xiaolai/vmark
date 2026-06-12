@@ -61,5 +61,17 @@
   "format.codeCss": "CSS",
   "format.codeShell": "Shell",
   "format.codeRuby": "Ruby",
-  "format.codeLua": "Lua"
+  "format.codeLua": "Lua",
+  "tabMenu.moveToNewWindow": "새 창으로 이동",
+  "tabMenu.pin": "고정",
+  "tabMenu.unpin": "고정 해제",
+  "tabMenu.copyPath": "경로 복사",
+  "tabMenu.copyRelativePath": "상대 경로 복사",
+  "tabMenu.restoreToDisk": "디스크로 복원",
+  "tabMenu.revertToSaved": "저장된 상태로 되돌리기",
+  "tabMenu.close": "닫기",
+  "tabMenu.closeOthers": "다른 탭 닫기",
+  "tabMenu.closeTabsRight": "오른쪽 탭 닫기",
+  "tabMenu.closeUnpinned": "고정되지 않은 탭 모두 닫기",
+  "tabMenu.closeAll": "모두 닫기"
 }

@@ -301,5 +301,21 @@
   "npm.optionalDependencies": "Optional dependencies",
   "python.optionalGroup": "Optional [{{group}}]",
   "python.poetryDependencies": "Poetry dependencies",
-  "python.poetryDevDependencies": "Poetry dev dependencies"
+  "python.poetryDevDependencies": "Poetry dev dependencies",
+  "tableMenu.insertRowAbove": "위에 행 삽입",
+  "tableMenu.insertRowBelow": "아래에 행 삽입",
+  "tableMenu.insertColLeft": "왼쪽에 열 삽입",
+  "tableMenu.insertColRight": "오른쪽에 열 삽입",
+  "tableMenu.deleteRow": "행 삭제",
+  "tableMenu.deleteCol": "열 삭제",
+  "tableMenu.deleteTable": "표 삭제",
+  "tableMenu.alignColLeft": "열 왼쪽 정렬",
+  "tableMenu.alignColCenter": "열 가운데 정렬",
+  "tableMenu.alignColRight": "열 오른쪽 정렬",
+  "tableMenu.alignAllLeft": "모두 왼쪽 정렬",
+  "tableMenu.alignAllCenter": "모두 가운데 정렬",
+  "tableMenu.alignAllRight": "모두 오른쪽 정렬",
+  "tableMenu.formatTable": "표 서식 정리",
+  "tableMenu.fitToWidth": "너비에 맞춤",
+  "tableMenu.naturalWidth": "원래 너비"
 }

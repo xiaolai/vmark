@@ -301,5 +301,21 @@
   "npm.optionalDependencies": "Optional dependencies",
   "python.optionalGroup": "Optional [{{group}}]",
   "python.poetryDependencies": "Poetry dependencies",
-  "python.poetryDevDependencies": "Poetry dev dependencies"
+  "python.poetryDevDependencies": "Poetry dev dependencies",
+  "tableMenu.insertRowAbove": "上に行を挿入",
+  "tableMenu.insertRowBelow": "下に行を挿入",
+  "tableMenu.insertColLeft": "左に列を挿入",
+  "tableMenu.insertColRight": "右に列を挿入",
+  "tableMenu.deleteRow": "行を削除",
+  "tableMenu.deleteCol": "列を削除",
+  "tableMenu.deleteTable": "表を削除",
+  "tableMenu.alignColLeft": "列を左揃え",
+  "tableMenu.alignColCenter": "列を中央揃え",
+  "tableMenu.alignColRight": "列を右揃え",
+  "tableMenu.alignAllLeft": "すべて左揃え",
+  "tableMenu.alignAllCenter": "すべて中央揃え",
+  "tableMenu.alignAllRight": "すべて右揃え",
+  "tableMenu.formatTable": "表を整形",
+  "tableMenu.fitToWidth": "幅に合わせる",
+  "tableMenu.naturalWidth": "自然な幅"
 }

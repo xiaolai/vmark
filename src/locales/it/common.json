@@ -61,5 +61,17 @@
   "format.codeCss": "CSS",
   "format.codeShell": "Shell",
   "format.codeRuby": "Ruby",
-  "format.codeLua": "Lua"
+  "format.codeLua": "Lua",
+  "tabMenu.moveToNewWindow": "Sposta in una nuova finestra",
+  "tabMenu.pin": "Fissa",
+  "tabMenu.unpin": "Sblocca",
+  "tabMenu.copyPath": "Copia percorso",
+  "tabMenu.copyRelativePath": "Copia percorso relativo",
+  "tabMenu.restoreToDisk": "Ripristina su disco",
+  "tabMenu.revertToSaved": "Torna alla versione salvata",
+  "tabMenu.close": "Chiudi",
+  "tabMenu.closeOthers": "Chiudi altre",
+  "tabMenu.closeTabsRight": "Chiudi schede a destra",
+  "tabMenu.closeUnpinned": "Chiudi schede non fissate",
+  "tabMenu.closeAll": "Chiudi tutto"
 }

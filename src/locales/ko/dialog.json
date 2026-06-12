@@ -2,10 +2,10 @@
   "unsavedChanges": {
     "title": "저장되지 않은 변경 사항",
     "single": "\"{{title}}\"의 변경 사항을 저장할까요?",
-    "multiple": "저장되지 않은 문서가 {{count}}개 있습니다:\n\n• {{list}}",
-    "multiple_plural": "저장되지 않은 문서가 {{count}}개 있습니다:\n\n• {{list}}",
-    "newDocsHint": "새 문서 {{count}}개의 저장 위치가 필요합니다.",
-    "newDocsHint_plural": "새 문서 {{count}}개의 저장 위치가 필요합니다.",
+    "multiple_one": "저장되지 않은 문서가 {{count}}개 있습니다:\n\n• {{list}}",
+    "multiple_other": "저장되지 않은 문서가 {{count}}개 있습니다:\n\n• {{list}}",
+    "newDocsHint_one": "새 문서 {{count}}개의 저장 위치가 필요합니다.",
+    "newDocsHint_other": "새 문서 {{count}}개의 저장 위치가 필요합니다.",
     "openInNewWindow": "이 창에 저장되지 않은 변경 사항이 있습니다. 대신 새 창에서 워크스페이스를 여시겠습니까?",
     "openInNewWindowOk": "새 창에서 열기",
     "openInNewWindowCancel": "취소",
@@ -19,8 +19,8 @@
   },
   "windowClose": {
     "pinnedTitle": "창을 닫으시겠습니까?",
-    "pinnedPrompt": "이 창에 {{count}}개의 고정된 탭이 있습니다. 그래도 닫으시겠습니까?",
-    "pinnedPrompt_plural": "이 창에 {{count}}개의 고정된 탭이 있습니다. 그래도 닫으시겠습니까?",
+    "pinnedPrompt_one": "이 창에 {{count}}개의 고정된 탭이 있습니다. 그래도 닫으시겠습니까?",
+    "pinnedPrompt_other": "이 창에 {{count}}개의 고정된 탭이 있습니다. 그래도 닫으시겠습니까?",
     "confirmClose": "창 닫기"
   },
   "fileChanged": {

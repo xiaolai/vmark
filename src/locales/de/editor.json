@@ -316,5 +316,21 @@
   "npm.optionalDependencies": "Optional dependencies",
   "python.optionalGroup": "Optional [{{group}}]",
   "python.poetryDependencies": "Poetry dependencies",
-  "python.poetryDevDependencies": "Poetry dev dependencies"
+  "python.poetryDevDependencies": "Poetry dev dependencies",
+  "tableMenu.insertRowAbove": "Zeile oberhalb einfügen",
+  "tableMenu.insertRowBelow": "Zeile unterhalb einfügen",
+  "tableMenu.insertColLeft": "Spalte links einfügen",
+  "tableMenu.insertColRight": "Spalte rechts einfügen",
+  "tableMenu.deleteRow": "Zeile löschen",
+  "tableMenu.deleteCol": "Spalte löschen",
+  "tableMenu.deleteTable": "Tabelle löschen",
+  "tableMenu.alignColLeft": "Spalte linksbündig",
+  "tableMenu.alignColCenter": "Spalte zentrieren",
+  "tableMenu.alignColRight": "Spalte rechtsbündig",
+  "tableMenu.alignAllLeft": "Alle linksbündig",
+  "tableMenu.alignAllCenter": "Alle zentrieren",
+  "tableMenu.alignAllRight": "Alle rechtsbündig",
+  "tableMenu.formatTable": "Tabelle formatieren",
+  "tableMenu.fitToWidth": "An Breite anpassen",
+  "tableMenu.naturalWidth": "Natürliche Breite"
 }

@@ -301,5 +301,21 @@
   "npm.optionalDependencies": "Optional dependencies",
   "python.optionalGroup": "Optional [{{group}}]",
   "python.poetryDependencies": "Poetry dependencies",
-  "python.poetryDevDependencies": "Poetry dev dependencies"
+  "python.poetryDevDependencies": "Poetry dev dependencies",
+  "tableMenu.insertRowAbove": "在上方插入行",
+  "tableMenu.insertRowBelow": "在下方插入行",
+  "tableMenu.insertColLeft": "在左侧插入列",
+  "tableMenu.insertColRight": "在右侧插入列",
+  "tableMenu.deleteRow": "删除行",
+  "tableMenu.deleteCol": "删除列",
+  "tableMenu.deleteTable": "删除表格",
+  "tableMenu.alignColLeft": "列左对齐",
+  "tableMenu.alignColCenter": "列居中对齐",
+  "tableMenu.alignColRight": "列右对齐",
+  "tableMenu.alignAllLeft": "全部左对齐",
+  "tableMenu.alignAllCenter": "全部居中对齐",
+  "tableMenu.alignAllRight": "全部右对齐",
+  "tableMenu.formatTable": "格式化表格",
+  "tableMenu.fitToWidth": "适应宽度",
+  "tableMenu.naturalWidth": "自然宽度"
 }
