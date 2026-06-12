@@ -10,6 +10,7 @@ vi.mock("@/services/persistence/workspaceStorage", () => ({
 
 vi.mock("@/stores/mcpCheckpointPersistence", () => ({
   rewriteAll: vi.fn(async () => undefined),
+  clearCheckpointsOnDisk: vi.fn(async () => undefined),
 }));
 
 const toastMock = vi.hoisted(() => ({
