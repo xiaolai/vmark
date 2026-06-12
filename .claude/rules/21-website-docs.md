@@ -39,7 +39,7 @@ Update website docs when:
 
 | Source Code Area | Website Page |
 |------------------|--------------|
-| `src/stores/shortcutsStore.ts` | `website/guide/shortcuts.md` |
+| `src/stores/settingsStore/shortcuts.ts` | `website/guide/shortcuts.md` |
 | `src-tauri/src/menu/` | `website/guide/shortcuts.md` |
 | `src-tauri/src/mcp_bridge/`, `mcp_config/`, `mcp_server.rs` | `website/guide/mcp-tools.md` |
 | Popup components | `website/guide/popups.md` |
@@ -54,7 +54,7 @@ Update website docs when:
 | `src/lib/lintEngine/`, `src/plugins/lint/` | `website/guide/lint.md` |
 | `src/lib/markdownLinkCheck/` | `website/guide/link-check.md` |
 | `src-tauri/src/content_search.rs` | `website/guide/workspace-management.md` (Workspace Content Search) |
-| `src/plugins/aiSuggestion/`, `src/stores/aiSuggestionStore.ts` | `website/guide/ai-genies.md` (AI Suggestions section) |
+| `src/plugins/aiSuggestion/`, `src/stores/aiStore/suggestion.ts` | `website/guide/ai-genies.md` (AI Suggestions section) |
 | `src/lib/formats/` (registry + adapters) | `website/guide/formats.md` |
 | `src/components/Editor/SplitPaneEditor/` | `website/guide/formats.md` |
 | `src/pages/settings/FormatsSettings.tsx` | `website/guide/settings.md` (Formats section) |

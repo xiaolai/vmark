@@ -25,7 +25,6 @@ export default defineConfig({
     },
     coverage: {
       provider: "v8",
-      clean: false,
       reporter: ["text", "json", "json-summary", "html"],
       exclude: [
         "node_modules/",
@@ -102,7 +101,17 @@ export default defineConfig({
         // Relaxed 0.45 pp (93.25 → 92.80) by RW-15 a11y track — same cause
         // as the branches note below: FileExplorer.tsx/TitleBar.tsx first
         // measured. Actual: 92.84; buffer 0.04 pp.
-        statements: 92.8,
+        // Re-baselined 92.80 -> 92.30 on 2026-06-12 (audit H10): the blanket
+        // "**/index.ts" coverage exclusion was hiding ~2,200 lines of real
+        // plugin/dispatcher logic. That logic now lives in named modules
+        // (plugin.ts etc.) measured by the gate; the population grew, so the
+        // percentage dropped while the gate got strictly more honest.
+        // Actual: 92.34; buffer 0.04 pp. TODO: ratchet by testing the
+        // under-covered movers: export/reader/readerBundle.ts (0 %),
+        // hooks/mcpBridge/useMcpBridge.ts (3 %), plugins/tableScroll (9 %),
+        // plugins/cjkLetterSpacing (27 %), plugins/markmap (45 %),
+        // plugins/imageView (51 %).
+        statements: 92.3,
         // Relaxed by 0.25 pp when the large-file open UX landed — see
         // dev-docs/plans/20260422-large-file-open-ux.md. The feature added
         // many defensive null/undefined guards in rarely-exercised paths
@@ -263,7 +272,9 @@ export default defineConfig({
         // absolute test count grew by 44. TODO: ratchet back by writing
         // behavior suites for FileExplorer/TitleBar, not by deleting the
         // a11y tests. Actual at relax time: 89.96; buffer 0.06 pp.
-        branches: 89.9,
+        // Re-baselined 89.90 -> 89.40 on 2026-06-12 (audit H10, see
+        // statements note). Actual: 89.42; buffer 0.02 pp.
+        branches: 89.4,
         // Relaxed by 0.25 pp for the same upstream reasons as statements —
         // multiple new utilities under src/utils/ have 0 % function
         // coverage. TODO: ratchet back to 95.45 once those are tested.
@@ -292,7 +303,9 @@ export default defineConfig({
         // PEP-508 parse helper.
         // Relaxed 0.35 pp (93.15 → 92.80) by RW-15 a11y track (see branches
         // note). FileExplorer/TitleBar first measured. Actual: 92.83; buffer 0.03.
-        functions: 92.8,
+        // Re-baselined 92.80 -> 92.30 on 2026-06-12 (audit H10, see
+        // statements note). Actual: 92.36; buffer 0.06 pp.
+        functions: 92.3,
         // Lines tracks statements closely; same drift applies.
         // Relaxed 0.30 pp (94.80 → 94.50) for Phase C GHA, parallel to
         // statements. Another 0.15 pp (94.50 → 94.35) for Codex audit
@@ -312,7 +325,9 @@ export default defineConfig({
         // covers at the rebrand-branch level.
         // Relaxed 0.30 pp (93.65 → 93.35) by RW-15 a11y track (see branches
         // note). FileExplorer/TitleBar first measured. Actual: 93.41; buffer 0.06.
-        lines: 93.35,
+        // Re-baselined 93.35 -> 92.90 on 2026-06-12 (audit H10, see
+        // statements note). Actual: 92.93; buffer 0.03 pp.
+        lines: 92.9,
       },
     },
   },

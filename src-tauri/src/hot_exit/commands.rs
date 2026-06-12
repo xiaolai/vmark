@@ -6,6 +6,7 @@
 use std::sync::LazyLock;
 use tokio::sync::Mutex;
 use tauri::AppHandle;
+use super::merge::merge_partial_capture;
 use super::session::{SessionData, WindowState};
 use super::storage::{read_session, delete_session, write_session_atomic};
 use super::coordinator::{
@@ -33,66 +34,20 @@ static CAPTURE_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
 pub async fn hot_exit_capture(app: AppHandle) -> Result<SessionData, String> {
     // Capture outside the lock — the IPC broadcast can take up to CAPTURE_TIMEOUT_SECS.
     // Only the read-merge-write section needs serialization.
-    let CaptureResult { mut session, expected_labels } = capture_session(&app).await?;
+    let CaptureResult { session, expected_labels } = capture_session(&app).await?;
     let _guard = CAPTURE_LOCK.lock().await;
 
-    // Merge partial captures: only resurrect windows that were expected (alive
-    // at capture time) but failed to respond (timed out). Windows that were
-    // intentionally closed are NOT in expected_labels and won't be merged.
-    let captured_labels: std::collections::HashSet<String> = session
-        .windows
-        .iter()
-        .map(|w| w.window_label.clone())
-        .collect();
-
-    if let Ok(Some(prev_session)) = read_session(&app).await {
-        let mut merged = false;
-        let now = chrono::Utc::now().timestamp();
-        let prev_age_secs = now.checked_sub(prev_session.timestamp);
-
-        // Refuse to merge if previous session is older than 1 hour,
-        // has a future timestamp, or the age overflows
-        let max_merge_age_secs: i64 = 3600;
-        let is_stale = match prev_age_secs {
-            Some(age) if age >= 0 && age <= max_merge_age_secs => false,
-            _ => true, // overflow, negative (future), or too old
-        };
-        if is_stale {
-            log::debug!(
-                "[HotExit] Skipping stale merge: previous session age {:?}s (max {}s)",
-                prev_age_secs, max_merge_age_secs
-            );
-        } else {
-            for prev_window in prev_session.windows {
-                if expected_labels.contains(&prev_window.window_label)
-                    && !captured_labels.contains(&prev_window.window_label)
-                {
-                    log::debug!(
-                        "[HotExit] Merging previous state for timed-out window '{}' ({:?}s old)",
-                        prev_window.window_label, prev_age_secs
-                    );
-                    session.windows.push(prev_window);
-                    merged = true;
-                }
-            }
-        }
-        if merged {
-            // Re-sort: main window first, then by label
-            session.windows.sort_by(|a, b| {
-                match (a.is_main_window, b.is_main_window) {
-                    (true, false) => std::cmp::Ordering::Less,
-                    (false, true) => std::cmp::Ordering::Greater,
-                    _ => a.window_label.cmp(&b.window_label),
-                }
-            });
-        }
-
-        // Preserve workspace from previous session if not set
-        // (workspace capture not yet implemented, so current capture always has None)
-        if session.workspace.is_none() {
-            session.workspace = prev_session.workspace;
-        }
-    }
+    // Merge partial captures (pure logic, table-tested in merge.rs): only
+    // resurrect windows that were expected (alive at capture time) but
+    // failed to respond. Windows that were intentionally closed are NOT in
+    // expected_labels and won't be merged.
+    let prev_session = read_session(&app).await.ok().flatten();
+    let session = merge_partial_capture(
+        session,
+        prev_session,
+        &expected_labels,
+        chrono::Utc::now().timestamp(),
+    );
 
     write_session_atomic(&app, &session).await?;
     Ok(session)
