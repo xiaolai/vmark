@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 #
-# Slopsquatting gate: scan package.json for newly-added dependencies and
-# report metadata (creation date, maintainers, weekly downloads). Flags
+# Slopsquatting gate: scan ALL npm manifests (root, vmark-mcp-server,
+# website) for newly-added dependencies and report metadata (creation
+# date, weekly downloads). Fails CLOSED on any metadata failure. Flags
 # any package that's:
-#   - non-existent on npm (404 → likely hallucinated)
+#   - non-existent on npm or unqueryable (likely hallucinated)
 #   - created less than $MIN_AGE_DAYS ago (default 30)
 #   - has fewer than $MIN_WEEKLY_DL weekly downloads (default 1000)
 #
@@ -45,27 +46,48 @@ if [[ -z "$BASE" ]]; then
   exit 64
 fi
 
-# Get added lines in package.json.
-DIFF=$(git diff "$BASE" -- package.json 2>/dev/null || true)
-if [[ -z "$DIFF" ]]; then
-  echo "no package.json changes vs $BASE — clean"
-  exit 0
-fi
+# All shipped npm manifests — the sidecar is compiled into release
+# binaries and the website deploys publicly, so a hallucinated package
+# in either is just as dangerous as in the root (audit 20260612 H26).
+# Rust deps are covered separately: cargo-audit in CI + Dependabot's
+# cargo ecosystem (see .claude/rules/60-ai-governance.md §4).
+MANIFESTS=("package.json" "vmark-mcp-server/package.json" "website/package.json")
 
-# Extract new dependency names. Lines starting with "+ " followed by
-# a quoted package name in a "deps"/"devDeps"-style block.
-# Match both scoped (@org/pkg) and unscoped (pkg).
-NEW_PKGS=$(echo "$DIFF" \
-  | grep -E '^\+[[:space:]]+"(@[^/"]+/[^"]+|[^"@][^"]*)"\s*:' \
-  | sed -E 's/^\+[[:space:]]+"([^"]+)".*/\1/' \
-  | grep -v '^name$' \
-  | grep -v '^version$' \
-  | grep -v '^description$' \
-  | grep -v '^scripts$' \
-  | grep -v '^dependencies$' \
-  | grep -v '^devDependencies$' \
-  | grep -v '^peerDependencies$' \
-  | sort -u)
+# Diff dependency OBJECTS via JSON parsing, not grep over diff lines —
+# the old grep matched script entries like "e2e:smoke" and fed npm
+# unparseable names, which then failed open (audit 20260612 H26).
+NEW_PKGS=""
+for mf in "${MANIFESTS[@]}"; do
+  [[ -f "$mf" ]] || continue
+  BASE_JSON=$(git show "$BASE:$mf" 2>/dev/null || echo '{}')
+  ADDED=$(BASE_JSON="$BASE_JSON" node -e '
+    const fs = require("fs");
+    const cur = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+    let base = {};
+    try { base = JSON.parse(process.env.BASE_JSON || "{}"); } catch {}
+    const entries = (o) => Object.entries({
+      ...(o.dependencies || {}),
+      ...(o.devDependencies || {}),
+      ...(o.optionalDependencies || {}),
+    });
+    const baseNames = new Set(entries(base).map(([n]) => n));
+    for (const [name, spec] of entries(cur)) {
+      if (baseNames.has(name)) continue;
+      // Local references are not registry packages.
+      if (/^(workspace:|link:|file:)/.test(String(spec))) continue;
+      console.log(name);
+    }
+  ' "$mf" 2>/dev/null) || {
+    echo "  ✗ failed to parse $mf — failing closed"
+    exit 1
+  }
+  if [[ -n "$ADDED" ]]; then
+    echo "new dependencies in $mf:"
+    echo "$ADDED" | sed 's/^/    /'
+    NEW_PKGS+="$ADDED"$'\n'
+  fi
+done
+NEW_PKGS=$(printf '%s' "$NEW_PKGS" | sort -u)
 
 if [[ -z "$NEW_PKGS" ]]; then
   echo "no new dependencies vs $BASE — clean"
@@ -83,9 +105,20 @@ while IFS= read -r pkg; do
   [[ -z "$pkg" ]] && continue
 
   # Fetch metadata. `npm view <pkg> --json` returns full registry doc.
-  META=$(npm view "$pkg" --json 2>/dev/null || echo "")
-  if [[ -z "$META" ]] || echo "$META" | grep -q "code.*E404"; then
-    echo "  ✗ $pkg — NOT FOUND on npm (likely hallucinated)"
+  # Fail CLOSED: any error — 404, invalid name, network failure — flags
+  # the package. A gate that can't see the registry must not pass
+  # (audit 20260612 H26).
+  META=$(npm view "$pkg" --json 2>&1) || {
+    if echo "$META" | grep -q "E404"; then
+      echo "  ✗ $pkg — NOT FOUND on npm (likely hallucinated)"
+    else
+      echo "  ✗ $pkg — npm metadata lookup failed (failing closed): $(echo "$META" | head -1)"
+    fi
+    FLAGGED=$((FLAGGED+1))
+    continue
+  }
+  if [[ -z "$META" ]]; then
+    echo "  ✗ $pkg — empty npm metadata (failing closed)"
     FLAGGED=$((FLAGGED+1))
     continue
   fi
@@ -119,12 +152,17 @@ while IFS= read -r pkg; do
     " 2>/dev/null || echo "?")
   fi
 
-  # Flag conditions.
+  # Flag conditions. Unknown metadata ("?") flags too — fail closed
+  # rather than passing a package the registry can't describe.
   REASONS=()
-  if [[ "$AGE_DAYS" != "?" ]] && (( AGE_DAYS < MIN_AGE_DAYS )); then
+  if [[ "$AGE_DAYS" == "?" ]]; then
+    REASONS+=("creation date unavailable (fail closed)")
+  elif (( AGE_DAYS < MIN_AGE_DAYS )); then
     REASONS+=("created ${AGE_DAYS}d ago (<${MIN_AGE_DAYS})")
   fi
-  if [[ "$WEEKLY" != "?" ]] && (( WEEKLY < MIN_WEEKLY_DL )); then
+  if [[ "$WEEKLY" == "?" ]]; then
+    REASONS+=("download count unavailable (fail closed)")
+  elif (( WEEKLY < MIN_WEEKLY_DL )); then
     REASONS+=("$WEEKLY dl/week (<${MIN_WEEKLY_DL})")
   fi
 

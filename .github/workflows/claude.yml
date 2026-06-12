@@ -108,7 +108,7 @@ jobs:
           fetch-depth: 1
           token: ${{ secrets.PAT_TOKEN }}
 
-      - uses: pnpm/action-setup@v6
+      - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6
         with:
           version: 10
 
@@ -117,7 +117,9 @@ jobs:
           node-version: 22
           cache: pnpm
 
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable branch
+        with:
+          toolchain: stable
 
       - uses: ./.github/actions/setup-tauri-deps
 
@@ -126,7 +128,7 @@ jobs:
 
       - name: Fix issue #${{ matrix.issue }}
         id: fix
-        uses: anthropics/claude-code-action@v1
+        uses: anthropics/claude-code-action@0cb4f3e5e764d2e00407d29b6bf0aa9df0976d88 # v1
         env:
           # Claude's gh/git commands use PAT so PRs trigger CI
           GH_TOKEN: ${{ secrets.PAT_TOKEN }}
@@ -134,7 +136,10 @@ jobs:
           allowed_bots: "claude[bot]"
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ secrets.PAT_TOKEN }}
-          claude_args: "--model opus --max-turns 50 --allowedTools Bash Read Write Edit Glob Grep MultiEdit"
+          # Bash is scoped to the commands the prompt actually uses — an
+          # unrestricted shell plus a PAT is a prompt-injection blast radius
+          # (audit 20260612 H26).
+          claude_args: "--model opus --max-turns 50 --allowedTools 'Read,Write,Edit,Glob,Grep,MultiEdit,Bash(git:*),Bash(gh:*),Bash(pnpm:*),Bash(cargo:*)'"
           show_full_output: true
           prompt: |
             You are fixing a single audit finding in the VMark codebase.
@@ -223,11 +228,11 @@ jobs:
       # Verify the fix in a separate read-only Claude session
       - name: Verify fix for #${{ matrix.issue }}
         if: steps.find-pr.outputs.number
-        uses: anthropics/claude-code-action@v1
+        uses: anthropics/claude-code-action@0cb4f3e5e764d2e00407d29b6bf0aa9df0976d88 # v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ secrets.PAT_TOKEN }}
-          claude_args: "--model opus --max-turns 10 --allowedTools Bash Read Glob Grep"
+          claude_args: "--model opus --max-turns 10 --allowedTools 'Read,Glob,Grep,Bash(gh:*)'"
           prompt: |
             You are an audit-fix VERIFIER — not an open-ended reviewer.
             Your ONLY job is to check whether PR #${{ steps.find-pr.outputs.number }} actually resolves audit issue #${{ matrix.issue }}.
@@ -253,9 +258,29 @@ jobs:
             - Do NOT suggest improvements beyond the finding.
             - If you cannot determine the finding, say so.
 
-      # Auto-merge after verification
-      - name: Enable auto-merge
+      # Extract the verifier's verdict from its PR comment. The verify step
+      # exits 0 regardless of outcome, so auto-merge must be gated on the
+      # actual verdict, not on step success (audit 20260612 H25).
+      - name: Read verification verdict
+        id: verdict
         if: steps.find-pr.outputs.number
+        env:
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
+          PR_NUMBER: ${{ steps.find-pr.outputs.number }}
+        run: |
+          LAST_VERDICT=$(gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --json comments \
+            --jq '[.comments[].body | select(test("\\*\\*(NOT )?VERIFIED\\*\\*|\\*\\*PARTIAL\\*\\*"))] | last // ""')
+          if printf '%s' "$LAST_VERDICT" | grep -q '✅ \*\*VERIFIED\*\*'; then
+            echo "verified=true" >> "$GITHUB_OUTPUT"
+            echo "Verifier confirmed the fix."
+          else
+            echo "verified=false" >> "$GITHUB_OUTPUT"
+            echo "Verifier did NOT confirm the fix — auto-merge withheld."
+          fi
+
+      # Auto-merge only on an explicit ✅ VERIFIED verdict
+      - name: Enable auto-merge
+        if: steps.find-pr.outputs.number && steps.verdict.outputs.verified == 'true'
         env:
           GH_TOKEN: ${{ secrets.PAT_TOKEN }}
           PR_NUMBER: ${{ steps.find-pr.outputs.number }}
@@ -279,7 +304,7 @@ jobs:
         with:
           fetch-depth: 1
 
-      - uses: anthropics/claude-code-action@v1
+      - uses: anthropics/claude-code-action@0cb4f3e5e764d2e00407d29b6bf0aa9df0976d88 # v1
         id: verify
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -310,7 +335,25 @@ jobs:
             - Do NOT approve or request changes — just report verification status.
             - If you cannot determine the linked issue, say so.
 
+      # Gate on the verifier's actual verdict — the action exits 0 either way
+      # (audit 20260612 H25).
+      - name: Read verification verdict
+        id: verify-verdict
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          LAST_VERDICT=$(gh pr view "$PR_NUMBER" --json comments \
+            --jq '[.comments[].body | select(test("\\*\\*(NOT )?VERIFIED\\*\\*|\\*\\*PARTIAL\\*\\*"))] | last // ""')
+          if printf '%s' "$LAST_VERDICT" | grep -q '✅ \*\*VERIFIED\*\*'; then
+            echo "verified=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "verified=false" >> "$GITHUB_OUTPUT"
+            echo "Verifier did NOT confirm the fix — auto-merge withheld."
+          fi
+
       - name: Enable auto-merge on verification pass
+        if: steps.verify-verdict.outputs.verified == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -333,15 +376,39 @@ jobs:
         with:
           fetch-depth: 1
 
-      - uses: anthropics/claude-code-action@v1
+      - uses: anthropics/claude-code-action@0cb4f3e5e764d2e00407d29b6bf0aa9df0976d88 # v1
         id: claude
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ github.token }}
           claude_args: "--model opus --max-turns 15"
           use_sticky_comment: true
+          prompt: |
+            Review this PR for correctness, regressions, and scope creep.
+            End your review comment with EXACTLY one of these markers on its
+            own line:
+            - ✅ **APPROVE** — safe to merge
+            - ❌ **REQUEST CHANGES** — must not merge. [specific reason]
+
+      # Gate auto-merge on the reviewer's explicit APPROVE marker
+      # (audit 20260612 H25 — the review previously had no effect on merging).
+      - name: Read review verdict
+        id: review-verdict
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          LAST_VERDICT=$(gh pr view "$PR_NUMBER" --json comments \
+            --jq '[.comments[].body | select(test("\\*\\*APPROVE\\*\\*|\\*\\*REQUEST CHANGES\\*\\*"))] | last // ""')
+          if printf '%s' "$LAST_VERDICT" | grep -q '✅ \*\*APPROVE\*\*'; then
+            echo "approved=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "approved=false" >> "$GITHUB_OUTPUT"
+            echo "Reviewer did NOT approve — auto-merge withheld."
+          fi
 
       - name: Enable auto-merge
+        if: steps.review-verdict.outputs.approved == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}

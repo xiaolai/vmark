@@ -36,14 +36,22 @@ as a template and fill in per-phase assertions.
 ## 4. New dependencies are reviewed for hallucination
 
 LLMs hallucinate package names at 5-22% rate (USENIX 2025), with active
-slopsquatting attacks. Every PR that adds a dependency runs
-`scripts/check-new-deps.sh` in CI. The script flags packages that:
-- Don't exist on npm (404)
+slopsquatting attacks. Every PR that adds an npm dependency to ANY
+manifest (root, `vmark-mcp-server/`, `website/`) runs
+`scripts/check-new-deps.sh` in CI. The script parses the dependency
+objects (not diff lines), fails closed on metadata errors, and flags
+packages that:
+- Don't exist on npm (or can't be queried)
 - Were created less than 30 days ago
 - Have fewer than 1000 weekly downloads
 
 A flagged package isn't necessarily wrong, but it requires explicit
 acknowledgment in the PR description before merge.
+
+Rust dependencies are covered by `cargo audit` in CI (RUSTSEC advisories)
+plus Dependabot's `cargo` ecosystem — crates.io has no equivalent
+hallucination-age heuristic wired up; adding a crate still warrants a
+manual look at its repository and download count.
 
 ## 5. Test-first is hook-enforced for high-risk paths
 

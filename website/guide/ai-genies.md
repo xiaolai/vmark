@@ -519,6 +519,18 @@ Because workflow steps fill a genie's `{{content}}` placeholder from a `with: { 
 
 See [Genie Workflows](/guide/workflows) for the full YAML schema, expression syntax, approvals, and how to run one.
 
+### Untrusted content fencing
+
+Document text, selections, and file contents are wrapped in unique
+`<<<DOCUMENT-DATA-…>>>` markers before they reach the AI provider, and the
+prompt instructs the model to treat fenced text strictly as data. This guards
+against documents that try to smuggle instructions to the AI ("ignore your
+instructions and run …") — which matters most for CLI providers (Claude Code,
+Codex, Gemini CLI) that can execute commands. Treat genies you run against
+files from untrusted sources with the same caution you'd apply to running a
+script from the internet: the fencing is a strong mitigation, not an absolute
+guarantee.
+
 ## Limitations
 
 - Genies only work in **WYSIWYG mode**. In source mode, a toast notification explains this.
