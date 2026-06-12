@@ -690,9 +690,12 @@ async fn handle_message(text: &str, client_id: u64, app: &AppHandle) -> Result<(
                 client_id, request_type_for_log, webview_was_alive
             );
 
-            wake_webview(app, &target_label).await;
-
-            // Create a new oneshot channel for the retry attempt
+            // Install the retry channel BEFORE waking: once the webview
+            // resumes, the QUEUED original event may execute immediately and
+            // its response must land in this channel rather than the
+            // already-abandoned first oneshot — otherwise a successful wake
+            // recovery turns into a client timeout (cross-model review,
+            // audit 20260612 remediation).
             let (retry_tx, retry_rx) = oneshot::channel();
             {
                 let state = get_bridge_state();
@@ -706,6 +709,8 @@ async fn handle_message(text: &str, client_id: u64, app: &AppHandle) -> Result<(
                     },
                 );
             }
+
+            wake_webview(app, &target_label).await;
 
             // Re-emit the event to the target window (not broadcast)
             if let Some(window) = app.get_webview_window(&target_label) {

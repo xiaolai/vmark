@@ -110,17 +110,26 @@ describe("computeSuggestionRemap", () => {
     expect(update.range).toBeNull();
   });
 
-  it("whole-document replace (from=0) survives edits and tracks `to`", () => {
+  it("whole-document replace (wholeDoc flag) survives edits and tracks `to`", () => {
     const state = createState("hello world");
     const docSize = state.doc.content.size;
     const tr = state.tr.insertText("more ", 7);
     const update = remapOne(
-      makeSuggestion({ from: 0, to: docSize, newContent: "rewrite" }),
+      makeSuggestion({ wholeDoc: true, from: 0, to: docSize, newContent: "rewrite" }),
       tr
     );
     expect(update.range).not.toBeNull();
     expect(update.range?.from).toBe(0);
     expect(update.range?.to).toBe(docSize + 5);
+  });
+
+  it("a first-block suggestion at from=0 WITHOUT wholeDoc is dismissed when edited (cross-model review)", () => {
+    // from===0 is not a whole-doc sentinel — a block suggestion can start
+    // at 0; editing inside it must dismiss it like any other range.
+    const state = createState("hello world");
+    const tr = state.tr.insertText("X", 3); // inside [0, 6)
+    const update = remapOne(makeSuggestion({ from: 0, to: 6 }), tr);
+    expect(update.range).toBeNull();
   });
 
   it("remaps through multi-step transactions", () => {

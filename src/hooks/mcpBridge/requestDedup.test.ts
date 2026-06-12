@@ -1,39 +1,65 @@
-// MCP bridge duplicate-delivery guard (audit H20).
+// MCP bridge duplicate-delivery guard (audit 20260612 H20 + cross-model
+// review: duplicates of COMPLETED requests must re-send the cached response
+// so the bridge's retry channel is never starved).
 
 import { describe, it, expect, beforeEach } from "vitest";
-import { shouldProcessRequest, resetRequestDedup } from "./requestDedup";
+import type { McpResponse } from "./types";
+import {
+  classifyDelivery,
+  recordResponse,
+  resetRequestDedup,
+} from "./requestDedup";
 
-describe("shouldProcessRequest", () => {
+function res(id: string): McpResponse {
+  return { id, success: true, data: { ok: true } } as McpResponse;
+}
+
+describe("classifyDelivery", () => {
   beforeEach(() => {
     resetRequestDedup();
   });
 
-  it("allows the first delivery of an id", () => {
-    expect(shouldProcessRequest("req-1")).toBe(true);
+  it("executes the first delivery of an id", () => {
+    expect(classifyDelivery("req-1")).toBe("execute");
   });
 
-  it("drops a re-delivery of the same id (wake-and-retry)", () => {
-    expect(shouldProcessRequest("req-1")).toBe(true);
-    expect(shouldProcessRequest("req-1")).toBe(false);
-    expect(shouldProcessRequest("req-1")).toBe(false);
+  it("drops a re-delivery while the request is still in flight", () => {
+    expect(classifyDelivery("req-1")).toBe("execute");
+    expect(classifyDelivery("req-1")).toBe("drop");
+    expect(classifyDelivery("req-1")).toBe("drop");
+  });
+
+  it("returns the cached response for a re-delivery of a completed request", () => {
+    expect(classifyDelivery("req-1")).toBe("execute");
+    recordResponse(res("req-1"));
+    const second = classifyDelivery("req-1");
+    expect(second).not.toBe("execute");
+    expect(second).not.toBe("drop");
+    expect((second as McpResponse).id).toBe("req-1");
   });
 
   it("tracks distinct ids independently", () => {
-    expect(shouldProcessRequest("req-1")).toBe(true);
-    expect(shouldProcessRequest("req-2")).toBe(true);
-    expect(shouldProcessRequest("req-1")).toBe(false);
-    expect(shouldProcessRequest("req-2")).toBe(false);
+    expect(classifyDelivery("req-1")).toBe("execute");
+    expect(classifyDelivery("req-2")).toBe("execute");
+    expect(classifyDelivery("req-1")).toBe("drop");
+    expect(classifyDelivery("req-2")).toBe("drop");
+  });
+
+  it("ignores recordResponse for ids that never arrived via the dispatcher", () => {
+    recordResponse(res("never-dispatched"));
+    // First sighting still executes — the cache entry was not created.
+    expect(classifyDelivery("never-dispatched")).toBe("execute");
   });
 
   it("evicts the oldest id once capacity is exceeded", () => {
-    expect(shouldProcessRequest("req-0")).toBe(true);
+    expect(classifyDelivery("req-0")).toBe("execute");
     for (let i = 1; i <= 256; i++) {
-      expect(shouldProcessRequest(`req-${i}`)).toBe(true);
+      expect(classifyDelivery(`req-${i}`)).toBe("execute");
     }
     // req-0 was evicted by the 257th insert — a (theoretical) re-delivery
-    // outside the window processes again rather than leaking memory.
-    expect(shouldProcessRequest("req-0")).toBe(true);
+    // outside the window executes again rather than leaking memory.
+    expect(classifyDelivery("req-0")).toBe("execute");
     // Recent ids are still deduped.
-    expect(shouldProcessRequest("req-256")).toBe(false);
+    expect(classifyDelivery("req-256")).toBe("drop");
   });
 });

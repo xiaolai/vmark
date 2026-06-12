@@ -1,46 +1,76 @@
 /**
- * MCP Bridge — duplicate request delivery guard (audit H20).
+ * MCP Bridge — duplicate request delivery guard (audit 20260612 H20).
  *
- * Purpose: Drop re-deliveries of the same MCP request id. The Rust bridge
- *   re-emits a request with the SAME id when the webview misses the first
- *   delivery (macOS App Nap wake-and-retry, server.rs). On wake, BOTH the
- *   queued original and the retry event are delivered — without dedup a
- *   non-idempotent write (e.g. selection.set without expected_revision)
- *   executes twice.
+ * Purpose: Ensure each MCP request id EXECUTES at most once while keeping
+ *   the bridge's wake-and-retry recovery working. The Rust bridge re-emits
+ *   a request with the SAME id when the webview misses the first delivery
+ *   (macOS App Nap); on wake BOTH the queued original and the retry event
+ *   fire. Without dedup a non-idempotent write executes twice; with a
+ *   silent drop the retry could starve the bridge's retry channel of its
+ *   response (cross-model review finding).
  *
  * Key decisions:
- *   - First sighting wins: the id is recorded before execution, so whichever
- *     delivery runs first executes and the other is dropped silently. The
- *     Rust side keeps one pending entry per id, so a single respond() is
- *     exactly what it expects.
- *   - Bounded memory: insertion-ordered Set capped at 256 ids — far beyond
+ *   - Execute-once, respond-at-least-once: the first delivery executes;
+ *     a duplicate of a COMPLETED request re-sends the cached response (the
+ *     Rust side resolves whichever pending channel is current and ignores
+ *     responses for unknown ids); a duplicate of an IN-FLIGHT request is
+ *     dropped — its eventual respond() lands in the bridge's retry channel,
+ *     which is installed before the webview is woken.
+ *   - Bounded memory: insertion-ordered Map capped at 256 ids — far beyond
  *     the 20s retry window at any realistic request rate.
  *
- * @coordinates-with index.ts — calls shouldProcessRequest before handleRequest
+ * @coordinates-with useMcpBridge.ts — consults this before dispatching
+ * @coordinates-with utils.ts — respond() records completed responses here
  * @module hooks/mcpBridge/requestDedup
  */
 
+import type { McpResponse } from "./types";
+
 const CAPACITY = 256;
 
-/** Insertion-ordered set of recently seen request ids. */
-const seen = new Set<string>();
+type RequestRecord =
+  | { status: "in-flight" }
+  | { status: "done"; response: McpResponse };
+
+/** Insertion-ordered map of recently seen request ids. */
+const records = new Map<string, RequestRecord>();
+
+function evictIfNeeded(): void {
+  if (records.size > CAPACITY) {
+    const oldest = records.keys().next().value;
+    /* v8 ignore next -- @preserve size > CAPACITY guarantees a key */
+    if (oldest !== undefined) records.delete(oldest);
+  }
+}
 
 /**
- * Record a request id and report whether this delivery should execute.
- * Returns false for a duplicate delivery of an already-seen id.
+ * Classify a delivery of `id`:
+ * - `"execute"` — first sighting; the caller should run the handler.
+ * - `"drop"` — duplicate of an in-flight request; its respond() will reach
+ *   the bridge when the original execution finishes.
+ * - a cached McpResponse — duplicate of a completed request; the caller
+ *   should re-send it so the bridge's retry channel gets an answer.
  */
-export function shouldProcessRequest(id: string): boolean {
-  if (seen.has(id)) return false;
-  seen.add(id);
-  if (seen.size > CAPACITY) {
-    const oldest = seen.values().next().value;
-    /* v8 ignore next -- @preserve size > CAPACITY guarantees a value */
-    if (oldest !== undefined) seen.delete(oldest);
+export function classifyDelivery(id: string): "execute" | "drop" | McpResponse {
+  const existing = records.get(id);
+  if (existing === undefined) {
+    records.set(id, { status: "in-flight" });
+    evictIfNeeded();
+    return "execute";
   }
-  return true;
+  if (existing.status === "done") return existing.response;
+  return "drop";
+}
+
+/** Record the response sent for a request id (called from respond()). */
+export function recordResponse(response: McpResponse): void {
+  // Only track ids we saw arrive through the dispatcher; respond() is also
+  // used by paths that never went through classifyDelivery.
+  if (!records.has(response.id)) return;
+  records.set(response.id, { status: "done", response });
 }
 
 /** Reset the dedup window. Test-only. */
 export function resetRequestDedup(): void {
-  seen.clear();
+  records.clear();
 }

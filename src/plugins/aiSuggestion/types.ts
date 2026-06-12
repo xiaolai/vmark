@@ -33,6 +33,13 @@ export interface AiSuggestion {
   /** Type of modification */
   type: SuggestionType;
   /** Start position in document */
+  /**
+   * Explicit whole-document marker. Accept clamps `to` to the live doc
+   * size and edits never dismiss it. `from === 0` is NOT a safe sentinel —
+   * a first-block suggestion legitimately starts at 0 (cross-model review
+   * finding, audit 20260612 remediation).
+   */
+  wholeDoc?: boolean;
   from: number;
   /** End position in document */
   to: number;

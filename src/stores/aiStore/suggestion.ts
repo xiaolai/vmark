@@ -25,6 +25,8 @@ interface AiSuggestionActions {
     to: number;
     newContent?: string;
     originalContent?: string;
+    /** Explicit whole-document replace marker (see AiSuggestion.wholeDoc). */
+    wholeDoc?: boolean;
   }) => string;
 
   /** Accept a suggestion by ID. */
@@ -118,6 +120,7 @@ export const useAiSuggestionStore = create<AiSuggestionState & AiSuggestionActio
         id,
         tabId: params.tabId,
         type: params.type,
+        wholeDoc: params.wholeDoc ?? false,
         from: params.from,
         to: params.to,
         newContent: params.newContent,

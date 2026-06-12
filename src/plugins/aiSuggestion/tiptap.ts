@@ -85,12 +85,16 @@ export function applySuggestionToTr(
 ): Transaction {
   const docSize = tr.doc.content.size;
 
-  // Whole-document replace (from=0): always clamp `to` to current doc size.
-  // The doc may have grown or shrunk since the suggestion was created, but
-  // the intent is to replace the entire content — so we use the live size.
+  // Whole-document replace: always clamp `to` to current doc size. The doc
+  // may have grown or shrunk since the suggestion was created, but the
+  // intent is to replace the entire content — so we use the live size.
   // Without this, a doc that grew after creation leaves uncovered trailing
   // content intact, duplicating it alongside the replacement (issue #805).
-  if (suggestion.from === 0) {
+  // The marker is the explicit wholeDoc flag — `from === 0` is NOT a safe
+  // sentinel, since a first-block suggestion legitimately starts at 0 and
+  // must NOT swallow the whole document (cross-model review, audit
+  // 20260612 remediation).
+  if (suggestion.wholeDoc) {
     suggestion = { ...suggestion, to: docSize };
   }
 
@@ -233,7 +237,7 @@ function rangeTouched(mapping: Mapping, from: number, to: number): boolean {
  * - Edits outside a suggestion's range shift it (content-tracking assoc).
  * - Edits that touch the range content dismiss the suggestion (`range: null`)
  *   — the user is rewriting the text the AI targeted, so it is stale.
- * - Whole-document suggestions (from === 0) survive all edits: accept clamps
+ * - Whole-document suggestions (wholeDoc flag) survive all edits: accept clamps
  *   `to` to the live doc size (issue #805); only `to` is tracked for display.
  *
  * Exported for unit testing.
@@ -244,7 +248,7 @@ export function computeSuggestionRemap(
 ): Array<{ id: string; range: { from: number; to: number } | null }> {
   const updates: Array<{ id: string; range: { from: number; to: number } | null }> = [];
   for (const s of suggestions) {
-    if (s.from === 0) {
+    if (s.wholeDoc) {
       updates.push({ id: s.id, range: { from: 0, to: mapping.map(s.to, -1) } });
       continue;
     }

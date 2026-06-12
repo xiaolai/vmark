@@ -268,15 +268,20 @@ jobs:
           GH_TOKEN: ${{ secrets.PAT_TOKEN }}
           PR_NUMBER: ${{ steps.find-pr.outputs.number }}
         run: |
-          LAST_VERDICT=$(gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --json comments \
-            --jq '[.comments[].body | select(test("\\*\\*(NOT )?VERIFIED\\*\\*|\\*\\*PARTIAL\\*\\*"))] | last // ""')
-          if printf '%s' "$LAST_VERDICT" | grep -q '✅ \*\*VERIFIED\*\*'; then
-            echo "verified=true" >> "$GITHUB_OUTPUT"
-            echo "Verifier confirmed the fix."
-          else
-            echo "verified=false" >> "$GITHUB_OUTPUT"
-            echo "Verifier did NOT confirm the fix — auto-merge withheld."
-          fi
+          # Line-anchored: a ❌ NOT VERIFIED comment that merely QUOTES the
+          # ✅ marker mid-sentence must not pass (cross-model review).
+          VERDICT_LINE=$(gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --json comments \
+            --jq '[.comments[].body | split("\n")[] | select(startswith("✅ **VERIFIED**") or startswith("❌ **NOT VERIFIED**") or startswith("⚠️ **PARTIAL**"))] | last // ""')
+          case "$VERDICT_LINE" in
+            "✅ **VERIFIED**"*)
+              echo "verified=true" >> "$GITHUB_OUTPUT"
+              echo "Verifier confirmed the fix."
+              ;;
+            *)
+              echo "verified=false" >> "$GITHUB_OUTPUT"
+              echo "Verifier did NOT confirm the fix — auto-merge withheld."
+              ;;
+          esac
 
       # Auto-merge only on an explicit ✅ VERIFIED verdict
       - name: Enable auto-merge
@@ -343,14 +348,18 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          LAST_VERDICT=$(gh pr view "$PR_NUMBER" --json comments \
-            --jq '[.comments[].body | select(test("\\*\\*(NOT )?VERIFIED\\*\\*|\\*\\*PARTIAL\\*\\*"))] | last // ""')
-          if printf '%s' "$LAST_VERDICT" | grep -q '✅ \*\*VERIFIED\*\*'; then
-            echo "verified=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "verified=false" >> "$GITHUB_OUTPUT"
-            echo "Verifier did NOT confirm the fix — auto-merge withheld."
-          fi
+          # Line-anchored (see audit-fix verdict step).
+          VERDICT_LINE=$(gh pr view "$PR_NUMBER" --json comments \
+            --jq '[.comments[].body | split("\n")[] | select(startswith("✅ **VERIFIED**") or startswith("❌ **NOT VERIFIED**") or startswith("⚠️ **PARTIAL**"))] | last // ""')
+          case "$VERDICT_LINE" in
+            "✅ **VERIFIED**"*)
+              echo "verified=true" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "verified=false" >> "$GITHUB_OUTPUT"
+              echo "Verifier did NOT confirm the fix — auto-merge withheld."
+              ;;
+          esac
 
       - name: Enable auto-merge on verification pass
         if: steps.verify-verdict.outputs.verified == 'true'
@@ -398,14 +407,19 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          LAST_VERDICT=$(gh pr view "$PR_NUMBER" --json comments \
-            --jq '[.comments[].body | select(test("\\*\\*APPROVE\\*\\*|\\*\\*REQUEST CHANGES\\*\\*"))] | last // ""')
-          if printf '%s' "$LAST_VERDICT" | grep -q '✅ \*\*APPROVE\*\*'; then
-            echo "approved=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "approved=false" >> "$GITHUB_OUTPUT"
-            echo "Reviewer did NOT approve — auto-merge withheld."
-          fi
+          # Line-anchored: a REQUEST CHANGES comment quoting the approve
+          # marker mid-sentence must not pass (cross-model review).
+          VERDICT_LINE=$(gh pr view "$PR_NUMBER" --json comments \
+            --jq '[.comments[].body | split("\n")[] | select(startswith("✅ **APPROVE**") or startswith("❌ **REQUEST CHANGES**"))] | last // ""')
+          case "$VERDICT_LINE" in
+            "✅ **APPROVE**"*)
+              echo "approved=true" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "approved=false" >> "$GITHUB_OUTPUT"
+              echo "Reviewer did NOT approve — auto-merge withheld."
+              ;;
+          esac
 
       - name: Enable auto-merge
         if: steps.review-verdict.outputs.approved == 'true'

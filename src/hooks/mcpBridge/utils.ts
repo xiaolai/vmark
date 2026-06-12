@@ -16,12 +16,15 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { McpResponse } from "./types";
 import { mcpBridgeLog, mcpBridgeError } from "@/utils/debug";
+import { recordResponse } from "./requestDedup";
 
 /**
  * Send response back to the MCP bridge.
  */
 export async function respond(response: McpResponse): Promise<void> {
   mcpBridgeLog("Sending response:", response.id, response.success);
+  // Cache for duplicate-delivery re-send (wake-and-retry; audit 20260612).
+  recordResponse(response);
   try {
     await invoke("mcp_bridge_respond", { payload: response });
   } catch (error) {

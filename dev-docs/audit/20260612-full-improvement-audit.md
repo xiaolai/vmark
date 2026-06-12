@@ -1,7 +1,7 @@
 # Audit: Full Improvement Audit (16-dimension fleet)
 
 **Date:** 2026-06-12
-**Status:** Active — backlog, nothing applied yet
+**Status:** Remediated (first pass, 2026-06-12) — see the Remediation log below; remaining items are the deferred backlog
 **Scope:** whole repo — `src/`, `src-tauri/src/`, `vmark-mcp-server/`, `website/`, `.github/workflows/`, `scripts/`, dev-docs, dependencies
 **Method:** 51-agent workflow — 16 parallel dimension auditors (architecture, stores, editor core, Rust backend, performance, testing, security, CSS/tokens, i18n, dead code, MCP, docs, deps, CI/DX, a11y, product), each reading real code with file:line evidence; every high-severity finding then adversarially verified by an independent agent instructed to refute it; completeness critic pass at the end. 165 raw findings → 162 after cross-finder dedup → 30 highs verified → 28 confirmed, 2 refuted (recorded below so they are not re-chased). 0 critical, 28 high, 93 medium, 39 low.
 
@@ -41,6 +41,53 @@ Structurally, the codebase is in strong shape: zero circular dependencies across
 7. **Scheduled debt** — H2/H4 tier migrations, H9 budget refresh, then the medium backlog (notably: CSP `img-src` open to any host, workflow-sandbox symlink escape, unmaintained `serde_yaml` on network YAML, e2e never in CI, 115 files over the 300-line rule).
 
 Follow-up: re-run the four **Not covered** subsystem audits when API budget allows.
+
+---
+
+## Remediation log (2026-06-12, branch `fix/audit-20260612-remediation`)
+
+All 28 confirmed high findings were addressed except H4 (deferred + frozen).
+Per-finding status:
+
+| Status | Findings |
+|---|---|
+| **Fixed** | H1 menu contract (+rot-proof test), H2 utils migration, H3 dep-cruiser tier rules, H5 checkpoint append, H6 `&#x20;` corruption, H7 escape stripping (verify-by-reparse), H8 suggestion remap, H9 entry budget + eager gate, H10 coverage exclusion (12 modules renamed; thresholds re-baselined), H11 sidecar tests in check:all/CI, H12 hot-exit merge extraction + table tests, H13 prompt fencing, H14 undefined CSS vars (+lint), H15 dark hover emission, H16 plural keys, H17 toolbar t(), H18 diagnostics wiring + placeholder fix, H19 context menus translated (10 locales), H20 request dedup, H21 sidecar requestTimeout, H22 stale rule docs, H23 verdict-gated auto-merge, H25 SHA-pinned actions, H26 multi-manifest fail-closed dep gate, H27 tab keyboard nav + cycling shortcut, H28 workflow toggles wired |
+| **Deferred (frozen)** | H4 services→hooks inversion — the 15 known sites are frozen in `.dependency-cruiser.cjs`'s `services-no-upward` exemption list; new violations fail CI |
+| **Blocked (needs owner)** | H24 branch protection — permission classifier denied repo-settings mutation. Run manually: disable force pushes, enable `enforce_admins`, set `required_status_checks.strict=true`, and add the new `rust` gate job to required checks once this branch is on main: `gh api -X PUT repos/xiaolai/vmark/branches/main/protection --input protection.json` with `checks: [{"context":"frontend"},{"context":"rust"}]` |
+
+Mediums/lows fixed in the same pass: scheme-allowlisted external link opener,
+workflow sandbox symlink-ancestor escape (+tests), CSPRNG bridge token,
+mcp_bridge_start compare_exchange + generation counter, quit-target ordering,
+serde_yaml → serde_yaml_ng (RUSTSEC-2024-0320), dagre → @dagrejs/dagre,
+@xterm/addon-serialize removal, vite stale refs, newFile store-action fix,
+Dependabot config, release frozen-lockfile + tag-preserving cleanup with cask
+guard, main-branch CI cancellation scoping, cargo-audit single-job move,
+claude-audit least privilege, coverage `clean:false` removal, i18n legacy
+plural lint, undefined-CSS-var lint, doc-drift batch (toolbar shortcut, theme
+count, plan header, pipeline file map, dev-docs README links).
+
+Cross-model review (Codex, rule 60 §6) of the remediation branch found and
+fixed three defects in the first-pass fixes: (1) the H20 dedup could starve
+the bridge's retry channel — duplicates of completed requests now re-send a
+cached response, and the Rust bridge installs the retry channel BEFORE waking
+the webview; (2) `from === 0` was not a safe whole-document sentinel for AI
+suggestions (a first-block suggestion legitimately starts at 0 — accept could
+swallow the entire document, a pre-existing #805 defect) — replaced with an
+explicit `wholeDoc` flag set at creation; (3) the auto-merge verdict grep
+matched the ✅ marker anywhere in a comment, so a NOT VERIFIED verdict quoting
+it could pass — all three gates are now line-anchored. A fourth finding is
+deferred below.
+
+Deferred (documented): multi-window MCP checkpoint writers (each document
+window has an independent write queue on the same JSONL; a stale-hydrated
+window's rewriteAll can truncate another window's append — pre-existing,
+reduced by the append-only change; proper fix is single-writer election or
+moving persistence to Rust); bulk re-translation of English-identical locale values
+(use the translate-docs pipeline), CSP img-src tightening (needs a remote-image
+opt-in product decision — CSP is static config, runtime gating needs design),
+the 115-file size-rule campaign, popup-shim consolidation (62 consumers),
+Rust error-string i18n sweep (187 strings), remaining mediums in the lists
+above, and all `feature`-kind product findings.
 
 ---
 

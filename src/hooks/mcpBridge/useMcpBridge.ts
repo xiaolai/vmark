@@ -38,7 +38,7 @@ import type { McpRequestEvent, McpRequestEventRaw } from "./types";
 import { respond } from "./utils";
 import { mcpBridgeLog, mcpBridgeError } from "@/utils/debug";
 import { handleRequest } from "./handleRequest";
-import { shouldProcessRequest } from "./requestDedup";
+import { classifyDelivery } from "./requestDedup";
 import { hydrateCheckpoints } from "@/stores/mcpCheckpointPersistence";
 
 /** Runtime shape guard for the externally-driven MCP request payload (WI-4.1).
@@ -92,9 +92,20 @@ export function useMcpBridge(): void {
       mcpBridgeLog("Event received:", raw.type, raw.id);
 
       // The Rust bridge's App Nap wake-and-retry re-emits the SAME request
-      // id; on wake both deliveries fire. Execute only the first (audit H20).
-      if (!shouldProcessRequest(raw.id)) {
-        mcpBridgeLog("Dropping duplicate MCP request delivery:", raw.type, raw.id);
+      // id; on wake both deliveries fire. Execute only the first; re-send
+      // the cached response for duplicates of completed requests so the
+      // bridge's retry channel always gets an answer (audit H20 +
+      // cross-model review).
+      const delivery = classifyDelivery(raw.id);
+      if (delivery === "drop") {
+        mcpBridgeLog("Dropping duplicate in-flight MCP delivery:", raw.type, raw.id);
+        return;
+      }
+      if (delivery !== "execute") {
+        mcpBridgeLog("Re-sending cached response for duplicate delivery:", raw.type, raw.id);
+        respond(delivery).catch((err) => {
+          mcpBridgeError("Failed to re-send cached response:", err);
+        });
         return;
       }
 
