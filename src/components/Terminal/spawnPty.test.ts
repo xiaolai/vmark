@@ -35,7 +35,7 @@ vi.mock("@/stores/settingsStore", () => ({
   useSettingsStore: { getState: vi.fn(() => ({ terminal: { shell: "" } })) },
 }));
 
-vi.mock("@/utils/workspaceStorage", () => ({
+vi.mock("@/services/persistence/workspaceStorage", () => ({
   getCurrentWindowLabel: vi.fn(() => "main"),
 }));
 

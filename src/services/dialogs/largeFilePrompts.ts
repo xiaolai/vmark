@@ -19,7 +19,7 @@
  * @coordinates-with hooks/useFinderFileOpen.ts — calls confirmOpenHugeFile before readTextFile.
  * @coordinates-with hooks/useFileOpen.ts — same; routes all open paths through tier checks.
  * @coordinates-with utils/fileSizeThresholds.ts — provides the byte→tier classification.
- * @module utils/largeFilePrompts
+ * @module services/dialogs/largeFilePrompts
  */
 
 import { ask, message } from "@tauri-apps/plugin-dialog";

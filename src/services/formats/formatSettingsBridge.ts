@@ -21,6 +21,7 @@ import { useEffect } from "react";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useTabStore } from "@/stores/tabStore";
 import { rebootstrapFormats, setFormatAssociationsProvider } from "@/lib/formats";
+import { setActionMetadataFetchEnabled } from "@/lib/ghaWorkflow/actions/registry";
 import type { FormatsSettings } from "@/stores/settingsTypes";
 
 type ToggleSnapshot = Pick<
@@ -65,6 +66,12 @@ export function installFormatSettingsSubscription(): () => void {
     () => useSettingsStore.getState().formats.associations ?? {},
   );
 
+  // Push the action-metadata network toggle into the GHA registry (lib/
+  // cannot read stores per ADR-013; audit 20260612 H28).
+  setActionMetadataFetchEnabled(
+    useSettingsStore.getState().advanced.workflowFetchActionMetadata,
+  );
+
   // Recompute every open tab's formatId NOW. Hot-exit-restored tabs are
   // created during a child component's effect (DocumentWindowMount), which
   // by React's bottom-up effect order runs BEFORE this hook's effect — so
@@ -78,6 +85,7 @@ export function installFormatSettingsSubscription(): () => void {
   let lastAssociations = useSettingsStore.getState().formats.associations;
 
   return useSettingsStore.subscribe((state) => {
+    setActionMetadataFetchEnabled(state.advanced.workflowFetchActionMetadata);
     const nextToggles = snapshot(state.formats);
     const nextAssociations = state.formats.associations;
 

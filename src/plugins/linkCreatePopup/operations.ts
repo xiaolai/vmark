@@ -8,7 +8,7 @@
  * @module plugins/linkCreatePopup/operations
  */
 
-import { classifyHref } from "@/utils/linkOpen";
+import { classifyHref } from "@/services/navigation/linkOpen";
 
 /** Trim and trim trailing dot/comma stragglers a user may have pasted. */
 export function normalizeHref(input: string): string {

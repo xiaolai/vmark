@@ -24,7 +24,7 @@ vi.mock("@/hooks/useWindowFocus", () => ({
   getWindowLabel: vi.fn(() => "main"),
 }));
 
-vi.mock("@/utils/clipboardImagePath", () => ({
+vi.mock("@/services/media/clipboardImagePath", () => ({
   readClipboardImagePath: vi.fn(),
 }));
 
@@ -64,7 +64,7 @@ import { open, message } from "@tauri-apps/plugin-dialog";
 import { findWordAtCursor } from "@/plugins/syntaxReveal/marks";
 import { copyImageToAssets, insertBlockImageNode } from "@/hooks/useImageOperations";
 import { copyMediaToAssets, insertBlockVideoNode, insertBlockAudioNode } from "@/hooks/useMediaOperations";
-import { readClipboardImagePath } from "@/utils/clipboardImagePath";
+import { readClipboardImagePath } from "@/services/media/clipboardImagePath";
 import { withReentryGuard } from "@/utils/reentryGuard";
 import { wysiwygAdapterWarn } from "@/utils/debug";
 import { isViewConnected, getActiveFilePath } from "./wysiwygAdapterUtils";

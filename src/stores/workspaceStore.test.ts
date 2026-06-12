@@ -31,7 +31,7 @@ vi.mock("@/utils/paths", () => ({
 }));
 
 // Mock workspaceStorage
-vi.mock("@/utils/workspaceStorage", () => ({
+vi.mock("@/services/persistence/workspaceStorage", () => ({
   windowScopedStorage: {
     getItem: vi.fn(() => null),
     setItem: vi.fn(),

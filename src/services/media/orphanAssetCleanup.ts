@@ -14,14 +14,14 @@
  * @coordinates-with imageUtils.ts — ASSETS_FOLDER and IMAGE_EXTENSIONS constants
  * @coordinates-with imageHandler/tiptap.ts — creates images in assets folder
  * @coordinates-with settingsStore.ts — autoCleanupEnabled user preference
- * @module utils/orphanAssetCleanup
+ * @module services/media/orphanAssetCleanup
  */
 
 import { readDir, remove, exists } from "@tauri-apps/plugin-fs";
 import { dirname, join } from "@tauri-apps/api/path";
 import { confirm, message } from "@tauri-apps/plugin-dialog";
 import i18n from "@/i18n";
-import { ASSETS_FOLDER, IMAGE_EXTENSIONS } from "./imageUtils";
+import { ASSETS_FOLDER, IMAGE_EXTENSIONS } from "@/utils/imageUtils";
 import { orphanCleanupError } from "@/utils/debug";
 
 export interface OrphanedImage {

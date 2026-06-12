@@ -79,7 +79,7 @@ vi.mock("@/stores/uiStore", () => ({
   useUIStore: { getState: vi.fn(() => editorStoreState) },
 }));
 
-vi.mock("@/utils/workspaceStorage", () => ({
+vi.mock("@/services/persistence/workspaceStorage", () => ({
   getCurrentWindowLabel: () => "main",
 }));
 

@@ -17,7 +17,6 @@
   "diagnostics.GHA-SEC-001": "`pull_request_target` runs in the base repo's context with secrets — never check out PR head code without `persist-credentials: false`",
   "diagnostics.GHA-SEC-002": "Possible script injection: tainted context `{context}` interpolated directly into `run:`",
   "diagnostics.GHA-SCHEMA-001": "Schema warning: {message}",
-
   "panel.title": "Workflow",
   "panel.noWorkflow": "No workflow detected",
   "panel.conditional": "conditional",
@@ -31,7 +30,6 @@
   "panel.exportMermaid": "Copy as Mermaid",
   "panel.exportMermaidLossy": "Mermaid export omits run status, action icons, custom badges, and matrix expansion details.",
   "panel.exportSvgLossy": "SVG export uses foreignObject; for native vector primitives, export as PNG instead.",
-
   "panel.aria.jobPrefix": "Job {{name}}",
   "panel.aria.runsOn": "runs on {{runner}}",
   "panel.aria.stepCount": "{{count}} steps",
@@ -39,32 +37,26 @@
   "panel.aria.stepCount_other": "{{count}} steps",
   "panel.aria.needs": "depends on {{refs}}",
   "panel.aria.conditional": "conditional",
-
   "panel.matrix.expand": "Expand matrix ({count} combinations)",
   "panel.matrix.collapse": "Collapse matrix",
   "panel.matrix.dynamic": "Dynamic matrix",
-
   "panel.steps.expand": "Show {{count}} steps",
   "panel.steps.expand_one": "Show 1 step",
   "panel.steps.expand_other": "Show {{count}} steps",
   "panel.steps.collapse": "Hide steps",
   "panel.steps.listLabel": "Steps",
-
   "panel.reusableWorkflow.badge": "Reusable workflow",
   "panel.reusableWorkflow.viewSource": "View called workflow",
   "panel.reusableWorkflow.crossRepo": "View on GitHub",
-
   "panel.metadata.unavailable": "Action metadata unavailable",
   "panel.metadata.fetching": "Fetching action metadata…",
   "panel.metadata.fetchFailed": "Could not fetch action metadata: {message}",
-
   "settings.fetchActionMetadata.label": "Fetch action metadata",
-  "settings.fetchActionMetadata.description": "Allow VMark to fetch `action.yml` from referenced GitHub Actions to populate the structured editor's `with:` form. Disabled means the form falls back to free-form key/value rows.",
+  "settings.fetchActionMetadata.description": "Allow VMark to fetch `action.yml` from referenced GitHub Actions to populate the structured editor's `with:` form. Disable to keep the workflow editor fully offline — no network requests are made.",
   "settings.actionlint.label": "Use actionlint when available",
   "settings.actionlint.description": "If the `actionlint` binary is on your PATH, run it on workflow files for richer diagnostics. No effect if the binary is not installed.",
   "settings.preserveYamlFormatting.label": "Preserve YAML formatting on save",
   "settings.preserveYamlFormatting.description": "When the structured editor saves changes, preserve comments, anchors, and existing formatting where possible. Disable to reformat on every save.",
-
   "form.job.kind": "Job",
   "form.job.name.label": "Name",
   "form.job.name.placeholder": "Display name",
@@ -76,7 +68,6 @@
   "form.job.steps.navigation": "Job steps",
   "form.job.needs.label": "Needs",
   "form.job.uses.label": "Uses",
-
   "form.step.kind": "Step",
   "form.step.name.label": "Name",
   "form.step.run.label": "Run",
@@ -89,7 +80,6 @@
   "form.step.with.valuePlaceholder": "value",
   "form.step.with.missingRequired": "Required inputs not set:",
   "form.step.uses.label": "Uses",
-
   "form.trigger.kind": "Triggers",
   "form.trigger.empty": "No triggers configured",
   "form.trigger.branches": "Branches: {{value}}",
@@ -106,9 +96,7 @@
   "form.trigger.pathsIgnoreEdit": "paths-ignore",
   "form.trigger.typesEdit": "types",
   "form.trigger.readonlyHint": "Edit in source",
-
   "form.empty.selectJob": "Select a job in the diagram to edit it.",
-
   "save.button": "Save",
   "save.discardButton": "Discard",
   "save.dirtyHint": "{{count}} unsaved",
@@ -118,14 +106,12 @@
   "save.errorTitle": "Save failed",
   "save.savedToast": "Workflow saved",
   "save.updatedNoPathToast": "Workflow updated — Cmd+Shift+S to save",
-
   "expression.save": "Save",
   "expression.cancel": "Cancel",
   "expression.expand.if": "Expand if",
   "expression.expand.run": "Expand run",
   "expression.title.if": "Edit if",
   "expression.title.run": "Edit run",
-
   "diagnosticsBanner.title": "Diagnostics",
   "diagnosticsBanner.showAll": "Show all {{count}}",
   "diagnosticsBanner.showAll_one": "Show 1",
@@ -154,9 +140,9 @@
   "form.step.with.knownInputs": "Available inputs ({{count}})",
   "form.step.with.required": "required",
   "form.step.with.defaultValue": "(default: {{value}})",
-
   "form.step.nav.position": "Step {{current}} of {{total}}",
   "form.step.nav.prev": "Previous step (Alt+Left)",
   "form.step.nav.next": "Next step (Alt+Right)",
-  "form.step.nav.backToJob": "Back to job"
+  "form.step.nav.backToJob": "Back to job",
+  "settings.groupTitle": "Workflow files"
 }

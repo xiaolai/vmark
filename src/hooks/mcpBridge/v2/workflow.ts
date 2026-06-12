@@ -30,7 +30,7 @@
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useRevisionStore } from "@/stores/documentStore";
-import { getCurrentWindowLabel } from "@/utils/workspaceStorage";
+import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import {
   isWorkflowYaml,
   looksLikeWorkflowPath,
@@ -41,6 +41,7 @@ import {
 } from "@/lib/ghaWorkflow/save/cstParser";
 import { applyPatch, type IRPatch } from "@/lib/ghaWorkflow/save/mutators";
 import { lintWithActionlint } from "@/lib/ghaWorkflow/lint/actionlint";
+import { useSettingsStore } from "@/stores/settingsStore";
 import { respond } from "../utils";
 import { wrapHandler } from "./wrapHandler";
 import { v2ErrorString } from "./types";
@@ -280,6 +281,19 @@ export async function handleWorkflowValidate(
     const tabOrError = resolveWorkflowTab(tabIdArg);
     if ("error" in tabOrError) {
       await structuredError(id, tabOrError);
+      return;
+    }
+    if (!useSettingsStore.getState().advanced.workflowActionlint) {
+      await respond({
+        id,
+        success: true,
+        data: {
+          ok: true,
+          diagnostics: [],
+          binaryAvailable: false,
+          error: "actionlint disabled in settings",
+        },
+      });
       return;
     }
     const outcome = await lintWithActionlint(tabOrError.content);

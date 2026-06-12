@@ -11,7 +11,7 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { invoke } from "@tauri-apps/api/core";
-import { createSafeStorage } from "@/utils/safeStorage";
+import { createSafeStorage } from "@/services/persistence/safeStorage";
 import { geniesWarn, geniesLog } from "@/utils/debug";
 import type { GenieDefinition, GenieMetadata, GenieScope } from "@/types/aiGenies";
 

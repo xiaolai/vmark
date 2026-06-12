@@ -101,13 +101,13 @@ VMark surfaces parse + lint diagnostics next to the source:
 | `GHA-SEC-*` | Security warnings (e.g., `pull_request_target` checkout patterns) |
 | `GHA-ACTIONLINT-*` | Forwarded from `actionlint` if installed |
 
-Install `actionlint` and turn on **Use actionlint when available** in Settings → Advanced for richer expression diagnostics.
+Install `actionlint` for richer expression diagnostics — it runs automatically when the binary is on your PATH. The **Use actionlint when available** toggle in Settings → Advanced (Workflow files) turns this off.
 
 ## Action metadata
 
-For `uses:` steps that reference public GitHub Actions, VMark can fetch each action's `action.yml` to populate input descriptions in the structured editor. This is opt-in and cached on disk for 24 hours.
+For `uses:` steps that reference public GitHub Actions, VMark fetches each action's `action.yml` to populate input descriptions in the structured editor. Results are cached on disk for 24 hours. Workspace-local actions (`./…`) are read from disk, never the network.
 
-Toggle **Fetch action metadata** in Settings → Advanced. Disable to keep all action references purely text — no network requests are made.
+To keep the workflow editor fully offline, turn off **Fetch action metadata** in Settings → Advanced (Workflow files) — with it off, no network requests are made and the `with:` form falls back to free-form key/value rows.
 
 ## Exports
 

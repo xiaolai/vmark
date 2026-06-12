@@ -8,7 +8,7 @@
 import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useAiProviderStore, KEY_OPTIONAL_REST } from "@/stores/aiStore";
-import { openSettingsWindow } from "@/utils/settingsWindow";
+import { openSettingsWindow } from "@/services/navigation/settingsWindow";
 import { Check, Settings } from "lucide-react";
 import type { ProviderType } from "@/types/aiGenies";
 

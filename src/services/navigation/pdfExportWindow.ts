@@ -12,7 +12,7 @@
  *
  * @coordinates-with PdfExportPage.tsx — renders the PDF export UI in the new window
  * @coordinates-with lib.rs — write_temp_html Rust command for temp file
- * @module utils/pdfExportWindow
+ * @module services/navigation/pdfExportWindow
  */
 
 import { invoke } from "@tauri-apps/api/core";

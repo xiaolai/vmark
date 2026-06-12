@@ -41,7 +41,7 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { deepMerge } from "@/utils/deepMerge";
-import { createSafeStorage } from "@/utils/safeStorage";
+import { createSafeStorage } from "@/services/persistence/safeStorage";
 import { resolveInitialLanguage } from "@/utils/localeDetect";
 import type { SettingsState, SettingsActions } from "./settingsTypes";
 
@@ -240,6 +240,8 @@ const initialState: SettingsState = {
     keepBothEditorsAlive: false,
     workflowEngine: false,
     workflowEditorPreserveYamlFormatting: true,
+    workflowFetchActionMetadata: true,
+    workflowActionlint: true,
     clearMacQuarantineOnOpen: true,
   },
   update: {

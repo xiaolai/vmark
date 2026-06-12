@@ -12,7 +12,7 @@
 
 import { useEffect } from "react";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
-import { getWorkspaceStorageKey, getCurrentWindowLabel } from "@/utils/workspaceStorage";
+import { getWorkspaceStorageKey, getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import { workspaceWarn } from "@/utils/debug";
 
 /**

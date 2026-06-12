@@ -12,7 +12,7 @@ vi.mock("@/services/persistence/saveToPath", () => ({
   saveToPath: vi.fn(),
 }));
 
-vi.mock("@/utils/orphanAssetCleanup", () => ({
+vi.mock("@/services/media/orphanAssetCleanup", () => ({
   findOrphanedImages: vi.fn().mockResolvedValue({ orphanedImages: [], referencedImages: [] }),
   deleteOrphanedImages: vi.fn().mockResolvedValue(undefined),
 }));
@@ -306,7 +306,7 @@ describe("closeTabWithDirtyCheck — orphan cleanup", () => {
     vi.mocked(isMacPlatform).mockReturnValue(true);
 
     // Reset orphan mock defaults
-    const { findOrphanedImages } = await import("@/utils/orphanAssetCleanup");
+    const { findOrphanedImages } = await import("@/services/media/orphanAssetCleanup");
     vi.mocked(findOrphanedImages).mockResolvedValue({ orphanedImages: [], referencedImages: [] });
   });
 
@@ -314,7 +314,7 @@ describe("closeTabWithDirtyCheck — orphan cleanup", () => {
     const { useSettingsStore } = await import("@/stores/settingsStore");
     useSettingsStore.setState({ image: { cleanupOrphansOnClose: true } } as never);
 
-    const { findOrphanedImages, deleteOrphanedImages } = await import("@/utils/orphanAssetCleanup");
+    const { findOrphanedImages, deleteOrphanedImages } = await import("@/services/media/orphanAssetCleanup");
     vi.mocked(findOrphanedImages).mockResolvedValue({
       orphanedImages: ["/tmp/assets/orphan.png"],
       referencedImages: [],
@@ -336,7 +336,7 @@ describe("closeTabWithDirtyCheck — orphan cleanup", () => {
     const { useSettingsStore } = await import("@/stores/settingsStore");
     useSettingsStore.setState({ image: { cleanupOrphansOnClose: true } } as never);
 
-    const { findOrphanedImages } = await import("@/utils/orphanAssetCleanup");
+    const { findOrphanedImages } = await import("@/services/media/orphanAssetCleanup");
     vi.mocked(findOrphanedImages).mockRejectedValue(new Error("fs error"));
 
     const tabId = useTabStore.getState().createTab(WINDOW_LABEL, "/tmp/test.md");
@@ -356,7 +356,7 @@ describe("closeTabWithDirtyCheck — orphan cleanup", () => {
     const { useSettingsStore } = await import("@/stores/settingsStore");
     useSettingsStore.setState({ image: { cleanupOrphansOnClose: false } } as never);
 
-    const { findOrphanedImages } = await import("@/utils/orphanAssetCleanup");
+    const { findOrphanedImages } = await import("@/services/media/orphanAssetCleanup");
 
     const tabId = useTabStore.getState().createTab(WINDOW_LABEL, "/tmp/test.md");
     useTabStore.getState().createTab(WINDOW_LABEL, "/tmp/other.md");
@@ -373,7 +373,7 @@ describe("closeTabWithDirtyCheck — orphan cleanup", () => {
     const { useSettingsStore } = await import("@/stores/settingsStore");
     useSettingsStore.setState({ image: { cleanupOrphansOnClose: true } } as never);
 
-    const { findOrphanedImages } = await import("@/utils/orphanAssetCleanup");
+    const { findOrphanedImages } = await import("@/services/media/orphanAssetCleanup");
 
     const tabId = useTabStore.getState().createTab(WINDOW_LABEL, null);
     useDocumentStore.getState().initDocument(tabId, "hello", null);
@@ -387,7 +387,7 @@ describe("closeTabWithDirtyCheck — orphan cleanup", () => {
     const { useSettingsStore } = await import("@/stores/settingsStore");
     useSettingsStore.setState({ image: { cleanupOrphansOnClose: true } } as never);
 
-    const { findOrphanedImages } = await import("@/utils/orphanAssetCleanup");
+    const { findOrphanedImages } = await import("@/services/media/orphanAssetCleanup");
     vi.mocked(findOrphanedImages).mockResolvedValue({
       orphanedImages: [],
       referencedImages: [],
@@ -409,7 +409,7 @@ describe("closeTabWithDirtyCheck — orphan cleanup", () => {
     const { useSettingsStore } = await import("@/stores/settingsStore");
     useSettingsStore.setState({ image: { cleanupOrphansOnClose: true } } as never);
 
-    const { findOrphanedImages } = await import("@/utils/orphanAssetCleanup");
+    const { findOrphanedImages } = await import("@/services/media/orphanAssetCleanup");
 
     const tabId = useTabStore.getState().createTab(WINDOW_LABEL, "/tmp/dirty.md");
     useDocumentStore.getState().initDocument(tabId, "hello", "/tmp/dirty.md");
@@ -432,7 +432,7 @@ describe("closeTabWithDirtyCheck — orphan cleanup", () => {
     const { useSettingsStore } = await import("@/stores/settingsStore");
     useSettingsStore.setState({ image: { cleanupOrphansOnClose: true } } as never);
 
-    const { findOrphanedImages } = await import("@/utils/orphanAssetCleanup");
+    const { findOrphanedImages } = await import("@/services/media/orphanAssetCleanup");
 
     const tabId = useTabStore.getState().createTab(WINDOW_LABEL, "/tmp/dirty.md");
     useDocumentStore.getState().initDocument(tabId, "hello", "/tmp/dirty.md");

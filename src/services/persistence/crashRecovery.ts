@@ -5,7 +5,7 @@
  * Periodically writes dirty document content to {appDataDir}/recovery/
  * so it can be restored after unexpected crashes.
  *
- * @module utils/crashRecovery
+ * @module services/persistence/crashRecovery
  * @coordinates-with useCrashRecoveryWriter, useCrashRecoveryStartup, useCrashRecoveryCleanup
  */
 
@@ -19,8 +19,8 @@ import {
   rename,
 } from "@tauri-apps/plugin-fs";
 import { appDataDir, join } from "@tauri-apps/api/path";
-import { crashRecoveryLog } from "./debug";
-import { errorMessage } from "./errorMessage";
+import { crashRecoveryLog } from "@/utils/debug";
+import { errorMessage } from "@/utils/errorMessage";
 
 export interface RecoverySnapshot {
   version: 1;

@@ -14,7 +14,7 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { invoke } from "@tauri-apps/api/core";
-import { createSecureStorage } from "@/utils/secureStorage";
+import { createSecureStorage } from "@/services/secrets/secureStorage";
 import {
   loadApiKeysWithStatus,
   migrateLegacyApiKeys,

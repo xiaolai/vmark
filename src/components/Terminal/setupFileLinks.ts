@@ -22,7 +22,7 @@
 import type { Terminal } from "@xterm/xterm";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
-import { getCurrentWindowLabel } from "@/utils/workspaceStorage";
+import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import { createFileLinkProvider } from "./fileLinkProvider";
 import { setPendingContentSearchNav } from "@/hooks/contentSearchNavigation";
 import { terminalLog } from "@/utils/debug";

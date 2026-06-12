@@ -15,7 +15,7 @@ import { useTabStore } from "@/stores/tabStore";
 import { navigateToHeadingById } from "@/utils/headingSlug";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import { popupIcons } from "@/utils/popupComponents";
-import { classifyHref, openFilepathLink } from "@/utils/linkOpen";
+import { classifyHref, openFilepathLink } from "@/services/navigation/linkOpen";
 import { WysiwygPopupView, type EditorViewLike, type PopupStoreBase } from "@/plugins/shared";
 
 /** Link popup store state (extends base with link-specific fields) */

@@ -1,8 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
 
 const openFilepathLinkMock = vi.fn(async () => {});
-vi.mock("@/utils/linkOpen", async () => {
-  const actual = await vi.importActual<typeof import("@/utils/linkOpen")>("@/utils/linkOpen");
+vi.mock("@/services/navigation/linkOpen", async () => {
+  const actual = await vi.importActual<typeof import("@/services/navigation/linkOpen")>("@/services/navigation/linkOpen");
   return {
     ...actual,
     openFilepathLink: (...args: unknown[]) => openFilepathLinkMock(...args),

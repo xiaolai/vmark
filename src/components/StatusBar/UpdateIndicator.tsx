@@ -15,7 +15,7 @@ import { RefreshCw, Download, CheckCircle, AlertCircle } from "lucide-react";
 import { useMcpStore, type UpdateStatus } from "@/stores/mcpStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useUpdateOperations } from "@/hooks/useUpdateOperations";
-import { openSettingsWindow } from "@/utils/settingsWindow";
+import { openSettingsWindow } from "@/services/navigation/settingsWindow";
 
 /**
  * Get indicator config based on update status (title is a translation key resolved in the component).

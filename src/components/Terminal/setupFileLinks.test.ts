@@ -30,7 +30,7 @@ vi.mock("@/stores/tabStore", () => ({
 vi.mock("@/stores/documentStore", () => ({
   useDocumentStore: { getState: () => ({ initDocument: h.initDocument }) },
 }));
-vi.mock("@/utils/workspaceStorage", () => ({ getCurrentWindowLabel: () => "main" }));
+vi.mock("@/services/persistence/workspaceStorage", () => ({ getCurrentWindowLabel: () => "main" }));
 vi.mock("@/hooks/contentSearchNavigation", () => ({
   setPendingContentSearchNav: h.setPendingContentSearchNav,
 }));

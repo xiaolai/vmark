@@ -38,10 +38,10 @@
   "panel.metadata.unavailable": "Action metadata unavailable",
   "panel.metadata.fetching": "Fetching action metadata…",
   "panel.metadata.fetchFailed": "Could not fetch action metadata: {message}",
-  "settings.fetchActionMetadata.label": "Fetch action metadata",
-  "settings.fetchActionMetadata.description": "Allow VMark to fetch `action.yml` from referenced GitHub Actions to populate the structured editor's `with:` form. Disabled means the form falls back to free-form key/value rows.",
-  "settings.actionlint.label": "Use actionlint when available",
-  "settings.actionlint.description": "If the `actionlint` binary is on your PATH, run it on workflow files for richer diagnostics. No effect if the binary is not installed.",
+  "settings.fetchActionMetadata.label": "アクションのメタデータを取得",
+  "settings.fetchActionMetadata.description": "参照されている GitHub Actions の `action.yml` を取得し、構造化エディタの `with:` フォームに反映します。無効にするとワークフローエディタは完全にオフラインになり、ネットワークリクエストは行われません。",
+  "settings.actionlint.label": "actionlint が利用可能なら使用",
+  "settings.actionlint.description": "`actionlint` バイナリが PATH にある場合、ワークフローファイルに対して実行し、より詳細な診断を提供します。バイナリが未インストールの場合は影響ありません。",
   "settings.preserveYamlFormatting.label": "Preserve YAML formatting on save",
   "settings.preserveYamlFormatting.description": "When the structured editor saves changes, preserve comments, anchors, and existing formatting where possible. Disable to reformat on every save.",
   "form.job.kind": "Job",
@@ -143,5 +143,6 @@
   "form.step.with.required": "required",
   "form.step.with.defaultValue": "(default: {{value}})",
   "panel.exportLabel": "Export workflow diagram",
-  "panel.exportError": "Export failed"
+  "panel.exportError": "Export failed",
+  "settings.groupTitle": "ワークフローファイル"
 }

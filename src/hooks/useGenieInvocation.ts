@@ -42,7 +42,7 @@ import { useTabStore } from "@/stores/tabStore";
 import { useEditorStore } from "@/stores/editorStore";
 import { useGeniesStore } from "@/stores/aiStore";
 import { useGeniePickerStore } from "@/stores/geniePickerStore";
-import { getCurrentWindowLabel } from "@/utils/workspaceStorage";
+import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import { getExpandedSourcePeekRange, serializeSourcePeekRange } from "@/services/editor/sourcePeek";
 import { extractSurroundingContext } from "@/services/editor/extractContext";
 import { createMarkdownPasteSlice } from "@/plugins/markdownPaste/tiptap";

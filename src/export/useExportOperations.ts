@@ -19,7 +19,7 @@ import { waitForAssets } from "./waitForAssets";
 import { captureThemeCSS } from "./themeSnapshot";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { joinPath } from "@/utils/pathUtils";
-import { showError, FileErrors } from "@/utils/errorDialog";
+import { showError, FileErrors } from "@/services/dialogs/errorDialog";
 import { isMacPlatform } from "@/utils/shortcutMatch";
 import { errorMessage } from "@/utils/errorMessage";
 
@@ -291,7 +291,7 @@ export async function exportToPdfNative(options: ExportToPdfOptions): Promise<vo
     });
 
     // Open PDF export in native window
-    const { openPdfExportWindow } = await import("@/utils/pdfExportWindow");
+    const { openPdfExportWindow } = await import("@/services/navigation/pdfExportWindow");
     await openPdfExportWindow({
       renderedHtml: resolvedHtml,
       defaultName,

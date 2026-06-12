@@ -65,7 +65,7 @@ import {
   migrateWorkspaceStorage,
   getWorkspaceStorageKey,
   findActiveWorkspaceLabel,
-} from "../utils/workspaceStorage";
+} from "@/services/persistence/workspaceStorage";
 import { resolveWorkspaceRootForExternalFile } from "../utils/openPolicy";
 import { isWithinRoot } from "../utils/paths";
 import type { TabTransferPayload } from "@/types/tabTransfer";

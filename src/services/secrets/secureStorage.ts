@@ -20,7 +20,7 @@
  * @coordinates-with @tauri-apps/plugin-store — Tauri store plugin
  * @coordinates-with src/stores/aiStore/provider.ts — primary consumer
  * @coordinates-with src/services/secrets/apiKeySecrets — keychain key store (secrets)
- * @module utils/secureStorage
+ * @module services/secrets/secureStorage
  */
 
 import type { StateStorage } from "zustand/middleware";

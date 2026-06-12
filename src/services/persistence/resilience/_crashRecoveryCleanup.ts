@@ -17,7 +17,7 @@ import { useDocumentStore } from "@/stores/documentStore";
 import {
   deleteRecoverySnapshot,
   deleteRecoveryFilesForTabs,
-} from "@/utils/crashRecovery";
+} from "@/services/persistence/crashRecovery";
 import { crashRecoveryLog } from "@/utils/debug";
 
 /**

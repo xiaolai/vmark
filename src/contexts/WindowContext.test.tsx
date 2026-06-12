@@ -122,7 +122,7 @@ vi.mock("../stores/workspaceStore", () => ({
 
 }));
 
-vi.mock("../utils/workspaceStorage", () => ({
+vi.mock("@/services/persistence/workspaceStorage", () => ({
   setCurrentWindowLabel: vi.fn(),
   migrateWorkspaceStorage: vi.fn(),
   getWorkspaceStorageKey: vi.fn((label: string) => `vmark-workspace:${label}`),
@@ -725,7 +725,7 @@ describe("WindowContext", () => {
   describe("WindowProvider — settings window uses active workspace label", () => {
     it("sets current window label to active workspace label for settings", async () => {
       mockWindowLabel = "settings";
-      const { findActiveWorkspaceLabel, setCurrentWindowLabel } = await import("../utils/workspaceStorage");
+      const { findActiveWorkspaceLabel, setCurrentWindowLabel } = await import("@/services/persistence/workspaceStorage");
       vi.mocked(findActiveWorkspaceLabel).mockReturnValue("main");
 
       render(
@@ -1163,7 +1163,7 @@ describe("WindowContext", () => {
   describe("WindowProvider — init error handling", () => {
     it("still renders children when init throws (catch block)", async () => {
       // Make migrateWorkspaceStorage throw to trigger the init catch block
-      const { migrateWorkspaceStorage } = await import("../utils/workspaceStorage");
+      const { migrateWorkspaceStorage } = await import("@/services/persistence/workspaceStorage");
       vi.mocked(migrateWorkspaceStorage).mockImplementation(() => {
         throw new Error("migration boom");
       });
@@ -1197,7 +1197,7 @@ describe("WindowContext", () => {
 
     it("handles listen failure for tab removal gracefully", async () => {
       // Ensure migrateWorkspaceStorage does not throw (reset from prior test)
-      const { migrateWorkspaceStorage } = await import("../utils/workspaceStorage");
+      const { migrateWorkspaceStorage } = await import("@/services/persistence/workspaceStorage");
       vi.mocked(migrateWorkspaceStorage).mockImplementation(() => {});
 
       // Make listen reject ONLY for the tab:remove-by-id event
@@ -1427,7 +1427,7 @@ describe("WindowContext", () => {
 
       // Make getCurrentWebviewWindow throw on second call (after initial setup)
       // by making rehydrate throw async inside init()
-      const { migrateWorkspaceStorage } = await import("../utils/workspaceStorage");
+      const { migrateWorkspaceStorage } = await import("@/services/persistence/workspaceStorage");
       let callCount = 0;
       vi.mocked(migrateWorkspaceStorage).mockImplementation(() => {
         callCount++;

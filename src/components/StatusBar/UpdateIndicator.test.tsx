@@ -29,7 +29,7 @@ vi.mock("@/hooks/useUpdateOperations", () => ({
   }),
 }));
 
-vi.mock("@/utils/settingsWindow", () => ({
+vi.mock("@/services/navigation/settingsWindow", () => ({
   openSettingsWindow: (...args: unknown[]) => mockOpenSettingsWindow(...args),
 }));
 

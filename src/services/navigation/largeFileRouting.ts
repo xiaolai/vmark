@@ -29,7 +29,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { classifyFileSize, type FileSizeTier } from "@/utils/fileSizeThresholds";
-import { confirmOpenHugeFile, showHugeFileRefusal } from "@/utils/largeFilePrompts";
+import { confirmOpenHugeFile, showHugeFileRefusal } from "@/services/dialogs/largeFilePrompts";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { largeFileWarn } from "@/utils/debug";
 

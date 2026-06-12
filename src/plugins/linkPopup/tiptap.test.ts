@@ -61,8 +61,8 @@ vi.mock("@tauri-apps/plugin-opener", () => ({
 const { mockOpenFilepathLink } = vi.hoisted(() => ({
   mockOpenFilepathLink: vi.fn(() => Promise.resolve(true)),
 }));
-vi.mock("@/utils/linkOpen", async () => {
-  const actual = await vi.importActual<typeof import("@/utils/linkOpen")>("@/utils/linkOpen");
+vi.mock("@/services/navigation/linkOpen", async () => {
+  const actual = await vi.importActual<typeof import("@/services/navigation/linkOpen")>("@/services/navigation/linkOpen");
   return {
     ...actual,
     openFilepathLink: mockOpenFilepathLink,

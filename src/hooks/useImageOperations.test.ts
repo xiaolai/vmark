@@ -39,7 +39,7 @@ vi.mock("@/utils/imageHash", () => ({
 // Mock image hash registry
 const mockFindExistingImage = vi.fn(() => Promise.resolve(null));
 const mockRegisterImageHash = vi.fn(() => Promise.resolve());
-vi.mock("@/utils/imageHashRegistry", () => ({
+vi.mock("@/services/media/imageHashRegistry", () => ({
   findExistingImage: (...args: unknown[]) => mockFindExistingImage(...args),
   registerImageHash: (...args: unknown[]) => mockRegisterImageHash(...args),
 }));

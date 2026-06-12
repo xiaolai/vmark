@@ -47,7 +47,7 @@ vi.mock("@/stores/uiStore", () => ({
 }));
 
 const mockGetCurrentWindowLabel = vi.fn(() => "main");
-vi.mock("@/utils/workspaceStorage", () => ({
+vi.mock("@/services/persistence/workspaceStorage", () => ({
   getCurrentWindowLabel: () => mockGetCurrentWindowLabel(),
 }));
 

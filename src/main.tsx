@@ -4,7 +4,7 @@ import { BrowserRouter } from "react-router-dom";
 import "./i18n";
 import "./services/menu/startupMenuSync";
 import { registerAllPlugins } from "./plugins/manifests";
-import { initSecureStorage } from "./utils/secureStorage";
+import { initSecureStorage } from "@/services/secrets/secureStorage";
 import { bootstrapFormats } from "./lib/formats";
 import { useSettingsStore } from "./stores/settingsStore";
 import { setTabExistenceGuard } from "./stores/documentStore";

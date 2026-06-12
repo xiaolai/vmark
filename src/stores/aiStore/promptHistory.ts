@@ -9,7 +9,7 @@
 
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
-import { createSafeStorage } from "@/utils/safeStorage";
+import { createSafeStorage } from "@/services/persistence/safeStorage";
 
 const MAX_ENTRIES = 100;
 

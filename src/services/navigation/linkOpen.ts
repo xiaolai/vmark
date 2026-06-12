@@ -19,7 +19,7 @@
  * @coordinates-with src/hooks/useFileShortcuts.ts — handler for `open-file`
  * @coordinates-with src/plugins/linkPopup/tiptap.ts — Cmd+click entry point
  * @coordinates-with src/plugins/linkPopup/LinkPopupView.ts — popup open icon
- * @module utils/linkOpen
+ * @module services/navigation/linkOpen
  */
 
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";

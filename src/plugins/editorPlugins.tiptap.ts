@@ -28,7 +28,7 @@ import { guardProseMirrorCommand } from "@/utils/imeGuard";
 import { isMacPlatform } from "@/utils/shortcutMatch";
 import { expandedToggleMark } from "@/plugins/editorPlugins/expandedToggleMark";
 import { triggerPastePlainText } from "@/plugins/markdownPaste/tiptap";
-import { getCurrentWindowLabel } from "@/utils/workspaceStorage";
+import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import { performUnifiedUndo, performUnifiedRedo } from "@/hooks/useUnifiedHistory";
 import { handleRemoveBlockquote } from "@/plugins/formatToolbar/nodeActions.tiptap";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";

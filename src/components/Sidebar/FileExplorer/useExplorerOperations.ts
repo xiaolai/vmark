@@ -35,7 +35,7 @@ import i18n from "@/i18n";
 import { useTabStore } from "@/stores/tabStore";
 import { reconcilePathChange } from "@/utils/pathReconciliation";
 import { applyPathReconciliation } from "@/hooks/commands";
-import { showError, FileErrors } from "@/utils/errorDialog";
+import { showError, FileErrors } from "@/services/dialogs/errorDialog";
 import { fileExplorerError } from "@/utils/debug";
 
 // Re-entry guards

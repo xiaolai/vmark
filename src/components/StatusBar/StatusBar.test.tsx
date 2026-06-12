@@ -39,7 +39,7 @@ vi.mock("@/hooks/useTabOperations", () => ({
   closeTabWithDirtyCheck: vi.fn(),
 }));
 
-vi.mock("@/utils/settingsWindow", () => ({
+vi.mock("@/services/navigation/settingsWindow", () => ({
   openSettingsWindow: vi.fn(),
 }));
 

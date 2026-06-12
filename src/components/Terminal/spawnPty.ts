@@ -48,7 +48,7 @@ import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useSettingsStore } from "@/stores/settingsStore";
-import { getCurrentWindowLabel } from "@/utils/workspaceStorage";
+import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import { getParentDir } from "@/utils/paths/paths";
 
 /**

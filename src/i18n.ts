@@ -23,8 +23,8 @@ import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
 import resourcesToBackend from "i18next-resources-to-backend";
 import { useSettingsStore } from "@/stores/settingsStore";
-import { setSafeStorageMessageResolver } from "@/utils/safeStorage";
-import { setWorkspaceStorageMessageResolver } from "@/utils/workspaceStorage";
+import { setSafeStorageMessageResolver } from "@/services/persistence/safeStorage";
+import { setWorkspaceStorageMessageResolver } from "@/services/persistence/workspaceStorage";
 
 const localeModules = import.meta.glob("./locales/*/*.json");
 
