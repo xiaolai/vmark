@@ -58,8 +58,16 @@ export interface WebSocketBridgeConfig {
   port?: number;
   /** Function to resolve port dynamically (called on each connect attempt) */
   portResolver?: PortResolver;
-  /** Request timeout in ms (default: 10000, aligned with Rust bridge timeout) */
+  /** Connection / auth-handshake timeout in ms (default: 10000) */
   timeout?: number;
+  /**
+   * Pending-request timeout in ms (default: 25000). Must exceed the Rust
+   * bridge's worst case of 20s (10s initial wait + 10s wake-and-retry,
+   * server.rs) — a shorter value discards retry results that the bridge
+   * successfully recovered, so the AI client sees a timeout even though
+   * the write WAS applied (audit H21).
+   */
+  requestTimeout?: number;
   /** Whether to auto-reconnect on disconnect (default: true) */
   autoReconnect?: boolean;
   /** Maximum reconnection attempts (default: 10) */
@@ -117,6 +125,7 @@ export class WebSocketBridge implements Bridge {
   private port: number | undefined;
   private readonly portResolver: PortResolver | undefined;
   private readonly timeout: number;
+  private readonly requestTimeout: number;
   private readonly autoReconnect: boolean;
   private readonly maxReconnectAttempts: number;
   private readonly reconnectDelay: number;
@@ -153,6 +162,8 @@ export class WebSocketBridge implements Bridge {
     this.port = config.port; // May be undefined - will use portResolver
     this.portResolver = config.portResolver;
     this.timeout = config.timeout ?? 10000;
+    // Must exceed the Rust bridge's 20s wake-and-retry worst case (audit H21).
+    this.requestTimeout = config.requestTimeout ?? 25000;
     this.autoReconnect = config.autoReconnect ?? true;
     this.maxReconnectAttempts = config.maxReconnectAttempts ?? 10;
     this.reconnectDelay = config.reconnectDelay ?? 1000;
@@ -539,7 +550,7 @@ export class WebSocketBridge implements Bridge {
           this.requestQueue.splice(idx, 1);
           reject(new Error(`Queued request ${request.type} timed out`));
         }
-      }, this.timeout);
+      }, this.requestTimeout);
 
       this.requestQueue.push({
         request,
@@ -563,7 +574,7 @@ export class WebSocketBridge implements Bridge {
       const timer = setTimeout(() => {
         this.pendingRequests.delete(id);
         reject(new Error(`Request timeout: ${request.type}`));
-      }, this.timeout);
+      }, this.requestTimeout);
 
       this.pendingRequests.set(id, {
         resolve: resolve as (response: BridgeResponse) => void,

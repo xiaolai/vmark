@@ -163,7 +163,7 @@ describe('WebSocketBridge', () => {
     it('should timeout if no response', async () => {
       const fastBridge = new WebSocketBridge({
         port: TEST_PORT,
-        timeout: 100,
+        requestTimeout: 100,
         autoReconnect: false,
       });
 
@@ -716,7 +716,7 @@ describe('WebSocketBridge', () => {
     it('resolves a queued request that flush completes after the queue timer fires', async () => {
       // Short queue-wait timeout so the timer fires while sendImmediate is
       // still in flight (sendImmediate is stubbed to resolve later).
-      const raceBridge = new WebSocketBridge({ timeout: 20 });
+      const raceBridge = new WebSocketBridge({ requestTimeout: 20 });
       const internal = raceBridge as unknown as {
         queueRequest: (r: BridgeRequest) => Promise<BridgeResponse>;
         flushRequestQueue: () => Promise<void>;
@@ -739,7 +739,7 @@ describe('WebSocketBridge', () => {
     });
 
     it('still rejects with a timeout when a queued request is never flushed', async () => {
-      const raceBridge = new WebSocketBridge({ timeout: 20 });
+      const raceBridge = new WebSocketBridge({ requestTimeout: 20 });
       const internal = raceBridge as unknown as {
         queueRequest: (r: BridgeRequest) => Promise<BridgeResponse>;
       };
