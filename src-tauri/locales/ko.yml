@@ -260,3 +260,11 @@ errors:
   # === MCP ===
   mcp.spawnInProgress: "MCP 사이드카 실행이 이미 진행 중입니다"
   mcp.configMismatch: "구성 검증 실패: 쓴 내용이 예상과 일치하지 않습니다"
+
+cli:
+  dialogTitle: "셸 명령"
+  installed: "'vmark' 명령을 %{path}에 설치했습니다"
+  alreadyInstalled: "'vmark' 명령이 이미 %{path}에 설치되어 있습니다"
+  removed: "'vmark' 명령을 %{path}에서 제거했습니다"
+  notInstalled: "'vmark' 명령이 설치되어 있지 않습니다."
+  runHint: "이제 터미널에서 'vmark'를 실행할 수 있습니다."

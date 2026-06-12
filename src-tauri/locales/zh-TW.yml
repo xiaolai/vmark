@@ -260,3 +260,11 @@ errors:
   # === MCP ===
   mcp.spawnInProgress: "MCP 側載程序正在啟動中"
   mcp.configMismatch: "設定校驗失敗：寫入內容與預期不符"
+
+cli:
+  dialogTitle: "Shell 指令"
+  installed: "'vmark' 指令已安裝至 %{path}"
+  alreadyInstalled: "'vmark' 指令已安裝於 %{path}"
+  removed: "'vmark' 指令已從 %{path} 移除"
+  notInstalled: "'vmark' 指令尚未安裝。"
+  runHint: "現在可以在終端機中執行 'vmark'。"

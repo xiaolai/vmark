@@ -260,3 +260,11 @@ errors:
   # === MCP ===
   mcp.spawnInProgress: "MCP サイドカーの起動がすでに進行中です"
   mcp.configMismatch: "設定の検証に失敗しました: 書き込まれた内容が想定と一致しません"
+
+cli:
+  dialogTitle: "シェルコマンド"
+  installed: "'vmark' コマンドを %{path} にインストールしました"
+  alreadyInstalled: "'vmark' コマンドは既に %{path} にインストールされています"
+  removed: "'vmark' コマンドを %{path} から削除しました"
+  notInstalled: "'vmark' コマンドはインストールされていません。"
+  runHint: "ターミナルから 'vmark' を実行できます。"
