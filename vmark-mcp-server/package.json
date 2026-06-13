@@ -39,7 +39,7 @@
     "@types/ws": "^8.5.13",
     "@vitest/coverage-v8": "^4.0.16",
     "@yao-pkg/pkg": "^6.14.1",
-    "esbuild": "^0.27.2",
+    "esbuild": "^0.28.1",
     "typescript": "~5.8.3",
     "vitest": "^4.0.0"
   },
