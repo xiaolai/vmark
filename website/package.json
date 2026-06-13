@@ -14,7 +14,7 @@
     "@braintree/sanitize-url": "^7.1.2",
     "cytoscape": "^3.33.1",
     "cytoscape-cose-bilkent": "^4.1.0",
-    "dayjs": "^1.11.19",
+    "dayjs": "^1.11.21",
     "debug": "^4.4.3",
     "markdown-it-footnote": "^4.0.0",
     "mermaid": "^11.12.2",
