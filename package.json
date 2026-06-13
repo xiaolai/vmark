@@ -72,7 +72,7 @@
     "@tauri-apps/plugin-opener": "^2.5.3",
     "@tauri-apps/plugin-process": "^2.3.1",
     "@tauri-apps/plugin-store": "^2.4.2",
-    "@tauri-apps/plugin-updater": "^2.9.0",
+    "@tauri-apps/plugin-updater": "^2.10.1",
     "@tiptap/core": "^3.18.0",
     "@tiptap/extension-blockquote": "^3.18.0",
     "@tiptap/extension-bullet-list": "^3.18.0",
