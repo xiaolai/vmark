@@ -104,7 +104,7 @@
     "i18next-resources-to-backend": "^1.2.1",
     "katex": "^0.16.28",
     "lowlight": "^3.3.0",
-    "lucide-react": "^0.562.0",
+    "lucide-react": "^1.20.0",
     "markmap-common": "^0.18.9",
     "markmap-lib": "^0.18.12",
     "markmap-view": "^0.18.12",
