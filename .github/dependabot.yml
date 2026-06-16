@@ -1,41 +1,59 @@
-# Dependabot — security updates for all manifests + freshness for pinned
-# action SHAs. Added per audit 20260612: `pnpm audit` in CI is
-# continue-on-error against a retired npm endpoint, so without this no
-# npm CVE scanning actually happens.
+# Dependabot policy (rev 2, 2026-06-17).
+#
+# Goal: keep deps current without drowning in PRs. Routine minor/patch
+# updates are GROUPED into one PR per ecosystem/manifest per week; MAJOR
+# updates are left ungrouped so each gets individual breaking-change
+# scrutiny; SECURITY updates are ungrouped and prioritized by Dependabot.
+# The github-actions ecosystem keeps the SHA-pinned actions fresh
+# (audit 20260612 H25). Rust deps are additionally covered by cargo-audit
+# in CI; new npm packages still pass scripts/check-new-deps.sh (rule 60 §4).
+#
+# Note: the rev-1 config opened 21 individual first-run PRs because it had
+# no grouping and a misleading "security-only" comment that the config
+# never enforced. Grouping fixes both.
 version: 2
 updates:
   - package-ecosystem: npm
     directory: /
     schedule:
       interval: weekly
-    # Security updates only — routine version bumps stay manual to keep
-    # the dependency review gate (scripts/check-new-deps.sh) meaningful.
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 10
     groups:
-      npm-security:
-        applies-to: security-updates
-        patterns: ["*"]
+      npm-minor-patch:
+        update-types: ["minor", "patch"]
 
   - package-ecosystem: npm
     directory: /vmark-mcp-server
     schedule:
       interval: weekly
-    open-pull-requests-limit: 3
+    open-pull-requests-limit: 5
+    groups:
+      npm-minor-patch:
+        update-types: ["minor", "patch"]
 
   - package-ecosystem: npm
     directory: /website
     schedule:
       interval: weekly
-    open-pull-requests-limit: 3
+    open-pull-requests-limit: 5
+    groups:
+      npm-minor-patch:
+        update-types: ["minor", "patch"]
 
   - package-ecosystem: cargo
     directory: /src-tauri
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    groups:
+      cargo-minor-patch:
+        update-types: ["minor", "patch"]
 
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    groups:
+      actions-minor-patch:
+        update-types: ["minor", "patch"]
