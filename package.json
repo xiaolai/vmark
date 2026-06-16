@@ -167,7 +167,7 @@
     "@types/react": "^19.2.9",
     "@types/react-dom": "^19.2.3",
     "@types/turndown": "^5.0.6",
-    "@vitejs/plugin-react": "^4.7.0",
+    "@vitejs/plugin-react": "^5.2.0",
     "@vitest/coverage-v8": "^4.0.18",
     "dependency-cruiser": "^17.3.9",
     "eslint": "^9.39.2",
