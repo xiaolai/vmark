@@ -172,7 +172,7 @@
     "dependency-cruiser": "^17.3.9",
     "eslint": "^9.39.2",
     "eslint-plugin-react-hooks": "^5.2.0",
-    "globals": "^16.5.0",
+    "globals": "^17.6.0",
     "jsdom": "^26.1.0",
     "knip": "6.15.0",
     "markdownlint-cli2": "^0.21.0",
