@@ -100,7 +100,7 @@
     "dompurify": "^3.4.2",
     "highlight.js": "^11.11.1",
     "html-to-image": "1.11.13",
-    "i18next": "^25.8.18",
+    "i18next": "^26.3.1",
     "i18next-resources-to-backend": "^1.2.1",
     "katex": "^0.16.28",
     "lowlight": "^3.3.0",
