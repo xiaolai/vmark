@@ -1,21 +1,19 @@
 name: Claude Code
 
+# RETIRED 2026-06-17: the auto-audit system is retired (the auditor and this
+# audit-fix/auto-review responder). All automatic triggers are disabled so
+# nothing fires on issues, PRs, or the auditor's completion; workflow_dispatch
+# is kept as a manual fallback. Re-enable the commented triggers to revive it.
 on:
-  # Audit-fix pipeline reacts to [audit]-labeled issues; general issues are not auto-processed.
-  issues:
-    types: [opened, reopened]
+  # issues:                       # disabled — audit-fix retired
+  #   types: [opened, reopened]
+  # pull_request:                 # disabled — auto-review retired
+  #   types: [opened, synchronize]
+  # workflow_run:                 # disabled — auditor retired
+  #   workflows: ["Claude Periodic Audit"]
+  #   types: [completed]
 
-  # Review Claude-proposed PRs
-  pull_request:
-    types: [opened, synchronize]
-
-  # Trigger audit-fix after the audit workflow creates issues
-  # (github-actions[bot] events don't trigger 'issues' — this is the workaround)
-  workflow_run:
-    workflows: ["Claude Periodic Audit"]
-    types: [completed]
-
-  # Manual trigger to run audit-fix without re-auditing
+  # Manual trigger only (fallback)
   workflow_dispatch:
     inputs:
       max_issues:

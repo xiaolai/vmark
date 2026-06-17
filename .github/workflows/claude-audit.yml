@@ -1,11 +1,14 @@
 name: Claude Periodic Audit
 
+# RETIRED 2026-06-17: the daily auto-audit is retired. The schedule is
+# disabled so it no longer files [audit] issues; workflow_dispatch is kept
+# as a manual fallback. Re-enable the cron to revive it. (Note: the audit
+# had been no-op since ~2026-06-03 — expired CLAUDE_CODE_OAUTH_TOKEN.)
 on:
-  schedule:
-    # Once daily at 9am UTC
-    - cron: "0 9 * * *"
+  # schedule:                # disabled — auto-audit retired
+  #   - cron: "0 9 * * *"
 
-  # Allow manual trigger from Actions tab
+  # Manual trigger only (fallback)
   workflow_dispatch:
 
 # Least privilege: this workflow only reads the repo and files issues
