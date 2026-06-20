@@ -9,7 +9,8 @@
  *   sets CSS vars on document.documentElement → all components react via CSS
  *
  * Key decisions:
- *   - Font stacks defined here (latin, CJK, mono families) with system fallbacks
+ *   - Font stacks live in `@/utils/fontStacks` (leaf-pure); this hook composes
+ *     them via `buildFontStack` into the `--font-sans`/`--font-mono` tokens
  *   - Editor font size drives dependent tokens (line-height, padding, mono size)
  *   - Mermaid and code preview plugins notified of font size changes
  *   - Dark theme toggled via `.dark-theme` class on documentElement
@@ -21,6 +22,7 @@
  * @coordinates-with settingsStore.ts — reads appearance settings
  * @coordinates-with index.css — static token defaults (overridden here)
  * @coordinates-with theme/tokens.ts, theme/themes/* — source of legacy color values
+ * @coordinates-with utils/fontStacks.ts — font family stacks and resolution
  * @module hooks/useTheme
  */
 
@@ -31,41 +33,7 @@ import { refreshPreviews } from "@/plugins/codePreview/tiptap";
 import { applyTheme, themes as themeTokensCatalog } from "@/theme";
 import { legacyLight } from "@/theme/tokens";
 import { night } from "@/theme/themes/night";
-
-export const fontStacks = {
-  latin: {
-    system: "system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
-    athelas: "Athelas, Georgia, serif", // Apple Books default
-    palatino: "Palatino, 'Palatino Linotype', serif",
-    georgia: "Georgia, 'Times New Roman', serif",
-    charter: "Charter, Georgia, serif",
-    literata: "Literata, Georgia, serif", // Google reading font
-  },
-  cjk: {
-    system: '"PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif',
-    pingfang: '"PingFang SC", "PingFang TC", sans-serif', // Apple Books
-    songti: '"Songti SC", "STSong", "SimSun", serif',
-    kaiti: '"Kaiti SC", "STKaiti", "KaiTi", serif',
-    notoserif: '"Noto Serif CJK SC", "Source Han Serif SC", serif',
-    sourcehans: '"Source Han Sans SC", "Noto Sans CJK SC", sans-serif',
-  },
-  mono: {
-    system: 'ui-monospace, "SF Mono", Menlo, Monaco, monospace',
-    // macOS system fonts
-    sfmono: '"SF Mono", ui-monospace, monospace',
-    monaco: 'Monaco, ui-monospace, monospace',
-    menlo: 'Menlo, ui-monospace, monospace',
-    // Cross-platform
-    consolas: 'Consolas, "Courier New", monospace',
-    // Popular coding fonts (Nerd Font versions for terminal icon support)
-    jetbrains: '"JetBrains Mono", ui-monospace, monospace',
-    firacode: '"Fira Code", ui-monospace, monospace',
-    saucecodepro: '"SauceCodePro Nerd Font Mono", "SauceCodePro NFM", ui-monospace, monospace',
-    ibmplexmono: '"IBM Plex Mono", ui-monospace, monospace',
-    hack: 'Hack, ui-monospace, monospace',
-    inconsolata: 'Inconsolata, ui-monospace, monospace',
-  },
-};
+import { buildFontStack } from "@/utils/fontStacks";
 
 /**
  * Light mode color defaults — re-exported from the typed catalog
@@ -138,42 +106,6 @@ function applyVars(root: HTMLElement, vars: Record<string, string>) {
 // ---------------------------------------------------------------------------
 // Pure computation functions — exported for testing, no DOM access
 // ---------------------------------------------------------------------------
-
-/**
- * Resolve the monospace font stack for a given `monoFont` setting key. Pure —
- * no DOM access. This is the same mapping `buildFontStack` applies to the
- * editor's `--font-mono`, exposed on its own so the live terminal-font sync can
- * read the new font straight from the setting instead of round-tripping through
- * the CSS var (which `useTheme` only writes in a later effect).
- */
-export function resolveMonoFontStack(monoFont: string): string {
-  return (
-    fontStacks.mono[monoFont as keyof typeof fontStacks.mono] ||
-    fontStacks.mono.system
-  );
-}
-
-/** Build font stacks from font key selections. Pure — no DOM access. */
-export function buildFontStack(
-  latinFont: string,
-  cjkFont: string,
-  monoFont: string
-): { sans: string; mono: string } {
-  const latinStack =
-    fontStacks.latin[latinFont as keyof typeof fontStacks.latin] ||
-    fontStacks.latin.system;
-  const cjkStack =
-    fontStacks.cjk[cjkFont as keyof typeof fontStacks.cjk] ||
-    fontStacks.cjk.system;
-  const monoStack =
-    fontStacks.mono[monoFont as keyof typeof fontStacks.mono] ||
-    fontStacks.mono.system;
-
-  return {
-    sans: `${latinStack}, ${cjkStack}`,
-    mono: monoStack,
-  };
-}
 
 /** Compute core theme color CSS vars. Pure — no DOM access. */
 export function computeCoreColorVars(colors: ThemeColors): Record<string, string> {

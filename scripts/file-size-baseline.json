@@ -74,7 +74,7 @@
     "src/hooks/useGenieInvocation.ts": 533,
     "src/hooks/useHistoryOperations.ts": 369,
     "src/hooks/useTabDragOut.ts": 356,
-    "src/hooks/useTheme.ts": 419,
+    "src/hooks/useTheme.ts": 351,
     "src/hooks/useUnifiedHistory.ts": 308,
     "src/hooks/useUnifiedMenuCommands.ts": 488,
     "src/hooks/useUpdateChecker.ts": 407,

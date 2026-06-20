@@ -27,7 +27,7 @@ import type { IPty } from "@/lib/pty";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { buildXtermThemeForId } from "@/theme";
-import { resolveMonoFontStack } from "@/hooks/useTheme";
+import { resolveMonoFontStack } from "@/utils/fontStacks";
 import type { TerminalInstance } from "./createTerminalInstance";
 
 /**

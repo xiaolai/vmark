@@ -2,7 +2,6 @@
  * useTheme — pure function tests
  *
  * Tests the extractable logic from useTheme.ts:
- *   - Font stack resolution
  *   - Typography CSS var computation
  *   - Core color application
  *   - Mode-specific (dark/light) color application
@@ -11,72 +10,11 @@
 
 import { describe, it, expect } from "vitest";
 import {
-  fontStacks,
-  buildFontStack,
-  resolveMonoFontStack,
   computeTypographyVars,
   computeCoreColorVars,
   computeModeColorVars,
 } from "./useTheme";
 import type { ThemeColors } from "@/stores/settingsStore";
-
-// ---------------------------------------------------------------------------
-// Font stack resolution
-// ---------------------------------------------------------------------------
-describe("buildFontStack", () => {
-  it("resolves known latin font to its stack", () => {
-    const result = buildFontStack("athelas", "system", "system");
-    expect(result.sans).toContain("Athelas");
-  });
-
-  it("resolves known CJK font into the sans stack", () => {
-    const result = buildFontStack("system", "songti", "system");
-    expect(result.sans).toContain("Songti SC");
-  });
-
-  it("resolves known mono font", () => {
-    const result = buildFontStack("system", "system", "jetbrains");
-    expect(result.mono).toContain("JetBrains Mono");
-  });
-
-  it("falls back to system for unknown latin font key", () => {
-    const result = buildFontStack("nonexistent", "system", "system");
-    expect(result.sans).toContain("system-ui");
-  });
-
-  it("falls back to system for unknown CJK font key", () => {
-    const result = buildFontStack("system", "nonexistent", "system");
-    expect(result.sans).toContain("PingFang SC");
-  });
-
-  it("falls back to system for unknown mono font key", () => {
-    const result = buildFontStack("system", "system", "nonexistent");
-    expect(result.mono).toContain("ui-monospace");
-  });
-
-  it("combines latin and CJK in the sans stack", () => {
-    const result = buildFontStack("georgia", "kaiti", "system");
-    // Latin comes first, then CJK
-    const latinIdx = result.sans.indexOf("Georgia");
-    const cjkIdx = result.sans.indexOf("Kaiti SC");
-    expect(latinIdx).toBeLessThan(cjkIdx);
-  });
-});
-
-describe("resolveMonoFontStack", () => {
-  it("resolves a known mono font key to its stack", () => {
-    expect(resolveMonoFontStack("jetbrains")).toContain("JetBrains Mono");
-  });
-
-  it("falls back to the system mono stack for an unknown key", () => {
-    expect(resolveMonoFontStack("nonexistent")).toBe(fontStacks.mono.system);
-    expect(resolveMonoFontStack("nonexistent")).toContain("ui-monospace");
-  });
-
-  it("matches the mono stack buildFontStack produces for the same key", () => {
-    expect(resolveMonoFontStack("sfmono")).toBe(buildFontStack("system", "system", "sfmono").mono);
-  });
-});
 
 // ---------------------------------------------------------------------------
 // Typography vars computation
@@ -344,22 +282,5 @@ describe("computeModeColorVars", () => {
       expect(vars["--highlight-bg"]).toBe("#5c5c00");
       expect(vars["--highlight-text"]).toBe("#fff3a3");
     });
-  });
-});
-
-// ---------------------------------------------------------------------------
-// fontStacks export
-// ---------------------------------------------------------------------------
-describe("fontStacks", () => {
-  it("has latin, cjk, and mono categories", () => {
-    expect(fontStacks).toHaveProperty("latin");
-    expect(fontStacks).toHaveProperty("cjk");
-    expect(fontStacks).toHaveProperty("mono");
-  });
-
-  it("has system as a key in each category", () => {
-    expect(fontStacks.latin).toHaveProperty("system");
-    expect(fontStacks.cjk).toHaveProperty("system");
-    expect(fontStacks.mono).toHaveProperty("system");
   });
 });
