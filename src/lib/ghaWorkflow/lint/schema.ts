@@ -22,6 +22,7 @@
 import { validate } from "@actions/languageservice";
 import {
   type Diagnostic as LspDiagnostic,
+  type MarkupContent,
   DiagnosticSeverity,
 } from "vscode-languageserver-types";
 import { TextDocument } from "vscode-languageserver-textdocument";
@@ -55,11 +56,21 @@ export async function lintWorkflow(yaml: string): Promise<Diagnostic[]> {
 // ─── Translation ────────────────────────────────────────────────────
 // Exported for unit testing of the heuristic mapping.
 
+/**
+ * Extract plain text from an LSP diagnostic message. Since
+ * vscode-languageserver-types 3.18.0, `Diagnostic.message` is
+ * `string | MarkupContent`; the parser still emits plain strings, but the
+ * type must be narrowed before use.
+ */
+function messageText(message: string | MarkupContent): string {
+  return typeof message === "string" ? message : message.value;
+}
+
 export function translate(d: LspDiagnostic): Diagnostic {
   return {
     severity: lspSeverityToOurs(d.severity),
     code: classifyCode(d),
-    message: d.message,
+    message: messageText(d.message),
     position: {
       startLine: d.range.start.line + 1, // LSP is 0-based; we use 1-based
       startCol: d.range.start.character + 1,
@@ -93,7 +104,7 @@ function lspSeverityToOurs(s: number | undefined): Severity {
  * structured codes.
  */
 function classifyCode(d: LspDiagnostic): DiagnosticCode {
-  const m = (d.message ?? "").toLowerCase();
+  const m = messageText(d.message).toLowerCase();
   // Expression-context errors.
   if (/(unknown|invalid)\s+(context|object property)/.test(m)) {
     return "GHA-EXPR-001";
