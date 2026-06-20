@@ -39,6 +39,10 @@
       "ignoreDependencies": [
         "esbuild",
         "@yao-pkg/pkg"
+      ],
+      "ignoreBinaries": [
+        "ps",
+        "powershell"
       ]
     },
     "website": {

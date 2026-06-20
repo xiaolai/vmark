@@ -74,10 +74,10 @@ module.exports = [
   },
   {
     // Tiptap + ProseMirror. Eager because the editor is the home screen.
-    // ~446 kB at last check.
+    // ~483 kB after the @tiptap 3.18 → 3.26 minor bump (Dependabot npm group).
     name: "EAGER: vendor-tiptap",
     path: "dist/assets/vendor-tiptap-*.js",
-    limit: "470 kB",
+    limit: "510 kB",
     brotli: false,
   },
   {
@@ -104,19 +104,23 @@ module.exports = [
   },
   {
     // @lezer/* parsers used by the codeBlock highlighter. Eager because
-    // code blocks render on first paint.
+    // code blocks render on first paint. ~671 kB after transitive @lezer
+    // growth from the @tiptap/lowlight + codemirror minor bumps (Dependabot
+    // npm group).
     name: "EAGER: vendor-lezer",
     path: "dist/assets/vendor-lezer-*.js",
-    limit: "650 kB",
+    limit: "700 kB",
     brotli: false,
   },
   {
     // Mermaid + @mermaid-js/* + d3-* + dagre-d3-es + khroma. LAZY since
     // the preload-helper pinning (see vite.config.ts manualChunks): loads
-    // on first diagram render, not at cold start. ~1694 kB.
+    // on first diagram render, not at cold start. ~2228 kB after the mermaid
+    // 11.12 → 11.15 minor bump (Dependabot npm group), which adds new diagram
+    // types and their dependencies. Lazy, so no cold-start cost.
     name: "LAZY: vendor-mermaid",
     path: "dist/assets/vendor-mermaid-*.js",
-    limit: "1750 kB",
+    limit: "2350 kB",
     brotli: false,
   },
   {
