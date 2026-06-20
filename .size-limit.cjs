@@ -184,9 +184,11 @@ module.exports = [
     // Settings route. Lazy via App.tsx.
     // Bumped 90 → 92 kB: fix(#946) adds the openInNewTab toggle (+label/description)
     // to EditorSettings, nudging this chunk ~150 B over the old 90 kB ceiling.
+    // Bumped 92 → 93 kB: lucide-react 0.x → 1.x (Dependabot) restructured its
+    // icon modules, growing the icon-heavy Settings chunk ~419 B.
     name: "LAZY: Settings page",
     path: "dist/assets/Settings-*.js",
-    limit: "92 kB",
+    limit: "93 kB",
     brotli: false,
   },
   {
