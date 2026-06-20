@@ -17,6 +17,15 @@ export default tseslint.config(
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
+      // eslint-plugin-react-hooks v7 expanded `recommended` with React-Compiler-era
+      // rules that flag a large body of pre-existing code (65 violations across the
+      // repo). Adopting them is a separate, deliberate refactor — out of scope for a
+      // routine dependency bump — so they are deferred here rather than silently
+      // regressing the lint baseline. Re-enable per-rule when tackling the cleanup.
+      "react-hooks/set-state-in-effect": "off",
+      "react-hooks/refs": "off",
+      "react-hooks/preserve-manual-memoization": "off",
+      "react-hooks/immutability": "off",
       "@typescript-eslint/no-unused-vars": [
         "error",
         { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
