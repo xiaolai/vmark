@@ -398,7 +398,8 @@ function jsonSchemaPropertyToZod(prop: JsonSchemaProperty): ZodTypeAny {
           }
           schema = z.object(shape);
         } else {
-          schema = z.record(z.unknown());
+          // zod 4 requires an explicit key type for z.record().
+          schema = z.record(z.string(), z.unknown());
         }
         break;
       default:
