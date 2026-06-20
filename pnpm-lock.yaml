@@ -426,8 +426,8 @@ importers:
         specifier: ^0.27.2
         version: 0.27.2
       typescript:
-        specifier: ~5.8.3
-        version: 5.8.3
+        specifier: ~6.0.3
+        version: 6.0.3
       vitest:
         specifier: ^4.0.0
         version: 4.0.16(@types/node@22.19.3)(jiti@2.7.0)(jsdom@26.1.0)(lightningcss@1.30.2)(sass@1.98.0)(tsx@4.21.0)(yaml@2.9.0)
@@ -4951,6 +4951,11 @@ packages:
 
   typescript@5.8.3:
     resolution: {integrity: sha512-p1diW6TqL9L07nNxvRMM7hMMw4c5XOo/1ibL4aAIGmSAt9slTE1Xgw5KWuof2uTOvCg9BY7ZRi+GaF+7sfgPeQ==}
+    engines: {node: '>=14.17'}
+    hasBin: true
+
+  typescript@6.0.3:
+    resolution: {integrity: sha512-y2TvuxSZPDyQakkFRPZHKFm+KKVqIisdg9/CZwm9ftvKXLP8NRWj38/ODjNbr43SsoXqNuAisEf1GdCxqWcdBw==}
     engines: {node: '>=14.17'}
     hasBin: true
 
@@ -10417,6 +10422,8 @@ snapshots:
       - supports-color
 
   typescript@5.8.3: {}
+
+  typescript@6.0.3: {}
 
   uc.micro@2.1.0: {}
 
