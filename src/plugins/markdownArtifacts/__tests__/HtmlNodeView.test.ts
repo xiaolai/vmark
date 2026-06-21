@@ -19,15 +19,40 @@ const mockSanitizeHtmlPreview = vi.fn((html: string) => `sanitized:${html}`);
 const mockToggleSourceModeWithCheckpoint = vi.fn();
 const mockSetCursorInfo = vi.fn();
 let mockHtmlRenderingMode = "sanitized";
-let storeSubscriber: ((state: { markdown: { htmlRenderingMode: string } }) => void) | null = null;
+let mockAllowlistLevel = "strict";
+let mockCustomTags = "";
+type MarkdownState = {
+  markdown: {
+    htmlRenderingMode: string;
+    htmlAllowlistLevel: string;
+    htmlAllowlistCustomTags: string;
+  };
+};
+let storeSubscriber: ((state: MarkdownState) => void) | null = null;
 const mockUnsubscribe = vi.fn();
+
+/** Build a subscriber payload, defaulting allow-list fields to the mock values. */
+function markdownState(htmlRenderingMode: string, overrides: Partial<MarkdownState["markdown"]> = {}): MarkdownState {
+  return {
+    markdown: {
+      htmlRenderingMode,
+      htmlAllowlistLevel: mockAllowlistLevel,
+      htmlAllowlistCustomTags: mockCustomTags,
+      ...overrides,
+    },
+  };
+}
 
 vi.mock("@/stores/settingsStore", () => ({
   useSettingsStore: {
     getState: () => ({
-      markdown: { htmlRenderingMode: mockHtmlRenderingMode },
+      markdown: {
+        htmlRenderingMode: mockHtmlRenderingMode,
+        htmlAllowlistLevel: mockAllowlistLevel,
+        htmlAllowlistCustomTags: mockCustomTags,
+      },
     }),
-    subscribe: (cb: (state: { markdown: { htmlRenderingMode: string } }) => void) => {
+    subscribe: (cb: (state: MarkdownState) => void) => {
       storeSubscriber = cb;
       return mockUnsubscribe;
     },
@@ -137,6 +162,8 @@ describe("HtmlNodeView (inline)", () => {
       expect(mockSanitizeHtmlPreview).toHaveBeenCalledWith("<b>bold</b>", {
         allowStyles: false,
         context: "inline",
+        allowlistLevel: "strict",
+        customTags: [],
       });
     });
 
@@ -145,7 +172,7 @@ describe("HtmlNodeView (inline)", () => {
       createInlineView({ value: "<span>red</span>" });
       expect(mockSanitizeHtmlPreview).toHaveBeenCalledWith(
         "<span>red</span>",
-        { allowStyles: true, context: "inline" },
+        { allowStyles: true, context: "inline", allowlistLevel: "strict", customTags: [] },
       );
     });
 
@@ -174,13 +201,45 @@ describe("HtmlNodeView (inline)", () => {
     });
   });
 
+  describe("allow-list settings", () => {
+    afterEach(() => {
+      mockAllowlistLevel = "strict";
+      mockCustomTags = "";
+    });
+
+    it("passes the extended level and parsed custom tags to the sanitizer", () => {
+      mockHtmlRenderingMode = "sanitized";
+      mockAllowlistLevel = "extended";
+      mockCustomTags = "kbd, samp,, kbd";
+      createInlineView({ value: "<kbd>x</kbd>" });
+      expect(mockSanitizeHtmlPreview).toHaveBeenCalledWith("<kbd>x</kbd>", {
+        allowStyles: false,
+        context: "inline",
+        allowlistLevel: "extended",
+        customTags: ["kbd", "samp"],
+      });
+    });
+
+    it("re-renders when the allow-list level changes via store", () => {
+      mockHtmlRenderingMode = "sanitized";
+      createInlineView({ value: "<b>x</b>" });
+      vi.clearAllMocks();
+
+      storeSubscriber?.(markdownState("sanitized", { htmlAllowlistLevel: "extended" }));
+      expect(mockSanitizeHtmlPreview).toHaveBeenCalledWith(
+        "<b>x</b>",
+        expect.objectContaining({ allowlistLevel: "extended" }),
+      );
+    });
+  });
+
   describe("Settings subscription", () => {
     it("re-renders when rendering mode changes via store", () => {
       mockHtmlRenderingMode = "sanitized";
       createInlineView({ value: "<b>test</b>" });
       vi.clearAllMocks();
 
-      storeSubscriber?.({ markdown: { htmlRenderingMode: "hidden" } });
+      storeSubscriber?.(markdownState("hidden"));
       expect(nodeView.dom.style.display).toBe("none");
     });
 
@@ -189,7 +248,7 @@ describe("HtmlNodeView (inline)", () => {
       createInlineView({ value: "<b>test</b>" });
       vi.clearAllMocks();
 
-      storeSubscriber?.({ markdown: { htmlRenderingMode: "sanitized" } });
+      storeSubscriber?.(markdownState("sanitized"));
       expect(mockSanitizeHtmlPreview).not.toHaveBeenCalled();
     });
 
@@ -198,7 +257,7 @@ describe("HtmlNodeView (inline)", () => {
       createInlineView({ value: "<b>test</b>" });
       expect(nodeView.dom.style.display).toBe("none");
 
-      storeSubscriber?.({ markdown: { htmlRenderingMode: "sanitized" } });
+      storeSubscriber?.(markdownState("sanitized"));
       expect(nodeView.dom.style.display).toBe("inline");
     });
   });
@@ -337,6 +396,8 @@ describe("HtmlNodeView (block)", () => {
       expect(mockSanitizeHtmlPreview).toHaveBeenCalledWith("<div>block</div>", {
         allowStyles: false,
         context: "block",
+        allowlistLevel: "strict",
+        customTags: [],
       });
     });
 

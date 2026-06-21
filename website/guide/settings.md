@@ -127,10 +127,18 @@ See [Markdown Lint](/guide/lint) for the full rule list and severity levels.
 
 | Setting | Description | Default | Options |
 |---------|-------------|---------|---------|
-| Raw HTML in rich text | Control whether raw HTML blocks are rendered in WYSIWYG mode | Hidden | Hidden, Sanitized, Sanitized + styles |
+| Raw HTML in rich text | Control whether raw HTML blocks are rendered in WYSIWYG mode | Sanitized | Hidden, Sanitized, Sanitized + styles |
+| Allowed HTML tags | How broad the rendered tag set is | Strict | Strict, Extended |
+| Also allow these tags | Extra tag names to allow, comma-separated | _(empty)_ | e.g. `kbd, samp, var` |
 
 ::: tip
-**Hidden** is the safest option — raw HTML blocks are collapsed and not rendered. **Sanitized** renders HTML with dangerous tags stripped. **Sanitized + styles** additionally preserves inline `style` attributes.
+**Hidden** collapses raw HTML and renders nothing. **Sanitized** renders HTML with dangerous tags stripped. **Sanitized + styles** additionally preserves a safe subset of inline `style` attributes.
+
+**Strict** allows a small, conservative tag set. **Extended** additionally renders `<svg>` (and its safe child elements), `<figure>`/`<figcaption>`, `<details>`/`<summary>`, and other semantic/structural tags — all still sanitized. Use **Also allow these tags** to add specific extras on top (e.g. `kbd, samp, var`).
+:::
+
+::: warning
+Regardless of these settings, dangerous tags (`<script>`, `<style>`, `<iframe>`, `<form>`, event handlers, …) are **always** stripped — the custom-tags field cannot re-enable them. Allow-list breadth only affects the WYSIWYG preview; the raw HTML in your file is never modified.
 :::
 
 ## Files & Images

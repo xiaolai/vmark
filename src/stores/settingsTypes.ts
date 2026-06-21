@@ -10,6 +10,8 @@
 
 import type { HardBreakStyleOnSave, LineEndingOnSave } from "@/utils/linebreakDetection";
 import type { ThemeId } from "@/theme/themes";
+import type { HtmlAllowlistLevel } from "@/utils/htmlAllowlists";
+export type { HtmlAllowlistLevel };
 
 // ---------------------------------------------------------------------------
 // Theme types
@@ -175,13 +177,9 @@ export type CopyFormat = "default" | "markdown";
 export interface MarkdownSettings {
   preserveLineBreaks: boolean; // Don't collapse blank lines
   showBrTags: boolean; // Display <br> tags visibly
-  /**
-   * Render invisible characters: spaces as ·, tabs as → (Source only),
-   * soft line breaks as ↓ (Source only), and hard breaks as ⏎. Off by
-   * default. Glyphs use low-opacity --md-char-color and are hidden in
-   * print media. Inside fenced code blocks, break markers are
-   * suppressed (those newlines are literal code, not markdown breaks).
-   */
+  // Render invisible chars: spaces ·, tabs → and soft breaks ↓ (Source only),
+  // hard breaks ⏎. Off by default; glyphs use --md-char-color, hidden in print,
+  // and suppressed inside fenced code blocks (literal code, not markdown breaks).
   showInvisibles: boolean;
   enableRegexSearch: boolean; // Enable regex in Find & Replace
   pasteMarkdownInWysiwyg: MarkdownPasteMode; // Convert pasted markdown into rich text
@@ -191,6 +189,8 @@ export interface MarkdownSettings {
   headingAlignment: HeadingAlignment; // Alignment for headings
   blockFontSize: BlockFontSize; // Font size for lists, blockquotes, tables, etc.
   htmlRenderingMode: HtmlRenderingMode; // Rich text display for raw HTML
+  htmlAllowlistLevel: HtmlAllowlistLevel; // Raw HTML tag breadth: strict (default) or extended
+  htmlAllowlistCustomTags: string; // Extra allowed tags (comma/space separated, on top of the level)
   hardBreakStyleOnSave: HardBreakStyleOnSave; // Preserve or normalize hard break output
   // Auto-pair
   autoPairEnabled: boolean; // Auto-insert closing brackets/quotes

@@ -12,10 +12,11 @@ import {
   type HeadingAlignment,
   type BlockFontSize,
   type HtmlRenderingMode,
+  type HtmlAllowlistLevel,
   type MarkdownPasteMode,
   type PasteMode,
 } from "@/stores/settingsStore";
-import { SettingRow, Toggle, SettingsGroup, Select } from "./components";
+import { SettingRow, Toggle, SettingsGroup, Select, FieldInput } from "./components";
 
 export function MarkdownSettings() {
   const { t } = useTranslation("settings");
@@ -146,6 +147,33 @@ export function MarkdownSettings() {
               { value: "sanitizedWithStyles", label: t("markdown.htmlRendering.sanitizedWithStyles") },
             ]}
             onChange={(v) => updateSetting("htmlRenderingMode", v)}
+          />
+        </SettingRow>
+        <SettingRow
+          label={t("markdown.htmlAllowlist.label")}
+          description={t("markdown.htmlAllowlist.description")}
+          disabled={markdown.htmlRenderingMode === "hidden"}
+        >
+          <Select<HtmlAllowlistLevel>
+            value={markdown.htmlAllowlistLevel}
+            disabled={markdown.htmlRenderingMode === "hidden"}
+            options={[
+              { value: "strict", label: t("markdown.htmlAllowlist.strict") },
+              { value: "extended", label: t("markdown.htmlAllowlist.extended") },
+            ]}
+            onChange={(v) => updateSetting("htmlAllowlistLevel", v)}
+          />
+        </SettingRow>
+        <SettingRow
+          label={t("markdown.htmlAllowlistCustom.label")}
+          description={t("markdown.htmlAllowlistCustom.description")}
+          disabled={markdown.htmlRenderingMode === "hidden"}
+        >
+          <FieldInput
+            value={markdown.htmlAllowlistCustomTags}
+            placeholder={t("markdown.htmlAllowlistCustom.placeholder")}
+            disabled={markdown.htmlRenderingMode === "hidden"}
+            onChange={(v) => updateSetting("htmlAllowlistCustomTags", v)}
           />
         </SettingRow>
       </SettingsGroup>

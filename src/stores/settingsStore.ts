@@ -45,8 +45,7 @@ import { createSafeStorage } from "@/services/persistence/safeStorage";
 import { resolveInitialLanguage } from "@/utils/localeDetect";
 import type { SettingsState, SettingsActions } from "./settingsTypes";
 
-// Re-export all types for backward compatibility — consumers can keep
-// importing from "@/stores/settingsStore" without changes.
+// Re-export all types for backward compatibility (import from "@/stores/settingsStore").
 export type {
   ThemeId,
   ThemeColors,
@@ -60,6 +59,7 @@ export type {
   QuoteStyle,
   AutoPairCJKStyle,
   HtmlRenderingMode,
+  HtmlAllowlistLevel,
   MarkdownPasteMode,
   PasteMode,
   CopyFormat,
@@ -133,8 +133,7 @@ const initialState: SettingsState = {
     tabSize: 2,
     lineEndingsOnSave: "preserve",
     confirmQuit: true,
-    // fix(#946) — opt-in: open existing files in a new tab. Off by default
-    // to keep the legacy "reuse the empty untitled tab" behavior.
+    // fix(#946) — opt-in: open existing files in a new tab (off keeps the legacy "reuse untitled tab" behavior).
     openInNewTab: false,
     // First-run default derived from OS locale; persisted value from zustand/persist
     // overrides this via the merge hook below, so existing users are untouched.
@@ -198,6 +197,8 @@ const initialState: SettingsState = {
     headingAlignment: "left",
     blockFontSize: "1",
     htmlRenderingMode: "sanitized",
+    htmlAllowlistLevel: "strict",
+    htmlAllowlistCustomTags: "",
     hardBreakStyleOnSave: "preserve",
     autoPairEnabled: true,
     autoPairCJKStyle: "auto",
@@ -256,10 +257,9 @@ const initialState: SettingsState = {
     warnAbove5MB: true,
   },
   formats: {
-    // Multi-format rebrand opt-in defaults — markdown, txt, and yaml are
-    // always registered; everything else is OFF by default so existing
-    // users aren't surprised. The first-run-after-upgrade nudge surfaces
-    // these in the Settings panel via a one-time toast.
+    // Multi-format rebrand opt-in defaults — markdown/txt/yaml are always
+    // registered; everything else is OFF so existing users aren't surprised
+    // (the first-run-after-upgrade nudge surfaces these in Settings).
     dataFormats: false,
     diagrams: false,
     htmlPreview: false,

@@ -153,7 +153,7 @@
     "src/utils/markdownPipeline/pmBlockConverters.ts": 394,
     "src/utils/markdownPipeline/serializer.ts": 405,
     "src/utils/openPolicy.ts": 447,
-    "src/utils/sanitize.ts": 394,
+    "src/utils/sanitize.ts": 335,
     "src/utils/textTransformations.ts": 362
   }
 }

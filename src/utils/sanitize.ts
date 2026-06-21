@@ -14,122 +14,63 @@
  *   - Video, audio, and source tags are allowed in sanitizeMediaHtml (separate function)
  *   - Iframe is allowed in sanitizeMediaHtml but restricted to whitelisted video domains via post-pass
  *   - escapeHtml is a simple entity escape for non-HTML text display
+ *   - Preview allow-lists (strict/extended) + the always-on `DANGEROUS_TAGS`
+ *     deny-list live in `utils/htmlAllowlists.ts`; `FORBID_TAGS` overrides
+ *     `ALLOWED_TAGS`, so user-supplied custom tags can never allow <script> etc.
  *
+ * @coordinates-with htmlAllowlists.ts — preview allow/deny tag + attr lists
  * @coordinates-with mermaid/index.ts — uses sanitizeSvg for Mermaid diagram output
  * @coordinates-with latex/katexLoader.ts — uses sanitizeKatex for math rendering
  * @module utils/sanitize
  */
 
 import DOMPurify from "dompurify";
-
-const HTML_PREVIEW_TAGS_INLINE = [
-  "span",
-  "br",
-  "strong",
-  "em",
-  "b",
-  "i",
-  "u",
-  "s",
-  "code",
-  "a",
-  "img",
-  "sub",
-  "sup",
-];
-
-const HTML_PREVIEW_TAGS_BLOCK = [
-  "div",
-  "span",
-  "p",
-  "br",
-  "strong",
-  "em",
-  "b",
-  "i",
-  "u",
-  "s",
-  "code",
-  "pre",
-  "blockquote",
-  "ul",
-  "ol",
-  "li",
-  "a",
-  "img",
-  "h1",
-  "h2",
-  "h3",
-  "h4",
-  "h5",
-  "h6",
-  "table",
-  "thead",
-  "tbody",
-  "tr",
-  "th",
-  "td",
-  "hr",
-  "sub",
-  "sup",
-];
-
-const HTML_PREVIEW_ATTRS = [
-  "href",
-  "src",
-  "alt",
-  "title",
-  "class",
-  "id",
-  "target",
-  "rel",
-  "width",
-  "height",
-  "align",
-];
-
-const HTML_PREVIEW_STYLE_PROPS = new Set([
-  "color",
-  "background-color",
-  "font-weight",
-  "font-style",
-  "text-decoration",
-  "text-align",
-  "margin",
-  "margin-left",
-  "margin-right",
-  "margin-top",
-  "margin-bottom",
-  "padding",
-  "padding-left",
-  "padding-right",
-  "padding-top",
-  "padding-bottom",
-  "display",
-  "max-width",
-  "width",
-  "height",
-]);
+import {
+  type HtmlAllowlistLevel,
+  PREVIEW_TAGS_INLINE_STRICT,
+  PREVIEW_TAGS_BLOCK_STRICT,
+  PREVIEW_TAGS_INLINE_EXTENDED,
+  PREVIEW_TAGS_BLOCK_EXTENDED,
+  PREVIEW_ATTRS_STRICT,
+  PREVIEW_ATTRS_EXTENDED,
+  PREVIEW_STYLE_PROPS as HTML_PREVIEW_STYLE_PROPS,
+  DANGEROUS_TAGS,
+} from "./htmlAllowlists";
 
 /** Whether the HTML preview allows inline-only or block-level elements. */
 export type HtmlPreviewContext = "inline" | "block";
 
-/** Options for sanitizeHtmlPreview: context level and optional style allowlist. */
+/** Options for sanitizeHtmlPreview: context level, style allowlist, and tag breadth. */
 export interface HtmlPreviewOptions {
   allowStyles?: boolean;
   context?: HtmlPreviewContext;
+  /** Allow-list breadth: "strict" (default) or "extended" (svg, figure, details, …). */
+  allowlistLevel?: HtmlAllowlistLevel;
+  /** Extra tag names to allow on top of the level (already parsed/validated). */
+  customTags?: string[];
 }
 
-/** Sanitize HTML for preview display with configurable context and optional safe style attributes. */
+/** Sanitize HTML for preview display with configurable context, styles, and allow-list breadth. */
 export function sanitizeHtmlPreview(html: string, options?: HtmlPreviewOptions): string {
   const context = options?.context ?? "inline";
   const allowStyles = options?.allowStyles ?? false;
-  const allowedTags = context === "block" ? HTML_PREVIEW_TAGS_BLOCK : HTML_PREVIEW_TAGS_INLINE;
-  const allowedAttrs = allowStyles ? [...HTML_PREVIEW_ATTRS, "style"] : HTML_PREVIEW_ATTRS;
+  const extended = options?.allowlistLevel === "extended";
+
+  const baseInline = extended ? PREVIEW_TAGS_INLINE_EXTENDED : PREVIEW_TAGS_INLINE_STRICT;
+  const baseBlock = extended ? PREVIEW_TAGS_BLOCK_EXTENDED : PREVIEW_TAGS_BLOCK_STRICT;
+  const baseTags = context === "block" ? baseBlock : baseInline;
+  // Custom tags ride on top, but DANGEROUS_TAGS (FORBID_TAGS) always wins.
+  const allowedTags = options?.customTags?.length
+    ? [...baseTags, ...options.customTags]
+    : baseTags;
+
+  const baseAttrs = extended ? PREVIEW_ATTRS_EXTENDED : PREVIEW_ATTRS_STRICT;
+  const allowedAttrs = allowStyles ? [...baseAttrs, "style"] : baseAttrs;
 
   const sanitized = DOMPurify.sanitize(html, {
     ALLOWED_TAGS: allowedTags,
     ALLOWED_ATTR: allowedAttrs,
+    FORBID_TAGS: DANGEROUS_TAGS,
     ALLOW_DATA_ATTR: false,
   });
 

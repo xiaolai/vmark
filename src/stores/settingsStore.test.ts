@@ -554,4 +554,19 @@ describe("settingsStore markdown defaults (#618)", () => {
     const { markdown } = useSettingsStore.getState();
     expect(markdown.htmlRenderingMode).toBe("sanitized");
   });
+
+  it("defaults the HTML allow-list to strict with no custom tags (backward compatible)", () => {
+    const { markdown } = useSettingsStore.getState();
+    expect(markdown.htmlAllowlistLevel).toBe("strict");
+    expect(markdown.htmlAllowlistCustomTags).toBe("");
+  });
+
+  it("persists allow-list changes through updateMarkdownSetting", () => {
+    const { updateMarkdownSetting } = useSettingsStore.getState();
+    updateMarkdownSetting("htmlAllowlistLevel", "extended");
+    updateMarkdownSetting("htmlAllowlistCustomTags", "kbd, samp");
+    const { markdown } = useSettingsStore.getState();
+    expect(markdown.htmlAllowlistLevel).toBe("extended");
+    expect(markdown.htmlAllowlistCustomTags).toBe("kbd, samp");
+  });
 });

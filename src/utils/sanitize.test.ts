@@ -39,6 +39,85 @@ describe("sanitizeHtmlPreview", () => {
     });
   });
 
+  describe("allow-list level", () => {
+    it("strict (default) strips svg / figure / details to empty", () => {
+      const svg = sanitizeHtmlPreview('<svg viewBox="0 0 10 10"><path d="M0 0"/></svg>', { context: "block" });
+      expect(svg).not.toContain("<svg");
+      expect(svg).not.toContain("<path");
+      const fig = sanitizeHtmlPreview("<figure><figcaption>Cap</figcaption></figure>", { context: "block" });
+      expect(fig).not.toContain("<figure");
+      expect(fig).not.toContain("<figcaption");
+      const det = sanitizeHtmlPreview("<details open><summary>S</summary>body</details>", { context: "block" });
+      expect(det).not.toContain("<details");
+    });
+
+    it("extended renders svg (with geometry attrs), figure, and details", () => {
+      const svg = sanitizeHtmlPreview('<svg viewBox="0 0 10 10"><path d="M0 0 L10 10"/></svg>', {
+        context: "block",
+        allowlistLevel: "extended",
+      });
+      expect(svg).toContain("<svg");
+      expect(svg).toContain("<path");
+      expect(svg).toContain('viewBox="0 0 10 10"');
+      expect(svg).toContain('d="M0 0 L10 10"');
+
+      const fig = sanitizeHtmlPreview("<figure><figcaption>Cap</figcaption></figure>", {
+        context: "block",
+        allowlistLevel: "extended",
+      });
+      expect(fig).toContain("<figure");
+      expect(fig).toContain("<figcaption");
+
+      const det = sanitizeHtmlPreview("<details open><summary>S</summary>body</details>", {
+        context: "block",
+        allowlistLevel: "extended",
+      });
+      expect(det).toContain("<details");
+      expect(det).toContain("<summary");
+      expect(det).toContain("open");
+    });
+
+    it("strips scripts/handlers from svg even in extended mode", () => {
+      const result = sanitizeHtmlPreview(
+        '<svg onload="alert(1)"><script>alert(1)</script><path d="M0 0"/></svg>',
+        { context: "block", allowlistLevel: "extended" }
+      );
+      expect(result).not.toContain("onload");
+      expect(result).not.toContain("<script");
+      expect(result).not.toContain("alert(1)");
+    });
+  });
+
+  describe("custom tags", () => {
+    it("allows a user-supplied benign tag on top of the level", () => {
+      const result = sanitizeHtmlPreview("<my-widget>x</my-widget>", {
+        context: "block",
+        customTags: ["my-widget"],
+      });
+      expect(result).toContain("<my-widget");
+    });
+
+    it("never allows a dangerous tag even if passed as a custom tag", () => {
+      // Defense-in-depth: FORBID_TAGS overrides ALLOWED_TAGS, so even a caller
+      // that bypasses parseCustomTags and injects "script"/"iframe" is blocked.
+      for (const bad of ["script", "iframe", "style", "form", "object"]) {
+        const result = sanitizeHtmlPreview(`<${bad}>danger</${bad}>`, {
+          context: "block",
+          allowlistLevel: "extended",
+          customTags: [bad],
+        });
+        expect(result).not.toContain(`<${bad}`);
+      }
+      const withScript = sanitizeHtmlPreview('<div><script>alert(1)</script></div>', {
+        context: "block",
+        allowlistLevel: "extended",
+        customTags: ["script"],
+      });
+      expect(withScript).not.toContain("<script");
+      expect(withScript).not.toContain("alert(1)");
+    });
+  });
+
   describe("style handling", () => {
     it("removes styles when allowStyles is false", () => {
       const input = '<span style="color: red;">Text</span>';

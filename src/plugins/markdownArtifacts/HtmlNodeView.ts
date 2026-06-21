@@ -12,17 +12,20 @@
  *   - HTML is sanitized before innerHTML injection to prevent XSS from user content.
  *
  * @coordinates-with htmlBlock.ts, htmlInline.ts — factory functions wrap this view
- * @coordinates-with settingsStore.ts — subscribes to `markdown.htmlRenderingMode`
+ * @coordinates-with settingsStore.ts — subscribes to `markdown.htmlRenderingMode`,
+ *   `htmlAllowlistLevel`, and `htmlAllowlistCustomTags`
+ * @coordinates-with utils/htmlAllowlists.ts — parseCustomTags for the custom field
  * @module plugins/markdownArtifacts/HtmlNodeView
  */
 import type { Node as PMNode } from "@tiptap/pm/model";
 import type { NodeView } from "@tiptap/pm/view";
-import { useSettingsStore, type HtmlRenderingMode } from "@/stores/settingsStore";
+import { useSettingsStore, type HtmlRenderingMode, type HtmlAllowlistLevel } from "@/stores/settingsStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
 import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import { toggleSourceModeWithCheckpoint } from "@/hooks/useUnifiedHistory";
 import { sanitizeHtmlPreview } from "@/utils/sanitize";
+import { parseCustomTags } from "@/utils/htmlAllowlists";
 import type { CursorInfo } from "@/types/cursorSync";
 
 interface HtmlNodeViewOptions {
@@ -37,6 +40,8 @@ class BaseHtmlNodeView implements NodeView {
   private node: PMNode;
   private value: string;
   private renderMode: HtmlRenderingMode;
+  private allowlistLevel: HtmlAllowlistLevel;
+  private customTags: string;
   private unsubscribe: (() => void) | null = null;
   private options: HtmlNodeViewOptions;
 
@@ -46,7 +51,10 @@ class BaseHtmlNodeView implements NodeView {
     /* v8 ignore start -- @preserve value attr is always set on HTML nodes */
     this.value = String(node.attrs.value ?? "");
     /* v8 ignore stop */
-    this.renderMode = useSettingsStore.getState().markdown.htmlRenderingMode;
+    const markdown = useSettingsStore.getState().markdown;
+    this.renderMode = markdown.htmlRenderingMode;
+    this.allowlistLevel = markdown.htmlAllowlistLevel;
+    this.customTags = markdown.htmlAllowlistCustomTags;
 
     this.dom = document.createElement(options.inline ? "span" : "div");
     this.dom.setAttribute("data-type", options.dataType);
@@ -60,9 +68,17 @@ class BaseHtmlNodeView implements NodeView {
     this.render();
 
     this.unsubscribe = useSettingsStore.subscribe((state) => {
-      const nextMode = state.markdown.htmlRenderingMode;
-      if (nextMode === this.renderMode) return;
-      this.renderMode = nextMode;
+      const { htmlRenderingMode, htmlAllowlistLevel, htmlAllowlistCustomTags } = state.markdown;
+      if (
+        htmlRenderingMode === this.renderMode &&
+        htmlAllowlistLevel === this.allowlistLevel &&
+        htmlAllowlistCustomTags === this.customTags
+      ) {
+        return;
+      }
+      this.renderMode = htmlRenderingMode;
+      this.allowlistLevel = htmlAllowlistLevel;
+      this.customTags = htmlAllowlistCustomTags;
       this.render();
     });
   }
@@ -140,6 +156,8 @@ class BaseHtmlNodeView implements NodeView {
     this.dom.innerHTML = sanitizeHtmlPreview(this.value, {
       allowStyles,
       context: this.options.inline ? "inline" : "block",
+      allowlistLevel: this.allowlistLevel,
+      customTags: parseCustomTags(this.customTags),
     });
   }
 }
