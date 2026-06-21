@@ -21,7 +21,7 @@ import { errorMessage } from "@/utils/errorMessage";
 /* ────────────────────────────── ui slice ──────────────────────────────── */
 
 export type SidebarViewMode = "files" | "outline" | "history";
-export type EffectiveTerminalPosition = "bottom" | "right";
+export type EffectiveTerminalPosition = "top" | "bottom" | "left" | "right";
 
 const SIDEBAR_MIN_WIDTH = 180;
 const SIDEBAR_MAX_WIDTH = 480;

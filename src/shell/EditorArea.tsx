@@ -3,8 +3,9 @@
  * side/bottom panel (terminal today; Assistant pane tomorrow).
  *
  * Per ADR-007, EditorArea is a pure layout helper — no store imports.
- * The dynamic panel positioning (right vs bottom) is the only layout
- * intelligence; everything else is pass-through composition.
+ * The dynamic panel positioning (top/bottom/left/right) is the only layout
+ * intelligence: left/right use a row axis, top/left render the panel before
+ * the editor. Everything else is pass-through composition.
  *
  * The editor + bottom-bar are siblings inside a flex column so the
  * 40px bottom bar always hugs the editor. The panel arranges around
@@ -21,7 +22,7 @@ import type { ReactNode } from "react";
 
 const BOTTOM_BAR_HEIGHT = 40;
 
-export type PanelPosition = "right" | "bottom";
+export type PanelPosition = "top" | "bottom" | "left" | "right";
 
 export interface EditorAreaProps {
   /** The editor surface. */
@@ -42,16 +43,21 @@ export function EditorArea({
 }: EditorAreaProps) {
   const { t } = useTranslation();
 
+  // left/right share a row axis; top/left render the panel before the editor.
+  const horizontal = panelPosition === "left" || panelPosition === "right";
+  const panelFirst = panelPosition === "top" || panelPosition === "left";
+
   return (
     <div
       style={{
         flex: 1,
         display: "flex",
-        flexDirection: panelPosition === "right" ? "row" : "column",
+        flexDirection: horizontal ? "row" : "column",
         minHeight: 0,
         minWidth: 0,
       }}
     >
+      {panelFirst && panel}
       <div
         style={{
           flex: 1,
@@ -81,7 +87,7 @@ export function EditorArea({
           {bottomBar}
         </div>
       </div>
-      {panel}
+      {!panelFirst && panel}
     </div>
   );
 }

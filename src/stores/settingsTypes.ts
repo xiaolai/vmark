@@ -232,7 +232,7 @@ export interface McpServerSettings {
 }
 
 /** Terminal panel placement: auto (based on window aspect ratio), bottom, or right. */
-export type TerminalPosition = "auto" | "bottom" | "right";
+export type TerminalPosition = "auto" | "top" | "bottom" | "left" | "right";
 /** Terminal cursor shape. */
 export type TerminalCursorStyle = "block" | "underline" | "bar";
 /** How a terminal bell (BEL) is signalled: off, a visual background-activity

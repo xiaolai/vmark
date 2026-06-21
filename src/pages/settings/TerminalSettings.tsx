@@ -132,7 +132,9 @@ export function TerminalSettings() {
 
   const positionOptions = [
     { value: "auto", label: t("terminal.panelPosition.auto") },
+    { value: "top", label: t("terminal.panelPosition.top") },
     { value: "bottom", label: t("terminal.panelPosition.bottom") },
+    { value: "left", label: t("terminal.panelPosition.left") },
     { value: "right", label: t("terminal.panelPosition.right") },
   ];
 

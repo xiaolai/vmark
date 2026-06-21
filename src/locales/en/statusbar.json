@@ -57,30 +57,26 @@
   "updateReadyVersion": "v{{version}} ready — click to restart",
   "updateError": "Update check failed — click to retry",
   "autoSavedAt": "Auto-saved at {{time}}",
-
   "terminal.search.placeholder": "Search...",
   "terminal.search.label": "Search terminal output",
   "terminal.search.previous": "Previous (Shift+Enter)",
   "terminal.search.next": "Next (Enter)",
   "terminal.search.close": "Close (Escape)",
-
   "terminal.ariaLabel": "Terminal",
   "terminal.newSession": "New Terminal",
   "terminal.maxSessions": "Maximum 5 sessions",
   "terminal.closeSession": "Close",
   "terminal.restartSession": "Restart",
-
+  "terminal.swapPosition": "Swap position",
   "terminal.contextMenu.copy": "Copy",
   "terminal.contextMenu.copyUnwrapped": "Copy Unwrapped",
   "terminal.contextMenu.paste": "Paste",
   "terminal.contextMenu.selectAll": "Select All",
   "terminal.contextMenu.clear": "Clear",
   "terminal.contextMenu.resetDisplay": "Reset Display",
-
   "lint.badge.tooltip": "{{count}} issue(s) — click to go to next",
   "lint.badge.tooltipSingle": "1 issue — click to go to next",
   "lint.clean.toast": "No markdown issues found",
-
   "largeFile.opening": "Opening large file ({{size}})…",
   "largeFile.openedInSourceMode": "Opened in Source mode (large file).",
   "largeFile.switchToWysiwyg": "Switch to WYSIWYG",

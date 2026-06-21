@@ -66,6 +66,7 @@
   "terminal.maxSessions": "最大5セッション",
   "terminal.closeSession": "閉じる",
   "terminal.restartSession": "再起動",
+  "terminal.swapPosition": "位置を入れ替え",
   "terminal.contextMenu.copy": "コピー",
   "terminal.contextMenu.copyUnwrapped": "折り返しを解除してコピー",
   "terminal.contextMenu.paste": "貼り付け",

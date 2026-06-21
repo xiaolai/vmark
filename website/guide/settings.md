@@ -343,7 +343,7 @@ Configure the integrated terminal panel. Open the terminal with `` Ctrl + ` ``.
 | Setting | Description | Default | Options |
 |---------|-------------|---------|---------|
 | Shell | Which shell to use. Requires a terminal restart to take effect | System Default | Auto-detected shells on your system (e.g., zsh, bash, fish) |
-| Panel Position | Where to place the terminal panel | Auto | Auto (based on window aspect ratio), Bottom, Right |
+| Panel Position | Where to place the terminal panel | Auto | Auto (based on window aspect ratio), Top, Bottom, Left, Right |
 | Panel Size | Proportion of available space the terminal occupies. Drag-resizing the panel also updates this value | 40% | 10% to 80% |
 | Font Size | Text size in the terminal | 13px | 10px to 24px |
 | Line Height | Vertical spacing between terminal lines | 1.2 (Compact) | 1.0 (Tight) to 2.0 (Extra) |

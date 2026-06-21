@@ -1,15 +1,15 @@
 /**
  * useTerminalResize
  *
- * Purpose: Hook for drag-to-resize on the terminal panel's edge.
- * Supports both vertical (bottom panel — drag top edge) and horizontal
- * (right panel — drag left edge) resize directions.
+ * Purpose: Hook for drag-to-resize on the terminal panel's edge. Works for all
+ * four panel positions (top/bottom/left/right); the grow direction is derived
+ * from the position (see the hook doc below).
  *
  * Key decisions:
  *   - Uses the handlersRef cleanup pattern (stores mousemove/mouseup references)
  *     to ensure exact listener removal on mouseup, blur, or unmount.
- *   - Vertical: dragging up increases height (negative Y delta = taller).
- *   - Horizontal: dragging left increases width (negative X delta = wider).
+ *   - Grow sign flips per side: right/bottom grow on negative client delta;
+ *     left/top grow on positive (their handle is on the far edge).
  *   - Sets document.body cursor during drag and disables text selection.
  *   - Caps the live size at 50% of available space (TERMINAL_MAX_RATIO); the
  *     store setters only enforce the absolute pixel floor.
@@ -24,18 +24,27 @@
  * @module components/Terminal/useTerminalResize
  */
 import { useCallback, useRef, useEffect } from "react";
-import { useUIStore, TERMINAL_MAX_RATIO } from "@/stores/uiStore";
+import { useUIStore, TERMINAL_MAX_RATIO, type EffectiveTerminalPosition } from "@/stores/uiStore";
 import { useSettingsStore } from "@/stores/settingsStore";
-import { pixelsToRatio, getAvailableDimension } from "./useTerminalPosition";
+import { pixelsToRatio, getAvailableDimension, isHorizontalTerminalAxis } from "./useTerminalPosition";
 
-/** Drag direction for the terminal resize handle. */
-export type ResizeDirection = "vertical" | "horizontal";
-
-/** Hook providing drag-to-resize behavior for the terminal panel edge. */
+/**
+ * Hook providing drag-to-resize behavior for the terminal panel edge.
+ *
+ * The handle sits on the edge adjacent to the editor, so the drag direction
+ * that *grows* the panel depends on which side the panel is on:
+ *   - right / bottom: handle on the near (left/top) edge → drag toward the
+ *     editor (left/up) grows it (negative client delta = larger).
+ *   - left / top: handle on the far (right/bottom) edge → drag away from the
+ *     editor (right/down) grows it (positive client delta = larger).
+ */
 export function useTerminalResize(
-  direction: ResizeDirection,
+  position: EffectiveTerminalPosition,
   onResize?: () => void
 ) {
+  const horizontal = isHorizontalTerminalAxis(position);
+  // right/bottom grow on negative client delta; left/top grow on positive.
+  const growSign = position === "right" || position === "bottom" ? -1 : 1;
   const isResizing = useRef(false);
   const startPos = useRef(0);
   const startSize = useRef(0);
@@ -69,7 +78,7 @@ export function useTerminalResize(
       isResizing.current = true;
 
       const ui = useUIStore.getState();
-      if (direction === "horizontal") {
+      if (horizontal) {
         startPos.current = e.clientX;
         startSize.current = ui.terminalWidth;
       } else {
@@ -90,13 +99,12 @@ export function useTerminalResize(
         );
         const maxPixels = available * TERMINAL_MAX_RATIO;
 
-        if (direction === "horizontal") {
-          // Drag left = wider (negative X delta = more width)
-          const delta = startPos.current - e.clientX;
+        if (horizontal) {
+          // growSign flips drag direction for left vs right panels.
+          const delta = (e.clientX - startPos.current) * growSign;
           ui.setTerminalWidth(Math.min(maxPixels, startSize.current + delta));
         } else {
-          // Drag up = taller (negative Y delta = more height)
-          const delta = startPos.current - e.clientY;
+          const delta = (e.clientY - startPos.current) * growSign;
           ui.setTerminalHeight(Math.min(maxPixels, startSize.current + delta));
         }
         onResize?.();
@@ -106,7 +114,7 @@ export function useTerminalResize(
         // Persist ratio from final pixel size
         const ui = useUIStore.getState();
         const pos = ui.effectiveTerminalPosition;
-        const pixels = pos === "right" ? ui.terminalWidth : ui.terminalHeight;
+        const pixels = isHorizontalTerminalAxis(pos) ? ui.terminalWidth : ui.terminalHeight;
         const available = getAvailableDimension(
           pos, window.innerWidth, window.innerHeight,
           ui.sidebarVisible, ui.sidebarWidth
@@ -123,11 +131,10 @@ export function useTerminalResize(
       document.addEventListener("mouseup", handleMouseUp);
       window.addEventListener("blur", handleMouseUp);
 
-      document.body.style.cursor =
-        direction === "horizontal" ? "col-resize" : "row-resize";
+      document.body.style.cursor = horizontal ? "col-resize" : "row-resize";
       document.body.style.userSelect = "none";
     },
-    [cleanup, direction, onResize]
+    [cleanup, horizontal, growSign, onResize]
   );
 
   return handleResizeStart;

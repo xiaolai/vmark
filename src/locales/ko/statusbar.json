@@ -66,6 +66,7 @@
   "terminal.maxSessions": "최대 5개 세션",
   "terminal.closeSession": "닫기",
   "terminal.restartSession": "재시작",
+  "terminal.swapPosition": "위치 바꾸기",
   "terminal.contextMenu.copy": "복사",
   "terminal.contextMenu.copyUnwrapped": "줄바꿈 해제하고 복사",
   "terminal.contextMenu.paste": "붙여넣기",

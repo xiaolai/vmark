@@ -14,6 +14,7 @@ The terminal supports up to 5 concurrent sessions, each with its own shell proce
 | Switch session | Click a tab number |
 | Close session | Click the trash icon |
 | Restart shell | Click the restart icon |
+| Swap panel side | Click the swap icon (↕ / ↔) to flip the terminal to the opposite side of its current axis |
 
 When you close the last session the panel hides but the session stays alive — reopen with `` Ctrl + ` `` and you are back where you left off. If a shell process exits, press any key to restart it.
 

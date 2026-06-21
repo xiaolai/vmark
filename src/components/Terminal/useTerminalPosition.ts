@@ -14,6 +14,10 @@
  *
  * Exports a pure `computeTerminalPosition()` for testing and a React hook
  * `useTerminalPosition()` that wires it to window resize events and settings.
+ * Also exports the position-axis helpers (`isHorizontalTerminalAxis`,
+ * `oppositeTerminalPosition`) used by the panel layout and the swap control;
+ * explicit top/bottom/left/right are honored, while "auto" resolves to
+ * bottom/right by aspect ratio.
  *
  * @coordinates-with settingsStore — reads terminal.position and terminal.panelRatio
  * @coordinates-with uiStore — writes effectiveTerminalPosition, terminalHeight, terminalWidth
@@ -104,11 +108,32 @@ export function getAvailableDimension(
   sidebarVisible: boolean,
   sidebarW: number
 ): number {
-  if (pos === "right") {
+  if (isHorizontalTerminalAxis(pos)) {
     const offset = sidebarVisible ? sidebarW : 0;
     return windowW - offset;
   }
   return windowH - TITLEBAR_HEIGHT - STATUSBAR_HEIGHT;
+}
+
+/** True when the terminal sits left/right of the editor (resizes by width). */
+export function isHorizontalTerminalAxis(pos: EffectiveTerminalPosition): boolean {
+  return pos === "left" || pos === "right";
+}
+
+/**
+ * The explicit position on the opposite side of the same axis — used by the
+ * terminal's swap control. bottom↔top, left↔right. Auto resolves to an
+ * effective bottom/right first (caller passes the effective position).
+ */
+export function oppositeTerminalPosition(
+  pos: EffectiveTerminalPosition
+): Exclude<EffectiveTerminalPosition, never> {
+  switch (pos) {
+    case "bottom": return "top";
+    case "top": return "bottom";
+    case "right": return "left";
+    case "left": return "right";
+  }
 }
 
 /**
@@ -126,18 +151,13 @@ export function useTerminalPosition() {
 
   useEffect(() => {
     const updateAll = () => {
-      // 1. Resolve effective position
-      let pos: EffectiveTerminalPosition;
+      // 1. Resolve effective position. Explicit top/bottom/left/right are used
+      //    as-is; "auto" picks bottom/right by aspect ratio.
       /* v8 ignore next 2 -- @preserve explicit position setting branch; tests use "auto" position which falls through to computeTerminalPosition */
-      if (position === "bottom" || position === "right") {
-        pos = position;
-      } else {
-        pos = computeTerminalPosition(
-          window.innerWidth,
-          window.innerHeight,
-          currentRef.current
-        );
-      }
+      const pos: EffectiveTerminalPosition =
+        position === "auto"
+          ? computeTerminalPosition(window.innerWidth, window.innerHeight, currentRef.current)
+          : position;
 
       // 2. Compute pixel dimensions from ratio
       const available = getAvailableDimension(pos, window.innerWidth, window.innerHeight, sidebarVisible, sidebarWidth);
@@ -150,7 +170,7 @@ export function useTerminalPosition() {
         currentRef.current = pos;
         store.setEffectiveTerminalPosition(pos);
       }
-      if (pos === "right") {
+      if (isHorizontalTerminalAxis(pos)) {
         store.setTerminalWidth(width);
       } else {
         store.setTerminalHeight(height);

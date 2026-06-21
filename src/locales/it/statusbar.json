@@ -66,6 +66,7 @@
   "terminal.maxSessions": "Massimo 5 sessioni",
   "terminal.closeSession": "Chiudi",
   "terminal.restartSession": "Riavvia",
+  "terminal.swapPosition": "Scambia posizione",
   "terminal.contextMenu.copy": "Copia",
   "terminal.contextMenu.copyUnwrapped": "Copia senza ritorni a capo",
   "terminal.contextMenu.paste": "Incolla",

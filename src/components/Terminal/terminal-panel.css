@@ -25,6 +25,20 @@
   border-top: none;
 }
 
+/* Top position — reversed so the (first-child) resize handle lands on the
+   bottom edge, adjacent to the editor below. */
+.terminal-panel--top {
+  flex-direction: column-reverse;
+  border-bottom: var(--border-thin) solid var(--border-color);
+}
+
+/* Left position — reversed so the resize handle lands on the right edge. */
+.terminal-panel--left {
+  flex-direction: row-reverse;
+  border-right: var(--border-thin) solid var(--border-color);
+  border-top: none;
+}
+
 /* Horizontal resize handle (bottom position — top edge) */
 .terminal-resize-handle--horizontal {
   height: var(--space-1);
@@ -79,8 +93,9 @@
   padding: var(--space-1) 0 0 1em;
 }
 
-/* Tighter horizontal padding when terminal is on the right */
-.terminal-panel--right .terminal-container {
+/* Tighter horizontal padding when terminal is on a side (left/right) */
+.terminal-panel--right .terminal-container,
+.terminal-panel--left .terminal-container {
   padding: var(--space-1) 1em 0 1em;
 }
 

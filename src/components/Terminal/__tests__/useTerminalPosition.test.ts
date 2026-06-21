@@ -1,5 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { computeTerminalPosition, pixelsToRatio, getAvailableDimension } from "../useTerminalPosition";
+import {
+  computeTerminalPosition,
+  pixelsToRatio,
+  getAvailableDimension,
+  isHorizontalTerminalAxis,
+  oppositeTerminalPosition,
+} from "../useTerminalPosition";
 import type { EffectiveTerminalPosition } from "@/stores/uiStore";
 
 describe("computeTerminalPosition", () => {
@@ -163,6 +169,33 @@ describe("getAvailableDimension — additional edge cases", () => {
   it("handles zero window dimensions for bottom", () => {
     const result = getAvailableDimension("bottom", 0, 0, false, 0);
     expect(result).toBe(0 - 40 - 40); // negative
+  });
+
+  it("treats left like right — width minus sidebar", () => {
+    expect(getAvailableDimension("left", 1000, 800, true, 200)).toBe(800);
+    expect(getAvailableDimension("left", 1000, 800, false, 200)).toBe(1000);
+  });
+
+  it("treats top like bottom — height minus bars", () => {
+    expect(getAvailableDimension("top", 1000, 800, false, 0)).toBe(800 - 40 - 40);
+  });
+});
+
+describe("isHorizontalTerminalAxis", () => {
+  it("is true for left/right, false for top/bottom", () => {
+    expect(isHorizontalTerminalAxis("left")).toBe(true);
+    expect(isHorizontalTerminalAxis("right")).toBe(true);
+    expect(isHorizontalTerminalAxis("top")).toBe(false);
+    expect(isHorizontalTerminalAxis("bottom")).toBe(false);
+  });
+});
+
+describe("oppositeTerminalPosition", () => {
+  it("flips to the opposite side of the same axis", () => {
+    expect(oppositeTerminalPosition("bottom")).toBe("top");
+    expect(oppositeTerminalPosition("top")).toBe("bottom");
+    expect(oppositeTerminalPosition("right")).toBe("left");
+    expect(oppositeTerminalPosition("left")).toBe("right");
   });
 });
 

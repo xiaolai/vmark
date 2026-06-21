@@ -5,6 +5,7 @@ import {
   useUIStore,
   resetTerminalSessionStore,
 } from "@/stores/uiStore";
+import { useSettingsStore } from "@/stores/settingsStore";
 
 describe("TerminalTabBar", () => {
   let onClose: () => void;
@@ -13,13 +14,14 @@ describe("TerminalTabBar", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     resetTerminalSessionStore();
+    useSettingsStore.getState().updateTerminalSetting("position", "auto");
     onClose = vi.fn<() => void>();
     onRestart = vi.fn<() => void>();
   });
 
   function renderWithSession() {
     useUIStore.getState().terminalCreateSession();
-    return render(<TerminalTabBar onClose={onClose} onRestart={onRestart} />);
+    return render(<TerminalTabBar onClose={onClose} onRestart={onRestart} position="bottom" />);
   }
 
   it("renders session tab with number", () => {
@@ -46,7 +48,7 @@ describe("TerminalTabBar", () => {
     useUIStore.getState().terminalCreateSession();
     useUIStore.getState().terminalCreateSession();
 
-    render(<TerminalTabBar onClose={onClose} onRestart={onRestart} />);
+    render(<TerminalTabBar onClose={onClose} onRestart={onRestart} position="bottom" />);
 
     const tab1 = screen.getByTitle("Terminal 1");
     fireEvent.click(tab1);
@@ -59,7 +61,7 @@ describe("TerminalTabBar", () => {
     for (let i = 0; i < 5; i++) {
       useUIStore.getState().terminalCreateSession();
     }
-    render(<TerminalTabBar onClose={onClose} onRestart={onRestart} />);
+    render(<TerminalTabBar onClose={onClose} onRestart={onRestart} position="bottom" />);
 
     const addBtn = screen.getByTitle("Maximum 5 sessions");
     expect(addBtn).toBeDisabled();
@@ -76,21 +78,21 @@ describe("TerminalTabBar", () => {
   it("displays first character for custom-named sessions", () => {
     const session = useUIStore.getState().terminalCreateSession()!;
     useUIStore.getState().terminalRenameSession(session.id, "My Shell");
-    render(<TerminalTabBar onClose={onClose} onRestart={onRestart} />);
+    render(<TerminalTabBar onClose={onClose} onRestart={onRestart} position="bottom" />);
     expect(screen.getByText("M")).toBeInTheDocument();
   });
 
   it("displays '?' for empty-label sessions", () => {
     const session = useUIStore.getState().terminalCreateSession()!;
     useUIStore.getState().terminalRenameSession(session.id, "");
-    render(<TerminalTabBar onClose={onClose} onRestart={onRestart} />);
+    render(<TerminalTabBar onClose={onClose} onRestart={onRestart} position="bottom" />);
     expect(screen.getByText("?")).toBeInTheDocument();
   });
 
   it("applies horizontal class when orientation is horizontal", () => {
     useUIStore.getState().terminalCreateSession();
     const { container } = render(
-      <TerminalTabBar onClose={onClose} onRestart={onRestart} orientation="horizontal" />,
+      <TerminalTabBar onClose={onClose} onRestart={onRestart} position="bottom" orientation="horizontal" />,
     );
     expect(container.querySelector(".terminal-tab-bar--horizontal")).toBeTruthy();
   });
@@ -98,7 +100,7 @@ describe("TerminalTabBar", () => {
   it("does not apply horizontal class for vertical orientation (default)", () => {
     useUIStore.getState().terminalCreateSession();
     const { container } = render(
-      <TerminalTabBar onClose={onClose} onRestart={onRestart} />,
+      <TerminalTabBar onClose={onClose} onRestart={onRestart} position="bottom" />,
     );
     expect(container.querySelector(".terminal-tab-bar--horizontal")).toBeFalsy();
   });
@@ -107,7 +109,7 @@ describe("TerminalTabBar", () => {
     const session = useUIStore.getState().terminalCreateSession()!;
     useUIStore.getState().terminalMarkSessionDead(session.id);
     const { container } = render(
-      <TerminalTabBar onClose={onClose} onRestart={onRestart} />,
+      <TerminalTabBar onClose={onClose} onRestart={onRestart} position="bottom" />,
     );
     expect(container.querySelector(".terminal-tab-dead")).toBeTruthy();
   });
@@ -115,7 +117,7 @@ describe("TerminalTabBar", () => {
   it("applies active class to active session", () => {
     useUIStore.getState().terminalCreateSession();
     const { container } = render(
-      <TerminalTabBar onClose={onClose} onRestart={onRestart} />,
+      <TerminalTabBar onClose={onClose} onRestart={onRestart} position="bottom" />,
     );
     expect(container.querySelector(".terminal-tab-active")).toBeTruthy();
   });
@@ -123,7 +125,7 @@ describe("TerminalTabBar", () => {
   it("shows the program title (first char) when not renamed (G4/WI-3.2)", () => {
     const s = useUIStore.getState().terminalCreateSession()!;
     useUIStore.getState().terminalSetProgramTitle(s.id, "vim");
-    render(<TerminalTabBar onClose={onClose} onRestart={onRestart} />);
+    render(<TerminalTabBar onClose={onClose} onRestart={onRestart} position="bottom" />);
     // Program title wins over the default "Terminal 1" label.
     expect(screen.getByText("V")).toBeInTheDocument();
     expect(screen.getByTitle("vim")).toBeInTheDocument();
@@ -133,14 +135,29 @@ describe("TerminalTabBar", () => {
     const s = useUIStore.getState().terminalCreateSession()!;
     useUIStore.getState().terminalRenameSession(s.id, "My Shell");
     useUIStore.getState().terminalSetProgramTitle(s.id, "vim");
-    render(<TerminalTabBar onClose={onClose} onRestart={onRestart} />);
+    render(<TerminalTabBar onClose={onClose} onRestart={onRestart} position="bottom" />);
     expect(screen.getByText("M")).toBeInTheDocument();
     expect(screen.getByTitle("My Shell")).toBeInTheDocument();
   });
 
   it("falls back to the default label when there is no program title", () => {
     useUIStore.getState().terminalCreateSession();
-    render(<TerminalTabBar onClose={onClose} onRestart={onRestart} />);
+    render(<TerminalTabBar onClose={onClose} onRestart={onRestart} position="bottom" />);
     expect(screen.getByTitle("Terminal 1")).toBeInTheDocument();
+  });
+
+  it("swap button flips the panel to the opposite side of its axis", () => {
+    useUIStore.getState().terminalCreateSession();
+    // bottom → top
+    render(<TerminalTabBar onClose={onClose} onRestart={onRestart} position="bottom" />);
+    fireEvent.click(screen.getByTitle("Swap position"));
+    expect(useSettingsStore.getState().terminal.position).toBe("top");
+  });
+
+  it("swap from a horizontal side flips left/right", () => {
+    useUIStore.getState().terminalCreateSession();
+    render(<TerminalTabBar onClose={onClose} onRestart={onRestart} position="right" orientation="horizontal" />);
+    fireEvent.click(screen.getByTitle("Swap position"));
+    expect(useSettingsStore.getState().terminal.position).toBe("left");
   });
 });
