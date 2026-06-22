@@ -231,8 +231,8 @@ export interface McpServerSettings {
   autoApproveEdits: boolean; // Auto-approve AI document edits without preview
 }
 
-/** Terminal panel placement: auto (by window aspect ratio), or explicit top/bottom/left/right. */
-export type TerminalPosition = "auto" | "top" | "bottom" | "left" | "right";
+/** Terminal placement: auto (axis by aspect ratio), auto-flipped (auto, opposite end), or an explicit side. See useTerminalPosition. */
+export type TerminalPosition = "auto" | "auto-flipped" | "top" | "bottom" | "left" | "right";
 /** Terminal cursor shape. */
 export type TerminalCursorStyle = "block" | "underline" | "bar";
 /** How a terminal bell (BEL) is signalled: off, a visual background-activity

@@ -146,16 +146,28 @@ describe("TerminalTabBar", () => {
     expect(screen.getByTitle("Terminal 1")).toBeInTheDocument();
   });
 
-  it("swap button flips the panel to the opposite side of its axis", () => {
+  it("swap in auto mode toggles auto ↔ auto-flipped (keeps smart switching)", () => {
     useUIStore.getState().terminalCreateSession();
-    // bottom → top
+    // beforeEach leaves the setting at "auto"; effective position is "bottom".
+    render(<TerminalTabBar onClose={onClose} onRestart={onRestart} position="bottom" />);
+    const btn = screen.getByTitle("Swap position");
+    fireEvent.click(btn);
+    expect(useSettingsStore.getState().terminal.position).toBe("auto-flipped");
+    fireEvent.click(btn);
+    expect(useSettingsStore.getState().terminal.position).toBe("auto");
+  });
+
+  it("swap flips an explicit side to its opposite", () => {
+    useUIStore.getState().terminalCreateSession();
+    useSettingsStore.getState().updateTerminalSetting("position", "bottom");
     render(<TerminalTabBar onClose={onClose} onRestart={onRestart} position="bottom" />);
     fireEvent.click(screen.getByTitle("Swap position"));
     expect(useSettingsStore.getState().terminal.position).toBe("top");
   });
 
-  it("swap from a horizontal side flips left/right", () => {
+  it("swap flips an explicit horizontal side left↔right", () => {
     useUIStore.getState().terminalCreateSession();
+    useSettingsStore.getState().updateTerminalSetting("position", "right");
     render(<TerminalTabBar onClose={onClose} onRestart={onRestart} position="right" orientation="horizontal" />);
     fireEvent.click(screen.getByTitle("Swap position"));
     expect(useSettingsStore.getState().terminal.position).toBe("left");

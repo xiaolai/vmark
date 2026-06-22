@@ -56,10 +56,18 @@ export function TerminalTabBar({ onClose, onRestart, orientation = "vertical", p
     useUIStore.getState().terminalCreateSession();
   }, []);
 
-  // Swap moves the panel to the opposite side of its current axis
-  // (bottom↔top, left↔right) by writing the explicit position setting.
+  // Swap flips the panel to the opposite end of its current axis. In auto
+  // mode it toggles auto ↔ auto-flipped so the smart aspect-based axis
+  // switching is preserved (it just lands on the other side); for an explicit
+  // position it flips to the opposite explicit side.
   const handleSwap = useCallback(() => {
-    useSettingsStore.getState().updateTerminalSetting("position", oppositeTerminalPosition(position));
+    const settings = useSettingsStore.getState();
+    const setting = settings.terminal.position;
+    if (setting === "auto" || setting === "auto-flipped") {
+      settings.updateTerminalSetting("position", setting === "auto" ? "auto-flipped" : "auto");
+    } else {
+      settings.updateTerminalSetting("position", oppositeTerminalPosition(position));
+    }
   }, [position]);
   const SwapIcon = isHorizontalTerminalAxis(position) ? ArrowLeftRight : ArrowUpDown;
 

@@ -152,13 +152,19 @@ export function useTerminalPosition() {
   useEffect(() => {
     const updateAll = () => {
       // 1. Resolve effective position. Explicit top/bottom/left/right are used
-      //    as-is; "auto" — or any corrupt/unknown persisted value — picks
-      //    bottom/right by aspect ratio.
+      //    as-is. "auto" picks bottom/right by aspect ratio; "auto-flipped"
+      //    keeps that smart axis-switching but lands on the opposite end
+      //    (right→left, bottom→top). Any corrupt/unknown value falls back to
+      //    plain auto.
       const explicit =
         position === "top" || position === "bottom" || position === "left" || position === "right";
-      const pos: EffectiveTerminalPosition = explicit
-        ? position
-        : computeTerminalPosition(window.innerWidth, window.innerHeight, currentRef.current);
+      let pos: EffectiveTerminalPosition;
+      if (explicit) {
+        pos = position;
+      } else {
+        const computed = computeTerminalPosition(window.innerWidth, window.innerHeight, currentRef.current);
+        pos = position === "auto-flipped" ? oppositeTerminalPosition(computed) : computed;
+      }
 
       // 2. Compute pixel dimensions from ratio
       const available = getAvailableDimension(pos, window.innerWidth, window.innerHeight, sidebarVisible, sidebarWidth);

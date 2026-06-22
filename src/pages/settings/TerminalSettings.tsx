@@ -166,7 +166,9 @@ export function TerminalSettings() {
 
         <SettingRow label={t("terminal.panelPosition.label")} description={t("terminal.panelPosition.description")}>
           <Select
-            value={terminal.position}
+            // "auto-flipped" is a swap-driven refinement of auto; show it as
+            // "Auto" here. Re-selecting Auto clears the flip.
+            value={terminal.position === "auto-flipped" ? "auto" : terminal.position}
             options={positionOptions}
             onChange={(v) => updateTerminalSetting("position", v as TerminalPosition)}
           />

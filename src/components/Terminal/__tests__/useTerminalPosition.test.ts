@@ -414,4 +414,33 @@ describe("useTerminalPosition hook", () => {
     expect(mockSetTerminalHeight).not.toHaveBeenCalled();
     settings.setState({ terminalPosition: "auto" });
   });
+
+  it("auto-flipped keeps the smart axis but lands on the opposite side", async () => {
+    const settings = (await import("@/stores/settingsStore")).useSettingsStore as unknown as {
+      setState: (p: Record<string, unknown>) => void;
+    };
+    settings.setState({ terminalPosition: "auto-flipped" });
+    // Landscape → auto axis is horizontal (right); flipped → left.
+    renderHook(() => useTerminalPosition());
+    expect(mockSetEffectiveTerminalPosition).toHaveBeenCalledWith("left");
+    expect(mockSetTerminalWidth).toHaveBeenCalled();
+    settings.setState({ terminalPosition: "auto" });
+  });
+
+  it("auto-flipped still switches axis on resize (landscape left → portrait top)", async () => {
+    const settings = (await import("@/stores/settingsStore")).useSettingsStore as unknown as {
+      setState: (p: Record<string, unknown>) => void;
+    };
+    settings.setState({ terminalPosition: "auto-flipped" });
+    renderHook(() => useTerminalPosition());
+    expect(mockSetEffectiveTerminalPosition).toHaveBeenCalledWith("left");
+
+    vi.clearAllMocks();
+    Object.defineProperty(window, "innerWidth", { value: 800, configurable: true });
+    Object.defineProperty(window, "innerHeight", { value: 1200, configurable: true });
+    window.dispatchEvent(new Event("resize"));
+    // Portrait → auto axis is vertical (bottom); flipped → top.
+    expect(mockSetEffectiveTerminalPosition).toHaveBeenCalledWith("top");
+    settings.setState({ terminalPosition: "auto" });
+  });
 });
