@@ -7,6 +7,11 @@
 
 const mockDestroy = vi.fn();
 const mockFocus = vi.fn();
+// Fires when the (mocked) CM view is constructed — i.e. the async
+// loadCMModules → initCMEditor chain reached `new EditorView`, so
+// `currentCMView` is now set. flushCMInit polls this instead of spinning a
+// fixed number of microtask ticks (which raced under CPU load).
+const mockViewCreated = vi.fn();
 
 // Capture keymap bindings and updateListener callback so tests can invoke them
 let capturedKeymapBindings: Array<{ key: string; run: () => boolean }> = [];
@@ -23,7 +28,9 @@ vi.mock("@codemirror/view", () => {
     destroy = mockDestroy;
     focus = mockFocus;
     state = { doc: { toString: () => "test" } };
-    constructor(public config: Record<string, unknown>) {}
+    constructor(public config: Record<string, unknown>) {
+      mockViewCreated();
+    }
   }
   (MockCMView as unknown as Record<string, unknown>).theme = vi.fn(() => ({}));
   (MockCMView as unknown as Record<string, unknown>).lineWrapping = {};
@@ -74,15 +81,12 @@ import { history } from "@codemirror/commands";
 import { markdown as markdownLang } from "@codemirror/lang-markdown";
 import { syntaxHighlighting } from "@codemirror/language";
 
-/** Flush the async initCMEditor promise so the CM view is mounted. */
+/** Wait until the async initCMEditor chain has constructed the CM view. */
 async function flushCMInit(): Promise<void> {
-  // Lazy-loaded modules resolve via Promise.all inside loadCMModules,
-  // then initCMEditor continues after that. Need multiple microtask
-  // ticks for the full async chain to settle. CI runners are slower
-  // and may need more ticks than local — use 5 for reliable settling.
-  for (let i = 0; i < 5; i++) {
-    await new Promise((r) => setTimeout(r, 0));
-  }
+  // Poll for the view construction rather than spinning a fixed number of
+  // microtask ticks: the loadCMModules → initCMEditor chain settles in a
+  // variable number of ticks under CPU load, and a fixed loop raced it.
+  await vi.waitFor(() => expect(mockViewCreated).toHaveBeenCalled(), { timeout: 2000 });
 }
 
 // ---------------------------------------------------------------------------

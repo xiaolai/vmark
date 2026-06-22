@@ -441,10 +441,13 @@ describe("createMarkdownPasteTransaction error handling", () => {
 
 describe("markdown paste node-count cap", () => {
   it("rejects pastes whose parsed structure exceeds MAX_MARKDOWN_PASTE_NODES", () => {
-    // 6_000 single-character list items produces ~12_000 nodes (list_item + paragraph + text),
-    // well above the 5_000 cap. This is the regression: previously a 199KB paste
-    // with this shape could freeze the editor for seconds during dispatch.
-    const big = Array.from({ length: 6_000 }, (_, i) => `- item ${i}`).join("\n");
+    // 2_500 list items → ~7_500 nodes (list_item + paragraph + text each), safely
+    // above the 5_000 cap with margin. Kept to the minimum that trips the cap so
+    // the remark parse stays cheap — parsing 6_000+ items can exceed the test
+    // timeout under parallel CPU load (the cap logic is what we're testing, not
+    // parse throughput). Regression context: a 199KB paste of this shape used to
+    // freeze the editor for seconds during dispatch.
+    const big = Array.from({ length: 2_500 }, (_, i) => `- item ${i}`).join("\n");
     const state = createState(createParagraphDoc(""));
     const tr = createMarkdownPasteTransaction(state, big);
     expect(tr).toBeNull();

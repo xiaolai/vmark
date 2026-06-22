@@ -2274,19 +2274,26 @@ describe("codePreview setupThemeObserver", () => {
     // Mock updateMermaidTheme to reject so the .catch() handler at line 75 runs.
     // Since we can't re-mock after module load, we spy on the mermaid module.
     const mermaidModule = await import("../mermaid");
-    const spy = vi.spyOn(mermaidModule, "updateMermaidTheme").mockRejectedValueOnce(
+    // mockRejectedValue (not …Once): the toggle below fires the observer and
+    // every firing rejects → the production `.catch` handles each, so nothing
+    // leaks. (Once-only left the 2nd firing calling the real impl, whose async
+    // rejection could settle after the test under load — vitest's "unhandled
+    // error" warning, the actual flake.)
+    const spy = vi.spyOn(mermaidModule, "updateMermaidTheme").mockRejectedValue(
       new Error("Mermaid theme error")
     );
 
-    // Trigger the observer by toggling a class on documentElement
     document.documentElement.classList.toggle("dark-theme-test");
-    // Allow microtasks to settle (MutationObserver fires async in jsdom)
-    await new Promise((resolve) => setTimeout(resolve, 10));
-    document.documentElement.classList.toggle("dark-theme-test");
-    await new Promise((resolve) => setTimeout(resolve, 10));
+    // Wait for the observer to fire + call the mock, then flush the .catch
+    // microtask so the caught rejection settles inside this test (no fixed
+    // wall-clock delay to race under load).
+    await vi.waitFor(() => expect(spy).toHaveBeenCalled());
+    await Promise.resolve();
+    await Promise.resolve();
 
+    document.documentElement.classList.remove("dark-theme-test");
     spy.mockRestore();
-    // No assertion needed — just verifying the catch path doesn't throw unhandled
+    // No assertion needed — verifying the catch path doesn't throw unhandled.
     expect(true).toBe(true);
   });
 
@@ -2318,13 +2325,16 @@ describe("codePreview setupThemeObserver", () => {
     const markmapModule = await import("@/plugins/markmap");
     const spy = vi
       .spyOn(markmapModule, "updateMarkmapTheme")
-      .mockRejectedValueOnce(new Error("Markmap theme error"));
+      .mockRejectedValue(new Error("Markmap theme error"));
 
     document.documentElement.classList.toggle("dark-theme-test-mk");
-    await new Promise((resolve) => setTimeout(resolve, 10));
-    document.documentElement.classList.toggle("dark-theme-test-mk");
-    await new Promise((resolve) => setTimeout(resolve, 10));
+    // Wait for the observer to fire + call the mock, then flush the .catch so
+    // the caught rejection settles inside this test (no racy fixed delay).
+    await vi.waitFor(() => expect(spy).toHaveBeenCalled());
+    await Promise.resolve();
+    await Promise.resolve();
 
+    document.documentElement.classList.remove("dark-theme-test-mk");
     spy.mockRestore();
     expect(true).toBe(true);
   });

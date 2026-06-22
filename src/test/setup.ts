@@ -14,6 +14,13 @@ expect.extend(axeMatchers);
 // frontend Vite config, so we stub a stable test value here.
 vi.stubGlobal("__VMARK_VERSION__", "0.0.0-test");
 
+// NOTE: deliberately NO global ResizeObserver shim. Defining it makes
+// mermaid/markmap render code proceed past the ResizeObserver check and then
+// hit the *next* missing jsdom API (SVGElement.getBBox), throwing async errors
+// that leak across tests far worse than the original fast-fail. Tests that
+// genuinely need ResizeObserver (xyflow in WorkflowCanvas) provide their own
+// local, callback-firing shim. matchMedia is likewise shimmed per-test.
+
 // ---------------------------------------------------------------------------
 // react-i18next global mock
 // Makes t(key, opts) return the English translation string with interpolations

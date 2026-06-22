@@ -11,7 +11,13 @@ import { render, waitFor } from "@testing-library/react";
 import type { WorkflowIR } from "@/lib/ghaWorkflow/types";
 import { WorkflowCanvas } from "../WorkflowCanvas";
 
-// ResizeObserver isn't in jsdom; xyflow needs it.
+// ResizeObserver isn't in jsdom; xyflow needs it to exist. A no-op stub is
+// correct here: xyflow renders node DOM optimistically without the callback,
+// and FIRING the callback only drives it into the next jsdom gap
+// (`DOMMatrixReadOnly is not a constructor`), an async error that leaks. The
+// real flake was never the observer — it was the lazy-loaded canvas chunk not
+// resolving within waitFor's default 1s under load (fixed via the timeouts
+// below). Full visual verification happens in the live Tauri webview.
 beforeEach(() => {
   // @ts-expect-error jsdom shim
   global.ResizeObserver = class {
@@ -72,9 +78,12 @@ describe("WorkflowCanvas", () => {
     // The xyflow subtree is lazy-loaded; wait for the chunk to resolve
     // and the nodes to mount. xyflow renders each node with
     // data-id=<id> so the IR's job ids reach the DOM as data attributes.
-    await waitFor(() => {
-      expect(container.querySelector('[data-id="a"]')).not.toBeNull();
-    });
+    await waitFor(
+      () => {
+        expect(container.querySelector('[data-id="a"]')).not.toBeNull();
+      },
+      { timeout: 4000 },
+    );
     expect(container.querySelector('[data-id="b"]')).not.toBeNull();
     expect(container.querySelector('[data-id="c"]')).not.toBeNull();
   });
@@ -84,8 +93,11 @@ describe("WorkflowCanvas", () => {
     // The JobNode renders the job id as a label; its presence proves
     // the custom node type registered (default xyflow nodes don't
     // render job id text).
-    await waitFor(() => {
-      expect(container.textContent).toContain("build");
-    });
+    await waitFor(
+      () => {
+        expect(container.textContent).toContain("build");
+      },
+      { timeout: 4000 },
+    );
   });
 });
