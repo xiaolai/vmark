@@ -52,12 +52,15 @@ const EXTENDED_TAGS_BLOCK = [
 
 /**
  * Static SVG tags. `foreignObject`, `script`, `style`, and the `animate*`
- * family are intentionally excluded — they re-open HTML/script injection
- * inside SVG. (Mermaid's richer SVG goes through `sanitizeSvg`, not this path.)
+ * family are excluded — they re-open HTML/script injection inside SVG.
+ * `use`/`image` are also excluded: their `href`/`xlink:href` can point at
+ * external resources (DOMPurify allows http(s) URIs), an exfil/SSRF vector.
+ * Decorative inline SVG (path/shape based) needs none of these. (Mermaid's
+ * richer SVG goes through `sanitizeSvg`, not this path.)
  */
 const EXTENDED_TAGS_SVG = [
   "svg", "g", "path", "circle", "ellipse", "rect", "line", "polyline", "polygon",
-  "text", "tspan", "defs", "use", "symbol", "title", "desc", "marker",
+  "text", "tspan", "defs", "symbol", "title", "desc", "marker",
   "lineargradient", "radialgradient", "stop", "clippath", "mask", "pattern",
 ];
 
@@ -78,9 +81,10 @@ const EXTENDED_ATTRS_SVG = [
   "stroke-opacity", "opacity", "font-size", "font-family", "font-weight",
   "text-anchor", "dominant-baseline", "alignment-baseline", "dx", "dy",
   "preserveAspectRatio", "clip-path", "clip-rule", "fill-rule", "mask",
-  "href", "xlink:href", "patternUnits", "patternTransform", "markerWidth",
+  "patternUnits", "patternTransform", "markerWidth",
   "markerHeight", "refX", "refY", "orient", "markerUnits", "spreadMethod",
   "fx", "fy", "vector-effect",
+  // Note: href / xlink:href deliberately omitted — see EXTENDED_TAGS_SVG.
 ];
 
 export const PREVIEW_TAGS_INLINE_EXTENDED = [
@@ -135,8 +139,10 @@ const VALID_TAG_RE = /^[a-z][a-z0-9-]*$/;
  * is still run through DOMPurify, so this is a usability filter layered on top
  * of the hard `FORBID_TAGS` guarantee — not the sole line of defense.
  */
-export function parseCustomTags(raw: string | undefined | null): string[] {
-  if (!raw) return [];
+export function parseCustomTags(raw: unknown): string[] {
+  // Accept unknown and guard: a corrupted/migrated persisted value could be a
+  // non-string, and raw.split() would otherwise throw.
+  if (typeof raw !== "string" || !raw) return [];
   const seen = new Set<string>();
   const out: string[] = [];
   for (const token of raw.split(/[\s,]+/)) {

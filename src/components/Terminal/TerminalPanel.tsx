@@ -5,13 +5,13 @@
  * editor (top/bottom/left/right, based on effectiveTerminalPosition) with a
  * drag-to-resize handle on the editor-adjacent edge. Hosts multiple terminal
  * sessions via useTerminalSessions, a search
- * bar, a tab bar (vertical when bottom, horizontal when right), and a
- * context menu.
+ * bar, a tab bar (vertical for a top/bottom panel, horizontal for left/right),
+ * and a context menu.
  *
  * User interactions:
- *   - Drag the resize handle to adjust panel height (bottom) or width (right)
+ *   - Drag the resize handle to adjust panel height (top/bottom) or width (left/right)
  *   - Right-click for copy / paste / select-all / clear / reset-display menu
- *   - Use the tab bar to create/switch/close terminal sessions
+ *   - Use the tab bar to create/switch/close sessions and swap the panel side
  *   - Cmd+F within terminal opens the inline search bar
  *
  * Key decisions:

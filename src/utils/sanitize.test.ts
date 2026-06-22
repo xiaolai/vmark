@@ -86,6 +86,26 @@ describe("sanitizeHtmlPreview", () => {
       expect(result).not.toContain("<script");
       expect(result).not.toContain("alert(1)");
     });
+
+    it("strips external-ref svg elements (use/image) and their hrefs in extended mode", () => {
+      const result = sanitizeHtmlPreview(
+        '<svg><use href="https://evil.example/x.svg#a"/><image href="https://evil.example/p.png"/><path d="M0 0"/></svg>',
+        { context: "block", allowlistLevel: "extended" }
+      );
+      // use/image are not in the SVG allow-list, and href is not an allowed attr.
+      expect(result).not.toContain("<use");
+      expect(result).not.toContain("<image");
+      expect(result).not.toContain("evil.example");
+      // The safe shape survives.
+      expect(result).toContain("<path");
+    });
+
+    it("keeps https links but strips javascript: hrefs (the surviving href attr)", () => {
+      const ok = sanitizeHtmlPreview('<a href="https://example.com">x</a>', { context: "block", allowlistLevel: "extended" });
+      expect(ok).toContain('href="https://example.com"');
+      const evil = sanitizeHtmlPreview('<a href="javascript:alert(1)">x</a>', { context: "block", allowlistLevel: "extended" });
+      expect(evil).not.toContain("javascript:");
+    });
   });
 
   describe("custom tags", () => {

@@ -1,9 +1,9 @@
 /**
  * TerminalTabBar
  *
- * Purpose: Tab bar for the terminal panel. Renders vertically on the right
- * side (when panel is at the bottom) or horizontally at the bottom (when
- * panel is on the right). Shows numbered buttons for switching between
+ * Purpose: Tab bar for the terminal panel. Renders vertically for a
+ * top/bottom panel (the panel's vertical axis) or horizontally for a
+ * left/right panel. Shows numbered buttons for switching between
  * terminal sessions, plus create/close/restart and a swap control that flips
  * the panel to the opposite side of its current axis.
  *

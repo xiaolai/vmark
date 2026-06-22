@@ -152,12 +152,13 @@ export function useTerminalPosition() {
   useEffect(() => {
     const updateAll = () => {
       // 1. Resolve effective position. Explicit top/bottom/left/right are used
-      //    as-is; "auto" picks bottom/right by aspect ratio.
-      /* v8 ignore next 2 -- @preserve explicit position setting branch; tests use "auto" position which falls through to computeTerminalPosition */
-      const pos: EffectiveTerminalPosition =
-        position === "auto"
-          ? computeTerminalPosition(window.innerWidth, window.innerHeight, currentRef.current)
-          : position;
+      //    as-is; "auto" — or any corrupt/unknown persisted value — picks
+      //    bottom/right by aspect ratio.
+      const explicit =
+        position === "top" || position === "bottom" || position === "left" || position === "right";
+      const pos: EffectiveTerminalPosition = explicit
+        ? position
+        : computeTerminalPosition(window.innerWidth, window.innerHeight, currentRef.current);
 
       // 2. Compute pixel dimensions from ratio
       const available = getAvailableDimension(pos, window.innerWidth, window.innerHeight, sidebarVisible, sidebarWidth);

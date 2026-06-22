@@ -98,27 +98,26 @@ describe("EditorArea", () => {
     expect(container.firstChild as HTMLElement).toHaveStyle({ flexDirection: "row" });
   });
 
-  it("renders the panel before the editor for top/left positions", () => {
+  it.each(["top", "left"] as const)("renders the panel before the editor for %s", (panelPosition) => {
     const { container } = render(
       <EditorArea
         editor={<div data-testid="editor">editor</div>}
         bottomBar={<div>bottom</div>}
         panel={<div data-testid="panel">panel</div>}
-        panelPosition="top"
+        panelPosition={panelPosition}
       />
     );
     const root = container.firstChild as HTMLElement;
-    // Panel is the first flex child; the editor column follows it.
     expect(root.firstChild).toHaveAttribute("data-testid", "panel");
   });
 
-  it("renders the panel after the editor for bottom/right positions", () => {
+  it.each(["bottom", "right"] as const)("renders the panel after the editor for %s", (panelPosition) => {
     const { container } = render(
       <EditorArea
         editor={<div data-testid="editor">editor</div>}
         bottomBar={<div>bottom</div>}
         panel={<div data-testid="panel">panel</div>}
-        panelPosition="right"
+        panelPosition={panelPosition}
       />
     );
     const root = container.firstChild as HTMLElement;

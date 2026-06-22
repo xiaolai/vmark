@@ -374,4 +374,44 @@ describe("useTerminalPosition hook", () => {
 
     expect(mockSetEffectiveTerminalPosition).toHaveBeenCalledWith("right");
   });
+
+  it("honors an explicit left position even in a portrait window (auto would pick bottom)", async () => {
+    const settings = (await import("@/stores/settingsStore")).useSettingsStore as unknown as {
+      setState: (p: Record<string, unknown>) => void;
+    };
+    settings.setState({ terminalPosition: "left" });
+    Object.defineProperty(window, "innerWidth", { value: 800, configurable: true });
+    Object.defineProperty(window, "innerHeight", { value: 1200, configurable: true });
+
+    renderHook(() => useTerminalPosition());
+
+    expect(mockSetTerminalWidth).toHaveBeenCalled();
+    expect(mockSetEffectiveTerminalPosition).toHaveBeenCalledWith("left");
+    settings.setState({ terminalPosition: "auto" });
+  });
+
+  it("honors an explicit top position even in a landscape window (auto would pick right)", async () => {
+    const settings = (await import("@/stores/settingsStore")).useSettingsStore as unknown as {
+      setState: (p: Record<string, unknown>) => void;
+    };
+    settings.setState({ terminalPosition: "top" });
+    renderHook(() => useTerminalPosition());
+
+    expect(mockSetTerminalHeight).toHaveBeenCalled();
+    expect(mockSetEffectiveTerminalPosition).toHaveBeenCalledWith("top");
+    settings.setState({ terminalPosition: "auto" });
+  });
+
+  it("falls back to auto for a corrupt/unknown persisted position", async () => {
+    const settings = (await import("@/stores/settingsStore")).useSettingsStore as unknown as {
+      setState: (p: Record<string, unknown>) => void;
+    };
+    settings.setState({ terminalPosition: "garbage" });
+    // Landscape → auto resolves to right (width), not the garbage value.
+    renderHook(() => useTerminalPosition());
+
+    expect(mockSetTerminalWidth).toHaveBeenCalled();
+    expect(mockSetTerminalHeight).not.toHaveBeenCalled();
+    settings.setState({ terminalPosition: "auto" });
+  });
 });
