@@ -735,6 +735,8 @@
   "terminal.bellMode.off": "Désactivée",
   "terminal.bellMode.visual": "Visuelle (activité en arrière-plan)",
   "terminal.bellMode.audible": "Sonore (bip)",
+  "terminal.notifyOnBell.label": "Notifier quand non focalisée",
+  "terminal.notifyOnBell.description": "Afficher une notification système quand le terminal d'une fenêtre en arrière-plan déclenche la cloche (p. ex. Claude Code termine un tour)",
   "terminal.contrast.label": "Contraste minimum",
   "terminal.contrast.description": "Rehausser le texte pâle jusqu'à un rapport de contraste minimum par rapport à son arrière-plan",
   "terminal.contrast.off": "Désactivé",

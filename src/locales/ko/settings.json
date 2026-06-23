@@ -688,6 +688,8 @@
   "terminal.bellMode.off": "끄기",
   "terminal.bellMode.visual": "시각적 (백그라운드 활동)",
   "terminal.bellMode.audible": "소리 (비프음)",
+  "terminal.notifyOnBell.label": "비활성 창일 때 알림",
+  "terminal.notifyOnBell.description": "백그라운드 창의 터미널이 벨을 울릴 때(예: Claude Code가 한 턴을 마쳤을 때) OS 알림을 표시합니다",
   "terminal.contrast.label": "최소 대비",
   "terminal.contrast.description": "흐린 텍스트를 배경 대비 최소 명암비까지 끌어올립니다",
   "terminal.contrast.off": "끄기",

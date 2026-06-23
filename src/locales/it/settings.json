@@ -714,6 +714,8 @@
   "terminal.bellMode.off": "Disattivato",
   "terminal.bellMode.visual": "Visivo (attività in background)",
   "terminal.bellMode.audible": "Sonoro (segnale acustico)",
+  "terminal.notifyOnBell.label": "Notifica quando non a fuoco",
+  "terminal.notifyOnBell.description": "Mostra una notifica di sistema quando il terminale di una finestra in background suona la campana (es. Claude Code completa un turno)",
   "terminal.contrast.label": "Contrasto minimo",
   "terminal.contrast.description": "Aumenta il testo sbiadito fino a un rapporto di contrasto minimo rispetto allo sfondo",
   "terminal.contrast.off": "Disattivato",

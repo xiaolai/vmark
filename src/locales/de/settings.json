@@ -626,6 +626,8 @@
   "terminal.bellMode.off": "Aus",
   "terminal.bellMode.visual": "Visuell (Hintergrundaktivität)",
   "terminal.bellMode.audible": "Hörbar (Piepton)",
+  "terminal.notifyOnBell.label": "Benachrichtigen, wenn nicht fokussiert",
+  "terminal.notifyOnBell.description": "Eine Systembenachrichtigung anzeigen, wenn das Terminal eines Hintergrundfensters die Glocke auslöst (z. B. wenn Claude Code eine Runde beendet)",
   "terminal.contrast.label": "Mindestkontrast",
   "terminal.contrast.description": "Blassen Text auf ein Mindestkontrastverhältnis zum Hintergrund anheben",
   "terminal.contrast.off": "Aus",

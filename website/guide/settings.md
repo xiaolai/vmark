@@ -361,6 +361,7 @@ Two macOS/Unix-only toggles also appear here: **Option as Meta Key** (macOS only
 | Setting | Description | Default | Options |
 |---------|-------------|---------|---------|
 | Terminal bell | How a terminal bell (BEL) is signalled. **Visual** marks background activity on the session tab; **Audible** plays a soft beep and (for a background session) also flags the tab so you can locate it; **Off** ignores it. Applies live to running sessions | Visual | Off, Visual, Audible |
+| Notify when unfocused | Show an OS notification (naming the window's document) when a terminal rings the bell while that VMark window isn't focused — e.g. Claude Code finishing a turn. Lets you track Claude Code across multiple windows without watching each one. Requires granting notification permission on first use | On | On / Off |
 | Minimum contrast | Lift faint terminal text to a minimum contrast ratio against its background. Raise it for readability; **Off** disables the lift. Applies live to running sessions | WCAG AA (4.5:1) | Off, WCAG AA (4.5:1), WCAG AAA (7:1), Maximum |
 
 See [Integrated Terminal](/guide/terminal) for more about sessions, keyboard shortcuts, and shell environment.

@@ -67,6 +67,7 @@
   "terminal.closeSession": "Chiudi",
   "terminal.restartSession": "Riavvia",
   "terminal.swapPosition": "Scambia posizione",
+  "terminal.notify.attention": "{{name}} richiede attenzione",
   "terminal.contextMenu.copy": "Copia",
   "terminal.contextMenu.copyUnwrapped": "Copia senza ritorni a capo",
   "terminal.contextMenu.paste": "Incolla",

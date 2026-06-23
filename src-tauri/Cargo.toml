@@ -23,6 +23,7 @@ tauri-plugin-mcp-bridge = "0.8"
 tauri-plugin-shell = "2"
 tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
+tauri-plugin-notification = "2"
 tauri-plugin-log = "2"
 log = "0.4"
 serde = { version = "1", features = ["derive"] }

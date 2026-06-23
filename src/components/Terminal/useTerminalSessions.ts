@@ -42,6 +42,7 @@ import {
   type TerminalInstance,
 } from "./createTerminalInstance";
 import { resolveBellAction, playTerminalBell } from "./terminalBell";
+import { maybeNotifyTerminalBell } from "@/services/terminalAttention";
 import { spawnPty, resolveTerminalCwd } from "./spawnPty";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import {
@@ -165,9 +166,8 @@ export function useTerminalSessions(
     // asynchronously and could otherwise mark a freshly-restarted session dead
     // — the guard below ignores exits from a superseded generation.
     const gen = ++entry.spawnGen;
-    // WI-2.2: a newly opened terminal inherits a live sibling's cwd (OSC 7) so
-    // it starts where the user currently is, not back at the workspace root.
-    // First terminal / no live sibling → workspace-or-file resolution.
+    // WI-2.2: a new terminal inherits a live sibling's cwd (OSC 7) so it starts
+    // where the user is; first terminal / no sibling → workspace-or-file resolution.
     let inheritedCwd: string | undefined;
     for (const [id, sib] of sessionsRef.current) {
       if (id === sessionId || sib.disposed || !sib.pty || sib.shellExited) continue;
@@ -285,13 +285,13 @@ export function useTerminalSessions(
         ptyRef: ptyRefForKeys,
         onSearch: () => callbacksRef.current?.onSearch?.(),
         onBell: () => {
-          // Bell mode is read live so changing the setting affects running
-          // sessions without re-creating them (WI-4.3 + a11y bell mode).
+          // Bell mode read live so setting changes affect running sessions (WI-4.3).
           const bellMode = useSettingsStore.getState().terminal?.bellMode ?? "visual";
           const isActive = useUIStore.getState().terminal.activeSessionId === sessionId;
           const action = resolveBellAction(bellMode, isActive);
           if (action.sound) playTerminalBell();
           if (action.markActivity) useUIStore.getState().terminalMarkActivity(sessionId);
+          maybeNotifyTerminalBell(); // OS notice when an unfocused window rings (#1057)
         },
       });
 

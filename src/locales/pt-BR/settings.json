@@ -712,6 +712,8 @@
   "terminal.bellMode.off": "Desligada",
   "terminal.bellMode.visual": "Visual (atividade em segundo plano)",
   "terminal.bellMode.audible": "Sonora (bipe)",
+  "terminal.notifyOnBell.label": "Notificar quando sem foco",
+  "terminal.notifyOnBell.description": "Mostrar uma notificação do sistema quando o terminal de uma janela em segundo plano toca o sino (ex.: Claude Code conclui um turno)",
   "terminal.contrast.label": "Contraste mínimo",
   "terminal.contrast.description": "Elevar texto tênue a uma razão de contraste mínima em relação ao fundo",
   "terminal.contrast.off": "Desligado",

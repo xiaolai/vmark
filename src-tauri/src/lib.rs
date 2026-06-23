@@ -596,12 +596,12 @@ pub fn run() {
             let mid = machine_id_hash();
             tauri_plugin_updater::Builder::new()
                 .header("X-Machine-Id", mid)
-                // Infallible: `mid` is a lowercase hex string from `format!("{:x}", Sha256::digest(..))`,
-                // so it only ever contains [0-9a-f] — always a valid ASCII HTTP header value.
+                // Infallible: `mid` is a lowercase hex Sha256 ([0-9a-f] only) — always a valid ASCII header value.
                 .expect("machine id hash is always valid ASCII hex")
                 .build()
         })
         .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_notification::init())
         .plugin(
             tauri_plugin_window_state::Builder::new()
                 .with_denylist(&["settings", "pdf-export"])

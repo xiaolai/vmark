@@ -178,8 +178,7 @@ export interface MarkdownSettings {
   preserveLineBreaks: boolean; // Don't collapse blank lines
   showBrTags: boolean; // Display <br> tags visibly
   // Render invisible chars: spaces ·, tabs → and soft breaks ↓ (Source only),
-  // hard breaks ⏎. Off by default; glyphs use --md-char-color, hidden in print,
-  // and suppressed inside fenced code blocks (literal code, not markdown breaks).
+  // hard breaks ⏎. Off by default; --md-char-color, hidden in print + fenced code.
   showInvisibles: boolean;
   enableRegexSearch: boolean; // Enable regex in Find & Replace
   pasteMarkdownInWysiwyg: MarkdownPasteMode; // Convert pasted markdown into rich text
@@ -252,6 +251,7 @@ export interface TerminalSettings {
   shellIntegration: boolean; // Default: true — inject OSC 133 command marks + OSC 7 cwd (zsh) for prompt nav, exit-status decorations, cwd tracking
   screenReaderMode: boolean; // Default: false — expose terminal output to assistive tech (VoiceOver); off by default for performance (G3/WI-3.1)
   bellMode: TerminalBellMode; // Default: "visual" — how the terminal bell is signalled (off/visual indicator/audible beep)
+  notifyOnBell: boolean; // Default: true — OS notification when an unfocused window's terminal rings the bell
   minimumContrastRatio: number; // Default: 4.5 (WCAG AA) — xterm foreground-lift floor (1 = off … 21 = max)
   scrollback: number; // Default: 5000 — number of scrollback lines retained per session (G7/WI-4.2)
   position: TerminalPosition; // Default: "auto" — auto-reposition based on window aspect ratio

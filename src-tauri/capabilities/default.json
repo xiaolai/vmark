@@ -27,6 +27,7 @@
     "process:allow-restart",
     "process:allow-exit",
     "window-state:default",
+    "notification:default",
     "log:default",
     {
       "identifier": "opener:allow-open-url",

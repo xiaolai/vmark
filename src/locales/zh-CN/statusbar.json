@@ -67,6 +67,7 @@
   "terminal.closeSession": "关闭",
   "terminal.restartSession": "重启",
   "terminal.swapPosition": "交换位置",
+  "terminal.notify.attention": "{{name}} 需要处理",
   "terminal.contextMenu.copy": "复制",
   "terminal.contextMenu.copyUnwrapped": "复制（合并折行）",
   "terminal.contextMenu.paste": "粘贴",

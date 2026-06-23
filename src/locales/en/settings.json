@@ -424,6 +424,8 @@
   "terminal.bellMode.off": "Off",
   "terminal.bellMode.visual": "Visual (background activity)",
   "terminal.bellMode.audible": "Audible (beep)",
+  "terminal.notifyOnBell.label": "Notify when unfocused",
+  "terminal.notifyOnBell.description": "Show an OS notification when a background window's terminal rings the bell (e.g. Claude Code finishes a turn)",
   "terminal.contrast.label": "Minimum contrast",
   "terminal.contrast.description": "Lift faint text to a minimum contrast ratio against its background",
   "terminal.contrast.off": "Off",

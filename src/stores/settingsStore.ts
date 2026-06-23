@@ -226,6 +226,7 @@ const initialState: SettingsState = {
     shellIntegration: true,
     screenReaderMode: false,
     bellMode: "visual",
+    notifyOnBell: true,
     minimumContrastRatio: 4.5,
     scrollback: 5000,
     position: "auto",
@@ -361,11 +362,10 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
     }),
     {
       name: "vmark-settings",
-      // Schema version. Bump whenever the persisted shape changes in a way
-      // the `merge` function below cannot recover. `migrate` returns the
-      // current defaults so an incompatible blob from a future build (e.g.
-      // after a downgrade) is dropped rather than deep-merged into an
-      // undefined-laden state that crashes downstream consumers.
+      // Schema version. Bump whenever the persisted shape changes in a way the
+      // `merge` function below cannot recover. `migrate` returns the current
+      // defaults so an incompatible blob from a future build (e.g. after a
+      // downgrade) is dropped rather than deep-merged into a crashy state.
       version: 1,
       migrate: (persistedState, version) => {
         // Forward migrations have no work to do today — the only currently

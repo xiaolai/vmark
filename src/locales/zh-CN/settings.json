@@ -693,6 +693,8 @@
   "terminal.bellMode.off": "关闭",
   "terminal.bellMode.visual": "视觉（背景活动）",
   "terminal.bellMode.audible": "声音（蜂鸣）",
+  "terminal.notifyOnBell.label": "未聚焦时通知",
+  "terminal.notifyOnBell.description": "当后台窗口的终端响铃时（例如 Claude Code 完成一轮）显示系统通知",
   "terminal.contrast.label": "最小对比度",
   "terminal.contrast.description": "将暗淡文本提升到相对其背景的最小对比度",
   "terminal.contrast.off": "关闭",

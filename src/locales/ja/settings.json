@@ -688,6 +688,8 @@
   "terminal.bellMode.off": "オフ",
   "terminal.bellMode.visual": "視覚（背景のアクティビティ）",
   "terminal.bellMode.audible": "音声（ビープ音）",
+  "terminal.notifyOnBell.label": "非アクティブ時に通知",
+  "terminal.notifyOnBell.description": "バックグラウンドウィンドウのターミナルがベルを鳴らしたとき（Claude Code がターンを終えたときなど）に OS 通知を表示します",
   "terminal.contrast.label": "最小コントラスト",
   "terminal.contrast.description": "かすれたテキストを、背景に対する最小コントラスト比まで引き上げる",
   "terminal.contrast.off": "オフ",

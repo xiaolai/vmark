@@ -274,6 +274,13 @@ export function TerminalSettings() {
           />
         </SettingRow>
 
+        <SettingRow label={t("terminal.notifyOnBell.label")} description={t("terminal.notifyOnBell.description")}>
+          <Toggle
+            checked={terminal.notifyOnBell ?? true}
+            onChange={(v) => updateTerminalSetting("notifyOnBell", v)}
+          />
+        </SettingRow>
+
         <SettingRow label={t("terminal.contrast.label")} description={t("terminal.contrast.description")}>
           <Select
             value={String(terminal.minimumContrastRatio ?? 4.5)}
