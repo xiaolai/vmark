@@ -27,7 +27,9 @@
     "process:allow-restart",
     "process:allow-exit",
     "window-state:default",
-    "notification:default",
+    "notification:allow-is-permission-granted",
+    "notification:allow-request-permission",
+    "notification:allow-notify",
     "log:default",
     {
       "identifier": "opener:allow-open-url",
