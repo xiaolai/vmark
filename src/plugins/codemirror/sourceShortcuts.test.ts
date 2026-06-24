@@ -89,7 +89,8 @@ describe("buildSourceShortcutKeymap", () => {
     const toggleSidebarMock = vi.fn();
     vi.mocked(useUIStore.getState).mockReturnValue({ toggleSidebar: toggleSidebarMock } as never);
 
-    // toggleSidebar is not a registered shortcut id — inject it via customBindings
+    // toggleSidebar defaults to Ctrl-Shift-0; override with a custom key here
+    // to assert the handler wiring independently of the default binding.
     useShortcutsStore.setState({ customBindings: { toggleSidebar: "Alt-Mod-s" } } as never);
     const bindings = buildSourceShortcutKeymap();
     const binding = bindings.find((b) => b.key === "Alt-Mod-s");

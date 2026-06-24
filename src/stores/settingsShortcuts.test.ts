@@ -132,6 +132,17 @@ describe("shortcutsStore", () => {
       expect(bookmark).toBeDefined();
       expect(bookmark?.menuId).toBe("bookmark");
     });
+
+    it("includes toggleSidebar as a frontend-only view shortcut", () => {
+      const sidebar = DEFAULT_SHORTCUTS.find((s) => s.id === "toggleSidebar");
+      expect(sidebar).toBeDefined();
+      expect(sidebar?.defaultKey).toBe("Ctrl-Shift-0");
+      expect(sidebar?.category).toBe("view");
+      expect(sidebar?.scope).toBe("global");
+      // No menuId: keeping it frontend-keymap-only avoids a Win/Linux
+      // accelerator clash with `paragraph` (CmdOrCtrl+Shift+0).
+      expect(sidebar?.menuId).toBeUndefined();
+    });
   });
 
   describe("getShortcut", () => {
@@ -150,6 +161,11 @@ describe("shortcutsStore", () => {
     it("returns empty string for unknown shortcut", () => {
       const { getShortcut } = useShortcutsStore.getState();
       expect(getShortcut("nonexistent")).toBe("");
+    });
+
+    it("resolves the toggleSidebar default (previously unbound)", () => {
+      const { getShortcut } = useShortcutsStore.getState();
+      expect(getShortcut("toggleSidebar")).toBe("Ctrl-Shift-0");
     });
   });
 

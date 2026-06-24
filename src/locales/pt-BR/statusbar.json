@@ -1,6 +1,5 @@
 {
   "openSidebar": "Abrir barra lateral",
-  "newTab": "Nova aba",
   "newTabTitle": "Nova aba",
   "autoSavePaused": "Salvamento automático pausado",
   "autoSavePausedTitle": "Salvamento automático pausado: o arquivo foi excluído do disco. Salve manualmente com {{shortcut}}.",

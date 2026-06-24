@@ -11,6 +11,8 @@ import { ask } from "@tauri-apps/plugin-dialog";
 import { deleteDocumentHistory } from "@/hooks/useHistoryRecovery";
 import { emitHistoryCleared } from "@/utils/historyTypes";
 import { useUIStore, type SidebarViewMode } from "@/stores/uiStore";
+import { useShortcutsStore, formatKeyForDisplay } from "@/stores/settingsStore";
+import { tooltipWithShortcut } from "@/utils/tooltipWithShortcut";
 import { useDocumentFilePath } from "@/hooks/useDocumentState";
 import { FileExplorer, type FileExplorerHandle } from "./FileExplorer";
 import { OutlineView } from "./OutlineView";
@@ -39,6 +41,7 @@ export function Sidebar() {
   // is open, but binding to the store keeps maintainers honest if rendering
   // conditions change.
   const sidebarVisible = useUIStore((state) => state.sidebarVisible);
+  const sidebarShortcut = useShortcutsStore((state) => state.getShortcut("toggleSidebar"));
   const filePath = useDocumentFilePath();
   const fileExplorerRef = useRef<FileExplorerHandle>(null);
   const isClearingRef = useRef(false);
@@ -158,8 +161,8 @@ export function Sidebar() {
         <button
           className="sidebar-btn"
           onClick={() => useUIStore.getState().toggleSidebar()}
-          title={t("closeSidebar")}
-          aria-label={t("closeSidebar")}
+          title={tooltipWithShortcut(t("closeSidebar"), formatKeyForDisplay(sidebarShortcut))}
+          aria-label={tooltipWithShortcut(t("closeSidebar"), formatKeyForDisplay(sidebarShortcut))}
           aria-expanded={sidebarVisible}
         >
           <PanelLeftClose size={16} />

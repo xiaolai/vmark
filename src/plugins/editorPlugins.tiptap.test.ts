@@ -123,9 +123,8 @@ describe("buildEditorKeymapBindings", () => {
     const bindings = buildEditorKeymapBindings();
     const shortcuts = useShortcutsStore.getState();
     const key = shortcuts.getShortcut("toggleSidebar");
-    if (key) {
-      expect(bindings[key]).toBeTypeOf("function");
-    }
+    expect(key).toBe("Ctrl-Shift-0");
+    expect(bindings[key]).toBeTypeOf("function");
   });
 
   it("includes blockquote shortcut", () => {
@@ -179,10 +178,8 @@ describe("buildEditorKeymapBindings", () => {
     const bindings = buildEditorKeymapBindings();
     const shortcuts = useShortcutsStore.getState();
     const key = shortcuts.getShortcut("toggleSidebar");
-    if (key) {
-      // The binding should be a function
-      expect(typeof bindings[key]).toBe("function");
-    }
+    // The binding should be a function
+    expect(typeof bindings[key]).toBe("function");
   });
 
   it("does not duplicate bindings when called multiple times", () => {
@@ -299,11 +296,9 @@ describe("buildEditorKeymapBindings handler execution", () => {
     const bindings = buildEditorKeymapBindings();
     const shortcuts = useShortcutsStore.getState();
     const key = shortcuts.getShortcut("toggleSidebar");
-    if (key) {
-      // Commands receive (state, dispatch, view) — toggleSidebar doesn't use them
-      const result = bindings[key]({} as never, undefined, undefined);
-      expect(result).toBe(true);
-    }
+    // Commands receive (state, dispatch, view) — toggleSidebar doesn't use them
+    const result = bindings[key]({} as never, undefined, undefined);
+    expect(result).toBe(true);
   });
 
   it("Escape handler returns false when no popup/toolbar open and no mark boundary", () => {
@@ -833,13 +828,11 @@ describe("buildEditorKeymapBindings — inner callback coverage", () => {
     const bindings = buildEditorKeymapBindings();
     const shortcuts = useShortcutsStore.getState();
     const key = shortcuts.getShortcut("toggleSidebar");
-    if (key && bindings[key]) {
-      // toggleSidebar binding is plain (no wrapWithMultiSelectionGuard) — just guardProseMirrorCommand
-      const mockView = makeMockView();
-      // Should not throw and returns true
-      const result = bindings[key](mockView.state as never, vi.fn(), mockView as never);
-      expect(result).toBe(true);
-    }
+    // toggleSidebar binding is plain (no wrapWithMultiSelectionGuard) — just guardProseMirrorCommand
+    const mockView = makeMockView();
+    // Should not throw and returns true
+    const result = bindings[key](mockView.state as never, vi.fn(), mockView as never);
+    expect(result).toBe(true);
   });
 
   it("mark formatting inner body is reachable when wrapWithMultiSelectionGuard passes", () => {
@@ -1057,11 +1050,9 @@ describe("buildEditorKeymapBindings — inner callback coverage", () => {
     const bindings = buildEditorKeymapBindings();
     const shortcuts = useShortcutsStore.getState();
     const key = shortcuts.getShortcut("toggleSidebar");
-    if (key && bindings[key]) {
-      const mockView = makeMockView();
-      const result = bindings[key](mockView.state as never, vi.fn(), mockView as never);
-      expect(result).toBe(true);
-    }
+    const mockView = makeMockView();
+    const result = bindings[key](mockView.state as never, vi.fn(), mockView as never);
+    expect(result).toBe(true);
   });
 
   it("inline mark inner bodies execute with view (covers if(!view) false branches)", () => {
@@ -1242,15 +1233,13 @@ describe("buildEditorKeymapBindings — inner callback coverage", () => {
     const bindings = buildEditorKeymapBindings();
     const shortcuts = useShortcutsStore.getState();
     const key = shortcuts.getShortcut("toggleSidebar");
-    if (key && bindings[key]) {
-      // Call without view (toggleSidebar doesn't need a view)
-      const result = bindings[key]({} as never, undefined, undefined);
-      expect(result).toBe(true);
-      // Sidebar visibility should have toggled
-      expect(useUIStore.getState().sidebarVisible).toBe(!initialSidebar);
-      // Toggle back
-      useUIStore.getState().toggleSidebar();
-    }
+    // Call without view (toggleSidebar doesn't need a view)
+    const result = bindings[key]({} as never, undefined, undefined);
+    expect(result).toBe(true);
+    // Sidebar visibility should have toggled
+    expect(useUIStore.getState().sidebarVisible).toBe(!initialSidebar);
+    // Toggle back
+    useUIStore.getState().toggleSidebar();
   });
 
   it("subscript and superscript inner bodies execute with view (covers if(!view) branches)", () => {
@@ -1303,14 +1292,12 @@ describe("buildEditorKeymapBindings — inner callback coverage", () => {
     const bindings = buildEditorKeymapBindings();
     const shortcuts = useShortcutsStore.getState();
     const key = shortcuts.getShortcut("toggleSidebar");
-    if (key && bindings[key]) {
-      const mockView = makeMockView();
-      const result = bindings[key](mockView.state as never, mockView.dispatch as never, mockView as never);
-      expect(result).toBe(true);
-      expect(useUIStore.getState().sidebarVisible).toBe(!before);
-      // Restore
-      useUIStore.getState().toggleSidebar();
-    }
+    const mockView = makeMockView();
+    const result = bindings[key](mockView.state as never, mockView.dispatch as never, mockView as never);
+    expect(result).toBe(true);
+    expect(useUIStore.getState().sidebarVisible).toBe(!before);
+    // Restore
+    useUIStore.getState().toggleSidebar();
   });
 
   it("transformToggleCase returns false for empty selection with view (covers lines 309-310)", () => {
@@ -1413,11 +1400,11 @@ describe("buildEditorKeymapBindings — direct inner body coverage", () => {
     // Build bindings and retrieve the raw command for toggleSidebar
     const shortcuts = useShortcutsStore.getState();
     const key = shortcuts.getShortcut("toggleSidebar");
-    if (!key) return;
+    expect(key).toBe("Ctrl-Shift-0");
 
     const bindings = buildEditorKeymapBindings();
     const handler = bindings[key];
-    if (!handler) return;
+    expect(handler).toBeTypeOf("function");
 
     // Call five times to ensure branch coverage tracks the body
     // eslint-disable-next-line @typescript-eslint/no-require-imports

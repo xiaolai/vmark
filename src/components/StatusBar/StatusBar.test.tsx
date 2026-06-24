@@ -80,6 +80,7 @@ vi.mock("@/components/Tabs/TabContextMenu", () => ({
 
 import { StatusBar } from "./StatusBar";
 import { useUIStore } from "@/stores/uiStore";
+import { useShortcutsStore, formatKeyForDisplay } from "@/stores/settingsStore";
 
 describe("StatusBar accessibility", () => {
   beforeEach(() => {
@@ -100,5 +101,34 @@ describe("StatusBar accessibility", () => {
     useUIStore.setState({ sidebarVisible: true, statusBarVisible: true });
     render(<StatusBar />);
     expect(screen.queryByLabelText(/open sidebar/i)).toBeNull();
+  });
+});
+
+describe("StatusBar tooltips show keyboard shortcuts", () => {
+  beforeEach(() => {
+    useUIStore.setState({ sidebarVisible: false, statusBarVisible: true });
+    useShortcutsStore.setState({ customBindings: {}, version: 1 });
+  });
+
+  it("open-sidebar tooltip and aria-label include the shortcut and stay in sync", () => {
+    render(<StatusBar />);
+    const toggle = screen.getByLabelText(/open sidebar/i);
+    const key = useShortcutsStore.getState().getShortcut("toggleSidebar");
+    const display = formatKeyForDisplay(key);
+    expect(display).not.toBe("");
+    expect(toggle.getAttribute("title")).toContain(display);
+    // title and aria-label must be identical (accessibility parity)
+    expect(toggle.getAttribute("title")).toBe(toggle.getAttribute("aria-label"));
+  });
+
+  it("new-tab tooltip and aria-label include the shortcut and stay in sync", () => {
+    const { container } = render(<StatusBar />);
+    const newTab = container.querySelector(".status-new-tab");
+    expect(newTab).not.toBeNull();
+    const key = useShortcutsStore.getState().getShortcut("newTab");
+    const display = formatKeyForDisplay(key);
+    expect(display).not.toBe("");
+    expect(newTab?.getAttribute("title")).toContain(display);
+    expect(newTab?.getAttribute("title")).toBe(newTab?.getAttribute("aria-label"));
   });
 });

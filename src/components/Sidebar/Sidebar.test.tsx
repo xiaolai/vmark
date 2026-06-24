@@ -9,6 +9,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { useUIStore } from "@/stores/uiStore";
+import { useShortcutsStore, formatKeyForDisplay } from "@/stores/settingsStore";
 import { Sidebar } from "./Sidebar";
 
 // FileExplorer pulls in the workspace stack (Tauri FS, watchers, etc.) which
@@ -57,5 +58,23 @@ describe("Sidebar — close button aria-expanded", () => {
     render(<Sidebar />);
     const closeBtn = screen.getByRole("button", { name: /close sidebar/i });
     expect(closeBtn.getAttribute("aria-expanded")).toBe("false");
+  });
+});
+
+describe("Sidebar — close button shows the shortcut", () => {
+  beforeEach(() => {
+    useUIStore.setState({ sidebarVisible: true, sidebarViewMode: "files" });
+    useShortcutsStore.setState({ customBindings: {}, version: 1 });
+  });
+
+  it("close-sidebar tooltip and aria-label include the shortcut and stay in sync", () => {
+    render(<Sidebar />);
+    const closeBtn = screen.getByRole("button", { name: /close sidebar/i });
+    const display = formatKeyForDisplay(
+      useShortcutsStore.getState().getShortcut("toggleSidebar"),
+    );
+    expect(display).not.toBe("");
+    expect(closeBtn.getAttribute("title")).toContain(display);
+    expect(closeBtn.getAttribute("title")).toBe(closeBtn.getAttribute("aria-label"));
   });
 });

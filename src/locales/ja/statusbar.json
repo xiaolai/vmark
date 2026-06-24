@@ -1,6 +1,5 @@
 {
   "openSidebar": "サイドバーを開く",
-  "newTab": "新しいタブ",
   "newTabTitle": "新しいタブ",
   "autoSavePaused": "自動保存停止中",
   "autoSavePausedTitle": "自動保存停止中: ファイルがディスクから削除されました。{{shortcut}} で手動保存してください。",

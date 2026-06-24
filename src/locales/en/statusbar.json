@@ -1,6 +1,5 @@
 {
   "openSidebar": "Open Sidebar",
-  "newTab": "New tab",
   "newTabTitle": "New Tab",
   "autoSavePaused": "Auto-save paused",
   "autoSavePausedTitle": "Auto-save paused: file was deleted from disk. Save manually with {{shortcut}}.",
