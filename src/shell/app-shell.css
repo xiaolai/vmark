@@ -36,8 +36,8 @@
 }
 
 .app-sidebar-stack__rail {
-  width: 30px;
-  flex: 0 0 30px;
+  width: var(--workspace-rail-width, 30px);
+  flex: 0 0 var(--workspace-rail-width, 30px);
 }
 
 .app-sidebar-stack__sidebar {

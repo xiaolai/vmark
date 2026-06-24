@@ -127,6 +127,8 @@ describe("hot-exit workspace instance restore", () => {
   beforeEach(() => {
     mockWorkspaceRailEnabled.mockReturnValue(false);
     useWorkspaceInstancesStore.getState().resetWorkspaceInstances();
+    useTabStore.setState({ tabs: {}, activeTabId: {}, closedTabs: {}, untitledCounter: 0 });
+    useDocumentStore.setState({ documents: {} });
   });
 
   it("ignores v4 workspace instances while workspace rail mode is disabled", () => {
@@ -236,5 +238,63 @@ describe("hot-exit workspace instance restore", () => {
       tabIds: [newTabId],
       activeTabId: newTabId,
     });
+  });
+
+  it("does not keep stale active tab ids when restored tabs are not recreated", () => {
+    mockWorkspaceRailEnabled.mockReturnValue(true);
+    restoreWindowWorkspaceInstances(
+      "main",
+      makeWindowState({
+        workspace_instance_ids: ["ws-1"],
+        active_workspace_instance_id: "ws-1",
+        workspace_instances: [{ ...makeInstance("ws-1"), tabIds: ["old-a"], activeTabId: "old-a" }],
+      }),
+    );
+
+    reconcileRestoredWindowWorkspaceInstances(
+      "main",
+      makeWindowState({
+        workspace_instance_ids: ["ws-1"],
+        active_workspace_instance_id: "ws-1",
+        workspace_instances: [{ ...makeInstance("ws-1"), tabIds: ["old-a"], activeTabId: "old-a" }],
+      }),
+      new Map(),
+    );
+
+    expect(useWorkspaceInstancesStore.getState().instances["ws-1"]).toMatchObject({
+      tabIds: [],
+      activeTabId: null,
+    });
+  });
+
+  it("remaps restored closed tab ids and drops stale ones", () => {
+    mockWorkspaceRailEnabled.mockReturnValue(true);
+    restoreWindowWorkspaceInstances(
+      "main",
+      makeWindowState({
+        workspace_instance_ids: ["ws-1"],
+        active_workspace_instance_id: "ws-1",
+        workspace_instances: [{
+          ...makeInstance("ws-1"),
+          closedTabIds: ["old-closed", "missing-closed"],
+        }],
+      }),
+    );
+
+    reconcileRestoredWindowWorkspaceInstances(
+      "main",
+      makeWindowState({
+        workspace_instance_ids: ["ws-1"],
+        active_workspace_instance_id: "ws-1",
+        workspace_instances: [{
+          ...makeInstance("ws-1"),
+          closedTabIds: ["old-closed", "missing-closed"],
+        }],
+      }),
+      new Map([["old-closed", "new-closed"]]),
+    );
+
+    expect(useWorkspaceInstancesStore.getState().instances["ws-1"]?.closedTabIds)
+      .toEqual(["new-closed"]);
   });
 });

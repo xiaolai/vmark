@@ -1,4 +1,4 @@
-import { Component, lazy, Suspense, type ReactNode } from "react";
+import { Component, lazy, Suspense, type CSSProperties, type ReactNode } from "react";
 import { FeatureErrorBoundary } from "@/components/FeatureErrorBoundary";
 import { useTranslation, withTranslation, type WithTranslation } from "react-i18next";
 import { Routes, Route } from "react-router-dom";
@@ -173,7 +173,10 @@ function MainLayout() {
         showWorkspaceRail || sidebarVisible ? (
           <div className="app-sidebar-stack">
             {showWorkspaceRail && (
-              <div className="app-sidebar-stack__rail">
+              <div
+                className="app-sidebar-stack__rail"
+                style={{ "--workspace-rail-width": `${WORKSPACE_RAIL_WIDTH}px` } as CSSProperties}
+              >
                 <WorkspaceRail windowLabel={windowLabel} />
               </div>
             )}

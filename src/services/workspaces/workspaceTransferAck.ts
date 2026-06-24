@@ -8,9 +8,12 @@ export async function waitForWorkspaceAck(
   const currentWindow = getCurrentWebviewWindow();
   let timer: ReturnType<typeof setTimeout> | null = null;
   let unlisten: (() => void) | null = null;
+  let settled = false;
 
   return new Promise((resolve) => {
     const finish = (value: WorkspaceTransferAckPayload | null) => {
+      if (settled) return;
+      settled = true;
       if (timer) clearTimeout(timer);
       unlisten?.();
       resolve(value);
@@ -21,7 +24,8 @@ export async function waitForWorkspaceAck(
       if (event.payload.requestId !== requestId) return;
       finish(event.payload);
     }).then((fn) => {
-      unlisten = fn;
+      if (settled) fn();
+      else unlisten = fn;
     }).catch(() => finish(null));
   });
 }

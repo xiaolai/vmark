@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
@@ -6,6 +6,7 @@ import {
   selectActiveWorkspaceInstance,
   useWorkspaceInstancesStore,
 } from "@/stores/workspaceInstancesStore";
+import { createWorkspaceInstance, createWorkspaceRootIdentity } from "@/utils/workspaceIdentity";
 
 const mockUseWindowLabel = vi.fn(() => "main");
 const mockUseIsDocumentWindow = vi.fn(() => true);
@@ -24,6 +25,17 @@ function setRailMode(enabled: boolean): void {
       workspaceRailMode: enabled,
     },
   });
+}
+
+function addWorkspaceInstance(id: string, rootPath: string): void {
+  const root = createWorkspaceRootIdentity(rootPath);
+  if (!root.ok) throw new Error("fixture root failed");
+  useWorkspaceInstancesStore.getState().addWorkspaceInstance(createWorkspaceInstance({
+    workspaceInstanceId: id,
+    root: root.root,
+    ownerWindowLabel: "main",
+    createdFrom: "open",
+  }));
 }
 
 beforeEach(() => {
@@ -88,6 +100,30 @@ describe("useWorkspaceRailSeed", () => {
       displayName: "Untitled",
       createdFrom: "placeholder",
     });
+  });
+
+  it("does not reactivate the startup workspace after another instance is selected", async () => {
+    setRailMode(true);
+    useWorkspaceStore.setState({
+      rootPath: "/repo",
+      isWorkspaceMode: true,
+    });
+
+    renderHook(() => useWorkspaceRailSeed());
+
+    await waitFor(() => {
+      expect(selectActiveWorkspaceInstance(useWorkspaceInstancesStore.getState(), "main"))
+        .toMatchObject({ rootPath: "/repo" });
+    });
+
+    act(() => {
+      addWorkspaceInstance("wsi-other", "/other");
+      useWorkspaceInstancesStore.getState().activateWorkspaceInstance("main", "wsi-other");
+    });
+    await Promise.resolve();
+
+    expect(selectActiveWorkspaceInstance(useWorkspaceInstancesStore.getState(), "main"))
+      .toMatchObject({ rootPath: "/other" });
   });
 
   it("does not seed settings or export windows", async () => {

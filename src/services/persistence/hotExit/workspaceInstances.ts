@@ -130,13 +130,16 @@ export function reconcileRestoredWindowWorkspaceInstances(
   for (const instance of orderedWindowInstances(windowLabel)) {
     const tabIds = assignments.get(instance.workspaceInstanceId) ?? [];
     const activeTabId = instance.activeTabId
-      ? tabIdMap.get(instance.activeTabId) ?? instance.activeTabId
+      ? tabIdMap.get(instance.activeTabId) ?? null
       : null;
+    const closedTabIds = instance.closedTabIds
+      .map((id) => tabIdMap.get(id))
+      .filter((id): id is string => Boolean(id));
     useWorkspaceInstancesStore.getState().setWorkspaceInstanceTabs(
       instance.workspaceInstanceId,
       tabIds,
       activeTabId,
-      instance.closedTabIds,
+      closedTabIds,
     );
   }
 

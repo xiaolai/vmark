@@ -6,7 +6,7 @@ import { useWorkspaceInstancesStore } from "@/stores/workspaceInstancesStore";
 import { openOrActivateWorkspaceInstance } from "@/services/workspaces/workspaceInstanceActions";
 import { generateUUID } from "@/utils/workspaceIdentity";
 
-/** Seeds the rail model when the experimental flag is enabled after startup. */
+/** Seeds the rail model when rail mode is enabled after startup. */
 export function useWorkspaceRailSeed(): void {
   const windowLabel = useWindowLabel();
   const isDocumentWindow = useIsDocumentWindow();
@@ -18,27 +18,17 @@ export function useWorkspaceRailSeed(): void {
   );
 
   useEffect(() => {
-    if (!isDocumentWindow || !railEnabled) return;
+    if (!isDocumentWindow || !railEnabled || !isWorkspaceMode || !rootPath) return;
+    openOrActivateWorkspaceInstance(rootPath, {
+      windowLabel,
+      createdFrom: "restore",
+    });
+  }, [isDocumentWindow, isWorkspaceMode, railEnabled, rootPath, windowLabel]);
 
-    if (isWorkspaceMode && rootPath) {
-      openOrActivateWorkspaceInstance(rootPath, {
-        windowLabel,
-        createdFrom: "restore",
-      });
-      return;
-    }
-
-    if (instanceCount === 0) {
-      useWorkspaceInstancesStore
-        .getState()
-        .ensurePlaceholderInstance(windowLabel, `wsi-placeholder-${generateUUID()}`);
-    }
-  }, [
-    instanceCount,
-    isDocumentWindow,
-    isWorkspaceMode,
-    railEnabled,
-    rootPath,
-    windowLabel,
-  ]);
+  useEffect(() => {
+    if (!isDocumentWindow || !railEnabled || isWorkspaceMode || instanceCount > 0) return;
+    useWorkspaceInstancesStore
+      .getState()
+      .ensurePlaceholderInstance(windowLabel, `wsi-placeholder-${generateUUID()}`);
+  }, [instanceCount, isDocumentWindow, isWorkspaceMode, railEnabled, windowLabel]);
 }
