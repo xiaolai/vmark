@@ -3,11 +3,12 @@ import { resolveViewAction, shouldSkipKeyEvent, type ViewAction } from "./useVie
 
 function makeEvent(
   key: string,
-  modifiers: { meta?: boolean; ctrl?: boolean; alt?: boolean; shift?: boolean } = {},
+  modifiers: { meta?: boolean; ctrl?: boolean; alt?: boolean; shift?: boolean; code?: string } = {},
   target?: HTMLElement,
 ): KeyboardEvent {
   const evt = new KeyboardEvent("keydown", {
     key,
+    code: modifiers.code ?? "",
     metaKey: modifiers.meta ?? false,
     ctrlKey: modifiers.ctrl ?? false,
     altKey: modifiers.alt ?? false,
@@ -41,6 +42,7 @@ describe("resolveViewAction", () => {
     validateMarkdown: "Mod-Shift-m",
     lintNext: "F2",
     lintPrev: "Shift-F2",
+    toggleSidebar: "Ctrl-Shift-0",
     toggleOutline: "Mod-Shift-o",
     fileExplorer: "Mod-Shift-e",
     viewHistory: "Mod-Shift-h",
@@ -83,6 +85,7 @@ describe("resolveViewAction", () => {
     ["m", { meta: true, shift: true }, "validateMarkdown"],
     ["F2", {}, "lintNext"],
     ["F2", { shift: true }, "lintPrev"],
+    [")", { ctrl: true, shift: true, code: "Digit0" }, "toggleSidebar"],
     ["o", { meta: true, shift: true }, "toggleOutline"],
     ["e", { meta: true, shift: true }, "fileExplorer"],
     ["h", { meta: true, shift: true }, "viewHistory"],

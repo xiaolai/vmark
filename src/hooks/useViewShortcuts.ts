@@ -37,10 +37,6 @@ import { useEditorStore } from "@/stores/editorStore";
 import { serializeMarkdown } from "@/utils/markdownPipeline";
 import { scrollToSelectedDiagnostic } from "@/hooks/lintNavigation";
 
-// ---------------------------------------------------------------------------
-// Pure functions — exported for testing, no DOM or store access
-// ---------------------------------------------------------------------------
-
 /** Return true if the event should be skipped entirely (IME composition). */
 export function shouldSkipKeyEvent(event: KeyboardEvent): boolean {
   return isImeKeyEvent(event);
@@ -59,6 +55,7 @@ export type ViewAction =
   | "validateMarkdown"
   | "lintNext"
   | "lintPrev"
+  | "toggleSidebar"
   | "toggleOutline"
   | "fileExplorer"
   | "viewHistory";
@@ -95,6 +92,7 @@ export function resolveViewAction(
     ["validateMarkdown", "validateMarkdown"],
     ["lintNext", "lintNext"],
     ["lintPrev", "lintPrev"],
+    ["toggleSidebar", "toggleSidebar"],
     ["toggleOutline", "toggleOutline"],
     ["fileExplorer", "fileExplorer"],
     ["viewHistory", "viewHistory"],
@@ -109,10 +107,6 @@ export function resolveViewAction(
 
   return null;
 }
-
-// ---------------------------------------------------------------------------
-// Hook
-// ---------------------------------------------------------------------------
 
 /** Hook that handles keyboard shortcuts for view-mode toggles (source, focus, typewriter, wrap, line numbers, terminal, sidebar panels). */
 export function useViewShortcuts() {
@@ -136,7 +130,6 @@ export function useViewShortcuts() {
         return;
       }
 
-      // Source mode
       const sourceModeKey = shortcuts.getShortcut("sourceMode");
       if (matchesShortcutEvent(e, sourceModeKey)) {
         e.preventDefault();
@@ -145,7 +138,6 @@ export function useViewShortcuts() {
         return;
       }
 
-      // Focus mode
       const focusModeKey = shortcuts.getShortcut("focusMode");
       if (matchesShortcutEvent(e, focusModeKey)) {
         e.preventDefault();
@@ -153,7 +145,6 @@ export function useViewShortcuts() {
         return;
       }
 
-      // Typewriter mode
       const typewriterModeKey = shortcuts.getShortcut("typewriterMode");
       if (matchesShortcutEvent(e, typewriterModeKey)) {
         e.preventDefault();
@@ -161,7 +152,6 @@ export function useViewShortcuts() {
         return;
       }
 
-      // Word wrap
       const wordWrapKey = shortcuts.getShortcut("wordWrap");
       if (matchesShortcutEvent(e, wordWrapKey)) {
         e.preventDefault();
@@ -169,7 +159,6 @@ export function useViewShortcuts() {
         return;
       }
 
-      // Line numbers
       const lineNumbersKey = shortcuts.getShortcut("lineNumbers");
       if (matchesShortcutEvent(e, lineNumbersKey)) {
         e.preventDefault();
@@ -298,6 +287,13 @@ export function useViewShortcuts() {
       }
 
       // Sidebar panel toggles
+      const toggleSidebarKey = shortcuts.getShortcut("toggleSidebar");
+      if (matchesShortcutEvent(e, toggleSidebarKey)) {
+        e.preventDefault();
+        useUIStore.getState().toggleSidebar();
+        return;
+      }
+
       const toggleOutlineKey = shortcuts.getShortcut("toggleOutline");
       if (matchesShortcutEvent(e, toggleOutlineKey)) {
         e.preventDefault();
