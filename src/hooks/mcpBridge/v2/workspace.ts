@@ -30,10 +30,13 @@ import { readTextFile, writeTextFile } from "@tauri-apps/plugin-fs";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useRevisionStore } from "@/stores/documentStore";
-import { getFileName } from "@/utils/paths";
+import { useSettingsStore } from "@/stores/settingsStore";
+import { getFileName, normalizePath } from "@/utils/paths";
 import { registerPendingSave, clearPendingSave } from "@/utils/pendingSaves";
 import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import { checkBridgePath } from "@/services/mcpBridge/bridgePathGuard";
+import { imeToast } from "@/services/ime/imeToast";
+import i18n from "@/i18n";
 import { respond } from "../utils";
 import { wrapHandler } from "./wrapHandler";
 import { v2ErrorString } from "./types";
@@ -270,6 +273,29 @@ export async function handleWorkspaceSaveAs(
       await structuredError(id, {
         error: "INVALID_TAB",
         message: "No document for tab",
+      });
+      return;
+    }
+    // Writing to a NEW location (a path other than the tab's own current
+    // file) is a fresh, user-consequential action. When auto-approve is off
+    // (the default), require the user to opt in rather than letting the
+    // bridge silently create files at agent-chosen destinations. Saving back
+    // to the tab's own path stays allowed — that is the normal edit round-trip.
+    const autoApprove =
+      useSettingsStore.getState().advanced.mcpServer.autoApproveEdits;
+    const isSameAsOpenPath =
+      doc.filePath != null &&
+      normalizePath(doc.filePath) === normalizePath(filePath);
+    if (!autoApprove && !isSameAsOpenPath) {
+      imeToast.warning(
+        i18n.t("dialog:toast.mcpApprovalRequired", {
+          filename: getFileName(filePath) || filePath,
+        }),
+      );
+      await structuredError(id, {
+        error: "APPROVAL_REQUIRED",
+        message:
+          "Saving to a new location requires user approval (autoApproveEdits is off)",
       });
       return;
     }

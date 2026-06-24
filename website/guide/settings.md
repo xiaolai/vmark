@@ -212,7 +212,7 @@ The MCP (Model Context Protocol) server allows external AI assistants like Claud
 |---------|-------------|---------|
 | Enable MCP Server | Start or stop the MCP server. When running, a status badge shows the port and connected clients | On (toggle) |
 | Start on launch | Automatically start the MCP server when VMark opens | On |
-| Auto-approve edits | Apply AI-initiated document changes without showing a preview for approval first. Use with caution | Off |
+| Auto-approve edits | Apply AI-initiated document changes without showing a preview for approval first, and allow MCP clients to save to new file locations. When off, an MCP request to save to a new path is refused and a toast notifies you. Use with caution | Off |
 
 When the server is running, the panel also displays:
 - **Port** — automatically assigned; AI clients discover it through the config file

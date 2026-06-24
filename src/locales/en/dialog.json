@@ -122,6 +122,7 @@
   },
   "chooseFolderForDocs": "Choose folder for {{count}} new documents",
   "toast": {
+    "mcpApprovalRequired": "Blocked an AI request to save to a new location: {{filename}}. Enable \"Auto-approve edits\" in Settings → Integrations to allow this.",
     "saveDialogFailed": "Save dialog failed: {{error}}",
     "failedToMoveToNewWindow": "Failed to move file to new window",
     "failedToSaveDocuments": "Failed to save documents",

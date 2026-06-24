@@ -119,6 +119,11 @@ Save a tab to a new path.
 
 Returns `{revision}`.
 
+Saving to a path other than the tab's own current file is treated as a new
+write. When **Auto-approve edits** (Settings → Integrations) is off (the
+default), such a request is refused with `APPROVAL_REQUIRED` and a toast tells
+you what was blocked. Saving back to the tab's own path is always allowed.
+
 ### `close`
 
 Close a tab. Refuses to discard unsaved work without `force`.
@@ -306,6 +311,7 @@ Two error shapes appear:
 | `INVALID_PATCH` | envelope | `workflow.apply_patch` received a malformed `patches` array |
 | `INVALID_TAB` | envelope | `tabId` could not be resolved |
 | `INVALID_PATH` | envelope | A `filePath` could not be read, or is outside the open workspace / document scope |
+| `APPROVAL_REQUIRED` | envelope | `save_as` to a new location while **Auto-approve edits** is off |
 | `NOT_WORKFLOW` | envelope | `workflow.*` was called on a non-YAML-workflow tab |
 | `READ_ONLY` | envelope | A mutation was attempted on a read-only document |
 | `NO_EDITOR` | envelope | `selection.*` was called but the focused tab has no live editor |

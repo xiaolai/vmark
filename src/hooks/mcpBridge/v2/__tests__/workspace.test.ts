@@ -61,7 +61,24 @@ vi.mock("@/services/mcpBridge/bridgePathGuard", () => ({
   checkBridgePath: (p: string) => checkBridgePathMock(p),
 }));
 
+const warningToastMock = vi.fn();
+vi.mock("@/services/ime/imeToast", () => ({
+  imeToast: { warning: (...a: unknown[]) => warningToastMock(...a) },
+}));
+
 import { respond } from "../../utils";
+import { useSettingsStore } from "@/stores/settingsStore";
+
+/** Set the MCP auto-approve-edits toggle for the current test. */
+function setAutoApproveEdits(value: boolean) {
+  const s = useSettingsStore.getState();
+  useSettingsStore.setState({
+    advanced: {
+      ...s.advanced,
+      mcpServer: { ...s.advanced.mcpServer, autoApproveEdits: value },
+    },
+  });
+}
 import {
   handleWorkspaceOpen,
 } from "../workspace";
@@ -227,6 +244,10 @@ describe("vmark.workspace.save / save_as", () => {
     writeMock.mockReset().mockResolvedValue(undefined);
     registerPendingSaveMock.mockReset().mockReturnValue(1);
     clearPendingSaveMock.mockReset();
+    // These tests assert write mechanics on (often new) paths; treat the user
+    // as having granted approval. The auto-approve gate itself is covered in
+    // its own describe block below.
+    setAutoApproveEdits(true);
   });
 
   it("save writes the doc content to its existing filePath", async () => {
@@ -447,6 +468,8 @@ describe("vmark.workspace — path scope guard", () => {
     resetStores();
     readMock.mockReset().mockResolvedValue("secret");
     writeMock.mockReset().mockResolvedValue(undefined);
+    // Isolate the path-scope guard from the auto-approve gate.
+    setAutoApproveEdits(true);
   });
 
   it("open rejects an out-of-scope path and never reads from disk", async () => {
@@ -542,5 +565,98 @@ describe("vmark.workspace — path scope guard", () => {
     const r = lastRespond();
     expect(r.success).toBe(true);
     expect(writeMock).toHaveBeenCalledWith("/tmp/in-scope.md", "hello");
+  });
+});
+
+describe("vmark.workspace.save_as — auto-approve gate", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    resetStores();
+    writeMock.mockReset().mockResolvedValue(undefined);
+    registerPendingSaveMock.mockReset().mockReturnValue(1);
+    clearPendingSaveMock.mockReset();
+    // checkBridgePath default → allowed; the gate is the subject here.
+  });
+
+  it("blocks save_as to a NEW location with APPROVAL_REQUIRED + toast when auto-approve is off", async () => {
+    setAutoApproveEdits(false);
+    useTabStore.setState({
+      tabs: {
+        main: [
+          {
+            id: "t-g",
+            filePath: "/ws/orig.md",
+            title: "orig",
+            isPinned: false,
+          },
+        ],
+      },
+      activeTabId: { main: "t-g" },
+      untitledCounter: 0,
+      closedTabs: {},
+    });
+    useDocumentStore.getState().initDocument("t-g", "hi", "/ws/orig.md");
+
+    await handleWorkspaceSaveAs("req-gate", {
+      tabId: "t-g",
+      filePath: "/ws/elsewhere.md",
+    });
+    const r = lastRespond();
+    expect(r.success).toBe(false);
+    expect(parseStructuredError(r.error)).toMatchObject({
+      error: "APPROVAL_REQUIRED",
+    });
+    expect(writeMock).not.toHaveBeenCalled();
+    expect(warningToastMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("allows save_as to the tab's OWN current path even when auto-approve is off (normal round-trip)", async () => {
+    setAutoApproveEdits(false);
+    useTabStore.setState({
+      tabs: {
+        main: [
+          {
+            id: "t-own2",
+            filePath: "/ws/orig.md",
+            title: "orig",
+            isPinned: false,
+          },
+        ],
+      },
+      activeTabId: { main: "t-own2" },
+      untitledCounter: 0,
+      closedTabs: {},
+    });
+    useDocumentStore.getState().initDocument("t-own2", "hi", "/ws/orig.md");
+
+    await handleWorkspaceSaveAs("req-own", {
+      tabId: "t-own2",
+      filePath: "/ws/orig.md",
+    });
+    const r = lastRespond();
+    expect(r.success).toBe(true);
+    expect(writeMock).toHaveBeenCalledWith("/ws/orig.md", "hi");
+    expect(warningToastMock).not.toHaveBeenCalled();
+  });
+
+  it("allows save_as to a new location when auto-approve is on", async () => {
+    setAutoApproveEdits(true);
+    useTabStore.setState({
+      tabs: {
+        main: [{ id: "t-on", filePath: null, title: "u", isPinned: false }],
+      },
+      activeTabId: { main: "t-on" },
+      untitledCounter: 0,
+      closedTabs: {},
+    });
+    useDocumentStore.getState().initDocument("t-on", "hello", null);
+
+    await handleWorkspaceSaveAs("req-on", {
+      tabId: "t-on",
+      filePath: "/ws/new.md",
+    });
+    const r = lastRespond();
+    expect(r.success).toBe(true);
+    expect(writeMock).toHaveBeenCalledWith("/ws/new.md", "hello");
   });
 });

@@ -51,6 +51,10 @@ export type V2ErrorCode =
   | "READ_ONLY"
   | "NOT_WORKFLOW"
   | "NO_EDITOR"
+  // Bridge write to a new location while autoApproveEdits is off — the user
+  // must approve the edit. The agent should ask the user to enable approval
+  // or confirm the destination, then retry.
+  | "APPROVAL_REQUIRED"
   | "INTERNAL";
 
 export interface V2Error {
