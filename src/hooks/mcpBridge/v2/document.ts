@@ -45,6 +45,7 @@ import { useRevisionStore } from "@/stores/documentStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useEditorStore } from "@/stores/editorStore";
 import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
+import { checkBridgePath } from "@/services/mcpBridge/bridgePathGuard";
 import {
   isWorkflowYaml,
   looksLikeWorkflowPath,
@@ -336,6 +337,14 @@ export async function handleDocumentWrite(
       saveSkipped = "opt_out";
     } else if (!resolved.filePath) {
       saveSkipped = "untitled";
+    } else if (!checkBridgePath(resolved.filePath).allowed) {
+      // Defense in depth: document.write only ever targets the tab's own
+      // (already-open) path, which is always in scope — but route this disk
+      // write through the same guard as workspace.open / save_as so no bridge
+      // write can escape the workspace + open-document tree. A block leaves
+      // the buffer updated and surfaces save_error, matching the existing
+      // "save failure does not fail the write" contract.
+      saveError = "Path is outside the workspace and open documents";
     } else {
       try {
         const saveToken = registerPendingSave(resolved.filePath, args.content);

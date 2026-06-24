@@ -70,6 +70,12 @@ The `kind` discriminator tells you whether to use `document.write` (for markdown
 
 File and window lifecycle. Nothing in-document.
 
+> **Path scope.** File operations (`open`, `save`, `save_as`) are confined to
+> the open workspace root and the directories of already-open documents. A
+> request for a path outside that scope is refused with `INVALID_PATH`. With
+> no workspace and no open document, there is no scope, so file operations are
+> refused. This keeps an automated client acting within what you have opened.
+
 ### `new`
 
 Create a new untitled tab.
@@ -299,7 +305,7 @@ Two error shapes appear:
 | `STALE` | envelope | `expected_revision` did not match; re-read and retry |
 | `INVALID_PATCH` | envelope | `workflow.apply_patch` received a malformed `patches` array |
 | `INVALID_TAB` | envelope | `tabId` could not be resolved |
-| `INVALID_PATH` | envelope | `workspace.open` received a `filePath` that could not be read |
+| `INVALID_PATH` | envelope | A `filePath` could not be read, or is outside the open workspace / document scope |
 | `NOT_WORKFLOW` | envelope | `workflow.*` was called on a non-YAML-workflow tab |
 | `READ_ONLY` | envelope | A mutation was attempted on a read-only document |
 | `NO_EDITOR` | envelope | `selection.*` was called but the focused tab has no live editor |

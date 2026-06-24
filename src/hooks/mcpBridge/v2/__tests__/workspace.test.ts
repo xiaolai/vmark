@@ -49,6 +49,18 @@ vi.mock("@/utils/pendingSaves", () => ({
     clearPendingSaveMock(path, token),
 }));
 
+// The path guard itself is unit-tested in
+// services/mcpBridge/bridgePathGuard.test.ts and
+// utils/mcpBridgePathPolicy.test.ts. Here we mock it (default: allow) so the
+// existing behavior tests stay green, and flip it to denied to assert that
+// the handlers consult the guard and short-circuit before touching disk.
+const checkBridgePathMock = vi.fn<
+  (p: string) => { allowed: boolean; reason?: string }
+>(() => ({ allowed: true }));
+vi.mock("@/services/mcpBridge/bridgePathGuard", () => ({
+  checkBridgePath: (p: string) => checkBridgePathMock(p),
+}));
+
 import { respond } from "../../utils";
 import {
   handleWorkspaceOpen,
@@ -426,5 +438,109 @@ describe("vmark.workspace.focus_window", () => {
     await handleWorkspaceFocusWindow("req-fw-4", { windowLabel: "doc-1" });
     const r = lastRespond();
     expect(r.success).toBe(true);
+  });
+});
+
+describe("vmark.workspace — path scope guard", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    resetStores();
+    readMock.mockReset().mockResolvedValue("secret");
+    writeMock.mockReset().mockResolvedValue(undefined);
+  });
+
+  it("open rejects an out-of-scope path and never reads from disk", async () => {
+    checkBridgePathMock.mockReturnValueOnce({
+      allowed: false,
+      reason: "Path is outside the workspace and open documents",
+    });
+    await handleWorkspaceOpen("req-open-evil", {
+      filePath: "/Users/me/.ssh/id_rsa",
+    });
+    const r = lastRespond();
+    expect(r.success).toBe(false);
+    expect(parseStructuredError(r.error)).toMatchObject({
+      error: "INVALID_PATH",
+    });
+    expect(readMock).not.toHaveBeenCalled();
+  });
+
+  it("save_as rejects an out-of-scope path and never writes to disk", async () => {
+    useTabStore.setState({
+      tabs: {
+        main: [{ id: "t-evil", filePath: null, title: "u", isPinned: false }],
+      },
+      activeTabId: { main: "t-evil" },
+      untitledCounter: 0,
+      closedTabs: {},
+    });
+    useDocumentStore.getState().initDocument("t-evil", "payload", null);
+    checkBridgePathMock.mockReturnValueOnce({
+      allowed: false,
+      reason: "Path is outside the workspace and open documents",
+    });
+
+    await handleWorkspaceSaveAs("req-saveas-evil", {
+      tabId: "t-evil",
+      filePath: "/Users/me/.zshenv",
+    });
+    const r = lastRespond();
+    expect(r.success).toBe(false);
+    expect(parseStructuredError(r.error)).toMatchObject({
+      error: "INVALID_PATH",
+    });
+    expect(writeMock).not.toHaveBeenCalled();
+  });
+
+  it("save rejects when the guard denies the tab's own path (defense in depth)", async () => {
+    useTabStore.setState({
+      tabs: {
+        main: [
+          {
+            id: "t-own",
+            filePath: "/outside/notes.md",
+            title: "notes",
+            isPinned: false,
+          },
+        ],
+      },
+      activeTabId: { main: "t-own" },
+      untitledCounter: 0,
+      closedTabs: {},
+    });
+    useDocumentStore.getState().initDocument("t-own", "x", "/outside/notes.md");
+    checkBridgePathMock.mockReturnValueOnce({
+      allowed: false,
+      reason: "Path is outside the workspace and open documents",
+    });
+
+    await handleWorkspaceSave("req-save-evil", {});
+    const r = lastRespond();
+    expect(r.success).toBe(false);
+    expect(parseStructuredError(r.error)).toMatchObject({
+      error: "INVALID_PATH",
+    });
+    expect(writeMock).not.toHaveBeenCalled();
+  });
+
+  it("save_as proceeds when the guard allows the path (no regression)", async () => {
+    useTabStore.setState({
+      tabs: {
+        main: [{ id: "t-ok", filePath: null, title: "u", isPinned: false }],
+      },
+      activeTabId: { main: "t-ok" },
+      untitledCounter: 0,
+      closedTabs: {},
+    });
+    useDocumentStore.getState().initDocument("t-ok", "hello", null);
+    // default mock → allowed
+
+    await handleWorkspaceSaveAs("req-saveas-ok", {
+      tabId: "t-ok",
+      filePath: "/tmp/in-scope.md",
+    });
+    const r = lastRespond();
+    expect(r.success).toBe(true);
+    expect(writeMock).toHaveBeenCalledWith("/tmp/in-scope.md", "hello");
   });
 });

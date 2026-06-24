@@ -55,6 +55,17 @@ vi.mock("@/utils/pendingSaves", () => ({
     clearPendingSaveMock(path, token),
 }));
 
+// The path guard is unit-tested in services/mcpBridge/bridgePathGuard.test.ts
+// and utils/mcpBridgePathPolicy.test.ts. Here we mock it (default: allow) so
+// handler tests stay focused on wiring — and can flip it to denied to assert
+// the defense-in-depth disk-write block.
+const checkBridgePathMock = vi.fn<
+  (p: string) => { allowed: boolean; reason?: string }
+>(() => ({ allowed: true }));
+vi.mock("@/services/mcpBridge/bridgePathGuard", () => ({
+  checkBridgePath: (p: string) => checkBridgePathMock(p),
+}));
+
 import { respond } from "../../utils";
 
 function resetStores() {
@@ -488,6 +499,31 @@ describe("vmark.document.write — save-on-write (UX fix for buffered writes)", 
     expect(data.save_skipped).toBeUndefined();
     // Buffer reflects the new content even though disk save failed.
     expect(useDocumentStore.getState().documents["t-fail"].content).toBe(
+      "after",
+    );
+  });
+
+  it("defense in depth: a denied path guard skips the disk write and surfaces save_error", async () => {
+    seedTab("t-guard", "before", "/tmp/notes.md");
+    checkBridgePathMock.mockReturnValueOnce({
+      allowed: false,
+      reason: "Path is outside the workspace and open documents",
+    });
+
+    await handleDocumentWrite("req-guard", {
+      tabId: "t-guard",
+      content: "after",
+    });
+
+    const r = lastRespond();
+    expect(r.success).toBe(true);
+    const data = r.data as { saved: boolean; save_error?: string };
+    expect(data.saved).toBe(false);
+    expect(data.save_error).toBeTruthy();
+    // The disk write must NOT have been attempted.
+    expect(writeTextFileMock).not.toHaveBeenCalled();
+    // Buffer still updated — consistent with the save-failure contract.
+    expect(useDocumentStore.getState().documents["t-guard"].content).toBe(
       "after",
     );
   });

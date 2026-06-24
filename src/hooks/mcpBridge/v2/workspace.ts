@@ -33,6 +33,7 @@ import { useRevisionStore } from "@/stores/documentStore";
 import { getFileName } from "@/utils/paths";
 import { registerPendingSave, clearPendingSave } from "@/utils/pendingSaves";
 import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
+import { checkBridgePath } from "@/services/mcpBridge/bridgePathGuard";
 import { respond } from "../utils";
 import { wrapHandler } from "./wrapHandler";
 import { v2ErrorString } from "./types";
@@ -81,6 +82,17 @@ export async function handleWorkspaceOpen(
       await structuredError(id, {
         error: "INVALID_PATH",
         message: "filePath must be a non-empty string",
+      });
+      return;
+    }
+    // Confine the read to the workspace + open-document tree. Without this,
+    // a prompt-injected agent could read any file the fs capability reaches
+    // ($HOME/**, incl. dotfiles like ~/.ssh/id_rsa).
+    const openDecision = checkBridgePath(filePath);
+    if (!openDecision.allowed) {
+      await structuredError(id, {
+        error: "INVALID_PATH",
+        message: openDecision.reason,
       });
       return;
     }
@@ -164,6 +176,17 @@ export async function handleWorkspaceSave(
       await structuredError(id, resolved);
       return;
     }
+    // Defense in depth: a tab's own path is always within an allowed root,
+    // but guard the write anyway so every bridge disk write goes through the
+    // same scope check.
+    const saveDecision = checkBridgePath(resolved.filePath);
+    if (!saveDecision.allowed) {
+      await structuredError(id, {
+        error: "INVALID_PATH",
+        message: saveDecision.reason,
+      });
+      return;
+    }
     const saveToken = registerPendingSave(resolved.filePath, resolved.content);
     try {
       await writeTextFile(resolved.filePath, resolved.content);
@@ -197,6 +220,17 @@ export async function handleWorkspaceSaveAs(
       await structuredError(id, {
         error: "INVALID_PATH",
         message: "filePath must be a non-empty string",
+      });
+      return;
+    }
+    // Confine the write to the workspace + open-document tree. Without this,
+    // a prompt-injected agent could overwrite any file the fs capability
+    // reaches ($HOME/**) — e.g. write ~/.zshenv to gain code execution.
+    const saveAsDecision = checkBridgePath(filePath);
+    if (!saveAsDecision.allowed) {
+      await structuredError(id, {
+        error: "INVALID_PATH",
+        message: saveAsDecision.reason,
       });
       return;
     }
