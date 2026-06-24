@@ -30,18 +30,16 @@ import { readTextFile, writeTextFile } from "@tauri-apps/plugin-fs";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useRevisionStore } from "@/stores/documentStore";
-import { useSettingsStore } from "@/stores/settingsStore";
-import { getFileName, normalizePath } from "@/utils/paths";
 import { registerPendingSave, clearPendingSave } from "@/utils/pendingSaves";
 import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import { checkBridgePath } from "@/services/mcpBridge/bridgePathGuard";
-import { imeToast } from "@/services/ime/imeToast";
-import i18n from "@/i18n";
 import { respond } from "../utils";
 import { wrapHandler } from "./wrapHandler";
 import { v2ErrorString } from "./types";
 import type { V2Error } from "./types";
 import { errorMessage } from "@/utils/errorMessage";
+
+export { handleWorkspaceSaveAs } from "./workspaceSaveAs";
 
 function structuredError(id: string, err: V2Error): Promise<void> {
   return respond({ id, success: false, error: v2ErrorString(err) });
@@ -91,7 +89,7 @@ export async function handleWorkspaceOpen(
     // Confine the read to the workspace + open-document tree. Without this,
     // a prompt-injected agent could read any file the fs capability reaches
     // ($HOME/**, incl. dotfiles like ~/.ssh/id_rsa).
-    const openDecision = checkBridgePath(filePath);
+    const openDecision = await checkBridgePath(filePath);
     if (!openDecision.allowed) {
       await structuredError(id, {
         error: "INVALID_PATH",
@@ -182,7 +180,7 @@ export async function handleWorkspaceSave(
     // Defense in depth: a tab's own path is always within an allowed root,
     // but guard the write anyway so every bridge disk write goes through the
     // same scope check.
-    const saveDecision = checkBridgePath(resolved.filePath);
+    const saveDecision = await checkBridgePath(resolved.filePath);
     if (!saveDecision.allowed) {
       await structuredError(id, {
         error: "INVALID_PATH",
@@ -205,112 +203,6 @@ export async function handleWorkspaceSave(
       success: true,
       data: { filePath: resolved.filePath, revision },
     });
-  });
-}
-
-/**
- * Handle `vmark.workspace.save_as`.
- *
- * Args: `{tabId?: string, filePath: string}`.
- */
-export async function handleWorkspaceSaveAs(
-  id: string,
-  args: Record<string, unknown>,
-): Promise<void> {
-  return wrapHandler(id, async () => {
-    const filePath = args.filePath;
-    if (typeof filePath !== "string" || filePath.length === 0) {
-      await structuredError(id, {
-        error: "INVALID_PATH",
-        message: "filePath must be a non-empty string",
-      });
-      return;
-    }
-    // Confine the write to the workspace + open-document tree. Without this,
-    // a prompt-injected agent could overwrite any file the fs capability
-    // reaches ($HOME/**) — e.g. write ~/.zshenv to gain code execution.
-    const saveAsDecision = checkBridgePath(filePath);
-    if (!saveAsDecision.allowed) {
-      await structuredError(id, {
-        error: "INVALID_PATH",
-        message: saveAsDecision.reason,
-      });
-      return;
-    }
-    const tabIdArg =
-      typeof args.tabId === "string" ? args.tabId : undefined;
-    const tabState = useTabStore.getState();
-    const docState = useDocumentStore.getState();
-
-    let tabId: string;
-    if (tabIdArg) {
-      if (
-        !Object.values(tabState.tabs).some((list) =>
-          list.some((t) => t.id === tabIdArg),
-        )
-      ) {
-        await structuredError(id, {
-          error: "INVALID_TAB",
-          message: "Unknown tabId",
-        });
-        return;
-      }
-      tabId = tabIdArg;
-    } else {
-      const focused = getCurrentWindowLabel();
-      const active = tabState.activeTabId[focused];
-      if (!active) {
-        await structuredError(id, {
-          error: "INVALID_TAB",
-          message: "No focused tab",
-        });
-        return;
-      }
-      tabId = active;
-    }
-    const doc = docState.documents[tabId];
-    if (!doc) {
-      await structuredError(id, {
-        error: "INVALID_TAB",
-        message: "No document for tab",
-      });
-      return;
-    }
-    // Writing to a NEW location (a path other than the tab's own current
-    // file) is a fresh, user-consequential action. When auto-approve is off
-    // (the default), require the user to opt in rather than letting the
-    // bridge silently create files at agent-chosen destinations. Saving back
-    // to the tab's own path stays allowed — that is the normal edit round-trip.
-    const autoApprove =
-      useSettingsStore.getState().advanced.mcpServer.autoApproveEdits;
-    const isSameAsOpenPath =
-      doc.filePath != null &&
-      normalizePath(doc.filePath) === normalizePath(filePath);
-    if (!autoApprove && !isSameAsOpenPath) {
-      imeToast.warning(
-        i18n.t("dialog:toast.mcpApprovalRequired", {
-          filename: getFileName(filePath) || filePath,
-        }),
-      );
-      await structuredError(id, {
-        error: "APPROVAL_REQUIRED",
-        message:
-          "Saving to a new location requires user approval (autoApproveEdits is off)",
-      });
-      return;
-    }
-    const saveToken = registerPendingSave(filePath, doc.content);
-    try {
-      await writeTextFile(filePath, doc.content);
-    } finally {
-      clearPendingSave(filePath, saveToken);
-    }
-    tabState.updateTabPath(tabId, filePath);
-    tabState.updateTabTitle(tabId, getFileName(filePath) || "Untitled");
-    docState.setFilePath(tabId, filePath);
-    docState.markSaved(tabId, doc.content);
-    const revision = useRevisionStore.getState().getRevision(tabId);
-    await respond({ id, success: true, data: { revision } });
   });
 }
 

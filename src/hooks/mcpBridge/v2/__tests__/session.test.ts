@@ -42,7 +42,7 @@ describe("vmark.session.get_state", () => {
       "markdown",
       "yaml-workflow",
     ]);
-    expect(state.capabilities.mcpProtocol).toBe("0.1.0");
+    expect(state.capabilities.mcpProtocol).toBe("0.2.0");
   });
 
   it("classifies a markdown tab as kind=markdown", () => {

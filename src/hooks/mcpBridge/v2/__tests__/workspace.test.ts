@@ -5,14 +5,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
-import {
-  handleWorkspaceNew,
-  handleWorkspaceClose,
-  handleWorkspaceSwitchTab,
-  handleWorkspaceSave,
-  handleWorkspaceSaveAs,
-  handleWorkspaceFocusWindow,
-} from "../workspace";
 
 const setFocusMock = vi.fn(async () => {});
 const getByLabelMock = vi.fn(async (label: string) => {
@@ -55,19 +47,32 @@ vi.mock("@/utils/pendingSaves", () => ({
 // existing behavior tests stay green, and flip it to denied to assert that
 // the handlers consult the guard and short-circuit before touching disk.
 const checkBridgePathMock = vi.fn<
-  (p: string) => { allowed: boolean; reason?: string }
->(() => ({ allowed: true }));
+  (p: string) => Promise<{ allowed: boolean; reason?: string }>
+>(async () => ({ allowed: true }));
 vi.mock("@/services/mcpBridge/bridgePathGuard", () => ({
   checkBridgePath: (p: string) => checkBridgePathMock(p),
 }));
 
 const warningToastMock = vi.fn();
+const infoToastMock = vi.fn();
 vi.mock("@/services/ime/imeToast", () => ({
-  imeToast: { warning: (...a: unknown[]) => warningToastMock(...a) },
+  imeToast: {
+    warning: (...a: unknown[]) => warningToastMock(...a),
+    info: (...a: unknown[]) => infoToastMock(...a),
+  },
 }));
 
 import { respond } from "../../utils";
 import { useSettingsStore } from "@/stores/settingsStore";
+import {
+  handleWorkspaceNew,
+  handleWorkspaceOpen,
+  handleWorkspaceClose,
+  handleWorkspaceSwitchTab,
+  handleWorkspaceSave,
+  handleWorkspaceSaveAs,
+  handleWorkspaceFocusWindow,
+} from "../workspace";
 
 /** Set the MCP auto-approve-edits toggle for the current test. */
 function setAutoApproveEdits(value: boolean) {
@@ -79,10 +84,6 @@ function setAutoApproveEdits(value: boolean) {
     },
   });
 }
-import {
-  handleWorkspaceOpen,
-} from "../workspace";
-
 function resetStores() {
   useTabStore.setState({
     tabs: {},
@@ -473,7 +474,7 @@ describe("vmark.workspace — path scope guard", () => {
   });
 
   it("open rejects an out-of-scope path and never reads from disk", async () => {
-    checkBridgePathMock.mockReturnValueOnce({
+    checkBridgePathMock.mockResolvedValueOnce({
       allowed: false,
       reason: "Path is outside the workspace and open documents",
     });
@@ -498,7 +499,7 @@ describe("vmark.workspace — path scope guard", () => {
       closedTabs: {},
     });
     useDocumentStore.getState().initDocument("t-evil", "payload", null);
-    checkBridgePathMock.mockReturnValueOnce({
+    checkBridgePathMock.mockResolvedValueOnce({
       allowed: false,
       reason: "Path is outside the workspace and open documents",
     });
@@ -532,7 +533,7 @@ describe("vmark.workspace — path scope guard", () => {
       closedTabs: {},
     });
     useDocumentStore.getState().initDocument("t-own", "x", "/outside/notes.md");
-    checkBridgePathMock.mockReturnValueOnce({
+    checkBridgePathMock.mockResolvedValueOnce({
       allowed: false,
       reason: "Path is outside the workspace and open documents",
     });

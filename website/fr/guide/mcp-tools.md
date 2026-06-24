@@ -56,7 +56,7 @@ Aucun argument.
   "capabilities": {
     "version": "<vmark-mcp-server version>",
     "supportedKinds": ["markdown", "yaml-workflow"],
-    "mcpProtocol": "0.1.0"
+    "mcpProtocol": "0.2.0"
   }
 }
 ```

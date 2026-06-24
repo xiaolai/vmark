@@ -23,10 +23,9 @@
  *   - Reject anything that isn't an absolute path: the bridge always deals
  *     in real on-disk files, so a relative path is meaningless (and would
  *     resolve against an unknowable CWD).
- *   - Reject any path containing a ".." segment outright. String-level scope
- *     checks can't see through traversal, and the fs plugin permits ".."
- *     escape when *creating* a new file (the non-existent target isn't
- *     canonicalized). Refusing ".." closes that hole. Defense in depth.
+ *   - Reject any path containing a ".." segment outright. The Rust guard later
+ *     canonicalizes existing paths and the deepest existing ancestor of new
+ *     paths, but refusing traversal early keeps the bridge contract simple.
  *   - Allow iff the path is within (or equal to) at least one allowed root.
  *     Empty `allowedRoots` → always reject: no workspace and no open document
  *     means there is no legitimate target, so the bridge grants no access.

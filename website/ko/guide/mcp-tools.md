@@ -56,7 +56,7 @@ MCP를 통해 AI로 Mermaid 다이어그램을 생성할 때 [mermaid-validator 
   "capabilities": {
     "version": "<vmark-mcp-server version>",
     "supportedKinds": ["markdown", "yaml-workflow"],
-    "mcpProtocol": "0.1.0"
+    "mcpProtocol": "0.2.0"
   }
 }
 ```

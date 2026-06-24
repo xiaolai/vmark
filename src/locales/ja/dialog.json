@@ -78,6 +78,7 @@
   },
   "chooseFolderForDocs": "{{count}}個の新しいドキュメントのフォルダを選択",
   "toast": {
+    "mcpApprovalRequired": "AI による新しい場所への保存リクエストをブロックしました: {{filename}}。許可するには、設定 → 連携で「編集を自動承認」を有効にしてください。",
     "saveDialogFailed": "保存ダイアログが失敗しました: {{error}}",
     "failedToMoveToNewWindow": "ファイルを新しいウィンドウに移動できませんでした",
     "failedToSaveDocuments": "ドキュメントの保存に失敗しました",

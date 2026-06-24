@@ -8,11 +8,6 @@ import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useRevisionStore, generateRevisionId } from "@/stores/documentStore";
 import { useMcpStore } from "@/stores/mcpStore";
-import {
-  handleDocumentRead,
-  handleDocumentWrite,
-  handleDocumentTransform,
-} from "../document";
 
 vi.mock("../../utils", () => ({
   respond: vi.fn(),
@@ -60,13 +55,18 @@ vi.mock("@/utils/pendingSaves", () => ({
 // handler tests stay focused on wiring — and can flip it to denied to assert
 // the defense-in-depth disk-write block.
 const checkBridgePathMock = vi.fn<
-  (p: string) => { allowed: boolean; reason?: string }
->(() => ({ allowed: true }));
+  (p: string) => Promise<{ allowed: boolean; reason?: string }>
+>(async () => ({ allowed: true }));
 vi.mock("@/services/mcpBridge/bridgePathGuard", () => ({
   checkBridgePath: (p: string) => checkBridgePathMock(p),
 }));
 
 import { respond } from "../../utils";
+import {
+  handleDocumentRead,
+  handleDocumentWrite,
+  handleDocumentTransform,
+} from "../document";
 
 function resetStores() {
   useTabStore.setState({
@@ -505,7 +505,7 @@ describe("vmark.document.write — save-on-write (UX fix for buffered writes)", 
 
   it("defense in depth: a denied path guard skips the disk write and surfaces save_error", async () => {
     seedTab("t-guard", "before", "/tmp/notes.md");
-    checkBridgePathMock.mockReturnValueOnce({
+    checkBridgePathMock.mockResolvedValueOnce({
       allowed: false,
       reason: "Path is outside the workspace and open documents",
     });

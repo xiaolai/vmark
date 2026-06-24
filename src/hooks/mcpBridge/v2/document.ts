@@ -65,7 +65,6 @@ import { useMcpStore } from "@/stores/mcpStore";
 import { appendCheckpoint } from "@/stores/mcpCheckpointPersistence";
 import type { CheckpointTool } from "@/stores/mcpStore";
 import { errorMessage } from "@/utils/errorMessage";
-
 interface ResolvedTab {
   tabId: string;
   windowLabel: string;
@@ -335,16 +334,8 @@ export async function handleDocumentWrite(
     let saveError: string | undefined;
     if (!shouldSave) {
       saveSkipped = "opt_out";
-    } else if (!resolved.filePath) {
-      saveSkipped = "untitled";
-    } else if (!checkBridgePath(resolved.filePath).allowed) {
-      // Defense in depth: document.write only ever targets the tab's own
-      // (already-open) path, which is always in scope — but route this disk
-      // write through the same guard as workspace.open / save_as so no bridge
-      // write can escape the workspace + open-document tree. A block leaves
-      // the buffer updated and surfaces save_error, matching the existing
-      // "save failure does not fail the write" contract.
-      saveError = "Path is outside the workspace and open documents";
+    } else if (!resolved.filePath) { saveSkipped = "untitled";
+    } else if (!(await checkBridgePath(resolved.filePath)).allowed) { saveError = "Path is outside the workspace and open documents";
     } else {
       try {
         const saveToken = registerPendingSave(resolved.filePath, args.content);

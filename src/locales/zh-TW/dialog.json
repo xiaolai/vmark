@@ -78,6 +78,7 @@
   },
   "chooseFolderForDocs": "選擇 {{count}} 份新文件的儲存資料夾",
   "toast": {
+    "mcpApprovalRequired": "已阻止 AI 請求儲存到新位置：{{filename}}。如需允許，請在「設定 → 整合」中啟用「自動核准編輯」。",
     "saveDialogFailed": "儲存對話框失敗：{{error}}",
     "failedToMoveToNewWindow": "無法將檔案移至新視窗",
     "failedToSaveDocuments": "無法儲存文件",

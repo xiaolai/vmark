@@ -2,10 +2,15 @@
 // delegates to the pure path policy. Security: confines bridge file ops to
 // the workspace + open-document tree.
 
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { collectAllowedRoots, checkBridgePath } from "./bridgePathGuard";
+
+const invokeMock = vi.fn(async () => undefined);
+vi.mock("@tauri-apps/api/core", () => ({
+  invoke: (cmd: string, args: unknown) => invokeMock(cmd, args),
+}));
 
 function resetStores() {
   useWorkspaceStore.setState({
@@ -73,24 +78,48 @@ describe("collectAllowedRoots", () => {
 });
 
 describe("checkBridgePath", () => {
-  beforeEach(resetStores);
-
-  it("rejects any path when nothing is open", () => {
-    expect(checkBridgePath("/Users/me/.zshenv").allowed).toBe(false);
+  beforeEach(() => {
+    resetStores();
+    invokeMock.mockReset().mockResolvedValue(undefined);
   });
 
-  it("allows a sibling of an open document", () => {
-    openDoc("t1", "/Users/me/docs/a.md");
-    expect(checkBridgePath("/Users/me/docs/b.md").allowed).toBe(true);
+  it("rejects any path when nothing is open", async () => {
+    expect((await checkBridgePath("/Users/me/.zshenv")).allowed).toBe(false);
+    expect(invokeMock).not.toHaveBeenCalled();
   });
 
-  it("rejects a path outside the open document's directory", () => {
+  it("allows a sibling of an open document", async () => {
     openDoc("t1", "/Users/me/docs/a.md");
-    expect(checkBridgePath("/Users/me/.ssh/id_rsa").allowed).toBe(false);
+    expect((await checkBridgePath("/Users/me/docs/b.md")).allowed).toBe(true);
+    expect(invokeMock).toHaveBeenCalledWith("mcp_bridge_check_path", {
+      filePath: "/Users/me/docs/b.md",
+      allowedRoots: ["/Users/me/docs"],
+    });
   });
 
-  it("rejects a '..' traversal from within an allowed root", () => {
+  it("rejects a path outside the open document's directory", async () => {
     openDoc("t1", "/Users/me/docs/a.md");
-    expect(checkBridgePath("/Users/me/docs/../.zshenv").allowed).toBe(false);
+    expect((await checkBridgePath("/Users/me/.ssh/id_rsa")).allowed).toBe(false);
+    expect(invokeMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a '..' traversal from within an allowed root", async () => {
+    openDoc("t1", "/Users/me/docs/a.md");
+    expect(
+      (await checkBridgePath("/Users/me/docs/../.zshenv")).allowed,
+    ).toBe(false);
+    expect(invokeMock).not.toHaveBeenCalled();
+  });
+
+  it("returns a denial when the Rust symlink/canonical guard rejects", async () => {
+    openDoc("t1", "/Users/me/docs/a.md");
+    invokeMock.mockRejectedValueOnce("Path is outside the workspace and open documents");
+
+    const decision = await checkBridgePath("/Users/me/docs/link/secret.md");
+
+    expect(decision).toEqual({
+      allowed: false,
+      reason: "Path is outside the workspace and open documents",
+    });
   });
 });

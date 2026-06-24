@@ -39,7 +39,7 @@ import type {
   SessionWindow,
 } from "./types";
 
-const MCP_PROTOCOL_VERSION = "0.1.0";
+const MCP_PROTOCOL_VERSION = "0.2.0";
 
 function detectKind(
   filePath: string | null,

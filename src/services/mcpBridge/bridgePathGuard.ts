@@ -24,6 +24,7 @@
 
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { useDocumentStore } from "@/stores/documentStore";
+import { invoke } from "@tauri-apps/api/core";
 import { getParentDir } from "@/utils/paths";
 import {
   resolveBridgePathDecision,
@@ -56,10 +57,23 @@ export function collectAllowedRoots(): string[] {
 
 /**
  * Decide whether the bridge may touch `filePath`. Pulls allowed roots from
- * the stores and delegates to the pure policy.
+ * the stores, delegates to the pure policy for cheap lexical rejection, then
+ * asks Rust to resolve symlinks for existing paths / ancestors.
  */
-export function checkBridgePath(filePath: string): BridgePathDecision {
-  return resolveBridgePathDecision(filePath, {
-    allowedRoots: collectAllowedRoots(),
-  });
+export async function checkBridgePath(
+  filePath: string,
+): Promise<BridgePathDecision> {
+  const allowedRoots = collectAllowedRoots();
+  const lexicalDecision = resolveBridgePathDecision(filePath, { allowedRoots });
+  if (!lexicalDecision.allowed) return lexicalDecision;
+
+  try {
+    await invoke("mcp_bridge_check_path", { filePath, allowedRoots });
+    return { allowed: true };
+  } catch (error) {
+    return {
+      allowed: false,
+      reason: error instanceof Error ? error.message : String(error),
+    };
+  }
 }
