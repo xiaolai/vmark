@@ -1,15 +1,3 @@
-/**
- * File Open Utilities
- *
- * Purpose: Core file-open operations — read file into a new tab, handle
- *   open dialog with workspace/tab resolution, and create new untitled tabs.
- *
- * @coordinates-with useReplaceableTab.ts — reuses empty untitled tabs on file open
- * @coordinates-with documentStore.ts — reads/writes document content and dirty state
- * @coordinates-with useFileOperations.ts — orchestrates open handlers via menu events
- * @module hooks/useFileOpen
- */
-
 import { imeToast as toast } from "@/services/ime/imeToast";
 import i18n from "@/i18n";
 import { invoke } from "@tauri-apps/api/core";
@@ -196,6 +184,7 @@ export async function handleOpen(windowLabel: string): Promise<void> {
 
     // fix(#946) — honor the "open files in a new tab" preference
     const openInNewTab = useSettingsStore.getState().general.openInNewTab;
+    const workspaceRailMode = useSettingsStore.getState().general.workspaceRailMode;
 
     const decision = resolveOpenAction({
       filePath: path,
@@ -204,6 +193,7 @@ export async function handleOpen(windowLabel: string): Promise<void> {
       existingTabId,
       replaceableTab,
       openInNewTab,
+      workspaceRailMode,
     });
 
     perfMark("handleOpen:resolvedAction", { action: decision.action });
@@ -258,10 +248,12 @@ export async function handleOpen(windowLabel: string): Promise<void> {
             lineMeta
           );
           perfEnd("replace_tab:loadContent");
+          if (decision.workspaceRoot) {
+            perfStart("replace_tab:openWorkspaceWithConfig");
+            await openWorkspaceWithConfig(decision.workspaceRoot, { windowLabel });
+            perfEnd("replace_tab:openWorkspaceWithConfig");
+          }
           applyFileOwnershipAfterOpen(decision.tabId, decision.filePath);
-          perfStart("replace_tab:openWorkspaceWithConfig");
-          await openWorkspaceWithConfig(decision.workspaceRoot, { windowLabel });
-          perfEnd("replace_tab:openWorkspaceWithConfig");
 
           useRecentFilesStore.getState().addFile(path);
 

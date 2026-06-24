@@ -262,13 +262,12 @@ export interface TerminalSettings {
 // Advanced & General
 // ---------------------------------------------------------------------------
 
-/** Advanced settings — MCP server, custom protocols, and editor optimization. */
+/** Advanced settings — MCP server, custom protocols, and developer-facing toggles. */
 export interface AdvancedSettingsState {
   mcpServer: McpServerSettings;
   customLinkProtocols: string[]; // Custom URL protocols to recognize (e.g., "obsidian", "vscode")
   keepBothEditorsAlive: boolean; // Keep both editors mounted for faster mode switching (default: false)
   workflowEngine: boolean; // Enable YAML workflow engine (developer feature, default: false)
-  workspaceRailMode: boolean; // Enable workspace rail/window model (developer feature, default: false)
   /**
    * When the structured workflow editor saves changes, preserve comments,
    * anchors, and existing formatting where possible (CST round-trip).
@@ -374,6 +373,8 @@ export interface GeneralSettings {
   // replacing the current clean untitled tab. Default false preserves the
   // legacy "reuse the empty tab" behavior so existing users are unaffected.
   openInNewTab: boolean;
+  // Workspace rail/window model; default false preserves the classic model.
+  workspaceRailMode: boolean;
   // i18n
   language: string; // Default: "en" — UI language (BCP 47 tag, e.g. "en", "zh-CN", "zh-TW")
 }

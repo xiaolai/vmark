@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import {
   createWorkspaceInstance,
+  generateUUID,
   type WorkspaceInstanceIdentity,
 } from "@/utils/workspaceIdentity";
 
@@ -20,6 +21,13 @@ interface WorkspaceInstancesState {
   reorderWorkspaceInstances: (windowLabel: string, orderedIds: string[]) => void;
   removeWorkspaceInstance: (windowLabel: string, instanceId: string) => void;
   ensurePlaceholderInstance: (windowLabel: string, placeholderId: string) => void;
+  ensureLooseInstance: (windowLabel: string, instanceId?: string) => WorkspaceInstanceRecord;
+  setWorkspaceInstanceTabs: (
+    instanceId: string,
+    tabIds: string[],
+    activeTabId: string | null,
+    closedTabIds?: string[],
+  ) => void;
   resetWorkspaceInstances: () => void;
 }
 
@@ -45,17 +53,32 @@ export const useWorkspaceInstancesStore = create<WorkspaceInstancesState>()((set
       }
 
       const target = windows[instance.ownerWindowLabel] ?? emptyWindowState(instance.ownerWindowLabel);
+      const realInstance = instance.kind !== "placeholder";
+      const targetWithoutPlaceholders = realInstance
+        ? removePlaceholdersFromWindow(target, state.instances)
+        : target;
+      const placeholderIds = realInstance
+        ? target.workspaceInstanceIds.filter(
+          (id) => state.instances[id]?.kind === "placeholder",
+        )
+        : [];
       const ids = target.workspaceInstanceIds.includes(instance.workspaceInstanceId)
-        ? target.workspaceInstanceIds
-        : [...target.workspaceInstanceIds, instance.workspaceInstanceId];
+        ? targetWithoutPlaceholders.workspaceInstanceIds
+        : [...targetWithoutPlaceholders.workspaceInstanceIds, instance.workspaceInstanceId];
+      const nextInstances = { ...state.instances, [instance.workspaceInstanceId]: instance };
+      for (const id of placeholderIds) {
+        delete nextInstances[id];
+      }
       windows[instance.ownerWindowLabel] = {
-        ...target,
+        ...targetWithoutPlaceholders,
         workspaceInstanceIds: ids,
-        activeWorkspaceInstanceId: target.activeWorkspaceInstanceId ?? instance.workspaceInstanceId,
+        activeWorkspaceInstanceId: ids.includes(target.activeWorkspaceInstanceId ?? "")
+          ? target.activeWorkspaceInstanceId
+          : instance.workspaceInstanceId,
       };
 
       return {
-        instances: { ...state.instances, [instance.workspaceInstanceId]: instance },
+        instances: nextInstances,
         windows,
       };
     }),
@@ -118,6 +141,7 @@ export const useWorkspaceInstancesStore = create<WorkspaceInstancesState>()((set
         root: null,
         ownerWindowLabel: windowLabel,
         createdFrom: "placeholder",
+        kind: "placeholder",
       });
       return {
         instances: { ...state.instances, [placeholderId]: placeholder },
@@ -127,6 +151,87 @@ export const useWorkspaceInstancesStore = create<WorkspaceInstancesState>()((set
             ...windowState,
             workspaceInstanceIds: [placeholderId],
             activeWorkspaceInstanceId: placeholderId,
+          },
+        },
+      };
+    }),
+
+  ensureLooseInstance: (windowLabel, instanceId) => {
+    let result: WorkspaceInstanceRecord | null = null;
+    set((state) => {
+      const windowState = state.windows[windowLabel] ?? emptyWindowState(windowLabel);
+      const existingId = windowState.workspaceInstanceIds.find(
+        (id) => state.instances[id]?.kind === "loose",
+      );
+      if (existingId) {
+        result = state.instances[existingId];
+        return {
+          windows: {
+            ...state.windows,
+            [windowLabel]: {
+              ...windowState,
+              activeWorkspaceInstanceId: existingId,
+            },
+          },
+        };
+      }
+
+      const looseId = instanceId ?? `wsi-loose-${generateUUID()}`;
+      const placeholderIds = windowState.workspaceInstanceIds.filter(
+        (id) => state.instances[id]?.kind === "placeholder",
+      );
+      const ids = [
+        ...windowState.workspaceInstanceIds.filter((id) => !placeholderIds.includes(id)),
+        looseId,
+      ];
+      const nextInstances = { ...state.instances };
+      for (const id of placeholderIds) {
+        delete nextInstances[id];
+      }
+      const loose = createWorkspaceInstance({
+        workspaceInstanceId: looseId,
+        root: null,
+        ownerWindowLabel: windowLabel,
+        createdFrom: "open",
+        kind: "loose",
+      });
+      result = loose;
+      nextInstances[looseId] = loose;
+      return {
+        instances: nextInstances,
+        windows: {
+          ...state.windows,
+          [windowLabel]: {
+            ...windowState,
+            workspaceInstanceIds: ids,
+            activeWorkspaceInstanceId: looseId,
+          },
+        },
+      };
+    });
+
+    if (!result) {
+      throw new Error(`Failed to create loose workspace instance for window '${windowLabel}'`);
+    }
+    return result;
+  },
+
+  setWorkspaceInstanceTabs: (instanceId, tabIds, activeTabId, closedTabIds = []) =>
+    set((state) => {
+      const instance = state.instances[instanceId];
+      if (!instance) return {};
+      const uniqueTabIds = uniqueIds(tabIds);
+      const uniqueClosedTabIds = uniqueIds(closedTabIds);
+      return {
+        instances: {
+          ...state.instances,
+          [instanceId]: {
+            ...instance,
+            tabIds: uniqueTabIds,
+            activeTabId: activeTabId && uniqueTabIds.includes(activeTabId)
+              ? activeTabId
+              : uniqueTabIds[0] ?? null,
+            closedTabIds: uniqueClosedTabIds,
           },
         },
       };
@@ -163,4 +268,31 @@ function removeFromWindow(
         ? ids[0] ?? null
         : windowState.activeWorkspaceInstanceId,
   };
+}
+
+function removePlaceholdersFromWindow(
+  windowState: WindowWorkspaceState,
+  instances: Record<string, WorkspaceInstanceRecord>,
+): WindowWorkspaceState {
+  const ids = windowState.workspaceInstanceIds.filter(
+    (id) => instances[id]?.kind !== "placeholder",
+  );
+  return {
+    ...windowState,
+    workspaceInstanceIds: ids,
+    activeWorkspaceInstanceId: ids.includes(windowState.activeWorkspaceInstanceId ?? "")
+      ? windowState.activeWorkspaceInstanceId
+      : ids[0] ?? null,
+  };
+}
+
+function uniqueIds(ids: string[]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const id of ids) {
+    if (seen.has(id)) continue;
+    seen.add(id);
+    result.push(id);
+  }
+  return result;
 }

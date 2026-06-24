@@ -9,7 +9,7 @@ import type { HotExitWorkspaceInstanceState } from "./hotExit/types";
 
 function makeSnapshot(instances: HotExitWorkspaceInstanceState[] = []) {
   return {
-    version: 4,
+    version: 5,
     windows: [
       {
         window_label: "main",
@@ -21,7 +21,7 @@ function makeSnapshot(instances: HotExitWorkspaceInstanceState[] = []) {
   };
 }
 
-describe("workspace instances v4 local snapshot storage", () => {
+describe("workspace instances v5 local snapshot storage", () => {
   beforeEach(() => {
     vi.stubGlobal("localStorage", createMemoryStorage());
     localStorage.clear();
@@ -35,6 +35,7 @@ describe("workspace instances v4 local snapshot storage", () => {
     const snapshot = makeSnapshot([
       {
         workspaceInstanceId: "ws-1",
+        kind: "workspace",
         rootId: "path:macos:/tmp/a",
         rootPath: "/tmp/a",
         displayName: "a",
@@ -46,6 +47,7 @@ describe("workspace instances v4 local snapshot storage", () => {
       },
       {
         workspaceInstanceId: "ws-2",
+        kind: "workspace",
         rootId: "path:macos:/tmp/a",
         rootPath: "/tmp/a",
         displayName: "a",
@@ -111,7 +113,7 @@ describe("workspace instances v4 local snapshot storage", () => {
     });
   });
 
-  it("clears only the v4 workspace instances snapshot", () => {
+  it("clears only the v5 workspace instances snapshot", () => {
     localStorage.setItem(WORKSPACE_INSTANCES_STORAGE_KEY, JSON.stringify(makeSnapshot()));
     localStorage.setItem("vmark-workspace:main", "legacy");
 

@@ -8,8 +8,10 @@ export interface ActiveWorkspaceScope {
   windowLabel: string;
   source: ActiveWorkspaceScopeSource;
   workspaceInstanceId: string | null;
+  kind: "workspace" | "loose" | "placeholder" | "legacy" | null;
   rootPath: string | null;
   isWorkspaceMode: boolean;
+  unavailableRoot: boolean;
   config: WorkspaceConfig | null;
   excludeFolders: string[];
 }
@@ -29,8 +31,10 @@ export function getActiveWorkspaceScope(windowLabel: string): ActiveWorkspaceSco
     windowLabel,
     source: "instance",
     workspaceInstanceId: instance.workspaceInstanceId,
+    kind: instance.kind,
     rootPath: instance.rootPath,
-    isWorkspaceMode: Boolean(instance.rootPath),
+    isWorkspaceMode: instance.kind === "workspace" && Boolean(instance.rootPath) && !instance.unavailableRoot,
+    unavailableRoot: instance.unavailableRoot ?? false,
     config,
     excludeFolders: config?.excludeFolders ?? [],
   };
@@ -46,8 +50,10 @@ function getLegacyScope(
     windowLabel,
     source,
     workspaceInstanceId: null,
+    kind: source === "legacy" || source === "legacyFallback" ? "legacy" : null,
     rootPath: state.rootPath ?? null,
     isWorkspaceMode: state.isWorkspaceMode,
+    unavailableRoot: false,
     config,
     excludeFolders: config?.excludeFolders ?? [],
   };

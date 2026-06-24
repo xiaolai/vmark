@@ -15,6 +15,7 @@ import { useDocumentStore } from "@/stores/documentStore";
 import { useFileLoadStore } from "@/stores/documentStore";
 import { useRecentFilesStore } from "@/stores/workspaceStore";
 import { useTabStore } from "@/stores/tabStore";
+import { useSettingsStore } from "@/stores/settingsStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { withReentryGuard } from "@/utils/reentryGuard";
 import { resolveOpenAction } from "@/utils/openPolicy";
@@ -27,6 +28,7 @@ import { maybeMarkLargeMarkdownAsSource } from "@/lib/formats/markdownLargeFile"
 import { shouldShowProgressIndicator } from "@/utils/fileSizeThresholds";
 import { menuError } from "@/utils/debug";
 import { getFileName } from "@/utils/pathUtils";
+import { applyFileOwnershipAfterOpen } from "@/services/workspaces/fileOwnership";
 
 type Ctx = { windowLabel?: string };
 
@@ -78,6 +80,7 @@ export function registerRecentFilesCommands(): void {
       const { files } = useRecentFilesStore.getState();
       const file = files.find((f) => f.path === filePath) ?? { path: filePath };
       const { isWorkspaceMode, rootPath } = useWorkspaceStore.getState();
+      const workspaceRailMode = useSettingsStore.getState().general.workspaceRailMode;
       const existingTab = useTabStore.getState().findTabByPath(windowLabel, file.path);
       const replaceableTab = getReplaceableTab(windowLabel);
 
@@ -87,6 +90,7 @@ export function registerRecentFilesCommands(): void {
         isWorkspaceMode,
         existingTabId: existingTab?.id ?? null,
         replaceableTab,
+        workspaceRailMode,
       });
 
       await withReentryGuard(windowLabel, "open-recent", async () => {
@@ -132,7 +136,10 @@ export function registerRecentFilesCommands(): void {
                 result.filePath,
                 detectLinebreaks(content)
               );
-              await openWorkspaceWithConfig(result.workspaceRoot, { windowLabel });
+              if (result.workspaceRoot) {
+                await openWorkspaceWithConfig(result.workspaceRoot, { windowLabel });
+              }
+              applyFileOwnershipAfterOpen(result.tabId, result.filePath);
               useRecentFilesStore.getState().addFile(file.path);
 
               maybeMarkLargeMarkdownAsSource(

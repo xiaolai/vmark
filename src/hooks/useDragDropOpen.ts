@@ -1,21 +1,3 @@
-/**
- * Drag-Drop File Open Hook
- *
- * Purpose: Handles markdown files dragged from Finder into the app —
- *   opens in a new tab (if within workspace) or new window (if outside).
- *
- * Pipeline: Finder drag → Tauri drag-drop event → filter for .md files →
- *   resolveOpenAction() decides tab vs window → open accordingly
- *
- * Key decisions:
- *   - Files within workspace open as new tabs
- *   - Files outside workspace open in new window with file's parent as workspace
- *   - Image files handled by useImageDragDrop instead (not here)
- *
- * @coordinates-with useImageDragDrop.ts — handles image file drops
- * @coordinates-with openPolicy.ts — resolveOpenAction for tab vs window decision
- * @module hooks/useDragDropOpen
- */
 import { useEffect, useRef } from "react";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { readTextFile } from "@tauri-apps/plugin-fs";
@@ -27,6 +9,7 @@ import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useRecentFilesStore } from "@/stores/workspaceStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
+import { useSettingsStore } from "@/stores/settingsStore";
 import { useUIStore } from "@/stores/uiStore";
 import { maybeMarkLargeMarkdownAsSource } from "@/lib/formats/markdownLargeFile";
 import {
@@ -43,66 +26,10 @@ import { getFileName } from "@/utils/pathUtils";
 import { routeOpenBySize } from "@/services/navigation/largeFileRouting";
 import { useFileLoadStore } from "@/stores/documentStore";
 import { shouldShowProgressIndicator } from "@/utils/fileSizeThresholds";
+import { applyFileOwnershipAfterOpen } from "@/services/workspaces/fileOwnership";
+import { openDroppedFileInNewTab } from "@/hooks/dragDropOpenFile";
+import { openDroppedPathsInLegacyWindows } from "@/hooks/dragDropLegacyWindows";
 
-/**
- * Opens a file in a new tab (or activates existing tab if already open).
- *
- * Exported via `__testing__` below so drag-drop size-tier routing can be
- * exercised without simulating the full Tauri drag event.
- *
- * @param windowLabel - The window to open the file in
- * @param path - The file path to open
- */
-async function openFileInNewTab(windowLabel: string, path: string): Promise<void> {
-  // Check for existing tab first
-  const existingTabId = findExistingTabForPath(windowLabel, path);
-  if (existingTabId) {
-    useTabStore.getState().setActiveTab(windowLabel, existingTabId);
-    return;
-  }
-
-  // Pre-read size check: refused files never create a tab; huge files confirm first.
-  const route = await routeOpenBySize(path);
-  if (!route.proceed) return;
-
-  const showIndicator =
-    !route.forceSourceMode && shouldShowProgressIndicator(route.sizeBytes);
-  let loadId: number | null = null;
-  if (showIndicator) {
-    loadId = useFileLoadStore
-      .getState()
-      .startLoad(getFileName(path) || path, route.sizeBytes);
-  }
-
-  try {
-    const content = await readTextFile(path);
-    const tabId = useTabStore.getState().createTab(windowLabel, path);
-    // WI-2.6 — YAML force-source bandaid retired (registry handles it).
-    useDocumentStore.getState().initDocument(tabId, content, path);
-    useDocumentStore.getState().setLineMetadata(tabId, detectLinebreaks(content));
-    useRecentFilesStore.getState().addFile(path);
-
-    maybeMarkLargeMarkdownAsSource(tabId, path, route.forceSourceMode);
-  } catch (error) {
-    dragDropError("Failed to open file:", path, error);
-    const filename = getFileName(path) || path;
-    toast.error(i18n.t("dialog:toast.failedToOpen", { filename }));
-    if (loadId !== null) useFileLoadStore.getState().endLoad(loadId);
-  }
-}
-
-/**
- * Hook to handle drag-and-drop file opening.
- *
- * When markdown files (.md, .markdown, .txt) are dropped onto the window,
- * they are opened in new tabs. Non-markdown files are silently ignored.
- *
- * @example
- * function DocumentWindow() {
- *   useDragDropOpen();
- *   return <Editor />;
- * }
- */
 export function useDragDropOpen(): void {
   const windowLabel = useWindowLabel();
   const unlistenRef = useRef<(() => void) | null>(null);
@@ -118,7 +45,6 @@ export function useDragDropOpen(): void {
 
         const { type } = event.payload;
 
-        // Handle drag enter for visual feedback
         if (type === "enter") {
           // WI-1B.2 — accept any registered extension on drag-enter so
           // the drop overlay shows for .json/.yaml/.toml/etc. as well.
@@ -132,7 +58,6 @@ export function useDragDropOpen(): void {
           return;
         }
 
-        // Ignore over events (just position updates)
         if (type === "over") {
           return;
         }
@@ -142,10 +67,8 @@ export function useDragDropOpen(): void {
           return;
         }
 
-        // Handle drop event
         if (type !== "drop") return;
 
-        // Clear dragging state on drop
         useUIStore.getState().setDraggingFiles(false);
 
         const paths = event.payload.paths;
@@ -160,8 +83,8 @@ export function useDragDropOpen(): void {
           return;
         }
 
-        // Get current workspace state for policy decisions
         const { isWorkspaceMode, rootPath } = useWorkspaceStore.getState();
+        const workspaceRailMode = useSettingsStore.getState().general.workspaceRailMode;
         const tabs = useTabStore.getState().getTabsByWindow(windowLabel);
         const hasDirtyTabs = tabs.some((tab) => {
           const doc = useDocumentStore.getState().getDocument(tab.id);
@@ -171,49 +94,14 @@ export function useDragDropOpen(): void {
         const initialReplaceableTab = getReplaceableTab(windowLabel);
         let replaceableTabUsed = false;
 
-        if (!isWorkspaceMode && hasDirtyTabs) {
-          const groups = new Map<string, string[]>();
-          const rootless: string[] = [];
-
-          for (const path of markdownPaths) {
-            const root = resolveWorkspaceRootForExternalFile(path);
-            if (root) {
-              const existing = groups.get(root) ?? [];
-              existing.push(path);
-              groups.set(root, existing);
-            } else {
-              rootless.push(path);
-            }
-          }
-
-          for (const [workspaceRoot, files] of groups.entries()) {
-            try {
-              await invoke("open_workspace_with_files_in_new_window", {
-                workspaceRoot,
-                filePaths: files,
-              });
-            } catch (error) {
-              dragDropError("Failed to open workspace in new window:", error);
-              toast.error(i18n.t("dialog:toast.failedToOpenFilesInNewWindow"));
-            }
-          }
-
-          for (const path of rootless) {
-            try {
-              await invoke("open_file_in_new_window", { path });
-            } catch (error) {
-              dragDropError("Failed to open file in new window:", error);
-              const filename = getFileName(path) || path;
-              toast.error(i18n.t("dialog:toast.failedToOpen", { filename }));
-            }
-          }
-
+        if (!workspaceRailMode && !isWorkspaceMode && hasDirtyTabs) {
+          await openDroppedPathsInLegacyWindows(markdownPaths);
           return;
         }
 
         // If not in workspace mode, and all dropped files share the same root,
         // open that workspace in the current window and load as tabs.
-        if (!isWorkspaceMode) {
+        if (!workspaceRailMode && !isWorkspaceMode) {
           const roots = markdownPaths
             .map((path) => resolveWorkspaceRootForExternalFile(path))
             .filter((root): root is string => Boolean(root));
@@ -249,6 +137,7 @@ export function useDragDropOpen(): void {
                     path,
                     detectLinebreaks(content)
                   );
+                  applyFileOwnershipAfterOpen(initialReplaceableTab.tabId, path);
                   useRecentFilesStore.getState().addFile(path);
                   maybeMarkLargeMarkdownAsSource(
                     initialReplaceableTab.tabId,
@@ -267,7 +156,7 @@ export function useDragDropOpen(): void {
                 }
               }
 
-              await openFileInNewTab(windowLabel, path);
+              await openDroppedFileInNewTab(windowLabel, path);
             }
             return;
           }
@@ -283,6 +172,7 @@ export function useDragDropOpen(): void {
             isWorkspaceMode,
             existingTabId,
             replaceableTab,
+            workspaceRailMode,
           });
 
           switch (decision.action) {
@@ -290,7 +180,7 @@ export function useDragDropOpen(): void {
               useTabStore.getState().setActiveTab(windowLabel, decision.tabId);
               break;
             case "create_tab":
-              await openFileInNewTab(windowLabel, path);
+              await openDroppedFileInNewTab(windowLabel, path);
               break;
             case "replace_tab": {
               // Replace the clean untitled tab with the file content (only once).
@@ -315,7 +205,10 @@ export function useDragDropOpen(): void {
                   decision.filePath,
                   detectLinebreaks(content)
                 );
-                await openWorkspaceWithConfig(decision.workspaceRoot, { windowLabel });
+                if (decision.workspaceRoot) {
+                  await openWorkspaceWithConfig(decision.workspaceRoot, { windowLabel });
+                }
+                applyFileOwnershipAfterOpen(decision.tabId, decision.filePath);
                 useRecentFilesStore.getState().addFile(path);
                 maybeMarkLargeMarkdownAsSource(
                   decision.tabId,
@@ -373,5 +266,5 @@ export function useDragDropOpen(): void {
 
 /** Test-only exports — do NOT import in production code. */
 export const __testing__ = {
-  openFileInNewTab,
+  openFileInNewTab: openDroppedFileInNewTab,
 };

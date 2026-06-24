@@ -5,6 +5,7 @@ import { useTabStore } from "@/stores/tabStore";
 import { selectActiveWorkspaceInstance, useWorkspaceInstancesStore } from "@/stores/workspaceInstancesStore";
 import i18n from "@/i18n";
 import { normalizePath } from "@/utils/paths";
+import { claimTabForWorkspaceContext } from "./workspaceContextOwnership";
 
 export type FileOwnershipPlatform = "macos" | "windows" | "linux";
 
@@ -78,6 +79,10 @@ export function applyFileOwnershipAfterOpen(
   options: FileOwnershipOptions = {},
 ): FileOpenOwnershipResolution {
   const resolution = resolveFileOpenOwnership(filePath, { ...options, currentTabId: tabId });
+  const windowLabel = findWindowLabelForTab(tabId);
+  if (windowLabel) {
+    claimTabForWorkspaceContext(windowLabel, tabId, filePath);
+  }
   if (resolution.mode === "readonlyDuplicate" || resolution.mode === "readonlyConflict") {
     useDocumentStore.getState().setReadOnly(tabId, true);
   }
@@ -186,6 +191,14 @@ function collectFileOwnershipClaims(
   }
 
   return claims;
+}
+
+function findWindowLabelForTab(tabId: string): string | null {
+  const tabsByWindow = useTabStore.getState().tabs;
+  for (const [windowLabel, tabs] of Object.entries(tabsByWindow)) {
+    if (tabs.some((tab) => tab.id === tabId)) return windowLabel;
+  }
+  return null;
 }
 
 function toOwnershipIdentity(

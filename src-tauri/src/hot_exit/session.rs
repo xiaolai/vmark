@@ -9,7 +9,8 @@ use serde::{Deserialize, Serialize};
 /// v2: Added undo_history and redo_history to DocumentState
 /// v3: Added format_id, editing_enabled, active_schema_id to TabState (WI-1A.13)
 /// v4: Added workspace rail instance containers to WindowState
-pub const SCHEMA_VERSION: u32 = 4;
+/// v5: Added explicit workspace instance kind and unavailable-root marker
+pub const SCHEMA_VERSION: u32 = 5;
 
 /// Maximum session age in days before considering it stale
 pub const MAX_SESSION_AGE_DAYS: i64 = 7;
@@ -53,6 +54,8 @@ pub struct WindowState {
 #[serde(rename_all = "camelCase")]
 pub struct WorkspaceInstanceState {
     pub workspace_instance_id: String,
+    #[serde(default)]
+    pub kind: String,
     pub root_id: Option<String>,
     pub root_path: Option<String>,
     pub display_name: String,
@@ -61,6 +64,8 @@ pub struct WorkspaceInstanceState {
     pub active_tab_id: Option<String>,
     pub tab_ids: Vec<String>,
     pub closed_tab_ids: Vec<String>,
+    #[serde(default)]
+    pub unavailable_root: bool,
 }
 
 /// State of a single tab including its document content and metadata.

@@ -25,7 +25,7 @@ function resetStores() {
     docState.removeDocument(id);
   }
   useSettingsStore.setState({
-    advanced: { ...useSettingsStore.getState().advanced, workspaceRailMode: false },
+    general: { ...useSettingsStore.getState().general, workspaceRailMode: false },
   });
 }
 
@@ -49,7 +49,7 @@ describe("openFileInNewTabCore", () => {
 
   it("marks a same-file duplicate read-only when rail mode is enabled", async () => {
     useSettingsStore.setState({
-      advanced: { ...useSettingsStore.getState().advanced, workspaceRailMode: true },
+      general: { ...useSettingsStore.getState().general, workspaceRailMode: true },
     });
     const existingId = useTabStore.getState().createTab("doc-1", "/Users/test/file.md");
     useDocumentStore.getState().initDocument(existingId, "# Existing", "/Users/test/file.md");

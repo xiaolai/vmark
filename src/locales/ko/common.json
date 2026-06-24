@@ -31,6 +31,7 @@
   "workspaceRail.label": "Workspaces",
   "workspaceRail.activate": "Activate {{name}}",
   "workspaceRail.duplicate": "Duplicate {{name}}",
+  "workspaceRail.looseFiles": "Loose Files",
   "untitled": "Untitled",
   "fileDeleted": "파일이 디스크에서 삭제되었습니다",
   "fileDivergent": "로컬과 디스크가 다릅니다",

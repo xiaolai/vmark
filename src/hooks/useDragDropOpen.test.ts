@@ -6,6 +6,7 @@
  * original audit-fix run.
  */
 
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // --- Mocks ---
@@ -39,8 +40,15 @@ vi.mock("@/utils/linebreakDetection", () => ({
   detectLinebreaks: () => ({ kind: "lf" }),
 }));
 
+let dragDropHandler: ((event: {
+  payload: { type: string; paths: string[] };
+}) => Promise<void> | void) | null = null;
+const mockOnDragDropEvent = vi.fn((handler: typeof dragDropHandler) => {
+  dragDropHandler = handler;
+  return Promise.resolve(() => {});
+});
 vi.mock("@tauri-apps/api/webview", () => ({
-  getCurrentWebview: () => ({ onDragDropEvent: () => Promise.resolve(() => {}) }),
+  getCurrentWebview: () => ({ onDragDropEvent: mockOnDragDropEvent }),
 }));
 
 vi.mock("@/hooks/useReplaceableTab", () => ({
@@ -48,7 +56,11 @@ vi.mock("@/hooks/useReplaceableTab", () => ({
   findExistingTabForPath: () => null,
 }));
 
-import { __testing__ } from "./useDragDropOpen";
+vi.mock("@/contexts/WindowContext", () => ({
+  useWindowLabel: () => "main",
+}));
+
+import { __testing__, useDragDropOpen } from "./useDragDropOpen";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
@@ -61,6 +73,7 @@ const WINDOW = "main";
 describe("useDragDropOpen.openFileInNewTab — size-tier routing", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    dragDropHandler = null;
     useSettingsStore.getState().resetSettings();
     useLargeFileSessionStore.setState({ forcedSourceTabs: {} });
     useFileLoadStore.getState().endLoad();
@@ -162,5 +175,32 @@ describe("useDragDropOpen.openFileInNewTab — size-tier routing", () => {
     await openFileInNewTab(WINDOW, "/docs/large.md");
 
     expect(useLargeFileSessionStore.getState().forcedSourceTabs).toEqual({});
+  });
+
+  it("keeps dropped files in the current workbench in rail mode even with dirty tabs", async () => {
+    useSettingsStore.getState().updateGeneralSetting("workspaceRailMode", true);
+    const dirtyTabId = useTabStore.getState().createTab(WINDOW, null);
+    useDocumentStore.getState().initDocument(dirtyTabId, "dirty", null);
+    useDocumentStore.getState().setContent(dirtyTabId, "dirty changed");
+    mockInvoke.mockImplementation((cmd: string) => {
+      if (cmd === "get_file_size_bytes") return Promise.resolve(10_000);
+      return Promise.resolve(null);
+    });
+
+    renderHook(() => useDragDropOpen());
+    await waitFor(() => expect(mockOnDragDropEvent).toHaveBeenCalled());
+    await act(async () => {
+      await dragDropHandler?.({
+        payload: { type: "drop", paths: ["/outside/a.md"] },
+      });
+    });
+
+    expect(useTabStore.getState().getTabsByWindow(WINDOW).map((tab) => tab.filePath))
+      .toContain("/outside/a.md");
+    expect(mockReadTextFile).toHaveBeenCalledWith("/outside/a.md");
+    expect(mockInvoke.mock.calls.some(([cmd]) =>
+      cmd === "open_file_in_new_window" ||
+      cmd === "open_workspace_with_files_in_new_window"
+    )).toBe(false);
   });
 });

@@ -215,6 +215,9 @@
   "markdown.group.lint": "Markdown Lint",
   "markdown.lintEnabled.label": "Enable markdown lint",
   "markdown.lintEnabled.description": "Check for common markdown issues (broken links, missing alt text, heading increments, etc.)",
+  "files.group.workspace": "Workspace",
+  "files.workspaceRailMode.label": "Workspace rail",
+  "files.workspaceRailMode.description": "Show the left workspace rail and keep multiple workspaces and loose files in one window",
   "files.group.fileBrowser": "檔案瀏覽器",
   "files.showHiddenFiles.label": "顯示隱藏檔案",
   "files.showHiddenFiles.description": "在檔案總管中顯示點開頭的檔案和系統隱藏項目",
@@ -591,8 +594,6 @@
   "advanced.hotExit.noSessionToRestore": "沒有可還原的已儲存工作階段",
   "advanced.hotExit.sessionCleared": "工作階段已清除",
   "advanced.group.experimental": "Experimental Features",
-  "advanced.workspaceRailMode.label": "Workspace rail",
-  "advanced.workspaceRailMode.description": "Show the left workspace rail and enable workspace tear-out and duplicate-window workflows (experimental)",
   "advanced.workflowEngine.label": "Workflow Engine",
   "advanced.workflowEngine.description": "Enable YAML workflow files with React Flow visualization (experimental)",
   "editor": {

@@ -215,6 +215,9 @@
   "markdown.group.lint": "Markdown Lint",
   "markdown.lintEnabled.label": "Enable markdown lint",
   "markdown.lintEnabled.description": "Check for common markdown issues (broken links, missing alt text, heading increments, etc.)",
+  "files.group.workspace": "Workspace",
+  "files.workspaceRailMode.label": "Workspace rail",
+  "files.workspaceRailMode.description": "Show the left workspace rail and keep multiple workspaces and loose files in one window",
   "files.group.fileBrowser": "파일 브라우저",
   "files.showHiddenFiles.label": "숨김 파일 표시",
   "files.showHiddenFiles.description": "파일 탐색기에 점 파일 및 숨김 시스템 항목 포함",
@@ -591,8 +594,6 @@
   "advanced.hotExit.noSessionToRestore": "복원할 저장된 세션 없음",
   "advanced.hotExit.sessionCleared": "세션이 지워졌습니다",
   "advanced.group.experimental": "Experimental Features",
-  "advanced.workspaceRailMode.label": "Workspace rail",
-  "advanced.workspaceRailMode.description": "Show the left workspace rail and enable workspace tear-out and duplicate-window workflows (experimental)",
   "advanced.workflowEngine.label": "Workflow Engine",
   "advanced.workflowEngine.description": "Enable YAML workflow files with React Flow visualization (experimental)",
   "editor": {

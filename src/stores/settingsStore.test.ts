@@ -144,6 +144,43 @@ describe("settingsStore merge migration", () => {
       expect(result.appearance.blockSpacing).toBe(1.5);
     }
   });
+
+  it("migrates legacy advanced workspace rail preference to general settings", () => {
+    const storeApi = useSettingsStore as unknown as {
+      persist: { getOptions: () => { merge?: (persisted: unknown, current: unknown) => unknown } };
+    };
+    const options = storeApi.persist.getOptions();
+    if (options.merge) {
+      const currentState = useSettingsStore.getState();
+      const result = options.merge(
+        { advanced: { workspaceRailMode: true } },
+        currentState,
+      ) as typeof currentState;
+
+      expect(result.general.workspaceRailMode).toBe(true);
+      expect((result.advanced as Record<string, unknown>).workspaceRailMode).toBeUndefined();
+    }
+  });
+
+  it("keeps the release-facing workspace rail preference when both paths exist", () => {
+    const storeApi = useSettingsStore as unknown as {
+      persist: { getOptions: () => { merge?: (persisted: unknown, current: unknown) => unknown } };
+    };
+    const options = storeApi.persist.getOptions();
+    if (options.merge) {
+      const currentState = useSettingsStore.getState();
+      const result = options.merge(
+        {
+          general: { workspaceRailMode: false },
+          advanced: { workspaceRailMode: true },
+        },
+        currentState,
+      ) as typeof currentState;
+
+      expect(result.general.workspaceRailMode).toBe(false);
+      expect((result.advanced as Record<string, unknown>).workspaceRailMode).toBeUndefined();
+    }
+  });
 });
 
 describe("settingsStore confirmQuit", () => {
@@ -188,6 +225,26 @@ describe("settingsStore openInNewTab", () => {
 
     useSettingsStore.getState().resetSettings();
     expect(useSettingsStore.getState().general.openInNewTab).toBe(false);
+  });
+});
+
+describe("settingsStore workspaceRailMode", () => {
+  it("defaults workspaceRailMode to false", () => {
+    expect(useSettingsStore.getState().general.workspaceRailMode).toBe(false);
+  });
+
+  it("toggles workspaceRailMode through general settings", () => {
+    useSettingsStore.getState().updateGeneralSetting("workspaceRailMode", true);
+    expect(useSettingsStore.getState().general.workspaceRailMode).toBe(true);
+
+    useSettingsStore.getState().updateGeneralSetting("workspaceRailMode", false);
+    expect(useSettingsStore.getState().general.workspaceRailMode).toBe(false);
+  });
+
+  it("resets workspaceRailMode to false on resetSettings", () => {
+    useSettingsStore.getState().updateGeneralSetting("workspaceRailMode", true);
+    useSettingsStore.getState().resetSettings();
+    expect(useSettingsStore.getState().general.workspaceRailMode).toBe(false);
   });
 });
 

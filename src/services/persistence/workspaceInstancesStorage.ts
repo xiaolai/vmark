@@ -1,6 +1,6 @@
 import type { WorkspaceInstancesStorageSnapshot } from "./hotExit/types";
 
-export const WORKSPACE_INSTANCES_STORAGE_KEY = "vmark-workspace-instances:v4";
+export const WORKSPACE_INSTANCES_STORAGE_KEY = "vmark-workspace-instances:v5";
 
 export type WorkspaceInstancesSnapshotReadResult =
   | { ok: true; snapshot: WorkspaceInstancesStorageSnapshot | null }
@@ -53,7 +53,7 @@ function isWorkspaceInstancesStorageSnapshot(
   if (typeof value !== "object" || value === null) return false;
   const snapshot = value as Record<string, unknown>;
   return (
-    snapshot.version === 4 &&
+    snapshot.version === 5 &&
     Array.isArray(snapshot.windows) &&
     snapshot.windows.every(isSnapshotWindow) &&
     Array.isArray(snapshot.instances)

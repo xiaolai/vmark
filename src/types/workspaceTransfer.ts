@@ -19,6 +19,7 @@ export interface WorkspaceTransferPayload {
   operation: WorkspaceWindowOperation;
   sourceWindowLabel: string;
   workspaceInstanceId: string;
+  kind: "workspace" | "loose" | "placeholder";
   rootId: string | null;
   rootPath: string | null;
   displayName: string;

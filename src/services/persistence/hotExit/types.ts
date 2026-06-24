@@ -5,7 +5,7 @@
  * These types define the complete application session state for save/restore.
  */
 
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 5;
 
 /**
  * Line ending types
@@ -43,6 +43,7 @@ export interface WindowState {
 
 export interface HotExitWorkspaceInstanceState {
   workspaceInstanceId: string;
+  kind?: "workspace" | "loose" | "placeholder";
   rootId: string | null;
   rootPath: string | null;
   displayName: string;
@@ -51,6 +52,7 @@ export interface HotExitWorkspaceInstanceState {
   activeTabId: string | null;
   tabIds: string[];
   closedTabIds: string[];
+  unavailableRoot?: boolean;
 }
 
 export interface HotExitWindowWorkspaceState {
@@ -60,7 +62,7 @@ export interface HotExitWindowWorkspaceState {
 }
 
 export interface WorkspaceInstancesStorageSnapshot {
-  version: 4;
+  version: 5;
   windows: Array<{
     window_label: string;
     workspace_instance_ids: string[];

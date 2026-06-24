@@ -23,17 +23,17 @@ beforeEach(() => {
 
 describe("workspace rail feature flag", () => {
   it("is disabled by default", () => {
-    expect(useSettingsStore.getState().advanced.workspaceRailMode).toBe(false);
+    expect(useSettingsStore.getState().general.workspaceRailMode).toBe(false);
     expect(isWorkspaceRailEnabled()).toBe(false);
   });
 
-  it("reads the persisted advanced setting", () => {
-    useSettingsStore.getState().updateAdvancedSetting("workspaceRailMode", true);
+  it("reads the persisted general setting", () => {
+    useSettingsStore.getState().updateGeneralSetting("workspaceRailMode", true);
     expect(isWorkspaceRailEnabled()).toBe(true);
   });
 
   it("resets to disabled", () => {
-    useSettingsStore.getState().updateAdvancedSetting("workspaceRailMode", true);
+    useSettingsStore.getState().updateGeneralSetting("workspaceRailMode", true);
     useSettingsStore.getState().resetSettings();
     expect(isWorkspaceRailEnabled()).toBe(false);
   });

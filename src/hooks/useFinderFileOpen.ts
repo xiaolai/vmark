@@ -1,34 +1,3 @@
-/**
- * Finder File Open Hook
- *
- * Purpose: Handles files opened from macOS Finder (double-click, "Open With",
- *   drag to dock icon) — routes to existing tab, new tab, or new window.
- *
- * Pipeline: Finder → macOS open event → Rust queues → emits `app:open-file` →
- *   this hook → resolveOpenAction() → load in current tab / new tab / new window
- *
- * Key decisions:
- *   - Waits for hot exit restore before processing (prevents race condition)
- *   - Cold-start files queued in Rust, drained after React mounts
- *   - Hot open (app running): Rust emits app:open-file via app.emit() (global
- *     broadcast) so this hook's global listen() receives it. window.emit()
- *     (webview-specific) would be silently dropped by global listen() in Tauri v2.
- *   - Empty untitled tab gets reused (replaced, not creating a new one)
- *   - Files within workspace open as tabs; outside opens new window
- *   - Explicit setActiveTab after loading: ensures the Finder-opened file is
- *     always the active tab, even if concurrent createTab calls (e.g., from
- *     crash recovery) stole focus during the async loadFileIntoTab.
- *
- * @edge-case Cold start: files opened before React mounts are queued in Rust
- * @edge-case Hot open: app already running — app:open-file event fires directly
- * @edge-case Hot exit: waits for restore to complete to avoid tab overwrite
- * @edge-case File deleted or fs scope rejection: read fails → new tab is
- *   detached (cleans up orphan), toast surfaces the error, both branches
- *   short-circuit before setActiveTab so nothing stale wins focus
- * @edge-case Window destroyed: cancelled guards after every await prevent unmounted-component errors
- * @coordinates-with openPolicy.ts — resolveOpenAction for routing decision
- * @module hooks/useFinderFileOpen
- */
 import { useEffect, useRef } from "react";
 // Global listen() is correct here — Rust emits app:open-file via app.emit() (global
 // broadcast), and only global listen() is guaranteed to receive global events.
@@ -42,6 +11,7 @@ import { useWindowLabel } from "@/contexts/WindowContext";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
+import { useSettingsStore } from "@/stores/settingsStore";
 import { useRecentFilesStore } from "@/stores/workspaceStore";
 import { getReplaceableTab, findExistingTabForPath } from "@/hooks/useReplaceableTab";
 import { detectLinebreaks } from "@/utils/linebreakDetection";
@@ -56,6 +26,7 @@ import { useFileLoadStore } from "@/stores/documentStore";
 import { maybeMarkLargeMarkdownAsSource } from "@/lib/formats/markdownLargeFile";
 import { shouldShowProgressIndicator } from "@/utils/fileSizeThresholds";
 import { errorMessage } from "@/utils/errorMessage";
+import { applyFileOwnershipAfterOpen } from "@/services/workspaces/fileOwnership";
 
 interface OpenFilePayload {
   path: string;
@@ -162,6 +133,7 @@ export function useFinderFileOpen(): void {
         await loadFileIntoTab(tab.tabId, path, false);
         if (cancelled) return;
         useTabStore.getState().updateTabPath(tab.tabId, path);
+        applyFileOwnershipAfterOpen(tab.tabId, path);
       } catch (error) {
         finderFileOpenError("Failed to load file:", path, error);
         toastOpenFailure(error);
@@ -193,6 +165,7 @@ export function useFinderFileOpen(): void {
       const tabId = useTabStore.getState().createTab(windowLabel, path);
       try {
         await loadFileIntoTab(tabId, path, true);
+        applyFileOwnershipAfterOpen(tabId, path);
       } catch (error) {
         finderFileOpenError("Failed to load file:", path, error);
         // Use detachTab (not closeTab) to keep the "reopen closed tab"
@@ -301,6 +274,19 @@ export function useFinderFileOpen(): void {
         // Indicator clears on TiptapEditor.onCreate (success) or here if the
         // read failed silently (replaceTabWithFile handles its own toast).
         if (!useDocumentStore.getState().documents[replaceableTab.tabId]?.filePath) {
+          clearIndicatorOnFailure();
+        }
+        return;
+      }
+
+      if (useSettingsStore.getState().general.workspaceRailMode) {
+        const tabIdBefore = useTabStore.getState().getActiveTab(windowLabel)?.id ?? null;
+        activateIndicator();
+        await createNewTabForFile(path, null, false);
+        const tabIdAfter = useTabStore.getState().getActiveTab(windowLabel)?.id ?? null;
+        if (tabIdAfter && tabIdAfter !== tabIdBefore) {
+          applyForcedSource(tabIdAfter);
+        } else {
           clearIndicatorOnFailure();
         }
         return;

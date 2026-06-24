@@ -27,7 +27,7 @@ vi.mock("@/i18n", () => ({
 
 function enableRailMode(enabled = true): void {
   useSettingsStore.setState({
-    advanced: { ...useSettingsStore.getState().advanced, workspaceRailMode: enabled },
+    general: { ...useSettingsStore.getState().general, workspaceRailMode: enabled },
   });
 }
 

@@ -1,18 +1,3 @@
-/**
- * Hot Exit Restore Helpers
- *
- * Helper functions extracted from useHotExitRestore.ts:
- *   - restoreWindowState: orchestrates per-window restore
- *   - restoreUiState: sidebar, view modes, terminal
- *   - restoreTabs: tab creation, ordering, active tab
- *   - restoreDocumentState: content, flags, cursor
- *   - restoreUnifiedHistory: undo/redo checkpoint stacks
- *   - pullWindowStateWithRetry: retry loop for Rust invoke
- *
- * @coordinates-with useHotExitRestore.ts — consumes these helpers
- * @module services/persistence/hotExit/restoreHelpers
- */
-
 import { invoke } from '@tauri-apps/api/core';
 import { hotExitLog, hotExitWarn } from '@/utils/debug';
 import { useTabStore } from '@/stores/tabStore';
@@ -185,12 +170,15 @@ export async function pullWindowStateWithRetry(windowLabel: string, retries = MA
 /**
  * Restore a window from its state (used by both event-driven and pull-based restore)
  */
-export async function restoreWindowState(windowLabel: string, windowState: WindowState): Promise<void> {
+export async function restoreWindowState(
+  windowLabel: string,
+  windowState: WindowState,
+): Promise<Map<string, string>> {
   // Restore UI state first (before tabs)
   restoreUiState(windowState);
 
   // Restore tabs
-  await restoreTabs(windowLabel, windowState);
+  return restoreTabs(windowLabel, windowState);
 }
 
 /**
@@ -247,7 +235,10 @@ export function restoreUiState(windowState: WindowState): void {
 /**
  * Restore tabs from window state
  */
-export async function restoreTabs(windowLabel: string, windowState: WindowState): Promise<void> {
+export async function restoreTabs(
+  windowLabel: string,
+  windowState: WindowState,
+): Promise<Map<string, string>> {
   const tabStore = useTabStore.getState();
   const documentStore = useDocumentStore.getState();
 
@@ -259,7 +250,7 @@ export async function restoreTabs(windowLabel: string, windowState: WindowState)
   const meaningfulTabs = windowState.tabs.filter((t) => !isEmptyUntitledTab(t));
   if (meaningfulTabs.length === 0) {
     hotExitLog(`No meaningful tabs to restore for '${windowLabel}'; preserving WindowContext fallback`);
-    return;
+    return new Map();
   }
 
   // Clear existing tabs by removing the window (bypasses pin rules)
@@ -386,6 +377,8 @@ export async function restoreTabs(windowLabel: string, windowState: WindowState)
       }
     }
   }
+
+  return tabIdMap;
 }
 
 /**

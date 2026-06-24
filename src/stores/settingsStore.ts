@@ -43,6 +43,7 @@ import { persist, createJSONStorage } from "zustand/middleware";
 import { deepMerge } from "@/utils/deepMerge";
 import { createSafeStorage } from "@/services/persistence/safeStorage";
 import { resolveInitialLanguage } from "@/utils/localeDetect";
+import { migrateWorkspaceRailModeToGeneral } from "./settingsStore/migrations";
 import type { SettingsState, SettingsActions } from "./settingsTypes";
 
 // Re-export all types for backward compatibility (import from "@/stores/settingsStore").
@@ -135,6 +136,7 @@ const initialState: SettingsState = {
     confirmQuit: true,
     // fix(#946) — opt-in: open existing files in a new tab (off keeps the legacy "reuse untitled tab" behavior).
     openInNewTab: false,
+    workspaceRailMode: false,
     // First-run default derived from OS locale; persisted value from zustand/persist
     // overrides this via the merge hook below, so existing users are untouched.
     language: resolveInitialLanguage(),
@@ -241,7 +243,6 @@ const initialState: SettingsState = {
     customLinkProtocols: ["obsidian", "vscode", "dict", "x-dictionary"],
     keepBothEditorsAlive: false,
     workflowEngine: false,
-    workspaceRailMode: false,
     workflowEditorPreserveYamlFormatting: true,
     workflowFetchActionMetadata: true,
     workflowActionlint: true,
@@ -346,7 +347,6 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
   persist(
     (set) => ({
       ...initialState,
-
       updateGeneralSetting: createSectionUpdater(set, "general"),
       updateAppearanceSetting: createSectionUpdater(set, "appearance"),
       updateCJKFormattingSetting: createSectionUpdater(set, "cjkFormatting"),
@@ -357,7 +357,6 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
       updateUpdateSetting: createSectionUpdater(set, "update"),
       updateLargeFileSetting: createSectionUpdater(set, "largeFile"),
       updateFormatsSetting: createSectionUpdater(set, "formats"),
-
       toggleDevSection: () => set((state) => ({ showDevSection: !state.showDevSection })),
       resetSettings: () => set(structuredClone(initialState)),
     }),
@@ -392,6 +391,7 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
           appearance.blockSpacing = appearance.paragraphSpacing;
           delete appearance.paragraphSpacing;
         }
+        migrateWorkspaceRailModeToGeneral(rawPersisted);
         // T4: validate the persisted shape before deep-merging into live state
         // (zero-trust at the persist boundary). deepMerge overwrites — rather
         // than recurses — when a persisted group is a non-object, so a corrupt

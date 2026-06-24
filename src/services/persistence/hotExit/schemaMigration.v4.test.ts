@@ -37,8 +37,8 @@ describe("Migration v3 -> v4 workspace instances", () => {
   it("bumps v3 sessions to the current schema", () => {
     const migrated = migrateSession(makeV3Session());
 
-    expect(SCHEMA_VERSION).toBe(4);
-    expect(migrated.version).toBe(4);
+    expect(SCHEMA_VERSION).toBe(5);
+    expect(migrated.version).toBe(5);
   });
 
   it("adds empty workspace instance containers to legacy windows", () => {
@@ -70,8 +70,11 @@ describe("Migration v3 -> v4 workspace instances", () => {
 
     const migrated = migrateSession(session);
 
-    expect(migrated.windows[0].workspace_instance_ids).toEqual(["ws-1", "ws-2"]);
-    expect(migrated.windows[0].active_workspace_instance_id).toBe("ws-2");
+    expect(migrated.windows[0].workspace_instance_ids).toEqual(["ws-1"]);
+    expect(migrated.windows[0].active_workspace_instance_id).toBe("ws-1");
     expect(migrated.windows[0].workspace_instances).toHaveLength(1);
+    expect(migrated.windows[0].workspace_instances?.[0]).toMatchObject({
+      kind: "workspace",
+    });
   });
 });

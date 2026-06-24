@@ -84,7 +84,6 @@ import { registerPendingSave, clearPendingSave } from "@/utils/pendingSaves";
 function makeSettings(overrides?: {
   general?: Partial<Record<string, unknown>>;
   markdown?: Partial<Record<string, unknown>>;
-  advanced?: Partial<Record<string, unknown>>;
 }) {
   return {
     general: {
@@ -94,15 +93,12 @@ function makeSettings(overrides?: {
       historyMergeWindow: 30,
       historyMaxFileSize: 512,
       lineEndingsOnSave: "preserve",
+      workspaceRailMode: false,
       ...overrides?.general,
     },
     markdown: {
       hardBreakStyleOnSave: "preserve",
       ...overrides?.markdown,
-    },
-    advanced: {
-      workspaceRailMode: false,
-      ...overrides?.advanced,
     },
   } as unknown as ReturnType<typeof useSettingsStore.getState>;
 }
@@ -167,7 +163,7 @@ describe("saveToPath", () => {
 
   it("blocks saving when another workspace instance owns a dirty writable copy", async () => {
     vi.mocked(useSettingsStore.getState).mockReturnValue(
-      makeSettings({ advanced: { workspaceRailMode: true } }),
+      makeSettings({ general: { workspaceRailMode: true } }),
     );
     vi.mocked(useTabStore.getState).mockReturnValue({
       tabs: {

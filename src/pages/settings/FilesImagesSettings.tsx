@@ -15,6 +15,7 @@ import { rebuildNativeMenu } from "@/services/menu/rebuildNativeMenu";
 import { updateWorkspaceConfig } from "@/hooks/workspaceConfig";
 import { RefreshCw, ExternalLink } from "lucide-react";
 import { errorMessage } from "@/utils/errorMessage";
+import { WorkspaceSettingsGroup } from "./WorkspaceSettingsGroup";
 
 export function FilesImagesSettings() {
   const { t } = useTranslation("settings");
@@ -46,7 +47,7 @@ export function FilesImagesSettings() {
 
   return (
     <div>
-      {/* File Browser */}
+      <WorkspaceSettingsGroup />
       <SettingsGroup title={t("files.group.fileBrowser")}>
         <SettingRow
           label={t("files.showHiddenFiles.label")}
@@ -76,7 +77,6 @@ export function FilesImagesSettings() {
         </SettingRow>
       </SettingsGroup>
 
-      {/* Quit Behavior */}
       <SettingsGroup title={t("files.group.quitBehavior")}>
         <SettingRow
           label={t("files.confirmQuit.label")}

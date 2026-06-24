@@ -7,7 +7,7 @@ import {
   useWorkspaceInstancesStore,
 } from "@/stores/workspaceInstancesStore";
 import { createWorkspaceInstance, createWorkspaceRootIdentity } from "@/utils/workspaceIdentity";
-import { WorkspaceRail } from "./WorkspaceRail";
+import { WorkspaceRail, WORKSPACE_RAIL_WIDTH } from "./WorkspaceRail";
 
 const { mockMoveWorkspace, mockDuplicateWorkspace, mockToastError, mockToastMessage } = vi.hoisted(() => ({
   mockMoveWorkspace: vi.fn(),
@@ -26,7 +26,7 @@ vi.mock("@/services/ime/imeToast", () => ({
 
 function setRailMode(enabled: boolean): void {
   useSettingsStore.setState({
-    advanced: { ...useSettingsStore.getState().advanced, workspaceRailMode: enabled },
+    general: { ...useSettingsStore.getState().general, workspaceRailMode: enabled },
   });
 }
 
@@ -43,6 +43,18 @@ function addInstance(windowLabel: string, id: string, rootPath: string): void {
   );
 }
 
+function addLooseInstance(windowLabel: string, id = "wsi-loose"): void {
+  useWorkspaceInstancesStore.getState().addWorkspaceInstance(
+    createWorkspaceInstance({
+      workspaceInstanceId: id,
+      root: null,
+      ownerWindowLabel: windowLabel,
+      createdFrom: "open",
+      kind: "loose",
+    }),
+  );
+}
+
 beforeEach(() => {
   setRailMode(false);
   useWorkspaceInstancesStore.getState().resetWorkspaceInstances();
@@ -53,6 +65,10 @@ beforeEach(() => {
 });
 
 describe("WorkspaceRail", () => {
+  it("uses a compact width without changing icon button sizing", () => {
+    expect(WORKSPACE_RAIL_WIDTH).toBe(30);
+  });
+
   it("renders nothing while workspace rail mode is disabled", () => {
     addInstance("main", "wsi-main", "/Users/xiaolai/project");
 
@@ -102,6 +118,18 @@ describe("WorkspaceRail", () => {
     expect(folderIcon).toHaveAttribute("height", "14");
     expect(entries[0]?.style.getPropertyValue("--workspace-rail-color")).toMatch(/^var\(--/);
     expect(entries[1]?.style.getPropertyValue("--workspace-rail-color")).toMatch(/^var\(--/);
+  });
+
+  it("renders loose files as a non-folder rail entry", () => {
+    setRailMode(true);
+    addLooseInstance("main");
+
+    const { container } = render(<WorkspaceRail windowLabel="main" />);
+
+    expect(screen.getByRole("button", { name: "Activate Loose Files" }))
+      .toBeInTheDocument();
+    expect(container.querySelector(".workspace-rail__loose svg")).toBeInTheDocument();
+    expect(container.querySelector(".workspace-rail__folder")).not.toBeInTheDocument();
   });
 
   it("activates the clicked workspace instance", async () => {
@@ -165,6 +193,34 @@ describe("WorkspaceRail", () => {
     fireEvent(button, event);
 
     expect(mockMoveWorkspace).not.toHaveBeenCalled();
+  });
+
+  it("reorders workspace entries when a rail icon is dropped on another entry", () => {
+    setRailMode(true);
+    addInstance("main", "wsi-a", "/Users/xiaolai/a");
+    addInstance("main", "wsi-b", "/Users/xiaolai/b");
+
+    render(<WorkspaceRail windowLabel="main" />);
+    const source = screen.getByRole("button", { name: "Activate b" });
+    const target = screen.getByRole("button", { name: "Activate a" });
+    fireEvent.dragStart(source, {
+      dataTransfer: {
+        effectAllowed: "",
+        setData: vi.fn(),
+        getData: vi.fn(() => "wsi-b"),
+      },
+    });
+    fireEvent.dragOver(target);
+    fireEvent.drop(target, {
+      dataTransfer: {
+        getData: vi.fn(() => "wsi-b"),
+      },
+    });
+
+    expect(
+      selectWindowWorkspaceState(useWorkspaceInstancesStore.getState(), "main")
+        ?.workspaceInstanceIds,
+    ).toEqual(["wsi-b", "wsi-a"]);
   });
 
   it("shows an error toast when moving a workspace fails", async () => {

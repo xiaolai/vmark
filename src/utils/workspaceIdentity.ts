@@ -114,6 +114,8 @@ export type WorkspaceInstanceCreatedFrom =
   | "restore"
   | "placeholder";
 
+export type WorkspaceInstanceKind = "workspace" | "loose" | "placeholder";
+
 export interface WorkspacePathIdentity {
   normalizedPath: string;
   platformIdentity: string;
@@ -133,6 +135,7 @@ export type WorkspaceRootIdentityResult =
 
 export interface WorkspaceInstanceIdentity {
   workspaceInstanceId: string;
+  kind: WorkspaceInstanceKind;
   rootId: string | null;
   rootPath: string | null;
   displayName: string;
@@ -141,6 +144,7 @@ export interface WorkspaceInstanceIdentity {
   activeTabId: string | null;
   tabIds: string[];
   closedTabIds: string[];
+  unavailableRoot?: boolean;
 }
 
 export function normalizeWorkspacePathForIdentity(
@@ -205,18 +209,41 @@ export function createWorkspaceInstance(options: {
   root: WorkspaceRootIdentity | null;
   ownerWindowLabel: string;
   createdFrom: WorkspaceInstanceCreatedFrom;
+  kind?: WorkspaceInstanceKind;
+  displayName?: string;
+  unavailableRoot?: boolean;
 }): WorkspaceInstanceIdentity {
+  const kind = options.kind ?? inferWorkspaceInstanceKind(options.root, options.createdFrom);
   return {
     workspaceInstanceId: options.workspaceInstanceId,
+    kind,
     rootId: options.root?.rootId ?? null,
     rootPath: options.root?.rootPath ?? null,
-    displayName: options.root?.displayName ?? "Untitled",
+    displayName: options.displayName ?? workspaceInstanceDisplayName(kind, options.root),
     ownerWindowLabel: options.ownerWindowLabel,
     createdFrom: options.createdFrom,
     activeTabId: null,
     tabIds: [],
     closedTabIds: [],
+    unavailableRoot: options.unavailableRoot,
   };
+}
+
+function inferWorkspaceInstanceKind(
+  root: WorkspaceRootIdentity | null,
+  createdFrom: WorkspaceInstanceCreatedFrom,
+): WorkspaceInstanceKind {
+  if (root) return "workspace";
+  return createdFrom === "placeholder" ? "placeholder" : "loose";
+}
+
+function workspaceInstanceDisplayName(
+  kind: WorkspaceInstanceKind,
+  root: WorkspaceRootIdentity | null,
+): string {
+  if (root) return root.displayName;
+  if (kind === "loose") return "Loose Files";
+  return "Untitled";
 }
 
 export function disambiguateWorkspaceDisplayNames(

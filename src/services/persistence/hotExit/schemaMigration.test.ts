@@ -371,7 +371,11 @@ describe('Schema Migration', () => {
       expect(migrated.windows[0].tabs[0].format_id).toBe('json');
       expect(migrated.windows[0].tabs[0].editing_enabled).toBe(false);
       expect(migrated.windows[0].tabs[0].active_schema_id).toBe('package-json');
-      expect(migrated.windows[0].workspace_instance_ids).toEqual([]);
+      expect(migrated.windows[0].workspace_instance_ids).toEqual(['wsi-legacy-main-loose']);
+      expect(migrated.windows[0].workspace_instances?.[0]).toMatchObject({
+        kind: 'loose',
+        tabIds: ['tab-y'],
+      });
     });
 
     it('migrates an entire v1 session through to current with format defaults', () => {
@@ -497,9 +501,9 @@ describe('Schema Migration', () => {
       expect(tab.active_schema_id).toBe('package-json');
     });
 
-    it('rejects v5 (a future schema) with a typed error', () => {
+    it('rejects a future schema with a typed error', () => {
       const futureSession = {
-        version: 5,
+        version: SCHEMA_VERSION + 1,
         timestamp: 1747958400,
         vmark_version: '99.0.0',
         windows: [],

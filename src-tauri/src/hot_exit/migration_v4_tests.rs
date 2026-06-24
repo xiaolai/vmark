@@ -77,6 +77,7 @@ fn v3_payload_with_workspace_instances_preserves_frontend_camel_case_fields() {
     assert_eq!(window.workspace_instance_ids, vec!["ws-1"]);
     assert_eq!(window.active_workspace_instance_id.as_deref(), Some("ws-1"));
     assert_eq!(window.workspace_instances[0].workspace_instance_id, "ws-1");
+    assert_eq!(window.workspace_instances[0].kind, "workspace");
     assert_eq!(
         window.workspace_instances[0].root_path.as_deref(),
         Some("/tmp/a")

@@ -146,12 +146,44 @@ describe("workspace identity", () => {
       })
     ).toMatchObject({
       workspaceInstanceId: "wsi-test",
+      kind: "workspace",
       rootId: "path:macos:/Users/xiaolai/VMark",
       ownerWindowLabel: "main",
       createdFrom: "open",
       tabIds: [],
       closedTabIds: [],
       activeTabId: null,
+    });
+  });
+
+  it("creates explicit loose and placeholder rootless instances", () => {
+    expect(
+      createWorkspaceInstance({
+        workspaceInstanceId: "wsi-loose",
+        root: null,
+        ownerWindowLabel: "main",
+        createdFrom: "open",
+        kind: "loose",
+      })
+    ).toMatchObject({
+      kind: "loose",
+      rootId: null,
+      rootPath: null,
+      displayName: "Loose Files",
+    });
+
+    expect(
+      createWorkspaceInstance({
+        workspaceInstanceId: "wsi-placeholder",
+        root: null,
+        ownerWindowLabel: "main",
+        createdFrom: "placeholder",
+      })
+    ).toMatchObject({
+      kind: "placeholder",
+      rootId: null,
+      rootPath: null,
+      displayName: "Untitled",
     });
   });
 });

@@ -1,18 +1,3 @@
-/**
- * Open Policy Helpers
- *
- * Pure decision logic for file opening, saving, and external change handling.
- * These helpers centralize VMark's workspace-first policies:
- *
- * - Always open in a new tab (activate existing tab if same file)
- * - External/outside-workspace opens a new window rooted at file's folder
- * - Missing files block normal Save (require Save As)
- * - External changes auto-reload clean docs, prompt for dirty docs
- *
- * IMPORTANT: These are pure functions - no React, Zustand, or Tauri imports.
- *
- * @module utils/openPolicy
- */
 import { isWithinRoot, getParentDir, normalizePath } from "@/utils/paths/paths";
 
 // -----------------------------------------------------------------------------
@@ -47,6 +32,8 @@ export interface OpenActionContext {
    * legacy replace-the-empty-tab behavior, so existing users are unaffected.
    */
   openInNewTab?: boolean;
+  /** Workspace rail mode keeps external files in the current workbench. */
+  workspaceRailMode?: boolean;
 }
 
 /**
@@ -55,7 +42,7 @@ export interface OpenActionContext {
 export type OpenActionResult =
   | { action: "create_tab"; filePath: string }
   | { action: "activate_tab"; tabId: string }
-  | { action: "replace_tab"; tabId: string; filePath: string; workspaceRoot: string }
+  | { action: "replace_tab"; tabId: string; filePath: string; workspaceRoot: string | null }
   | { action: "open_workspace_in_new_window"; filePath: string; workspaceRoot: string }
   | { action: "no_op"; reason: string };
 
@@ -72,39 +59,17 @@ export type OpenActionResult =
  *
  * @param context - Current workspace and file context
  * @returns Action to take for opening the file
- *
- * @example
- * // File within workspace - create new tab
- * resolveOpenAction({
- *   filePath: "/project/src/file.md",
- *   workspaceRoot: "/project",
- *   isWorkspaceMode: true,
- *   existingTabId: null,
- *   replaceableTab: null,
- * }); // { action: "create_tab", filePath: "/project/src/file.md" }
- *
- * @example
- * // Clean untitled tab exists - replace it
- * resolveOpenAction({
- *   filePath: "/other/file.md",
- *   workspaceRoot: null,
- *   isWorkspaceMode: false,
- *   existingTabId: null,
- *   replaceableTab: { tabId: "tab-1" },
- * }); // { action: "replace_tab", tabId: "tab-1", ... }
- *
- * @example
- * // No replaceable tab - open new window
- * resolveOpenAction({
- *   filePath: "/other/file.md",
- *   workspaceRoot: "/project",
- *   isWorkspaceMode: true,
- *   existingTabId: null,
- *   replaceableTab: null,
- * }); // { action: "open_workspace_in_new_window", ... }
  */
 export function resolveOpenAction(context: OpenActionContext): OpenActionResult {
-  const { filePath, workspaceRoot, isWorkspaceMode, existingTabId, replaceableTab, openInNewTab } = context;
+  const {
+    filePath,
+    workspaceRoot,
+    isWorkspaceMode,
+    existingTabId,
+    replaceableTab,
+    openInNewTab,
+    workspaceRailMode,
+  } = context;
 
   // Guard: empty path
   if (!filePath) {
@@ -121,6 +86,18 @@ export function resolveOpenAction(context: OpenActionContext): OpenActionResult 
     if (isWithinRoot(workspaceRoot, filePath)) {
       return { action: "create_tab", filePath };
     }
+  }
+
+  if (workspaceRailMode) {
+    if (replaceableTab && !openInNewTab) {
+      return {
+        action: "replace_tab",
+        tabId: replaceableTab.tabId,
+        filePath,
+        workspaceRoot: null,
+      };
+    }
+    return { action: "create_tab", filePath };
   }
 
   // Resolve workspace root for external file

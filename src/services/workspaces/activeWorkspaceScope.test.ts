@@ -60,8 +60,8 @@ beforeEach(() => {
     isWorkspaceMode: false,
   });
   useSettingsStore.setState({
-    advanced: {
-      ...useSettingsStore.getState().advanced,
+    general: {
+      ...useSettingsStore.getState().general,
       workspaceRailMode: false,
     },
   });
@@ -87,8 +87,8 @@ describe("getActiveWorkspaceScope", () => {
 
   it("returns the active workspace instance when rail mode is enabled", () => {
     useSettingsStore.setState({
-      advanced: {
-        ...useSettingsStore.getState().advanced,
+      general: {
+        ...useSettingsStore.getState().general,
         workspaceRailMode: true,
       },
     });
@@ -110,8 +110,8 @@ describe("getActiveWorkspaceScope", () => {
 
   it("does not leak another window's active instance", () => {
     useSettingsStore.setState({
-      advanced: {
-        ...useSettingsStore.getState().advanced,
+      general: {
+        ...useSettingsStore.getState().general,
         workspaceRailMode: true,
       },
     });
@@ -132,8 +132,8 @@ describe("getActiveWorkspaceScope", () => {
 
   it("treats an active placeholder as an empty workspace scope", () => {
     useSettingsStore.setState({
-      advanced: {
-        ...useSettingsStore.getState().advanced,
+      general: {
+        ...useSettingsStore.getState().general,
         workspaceRailMode: true,
       },
     });
@@ -155,8 +155,8 @@ describe("getActiveWorkspaceScope", () => {
 
   it("does not reuse legacy excluded folders for a different active root", () => {
     useSettingsStore.setState({
-      advanced: {
-        ...useSettingsStore.getState().advanced,
+      general: {
+        ...useSettingsStore.getState().general,
         workspaceRailMode: true,
       },
     });

@@ -31,6 +31,7 @@
   "workspaceRail.label": "Workspaces",
   "workspaceRail.activate": "Activate {{name}}",
   "workspaceRail.duplicate": "Duplicate {{name}}",
+  "workspaceRail.looseFiles": "Loose Files",
   "untitled": "Untitled",
   "fileDeleted": "Arquivo excluído do disco",
   "fileDivergent": "Local difere do disco",

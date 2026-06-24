@@ -1,5 +1,4 @@
 import { invoke } from "@tauri-apps/api/core";
-import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { isWorkspaceRailEnabled } from "@/services/featureFlags/workspaceRailFeatureFlag";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore, type Tab } from "@/stores/tabStore";
@@ -8,7 +7,6 @@ import {
   type WorkspaceInstanceRecord,
 } from "@/stores/workspaceInstancesStore";
 import type {
-  WorkspaceTransferAckPayload,
   WorkspaceActionOptions,
   WorkspaceOpener,
   WorkspaceTransferPayload,
@@ -17,7 +15,11 @@ import type {
   WorkspaceWindowOperation,
 } from "@/types/workspaceTransfer";
 import { generateUUID } from "@/utils/workspaceIdentity";
-import { isWithinRoot } from "@/utils/paths";
+import {
+  classifyWorkspaceContextForTab,
+  orderedWindowInstances,
+} from "./workspaceContextOwnership";
+import { waitForWorkspaceAck } from "./workspaceTransferAck";
 
 const DEFAULT_ACK_TIMEOUT_MS = 8_000;
 
@@ -100,6 +102,8 @@ export async function applyClaimedWorkspaceTransfer(
       workspaceInstanceId: payload.workspaceInstanceId,
       createdFrom: payload.operation === "duplicate" ? "duplicate" : "dragOut",
     });
+  } else if (payload.kind === "loose") {
+    useWorkspaceInstancesStore.getState().ensureLooseInstance(windowLabel, payload.workspaceInstanceId);
   } else {
     useWorkspaceInstancesStore.getState().ensurePlaceholderInstance(windowLabel, payload.workspaceInstanceId);
   }
@@ -168,6 +172,7 @@ function buildWorkspacePayload(
     operation,
     sourceWindowLabel: windowLabel,
     workspaceInstanceId: operation === "duplicate" ? `wsi-${generateUUID()}` : workspaceInstanceId,
+    kind: instance.kind,
     rootId: instance.rootId,
     rootPath: instance.rootPath,
     displayName: instance.displayName,
@@ -244,9 +249,12 @@ function tabBelongsToWorkspace(
   activeInstanceId: string | null,
 ): boolean {
   if (instance.tabIds.includes(tab.id)) return true;
-  if (!tab.filePath) return instance.workspaceInstanceId === activeInstanceId;
-  if (!instance.rootPath) return false;
-  return isWithinRoot(instance.rootPath, tab.filePath);
+  const owner = classifyWorkspaceContextForTab({
+    filePath: tab.filePath,
+    instances: orderedWindowInstances(instance.ownerWindowLabel),
+    activeWorkspaceInstanceId: activeInstanceId,
+  });
+  return owner?.workspaceInstanceId === instance.workspaceInstanceId;
 }
 
 async function createWindowAndWaitForAck(
@@ -263,29 +271,4 @@ async function createWindowAndWaitForAck(
   } catch {
     return { ok: false, reason: "invokeFailed", targetWindowLabel };
   }
-}
-
-async function waitForWorkspaceAck(
-  requestId: string,
-  timeoutMs: number,
-): Promise<WorkspaceTransferAckPayload | null> {
-  const currentWindow = getCurrentWebviewWindow();
-  let timer: ReturnType<typeof setTimeout> | null = null;
-  let unlisten: (() => void) | null = null;
-
-  return new Promise((resolve) => {
-    const finish = (value: WorkspaceTransferAckPayload | null) => {
-      if (timer) clearTimeout(timer);
-      unlisten?.();
-      resolve(value);
-    };
-
-    timer = setTimeout(() => finish(null), timeoutMs);
-    currentWindow.listen<WorkspaceTransferAckPayload>("workspace:transfer-ack", (event) => {
-      if (event.payload.requestId !== requestId) return;
-      finish(event.payload);
-    }).then((fn) => {
-      unlisten = fn;
-    }).catch(() => finish(null));
-  });
 }

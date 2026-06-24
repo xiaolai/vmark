@@ -94,6 +94,10 @@ vi.mock("@/hooks/useReplaceableTab", () => ({
   findExistingTabForPath: vi.fn(() => null),
 }));
 
+vi.mock("@/services/workspaces/fileOwnership", () => ({
+  applyFileOwnershipAfterOpen: vi.fn(),
+}));
+
 vi.mock("@/contexts/WindowContext", () => ({
   useWindowLabel: vi.fn(() => "main"),
 }));

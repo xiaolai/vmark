@@ -35,6 +35,7 @@ pub struct WorkspaceTransferData {
     pub operation: String,
     pub source_window_label: String,
     pub workspace_instance_id: String,
+    pub kind: String,
     pub root_id: Option<String>,
     pub root_path: Option<String>,
     pub display_name: String,

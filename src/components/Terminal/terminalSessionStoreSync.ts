@@ -90,7 +90,10 @@ export function useUIStoreSync(
   // Workspace-root sync — cd running sessions when the root changes
   useEffect(() => {
     const currentRoot = () =>
-      getActiveWorkspaceScope(getCurrentWindowLabel()).rootPath;
+      {
+        const scope = getActiveWorkspaceScope(getCurrentWindowLabel());
+        return scope.isWorkspaceMode ? scope.rootPath : null;
+      };
     let prevRoot = currentRoot();
     const syncRoot = () => {
       const newRoot = currentRoot();

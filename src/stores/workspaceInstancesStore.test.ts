@@ -204,8 +204,61 @@ describe("workspaceInstancesStore", () => {
       rootId: null,
       rootPath: null,
       displayName: "Untitled",
+      kind: "placeholder",
       createdFrom: "placeholder",
     });
+  });
+
+  it("creates one loose-files instance per window and activates it", () => {
+    const store = useWorkspaceInstancesStore.getState();
+
+    const first = store.ensureLooseInstance("main");
+    const second = useWorkspaceInstancesStore.getState().ensureLooseInstance("main");
+
+    expect(first.workspaceInstanceId).toBe(second.workspaceInstanceId);
+    expect(selectWindowWorkspaceState(useWorkspaceInstancesStore.getState(), "main"))
+      .toMatchObject({
+        workspaceInstanceIds: [first.workspaceInstanceId],
+        activeWorkspaceInstanceId: first.workspaceInstanceId,
+      });
+    expect(useWorkspaceInstancesStore.getState().instances[first.workspaceInstanceId])
+      .toMatchObject({
+        kind: "loose",
+        rootId: null,
+        rootPath: null,
+        displayName: "Loose Files",
+      });
+  });
+
+  it("replaces a placeholder when a real loose instance is created", () => {
+    const store = useWorkspaceInstancesStore.getState();
+    store.ensurePlaceholderInstance("main", "wsi-placeholder");
+
+    const loose = useWorkspaceInstancesStore.getState().ensureLooseInstance("main");
+
+    const state = useWorkspaceInstancesStore.getState();
+    expect(state.instances["wsi-placeholder"]).toBeUndefined();
+    expect(selectWindowWorkspaceState(state, "main")).toMatchObject({
+      workspaceInstanceIds: [loose.workspaceInstanceId],
+      activeWorkspaceInstanceId: loose.workspaceInstanceId,
+    });
+  });
+
+  it("updates tab ownership fields without duplicating tab ids", () => {
+    const store = useWorkspaceInstancesStore.getState();
+    const loose = store.ensureLooseInstance("main");
+
+    useWorkspaceInstancesStore.getState().setWorkspaceInstanceTabs(
+      loose.workspaceInstanceId,
+      ["tab-a", "tab-a", "tab-b"],
+      "tab-b",
+    );
+
+    expect(useWorkspaceInstancesStore.getState().instances[loose.workspaceInstanceId])
+      .toMatchObject({
+        tabIds: ["tab-a", "tab-b"],
+        activeTabId: "tab-b",
+      });
   });
 
   it("returns null for missing or stale active workspace selections", () => {

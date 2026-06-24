@@ -2,10 +2,14 @@ import { describe, expect, it, beforeEach, vi } from "vitest";
 import type { WindowState } from "./types";
 import {
   captureWindowWorkspaceInstances,
+  reconcileRestoredWindowWorkspaceInstances,
   restoreWindowWorkspaceInstances,
 } from "./workspaceInstances";
+import { useDocumentStore } from "@/stores/documentStore";
+import { useTabStore } from "@/stores/tabStore";
 import { useWorkspaceInstancesStore } from "@/stores/workspaceInstancesStore";
 import { createWorkspaceInstance, createWorkspaceRootIdentity } from "@/utils/workspaceIdentity";
+import type { TabState } from "./types";
 
 const { mockWorkspaceRailEnabled } = vi.hoisted(() => ({
   mockWorkspaceRailEnabled: vi.fn(() => false),
@@ -47,10 +51,38 @@ function makeInstance(workspaceInstanceId: string, ownerWindowLabel = "main") {
   });
 }
 
+function makeTab(id: string, filePath: string | null): TabState {
+  return {
+    id,
+    file_path: filePath,
+    title: id,
+    is_pinned: false,
+    format_id: "markdown",
+    editing_enabled: true,
+    active_schema_id: null,
+    document: {
+      content: "content",
+      saved_content: "content",
+      is_dirty: false,
+      is_missing: false,
+      is_divergent: false,
+      line_ending: "\n",
+      cursor_info: null,
+      last_modified_timestamp: null,
+      is_untitled: filePath === null,
+      untitled_number: filePath === null ? 1 : null,
+      undo_history: [],
+      redo_history: [],
+    },
+  };
+}
+
 describe("hot-exit workspace instance capture", () => {
   beforeEach(() => {
     mockWorkspaceRailEnabled.mockReturnValue(false);
     useWorkspaceInstancesStore.getState().resetWorkspaceInstances();
+    useTabStore.setState({ tabs: {}, activeTabId: {}, closedTabs: {}, untitledCounter: 0 });
+    useDocumentStore.setState({ documents: {} });
   });
 
   it("keeps legacy capture empty while workspace rail mode is disabled", () => {
@@ -146,5 +178,63 @@ describe("hot-exit workspace instance restore", () => {
     expect(state.instances.existing).toBeDefined();
     expect(state.windows.main.workspaceInstanceIds).toEqual(["existing", "ws-1"]);
     expect(state.windows.main.activeWorkspaceInstanceId).toBe("ws-1");
+  });
+
+  it("synthesizes workspace and loose instances for legacy windows with tabs", () => {
+    mockWorkspaceRailEnabled.mockReturnValue(true);
+
+    restoreWindowWorkspaceInstances(
+      "main",
+      makeWindowState({
+        active_tab_id: "tab-loose",
+        tabs: [
+          makeTab("tab-in-workspace", "/repo/a.md"),
+          makeTab("tab-loose", "/outside/b.md"),
+          makeTab("tab-untitled", null),
+        ],
+        workspace_instances: [],
+        workspace_instance_ids: [],
+      }),
+      { legacyWorkspaceRoot: "/repo" },
+    );
+
+    const state = useWorkspaceInstancesStore.getState();
+    const instances = state.windows.main.workspaceInstanceIds.map((id) => state.instances[id]);
+    expect(instances).toMatchObject([
+      { kind: "workspace", rootPath: "/repo", tabIds: ["tab-in-workspace"] },
+      { kind: "loose", rootPath: null, tabIds: ["tab-loose", "tab-untitled"] },
+    ]);
+    expect(state.windows.main.activeWorkspaceInstanceId).toBe(instances[1].workspaceInstanceId);
+  });
+
+  it("reconciles restored tab ids after hot-exit tab recreation", () => {
+    mockWorkspaceRailEnabled.mockReturnValue(true);
+    restoreWindowWorkspaceInstances(
+      "main",
+      makeWindowState({
+        active_tab_id: "old-a",
+        workspace_instance_ids: ["ws-1"],
+        active_workspace_instance_id: "ws-1",
+        workspace_instances: [{ ...makeInstance("ws-1"), tabIds: ["old-a"], activeTabId: "old-a" }],
+      }),
+    );
+    const newTabId = useTabStore.getState().createTab("main", "/tmp/ws-1/a.md");
+    useDocumentStore.getState().initDocument(newTabId, "content", "/tmp/ws-1/a.md");
+
+    reconcileRestoredWindowWorkspaceInstances(
+      "main",
+      makeWindowState({
+        active_tab_id: "old-a",
+        workspace_instance_ids: ["ws-1"],
+        active_workspace_instance_id: "ws-1",
+        workspace_instances: [{ ...makeInstance("ws-1"), tabIds: ["old-a"], activeTabId: "old-a" }],
+      }),
+      new Map([["old-a", newTabId]]),
+    );
+
+    expect(useWorkspaceInstancesStore.getState().instances["ws-1"]).toMatchObject({
+      tabIds: [newTabId],
+      activeTabId: newTabId,
+    });
   });
 });

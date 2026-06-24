@@ -14,6 +14,7 @@
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { getFormatById } from "@/lib/formats/registry";
+import { claimTabForWorkspaceContext } from "@/services/workspaces/workspaceContextOwnership";
 
 /**
  * Create a new untitled tab with an empty document.
@@ -30,6 +31,7 @@ export function createUntitledTab(
 ): string {
   const tabId = useTabStore.getState().createTab(windowLabel, null);
   useDocumentStore.getState().initDocument(tabId, "", null);
+  claimTabForWorkspaceContext(windowLabel, tabId, null);
   // Default tabStore.deriveFormatId(null) returns "markdown". Override
   // only when the caller asked for a different (registered) format —
   // via the store's own action, not a hand-rolled setState that

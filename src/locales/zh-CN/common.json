@@ -31,6 +31,7 @@
   "workspaceRail.label": "Workspaces",
   "workspaceRail.activate": "Activate {{name}}",
   "workspaceRail.duplicate": "Duplicate {{name}}",
+  "workspaceRail.looseFiles": "Loose Files",
   "untitled": "Untitled",
   "fileDeleted": "文件已从磁盘删除",
   "fileDivergent": "本地内容与磁盘不同",

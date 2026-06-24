@@ -34,7 +34,7 @@ describe("openWorkspaceWithConfig", () => {
     vi.clearAllMocks();
     useWorkspaceInstancesStore.getState().resetWorkspaceInstances();
     useSettingsStore.setState({
-      advanced: { ...useSettingsStore.getState().advanced, workspaceRailMode: false },
+      general: { ...useSettingsStore.getState().general, workspaceRailMode: false },
     });
   });
 
@@ -106,7 +106,7 @@ describe("openWorkspaceWithConfig", () => {
 
   it("registers a workspace instance for the target window when rail mode is enabled", async () => {
     useSettingsStore.setState({
-      advanced: { ...useSettingsStore.getState().advanced, workspaceRailMode: true },
+      general: { ...useSettingsStore.getState().general, workspaceRailMode: true },
     });
     mockInvoke.mockResolvedValueOnce(null);
 

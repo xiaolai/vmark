@@ -1,4 +1,4 @@
-import { CopyPlus, Folder } from "lucide-react";
+import { CopyPlus, FileStack, Folder } from "lucide-react";
 import type { CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import { useSettingsStore } from "@/stores/settingsStore";
@@ -13,7 +13,7 @@ import { cleanupTabState } from "@/hooks/tabCleanup";
 import { disambiguateWorkspaceDisplayNames } from "@/utils/workspaceIdentity";
 import "./WorkspaceRail.css";
 
-export const WORKSPACE_RAIL_WIDTH = 44;
+export const WORKSPACE_RAIL_WIDTH = 30;
 
 const EMPTY_IDS: string[] = [];
 const WORKSPACE_RAIL_COLORS = [
@@ -31,7 +31,7 @@ type WorkspaceRailEntryStyle = CSSProperties & {
 
 export function WorkspaceRail({ windowLabel }: { windowLabel: string }) {
   const { t } = useTranslation();
-  const enabled = useSettingsStore((state) => state.advanced.workspaceRailMode);
+  const enabled = useSettingsStore((state) => state.general.workspaceRailMode);
   const workspaceInstanceIds = useWorkspaceInstancesStore(
     (state) => state.windows[windowLabel]?.workspaceInstanceIds ?? EMPTY_IDS,
   );
@@ -52,6 +52,9 @@ export function WorkspaceRail({ windowLabel }: { windowLabel: string }) {
       <div className="workspace-rail__list" role="list">
         {instances.map((instance, index) => {
           const label = labels[instance.workspaceInstanceId] ?? instance.displayName;
+          const displayLabel = instance.kind === "loose"
+            ? t("workspaceRail.looseFiles")
+            : label;
           const active = instance.workspaceInstanceId === activeId;
           const instanceId = instance.workspaceInstanceId;
           return (
@@ -64,13 +67,31 @@ export function WorkspaceRail({ windowLabel }: { windowLabel: string }) {
               <button
                 type="button"
                 className="workspace-rail__item"
-                aria-label={t("workspaceRail.activate", { name: label })}
+                aria-label={t("workspaceRail.activate", { name: displayLabel })}
                 aria-pressed={active}
-                title={label}
+                title={displayLabel}
                 draggable
                 onDragStart={(event) => {
                   event.dataTransfer.effectAllowed = "move";
                   event.dataTransfer.setData("application/x-vmark-workspace-instance", instanceId);
+                }}
+                onDragOver={(event) => {
+                  event.preventDefault();
+                  if (event.dataTransfer) {
+                    event.dataTransfer.dropEffect = "move";
+                  }
+                }}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  const sourceId = event.dataTransfer.getData("application/x-vmark-workspace-instance");
+                  if (!sourceId || sourceId === instanceId) return;
+                  const currentIds = useWorkspaceInstancesStore
+                    .getState()
+                    .windows[windowLabel]?.workspaceInstanceIds ?? [];
+                  const nextIds = reorderIds(currentIds, sourceId, instanceId);
+                  useWorkspaceInstancesStore
+                    .getState()
+                    .reorderWorkspaceInstances(windowLabel, nextIds);
                 }}
                 onDragEnd={(event) => {
                   if (!isOutsideViewport(event.clientX, event.clientY)) return;
@@ -82,16 +103,22 @@ export function WorkspaceRail({ windowLabel }: { windowLabel: string }) {
                     .activateWorkspaceInstance(windowLabel, instanceId)
                 }
               >
-                <span className="workspace-rail__folder" aria-hidden="true">
-                  <Folder size={14} />
-                  <span className="workspace-rail__index">{index + 1}</span>
-                </span>
+                {instance.kind === "loose" ? (
+                  <span className="workspace-rail__loose" aria-hidden="true">
+                    <FileStack size={14} />
+                  </span>
+                ) : (
+                  <span className="workspace-rail__folder" aria-hidden="true">
+                    <Folder size={14} />
+                    <span className="workspace-rail__index">{index + 1}</span>
+                  </span>
+                )}
               </button>
               <button
                 type="button"
                 className="workspace-rail__duplicate"
-                aria-label={t("workspaceRail.duplicate", { name: label })}
-                title={t("workspaceRail.duplicate", { name: label })}
+                aria-label={t("workspaceRail.duplicate", { name: displayLabel })}
+                title={t("workspaceRail.duplicate", { name: displayLabel })}
                 onClick={() => {
                   void handleDuplicateWorkspace(windowLabel, instanceId, t);
                 }}
@@ -104,6 +131,16 @@ export function WorkspaceRail({ windowLabel }: { windowLabel: string }) {
       </div>
     </nav>
   );
+}
+
+function reorderIds(ids: string[], sourceId: string, targetId: string): string[] {
+  const fromIndex = ids.indexOf(sourceId);
+  const toIndex = ids.indexOf(targetId);
+  if (fromIndex < 0 || toIndex < 0) return ids;
+  const next = [...ids];
+  const [moved] = next.splice(fromIndex, 1);
+  next.splice(toIndex, 0, moved);
+  return next;
 }
 
 function workspaceRailEntryStyle(seed: string): WorkspaceRailEntryStyle {

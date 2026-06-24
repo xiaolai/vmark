@@ -57,8 +57,8 @@ describe("getDefaultSaveFolderWithFallback", () => {
     storage.clear();
     vi.clearAllMocks();
     useSettingsStore.setState({
-      advanced: {
-        ...useSettingsStore.getState().advanced,
+      general: {
+        ...useSettingsStore.getState().general,
         workspaceRailMode: false,
       },
     });
@@ -87,8 +87,8 @@ describe("getDefaultSaveFolderWithFallback", () => {
 
   it("returns the active instance root when rail mode is enabled", async () => {
     useSettingsStore.setState({
-      advanced: {
-        ...useSettingsStore.getState().advanced,
+      general: {
+        ...useSettingsStore.getState().general,
         workspaceRailMode: true,
       },
     });

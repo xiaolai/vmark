@@ -19,8 +19,8 @@ const { useWorkspaceRailSeed } = await import("./useWorkspaceRailSeed");
 
 function setRailMode(enabled: boolean): void {
   useSettingsStore.setState({
-    advanced: {
-      ...useSettingsStore.getState().advanced,
+    general: {
+      ...useSettingsStore.getState().general,
       workspaceRailMode: enabled,
     },
   });

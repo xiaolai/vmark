@@ -156,6 +156,10 @@ vi.mock("@/services/persistence/hotExit/hotExitCoordination", () => ({
   RESTORE_WAIT_TIMEOUT_MS: 5000,
 }));
 
+vi.mock("@/services/workspaces/fileOwnership", () => ({
+  applyFileOwnershipAfterOpen: vi.fn(),
+}));
+
 vi.mock("@/utils/debug", () => ({
   finderFileOpenWarn: vi.fn(),
   finderFileOpenError: vi.fn(),

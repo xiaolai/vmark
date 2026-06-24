@@ -18,8 +18,12 @@
  * - Every version step MUST have an explicit migration function
  */
 
-import type { SessionData, DocumentState } from './types';
+import type {
+  SessionData,
+  DocumentState,
+} from './types';
 import { SCHEMA_VERSION } from './types';
+import { addWorkspaceContextKindsToSession } from './schemaMigrationWorkspaceContexts';
 
 // Re-export for consumers that import from schemaMigration
 export { SCHEMA_VERSION };
@@ -41,6 +45,7 @@ const migrations: Record<number, MigrationFn> = {
   1: migrateV1toV2,
   2: migrateV2toV3,
   3: migrateV3toV4,
+  4: migrateV4toV5,
 };
 
 /**
@@ -236,6 +241,10 @@ function migrateV3toV4(session: SessionData): SessionData {
     version: 4,
     windows: session.windows.map((window) => addWorkspaceInstanceFields(window)),
   };
+}
+
+function migrateV4toV5(session: SessionData): SessionData {
+  return addWorkspaceContextKindsToSession(session);
 }
 
 function addWorkspaceInstanceFields(

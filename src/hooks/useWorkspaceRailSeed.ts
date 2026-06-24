@@ -10,7 +10,7 @@ import { generateUUID } from "@/utils/workspaceIdentity";
 export function useWorkspaceRailSeed(): void {
   const windowLabel = useWindowLabel();
   const isDocumentWindow = useIsDocumentWindow();
-  const railEnabled = useSettingsStore((state) => state.advanced.workspaceRailMode);
+  const railEnabled = useSettingsStore((state) => state.general.workspaceRailMode);
   const rootPath = useWorkspaceStore((state) => state.rootPath);
   const isWorkspaceMode = useWorkspaceStore((state) => state.isWorkspaceMode);
   const instanceCount = useWorkspaceInstancesStore(

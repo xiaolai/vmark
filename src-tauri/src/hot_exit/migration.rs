@@ -17,6 +17,9 @@
 
 use super::session::{SessionData, SCHEMA_VERSION};
 
+#[path = "migration_v5.rs"]
+mod v5;
+
 /// Minimum supported version for migration
 const MIN_SUPPORTED_VERSION: u32 = 1;
 
@@ -69,6 +72,7 @@ fn migrate_to_next_version(session: SessionData) -> Result<SessionData, String> 
         1 => migrate_v1_to_v2(session),
         2 => migrate_v2_to_v3(session),
         3 => migrate_v3_to_v4(session),
+        4 => v5::migrate_v4_to_v5(session),
         _ => Err(format!("No migration path from version {}", session.version)),
     }
 }

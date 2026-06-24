@@ -5,7 +5,7 @@ import type { ActiveWorkspaceScope } from "@/services/workspaces/activeWorkspace
 
 /** React selector wrapper for the active workspace scope in a document window. */
 export function useActiveWorkspaceScope(windowLabel: string): ActiveWorkspaceScope {
-  const railEnabled = useSettingsStore((state) => state.advanced.workspaceRailMode);
+  const railEnabled = useSettingsStore((state) => state.general.workspaceRailMode);
   const legacyRootPath = useWorkspaceStore((state) => state.rootPath);
   const legacyConfig = useWorkspaceStore((state) => state.config);
   const legacyMode = useWorkspaceStore((state) => state.isWorkspaceMode);
@@ -32,8 +32,13 @@ export function useActiveWorkspaceScope(windowLabel: string): ActiveWorkspaceSco
     windowLabel,
     source: "instance",
     workspaceInstanceId: activeInstance.workspaceInstanceId,
+    kind: activeInstance.kind,
     rootPath: activeInstance.rootPath,
-    isWorkspaceMode: Boolean(activeInstance.rootPath),
+    isWorkspaceMode:
+      activeInstance.kind === "workspace"
+      && Boolean(activeInstance.rootPath)
+      && !activeInstance.unavailableRoot,
+    unavailableRoot: activeInstance.unavailableRoot ?? false,
     config,
     excludeFolders: config?.excludeFolders ?? [],
   };
@@ -50,8 +55,10 @@ function legacyScope(
     windowLabel,
     source,
     workspaceInstanceId: null,
+    kind: source === "legacy" || source === "legacyFallback" ? "legacy" : null,
     rootPath,
     isWorkspaceMode,
+    unavailableRoot: false,
     config,
     excludeFolders: config?.excludeFolders ?? [],
   };

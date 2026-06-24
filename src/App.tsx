@@ -144,7 +144,7 @@ function MainLayout() {
   const sidebarWidth = useUIStore((state) => state.sidebarWidth);
   const findBarOpen = useUIStore((state) => state.search.isOpen);
   const terminalPosition = useUIStore((state) => state.effectiveTerminalPosition);
-  const workspaceRailMode = useSettingsStore((state) => state.advanced.workspaceRailMode);
+  const workspaceRailMode = useSettingsStore((state) => state.general.workspaceRailMode);
   const showWorkspaceRail = isDocumentWindow && workspaceRailMode;
   const sideWidth = (showWorkspaceRail ? WORKSPACE_RAIL_WIDTH : 0) + (sidebarVisible ? sidebarWidth : 0);
 
