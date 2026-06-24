@@ -716,5 +716,10 @@
   "integrations.ccSwitch.description": "VMark の MCP サーバーを CC-Switch に渡し、そこで管理している AI CLI に同期します。",
   "integrations.ccSwitch.add": "CC-Switch に追加",
   "integrations.ccSwitch.opened": "CC-Switch のインポートリンクを開きました。",
-  "integrations.ccSwitch.binaryMissing": "先に VMark MCP サーバーのバイナリをビルドしてください。"
+  "integrations.ccSwitch.binaryMissing": "先に VMark MCP サーバーのバイナリをビルドしてください。",
+  "files.autoResize.off": "オフ",
+  "files.autoResize.800": "800px",
+  "files.autoResize.1200": "1200px",
+  "files.autoResize.1920": "1920px (Full HD)",
+  "files.autoResize.2560": "2560px (2K)"
 }

@@ -10,17 +10,13 @@ import { registerCommand } from "./CommandBus";
 import { useUIStore } from "@/stores/uiStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useLintStore } from "@/stores/documentStore";
-import { useEditorStore } from "@/stores/editorStore";
 import { requestToggleTerminal } from "@/components/Terminal/terminalGate";
 import { cleanupBeforeModeSwitch } from "@/services/assembly/modeSwitchCleanup";
 import { toggleSourceModeWithCheckpoint } from "@/hooks/useUnifiedHistory";
-import { getActiveDocument, getActiveTabId } from "@/services/navigation/activeDocument";
-import { serializeMarkdown } from "@/utils/markdownPipeline";
-import { triggerLintRefresh } from "@/plugins/codemirror/sourceLint";
+import { getActiveTabId } from "@/services/navigation/activeDocument";
 import { toggleDocumentReadOnlyWithOwnership } from "@/services/workspaces/fileOwnership";
-import { isYamlFileName } from "@/utils/dropPaths";
 import { scrollToSelectedDiagnostic } from "@/hooks/lintNavigation";
-import { imeToast as toast } from "@/services/ime/imeToast";
+import { runActiveLint } from "@/services/lint/runActiveLint";
 import i18n from "@/i18n";
 
 const DEFAULT_FONT_SIZE = 18;
@@ -173,56 +169,7 @@ export function registerViewCommands(): void {
     title: () => i18n.t("commands:lint.check"),
     category: "lint",
     run: (_args, ctx: Ctx) => {
-      const windowLabel = ctx.windowLabel ?? "main";
-      const lintEnabled = useSettingsStore.getState().markdown.lintEnabled;
-      if (!lintEnabled) return;
-      const tabId = getActiveTabId(windowLabel);
-      if (!tabId) return;
-
-      let content: string | undefined;
-      const editorState = useUIStore.getState();
-      const { activeSourceView } = useEditorStore.getState().active;
-
-      if (editorState.sourceMode && activeSourceView) {
-        content = activeSourceView.state.doc.toString();
-      } else {
-        const tiptapEditor = useEditorStore.getState().tiptap.editor;
-        if (tiptapEditor) {
-          content = serializeMarkdown(tiptapEditor.state.schema, tiptapEditor.state.doc);
-        }
-      }
-
-      if (content === undefined) {
-        const doc = getActiveDocument(windowLabel);
-        content = doc?.content;
-      }
-
-      if (content !== undefined) {
-        const filePath = getActiveDocument(windowLabel)?.filePath ?? null;
-        const isYaml = filePath
-          ? isYamlFileName(filePath.split(/[\\/]/).pop() ?? "")
-          : false;
-        const finalize = (totalCount: number) => {
-          triggerLintRefresh();
-          if (totalCount === 0) {
-            toast.success(i18n.t("statusbar:lint.clean.toast"));
-          } else {
-            toast.info(i18n.t("dialog:toast.lintFoundIssues", { count: totalCount }));
-          }
-        };
-        if (isYaml) {
-          const yamlDiags = useLintStore.getState().runYamlLint(tabId, content);
-          finalize(yamlDiags.length);
-        } else {
-          const syncDiagnostics = useLintStore.getState().runLint(tabId, content);
-          triggerLintRefresh();
-          if (filePath) {
-            void useLintStore.getState().runLinkCheck(tabId, content, filePath).then((merged) => finalize(merged.length));
-          } else {
-            finalize(syncDiagnostics.length);
-          }
-        }
-      }
+      runActiveLint(ctx.windowLabel ?? "main");
     },
   });
 

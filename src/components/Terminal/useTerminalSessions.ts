@@ -37,50 +37,21 @@ import { useRef, useEffect, useCallback } from "react";
 import type { IPty } from "@/lib/pty";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useUIStore } from "@/stores/uiStore";
-import {
-  createTerminalInstance,
-  type TerminalInstance,
-} from "./createTerminalInstance";
+import { createTerminalInstance } from "./createTerminalInstance";
 import { resolveBellAction, playTerminalBell } from "./terminalBell";
 import { maybeNotifyTerminalBell } from "@/services/terminalAttention";
-import { spawnPty, resolveTerminalCwd, resolveTerminalWorkspaceRoot } from "./spawnPty";
+import { useUIStoreSync } from "./terminalSessionStoreSync";
+import { useTerminalShellLifecycle } from "./useTerminalShellLifecycle";
 import {
-  buildCdCommand,
-  useUIStoreSync,
-} from "./terminalSessionStoreSync";
+  removeSessionEntry,
+  switchVisibility,
+  disposeAllSessions,
+} from "./terminalSessionRegistry";
 import { wireSessionInput } from "./terminalSessionInputWiring";
 import type { SearchAddon } from "@xterm/addon-search";
-import { errorMessage } from "@/utils/errorMessage";
+import type { SessionEntry } from "./terminalSessionTypes";
 
 const PTY_RESIZE_DEBOUNCE_MS = 100;
-
-interface SessionEntry {
-  instance: TerminalInstance;
-  pty: IPty | null;
-  ptyRefForKeys: React.RefObject<IPty | null>;
-  spawnedCwd: string | undefined;
-  shellStarted: boolean;
-  shellExited: boolean;
-  shellSpawning: boolean;
-  disposed: boolean;
-  /** Incremented on every (re)spawn; lets a stale PTY's onExit be ignored. */
-  spawnGen: number;
-  pendingRafId: number | null;
-  /**
-   * Last observed `instance.lastCommitTime`. When it changes, a new IME
-   * commit has occurred and `lastCommittedConsumed` must reset to 0.
-   * Without this we cannot distinguish "same commit, next chunk" from
-   * "new commit, fresh state" when deduping chunked re-emissions.
-   */
-  lastSeenCommitTime: number;
-  /**
-   * Number of chars from `instance.lastCommittedText` that have already
-   * been deduped via onData. Enables suffix-chunk matching when xterm
-   * splits a commit like "你好世界" into "你好" + "世界" — the second
-   * chunk is matched against the remainder, not the full committed text.
-   */
-  lastCommittedConsumed: number;
-}
 
 /** Callbacks passed to the terminal sessions hook for panel-level actions. */
 export interface UseTerminalSessionsCallbacks {
@@ -151,108 +122,9 @@ export function useTerminalSessions(
     };
   }, []);
 
-  /** Spawn shell for a session entry. Guarded against re-entrance. */
-  const startShell = useCallback(async (sessionId: string) => {
-    const entry = sessionsRef.current.get(sessionId);
-    if (!entry || entry.disposed) return;
-
-    // Re-entrance guard: prevent concurrent spawns for the same session
-    if (entry.shellSpawning) return;
-    entry.shellSpawning = true;
-
-    entry.shellExited = false;
-    // Spawn generation: bumped on every (re)spawn. A killed PTY's onExit fires
-    // asynchronously and could otherwise mark a freshly-restarted session dead
-    // — the guard below ignores exits from a superseded generation.
-    const gen = ++entry.spawnGen;
-    // WI-2.2: a new terminal inherits a live sibling's cwd (OSC 7) so it starts
-    // where the user is; first terminal / no sibling → workspace-or-file resolution.
-    let inheritedCwd: string | undefined;
-    for (const [id, sib] of sessionsRef.current) {
-      if (id === sessionId || sib.disposed || !sib.pty || sib.shellExited) continue;
-      const live = sib.instance.getCwd();
-      if (live) { inheritedCwd = live; break; }
-    }
-    const cwd = inheritedCwd ?? resolveTerminalCwd();
-
-    try {
-      const pty = await spawnPty({
-        term: entry.instance.term,
-        cwd,
-        onExit: (exitCode) => {
-          const e = sessionsRef.current.get(sessionId);
-          // Ignore a stale exit from a PTY that has already been superseded by
-          // a restart (different generation) — it must not kill the new shell.
-          if (e && !e.disposed && e.spawnGen === gen) {
-            e.instance.term.write(
-              `\r\n[Process exited with code ${exitCode}]\r\n`,
-            );
-            e.instance.term.write("Press any key to restart...\r\n");
-            e.pty = null;
-            // Clear the key-handler's PTY ref too, so keystrokes after exit
-            // don't write to the dead process.
-            e.ptyRefForKeys.current = null;
-            e.shellExited = true;
-            useUIStore.getState().terminalMarkSessionDead(sessionId);
-          }
-        },
-        disposed: () => {
-          const e = sessionsRef.current.get(sessionId);
-          return !e || e.disposed;
-        },
-      });
-
-      const currentEntry = sessionsRef.current.get(sessionId);
-      if (!currentEntry || currentEntry.disposed) {
-        try { pty.kill(); } catch { /* ignore */ }
-        if (currentEntry) currentEntry.shellSpawning = false;
-        return;
-      }
-      currentEntry.pty = pty;
-      currentEntry.ptyRefForKeys.current = pty;
-      currentEntry.spawnedCwd = cwd;
-      currentEntry.shellSpawning = false;
-      useUIStore.getState().terminalMarkSessionAlive(sessionId);
-
-      // If workspace changed while spawning, cd to the current root
-      const currentRoot = resolveTerminalWorkspaceRoot();
-      if (currentRoot && currentRoot !== cwd) {
-        pty.write(buildCdCommand(currentRoot));
-        currentEntry.spawnedCwd = currentRoot;
-      }
-    } catch (err) {
-      const e = sessionsRef.current.get(sessionId);
-      if (e && !e.disposed) {
-        e.shellSpawning = false;
-        const errMsg = errorMessage(err);
-        e.instance.term.write(`\r\nFailed to start shell: ${errMsg}\r\n`);
-        e.instance.term.write("Press any key to retry...\r\n");
-        e.shellExited = true;
-        useUIStore.getState().terminalMarkSessionDead(sessionId);
-      }
-    }
-  }, []);
-
-  /** Kill current PTY, clear terminal, respawn shell for the active session. */
-  const restartActiveSession = useCallback(() => {
-    const activeId = useUIStore.getState().terminal.activeSessionId;
-    if (!activeId) return;
-    const entry = sessionsRef.current.get(activeId);
-    if (!entry || entry.disposed) return;
-
-    // Kill current PTY
-    if (entry.pty) {
-      try { entry.pty.kill(); } catch { /* ignore */ }
-      entry.pty = null;
-      entry.ptyRefForKeys.current = null;
-    }
-
-    entry.shellExited = false;
-    entry.instance.term.clear();
-    entry.instance.term.write("\r\nRestarting shell...\r\n");
-
-    startShell(activeId);
-  }, [startShell]);
+  // Shell spawn / exit / restart lifecycle (with localized status lines).
+  const { startShell, restartActiveSession } =
+    useTerminalShellLifecycle(sessionsRef);
 
   /** Create a new session with xterm + PTY. */
   const createSession = useCallback(
@@ -333,63 +205,17 @@ export function useTerminalSessions(
   );
 
   /** Remove a session — cancel pending rAF, kill PTY, and dispose instance. */
-  const removeSessionEntry = useCallback((sessionId: string) => {
-    const entry = sessionsRef.current.get(sessionId);
-    if (!entry) return;
-    entry.disposed = true;
-    if (entry.pendingRafId !== null) {
-      cancelAnimationFrame(entry.pendingRafId);
-      entry.pendingRafId = null;
-    }
-    if (entry.pty) {
-      try { entry.pty.kill(); } catch { /* ignore */ }
-    }
-    entry.instance.dispose();
-    sessionsRef.current.delete(sessionId);
-  }, []);
+  const removeSession = useCallback(
+    (sessionId: string) => removeSessionEntry(sessionsRef, sessionId),
+    [],
+  );
 
-  /** Show active session container, hide others. */
-  const switchVisibility = useCallback((activeId: string | null) => {
-    for (const [id, entry] of sessionsRef.current) {
-      if (id === activeId) {
-        entry.instance.container.style.display = "block";
-      } else {
-        entry.instance.container.style.display = "none";
-        entry.instance.searchAddon.clearDecorations();
-        // Cancel pending RAF to prevent spawning a shell while hidden
-        if (entry.pendingRafId !== null) {
-          cancelAnimationFrame(entry.pendingRafId);
-          entry.pendingRafId = null;
-        }
-      }
-    }
-    if (activeId) {
-      const entry = sessionsRef.current.get(activeId);
-      if (entry) {
-        if (entry.pendingRafId !== null) {
-          cancelAnimationFrame(entry.pendingRafId);
-          entry.pendingRafId = null;
-        }
-        entry.pendingRafId = requestAnimationFrame(() => {
-          entry.pendingRafId = null;
-          try {
-            entry.instance.fitAddon.fit();
-            entry.instance.term.focus();
-          } catch { /* ignore */ }
-
-          // Start shell after first fit so PTY gets the real dimensions
-          // instead of 80×24 defaults from a hidden container.
-          // Reset first to clear blank-line artifacts from opening xterm
-          // in a hidden (display:none) container where it can't measure properly.
-          if (!entry.shellStarted && !entry.shellExited && !entry.disposed) {
-            entry.shellStarted = true;
-            entry.instance.term.reset();
-            startShell(activeId);
-          }
-        });
-      }
-    }
-  }, [startShell]);
+  /** Show active session container, hide others, and lazily spawn its shell. */
+  const switchToVisible = useCallback(
+    (activeId: string | null) =>
+      switchVisibility(sessionsRef, activeId, startShell),
+    [startShell],
+  );
 
   // Initialize on mount — subscribe to store changes
   useEffect(() => {
@@ -403,14 +229,14 @@ export function useTerminalSessions(
       const session = state.terminalCreateSession();
       if (session) {
         createSession(session.id);
-        switchVisibility(session.id);
+        switchToVisible(session.id);
       }
     } else {
       // Sessions already exist (e.g., hot-exit restore) — create instances
       for (const s of state.terminal.sessions) {
         createSession(s.id);
       }
-      switchVisibility(state.terminal.activeSessionId);
+      switchToVisible(state.terminal.activeSessionId);
     }
 
     // Subscribe to store changes
@@ -432,13 +258,13 @@ export function useTerminalSessions(
       // Detect removed sessions
       for (const id of prevSessionIds) {
         if (!currentIds.has(id)) {
-          removeSessionEntry(id);
+          removeSession(id);
         }
       }
 
       // Detect active session change
       if (storeState.terminal.activeSessionId !== prevActiveId) {
-        switchVisibility(storeState.terminal.activeSessionId);
+        switchToVisible(storeState.terminal.activeSessionId);
       }
 
       prevSessionIds = currentIds;
@@ -450,22 +276,10 @@ export function useTerminalSessions(
       unsubscribe();
       clearTimeout(resizeTimerRef.current);
       resizeTimerRef.current = undefined;
-      // Dispose all sessions
-      for (const [, entry] of sessions) {
-        entry.disposed = true;
-        if (entry.pendingRafId !== null) {
-          cancelAnimationFrame(entry.pendingRafId);
-          entry.pendingRafId = null;
-        }
-        if (entry.pty) {
-          try { entry.pty.kill(); } catch { /* ignore */ }
-        }
-        entry.instance.dispose();
-      }
-      sessions.clear();
+      disposeAllSessions(sessions);
       initializedRef.current = false;
     };
-  }, [containerRef, createSession, removeSessionEntry, switchVisibility]);
+  }, [containerRef, createSession, removeSession, switchToVisible]);
 
   // Theme + workspace-root + terminal-settings sync, all in one call.
   // See terminalSessionStoreSync.ts for the per-effect design notes.

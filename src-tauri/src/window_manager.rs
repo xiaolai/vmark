@@ -231,25 +231,32 @@ fn build_window_url_with_files(file_paths: &[String], workspace_root: Option<&st
     }
 }
 
-/// Create a new document window from a pre-built URL.
-pub(crate) fn create_document_window_with_url(
+/// Build a document window with the shared document-window configuration.
+///
+/// All document-window entry points (cascade-positioned doc windows, the
+/// special "main" window, restore-with-label, transfers) funnel through here so
+/// size / title-bar / focus settings can't drift between call sites. `position`
+/// is `None` for the "main" window (it relies on saved window state / OS
+/// placement); document windows pass an explicit cascade position.
+fn build_document_window(
     app: &AppHandle,
+    label: &str,
     url: String,
-) -> Result<String, tauri::Error> {
-    let count = WINDOW_COUNTER.fetch_add(1, Ordering::SeqCst);
-    let label = format!("doc-{}", count);
-
+    position: Option<(f64, f64)>,
+) -> Result<(), tauri::Error> {
     let title = String::new();
-    let (x, y) = get_cascaded_position(count);
 
-    let mut builder = WebviewWindowBuilder::new(app, &label, WebviewUrl::App(url.into()))
+    let mut builder = WebviewWindowBuilder::new(app, label, WebviewUrl::App(url.into()))
         .title(&title)
         .inner_size(MIN_WIDTH, MIN_HEIGHT)
         .min_inner_size(800.0, 600.0)
-        .position(x, y)
         .resizable(true)
         .fullscreen(false)
         .focused(true);
+
+    if let Some((x, y)) = position {
+        builder = builder.position(x, y);
+    }
 
     #[cfg(target_os = "macos")]
     {
@@ -260,6 +267,19 @@ pub(crate) fn create_document_window_with_url(
     }
 
     builder.build()?;
+
+    Ok(())
+}
+
+/// Create a new document window from a pre-built URL.
+pub(crate) fn create_document_window_with_url(
+    app: &AppHandle,
+    url: String,
+) -> Result<String, tauri::Error> {
+    let count = WINDOW_COUNTER.fetch_add(1, Ordering::SeqCst);
+    let label = format!("doc-{}", count);
+
+    build_document_window(app, &label, url, Some(get_cascaded_position(count)))?;
 
     Ok(label)
 }
@@ -282,6 +302,26 @@ pub(crate) fn allocate_window_label() -> String {
     format!("doc-{}", count)
 }
 
+/// Create a document window with a pre-allocated label and explicit URL.
+///
+/// Uses the given label instead of allocating a new one. The caller is
+/// responsible for ensuring the label is unique (typically via
+/// `allocate_window_label()`). Used by flows that must register routing /
+/// restore state keyed on the label BEFORE the window can claim it.
+pub(crate) fn create_document_window_with_label_and_url(
+    app: &AppHandle,
+    label: &str,
+    url: String,
+) -> Result<(), tauri::Error> {
+    // Parse counter from label for cascade position (e.g., "doc-5" → 5)
+    let count = label
+        .strip_prefix("doc-")
+        .and_then(|n| n.parse::<u32>().ok())
+        .unwrap_or(0);
+
+    build_document_window(app, label, url, Some(get_cascaded_position(count)))
+}
+
 /// Create a document window with a pre-allocated label (no file/workspace).
 ///
 /// Uses the given label instead of allocating a new one. The caller is
@@ -291,35 +331,7 @@ pub(crate) fn create_document_window_with_label(
     app: &AppHandle,
     label: &str,
 ) -> Result<(), tauri::Error> {
-    let title = String::new();
-
-    // Parse counter from label for cascade position (e.g., "doc-5" → 5)
-    let count = label
-        .strip_prefix("doc-")
-        .and_then(|n| n.parse::<u32>().ok())
-        .unwrap_or(0);
-    let (x, y) = get_cascaded_position(count);
-
-    let mut builder = WebviewWindowBuilder::new(app, label, WebviewUrl::App("/".into()))
-        .title(&title)
-        .inner_size(MIN_WIDTH, MIN_HEIGHT)
-        .min_inner_size(800.0, 600.0)
-        .position(x, y)
-        .resizable(true)
-        .fullscreen(false)
-        .focused(true);
-
-    #[cfg(target_os = "macos")]
-    {
-        builder = builder
-            .title_bar_style(tauri::TitleBarStyle::Overlay)
-            .hidden_title(true)
-            .accept_first_mouse(true);
-    }
-
-    builder.build()?;
-
-    Ok(())
+    create_document_window_with_label_and_url(app, label, "/".to_string())
 }
 
 /// Create a new document window with optional file path and workspace root.
@@ -340,32 +352,7 @@ pub fn create_document_window(
     // Build URL with optional query params
     let url = build_window_url(file_path, workspace_root);
 
-    // Empty initial title - React will update based on settings
-    let title = String::new();
-
-    // Get cascaded position (always use minimum size for new windows)
-    let (x, y) = get_cascaded_position(count);
-
-    // CRITICAL: Full window configuration for proper behavior
-    let mut builder = WebviewWindowBuilder::new(app, &label, WebviewUrl::App(url.into()))
-        .title(&title)
-        .inner_size(MIN_WIDTH, MIN_HEIGHT)
-        .min_inner_size(800.0, 600.0)
-        .position(x, y)
-        .resizable(true)
-        .fullscreen(false)
-        .focused(true);
-
-    // macOS-specific: title bar styling and accept first mouse
-    #[cfg(target_os = "macos")]
-    {
-        builder = builder
-            .title_bar_style(tauri::TitleBarStyle::Overlay)
-            .hidden_title(true)
-            .accept_first_mouse(true);
-    }
-
-    builder.build()?;
+    build_document_window(app, &label, url, Some(get_cascaded_position(count)))?;
 
     Ok(label)
 }
@@ -385,23 +372,9 @@ pub fn create_main_window(
 
     let url = build_window_url(None, workspace_root);
 
-    let mut builder = WebviewWindowBuilder::new(app, label, WebviewUrl::App(url.into()))
-        .title("")
-        .inner_size(MIN_WIDTH, MIN_HEIGHT)
-        .min_inner_size(800.0, 600.0)
-        .resizable(true)
-        .fullscreen(false)
-        .focused(true);
-
-    #[cfg(target_os = "macos")]
-    {
-        builder = builder
-            .title_bar_style(tauri::TitleBarStyle::Overlay)
-            .hidden_title(true)
-            .accept_first_mouse(true);
-    }
-
-    builder.build()?;
+    // No explicit position: the "main" window relies on saved window state /
+    // OS placement rather than the cascade offset used by doc windows.
+    build_document_window(app, label, url, None)?;
 
     Ok(label.to_string())
 }
@@ -464,6 +437,21 @@ fn validate_openable_path(raw: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// Validate that a frontend-supplied workspace root exists and is a directory
+/// before it is used to build a trusted workspace-context window URL. A
+/// compromised webview must not be able to open a "workspace" window scoped to
+/// a non-directory (file, missing path, or symlink to one), so this rejects
+/// anything that doesn't resolve to a real directory on disk.
+fn validate_workspace_root(raw: &str) -> Result<(), String> {
+    let canonical = std::path::Path::new(raw)
+        .canonicalize()
+        .map_err(|e| format!("invalid workspace root '{raw}': {e}"))?;
+    if !canonical.is_dir() {
+        return Err(format!("workspace root '{raw}' is not a directory"));
+    }
+    Ok(())
+}
+
 /// Open a file in a new window (Tauri command)
 #[tauri::command]
 pub fn open_file_in_new_window(app: AppHandle, path: String) -> Result<String, String> {
@@ -482,6 +470,7 @@ pub fn open_workspace_in_new_window(
     workspace_root: String,
     file_path: Option<String>,
 ) -> Result<String, String> {
+    validate_workspace_root(&workspace_root)?;
     if let Some(ref path) = file_path {
         validate_openable_path(path)?;
         crate::allow_fs_read(&app, path);
@@ -501,6 +490,9 @@ pub fn open_workspace_with_files_in_new_window(
     workspace_root: String,
     file_paths: Vec<String>,
 ) -> Result<String, String> {
+    // Reject a missing / non-directory workspace root before extending any file
+    // scopes or creating the window.
+    validate_workspace_root(&workspace_root)?;
     // Validate every path up-front so a single bad entry doesn't leave the
     // scope partially extended for the rest of the batch.
     for path in &file_paths {
@@ -574,9 +566,10 @@ pub fn show_settings_window_section(app: &AppHandle, section: Option<&str>) -> R
 
         log::debug!("[window_manager] Creating new settings window");
 
-    // Build URL with optional section query param
+    // Build URL with optional section query param. Percent-encode the section
+    // so a value containing reserved chars (&, ?, #) can't corrupt the query.
     let url = match section {
-        Some(s) => format!("/settings?section={}", s),
+        Some(s) => format!("/settings?section={}", urlencoding::encode(s)),
         None => "/settings".to_string(),
     };
 
@@ -587,12 +580,13 @@ pub fn show_settings_window_section(app: &AppHandle, section: Option<&str>) -> R
     // first maximize/unmaximize cycle. Create non-macOS settings windows with
     // their final geometry up front so close/minimize/maximize respond
     // immediately.
+    let settings_title = rust_i18n::t!("window.settings.title").to_string();
     let mut builder = WebviewWindowBuilder::new(
         app,
         SETTINGS_LABEL,
         WebviewUrl::App(url.into()),
     )
-    .title("Settings")
+    .title(&settings_title)
     .inner_size(SETTINGS_WIDTH, SETTINGS_HEIGHT)
     .min_inner_size(SETTINGS_MIN_WIDTH, SETTINGS_MIN_HEIGHT)
     .resizable(true)
@@ -644,503 +638,5 @@ pub fn request_quit(app: AppHandle) {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    // -- get_workspace_root_for_file -------------------------------------------
-
-    #[test]
-    fn workspace_root_nested_file() {
-        assert_eq!(
-            get_workspace_root_for_file("/Users/alice/project/file.md"),
-            Some("/Users/alice/project".to_string())
-        );
-    }
-
-    #[test]
-    fn workspace_root_home_level_file() {
-        assert_eq!(
-            get_workspace_root_for_file("/Users/alice/file.md"),
-            Some("/Users/alice".to_string())
-        );
-    }
-
-    #[test]
-    fn workspace_root_root_level_file() {
-        assert_eq!(get_workspace_root_for_file("/file.md"), None);
-    }
-
-    #[test]
-    fn workspace_root_empty_string() {
-        assert_eq!(get_workspace_root_for_file(""), None);
-    }
-
-    // -- determine_file_open_action --------------------------------------------
-
-    #[test]
-    fn action_ready_with_window() {
-        assert_eq!(
-            determine_file_open_action(true, true),
-            FileOpenAction::EmitToMainWindow,
-        );
-    }
-
-    #[test]
-    fn action_ready_without_window() {
-        assert_eq!(
-            determine_file_open_action(true, false),
-            FileOpenAction::QueueAndCreateWindow,
-        );
-    }
-
-    #[test]
-    fn action_not_ready_with_window() {
-        assert_eq!(
-            determine_file_open_action(false, true),
-            FileOpenAction::QueueOnly,
-        );
-    }
-
-    #[test]
-    fn action_not_ready_without_window() {
-        assert_eq!(
-            determine_file_open_action(false, false),
-            FileOpenAction::QueueOnly,
-        );
-    }
-
-    // -- atomic decide / drain (WI-0.8, C3) ------------------------------------
-
-    fn paths(v: &[&str]) -> Vec<String> {
-        v.iter().map(|s| s.to_string()).collect()
-    }
-
-    #[test]
-    fn decide_emits_when_ready_with_window() {
-        let mut state = FileOpenState::new();
-        state.frontend_ready = true;
-        let outcome = decide_file_open_locked(&mut state, true, paths(&["/a.md"]), None);
-        match outcome {
-            FileOpenOutcome::Emit(p) => assert_eq!(p.len(), 1),
-            _ => panic!("expected Emit"),
-        }
-        // Emit path does NOT queue.
-        assert!(state.pending.is_empty());
-    }
-
-    #[test]
-    fn decide_queues_and_requests_window_when_ready_without_window() {
-        let mut state = FileOpenState::new();
-        state.frontend_ready = true;
-        let outcome = decide_file_open_locked(&mut state, false, paths(&["/a.md"]), Some("/ws"));
-        assert!(matches!(
-            outcome,
-            FileOpenOutcome::Queued { create_window: true }
-        ));
-        assert_eq!(state.pending.len(), 1);
-        assert_eq!(state.pending[0].workspace_root.as_deref(), Some("/ws"));
-    }
-
-    #[test]
-    fn decide_queues_only_when_not_ready() {
-        let mut state = FileOpenState::new();
-        let outcome = decide_file_open_locked(&mut state, true, paths(&["/a.md"]), None);
-        assert!(matches!(
-            outcome,
-            FileOpenOutcome::Queued { create_window: false }
-        ));
-        assert_eq!(state.pending.len(), 1);
-    }
-
-    #[test]
-    fn drain_during_cold_start_then_emit_after_ready_no_drop_no_double() {
-        // Models the interleaving the single lock now serializes: a cold-start
-        // open is queued; the frontend then marks ready + drains in one step;
-        // a subsequent open emits rather than re-queuing — so the first open is
-        // delivered exactly once (drain), the second exactly once (emit).
-        let mut state = FileOpenState::new();
-
-        // Open A arrives before the frontend is ready → queued.
-        let a = decide_file_open_locked(&mut state, true, paths(&["/A.md"]), None);
-        assert!(matches!(a, FileOpenOutcome::Queued { .. }));
-        assert_eq!(state.pending.len(), 1);
-
-        // Frontend becomes ready and drains atomically → receives A exactly once.
-        let drained = mark_ready_and_drain(&mut state);
-        assert_eq!(drained.len(), 1);
-        assert_eq!(drained[0].path, "/A.md");
-        assert!(state.frontend_ready);
-        assert!(state.pending.is_empty());
-
-        // Open B after ready → emitted (not re-queued), so not dropped.
-        let b = decide_file_open_locked(&mut state, true, paths(&["/B.md"]), None);
-        match b {
-            FileOpenOutcome::Emit(p) => assert_eq!(p[0].path, "/B.md"),
-            _ => panic!("expected Emit"),
-        }
-        assert!(state.pending.is_empty());
-    }
-
-    // -- group_paths_by_workspace ----------------------------------------------
-
-    #[test]
-    fn group_single_file() {
-        let paths = vec!["/Users/alice/project/file.md".to_string()];
-        let groups = group_paths_by_workspace(&paths);
-        assert_eq!(groups.len(), 1);
-        assert_eq!(
-            groups["/Users/alice/project"],
-            vec!["/Users/alice/project/file.md"]
-        );
-    }
-
-    #[test]
-    fn group_same_directory() {
-        let paths = vec![
-            "/Users/alice/project/a.md".to_string(),
-            "/Users/alice/project/b.md".to_string(),
-        ];
-        let groups = group_paths_by_workspace(&paths);
-        assert_eq!(groups.len(), 1);
-        assert_eq!(groups["/Users/alice/project"].len(), 2);
-    }
-
-    #[test]
-    fn group_different_directories() {
-        let paths = vec![
-            "/Users/alice/proj1/a.md".to_string(),
-            "/Users/alice/proj2/b.md".to_string(),
-        ];
-        let groups = group_paths_by_workspace(&paths);
-        assert_eq!(groups.len(), 2);
-        assert!(groups.contains_key("/Users/alice/proj1"));
-        assert!(groups.contains_key("/Users/alice/proj2"));
-    }
-
-    #[test]
-    fn group_root_level_file() {
-        let paths = vec!["/file.md".to_string()];
-        let groups = group_paths_by_workspace(&paths);
-        assert_eq!(groups.len(), 1);
-        assert!(groups.contains_key(""));
-    }
-
-    #[test]
-    fn group_empty_input() {
-        let groups = group_paths_by_workspace(&[]);
-        assert!(groups.is_empty());
-    }
-
-    // -- queue_pending_file_opens ----------------------------------------------
-
-    #[test]
-    fn queue_single_file_with_workspace() {
-        let mut pending = Vec::new();
-        queue_pending_file_opens(&mut pending, vec!["/a/b.md".to_string()], Some("/a"));
-        assert_eq!(pending.len(), 1);
-        assert_eq!(pending[0].path, "/a/b.md");
-        assert_eq!(pending[0].workspace_root, Some("/a".to_string()));
-    }
-
-    #[test]
-    fn queue_multiple_files_same_workspace() {
-        let mut pending = Vec::new();
-        queue_pending_file_opens(
-            &mut pending,
-            vec!["/a/x.md".to_string(), "/a/y.md".to_string()],
-            Some("/a"),
-        );
-        assert_eq!(pending.len(), 2);
-        assert_eq!(pending[0].workspace_root, Some("/a".to_string()));
-        assert_eq!(pending[1].workspace_root, Some("/a".to_string()));
-    }
-
-    #[test]
-    fn queue_without_workspace() {
-        let mut pending = Vec::new();
-        queue_pending_file_opens(&mut pending, vec!["/file.md".to_string()], None);
-        assert_eq!(pending.len(), 1);
-        assert_eq!(pending[0].workspace_root, None);
-    }
-
-    #[test]
-    fn queue_appends_to_existing() {
-        let mut pending = vec![PendingFileOpen {
-            path: "/existing.md".to_string(),
-            workspace_root: None,
-        }];
-        queue_pending_file_opens(&mut pending, vec!["/new.md".to_string()], Some("/dir"));
-        assert_eq!(pending.len(), 2);
-        assert_eq!(pending[0].path, "/existing.md");
-        assert_eq!(pending[1].path, "/new.md");
-    }
-
-    #[test]
-    fn queue_empty_file_paths_is_noop() {
-        let mut pending = Vec::new();
-        queue_pending_file_opens(&mut pending, vec![], Some("/a"));
-        assert!(pending.is_empty());
-    }
-
-    // -- get_cascaded_position ------------------------------------------------
-
-    #[test]
-    fn cascade_first_window() {
-        let (x, y) = get_cascaded_position(0);
-        assert_eq!(x, BASE_X);
-        assert_eq!(y, BASE_Y);
-    }
-
-    #[test]
-    fn cascade_third_window() {
-        let (x, y) = get_cascaded_position(3);
-        assert_eq!(x, BASE_X + 3.0 * CASCADE_OFFSET);
-        assert_eq!(y, BASE_Y + 3.0 * CASCADE_OFFSET);
-    }
-
-    #[test]
-    fn cascade_wraps_after_max() {
-        // Position at MAX_CASCADE should wrap to 0
-        let (x, y) = get_cascaded_position(MAX_CASCADE);
-        assert_eq!(x, BASE_X);
-        assert_eq!(y, BASE_Y);
-    }
-
-    #[test]
-    fn cascade_wraps_correctly() {
-        // Position at MAX_CASCADE + 2 should be same as position 2
-        let (x1, y1) = get_cascaded_position(2);
-        let (x2, y2) = get_cascaded_position(MAX_CASCADE + 2);
-        assert_eq!(x1, x2);
-        assert_eq!(y1, y2);
-    }
-
-    // -- build_window_url -----------------------------------------------------
-
-    #[test]
-    fn url_no_params() {
-        assert_eq!(build_window_url(None, None), "/");
-    }
-
-    #[test]
-    fn url_file_only() {
-        let url = build_window_url(Some("/path/to/file.md"), None);
-        assert!(url.starts_with("/?file="));
-        assert!(url.contains("%2Fpath%2Fto%2Ffile.md"));
-    }
-
-    #[test]
-    fn url_workspace_only() {
-        let url = build_window_url(None, Some("/workspace"));
-        assert!(url.starts_with("/?workspaceRoot="));
-    }
-
-    #[test]
-    fn url_workspace_root_percent_encodes_reserved_chars() {
-        // The dock-reopen path passes a workspace path read off disk straight
-        // into this URL builder. Folder names can legally contain `?`, `#`,
-        // `&`, and spaces on every supported platform — they must be
-        // percent-encoded so the frontend's URLSearchParams parser receives
-        // them intact instead of misinterpreting them as fragment / query
-        // delimiters.
-        let url = build_window_url(None, Some("/path with?x#y&z"));
-        assert!(url.contains("workspaceRoot="), "url was {url}");
-        assert!(!url.contains("?x"), "raw '?' leaked into url: {url}");
-        assert!(!url.contains("#y"), "raw '#' leaked into url: {url}");
-        assert!(!url.contains("&z"), "raw '&' leaked into url: {url}");
-        assert!(url.contains("%3F"), "expected '?' encoded as %3F: {url}");
-        assert!(url.contains("%23"), "expected '#' encoded as %23: {url}");
-        assert!(url.contains("%26"), "expected '&' encoded as %26: {url}");
-        assert!(url.contains("%20"), "expected ' ' encoded as %20: {url}");
-    }
-
-    #[test]
-    fn url_both_params() {
-        let url = build_window_url(Some("/a/b.md"), Some("/a"));
-        assert!(url.contains("file="));
-        assert!(url.contains("workspaceRoot="));
-        assert!(url.contains("&"));
-    }
-
-    // -- build_window_url_with_files ------------------------------------------
-
-    #[test]
-    fn url_with_files_empty() {
-        assert_eq!(build_window_url_with_files(&[], None), "/");
-    }
-
-    #[test]
-    fn url_with_files_single() {
-        let url = build_window_url_with_files(&["/a/b.md".to_string()], Some("/a"));
-        assert!(url.contains("workspaceRoot="));
-        assert!(url.contains("files="));
-    }
-
-    #[test]
-    fn url_with_files_multiple() {
-        let files = vec!["/a/x.md".to_string(), "/a/y.md".to_string()];
-        let url = build_window_url_with_files(&files, Some("/a"));
-        assert!(url.contains("files="));
-        // Files are JSON-encoded so they should contain the array
-        assert!(url.contains("x.md"));
-        assert!(url.contains("y.md"));
-    }
-
-    // -- allocate_window_label ------------------------------------------------
-
-    #[test]
-    fn allocate_label_returns_sequential_labels() {
-        let l1 = allocate_window_label();
-        let l2 = allocate_window_label();
-        assert!(l1.starts_with("doc-"));
-        assert!(l2.starts_with("doc-"));
-        let n1: u32 = l1.strip_prefix("doc-").unwrap().parse().unwrap();
-        let n2: u32 = l2.strip_prefix("doc-").unwrap().parse().unwrap();
-        assert_eq!(n2, n1 + 1);
-    }
-
-    // -- pick_reopen_workspace_root_with --------------------------------------
-
-    #[test]
-    fn pick_reopen_returns_path_when_exists() {
-        let pick = pick_reopen_workspace_root_with(
-            Some("/some/workspace".to_string()),
-            |_| true,
-        );
-        assert_eq!(pick, Some("/some/workspace".to_string()));
-    }
-
-    #[test]
-    fn pick_reopen_returns_none_when_path_missing() {
-        // Path was the user's last workspace but the folder has been deleted
-        // or moved — fall back to no-workspace so the new window opens fresh.
-        let pick = pick_reopen_workspace_root_with(
-            Some("/deleted/path".to_string()),
-            |_| false,
-        );
-        assert_eq!(pick, None);
-    }
-
-    #[test]
-    fn pick_reopen_returns_none_when_snapshot_empty() {
-        // Fresh install or all recents cleared — never opened a workspace.
-        let pick = pick_reopen_workspace_root_with(None, |_| true);
-        assert_eq!(pick, None);
-    }
-
-    #[test]
-    fn pick_reopen_picks_real_directory_via_filesystem() {
-        // End-to-end check that the helper integrates correctly with
-        // Path::is_dir — the real wrapper uses this exact predicate.
-        let dir = tempfile::tempdir().expect("create tempdir");
-        let real = dir.path().to_string_lossy().to_string();
-        let missing = format!("{}/does-not-exist", real);
-
-        assert_eq!(
-            pick_reopen_workspace_root_with(
-                Some(real.clone()),
-                |p| std::path::Path::new(p).is_dir(),
-            ),
-            Some(real),
-        );
-        assert_eq!(
-            pick_reopen_workspace_root_with(
-                Some(missing),
-                |p| std::path::Path::new(p).is_dir(),
-            ),
-            None,
-        );
-    }
-
-    #[test]
-    fn pick_reopen_rejects_path_that_is_a_regular_file() {
-        // A regression from `Path::is_dir()` to a weaker predicate like
-        // `Path::exists()` would silently route the dock-reopen URL to a
-        // file path — locking the rust-side guarantee in place with a test.
-        let dir = tempfile::tempdir().expect("create tempdir");
-        let file = dir.path().join("not-a-workspace.md");
-        std::fs::write(&file, b"hi").expect("write");
-        let file_str = file.to_string_lossy().to_string();
-
-        assert_eq!(
-            pick_reopen_workspace_root_with(
-                Some(file_str),
-                |p| std::path::Path::new(p).is_dir(),
-            ),
-            None,
-        );
-    }
-
-    // -- validate_openable_path -----------------------------------------------
-
-    #[test]
-    fn validate_accepts_existing_markdown_file() {
-        let dir = tempfile::tempdir().expect("create tempdir");
-        let file = dir.path().join("note.md");
-        std::fs::write(&file, b"# hi").expect("write");
-        let result = validate_openable_path(file.to_str().unwrap());
-        assert!(result.is_ok(), "got {:?}", result);
-    }
-
-    #[test]
-    fn validate_rejects_missing_path() {
-        let missing = "/definitely/does/not/exist-vmark-test.md";
-        let err = validate_openable_path(missing).unwrap_err();
-        assert!(err.contains("invalid path"), "got: {err}");
-    }
-
-    #[test]
-    fn validate_rejects_directory() {
-        let dir = tempfile::tempdir().expect("create tempdir");
-        // Directory with a registered-extension-looking name — extension
-        // alone must not be enough to pass validation.
-        let md_dir = dir.path().join("looks-like-note.md");
-        std::fs::create_dir(&md_dir).expect("mkdir");
-        let err = validate_openable_path(md_dir.to_str().unwrap()).unwrap_err();
-        assert!(err.contains("not an openable VMark file"), "got: {err}");
-    }
-
-    #[test]
-    fn validate_rejects_unregistered_file_extension() {
-        // WI-1B.5: .png is not in SUPPORTED_EXTENSIONS, so it must be
-        // rejected even though the path exists. .txt is now accepted
-        // (it's a registered Phase 1A format), so the test pivots to
-        // an unambiguously unregistered extension.
-        let dir = tempfile::tempdir().expect("create tempdir");
-        let file = dir.path().join("photo.png");
-        std::fs::write(&file, b"\x89PNG").expect("write");
-        let err = validate_openable_path(file.to_str().unwrap()).unwrap_err();
-        assert!(err.contains("not an openable VMark file"), "got: {err}");
-    }
-
-    #[test]
-    fn validate_accepts_phase1a_extensions() {
-        let dir = tempfile::tempdir().expect("create tempdir");
-        for ext in ["md", "txt", "json", "yaml", "toml", "html", "ts"] {
-            let file = dir.path().join(format!("file.{ext}"));
-            std::fs::write(&file, b"data").expect("write");
-            assert!(
-                validate_openable_path(file.to_str().unwrap()).is_ok(),
-                "Phase 1A extension .{ext} should pass validate_openable_path",
-            );
-        }
-    }
-
-    #[cfg(unix)]
-    #[test]
-    fn validate_rejects_supported_symlink_to_unregistered() {
-        // Canonicalization catches a crafted symlink: the link name ends
-        // in .md but it points at an unregistered target (.png). This is
-        // the concrete security reason validate_openable_path canonicalizes
-        // before checking the extension. Phase 1B widens the registered
-        // set, but the canonicalize-then-check ordering still rejects
-        // any symlink whose target is unregistered.
-        let dir = tempfile::tempdir().expect("create tempdir");
-        let target = dir.path().join("real.png");
-        std::fs::write(&target, b"\x89PNG").expect("write target");
-        let link = dir.path().join("looks-markdown.md");
-        std::os::unix::fs::symlink(&target, &link).expect("symlink");
-        let err = validate_openable_path(link.to_str().unwrap()).unwrap_err();
-        assert!(err.contains("not an openable VMark file"), "got: {err}");
-    }
-}
+#[path = "window_manager.test.rs"]
+mod tests;

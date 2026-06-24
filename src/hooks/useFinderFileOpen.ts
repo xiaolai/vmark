@@ -17,8 +17,8 @@ import { getReplaceableTab, findExistingTabForPath } from "@/hooks/useReplaceabl
 import { detectLinebreaks } from "@/utils/linebreakDetection";
 import { openWorkspaceWithConfig } from "@/hooks/openWorkspaceWithConfig";
 import type { ReplaceableTabInfo } from "@/utils/openPolicy";
-import { isWithinRoot } from "@/utils/paths";
 import { getFileName } from "@/utils/pathUtils";
+import { resolveFinderOpenBranch } from "@/hooks/finderOpenBranch";
 import { waitForRestoreComplete, RESTORE_WAIT_TIMEOUT_MS } from "@/services/persistence/hotExit/hotExitCoordination";
 import { finderFileOpenWarn, finderFileOpenError } from "@/utils/debug";
 import { routeOpenBySize } from "@/services/navigation/largeFileRouting";
@@ -39,10 +39,6 @@ interface PendingFileOpen {
   workspace_root: string | null;
 }
 
-/**
- * Load file content into a tab (new or existing).
- * Returns true on success, false on failure.
- */
 /**
  * Load file content into a tab (new or existing).
  * Throws on read failure so callers can handle cleanup.
@@ -205,114 +201,109 @@ export function useFinderFileOpen(): void {
     };
 
     /**
-     * True when the file should open as a new tab in the current window.
-     *
-     * Matches the same window in three cases:
-     *   - file lives in the current workspace
-     *   - both current and incoming have no workspace
-     *   - current has no workspace and the incoming one should be adopted
+     * Run a create/replace branch through the shared indicator lifecycle:
+     * start the indicator, run the branch, then mark forced-source on the
+     * resulting tab — or clear the indicator if the branch produced no new/
+     * loaded tab (read failure). The `run` callback returns the tab id that
+     * received content, or null on failure.
      */
-    const isSameWorkspace = (
-      filePath: string,
-      currentRoot: string | null,
-      incomingWorkspace: string | null,
-    ): boolean => {
-      const fileInCurrentWorkspace = currentRoot
-        ? isWithinRoot(currentRoot, filePath)
-        : false;
-      return incomingWorkspace
-        ? currentRoot === incomingWorkspace || fileInCurrentWorkspace || !currentRoot
-        : fileInCurrentWorkspace || !currentRoot;
+    const withIndicator = async (
+      route: Awaited<ReturnType<typeof routeOpenBySize>>,
+      path: string,
+      run: () => Promise<string | null>,
+    ) => {
+      const shouldShowIndicator =
+        !route.forceSourceMode && shouldShowProgressIndicator(route.sizeBytes);
+      let indicatorLoadId: number | null = null;
+      if (shouldShowIndicator) {
+        indicatorLoadId = useFileLoadStore
+          .getState()
+          .startLoad(getFileName(path) || path, route.sizeBytes);
+      }
+      const loadedTabId = await run();
+      if (loadedTabId) {
+        maybeMarkLargeMarkdownAsSource(loadedTabId, path, route.forceSourceMode);
+      } else if (indicatorLoadId !== null) {
+        // No content landed (read failure / detached orphan) — clear the
+        // indicator so no stuck spinner lingers.
+        useFileLoadStore.getState().endLoad(indicatorLoadId);
+      }
+    };
+
+    /** Run a create-tab branch; return the new tab id or null if it failed. */
+    const runCreateBranch = async (
+      path: string,
+      workspaceRoot: string | null,
+      adoptWorkspace: boolean,
+    ): Promise<string | null> => {
+      const tabIdBefore = useTabStore.getState().getActiveTab(windowLabel)?.id ?? null;
+      await createNewTabForFile(path, workspaceRoot, adoptWorkspace);
+      const tabIdAfter = useTabStore.getState().getActiveTab(windowLabel)?.id ?? null;
+      return tabIdAfter && tabIdAfter !== tabIdBefore ? tabIdAfter : null;
     };
 
     /**
      * Dispatch a file open request to the correct branch. Must be called
-     * via enqueueFileOpen() to ensure serialization.
+     * via enqueueFileOpen() to ensure serialization. Branch SELECTION is the
+     * pure resolveFinderOpenBranch(); this function owns only the async
+     * size-gate, indicator lifecycle, and branch EXECUTION.
      */
     const processFileOpen = async (path: string, workspaceRoot: string | null) => {
-      const existingTabId = findExistingTabForPath(windowLabel, path);
-      if (existingTabId) {
-        activateExistingTab(existingTabId);
+      // Pre-read size check: applies to every non-activate branch below.
+      // Refused files never create a tab or open a window; huge files confirm.
+      // (Existing-tab activation skips the read, so resolve the branch first.)
+      const branch = resolveFinderOpenBranch({
+        filePath: path,
+        existingTabId: findExistingTabForPath(windowLabel, path),
+        replaceableTabId: getReplaceableTab(windowLabel)?.tabId ?? null,
+        workspaceRailMode: useSettingsStore.getState().general.workspaceRailMode,
+        currentRoot: useWorkspaceStore.getState().rootPath,
+        incomingWorkspace: workspaceRoot,
+      });
+
+      if (branch.kind === "activate") {
+        activateExistingTab(branch.tabId);
         return;
       }
 
-      // Pre-read size check: applies to every non-existing-tab branch below.
-      // Refused files never create a tab or open a window; huge files confirm first.
       const route = await routeOpenBySize(path);
       if (!route.proceed) return;
 
-      // Indeterminate StatusBar indicator — only for local WYSIWYG opens past
-      // the progress threshold. Cleared by TiptapEditor's onCreate on success.
-      // Started later (only for replace/create-tab branches) so the new-window
-      // branch does not stick the indicator on this window while a remote
-      // window actually loads.
-      const shouldShowIndicator =
-        !route.forceSourceMode && shouldShowProgressIndicator(route.sizeBytes);
-      let indicatorLoadId: number | null = null;
-      const activateIndicator = () => {
-        if (!shouldShowIndicator) return;
-        const filename = getFileName(path) || path;
-        indicatorLoadId = useFileLoadStore
-          .getState()
-          .startLoad(filename, route.sizeBytes);
-      };
-      const clearIndicatorOnFailure = () => {
-        if (indicatorLoadId !== null) {
-          useFileLoadStore.getState().endLoad(indicatorLoadId);
+      switch (branch.kind) {
+        case "replace": {
+          const replaceableTab = getReplaceableTab(windowLabel);
+          // Re-check: the replaceable tab could have been claimed during the
+          // awaited size route. Fall back to a new tab if it's gone.
+          if (!replaceableTab) {
+            await withIndicator(route, path, () =>
+              runCreateBranch(path, workspaceRoot, !useWorkspaceStore.getState().rootPath),
+            );
+            return;
+          }
+          await withIndicator(route, path, async () => {
+            await replaceTabWithFile(replaceableTab, path, workspaceRoot);
+            // replaceTabWithFile handles its own toast on failure; a missing
+            // filePath afterwards means the read failed.
+            return useDocumentStore.getState().documents[replaceableTab.tabId]?.filePath
+              ? replaceableTab.tabId
+              : null;
+          });
+          return;
         }
-      };
-
-      const applyForcedSource = (tabId: string) => {
-        maybeMarkLargeMarkdownAsSource(tabId, path, route.forceSourceMode);
-      };
-
-      const replaceableTab = getReplaceableTab(windowLabel);
-      if (replaceableTab) {
-        activateIndicator();
-        await replaceTabWithFile(replaceableTab, path, workspaceRoot);
-        applyForcedSource(replaceableTab.tabId);
-        // Indicator clears on TiptapEditor.onCreate (success) or here if the
-        // read failed silently (replaceTabWithFile handles its own toast).
-        if (!useDocumentStore.getState().documents[replaceableTab.tabId]?.filePath) {
-          clearIndicatorOnFailure();
+        case "create": {
+          await withIndicator(route, path, () =>
+            runCreateBranch(path, workspaceRoot, branch.adoptWorkspace),
+          );
+          return;
         }
-        return;
+        case "newWindow": {
+          // The remote window runs its own routeOpenBySize when the cold-start
+          // queue drains, so we do NOT mark a tab here (none exists in this
+          // window). The refusal / warning dialog above already applied.
+          await openFileInNewWindow(path, workspaceRoot);
+          return;
+        }
       }
-
-      if (useSettingsStore.getState().general.workspaceRailMode) {
-        const tabIdBefore = useTabStore.getState().getActiveTab(windowLabel)?.id ?? null;
-        activateIndicator();
-        await createNewTabForFile(path, null, false);
-        const tabIdAfter = useTabStore.getState().getActiveTab(windowLabel)?.id ?? null;
-        if (tabIdAfter && tabIdAfter !== tabIdBefore) {
-          applyForcedSource(tabIdAfter);
-        } else {
-          clearIndicatorOnFailure();
-        }
-        return;
-      }
-
-      const { rootPath } = useWorkspaceStore.getState();
-      if (isSameWorkspace(path, rootPath, workspaceRoot)) {
-        const tabIdBefore = useTabStore.getState().getActiveTab(windowLabel)?.id ?? null;
-        activateIndicator();
-        await createNewTabForFile(path, workspaceRoot, !rootPath);
-        const tabIdAfter = useTabStore.getState().getActiveTab(windowLabel)?.id ?? null;
-        if (tabIdAfter && tabIdAfter !== tabIdBefore) {
-          applyForcedSource(tabIdAfter);
-        } else {
-          // Tab did not change — createNewTabForFile hit its error path and
-          // detached the orphan. Clear the indicator to avoid a stuck spinner.
-          clearIndicatorOnFailure();
-        }
-        return;
-      }
-
-      // New window: the remote window will run its own routeOpenBySize when
-      // the cold-start queue drains, so we do NOT mark a tab here (there is
-      // no tab in this window). The refusal / warning dialog above already
-      // applied.
-      await openFileInNewWindow(path, workspaceRoot);
     };
 
     /** Enqueue a file open, serialized to prevent concurrent tab races */
@@ -352,7 +343,15 @@ export function useFinderFileOpen(): void {
      */
     (async () => {
       try {
-        unlisten = await listen<OpenFilePayload>("app:open-file", handleOpenFile);
+        const listener = await listen<OpenFilePayload>("app:open-file", handleOpenFile);
+        // The hook can unmount while listen() is in flight; the cleanup ran with
+        // unlisten still null. Detach immediately so no live listener survives
+        // the unmount.
+        if (cancelled) {
+          listener();
+          return;
+        }
+        unlisten = listener;
 
         // CRITICAL: Wait for hot exit restore to complete before processing pending files
         const restoreCompleted = await waitForRestoreComplete(RESTORE_WAIT_TIMEOUT_MS);
@@ -360,15 +359,19 @@ export function useFinderFileOpen(): void {
           finderFileOpenWarn("Hot exit restore timed out, proceeding anyway");
         }
 
-        // Drain queued events BEFORE marking restore complete to preserve order.
-        // New events arriving now are still queued until we flip the flag.
-        const queued = pendingEventsRef.current;
-        pendingEventsRef.current = [];
-        for (const payload of queued) {
-          /* v8 ignore start -- cancelled race in queued-events loop not exercised in tests */
+        // Drain queued events, then flip the flag. Events can arrive WHILE we
+        // drain (handleOpenFile still queues until restoreCompleteRef is true),
+        // so loop until the queue is empty — otherwise that second wave would
+        // sit in pendingEventsRef forever and never open. Order is preserved
+        // because enqueueFileOpen serializes through processingChainRef.
+        while (pendingEventsRef.current.length > 0) {
           if (cancelled) return;
-          /* v8 ignore stop */
-          enqueueFileOpen(payload.path, payload.workspace_root);
+          const queued = pendingEventsRef.current;
+          pendingEventsRef.current = [];
+          for (const payload of queued) {
+            if (cancelled) return;
+            enqueueFileOpen(payload.path, payload.workspace_root);
+          }
         }
 
         // Mark restore as complete so future events are processed immediately

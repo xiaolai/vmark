@@ -33,7 +33,8 @@
     "buttonKeep": "保留我的更改",
     "buttonReloadAll": "全部重新加载",
     "buttonKeepAll": "全部保留",
-    "buttonReviewEach": "逐个审阅"
+    "buttonReviewEach": "逐个审阅",
+    "unknownFile": "文件"
   },
   "revertToSaved": {
     "title": "恢复到已保存版本",
@@ -222,7 +223,13 @@
   "errorBoundary": {
     "title": "出错了",
     "featureFailedTitle": "{{feature}} 渲染失败",
-    "tryAgain": "重试"
+    "tryAgain": "重试",
+    "feature": {
+      "editor": "编辑器",
+      "terminal": "终端",
+      "settings": "设置",
+      "pdfExport": "PDF 导出"
+    }
   },
   "pdfExport": {
     "title": "导出 PDF",
@@ -240,5 +247,8 @@
     "pin": "钉住",
     "pinTooltip": "保持此通知打开",
     "unpinTooltip": "已钉住 — 手动关闭"
+  },
+  "openWorkspaceFolder": {
+    "title": "打开工作区文件夹"
   }
 }

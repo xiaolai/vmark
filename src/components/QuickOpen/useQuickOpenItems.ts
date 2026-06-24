@@ -9,6 +9,7 @@ import { getActiveWorkspaceScope } from "@/services/workspaces/activeWorkspaceSc
 import { fuzzyMatch, type FuzzyMatchResult } from "./fuzzyMatch";
 import type { FileNode } from "@/components/Sidebar/FileExplorer/types";
 import { getFileName } from "@/utils/pathUtils";
+import { getRelativePath as getRelativePathFromRoot } from "@/utils/paths/paths";
 
 /** Tier indicating the source of a Quick Open item: recent file, open tab, or workspace tree. */
 export type QuickOpenTier = "recent" | "open" | "workspace";
@@ -32,11 +33,12 @@ export interface RankedItem {
 const TIER_ORDER: Record<QuickOpenTier, number> = { recent: 0, open: 1, workspace: 2 };
 
 function getRelativePath(path: string, rootPath: string | null): string {
-  if (rootPath && (path === rootPath || path.startsWith(rootPath + "/"))) {
-    const rel = path.slice(rootPath.length);
-    return rel.startsWith("/") ? rel.slice(1) : rel;
-  }
-  return path;
+  // Delegate to the shared, separator-normalizing helper so workspace files
+  // rank/display relative on Windows too. The previous inline comparison only
+  // recognized rootPath + "/", missing backslash separators, so a path like
+  // `C:\project\file.md` displayed as its full absolute path on Windows.
+  if (!rootPath) return path;
+  return getRelativePathFromRoot(rootPath, path);
 }
 
 /** Recursively flatten a file tree into an array of file paths (excludes folders). */
@@ -69,43 +71,33 @@ export function buildQuickOpenItems(
   const seen = new Set<string>();
   const items: QuickOpenItem[] = [];
 
+  // Shared construction so the three source loops don't repeat the
+  // seen/dedup/item-shape logic. Returns false if the path was already added.
+  const addItem = (path: string, tier: QuickOpenTier, isOpenTab: boolean): void => {
+    if (seen.has(path)) return;
+    seen.add(path);
+    items.push({
+      path,
+      filename: getFileName(path),
+      relPath: getRelativePath(path, rootPath),
+      tier,
+      isOpenTab,
+    });
+  };
+
   // Tier 1: Recent files (highest priority in dedup)
   for (const rf of recentFiles) {
-    if (seen.has(rf.path)) continue;
-    seen.add(rf.path);
-    items.push({
-      path: rf.path,
-      filename: getFileName(rf.path),
-      relPath: getRelativePath(rf.path, rootPath),
-      tier: "recent",
-      isOpenTab: openPathSet.has(rf.path),
-    });
+    addItem(rf.path, "recent", openPathSet.has(rf.path));
   }
 
   // Tier 2: Open tabs (deduped against recent)
   for (const path of openPathSet) {
-    if (seen.has(path)) continue;
-    seen.add(path);
-    items.push({
-      path,
-      filename: getFileName(path),
-      relPath: getRelativePath(path, rootPath),
-      tier: "open",
-      isOpenTab: true,
-    });
+    addItem(path, "open", true);
   }
 
   // Tier 3: Workspace files (deduped against recent + open)
   for (const path of workspaceFilePaths) {
-    if (seen.has(path)) continue;
-    seen.add(path);
-    items.push({
-      path,
-      filename: getFileName(path),
-      relPath: getRelativePath(path, rootPath),
-      tier: "workspace",
-      isOpenTab: openPathSet.has(path),
-    });
+    addItem(path, "workspace", openPathSet.has(path));
   }
 
   return items;
@@ -125,7 +117,11 @@ export function filterAndRankItems(
       .map((item) => ({ item, tier: item.tier, match: null }));
   }
 
-  const scored: RankedItem[] = [];
+  // Narrowed item type: only matched items reach `scored`, so `match` is
+  // guaranteed non-null here and we can sort on `match.score` directly
+  // (no unreachable `?? 0` fallback).
+  type ScoredItem = RankedItem & { match: FuzzyMatchResult };
+  const scored: ScoredItem[] = [];
   for (const item of items) {
     const match = fuzzyMatch(query, item.filename, item.relPath);
     if (match) scored.push({ item, tier: item.tier, match });
@@ -134,8 +130,7 @@ export function filterAndRankItems(
   scored.sort((a, b) => {
     const tierDiff = TIER_ORDER[a.tier] - TIER_ORDER[b.tier];
     if (tierDiff !== 0) return tierDiff;
-    /* v8 ignore next -- @preserve reason: match?.score nullish coalesce branch; match is always present when items are in scored array */
-    return (b.match?.score ?? 0) - (a.match?.score ?? 0);
+    return b.match.score - a.match.score;
   });
 
   return scored.slice(0, maxResults);

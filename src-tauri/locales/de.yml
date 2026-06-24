@@ -261,6 +261,9 @@ errors:
   mcp.spawnInProgress: "MCP-Sidecar-Start bereits in Arbeit"
   mcp.configMismatch: "Konfigurationsvalidierung fehlgeschlagen: geschriebener Inhalt stimmt nicht überein"
 
+window:
+  settings.title: "Einstellungen"
+
 cli:
   dialogTitle: "Shell-Befehl"
   installed: "Befehl 'vmark' installiert unter %{path}"

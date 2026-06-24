@@ -317,5 +317,10 @@
   "tableMenu.alignAllRight": "모두 오른쪽 정렬",
   "tableMenu.formatTable": "표 서식 정리",
   "tableMenu.fitToWidth": "너비에 맞춤",
-  "tableMenu.naturalWidth": "원래 너비"
+  "tableMenu.naturalWidth": "원래 너비",
+  "terminal.processExited": "[프로세스가 코드 {{code}}(으)로 종료됨]",
+  "terminal.pressAnyKeyToRestart": "아무 키나 눌러 다시 시작...",
+  "terminal.failedToStart": "셸을 시작하지 못했습니다: {{error}}",
+  "terminal.pressAnyKeyToRetry": "아무 키나 눌러 다시 시도...",
+  "terminal.restarting": "셸을 다시 시작하는 중..."
 }

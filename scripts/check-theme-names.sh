@@ -38,14 +38,15 @@ THEME_NAMES='"(paper|white|mint|sepia|night|solarized)"|'\''(paper|white|mint|se
 
 # Allow-listed paths. Listed as regex alternation for grep -E.
 #   - Theme module owns the catalog + the runtime mapping.
-#   - settingsStore.ts holds the default `theme: "paper"`; settingsTypes.ts has the ThemeId union.
+#   - settingsStore.ts / settingsStore/defaults.ts hold the default `theme: "paper"`;
+#     settingsTypes.ts has the ThemeId union.
 #   - useTheme.ts / useIsDarkTheme.ts are the runtime writers; they read theme names.
 #   - Tests asserting theme behavior need to name themes.
 #   - i18n locale files have user-facing theme labels.
 #   - Docs (dev-docs/, website/, .claude/rules/) describe themes.
 #   - The export reader bundle has its own theme handling.
 #   - Snapshot files contain captured theme output.
-ALLOWLIST='^src/theme/|^src/stores/settingsTypes\.ts$|^src/stores/settingsStore\.ts$|^src/hooks/useTheme\.ts$|^src/hooks/useIsDarkTheme\.ts$|^src/locales/|^src-tauri/locales/|^src/export/reader/|^dev-docs/|^website/|^\.claude/rules/|/__snapshots__/|\.test\.(ts|tsx)$|^scripts/check-theme-names\.sh$'
+ALLOWLIST='^src/theme/|^src/stores/settingsTypes\.ts$|^src/stores/settingsStore\.ts$|^src/stores/settingsStore/defaults\.ts$|^src/hooks/useTheme\.ts$|^src/hooks/useIsDarkTheme\.ts$|^src/locales/|^src-tauri/locales/|^src/export/reader/|^dev-docs/|^website/|^\.claude/rules/|/__snapshots__/|\.test\.(ts|tsx)$|^scripts/check-theme-names\.sh$'
 
 cd "$(git rev-parse --show-toplevel)"
 

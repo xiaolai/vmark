@@ -51,8 +51,21 @@ pub struct WorkspaceTransferAck {
     pub workspace_instance_id: String,
 }
 
+/// Routing data needed to validate and deliver a transfer ack.
+///
+/// We store the expected target window label and workspace-instance id so an
+/// ack carrying a wrong or stale `target_window_label` / `workspace_instance_id`
+/// can be rejected before we tear down the route or notify the source — a
+/// mismatched ack must not remove the route or fire a spurious source ack.
+#[derive(Debug, Clone)]
+struct AckRoute {
+    source_window_label: String,
+    target_window_label: String,
+    workspace_instance_id: String,
+}
+
 static TRANSFER_REGISTRY: Mutex<Option<HashMap<String, WorkspaceTransferData>>> = Mutex::new(None);
-static ACK_ROUTES: Mutex<Option<HashMap<String, String>>> = Mutex::new(None);
+static ACK_ROUTES: Mutex<Option<HashMap<String, AckRoute>>> = Mutex::new(None);
 static ACK_ROUTE_TARGETS: Mutex<Option<HashMap<String, String>>> = Mutex::new(None);
 
 fn transfer_registry(
@@ -60,7 +73,7 @@ fn transfer_registry(
     TRANSFER_REGISTRY.lock().unwrap_or_else(|p| p.into_inner())
 }
 
-fn ack_routes() -> std::sync::MutexGuard<'static, Option<HashMap<String, String>>> {
+fn ack_routes() -> std::sync::MutexGuard<'static, Option<HashMap<String, AckRoute>>> {
     ACK_ROUTES.lock().unwrap_or_else(|p| p.into_inner())
 }
 
@@ -73,23 +86,53 @@ pub fn detach_workspace_to_new_window(
     app: AppHandle,
     data: WorkspaceTransferData,
 ) -> Result<String, String> {
-    let label = window_manager::create_document_window_with_url(
-        &app,
-        "/?workspaceTransfer=true".to_string(),
-    )
-    .map_err(|e| e.to_string())?;
+    // Pre-allocate the target label and register the transfer + ack routes
+    // BEFORE creating the window. A fast-loading target could otherwise invoke
+    // `claim_workspace_transfer` before the registry is populated and silently
+    // lose the transfer. With registration first, the payload is always present
+    // by the time the window can claim it.
+    let label = window_manager::allocate_window_label();
 
     transfer_registry()
         .get_or_insert_with(HashMap::new)
         .insert(label.clone(), data.clone());
-    ack_routes()
-        .get_or_insert_with(HashMap::new)
-        .insert(data.request_id.clone(), data.source_window_label.clone());
+    ack_routes().get_or_insert_with(HashMap::new).insert(
+        data.request_id.clone(),
+        AckRoute {
+            source_window_label: data.source_window_label.clone(),
+            target_window_label: label.clone(),
+            workspace_instance_id: data.workspace_instance_id.clone(),
+        },
+    );
     ack_route_targets()
         .get_or_insert_with(HashMap::new)
         .insert(label.clone(), data.request_id.clone());
 
+    // Create the window last. On build failure, roll back the routes we just
+    // registered so no orphaned transfer/ack state lingers in the registries.
+    if let Err(e) = window_manager::create_document_window_with_label_and_url(
+        &app,
+        &label,
+        "/?workspaceTransfer=true".to_string(),
+    ) {
+        rollback_transfer_registration(&label, &data.request_id);
+        return Err(e.to_string());
+    }
+
     Ok(label)
+}
+
+/// Remove all registry entries for a transfer that failed to launch its window.
+fn rollback_transfer_registration(label: &str, request_id: &str) {
+    if let Some(map) = transfer_registry().as_mut() {
+        map.remove(label);
+    }
+    if let Some(routes) = ack_routes().as_mut() {
+        routes.remove(request_id);
+    }
+    if let Some(targets) = ack_route_targets().as_mut() {
+        targets.remove(label);
+    }
 }
 
 #[tauri::command]
@@ -101,10 +144,38 @@ pub fn claim_workspace_transfer(window_label: String) -> Option<WorkspaceTransfe
 
 #[tauri::command]
 pub fn ack_workspace_transfer(app: AppHandle, data: WorkspaceTransferAck) -> Result<(), String> {
-    let source = ack_routes()
+    // Validate the ack against the registered route BEFORE mutating anything.
+    // A wrong or stale ack (mismatched target window label or workspace
+    // instance id) must not remove the route or notify the source — otherwise
+    // a misdirected ack could cancel a still-pending transfer.
+    let route_matches = {
+        let routes = ack_routes();
+        match routes.as_ref().and_then(|map| map.get(&data.request_id)) {
+            Some(route) => {
+                route.target_window_label == data.target_window_label
+                    && route.workspace_instance_id == data.workspace_instance_id
+            }
+            // Unknown request_id — nothing to ack (idempotent no-op).
+            None => return Ok(()),
+        }
+    };
+
+    if !route_matches {
+        log::warn!(
+            "[WorkspaceTransfer] Ignoring mismatched ack for request '{}' (target '{}', instance '{}')",
+            data.request_id,
+            data.target_window_label,
+            data.workspace_instance_id
+        );
+        return Ok(());
+    }
+
+    // Validated — now remove the route and target mapping, then notify source.
+    let source_window_label = ack_routes()
         .as_mut()
-        .and_then(|map| map.remove(&data.request_id));
-    let Some(source_window_label) = source else {
+        .and_then(|map| map.remove(&data.request_id))
+        .map(|route| route.source_window_label);
+    let Some(source_window_label) = source_window_label else {
         return Ok(());
     };
     if let Some(targets) = ack_route_targets().as_mut() {
@@ -118,17 +189,27 @@ pub fn ack_workspace_transfer(app: AppHandle, data: WorkspaceTransferAck) -> Res
         .map_err(|e| e.to_string())
 }
 
+/// Explicitly abandon a still-pending transfer from the source side (e.g. the
+/// TS move timed out waiting for the target's ack). Drops the registry +
+/// ack-route entries for the target window so a late `claim_workspace_transfer`
+/// returns nothing and cannot apply the payload while the source keeps its tabs
+/// — which would otherwise turn a failed move into a duplicate.
+#[tauri::command]
+pub fn cancel_workspace_transfer(target_window_label: String) {
+    clear_unclaimed_transfer(&target_window_label);
+}
+
 pub fn clear_unclaimed_transfer(window_label: &str) {
     let removed = transfer_registry()
         .as_mut()
         .and_then(|map| map.remove(window_label));
-    let request_id = removed
-        .map(|data| data.request_id)
-        .or_else(|| {
-            ack_route_targets()
-                .as_mut()
-                .and_then(|targets| targets.remove(window_label))
-        });
+    // Always drop the target mapping for this window, whether or not the payload
+    // was still unclaimed. (Previously this only ran when the payload had already
+    // been claimed, leaking a target entry for unclaimed/cancelled transfers.)
+    let target_request_id = ack_route_targets()
+        .as_mut()
+        .and_then(|targets| targets.remove(window_label));
+    let request_id = removed.map(|data| data.request_id).or(target_request_id);
     if let Some(request_id) = request_id {
         if let Some(routes) = ack_routes().as_mut() {
             routes.remove(&request_id);
@@ -137,57 +218,5 @@ pub fn clear_unclaimed_transfer(window_label: &str) {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn transfer_data(request_id: &str) -> WorkspaceTransferData {
-        WorkspaceTransferData {
-            request_id: request_id.to_string(),
-            operation: "move".to_string(),
-            source_window_label: "main".to_string(),
-            workspace_instance_id: "wsi-a".to_string(),
-            kind: "workspace".to_string(),
-            root_id: Some("root-a".to_string()),
-            root_path: Some("/repo".to_string()),
-            display_name: "repo".to_string(),
-            active_tab_id: None,
-            tabs: vec![],
-        }
-    }
-
-    fn reset_transfer_state() {
-        *transfer_registry() = None;
-        *ack_routes() = None;
-        *ack_route_targets() = None;
-    }
-
-    #[test]
-    fn clear_unclaimed_transfer_clears_ack_route_after_claim() {
-        reset_transfer_state();
-        let data = transfer_data("req-a");
-        transfer_registry()
-            .get_or_insert_with(HashMap::new)
-            .insert("doc-1".to_string(), data.clone());
-        ack_routes()
-            .get_or_insert_with(HashMap::new)
-            .insert(data.request_id.clone(), data.source_window_label.clone());
-        ack_route_targets()
-            .get_or_insert_with(HashMap::new)
-            .insert("doc-1".to_string(), data.request_id.clone());
-
-        assert!(claim_workspace_transfer("doc-1".to_string()).is_some());
-        assert!(ack_routes()
-            .as_ref()
-            .is_some_and(|routes| routes.contains_key("req-a")));
-
-        clear_unclaimed_transfer("doc-1");
-
-        assert!(!ack_routes()
-            .as_ref()
-            .is_some_and(|routes| routes.contains_key("req-a")));
-        assert!(!ack_route_targets()
-            .as_ref()
-            .is_some_and(|targets| targets.contains_key("doc-1")));
-        reset_transfer_state();
-    }
-}
+#[path = "workspace_transfer.test.rs"]
+mod tests;

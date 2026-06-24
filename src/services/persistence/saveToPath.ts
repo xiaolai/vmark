@@ -74,72 +74,94 @@ function parseParentMissingError(error: unknown): string | null {
   return message.slice(PARENT_MISSING_PREFIX.length);
 }
 
-export async function saveToPath(
-  tabId: string,
-  path: string,
-  content: string,
-  saveType: "manual" | "auto" = "manual"
-): Promise<boolean> {
+type SaveType = "manual" | "auto";
+
+/** Normalized save payload plus the line-ending/hard-break styles applied. */
+interface NormalizedSaveContent {
+  output: string;
+  targetLineEnding: ReturnType<typeof resolveLineEndingOnSave>;
+  targetHardBreakStyle: ReturnType<typeof resolveHardBreakStyle>;
+}
+
+/**
+ * Resolve the on-save line-ending and hard-break styles from the document's
+ * detected state plus user settings, and apply them to produce the bytes that
+ * will be written to disk.
+ */
+function normalizeSaveContent(tabId: string, content: string): NormalizedSaveContent {
   const doc = useDocumentStore.getState().getDocument(tabId);
   const settings = useSettingsStore.getState();
-  const lineEndingPref = settings.general.lineEndingsOnSave;
-  const hardBreakPref = settings.markdown.hardBreakStyleOnSave;
-  const targetLineEnding = resolveLineEndingOnSave(doc?.lineEnding ?? "unknown", lineEndingPref);
+  const targetLineEnding = resolveLineEndingOnSave(
+    doc?.lineEnding ?? "unknown",
+    settings.general.lineEndingsOnSave
+  );
   const targetHardBreakStyle = resolveHardBreakStyle(
     doc?.hardBreakStyle ?? "unknown",
-    hardBreakPref
+    settings.markdown.hardBreakStyleOnSave
   );
   const hardBreakNormalized = normalizeHardBreaks(content, targetHardBreakStyle);
   const output = normalizeLineEndings(hardBreakNormalized, targetLineEnding);
-  const ownership = resolveWritableFileOwnership(tabId, path);
-  if (!ownership.ok) {
-    if (saveType === "manual") showFileOwnershipConflictToast(path, ownership.conflicts);
-    return false;
-  }
+  return { output, targetLineEnding, targetHardBreakStyle };
+}
 
-  // Register pending save with content for content-based verification.
-  // Token prevents overlapping saves from clearing each other's entries.
-  const saveToken = registerPendingSave(path, output);
+/**
+ * Map a failed write to user feedback and document state, clearing the pending
+ * save first. Always returns `false` — the caller propagates the save failure.
+ */
+function handleWriteError(
+  tabId: string,
+  path: string,
+  saveToken: ReturnType<typeof registerPendingSave>,
+  saveType: SaveType,
+  error: unknown
+): false {
+  // CRITICAL: Always clear pending save on failure to prevent stale entries.
+  // Token ensures we only clear our own registration, not a newer save's.
+  clearPendingSave(path, saveToken);
+  saveError("Failed to save file:", error);
 
-  try {
-    await invoke("atomic_write_file", { path, content: output });
-  } catch (error) {
-    // CRITICAL: Always clear pending save on failure to prevent stale entries.
-    // Token ensures we only clear our own registration, not a newer save's.
-    clearPendingSave(path, saveToken);
-    saveError("Failed to save file:", error);
-
-    // Parent directory vanished (renamed/deleted externally). Mark the doc
-    // as missing so the calling Save handler routes through Save As — the
-    // user can pick a new location in one click instead of staring at a
-    // raw "No such file or directory" error.
-    const missingDir = parseParentMissingError(error);
-    if (missingDir !== null) {
-      useDocumentStore.getState().markMissing(tabId);
-      if (saveType === "manual") {
-        toast.error(
-          i18n.t("dialog:toast.failedToSaveParentMissing", { dir: missingDir }),
-          { pin: true },
-        );
-      }
-      return false;
-    }
-
-    // Manual saves toast; auto-saves stay quiet so a flaky disk doesn't pop
-    // a notification every interval. The next manual save (or an external
-    // signal like the file becoming missing) will surface the problem.
+  // Parent directory vanished (renamed/deleted externally). Mark the doc
+  // as missing so the calling Save handler routes through Save As — the
+  // user can pick a new location in one click instead of staring at a
+  // raw "No such file or directory" error.
+  const missingDir = parseParentMissingError(error);
+  if (missingDir !== null) {
+    useDocumentStore.getState().markMissing(tabId);
     if (saveType === "manual") {
-      const message = errorMessage(error);
-      // Pin: failure messages can be long (system errors include paths and
-      // permission details). Users may want to copy them down.
-      toast.error(i18n.t("dialog:toast.failedToSaveGeneric", { error: message }), {
-        pin: true,
-      });
+      toast.error(
+        i18n.t("dialog:toast.failedToSaveParentMissing", { dir: missingDir }),
+        { pin: true },
+      );
     }
     return false;
   }
 
-  // Write succeeded - update state
+  // Manual saves toast; auto-saves stay quiet so a flaky disk doesn't pop
+  // a notification every interval. The next manual save (or an external
+  // signal like the file becoming missing) will surface the problem.
+  if (saveType === "manual") {
+    const message = errorMessage(error);
+    // Pin: failure messages can be long (system errors include paths and
+    // permission details). Users may want to copy them down.
+    toast.error(i18n.t("dialog:toast.failedToSaveGeneric", { error: message }), {
+      pin: true,
+    });
+  }
+  return false;
+}
+
+/**
+ * Update stores after a successful write: file path, line metadata, saved
+ * markers, deferred pending-save clear, tab path sync, and recent files.
+ */
+function applyPostSaveState(
+  tabId: string,
+  path: string,
+  normalized: NormalizedSaveContent,
+  saveToken: ReturnType<typeof registerPendingSave>,
+  saveType: SaveType
+): void {
+  const { output, targetLineEnding, targetHardBreakStyle } = normalized;
   useDocumentStore.getState().setFilePath(tabId, path);
   useDocumentStore
     .getState()
@@ -163,23 +185,59 @@ export async function saveToPath(
   if (saveType === "manual") {
     useRecentFilesStore.getState().addFile(path);
   }
+}
 
-  // Create history snapshot if enabled
+/**
+ * Record a version-history snapshot if enabled. Failures never block the save —
+ * but the first per session warns the user so silent breakage is visible.
+ */
+async function recordHistorySnapshot(
+  path: string,
+  output: string,
+  saveType: SaveType
+): Promise<void> {
   const { general } = useSettingsStore.getState();
-  if (general.historyEnabled) {
-    try {
-      await createSnapshot(path, output, saveType, buildHistorySettings(general));
-    } catch (historyError) {
-      historyWarn("Failed to create snapshot:", historyError);
-      // Don't fail the save operation if history fails — but warn the user
-      // once per session so silent breakage is visible (e.g., history dir
-      // permissions changed). Subsequent failures stay silent to avoid spam.
-      if (!snapshotWarningShown) {
-        snapshotWarningShown = true;
-        toast.warning(i18n.t("dialog:toast.historySnapshotFailed"), { pin: true });
-      }
+  if (!general.historyEnabled) return;
+  try {
+    await createSnapshot(path, output, saveType, buildHistorySettings(general));
+  } catch (historyError) {
+    historyWarn("Failed to create snapshot:", historyError);
+    // Don't fail the save operation if history fails — but warn the user
+    // once per session so silent breakage is visible (e.g., history dir
+    // permissions changed). Subsequent failures stay silent to avoid spam.
+    if (!snapshotWarningShown) {
+      snapshotWarningShown = true;
+      toast.warning(i18n.t("dialog:toast.historySnapshotFailed"), { pin: true });
     }
   }
+}
+
+export async function saveToPath(
+  tabId: string,
+  path: string,
+  content: string,
+  saveType: SaveType = "manual"
+): Promise<boolean> {
+  const normalized = normalizeSaveContent(tabId, content);
+
+  const ownership = resolveWritableFileOwnership(tabId, path);
+  if (!ownership.ok) {
+    if (saveType === "manual") showFileOwnershipConflictToast(path, ownership.conflicts);
+    return false;
+  }
+
+  // Register pending save with content for content-based verification.
+  // Token prevents overlapping saves from clearing each other's entries.
+  const saveToken = registerPendingSave(path, normalized.output);
+
+  try {
+    await invoke("atomic_write_file", { path, content: normalized.output });
+  } catch (error) {
+    return handleWriteError(tabId, path, saveToken, saveType, error);
+  }
+
+  applyPostSaveState(tabId, path, normalized, saveToken, saveType);
+  await recordHistorySnapshot(path, normalized.output, saveType);
 
   return true;
 }

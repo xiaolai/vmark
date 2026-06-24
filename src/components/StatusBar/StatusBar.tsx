@@ -29,9 +29,9 @@
  * @coordinates-with Tabs/TabContextMenu.tsx — right-click menu for tabs
  * @module components/StatusBar/StatusBar
  */
-import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
+import { useCallback, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
 import { useTranslation } from "react-i18next";
-import { PanelLeft, Plus } from "lucide-react";
+import { PanelLeft } from "lucide-react";
 import { useUIStore } from "@/stores/uiStore";
 import { useWindowLabel, useIsDocumentWindow } from "@/contexts/WindowContext";
 import { useTabStore, type Tab as TabType } from "@/stores/tabStore";
@@ -46,11 +46,11 @@ import {
 } from "@/hooks/useDocumentState";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useAiInvocationStore } from "@/stores/aiStore";
-import { formatRelativeTime } from "@/utils/dateUtils";
-import { Tab } from "@/components/Tabs/Tab";
 import { TabContextMenu, type ContextMenuPosition } from "@/components/Tabs/TabContextMenu";
 import { SourceModeUpgrade } from "./SourceModeUpgrade";
 import { FileLoadIndicator } from "./FileLoadIndicator";
+import { StatusBarTabStrip } from "./StatusBarTabStrip";
+import { useAutoSaveDisplay } from "./useAutoSaveDisplay";
 import { looksLikeWorkflowPath } from "@/lib/ghaWorkflow/detection";
 import { useShortcutsStore } from "@/stores/settingsStore";
 import { useMcpServer } from "@/hooks/useMcpServer";
@@ -147,31 +147,10 @@ export function StatusBar() {
     position: ContextMenuPosition;
     tab: TabType;
   } | null>(null);
-  const [showAutoSave, setShowAutoSave] = useState(false);
-  const [autoSaveTime, setAutoSaveTime] = useState("");
+  const { showAutoSave, autoSaveTime } = useAutoSaveDisplay(lastAutoSave);
   const quitMessage = useQuitFeedback();
 
   const tabDragScopeRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!lastAutoSave) return;
-
-    setAutoSaveTime(formatRelativeTime(lastAutoSave));
-    setShowAutoSave(true);
-
-    const updateInterval = setInterval(() => {
-      setAutoSaveTime(formatRelativeTime(lastAutoSave));
-    }, 10000);
-
-    const fadeTimeout = setTimeout(() => {
-      setShowAutoSave(false);
-    }, 5000);
-
-    return () => {
-      clearInterval(updateInterval);
-      clearTimeout(fadeTimeout);
-    };
-  }, [lastAutoSave]);
 
   const handleActivateTab = useCallback(
     (tabId: string) => {
@@ -261,48 +240,25 @@ export function StatusBar() {
             )}
             <FileLoadIndicator />
             <SourceModeUpgrade />
-            {showNewTabButton && (
-              <button
-                type="button"
-                className="status-new-tab"
-                onClick={handleNewTab}
-                aria-label={t("newTab")}
-                title={t("newTabTitle")}
-              >
-                <Plus className="w-3 h-3" />
-              </button>
-            )}
-
-            {showTabs && (
-              <div className="status-tabs" role="tablist">
-                {tabs.map((tab, index) => {
-                  const dragHandlers = getTabDragHandlers(tab.id, tab.isPinned);
-                  const isBeingDragged = dragTabId === tab.id;
-                  const showDropBefore = isReordering && dropIndex === index && !isBeingDragged && !isReorderBlocked;
-
-                  return (
-                    <Tab
-                      key={tab.id}
-                      tab={tab}
-                      isActive={tab.id === activeTabId}
-                      isDragTarget={isDragging && isBeingDragged}
-                      isReordering={isReordering && isBeingDragged}
-                      isInvalidDrop={isDropInvalid && isBeingDragged}
-                      isSnapback={snapbackTabId === tab.id}
-                      showDropIndicator={showDropBefore}
-                      onActivate={handleActivateTab}
-                      onKeyDown={handleTabKeyDown}
-                      onClose={handleCloseTab}
-                      onContextMenu={handleContextMenu}
-                      onPointerDown={dragHandlers.onPointerDown}
-                    />
-                  );
-                })}
-                {isReordering && dropIndex !== null && dropIndex >= tabs.length && !isReorderBlocked && (
-                  <div className="tab-drop-indicator" />
-                )}
-              </div>
-            )}
+            <StatusBarTabStrip
+              tabs={tabs}
+              activeTabId={activeTabId}
+              showTabs={showTabs}
+              showNewTabButton={showNewTabButton}
+              isDragging={isDragging}
+              isReordering={isReordering}
+              dragTabId={dragTabId}
+              dropIndex={dropIndex}
+              isDropInvalid={isDropInvalid}
+              isReorderBlocked={isReorderBlocked}
+              snapbackTabId={snapbackTabId}
+              getTabDragHandlers={getTabDragHandlers}
+              onActivateTab={handleActivateTab}
+              onCloseTab={handleCloseTab}
+              onContextMenu={handleContextMenu}
+              onTabKeyDown={handleTabKeyDown}
+              onNewTab={handleNewTab}
+            />
 
             {quitMessage && (
               <span className="status-quit-message">

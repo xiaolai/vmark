@@ -50,6 +50,20 @@ export function isValidWorkspaceConfig(raw: unknown): raw is WorkspaceConfig {
   );
 }
 
+/**
+ * Open the workspace store with built-in defaults (no on-disk config) and
+ * register/activate its rail instance. Shared fallback for both the malformed-
+ * payload and invoke-error branches so the two paths cannot drift.
+ */
+function openWorkspaceWithDefaults(
+  rootPath: string,
+  options: OpenWorkspaceInstanceOptions,
+): null {
+  useWorkspaceStore.getState().openWorkspace(rootPath);
+  openOrActivateWorkspaceInstance(rootPath, options);
+  return null;
+}
+
 /** Reads workspace config from disk and opens the workspace in the store; returns the config or null on failure. */
 export async function openWorkspaceWithConfig(
   rootPath: string,
@@ -68,17 +82,13 @@ export async function openWorkspaceWithConfig(
     // workspace store and onward to tab restore / file filtering.
     if (config !== null && !isValidWorkspaceConfig(config)) {
       workspaceError("Malformed workspace config payload; opening with defaults:", config);
-      useWorkspaceStore.getState().openWorkspace(rootPath);
-      openOrActivateWorkspaceInstance(rootPath, options);
-      return null;
+      return openWorkspaceWithDefaults(rootPath, options);
     }
     useWorkspaceStore.getState().openWorkspace(rootPath, config);
     openOrActivateWorkspaceInstance(rootPath, options);
     return config;
   } catch (error) {
     workspaceError("Failed to load config:", error);
-    useWorkspaceStore.getState().openWorkspace(rootPath);
-    openOrActivateWorkspaceInstance(rootPath, options);
-    return null;
+    return openWorkspaceWithDefaults(rootPath, options);
   }
 }

@@ -132,6 +132,21 @@ describe("workspaceInstancesStore", () => {
       });
   });
 
+  it("de-duplicates ordered ids so an instance cannot appear twice", () => {
+    const store = useWorkspaceInstancesStore.getState();
+    store.addWorkspaceInstance(instance("wsi-a", "main"));
+    store.addWorkspaceInstance(instance("wsi-b", "main"));
+
+    useWorkspaceInstancesStore
+      .getState()
+      .reorderWorkspaceInstances("main", ["wsi-b", "wsi-b", "wsi-a"]);
+
+    expect(
+      selectWindowWorkspaceState(useWorkspaceInstancesStore.getState(), "main")
+        ?.workspaceInstanceIds,
+    ).toEqual(["wsi-b", "wsi-a"]);
+  });
+
   it("allows an empty window to stay empty after reorder", () => {
     useWorkspaceInstancesStore.setState({
       instances: {},
@@ -228,6 +243,51 @@ describe("workspaceInstancesStore", () => {
         rootPath: null,
         displayName: "Loose Files",
       });
+  });
+
+  it("reuses an existing loose instance when no specific id is requested", () => {
+    const store = useWorkspaceInstancesStore.getState();
+    const first = store.ensureLooseInstance("main");
+    const again = useWorkspaceInstancesStore.getState().ensureLooseInstance("main");
+    expect(again.workspaceInstanceId).toBe(first.workspaceInstanceId);
+  });
+
+  it("renames an existing loose instance to the requested transfer id", () => {
+    // Transfer restore acks payload.workspaceInstanceId; if a loose instance
+    // already exists under a different id, the requested id must win so the ack
+    // and tab ownership reference the same instance (regression guard).
+    const store = useWorkspaceInstancesStore.getState();
+    const existing = store.ensureLooseInstance("main");
+    expect(existing.workspaceInstanceId).not.toBe("wsi-transfer");
+
+    const result = useWorkspaceInstancesStore
+      .getState()
+      .ensureLooseInstance("main", "wsi-transfer");
+
+    expect(result.workspaceInstanceId).toBe("wsi-transfer");
+    const state = useWorkspaceInstancesStore.getState();
+    expect(state.instances[existing.workspaceInstanceId]).toBeUndefined();
+    expect(state.instances["wsi-transfer"]).toMatchObject({
+      kind: "loose",
+      rootId: null,
+    });
+    expect(selectWindowWorkspaceState(state, "main")).toMatchObject({
+      workspaceInstanceIds: ["wsi-transfer"],
+      activeWorkspaceInstanceId: "wsi-transfer",
+    });
+  });
+
+  it("keeps the existing loose instance when the requested id already matches", () => {
+    const store = useWorkspaceInstancesStore.getState();
+    store.ensureLooseInstance("main", "wsi-loose-fixed");
+    const again = useWorkspaceInstancesStore
+      .getState()
+      .ensureLooseInstance("main", "wsi-loose-fixed");
+    expect(again.workspaceInstanceId).toBe("wsi-loose-fixed");
+    expect(
+      selectWindowWorkspaceState(useWorkspaceInstancesStore.getState(), "main")
+        ?.workspaceInstanceIds,
+    ).toEqual(["wsi-loose-fixed"]);
   });
 
   it("replaces a placeholder when a real loose instance is created", () => {

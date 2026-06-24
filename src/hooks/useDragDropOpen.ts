@@ -1,34 +1,35 @@
 import { useEffect, useRef } from "react";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
-import { readTextFile } from "@tauri-apps/plugin-fs";
 import { imeToast as toast } from "@/services/ime/imeToast";
 import i18n from "@/i18n";
 import { invoke } from "@tauri-apps/api/core";
 import { useWindowLabel } from "@/contexts/WindowContext";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
-import { useRecentFilesStore } from "@/stores/workspaceStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useUIStore } from "@/stores/uiStore";
-import { maybeMarkLargeMarkdownAsSource } from "@/lib/formats/markdownLargeFile";
 import {
   filterSupportedPaths,
   isSupportedFileName,
 } from "@/utils/dropPaths";
 import { resolveOpenAction, resolveWorkspaceRootForExternalFile } from "@/utils/openPolicy";
 import { getReplaceableTab, findExistingTabForPath } from "@/hooks/useReplaceableTab";
-import { detectLinebreaks } from "@/utils/linebreakDetection";
 import { openWorkspaceWithConfig } from "@/hooks/openWorkspaceWithConfig";
+import { replaceTabWithFile, type ReplaceTabResult } from "@/hooks/useFileOpen";
 import { safeUnlisten } from "@/utils/safeUnlisten";
 import { dragDropError } from "@/utils/debug";
 import { getFileName } from "@/utils/pathUtils";
-import { routeOpenBySize } from "@/services/navigation/largeFileRouting";
-import { useFileLoadStore } from "@/stores/documentStore";
-import { shouldShowProgressIndicator } from "@/utils/fileSizeThresholds";
-import { applyFileOwnershipAfterOpen } from "@/services/workspaces/fileOwnership";
 import { openDroppedFileInNewTab } from "@/hooks/dragDropOpenFile";
 import { openDroppedPathsInLegacyWindows } from "@/hooks/dragDropLegacyWindows";
+
+/** Surface a drag-drop replace-tab read failure (cancellations stay silent). */
+function reportReplaceFailure(result: ReplaceTabResult, path: string): void {
+  if (result.ok || result.cancelled) return;
+  dragDropError("Failed to replace tab with file:", path, result.error);
+  const filename = getFileName(path) || path;
+  toast.error(i18n.t("dialog:toast.failedToOpen", { filename }));
+}
 
 export function useDragDropOpen(): void {
   const windowLabel = useWindowLabel();
@@ -113,47 +114,23 @@ export function useDragDropOpen(): void {
 
             for (const path of markdownPaths) {
               if (!replaceableTabUsed && initialReplaceableTab) {
-                const route = await routeOpenBySize(path);
-                if (!route.proceed) {
-                  // Refused / cancelled — skip this file, continue batch.
-                  continue;
-                }
-
-                const showIndicator =
-                  !route.forceSourceMode && shouldShowProgressIndicator(route.sizeBytes);
-                let batchLoadId: number | null = null;
-                if (showIndicator) {
-                  batchLoadId = useFileLoadStore
-                    .getState()
-                    .startLoad(getFileName(path) || path, route.sizeBytes);
-                }
-
-                try {
-                  const content = await readTextFile(path);
-                  useTabStore.getState().updateTabPath(initialReplaceableTab.tabId, path);
-                  useDocumentStore.getState().loadContent(
-                    initialReplaceableTab.tabId,
-                    content,
-                    path,
-                    detectLinebreaks(content)
-                  );
-                  applyFileOwnershipAfterOpen(initialReplaceableTab.tabId, path);
-                  useRecentFilesStore.getState().addFile(path);
-                  maybeMarkLargeMarkdownAsSource(
-                    initialReplaceableTab.tabId,
-                    path,
-                    route.forceSourceMode,
-                  );
+                // Reuse the shared replace pipeline (size route → indicator →
+                // read → load → ownership → recents → large-file marking) which
+                // also re-checks the target tab survived the read.
+                const result = await replaceTabWithFile({
+                  windowLabel,
+                  tabId: initialReplaceableTab.tabId,
+                  targetPath: path,
+                  sourcePath: path,
+                });
+                if (result.ok) {
                   replaceableTabUsed = true;
                   continue;
-                } catch (error) {
-                  dragDropError("Failed to replace tab with file:", path, error);
-                  const filename = getFileName(path) || path;
-                  toast.error(i18n.t("dialog:toast.failedToOpen", { filename }));
-                  if (batchLoadId !== null) {
-                    useFileLoadStore.getState().endLoad(batchLoadId);
-                  }
                 }
+                // Cancelled (refused size route / tab closed mid-read) — skip
+                // this file; a genuine error is surfaced before falling through.
+                if (result.cancelled) continue;
+                reportReplaceFailure(result, path);
               }
 
               await openDroppedFileInNewTab(windowLabel, path);
@@ -183,46 +160,20 @@ export function useDragDropOpen(): void {
               await openDroppedFileInNewTab(windowLabel, path);
               break;
             case "replace_tab": {
-              // Replace the clean untitled tab with the file content (only once).
-              const route = await routeOpenBySize(path);
-              if (!route.proceed) break;
-
-              const showIndicator =
-                !route.forceSourceMode && shouldShowProgressIndicator(route.sizeBytes);
-              let decisionLoadId: number | null = null;
-              if (showIndicator) {
-                decisionLoadId = useFileLoadStore
-                  .getState()
-                  .startLoad(getFileName(path) || path, route.sizeBytes);
-              }
-
-              try {
-                const content = await readTextFile(path);
-                useTabStore.getState().updateTabPath(decision.tabId, decision.filePath);
-                useDocumentStore.getState().loadContent(
-                  decision.tabId,
-                  content,
-                  decision.filePath,
-                  detectLinebreaks(content)
-                );
-                if (decision.workspaceRoot) {
-                  await openWorkspaceWithConfig(decision.workspaceRoot, { windowLabel });
-                }
-                applyFileOwnershipAfterOpen(decision.tabId, decision.filePath);
-                useRecentFilesStore.getState().addFile(path);
-                maybeMarkLargeMarkdownAsSource(
-                  decision.tabId,
-                  path,
-                  route.forceSourceMode,
-                );
+              // Replace the clean untitled tab with the file content (only once)
+              // via the shared pipeline, which guards against the tab being
+              // closed during the async read.
+              const result = await replaceTabWithFile({
+                windowLabel,
+                tabId: decision.tabId,
+                targetPath: decision.filePath,
+                sourcePath: path,
+                workspaceRoot: decision.workspaceRoot,
+              });
+              if (result.ok) {
                 replaceableTabUsed = true;
-              } catch (error) {
-                dragDropError("Failed to replace tab with file:", path, error);
-                const filename = getFileName(path) || path;
-                toast.error(i18n.t("dialog:toast.failedToOpen", { filename }));
-                if (decisionLoadId !== null) {
-                  useFileLoadStore.getState().endLoad(decisionLoadId);
-                }
+              } else {
+                reportReplaceFailure(result, path);
               }
               break;
             }

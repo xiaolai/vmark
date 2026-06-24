@@ -33,6 +33,18 @@ describe('Schema Migration', () => {
     it('should return false for version 0 (invalid)', () => {
       expect(canMigrate(0)).toBe(false);
     });
+
+    it('should return false for fractional versions (no migration step exists)', () => {
+      // A fractional version like 4.5 sits between two real schema versions.
+      // canMigrate must reject it rather than report it migratable — otherwise
+      // migrateSession enters its step loop and fails on a missing migration fn.
+      expect(canMigrate(4.5)).toBe(false);
+      expect(canMigrate(1.1)).toBe(false);
+    });
+
+    it('should return false for NaN version', () => {
+      expect(canMigrate(NaN)).toBe(false);
+    });
   });
 
   describe('migrateSession', () => {

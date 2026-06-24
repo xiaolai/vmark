@@ -99,6 +99,32 @@ export function reconcileRestoredWindowWorkspaceInstances(
   const instances = orderedWindowInstances(windowLabel);
   if (instances.length === 0) return;
 
+  const assignments = buildAssignments(instances, tabIdMap);
+  claimUnownedTabs(windowLabel, assignments);
+  applyAssignments(windowLabel, assignments, tabIdMap);
+
+  const restoredActiveTabId = windowState.active_tab_id
+    ? tabIdMap.get(windowState.active_tab_id) ?? null
+    : null;
+  const activeInstanceId = chooseActiveInstanceAfterReconcile(
+    windowLabel,
+    windowState.active_workspace_instance_id,
+    restoredActiveTabId,
+  );
+  if (activeInstanceId) {
+    useWorkspaceInstancesStore.getState().activateWorkspaceInstance(windowLabel, activeInstanceId);
+  }
+}
+
+/**
+ * Seed each instance's restored tab list by remapping its persisted (old) tab
+ * ids through the hot-exit recreation map. Stale ids that didn't recreate are
+ * dropped; duplicates are collapsed.
+ */
+function buildAssignments(
+  instances: WorkspaceInstanceRecord[],
+  tabIdMap: Map<string, string>,
+): Map<string, string[]> {
   const assignments = new Map<string, string[]>();
   for (const instance of instances) {
     const mapped = instance.tabIds
@@ -106,7 +132,17 @@ export function reconcileRestoredWindowWorkspaceInstances(
       .filter((id): id is string => Boolean(id));
     assignments.set(instance.workspaceInstanceId, uniqueIds(mapped));
   }
+  return assignments;
+}
 
+/**
+ * Assign every restored tab that no instance claimed to its classified owner
+ * (or a freshly-ensured loose context), mutating `assignments` in place.
+ */
+function claimUnownedTabs(
+  windowLabel: string,
+  assignments: Map<string, string[]>,
+): void {
   const owned = new Set([...assignments.values()].flat());
   for (const tab of useTabStore.getState().getTabsByWindow(windowLabel)) {
     if (owned.has(tab.id)) continue;
@@ -123,10 +159,17 @@ export function reconcileRestoredWindowWorkspaceInstances(
     ids.push(tab.id);
     assignments.set(owner.workspaceInstanceId, uniqueIds(ids));
   }
+}
 
-  const restoredActiveTabId = windowState.active_tab_id
-    ? tabIdMap.get(windowState.active_tab_id) ?? null
-    : null;
+/**
+ * Write the reconciled tab lists (plus remapped active/closed ids) back to the
+ * store for every window instance.
+ */
+function applyAssignments(
+  windowLabel: string,
+  assignments: Map<string, string[]>,
+  tabIdMap: Map<string, string>,
+): void {
   for (const instance of orderedWindowInstances(windowLabel)) {
     const tabIds = assignments.get(instance.workspaceInstanceId) ?? [];
     const activeTabId = instance.activeTabId
@@ -141,15 +184,6 @@ export function reconcileRestoredWindowWorkspaceInstances(
       activeTabId,
       closedTabIds,
     );
-  }
-
-  const activeInstanceId = chooseActiveInstanceAfterReconcile(
-    windowLabel,
-    windowState.active_workspace_instance_id,
-    restoredActiveTabId,
-  );
-  if (activeInstanceId) {
-    useWorkspaceInstancesStore.getState().activateWorkspaceInstance(windowLabel, activeInstanceId);
   }
 }
 
@@ -172,42 +206,53 @@ function serializeInstancesWithCurrentTabs(
   activeInstanceId: string | null,
 ): HotExitWorkspaceInstanceState[] {
   const instances = orderedWindowInstances(windowLabel);
-  const activeId = activeInstanceId;
   const tabs = useTabStore.getState().getTabsByWindow(windowLabel);
   const closedTabs = useTabStore.getState().closedTabs[windowLabel] ?? [];
+  const activeTabId = useTabStore.getState().activeTabId[windowLabel] ?? null;
+
+  // Classify each tab exactly once into its owning instance, then read the
+  // per-instance lists from those maps. This keeps capture O(tabs) instead of
+  // O(instances * tabs) and guarantees a single, consistent ownership decision
+  // per tab regardless of how active-instance ties resolve.
+  const ownedTabIds = assignTabsToInstances(tabs, instances, activeInstanceId);
+  const ownedClosedTabIds = assignTabsToInstances(closedTabs, instances, activeInstanceId);
+
   return ids.map((id) => {
     const instance = useWorkspaceInstancesStore.getState().instances[id];
-    const tabIds = tabs
-      .filter((tab) => classifyWorkspaceContextForTab({
-        filePath: tab.filePath,
-        instances,
-        activeWorkspaceInstanceId: activeId,
-      })?.workspaceInstanceId === id)
-      .map((tab) => tab.id);
-    const closedTabIds = closedTabs
-      .filter((tab) => classifyClosedTab(tab, instances, activeId)?.workspaceInstanceId === id)
-      .map((tab) => tab.id);
+    const tabIds = ownedTabIds.get(id) ?? [];
+    const closedTabIds = ownedClosedTabIds.get(id) ?? [];
     return {
       ...instance,
       tabIds,
-      activeTabId: tabIds.includes(useTabStore.getState().activeTabId[windowLabel] ?? "")
-        ? useTabStore.getState().activeTabId[windowLabel]
-        : tabIds[0] ?? null,
+      activeTabId:
+        activeTabId !== null && tabIds.includes(activeTabId) ? activeTabId : tabIds[0] ?? null,
       closedTabIds,
     };
   });
 }
 
-function classifyClosedTab(
-  tab: Tab,
+/**
+ * Classify each tab once into its owning instance id, returning an
+ * instanceId -> tabIds map that preserves the input tab order.
+ */
+function assignTabsToInstances(
+  tabs: Tab[],
   instances: WorkspaceInstanceRecord[],
   activeWorkspaceInstanceId: string | null,
-): WorkspaceInstanceRecord | null {
-  return classifyWorkspaceContextForTab({
-    filePath: tab.filePath,
-    instances,
-    activeWorkspaceInstanceId,
-  });
+): Map<string, string[]> {
+  const owned = new Map<string, string[]>();
+  for (const tab of tabs) {
+    const owner = classifyWorkspaceContextForTab({
+      filePath: tab.filePath,
+      instances,
+      activeWorkspaceInstanceId,
+    });
+    if (!owner) continue;
+    const list = owned.get(owner.workspaceInstanceId) ?? [];
+    list.push(tab.id);
+    owned.set(owner.workspaceInstanceId, list);
+  }
+  return owned;
 }
 
 function chooseActiveInstanceAfterReconcile(

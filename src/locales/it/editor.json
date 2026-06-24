@@ -327,5 +327,10 @@
   "tableMenu.alignAllRight": "Allinea tutto a destra",
   "tableMenu.formatTable": "Formatta tabella",
   "tableMenu.fitToWidth": "Adatta alla larghezza",
-  "tableMenu.naturalWidth": "Larghezza naturale"
+  "tableMenu.naturalWidth": "Larghezza naturale",
+  "terminal.processExited": "[Processo terminato con codice {{code}}]",
+  "terminal.pressAnyKeyToRestart": "Premi un tasto qualsiasi per riavviare...",
+  "terminal.failedToStart": "Avvio della shell non riuscito: {{error}}",
+  "terminal.pressAnyKeyToRetry": "Premi un tasto qualsiasi per riprovare...",
+  "terminal.restarting": "Riavvio della shell..."
 }

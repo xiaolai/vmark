@@ -1395,6 +1395,34 @@ describe("useExternalFileChanges — re-queue after batch processing", () => {
     expect(mocks.dialogMessage).not.toHaveBeenCalled();
   });
 
+  it("de-duplicates repeated dirty changes for the same path into one prompt", async () => {
+    seedStores({ isDirty: true, lastDiskContent: "# old content" });
+    mocks.readTextFile.mockResolvedValue("# ext change");
+    mocks.dialogMessage.mockResolvedValue("Keep my changes");
+
+    const callback = await setupHookAndCallback();
+
+    // Two separate fs events for the SAME dirty file (e.g. a sync daemon that
+    // touches the file twice in quick succession). Without path-keyed dedupe
+    // this would queue two pending entries and show the batch ("Multiple
+    // Files") dialog; with dedupe it collapses to a single single-file prompt.
+    const payload = {
+      watchId: "main",
+      rootPath: "/workspace",
+      paths: ["/workspace/test.md"],
+      kind: "modify" as const,
+    };
+    await callback({ payload });
+    await callback({ payload });
+
+    await vi.waitFor(() => expect(mocks.dialogMessage).toHaveBeenCalledTimes(1), { timeout: 1500 });
+
+    // Single-file dialog message, not the multi-file batch message.
+    const [shownMessage] = mocks.dialogMessage.mock.calls[0] as [string, unknown];
+    expect(shownMessage).toContain("test.md");
+    expect(shownMessage).not.toContain("files have been modified");
+  });
+
   it("cancelled=true guard inside event callback (line 293)", async () => {
     seedStores();
     let capturedCallback: ((event: object) => Promise<void>) | null = null;

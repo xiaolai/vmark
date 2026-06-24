@@ -33,7 +33,8 @@
     "buttonKeep": "Keep my changes",
     "buttonReloadAll": "Reload All",
     "buttonKeepAll": "Keep All",
-    "buttonReviewEach": "Review Each"
+    "buttonReviewEach": "Review Each",
+    "unknownFile": "file"
   },
   "revertToSaved": {
     "title": "Revert to Saved",
@@ -54,6 +55,9 @@
   "workspaceNotFound": {
     "title": "Workspace Not Found",
     "message": "This workspace folder could not be found. It may have been moved or deleted.\n\nRemove from recent workspaces?"
+  },
+  "openWorkspaceFolder": {
+    "title": "Open Workspace Folder"
   },
   "unsavedDocument": {
     "title": "Unsaved Document",
@@ -92,7 +96,13 @@
   "errorBoundary": {
     "title": "Something went wrong",
     "featureFailedTitle": "{{feature}} failed to render",
-    "tryAgain": "Try again"
+    "tryAgain": "Try again",
+    "feature": {
+      "editor": "Editor",
+      "terminal": "Terminal",
+      "settings": "Settings",
+      "pdfExport": "PDF Export"
+    }
   },
   "pdfExport": {
     "title": "Export PDF",

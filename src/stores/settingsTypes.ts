@@ -241,8 +241,8 @@ export type TerminalBellMode = "off" | "visual" | "audible";
 /** Terminal emulator preferences — shell, font, cursor, renderer, and panel layout. */
 export interface TerminalSettings {
   shell: string;       // Default: "" (empty = system default via getpwuid → $SHELL → /bin/sh)
-  fontSize: number;    // Default: 13 (range: 10–24)
-  lineHeight: number;  // Default: 1.2 (range: 1.0–2.0)
+  fontSize: number;    // Default: 13 (clamp range: 8–32, see CLAMP_RANGES.terminal)
+  lineHeight: number;  // Default: 1.2 (clamp range: 1–2.5, see CLAMP_RANGES.terminal)
   cursorStyle: TerminalCursorStyle; // Default: "bar"
   cursorBlink: boolean; // Default: true
   copyOnSelect: boolean; // Default: false — auto-copy selected text to clipboard

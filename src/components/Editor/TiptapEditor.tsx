@@ -40,7 +40,7 @@ import { useImageContextMenu } from "@/hooks/useImageContextMenu";
 import { useOutlineSync } from "@/hooks/useOutlineSync";
 import { initializeRevisionTracking } from "@/hooks/mcpBridge/revisionTracker";
 import { parseMarkdown, serializeMarkdown } from "@/utils/markdownPipeline";
-import { registerActiveWysiwygFlusher } from "@/utils/wysiwygFlush";
+import { registerActiveWysiwygFlusher, registerWysiwygFlusher } from "@/utils/wysiwygFlush";
 import { useFileLoadStore } from "@/stores/documentStore";
 import { getCursorInfoFromTiptap, restoreCursorInTiptap } from "@/utils/cursorSync/tiptap";
 import { getTiptapEditorView } from "@/services/editor/tiptapView";
@@ -509,25 +509,24 @@ export function TiptapEditorInner({ hidden = false, readOnly = false }: TiptapEd
     };
   }, []);
 
-  // Register flusher — only when visible
+  // Register both the "active" flusher (per-tab saves) and a tab-keyed flusher (Save All) — only when visible.
   useEffect(() => {
     if (!editor || hidden) return;
-    registerActiveWysiwygFlusher(() => {
-      flushToStore(editor);
-    });
+    const flush = () => flushToStore(editor);
+    registerActiveWysiwygFlusher(flush);
+    if (activeTabId) registerWysiwygFlusher(activeTabId, flush);
     return () => {
       registerActiveWysiwygFlusher(null);
+      if (activeTabId) registerWysiwygFlusher(activeTabId, null);
     };
-  }, [editor, flushToStore, hidden]);
+  }, [editor, flushToStore, hidden, activeTabId]);
 
   // Register editor stores — only when visible
   useEffect(() => {
     if (!hidden) {
       useEditorStore.getState().setTiptapEditor(editor ?? null);
       if (editor) {
-        useEditorStore
-          .getState()
-          .setActiveWysiwygEditor(editor, activeTabId);
+        useEditorStore.getState().setActiveWysiwygEditor(editor, activeTabId);
       }
     }
     return () => {

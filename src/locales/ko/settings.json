@@ -716,5 +716,10 @@
   "integrations.ccSwitch.description": "VMark의 MCP 서버를 CC-Switch로 전달하면 거기서 관리하는 AI CLI에 동기화됩니다.",
   "integrations.ccSwitch.add": "CC-Switch에 추가",
   "integrations.ccSwitch.opened": "CC-Switch 가져오기 링크를 열었습니다.",
-  "integrations.ccSwitch.binaryMissing": "먼저 VMark MCP 서버 바이너리를 빌드하세요."
+  "integrations.ccSwitch.binaryMissing": "먼저 VMark MCP 서버 바이너리를 빌드하세요.",
+  "files.autoResize.off": "끄기",
+  "files.autoResize.800": "800px",
+  "files.autoResize.1200": "1200px",
+  "files.autoResize.1920": "1920px (Full HD)",
+  "files.autoResize.2560": "2560px (2K)"
 }

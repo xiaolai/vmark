@@ -261,6 +261,9 @@ errors:
   mcp.spawnInProgress: "MCP 側載程序正在啟動中"
   mcp.configMismatch: "設定校驗失敗：寫入內容與預期不符"
 
+window:
+  settings.title: "設定"
+
 cli:
   dialogTitle: "Shell 指令"
   installed: "'vmark' 指令已安裝至 %{path}"

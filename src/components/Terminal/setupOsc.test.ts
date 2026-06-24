@@ -166,6 +166,43 @@ describe("setupOsc133", () => {
     expect(h.isRunning()).toBe(false);
   });
 
+  it("fires the idle callback when a running command finishes (D)", () => {
+    const { term, fire } = makeTerm();
+    const h = setupOsc133(term);
+    const onIdle = vi.fn();
+    h.setOnIdle(onIdle);
+
+    fire("A"); // prompt — idle, no running command yet
+    expect(onIdle).not.toHaveBeenCalled();
+    fire("C"); // command starts — busy
+    expect(onIdle).not.toHaveBeenCalled();
+    fire("D;0"); // command done — idle transition fires the callback
+    expect(onIdle).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not fire the idle callback on an idle-to-idle prompt (A with no running command)", () => {
+    const { term, fire } = makeTerm();
+    const h = setupOsc133(term);
+    const onIdle = vi.fn();
+    h.setOnIdle(onIdle);
+
+    fire("A");
+    fire("A");
+    expect(onIdle).not.toHaveBeenCalled();
+  });
+
+  it("clears the idle callback when set to null", () => {
+    const { term, fire } = makeTerm();
+    const h = setupOsc133(term);
+    const onIdle = vi.fn();
+    h.setOnIdle(onIdle);
+    h.setOnIdle(null);
+
+    fire("C");
+    fire("D;0");
+    expect(onIdle).not.toHaveBeenCalled();
+  });
+
   it("creates an exit-status decoration on D (WI-3.4)", () => {
     const { term, fire } = makeTerm();
     const h = setupOsc133(term);

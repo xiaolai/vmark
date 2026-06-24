@@ -33,7 +33,8 @@
     "buttonKeep": "変更を保持",
     "buttonReloadAll": "すべて再読み込み",
     "buttonKeepAll": "すべて保持",
-    "buttonReviewEach": "個別に確認"
+    "buttonReviewEach": "個別に確認",
+    "unknownFile": "ファイル"
   },
   "revertToSaved": {
     "title": "保存済みに戻す",
@@ -222,7 +223,13 @@
   "errorBoundary": {
     "title": "問題が発生しました",
     "featureFailedTitle": "{{feature}} の表示に失敗しました",
-    "tryAgain": "再試行"
+    "tryAgain": "再試行",
+    "feature": {
+      "editor": "エディター",
+      "terminal": "ターミナル",
+      "settings": "設定",
+      "pdfExport": "PDF エクスポート"
+    }
   },
   "pdfExport": {
     "title": "PDF をエクスポート",
@@ -240,5 +247,8 @@
     "pin": "ピン留め",
     "pinTooltip": "この通知を開いたままにする",
     "unpinTooltip": "ピン留め中 — 手動で閉じる"
+  },
+  "openWorkspaceFolder": {
+    "title": "ワークスペースフォルダーを開く"
   }
 }

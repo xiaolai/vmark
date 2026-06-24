@@ -55,6 +55,14 @@ const migrations: Record<number, MigrationFn> = {
  * @returns true if migration is possible
  */
 export function canMigrate(version: number): boolean {
+  // Schema versions are whole numbers and each step has an explicit migration
+  // function. A fractional (e.g. 4.5) or non-integer version sits between two
+  // real versions with no migration step — reject it here so migrateSession
+  // never enters its loop only to fail on a missing migration function.
+  if (!Number.isInteger(version)) {
+    return false;
+  }
+
   // Invalid version
   if (version < MIN_SUPPORTED_VERSION) {
     return false;

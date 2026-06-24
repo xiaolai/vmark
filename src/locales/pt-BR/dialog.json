@@ -27,7 +27,8 @@
     "buttonKeep": "Manter minhas alterações",
     "buttonReloadAll": "Recarregar tudo",
     "buttonKeepAll": "Manter tudo",
-    "buttonReviewEach": "Revisar cada um"
+    "buttonReviewEach": "Revisar cada um",
+    "unknownFile": "arquivo"
   },
   "revertToSaved": {
     "title": "Reverter para salvo",
@@ -222,7 +223,13 @@
   "errorBoundary": {
     "title": "Algo deu errado",
     "featureFailedTitle": "Falha ao renderizar {{feature}}",
-    "tryAgain": "Tentar novamente"
+    "tryAgain": "Tentar novamente",
+    "feature": {
+      "editor": "Editor",
+      "terminal": "Terminal",
+      "settings": "Configurações",
+      "pdfExport": "Exportação de PDF"
+    }
   },
   "pdfExport": {
     "title": "Exportar PDF",
@@ -240,5 +247,8 @@
     "pin": "Fixar",
     "pinTooltip": "Manter este aviso aberto",
     "unpinTooltip": "Fixado — fechar manualmente"
+  },
+  "openWorkspaceFolder": {
+    "title": "Abrir pasta do espaço de trabalho"
   }
 }

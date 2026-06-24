@@ -67,10 +67,10 @@ class ErrorBoundaryInner extends Component<
       const { t } = this.props;
       return (
         <div style={{ padding: 40, fontFamily: "system-ui, sans-serif" }}>
-          <h1 style={{ color: "#dc2626", marginBottom: 16 }}>{t("errorBoundary.title")}</h1>
+          <h1 style={{ color: cssVars.color.semantic.error, marginBottom: 16 }}>{t("errorBoundary.title")}</h1>
           <pre style={{
             padding: 16,
-            background: "#fef2f2",
+            background: cssVars.color.semantic.errorBg,
             borderRadius: 8,
             overflow: "auto",
             fontSize: 14,
@@ -135,6 +135,7 @@ function DropOverlay() {
 }
 
 function MainLayout() {
+  const { t } = useTranslation("dialog");
   // Window context + store selectors. State reads only, not lifecycle hooks.
   const isDocumentWindow = useIsDocumentWindow();
   const windowLabel = useWindowLabel();
@@ -193,7 +194,7 @@ function MainLayout() {
       primary={
         <EditorArea
           editor={
-            <FeatureErrorBoundary feature="Editor">
+            <FeatureErrorBoundary feature={t("errorBoundary.feature.editor")}>
               <Editor />
             </FeatureErrorBoundary>
           }
@@ -205,7 +206,7 @@ function MainLayout() {
             </>
           }
           panel={
-            <FeatureErrorBoundary feature="Terminal">
+            <FeatureErrorBoundary feature={t("errorBoundary.feature.terminal")}>
               <Suspense fallback={null}>
                 <TerminalPanel />
               </Suspense>
@@ -231,33 +232,40 @@ function MainLayout() {
   );
 }
 
+function AppRoutes() {
+  const { t } = useTranslation("dialog");
+  return (
+    <Routes>
+      <Route path="/" element={<MainLayout />} />
+      <Route
+        path="/settings"
+        element={
+          <FeatureErrorBoundary feature={t("errorBoundary.feature.settings")}>
+            <Suspense fallback={null}>
+              <SettingsPage />
+            </Suspense>
+          </FeatureErrorBoundary>
+        }
+      />
+      <Route
+        path="/pdf-export"
+        element={
+          <FeatureErrorBoundary feature={t("errorBoundary.feature.pdfExport")}>
+            <Suspense fallback={null}>
+              <PdfExportPage />
+            </Suspense>
+          </FeatureErrorBoundary>
+        }
+      />
+    </Routes>
+  );
+}
+
 function App() {
   return (
     <ErrorBoundary>
       <WindowProvider>
-        <Routes>
-          <Route path="/" element={<MainLayout />} />
-          <Route
-            path="/settings"
-            element={
-              <FeatureErrorBoundary feature="Settings">
-                <Suspense fallback={null}>
-                  <SettingsPage />
-                </Suspense>
-              </FeatureErrorBoundary>
-            }
-          />
-          <Route
-            path="/pdf-export"
-            element={
-              <FeatureErrorBoundary feature="PDF Export">
-                <Suspense fallback={null}>
-                  <PdfExportPage />
-                </Suspense>
-              </FeatureErrorBoundary>
-            }
-          />
-        </Routes>
+        <AppRoutes />
         <Toaster
           position="top-center"
           closeButton

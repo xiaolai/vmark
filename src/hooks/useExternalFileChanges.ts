@@ -47,6 +47,12 @@ import { matchesPendingSave, hasPendingSave } from "@/utils/pendingSaves";
 import { getActiveWorkspaceScope } from "@/services/workspaces/activeWorkspaceScope";
 import { getFileName } from "@/utils/paths";
 import { fileOpsError } from "@/utils/debug";
+import {
+  handleRenameEvent,
+  handleRemoveEvent,
+  handleModifyOrCreateEvent,
+  type FsChangeContext,
+} from "./fsChangeHandlers";
 
 /** Pending dirty file change awaiting user decision */
 interface PendingDirtyChange {
@@ -76,8 +82,10 @@ export function useExternalFileChanges(): void {
   const windowLabel = useWindowLabel();
   const unlistenRef = useRef<UnlistenFn | null>(null);
 
-  // Batching state for dirty file changes
-  const pendingDirtyChangesRef = useRef<PendingDirtyChange[]>([]);
+  // Batching state for dirty file changes. Keyed by normalized file path so
+  // duplicate fs events for the same file collapse into a single pending entry
+  // (a Map also de-dupes by tab implicitly, since one tab owns one path).
+  const pendingDirtyChangesRef = useRef<Map<string, PendingDirtyChange>>(new Map());
   const batchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isProcessingBatchRef = useRef(false);
 
@@ -107,7 +115,7 @@ export function useExternalFileChanges(): void {
         keep: i18n.t("dialog:fileChanged.buttonKeep"),
       } as const;
 
-      const fileName = getFileName(filePath) || "file";
+      const fileName = getFileName(filePath) || i18n.t("dialog:fileChanged.unknownFile");
       const doc = useDocumentStore.getState().getDocument(tabId);
 
       // Single dialog with 3 options:
@@ -207,13 +215,20 @@ export function useExternalFileChanges(): void {
     useDocumentStore.getState().markMissing(targetTabId);
   }, []);
 
+  // Re-point a renamed tab + its document at the new path (clears missing).
+  const applyRename = useCallback((tabId: string, newPath: string) => {
+    useTabStore.getState().updateTabPath(tabId, newPath);
+    useDocumentStore.getState().setFilePath(tabId, newPath);
+    useDocumentStore.getState().clearMissing(tabId);
+  }, []);
+
   // Process batched dirty file changes with a single dialog
   const processBatchedChanges = useCallback(async () => {
-    const pending = pendingDirtyChangesRef.current;
-    if (pending.length === 0 || isProcessingBatchRef.current) return;
+    if (pendingDirtyChangesRef.current.size === 0 || isProcessingBatchRef.current) return;
 
     isProcessingBatchRef.current = true;
-    pendingDirtyChangesRef.current = [];
+    const pending = [...pendingDirtyChangesRef.current.values()];
+    pendingDirtyChangesRef.current = new Map();
 
     try {
       if (pending.length === 1) {
@@ -221,8 +236,10 @@ export function useExternalFileChanges(): void {
         await handleDirtyChange(pending[0].tabId, pending[0].filePath);
       } else {
         // Multiple files - show batch dialog
-        /* v8 ignore next -- @preserve || "file" fallback fires only when getFileName returns "" (path is "/"); effectively unreachable in production */
-        const fileNames = pending.map((p) => getFileName(p.filePath) || "file").join(", ");
+        /* v8 ignore next -- @preserve unknownFile fallback fires only when getFileName returns "" (path is "/"); effectively unreachable in production */
+        const fileNames = pending
+          .map((p) => getFileName(p.filePath) || i18n.t("dialog:fileChanged.unknownFile"))
+          .join(", ");
         const result = await message(
           i18n.t("dialog:fileChanged.multipleMessage", { count: pending.length, fileNames }),
           {
@@ -281,10 +298,16 @@ export function useExternalFileChanges(): void {
     } finally {
       isProcessingBatchRef.current = false;
       // If new items were queued during processing, schedule another round
-      if (pendingDirtyChangesRef.current.length > 0) {
+      if (pendingDirtyChangesRef.current.size > 0) {
         batchTimeoutRef.current = setTimeout(() => {
           batchTimeoutRef.current = null;
-          processBatchedChanges();
+          // void + catch: dialog/read/reload rejections must not become
+          // unhandled promise rejections; reset the guard so the batch can
+          // be re-scheduled rather than wedging.
+          void processBatchedChanges().catch((error) => {
+            fileOpsError("Failed to process batched file changes:", error);
+            isProcessingBatchRef.current = false;
+          });
         }, BATCH_DEBOUNCE_MS);
       }
     }
@@ -293,8 +316,9 @@ export function useExternalFileChanges(): void {
   // Queue a dirty file change for batched processing
   const queueDirtyChange = useCallback(
     (tabId: string, filePath: string) => {
-      // Add to pending queue
-      pendingDirtyChangesRef.current.push({ tabId, filePath });
+      // Add to pending queue, keyed by normalized path so duplicate fs events
+      // for the same file don't prompt/reload it multiple times.
+      pendingDirtyChangesRef.current.set(normalizePath(filePath), { tabId, filePath });
 
       // Clear existing timeout and set a new one
       if (batchTimeoutRef.current) {
@@ -303,7 +327,13 @@ export function useExternalFileChanges(): void {
 
       batchTimeoutRef.current = setTimeout(() => {
         batchTimeoutRef.current = null;
-        processBatchedChanges();
+        // void + catch: dialog/read/reload rejections must not become
+        // unhandled promise rejections; reset the guard so the batch can
+        // be re-scheduled rather than wedging.
+        void processBatchedChanges().catch((error) => {
+          fileOpsError("Failed to process batched file changes:", error);
+          isProcessingBatchRef.current = false;
+        });
       }, BATCH_DEBOUNCE_MS);
     },
     [processBatchedChanges]
@@ -389,40 +419,20 @@ export function useExternalFileChanges(): void {
 
         const openPaths = getOpenFilePaths();
 
+        // Pure routing layer (see fsChangeHandlers.ts) — the hook supplies its
+        // collaborators; each branch is unit-tested in isolation there.
+        const ctx: FsChangeContext = {
+          readTextFile,
+          normalizePath,
+          hasPendingSave,
+          matchesPendingSave,
+          applyRename,
+          handleModifyEvent,
+          handleDeletion,
+        };
+
         if (kind === "rename") {
-          let handled = false;
-          for (let i = 0; i + 1 < paths.length; i += 2) {
-            const oldPath = normalizePath(paths[i]);
-            const newPath = normalizePath(paths[i + 1]);
-            const tabId = openPaths.get(oldPath);
-            if (!tabId) continue;
-
-            useTabStore.getState().updateTabPath(tabId, newPath);
-            useDocumentStore.getState().setFilePath(tabId, newPath);
-            useDocumentStore.getState().clearMissing(tabId);
-            handled = true;
-          }
-          if (!handled) {
-            for (const changedPath of paths) {
-              const normalizedPath = normalizePath(changedPath);
-              const tabId = openPaths.get(normalizedPath);
-              if (!tabId) continue;
-
-              // Skip our own atomic writes (rename is part of temp→target)
-              if (hasPendingSave(normalizedPath)) continue;
-
-              // Verify file is actually gone before marking as deleted.
-              // Atomic writes trigger rename events but the target still exists.
-              try {
-                const diskContent = await readTextFile(changedPath);
-                // File still exists — treat as modify, run content checks
-                await handleModifyEvent(tabId, changedPath, diskContent);
-              } catch {
-                // File truly deleted
-                handleDeletion(tabId);
-              }
-            }
-          }
+          await handleRenameEvent(ctx, paths, openPaths);
           return;
         }
 
@@ -435,44 +445,14 @@ export function useExternalFileChanges(): void {
           const doc = useDocumentStore.getState().getDocument(tabId);
           if (!doc) continue;
 
-          // Handle file deletion
           if (kind === "remove") {
-            // fix(#995) — Windows atomic saves (NamedTempFile::persist →
-            // MoveFileEx) and sync daemons emit `remove` events for files that
-            // still exist. Mirror the rename-fallback guard: skip our own
-            // pending saves, then re-verify the file is truly gone before
-            // marking it missing. Otherwise VMark's own auto-save marks its
-            // file missing → "auto-save paused" that never clears.
-            if (hasPendingSave(normalizedPath)) continue;
-            try {
-              const diskContent = await readTextFile(changedPath);
-              // File still exists — spurious remove. Run modify-style checks
-              // (filters our own save, handles real external edits).
-              if (matchesPendingSave(changedPath, diskContent)) continue;
-              await handleModifyEvent(tabId, changedPath, diskContent);
-            } catch {
-              // File truly gone — mark missing.
-              handleDeletion(tabId);
-            }
+            await handleRemoveEvent(ctx, tabId, changedPath, normalizedPath);
             continue;
           }
 
-          // Handle file modification (create could be a recreation after delete)
+          // create could be a recreation after delete
           if (kind === "modify" || kind === "create") {
-            let diskContent: string;
-            try {
-              diskContent = await readTextFile(changedPath);
-            } catch {
-              // File unreadable (might be deleted or locked) — skip
-              continue;
-            }
-
-            // Filter out our own pending saves
-            if (matchesPendingSave(changedPath, diskContent)) {
-              continue;
-            }
-
-            await handleModifyEvent(tabId, changedPath, diskContent);
+            await handleModifyOrCreateEvent(ctx, tabId, changedPath);
           }
         }
       });
@@ -501,5 +481,5 @@ export function useExternalFileChanges(): void {
         batchTimeoutRef.current = null;
       }
     };
-  }, [windowLabel, getOpenFilePaths, queueDirtyChange, handleDeletion, handleModifyEvent]);
+  }, [windowLabel, getOpenFilePaths, queueDirtyChange, handleDeletion, handleModifyEvent, applyRename]);
 }

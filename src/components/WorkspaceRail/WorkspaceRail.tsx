@@ -1,5 +1,5 @@
 import { CopyPlus, FileStack, Folder } from "lucide-react";
-import type { CSSProperties } from "react";
+import { useRef, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useWorkspaceInstancesStore } from "@/stores/workspaceInstancesStore";
@@ -39,6 +39,10 @@ export function WorkspaceRail({ windowLabel }: { windowLabel: string }) {
     (state) => state.windows[windowLabel]?.activeWorkspaceInstanceId ?? null,
   );
   const instancesById = useWorkspaceInstancesStore((state) => state.instances);
+  // Set true by an internal reorder drop so the dragend that immediately
+  // follows doesn't ALSO treat the gesture as a move-to-new-window. Reset at
+  // the start of each drag and consumed in dragend.
+  const droppedInternallyRef = useRef(false);
 
   if (!enabled) return null;
 
@@ -52,8 +56,10 @@ export function WorkspaceRail({ windowLabel }: { windowLabel: string }) {
       <div className="workspace-rail__list" role="list">
         {instances.map((instance, index) => {
           const label = labels[instance.workspaceInstanceId] ?? instance.displayName;
-          const displayLabel = instance.kind === "loose"
-            ? t("workspaceRail.looseFiles")
+          // Synthetic instances (loose/placeholder) carry a translation key —
+          // prefer it over the stored English fallback so the label is localized.
+          const displayLabel = instance.displayNameKey
+            ? t(instance.displayNameKey)
             : label;
           const active = instance.workspaceInstanceId === activeId;
           const instanceId = instance.workspaceInstanceId;
@@ -72,6 +78,7 @@ export function WorkspaceRail({ windowLabel }: { windowLabel: string }) {
                 title={displayLabel}
                 draggable
                 onDragStart={(event) => {
+                  droppedInternallyRef.current = false;
                   event.dataTransfer.effectAllowed = "move";
                   event.dataTransfer.setData("application/x-vmark-workspace-instance", instanceId);
                 }}
@@ -84,7 +91,13 @@ export function WorkspaceRail({ windowLabel }: { windowLabel: string }) {
                 onDrop={(event) => {
                   event.preventDefault();
                   const sourceId = event.dataTransfer.getData("application/x-vmark-workspace-instance");
-                  if (!sourceId || sourceId === instanceId) return;
+                  if (!sourceId) return;
+                  // A drop that landed on a rail entry is an internal reorder —
+                  // never a move-to-new-window. Record it so the trailing
+                  // dragend suppresses the move even when it drops onto the same
+                  // entry (sourceId === instanceId is still an internal drop).
+                  droppedInternallyRef.current = true;
+                  if (sourceId === instanceId) return;
                   const currentIds = useWorkspaceInstancesStore
                     .getState()
                     .windows[windowLabel]?.workspaceInstanceIds ?? [];
@@ -94,6 +107,16 @@ export function WorkspaceRail({ windowLabel }: { windowLabel: string }) {
                     .reorderWorkspaceInstances(windowLabel, nextIds);
                 }}
                 onDragEnd={(event) => {
+                  // An internal drop already handled this gesture — don't also
+                  // move the workspace to a new window.
+                  if (droppedInternallyRef.current) {
+                    droppedInternallyRef.current = false;
+                    return;
+                  }
+                  // A cancelled drag (Esc, invalid target) reports dropEffect
+                  // "none" and often clientX/clientY of 0,0. Treat that as a
+                  // no-op, not a move-out.
+                  if (event.dataTransfer?.dropEffect === "none") return;
                   if (!isOutsideViewport(event.clientX, event.clientY)) return;
                   void handleMoveWorkspace(windowLabel, instanceId, t);
                 }}
@@ -196,9 +219,14 @@ function countSkippedTabs(result: WorkspaceWindowActionResult): number {
 
 function isOutsideViewport(clientX: number, clientY: number): boolean {
   if (!Number.isFinite(clientX) || !Number.isFinite(clientY)) return false;
+  // (0,0) is the sentinel several browsers report for a cancelled or
+  // failed-internal-drop dragend — treat it as a no-op, not a move-out.
+  // (The dropEffect === "none" guard in the handler covers the common case;
+  // this is defense in depth for browsers that don't set dropEffect.)
+  if (clientX === 0 && clientY === 0) return false;
   return (
-    clientX <= 0
-    || clientY <= 0
+    clientX < 0
+    || clientY < 0
     || clientX >= globalThis.innerWidth
     || clientY >= globalThis.innerHeight
   );

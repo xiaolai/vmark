@@ -1,35 +1,21 @@
 import { invoke } from "@tauri-apps/api/core";
 import { isWorkspaceRailEnabled } from "@/services/featureFlags/workspaceRailFeatureFlag";
 import { useDocumentStore } from "@/stores/documentStore";
-import { useTabStore, type Tab } from "@/stores/tabStore";
-import {
-  useWorkspaceInstancesStore,
-  type WorkspaceInstanceRecord,
-} from "@/stores/workspaceInstancesStore";
+import { useTabStore } from "@/stores/tabStore";
+import { useWorkspaceInstancesStore } from "@/stores/workspaceInstancesStore";
 import type {
   WorkspaceActionOptions,
   WorkspaceOpener,
   WorkspaceTransferPayload,
-  WorkspaceTransferTabPayload,
   WorkspaceWindowActionResult,
   WorkspaceWindowOperation,
 } from "@/types/workspaceTransfer";
 import { generateUUID } from "@/utils/workspaceIdentity";
-import {
-  classifyWorkspaceContextForTab,
-  orderedWindowInstances,
-} from "./workspaceContextOwnership";
+import { workspaceError } from "@/utils/debug";
+import { collectWorkspaceTabs, type CollectedWorkspaceTabs } from "./workspaceTabCollection";
 import { waitForWorkspaceAck } from "./workspaceTransferAck";
 
 const DEFAULT_ACK_TIMEOUT_MS = 8_000;
-
-interface CollectedWorkspaceTabs {
-  tabs: WorkspaceTransferTabPayload[];
-  activeTabId: string | null;
-  skippedDirtyCount: number;
-  skippedUntitledCount: number;
-  skippedMissingCount: number;
-}
 
 export async function moveWorkspaceInstanceToNewWindow(
   windowLabel: string,
@@ -51,7 +37,11 @@ export async function moveWorkspaceInstanceToNewWindow(
   if (windowLabel === "main") {
     store.ensurePlaceholderInstance("main", `wsi-placeholder-${generateUUID()}`);
   } else if (useWorkspaceInstancesStore.getState().windows[windowLabel]?.workspaceInstanceIds.length === 0) {
-    void invoke("close_window", { label: windowLabel });
+    // Don't drop the rejection — a failed close should surface in logs rather
+    // than become an unhandled promise rejection.
+    void invoke("close_window", { label: windowLabel }).catch((error) => {
+      workspaceError("Failed to close emptied source window:", error);
+    });
   }
 
   return result;
@@ -131,13 +121,47 @@ export async function applyClaimedWorkspaceTransfer(
     useTabStore.getState().setActiveTab(windowLabel, payload.activeTabId);
   }
 
-  await invoke("ack_workspace_transfer", {
-    data: {
-      requestId: payload.requestId,
-      targetWindowLabel: windowLabel,
-      workspaceInstanceId: payload.workspaceInstanceId,
-    },
+  // The target's state is now applied (irreversible). The source still holds its
+  // tabs until this ack reaches it, so a dropped ack would leave both windows
+  // populated — a duplicate. Retry the ack so a transient emit/IPC failure can't
+  // strand the move. The Rust command is idempotent (unknown/removed route is a
+  // no-op), so retries are safe.
+  await ackWorkspaceTransferWithRetry({
+    requestId: payload.requestId,
+    targetWindowLabel: windowLabel,
+    workspaceInstanceId: payload.workspaceInstanceId,
   });
+}
+
+const ACK_RETRY_ATTEMPTS = 3;
+const ACK_RETRY_DELAY_MS = 100;
+
+/**
+ * Send the transfer ack, retrying on transient failure so a dropped ack can't
+ * strand a move (target populated, source uncleaned). The Rust command is
+ * idempotent, so retrying after a partial success is harmless.
+ */
+async function ackWorkspaceTransferWithRetry(data: {
+  requestId: string;
+  targetWindowLabel: string;
+  workspaceInstanceId: string;
+}): Promise<void> {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= ACK_RETRY_ATTEMPTS; attempt += 1) {
+    try {
+      await invoke("ack_workspace_transfer", { data });
+      return;
+    } catch (error) {
+      lastError = error;
+      if (attempt < ACK_RETRY_ATTEMPTS) {
+        await new Promise((resolve) => setTimeout(resolve, ACK_RETRY_DELAY_MS));
+      }
+    }
+  }
+  // Exhausted retries — surface for diagnosis. The source's ack timeout will
+  // then drive its own recovery (cancel + keep tabs) instead of silently
+  // duplicating.
+  workspaceError("Failed to ack workspace transfer after retries:", lastError);
 }
 
 function cleanupMovedTab(tabId: string, cleanupTab?: (tabId: string) => void): void {
@@ -184,79 +208,6 @@ function buildWorkspacePayload(
   };
 }
 
-function collectWorkspaceTabs(
-  windowLabel: string,
-  instance: WorkspaceInstanceRecord,
-  operation: WorkspaceWindowOperation,
-): CollectedWorkspaceTabs {
-  const tabs = useTabStore.getState().getTabsByWindow(windowLabel);
-  const activeTabId = useTabStore.getState().activeTabId[windowLabel] ?? null;
-  const activeInstanceId =
-    useWorkspaceInstancesStore.getState().windows[windowLabel]?.activeWorkspaceInstanceId ?? null;
-  const documents = useDocumentStore.getState();
-  const collected: WorkspaceTransferTabPayload[] = [];
-  let skippedDirtyCount = 0;
-  let skippedUntitledCount = 0;
-  let skippedMissingCount = 0;
-
-  for (const tab of tabs) {
-    if (!tabBelongsToWorkspace(tab, instance, activeInstanceId)) continue;
-    const doc = documents.getDocument(tab.id);
-    if (!doc) continue;
-
-    if (operation === "duplicate") {
-      if (!tab.filePath) {
-        skippedUntitledCount += 1;
-        continue;
-      }
-      if (doc.isMissing) {
-        skippedMissingCount += 1;
-        continue;
-      }
-      if (doc.isDirty) {
-        skippedDirtyCount += 1;
-        continue;
-      }
-    }
-
-    collected.push({
-      tabId: tab.id,
-      title: tab.title,
-      filePath: tab.filePath,
-      content: doc.content,
-      savedContent: doc.savedContent,
-      isDirty: doc.isDirty,
-      readOnly: doc.readOnly,
-      isPinned: tab.isPinned,
-      formatId: tab.formatId,
-      editingEnabled: tab.editingEnabled,
-      activeSchemaId: tab.activeSchemaId,
-    });
-  }
-
-  return {
-    tabs: collected,
-    activeTabId: collected.some((tab) => tab.tabId === activeTabId) ? activeTabId : collected[0]?.tabId ?? null,
-    skippedDirtyCount,
-    skippedUntitledCount,
-    skippedMissingCount,
-  };
-}
-
-function tabBelongsToWorkspace(
-  tab: Tab,
-  instance: WorkspaceInstanceRecord,
-  activeInstanceId: string | null,
-): boolean {
-  if (instance.tabIds.includes(tab.id)) return true;
-  const owner = classifyWorkspaceContextForTab({
-    filePath: tab.filePath,
-    instances: orderedWindowInstances(instance.ownerWindowLabel),
-    activeWorkspaceInstanceId: activeInstanceId,
-  });
-  return owner?.workspaceInstanceId === instance.workspaceInstanceId;
-}
-
 async function createWindowAndWaitForAck(
   payload: WorkspaceTransferPayload,
   timeoutMs = DEFAULT_ACK_TIMEOUT_MS,
@@ -266,9 +217,25 @@ async function createWindowAndWaitForAck(
     const ack = waitForWorkspaceAck(payload.requestId, timeoutMs);
     targetWindowLabel = await invoke<string>("detach_workspace_to_new_window", { data: payload });
     const received = await ack;
-    if (!received) return { ok: false, reason: "timeout", targetWindowLabel };
+    if (!received) {
+      // Ack timed out — explicitly abandon the Rust-side transfer claim so a
+      // late target `claim_workspace_transfer` can't still apply the payload
+      // while the source keeps its tabs (which would duplicate the workspace).
+      await cancelWorkspaceTransfer(targetWindowLabel);
+      return { ok: false, reason: "timeout", targetWindowLabel };
+    }
     return { ok: true, targetWindowLabel: received.targetWindowLabel };
   } catch {
     return { ok: false, reason: "invokeFailed", targetWindowLabel };
+  }
+}
+
+/** Best-effort cancel of a pending transfer; failures are logged, not thrown. */
+async function cancelWorkspaceTransfer(targetWindowLabel: string | undefined): Promise<void> {
+  if (!targetWindowLabel) return;
+  try {
+    await invoke("cancel_workspace_transfer", { targetWindowLabel });
+  } catch (error) {
+    workspaceError("Failed to cancel timed-out workspace transfer:", error);
   }
 }

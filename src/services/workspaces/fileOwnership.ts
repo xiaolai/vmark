@@ -2,10 +2,18 @@ import { isWorkspaceRailEnabled } from "@/services/featureFlags/workspaceRailFea
 import { imeToast as toast } from "@/services/ime/imeToast";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
-import { selectActiveWorkspaceInstance, useWorkspaceInstancesStore } from "@/stores/workspaceInstancesStore";
+import {
+  useWorkspaceInstancesStore,
+  type WorkspaceInstanceRecord,
+} from "@/stores/workspaceInstancesStore";
 import i18n from "@/i18n";
-import { normalizePath } from "@/utils/paths";
-import { claimTabForWorkspaceContext } from "./workspaceContextOwnership";
+import { getRuntimePlatform } from "@/utils/platform";
+import { normalizeWorkspacePathForIdentity } from "@/utils/workspaceIdentity";
+import {
+  claimTabForWorkspaceContext,
+  classifyWorkspaceContextForTab,
+  orderedWindowInstances,
+} from "./workspaceContextOwnership";
 
 export type FileOwnershipPlatform = "macos" | "windows" | "linux";
 
@@ -162,10 +170,9 @@ function collectFileOwnershipClaims(
   const claims: FileOwnershipClaim[] = [];
 
   for (const [windowLabel, tabs] of Object.entries(tabState.tabs)) {
-    const activeInstance = selectActiveWorkspaceInstance(
-      useWorkspaceInstancesStore.getState(),
-      windowLabel,
-    );
+    const windowInstances = orderedWindowInstances(windowLabel);
+    const activeInstanceId =
+      useWorkspaceInstancesStore.getState().windows[windowLabel]?.activeWorkspaceInstanceId ?? null;
     for (const tab of tabs) {
       if (tab.id === options.currentTabId) continue;
       const doc = documentState.getDocument(tab.id);
@@ -177,11 +184,20 @@ function collectFileOwnershipClaims(
         options.platform,
       );
       if (identity !== targetIdentity) continue;
+      // Attribute the claim to the instance that actually OWNS this tab, not
+      // the window's active instance — otherwise a conflict held by an
+      // inactive workspace reports the wrong workspaceInstanceId/displayName.
+      const owningInstance = resolveOwningInstance(
+        tab.id,
+        candidatePath,
+        windowInstances,
+        activeInstanceId,
+      );
       claims.push({
         tabId: tab.id,
         windowLabel,
-        workspaceInstanceId: activeInstance?.workspaceInstanceId ?? null,
-        workspaceDisplayName: activeInstance?.displayName ?? null,
+        workspaceInstanceId: owningInstance?.workspaceInstanceId ?? null,
+        workspaceDisplayName: owningInstance?.displayName ?? null,
         filePath: candidatePath,
         identity,
         isDirty: doc?.isDirty ?? false,
@@ -191,6 +207,28 @@ function collectFileOwnershipClaims(
   }
 
   return claims;
+}
+
+/**
+ * Resolve which workspace instance owns a given tab. Prefer explicit tab
+ * membership (`instance.tabIds`); fall back to root-based classification so a
+ * not-yet-claimed tab still attributes to the most specific workspace.
+ */
+function resolveOwningInstance(
+  tabId: string,
+  filePath: string,
+  windowInstances: WorkspaceInstanceRecord[],
+  activeInstanceId: string | null,
+): WorkspaceInstanceRecord | null {
+  const byMembership = windowInstances.find((instance) =>
+    instance.tabIds.includes(tabId),
+  );
+  if (byMembership) return byMembership;
+  return classifyWorkspaceContextForTab({
+    filePath,
+    instances: windowInstances,
+    activeWorkspaceInstanceId: activeInstanceId,
+  });
 }
 
 function findWindowLabelForTab(tabId: string): string | null {
@@ -206,9 +244,20 @@ function toOwnershipIdentity(
   canonicalPath: string | null | undefined,
   platform: FileOwnershipPlatform | undefined,
 ): string {
+  // Derive the OS at the boundary rather than defaulting to a single platform —
+  // Windows/Linux path normalization differs and a wrong default silently
+  // mis-detects conflicts (T-platform finding).
+  const resolved = platform ?? getRuntimePlatform();
   const path = canonicalPath?.trim() || filePath;
-  const normalized = normalizePath(path);
-  return platform === "windows"
-    ? normalized.toLocaleLowerCase("en-US")
-    : normalized;
+  // Single source of truth for path normalization — reuse the same helper that
+  // workspace root identity uses, instead of a divergent local normalizer.
+  const { platformIdentity } = normalizeWorkspacePathForIdentity(path, resolved);
+  // Default macOS volumes (APFS/HFS+) are case-insensitive, so a case-variant
+  // open of the same file must resolve to the same identity — otherwise
+  // dirty-writable conflict detection is silently bypassed. (Windows is already
+  // case-folded by normalizeWorkspacePathForIdentity; Linux stays
+  // case-sensitive.)
+  return resolved === "macos"
+    ? platformIdentity.toLocaleLowerCase("en-US")
+    : platformIdentity;
 }

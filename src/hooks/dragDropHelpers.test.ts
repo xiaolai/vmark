@@ -79,9 +79,12 @@ describe("drag-drop split helpers", () => {
       "open_workspace_with_files_in_new_window",
       { workspaceRoot: "/repo", filePaths: ["/repo/a.md", "/repo/b.md"] },
     );
+    // A root-level file resolves to the filesystem-root workspace "/" (no longer
+    // a silent no-op), so it groups through the workspace open path like any
+    // other rooted file rather than the bare open_file_in_new_window route.
     expect(mockInvoke).toHaveBeenCalledWith(
-      "open_file_in_new_window",
-      { path: "/root.md" },
+      "open_workspace_with_files_in_new_window",
+      { workspaceRoot: "/", filePaths: ["/root.md"] },
     );
   });
 
@@ -128,10 +131,13 @@ describe("drag-drop split helpers", () => {
     await openDroppedFileInNewTab(WINDOW, "/repo/fail.md");
 
     expect(useFileLoadStore.getState().active).toBe(false);
-    expect(mockToastError).toHaveBeenCalledWith({
-      key: "dialog:toast.failedToOpen",
-      values: { filename: "fail.md" },
-    });
+    // Drag-drop now routes through the shared openFileInNewTabCore, which
+    // surfaces the unified pinned "failed to open file" toast (carrying the
+    // system error) instead of the old drag-drop-only filename toast.
+    expect(mockToastError).toHaveBeenCalledWith(
+      { key: "dialog:toast.failedToOpenFile", values: { error: "denied" } },
+      { pin: true },
+    );
   });
 
   it("uses the raw path for progress labels when a path has no file name", async () => {

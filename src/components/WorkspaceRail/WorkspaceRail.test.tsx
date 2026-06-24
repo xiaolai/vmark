@@ -195,6 +195,75 @@ describe("WorkspaceRail", () => {
     expect(mockMoveWorkspace).not.toHaveBeenCalled();
   });
 
+  it("does not move when dragend reports the 0,0 cancellation sentinel", () => {
+    // A cancelled drag (Esc) or invalid-target drop reports clientX/Y of 0,0
+    // in several browsers. The old `<= 0` check treated this as outside and
+    // wrongly moved the workspace to a new window.
+    setRailMode(true);
+    addInstance("main", "wsi-a", "/Users/xiaolai/a");
+
+    render(<WorkspaceRail windowLabel="main" />);
+    const button = screen.getByRole("button", { name: "Activate a" });
+    const event = createEvent.dragEnd(button);
+    Object.defineProperties(event, {
+      clientX: { value: 0 },
+      clientY: { value: 0 },
+    });
+    fireEvent(button, event);
+
+    expect(mockMoveWorkspace).not.toHaveBeenCalled();
+  });
+
+  it("does not move when dragend reports dropEffect 'none' (cancelled drag)", () => {
+    setRailMode(true);
+    addInstance("main", "wsi-a", "/Users/xiaolai/a");
+
+    render(<WorkspaceRail windowLabel="main" />);
+    const button = screen.getByRole("button", { name: "Activate a" });
+    const event = createEvent.dragEnd(button);
+    Object.defineProperties(event, {
+      // Outside coords, but dropEffect "none" means the drag was cancelled.
+      clientX: { value: -50 },
+      clientY: { value: 20 },
+      dataTransfer: { value: { dropEffect: "none" } },
+    });
+    fireEvent(button, event);
+
+    expect(mockMoveWorkspace).not.toHaveBeenCalled();
+  });
+
+  it("does not move to a new window after an internal reorder drop", () => {
+    setRailMode(true);
+    addInstance("main", "wsi-a", "/Users/xiaolai/a");
+    addInstance("main", "wsi-b", "/Users/xiaolai/b");
+
+    render(<WorkspaceRail windowLabel="main" />);
+    const source = screen.getByRole("button", { name: "Activate b" });
+    const target = screen.getByRole("button", { name: "Activate a" });
+
+    fireEvent.dragStart(source, {
+      dataTransfer: { effectAllowed: "", setData: vi.fn(), getData: vi.fn(() => "wsi-b") },
+    });
+    fireEvent.dragOver(target);
+    fireEvent.drop(target, { dataTransfer: { getData: vi.fn(() => "wsi-b") } });
+
+    // The trailing dragend fires at 0,0 (or outside) after an internal drop;
+    // the internal-drop flag must suppress the move.
+    const endEvent = createEvent.dragEnd(source);
+    Object.defineProperties(endEvent, {
+      clientX: { value: -10 },
+      clientY: { value: 20 },
+    });
+    fireEvent(source, endEvent);
+
+    expect(mockMoveWorkspace).not.toHaveBeenCalled();
+    // The reorder still happened.
+    expect(
+      selectWindowWorkspaceState(useWorkspaceInstancesStore.getState(), "main")
+        ?.workspaceInstanceIds,
+    ).toEqual(["wsi-b", "wsi-a"]);
+  });
+
   it("reorders workspace entries when a rail icon is dropped on another entry", () => {
     setRailMode(true);
     addInstance("main", "wsi-a", "/Users/xiaolai/a");

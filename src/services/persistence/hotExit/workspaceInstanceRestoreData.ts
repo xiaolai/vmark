@@ -1,15 +1,13 @@
 import type { WorkspaceInstanceRecord } from "@/stores/workspaceInstancesStore";
 import {
-  createWorkspaceRootIdentity,
   type WorkspaceInstanceCreatedFrom,
   type WorkspaceInstanceKind,
 } from "@/utils/workspaceIdentity";
-import { isWithinRoot } from "@/utils/paths";
 import type {
   HotExitWorkspaceInstanceState,
-  TabState,
   WindowState,
 } from "./types";
+import { synthesizeLegacyWindowInstances } from "./workspaceInstanceSynthesis";
 
 const CREATED_FROM_VALUES = new Set<string>([
   "open",
@@ -74,50 +72,17 @@ export function synthesizeWindowInstances(
   windowState: WindowState,
   legacyWorkspaceRoot: string | null,
 ): WorkspaceInstanceRecord[] {
-  if (windowState.tabs.length === 0) return [];
-  const workspaceTabs: TabState[] = [];
-  const looseTabs: TabState[] = [];
-  for (const tab of windowState.tabs) {
-    if (legacyWorkspaceRoot && tab.file_path && isWithinRoot(legacyWorkspaceRoot, tab.file_path)) {
-      workspaceTabs.push(tab);
-    } else {
-      looseTabs.push(tab);
-    }
-  }
-
-  const result: WorkspaceInstanceRecord[] = [];
-  if (legacyWorkspaceRoot && workspaceTabs.length > 0) {
-    const root = createWorkspaceRootIdentity(legacyWorkspaceRoot, { platform: "macos" });
-    if (root.ok) {
-      result.push({
-        ...createWorkspaceRecord(
-          `wsi-legacy-${windowLabel}-workspace`,
-          "workspace",
-          windowLabel,
-          root.root.rootId,
-          root.root.rootPath,
-          root.root.displayName,
-        ),
-        tabIds: workspaceTabs.map((tab) => tab.id),
-        activeTabId: activeTabInList(windowState.active_tab_id, workspaceTabs),
-      });
-    }
-  }
-  if (looseTabs.length > 0) {
-    result.push({
-      ...createWorkspaceRecord(
-        `wsi-legacy-${windowLabel}-loose`,
-        "loose",
-        windowLabel,
-        null,
-        null,
-        "Loose Files",
-      ),
-      tabIds: looseTabs.map((tab) => tab.id),
-      activeTabId: activeTabInList(windowState.active_tab_id, looseTabs),
-    });
-  }
-  return result;
+  // Delegate to the shared synthesizer so restore and v5 migration agree.
+  // Critically, this preserves legacy workspace tabs with a fallback root
+  // identity instead of dropping them when the root path is unusable.
+  return synthesizeLegacyWindowInstances(
+    {
+      windowLabel,
+      activeTabId: windowState.active_tab_id,
+      tabs: windowState.tabs,
+    },
+    legacyWorkspaceRoot,
+  );
 }
 
 function isHotExitWorkspaceInstanceState(
@@ -166,30 +131,3 @@ function parseKind(
   return "loose";
 }
 
-function createWorkspaceRecord(
-  workspaceInstanceId: string,
-  kind: WorkspaceInstanceKind,
-  ownerWindowLabel: string,
-  rootId: string | null,
-  rootPath: string | null,
-  displayName: string,
-): WorkspaceInstanceRecord {
-  return {
-    workspaceInstanceId,
-    kind,
-    rootId,
-    rootPath,
-    displayName,
-    ownerWindowLabel,
-    createdFrom: "restore",
-    activeTabId: null,
-    tabIds: [],
-    closedTabIds: [],
-    unavailableRoot: false,
-  };
-}
-
-function activeTabInList(activeTabId: string | null, tabs: TabState[]): string | null {
-  if (!activeTabId) return null;
-  return tabs.some((tab) => tab.id === activeTabId) ? activeTabId : null;
-}

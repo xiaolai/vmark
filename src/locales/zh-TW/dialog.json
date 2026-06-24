@@ -33,7 +33,8 @@
     "buttonKeep": "保留我的變更",
     "buttonReloadAll": "全部重新載入",
     "buttonKeepAll": "全部保留",
-    "buttonReviewEach": "逐一檢閱"
+    "buttonReviewEach": "逐一檢閱",
+    "unknownFile": "檔案"
   },
   "revertToSaved": {
     "title": "還原至已儲存版本",
@@ -222,7 +223,13 @@
   "errorBoundary": {
     "title": "發生錯誤",
     "featureFailedTitle": "{{feature}} 渲染失敗",
-    "tryAgain": "重試"
+    "tryAgain": "重試",
+    "feature": {
+      "editor": "編輯器",
+      "terminal": "終端機",
+      "settings": "設定",
+      "pdfExport": "PDF 匯出"
+    }
   },
   "pdfExport": {
     "title": "匯出 PDF",
@@ -240,5 +247,8 @@
     "pin": "釘住",
     "pinTooltip": "保持此通知開啟",
     "unpinTooltip": "已釘住 — 手動關閉"
+  },
+  "openWorkspaceFolder": {
+    "title": "開啟工作區資料夾"
   }
 }

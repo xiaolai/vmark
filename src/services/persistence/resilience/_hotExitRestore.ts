@@ -12,6 +12,10 @@
  * The RESTORE_START listener in the hook is kept as a fallback but
  * is guarded against double-restore.
  *
+ * The restore state machine (concurrency guard + per-window coordination)
+ * lives in `createWindowRestoreCoordinator` so it can be unit-tested without
+ * React render timing. `useHotExitRestore` is pure lifecycle wiring around it.
+ *
  * @coordinates-with restoreHelpers.ts — all restore logic lives there
  */
 
@@ -21,15 +25,16 @@ import { emit, listen } from '@tauri-apps/api/event';
 import { hotExitLog, hotExitWarn } from '@/utils/debug';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { HOT_EXIT_EVENTS } from '../hotExit/types';
-import { pullWindowStateWithRetry, restoreWindowState } from '../hotExit/restoreHelpers';
+import {
+  MAX_STATE_RETRIES,
+  pullWindowStateWithRetry,
+  restoreWindowState,
+} from '../hotExit/restoreHelpers';
 import {
   reconcileRestoredWindowWorkspaceInstances,
   restoreWindowWorkspaceInstances,
 } from '../hotExit/workspaceInstances';
 import { errorMessage } from "@/utils/errorMessage";
-
-/** Maximum retries when pulling state (handles timing issues) */
-const MAX_STATE_RETRIES = 5;
 
 /** Module-level flag to prevent double-restore of main window */
 let mainWindowRestoreStarted = false;
@@ -41,7 +46,7 @@ function resetMainRestoreGuard() {
 
 /**
  * Core restore logic: pull state, restore, signal completion.
- * Shared by restoreMainWindowState() and the hook's restoreFromPulledState().
+ * Shared by restoreMainWindowState() and the hook's coordinator.
  *
  * @returns true if restore succeeded (allDone or partial), false if no state found
  * @throws on restore or invoke failure (caller handles guard reset)
@@ -112,97 +117,117 @@ export async function restoreMainWindowState(): Promise<void> {
   }
 }
 
+/**
+ * Per-window restore coordinator (state machine).
+ *
+ * Owns the concurrency guard and the per-window restore flow, independent of
+ * React. Exported for direct unit testing of the race / IPC-failure branches
+ * that a render-based test cannot reach (React renders are synchronous, so the
+ * in-render concurrent path is unreachable via renderHook alone).
+ */
+export interface WindowRestoreCoordinator {
+  /** True once a restore for this window is in flight. */
+  isRestoring(): boolean;
+  /**
+   * Pull and restore this window's state.
+   * @param isRequestedRestore - True if triggered by RESTORE_START event
+   */
+  restore(isRequestedRestore: boolean): Promise<void>;
+  /**
+   * Run the on-mount check: secondary windows pull immediately; main window
+   * waits for the RESTORE_START signal. Idempotent (guards re-entry).
+   */
+  checkPending(): Promise<void>;
+  /** Handle a RESTORE_START event for the main window. */
+  onRestoreStart(): Promise<void>;
+}
+
+export function createWindowRestoreCoordinator(
+  windowLabel: string,
+): WindowRestoreCoordinator {
+  const isMainWindow = windowLabel === 'main';
+  let restoring = false;
+  let checkedPending = false;
+
+  const restore = async (isRequestedRestore: boolean): Promise<void> => {
+    if (restoring) {
+      hotExitWarn(`Window '${windowLabel}' ignoring concurrent restore`);
+      return;
+    }
+    restoring = true;
+
+    try {
+      const restored = await pullAndRestore(windowLabel);
+
+      if (!restored && isRequestedRestore && isMainWindow) {
+        // Restore was explicitly requested but no state found — emit failure
+        // so checkAndRestoreSession doesn't wait until timeout.
+        resetMainRestoreGuard();
+        hotExitWarn('Restore was requested but no state available');
+        emitRestoreFailed(`No restore state found for window '${windowLabel}'`);
+      }
+    } catch (error) {
+      if (isMainWindow) {
+        resetMainRestoreGuard();
+      }
+      hotExitWarn(`Window '${windowLabel}' restore failed:`, error);
+      emitRestoreFailed(errorMessage(error));
+    } finally {
+      restoring = false;
+    }
+  };
+
+  const checkPending = async (): Promise<void> => {
+    if (checkedPending) return;
+    checkedPending = true;
+
+    // Secondary windows pull state immediately (Rust creates them after the
+    // session is stored). Main window waits for RESTORE_START so it doesn't
+    // restore on normal startup.
+    if (!isMainWindow) {
+      await restore(true);
+    }
+  };
+
+  const onRestoreStart = async (): Promise<void> => {
+    // Only the main window acts on RESTORE_START; secondary windows restore
+    // on mount.
+    if (!isMainWindow) return;
+    if (mainWindowRestoreStarted) {
+      hotExitLog('RESTORE_START received but restore already started, ignoring');
+      return;
+    }
+    // Set flag to prevent double-restore via the direct call path.
+    mainWindowRestoreStarted = true;
+    await restore(true);
+  };
+
+  return {
+    isRestoring: () => restoring,
+    restore,
+    checkPending,
+    onRestoreStart,
+  };
+}
+
 export function useHotExitRestore() {
-  // Prevent concurrent restore attempts
-  const isRestoring = useRef(false);
-  const hasCheckedPending = useRef(false);
-  // Track if we were triggered by RESTORE_START (vs normal startup)
-  const restoreWasRequested = useRef(false);
+  // The coordinator is created once per mount and holds the restore state
+  // machine; the hook only wires it to mount/unmount lifecycle.
+  const coordinatorRef = useRef<WindowRestoreCoordinator | null>(null);
 
   useEffect(() => {
     const windowLabel = getCurrentWebviewWindow().label;
-    const isMainWindow = windowLabel === 'main';
+    const coordinator =
+      coordinatorRef.current ?? createWindowRestoreCoordinator(windowLabel);
+    coordinatorRef.current = coordinator;
 
-    /**
-     * Restore this window's state by pulling from Rust coordinator.
-     * Used by both main and secondary windows for consistency.
-     *
-     * @param isRequestedRestore - True if triggered by RESTORE_START event
-     */
-    const restoreFromPulledState = async (isRequestedRestore: boolean) => {
-      /* v8 ignore start -- concurrent restore guard; React renders are synchronous so this race is untestable */
-      if (isRestoring.current) {
-        hotExitWarn(`Window '${windowLabel}' ignoring concurrent restore`);
-        return;
-      }
-      /* v8 ignore stop */
+    void coordinator.checkPending();
 
-      isRestoring.current = true;
-
-      try {
-        const restored = await pullAndRestore(windowLabel);
-
-        if (!restored) {
-          // If restore was explicitly requested but no state found, emit failure
-          // (This prevents checkAndRestoreSession from waiting until timeout)
-          if (isRequestedRestore && isMainWindow) {
-            resetMainRestoreGuard();
-            hotExitWarn('Restore was requested but no state available');
-            /* v8 ignore start -- @preserve reason: emit().catch() callback only fires on Tauri IPC errors; not triggered in mocked tests */
-            emitRestoreFailed(`No restore state found for window '${windowLabel}'`);
-            /* v8 ignore stop */
-          }
-        }
-      } catch (error) {
-        /* v8 ignore start -- defensive guard: main-window failure in hook path is covered by restoreMainWindowState() catch; hook path only fires as fallback */
-        if (isMainWindow) {
-          resetMainRestoreGuard();
-        }
-        /* v8 ignore stop */
-        hotExitWarn(`Window '${windowLabel}' restore failed:`, error);
-        emitRestoreFailed(errorMessage(error));
-      } finally {
-        isRestoring.current = false;
-      }
-    };
-
-    // For secondary windows: check for pending state immediately on mount
-    // (they're created by Rust after session is stored)
-    const checkPendingState = async () => {
-      /* v8 ignore start -- re-entry guard; hasCheckedPending is set to true on first call and never reset */
-      if (hasCheckedPending.current) return;
-      /* v8 ignore stop */
-      hasCheckedPending.current = true;
-
-      // Secondary windows pull state immediately
-      // Main window waits for RESTORE_START signal (to avoid restoring on normal startup)
-      if (!isMainWindow) {
-        // Secondary windows created during restore are "requested"
-        await restoreFromPulledState(true);
-      }
-    };
-
-    void checkPendingState();
-
-    // Listen for RESTORE_START signal (fallback for main window)
-    // Primary restore is now triggered directly by checkAndRestoreSession()
-    // This listener is kept as a fallback but guarded against double-restore.
-    const unlistenPromise = listen(
-      HOT_EXIT_EVENTS.RESTORE_START,
-      async () => {
-        // Main window: check if already restored via direct call
-        if (isMainWindow) {
-          if (mainWindowRestoreStarted) {
-            hotExitLog('RESTORE_START received but restore already started, ignoring');
-            return;
-          }
-          // Set flag to prevent double-restore via direct call
-          mainWindowRestoreStarted = true;
-          restoreWasRequested.current = true;
-          await restoreFromPulledState(true);
-        }
-        // Secondary windows ignore this — they restore on mount
-      }
+    // Listen for RESTORE_START signal (fallback for main window). Primary
+    // restore is triggered directly by checkAndRestoreSession(); this listener
+    // is guarded against double-restore.
+    const unlistenPromise = listen(HOT_EXIT_EVENTS.RESTORE_START, () =>
+      coordinator.onRestoreStart(),
     );
 
     return () => {

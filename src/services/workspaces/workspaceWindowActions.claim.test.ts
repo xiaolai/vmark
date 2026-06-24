@@ -156,6 +156,33 @@ describe("workspace transfer claim handling", () => {
     expect(mockInvoke).not.toHaveBeenCalled();
   });
 
+  it("retries the ack when the first ack invoke fails (no stranded move)", async () => {
+    setRailMode(true);
+    const payload: WorkspaceTransferPayload = {
+      requestId: "wst-retry",
+      operation: "move",
+      sourceWindowLabel: "main",
+      workspaceInstanceId: "wsi-retry",
+      kind: "workspace",
+      rootId: "path:macos:/repo",
+      rootPath: "/repo",
+      displayName: "repo",
+      activeTabId: null,
+      tabs: [],
+    };
+    // First ack invoke rejects (transient), second succeeds.
+    mockInvoke
+      .mockRejectedValueOnce(new Error("emit failed"))
+      .mockResolvedValueOnce(undefined);
+
+    await applyClaimedWorkspaceTransfer("doc-2", payload, mockOpenWorkspaceWithConfig);
+
+    const ackCalls = mockInvoke.mock.calls.filter(
+      (call) => call[0] === "ack_workspace_transfer",
+    );
+    expect(ackCalls.length).toBeGreaterThanOrEqual(2);
+  });
+
   it("applies a rootless claimed transfer as a placeholder instance", async () => {
     setRailMode(true);
     const payload: WorkspaceTransferPayload = {

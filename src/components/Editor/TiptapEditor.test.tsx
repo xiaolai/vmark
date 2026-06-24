@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   parseMarkdown: vi.fn(() => ({ type: "doc", content: [] })),
   serializeMarkdown: vi.fn(() => "# hello"),
   registerActiveWysiwygFlusher: vi.fn(),
+  registerWysiwygFlusher: vi.fn(),
   getCursorInfoFromTiptap: vi.fn(() => ({ line: 1, col: 0 })),
   restoreCursorInTiptap: vi.fn(),
   getTiptapEditorView: vi.fn(() => null),
@@ -99,6 +100,7 @@ vi.mock("@/utils/markdownPipeline", () => ({
 
 vi.mock("@/utils/wysiwygFlush", () => ({
   registerActiveWysiwygFlusher: mocks.registerActiveWysiwygFlusher,
+  registerWysiwygFlusher: mocks.registerWysiwygFlusher,
 }));
 
 vi.mock("@/utils/cursorSync/tiptap", () => ({

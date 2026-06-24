@@ -2,16 +2,26 @@ import { invoke } from '@tauri-apps/api/core';
 import { hotExitLog, hotExitWarn } from '@/utils/debug';
 import { useTabStore } from '@/stores/tabStore';
 import { useDocumentStore } from '@/stores/documentStore';
-import { useUIStore } from '@/stores/uiStore';
+import { useUIStore, TERMINAL_MAX_RATIO } from '@/stores/uiStore';
 import { useUnifiedHistoryStore } from '@/stores/documentStore';
-import { getFormatById } from '@/lib/formats/registry';
+import {
+  clearExistingWindowTabs,
+  deduplicateTabsByPath,
+  filterMeaningfulTabs,
+  restoreActiveTab,
+  restoreTabMetadata,
+} from './restoreTabsHelpers';
 import type { WindowState, HistoryCheckpoint, CursorInfo, TabState, DocumentState } from './types';
 import type { LineEnding } from '@/utils/linebreakDetection';
 import type { HistoryCheckpoint as StoreHistoryCheckpoint } from '@/stores/documentStore';
 import type { CursorInfo as StoreCursorInfo } from '@/types/cursorSync';
 
-/** Maximum retries when pulling state (handles timing issues) */
-const MAX_STATE_RETRIES = 5;
+/**
+ * Maximum retries when pulling state (handles timing issues). Exported so the
+ * restore coordinator reports the same retry count it actually applies —
+ * keeping the log message and behavior from drifting apart.
+ */
+export const MAX_STATE_RETRIES = 5;
 /** Delay between retries in milliseconds */
 const RETRY_DELAY_MS = 100;
 /** Minimum valid sidebar width */
@@ -78,11 +88,19 @@ function fromHotExitLineEnding(lineEnding: '\n' | '\r\n' | 'unknown'): LineEndin
 function toStoreCursorInfo(cursorInfo: CursorInfo | null | undefined): StoreCursorInfo | null {
   if (!cursorInfo) return null;
 
-  // Validate required numeric fields
+  // Validate required numeric fields against their domains, not just
+  // finiteness. source_line is 1-indexed (remark), so it must be a positive
+  // integer; offset_in_word is a character offset (non-negative); and
+  // percent_in_line is a fraction in [0, 1]. Corrupt persisted state outside
+  // these ranges would otherwise be restored into editor cursor sync.
   if (
-    !Number.isFinite(cursorInfo.source_line) ||
+    !Number.isInteger(cursorInfo.source_line) ||
+    cursorInfo.source_line < 1 ||
     !Number.isFinite(cursorInfo.offset_in_word) ||
-    !Number.isFinite(cursorInfo.percent_in_line)
+    cursorInfo.offset_in_word < 0 ||
+    !Number.isFinite(cursorInfo.percent_in_line) ||
+    cursorInfo.percent_in_line < 0 ||
+    cursorInfo.percent_in_line > 1
   ) {
     hotExitWarn('Invalid cursor info, skipping restore');
     return null;
@@ -98,17 +116,6 @@ function toStoreCursorInfo(cursorInfo: CursorInfo | null | undefined): StoreCurs
     contextAfter: cursorInfo.context_after ?? '',
     blockAnchor: cursorInfo.block_anchor as StoreCursorInfo['blockAnchor'],
   };
-}
-
-/**
- * An empty-untitled tab carries no information: no file path, no saved
- * content, and no unsaved content. Restoring such tabs only adds orphan
- * blank tabs the user has to close manually — there is nothing to recover.
- */
-function isEmptyUntitledTab(tab: TabState): boolean {
-  return tab.file_path === null
-    && tab.document.content === ""
-    && tab.document.saved_content === "";
 }
 
 /**
@@ -228,7 +235,14 @@ export function restoreUiState(windowState: WindowState): void {
     uiStore.toggleTerminal();
   }
   if (ui_state.terminal_height != null && Number.isFinite(ui_state.terminal_height)) {
-    uiStore.setTerminalHeight(ui_state.terminal_height);
+    // setTerminalHeight only enforces the pixel floor; the proportional cap
+    // (TERMINAL_MAX_RATIO of the viewport) is applied by viewport-aware layout
+    // callers at runtime. On restore there is no resize event, so a corrupt
+    // persisted value (e.g. larger than the screen) would otherwise produce an
+    // unusably huge panel until the user manually resizes. Apply the same 50%
+    // max policy here so restore lands inside the layout bounds.
+    const maxHeight = window.innerHeight * TERMINAL_MAX_RATIO;
+    uiStore.setTerminalHeight(Math.min(ui_state.terminal_height, maxHeight));
   }
 }
 
@@ -239,7 +253,6 @@ export async function restoreTabs(
   windowLabel: string,
   windowState: WindowState,
 ): Promise<Map<string, string>> {
-  const tabStore = useTabStore.getState();
   const documentStore = useDocumentStore.getState();
 
   // Strip empty-untitled tabs first — restoring blank tabs adds orphan
@@ -247,136 +260,29 @@ export async function restoreTabs(
   // meaningful, skip the entire clear-and-rebuild so the window keeps
   // whatever WindowContext init produced (a fresh blank tab in
   // non-workspace mode, or no tabs in workspace mode).
-  const meaningfulTabs = windowState.tabs.filter((t) => !isEmptyUntitledTab(t));
+  const meaningfulTabs = filterMeaningfulTabs(windowState.tabs);
   if (meaningfulTabs.length === 0) {
     hotExitLog(`No meaningful tabs to restore for '${windowLabel}'; preserving WindowContext fallback`);
     return new Map();
   }
 
-  // Clear existing tabs by removing the window (bypasses pin rules)
-  const existingTabs = tabStore.getTabsByWindow(windowLabel);
-  const historyStore = useUnifiedHistoryStore.getState();
-  existingTabs.forEach((tab) => {
-    documentStore.removeDocument(tab.id);
-    // Also clear unified history to prevent memory leaks
-    historyStore.clearDocument(tab.id);
-  });
+  clearExistingWindowTabs(windowLabel);
 
-  // Remove window from tab store to clear all tabs at once
-  if (existingTabs.length > 0) {
-    tabStore.removeWindow(windowLabel);
-  }
+  const { kept, duplicateToRetained } = deduplicateTabsByPath(meaningfulTabs);
 
   // Build tab ID mapping: session tab ID -> new tab ID
   const tabIdMap = new Map<string, string>();
+  const tabStore = useTabStore.getState();
 
-  // Deduplicate tabs by file_path before restoring.
-  // tabStore.createTab deduplicates by file_path, so a second createTab with
-  // the same path returns the first tab's ID — causing restoreDocumentState
-  // to overwrite the first tab's content. We skip later duplicates here to
-  // prevent silent data loss.
-  //
-  // Compare paths exactly (no case folding). Earlier code lowercased paths
-  // on non-Linux to handle case-insensitive HFS+/APFS/NTFS. That approach
-  // incorrectly merged distinct files on case-sensitive APFS volumes — a
-  // data-availability bug. Exact comparison may produce a duplicate tab on
-  // case-insensitive filesystems (same file opened twice under different
-  // casing), but that is strictly less severe.
-  const seenFilePaths = new Set<string>();
-  const deduplicatedTabs = meaningfulTabs.filter((tabState) => {
-    if (!tabState.file_path) return true; // untitled tabs are never duplicates
-    if (seenFilePaths.has(tabState.file_path)) {
-      hotExitWarn(
-        `Skipping duplicate tab '${tabState.id}' with file_path '${tabState.file_path}' during restore`
-      );
-      return false;
-    }
-    seenFilePaths.add(tabState.file_path);
-    return true;
-  });
-
-  // Restore each tab
-  for (const tabState of deduplicatedTabs) {
-    // Create tab (createTab auto-activates, but we'll set active tab explicitly after)
+  for (const tabState of kept) {
+    // createTab auto-activates; we set the active tab explicitly afterward.
     const newTabId = tabStore.createTab(windowLabel, tabState.file_path);
-
-    // Store mapping
     tabIdMap.set(tabState.id, newTabId);
-
-    // Update tab metadata (title is required string, always set it)
-    tabStore.updateTabTitle(newTabId, tabState.title);
-    if (tabState.is_pinned) {
-      tabStore.togglePin(windowLabel, newTabId);
-    }
-
-    // WI-1A.13 — restore multi-format fields.
-    //
-    // For tabs WITH a file_path, `formatId` derives deterministically from
-    // the extension via dispatchEditor — restoration is automatic.
-    //
-    // For UNTITLED tabs (file_path === null), derivation always falls back
-    // to markdown. If the persisted format_id is not "markdown", explicitly
-    // restore it. This guards untitled non-markdown sessions (e.g. an
-    // unsaved JSON scratch tab) against silent format loss across restart.
-    //
-    // Validate against the format registry — a tampered or stale session
-    // file could carry a format_id that no longer (or never) exists. Falling
-    // through with an unknown id would inject inconsistent state into the
-    // tab store.
-    if (
-      tabState.file_path == null &&
-      tabState.format_id &&
-      tabState.format_id !== "markdown"
-    ) {
-      if (getFormatById(tabState.format_id)) {
-        tabStore.setTabFormatId(newTabId, tabState.format_id);
-      } else {
-        hotExitWarn(
-          `Skipping unknown format_id '${tabState.format_id}' for restored tab '${tabState.id}'`
-        );
-      }
-    }
-    if (tabState.editing_enabled === false) {
-      tabStore.setTabEditingEnabled(newTabId, false);
-    }
-    // Best-effort validation of the persisted schema id. We look up the
-    // effective format (the validated format_id, or markdown for untitled
-    // markdown tabs) and confirm the schema id matches one of its
-    // registered renderers. If the registry can't resolve the format
-    // (e.g. test environment without bootstrap, or the format was
-    // unregistered after this session was saved), we cannot validate —
-    // fall through and trust the persisted value rather than silently
-    // drop it.
-    if (tabState.active_schema_id != null) {
-      const effectiveFormatId = tabState.format_id || "markdown";
-      const format = getFormatById(effectiveFormatId);
-      const renderers = format?.schemaRenderers;
-      if (renderers && !(tabState.active_schema_id in renderers)) {
-        hotExitWarn(
-          `Skipping unknown active_schema_id '${tabState.active_schema_id}' for restored tab '${tabState.id}' (format '${effectiveFormatId}')`
-        );
-      } else {
-        tabStore.setTabActiveSchemaId(newTabId, tabState.active_schema_id);
-      }
-    }
-
-    // Restore document state
+    restoreTabMetadata(windowLabel, newTabId, tabState);
     await restoreDocumentState(newTabId, tabState, documentStore);
   }
 
-  // Restore active tab using mapped ID
-  if (windowState.active_tab_id) {
-    const mappedActiveId = tabIdMap.get(windowState.active_tab_id);
-    if (mappedActiveId) {
-      tabStore.setActiveTab(windowLabel, mappedActiveId);
-    } else {
-      // Fallback to first tab if mapping not found
-      const tabs = tabStore.getTabsByWindow(windowLabel);
-      if (tabs.length > 0) {
-        tabStore.setActiveTab(windowLabel, tabs[0].id);
-      }
-    }
-  }
+  restoreActiveTab(windowLabel, windowState, tabIdMap, duplicateToRetained);
 
   return tabIdMap;
 }

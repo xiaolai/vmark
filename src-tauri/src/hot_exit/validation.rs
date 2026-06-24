@@ -7,9 +7,24 @@
 //! @coordinates-with storage.rs (called after deserialization in read_session)
 //! @coordinates-with session.rs (operates on SessionData structs)
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
-use super::session::SessionData;
+use super::session::{SessionData, TabState};
+
+/// Decide whether a later tab sharing a `file_path` with an earlier "kept" tab
+/// is a *safe* duplicate that can be dropped without losing user work.
+///
+/// A duplicate is safe to drop ONLY when it is provably identical and clean:
+///   - not dirty and not divergent (no unsaved or conflicting edits), AND
+///   - its editor content matches the kept tab's content.
+///
+/// Otherwise the later tab carries content that would be silently lost if
+/// dropped (the exact hot-exit data-loss bug this guards against), so it is
+/// preserved.
+fn is_safe_duplicate(kept: &TabState, candidate: &TabState) -> bool {
+    let doc = &candidate.document;
+    !doc.is_dirty && !doc.is_divergent && doc.content == kept.document.content
+}
 
 /// Validate and auto-repair a deserialized session.
 ///
@@ -32,9 +47,13 @@ pub fn validate_and_repair(session: &mut SessionData) -> Vec<String> {
             ));
         }
 
-        // 2. Remove duplicate file_path tabs (keep first occurrence)
+        // 2. Remove duplicate file_path tabs (keep first occurrence) — but ONLY
+        //    when the later tab is a safe duplicate (clean + identical content).
         //    tabStore.createTab deduplicates by file_path, so duplicates cause
         //    restoreDocumentState to overwrite the first tab's content silently.
+        //    Dropping a later tab that holds dirty, divergent, or otherwise
+        //    diverged content would silently lose unsaved work, so such tabs are
+        //    preserved instead (the hot-exit data-loss bug this guards).
         //
         //    Compare paths exactly (no case folding). Earlier code lowercased
         //    on non-Linux to handle case-insensitive HFS+/APFS/NTFS, but that
@@ -43,16 +62,43 @@ pub fn validate_and_repair(session: &mut SessionData) -> Vec<String> {
         //    duplicate tab that exact comparison may produce on case-
         //    insensitive filesystems. The TS-side validator at
         //    src/services/persistence/hotExit/restoreHelpers.ts now matches.
-        let mut seen_paths = HashSet::new();
+        //
+        //    `kept_by_path` maps a path to the INDEX of its first kept tab in
+        //    the rebuilt list so the safe-duplicate check compares against the
+        //    actual survivor's content.
         let pre_path_count = window.tabs.len();
-        window.tabs.retain(|tab| {
+        let mut kept_tabs: Vec<TabState> = Vec::with_capacity(pre_path_count);
+        let mut kept_by_path: HashMap<String, usize> = HashMap::new();
+        let mut path_removed = 0usize;
+        for tab in window.tabs.drain(..) {
             match &tab.file_path {
-                Some(path) => seen_paths.insert(path.clone()),
-                None => true, // untitled tabs are never duplicates
+                Some(path) => {
+                    if let Some(&kept_index) = kept_by_path.get(path) {
+                        if is_safe_duplicate(&kept_tabs[kept_index], &tab) {
+                            // Provably identical and clean — safe to drop.
+                            path_removed += 1;
+                            continue;
+                        }
+                        // Carries unsaved/divergent content — preserve it so no
+                        // work is lost. It keeps its file_path; the restore path
+                        // surfaces it as a conflicting tab rather than letting
+                        // createTab silently overwrite the first.
+                        warnings.push(format!(
+                            "Window '{}': kept duplicate-path tab '{}' with unsaved/divergent content",
+                            window.window_label, tab.id
+                        ));
+                        kept_tabs.push(tab);
+                    } else {
+                        kept_by_path.insert(path.clone(), kept_tabs.len());
+                        kept_tabs.push(tab);
+                    }
+                }
+                // untitled tabs are never duplicates
+                None => kept_tabs.push(tab),
             }
-        });
+        }
+        window.tabs = kept_tabs;
 
-        let path_removed = pre_path_count - window.tabs.len();
         if path_removed > 0 {
             warnings.push(format!(
                 "Window '{}': removed {} tab(s) with duplicate file_path",
@@ -60,7 +106,35 @@ pub fn validate_and_repair(session: &mut SessionData) -> Vec<String> {
             ));
         }
 
-        // 3. Fix active_tab_id referencing a nonexistent tab
+        // 3. Repair workspace instance metadata that points at removed tabs.
+        //    After dropping duplicate/invalid tabs above, workspace_instance
+        //    tab_ids / closed_tab_ids / active_tab_id can dangle. Prune the
+        //    references so metadata never points at tabs that no longer exist.
+        let surviving_ids: HashSet<&str> =
+            window.tabs.iter().map(|t| t.id.as_str()).collect();
+        for instance in &mut window.workspace_instances {
+            let before_tab_ids = instance.tab_ids.len();
+            instance.tab_ids.retain(|id| surviving_ids.contains(id.as_str()));
+            let before_closed = instance.closed_tab_ids.len();
+            instance
+                .closed_tab_ids
+                .retain(|id| surviving_ids.contains(id.as_str()));
+            if let Some(active) = &instance.active_tab_id {
+                if !surviving_ids.contains(active.as_str()) {
+                    instance.active_tab_id = None;
+                }
+            }
+            if instance.tab_ids.len() != before_tab_ids
+                || instance.closed_tab_ids.len() != before_closed
+            {
+                warnings.push(format!(
+                    "Window '{}': pruned removed tab references from workspace instance '{}'",
+                    window.window_label, instance.workspace_instance_id
+                ));
+            }
+        }
+
+        // 4. Fix active_tab_id referencing a nonexistent tab
         if let Some(active_id) = &window.active_tab_id {
             let exists = window.tabs.iter().any(|t| t.id == *active_id);
             if !exists {
@@ -75,7 +149,7 @@ pub fn validate_and_repair(session: &mut SessionData) -> Vec<String> {
             }
         }
 
-        // 4. Warn about empty windows (no tabs)
+        // 6. Warn about empty windows (no tabs)
         if window.tabs.is_empty() {
             warnings.push(format!(
                 "Window '{}': contains no tabs",
@@ -88,280 +162,5 @@ pub fn validate_and_repair(session: &mut SessionData) -> Vec<String> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::hot_exit::session::*;
-
-    const TEST_VERSION: &str = "0.5.0";
-
-    fn make_ui_state() -> UiState {
-        UiState {
-            sidebar_visible: true,
-            sidebar_width: 260,
-            outline_visible: false,
-            sidebar_view_mode: "files".to_string(),
-            status_bar_visible: true,
-            source_mode_enabled: false,
-            focus_mode_enabled: false,
-            typewriter_mode_enabled: false,
-            terminal_visible: false,
-            terminal_height: 250,
-        }
-    }
-
-    fn make_tab(id: &str) -> TabState {
-        TabState {
-            id: id.to_string(),
-            file_path: None,
-            title: format!("Tab {}", id),
-            is_pinned: false,
-            document: DocumentState {
-                content: String::new(),
-                saved_content: String::new(),
-                is_dirty: false,
-                is_missing: false,
-                is_divergent: false,
-                line_ending: "\n".to_string(),
-                cursor_info: None,
-                last_modified_timestamp: None,
-                is_untitled: true,
-                untitled_number: Some(1),
-                is_read_only: false,
-                undo_history: Vec::new(),
-                redo_history: Vec::new(),
-                mode: None,
-                hard_break_style: None,
-                last_disk_content: None,
-            },
-            format_id: "markdown".to_string(),
-            editing_enabled: true,
-            active_schema_id: None,
-        }
-    }
-
-    fn make_tab_with_path(id: &str, path: &str) -> TabState {
-        let mut tab = make_tab(id);
-        tab.file_path = Some(path.to_string());
-        tab
-    }
-
-    fn make_window(label: &str, tab_ids: &[&str], active: Option<&str>) -> WindowState {
-        WindowState {
-            window_label: label.to_string(),
-            is_main_window: label == "main",
-            active_tab_id: active.map(|s| s.to_string()),
-            tabs: tab_ids.iter().map(|id| make_tab(id)).collect(),
-            ui_state: make_ui_state(),
-            geometry: None, workspace_instance_ids: Vec::new(), active_workspace_instance_id: None, workspace_instances: Vec::new(),
-        }
-    }
-
-    fn make_session(windows: Vec<WindowState>) -> SessionData {
-        SessionData {
-            version: SCHEMA_VERSION,
-            timestamp: chrono::Utc::now().timestamp(),
-            vmark_version: TEST_VERSION.to_string(),
-            windows,
-            workspace: None,
-        }
-    }
-
-    #[test]
-    fn valid_session_produces_no_warnings() {
-        let mut session = make_session(vec![
-            make_window("main", &["tab-1", "tab-2"], Some("tab-1")),
-        ]);
-
-        let warnings = validate_and_repair(&mut session);
-        assert!(warnings.is_empty());
-    }
-
-    #[test]
-    fn active_tab_id_none_is_valid() {
-        let mut session = make_session(vec![
-            make_window("main", &["tab-1"], None),
-        ]);
-
-        let warnings = validate_and_repair(&mut session);
-        assert!(warnings.is_empty());
-    }
-
-    #[test]
-    fn fixes_active_tab_id_referencing_nonexistent_tab() {
-        let mut session = make_session(vec![
-            make_window("main", &["tab-1", "tab-2"], Some("tab-gone")),
-        ]);
-
-        let warnings = validate_and_repair(&mut session);
-
-        assert_eq!(warnings.len(), 1);
-        assert!(warnings[0].contains("active_tab_id 'tab-gone' not found"));
-        // Should reset to first tab
-        assert_eq!(
-            session.windows[0].active_tab_id,
-            Some("tab-1".to_string())
-        );
-    }
-
-    #[test]
-    fn fixes_active_tab_id_to_none_when_no_tabs() {
-        let mut session = make_session(vec![
-            make_window("main", &[], Some("tab-gone")),
-        ]);
-
-        let warnings = validate_and_repair(&mut session);
-
-        // Should produce warnings for both invalid active_tab_id and empty window
-        assert!(warnings.iter().any(|w| w.contains("active_tab_id")));
-        assert!(warnings.iter().any(|w| w.contains("contains no tabs")));
-        assert_eq!(session.windows[0].active_tab_id, None);
-    }
-
-    #[test]
-    fn removes_duplicate_tab_ids() {
-        let mut session = make_session(vec![
-            make_window("main", &["tab-1", "tab-1", "tab-2", "tab-2", "tab-3"], Some("tab-1")),
-        ]);
-
-        let warnings = validate_and_repair(&mut session);
-
-        assert_eq!(warnings.len(), 1);
-        assert!(warnings[0].contains("removed 2 duplicate tab(s)"));
-        // Should keep only unique tabs (first occurrence)
-        let ids: Vec<&str> = session.windows[0]
-            .tabs
-            .iter()
-            .map(|t| t.id.as_str())
-            .collect();
-        assert_eq!(ids, vec!["tab-1", "tab-2", "tab-3"]);
-    }
-
-    #[test]
-    fn removes_duplicates_then_fixes_active_tab() {
-        // active_tab_id was a duplicate that got removed
-        let mut session = make_session(vec![
-            make_window("main", &["tab-1", "tab-2", "tab-2"], Some("tab-dup-gone")),
-        ]);
-
-        let warnings = validate_and_repair(&mut session);
-
-        // Should have both a duplicate warning and an active_tab_id warning
-        assert!(warnings.iter().any(|w| w.contains("duplicate")));
-        assert!(warnings.iter().any(|w| w.contains("active_tab_id")));
-        // active_tab_id should be reset to first remaining tab
-        assert_eq!(
-            session.windows[0].active_tab_id,
-            Some("tab-1".to_string())
-        );
-    }
-
-    #[test]
-    fn warns_about_empty_window() {
-        let mut session = make_session(vec![
-            make_window("main", &["tab-1"], Some("tab-1")),
-            make_window("secondary", &[], None),
-        ]);
-
-        let warnings = validate_and_repair(&mut session);
-
-        assert_eq!(warnings.len(), 1);
-        assert!(warnings[0].contains("Window 'secondary': contains no tabs"));
-    }
-
-    #[test]
-    fn handles_multiple_windows_independently() {
-        let mut session = make_session(vec![
-            make_window("main", &["tab-1", "tab-1"], Some("tab-1")),
-            make_window("secondary", &["tab-a", "tab-b"], Some("tab-missing")),
-        ]);
-
-        let warnings = validate_and_repair(&mut session);
-
-        assert_eq!(warnings.len(), 2);
-        // Window 1: duplicate
-        assert!(warnings.iter().any(|w| w.contains("Window 'main'") && w.contains("duplicate")));
-        // Window 2: invalid active_tab_id
-        assert!(warnings.iter().any(|w| w.contains("Window 'secondary'") && w.contains("active_tab_id")));
-
-        // Verify repairs
-        assert_eq!(session.windows[0].tabs.len(), 1);
-        assert_eq!(
-            session.windows[1].active_tab_id,
-            Some("tab-a".to_string())
-        );
-    }
-
-    #[test]
-    fn empty_session_is_valid() {
-        let mut session = make_session(vec![]);
-
-        let warnings = validate_and_repair(&mut session);
-        assert!(warnings.is_empty());
-    }
-
-    #[test]
-    fn removes_duplicate_file_paths() {
-        let mut session = make_session(vec![{
-            let mut w = make_window("main", &[], Some("t1"));
-            w.tabs = vec![
-                make_tab_with_path("t1", "/path/to/file.md"),
-                make_tab_with_path("t2", "/path/to/file.md"),
-                make_tab_with_path("t3", "/path/to/other.md"),
-            ];
-            w
-        }]);
-
-        let warnings = validate_and_repair(&mut session);
-
-        assert!(warnings.iter().any(|w| w.contains("duplicate file_path")));
-        let ids: Vec<&str> = session.windows[0]
-            .tabs
-            .iter()
-            .map(|t| t.id.as_str())
-            .collect();
-        assert_eq!(ids, vec!["t1", "t3"]);
-    }
-
-    #[test]
-    fn case_different_paths_are_treated_as_distinct_on_all_platforms() {
-        // Regression: earlier code lowercased paths on non-Linux to handle
-        // case-insensitive HFS+/APFS/NTFS. That approach incorrectly merged
-        // distinct files on case-sensitive APFS volumes — a data-availability
-        // bug. The validator now compares paths exactly on every platform.
-        // The TS-side restore at src/services/persistence/hotExit/restoreHelpers.ts
-        // does the same.
-        let mut session = make_session(vec![{
-            let mut w = make_window("main", &[], Some("t1"));
-            w.tabs = vec![
-                make_tab_with_path("t1", "/Path/To/File.md"),
-                make_tab_with_path("t2", "/path/to/file.md"),
-            ];
-            w
-        }]);
-
-        let warnings = validate_and_repair(&mut session);
-
-        // Both tabs are kept on every platform — exact-match comparison.
-        assert!(!warnings.iter().any(|w| w.contains("duplicate file_path")));
-        assert_eq!(session.windows[0].tabs.len(), 2);
-        let ids: Vec<&str> = session.windows[0]
-            .tabs
-            .iter()
-            .map(|t| t.id.as_str())
-            .collect();
-        assert_eq!(ids, vec!["t1", "t2"]);
-    }
-
-    #[test]
-    fn untitled_tabs_are_not_deduplicated_by_path() {
-        let mut session = make_session(vec![
-            make_window("main", &["t1", "t2", "t3"], Some("t1")),
-        ]);
-        // All tabs have file_path: None (untitled) — no dedup should occur
-
-        let warnings = validate_and_repair(&mut session);
-
-        assert!(warnings.is_empty());
-        assert_eq!(session.windows[0].tabs.len(), 3);
-    }
-}
+#[path = "validation.test.rs"]
+mod tests;

@@ -228,6 +228,11 @@ export const contentSearchWarn = isDev
   ? (...args: unknown[]) => console.warn("[ContentSearch]", ...args)
   : (...args: unknown[]) => prodWarn("[ContentSearch]", ...args);
 
+/** Warn logger for Quick Open. */
+export const quickOpenWarn = isDev
+  ? (...args: unknown[]) => console.warn("[QuickOpen]", ...args)
+  : (...args: unknown[]) => prodWarn("[QuickOpen]", ...args);
+
 /** Warn logger for Menu Sync (startup menu rebuild). */
 export const menuSyncWarn = isDev
   ? (...args: unknown[]) => console.warn("[MenuSync]", ...args)

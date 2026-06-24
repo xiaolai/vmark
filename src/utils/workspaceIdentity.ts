@@ -13,6 +13,18 @@
  * @module utils/workspaceIdentity
  */
 
+import {
+  deriveWorkspaceDisplayName,
+  normalizeWorkspacePathForIdentity,
+  type WorkspacePlatform,
+} from "./workspaceIdentityPaths";
+
+export {
+  normalizeWorkspacePathForIdentity,
+  type WorkspacePathIdentity,
+  type WorkspacePlatform,
+} from "./workspaceIdentityPaths";
+
 /**
  * Trust levels for workspaces.
  *
@@ -104,8 +116,6 @@ export function isTrusted(identity: WorkspaceIdentity | undefined): boolean {
   return identity?.trustLevel === "trusted";
 }
 
-export type WorkspacePlatform = "macos" | "windows" | "linux";
-
 export type WorkspaceInstanceCreatedFrom =
   | "open"
   | "finderOpen"
@@ -115,11 +125,6 @@ export type WorkspaceInstanceCreatedFrom =
   | "placeholder";
 
 export type WorkspaceInstanceKind = "workspace" | "loose" | "placeholder";
-
-export interface WorkspacePathIdentity {
-  normalizedPath: string;
-  platformIdentity: string;
-}
 
 export interface WorkspaceRootIdentity {
   rootId: string;
@@ -138,7 +143,20 @@ export interface WorkspaceInstanceIdentity {
   kind: WorkspaceInstanceKind;
   rootId: string | null;
   rootPath: string | null;
+  /**
+   * Human-readable name. For real workspaces this is the root folder name. For
+   * synthetic (loose/placeholder) instances it is an English fallback only —
+   * render boundaries should prefer `displayNameKey` when present so the label
+   * is translated.
+   */
   displayName: string;
+  /**
+   * i18n key for synthetic instances (loose/placeholder). Absent for real
+   * workspaces, whose `displayName` is a real path-derived name. Lets React
+   * render boundaries translate "Loose Files" / "Untitled" instead of showing
+   * the stored English fallback (T245).
+   */
+  displayNameKey?: string;
   ownerWindowLabel: string;
   createdFrom: WorkspaceInstanceCreatedFrom;
   activeTabId: string | null;
@@ -147,30 +165,11 @@ export interface WorkspaceInstanceIdentity {
   unavailableRoot?: boolean;
 }
 
-export function normalizeWorkspacePathForIdentity(
-  rawPath: string,
-  platform: WorkspacePlatform
-): WorkspacePathIdentity {
-  const input = rawPath.trim();
-  if (platform === "windows") {
-    const usesUnc = input.replace(/\//g, "\\").startsWith("\\\\");
-    let normalizedPath = input.replace(/\//g, "\\").replace(/\\+/g, "\\");
-    if (usesUnc && !normalizedPath.startsWith("\\\\")) {
-      normalizedPath = `\\${normalizedPath}`;
-    }
-    normalizedPath = normalizedPath.replace(/^([a-zA-Z]):/, (_, drive: string) =>
-      `${drive.toUpperCase()}:`
-    );
-    normalizedPath = stripTrailingWindowsSeparator(normalizedPath);
-    return {
-      normalizedPath,
-      platformIdentity: normalizedPath.toLocaleLowerCase("en-US"),
-    };
-  }
-
-  const normalizedPath = stripTrailingPosixSeparator(input.replace(/\/+/g, "/"));
-  return { normalizedPath, platformIdentity: normalizedPath };
-}
+/** i18n keys for synthetic-instance display names, translated at render time. */
+export const WORKSPACE_INSTANCE_DISPLAY_NAME_KEYS = {
+  loose: "common:workspaceRail.looseFiles",
+  placeholder: "common:untitled",
+} as const;
 
 export function createWorkspaceRootIdentity(
   rawPath: string | null,
@@ -186,9 +185,13 @@ export function createWorkspaceRootIdentity(
 
   const platform = options.platform ?? "macos";
   const requested = normalizeWorkspacePathForIdentity(rawPath, platform);
-  const canonicalPath = options.canonicalPath?.trim();
-  const identity = canonicalPath
-    ? normalizeWorkspacePathForIdentity(canonicalPath, platform)
+  // Use trim only to detect a blank canonical path; the untrimmed value is what
+  // gets normalized so surrounding spaces in a real canonical path are preserved
+  // and don't collapse distinct paths into one identity.
+  const rawCanonical = options.canonicalPath;
+  const hasCanonical = rawCanonical != null && rawCanonical.trim() !== "";
+  const identity = hasCanonical
+    ? normalizeWorkspacePathForIdentity(rawCanonical, platform)
     : requested;
 
   return {
@@ -199,7 +202,7 @@ export function createWorkspaceRootIdentity(
       displayName:
         options.displayName ?? deriveWorkspaceDisplayName(requested.normalizedPath, platform),
       platformIdentity: identity.platformIdentity,
-      canonicalization: canonicalPath ? "canonical" : "fallback",
+      canonicalization: hasCanonical ? "canonical" : "fallback",
     },
   };
 }
@@ -214,12 +217,17 @@ export function createWorkspaceInstance(options: {
   unavailableRoot?: boolean;
 }): WorkspaceInstanceIdentity {
   const kind = options.kind ?? inferWorkspaceInstanceKind(options.root, options.createdFrom);
+  assertKindRootInvariant(kind, options.root);
+  const displayNameKey = options.root
+    ? undefined
+    : WORKSPACE_INSTANCE_DISPLAY_NAME_KEYS[kind as "loose" | "placeholder"];
   return {
     workspaceInstanceId: options.workspaceInstanceId,
     kind,
     rootId: options.root?.rootId ?? null,
     rootPath: options.root?.rootPath ?? null,
     displayName: options.displayName ?? workspaceInstanceDisplayName(kind, options.root),
+    displayNameKey,
     ownerWindowLabel: options.ownerWindowLabel,
     createdFrom: options.createdFrom,
     activeTabId: null,
@@ -227,6 +235,25 @@ export function createWorkspaceInstance(options: {
     closedTabIds: [],
     unavailableRoot: options.unavailableRoot,
   };
+}
+
+/**
+ * Enforce the kind/root invariant so illegal instances can't be constructed:
+ *   - kind "workspace" REQUIRES a root
+ *   - kind "loose" / "placeholder" REQUIRE no root
+ * A caller that supplies a contradictory `kind` is a programming error, not
+ * user input, so we fail loud at the construction boundary (T216).
+ */
+function assertKindRootInvariant(
+  kind: WorkspaceInstanceKind,
+  root: WorkspaceRootIdentity | null,
+): void {
+  if (kind === "workspace" && !root) {
+    throw new Error("createWorkspaceInstance: kind 'workspace' requires a root");
+  }
+  if (kind !== "workspace" && root) {
+    throw new Error(`createWorkspaceInstance: kind '${kind}' must not have a root`);
+  }
 }
 
 function inferWorkspaceInstanceKind(
@@ -265,23 +292,3 @@ export function disambiguateWorkspaceDisplayNames(
   return result;
 }
 
-function deriveWorkspaceDisplayName(path: string, platform: WorkspacePlatform): string {
-  if (platform === "windows") {
-    if (/^[A-Z]:\\$/i.test(path)) return path;
-    const parts = path.split("\\").filter(Boolean);
-    return parts.at(-1) ?? path;
-  }
-  if (path === "/") return path;
-  const parts = path.split("/").filter(Boolean);
-  return parts.at(-1) ?? path;
-}
-
-function stripTrailingPosixSeparator(path: string): string {
-  if (path === "/") return path;
-  return path.replace(/\/+$/, "");
-}
-
-function stripTrailingWindowsSeparator(path: string): string {
-  if (/^[A-Z]:\\?$/i.test(path)) return path.endsWith("\\") ? path : `${path}\\`;
-  return path.replace(/\\+$/, "");
-}

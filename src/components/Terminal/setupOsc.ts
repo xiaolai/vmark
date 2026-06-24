@@ -77,6 +77,11 @@ export interface Osc133Handle {
    *  command is running and the shell is NOT idle at a prompt. False without
    *  shell integration. */
   isRunning: () => boolean;
+  /** Register a callback fired each time the shell returns to idle (a new
+   *  prompt / command done). Used to flush deferred work (e.g. a pending
+   *  workspace `cd`) that was skipped while a foreground command ran. Pass
+   *  null to clear. */
+  setOnIdle: (cb: (() => void) | null) => void;
 }
 
 /**
@@ -89,6 +94,7 @@ export function setupOsc133(term: Terminal): Osc133Handle {
   let commands: CommandMark[] = [];
   let current: CommandMark | null = null;
   let running = false;
+  let onIdle: (() => void) | null = null;
 
   term.parser.registerOscHandler(133, (data) => {
     const sep = data.indexOf(";");
@@ -99,7 +105,10 @@ export function setupOsc133(term: Terminal): Osc133Handle {
       // Command started executing — shell is busy until the matching D.
       running = true;
     } else if (type === "A") {
+      const wasRunning = running;
       running = false;
+      // Returned to a prompt: flush any deferred idle work (e.g. pending cd).
+      if (wasRunning) onIdle?.();
       // New prompt — mark its line and start a fresh command.
       const marker = term.registerMarker(0);
       if (marker) {
@@ -114,7 +123,11 @@ export function setupOsc133(term: Terminal): Osc133Handle {
       }
     } else if (type === "D") {
       // Command finished — back to idle; `rest` is the exit code (may be empty).
+      const wasRunning = running;
       running = false;
+      // Done transition is the reliable "shell is idle now" signal (the rc
+      // emits D then A); flush deferred idle work here.
+      if (wasRunning) onIdle?.();
       if (current && rest !== "") {
         const code = parseInt(rest, 10);
         if (!Number.isNaN(code)) {
@@ -129,7 +142,13 @@ export function setupOsc133(term: Terminal): Osc133Handle {
     return true; // handled
   });
 
-  return { getCommands: () => commands, isRunning: () => running };
+  return {
+    getCommands: () => commands,
+    isRunning: () => running,
+    setOnIdle: (cb) => {
+      onIdle = cb;
+    },
+  };
 }
 
 /**

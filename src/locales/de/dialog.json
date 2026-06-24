@@ -33,7 +33,8 @@
     "buttonKeep": "Meine Änderungen behalten",
     "buttonReloadAll": "Alle neu laden",
     "buttonKeepAll": "Alle behalten",
-    "buttonReviewEach": "Einzeln prüfen"
+    "buttonReviewEach": "Einzeln prüfen",
+    "unknownFile": "Datei"
   },
   "revertToSaved": {
     "title": "Zur gespeicherten Version zurücksetzen",
@@ -222,7 +223,13 @@
   "errorBoundary": {
     "title": "Etwas ist schiefgelaufen",
     "featureFailedTitle": "{{feature}} konnte nicht gerendert werden",
-    "tryAgain": "Erneut versuchen"
+    "tryAgain": "Erneut versuchen",
+    "feature": {
+      "editor": "Editor",
+      "terminal": "Terminal",
+      "settings": "Einstellungen",
+      "pdfExport": "PDF-Export"
+    }
   },
   "pdfExport": {
     "title": "PDF exportieren",
@@ -240,5 +247,8 @@
     "pin": "Anheften",
     "pinTooltip": "Diese Benachrichtigung offen halten",
     "unpinTooltip": "Angeheftet — manuell schließen"
+  },
+  "openWorkspaceFolder": {
+    "title": "Arbeitsbereichsordner öffnen"
   }
 }

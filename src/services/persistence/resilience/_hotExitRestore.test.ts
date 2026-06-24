@@ -42,6 +42,7 @@ const mockRestoreWindowState = vi.fn();
 vi.mock('../hotExit/restoreHelpers', () => ({
   pullWindowStateWithRetry: (...args: unknown[]) => mockPullWindowStateWithRetry(...args),
   restoreWindowState: (...args: unknown[]) => mockRestoreWindowState(...args),
+  MAX_STATE_RETRIES: 5,
 }));
 
 // ---------------------------------------------------------------------------
@@ -110,6 +111,7 @@ describe('useHotExitRestore', () => {
     vi.doMock('../hotExit/restoreHelpers', () => ({
       pullWindowStateWithRetry: (...args: unknown[]) => mockPullWindowStateWithRetry(...args),
       restoreWindowState: (...args: unknown[]) => mockRestoreWindowState(...args),
+      MAX_STATE_RETRIES: 5,
     }));
 
     const mod = await import('./_hotExitRestore');
@@ -187,6 +189,7 @@ describe('useHotExitRestore', () => {
       vi.doMock('../hotExit/restoreHelpers', () => ({
         pullWindowStateWithRetry: (...args: unknown[]) => mockPullWindowStateWithRetry(...args),
         restoreWindowState: (...args: unknown[]) => mockRestoreWindowState(...args),
+        MAX_STATE_RETRIES: 5,
       }));
 
       const mod = await import('./_hotExitRestore');
@@ -294,6 +297,7 @@ describe('useHotExitRestore', () => {
       vi.doMock('../hotExit/restoreHelpers', () => ({
         pullWindowStateWithRetry: (...args: unknown[]) => mockPullWindowStateWithRetry(...args),
         restoreWindowState: (...args: unknown[]) => mockRestoreWindowState(...args),
+        MAX_STATE_RETRIES: 5,
       }));
 
       const mod = await import('./_hotExitRestore');
@@ -365,6 +369,7 @@ describe('useHotExitRestore', () => {
       vi.doMock('../hotExit/restoreHelpers', () => ({
         pullWindowStateWithRetry: (...args: unknown[]) => mockPullWindowStateWithRetry(...args),
         restoreWindowState: (...args: unknown[]) => mockRestoreWindowState(...args),
+        MAX_STATE_RETRIES: 5,
       }));
 
       const mod = await import('./_hotExitRestore');
@@ -408,6 +413,7 @@ describe('useHotExitRestore', () => {
       vi.doMock('../hotExit/restoreHelpers', () => ({
         pullWindowStateWithRetry: (...args: unknown[]) => mockPullWindowStateWithRetry(...args),
         restoreWindowState: (...args: unknown[]) => mockRestoreWindowState(...args),
+        MAX_STATE_RETRIES: 5,
       }));
 
       const mod = await import('./_hotExitRestore');
@@ -444,6 +450,7 @@ describe('useHotExitRestore', () => {
       vi.doMock('../hotExit/restoreHelpers', () => ({
         pullWindowStateWithRetry: (...args: unknown[]) => mockPullWindowStateWithRetry(...args),
         restoreWindowState: (...args: unknown[]) => mockRestoreWindowState(...args),
+        MAX_STATE_RETRIES: 5,
       }));
 
       const mod = await import('./_hotExitRestore');
@@ -479,6 +486,7 @@ describe('useHotExitRestore', () => {
       vi.doMock('../hotExit/restoreHelpers', () => ({
         pullWindowStateWithRetry: (...args: unknown[]) => mockPullWindowStateWithRetry(...args),
         restoreWindowState: (...args: unknown[]) => mockRestoreWindowState(...args),
+        MAX_STATE_RETRIES: 5,
       }));
 
       const mod = await import('./_hotExitRestore');
@@ -567,6 +575,7 @@ describe('useHotExitRestore', () => {
       vi.doMock('../hotExit/restoreHelpers', () => ({
         pullWindowStateWithRetry: (...args: unknown[]) => mockPullWindowStateWithRetry(...args),
         restoreWindowState: (...args: unknown[]) => mockRestoreWindowState(...args),
+        MAX_STATE_RETRIES: 5,
       }));
 
       const mod = await import('./_hotExitRestore');
@@ -627,6 +636,7 @@ describe('useHotExitRestore', () => {
       vi.doMock('../hotExit/restoreHelpers', () => ({
         pullWindowStateWithRetry: (...args: unknown[]) => mockPullWindowStateWithRetry(...args),
         restoreWindowState: (...args: unknown[]) => mockRestoreWindowState(...args),
+        MAX_STATE_RETRIES: 5,
       }));
 
       const mod = await import('./_hotExitRestore');
@@ -664,6 +674,7 @@ describe('useHotExitRestore', () => {
       vi.doMock('../hotExit/restoreHelpers', () => ({
         pullWindowStateWithRetry: (...args: unknown[]) => mockPullWindowStateWithRetry(...args),
         restoreWindowState: (...args: unknown[]) => mockRestoreWindowState(...args),
+        MAX_STATE_RETRIES: 5,
       }));
 
       const mod = await import('./_hotExitRestore');
@@ -722,6 +733,7 @@ describe('useHotExitRestore', () => {
       vi.doMock('../hotExit/restoreHelpers', () => ({
         pullWindowStateWithRetry: (...args: unknown[]) => mockPullWindowStateWithRetry(...args),
         restoreWindowState: (...args: unknown[]) => mockRestoreWindowState(...args),
+        MAX_STATE_RETRIES: 5,
       }));
 
       const mod = await import('./_hotExitRestore');
@@ -788,5 +800,130 @@ describe('useHotExitRestore', () => {
       // Still not called — effect only runs once
       expect(mockPullWindowStateWithRetry).not.toHaveBeenCalled();
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// createWindowRestoreCoordinator — direct state-machine tests
+//
+// These cover the race / IPC-failure branches that render-based tests cannot
+// reach synchronously: the in-flight concurrency guard, the requested-no-state
+// emit (with emit itself rejecting), and the main-window failure guard reset.
+// ---------------------------------------------------------------------------
+
+describe('createWindowRestoreCoordinator', () => {
+  let createWindowRestoreCoordinator:
+    typeof import('./_hotExitRestore').createWindowRestoreCoordinator;
+  const warnSpy = vi.fn();
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    warnSpy.mockClear();
+    mockPullWindowStateWithRetry.mockResolvedValue(null);
+    mockRestoreWindowState.mockResolvedValue(undefined);
+    mockInvoke.mockResolvedValue(false);
+
+    vi.resetModules();
+    vi.doMock('@tauri-apps/api/core', () => ({
+      invoke: (...args: unknown[]) => mockInvoke(...args),
+    }));
+    vi.doMock('@tauri-apps/api/event', () => ({
+      emit: (...args: unknown[]) => mockEmit(...args),
+      listen: (...args: unknown[]) => mockListen(...args),
+    }));
+    vi.doMock('@tauri-apps/api/webviewWindow', () => ({
+      getCurrentWebviewWindow: () => ({ label: currentWindowLabel }),
+    }));
+    vi.doMock('@/utils/debug', () => ({
+      hotExitLog: vi.fn(),
+      hotExitWarn: (...args: unknown[]) => warnSpy(...args),
+    }));
+    vi.doMock('../hotExit/restoreHelpers', () => ({
+      pullWindowStateWithRetry: (...args: unknown[]) => mockPullWindowStateWithRetry(...args),
+      restoreWindowState: (...args: unknown[]) => mockRestoreWindowState(...args),
+      MAX_STATE_RETRIES: 5,
+    }));
+
+    const mod = await import('./_hotExitRestore');
+    createWindowRestoreCoordinator = mod.createWindowRestoreCoordinator;
+  });
+
+  it('ignores a concurrent restore while one is already in flight', async () => {
+    // Hold the first pull open with a deferred promise so the second restore()
+    // call races against an in-flight restore — the path renderHook cannot
+    // reach because React renders synchronously.
+    let resolveFirst!: (v: null) => void;
+    const deferred = new Promise<null>((res) => { resolveFirst = res; });
+    mockPullWindowStateWithRetry.mockReturnValueOnce(deferred).mockResolvedValue(null);
+
+    const coordinator = createWindowRestoreCoordinator('doc-0');
+
+    const first = coordinator.restore(true);
+    expect(coordinator.isRestoring()).toBe(true);
+
+    // Second call while first is in flight — must short-circuit with a warn.
+    await coordinator.restore(true);
+    expect(warnSpy).toHaveBeenCalledWith(
+      "Window 'doc-0' ignoring concurrent restore",
+    );
+    // Only the first pull started.
+    expect(mockPullWindowStateWithRetry).toHaveBeenCalledTimes(1);
+
+    resolveFirst(null);
+    await first;
+    expect(coordinator.isRestoring()).toBe(false);
+  });
+
+  it('emits RESTORE_FAILED for a requested main-window restore with no state, even when emit rejects', async () => {
+    currentWindowLabel = 'main';
+    mockPullWindowStateWithRetry.mockResolvedValue(null);
+    // emit itself rejects — exercises the fire-and-forget .catch() branch.
+    mockEmit.mockRejectedValueOnce(new Error('emit failed'));
+
+    const coordinator = createWindowRestoreCoordinator('main');
+    await coordinator.restore(true);
+
+    expect(mockEmit).toHaveBeenCalledWith(
+      'hot-exit:restore-failed',
+      expect.objectContaining({ error: expect.stringContaining('No restore state found') }),
+    );
+    expect(warnSpy).toHaveBeenCalledWith('Restore was requested but no state available');
+  });
+
+  it('resets the main-window guard and emits failure when pull throws', async () => {
+    currentWindowLabel = 'main';
+    mockPullWindowStateWithRetry.mockRejectedValueOnce(new Error('pull boom'));
+
+    const coordinator = createWindowRestoreCoordinator('main');
+    await coordinator.restore(true);
+
+    expect(mockEmit).toHaveBeenCalledWith(
+      'hot-exit:restore-failed',
+      expect.objectContaining({ error: 'pull boom' }),
+    );
+    // Guard reset means a subsequent restore can proceed (pull called again).
+    mockPullWindowStateWithRetry.mockResolvedValueOnce(null);
+    await coordinator.restore(true);
+    expect(mockPullWindowStateWithRetry).toHaveBeenCalledTimes(2);
+  });
+
+  it('onRestoreStart is a no-op for secondary windows', async () => {
+    const coordinator = createWindowRestoreCoordinator('doc-0');
+    await coordinator.onRestoreStart();
+    expect(mockPullWindowStateWithRetry).not.toHaveBeenCalled();
+  });
+
+  it('checkPending pulls immediately for secondary windows', async () => {
+    const stateMock = makeWindowState();
+    mockPullWindowStateWithRetry.mockResolvedValueOnce(stateMock);
+    mockInvoke.mockResolvedValueOnce(false);
+
+    const coordinator = createWindowRestoreCoordinator('doc-0');
+    await coordinator.checkPending();
+    expect(mockPullWindowStateWithRetry).toHaveBeenCalledWith('doc-0');
+
+    // Idempotent — second call does not pull again.
+    await coordinator.checkPending();
+    expect(mockPullWindowStateWithRetry).toHaveBeenCalledTimes(1);
   });
 });

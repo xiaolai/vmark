@@ -332,5 +332,10 @@
   "tableMenu.alignAllRight": "Alle rechtsbündig",
   "tableMenu.formatTable": "Tabelle formatieren",
   "tableMenu.fitToWidth": "An Breite anpassen",
-  "tableMenu.naturalWidth": "Natürliche Breite"
+  "tableMenu.naturalWidth": "Natürliche Breite",
+  "terminal.processExited": "[Prozess mit Code {{code}} beendet]",
+  "terminal.pressAnyKeyToRestart": "Beliebige Taste zum Neustart drücken …",
+  "terminal.failedToStart": "Shell konnte nicht gestartet werden: {{error}}",
+  "terminal.pressAnyKeyToRetry": "Beliebige Taste zum Wiederholen drücken …",
+  "terminal.restarting": "Shell wird neu gestartet …"
 }

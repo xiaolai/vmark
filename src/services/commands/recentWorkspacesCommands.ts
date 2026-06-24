@@ -6,9 +6,10 @@
  * and tab restoration).
  */
 
-import { exists, readTextFile } from "@tauri-apps/plugin-fs";
+import { exists } from "@tauri-apps/plugin-fs";
 import { invoke } from "@tauri-apps/api/core";
 import { ask } from "@tauri-apps/plugin-dialog";
+import { imeToast as toast } from "@/services/ime/imeToast";
 import { registerCommand } from "./CommandBus";
 import { useRecentWorkspacesStore } from "@/stores/workspaceStore";
 import { useTabStore } from "@/stores/tabStore";
@@ -16,9 +17,9 @@ import { useDocumentStore } from "@/stores/documentStore";
 import { useUIStore } from "@/stores/uiStore";
 import { withReentryGuard } from "@/utils/reentryGuard";
 import { openWorkspaceWithConfig } from "@/hooks/openWorkspaceWithConfig";
-import { detectLinebreaks } from "@/utils/linebreakDetection";
+import { restoreWorkspaceTabs } from "@/services/navigation/restoreWorkspaceTabs";
 import i18n from "@/i18n";
-import { workspaceWarn } from "@/utils/debug";
+import { workspaceError } from "@/utils/debug";
 
 type Ctx = { windowLabel?: string };
 
@@ -56,15 +57,12 @@ export function registerRecentWorkspacesCommands(): void {
     run: async (args, ctx: Ctx) => {
       const windowLabel = ctx.windowLabel ?? "main";
       // args may be either the tuple [path, label] (menu dispatch) or a
-      // plain path string (programmatic call).
-      let workspacePath: string;
-      if (Array.isArray(args)) {
-        workspacePath = String(args[0]);
-      } else if (typeof args === "string") {
-        workspacePath = args;
-      } else {
-        return;
-      }
+      // plain path string (programmatic call). Reject anything that doesn't
+      // resolve to a non-empty string so `[]`/null/undefined can't become
+      // literal "undefined"/"null" workspace paths.
+      const candidate = Array.isArray(args) ? args[0] : args;
+      if (typeof candidate !== "string" || candidate.length === 0) return;
+      const workspacePath = candidate;
 
       await withReentryGuard(windowLabel, "open-recent-workspace", async () => {
         const pathExists = await exists(workspacePath);
@@ -96,10 +94,17 @@ export function registerRecentWorkspacesCommands(): void {
             }
           );
           if (confirmed) {
-            await invoke("open_workspace_in_new_window", {
-              workspaceRoot: workspacePath,
-              filePath: null,
-            });
+            try {
+              await invoke("open_workspace_in_new_window", {
+                workspaceRoot: workspacePath,
+                filePath: null,
+              });
+            } catch (error) {
+              // IPC failure must surface to the user, not reject the command
+              // silently — matches the localized feedback other paths use.
+              workspaceError("Failed to open workspace in new window:", error);
+              toast.error(i18n.t("dialog:toast.openWorkspaceInNewWindowFailed"));
+            }
           }
           return;
         }
@@ -107,18 +112,8 @@ export function registerRecentWorkspacesCommands(): void {
         const existing = await openWorkspaceWithConfig(workspacePath, { windowLabel });
         useUIStore.getState().showSidebarWithView("files");
 
-        if (existing?.lastOpenTabs && existing.lastOpenTabs.length > 0) {
-          for (const filePath of existing.lastOpenTabs) {
-            try {
-              const content = await readTextFile(filePath);
-              const tabId = useTabStore.getState().createTab(windowLabel, filePath);
-              useDocumentStore.getState().initDocument(tabId, content, filePath);
-              useDocumentStore.getState().setLineMetadata(tabId, detectLinebreaks(content));
-            } catch {
-              workspaceWarn(`Could not restore tab: ${filePath}`);
-            }
-          }
-        }
+        // Shared restore loop with dedup guard — skips already-open tabs.
+        await restoreWorkspaceTabs(windowLabel, existing?.lastOpenTabs);
 
         useRecentWorkspacesStore.getState().addWorkspace(workspacePath);
       });
@@ -126,4 +121,9 @@ export function registerRecentWorkspacesCommands(): void {
   });
 
   registered = true;
+}
+
+/** Test-only: clears the one-time registration guard so a fresh bus re-registers. */
+export function __resetRecentWorkspacesCommandsRegistration(): void {
+  registered = false;
 }

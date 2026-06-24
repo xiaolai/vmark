@@ -33,7 +33,8 @@
     "buttonKeep": "내 변경 사항 유지",
     "buttonReloadAll": "모두 다시 불러오기",
     "buttonKeepAll": "모두 유지",
-    "buttonReviewEach": "각각 검토"
+    "buttonReviewEach": "각각 검토",
+    "unknownFile": "파일"
   },
   "revertToSaved": {
     "title": "저장된 버전으로 되돌리기",
@@ -222,7 +223,13 @@
   "errorBoundary": {
     "title": "문제가 발생했습니다",
     "featureFailedTitle": "{{feature}}을(를) 표시하지 못했습니다",
-    "tryAgain": "다시 시도"
+    "tryAgain": "다시 시도",
+    "feature": {
+      "editor": "편집기",
+      "terminal": "터미널",
+      "settings": "설정",
+      "pdfExport": "PDF 내보내기"
+    }
   },
   "pdfExport": {
     "title": "PDF 내보내기",
@@ -240,5 +247,8 @@
     "pin": "고정",
     "pinTooltip": "이 알림을 계속 표시",
     "unpinTooltip": "고정됨 — 수동으로 닫기"
+  },
+  "openWorkspaceFolder": {
+    "title": "작업 공간 폴더 열기"
   }
 }

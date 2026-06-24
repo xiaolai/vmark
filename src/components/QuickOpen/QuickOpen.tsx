@@ -34,37 +34,10 @@ import {
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import { useImeComposition } from "@/hooks/useImeComposition";
 import { useDismissOnOutsideOrEscape } from "@/hooks/useDismissOnOutsideOrEscape";
+import { handleSpotlightTabTrap } from "@/components/spotlight/spotlightDialog";
+import { QuickOpenList } from "./QuickOpenList";
+import { quickOpenWarn } from "@/utils/debug";
 import "./QuickOpen.css";
-
-// Inline SVG icons to avoid import complexity
-function FileIcon() {
-  return (
-    <svg className="quick-open-item-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.2">
-      <path d="M4 1h5l4 4v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1z" />
-      <path d="M9 1v4h4" />
-    </svg>
-  );
-}
-
-function FolderIcon() {
-  return (
-    <svg className="quick-open-item-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.2">
-      <path d="M2 3h4l2 2h6a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" />
-    </svg>
-  );
-}
-
-function renderHighlighted(text: string, indices: number[] | undefined): React.ReactNode {
-  if (!indices || indices.length === 0) return text;
-  const indexSet = new Set(indices);
-  return Array.from(text).map((char, i) =>
-    indexSet.has(i) ? (
-      <span key={i} className="quick-open-match">{char}</span>
-    ) : (
-      <span key={i}>{char}</span>
-    )
-  );
-}
 
 interface QuickOpenProps {
   windowLabel: string;
@@ -149,22 +122,41 @@ export function QuickOpen({ windowLabel }: QuickOpenProps) {
   const handleSelectItem = useCallback(
     async (path: string) => {
       handleClose();
-      // openFileInNewTabCore handles errors internally (detaches orphaned tab, shows toast).
-      // No try/catch needed — stale file errors are handled within the core function.
-      await openFileInNewTabCore(windowLabel, path);
+      // openFileInNewTabCore handles most errors internally (detaches orphaned
+      // tab, shows toast). But pre-read routing/dialog steps (routeOpenBySize)
+      // can still reject before that internal try/catch — callers ignore the
+      // returned promise, so guard here to avoid an unhandled rejection.
+      try {
+        await openFileInNewTabCore(windowLabel, path);
+      } catch (err) {
+        quickOpenWarn("Failed to open file:", err);
+      }
     },
     [windowLabel, handleClose]
   );
 
-  const handleBrowse = useCallback(() => {
+  const handleBrowse = useCallback(async () => {
     handleClose();
-    handleOpen(windowLabel);
+    // handleOpen drives a native file dialog + open; surface failures rather
+    // than letting the floating promise become an unhandled rejection.
+    try {
+      await handleOpen(windowLabel);
+    } catch (err) {
+      quickOpenWarn("Failed to browse for file:", err);
+    }
   }, [windowLabel, handleClose]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       /* v8 ignore next -- @preserve reason: IME composition guard not reachable in jsdom */
       if (isImeKeyEvent(e.nativeEvent) || ime.isComposing()) return;
+
+      if (e.key === "Tab") {
+        // Focus trap: cycle within the dialog (aria-modal semantics) so
+        // keyboard focus can't leave the overlay while it stays open.
+        handleSpotlightTabTrap(e, containerRef.current);
+        return;
+      }
 
       if (e.key === "Escape") {
         e.preventDefault();
@@ -244,51 +236,14 @@ export function QuickOpen({ windowLabel }: QuickOpenProps) {
         </div>
 
         <div className="quick-open-list" ref={listRef} id="quick-open-list" role="listbox">
-          {rankedItems.length === 0 && filter && (
-            <div className="quick-open-empty">{t("quickOpen.noFiles")}</div>
-          )}
-
-          {rankedItems.map((ranked, index) => (
-            <div
-              key={ranked.item.path}
-              className={`quick-open-item${index === selectedIndex ? " quick-open-item--selected" : ""}`}
-              data-index={index}
-              role="option"
-              id={`quick-open-item-${index}`}
-              aria-selected={index === selectedIndex}
-              onClick={() => handleSelectItem(ranked.item.path)}
-              onMouseEnter={() => setSelectedIndex(index)}
-            >
-              <FileIcon />
-              <span className="quick-open-item-name">
-                {renderHighlighted(ranked.item.filename, ranked.match?.indices)}
-              </span>
-              {/* v8 ignore next -- @preserve reason: isOpenTab depends on tab state not set in QuickOpen tests */
-              ranked.item.isOpenTab && <span className="quick-open-tab-dot" />}
-              {ranked.item.relPath !== ranked.item.filename && (
-                <span className="quick-open-item-path">
-                  {renderHighlighted(ranked.item.relPath, ranked.match?.pathIndices)}
-                </span>
-              )}
-            </div>
-          ))}
-
-          {/* Separator before Browse */}
-          {rankedItems.length > 0 && <div className="quick-open-separator" />}
-
-          {/* Browse row — always pinned at bottom */}
-          <div
-            className={`quick-open-item${selectedIndex === rankedItems.length ? " quick-open-item--selected" : ""}`}
-            data-index={rankedItems.length}
-            role="option"
-            id={`quick-open-item-${rankedItems.length}`}
-            aria-selected={selectedIndex === rankedItems.length}
-            onClick={handleBrowse}
-            onMouseEnter={() => setSelectedIndex(rankedItems.length)}
-          >
-            <FolderIcon />
-            <span className="quick-open-item-name">{t("quickOpen.browse")}</span>
-          </div>
+          <QuickOpenList
+            rankedItems={rankedItems}
+            selectedIndex={selectedIndex}
+            filter={filter}
+            onSelectItem={handleSelectItem}
+            onBrowse={handleBrowse}
+            onHoverIndex={setSelectedIndex}
+          />
         </div>
 
         <div className="quick-open-footer">

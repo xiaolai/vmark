@@ -102,6 +102,43 @@ describe("workspace identity", () => {
     });
   });
 
+  it("preserves leading and trailing spaces in valid POSIX paths", () => {
+    // macOS/POSIX path segments may legitimately contain leading or trailing
+    // spaces — trimming them collides distinct workspaces (regression guard).
+    const spaced = normalizeWorkspacePathForIdentity("/Users/me/Repo ", "macos");
+    expect(spaced.normalizedPath).toBe("/Users/me/Repo ");
+    expect(spaced.platformIdentity).toBe("/Users/me/Repo ");
+
+    const trimmed = normalizeWorkspacePathForIdentity("/Users/me/Repo", "macos");
+    expect(spaced.platformIdentity).not.toBe(trimmed.platformIdentity);
+  });
+
+  it("does not collide distinct root paths that differ only by surrounding spaces", () => {
+    const spaced = createWorkspaceRootIdentity("/Users/me/Repo ", { platform: "macos" });
+    const plain = createWorkspaceRootIdentity("/Users/me/Repo", { platform: "macos" });
+    expect(spaced.ok && spaced.root.rootId).not.toBe(plain.ok && plain.root.rootId);
+    expect(spaced.ok && spaced.root.rootPath).toBe("/Users/me/Repo ");
+  });
+
+  it("uses an untrimmed canonical path for identity while validating blanks", () => {
+    // A whitespace-only canonical path is treated as absent (fallback), but a
+    // real canonical path with surrounding spaces is preserved unchanged.
+    const blankCanonical = createWorkspaceRootIdentity("/repo", {
+      canonicalPath: "   ",
+      platform: "macos",
+    });
+    expect(blankCanonical.ok && blankCanonical.root.canonicalization).toBe("fallback");
+
+    const spacedCanonical = createWorkspaceRootIdentity("/repo", {
+      canonicalPath: "/Volumes/Data/Repo ",
+      platform: "macos",
+    });
+    expect(spacedCanonical.ok && spacedCanonical.root.platformIdentity).toBe(
+      "/Volumes/Data/Repo ",
+    );
+    expect(spacedCanonical.ok && spacedCanonical.root.canonicalization).toBe("canonical");
+  });
+
   it("keeps POSIX identity case-sensitive", () => {
     expect(normalizeWorkspacePathForIdentity("/Users/Me/Repo", "macos")).toEqual({
       normalizedPath: "/Users/Me/Repo",
@@ -185,5 +222,66 @@ describe("workspace identity", () => {
       rootPath: null,
       displayName: "Untitled",
     });
+  });
+
+  it("attaches translation keys to synthetic instances for render-time i18n", () => {
+    const loose = createWorkspaceInstance({
+      workspaceInstanceId: "wsi-loose",
+      root: null,
+      ownerWindowLabel: "main",
+      createdFrom: "open",
+      kind: "loose",
+    });
+    expect(loose.displayNameKey).toBe("common:workspaceRail.looseFiles");
+
+    const placeholder = createWorkspaceInstance({
+      workspaceInstanceId: "wsi-placeholder",
+      root: null,
+      ownerWindowLabel: "main",
+      createdFrom: "placeholder",
+    });
+    expect(placeholder.displayNameKey).toBe("common:untitled");
+  });
+
+  it("omits a translation key for real workspace instances", () => {
+    const rootResult = createWorkspaceRootIdentity("/Users/xiaolai/VMark", {
+      platform: "macos",
+    });
+    if (!rootResult.ok) throw new Error("expected root");
+    const instance = createWorkspaceInstance({
+      workspaceInstanceId: "wsi-real",
+      root: rootResult.root,
+      ownerWindowLabel: "main",
+      createdFrom: "open",
+    });
+    expect(instance.displayNameKey).toBeUndefined();
+  });
+
+  it("rejects a workspace kind without a root", () => {
+    expect(() =>
+      createWorkspaceInstance({
+        workspaceInstanceId: "wsi-bad",
+        root: null,
+        ownerWindowLabel: "main",
+        createdFrom: "open",
+        kind: "workspace",
+      })
+    ).toThrow(/workspace.*root/i);
+  });
+
+  it("rejects a loose kind paired with a root", () => {
+    const rootResult = createWorkspaceRootIdentity("/Users/xiaolai/VMark", {
+      platform: "macos",
+    });
+    if (!rootResult.ok) throw new Error("expected root");
+    expect(() =>
+      createWorkspaceInstance({
+        workspaceInstanceId: "wsi-bad",
+        root: rootResult.root,
+        ownerWindowLabel: "main",
+        createdFrom: "open",
+        kind: "loose",
+      })
+    ).toThrow(/loose.*root|placeholder.*root|root/i);
   });
 });

@@ -69,6 +69,7 @@ vi.mock("@/hooks/useDefaultSaveFolder", () => ({
 
 vi.mock("@/utils/wysiwygFlush", () => ({
   flushActiveWysiwygNow: mockFlush,
+  flushAllWysiwygNow: mockFlush,
 }));
 
 vi.mock("@/utils/reentryGuard", () => ({

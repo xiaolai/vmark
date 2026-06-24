@@ -141,6 +141,39 @@ describe("resolveTerminalCwd", () => {
 
     expect(resolveTerminalCwd()).toBe("/");
   });
+
+  it("returns the drive root for a file at a Windows drive root", () => {
+    // Regression: getParentDir("C:\\file.md") returns "c:" — a
+    // drive-RELATIVE reference, not an absolute path. Spawning the shell
+    // there would land in the current dir of drive C:, not its root. The
+    // resolver must anchor to "c:/" so `C:\file.md` opens the terminal at
+    // the drive root.
+    vi.mocked(useWorkspaceStore.getState).mockReturnValue({
+      rootPath: null,
+    } as ReturnType<typeof useWorkspaceStore.getState>);
+    vi.mocked(useTabStore.getState).mockReturnValue({
+      activeTabId: { main: "tab1" },
+    } as unknown as ReturnType<typeof useTabStore.getState>);
+    vi.mocked(useDocumentStore.getState).mockReturnValue({
+      getDocument: () => ({ filePath: "C:\\file.md" }),
+    } as unknown as ReturnType<typeof useDocumentStore.getState>);
+
+    expect(resolveTerminalCwd()).toBe("c:/");
+  });
+
+  it("returns the drive root for a forward-slash drive-root file", () => {
+    vi.mocked(useWorkspaceStore.getState).mockReturnValue({
+      rootPath: null,
+    } as ReturnType<typeof useWorkspaceStore.getState>);
+    vi.mocked(useTabStore.getState).mockReturnValue({
+      activeTabId: { main: "tab1" },
+    } as unknown as ReturnType<typeof useTabStore.getState>);
+    vi.mocked(useDocumentStore.getState).mockReturnValue({
+      getDocument: () => ({ filePath: "D:/notes.md" }),
+    } as unknown as ReturnType<typeof useDocumentStore.getState>);
+
+    expect(resolveTerminalCwd()).toBe("d:/");
+  });
 });
 
 describe("wirePtyFlowControl", () => {
@@ -557,6 +590,53 @@ describe("spawnPty shell selection", () => {
 
     const spawnCallEnv = vi.mocked(spawn).mock.calls[0][2] as { env: Record<string, string> };
     expect(spawnCallEnv.env.PATH).toBe("/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin");
+  });
+
+  it("recomputes shell integration for the fallback shell (does not reuse the configured shell's overrides)", async () => {
+    // The configured shell fails to spawn; the fallback must get its own
+    // shell-integration env, not the configured shell's (which would poison
+    // the default shell's startup, e.g. zsh's ZDOTDIR fed to bash).
+    vi.mocked(useSettingsStore.getState).mockReturnValue({
+      terminal: { shell: "/usr/bin/badshell", shellIntegration: true },
+    } as ReturnType<typeof useSettingsStore.getState>);
+
+    const integrationCalls: string[] = [];
+    vi.mocked(invoke).mockImplementation((cmd: string, args?: unknown) => {
+      if (cmd === "get_login_shell_path") return Promise.resolve("/usr/local/bin");
+      if (cmd === "get_default_shell") return Promise.resolve("/bin/bash");
+      if (cmd === "prepare_shell_integration") {
+        const shell = (args as { shell: string }).shell;
+        integrationCalls.push(shell);
+        // Return a shell-specific override keyed by the shell path.
+        return Promise.resolve({ VMARK_SHELL_RC: shell });
+      }
+      return Promise.resolve(null);
+    });
+
+    // First spawn (configured shell) throws; second (fallback) succeeds.
+    let spawnCount = 0;
+    vi.mocked(spawn).mockImplementation((() => {
+      spawnCount++;
+      if (spawnCount === 1) throw new Error("spawn failed");
+      return {
+        onData: vi.fn(),
+        onExit: vi.fn(),
+        write: vi.fn(),
+        resize: vi.fn(),
+        kill: vi.fn(),
+      } as unknown as ReturnType<typeof spawn>;
+    }) as unknown as typeof spawn);
+
+    await spawnPty({ term: mockTerm, onExit: vi.fn(), disposed: () => false });
+
+    // Integration prepared for BOTH the configured shell and the fallback.
+    expect(integrationCalls).toEqual(["/usr/bin/badshell", "/bin/bash"]);
+    // The fallback spawn (2nd call) carries the FALLBACK's override, not the
+    // configured shell's.
+    const fallbackEnv = vi.mocked(spawn).mock.calls[1][2] as {
+      env: Record<string, string>;
+    };
+    expect(fallbackEnv.env.VMARK_SHELL_RC).toBe("/bin/bash");
   });
 
   it("throws 'disposed before fallback spawn' when disposed becomes true after fallback shell resolved (L168)", async () => {

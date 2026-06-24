@@ -67,6 +67,9 @@ const uiStoreState = {
 
 vi.mock('@/stores/uiStore', () => ({
   useUIStore: { getState: () => uiStoreState },
+  // restoreUiState clamps restored terminal height to this ratio of the
+  // viewport; mirror the real constant value (0.5) for the layout-max policy.
+  TERMINAL_MAX_RATIO: 0.5,
 }));
 
 const mockCreateTab = vi.fn(() => 'new-tab-id');
@@ -608,6 +611,42 @@ describe('restoreHelpers', () => {
 
       expect(mockSetTerminalHeight).not.toHaveBeenCalled();
     });
+
+    it('should clamp a corrupt oversized terminal height to the layout max (50% of viewport)', () => {
+      // jsdom default innerHeight is 768; the layout policy caps the terminal
+      // at TERMINAL_MAX_RATIO (0.5) of the available dimension. A corrupt
+      // persisted value (e.g. 100000) must not restore an unusable panel.
+      const originalInnerHeight = window.innerHeight;
+      Object.defineProperty(window, 'innerHeight', { value: 1000, configurable: true });
+      try {
+        const ws = makeWindowState({
+          ui_state: makeUiState({ terminal_height: 100000 }),
+        });
+
+        restoreUiState(ws);
+
+        // 1000 * 0.5 = 500
+        expect(mockSetTerminalHeight).toHaveBeenCalledWith(500);
+      } finally {
+        Object.defineProperty(window, 'innerHeight', { value: originalInnerHeight, configurable: true });
+      }
+    });
+
+    it('should restore a terminal height within the max unchanged', () => {
+      const originalInnerHeight = window.innerHeight;
+      Object.defineProperty(window, 'innerHeight', { value: 1000, configurable: true });
+      try {
+        const ws = makeWindowState({
+          ui_state: makeUiState({ terminal_height: 300 }),
+        });
+
+        restoreUiState(ws);
+
+        expect(mockSetTerminalHeight).toHaveBeenCalledWith(300);
+      } finally {
+        Object.defineProperty(window, 'innerHeight', { value: originalInnerHeight, configurable: true });
+      }
+    });
   });
 
   // =========================================================================
@@ -903,6 +942,150 @@ describe('restoreHelpers', () => {
       await restoreDocumentState('tab-1', tab, docStore);
 
       expect(mockSetCursorInfo).not.toHaveBeenCalled();
+    });
+
+    it('should skip cursor info with negative source_line', async () => {
+      const docStore = {
+        initDocument: mockInitDocument,
+        loadContent: mockLoadContent,
+        setContent: mockSetContent,
+        markMissing: mockMarkMissing,
+        markDivergent: mockMarkDivergent,
+        setCursorInfo: mockSetCursorInfo,
+      } as unknown as ReturnType<typeof import('@/stores/documentStore').useDocumentStore.getState>;
+
+      const cursor = makeCursorInfo({ source_line: -3 });
+      const tab = makeTabState({
+        document: makeDocState({ cursor_info: cursor }),
+      });
+
+      await restoreDocumentState('tab-1', tab, docStore);
+
+      expect(mockSetCursorInfo).not.toHaveBeenCalled();
+    });
+
+    it('should skip cursor info with zero source_line (1-indexed)', async () => {
+      const docStore = {
+        initDocument: mockInitDocument,
+        loadContent: mockLoadContent,
+        setContent: mockSetContent,
+        markMissing: mockMarkMissing,
+        markDivergent: mockMarkDivergent,
+        setCursorInfo: mockSetCursorInfo,
+      } as unknown as ReturnType<typeof import('@/stores/documentStore').useDocumentStore.getState>;
+
+      const cursor = makeCursorInfo({ source_line: 0 });
+      const tab = makeTabState({
+        document: makeDocState({ cursor_info: cursor }),
+      });
+
+      await restoreDocumentState('tab-1', tab, docStore);
+
+      expect(mockSetCursorInfo).not.toHaveBeenCalled();
+    });
+
+    it('should skip cursor info with fractional source_line', async () => {
+      const docStore = {
+        initDocument: mockInitDocument,
+        loadContent: mockLoadContent,
+        setContent: mockSetContent,
+        markMissing: mockMarkMissing,
+        markDivergent: mockMarkDivergent,
+        setCursorInfo: mockSetCursorInfo,
+      } as unknown as ReturnType<typeof import('@/stores/documentStore').useDocumentStore.getState>;
+
+      const cursor = makeCursorInfo({ source_line: 5.5 });
+      const tab = makeTabState({
+        document: makeDocState({ cursor_info: cursor }),
+      });
+
+      await restoreDocumentState('tab-1', tab, docStore);
+
+      expect(mockSetCursorInfo).not.toHaveBeenCalled();
+    });
+
+    it('should skip cursor info with negative offset_in_word', async () => {
+      const docStore = {
+        initDocument: mockInitDocument,
+        loadContent: mockLoadContent,
+        setContent: mockSetContent,
+        markMissing: mockMarkMissing,
+        markDivergent: mockMarkDivergent,
+        setCursorInfo: mockSetCursorInfo,
+      } as unknown as ReturnType<typeof import('@/stores/documentStore').useDocumentStore.getState>;
+
+      const cursor = makeCursorInfo({ offset_in_word: -1 });
+      const tab = makeTabState({
+        document: makeDocState({ cursor_info: cursor }),
+      });
+
+      await restoreDocumentState('tab-1', tab, docStore);
+
+      expect(mockSetCursorInfo).not.toHaveBeenCalled();
+    });
+
+    it('should skip cursor info with percent_in_line below 0', async () => {
+      const docStore = {
+        initDocument: mockInitDocument,
+        loadContent: mockLoadContent,
+        setContent: mockSetContent,
+        markMissing: mockMarkMissing,
+        markDivergent: mockMarkDivergent,
+        setCursorInfo: mockSetCursorInfo,
+      } as unknown as ReturnType<typeof import('@/stores/documentStore').useDocumentStore.getState>;
+
+      const cursor = makeCursorInfo({ percent_in_line: -0.1 });
+      const tab = makeTabState({
+        document: makeDocState({ cursor_info: cursor }),
+      });
+
+      await restoreDocumentState('tab-1', tab, docStore);
+
+      expect(mockSetCursorInfo).not.toHaveBeenCalled();
+    });
+
+    it('should skip cursor info with percent_in_line above 1', async () => {
+      const docStore = {
+        initDocument: mockInitDocument,
+        loadContent: mockLoadContent,
+        setContent: mockSetContent,
+        markMissing: mockMarkMissing,
+        markDivergent: mockMarkDivergent,
+        setCursorInfo: mockSetCursorInfo,
+      } as unknown as ReturnType<typeof import('@/stores/documentStore').useDocumentStore.getState>;
+
+      const cursor = makeCursorInfo({ percent_in_line: 1.5 });
+      const tab = makeTabState({
+        document: makeDocState({ cursor_info: cursor }),
+      });
+
+      await restoreDocumentState('tab-1', tab, docStore);
+
+      expect(mockSetCursorInfo).not.toHaveBeenCalled();
+    });
+
+    it('should restore cursor info at percent_in_line boundaries (0 and 1)', async () => {
+      const docStore = {
+        initDocument: mockInitDocument,
+        loadContent: mockLoadContent,
+        setContent: mockSetContent,
+        markMissing: mockMarkMissing,
+        markDivergent: mockMarkDivergent,
+        setCursorInfo: mockSetCursorInfo,
+      } as unknown as ReturnType<typeof import('@/stores/documentStore').useDocumentStore.getState>;
+
+      const tabZero = makeTabState({
+        document: makeDocState({ cursor_info: makeCursorInfo({ percent_in_line: 0, offset_in_word: 0 }) }),
+      });
+      await restoreDocumentState('tab-1', tabZero, docStore);
+      expect(mockSetCursorInfo).toHaveBeenCalledWith('tab-1', expect.objectContaining({ percentInLine: 0 }));
+
+      mockSetCursorInfo.mockClear();
+      const tabOne = makeTabState({
+        document: makeDocState({ cursor_info: makeCursorInfo({ percent_in_line: 1 }) }),
+      });
+      await restoreDocumentState('tab-1', tabOne, docStore);
+      expect(mockSetCursorInfo).toHaveBeenCalledWith('tab-1', expect.objectContaining({ percentInLine: 1 }));
     });
 
     it('should use defaults for missing optional cursor fields', async () => {
@@ -1401,6 +1584,54 @@ describe('restoreHelpers', () => {
       expect(mockCreateTab).toHaveBeenCalledTimes(2);
       expect(mockCreateTab).toHaveBeenCalledWith('main', '/path/to/file.md');
       expect(mockCreateTab).toHaveBeenCalledWith('main', '/path/to/other.md');
+    });
+
+    it('treats normalization-equivalent paths as duplicates (matches tabStore createTab)', async () => {
+      // tabStore.createTab deduplicates via normalizePath, so equivalent paths
+      // (trailing slash, backslash separators) collide and the second createTab
+      // returns the first tab's id — overwriting restored content. restoreTabs
+      // must skip these duplicates using the SAME normalizePath comparison.
+      mockGetTabsByWindow.mockReturnValue([]);
+      let callCount = 0;
+      mockCreateTab.mockImplementation(() => `new-tab-${++callCount}`);
+
+      const ws = makeWindowState({
+        active_tab_id: 'tab-1',
+        tabs: [
+          makeTabState({ id: 'tab-1', file_path: '/path/to/file.md', title: 'a' }),
+          // Same file, trailing slash variant — normalizePath collapses it
+          makeTabState({ id: 'tab-2', file_path: '/path/to/file.md/', title: 'a-dup' }),
+        ],
+      });
+
+      await restoreTabs('main', ws);
+
+      // Only the first restored; the normalization-equivalent duplicate skipped.
+      expect(mockCreateTab).toHaveBeenCalledTimes(1);
+    });
+
+    it('maps a skipped duplicate active tab to the retained tab id', async () => {
+      // If the persisted active tab is itself a skipped duplicate, restore must
+      // activate the RETAINED duplicate's tab — not fall back to the first tab.
+      mockGetTabsByWindow.mockReturnValue([]);
+      let callCount = 0;
+      mockCreateTab.mockImplementation(() => `new-tab-${++callCount}`);
+      mockSetActiveTab.mockClear();
+
+      const ws = makeWindowState({
+        active_tab_id: 'tab-dup', // the duplicate that gets skipped
+        tabs: [
+          makeTabState({ id: 'tab-other', file_path: '/path/to/other.md', title: 'other' }),
+          makeTabState({ id: 'tab-keep', file_path: '/path/to/file.md', title: 'keep' }),
+          makeTabState({ id: 'tab-dup', file_path: '/path/to/file.md', title: 'dup' }),
+        ],
+      });
+
+      await restoreTabs('main', ws);
+
+      // tab-other → new-tab-1, tab-keep → new-tab-2; tab-dup is skipped but
+      // maps to new-tab-2 (the retained duplicate). Active tab must be new-tab-2.
+      expect(mockSetActiveTab).toHaveBeenLastCalledWith('main', 'new-tab-2');
     });
 
     it('treats case-different paths as distinct (no case folding)', async () => {

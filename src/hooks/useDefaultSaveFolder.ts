@@ -23,10 +23,10 @@ import { resolveDefaultSaveFolder } from "@/utils/defaultSaveFolder";
  * Precedence:
  * 1. Workspace root - if the window is in workspace mode
  * 2. Sibling tab folder - first saved file's directory
- * 3. Documents/Home directory - fallback
+ * 3. Documents/Home directory - fallback (empty string if both path APIs reject)
  *
  * @param windowLabel - The window label to check for saved tabs
- * @returns The resolved default folder path
+ * @returns The resolved default folder path (never rejects)
  *
  * @example
  * const folder = await getDefaultSaveFolderWithFallback("main");
@@ -46,12 +46,19 @@ export async function getDefaultSaveFolderWithFallback(
     }
   }
 
-  // Get Documents directory (preferred) with fallback to home directory
+  // Get Documents directory (preferred) with fallback to home directory.
+  // If BOTH path APIs reject (sandbox/permission denial, headless env), fall
+  // back to an empty string so the Save As flow still resolves and can open a
+  // native dialog at the OS default location — never reject the whole save.
   let fallbackDirectory: string;
   try {
     fallbackDirectory = await documentDir();
   } catch {
-    fallbackDirectory = await homeDir();
+    try {
+      fallbackDirectory = await homeDir();
+    } catch {
+      fallbackDirectory = "";
+    }
   }
 
   // Delegate to pure resolver

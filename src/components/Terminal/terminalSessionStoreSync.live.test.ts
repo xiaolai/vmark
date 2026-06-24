@@ -42,6 +42,7 @@ function makeEntry(): SyncableSessionEntry {
       fitAddon: { fit: vi.fn() } as any,
       isShellBusy: () => false,
       getCwd: () => null,
+      setOnShellIdle: vi.fn(),
     } as any,
     pty: null,
     shellExited: false,

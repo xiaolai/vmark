@@ -31,6 +31,10 @@ export function resetWorkspaceActionTestState(): void {
   mockInvoke.mockReset();
   mockListen.mockReset();
   mockOpenWorkspaceWithConfig.mockReset();
+  // invoke() always returns a promise in production — default unmatched calls
+  // (e.g. close_window) to a resolved promise so `.catch()`/await never sees
+  // `undefined`. Specific mockResolvedValueOnce calls still take precedence.
+  mockInvoke.mockResolvedValue(undefined);
   mockListen.mockResolvedValue(vi.fn());
   mockOpenWorkspaceWithConfig.mockResolvedValue(null);
   useWorkspaceInstancesStore.getState().resetWorkspaceInstances();

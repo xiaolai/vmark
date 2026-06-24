@@ -42,6 +42,13 @@ export interface SyncableSessionEntry {
   pty: IPty | null;
   shellExited: boolean;
   spawnedCwd: string | undefined;
+  /**
+   * Workspace root that arrived while this session's shell was busy and so
+   * could not be cd'd immediately. Flushed when the shell returns to idle
+   * (OSC 133 done / next prompt) so a session doesn't stay stuck in the old
+   * workspace after a long-running foreground command exits.
+   */
+  pendingRoot?: string | null;
 }
 
 /** Build a `cd` command string for the given path (POSIX-quoted). */
@@ -50,6 +57,29 @@ export function buildCdCommand(path: string): string {
   const escaped = sanitized.replace(/'/g, "'\\''");
   // Ctrl+U clears any partial input before the cd.
   return `\x15cd '${escaped}'\n`;
+}
+
+/**
+ * Apply a session's deferred workspace `cd` if one is pending and the shell is
+ * no longer busy. Shared by the live workspace-root sync (skip path) and the
+ * OSC-133 idle flush. No-op when there is no pending root, the PTY is gone, or
+ * the shell is still running a foreground command. Returns true if a `cd` was
+ * written.
+ */
+export function flushPendingRoot(entry: SyncableSessionEntry): boolean {
+  const pending = entry.pendingRoot;
+  if (!pending) return false;
+  if (!entry.pty || entry.shellExited) {
+    entry.pendingRoot = null;
+    return false;
+  }
+  if (entry.instance.isShellBusy()) return false;
+  const currentCwd = entry.instance.getCwd() ?? entry.spawnedCwd;
+  entry.pendingRoot = null;
+  if (currentCwd === pending) return false;
+  entry.pty.write(buildCdCommand(pending));
+  entry.spawnedCwd = pending;
+  return true;
 }
 
 /**
@@ -108,10 +138,17 @@ export function useUIStoreSync(
       if (!sessions) return;
       for (const [, entry] of sessions) {
         // Never inject `cd` into a shell that's running a foreground command
-        // (e.g. vim, less) — the Ctrl+U + cd would corrupt it. Skip; a later
-        // workspace change (or none) will cd once it's idle. Requires shell
-        // integration; without it isShellBusy() is always false (prior behavior).
-        if (entry.instance.isShellBusy()) continue;
+        // (e.g. vim, less) — the Ctrl+U + cd would corrupt it. Record the
+        // root as pending so the idle flush (OSC 133 done) cd's once the
+        // command exits, instead of leaving the session stuck in the old
+        // workspace. Requires shell integration; without it isShellBusy() is
+        // always false (prior behavior — no pending root is ever recorded).
+        if (entry.instance.isShellBusy()) {
+          entry.pendingRoot = newRoot;
+          continue;
+        }
+        // A pending root is now superseded by this (idle) sync.
+        entry.pendingRoot = null;
         // Prefer the shell's live cwd (OSC 7) over the spawn-time cwd, so a
         // session the user already cd'd into newRoot isn't redundantly cd'd
         // again (WI-2.2).
@@ -122,13 +159,36 @@ export function useUIStoreSync(
         }
       }
     };
+
+    // Register an idle flush per session so a deferred root cd applies the
+    // moment the busy shell returns to a prompt. Track which entries we've
+    // wired so newly-created sessions get hooked on the next sync, and so
+    // cleanup can clear them.
+    const wired = new Set<SyncableSessionEntry>();
+    const wireIdleFlush = () => {
+      const sessions = sessionsRef.current;
+      if (!sessions) return;
+      for (const [, entry] of sessions) {
+        if (wired.has(entry)) continue;
+        wired.add(entry);
+        entry.instance.setOnShellIdle(() => flushPendingRoot(entry));
+      }
+    };
+    wireIdleFlush();
+    const syncRootAndWire = () => {
+      wireIdleFlush();
+      syncRoot();
+    };
+
     const unsubs = [
-      useWorkspaceStore.subscribe(syncRoot),
-      useWorkspaceInstancesStore.subscribe(syncRoot),
-      useSettingsStore.subscribe(syncRoot),
+      useWorkspaceStore.subscribe(syncRootAndWire),
+      useWorkspaceInstancesStore.subscribe(syncRootAndWire),
+      useSettingsStore.subscribe(syncRootAndWire),
     ];
     return () => {
       for (const unsub of unsubs) unsub();
+      for (const entry of wired) entry.instance.setOnShellIdle(null);
+      wired.clear();
     };
   }, [sessionsRef]);
 

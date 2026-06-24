@@ -10,6 +10,7 @@ import {
   type WorkspaceInstanceCreatedFrom,
   type WorkspacePlatform,
 } from "@/utils/workspaceIdentity";
+import { getRuntimePlatform } from "@/utils/platform";
 
 export interface OpenWorkspaceInstanceOptions {
   windowLabel?: string;
@@ -23,8 +24,11 @@ export function openOrActivateWorkspaceInstance(
   options: OpenWorkspaceInstanceOptions = {},
 ): WorkspaceInstanceRecord | null {
   if (!isWorkspaceRailEnabled()) return null;
+  // Derive the platform from the runtime OS at this boundary when callers omit
+  // it — defaulting blindly to "macos" mis-normalizes Windows/Linux roots, so
+  // duplicate detection and root identity would be wrong off macOS.
   const root = createWorkspaceRootIdentity(rootPath, {
-    platform: options.platform ?? "macos",
+    platform: options.platform ?? getRuntimePlatform(),
   });
   if (!root.ok) return null;
 

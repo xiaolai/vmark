@@ -130,30 +130,11 @@ pub fn needs_migration(session: &SessionData) -> bool {
 // =============================================================================
 // Migration Functions
 // =============================================================================
-// Add migration functions here as we evolve the schema.
-// Each function should:
-// 1. Take a session at version N
-// 2. Return a session at version N+1
-// 3. Add default values for new fields
-// 4. Transform data structures as needed
-
-/*
-Example migration template for v1 -> v2 (when needed):
-
-fn migrate_v1_to_v2(mut session: SessionData) -> Result<SessionData, String> {
-    session.version = 2;
-
-    // Add new fields with defaults
-    // session.new_field = Some(default_value);
-
-    // Transform existing fields if needed
-    for window in &mut session.windows {
-        // window.new_window_field = false;
-    }
-
-    Ok(session)
-}
-*/
+// Add migration functions above as the schema evolves. Each `migrate_vN_to_vN+1`
+// takes a session at version N, returns one at version N+1, and is dispatched
+// from `migrate_to_next_version`. For authoring guidance (defaulting new fields
+// via serde, transforming data, keeping the Rust/TypeScript pair in sync) see
+// the module-level docs and `src/services/persistence/hotExit/schemaMigration.ts`.
 
 #[cfg(test)]
 mod tests {
@@ -223,3 +204,7 @@ mod v3_tests;
 #[cfg(test)]
 #[path = "migration_v4_tests.rs"]
 mod v4_tests;
+
+#[cfg(test)]
+#[path = "migration_v5_tests.rs"]
+mod v5_tests;

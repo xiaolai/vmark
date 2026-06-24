@@ -742,5 +742,10 @@
   "integrations.ccSwitch.description": "Passa il server MCP di VMark a CC-Switch, che lo sincronizza con le CLI IA gestite lì.",
   "integrations.ccSwitch.add": "Aggiungi a CC-Switch",
   "integrations.ccSwitch.opened": "Link di importazione CC-Switch aperto.",
-  "integrations.ccSwitch.binaryMissing": "Compila prima il binario del server MCP di VMark."
+  "integrations.ccSwitch.binaryMissing": "Compila prima il binario del server MCP di VMark.",
+  "files.autoResize.off": "Disattivato",
+  "files.autoResize.800": "800px",
+  "files.autoResize.1200": "1200px",
+  "files.autoResize.1920": "1920px (Full HD)",
+  "files.autoResize.2560": "2560px (2K)"
 }

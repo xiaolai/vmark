@@ -430,6 +430,80 @@ describe("useFinderFileOpen", () => {
     });
   });
 
+  it("drains a second wave of events that arrive while the first wave is draining", async () => {
+    let resolveRestore!: (value: boolean) => void;
+    const restorePromise = new Promise<boolean>((resolve) => {
+      resolveRestore = resolve;
+    });
+    mockWaitForRestoreComplete.mockReturnValue(restorePromise);
+
+    let eventHandler!: (event: { payload: { path: string; workspace_root: string | null } }) => void;
+    mockListen.mockImplementation(
+      (_event: string, handler: typeof eventHandler) => {
+        eventHandler = handler;
+        return Promise.resolve(vi.fn());
+      },
+    );
+
+    // Each createTab call fires a brand-new event. The first drains the
+    // initially-queued file; the synchronously-dispatched event below lands in
+    // pendingEventsRef AFTER the loop captured the first wave but BEFORE the
+    // restore-complete flag flips — exactly the second-wave window. The loop
+    // must drain it too, otherwise "/wave2.md" would never open.
+    let firedSecondWave = false;
+    mockCreateTab.mockImplementation((_label: string, path: string | null) => {
+      if (path === "/wave1.md" && !firedSecondWave) {
+        firedSecondWave = true;
+        eventHandler({ payload: { path: "/wave2.md", workspace_root: null } });
+      }
+      return path === "/wave1.md" ? "tab-wave1" : "tab-wave2";
+    });
+
+    renderHook(() => useFinderFileOpen());
+    await vi.waitFor(() => {
+      expect(mockListen).toHaveBeenCalledWith("app:open-file", expect.any(Function));
+    });
+
+    // First wave queued before restore completes.
+    eventHandler({ payload: { path: "/wave1.md", workspace_root: null } });
+
+    resolveRestore(true);
+
+    await vi.waitFor(() => {
+      expect(mockCreateTab).toHaveBeenCalledWith("main", "/wave1.md");
+      expect(mockCreateTab).toHaveBeenCalledWith("main", "/wave2.md");
+    });
+
+    // Restore default impls — clearAllMocks resets call history but not the
+    // custom mockImplementations, which would otherwise leak into later tests
+    // (createTab returning "tab-wave2", listen capturing a stale handler).
+    mockCreateTab.mockImplementation(() => "new-tab");
+    mockListen.mockImplementation(() => Promise.resolve(vi.fn()));
+  });
+
+  it("detaches the listener if the hook unmounts before listen() resolves", async () => {
+    const unlistenSpy = vi.fn();
+    let resolveListen!: (fn: () => void) => void;
+    mockListen.mockImplementation(
+      () => new Promise<() => void>((resolve) => { resolveListen = resolve; }),
+    );
+
+    const { unmount } = renderHook(() => useFinderFileOpen());
+    // Unmount while listen() is still pending — cleanup runs with unlisten=null.
+    unmount();
+    // listen() now resolves AFTER unmount; the hook must call the unlisten fn
+    // so no live listener survives.
+    resolveListen(unlistenSpy);
+
+    await vi.waitFor(() => {
+      expect(unlistenSpy).toHaveBeenCalledTimes(1);
+    });
+
+    // Restore the default listen impl — clearAllMocks keeps the custom
+    // (never-resolving) implementation, which would hang later tests.
+    mockListen.mockImplementation(() => Promise.resolve(vi.fn()));
+  });
+
   it("handles error in different-workspace new window invoke gracefully", async () => {
     mockWorkspaceRootPath = "/current/workspace";
     mockIsWithinRoot.mockReturnValue(false);

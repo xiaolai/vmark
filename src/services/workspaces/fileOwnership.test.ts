@@ -190,6 +190,28 @@ describe("file ownership", () => {
     ).toMatchObject({ ok: false });
   });
 
+  it("matches macOS case variants of the same file (case-insensitive volume)", () => {
+    enableRailMode();
+    addTab("main", "tab-a", "/Repo/Notes.md", { dirty: true });
+    addTab("doc-1", "tab-b", "/repo/notes.md");
+
+    // Default macOS volumes are case-insensitive: opening "/repo/notes.md"
+    // while "/Repo/Notes.md" is dirty-writable must be detected as a conflict.
+    expect(
+      resolveWritableFileOwnership("tab-b", "/repo/notes.md", { platform: "macos" }),
+    ).toMatchObject({ ok: false, reason: "dirtyWritableConflict" });
+  });
+
+  it("keeps Linux case variants distinct (case-sensitive volume)", () => {
+    enableRailMode();
+    addTab("main", "tab-a", "/Repo/Notes.md", { dirty: true });
+    addTab("doc-1", "tab-b", "/repo/notes.md");
+
+    expect(
+      resolveWritableFileOwnership("tab-b", "/repo/notes.md", { platform: "linux" }),
+    ).toMatchObject({ ok: true });
+  });
+
   it("matches symlink aliases when canonical paths are supplied", () => {
     enableRailMode();
     addTab("main", "tab-a", "/repo/alias/notes.md", { dirty: true });

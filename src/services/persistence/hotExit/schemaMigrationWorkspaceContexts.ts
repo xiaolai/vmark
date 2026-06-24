@@ -1,10 +1,8 @@
 import type {
   HotExitWorkspaceInstanceState,
   SessionData,
-  TabState,
 } from './types';
-import { createWorkspaceRootIdentity } from '@/utils/workspaceIdentity';
-import { isWithinRoot } from '@/utils/paths';
+import { synthesizeLegacyWindowInstances } from './workspaceInstanceSynthesis';
 
 type WindowState = SessionData['windows'][number];
 
@@ -33,7 +31,14 @@ function addWorkspaceContextKinds(
     .map((instance) => normalizeWorkspaceInstanceForV5(instance, window.window_label));
   const instances = normalized.length > 0
     ? normalized
-    : synthesizeWorkspaceInstances(window, legacyWorkspaceRoot);
+    : synthesizeLegacyWindowInstances(
+        {
+          windowLabel: window.window_label,
+          activeTabId: window.active_tab_id,
+          tabs: window.tabs ?? [],
+        },
+        legacyWorkspaceRoot,
+      );
   const ids = orderedMigratedIds(window.workspace_instance_ids, instances);
   const activeId = chooseActiveWorkspaceInstanceId(
     window.active_workspace_instance_id,
@@ -49,101 +54,65 @@ function addWorkspaceContextKinds(
   };
 }
 
+/**
+ * A persisted instance is migratable as long as it is an object carrying a
+ * string id. Every OTHER field is normalized defensively below, so we do not
+ * require them to be present or well-typed here — a partially malformed entry
+ * is repaired rather than dropped, which preserves its tabs.
+ */
 function isMigratableWorkspaceInstance(
   value: unknown,
-): value is HotExitWorkspaceInstanceState {
+): value is Partial<HotExitWorkspaceInstanceState> & { workspaceInstanceId: string } {
   return typeof value === 'object' && value !== null
-    && typeof (value as HotExitWorkspaceInstanceState).workspaceInstanceId === 'string';
+    && typeof (value as { workspaceInstanceId?: unknown }).workspaceInstanceId === 'string';
 }
 
 function normalizeWorkspaceInstanceForV5(
-  instance: HotExitWorkspaceInstanceState,
+  instance: Partial<HotExitWorkspaceInstanceState> & { workspaceInstanceId: string },
   windowLabel: string,
 ): HotExitWorkspaceInstanceState {
+  // Normalize collections first — kind inference and the field copies below
+  // both depend on these never being malformed (e.g. a non-array tabIds).
+  const tabIds = uniqueStrings(instance.tabIds);
+  const closedTabIds = uniqueStrings(instance.closedTabIds);
+  const rootPath = typeof instance.rootPath === 'string' ? instance.rootPath : null;
+  const createdFrom = typeof instance.createdFrom === 'string' ? instance.createdFrom : 'restore';
+
   const kind = instance.kind === 'workspace'
     || instance.kind === 'loose'
     || instance.kind === 'placeholder'
     ? instance.kind
-    : inferMigratedKind(instance);
+    : inferMigratedKind(rootPath, createdFrom, tabIds.length);
+
   return {
-    ...instance,
+    workspaceInstanceId: instance.workspaceInstanceId,
     kind,
     ownerWindowLabel: windowLabel,
-    rootId: kind === 'workspace' ? instance.rootId : null,
-    rootPath: kind === 'workspace' ? instance.rootPath : null,
-    displayName: kind === 'loose' ? 'Loose Files' : instance.displayName,
-    tabIds: uniqueStrings(instance.tabIds),
-    closedTabIds: uniqueStrings(instance.closedTabIds),
-    activeTabId: instance.activeTabId,
+    createdFrom,
+    rootId: kind === 'workspace'
+      ? (typeof instance.rootId === 'string' ? instance.rootId : null)
+      : null,
+    rootPath: kind === 'workspace' ? rootPath : null,
+    displayName: kind === 'loose'
+      ? 'Loose Files'
+      : (typeof instance.displayName === 'string' ? instance.displayName : ''),
+    tabIds,
+    closedTabIds,
+    activeTabId: typeof instance.activeTabId === 'string' ? instance.activeTabId : null,
     unavailableRoot: instance.unavailableRoot ?? false,
   };
 }
 
 function inferMigratedKind(
-  instance: HotExitWorkspaceInstanceState,
+  rootPath: string | null,
+  createdFrom: string,
+  tabCount: number,
 ): 'workspace' | 'loose' | 'placeholder' {
-  if (instance.rootPath) return 'workspace';
-  if (instance.createdFrom === 'placeholder' && instance.tabIds.length === 0) {
+  if (rootPath) return 'workspace';
+  if (createdFrom === 'placeholder' && tabCount === 0) {
     return 'placeholder';
   }
   return 'loose';
-}
-
-function synthesizeWorkspaceInstances(
-  window: WindowState,
-  legacyWorkspaceRoot: string | null,
-): HotExitWorkspaceInstanceState[] {
-  const meaningfulTabs = window.tabs ?? [];
-  if (meaningfulTabs.length === 0) return [];
-
-  const workspaceTabs: TabState[] = [];
-  const looseTabs: TabState[] = [];
-  for (const tab of meaningfulTabs) {
-    if (legacyWorkspaceRoot && tab.file_path && isWithinRoot(legacyWorkspaceRoot, tab.file_path)) {
-      workspaceTabs.push(tab);
-    } else {
-      looseTabs.push(tab);
-    }
-  }
-
-  const result: HotExitWorkspaceInstanceState[] = [];
-  if (legacyWorkspaceRoot && workspaceTabs.length > 0) {
-    const root = createWorkspaceRootIdentity(legacyWorkspaceRoot, { platform: 'macos' });
-    result.push({
-      workspaceInstanceId: `wsi-legacy-${window.window_label}-workspace`,
-      kind: 'workspace',
-      rootId: root.ok ? root.root.rootId : `path:macos:${legacyWorkspaceRoot}`,
-      rootPath: legacyWorkspaceRoot,
-      displayName: root.ok ? root.root.displayName : legacyWorkspaceRoot,
-      ownerWindowLabel: window.window_label,
-      createdFrom: 'restore',
-      activeTabId: activeTabInList(window.active_tab_id, workspaceTabs),
-      tabIds: workspaceTabs.map((tab) => tab.id),
-      closedTabIds: [],
-      unavailableRoot: false,
-    });
-  }
-  if (looseTabs.length > 0) {
-    result.push({
-      workspaceInstanceId: `wsi-legacy-${window.window_label}-loose`,
-      kind: 'loose',
-      rootId: null,
-      rootPath: null,
-      displayName: 'Loose Files',
-      ownerWindowLabel: window.window_label,
-      createdFrom: 'restore',
-      activeTabId: activeTabInList(window.active_tab_id, looseTabs),
-      tabIds: looseTabs.map((tab) => tab.id),
-      closedTabIds: [],
-      unavailableRoot: false,
-    });
-  }
-  return result;
-}
-
-function activeTabInList(activeTabId: string | null, tabs: TabState[]): string | null {
-  if (!activeTabId) return null;
-  return tabs.some((tab) => tab.id === activeTabId) ? activeTabId : null;
 }
 
 function orderedMigratedIds(

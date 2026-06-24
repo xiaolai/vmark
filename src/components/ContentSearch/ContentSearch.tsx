@@ -7,20 +7,20 @@
  *
  * Follows the QuickOpen pattern: portal to document.body, click-outside
  * via useDismissOnOutsideOrEscape (deferred attach), IME guard,
- * data-index scroll tracking.
+ * data-index scroll tracking. Search scheduling lives in
+ * useContentSearchScheduler; the option buttons and result list are split
+ * into ContentSearchToggles / ContentSearchResults.
  *
  * @coordinates-with contentSearchStore.ts — search state
  * @coordinates-with contentSearchNavigation.ts — pending scroll on file open
  * @coordinates-with useFileOpen.ts — opens file in tab
+ * @coordinates-with useContentSearchScheduler.ts — debounced search dispatch
+ * @coordinates-with ContentSearchToggles.tsx — option buttons + status text
+ * @coordinates-with ContentSearchResults.tsx — grouped file/match list
  * @module components/ContentSearch/ContentSearch
  */
 
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import {
@@ -30,26 +30,23 @@ import {
 } from "@/stores/uiStore";
 import { openFileInNewTabCore } from "@/hooks/useFileOpen";
 import { setPendingContentSearchNav } from "@/hooks/contentSearchNavigation";
-import { useTabStore } from "@/stores/tabStore";
 import { useActiveWorkspaceScope } from "@/hooks/useActiveWorkspaceScope";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import { useImeComposition } from "@/hooks/useImeComposition";
 import { useDismissOnOutsideOrEscape } from "@/hooks/useDismissOnOutsideOrEscape";
+import {
+  handleSpotlightTabTrap,
+  useSpotlightFocusManagement,
+} from "@/components/spotlight/spotlightDialog";
 import { contentSearchLog, contentSearchWarn } from "@/utils/debug";
-import { renderHighlightedLine, buildFlatIndex } from "./contentSearchUtils";
+import { buildFlatIndex } from "./contentSearchUtils";
+import {
+  useContentSearchScheduler,
+  MIN_QUERY_LENGTH,
+} from "./useContentSearchScheduler";
+import { ContentSearchToggles } from "./ContentSearchToggles";
+import { ContentSearchResults } from "./ContentSearchResults";
 import "./content-search.css";
-
-const DEBOUNCE_MS = 300;
-const MIN_QUERY_LENGTH = 3;
-
-function FileIcon() {
-  return (
-    <svg className="content-search-file-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.2">
-      <path d="M4 1h5l4 4v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1z" />
-      <path d="M9 1v4h4" />
-    </svg>
-  );
-}
 
 interface ContentSearchProps {
   windowLabel: string;
@@ -78,43 +75,24 @@ export function ContentSearch({ windowLabel }: ContentSearchProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<Element | null>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const ime = useImeComposition();
 
   const flatIndex = useMemo(() => buildFlatIndex(results), [results]);
 
-  // Reset and focus on open
-  useEffect(() => {
-    if (isOpen) {
-      previousFocusRef.current = document.activeElement;
-      requestAnimationFrame(() => inputRef.current?.focus());
-    } else if (previousFocusRef.current) {
-      const el = previousFocusRef.current as HTMLElement;
-      if (typeof el.focus === "function") el.focus();
-      previousFocusRef.current = null;
-    }
-  }, [isOpen]);
+  // Reset and focus on open (shared with QuickOpen).
+  useSpotlightFocusManagement(isOpen, inputRef, previousFocusRef);
 
-  // Debounced search on query/options change
-  useEffect(() => {
-    if (!isOpen || !rootPath) return;
-
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-
-    if (query.trim().length < MIN_QUERY_LENGTH) {
-      useUIStore.getState().contentSearchClearResults();
-      return;
-    }
-
-    debounceRef.current = setTimeout(() => {
-      useUIStore.getState().contentSearchRun(rootPath, excludeFolders);
-    }, DEBOUNCE_MS);
-
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, query, caseSensitive, wholeWord, useRegex, markdownOnly, rootPath]);
+  // Debounced search scheduling (min-length gate + fresh exclusions).
+  useContentSearchScheduler({
+    isOpen,
+    query,
+    rootPath,
+    excludeFolders,
+    caseSensitive,
+    wholeWord,
+    useRegex,
+    markdownOnly,
+  });
 
   const handleClose = useCallback(() => {
     useUIStore.getState().contentSearchClose();
@@ -124,37 +102,21 @@ export function ContentSearch({ windowLabel }: ContentSearchProps) {
     async (file: FileSearchResult, match: LineMatch) => {
       handleClose();
 
+      contentSearchLog("Opening", file.relativePath, "at line", match.lineNumber);
       try {
-        // Determine the tab ID — either existing tab or new
-        const { tabs } = useTabStore.getState();
-        const windowTabs = tabs[windowLabel] ?? [];
-        const existingTab = windowTabs.find((tab) => tab.filePath === file.path);
-        const tabId = existingTab?.id ?? null;
-
-        // Set pending nav before opening the file
-        // If the file is already open, the tab ID is known; otherwise
-        // openFileInNewTabCore will create a new one and the editor will
-        // consume the pending nav on mount.
-        if (tabId) {
-          setPendingContentSearchNav(tabId, match.lineNumber, query);
-        }
-
-        contentSearchLog("Opening", file.relativePath, "at line", match.lineNumber);
-        await openFileInNewTabCore(windowLabel, file.path);
-
-        // If it was a new tab, set pending nav using the now-active tab ID
-        if (!tabId) {
-          const newActiveId = useTabStore.getState().activeTabId[windowLabel];
-          if (newActiveId) {
-            setPendingContentSearchNav(
-              newActiveId,
-              match.lineNumber,
-              query
-            );
-          }
-        }
-      } catch (error) {
-        contentSearchWarn("Failed to open search result:", error);
+        // Register the pending scroll/FindBar target using the tab id the
+        // open resolves to, BEFORE the editor mounts. The onTabCreated
+        // callback fires synchronously inside openFileInNewTabCore (after
+        // createTab, before the content read), so the pending nav is always
+        // in place when the new editor mounts and consumes it — closing the
+        // race where a new tab could activate before the nav was set.
+        await openFileInNewTabCore(windowLabel, file.path, {
+          onTabCreated: (tabId) => {
+            setPendingContentSearchNav(tabId, match.lineNumber, query);
+          },
+        });
+      } catch (err) {
+        contentSearchWarn("Failed to open search result:", err);
       }
     },
     [windowLabel, handleClose, query]
@@ -165,21 +127,8 @@ export function ContentSearch({ windowLabel }: ContentSearchProps) {
       if (isImeKeyEvent(e.nativeEvent) || ime.isComposing()) return;
 
       if (e.key === "Tab") {
-        // Focus trap: cycle within the dialog (aria-modal semantics)
-        const focusable = containerRef.current?.querySelectorAll<HTMLElement>(
-          'input, button, [tabindex]:not([tabindex="-1"])'
-        );
-        if (focusable && focusable.length > 0) {
-          const first = focusable[0];
-          const last = focusable[focusable.length - 1];
-          if (e.shiftKey && document.activeElement === first) {
-            e.preventDefault();
-            last.focus();
-          } else if (!e.shiftKey && document.activeElement === last) {
-            e.preventDefault();
-            first.focus();
-          }
-        }
+        // Focus trap: cycle within the dialog (aria-modal semantics).
+        handleSpotlightTabTrap(e, containerRef.current);
       } else if (e.key === "Escape") {
         e.preventDefault();
         handleClose();
@@ -240,50 +189,6 @@ export function ContentSearch({ windowLabel }: ContentSearchProps) {
     });
   }
 
-  // Build rendered match list with flat index
-  let flatIdx = 0;
-  const renderedResults: React.ReactNode[] = [];
-
-  for (let fi = 0; fi < results.length; fi++) {
-    const file = results[fi];
-    renderedResults.push(
-      <div key={`file-${fi}`} className="content-search-file" role="presentation">
-        <FileIcon />
-        <span>{file.relativePath}</span>
-        <span className="content-search-file-count">
-          {file.matches.length}
-        </span>
-      </div>
-    );
-
-    for (let mi = 0; mi < file.matches.length; mi++) {
-      const match = file.matches[mi];
-      const currentFlatIdx = flatIdx++;
-      const isSelected = currentFlatIdx === selectedIndex;
-
-      renderedResults.push(
-        <div
-          key={`match-${fi}-${mi}`}
-          className={`content-search-match${isSelected ? " content-search-match--selected" : ""}`}
-          data-match-index={currentFlatIdx}
-          role="option"
-          aria-selected={isSelected}
-          onClick={() => handleSelectMatch(file, match)}
-          onMouseEnter={() =>
-            useUIStore.setState((s) => ({
-              contentSearch: { ...s.contentSearch, selectedIndex: currentFlatIdx },
-            }))
-          }
-        >
-          <span className="content-search-line-num">{match.lineNumber}</span>
-          <span className="content-search-line-text">
-            {renderHighlightedLine(match.lineContent, match.matchRanges)}
-          </span>
-        </div>
-      );
-    }
-  }
-
   return createPortal(
     <div className="content-search-backdrop">
       <div
@@ -318,61 +223,14 @@ export function ContentSearch({ windowLabel }: ContentSearchProps) {
               onCompositionEnd={ime.onCompositionEnd}
             />
           </div>
-          <div className="content-search-toggles">
-            <button
-              className={`content-search-toggle${caseSensitive ? " content-search-toggle--active" : ""}`}
-              onClick={() =>
-                useUIStore
-                  .getState()
-                  .contentSearchSetCaseSensitive(!caseSensitive)
-              }
-              aria-pressed={caseSensitive}
-              aria-label={t("contentSearch.caseSensitive", "Case Sensitive")}
-              title={t("contentSearch.caseSensitive", "Case Sensitive")}
-            >
-              Aa
-            </button>
-            <button
-              className={`content-search-toggle${wholeWord ? " content-search-toggle--active" : ""}`}
-              onClick={() =>
-                useUIStore.getState().contentSearchSetWholeWord(!wholeWord)
-              }
-              aria-pressed={wholeWord}
-              aria-label={t("contentSearch.wholeWord", "Whole Word")}
-              title={t("contentSearch.wholeWord", "Whole Word")}
-            >
-              ab
-            </button>
-            <button
-              className={`content-search-toggle${useRegex ? " content-search-toggle--active" : ""}`}
-              onClick={() =>
-                useUIStore.getState().contentSearchSetUseRegex(!useRegex)
-              }
-              aria-pressed={useRegex}
-              aria-label={t("contentSearch.regex", "Regular Expression")}
-              title={t("contentSearch.regex", "Regular Expression")}
-            >
-              .*
-            </button>
-            <button
-              className={`content-search-toggle${markdownOnly ? " content-search-toggle--active" : ""}`}
-              onClick={() =>
-                useUIStore.getState().contentSearchSetMarkdownOnly(!markdownOnly)
-              }
-              aria-pressed={markdownOnly}
-              aria-label={t("contentSearch.markdownOnly", "Markdown Files Only")}
-              title={t("contentSearch.markdownOnly", "Markdown Files Only")}
-            >
-              .md
-            </button>
-            {statusText && (
-              <span
-                className={`content-search-status${statusError ? " content-search-status--error" : ""}`}
-              >
-                {statusText}
-              </span>
-            )}
-          </div>
+          <ContentSearchToggles
+            caseSensitive={caseSensitive}
+            wholeWord={wholeWord}
+            useRegex={useRegex}
+            markdownOnly={markdownOnly}
+            statusText={statusText}
+            statusError={statusError}
+          />
         </div>
 
         <div
@@ -388,7 +246,11 @@ export function ContentSearch({ windowLabel }: ContentSearchProps) {
                 {t("contentSearch.noResults", "No results found")}
               </div>
             )}
-          {renderedResults}
+          <ContentSearchResults
+            results={results}
+            selectedIndex={selectedIndex}
+            onSelectMatch={handleSelectMatch}
+          />
         </div>
 
         <div className="content-search-footer">

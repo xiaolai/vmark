@@ -1,9 +1,19 @@
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useWorkspaceInstancesStore, selectActiveWorkspaceInstance } from "@/stores/workspaceInstancesStore";
-import { useWorkspaceStore, type WorkspaceConfig } from "@/stores/workspaceStore";
-import type { ActiveWorkspaceScope } from "@/services/workspaces/activeWorkspaceScope";
+import { useWorkspaceStore } from "@/stores/workspaceStore";
+import {
+  buildActiveWorkspaceScope,
+  resolveLegacyRootId,
+  type ActiveWorkspaceScope,
+} from "@/services/workspaces/activeWorkspaceScope";
 
-/** React selector wrapper for the active workspace scope in a document window. */
+/**
+ * React selector wrapper for the active workspace scope in a document window.
+ *
+ * Gathers reactive store slices via selectors (so the component re-renders on
+ * change) and delegates the scope rules to the shared pure builder, keeping the
+ * React and non-React (`getActiveWorkspaceScope`) paths in lockstep.
+ */
 export function useActiveWorkspaceScope(windowLabel: string): ActiveWorkspaceScope {
   const railEnabled = useSettingsStore((state) => state.general.workspaceRailMode);
   const legacyRootPath = useWorkspaceStore((state) => state.rootPath);
@@ -13,53 +23,13 @@ export function useActiveWorkspaceScope(windowLabel: string): ActiveWorkspaceSco
     selectActiveWorkspaceInstance(state, windowLabel)
   );
 
-  if (!railEnabled) {
-    return legacyScope(windowLabel, legacyRootPath, legacyMode, legacyConfig, "legacy");
-  }
-
-  if (!activeInstance) {
-    return legacyScope(
-      windowLabel,
-      legacyRootPath,
-      legacyMode,
-      legacyConfig,
-      "legacyFallback",
-    );
-  }
-
-  const config = activeInstance.rootPath === legacyRootPath ? legacyConfig : null;
-  return {
+  return buildActiveWorkspaceScope({
     windowLabel,
-    source: "instance",
-    workspaceInstanceId: activeInstance.workspaceInstanceId,
-    kind: activeInstance.kind,
-    rootPath: activeInstance.rootPath,
-    isWorkspaceMode:
-      activeInstance.kind === "workspace"
-      && Boolean(activeInstance.rootPath)
-      && !activeInstance.unavailableRoot,
-    unavailableRoot: activeInstance.unavailableRoot ?? false,
-    config,
-    excludeFolders: config?.excludeFolders ?? [],
-  };
-}
-
-function legacyScope(
-  windowLabel: string,
-  rootPath: string | null,
-  isWorkspaceMode: boolean,
-  config: WorkspaceConfig | null,
-  source: ActiveWorkspaceScope["source"],
-): ActiveWorkspaceScope {
-  return {
-    windowLabel,
-    source,
-    workspaceInstanceId: null,
-    kind: source === "legacy" || source === "legacyFallback" ? "legacy" : null,
-    rootPath,
-    isWorkspaceMode,
-    unavailableRoot: false,
-    config,
-    excludeFolders: config?.excludeFolders ?? [],
-  };
+    railEnabled,
+    legacyRootPath,
+    legacyRootId: resolveLegacyRootId(legacyRootPath),
+    legacyConfig,
+    legacyMode,
+    activeInstance,
+  });
 }

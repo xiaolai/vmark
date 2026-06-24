@@ -721,5 +721,10 @@
   "integrations.ccSwitch.description": "將 VMark 的 MCP 伺服器交給 CC-Switch，由它同步到你在其中管理的 AI CLI。",
   "integrations.ccSwitch.add": "加入 CC-Switch",
   "integrations.ccSwitch.opened": "已開啟 CC-Switch 匯入連結。",
-  "integrations.ccSwitch.binaryMissing": "請先建置 VMark MCP 伺服器二進位檔。"
+  "integrations.ccSwitch.binaryMissing": "請先建置 VMark MCP 伺服器二進位檔。",
+  "files.autoResize.off": "關閉",
+  "files.autoResize.800": "800px",
+  "files.autoResize.1200": "1200px",
+  "files.autoResize.1920": "1920px (Full HD)",
+  "files.autoResize.2560": "2560px (2K)"
 }

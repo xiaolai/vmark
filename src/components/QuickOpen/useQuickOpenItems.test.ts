@@ -190,6 +190,18 @@ describe("buildQuickOpenItems", () => {
     expect(items[0].relPath).toBe("/project2/file.md");
   });
 
+  it("computes relative path with Windows backslash separators", () => {
+    mockActiveScope.mockReturnValue({ rootPath: "C:\\project" } as any);
+    const items = buildQuickOpenItems("win", ["C:\\project\\src\\file.md"]);
+    expect(items[0].relPath).toBe("src/file.md");
+  });
+
+  it("matches Windows rootPath with mixed separators", () => {
+    mockActiveScope.mockReturnValue({ rootPath: "C:/project" } as any);
+    const items = buildQuickOpenItems("win", ["C:\\project\\file.md"]);
+    expect(items[0].relPath).toBe("file.md");
+  });
+
   it("returns empty string when path equals rootPath exactly", () => {
     mockActiveScope.mockReturnValue({ rootPath: "/project" } as any);
     const items = buildQuickOpenItems("win", ["/project"]);

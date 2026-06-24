@@ -50,6 +50,7 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import { getActiveWorkspaceScope } from "@/services/workspaces/activeWorkspaceScope";
 import { getParentDir } from "@/utils/paths/paths";
+import { resolveLoginShellPath, buildShellEnv } from "./terminalSpawnEnv";
 
 /**
  * Resolve terminal working directory:
@@ -73,11 +74,24 @@ export function resolveTerminalCwd(): string | undefined {
       // `getParentDir` normalizes both separators and returns "" for
       // filesystem roots.
       const parent = getParentDir(doc.filePath);
-      if (parent) return parent;
-      // File is at filesystem root — return "/" on POSIX. Windows drive
-      // root (e.g. `C:\file.md`) is an extreme edge case left as
-      // undefined; not worth the special case in shell-CWD parsing.
+      // getParentDir returns "" for both POSIX root files (`/file.md`) and
+      // Windows drive-root files (`C:\file.md`) — but those need DIFFERENT
+      // roots, not $HOME. Resolve each explicitly so the terminal starts in
+      // the file's actual directory.
+      if (parent) {
+        // Windows drive-root edge: `C:\sub\file.md` → getParentDir yields
+        // "c:" (a drive-relative reference, NOT an absolute path), which
+        // would start the shell in the wrong directory. Append a slash so it
+        // anchors to the drive root.
+        if (/^[a-z]:$/i.test(parent)) return `${parent}/`;
+        return parent;
+      }
+      // File is directly at a filesystem root.
       if (doc.filePath.startsWith("/")) return "/";
+      // Windows drive-root file (e.g. `C:\file.md` or `C:/file.md`) — return
+      // the drive root so the shell starts at `C:/` rather than $HOME.
+      const driveMatch = /^([a-zA-Z]):[/\\]/.exec(doc.filePath);
+      if (driveMatch) return `${driveMatch[1].toLowerCase()}:/`;
     }
   }
 
@@ -169,21 +183,7 @@ export async function spawnPty(options: SpawnOptions): Promise<IPty> {
 
   // Fetch login shell PATH so CLI tools (node, claude, etc.) are discoverable.
   // macOS GUI apps have minimal PATH; this aligns with system terminal behavior.
-  // Falls back to basic system paths if IPC fails or returns empty.
-  let loginPath: string;
-  try {
-    loginPath = await invoke<string>("get_login_shell_path");
-  } catch {
-    loginPath = "";
-  }
-  if (!loginPath) {
-    // Platform-appropriate fallback when IPC fails or returns empty.
-    // navigator.platform is deprecated but still reliable for this check.
-    const isWindows = navigator.platform.startsWith("Win");
-    loginPath = isWindows
-      ? "C:\\Windows\\System32;C:\\Windows;C:\\Windows\\System32\\WindowsPowerShell\\v1.0"
-      : "/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin";
-  }
+  const loginPath = await resolveLoginShellPath();
 
   const configuredShell = useSettingsStore.getState().terminal.shell.trim();
   // Reject relative paths (security: prevent CWD/PATH hijack on Windows).
@@ -217,27 +217,25 @@ export async function spawnPty(options: SpawnOptions): Promise<IPty> {
   }
 
   // Shell integration (WI-3.1): inject OSC 133 command marks + OSC 7 cwd via a
-  // per-shell rc. The backend writes the rc and returns env overrides (e.g.
-  // ZDOTDIR for zsh), or null for shells without support. Best-effort — a
-  // failure leaves the terminal fully functional, just without integration.
-  if (useSettingsStore.getState().terminal.shellIntegration) {
-    try {
-      const overrides = await invoke<Record<string, string> | null>(
-        "prepare_shell_integration",
-        { shell },
-      );
-      if (overrides) Object.assign(env, overrides);
-    } catch {
-      // Integration is optional; ignore and spawn without it.
-    }
-    // The session may have been disposed while awaiting shell integration.
-    if (disposed()) throw new Error("disposed before spawn");
+  // per-shell rc. The overrides are SHELL-SPECIFIC (e.g. ZDOTDIR points at a
+  // zsh rc), so each shell gets its own fresh env — applying one shell's
+  // overrides to a different (fallback) shell would poison its startup.
+  // See terminalSpawnEnv.buildShellEnv.
+  const shellIntegrationEnabled =
+    useSettingsStore.getState().terminal.shellIntegration;
+
+  const primaryEnv = await buildShellEnv(env, shell, shellIntegrationEnabled);
+  // The session may have been disposed while awaiting shell integration.
+  // Only checked when integration ran (it awaits IPC); without it there is
+  // no await between here and spawn, so the original code skipped this check.
+  if (shellIntegrationEnabled && disposed()) {
+    throw new Error("disposed before spawn");
   }
 
-  const spawnOpts = { cols: term.cols || 80, rows: term.rows || 24, cwd, env };
+  const baseSpawnOpts = { cols: term.cols || 80, rows: term.rows || 24, cwd };
   let pty: IPty;
   try {
-    pty = spawn(shell, [], spawnOpts);
+    pty = spawn(shell, [], { ...baseSpawnOpts, env: primaryEnv });
   } catch (err) {
     // If configured shell fails, fall back to system default
     if (safeShell) {
@@ -247,7 +245,16 @@ export async function spawnPty(options: SpawnOptions): Promise<IPty> {
       /* v8 ignore next 3 -- @preserve reason: platform-specific PTY fallback path; requires real shell spawning failure not reproducible in unit tests */
       const fallbackIsAbsolute = fallback.startsWith("/") || /^[a-zA-Z]:[/\\]/.test(fallback);
       const safeFallback = fallbackIsAbsolute ? fallback : "/bin/sh";
-      pty = spawn(safeFallback, [], spawnOpts);
+      // Recompute shell integration for the fallback shell — its overrides
+      // differ from the failed configured shell's, and reusing them would
+      // poison the default shell's startup.
+      const fallbackEnv = await buildShellEnv(
+        env,
+        safeFallback,
+        shellIntegrationEnabled,
+      );
+      if (disposed()) throw new Error("disposed before fallback spawn");
+      pty = spawn(safeFallback, [], { ...baseSpawnOpts, env: fallbackEnv });
     } else {
       throw err;
     }

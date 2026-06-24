@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from "vitest";
-import { isMacPlatform, isWindowsPlatform } from "./platform";
+import { isMacPlatform, isWindowsPlatform, getRuntimePlatform } from "./platform";
 
 /** Override navigator.platform for the duration of a test. */
 function setPlatform(value: string) {
@@ -35,5 +35,19 @@ describe("isWindowsPlatform", () => {
   ])("platform=%s → %s", (value, expected) => {
     setPlatform(value);
     expect(isWindowsPlatform()).toBe(expected);
+  });
+});
+
+describe("getRuntimePlatform", () => {
+  it.each([
+    ["MacIntel", "macos"],
+    ["macOS", "macos"],
+    ["Win32", "windows"],
+    ["Windows", "windows"],
+    ["Linux x86_64", "linux"],
+    ["", "linux"],
+  ])("platform=%s → %s", (value, expected) => {
+    setPlatform(value);
+    expect(getRuntimePlatform()).toBe(expected);
   });
 });

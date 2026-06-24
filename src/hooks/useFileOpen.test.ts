@@ -75,6 +75,7 @@ import {
   openFileInNewTab,
   handleOpenFile,
   handleNew,
+  replaceTabWithFile,
 } from "./useFileOpen";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
@@ -156,6 +157,65 @@ describe("openFileInNewTabCore", () => {
     // The resolved read must NOT write a document entry for the gone tab.
     expect(useDocumentStore.getState().getDocument(tabId)).toBeUndefined();
     expect(Object.keys(useDocumentStore.getState().documents)).not.toContain(tabId);
+  });
+});
+
+describe("replaceTabWithFile", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useTabStore.getState().removeWindow(WINDOW);
+    Object.keys(useDocumentStore.getState().documents).forEach((id) =>
+      useDocumentStore.getState().removeDocument(id)
+    );
+  });
+
+  it("replaces the tab's content on success", async () => {
+    mockReadTextFile.mockResolvedValue("# Loaded");
+    const tabId = useTabStore.getState().createTab(WINDOW, null);
+    const loadSpy = vi.spyOn(useDocumentStore.getState(), "loadContent");
+
+    const result = await replaceTabWithFile({
+      windowLabel: WINDOW,
+      tabId,
+      targetPath: "/docs/a.md",
+      sourcePath: "/docs/a.md",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(loadSpy).toHaveBeenCalled();
+  });
+
+  it("does not mutate stores when the target tab is closed during the read", async () => {
+    // Hold the read open so we can close the tab mid-flight (mirrors the
+    // openFileInNewTabCore close-during-open guard).
+    let resolveRead!: (value: string) => void;
+    mockReadTextFile.mockReturnValue(
+      new Promise<string>((res) => {
+        resolveRead = res;
+      })
+    );
+    const tabId = useTabStore.getState().createTab(WINDOW, null);
+    const loadSpy = vi.spyOn(useDocumentStore.getState(), "loadContent");
+    const updatePathSpy = vi.spyOn(useTabStore.getState(), "updateTabPath");
+    const addFileSpy = vi.spyOn(useRecentFilesStore.getState(), "addFile");
+
+    const promise = replaceTabWithFile({
+      windowLabel: WINDOW,
+      tabId,
+      targetPath: "/docs/race.md",
+      sourcePath: "/docs/race.md",
+    });
+
+    // Close the tab while the read is in flight.
+    useTabStore.getState().detachTab(WINDOW, tabId);
+    resolveRead("# Loaded");
+    const result = await promise;
+
+    // Stale write must be skipped — no content/path mutation, no recents entry.
+    expect(loadSpy).not.toHaveBeenCalled();
+    expect(updatePathSpy).not.toHaveBeenCalled();
+    expect(addFileSpy).not.toHaveBeenCalled();
+    expect(result.ok).toBe(false);
   });
 });
 
@@ -360,9 +420,12 @@ describe("handleOpen — dialog and routing", () => {
 
   it("replaces tab when action is replace_tab", async () => {
     mockOpen.mockResolvedValue("/docs/replace.md");
+    // replaceTabWithFile re-checks the target tab still exists after the read,
+    // so the decision must reference a real, still-open tab.
+    const tabId = useTabStore.getState().createTab(WINDOW, null);
     mockResolveOpenAction.mockReturnValue({
       action: "replace_tab",
-      tabId: "empty-tab",
+      tabId,
       filePath: "/docs/replace.md",
       workspaceRoot: "/docs",
     });
@@ -417,9 +480,10 @@ describe("handleOpen — dialog and routing", () => {
 
   it("replace_tab route sets the indeterminate indicator for ≥ 300 KB WYSIWYG opens", async () => {
     mockOpen.mockResolvedValue("/docs/medium.md");
+    const tabId = useTabStore.getState().createTab(WINDOW, null);
     mockResolveOpenAction.mockReturnValue({
       action: "replace_tab",
-      tabId: "empty-tab-medium",
+      tabId,
       filePath: "/docs/medium.md",
       workspaceRoot: "/docs",
     });
@@ -468,9 +532,10 @@ describe("handleOpen — dialog and routing", () => {
 
   it("replace_tab route marks large files as forced-source", async () => {
     mockOpen.mockResolvedValue("/docs/large.md");
+    const tabId = useTabStore.getState().createTab(WINDOW, null);
     mockResolveOpenAction.mockReturnValue({
       action: "replace_tab",
-      tabId: "empty-tab-large",
+      tabId,
       filePath: "/docs/large.md",
       workspaceRoot: "/docs",
     });
@@ -489,7 +554,7 @@ describe("handleOpen — dialog and routing", () => {
 
     expect(mockReadTextFile).toHaveBeenCalledWith("/docs/large.md");
     expect(
-      useLargeFileSessionStore.getState().isForcedSource("empty-tab-large")
+      useLargeFileSessionStore.getState().isForcedSource(tabId)
     ).toBe(true);
   });
 

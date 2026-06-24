@@ -261,6 +261,9 @@ errors:
   mcp.spawnInProgress: "Démarrage du sidecar MCP déjà en cours"
   mcp.configMismatch: "Échec de validation de la configuration : le contenu écrit ne correspond pas"
 
+window:
+  settings.title: "Réglages"
+
 cli:
   dialogTitle: "Commande shell"
   installed: "Commande 'vmark' installée dans %{path}"

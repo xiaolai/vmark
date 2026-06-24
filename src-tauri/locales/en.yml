@@ -262,6 +262,9 @@ errors:
   mcp.spawnInProgress: "MCP sidecar spawn already in progress"
   mcp.configMismatch: "Config validation failed: written content does not match"
 
+window:
+  settings.title: "Settings"
+
 cli:
   dialogTitle: "Shell Command"
   installed: "'vmark' command installed at %{path}"

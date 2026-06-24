@@ -97,6 +97,11 @@ describe("workspace window actions", () => {
     expect(useDocumentStore.getState().getDocument(tabId)).toBeDefined();
     expect(selectWindowWorkspaceState(useWorkspaceInstancesStore.getState(), "main"))
       .toMatchObject({ workspaceInstanceIds: ["wsi-repo"] });
+    // On timeout the source explicitly abandons the Rust-side claim so a late
+    // target claim can't apply the payload and duplicate the workspace.
+    expect(mockInvoke).toHaveBeenCalledWith("cancel_workspace_transfer", {
+      targetWindowLabel: "doc-2",
+    });
   });
 
   it("returns missingInstance while enabled when the instance is unknown", async () => {

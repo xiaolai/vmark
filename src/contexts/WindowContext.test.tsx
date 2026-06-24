@@ -149,6 +149,32 @@ vi.mock("../utils/linebreakDetection", () => ({
   detectLinebreaks: vi.fn(() => ({ type: "lf" })),
 }));
 
+// startupFileOpen delegates to openFileInNewTabCore; the file-loading mechanics
+// (read, init, recents, blank-tab fallback) are covered by startupFileOpen's
+// own tests. Here we mock it to drive the same shared store mocks so the
+// orchestration assertions (which path opens which file) stay meaningful.
+vi.mock("./startupFileOpen", () => ({
+  loadStartupFileIntoTab: vi.fn(async (label: string, path: string) => {
+    const { readTextFile } = await import("@tauri-apps/plugin-fs");
+    const tabId = mockCreateTab(label, path);
+    try {
+      const content = await readTextFile(path);
+      mockInitDocument(tabId, content, path);
+      mockSetLineMetadata(tabId, { type: "lf" });
+      mockAddFile(path);
+    } catch {
+      mockInitDocument(tabId, "", null);
+      const { toast } = await import("sonner");
+      const filename = path.split("/").pop() ?? path;
+      toast.error(`Failed to open ${filename}`);
+    }
+  }),
+  createBlankStartupTab: vi.fn((label: string) => {
+    const tabId = mockCreateTab(label, null);
+    mockInitDocument(tabId, "", null);
+  }),
+}));
+
 vi.mock("@/utils/debug", () => ({
   windowCloseWarn: vi.fn(),
   windowContextError: vi.fn(),
@@ -710,7 +736,11 @@ describe("WindowContext", () => {
   describe("WindowProvider — doc-* window clears localStorage", () => {
     it("clears persisted workspace state for doc-* window", async () => {
       mockWindowLabel = "doc-789";
-      const removeItemSpy = vi.spyOn(globalThis.localStorage, "removeItem");
+      // jsdom's localStorage is a native exotic object that vi.spyOn cannot
+      // intercept (the spy never registers an own property), so we observe the
+      // actual side effect: a stale persisted value must be gone after init.
+      const storageKey = "vmark-workspace:doc-789";
+      globalThis.localStorage.setItem(storageKey, "stale-workspace-state");
 
       render(
         <WindowProvider>
@@ -719,10 +749,8 @@ describe("WindowContext", () => {
       );
 
       await waitFor(() => {
-        expect(removeItemSpy).toHaveBeenCalledWith("vmark-workspace:doc-789");
+        expect(globalThis.localStorage.getItem(storageKey)).toBeNull();
       });
-
-      removeItemSpy.mockRestore();
     });
   });
 

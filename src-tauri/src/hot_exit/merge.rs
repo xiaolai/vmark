@@ -35,7 +35,12 @@ pub fn merge_partial_capture(
         return session;
     };
 
-    let captured_labels: HashSet<String> = session
+    // Track which labels are already present (captured this round) AND which
+    // we resurrect below. Without folding resurrected labels back into this
+    // set, a previous session that itself contains duplicate window labels
+    // would push the same label multiple times — producing duplicate windows
+    // on restart.
+    let mut present_labels: HashSet<String> = session
         .windows
         .iter()
         .map(|w| w.window_label.clone())
@@ -57,13 +62,14 @@ pub fn merge_partial_capture(
     } else {
         for prev_window in prev_session.windows {
             if expected_labels.contains(&prev_window.window_label)
-                && !captured_labels.contains(&prev_window.window_label)
+                && !present_labels.contains(&prev_window.window_label)
             {
                 log::debug!(
                     "[HotExit] Merging previous state for timed-out window '{}' ({:?}s old)",
                     prev_window.window_label,
                     prev_age_secs
                 );
+                present_labels.insert(prev_window.window_label.clone());
                 session.windows.push(prev_window);
                 merged = true;
             }
@@ -91,231 +97,5 @@ pub fn merge_partial_capture(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::hot_exit::session::{
-        DocumentState, SessionData, TabState, UiState, WindowState, WorkspaceState, SCHEMA_VERSION,
-    };
-
-    const NOW: i64 = 1_760_000_000;
-
-    fn make_ui_state() -> UiState {
-        UiState {
-            sidebar_visible: true,
-            sidebar_width: 260,
-            outline_visible: false,
-            sidebar_view_mode: "files".to_string(),
-            status_bar_visible: true,
-            source_mode_enabled: false,
-            focus_mode_enabled: false,
-            typewriter_mode_enabled: false,
-            terminal_visible: false,
-            terminal_height: 250,
-        }
-    }
-
-    fn make_tab(id: &str) -> TabState {
-        TabState {
-            id: id.to_string(),
-            file_path: None,
-            title: format!("Tab {}", id),
-            is_pinned: false,
-            document: DocumentState {
-                content: format!("content of {}", id),
-                saved_content: String::new(),
-                is_dirty: true,
-                is_missing: false,
-                is_divergent: false,
-                line_ending: "\n".to_string(),
-                cursor_info: None,
-                last_modified_timestamp: None,
-                is_untitled: true,
-                untitled_number: Some(1),
-                is_read_only: false,
-                undo_history: Vec::new(),
-                redo_history: Vec::new(),
-                mode: None,
-                hard_break_style: None,
-                last_disk_content: None,
-            },
-            format_id: "markdown".to_string(),
-            editing_enabled: true,
-            active_schema_id: None,
-        }
-    }
-
-    fn make_window(label: &str) -> WindowState {
-        WindowState {
-            window_label: label.to_string(),
-            is_main_window: label == "main",
-            active_tab_id: None,
-            tabs: vec![make_tab(&format!("tab-{}", label))],
-            ui_state: make_ui_state(),
-            geometry: None, workspace_instance_ids: Vec::new(), active_workspace_instance_id: None, workspace_instances: Vec::new(),
-        }
-    }
-
-    fn make_session(timestamp: i64, labels: &[&str]) -> SessionData {
-        SessionData {
-            version: SCHEMA_VERSION,
-            timestamp,
-            vmark_version: "0.0.0-test".to_string(),
-            windows: labels.iter().map(|l| make_window(l)).collect(),
-            workspace: None,
-        }
-    }
-
-    fn labels(s: &SessionData) -> Vec<&str> {
-        s.windows.iter().map(|w| w.window_label.as_str()).collect()
-    }
-
-    fn expected(items: &[&str]) -> HashSet<String> {
-        items.iter().map(|s| s.to_string()).collect()
-    }
-
-    #[test]
-    fn no_previous_session_returns_capture_unchanged() {
-        let session = make_session(NOW, &["main"]);
-        let out = merge_partial_capture(session, None, &expected(&["main"]), NOW);
-        assert_eq!(labels(&out), vec!["main"]);
-    }
-
-    #[test]
-    fn timed_out_expected_window_is_resurrected() {
-        let session = make_session(NOW, &["main"]);
-        let prev = make_session(NOW - 60, &["main", "window-2"]);
-        let out = merge_partial_capture(
-            session,
-            Some(prev),
-            &expected(&["main", "window-2"]),
-            NOW,
-        );
-        assert_eq!(labels(&out), vec!["main", "window-2"]);
-    }
-
-    #[test]
-    fn intentionally_closed_window_is_not_resurrected() {
-        // window-2 exists in the previous session but was closed by the
-        // user before capture — it is NOT in expected_labels.
-        let session = make_session(NOW, &["main"]);
-        let prev = make_session(NOW - 60, &["main", "window-2"]);
-        let out = merge_partial_capture(session, Some(prev), &expected(&["main"]), NOW);
-        assert_eq!(labels(&out), vec!["main"]);
-    }
-
-    #[test]
-    fn captured_window_is_never_overwritten_by_previous_state() {
-        let mut session = make_session(NOW, &["main", "window-2"]);
-        session.windows[1].tabs[0].document.content = "fresh".into();
-        let mut prev = make_session(NOW - 60, &["main", "window-2"]);
-        prev.windows[1].tabs[0].document.content = "stale".into();
-        let out = merge_partial_capture(
-            session,
-            Some(prev),
-            &expected(&["main", "window-2"]),
-            NOW,
-        );
-        assert_eq!(out.windows.len(), 2);
-        assert_eq!(out.windows[1].tabs[0].document.content, "fresh");
-    }
-
-    #[test]
-    fn stale_previous_session_is_not_merged() {
-        let session = make_session(NOW, &["main"]);
-        let prev = make_session(NOW - MAX_MERGE_AGE_SECS - 1, &["main", "window-2"]);
-        let out = merge_partial_capture(
-            session,
-            Some(prev),
-            &expected(&["main", "window-2"]),
-            NOW,
-        );
-        assert_eq!(labels(&out), vec!["main"]);
-    }
-
-    #[test]
-    fn boundary_age_exactly_max_is_still_merged() {
-        let session = make_session(NOW, &["main"]);
-        let prev = make_session(NOW - MAX_MERGE_AGE_SECS, &["main", "window-2"]);
-        let out = merge_partial_capture(
-            session,
-            Some(prev),
-            &expected(&["main", "window-2"]),
-            NOW,
-        );
-        assert_eq!(labels(&out), vec!["main", "window-2"]);
-    }
-
-    #[test]
-    fn future_timestamped_previous_session_is_not_merged() {
-        let session = make_session(NOW, &["main"]);
-        let prev = make_session(NOW + 120, &["main", "window-2"]);
-        let out = merge_partial_capture(
-            session,
-            Some(prev),
-            &expected(&["main", "window-2"]),
-            NOW,
-        );
-        assert_eq!(labels(&out), vec!["main"]);
-    }
-
-    #[test]
-    fn overflowing_age_is_not_merged() {
-        let session = make_session(NOW, &["main"]);
-        let prev = make_session(i64::MIN, &["main", "window-2"]);
-        let out = merge_partial_capture(
-            session,
-            Some(prev),
-            &expected(&["main", "window-2"]),
-            NOW,
-        );
-        assert_eq!(labels(&out), vec!["main"]);
-    }
-
-    #[test]
-    fn merged_windows_sort_main_first_then_by_label() {
-        // Fresh capture got only the secondary windows; main timed out.
-        let session = make_session(NOW, &["window-3", "window-2"]);
-        let prev = make_session(NOW - 10, &["main"]);
-        let out = merge_partial_capture(
-            session,
-            Some(prev),
-            &expected(&["main", "window-2", "window-3"]),
-            NOW,
-        );
-        assert_eq!(labels(&out), vec!["main", "window-2", "window-3"]);
-    }
-
-    #[test]
-    fn workspace_carries_over_when_capture_has_none() {
-        let session = make_session(NOW, &["main"]);
-        let mut prev = make_session(NOW - 10, &["main"]);
-        prev.workspace = Some(WorkspaceState {
-            root_path: Some("/tmp/ws".to_string()),
-            is_workspace_mode: true,
-            show_hidden_files: false,
-        });
-        let out = merge_partial_capture(session, Some(prev), &expected(&["main"]), NOW);
-        assert_eq!(
-            out.workspace.and_then(|w| w.root_path).as_deref(),
-            Some("/tmp/ws")
-        );
-    }
-
-    #[test]
-    fn workspace_carries_over_even_when_previous_session_is_stale() {
-        // Staleness gates window resurrection, not workspace carry-over —
-        // matches the pre-extraction behavior of hot_exit_capture.
-        let session = make_session(NOW, &["main"]);
-        let mut prev = make_session(NOW - MAX_MERGE_AGE_SECS - 999, &["main"]);
-        prev.workspace = Some(WorkspaceState {
-            root_path: Some("/tmp/old-ws".to_string()),
-            is_workspace_mode: true,
-            show_hidden_files: false,
-        });
-        let out = merge_partial_capture(session, Some(prev), &expected(&["main"]), NOW);
-        assert_eq!(
-            out.workspace.and_then(|w| w.root_path).as_deref(),
-            Some("/tmp/old-ws")
-        );
-    }
-}
+#[path = "merge.test.rs"]
+mod tests;

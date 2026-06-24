@@ -36,6 +36,60 @@ describe("sanitizePersistedSettings (T4 persist-boundary guard)", () => {
     expect(out).toEqual({ unknownKey: "ok" });
   });
 
+  it("drops a primitive leaf whose type mismatches the default", () => {
+    const leafDefaults = {
+      appearance: { fontSize: 18, theme: "paper", autoHideStatusBar: false },
+    };
+    const out = sanitizePersistedSettings(
+      {
+        appearance: {
+          fontSize: "999", // string where number expected → dropped
+          theme: 7, // number where string expected → dropped
+          autoHideStatusBar: "yes", // string where boolean expected → dropped
+        },
+      },
+      leafDefaults,
+    );
+    expect(out).toEqual({ appearance: {} });
+  });
+
+  it("keeps primitive leaves whose type matches the default", () => {
+    const leafDefaults = { appearance: { fontSize: 18, theme: "paper" } };
+    const out = sanitizePersistedSettings(
+      { appearance: { fontSize: 22, theme: "night" } },
+      leafDefaults,
+    );
+    expect(out).toEqual({ appearance: { fontSize: 22, theme: "night" } });
+  });
+
+  it("drops a non-array value where the default is an array", () => {
+    const arrayDefaults = { advanced: { customLinkProtocols: ["obsidian"] } };
+    const out = sanitizePersistedSettings(
+      { advanced: { customLinkProtocols: "obsidian" } },
+      arrayDefaults,
+    );
+    expect(out).toEqual({ advanced: {} });
+  });
+
+  it("keeps a non-null value where the default is null (nullable field)", () => {
+    // lastCheckTimestamp/skipVersion default to null but persist a real value.
+    const nullableDefaults = { update: { lastCheckTimestamp: null, skipVersion: null } };
+    const out = sanitizePersistedSettings(
+      { update: { lastCheckTimestamp: 123, skipVersion: "1.0.0" } },
+      nullableDefaults,
+    );
+    expect(out).toEqual({ update: { lastCheckTimestamp: 123, skipVersion: "1.0.0" } });
+  });
+
+  it("drops a non-finite number where a finite number is expected", () => {
+    const numericDefaults = { appearance: { fontSize: 18 } };
+    const out = sanitizePersistedSettings(
+      { appearance: { fontSize: Number.NaN } },
+      numericDefaults,
+    );
+    expect(out).toEqual({ appearance: {} });
+  });
+
   it("recurses into nested branches and drops nested shape mismatches", () => {
     const nestedDefaults = {
       advanced: { mcpServer: { port: 9223 }, customLinkProtocols: [] },

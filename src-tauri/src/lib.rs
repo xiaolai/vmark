@@ -556,6 +556,291 @@ fn machine_id_hash() -> String {
     format!("{:x}", Sha256::digest(input.as_bytes()))
 }
 
+/// One-time application setup: menus, macOS fixes, legacy cleanup, default
+/// genies, CLI/Finder file-arg queueing, and the frontend "ready" listener.
+///
+/// Extracted from `run`'s former inline `.setup` closure so the setup steps are
+/// individually readable and the builder chain stays declarative.
+fn setup_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
+    app.manage(pty::PtyState::default());
+    let menu = menu::localized::create_localized_menu(app.handle(), None)?;
+    app.set_menu(menu)?;
+
+    // Disable App Nap so the webview stays active when backgrounded
+    // (prevents MCP bridge timeouts from suspended JS)
+    #[cfg(target_os = "macos")]
+    app_nap::disable_app_nap();
+
+    // Fix macOS Help/Window menus (workaround for muda bug)
+    #[cfg(target_os = "macos")]
+    macos_menu::apply_menu_fixes(app.handle());
+
+    // Best-effort cleanup of legacy ~/.vmark/ directory
+    app_paths::cleanup_legacy_home_dir(app.handle());
+
+    // Install default AI genies (no-op if already present)
+    if let Err(e) = genies::install_default_genies(app.handle()) {
+        log::warn!("[Tauri] Failed to install default genies: {}", e);
+    }
+
+    // Windows/Linux: handle files passed as CLI arguments
+    // (macOS uses RunEvent::Opened from Finder instead)
+    #[cfg(not(target_os = "macos"))]
+    {
+        let file_args = filter_supported_args(std::env::args().skip(1));
+
+        if !file_args.is_empty() {
+            if let Ok(mut state) = FILE_OPEN_STATE.lock() {
+                for path_str in file_args {
+                    allow_fs_read(app.handle(), &path_str);
+                    let workspace_root =
+                        window_manager::get_workspace_root_for_file(&path_str);
+                    state.pending.push(PendingFileOpen {
+                        path: path_str,
+                        workspace_root,
+                    });
+                }
+            }
+        }
+    }
+
+    // Listen for "ready" events from frontend windows
+    // This is used by menu_events to know when it's safe to emit events
+    // The payload contains the window label as a string
+    let app_handle = app.handle().clone();
+    app.listen("ready", move |event| {
+        // The payload is the window label
+        if let Ok(label) = serde_json::from_str::<String>(event.payload()) {
+            log::debug!("[Tauri] Window '{}' is ready", label);
+            menu_events::mark_window_ready(&app_handle, &label);
+        }
+    });
+
+    Ok(())
+}
+
+/// Intercept close requests for document windows so the frontend can run its
+/// save/confirm flow. Non-document windows (settings) close normally.
+fn handle_document_window_close_event(window: &tauri::Window, event: &tauri::WindowEvent) {
+    use tauri::Emitter;
+    if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+        let label = window.label();
+        log::debug!("[Tauri] WindowEvent::CloseRequested for window '{}'", label);
+        // Only intercept close for document windows
+        if label == "main" || label.starts_with("doc-") {
+            api.prevent_close();
+            // Include target label in payload so frontend can filter
+            let _ = window.emit("window:close-requested", label);
+            log::debug!("[Tauri] Emitted window:close-requested to '{}'", label);
+        }
+        // Settings and other non-document windows close normally
+    }
+}
+
+/// Handle an app exit request, preserving macOS last-window-close behavior
+/// while letting Linux/Windows CLI launches terminate when no document windows
+/// remain.
+fn handle_exit_requested(
+    app: &tauri::AppHandle,
+    api: &tauri::ExitRequestApi,
+    code: Option<i32>,
+) {
+    log::debug!("[Tauri] ExitRequested received, code={:?}", code);
+
+    let has_doc_windows = app
+        .webview_windows()
+        .keys()
+        .any(|label| quit::is_document_window_label(label));
+
+    match quit::decide_exit_request_action(
+        quit::is_exit_allowed(),
+        has_doc_windows,
+        quit::keep_alive_without_document_windows(),
+    ) {
+        quit::ExitRequestAction::AllowExit => {
+            log::debug!("[Tauri] ExitRequested: allowing exit");
+            if !quit::is_exit_allowed() {
+                mcp_server::cleanup(app);
+            }
+        }
+        quit::ExitRequestAction::PreventAndStartQuit => {
+            api.prevent_exit();
+            log::debug!("[Tauri] ExitRequested: starting quit flow");
+            quit::start_quit(app);
+        }
+        quit::ExitRequestAction::PreventAndKeepAlive => {
+            api.prevent_exit();
+            log::debug!(
+                "[Tauri] ExitRequested: keeping app alive without document windows"
+            );
+        }
+    }
+}
+
+/// macOS dock-icon reactivation with no visible windows: recreate a window,
+/// restoring the user's last workspace so they don't land in an orphan doc.
+#[cfg(target_os = "macos")]
+fn handle_reopen(app: &tauri::AppHandle, has_visible_windows: bool) {
+    if has_visible_windows {
+        return;
+    }
+    // Prefer creating a "main" window so useFinderFileOpen works. Fall back to
+    // doc-N if "main" already exists.
+    let ws = window_manager::pick_reopen_workspace_root();
+    if app.get_webview_window("main").is_none() {
+        // Reset readiness so any subsequent Opened events are queued until the
+        // new main window's React mounts and drains them.
+        FILE_OPEN_STATE
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .frontend_ready = false;
+        let _ = window_manager::create_main_window(app, ws.as_deref());
+    } else {
+        let _ = window_manager::create_document_window(app, None, ws.as_deref());
+    }
+}
+
+/// Convert Finder `RunEvent::Opened` URLs into queued/emitted file opens.
+/// Directories open immediately; supported files are grouped by workspace root
+/// and routed through the atomic `FILE_OPEN_STATE` decision.
+#[cfg(target_os = "macos")]
+fn handle_finder_opened(app: &tauri::AppHandle, urls: Vec<tauri::Url>) {
+    // Convert URLs to file paths, handling directories immediately
+    let mut file_paths = Vec::new();
+    for url in urls {
+        if let Ok(path) = url.to_file_path() {
+            let Some(path_str) = path.to_str() else { continue };
+            if path.is_dir() {
+                log::info!("[Finder] Opening directory: {}", path_str);
+                let _ = window_manager::create_document_window(app, None, Some(path_str));
+                continue;
+            }
+            // Only queue markdown files — non-markdown files would create
+            // broken empty tabs (#661 audit gap 9.1). Uses the shared helper so
+            // CLI and Finder filters stay in sync.
+            if !is_openable_supported(&path) {
+                log::warn!("[Finder] Skipping non-markdown file: {}", path_str);
+                continue;
+            }
+            // Extend fs read scope so the webview's readTextFile succeeds for
+            // paths outside the static capability scope. See allow_fs_read docs.
+            allow_fs_read(app, path_str);
+            file_paths.push(path_str.to_string());
+        }
+    }
+    if file_paths.is_empty() {
+        return;
+    }
+    log::info!("[Finder] Opening {} file(s)", file_paths.len());
+
+    let groups = window_manager::group_paths_by_workspace(&file_paths);
+    for (workspace_key, paths) in groups {
+        let ws = if workspace_key.is_empty() {
+            None
+        } else {
+            Some(workspace_key.as_str())
+        };
+
+        // Decide + queue atomically under one lock (WI-0.8, C3): the readiness
+        // check and any queue insertion happen in a single critical section, so
+        // a concurrent get_pending_file_opens can't interleave to drop or
+        // double-deliver.
+        let outcome = {
+            let mut state = FILE_OPEN_STATE.lock().unwrap_or_else(|p| p.into_inner());
+            window_manager::decide_file_open_locked(
+                &mut state,
+                app.get_webview_window("main").is_some(),
+                paths,
+                ws,
+            )
+        };
+
+        match outcome {
+            window_manager::FileOpenOutcome::Emit(payloads) => {
+                emit_finder_opens_to_main(app, payloads);
+            }
+            window_manager::FileOpenOutcome::Queued { create_window } => {
+                if create_window {
+                    log::info!("[Finder] Queueing files, creating main window");
+                    let _ = window_manager::create_main_window(app, None);
+                } else {
+                    log::info!("[Finder] Queueing files (frontend not ready)");
+                }
+            }
+        }
+    }
+}
+
+/// Emit decided Finder opens to the main window, re-queueing if the window
+/// vanished between the decision and the emit (the decision is made under the
+/// lock based on the main window existing THEN; `app.emit` is a global
+/// broadcast that returns Ok even with no listener).
+#[cfg(target_os = "macos")]
+fn emit_finder_opens_to_main(app: &tauri::AppHandle, payloads: Vec<PendingFileOpen>) {
+    use tauri::Emitter;
+    if app.get_webview_window("main").is_none() {
+        log::info!("[Finder] main window vanished before emit — re-queueing");
+        {
+            let mut state = FILE_OPEN_STATE.lock().unwrap_or_else(|p| p.into_inner());
+            state.frontend_ready = false;
+            state.pending.extend(payloads);
+        }
+        let _ = window_manager::create_main_window(app, None);
+        return;
+    }
+
+    log::info!("[Finder] Emitting to main window");
+    // app.emit() (global broadcast) so the frontend's global listen() in
+    // useFinderFileOpen receives it. window.emit() is webview-specific and is
+    // NOT delivered to @tauri-apps/api/event listen().
+    let mut failed: Vec<PendingFileOpen> = Vec::new();
+    for payload in payloads {
+        if let Err(e) = app.emit("app:open-file", payload.clone()) {
+            log::warn!("[Finder] emit failed, queueing: {e}");
+            failed.push(payload);
+        }
+    }
+    if !failed.is_empty() {
+        // Emit failed mid-flight — re-queue and reset readiness so the open
+        // isn't lost; create a main window if none remains to drain it.
+        {
+            let mut state = FILE_OPEN_STATE.lock().unwrap_or_else(|p| p.into_inner());
+            state.frontend_ready = false;
+            state.pending.extend(failed);
+        }
+        if app.get_webview_window("main").is_none() {
+            let _ = window_manager::create_main_window(app, None);
+        }
+    }
+}
+
+/// Dispatch app-level `RunEvent`s to focused handlers.
+fn handle_run_event(app: &tauri::AppHandle, event: tauri::RunEvent) {
+    match event {
+        tauri::RunEvent::ExitRequested { api, code, .. } => {
+            handle_exit_requested(app, &api, code);
+        }
+        tauri::RunEvent::WindowEvent {
+            label,
+            event: tauri::WindowEvent::Destroyed,
+            ..
+        } => {
+            quit::handle_window_destroyed(app, &label);
+            menu_events::clear_window_ready(&label);
+            tab_transfer::clear_unclaimed_transfer(&label);
+            workspace_transfer::clear_unclaimed_transfer(&label);
+        }
+        #[cfg(target_os = "macos")]
+        tauri::RunEvent::Reopen {
+            has_visible_windows,
+            ..
+        } => handle_reopen(app, has_visible_windows),
+        #[cfg(target_os = "macos")]
+        tauri::RunEvent::Opened { urls } => handle_finder_opened(app, urls),
+        _ => {}
+    }
+}
+
 /// Build and run the Tauri application with all plugins, commands, and event handlers.
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -668,6 +953,7 @@ pub fn run() {
             workspace_transfer::detach_workspace_to_new_window,
             workspace_transfer::claim_workspace_transfer,
             workspace_transfer::ack_workspace_transfer,
+            workspace_transfer::cancel_workspace_transfer,
             get_default_shell,
             get_login_shell_path,
             list_available_shells,
@@ -711,82 +997,11 @@ pub fn run() {
             pty::pty_resume,
             shell_integration::prepare_shell_integration,
         ])
-        .setup(|app| {
-            app.manage(pty::PtyState::default());
-            let menu = menu::localized::create_localized_menu(app.handle(), None)?;
-            app.set_menu(menu)?;
-
-            // Disable App Nap so the webview stays active when backgrounded
-            // (prevents MCP bridge timeouts from suspended JS)
-            #[cfg(target_os = "macos")]
-            app_nap::disable_app_nap();
-
-            // Fix macOS Help/Window menus (workaround for muda bug)
-            #[cfg(target_os = "macos")]
-            macos_menu::apply_menu_fixes(app.handle());
-
-            // Best-effort cleanup of legacy ~/.vmark/ directory
-            app_paths::cleanup_legacy_home_dir(app.handle());
-
-            // Install default AI genies (no-op if already present)
-            if let Err(e) = genies::install_default_genies(app.handle()) {
-                log::warn!("[Tauri] Failed to install default genies: {}", e);
-            }
-
-            // Windows/Linux: handle files passed as CLI arguments
-            // (macOS uses RunEvent::Opened from Finder instead)
-            #[cfg(not(target_os = "macos"))]
-            {
-                let file_args =
-                    filter_supported_args(std::env::args().skip(1));
-
-                if !file_args.is_empty() {
-                    if let Ok(mut state) = FILE_OPEN_STATE.lock() {
-                        for path_str in file_args {
-                            allow_fs_read(app.handle(), &path_str);
-                            let workspace_root =
-                                window_manager::get_workspace_root_for_file(&path_str);
-                            state.pending.push(PendingFileOpen {
-                                path: path_str,
-                                workspace_root,
-                            });
-                        }
-                    }
-                }
-            }
-
-            // Listen for "ready" events from frontend windows
-            // This is used by menu_events to know when it's safe to emit events
-            // The payload contains the window label as a string
-            let app_handle = app.handle().clone();
-            app.listen("ready", move |event| {
-                // The payload is the window label
-                if let Ok(label) = serde_json::from_str::<String>(event.payload()) {
-                    log::debug!("[Tauri] Window '{}' is ready", label);
-                    menu_events::mark_window_ready(&app_handle, &label);
-                }
-            });
-
-            Ok(())
-        })
+        .setup(setup_app)
         .on_menu_event(menu_events::handle_menu_event)
         // CRITICAL: Only intercept close for document windows (main, doc-*)
         // Non-document windows (settings) should close normally
-        .on_window_event(|window, event| {
-            use tauri::Emitter;
-            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                let label = window.label();
-                log::debug!("[Tauri] WindowEvent::CloseRequested for window '{}'", label);
-                // Only intercept close for document windows
-                if label == "main" || label.starts_with("doc-") {
-                    api.prevent_close();
-                    // Include target label in payload so frontend can filter
-                    let _ = window.emit("window:close-requested", label);
-                    log::debug!("[Tauri] Emitted window:close-requested to '{}'", label);
-                }
-                // Settings and other non-document windows close normally
-            }
-        });
+        .on_window_event(handle_document_window_close_event);
 
     // Tauri MCP bridge plugin for automation/screenshots (dev only).
     //
@@ -816,558 +1031,9 @@ pub fn run() {
             std::process::exit(1);
         }
     };
-    app
-        .run(|app, event| {
-            match event {
-                // CRITICAL: Preserve macOS last-window-close behavior while
-                // letting Linux/Windows CLI launches terminate when no document
-                // windows remain.
-                tauri::RunEvent::ExitRequested { api, code, .. } => {
-                    log::debug!("[Tauri] ExitRequested received, code={:?}", code);
-
-                    let has_doc_windows = app
-                        .webview_windows()
-                        .keys()
-                        .any(|label| quit::is_document_window_label(label));
-
-                    match quit::decide_exit_request_action(
-                        quit::is_exit_allowed(),
-                        has_doc_windows,
-                        quit::keep_alive_without_document_windows(),
-                    ) {
-                        quit::ExitRequestAction::AllowExit => {
-                            log::debug!("[Tauri] ExitRequested: allowing exit");
-                            if !quit::is_exit_allowed() {
-                                mcp_server::cleanup(app);
-                            }
-                        }
-                        quit::ExitRequestAction::PreventAndStartQuit => {
-                            api.prevent_exit();
-                            log::debug!("[Tauri] ExitRequested: starting quit flow");
-                            quit::start_quit(app);
-                        }
-                        quit::ExitRequestAction::PreventAndKeepAlive => {
-                            api.prevent_exit();
-                            log::debug!(
-                                "[Tauri] ExitRequested: keeping app alive without document windows"
-                            );
-                        }
-                    }
-                }
-                tauri::RunEvent::WindowEvent {
-                    label,
-                    event: tauri::WindowEvent::Destroyed,
-                    ..
-                } => {
-                    quit::handle_window_destroyed(app, &label);
-                    menu_events::clear_window_ready(&label);
-                    tab_transfer::clear_unclaimed_transfer(&label);
-                    workspace_transfer::clear_unclaimed_transfer(&label);
-                }
-                // macOS: Clicking dock icon when no windows visible -> create main window
-                #[cfg(target_os = "macos")]
-                tauri::RunEvent::Reopen {
-                    has_visible_windows,
-                    ..
-                } => {
-                    if !has_visible_windows {
-                        // Prefer creating a "main" window so useFinderFileOpen works.
-                        // Fall back to doc-N if "main" already exists (shouldn't happen
-                        // when has_visible_windows is false, but be safe).
-                        //
-                        // Restore the user's last workspace so dock-click after
-                        // closing the workspace window doesn't drop them into an
-                        // orphan untitled doc with no workspace context.
-                        let ws = window_manager::pick_reopen_workspace_root();
-                        if app.get_webview_window("main").is_none() {
-                            // Reset readiness so any subsequent Opened events are queued
-                            // until the new main window's React mounts and drains them.
-                            FILE_OPEN_STATE
-                                .lock()
-                                .unwrap_or_else(|p| p.into_inner())
-                                .frontend_ready = false;
-                            let _ = window_manager::create_main_window(app, ws.as_deref());
-                        } else {
-                            let _ = window_manager::create_document_window(
-                                app, None, ws.as_deref(),
-                            );
-                        }
-                    }
-                }
-                // Handle files opened from Finder (double-click, "Open With", etc.)
-                // Groups files by workspace root to open them as tabs in a single window
-                #[cfg(target_os = "macos")]
-                tauri::RunEvent::Opened { urls } => {
-                    // Convert URLs to file paths, handling directories immediately
-                    let mut file_paths = Vec::new();
-                    for url in urls {
-                        if let Ok(path) = url.to_file_path() {
-                            let Some(path_str) = path.to_str() else { continue };
-                            if path.is_dir() {
-                                log::info!("[Finder] Opening directory: {}", path_str);
-                                let _ = window_manager::create_document_window(
-                                    app, None, Some(path_str),
-                                );
-                                continue;
-                            }
-                            // Only queue markdown files — non-markdown files would
-                            // create broken empty tabs (#661 audit gap 9.1).
-                            // Uses the shared helper so CLI and Finder filters
-                            // stay in sync — the same set of markdown
-                            // extensions is accepted at every entry point.
-                            if !is_openable_supported(&path) {
-                                log::warn!("[Finder] Skipping non-markdown file: {}", path_str);
-                                continue;
-                            }
-                            // Extend fs read scope so the webview's readTextFile
-                            // succeeds for paths outside the static capability
-                            // scope (e.g. /private/tmp). See allow_fs_read docs.
-                            allow_fs_read(app, path_str);
-                            file_paths.push(path_str.to_string());
-                        }
-                    }
-                    if !file_paths.is_empty() {
-                    log::info!("[Finder] Opening {} file(s)", file_paths.len());
-
-                    let groups = window_manager::group_paths_by_workspace(&file_paths);
-
-                    for (workspace_key, paths) in groups {
-                        let ws = if workspace_key.is_empty() {
-                            None
-                        } else {
-                            Some(workspace_key.as_str())
-                        };
-
-                        // Decide + queue atomically under one lock (WI-0.8, C3):
-                        // the readiness check and any queue insertion happen in a
-                        // single critical section, so a concurrent
-                        // get_pending_file_opens (which flips ready + drains under
-                        // the same lock) can't interleave to drop or double-deliver.
-                        let outcome = {
-                            let mut state =
-                                FILE_OPEN_STATE.lock().unwrap_or_else(|p| p.into_inner());
-                            window_manager::decide_file_open_locked(
-                                &mut state,
-                                app.get_webview_window("main").is_some(),
-                                paths,
-                                ws,
-                            )
-                        };
-
-                        match outcome {
-                            window_manager::FileOpenOutcome::Emit(payloads) => {
-                                use tauri::Emitter;
-                                // The Emit decision was made under the lock based on
-                                // the main window existing THEN. `app.emit()` is a
-                                // GLOBAL broadcast that returns Ok even with no window
-                                // or listener present, so a window that vanished
-                                // between the decision and now would silently swallow
-                                // the open. Re-check before emitting and re-queue if
-                                // the window is gone (mirrors the previous behavior).
-                                if app.get_webview_window("main").is_none() {
-                                    log::info!(
-                                        "[Finder] main window vanished before emit — re-queueing"
-                                    );
-                                    {
-                                        let mut state = FILE_OPEN_STATE
-                                            .lock()
-                                            .unwrap_or_else(|p| p.into_inner());
-                                        state.frontend_ready = false;
-                                        state.pending.extend(payloads);
-                                    }
-                                    let _ = window_manager::create_main_window(app, None);
-                                } else {
-                                    log::info!("[Finder] Emitting to main window");
-                                    // app.emit() (global broadcast) so the frontend's
-                                    // global listen() in useFinderFileOpen receives it.
-                                    // window.emit() is webview-specific and is NOT
-                                    // delivered to @tauri-apps/api/event listen().
-                                    let mut failed: Vec<PendingFileOpen> = Vec::new();
-                                    for payload in payloads {
-                                        if let Err(e) = app.emit("app:open-file", payload.clone()) {
-                                            log::warn!("[Finder] emit failed, queueing: {e}");
-                                            failed.push(payload);
-                                        }
-                                    }
-                                    if !failed.is_empty() {
-                                        // Emit failed mid-flight — re-queue and reset
-                                        // readiness so the open isn't lost; create a
-                                        // main window if none remains to drain it.
-                                        {
-                                            let mut state = FILE_OPEN_STATE
-                                                .lock()
-                                                .unwrap_or_else(|p| p.into_inner());
-                                            state.frontend_ready = false;
-                                            state.pending.extend(failed);
-                                        }
-                                        if app.get_webview_window("main").is_none() {
-                                            let _ = window_manager::create_main_window(app, None);
-                                        }
-                                    }
-                                }
-                            }
-                            window_manager::FileOpenOutcome::Queued { create_window } => {
-                                if create_window {
-                                    log::info!("[Finder] Queueing files, creating main window");
-                                    let _ = window_manager::create_main_window(app, None);
-                                } else {
-                                    log::info!("[Finder] Queueing files (frontend not ready)");
-                                }
-                            }
-                        }
-                    }
-                    } // if !file_paths.is_empty()
-                }
-                _ => {}
-            }
-        });
+    app.run(handle_run_event);
 }
 
 #[cfg(test)]
-mod tests {
-    use super::{
-        atomic_write_file_sync, filter_supported_args, has_supported_extension, is_openable_supported,
-        MARKDOWN_ONLY_EXTENSIONS, SUPPORTED_EXTENSIONS, PARENT_MISSING_ERROR_PREFIX,
-    };
-    use std::path::{Path, PathBuf};
-
-    // -- SUPPORTED_EXTENSIONS constant ----------------------------------------
-
-    #[test]
-    fn supported_extensions_cover_phase1a_set() {
-        // Freezes the Phase 1A accepted set — if this list changes, every
-        // entry point (CLI args, Finder RunEvent::Opened,
-        // open_*_in_new_window commands, `dialog:allow-open` filters,
-        // `validate_openable_path`, the macOS quarantine strip pass)
-        // must be audited for consistency. The TS side is verified by
-        // `scripts/check-ext-sync.sh` (ADR-12).
-        assert!(SUPPORTED_EXTENSIONS.contains(&"md"));
-        assert!(SUPPORTED_EXTENSIONS.contains(&"txt"));
-        assert!(SUPPORTED_EXTENSIONS.contains(&"json"));
-        assert!(SUPPORTED_EXTENSIONS.contains(&"yaml"));
-        assert!(SUPPORTED_EXTENSIONS.contains(&"toml"));
-        assert!(SUPPORTED_EXTENSIONS.contains(&"html"));
-        assert!(SUPPORTED_EXTENSIONS.contains(&"ts"));
-        assert!(SUPPORTED_EXTENSIONS.contains(&"py"));
-        assert!(SUPPORTED_EXTENSIONS.contains(&"rs"));
-        // Strict markdown subset is still available for narrow callers.
-        assert_eq!(
-            MARKDOWN_ONLY_EXTENSIONS,
-            &["md", "markdown", "mdown", "mkd", "mdx"],
-        );
-    }
-
-    // -- has_supported_extension ----------------------------------------------
-
-    #[test]
-    fn accepts_every_markdown_extension() {
-        for ext in SUPPORTED_EXTENSIONS {
-            let path = PathBuf::from(format!("/some/file.{ext}"));
-            assert!(
-                has_supported_extension(&path),
-                "expected '.{ext}' to be accepted",
-            );
-        }
-    }
-
-    #[test]
-    fn accepts_uppercase_and_mixed_case_extensions() {
-        assert!(has_supported_extension(Path::new("/a/NOTE.MD")));
-        assert!(has_supported_extension(Path::new("/a/note.Md")));
-        assert!(has_supported_extension(Path::new("/a/Readme.MARKDOWN")));
-    }
-
-    #[test]
-    fn rejects_unregistered_extensions() {
-        assert!(!has_supported_extension(Path::new("/a/image.png")));
-        assert!(!has_supported_extension(Path::new("/a/video.mp4")));
-        // `.md.bak` resolves to extension `bak`, which is not registered.
-        assert!(!has_supported_extension(Path::new("/a/note.md.bak")));
-    }
-
-    #[test]
-    fn accepts_phase1a_non_markdown_extensions() {
-        // Phase 1B verification: txt, json, yaml etc. now pass.
-        assert!(has_supported_extension(Path::new("/a/notes.txt")));
-        assert!(has_supported_extension(Path::new("/a/data.json")));
-        assert!(has_supported_extension(Path::new("/a/config.yaml")));
-        assert!(has_supported_extension(Path::new("/a/Cargo.toml")));
-        assert!(has_supported_extension(Path::new("/a/page.html")));
-    }
-
-    #[test]
-    fn rejects_path_without_extension() {
-        assert!(!has_supported_extension(Path::new("/a/README")));
-        assert!(!has_supported_extension(Path::new("/a/.hiddenrc")));
-    }
-
-    #[test]
-    fn rejects_empty_path() {
-        assert!(!has_supported_extension(Path::new("")));
-    }
-
-    // -- is_openable_supported (requires real filesystem) ---------------------
-
-    #[test]
-    fn rejects_missing_path() {
-        let missing = PathBuf::from("/definitely/does/not/exist-vmark-test.md");
-        assert!(!is_openable_supported(&missing));
-    }
-
-    #[test]
-    fn rejects_directory_even_with_markdown_name() {
-        // Build a temp directory whose name ends in .md — the extension
-        // check alone would pass, so this proves is_file() is consulted.
-        let dir = tempfile::tempdir().expect("create tempdir");
-        let md_dir = dir.path().join("looks-like-note.md");
-        std::fs::create_dir(&md_dir).expect("create subdir");
-        assert!(!is_openable_supported(&md_dir));
-    }
-
-    #[test]
-    fn accepts_existing_markdown_file() {
-        let dir = tempfile::tempdir().expect("create tempdir");
-        let file_path = dir.path().join("note.MD");
-        std::fs::write(&file_path, b"# hi").expect("write temp file");
-        assert!(is_openable_supported(&file_path));
-    }
-
-    #[test]
-    fn rejects_existing_unregistered_file() {
-        let dir = tempfile::tempdir().expect("create tempdir");
-        let file_path = dir.path().join("photo.png");
-        std::fs::write(&file_path, b"\x89PNG").expect("write temp file");
-        assert!(!is_openable_supported(&file_path));
-    }
-
-    #[test]
-    fn accepts_existing_phase1a_files() {
-        let dir = tempfile::tempdir().expect("create tempdir");
-        for ext in ["txt", "json", "yaml", "toml", "html"] {
-            let file_path = dir.path().join(format!("file.{ext}"));
-            std::fs::write(&file_path, b"data").expect("write");
-            assert!(
-                is_openable_supported(&file_path),
-                ".{ext} file should pass"
-            );
-        }
-    }
-
-    // -- filter_supported_args -------------------------------------------------
-    // Covers the Windows/Linux CLI entry point. macOS Finder
-    // (RunEvent::Opened) and the `open_*_in_new_window` commands go through
-    // the same `is_openable_supported` gate, so the acceptance policy is
-    // uniform across all three surfaces.
-
-    #[test]
-    fn cli_filter_keeps_every_supported_variant() {
-        let dir = tempfile::tempdir().expect("create tempdir");
-        let mut inputs = Vec::new();
-        for ext in SUPPORTED_EXTENSIONS {
-            let path = dir.path().join(format!("note.{ext}"));
-            std::fs::write(&path, b"# hi").expect("write");
-            inputs.push(path.to_string_lossy().into_owned());
-        }
-        let kept = filter_supported_args(inputs.clone());
-        assert_eq!(kept, inputs, "every supported extension should pass");
-    }
-
-    #[test]
-    fn cli_filter_drops_unregistered_and_missing_and_directory() {
-        let dir = tempfile::tempdir().expect("create tempdir");
-        let good = dir.path().join("keep.md");
-        std::fs::write(&good, b"# hi").expect("write good");
-
-        let unregistered = dir.path().join("drop.png");
-        std::fs::write(&unregistered, b"png").expect("write unregistered");
-
-        let md_dir = dir.path().join("looks-markdown.md");
-        std::fs::create_dir(&md_dir).expect("mkdir");
-
-        let missing = dir.path().join("vanished.md");
-
-        let inputs = vec![
-            good.to_string_lossy().into_owned(),
-            unregistered.to_string_lossy().into_owned(),
-            md_dir.to_string_lossy().into_owned(),
-            missing.to_string_lossy().into_owned(),
-        ];
-
-        let kept = filter_supported_args(inputs);
-        assert_eq!(kept, vec![good.to_string_lossy().into_owned()]);
-    }
-
-    #[test]
-    fn cli_filter_empty_input_returns_empty() {
-        let kept = filter_supported_args(Vec::<String>::new());
-        assert!(kept.is_empty());
-    }
-
-    // -- parity across entry points ------------------------------------------
-
-    #[test]
-    fn finder_and_cli_share_acceptance_policy() {
-        // The Finder RunEvent::Opened handler uses `is_openable_supported`
-        // directly (lib.rs `tauri::RunEvent::Opened` arm). The CLI filter
-        // routes through the same predicate via filter_supported_args. This
-        // test pins that invariant — if either surface diverges, this
-        // fails loudly rather than letting drift recur silently.
-        let dir = tempfile::tempdir().expect("create tempdir");
-        let file = dir.path().join("note.MD");
-        std::fs::write(&file, b"# hi").expect("write");
-        let raw = file.to_string_lossy().into_owned();
-
-        // Finder path (the predicate called inside RunEvent::Opened)
-        let finder_accepts = is_openable_supported(&file);
-        // CLI path (the wrapper used in the setup closure)
-        let cli_accepts = !filter_supported_args(vec![raw.clone()]).is_empty();
-
-        assert!(finder_accepts, "finder arm must accept note.MD");
-        assert!(cli_accepts, "cli arm must accept note.MD");
-        assert_eq!(finder_accepts, cli_accepts);
-    }
-
-    // -- allow_fs_read runtime scope extension (mock Tauri app) --------------
-    //
-    // Covers the wiring that the CLI, Finder, and `open_*_in_new_window`
-    // entry points all rely on: calling `allow_fs_read(app, path)` must
-    // mutate the fs plugin's scope so `readTextFile(path)` in the webview
-    // later succeeds. Without this, the bug reported in #676 recurs
-    // silently — validators pass, but the webview read is still denied.
-
-    // tauri::test::MockRuntime crashes the test binary at startup on
-    // windows-latest (STATUS_ENTRYPOINT_NOT_FOUND). The `test` feature of
-    // tauri is not enabled on Windows (see Cargo.toml target-specific
-    // dev-dependency), and these tests are cfg-gated to match. macOS/Linux
-    // still exercise the scope-extension wiring end-to-end.
-    #[cfg(not(target_os = "windows"))]
-    use super::allow_fs_read;
-    #[cfg(not(target_os = "windows"))]
-    use tauri_plugin_fs::FsExt;
-
-    #[cfg(not(target_os = "windows"))]
-    fn mock_app_with_fs() -> tauri::App<tauri::test::MockRuntime> {
-        tauri::test::mock_builder()
-            .plugin(tauri_plugin_fs::init())
-            .build(tauri::test::mock_context(tauri::test::noop_assets()))
-            .expect("build mock app with fs plugin")
-    }
-
-    #[cfg(not(target_os = "windows"))]
-    #[test]
-    fn allow_fs_read_extends_scope_so_read_is_permitted() {
-        let dir = tempfile::tempdir().expect("tempdir");
-        let file = dir.path().join("note.md");
-        std::fs::write(&file, b"# hi").expect("write");
-
-        let app = mock_app_with_fs();
-        // Sanity: a fresh mock scope does NOT already allow this arbitrary
-        // path. If this flips, the rest of the test is meaningless.
-        assert!(
-            !app.fs_scope().is_allowed(&file),
-            "mock fs scope should reject unknown path before extension"
-        );
-
-        allow_fs_read(app.handle(), file.to_str().unwrap());
-
-        assert!(
-            app.fs_scope().is_allowed(&file),
-            "allow_fs_read should extend scope so the webview can read the path"
-        );
-    }
-
-    #[cfg(not(target_os = "windows"))]
-    #[test]
-    fn allow_fs_read_is_idempotent() {
-        // Calling twice must not panic, error, or double-allow in a way
-        // that breaks subsequent reads. The Finder cold-start path does
-        // this when a file arrives via both the pending queue and a later
-        // hot event.
-        let dir = tempfile::tempdir().expect("tempdir");
-        let file = dir.path().join("note.md");
-        std::fs::write(&file, b"# hi").expect("write");
-
-        let app = mock_app_with_fs();
-        allow_fs_read(app.handle(), file.to_str().unwrap());
-        allow_fs_read(app.handle(), file.to_str().unwrap());
-
-        assert!(app.fs_scope().is_allowed(&file));
-    }
-
-    #[cfg(not(target_os = "windows"))]
-    #[test]
-    fn allow_fs_read_does_not_grant_unrelated_paths() {
-        // Extending scope for one file must not leak into neighbors.
-        let dir = tempfile::tempdir().expect("tempdir");
-        let allowed = dir.path().join("keep.md");
-        let other = dir.path().join("other.md");
-        std::fs::write(&allowed, b"# hi").expect("write allowed");
-        std::fs::write(&other, b"# hi").expect("write other");
-
-        let app = mock_app_with_fs();
-        allow_fs_read(app.handle(), allowed.to_str().unwrap());
-
-        assert!(app.fs_scope().is_allowed(&allowed));
-        assert!(
-            !app.fs_scope().is_allowed(&other),
-            "scope extension must be per-file, not per-directory"
-        );
-    }
-
-    // -- atomic_write_file_sync ----------------------------------------------
-
-    #[test]
-    fn atomic_write_succeeds_when_parent_dir_exists() {
-        let dir = tempfile::tempdir().expect("create tempdir");
-        let target = dir.path().join("note.md");
-
-        atomic_write_file_sync(&target, "hello").expect("write should succeed");
-
-        let read_back = std::fs::read_to_string(&target).expect("read back");
-        assert_eq!(read_back, "hello");
-    }
-
-    #[test]
-    fn atomic_write_returns_parent_missing_sentinel_when_dir_gone() {
-        // Regression test: if the parent directory was renamed/deleted
-        // between open and save, `NamedTempFile::new_in` would fail with a
-        // raw "No such file or directory (os error 2)". Our explicit
-        // pre-flight check converts that to a recognizable sentinel so the
-        // frontend can route into Save As instead of leaking the OS error.
-        let dir = tempfile::tempdir().expect("create tempdir");
-        let gone = dir.path().join("renamed-away");
-        let target = gone.join("note.md");
-        // gone/ is intentionally never created — the parent does not exist.
-
-        let err = atomic_write_file_sync(&target, "hello")
-            .expect_err("write must fail when parent dir is missing");
-
-        assert!(
-            err.starts_with(PARENT_MISSING_ERROR_PREFIX),
-            "expected sentinel prefix, got: {err}",
-        );
-        assert!(
-            err.contains("renamed-away"),
-            "expected missing dir path in error, got: {err}",
-        );
-        // Belt-and-suspenders: ensure we did NOT leak the raw OS error.
-        assert!(
-            !err.contains("os error 2"),
-            "raw OS error must not leak when parent is missing, got: {err}",
-        );
-    }
-
-    #[test]
-    fn atomic_write_returns_parent_missing_when_parent_is_a_file() {
-        // Edge case: parent path exists but isn't a directory (someone
-        // replaced the folder with a file of the same name).
-        let dir = tempfile::tempdir().expect("create tempdir");
-        let parent_as_file = dir.path().join("not-a-dir");
-        std::fs::write(&parent_as_file, b"oops").expect("create file");
-        let target = parent_as_file.join("note.md");
-
-        let err = atomic_write_file_sync(&target, "hello")
-            .expect_err("write must fail when parent is a file, not a dir");
-        assert!(err.starts_with(PARENT_MISSING_ERROR_PREFIX), "got: {err}");
-    }
-}
+#[path = "lib.test.rs"]
+mod tests;

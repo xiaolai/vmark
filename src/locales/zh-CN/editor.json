@@ -317,5 +317,10 @@
   "tableMenu.alignAllRight": "全部右对齐",
   "tableMenu.formatTable": "格式化表格",
   "tableMenu.fitToWidth": "适应宽度",
-  "tableMenu.naturalWidth": "自然宽度"
+  "tableMenu.naturalWidth": "自然宽度",
+  "terminal.processExited": "[进程已退出，代码 {{code}}]",
+  "terminal.pressAnyKeyToRestart": "按任意键重新启动……",
+  "terminal.failedToStart": "启动 shell 失败：{{error}}",
+  "terminal.pressAnyKeyToRetry": "按任意键重试……",
+  "terminal.restarting": "正在重新启动 shell……"
 }

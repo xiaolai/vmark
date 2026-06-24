@@ -182,6 +182,54 @@ describe("Migration v4 -> v5 workspace context ownership", () => {
     ]);
   });
 
+  it("normalizes a malformed instance missing tabIds without crashing", () => {
+    // A corrupt persisted instance may omit tabIds / closedTabIds / rootPath
+    // entirely. The kind inference and normalization both read those fields,
+    // so the migration must defend every field rather than only checking the
+    // id, otherwise normalization throws and aborts the whole migration.
+    const session = v4Session();
+    session.windows[0].active_tab_id = null;
+    session.windows[0].workspace_instance_ids = ["broken"];
+    session.windows[0].active_workspace_instance_id = null;
+    session.windows[0].workspace_instances = [
+      {
+        workspaceInstanceId: "broken",
+        // kind missing -> inferMigratedKind runs and reads tabIds.length
+        // rootPath missing, tabIds missing, closedTabIds missing, activeTabId missing
+      } as unknown as SessionData["windows"][number]["workspace_instances"][number],
+    ];
+
+    const window = migrateSession(session).windows[0];
+
+    expect(window.workspace_instances).toMatchObject([
+      {
+        workspaceInstanceId: "broken",
+        kind: "loose",
+        rootId: null,
+        rootPath: null,
+        displayName: "Loose Files",
+        ownerWindowLabel: "main",
+        tabIds: [],
+        closedTabIds: [],
+        activeTabId: null,
+      },
+    ]);
+  });
+
+  it("drops a fully malformed instance entry whose id is not a string", () => {
+    const session = v4Session();
+    session.windows[0].workspace_instances = [
+      null as unknown as SessionData["windows"][number]["workspace_instances"][number],
+      { workspaceInstanceId: 7 } as unknown as SessionData["windows"][number]["workspace_instances"][number],
+    ];
+
+    // No valid serialized instances -> synthesis from legacy tabs applies.
+    const window = migrateSession(session).windows[0];
+    expect(window.workspace_instances?.every(
+      (instance) => typeof instance.workspaceInstanceId === "string",
+    )).toBe(true);
+  });
+
   it("falls back to the first non-placeholder context when no active tab maps", () => {
     const session = v4Session();
     session.windows[0].active_tab_id = "missing";

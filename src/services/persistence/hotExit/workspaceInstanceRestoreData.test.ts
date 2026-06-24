@@ -229,12 +229,22 @@ describe("workspaceInstanceRestoreData", () => {
     ).toMatchObject([
       { kind: "workspace", tabIds: ["inside"], activeTabId: "inside" },
     ]);
+    // Unusable (blank) root: the workspace tab must be PRESERVED with a
+    // fallback identity, not dropped. This matches the v5 migration path.
     expect(
       synthesizeWindowInstances(
         "main",
-        windowState({ tabs: [tab("space-path", "   /a.md")] }),
+        windowState({ active_tab_id: "space-path", tabs: [tab("space-path", "   /a.md")] }),
         "   ",
       ),
-    ).toEqual([]);
+    ).toMatchObject([
+      {
+        kind: "workspace",
+        rootId: "path:macos:   ",
+        rootPath: "   ",
+        tabIds: ["space-path"],
+        activeTabId: "space-path",
+      },
+    ]);
   });
 });

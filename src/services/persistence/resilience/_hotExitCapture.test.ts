@@ -8,7 +8,7 @@
  * `editing_enabled`, `active_schema_id`) are correctly populated from
  * the in-memory Tab into the persisted TabState.
  */
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 
 // --- Mock the dependent stores BEFORE importing the SUT. ---
 // react-i18next is pulled in by useHotExitCapture's transitive deps;
@@ -102,6 +102,7 @@ vi.mock("@tauri-apps/api/webviewWindow", () => ({
 }));
 
 import { captureWindowState } from "./_hotExitCapture";
+import { captureWindowGeometry } from "./windowGeometry";
 
 function setTabs(windowLabel: string, tabs: StubTab[]) {
   tabsForWindow[windowLabel] = tabs;
@@ -256,5 +257,45 @@ describe("captureWindowState — multi-format fields (WI-1A.13)", () => {
     expect(state.tabs[1].editing_enabled).toBe(false);
     expect(state.tabs[2].active_schema_id).toBe("yaml-gha-workflow");
     expect(state.active_tab_id).toBe("t2");
+  });
+});
+
+describe("captureWindowGeometry", () => {
+  const originals = {
+    screenX: window.screenX,
+    screenY: window.screenY,
+    outerWidth: window.outerWidth,
+    outerHeight: window.outerHeight,
+  };
+
+  function setGeometry(values: Partial<typeof originals>) {
+    for (const [key, value] of Object.entries(values)) {
+      Object.defineProperty(window, key, { value, configurable: true });
+    }
+  }
+
+  afterEach(() => {
+    setGeometry(originals);
+  });
+
+  it("captures position and outer dimensions from window globals", () => {
+    setGeometry({ screenX: 120, screenY: 80, outerWidth: 1024, outerHeight: 768 });
+    expect(captureWindowGeometry()).toEqual({ x: 120, y: 80, width: 1024, height: 768 });
+  });
+
+  it("returns null for non-positive dimensions", () => {
+    setGeometry({ screenX: 0, screenY: 0, outerWidth: 0, outerHeight: 768 });
+    expect(captureWindowGeometry()).toBeNull();
+  });
+
+  it("returns null for non-finite values", () => {
+    setGeometry({ screenX: NaN, screenY: 0, outerWidth: 1024, outerHeight: 768 });
+    expect(captureWindowGeometry()).toBeNull();
+  });
+
+  it("captureWindowState includes the captured geometry", () => {
+    setGeometry({ screenX: 5, screenY: 6, outerWidth: 800, outerHeight: 600 });
+    const state = captureWindowState("main", true);
+    expect(state.geometry).toEqual({ x: 5, y: 6, width: 800, height: 600 });
   });
 });

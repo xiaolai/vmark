@@ -15,7 +15,10 @@
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { findReplaceableTab, type ReplaceableTabInfo, type TabInfo } from "@/utils/openPolicy";
-import { normalizePath } from "@/utils/paths";
+
+// Re-exported from services/ so hook consumers keep importing it from here,
+// while services/ can import the source directly (ADR-013 layering).
+export { findExistingTabForPath } from "@/services/tabs/findExistingTabForPath";
 
 /**
  * Get a replaceable tab for a window if one exists.
@@ -40,30 +43,4 @@ export function getReplaceableTab(windowLabel: string): ReplaceableTabInfo | nul
     isDirty: documents[t.id]?.isDirty ?? false,
   }));
   return findReplaceableTab(tabsInfo);
-}
-
-/**
- * Find an existing tab for a file path in the current window.
- *
- * @param windowLabel - The window to search in
- * @param filePath - The file path to find
- * @returns Tab ID if found, null otherwise
- *
- * @example
- * const existingTabId = findExistingTabForPath(windowLabel, path);
- * if (existingTabId) {
- *   useTabStore.getState().setActiveTab(windowLabel, existingTabId);
- * }
- */
-export function findExistingTabForPath(windowLabel: string, filePath: string): string | null {
-  const tabs = useTabStore.getState().getTabsByWindow(windowLabel);
-  const normalizedTarget = normalizePath(filePath);
-
-  for (const tab of tabs) {
-    const doc = useDocumentStore.getState().getDocument(tab.id);
-    if (doc?.filePath && normalizePath(doc.filePath) === normalizedTarget) {
-      return tab.id;
-    }
-  }
-  return null;
 }

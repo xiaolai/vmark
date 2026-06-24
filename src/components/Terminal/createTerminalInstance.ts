@@ -101,6 +101,11 @@ export interface TerminalInstance {
   /** True while a foreground command is running (OSC 133 C→D). False without
    *  shell integration. Used to avoid injecting `cd` into a busy shell. */
   isShellBusy: () => boolean;
+  /** Register a callback fired when the shell returns to idle (OSC 133 done /
+   *  next prompt). Used to flush a deferred workspace `cd` that was skipped
+   *  while a foreground command ran. Pass null to clear. No-op without shell
+   *  integration. */
+  setOnShellIdle: (cb: (() => void) | null) => void;
   dispose: () => void;
 }
 
@@ -256,6 +261,7 @@ export function createTerminalInstance(options: CreateOptions): TerminalInstance
     getCwd: osc.getCwd,
     getCommands: osc133.getCommands,
     isShellBusy: osc133.isRunning,
+    setOnShellIdle: osc133.setOnIdle,
     get composing() { return ime.composing; },
     get inGracePeriod() { return ime.inGracePeriod; },
     get onCompositionCommit() { return ime.onCompositionCommit; },

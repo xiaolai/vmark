@@ -42,17 +42,14 @@ import { createContext, useContext, useEffect, useState, useRef, type ReactNode 
 import { useWorkspaceSync } from "@/hooks/useWorkspaceSync";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { readTextFile } from "@tauri-apps/plugin-fs";
-import { imeToast as toast } from "@/services/ime/imeToast";
-import i18n from "@/i18n";
 import { useDocumentStore } from "../stores/documentStore";
 import { useTabStore } from "../stores/tabStore";
 import { useRecentFilesStore } from "../stores/workspaceStore";
 import { useRecentWorkspacesStore } from "../stores/workspaceStore";
 import { useWorkspaceStore } from "../stores/workspaceStore";
 import { useUIStore } from "../stores/uiStore";
-import { detectLinebreaks } from "../utils/linebreakDetection";
 import { openWorkspaceWithConfig } from "../hooks/openWorkspaceWithConfig";
+import { loadStartupFileIntoTab, createBlankStartupTab } from "./startupFileOpen";
 import {
   setCurrentWindowLabel,
   migrateWorkspaceStorage,
@@ -63,11 +60,6 @@ import { resolveWorkspaceRootForExternalFile } from "../utils/openPolicy";
 import { isWithinRoot } from "../utils/paths";
 import type { TabTransferPayload } from "@/types/tabTransfer";
 import { windowCloseWarn, windowContextError } from "@/utils/debug";
-import { getFileName } from "@/utils/pathUtils";
-import { routeOpenBySize } from "@/services/navigation/largeFileRouting";
-import { maybeMarkLargeMarkdownAsSource } from "@/lib/formats/markdownLargeFile";
-import { useFileLoadStore } from "@/stores/documentStore";
-import { shouldShowProgressIndicator } from "@/utils/fileSizeThresholds";
 import { cleanupTabState } from "@/hooks/tabCleanup";
 import { errorMessage } from "@/utils/errorMessage";
 import { claimWorkspaceTransferForWindow } from "@/services/workspaces/workspaceWindowActions";
@@ -280,65 +272,21 @@ export function WindowProvider({ children }: WindowProviderProps) {
             if (!filePath && !workspaceRootParam && label === "main") {
               useWorkspaceStore.getState().closeWorkspace();
             }
-            // Shared per-file routing: applies the large-file UX to every
-            // launch-arg file before we read it (so 60 MB files are refused
-            // and 1 MB+ files open in Source mode with the indicator).
-            const loadPathIntoNewTab = async (pathToOpen: string) => {
-              const route = await routeOpenBySize(pathToOpen);
-              if (!route.proceed) {
-                // Refused / cancelled: still create an empty tab so the window
-                // has a live document — otherwise a user who cancelled a huge
-                // file would see a blank, tabless window.
-                const tabId = useTabStore.getState().createTab(label, null);
-                useDocumentStore.getState().initDocument(tabId, "", null);
-                return;
-              }
-
-              const tabId = useTabStore.getState().createTab(label, pathToOpen);
-
-              const showIndicator =
-                !route.forceSourceMode && shouldShowProgressIndicator(route.sizeBytes);
-              let indicatorLoadId: number | null = null;
-              if (showIndicator) {
-                indicatorLoadId = useFileLoadStore
-                  .getState()
-                  .startLoad(getFileName(pathToOpen) || pathToOpen, route.sizeBytes);
-              }
-
-              try {
-                const content = await readTextFile(pathToOpen);
-                useDocumentStore.getState().initDocument(tabId, content, pathToOpen);
-                useDocumentStore.getState().setLineMetadata(tabId, detectLinebreaks(content));
-                useRecentFilesStore.getState().addFile(pathToOpen);
-
-                maybeMarkLargeMarkdownAsSource(
-                  tabId,
-                  pathToOpen,
-                  route.forceSourceMode,
-                );
-              } catch (error) {
-                windowContextError("Failed to load file:", pathToOpen, error);
-                useDocumentStore.getState().initDocument(tabId, "", null);
-                /* v8 ignore next -- @preserve reason: getFileName always returns a value for valid paths; || path is a defensive fallback */
-                const filename = getFileName(pathToOpen) || pathToOpen;
-                toast.error(i18n.t("dialog:toast.failedToOpen", { filename }));
-                if (indicatorLoadId !== null) {
-                  useFileLoadStore.getState().endLoad(indicatorLoadId);
-                }
-              }
-            };
-
+            // Shared per-file open: delegates to openFileInNewTabCore (size
+            // routing, dedupe + close-during-read guards, file ownership /
+            // read-only conflict handling, recents, large-file source marking)
+            // and guarantees the window ends up non-empty. See startupFileOpen.
             if (filePaths && filePaths.length > 0) {
               for (const path of filePaths) {
-                await loadPathIntoNewTab(path);
+                await loadStartupFileIntoTab(label, path);
               }
             } else if (filePath) {
-              await loadPathIntoNewTab(filePath);
+              await loadStartupFileIntoTab(label, filePath);
             } else if (workspaceRootParam) {
               // Restore the workspace's last open tabs in the new window (#1005),
               // matching the same-window Open Workspace behavior.
               for (const restorePath of workspaceConfig?.lastOpenTabs ?? []) {
-                await loadPathIntoNewTab(restorePath);
+                await loadStartupFileIntoTab(label, restorePath);
               }
             } else {
               // No file AND no workspace context: fresh new-file UX — create
@@ -349,8 +297,7 @@ export function WindowProvider({ children }: WindowProviderProps) {
               // plus a blank doc"). Hot-exit / lastOpenTabs restore can still
               // populate tabs after this — see useHotExitStartup and
               // useWorkspaceBootstrap.
-              const tabId = useTabStore.getState().createTab(label, null);
-              useDocumentStore.getState().initDocument(tabId, "", null);
+              createBlankStartupTab(label);
             }
           }
         }

@@ -122,6 +122,27 @@ describe("getDefaultSaveFolderWithFallback", () => {
     expect(result).toBe("/Users/test");
   });
 
+  it("resolves to an empty last-resort folder when both documentDir and homeDir reject", async () => {
+    mockDocumentDir.mockRejectedValue(new Error("no documents dir"));
+    mockHomeDir.mockRejectedValue(new Error("no home dir"));
+
+    // Must resolve (not reject) so the Save As flow can still open a dialog at
+    // the OS default location rather than throwing an unhandled rejection.
+    const result = await getDefaultSaveFolderWithFallback(WINDOW_LABEL);
+    expect(result).toBe("");
+  });
+
+  it("still prefers a sibling tab folder when both path APIs reject", async () => {
+    mockDocumentDir.mockRejectedValue(new Error("no documents dir"));
+    mockHomeDir.mockRejectedValue(new Error("no home dir"));
+
+    const tabId = useTabStore.getState().createTab(WINDOW_LABEL, "/projects/notes/file.md");
+    useDocumentStore.getState().initDocument(tabId, "content", "/projects/notes/file.md", "content");
+
+    const result = await getDefaultSaveFolderWithFallback(WINDOW_LABEL);
+    expect(result).toBe("/projects/notes");
+  });
+
   it("gathers saved file paths from tabs", async () => {
     useWorkspaceStore.setState({
       rootPath: null,

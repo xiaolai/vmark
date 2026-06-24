@@ -95,8 +95,9 @@ describe("resolveOpenAction", () => {
   });
 
   describe("when not in workspace mode", () => {
-    it("returns no_op when workspace root cannot be resolved (root-level file)", () => {
-      // /file.md has no valid parent directory → resolveWorkspaceRootForExternalFile returns null
+    it("opens a root-level file in a new window rooted at the POSIX root", () => {
+      // /file.md is a valid path; its containing folder is "/" — it must open,
+      // not silently no_op (regression guard for the root-level drop bug).
       const context: OpenActionContext = {
         filePath: "/file.md",
         workspaceRoot: null,
@@ -108,8 +109,9 @@ describe("resolveOpenAction", () => {
       const result = resolveOpenAction(context);
 
       expect(result).toEqual({
-        action: "no_op",
-        reason: "cannot_resolve_workspace_root",
+        action: "open_workspace_in_new_window",
+        filePath: "/file.md",
+        workspaceRoot: "/",
       });
     });
 
@@ -227,7 +229,7 @@ describe("resolveOpenAction", () => {
   // fix(#946) — openInNewTab opt-in: open existing files in a new tab instead
   // of replacing the clean untitled tab.
   describe("with openInNewTab enabled", () => {
-    it("returns create_tab instead of replace_tab when a replaceable tab exists", () => {
+    it("returns create_tab (with resolved workspaceRoot) instead of replace_tab when a replaceable tab exists", () => {
       const context: OpenActionContext = {
         filePath: "/some/folder/file.md",
         workspaceRoot: null,
@@ -239,13 +241,16 @@ describe("resolveOpenAction", () => {
 
       const result = resolveOpenAction(context);
 
+      // The external file's own folder must travel with the action so the caller
+      // can apply workspace ownership instead of attaching it to the wrong root.
       expect(result).toEqual({
         action: "create_tab",
         filePath: "/some/folder/file.md",
+        workspaceRoot: "/some/folder",
       });
     });
 
-    it("returns create_tab for file outside workspace when a replaceable tab exists", () => {
+    it("returns create_tab (with resolved workspaceRoot) for file outside workspace when a replaceable tab exists", () => {
       const context: OpenActionContext = {
         filePath: "/other/folder/file.md",
         workspaceRoot: "/workspace/project",
@@ -260,6 +265,7 @@ describe("resolveOpenAction", () => {
       expect(result).toEqual({
         action: "create_tab",
         filePath: "/other/folder/file.md",
+        workspaceRoot: "/other/folder",
       });
     });
 
@@ -363,9 +369,10 @@ describe("resolveWorkspaceRootForExternalFile", () => {
     expect(result).toBeNull();
   });
 
-  it("returns null for root-level file", () => {
+  it("returns the POSIX root for a root-level file", () => {
+    // "/file.md" is a valid path; its containing folder is "/", not null.
     const result = resolveWorkspaceRootForExternalFile("/file.md");
-    expect(result).toBeNull();
+    expect(result).toBe("/");
   });
 
   it("handles Windows-style paths", () => {
@@ -555,7 +562,7 @@ describe("resolvePostSaveWorkspaceAction", () => {
       });
     });
 
-    it("returns no_op for root-level file", () => {
+    it("opens the POSIX root as a workspace for a root-level saved file", () => {
       const context: PostSaveWorkspaceContext = {
         isWorkspaceMode: false,
         hadPathBeforeSave: false,
@@ -564,7 +571,7 @@ describe("resolvePostSaveWorkspaceAction", () => {
 
       const result = resolvePostSaveWorkspaceAction(context);
 
-      expect(result).toEqual({ action: "no_op" });
+      expect(result).toEqual({ action: "open_workspace", workspaceRoot: "/" });
     });
   });
 });

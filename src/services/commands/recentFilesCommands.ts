@@ -3,16 +3,19 @@
  *
  * Two commands: clear-recent-files and open-recent-file (with full
  * resolveOpenAction routing: activate / create / replace / new window).
+ *
+ * The open-recent branches are extracted into small, individually testable
+ * helpers (parseRecentFileArgs / openRecentInNewTab / replaceTabWithRecentFile
+ * / openRecentInNewWindow) so the high-complexity command callback stays a thin
+ * dispatcher and the replace flow reuses the same code path as Cmd+O.
  */
 
 import { ask } from "@tauri-apps/plugin-dialog";
-import { readTextFile } from "@tauri-apps/plugin-fs";
+import { exists } from "@tauri-apps/plugin-fs";
 import { invoke } from "@tauri-apps/api/core";
 import { imeToast as toast } from "@/services/ime/imeToast";
 import i18n from "@/i18n";
 import { registerCommand } from "./CommandBus";
-import { useDocumentStore } from "@/stores/documentStore";
-import { useFileLoadStore } from "@/stores/documentStore";
 import { useRecentFilesStore } from "@/stores/workspaceStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useSettingsStore } from "@/stores/settingsStore";
@@ -20,17 +23,86 @@ import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { withReentryGuard } from "@/utils/reentryGuard";
 import { resolveOpenAction } from "@/utils/openPolicy";
 import { getReplaceableTab } from "@/hooks/useReplaceableTab";
-import { detectLinebreaks } from "@/utils/linebreakDetection";
-import { openWorkspaceWithConfig } from "@/hooks/openWorkspaceWithConfig";
-import { openFileInNewTabCore } from "@/hooks/useFileOpen";
-import { routeOpenBySize } from "@/services/navigation/largeFileRouting";
-import { maybeMarkLargeMarkdownAsSource } from "@/lib/formats/markdownLargeFile";
-import { shouldShowProgressIndicator } from "@/utils/fileSizeThresholds";
+import { openFileInNewTabCore, replaceTabWithFile } from "@/hooks/useFileOpen";
 import { menuError } from "@/utils/debug";
 import { getFileName } from "@/utils/pathUtils";
-import { applyFileOwnershipAfterOpen } from "@/services/workspaces/fileOwnership";
 
 type Ctx = { windowLabel?: string };
+
+/**
+ * Normalize a recent-file command argument to a non-empty path string.
+ *
+ * `args` is either the tuple `[path, label]` (menu dispatch) or a plain path
+ * string (programmatic call). Anything else — including `[]`, `null`, and
+ * `undefined` — is rejected so it can't become a literal "undefined"/"null"
+ * file path.
+ */
+export function parseRecentFileArgs(args: unknown): string | null {
+  const candidate = Array.isArray(args) ? args[0] : args;
+  return typeof candidate === "string" && candidate.length > 0 ? candidate : null;
+}
+
+/**
+ * Prompt to remove a recent file that could not be opened. Used by the
+ * create/replace paths when the underlying file is missing or unreadable.
+ */
+async function promptRemoveRecentFile(filePath: string): Promise<void> {
+  const remove = await ask(i18n.t("dialog:fileNotFound.message"), {
+    title: i18n.t("dialog:fileNotFound.title"),
+    kind: "warning",
+  });
+  if (remove) {
+    useRecentFilesStore.getState().removeFile(filePath);
+  }
+}
+
+/**
+ * Open a recent file in a new tab. Preflights existence so that a missing file
+ * is offered for removal from the recents list — `openFileInNewTabCore` swallows
+ * read failures internally (toast + tab cleanup), so without the preflight a
+ * stale recent entry would silently survive a failed open.
+ */
+export async function openRecentInNewTab(
+  windowLabel: string,
+  filePath: string,
+): Promise<void> {
+  if (!(await exists(filePath))) {
+    await promptRemoveRecentFile(filePath);
+    return;
+  }
+  await openFileInNewTabCore(windowLabel, filePath);
+}
+
+/**
+ * Replace a clean tab with a recent file. Reuses the shared replace flow so
+ * Open and Open Recent can't drift, and offers removal from recents on failure.
+ */
+export async function replaceTabWithRecentFile(params: {
+  windowLabel: string;
+  tabId: string;
+  targetPath: string;
+  sourcePath: string;
+  workspaceRoot?: string | null;
+}): Promise<void> {
+  const result = await replaceTabWithFile(params);
+  if (result.ok || result.cancelled) return;
+  menuError("Failed to replace tab with recent file:", result.error);
+  await promptRemoveRecentFile(params.sourcePath);
+}
+
+/** Open a recent file's workspace in a new window, with localized failure toast. */
+export async function openRecentInNewWindow(
+  workspaceRoot: string | null | undefined,
+  filePath: string,
+): Promise<void> {
+  try {
+    await invoke("open_workspace_in_new_window", { workspaceRoot, filePath });
+  } catch (error) {
+    menuError("Failed to open workspace in new window:", error);
+    const filename = getFileName(filePath) || filePath;
+    toast.error(i18n.t("dialog:toast.failedToOpen", { filename }));
+  }
+}
 
 let registered = false;
 export function registerRecentFilesCommands(): void {
@@ -66,26 +138,16 @@ export function registerRecentFilesCommands(): void {
     category: "file",
     run: async (args, ctx: Ctx) => {
       const windowLabel = ctx.windowLabel ?? "main";
-      // args may be either the tuple [path, label] (menu dispatch) or a
-      // plain path string (programmatic call).
-      let filePath: string;
-      if (Array.isArray(args)) {
-        filePath = String(args[0]);
-      } else if (typeof args === "string") {
-        filePath = args;
-      } else {
-        return;
-      }
+      const filePath = parseRecentFileArgs(args);
+      if (!filePath) return;
 
-      const { files } = useRecentFilesStore.getState();
-      const file = files.find((f) => f.path === filePath) ?? { path: filePath };
       const { isWorkspaceMode, rootPath } = useWorkspaceStore.getState();
       const workspaceRailMode = useSettingsStore.getState().general.workspaceRailMode;
-      const existingTab = useTabStore.getState().findTabByPath(windowLabel, file.path);
+      const existingTab = useTabStore.getState().findTabByPath(windowLabel, filePath);
       const replaceableTab = getReplaceableTab(windowLabel);
 
       const result = resolveOpenAction({
-        filePath: file.path,
+        filePath,
         workspaceRoot: rootPath,
         isWorkspaceMode,
         existingTabId: existingTab?.id ?? null,
@@ -100,83 +162,21 @@ export function registerRecentFilesCommands(): void {
             break;
 
           case "create_tab":
-            try {
-              await openFileInNewTabCore(windowLabel, file.path);
-            } catch (error) {
-              menuError("Failed to open recent file:", error);
-              const remove = await ask(
-                i18n.t("dialog:fileNotFound.message"),
-                { title: i18n.t("dialog:fileNotFound.title"), kind: "warning" }
-              );
-              if (remove) {
-                useRecentFilesStore.getState().removeFile(file.path);
-              }
-            }
+            await openRecentInNewTab(windowLabel, filePath);
             break;
 
-          case "replace_tab": {
-            const route = await routeOpenBySize(file.path);
-            if (!route.proceed) break;
-
-            const showIndicator =
-              !route.forceSourceMode &&
-              shouldShowProgressIndicator(route.sizeBytes);
-            let replaceLoadId: number | null = null;
-            if (showIndicator) {
-              const filename = getFileName(file.path) || file.path;
-              replaceLoadId = useFileLoadStore.getState().startLoad(filename, route.sizeBytes);
-            }
-
-            try {
-              const content = await readTextFile(file.path);
-              useTabStore.getState().updateTabPath(result.tabId, result.filePath);
-              useDocumentStore.getState().loadContent(
-                result.tabId,
-                content,
-                result.filePath,
-                detectLinebreaks(content)
-              );
-              if (result.workspaceRoot) {
-                await openWorkspaceWithConfig(result.workspaceRoot, { windowLabel });
-              }
-              applyFileOwnershipAfterOpen(result.tabId, result.filePath);
-              useRecentFilesStore.getState().addFile(file.path);
-
-              maybeMarkLargeMarkdownAsSource(
-                result.tabId,
-                file.path,
-                route.forceSourceMode,
-              );
-            } catch (error) {
-              menuError("Failed to replace tab with recent file:", error);
-              const remove = await ask(
-                i18n.t("dialog:fileNotFound.message"),
-                { title: i18n.t("dialog:fileNotFound.title"), kind: "warning" }
-              );
-              if (remove) {
-                useRecentFilesStore.getState().removeFile(file.path);
-              }
-            } finally {
-              // Ensure the progress indicator clears whether the load
-              // succeeded or failed — drops the orphan-indicator finding.
-              if (replaceLoadId !== null) {
-                useFileLoadStore.getState().endLoad(replaceLoadId);
-              }
-            }
+          case "replace_tab":
+            await replaceTabWithRecentFile({
+              windowLabel,
+              tabId: result.tabId,
+              targetPath: result.filePath,
+              sourcePath: filePath,
+              workspaceRoot: result.workspaceRoot,
+            });
             break;
-          }
 
           case "open_workspace_in_new_window":
-            try {
-              await invoke("open_workspace_in_new_window", {
-                workspaceRoot: result.workspaceRoot,
-                filePath: result.filePath,
-              });
-            } catch (error) {
-              menuError("Failed to open workspace in new window:", error);
-              const filename = getFileName(file.path) || file.path;
-              toast.error(i18n.t("dialog:toast.failedToOpen", { filename }));
-            }
+            await openRecentInNewWindow(result.workspaceRoot, result.filePath);
             break;
 
           case "no_op":
@@ -187,4 +187,9 @@ export function registerRecentFilesCommands(): void {
   });
 
   registered = true;
+}
+
+/** Test-only: clears the one-time registration guard so a fresh bus re-registers. */
+export function __resetRecentFilesCommandsRegistration(): void {
+  registered = false;
 }

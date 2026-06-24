@@ -61,16 +61,6 @@ export interface HotExitWindowWorkspaceState {
   workspace_instances: HotExitWorkspaceInstanceState[];
 }
 
-export interface WorkspaceInstancesStorageSnapshot {
-  version: 5;
-  windows: Array<{
-    window_label: string;
-    workspace_instance_ids: string[];
-    active_workspace_instance_id: string | null;
-  }>;
-  instances: HotExitWorkspaceInstanceState[];
-}
-
 export interface TabState {
   id: string;
   file_path: string | null;

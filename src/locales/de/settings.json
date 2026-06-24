@@ -774,5 +774,10 @@
   "integrations.ccSwitch.description": "VMarks MCP-Server an CC-Switch übergeben, das ihn in die dort verwalteten KI-CLIs übernimmt.",
   "integrations.ccSwitch.add": "Zu CC-Switch hinzufügen",
   "integrations.ccSwitch.opened": "CC-Switch-Importlink geöffnet.",
-  "integrations.ccSwitch.binaryMissing": "Erstelle zuerst die VMark-MCP-Server-Binärdatei."
+  "integrations.ccSwitch.binaryMissing": "Erstelle zuerst die VMark-MCP-Server-Binärdatei.",
+  "files.autoResize.off": "Aus",
+  "files.autoResize.800": "800px",
+  "files.autoResize.1200": "1200px",
+  "files.autoResize.1920": "1920px (Full HD)",
+  "files.autoResize.2560": "2560px (2K)"
 }

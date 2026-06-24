@@ -138,6 +138,43 @@ describe("QuickOpen", () => {
     expect(useQuickOpenStore.getState().isOpen).toBe(false);
   });
 
+  it("Tab traps focus inside the open dialog (does not escape to background)", () => {
+    // A focusable button sitting "behind" the modal — focus must never land here.
+    const outside = document.createElement("button");
+    outside.textContent = "outside";
+    document.body.appendChild(outside);
+
+    useQuickOpenStore.setState({ isOpen: true });
+    render(<QuickOpen windowLabel="main" />);
+    const dialog = screen.getByRole("dialog");
+    const focusable = dialog.querySelectorAll<HTMLElement>(
+      'input, button, [tabindex]:not([tabindex="-1"])',
+    );
+    const last = focusable[focusable.length - 1];
+    last.focus();
+
+    fireEvent.keyDown(last, { key: "Tab" });
+    // Focus wrapped back into the dialog (to the first focusable), not to `outside`.
+    expect(dialog.contains(document.activeElement)).toBe(true);
+    expect(document.activeElement).toBe(focusable[0]);
+
+    outside.remove();
+  });
+
+  it("Shift+Tab on the first focusable wraps to the last (stays in dialog)", () => {
+    useQuickOpenStore.setState({ isOpen: true });
+    render(<QuickOpen windowLabel="main" />);
+    const dialog = screen.getByRole("dialog");
+    const focusable = dialog.querySelectorAll<HTMLElement>(
+      'input, button, [tabindex]:not([tabindex="-1"])',
+    );
+    const first = focusable[0];
+    first.focus();
+    fireEvent.keyDown(first, { key: "Tab", shiftKey: true });
+    expect(dialog.contains(document.activeElement)).toBe(true);
+    expect(document.activeElement).toBe(focusable[focusable.length - 1]);
+  });
+
   it("shows Browse row always", () => {
     useQuickOpenStore.setState({ isOpen: true });
     render(<QuickOpen windowLabel="main" />);

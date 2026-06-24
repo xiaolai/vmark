@@ -19,6 +19,7 @@ import type { LineEnding as StoreLineEnding } from '@/utils/linebreakDetection';
 import type { HistoryCheckpoint as StoreHistoryCheckpoint } from '@/stores/documentStore';
 import type { CursorInfo as StoreCursorInfo } from '@/stores/documentStore';
 import { captureWindowWorkspaceInstances } from '../hotExit/workspaceInstances';
+import { captureWindowGeometry } from './windowGeometry';
 
 /**
  * Convert store line ending format to hot exit format
@@ -71,20 +72,23 @@ function toHotExitCheckpoint(checkpoint: StoreHistoryCheckpoint) {
  */
 function getUiStateSafe() {
   try {
-    const uiStore = useUIStore.getState();
-    const editorStore = useUIStore.getState();
+    // Post-ADR-009: sidebar flags AND editor-view flags (sourceMode,
+    // focusMode, typewriterMode) live on a single uiStore. One read covers
+    // both surfaces — the earlier duplicate `editorStore` alias was a fake
+    // separation reading the same state.
+    const uiState = useUIStore.getState();
 
     return {
-      sidebar_visible: uiStore.sidebarVisible,
-      sidebar_width: uiStore.sidebarWidth,
+      sidebar_visible: uiState.sidebarVisible,
+      sidebar_width: uiState.sidebarWidth,
       outline_visible: false, // deprecated — kept for backward compat with saved data
-      sidebar_view_mode: uiStore.sidebarViewMode,
-      status_bar_visible: uiStore.statusBarVisible,
-      source_mode_enabled: editorStore.sourceMode,
-      focus_mode_enabled: editorStore.focusModeEnabled,
-      typewriter_mode_enabled: editorStore.typewriterModeEnabled,
-      terminal_visible: uiStore.terminalVisible,
-      terminal_height: uiStore.terminalHeight,
+      sidebar_view_mode: uiState.sidebarViewMode,
+      status_bar_visible: uiState.statusBarVisible,
+      source_mode_enabled: uiState.sourceMode,
+      focus_mode_enabled: uiState.focusModeEnabled,
+      typewriter_mode_enabled: uiState.typewriterModeEnabled,
+      terminal_visible: uiState.terminalVisible,
+      terminal_height: uiState.terminalHeight,
     };
   } catch {
     // Return defaults if store access fails
@@ -219,7 +223,7 @@ export function captureWindowState(windowLabel: string, isMainWindow: boolean): 
     active_tab_id: activeTab?.id || null,
     tabs,
     ui_state: getUiStateSafe(),
-    geometry: null, // Window geometry capture not yet implemented
+    geometry: captureWindowGeometry(),
     ...captureWindowWorkspaceInstances(windowLabel),
   };
 }
