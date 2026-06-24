@@ -46,16 +46,10 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import { useEditorStore } from "@/stores/editorStore";
 import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import { checkBridgePath } from "@/services/mcpBridge/bridgePathGuard";
-import {
-  isWorkflowYaml,
-  looksLikeWorkflowPath,
-} from "@/lib/ghaWorkflow/detection";
+import { isWorkflowYaml, looksLikeWorkflowPath } from "@/lib/ghaWorkflow/detection";
 import { formatMarkdown } from "@/lib/cjkFormatter";
 import { parseMarkdown } from "@/utils/markdownPipeline";
-import {
-  getSerializeOptions,
-  shouldPreserveTwoSpaceBreaks,
-} from "@/plugins/toolbarActions/wysiwygAdapterUtils";
+import { getSerializeOptions, shouldPreserveTwoSpaceBreaks } from "@/plugins/toolbarActions/wysiwygAdapterUtils";
 import { respond } from "../utils";
 import { wrapHandler } from "./wrapHandler";
 import { v2ErrorString } from "./types";
@@ -334,8 +328,12 @@ export async function handleDocumentWrite(
     let saveError: string | undefined;
     if (!shouldSave) {
       saveSkipped = "opt_out";
-    } else if (!resolved.filePath) { saveSkipped = "untitled";
-    } else if (!(await checkBridgePath(resolved.filePath)).allowed) { saveError = "Path is outside the workspace and open documents";
+    } else if (!resolved.filePath) {
+      saveSkipped = "untitled";
+    } else if (!(await checkBridgePath(resolved.filePath)).allowed) {
+      // Defense in depth: even document.write's already-open path goes through
+      // the workspace/open-document guard before disk persistence.
+      saveError = "Path is outside the workspace and open documents";
     } else {
       try {
         const saveToken = registerPendingSave(resolved.filePath, args.content);
