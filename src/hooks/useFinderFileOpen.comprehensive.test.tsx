@@ -236,7 +236,9 @@ describe("useFinderFileOpen", () => {
       await Promise.resolve();
     });
 
-    expect(mockOpenWorkspaceWithConfig).toHaveBeenCalledWith("/workspace");
+    expect(mockOpenWorkspaceWithConfig).toHaveBeenCalledWith("/workspace", {
+      windowLabel: "main",
+    });
   });
 
   it("creates new tab when no replaceable tab and same workspace", async () => {
@@ -378,7 +380,9 @@ describe("useFinderFileOpen", () => {
       await Promise.resolve();
     });
 
-    expect(mockOpenWorkspaceWithConfig).toHaveBeenCalledWith("/new-workspace");
+    expect(mockOpenWorkspaceWithConfig).toHaveBeenCalledWith("/new-workspace", {
+      windowLabel: "main",
+    });
     expect(mockCreateTab).toHaveBeenCalled();
   });
 

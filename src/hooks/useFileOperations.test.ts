@@ -72,6 +72,7 @@ vi.mock("@/stores/documentStore", () => ({
 
 vi.mock("@/utils/paths", () => ({
   isWithinRoot: vi.fn(),
+  normalizePath: vi.fn((path: string) => path),
   getParentDir: vi.fn((path: string) => {
     const lastSlash = path.lastIndexOf("/");
     return lastSlash > 0 ? path.substring(0, lastSlash) : "";

@@ -591,6 +591,8 @@
   "advanced.hotExit.noSessionToRestore": "沒有可還原的已儲存工作階段",
   "advanced.hotExit.sessionCleared": "工作階段已清除",
   "advanced.group.experimental": "Experimental Features",
+  "advanced.workspaceRailMode.label": "Workspace rail",
+  "advanced.workspaceRailMode.description": "Show the left workspace rail and enable workspace tear-out and duplicate-window workflows (experimental)",
   "advanced.workflowEngine.label": "Workflow Engine",
   "advanced.workflowEngine.description": "Enable YAML workflow files with React Flow visualization (experimental)",
   "editor": {

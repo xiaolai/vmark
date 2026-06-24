@@ -314,7 +314,7 @@ describe('Schema Migration', () => {
       expect(doc.redo_history).toEqual([]);
     });
 
-    it('passes through a v3 session unchanged', () => {
+    it('migrates a v3 session to v4 while preserving format fields', () => {
       const v3Session: SessionData = {
         version: 3,
         timestamp: 1747958400,
@@ -367,10 +367,14 @@ describe('Schema Migration', () => {
       };
 
       const migrated = migrateSession(v3Session);
-      expect(migrated).toEqual(v3Session);
+      expect(migrated.version).toBe(SCHEMA_VERSION);
+      expect(migrated.windows[0].tabs[0].format_id).toBe('json');
+      expect(migrated.windows[0].tabs[0].editing_enabled).toBe(false);
+      expect(migrated.windows[0].tabs[0].active_schema_id).toBe('package-json');
+      expect(migrated.windows[0].workspace_instance_ids).toEqual([]);
     });
 
-    it('migrates an entire v1 session through to v3 with format defaults', () => {
+    it('migrates an entire v1 session through to current with format defaults', () => {
       const v1Session = {
         version: 1,
         timestamp: 1700000000,
@@ -493,9 +497,9 @@ describe('Schema Migration', () => {
       expect(tab.active_schema_id).toBe('package-json');
     });
 
-    it('rejects v4 (a future schema) with a typed error', () => {
+    it('rejects v5 (a future schema) with a typed error', () => {
       const futureSession = {
-        version: 4,
+        version: 5,
         timestamp: 1747958400,
         vmark_version: '99.0.0',
         windows: [],

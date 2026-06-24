@@ -241,6 +241,7 @@ const initialState: SettingsState = {
     customLinkProtocols: ["obsidian", "vscode", "dict", "x-dictionary"],
     keepBothEditorsAlive: false,
     workflowEngine: false,
+    workspaceRailMode: false,
     workflowEditorPreserveYamlFormatting: true,
     workflowFetchActionMetadata: true,
     workflowActionlint: true,
@@ -419,7 +420,6 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
     }
   )
 );
-
 
 // ============================================================================
 // Shortcuts — extracted to ./settingsStore/shortcuts.ts

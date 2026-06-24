@@ -8,7 +8,6 @@
 
 import { registerCommand } from "./CommandBus";
 import { useUIStore } from "@/stores/uiStore";
-import { useDocumentStore } from "@/stores/documentStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useLintStore } from "@/stores/documentStore";
 import { useEditorStore } from "@/stores/editorStore";
@@ -18,6 +17,7 @@ import { toggleSourceModeWithCheckpoint } from "@/hooks/useUnifiedHistory";
 import { getActiveDocument, getActiveTabId } from "@/services/navigation/activeDocument";
 import { serializeMarkdown } from "@/utils/markdownPipeline";
 import { triggerLintRefresh } from "@/plugins/codemirror/sourceLint";
+import { toggleDocumentReadOnlyWithOwnership } from "@/services/workspaces/fileOwnership";
 import { isYamlFileName } from "@/utils/dropPaths";
 import { scrollToSelectedDiagnostic } from "@/hooks/lintNavigation";
 import { imeToast as toast } from "@/services/ime/imeToast";
@@ -118,7 +118,7 @@ export function registerViewCommands(): void {
     run: (_args, ctx: Ctx) => {
       const windowLabel = ctx.windowLabel ?? "main";
       const tabId = getActiveTabId(windowLabel);
-      if (tabId) useDocumentStore.getState().toggleReadOnly(tabId);
+      if (tabId) toggleDocumentReadOnlyWithOwnership(tabId);
     },
   });
 

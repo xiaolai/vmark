@@ -26,6 +26,9 @@ import { useEffect } from "react";
 import type { IPty } from "@/lib/pty";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
+import { useWorkspaceInstancesStore } from "@/stores/workspaceInstancesStore";
+import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
+import { getActiveWorkspaceScope } from "@/services/workspaces/activeWorkspaceScope";
 import { buildXtermThemeForId } from "@/theme";
 import { resolveMonoFontStack } from "@/utils/fontStacks";
 import type { TerminalInstance } from "./createTerminalInstance";
@@ -86,9 +89,11 @@ export function useUIStoreSync(
 
   // Workspace-root sync — cd running sessions when the root changes
   useEffect(() => {
-    let prevRoot = useWorkspaceStore.getState().rootPath;
-    return useWorkspaceStore.subscribe((state) => {
-      const newRoot = state.rootPath;
+    const currentRoot = () =>
+      getActiveWorkspaceScope(getCurrentWindowLabel()).rootPath;
+    let prevRoot = currentRoot();
+    const syncRoot = () => {
+      const newRoot = currentRoot();
       if (!newRoot || newRoot === prevRoot) {
         prevRoot = newRoot;
         return;
@@ -113,7 +118,15 @@ export function useUIStoreSync(
           entry.spawnedCwd = newRoot;
         }
       }
-    });
+    };
+    const unsubs = [
+      useWorkspaceStore.subscribe(syncRoot),
+      useWorkspaceInstancesStore.subscribe(syncRoot),
+      useSettingsStore.subscribe(syncRoot),
+    ];
+    return () => {
+      for (const unsub of unsubs) unsub();
+    };
   }, [sessionsRef]);
 
   // Terminal-settings sync (font, cursor, macOptionIsMeta)

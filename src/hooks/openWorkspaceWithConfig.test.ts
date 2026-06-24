@@ -23,10 +23,19 @@ vi.mock("@/stores/workspaceStore", () => ({
 }));
 
 import { openWorkspaceWithConfig } from "./openWorkspaceWithConfig";
+import { useSettingsStore } from "@/stores/settingsStore";
+import {
+  selectWindowWorkspaceState,
+  useWorkspaceInstancesStore,
+} from "@/stores/workspaceInstancesStore";
 
 describe("openWorkspaceWithConfig", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    useWorkspaceInstancesStore.getState().resetWorkspaceInstances();
+    useSettingsStore.setState({
+      advanced: { ...useSettingsStore.getState().advanced, workspaceRailMode: false },
+    });
   });
 
   it("reads workspace config from disk via invoke", async () => {
@@ -93,6 +102,21 @@ describe("openWorkspaceWithConfig", () => {
     const result = await openWorkspaceWithConfig("/workspace/root");
 
     expect(result).toBe(config);
+  });
+
+  it("registers a workspace instance for the target window when rail mode is enabled", async () => {
+    useSettingsStore.setState({
+      advanced: { ...useSettingsStore.getState().advanced, workspaceRailMode: true },
+    });
+    mockInvoke.mockResolvedValueOnce(null);
+
+    await openWorkspaceWithConfig("/workspace/root", { windowLabel: "doc-1" });
+
+    const state = useWorkspaceInstancesStore.getState();
+    const windowState = selectWindowWorkspaceState(state, "doc-1");
+    const instanceId = windowState?.workspaceInstanceIds[0];
+    expect(instanceId).toBeTruthy();
+    expect(instanceId ? state.instances[instanceId]?.rootPath : null).toBe("/workspace/root");
   });
 
   it("opens with defaults (no config) on a malformed non-null payload (T1/ADR-2)", async () => {

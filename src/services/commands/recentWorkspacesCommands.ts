@@ -104,7 +104,7 @@ export function registerRecentWorkspacesCommands(): void {
           return;
         }
 
-        const existing = await openWorkspaceWithConfig(workspacePath);
+        const existing = await openWorkspaceWithConfig(workspacePath, { windowLabel });
         useUIStore.getState().showSidebarWithView("files");
 
         if (existing?.lastOpenTabs && existing.lastOpenTabs.length > 0) {

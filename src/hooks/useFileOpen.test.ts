@@ -372,7 +372,9 @@ describe("handleOpen — dialog and routing", () => {
     await handleOpen(WINDOW);
 
     expect(mockReadTextFile).toHaveBeenCalledWith("/docs/replace.md");
-    expect(mockOpenWorkspaceWithConfig).toHaveBeenCalledWith("/docs");
+    expect(mockOpenWorkspaceWithConfig).toHaveBeenCalledWith("/docs", {
+      windowLabel: WINDOW,
+    });
   });
 
   it("handles replace_tab read failure gracefully", async () => {

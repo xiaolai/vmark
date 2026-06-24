@@ -1,7 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { useSettingsStore } from "@/stores/settingsStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
+import { useWorkspaceInstancesStore } from "@/stores/workspaceInstancesStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
+import { createWorkspaceInstance, createWorkspaceRootIdentity } from "@/utils/workspaceIdentity";
 import { getDefaultSaveFolderWithFallback } from "./useDefaultSaveFolder";
 
 // Mock documentDir and homeDir specifically for this test
@@ -17,10 +20,49 @@ vi.mock("@tauri-apps/api/path", async (importOriginal) => {
 });
 
 const WINDOW_LABEL = "main";
+const storage = new Map<string, string>();
+
+function installLocalStorage(): void {
+  Object.defineProperty(globalThis, "localStorage", {
+    configurable: true,
+    value: {
+      get length() {
+        return storage.size;
+      },
+      clear: () => storage.clear(),
+      getItem: (key: string) => storage.get(key) ?? null,
+      key: (index: number) => Array.from(storage.keys())[index] ?? null,
+      removeItem: (key: string) => storage.delete(key),
+      setItem: (key: string, value: string) => storage.set(key, value),
+    },
+  });
+}
+
+function addInstance(workspaceInstanceId: string, rootPath: string): void {
+  const root = createWorkspaceRootIdentity(rootPath, { platform: "macos" });
+  if (!root.ok) throw new Error("test root should be valid");
+  useWorkspaceInstancesStore.getState().addWorkspaceInstance(
+    createWorkspaceInstance({
+      workspaceInstanceId,
+      root: root.root,
+      ownerWindowLabel: WINDOW_LABEL,
+      createdFrom: "open",
+    }),
+  );
+}
 
 describe("getDefaultSaveFolderWithFallback", () => {
   beforeEach(() => {
+    installLocalStorage();
+    storage.clear();
     vi.clearAllMocks();
+    useSettingsStore.setState({
+      advanced: {
+        ...useSettingsStore.getState().advanced,
+        workspaceRailMode: false,
+      },
+    });
+    useWorkspaceInstancesStore.getState().resetWorkspaceInstances();
     useWorkspaceStore.setState({
       rootPath: null,
       config: null,
@@ -41,6 +83,23 @@ describe("getDefaultSaveFolderWithFallback", () => {
 
     const result = await getDefaultSaveFolderWithFallback(WINDOW_LABEL);
     expect(result).toBe("/workspace/project");
+  });
+
+  it("returns the active instance root when rail mode is enabled", async () => {
+    useSettingsStore.setState({
+      advanced: {
+        ...useSettingsStore.getState().advanced,
+        workspaceRailMode: true,
+      },
+    });
+    useWorkspaceStore.setState({
+      rootPath: "/workspace/legacy",
+      isWorkspaceMode: true,
+    });
+    addInstance("wsi-active", "/workspace/active");
+
+    const result = await getDefaultSaveFolderWithFallback(WINDOW_LABEL);
+    expect(result).toBe("/workspace/active");
   });
 
   it("returns Documents directory when not in workspace mode and no saved tabs", async () => {

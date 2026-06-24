@@ -28,10 +28,10 @@ import {
   type FileSearchResult,
   type LineMatch,
 } from "@/stores/uiStore";
-import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { openFileInNewTabCore } from "@/hooks/useFileOpen";
 import { setPendingContentSearchNav } from "@/hooks/contentSearchNavigation";
 import { useTabStore } from "@/stores/tabStore";
+import { useActiveWorkspaceScope } from "@/hooks/useActiveWorkspaceScope";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import { useImeComposition } from "@/hooks/useImeComposition";
 import { useDismissOnOutsideOrEscape } from "@/hooks/useDismissOnOutsideOrEscape";
@@ -41,8 +41,6 @@ import "./content-search.css";
 
 const DEBOUNCE_MS = 300;
 const MIN_QUERY_LENGTH = 3;
-
-const EMPTY_FOLDERS: string[] = [];
 
 function FileIcon() {
   return (
@@ -73,11 +71,8 @@ export function ContentSearch({ windowLabel }: ContentSearchProps) {
   const useRegex = useUIStore((s) => s.contentSearch.useRegex);
   const markdownOnly = useUIStore((s) => s.contentSearch.markdownOnly);
 
-  const rootPath = useWorkspaceStore((s) => s.rootPath);
-  const isWorkspaceMode = useWorkspaceStore((s) => s.isWorkspaceMode);
-  const excludeFolders = useWorkspaceStore(
-    (s) => s.config?.excludeFolders ?? EMPTY_FOLDERS
-  );
+  const { rootPath, isWorkspaceMode, excludeFolders } =
+    useActiveWorkspaceScope(windowLabel);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);

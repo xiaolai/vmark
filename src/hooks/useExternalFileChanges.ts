@@ -4,10 +4,6 @@
  * Purpose: Detects and responds to filesystem changes on open documents —
  *   auto-reloads clean docs, prompts for dirty docs, marks deleted files.
  *
- * Pipeline: Rust file watcher → `file:changed` / `file:deleted` event →
- *   this hook → resolveExternalChangeAction() decides policy → auto-reload
- *   or show batched prompt dialog
- *
  * Key decisions:
  *   - Clean documents auto-reload silently (brief toast notification)
  *   - Dirty documents batch into a single dialog to avoid prompt storms
@@ -48,6 +44,7 @@ import { detectLinebreaks } from "@/utils/linebreakDetection";
 import { softContentEquals } from "@/utils/linebreaks";
 import { reloadTabFromDisk } from "@/services/persistence/reloadFromDisk";
 import { matchesPendingSave, hasPendingSave } from "@/utils/pendingSaves";
+import { getActiveWorkspaceScope } from "@/services/workspaces/activeWorkspaceScope";
 import { getFileName } from "@/utils/paths";
 import { fileOpsError } from "@/utils/debug";
 
@@ -384,10 +381,11 @@ export function useExternalFileChanges(): void {
       const unlisten = await listen<FsChangeEvent>("fs:changed", async (event) => {
         if (cancelled) return;
 
-        const { kind, paths, watchId } = event.payload;
+        const { kind, paths, rootPath, watchId } = event.payload;
 
-        // Only process events from this window's watcher (scoped by windowLabel)
         if (watchId !== windowLabel) return;
+        const activeRoot = getActiveWorkspaceScope(windowLabel).rootPath;
+        if (activeRoot && normalizePath(rootPath) !== normalizePath(activeRoot)) return;
 
         const openPaths = getOpenFilePaths();
 

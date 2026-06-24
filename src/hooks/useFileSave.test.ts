@@ -490,7 +490,9 @@ describe("handleSave", () => {
 
     await handleSave("main");
 
-    expect(mockOpenWorkspaceWithConfig).toHaveBeenCalledWith("/saved/folder");
+    expect(mockOpenWorkspaceWithConfig).toHaveBeenCalledWith("/saved/folder", {
+      windowLabel: "main",
+    });
   });
 });
 

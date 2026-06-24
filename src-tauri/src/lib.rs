@@ -3,9 +3,6 @@
 //! Purpose: Entry point for the Tauri backend — wires together all modules,
 //! registers commands, configures plugins, and handles app-level events.
 //!
-//! Pipeline: `main.rs` → `run()` here → Tauri builder (log plugin first, then others)
-//!   → window creation → frontend
-//!
 //! Key decisions:
 //!   - Window close is intercepted for document windows (main, doc-*) to allow
 //!     dirty-document prompts; non-document windows close immediately.
@@ -26,10 +23,6 @@
 //!     SHA-256(hostname + OS + arch), sent as `X-Machine-Id` header on update checks.
 //!   - AI provider API keys are persisted in the OS keychain via the `secure_store`
 //!     module, never in plaintext config.
-//!
-//! Known limitations:
-//!   - ExitRequested handling must carefully distinguish OS quit from user quit
-//!     to avoid premature exit during coordinated quit flow.
 
 rust_i18n::i18n!("locales", fallback = "en");
 
@@ -53,6 +46,7 @@ mod shell_integration;
 mod hot_exit;
 mod pandoc;
 mod tab_transfer;
+mod workspace_transfer;
 pub mod workflow;
 mod gha_workflow;
 mod quarantine;
@@ -671,6 +665,9 @@ pub fn run() {
             tab_transfer::find_drop_target_window,
             tab_transfer::focus_existing_window,
             tab_transfer::remove_tab_from_window,
+            workspace_transfer::detach_workspace_to_new_window,
+            workspace_transfer::claim_workspace_transfer,
+            workspace_transfer::ack_workspace_transfer,
             get_default_shell,
             get_login_shell_path,
             list_available_shells,
@@ -865,6 +862,7 @@ pub fn run() {
                     quit::handle_window_destroyed(app, &label);
                     menu_events::clear_window_ready(&label);
                     tab_transfer::clear_unclaimed_transfer(&label);
+                    workspace_transfer::clear_unclaimed_transfer(&label);
                 }
                 // macOS: Clicking dock icon when no windows visible -> create main window
                 #[cfg(target_os = "macos")]

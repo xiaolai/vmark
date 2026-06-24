@@ -10,16 +10,9 @@
  * emit "ready" to Rust → render children.
  *
  * Key decisions:
- *   - initStartedRef guards against React.StrictMode double-init in dev,
- *     which would create duplicate tabs and documents.
- *   - Tab transfer: when a window is created via drag-out, the URL includes a
- *     ?transfer param. handleTabTransfer claims the transfer data from Rust
- *     (stored in a global pending map) and sets up the tab + document.
- *   - Runtime transfers (tab:transfer event) are handled by a separate listener
- *     set up after isReady, enabling cross-window tab moves at any time.
- *   - The "ready" event is delayed by READY_EVENT_DELAY_MS to ensure child
- *     components' useEffect hooks have registered their menu event listeners
- *     before Rust starts sending events.
+ *   - initStartedRef guards against React.StrictMode double-init in dev.
+ *   - Transfer windows claim Rust registry payloads before normal init.
+ *   - Runtime transfers are handled by listeners set up after isReady.
  *   - Workspace resolution: for files opened via Finder/drag, resolves the
  *     workspace root using openPolicy logic. For URL-provided workspace roots,
  *     loads config from disk.
@@ -77,6 +70,7 @@ import { useFileLoadStore } from "@/stores/documentStore";
 import { shouldShowProgressIndicator } from "@/utils/fileSizeThresholds";
 import { cleanupTabState } from "@/hooks/tabCleanup";
 import { errorMessage } from "@/utils/errorMessage";
+import { claimWorkspaceTransferForWindow } from "@/services/workspaces/workspaceWindowActions";
 
 async function applyTabTransferData(label: string, data: TabTransferPayload): Promise<void> {
   // Set up workspace: prefer transferred root, fall back to file's parent
@@ -84,7 +78,7 @@ async function applyTabTransferData(label: string, data: TabTransferPayload): Pr
     ?? (data.filePath ? resolveWorkspaceRootForExternalFile(data.filePath) : null);
   if (workspaceRoot) {
     try {
-      await openWorkspaceWithConfig(workspaceRoot);
+      await openWorkspaceWithConfig(workspaceRoot, { windowLabel: label });
     } catch {
       // Non-fatal — proceed without workspace
     }
@@ -210,8 +204,14 @@ export function WindowProvider({ children }: WindowProviderProps) {
           if (existingTabs.length === 0 && !initStartedRef.current) {
             initStartedRef.current = true;
 
-            // Handle tab transfer (drag-out from another window)
+            // Handle workspace/tab transfer (drag-out from another window)
             try {
+              const workspaceTransferred = await claimWorkspaceTransferForWindow(label, openWorkspaceWithConfig);
+              if (workspaceTransferred) {
+                setIsReady(true);
+                setTimeout(() => window.emit("ready", label), READY_EVENT_DELAY_MS);
+                return;
+              }
               const transferred = await handleTabTransfer(label);
               if (transferred) {
                 setIsReady(true);
@@ -248,7 +248,7 @@ export function WindowProvider({ children }: WindowProviderProps) {
             > = null;
             if (workspaceRootParam) {
               try {
-                workspaceConfig = await openWorkspaceWithConfig(workspaceRootParam);
+                workspaceConfig = await openWorkspaceWithConfig(workspaceRootParam, { windowLabel: label });
                 useUIStore.getState().showSidebarWithView("files");
                 useRecentWorkspacesStore.getState().addWorkspace(workspaceRootParam);
               } catch (e) {
@@ -268,7 +268,7 @@ export function WindowProvider({ children }: WindowProviderProps) {
               if (!isWorkspaceMode || !rootPath || !isWithinWorkspace) {
                 const derivedRoot = resolveWorkspaceRootForExternalFile(filePath);
                 if (derivedRoot) {
-                  await openWorkspaceWithConfig(derivedRoot);
+                  await openWorkspaceWithConfig(derivedRoot, { windowLabel: label });
                 } else if (label === "main") {
                   useWorkspaceStore.getState().closeWorkspace();
                 }

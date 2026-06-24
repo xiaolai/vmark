@@ -24,11 +24,9 @@ measures it directly:
 1. **A debug build of VMark must be running.** The Tauri MCP bridge plugin
    is `#[cfg(debug_assertions)]` — release builds (`/Applications/VMark.app`)
    don't expose it.
-2. **The debug build's MCP bridge port.** It defaults to a random port at
-   startup; find it via `lsof -iTCP -sTCP:LISTEN -P | grep vmark` after the
-   app boots. (The default in `tauri-plugin-mcp-bridge` ≥0.8 is 9223 unless
-   another app on the host already grabbed it — Claudepot does, in many
-   dev setups.)
+2. **The debug build's MCP bridge port.** VMark pins the automation bridge to
+   `127.0.0.1:9323` in `src-tauri/src/lib.rs`. Do not use 9223 here; that is
+   VMark's own auth-protected MCP server.
 3. **The MCP server connected** — `npx -y @hypothesi/tauri-mcp-server` (already
    wired in `.mcp.json`).
 
@@ -38,12 +36,8 @@ measures it directly:
 
 ```bash
 pnpm tauri:dev
-# Wait for the window to appear, then in another shell:
-lsof -iTCP -sTCP:LISTEN -P | grep vmark | grep -v mcp-server
-# → vmark    NNNN  joker  ... TCP localhost:PORT (LISTEN)
+# Wait for the window to appear; the automation bridge listens on 127.0.0.1:9323.
 ```
-
-The bridge prints its port to the dev-server stderr too.
 
 ### Step 2 — open the perf fixture
 
@@ -57,7 +51,7 @@ The reusable measurement helper lives in `scripts/perf/measure-webview.js`.
 The AI assistant (or a human with MCP tools) executes it via Tauri MCP:
 
 ```
-1. tauri_driver_session start at the port from step 1
+1. tauri_driver_session start with port 9323
 2. tauri_webview_execute_js — paste the contents of measure-webview.js
    to register window.__VMARK_PERF__
 3. tauri_webview_execute_js — run:

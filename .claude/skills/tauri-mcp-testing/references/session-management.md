@@ -9,26 +9,29 @@ The `tauri_driver_session` tool manages connections to running Tauri application
 ```
 ┌────────────────────┐     WebSocket      ┌────────────────────┐
 │    Claude Code     │ ←───────────────── │    Tauri App       │
-│    (MCP Client)    │     Port 9223      │  (MCP Bridge)      │
+│    (MCP Client)    │     Port 9323      │  (MCP Bridge)      │
 └────────────────────┘                    └────────────────────┘
 ```
 
-The MCP Bridge plugin runs inside the Tauri app and exposes a WebSocket server that Claude Code connects to.
+The MCP Bridge plugin runs inside the Tauri app and exposes a WebSocket server
+that Claude Code connects to. VMark pins this automation bridge to
+`127.0.0.1:9323`; do not use port 9223, which is VMark's own auth-protected MCP
+server.
 
 ## Starting a Session
 
 ### Basic Connection
 
 ```typescript
-// Connect to app on default port (9223)
-tauri_driver_session({ action: 'start' })
+// Connect to VMark on its pinned automation port
+tauri_driver_session({ action: 'start', port: 9323 })
 ```
 
 ### Custom Port
 
 ```typescript
 // Connect to app on different port
-tauri_driver_session({ action: 'start', port: 9224 })
+tauri_driver_session({ action: 'start', port: 9324 })
 ```
 
 ### Remote Connection (Mobile Testing)
@@ -38,7 +41,7 @@ tauri_driver_session({ action: 'start', port: 9224 })
 tauri_driver_session({
   action: 'start',
   host: '<device-ip>',
-  port: 9223
+  port: 9323
 })
 ```
 
@@ -54,10 +57,10 @@ You can connect to multiple Tauri apps simultaneously:
 
 ```typescript
 // Connect to first app
-tauri_driver_session({ action: 'start', port: 9223 })
+tauri_driver_session({ action: 'start', port: 9323 })
 
 // Connect to second app
-tauri_driver_session({ action: 'start', port: 9224 })
+tauri_driver_session({ action: 'start', port: 9324 })
 ```
 
 ### Default App Behavior
@@ -68,7 +71,7 @@ tauri_driver_session({ action: 'start', port: 9224 })
 
 ```typescript
 // Target specific app by port
-tauri_webview_screenshot({ appIdentifier: 9223 })
+tauri_webview_screenshot({ appIdentifier: 9323 })
 
 // Target by bundle ID
 tauri_webview_screenshot({ appIdentifier: 'com.vmark.app' })
@@ -86,7 +89,7 @@ tauri_driver_session({ action: 'status' })
 {
   "connected": true,
   "identifier": "com.vmark.app",
-  "port": 9223
+  "port": 9323
 }
 ```
 
@@ -96,8 +99,8 @@ tauri_driver_session({ action: 'status' })
 {
   "connected": true,
   "apps": [
-    { "identifier": "com.vmark.app", "port": 9223, "isDefault": false },
-    { "identifier": "com.other.app", "port": 9224, "isDefault": true }
+    { "identifier": "com.vmark.app", "port": 9323, "isDefault": false },
+    { "identifier": "com.other.app", "port": 9324, "isDefault": true }
   ]
 }
 ```
@@ -114,7 +117,7 @@ tauri_driver_session({ action: 'stop' })
 
 ```typescript
 // Stop by port
-tauri_driver_session({ action: 'stop', appIdentifier: 9223 })
+tauri_driver_session({ action: 'stop', appIdentifier: 9323 })
 
 // Stop by bundle ID
 tauri_driver_session({ action: 'stop', appIdentifier: 'com.vmark.app' })
@@ -135,11 +138,11 @@ tauri_driver_session({ action: 'stop', appIdentifier: 'com.vmark.app' })
 ### Connection Refused
 
 ```
-Error: Connection refused on port 9223
+Error: Connection refused on port 9323
 ```
 
 **Solutions:**
-1. Ensure app is running: `pnpm tauri dev`
+1. Ensure app is running: `pnpm tauri:dev`
 2. Check port isn't blocked
 3. Verify MCP Bridge plugin is installed
 
@@ -181,7 +184,7 @@ Error: Connection timeout after 5000ms
    // Check and reconnect if needed
    const status = tauri_driver_session({ action: 'status' })
    if (!status.connected) {
-     tauri_driver_session({ action: 'start' })
+     tauri_driver_session({ action: 'start', port: 9323 })
    }
    ```
 

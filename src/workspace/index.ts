@@ -6,3 +6,4 @@
 
 export { useWorkspace } from "./useWorkspace";
 export type { WorkspaceView } from "./useWorkspace";
+export { useActiveWorkspaceScope } from "@/hooks/useActiveWorkspaceScope";

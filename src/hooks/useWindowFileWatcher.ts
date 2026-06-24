@@ -21,16 +21,15 @@
 import { useEffect, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useWindowLabel } from "@/contexts/WindowContext";
-import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
+import { useActiveWorkspaceScope } from "@/hooks/useActiveWorkspaceScope";
 import { getDirectory } from "@/utils/pathUtils";
 import { watcherWarn } from "@/utils/debug";
 /** Hook that starts/stops a Rust filesystem watcher for the workspace root or active document's directory. */
 export function useWindowFileWatcher(): void {
   const windowLabel = useWindowLabel();
-  const isWorkspaceMode = useWorkspaceStore((state) => state.isWorkspaceMode);
-  const rootPath = useWorkspaceStore((state) => state.rootPath);
+  const workspaceScope = useActiveWorkspaceScope(windowLabel);
   const activeTabId = useTabStore(
     (state) => state.activeTabId[windowLabel] ?? null
   );
@@ -39,7 +38,9 @@ export function useWindowFileWatcher(): void {
   );
 
   const watchPath = useMemo(() => {
-    if (isWorkspaceMode && rootPath) return rootPath;
+    if (workspaceScope.isWorkspaceMode && workspaceScope.rootPath) {
+      return workspaceScope.rootPath;
+    }
     if (activeFilePath) {
       const dir = getDirectory(activeFilePath);
       if (dir && !/^[A-Za-z]:$/.test(dir)) {
@@ -47,7 +48,7 @@ export function useWindowFileWatcher(): void {
       }
     }
     return null;
-  }, [isWorkspaceMode, rootPath, activeFilePath]);
+  }, [workspaceScope.isWorkspaceMode, workspaceScope.rootPath, activeFilePath]);
 
   useEffect(() => {
     if (!watchPath) {

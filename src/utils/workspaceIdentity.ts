@@ -103,3 +103,158 @@ export function revokeTrust(identity: WorkspaceIdentity): WorkspaceIdentity {
 export function isTrusted(identity: WorkspaceIdentity | undefined): boolean {
   return identity?.trustLevel === "trusted";
 }
+
+export type WorkspacePlatform = "macos" | "windows" | "linux";
+
+export type WorkspaceInstanceCreatedFrom =
+  | "open"
+  | "finderOpen"
+  | "duplicate"
+  | "dragOut"
+  | "restore"
+  | "placeholder";
+
+export interface WorkspacePathIdentity {
+  normalizedPath: string;
+  platformIdentity: string;
+}
+
+export interface WorkspaceRootIdentity {
+  rootId: string;
+  rootPath: string;
+  displayName: string;
+  platformIdentity: string;
+  canonicalization: "canonical" | "fallback";
+}
+
+export type WorkspaceRootIdentityResult =
+  | { ok: true; root: WorkspaceRootIdentity }
+  | { ok: false; error: "emptyRootPath" };
+
+export interface WorkspaceInstanceIdentity {
+  workspaceInstanceId: string;
+  rootId: string | null;
+  rootPath: string | null;
+  displayName: string;
+  ownerWindowLabel: string;
+  createdFrom: WorkspaceInstanceCreatedFrom;
+  activeTabId: string | null;
+  tabIds: string[];
+  closedTabIds: string[];
+}
+
+export function normalizeWorkspacePathForIdentity(
+  rawPath: string,
+  platform: WorkspacePlatform
+): WorkspacePathIdentity {
+  const input = rawPath.trim();
+  if (platform === "windows") {
+    const usesUnc = input.replace(/\//g, "\\").startsWith("\\\\");
+    let normalizedPath = input.replace(/\//g, "\\").replace(/\\+/g, "\\");
+    if (usesUnc && !normalizedPath.startsWith("\\\\")) {
+      normalizedPath = `\\${normalizedPath}`;
+    }
+    normalizedPath = normalizedPath.replace(/^([a-zA-Z]):/, (_, drive: string) =>
+      `${drive.toUpperCase()}:`
+    );
+    normalizedPath = stripTrailingWindowsSeparator(normalizedPath);
+    return {
+      normalizedPath,
+      platformIdentity: normalizedPath.toLocaleLowerCase("en-US"),
+    };
+  }
+
+  const normalizedPath = stripTrailingPosixSeparator(input.replace(/\/+/g, "/"));
+  return { normalizedPath, platformIdentity: normalizedPath };
+}
+
+export function createWorkspaceRootIdentity(
+  rawPath: string | null,
+  options: {
+    canonicalPath?: string | null;
+    displayName?: string;
+    platform?: WorkspacePlatform;
+  } = {}
+): WorkspaceRootIdentityResult {
+  if (rawPath == null || rawPath.trim() === "") {
+    return { ok: false, error: "emptyRootPath" };
+  }
+
+  const platform = options.platform ?? "macos";
+  const requested = normalizeWorkspacePathForIdentity(rawPath, platform);
+  const canonicalPath = options.canonicalPath?.trim();
+  const identity = canonicalPath
+    ? normalizeWorkspacePathForIdentity(canonicalPath, platform)
+    : requested;
+
+  return {
+    ok: true,
+    root: {
+      rootId: `path:${platform}:${identity.platformIdentity}`,
+      rootPath: requested.normalizedPath,
+      displayName:
+        options.displayName ?? deriveWorkspaceDisplayName(requested.normalizedPath, platform),
+      platformIdentity: identity.platformIdentity,
+      canonicalization: canonicalPath ? "canonical" : "fallback",
+    },
+  };
+}
+
+export function createWorkspaceInstance(options: {
+  workspaceInstanceId: string;
+  root: WorkspaceRootIdentity | null;
+  ownerWindowLabel: string;
+  createdFrom: WorkspaceInstanceCreatedFrom;
+}): WorkspaceInstanceIdentity {
+  return {
+    workspaceInstanceId: options.workspaceInstanceId,
+    rootId: options.root?.rootId ?? null,
+    rootPath: options.root?.rootPath ?? null,
+    displayName: options.root?.displayName ?? "Untitled",
+    ownerWindowLabel: options.ownerWindowLabel,
+    createdFrom: options.createdFrom,
+    activeTabId: null,
+    tabIds: [],
+    closedTabIds: [],
+  };
+}
+
+export function disambiguateWorkspaceDisplayNames(
+  instances: Array<{
+    workspaceInstanceId: string;
+    rootId: string | null;
+    displayName: string;
+  }>
+): Record<string, string> {
+  const seen = new Map<string, number>();
+  const result: Record<string, string> = {};
+  for (const instance of instances) {
+    const count = seen.get(instance.displayName) ?? 0;
+    const next = count + 1;
+    seen.set(instance.displayName, next);
+    result[instance.workspaceInstanceId] =
+      count === 0 ? instance.displayName : `${instance.displayName} ${next}`;
+  }
+  return result;
+}
+
+function deriveWorkspaceDisplayName(path: string, platform: WorkspacePlatform): string {
+  if (platform === "windows") {
+    if (/^[A-Z]:\\$/i.test(path)) return path;
+    const parts = path.split("\\").filter(Boolean);
+    return parts.at(-1) ?? path;
+  }
+  if (path === "/") return path;
+  const parts = path.split("/").filter(Boolean);
+  return parts.at(-1) ?? path;
+}
+
+function stripTrailingPosixSeparator(path: string): string {
+  if (path === "/") return path;
+  return path.replace(/\/+$/, "");
+}
+
+function stripTrailingWindowsSeparator(path: string): string {
+  if (/^[A-Z]:\\?$/i.test(path)) return path.endsWith("\\") ? path : `${path}\\`;
+  return path.replace(/\\+$/, "");
+}

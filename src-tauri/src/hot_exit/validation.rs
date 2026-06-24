@@ -152,7 +152,7 @@ mod tests {
             active_tab_id: active.map(|s| s.to_string()),
             tabs: tab_ids.iter().map(|id| make_tab(id)).collect(),
             ui_state: make_ui_state(),
-            geometry: None,
+            geometry: None, workspace_instance_ids: Vec::new(), active_workspace_instance_id: None, workspace_instances: Vec::new(),
         }
     }
 

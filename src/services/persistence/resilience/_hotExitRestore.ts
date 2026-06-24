@@ -22,6 +22,7 @@ import { hotExitLog, hotExitWarn } from '@/utils/debug';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { HOT_EXIT_EVENTS } from '../hotExit/types';
 import { pullWindowStateWithRetry, restoreWindowState } from '../hotExit/restoreHelpers';
+import { restoreWindowWorkspaceInstances } from '../hotExit/workspaceInstances';
 import { errorMessage } from "@/utils/errorMessage";
 
 /** Maximum retries when pulling state (handles timing issues) */
@@ -51,6 +52,7 @@ async function pullAndRestore(windowLabel: string): Promise<boolean> {
   }
 
   hotExitLog(`Window '${windowLabel}' found pending state, restoring...`);
+  restoreWindowWorkspaceInstances(windowLabel, windowState);
   await restoreWindowState(windowLabel, windowState);
 
   // Signal completion for this window and check if all windows done

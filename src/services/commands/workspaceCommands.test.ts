@@ -59,7 +59,9 @@ describe("workspace.openFolder (#1005)", () => {
     await executeCommand("workspace.openFolder", {}, { windowLabel: "main" });
 
     // Opened the picked workspace…
-    expect(mockOpenWorkspaceWithConfig).toHaveBeenCalledWith("/projects/foo");
+    expect(mockOpenWorkspaceWithConfig).toHaveBeenCalledWith("/projects/foo", {
+      windowLabel: "main",
+    });
     // …revealed the file explorer…
     expect(useUIStore.getState().sidebarVisible).toBe(true);
     expect(useUIStore.getState().sidebarViewMode).toBe("files");

@@ -11,7 +11,7 @@
 //!
 //! Migration Strategy:
 //! - Sessions at current version pass through unchanged
-//! - Older sessions are migrated step-by-step (v1 -> v2 -> v3 -> current)
+//! - Older sessions are migrated step-by-step (v1 -> v2 -> v3 -> v4 -> current)
 //! - Future sessions (higher version) cannot be migrated (fail gracefully)
 //! - Version 0 is invalid and rejected
 
@@ -68,6 +68,7 @@ fn migrate_to_next_version(session: SessionData) -> Result<SessionData, String> 
     match session.version {
         1 => migrate_v1_to_v2(session),
         2 => migrate_v2_to_v3(session),
+        3 => migrate_v3_to_v4(session),
         _ => Err(format!("No migration path from version {}", session.version)),
     }
 }
@@ -104,6 +105,16 @@ fn migrate_v2_to_v3(mut session: SessionData) -> Result<SessionData, String> {
     session.version = 3;
     // format_id / editing_enabled / active_schema_id default-initialized
     // by serde's `#[serde(default = ...)]` on TabState fields.
+    Ok(session)
+}
+
+/// Migrate v3 -> v4: Add workspace rail instance containers to WindowState.
+///
+/// The v4 fields are default-initialized by serde when deserializing v3
+/// sessions. This step deliberately bumps the version so compatibility is
+/// explicit on both the Rust and TypeScript migration paths.
+fn migrate_v3_to_v4(mut session: SessionData) -> Result<SessionData, String> {
+    session.version = 4;
     Ok(session)
 }
 
@@ -204,3 +215,7 @@ mod tests {
 #[cfg(test)]
 #[path = "migration_v3_tests.rs"]
 mod v3_tests;
+
+#[cfg(test)]
+#[path = "migration_v4_tests.rs"]
+mod v4_tests;

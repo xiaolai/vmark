@@ -18,7 +18,6 @@
 
 import { useEffect } from "react";
 import { useUIStore } from "@/stores/uiStore";
-import { useDocumentStore } from "@/stores/documentStore";
 import { useShortcutsStore } from "@/stores/settingsStore";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import { matchesShortcutEvent, isMacPlatform } from "@/utils/shortcutMatch";
@@ -26,6 +25,7 @@ import { cleanupBeforeModeSwitch } from "@/services/assembly/modeSwitchCleanup";
 import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import { toggleSourceModeWithCheckpoint } from "@/hooks/useUnifiedHistory";
 import { requestToggleTerminal } from "@/components/Terminal/terminalGate";
+import { toggleDocumentReadOnlyWithOwnership } from "@/services/workspaces/fileOwnership";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useLintStore } from "@/stores/documentStore";
 import { getActiveDocument, getActiveTabId } from "@/services/navigation/activeDocument";
@@ -182,7 +182,7 @@ export function useViewShortcuts() {
       if (readOnlyKey && matchesShortcutEvent(e, readOnlyKey)) {
         e.preventDefault();
         const tabId = getActiveTabId(getCurrentWindowLabel());
-        if (tabId) useDocumentStore.getState().toggleReadOnly(tabId);
+        if (tabId) toggleDocumentReadOnlyWithOwnership(tabId);
         return;
       }
 

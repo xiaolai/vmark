@@ -94,7 +94,7 @@ pub fn merge_partial_capture(
 mod tests {
     use super::*;
     use crate::hot_exit::session::{
-        DocumentState, SessionData, TabState, UiState, WindowState, WorkspaceState,
+        DocumentState, SessionData, TabState, UiState, WindowState, WorkspaceState, SCHEMA_VERSION,
     };
 
     const NOW: i64 = 1_760_000_000;
@@ -151,13 +151,13 @@ mod tests {
             active_tab_id: None,
             tabs: vec![make_tab(&format!("tab-{}", label))],
             ui_state: make_ui_state(),
-            geometry: None,
+            geometry: None, workspace_instance_ids: Vec::new(), active_workspace_instance_id: None, workspace_instances: Vec::new(),
         }
     }
 
     fn make_session(timestamp: i64, labels: &[&str]) -> SessionData {
         SessionData {
-            version: 3,
+            version: SCHEMA_VERSION,
             timestamp,
             vmark_version: "0.0.0-test".to_string(),
             windows: labels.iter().map(|l| make_window(l)).collect(),

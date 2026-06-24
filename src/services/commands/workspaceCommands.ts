@@ -46,7 +46,7 @@ export function registerWorkspaceCommands(): void {
         // with unsaved changes — opening a workspace doesn't close existing tabs,
         // so dirty docs survive. (#1005: the old binary "Open in New Window?"
         // dialog had no current-window option and duplicated its title on Linux.)
-        const existing = await openWorkspaceWithConfig(path);
+        const existing = await openWorkspaceWithConfig(path, { windowLabel });
         useUIStore.getState().showSidebarWithView("files");
         useRecentWorkspacesStore.getState().addWorkspace(path);
 

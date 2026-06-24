@@ -1,6 +1,7 @@
 import "@testing-library/jest-dom";
 import { expect, vi } from "vitest";
 import React from "react";
+import "./localStorageShim";
 
 // vitest-axe matchers (RW-15 / L11): register `toHaveNoViolations` globally so
 // a11y tests can assert `expect(await axe(el)).toHaveNoViolations()`.

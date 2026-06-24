@@ -346,7 +346,9 @@ describe("useFinderFileOpen", () => {
     renderHook(() => useFinderFileOpen());
 
     await vi.waitFor(() => {
-      expect(mockOpenWorkspaceWithConfig).toHaveBeenCalledWith("/new/workspace");
+      expect(mockOpenWorkspaceWithConfig).toHaveBeenCalledWith("/new/workspace", {
+        windowLabel: "main",
+      });
     });
   });
 
@@ -383,7 +385,9 @@ describe("useFinderFileOpen", () => {
     renderHook(() => useFinderFileOpen());
 
     await vi.waitFor(() => {
-      expect(mockOpenWorkspaceWithConfig).toHaveBeenCalledWith("/new/workspace");
+      expect(mockOpenWorkspaceWithConfig).toHaveBeenCalledWith("/new/workspace", {
+        windowLabel: "main",
+      });
       expect(mockCreateTab).toHaveBeenCalledWith("main", "/new/workspace/file.md");
     });
   });

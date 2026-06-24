@@ -43,8 +43,7 @@ import {
 } from "./createTerminalInstance";
 import { resolveBellAction, playTerminalBell } from "./terminalBell";
 import { maybeNotifyTerminalBell } from "@/services/terminalAttention";
-import { spawnPty, resolveTerminalCwd } from "./spawnPty";
-import { useWorkspaceStore } from "@/stores/workspaceStore";
+import { spawnPty, resolveTerminalCwd, resolveTerminalWorkspaceRoot } from "./spawnPty";
 import {
   buildCdCommand,
   useUIStoreSync,
@@ -216,7 +215,7 @@ export function useTerminalSessions(
       useUIStore.getState().terminalMarkSessionAlive(sessionId);
 
       // If workspace changed while spawning, cd to the current root
-      const currentRoot = useWorkspaceStore.getState().rootPath;
+      const currentRoot = resolveTerminalWorkspaceRoot();
       if (currentRoot && currentRoot !== cwd) {
         pty.write(buildCdCommand(currentRoot));
         currentEntry.spawnedCwd = currentRoot;

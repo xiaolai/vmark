@@ -591,6 +591,8 @@
   "advanced.hotExit.noSessionToRestore": "Nenhuma sessão salva para restaurar",
   "advanced.hotExit.sessionCleared": "Sessão limpa",
   "advanced.group.experimental": "Experimental Features",
+  "advanced.workspaceRailMode.label": "Workspace rail",
+  "advanced.workspaceRailMode.description": "Show the left workspace rail and enable workspace tear-out and duplicate-window workflows (experimental)",
   "advanced.workflowEngine.label": "Workflow Engine",
   "advanced.workflowEngine.description": "Enable YAML workflow files with React Flow visualization (experimental)",
   "nav": {

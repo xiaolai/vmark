@@ -33,6 +33,10 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import { createSnapshot } from "@/hooks/useHistoryOperations";
 import { buildHistorySettings } from "@/utils/historyTypes";
 import {
+  resolveWritableFileOwnership,
+  showFileOwnershipConflictToast,
+} from "@/services/workspaces/fileOwnership";
+import {
   resolveHardBreakStyle,
   resolveLineEndingOnSave,
   normalizeHardBreaks,
@@ -87,6 +91,11 @@ export async function saveToPath(
   );
   const hardBreakNormalized = normalizeHardBreaks(content, targetHardBreakStyle);
   const output = normalizeLineEndings(hardBreakNormalized, targetLineEnding);
+  const ownership = resolveWritableFileOwnership(tabId, path);
+  if (!ownership.ok) {
+    if (saveType === "manual") showFileOwnershipConflictToast(path, ownership.conflicts);
+    return false;
+  }
 
   // Register pending save with content for content-based verification.
   // Token prevents overlapping saves from clearing each other's entries.

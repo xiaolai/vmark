@@ -14,6 +14,10 @@ import { invoke } from "@tauri-apps/api/core";
 import { useWorkspaceStore, type WorkspaceConfig } from "@/stores/workspaceStore";
 import { workspaceError } from "@/utils/debug";
 import { maybeStripMacQuarantine } from "@/services/macos/macQuarantineNotice";
+import {
+  openOrActivateWorkspaceInstance,
+  type OpenWorkspaceInstanceOptions,
+} from "@/services/workspaces/workspaceInstanceActions";
 
 function isStringArray(v: unknown): v is string[] {
   return Array.isArray(v) && v.every((x) => typeof x === "string");
@@ -48,7 +52,8 @@ export function isValidWorkspaceConfig(raw: unknown): raw is WorkspaceConfig {
 
 /** Reads workspace config from disk and opens the workspace in the store; returns the config or null on failure. */
 export async function openWorkspaceWithConfig(
-  rootPath: string
+  rootPath: string,
+  options: OpenWorkspaceInstanceOptions = {},
 ): Promise<WorkspaceConfig | null> {
   // Fire-and-forget quarantine strip — settling does not block workspace open.
   // Awaited only conceptually: it's intentionally not blocking the read below.
@@ -64,13 +69,16 @@ export async function openWorkspaceWithConfig(
     if (config !== null && !isValidWorkspaceConfig(config)) {
       workspaceError("Malformed workspace config payload; opening with defaults:", config);
       useWorkspaceStore.getState().openWorkspace(rootPath);
+      openOrActivateWorkspaceInstance(rootPath, options);
       return null;
     }
     useWorkspaceStore.getState().openWorkspace(rootPath, config);
+    openOrActivateWorkspaceInstance(rootPath, options);
     return config;
   } catch (error) {
     workspaceError("Failed to load config:", error);
     useWorkspaceStore.getState().openWorkspace(rootPath);
+    openOrActivateWorkspaceInstance(rootPath, options);
     return null;
   }
 }

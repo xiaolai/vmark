@@ -7,6 +7,7 @@ import { CheckCircle, XCircle, Info, AlertTriangle, Loader2 } from "lucide-react
 import { Editor } from "@/components/Editor";
 import { Sidebar } from "@/components/Sidebar";
 import { SidebarResizeHandle } from "@/components/Sidebar/SidebarResizeHandle";
+import { WorkspaceRail, WORKSPACE_RAIL_WIDTH } from "@/components/WorkspaceRail";
 import { StatusBar } from "@/components/StatusBar";
 import { FindBar } from "@/components/FindBar";
 import { TitleBar } from "@/components/TitleBar";
@@ -19,6 +20,7 @@ import { ContentSearch } from "@/components/ContentSearch/ContentSearch";
 import { CommandPalette } from "@/components/CommandPalette";
 import { WindowProvider, useIsDocumentWindow, useWindowLabel } from "@/contexts/WindowContext";
 import { useUIStore } from "@/stores/uiStore";
+import { useSettingsStore } from "@/stores/settingsStore";
 import { useTheme } from "@/hooks/useTheme";
 import { useTerminalPosition } from "@/components/Terminal/useTerminalPosition";
 import { useTabModeSync } from "@/hooks/useTabModeSync";
@@ -142,6 +144,9 @@ function MainLayout() {
   const sidebarWidth = useUIStore((state) => state.sidebarWidth);
   const findBarOpen = useUIStore((state) => state.search.isOpen);
   const terminalPosition = useUIStore((state) => state.effectiveTerminalPosition);
+  const workspaceRailMode = useSettingsStore((state) => state.advanced.workspaceRailMode);
+  const showWorkspaceRail = isDocumentWindow && workspaceRailMode;
+  const sideWidth = (showWorkspaceRail ? WORKSPACE_RAIL_WIDTH : 0) + (sidebarVisible ? sidebarWidth : 0);
 
   // T03 lifecycle composites — every per-document/per-window hook now
   // lives in src/hooks/lifecycle/. Adding a shortcut or sync hook
@@ -165,14 +170,23 @@ function MainLayout() {
       className={className}
       chrome={<TitleBar />}
       sidebar={
-        sidebarVisible ? (
-          <>
-            <Sidebar />
-            <SidebarResizeHandle width={sidebarWidth} />
-          </>
+        showWorkspaceRail || sidebarVisible ? (
+          <div className="app-sidebar-stack">
+            {showWorkspaceRail && (
+              <div className="app-sidebar-stack__rail">
+                <WorkspaceRail windowLabel={windowLabel} />
+              </div>
+            )}
+            {sidebarVisible && (
+              <div className="app-sidebar-stack__sidebar" style={{ width: sidebarWidth }}>
+                <Sidebar />
+                <SidebarResizeHandle width={sidebarWidth} />
+              </div>
+            )}
+          </div>
         ) : null
       }
-      sidebarWidth={sidebarWidth}
+      sidebarWidth={sideWidth}
       primary={
         <EditorArea
           editor={

@@ -550,7 +550,9 @@ describe("WindowContext", () => {
       );
 
       await waitFor(() => {
-        expect(openWorkspaceWithConfig).toHaveBeenCalledWith("/projects/myapp");
+        expect(openWorkspaceWithConfig).toHaveBeenCalledWith("/projects/myapp", {
+          windowLabel: "main",
+        });
       });
 
       // The file tab MUST still be created when workspaceRoot AND file are
@@ -586,7 +588,9 @@ describe("WindowContext", () => {
       );
 
       await waitFor(() => {
-        expect(openWorkspaceWithConfig).toHaveBeenCalledWith("/projects/myapp");
+        expect(openWorkspaceWithConfig).toHaveBeenCalledWith("/projects/myapp", {
+          windowLabel: "main",
+        });
       });
 
       // The else-branch blank-tab fallback must be skipped in workspace mode
@@ -706,7 +710,7 @@ describe("WindowContext", () => {
   describe("WindowProvider — doc-* window clears localStorage", () => {
     it("clears persisted workspace state for doc-* window", async () => {
       mockWindowLabel = "doc-789";
-      const removeItemSpy = vi.spyOn(Storage.prototype, "removeItem");
+      const removeItemSpy = vi.spyOn(globalThis.localStorage, "removeItem");
 
       render(
         <WindowProvider>
@@ -978,7 +982,9 @@ describe("WindowContext", () => {
 
       // Should derive workspace from file path
       expect(resolveWorkspaceRootForExternalFile).toHaveBeenCalledWith("/docs/file.md");
-      expect(openWorkspaceWithConfig).toHaveBeenCalledWith("/docs");
+      expect(openWorkspaceWithConfig).toHaveBeenCalledWith("/docs", {
+        windowLabel: "doc-fb",
+      });
 
       vi.useRealTimers();
     });
@@ -1132,7 +1138,9 @@ describe("WindowContext", () => {
 
       await waitFor(() => {
         expect(resolveWorkspaceRootForExternalFile).toHaveBeenCalledWith("/docs/test.md");
-        expect(openWorkspaceWithConfig).toHaveBeenCalledWith("/docs");
+        expect(openWorkspaceWithConfig).toHaveBeenCalledWith("/docs", {
+          windowLabel: "main",
+        });
       });
     });
 

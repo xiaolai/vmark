@@ -27,8 +27,10 @@ description: E2E testing expert for Tauri applications using Tauri MCP server. U
 ## Prerequisites
 
 1. **MCP Bridge Plugin installed** in the Tauri app
-2. **App running** in development mode (`pnpm tauri dev`)
-3. **Port 9223** accessible (default MCP Bridge port)
+2. **App running** in development mode (`pnpm tauri:dev`)
+3. **Port 9323** accessible for VMark automation. VMark pins the debug-only
+   Tauri MCP bridge to `127.0.0.1:9323`; port 9223 is VMark's own
+   auth-protected MCP server and is not valid for E2E automation.
 
 If connection fails, run `tauri_get_setup_instructions` to get plugin installation guide.
 
@@ -48,14 +50,14 @@ If connection fails, run `tauri_get_setup_instructions` to get plugin installati
 ### Start Session
 
 ```typescript
-// Connect to app on default port
-tauri_driver_session({ action: 'start' })
+// Connect to VMark's automation bridge
+tauri_driver_session({ action: 'start', port: 9323 })
 
 // Connect to specific port
-tauri_driver_session({ action: 'start', port: 9224 })
+tauri_driver_session({ action: 'start', port: 9324 })
 
 // Connect to remote host (mobile testing)
-tauri_driver_session({ action: 'start', host: '<device-ip>', port: 9223 })
+tauri_driver_session({ action: 'start', host: '<device-ip>', port: 9323 })
 ```
 
 ### Check Status
@@ -72,7 +74,7 @@ tauri_driver_session({ action: 'status' })
 tauri_driver_session({ action: 'stop' })
 
 // Stop specific app
-tauri_driver_session({ action: 'stop', appIdentifier: 9223 })
+tauri_driver_session({ action: 'stop', appIdentifier: 9323 })
 ```
 
 ## Testing Patterns
@@ -301,7 +303,7 @@ tauri_webview_get_styles({
 
 ```typescript
 // 1. Connect
-tauri_driver_session({ action: 'start' })
+tauri_driver_session({ action: 'start', port: 9323 })
 
 // 2. Open file dialog
 tauri_webview_keyboard({ action: 'press', key: 'o', modifiers: ['Control'] })
@@ -362,7 +364,7 @@ tauri_webview_screenshot({ filePath: 'dev-docs/archive/test-screenshots/desktop.
 
 | Issue | Solution |
 |-------|----------|
-| Connection refused | Ensure app is running with `pnpm tauri dev` |
+| Connection refused | Ensure app is running with `pnpm tauri:dev` |
 | No elements found | Check selector, take screenshot to verify DOM |
 | IPC not captured | Start monitor BEFORE the action |
 | Timeout on wait | Increase timeout, check if element ever appears |

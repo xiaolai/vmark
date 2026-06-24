@@ -18,6 +18,7 @@ import { hotExitWarn, hotExitError } from '@/utils/debug';
 import type { LineEnding as StoreLineEnding } from '@/utils/linebreakDetection';
 import type { HistoryCheckpoint as StoreHistoryCheckpoint } from '@/stores/documentStore';
 import type { CursorInfo as StoreCursorInfo } from '@/stores/documentStore';
+import { captureWindowWorkspaceInstances } from '../hotExit/workspaceInstances';
 
 /**
  * Convert store line ending format to hot exit format
@@ -219,6 +220,7 @@ export function captureWindowState(windowLabel: string, isMainWindow: boolean): 
     tabs,
     ui_state: getUiStateSafe(),
     geometry: null, // Window geometry capture not yet implemented
+    ...captureWindowWorkspaceInstances(windowLabel),
   };
 }
 

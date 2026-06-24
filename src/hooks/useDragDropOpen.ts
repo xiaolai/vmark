@@ -221,7 +221,7 @@ export function useDragDropOpen(): void {
 
           if (uniqueRoots.size === 1) {
             const [batchRoot] = uniqueRoots;
-            await openWorkspaceWithConfig(batchRoot);
+            await openWorkspaceWithConfig(batchRoot, { windowLabel });
 
             for (const path of markdownPaths) {
               if (!replaceableTabUsed && initialReplaceableTab) {
@@ -315,7 +315,7 @@ export function useDragDropOpen(): void {
                   decision.filePath,
                   detectLinebreaks(content)
                 );
-                await openWorkspaceWithConfig(decision.workspaceRoot);
+                await openWorkspaceWithConfig(decision.workspaceRoot, { windowLabel });
                 useRecentFilesStore.getState().addFile(path);
                 maybeMarkLargeMarkdownAsSource(
                   decision.tabId,

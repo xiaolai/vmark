@@ -220,7 +220,7 @@ export async function handleSave(windowLabel: string): Promise<void> {
 
       if (postSaveAction.action === "open_workspace") {
         try {
-          await openWorkspaceWithConfig(postSaveAction.workspaceRoot);
+          await openWorkspaceWithConfig(postSaveAction.workspaceRoot, { windowLabel });
         } catch (error) {
           fileOpsError("Failed to open workspace after save:", error);
         }

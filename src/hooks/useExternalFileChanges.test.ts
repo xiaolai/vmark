@@ -20,6 +20,7 @@ const mocks = vi.hoisted(() => ({
   dialogSave: vi.fn(),
   saveToPath: vi.fn(),
   reloadTabFromDisk: vi.fn(),
+  activeScopeRoot: vi.fn(() => null as string | null),
 }));
 
 vi.mock("@tauri-apps/api/event", () => ({
@@ -68,6 +69,10 @@ vi.mock("@/services/persistence/saveToPath", () => ({
 
 vi.mock("@/services/persistence/reloadFromDisk", () => ({
   reloadTabFromDisk: mocks.reloadTabFromDisk,
+}));
+
+vi.mock("@/services/workspaces/activeWorkspaceScope", () => ({
+  getActiveWorkspaceScope: vi.fn(() => ({ rootPath: mocks.activeScopeRoot() })),
 }));
 
 import { useDocumentStore } from "@/stores/documentStore";
@@ -124,6 +129,7 @@ async function setupHookAndCallback(): Promise<ListenCallback> {
 describe("useExternalFileChanges — file reappearance", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.activeScopeRoot.mockReturnValue(null);
   });
 
   it("clears isMissing and reloads when a deleted file reappears with same content", async () => {
@@ -425,6 +431,7 @@ describe("useExternalFileChanges — remove events", () => {
 describe("useExternalFileChanges — event filtering", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.activeScopeRoot.mockReturnValue(null);
   });
 
   it("ignores events from a different window watcher", async () => {
@@ -443,6 +450,25 @@ describe("useExternalFileChanges — event filtering", () => {
     });
 
     // Should not read the file since watchId doesn't match
+    expect(mocks.readTextFile).not.toHaveBeenCalled();
+  });
+
+  it("ignores stale events from a previous root in the same window", async () => {
+    seedStores();
+    mocks.activeScopeRoot.mockReturnValue("/workspace-next");
+    mocks.readTextFile.mockResolvedValue("# new content");
+
+    const callback = await setupHookAndCallback();
+
+    await callback({
+      payload: {
+        watchId: "main",
+        rootPath: "/workspace",
+        paths: ["/workspace/test.md"],
+        kind: "modify",
+      },
+    });
+
     expect(mocks.readTextFile).not.toHaveBeenCalled();
   });
 

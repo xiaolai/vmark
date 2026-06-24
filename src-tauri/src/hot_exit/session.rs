@@ -8,7 +8,8 @@ use serde::{Deserialize, Serialize};
 /// v1: Initial schema
 /// v2: Added undo_history and redo_history to DocumentState
 /// v3: Added format_id, editing_enabled, active_schema_id to TabState (WI-1A.13)
-pub const SCHEMA_VERSION: u32 = 3;
+/// v4: Added workspace rail instance containers to WindowState
+pub const SCHEMA_VERSION: u32 = 4;
 
 /// Maximum session age in days before considering it stale
 pub const MAX_SESSION_AGE_DAYS: i64 = 7;
@@ -36,6 +37,30 @@ pub struct WindowState {
     pub tabs: Vec<TabState>,
     pub ui_state: UiState,
     pub geometry: Option<WindowGeometry>,
+    /// Ordered workspace instance ids owned by this document window. Added in v4.
+    #[serde(default)]
+    pub workspace_instance_ids: Vec<String>,
+    /// Active workspace instance id for this document window. Added in v4.
+    #[serde(default)]
+    pub active_workspace_instance_id: Option<String>,
+    /// Workspace instances owned by this document window. Added in v4.
+    #[serde(default)]
+    pub workspace_instances: Vec<WorkspaceInstanceState>,
+}
+
+/// Workspace rail instance metadata. Field casing mirrors the frontend model.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkspaceInstanceState {
+    pub workspace_instance_id: String,
+    pub root_id: Option<String>,
+    pub root_path: Option<String>,
+    pub display_name: String,
+    pub owner_window_label: String,
+    pub created_from: String,
+    pub active_tab_id: Option<String>,
+    pub tab_ids: Vec<String>,
+    pub closed_tab_ids: Vec<String>,
 }
 
 /// State of a single tab including its document content and metadata.

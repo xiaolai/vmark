@@ -35,9 +35,10 @@ import { PanelLeft, Plus } from "lucide-react";
 import { useUIStore } from "@/stores/uiStore";
 import { useWindowLabel, useIsDocumentWindow } from "@/contexts/WindowContext";
 import { useTabStore, type Tab as TabType } from "@/stores/tabStore";
-import { useDocumentStore } from "@/stores/documentStore";
+import { useDocumentStore, useLargeFileSessionStore } from "@/stores/documentStore";
 import { closeTabWithDirtyCheck } from "@/hooks/useTabOperations";
 import { toggleSourceModeWithCheckpoint } from "@/hooks/useUnifiedHistory";
+import { toggleDocumentReadOnlyWithOwnership } from "@/services/workspaces/fileOwnership";
 import {
   useDocumentLastAutoSave,
   useDocumentIsMissing,
@@ -51,7 +52,6 @@ import { TabContextMenu, type ContextMenuPosition } from "@/components/Tabs/TabC
 import { SourceModeUpgrade } from "./SourceModeUpgrade";
 import { FileLoadIndicator } from "./FileLoadIndicator";
 import { looksLikeWorkflowPath } from "@/lib/ghaWorkflow/detection";
-import { useLargeFileSessionStore } from "@/stores/documentStore";
 import { useShortcutsStore } from "@/stores/settingsStore";
 import { useMcpServer } from "@/hooks/useMcpServer";
 import { useMcpClients } from "@/hooks/useMcpClients";
@@ -339,7 +339,7 @@ export function StatusBar() {
             readOnly={readOnly}
             readOnlyShortcut={readOnlyShortcut}
             onToggleReadOnly={() => {
-              if (activeTabId) useDocumentStore.getState().toggleReadOnly(activeTabId);
+              if (activeTabId) toggleDocumentReadOnlyWithOwnership(activeTabId);
             }}
           />
         </div>

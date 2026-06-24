@@ -40,6 +40,7 @@ type MigrationFn = (session: SessionData) => SessionData;
 const migrations: Record<number, MigrationFn> = {
   1: migrateV1toV2,
   2: migrateV2toV3,
+  3: migrateV3toV4,
 };
 
 /**
@@ -219,5 +220,43 @@ function addFormatFieldsToTab(
       typeof incoming.active_schema_id === 'string'
         ? incoming.active_schema_id
         : null,
+  };
+}
+
+/**
+ * Migrate v3 -> v4: Add workspace rail instance containers to WindowState.
+ *
+ * Legacy sessions had exactly one window-scoped workspace. v4 keeps those
+ * fields outside the rail model by default and adds empty per-window
+ * containers so old snapshots restore exactly as before while flag-disabled.
+ */
+function migrateV3toV4(session: SessionData): SessionData {
+  return {
+    ...session,
+    version: 4,
+    windows: session.windows.map((window) => addWorkspaceInstanceFields(window)),
+  };
+}
+
+function addWorkspaceInstanceFields(
+  window: SessionData['windows'][number],
+): SessionData['windows'][number] {
+  const incoming = window as SessionData['windows'][number] & {
+    workspace_instance_ids?: unknown;
+    active_workspace_instance_id?: unknown;
+    workspace_instances?: unknown;
+  };
+  return {
+    ...window,
+    workspace_instance_ids: Array.isArray(incoming.workspace_instance_ids)
+      ? incoming.workspace_instance_ids.filter((id): id is string => typeof id === 'string')
+      : [],
+    active_workspace_instance_id:
+      typeof incoming.active_workspace_instance_id === 'string'
+        ? incoming.active_workspace_instance_id
+        : null,
+    workspace_instances: Array.isArray(incoming.workspace_instances)
+      ? incoming.workspace_instances
+      : [],
   };
 }

@@ -232,7 +232,7 @@ fn build_window_url_with_files(file_paths: &[String], workspace_root: Option<&st
 }
 
 /// Create a new document window from a pre-built URL.
-fn create_document_window_with_url(
+pub(crate) fn create_document_window_with_url(
     app: &AppHandle,
     url: String,
 ) -> Result<String, tauri::Error> {

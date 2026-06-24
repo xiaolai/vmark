@@ -156,7 +156,7 @@ export function useFinderFileOpen(): void {
       workspaceRoot: string | null,
     ) => {
       if (workspaceRoot) {
-        await openWorkspaceWithConfig(workspaceRoot);
+        await openWorkspaceWithConfig(workspaceRoot, { windowLabel });
       }
       try {
         await loadFileIntoTab(tab.tabId, path, false);
@@ -187,7 +187,7 @@ export function useFinderFileOpen(): void {
       adoptWorkspace: boolean,
     ) => {
       if (adoptWorkspace && workspaceRoot) {
-        await openWorkspaceWithConfig(workspaceRoot);
+        await openWorkspaceWithConfig(workspaceRoot, { windowLabel });
       }
       if (cancelled) return;
       const tabId = useTabStore.getState().createTab(windowLabel, path);

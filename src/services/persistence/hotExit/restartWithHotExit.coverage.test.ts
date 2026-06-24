@@ -43,6 +43,8 @@ vi.mock('@/utils/debug', () => ({
 
 import { restartWithHotExit, checkAndRestoreSession } from './restartWithHotExit';
 import { HOT_EXIT_EVENTS, SCHEMA_VERSION } from './types';
+import { migrateSession } from './schemaMigration';
+import type { SessionData } from './types';
 
 // ---------------------------------------------------------------
 // restartWithHotExit
@@ -158,7 +160,7 @@ describe('checkAndRestoreSession — additional coverage', () => {
 
     // Verify multi-window restore was used (session passes through migration
     // and is bumped to current SCHEMA_VERSION before being sent)
-    const migratedSession = { ...session, version: SCHEMA_VERSION };
+    const migratedSession = migrateSession(session as unknown as SessionData);
     expect(mockInvoke).toHaveBeenCalledWith('hot_exit_restore_multi_window', { session: migratedSession });
 
     // Complete

@@ -132,7 +132,7 @@ export function registerRecentFilesCommands(): void {
                 result.filePath,
                 detectLinebreaks(content)
               );
-              await openWorkspaceWithConfig(result.workspaceRoot);
+              await openWorkspaceWithConfig(result.workspaceRoot, { windowLabel });
               useRecentFilesStore.getState().addFile(file.path);
 
               maybeMarkLargeMarkdownAsSource(

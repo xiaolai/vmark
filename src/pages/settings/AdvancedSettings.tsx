@@ -39,6 +39,7 @@ export function AdvancedSettings() {
   const customLinkProtocols = useSettingsStore((state) => state.advanced.customLinkProtocols);
   const keepBothEditorsAlive = useSettingsStore((state) => state.advanced.keepBothEditorsAlive);
   const workflowEngine = useSettingsStore((state) => state.advanced.workflowEngine);
+  const workspaceRailMode = useSettingsStore((state) => state.advanced.workspaceRailMode);
   const workflowEditorPreserveYamlFormatting = useSettingsStore(
     (state) => state.advanced.workflowEditorPreserveYamlFormatting,
   );
@@ -131,6 +132,15 @@ export function AdvancedSettings() {
       {/* Developer features - only visible when developer mode is enabled */}
       {devTools && (
         <SettingsGroup title={t("advanced.group.experimental")}>
+          <SettingRow
+            label={t("advanced.workspaceRailMode.label")}
+            description={t("advanced.workspaceRailMode.description")}
+          >
+            <Toggle
+              checked={workspaceRailMode}
+              onChange={(v) => updateAdvancedSetting("workspaceRailMode", v)}
+            />
+          </SettingRow>
           <SettingRow
             label={t("advanced.workflowEngine.label")}
             description={t("advanced.workflowEngine.description")}

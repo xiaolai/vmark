@@ -225,7 +225,7 @@ export interface ImageSettings {
 
 /** MCP server configuration — port, auto-start, and edit approval policy. */
 export interface McpServerSettings {
-  port: number;        // Default: 9223 (must match MCP bridge plugin port)
+  port: number;        // Default: 9223 (VMark app MCP server; not Tauri automation)
   autoStart: boolean;  // Start on app launch
   autoApproveEdits: boolean; // Auto-approve AI document edits without preview
 }
@@ -268,6 +268,7 @@ export interface AdvancedSettingsState {
   customLinkProtocols: string[]; // Custom URL protocols to recognize (e.g., "obsidian", "vscode")
   keepBothEditorsAlive: boolean; // Keep both editors mounted for faster mode switching (default: false)
   workflowEngine: boolean; // Enable YAML workflow engine (developer feature, default: false)
+  workspaceRailMode: boolean; // Enable workspace rail/window model (developer feature, default: false)
   /**
    * When the structured workflow editor saves changes, preserve comments,
    * anchors, and existing formatting where possible (CST round-trip).
@@ -282,10 +283,7 @@ export interface AdvancedSettingsState {
    * the website documents). Default: true.
    */
   workflowFetchActionMetadata: boolean;
-  /**
-   * Run the optional `actionlint` binary (when on PATH) on workflow files
-   * for richer diagnostics. Default: true (no effect without the binary).
-   */
+  /** Run optional `actionlint` for richer workflow diagnostics. Default: true. */
   workflowActionlint: boolean;
   // macOS only: clear `com.apple.quarantine` on the workspace root and its
   // direct .md children when opening a workspace. Without this, files marked

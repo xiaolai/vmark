@@ -5,6 +5,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { readTextFile } from "@tauri-apps/plugin-fs";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
+import { useSettingsStore } from "@/stores/settingsStore";
 import { openFileInNewTabCore } from "../useFileOpen";
 
 const WINDOW = "main";
@@ -23,6 +24,9 @@ function resetStores() {
   for (const id of docIds) {
     docState.removeDocument(id);
   }
+  useSettingsStore.setState({
+    advanced: { ...useSettingsStore.getState().advanced, workspaceRailMode: false },
+  });
 }
 
 describe("openFileInNewTabCore", () => {
@@ -41,6 +45,21 @@ describe("openFileInNewTabCore", () => {
     const doc = useDocumentStore.getState().getDocument(tabs[0].id);
     expect(doc).toBeDefined();
     expect(doc!.content).toBe("# Hello");
+  });
+
+  it("marks a same-file duplicate read-only when rail mode is enabled", async () => {
+    useSettingsStore.setState({
+      advanced: { ...useSettingsStore.getState().advanced, workspaceRailMode: true },
+    });
+    const existingId = useTabStore.getState().createTab("doc-1", "/Users/test/file.md");
+    useDocumentStore.getState().initDocument(existingId, "# Existing", "/Users/test/file.md");
+    vi.mocked(readTextFile).mockResolvedValue("# Hello");
+
+    await openFileInNewTabCore(WINDOW, "/Users/test/file.md");
+
+    const openedId = useTabStore.getState().getActiveTab(WINDOW)?.id;
+    expect(openedId).toBeTruthy();
+    expect(useDocumentStore.getState().getDocument(openedId!)?.readOnly).toBe(true);
   });
 
   it("does NOT overwrite content when createTab deduplicates", async () => {

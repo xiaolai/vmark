@@ -2,15 +2,17 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("@/stores/workspaceStore", () => ({
   useRecentFilesStore: { getState: vi.fn(() => ({ files: [] })) },
-  useWorkspaceStore: { getState: vi.fn(() => ({ rootPath: null })) },
 }));
 vi.mock("@/stores/tabStore", () => ({
   useTabStore: { getState: vi.fn(() => ({ getTabsByWindow: () => [] })) },
 }));
+vi.mock("@/services/workspaces/activeWorkspaceScope", () => ({
+  getActiveWorkspaceScope: vi.fn(() => ({ rootPath: null })),
+}));
 
 import { useRecentFilesStore } from "@/stores/workspaceStore";
 import { useTabStore } from "@/stores/tabStore";
-import { useWorkspaceStore } from "@/stores/workspaceStore";
+import { getActiveWorkspaceScope } from "@/services/workspaces/activeWorkspaceScope";
 import {
   buildQuickOpenItems,
   filterAndRankItems,
@@ -20,13 +22,13 @@ import type { FileNode } from "@/components/Sidebar/FileExplorer/types";
 
 const mockRecentFiles = vi.mocked(useRecentFilesStore.getState);
 const mockTabStore = vi.mocked(useTabStore.getState);
-const mockWorkspaceStore = vi.mocked(useWorkspaceStore.getState);
+const mockActiveScope = vi.mocked(getActiveWorkspaceScope);
 
 beforeEach(() => {
   vi.clearAllMocks();
   mockRecentFiles.mockReturnValue({ files: [] } as any);
   mockTabStore.mockReturnValue({ getTabsByWindow: () => [] } as any);
-  mockWorkspaceStore.mockReturnValue({ rootPath: null } as any);
+  mockActiveScope.mockReturnValue({ rootPath: null } as any);
 });
 
 describe("flattenFileTree", () => {
@@ -171,25 +173,25 @@ describe("buildQuickOpenItems", () => {
   });
 
   it("computes relative path when rootPath is set", () => {
-    mockWorkspaceStore.mockReturnValue({ rootPath: "/project" } as any);
+    mockActiveScope.mockReturnValue({ rootPath: "/project" } as any);
     const items = buildQuickOpenItems("win", ["/project/src/file.md"]);
     expect(items[0].relPath).toBe("src/file.md");
   });
 
   it("uses full path when rootPath is null", () => {
-    mockWorkspaceStore.mockReturnValue({ rootPath: null } as any);
+    mockActiveScope.mockReturnValue({ rootPath: null } as any);
     const items = buildQuickOpenItems("win", ["/some/file.md"]);
     expect(items[0].relPath).toBe("/some/file.md");
   });
 
   it("does not match rootPath as prefix of different directory", () => {
-    mockWorkspaceStore.mockReturnValue({ rootPath: "/project" } as any);
+    mockActiveScope.mockReturnValue({ rootPath: "/project" } as any);
     const items = buildQuickOpenItems("win", ["/project2/file.md"]);
     expect(items[0].relPath).toBe("/project2/file.md");
   });
 
   it("returns empty string when path equals rootPath exactly", () => {
-    mockWorkspaceStore.mockReturnValue({ rootPath: "/project" } as any);
+    mockActiveScope.mockReturnValue({ rootPath: "/project" } as any);
     const items = buildQuickOpenItems("win", ["/project"]);
     expect(items[0].relPath).toBe("");
   });

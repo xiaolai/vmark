@@ -5,7 +5,7 @@
  * These types define the complete application session state for save/restore.
  */
 
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 
 /**
  * Line ending types
@@ -30,6 +30,43 @@ export interface WindowState {
   tabs: TabState[];
   ui_state: UiState;
   geometry: WindowGeometry | null;
+  /**
+   * v4 workspace rail state for this document window.
+   *
+   * Optional at the type boundary because older persisted sessions and test
+   * fixtures may omit these fields before migration normalizes them.
+   */
+  workspace_instance_ids?: string[];
+  active_workspace_instance_id?: string | null;
+  workspace_instances?: HotExitWorkspaceInstanceState[];
+}
+
+export interface HotExitWorkspaceInstanceState {
+  workspaceInstanceId: string;
+  rootId: string | null;
+  rootPath: string | null;
+  displayName: string;
+  ownerWindowLabel: string;
+  createdFrom: string;
+  activeTabId: string | null;
+  tabIds: string[];
+  closedTabIds: string[];
+}
+
+export interface HotExitWindowWorkspaceState {
+  workspace_instance_ids: string[];
+  active_workspace_instance_id: string | null;
+  workspace_instances: HotExitWorkspaceInstanceState[];
+}
+
+export interface WorkspaceInstancesStorageSnapshot {
+  version: 4;
+  windows: Array<{
+    window_label: string;
+    workspace_instance_ids: string[];
+    active_workspace_instance_id: string | null;
+  }>;
+  instances: HotExitWorkspaceInstanceState[];
 }
 
 export interface TabState {

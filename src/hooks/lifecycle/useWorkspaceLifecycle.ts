@@ -19,6 +19,7 @@
  */
 
 import { useWorkspaceBootstrap } from "@/hooks/useWorkspaceBootstrap";
+import { useWorkspaceRailSeed } from "@/hooks/useWorkspaceRailSeed";
 import { useSettingsSync } from "@/hooks/useSettingsSync";
 import { useConfirmQuitSync } from "@/hooks/useConfirmQuitSync";
 import { useRecentFilesSync } from "@/hooks/useRecentFilesSync";
@@ -27,6 +28,7 @@ import { useFormatSettingsBridge } from "@/services/formats/formatSettingsBridge
 
 export function useWorkspaceLifecycle(): void {
   useWorkspaceBootstrap();
+  useWorkspaceRailSeed();
   useSettingsSync();
   useConfirmQuitSync();
   useRecentFilesSync();

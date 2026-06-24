@@ -9,9 +9,9 @@
  * @module hooks/useDefaultSaveFolder
  */
 import { documentDir, homeDir } from "@tauri-apps/api/path";
-import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
+import { getActiveWorkspaceScope } from "@/services/workspaces/activeWorkspaceScope";
 import { resolveDefaultSaveFolder } from "@/utils/defaultSaveFolder";
 
 /**
@@ -34,8 +34,7 @@ import { resolveDefaultSaveFolder } from "@/utils/defaultSaveFolder";
 export async function getDefaultSaveFolderWithFallback(
   windowLabel: string
 ): Promise<string> {
-  // Gather workspace state
-  const { isWorkspaceMode, rootPath } = useWorkspaceStore.getState();
+  const workspaceScope = getActiveWorkspaceScope(windowLabel);
 
   // Gather saved file paths from tabs
   const tabs = useTabStore.getState().tabs[windowLabel] ?? [];
@@ -57,8 +56,8 @@ export async function getDefaultSaveFolderWithFallback(
 
   // Delegate to pure resolver
   return resolveDefaultSaveFolder({
-    isWorkspaceMode,
-    workspaceRoot: rootPath,
+    isWorkspaceMode: workspaceScope.isWorkspaceMode,
+    workspaceRoot: workspaceScope.rootPath,
     savedFilePaths,
     fallbackDirectory,
   });

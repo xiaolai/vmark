@@ -5,7 +5,7 @@
 
 import { useRecentFilesStore } from "@/stores/workspaceStore";
 import { useTabStore } from "@/stores/tabStore";
-import { useWorkspaceStore } from "@/stores/workspaceStore";
+import { getActiveWorkspaceScope } from "@/services/workspaces/activeWorkspaceScope";
 import { fuzzyMatch, type FuzzyMatchResult } from "./fuzzyMatch";
 import type { FileNode } from "@/components/Sidebar/FileExplorer/types";
 import { getFileName } from "@/utils/pathUtils";
@@ -57,7 +57,7 @@ export function buildQuickOpenItems(
   windowLabel: string,
   workspaceFilePaths: string[],
 ): QuickOpenItem[] {
-  const rootPath = useWorkspaceStore.getState().rootPath;
+  const rootPath = getActiveWorkspaceScope(windowLabel).rootPath;
   const recentFiles = useRecentFilesStore.getState().files;
   const windowTabs = useTabStore.getState().getTabsByWindow(windowLabel);
   const openPathSet = new Set(

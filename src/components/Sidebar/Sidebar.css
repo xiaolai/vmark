@@ -95,7 +95,7 @@
 /* Footer with close button */
 .sidebar-footer {
   display: flex;
-  justify-content: flex-start;
+  justify-content: flex-end;
   padding: var(--space-1) var(--space-3) var(--space-1-5) 0;
   flex-shrink: 0;
 }

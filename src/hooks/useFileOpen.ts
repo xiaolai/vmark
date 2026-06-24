@@ -17,7 +17,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { readTextFile } from "@tauri-apps/plugin-fs";
 import { fileOpsError } from "@/utils/debug";
 import { perfReset, perfStart, perfEnd, perfMark } from "@/utils/perfLog";
-import { useDocumentStore } from "@/stores/documentStore";
+import { useDocumentStore, useFileLoadStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useRecentFilesStore } from "@/stores/workspaceStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
@@ -32,7 +32,7 @@ import { getFileName } from "@/utils/pathUtils";
 import { routeOpenBySize } from "@/services/navigation/largeFileRouting";
 import { maybeMarkLargeMarkdownAsSource } from "@/lib/formats/markdownLargeFile";
 import { getSupportedExtensions } from "@/lib/formats/registry";
-import { useFileLoadStore } from "@/stores/documentStore";
+import { applyFileOwnershipAfterOpen } from "@/services/workspaces/fileOwnership";
 import { shouldShowProgressIndicator } from "@/utils/fileSizeThresholds";
 import { errorMessage } from "@/utils/errorMessage";
 
@@ -102,8 +102,8 @@ export async function openFileInNewTabCore(
 
     perfStart("initDocument");
     useDocumentStore.getState().initDocument(tabId, content, path);
+    applyFileOwnershipAfterOpen(tabId, path);
     perfEnd("initDocument");
-
     perfStart("detectLinebreaks");
     const lineMeta = detectLinebreaks(content);
     useDocumentStore.getState().setLineMetadata(tabId, lineMeta);
@@ -258,9 +258,9 @@ export async function handleOpen(windowLabel: string): Promise<void> {
             lineMeta
           );
           perfEnd("replace_tab:loadContent");
-
+          applyFileOwnershipAfterOpen(decision.tabId, decision.filePath);
           perfStart("replace_tab:openWorkspaceWithConfig");
-          await openWorkspaceWithConfig(decision.workspaceRoot);
+          await openWorkspaceWithConfig(decision.workspaceRoot, { windowLabel });
           perfEnd("replace_tab:openWorkspaceWithConfig");
 
           useRecentFilesStore.getState().addFile(path);

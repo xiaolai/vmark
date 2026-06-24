@@ -141,17 +141,14 @@ export function SourcePane({
     onJumpHandleReady?.(jumpTo);
   }, [onJumpHandleReady, jumpTo]);
 
-  /* v8 ignore next 4 -- @preserve documentStore selector path; smoke-tested via mocked store */
-  const storeContent = useDocumentStore(
-    (state) => state.documents?.[tabId]?.content ?? "",
-  );
-  // WI-4.3 — readOnly defers to the per-tab editing override when set.
-  const readOnly = formatConfig.adapters.readOnlyDefault && !editingEnabled;
+  /* v8 ignore next -- @preserve documentStore selector path; smoke-tested via mocked store */
+  const docSnapshot = useDocumentStore((state) => state.documents?.[tabId] ?? null);
+  const storeContent = docSnapshot?.content ?? "";
+  const readOnly =
+    (docSnapshot?.readOnly ?? false) ||
+    (formatConfig.adapters.readOnlyDefault && !editingEnabled);
   const validator = formatConfig.validator;
-  /* v8 ignore next 3 -- @preserve documentStore selector path; smoke-tested via mocked store */
-  const filePath = useDocumentStore(
-    (state) => state.documents?.[tabId]?.filePath ?? null,
-  );
+  const filePath = docSnapshot?.filePath ?? null;
   // A format may ship its own language pack (json/yaml/code viewers). When
   // it doesn't (plain text), fall back to filename-based highlighting so a
   // `.env` / `Dockerfile` / `.sh` opened as plain text still gets colors.

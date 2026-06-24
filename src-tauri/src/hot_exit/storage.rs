@@ -338,7 +338,7 @@ mod tests {
                     terminal_visible: false,
                     terminal_height: 250,
                 },
-                geometry: None,
+                geometry: None, workspace_instance_ids: Vec::new(), active_workspace_instance_id: None, workspace_instances: Vec::new(),
             }],
             workspace: None,
         }

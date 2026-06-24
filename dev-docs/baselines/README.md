@@ -24,9 +24,9 @@ surface with dev tooling.
 
 ### Procedure
 
-1. **Start the app**: `pnpm tauri dev` in the project root.
+1. **Start the app**: `pnpm tauri:dev` in the project root.
 2. **In Claude Code**, with the Tauri MCP plugin installed:
-   1. `mcp__tauri__tauri_driver_session` — `action: "start"`, `port: 9223`.
+   1. `mcp__tauri__tauri_driver_session` — `action: "start"`, `port: 9323`.
    2. For each theme in `["white", "paper", "mint", "sepia", "night"]`:
       - `mcp__tauri__tauri_webview_execute_js` with:
         ```js
@@ -43,6 +43,9 @@ surface with dev tooling.
         - `format: "png"`
    3. Reset to the user's original theme.
    4. `mcp__tauri__tauri_driver_session` — `action: "stop"`.
+
+VMark pins the debug automation bridge to `127.0.0.1:9323`. Do not use 9223
+for these captures; that port belongs to VMark's own auth-protected MCP server.
 
 The dev-mode dynamic import (`await import("/src/stores/...")`)
 works because Vite serves source modules. In a production build,

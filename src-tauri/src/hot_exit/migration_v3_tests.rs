@@ -195,11 +195,11 @@ fn test_v3_roundtrip_preserves_explicit_format_fields() {
 // ─── Future-version rejection ─────────────────────────────────────────────
 
 #[test]
-fn test_migrate_v4_future_version_rejected() {
-    // Construct a session with version 4 (a hypothetical future version)
+fn test_migrate_v5_future_version_rejected() {
+    // Construct a session with version 5 (a hypothetical future version)
     // and confirm it produces a typed error rather than a panic.
     let mut session = SessionData::new("99.0.0".to_string());
-    session.version = 4;
+    session.version = 5;
     let result = migrate_session(session);
     assert!(result.is_err());
     assert!(result.unwrap_err().contains("Cannot migrate"));

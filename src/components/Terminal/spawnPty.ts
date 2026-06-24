@@ -44,11 +44,11 @@
 import { spawn, type IPty, type IEvent } from "@/lib/pty";
 import { invoke } from "@tauri-apps/api/core";
 import type { Terminal } from "@xterm/xterm";
-import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
+import { getActiveWorkspaceScope } from "@/services/workspaces/activeWorkspaceScope";
 import { getParentDir } from "@/utils/paths/paths";
 
 /**
@@ -58,10 +58,10 @@ import { getParentDir } from "@/utils/paths/paths";
  * 3. undefined — lets the shell start in its default ($HOME)
  */
 export function resolveTerminalCwd(): string | undefined {
-  const workspaceRoot = useWorkspaceStore.getState().rootPath;
+  const windowLabel = getCurrentWindowLabel();
+  const workspaceRoot = resolveTerminalWorkspaceRoot(windowLabel);
   if (workspaceRoot) return workspaceRoot;
 
-  const windowLabel = getCurrentWindowLabel();
   const activeTabId = useTabStore.getState().activeTabId[windowLabel];
   if (activeTabId) {
     const doc = useDocumentStore.getState().getDocument(activeTabId);
@@ -82,6 +82,13 @@ export function resolveTerminalCwd(): string | undefined {
   }
 
   return undefined;
+}
+
+/** Resolve the active workspace root used for terminal CWD and VMARK_WORKSPACE. */
+export function resolveTerminalWorkspaceRoot(
+  windowLabel = getCurrentWindowLabel(),
+): string | undefined {
+  return getActiveWorkspaceScope(windowLabel).rootPath ?? undefined;
 }
 
 /** Options for spawning a PTY process connected to an xterm instance. */
@@ -188,7 +195,7 @@ export async function spawnPty(options: SpawnOptions): Promise<IPty> {
   const shellIsAbsolute = defaultShell.startsWith("/") || /^[a-zA-Z]:[/\\]/.test(defaultShell);
   const shell = shellIsAbsolute ? defaultShell : "/bin/sh";
   if (disposed()) throw new Error("disposed before spawn");
-  const workspaceRoot = useWorkspaceStore.getState().rootPath;
+  const workspaceRoot = resolveTerminalWorkspaceRoot();
 
   const env: Record<string, string> = {
     // Ensure consistent color capabilities in xterm.js; Tauri GUI apps may not inherit terminal env vars.
