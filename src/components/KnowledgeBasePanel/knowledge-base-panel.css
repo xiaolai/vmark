@@ -1,0 +1,88 @@
+/**
+ * KnowledgeBasePanel styles (Phase 5). Tokens only (rule 31); dark theme via
+ * tokens, no overrides needed.
+ */
+
+.kb-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--bg-color);
+  color: var(--text-color);
+}
+
+.kb-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-2) var(--spacing-3);
+  border-bottom: var(--border-thin) solid var(--border-color);
+}
+
+.kb-panel__title {
+  font-size: var(--font-size-md);
+  font-weight: 600;
+}
+
+.kb-panel__status {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+.kb-panel__status[data-status="running"] {
+  color: var(--success-color);
+}
+
+.kb-panel__status[data-status="error"] {
+  color: var(--error-color);
+}
+
+.kb-panel__empty,
+.kb-panel__progress,
+.kb-panel__error {
+  padding: var(--spacing-3);
+  font-size: var(--font-size-base);
+  color: var(--text-secondary);
+}
+
+.kb-panel__error {
+  color: var(--error-color);
+}
+
+.kb-panel__toolbar {
+  display: flex;
+  gap: var(--spacing-2);
+  padding: var(--spacing-1) var(--spacing-2);
+  border-bottom: var(--border-thin) solid var(--border-color);
+}
+
+.kb-panel__spacer {
+  flex: 1;
+}
+
+.kb-panel__btn {
+  padding: var(--spacing-1) var(--spacing-2);
+  border: var(--border-thin) solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  color: var(--text-color);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: background var(--duration-fast);
+}
+
+.kb-panel__btn:hover {
+  background: var(--hover-bg);
+}
+
+.kb-panel__btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 var(--border-medium) var(--accent-bg);
+}
+
+.kb-panel__frame {
+  flex: 1;
+  width: 100%;
+  border: none;
+  background: var(--bg-color);
+}
