@@ -1,0 +1,61 @@
+{
+  "name": "@vmark/content-server",
+  "version": "0.8.11",
+  "description": "VMark content server — serves a workspace as a cross-linked knowledge base and hosts Slidev. Runs in the bundled Node runtime.",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "vmark-content-server": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "smoke": "node scripts/smoke.mjs",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint src"
+  },
+  "author": "VMark",
+  "license": "MIT",
+  "dependencies": {
+    "@hono/node-server": "^1.13.0",
+    "@slidev/cli": "^52.16.0",
+    "chokidar": "^4.0.0",
+    "dompurify": "^3.2.0",
+    "hastscript": "^9.0.0",
+    "hono": "^4.6.0",
+    "jsdom": "^25.0.0",
+    "katex": "^0.16.28",
+    "mdast-util-find-and-replace": "^3.0.1",
+    "playwright-chromium": "^1.61.1",
+    "rehype-katex": "^7.0.1",
+    "rehype-stringify": "^10.0.0",
+    "remark-frontmatter": "^5.0.0",
+    "remark-gfm": "^4.0.0",
+    "remark-math": "^6.0.0",
+    "remark-parse": "^11.0.0",
+    "remark-rehype": "^11.1.0",
+    "unified": "^11.0.5",
+    "unist-util-visit": "^5.0.0",
+    "yaml": "^2.8.4"
+  },
+  "devDependencies": {
+    "@types/jsdom": "^21.1.7",
+    "@types/katex": "^0.16.7",
+    "@types/node": "^22.14.0",
+    "@vitest/coverage-v8": "^4.0.16",
+    "tsup": "^8.3.0",
+    "typescript": "~5.8.3",
+    "vitest": "^4.0.0"
+  },
+  "engines": {
+    "node": ">=20.12"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ]
+}

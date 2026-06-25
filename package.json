@@ -36,7 +36,8 @@
     "knip": "knip",
     "knip:files": "knip --include files,dependencies",
     "test:sidecar": "pnpm --dir vmark-mcp-server test",
-    "check:all": "pnpm lint && pnpm lint:console && pnpm lint:selection-styles && pnpm lint:design-tokens && pnpm lint:emdash && pnpm lint:deps && pnpm lint:i18n && pnpm lint:themes && pnpm lint:file-size && pnpm knip && pnpm test:coverage && pnpm test:sidecar && pnpm build && pnpm lint:eager && pnpm size"
+    "test:content-server": "pnpm --dir vmark-content-server build && pnpm --dir vmark-content-server smoke && pnpm --dir vmark-content-server test:coverage",
+    "check:all": "pnpm lint && pnpm lint:console && pnpm lint:selection-styles && pnpm lint:design-tokens && pnpm lint:emdash && pnpm lint:deps && pnpm lint:i18n && pnpm lint:themes && pnpm lint:file-size && pnpm knip && pnpm test:coverage && pnpm test:sidecar && pnpm test:content-server && pnpm build && pnpm lint:eager && pnpm size"
   },
   "dependencies": {
     "@actions/languageservice": "0.3.55",
