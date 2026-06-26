@@ -34,6 +34,8 @@ export interface ExportDeps {
   nodeExe?: string;
   /** Hard timeout (ms) before the export child is killed. Default 180s. */
   timeoutMs?: number;
+  /** Cancellation: abort kills the export child and rejects (WI-7.3). */
+  signal?: AbortSignal;
 }
 
 function defaultResolveEntry(): string {
@@ -58,32 +60,48 @@ export async function runSlidevExport(
   const args = [entry, ...buildExportArgs(deck, format, output)];
 
   const timeoutMs = deps.timeoutMs ?? 180_000;
+  const signal = deps.signal;
+  // Already-cancelled: never spawn (WI-7.3).
+  if (signal?.aborted) {
+    throw new Error("slidev export cancelled");
+  }
   await new Promise<void>((resolve, reject) => {
     const child = spawn(nodeExe, args, { cwd: path.dirname(deck) });
     let stderr = "";
     let settled = false;
-    // Codex audit: bound the export so a hung child can't run forever.
-    const timer = setTimeout(() => {
+    let onAbort: (() => void) | undefined;
+    const finish = (fn: () => void) => {
       if (settled) return;
       settled = true;
+      clearTimeout(timer);
+      if (onAbort && signal) signal.removeEventListener("abort", onAbort);
+      fn();
+    };
+    // Codex audit: bound the export so a hung child can't run forever.
+    const timer = setTimeout(() => {
       child.kill?.("SIGKILL");
-      reject(new Error(`slidev export timed out after ${timeoutMs}ms`));
+      finish(() => reject(new Error(`slidev export timed out after ${timeoutMs}ms`)));
     }, timeoutMs);
+    // WI-7.3 — cancellation: abort kills the child and rejects.
+    if (signal) {
+      onAbort = () => {
+        child.kill?.("SIGKILL");
+        finish(() => reject(new Error("slidev export cancelled")));
+      };
+      signal.addEventListener("abort", onAbort);
+      // Close the gap between the pre-spawn check and listener registration: if
+      // the signal aborted in that window, the listener missed it — fire now.
+      if (signal.aborted) onAbort();
+    }
     child.stderr?.on("data", (d) => {
       stderr += String(d);
     });
-    child.on("error", (err) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      reject(err);
-    });
+    child.on("error", (err) => finish(() => reject(err)));
     child.on("exit", (code) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      if (code === 0) resolve();
-      else reject(new Error(stderr.trim() || `slidev export exited with code ${code}`));
+      finish(() => {
+        if (code === 0) resolve();
+        else reject(new Error(stderr.trim() || `slidev export exited with code ${code}`));
+      });
     });
   });
   return output;

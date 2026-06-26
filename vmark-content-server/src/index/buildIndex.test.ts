@@ -41,6 +41,43 @@ describe("walkWorkspace — deterministic rules", () => {
     expect(docs.map((d) => d.relPath)).toContain(".secret.md");
   });
 
+  it("honors .gitignore (root patterns, default on) — WI-2.1", async () => {
+    await write(".gitignore", "drafts/\nignored.md\n");
+    await write("keep.md", "k");
+    await write("ignored.md", "x");
+    await write("drafts/wip.md", "w");
+    const rels = (await walkWorkspace(root)).docs.map((d) => d.relPath).sort();
+    expect(rels).toEqual(["keep.md"]);
+  });
+
+  it("honors nested .gitignore scoped to its own subtree", async () => {
+    await write("sub/.gitignore", "local.md\n");
+    await write("sub/local.md", "x"); // ignored by sub/.gitignore
+    await write("local.md", "k"); // NOT ignored (different scope)
+    await write("sub/keep.md", "k");
+    const rels = (await walkWorkspace(root)).docs.map((d) => d.relPath).sort();
+    expect(rels).toEqual(["local.md", "sub/keep.md"]);
+  });
+
+  it("respects a nested .gitignore negation (!) re-including a parent-ignored file", async () => {
+    await write(".gitignore", "*.draft.md\n");
+    await write("sub/.gitignore", "!keep.draft.md\n");
+    await write("a.draft.md", "ignored by root");
+    await write("sub/other.draft.md", "ignored by root pattern");
+    await write("sub/keep.draft.md", "re-included by the nested negation");
+    const rels = (await walkWorkspace(root)).docs.map((d) => d.relPath).sort();
+    expect(rels).toEqual(["sub/keep.draft.md"]);
+  });
+
+  it("can disable .gitignore honoring via respectGitignore:false", async () => {
+    await write(".gitignore", "ignored.md\n");
+    await write("ignored.md", "x");
+    const rels = (await walkWorkspace(root, { respectGitignore: false })).docs.map(
+      (d) => d.relPath
+    );
+    expect(rels).toContain("ignored.md");
+  });
+
   it("reports truncation at maxFiles", async () => {
     await write("a.md", "1");
     await write("b.md", "2");

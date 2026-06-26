@@ -16,6 +16,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "bench": "vitest bench --run",
     "lint": "eslint src"
   },
   "author": "VMark",
@@ -27,6 +28,7 @@
     "dompurify": "^3.2.0",
     "hastscript": "^9.0.0",
     "hono": "^4.6.0",
+    "ignore": "^7.0.5",
     "jsdom": "^25.0.0",
     "katex": "^0.16.28",
     "mdast-util-find-and-replace": "^3.0.1",

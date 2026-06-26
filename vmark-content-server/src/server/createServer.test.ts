@@ -131,6 +131,26 @@ describe("routes (authenticated)", () => {
     expect(res.status).toBe(404);
   });
 
+  it("404s a file that exists on disk but is excluded from the index (Codex audit)", async () => {
+    await write("A.md", "hi");
+    await write(".secret.md", "top secret"); // hidden → excluded by the walker
+    const { app } = await makeServer();
+    const cookie = await authedCookie(app);
+    // Direct /note/ access must not bypass the walk policy.
+    const res = await app.request("/note/.secret.md", { headers: { cookie } });
+    expect(res.status).toBe(404);
+  });
+
+  it("404s a .gitignore'd note even though it exists on disk", async () => {
+    await write(".gitignore", "private.md\n");
+    await write("A.md", "hi");
+    await write("private.md", "secret");
+    const { app } = await makeServer();
+    const cookie = await authedCookie(app);
+    const res = await app.request("/note/private.md", { headers: { cookie } });
+    expect(res.status).toBe(404);
+  });
+
   it("serves the relationship graph", async () => {
     await write("A.md", "[[B]]");
     await write("B.md", "b");
@@ -140,6 +160,37 @@ describe("routes (authenticated)", () => {
     const graph = (await res.json()) as { nodes: unknown[]; edges: unknown[] };
     expect(graph.nodes.length).toBe(2);
     expect(graph.edges.length).toBe(1);
+  });
+
+  it("serves a navigable server-rendered graph page (WI-4.4)", async () => {
+    await write("A.md", "[[B]]");
+    await write("B.md", "b");
+    const { app } = await makeServer();
+    const cookie = await authedCookie(app);
+    const res = await app.request("/graph", { headers: { cookie } });
+    expect(res.status).toBe(200);
+    const html = await res.text();
+    expect(html).toContain("Relationship graph");
+    // A's outgoing wiki edge to B is a navigable link; B shows a backlink.
+    expect(html).toContain('href="/note/B.md"');
+    expect(html).toContain("Backlinks");
+  });
+
+  it("does not render unresolved wiki-link targets as real docs in /graph", async () => {
+    await write("A.md", "[[Missing]]");
+    const { app } = await makeServer();
+    const cookie = await authedCookie(app);
+    const html = await (await app.request("/graph", { headers: { cookie } })).text();
+    // The phantom "Missing" node must not get a navigable /note link or section.
+    expect(html).not.toContain('href="/note/Missing"');
+  });
+
+  it("links the index page to the graph view", async () => {
+    await write("A.md", "hi");
+    const { app } = await makeServer();
+    const cookie = await authedCookie(app);
+    const res = await app.request("/", { headers: { cookie } });
+    expect(await res.text()).toContain('href="/graph"');
   });
 
   it("serves backlinks", async () => {

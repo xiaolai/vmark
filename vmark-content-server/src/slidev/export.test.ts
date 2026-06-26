@@ -57,4 +57,39 @@ describe("runSlidevExport", () => {
       })
     ).rejects.toThrow(/chromium/);
   });
+
+  it("rejects immediately when the signal is already aborted", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const spawn = vi.fn();
+    await expect(
+      runSlidevExport("/d.md", "pdf", "/o.pdf", {
+        spawn: spawn as never,
+        resolveEntry: () => "/slidev.mjs",
+        signal: controller.signal,
+      })
+    ).rejects.toThrow(/cancel/i);
+    expect(spawn).not.toHaveBeenCalled();
+  });
+
+  it("aborts a running export: kills the child and rejects (WI-7.3)", async () => {
+    const kill = vi.fn();
+    const controller = new AbortController();
+    const spawn = vi.fn(() => {
+      const handlers: Record<string, (arg: unknown) => void> = {};
+      return {
+        stderr: { on: () => {} },
+        on: (e: string, cb: (arg: unknown) => void) => { handlers[e] = cb; },
+        kill,
+      } as never;
+    });
+    const p = runSlidevExport("/d.md", "pdf", "/o.pdf", {
+      spawn: spawn as never,
+      resolveEntry: () => "/slidev.mjs",
+      signal: controller.signal,
+    });
+    controller.abort();
+    await expect(p).rejects.toThrow(/cancel/i);
+    expect(kill).toHaveBeenCalled();
+  });
 });

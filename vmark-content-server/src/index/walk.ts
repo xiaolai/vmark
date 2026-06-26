@@ -16,6 +16,7 @@
 
 import { promises as fs } from "node:fs";
 import * as path from "node:path";
+import ignore, { type Ignore } from "ignore";
 import type { DocEntry } from "./types";
 
 /** Always-skipped directory names — mirrors content_search.rs. */
@@ -41,6 +42,52 @@ export interface WalkOptions {
   maxFiles?: number;
   maxFileSize?: number;
   extensions?: Set<string>;
+  /** Honor `.gitignore` files (hierarchical, git semantics). Default true. */
+  respectGitignore?: boolean;
+}
+
+/** One `.gitignore` matcher anchored at the directory that declared it. */
+interface GitignoreScope {
+  base: string;
+  ig: Ignore;
+}
+
+/**
+ * Load a directory's `.gitignore` into a matcher, or null when there are no
+ * rules to apply.
+ *
+ * ENOENT (no `.gitignore`) is the common, expected case. For any other read
+ * error we deliberately FAIL OPEN (no rules) rather than fail closed: this is a
+ * single-user local tool where `.gitignore` honoring is a convenience filter
+ * (hide build artifacts), not a security boundary — hiding the user's own notes
+ * because one `.gitignore` was momentarily unreadable would be the worse
+ * outcome. (Codex audit — documented intentional choice.)
+ */
+async function loadGitignore(dir: string): Promise<Ignore | null> {
+  try {
+    const content = await fs.readFile(path.join(dir, ".gitignore"), "utf8");
+    return ignore().add(content);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Test a path against every applicable `.gitignore` scope (outermost → current
+ * dir), matching with the path relative to each declaring directory. Later
+ * (more deeply nested) scopes override earlier ones, so a child `.gitignore`'s
+ * `!negation` can re-include a file a parent ignored — git semantics.
+ */
+function isGitignored(scopes: GitignoreScope[], absPath: string, isDir: boolean): boolean {
+  let ignored = false;
+  for (const { base, ig } of scopes) {
+    const rel = path.relative(base, absPath).split(path.sep).join("/");
+    if (!rel || rel.startsWith("..")) continue; // not under this scope
+    const result = ig.test(isDir ? `${rel}/` : rel);
+    if (result.ignored) ignored = true;
+    else if (result.unignored) ignored = false; // explicit `!` re-include
+  }
+  return ignored;
 }
 
 export interface WalkResult {
@@ -68,12 +115,19 @@ export async function walkWorkspace(
   const maxFiles = options.maxFiles ?? DEFAULTS.maxFiles;
   const maxFileSize = options.maxFileSize ?? DEFAULTS.maxFileSize;
   const exts = options.extensions ?? MARKDOWN_EXT;
+  const respectGitignore = options.respectGitignore ?? true;
 
   const docs: DocEntry[] = [];
   let truncated = false;
 
-  async function walk(dir: string): Promise<void> {
+  async function walk(dir: string, scopes: GitignoreScope[]): Promise<void> {
     if (truncated) return;
+    // Extend the gitignore scope stack with this directory's .gitignore.
+    let dirScopes = scopes;
+    if (respectGitignore) {
+      const ig = await loadGitignore(dir);
+      if (ig) dirScopes = [...scopes, { base: dir, ig }];
+    }
     let entries: import("node:fs").Dirent[];
     try {
       entries = await fs.readdir(dir, { withFileTypes: true });
@@ -92,10 +146,12 @@ export async function walkWorkspace(
       const full = path.join(dir, name);
       if (entry.isDirectory()) {
         if (exclude.has(name)) continue;
-        await walk(full);
+        if (respectGitignore && isGitignored(dirScopes, full, true)) continue;
+        await walk(full, dirScopes);
         continue;
       }
       if (!entry.isFile()) continue;
+      if (respectGitignore && isGitignored(dirScopes, full, false)) continue;
 
       const ext = path.extname(name).toLowerCase();
       if (!exts.has(ext)) continue;
@@ -120,6 +176,6 @@ export async function walkWorkspace(
     }
   }
 
-  await walk(root);
+  await walk(root, []);
   return { docs, truncated };
 }

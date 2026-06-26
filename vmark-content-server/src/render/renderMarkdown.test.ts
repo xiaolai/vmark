@@ -92,6 +92,46 @@ describe("renderMarkdown — wiki-links", () => {
   });
 });
 
+describe("renderMarkdown — diagrams (client-render placeholders, WI-3.2)", () => {
+  it("emits a <pre class=\"mermaid\"> placeholder preserving the source", async () => {
+    const html = await renderMarkdown("```mermaid\nflowchart TD\n  A-->B\n```");
+    expect(html).toContain('class="mermaid"');
+    expect(html).toContain("flowchart TD"); // diagram source preserved
+    expect(html).not.toContain("language-mermaid"); // NOT a plain code fence
+  });
+
+  it("emits a markmap placeholder", async () => {
+    const html = await renderMarkdown("```markmap\n# Root\n## Child\n```");
+    expect(html).toContain('class="markmap"');
+    expect(html).toContain("# Root");
+  });
+
+  it("leaves ordinary code fences as <pre><code class=\"language-…\">", async () => {
+    const html = await renderMarkdown("```ts\nconst a = 1;\n```");
+    expect(html).toContain("language-ts");
+    expect(html).toContain("const a = 1;");
+  });
+});
+
+// M-3 — fidelity fixtures: one assertion family per markdown element so the
+// served HTML's structure can't silently drift from the editor's semantics.
+describe("renderMarkdown — element-catalog fidelity (M-3)", () => {
+  it.each([
+    ["heading", "## H2", "<h2>"],
+    ["bullet list", "- one\n- two", "<ul>"],
+    ["ordered list", "1. a\n2. b", "<ol>"],
+    ["blockquote", "> quote", "<blockquote>"],
+    ["emphasis", "*em* and **strong**", "<em>"],
+    ["strong", "**strong**", "<strong>"],
+    ["inline code", "`code`", "<code>"],
+    ["thematic break", "a\n\n---\n\nb", "<hr>"],
+    ["link", "[x](https://e.com)", 'href="https://e.com"'],
+    ["strikethrough", "~~gone~~", "<del>"],
+  ])("renders %s", async (_label, md, expected) => {
+    expect(await renderMarkdown(md)).toContain(expected);
+  });
+});
+
 describe("renderMarkdown — math (server-side KaTeX)", () => {
   it("renders inline and block math via KaTeX", async () => {
     const html = await renderMarkdown("Inline $x^2$ and\n\n$$\\frac{1}{2}$$");

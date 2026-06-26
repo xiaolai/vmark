@@ -4,10 +4,11 @@
  * Purpose: Render a workspace markdown file to HTML in pure Node, reusing
  * VMark's alias-free remark plugins (via the `@vmark/markdown-plugins`
  * boundary) so the served knowledge base matches the editor's semantics. Math
- * renders server-side (KaTeX); Mermaid/Markmap are emitted as client-rendered
- * placeholders (the served page ships their browser bundles, mirroring the
- * editor). Output is sanitized with DOMPurify over a jsdom window — the Node
- * DOM the review (D3.3) flagged as required.
+ * renders server-side (KaTeX); Mermaid/Markmap fences are emitted as
+ * `<pre class="mermaid|markmap">` client-render placeholders (the served page's
+ * progressive-enhancement hook runs them when a browser bundle is present).
+ * Output is sanitized with DOMPurify over a jsdom window — the Node DOM the
+ * review (D3.3) flagged as required.
  *
  * Pipeline: remark-parse → gfm → math → frontmatter → {wikiLinks, customInline,
  *   detailsBlock, resolveReferences, alerts} → remark-rehype (custom handlers)
@@ -95,6 +96,22 @@ function buildHandlers(resolve: (t: string) => WikiResolution): Handlers {
         all(state, node)
       );
     },
+    // Mermaid/Markmap fences → client-render placeholders. Emitting the source
+    // inside `<pre class="mermaid|markmap">` is exactly the structure those
+    // browser bundles auto-detect (the served page's progressive-enhancement
+    // hook runs them when the bundle is present). Other langs keep the default
+    // `<pre><code class="language-…">` shape (WI-3.2 / H-5).
+    code(_state: unknown, node: unknown) {
+      const n = node as { lang?: string | null; value: string };
+      const lang = (n.lang ?? "").toLowerCase();
+      if (lang === "mermaid" || lang === "markmap") {
+        return h("pre", { className: [lang], "data-diagram": lang }, [
+          { type: "text", value: n.value },
+        ]);
+      }
+      const codeClass = lang ? [`language-${lang}`] : [];
+      return h("pre", [h("code", { className: codeClass }, [{ type: "text", value: n.value }])]);
+    },
     // (grill L5) no `toc` handler — remarkTocBlock isn't applied in this
     // pipeline, so a `toc` MDAST node is never produced.
   } as Handlers;
@@ -117,7 +134,7 @@ export function sanitizeHtml(html: string): string {
     // and widens the mXSS surface. Mermaid/Markmap render client-side from a
     // trusted bundle, not through this note sanitizer.
     USE_PROFILES: { html: true, mathMl: true },
-    ADD_ATTR: ["data-target", "data-kind", "data-toc", "open"],
+    ADD_ATTR: ["data-target", "data-kind", "data-toc", "data-diagram", "open"],
     // KaTeX relies on inline styles; DOMPurify still scrubs dangerous values.
     FORBID_TAGS: ["script", "style", "iframe", "object", "embed"],
     FORBID_ATTR: ["onerror", "onload", "onclick", "onmouseover"],

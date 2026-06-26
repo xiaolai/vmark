@@ -40,10 +40,30 @@ export const KB_JS = `
     document.addEventListener("DOMContentLoaded", function () {
       var links = document.querySelectorAll('a[href^="/"]');
       for (var i = 0; i < links.length; i++) {
-        var href = links[i].getAttribute("href");
-        if (href.indexOf("?") === -1) links[i].setAttribute("href", href + suffix);
+        var raw = links[i].getAttribute("href");
+        // Skip protocol-relative ("//host") and any cross-origin link — only
+        // rewrite genuine same-origin paths (new URL would otherwise drop the
+        // external host and corrupt the link).
+        if (raw.charAt(1) === "/") continue;
+        try {
+          var u = new URL(raw, location.origin);
+          if (u.origin !== location.origin) continue;
+          // Set ?s before any #fragment and preserve existing query params.
+          u.searchParams.set("s", s);
+          links[i].setAttribute("href", u.pathname + u.search + u.hash);
+        } catch (e) { /* leave malformed hrefs untouched */ }
       }
     });
   }
+  // Progressive enhancement: render diagram placeholders if a Mermaid/Markmap
+  // bundle has been loaded on the page. The renderer emits the source inside
+  // <pre class="mermaid|markmap">; when the bundle is absent the source stays
+  // visible as text rather than breaking the page (WI-3.2 / H-5).
+  document.addEventListener("DOMContentLoaded", function () {
+    if (window.mermaid && typeof window.mermaid.run === "function") {
+      // run() is async — guard the returned promise, not just sync throws.
+      try { Promise.resolve(window.mermaid.run({ querySelector: "pre.mermaid" })).catch(function () {}); } catch (e) {}
+    }
+  });
 })();
 `.trim();

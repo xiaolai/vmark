@@ -58,7 +58,9 @@ export function watchWorkspace(
   let fatal = false;
 
   const schedule = (changedPath: string) => {
-    if (closed || !MARKDOWN_RE.test(changedPath)) return;
+    // Rebuild on markdown changes AND on `.gitignore` changes — a new/edited
+    // ignore file changes which notes are served (WI-2.1; Codex audit).
+    if (closed || !(MARKDOWN_RE.test(changedPath) || changedPath.endsWith(".gitignore"))) return;
     lastChanged = changedPath;
     if (timer) clearTimeout(timer);
     timer = setTimeout(run, debounceMs);

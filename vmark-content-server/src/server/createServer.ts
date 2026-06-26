@@ -109,6 +109,15 @@ function escapeHtml(s: string): string {
     .replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]!));
 }
 
+/**
+ * Build a `/note/<relPath>` URL with each path segment percent-encoded.
+ * `encodeURI` leaves `?` and `#` intact, which would corrupt links to notes
+ * whose filenames contain those characters (Codex audit).
+ */
+function noteHref(relPath: string): string {
+  return "/note/" + relPath.split("/").map(encodeURIComponent).join("/");
+}
+
 export function createContentServer(options: ContentServerOptions): ContentServer {
   const { root, bootstrapToken, getIndex } = options;
   const log = options.logger ?? noopLogger;
@@ -175,6 +184,9 @@ export function createContentServer(options: ContentServerOptions): ContentServe
     } catch {
       return c.json({ error: "invalid body" }, 400);
     }
+    if (!body || typeof body !== "object") {
+      return c.json({ error: "invalid body" }, 400);
+    }
     // Codex audit: contain the deck under the workspace root before export.
     const deck = await containedDeck(root, body.deck);
     if (!deck) return c.json({ error: "deck not in workspace" }, 400);
@@ -190,7 +202,12 @@ export function createContentServer(options: ContentServerOptions): ContentServe
       return c.json({ error: "output path must match the export format" }, 400);
     }
     try {
-      const out = await runSlidevExport(deck, body.format, body.output, options.exportDeps);
+      // Wire the request's abort signal so a disconnected caller cancels the
+      // export child instead of leaving it running until the timeout (WI-7.3).
+      const out = await runSlidevExport(deck, body.format, body.output, {
+        ...options.exportDeps,
+        signal: options.exportDeps?.signal ?? c.req.raw.signal,
+      });
       return c.json({ ok: true, output: out });
     } catch (e) {
       log.error("slidev export failed", { deck, err: String(e) });
@@ -237,11 +254,15 @@ export function createContentServer(options: ContentServerOptions): ContentServe
     const items = idx.docs
       .map((d) => {
         const title = idx.refs.get(d.relPath)?.title ?? d.basename;
-        return `<li><a href="/note/${encodeURI(d.relPath)}">${escapeHtml(title)}</a></li>`;
+        return `<li><a href="${noteHref(d.relPath)}">${escapeHtml(title)}</a></li>`;
       })
       .join("");
     return c.html(
-      htmlShell("Workspace", `<h1>Workspace</h1><ul class="kb-index">${items}</ul>`, auth.sessionToken)
+      htmlShell(
+        "Workspace",
+        `<h1>Workspace</h1><p><a href="/graph">Relationship graph →</a></p><ul class="kb-index">${items}</ul>`,
+        auth.sessionToken
+      )
     );
   });
 
@@ -255,7 +276,14 @@ export function createContentServer(options: ContentServerOptions): ContentServe
     // Codex audit: key by the requested path relative to `root` (matches the
     // index/resolver keys), not the canonical `real` — they differ when the
     // workspace root is reached through a symlink.
-    const fromRel = path.relative(root, abs).split(path.sep).join("/");
+    // NFC-normalize to match the walker's index keys (macOS volumes store NFD
+    // filenames; a non-NFC URL would otherwise miss the index gate below).
+    const fromRel = path.relative(root, abs).split(path.sep).join("/").normalize("NFC");
+    // Only serve docs the walker admitted (markdown, non-hidden, not
+    // .gitignore'd). Without this, path-containment alone would still expose
+    // hidden/ignored/non-markdown files via a direct /note/ URL, defeating the
+    // walk policy (Codex audit; pairs with WI-2.1 .gitignore honoring).
+    if (!getIndex().refs.has(fromRel)) return c.json({ error: "not found" }, 404);
     let content: string;
     let mtimeMs: number;
     try {
@@ -278,7 +306,7 @@ export function createContentServer(options: ContentServerOptions): ContentServe
       resolveWikiLink: (target) => {
         const res = idx.resolver.resolve(target, fromRel);
         return res.relPath
-          ? { href: `/note/${encodeURI(res.relPath)}`, exists: true }
+          ? { href: noteHref(res.relPath), exists: true }
           : { href: `#${encodeURIComponent(target)}`, exists: false };
       },
     });
@@ -293,6 +321,44 @@ export function createContentServer(options: ContentServerOptions): ContentServe
   });
 
   app.get("/api/graph", (c) => c.json(getIndex().graph));
+
+  // Server-rendered relationship graph (WI-4.4 / M-4). A navigable, no-JS view
+  // of every doc's outgoing edges + backlinks, built from the index. The
+  // in-app panel renders the same data as an interactive force layout; this is
+  // the browser-served, accessible counterpart.
+  app.get("/graph", (c) => {
+    const idx = getIndex();
+    const g = idx.graph;
+    // A real, navigable doc is one the walker actually indexed — NOT a phantom
+    // node synthesized from an unresolved [[Missing]] wiki-link.
+    const isRealDoc = (id: string): boolean => idx.refs.has(id);
+    const target = (id: string): string =>
+      isRealDoc(id)
+        ? `<a href="${noteHref(id)}">${escapeHtml(id)}</a>`
+        : `<span class="kb-graph-ref">${escapeHtml(id)}</span>`;
+    const sections = g.nodes
+      .filter((n) => n.type === "doc" && isRealDoc(n.id))
+      .map((n) => {
+        const out = g.edges.filter((e) => e.from === n.id);
+        const back = g.edges.filter((e) => e.to === n.id);
+        const title = idx.refs.get(n.id)?.title ?? n.label;
+        const outItems = out
+          .map((e) => `<li class="kb-edge kb-edge--${escapeHtml(e.kind)}">${escapeHtml(e.kind)} → ${target(e.to)}</li>`)
+          .join("");
+        const backItems = back
+          .map((e) => `<li>← ${target(e.from)}</li>`)
+          .join("");
+        return (
+          `<section class="kb-graph-node">` +
+          `<h2><a href="${noteHref(n.id)}">${escapeHtml(title)}</a></h2>` +
+          (outItems ? `<ul class="kb-graph-out">${outItems}</ul>` : "<p class=\"kb-graph-empty\">No outgoing links.</p>") +
+          (backItems ? `<details><summary>Backlinks (${back.length})</summary><ul>${backItems}</ul></details>` : "") +
+          `</section>`
+        );
+      })
+      .join("");
+    return c.html(htmlShell("Graph", `<h1>Relationship graph</h1>${sections}`, auth.sessionToken));
+  });
 
   app.get("/api/backlinks/*", (c) => {
     let rel: string;

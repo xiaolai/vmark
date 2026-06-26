@@ -19,7 +19,7 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       include: ["src/**/*.ts"],
-      exclude: ["src/**/*.test.ts", "src/cli.ts", "src/index.ts"],
+      exclude: ["src/**/*.test.ts", "src/**/*.bench.ts", "src/cli.ts", "src/index.ts"],
       // Ratcheted gate (grill H3). Seeded just below measured coverage; raise
       // as M13 adds direct tests for watch/extract/resolve/search.
       thresholds: {
