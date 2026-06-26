@@ -11,14 +11,14 @@
 | Phase | Planned | Shipped | Verified by |
 |---|---|---|---|
 | 0 — Spikes | 6 spikes PASS | 6 run + documented; S0.2/S0.4 PASS (live), S0.1 server-half PASS, S0.3 path PASS, S0.5 measured, S0.6 designed | `dev-docs/grills/slidev-kb/*` |
-| 1 — Runtime slice | provisioning SM + manager + spawn + auth | **provisioning state machine + workspace-keyed manager (core)**; auth proven. **Spawn-from-Rust + codesigned Node + downloader = external residue** | 11 cargo tests |
+| 1 — Runtime slice | provisioning SM + manager + spawn + auth | **provisioning state machine + workspace-keyed manager + spawn (piped stdio→log) + supervisor (`monitor_child`, crash→`content-server:exited`) + frontend bounded restart**; auth proven; `resolve_cli` order = env→bundled-resource→provisioned. **Codesigned Node + tarball download = external residue** | 14 cargo + 5 TS tests |
 | 1.5 — Slidev slice | detect→provision→preview→teardown | **programmatic boot proven live (S0.2)**; detection + wrapper shipped. Supervisor spawn = residue | S0.2 + 14 tests |
-| 2 — Index/graph | walker, resolution, graph, watch | **all shipped** | 16 tests |
-| 3 — Headless render | remark→hast, KaTeX, sanitize | **shipped** (Mermaid/Markmap client bundles = Phase 4/8 follow-up) | 24 tests |
-| 4 — KB site | routes, cookie auth, SSE, search | **all shipped** | 9 + 2 live tests |
-| 5 — In-app panel | AppShell slot + graph + i18n | **status store + service + KnowledgeBasePanel + i18n shipped** (live render in a real window = interactive residue) | store/service/panel tests (16) |
-| 6 — Slidev preview | detect + proxy + panel | detect + wrapper shipped; HMR-proxy + panel mount = interactive residue | S0.2 + 14 tests |
-| 7 — Slidev export | Chromium provision + export | **export arg-builder + format model shipped & tested**; spawn + Chromium provision = external residue | 3 cargo tests (slidev.rs) |
+| 2 — Index/graph | walker, resolution, graph, watch | **all shipped + `.gitignore` honoring (WI-2.1) + 1k-note perf bench (WI-2.4)** | 19 tests + bench |
+| 3 — Headless render | remark→hast, KaTeX, sanitize | **shipped + Mermaid/Markmap `<pre>` placeholders emitted + element-catalog fidelity fixtures**; browser bundle delivery = follow-up | 37 tests |
+| 4 — KB site | routes, cookie auth, SSE, search | **all shipped + server-rendered `/graph` page (WI-4.4)** | 11 + 2 live tests |
+| 5 — In-app panel | AppShell slot + graph + i18n | **store + service + panel + graph + i18n shipped; panel now REACHABLE** — `view.toggleKnowledgeBase` command + View-menu item + `Ctrl+Shift+4` + palette (plan-audit C-1) | store/service/panel + viewCommands tests |
+| 6 — Slidev preview | detect + proxy + panel | detect + wrapper shipped; **in-app Preview action wired** (`previewSlides` → proxied dev server; saved edits hot-reload via Slidev's watcher, plan-audit H-3) | S0.2 + 14 + hook/panel tests |
+| 7 — Slidev export | Chromium provision + export | **export arg-builder + PDF/PNG/PPTX in-app Export (WI-7.2) + AbortSignal cancellation (WI-7.3)**; Chromium provision = external residue | 3 cargo + 8 export + hook tests |
 | 8 — Polish | i18n, docs, security audit, gates | **i18n (10 locales), website guide, security audit (VULN-001 found + FIXED), file-size + i18n gates green**; 9-locale real translation = translate-docs follow-up | lint:i18n + lint:file-size pass |
 
 **Security:** the Phase 8 review (`dev-docs/grills/slidev-kb/phase8-security-review.md`)

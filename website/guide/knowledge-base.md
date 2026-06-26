@@ -11,6 +11,12 @@ bundled Node runtime. Slidev export additionally provisions a headless Chromium
 on first use. See the in-app **Knowledge Base** panel.
 :::
 
+## Opening the panel
+
+Open the **Knowledge Base** panel from **View → Knowledge Base**, the command
+palette ("Toggle Knowledge Base"), or the `Ctrl + Shift + 4` shortcut. The panel
+docks on the right; toggle it again to hide it.
+
 ## Knowledge base
 
 Open a workspace and start the **Knowledge Base** panel. VMark launches a local
@@ -41,6 +47,10 @@ When you open a markdown file whose frontmatter marks it as a Slidev deck (e.g.
 `theme:`, `layout:` + slides, or an explicit `format: slidev`), VMark can run
 the real Slidev toolchain to preview it live — the same renderer Slidev uses, so
 layouts, click animations, and components are fully faithful.
+
+With the deck open and the Knowledge Base panel running, use **Preview slides**
+to open the live deck in your browser and **Export slides** to render it. Slidev
+watches the deck on disk, so saving edits in VMark hot-reloads the open preview.
 
 ### Export
 

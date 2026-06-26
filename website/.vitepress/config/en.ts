@@ -48,6 +48,7 @@ export const en = {
             { text: "Media (Video/Audio)", link: "/guide/media-support" },
             { text: "Cloud-hosted Images", link: "/guide/cloud-images" },
             { text: "Integrated Terminal", link: "/guide/terminal" },
+            { text: "Knowledge Base & Slidev", link: "/guide/knowledge-base" },
             { text: "Workspace Management", link: "/guide/workspace-management" },
             { text: "CJK Formatting", link: "/guide/cjk-formatting" },
             { text: "AI Genies", link: "/guide/ai-genies" },
