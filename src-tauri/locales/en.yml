@@ -175,6 +175,7 @@ menu:
   view.outline: "Toggle Outline"
   view.fileExplorer: "Toggle File Explorer"
   view.history: "Toggle History"
+  view.knowledgeBase: "Toggle Knowledge Base"
   view.terminal: "Toggle Terminal"
   view.checkMarkdown: "Check Markdown"
   view.lintNext: "Next Issue"

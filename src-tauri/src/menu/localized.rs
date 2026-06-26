@@ -1,7 +1,6 @@
 //! Localized menu builder (unified).
 //!
-//! Purpose: Creates the application menu with localized labels and optional custom
-//! keyboard shortcuts. Replaces both `default_menu.rs` and `custom_menu.rs` with
+//! Purpose: Creates the application menu with localized labels and optional custom keyboard shortcuts. Replaces both `default_menu.rs` and `custom_menu.rs` with
 //! a single code path. The Pandoc submenu branches on Pandoc availability:
 //! 6 format items when installed, 1 install-CTA item otherwise. A `#[cfg(test)]`
 //! module guards the Pandoc menu-ID contract and locale-key coverage.
@@ -564,6 +563,7 @@ pub fn create_localized_menu(
             &MenuItem::with_id(app, "outline", &t!("menu.view.outline").to_string(), true, accel("outline", "Ctrl+Shift+1"))?,
             &MenuItem::with_id(app, "file-explorer", &t!("menu.view.fileExplorer").to_string(), true, accel("file-explorer", "Ctrl+Shift+2"))?,
             &MenuItem::with_id(app, "view-history", &t!("menu.view.history").to_string(), true, accel("view-history", "Ctrl+Shift+3"))?,
+            &MenuItem::with_id(app, "knowledge-base", &t!("menu.view.knowledgeBase").to_string(), true, accel("knowledge-base", "Ctrl+Shift+4"))?,
             &MenuItem::with_id(app, "toggle-terminal", &t!("menu.view.terminal").to_string(), true, accel("toggle-terminal", "Ctrl+`"))?,
             &PredefinedMenuItem::separator(app)?,
             &MenuItem::with_id(app, "check-markdown", &t!("menu.view.checkMarkdown").to_string(), true, accel("check-markdown", "Alt+CmdOrCtrl+V"))?,

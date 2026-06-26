@@ -175,6 +175,7 @@ menu:
   view.outline: "개요 전환"
   view.fileExplorer: "파일 탐색기 전환"
   view.history: "기록 전환"
+  view.knowledgeBase: "지식 베이스 전환"
   view.terminal: "터미널 전환"
   view.checkMarkdown: "Markdown 검사"
   view.lintNext: "다음 문제"

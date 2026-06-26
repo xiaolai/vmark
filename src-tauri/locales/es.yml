@@ -175,6 +175,7 @@ menu:
   view.outline: "Mostrar/ocultar esquema"
   view.fileExplorer: "Mostrar/ocultar explorador de archivos"
   view.history: "Mostrar/ocultar historial"
+  view.knowledgeBase: "Mostrar/ocultar base de conocimiento"
   view.terminal: "Mostrar/ocultar terminal"
   view.checkMarkdown: "Comprobar Markdown"
   view.lintNext: "Problema siguiente"

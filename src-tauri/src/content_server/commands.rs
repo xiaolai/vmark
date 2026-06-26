@@ -5,7 +5,6 @@
 //! child on stop. The Node runtime + bundle are resolved from the provisioned
 //! app-data dir, with a `VMARK_CONTENT_SERVER_CLI` env override for dev.
 
-use crate::ai_provider::{build_command, login_shell_path, which_command};
 use crate::app_paths::app_data_dir;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -13,6 +12,7 @@ use std::path::PathBuf;
 use std::time::Duration;
 use tauri::{AppHandle, State};
 
+use super::spawn::{monitor_child, resolve_cli, resolve_node, spawn_server};
 use super::ContentServerManager;
 
 #[derive(Serialize)]
@@ -24,7 +24,6 @@ pub struct ServerHandle {
 #[derive(Deserialize)]
 struct PortFile {
     port: u16,
-    #[allow(dead_code)]
     token: String,
 }
 
@@ -32,42 +31,6 @@ struct PortFile {
 fn workspace_key(root: &str) -> String {
     let digest = Sha256::digest(root.as_bytes());
     digest.iter().take(8).map(|b| format!("{b:02x}")).collect()
-}
-
-/// Resolve the `node` executable absolute path via the login-shell PATH.
-fn resolve_node() -> Result<String, String> {
-    let out = which_command()
-        .arg("node")
-        .env("PATH", login_shell_path())
-        .output()
-        .map_err(|e| format!("failed to locate node: {e}"))?;
-    if !out.status.success() {
-        return Err("node not found on PATH".into());
-    }
-    let path = String::from_utf8_lossy(&out.stdout)
-        .lines()
-        .next()
-        .unwrap_or("")
-        .trim()
-        .to_string();
-    if path.is_empty() {
-        return Err("node not found on PATH".into());
-    }
-    Ok(path)
-}
-
-/// Resolve the content-server `cli.js`: dev override, else provisioned bundle.
-fn resolve_cli(app: &AppHandle) -> Result<PathBuf, String> {
-    if let Ok(dev) = std::env::var("VMARK_CONTENT_SERVER_CLI") {
-        return Ok(PathBuf::from(dev));
-    }
-    let dir = app_data_dir(app)?;
-    let cli = dir.join("content-server").join("base-kb").join("dist").join("cli.js");
-    if cli.exists() {
-        Ok(cli)
-    } else {
-        Err("content-server runtime not provisioned".into())
-    }
 }
 
 fn port_file_path(app: &AppHandle, root: &str) -> Result<PathBuf, String> {
@@ -107,9 +70,7 @@ pub async fn content_server_start(
         "--port-file",
         pf_str.as_str(),
     ];
-    let mut child = build_command(&node, &args)
-        .env("PATH", login_shell_path())
-        .spawn()
+    let mut child = spawn_server(&node, &args, &workspace_root)
         .map_err(|e| format!("failed to spawn content server: {e}"))?;
 
     // Poll the port-file (written after the server binds) up to ~10s.
@@ -117,8 +78,13 @@ pub async fn content_server_start(
     for _ in 0..100 {
         if let Ok(bytes) = std::fs::read(&port_file) {
             if let Ok(pf) = serde_json::from_slice::<PortFile>(&bytes) {
-                port = Some(pf.port);
-                break;
+                // Only trust a port file written by THIS child (matching token).
+                // A stale file from a prior run could otherwise point us at the
+                // wrong loopback port — and leak the bearer token to it.
+                if pf.token == token {
+                    port = Some(pf.port);
+                    break;
+                }
             }
         }
         // If the child already exited, reap it + clean up before surfacing.
@@ -133,6 +99,15 @@ pub async fn content_server_start(
     let Some(port) = port else {
         let _ = child.kill();
         let _ = child.wait();
+        // A concurrent start for the same workspace may have won the race — its
+        // child wrote the port-file with a different token, which our token
+        // check skipped. Return that running server instead of a spurious error.
+        if let Some(existing) = mgr.get(&workspace_root) {
+            return Ok(ServerHandle {
+                url: format!("http://127.0.0.1:{}", existing.port),
+                port: existing.port,
+            });
+        }
         let _ = std::fs::remove_file(&port_file);
         return Err("content server did not report a port in time".into());
     };
@@ -148,6 +123,13 @@ pub async fn content_server_start(
             port: existing.port,
         });
     }
+
+    // Supervise the freshly-registered child: detect an unexpected exit, log it,
+    // and emit `content-server:exited` for the frontend's restart policy.
+    if let Some(generation) = mgr.get(&workspace_root).map(|s| s.generation) {
+        monitor_child(app.clone(), workspace_root.clone(), generation);
+    }
+
     Ok(ServerHandle {
         url: format!("http://127.0.0.1:{port}"),
         port,
@@ -267,14 +249,15 @@ pub async fn content_server_graph(
         .ok_or_else(|| "no session token".to_string())?
         .to_string();
 
-    client
+    let resp = client
         .get(format!("{base}/api/graph?s={session}"))
         .send()
         .await
-        .map_err(|e| format!("graph fetch failed: {e}"))?
-        .text()
-        .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| format!("graph fetch failed: {e}"))?;
+    if !resp.status().is_success() {
+        return Err(format!("graph fetch rejected: {}", resp.status()));
+    }
+    resp.text().await.map_err(|e| e.to_string())
 }
 
 #[cfg(test)]

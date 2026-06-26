@@ -28,6 +28,10 @@ impl SlidevExportFormat {
     }
 }
 
+// Rust-side export-arg model/builder — a unit-tested reference for the CLI
+// shape. The live export runs through the Node content server, so these have
+// no production caller yet (the format model `SlidevExportFormat` does).
+#[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ExportRequest {
     pub deck_path: String,
@@ -43,6 +47,7 @@ pub struct ExportRequest {
 
 /// Build the `slidev export …` argument vector (excluding the `slidev` binary
 /// itself). Verified shape against the S0.3 CLI surface.
+#[allow(dead_code)] // reference builder; live export goes through the Node server.
 pub fn build_export_args(req: &ExportRequest) -> Vec<String> {
     let mut args = vec![
         "export".to_string(),

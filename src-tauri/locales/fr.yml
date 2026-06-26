@@ -175,6 +175,7 @@ menu:
   view.outline: "Afficher/masquer le plan"
   view.fileExplorer: "Afficher/masquer l'explorateur de fichiers"
   view.history: "Afficher/masquer l'historique"
+  view.knowledgeBase: "Afficher/masquer la base de connaissances"
   view.terminal: "Afficher/masquer le terminal"
   view.checkMarkdown: "Vérifier Markdown"
   view.lintNext: "Problème suivant"

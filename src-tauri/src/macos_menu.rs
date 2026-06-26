@@ -87,9 +87,7 @@ pub fn fix_window_menu() {
     log::debug!("[macos_menu] Window menu registered");
 }
 
-// ============================================================================
-// SF Symbol Menu Icons
-// ============================================================================
+// ─── SF Symbol Menu Icons ───
 
 /// Maps menu item **IDs** to SF Symbol names.
 /// Only leaf items (not submenus) are matched.
@@ -254,6 +252,7 @@ const MENU_ICONS: &[(&str, &str)] = &[
     ("outline", "list.bullet.indent"),
     ("file-explorer", "folder"),
     ("view-history", "clock.arrow.circlepath"),
+    ("knowledge-base", "books.vertical"),
     ("toggle-terminal", "terminal"),
     // ── Window menu ──
     ("bring-all-to-front", "macwindow.on.rectangle"),

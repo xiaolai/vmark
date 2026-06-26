@@ -68,7 +68,9 @@ pub async fn content_server_slidev_export(
     let server = mgr
         .get(&workspace_root)
         .ok_or_else(|| "content server not running".to_string())?;
-    let token = mgr.token(&workspace_root).unwrap_or_default();
+    let token = mgr
+        .token(&workspace_root)
+        .ok_or_else(|| "missing bootstrap token".to_string())?;
     let base = format!("http://127.0.0.1:{}", server.port);
     let client = Client::new();
     let resp = client

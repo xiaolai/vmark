@@ -175,6 +175,7 @@ menu:
   view.outline: "アウトラインの表示切替"
   view.fileExplorer: "ファイルエクスプローラーの表示切替"
   view.history: "履歴の表示切替"
+  view.knowledgeBase: "ナレッジベースの表示切替"
   view.terminal: "ターミナルの表示切替"
   view.checkMarkdown: "Markdown をチェック"
   view.lintNext: "次の問題"

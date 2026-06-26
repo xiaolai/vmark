@@ -175,6 +175,7 @@ menu:
   view.outline: "切換大綱"
   view.fileExplorer: "切換檔案總管"
   view.history: "切換歷史紀錄"
+  view.knowledgeBase: "切換知識庫"
   view.terminal: "切換終端機"
   view.checkMarkdown: "檢查 Markdown"
   view.lintNext: "下一個問題"

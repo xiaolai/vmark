@@ -175,6 +175,7 @@ menu:
   view.outline: "Mostra/Nascondi struttura"
   view.fileExplorer: "Mostra/Nascondi file explorer"
   view.history: "Mostra/Nascondi cronologia"
+  view.knowledgeBase: "Mostra/Nascondi knowledge base"
   view.terminal: "Mostra/Nascondi terminale"
   view.checkMarkdown: "Controlla Markdown"
   view.lintNext: "Problema successivo"

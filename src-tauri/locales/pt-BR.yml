@@ -175,6 +175,7 @@ menu:
   view.outline: "Alternar estrutura"
   view.fileExplorer: "Alternar explorador de arquivos"
   view.history: "Alternar histórico"
+  view.knowledgeBase: "Alternar base de conhecimento"
   view.terminal: "Alternar terminal"
   view.checkMarkdown: "Verificar Markdown"
   view.lintNext: "Próximo problema"
