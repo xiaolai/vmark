@@ -29,6 +29,21 @@ Switch to raw Markdown editing with full syntax highlighting:
 
 Toggle between modes with `F6`.
 
+### Split View (Source + Preview)
+
+Edit the raw Markdown source on the left while a **live, read-only WYSIWYG
+preview** updates on the right — the preview *is* the WYSIWYG renderer, so it
+never drifts from what you'd see in Rich Text Mode. Formatting commands and the
+toolbar act on the source pane; drag (or use the arrow keys on) the divider to
+resize.
+
+- Toggle per session with `Shift + F6`, **View → Markdown Split View**, or the
+  command palette ("Toggle Markdown Split View")
+- Make it the default for Markdown files in **Settings → Markdown → Layout →
+  Split source/preview by default**
+
+WYSIWYG remains the default; the split is opt-in.
+
 ### Large Files
 
 VMark auto-opens files over 1 MB in Source mode for a sub-second open, warns before touching files above 5 MB, and refuses files over 50 MB. See the [Large Files](./large-files.md) guide for thresholds and settings.

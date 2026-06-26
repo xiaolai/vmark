@@ -110,6 +110,7 @@ Paste behavior, layout, and HTML rendering settings.
 
 | Setting | Description | Default | Options |
 |---------|-------------|---------|---------|
+| Split source/preview by default | Open Markdown files in the side-by-side source + live preview split (otherwise WYSIWYG). Toggle per session with `Shift + F6` or **View → Markdown Split View** | Off | On / Off |
 | Block element font size | Relative font size for lists, blockquotes, tables, alerts, and details blocks | 100% | 100%, 95%, 90%, 85% |
 | Heading alignment | Text alignment for headings | Left | Left, Center |
 | Image & diagram borders | Whether to show a border around images, Mermaid diagrams, and math blocks | None | None, Always, On hover |
