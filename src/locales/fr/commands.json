@@ -42,6 +42,7 @@
     "toggleOutline": "Afficher/masquer le plan",
     "toggleFileExplorer": "Afficher/masquer l'explorateur de fichiers",
     "toggleHistory": "Afficher/masquer l'historique",
+    "toggleKnowledgeBase": "Afficher/masquer la base de connaissances",
     "toggleWordWrap": "Activer/désactiver le retour à la ligne",
     "toggleLineNumbers": "Afficher/masquer les numéros de ligne",
     "toggleDiagramPreview": "Afficher/masquer l'aperçu du diagramme",

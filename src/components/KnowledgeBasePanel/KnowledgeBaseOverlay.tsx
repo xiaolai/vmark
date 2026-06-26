@@ -15,11 +15,17 @@ import "./knowledge-base-overlay.css";
 
 export function KnowledgeBaseOverlay() {
   const open = useContentServerStore(selectPanelOpen);
-  const { start, stop, openInBrowser } = useContentServer();
+  const { start, stop, openInBrowser, previewSlides, exportSlides } = useContentServer();
   if (!open) return null;
   return (
     <div className="kb-overlay" data-testid="kb-overlay">
-      <KnowledgeBasePanel onStart={start} onStop={stop} onOpenInBrowser={openInBrowser} />
+      <KnowledgeBasePanel
+        onStart={start}
+        onStop={stop}
+        onOpenInBrowser={openInBrowser}
+        onPreviewSlides={previewSlides}
+        onExportSlides={exportSlides}
+      />
     </div>
   );
 }

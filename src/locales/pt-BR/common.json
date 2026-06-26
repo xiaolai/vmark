@@ -94,10 +94,13 @@
   "contentServer.empty": "Start the local server to browse this workspace as a cross-linked knowledge base.",
   "contentServer.slidev.title": "Slidev preview",
   "contentServer.slidev.export": "Export slides",
+  "contentServer.slidev.preview": "Visualizar slides",
+  "contentServer.slidev.noDeck": "Abra primeiro um deck do Slidev.",
   "contentServer.slidev.exporting": "Exporting…",
   "contentServer.view.site": "Site",
   "contentServer.view.graph": "Graph",
   "contentServer.graph.noWorkspace": "Open a workspace to see its graph.",
   "contentServer.graph.error": "Couldn't load the graph.",
-  "contentServer.error.noWorkspace": "Open a workspace first."
+  "contentServer.error.noWorkspace": "Open a workspace first.",
+  "contentServer.error.crashed": "O servidor da base de conhecimento parou inesperadamente."
 }

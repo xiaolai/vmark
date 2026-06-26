@@ -516,6 +516,7 @@
   "shortcuts.label.toggleOutline": "Afficher/masquer le plan",
   "shortcuts.label.fileExplorer": "Afficher/masquer l'explorateur de fichiers",
   "shortcuts.label.viewHistory": "Afficher/masquer l'historique",
+  "shortcuts.label.knowledgeBase": "Afficher/masquer la base de connaissances",
   "shortcuts.label.sourceMode": "Mode source",
   "shortcuts.label.toggleStatusBar": "Afficher/masquer la barre d'état",
   "shortcuts.label.focusMode": "Mode focus",

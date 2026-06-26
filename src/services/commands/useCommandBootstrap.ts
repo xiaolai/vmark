@@ -63,6 +63,7 @@ const VIEW_BINDINGS: MenuCommandBinding[] = [
   { menuEvent: "menu:outline", commandId: "view.toggleOutline" },
   { menuEvent: "menu:file-explorer", commandId: "view.toggleFileExplorer" },
   { menuEvent: "menu:view-history", commandId: "view.toggleHistory" },
+  { menuEvent: "menu:knowledge-base", commandId: "view.toggleKnowledgeBase" },
   { menuEvent: "menu:word-wrap", commandId: "view.toggleWordWrap" },
   { menuEvent: "menu:line-numbers", commandId: "view.toggleLineNumbers" },
   { menuEvent: "menu:diagram-preview", commandId: "view.toggleDiagramPreview" },

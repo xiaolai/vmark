@@ -29,9 +29,17 @@ export interface KnowledgeBasePanelProps {
   onStart: () => void;
   onStop: () => void;
   onOpenInBrowser: () => void;
+  onPreviewSlides: () => void;
+  onExportSlides: () => void;
 }
 
-export function KnowledgeBasePanel({ onStart, onStop, onOpenInBrowser }: KnowledgeBasePanelProps) {
+export function KnowledgeBasePanel({
+  onStart,
+  onStop,
+  onOpenInBrowser,
+  onPreviewSlides,
+  onExportSlides,
+}: KnowledgeBasePanelProps) {
   const { t } = useTranslation();
   const status = useContentServerStore(selectServerStatus);
   const url = useContentServerStore(selectServerUrl);
@@ -105,6 +113,12 @@ export function KnowledgeBasePanel({ onStart, onStop, onOpenInBrowser }: Knowled
               {t("contentServer.view.graph")}
             </button>
             <span className="kb-panel__spacer" />
+            <button type="button" className="kb-panel__btn" onClick={onPreviewSlides}>
+              {t("contentServer.slidev.preview")}
+            </button>
+            <button type="button" className="kb-panel__btn" onClick={onExportSlides}>
+              {t("contentServer.slidev.export")}
+            </button>
             <button type="button" className="kb-panel__btn" onClick={onOpenInBrowser}>
               {t("contentServer.action.openInBrowser")}
             </button>

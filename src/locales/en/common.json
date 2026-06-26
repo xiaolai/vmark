@@ -91,9 +91,12 @@
   "contentServer.view.site": "Site",
   "contentServer.view.graph": "Graph",
   "contentServer.error.noWorkspace": "Open a workspace first.",
+  "contentServer.error.crashed": "The knowledge base server stopped unexpectedly.",
   "contentServer.graph.noWorkspace": "Open a workspace to see its graph.",
   "contentServer.graph.error": "Couldn't load the graph.",
   "contentServer.slidev.title": "Slidev preview",
   "contentServer.slidev.export": "Export slides",
+  "contentServer.slidev.preview": "Preview slides",
+  "contentServer.slidev.noDeck": "Open a Slidev deck first.",
   "contentServer.slidev.exporting": "Exporting…"
 }

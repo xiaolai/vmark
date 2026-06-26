@@ -578,6 +578,7 @@
   "shortcuts.label.toggleOutline": "Toggle Outline",
   "shortcuts.label.fileExplorer": "Toggle File Explorer",
   "shortcuts.label.viewHistory": "Toggle History",
+  "shortcuts.label.knowledgeBase": "Toggle Knowledge Base",
   "shortcuts.label.sourceMode": "Source Mode",
   "shortcuts.label.toggleStatusBar": "Toggle Status Bar",
   "shortcuts.label.focusMode": "Focus Mode",

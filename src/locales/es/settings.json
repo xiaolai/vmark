@@ -516,6 +516,7 @@
   "shortcuts.label.toggleOutline": "Mostrar/ocultar esquema",
   "shortcuts.label.fileExplorer": "Mostrar/ocultar explorador de archivos",
   "shortcuts.label.viewHistory": "Mostrar/ocultar historial",
+  "shortcuts.label.knowledgeBase": "Mostrar/ocultar base de conocimiento",
   "shortcuts.label.sourceMode": "Modo fuente",
   "shortcuts.label.toggleStatusBar": "Mostrar/ocultar barra de estado",
   "shortcuts.label.focusMode": "Modo enfoque",

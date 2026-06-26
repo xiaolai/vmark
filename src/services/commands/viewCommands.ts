@@ -8,6 +8,7 @@
 
 import { registerCommand } from "./CommandBus";
 import { useUIStore } from "@/stores/uiStore";
+import { useContentServerStore } from "@/stores/contentServerStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useLintStore } from "@/stores/documentStore";
 import { requestToggleTerminal } from "@/components/Terminal/terminalGate";
@@ -74,6 +75,13 @@ export function registerViewCommands(): void {
     title: () => i18n.t("commands:view.toggleHistory"),
     category: "view",
     run: () => useUIStore.getState().toggleSidebarView("history"),
+  });
+
+  registerCommand({
+    id: "view.toggleKnowledgeBase",
+    title: () => i18n.t("commands:view.toggleKnowledgeBase"),
+    category: "view",
+    run: () => useContentServerStore.getState().togglePanel(),
   });
 
   registerCommand({
@@ -202,4 +210,9 @@ export function registerViewCommands(): void {
   });
 
   registered = true;
+}
+
+/** Test-only: reset the module registration guard so a fresh CommandBus can be repopulated. */
+export function __resetViewCommandsRegistration(): void {
+  registered = false;
 }

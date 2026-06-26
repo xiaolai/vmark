@@ -14,6 +14,8 @@ function renderPanel(overrides: Partial<Parameters<typeof KnowledgeBasePanel>[0]
     onStart: vi.fn(),
     onStop: vi.fn(),
     onOpenInBrowser: vi.fn(),
+    onPreviewSlides: vi.fn(),
+    onExportSlides: vi.fn(),
     ...overrides,
   };
   render(<KnowledgeBasePanel {...handlers} />);
@@ -51,5 +53,14 @@ describe("KnowledgeBasePanel", () => {
     await userEvent.click(screen.getByRole("button", { name: /stop/i }));
     expect(onOpenInBrowser).toHaveBeenCalledOnce();
     expect(onStop).toHaveBeenCalledOnce();
+  });
+
+  it("wires Slidev preview and export actions when running", async () => {
+    useContentServerStore.getState().setRunning("http://127.0.0.1:4321", 4321);
+    const { onPreviewSlides, onExportSlides } = renderPanel();
+    await userEvent.click(screen.getByRole("button", { name: /preview slides/i }));
+    await userEvent.click(screen.getByRole("button", { name: /export slides/i }));
+    expect(onPreviewSlides).toHaveBeenCalledOnce();
+    expect(onExportSlides).toHaveBeenCalledOnce();
   });
 });
