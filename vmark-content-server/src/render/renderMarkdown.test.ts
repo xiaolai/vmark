@@ -1,4 +1,5 @@
 // S0.4 — Node-safe headless markdown render: parity + sanitization.
+// WI-3.4 — HTML sanitization (DOMPurify) coverage.
 import { describe, it, expect } from "vitest";
 import { renderMarkdown, sanitizeHtml } from "./renderMarkdown";
 

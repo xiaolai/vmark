@@ -1,4 +1,5 @@
 // Phase 6 — Slidev wrapper wiring (module injected; live runtime covered by S0.2).
+// WI-6.2 — Slidev createServer boot/teardown wiring.
 import { describe, it, expect, vi } from "vitest";
 import { startSlidevServer, type SlidevModule } from "./server";
 

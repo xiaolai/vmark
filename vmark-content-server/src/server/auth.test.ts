@@ -1,4 +1,5 @@
 // Phase 4 / VULN-001 — auth guard: nonce mint/consume, TTL, cookie flags.
+// WI-8.3 — security-review outcome (VULN-001 nonce auth) coverage.
 import { describe, it, expect } from "vitest";
 import { Hono } from "hono";
 import { createAuthGuard, SESSION_COOKIE, NONCE_TTL_MS } from "./auth";

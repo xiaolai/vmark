@@ -1,4 +1,5 @@
 // Phase 4 — KB server: ADR-9 auth, routes, path containment, search, backlinks.
+// WI-4.3 — SSE live-reload on save coverage.
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { promises as fs } from "node:fs";
 import * as os from "node:os";

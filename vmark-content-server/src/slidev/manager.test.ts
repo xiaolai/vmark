@@ -1,4 +1,5 @@
 // C2 — Slidev supervisor: reuse-per-deck, sub-port tracking, isolated stop.
+// WI-1.5 — Slidev supervisor child start/stop lifecycle.
 import { describe, it, expect, vi } from "vitest";
 import { SlidevManager } from "./manager";
 import type { SlidevModule } from "./server";
