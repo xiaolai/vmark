@@ -1,6 +1,9 @@
 # 40 - Version Bump Procedure
 
-When bumping the version number, **all five files must be updated together**.
+When bumping the version number, **all five source files must be updated
+together**, and the derived `src-tauri/Cargo.lock` must be regenerated and
+committed with them — a stale lockfile leaves `origin/main` dirty and breaks
+any `cargo build --locked` / `--frozen` (release + CI).
 
 ## Files to Update
 
@@ -43,6 +46,11 @@ When bumping the version number, **all five files must be updated together**.
    # MCP server files
    sed -i '' 's/"version": "[^"]*"/"version": "'$VERSION'"/' vmark-mcp-server/package.json
    sed -i '' 's/const VERSION = "[^"]*"/const VERSION = "'$VERSION'"/' vmark-mcp-server/src/cli.ts
+
+   # Sync the derived lockfile so src-tauri/Cargo.lock's `vmark` entry matches
+   # Cargo.toml. Locks 0 other packages; any cargo invocation against the
+   # manifest (e.g. `cargo check`) syncs it too.
+   cargo update -p vmark --manifest-path src-tauri/Cargo.toml
    ```
 
 2. **Verify all match**:
@@ -55,6 +63,7 @@ When bumping the version number, **all five files must be updated together**.
 3. **Commit together**:
    ```bash
    git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml \
+           src-tauri/Cargo.lock \
            vmark-mcp-server/package.json vmark-mcp-server/src/cli.ts
    git commit -m "chore: bump version to 0.4.0"
    ```
@@ -75,6 +84,8 @@ When bumping the version number, **all five files must be updated together**.
 ## Common Mistakes
 
 - Forgetting Cargo.toml (causes dual version display in About dialog)
+- Forgetting to regenerate `src-tauri/Cargo.lock` (leaves `origin/main` dirty;
+  `cargo build --locked`/`--frozen` then fails)
 - Forgetting MCP server files (causes version mismatch in health check)
 - Tagging before all files are updated
 - Using different versions across files
