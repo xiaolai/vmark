@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+#
+# pre-push — gate every push that updates `main` or a release tag (`v*`) on
+# the full quality gate (`pnpm check:all`). Pushes to feature branches are
+# NOT gated here — CI gates those through the PR's required `frontend` check.
+#
+# Why this exists: `main` and `v*` tags can be pushed directly (a local
+# `git merge --no-ff` straight to main, or `/bump … and release`), which
+# bypasses the PR-based CI gate — the commit is already on the branch by the
+# time `on: push` CI runs, so a red gate can't be un-landed. That is exactly
+# how the content-server merge (e2a0dffe) reached main red. This hook moves
+# the gate to push time, where it actually blocks the bad push.
+#
+# Bypassing this hook (`git push --no-verify`) is forbidden without explicit
+# authorization — see .claude/rules/60-ai-governance.md §9.
+#
+# Enabled via `git config core.hooksPath .githooks`, which the root
+# package.json `prepare` script sets automatically on `pnpm install`.
+
+set -euo pipefail
+
+z40="0000000000000000000000000000000000000000"
+gated=0
+
+# git feeds "<local ref> <local sha> <remote ref> <remote sha>" lines on stdin.
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [ -z "${remote_ref:-}" ] && continue
+  [ "$local_sha" = "$z40" ] && continue   # branch/tag deletion — nothing to verify
+  case "$remote_ref" in
+    refs/heads/main) gated=1 ;;
+    refs/tags/v*)    gated=1 ;;
+  esac
+done
+
+if [ "$gated" -eq 0 ]; then
+  exit 0
+fi
+
+echo "pre-push: updating main or a release tag — running the full quality gate (pnpm check:all)…"
+if ! pnpm check:all; then
+  cat >&2 <<'MSG'
+
+✖ pre-push blocked: `pnpm check:all` failed.
+  main and release tags must be green before they leave this machine.
+  Fix the gate first. Overriding (`git push --no-verify`) requires explicit
+  authorization — see .claude/rules/60-ai-governance.md §9.
+MSG
+  exit 1
+fi
+
+echo "✔ pre-push: quality gate green — push allowed."
+exit 0

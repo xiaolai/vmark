@@ -109,7 +109,32 @@ Aggressive `/clear` between unrelated tasks; new session per phase.
 ## 9. Don't bypass; ask
 
 If a hook or gate blocks legitimate work, fix the gate rather than skip
-it. `--no-verify` on `git commit`, removing the hook from
+it. `--no-verify` on `git commit` or `git push`, removing the hook from
 `.claude/settings.json`, or changing the WI-linkage script's regex are all
 forbidden without explicit user authorization. Document the bypass reason
 if granted.
+
+## 10. `main` and release tags are gated at push time
+
+CI (`.github/workflows/ci.yml`) runs `pnpm check:all` and exposes the
+required `frontend` check, which gates **PR merges**. It does **not** gate
+**direct pushes** to `main`: `on: push` CI runs *after* the commit already
+landed, and a repo owner can push straight to `main` (a local
+`git merge --no-ff`, or `/bump … and release`) with bypass permission. That
+is how the content-server merge (`e2a0dffe`) reached `main` with a red gate —
+knip, the actionRegistry contract test, and function coverage were all
+failing, mutually masked, and nothing blocked the push.
+
+The structural fix is a versioned `pre-push` hook (`.githooks/pre-push`):
+before any push that updates `main` or a `v*` tag, it runs `pnpm check:all`
+and refuses the push on failure. Feature-branch pushes are not gated locally.
+The hook is enabled by `git config core.hooksPath .githooks`, which the root
+`package.json` `prepare` script applies on `pnpm install` (no husky
+dependency). Overriding it (`git push --no-verify`) falls under §9.
+
+**Residual control (owner-only, GitHub settings — not enforceable from the
+repo):** to close the bypass entirely, enable branch protection on `main`
+with *Require a pull request before merging*, *Require status checks to pass*
+(`frontend`, `rust`), and *Do not allow bypassing the above settings* / no
+direct-push allowance for admins. Until that is set, the `pre-push` hook is
+the only thing standing between a red local gate and `origin/main`.

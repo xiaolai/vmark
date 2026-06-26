@@ -42,6 +42,16 @@ Shared instructions for all AI agents (Claude, Codex, etc.).
 
   - Run `pnpm check:all` for gates.
 
+  - **Pushes to `main` and `v*` tags are gated at push time.** A versioned
+    `pre-push` hook (`.githooks/pre-push`) runs `pnpm check:all` before any
+    push that updates `main` or a release tag, and refuses the push if it is
+    red. Feature-branch pushes are not gated locally — CI gates those via the
+    PR's required `frontend` check. The hook is auto-enabled by the root
+    `prepare` script (`git config core.hooksPath .githooks`) on `pnpm install`;
+    if a fresh clone hasn't run install yet, enable it manually with the same
+    command. Bypassing (`git push --no-verify`) requires explicit
+    authorization — see `.claude/rules/60-ai-governance.md` §9.
+
   - No dev server; ask the user to run interactive app flows.
 
   - For E2E, use Tauri MCP tools. **Never use Chrome DevTools MCP** — VMark is a Tauri app, not a browser app.

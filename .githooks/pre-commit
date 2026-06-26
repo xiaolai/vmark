@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# pre-commit — comment-header staleness check (warnings only, never blocks).
+# Mirrors the former local .git/hooks/pre-commit so switching core.hooksPath
+# to .githooks does not silently drop it.
+if [ -x scripts/check-comment-headers.sh ]; then
+  bash scripts/check-comment-headers.sh
+fi
