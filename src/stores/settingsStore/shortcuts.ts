@@ -141,6 +141,7 @@ export const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
   { id: "toggleOutline", label: "Toggle Outline", category: "view", defaultKey: "Ctrl-Shift-1", menuId: "outline", scope: "global" },
   { id: "fileExplorer", label: "Toggle File Explorer", category: "view", defaultKey: "Ctrl-Shift-2", menuId: "file-explorer", scope: "global" },
   { id: "viewHistory", label: "Toggle History", category: "view", defaultKey: "Ctrl-Shift-3", menuId: "view-history", scope: "global" },
+  { id: "knowledgeBase", label: "Toggle Knowledge Base", category: "view", defaultKey: "Ctrl-Shift-4", menuId: "knowledge-base", scope: "global", description: "Open the local knowledge-base inspector panel" },
   { id: "sourceMode", label: "Source Mode", category: "view", defaultKey: "F6", menuId: "source-mode" },
   { id: "toggleStatusBar", label: "Toggle Status Bar", category: "view", defaultKey: "F7", description: "Show/hide the status bar", scope: "global" },
   { id: "focusMode", label: "Focus Mode", category: "view", defaultKey: "F8", menuId: "focus-mode", scope: "global" },
@@ -502,5 +503,4 @@ export const CATEGORY_ORDER: ShortcutCategory[] = [
   "file",
 ];
 
-// getCategoryLabel / getShortcutLabel live in `../settingsShortcutLabels.ts`
-// to avoid a settingsStore ⇄ i18n circular import.
+// getCategoryLabel / getShortcutLabel live in `../settingsShortcutLabels.ts` (avoids a settingsStore ⇄ i18n circular import).

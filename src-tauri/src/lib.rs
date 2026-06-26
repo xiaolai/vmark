@@ -39,6 +39,7 @@ mod watcher;
 mod window_manager;
 mod workspace;
 mod content_search;
+mod content_server;
 mod file_ops;
 mod file_tree;
 mod pty;
@@ -899,6 +900,7 @@ pub fn run() {
             approvals: std::sync::Arc::new(workflow::approval::ApprovalRegistry::new()),
             current_execution: std::sync::Arc::new(std::sync::Mutex::new(None)),
         })
+        .manage(content_server::ContentServerManager::new())
         .invoke_handler(tauri::generate_handler![
             get_pending_file_opens,
             external_editor::open_in_external_editor,
@@ -987,6 +989,13 @@ pub fn run() {
             pandoc::commands::detect_pandoc,
             pandoc::commands::export_via_pandoc,
             content_search::search_workspace_content,
+            content_server::commands::content_server_start,
+            content_server::commands::content_server_stop,
+            content_server::commands::content_server_status,
+            content_server::commands::content_server_browser_url,
+            content_server::commands::content_server_graph,
+            content_server::slidev_commands::content_server_slidev_preview,
+            content_server::slidev_commands::content_server_slidev_export,
             pty::pty_spawn,
             pty::pty_start,
             pty::pty_write,

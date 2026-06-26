@@ -516,6 +516,7 @@
   "shortcuts.label.toggleOutline": "Gliederung umschalten",
   "shortcuts.label.fileExplorer": "Datei-Explorer umschalten",
   "shortcuts.label.viewHistory": "Verlauf umschalten",
+  "shortcuts.label.knowledgeBase": "Wissensdatenbank umschalten",
   "shortcuts.label.sourceMode": "Quellcode-Modus",
   "shortcuts.label.toggleStatusBar": "Statusleiste umschalten",
   "shortcuts.label.focusMode": "Fokusmodus",

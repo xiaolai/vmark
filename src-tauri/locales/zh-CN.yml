@@ -175,6 +175,7 @@ menu:
   view.outline: "切换大纲"
   view.fileExplorer: "切换文件浏览器"
   view.history: "切换历史记录"
+  view.knowledgeBase: "切换知识库"
   view.terminal: "切换终端"
   view.checkMarkdown: "检查 Markdown"
   view.lintNext: "下一个问题"

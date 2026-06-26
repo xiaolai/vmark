@@ -516,6 +516,7 @@
   "shortcuts.label.toggleOutline": "切换大纲",
   "shortcuts.label.fileExplorer": "切换文件浏览器",
   "shortcuts.label.viewHistory": "切换历史记录",
+  "shortcuts.label.knowledgeBase": "切换知识库",
   "shortcuts.label.sourceMode": "源码模式",
   "shortcuts.label.toggleStatusBar": "切换状态栏",
   "shortcuts.label.focusMode": "专注模式",

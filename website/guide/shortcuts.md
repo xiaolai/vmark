@@ -168,6 +168,7 @@ If you prefer keeping system functions on F-keys, you can customize VMark shortc
 | Toggle Outline | `Ctrl + Shift + 1` |
 | Toggle File Explorer | `Ctrl + Shift + 2` |
 | Toggle History | `Ctrl + Shift + 3` |
+| Toggle Knowledge Base | `Ctrl + Shift + 4` |
 | Toggle Line Numbers (code blocks) | `Alt + Mod + L` |
 | Toggle Terminal | Ctrl + `` ` `` |
 | Toggle Diagram Preview | `Alt + Mod + P` |

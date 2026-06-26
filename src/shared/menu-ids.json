@@ -49,6 +49,7 @@
     "insert-table",
     "italic",
     "join-lines",
+    "knowledge-base",
     "line-endings-crlf",
     "line-endings-lf",
     "link",
@@ -167,6 +168,7 @@
     "italic",
     "join-lines",
     "keyboard-shortcuts",
+    "knowledge-base",
     "line-endings-crlf",
     "line-endings-lf",
     "line-numbers",
@@ -234,5 +236,5 @@
     "zoom-in",
     "zoom-out"
   ],
-  "generatedAt": "2026-06-12T05:16:49.819Z"
+  "generatedAt": "2026-06-26T00:39:09.492Z"
 }

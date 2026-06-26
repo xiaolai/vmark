@@ -516,6 +516,7 @@
   "shortcuts.label.toggleOutline": "개요 전환",
   "shortcuts.label.fileExplorer": "파일 탐색기 전환",
   "shortcuts.label.viewHistory": "기록 전환",
+  "shortcuts.label.knowledgeBase": "지식 베이스 전환",
   "shortcuts.label.sourceMode": "소스 모드",
   "shortcuts.label.toggleStatusBar": "상태 표시줄 전환",
   "shortcuts.label.focusMode": "집중 모드",

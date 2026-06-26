@@ -48,6 +48,11 @@ export const shortcutsWarn = isDev
   ? (...args: unknown[]) => console.warn("[Shortcuts]", ...args)
   : (...args: unknown[]) => prodWarn("[Shortcuts]", ...args);
 
+/** Warn logger for the content server (KB / Slidev). */
+export const contentServerWarn = isDev
+  ? (...args: unknown[]) => console.warn("[ContentServer]", ...args)
+  : (...args: unknown[]) => prodWarn("[ContentServer]", ...args);
+
 /** Warn logger for Image Handler. */
 export const imageHandlerWarn = isDev
   ? (...args: unknown[]) => console.warn("[imageHandler]", ...args)

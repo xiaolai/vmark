@@ -1,0 +1,22 @@
+/**
+ * KnowledgeBaseOverlay — right-docked panel surface. Tokens only (rule 31).
+ */
+
+.kb-overlay {
+  position: fixed;
+  top: 40px; /* below the title-bar chrome */
+  right: 0;
+  bottom: 0;
+  width: 420px;
+  max-width: 90vw;
+  z-index: var(--z-popup);
+  border-left: var(--border-thin) solid var(--border-color);
+  background: var(--bg-color);
+  box-shadow: var(--popup-shadow);
+  display: flex;
+  flex-direction: column;
+}
+
+.dark-theme .kb-overlay {
+  box-shadow: var(--popup-shadow-dark);
+}

@@ -1,0 +1,49 @@
+/**
+ * KB relationship graph styles (grill H5). Tokens only.
+ */
+
+.kb-graph {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+}
+
+.kb-graph__loading,
+.kb-graph__error {
+  padding: var(--spacing-3);
+  color: var(--text-secondary);
+  font-size: var(--font-size-base);
+}
+
+.kb-graph__error {
+  color: var(--error-color);
+}
+
+.kb-graph-node {
+  padding: var(--spacing-1) var(--spacing-2);
+  border: var(--border-thin) solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  color: var(--text-color);
+  font-size: var(--font-size-sm);
+}
+
+.kb-graph-node--tag {
+  background: var(--accent-bg);
+  color: var(--accent-primary);
+  border-radius: var(--radius-pill);
+}
+
+.kb-graph-node--unresolved {
+  border-style: dashed;
+  color: var(--error-color);
+}
+
+.react-flow .kb-graph-edge--tag {
+  stroke: var(--accent-primary);
+  opacity: var(--opacity-subtle);
+}
+
+.react-flow .kb-graph-edge--relation {
+  stroke: var(--primary-color);
+}

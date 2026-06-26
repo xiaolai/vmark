@@ -45,6 +45,8 @@ tauri-plugin-window-state = "2"
 tauri-plugin-store = "2"
 tempfile = "3"
 sha2 = "0.10"
+ed25519-dalek = "2"
+base64 = "0.22"
 gethostname = "0.5"
 rust-i18n = "3"
 # RW-16 (L8): OS-backed secret storage for API keys. Platform credential

@@ -516,6 +516,7 @@
   "shortcuts.label.toggleOutline": "アウトラインの切り替え",
   "shortcuts.label.fileExplorer": "ファイルエクスプローラーの切り替え",
   "shortcuts.label.viewHistory": "履歴の切り替え",
+  "shortcuts.label.knowledgeBase": "ナレッジベースの表示切替",
   "shortcuts.label.sourceMode": "ソースモード",
   "shortcuts.label.toggleStatusBar": "ステータスバーの切り替え",
   "shortcuts.label.focusMode": "フォーカスモード",

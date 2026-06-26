@@ -2,7 +2,8 @@
  * View Shortcuts Hook
  *
  * Purpose: Keyboard shortcut handler for view-mode toggles — source mode,
- *   focus mode, typewriter mode, word wrap, line numbers, and terminal.
+ *   focus mode, typewriter mode, word wrap, line numbers, terminal, sidebar
+ *   panels, and the Knowledge Base panel.
  *
  * Key decisions:
  *   - Listens directly on keydown because menu accelerators aren't always
@@ -13,11 +14,13 @@
  *
  * @coordinates-with shortcutsStore.ts — reads configurable shortcut bindings
  * @coordinates-with editorStore.ts — toggles sourceMode, focusMode, etc.
+ * @coordinates-with contentServerStore.ts — toggles the Knowledge Base panel
  * @module hooks/useViewShortcuts
  */
 
 import { useEffect } from "react";
 import { useUIStore } from "@/stores/uiStore";
+import { useContentServerStore } from "@/stores/contentServerStore";
 import { useShortcutsStore } from "@/stores/settingsStore";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import { matchesShortcutEvent, isMacPlatform } from "@/utils/shortcutMatch";
@@ -56,7 +59,8 @@ export type ViewAction =
   | "lintPrev"
   | "toggleOutline"
   | "fileExplorer"
-  | "viewHistory";
+  | "viewHistory"
+  | "knowledgeBase";
 
 /** All shortcut ids the view-shortcut resolver/executors consult. */
 const VIEW_SHORTCUT_IDS: ViewAction[] = [
@@ -74,6 +78,7 @@ const VIEW_SHORTCUT_IDS: ViewAction[] = [
   "toggleOutline",
   "fileExplorer",
   "viewHistory",
+  "knowledgeBase",
 ];
 
 /** Build the action-id → binding map resolveViewAction expects from the store. */
@@ -122,6 +127,7 @@ export function resolveViewAction(
     ["toggleOutline", "toggleOutline"],
     ["fileExplorer", "fileExplorer"],
     ["viewHistory", "viewHistory"],
+    ["knowledgeBase", "knowledgeBase"],
   ];
 
   for (const [key, action] of actionMap) {
@@ -184,6 +190,7 @@ const VIEW_ACTION_EXECUTORS: Record<ViewAction, () => void> = {
   toggleOutline: () => useUIStore.getState().toggleSidebarView("outline"),
   fileExplorer: () => useUIStore.getState().toggleSidebarView("files"),
   viewHistory: () => useUIStore.getState().toggleSidebarView("history"),
+  knowledgeBase: () => useContentServerStore.getState().togglePanel(),
 };
 
 // ---------------------------------------------------------------------------

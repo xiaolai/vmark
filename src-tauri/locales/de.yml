@@ -175,6 +175,7 @@ menu:
   view.outline: "Gliederung umschalten"
   view.fileExplorer: "Datei-Explorer umschalten"
   view.history: "Verlauf umschalten"
+  view.knowledgeBase: "Wissensdatenbank umschalten"
   view.terminal: "Terminal umschalten"
   view.checkMarkdown: "Markdown prüfen"
   view.lintNext: "Nächstes Problem"

@@ -1,2 +1,3 @@
 packages:
   - 'vmark-mcp-server'
+  - 'vmark-content-server'
