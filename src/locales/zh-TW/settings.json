@@ -179,6 +179,8 @@
   "markdown.smartPaste.off": "關閉",
   "markdown.group.layout": "版面配置",
   "markdown.blockFontSize.label": "區塊元素字型大小",
+  "markdown.splitView.label": "預設分割原始碼/預覽",
+  "markdown.splitView.description": "以原始碼和即時預覽並排的方式開啟 Markdown 檔案。",
   "markdown.blockFontSize.description": "清單、引用區塊、表格、提示方塊和摺疊區塊的字型大小",
   "markdown.blockFontSize.100": "100%（預設）",
   "markdown.blockFontSize.95": "95%",

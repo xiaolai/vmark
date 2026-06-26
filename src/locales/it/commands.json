@@ -43,6 +43,7 @@
     "toggleFileExplorer": "Attiva/disattiva esplora file",
     "toggleHistory": "Attiva/disattiva cronologia",
     "toggleKnowledgeBase": "Attiva/disattiva knowledge base",
+    "toggleMarkdownSplit": "Attiva/disattiva vista divisa Markdown",
     "toggleWordWrap": "Attiva/disattiva a capo automatico",
     "toggleLineNumbers": "Attiva/disattiva numeri di riga",
     "toggleDiagramPreview": "Attiva/disattiva anteprima diagrammi",

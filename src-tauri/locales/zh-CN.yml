@@ -161,6 +161,7 @@ menu:
   # === 视图菜单 ===
   view: "视图"
   view.sourceMode: "源代码模式"
+  view.markdownSplit: "Markdown 分屏视图"
   view.focusMode: "专注模式"
   view.typewriterMode: "打字机模式"
   view.actualSize: "实际大小"

@@ -15,6 +15,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type FocusEvent } from "react";
 import { useUIStore } from "@/stores/uiStore";
+import { selectSourceEditing } from "@/stores/selectSourceEditing";
 import { useEditorStore } from "@/stores/editorStore";
 import { getToolbarButtonState, getToolbarItemState } from "@/plugins/toolbarActions/enableRules";
 import { getSourceMultiSelectionContext, getWysiwygMultiSelectionContext } from "@/plugins/toolbarActions/multiSelectionContext";
@@ -46,7 +47,7 @@ export function UniversalToolbar() {
   const toolbarHasFocus = useUIStore((state) => state.universalToolbarHasFocus);
   const sessionFocusIndex = useUIStore((state) => state.toolbarSessionFocusIndex);
   const storeDropdownOpen = useUIStore((state) => state.toolbarDropdownOpen);
-  const sourceMode = useUIStore((state) => state.sourceMode);
+  const sourceMode = useUIStore(selectSourceEditing);
   const wysiwygContext = useEditorStore((state) => state.tiptap.context);
   const wysiwygView = useEditorStore((state) => state.tiptap.editorView);
   const wysiwygEditor = useEditorStore((state) => state.tiptap.editor);
@@ -104,7 +105,7 @@ export function UniversalToolbar() {
   );
 
   const focusActiveEditor = useCallback(() => {
-    const isSource = useUIStore.getState().sourceMode;
+    const isSource = selectSourceEditing(useUIStore.getState());
     if (isSource) {
       useEditorStore.getState().source.editorView?.focus();
       return;
@@ -161,7 +162,7 @@ export function UniversalToolbar() {
       const level = Number(action.split(":")[1]);
       /* v8 ignore next -- @preserve reason: NaN guard for malformed heading action strings; valid heading IDs always produce a number */
       if (Number.isNaN(level)) return;
-      const isSource = useUIStore.getState().sourceMode;
+      const isSource = selectSourceEditing(useUIStore.getState());
       if (isSource) {
         const state = useEditorStore.getState().source;
         setSourceHeadingLevel({
@@ -183,7 +184,7 @@ export function UniversalToolbar() {
       return;
     }
 
-    const isSource = useUIStore.getState().sourceMode;
+    const isSource = selectSourceEditing(useUIStore.getState());
     if (isSource) {
       const state = useEditorStore.getState().source;
       performSourceToolbarAction(action, {
@@ -260,8 +261,7 @@ export function UniversalToolbar() {
     },
   });
 
-  // Handle focus capture - update focusedIndex when a button receives focus
-  // This ensures state is updated BEFORE the re-render triggered by toolbarHasFocus change
+  // Update focusedIndex on focus capture — BEFORE the toolbarHasFocus re-render.
   const handleFocusCapture = useCallback(
     (event: FocusEvent<HTMLDivElement>) => {
       const target = event.target as HTMLElement;

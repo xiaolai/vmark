@@ -43,6 +43,7 @@
     "toggleFileExplorer": "ファイルエクスプローラーを切り替え",
     "toggleHistory": "履歴を切り替え",
     "toggleKnowledgeBase": "ナレッジベースを切り替え",
+    "toggleMarkdownSplit": "Markdown分割ビューを切り替え",
     "toggleWordWrap": "ワードラップを切り替え",
     "toggleLineNumbers": "行番号を切り替え",
     "toggleDiagramPreview": "ダイアグラムプレビューを切り替え",

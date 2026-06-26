@@ -13,17 +13,15 @@
  *     heavy markdown→PM conversion runs, keeping the UI responsive on large documents.
  *   - shouldRerenderOnTransaction: false — Tiptap's default full-React-rerender per
  *     transaction is wasted work here since state flows through Zustand selectors.
- *   - content-visibility gated on .cv-idle (debounced off during typing) AND
- *     only applied above CV_IDLE_CHAR_THRESHOLD — the CSS optimization is
- *     applied at rest but stripped during edits to avoid a
- *     O(blocks-after-insertion) reflow on long docs, and skipped entirely on
- *     small docs where the idle toggle would shake the viewport (#823).
+ *   - content-visibility gated on .cv-idle (off during typing) and only above
+ *     CV_IDLE_CHAR_THRESHOLD; stripped during edits, skipped on small docs (#823).
  *   - Native spellcheck disabled above 100K chars where rescans block the main thread.
  *   - Cursor tracking is delayed 200ms after creation to prevent spurious sync during
  *     initial render/focus.
  *   - Flusher registration moved to useEffect (not onCreate) to handle React Strict Mode
  *     double-mount without duplicate registrations.
  *   - Hidden mode skips all store updates and content syncs, deferring to visibility transition.
+ *   - Preview mode (markdown split) syncs content but skips active-editor registration.
  *
  * @coordinates-with SourceEditor.tsx — shares document content via documentStore
  * @coordinates-with utils/markdownPipeline/ — parseMarkdown/serializeMarkdown for round-tripping
@@ -142,10 +140,12 @@ function syncMarkdownToEditor(
 interface TiptapEditorInnerProps {
   hidden?: boolean;
   readOnly?: boolean;
+  /** Markdown-split live preview: syncs content but never the active editor. */
+  preview?: boolean;
 }
 
 /** WYSIWYG rich-text editor built on Tiptap/ProseMirror with adaptive debounced serialization. */
-export function TiptapEditorInner({ hidden = false, readOnly = false }: TiptapEditorInnerProps) {
+export function TiptapEditorInner({ hidden = false, readOnly = false, preview = false }: TiptapEditorInnerProps) {
   const content = useDocumentContent();
   const cursorInfo = useDocumentCursorInfo();
   const { setContent, setCursorInfo, setSelectedText } = useDocumentActions();
@@ -174,6 +174,7 @@ export function TiptapEditorInner({ hidden = false, readOnly = false }: TiptapEd
   const preserveLineBreaksRef = useRef(preserveLineBreaks);
   const hardBreakStyleOnSaveRef = useRef(hardBreakStyleOnSave);
   const hiddenRef = useRef(hidden);
+  const previewRef = useRef(preview);
   const editorContainerRef = useRef<HTMLDivElement>(null);
   const cvIdleTimeoutRef = useRef<number | null>(null);
   const contentRef = useRef(content);
@@ -183,6 +184,7 @@ export function TiptapEditorInner({ hidden = false, readOnly = false }: TiptapEd
   preserveLineBreaksRef.current = preserveLineBreaks;
   hardBreakStyleOnSaveRef.current = hardBreakStyleOnSave;
   hiddenRef.current = hidden;
+  previewRef.current = preview;
   contentRef.current = content;
 
   const extensions = useMemo(
@@ -322,9 +324,9 @@ export function TiptapEditorInner({ hidden = false, readOnly = false }: TiptapEd
           }
         }
 
-        // Focus and cursor restore run after content is set so saved cursor
-        // positions can be resolved against the actual document.
-        if (!hiddenRef.current) {
+        // Focus/cursor restore after content is set (skipped for hidden/preview
+        // so the preview can't steal focus from the editable source pane).
+        if (!hiddenRef.current && !previewRef.current) {
           scheduleTiptapFocusAndRestore(
             editor,
             () => cursorInfoRef.current,
@@ -333,7 +335,7 @@ export function TiptapEditorInner({ hidden = false, readOnly = false }: TiptapEd
         }
 
         const view = getTiptapEditorView(editor);
-        if (view) {
+        if (view && !previewRef.current) {
           useEditorStore.getState().setTiptapContext(extractTiptapContext(editor.state), view);
         }
       }, 0);
@@ -348,22 +350,20 @@ export function TiptapEditorInner({ hidden = false, readOnly = false }: TiptapEd
         cursorTrackingEnabled.current = true;
       }, CURSOR_TRACKING_DELAY_MS);
 
-      // NOTE: Flusher registration moved to useEffect to avoid dual registration issues
-      // with React Strict Mode. The useEffect ensures proper cleanup on unmount.
+      // NOTE: Flusher registration lives in a useEffect (not here) to avoid
+      // dual registration under React Strict Mode and clean up on unmount.
     },
     onUpdate: ({ editor, transaction }) => {
-      // Skip programmatic content loads (reload, external sync) — they set
-      // preventUpdate on the transaction to avoid a round-trip serialization
-      // that would dirty the document immediately after it was cleaned (#806).
+      // Skip programmatic content loads (reload/external sync set preventUpdate
+      // to avoid a round-trip serialization that re-dirties the doc, #806).
       if (transaction?.getMeta("preventUpdate")) return;
-      // Skip updates when hidden — prevents polluting document store
-      /* v8 ignore next -- @preserve reason: hidden path skips update; hidden mode not exercised in WYSIWYG update tests */
-      if (hiddenRef.current) return;
+      // Skip updates when hidden or a preview — prevents polluting the store
+      /* v8 ignore next -- @preserve reason: hidden/preview path skips update; not exercised in WYSIWYG update tests */
+      if (hiddenRef.current || previewRef.current) return;
 
-      // Suppress content-visibility during active typing. Keeping cv on during
-      // edits costs O(blocks-after-insertion) per keystroke in Chromium — e.g.
-      // 378ms on a 2250-block doc. Re-enable after idle so scroll and repaint
-      // keep the optimization.
+      // Suppress content-visibility during active typing — keeping cv on during
+      // edits costs O(blocks-after-insertion)/keystroke (378ms on a 2250-block
+      // doc). Re-enable after idle so scroll/repaint keep the optimization.
       //
       // Small documents (<CV_IDLE_CHAR_THRESHOLD) skip the re-enable entirely:
       // the toggle causes visible shaking because `contain-intrinsic-size: auto`
@@ -414,10 +414,9 @@ export function TiptapEditorInner({ hidden = false, readOnly = false }: TiptapEd
       }
     },
     onSelectionUpdate: ({ editor }) => {
-      if (hiddenRef.current) return;
-      // Selection text sync runs before the cursor-tracking gate — it has
-      // no feedback-loop risk and must update immediately so the status bar
-      // reflects the active editor (especially after a mode switch).
+      if (hiddenRef.current || previewRef.current) return;
+      // Selection text sync runs before the cursor-tracking gate (no feedback
+      // loop) so the status bar reflects the active editor after a mode switch.
       const { from, to, empty } = editor.state.selection;
       setSelectedText(empty ? "" : editor.state.doc.textBetween(from, to, "\n", " "));
       if (!cursorTrackingEnabled.current) return;
@@ -454,10 +453,10 @@ export function TiptapEditorInner({ hidden = false, readOnly = false }: TiptapEd
     setShowInvisibles(view, showInvisibles);
   }, [editor, showInvisibles]);
 
-  // Return null from getEditorView when hidden to prevent outline sync from stale editor
+  // Null view when hidden/preview so outline sync skips stale/preview editors.
   const getEditorView = useCallback(
-    () => (hidden ? null : getTiptapEditorView(editor)),
-    [editor, hidden]
+    () => (hidden || preview ? null : getTiptapEditorView(editor)),
+    [editor, hidden, preview]
   );
   const handleImageContextMenuAction = useImageContextMenu(getEditorView);
   useOutlineSync(getEditorView);
@@ -466,7 +465,7 @@ export function TiptapEditorInner({ hidden = false, readOnly = false }: TiptapEd
   useImageDragDrop({
     tiptapEditor: editor,
     isSourceMode: false,
-    enabled: !!editor && !hidden,
+    enabled: !!editor && !hidden && !preview,
   });
 
   // Cleanup all pending timers/RAFs on unmount to prevent memory leaks.
@@ -509,9 +508,10 @@ export function TiptapEditorInner({ hidden = false, readOnly = false }: TiptapEd
     };
   }, []);
 
-  // Register both the "active" flusher (per-tab saves) and a tab-keyed flusher (Save All) — only when visible.
+  // Register save/Save-All flushers — only when visible and NOT a preview (a
+  // preview must never serialize the read-only WYSIWYG over the source markdown).
   useEffect(() => {
-    if (!editor || hidden) return;
+    if (!editor || hidden || preview) return;
     const flush = () => flushToStore(editor);
     registerActiveWysiwygFlusher(flush);
     if (activeTabId) registerWysiwygFlusher(activeTabId, flush);
@@ -519,23 +519,24 @@ export function TiptapEditorInner({ hidden = false, readOnly = false }: TiptapEd
       registerActiveWysiwygFlusher(null);
       if (activeTabId) registerWysiwygFlusher(activeTabId, null);
     };
-  }, [editor, flushToStore, hidden, activeTabId]);
+  }, [editor, flushToStore, hidden, preview, activeTabId]);
 
-  // Register editor stores — only when visible
+  // Register editor stores — only when visible and not a preview.
   useEffect(() => {
-    if (!hidden) {
+    if (!hidden && !preview) {
       useEditorStore.getState().setTiptapEditor(editor ?? null);
       if (editor) {
         useEditorStore.getState().setActiveWysiwygEditor(editor, activeTabId);
       }
     }
     return () => {
+      if (preview) return;
       useEditorStore.getState().clearTiptap();
       if (editor) {
         useEditorStore.getState().clearWysiwygEditorIfMatch(editor);
       }
     };
-  }, [editor, hidden, activeTabId]);
+  }, [editor, hidden, preview, activeTabId]);
 
   // Force CJK letter spacing decorations to recalculate when setting changes.
   // The plugin tracks wasEnabled state, but needs a transaction to trigger apply().

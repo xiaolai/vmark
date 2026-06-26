@@ -38,8 +38,7 @@ pub fn create_localized_menu(
     // for the next differential update.
     super::accelerators::begin_rebuild();
 
-    // Helper: resolve accelerator from custom map or use default.
-    // Returns `Some(accel)` or `None` if the resolved string is empty.
+    // Helper: resolve accelerator from custom map or default (`None` if empty).
     // Also records the resolved value in the accelerator cache so
     // `update_menu_accelerators` can diff against reality without a separate
     // accounting pass.
@@ -545,6 +544,7 @@ pub fn create_localized_menu(
         true,
         &[
             &MenuItem::with_id(app, "source-mode", &t!("menu.view.sourceMode").to_string(), true, accel("source-mode", "F6"))?,
+            &MenuItem::with_id(app, "markdown-split", &t!("menu.view.markdownSplit").to_string(), true, accel("markdown-split", "Shift+F6"))?,
             &PredefinedMenuItem::separator(app)?,
             &MenuItem::with_id(app, "focus-mode", &t!("menu.view.focusMode").to_string(), true, accel("focus-mode", "F8"))?,
             &MenuItem::with_id(app, "typewriter-mode", &t!("menu.view.typewriterMode").to_string(), true, accel("typewriter-mode", "F9"))?,

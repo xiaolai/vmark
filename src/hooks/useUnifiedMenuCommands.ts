@@ -29,6 +29,7 @@ import { useEffect, useRef } from "react";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { useUIStore } from "@/stores/uiStore";
+import { selectSourceEditing } from "@/stores/selectSourceEditing";
 import { useLargeFileSessionStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useEditorStore } from "@/stores/editorStore";
@@ -410,8 +411,7 @@ export function useUnifiedMenuCommands(): void {
           const forcedTabSource = activeTabIdForMode
             ? useLargeFileSessionStore.getState().isForcedSource(activeTabIdForMode)
             : false;
-          const isSourceMode =
-            useUIStore.getState().sourceMode || forcedTabSource;
+          const isSourceMode = selectSourceEditing(useUIStore.getState()) || forcedTabSource;
 
           // Capability check
           if (isSourceMode && !actionDef.supports.source) {

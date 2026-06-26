@@ -53,6 +53,7 @@
     "line-endings-crlf",
     "line-endings-lf",
     "link",
+    "markdown-split",
     "math-block",
     "mindmap",
     "move-line-down",
@@ -175,6 +176,7 @@
     "link",
     "lint-next",
     "lint-prev",
+    "markdown-split",
     "math-block",
     "mindmap",
     "move-line-down",
@@ -236,5 +238,5 @@
     "zoom-in",
     "zoom-out"
   ],
-  "generatedAt": "2026-06-26T00:39:09.492Z"
+  "generatedAt": "2026-06-26T15:46:49.371Z"
 }

@@ -209,6 +209,8 @@
   "markdown.pasteMode.rich": "Rich (keep original formatting)",
   "markdown.group.layout": "Layout",
   "markdown.blockFontSize.label": "Block element font size",
+  "markdown.splitView.label": "Split source/preview by default",
+  "markdown.splitView.description": "Open markdown files with the source and a live preview side by side.",
   "markdown.blockFontSize.description": "Font size for lists, blockquotes, tables, alerts, and details",
   "markdown.blockFontSize.100": "100% (default)",
   "markdown.blockFontSize.95": "95%",

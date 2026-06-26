@@ -179,6 +179,8 @@
   "markdown.smartPaste.off": "Aus",
   "markdown.group.layout": "Layout",
   "markdown.blockFontSize.label": "Blockelement-Schriftgröße",
+  "markdown.splitView.label": "Quelle/Vorschau standardmäßig teilen",
+  "markdown.splitView.description": "Markdown-Dateien mit Quelltext und Live-Vorschau nebeneinander öffnen.",
   "markdown.blockFontSize.description": "Schriftgröße für Listen, Blockzitate, Tabellen, Hinweise und Details",
   "markdown.blockFontSize.100": "100% (Standard)",
   "markdown.blockFontSize.95": "95%",

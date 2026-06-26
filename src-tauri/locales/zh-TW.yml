@@ -161,6 +161,7 @@ menu:
   # === 檢視選單 ===
   view: "檢視"
   view.sourceMode: "原始碼模式"
+  view.markdownSplit: "Markdown 分割檢視"
   view.focusMode: "專注模式"
   view.typewriterMode: "打字機模式"
   view.actualSize: "實際大小"

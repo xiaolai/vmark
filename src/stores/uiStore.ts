@@ -195,6 +195,7 @@ interface UIState {
   focusModeEnabled: boolean;
   typewriterModeEnabled: boolean;
   sourceMode: boolean;
+  markdownSplitView: boolean;
   wordWrap: boolean;
   showLineNumbers: boolean;
   diagramPreviewEnabled: boolean;
@@ -232,6 +233,8 @@ interface UIActions {
   toggleTypewriterMode: () => void;
   toggleSourceMode: () => void;
   setSourceMode: (enabled: boolean) => void;
+  toggleMarkdownSplitView: () => void;
+  setMarkdownSplitView: (enabled: boolean) => void;
   toggleWordWrap: () => void;
   toggleLineNumbers: () => void;
   toggleDiagramPreview: () => void;
@@ -301,6 +304,7 @@ export const useUIStore = create<UIStore>((set, get) => ({
   focusModeEnabled: false,
   typewriterModeEnabled: false,
   sourceMode: false,
+  markdownSplitView: false,
   wordWrap: true,
   showLineNumbers: false,
   diagramPreviewEnabled: false,
@@ -309,30 +313,27 @@ export const useUIStore = create<UIStore>((set, get) => ({
   contentSearch: initialContentSearch,
   terminal: initialTerminal,
 
-  toggleFocusMode: () =>
-    set((state) => ({ focusModeEnabled: !state.focusModeEnabled })),
-  toggleTypewriterMode: () =>
-    set((state) => ({ typewriterModeEnabled: !state.typewriterModeEnabled })),
-  toggleSourceMode: () =>
-    set((state) => ({ sourceMode: !state.sourceMode })),
+  toggleFocusMode: () => set((s) => ({ focusModeEnabled: !s.focusModeEnabled })),
+  toggleTypewriterMode: () => set((s) => ({ typewriterModeEnabled: !s.typewriterModeEnabled })),
+  toggleSourceMode: () => set((s) => ({ sourceMode: !s.sourceMode })),
   setSourceMode: (enabled) => set({ sourceMode: enabled }),
+  toggleMarkdownSplitView: () => set((s) => ({ markdownSplitView: !s.markdownSplitView })),
+  setMarkdownSplitView: (enabled) => set({ markdownSplitView: enabled }),
   toggleWordWrap: () => set((state) => ({ wordWrap: !state.wordWrap })),
-  toggleLineNumbers: () =>
-    set((state) => ({ showLineNumbers: !state.showLineNumbers })),
-  toggleDiagramPreview: () =>
-    set((state) => ({ diagramPreviewEnabled: !state.diagramPreviewEnabled })),
+  toggleLineNumbers: () => set((s) => ({ showLineNumbers: !s.showLineNumbers })),
+  toggleDiagramPreview: () => set((s) => ({ diagramPreviewEnabled: !s.diagramPreviewEnabled })),
   resetEditorFlags: () =>
     set({
       focusModeEnabled: false,
       typewriterModeEnabled: false,
       sourceMode: false,
+      markdownSplitView: false,
       wordWrap: true,
       showLineNumbers: false,
       diagramPreviewEnabled: false,
     }),
 
-  toggleSidebar: () =>
-    set((state) => ({ sidebarVisible: !state.sidebarVisible })),
+  toggleSidebar: () => set((s) => ({ sidebarVisible: !s.sidebarVisible })),
   toggleSidebarView: (mode) =>
     set((state) => {
       if (state.sidebarVisible && state.sidebarViewMode === mode) {
@@ -400,8 +401,7 @@ export const useUIStore = create<UIStore>((set, get) => ({
       toolbarDropdownOpen: false,
     }),
   setDraggingFiles: (dragging) => set({ isDraggingFiles: dragging }),
-  toggleTerminal: () =>
-    set((state) => ({ terminalVisible: !state.terminalVisible })),
+  toggleTerminal: () => set((s) => ({ terminalVisible: !s.terminalVisible })),
   // Only the absolute pixel floor is enforced here; the proportional 50% cap
   // (TERMINAL_MAX_RATIO) is applied by the viewport-aware callers that know the
   // window size — useTerminalPosition (layout) and useTerminalResize (drag).

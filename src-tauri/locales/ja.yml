@@ -161,6 +161,7 @@ menu:
   # === 表示メニュー ===
   view: "表示"
   view.sourceMode: "ソースコードモード"
+  view.markdownSplit: "Markdown分割ビュー"
   view.focusMode: "フォーカスモード"
   view.typewriterMode: "タイプライターモード"
   view.actualSize: "実際のサイズ"

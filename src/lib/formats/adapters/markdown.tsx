@@ -16,6 +16,7 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useDocumentId } from "@/hooks/useDocumentState";
 import { TiptapEditorInner } from "@/components/Editor/TiptapEditor";
+import { MarkdownSplitView } from "@/components/Editor/MarkdownSplitView";
 import { HeadingPicker } from "@/components/Editor/HeadingPicker";
 import { DropZoneIndicator } from "@/components/Editor/DropZoneIndicator";
 import { GhaWorkflowSidePanel } from "@/plugins/ghaWorkflowPreview/GhaWorkflowSidePanel";
@@ -50,6 +51,10 @@ export function MarkdownEditorSurface({ tabId }: { tabId: string }) {
     tabId ? Boolean(s.forcedSourceTabs[tabId]) : false,
   );
   const sourceMode = globalSourceMode || forcedSource;
+  // A forced-source tab (large file) must stay single-pane source — entering
+  // the split would mount the WYSIWYG preview and parse the whole large doc,
+  // defeating the forced-source performance path (Codex audit).
+  const splitView = useUIStore((state) => state.markdownSplitView) && !forcedSource;
   const documentId = useDocumentId();
   const mediaBorderStyle = useSettingsStore((s) => s.markdown.mediaBorderStyle);
   const mediaAlignment = useSettingsStore((s) => s.markdown.mediaAlignment);
@@ -70,13 +75,23 @@ export function MarkdownEditorSurface({ tabId }: { tabId: string }) {
   const editorKey = `${tabId}-doc-${documentId}`;
   /* v8 ignore next -- @preserve tableFitToWidth conditional class appended at runtime */
   const containerClass = `editor-container media-border-${mediaBorderStyle} media-align-${mediaAlignment} heading-align-${headingAlignment}${tableFitToWidth ? " table-fit-to-width" : ""}`;
-  /* v8 ignore next -- @preserve sourceMode ternary branches require mode toggle */
-  const activeEditor = sourceMode ? "source" : "wysiwyg";
-  /* v8 ignore next 10 -- @preserve keepAlive and sourceMode ternary branches require advanced settings */
-  // Distinct keys are required when both editors are mounted side-by-side
-  // (keepAlive). React's reconciler keys siblings at the same level —
-  // sharing one key triggers warnings and incorrect element reuse.
-  const editorContent = keepAlive ? (
+  /* v8 ignore next -- @preserve view-mode ternary branches require mode toggle */
+  const activeEditor = splitView ? "split" : sourceMode ? "source" : "wysiwyg";
+  /* v8 ignore next 18 -- @preserve split / keepAlive / sourceMode branches require view toggles + advanced settings */
+  // Split view (opt-in): editable source pane + live read-only WYSIWYG preview.
+  // The preview registers no active editor, so formatting targets the source.
+  // Distinct keys are required when both editors mount side-by-side — React
+  // keys siblings at the same level, so a shared key reuses elements wrongly.
+  const editorContent = splitView ? (
+    <MarkdownSplitView
+      source={
+        <Suspense fallback={null}>
+          <SourceEditor key={`${editorKey}-source`} readOnly={readOnly} />
+        </Suspense>
+      }
+      preview={<TiptapEditorInner key={`${editorKey}-preview`} readOnly preview />}
+    />
+  ) : keepAlive ? (
     <>
       <Suspense fallback={null}>
         <SourceEditor key={`${editorKey}-source`} hidden={!sourceMode} readOnly={readOnly} />

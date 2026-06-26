@@ -2,8 +2,8 @@
  * View Shortcuts Hook
  *
  * Purpose: Keyboard shortcut handler for view-mode toggles — source mode,
- *   focus mode, typewriter mode, word wrap, line numbers, terminal, sidebar
- *   panels, and the Knowledge Base panel.
+ *   markdown split view, focus mode, typewriter mode, word wrap, line numbers,
+ *   terminal, sidebar panels, and the Knowledge Base panel.
  *
  * Key decisions:
  *   - Listens directly on keydown because menu accelerators aren't always
@@ -27,6 +27,7 @@ import { matchesShortcutEvent, isMacPlatform } from "@/utils/shortcutMatch";
 import { cleanupBeforeModeSwitch } from "@/services/assembly/modeSwitchCleanup";
 import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import { toggleSourceModeWithCheckpoint } from "@/hooks/useUnifiedHistory";
+import { toggleMarkdownSplitWithCheckpoint } from "@/hooks/markdownSplitToggle";
 import { requestToggleTerminal } from "@/components/Terminal/terminalGate";
 import { toggleDocumentReadOnlyWithOwnership } from "@/services/workspaces/fileOwnership";
 import { useSettingsStore } from "@/stores/settingsStore";
@@ -60,7 +61,8 @@ export type ViewAction =
   | "toggleOutline"
   | "fileExplorer"
   | "viewHistory"
-  | "knowledgeBase";
+  | "knowledgeBase"
+  | "markdownSplit";
 
 /** All shortcut ids the view-shortcut resolver/executors consult. */
 const VIEW_SHORTCUT_IDS: ViewAction[] = [
@@ -79,6 +81,7 @@ const VIEW_SHORTCUT_IDS: ViewAction[] = [
   "fileExplorer",
   "viewHistory",
   "knowledgeBase",
+  "markdownSplit",
 ];
 
 /** Build the action-id → binding map resolveViewAction expects from the store. */
@@ -128,6 +131,7 @@ export function resolveViewAction(
     ["fileExplorer", "fileExplorer"],
     ["viewHistory", "viewHistory"],
     ["knowledgeBase", "knowledgeBase"],
+    ["markdownSplit", "markdownSplit"],
   ];
 
   for (const [key, action] of actionMap) {
@@ -191,6 +195,7 @@ const VIEW_ACTION_EXECUTORS: Record<ViewAction, () => void> = {
   fileExplorer: () => useUIStore.getState().toggleSidebarView("files"),
   viewHistory: () => useUIStore.getState().toggleSidebarView("history"),
   knowledgeBase: () => useContentServerStore.getState().togglePanel(),
+  markdownSplit: () => toggleMarkdownSplitWithCheckpoint(getCurrentWindowLabel()),
 };
 
 // ---------------------------------------------------------------------------

@@ -161,6 +161,7 @@ menu:
   # === View menu ===
   view: "Visualizar"
   view.sourceMode: "Modo de código-fonte"
+  view.markdownSplit: "Visualização dividida do Markdown"
   view.focusMode: "Modo de foco"
   view.typewriterMode: "Modo máquina de escrever"
   view.actualSize: "Tamanho real"

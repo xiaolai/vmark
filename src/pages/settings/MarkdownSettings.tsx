@@ -68,6 +68,15 @@ export function MarkdownSettings() {
       {/* Layout */}
       <SettingsGroup title={t("markdown.group.layout")}>
         <SettingRow
+          label={t("markdown.splitView.label")}
+          description={t("markdown.splitView.description")}
+        >
+          <Toggle
+            checked={markdown.splitViewByDefault}
+            onChange={(v) => updateSetting("splitViewByDefault", v)}
+          />
+        </SettingRow>
+        <SettingRow
           label={t("markdown.blockFontSize.label")}
           description={t("markdown.blockFontSize.description")}
         >

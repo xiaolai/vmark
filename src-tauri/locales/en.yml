@@ -161,6 +161,7 @@ menu:
   # === View menu ===
   view: "View"
   view.sourceMode: "Source Code Mode"
+  view.markdownSplit: "Markdown Split View"
   view.focusMode: "Focus Mode"
   view.typewriterMode: "Typewriter Mode"
   view.actualSize: "Actual Size"

@@ -102,6 +102,7 @@ export const initialState: SettingsState = {
     copyOnSelect: false,
     tableFitToWidth: false,
     lintEnabled: true,
+    splitViewByDefault: false,
   },
   image: {
     autoResizeMax: 0, // Off by default

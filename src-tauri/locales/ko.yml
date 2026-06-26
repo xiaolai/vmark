@@ -161,6 +161,7 @@ menu:
   # === 보기 메뉴 ===
   view: "보기"
   view.sourceMode: "소스 코드 모드"
+  view.markdownSplit: "마크다운 분할 보기"
   view.focusMode: "집중 모드"
   view.typewriterMode: "타자기 모드"
   view.actualSize: "실제 크기"

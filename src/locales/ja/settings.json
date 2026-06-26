@@ -179,6 +179,8 @@
   "markdown.smartPaste.off": "オフ",
   "markdown.group.layout": "レイアウト",
   "markdown.blockFontSize.label": "ブロック要素のフォントサイズ",
+  "markdown.splitView.label": "デフォルトでソース/プレビューを分割",
+  "markdown.splitView.description": "Markdownファイルをソースとライブプレビューを並べて開きます。",
   "markdown.blockFontSize.description": "リスト・引用ブロック・表・アラート・詳細のフォントサイズ",
   "markdown.blockFontSize.100": "100%（デフォルト）",
   "markdown.blockFontSize.95": "95%",

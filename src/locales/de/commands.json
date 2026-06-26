@@ -43,6 +43,7 @@
     "toggleFileExplorer": "Datei-Explorer umschalten",
     "toggleHistory": "Verlauf umschalten",
     "toggleKnowledgeBase": "Wissensdatenbank umschalten",
+    "toggleMarkdownSplit": "Markdown-Splitansicht umschalten",
     "toggleWordWrap": "Zeilenumbruch umschalten",
     "toggleLineNumbers": "Zeilennummern umschalten",
     "toggleDiagramPreview": "Diagrammvorschau umschalten",

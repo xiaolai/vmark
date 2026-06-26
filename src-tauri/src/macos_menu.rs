@@ -238,6 +238,7 @@ const MENU_ICONS: &[(&str, &str)] = &[
     ("lint-next", "chevron.down"),
     ("lint-prev", "chevron.up"),
     ("source-mode", "chevron.left.forwardslash.chevron.right"),
+    ("markdown-split", "rectangle.split.2x1"),
     ("focus-mode", "eye"),
     ("typewriter-mode", "character.cursor.ibeam"),
     ("zoom-actual", "1.magnifyingglass"),

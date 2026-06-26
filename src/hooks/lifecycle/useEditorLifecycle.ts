@@ -26,6 +26,7 @@ import { useTabShortcuts } from "@/hooks/useTabShortcuts";
 import { useFileExplorerShortcuts } from "@/hooks/useFileExplorerShortcuts";
 import { useUniversalToolbar } from "@/hooks/useUniversalToolbar";
 import { useFormatsUpgradeNudge } from "@/hooks/useFormatsUpgradeNudge";
+import { useMarkdownSplitDefault } from "@/hooks/useMarkdownSplitDefault";
 
 export function useEditorLifecycle(): void {
   useCommandBootstrap();
@@ -35,4 +36,5 @@ export function useEditorLifecycle(): void {
   useFileExplorerShortcuts();
   useUniversalToolbar();
   useFormatsUpgradeNudge();
+  useMarkdownSplitDefault();
 }

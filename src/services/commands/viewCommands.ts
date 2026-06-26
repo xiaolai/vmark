@@ -14,6 +14,7 @@ import { useLintStore } from "@/stores/documentStore";
 import { requestToggleTerminal } from "@/components/Terminal/terminalGate";
 import { cleanupBeforeModeSwitch } from "@/services/assembly/modeSwitchCleanup";
 import { toggleSourceModeWithCheckpoint } from "@/hooks/useUnifiedHistory";
+import { toggleMarkdownSplitWithCheckpoint } from "@/hooks/markdownSplitToggle";
 import { getActiveTabId } from "@/services/navigation/activeDocument";
 import { toggleDocumentReadOnlyWithOwnership } from "@/services/workspaces/fileOwnership";
 import { scrollToSelectedDiagnostic } from "@/hooks/lintNavigation";
@@ -82,6 +83,14 @@ export function registerViewCommands(): void {
     title: () => i18n.t("commands:view.toggleKnowledgeBase"),
     category: "view",
     run: () => useContentServerStore.getState().togglePanel(),
+  });
+
+  registerCommand({
+    id: "view.toggleMarkdownSplit",
+    title: () => i18n.t("commands:view.toggleMarkdownSplit"),
+    category: "view",
+    run: (_args, ctx: Ctx) =>
+      toggleMarkdownSplitWithCheckpoint(ctx.windowLabel ?? "main"),
   });
 
   registerCommand({

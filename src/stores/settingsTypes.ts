@@ -200,6 +200,7 @@ export interface MarkdownSettings {
   copyOnSelect: boolean; // Auto-copy selected text to clipboard
   tableFitToWidth: boolean; // Force tables to fit editor width (word-wrap cells)
   lintEnabled: boolean; // Run markdown lint checks and show diagnostics
+  splitViewByDefault: boolean; // Open markdown in the source/preview split view
 }
 
 // ---------------------------------------------------------------------------

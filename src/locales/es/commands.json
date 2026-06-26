@@ -43,6 +43,7 @@
     "toggleFileExplorer": "Alternar explorador de archivos",
     "toggleHistory": "Alternar historial",
     "toggleKnowledgeBase": "Alternar base de conocimiento",
+    "toggleMarkdownSplit": "Alternar vista dividida de Markdown",
     "toggleWordWrap": "Alternar ajuste de línea",
     "toggleLineNumbers": "Alternar números de línea",
     "toggleDiagramPreview": "Alternar vista previa de diagramas",

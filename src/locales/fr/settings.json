@@ -179,6 +179,8 @@
   "markdown.smartPaste.off": "Désactivé",
   "markdown.group.layout": "Mise en page",
   "markdown.blockFontSize.label": "Taille de police des éléments de bloc",
+  "markdown.splitView.label": "Diviser source/aperçu par défaut",
+  "markdown.splitView.description": "Ouvrir les fichiers Markdown avec la source et un aperçu en direct côte à côte.",
   "markdown.blockFontSize.description": "Taille de police pour les listes, citations, tableaux, alertes et détails",
   "markdown.blockFontSize.100": "100% (défaut)",
   "markdown.blockFontSize.95": "95%",

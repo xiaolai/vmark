@@ -179,6 +179,8 @@
   "markdown.smartPaste.off": "끄기",
   "markdown.group.layout": "레이아웃",
   "markdown.blockFontSize.label": "블록 요소 글자 크기",
+  "markdown.splitView.label": "기본적으로 소스/미리보기 분할",
+  "markdown.splitView.description": "마크다운 파일을 소스와 실시간 미리보기를 나란히 엽니다.",
   "markdown.blockFontSize.description": "목록, 인용, 표, 알림, 상세 내용의 글자 크기",
   "markdown.blockFontSize.100": "100% (기본값)",
   "markdown.blockFontSize.95": "95%",

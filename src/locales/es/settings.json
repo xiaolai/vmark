@@ -179,6 +179,8 @@
   "markdown.smartPaste.off": "Desactivado",
   "markdown.group.layout": "Diseño",
   "markdown.blockFontSize.label": "Tamaño de fuente de elementos de bloque",
+  "markdown.splitView.label": "Dividir fuente/vista previa por defecto",
+  "markdown.splitView.description": "Abrir archivos Markdown con la fuente y una vista previa en vivo en paralelo.",
   "markdown.blockFontSize.description": "Tamaño de fuente para listas, citas en bloque, tablas, alertas y detalles",
   "markdown.blockFontSize.100": "100% (predeterminado)",
   "markdown.blockFontSize.95": "95%",

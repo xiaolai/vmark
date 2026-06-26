@@ -8,8 +8,7 @@
  * accelerators) and `website/guide/shortcuts.md` (docs) per
  * `.claude/rules/41-keyboard-shortcuts.md`.
  *
- * Re-exported by `../settingsStore.ts` so existing consumers can keep
- * `import { useShortcutsStore } from "@/stores/settingsStore"`.
+ * Re-exported by `../settingsStore.ts` for `useShortcutsStore` consumers.
  *
  * @module stores/settingsStore/shortcuts
  */
@@ -143,6 +142,7 @@ export const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
   { id: "viewHistory", label: "Toggle History", category: "view", defaultKey: "Ctrl-Shift-3", menuId: "view-history", scope: "global" },
   { id: "knowledgeBase", label: "Toggle Knowledge Base", category: "view", defaultKey: "Ctrl-Shift-4", menuId: "knowledge-base", scope: "global", description: "Open the local knowledge-base inspector panel" },
   { id: "sourceMode", label: "Source Mode", category: "view", defaultKey: "F6", menuId: "source-mode" },
+  { id: "markdownSplit", label: "Markdown Split View", category: "view", defaultKey: "Shift-F6", menuId: "markdown-split", scope: "global", description: "Toggle the side-by-side source + preview split" },
   { id: "toggleStatusBar", label: "Toggle Status Bar", category: "view", defaultKey: "F7", description: "Show/hide the status bar", scope: "global" },
   { id: "focusMode", label: "Focus Mode", category: "view", defaultKey: "F8", menuId: "focus-mode", scope: "global" },
   { id: "typewriterMode", label: "Typewriter Mode", category: "view", defaultKey: "F9", menuId: "typewriter-mode", scope: "global" },

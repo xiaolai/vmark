@@ -6,11 +6,13 @@ import {
 } from "./viewCommands";
 import { getCommand, executeCommand, _resetCommandBus } from "./CommandBus";
 import { useContentServerStore } from "@/stores/contentServerStore";
+import { useUIStore } from "@/stores/uiStore";
 
 beforeEach(() => {
   _resetCommandBus();
   __resetViewCommandsRegistration();
   useContentServerStore.getState().reset();
+  useUIStore.getState().setMarkdownSplitView(false);
 });
 
 describe("view.toggleKnowledgeBase", () => {
@@ -27,5 +29,21 @@ describe("view.toggleKnowledgeBase", () => {
     expect(useContentServerStore.getState().panelOpen).toBe(true);
     await executeCommand("view.toggleKnowledgeBase");
     expect(useContentServerStore.getState().panelOpen).toBe(false);
+  });
+});
+
+describe("view.toggleMarkdownSplit", () => {
+  it("is registered as a view command", () => {
+    registerViewCommands();
+    expect(getCommand("view.toggleMarkdownSplit")?.category).toBe("view");
+  });
+
+  it("toggles the markdown source/preview split on then off", async () => {
+    registerViewCommands();
+    expect(useUIStore.getState().markdownSplitView).toBe(false);
+    await executeCommand("view.toggleMarkdownSplit");
+    expect(useUIStore.getState().markdownSplitView).toBe(true);
+    await executeCommand("view.toggleMarkdownSplit");
+    expect(useUIStore.getState().markdownSplitView).toBe(false);
   });
 });
