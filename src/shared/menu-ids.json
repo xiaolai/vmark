@@ -49,11 +49,9 @@
     "insert-table",
     "italic",
     "join-lines",
-    "knowledge-base",
     "line-endings-crlf",
     "line-endings-lf",
     "link",
-    "markdown-split",
     "math-block",
     "mindmap",
     "move-line-down",
@@ -238,5 +236,5 @@
     "zoom-in",
     "zoom-out"
   ],
-  "generatedAt": "2026-06-26T15:46:49.371Z"
+  "generatedAt": "2026-06-26T17:53:19.797Z"
 }

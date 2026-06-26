@@ -30,6 +30,25 @@
         "tailwindcss",
         "@tauri-apps/cli",
         "@hypothesi/tauri-mcp-server"
+      ],
+      "ignoreBinaries": [
+        "smoke"
+      ]
+    },
+    "vmark-content-server": {
+      "entry": [
+        "src/**/*.{test,spec}.ts",
+        "src/**/*.bench.ts"
+      ],
+      "project": [
+        "src/**/*.ts"
+      ],
+      "ignoreDependencies": [
+        "@slidev/cli",
+        "playwright-chromium",
+        "katex",
+        "@types/katex",
+        "mdast-util-find-and-replace"
       ]
     },
     "vmark-mcp-server": {
@@ -51,11 +70,7 @@
         "cytoscape-cose-bilkent",
         "dayjs",
         "debug",
-        "@braintree/sanitize-url",
-        "mermaid"
-      ],
-      "ignoreBinaries": [
-        "vitepress"
+        "@braintree/sanitize-url"
       ]
     }
   }
