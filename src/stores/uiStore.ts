@@ -315,10 +315,11 @@ export const useUIStore = create<UIStore>((set, get) => ({
 
   toggleFocusMode: () => set((s) => ({ focusModeEnabled: !s.focusModeEnabled })),
   toggleTypewriterMode: () => set((s) => ({ typewriterModeEnabled: !s.typewriterModeEnabled })),
-  toggleSourceMode: () => set((s) => ({ sourceMode: !s.sourceMode })),
-  setSourceMode: (enabled) => set({ sourceMode: enabled }),
-  toggleMarkdownSplitView: () => set((s) => ({ markdownSplitView: !s.markdownSplitView })),
-  setMarkdownSplitView: (enabled) => set({ markdownSplitView: enabled }),
+  // WYSIWYG / Source / Split are mutually exclusive — enabling one clears the other.
+  toggleSourceMode: () => set((s) => ({ sourceMode: !s.sourceMode, markdownSplitView: false })),
+  setSourceMode: (enabled) => set(enabled ? { sourceMode: true, markdownSplitView: false } : { sourceMode: false }),
+  toggleMarkdownSplitView: () => set((s) => ({ markdownSplitView: !s.markdownSplitView, sourceMode: false })),
+  setMarkdownSplitView: (enabled) => set(enabled ? { markdownSplitView: true, sourceMode: false } : { markdownSplitView: false }),
   toggleWordWrap: () => set((state) => ({ wordWrap: !state.wordWrap })),
   toggleLineNumbers: () => set((s) => ({ showLineNumbers: !s.showLineNumbers })),
   toggleDiagramPreview: () => set((s) => ({ diagramPreviewEnabled: !s.diagramPreviewEnabled })),
@@ -419,8 +420,7 @@ export const useUIStore = create<UIStore>((set, get) => ({
   setFileExplorerOpenState: (next) => set({ fileExplorerOpenState: next }),
 
   /* search slice actions */
-  searchOpen: () =>
-    set((s) => ({ search: { ...s.search, isOpen: true } })),
+  searchOpen: () => set((s) => ({ search: { ...s.search, isOpen: true } })),
   searchClose: () =>
     set((s) => ({ search: { ...s.search, isOpen: false } })),
   searchToggle: () =>

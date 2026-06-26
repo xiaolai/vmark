@@ -42,7 +42,9 @@ resize.
 - Make it the default for Markdown files in **Settings → Markdown → Layout →
   Split source/preview by default**
 
-WYSIWYG remains the default; the split is opt-in.
+WYSIWYG remains the default; the split is opt-in. The three views are mutually
+exclusive — `F6` toggles Source and `Shift + F6` toggles Split, each returning
+to WYSIWYG — so switching between them is always a single keystroke.
 
 ### Large Files
 

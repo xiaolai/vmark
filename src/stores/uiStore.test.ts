@@ -464,4 +464,40 @@ describe("uiStore", () => {
       expect(state.toolbarSessionFocusIndex).toBe(3);
     });
   });
+
+  describe("markdown view exclusivity (WYSIWYG / Source / Split)", () => {
+    beforeEach(() => {
+      useUIStore.setState({ sourceMode: false, markdownSplitView: false });
+    });
+
+    it("enabling Split clears Source", () => {
+      useUIStore.getState().setSourceMode(true);
+      useUIStore.getState().toggleMarkdownSplitView();
+      expect(useUIStore.getState().markdownSplitView).toBe(true);
+      expect(useUIStore.getState().sourceMode).toBe(false);
+    });
+
+    it("enabling Source clears Split", () => {
+      useUIStore.getState().setMarkdownSplitView(true);
+      useUIStore.getState().toggleSourceMode();
+      expect(useUIStore.getState().sourceMode).toBe(true);
+      expect(useUIStore.getState().markdownSplitView).toBe(false);
+    });
+
+    it("F6 from Split → Source, then Shift+F6 → Split (clean switch)", () => {
+      useUIStore.getState().setMarkdownSplitView(true); // Split
+      useUIStore.getState().toggleSourceMode(); // → Source
+      expect(useUIStore.getState().sourceMode).toBe(true);
+      expect(useUIStore.getState().markdownSplitView).toBe(false);
+      useUIStore.getState().toggleMarkdownSplitView(); // → Split
+      expect(useUIStore.getState().markdownSplitView).toBe(true);
+      expect(useUIStore.getState().sourceMode).toBe(false);
+    });
+
+    it("disabling one mode via its setter does NOT force the other off", () => {
+      useUIStore.getState().setMarkdownSplitView(true); // Split on
+      useUIStore.getState().setSourceMode(false); // must not touch Split
+      expect(useUIStore.getState().markdownSplitView).toBe(true);
+    });
+  });
 });
