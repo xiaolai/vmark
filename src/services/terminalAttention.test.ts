@@ -173,4 +173,11 @@ describe("flagWindowAttentionOnBell (#1057)", () => {
     flagWindowAttentionOnBell();
     expect(mockInvoke).not.toHaveBeenCalled();
   });
+
+  it("does nothing when the bell is muted (bellMode 'off'), even if unfocused", () => {
+    vi.spyOn(document, "hasFocus").mockReturnValue(false);
+    mockTerminal = { notifyOnBell: true, bellMode: "off" };
+    flagWindowAttentionOnBell();
+    expect(mockInvoke).not.toHaveBeenCalled();
+  });
 });

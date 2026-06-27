@@ -38,8 +38,16 @@ export function WindowStatusPanel() {
 
   const close = () => useWindowStatusStore.getState().setPanelOpen(false);
   const goTo = (label: string) => {
-    void invoke("focus_window", { label }).catch(() => {});
-    close();
+    // Close only after the focus succeeds. If the target window is gone/stale,
+    // keep the panel open and refresh the list so the dead row drops out
+    // immediately (rather than waiting for its Destroyed-event prune).
+    void invoke("focus_window", { label })
+      .then(() => close())
+      .catch(() => {
+        void invoke<WindowStatusEntry[]>("get_window_statuses")
+          .then((list) => useWindowStatusStore.getState().setWindows(list))
+          .catch(() => {});
+      });
   };
 
   return (

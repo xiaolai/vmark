@@ -55,7 +55,22 @@ describe("WindowStatusPanel", () => {
     render(<WindowStatusPanel />);
     await user.click(screen.getByRole("button", { name: /other\.md/i }));
     expect(invoke).toHaveBeenCalledWith("focus_window", { label: "w-2" });
-    expect(useWindowStatusStore.getState().panelOpen).toBe(false);
+    await vi.waitFor(() => expect(useWindowStatusStore.getState().panelOpen).toBe(false));
+  });
+
+  it("keeps the panel open if focusing a stale window fails", async () => {
+    const user = userEvent.setup();
+    invoke.mockRejectedValue(new Error("window not found"));
+    useWindowStatusStore.getState().setWindows([
+      entry({ label: "self" }),
+      entry({ label: "w-gone", docName: "gone.md" }),
+    ]);
+    render(<WindowStatusPanel />);
+    await user.click(screen.getByRole("button", { name: /gone\.md/i }));
+    expect(invoke).toHaveBeenCalledWith("focus_window", { label: "w-gone" });
+    // Focus failed → panel stays open so the user isn't left with nothing.
+    await Promise.resolve();
+    expect(useWindowStatusStore.getState().panelOpen).toBe(true);
   });
 
   it("falls back to 'Untitled' for a window with no doc name", () => {
