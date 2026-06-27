@@ -46,10 +46,16 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import { useEditorStore } from "@/stores/editorStore";
 import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import { checkBridgePath } from "@/services/mcpBridge/bridgePathGuard";
-import { isWorkflowYaml, looksLikeWorkflowPath } from "@/lib/ghaWorkflow/detection";
+import {
+  isWorkflowYaml,
+  looksLikeWorkflowPath,
+} from "@/lib/ghaWorkflow/detection";
 import { formatMarkdown } from "@/lib/cjkFormatter";
 import { parseMarkdown } from "@/utils/markdownPipeline";
-import { getSerializeOptions, shouldPreserveTwoSpaceBreaks } from "@/plugins/toolbarActions/wysiwygAdapterUtils";
+import {
+  getSerializeOptions,
+  shouldPreserveTwoSpaceBreaks,
+} from "@/plugins/toolbarActions/wysiwygAdapterUtils";
 import { respond } from "../utils";
 import { wrapHandler } from "./wrapHandler";
 import { v2ErrorString } from "./types";
@@ -59,6 +65,7 @@ import { useMcpStore } from "@/stores/mcpStore";
 import { appendCheckpoint } from "@/stores/mcpCheckpointPersistence";
 import type { CheckpointTool } from "@/stores/mcpStore";
 import { errorMessage } from "@/utils/errorMessage";
+
 interface ResolvedTab {
   tabId: string;
   windowLabel: string;
