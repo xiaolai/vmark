@@ -66,7 +66,6 @@ export function SourceEditor({ hidden = false, readOnly = false }: SourceEditorP
   const viewRef = useRef<EditorView | null>(null);
   const isInternalChange = useRef(false);
   const hiddenRef = useRef(hidden);
-  hiddenRef.current = hidden;
 
   useSourceOutlineSync(viewRef, hidden);
 
@@ -80,10 +79,14 @@ export function SourceEditor({ hidden = false, readOnly = false }: SourceEditorP
   const setCursorInfoRef = useRef(setCursorInfo);
   const setSelectedTextRef = useRef(setSelectedText);
   const cursorInfoRef = useRef(cursorInfo);
-  setContentRef.current = setContent;
-  setCursorInfoRef.current = setCursorInfo;
-  setSelectedTextRef.current = setSelectedText;
-  cursorInfoRef.current = cursorInfo;
+  // Sync "latest value" refs after commit (read only from the CodeMirror listener/effects) — concurrent-safe (#1063).
+  useEffect(() => {
+    hiddenRef.current = hidden;
+    setContentRef.current = setContent;
+    setCursorInfoRef.current = setCursorInfo;
+    setSelectedTextRef.current = setSelectedText;
+    cursorInfoRef.current = cursorInfo;
+  });
 
   // Use editor store for global settings
   const wordWrap = useUIStore((state) => state.wordWrap);
@@ -102,10 +105,8 @@ export function SourceEditor({ hidden = false, readOnly = false }: SourceEditorP
     enabled: !hidden,
   });
 
-  // Reset parent scroll when source editor mounts or becomes visible.
-  // .editor-content retains its scrollTop from WYSIWYG mode even after
-  // overflow switches to hidden, causing the source editor to appear
-  // displaced (content at bottom instead of top).
+  // Reset parent scroll on mount/show: .editor-content keeps its WYSIWYG scrollTop
+  // after overflow flips to hidden, displacing the source editor's content.
   useEffect(() => {
     const editorContent = containerRef.current?.closest(".editor-content") as HTMLElement | null;
     if (editorContent && !hidden) {
@@ -113,9 +114,8 @@ export function SourceEditor({ hidden = false, readOnly = false }: SourceEditorP
     }
   }, [hidden]);
 
-  // Clear shared selectedText when this editor becomes hidden — keeps the
-  // status bar from showing this editor's last selection while the other
-  // editor (WYSIWYG mode) is active.
+  // Clear shared selectedText when hidden — keeps the status bar from showing this
+  // editor's last selection while the WYSIWYG editor is active.
   useEffect(() => {
     if (hidden) setSelectedTextRef.current("");
   }, [hidden]);

@@ -487,7 +487,7 @@ export function useGenieInvocation() {
     [runGenie]
   );
 
-  // Keep ref in sync for MCP bridge listener
+  // eslint-disable-next-line react-hooks/refs -- latest-value ref read only by the async MCP bridge listener (#1063)
   invokeGenieRef.current = invokeGenie;
 
   const invokeFreeform = useCallback(

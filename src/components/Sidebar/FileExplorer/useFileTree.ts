@@ -168,6 +168,9 @@ export function useFileTree(
   // Load tree and setup watcher when rootPath changes
   useEffect(() => {
     if (!rootPath) {
+      // Legitimate: clears the tree as part of an async load + fs-watcher setup
+      // keyed on rootPath, not derivable during render (#1063).
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setTree([]);
       return;
     }

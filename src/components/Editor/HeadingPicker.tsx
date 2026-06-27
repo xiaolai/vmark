@@ -62,9 +62,12 @@ export function HeadingPicker() {
   const previousFocusRef = useRef<Element | null>(null);
   const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
 
-  // Find editor container for portal mounting
+  // Find editor container for portal mounting. Legitimate setState-in-effect: the
+  // target is read from the DOM after mount, so it can't be resolved during
+  // render (#1063).
   useEffect(() => {
     const editorContainer = document.querySelector('.editor-container') as HTMLElement | null;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setPortalTarget(editorContainer);
   }, []);
 
@@ -156,7 +159,10 @@ export function HeadingPicker() {
     capture: false,
   });
 
-  // Calculate popup position when opening
+  // Calculate popup position when opening. Legitimate setState-in-effect: depends
+  // on DOM measurement (portalTarget.getBoundingClientRect) that is only valid
+  // after layout, not during render (#1063).
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!isOpen) return;
 
@@ -190,14 +196,15 @@ export function HeadingPicker() {
       setPosition({ top, left });
     }
   }, [isOpen, anchorRect, containerBounds, portalTarget]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
-  // Reset and clamp selection when filter changes
-  useEffect(() => {
-    setSelectedIndex((prev) => {
-      if (filteredHeadings.length === 0) return 0;
-      return Math.min(prev, filteredHeadings.length - 1);
-    });
-  }, [filter, filteredHeadings.length]);
+  // Clamp the selection when the filtered list shrinks. Adjusted during render
+  // (converges immediately) rather than in an effect (#1063).
+  if (filteredHeadings.length === 0) {
+    if (selectedIndex !== 0) setSelectedIndex(0);
+  } else if (selectedIndex > filteredHeadings.length - 1) {
+    setSelectedIndex(filteredHeadings.length - 1);
+  }
 
   // Scroll selected item into view
   useEffect(() => {

@@ -24,6 +24,10 @@ export function KbGraphView() {
   const [flow, setFlow] = useState<FlowGraph | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Legitimate setState-in-effect: resets to a loading state then fills from an
+  // async graph fetch (with cancellation) — driven by I/O, not derivable during
+  // render (#1063).
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     let cancelled = false;
     setFlow(null);
@@ -43,6 +47,7 @@ export function KbGraphView() {
       cancelled = true;
     };
   }, [root, t]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   if (error) return <div className="kb-graph__error">{error}</div>;
   if (!flow) return <div className="kb-graph__loading" />;

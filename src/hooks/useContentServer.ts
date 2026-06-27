@@ -202,7 +202,10 @@ export function useContentServer(): ContentServerControls {
   // startServer is referenced via a ref so the listener never goes stale and
   // does not need to re-subscribe on every render.
   const startServerRef = useRef(startServer);
-  startServerRef.current = startServer;
+  // Synced after commit (read only from the async crash listener below). #1063
+  useEffect(() => {
+    startServerRef.current = startServer;
+  });
   useEffect(() => {
     let unlisten: UnlistenFn | undefined;
     let disposed = false;

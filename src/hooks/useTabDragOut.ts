@@ -1,8 +1,7 @@
 /**
  * Tab Drag-Out Hook
  *
- * Purpose: Manages tab drag interactions — reorder within the tab bar
- *   or drag out to detach a tab into a new window.
+ * Purpose: Manages tab drag interactions — reorder within the tab bar or drag out to detach into a new window.
  *
  * Key decisions:
  *   - Uses pointer events (not mouse) for touch support
@@ -15,7 +14,7 @@
  * @module hooks/useTabDragOut
  */
 
-import { useCallback, useRef, useState, type PointerEvent as ReactPointerEvent, type RefObject } from "react";
+import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type RefObject } from "react";
 
 /** Vertical distance (px) outside the tab bar to trigger drag-out. */
 const DRAG_OUT_THRESHOLD = 40;
@@ -151,15 +150,17 @@ export function useTabDragOut({ tabBarRef, onDragOut, onReorder, onDragMove }: U
     }
   }, []);
 
-  // Stable refs for callbacks used in document listeners
+  // Latest-value refs read only from the document drag listeners; synced after commit (#1063).
   const onDragOutRef = useRef(onDragOut);
-  onDragOutRef.current = onDragOut;
   const onReorderRef = useRef(onReorder);
-  onReorderRef.current = onReorder;
   const onDragMoveRef = useRef(onDragMove);
-  onDragMoveRef.current = onDragMove;
   const stableBarRef = useRef(tabBarRef);
-  stableBarRef.current = tabBarRef;
+  useEffect(() => {
+    onDragOutRef.current = onDragOut;
+    onReorderRef.current = onReorder;
+    onDragMoveRef.current = onDragMove;
+    stableBarRef.current = tabBarRef;
+  });
 
   // Detach document listeners and reset state
   /* v8 ignore start -- @preserve reason: cleanupRef empty-function initializer and reset are uncovered; drag cleanup not triggered in unit tests */
@@ -200,9 +201,8 @@ export function useTabDragOut({ tabBarRef, onDragOut, onReorder, onDragMove }: U
         // Only primary button; skip pinned tabs
         if (e.button !== 0 || isPinned) return;
 
-        // Skip drag initiation when clicking the close button (or its children).
-        // Pointer capture would steal the pointerup from the button, preventing
-        // the click event from firing and making the tab un-closable via X.
+        // Skip drag init on the close button — pointer capture would steal the
+        // pointerup, making the tab un-closable via X.
         const target = e.target;
         if (target instanceof Element && target.closest("[data-tab-close]")) return;
 

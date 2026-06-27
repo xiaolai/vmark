@@ -11,7 +11,9 @@
  *     at the bottom of the window), mirroring McpHistoryButton's popover.
  *   - Pure presentational: receives precomputed TextMetrics (totals + selected)
  *     from StatusBarCounts, so strip+compute happens once at the source and the
- *     inline counts and this breakdown never diverge.
+ *     inline counts and this breakdown never diverge. Self-positions via a layout
+ *     effect (measuring the anchor before paint) rather than reading the anchor
+ *     rect during render, which is not concurrent-safe.
  *   - When a selection exists, each row shows "selected / total"; otherwise a
  *     single total — matching the inline counts' selected/total convention.
  *   - Open state and dismiss (outside click / Escape) are owned by
@@ -24,6 +26,7 @@
 
 // audit-fix — pure presentational; metrics + dismiss owned by StatusBarCounts
 import type { RefObject } from "react";
+import { useLayoutEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TextMetrics } from "./statusTextMetrics";
 import "./word-count-popover.css";
@@ -59,20 +62,26 @@ export function WordCountPopover({
 }: WordCountPopoverProps): React.ReactElement {
   const { t } = useTranslation("statusbar");
 
-  const position = (): React.CSSProperties => {
+  // Position above the anchor by measuring it in a layout effect (before paint),
+  // rather than reading the anchor rect during render — the latter is not
+  // concurrent-safe (#1063). No deps: remeasure every render (the trigger width
+  // shifts as counts change while open); the functional update bails when nothing
+  // moved, so there is no render loop.
+  const [style, setStyle] = useState<React.CSSProperties>({ right: 8, bottom: 8, width: POPUP_WIDTH });
+  useLayoutEffect(() => {
     const rect = anchorRef.current?.getBoundingClientRect();
-    if (!rect) {
-      return { right: 8, bottom: 8, width: POPUP_WIDTH };
-    }
+    if (!rect) return;
     const right = Math.max(8, window.innerWidth - rect.right);
     const bottom = Math.max(8, window.innerHeight - rect.top + 6);
-    return { right, bottom, width: POPUP_WIDTH };
-  };
+    setStyle((prev) =>
+      prev.right === right && prev.bottom === bottom ? prev : { right, bottom, width: POPUP_WIDTH },
+    );
+  });
 
   return (
     <div
       className="word-count-popover"
-      style={position()}
+      style={style}
       role="dialog"
       aria-label={t("wordCountTitle")}
     >

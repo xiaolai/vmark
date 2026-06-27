@@ -125,8 +125,11 @@ export function ImageContextMenu({ onAction }: ImageContextMenuProps) {
     menu.style.top = `${adjustedY}px`;
   }, [position]);
 
-  // Focus the first item whenever the menu opens.
+  // Focus the first item whenever the menu opens (reset to -1 on close).
+  // Legitimate setState-in-effect: resets the roving-focus index on the open/close
+  // transition (including on mount), paired with the DOM-focus effect below (#1063).
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setFocusedIndex(isOpen ? 0 : -1);
   }, [isOpen]);
 

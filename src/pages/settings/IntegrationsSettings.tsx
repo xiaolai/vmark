@@ -62,6 +62,7 @@ export function IntegrationsSettings() {
   // Fetch client count when bridge is running
   useEffect(() => {
     if (!running) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- resets count as part of an async poll gated on `running` (#1063)
       setClientCount(0);
       return;
     }
@@ -105,8 +106,7 @@ export function IntegrationsSettings() {
     updateAdvancedSetting("mcpServer", { ...mcpSettings, autoApproveEdits: enabled });
   };
 
-  // Called after MCP config is successfully installed to a provider
-  // Enables autoStart and starts the bridge so it works immediately
+  // After MCP config installs to a provider: enable autoStart and start the bridge so it works immediately.
   const handleMcpConfigInstalled = async () => {
     // Enable autoStart so bridge runs on future launches
     if (!mcpSettings.autoStart) {

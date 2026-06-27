@@ -83,7 +83,9 @@ export function GeniePicker() {
   // Prompt history hook (pass grace-period guard for freeform keyDown)
   const promptHistory = usePromptHistory(ime.isComposing);
 
-  // Load genies on open + reset history hook
+  // Load genies + reset on open: resets bound to the open/close transition, bundled
+  // with side effects (genie load, focus capture/restore, history reset) (#1063).
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     /* v8 ignore next -- @preserve reason: false branch (close path with focus restore) untestable in jsdom */
     if (isOpen) {
@@ -105,6 +107,7 @@ export function GeniePicker() {
     /* v8 ignore stop */
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, filterScope]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Focus search input on open
   useEffect(() => {
@@ -167,13 +170,10 @@ export function GeniePicker() {
     return items;
   }, [recents, grouped]);
 
-  // Clamp selectedIndex when flatList shrinks (e.g. after typing narrows results)
-  useEffect(() => {
-    /* v8 ignore next 2 -- @preserve reason: clamp fires only when flatList shrinks below selectedIndex; race condition untestable in jsdom */
-    if (flatList.length > 0 && selectedIndex >= flatList.length) {
-      setSelectedIndex(flatList.length - 1);
-    }
-  }, [selectedIndex, flatList.length]);
+  // Clamp selectedIndex when flatList shrinks — adjusted during render, not in an effect (#1063).
+  if (flatList.length > 0 && selectedIndex >= flatList.length) {
+    setSelectedIndex(flatList.length - 1);
+  }
 
   const handleClose = useCallback(() => {
     useGeniePickerStore.getState().closePicker();
@@ -287,22 +287,21 @@ export function GeniePicker() {
     [flatList, selectedIndex, handleClose, handleSelect, activeScope, handleFreeformSubmit, ime, mode, filter, freeformConfirmed]
   );
 
-  // Sync prompt history cycling back to filter.
-  // When cycling changes displayValue, push it into filter so the textarea updates.
-  // Safe from loops: typing sets displayValue === filter via handleChange, so the
-  // guard (displayValue !== filter) is only true when cycling produces a new value.
+  // Sync prompt-history cycling back to filter so the textarea updates. Reacts to
+  // external history state (#1063); loop-safe — typing sets displayValue === filter
+  // via handleChange, so the guard is true only when cycling produces a new value.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (flatList.length === 0 && promptHistory.displayValue !== filter) {
       setFilter(promptHistory.displayValue);
       setSelectedIndex(0);
     }
   }, [promptHistory.displayValue, filter, flatList.length]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
-  // Click outside to close. Escape is handled by the component's own
-  // onKeyDown (mode-aware: resetToInput in processing/preview/error,
-  // close otherwise), so only the outside-click half is delegated here.
-  // Deferred attach prevents the opening click from immediately
-  // dismissing; bubble phase matches the original code.
+  // Click outside to close (Escape is handled by the mode-aware onKeyDown, so only
+  // the outside-click half is delegated). Deferred attach prevents the opening click
+  // from immediately dismissing; bubble phase matches the original code.
   useDismissOnOutsideOrEscape(isOpen, containerRef, handleClose, {
     deferActivation: true,
     escape: false,

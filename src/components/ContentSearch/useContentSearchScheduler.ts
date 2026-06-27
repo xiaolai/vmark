@@ -51,6 +51,10 @@ export function useContentSearchScheduler({
   // query/option change without a stale capture and without re-running the
   // search merely because the array identity changed.
   const excludeFoldersRef = useRef(excludeFolders);
+  // Synced during render (not an effect) so an already-pending debounced search
+  // reads the latest exclusions even after an exclusion-only re-render. Read only
+  // at query-execution time inside the debounce, never during render. #1063
+  // eslint-disable-next-line react-hooks/refs
   excludeFoldersRef.current = excludeFolders;
 
   useEffect(() => {

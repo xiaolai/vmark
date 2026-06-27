@@ -104,6 +104,14 @@ function findNextFocusable(total: number, current: number, direction: 1 | -1): n
   return (current + direction + total) % total;
 }
 
+/** Platform-appropriate translation key for the "reveal in file manager" action. */
+function revealLabelKey(): string {
+  const platform = typeof navigator !== "undefined" ? navigator.platform.toLowerCase() : "";
+  if (platform.includes("mac")) return "contextMenu.revealInFinder";
+  if (platform.includes("win")) return "contextMenu.showInExplorer";
+  return "contextMenu.showInFileManager";
+}
+
 interface ContextMenuProps {
   type: ContextMenuType;
   position: ContextMenuPosition;
@@ -116,15 +124,14 @@ export function ContextMenu({ type, position, onAction, onClose }: ContextMenuPr
   const { t } = useTranslation("sidebar");
   const menuRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<Array<HTMLButtonElement | null>>([]);
-  const [focusedIndex, setFocusedIndex] = useState(-1);
+  // Start focused on the first item — the menu always opens with item 0 focused.
+  // Using the initial state instead of a mount effect avoids an extra render (#1063).
+  const [focusedIndex, setFocusedIndex] = useState(0);
 
-  // Resolve platform-appropriate "reveal in file manager" label via translation keys
-  const revealLabel = useMemo(() => {
-    const platform = typeof navigator !== "undefined" ? navigator.platform.toLowerCase() : "";
-    if (platform.includes("mac")) return t("contextMenu.revealInFinder");
-    if (platform.includes("win")) return t("contextMenu.showInExplorer");
-    return t("contextMenu.showInFileManager");
-  }, [t]);
+  // Resolve platform-appropriate "reveal in file manager" label via translation keys.
+  // The React Compiler auto-memoizes the component, so no manual useMemo is needed —
+  // and a useMemo reading the `navigator` global can't be preserved by the compiler (#1063).
+  const revealLabel = t(revealLabelKey());
 
   const menuLabels = useMemo(() => ({
     open: t("contextMenu.open"),
@@ -168,11 +175,6 @@ export function ContextMenu({ type, position, onAction, onClose }: ContextMenuPr
     menu.style.left = `${adjustedX}px`;
     menu.style.top = `${adjustedY}px`;
   }, [position]);
-
-  // Auto-focus first item on mount
-  useEffect(() => {
-    setFocusedIndex(0);
-  }, []);
 
   // Move DOM focus when focusedIndex changes
   useEffect(() => {

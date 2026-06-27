@@ -185,8 +185,7 @@ export function useStatusBarTabDrag({ tabs, windowLabel, tabBarRef, onActivateTa
       if (mode !== "dragout") return;
       latestDragPointRef.current = point;
       if (previewProbeTimerRef.current) return;
-      // Tag each probe with the current drag generation so stale responses
-      // (arriving after drag ends or moves on) are discarded.
+      // Tag each probe with the current drag generation so stale responses are discarded.
       const probeGen = dragGenerationRef.current;
       previewProbeTimerRef.current = setTimeout(() => {
         previewProbeTimerRef.current = null;
@@ -286,6 +285,7 @@ export function useStatusBarTabDrag({ tabs, windowLabel, tabBarRef, onActivateTa
     if (dragMode !== "idle") return;
     // Advance generation so in-flight probe responses are discarded
     dragGenerationRef.current++;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- clears cross-window drop-preview on the drag→idle transition (#1063)
     clearDropPreviewBroadcast();
   }, [clearDropPreviewBroadcast, dragMode]);
 

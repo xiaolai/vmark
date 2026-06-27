@@ -107,6 +107,7 @@ export function TabContextMenu({ tab, position, windowLabel, onClose }: TabConte
     [menuItems]
   );
 
+
   const applyMenuPosition = useCallback(() => {
     const menu = menuRef.current;
     /* v8 ignore next -- @preserve reason: menu is null only before mount; always exists when applyMenuPosition is called */
@@ -155,8 +156,12 @@ export function TabContextMenu({ tab, position, windowLabel, onClose }: TabConte
   // Close on click outside or Escape (Escape ignored during IME composition).
   useDismissOnOutsideOrEscape(true, menuRef, onClose);
 
+  // Reset focus to the first enabled item when the focusable set changes (incl.
+  // on mount). Legitimate setState-in-effect: paired with the DOM-focus effect
+  // below; not derivable during render without losing mount-time focus init (#1063).
   useEffect(() => {
     /* v8 ignore next -- @preserve reason: ?? -1 fallback only when focusableIndices is empty; menu always has enabled items in tests */
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setFocusedIndex(focusableIndices[0] ?? -1);
   }, [focusableIndices]);
 

@@ -66,6 +66,9 @@ export function DocumentToolsSettings() {
 
   // Auto-detect on mount (no menu refresh — menu was built with correct state at startup).
   useEffect(() => {
+    // Legitimate: detect() runs an async tool probe that sets detection state —
+    // I/O on mount, not derivable during render (#1063).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void detect(false);
     return () => { mountedRef.current = false; };
   }, [detect]);

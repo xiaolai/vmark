@@ -162,6 +162,7 @@ export function McpConfigInstaller({ onInstallSuccess }: McpConfigInstallerProps
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- async provider probe sets diagnostics on mount (#1063)
     loadDiagnostics();
   }, [loadDiagnostics]);
 
@@ -230,8 +231,7 @@ export function McpConfigInstaller({ onInstallSuccess }: McpConfigInstallerProps
     }
   };
 
-  // CC-Switch deep-link import (issue #1008). VMark's sidecar binary path is
-  // the same across providers; grab the first diagnostic that resolved it.
+  // CC-Switch deep-link import (#1008): sidecar path is identical across providers — grab the first resolved diagnostic.
   const ccSwitchBinaryPath =
     diagnostics.find((d) => d.expectedBinaryPath)?.expectedBinaryPath ?? null;
 

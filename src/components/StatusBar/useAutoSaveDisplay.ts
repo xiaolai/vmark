@@ -27,6 +27,10 @@ export function useAutoSaveDisplay(
   const [showAutoSave, setShowAutoSave] = useState(false);
   const [autoSaveTime, setAutoSaveTime] = useState("");
 
+  // Legitimate setState-in-effect: shows the "auto-saved" badge in response to a
+  // new save timestamp and refreshes the relative time on a timer — driven by an
+  // external event + timers, not derivable during render (#1063).
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!lastAutoSave) return;
 
@@ -46,6 +50,7 @@ export function useAutoSaveDisplay(
       clearTimeout(fadeTimeout);
     };
   }, [lastAutoSave]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   return { showAutoSave, autoSaveTime };
 }

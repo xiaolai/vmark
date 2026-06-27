@@ -71,7 +71,10 @@ export function SourcePane({
   // would tear down and rebuild the CodeMirror view, blowing away undo
   // history and the user's selection. (Audit finding H3.)
   const onDiagnosticsRef = useRef(onDiagnostics);
-  onDiagnosticsRef.current = onDiagnostics;
+  // Synced after commit (read only from the CodeMirror diagnostics callback). #1063
+  useEffect(() => {
+    onDiagnosticsRef.current = onDiagnostics;
+  });
 
   // Stable jump-to-position handle, safe to re-emit whenever the parent's
   // callback prop changes identity. Lives outside the mount effect so a

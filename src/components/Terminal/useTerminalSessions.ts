@@ -69,7 +69,10 @@ export function useTerminalSessions(
   // The callbacks object is a new literal each render, but the individual
   // functions (onSearch) are stable useCallbacks from the parent.
   const callbacksRef = useRef(callbacks);
-  callbacksRef.current = callbacks;
+  // Synced after commit (read only from terminal event handlers). #1063
+  useEffect(() => {
+    callbacksRef.current = callbacks;
+  });
 
   // Debounce PTY resize to avoid excessive resize calls during drag
   const resizeTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);

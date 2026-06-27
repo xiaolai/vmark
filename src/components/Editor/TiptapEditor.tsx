@@ -180,12 +180,15 @@ export function TiptapEditorInner({ hidden = false, readOnly = false, preview = 
   const contentRef = useRef(content);
   const editorRef = useRef<TiptapEditor | null>(null);
   const flushToStoreRef = useRef<((editor: TiptapEditor) => void) | null>(null);
-  cursorInfoRef.current = cursorInfo;
-  preserveLineBreaksRef.current = preserveLineBreaks;
-  hardBreakStyleOnSaveRef.current = hardBreakStyleOnSave;
-  hiddenRef.current = hidden;
-  previewRef.current = preview;
-  contentRef.current = content;
+  // Sync "latest value" refs after commit (read only from callbacks/effects) — concurrent-safe (#1063).
+  useEffect(() => {
+    cursorInfoRef.current = cursorInfo;
+    preserveLineBreaksRef.current = preserveLineBreaks;
+    hardBreakStyleOnSaveRef.current = hardBreakStyleOnSave;
+    hiddenRef.current = hidden;
+    previewRef.current = preview;
+    contentRef.current = content;
+  });
 
   const extensions = useMemo(
     () => createTiptapExtensions({ tabId: activeTabId, lintEnabled }),
@@ -228,6 +231,9 @@ export function TiptapEditorInner({ hidden = false, readOnly = false, preview = 
     },
     [setContent, windowLabel]
   );
+  // Synced during render so the unmount-flush cleanup below sees the latest flusher
+  // even if a passive effect hasn't run yet (#755).
+  // eslint-disable-next-line react-hooks/refs
   flushToStoreRef.current = flushToStore;
 
   const flushCursorInfo = useCallback(() => {
@@ -427,27 +433,24 @@ export function TiptapEditorInner({ hidden = false, readOnly = false, preview = 
     },
   });
 
-  // Keep editorRef aligned with the live editor so unmount cleanup can flush
-  // directly without depending on the global flusher registry — which may be
-  // nulled by this component's own registration cleanup before the flush
-  // cleanup runs (React runs effect cleanups in reverse registration order).
+  // Keep editorRef aligned with the live editor for the unmount-flush cleanup.
+  // Synced during render (not an effect) so it is set even if a passive effect
+  // hasn't run, and so it survives the reverse-order cleanup race (#755).
+  // eslint-disable-next-line react-hooks/refs
   editorRef.current = editor ?? null;
 
-  // Show-invisibles toggle — flip the extension storage flag and
-  // dispatch a transaction that the plugin's apply() picks up to
-  // rebuild decorations.
+  // Show-invisibles toggle — flip the extension storage flag, then dispatch a
+  // tagged transaction the plugin's apply() picks up to rebuild decorations.
   useEffect(() => {
     if (!editor) return;
-    // Update the extension's storage flag so future doc-changed
-    // transactions see the new value in the plugin's apply() path.
     const allStorage = editor.storage as unknown as
       | Record<string, { enabled?: boolean } | undefined>
       | undefined;
     const storage = allStorage?.showInvisibles;
+    // editor.storage is Tiptap's intentionally-mutable extension storage, not React state (#1063).
+    // eslint-disable-next-line react-hooks/immutability
     if (storage) storage.enabled = showInvisibles;
-    // Force an immediate rebuild via the plugin's exported helper —
-    // this dispatches a tagged transaction the plugin recognises by
-    // PluginKey identity (a string meta key would silently no-op).
+    // Force a rebuild via the plugin's helper (recognised by PluginKey identity).
     const view = editor.view;
     if (!view) return;
     setShowInvisibles(view, showInvisibles);
@@ -468,16 +471,13 @@ export function TiptapEditorInner({ hidden = false, readOnly = false, preview = 
     enabled: !!editor && !hidden && !preview,
   });
 
-  // Cleanup all pending timers/RAFs on unmount to prevent memory leaks.
-  // Flush any pending content BEFORE cancelling timers to avoid data loss —
-  // keystrokes within the debounce window exist only in PM's in-memory doc (#755).
+  // Cleanup pending timers/RAFs on unmount. Flush pending content BEFORE
+  // cancelling — keystrokes in the debounce window live only in PM's doc (#755).
   useEffect(() => {
     return () => {
-      // Flush pending content directly via this instance's editor — relying on
-      // the global flushActiveWysiwygNow() registry was racy: React cleans up
-      // effects in reverse registration order, so the flusher deregistration
-      // (useEffect below) runs before this cleanup and the flush becomes a
-      // no-op, losing keystrokes within the debounce window (#755).
+      // Flush directly via this instance's editor: the global flushActiveWysiwygNow()
+      // registry was racy — React cleans effects up in reverse registration order, so
+      // the flusher deregistration ran first and the flush no-op'd, losing data (#755).
       if ((pendingRaf.current || pendingDebounceTimeout.current) && editorRef.current && flushToStoreRef.current) {
         try { flushToStoreRef.current(editorRef.current); } catch { /* defensive */ }
       }
