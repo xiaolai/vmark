@@ -1,0 +1,135 @@
+/* Window-Status panel (#1057). Tokens only — see .claude/rules/31-design-tokens.md */
+.window-status-panel {
+  width: 300px;
+  max-height: 60vh;
+  overflow-y: auto;
+  background: var(--bg-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--popup-shadow);
+  display: flex;
+  flex-direction: column;
+  animation: popup-fade-in 0.1s ease-out;
+}
+
+.dark-theme .window-status-panel {
+  box-shadow: var(--popup-shadow-dark);
+}
+
+.window-status-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-2) var(--spacing-3);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.window-status-panel__title {
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.window-status-panel__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--icon-size-sm);
+  height: var(--icon-size-sm);
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.window-status-panel__close:hover {
+  background: var(--hover-bg);
+  color: var(--text-color);
+}
+
+.window-status-panel__close:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent-bg);
+}
+
+.window-status-panel__empty {
+  padding: var(--spacing-3);
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.window-status-panel__list {
+  list-style: none;
+  margin: 0;
+  padding: var(--spacing-1);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-half);
+}
+
+.window-status-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  width: 100%;
+  padding: var(--spacing-2);
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  text-align: left;
+  color: var(--text-color);
+}
+
+.window-status-row:hover {
+  background: var(--hover-bg);
+}
+
+.window-status-row:focus-visible {
+  outline: none;
+  background: var(--accent-bg);
+}
+
+.window-status-row__name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-size-md);
+}
+
+.window-status-row__status {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+.window-status-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  color: var(--contrast-text);
+}
+
+.window-status-dot--idle {
+  background: var(--text-tertiary);
+}
+
+.window-status-dot--running {
+  background: var(--primary-color);
+}
+
+.window-status-dot--error {
+  background: var(--error-color);
+}
+
+.window-status-dot--attention {
+  background: var(--warning-color);
+  border-radius: var(--radius-sm);
+}

@@ -53,7 +53,8 @@
     "zoomActual": "実際のサイズ",
     "zoomIn": "拡大",
     "zoomOut": "縮小",
-    "toggleShowInvisibles": "不可視文字を切り替え"
+    "toggleShowInvisibles": "不可視文字を切り替え",
+    "toggleWindowStatus": "ウィンドウの状態"
   },
   "lint": {
     "check": "Markdown をチェック",

@@ -53,7 +53,8 @@
     "zoomActual": "Originalgröße",
     "zoomIn": "Vergrößern",
     "zoomOut": "Verkleinern",
-    "toggleShowInvisibles": "Unsichtbare Zeichen umschalten"
+    "toggleShowInvisibles": "Unsichtbare Zeichen umschalten",
+    "toggleWindowStatus": "Fensterstatus"
   },
   "lint": {
     "check": "Markdown prüfen",

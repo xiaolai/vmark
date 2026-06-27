@@ -102,5 +102,13 @@
   "contentServer.graph.noWorkspace": "Open a workspace to see its graph.",
   "contentServer.graph.error": "Couldn't load the graph.",
   "contentServer.error.noWorkspace": "Open a workspace first.",
-  "contentServer.error.crashed": "知识库服务器意外停止。"
+  "contentServer.error.crashed": "知识库服务器意外停止。",
+  "windowStatus.title": "窗口状态",
+  "windowStatus.empty": "没有其他打开的窗口",
+  "windowStatus.untitled": "无标题",
+  "windowStatus.goToHint": "点击切换到该窗口",
+  "windowStatus.status.running": "运行中",
+  "windowStatus.status.idle": "空闲",
+  "windowStatus.status.error": "错误",
+  "windowStatus.status.attention": "需要关注"
 }

@@ -99,6 +99,7 @@ export const EXCLUDED_MENU_IDS: ReadonlySet<string> = new Set([
   "source-mode",
   "markdown-split",
   "knowledge-base",
+  "window-status",
   "focus-mode",
   "typewriter-mode",
   "word-wrap",

@@ -184,6 +184,7 @@ menu:
   # === 창 메뉴 ===
   window: "창"
   window.bringAllToFront: "모든 창 앞으로 가져오기"
+  window.status: "창 상태"
 
   # === 도움말 메뉴 ===
   help: "도움말"

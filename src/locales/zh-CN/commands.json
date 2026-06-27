@@ -53,7 +53,8 @@
     "zoomActual": "实际大小",
     "zoomIn": "放大",
     "zoomOut": "缩小",
-    "toggleShowInvisibles": "切换不可见字符"
+    "toggleShowInvisibles": "切换不可见字符",
+    "toggleWindowStatus": "窗口状态"
   },
   "lint": {
     "check": "检查 Markdown",

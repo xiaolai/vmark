@@ -1,0 +1,7 @@
+/* Window-Status panel mount (#1057) — floating, top-right, above content. */
+.window-status-overlay {
+  position: fixed;
+  top: var(--space-10);
+  right: var(--space-3);
+  z-index: var(--z-popup);
+}

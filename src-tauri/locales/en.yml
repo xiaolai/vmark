@@ -185,6 +185,7 @@ menu:
   # === Window menu ===
   window: "Window"
   window.bringAllToFront: "Bring All to Front"
+  window.status: "Window Status"
 
   # === Help menu ===
   help: "Help"

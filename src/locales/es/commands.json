@@ -53,7 +53,8 @@
     "zoomActual": "Tamaño real",
     "zoomIn": "Acercar",
     "zoomOut": "Alejar",
-    "toggleShowInvisibles": "Alternar caracteres invisibles"
+    "toggleShowInvisibles": "Alternar caracteres invisibles",
+    "toggleWindowStatus": "Estado de ventanas"
   },
   "lint": {
     "check": "Revisar Markdown",

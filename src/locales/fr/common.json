@@ -102,5 +102,13 @@
   "contentServer.graph.noWorkspace": "Open a workspace to see its graph.",
   "contentServer.graph.error": "Couldn't load the graph.",
   "contentServer.error.noWorkspace": "Open a workspace first.",
-  "contentServer.error.crashed": "Le serveur de la base de connaissances s'est arrêté de façon inattendue."
+  "contentServer.error.crashed": "Le serveur de la base de connaissances s'est arrêté de façon inattendue.",
+  "windowStatus.title": "État des fenêtres",
+  "windowStatus.empty": "Aucune autre fenêtre ouverte",
+  "windowStatus.untitled": "Sans titre",
+  "windowStatus.goToHint": "Cliquer pour activer cette fenêtre",
+  "windowStatus.status.running": "En cours",
+  "windowStatus.status.idle": "Inactive",
+  "windowStatus.status.error": "Erreur",
+  "windowStatus.status.attention": "Nécessite votre attention"
 }

@@ -65,6 +65,7 @@ mod dock_recent;
 mod cli_install;
 #[cfg(target_os = "macos")]
 mod pdf_export;
+mod window_status;
 
 use sha2::{Digest, Sha256};
 use std::sync::Mutex;
@@ -830,6 +831,7 @@ fn handle_run_event(app: &tauri::AppHandle, event: tauri::RunEvent) {
             menu_events::clear_window_ready(&label);
             tab_transfer::clear_unclaimed_transfer(&label);
             workspace_transfer::clear_unclaimed_transfer(&label);
+            window_status::prune(app, &label);
         }
         #[cfg(target_os = "macos")]
         tauri::RunEvent::Reopen {
@@ -901,7 +903,13 @@ pub fn run() {
             current_execution: std::sync::Arc::new(std::sync::Mutex::new(None)),
         })
         .manage(content_server::ContentServerManager::new())
+        .manage(window_status::WindowStatusRegistry::default())
         .invoke_handler(tauri::generate_handler![
+            window_status::report_window_status,
+            window_status::set_window_attention,
+            window_status::clear_window_attention,
+            window_status::get_window_statuses,
+            window_status::focus_window,
             get_pending_file_opens,
             external_editor::open_in_external_editor,
             menu::update_recent_files,

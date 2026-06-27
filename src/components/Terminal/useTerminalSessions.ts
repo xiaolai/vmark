@@ -39,7 +39,7 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import { useUIStore } from "@/stores/uiStore";
 import { createTerminalInstance } from "./createTerminalInstance";
 import { resolveBellAction, playTerminalBell } from "./terminalBell";
-import { maybeNotifyTerminalBell } from "@/services/terminalAttention";
+import { maybeNotifyTerminalBell, flagWindowAttentionOnBell } from "@/services/terminalAttention";
 import { useUIStoreSync } from "./terminalSessionStoreSync";
 import { useTerminalShellLifecycle } from "./useTerminalShellLifecycle";
 import {
@@ -163,6 +163,7 @@ export function useTerminalSessions(
           if (action.sound) playTerminalBell();
           if (action.markActivity) useUIStore.getState().terminalMarkActivity(sessionId);
           maybeNotifyTerminalBell(); // OS notice when an unfocused window rings (#1057)
+          flagWindowAttentionOnBell(); // mark this window in the cross-window status panel (#1057)
         },
       });
 

@@ -18,6 +18,8 @@ import { ApprovalDialog } from "@/components/WorkflowApproval/ApprovalDialog";
 import { QuickOpen } from "@/components/QuickOpen/QuickOpen";
 import { ContentSearch } from "@/components/ContentSearch/ContentSearch";
 import { KnowledgeBaseOverlay } from "@/components/KnowledgeBasePanel/KnowledgeBaseOverlay";
+import { WindowStatusOverlay } from "@/components/WindowStatusPanel/WindowStatusOverlay";
+import { useWindowStatus } from "@/hooks/useWindowStatus";
 import { CommandPalette } from "@/components/CommandPalette";
 import { WindowProvider, useIsDocumentWindow, useWindowLabel } from "@/contexts/WindowContext";
 import { useUIStore } from "@/stores/uiStore";
@@ -158,6 +160,7 @@ function MainLayout() {
   useTheme();
   useTerminalPosition();
   useTabModeSync();
+  useWindowStatus();
 
   const className = [
     focusModeEnabled && "focus-mode",
@@ -225,6 +228,7 @@ function MainLayout() {
           <QuickOpen windowLabel={windowLabel} />
           <ContentSearch windowLabel={windowLabel} />
           <KnowledgeBaseOverlay />
+          <WindowStatusOverlay />
           <GeniePicker />
           <ApprovalDialog />
           <CommandPalette />

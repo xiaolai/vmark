@@ -102,5 +102,13 @@
   "contentServer.graph.noWorkspace": "Open a workspace to see its graph.",
   "contentServer.graph.error": "Couldn't load the graph.",
   "contentServer.error.noWorkspace": "Open a workspace first.",
-  "contentServer.error.crashed": "ナレッジベースサーバーが予期せず停止しました。"
+  "contentServer.error.crashed": "ナレッジベースサーバーが予期せず停止しました。",
+  "windowStatus.title": "ウィンドウの状態",
+  "windowStatus.empty": "他に開いているウィンドウはありません",
+  "windowStatus.untitled": "無題",
+  "windowStatus.goToHint": "クリックしてこのウィンドウを前面に表示",
+  "windowStatus.status.running": "実行中",
+  "windowStatus.status.idle": "アイドル",
+  "windowStatus.status.error": "エラー",
+  "windowStatus.status.attention": "要対応"
 }

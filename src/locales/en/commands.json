@@ -53,7 +53,8 @@
     "zoomActual": "Actual Size",
     "zoomIn": "Zoom In",
     "zoomOut": "Zoom Out",
-    "toggleShowInvisibles": "Toggle Invisibles"
+    "toggleShowInvisibles": "Toggle Invisibles",
+    "toggleWindowStatus": "Window Status"
   },
   "lint": {
     "check": "Check Markdown",

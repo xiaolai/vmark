@@ -184,6 +184,7 @@ menu:
   # === 窗口菜单 ===
   window: "窗口"
   window.bringAllToFront: "将全部窗口置于前方"
+  window.status: "窗口状态"
 
   # === 帮助菜单 ===
   help: "帮助"

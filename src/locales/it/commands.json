@@ -53,7 +53,8 @@
     "zoomActual": "Dimensione effettiva",
     "zoomIn": "Ingrandisci",
     "zoomOut": "Riduci",
-    "toggleShowInvisibles": "Attiva/disattiva caratteri invisibili"
+    "toggleShowInvisibles": "Attiva/disattiva caratteri invisibili",
+    "toggleWindowStatus": "Stato finestre"
   },
   "lint": {
     "check": "Controlla Markdown",
