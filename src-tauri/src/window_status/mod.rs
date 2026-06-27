@@ -65,8 +65,28 @@ fn upsert_status(
     entry.elapsed_seconds = elapsed_seconds;
 }
 
-fn set_attention(map: &mut HashMap<String, WindowStatus>, label: &str, on: bool) {
-    map.entry(label.to_string()).or_insert_with(|| base(label)).attention = on;
+/// Set/clear a window's attention flag. Returns `true` only when the value
+/// actually changed, so callers can skip a redundant broadcast (rapid repeat
+/// bells don't re-emit identical snapshots). A *clear* never creates an entry —
+/// only a window that already exists can lose attention (no phantom idle rows).
+fn set_attention(map: &mut HashMap<String, WindowStatus>, label: &str, on: bool) -> bool {
+    match map.get_mut(label) {
+        Some(entry) => {
+            if entry.attention == on {
+                false
+            } else {
+                entry.attention = on;
+                true
+            }
+        }
+        None if on => {
+            let mut entry = base(label);
+            entry.attention = true;
+            map.insert(label.to_string(), entry);
+            true
+        }
+        None => false,
+    }
 }
 
 /// Snapshot the registry as a stable, label-sorted Vec for the frontend.
@@ -105,12 +125,14 @@ pub fn report_window_status(window: Window, doc_name: String, ai: String, elapse
 pub fn set_window_attention(window: Window) {
     let app = window.app_handle().clone();
     let label = window.label().to_string();
-    {
+    let changed = {
         let registry = app.state::<WindowStatusRegistry>();
         let mut map = registry.0.lock().expect("window status registry poisoned");
-        set_attention(&mut map, &label, true);
+        set_attention(&mut map, &label, true)
+    };
+    if changed {
+        broadcast(&app);
     }
-    broadcast(&app);
 }
 
 /// Clear the calling window's attention flag (it just gained focus).
@@ -118,12 +140,14 @@ pub fn set_window_attention(window: Window) {
 pub fn clear_window_attention(window: Window) {
     let app = window.app_handle().clone();
     let label = window.label().to_string();
-    {
+    let changed = {
         let registry = app.state::<WindowStatusRegistry>();
         let mut map = registry.0.lock().expect("window status registry poisoned");
-        set_attention(&mut map, &label, false);
+        set_attention(&mut map, &label, false)
+    };
+    if changed {
+        broadcast(&app);
     }
-    broadcast(&app);
 }
 
 /// Current snapshot of all window statuses (for a panel that just opened).
@@ -182,6 +206,24 @@ mod tests {
         assert!(m["w1"].attention);
         set_attention(&mut m, "w1", false);
         assert!(!m["w1"].attention);
+    }
+
+    #[test]
+    fn set_attention_reports_changes_and_never_inserts_on_clear() {
+        let mut m = HashMap::new();
+        // Clearing an unknown window is a no-op — no change, no phantom entry.
+        assert!(!set_attention(&mut m, "ghost", false));
+        assert!(m.is_empty());
+        // First set: changed, creates the entry.
+        assert!(set_attention(&mut m, "w1", true));
+        assert!(m["w1"].attention);
+        // Redundant set: no change (so callers skip the broadcast).
+        assert!(!set_attention(&mut m, "w1", true));
+        // Clearing an existing entry: changed.
+        assert!(set_attention(&mut m, "w1", false));
+        assert!(!m["w1"].attention);
+        // Redundant clear: no change.
+        assert!(!set_attention(&mut m, "w1", false));
     }
 
     #[test]

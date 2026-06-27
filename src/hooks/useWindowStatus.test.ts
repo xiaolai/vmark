@@ -29,24 +29,23 @@ afterEach(() => vi.clearAllMocks());
 describe("useWindowStatus", () => {
   it("seeds the snapshot, subscribes to the broadcast, and reports on mount", async () => {
     renderHook(() => useWindowStatus());
-    await Promise.resolve();
 
-    expect(invoke).toHaveBeenCalledWith("get_window_statuses");
+    // Reported + subscribed synchronously; the snapshot fetch runs after the
+    // listener is registered (awaited), so wait for it.
+    expect(listen).toHaveBeenCalledWith("window-status:changed", expect.any(Function));
+    expect(onFocusChanged).toHaveBeenCalled();
     expect(invoke).toHaveBeenCalledWith(
       "report_window_status",
       expect.objectContaining({ ai: "idle", docName: "" }),
     );
-    expect(listen).toHaveBeenCalledWith("window-status:changed", expect.any(Function));
-    expect(onFocusChanged).toHaveBeenCalled();
+    await vi.waitFor(() => expect(invoke).toHaveBeenCalledWith("get_window_statuses"));
   });
 
   it("reports 'running' when an AI invocation is active", async () => {
     useAiInvocationStore.setState({ isRunning: true, error: null, elapsedSeconds: 2 });
     renderHook(() => useWindowStatus());
-    await Promise.resolve();
-    expect(invoke).toHaveBeenCalledWith(
-      "report_window_status",
-      expect.objectContaining({ ai: "running" }),
+    await vi.waitFor(() =>
+      expect(invoke).toHaveBeenCalledWith("report_window_status", expect.objectContaining({ ai: "running" })),
     );
   });
 

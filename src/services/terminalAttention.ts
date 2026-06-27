@@ -109,12 +109,14 @@ export async function notifyTerminalAttention(label: string): Promise<void> {
 /**
  * Flag this window as "needs attention" in the cross-window registry (#1057)
  * when a terminal rings the bell while the window is unfocused. Independent of
- * the OS-notification setting — the Window-Status panel should reflect the bell
- * even if notifications are disabled. The flag is cleared when the window gains
- * focus (see useWindowStatus). Best-effort; never throws into the bell path.
+ * the OS-notification setting (`notifyOnBell`), but still honors `bellMode:
+ * "off"` — muting the bell means ignoring it everywhere, panel included. The
+ * flag is cleared when the window gains focus (see useWindowStatus).
+ * Best-effort; never throws into the bell path.
  */
 export function flagWindowAttentionOnBell(): void {
   if (document.hasFocus()) return;
+  if ((useSettingsStore.getState().terminal?.bellMode ?? "visual") === "off") return;
   void invoke("set_window_attention").catch(() => {
     /* registry is best-effort */
   });
