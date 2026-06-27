@@ -27,7 +27,7 @@ export default tseslint.config(
       "react-hooks/set-state-in-effect": "off",
       "react-hooks/refs": "off",
       "react-hooks/preserve-manual-memoization": "off",
-      "react-hooks/immutability": "off",
+      "react-hooks/immutability": "error",
       // Historically `warn` under v5's recommended; v7 raised it to error.
       // Keep it non-blocking to match prior behavior.
       "react-hooks/exhaustive-deps": "warn",

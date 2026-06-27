@@ -444,6 +444,9 @@ export function TiptapEditorInner({ hidden = false, readOnly = false, preview = 
       | Record<string, { enabled?: boolean } | undefined>
       | undefined;
     const storage = allStorage?.showInvisibles;
+    // editor.storage is Tiptap's intentionally-mutable extension storage bag; writing the
+    // flag here is the documented way to toggle an extension's runtime state — not React state.
+    // eslint-disable-next-line react-hooks/immutability
     if (storage) storage.enabled = showInvisibles;
     // Force an immediate rebuild via the plugin's exported helper —
     // this dispatches a tagged transaction the plugin recognises by
