@@ -23,7 +23,7 @@ export default tseslint.config(
       // them is a deliberate, codebase-wide refactor — not part of a version
       // bump — so they are deferred here to preserve the enforcement level the
       // code was written and verified against. Re-enable incrementally (per
-      // rule, file-scoped) in a dedicated react-hooks-7 adoption pass.
+      // rule, file-scoped) in a dedicated react-hooks-7 adoption pass — see #1063.
       "react-hooks/set-state-in-effect": "off",
       "react-hooks/refs": "off",
       "react-hooks/preserve-manual-memoization": "off",
