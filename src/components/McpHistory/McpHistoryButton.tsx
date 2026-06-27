@@ -139,21 +139,26 @@ export function McpHistoryButton(): React.ReactElement {
     toast.success(t("mcpHistoryCleared"));
   }, [tabId, tabFilePath, t]);
 
-  // Measure the trigger and position the popover in a layout effect — reading
-  // the DOM rect during render is not concurrent-safe (#1063). Runs before paint
-  // when the popover opens, so there is no flicker.
+  // Measure the trigger and position the popover in a layout effect — reading the
+  // DOM rect during render is not concurrent-safe (#1063). No deps: remeasure every
+  // render while open (the badge/count can shift the trigger rect); the functional
+  // update bails when nothing moved, so there is no render loop and no flicker.
   const [popoverStyle, setPopoverStyle] = useState<React.CSSProperties>({ display: "none" });
   useLayoutEffect(() => {
     if (!open) return;
     const rect = buttonRef.current?.getBoundingClientRect();
     if (!rect) {
-      setPopoverStyle({ display: "none" });
+      setPopoverStyle((prev) => (prev.display === "none" ? prev : { display: "none" }));
       return;
     }
     const right = Math.max(8, window.innerWidth - rect.right);
     const bottom = Math.max(8, window.innerHeight - rect.top + 6);
-    setPopoverStyle({ right, bottom, width: POPUP_WIDTH, maxHeight: POPUP_MAX_HEIGHT });
-  }, [open]);
+    setPopoverStyle((prev) =>
+      prev.right === right && prev.bottom === bottom
+        ? prev
+        : { right, bottom, width: POPUP_WIDTH, maxHeight: POPUP_MAX_HEIGHT },
+    );
+  });
 
   return (
     <>

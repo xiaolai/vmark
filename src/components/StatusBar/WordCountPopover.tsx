@@ -64,15 +64,19 @@ export function WordCountPopover({
 
   // Position above the anchor by measuring it in a layout effect (before paint),
   // rather than reading the anchor rect during render — the latter is not
-  // concurrent-safe (#1063).
+  // concurrent-safe (#1063). No deps: remeasure every render (the trigger width
+  // shifts as counts change while open); the functional update bails when nothing
+  // moved, so there is no render loop.
   const [style, setStyle] = useState<React.CSSProperties>({ right: 8, bottom: 8, width: POPUP_WIDTH });
   useLayoutEffect(() => {
     const rect = anchorRef.current?.getBoundingClientRect();
     if (!rect) return;
     const right = Math.max(8, window.innerWidth - rect.right);
     const bottom = Math.max(8, window.innerHeight - rect.top + 6);
-    setStyle({ right, bottom, width: POPUP_WIDTH });
-  }, [anchorRef]);
+    setStyle((prev) =>
+      prev.right === right && prev.bottom === bottom ? prev : { right, bottom, width: POPUP_WIDTH },
+    );
+  });
 
   return (
     <div
