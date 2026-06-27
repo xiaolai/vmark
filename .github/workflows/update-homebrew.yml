@@ -28,7 +28,7 @@ jobs:
           fi
 
       - name: Checkout homebrew-tap (early, for regression guard)
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: xiaolai/homebrew-tap
           token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
@@ -113,7 +113,7 @@ jobs:
           rm vmark-intel.dmg
 
       - name: Checkout homebrew-tap
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: xiaolai/homebrew-tap
           token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
