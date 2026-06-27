@@ -517,8 +517,8 @@ importers:
         specifier: ^0.27.2
         version: 0.27.2
       typescript:
-        specifier: ~5.8.3
-        version: 5.8.3
+        specifier: ~6.0.3
+        version: 6.0.3
       vitest:
         specifier: ^4.0.0
         version: 4.0.16(@types/node@22.19.3)(jiti@2.7.0)(jsdom@26.1.0)(lightningcss@1.32.0)(sass@1.98.0)(tsx@4.21.0)(yaml@2.9.0)
