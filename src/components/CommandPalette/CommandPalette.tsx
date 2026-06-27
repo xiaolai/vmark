@@ -40,6 +40,7 @@ export function CommandPalette() {
   const close = useCommandPaletteStore((s) => s.close);
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [prevQuery, setPrevQuery] = useState(query);
   const inputRef = useRef<HTMLInputElement>(null);
   const previousFocusRef = useRef<Element | null>(null);
 
@@ -48,7 +49,18 @@ export function CommandPalette() {
     [isOpen, query],
   );
 
-  // Reset and focus on open; restore previous focus on close (a11y).
+  // Reset the highlighted row to the top whenever the query changes — adjusted
+  // during render (React's recommended alternative to a setState-in-effect, which
+  // would cost an extra render per keystroke). #1063
+  if (query !== prevQuery) {
+    setPrevQuery(query);
+    setSelectedIndex(0);
+  }
+
+  // Reset and focus on open; restore previous focus on close (a11y). Legitimate
+  // setState-in-effect: bound to the open/close transition and bundled with focus
+  // capture/restore + RAF focus, not derivable during render (#1063).
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (isOpen) {
       previousFocusRef.current = document.activeElement;
@@ -63,10 +75,7 @@ export function CommandPalette() {
       previousFocusRef.current = null;
     }
   }, [isOpen]);
-
-  useEffect(() => {
-    setSelectedIndex(0);
-  }, [query]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   if (!isOpen) return null;
 

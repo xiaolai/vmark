@@ -185,12 +185,12 @@ function UpdateAvailableCard() {
     };
   }, []);
 
-  // Reset isDownloading when status changes away from downloading
-  useEffect(() => {
-    if (status !== "downloading") {
-      setIsDownloading(false);
-    }
-  }, [status]);
+  // Reset isDownloading when status changes away from downloading. Adjusted
+  // during render (guarded so it converges immediately) rather than in an
+  // effect (#1063).
+  if (status !== "downloading" && isDownloading) {
+    setIsDownloading(false);
+  }
 
   if (!updateInfo) return null;
 

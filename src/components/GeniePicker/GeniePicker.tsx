@@ -83,7 +83,11 @@ export function GeniePicker() {
   // Prompt history hook (pass grace-period guard for freeform keyDown)
   const promptHistory = usePromptHistory(ime.isComposing);
 
-  // Load genies on open + reset history hook
+  // Load genies on open + reset history hook. Legitimate setState-in-effect: the
+  // resets are bound to the open/close transition and bundled with side effects
+  // (genie load, focus capture/restore, prompt-history reset) — not derivable
+  // during render (#1063).
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     /* v8 ignore next -- @preserve reason: false branch (close path with focus restore) untestable in jsdom */
     if (isOpen) {
@@ -105,6 +109,7 @@ export function GeniePicker() {
     /* v8 ignore stop */
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, filterScope]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Focus search input on open
   useEffect(() => {
@@ -167,13 +172,12 @@ export function GeniePicker() {
     return items;
   }, [recents, grouped]);
 
-  // Clamp selectedIndex when flatList shrinks (e.g. after typing narrows results)
-  useEffect(() => {
-    /* v8 ignore next 2 -- @preserve reason: clamp fires only when flatList shrinks below selectedIndex; race condition untestable in jsdom */
-    if (flatList.length > 0 && selectedIndex >= flatList.length) {
-      setSelectedIndex(flatList.length - 1);
-    }
-  }, [selectedIndex, flatList.length]);
+  // Clamp selectedIndex when flatList shrinks (e.g. after typing narrows results).
+  // Adjusted during render — React's recommended alternative to a setState-in-
+  // effect, which would flash an out-of-range selection for a frame (#1063).
+  if (flatList.length > 0 && selectedIndex >= flatList.length) {
+    setSelectedIndex(flatList.length - 1);
+  }
 
   const handleClose = useCallback(() => {
     useGeniePickerStore.getState().closePicker();
@@ -291,12 +295,16 @@ export function GeniePicker() {
   // When cycling changes displayValue, push it into filter so the textarea updates.
   // Safe from loops: typing sets displayValue === filter via handleChange, so the
   // guard (displayValue !== filter) is only true when cycling produces a new value.
+  // Legitimate setState-in-effect: reacts to external prompt-history cycling, not
+  // a value derivable from this render (#1063).
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (flatList.length === 0 && promptHistory.displayValue !== filter) {
       setFilter(promptHistory.displayValue);
       setSelectedIndex(0);
     }
   }, [promptHistory.displayValue, filter, flatList.length]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Click outside to close. Escape is handled by the component's own
   // onKeyDown (mode-aware: resetToInput in processing/preview/error,

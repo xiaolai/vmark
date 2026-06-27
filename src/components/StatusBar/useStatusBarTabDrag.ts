@@ -286,6 +286,9 @@ export function useStatusBarTabDrag({ tabs, windowLabel, tabBarRef, onActivateTa
     if (dragMode !== "idle") return;
     // Advance generation so in-flight probe responses are discarded
     dragGenerationRef.current++;
+    // Legitimate: clears the cross-window drop-preview broadcast when the drag
+    // returns to idle — a transition side effect, not derivable during render (#1063).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     clearDropPreviewBroadcast();
   }, [clearDropPreviewBroadcast, dragMode]);
 

@@ -108,6 +108,10 @@ function MermaidPreview({ content, diagnostics }: PreviewRendererProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const renderToken = useRef(0);
 
+  // Legitimate setState-in-effect: clears then fills from an async Mermaid render
+  // (token-guarded against rapid edits) — driven by I/O keyed on content, not
+  // derivable during render (#1063).
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!content.trim()) {
       setSvg(null);
@@ -143,6 +147,7 @@ function MermaidPreview({ content, diagnostics }: PreviewRendererProps) {
       cancelled = true;
     };
   }, [content]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const showInvalid = useMemo(
     () => renderError !== null || svg === null,

@@ -56,11 +56,11 @@ export function TerminalPanel() {
   const position = useUIStore((s) => s.effectiveTerminalPosition);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Defer xterm init until first show
+  // Defer xterm init until first show — latch once visible. Adjusted during
+  // render (a one-way latch that converges immediately) rather than in an effect,
+  // avoiding an extra render before xterm mounts (#1063).
   const [activated, setActivated] = useState(false);
-  useEffect(() => {
-    if (visible && !activated) setActivated(true);
-  }, [visible, activated]);
+  if (visible && !activated) setActivated(true);
 
   // Search bar state
   const [searchVisible, setSearchVisible] = useState(false);

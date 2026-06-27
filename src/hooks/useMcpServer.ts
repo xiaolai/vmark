@@ -120,6 +120,10 @@ export function useMcpServer(): UseMcpServerResult {
 
   // Subscribe to server events
   useEffect(() => {
+    // Legitimate: refresh() fetches current server state (async, sets loading/
+    // running) on mount, then we subscribe to live events — driven by I/O and
+    // external events, not derivable during render (#1063).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     refresh();
 
     const unlistenStarted = listen<number>("mcp-server:started", () => {

@@ -45,7 +45,9 @@ export function PdfExportPage() {
   useTheme();
   usePdfExportClose();
 
-  // Load HTML from temp file on mount
+  // Load HTML from temp file on mount. Legitimate setState-in-effect: reads URL
+  // params and an async temp file — I/O on mount, not derivable during render (#1063).
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const htmlPath = params.get("htmlPath");
@@ -65,6 +67,7 @@ export function PdfExportPage() {
         setError(t("dialog:pdfExport.loadFailed", { error: msg }));
       });
   }, [t]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const handleClose = async () => {
     const currentWindow = getCurrentWebviewWindow();

@@ -62,6 +62,9 @@ export function IntegrationsSettings() {
   // Fetch client count when bridge is running
   useEffect(() => {
     if (!running) {
+      // Legitimate: resets the count as part of an async poll gated on `running`,
+      // not derivable during render (#1063).
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setClientCount(0);
       return;
     }

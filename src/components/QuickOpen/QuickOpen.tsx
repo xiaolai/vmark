@@ -87,16 +87,20 @@ export function QuickOpen({ windowLabel }: QuickOpenProps) {
   // Total count including Browse row
   const totalCount = rankedItems.length + 1; // +1 for Browse
 
-  // Clamp selectedIndex when ranked list shrinks (e.g. after typing narrows results)
-  useEffect(() => {
-    /* v8 ignore next 2 -- @preserve reason: clamp fires only when totalCount shrinks below selectedIndex; effect timing makes it unreliable in jsdom */
-    if (selectedIndex >= totalCount) {
-      setSelectedIndex(Math.max(0, totalCount - 1));
-    }
-  }, [selectedIndex, totalCount]);
+  // Clamp selectedIndex when the ranked list shrinks (e.g. after typing narrows
+  // results). Adjusted during render — React's recommended alternative to a
+  // setState-in-effect, which would flash an out-of-range selection for a frame
+  // and cost an extra render (#1063).
+  if (selectedIndex >= totalCount) {
+    setSelectedIndex(Math.max(0, totalCount - 1));
+  }
 
   // Reset state on open — bump revision to rebuild items from fresh store state
-  // Save previous focus for restoration on close
+  // Save previous focus for restoration on close. Legitimate setState-in-effect:
+  // the resets are bound to the open/close transition and bundled with real side
+  // effects (focus capture/restore, RAF focus, picker close), so they can't be
+  // derived during render (#1063).
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     /* v8 ignore next -- @preserve reason: false branch (close path) restores focus; jsdom focus tracking unreliable */
     if (isOpen) {
@@ -114,6 +118,7 @@ export function QuickOpen({ windowLabel }: QuickOpenProps) {
     }
     /* v8 ignore stop */
   }, [isOpen]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const handleClose = useCallback(() => {
     useQuickOpenStore.getState().close();

@@ -124,7 +124,9 @@ export function ContextMenu({ type, position, onAction, onClose }: ContextMenuPr
   const { t } = useTranslation("sidebar");
   const menuRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<Array<HTMLButtonElement | null>>([]);
-  const [focusedIndex, setFocusedIndex] = useState(-1);
+  // Start focused on the first item — the menu always opens with item 0 focused.
+  // Using the initial state instead of a mount effect avoids an extra render (#1063).
+  const [focusedIndex, setFocusedIndex] = useState(0);
 
   // Resolve platform-appropriate "reveal in file manager" label via translation keys.
   // The React Compiler auto-memoizes the component, so no manual useMemo is needed —
@@ -173,11 +175,6 @@ export function ContextMenu({ type, position, onAction, onClose }: ContextMenuPr
     menu.style.left = `${adjustedX}px`;
     menu.style.top = `${adjustedY}px`;
   }, [position]);
-
-  // Auto-focus first item on mount
-  useEffect(() => {
-    setFocusedIndex(0);
-  }, []);
 
   // Move DOM focus when focusedIndex changes
   useEffect(() => {

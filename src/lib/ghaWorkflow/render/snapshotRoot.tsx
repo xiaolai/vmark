@@ -72,6 +72,10 @@ function SnapshotCanvas({ payload }: SnapshotCanvasProps): ReactElement | null {
 
   useEffect(() => {
     if (!payload) return;
+    // Legitimate: bumps a key to drive the render→measure→snapshot cycle when a
+    // new payload arrives — a side effect of the export request, not derivable
+    // during render (#1063).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setReadyKey((k) => k + 1);
   }, [payload]);
 

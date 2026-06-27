@@ -162,6 +162,9 @@ export function McpConfigInstaller({ onInstallSuccess }: McpConfigInstallerProps
   }, []);
 
   useEffect(() => {
+    // Legitimate: loadDiagnostics() runs an async provider probe that sets
+    // diagnostics state on mount — I/O, not derivable during render (#1063).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadDiagnostics();
   }, [loadDiagnostics]);
 

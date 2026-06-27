@@ -31,6 +31,9 @@ export function useMcpClients(mcpRunning: boolean): McpClient[] {
 
   useEffect(() => {
     if (!mcpRunning) {
+      // Legitimate: clears the list as part of a cancellable async fetch gated on
+      // mcpRunning, not derivable during render (#1063).
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setClients([]);
       return;
     }
