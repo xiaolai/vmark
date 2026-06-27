@@ -398,7 +398,7 @@ function jsonSchemaPropertyToZod(prop: JsonSchemaProperty): ZodTypeAny {
           }
           schema = z.object(shape);
         } else {
-          schema = z.record(z.unknown());
+          schema = z.record(z.string(), z.unknown());
         }
         break;
       default:

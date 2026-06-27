@@ -37,8 +37,8 @@ tokio-tungstenite = "0.28"
 tokio-util = { version = "0.7", features = ["rt"] }
 futures-util = "0.3"
 portable-pty = "0.9"
-toml = "0.8"
-dirs = "5"
+toml = "0.9"
+dirs = "6"
 chrono = "0.4"
 reqwest = { version = "0.12", features = ["json"] }
 tauri-plugin-window-state = "2"
@@ -48,7 +48,7 @@ sha2 = "0.10"
 ed25519-dalek = "2"
 base64 = "0.22"
 gethostname = "0.5"
-rust-i18n = "3"
+rust-i18n = "4"
 # RW-16 (L8): OS-backed secret storage for API keys. Platform credential
 # stores are enabled per-target below (apple-native / windows-native /
 # sync-secret-service); the base dep carries no platform backend so it stays

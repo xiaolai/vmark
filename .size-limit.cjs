@@ -74,10 +74,11 @@ module.exports = [
   },
   {
     // Tiptap + ProseMirror. Eager because the editor is the home screen.
-    // ~446 kB at last check.
+    // Bumped 470 → 500 kB: Tiptap 3.18 → 3.27 (9 minor releases of the core
+    // editor) added ~18 kB; actual ~488 kB.
     name: "EAGER: vendor-tiptap",
     path: "dist/assets/vendor-tiptap-*.js",
-    limit: "470 kB",
+    limit: "500 kB",
     brotli: false,
   },
   {
@@ -113,10 +114,13 @@ module.exports = [
   {
     // Mermaid + @mermaid-js/* + d3-* + dagre-d3-es + khroma. LAZY since
     // the preload-helper pinning (see vite.config.ts manualChunks): loads
-    // on first diagram render, not at cold start. ~1694 kB.
+    // on first diagram render, not at cold start.
+    // Bumped 1750 → 2600 kB: Mermaid 11.12 → 11.16 added ~800 kB (new diagram
+    // types + deps); actual ~2.49 MB. Acceptable because this chunk is lazy
+    // (never in the cold-start path).
     name: "LAZY: vendor-mermaid",
     path: "dist/assets/vendor-mermaid-*.js",
-    limit: "1750 kB",
+    limit: "2600 kB",
     brotli: false,
   },
   {
@@ -187,9 +191,12 @@ module.exports = [
     // Bumped 92 → 94 kB: the HTML allow-list controls (Allowed-tags select +
     // custom-tags field in MarkdownSettings) and the top/left terminal-position
     // options in TerminalSettings added ~0.8 kB.
+    // Bumped 94 → 95 kB: lucide-react v1 removed brand icons, so AboutSettings
+    // now ships the GitHub mark as a local inline SVG (GithubMark.tsx), pushing
+    // this chunk ~38 B over the old 94 kB ceiling.
     name: "LAZY: Settings page",
     path: "dist/assets/Settings-*.js",
-    limit: "94 kB",
+    limit: "95 kB",
     brotli: false,
   },
   {

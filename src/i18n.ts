@@ -65,7 +65,8 @@ i18n
     },
     // Make init synchronous so i18n.language is set before the first render.
     // Resources are still loaded lazily per namespace via the backend callback.
-    initImmediate: false,
+    // (i18next v26 renamed `initImmediate` back to `initAsync` — same semantics.)
+    initAsync: false,
   });
 
 // Set <html lang> on initial load for accessibility/spellcheck
