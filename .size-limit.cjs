@@ -187,9 +187,12 @@ module.exports = [
     // Bumped 92 → 94 kB: the HTML allow-list controls (Allowed-tags select +
     // custom-tags field in MarkdownSettings) and the top/left terminal-position
     // options in TerminalSettings added ~0.8 kB.
+    // Bumped 94 → 95 kB: lucide-react v1 removed brand icons, so AboutSettings
+    // now ships the GitHub mark as a local inline SVG (GithubMark.tsx), pushing
+    // this chunk ~38 B over the old 94 kB ceiling.
     name: "LAZY: Settings page",
     path: "dist/assets/Settings-*.js",
-    limit: "94 kB",
+    limit: "95 kB",
     brotli: false,
   },
   {

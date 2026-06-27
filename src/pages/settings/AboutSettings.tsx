@@ -23,8 +23,8 @@ import {
   RefreshCw,
   SkipForward,
   Globe,
-  Github,
 } from "lucide-react";
+import { GithubMark } from "./GithubMark";
 import appIcon from "@/assets/app-icon.png";
 
 const WEBSITE_URL = "https://vmark.app";
@@ -53,7 +53,7 @@ function Links() {
   const { t } = useTranslation("settings");
   const links = [
     { icon: Globe, label: t("about.website"), url: WEBSITE_URL },
-    { icon: Github, label: t("about.github"), url: GITHUB_URL },
+    { icon: GithubMark, label: t("about.github"), url: GITHUB_URL },
   ];
 
   return (
