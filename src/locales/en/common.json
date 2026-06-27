@@ -98,5 +98,13 @@
   "contentServer.slidev.export": "Export slides",
   "contentServer.slidev.preview": "Preview slides",
   "contentServer.slidev.noDeck": "Open a Slidev deck first.",
-  "contentServer.slidev.exporting": "Exporting…"
+  "contentServer.slidev.exporting": "Exporting…",
+  "windowStatus.title": "Window Status",
+  "windowStatus.empty": "No other windows open",
+  "windowStatus.untitled": "Untitled",
+  "windowStatus.goToHint": "Click to focus this window",
+  "windowStatus.status.running": "Running",
+  "windowStatus.status.idle": "Idle",
+  "windowStatus.status.error": "Error",
+  "windowStatus.status.attention": "Needs attention"
 }

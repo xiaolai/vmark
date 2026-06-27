@@ -102,5 +102,13 @@
   "contentServer.graph.noWorkspace": "Open a workspace to see its graph.",
   "contentServer.graph.error": "Couldn't load the graph.",
   "contentServer.error.noWorkspace": "Open a workspace first.",
-  "contentServer.error.crashed": "지식 베이스 서버가 예기치 않게 중지되었습니다."
+  "contentServer.error.crashed": "지식 베이스 서버가 예기치 않게 중지되었습니다.",
+  "windowStatus.title": "창 상태",
+  "windowStatus.empty": "열린 다른 창이 없습니다",
+  "windowStatus.untitled": "제목 없음",
+  "windowStatus.goToHint": "클릭하여 이 창으로 전환",
+  "windowStatus.status.running": "실행 중",
+  "windowStatus.status.idle": "대기",
+  "windowStatus.status.error": "오류",
+  "windowStatus.status.attention": "주의 필요"
 }

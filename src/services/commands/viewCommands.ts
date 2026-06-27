@@ -9,6 +9,7 @@
 import { registerCommand } from "./CommandBus";
 import { useUIStore } from "@/stores/uiStore";
 import { useContentServerStore } from "@/stores/contentServerStore";
+import { useWindowStatusStore } from "@/stores/windowStatusStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useLintStore } from "@/stores/documentStore";
 import { requestToggleTerminal } from "@/components/Terminal/terminalGate";
@@ -83,6 +84,13 @@ export function registerViewCommands(): void {
     title: () => i18n.t("commands:view.toggleKnowledgeBase"),
     category: "view",
     run: () => useContentServerStore.getState().togglePanel(),
+  });
+
+  registerCommand({
+    id: "view.toggleWindowStatus",
+    title: () => i18n.t("commands:view.toggleWindowStatus"),
+    category: "view",
+    run: () => useWindowStatusStore.getState().togglePanel(),
   });
 
   registerCommand({

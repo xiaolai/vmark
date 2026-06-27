@@ -574,9 +574,7 @@ pub fn create_localized_menu(
         ],
     )?;
 
-    // ========================================================================
-    // Window menu
-    // ========================================================================
+    // ===== Window menu =====
     #[cfg(target_os = "macos")]
     let window_menu = Submenu::with_id_and_items(
         app,
@@ -587,6 +585,7 @@ pub fn create_localized_menu(
             &PredefinedMenuItem::minimize(app, None)?,
             &PredefinedMenuItem::maximize(app, None)?,
             &PredefinedMenuItem::separator(app)?,
+            &MenuItem::with_id(app, "window-status", &t!("menu.window.status").to_string(), true, None::<&str>)?,
             &MenuItem::with_id(app, "bring-all-to-front", &t!("menu.window.bringAllToFront").to_string(), true, None::<&str>)?,
         ],
     )?;

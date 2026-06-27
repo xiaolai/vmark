@@ -3,6 +3,14 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const mockIsGranted = vi.fn();
 const mockRequest = vi.fn();
 const mockSend = vi.fn();
+const mockInvoke = vi.fn();
+
+vi.mock("@tauri-apps/api/core", () => ({
+  invoke: (...a: unknown[]) => {
+    mockInvoke(...a);
+    return Promise.resolve();
+  },
+}));
 
 vi.mock("@tauri-apps/plugin-notification", () => ({
   isPermissionGranted: () => mockIsGranted(),
@@ -31,6 +39,7 @@ import {
   shouldNotifyOnBell,
   notifyTerminalAttention,
   maybeNotifyTerminalBell,
+  flagWindowAttentionOnBell,
   _resetNotificationState,
 } from "./terminalAttention";
 
@@ -149,5 +158,19 @@ describe("maybeNotifyTerminalBell", () => {
       title: "VMark",
       body: "statusbar:terminal.notify.attention|statusbar:terminal.ariaLabel",
     }));
+  });
+});
+
+describe("flagWindowAttentionOnBell (#1057)", () => {
+  it("flags this window in the cross-window registry when unfocused", () => {
+    vi.spyOn(document, "hasFocus").mockReturnValue(false);
+    flagWindowAttentionOnBell();
+    expect(mockInvoke).toHaveBeenCalledWith("set_window_attention");
+  });
+
+  it("does nothing when the window is focused (the user is already here)", () => {
+    vi.spyOn(document, "hasFocus").mockReturnValue(true);
+    flagWindowAttentionOnBell();
+    expect(mockInvoke).not.toHaveBeenCalled();
   });
 });

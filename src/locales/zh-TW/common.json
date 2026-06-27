@@ -102,5 +102,13 @@
   "contentServer.graph.noWorkspace": "Open a workspace to see its graph.",
   "contentServer.graph.error": "Couldn't load the graph.",
   "contentServer.error.noWorkspace": "Open a workspace first.",
-  "contentServer.error.crashed": "知識庫伺服器意外停止。"
+  "contentServer.error.crashed": "知識庫伺服器意外停止。",
+  "windowStatus.title": "視窗狀態",
+  "windowStatus.empty": "沒有其他開啟的視窗",
+  "windowStatus.untitled": "無標題",
+  "windowStatus.goToHint": "點擊切換到該視窗",
+  "windowStatus.status.running": "執行中",
+  "windowStatus.status.idle": "閒置",
+  "windowStatus.status.error": "錯誤",
+  "windowStatus.status.attention": "需要注意"
 }

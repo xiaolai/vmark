@@ -184,6 +184,7 @@ menu:
   # === Window menu ===
   window: "Janela"
   window.bringAllToFront: "Trazer tudo para frente"
+  window.status: "Status das janelas"
 
   # === Help menu ===
   help: "Ajuda"

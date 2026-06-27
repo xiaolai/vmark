@@ -171,6 +171,21 @@ You can pull a tab out of its window to create a new one:
 
 The gesture is direction-locked: horizontal movement starts a reorder, while vertical movement triggers a detach. You can switch from reorder to detach mid-drag by moving the pointer outside the tab bar.
 
+### Window Status Panel
+
+When you run Claude Code across several windows, **Window > Window Status** (also in the command palette) opens a panel that lists every other open window with its live status and lets you jump straight to it.
+
+Each row shows the window's document name and its current status:
+
+| Status | Meaning |
+|--------|---------|
+| **Needs attention** | A terminal in that (unfocused) window rang the bell — Claude Code rings it when a turn finishes or it's waiting for you |
+| **Running** | A VMark AI genie is currently running in that window |
+| **Error** | The last AI genie run failed |
+| **Idle** | Nothing running |
+
+Rows are ranked attention-first, so the window that needs you sits at the top. Click any row to focus and raise that window; focusing a window clears its "needs attention" flag. The status is sourced from two reliable signals — VMark's own AI-genie invocation state and the terminal bell — not by parsing terminal output.
+
 ## External Changes
 
 VMark watches your workspace for changes made by other programs (Git, external editors, build tools, etc.) and keeps open documents in sync.

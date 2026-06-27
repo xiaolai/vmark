@@ -102,5 +102,13 @@
   "contentServer.graph.noWorkspace": "Open a workspace to see its graph.",
   "contentServer.graph.error": "Couldn't load the graph.",
   "contentServer.error.noWorkspace": "Open a workspace first.",
-  "contentServer.error.crashed": "Il server della knowledge base si è arrestato in modo imprevisto."
+  "contentServer.error.crashed": "Il server della knowledge base si è arrestato in modo imprevisto.",
+  "windowStatus.title": "Stato finestre",
+  "windowStatus.empty": "Nessun'altra finestra aperta",
+  "windowStatus.untitled": "Senza titolo",
+  "windowStatus.goToHint": "Fai clic per attivare questa finestra",
+  "windowStatus.status.running": "In esecuzione",
+  "windowStatus.status.idle": "Inattiva",
+  "windowStatus.status.error": "Errore",
+  "windowStatus.status.attention": "Richiede attenzione"
 }

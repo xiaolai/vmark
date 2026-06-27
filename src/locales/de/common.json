@@ -102,5 +102,13 @@
   "contentServer.graph.noWorkspace": "Open a workspace to see its graph.",
   "contentServer.graph.error": "Couldn't load the graph.",
   "contentServer.error.noWorkspace": "Open a workspace first.",
-  "contentServer.error.crashed": "Der Wissensdatenbank-Server wurde unerwartet beendet."
+  "contentServer.error.crashed": "Der Wissensdatenbank-Server wurde unerwartet beendet.",
+  "windowStatus.title": "Fensterstatus",
+  "windowStatus.empty": "Keine weiteren Fenster geöffnet",
+  "windowStatus.untitled": "Unbenannt",
+  "windowStatus.goToHint": "Klicken, um dieses Fenster zu fokussieren",
+  "windowStatus.status.running": "Läuft",
+  "windowStatus.status.idle": "Inaktiv",
+  "windowStatus.status.error": "Fehler",
+  "windowStatus.status.attention": "Benötigt Aufmerksamkeit"
 }

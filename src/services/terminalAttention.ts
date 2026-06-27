@@ -16,6 +16,7 @@
  * @coordinates-with stores/settingsStore.ts — gated by `terminal.notifyOnBell` + `bellMode`
  * @module services/terminalAttention
  */
+import { invoke } from "@tauri-apps/api/core";
 import { isPermissionGranted, requestPermission, sendNotification } from "@tauri-apps/plugin-notification";
 import i18n from "@/i18n";
 import { useSettingsStore, type TerminalBellMode } from "@/stores/settingsStore";
@@ -105,6 +106,20 @@ export async function notifyTerminalAttention(label: string): Promise<void> {
  * document. Thin glue over the tested `shouldNotifyOnBell` +
  * `notifyTerminalAttention`.
  */
+/**
+ * Flag this window as "needs attention" in the cross-window registry (#1057)
+ * when a terminal rings the bell while the window is unfocused. Independent of
+ * the OS-notification setting — the Window-Status panel should reflect the bell
+ * even if notifications are disabled. The flag is cleared when the window gains
+ * focus (see useWindowStatus). Best-effort; never throws into the bell path.
+ */
+export function flagWindowAttentionOnBell(): void {
+  if (document.hasFocus()) return;
+  void invoke("set_window_attention").catch(() => {
+    /* registry is best-effort */
+  });
+}
+
 export function maybeNotifyTerminalBell(): void {
   const terminal = useSettingsStore.getState().terminal;
   const enabled = terminal?.notifyOnBell ?? true;

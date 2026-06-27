@@ -184,6 +184,7 @@ menu:
   # === ウィンドウメニュー ===
   window: "ウィンドウ"
   window.bringAllToFront: "すべてのウィンドウを前面へ"
+  window.status: "ウィンドウの状態"
 
   # === ヘルプメニュー ===
   help: "ヘルプ"

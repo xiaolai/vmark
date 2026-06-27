@@ -89,8 +89,7 @@ pub fn fix_window_menu() {
 
 // ─── SF Symbol Menu Icons ───
 
-/// Maps menu item **IDs** to SF Symbol names.
-/// Only leaf items (not submenus) are matched.
+/// Maps menu item **IDs** (leaf items only) to SF Symbol names.
 /// IDs come from `MenuItem::with_id(app, "THE-ID", ...)` in menu builders.
 const MENU_ICONS: &[(&str, &str)] = &[
     // ── App menu ──
@@ -256,6 +255,7 @@ const MENU_ICONS: &[(&str, &str)] = &[
     ("knowledge-base", "books.vertical"),
     ("toggle-terminal", "terminal"),
     // ── Window menu ──
+    ("window-status", "rectangle.stack"),
     ("bring-all-to-front", "macwindow.on.rectangle"),
     // ── Help menu ──
     ("vmark-help", "questionmark.circle"),
