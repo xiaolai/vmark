@@ -1,6 +1,5 @@
 {
   "openSidebar": "Ouvrir la barre latérale",
-  "newTab": "Nouvel onglet",
   "newTabTitle": "Nouvel onglet",
   "autoSavePaused": "Enregistrement automatique suspendu",
   "autoSavePausedTitle": "Enregistrement automatique suspendu : le fichier a été supprimé du disque. Enregistrez manuellement avec {{shortcut}}.",

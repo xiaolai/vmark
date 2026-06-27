@@ -52,7 +52,8 @@ import { FileLoadIndicator } from "./FileLoadIndicator";
 import { StatusBarTabStrip } from "./StatusBarTabStrip";
 import { useAutoSaveDisplay } from "./useAutoSaveDisplay";
 import { looksLikeWorkflowPath } from "@/lib/ghaWorkflow/detection";
-import { useShortcutsStore } from "@/stores/settingsStore";
+import { useShortcutsStore, formatKeyForDisplay } from "@/stores/settingsStore";
+import { tooltipWithShortcut } from "@/utils/tooltipWithShortcut";
 import { useMcpServer } from "@/hooks/useMcpServer";
 import { useMcpClients } from "@/hooks/useMcpClients";
 import { openSettingsWindow } from "@/services/navigation/settingsWindow";
@@ -106,6 +107,7 @@ export function StatusBar() {
   const readOnlyShortcut = useShortcutsStore((state) => state.getShortcut("readOnly"));
   const terminalShortcut = useShortcutsStore((state) => state.getShortcut("toggleTerminal"));
   const saveShortcut = useShortcutsStore((state) => state.getShortcut("save"));
+  const sidebarShortcut = useShortcutsStore((state) => state.getShortcut("toggleSidebar"));
   const aiRunning = useAiInvocationStore((state) => state.isRunning);
   const aiElapsed = useAiInvocationStore((state) => state.elapsedSeconds);
   const aiError = useAiInvocationStore((state) => state.error);
@@ -226,14 +228,11 @@ export function StatusBar() {
                 type="button"
                 className="status-sidebar-toggle"
                 onClick={() => useUIStore.getState().toggleSidebar()}
-                // WI-2.3 — bind to live state instead of hardcoding `false`.
-                // The button currently only renders when sidebar is hidden,
-                // so this is structurally always false today; binding keeps
-                // it correct if rendering conditions ever change and signals
-                // to maintainers that the value is dynamic.
+                // WI-2.3 — bind aria-expanded to live state, not a literal
+                // (the button only renders while the sidebar is hidden).
                 aria-expanded={sidebarVisible}
-                aria-label={t("openSidebar")}
-                title={t("openSidebar")}
+                aria-label={tooltipWithShortcut(t("openSidebar"), formatKeyForDisplay(sidebarShortcut))}
+                title={tooltipWithShortcut(t("openSidebar"), formatKeyForDisplay(sidebarShortcut))}
               >
                 <PanelLeft size={14} />
               </button>

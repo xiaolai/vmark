@@ -15,6 +15,8 @@ import { Plus } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Tab } from "@/components/Tabs/Tab";
 import type { Tab as TabType } from "@/stores/tabStore";
+import { useShortcutsStore, formatKeyForDisplay } from "@/stores/settingsStore";
+import { tooltipWithShortcut } from "@/utils/tooltipWithShortcut";
 import type { useStatusBarTabDrag } from "./useStatusBarTabDrag";
 
 type TabDragResult = ReturnType<typeof useStatusBarTabDrag>;
@@ -59,6 +61,8 @@ export function StatusBarTabStrip({
   onNewTab,
 }: StatusBarTabStripProps) {
   const { t } = useTranslation("statusbar");
+  const newTabShortcut = useShortcutsStore((state) => state.getShortcut("newTab"));
+  const newTabTooltip = tooltipWithShortcut(t("newTabTitle"), formatKeyForDisplay(newTabShortcut));
 
   return (
     <>
@@ -67,8 +71,8 @@ export function StatusBarTabStrip({
           type="button"
           className="status-new-tab"
           onClick={onNewTab}
-          aria-label={t("newTab")}
-          title={t("newTabTitle")}
+          aria-label={newTabTooltip}
+          title={newTabTooltip}
         >
           <Plus className="w-3 h-3" />
         </button>

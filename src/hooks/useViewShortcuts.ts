@@ -58,6 +58,7 @@ export type ViewAction =
   | "validateMarkdown"
   | "lintNext"
   | "lintPrev"
+  | "toggleSidebar"
   | "toggleOutline"
   | "fileExplorer"
   | "viewHistory"
@@ -77,6 +78,7 @@ const VIEW_SHORTCUT_IDS: ViewAction[] = [
   "validateMarkdown",
   "lintNext",
   "lintPrev",
+  "toggleSidebar",
   "toggleOutline",
   "fileExplorer",
   "viewHistory",
@@ -127,6 +129,7 @@ export function resolveViewAction(
     ["validateMarkdown", "validateMarkdown"],
     ["lintNext", "lintNext"],
     ["lintPrev", "lintPrev"],
+    ["toggleSidebar", "toggleSidebar"],
     ["toggleOutline", "toggleOutline"],
     ["fileExplorer", "fileExplorer"],
     ["viewHistory", "viewHistory"],
@@ -191,6 +194,7 @@ const VIEW_ACTION_EXECUTORS: Record<ViewAction, () => void> = {
   validateMarkdown: executeValidateMarkdown,
   lintNext: () => executeLintNav("next"),
   lintPrev: () => executeLintNav("prev"),
+  toggleSidebar: () => useUIStore.getState().toggleSidebar(),
   toggleOutline: () => useUIStore.getState().toggleSidebarView("outline"),
   fileExplorer: () => useUIStore.getState().toggleSidebarView("files"),
   viewHistory: () => useUIStore.getState().toggleSidebarView("history"),

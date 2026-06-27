@@ -9,6 +9,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { useUIStore } from "@/stores/uiStore";
+import { useShortcutsStore, formatKeyForDisplay } from "@/stores/settingsStore";
 import { Sidebar } from "./Sidebar";
 
 // FileExplorer pulls in the workspace stack (Tauri FS, watchers, etc.) which
@@ -57,5 +58,30 @@ describe("Sidebar — close button aria-expanded", () => {
     render(<Sidebar />);
     const closeBtn = screen.getByRole("button", { name: /close sidebar/i });
     expect(closeBtn.getAttribute("aria-expanded")).toBe("false");
+  });
+});
+
+describe("Sidebar — tooltips surface shortcuts", () => {
+  beforeEach(() => {
+    useUIStore.setState({ sidebarVisible: true, sidebarViewMode: "files" });
+    useShortcutsStore.setState({ customBindings: {} });
+  });
+
+  it("close-sidebar tooltip includes the shortcut, with title/aria-label parity", () => {
+    render(<Sidebar />);
+    const closeBtn = screen.getByRole("button", { name: /close sidebar/i });
+    const display = formatKeyForDisplay(useShortcutsStore.getState().getShortcut("toggleSidebar"));
+    expect(display).not.toBe("");
+    expect(closeBtn.getAttribute("title")).toContain(display);
+    expect(closeBtn.getAttribute("title")).toBe(closeBtn.getAttribute("aria-label"));
+  });
+
+  it("new-file tooltip includes the shortcut, with title/aria-label parity", () => {
+    render(<Sidebar />);
+    const newFileBtn = screen.getByRole("button", { name: /new file/i });
+    const display = formatKeyForDisplay(useShortcutsStore.getState().getShortcut("newFile"));
+    expect(display).not.toBe("");
+    expect(newFileBtn.getAttribute("title")).toContain(display);
+    expect(newFileBtn.getAttribute("title")).toBe(newFileBtn.getAttribute("aria-label"));
   });
 });

@@ -63,13 +63,10 @@ export function buildEditorKeymapBindings(): Record<string, Command> {
   const shortcuts = useShortcutsStore.getState();
   const bindings: Record<string, Command> = {};
 
-  bindIfKey(bindings, shortcuts.getShortcut("toggleSidebar"), /* v8 ignore start -- @preserve reason: toggleSidebar keymap handler only fires in live editor; not exercised in unit tests */ () => {
-    useUIStore.getState().toggleSidebar();
-    return true;
-  } /* v8 ignore stop */);
-
-  // Note: sourceMode toggle is handled by useViewShortcuts hook at window level
-  // to avoid double-toggle when both TipTap keymap and window handler fire
+  // Note: toggleSidebar and sourceMode toggles are handled by the useViewShortcuts
+  // hook at window level (scope: "global"), NOT here — binding them in the TipTap
+  // keymap too would double-toggle when both the keymap and the window handler
+  // fire on the same keypress.
 
   // --- Inline mark formatting ---
   bindIfKey(

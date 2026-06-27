@@ -13,6 +13,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import { useUIStore } from "@/stores/uiStore";
+import { useShortcutsStore, formatKeyForDisplay } from "@/stores/settingsStore";
 
 const mockedStores = vi.hoisted(() => ({
   sourceState: {
@@ -147,6 +148,19 @@ describe("UniversalToolbar", () => {
       useUIStore.setState({ universalToolbarVisible: true });
       render(<UniversalToolbar />);
       expect(screen.getByRole("toolbar")).toBeInTheDocument();
+    });
+  });
+
+  describe("AI Prompts button tooltip", () => {
+    it("surfaces the rebindable aiPrompts shortcut (not a hardcoded ⌘Y), with title/aria-label parity", () => {
+      useShortcutsStore.setState({ customBindings: {} });
+      useUIStore.setState({ universalToolbarVisible: true });
+      render(<UniversalToolbar />);
+      const aiBtn = screen.getByRole("button", { name: /ai prompts/i });
+      const display = formatKeyForDisplay(useShortcutsStore.getState().getShortcut("aiPrompts"));
+      expect(display).not.toBe("");
+      expect(aiBtn.getAttribute("title")).toContain(display);
+      expect(aiBtn.getAttribute("title")).toBe(aiBtn.getAttribute("aria-label"));
     });
   });
 
@@ -949,7 +963,7 @@ describe("UniversalToolbar", () => {
       });
       render(<UniversalToolbar />);
 
-      const aiButton = screen.getByLabelText("AI Prompts");
+      const aiButton = screen.getByLabelText(/^AI Prompts/);
       expect(aiButton).toBeInTheDocument();
       expect(aiButton).toHaveAttribute("data-action", "genie");
     });
@@ -1275,7 +1289,7 @@ describe("UniversalToolbar", () => {
       });
       render(<UniversalToolbar />);
 
-      const aiButton = screen.getByLabelText("AI Prompts");
+      const aiButton = screen.getByLabelText(/^AI Prompts/);
       fireEvent.click(aiButton);
 
       expect(mockAdapters.mockOpenPicker).toHaveBeenCalledWith({ filterScope: "selection" });

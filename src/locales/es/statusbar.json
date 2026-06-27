@@ -1,6 +1,5 @@
 {
   "openSidebar": "Abrir barra lateral",
-  "newTab": "Nueva pestaña",
   "newTabTitle": "Nueva pestaña",
   "autoSavePaused": "Guardado automático pausado",
   "autoSavePausedTitle": "Guardado automático pausado: el archivo fue eliminado del disco. Guarda manualmente con {{shortcut}}.",
