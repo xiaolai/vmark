@@ -14,7 +14,7 @@
  * @module hooks/useTabDragOut
  */
 
-import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type RefObject } from "react";
+import { useCallback, useRef, useState, type PointerEvent as ReactPointerEvent, type RefObject } from "react";
 
 /** Vertical distance (px) outside the tab bar to trigger drag-out. */
 const DRAG_OUT_THRESHOLD = 40;
@@ -150,17 +150,17 @@ export function useTabDragOut({ tabBarRef, onDragOut, onReorder, onDragMove }: U
     }
   }, []);
 
-  // Latest-value refs read only from the document drag listeners; synced after commit (#1063).
+  // Latest-value refs read by synchronous document pointer listeners during a drag, so they must be render-synced (fresh before a pointer event fires), not passive (#1063).
   const onDragOutRef = useRef(onDragOut);
   const onReorderRef = useRef(onReorder);
   const onDragMoveRef = useRef(onDragMove);
   const stableBarRef = useRef(tabBarRef);
-  useEffect(() => {
-    onDragOutRef.current = onDragOut;
-    onReorderRef.current = onReorder;
-    onDragMoveRef.current = onDragMove;
-    stableBarRef.current = tabBarRef;
-  });
+  /* eslint-disable react-hooks/refs */
+  onDragOutRef.current = onDragOut;
+  onReorderRef.current = onReorder;
+  onDragMoveRef.current = onDragMove;
+  stableBarRef.current = tabBarRef;
+  /* eslint-enable react-hooks/refs */
 
   // Detach document listeners and reset state
   /* v8 ignore start -- @preserve reason: cleanupRef empty-function initializer and reset are uncovered; drag cleanup not triggered in unit tests */

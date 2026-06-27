@@ -79,14 +79,14 @@ export function SourceEditor({ hidden = false, readOnly = false }: SourceEditorP
   const setCursorInfoRef = useRef(setCursorInfo);
   const setSelectedTextRef = useRef(setSelectedText);
   const cursorInfoRef = useRef(cursorInfo);
-  // Sync "latest value" refs after commit (read only from the CodeMirror listener/effects) — concurrent-safe (#1063).
-  useEffect(() => {
-    hiddenRef.current = hidden;
-    setContentRef.current = setContent;
-    setCursorInfoRef.current = setCursorInfo;
-    setSelectedTextRef.current = setSelectedText;
-    cursorInfoRef.current = cursorInfo;
-  });
+  // Latest-value refs synced during render: read by CodeMirror's update listener, a delayed focus/restore setTimeout, and an interval poll — all of which can fire before a passive effect would flush, so they need pre-commit freshness (#1063).
+  /* eslint-disable react-hooks/refs */
+  hiddenRef.current = hidden;
+  setContentRef.current = setContent;
+  setCursorInfoRef.current = setCursorInfo;
+  setSelectedTextRef.current = setSelectedText;
+  cursorInfoRef.current = cursorInfo;
+  /* eslint-enable react-hooks/refs */
 
   // Use editor store for global settings
   const wordWrap = useUIStore((state) => state.wordWrap);
