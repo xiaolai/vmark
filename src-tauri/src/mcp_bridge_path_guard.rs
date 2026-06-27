@@ -4,6 +4,20 @@
 //! before bridge file reads/writes. This command resolves symlinks for existing
 //! targets and for the deepest existing ancestor of new targets, closing the
 //! classic `workspace/link -> /etc` escape.
+//!
+//! Cross-layer contract: the `mcp_bridge_check_path` parameter names
+//! (`file_path`, `allowed_roots`) are bound by Tauri's camelCase→snake_case
+//! convention to the JS invoke args (`filePath`, `allowedRoots`) sent from
+//! `services/mcpBridge/bridgePathGuard.ts`. Renaming a parameter on EITHER side
+//! silently breaks the bridge (the arg fails to bind at runtime) — no compiler
+//! or unit test catches it. The JS side of the contract is pinned in
+//! `bridgePathGuard.test.ts`; keep the names here in lockstep.
+//!
+//! Known limitation (TOCTOU): this check and the subsequent `writeTextFile` /
+//! `readTextFile` are two separate frontend calls, not one atomic operation. A
+//! symlink swapped into an allowed root between the check and the write could
+//! escape the canonical-path resolution. Accepted for a local single-user
+//! editor; revisit if bridge fs ever runs against an untrusted live workspace.
 
 use std::path::{Component, Path, PathBuf};
 
@@ -96,6 +110,9 @@ pub(crate) fn validate_mcp_bridge_path(
     ensure_within_any_root(&canonical_ancestor, &roots)
 }
 
+/// Tauri command invoked from `bridgePathGuard.ts`. The `file_path` /
+/// `allowed_roots` names are part of the JS↔Rust contract (see module header) —
+/// do not rename without updating the JS invoke args and their pinning test.
 #[tauri::command]
 pub fn mcp_bridge_check_path(file_path: String, allowed_roots: Vec<String>) -> Result<(), String> {
     validate_mcp_bridge_path(&file_path, &allowed_roots)

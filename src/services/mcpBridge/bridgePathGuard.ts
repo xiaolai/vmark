@@ -16,6 +16,13 @@
  *   `services/` tier per ADR-013: may read stores; the pure decision lives
  *   in `utils/`.
  *
+ *   Enforcement is call-site discipline, not types: every bridge handler that
+ *   touches `@tauri-apps/plugin-fs` must call `checkBridgePath` first. The fs
+ *   capability also grants mkdir/copy/rename/remove — none are exposed on the
+ *   bridge today, but a future handler that adds one MUST wire this guard too.
+ *   `v2/__tests__/fsGuardInvariant.test.ts` makes that structural: a bridge
+ *   file importing plugin-fs without referencing `checkBridgePath` fails CI.
+ *
  * @coordinates-with utils/mcpBridgePathPolicy.ts — pure decision function
  * @coordinates-with stores/workspaceStore.ts — rootPath / isWorkspaceMode
  * @coordinates-with stores/documentStore.ts — open documents' filePaths
