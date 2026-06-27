@@ -106,7 +106,7 @@ jobs:
           fetch-depth: 1
           token: ${{ secrets.PAT_TOKEN }}
 
-      - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
         with:
           version: 10
 
@@ -126,7 +126,7 @@ jobs:
 
       - name: Fix issue #${{ matrix.issue }}
         id: fix
-        uses: anthropics/claude-code-action@0cb4f3e5e764d2e00407d29b6bf0aa9df0976d88 # v1
+        uses: anthropics/claude-code-action@51705da45eecce209d4700538bf8377d5b5fc695 # v1
         env:
           # Claude's gh/git commands use PAT so PRs trigger CI
           GH_TOKEN: ${{ secrets.PAT_TOKEN }}
@@ -226,7 +226,7 @@ jobs:
       # Verify the fix in a separate read-only Claude session
       - name: Verify fix for #${{ matrix.issue }}
         if: steps.find-pr.outputs.number
-        uses: anthropics/claude-code-action@0cb4f3e5e764d2e00407d29b6bf0aa9df0976d88 # v1
+        uses: anthropics/claude-code-action@51705da45eecce209d4700538bf8377d5b5fc695 # v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ secrets.PAT_TOKEN }}
@@ -307,7 +307,7 @@ jobs:
         with:
           fetch-depth: 1
 
-      - uses: anthropics/claude-code-action@0cb4f3e5e764d2e00407d29b6bf0aa9df0976d88 # v1
+      - uses: anthropics/claude-code-action@51705da45eecce209d4700538bf8377d5b5fc695 # v1
         id: verify
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -383,7 +383,7 @@ jobs:
         with:
           fetch-depth: 1
 
-      - uses: anthropics/claude-code-action@0cb4f3e5e764d2e00407d29b6bf0aa9df0976d88 # v1
+      - uses: anthropics/claude-code-action@51705da45eecce209d4700538bf8377d5b5fc695 # v1
         id: claude
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
