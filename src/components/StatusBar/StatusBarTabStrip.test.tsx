@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { StatusBarTabStrip } from "./StatusBarTabStrip";
 import type { Tab as TabType } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
+import { useShortcutsStore, formatKeyForDisplay } from "@/stores/settingsStore";
 
 function makeTab(overrides: Partial<TabType> = {}): TabType {
   return {
@@ -75,6 +76,16 @@ describe("StatusBarTabStrip", () => {
     setup({ onNewTab });
     await user.click(screen.getByRole("button", { name: /new tab/i }));
     expect(onNewTab).toHaveBeenCalledOnce();
+  });
+
+  it("new-tab tooltip surfaces the shortcut, with title/aria-label parity", () => {
+    useShortcutsStore.setState({ customBindings: {} });
+    setup();
+    const btn = screen.getByRole("button", { name: /new tab/i });
+    const display = formatKeyForDisplay(useShortcutsStore.getState().getShortcut("newTab"));
+    expect(display).not.toBe("");
+    expect(btn.getAttribute("title")).toContain(display);
+    expect(btn.getAttribute("title")).toBe(btn.getAttribute("aria-label"));
   });
 
   it("hides the new-tab button when showNewTabButton is false", () => {

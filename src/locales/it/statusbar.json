@@ -1,6 +1,5 @@
 {
   "openSidebar": "Apri barra laterale",
-  "newTab": "Nuova scheda",
   "newTabTitle": "Nuova scheda",
   "autoSavePaused": "Salvataggio automatico sospeso",
   "autoSavePausedTitle": "Salvataggio automatico sospeso: il file è stato eliminato dal disco. Salva manualmente con {{shortcut}}.",

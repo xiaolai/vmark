@@ -11,6 +11,8 @@ import { ask } from "@tauri-apps/plugin-dialog";
 import { deleteDocumentHistory } from "@/hooks/useHistoryRecovery";
 import { emitHistoryCleared } from "@/utils/historyTypes";
 import { useUIStore, type SidebarViewMode } from "@/stores/uiStore";
+import { useShortcutsStore, formatKeyForDisplay } from "@/stores/settingsStore";
+import { tooltipWithShortcut } from "@/utils/tooltipWithShortcut";
 import { useDocumentFilePath } from "@/hooks/useDocumentState";
 import { FileExplorer, type FileExplorerHandle } from "./FileExplorer";
 import { OutlineView } from "./OutlineView";
@@ -33,6 +35,8 @@ const VIEW_CONFIG: Record<SidebarViewMode, {
 /** Navigation sidebar with switchable Files, Outline, and History views. */
 export function Sidebar() {
   const { t } = useTranslation("sidebar");
+  const sidebarShortcut = useShortcutsStore((state) => state.getShortcut("toggleSidebar"));
+  const newFileShortcut = useShortcutsStore((state) => state.getShortcut("newFile"));
   const viewMode = useUIStore((state) => state.sidebarViewMode);
   // WI-2.3 — bind aria-expanded on the close-sidebar button to live state
   // instead of hardcoding `true`. The button only renders when the sidebar
@@ -118,8 +122,8 @@ export function Sidebar() {
             <button
               className="sidebar-btn"
               onClick={() => fileExplorerRef.current?.createNewFile()}
-              title={t("newFile")}
-              aria-label={t("newFile")}
+              title={tooltipWithShortcut(t("newFile"), formatKeyForDisplay(newFileShortcut))}
+              aria-label={tooltipWithShortcut(t("newFile"), formatKeyForDisplay(newFileShortcut))}
             >
               <FilePlus size={14} />
             </button>
@@ -158,8 +162,8 @@ export function Sidebar() {
         <button
           className="sidebar-btn"
           onClick={() => useUIStore.getState().toggleSidebar()}
-          title={t("closeSidebar")}
-          aria-label={t("closeSidebar")}
+          title={tooltipWithShortcut(t("closeSidebar"), formatKeyForDisplay(sidebarShortcut))}
+          aria-label={tooltipWithShortcut(t("closeSidebar"), formatKeyForDisplay(sidebarShortcut))}
           aria-expanded={sidebarVisible}
         >
           <PanelLeftClose size={16} />

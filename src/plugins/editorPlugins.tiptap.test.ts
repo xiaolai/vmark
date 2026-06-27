@@ -119,13 +119,13 @@ describe("buildEditorKeymapBindings", () => {
     }
   });
 
-  it("includes toggleSidebar shortcut", () => {
+  it("does NOT bind toggleSidebar in the editor keymap (handled globally to avoid double-toggle)", () => {
     const bindings = buildEditorKeymapBindings();
-    const shortcuts = useShortcutsStore.getState();
-    const key = shortcuts.getShortcut("toggleSidebar");
-    if (key) {
-      expect(bindings[key]).toBeTypeOf("function");
-    }
+    const key = useShortcutsStore.getState().getShortcut("toggleSidebar");
+    expect(key).toBe("Ctrl-Shift-0");
+    // toggleSidebar is scope:"global", handled by useViewShortcuts at window level.
+    // Binding it here too would double-toggle when both handlers fire.
+    expect(bindings[key]).toBeUndefined();
   });
 
   it("includes blockquote shortcut", () => {
@@ -173,16 +173,6 @@ describe("buildEditorKeymapBindings", () => {
   it("binds Escape to a handler that returns a boolean", () => {
     const bindings = buildEditorKeymapBindings();
     expect(typeof bindings.Escape).toBe("function");
-  });
-
-  it("toggleSidebar binding calls useUIStore.toggleSidebar", () => {
-    const bindings = buildEditorKeymapBindings();
-    const shortcuts = useShortcutsStore.getState();
-    const key = shortcuts.getShortcut("toggleSidebar");
-    if (key) {
-      // The binding should be a function
-      expect(typeof bindings[key]).toBe("function");
-    }
   });
 
   it("does not duplicate bindings when called multiple times", () => {
@@ -295,17 +285,6 @@ describe("editorKeymapExtension integration", () => {
 });
 
 describe("buildEditorKeymapBindings handler execution", () => {
-  it("toggleSidebar binding returns true", () => {
-    const bindings = buildEditorKeymapBindings();
-    const shortcuts = useShortcutsStore.getState();
-    const key = shortcuts.getShortcut("toggleSidebar");
-    if (key) {
-      // Commands receive (state, dispatch, view) — toggleSidebar doesn't use them
-      const result = bindings[key]({} as never, undefined, undefined);
-      expect(result).toBe(true);
-    }
-  });
-
   it("Escape handler returns false when no popup/toolbar open and no mark boundary", () => {
     const bindings = buildEditorKeymapBindings();
     // Escape is wrapped with guardProseMirrorCommand which calls the inner fn
@@ -829,19 +808,6 @@ describe("buildEditorKeymapBindings — inner callback coverage", () => {
     };
   }
 
-  it("toggleSidebar inner body runs when called with a mock view", () => {
-    const bindings = buildEditorKeymapBindings();
-    const shortcuts = useShortcutsStore.getState();
-    const key = shortcuts.getShortcut("toggleSidebar");
-    if (key && bindings[key]) {
-      // toggleSidebar binding is plain (no wrapWithMultiSelectionGuard) — just guardProseMirrorCommand
-      const mockView = makeMockView();
-      // Should not throw and returns true
-      const result = bindings[key](mockView.state as never, vi.fn(), mockView as never);
-      expect(result).toBe(true);
-    }
-  });
-
   it("mark formatting inner body is reachable when wrapWithMultiSelectionGuard passes", () => {
     // The wrapWithMultiSelectionGuard returns false when view is undefined.
     // The inner body (if (!view) return false) is only reached when the outer guard
@@ -1051,19 +1017,6 @@ describe("buildEditorKeymapBindings — inner callback coverage", () => {
     }
   });
 
-  it("toggleSidebar inner body executes (covers lines 62-63)", () => {
-    // bindIfKey wraps with guardProseMirrorCommand. Passing a view with composing=false
-    // ensures the guard passes and the inner () => { toggleSidebar(); return true } runs.
-    const bindings = buildEditorKeymapBindings();
-    const shortcuts = useShortcutsStore.getState();
-    const key = shortcuts.getShortcut("toggleSidebar");
-    if (key && bindings[key]) {
-      const mockView = makeMockView();
-      const result = bindings[key](mockView.state as never, vi.fn(), mockView as never);
-      expect(result).toBe(true);
-    }
-  });
-
   it("inline mark inner bodies execute with view (covers if(!view) false branches)", () => {
     const bindings = buildEditorKeymapBindings();
     const shortcuts = useShortcutsStore.getState();
@@ -1232,27 +1185,6 @@ describe("buildEditorKeymapBindings — inner callback coverage", () => {
     }
   });
 
-  it("toggleSidebar inner body executes without view guard (lines 61-64)", async () => {
-    // toggleSidebar uses bindIfKey without wrapWithMultiSelectionGuard,
-    // so it just calls guardProseMirrorCommand(() => { toggleSidebar(); return true })
-    // This tests the actual inner body by ensuring toggleSidebar is called
-    const { useUIStore } = await import("@/stores/uiStore");
-    const initialSidebar = useUIStore.getState().sidebarVisible;
-
-    const bindings = buildEditorKeymapBindings();
-    const shortcuts = useShortcutsStore.getState();
-    const key = shortcuts.getShortcut("toggleSidebar");
-    if (key && bindings[key]) {
-      // Call without view (toggleSidebar doesn't need a view)
-      const result = bindings[key]({} as never, undefined, undefined);
-      expect(result).toBe(true);
-      // Sidebar visibility should have toggled
-      expect(useUIStore.getState().sidebarVisible).toBe(!initialSidebar);
-      // Toggle back
-      useUIStore.getState().toggleSidebar();
-    }
-  });
-
   it("subscript and superscript inner bodies execute with view (covers if(!view) branches)", () => {
     const bindings = buildEditorKeymapBindings();
     const shortcuts = useShortcutsStore.getState();
@@ -1289,27 +1221,6 @@ describe("buildEditorKeymapBindings — inner callback coverage", () => {
       const mockView = makeMockView();
       const result = bindings[key](mockView.state as never, vi.fn(), mockView as never);
       expect(result).toBe(true);
-    }
-  });
-
-  it("toggleSidebar inner callback toggles sidebar state (covers lines 62-63)", async () => {
-    // The inner callback of bindIfKey for toggleSidebar executes
-    // useUIStore.getState().toggleSidebar() and returns true.
-    // The key is that guardProseMirrorCommand wraps it and we pass a view
-    // so the composing guard passes through.
-    const { useUIStore } = await import("@/stores/uiStore");
-    const before = useUIStore.getState().sidebarVisible;
-
-    const bindings = buildEditorKeymapBindings();
-    const shortcuts = useShortcutsStore.getState();
-    const key = shortcuts.getShortcut("toggleSidebar");
-    if (key && bindings[key]) {
-      const mockView = makeMockView();
-      const result = bindings[key](mockView.state as never, mockView.dispatch as never, mockView as never);
-      expect(result).toBe(true);
-      expect(useUIStore.getState().sidebarVisible).toBe(!before);
-      // Restore
-      useUIStore.getState().toggleSidebar();
     }
   });
 
@@ -1405,49 +1316,6 @@ describe("buildEditorKeymapBindings — transformToggleCase with custom key", ()
 describe("buildEditorKeymapBindings — direct inner body coverage", () => {
   // These tests call the raw inner arrow functions directly, bypassing guardProseMirrorCommand,
   // to ensure V8 coverage tracks the function bodies at lines 62-63 and 309-310.
-
-  it("toggleSidebar inner arrow body executes (direct call, covers lines 62-63)", async () => {
-    const { useUIStore } = await import("@/stores/uiStore");
-    const before = useUIStore.getState().sidebarVisible;
-
-    // Build bindings and retrieve the raw command for toggleSidebar
-    const shortcuts = useShortcutsStore.getState();
-    const key = shortcuts.getShortcut("toggleSidebar");
-    if (!key) return;
-
-    const bindings = buildEditorKeymapBindings();
-    const handler = bindings[key];
-    if (!handler) return;
-
-    // Call five times to ensure branch coverage tracks the body
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { Schema } = require("@tiptap/pm/model");
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { EditorState } = require("@tiptap/pm/state");
-    const schema = new Schema({
-      nodes: {
-        doc: { content: "paragraph+" },
-        paragraph: { content: "text*" },
-        text: { inline: true },
-      },
-    });
-    const doc = schema.node("doc", null, [schema.node("paragraph")]);
-    const state = EditorState.create({ doc, schema });
-    const mockView = {
-      state,
-      dispatch: vi.fn(),
-      focus: vi.fn(),
-      composing: false,
-      dom: document.createElement("div"),
-    };
-
-    const result = handler(state as never, vi.fn(), mockView as never);
-    expect(result).toBe(true);
-    // Sidebar should have toggled
-    expect(useUIStore.getState().sidebarVisible).toBe(!before);
-    // Restore
-    useUIStore.getState().toggleSidebar();
-  });
 
   it("transformToggleCase inner body executes with view (direct call, covers lines 309-310)", () => {
     const shortcuts = useShortcutsStore.getState();

@@ -1,6 +1,5 @@
 {
   "openSidebar": "開啟側邊欄",
-  "newTab": "新增標籤頁",
   "newTabTitle": "新標籤頁",
   "autoSavePaused": "自動儲存已暫停",
   "autoSavePausedTitle": "自動儲存已暫停：檔案已從磁碟刪除。請使用 {{shortcut}} 手動儲存。",

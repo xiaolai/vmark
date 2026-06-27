@@ -80,10 +80,12 @@ vi.mock("@/components/Tabs/TabContextMenu", () => ({
 
 import { StatusBar } from "./StatusBar";
 import { useUIStore } from "@/stores/uiStore";
+import { useShortcutsStore, formatKeyForDisplay } from "@/stores/settingsStore";
 
 describe("StatusBar accessibility", () => {
   beforeEach(() => {
     useUIStore.setState({ sidebarVisible: false, statusBarVisible: true });
+    useShortcutsStore.setState({ customBindings: {} });
   });
 
   it("exposes aria-expanded=false on the sidebar-toggle button when the sidebar is collapsed", () => {
@@ -100,5 +102,14 @@ describe("StatusBar accessibility", () => {
     useUIStore.setState({ sidebarVisible: true, statusBarVisible: true });
     render(<StatusBar />);
     expect(screen.queryByLabelText(/open sidebar/i)).toBeNull();
+  });
+
+  it("open-sidebar tooltip surfaces the shortcut, with title/aria-label parity", () => {
+    render(<StatusBar />);
+    const toggle = screen.getByLabelText(/open sidebar/i);
+    const display = formatKeyForDisplay(useShortcutsStore.getState().getShortcut("toggleSidebar"));
+    expect(display).not.toBe("");
+    expect(toggle.getAttribute("title")).toContain(display);
+    expect(toggle.getAttribute("title")).toBe(toggle.getAttribute("aria-label"));
   });
 });

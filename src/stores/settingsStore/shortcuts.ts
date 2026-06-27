@@ -30,11 +30,7 @@ export type ShortcutCategory =
   | "view"        // Sidebar, Outline, Focus mode
   | "file";       // New, Open, Save, etc.
 
-/**
- * Shortcut scope determines when a shortcut is active.
- * - global: Works everywhere in the application
- * - editor: Only works when editor is focused (default)
- */
+/** Shortcut scope: "global" = active everywhere; "editor" (default) = only while the editor is focused. */
 export type ShortcutScope = "global" | "editor";
 
 /** A single keyboard shortcut entry with ID, label, category, default key, and optional menu binding. */
@@ -137,6 +133,8 @@ export const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
   { id: "removeBlankLines", label: "Remove Blank Lines", category: "editing", defaultKey: "", menuId: "remove-blank-lines", description: "Remove blank lines from selection" },
 
   // === View ===
+  // toggleSidebar: no menuId (a Rust accel would clash with `paragraph` Mod-Shift-0 on Win/Linux); handled in useViewShortcuts only, never the TipTap keymap, to avoid double-toggle.
+  { id: "toggleSidebar", label: "Toggle Sidebar", category: "view", defaultKey: "Ctrl-Shift-0", scope: "global" },
   { id: "toggleOutline", label: "Toggle Outline", category: "view", defaultKey: "Ctrl-Shift-1", menuId: "outline", scope: "global" },
   { id: "fileExplorer", label: "Toggle File Explorer", category: "view", defaultKey: "Ctrl-Shift-2", menuId: "file-explorer", scope: "global" },
   { id: "viewHistory", label: "Toggle History", category: "view", defaultKey: "Ctrl-Shift-3", menuId: "view-history", scope: "global" },

@@ -1,6 +1,5 @@
 {
   "openSidebar": "사이드바 열기",
-  "newTab": "새 탭",
   "newTabTitle": "새 탭",
   "autoSavePaused": "자동 저장 일시 중지",
   "autoSavePausedTitle": "자동 저장 일시 중지: 파일이 디스크에서 삭제되었습니다. {{shortcut}}로 수동 저장하세요.",

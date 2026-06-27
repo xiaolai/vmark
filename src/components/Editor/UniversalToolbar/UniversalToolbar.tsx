@@ -2,8 +2,7 @@
  * UniversalToolbar - Bottom formatting toolbar
  *
  * A universal, single-line toolbar anchored at the bottom of the window.
- * Triggered by Shift+Cmd+P, provides consistent formatting actions across
- * both WYSIWYG and Source modes.
+ * Triggered by Shift+Cmd+P, provides formatting actions across WYSIWYG and Source.
  *
  * Per redesign spec:
  * - Focus toggle model (Shift+Cmd+P toggles focus, not visibility)
@@ -15,6 +14,8 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type FocusEvent } from "react";
 import { useUIStore } from "@/stores/uiStore";
+import { useShortcutsStore, formatKeyForDisplay } from "@/stores/settingsStore";
+import { tooltipWithShortcut } from "@/utils/tooltipWithShortcut";
 import { selectSourceEditing } from "@/stores/selectSourceEditing";
 import { useEditorStore } from "@/stores/editorStore";
 import { getToolbarButtonState, getToolbarItemState } from "@/plugins/toolbarActions/enableRules";
@@ -43,6 +44,7 @@ import "./universal-toolbar.css";
 export function UniversalToolbar() {
   const { t: tDialog } = useTranslation("dialog");
   const { t } = useTranslation("editor");
+  const aiPromptsShortcut = useShortcutsStore((state) => state.getShortcut("aiPrompts"));
   const visible = useUIStore((state) => state.universalToolbarVisible);
   const toolbarHasFocus = useUIStore((state) => state.universalToolbarHasFocus);
   const sessionFocusIndex = useUIStore((state) => state.toolbarSessionFocusIndex);
@@ -87,11 +89,9 @@ export function UniversalToolbar() {
     [buttons, toolbarContext]
   );
 
-  // The AI-Prompts action button sits after the formatting groups and is
-  // folded into the roving-tabindex model as a trailing pseudo-button at index
-  // `buttons.length` (a11y/A4 — otherwise it is keyboard-unreachable: the
-  // toolbar is out of the tab order until focused, and arrow nav only spans the
-  // group buttons). It is always enabled and is an action (never a dropdown).
+  // AI-Prompts action button: trailing pseudo-button in the roving-tabindex
+  // model at index `buttons.length` (a11y/A4 — keyboard-reachable). Always
+  // enabled, an action (never a dropdown).
   const genieFocusIndex = buttons.length;
 
   const isButtonFocusable = useCallback(
@@ -513,8 +513,8 @@ export function UniversalToolbar() {
       <button
         type="button"
         className="universal-toolbar-btn"
-        title={`${t("toolbar.aiPrompts")} (⌘Y)`}
-        aria-label={t("toolbar.aiPrompts")}
+        title={tooltipWithShortcut(t("toolbar.aiPrompts"), formatKeyForDisplay(aiPromptsShortcut))}
+        aria-label={tooltipWithShortcut(t("toolbar.aiPrompts"), formatKeyForDisplay(aiPromptsShortcut))}
         data-focus-index={genieFocusIndex}
         tabIndex={toolbarHasFocus && focusedIndex === genieFocusIndex ? 0 : -1}
         data-action="genie"
