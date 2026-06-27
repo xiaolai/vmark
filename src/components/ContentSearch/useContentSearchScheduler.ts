@@ -51,7 +51,10 @@ export function useContentSearchScheduler({
   // query/option change without a stale capture and without re-running the
   // search merely because the array identity changed.
   const excludeFoldersRef = useRef(excludeFolders);
-  excludeFoldersRef.current = excludeFolders;
+  // Synced after commit (read only at query-execution time). #1063
+  useEffect(() => {
+    excludeFoldersRef.current = excludeFolders;
+  });
 
   useEffect(() => {
     if (!isOpen || !rootPath) return;

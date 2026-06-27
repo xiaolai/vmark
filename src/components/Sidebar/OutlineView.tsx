@@ -4,7 +4,7 @@
  * Displays document heading structure as a tree with a substring filter.
  */
 
-import { memo, useState, useDeferredValue, useMemo, useRef, useCallback } from "react";
+import { memo, useState, useDeferredValue, useMemo, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronRight, ChevronDown, Search, X } from "lucide-react";
 import { emitTo } from "@tauri-apps/api/event";
@@ -17,7 +17,6 @@ import {
   buildHeadingTree,
   filterHeadingTree,
   getHeadingLinesKey,
-  type HeadingItem,
   type HeadingNode,
 } from "./outlineUtils";
 
@@ -119,24 +118,20 @@ export function OutlineView() {
     [deferredContent, isTooLarge]
   );
 
-  // Cache previous headings to maintain referential stability
-  const prevHeadingsRef = useRef<HeadingItem[]>([]);
-  const prevKeyRef = useRef<string>("");
-
-  // Only re-extract headings when heading lines actually change
+  // Re-extract headings only when the heading lines change. Keyed on
+  // headingLinesKey (not deferredContent) so edits that leave the heading lines
+  // untouched keep the same array reference — referential stability for
+  // downstream consumers, without reading/writing a cache ref during render
+  // (#1063). deferredContent is read inside but intentionally not a dep.
   const headings = useMemo(() => {
     if (isTooLarge) return [];
-    if (headingLinesKey === prevKeyRef.current) {
-      return prevHeadingsRef.current;
-    }
     perfStart("OutlineView:extractHeadings");
     const extracted = extractHeadings(deferredContent);
     const newHeadings = extracted.length > MAX_HEADING_COUNT ? extracted.slice(0, MAX_HEADING_COUNT) : extracted;
     perfEnd("OutlineView:extractHeadings", { count: newHeadings.length });
-    prevHeadingsRef.current = newHeadings;
-    prevKeyRef.current = headingLinesKey;
     return newHeadings;
-  }, [headingLinesKey, deferredContent, isTooLarge]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [headingLinesKey, isTooLarge]);
 
   const tree = useMemo(() => {
     if (isTooLarge) return [];

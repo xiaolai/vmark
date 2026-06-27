@@ -180,12 +180,18 @@ export function TiptapEditorInner({ hidden = false, readOnly = false, preview = 
   const contentRef = useRef(content);
   const editorRef = useRef<TiptapEditor | null>(null);
   const flushToStoreRef = useRef<((editor: TiptapEditor) => void) | null>(null);
-  cursorInfoRef.current = cursorInfo;
-  preserveLineBreaksRef.current = preserveLineBreaks;
-  hardBreakStyleOnSaveRef.current = hardBreakStyleOnSave;
-  hiddenRef.current = hidden;
-  previewRef.current = preview;
-  contentRef.current = content;
+  // Keep "latest value" refs in sync after each commit. These are read only from
+  // callbacks/effects (never during render), so a post-commit effect is the
+  // React-recommended pattern — and it is concurrent-safe (a discarded render
+  // can't corrupt them, unlike a render-phase write). See #1063.
+  useEffect(() => {
+    cursorInfoRef.current = cursorInfo;
+    preserveLineBreaksRef.current = preserveLineBreaks;
+    hardBreakStyleOnSaveRef.current = hardBreakStyleOnSave;
+    hiddenRef.current = hidden;
+    previewRef.current = preview;
+    contentRef.current = content;
+  });
 
   const extensions = useMemo(
     () => createTiptapExtensions({ tabId: activeTabId, lintEnabled }),
@@ -228,6 +234,10 @@ export function TiptapEditorInner({ hidden = false, readOnly = false, preview = 
     },
     [setContent, windowLabel]
   );
+  // Synced during render (not in an effect) on purpose: the unmount cleanup below
+  // reads this ref to flush pending content, and must see the latest flusher even
+  // if the component unmounts before a passive effect could run (#755).
+  // eslint-disable-next-line react-hooks/refs
   flushToStoreRef.current = flushToStore;
 
   const flushCursorInfo = useCallback(() => {
@@ -431,6 +441,9 @@ export function TiptapEditorInner({ hidden = false, readOnly = false, preview = 
   // directly without depending on the global flusher registry — which may be
   // nulled by this component's own registration cleanup before the flush
   // cleanup runs (React runs effect cleanups in reverse registration order).
+  // Synced during render (not in an effect) on purpose so it is set even if the
+  // component unmounts before a passive effect could run (#755).
+  // eslint-disable-next-line react-hooks/refs
   editorRef.current = editor ?? null;
 
   // Show-invisibles toggle — flip the extension storage flag and

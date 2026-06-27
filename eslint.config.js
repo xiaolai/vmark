@@ -25,7 +25,7 @@ export default tseslint.config(
       // code was written and verified against. Re-enable incrementally (per
       // rule, file-scoped) in a dedicated react-hooks-7 adoption pass — see #1063.
       "react-hooks/set-state-in-effect": "off",
-      "react-hooks/refs": "off",
+      "react-hooks/refs": "error",
       "react-hooks/preserve-manual-memoization": "error",
       "react-hooks/immutability": "error",
       // Historically `warn` under v5's recommended; v7 raised it to error.

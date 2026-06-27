@@ -66,7 +66,6 @@ export function SourceEditor({ hidden = false, readOnly = false }: SourceEditorP
   const viewRef = useRef<EditorView | null>(null);
   const isInternalChange = useRef(false);
   const hiddenRef = useRef(hidden);
-  hiddenRef.current = hidden;
 
   useSourceOutlineSync(viewRef, hidden);
 
@@ -80,10 +79,16 @@ export function SourceEditor({ hidden = false, readOnly = false }: SourceEditorP
   const setCursorInfoRef = useRef(setCursorInfo);
   const setSelectedTextRef = useRef(setSelectedText);
   const cursorInfoRef = useRef(cursorInfo);
-  setContentRef.current = setContent;
-  setCursorInfoRef.current = setCursorInfo;
-  setSelectedTextRef.current = setSelectedText;
-  cursorInfoRef.current = cursorInfo;
+  // Keep "latest value" refs in sync after each commit. All are read only from
+  // the CodeMirror listener / effects (never during render), so a post-commit
+  // effect is the React-recommended, concurrent-safe pattern. See #1063.
+  useEffect(() => {
+    hiddenRef.current = hidden;
+    setContentRef.current = setContent;
+    setCursorInfoRef.current = setCursorInfo;
+    setSelectedTextRef.current = setSelectedText;
+    cursorInfoRef.current = cursorInfo;
+  });
 
   // Use editor store for global settings
   const wordWrap = useUIStore((state) => state.wordWrap);

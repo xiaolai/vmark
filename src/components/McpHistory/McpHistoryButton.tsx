@@ -23,7 +23,7 @@
  * @module components/McpHistory/McpHistoryButton
  */
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useCallback } from "react";
 import { History, Undo2, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useMcpStore } from "@/stores/mcpStore";
@@ -139,18 +139,21 @@ export function McpHistoryButton(): React.ReactElement {
     toast.success(t("mcpHistoryCleared"));
   }, [tabId, tabFilePath, t]);
 
-  const popoverPosition = (): React.CSSProperties => {
+  // Measure the trigger and position the popover in a layout effect — reading
+  // the DOM rect during render is not concurrent-safe (#1063). Runs before paint
+  // when the popover opens, so there is no flicker.
+  const [popoverStyle, setPopoverStyle] = useState<React.CSSProperties>({ display: "none" });
+  useLayoutEffect(() => {
+    if (!open) return;
     const rect = buttonRef.current?.getBoundingClientRect();
-    if (!rect) return { display: "none" };
+    if (!rect) {
+      setPopoverStyle({ display: "none" });
+      return;
+    }
     const right = Math.max(8, window.innerWidth - rect.right);
     const bottom = Math.max(8, window.innerHeight - rect.top + 6);
-    return {
-      right,
-      bottom,
-      width: POPUP_WIDTH,
-      maxHeight: POPUP_MAX_HEIGHT,
-    };
-  };
+    setPopoverStyle({ right, bottom, width: POPUP_WIDTH, maxHeight: POPUP_MAX_HEIGHT });
+  }, [open]);
 
   return (
     <>
@@ -172,7 +175,7 @@ export function McpHistoryButton(): React.ReactElement {
         <div
           ref={popoverRef}
           className="mcp-history-popover"
-          style={popoverPosition()}
+          style={popoverStyle}
           role="dialog"
           aria-label={t("mcpHistoryTitle", { count })}
         >
