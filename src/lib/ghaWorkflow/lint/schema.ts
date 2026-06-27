@@ -55,11 +55,20 @@ export async function lintWorkflow(yaml: string): Promise<Diagnostic[]> {
 // ─── Translation ────────────────────────────────────────────────────
 // Exported for unit testing of the heuristic mapping.
 
+/**
+ * LSP 3.18 widened `Diagnostic.message` to `string | MarkupContent` (markdown
+ * diagnostics). We only surface plain text, so flatten MarkupContent to its
+ * `value`.
+ */
+function messageText(message: LspDiagnostic["message"]): string {
+  return typeof message === "string" ? message : message.value;
+}
+
 export function translate(d: LspDiagnostic): Diagnostic {
   return {
     severity: lspSeverityToOurs(d.severity),
     code: classifyCode(d),
-    message: d.message,
+    message: messageText(d.message),
     position: {
       startLine: d.range.start.line + 1, // LSP is 0-based; we use 1-based
       startCol: d.range.start.character + 1,
@@ -93,7 +102,7 @@ function lspSeverityToOurs(s: number | undefined): Severity {
  * structured codes.
  */
 function classifyCode(d: LspDiagnostic): DiagnosticCode {
-  const m = (d.message ?? "").toLowerCase();
+  const m = messageText(d.message).toLowerCase();
   // Expression-context errors.
   if (/(unknown|invalid)\s+(context|object property)/.test(m)) {
     return "GHA-EXPR-001";

@@ -74,10 +74,11 @@ module.exports = [
   },
   {
     // Tiptap + ProseMirror. Eager because the editor is the home screen.
-    // ~446 kB at last check.
+    // Bumped 470 → 500 kB: Tiptap 3.18 → 3.27 (9 minor releases of the core
+    // editor) added ~18 kB; actual ~488 kB.
     name: "EAGER: vendor-tiptap",
     path: "dist/assets/vendor-tiptap-*.js",
-    limit: "470 kB",
+    limit: "500 kB",
     brotli: false,
   },
   {
@@ -113,10 +114,13 @@ module.exports = [
   {
     // Mermaid + @mermaid-js/* + d3-* + dagre-d3-es + khroma. LAZY since
     // the preload-helper pinning (see vite.config.ts manualChunks): loads
-    // on first diagram render, not at cold start. ~1694 kB.
+    // on first diagram render, not at cold start.
+    // Bumped 1750 → 2600 kB: Mermaid 11.12 → 11.16 added ~800 kB (new diagram
+    // types + deps); actual ~2.49 MB. Acceptable because this chunk is lazy
+    // (never in the cold-start path).
     name: "LAZY: vendor-mermaid",
     path: "dist/assets/vendor-mermaid-*.js",
-    limit: "1750 kB",
+    limit: "2600 kB",
     brotli: false,
   },
   {
