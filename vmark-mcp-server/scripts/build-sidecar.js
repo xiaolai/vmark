@@ -32,24 +32,24 @@ const BUNDLE_OUTPUT = join(PROJECT_ROOT, 'dist', 'cli.bundle.cjs');
 const TARGET_MAP = {
   'darwin-arm64': {
     triple: 'aarch64-apple-darwin',
-    pkg: 'node18-macos-arm64',
+    pkg: 'node22-macos-arm64',
   },
   'darwin-x64': {
     triple: 'x86_64-apple-darwin',
-    pkg: 'node18-macos-x64',
+    pkg: 'node22-macos-x64',
   },
   'win32-x64': {
     triple: 'x86_64-pc-windows-msvc',
-    pkg: 'node18-win-x64',
+    pkg: 'node22-win-x64',
     ext: '.exe',
   },
   'linux-x64': {
     triple: 'x86_64-unknown-linux-gnu',
-    pkg: 'node18-linux-x64',
+    pkg: 'node22-linux-x64',
   },
   'linux-arm64': {
     triple: 'aarch64-unknown-linux-gnu',
-    pkg: 'node18-linux-arm64',
+    pkg: 'node22-linux-arm64',
   },
 };
 
@@ -72,7 +72,7 @@ async function bundleWithEsbuild() {
     join(PROJECT_ROOT, 'src', 'cli.ts'),
     '--bundle',
     '--platform=node',
-    '--target=node18',
+    '--target=node22',
     '--format=cjs',
     `--outfile=${BUNDLE_OUTPUT}`,
     '--external:fsevents', // Optional macOS dependency
