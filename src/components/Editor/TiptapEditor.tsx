@@ -180,15 +180,15 @@ export function TiptapEditorInner({ hidden = false, readOnly = false, preview = 
   const contentRef = useRef(content);
   const editorRef = useRef<TiptapEditor | null>(null);
   const flushToStoreRef = useRef<((editor: TiptapEditor) => void) | null>(null);
-  // Sync "latest value" refs after commit (read only from callbacks/effects) — concurrent-safe (#1063).
-  useEffect(() => {
-    cursorInfoRef.current = cursorInfo;
-    preserveLineBreaksRef.current = preserveLineBreaks;
-    hardBreakStyleOnSaveRef.current = hardBreakStyleOnSave;
-    hiddenRef.current = hidden;
-    previewRef.current = preview;
-    contentRef.current = content;
-  });
+  // Latest-value refs synced during render: a deferred init parse (setTimeout) + the unmount-flush read these and need the latest committed value before effects run (#1063).
+  /* eslint-disable react-hooks/refs */
+  cursorInfoRef.current = cursorInfo;
+  preserveLineBreaksRef.current = preserveLineBreaks;
+  hardBreakStyleOnSaveRef.current = hardBreakStyleOnSave;
+  hiddenRef.current = hidden;
+  previewRef.current = preview;
+  contentRef.current = content;
+  /* eslint-enable react-hooks/refs */
 
   const extensions = useMemo(
     () => createTiptapExtensions({ tabId: activeTabId, lintEnabled }),
