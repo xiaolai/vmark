@@ -149,10 +149,13 @@ export function createSecureStorage(): StateStorage {
         // In fallback mode, persist to localStorage (best effort)
         try { localStorage.setItem(name, value); } catch { /* quota exceeded */ }
       } else {
-        // Background sync to Tauri store
+        // Background sync to Tauri store. store.set() only mutates the in-memory
+        // store; save() flushes it to .vmark-secure.json — without it the change
+        // is lost on restart (issue #1061).
         getStore()
           .then(async (store) => {
             await store.set(name, value);
+            await store.save();
           })
           .catch((error) => {
             safeStorageError("Failed to persist to secure storage:", error);
@@ -170,6 +173,7 @@ export function createSecureStorage(): StateStorage {
         getStore()
           .then(async (store) => {
             await store.delete(name);
+            await store.save(); // flush deletion to disk (see #1061)
           })
           .catch((error) => {
             safeStorageError("Failed to remove from secure storage:", error);

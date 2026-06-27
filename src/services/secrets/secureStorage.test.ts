@@ -116,7 +116,7 @@ describe("secureStorage", () => {
       expect(storage.getItem("new-key")).toBe("new-value");
     });
 
-    it("setItem syncs to Tauri store in background (no explicit save)", async () => {
+    it("setItem syncs to Tauri store AND flushes to disk via save() (#1061)", async () => {
       await initSecureStorage([]);
       const storage = createSecureStorage();
       storage.setItem("bg-key", "bg-value");
@@ -124,8 +124,9 @@ describe("secureStorage", () => {
       // Wait for async sync
       await new Promise((r) => setTimeout(r, 50));
       expect(mockStore.set).toHaveBeenCalledWith("bg-key", "bg-value");
-      // Plugin auto-saves — no explicit save() call on writes
-      expect(mockStore.save).not.toHaveBeenCalled();
+      // store.set() only mutates memory; save() must flush to disk, otherwise
+      // the change is lost on restart (the Ollama-config-not-persisted bug).
+      expect(mockStore.save).toHaveBeenCalled();
     });
 
     it("removeItem clears cache immediately", async () => {
@@ -136,14 +137,17 @@ describe("secureStorage", () => {
       expect(storage.getItem("del-key")).toBeNull();
     });
 
-    it("removeItem syncs to Tauri store in background", async () => {
+    it("removeItem syncs to Tauri store AND flushes the deletion via save() (#1061)", async () => {
       await initSecureStorage([]);
       const storage = createSecureStorage();
       storage.setItem("rm-key", "rm-value");
+      mockStore.save.mockClear();
       storage.removeItem("rm-key");
 
       await new Promise((r) => setTimeout(r, 50));
       expect(mockStore.delete).toHaveBeenCalledWith("rm-key");
+      // Deletion must be flushed to disk too, not just removed from memory.
+      expect(mockStore.save).toHaveBeenCalled();
     });
 
     it("setItem handles Tauri store write failure gracefully", async () => {
