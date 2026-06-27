@@ -487,11 +487,8 @@ export function useGenieInvocation() {
     [runGenie]
   );
 
-  // Keep ref in sync for MCP bridge listener — synced after commit (read only
-  // from the async bridge listener, never during render). #1063
-  useEffect(() => {
-    invokeGenieRef.current = invokeGenie;
-  });
+  // eslint-disable-next-line react-hooks/refs -- latest-value ref read only by the async MCP bridge listener (#1063)
+  invokeGenieRef.current = invokeGenie;
 
   const invokeFreeform = useCallback(
     async (userPrompt: string, scope: GenieScope) => {

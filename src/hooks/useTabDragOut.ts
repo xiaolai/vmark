@@ -1,8 +1,7 @@
 /**
  * Tab Drag-Out Hook
  *
- * Purpose: Manages tab drag interactions — reorder within the tab bar
- *   or drag out to detach a tab into a new window.
+ * Purpose: Manages tab drag interactions — reorder within the tab bar or drag out to detach into a new window.
  *
  * Key decisions:
  *   - Uses pointer events (not mouse) for touch support
@@ -151,8 +150,7 @@ export function useTabDragOut({ tabBarRef, onDragOut, onReorder, onDragMove }: U
     }
   }, []);
 
-  // Stable refs for callbacks used in document listeners — synced after commit
-  // (read only from the document drag listeners, never during render). #1063
+  // Latest-value refs read only from the document drag listeners; synced after commit (#1063).
   const onDragOutRef = useRef(onDragOut);
   const onReorderRef = useRef(onReorder);
   const onDragMoveRef = useRef(onDragMove);
@@ -203,9 +201,8 @@ export function useTabDragOut({ tabBarRef, onDragOut, onReorder, onDragMove }: U
         // Only primary button; skip pinned tabs
         if (e.button !== 0 || isPinned) return;
 
-        // Skip drag initiation when clicking the close button (or its children).
-        // Pointer capture would steal the pointerup from the button, preventing
-        // the click event from firing and making the tab un-closable via X.
+        // Skip drag init on the close button — pointer capture would steal the
+        // pointerup, making the tab un-closable via X.
         const target = e.target;
         if (target instanceof Element && target.closest("[data-tab-close]")) return;
 

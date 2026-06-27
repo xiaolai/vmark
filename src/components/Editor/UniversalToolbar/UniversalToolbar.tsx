@@ -4,11 +4,9 @@
  * A universal, single-line toolbar anchored at the bottom of the window.
  * Triggered by Shift+Cmd+P, provides formatting actions across WYSIWYG and Source.
  *
- * Per redesign spec:
- * - Focus toggle model (Shift+Cmd+P toggles focus, not visibility)
- * - Two-step Escape (dropdown first, then toolbar)
- * - Session memory (cleared on toolbar close)
- * - Smart initial focus (active marks > selection > context > default)
+ * Per redesign spec: focus-toggle model (Shift+Cmd+P toggles focus, not visibility),
+ * two-step Escape (dropdown then toolbar), session memory (cleared on close), and
+ * smart initial focus (active marks > selection > context > default).
  *
  * @module components/Editor/UniversalToolbar
  */
@@ -89,9 +87,8 @@ export function UniversalToolbar() {
     [buttons, toolbarContext]
   );
 
-  // AI-Prompts action button: trailing pseudo-button in the roving-tabindex
-  // model at index `buttons.length` (a11y/A4 — keyboard-reachable). Always
-  // enabled, an action (never a dropdown).
+  // AI-Prompts action button: trailing pseudo-button in the roving-tabindex model
+  // at index `buttons.length` (a11y/A4 — keyboard-reachable). Always enabled, an action.
   const genieFocusIndex = buttons.length;
 
   const isButtonFocusable = useCallback(
@@ -287,9 +284,8 @@ export function UniversalToolbar() {
     (direction: "left" | "right" | "forward" | "backward") => {
       const isArrowNav = direction === "left" || direction === "right";
       const isNext = direction === "right" || direction === "forward";
-      // genieFocusIndex + 1 = full roving count (group buttons + the trailing
-      // AI-Prompts pseudo-button), so dropdown-exit nav can land on the Genie
-      // button too (A4).
+      // genieFocusIndex + 1 = full roving count (group buttons + trailing AI-Prompts
+      // pseudo-button), so dropdown-exit nav can land on the Genie button too (A4).
       const newIndex = isNext
         ? getNextFocusableIndex(focusedIndex, genieFocusIndex + 1, isButtonFocusable)
         : getPrevFocusableIndex(focusedIndex, genieFocusIndex + 1, isButtonFocusable);
@@ -332,21 +328,18 @@ export function UniversalToolbar() {
     }
   }, [focusedIndex]);
 
-  // Sync with store's dropdown state (for global Escape handling)
+  // Sync local dropdown state from the external store (for global Escape handling).
   useEffect(() => {
-    // Store says dropdown should be closed, but local state says open.
-    // Legitimate: reacts to the external store's dropdown state (#1063).
     if (!storeDropdownOpen && menuOpen) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reacts to external store dropdown state (#1063)
       closeMenu();
     }
   }, [storeDropdownOpen, menuOpen, closeMenu]);
 
-  // Close dropdown when focus leaves toolbar (focus toggle). Legitimate: reacts
-  // to the external toolbar-focus signal (#1063).
+  // Close dropdown when focus leaves the toolbar (focus toggle).
   useEffect(() => {
     if (!toolbarHasFocus && menuOpen) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reacts to external toolbar-focus signal (#1063)
       closeMenu(false);
     }
   }, [toolbarHasFocus, menuOpen, closeMenu]);
@@ -363,9 +356,8 @@ export function UniversalToolbar() {
     }
   }, [visible, toolbarHasFocus, focusActiveEditor]);
 
-  // Handle toolbar open/close and initial focus. Legitimate setState-in-effect:
-  // reacts to the external visibility toggle and seeds keyboard focus from
-  // session memory / button states — not derivable during render (#1063).
+  // Handle toolbar open/close and initial focus — reacts to the external visibility
+  // toggle and seeds keyboard focus from session memory / button states (#1063).
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!visible) {
