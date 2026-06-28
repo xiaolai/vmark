@@ -18,7 +18,7 @@ The terminal supports up to 5 concurrent sessions, each with its own shell proce
 
 When you close the last session the panel hides but the session stays alive — reopen with `` Ctrl + ` `` and you are back where you left off. If a shell process exits, press any key to restart it.
 
-**Notifications:** when a terminal rings the bell (e.g. Claude Code finishing a turn) while that VMark window isn't focused, VMark posts an OS notification naming the window's document — so you can run Claude Code across several windows and get pinged for whichever needs you, without watching each one. Toggle it with **Settings → Terminal → Notify when unfocused** (on by default; asks for notification permission on first use).
+**Notifications:** when a terminal rings the bell (e.g. Claude Code finishing a turn) while that VMark window isn't focused, VMark posts an OS notification naming the window's document — so you can run Claude Code across several windows and get pinged for whichever needs you, without watching each one. Toggle it with **Settings → Terminal → Notify when unfocused** (on by default; asks for notification permission on first use). The same unfocused-bell signal also flags the window in the [Window Status panel](/guide/workspace-management#window-status-panel), so you can see which window needs you and jump straight to it.
 
 Each tab reflects the running program's title (set by tools that emit a terminal title, such as `vim` or `ssh`) unless you have manually renamed the session — a manual rename always wins.
 
