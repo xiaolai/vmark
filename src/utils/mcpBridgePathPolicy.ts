@@ -20,6 +20,10 @@
  *   the mechanism lives here, the product boundary stays with the caller.
  *
  * Key decisions:
+ *   - Reject a NUL byte outright (fail closed): it can truncate the path at the
+ *     C-string boundary in lower fs layers, and a new file's NUL-tail is never
+ *     canonical-checked (the Rust guard only resolves the deepest existing
+ *     ancestor), so refuse it lexically before any other reasoning.
  *   - Reject anything that isn't an absolute path: the bridge always deals
  *     in real on-disk files, so a relative path is meaningless (and would
  *     resolve against an unknowable CWD).
@@ -63,6 +67,14 @@ export function resolveBridgePathDecision(
 ): BridgePathDecision {
   if (typeof filePath !== "string" || filePath.length === 0) {
     return { allowed: false, reason: "Path must be a non-empty string" };
+  }
+  // Reject a NUL byte lexically (fail closed): it can truncate the path at the
+  // C-string boundary in lower fs layers, and for a *new* file the Rust guard
+  // only canonicalizes the deepest existing ancestor — so the raw string after
+  // the NUL would never be canonical-checked. Refuse it here before any
+  // FS-dependent reasoning.
+  if (filePath.split("").some((ch) => ch.charCodeAt(0) === 0)) {
+    return { allowed: false, reason: "Path must not contain a null byte" };
   }
   if (!isAbsolutePath(filePath)) {
     return { allowed: false, reason: "Path must be absolute" };

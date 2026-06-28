@@ -82,6 +82,12 @@ pub(crate) fn validate_mcp_bridge_path(
     if file_path.is_empty() {
         return Err("Path must be a non-empty string".to_string());
     }
+    // Reject a NUL byte to match the JS policy (fail closed). For a *new* file
+    // only the deepest existing ancestor is canonicalized, so a NUL-tailed name
+    // would otherwise slip through here even though the OS can never create it.
+    if file_path.contains('\0') {
+        return Err("Path must not contain a null byte".to_string());
+    }
 
     let path = Path::new(file_path);
     if !path.is_absolute() {
@@ -205,5 +211,85 @@ mod tests {
             &[ws.path().to_string_lossy().into_owned()],
         )
         .is_err());
+    }
+
+    // --- JS↔Rust parity: mirror the cases pinned in mcpBridgePathPolicy.test.ts
+    //     so the two layers are verified to agree behaviorally, not just by
+    //     argument-name binding. ---
+
+    #[test]
+    fn rejects_null_byte() {
+        // Parity with the JS policy's null-byte rejection. The NUL sits in a
+        // not-yet-existing leaf, so without the explicit guard the deepest
+        // existing ancestor (`ws`) would canonicalize cleanly and pass.
+        let ws = tempfile::tempdir().expect("ws");
+        let file_path = format!("{}/note\0.md", ws.path().to_string_lossy());
+
+        let err = validate_mcp_bridge_path(
+            &file_path,
+            &[ws.path().to_string_lossy().into_owned()],
+        )
+        .expect_err("null byte must be rejected");
+        assert!(err.contains("null byte"));
+    }
+
+    #[test]
+    fn rejects_prefix_sibling_root() {
+        // "/…/ws-evil" must NOT be treated as inside "/…/ws" — component-wise
+        // starts_with, not a substring prefix (mirrors the JS substring-escape
+        // test).
+        let parent = tempfile::tempdir().expect("parent");
+        let ws = parent.path().join("ws");
+        let evil = parent.path().join("ws-evil");
+        std::fs::create_dir(&ws).expect("ws");
+        std::fs::create_dir(&evil).expect("evil");
+        let file = evil.join("x.md");
+        std::fs::write(&file, "hi").expect("write");
+
+        assert!(validate_mcp_bridge_path(
+            &file.to_string_lossy(),
+            &[ws.to_string_lossy().into_owned()],
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn allows_path_equal_to_root() {
+        // A path equal to a root is within it (mirrors the JS "equal to a root"
+        // case).
+        let ws = tempfile::tempdir().expect("ws");
+
+        assert!(validate_mcp_bridge_path(
+            &ws.path().to_string_lossy(),
+            &[ws.path().to_string_lossy().into_owned()],
+        )
+        .is_ok());
+    }
+
+    #[test]
+    fn ignores_empty_string_roots() {
+        // Empty-string roots are skipped; a real root still decides (mirrors the
+        // JS "ignores empty-string roots" case).
+        let ws = tempfile::tempdir().expect("ws");
+        let file = ws.path().join("note.md");
+        std::fs::write(&file, "hi").expect("write");
+
+        assert!(validate_mcp_bridge_path(
+            &file.to_string_lossy(),
+            &[String::new(), ws.path().to_string_lossy().into_owned()],
+        )
+        .is_ok());
+    }
+
+    #[test]
+    fn rejects_all_empty_or_no_roots() {
+        // No usable root → reject (mirrors the JS empty-allowedRoots case).
+        let ws = tempfile::tempdir().expect("ws");
+        let file = ws.path().join("note.md");
+        std::fs::write(&file, "hi").expect("write");
+        let target = file.to_string_lossy().into_owned();
+
+        assert!(validate_mcp_bridge_path(&target, &[]).is_err());
+        assert!(validate_mcp_bridge_path(&target, &[String::new()]).is_err());
     }
 }

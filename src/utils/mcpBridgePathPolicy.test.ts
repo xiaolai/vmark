@@ -5,6 +5,8 @@
 import { describe, it, expect } from "vitest";
 import { resolveBridgePathDecision } from "./mcpBridgePathPolicy";
 
+const NUL = String.fromCharCode(0);
+
 describe("resolveBridgePathDecision", () => {
   it("rejects an empty path", () => {
     const d = resolveBridgePathDecision("", { allowedRoots: ["/ws"] });
@@ -24,6 +26,17 @@ describe("resolveBridgePathDecision", () => {
     });
     expect(d.allowed).toBe(false);
     expect(d).toMatchObject({ reason: expect.stringMatching(/\.\./) });
+  });
+
+  it("rejects a path containing a null byte even when it sits under a root", () => {
+    // A NUL can truncate the path at the C-string boundary in lower fs layers,
+    // and the Rust guard only canonicalizes the deepest *existing* ancestor of
+    // a new file — so the lexical policy must fail closed here.
+    const d = resolveBridgePathDecision(`/ws/note${NUL}.md`, {
+      allowedRoots: ["/ws"],
+    });
+    expect(d.allowed).toBe(false);
+    expect(d).toMatchObject({ reason: expect.stringMatching(/null|invalid/i) });
   });
 
   it("allows an absolute path inside the only root", () => {
