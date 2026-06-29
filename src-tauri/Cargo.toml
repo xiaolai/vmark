@@ -37,7 +37,7 @@ tokio-tungstenite = "0.28"
 tokio-util = { version = "0.7", features = ["rt"] }
 futures-util = "0.3"
 portable-pty = "0.9"
-toml = "0.9"
+toml = "1.1"
 dirs = "6"
 chrono = "0.4"
 reqwest = { version = "0.13", features = ["json"] }
