@@ -62,7 +62,7 @@ REST providers connect directly to cloud APIs. Each requires an endpoint, API ke
 
 When you select a REST provider, three fields appear:
 
-- **API Endpoint** — The base URL (hidden for Google AI, which uses a fixed endpoint)
+- **API Endpoint** — The base URL (hidden for Google AI, which uses a fixed endpoint). VMark appends the version path (`/v1/chat/completions`, `/v1/models`, `/v1/messages`) for you, so you can enter the URL **with or without** a trailing `/v1` — both `https://host` and `https://host/v1` resolve to the same request and won't produce a doubled `/v1/v1/…` 404.
 - **API Key** — Your secret key (stored in the app data directory, not in browser localStorage)
 - **Model** — The model identifier (e.g., `claude-sonnet-4-5-20250929`, `gpt-4o`, `gemini-2.0-flash`)
 

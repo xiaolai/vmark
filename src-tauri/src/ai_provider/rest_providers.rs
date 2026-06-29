@@ -7,7 +7,7 @@
 
 use std::time::Duration;
 
-use super::http_client;
+use super::{endpoint::join_v1, http_client};
 use super::sink::AiSink;
 
 /// Per-request timeout (entire request, including body read) for prompt calls.
@@ -75,7 +75,7 @@ pub(super) async fn run_rest_anthropic(
     });
 
     let resp = client
-        .post(format!("{}/v1/messages", endpoint))
+        .post(join_v1(endpoint, "messages"))
         .timeout(PROMPT_REQUEST_TIMEOUT)
         .header("x-api-key", api_key)
         .header("anthropic-version", "2023-06-01")
@@ -159,7 +159,7 @@ pub(super) async fn run_rest_openai(
     }
 
     let resp = client
-        .post(format!("{}/v1/chat/completions", endpoint))
+        .post(join_v1(endpoint, "chat/completions"))
         .timeout(PROMPT_REQUEST_TIMEOUT)
         .header("Authorization", format!("Bearer {}", api_key))
         .header("content-type", "application/json")

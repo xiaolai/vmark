@@ -7,7 +7,7 @@
 use std::time::Duration;
 use tauri::command;
 
-use super::http_client;
+use super::{endpoint::join_v1, http_client};
 
 // ============================================================================
 // Shared Helpers
@@ -125,7 +125,7 @@ pub async fn test_api_key(
             let key = require_key(api_key)?;
             let base = resolve_endpoint(endpoint, "https://api.openai.com");
             let resp = client
-                .get(format!("{}/v1/models", base))
+                .get(join_v1(&base, "models"))
                 .timeout(req_timeout)
                 .header("Authorization", format!("Bearer {}", key))
                 .send()
@@ -169,7 +169,7 @@ pub async fn test_api_key(
                 "messages": [{"role": "user", "content": "Hi"}]
             });
             let resp = client
-                .post(format!("{}/v1/messages", base))
+                .post(join_v1(&base, "messages"))
                 .timeout(req_timeout)
                 .header("x-api-key", &key)
                 .header("anthropic-version", "2023-06-01")
@@ -226,7 +226,7 @@ pub async fn list_models(
             let key = require_key(api_key)?;
             let base = resolve_endpoint(endpoint, "https://api.openai.com");
             let resp = client
-                .get(format!("{}/v1/models", base))
+                .get(join_v1(&base, "models"))
                 .timeout(req_timeout)
                 .header("Authorization", format!("Bearer {}", key))
                 .send()
@@ -296,7 +296,7 @@ pub async fn validate_model(
                 "messages": [{"role": "user", "content": "Hi"}]
             });
             let resp = client
-                .post(format!("{}/v1/chat/completions", base))
+                .post(join_v1(&base, "chat/completions"))
                 .timeout(req_timeout)
                 .header("Authorization", format!("Bearer {}", key))
                 .header("content-type", "application/json")
@@ -317,7 +317,7 @@ pub async fn validate_model(
                 "messages": [{"role": "user", "content": "Hi"}]
             });
             let resp = client
-                .post(format!("{}/v1/messages", base))
+                .post(join_v1(&base, "messages"))
                 .timeout(req_timeout)
                 .header("x-api-key", &key)
                 .header("anthropic-version", "2023-06-01")

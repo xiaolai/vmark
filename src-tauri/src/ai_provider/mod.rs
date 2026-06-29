@@ -13,9 +13,11 @@
 //! - `rest_api`       -- API key testing, model listing, model validation
 //! - `cli`            -- CLI provider spawning and stdout streaming
 //! - `rest_providers` -- REST provider prompt execution
+//! - `endpoint`       -- Base-URL `/v1` normalization for REST providers
 
 mod cli;
 mod detection;
+mod endpoint;
 mod http_client;
 mod rest_api;
 mod rest_providers;
@@ -32,9 +34,7 @@ pub use rest_api::*;
 
 // Re-export crate-internal helpers used by other modules (e.g. mcp/).
 #[allow(unused_imports)]
-pub(crate) use cli::build_command;
-#[allow(unused_imports)]
-pub(crate) use detection::login_shell_path;
+pub(crate) use {cli::build_command, detection::login_shell_path};
 
 use std::sync::Arc;
 use tauri::{command, WebviewWindow};
