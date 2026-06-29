@@ -47,7 +47,7 @@ tempfile = "3"
 sha2 = "0.10"
 ed25519-dalek = "2"
 base64 = "0.22"
-gethostname = "0.5"
+gethostname = "1.1"
 rust-i18n = "4"
 # RW-16 (L8): OS-backed secret storage for API keys. Platform credential
 # stores are enabled per-target below (apple-native / windows-native /
