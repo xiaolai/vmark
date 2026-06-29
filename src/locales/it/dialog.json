@@ -78,6 +78,7 @@
   },
   "chooseFolderForDocs": "Scegli cartella per {{count}} nuovi documenti",
   "toast": {
+    "mcpApprovalRequired": "Bloccata una richiesta AI di salvataggio in una nuova posizione: {{filename}}. Abilita \"Approva automaticamente le modifiche\" in Impostazioni → Integrazioni per consentirla.",
     "saveDialogFailed": "Finestra di dialogo di salvataggio fallita: {{error}}",
     "failedToMoveToNewWindow": "Spostamento del file in una nuova finestra fallito",
     "failedToSaveDocuments": "Salvataggio dei documenti fallito",

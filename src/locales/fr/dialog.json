@@ -78,6 +78,7 @@
   },
   "chooseFolderForDocs": "Choisir un dossier pour {{count}} nouveaux documents",
   "toast": {
+    "mcpApprovalRequired": "Une demande d’IA d’enregistrement vers un nouvel emplacement a été bloquée : {{filename}}. Activez « Approuver automatiquement les modifications » dans Réglages → Intégrations pour l’autoriser.",
     "saveDialogFailed": "Échec de la boîte de dialogue d'enregistrement : {{error}}",
     "failedToMoveToNewWindow": "Impossible de déplacer le fichier vers une nouvelle fenêtre",
     "failedToSaveDocuments": "Impossible d'enregistrer les documents",

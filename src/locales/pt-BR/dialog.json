@@ -78,6 +78,7 @@
   },
   "chooseFolderForDocs": "Escolher pasta para {{count}} novos documentos",
   "toast": {
+    "mcpApprovalRequired": "Uma solicitação de IA para salvar em um novo local foi bloqueada: {{filename}}. Ative \"Aprovar edições automaticamente\" em Configurações → Integrações para permitir.",
     "saveDialogFailed": "Falha na caixa de diálogo de salvar: {{error}}",
     "failedToMoveToNewWindow": "Falha ao mover o arquivo para uma nova janela",
     "failedToSaveDocuments": "Falha ao salvar documentos",

@@ -45,6 +45,7 @@ import { useRevisionStore } from "@/stores/documentStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useEditorStore } from "@/stores/editorStore";
 import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
+import { checkBridgePath } from "@/services/mcpBridge/bridgePathGuard";
 import {
   isWorkflowYaml,
   looksLikeWorkflowPath,
@@ -78,10 +79,7 @@ interface ResolvedTab {
  * Decide a tab's kind from its filePath + content. Pure helper so
  * callers can re-evaluate against incoming content (e.g. on write).
  */
-function resolveKind(
-  filePath: string | null,
-  content: string,
-): DocumentKind {
+function resolveKind(filePath: string | null, content: string): DocumentKind {
   if (looksLikeWorkflowPath(filePath ?? undefined)) return "yaml-workflow";
   if (isWorkflowYaml(content)) return "yaml-workflow";
   return "markdown";
@@ -215,8 +213,7 @@ export async function handleDocumentRead(
   args: Record<string, unknown>,
 ): Promise<void> {
   return wrapHandler(id, async () => {
-    const tabIdArg =
-      typeof args.tabId === "string" ? args.tabId : undefined;
+    const tabIdArg = typeof args.tabId === "string" ? args.tabId : undefined;
     const resolved = resolveTab(tabIdArg);
     if (!resolved) {
       await structuredError(id, {
@@ -264,8 +261,7 @@ export async function handleDocumentWrite(
       });
       return;
     }
-    const tabIdArg =
-      typeof args.tabId === "string" ? args.tabId : undefined;
+    const tabIdArg = typeof args.tabId === "string" ? args.tabId : undefined;
     const expectedRevision =
       typeof args.expected_revision === "string"
         ? args.expected_revision
@@ -336,6 +332,10 @@ export async function handleDocumentWrite(
       saveSkipped = "opt_out";
     } else if (!resolved.filePath) {
       saveSkipped = "untitled";
+    } else if (!(await checkBridgePath(resolved.filePath)).allowed) {
+      // Defense in depth: even document.write's already-open path goes through
+      // the workspace/open-document guard before disk persistence.
+      saveError = "Path is outside the workspace and open documents";
     } else {
       try {
         const saveToken = registerPendingSave(resolved.filePath, args.content);
@@ -437,8 +437,7 @@ export async function handleDocumentTransform(
       });
       return;
     }
-    const tabIdArg =
-      typeof args.tabId === "string" ? args.tabId : undefined;
+    const tabIdArg = typeof args.tabId === "string" ? args.tabId : undefined;
     const expectedRevision =
       typeof args.expected_revision === "string"
         ? args.expected_revision

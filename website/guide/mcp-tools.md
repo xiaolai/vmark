@@ -57,7 +57,7 @@ No arguments.
   "capabilities": {
     "version": "<vmark-mcp-server version>",
     "supportedKinds": ["markdown", "yaml-workflow"],
-    "mcpProtocol": "0.1.0"
+    "mcpProtocol": "0.2.0"
   }
 }
 ```
@@ -69,6 +69,12 @@ The `kind` discriminator tells you whether to use `document.write` (for markdown
 ## `workspace`
 
 File and window lifecycle. Nothing in-document.
+
+> **Path scope.** File operations (`open`, `save`, `save_as`) are confined to
+> the open workspace root and the directories of already-open documents. A
+> request for a path outside that scope is refused with `INVALID_PATH`. With
+> no workspace and no open document, there is no scope, so file operations are
+> refused. This keeps an automated client acting within what you have opened.
 
 ### `new`
 
@@ -112,6 +118,11 @@ Save a tab to a new path.
 | `filePath` | string | Yes |
 
 Returns `{revision}`.
+
+Saving to a path other than the tab's own current file is treated as a new
+write. When **Auto-approve edits** (Settings → Integrations) is off (the
+default), such a request is refused with `APPROVAL_REQUIRED` and a toast tells
+you what was blocked. Saving back to the tab's own path is always allowed.
 
 ### `close`
 
@@ -299,7 +310,8 @@ Two error shapes appear:
 | `STALE` | envelope | `expected_revision` did not match; re-read and retry |
 | `INVALID_PATCH` | envelope | `workflow.apply_patch` received a malformed `patches` array |
 | `INVALID_TAB` | envelope | `tabId` could not be resolved |
-| `INVALID_PATH` | envelope | `workspace.open` received a `filePath` that could not be read |
+| `INVALID_PATH` | envelope | A `filePath` could not be read, or is outside the open workspace / document scope |
+| `APPROVAL_REQUIRED` | envelope | `save_as` to a new location while **Auto-approve edits** is off |
 | `NOT_WORKFLOW` | envelope | `workflow.*` was called on a non-YAML-workflow tab |
 | `READ_ONLY` | envelope | A mutation was attempted on a read-only document |
 | `NO_EDITOR` | envelope | `selection.*` was called but the focused tab has no live editor |

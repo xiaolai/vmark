@@ -78,6 +78,7 @@
   },
   "chooseFolderForDocs": "Elegir carpeta para {{count}} documentos nuevos",
   "toast": {
+    "mcpApprovalRequired": "Se bloqueó una solicitud de IA para guardar en una nueva ubicación: {{filename}}. Activa \"Aprobar ediciones automáticamente\" en Configuración → Integraciones para permitirlo.",
     "saveDialogFailed": "Error en el cuadro de diálogo de guardado: {{error}}",
     "failedToMoveToNewWindow": "Error al mover el archivo a una nueva ventana",
     "failedToSaveDocuments": "Error al guardar documentos",

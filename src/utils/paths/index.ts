@@ -10,4 +10,5 @@ export {
   getRelativePath,
   isWithinRoot,
   isPathExcluded,
+  pathSegments,
 } from "./paths";

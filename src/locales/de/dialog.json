@@ -78,6 +78,7 @@
   },
   "chooseFolderForDocs": "Ordner für {{count}} neue Dokumente auswählen",
   "toast": {
+    "mcpApprovalRequired": "Eine KI-Anfrage zum Speichern an einem neuen Ort wurde blockiert: {{filename}}. Aktivieren Sie „Änderungen automatisch genehmigen“ unter Einstellungen → Integrationen, um dies zu erlauben.",
     "saveDialogFailed": "Speicherdialog fehlgeschlagen: {{error}}",
     "failedToMoveToNewWindow": "Datei konnte nicht in neues Fenster verschoben werden",
     "failedToSaveDocuments": "Dokumente konnten nicht gespeichert werden",

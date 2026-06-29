@@ -29,6 +29,7 @@ rust_i18n::i18n!("locales", fallback = "en");
 mod ai_provider;
 mod app_paths;
 mod mcp_bridge;
+mod mcp_bridge_path_guard;
 mod mcp_config;
 mod mcp_server;
 mod menu;
@@ -943,6 +944,7 @@ pub fn run() {
             mcp_server::mcp_bridge_connected_clients,
             mcp_bridge::commands::mcp_bridge_respond,
             mcp_bridge::commands::mcp_bridge_heartbeat,
+            mcp_bridge_path_guard::mcp_bridge_check_path,
             mcp_config::commands::mcp_config_diagnose,
             mcp_config::commands::mcp_config_preview,
             mcp_config::commands::mcp_config_install,
