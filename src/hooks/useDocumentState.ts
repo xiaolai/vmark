@@ -9,21 +9,53 @@
  *   - Each hook returns a single value (content, filePath, isDirty, etc.)
  *   - All hooks derive from useActiveTabId() for consistent window scoping
  *   - Safe defaults (empty string, null, false) when tab or document is missing
+ *   - Pane-aware (#1081): inside a split pane, useActiveTabId resolves THAT
+ *     pane's tab; outside any pane it resolves the window's focused pane. With
+ *     no split open this is just `tabStore.activeTabId[windowLabel]` — single
+ *     pane behaves exactly as before.
  *
  * @coordinates-with documentStore.ts — reads document state per tab
- * @coordinates-with tabStore.ts — reads activeTabId per window
+ * @coordinates-with tabStore.ts — reads activeTabId per window (primary pane)
+ * @coordinates-with paneStore.ts — secondary pane tab + focused pane
+ * @coordinates-with contexts/PaneContext.tsx — the pane a subtree renders in
  * @module hooks/useDocumentState
  */
 
 import { useCallback } from "react";
 import { useWindowLabel } from "../contexts/WindowContext";
+import { usePaneContext } from "../contexts/PaneContext";
 import { useDocumentStore, type CursorInfo } from "../stores/documentStore";
 import { useTabStore } from "../stores/tabStore";
+import { usePaneStore } from "../stores/paneStore";
 
-/** Hook that returns the active tab ID for the current window, or null if none. */
+/**
+ * Resolve the window's focused tab from the pane layout. With no split (the
+ * default), this is the primary pane's active tab — identical to the old
+ * behavior. Pure helper so both the reactive hook and the imperative
+ * getActiveTabId share one rule.
+ */
+function resolveFocusedTabId(
+  primaryActiveTabId: string | null,
+  split: { enabled: boolean; focusedPane: "primary" | "secondary"; secondaryTabId: string | null } | undefined,
+): string | null {
+  if (split?.enabled && split.focusedPane === "secondary") {
+    return split.secondaryTabId;
+  }
+  return primaryActiveTabId;
+}
+
+/**
+ * Hook that returns the active tab ID for the current pane/window, or null.
+ * Inside a pane (PaneContext), returns that pane's tab; otherwise the window's
+ * focused pane (which is the primary pane's active tab when no split is open).
+ */
 export function useActiveTabId(): string | null {
+  const pane = usePaneContext();
   const windowLabel = useWindowLabel();
-  return useTabStore((state) => state.activeTabId[windowLabel] ?? null);
+  const primaryActiveTabId = useTabStore((state) => state.activeTabId[windowLabel] ?? null);
+  const split = usePaneStore((state) => state.byWindow[windowLabel]);
+  if (pane) return pane.tabId;
+  return resolveFocusedTabId(primaryActiveTabId, split);
 }
 
 /** Hook that returns the markdown content of the active tab's document. */
@@ -85,12 +117,20 @@ export function useDocumentLastAutoSave(): number | null {
 /** Hook that returns memoized actions (setContent, loadContent, markSaved, etc.) scoped to the active tab. */
 export function useDocumentActions() {
   const windowLabel = useWindowLabel();
+  const pane = usePaneContext();
+  // Inside a pane the surface is keyed by its tabId (remounts on change), so
+  // capturing it here is stable for the surface's lifetime. Outside a pane,
+  // resolve the focused pane fresh at call time.
+  const inPane = pane !== null;
+  const paneTabId = pane?.tabId ?? null;
 
   // Get active tab ID at call time
-  const getActiveTabId = useCallback(
-    () => useTabStore.getState().activeTabId[windowLabel] ?? null,
-    [windowLabel]
-  );
+  const getActiveTabId = useCallback(() => {
+    if (inPane) return paneTabId;
+    const primary = useTabStore.getState().activeTabId[windowLabel] ?? null;
+    const split = usePaneStore.getState().byWindow[windowLabel];
+    return resolveFocusedTabId(primary, split);
+  }, [windowLabel, inPane, paneTabId]);
 
   // Get fresh content (useful in async callbacks where hook value may be stale)
   const getContent = useCallback(() => {
