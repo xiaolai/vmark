@@ -12,6 +12,7 @@ import { useContentServerStore } from "@/stores/contentServerStore";
 import { useWindowStatusStore } from "@/stores/windowStatusStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useLintStore } from "@/stores/documentStore";
+import { usePaneStore } from "@/stores/paneStore";
 import { requestToggleTerminal } from "@/components/Terminal/terminalGate";
 import { cleanupBeforeModeSwitch } from "@/services/assembly/modeSwitchCleanup";
 import { toggleSourceModeWithCheckpoint } from "@/hooks/useUnifiedHistory";
@@ -240,6 +241,23 @@ export function registerViewCommands(): void {
       if (tabId) {
         useLintStore.getState().selectPrev(tabId);
         scrollToSelectedDiagnostic(tabId);
+      }
+    },
+  });
+
+  // Two-documents-side-by-side toggle (#1081). Opening seeds the secondary
+  // pane with the current document; the user then picks a different file there.
+  registerCommand({
+    id: "view.toggleSplitDocuments",
+    title: () => i18n.t("commands:view.toggleSplitDocuments"),
+    category: "view",
+    run: (_args, ctx: Ctx) => {
+      const windowLabel = ctx.windowLabel ?? "main";
+      const split = usePaneStore.getState().byWindow[windowLabel];
+      if (split?.enabled) {
+        usePaneStore.getState().closeSplit(windowLabel);
+      } else {
+        usePaneStore.getState().openSplit(windowLabel, getActiveTabId(windowLabel));
       }
     },
   });

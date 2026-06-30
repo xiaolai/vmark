@@ -4,7 +4,8 @@ import { useTranslation, withTranslation, type WithTranslation } from "react-i18
 import { Routes, Route } from "react-router-dom";
 import { Toaster } from "sonner";
 import { CheckCircle, XCircle, Info, AlertTriangle, Loader2 } from "lucide-react";
-import { Editor } from "@/components/Editor";
+import { DocumentSplitContainer } from "@/components/Editor/DocumentSplit/DocumentSplitContainer";
+import { useUnifiedMenuCommands } from "@/hooks/useUnifiedMenuCommands";
 import { Sidebar } from "@/components/Sidebar";
 import { SidebarResizeHandle } from "@/components/Sidebar/SidebarResizeHandle";
 import { WorkspaceRail, WORKSPACE_RAIL_WIDTH } from "@/components/WorkspaceRail";
@@ -159,6 +160,9 @@ function MainLayout() {
   useTerminalPosition();
   useTabModeSync();
   useWindowStatus();
+  // Mounted once per window (lifted out of Editor so a two-pane split doesn't
+  // double-mount it, #1081); targets the focused pane via pane-aware hooks.
+  useUnifiedMenuCommands();
 
   const className = [
     focusModeEnabled && "focus-mode",
@@ -197,7 +201,7 @@ function MainLayout() {
         <EditorArea
           editor={
             <FeatureErrorBoundary feature={t("errorBoundary.feature.editor")}>
-              <Editor />
+              <DocumentSplitContainer />
             </FeatureErrorBoundary>
           }
           bottomBar={<BottomBar />}

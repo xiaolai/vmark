@@ -27,6 +27,8 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import { useShortcutsStore } from "@/stores/settingsStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useWindowLabel } from "@/contexts/WindowContext";
+import { usePaneContext } from "@/contexts/PaneContext";
+import { usePaneStore } from "@/stores/paneStore";
 import {
   useDocumentContent,
   useDocumentCursorInfo,
@@ -66,6 +68,9 @@ export function SourceEditor({ hidden = false, readOnly = false }: SourceEditorP
   const viewRef = useRef<EditorView | null>(null);
   const isInternalChange = useRef(false);
   const hiddenRef = useRef(hidden);
+  // Split panes (#1081): only the focused pane registers as the active source
+  // view. With no split this is always true (single-pane unchanged).
+  const isFocusedPaneRef = useRef(true);
 
   useSourceOutlineSync(viewRef, hidden);
 
@@ -97,6 +102,26 @@ export function SourceEditor({ hidden = false, readOnly = false }: SourceEditorP
 
   // Window label for tab ID resolution (stable per window)
   const windowLabel = useWindowLabel();
+  const paneId = usePaneContext()?.paneId;
+  const isFocusedPane = usePaneStore((state) => {
+    const split = state.byWindow[windowLabel];
+    return !split?.enabled || split.focusedPane === (paneId ?? "primary");
+  });
+  /* eslint-disable react-hooks/refs */
+  isFocusedPaneRef.current = isFocusedPane;
+  /* eslint-enable react-hooks/refs */
+
+  // When focus moves to this pane (split), make its view the active source view
+  // the toolbar/find act on. No-op in single-pane (isFocusedPane always true,
+  // runs once on mount alongside the creation effect's own registration).
+  useEffect(() => {
+    if (hidden || !isFocusedPane) return;
+    const view = viewRef.current;
+    if (!view) return;
+    const visibleTabId = useTabStore.getState().activeTabId[windowLabel] ?? undefined;
+    useEditorStore.getState().setActiveSourceView(view, visibleTabId);
+    useEditorStore.getState().setSourceContext(computeSourceCursorContext(view), view);
+  }, [isFocusedPane, hidden, windowLabel]);
 
   // Handle image drag-drop from Finder/Explorer
   useImageDragDrop({
@@ -218,8 +243,8 @@ export function SourceEditor({ hidden = false, readOnly = false }: SourceEditorP
 
     viewRef.current = view;
 
-    // Only register and focus when not hidden
-    if (!hiddenRef.current) {
+    // Only register when not hidden and this is the focused pane.
+    if (!hiddenRef.current && isFocusedPaneRef.current) {
       useEditorStore.getState().setActiveSourceView(view, mountTabId);
     }
 
@@ -317,9 +342,12 @@ export function SourceEditor({ hidden = false, readOnly = false }: SourceEditorP
     }
 
     // Register as active source view, bound to the currently visible tab
+    // (focused pane only, so a split's unfocused pane keeps its hands off).
     const { activeTabId: tabIds } = useTabStore.getState();
     const visibleTabId = tabIds[windowLabel] ?? undefined;
-    useEditorStore.getState().setActiveSourceView(view, visibleTabId);
+    if (isFocusedPaneRef.current) {
+      useEditorStore.getState().setActiveSourceView(view, visibleTabId);
+    }
 
     // Focus and restore cursor
     setTimeout(() => {

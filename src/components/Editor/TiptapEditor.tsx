@@ -51,6 +51,8 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useWindowLabel } from "@/contexts/WindowContext";
+import { usePaneContext } from "@/contexts/PaneContext";
+import { usePaneStore } from "@/stores/paneStore";
 import { resolveHardBreakStyle } from "@/utils/linebreaks";
 import { extractTiptapContext } from "@/plugins/formatToolbar/tiptapContext";
 import { useImageDragDrop } from "@/hooks/useImageDragDrop";
@@ -157,6 +159,15 @@ export function TiptapEditorInner({ hidden = false, readOnly = false, preview = 
   const windowLabel = useWindowLabel();
   /* v8 ignore next -- @preserve reason: runtime window label lookup; windowLabel always resolves in tests */
   const activeTabId = useTabStore((state) => state.activeTabId[windowLabel] ?? undefined);
+
+  // Split panes (#1081): only the FOCUSED pane owns the editorStore singleton
+  // (toolbar/find target it). With no split open this is always true, so the
+  // single-pane editor registers exactly as before.
+  const paneId = usePaneContext()?.paneId;
+  const isFocusedPane = usePaneStore((state) => {
+    const split = state.byWindow[windowLabel];
+    return !split?.enabled || split.focusedPane === (paneId ?? "primary");
+  });
 
   const isInternalChange = useRef(false);
   const lastExternalContent = useRef<string>("");
@@ -520,9 +531,11 @@ export function TiptapEditorInner({ hidden = false, readOnly = false, preview = 
     };
   }, [editor, flushToStore, hidden, preview, activeTabId]);
 
-  // Register editor stores — only when visible and not a preview.
+  // Register editor stores — only when visible, not a preview, and this is the
+  // focused pane (so a split's unfocused pane doesn't clobber the singleton the
+  // toolbar/find act on). Re-runs when focus moves between panes.
   useEffect(() => {
-    if (!hidden && !preview) {
+    if (!hidden && !preview && isFocusedPane) {
       useEditorStore.getState().setTiptapEditor(editor ?? null);
       if (editor) {
         useEditorStore.getState().setActiveWysiwygEditor(editor, activeTabId);
@@ -535,7 +548,7 @@ export function TiptapEditorInner({ hidden = false, readOnly = false, preview = 
         useEditorStore.getState().clearWysiwygEditorIfMatch(editor);
       }
     };
-  }, [editor, hidden, preview, activeTabId]);
+  }, [editor, hidden, preview, activeTabId, isFocusedPane]);
 
   // Force CJK letter spacing decorations to recalculate when setting changes.
   // The plugin tracks wasEnabled state, but needs a transaction to trigger apply().

@@ -37,6 +37,7 @@
   },
   "view": {
     "toggleSourceMode": "Alternar modo fuente",
+    "toggleSplitDocuments": "Dividir editor: dos documentos en paralelo",
     "setWysiwygMode": "Activar modo WYSIWYG",
     "toggleFocusMode": "Alternar modo enfoque",
     "toggleTypewriterMode": "Alternar modo máquina de escribir",

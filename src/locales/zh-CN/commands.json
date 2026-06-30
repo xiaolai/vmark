@@ -37,6 +37,7 @@
   },
   "view": {
     "toggleSourceMode": "切换源码模式",
+    "toggleSplitDocuments": "拆分编辑器：并排显示两个文档",
     "setWysiwygMode": "切换到所见即所得模式",
     "toggleFocusMode": "切换聚焦模式",
     "toggleTypewriterMode": "切换打字机模式",
