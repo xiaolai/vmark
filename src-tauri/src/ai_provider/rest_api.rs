@@ -7,6 +7,7 @@
 use std::time::Duration;
 use tauri::command;
 
+use super::endpoint::resolve_endpoint;
 use super::http_client;
 
 // ============================================================================
@@ -21,12 +22,6 @@ const VALIDATE_REQUEST_TIMEOUT_SECS: u64 = 15;
 /// Returns the per-request timeout duration for the given seconds.
 fn timeout_secs(secs: u64) -> Duration {
     Duration::from_secs(secs)
-}
-
-fn resolve_endpoint(endpoint: Option<String>, default: &str) -> String {
-    endpoint
-        .filter(|e| !e.is_empty())
-        .unwrap_or_else(|| default.to_string())
 }
 
 fn require_key(api_key: Option<String>) -> Result<String, String> {

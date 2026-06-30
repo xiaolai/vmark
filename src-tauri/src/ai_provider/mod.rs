@@ -16,6 +16,7 @@
 
 mod cli;
 mod detection;
+mod endpoint;
 mod http_client;
 mod rest_api;
 mod rest_providers;
@@ -129,8 +130,7 @@ async fn dispatch_to_provider(
             let Some(key) = require_api_key(sink.as_ref(), &api_key, "Anthropic") else {
                 return Ok(());
             };
-            let endpoint =
-                endpoint.unwrap_or_else(|| "https://api.anthropic.com".to_string());
+            let endpoint = endpoint::resolve_endpoint(endpoint, "https://api.anthropic.com");
             let model = model.unwrap_or_else(|| "claude-sonnet-4-5-20250929".to_string());
             run_rest_with_cancel(sink, cancel, |s| async move {
                 rest_providers::run_rest_anthropic(s.as_ref(), &endpoint, key, &model, prompt, max_tokens).await
@@ -141,7 +141,7 @@ async fn dispatch_to_provider(
             let Some(key) = require_api_key(sink.as_ref(), &api_key, "OpenAI") else {
                 return Ok(());
             };
-            let endpoint = endpoint.unwrap_or_else(|| "https://api.openai.com".to_string());
+            let endpoint = endpoint::resolve_endpoint(endpoint, "https://api.openai.com");
             let model = model.unwrap_or_else(|| "gpt-4o".to_string());
             run_rest_with_cancel(sink, cancel, |s| async move {
                 rest_providers::run_rest_openai(s.as_ref(), &endpoint, key, &model, prompt, max_tokens).await
@@ -159,7 +159,7 @@ async fn dispatch_to_provider(
             .await
         }
         "ollama-api" => {
-            let endpoint = endpoint.unwrap_or_else(|| "http://localhost:11434".to_string());
+            let endpoint = endpoint::resolve_endpoint(endpoint, "http://localhost:11434");
             let model = model.unwrap_or_else(|| "llama3.2".to_string());
             run_rest_with_cancel(sink, cancel, |s| async move {
                 rest_providers::run_rest_ollama(s.as_ref(), &endpoint, &model, prompt, max_tokens).await
