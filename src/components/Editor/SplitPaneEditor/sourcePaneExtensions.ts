@@ -76,6 +76,8 @@ export interface BuildExtensionsArgs {
   validator: FormatConfig["validator"];
   /** Compartment owning the line-number gutter (toggled in place). */
   lineNumberCompartment: Compartment;
+  /** Compartment owning line wrapping (toggled by the Word Wrap setting). */
+  lineWrapCompartment: Compartment;
   /** Compartment owning the lazily-loaded language pack. */
   languageCompartment: Compartment;
   /** Persist-on-change listener (writes documentStore.setContent). */
@@ -91,6 +93,7 @@ export function buildSourcePaneExtensions(args: BuildExtensionsArgs): Extension[
     readOnly,
     validator,
     lineNumberCompartment,
+    lineWrapCompartment,
     languageCompartment,
     persistOnUpdate,
     onDiagnostics,
@@ -105,7 +108,12 @@ export function buildSourcePaneExtensions(args: BuildExtensionsArgs): Extension[
     history(),
     highlightSelectionMatches(),
     keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap]),
-    EditorView.lineWrapping,
+    // Line wrapping is compartmentalized so the Word Wrap toggle
+    // (uiStore.wordWrap) reconfigures it in place. Previously hardcoded on,
+    // which silently ignored the toggle in Split View (#1070).
+    lineWrapCompartment.of(
+      useUIStore.getState().wordWrap ? EditorView.lineWrapping : [],
+    ),
     // Same caret/selection/mono-font theme + GitHub syntax palette the
     // markdown Source editor uses; fallback:true colors tokens before a
     // language pack resolves.

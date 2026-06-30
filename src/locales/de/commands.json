@@ -37,6 +37,7 @@
   },
   "view": {
     "toggleSourceMode": "Quelltextmodus umschalten",
+    "setWysiwygMode": "WYSIWYG-Modus festlegen",
     "toggleFocusMode": "Fokusmodus umschalten",
     "toggleTypewriterMode": "Schreibmaschinenmodus umschalten",
     "toggleOutline": "Gliederung umschalten",

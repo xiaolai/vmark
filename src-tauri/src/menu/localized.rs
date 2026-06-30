@@ -20,7 +20,7 @@
 use std::collections::HashMap;
 
 use rust_i18n::t;
-use tauri::menu::{IsMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu};
+use tauri::menu::{CheckMenuItem, IsMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu};
 
 use super::{RECENT_FILES_SUBMENU_ID, RECENT_WORKSPACES_SUBMENU_ID};
 
@@ -32,11 +32,11 @@ pub fn create_localized_menu(
     app: &tauri::AppHandle,
     custom_shortcuts: Option<&HashMap<String, String>>,
 ) -> tauri::Result<Menu<tauri::Wry>> {
-    // Clear the diff caches so the accel() closure below can repopulate the
-    // accelerator baseline as it builds the tree. This makes both startup
-    // (custom_shortcuts = None) and rebuild paths leave a correct baseline
-    // for the next differential update.
+    // Reset diff caches before rebuilding: accel() repopulates the accelerator
+    // baseline as it builds; the menu-state cache must drop so the next sync
+    // re-applies the real mode over the fresh menu's default checkmarks (#1070).
     super::accelerators::begin_rebuild();
+    super::menu_state::invalidate_cache();
 
     // Helper: resolve accelerator from custom map or default (`None` if empty).
     // Also records the resolved value in the accelerator cache so
@@ -543,8 +543,9 @@ pub fn create_localized_menu(
         &t!("menu.view").to_string(),
         true,
         &[
-            &MenuItem::with_id(app, "source-mode", &t!("menu.view.sourceMode").to_string(), true, accel("source-mode", "F6"))?,
-            &MenuItem::with_id(app, "markdown-split", &t!("menu.view.markdownSplit").to_string(), true, accel("markdown-split", "Shift+F6"))?,
+            &CheckMenuItem::with_id(app, "wysiwyg-mode", &t!("menu.view.wysiwygMode").to_string(), true, true, accel("wysiwyg-mode", ""))?,
+            &CheckMenuItem::with_id(app, "source-mode", &t!("menu.view.sourceMode").to_string(), true, false, accel("source-mode", "F6"))?,
+            &CheckMenuItem::with_id(app, "markdown-split", &t!("menu.view.markdownSplit").to_string(), true, false, accel("markdown-split", "Shift+F6"))?,
             &PredefinedMenuItem::separator(app)?,
             &MenuItem::with_id(app, "focus-mode", &t!("menu.view.focusMode").to_string(), true, accel("focus-mode", "F8"))?,
             &MenuItem::with_id(app, "typewriter-mode", &t!("menu.view.typewriterMode").to_string(), true, accel("typewriter-mode", "F9"))?,

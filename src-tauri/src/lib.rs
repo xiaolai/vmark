@@ -919,6 +919,7 @@ pub fn run() {
             menu::hide_genies_menu,
             menu::rebuild_menu,
             menu::update_menu_accelerators,
+            menu::sync_view_menu_state,
             menu::set_locale,
             window_manager::open_file_in_new_window,
             window_manager::open_workspace_in_new_window,

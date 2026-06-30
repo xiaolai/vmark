@@ -37,6 +37,7 @@
   },
   "view": {
     "toggleSourceMode": "Toggle Source Mode",
+    "setWysiwygMode": "Set WYSIWYG Mode",
     "toggleFocusMode": "Toggle Focus Mode",
     "toggleTypewriterMode": "Toggle Typewriter Mode",
     "toggleOutline": "Toggle Outline",

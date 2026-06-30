@@ -160,6 +160,7 @@ menu:
 
   # === View menu ===
   view: "Ansicht"
+  view.wysiwygMode: "WYSIWYG-Modus"
   view.sourceMode: "Quellcode-Modus"
   view.markdownSplit: "Markdown-Splitansicht"
   view.focusMode: "Fokusmodus"

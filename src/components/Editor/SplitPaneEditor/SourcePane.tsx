@@ -56,10 +56,15 @@ export function SourcePane({
   // tearing down the editor and losing undo history. Mirrors the markdown
   // Source editor (lineNumbersCompartment in sourceEditorExtensions.ts).
   const lineNumberCompartmentRef = useRef(new Compartment());
+  // Line wrapping gets its own compartment too, so the Word Wrap toggle
+  // (uiStore.wordWrap) reconfigures it in place rather than being hardcoded
+  // on — the #1070 Split-View bug where the toggle was silently ignored.
+  const lineWrapCompartmentRef = useRef(new Compartment());
   // Subscribe so a toggle re-renders this component and the effect below
   // reconfigures the gutter compartment (which alone controls visibility —
   // no CSS class is needed since the extension is added/removed in place).
   const showLineNumbers = useUIStore((state) => state.showLineNumbers);
+  const wordWrap = useUIStore((state) => state.wordWrap);
   // Track the doc string we last *wrote* via a transaction so we can
   // skip echoing the store update back into the view (which would
   // collapse the cursor and reset undo position).
@@ -147,6 +152,7 @@ export function SourcePane({
       readOnly,
       validator,
       lineNumberCompartment: lineNumberCompartmentRef.current,
+      lineWrapCompartment: lineWrapCompartmentRef.current,
       languageCompartment: languageCompartmentRef.current,
       persistOnUpdate,
       onDiagnostics: (diagnostics) => onDiagnosticsRef.current?.(diagnostics),
@@ -206,6 +212,20 @@ export function SourcePane({
       ),
     });
   }, [showLineNumbers]);
+
+  // Reconfigure line wrapping when the Word Wrap toggle flips. Kept out of the
+  // mount effect for the same reason as line numbers — toggling must not tear
+  // down the view. Fixes #1070: Split View previously ignored Word Wrap.
+  useEffect(() => {
+    const view = viewRef.current;
+    /* v8 ignore next -- @preserve unmounted-view fallback */
+    if (!view) return;
+    view.dispatch({
+      effects: lineWrapCompartmentRef.current.reconfigure(
+        wordWrap ? EditorView.lineWrapping : [],
+      ),
+    });
+  }, [wordWrap]);
 
   // Re-sync the editor when the store content diverges from the last
   // value we authored. Handles file-load races (initDocument arriving

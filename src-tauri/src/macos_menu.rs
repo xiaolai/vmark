@@ -232,10 +232,10 @@ const MENU_ICONS: &[(&str, &str)] = &[
     ("info-important", "exclamationmark.circle"),
     ("info-warning", "exclamationmark.triangle"),
     ("info-caution", "flame"),
-    // ── View menu ──
-    ("check-markdown", "checkmark.circle"),
+    ("check-markdown", "checkmark.circle"), // ── View menu ──
     ("lint-next", "chevron.down"),
     ("lint-prev", "chevron.up"),
+    ("wysiwyg-mode", "doc.richtext"),
     ("source-mode", "chevron.left.forwardslash.chevron.right"),
     ("markdown-split", "rectangle.split.2x1"),
     ("focus-mode", "eye"),
@@ -330,6 +330,19 @@ fn build_title_icon_map(app_handle: &tauri::AppHandle) -> HashMap<String, &'stat
     map
 }
 
+/// Insert `title -> icon` for a leaf item (plain or checkmarked), resolving by
+/// id then falling back. Lets the View editor-mode `Check` trio keep icons.
+fn record_leaf_icon(
+    map: &mut HashMap<String, &'static str>,
+    id: &str,
+    title: Result<String, tauri::Error>,
+    fallback: Option<&'static str>,
+) {
+    if let (Some(icon), Ok(title)) = (icon_for_id(id).or(fallback), title) {
+        map.insert(title, icon);
+    }
+}
+
 /// Recursively collect title -> icon mappings from a Tauri MenuItemKind.
 fn collect_icons_from_item(
     item: &MenuItemKind<tauri::Wry>,
@@ -345,17 +358,10 @@ fn collect_icons_from_item(
                 }
             }
         }
-        MenuItemKind::MenuItem(mi) => {
-            let id = mi.id().0.as_str();
-            if let Some(icon) = icon_for_id(id) {
-                if let Ok(title) = mi.text() {
-                    map.insert(title, icon);
-                }
-            }
-        }
+        MenuItemKind::MenuItem(mi) => record_leaf_icon(map, mi.id().0.as_str(), mi.text(), None),
+        MenuItemKind::Check(ci) => record_leaf_icon(map, ci.id().0.as_str(), ci.text(), None),
         MenuItemKind::Predefined(pi) => {
-            // PredefinedMenuItems (Cut, Copy, etc.) don't have custom IDs.
-            // Match by their title text using the PREDEFINED_ICONS table.
+            // PredefinedMenuItems (Cut, Copy, etc.) match by title text.
             if let Ok(title) = pi.text() {
                 if let Some(icon) = icon_for_predefined_title(&title) {
                     map.insert(title, icon);
@@ -372,6 +378,7 @@ fn collect_icons_from_item_in_submenu(
     submenu_id: &str,
     map: &mut HashMap<String, &'static str>,
 ) {
+    let fallback = fallback_for_submenu_id(Some(submenu_id));
     match item {
         MenuItemKind::Submenu(sub) => {
             if let Ok(items) = sub.items() {
@@ -381,15 +388,8 @@ fn collect_icons_from_item_in_submenu(
                 }
             }
         }
-        MenuItemKind::MenuItem(mi) => {
-            let id = mi.id().0.as_str();
-            let icon = icon_for_id(id).or_else(|| fallback_for_submenu_id(Some(submenu_id)));
-            if let Some(icon) = icon {
-                if let Ok(title) = mi.text() {
-                    map.insert(title, icon);
-                }
-            }
-        }
+        MenuItemKind::MenuItem(mi) => record_leaf_icon(map, mi.id().0.as_str(), mi.text(), fallback),
+        MenuItemKind::Check(ci) => record_leaf_icon(map, ci.id().0.as_str(), ci.text(), fallback),
         MenuItemKind::Predefined(pi) => {
             if let Ok(title) = pi.text() {
                 if let Some(icon) = icon_for_predefined_title(&title) {

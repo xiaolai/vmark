@@ -37,6 +37,7 @@
   },
   "view": {
     "toggleSourceMode": "切換原始碼模式",
+    "setWysiwygMode": "切換到所見即所得模式",
     "toggleFocusMode": "切換專注模式",
     "toggleTypewriterMode": "切換打字機模式",
     "toggleOutline": "切換大綱",

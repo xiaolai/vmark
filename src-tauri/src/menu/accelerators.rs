@@ -28,7 +28,7 @@
 use std::collections::HashMap;
 use std::sync::Mutex;
 
-use tauri::menu::{Menu, MenuItem, MenuItemKind, Submenu};
+use tauri::menu::{Menu, MenuItemKind, Submenu};
 use tauri::{AppHandle, Wry};
 
 static ACCEL_CACHE: Mutex<Option<HashMap<String, String>>> = Mutex::new(None);
@@ -87,7 +87,7 @@ pub fn apply_accelerator_diff(
     next: &HashMap<String, String>,
 ) -> Result<Vec<String>, String> {
     let menu = app.menu().ok_or_else(|| "No menu".to_string())?;
-    let mut items: HashMap<String, MenuItem<Wry>> = HashMap::new();
+    let mut items: HashMap<String, MenuItemKind<Wry>> = HashMap::new();
     collect_items_from_menu(&menu, &mut items)?;
 
     let mut accel_guard = ACCEL_CACHE.lock().map_err(|e| e.to_string())?;
@@ -96,9 +96,20 @@ pub fn apply_accelerator_diff(
 
     let mut applied = Vec::with_capacity(changes.len());
     for (id, accel) in changes {
-        if let Some(item) = items.get(&id) {
+        if let Some(kind) = items.get(&id) {
             let accel_opt: Option<&str> = if accel.is_empty() { None } else { Some(&accel) };
-            item.set_accelerator(accel_opt).map_err(|e| e.to_string())?;
+            // Both plain and checkmarked items carry accelerators; the View
+            // editor-mode trio (#1070) became CheckMenuItem, so we must reach
+            // Check items too or their F6 / Shift+F6 would stop updating.
+            match kind {
+                MenuItemKind::MenuItem(item) => {
+                    item.set_accelerator(accel_opt).map_err(|e| e.to_string())?
+                }
+                MenuItemKind::Check(item) => {
+                    item.set_accelerator(accel_opt).map_err(|e| e.to_string())?
+                }
+                _ => continue,
+            }
             baseline.insert(id.clone(), accel);
             applied.push(id);
         }
@@ -109,9 +120,12 @@ pub fn apply_accelerator_diff(
     Ok(applied)
 }
 
-fn collect_items_from_menu(
+/// Walk the live menu tree into an id→kind index. Shared with `menu_state`
+/// (the View editor-mode checked/enabled sync) so the tree is walked the same
+/// way; see this module's header for why handles are looked up fresh.
+pub(crate) fn collect_items_from_menu(
     menu: &Menu<Wry>,
-    index: &mut HashMap<String, MenuItem<Wry>>,
+    index: &mut HashMap<String, MenuItemKind<Wry>>,
 ) -> Result<(), String> {
     for kind in menu.items().map_err(|e| e.to_string())? {
         collect_kind(kind, index)?;
@@ -121,7 +135,7 @@ fn collect_items_from_menu(
 
 fn collect_from_submenu(
     sub: &Submenu<Wry>,
-    index: &mut HashMap<String, MenuItem<Wry>>,
+    index: &mut HashMap<String, MenuItemKind<Wry>>,
 ) -> Result<(), String> {
     for kind in sub.items().map_err(|e| e.to_string())? {
         collect_kind(kind, index)?;
@@ -131,12 +145,18 @@ fn collect_from_submenu(
 
 fn collect_kind(
     kind: MenuItemKind<Wry>,
-    index: &mut HashMap<String, MenuItem<Wry>>,
+    index: &mut HashMap<String, MenuItemKind<Wry>>,
 ) -> Result<(), String> {
     match kind {
-        MenuItemKind::MenuItem(item) => {
+        MenuItemKind::MenuItem(ref item) => {
             let id = item.id().0.as_str().to_string();
-            index.insert(id, item);
+            index.insert(id, kind);
+        }
+        // Checkmarked items (e.g. the View editor-mode trio) also carry
+        // accelerators and must be indexed so shortcut edits reach them.
+        MenuItemKind::Check(ref item) => {
+            let id = item.id().0.as_str().to_string();
+            index.insert(id, kind);
         }
         MenuItemKind::Submenu(sub) => {
             collect_from_submenu(&sub, index)?;

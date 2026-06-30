@@ -35,6 +35,7 @@
 
 pub mod accelerators;
 mod commands;
+pub mod menu_state;
 mod dynamic;
 pub mod localized;
 
@@ -91,6 +92,9 @@ pub fn get_genie_path(index: usize) -> Option<String> {
 // generates hidden items (`__cmd__*`) that `generate_handler!` in `lib.rs` must resolve.
 pub use commands::*;
 pub use dynamic::*;
+// Wildcard re-export required: `#[tauri::command]` generates hidden `__cmd__*`
+// items that `generate_handler!` in `lib.rs` must resolve.
+pub use menu_state::*;
 // Wildcard re-export required: `#[tauri::command]` generates hidden `__cmd__*` items
 // that `generate_handler!` in `lib.rs` must resolve.
 pub use localized::*;

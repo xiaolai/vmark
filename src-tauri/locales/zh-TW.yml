@@ -160,6 +160,7 @@ menu:
 
   # === 檢視選單 ===
   view: "檢視"
+  view.wysiwygMode: "所見即所得模式"
   view.sourceMode: "原始碼模式"
   view.markdownSplit: "Markdown 分割檢視"
   view.focusMode: "專注模式"

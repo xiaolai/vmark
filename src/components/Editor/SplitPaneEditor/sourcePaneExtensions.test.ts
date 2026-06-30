@@ -111,6 +111,7 @@ describe("buildSourcePaneExtensions", () => {
       validator: undefined,
       lineNumberCompartment: new Compartment(),
       languageCompartment: new Compartment(),
+      lineWrapCompartment: new Compartment(),
       persistOnUpdate: [],
       onDiagnostics: vi.fn(),
     });
@@ -125,6 +126,7 @@ describe("buildSourcePaneExtensions", () => {
       validator: undefined,
       lineNumberCompartment: new Compartment(),
       languageCompartment: new Compartment(),
+      lineWrapCompartment: new Compartment(),
       persistOnUpdate: [],
       onDiagnostics: vi.fn(),
     });
@@ -139,6 +141,7 @@ describe("buildSourcePaneExtensions", () => {
       validator: () => [],
       lineNumberCompartment: new Compartment(),
       languageCompartment: new Compartment(),
+      lineWrapCompartment: new Compartment(),
       persistOnUpdate: [],
       onDiagnostics: vi.fn(),
     });
@@ -148,10 +151,46 @@ describe("buildSourcePaneExtensions", () => {
       validator: undefined,
       lineNumberCompartment: new Compartment(),
       languageCompartment: new Compartment(),
+      lineWrapCompartment: new Compartment(),
       persistOnUpdate: [],
       onDiagnostics: vi.fn(),
     });
     // The validator variant adds exactly one more extension (the linter).
     expect(withValidator.length).toBe(without.length + 1);
+  });
+});
+
+describe("buildSourcePaneExtensions — word wrap (#1070)", () => {
+  function build(lineWrapCompartment: Compartment) {
+    return buildSourcePaneExtensions({
+      tabId: "t1",
+      readOnly: false,
+      validator: undefined,
+      lineNumberCompartment: new Compartment(),
+      languageCompartment: new Compartment(),
+      lineWrapCompartment,
+      persistOnUpdate: [],
+      onDiagnostics: vi.fn(),
+    });
+  }
+
+  it("wraps when wordWrap is true (compartment holds lineWrapping)", () => {
+    vi.mocked(useUIStore.getState).mockReturnValue({
+      showLineNumbers: false,
+      wordWrap: true,
+    } as never);
+    const lineWrap = new Compartment();
+    const state = EditorState.create({ doc: "x", extensions: build(lineWrap) });
+    expect(lineWrap.get(state)).toBe(EditorView.lineWrapping);
+  });
+
+  it("does not wrap when wordWrap is false (compartment empty)", () => {
+    vi.mocked(useUIStore.getState).mockReturnValue({
+      showLineNumbers: false,
+      wordWrap: false,
+    } as never);
+    const lineWrap = new Compartment();
+    const state = EditorState.create({ doc: "x", extensions: build(lineWrap) });
+    expect(lineWrap.get(state)).toEqual([]);
   });
 });

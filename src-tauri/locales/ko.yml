@@ -160,6 +160,7 @@ menu:
 
   # === 보기 메뉴 ===
   view: "보기"
+  view.wysiwygMode: "WYSIWYG 모드"
   view.sourceMode: "소스 코드 모드"
   view.markdownSplit: "마크다운 분할 보기"
   view.focusMode: "집중 모드"

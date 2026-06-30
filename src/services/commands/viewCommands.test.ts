@@ -81,17 +81,37 @@ describe("view.toggleMarkdownSplit", () => {
   });
 });
 
+describe("view.setWysiwygMode (#1070)", () => {
+  it("from Source mode: cleans up then toggles source off for the window", async () => {
+    useUIStore.getState().setSourceMode(true);
+    vi.clearAllMocks();
+    await executeCommand("view.setWysiwygMode", undefined, { windowLabel: "main" });
+    expect(cleanupBeforeModeSwitch).toHaveBeenCalledTimes(1);
+    expect(toggleSourceModeWithCheckpoint).toHaveBeenCalledWith("main");
+  });
+
+  it("is a no-op when already in WYSIWYG (neither flag set)", async () => {
+    useUIStore.getState().setSourceMode(false);
+    useUIStore.getState().setMarkdownSplitView(false);
+    vi.clearAllMocks();
+    await executeCommand("view.setWysiwygMode");
+    expect(cleanupBeforeModeSwitch).not.toHaveBeenCalled();
+    expect(toggleSourceModeWithCheckpoint).not.toHaveBeenCalled();
+  });
+});
+
 describe("registerViewCommands — full command set", () => {
   it("is idempotent — a second call does not throw on duplicate ids", () => {
     expect(() => registerViewCommands()).not.toThrow();
     expect(getCommand("view.toggleSourceMode")).toBeDefined();
   });
 
-  it("registers all 22 view/lint commands", () => {
+  it("registers all 23 view/lint commands", () => {
     const ids = listCommands().map((c) => c.id);
     expect(ids).toContain("view.toggleSourceMode");
+    expect(ids).toContain("view.setWysiwygMode");
     expect(ids).toContain("lint.prev");
-    expect(ids.length).toBe(22);
+    expect(ids.length).toBe(23);
   });
 
   it("every command resolves a non-empty title and executes without throwing", async () => {

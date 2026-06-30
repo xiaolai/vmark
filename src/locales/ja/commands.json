@@ -37,6 +37,7 @@
   },
   "view": {
     "toggleSourceMode": "ソースモードを切り替え",
+    "setWysiwygMode": "WYSIWYGモードにする",
     "toggleFocusMode": "フォーカスモードを切り替え",
     "toggleTypewriterMode": "タイプライターモードを切り替え",
     "toggleOutline": "アウトラインを切り替え",

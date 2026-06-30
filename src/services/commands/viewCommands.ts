@@ -101,6 +101,24 @@ export function registerViewCommands(): void {
       toggleMarkdownSplitWithCheckpoint(ctx.windowLabel ?? "main"),
   });
 
+  // Bound to the native "WYSIWYG Mode" radio item (#1070). WYSIWYG is the
+  // absence of source/split, so this turns off whichever is on, reusing the
+  // same cleanup + history-checkpoint path as the individual toggles. No-op
+  // when already in WYSIWYG.
+  registerCommand({
+    id: "view.setWysiwygMode",
+    title: () => i18n.t("commands:view.setWysiwygMode"),
+    category: "view",
+    run: (_args, ctx: Ctx) => {
+      const windowLabel = ctx.windowLabel ?? "main";
+      const s = useUIStore.getState();
+      if (!s.sourceMode && !s.markdownSplitView) return;
+      cleanupBeforeModeSwitch();
+      if (s.sourceMode) toggleSourceModeWithCheckpoint(windowLabel);
+      else toggleMarkdownSplitWithCheckpoint(windowLabel);
+    },
+  });
+
   registerCommand({
     id: "view.toggleWordWrap",
     title: () => i18n.t("commands:view.toggleWordWrap"),

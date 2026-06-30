@@ -57,6 +57,7 @@ const RECENT_WORKSPACES_BINDINGS: MenuCommandBinding[] = [
 ];
 
 const VIEW_BINDINGS: MenuCommandBinding[] = [
+  { menuEvent: "menu:wysiwyg-mode", commandId: "view.setWysiwygMode" },
   { menuEvent: "menu:source-mode", commandId: "view.toggleSourceMode" },
   { menuEvent: "menu:markdown-split", commandId: "view.toggleMarkdownSplit" },
   { menuEvent: "menu:focus-mode", commandId: "view.toggleFocusMode" },

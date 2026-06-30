@@ -37,6 +37,7 @@
   },
   "view": {
     "toggleSourceMode": "Alternar modo de código-fonte",
+    "setWysiwygMode": "Definir modo WYSIWYG",
     "toggleFocusMode": "Alternar modo de foco",
     "toggleTypewriterMode": "Alternar modo máquina de escrever",
     "toggleOutline": "Alternar sumário",

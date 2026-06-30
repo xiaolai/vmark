@@ -46,6 +46,12 @@ WYSIWYG remains the default; the split is opt-in. The three views are mutually
 exclusive — `F6` toggles Source and `Shift + F6` toggles Split, each returning
 to WYSIWYG — so switching between them is always a single keystroke.
 
+The **View** menu shows the three modes — **WYSIWYG Mode**, **Source Code
+Mode**, **Markdown Split View** — as a checkmarked group, so the active mode is
+always visible and the mutual exclusivity is explicit. **Word Wrap** and
+**Line Numbers** apply to the source editor only, so they are greyed out while
+you are in WYSIWYG mode.
+
 ### Large Files
 
 VMark auto-opens files over 1 MB in Source mode for a sub-second open, warns before touching files above 5 MB, and refuses files over 50 MB. See the [Large Files](./large-files.md) guide for thresholds and settings.

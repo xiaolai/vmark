@@ -160,6 +160,7 @@ menu:
 
   # === 表示メニュー ===
   view: "表示"
+  view.wysiwygMode: "WYSIWYGモード"
   view.sourceMode: "ソースコードモード"
   view.markdownSplit: "Markdown分割ビュー"
   view.focusMode: "フォーカスモード"
