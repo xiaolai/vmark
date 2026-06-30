@@ -138,6 +138,9 @@ describe("VIEW_ACTION_EXECUTORS", () => {
 
     VIEW_ACTION_EXECUTORS.lintPrev();
     expect(mocks.selectPrev).toHaveBeenCalledWith("tab-1");
+    // Both directions must scroll to the newly selected diagnostic.
+    expect(mocks.scrollToSelectedDiagnostic).toHaveBeenCalledTimes(2);
+    expect(mocks.scrollToSelectedDiagnostic).toHaveBeenLastCalledWith("tab-1");
   });
 
   it("lint navigation is a no-op when there is no active tab", () => {

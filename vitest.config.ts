@@ -8,7 +8,10 @@ export default defineConfig({
     globals: true,
     environment: "jsdom",
     setupFiles: ["./src/test/setup.ts"],
-    include: ["src/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}"],
+    include: [
+      "src/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}",
+      "scripts/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}",
+    ],
     server: {
       deps: {
         // The @actions/* packages ship JSON imports without
@@ -29,6 +32,11 @@ export default defineConfig({
       exclude: [
         "node_modules/",
         "src/test/",
+        // Build/dev tooling. Scripts are still unit-tested (see the include
+        // glob above) — their behaviour is guarded by explicit test assertions,
+        // not by a coverage %. Coverage-gating one-off build scripts only
+        // reintroduces threshold fragility (e.g. an uncovered realGit wrapper).
+        "scripts/",
         "**/*.d.ts",
         "**/*.config.*",
         "**/index.ts",
