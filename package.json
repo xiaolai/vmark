@@ -6,7 +6,7 @@
   "description": "The plain-text workspace where humans and AI collaborate",
   "type": "module",
   "scripts": {
-    "prepare": "git config core.hooksPath .githooks || true",
+    "prepare": "node scripts/setup-local-git.mjs",
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",

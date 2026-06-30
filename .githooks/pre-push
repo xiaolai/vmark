@@ -14,8 +14,17 @@
 # Bypassing this hook (`git push --no-verify`) is forbidden without explicit
 # authorization — see .claude/rules/60-ai-governance.md §9.
 #
-# Enabled via `git config core.hooksPath .githooks`, which the root
-# package.json `prepare` script sets automatically on `pnpm install`.
+# Enabled via `git config core.hooksPath .githooks`, set by the root
+# package.json `prepare` script (scripts/setup-local-git.mjs) on
+# `pnpm install`.
+#
+# That same setup also adds an SSH keepalive to `core.sshCommand`. This gate
+# runs `pnpm check:all` (~3 min) while git holds the SSH connection to the
+# remote open; without a keepalive the idle connection times out and the
+# subsequent pack upload dies with SIGPIPE (exit 141) — the gate passes but the
+# push never lands. If a direct push to `main`/`v*` ever fails that way, run
+# `node scripts/setup-local-git.mjs` (or push once with
+# `GIT_SSH_COMMAND='ssh -o ServerAliveInterval=20' git push …`).
 
 set -euo pipefail
 
