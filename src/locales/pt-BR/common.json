@@ -1,4 +1,10 @@
 {
+  "emptyState.title": "VMark",
+  "emptyState.newFile": "Novo arquivo",
+  "emptyState.openFile": "Abrir arquivo",
+  "emptyState.openFolder": "Abrir pasta",
+  "emptyState.recentTitle": "Recentes",
+  "emptyState.noRecent": "Nenhum arquivo recente",
   "hotExit.partialCapture.title": "Sessão não salva completamente",
   "hotExit.partialCapture.description": "Algumas janelas não responderam a tempo, então suas alterações não salvas não foram capturadas: {{windows}}. Salve essas janelas manualmente antes de sair ou reiniciar.",
   "hotExit.partialCapture.unknownWindows": "uma ou mais janelas",

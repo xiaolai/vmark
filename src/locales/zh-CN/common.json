@@ -1,4 +1,10 @@
 {
+  "emptyState.title": "VMark",
+  "emptyState.newFile": "新建文件",
+  "emptyState.openFile": "打开文件",
+  "emptyState.openFolder": "打开文件夹",
+  "emptyState.recentTitle": "最近使用",
+  "emptyState.noRecent": "没有最近使用的文件",
   "hotExit.partialCapture.title": "会话未完全保存",
   "hotExit.partialCapture.description": "部分窗口未能及时响应，因此其未保存的更改未被捕获：{{windows}}。请在退出或重启前手动保存这些窗口。",
   "hotExit.partialCapture.unknownWindows": "一个或多个窗口",

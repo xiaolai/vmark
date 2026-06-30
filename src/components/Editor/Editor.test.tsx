@@ -1,4 +1,4 @@
-import { render } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { Editor } from "./Editor";
 import { WindowProvider } from "@/contexts/WindowContext";
@@ -16,6 +16,8 @@ beforeEach(() => {
 afterEach(() => {
   __resetRegistry();
   __resetBootstrap();
+  // Restore the default active tab for tests that flipped it.
+  mockTabStore.activeTabId = { main: "tab-1" };
 });
 
 type Selector<T> = (state: T) => unknown;
@@ -149,16 +151,22 @@ vi.mock("@/stores/documentStore", () => {
   };
 });
 
-vi.mock("@/stores/tabStore", () => {
-  const mockTabStore = {
+// Hoisted so individual tests can flip activeTabId (e.g. to null for the
+// empty-workspace / Welcome-screen seam) and reset it afterwards.
+const { mockTabStore } = vi.hoisted(() => ({
+  mockTabStore: {
     tabs: { main: [{ id: "tab-1", filePath: null, title: "Untitled", isPinned: false }] },
-    activeTabId: { main: "tab-1" },
+    activeTabId: { main: "tab-1" as string | null },
     getTabsByWindow: () => [{ id: "tab-1", filePath: null, title: "Untitled", isPinned: false }],
     createTab: vi.fn(() => "tab-1"),
-  };
+    findTabById: (id: string) =>
+      id === "tab-1"
+        ? { id: "tab-1", filePath: null, title: "Untitled", isPinned: false }
+        : null,
+  },
+}));
 
-  return { useTabStore: createZustandMock(mockTabStore) };
-});
+vi.mock("@/stores/tabStore", () => ({ useTabStore: createZustandMock(mockTabStore) }));
 
 vi.mock("@/stores/settingsStore", () => {
   const state = {
@@ -215,6 +223,19 @@ describe("Editor", () => {
 
     const content = document.querySelector(".editor-content");
     expect(content).toBeInTheDocument();
+  });
+
+  it("renders the Welcome screen (no editor) when no tab is active", () => {
+    // Empty-workspace window: the last tab was closed, the window stays open.
+    mockTabStore.activeTabId = { main: null };
+
+    renderWithProvider(<Editor />);
+
+    // Welcome quick-actions are present...
+    expect(screen.getByRole("button", { name: "New File" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open Folder" })).toBeInTheDocument();
+    // ...and no editor surface is mounted.
+    expect(document.querySelector(".editor-content")).not.toBeInTheDocument();
   });
 
   describe("WI-1A.5 — dispatch by FormatConfig.kind", () => {

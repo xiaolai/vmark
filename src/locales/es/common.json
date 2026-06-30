@@ -1,4 +1,10 @@
 {
+  "emptyState.title": "VMark",
+  "emptyState.newFile": "Nuevo archivo",
+  "emptyState.openFile": "Abrir archivo",
+  "emptyState.openFolder": "Abrir carpeta",
+  "emptyState.recentTitle": "Recientes",
+  "emptyState.noRecent": "No hay archivos recientes",
   "hotExit.partialCapture.title": "La sesión no se guardó por completo",
   "hotExit.partialCapture.description": "Algunas ventanas no respondieron a tiempo, por lo que sus cambios sin guardar no se capturaron: {{windows}}. Guarda esas ventanas manualmente antes de salir o reiniciar.",
   "hotExit.partialCapture.unknownWindows": "una o más ventanas",

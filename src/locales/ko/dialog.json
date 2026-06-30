@@ -203,12 +203,6 @@
   "saveRequired": {
     "title": "저장 필요"
   },
-  "closeLastTab": {
-    "title": "마지막 문서 닫기",
-    "message": "이 워크스페이스에서 마지막으로 열린 문서입니다. 닫으시겠습니까?",
-    "confirm": "닫기",
-    "cancel": "취소"
-  },
   "fileTooLarge": {
     "title": "파일이 너무 큼",
     "message": "파일이 너무 큽니다({{size}} MB). 최대 {{max}} MB입니다."

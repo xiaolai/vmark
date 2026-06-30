@@ -75,12 +75,6 @@
   "saveRequired": {
     "title": "Save Required"
   },
-  "closeLastTab": {
-    "title": "Close Last Document",
-    "message": "This is the last open document in this workspace. Close it?",
-    "confirm": "Close",
-    "cancel": "Cancel"
-  },
   "fileTooLarge": {
     "title": "File Too Large",
     "message": "File is too large ({{size}} MB). Maximum is {{max}} MB."

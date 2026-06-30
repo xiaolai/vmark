@@ -6,8 +6,9 @@
  *
  * Key decisions:
  *   - Mod+W intentionally hardcoded (not configurable) for layered close handling
- *   - Mod+W always closes the active tab (not the window) regardless of tab count;
- *     ensureWindowHasTab creates a new untitled if the last tab is closed.
+ *   - Mod+W closes the active tab (not the window). Closing the last tab leaves
+ *     the window open on the Welcome screen (empty-workspace window); the window
+ *     itself is closed via the menu:close path in useWindowClose.
  *   - New tab and status bar toggle use configurable shortcuts from store
  *   - Only active in document windows (not settings or other window types)
  *
@@ -67,10 +68,11 @@ export function useTabShortcuts() {
       }
 
       // Cmd+W: Close active tab with dirty check (any tab count).
-      // ensureWindowHasTab (inside closeTabWithDirtyCheck) creates a new
-      // untitled tab when the last tab is closed, keeping the window open.
-      // The menu accelerator also emits menu:close; useWindowClose handles
-      // that identically, so the second invocation is a safe no-op.
+      // Closing the last tab keeps the window open on the Welcome screen
+      // (empty-workspace window). With no active tab there is nothing to close
+      // here; the menu accelerator's menu:close (handled by useWindowClose)
+      // closes the empty window itself. The accelerator also emits menu:close
+      // when a tab IS active, so that second invocation is a safe no-op.
       if (isMeta && e.key === "w") {
         e.preventDefault();
         const activeTabId = useTabStore.getState().activeTabId[windowLabel];

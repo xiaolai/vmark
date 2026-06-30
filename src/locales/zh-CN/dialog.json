@@ -203,12 +203,6 @@
   "saveRequired": {
     "title": "需要保存"
   },
-  "closeLastTab": {
-    "title": "关闭最后一个文档",
-    "message": "这是此工作区中最后一个打开的文档。要关闭吗？",
-    "confirm": "关闭",
-    "cancel": "取消"
-  },
   "fileTooLarge": {
     "title": "文件过大",
     "message": "文件过大（{{size}} MB）。最大为 {{max}} MB。"

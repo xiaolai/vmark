@@ -172,8 +172,10 @@ function executeLintNav(direction: "next" | "prev"): void {
   scrollToSelectedDiagnostic(tabId);
 }
 
-/** Side-effect executors for each resolved view action. */
-const VIEW_ACTION_EXECUTORS: Record<ViewAction, () => void> = {
+/** Side-effect executors for each resolved view action. Exported for testing
+ *  (each executor owns one action's side effect; matching lives in
+ *  resolveViewAction). */
+export const VIEW_ACTION_EXECUTORS: Record<ViewAction, () => void> = {
   toggleTerminal: () => requestToggleTerminal(),
   sourceMode: () => {
     cleanupBeforeModeSwitch();

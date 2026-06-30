@@ -1,4 +1,10 @@
 {
+  "emptyState.title": "VMark",
+  "emptyState.newFile": "Neue Datei",
+  "emptyState.openFile": "Datei öffnen",
+  "emptyState.openFolder": "Ordner öffnen",
+  "emptyState.recentTitle": "Zuletzt verwendet",
+  "emptyState.noRecent": "Keine zuletzt verwendeten Dateien",
   "hotExit.partialCapture.title": "Sitzung nicht vollständig gespeichert",
   "hotExit.partialCapture.description": "Einige Fenster haben nicht rechtzeitig reagiert, daher wurden ihre ungespeicherten Änderungen nicht erfasst: {{windows}}. Speichern Sie diese Fenster manuell, bevor Sie das Programm beenden oder neu starten.",
   "hotExit.partialCapture.unknownWindows": "ein oder mehrere Fenster",

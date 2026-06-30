@@ -478,8 +478,10 @@ describe("useWindowClose — menu:close", () => {
     expect(mockCloseTabWithDirtyCheck).not.toHaveBeenCalled();
   });
 
-  it("handles menu:close when no active tab", async () => {
-    // No tabs created
+  it("closes the empty window on menu:close when no active tab (Welcome screen)", async () => {
+    // No tabs: the window is on the Welcome screen. Cmd+W should close the
+    // window itself (not a tab) so the persistent empty window stays closeable
+    // from the keyboard.
     await act(async () => {
       render(<TestHarness />);
     });
@@ -489,7 +491,11 @@ describe("useWindowClose — menu:close", () => {
       await listeners.get("menu:close")!({ payload: WINDOW });
     });
 
+    // Not routed through the tab-close path...
     expect(mockCloseTabWithDirtyCheck).not.toHaveBeenCalled();
+    // ...instead the window-close request runs.
+    expect(mockPersistWorkspaceSession).toHaveBeenCalledWith(WINDOW);
+    expect(invoke).toHaveBeenCalledWith("close_window", { label: WINDOW });
   });
 
   it("catches closeTabWithDirtyCheck error gracefully", async () => {

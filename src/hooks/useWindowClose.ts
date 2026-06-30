@@ -10,7 +10,8 @@
  *   persist workspace session → allow close or cancel
  *
  * Pipeline (menu close): Cmd+W menu accelerator → menu:close event →
- *   closeTabWithDirtyCheck → closeWindowIfEmpty (closes window if last)
+ *   closeTabWithDirtyCheck (active tab). When the window is already empty
+ *   (Welcome screen), Cmd+W closes the window itself via handleCloseRequest.
  *
  * Key decisions:
  *   - Prevents default close to run async save prompts first
@@ -191,8 +192,10 @@ export function useWindowClose() {
       closeLog(windowLabel, "setting up event listeners");
 
       // Listen to menu:close (Cmd+W menu accelerator).
-      // Close the active tab. closeWindowIfEmpty (inside closeTabWithDirtyCheck)
-      // closes the window when the last tab is closed (macOS standard behavior).
+      // Close the active tab. Closing the last tab no longer closes the window —
+      // it stays open on the Welcome screen (empty-workspace window). To keep a
+      // keyboard path for closing that persistent empty window, Cmd+W with no
+      // active tab falls through to handleCloseRequest (matches VSCode).
       // useTabShortcuts also handles Cmd+W via keydown; the second invocation
       // is a safe no-op because the tab is already removed by the time it runs.
       const unlistenMenu = await currentWindow.listen<string>("menu:close", async (event) => {
@@ -206,6 +209,9 @@ export function useWindowClose() {
             } catch (error) {
               windowCloseError("menu:close tab close failed:", error);
             }
+          } else {
+            // Empty window (Welcome screen): close the window itself.
+            void handleCloseRequest();
           }
         }
       });

@@ -203,12 +203,6 @@
   "saveRequired": {
     "title": "Salvamento necessário"
   },
-  "closeLastTab": {
-    "title": "Fechar último documento",
-    "message": "Este é o último documento aberto neste workspace. Fechar?",
-    "confirm": "Fechar",
-    "cancel": "Cancelar"
-  },
   "fileTooLarge": {
     "title": "Arquivo muito grande",
     "message": "Arquivo muito grande ({{size}} MB). O máximo é {{max}} MB."

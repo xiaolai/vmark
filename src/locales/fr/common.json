@@ -1,4 +1,10 @@
 {
+  "emptyState.title": "VMark",
+  "emptyState.newFile": "Nouveau fichier",
+  "emptyState.openFile": "Ouvrir un fichier",
+  "emptyState.openFolder": "Ouvrir un dossier",
+  "emptyState.recentTitle": "Récents",
+  "emptyState.noRecent": "Aucun fichier récent",
   "hotExit.partialCapture.title": "Session non entièrement enregistrée",
   "hotExit.partialCapture.description": "Certaines fenêtres n'ont pas répondu à temps, leurs modifications non enregistrées n'ont donc pas été capturées : {{windows}}. Enregistrez ces fenêtres manuellement avant de quitter ou de redémarrer.",
   "hotExit.partialCapture.unknownWindows": "une ou plusieurs fenêtres",

@@ -143,6 +143,17 @@ The following settings are saved per workspace:
 Workspace configuration is tied to the folder path. Opening the same folder on the same machine always restores your settings, even from a different window.
 :::
 
+## Empty Workspace Window
+
+Closing the last open document no longer closes the window. Instead, the window stays open on a **Welcome screen**, and — if you have a workspace open — its sidebar and file tree remain visible. This works the same way on macOS, Windows, and Linux.
+
+The Welcome screen offers quick actions to get back to work:
+
+- **New File**, **Open File**, and **Open Folder** buttons
+- A **Recent** list — click any entry to reopen it
+
+To close the window itself, use the red traffic-light button, `Cmd/Ctrl + Q` (quit), or press `Cmd/Ctrl + W` again while the Welcome screen is showing.
+
 ## Session Restore
 
 When you close a window that has a workspace open, VMark saves the list of open tabs to the workspace config. The next time you open the same workspace, those tabs are restored automatically.

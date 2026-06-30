@@ -8,10 +8,8 @@ import { Editor } from "@/components/Editor";
 import { Sidebar } from "@/components/Sidebar";
 import { SidebarResizeHandle } from "@/components/Sidebar/SidebarResizeHandle";
 import { WorkspaceRail, WORKSPACE_RAIL_WIDTH } from "@/components/WorkspaceRail";
-import { StatusBar } from "@/components/StatusBar";
-import { FindBar } from "@/components/FindBar";
+import { BottomBar } from "@/components/BottomBar/BottomBar";
 import { TitleBar } from "@/components/TitleBar";
-import { UniversalToolbar } from "@/components/Editor/UniversalToolbar";
 import { AppShell, EditorArea } from "@/shell";
 import { GeniePicker } from "@/components/GeniePicker/GeniePicker";
 import { ApprovalDialog } from "@/components/WorkflowApproval/ApprovalDialog";
@@ -202,13 +200,7 @@ function MainLayout() {
               <Editor />
             </FeatureErrorBoundary>
           }
-          bottomBar={
-            <>
-              <StatusBar />
-              <UniversalToolbar />
-              <FindBar />
-            </>
-          }
+          bottomBar={<BottomBar />}
           panel={
             <FeatureErrorBoundary feature={t("errorBoundary.feature.terminal")}>
               <Suspense fallback={null}>
