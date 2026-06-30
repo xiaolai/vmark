@@ -5,7 +5,7 @@
  * - Hidden when idle, up-to-date, or available (with auto-download)
  * - Spinning icon when checking (no action)
  * - Pulsing icon when available (click to open Settings → About)
- * - Pulsing icon when downloading (no action)
+ * - Pulsing icon when downloading or installing (no action)
  * - Static icon with dot when ready (click to restart)
  * - Error icon when error (click to retry)
  */
@@ -34,6 +34,14 @@ function getIndicatorConfig(status: UpdateStatus) {
       return {
         icon: Download,
         titleKey: "updateDownloading" as const,
+        className: "status-update downloading",
+        showDot: false,
+        clickable: false,
+      };
+    case "installing":
+      return {
+        icon: Download,
+        titleKey: "updateInstalling" as const,
         className: "status-update downloading",
         showDot: false,
         clickable: false,

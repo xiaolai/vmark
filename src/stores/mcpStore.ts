@@ -126,7 +126,7 @@ export type UpdateStatus =
   | "idle"
   | "checking"
   | "available"
-  | "downloading"
+  | "downloading" | "installing"
   | "ready"
   | "error"
   | "up-to-date";

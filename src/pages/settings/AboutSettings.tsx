@@ -8,23 +8,14 @@ import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { getVersion } from "@tauri-apps/api/app";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { listen } from "@tauri-apps/api/event";
 import { SettingRow, SettingsGroup, Button, Toggle, Select } from "./components";
 import type { UpdateCheckFrequency } from "@/stores/settingsTypes";
 import { useMcpStore } from "@/stores/mcpStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useUpdateOperations } from "@/hooks/useUpdateOperations";
-import { safeUnlistenAsync } from "@/utils/safeUnlisten";
-import {
-  Loader2,
-  CheckCircle2,
-  AlertCircle,
-  Download,
-  RefreshCw,
-  SkipForward,
-  Globe,
-} from "lucide-react";
+import { Loader2, CheckCircle2, AlertCircle, Download, Globe } from "lucide-react";
 import { GithubMark } from "./GithubMark";
+import { UpdateAvailableCard } from "./UpdateAvailableCard";
 import appIcon from "@/assets/app-icon.png";
 
 const WEBSITE_URL = "https://vmark.app";
@@ -106,11 +97,13 @@ function StatusIndicator() {
     );
   }
 
-  if (status === "downloading") {
+  if (status === "downloading" || status === "installing") {
     return (
       <span className="inline-flex items-center gap-1.5 text-xs text-[var(--text-tertiary)]">
         <Loader2 className="w-3 h-3 animate-spin" />
-        {t("about.updateStatus.downloading")}
+        {status === "installing"
+          ? t("about.updateStatus.installing")
+          : t("about.updateStatus.downloading")}
       </span>
     );
   }
@@ -134,159 +127,6 @@ function StatusIndicator() {
   }
 
   return null;
-}
-
-function DownloadProgress() {
-  const { t } = useTranslation("settings");
-  const downloadProgress = useMcpStore((state) => state.update.downloadProgress);
-
-  if (!downloadProgress) return null;
-
-  const { downloaded, total } = downloadProgress;
-  const percentage = total ? Math.round((downloaded / total) * 100) : 0;
-  const downloadedMB = (downloaded / 1024 / 1024).toFixed(1);
-  const totalMB = total ? (total / 1024 / 1024).toFixed(1) : "?";
-
-  return (
-    <div className="mt-2 space-y-1">
-      <div className="flex justify-between text-xs text-[var(--text-tertiary)]">
-        <span>{t("about.downloadProgress.label")}</span>
-        <span>
-          {downloadedMB} / {totalMB} MB ({percentage}%)
-        </span>
-      </div>
-      <div className="h-1.5 bg-[var(--bg-tertiary)] rounded-full overflow-hidden">
-        <div
-          className="h-full bg-[var(--primary-color)] transition-all duration-300"
-          style={{ width: `${percentage}%` }}
-        />
-      </div>
-    </div>
-  );
-}
-
-function UpdateAvailableCard() {
-  const { t } = useTranslation("settings");
-  const status = useMcpStore((state) => state.update.status);
-  const updateInfo = useMcpStore((state) => state.update.updateInfo);
-  const dismissed = useMcpStore((state) => state.update.dismissed);
-  const { downloadAndInstall, restartApp, skipVersion } = useUpdateOperations();
-  const [isDownloading, setIsDownloading] = useState(false);
-  const [isRestarting, setIsRestarting] = useState(false);
-
-  // Listen for restart cancelled event to reset button state
-  useEffect(() => {
-    const unlistenPromise = listen("update:restart-cancelled", () => {
-      setIsRestarting(false);
-    });
-
-    return () => {
-      safeUnlistenAsync(unlistenPromise);
-    };
-  }, []);
-
-  // Reset isDownloading when status changes away from downloading. Adjusted
-  // during render (guarded so it converges immediately) rather than in an
-  // effect (#1063).
-  if (status !== "downloading" && isDownloading) {
-    setIsDownloading(false);
-  }
-
-  if (!updateInfo) return null;
-
-  // Don't show if dismissed (e.g., version was skipped)
-  if (dismissed) return null;
-
-  // Show card for available, downloading, or ready states
-  if (status !== "available" && status !== "downloading" && status !== "ready") {
-    return null;
-  }
-
-  const handleDownload = async () => {
-    setIsDownloading(true);
-    await downloadAndInstall();
-  };
-
-  const handleRestart = async () => {
-    setIsRestarting(true);
-    await restartApp();
-  };
-
-  const handleSkip = () => {
-    skipVersion(updateInfo.version);
-  };
-
-  return (
-    <SettingsGroup title={t("about.updateAvailable.group")}>
-      <div className="px-4 py-3">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="font-medium text-[var(--text-color)]">
-                {t("about.version", { version: updateInfo.version })}
-              </span>
-              {updateInfo.currentVersion && (
-                <span className="text-xs text-[var(--text-tertiary)]">
-                  {t("about.updateAvailable.current", { version: updateInfo.currentVersion })}
-                </span>
-              )}
-            </div>
-            {updateInfo.pubDate && (
-              <div className="text-xs text-[var(--text-tertiary)] mt-0.5">
-                {t("about.updateAvailable.released", { date: new Date(updateInfo.pubDate).toLocaleDateString() })}
-              </div>
-            )}
-            {updateInfo.notes && (
-              <div className="mt-2 text-sm text-[var(--text-secondary)] whitespace-pre-wrap line-clamp-3">
-                {updateInfo.notes}
-              </div>
-            )}
-          </div>
-
-          <div className="flex flex-col gap-2 shrink-0">
-            {status === "available" && (
-              <>
-                <Button
-                  variant="primary"
-                  onClick={handleDownload}
-                  disabled={isDownloading}
-                  icon={isDownloading
-                    ? <Loader2 className="w-3 h-3 animate-spin" />
-                    : <Download className="w-3 h-3" />
-                  }
-                >
-                  {isDownloading ? t("about.downloading") : t("about.download")}
-                </Button>
-                <Button
-                  variant="tertiary"
-                  onClick={handleSkip}
-                  icon={<SkipForward className="w-3 h-3" />}
-                >
-                  {t("about.skip")}
-                </Button>
-              </>
-            )}
-
-            {status === "ready" && (
-              <Button
-                variant="success"
-                onClick={handleRestart}
-                disabled={isRestarting}
-                icon={isRestarting
-                  ? <Loader2 className="w-3 h-3 animate-spin" />
-                  : <RefreshCw className="w-3 h-3" />
-                }
-              >
-                {isRestarting ? t("about.restarting") : t("about.restartToUpdate")}
-              </Button>
-            )}
-          </div>
-        </div>
-
-        {status === "downloading" && <DownloadProgress />}
-      </div>
-    </SettingsGroup>
-  );
 }
 
 export function AboutSettings() {
@@ -314,6 +154,7 @@ export function AboutSettings() {
     isChecking ||
     status === "checking" ||
     status === "downloading" ||
+    status === "installing" ||
     status === "ready";
 
   return (

@@ -29,7 +29,8 @@
  *
  * @coordinates-with useUpdateChecker.ts — auto-check on startup (main window)
  * @coordinates-with useUpdateSync.ts — broadcasts state across windows
- * @coordinates-with updateStore.ts — stores status, info, progress
+ * @coordinates-with mcpStore.ts — `update` slice holds status, info, progress
+ * @coordinates-with updateProgressThrottle.ts — coalesces per-chunk writes
  * @module hooks/useUpdateOperations
  */
 
@@ -39,6 +40,7 @@ import { emit } from "@tauri-apps/api/event";
 import { useMcpStore } from "@/stores/mcpStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { getVersion } from "@tauri-apps/api/app";
+import { shouldWriteProgress } from "@/hooks/updateProgressThrottle";
 import i18n from "@/i18n";
 
 // Event names for cross-window communication
@@ -49,14 +51,11 @@ const EVENTS = {
   REQUEST_STATE: "update:request-state",
 } as const;
 
-// Per-window single-flight gates. When the user spam-clicks "Check Now" or
-// when the auto-retry timer overlaps a manual click, every caller awaits the
-// same in-flight promise instead of issuing a parallel `check()` against the
-// Tauri updater plugin. The previous design let parallel checks pile up,
-// each broadcasting their own error and triggering the cross-window listener
-// — a contributing factor to the v0.7.11 freeze report.
-// Held inside a holder object so the formatter doesn't rewrite the
-// reassignment to `const` (assignments happen inside the run* helpers).
+// Per-window single-flight gates: spam-clicks, the auto-retry timer, and the
+// auto-download effect all await the same in-flight promise rather than issuing
+// parallel `check()`/`download` calls against the Tauri updater plugin (the
+// parallel-check churn was a contributor to the v0.7.11 freeze). Held in a
+// holder object so the formatter doesn't rewrite the reassignment to `const`.
 const inFlight: { check: Promise<boolean> | null; download: Promise<boolean> | null } = {
   check: null,
   download: null,
@@ -142,9 +141,12 @@ async function runUpdateDownload(): Promise<boolean> {
     store.setUpdateStatus("downloading");
     store.setDownloadProgress({ downloaded: 0, total: null });
 
-    // Track progress in local variables to avoid stale state on rapid updates.
+    // Track progress in locals (avoids stale-state reads). Store writes are
+    // throttled via shouldWriteProgress so a chunky download doesn't flood
+    // re-renders and the cross-window broadcast.
     let downloadedBytes = 0;
     let totalBytes: number | null = null;
+    let lastWritten = -1;
 
     try {
       await pendingUpdate.downloadAndInstall((event) => {
@@ -153,26 +155,38 @@ async function runUpdateDownload(): Promise<boolean> {
           case "Started":
             downloadedBytes = 0;
             totalBytes = event.data.contentLength ?? null;
+            lastWritten = 0;
             live.setDownloadProgress({ downloaded: 0, total: totalBytes });
             break;
           case "Progress":
             downloadedBytes += event.data.chunkLength;
-            live.setDownloadProgress({ downloaded: downloadedBytes, total: totalBytes });
+            if (shouldWriteProgress(downloadedBytes, lastWritten, totalBytes)) {
+              lastWritten = downloadedBytes;
+              live.setDownloadProgress({ downloaded: downloadedBytes, total: totalBytes });
+            }
             break;
           case "Finished":
-            live.setDownloadProgress(null);
+            // Bytes are in; the updater now writes/installs them (takes a
+            // moment). Snap to 100% and switch to the install phase instead of
+            // leaving a frozen "Downloading…" with no bar.
+            live.setDownloadProgress({ downloaded: totalBytes ?? downloadedBytes, total: totalBytes });
+            live.setUpdateStatus("installing");
             break;
         }
       });
 
-      useMcpStore.getState().setUpdateStatus("ready");
+      const done = useMcpStore.getState();
+      done.setUpdateStatus("ready");
+      done.setDownloadProgress(null);
       return true;
     } catch (err) {
       const message =
         err instanceof Error
           ? err.message
           : i18n.t("dialog:toast.updateDownloadFailedGeneric");
-      useMcpStore.getState().setUpdateError(message);
+      const failed = useMcpStore.getState();
+      failed.setDownloadProgress(null);
+      failed.setUpdateError(message);
       return false;
     } finally {
       inFlight.download = null;
@@ -200,18 +214,10 @@ export function useUpdateOperations() {
   }, []);
 
   /**
-   * Download and install the pending update.
-   *
-   * If this window already holds a `pendingUpdate` (typical: it just ran
-   * Check), download directly. Otherwise re-run check locally first to
-   * populate one — this is the case where the main window auto-checked
-   * (so its store has pendingUpdate) but the user clicked Download from
-   * a different window (Settings) whose store doesn't have the object.
-   *
-   * The earlier emit-fallback pattern silently no-op'd when the main
-   * window was destroyed — same class of bug the inline-check fix
-   * targeted for the Check Now button. Re-checking locally is bounded
-   * (one extra HTTP HEAD if needed) and self-contained.
+   * Download and install the pending update. If this window already holds a
+   * `pendingUpdate` (just ran Check), download directly; otherwise re-check
+   * locally first to populate one (the Settings window doesn't share the
+   * main window's window-local `pendingUpdate` object).
    */
   const downloadAndInstall = useCallback(async () => {
     if (!useMcpStore.getState().update.pendingUpdate) {

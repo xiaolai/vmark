@@ -297,4 +297,14 @@ describe("UpdateIndicator", () => {
       expect(screen.getByTitle("Downloading update...")).toBeInTheDocument();
     });
   });
+
+  describe("installing state", () => {
+    it("renders an installing indicator (not clickable)", () => {
+      mockUpdateState.status = "installing";
+      render(<UpdateIndicator />);
+      const button = screen.getByTitle("Installing update...");
+      expect(button).toBeInTheDocument();
+      expect(button.style.cursor).toBe("default");
+    });
+  });
 });

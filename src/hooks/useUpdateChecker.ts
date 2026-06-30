@@ -6,7 +6,7 @@
  *   actual download/install to the main window context.
  *
  * Pipeline: App startup → delay (2s) → check frequency vs lastCheckTime
- *   → invoke Tauri updater plugin → updateStore tracks status → prompt
+ *   → invoke Tauri updater plugin → mcpStore.update tracks status → prompt
  *   user to install → restartWithHotExit for seamless update
  *
  * Key decisions:
@@ -24,7 +24,7 @@
  *
  * @coordinates-with useUpdateOperations.ts — provides check/download/restart functions
  * @coordinates-with useUpdateSync.ts — syncs update state across windows
- * @coordinates-with updateStore.ts — tracks status, info, progress, errors
+ * @coordinates-with mcpStore.ts — `update` slice tracks status, info, progress
  * @module hooks/useUpdateChecker
  */
 
@@ -299,9 +299,9 @@ export function useUpdateChecker() {
     }
   }, [status, autoDownload, updateInfo, pendingUpdate, skipVersion, doDownloadAndInstall]);
 
-  // Reset auto-download flag when status goes back to idle
+  // Re-arm auto-download at non-active states (idle alone never re-enters).
   useEffect(() => {
-    if (status === "idle") {
+    if (status === "idle" || status === "up-to-date" || status === "error") {
       hasAutoDownloaded.current = false;
     }
   }, [status]);

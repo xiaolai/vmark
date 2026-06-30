@@ -49,6 +49,7 @@
   "pressAgainToQuit": "再次按 {{key}} 退出",
   "updateChecking": "正在检查更新...",
   "updateDownloading": "正在下载更新...",
+  "updateInstalling": "正在安装更新...",
   "updateAvailable": "有可用更新 — 点击查看",
   "updateAvailableVersion": "有可用更新:v{{version}} — 点击查看",
   "updateDownloadingPercent": "下载中:{{percent}}%",

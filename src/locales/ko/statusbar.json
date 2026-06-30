@@ -49,6 +49,7 @@
   "pressAgainToQuit": "{{key}}를 다시 눌러 종료",
   "updateChecking": "업데이트 확인 중...",
   "updateDownloading": "업데이트 다운로드 중...",
+  "updateInstalling": "업데이트 설치 중...",
   "updateAvailable": "업데이트 가능 — 클릭하여 확인",
   "updateAvailableVersion": "업데이트 가능: v{{version}} — 클릭하여 확인",
   "updateDownloadingPercent": "다운로드 중: {{percent}}%",

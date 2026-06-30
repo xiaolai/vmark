@@ -49,6 +49,7 @@
   "pressAgainToQuit": "もう一度 {{key}} を押して終了",
   "updateChecking": "アップデートを確認中...",
   "updateDownloading": "アップデートをダウンロード中...",
+  "updateInstalling": "アップデートをインストール中...",
   "updateAvailable": "アップデートあり — クリックして確認",
   "updateAvailableVersion": "アップデートあり: v{{version}} — クリックして確認",
   "updateDownloadingPercent": "ダウンロード中: {{percent}}%",

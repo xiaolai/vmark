@@ -49,6 +49,7 @@
   "pressAgainToQuit": "Premi di nuovo {{key}} per uscire",
   "updateChecking": "Ricerca aggiornamenti...",
   "updateDownloading": "Download aggiornamento...",
+  "updateInstalling": "Installazione aggiornamento...",
   "updateAvailable": "Aggiornamento disponibile — clicca per visualizzare",
   "updateAvailableVersion": "Aggiornamento disponibile: v{{version}} — clicca per visualizzare",
   "updateDownloadingPercent": "Download: {{percent}}%",

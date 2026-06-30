@@ -82,7 +82,6 @@
     "src/lib/ghaWorkflow/parser/jobs.ts": 321,
     "src/lib/ghaWorkflow/save/mutators.ts": 578,
     "src/lib/workflow/parser.ts": 418,
-    "src/pages/settings/AboutSettings.tsx": 403,
     "src/pages/settings/EditorSettings.tsx": 348,
     "src/pages/settings/FilesImagesSettings.tsx": 363,
     "src/pages/settings/IntegrationsSettings.tsx": 394,

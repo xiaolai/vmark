@@ -49,6 +49,7 @@
   "pressAgainToQuit": "{{key}} erneut drücken zum Beenden",
   "updateChecking": "Auf Updates prüfen...",
   "updateDownloading": "Update wird heruntergeladen...",
+  "updateInstalling": "Update wird installiert...",
   "updateAvailable": "Update verfügbar — klicken zum Anzeigen",
   "updateAvailableVersion": "Update verfügbar: v{{version}} — klicken zum Anzeigen",
   "updateDownloadingPercent": "Herunterladen: {{percent}}%",

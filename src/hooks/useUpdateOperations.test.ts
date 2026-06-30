@@ -402,6 +402,46 @@ describe("useUpdateOperationHandler", () => {
 
       expect(useMcpStore.getState().update.status).toBe("ready");
       expect(mockDownloadAndInstall).toHaveBeenCalled();
+      // Progress is cleared once the update is ready (no stale bar lingering).
+      expect(useMcpStore.getState().update.downloadProgress).toBeNull();
+    });
+
+    it("enters the installing phase at 100% before resolving to ready", async () => {
+      // Hold the install phase open so we can observe the intermediate state:
+      // bytes are in (bar snapped to 100%) but the package is still installing.
+      let resolveInstall!: () => void;
+      const mockDownloadAndInstall = vi.fn((onProgress: (e: unknown) => void) => {
+        onProgress({ event: "Started", data: { contentLength: 1000 } });
+        onProgress({ event: "Progress", data: { chunkLength: 1000 } });
+        onProgress({ event: "Finished", data: {} });
+        return new Promise<void>((r) => { resolveInstall = r; });
+      });
+
+      useMcpStore.getState().setPendingUpdate({
+        downloadAndInstall: mockDownloadAndInstall,
+      } as never);
+
+      const { result } = renderHook(() => useUpdateOperationHandler());
+
+      let pending!: Promise<void>;
+      await act(async () => {
+        pending = result.current.doDownloadAndInstall();
+      });
+
+      // Finished fired → installing, bar at 100% (downloaded === total).
+      expect(useMcpStore.getState().update.status).toBe("installing");
+      expect(useMcpStore.getState().update.downloadProgress).toEqual({
+        downloaded: 1000,
+        total: 1000,
+      });
+
+      await act(async () => {
+        resolveInstall();
+        await pending;
+      });
+
+      expect(useMcpStore.getState().update.status).toBe("ready");
+      expect(useMcpStore.getState().update.downloadProgress).toBeNull();
     });
 
     it("sets error state when download fails", async () => {
@@ -421,6 +461,8 @@ describe("useUpdateOperationHandler", () => {
 
       expect(useMcpStore.getState().update.status).toBe("error");
       expect(useMcpStore.getState().update.error).toBe("Download failed");
+      // Stale partial progress is cleared on failure.
+      expect(useMcpStore.getState().update.downloadProgress).toBeNull();
     });
 
     it("handles non-Error thrown values during download", async () => {

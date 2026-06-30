@@ -26,7 +26,7 @@
  *     JSON-diff said "yes this is new, emit" on every hop.
  *
  * @coordinates-with useUpdateOperations.ts — triggers state changes
- * @coordinates-with updateStore.ts — reads/writes update state
+ * @coordinates-with mcpStore.ts — reads/writes the `update` slice
  * @module hooks/useUpdateSync
  */
 
