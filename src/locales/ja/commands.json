@@ -38,6 +38,7 @@
   "view": {
     "toggleSourceMode": "ソースモードを切り替え",
     "toggleSplitDocuments": "エディターを分割：2つのドキュメントを並べて表示",
+    "toggleSyncScroll": "分割ペイン間でスクロールを同期",
     "setWysiwygMode": "WYSIWYGモードにする",
     "toggleFocusMode": "フォーカスモードを切り替え",
     "toggleTypewriterMode": "タイプライターモードを切り替え",

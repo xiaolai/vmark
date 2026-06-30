@@ -13,6 +13,7 @@ import { useWindowStatusStore } from "@/stores/windowStatusStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useLintStore } from "@/stores/documentStore";
 import { usePaneStore } from "@/stores/paneStore";
+import { toggleSplitDocuments } from "@/services/navigation/toggleSplitDocuments";
 import { requestToggleTerminal } from "@/components/Terminal/terminalGate";
 import { cleanupBeforeModeSwitch } from "@/services/assembly/modeSwitchCleanup";
 import { toggleSourceModeWithCheckpoint } from "@/hooks/useUnifiedHistory";
@@ -251,14 +252,16 @@ export function registerViewCommands(): void {
     id: "view.toggleSplitDocuments",
     title: () => i18n.t("commands:view.toggleSplitDocuments"),
     category: "view",
+    run: (_args, ctx: Ctx) => toggleSplitDocuments(ctx.windowLabel ?? "main"),
+  });
+
+  // Synchronize scrolling between the two panes (great for bilingual reading).
+  registerCommand({
+    id: "view.toggleSyncScroll",
+    title: () => i18n.t("commands:view.toggleSyncScroll"),
+    category: "view",
     run: (_args, ctx: Ctx) => {
-      const windowLabel = ctx.windowLabel ?? "main";
-      const split = usePaneStore.getState().byWindow[windowLabel];
-      if (split?.enabled) {
-        usePaneStore.getState().closeSplit(windowLabel);
-      } else {
-        usePaneStore.getState().openSplit(windowLabel, getActiveTabId(windowLabel));
-      }
+      usePaneStore.getState().toggleSyncScroll(ctx.windowLabel ?? "main");
     },
   });
 

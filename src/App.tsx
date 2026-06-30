@@ -4,7 +4,7 @@ import { useTranslation, withTranslation, type WithTranslation } from "react-i18
 import { Routes, Route } from "react-router-dom";
 import { Toaster } from "sonner";
 import { CheckCircle, XCircle, Info, AlertTriangle, Loader2 } from "lucide-react";
-import { DocumentSplitContainer } from "@/components/Editor/DocumentSplit/DocumentSplitContainer";
+import { DocumentSplitContainer } from "@/components/Editor";
 import { useUnifiedMenuCommands } from "@/hooks/useUnifiedMenuCommands";
 import { Sidebar } from "@/components/Sidebar";
 import { SidebarResizeHandle } from "@/components/Sidebar/SidebarResizeHandle";

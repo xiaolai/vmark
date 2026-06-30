@@ -38,6 +38,7 @@
   "view": {
     "toggleSourceMode": "Activer/désactiver le mode source",
     "toggleSplitDocuments": "Diviser l’éditeur : deux documents côte à côte",
+    "toggleSyncScroll": "Synchroniser le défilement entre les volets",
     "setWysiwygMode": "Activer le mode WYSIWYG",
     "toggleFocusMode": "Activer/désactiver le mode focus",
     "toggleTypewriterMode": "Activer/désactiver le mode machine à écrire",

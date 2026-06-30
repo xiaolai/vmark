@@ -38,6 +38,7 @@
   "view": {
     "toggleSourceMode": "Toggle Source Mode",
     "toggleSplitDocuments": "Split Editor: Two Documents Side by Side",
+    "toggleSyncScroll": "Sync Scroll Between Split Panes",
     "setWysiwygMode": "Set WYSIWYG Mode",
     "toggleFocusMode": "Toggle Focus Mode",
     "toggleTypewriterMode": "Toggle Typewriter Mode",

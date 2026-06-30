@@ -38,6 +38,7 @@
   "view": {
     "toggleSourceMode": "Quelltextmodus umschalten",
     "toggleSplitDocuments": "Editor teilen: Zwei Dokumente nebeneinander",
+    "toggleSyncScroll": "Bildlauf zwischen geteilten Bereichen synchronisieren",
     "setWysiwygMode": "WYSIWYG-Modus festlegen",
     "toggleFocusMode": "Fokusmodus umschalten",
     "toggleTypewriterMode": "Schreibmaschinenmodus umschalten",

@@ -159,6 +159,7 @@ If you prefer keeping system functions on F-keys, you can customize VMark shortc
 |--------|----------|
 | Toggle Source Mode | `F6` |
 | Toggle Markdown Split View | `Shift + F6` |
+| Split Editor — Two Documents | `Alt + Mod + \` |
 | Toggle Status Bar | `F7` |
 | Focus Mode | `F8` |
 | Typewriter Mode | `F9` |

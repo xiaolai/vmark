@@ -156,10 +156,7 @@ export function StatusBar() {
   const tabDragScopeRef = useRef<HTMLDivElement>(null);
 
   const handleActivateTab = useCallback(
-    (tabId: string) => {
-      // Pane-aware (#1081): routes to the focused pane's document.
-      activateTabInFocusedPane(windowLabel, tabId);
-    },
+    (tabId: string) => activateTabInFocusedPane(windowLabel, tabId), // pane-aware (#1081)
     [windowLabel]
   );
 

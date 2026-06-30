@@ -1,6 +1,24 @@
 # Two Documents Side-by-Side in One Window (#1081)
 
-Status: **Phase 0 — planned** (not started)
+Status: **Phases 1–3 + 5 implemented** on `feat/split-documents`; Phase 4
+persistence **deferred** (see Implementation status below).
+
+## Implementation status (2026-07-01)
+
+- **Phase 1 ✅** — `paneStore`, `PaneContext`, pane-aware `useActiveTabId`
+  (single-pane behavior unchanged).
+- **Phase 2 ✅** — editor-singleton registration gated on the focused pane
+  (`TiptapEditor`/`SourceEditor`). *Finding that refined ADR-3:* registration
+  was a mount effect, not focus-based — now gated on `isFocusedPane`.
+- **Phase 3 ✅** — `DocumentSplitContainer` + `SplitDivider` (mouse + keyboard),
+  `useUnifiedMenuCommands` lifted to once-per-window, `view.toggleSplitDocuments`
+  command, pane-aware tab activation.
+- **Phase 5 ✅** — `useSyncPaneScroll` + `view.toggleSyncScroll`.
+- **Phase 4 (shortcuts) ✅ / (persistence) ⏳ deferred** — `Alt+Mod+\` shortcut
+  shipped; a Rust menu item and split-layout **persistence** across sessions are
+  a documented follow-up (the secondary-pane tab↔path restore ordering touches
+  the delicate workspace-restore path and is lower value than the core split +
+  sync-scroll). Known v1 limitations remain as listed below.
 
 Let the editor area hold **two different documents** at once — left/right (or
 top/bottom) panes, each showing its own document, with a draggable divider and

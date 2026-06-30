@@ -141,6 +141,7 @@ export const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
   { id: "knowledgeBase", label: "Toggle Knowledge Base", category: "view", defaultKey: "Ctrl-Shift-4", menuId: "knowledge-base", scope: "global", description: "Open the local knowledge-base inspector panel" },
   { id: "sourceMode", label: "Source Mode", category: "view", defaultKey: "F6", menuId: "source-mode" },
   { id: "markdownSplit", label: "Markdown Split View", category: "view", defaultKey: "Shift-F6", menuId: "markdown-split", scope: "global", description: "Toggle the side-by-side source + preview split" },
+  { id: "splitDocuments", label: "Split Editor — Two Documents", category: "view", defaultKey: "Alt-Mod-\\", scope: "global", description: "Open two different documents side by side (#1081)" },
   { id: "toggleStatusBar", label: "Toggle Status Bar", category: "view", defaultKey: "F7", description: "Show/hide the status bar", scope: "global" },
   { id: "focusMode", label: "Focus Mode", category: "view", defaultKey: "F8", menuId: "focus-mode", scope: "global" },
   { id: "typewriterMode", label: "Typewriter Mode", category: "view", defaultKey: "F9", menuId: "typewriter-mode", scope: "global" },

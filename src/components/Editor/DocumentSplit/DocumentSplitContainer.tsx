@@ -14,13 +14,14 @@
  * @coordinates-with components/Editor/Editor.tsx — the per-pane surface
  * @module components/Editor/DocumentSplit/DocumentSplitContainer
  */
-import type { CSSProperties } from "react";
+import { useRef, type CSSProperties } from "react";
 import { useWindowLabel } from "@/contexts/WindowContext";
 import { PaneProvider } from "@/contexts/PaneContext";
 import { usePaneStore } from "@/stores/paneStore";
 import { useTabStore } from "@/stores/tabStore";
 import { Editor } from "../Editor";
 import { SplitDivider } from "./SplitDivider";
+import { useSyncPaneScroll } from "./useSyncPaneScroll";
 import "./document-split.css";
 
 export function DocumentSplitContainer() {
@@ -28,18 +29,33 @@ export function DocumentSplitContainer() {
   const split = usePaneStore((state) => state.byWindow[windowLabel]);
   const primaryTabId = useTabStore((state) => state.activeTabId[windowLabel] ?? null);
 
+  const primaryRef = useRef<HTMLDivElement>(null);
+  const secondaryRef = useRef<HTMLDivElement>(null);
+  const enabled = split?.enabled ?? false;
+  const secondaryTabId = split?.secondaryTabId ?? null;
+
+  // Hooks before any early return. Scroll sync no-ops unless the split is open
+  // AND syncScroll is on; re-binds when either pane's document changes.
+  useSyncPaneScroll(
+    primaryRef,
+    secondaryRef,
+    enabled && (split?.syncScroll ?? false),
+    `${primaryTabId}:${secondaryTabId}`,
+  );
+
   // Single pane — unchanged.
-  if (!split?.enabled) {
+  if (!enabled || !split) {
     return <Editor />;
   }
 
-  const { orientation, fraction, secondaryTabId, focusedPane } = split;
+  const { orientation, fraction, focusedPane } = split;
   const focusPrimary = () => usePaneStore.getState().setFocusedPane(windowLabel, "primary");
   const focusSecondary = () => usePaneStore.getState().setFocusedPane(windowLabel, "secondary");
 
   return (
     <div className={`document-split document-split--${orientation}`}>
       <div
+        ref={primaryRef}
         className="document-split__pane"
         style={{ flexGrow: fraction } as CSSProperties}
         data-focused={focusedPane === "primary"}
@@ -58,6 +74,7 @@ export function DocumentSplitContainer() {
       />
 
       <div
+        ref={secondaryRef}
         className="document-split__pane"
         style={{ flexGrow: 1 - fraction } as CSSProperties}
         data-focused={focusedPane === "secondary"}

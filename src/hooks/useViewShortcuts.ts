@@ -28,6 +28,7 @@ import { cleanupBeforeModeSwitch } from "@/services/assembly/modeSwitchCleanup";
 import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import { toggleSourceModeWithCheckpoint } from "@/hooks/useUnifiedHistory";
 import { toggleMarkdownSplitWithCheckpoint } from "@/hooks/markdownSplitToggle";
+import { toggleSplitDocuments } from "@/services/navigation/toggleSplitDocuments";
 import { requestToggleTerminal } from "@/components/Terminal/terminalGate";
 import { toggleDocumentReadOnlyWithOwnership } from "@/services/workspaces/fileOwnership";
 import { useSettingsStore } from "@/stores/settingsStore";
@@ -63,7 +64,8 @@ export type ViewAction =
   | "fileExplorer"
   | "viewHistory"
   | "knowledgeBase"
-  | "markdownSplit";
+  | "markdownSplit"
+  | "splitDocuments";
 
 /** All shortcut ids the view-shortcut resolver/executors consult. */
 const VIEW_SHORTCUT_IDS: ViewAction[] = [
@@ -84,6 +86,7 @@ const VIEW_SHORTCUT_IDS: ViewAction[] = [
   "viewHistory",
   "knowledgeBase",
   "markdownSplit",
+  "splitDocuments",
 ];
 
 /** Build the action-id → binding map resolveViewAction expects from the store. */
@@ -135,6 +138,7 @@ export function resolveViewAction(
     ["viewHistory", "viewHistory"],
     ["knowledgeBase", "knowledgeBase"],
     ["markdownSplit", "markdownSplit"],
+    ["splitDocuments", "splitDocuments"],
   ];
 
   for (const [key, action] of actionMap) {
@@ -202,6 +206,7 @@ export const VIEW_ACTION_EXECUTORS: Record<ViewAction, () => void> = {
   viewHistory: () => useUIStore.getState().toggleSidebarView("history"),
   knowledgeBase: () => useContentServerStore.getState().togglePanel(),
   markdownSplit: () => toggleMarkdownSplitWithCheckpoint(getCurrentWindowLabel()),
+  splitDocuments: () => toggleSplitDocuments(getCurrentWindowLabel()),
 };
 
 // ---------------------------------------------------------------------------

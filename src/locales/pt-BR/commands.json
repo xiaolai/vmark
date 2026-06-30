@@ -38,6 +38,7 @@
   "view": {
     "toggleSourceMode": "Alternar modo de código-fonte",
     "toggleSplitDocuments": "Dividir editor: dois documentos lado a lado",
+    "toggleSyncScroll": "Sincronizar rolagem entre painéis",
     "setWysiwygMode": "Definir modo WYSIWYG",
     "toggleFocusMode": "Alternar modo de foco",
     "toggleTypewriterMode": "Alternar modo máquina de escrever",
