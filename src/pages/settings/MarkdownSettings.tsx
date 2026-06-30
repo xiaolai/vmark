@@ -140,6 +140,15 @@ export function MarkdownSettings() {
             onChange={(v) => updateSetting("tableFitToWidth", v)}
           />
         </SettingRow>
+        <SettingRow
+          label={t("markdown.codeBlockLineNumbers.label")}
+          description={t("markdown.codeBlockLineNumbers.description")}
+        >
+          <Toggle
+            checked={markdown.codeBlockLineNumbers}
+            onChange={(v) => updateSetting("codeBlockLineNumbers", v)}
+          />
+        </SettingRow>
       </SettingsGroup>
 
       {/* HTML Rendering */}

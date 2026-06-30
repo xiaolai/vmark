@@ -83,6 +83,7 @@ export const initialState: SettingsState = {
     preserveLineBreaks: false,
     showBrTags: false,
     showInvisibles: false,
+    codeBlockLineNumbers: false,
     enableRegexSearch: true,
     pasteMarkdownInWysiwyg: "auto",
     pasteMode: "smart", // Default: convert HTML to Markdown

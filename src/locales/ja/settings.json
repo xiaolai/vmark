@@ -200,6 +200,8 @@
   "markdown.mediaAlignment.center": "中央揃え",
   "markdown.mediaAlignment.left": "左揃え",
   "markdown.tableFitToWidth.label": "テーブルを幅に合わせる",
+  "markdown.codeBlockLineNumbers.label": "コードブロックの行番号",
+  "markdown.codeBlockLineNumbers.description": "リッチテキストエディターのコードブロック内に行番号を表示します。表示メニューの「行番号」（ソースエディターの行番号表示）とは独立しています。",
   "markdown.tableFitToWidth.description": "水平スクロールの代わりに、すべてのテーブルをエディタの幅に合わせる",
   "markdown.group.htmlRendering": "HTMLレンダリング",
   "markdown.htmlRendering.label": "リッチテキスト内の生HTML",

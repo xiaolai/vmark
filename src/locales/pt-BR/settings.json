@@ -200,6 +200,8 @@
   "markdown.mediaAlignment.center": "Centro",
   "markdown.mediaAlignment.left": "Esquerda",
   "markdown.tableFitToWidth.label": "Ajustar tabelas à largura",
+  "markdown.codeBlockLineNumbers.label": "Números de linha em blocos de código",
+  "markdown.codeBlockLineNumbers.description": "Mostra números de linha dentro dos blocos de código no editor de texto formatado. Independente de “Números de linha” do menu Exibir (editor de código-fonte).",
   "markdown.tableFitToWidth.description": "Restringir todas as tabelas à largura do editor em vez de permitir rolagem horizontal",
   "markdown.group.htmlRendering": "Renderização HTML",
   "markdown.htmlRendering.label": "HTML bruto em rich text",

@@ -165,16 +165,24 @@ vi.mock("@/stores/uiStore", () => {
   return { useUIStore: store };
 });
 
-vi.mock("@/stores/settingsStore", () => {
-  const state = {
-    markdown: { preserveLineBreaks: false, hardBreakStyleOnSave: "backslash", lintEnabled: true },
+const { settingsState } = vi.hoisted(() => ({
+  settingsState: {
+    markdown: {
+      preserveLineBreaks: false,
+      hardBreakStyleOnSave: "backslash",
+      lintEnabled: true,
+      showInvisibles: false,
+      codeBlockLineNumbers: false,
+    },
     appearance: { cjkLetterSpacing: "0" },
+  },
+}));
+vi.mock("@/stores/settingsStore", () => {
+  const store = ((selector: (s: typeof settingsState) => unknown) => selector(settingsState)) as unknown as {
+    (selector: (s: typeof settingsState) => unknown): unknown;
+    getState: () => typeof settingsState;
   };
-  const store = ((selector: (s: typeof state) => unknown) => selector(state)) as unknown as {
-    (selector: (s: typeof state) => unknown): unknown;
-    getState: () => typeof state;
-  };
-  store.getState = () => state;
+  store.getState = () => settingsState;
   return { useSettingsStore: store };
 });
 
@@ -245,23 +253,26 @@ describe("TiptapEditorInner", () => {
     expect(container.querySelector(".tiptap-editor")).toBeInTheDocument();
   });
 
-  it("adds show-line-numbers class when showLineNumbers is true", () => {
-    // Override editorStore mock for this test
-    vi.doMock("@/stores/uiStore", () => {
-      const state = { showLineNumbers: true };
-      const store = ((sel: (s: typeof state) => unknown) => sel(state)) as unknown as {
-        (sel: (s: typeof state) => unknown): unknown;
-        getState: () => typeof state;
-      };
-      store.getState = () => state;
-      return { useUIStore: store };
-    });
-    // Re-render with the module-level mock already in place;
-    // the component reads from the store selector, which we've mocked above.
-    // Since vi.doMock doesn't affect already-imported modules, we test
-    // using the default mock state (showLineNumbers: false).
+  it("adds show-line-numbers class when markdown.codeBlockLineNumbers is on", () => {
+    // WYSIWYG code-block line numbers are driven by the Markdown setting, NOT
+    // the View-menu source-gutter toggle (uiStore.showLineNumbers). See #1082.
+    settingsState.markdown.codeBlockLineNumbers = true;
+    try {
+      const { container } = render(<TiptapEditorInner />);
+      expect(container.querySelector(".tiptap-editor.show-line-numbers")).toBeInTheDocument();
+    } finally {
+      settingsState.markdown.codeBlockLineNumbers = false;
+    }
+  });
+
+  it("omits show-line-numbers when the code-block setting is off", () => {
+    // Default off — and TiptapEditor no longer reads the source-gutter toggle
+    // at all, so the gutter "Line Numbers" item can never add this class.
+    settingsState.markdown.codeBlockLineNumbers = false;
     const { container } = render(<TiptapEditorInner />);
-    expect(container.querySelector(".tiptap-editor")).toBeInTheDocument();
+    const editor = container.querySelector(".tiptap-editor");
+    expect(editor).toBeInTheDocument();
+    expect(editor?.classList.contains("show-line-numbers")).toBe(false);
   });
 
   it("hides editor content when hidden=true", () => {

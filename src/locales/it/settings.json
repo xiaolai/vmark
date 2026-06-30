@@ -200,6 +200,8 @@
   "markdown.mediaAlignment.center": "Al centro",
   "markdown.mediaAlignment.left": "A sinistra",
   "markdown.tableFitToWidth.label": "Adatta tabelle alla larghezza",
+  "markdown.codeBlockLineNumbers.label": "Numeri di riga nei blocchi di codice",
+  "markdown.codeBlockLineNumbers.description": "Mostra i numeri di riga nei blocchi di codice nell’editor rich-text. Indipendente da «Numeri di riga» del menu Visualizza (editor sorgente).",
   "markdown.tableFitToWidth.description": "Vincola tutte le tabelle alla larghezza dell'editor invece di consentire lo scorrimento orizzontale",
   "markdown.group.htmlRendering": "Rendering HTML",
   "markdown.htmlRendering.label": "HTML grezzo in testo formattato",

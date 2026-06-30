@@ -200,6 +200,8 @@
   "markdown.mediaAlignment.center": "Zentriert",
   "markdown.mediaAlignment.left": "Links",
   "markdown.tableFitToWidth.label": "Tabellen an Breite anpassen",
+  "markdown.codeBlockLineNumbers.label": "Zeilennummern in Codeblöcken",
+  "markdown.codeBlockLineNumbers.description": "Zeigt Zeilennummern in Codeblöcken im Rich-Text-Editor. Unabhängig von „Zeilennummern“ im Menü Ansicht (Quelltext-Editor).",
   "markdown.tableFitToWidth.description": "Alle Tabellen auf die Editorbreite beschränken, anstatt horizontales Scrollen zu erlauben",
   "markdown.group.htmlRendering": "HTML-Darstellung",
   "markdown.htmlRendering.label": "Roh-HTML im Rich-Text",

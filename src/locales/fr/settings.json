@@ -200,6 +200,8 @@
   "markdown.mediaAlignment.center": "Centre",
   "markdown.mediaAlignment.left": "Gauche",
   "markdown.tableFitToWidth.label": "Ajuster les tableaux à la largeur",
+  "markdown.codeBlockLineNumbers.label": "Numéros de ligne des blocs de code",
+  "markdown.codeBlockLineNumbers.description": "Affiche les numéros de ligne dans les blocs de code de l’éditeur de texte enrichi. Indépendant de « Numéros de ligne » du menu Affichage (éditeur de code source).",
   "markdown.tableFitToWidth.description": "Contraindre tous les tableaux à la largeur de l'éditeur au lieu d'autoriser le défilement horizontal",
   "markdown.group.htmlRendering": "Rendu HTML",
   "markdown.htmlRendering.label": "HTML brut en texte enrichi",

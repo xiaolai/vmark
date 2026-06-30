@@ -230,6 +230,8 @@
   "markdown.mediaAlignment.center": "Center",
   "markdown.mediaAlignment.left": "Left",
   "markdown.tableFitToWidth.label": "Fit tables to width",
+  "markdown.codeBlockLineNumbers.label": "Code block line numbers",
+  "markdown.codeBlockLineNumbers.description": "Show line numbers inside code blocks in the rich-text editor. Independent of the View menu’s Line Numbers (source editor gutter).",
   "markdown.tableFitToWidth.description": "Constrain all tables to the editor width instead of allowing horizontal scroll",
   "markdown.group.htmlRendering": "HTML Rendering",
   "markdown.htmlRendering.label": "Raw HTML in rich text",

@@ -177,9 +177,9 @@ export type CopyFormat = "default" | "markdown";
 export interface MarkdownSettings {
   preserveLineBreaks: boolean; // Don't collapse blank lines
   showBrTags: boolean; // Display <br> tags visibly
-  // Render invisible chars: spaces ·, tabs → and soft breaks ↓ (Source only),
-  // hard breaks ⏎. Off by default; --md-char-color, hidden in print + fenced code.
+  // Render invisible chars (spaces, tabs, breaks); Source only; off by default.
   showInvisibles: boolean;
+  codeBlockLineNumbers: boolean; // WYSIWYG per-code-block gutter; independent of the source gutter / View menu (#1082)
   enableRegexSearch: boolean; // Enable regex in Find & Replace
   pasteMarkdownInWysiwyg: MarkdownPasteMode; // Convert pasted markdown into rich text
   pasteMode: PasteMode; // How to handle clipboard content (smart/plain/rich)

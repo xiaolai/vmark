@@ -200,6 +200,8 @@
   "markdown.mediaAlignment.center": "置中",
   "markdown.mediaAlignment.left": "靠左",
   "markdown.tableFitToWidth.label": "表格適應寬度",
+  "markdown.codeBlockLineNumbers.label": "程式碼區塊行號",
+  "markdown.codeBlockLineNumbers.description": "在富文字編輯器的程式碼區塊內顯示行號。與「檢視」選單中的「行號」（原始碼編輯器行號）相互獨立。",
   "markdown.tableFitToWidth.description": "將所有表格約束到編輯器寬度，而不是允許水平捲動",
   "markdown.group.htmlRendering": "HTML 渲染",
   "markdown.htmlRendering.label": "富文字模式中的原始 HTML",

@@ -200,6 +200,8 @@
   "markdown.mediaAlignment.center": "가운데",
   "markdown.mediaAlignment.left": "왼쪽",
   "markdown.tableFitToWidth.label": "표를 너비에 맞추기",
+  "markdown.codeBlockLineNumbers.label": "코드 블록 줄 번호",
+  "markdown.codeBlockLineNumbers.description": "리치 텍스트 편집기의 코드 블록 안에 줄 번호를 표시합니다. 보기 메뉴의 「줄 번호」(소스 편집기 줄 번호)와 독립적입니다.",
   "markdown.tableFitToWidth.description": "가로 스크롤 대신 모든 표를 편집기 너비에 맞춤",
   "markdown.group.htmlRendering": "HTML 렌더링",
   "markdown.htmlRendering.label": "서식 있는 텍스트의 원시 HTML",

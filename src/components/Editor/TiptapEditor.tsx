@@ -47,7 +47,6 @@ import { createTiptapExtensions } from "@/services/assembly/tiptapExtensions";
 import { setShowInvisibles } from "@/plugins/showInvisibles/tiptap";
 import type { CursorInfo } from "@/stores/documentStore";
 import { useEditorStore } from "@/stores/editorStore";
-import { useUIStore } from "@/stores/uiStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
@@ -151,7 +150,7 @@ export function TiptapEditorInner({ hidden = false, readOnly = false, preview = 
   const { setContent, setCursorInfo, setSelectedText } = useDocumentActions();
   const preserveLineBreaks = useSettingsStore((state) => state.markdown.preserveLineBreaks);
   const hardBreakStyleOnSave = useSettingsStore((state) => state.markdown.hardBreakStyleOnSave);
-  const showLineNumbers = useUIStore((state) => state.showLineNumbers);
+  const codeBlockLineNumbers = useSettingsStore((state) => state.markdown.codeBlockLineNumbers);
   const cjkLetterSpacing = useSettingsStore((state) => state.appearance.cjkLetterSpacing);
   const lintEnabled = useSettingsStore((state) => state.markdown.lintEnabled);
   const showInvisibles = useSettingsStore((state) => state.markdown.showInvisibles);
@@ -665,11 +664,10 @@ export function TiptapEditorInner({ hidden = false, readOnly = false, preview = 
   // doc size (close enough for the threshold check; the exact post-parse size
   // governs onUpdate toggling).
   const shouldUseCvIdle = content.length >= CV_IDLE_CHAR_THRESHOLD;
-  /* v8 ignore next -- @preserve reason: show-line-numbers CSS class branch not exercised in current TiptapEditor render tests */
   const editorClassName = [
     "tiptap-editor",
     shouldUseCvIdle ? "cv-idle" : null,
-    showLineNumbers ? "show-line-numbers" : null,
+    codeBlockLineNumbers ? "show-line-numbers" : null,
   ]
     .filter(Boolean)
     .join(" ");

@@ -115,6 +115,7 @@ Paste behavior, layout, and HTML rendering settings.
 | Heading alignment | Text alignment for headings | Left | Left, Center |
 | Image & diagram borders | Whether to show a border around images, Mermaid diagrams, and math blocks | None | None, Always, On hover |
 | Image & table alignment | Horizontal alignment for block images and tables | Center | Center, Left |
+| Code block line numbers | Show line numbers inside code blocks in the WYSIWYG editor. Independent of the View menu's **Line Numbers**, which controls the Source/Split editor's gutter | Off | On / Off |
 
 ### Lint
 
