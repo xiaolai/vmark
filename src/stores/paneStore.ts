@@ -18,9 +18,8 @@
  *
  * @coordinates-with stores/tabStore.ts — activeTabId is the focused-pane alias
  * @coordinates-with contexts/PaneContext.tsx — provides each pane's tabId
- * @coordinates-with stores/tabStore.ts — activeTabId is the focused-pane alias;
- *   also subscribes to tabStore.onTabRemoved so any close/detach path collapses
- *   a split whose pane held the removed tab (pub/sub avoids a store cycle)
+ * @coordinates-with stores/tabRemovalBus.ts — subscribes to onTabRemoved so any
+ *   close/detach path collapses a split whose pane held the removed tab
  * @module stores/paneStore
  */
 import { create } from "zustand";

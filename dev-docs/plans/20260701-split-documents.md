@@ -41,6 +41,10 @@ Status: **All phases implemented + plan-audit findings fixed** on
 - View-mode flags stay window-global (focused pane); independent per-pane modes
   and a native Rust menu item are follow-ups. A tab context-menu "Open to the
   Side" action is a follow-up (command + shortcut cover the trigger).
+- Closing a paned tab **collapses** the split back to a single pane rather than
+  promoting the surviving pane's document — the window then shows whatever tab
+  `tabStore.closeTab` activates (right neighbor, then left). Promoting the
+  survivor is a follow-up UX refinement.
 
 Let the editor area hold **two different documents** at once — left/right (or
 top/bottom) panes, each showing its own document, with a draggable divider and
