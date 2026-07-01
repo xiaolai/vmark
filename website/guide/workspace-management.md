@@ -154,6 +154,24 @@ The Welcome screen offers quick actions to get back to work:
 
 To close the window itself, use the red traffic-light button, `Cmd/Ctrl + Q` (quit), or press `Cmd/Ctrl + W` again while the Welcome screen is showing.
 
+## Side-by-Side Documents
+
+Open two **different** documents at once — split the editor into two panes, each
+with its own document. Useful for bilingual reading/translation (original on one
+side, translation on the other) or keeping a reference open while you write.
+This is distinct from **Markdown Split View** (`Shift + F6`), which is the
+source + preview of the *same* file.
+
+- Toggle the split with **`Alt + Mod + \`** or the command palette
+  (**Split Editor — Two Documents**). It opens the current document in the
+  second pane; click a tab while a pane is focused to change that pane's
+  document.
+- Drag the divider (or focus it and use the arrow keys) to resize the panes.
+- The pane you're editing is the **focused** pane — the toolbar, find bar, and
+  menu commands act on it.
+- Turn on **Sync Scroll Between Split Panes** (command palette) to scroll both
+  sides together proportionally — handy for lining up a translation.
+
 ## Session Restore
 
 When you close a window that has a workspace open, VMark saves the list of open tabs to the workspace config. The next time you open the same workspace, those tabs are restored automatically.

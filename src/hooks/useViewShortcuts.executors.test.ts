@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   toggleSourceModeWithCheckpoint: vi.fn(),
   cleanupBeforeModeSwitch: vi.fn(),
   toggleMarkdownSplitWithCheckpoint: vi.fn(),
+  toggleSplitDocuments: vi.fn(),
   toggleDocumentReadOnlyWithOwnership: vi.fn(),
   runActiveLint: vi.fn(),
   scrollToSelectedDiagnostic: vi.fn(),
@@ -36,6 +37,9 @@ vi.mock("@/services/assembly/modeSwitchCleanup", () => ({
 }));
 vi.mock("@/hooks/markdownSplitToggle", () => ({
   toggleMarkdownSplitWithCheckpoint: mocks.toggleMarkdownSplitWithCheckpoint,
+}));
+vi.mock("@/services/navigation/toggleSplitDocuments", () => ({
+  toggleSplitDocuments: mocks.toggleSplitDocuments,
 }));
 vi.mock("@/services/workspaces/fileOwnership", () => ({
   toggleDocumentReadOnlyWithOwnership: mocks.toggleDocumentReadOnlyWithOwnership,
@@ -172,5 +176,10 @@ describe("VIEW_ACTION_EXECUTORS", () => {
   it("markdownSplit toggles the split view with a checkpoint", () => {
     VIEW_ACTION_EXECUTORS.markdownSplit();
     expect(mocks.toggleMarkdownSplitWithCheckpoint).toHaveBeenCalledWith("main");
+  });
+
+  it("splitDocuments toggles the two-documents side-by-side split (#1081)", () => {
+    VIEW_ACTION_EXECUTORS.splitDocuments();
+    expect(mocks.toggleSplitDocuments).toHaveBeenCalledWith("main");
   });
 });

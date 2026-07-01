@@ -37,6 +37,10 @@
   },
   "view": {
     "toggleSourceMode": "切換原始碼模式",
+    "toggleSplitDocuments": "分割編輯器：並排顯示兩個文件",
+    "toggleSyncScroll": "同步分割捲動",
+    "closePane": "關閉分割窗格",
+    "focusOtherPane": "聚焦另一個窗格",
     "setWysiwygMode": "切換到所見即所得模式",
     "toggleFocusMode": "切換專注模式",
     "toggleTypewriterMode": "切換打字機模式",

@@ -37,6 +37,7 @@ import { useWindowLabel, useIsDocumentWindow } from "@/contexts/WindowContext";
 import { useTabStore, type Tab as TabType } from "@/stores/tabStore";
 import { useDocumentStore, useLargeFileSessionStore } from "@/stores/documentStore";
 import { closeTabWithDirtyCheck } from "@/hooks/useTabOperations";
+import { activateTabInFocusedPane } from "@/services/navigation/activateTabInFocusedPane";
 import { toggleSourceModeWithCheckpoint } from "@/hooks/useUnifiedHistory";
 import { toggleDocumentReadOnlyWithOwnership } from "@/services/workspaces/fileOwnership";
 import {
@@ -155,9 +156,7 @@ export function StatusBar() {
   const tabDragScopeRef = useRef<HTMLDivElement>(null);
 
   const handleActivateTab = useCallback(
-    (tabId: string) => {
-      useTabStore.getState().setActiveTab(windowLabel, tabId);
-    },
+    (tabId: string) => activateTabInFocusedPane(windowLabel, tabId), // pane-aware (#1081)
     [windowLabel]
   );
 

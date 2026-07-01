@@ -1,1 +1,1 @@
-export { Editor } from "./Editor";
+export { DocumentSplitContainer } from "./DocumentSplit/DocumentSplitContainer";

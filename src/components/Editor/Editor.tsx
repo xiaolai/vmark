@@ -29,7 +29,6 @@
  */
 import { useActiveTabId } from "@/hooks/useDocumentState";
 import { useTabStore } from "@/stores/tabStore";
-import { useUnifiedMenuCommands } from "@/hooks/useUnifiedMenuCommands";
 import { dispatchEditor } from "@/lib/formats/registry";
 import { MarkdownEditorSurface } from "@/lib/formats/adapters/markdown";
 import { WelcomeScreen } from "@/components/Welcome/WelcomeScreen";
@@ -44,12 +43,9 @@ import "@/styles/popup-shared.css";
 export function Editor() {
   const tabId = useActiveTabId();
 
-  // Single mount for the menu dispatcher — mounted unconditionally (before any
-  // early return) so New / Open / Open Folder menu events keep working even
-  // when no document is open (Welcome screen). The markdown adapter no longer
-  // owns this, so non-markdown tabs receive menu events too.
-  useUnifiedMenuCommands();
-
+  // The menu dispatcher (useUnifiedMenuCommands) is mounted once per window in
+  // App.tsx MainLayout — NOT here — so a two-pane split doesn't double-mount it
+  // (#1081). It targets the window's focused pane via the pane-aware tab hooks.
   const tab = useTabStore((s) =>
     tabId ? (s.findTabById?.(tabId) ?? null) : null,
   );

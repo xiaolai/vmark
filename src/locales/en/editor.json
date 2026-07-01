@@ -1,5 +1,6 @@
 {
   "splitPane.editorLabel": "Editor for {{format}}",
+  "split.dividerLabel": "Resize split",
   "splitPane.resize": "Resize source / preview",
   "splitPane.validationDiagnostics": "Validation diagnostics",
   "diagnostic.json/syntax": "JSON: {{message}}",

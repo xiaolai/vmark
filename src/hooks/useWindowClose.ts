@@ -26,6 +26,7 @@
  * @coordinates-with closeSave.ts — promptSaveForMultipleDocuments dialog
  * @coordinates-with useTabOperations.ts — closeTabWithDirtyCheck for menu:close
  * @coordinates-with workspaceSession.ts — persists last open tabs
+ * @coordinates-with paneStore.ts — removeWindow clears per-window split state (#1081)
  * @module hooks/useWindowClose
  */
 
@@ -37,6 +38,7 @@ import i18n from "@/i18n";
 import { useWindowLabel } from "../contexts/WindowContext";
 import { useDocumentStore } from "../stores/documentStore";
 import { useTabStore } from "../stores/tabStore";
+import { usePaneStore } from "../stores/paneStore";
 import {
   promptSaveForDirtyDocument,
   promptSaveForMultipleDocuments,
@@ -135,6 +137,7 @@ export function useWindowClose() {
         tabs.forEach((tab) => useDocumentStore.getState().removeDocument(tab.id));
         await persistWorkspaceSession(windowLabel);
         useTabStore.getState().removeWindow(windowLabel);
+      usePaneStore.getState().removeWindow(windowLabel); // #1081 M3
         closeLog(windowLabel, "invoking close_window with label:", windowLabel);
         await invoke("close_window", { label: windowLabel });
         closeLog(windowLabel, "close_window returned");
@@ -174,6 +177,7 @@ export function useWindowClose() {
       tabs.forEach((tab) => useDocumentStore.getState().removeDocument(tab.id));
       await persistWorkspaceSession(windowLabel);
       useTabStore.getState().removeWindow(windowLabel);
+      usePaneStore.getState().removeWindow(windowLabel); // #1081 M3
       await invoke("close_window", { label: windowLabel });
       return true;
     } catch (error) {

@@ -22,6 +22,7 @@ vi.mock("@/hooks/openWorkspaceWithConfig", () => ({
 }));
 vi.mock("@/services/navigation/restoreWorkspaceTabs", () => ({
   restoreWorkspaceTabs: (...a: unknown[]) => mockRestoreWorkspaceTabs(...a),
+  restoreSplitLayout: () => {},
 }));
 vi.mock("@/services/ime/imeToast", () => ({ imeToast: { error: (...a: unknown[]) => mockToastError(...a) } }));
 

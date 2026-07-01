@@ -26,6 +26,7 @@
  * @coordinates-with documentStore.ts — each tab ID maps to a document entry
  * @coordinates-with workspaceStore.ts — lastOpenTabs for session restore
  * @coordinates-with lib/formats/registry.ts — dispatchEditor() drives formatId derivation
+ * @coordinates-with tabRemovalBus.ts — closeTab/detachTab notify on tab removal (#1081)
  * @module stores/tabStore
  */
 
@@ -35,6 +36,7 @@ import i18n from "@/i18n";
 import { getFileName, normalizePath } from "@/utils/paths";
 import { stripSupportedExtension } from "@/utils/dropPaths";
 import { dispatchEditor, getFormatById } from "@/lib/formats/registry";
+import { notifyTabRemoved } from "@/stores/tabRemovalBus";
 
 /** A single editor tab with ID, optional file path, display title, pin state,
  *  the format adapter id (derived from filePath via dispatchEditor), and the
@@ -94,7 +96,7 @@ interface TabActions {
   closeTab: (windowLabel: string, tabId: string) => void;
 
   // Tab state
-  setActiveTab: (windowLabel: string, tabId: string) => void;
+  setActiveTab: (windowLabel: string, tabId: string | null) => void;
   setTabEditingEnabled: (tabId: string, enabled: boolean) => void;
   setTabActiveSchemaId: (tabId: string, schemaId: string | null) => void;
   /** WI-1A.13 — overwrite a tab's `formatId` directly. Used by hot-exit
@@ -184,6 +186,19 @@ function updateTabById(
     );
   }
   return { tabs: newTabs };
+}
+
+/** Active tab after removing `removedId` at `removedIndex`: keep current if not
+ *  active, else the right neighbor, then left, then null (shared, no drift). */
+function nextActiveAfterRemoval(
+  current: string | null,
+  removedId: string,
+  removedIndex: number,
+  remaining: Tab[],
+): string | null {
+  if (current !== removedId) return current;
+  if (remaining.length === 0) return null;
+  return remaining[Math.min(removedIndex, remaining.length - 1)].id;
 }
 
 /** Manages per-window tab lifecycle — creation, closing, pinning, reordering, and reopen history. Use selectors, not destructuring. */
@@ -285,17 +300,7 @@ export const useTabStore = create<TabState & TabActions>((set, get) => ({
       const newClosed = [tab, ...closed].slice(0, 10);
 
       const newTabs = windowTabs.filter((t) => t.id !== tabId);
-
-      // Determine new active tab
-      let newActiveId = state.activeTabId[windowLabel];
-      if (newActiveId === tabId) {
-        if (newTabs.length > 0) {
-          const newIndex = Math.min(tabIndex, newTabs.length - 1);
-          newActiveId = newTabs[newIndex].id;
-        } else {
-          newActiveId = null;
-        }
-      }
+      const newActiveId = nextActiveAfterRemoval(state.activeTabId[windowLabel], tabId, tabIndex, newTabs);
 
       return {
         tabs: { ...state.tabs, [windowLabel]: newTabs },
@@ -303,6 +308,8 @@ export const useTabStore = create<TabState & TabActions>((set, get) => ({
         closedTabs: { ...state.closedTabs, [windowLabel]: newClosed },
       };
     });
+    // #1081: paneStore collapses a split whose pane held the tab.
+    notifyTabRemoved(windowLabel, tabId);
   },
 
   detachTab: (windowLabel, tabId) => {
@@ -312,22 +319,15 @@ export const useTabStore = create<TabState & TabActions>((set, get) => ({
       if (tabIndex === -1) return state;
 
       const newTabs = windowTabs.filter((t) => t.id !== tabId);
-
-      let newActiveId = state.activeTabId[windowLabel];
-      if (newActiveId === tabId) {
-        if (newTabs.length > 0) {
-          const newIndex = Math.min(tabIndex, newTabs.length - 1);
-          newActiveId = newTabs[newIndex].id;
-        } else {
-          newActiveId = null;
-        }
-      }
+      const newActiveId = nextActiveAfterRemoval(state.activeTabId[windowLabel], tabId, tabIndex, newTabs);
 
       return {
         tabs: { ...state.tabs, [windowLabel]: newTabs },
         activeTabId: { ...state.activeTabId, [windowLabel]: newActiveId },
       };
     });
+    // #1081: detaching removes the tab here too — collapse a split that held it.
+    notifyTabRemoved(windowLabel, tabId);
   },
 
   setActiveTab: (windowLabel, tabId) => {

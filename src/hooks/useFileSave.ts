@@ -17,10 +17,7 @@ import { save } from "@tauri-apps/plugin-dialog";
 import { remove } from "@tauri-apps/plugin-fs";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
-import {
-  dispatchEditor,
-  getFormatById,
-} from "@/lib/formats/registry";
+import { dispatchEditor, getFormatById } from "@/lib/formats/registry";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { getDefaultSaveFolderWithFallback } from "@/hooks/useDefaultSaveFolder";
 import { flushActiveWysiwygNow, flushAllWysiwygNow } from "@/utils/wysiwygFlush";

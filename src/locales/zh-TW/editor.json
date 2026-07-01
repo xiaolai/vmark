@@ -270,6 +270,7 @@
   "lint.yamlParseError": "YAML: {{message}}",
   "lint.yamlParseWarning": "YAML: {{message}}",
   "splitPane.editorLabel": "Editor for {{format}}",
+  "split.dividerLabel": "調整分割",
   "splitPane.resize": "Resize source / preview",
   "splitPane.validationDiagnostics": "Validation diagnostics",
   "diagnostic.json/syntax": "JSON: {{message}}",
