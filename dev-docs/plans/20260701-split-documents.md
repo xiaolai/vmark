@@ -1,24 +1,38 @@
 # Two Documents Side-by-Side in One Window (#1081)
 
-Status: **Phases 1–3 + 5 implemented** on `feat/split-documents`; Phase 4
-persistence **deferred** (see Implementation status below).
+Status: **All phases implemented + plan-audit findings fixed** on
+`feat/split-documents`.
 
 ## Implementation status (2026-07-01)
 
-- **Phase 1 ✅** — `paneStore`, `PaneContext`, pane-aware `useActiveTabId`
-  (single-pane behavior unchanged).
+- **Phase 1 ✅** — `paneStore`, `PaneContext`, pane-aware `useActiveTabId`.
 - **Phase 2 ✅** — editor-singleton registration gated on the focused pane
-  (`TiptapEditor`/`SourceEditor`). *Finding that refined ADR-3:* registration
-  was a mount effect, not focus-based — now gated on `isFocusedPane`.
+  (extracted to `useSourcePaneFocus` / `useFocusedPaneTiptapRegistration`).
 - **Phase 3 ✅** — `DocumentSplitContainer` + `SplitDivider` (mouse + keyboard),
   `useUnifiedMenuCommands` lifted to once-per-window, `view.toggleSplitDocuments`
-  command, pane-aware tab activation.
+  / `view.closePane` / `view.focusOtherPane` commands, pane-aware tab activation.
+- **Phase 4 ✅** — `Alt+Mod+\` shortcut; **persistence** as per-machine UI state
+  in `localStorage` (keyed by workspace root) via
+  `services/persistence/splitLayoutPersistence.ts` + `restoreSplitLayout` on
+  workspace open/recent. (Revised from ADR-7's shared-config approach — see
+  ADR-7 note.)
 - **Phase 5 ✅** — `useSyncPaneScroll` + `view.toggleSyncScroll`.
-- **Phase 4 (shortcuts) ✅ / (persistence) ⏳ deferred** — `Alt+Mod+\` shortcut
-  shipped; a Rust menu item and split-layout **persistence** across sessions are
-  a documented follow-up (the secondary-pane tab↔path restore ordering touches
-  the delicate workspace-restore path and is lower value than the core split +
-  sync-scroll). Known v1 limitations remain as listed below.
+
+### Plan-audit findings (all fixed)
+- **H2 (ADR-1)** — `tabStore.activeTabId` is now the **focused-pane alias**:
+  paneStore owns both panes' tabs by position and mirrors the focused pane's tab
+  into `activeTabId`, so all direct readers + the tab-strip highlight (**M2**)
+  follow focus with no per-site changes.
+- **H1** — `paneStore.handleTabClosed` reconciles on tab close (wired in
+  `useTabOperations`); collapses the split if a pane's doc is closed.
+- **M3** — `paneStore.removeWindow` wired into `useWindowClose`.
+- **M4** — Close-Pane / Focus-Other-Pane commands added.
+- **L1** — sync-scroll re-binds on Source↔WYSIWYG mode switch.
+
+### Remaining v1 limitation (documented)
+- View-mode flags stay window-global (focused pane); independent per-pane modes
+  and a native Rust menu item are follow-ups. A tab context-menu "Open to the
+  Side" action is a follow-up (command + shortcut cover the trigger).
 
 Let the editor area hold **two different documents** at once — left/right (or
 top/bottom) panes, each showing its own document, with a draggable divider and
@@ -100,10 +114,18 @@ doc-vs-doc divider, ratio-based scroll sync, split-layout persistence.
   `isInternalChange` echo guard.** Map `scrollTop / scrollHeight` across panes;
   guard against feedback. Off by default; a per-split toggle.
 
-- **ADR-7 — Persist split layout additively in workspace config.** New optional
-  `splitLayout` field (`{ orientation, fraction, paneTabs, syncScroll }`) in
-  `WorkspaceConfig`, written by `workspaceSession.ts`, restored on workspace
-  open. Absent field ⇒ single-pane (back-compat).
+- **ADR-7 — Persist split layout as per-machine UI state in `localStorage`.**
+  Original plan: an additive `splitLayout` field in `WorkspaceConfig` (TS + Rust
+  round-trip). **Revised during Phase 4:** the split layout is per-machine UI
+  state (like window size), not shared project config — persisting it in the
+  `.vmark` config would leak one machine's pane layout to collaborators and grow
+  baselined Rust/store files past the file-size gate. Instead it lives in
+  `localStorage` keyed by workspace root (`vmark-split-layout:<rootPath>`),
+  storing `{ orientation, fraction, syncScroll, secondaryPath }`. Only the
+  secondary pane's path is stored; the primary pane is whatever document is
+  active after tab restore. Absent key ⇒ single-pane (back-compat). Written by
+  `workspaceSession.ts`; restored by `restoreSplitLayout` after tabs load,
+  best-effort (skipped if the secondary file is gone).
 
 ## Phases
 

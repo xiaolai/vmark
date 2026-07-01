@@ -33,7 +33,7 @@ import { EditorContent, useEditor } from "@tiptap/react";
 import type { Editor as TiptapEditor } from "@tiptap/core";
 import type { Node as PMNode } from "@tiptap/pm/model";
 import { Selection } from "@tiptap/pm/state";
-import { useDocumentActions, useDocumentContent, useDocumentCursorInfo } from "@/hooks/useDocumentState";
+import { useActiveTabId, useDocumentActions, useDocumentContent, useDocumentCursorInfo } from "@/hooks/useDocumentState";
 import { useImageContextMenu } from "@/hooks/useImageContextMenu";
 import { useOutlineSync } from "@/hooks/useOutlineSync";
 import { initializeRevisionTracking } from "@/hooks/mcpBridge/revisionTracker";
@@ -156,8 +156,9 @@ export function TiptapEditorInner({ hidden = false, readOnly = false, preview = 
   const lintEnabled = useSettingsStore((state) => state.markdown.lintEnabled);
   const showInvisibles = useSettingsStore((state) => state.markdown.showInvisibles);
   const windowLabel = useWindowLabel();
-  /* v8 ignore next -- @preserve reason: runtime window label lookup; windowLabel always resolves in tests */
-  const activeTabId = useTabStore((state) => state.activeTabId[windowLabel] ?? undefined);
+  // This pane's tab (pane-aware): in a split, the secondary editor tracks its
+  // own document, not the window's focused-pane alias (#1081).
+  const activeTabId = useActiveTabId() ?? undefined;
 
   const isInternalChange = useRef(false);
   const lastExternalContent = useRef<string>("");

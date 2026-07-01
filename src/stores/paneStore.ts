@@ -2,23 +2,27 @@
  * Pane Store — per-window editor split layout (#1081).
  *
  * VMark shows one document per window by default. This store adds an optional
- * SECOND pane so two different documents can sit side-by-side. It is purely
- * additive: when a window has no entry (or `enabled: false`) the app behaves
- * exactly as single-pane, and `tabStore.activeTabId[windowLabel]` remains the
- * primary pane's active tab. The secondary pane's tab lives here.
+ * SECOND pane so two different documents sit side-by-side. It is purely
+ * additive: with no entry (or `enabled: false`) the app behaves exactly as
+ * single-pane.
  *
- * The "focused pane" decides which document window-global surfaces (toolbar,
- * find bar, menu commands) act on — see `useActiveTabId()` which resolves the
- * focused pane's tab when not rendered inside a specific pane.
+ * ADR-1: `tabStore.activeTabId[windowLabel]` is kept as a **derived alias of
+ * the focused pane's tab**. This store owns both panes' tabs by position
+ * (`primaryTabId`, left/top — `secondaryTabId`, right/bottom) plus which is
+ * focused, and its actions mirror the focused pane's tab into
+ * `tabStore.activeTabId`. That way every reader of `activeTabId` (the dozens of
+ * direct readers, the service resolver, and the hooks) targets the focused
+ * pane with no per-call-site changes.
  *
- * Max two panes for v1 (see dev-docs/plans/20260701-split-documents.md, ADR-1).
+ * Max two panes for v1 (see dev-docs/plans/20260701-split-documents.md).
  *
- * @coordinates-with stores/tabStore.ts — primary pane's active tab
+ * @coordinates-with stores/tabStore.ts — activeTabId is the focused-pane alias
  * @coordinates-with contexts/PaneContext.tsx — provides each pane's tabId
- * @coordinates-with hooks/useDocumentState.ts — focused-pane resolution
+ * @coordinates-with hooks/useTabOperations.ts — handleTabClosed reconciliation
  * @module stores/paneStore
  */
 import { create } from "zustand";
+import { useTabStore } from "@/stores/tabStore";
 
 export type PaneId = "primary" | "secondary";
 export type SplitOrientation = "horizontal" | "vertical";
@@ -33,9 +37,11 @@ export interface WindowSplit {
   orientation: SplitOrientation;
   /** Primary pane's size as a fraction of the split axis, in [0.2, 0.8]. */
   fraction: number;
-  /** The document shown in the secondary pane (null ⇒ empty pane). */
+  /** The document in the primary (left/top) pane. */
+  primaryTabId: string | null;
+  /** The document in the secondary (right/bottom) pane. */
   secondaryTabId: string | null;
-  /** Which pane window-global surfaces (toolbar/find/menus) target. */
+  /** Which pane is focused (its tab is mirrored into tabStore.activeTabId). */
   focusedPane: PaneId;
   /** Synchronize scrolling between the two panes (off by default). */
   syncScroll: boolean;
@@ -45,6 +51,7 @@ export const DEFAULT_SPLIT: WindowSplit = {
   enabled: false,
   orientation: "horizontal",
   fraction: 0.5,
+  primaryTabId: null,
   secondaryTabId: null,
   focusedPane: "primary",
   syncScroll: false,
@@ -52,17 +59,19 @@ export const DEFAULT_SPLIT: WindowSplit = {
 
 interface PaneState {
   byWindow: Record<string, WindowSplit>;
-  /** Read a window's split, falling back to DEFAULT_SPLIT when absent. */
   getSplit: (windowLabel: string) => WindowSplit;
   /** Open the split with `tabId` in the secondary pane and focus it. */
   openSplit: (windowLabel: string, secondaryTabId: string | null) => void;
-  /** Collapse back to single pane (clears the secondary tab + focus). */
+  /** Collapse back to single pane (the primary pane's tab becomes active). */
   closeSplit: (windowLabel: string) => void;
-  setSecondaryTab: (windowLabel: string, tabId: string | null) => void;
   setFocusedPane: (windowLabel: string, pane: PaneId) => void;
+  /** Set the focused pane's document (e.g. clicking a tab while it's focused). */
+  setFocusedPaneTab: (windowLabel: string, tabId: string) => void;
   setFraction: (windowLabel: string, fraction: number) => void;
   setOrientation: (windowLabel: string, orientation: SplitOrientation) => void;
   toggleSyncScroll: (windowLabel: string) => void;
+  /** Reconcile when a tab closes: collapse the split if it held the tab (#1081 H1). */
+  handleTabClosed: (windowLabel: string, closedTabId: string) => void;
   /** Drop all state for a window (window closed). */
   removeWindow: (windowLabel: string) => void;
 }
@@ -72,7 +81,6 @@ function clampFraction(fraction: number): number {
   return Math.min(MAX_PANE_FRACTION, Math.max(MIN_PANE_FRACTION, fraction));
 }
 
-/** Apply `updater` to a window's split, seeding from DEFAULT_SPLIT if absent. */
 function patch(
   state: PaneState,
   windowLabel: string,
@@ -82,22 +90,33 @@ function patch(
   return { byWindow: { ...state.byWindow, [windowLabel]: updater(current) } };
 }
 
+/** Mirror the focused pane's tab into tabStore.activeTabId. */
+function syncActiveTab(windowLabel: string, split: WindowSplit): void {
+  const tab = split.focusedPane === "primary" ? split.primaryTabId : split.secondaryTabId;
+  if (tab) useTabStore.getState().setActiveTab(windowLabel, tab);
+}
+
 export const usePaneStore = create<PaneState>((set, get) => ({
   byWindow: {},
 
   getSplit: (windowLabel) => get().byWindow[windowLabel] ?? DEFAULT_SPLIT,
 
-  openSplit: (windowLabel, secondaryTabId) =>
+  openSplit: (windowLabel, secondaryTabId) => {
+    const primaryTabId = useTabStore.getState().activeTabId[windowLabel] ?? null;
     set((s) =>
       patch(s, windowLabel, (split) => ({
         ...split,
         enabled: true,
+        primaryTabId,
         secondaryTabId,
         focusedPane: "secondary",
       })),
-    ),
+    );
+    syncActiveTab(windowLabel, get().byWindow[windowLabel]);
+  },
 
-  closeSplit: (windowLabel) =>
+  closeSplit: (windowLabel) => {
+    const primaryTabId = get().byWindow[windowLabel]?.primaryTabId ?? null;
     set((s) =>
       patch(s, windowLabel, (split) => ({
         ...split,
@@ -105,13 +124,25 @@ export const usePaneStore = create<PaneState>((set, get) => ({
         secondaryTabId: null,
         focusedPane: "primary",
       })),
-    ),
+    );
+    if (primaryTabId) useTabStore.getState().setActiveTab(windowLabel, primaryTabId);
+  },
 
-  setSecondaryTab: (windowLabel, tabId) =>
-    set((s) => patch(s, windowLabel, (split) => ({ ...split, secondaryTabId: tabId }))),
+  setFocusedPane: (windowLabel, pane) => {
+    set((s) => patch(s, windowLabel, (split) => ({ ...split, focusedPane: pane })));
+    syncActiveTab(windowLabel, get().byWindow[windowLabel]);
+  },
 
-  setFocusedPane: (windowLabel, pane) =>
-    set((s) => patch(s, windowLabel, (split) => ({ ...split, focusedPane: pane }))),
+  setFocusedPaneTab: (windowLabel, tabId) => {
+    set((s) =>
+      patch(s, windowLabel, (split) =>
+        split.focusedPane === "primary"
+          ? { ...split, primaryTabId: tabId }
+          : { ...split, secondaryTabId: tabId },
+      ),
+    );
+    useTabStore.getState().setActiveTab(windowLabel, tabId);
+  },
 
   setFraction: (windowLabel, fraction) =>
     set((s) => patch(s, windowLabel, (split) => ({ ...split, fraction: clampFraction(fraction) }))),
@@ -121,6 +152,23 @@ export const usePaneStore = create<PaneState>((set, get) => ({
 
   toggleSyncScroll: (windowLabel) =>
     set((s) => patch(s, windowLabel, (split) => ({ ...split, syncScroll: !split.syncScroll }))),
+
+  handleTabClosed: (windowLabel, closedTabId) => {
+    const split = get().byWindow[windowLabel];
+    if (!split?.enabled) return;
+    if (closedTabId !== split.primaryTabId && closedTabId !== split.secondaryTabId) return;
+    // The closed tab was shown in a pane: collapse to single. tabStore.closeTab
+    // selects the new activeTabId itself, so we don't touch it here.
+    set((s) =>
+      patch(s, windowLabel, (sp) => ({
+        ...sp,
+        enabled: false,
+        primaryTabId: null,
+        secondaryTabId: null,
+        focusedPane: "primary",
+      })),
+    );
+  },
 
   removeWindow: (windowLabel) =>
     set((s) => {

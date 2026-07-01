@@ -22,6 +22,7 @@
  * @coordinates-with closeSave.ts — promptSaveForDirtyDocument dialog
  * @coordinates-with tabStore.ts — closeTab leaves a valid empty-window state
  * @coordinates-with tabCleanup.ts — cleanupTabState centralises all per-tab store cleanup
+ * @coordinates-with paneStore.ts — handleTabClosed collapses a split when a paned tab closes (#1081)
  * @coordinates-with components/Welcome/WelcomeScreen.tsx — shown when no tab remains
  * @module hooks/useTabOperations
  */
@@ -29,6 +30,7 @@
 import { fileOpsError } from "@/utils/debug";
 import { promptSaveForDirtyDocument } from "@/hooks/closeSave";
 import { useTabStore } from "@/stores/tabStore";
+import { usePaneStore } from "@/stores/paneStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { findOrphanedImages, deleteOrphanedImages } from "@/services/media/orphanAssetCleanup";
@@ -107,6 +109,7 @@ export async function closeTabWithDirtyCheck(
       await cleanupOrphansIfEnabled(doc.filePath, doc.content);
       useTabStore.getState().closeTab(windowLabel, tabId);
       cleanupTabState(tabId);
+      usePaneStore.getState().handleTabClosed(windowLabel, tabId); // #1081 H1
       return true;
     }
 

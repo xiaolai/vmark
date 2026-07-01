@@ -39,6 +39,8 @@
     "toggleSourceMode": "소스 모드 전환",
     "toggleSplitDocuments": "편집기 분할: 두 문서를 나란히",
     "toggleSyncScroll": "분할 창 간 스크롤 동기화",
+    "closePane": "분할 창 닫기",
+    "focusOtherPane": "다른 창에 포커스",
     "setWysiwygMode": "WYSIWYG 모드로 전환",
     "toggleFocusMode": "집중 모드 전환",
     "toggleTypewriterMode": "타자기 모드 전환",

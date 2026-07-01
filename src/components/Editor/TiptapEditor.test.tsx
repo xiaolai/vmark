@@ -76,6 +76,7 @@ vi.mock("@tiptap/react", () => ({
 }));
 
 vi.mock("@/hooks/useDocumentState", () => ({
+  useActiveTabId: () => "tab-1",
   useDocumentContent: () => mocks.useDocumentContent(),
   useDocumentCursorInfo: () => mocks.useDocumentCursorInfo(),
   useDocumentActions: () => mocks.useDocumentActions(),

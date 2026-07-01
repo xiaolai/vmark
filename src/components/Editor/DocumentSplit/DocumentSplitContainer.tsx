@@ -18,7 +18,7 @@ import { useRef, type CSSProperties } from "react";
 import { useWindowLabel } from "@/contexts/WindowContext";
 import { PaneProvider } from "@/contexts/PaneContext";
 import { usePaneStore } from "@/stores/paneStore";
-import { useTabStore } from "@/stores/tabStore";
+import { useUIStore } from "@/stores/uiStore";
 import { Editor } from "../Editor";
 import { SplitDivider } from "./SplitDivider";
 import { useSyncPaneScroll } from "./useSyncPaneScroll";
@@ -27,20 +27,23 @@ import "./document-split.css";
 export function DocumentSplitContainer() {
   const windowLabel = useWindowLabel();
   const split = usePaneStore((state) => state.byWindow[windowLabel]);
-  const primaryTabId = useTabStore((state) => state.activeTabId[windowLabel] ?? null);
 
   const primaryRef = useRef<HTMLDivElement>(null);
   const secondaryRef = useRef<HTMLDivElement>(null);
   const enabled = split?.enabled ?? false;
+  const primaryTabId = split?.primaryTabId ?? null;
   const secondaryTabId = split?.secondaryTabId ?? null;
+  // Source/WYSIWYG swaps the scroller element without changing the tab, so the
+  // mode is part of the re-bind key (#1081 L1).
+  const sourceMode = useUIStore((state) => state.sourceMode);
 
   // Hooks before any early return. Scroll sync no-ops unless the split is open
-  // AND syncScroll is on; re-binds when either pane's document changes.
+  // AND syncScroll is on; re-binds when a pane's document or view mode changes.
   useSyncPaneScroll(
     primaryRef,
     secondaryRef,
     enabled && (split?.syncScroll ?? false),
-    `${primaryTabId}:${secondaryTabId}`,
+    `${primaryTabId}:${secondaryTabId}:${sourceMode}`,
   );
 
   // Single pane — unchanged.

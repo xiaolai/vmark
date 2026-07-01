@@ -16,6 +16,8 @@
 import { readTextFile } from "@tauri-apps/plugin-fs";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
+import { usePaneStore } from "@/stores/paneStore";
+import { loadSplitLayout } from "@/services/persistence/splitLayoutPersistence";
 import { findExistingTabForPath } from "@/services/tabs/findExistingTabForPath";
 import { detectLinebreaks } from "@/utils/linebreakDetection";
 import { workspaceWarn } from "@/utils/debug";
@@ -48,4 +50,22 @@ export async function restoreWorkspaceTabs(
     }
   }
   return created;
+}
+
+/**
+ * Restore the persisted two-pane split layout for `rootPath` (#1081),
+ * best-effort. Call AFTER restoreWorkspaceTabs so the secondary pane's document
+ * is already open. If the secondary file isn't open (moved/closed since save),
+ * the split is skipped. The primary pane is whatever document is active.
+ */
+export function restoreSplitLayout(windowLabel: string, rootPath: string): void {
+  const layout = loadSplitLayout(rootPath);
+  if (!layout) return;
+  const tabId = findExistingTabForPath(windowLabel, layout.secondaryPath);
+  if (!tabId) return;
+  const pane = usePaneStore.getState();
+  pane.openSplit(windowLabel, tabId);
+  pane.setOrientation(windowLabel, layout.orientation);
+  pane.setFraction(windowLabel, layout.fraction);
+  if (layout.syncScroll) pane.toggleSyncScroll(windowLabel);
 }

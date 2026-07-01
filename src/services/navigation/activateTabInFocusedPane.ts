@@ -14,8 +14,9 @@ import { usePaneStore } from "@/stores/paneStore";
 
 export function activateTabInFocusedPane(windowLabel: string, tabId: string): void {
   const split = usePaneStore.getState().byWindow[windowLabel];
-  if (split?.enabled && split.focusedPane === "secondary") {
-    usePaneStore.getState().setSecondaryTab(windowLabel, tabId);
+  if (split?.enabled) {
+    // Swap the focused pane's document (also mirrors into tabStore.activeTabId).
+    usePaneStore.getState().setFocusedPaneTab(windowLabel, tabId);
     return;
   }
   useTabStore.getState().setActiveTab(windowLabel, tabId);

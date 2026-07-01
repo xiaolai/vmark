@@ -106,14 +106,16 @@ describe("registerViewCommands — full command set", () => {
     expect(getCommand("view.toggleSourceMode")).toBeDefined();
   });
 
-  it("registers all 25 view/lint commands", () => {
+  it("registers all 27 view/lint commands", () => {
     const ids = listCommands().map((c) => c.id);
     expect(ids).toContain("view.toggleSourceMode");
     expect(ids).toContain("view.setWysiwygMode");
     expect(ids).toContain("view.toggleSplitDocuments");
     expect(ids).toContain("lint.prev");
     expect(ids).toContain("view.toggleSyncScroll");
-    expect(ids.length).toBe(25);
+    expect(ids).toContain("view.closePane");
+    expect(ids).toContain("view.focusOtherPane");
+    expect(ids.length).toBe(27);
   });
 
   it("every command resolves a non-empty title and executes without throwing", async () => {

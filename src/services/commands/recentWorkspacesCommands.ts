@@ -17,7 +17,7 @@ import { useDocumentStore } from "@/stores/documentStore";
 import { useUIStore } from "@/stores/uiStore";
 import { withReentryGuard } from "@/utils/reentryGuard";
 import { openWorkspaceWithConfig } from "@/hooks/openWorkspaceWithConfig";
-import { restoreWorkspaceTabs } from "@/services/navigation/restoreWorkspaceTabs";
+import { restoreWorkspaceTabs, restoreSplitLayout } from "@/services/navigation/restoreWorkspaceTabs";
 import i18n from "@/i18n";
 import { workspaceError } from "@/utils/debug";
 
@@ -114,6 +114,7 @@ export function registerRecentWorkspacesCommands(): void {
 
         // Shared restore loop with dedup guard — skips already-open tabs.
         await restoreWorkspaceTabs(windowLabel, existing?.lastOpenTabs);
+        restoreSplitLayout(windowLabel, workspacePath);
 
         useRecentWorkspacesStore.getState().addWorkspace(workspacePath);
       });

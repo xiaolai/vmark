@@ -15,8 +15,8 @@
  *     pane behaves exactly as before.
  *
  * @coordinates-with documentStore.ts — reads document state per tab
- * @coordinates-with tabStore.ts — reads activeTabId per window (primary pane)
- * @coordinates-with paneStore.ts — secondary pane tab + focused pane
+ * @coordinates-with tabStore.ts — reads activeTabId, which paneStore keeps as
+ *   the focused-pane alias (ADR-1)
  * @coordinates-with contexts/PaneContext.tsx — the pane a subtree renders in
  * @module hooks/useDocumentState
  */
@@ -26,36 +26,17 @@ import { useWindowLabel } from "../contexts/WindowContext";
 import { usePaneContext } from "../contexts/PaneContext";
 import { useDocumentStore, type CursorInfo } from "../stores/documentStore";
 import { useTabStore } from "../stores/tabStore";
-import { usePaneStore } from "../stores/paneStore";
-
-/**
- * Resolve the window's focused tab from the pane layout. With no split (the
- * default), this is the primary pane's active tab — identical to the old
- * behavior. Pure helper so both the reactive hook and the imperative
- * getActiveTabId share one rule.
- */
-function resolveFocusedTabId(
-  primaryActiveTabId: string | null,
-  split: { enabled: boolean; focusedPane: "primary" | "secondary"; secondaryTabId: string | null } | undefined,
-): string | null {
-  if (split?.enabled && split.focusedPane === "secondary") {
-    return split.secondaryTabId;
-  }
-  return primaryActiveTabId;
-}
 
 /**
  * Hook that returns the active tab ID for the current pane/window, or null.
  * Inside a pane (PaneContext), returns that pane's tab; otherwise the window's
- * focused pane (which is the primary pane's active tab when no split is open).
+ * `activeTabId`, which paneStore keeps as the focused pane's alias (ADR-1).
  */
 export function useActiveTabId(): string | null {
   const pane = usePaneContext();
   const windowLabel = useWindowLabel();
-  const primaryActiveTabId = useTabStore((state) => state.activeTabId[windowLabel] ?? null);
-  const split = usePaneStore((state) => state.byWindow[windowLabel]);
-  if (pane) return pane.tabId;
-  return resolveFocusedTabId(primaryActiveTabId, split);
+  const activeTabId = useTabStore((state) => state.activeTabId[windowLabel] ?? null);
+  return pane ? pane.tabId : activeTabId;
 }
 
 /** Hook that returns the markdown content of the active tab's document. */
@@ -124,12 +105,10 @@ export function useDocumentActions() {
   const inPane = pane !== null;
   const paneTabId = pane?.tabId ?? null;
 
-  // Get active tab ID at call time
+  // Get active tab ID at call time (this pane's tab, or the focused-pane alias).
   const getActiveTabId = useCallback(() => {
     if (inPane) return paneTabId;
-    const primary = useTabStore.getState().activeTabId[windowLabel] ?? null;
-    const split = usePaneStore.getState().byWindow[windowLabel];
-    return resolveFocusedTabId(primary, split);
+    return useTabStore.getState().activeTabId[windowLabel] ?? null;
   }, [windowLabel, inPane, paneTabId]);
 
   // Get fresh content (useful in async callbacks where hook value may be stale)

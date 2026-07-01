@@ -1,9 +1,9 @@
 /**
  * View commands — ADR-012 migration of useViewMenuEvents.
  *
- * 16 commands covering source/focus/typewriter modes, sidebar views,
+ * 20 commands covering source/focus/typewriter modes, sidebar views,
  * word wrap, line numbers, diagram preview, fit tables, read-only,
- * terminal toggle, zoom, lint check/navigation.
+ * terminal toggle, zoom, lint check/navigation, and split-document panes.
  */
 
 import { registerCommand } from "./CommandBus";
@@ -260,8 +260,34 @@ export function registerViewCommands(): void {
     id: "view.toggleSyncScroll",
     title: () => i18n.t("commands:view.toggleSyncScroll"),
     category: "view",
+    run: (_args, ctx: Ctx) =>
+      usePaneStore.getState().toggleSyncScroll(ctx.windowLabel ?? "main"),
+  });
+
+  registerCommand({
+    id: "view.closePane",
+    title: () => i18n.t("commands:view.closePane"),
+    category: "view",
     run: (_args, ctx: Ctx) => {
-      usePaneStore.getState().toggleSyncScroll(ctx.windowLabel ?? "main");
+      const windowLabel = ctx.windowLabel ?? "main";
+      if (usePaneStore.getState().byWindow[windowLabel]?.enabled) {
+        usePaneStore.getState().closeSplit(windowLabel);
+      }
+    },
+  });
+
+  registerCommand({
+    id: "view.focusOtherPane",
+    title: () => i18n.t("commands:view.focusOtherPane"),
+    category: "view",
+    run: (_args, ctx: Ctx) => {
+      const windowLabel = ctx.windowLabel ?? "main";
+      const pane = usePaneStore.getState();
+      const split = pane.byWindow[windowLabel];
+      if (split?.enabled) {
+        const next = split.focusedPane === "primary" ? "secondary" : "primary";
+        pane.setFocusedPane(windowLabel, next);
+      }
     },
   });
 
