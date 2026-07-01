@@ -30,9 +30,13 @@ export function useFocusedPaneTiptapRegistration(
     }
     return () => {
       if (preview) return;
-      useEditorStore.getState().clearTiptap();
+      // Identity-guarded so a focus switch (both panes' cleanups run) can't null
+      // the winning pane's fresh registration.
       if (editor) {
+        useEditorStore.getState().clearTiptapIfMatch(editor);
         useEditorStore.getState().clearWysiwygEditorIfMatch(editor);
+      } else {
+        useEditorStore.getState().clearTiptap();
       }
     };
   }, [editor, hidden, preview, activeTabId, isFocusedPane]);

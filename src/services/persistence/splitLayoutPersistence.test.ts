@@ -10,6 +10,7 @@ const LAYOUT: SplitLayoutConfig = {
   orientation: "vertical",
   fraction: 0.4,
   syncScroll: true,
+  primaryPath: "/Users/me/project/a.md",
   secondaryPath: "/Users/me/project/b.md",
 };
 
@@ -52,6 +53,19 @@ describe("splitLayoutPersistence (#1081 Phase 4)", () => {
     localStorage.setItem(
       `vmark-split-layout:${ROOT}`,
       JSON.stringify({ ...LAYOUT, fraction: "nope" }),
+    );
+    expect(loadSplitLayout(ROOT)).toBeNull();
+  });
+
+  it("returns null when primaryPath is missing (legacy secondary-only value)", () => {
+    localStorage.setItem(
+      `vmark-split-layout:${ROOT}`,
+      JSON.stringify({
+        orientation: "vertical",
+        fraction: 0.4,
+        syncScroll: true,
+        secondaryPath: "/Users/me/project/b.md",
+      }),
     );
     expect(loadSplitLayout(ROOT)).toBeNull();
   });

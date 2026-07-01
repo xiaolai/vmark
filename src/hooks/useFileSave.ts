@@ -6,6 +6,7 @@
  *
  * @coordinates-with closeSave.ts — shared save prompt for dirty documents
  * @coordinates-with useFileOperations.ts — orchestrates save handlers via menu events
+ * @coordinates-with paneStore.ts — handleTabClosed reconciles a split on move-to-new-window (#1081)
  * @module hooks/useFileSave
  */
 
@@ -17,10 +18,8 @@ import { save } from "@tauri-apps/plugin-dialog";
 import { remove } from "@tauri-apps/plugin-fs";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
-import {
-  dispatchEditor,
-  getFormatById,
-} from "@/lib/formats/registry";
+import { usePaneStore } from "@/stores/paneStore";
+import { dispatchEditor, getFormatById } from "@/lib/formats/registry";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { getDefaultSaveFolderWithFallback } from "@/hooks/useDefaultSaveFolder";
 import { flushActiveWysiwygNow, flushAllWysiwygNow } from "@/utils/wysiwygFlush";
@@ -88,6 +87,7 @@ export async function moveTabToNewWorkspaceWindow(
     await currentWindow.close();
   } else {
     useTabStore.getState().closeTab(windowLabel, tabId);
+    usePaneStore.getState().handleTabClosed(windowLabel, tabId); // #1081 H1
   }
 }
 

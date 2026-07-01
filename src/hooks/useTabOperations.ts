@@ -139,6 +139,7 @@ export async function closeTabWithDirtyCheck(
     // Proceed to close
     useTabStore.getState().closeTab(windowLabel, tabId);
     cleanupTabState(tabId);
+    usePaneStore.getState().handleTabClosed(windowLabel, tabId); // #1081 H1
     return true;
   } finally {
     closingTabIds.delete(tabId);

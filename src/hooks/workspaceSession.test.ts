@@ -2,6 +2,8 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 import { useWorkspaceStore, type WorkspaceConfig } from "@/stores/workspaceStore";
 import { useTabStore } from "@/stores/tabStore";
+import { usePaneStore } from "@/stores/paneStore";
+import { loadSplitLayout } from "@/services/persistence/splitLayoutPersistence";
 import { persistWorkspaceSession } from "@/hooks/workspaceSession";
 
 const WINDOW_LABEL = "main";
@@ -13,6 +15,8 @@ function resetStores() {
     isWorkspaceMode: false,
   });
   useTabStore.getState().removeWindow(WINDOW_LABEL);
+  usePaneStore.setState({ byWindow: {} });
+  localStorage.clear();
 }
 
 describe("persistWorkspaceSession", () => {
@@ -134,5 +138,46 @@ describe("persistWorkspaceSession", () => {
 
     await persistWorkspaceSession(WINDOW_LABEL);
     expect(invoke).not.toHaveBeenCalled();
+  });
+
+  it("saves both pane paths to localStorage when a split is open (#1081)", async () => {
+    useWorkspaceStore.setState({
+      rootPath: "/project",
+      config: { version: 1, excludeFolders: [], lastOpenTabs: [], showHiddenFiles: false, showAllFiles: false },
+      isWorkspaceMode: true,
+    });
+    const primary = useTabStore.getState().createTab(WINDOW_LABEL, "/project/a.md");
+    const secondary = useTabStore.getState().createTab(WINDOW_LABEL, "/project/b.md");
+    useTabStore.getState().setActiveTab(WINDOW_LABEL, primary);
+    usePaneStore.getState().openSplit(WINDOW_LABEL, secondary);
+    usePaneStore.getState().setOrientation(WINDOW_LABEL, "vertical");
+
+    await persistWorkspaceSession(WINDOW_LABEL);
+
+    expect(loadSplitLayout("/project")).toEqual({
+      orientation: "vertical",
+      fraction: 0.5,
+      syncScroll: false,
+      primaryPath: "/project/a.md",
+      secondaryPath: "/project/b.md",
+    });
+  });
+
+  it("clears any saved split layout when no split is open (#1081)", async () => {
+    // Pre-seed a stale layout that must be cleared.
+    localStorage.setItem(
+      "vmark-split-layout:/project",
+      JSON.stringify({ orientation: "horizontal", fraction: 0.5, syncScroll: false, primaryPath: "/x", secondaryPath: "/y" }),
+    );
+    useWorkspaceStore.setState({
+      rootPath: "/project",
+      config: { version: 1, excludeFolders: [], lastOpenTabs: [], showHiddenFiles: false, showAllFiles: false },
+      isWorkspaceMode: true,
+    });
+    useTabStore.getState().createTab(WINDOW_LABEL, "/project/a.md");
+
+    await persistWorkspaceSession(WINDOW_LABEL);
+
+    expect(loadSplitLayout("/project")).toBeNull();
   });
 });

@@ -42,6 +42,8 @@ import {
 import { useContentServerStore } from "@/stores/contentServerStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useSettingsStore } from "@/stores/settingsStore";
+import { usePaneStore } from "@/stores/paneStore";
+import { useTabStore } from "@/stores/tabStore";
 
 beforeEach(() => {
   _resetCommandBus();
@@ -185,5 +187,67 @@ describe("view command behavior", () => {
     useSettingsStore.getState().updateAppearanceSetting("fontSize", 18);
     await executeCommand("view.zoomIn");
     expect(useSettingsStore.getState().appearance.fontSize).toBe(20);
+  });
+});
+
+describe("split-document view commands (#1081)", () => {
+  const W = "main";
+  let tab1: string;
+  let tab2: string;
+  beforeEach(() => {
+    usePaneStore.setState({ byWindow: {} });
+    useTabStore.getState().removeWindow(W);
+    tab1 = useTabStore.getState().createTab(W, "/a.md");
+    tab2 = useTabStore.getState().createTab(W, "/b.md");
+    useTabStore.getState().setActiveTab(W, tab1);
+  });
+
+  it("toggleSplitDocuments opens then closes the split", async () => {
+    await executeCommand("view.toggleSplitDocuments", undefined, { windowLabel: W });
+    expect(usePaneStore.getState().getSplit(W).enabled).toBe(true);
+    await executeCommand("view.toggleSplitDocuments", undefined, { windowLabel: W });
+    expect(usePaneStore.getState().getSplit(W).enabled).toBe(false);
+  });
+
+  it("toggleSplitDocuments is a no-op with no active document", async () => {
+    useTabStore.getState().removeWindow(W); // no tabs ⇒ getActiveTabId null
+    await expect(
+      executeCommand("view.toggleSplitDocuments", undefined, { windowLabel: W }),
+    ).resolves.toBe(true);
+    expect(usePaneStore.getState().getSplit(W).enabled).toBe(false);
+  });
+
+  it("toggleSyncScroll flips the split's syncScroll flag", async () => {
+    usePaneStore.getState().openSplit(W, tab2);
+    const before = usePaneStore.getState().getSplit(W).syncScroll;
+    await executeCommand("view.toggleSyncScroll", undefined, { windowLabel: W });
+    expect(usePaneStore.getState().getSplit(W).syncScroll).toBe(!before);
+  });
+
+  it("closePane collapses an open split back to single pane", async () => {
+    usePaneStore.getState().openSplit(W, tab2);
+    expect(usePaneStore.getState().getSplit(W).enabled).toBe(true);
+    await executeCommand("view.closePane", undefined, { windowLabel: W });
+    expect(usePaneStore.getState().getSplit(W).enabled).toBe(false);
+  });
+
+  it("closePane is a no-op when no split is open", async () => {
+    await expect(
+      executeCommand("view.closePane", undefined, { windowLabel: W }),
+    ).resolves.toBe(true);
+    expect(usePaneStore.getState().getSplit(W).enabled).toBe(false);
+  });
+
+  it("focusOtherPane flips the focused pane; no-op without a split", async () => {
+    usePaneStore.getState().openSplit(W, tab2); // focus = secondary
+    await executeCommand("view.focusOtherPane", undefined, { windowLabel: W });
+    expect(usePaneStore.getState().getSplit(W).focusedPane).toBe("primary");
+    await executeCommand("view.focusOtherPane", undefined, { windowLabel: W });
+    expect(usePaneStore.getState().getSplit(W).focusedPane).toBe("secondary");
+
+    usePaneStore.setState({ byWindow: {} });
+    await expect(
+      executeCommand("view.focusOtherPane", undefined, { windowLabel: W }),
+    ).resolves.toBe(true);
   });
 });

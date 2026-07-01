@@ -18,7 +18,8 @@
  *
  * @coordinates-with stores/tabStore.ts — activeTabId is the focused-pane alias
  * @coordinates-with contexts/PaneContext.tsx — provides each pane's tabId
- * @coordinates-with hooks/useTabOperations.ts — handleTabClosed reconciliation
+ * @coordinates-with hooks/useTabOperations.ts, hooks/useFileSave.ts,
+ *   hooks/mcpBridge/v2/workspace.ts — every tab-close path calls handleTabClosed
  * @module stores/paneStore
  */
 import { create } from "zustand";
@@ -90,10 +91,14 @@ function patch(
   return { byWindow: { ...state.byWindow, [windowLabel]: updater(current) } };
 }
 
-/** Mirror the focused pane's tab into tabStore.activeTabId. */
+/**
+ * Mirror the focused pane's tab into tabStore.activeTabId — the ADR-1 alias
+ * invariant. Mirrors `null` too: if the focused pane has no document the alias
+ * must not keep pointing at the other pane's tab.
+ */
 function syncActiveTab(windowLabel: string, split: WindowSplit): void {
   const tab = split.focusedPane === "primary" ? split.primaryTabId : split.secondaryTabId;
-  if (tab) useTabStore.getState().setActiveTab(windowLabel, tab);
+  useTabStore.getState().setActiveTab(windowLabel, tab);
 }
 
 export const usePaneStore = create<PaneState>((set, get) => ({

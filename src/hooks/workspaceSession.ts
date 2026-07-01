@@ -36,13 +36,16 @@ export async function persistWorkspaceSession(windowLabel: string): Promise<void
   // per-machine UI state, not part of the shared workspace config.
   let splitLayout: SplitLayoutConfig | null = null;
   const split = usePaneStore.getState().byWindow[windowLabel];
-  if (split?.enabled && split.secondaryTabId) {
+  if (split?.enabled && split.primaryTabId && split.secondaryTabId) {
+    const priPath = tabs.find((t) => t.id === split.primaryTabId)?.filePath ?? null;
     const secPath = tabs.find((t) => t.id === split.secondaryTabId)?.filePath ?? null;
-    if (secPath) {
+    // Both panes need a saved path — an untitled pane can't be restored.
+    if (priPath && secPath && priPath !== secPath) {
       splitLayout = {
         orientation: split.orientation,
         fraction: split.fraction,
         syncScroll: split.syncScroll,
+        primaryPath: priPath,
         secondaryPath: secPath,
       };
     }

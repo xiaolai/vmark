@@ -22,12 +22,18 @@ Status: **All phases implemented + plan-audit findings fixed** on
 - **H2 (ADR-1)** — `tabStore.activeTabId` is now the **focused-pane alias**:
   paneStore owns both panes' tabs by position and mirrors the focused pane's tab
   into `activeTabId`, so all direct readers + the tab-strip highlight (**M2**)
-  follow focus with no per-site changes.
-- **H1** — `paneStore.handleTabClosed` reconciles on tab close (wired in
-  `useTabOperations`); collapses the split if a pane's doc is closed.
+  follow focus with no per-site changes. The mirror includes `null` (a focused
+  empty pane clears the alias rather than pointing at the other pane).
+- **H1** — `paneStore.handleTabClosed` reconciles on tab close; wired into
+  **every** close path (`useTabOperations` dirty + non-dirty, `useFileSave`
+  move-to-new-window, MCP `close_tab`), collapsing the split if a pane's doc is
+  closed so no pane is left pointing at a destroyed tab.
+- **M1 (restore)** — both pane paths are persisted; restore pins the primary
+  active first and skips when either file is gone or both resolve to one tab.
 - **M3** — `paneStore.removeWindow` wired into `useWindowClose`.
 - **M4** — Close-Pane / Focus-Other-Pane commands added.
 - **L1** — sync-scroll re-binds on Source↔WYSIWYG mode switch.
+- Split toggle is a no-op on the empty Welcome screen (no active document).
 
 ### Remaining v1 limitation (documented)
 - View-mode flags stay window-global (focused pane); independent per-pane modes
@@ -121,11 +127,13 @@ doc-vs-doc divider, ratio-based scroll sync, split-layout persistence.
   `.vmark` config would leak one machine's pane layout to collaborators and grow
   baselined Rust/store files past the file-size gate. Instead it lives in
   `localStorage` keyed by workspace root (`vmark-split-layout:<rootPath>`),
-  storing `{ orientation, fraction, syncScroll, secondaryPath }`. Only the
-  secondary pane's path is stored; the primary pane is whatever document is
-  active after tab restore. Absent key ⇒ single-pane (back-compat). Written by
-  `workspaceSession.ts`; restored by `restoreSplitLayout` after tabs load,
-  best-effort (skipped if the secondary file is gone).
+  storing `{ orientation, fraction, syncScroll, primaryPath, secondaryPath }`.
+  Both pane paths are persisted so restore is deterministic — inferring the
+  primary from "whichever tab is active after restore" could collide with the
+  secondary and drop the real primary from view. Absent key ⇒ single-pane
+  (back-compat). Written by `workspaceSession.ts`; restored by
+  `restoreSplitLayout` after tabs load, best-effort (skipped if either file is
+  gone or both paths resolve to the same tab).
 
 ## Phases
 
@@ -152,15 +160,19 @@ registration tests cover focus switching; single-pane unchanged.
 
 ### Phase 3 — Split UI + draggable divider
 `DocumentSplitContainer` with two `<Editor>`s and a mouse-+keyboard divider;
-**"Open to the Side"** command (palette + menu + a tab context-menu action);
+**"Toggle Split Documents"** command (palette + `Alt+Mod+\` shortcut);
 **"Close Pane" / "Focus Other Pane"** commands. Wire into `App.tsx` `MainLayout`
 `primary` slot.
 **DoD:** open two files side-by-side; drag + keyboard resize; close pane returns
 to single; a11y (separator role, focus order); component tests.
+**Deferred to follow-up (not part of the ✅):** a native View-menu item and a
+tab context-menu "Open to the Side" action — the palette command + shortcut
+cover the trigger for v1 (see "Remaining v1 limitation" above).
 
 ### Phase 4 — Persistence + menus/shortcuts
-`splitLayout` in `WorkspaceConfig` + restore; menu items + shortcuts (sync the
-three keybinding files per `.claude/rules/41`).
+Split layout persisted in `localStorage` (ADR-7) + restore; frontend shortcut
+`Alt+Mod+\` (no native menu accelerator — frontend-only, per the deferred menu
+item above).
 **DoD:** split layout survives workspace close/reopen; shortcut docs updated;
 restore tests.
 

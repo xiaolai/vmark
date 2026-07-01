@@ -88,6 +88,21 @@ describe("paneStore (#1081)", () => {
     expect(usePaneStore.getState().getSplit(W).enabled).toBe(true);
   });
 
+  it("mirrors a null tab into activeTabId when the focused pane is empty (ADR-1)", () => {
+    // Open a split whose secondary pane has no document, then focus it.
+    usePaneStore.getState().openSplit(W, null); // focuses the empty secondary
+    // The alias must not keep pointing at the primary tab — the focused pane
+    // is empty, so activeTabId is null.
+    expect(activeTab()).toBeNull();
+  });
+
+  it("restores the alias when focus returns to a non-empty pane", () => {
+    usePaneStore.getState().openSplit(W, null); // empty secondary focused ⇒ alias null
+    expect(activeTab()).toBeNull();
+    usePaneStore.getState().setFocusedPane(W, "primary");
+    expect(activeTab()).toBe("primary-tab");
+  });
+
   it("removeWindow drops the window's state", () => {
     usePaneStore.getState().openSplit(W, "secondary-tab");
     usePaneStore.getState().removeWindow(W);

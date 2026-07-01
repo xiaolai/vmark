@@ -3,8 +3,9 @@
  *
  * The two-pane split is per-machine UI state (like window size), so it is
  * persisted in localStorage keyed by the workspace root path — NOT in the
- * shared `.vmark` workspace config. Only the secondary pane's file path is
- * stored; the primary pane is whatever document is active after restore.
+ * shared `.vmark` workspace config. Both panes' file paths are stored so the
+ * layout restores deterministically (the primary can't be inferred from
+ * whichever tab happens to be active after restore).
  *
  * @coordinates-with stores/paneStore.ts — split state
  * @coordinates-with hooks/workspaceSession.ts — saves on window close
@@ -17,6 +18,7 @@ export interface SplitLayoutConfig {
   orientation: "horizontal" | "vertical";
   fraction: number;
   syncScroll: boolean;
+  primaryPath: string;
   secondaryPath: string;
 }
 
@@ -48,6 +50,7 @@ export function loadSplitLayout(rootPath: string): SplitLayoutConfig | null {
       (parsed.orientation === "horizontal" || parsed.orientation === "vertical") &&
       typeof parsed.fraction === "number" &&
       typeof parsed.syncScroll === "boolean" &&
+      typeof parsed.primaryPath === "string" &&
       typeof parsed.secondaryPath === "string"
     ) {
       return parsed as SplitLayoutConfig;

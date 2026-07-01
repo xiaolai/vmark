@@ -92,6 +92,10 @@ interface EditorStoreActions {
     view: TiptapEditorView,
   ) => void;
   clearTiptap: () => void;
+  /** Clear the tiptap slice only if `editor` is the currently-registered one.
+   *  On a split-focus switch both panes' cleanups run; an unconditional clear
+   *  would null the winning pane's fresh registration (#1081 LOW-1). */
+  clearTiptapIfMatch: (editor: TiptapEditor) => void;
 
   /* source slice */
   setSourceContext: (
@@ -188,6 +192,11 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     }));
   },
   clearTiptap: () => {
+    set({ tiptap: initialTiptap });
+    publishDebugEditorView(null);
+  },
+  clearTiptapIfMatch: (editor) => {
+    if (get().tiptap.editor !== editor) return;
     set({ tiptap: initialTiptap });
     publishDebugEditorView(null);
   },

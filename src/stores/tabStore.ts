@@ -94,7 +94,7 @@ interface TabActions {
   closeTab: (windowLabel: string, tabId: string) => void;
 
   // Tab state
-  setActiveTab: (windowLabel: string, tabId: string) => void;
+  setActiveTab: (windowLabel: string, tabId: string | null) => void;
   setTabEditingEnabled: (tabId: string, enabled: boolean) => void;
   setTabActiveSchemaId: (tabId: string, schemaId: string | null) => void;
   /** WI-1A.13 — overwrite a tab's `formatId` directly. Used by hot-exit

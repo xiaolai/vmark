@@ -15,7 +15,11 @@ export function toggleSplitDocuments(windowLabel: string): void {
   const split = usePaneStore.getState().byWindow[windowLabel];
   if (split?.enabled) {
     usePaneStore.getState().closeSplit(windowLabel);
-  } else {
-    usePaneStore.getState().openSplit(windowLabel, getActiveTabId(windowLabel));
+    return;
   }
+  // Nothing to split when the window has no active document (e.g. the empty
+  // Welcome screen) — opening a split with a null pane is meaningless.
+  const activeTabId = getActiveTabId(windowLabel);
+  if (!activeTabId) return;
+  usePaneStore.getState().openSplit(windowLabel, activeTabId);
 }
