@@ -24,10 +24,12 @@ Status: **All phases implemented + plan-audit findings fixed** on
   into `activeTabId`, so all direct readers + the tab-strip highlight (**M2**)
   follow focus with no per-site changes. The mirror includes `null` (a focused
   empty pane clears the alias rather than pointing at the other pane).
-- **H1** — `paneStore.handleTabClosed` reconciles on tab close; wired into
-  **every** close path (`useTabOperations` dirty + non-dirty, `useFileSave`
-  move-to-new-window, MCP `close_tab`), collapsing the split if a pane's doc is
-  closed so no pane is left pointing at a destroyed tab.
+- **H1** — `paneStore.handleTabClosed` reconciles at a **single choke point**:
+  `tabStore.closeTab` and `tabStore.detachTab` call it after removing a tab, so
+  every close/detach path (Cmd+W, dirty/non-dirty, move-to-new-window,
+  drag-detach, MCP `close_tab`, …) collapses a split whose pane held the removed
+  tab. It is guarded to no-op when the tab is still present (pinned-close
+  refusal) or unpaned, so a declined removal never collapses the split.
 - **M1 (restore)** — both pane paths are persisted; restore pins the primary
   active first and skips when either file is gone or both resolve to one tab.
 - **M3** — `paneStore.removeWindow` wired into `useWindowClose`.

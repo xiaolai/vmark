@@ -74,6 +74,22 @@ describe("useFocusedPaneTiptapRegistration (#1081 — ADR-3)", () => {
     expect(useEditorStore.getState().tiptap.editor).toBe(ed);
   });
 
+  it("an unfocused pane's cleanup (null or foreign editor) doesn't clear the winner (LOW-1)", () => {
+    usePaneStore.getState().openSplit(W, "secondary-tab"); // focus = secondary
+    const registered = fakeEditor("registered-by-focused-pane");
+    useEditorStore.getState().setTiptapEditor(registered);
+
+    // The UNFOCUSED primary pane mounts (body skipped) then unmounts — its
+    // cleanup must not null the focused pane's registration.
+    const { unmount } = renderHook(
+      () => useFocusedPaneTiptapRegistration(null, opts(fakeEditor("A"))),
+      { wrapper: paneWrapper("primary") },
+    );
+    unmount();
+
+    expect(useEditorStore.getState().tiptap.editor).toBe(registered);
+  });
+
   it("cleanup is identity-guarded: unmounting a stale pane won't null a newer registration", () => {
     const edA = fakeEditor("A");
     const { unmount } = renderHook(() => useFocusedPaneTiptapRegistration(edA, opts(edA)));

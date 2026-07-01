@@ -20,7 +20,6 @@
  *     focused.
  *
  * @coordinates-with stores/tabStore.ts — createTab, closeTab, setActiveTab
- * @coordinates-with stores/paneStore.ts — handleTabClosed reconciles a split on close_tab (#1081)
  * @coordinates-with stores/documentStore.ts — initDocument, markSaved
  * @coordinates-with utils/saveToPath.ts — disk write with revision tracking
  * @coordinates-with services/persistence/workspaceStorage.ts — getCurrentWindowLabel
@@ -29,7 +28,6 @@
 
 import { readTextFile, writeTextFile } from "@tauri-apps/plugin-fs";
 import { useTabStore } from "@/stores/tabStore";
-import { usePaneStore } from "@/stores/paneStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useRevisionStore } from "@/stores/documentStore";
 import { registerPendingSave, clearPendingSave } from "@/utils/pendingSaves";
@@ -253,7 +251,6 @@ export async function handleWorkspaceClose(
       return;
     }
     tabState.closeTab(windowLabel, tabIdArg);
-    usePaneStore.getState().handleTabClosed(windowLabel, tabIdArg); // #1081 H1
     await respond({ id, success: true, data: { closed: true } });
   });
 }

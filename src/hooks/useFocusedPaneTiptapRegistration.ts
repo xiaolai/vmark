@@ -29,15 +29,13 @@ export function useFocusedPaneTiptapRegistration(
       }
     }
     return () => {
-      if (preview) return;
-      // Identity-guarded so a focus switch (both panes' cleanups run) can't null
-      // the winning pane's fresh registration.
-      if (editor) {
-        useEditorStore.getState().clearTiptapIfMatch(editor);
-        useEditorStore.getState().clearWysiwygEditorIfMatch(editor);
-      } else {
-        useEditorStore.getState().clearTiptap();
-      }
+      // A null-editor instance registered nothing identifiable, so it has
+      // nothing to clear — a blanket clearTiptap() here would null whichever
+      // pane currently owns the singleton. Identity-guarded for the real case
+      // so a focus switch (both panes' cleanups run) can't null the winner.
+      if (preview || !editor) return;
+      useEditorStore.getState().clearTiptapIfMatch(editor);
+      useEditorStore.getState().clearWysiwygEditorIfMatch(editor);
     };
   }, [editor, hidden, preview, activeTabId, isFocusedPane]);
 }

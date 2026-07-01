@@ -18,12 +18,14 @@
  *
  * @coordinates-with stores/tabStore.ts — activeTabId is the focused-pane alias
  * @coordinates-with contexts/PaneContext.tsx — provides each pane's tabId
- * @coordinates-with hooks/useTabOperations.ts, hooks/useFileSave.ts,
- *   hooks/mcpBridge/v2/workspace.ts — every tab-close path calls handleTabClosed
+ * @coordinates-with stores/tabStore.ts — activeTabId is the focused-pane alias;
+ *   also subscribes to tabStore.onTabRemoved so any close/detach path collapses
+ *   a split whose pane held the removed tab (pub/sub avoids a store cycle)
  * @module stores/paneStore
  */
 import { create } from "zustand";
 import { useTabStore } from "@/stores/tabStore";
+import { onTabRemoved } from "@/stores/tabRemovalBus";
 
 export type PaneId = "primary" | "secondary";
 export type SplitOrientation = "horizontal" | "vertical";
@@ -162,8 +164,12 @@ export const usePaneStore = create<PaneState>((set, get) => ({
     const split = get().byWindow[windowLabel];
     if (!split?.enabled) return;
     if (closedTabId !== split.primaryTabId && closedTabId !== split.secondaryTabId) return;
-    // The closed tab was shown in a pane: collapse to single. tabStore.closeTab
-    // selects the new activeTabId itself, so we don't touch it here.
+    // Only collapse if the tab is actually gone from this window. tabStore
+    // refuses to close a pinned tab (and this runs from the close/detach choke
+    // point regardless), so a still-present tab means the removal was declined.
+    if (useTabStore.getState().tabs[windowLabel]?.some((t) => t.id === closedTabId)) return;
+    // The closed tab was shown in a pane: collapse to single. tabStore selects
+    // the new activeTabId itself, so we don't touch it here.
     set((s) =>
       patch(s, windowLabel, (sp) => ({
         ...sp,
@@ -183,3 +189,10 @@ export const usePaneStore = create<PaneState>((set, get) => ({
       return { byWindow: next };
     }),
 }));
+
+// Collapse a split whose pane held a tab that was just closed/detached. A split
+// can only exist once paneStore has been imported, so this module-load-time
+// subscription is always registered before any split needs reconciling.
+onTabRemoved((windowLabel, tabId) =>
+  usePaneStore.getState().handleTabClosed(windowLabel, tabId),
+);

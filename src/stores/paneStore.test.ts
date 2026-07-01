@@ -88,6 +88,17 @@ describe("paneStore (#1081)", () => {
     expect(usePaneStore.getState().getSplit(W).enabled).toBe(true);
   });
 
+  it("handleTabClosed does NOT collapse when the tab is still present (close refused)", () => {
+    // Simulate a pinned-tab refusal: the tab is a pane's doc but still exists
+    // in the window (tabStore declined to remove it).
+    const secondary = useTabStore.getState().createTab(W, "/pinned.md");
+    useTabStore.getState().setActiveTab(W, secondary);
+    usePaneStore.getState().openSplit(W, secondary); // secondary in a pane, still present
+    usePaneStore.getState().handleTabClosed(W, secondary);
+    expect(usePaneStore.getState().getSplit(W).enabled).toBe(true); // not collapsed
+    useTabStore.getState().removeWindow(W);
+  });
+
   it("mirrors a null tab into activeTabId when the focused pane is empty (ADR-1)", () => {
     // Open a split whose secondary pane has no document, then focus it.
     usePaneStore.getState().openSplit(W, null); // focuses the empty secondary
