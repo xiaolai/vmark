@@ -85,20 +85,16 @@ export function isDataUri(src: string): boolean {
 }
 
 /**
- * Check if a URL is a Tauri asset URL.
- * Tauri uses different formats depending on version/platform:
- * - asset://localhost/... (macOS/Linux WebKit)
- * - https://asset.localhost/... (newer macOS/WebKit, and Windows with modified CSP)
- * - http://asset.localhost/... (Windows/WebView2 default)
- * These are all LOCAL files served through Tauri's protocol handler, not
- * remote resources — classifying them correctly matters for export inlining.
+ * Check if a URL is a Tauri asset URL — a LOCAL file served through Tauri's
+ * protocol handler, not a remote resource. convertFileSrc() emits these as
+ * `asset://localhost/…` (macOS/Linux WebKit) or `http(s)://asset.localhost/…`
+ * (newer macOS/WebKit + Windows). Correct classification matters for inlining.
  */
 export function isAssetUrl(src: string): boolean {
   return (
     src.startsWith("asset://") ||
     src.startsWith("tauri://") ||
-    src.startsWith("https://asset.localhost/") ||
-    src.startsWith("http://asset.localhost/")
+    /^https?:\/\/asset\.localhost\//.test(src)
   );
 }
 
@@ -279,12 +275,7 @@ export async function resolveResources(
       originalSrc: src,
       resolvedPath: null,
       exportSrc: src,
-      // Tauri's convertFileSrc() emits the asset protocol as
-      // `https://asset.localhost/…` on newer macOS/WebKit and on Windows, which
-      // superficially matches the http(s) remote check. Those are LOCAL files,
-      // not remote URLs — classify them as local so they get inlined/copied for
-      // the off-screen print/PDF WKWebView (which has no asset:// handler)
-      // instead of being passed through as unreachable https URLs (issue #1086).
+      // Asset URLs are LOCAL files to inline, never remote passthrough (#1086).
       isRemote: isRemoteUrl(src) && !isAssetUrl(src),
       found: false,
     };
