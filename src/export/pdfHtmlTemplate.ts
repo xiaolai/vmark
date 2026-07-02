@@ -105,12 +105,28 @@ function sharedContentCSS(): string {
 .export-surface-editor .table-scroll-wrapper {
   overflow-x: visible;
 }
-.export-surface-editor .table-scroll-wrapper table {
+/*
+ * Fit every table to the fixed printable page width (issue #1087). Editor
+ * "fit to width" is ephemeral DOM state with no markdown representation, so it
+ * never survives the fresh re-render into export HTML; and stored ProseMirror
+ * colwidth (<col style="width:Npx">) plus resized-cell inline widths would
+ * otherwise force the table past the @page box, where WebKit's print pipeline
+ * clips the overflow. Neutralize all fixed pixel sizing so columns reflow.
+ */
+.export-surface-editor table {
   width: 100% !important;
-  table-layout: fixed;
+  max-width: 100% !important;
+  table-layout: auto !important;
+}
+.export-surface-editor colgroup,
+.export-surface-editor col {
+  width: auto !important;
 }
 .export-surface-editor td,
 .export-surface-editor th {
+  width: auto !important;
+  min-width: 0 !important;
+  max-width: none !important;
   overflow-wrap: break-word;
   word-break: break-word;
 }

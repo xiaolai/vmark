@@ -88,12 +88,28 @@ h1, h2, h3, h4, h5, h6 {
 .export-surface .table-scroll-wrapper {
   overflow-x: visible;
 }
-.export-surface .table-scroll-wrapper table {
+/*
+ * Fit every table to the fixed printable page width (issue #1087). Editor
+ * "fit to width" is ephemeral DOM state with no markdown representation, so it
+ * never survives the fresh re-render into export HTML; and stored ProseMirror
+ * colwidth (<col style="width:Npx">) plus resized-cell inline widths would
+ * otherwise force the table past the @page box, where WebKit's print pipeline
+ * clips the overflow. Neutralize all fixed pixel sizing so columns reflow.
+ */
+.export-surface table {
   width: 100% !important;
-  table-layout: fixed;
+  max-width: 100% !important;
+  table-layout: auto !important;
+}
+.export-surface colgroup,
+.export-surface col {
+  width: auto !important;
 }
 .export-surface td,
 .export-surface th {
+  width: auto !important;
+  min-width: 0 !important;
+  max-width: none !important;
   overflow-wrap: break-word;
   word-break: break-word;
 }

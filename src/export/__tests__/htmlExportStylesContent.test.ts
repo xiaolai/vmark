@@ -5,9 +5,21 @@ import { getEditorContentCSS } from "../htmlExportStyles";
 describe("getExportOverrides", () => {
   const css = getExportOverrides();
 
-  it("includes @media print block with table-layout: fixed", () => {
+  it("includes an @media print block", () => {
     expect(css).toContain("@media print");
-    expect(css).toContain("table-layout: fixed");
+  });
+
+  // Issue #1087: editor "fit to width" is ephemeral DOM state with no markdown
+  // representation, so it never survives the fresh re-render into export HTML,
+  // and stored ProseMirror colwidth / resized-cell pixel widths would push the
+  // table past the @page box where WebKit clips it. Export CSS must fit every
+  // table to the page by neutralizing fixed pixel sizing.
+  it("fits tables to the page width for print (no fixed pixel columns)", () => {
+    expect(css).toContain("table-layout: auto");
+    expect(css).not.toContain("table-layout: fixed");
+    // <col> pixel widths and resized-cell min-widths are reset so columns reflow
+    expect(css).toContain("width: auto !important");
+    expect(css).toContain("min-width: 0 !important");
   });
 
   it("forces table scroll wrapper to visible overflow", () => {
