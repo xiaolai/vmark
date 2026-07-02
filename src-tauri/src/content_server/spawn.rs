@@ -58,10 +58,10 @@ pub fn resolve_cli(app: &AppHandle) -> Result<PathBuf, String> {
         return Ok(PathBuf::from(dev));
     }
     // Bundled resource: shipped inside the app bundle at package time.
-    if let Ok(res) = app
-        .path()
-        .resolve("content-server-dist/cli.js", tauri::path::BaseDirectory::Resource)
-    {
+    if let Ok(res) = app.path().resolve(
+        "content-server-dist/cli.js",
+        tauri::path::BaseDirectory::Resource,
+    ) {
         if res.exists() {
             return Ok(res);
         }

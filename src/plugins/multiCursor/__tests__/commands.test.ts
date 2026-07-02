@@ -723,7 +723,24 @@ describe("commands", () => {
     });
 
     it("works when current selection is a MultiSelection (uses bottommost)", () => {
-      // Build MultiSelection with two ranges
+      // Build MultiSelection with two ranges: [1,6] and [7,12].
+      // Target pos 14 sits in the trailing " xx" — outside every existing
+      // range (a target inside a selected range must be rejected).
+      const state0 = createState("hello hello xx", { anchor: 1, head: 6 });
+      const tr1 = selectNextOccurrence(state0);
+      const state = state0.apply(tr1!);
+
+      const view = makeView(
+        state,
+        (pos) => ({ top: pos * 5, bottom: pos * 5 + 10, left: 50, right: 55 }),
+        () => ({ pos: 14 })
+      );
+      const tr = addCursorBelow(state, view);
+      expect(tr).not.toBeNull();
+    });
+
+    it("returns null when new position falls inside an existing selection range", () => {
+      // Ranges [1,6] and [7,12]; pos 10 is strictly inside [7,12].
       const state0 = createState("hello hello", { anchor: 1, head: 6 });
       const tr1 = selectNextOccurrence(state0);
       const state = state0.apply(tr1!);
@@ -733,8 +750,7 @@ describe("commands", () => {
         (pos) => ({ top: pos * 5, bottom: pos * 5 + 10, left: 50, right: 55 }),
         () => ({ pos: 10 })
       );
-      const tr = addCursorBelow(state, view);
-      expect(tr).not.toBeNull();
+      expect(addCursorBelow(state, view)).toBeNull();
     });
 
     it("returns null when new position is already in a MultiSelection range (line 443)", () => {
@@ -903,29 +919,26 @@ describe("commands", () => {
     });
   });
 
-  describe("selectAllOccurrences — occurrences.length === 0 (line 197)", () => {
-    it("returns null when findAllOccurrences finds no matches", () => {
-      // We need getSelectionText to return something non-empty but findAllOccurrences to return [].
-      // This can happen when filtering to code block bounds removes all matches.
-      // Approach: select text inside a code block, but the text is NOT in the code block content area.
-      // Actually findAllOccurrences with bounds will only search inside bounds — can it return empty?
-      // If bounds is set and the selected text doesn't appear in the bounds area, yes.
-      // But the text IS inside the bounds (that's where the cursor is)...
-      // The easier path: use getSelectionText that returns something present once but bounds filter hits line 206.
-      // For line 197: findAllOccurrences returns [] when searchText isn't found anywhere.
-      // This needs the text to not exist in the doc — which can't happen if we selected it.
-      // Let's try: select special chars that wouldn't repeat.
-      const _doc = schema.node("doc", null, [
-        schema.node("paragraph", null, [schema.text("unique")]),
+  describe("selectAllOccurrences — occurrences.length === 0 (zero-occurrence guard)", () => {
+    it("returns null for a selection spanning a block boundary (cross-node searchText)", () => {
+      // Selection spans two paragraphs: textBetween joins "he" + "llo" into
+      // "hello" (empty block separator), but findAllOccurrences matches within
+      // single text nodes only, so no occurrence exists anywhere in the doc.
+      // The zero-occurrences guard must return null instead of crashing on an
+      // empty range list.
+      const doc = schema.node("doc", null, [
+        schema.node("paragraph", null, [schema.text("he")]),
+        schema.node("paragraph", null, [schema.text("llo")]),
       ]);
-      // "unique" occurs once → findAllOccurrences returns [1 item] → not 0
-      // The only way to get 0 is if findAllOccurrences truly finds nothing.
-      // This can be triggered if the search text contains chars that break the search algorithm.
-      // In practice this is nearly impossible to trigger with valid ProseMirror docs.
-      // Test the filteredRanges.length === 0 branch instead (line 206) which IS triggerable.
-      // We test this by: multiCursor in code block → select text NOT in block → but that won't work either.
-      // Skip this specific branch — test the filteredRanges.length === 0 branch (line 206) below.
-      expect(true).toBe(true); // Placeholder - this branch is practically unreachable
+      const state = EditorState.create({
+        doc,
+        schema,
+        plugins: [multiCursorPlugin()],
+        selection: TextSelection.create(doc, 1, 8),
+      });
+      expect(state.doc.textBetween(1, 8)).toBe("hello");
+      const result = selectAllOccurrences(state);
+      expect(result).toBeNull();
     });
   });
 
@@ -966,8 +979,11 @@ describe("commands", () => {
     }
 
     it("uses topmost range from MultiSelection when adding cursor above (line 418)", () => {
-      // Build MultiSelection with two cursor ranges so addCursorAbove uses the reduce on MultiSelection
-      const state0 = createState("hello hello", { anchor: 7, head: 12 });
+      // Build MultiSelection with two cursor ranges so addCursorAbove uses the
+      // reduce on MultiSelection. Ranges: [4,9] and [10,15]; target pos 2 sits
+      // in the leading "aa " — outside every existing range (a target inside a
+      // selected range must be rejected).
+      const state0 = createState("aa hello hello", { anchor: 10, head: 15 });
       const tr1 = selectNextOccurrence(state0);
       const state = state0.apply(tr1!);
       // state has MultiSelection

@@ -29,7 +29,7 @@ import { useTabStore } from "@/stores/tabStore";
 import { useWindowLabel } from "@/contexts/WindowContext";
 import { useSourcePaneFocus } from "@/hooks/useSourcePaneFocus";
 import {
-  useDocumentContent,
+  useActiveTabId, useDocumentContent,
   useDocumentCursorInfo,
   useDocumentActions,
 } from "@/hooks/useDocumentState";
@@ -53,8 +53,7 @@ import {
   shortcutKeymapCompartment,
   readOnlyCompartment,
 } from "@/services/assembly/sourceEditorExtensions";
-import { consumePendingLintScroll } from "@/hooks/lintNavigation";
-import { consumePendingContentSearchNav, openFindBarWithQuery } from "@/hooks/contentSearchNavigation";
+import { consumeSourcePendingNav } from "./sourcePendingNav";
 
 interface SourceEditorProps {
   hidden?: boolean;
@@ -73,7 +72,7 @@ export function SourceEditor({ hidden = false, readOnly = false }: SourceEditorP
   // Use document store for content (per-window state)
   const content = useDocumentContent();
   const cursorInfo = useDocumentCursorInfo();
-  const { setContent, setCursorInfo, setSelectedText } = useDocumentActions();
+  const { setContent, setCursorInfo, setSelectedText } = useDocumentActions(useActiveTabId() ?? undefined);
 
   // Refs to capture callbacks for use in CodeMirror listener
   const setContentRef = useRef(setContent);
@@ -255,32 +254,8 @@ export function SourceEditor({ hidden = false, readOnly = false }: SourceEditorP
             scrollIntoView: true,
           });
         }
-        // Consume pending lint scroll (set when switching to Source mode for a sourceOnly diagnostic)
-        if (mountTabId) {
-          const pendingOffset = consumePendingLintScroll(mountTabId);
-          if (pendingOffset !== undefined) {
-            view.dispatch({
-              effects: EditorView.scrollIntoView(
-                Math.min(pendingOffset, view.state.doc.length)
-              ),
-            });
-          }
-          // Consume pending content search nav (set when opening a file from Find in Files)
-          const pendingNav = consumePendingContentSearchNav(mountTabId);
-          if (pendingNav) {
-            const line = Math.min(pendingNav.line, view.state.doc.lines);
-            const lineInfo = view.state.doc.line(line);
-            view.dispatch({
-              selection: { anchor: lineInfo.from },
-              effects: EditorView.scrollIntoView(lineInfo.from),
-            });
-            // Pre-fill FindBar with the search query (only when there is one —
-            // a file-link line jump passes an empty query and just scrolls).
-            if (pendingNav.query) {
-              setTimeout(() => openFindBarWithQuery(pendingNav.query), 100);
-            }
-          }
-        }
+        // Consume pending lint-scroll / content-search navigation for this tab
+        consumeSourcePendingNav(view, mountTabId);
       }, 50);
     }
 
@@ -328,31 +303,8 @@ export function SourceEditor({ hidden = false, readOnly = false }: SourceEditorP
       if (cursorInfoRef.current) {
         restoreCursorInCodeMirror(view, cursorInfoRef.current);
       }
-      // Consume pending lint scroll (set when switching to Source mode for a sourceOnly diagnostic)
-      if (visibleTabId) {
-        const pendingOffset = consumePendingLintScroll(visibleTabId);
-        if (pendingOffset !== undefined) {
-          view.dispatch({
-            effects: EditorView.scrollIntoView(
-              Math.min(pendingOffset, view.state.doc.length)
-            ),
-          });
-        }
-        // Consume pending content search nav (set when opening a file from Find in Files)
-        const pendingNav = consumePendingContentSearchNav(visibleTabId);
-        if (pendingNav) {
-          const line = Math.min(pendingNav.line, view.state.doc.lines);
-          const lineInfo = view.state.doc.line(line);
-          view.dispatch({
-            selection: { anchor: lineInfo.from },
-            effects: EditorView.scrollIntoView(lineInfo.from),
-          });
-          // Only open FindBar when there's a query (file-link nav scrolls only).
-          if (pendingNav.query) {
-            setTimeout(() => openFindBarWithQuery(pendingNav.query), 100);
-          }
-        }
-      }
+      // Consume pending lint-scroll / content-search navigation for this tab
+      consumeSourcePendingNav(view, visibleTabId);
     }, 50);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hidden]);

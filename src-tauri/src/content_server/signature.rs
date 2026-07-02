@@ -74,7 +74,11 @@ mod tests {
         let sig_b64 = engine().encode(sk.sign(manifest).to_bytes());
         // A different manifest with the same (now-wrong) signature must fail —
         // this is exactly the malicious-tarball-with-matching-sha256 case.
-        assert!(!verify_manifest_signature(br#"{"version":"evil"}"#, &sig_b64, &pk_b64));
+        assert!(!verify_manifest_signature(
+            br#"{"version":"evil"}"#,
+            &sig_b64,
+            &pk_b64
+        ));
     }
 
     #[test]

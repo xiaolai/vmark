@@ -2,14 +2,14 @@
 //!
 //! Uses tmp + rename pattern to ensure atomic writes and data durability.
 
+use super::dedup;
+use super::session::SessionData;
+use super::validation::validate_and_repair;
 use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
 use tauri::Manager;
 use tempfile::NamedTempFile;
-use super::dedup;
-use super::session::SessionData;
-use super::validation::validate_and_repair;
 
 /// Get the hot exit session file path in app data directory
 pub fn get_session_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
@@ -60,13 +60,14 @@ pub async fn write_session_atomic(
         match tokio::fs::try_exists(&session_path).await {
             Ok(true) => return Ok(()),
             Ok(false) => {
-                log::debug!(
-                    "[HotExit] Session file missing despite cached hash — forcing rewrite"
-                );
+                log::debug!("[HotExit] Session file missing despite cached hash — forcing rewrite");
                 dedup::reset();
             }
             Err(e) => {
-                log::warn!("[HotExit] try_exists check failed ({}); proceeding to write", e);
+                log::warn!(
+                    "[HotExit] try_exists check failed ({}); proceeding to write",
+                    e
+                );
                 dedup::reset();
             }
         }
@@ -75,9 +76,7 @@ pub async fn write_session_atomic(
     // Perform all blocking I/O in spawn_blocking to avoid blocking async executor
     tokio::task::spawn_blocking(move || {
         // Write to temporary file in same directory (ensures same filesystem)
-        let tmp_dir = session_path
-            .parent()
-            .ok_or("Session path has no parent")?;
+        let tmp_dir = session_path.parent().ok_or("Session path has no parent")?;
         let mut tmp_file = NamedTempFile::new_in(tmp_dir)
             .map_err(|e| format!("Failed to create temp file: {}", e))?;
 
@@ -100,9 +99,7 @@ pub async fn write_session_atomic(
         // Ignore NotFound errors — no existing session to backup is fine.
         match std::fs::read(&session_path) {
             Ok(existing_data) => {
-                let backup_dir = backup_path
-                    .parent()
-                    .ok_or("Backup path has no parent")?;
+                let backup_dir = backup_path.parent().ok_or("Backup path has no parent")?;
                 let mut backup_tmp = NamedTempFile::new_in(backup_dir)
                     .map_err(|e| format!("Failed to create backup temp file: {}", e))?;
                 backup_tmp
@@ -153,9 +150,7 @@ pub async fn write_session_atomic(
 /// Try to read and parse a session file at the given path.
 /// Returns Ok(None) if the file doesn't exist, Ok(Some) on success,
 /// or Err on read/parse failure.
-async fn try_read_session_file(
-    path: &std::path::Path,
-) -> Result<Option<SessionData>, String> {
+async fn try_read_session_file(path: &std::path::Path) -> Result<Option<SessionData>, String> {
     match tokio::fs::read_to_string(path).await {
         Ok(contents) => {
             let session: SessionData = serde_json::from_str(&contents)
@@ -195,9 +190,7 @@ fn finalize_session(mut session: SessionData) -> Result<Option<SessionData>, Str
 
 /// Read session from disk, falling back to backup if main file is corrupt,
 /// at an unsupported version, or fails to migrate.
-pub async fn read_session(
-    app: &tauri::AppHandle,
-) -> Result<Option<SessionData>, String> {
+pub async fn read_session(app: &tauri::AppHandle) -> Result<Option<SessionData>, String> {
     let session_path = get_session_path(app)?;
 
     // Try main session file first.

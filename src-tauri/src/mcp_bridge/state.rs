@@ -33,6 +33,9 @@ pub(crate) fn is_webview_alive() -> bool {
 /// A slow/dead client overflows long before the process runs out of memory;
 /// senders drop the message and log rather than blocking the server.
 pub(crate) const CLIENT_TX_CAPACITY: usize = 1024;
+// Compile-time sanity bound: a sane positive capacity, not the `usize::MAX`
+// sentinel an unbounded channel would imply.
+const _: () = assert!(CLIENT_TX_CAPACITY > 0 && CLIENT_TX_CAPACITY <= 65_536);
 
 /// Connected client information.
 pub(crate) struct ClientConnection {
@@ -123,19 +126,19 @@ pub(crate) fn write_port_file(app: &AppHandle, port: u16, token: &str) -> Result
 
     // Create app data directory if it doesn't exist
     if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent).map_err(|e| {
-            format!(
-                "Failed to create app data directory {:?}: {}",
-                parent, e
-            )
-        })?;
+        std::fs::create_dir_all(parent)
+            .map_err(|e| format!("Failed to create app data directory {:?}: {}", parent, e))?;
     }
 
     // Write port:token atomically to prevent partial reads
     let content = format!("{}:{}", port, token);
     app_paths::atomic_write_file(&path, content.as_bytes())?;
 
-    log::debug!("[MCP Bridge] Port {} written to {:?} (with auth token)", port, path);
+    log::debug!(
+        "[MCP Bridge] Port {} written to {:?} (with auth token)",
+        port,
+        path
+    );
 
     Ok(())
 }
@@ -154,10 +157,7 @@ pub fn remove_port_file(app: &AppHandle) {
                 }
                 Err(e) => {
                     // Real error - log it
-                    log::warn!(
-                        "[MCP Bridge] Failed to remove port file {:?}: {}",
-                        path, e
-                    );
+                    log::warn!("[MCP Bridge] Failed to remove port file {:?}: {}", path, e);
                 }
             }
         }
@@ -227,14 +227,6 @@ mod tests {
     // The per-client outbound channel must not be unbounded. A misbehaving
     // sidecar that stops draining its socket would otherwise grow the queue
     // until the process is OOM-killed.
-
-    #[tokio::test]
-    async fn client_tx_capacity_is_bounded() {
-        // Sanity: the capacity constant is a sane positive number, not the
-        // sentinel `usize::MAX` an unbounded channel would imply.
-        assert!(CLIENT_TX_CAPACITY > 0);
-        assert!(CLIENT_TX_CAPACITY <= 65_536);
-    }
 
     #[tokio::test]
     async fn client_tx_overflow_returns_full_not_blocking() {
@@ -626,9 +618,13 @@ mod tests {
         {
             let mut guard = s1.lock().await;
             let (tx, _rx) = oneshot::channel::<McpResponse>();
-            guard
-                .pending
-                .insert(marker.clone(), PendingRequest { response_tx: tx, created_at: Instant::now() });
+            guard.pending.insert(
+                marker.clone(),
+                PendingRequest {
+                    response_tx: tx,
+                    created_at: Instant::now(),
+                },
+            );
         }
 
         {
@@ -655,9 +651,13 @@ mod tests {
             handles.push(tokio::spawn(async move {
                 let mut guard = s.lock().await;
                 let (tx, _rx) = oneshot::channel::<McpResponse>();
-                guard
-                    .pending
-                    .insert(format!("__concurrent_test_{i}__"), PendingRequest { response_tx: tx, created_at: Instant::now() });
+                guard.pending.insert(
+                    format!("__concurrent_test_{i}__"),
+                    PendingRequest {
+                        response_tx: tx,
+                        created_at: Instant::now(),
+                    },
+                );
             }));
         }
 
@@ -802,15 +802,21 @@ mod tests {
         {
             let mut guard = state.lock().await;
             let (tx1, _rx1) = oneshot::channel::<McpResponse>();
-            guard.pending.insert(marker_stale.clone(), PendingRequest {
-                response_tx: tx1,
-                created_at: std::time::Instant::now() - Duration::from_secs(120),
-            });
+            guard.pending.insert(
+                marker_stale.clone(),
+                PendingRequest {
+                    response_tx: tx1,
+                    created_at: std::time::Instant::now() - Duration::from_secs(120),
+                },
+            );
             let (tx2, _rx2) = oneshot::channel::<McpResponse>();
-            guard.pending.insert(marker_fresh.clone(), PendingRequest {
-                response_tx: tx2,
-                created_at: std::time::Instant::now(),
-            });
+            guard.pending.insert(
+                marker_fresh.clone(),
+                PendingRequest {
+                    response_tx: tx2,
+                    created_at: std::time::Instant::now(),
+                },
+            );
         }
 
         {

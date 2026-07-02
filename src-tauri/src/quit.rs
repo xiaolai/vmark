@@ -19,7 +19,10 @@
 //!   - Tests mutate shared statics and must run serially (guarded by TEST_LOCK).
 
 use std::collections::HashSet;
-use std::sync::{Mutex, LazyLock, atomic::{AtomicBool, Ordering}};
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    LazyLock, Mutex,
+};
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Manager};
 
@@ -159,7 +162,11 @@ pub fn request_quit(app: &AppHandle) {
         QuitGateResult::Proceed => start_quit(app),
         QuitGateResult::WaitForSecondPress => {
             // Emit feedback to the focused window (if any)
-            if let Some(window) = app.webview_windows().values().find(|w| w.is_focused().unwrap_or(false)) {
+            if let Some(window) = app
+                .webview_windows()
+                .values()
+                .find(|w| w.is_focused().unwrap_or(false))
+            {
                 if let Err(e) = window.emit("app:quit-first-press", ()) {
                     log::error!("[quit] Failed to emit quit-first-press: {}", e);
                 }
@@ -223,7 +230,11 @@ pub fn cancel_quit() {
 /// Handle a window being destroyed while quit is in progress.
 pub fn handle_window_destroyed(app: &AppHandle, label: &str) {
     let quit_in_progress = QUIT_IN_PROGRESS.load(Ordering::SeqCst);
-    log::debug!("[Tauri] handle_window_destroyed: label={}, quit_in_progress={}", label, quit_in_progress);
+    log::debug!(
+        "[Tauri] handle_window_destroyed: label={}, quit_in_progress={}",
+        label,
+        quit_in_progress
+    );
 
     if !quit_in_progress {
         return;
@@ -305,9 +316,15 @@ mod tests {
         reset_confirm_quit();
 
         let now = Instant::now();
-        assert_eq!(check_confirm_quit_gate(now), QuitGateResult::WaitForSecondPress);
+        assert_eq!(
+            check_confirm_quit_gate(now),
+            QuitGateResult::WaitForSecondPress
+        );
         // Timestamp is recorded
-        assert!(FIRST_QUIT_PRESS.lock().unwrap_or_else(|p| p.into_inner()).is_some());
+        assert!(FIRST_QUIT_PRESS
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .is_some());
     }
 
     #[test]
@@ -316,14 +333,20 @@ mod tests {
         reset_confirm_quit();
 
         let now = Instant::now();
-        assert_eq!(check_confirm_quit_gate(now), QuitGateResult::WaitForSecondPress);
+        assert_eq!(
+            check_confirm_quit_gate(now),
+            QuitGateResult::WaitForSecondPress
+        );
 
         // Second press 500ms later — within 2s window
         let later = now + Duration::from_millis(500);
         assert_eq!(check_confirm_quit_gate(later), QuitGateResult::Proceed);
 
         // Timestamp cleared after proceed
-        assert!(FIRST_QUIT_PRESS.lock().unwrap_or_else(|p| p.into_inner()).is_none());
+        assert!(FIRST_QUIT_PRESS
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .is_none());
     }
 
     #[test]
@@ -332,11 +355,17 @@ mod tests {
         reset_confirm_quit();
 
         let now = Instant::now();
-        assert_eq!(check_confirm_quit_gate(now), QuitGateResult::WaitForSecondPress);
+        assert_eq!(
+            check_confirm_quit_gate(now),
+            QuitGateResult::WaitForSecondPress
+        );
 
         // Third second — expired, acts as new first press
         let expired = now + Duration::from_secs(3);
-        assert_eq!(check_confirm_quit_gate(expired), QuitGateResult::WaitForSecondPress);
+        assert_eq!(
+            check_confirm_quit_gate(expired),
+            QuitGateResult::WaitForSecondPress
+        );
 
         // But a quick follow-up proceeds
         let follow_up = expired + Duration::from_millis(200);
@@ -349,11 +378,17 @@ mod tests {
         reset_confirm_quit();
 
         let now = Instant::now();
-        assert_eq!(check_confirm_quit_gate(now), QuitGateResult::WaitForSecondPress);
+        assert_eq!(
+            check_confirm_quit_gate(now),
+            QuitGateResult::WaitForSecondPress
+        );
 
         // Exactly at 2s boundary — Duration comparison is strict `<`, so 2s is expired
         let at_boundary = now + Duration::from_secs(2);
-        assert_eq!(check_confirm_quit_gate(at_boundary), QuitGateResult::WaitForSecondPress);
+        assert_eq!(
+            check_confirm_quit_gate(at_boundary),
+            QuitGateResult::WaitForSecondPress
+        );
     }
 
     #[test]
@@ -363,11 +398,17 @@ mod tests {
 
         // Record a first press
         *FIRST_QUIT_PRESS.lock().unwrap_or_else(|p| p.into_inner()) = Some(Instant::now());
-        assert!(FIRST_QUIT_PRESS.lock().unwrap_or_else(|p| p.into_inner()).is_some());
+        assert!(FIRST_QUIT_PRESS
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .is_some());
 
         // Toggling the setting clears the pending press
         set_confirm_quit(false);
-        assert!(FIRST_QUIT_PRESS.lock().unwrap_or_else(|p| p.into_inner()).is_none());
+        assert!(FIRST_QUIT_PRESS
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .is_none());
     }
 
     #[test]
@@ -378,7 +419,10 @@ mod tests {
         // Record a first press then cancel quit
         *FIRST_QUIT_PRESS.lock().unwrap_or_else(|p| p.into_inner()) = Some(Instant::now());
         cancel_quit();
-        assert!(FIRST_QUIT_PRESS.lock().unwrap_or_else(|p| p.into_inner()).is_none());
+        assert!(FIRST_QUIT_PRESS
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .is_none());
     }
 
     // --- Rapid double-quit ---
@@ -389,7 +433,10 @@ mod tests {
         reset_confirm_quit();
 
         let now = Instant::now();
-        assert_eq!(check_confirm_quit_gate(now), QuitGateResult::WaitForSecondPress);
+        assert_eq!(
+            check_confirm_quit_gate(now),
+            QuitGateResult::WaitForSecondPress
+        );
 
         // Second press just 1ms later
         let very_soon = now + Duration::from_millis(1);
@@ -402,7 +449,10 @@ mod tests {
         reset_confirm_quit();
 
         let now = Instant::now();
-        assert_eq!(check_confirm_quit_gate(now), QuitGateResult::WaitForSecondPress);
+        assert_eq!(
+            check_confirm_quit_gate(now),
+            QuitGateResult::WaitForSecondPress
+        );
 
         // Second press at the exact same instant
         assert_eq!(check_confirm_quit_gate(now), QuitGateResult::Proceed);
@@ -416,12 +466,18 @@ mod tests {
         reset_confirm_quit();
 
         let now = Instant::now();
-        assert_eq!(check_confirm_quit_gate(now), QuitGateResult::WaitForSecondPress);
+        assert_eq!(
+            check_confirm_quit_gate(now),
+            QuitGateResult::WaitForSecondPress
+        );
 
         // Wait well past the 2s window
         let expired = now + Duration::from_secs(5);
         // This should act as a fresh first press, not proceed
-        assert_eq!(check_confirm_quit_gate(expired), QuitGateResult::WaitForSecondPress);
+        assert_eq!(
+            check_confirm_quit_gate(expired),
+            QuitGateResult::WaitForSecondPress
+        );
 
         // The new first press timestamp should be `expired`, not `now`
         let guard = FIRST_QUIT_PRESS.lock().unwrap_or_else(|p| p.into_inner());
@@ -434,11 +490,17 @@ mod tests {
         reset_confirm_quit();
 
         let t0 = Instant::now();
-        assert_eq!(check_confirm_quit_gate(t0), QuitGateResult::WaitForSecondPress);
+        assert_eq!(
+            check_confirm_quit_gate(t0),
+            QuitGateResult::WaitForSecondPress
+        );
 
         // Expired first press
         let t1 = t0 + Duration::from_secs(3);
-        assert_eq!(check_confirm_quit_gate(t1), QuitGateResult::WaitForSecondPress);
+        assert_eq!(
+            check_confirm_quit_gate(t1),
+            QuitGateResult::WaitForSecondPress
+        );
 
         // Quick second press after the reset
         let t2 = t1 + Duration::from_millis(100);
@@ -454,14 +516,20 @@ mod tests {
 
         let t0 = Instant::now();
         // First press
-        assert_eq!(check_confirm_quit_gate(t0), QuitGateResult::WaitForSecondPress);
+        assert_eq!(
+            check_confirm_quit_gate(t0),
+            QuitGateResult::WaitForSecondPress
+        );
 
         // User cancels
         cancel_quit();
 
         // Next press should be treated as a new first press, not the second
         let t1 = t0 + Duration::from_millis(100);
-        assert_eq!(check_confirm_quit_gate(t1), QuitGateResult::WaitForSecondPress);
+        assert_eq!(
+            check_confirm_quit_gate(t1),
+            QuitGateResult::WaitForSecondPress
+        );
 
         // The actual second press proceeds
         let t2 = t1 + Duration::from_millis(100);
@@ -484,8 +552,14 @@ mod tests {
         // All state should be cleared
         assert!(!QUIT_IN_PROGRESS.load(Ordering::SeqCst));
         assert!(!EXIT_ALLOWED.load(Ordering::SeqCst));
-        assert!(QUIT_TARGETS.lock().unwrap_or_else(|p| p.into_inner()).is_empty());
-        assert!(FIRST_QUIT_PRESS.lock().unwrap_or_else(|p| p.into_inner()).is_none());
+        assert!(QUIT_TARGETS
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .is_empty());
+        assert!(FIRST_QUIT_PRESS
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .is_none());
     }
 
     // --- Exit allowed flag ---
@@ -595,10 +669,10 @@ mod tests {
 
     #[test]
     fn is_document_window_label_doc_variations() {
-        assert!(!is_document_window_label("doc"));     // no dash
-        assert!(!is_document_window_label("docs-0"));  // extra 's'
-        assert!(!is_document_window_label("DOC-0"));   // wrong case
-        assert!(is_document_window_label("doc-abc"));   // non-numeric suffix
+        assert!(!is_document_window_label("doc")); // no dash
+        assert!(!is_document_window_label("docs-0")); // extra 's'
+        assert!(!is_document_window_label("DOC-0")); // wrong case
+        assert!(is_document_window_label("doc-abc")); // non-numeric suffix
     }
 
     // --- Gate enable/disable mid-sequence ---
@@ -610,7 +684,10 @@ mod tests {
 
         let now = Instant::now();
         // First press with gate enabled
-        assert_eq!(check_confirm_quit_gate(now), QuitGateResult::WaitForSecondPress);
+        assert_eq!(
+            check_confirm_quit_gate(now),
+            QuitGateResult::WaitForSecondPress
+        );
 
         // Disable gate
         CONFIRM_QUIT_ENABLED.store(false, Ordering::SeqCst);
@@ -635,7 +712,10 @@ mod tests {
 
         // Now requires double press
         let t1 = now + Duration::from_millis(100);
-        assert_eq!(check_confirm_quit_gate(t1), QuitGateResult::WaitForSecondPress);
+        assert_eq!(
+            check_confirm_quit_gate(t1),
+            QuitGateResult::WaitForSecondPress
+        );
 
         let t2 = t1 + Duration::from_millis(100);
         assert_eq!(check_confirm_quit_gate(t2), QuitGateResult::Proceed);
@@ -649,14 +729,20 @@ mod tests {
         reset_confirm_quit();
 
         let t0 = Instant::now();
-        assert_eq!(check_confirm_quit_gate(t0), QuitGateResult::WaitForSecondPress);
+        assert_eq!(
+            check_confirm_quit_gate(t0),
+            QuitGateResult::WaitForSecondPress
+        );
 
         let t1 = t0 + Duration::from_millis(100);
         assert_eq!(check_confirm_quit_gate(t1), QuitGateResult::Proceed);
 
         // Third press — state was cleared after Proceed, so this is a new first press
         let t2 = t1 + Duration::from_millis(100);
-        assert_eq!(check_confirm_quit_gate(t2), QuitGateResult::WaitForSecondPress);
+        assert_eq!(
+            check_confirm_quit_gate(t2),
+            QuitGateResult::WaitForSecondPress
+        );
     }
 
     // --- Boundary timing ---
@@ -667,11 +753,17 @@ mod tests {
         reset_confirm_quit();
 
         let now = Instant::now();
-        assert_eq!(check_confirm_quit_gate(now), QuitGateResult::WaitForSecondPress);
+        assert_eq!(
+            check_confirm_quit_gate(now),
+            QuitGateResult::WaitForSecondPress
+        );
 
         // 1ms before the 2s boundary — should still be within window
         let just_before = now + Duration::from_millis(1999);
-        assert_eq!(check_confirm_quit_gate(just_before), QuitGateResult::Proceed);
+        assert_eq!(
+            check_confirm_quit_gate(just_before),
+            QuitGateResult::Proceed
+        );
     }
 
     #[test]
@@ -680,11 +772,17 @@ mod tests {
         reset_confirm_quit();
 
         let now = Instant::now();
-        assert_eq!(check_confirm_quit_gate(now), QuitGateResult::WaitForSecondPress);
+        assert_eq!(
+            check_confirm_quit_gate(now),
+            QuitGateResult::WaitForSecondPress
+        );
 
         // 1ms after the 2s boundary — expired
         let just_after = now + Duration::from_millis(2001);
-        assert_eq!(check_confirm_quit_gate(just_after), QuitGateResult::WaitForSecondPress);
+        assert_eq!(
+            check_confirm_quit_gate(just_after),
+            QuitGateResult::WaitForSecondPress
+        );
     }
 
     // --- Thread safety ---

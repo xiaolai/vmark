@@ -718,7 +718,7 @@ describe("codePreview exitEditMode via plugin with mock view", () => {
     };
   }
 
-  it("exitEditMode with null view falls back to currentEditorView", async () => {
+  it("plugin view registration and editing lifecycle stay consistent", async () => {
     const { useBlockMathEditingStore } = await import("@/stores/blockMathEditingStore");
     const { state, plugins } = createStateWithCodeBlock("latex", "x^2");
 

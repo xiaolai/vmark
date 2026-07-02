@@ -37,8 +37,7 @@ fn validate_openable_path(raw: &str) -> Result<(), String> {
 #[tauri::command]
 pub async fn get_file_size_bytes(path: String) -> Result<u64, String> {
     validate_openable_path(&path)?;
-    let metadata = fs::metadata(&path)
-        .map_err(|e| format!("Failed to stat {}: {}", path, e))?;
+    let metadata = fs::metadata(&path).map_err(|e| format!("Failed to stat {}: {}", path, e))?;
     Ok(metadata.len())
 }
 
@@ -122,8 +121,7 @@ mod tests {
     async fn broken_symlink_returns_err() {
         let dir = tempfile::tempdir().expect("tempdir");
         let link_path = dir.path().join("broken.md");
-        std::os::unix::fs::symlink("/nonexistent/target/vmark-test", &link_path)
-            .expect("symlink");
+        std::os::unix::fs::symlink("/nonexistent/target/vmark-test", &link_path).expect("symlink");
 
         let result = get_file_size_bytes(link_path.to_string_lossy().into_owned()).await;
         assert!(result.is_err(), "broken symlinks must surface an error");
@@ -143,7 +141,9 @@ mod tests {
 
         // Strip all bits from the parent so traversal to the file fails.
         let parent = dir.path();
-        let original = std::fs::metadata(parent).expect("stat parent").permissions();
+        let original = std::fs::metadata(parent)
+            .expect("stat parent")
+            .permissions();
         let mut locked = original.clone();
         locked.set_mode(0o000);
 

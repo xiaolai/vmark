@@ -69,7 +69,10 @@ pub async fn mcp_bridge_start(app: AppHandle, port: u16) -> Result<McpServerStat
         .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
         .is_err()
     {
-        let current_port = BRIDGE_PORT.lock().map_err(|e| e.to_string())?.unwrap_or(port);
+        let current_port = BRIDGE_PORT
+            .lock()
+            .map_err(|e| e.to_string())?
+            .unwrap_or(port);
         return Ok(McpServerStatus {
             running: true,
             port: Some(current_port),
@@ -85,7 +88,10 @@ pub async fn mcp_bridge_start(app: AppHandle, port: u16) -> Result<McpServerStat
     let app_for_cleanup = app.clone();
     let actual_port = match mcp_bridge::start_bridge(app.clone(), port, move || {
         if BRIDGE_GENERATION.load(Ordering::SeqCst) != generation {
-            log::debug!("[MCP] Stale bridge loop exited (gen {}) — state untouched", generation);
+            log::debug!(
+                "[MCP] Stale bridge loop exited (gen {}) — state untouched",
+                generation
+            );
             return;
         }
         log::warn!("[MCP] Bridge server loop exited — resetting BRIDGE_RUNNING");

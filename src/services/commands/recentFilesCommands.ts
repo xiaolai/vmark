@@ -15,7 +15,7 @@ import { exists } from "@tauri-apps/plugin-fs";
 import { invoke } from "@tauri-apps/api/core";
 import { imeToast as toast } from "@/services/ime/imeToast";
 import i18n from "@/i18n";
-import { registerCommand } from "./CommandBus";
+import { hasCommand, registerCommand } from "./CommandBus";
 import { useRecentFilesStore } from "@/stores/workspaceStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useSettingsStore } from "@/stores/settingsStore";
@@ -24,22 +24,20 @@ import { withReentryGuard } from "@/utils/reentryGuard";
 import { resolveOpenAction } from "@/utils/openPolicy";
 import { getReplaceableTab } from "@/hooks/useReplaceableTab";
 import { openFileInNewTabCore, replaceTabWithFile } from "@/hooks/useFileOpen";
+import { openWorkspaceWithConfig } from "@/hooks/openWorkspaceWithConfig";
 import { menuError } from "@/utils/debug";
 import { getFileName } from "@/utils/pathUtils";
+import { parseRecentPathArgs } from "./recentPathArgs";
 
 type Ctx = { windowLabel?: string };
 
 /**
  * Normalize a recent-file command argument to a non-empty path string.
- *
- * `args` is either the tuple `[path, label]` (menu dispatch) or a plain path
- * string (programmatic call). Anything else — including `[]`, `null`, and
- * `undefined` — is rejected so it can't become a literal "undefined"/"null"
- * file path.
+ * Thin alias over the shared recent-path parser (also used by
+ * `workspace.openRecent`).
  */
 export function parseRecentFileArgs(args: unknown): string | null {
-  const candidate = Array.isArray(args) ? args[0] : args;
-  return typeof candidate === "string" && candidate.length > 0 ? candidate : null;
+  return parseRecentPathArgs(args);
 }
 
 /**
@@ -90,6 +88,24 @@ export async function replaceTabWithRecentFile(params: {
   await promptRemoveRecentFile(params.sourcePath);
 }
 
+/**
+ * Open an external recent file's resolved workspace before creating its tab
+ * (#946 parity with Cmd+O's `openWorkspaceForNewTab`): the new tab must be
+ * claimed by the file's own workspace, not attached to the current context.
+ * Failure is logged but non-fatal — the file still opens.
+ */
+async function openRecentWorkspaceForNewTab(
+  windowLabel: string,
+  workspaceRoot: string | null | undefined,
+): Promise<void> {
+  if (!workspaceRoot) return;
+  try {
+    await openWorkspaceWithConfig(workspaceRoot, { windowLabel });
+  } catch (error) {
+    menuError("Failed to open workspace for recent file tab:", error);
+  }
+}
+
 /** Open a recent file's workspace in a new window, with localized failure toast. */
 export async function openRecentInNewWindow(
   workspaceRoot: string | null | undefined,
@@ -106,7 +122,8 @@ export async function openRecentInNewWindow(
 
 let registered = false;
 export function registerRecentFilesCommands(): void {
-  if (registered) return;
+  // HMR: the module-local flag resets on reload, but the bus registry survives.
+  if (registered || hasCommand("file.clearRecent")) return;
 
   registerCommand({
     id: "file.clearRecent",
@@ -142,7 +159,8 @@ export function registerRecentFilesCommands(): void {
       if (!filePath) return;
 
       const { isWorkspaceMode, rootPath } = useWorkspaceStore.getState();
-      const workspaceRailMode = useSettingsStore.getState().general.workspaceRailMode;
+      // fix(#946) — honor the "open files in a new tab" preference, same as Cmd+O.
+      const { openInNewTab, workspaceRailMode } = useSettingsStore.getState().general;
       const existingTab = useTabStore.getState().findTabByPath(windowLabel, filePath);
       const replaceableTab = getReplaceableTab(windowLabel);
 
@@ -152,6 +170,7 @@ export function registerRecentFilesCommands(): void {
         isWorkspaceMode,
         existingTabId: existingTab?.id ?? null,
         replaceableTab,
+        openInNewTab,
         workspaceRailMode,
       });
 
@@ -162,7 +181,10 @@ export function registerRecentFilesCommands(): void {
             break;
 
           case "create_tab":
-            await openRecentInNewTab(windowLabel, filePath);
+            // An external file opened in a new tab carries its own resolved
+            // root; claim that workspace first (mirrors Cmd+O's handleOpen).
+            await openRecentWorkspaceForNewTab(windowLabel, result.workspaceRoot);
+            await openRecentInNewTab(windowLabel, result.filePath);
             break;
 
           case "replace_tab":

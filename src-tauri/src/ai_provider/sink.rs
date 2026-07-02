@@ -6,8 +6,11 @@
 //!
 //!   - **`WindowSink`** — preserves today's behavior: emits `ai:response`
 //!     events to the frontend window for the editor genie path.
-//!   - **`ChannelSink`** (added in WI-1.2) — pushes chunks into a tokio mpsc
-//!     channel so an in-process workflow runner can collect the full response.
+//!   - **`ChannelSink`** (added in WI-1.2) — pushes chunks into a *bounded*
+//!     tokio mpsc channel so an in-process workflow runner can collect the
+//!     full response. A cumulative byte-gate stops the producer once output
+//!     reaches `MAX_COLLECT_BYTES`, so the channel can never buffer past the
+//!     cap even when the collector is mid dispatch-poll and cannot drain.
 //!
 //! ## Why a trait, not duplicated functions
 //!
@@ -18,8 +21,11 @@
 //! genie chunk and complicates cancellation lifetimes.
 
 use super::types::AiResponseChunk;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::Arc;
 use tauri::{Emitter, WebviewWindow};
-use tokio::sync::mpsc::UnboundedSender;
+use tokio::sync::mpsc::Sender;
+use tokio_util::sync::CancellationToken;
 
 /// Sink for AI provider output.
 ///
@@ -114,49 +120,115 @@ pub enum ChannelEvent {
     Error(String),
 }
 
-/// Sink that forwards calls to a tokio mpsc channel.
+/// Sink that forwards calls to a *bounded* tokio mpsc channel.
 ///
 /// Used by `run_ai_prompt_collect` to pull chunks back into a Rust caller
 /// (e.g. the workflow runner) rather than to a frontend window. After the
 /// terminal `done` or `error` event the receiver should close the channel.
+///
+/// ## Backpressure / memory bound
+///
+/// The collector runs the provider dispatch in the same task, so it cannot
+/// drain mid dispatch-poll: a single poll of a fast provider can call
+/// `chunk` many times in a row. To keep peak in-flight memory bounded, the
+/// sink enforces a **cumulative byte-gate**: once the running total handed to
+/// `chunk` reaches `MAX_COLLECT_BYTES`, the sink stops forwarding, fires
+/// `cancel` (stopping the CLI child / REST request), and sets `overflowed`.
+/// The bounded channel adds a coarse message-depth backstop; a `Full` send is
+/// treated the same as the byte-gate tripping. This is why a count-only bound
+/// is unsuitable here — legitimate output can burst many small chunks in one
+/// poll (see `collect_drains_burst_before_done`), so the precise cap must be
+/// measured in bytes, not messages.
 pub struct ChannelSink {
-    sender: UnboundedSender<ChannelEvent>,
+    sender: Sender<ChannelEvent>,
+    /// Running total of bytes handed to `chunk`. The gate compares this
+    /// against `MAX_COLLECT_BYTES` before each forward, so the channel can
+    /// never buffer more than the cap plus one in-flight chunk.
+    sent_bytes: AtomicUsize,
+    /// Fired when output exceeds the cap so the provider is stopped instead of
+    /// producing without bound.
+    cancel: CancellationToken,
+    /// Set alongside `cancel` on overflow so the collector reports the cap
+    /// error rather than a plain cancellation.
+    overflowed: Arc<AtomicBool>,
 }
 
 impl ChannelSink {
-    /// Construct a sink that forwards events to `sender`. The receiver end
-    /// is owned by `run_ai_prompt_collect` (or any other Rust caller that
-    /// needs the full response). Send failures are logged at trace level
-    /// and swallowed — providers don't need to react when the consumer
-    /// has already moved on.
-    pub fn new(sender: UnboundedSender<ChannelEvent>) -> Self {
-        Self { sender }
+    /// Construct a sink that forwards events to `sender`. The receiver end is
+    /// owned by `run_ai_prompt_collect`. `cancel` is fired and `overflowed`
+    /// set if output exceeds the collect cap, so the collector can stop the
+    /// provider and surface the cap error. Send failures on a closed channel
+    /// are logged at trace level and swallowed — providers don't need to react
+    /// when the consumer has already moved on.
+    pub fn new(
+        sender: Sender<ChannelEvent>,
+        cancel: CancellationToken,
+        overflowed: Arc<AtomicBool>,
+    ) -> Self {
+        Self {
+            sender,
+            sent_bytes: AtomicUsize::new(0),
+            cancel,
+            overflowed,
+        }
+    }
+
+    /// Mark the stream as over the cap and stop the producer.
+    fn trip_overflow(&self) {
+        self.overflowed.store(true, Ordering::SeqCst);
+        self.cancel.cancel();
+    }
+
+    /// Forward one event, mapping a full queue to an overflow (cap) trip and a
+    /// closed channel to a swallowed trace log.
+    fn send_event(&self, event: ChannelEvent) {
+        use tokio::sync::mpsc::error::TrySendError;
+        match self.sender.try_send(event) {
+            Ok(()) => {}
+            Err(TrySendError::Full(_)) => {
+                // Message-depth backstop hit while the collector is not
+                // draining. Treat as the output cap and stop the producer.
+                self.trip_overflow();
+            }
+            Err(TrySendError::Closed(_)) => {
+                log::trace!("ChannelSink send failed — receiver dropped");
+            }
+        }
     }
 }
 
 impl AiSink for ChannelSink {
     fn chunk(&self, text: &str) {
-        // Receiver dropped → log and continue. The provider has no use for the
-        // error here; the caller already noticed the channel close.
-        if self.sender.send(ChannelEvent::Chunk(text.to_string())).is_err() {
-            log::trace!("ChannelSink::chunk send failed — receiver dropped");
+        if self.overflowed.load(Ordering::SeqCst) {
+            return;
         }
+        // Byte-gate: bound the cumulative output forwarded into the channel to
+        // MAX_COLLECT_BYTES. The collector runs dispatch in the same task and
+        // cannot drain mid-poll, so without this a fast provider could enqueue
+        // unbounded bytes in a single poll before the receiver's cap is ever
+        // checked. Once the cap is reached we stop forwarding and trip
+        // overflow, so peak buffered output never exceeds the cap plus this
+        // one in-flight chunk.
+        let already_sent = self.sent_bytes.fetch_add(text.len(), Ordering::SeqCst);
+        if already_sent.saturating_add(text.len()) > super::MAX_COLLECT_BYTES {
+            self.trip_overflow();
+            return;
+        }
+        self.send_event(ChannelEvent::Chunk(text.to_string()));
     }
 
     fn done(&self) {
-        if self.sender.send(ChannelEvent::Done).is_err() {
-            log::trace!("ChannelSink::done send failed — receiver dropped");
+        if self.overflowed.load(Ordering::SeqCst) {
+            return;
         }
+        self.send_event(ChannelEvent::Done);
     }
 
     fn error(&self, msg: &str) {
-        if self
-            .sender
-            .send(ChannelEvent::Error(msg.to_string()))
-            .is_err()
-        {
-            log::trace!("ChannelSink::error send failed — receiver dropped");
+        if self.overflowed.load(Ordering::SeqCst) {
+            return;
         }
+        self.send_event(ChannelEvent::Error(msg.to_string()));
     }
 }
 
@@ -228,142 +300,5 @@ pub(crate) mod testing {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::testing::{RecordingSink, SinkEvent};
-    use super::AiSink;
-    use super::AiResponseChunk;
-
-    #[test]
-    fn recording_sink_captures_chunk_done() {
-        let sink = RecordingSink::new();
-        sink.chunk("Hello, ");
-        sink.chunk("world.");
-        sink.done();
-        assert_eq!(
-            sink.events(),
-            vec![
-                SinkEvent::Chunk("Hello, ".to_string()),
-                SinkEvent::Chunk("world.".to_string()),
-                SinkEvent::Done,
-            ]
-        );
-        assert_eq!(sink.collected_text(), "Hello, world.");
-    }
-
-    #[test]
-    fn recording_sink_captures_error_terminal() {
-        let sink = RecordingSink::new();
-        sink.chunk("partial");
-        sink.error("network down");
-        assert_eq!(
-            sink.events(),
-            vec![
-                SinkEvent::Chunk("partial".to_string()),
-                SinkEvent::Error("network down".to_string()),
-            ]
-        );
-    }
-
-    #[test]
-    fn sink_can_be_used_through_dyn_trait_object() {
-        // Producers will hold `&dyn AiSink`. Verify the trait dispatch works.
-        fn produce(sink: &dyn AiSink) {
-            sink.chunk("a");
-            sink.chunk("b");
-            sink.done();
-        }
-        let sink = RecordingSink::new();
-        produce(&sink);
-        assert_eq!(sink.collected_text(), "ab");
-    }
-
-    #[test]
-    fn sink_is_send_sync() {
-        // Compile-time assertion that AiSink is usable across threads — required
-        // by the runner because providers `await` across `tokio::spawn` boundaries.
-        fn assert_send_sync<T: Send + Sync + ?Sized>() {}
-        assert_send_sync::<dyn AiSink>();
-    }
-
-    #[test]
-    fn channel_sink_forwards_chunks_in_order() {
-        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
-        let sink = super::ChannelSink::new(tx);
-        sink.chunk("hello, ");
-        sink.chunk("world.");
-        sink.done();
-
-        let mut events = Vec::new();
-        while let Ok(e) = rx.try_recv() {
-            events.push(e);
-        }
-        assert_eq!(
-            events,
-            vec![
-                super::ChannelEvent::Chunk("hello, ".to_string()),
-                super::ChannelEvent::Chunk("world.".to_string()),
-                super::ChannelEvent::Done,
-            ]
-        );
-    }
-
-    #[test]
-    fn channel_sink_forwards_error_terminal() {
-        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
-        let sink = super::ChannelSink::new(tx);
-        sink.chunk("partial");
-        sink.error("boom");
-
-        let mut events = Vec::new();
-        while let Ok(e) = rx.try_recv() {
-            events.push(e);
-        }
-        assert_eq!(
-            events,
-            vec![
-                super::ChannelEvent::Chunk("partial".to_string()),
-                super::ChannelEvent::Error("boom".to_string()),
-            ]
-        );
-    }
-
-    #[test]
-    fn channel_sink_silent_when_receiver_dropped() {
-        let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
-        let sink = super::ChannelSink::new(tx);
-        drop(rx);
-        // Must not panic. Calls into a closed channel are silently dropped.
-        sink.chunk("x");
-        sink.done();
-        sink.error("oops");
-    }
-
-    #[test]
-    fn window_sink_chunk_payload_matches_legacy_shape() {
-        // WindowSink builds an AiResponseChunk with the exact field shape that
-        // types::emit_chunk used to construct directly. Verify the payload
-        // serializes the same way (byte-for-byte JSON), since the frontend
-        // listener will consume both shapes and must not see a regression.
-        let request_id = "rid-1".to_string();
-        let chunk_text = "hello";
-
-        // What WindowSink::chunk constructs internally:
-        let from_sink = AiResponseChunk {
-            request_id: request_id.clone(),
-            chunk: chunk_text.to_string(),
-            done: false,
-            error: None,
-        };
-        // What types::emit_chunk constructs directly (legacy):
-        let from_legacy = AiResponseChunk {
-            request_id: request_id.clone(),
-            chunk: chunk_text.to_string(),
-            done: false,
-            error: None,
-        };
-        assert_eq!(
-            serde_json::to_string(&from_sink).unwrap(),
-            serde_json::to_string(&from_legacy).unwrap()
-        );
-    }
-}
+#[path = "sink.test.rs"]
+mod tests;

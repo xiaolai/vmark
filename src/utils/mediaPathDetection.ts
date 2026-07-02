@@ -5,7 +5,7 @@
  * based on file extension. Used by the markdown pipeline to auto-promote
  * image-syntax references (`![](file.mp4)`) to the appropriate block node.
  *
- * @coordinates-with mdastBlockConverters.ts — paragraph promotion logic
+ * @coordinates-with markdownPipeline/mdastMediaConverters.ts — paragraph promotion logic
  * @coordinates-with mediaHandler/tiptap.ts — drop/paste file type detection
  * @module utils/mediaPathDetection
  */
@@ -16,50 +16,59 @@ import {
   IMAGE_EXTENSIONS_DOTTED as IMAGE_EXTENSIONS,
   VIDEO_EXTENSIONS_DOTTED as VIDEO_EXTENSIONS,
   AUDIO_EXTENSIONS_DOTTED as AUDIO_EXTENSIONS,
+  fileExtension,
 } from "./mediaExtensions";
 
 export { VIDEO_EXTENSIONS, AUDIO_EXTENSIONS };
 
+export type MediaType = "video" | "audio" | "image";
+
 /**
  * Extract the file extension from a path or URL, ignoring query params.
  * Returns lowercase extension including the dot, or empty string.
+ * Delegates to the canonical mediaExtensions.fileExtension parser so
+ * basename handling (hidden files like "/dir/.mp4") stays consistent.
  */
 function extractExtension(path: string): string {
-  if (!path) return "";
-  // Strip query params, hash, and trailing slashes
-  const clean = path.split(/[?#]/)[0].replace(/\/+$/, "");
-  const lastDot = clean.lastIndexOf(".");
-  if (lastDot <= 0) return ""; // -1 = no dot, 0 = hidden file like ".gitignore"
-  // Guard against paths ending with just a dot (e.g., "file.")
-  const ext = clean.slice(lastDot).toLowerCase();
-  return ext.length > 1 ? ext : "";
+  const ext = fileExtension(path);
+  return ext ? `.${ext}` : "";
+}
+
+/** Ordered detection table — first matching extension list wins. */
+const MEDIA_TYPE_TABLE: ReadonlyArray<readonly [MediaType, readonly string[]]> = [
+  ["video", VIDEO_EXTENSIONS],
+  ["audio", AUDIO_EXTENSIONS],
+  ["image", IMAGE_EXTENSIONS],
+];
+
+/** Check if a path/URL's extension is in the given dotted-extension list. */
+function hasMediaExtension(path: string, extensions: readonly string[]): boolean {
+  return extensions.includes(extractExtension(path));
 }
 
 /**
  * Check if a path/URL points to a video file based on its extension.
  */
 export function hasVideoExtension(path: string): boolean {
-  const ext = extractExtension(path);
-  return (VIDEO_EXTENSIONS as readonly string[]).includes(ext);
+  return hasMediaExtension(path, VIDEO_EXTENSIONS);
 }
 
 /**
  * Check if a path/URL points to an audio file based on its extension.
  */
 export function hasAudioExtension(path: string): boolean {
-  const ext = extractExtension(path);
-  return (AUDIO_EXTENSIONS as readonly string[]).includes(ext);
+  return hasMediaExtension(path, AUDIO_EXTENSIONS);
 }
 
 /**
  * Detect the media type of a file path or URL.
  * Returns "video", "audio", "image", or null if unrecognized.
  */
-export function getMediaType(path: string): "video" | "audio" | "image" | null {
+export function getMediaType(path: string): MediaType | null {
   const ext = extractExtension(path);
   if (!ext) return null;
-  if ((VIDEO_EXTENSIONS as readonly string[]).includes(ext)) return "video";
-  if ((AUDIO_EXTENSIONS as readonly string[]).includes(ext)) return "audio";
-  if ((IMAGE_EXTENSIONS as readonly string[]).includes(ext)) return "image";
+  for (const [type, extensions] of MEDIA_TYPE_TABLE) {
+    if (extensions.includes(ext)) return type;
+  }
   return null;
 }

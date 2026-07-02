@@ -9,6 +9,9 @@ use std::process::Command;
 use std::sync::Mutex;
 use tauri::command;
 
+use super::spawn::{
+    capture_stdout_with_timeout, parse_sentinel, which_command, windows_profile_path,
+};
 use super::types::CliProviderEntry;
 
 // ============================================================================
@@ -119,63 +122,19 @@ pub(crate) fn login_shell_path() -> String {
         .clone()
 }
 
-/// Extract the text between the first `start` sentinel and the next `end`
-/// sentinel after it, trimmed. Returns `None` if either sentinel is absent.
-fn parse_sentinel(raw: &str, start: &str, end: &str) -> Option<String> {
-    let s = raw.find(start)? + start.len();
-    let e = raw[s..].find(end)? + s;
-    Some(raw[s..e].trim().to_string())
-}
-
-/// Run `<shell> -lic <cmd>`, draining stdout on a background thread to avoid the
-/// pipe-buffer deadlock (a shell that writes > the ~64 KB pipe buffer blocks on
-/// write while we block on `try_wait`), with a 5 s timeout. Returns raw stdout on
+/// Run `<shell> -lic <cmd>` with a 5 s timeout via the shared bounded
+/// process-capture helper (`spawn::capture_stdout_with_timeout` — see its
+/// docs for the pipe-drain and timeout semantics). Returns raw stdout on
 /// success, or `None` on spawn failure, non-zero exit, or timeout. Shared by
 /// `login_shell_path` and `query_login_shell_zdotdir`.
 fn run_login_shell_capture(shell: &str, cmd: &str) -> Option<String> {
-    let mut child = Command::new(shell)
-        .args(["-lic", cmd])
-        .stdin(std::process::Stdio::null())
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::null())
-        .spawn()
-        .ok()?;
-
-    let stdout_pipe = child.stdout.take();
-    let reader = std::thread::spawn(move || -> Vec<u8> {
-        let mut buf = Vec::new();
-        if let Some(mut pipe) = stdout_pipe {
-            use std::io::Read;
-            let _ = pipe.read_to_end(&mut buf);
-        }
-        buf
-    });
-
-    let timeout = std::time::Duration::from_secs(5);
-    let start = std::time::Instant::now();
-    loop {
-        match child.try_wait() {
-            Ok(Some(status)) => {
-                let buf = reader.join().ok()?;
-                return status
-                    .success()
-                    .then(|| String::from_utf8_lossy(&buf).to_string());
-            }
-            Ok(None) => {
-                if start.elapsed() > timeout {
-                    let _ = child.kill();
-                    let _ = child.wait();
-                    log::warn!(
-                        "[VMark] login shell capture timed out after {}s",
-                        timeout.as_secs()
-                    );
-                    return None;
-                }
-                std::thread::sleep(std::time::Duration::from_millis(50));
-            }
-            Err(_) => return None,
-        }
-    }
+    let mut command = Command::new(shell);
+    command.args(["-lic", cmd]);
+    capture_stdout_with_timeout(
+        command,
+        std::time::Duration::from_secs(5),
+        "login shell capture",
+    )
 }
 
 /// Resolve the user's effective `ZDOTDIR` by asking a login shell. macOS GUI
@@ -220,107 +179,6 @@ pub(crate) fn login_shell_zdotdir(shell: &str) -> Option<String> {
         c.insert(shell.to_string(), result.clone());
     }
     result
-}
-
-/// Spawn PowerShell to get the full PATH including `$PROFILE` additions.
-///
-/// Many Windows CLI tools (claude, codex, fnm, volta, etc.) add themselves
-/// to PATH via the PowerShell profile rather than the system environment
-/// variables.  This mirrors the macOS approach where we spawn a login shell
-/// to source `.zshrc`/`.bashrc`.
-///
-/// Returns `None` if PowerShell is unavailable, times out (3s), or produces
-/// empty output.
-#[cfg(target_os = "windows")]
-fn windows_profile_path() -> Option<String> {
-    const START: &str = "__VMARK_PATH_START__";
-    const END: &str = "__VMARK_PATH_END__";
-
-    // Try pwsh (PowerShell 7+) first, then powershell.exe (Windows PowerShell 5.x)
-    let shells = ["pwsh.exe", "powershell.exe"];
-    for shell in &shells {
-        let cmd_str = format!("Write-Output '{START}'; Write-Output $env:Path; Write-Output '{END}'");
-        let result = Command::new(shell)
-            .args(["-NoLogo", "-NonInteractive", "-Command", &cmd_str])
-            .stdin(std::process::Stdio::null())
-            .stdout(std::process::Stdio::piped())
-            .stderr(std::process::Stdio::null())
-            .spawn();
-
-        let mut child = match result {
-            Ok(c) => c,
-            Err(_) => continue,
-        };
-
-        let stdout_pipe = child.stdout.take();
-        let reader = std::thread::spawn(move || -> Vec<u8> {
-            let mut buf = Vec::new();
-            if let Some(mut pipe) = stdout_pipe {
-                use std::io::Read;
-                let _ = pipe.read_to_end(&mut buf);
-            }
-            buf
-        });
-
-        let timeout = std::time::Duration::from_secs(3);
-        let start = std::time::Instant::now();
-        loop {
-            match child.try_wait() {
-                Ok(Some(status)) => {
-                    let Ok(buf) = reader.join() else { break };
-                    if status.success() {
-                        let raw = String::from_utf8_lossy(&buf);
-                        if let Some(s) = raw.find(START) {
-                            if let Some(e) = raw.find(END) {
-                                let path = raw[s + START.len()..e].trim();
-                                if !path.is_empty() {
-                                    return Some(path.to_string());
-                                }
-                            }
-                        }
-                    }
-                    break;
-                }
-                Ok(None) => {
-                    if start.elapsed() > timeout {
-                        let _ = child.kill();
-                        let _ = child.wait();
-                        log::warn!("[VMark] windows_profile_path: {shell} timed out");
-                        break;
-                    }
-                    std::thread::sleep(std::time::Duration::from_millis(50));
-                }
-                Err(_) => break,
-            }
-        }
-    }
-    None
-}
-
-#[cfg(not(target_os = "windows"))]
-fn windows_profile_path() -> Option<String> {
-    None
-}
-
-/// Build a `Command` for the system's `which` (Unix) or `where` (Windows).
-///
-/// On Windows, uses the absolute path `%WINDIR%\System32\where.exe` to
-/// prevent PATH-hijacking attacks. On Unix, uses bare `which` (safe because
-/// `/usr/bin` is always on PATH and not user-writable).
-pub(crate) fn which_command() -> Command {
-    #[cfg(target_os = "windows")]
-    {
-        let where_exe = std::path::PathBuf::from(
-            std::env::var("WINDIR").unwrap_or_else(|_| r"C:\Windows".to_string()),
-        )
-        .join("System32")
-        .join("where.exe");
-        Command::new(where_exe)
-    }
-    #[cfg(not(target_os = "windows"))]
-    {
-        Command::new("which")
-    }
 }
 
 /// Check if a command exists on the system PATH.
@@ -409,7 +267,10 @@ mod tests {
         assert!(codex.available);
         assert_eq!(codex.path.as_deref(), Some("/usr/local/bin/codex"));
 
-        let claude = entries.iter().find(|e| e.provider_type == "claude").unwrap();
+        let claude = entries
+            .iter()
+            .find(|e| e.provider_type == "claude")
+            .unwrap();
         assert!(!claude.available);
         assert_eq!(claude.path, None);
         assert_eq!(claude.command, "claude");
@@ -458,26 +319,7 @@ mod tests {
     }
 
     // --- WI-1.1: login-shell ZDOTDIR resolution (terminal gap G1) ---
-
-    #[test]
-    fn parse_sentinel_extracts_trimmed_value() {
-        assert_eq!(
-            parse_sentinel("noise<S>  /home/x/.zsh  <E>tail", "<S>", "<E>"),
-            Some("/home/x/.zsh".to_string())
-        );
-    }
-
-    #[test]
-    fn parse_sentinel_none_when_markers_missing() {
-        assert_eq!(parse_sentinel("<S>only start, no end", "<S>", "<E>"), None);
-        assert_eq!(parse_sentinel("no markers at all", "<S>", "<E>"), None);
-    }
-
-    #[test]
-    fn parse_sentinel_empty_between_markers() {
-        // Unset ZDOTDIR prints START immediately followed by END → empty value.
-        assert_eq!(parse_sentinel("<S><E>", "<S>", "<E>"), Some(String::new()));
-    }
+    // (parse_sentinel unit tests live next to its definition in spawn.test.rs.)
 
     #[test]
     fn zdotdir_none_for_nonexistent_shell() {
@@ -485,36 +327,41 @@ mod tests {
         assert_eq!(query_login_shell_zdotdir("/no/such/shell/vmark-xyz"), None);
     }
 
+    /// Write a fake login "shell" that ignores its args and prints `body`.
+    #[cfg(unix)]
+    fn write_fake_shell(dir: &tempfile::TempDir, body: &str) -> std::path::PathBuf {
+        use std::io::Write;
+        use std::os::unix::fs::PermissionsExt;
+        let shell = dir.path().join("fakezsh");
+        let mut f = std::fs::File::create(&shell).unwrap();
+        write!(f, "#!/bin/sh\nprintf '{body}'\n").unwrap();
+        drop(f);
+        std::fs::set_permissions(&shell, std::fs::Permissions::from_mode(0o755)).unwrap();
+        shell
+    }
+
+    #[cfg(unix)]
     #[test]
     fn zdotdir_none_when_unset_in_login_shell() {
-        // With ZDOTDIR unset in this process's env, /bin/sh echoes an empty value
-        // between the sentinels, which resolves to None (filtered empty). This
+        // A fake shell that prints empty sentinels — deterministically models
+        // "ZDOTDIR unset" regardless of this test process's environment, and
         // exercises the full spawn→capture→parse pipeline on the unset path.
-        // (The non-empty path is covered by parse_sentinel_* + the manual e2e in
-        // the plan's checklist, avoiding racy/edition-fragile env mutation here.)
-        if std::env::var_os("ZDOTDIR").is_none() {
-            assert_eq!(query_login_shell_zdotdir("/bin/sh"), None);
-        }
+        let dir = tempfile::tempdir().unwrap();
+        let shell = write_fake_shell(&dir, "__VMARK_ZDOTDIR_START____VMARK_ZDOTDIR_END__");
+        assert_eq!(query_login_shell_zdotdir(shell.to_str().unwrap()), None);
     }
 
     #[cfg(unix)]
     #[test]
     fn zdotdir_round_trips_via_fake_login_shell() {
-        use std::io::Write;
-        use std::os::unix::fs::PermissionsExt;
-        // A fake "shell" that ignores its args and prints the sentinel-wrapped
-        // value — exercises the full spawn→capture→parse→non-empty path (closing
-        // the WI-1.1 coverage gap) without racy/edition-fragile env mutation.
+        // A fake "shell" that prints a sentinel-wrapped value — exercises the
+        // full spawn→capture→parse→non-empty path (closing the WI-1.1 coverage
+        // gap) without racy/edition-fragile env mutation.
         let dir = tempfile::tempdir().unwrap();
-        let shell = dir.path().join("fakezsh");
-        let mut f = std::fs::File::create(&shell).unwrap();
-        write!(
-            f,
-            "#!/bin/sh\nprintf '__VMARK_ZDOTDIR_START__/home/x/.config/zsh__VMARK_ZDOTDIR_END__'\n"
-        )
-        .unwrap();
-        drop(f);
-        std::fs::set_permissions(&shell, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let shell = write_fake_shell(
+            &dir,
+            "__VMARK_ZDOTDIR_START__/home/x/.config/zsh__VMARK_ZDOTDIR_END__",
+        );
         assert_eq!(
             query_login_shell_zdotdir(shell.to_str().unwrap()).as_deref(),
             Some("/home/x/.config/zsh"),

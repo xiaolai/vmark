@@ -232,6 +232,9 @@ mod tests {
         upsert_status(&mut m, "zeta", "z".into(), "idle".into(), 0);
         upsert_status(&mut m, "alpha", "a".into(), "idle".into(), 0);
         let snap = snapshot(&m);
-        assert_eq!(snap.iter().map(|s| s.label.as_str()).collect::<Vec<_>>(), ["alpha", "zeta"]);
+        assert_eq!(
+            snap.iter().map(|s| s.label.as_str()).collect::<Vec<_>>(),
+            ["alpha", "zeta"]
+        );
     }
 }

@@ -254,4 +254,40 @@ describe("addCursorBelow", () => {
     expect(tr).toBeNull();
     view.destroy();
   });
+
+  it("returns null when posAtCoords resolves inside an existing non-empty selection range", () => {
+    // Ranges: collapsed cursor at pos=2 (line 1) and selection [8,13] ("world", line 2).
+    // addCursorBelow starts from the bottommost range ($from=8); mock posAtCoords
+    // to land at pos=10, which is strictly inside the existing [8,13] selection.
+    // A collapsed cursor must never be added inside a selected range.
+    const doc = createMultiParagraphDoc(["hello", "world"]);
+    const baseState = EditorState.create({
+      doc,
+      schema,
+      plugins: [multiCursorPlugin()],
+      selection: TextSelection.create(doc, 2),
+    });
+    const $p2 = doc.resolve(2);
+    const $selFrom = doc.resolve(8);
+    const $selTo = doc.resolve(13);
+    const multiSel = new MultiSelection(
+      [new SelectionRange($p2, $p2), new SelectionRange($selFrom, $selTo)],
+      1 // primary is the [8,13] selection
+    );
+    const stateWithMulti = baseState.apply(baseState.tr.setSelection(multiSel));
+    const view = createView(stateWithMulti);
+
+    Object.defineProperty(view, "coordsAtPos", {
+      value: vi.fn(() => ({ left: 0, right: 8, top: 20, bottom: 40 })),
+      configurable: true,
+    });
+    Object.defineProperty(view, "posAtCoords", {
+      value: vi.fn(() => ({ pos: 10, inside: -1 })),
+      configurable: true,
+    });
+
+    const tr = addCursorBelow(stateWithMulti, view);
+    expect(tr).toBeNull();
+    view.destroy();
+  });
 });

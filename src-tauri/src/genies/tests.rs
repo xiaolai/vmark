@@ -77,7 +77,8 @@ fn test_parse_genie_without_frontmatter() {
 
 #[test]
 fn test_parse_genie_with_bom() {
-    let content = "\u{FEFF}---\nname: bom-test\ndescription: Has BOM\nscope: document\n---\n\nTemplate here";
+    let content =
+        "\u{FEFF}---\nname: bom-test\ndescription: Has BOM\nscope: document\n---\n\nTemplate here";
     let result = parse_genie(content, "bom-test.md").unwrap();
     assert_eq!(result.metadata.name, "bom-test");
     assert_eq!(result.metadata.scope, "document");
@@ -103,18 +104,30 @@ fn test_no_collision_same_name_different_category() {
     fs::create_dir_all(&coding).unwrap();
 
     let mut f1 = fs::File::create(writing.join("improve.md")).unwrap();
-    writeln!(f1, "---\nname: improve-writing\nscope: selection\n---\ntemplate1").unwrap();
+    writeln!(
+        f1,
+        "---\nname: improve-writing\nscope: selection\n---\ntemplate1"
+    )
+    .unwrap();
 
     let mut f2 = fs::File::create(coding.join("improve.md")).unwrap();
-    writeln!(f2, "---\nname: improve-code\nscope: selection\n---\ntemplate2").unwrap();
+    writeln!(
+        f2,
+        "---\nname: improve-code\nscope: selection\n---\ntemplate2"
+    )
+    .unwrap();
 
     let mut entries: HashMap<String, GenieEntry> = HashMap::new();
     scan_genies_dir(base, base, "global", &mut entries);
 
     // Both should be present (keyed by relative path, not bare stem)
     assert_eq!(entries.len(), 2);
-    assert!(entries.values().any(|e| e.name == "improve" && e.category.as_deref() == Some("writing")));
-    assert!(entries.values().any(|e| e.name == "improve" && e.category.as_deref() == Some("coding")));
+    assert!(entries
+        .values()
+        .any(|e| e.name == "improve" && e.category.as_deref() == Some("writing")));
+    assert!(entries
+        .values()
+        .any(|e| e.name == "improve" && e.category.as_deref() == Some("coding")));
 }
 
 #[test]
@@ -144,7 +157,11 @@ fn test_scan_genies_with_titles_uses_filename_not_frontmatter() {
     let editing = base.join("editing");
     fs::create_dir_all(&editing).unwrap();
     let mut f1 = fs::File::create(editing.join("enhance.md")).unwrap();
-    writeln!(f1, "---\nname: old-name\ndescription: test\nscope: selection\n---\ntemplate").unwrap();
+    writeln!(
+        f1,
+        "---\nname: old-name\ndescription: test\nscope: selection\n---\ntemplate"
+    )
+    .unwrap();
 
     // Root-level genie without frontmatter
     let mut f2 = fs::File::create(base.join("quick-fix.md")).unwrap();
@@ -157,8 +174,16 @@ fn test_scan_genies_with_titles_uses_filename_not_frontmatter() {
 
     // Titles come from filenames, not frontmatter
     let titles: Vec<&str> = entries.iter().map(|e| e.title.as_str()).collect();
-    assert!(titles.contains(&"enhance"), "expected 'enhance' from filename, got {:?}", titles);
-    assert!(titles.contains(&"quick-fix"), "expected 'quick-fix' from filename, got {:?}", titles);
+    assert!(
+        titles.contains(&"enhance"),
+        "expected 'enhance' from filename, got {:?}",
+        titles
+    );
+    assert!(
+        titles.contains(&"quick-fix"),
+        "expected 'quick-fix' from filename, got {:?}",
+        titles
+    );
 
     // Category from subdirectory
     let enhance = entries.iter().find(|e| e.title == "enhance").unwrap();
@@ -175,7 +200,8 @@ fn test_scan_genies_with_titles_uses_filename_not_frontmatter() {
 #[test]
 fn test_parse_genie_name_from_filename_not_frontmatter() {
     // Frontmatter says "old-name" but file is named "new-name.md"
-    let content = "---\nname: old-name\ndescription: Renamed genie\nscope: selection\n---\n\nTemplate";
+    let content =
+        "---\nname: old-name\ndescription: Renamed genie\nscope: selection\n---\n\nTemplate";
     let result = parse_genie(content, "/path/to/new-name.md").unwrap();
     assert_eq!(result.metadata.name, "new-name");
 }
@@ -206,7 +232,10 @@ Translate {{input}} into the target language."#;
 
     let input = result.metadata.input.expect("input spec missing");
     assert_eq!(input.io_type, "text");
-    assert_eq!(input.description.as_deref(), Some("Source text to translate"));
+    assert_eq!(
+        input.description.as_deref(),
+        Some("Source text to translate")
+    );
     assert_eq!(input.accept, None);
 
     let output = result.metadata.output.expect("output spec missing");
@@ -272,7 +301,10 @@ tags: a, b, c
 {{input}}"#;
     let result = parse_genie(content, "deprecated-flat.md").unwrap();
     assert_eq!(result.metadata.version.as_deref(), Some("v1"));
-    let input = result.metadata.input.expect("flat input should still parse");
+    let input = result
+        .metadata
+        .input
+        .expect("flat input should still parse");
     assert_eq!(input.io_type, "text");
     assert_eq!(input.description.as_deref(), Some("Source text"));
     let tags = result.metadata.tags.expect("tags missing");

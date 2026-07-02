@@ -6,7 +6,7 @@
  * terminal toggle, zoom, lint check/navigation, and split-document panes.
  */
 
-import { registerCommand } from "./CommandBus";
+import { hasCommand, registerCommand } from "./CommandBus";
 import { useUIStore } from "@/stores/uiStore";
 import { useContentServerStore } from "@/stores/contentServerStore";
 import { useWindowStatusStore } from "@/stores/windowStatusStore";
@@ -33,7 +33,7 @@ type Ctx = { windowLabel?: string };
 
 let registered = false;
 export function registerViewCommands(): void {
-  if (registered) return;
+  if (registered || hasCommand("view.toggleSourceMode")) return; // HMR: module-local flag resets on reload; the bus registry survives
 
   registerCommand({
     id: "view.toggleSourceMode",

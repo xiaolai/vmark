@@ -191,19 +191,19 @@ mod tests {
         for payload in &payloads {
             let dir = Arc::clone(&dir);
             let payload = payload.clone();
-            handles.push(thread::spawn(move || {
-                write_rc_atomic(dir.path(), &payload)
-            }));
+            handles.push(thread::spawn(move || write_rc_atomic(dir.path(), &payload)));
         }
         for h in handles {
             // Every concurrent call succeeds (no clobbered temp, no rename error).
-            h.join().unwrap().expect("concurrent write_rc_atomic failed");
+            h.join()
+                .unwrap()
+                .expect("concurrent write_rc_atomic failed");
         }
 
         // The final file is exactly one writer's complete payload.
         let written = std::fs::read_to_string(dir.path().join(".zshrc")).unwrap();
         assert!(
-            payloads.iter().any(|p| *p == written),
+            payloads.contains(&written),
             "final .zshrc is corrupt/torn — not equal to any single writer's payload",
         );
 
@@ -211,11 +211,7 @@ mod tests {
         let leftovers: Vec<_> = std::fs::read_dir(dir.path())
             .unwrap()
             .filter_map(Result::ok)
-            .filter(|e| {
-                e.file_name()
-                    .to_string_lossy()
-                    .starts_with(".zshrc.tmp.")
-            })
+            .filter(|e| e.file_name().to_string_lossy().starts_with(".zshrc.tmp."))
             .collect();
         assert!(
             leftovers.is_empty(),

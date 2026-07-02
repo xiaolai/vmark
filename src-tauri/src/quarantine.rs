@@ -74,11 +74,7 @@ pub fn strip_workspace_quarantine(root: &Path) -> StripStats {
         Ok(false) => {}
         Err(e) => {
             stats.error_count += 1;
-            log::warn!(
-                "[quarantine] strip root {} failed: {}",
-                root.display(),
-                e
-            );
+            log::warn!("[quarantine] strip root {} failed: {}", root.display(), e);
         }
     }
 
@@ -86,11 +82,7 @@ pub fn strip_workspace_quarantine(root: &Path) -> StripStats {
         Ok(e) => e,
         Err(e) => {
             stats.error_count += 1;
-            log::warn!(
-                "[quarantine] read_dir {} failed: {}",
-                root.display(),
-                e
-            );
+            log::warn!("[quarantine] read_dir {} failed: {}", root.display(), e);
             return stats;
         }
     };
@@ -108,11 +100,7 @@ pub fn strip_workspace_quarantine(root: &Path) -> StripStats {
             Ok(false) => {}
             Err(e) => {
                 stats.error_count += 1;
-                log::warn!(
-                    "[quarantine] strip {} failed: {}",
-                    path.display(),
-                    e
-                );
+                log::warn!("[quarantine] strip {} failed: {}", path.display(), e);
             }
         }
     }

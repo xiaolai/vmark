@@ -73,7 +73,10 @@ fn migrate_to_next_version(session: SessionData) -> Result<SessionData, String> 
         2 => migrate_v2_to_v3(session),
         3 => migrate_v3_to_v4(session),
         4 => v5::migrate_v4_to_v5(session),
-        _ => Err(format!("No migration path from version {}", session.version)),
+        _ => Err(format!(
+            "No migration path from version {}",
+            session.version
+        )),
     }
 }
 

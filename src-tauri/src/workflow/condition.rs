@@ -123,7 +123,10 @@ enum Token {
     /// Reference / literal operand text, resolved lazily at eval time.
     /// `is_ref` distinguishes a quoted string literal (false) from a bare
     /// identifier or `${{ }}` reference (true).
-    Operand { text: String, is_ref: bool },
+    Operand {
+        text: String,
+        is_ref: bool,
+    },
     Eq,
     Ne,
     Gt,
@@ -249,10 +252,7 @@ fn tokenize(input: &str) -> Result<Vec<Token>, String> {
                     return Err("Unterminated `${{` reference".to_string());
                 }
                 let text: String = chars[start..i].iter().collect();
-                tokens.push(Token::Operand {
-                    text,
-                    is_ref: true,
-                });
+                tokens.push(Token::Operand { text, is_ref: true });
             }
             _ => {
                 // Bare operand: identifier path, number, or status function.
@@ -278,10 +278,7 @@ fn tokenize(input: &str) -> Result<Vec<Token>, String> {
                 if text.is_empty() {
                     return Err(format!("Unexpected character '{}' in condition", c));
                 }
-                tokens.push(Token::Operand {
-                    text,
-                    is_ref: true,
-                });
+                tokens.push(Token::Operand { text, is_ref: true });
             }
         }
     }
@@ -386,7 +383,10 @@ impl Parser<'_> {
                 }
             }
             Some(Token::Operand { text, is_ref }) => self.resolve_operand(&text, is_ref),
-            Some(other) => Err(format!("Unexpected operator where operand expected: {:?}", other)),
+            Some(other) => Err(format!(
+                "Unexpected operator where operand expected: {:?}",
+                other
+            )),
             None => Err("Unexpected end of condition".to_string()),
         }
     }
@@ -627,13 +627,8 @@ mod tests {
     #[test]
     fn bare_ref_in_condition() {
         let o = outputs(&[("first", &[("score", "42")])]);
-        let r = evaluate_condition(
-            "steps.first.outputs.score > 10",
-            &o,
-            &HashMap::new(),
-            false,
-        )
-        .unwrap();
+        let r = evaluate_condition("steps.first.outputs.score > 10", &o, &HashMap::new(), false)
+            .unwrap();
         assert!(r);
     }
 
@@ -673,8 +668,10 @@ mod tests {
 
     #[test]
     fn outer_wrapper_with_success() {
-        assert!(evaluate_condition("${{ success() }}", &HashMap::new(), &HashMap::new(), false)
-            .unwrap());
+        assert!(
+            evaluate_condition("${{ success() }}", &HashMap::new(), &HashMap::new(), false)
+                .unwrap()
+        );
     }
 
     // === fail-loud on garbage ===

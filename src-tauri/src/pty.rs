@@ -340,7 +340,9 @@ pub async fn pty_write(
 ) -> Result<(), String> {
     let session = get_session(&state, pid).await?;
     let mut writer = session.writer.lock().map_err(|e| e.to_string())?;
-    writer.write_all(data.as_bytes()).map_err(|e| e.to_string())?;
+    writer
+        .write_all(data.as_bytes())
+        .map_err(|e| e.to_string())?;
     writer.flush().map_err(|e| e.to_string())
 }
 

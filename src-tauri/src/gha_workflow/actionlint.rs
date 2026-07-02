@@ -7,7 +7,7 @@
 //!
 //! Plan ADR-7 + WI-5.4. Cross-platform per AGENTS.md: never use bare
 //! `Command::new`; route through the existing
-//! `ai_provider::cli::build_command` pattern.
+//! `ai_provider::spawn::build_command` pattern.
 
 use std::path::PathBuf;
 use std::process::Stdio;
@@ -22,7 +22,9 @@ use serde::{Deserialize, Serialize};
 pub enum LintResult {
     /// actionlint is on PATH and ran successfully — diagnostics carry the
     /// findings (may be empty).
-    Ok { diagnostics: Vec<ActionlintDiagnostic> },
+    Ok {
+        diagnostics: Vec<ActionlintDiagnostic>,
+    },
     /// actionlint is not on PATH. Frontend hides the layer silently.
     BinaryMissing,
     /// actionlint ran but failed (parse error, panic, etc.). Frontend
@@ -119,10 +121,8 @@ pub fn run_actionlint(yaml: &str, extra_path: Option<&str>) -> LintResult {
     use std::io::Write;
 
     let exe_str = exe.to_string_lossy();
-    let mut cmd = crate::ai_provider::build_command(
-        &exe_str,
-        &["-format", "{{json .}}", "-no-color", "-"],
-    );
+    let mut cmd =
+        crate::ai_provider::build_command(&exe_str, &["-format", "{{json .}}", "-no-color", "-"]);
     cmd.stdin(Stdio::piped());
     cmd.stdout(Stdio::piped());
     cmd.stderr(Stdio::piped());
@@ -168,15 +168,10 @@ pub fn run_actionlint(yaml: &str, extra_path: Option<&str>) -> LintResult {
                     let _ = child.kill();
                     let _ = child.wait();
                     return LintResult::Failed {
-                        message: format!(
-                            "actionlint timed out after {} ms",
-                            ACTIONLINT_TIMEOUT_MS
-                        ),
+                        message: format!("actionlint timed out after {} ms", ACTIONLINT_TIMEOUT_MS),
                     };
                 }
-                std::thread::sleep(std::time::Duration::from_millis(
-                    POLL_INTERVAL_MS,
-                ));
+                std::thread::sleep(std::time::Duration::from_millis(POLL_INTERVAL_MS));
             }
             Err(e) => {
                 let _ = child.kill();
@@ -375,14 +370,21 @@ mod tests {
     // is caught without needing a subprocess.
 
     fn sep() -> char {
-        if cfg!(windows) { ';' } else { ':' }
+        if cfg!(windows) {
+            ';'
+        } else {
+            ':'
+        }
     }
 
     #[test]
     fn compose_path_prepends_extra_path_in_front_of_login_shell_path() {
         let s = sep();
         let composed = compose_actionlint_path(Some("/opt/homebrew/bin"), "/usr/bin:/bin");
-        assert_eq!(composed, format!("/opt/homebrew/bin{}{}", s, "/usr/bin:/bin"));
+        assert_eq!(
+            composed,
+            format!("/opt/homebrew/bin{}{}", s, "/usr/bin:/bin")
+        );
     }
 
     #[test]

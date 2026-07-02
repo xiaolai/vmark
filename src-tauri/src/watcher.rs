@@ -64,12 +64,10 @@ fn event_kind_to_string(kind: &notify::EventKind) -> Option<&'static str> {
     match kind {
         Create(_) => Some("create"),
         Remove(_) => Some("remove"),
-        Modify(modify_kind) => {
-            match modify_kind {
-                notify::event::ModifyKind::Name(_) => Some("rename"),
-                _ => Some("modify"),
-            }
-        }
+        Modify(modify_kind) => match modify_kind {
+            notify::event::ModifyKind::Name(_) => Some("rename"),
+            _ => Some("modify"),
+        },
         _ => None,
     }
 }
@@ -275,24 +273,36 @@ mod tests {
 
     #[test]
     fn test_ignore_obsidian_dir() {
-        assert!(should_ignore_path(Path::new("/vault/.obsidian/workspace.json")));
-        assert!(should_ignore_path(Path::new("/vault/.obsidian/plugins/foo")));
+        assert!(should_ignore_path(Path::new(
+            "/vault/.obsidian/workspace.json"
+        )));
+        assert!(should_ignore_path(Path::new(
+            "/vault/.obsidian/plugins/foo"
+        )));
     }
 
     #[test]
     fn test_ignore_node_modules() {
-        assert!(should_ignore_path(Path::new("/project/node_modules/pkg/index.js")));
+        assert!(should_ignore_path(Path::new(
+            "/project/node_modules/pkg/index.js"
+        )));
     }
 
     #[test]
     fn test_allow_dot_directories_not_in_ignore_list() {
         // User-visible dot-directories must NOT be filtered — external change
         // detection depends on events reaching the frontend.
-        assert!(!should_ignore_path(Path::new("/project/.github/workflows/ci.yml")));
-        assert!(!should_ignore_path(Path::new("/project/.vscode/settings.json")));
+        assert!(!should_ignore_path(Path::new(
+            "/project/.github/workflows/ci.yml"
+        )));
+        assert!(!should_ignore_path(Path::new(
+            "/project/.vscode/settings.json"
+        )));
         assert!(!should_ignore_path(Path::new("/home/.config/app.toml")));
         assert!(!should_ignore_path(Path::new("/project/.husky/pre-commit")));
-        assert!(!should_ignore_path(Path::new("/project/.devcontainer/devcontainer.json")));
+        assert!(!should_ignore_path(Path::new(
+            "/project/.devcontainer/devcontainer.json"
+        )));
     }
 
     #[test]
@@ -309,7 +319,9 @@ mod tests {
 
     #[test]
     fn test_ignore_pycache() {
-        assert!(should_ignore_path(Path::new("/project/__pycache__/mod.pyc")));
+        assert!(should_ignore_path(Path::new(
+            "/project/__pycache__/mod.pyc"
+        )));
     }
 
     #[test]
@@ -322,7 +334,9 @@ mod tests {
     #[test]
     fn test_ignore_temp_files_from_app_paths() {
         // app_paths.rs creates files like ".{name}.tmp.{pid}"
-        assert!(should_ignore_path(Path::new("/workspace/.test.md.tmp.12345")));
+        assert!(should_ignore_path(Path::new(
+            "/workspace/.test.md.tmp.12345"
+        )));
         assert!(should_ignore_path(Path::new("/workspace/.notes.tmp.9999")));
     }
 

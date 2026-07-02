@@ -47,8 +47,8 @@ pub fn list_genies(app: AppHandle) -> Result<Vec<GenieEntry>, String> {
 #[command]
 pub fn read_genie(app: AppHandle, path: String) -> Result<GenieContent, String> {
     // Canonicalize requested path
-    let requested = fs::canonicalize(&path)
-        .map_err(|e| format!("Invalid genie path {}: {}", path, e))?;
+    let requested =
+        fs::canonicalize(&path).map_err(|e| format!("Invalid genie path {}: {}", path, e))?;
 
     // Validate path is within the global genies directory
     let global_dir = fs::canonicalize(global_genies_dir(&app)?)

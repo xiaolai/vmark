@@ -35,7 +35,10 @@ async fn check_response(resp: reqwest::Response) -> Result<reqwest::Response, St
         return Ok(resp);
     }
     let status = resp.status();
-    let text = resp.text().await.unwrap_or_else(|e| format!("<failed to read body: {}>", e));
+    let text = resp
+        .text()
+        .await
+        .unwrap_or_else(|e| format!("<failed to read body: {}>", e));
     Err(format!("HTTP {}: {}", status.as_u16(), text))
 }
 
@@ -62,9 +65,7 @@ fn parse_openai_models(json: &serde_json::Value) -> Result<Vec<String>, String> 
     let mut models: Vec<String> = arr
         .iter()
         .filter_map(|m| m.get("id").and_then(|id| id.as_str()).map(String::from))
-        .filter(|id| {
-            prefixes.iter().any(|p| id.starts_with(p)) || exact.iter().any(|e| id.as_str() == *e)
-        })
+        .filter(|id| prefixes.iter().any(|p| id.starts_with(p)) || exact.contains(&id.as_str()))
         .collect();
     models.sort();
     Ok(models)

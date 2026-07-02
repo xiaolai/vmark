@@ -1,11 +1,12 @@
 /**
  * Popup-store slice definitions — per-popup state shape and initial values.
  *
- * Extracted from `../popupStore.ts` so the root file (which still holds
- * all 15 action implementations inside one Zustand `create()` call)
- * stays closer to the project's ~300 LOC guideline. Action shapes
- * (PopupStoreActions interface) and the composition root stay in
- * `popupStore.ts`.
+ * Extracted from `../popupStore.ts` so every popup-store file stays
+ * under the project's ~300 LOC guideline. This module is the leaf of the
+ * popup-store import graph. Action interfaces and the combined store
+ * type live in types.ts; action implementations live in the sibling
+ * action-group files (editingActions.ts, pickerActions.ts,
+ * linkMediaActions.ts); the composition root stays in `popupStore.ts`.
  *
  * @module stores/popupStore/slices
  */
@@ -249,7 +250,14 @@ export interface SourcePeekSlice {
   editingPos: number | null;
   range: SourcePeekRange | null;
   markdown: string;
+  /** The true original content captured at open — the revert target. */
   originalMarkdown: string | null;
+  /**
+   * The last-saved content — the dirty-check baseline. Distinct from
+   * `originalMarkdown` so `markSaved` can rebaseline the unsaved-changes
+   * comparison without moving the revert target.
+   */
+  savedMarkdown: string | null;
   livePreview: boolean;
   parseError: string | null;
   hasUnsavedChanges: boolean;
@@ -261,6 +269,7 @@ export const initialSourcePeek: SourcePeekSlice = {
   range: null,
   markdown: "",
   originalMarkdown: null,
+  savedMarkdown: null,
   livePreview: false,
   parseError: null,
   hasUnsavedChanges: false,

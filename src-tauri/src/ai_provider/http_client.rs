@@ -77,18 +77,13 @@ mod tests {
         let addr = listener.local_addr().expect("local addr");
         // Spawn an accept loop that holds the connection without responding.
         tokio::spawn(async move {
-            loop {
-                match listener.accept().await {
-                    Ok((stream, _)) => {
-                        // Hold the socket open by leaking a reference into a
-                        // long sleep — never close, never write.
-                        tokio::spawn(async move {
-                            let _hold = stream;
-                            tokio::time::sleep(Duration::from_secs(60)).await;
-                        });
-                    }
-                    Err(_) => break,
-                }
+            while let Ok((stream, _)) = listener.accept().await {
+                // Hold the socket open by leaking a reference into a
+                // long sleep — never close, never write.
+                tokio::spawn(async move {
+                    let _hold = stream;
+                    tokio::time::sleep(Duration::from_secs(60)).await;
+                });
             }
         });
 
@@ -103,11 +98,7 @@ mod tests {
 
         assert!(result.is_err(), "request must error when server hangs");
         let err = result.unwrap_err();
-        assert!(
-            err.is_timeout(),
-            "expected timeout error, got: {}",
-            err
-        );
+        assert!(err.is_timeout(), "expected timeout error, got: {}", err);
         // Generous wall-clock budget keeps the test non-flaky on slow CI.
         assert!(
             elapsed < Duration::from_millis(2_000),

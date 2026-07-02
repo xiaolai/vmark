@@ -169,13 +169,11 @@ pub async fn run_workflow(
     // Validate step count
     if workflow.steps.len() > 50 {
         state.running.store(false, Ordering::SeqCst);
-        return Err(
-            rust_i18n::t!(
-                "errors.workflow.tooManySteps",
-                count = workflow.steps.len().to_string()
-            )
-            .to_string(),
-        );
+        return Err(rust_i18n::t!(
+            "errors.workflow.tooManySteps",
+            count = workflow.steps.len().to_string()
+        )
+        .to_string());
     }
 
     // Validate supported features — reject only what the runner truly can't
@@ -184,14 +182,12 @@ pub async fn run_workflow(
         let step_id = step.id.as_deref().unwrap_or("(unnamed)");
         if step.uses.starts_with("webhook/") {
             state.running.store(false, Ordering::SeqCst);
-            return Err(
-                rust_i18n::t!(
-                    "errors.workflow.webhookNotImplemented",
-                    index = (i + 1).to_string(),
-                    id = step_id
-                )
-                .to_string(),
-            );
+            return Err(rust_i18n::t!(
+                "errors.workflow.webhookNotImplemented",
+                index = (i + 1).to_string(),
+                id = step_id
+            )
+            .to_string());
         }
     }
 
@@ -249,7 +245,11 @@ pub async fn run_workflow(
     // for filesystem I/O. `app.path().app_data_dir()` can fail on rare
     // sandbox configurations; in that case genie steps will report a clean
     // error and action-only workflows still run.
-    let genies_dir = app.path().app_data_dir().ok().map(|d| resolve_genies_dir(&d));
+    let genies_dir = app
+        .path()
+        .app_data_dir()
+        .ok()
+        .map(|d| resolve_genies_dir(&d));
 
     // Approval registry is per-app, shared across executions.
     let approvals = Arc::clone(&state.approvals);
@@ -319,9 +319,7 @@ pub async fn cancel_workflow(
             log::info!("Workflow cancellation requested for {}", execution_id);
             Ok(())
         }
-        CancelDecision::NotRunning => {
-            Err(rust_i18n::t!("errors.workflow.notRunning").to_string())
-        }
+        CancelDecision::NotRunning => Err(rust_i18n::t!("errors.workflow.notRunning").to_string()),
     }
 }
 
@@ -331,7 +329,10 @@ mod tests {
 
     #[test]
     fn cancel_fires_when_id_matches_running_execution() {
-        assert_eq!(decide_cancel(Some("exec-a"), "exec-a"), CancelDecision::Cancel);
+        assert_eq!(
+            decide_cancel(Some("exec-a"), "exec-a"),
+            CancelDecision::Cancel
+        );
     }
 
     #[test]
@@ -367,11 +368,7 @@ mod tests {
         let st = state_with(true, Some("exec-a"));
         st.clear_running();
         assert!(!st.running.load(Ordering::SeqCst));
-        assert!(st
-            .current_execution
-            .lock()
-            .unwrap()
-            .is_none());
+        assert!(st.current_execution.lock().unwrap().is_none());
     }
 
     #[test]
@@ -380,10 +377,16 @@ mod tests {
         // drop / pre-spawn failure) → a cancel for that id is now rejected.
         let st = state_with(true, Some("exec-a"));
         let published = st.current_execution.lock().unwrap().clone();
-        assert_eq!(decide_cancel(published.as_deref(), "exec-a"), CancelDecision::Cancel);
+        assert_eq!(
+            decide_cancel(published.as_deref(), "exec-a"),
+            CancelDecision::Cancel
+        );
         st.clear_running();
         let after = st.current_execution.lock().unwrap().clone();
-        assert_eq!(decide_cancel(after.as_deref(), "exec-a"), CancelDecision::NotRunning);
+        assert_eq!(
+            decide_cancel(after.as_deref(), "exec-a"),
+            CancelDecision::NotRunning
+        );
     }
 }
 

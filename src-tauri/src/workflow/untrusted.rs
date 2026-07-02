@@ -40,9 +40,7 @@ pub fn fence_nonce() -> String {
 
 /// Whether a with-value should be treated as untrusted content.
 fn is_content_value(key: &str, value: &str) -> bool {
-    CONTENT_KEYS.contains(&key)
-        || value.contains('\n')
-        || value.len() > CONTENT_LENGTH_THRESHOLD
+    CONTENT_KEYS.contains(&key) || value.contains('\n') || value.len() > CONTENT_LENGTH_THRESHOLD
 }
 
 /// Wrap untrusted with-values in nonce fences. Returns the fenced map and

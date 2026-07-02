@@ -26,7 +26,9 @@ fn reregister_replaces_and_bumps_generation() {
 
 fn spawn_exiting() -> Child {
     // `true` exits 0 immediately; portable across macOS/Linux test hosts.
-    std::process::Command::new("true").spawn().expect("spawn true")
+    std::process::Command::new("true")
+        .spawn()
+        .expect("spawn true")
 }
 
 fn spawn_sleeping() -> Child {
@@ -47,7 +49,10 @@ fn kill_taken(mgr: &ContentServerManager, root: &str) {
 fn poll_reports_not_current_for_unknown_generation() {
     let mgr = ContentServerManager::new();
     let g = mgr.register_running("/ws/a", 4000, "t".into(), Some(spawn_sleeping()), None);
-    assert_eq!(mgr.poll_current_child("/ws/a", g + 99), ChildState::NotCurrent);
+    assert_eq!(
+        mgr.poll_current_child("/ws/a", g + 99),
+        ChildState::NotCurrent
+    );
     kill_taken(&mgr, "/ws/a");
 }
 
@@ -79,7 +84,7 @@ fn stale_shutdown_is_noop() {
     let mgr = ContentServerManager::new();
     let g1 = mgr.register("/ws/a", 4000);
     let g2 = mgr.register("/ws/a", 4002); // newer generation
-    // An old shutdown carrying g1 must NOT remove the current (g2) server.
+                                          // An old shutdown carrying g1 must NOT remove the current (g2) server.
     assert!(!mgr.deregister_if_current("/ws/a", g1));
     assert_eq!(mgr.count(), 1);
     // The current generation can deregister.

@@ -60,7 +60,10 @@ fn make_window(label: &str) -> WindowState {
         active_tab_id: None,
         tabs: vec![make_tab(&format!("tab-{}", label))],
         ui_state: make_ui_state(),
-        geometry: None, workspace_instance_ids: Vec::new(), active_workspace_instance_id: None, workspace_instances: Vec::new(),
+        geometry: None,
+        workspace_instance_ids: Vec::new(),
+        active_workspace_instance_id: None,
+        workspace_instances: Vec::new(),
     }
 }
 
@@ -93,12 +96,7 @@ fn no_previous_session_returns_capture_unchanged() {
 fn timed_out_expected_window_is_resurrected() {
     let session = make_session(NOW, &["main"]);
     let prev = make_session(NOW - 60, &["main", "window-2"]);
-    let out = merge_partial_capture(
-        session,
-        Some(prev),
-        &expected(&["main", "window-2"]),
-        NOW,
-    );
+    let out = merge_partial_capture(session, Some(prev), &expected(&["main", "window-2"]), NOW);
     assert_eq!(labels(&out), vec!["main", "window-2"]);
 }
 
@@ -118,12 +116,7 @@ fn captured_window_is_never_overwritten_by_previous_state() {
     session.windows[1].tabs[0].document.content = "fresh".into();
     let mut prev = make_session(NOW - 60, &["main", "window-2"]);
     prev.windows[1].tabs[0].document.content = "stale".into();
-    let out = merge_partial_capture(
-        session,
-        Some(prev),
-        &expected(&["main", "window-2"]),
-        NOW,
-    );
+    let out = merge_partial_capture(session, Some(prev), &expected(&["main", "window-2"]), NOW);
     assert_eq!(out.windows.len(), 2);
     assert_eq!(out.windows[1].tabs[0].document.content, "fresh");
 }
@@ -132,12 +125,7 @@ fn captured_window_is_never_overwritten_by_previous_state() {
 fn stale_previous_session_is_not_merged() {
     let session = make_session(NOW, &["main"]);
     let prev = make_session(NOW - MAX_MERGE_AGE_SECS - 1, &["main", "window-2"]);
-    let out = merge_partial_capture(
-        session,
-        Some(prev),
-        &expected(&["main", "window-2"]),
-        NOW,
-    );
+    let out = merge_partial_capture(session, Some(prev), &expected(&["main", "window-2"]), NOW);
     assert_eq!(labels(&out), vec!["main"]);
 }
 
@@ -145,12 +133,7 @@ fn stale_previous_session_is_not_merged() {
 fn boundary_age_exactly_max_is_still_merged() {
     let session = make_session(NOW, &["main"]);
     let prev = make_session(NOW - MAX_MERGE_AGE_SECS, &["main", "window-2"]);
-    let out = merge_partial_capture(
-        session,
-        Some(prev),
-        &expected(&["main", "window-2"]),
-        NOW,
-    );
+    let out = merge_partial_capture(session, Some(prev), &expected(&["main", "window-2"]), NOW);
     assert_eq!(labels(&out), vec!["main", "window-2"]);
 }
 
@@ -158,12 +141,7 @@ fn boundary_age_exactly_max_is_still_merged() {
 fn future_timestamped_previous_session_is_not_merged() {
     let session = make_session(NOW, &["main"]);
     let prev = make_session(NOW + 120, &["main", "window-2"]);
-    let out = merge_partial_capture(
-        session,
-        Some(prev),
-        &expected(&["main", "window-2"]),
-        NOW,
-    );
+    let out = merge_partial_capture(session, Some(prev), &expected(&["main", "window-2"]), NOW);
     assert_eq!(labels(&out), vec!["main"]);
 }
 
@@ -171,12 +149,7 @@ fn future_timestamped_previous_session_is_not_merged() {
 fn overflowing_age_is_not_merged() {
     let session = make_session(NOW, &["main"]);
     let prev = make_session(i64::MIN, &["main", "window-2"]);
-    let out = merge_partial_capture(
-        session,
-        Some(prev),
-        &expected(&["main", "window-2"]),
-        NOW,
-    );
+    let out = merge_partial_capture(session, Some(prev), &expected(&["main", "window-2"]), NOW);
     assert_eq!(labels(&out), vec!["main"]);
 }
 
@@ -201,12 +174,7 @@ fn duplicate_previous_window_labels_are_resurrected_only_once() {
     // restart, so the merge must insert each missing label at most once.
     let session = make_session(NOW, &["main"]);
     let prev = make_session(NOW - 60, &["main", "window-2", "window-2"]);
-    let out = merge_partial_capture(
-        session,
-        Some(prev),
-        &expected(&["main", "window-2"]),
-        NOW,
-    );
+    let out = merge_partial_capture(session, Some(prev), &expected(&["main", "window-2"]), NOW);
     assert_eq!(labels(&out), vec!["main", "window-2"]);
 }
 

@@ -28,42 +28,42 @@ rust_i18n::i18n!("locales", fallback = "en");
 
 mod ai_provider;
 mod app_paths;
+mod content_search;
+mod content_server;
+mod external_editor;
+mod file_ops;
+mod file_tree;
+pub mod genies;
+mod gha_workflow;
+mod hot_exit;
 mod mcp_bridge;
 mod mcp_bridge_path_guard;
 mod mcp_config;
 mod mcp_server;
 mod menu;
 mod menu_events;
-pub mod genies;
+mod pandoc;
+mod pty;
+mod quarantine;
 mod quit;
+mod secure_store;
+mod shell_integration;
+mod tab_transfer;
+mod task;
 mod watcher;
 mod window_manager;
-mod workspace;
-mod content_search;
-mod content_server;
-mod file_ops;
-mod file_tree;
-mod pty;
-mod shell_integration;
-mod hot_exit;
-mod pandoc;
-mod tab_transfer;
-mod workspace_transfer;
 pub mod workflow;
-mod gha_workflow;
-mod quarantine;
-mod external_editor;
-mod secure_store;
-mod task;
+mod workspace;
+mod workspace_transfer;
 
 #[cfg(target_os = "macos")]
 mod app_nap;
 #[cfg(target_os = "macos")]
-mod macos_menu;
+mod cli_install;
 #[cfg(target_os = "macos")]
 mod dock_recent;
 #[cfg(target_os = "macos")]
-mod cli_install;
+mod macos_menu;
 #[cfg(target_os = "macos")]
 mod pdf_export;
 mod window_status;
@@ -128,14 +128,10 @@ pub(crate) fn allow_fs_read<R: tauri::Runtime>(app: &tauri::AppHandle<R>, path: 
 /// adapter only" (e.g. parts of the macOS About-dialog narrative).
 pub(crate) const SUPPORTED_EXTENSIONS: &[&str] = &[
     // Markdown
-    "md", "markdown", "mdown", "mkd", "mdx",
-    // Plain text
-    "txt",
-    // Phase 2 data formats
-    "json", "jsonl", "yaml", "yml", "toml",
-    // Phase 3 visual-render formats
-    "mmd", "svg", "html", "htm",
-    // Phase 4 code viewers
+    "md", "markdown", "mdown", "mkd", "mdx", // Plain text
+    "txt", // Phase 2 data formats
+    "json", "jsonl", "yaml", "yml", "toml", // Phase 3 visual-render formats
+    "mmd", "svg", "html", "htm", // Phase 4 code viewers
     "ts", "tsx", "js", "jsx", "py", "rs", "go", "css", "sh", "bash", "rb", "lua",
 ];
 
@@ -154,7 +150,9 @@ pub(crate) fn has_supported_extension(path: &std::path::Path) -> bool {
         .and_then(|ext| ext.to_str())
         .map(|ext| {
             let lowered = ext.to_ascii_lowercase();
-            SUPPORTED_EXTENSIONS.iter().any(|allowed| *allowed == lowered)
+            SUPPORTED_EXTENSIONS
+                .iter()
+                .any(|allowed| *allowed == lowered)
         })
         .unwrap_or(false)
 }
@@ -230,13 +228,16 @@ fn write_temp_html(app: tauri::AppHandle, html: String) -> Result<String, String
     temp.write_all(html.as_bytes())
         .map_err(|e| format!("Failed to write temp HTML file: {}", e))?;
     let path = temp.path().to_path_buf();
-    temp.persist(&path).map_err(|e| format!("Failed to persist temp file: {}", e))?;
+    temp.persist(&path)
+        .map_err(|e| format!("Failed to persist temp file: {}", e))?;
     Ok(path.to_string_lossy().into_owned())
 }
 
 /// Remove temp HTML files older than 1 hour to prevent accumulation.
 fn cleanup_stale_temp_files(dir: &std::path::Path) {
-    let Ok(entries) = std::fs::read_dir(dir) else { return };
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
     let cutoff = std::time::SystemTime::now() - std::time::Duration::from_secs(3600);
     for entry in entries.flatten() {
         let path = entry.path();
@@ -271,7 +272,10 @@ fn atomic_write_file_sync(target: &std::path::Path, content: &str) -> Result<(),
 
     // Defense-in-depth: reject path traversal to prevent writing outside
     // intended directories if the webview is compromised.
-    if target.components().any(|c| c == std::path::Component::ParentDir) {
+    if target
+        .components()
+        .any(|c| c == std::path::Component::ParentDir)
+    {
         return Err(rust_i18n::t!("errors.core.pathTraversal").to_string());
     }
 
@@ -291,8 +295,8 @@ fn atomic_write_file_sync(target: &std::path::Path, content: &str) -> Result<(),
         return Err(format!("{}{}", PARENT_MISSING_ERROR_PREFIX, dir.display()));
     }
 
-    let mut tmp = NamedTempFile::new_in(dir)
-        .map_err(|e| format!("Failed to create temp file: {}", e))?;
+    let mut tmp =
+        NamedTempFile::new_in(dir).map_err(|e| format!("Failed to create temp file: {}", e))?;
 
     tmp.write_all(content.as_bytes())
         .map_err(|e| format!("Failed to write temp file: {}", e))?;
@@ -359,7 +363,11 @@ fn get_default_shell() -> String {
     } else {
         login_shell_from_passwd()
             .filter(|s| shell_path_is_valid(s))
-            .or_else(|| std::env::var("SHELL").ok().filter(|s| shell_path_is_valid(s)))
+            .or_else(|| {
+                std::env::var("SHELL")
+                    .ok()
+                    .filter(|s| shell_path_is_valid(s))
+            })
             .unwrap_or_else(|| "/bin/sh".to_string())
     }
 }
@@ -378,7 +386,11 @@ fn login_shell_from_passwd() -> Option<String> {
 
     // Start with sysconf hint, fall back to 1024
     let init_size = unsafe { libc::sysconf(libc::_SC_GETPW_R_SIZE_MAX) };
-    let mut buf_size = if init_size > 0 { init_size as usize } else { 1024 };
+    let mut buf_size = if init_size > 0 {
+        init_size as usize
+    } else {
+        1024
+    };
 
     loop {
         let mut pwd = MaybeUninit::<libc::passwd>::uninit();
@@ -417,7 +429,11 @@ fn login_shell_from_passwd() -> Option<String> {
         let shell = unsafe { CStr::from_ptr(pwd.pw_shell) };
         let shell_str = shell.to_str().ok()?.to_string();
 
-        return if shell_str.is_empty() { None } else { Some(shell_str) };
+        return if shell_str.is_empty() {
+            None
+        } else {
+            Some(shell_str)
+        };
     }
 }
 
@@ -441,10 +457,7 @@ fn windows_absolute_cmd() -> String {
 /// Resolve absolute path for a shell executable using `which`/`where`.
 /// Returns `None` if the executable is not found.
 fn resolve_windows_shell(name: &str) -> Option<String> {
-    let output = ai_provider::which_command()
-        .arg(name)
-        .output()
-        .ok()?;
+    let output = ai_provider::which_command().arg(name).output().ok()?;
     if !output.status.success() {
         return None;
     }
@@ -500,8 +513,7 @@ fn list_available_shells() -> Vec<String> {
             }
         }
         // Always include the user's login shell (passwd → $SHELL fallback)
-        let user_shell = login_shell_from_passwd()
-            .or_else(|| std::env::var("SHELL").ok());
+        let user_shell = login_shell_from_passwd().or_else(|| std::env::var("SHELL").ok());
         if let Some(shell) = user_shell {
             if !shells.contains(&shell) {
                 shells.insert(0, shell);
@@ -547,9 +559,7 @@ fn register_dock_recent(path: String) {
 /// same machine. It is not reversible without knowing the hostname.
 /// The app-specific prefix prevents cross-app correlation.
 fn machine_id_hash() -> String {
-    let hostname = gethostname::gethostname()
-        .to_string_lossy()
-        .into_owned();
+    let hostname = gethostname::gethostname().to_string_lossy().into_owned();
     let input = format!(
         "vmark-machine-id-v1:{}:{}:{}",
         hostname,
@@ -596,8 +606,7 @@ fn setup_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
             if let Ok(mut state) = FILE_OPEN_STATE.lock() {
                 for path_str in file_args {
                     allow_fs_read(app.handle(), &path_str);
-                    let workspace_root =
-                        window_manager::get_workspace_root_for_file(&path_str);
+                    let workspace_root = window_manager::get_workspace_root_for_file(&path_str);
                     state.pending.push(PendingFileOpen {
                         path: path_str,
                         workspace_root,
@@ -643,11 +652,7 @@ fn handle_document_window_close_event(window: &tauri::Window, event: &tauri::Win
 /// Handle an app exit request, preserving macOS last-window-close behavior
 /// while letting Linux/Windows CLI launches terminate when no document windows
 /// remain.
-fn handle_exit_requested(
-    app: &tauri::AppHandle,
-    api: &tauri::ExitRequestApi,
-    code: Option<i32>,
-) {
+fn handle_exit_requested(app: &tauri::AppHandle, api: &tauri::ExitRequestApi, code: Option<i32>) {
     log::debug!("[Tauri] ExitRequested received, code={:?}", code);
 
     let has_doc_windows = app
@@ -673,9 +678,7 @@ fn handle_exit_requested(
         }
         quit::ExitRequestAction::PreventAndKeepAlive => {
             api.prevent_exit();
-            log::debug!(
-                "[Tauri] ExitRequested: keeping app alive without document windows"
-            );
+            log::debug!("[Tauri] ExitRequested: keeping app alive without document windows");
         }
     }
 }
@@ -712,7 +715,9 @@ fn handle_finder_opened(app: &tauri::AppHandle, urls: Vec<tauri::Url>) {
     let mut file_paths = Vec::new();
     for url in urls {
         if let Ok(path) = url.to_file_path() {
-            let Some(path_str) = path.to_str() else { continue };
+            let Some(path_str) = path.to_str() else {
+                continue;
+            };
             if path.is_dir() {
                 log::info!("[Finder] Opening directory: {}", path_str);
                 let _ = window_manager::create_document_window(app, None, Some(path_str));

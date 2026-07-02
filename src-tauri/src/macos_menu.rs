@@ -137,7 +137,10 @@ const MENU_ICONS: &[(&str, &str)] = &[
     ("find-in-files", "doc.text.magnifyingglass"),
     // Selection
     ("select-word", "textformat.abc"),
-    ("select-line", "arrow.left.and.line.vertical.and.arrow.right"),
+    (
+        "select-line",
+        "arrow.left.and.line.vertical.and.arrow.right",
+    ),
     ("select-block", "rectangle.dashed"),
     ("expand-selection", "arrow.up.left.and.arrow.down.right"),
     // Lines
@@ -246,7 +249,10 @@ const MENU_ICONS: &[(&str, &str)] = &[
     ("word-wrap", "arrow.right.to.line"),
     ("line-numbers", "number"),
     ("diagram-preview", "eye.square"),
-    ("fit-tables", "arrow.left.and.right.righttriangle.left.righttriangle.right"),
+    (
+        "fit-tables",
+        "arrow.left.and.right.righttriangle.left.righttriangle.right",
+    ),
     ("read-only", "lock"),
     ("show-invisibles", "paragraphsign"),
     ("outline", "list.bullet.indent"),
@@ -388,7 +394,9 @@ fn collect_icons_from_item_in_submenu(
                 }
             }
         }
-        MenuItemKind::MenuItem(mi) => record_leaf_icon(map, mi.id().0.as_str(), mi.text(), fallback),
+        MenuItemKind::MenuItem(mi) => {
+            record_leaf_icon(map, mi.id().0.as_str(), mi.text(), fallback)
+        }
         MenuItemKind::Check(ci) => record_leaf_icon(map, ci.id().0.as_str(), ci.text(), fallback),
         MenuItemKind::Predefined(pi) => {
             if let Ok(title) = pi.text() {

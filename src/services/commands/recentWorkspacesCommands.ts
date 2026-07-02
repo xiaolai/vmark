@@ -10,7 +10,7 @@ import { exists } from "@tauri-apps/plugin-fs";
 import { invoke } from "@tauri-apps/api/core";
 import { ask } from "@tauri-apps/plugin-dialog";
 import { imeToast as toast } from "@/services/ime/imeToast";
-import { registerCommand } from "./CommandBus";
+import { hasCommand, registerCommand } from "./CommandBus";
 import { useRecentWorkspacesStore } from "@/stores/workspaceStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
@@ -20,12 +20,14 @@ import { openWorkspaceWithConfig } from "@/hooks/openWorkspaceWithConfig";
 import { restoreWorkspaceTabs, restoreSplitLayout } from "@/services/navigation/restoreWorkspaceTabs";
 import i18n from "@/i18n";
 import { workspaceError } from "@/utils/debug";
+import { parseRecentPathArgs } from "./recentPathArgs";
 
 type Ctx = { windowLabel?: string };
 
 let registered = false;
 export function registerRecentWorkspacesCommands(): void {
-  if (registered) return;
+  // HMR: the module-local flag resets on reload, but the bus registry survives.
+  if (registered || hasCommand("workspace.clearRecent")) return;
 
   registerCommand({
     id: "workspace.clearRecent",
@@ -56,13 +58,8 @@ export function registerRecentWorkspacesCommands(): void {
     category: "workspace",
     run: async (args, ctx: Ctx) => {
       const windowLabel = ctx.windowLabel ?? "main";
-      // args may be either the tuple [path, label] (menu dispatch) or a
-      // plain path string (programmatic call). Reject anything that doesn't
-      // resolve to a non-empty string so `[]`/null/undefined can't become
-      // literal "undefined"/"null" workspace paths.
-      const candidate = Array.isArray(args) ? args[0] : args;
-      if (typeof candidate !== "string" || candidate.length === 0) return;
-      const workspacePath = candidate;
+      const workspacePath = parseRecentPathArgs(args);
+      if (!workspacePath) return;
 
       await withReentryGuard(windowLabel, "open-recent-workspace", async () => {
         const pathExists = await exists(workspacePath);

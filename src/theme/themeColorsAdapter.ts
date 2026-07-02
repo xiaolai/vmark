@@ -14,7 +14,7 @@ import type { ThemeTokens } from "./tokens";
 import type { ThemeId } from "./themes";
 import { themes } from "./themes";
 
-/** Legacy ThemeColors shape (mirrored from settingsTypes.ts). */
+/** Legacy ThemeColors shape — canonical definition (settingsTypes re-exports it). */
 export interface ThemeColors {
   background: string;
   foreground: string;

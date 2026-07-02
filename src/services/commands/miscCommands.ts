@@ -10,7 +10,7 @@ import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 import { mkdir } from "@tauri-apps/plugin-fs";
 import { invoke } from "@tauri-apps/api/core";
 import i18n from "@/i18n";
-import { registerCommand } from "./CommandBus";
+import { hasCommand, registerCommand } from "./CommandBus";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useSettingsStore } from "@/stores/settingsStore";
@@ -30,7 +30,8 @@ type Ctx = { windowLabel?: string };
 
 let registered = false;
 export function registerMiscCommands(): void {
-  if (registered) return;
+  // HMR: the module-local flag resets on reload, but the bus registry survives.
+  if (registered || hasCommand("app.preferences")) return;
 
   registerCommand({
     id: "app.preferences",
@@ -149,4 +150,9 @@ export function registerMiscCommands(): void {
   });
 
   registered = true;
+}
+
+/** Test-only: clears the one-time registration guard so a fresh bus re-registers. */
+export function __resetMiscCommandsRegistration(): void {
+  registered = false;
 }

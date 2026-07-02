@@ -4,8 +4,8 @@
 //! installing, uninstalling, and diagnosing MCP configurations.
 
 use super::config_io::{
-    extract_vmark_binary_path, generate_backup_path, generate_config_content,
-    read_existing_config, remove_vmark_from_config,
+    extract_vmark_binary_path, generate_backup_path, generate_config_content, read_existing_config,
+    remove_vmark_from_config,
 };
 use super::providers::{get_config_path, get_mcp_binary_path, get_provider_config, PROVIDERS};
 use super::types::{
@@ -154,8 +154,7 @@ pub fn mcp_config_install(provider: String) -> Result<InstallResult, String> {
     let current_content = fs::read_to_string(&path).ok();
 
     // Generate new content
-    let new_content =
-        generate_config_content(config.id, &binary_path, current_content.as_deref())?;
+    let new_content = generate_config_content(config.id, &binary_path, current_content.as_deref())?;
 
     // Atomic write (handles Windows rename-over-existing via platform-specific code)
     crate::app_paths::atomic_write_file(&path, new_content.as_bytes())?;
@@ -189,8 +188,7 @@ pub fn mcp_config_uninstall(provider: String) -> Result<UninstallResult, String>
         });
     }
 
-    let content =
-        fs::read_to_string(&path).map_err(|e| format!("Failed to read config: {}", e))?;
+    let content = fs::read_to_string(&path).map_err(|e| format!("Failed to read config: {}", e))?;
 
     // Create backup before modifying
     let backup = generate_backup_path(&path);

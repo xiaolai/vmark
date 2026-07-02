@@ -9,6 +9,25 @@ use std::path::{Path, PathBuf};
 
 const MAX_SNAPSHOTS: usize = 50;
 
+/// Max accepted id length (a UUID is 36 chars; `snap-` + UUID is 41).
+const MAX_ID_LEN: usize = 64;
+
+/// Validate a caller-supplied execution/snapshot id before it is embedded in
+/// a filesystem path. Only ASCII alphanumerics, `-` and `_` are allowed, so
+/// path separators and `..` traversal are structurally impossible.
+fn validate_id(id: &str) -> Result<(), String> {
+    if id.is_empty() || id.len() > MAX_ID_LEN {
+        return Err(format!("Invalid snapshot id length: {}", id.len()));
+    }
+    if !id
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+    {
+        return Err(format!("Invalid snapshot id: {:?}", id));
+    }
+    Ok(())
+}
+
 /// Metadata for a file snapshot.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SnapshotInfo {
@@ -30,22 +49,36 @@ pub async fn create_snapshot(
     file_paths: &[PathBuf],
     workspace_root: &Path,
 ) -> Result<String, String> {
+    validate_id(execution_id)?;
     let snapshot_id = format!("snap-{}", execution_id);
-    let snapshot_dir = app_data_dir
-        .join("workflow-snapshots")
-        .join(&snapshot_id);
+    let snapshot_dir = app_data_dir.join("workflow-snapshots").join(&snapshot_id);
 
     tokio::fs::create_dir_all(&snapshot_dir)
         .await
         .map_err(|e| format!("Failed to create snapshot directory: {}", e))?;
 
-    // Cleanup old snapshots before creating a new one
-    cleanup_old_snapshots(app_data_dir).await;
+    // Canonical root for strip_prefix: validate_path returns canonicalized
+    // paths (/private/tmp on macOS), which won't strip against a raw /tmp root.
+    let canonical_root = workspace_root
+        .canonicalize()
+        .unwrap_or_else(|_| workspace_root.to_path_buf());
 
     let mut saved_files = Vec::new();
     let mut created_files = Vec::new();
 
     for path in file_paths {
+        // Sandbox validation: same containment rules as workflow file actions
+        // and restore_snapshot. Rejects traversal, absolute paths outside the
+        // workspace, and symlink escapes.
+        let path_str = path.to_string_lossy();
+        let path = match super::sandbox::validate_path(&path_str, workspace_root) {
+            Ok(p) => p,
+            Err(e) => {
+                log::warn!("Skipping snapshot of '{}' — {}", path_str, e);
+                continue;
+            }
+        };
+
         if !path.exists() {
             // Track files that don't exist yet — they'll be created by the workflow
             // and should be deleted on restore
@@ -54,9 +87,10 @@ pub async fn create_snapshot(
         }
 
         // Use relative path from workspace root to preserve directory structure
-        let relative = path
-            .strip_prefix(workspace_root)
-            .unwrap_or(path);
+        let Ok(relative) = path.strip_prefix(&canonical_root) else {
+            log::warn!("Skipping snapshot of '{}' — outside workspace", path_str);
+            continue;
+        };
         let dest = snapshot_dir.join(relative);
 
         // Create parent directories in snapshot
@@ -66,7 +100,7 @@ pub async fn create_snapshot(
                 .map_err(|e| format!("Failed to create snapshot subdirectory: {}", e))?;
         }
 
-        tokio::fs::copy(path, &dest)
+        tokio::fs::copy(&path, &dest)
             .await
             .map_err(|e| format!("Failed to snapshot '{}': {}", path.display(), e))?;
         saved_files.push(path.to_string_lossy().to_string());
@@ -90,6 +124,10 @@ pub async fn create_snapshot(
         .await
         .map_err(|e| format!("Failed to write metadata: {}", e))?;
 
+    // Cleanup after the new metadata is written so the retention count
+    // includes this snapshot (never leaves MAX_SNAPSHOTS + 1 behind).
+    cleanup_old_snapshots(app_data_dir).await;
+
     Ok(snapshot_id)
 }
 
@@ -105,9 +143,8 @@ pub async fn restore_snapshot(
     snapshot_id: &str,
     workspace_root: &Path,
 ) -> Result<(), String> {
-    let snapshot_dir = app_data_dir
-        .join("workflow-snapshots")
-        .join(snapshot_id);
+    validate_id(snapshot_id)?;
+    let snapshot_dir = app_data_dir.join("workflow-snapshots").join(snapshot_id);
 
     let meta_path = snapshot_dir.join("metadata.json");
     let meta_str = tokio::fs::read_to_string(&meta_path)
@@ -116,26 +153,31 @@ pub async fn restore_snapshot(
     let info: SnapshotInfo =
         serde_json::from_str(&meta_str).map_err(|e| format!("Invalid snapshot metadata: {}", e))?;
 
+    // Canonical root so strip_prefix agrees with the canonicalized paths
+    // that create_snapshot stores (e.g. /private/tmp vs /tmp on macOS).
+    let canonical_root = workspace_root
+        .canonicalize()
+        .unwrap_or_else(|_| workspace_root.to_path_buf());
+
     for original_path_str in &info.files {
         let original_path = PathBuf::from(original_path_str);
 
-        // Validate restore path is within workspace using same sandbox rules
-        // This catches both existing paths (symlink escape) and non-existent
-        // paths (metadata tampering with relative/absolute traversal)
-        if let Err(e) = super::sandbox::validate_path(
-            original_path_str,
-            workspace_root,
-        ) {
-            log::warn!(
-                "Skipping restore of '{}' — {}", original_path_str, e
-            );
+        // Validate restore path with the same sandbox rules — catches symlink
+        // escapes and metadata tampering (relative/absolute traversal). Stored
+        // paths are canonicalized by create_snapshot → check canonical root.
+        if let Err(e) = super::sandbox::validate_path(original_path_str, &canonical_root) {
+            log::warn!("Skipping restore of '{}' — {}", original_path_str, e);
             continue;
         }
 
         // Find the snapshot file using relative path
-        let relative = original_path
-            .strip_prefix(workspace_root)
-            .unwrap_or(&original_path);
+        let Ok(relative) = original_path.strip_prefix(&canonical_root) else {
+            log::warn!(
+                "Skipping restore of '{}' — outside workspace",
+                original_path_str
+            );
+            continue;
+        };
         let snapshot_file = snapshot_dir.join(relative);
 
         if snapshot_file.exists() {
@@ -156,14 +198,22 @@ pub async fn restore_snapshot(
 
     // Delete files that were created by the workflow (didn't exist before)
     for created_path_str in &info.created_files {
-        if let Err(e) = super::sandbox::validate_path(created_path_str, workspace_root) {
-            log::warn!("Skipping delete of created file '{}' — {}", created_path_str, e);
+        if let Err(e) = super::sandbox::validate_path(created_path_str, &canonical_root) {
+            log::warn!(
+                "Skipping delete of created file '{}' — {}",
+                created_path_str,
+                e
+            );
             continue;
         }
         let created_path = PathBuf::from(created_path_str);
         if created_path.exists() {
             if let Err(e) = tokio::fs::remove_file(&created_path).await {
-                log::warn!("Failed to delete created file '{}': {}", created_path_str, e);
+                log::warn!(
+                    "Failed to delete created file '{}': {}",
+                    created_path_str,
+                    e
+                );
             }
         }
     }
@@ -204,11 +254,15 @@ pub async fn list_snapshots(app_data_dir: &Path) -> Result<Vec<SnapshotInfo>, St
         }
     }
 
-    snapshots.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
+    snapshots.sort_by_key(|s| std::cmp::Reverse(s.timestamp));
     snapshots.truncate(MAX_SNAPSHOTS);
 
     Ok(snapshots)
 }
+
+#[cfg(test)]
+#[path = "snapshots.test.rs"]
+mod tests;
 
 /// Delete snapshot directories beyond MAX_SNAPSHOTS.
 async fn cleanup_old_snapshots(app_data_dir: &Path) {

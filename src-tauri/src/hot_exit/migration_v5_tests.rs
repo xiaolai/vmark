@@ -101,7 +101,10 @@ fn synthesizes_workspace_and_loose_contexts_from_legacy_tabs() {
     assert_eq!(SCHEMA_VERSION, 5);
     assert_eq!(window.workspace_instances.len(), 2);
     assert_eq!(window.workspace_instances[0].kind, "workspace");
-    assert_eq!(window.workspace_instances[0].root_path.as_deref(), Some("/repo"));
+    assert_eq!(
+        window.workspace_instances[0].root_path.as_deref(),
+        Some("/repo")
+    );
     assert_eq!(window.workspace_instances[0].tab_ids, vec!["tab-workspace"]);
 
     assert_eq!(window.workspace_instances[1].kind, "loose");
@@ -201,7 +204,10 @@ fn normalizes_serialized_contexts_and_deduplicates_tab_ids() {
         window.workspace_instance_ids,
         vec!["loose", "workspace", "placeholder"]
     );
-    assert_eq!(window.active_workspace_instance_id.as_deref(), Some("workspace"));
+    assert_eq!(
+        window.active_workspace_instance_id.as_deref(),
+        Some("workspace")
+    );
 
     let workspace = &window.workspace_instances[0];
     assert_eq!(workspace.kind, "workspace");
@@ -275,7 +281,7 @@ fn is_within_root_handles_windows_and_separator_variants() {
     assert!(v5::is_within_root("/repo", "/repo")); // exact match
     assert!(!v5::is_within_root("/repo", "/repo-other/a.md")); // shared prefix sibling
     assert!(!v5::is_within_root("/repo", "/elsewhere/a.md")); // outside root
-    // Filesystem root "/" contains every absolute path (boundary "/", not "//").
+                                                              // Filesystem root "/" contains every absolute path (boundary "/", not "//").
     assert!(v5::is_within_root("/", "/a.md"));
     assert!(v5::is_within_root("/", "/nested/deep/b.md"));
     assert!(v5::is_within_root("/", "/"));

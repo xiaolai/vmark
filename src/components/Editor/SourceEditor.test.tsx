@@ -77,6 +77,7 @@ const mockSetCursorInfo = vi.fn();
 const mockSetSelectedText = vi.fn();
 
 vi.mock("@/hooks/useDocumentState", () => ({
+  useActiveTabId: vi.fn(() => "tab-1"),
   useDocumentContent: vi.fn(() => "# Hello"),
   useDocumentCursorInfo: vi.fn(() => null),
   useDocumentActions: vi.fn(() => ({
@@ -284,6 +285,14 @@ describe("SourceEditor", () => {
       const { container } = render(<SourceEditor hidden />);
       const editorDiv = container.firstChild as HTMLElement;
       expect(editorDiv.style.display).toBe("none");
+    });
+
+    // Regression: cross-tab content bleed — the editor is keyed per tab, so
+    // its store writes must be pinned to its own tab id.
+    it("pins document actions to its own tab id", async () => {
+      const { useDocumentActions } = await import("@/hooks/useDocumentState");
+      render(<SourceEditor />);
+      expect(vi.mocked(useDocumentActions)).toHaveBeenCalledWith("tab-1");
     });
   });
 

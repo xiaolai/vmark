@@ -110,11 +110,12 @@ pub fn validate_and_repair(session: &mut SessionData) -> Vec<String> {
         //    After dropping duplicate/invalid tabs above, workspace_instance
         //    tab_ids / closed_tab_ids / active_tab_id can dangle. Prune the
         //    references so metadata never points at tabs that no longer exist.
-        let surviving_ids: HashSet<&str> =
-            window.tabs.iter().map(|t| t.id.as_str()).collect();
+        let surviving_ids: HashSet<&str> = window.tabs.iter().map(|t| t.id.as_str()).collect();
         for instance in &mut window.workspace_instances {
             let before_tab_ids = instance.tab_ids.len();
-            instance.tab_ids.retain(|id| surviving_ids.contains(id.as_str()));
+            instance
+                .tab_ids
+                .retain(|id| surviving_ids.contains(id.as_str()));
             let before_closed = instance.closed_tab_ids.len();
             instance
                 .closed_tab_ids
@@ -142,9 +143,7 @@ pub fn validate_and_repair(session: &mut SessionData) -> Vec<String> {
                 window.active_tab_id = window.tabs.first().map(|t| t.id.clone());
                 warnings.push(format!(
                     "Window '{}': active_tab_id '{}' not found in tabs, reset to {:?}",
-                    window.window_label,
-                    old_id,
-                    window.active_tab_id
+                    window.window_label, old_id, window.active_tab_id
                 ));
             }
         }

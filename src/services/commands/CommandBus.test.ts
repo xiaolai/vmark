@@ -9,6 +9,7 @@ import {
   searchCommands,
   listCommands,
   getCommand,
+  hasCommand,
   unregisterCommand,
   _resetCommandBus,
   type CommandDefinition,
@@ -47,6 +48,14 @@ describe("CommandBus", () => {
       registerCommand(cmd("doc.save", "Save"));
       unregisterCommand("doc.save");
       expect(getCommand("doc.save")).toBeUndefined();
+    });
+
+    it("hasCommand reports registry membership", () => {
+      expect(hasCommand("doc.save")).toBe(false);
+      registerCommand(cmd("doc.save", "Save"));
+      expect(hasCommand("doc.save")).toBe(true);
+      unregisterCommand("doc.save");
+      expect(hasCommand("doc.save")).toBe(false);
     });
   });
 

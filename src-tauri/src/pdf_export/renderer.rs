@@ -54,9 +54,7 @@ struct OffscreenWebView {
 ///
 /// WKWebView's printOperationWithPrintInfo requires a window for
 /// runOperationModalForWindow to work correctly.
-fn create_offscreen_webview(
-    mtm: objc2::MainThreadMarker,
-) -> OffscreenWebView {
+fn create_offscreen_webview(mtm: objc2::MainThreadMarker) -> OffscreenWebView {
     use objc2_app_kit::{NSBackingStoreType, NSWindow, NSWindowStyleMask};
     use objc2_core_foundation::CGRect;
     use objc2_web_kit::{WKWebView, WKWebViewConfiguration};
@@ -79,9 +77,8 @@ fn create_offscreen_webview(
     // SAFETY: Main thread (mtm). WKWebViewConfiguration::new is a standard initializer.
     let config = unsafe { WKWebViewConfiguration::new(mtm) };
     // SAFETY: Main thread (mtm). config is a valid WKWebViewConfiguration created above.
-    let webview = unsafe {
-        WKWebView::initWithFrame_configuration(WKWebView::alloc(mtm), frame, &config)
-    };
+    let webview =
+        unsafe { WKWebView::initWithFrame_configuration(WKWebView::alloc(mtm), frame, &config) };
     window.setContentView(Some(&webview));
 
     OffscreenWebView { window, webview }
@@ -178,11 +175,7 @@ fn configure_print_info(
 ///
 /// Writes HTML to a temp file, then dispatches to the main thread via
 /// Tauri's event loop to create a WKWebView and generate the PDF.
-pub async fn render_pdf(
-    app: AppHandle,
-    html: String,
-    output_path: String,
-) -> Result<(), String> {
+pub async fn render_pdf(app: AppHandle, html: String, output_path: String) -> Result<(), String> {
     // Write HTML to temp file on the async thread (no main thread needed)
     let temp_dir = std::env::temp_dir();
     let unique_id = std::time::SystemTime::now()
@@ -194,8 +187,7 @@ pub async fn render_pdf(
         std::process::id(),
         unique_id
     ));
-    std::fs::write(&temp_html, &html)
-        .map_err(|e| format!("Failed to write temp HTML: {}", e))?;
+    std::fs::write(&temp_html, &html).map_err(|e| format!("Failed to write temp HTML: {}", e))?;
 
     log::debug!(
         "[PDF] render_pdf: wrote {} bytes to {}, output: {}",
@@ -223,10 +215,7 @@ pub async fn render_pdf(
             &temp_dir_str,
             &output_path_clone,
         );
-        log::debug!(
-            "[PDF] done, result: {:?}",
-            result.as_ref().map(|_| "ok")
-        );
+        log::debug!("[PDF] done, result: {:?}", result.as_ref().map(|_| "ok"));
         // Clean up temp file
         let _ = std::fs::remove_file(&temp_html_str);
         if let Some(sender) = tx_clone.lock().unwrap_or_else(|p| p.into_inner()).take() {
@@ -263,8 +252,7 @@ fn render_pdf_on_main_thread(
 ) -> Result<(), String> {
     use objc2::MainThreadMarker;
 
-    let mtm =
-        MainThreadMarker::new().ok_or("PDF export must run on the main thread")?;
+    let mtm = MainThreadMarker::new().ok_or("PDF export must run on the main thread")?;
 
     emit_progress(app, "loading");
     log::debug!("[PDF] creating hidden window + WKWebView...");
@@ -323,8 +311,7 @@ fn print_to_pdf(
     // setObject:forKey: is a standard NSDictionary mutation on a mutable dict.
     unsafe {
         let dict = print_info.dictionary();
-        let _: () =
-            objc2::msg_send![&*dict, setObject: &*output_url, forKey: NSPrintJobSavingURL];
+        let _: () = objc2::msg_send![&*dict, setObject: &*output_url, forKey: NSPrintJobSavingURL];
     }
 
     // Remove any stale file to avoid false-positive success detection
@@ -379,9 +366,8 @@ fn print_to_pdf(
                     if stable_ticks >= 5 {
                         // Final recheck after one more pause to guard against slow flushes
                         run_loop_tick(0.2);
-                        let final_size = std::fs::metadata(output_path)
-                            .map(|m| m.len())
-                            .unwrap_or(0);
+                        let final_size =
+                            std::fs::metadata(output_path).map(|m| m.len()).unwrap_or(0);
                         if final_size == size {
                             log::debug!(
                                 "[PDF] PDF file stable at tick {} ({:.2}s), size: {} bytes",
@@ -415,9 +401,7 @@ fn print_to_pdf(
 
     // Check if file was created at all
     if std::path::Path::new(output_path).exists() {
-        let size = std::fs::metadata(output_path)
-            .map(|m| m.len())
-            .unwrap_or(0);
+        let size = std::fs::metadata(output_path).map(|m| m.len()).unwrap_or(0);
         if size > 0 {
             log::debug!("[PDF] file exists with {} bytes (detected late)", size);
             return Ok(());
@@ -449,8 +433,7 @@ pub async fn print_document(app: AppHandle, html: String) -> Result<(), String> 
         std::process::id(),
         unique_id
     ));
-    std::fs::write(&temp_html, &html)
-        .map_err(|e| format!("Failed to write temp HTML: {}", e))?;
+    std::fs::write(&temp_html, &html).map_err(|e| format!("Failed to write temp HTML: {}", e))?;
 
     let (tx, rx) = oneshot::channel::<Result<(), String>>();
     let tx = Arc::new(Mutex::new(Some(tx)));
@@ -459,8 +442,7 @@ pub async fn print_document(app: AppHandle, html: String) -> Result<(), String> 
     let temp_dir_str = temp_dir.to_string_lossy().to_string();
 
     app.run_on_main_thread(move || {
-        let result =
-            print_on_main_thread(&temp_html_str, &temp_dir_str);
+        let result = print_on_main_thread(&temp_html_str, &temp_dir_str);
         let _ = std::fs::remove_file(&temp_html_str);
         if let Some(sender) = tx_clone.lock().unwrap_or_else(|p| p.into_inner()).take() {
             let _ = sender.send(result);
@@ -490,10 +472,7 @@ pub async fn print_document(app: AppHandle, html: String) -> Result<(), String> 
 /// Note: We cannot reliably detect print cancellation from NSPrintOperation
 /// when used with WKWebView (no delegate callback fires). We always return Ok
 /// and let the print system handle errors via the macOS print infrastructure.
-fn print_on_main_thread(
-    html_path: &str,
-    read_access_dir: &str,
-) -> Result<(), String> {
+fn print_on_main_thread(html_path: &str, read_access_dir: &str) -> Result<(), String> {
     use objc2::MainThreadMarker;
     use objc2_app_kit::NSApplication;
 

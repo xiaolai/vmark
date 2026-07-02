@@ -101,6 +101,33 @@ describe("sourcePeekStore", () => {
       useSourcePeekStore.getState().markSaved();
       expect(useSourcePeekStore.getState().hasUnsavedChanges).toBe(false);
     });
+
+    it("rebaselines the dirty check: re-entering the saved content stays clean", () => {
+      useSourcePeekStore.getState().open(samplePayload);
+      useSourcePeekStore.getState().setMarkdown("saved version");
+      useSourcePeekStore.getState().markSaved();
+      // Editing back to the exact just-saved content is NOT an unsaved change.
+      useSourcePeekStore.getState().setMarkdown("saved version");
+      expect(useSourcePeekStore.getState().hasUnsavedChanges).toBe(false);
+    });
+
+    it("rebaselines the dirty check: editing back to the pre-save original is dirty", () => {
+      useSourcePeekStore.getState().open(samplePayload);
+      useSourcePeekStore.getState().setMarkdown("saved version");
+      useSourcePeekStore.getState().markSaved();
+      // The pre-save text now differs from the saved baseline -> unsaved change.
+      useSourcePeekStore.getState().setMarkdown("# Hello\n\nWorld");
+      expect(useSourcePeekStore.getState().hasUnsavedChanges).toBe(true);
+    });
+
+    it("preserves getOriginalMarkdown as the true original after save (revert target)", () => {
+      useSourcePeekStore.getState().open(samplePayload);
+      useSourcePeekStore.getState().setMarkdown("saved version");
+      useSourcePeekStore.getState().markSaved();
+      expect(useSourcePeekStore.getState().getOriginalMarkdown()).toBe(
+        "# Hello\n\nWorld",
+      );
+    });
   });
 
   describe("getOriginalMarkdown", () => {

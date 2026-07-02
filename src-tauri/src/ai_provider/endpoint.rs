@@ -34,15 +34,24 @@ mod tests {
         assert_eq!(normalize_rest_base("https://h/"), "https://h");
         assert_eq!(normalize_rest_base("https://h"), "https://h");
         // Only a trailing `/v1` is stripped; a deeper path is preserved.
-        assert_eq!(normalize_rest_base("https://h/openai/v1"), "https://h/openai");
+        assert_eq!(
+            normalize_rest_base("https://h/openai/v1"),
+            "https://h/openai"
+        );
         // `/v1` mid-path (not trailing) is left alone.
         assert_eq!(normalize_rest_base("https://h/v1/foo"), "https://h/v1/foo");
     }
 
     #[test]
     fn resolve_falls_back_to_default_when_absent_or_empty() {
-        assert_eq!(resolve_endpoint(None, "https://api.openai.com"), "https://api.openai.com");
-        assert_eq!(resolve_endpoint(Some(String::new()), "https://api.openai.com"), "https://api.openai.com");
+        assert_eq!(
+            resolve_endpoint(None, "https://api.openai.com"),
+            "https://api.openai.com"
+        );
+        assert_eq!(
+            resolve_endpoint(Some(String::new()), "https://api.openai.com"),
+            "https://api.openai.com"
+        );
     }
 
     #[test]

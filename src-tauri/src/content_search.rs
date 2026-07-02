@@ -30,7 +30,7 @@
 //! @coordinates-with contentSearchStore.ts — frontend consumer
 //! @coordinates-with workspaceStore.ts — provides rootPath and excludeFolders
 
-use regex::{RegexBuilder, Regex};
+use regex::{Regex, RegexBuilder};
 use serde::Serialize;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -148,8 +148,7 @@ fn is_binary(path: &Path) -> bool {
 
 /// Check if a directory name should be skipped.
 fn should_skip_dir(name: &str, exclude_folders: &[String]) -> bool {
-    ALWAYS_SKIP.iter().any(|&s| s == name)
-        || exclude_folders.iter().any(|s| s == name)
+    ALWAYS_SKIP.contains(&name) || exclude_folders.iter().any(|s| s == name)
 }
 
 /// Check if a file matches the allowed extensions.
@@ -165,15 +164,16 @@ fn matches_extensions(path: &Path, extensions: &[String]) -> bool {
     })
 }
 
-/// Convert a byte offset within a string to a character (UTF-16 code unit) index.
-/// This ensures offsets sent to JS `String.slice()` work correctly for multibyte text.
-fn byte_offset_to_char_index(s: &str, byte_offset: usize) -> usize {
-    s[..byte_offset].chars().count()
+/// Convert a byte offset within a string to a UTF-16 code-unit index.
+/// JS `String.slice()` counts UTF-16 units, so astral chars (emoji) count
+/// as 2 — `chars().count()` would shift every offset after them.
+fn byte_offset_to_utf16_index(s: &str, byte_offset: usize) -> usize {
+    s[..byte_offset].chars().map(char::len_utf16).sum()
 }
 
 /// Search line content and return match ranges, trimming if necessary.
-/// All returned offsets are character indices (not byte offsets) so they
-/// work correctly with JS `String.slice()`.
+/// All returned offsets are UTF-16 code-unit indices (not byte offsets) so
+/// they work correctly with JS `String.slice()`.
 fn search_line(line: &str, line_number: u32, re: &Regex) -> Option<LineMatch> {
     let trimmed = line.trim_end();
     if trimmed.is_empty() {
@@ -211,13 +211,19 @@ fn search_line(line: &str, line_number: u32, re: &Regex) -> Option<LineMatch> {
         let snippet: String = trimmed[start_byte..].chars().take(byte_budget).collect();
         let snippet_end_byte = start_byte + snippet.len();
 
+        // Keep every match that overlaps the window, clamped to it — a match
+        // longer than the window must not vanish (empty match_ranges).
         let ranges = raw_ranges
             .iter()
-            .filter(|(s, e)| *s >= start_byte && *e <= snippet_end_byte)
+            .filter(|(s, e)| *e > start_byte && *s < snippet_end_byte)
             .map(|(s, e)| {
-                // Convert byte offsets within snippet to char indices
-                let relative_start = byte_offset_to_char_index(&trimmed[start_byte..], s - start_byte);
-                let relative_end = byte_offset_to_char_index(&trimmed[start_byte..], e - start_byte);
+                let s = (*s).max(start_byte);
+                let e = (*e).min(snippet_end_byte);
+                // Convert byte offsets within snippet to UTF-16 indices
+                let relative_start =
+                    byte_offset_to_utf16_index(&trimmed[start_byte..], s - start_byte);
+                let relative_end =
+                    byte_offset_to_utf16_index(&trimmed[start_byte..], e - start_byte);
                 MatchRange {
                     start: relative_start as u32,
                     end: relative_end as u32,
@@ -233,7 +239,7 @@ fn search_line(line: &str, line_number: u32, re: &Regex) -> Option<LineMatch> {
         };
 
         let display = format!("{}{}{}", prefix, snippet, suffix);
-        let offset = prefix.chars().count(); // char count, not byte count
+        let offset = prefix.encode_utf16().count(); // UTF-16 units, not bytes
         let adjusted_ranges = ranges
             .into_iter()
             .map(|r| MatchRange {
@@ -244,12 +250,12 @@ fn search_line(line: &str, line_number: u32, re: &Regex) -> Option<LineMatch> {
 
         (display, adjusted_ranges)
     } else {
-        // Convert byte offsets to char indices for JS compatibility
+        // Convert byte offsets to UTF-16 indices for JS compatibility
         let ranges = raw_ranges
             .iter()
             .map(|(s, e)| MatchRange {
-                start: byte_offset_to_char_index(trimmed, *s) as u32,
-                end: byte_offset_to_char_index(trimmed, *e) as u32,
+                start: byte_offset_to_utf16_index(trimmed, *s) as u32,
+                end: byte_offset_to_utf16_index(trimmed, *e) as u32,
             })
             .collect();
         (trimmed.to_string(), ranges)
@@ -263,6 +269,7 @@ fn search_line(line: &str, line_number: u32, re: &Regex) -> Option<LineMatch> {
 }
 
 /// Walk the workspace and search file contents synchronously.
+#[allow(clippy::too_many_arguments)]
 fn search_sync(
     root_path: &str,
     query: &str,
@@ -316,9 +323,7 @@ fn search_sync_with_deadline(
     let mut dirs_to_visit: Vec<PathBuf> = vec![root.clone()];
 
     while let Some(dir) = dirs_to_visit.pop() {
-        if results.len() >= MAX_FILES
-            || total_matches >= MAX_MATCHES
-            || Instant::now() >= deadline
+        if results.len() >= MAX_FILES || total_matches >= MAX_MATCHES || Instant::now() >= deadline
         {
             break;
         }
@@ -345,7 +350,11 @@ fn search_sync_with_deadline(
             };
 
             // Skip symlinks to prevent directory traversal outside workspace
-            if path.symlink_metadata().map(|m| m.file_type().is_symlink()).unwrap_or(false) {
+            if path
+                .symlink_metadata()
+                .map(|m| m.file_type().is_symlink())
+                .unwrap_or(false)
+            {
                 continue;
             }
 
@@ -385,7 +394,11 @@ fn search_sync_with_deadline(
             // Skip files larger than MAX_FILE_SIZE to prevent memory pressure
             if let Ok(meta) = fs::metadata(&file_path) {
                 if meta.len() > MAX_FILE_SIZE {
-                    log::debug!("[ContentSearch] Skipping large file ({} bytes): {}", meta.len(), file_path.display());
+                    log::debug!(
+                        "[ContentSearch] Skipping large file ({} bytes): {}",
+                        meta.len(),
+                        file_path.display()
+                    );
                     continue;
                 }
             }
@@ -411,7 +424,13 @@ fn search_sync_with_deadline(
                     break;
                 }
 
-                if let Some(line_match) = search_line(line, (line_idx + 1) as u32, &re) {
+                if let Some(mut line_match) = search_line(line, (line_idx + 1) as u32, &re) {
+                    // Never exceed MAX_MATCHES: a single line can carry many
+                    // ranges, so truncate to the remaining budget.
+                    // (the pre-line break above guarantees remaining >= 1)
+                    line_match
+                        .match_ranges
+                        .truncate(MAX_MATCHES - total_matches);
                     total_matches += line_match.match_ranges.len();
                     file_matches.push(line_match);
                 }
@@ -451,6 +470,8 @@ fn search_sync_with_deadline(
 /// Tauri command: search workspace file contents.
 ///
 /// Runs in a blocking thread to avoid stalling the async runtime.
+// The parameter list is the frontend `invoke()` IPC contract.
+#[allow(clippy::too_many_arguments)]
 #[tauri::command]
 pub async fn search_workspace_content(
     root_path: String,
@@ -484,466 +505,5 @@ pub async fn search_workspace_content(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use std::fs;
-    use tempfile::TempDir;
-
-    fn setup_test_workspace() -> TempDir {
-        let dir = TempDir::new().unwrap();
-        let root = dir.path();
-
-        // Create test files
-        fs::write(root.join("hello.md"), "Hello World\nGoodbye World\n").unwrap();
-        fs::write(root.join("notes.md"), "Some notes about Rust\nMore notes here\n").unwrap();
-        fs::write(root.join("readme.txt"), "This is a readme file\n").unwrap();
-        fs::write(root.join("code.rs"), "fn main() { println!(\"Hello\"); }\n").unwrap();
-
-        // Create subdirectory with files
-        fs::create_dir(root.join("sub")).unwrap();
-        fs::write(root.join("sub/nested.md"), "Nested content with World\n").unwrap();
-
-        // Create excluded directory
-        fs::create_dir(root.join("node_modules")).unwrap();
-        fs::write(
-            root.join("node_modules/pkg.md"),
-            "Should not be found World\n",
-        )
-        .unwrap();
-
-        // Create hidden file
-        fs::write(root.join(".hidden.md"), "Hidden World\n").unwrap();
-
-        dir
-    }
-
-    #[test]
-    fn test_basic_search() {
-        let dir = setup_test_workspace();
-        let root = dir.path().to_str().unwrap();
-
-        let results = search_sync(root, "World", false, false, false, false, vec![], vec![]).unwrap();
-
-        // hello.md (2 matches), sub/nested.md (1 match), readme.txt has no "World"
-        assert_eq!(results.len(), 2);
-        let all_matches: usize = results.iter().map(|r| r.matches.len()).sum();
-        assert_eq!(all_matches, 3); // "Hello World", "Goodbye World", "Nested content with World"
-    }
-
-    #[test]
-    fn test_case_sensitive_search() {
-        let dir = setup_test_workspace();
-        let root = dir.path().to_str().unwrap();
-
-        let results =
-            search_sync(root, "world", true, false, false, false, vec![], vec![]).unwrap();
-
-        // "World" with capital W should not match case-sensitive "world"
-        let all_matches: usize = results.iter().map(|r| r.matches.len()).sum();
-        assert_eq!(all_matches, 0);
-    }
-
-    #[test]
-    fn test_case_insensitive_search() {
-        let dir = setup_test_workspace();
-        let root = dir.path().to_str().unwrap();
-
-        let results =
-            search_sync(root, "world", false, false, false, false, vec![], vec![]).unwrap();
-
-        let all_matches: usize = results.iter().map(|r| r.matches.len()).sum();
-        assert_eq!(all_matches, 3);
-    }
-
-    #[test]
-    fn test_whole_word_search() {
-        let dir = setup_test_workspace();
-        let root = dir.path().to_str().unwrap();
-
-        let results =
-            search_sync(root, "note", false, true, false, false, vec![], vec![]).unwrap();
-
-        // "notes" should NOT match whole-word "note"
-        let all_matches: usize = results.iter().map(|r| r.matches.len()).sum();
-        assert_eq!(all_matches, 0);
-    }
-
-    #[test]
-    fn test_regex_search() {
-        let dir = setup_test_workspace();
-        let root = dir.path().to_str().unwrap();
-
-        let results =
-            search_sync(root, r"Hello|Goodbye", false, false, true, false, vec![], vec![]).unwrap();
-
-        let all_matches: usize = results.iter().map(|r| r.matches.len()).sum();
-        assert_eq!(all_matches, 3); // "Hello World", "Goodbye World", hello in code.rs println
-    }
-
-    #[test]
-    fn test_invalid_regex() {
-        let dir = setup_test_workspace();
-        let root = dir.path().to_str().unwrap();
-
-        let result =
-            search_sync(root, "[invalid", false, false, true, false, vec![], vec![]);
-
-        assert!(result.is_err());
-        assert!(result.unwrap_err().contains("Invalid regex"));
-    }
-
-    #[test]
-    fn test_markdown_only_filter() {
-        let dir = setup_test_workspace();
-        let root = dir.path().to_str().unwrap();
-        let extensions = vec![".md".to_string(), ".markdown".to_string(), ".txt".to_string()];
-
-        let results =
-            search_sync(root, "Hello", false, false, false, true, extensions, vec![]).unwrap();
-
-        // Should find in hello.md but not in code.rs
-        for result in &results {
-            assert!(
-                result.path.ends_with(".md") || result.path.ends_with(".txt"),
-                "Non-markdown file found: {}",
-                result.path
-            );
-        }
-    }
-
-    #[test]
-    fn test_exclude_folders() {
-        let dir = setup_test_workspace();
-        let root = dir.path().to_str().unwrap();
-
-        let results = search_sync(
-            root,
-            "World",
-            false,
-            false,
-            false,
-            false,
-            vec![],
-            vec!["sub".to_string()],
-        )
-        .unwrap();
-
-        // Should NOT find sub/nested.md
-        for result in &results {
-            assert!(
-                !result.relative_path.starts_with("sub"),
-                "Excluded folder found: {}",
-                result.relative_path
-            );
-        }
-    }
-
-    #[test]
-    fn test_hidden_files_skipped() {
-        let dir = setup_test_workspace();
-        let root = dir.path().to_str().unwrap();
-
-        let results = search_sync(root, "Hidden", false, false, false, false, vec![], vec![]).unwrap();
-
-        // .hidden.md should be skipped
-        for result in &results {
-            assert!(
-                !result.relative_path.starts_with('.'),
-                "Hidden file found: {}",
-                result.relative_path
-            );
-        }
-    }
-
-    #[test]
-    fn test_node_modules_always_skipped() {
-        let dir = setup_test_workspace();
-        let root = dir.path().to_str().unwrap();
-
-        let results = search_sync(root, "Should not", false, false, false, false, vec![], vec![]).unwrap();
-
-        for result in &results {
-            assert!(
-                !result.relative_path.contains("node_modules"),
-                "node_modules found: {}",
-                result.relative_path
-            );
-        }
-    }
-
-    #[test]
-    fn test_relative_path() {
-        let dir = setup_test_workspace();
-        let root = dir.path().to_str().unwrap();
-
-        let results = search_sync(root, "Nested", false, false, false, false, vec![], vec![]).unwrap();
-
-        assert!(!results.is_empty());
-        let nested = results.iter().find(|r| r.relative_path.contains("nested")).unwrap();
-        assert_eq!(nested.relative_path, "sub/nested.md");
-    }
-
-    #[test]
-    fn test_match_ranges() {
-        let dir = setup_test_workspace();
-        let root = dir.path().to_str().unwrap();
-
-        let results = search_sync(root, "World", false, false, false, false, vec![], vec![]).unwrap();
-
-        // Check that match ranges are populated
-        for result in &results {
-            for line_match in &result.matches {
-                assert!(!line_match.match_ranges.is_empty());
-                for range in &line_match.match_ranges {
-                    assert!(range.end > range.start);
-                    // Range should be within content bounds
-                    assert!((range.end as usize) <= line_match.line_content.len());
-                }
-            }
-        }
-    }
-
-    #[test]
-    fn test_empty_query_rejected() {
-        let result = build_regex("", false, false, false);
-        // Empty regex is technically valid (matches everything), but the command
-        // rejects queries < 2 chars. Test the build_regex directly.
-        assert!(result.is_ok()); // regex itself is valid
-    }
-
-    #[test]
-    fn test_multiple_matches_per_line() {
-        let dir = TempDir::new().unwrap();
-        fs::write(
-            dir.path().join("multi.md"),
-            "cat and cat and cat\n",
-        )
-        .unwrap();
-
-        let results = search_sync(
-            dir.path().to_str().unwrap(),
-            "cat",
-            false,
-            false,
-            false,
-            false,
-            vec![],
-            vec![],
-        )
-        .unwrap();
-
-        assert_eq!(results.len(), 1);
-        assert_eq!(results[0].matches.len(), 1);
-        assert_eq!(results[0].matches[0].match_ranges.len(), 3);
-    }
-
-    #[test]
-    fn test_line_numbers_are_1_indexed() {
-        let dir = TempDir::new().unwrap();
-        fs::write(
-            dir.path().join("lines.md"),
-            "line one\nline two\nline three\n",
-        )
-        .unwrap();
-
-        let results = search_sync(
-            dir.path().to_str().unwrap(),
-            "two",
-            false,
-            false,
-            false,
-            false,
-            vec![],
-            vec![],
-        )
-        .unwrap();
-
-        assert_eq!(results.len(), 1);
-        assert_eq!(results[0].matches[0].line_number, 2);
-    }
-
-    #[test]
-    fn test_empty_workspace() {
-        let dir = TempDir::new().unwrap();
-        let root = dir.path().to_str().unwrap();
-
-        let results = search_sync(root, "anything", false, false, false, false, vec![], vec![]).unwrap();
-        assert_eq!(results.len(), 0);
-    }
-
-    #[test]
-    fn test_cjk_char_indices() {
-        let dir = TempDir::new().unwrap();
-        // Each CJK char is 3 bytes in UTF-8 but 1 char index for JS
-        fs::write(dir.path().join("cjk.md"), "你好世界test你好\n").unwrap();
-
-        let results = search_sync(
-            dir.path().to_str().unwrap(),
-            "test",
-            false, false, false, false, vec![], vec![],
-        ).unwrap();
-
-        assert_eq!(results.len(), 1);
-        let m = &results[0].matches[0];
-        // "你好世界" = 4 chars, then "test" starts at char index 4
-        assert_eq!(m.match_ranges[0].start, 4);
-        assert_eq!(m.match_ranges[0].end, 8);
-        // Verify the slice works correctly (simulating JS behavior)
-        let content_chars: Vec<char> = m.line_content.chars().collect();
-        let slice: String = content_chars[m.match_ranges[0].start as usize..m.match_ranges[0].end as usize].iter().collect();
-        assert_eq!(slice, "test");
-    }
-
-    #[test]
-    fn test_nonexistent_root_returns_error() {
-        let result = search_sync("/nonexistent/path", "test", false, false, false, false, vec![], vec![]);
-        assert!(result.is_err());
-        assert!(result.unwrap_err().contains("not a directory"));
-    }
-
-    #[test]
-    fn test_large_file_skipped() {
-        let dir = TempDir::new().unwrap();
-        // Create a file larger than MAX_FILE_SIZE (1 MB)
-        let large_content = "x".repeat(1_100_000) + "\nsearchterm\n";
-        fs::write(dir.path().join("large.md"), large_content).unwrap();
-        // Also create a small file with the same term
-        fs::write(dir.path().join("small.md"), "searchterm\n").unwrap();
-
-        let results = search_sync(
-            dir.path().to_str().unwrap(),
-            "searchterm",
-            false, false, false, false, vec![], vec![],
-        ).unwrap();
-
-        // Only small.md should match; large.md skipped
-        assert_eq!(results.len(), 1);
-        assert!(results[0].relative_path.contains("small"));
-    }
-
-    #[test]
-    fn test_min_query_length_enforced() {
-        // The async command rejects < 3 chars, test the sync function still works
-        let dir = TempDir::new().unwrap();
-        fs::write(dir.path().join("ab.md"), "ab\n").unwrap();
-
-        let results = search_sync(
-            dir.path().to_str().unwrap(),
-            "ab",
-            false, false, false, false, vec![], vec![],
-        ).unwrap();
-
-        // sync function itself doesn't enforce length — that's the command's job
-        assert_eq!(results.len(), 1);
-    }
-
-    #[test]
-    fn test_deadline_already_elapsed_returns_partial_results() {
-        // Seeded workspace with several files; an elapsed deadline should cause
-        // the walker to bail out early and return whatever (possibly zero)
-        // results it accumulated without panicking or erroring.
-        let dir = setup_test_workspace();
-        let root = dir.path().to_str().unwrap();
-        let past_deadline = Instant::now() - Duration::from_secs(1);
-
-        let result = search_sync_with_deadline(
-            root, "World", false, false, false, false, vec![], vec![], past_deadline,
-        );
-
-        // Must not error — partial results are a valid outcome.
-        assert!(result.is_ok(), "timeout must produce Ok(partial), got {:?}", result);
-        // Walker is allowed to return fewer matches than the non-timeout case.
-        let full = search_sync(root, "World", false, false, false, false, vec![], vec![]).unwrap();
-        let full_matches: usize = full.iter().map(|r| r.matches.len()).sum();
-        let partial_matches: usize = result.unwrap().iter().map(|r| r.matches.len()).sum();
-        assert!(
-            partial_matches <= full_matches,
-            "partial should never exceed full ({} > {})",
-            partial_matches, full_matches
-        );
-    }
-
-    #[test]
-    fn test_deadline_mid_walk_stops_early() {
-        // Force a deadline that elapses after the first file is processed.
-        // We can't easily time-travel inside search_sync, but an effectively-zero
-        // deadline must stop at-or-before the first expensive I/O.
-        let dir = setup_test_workspace();
-        let root = dir.path().to_str().unwrap();
-        let now = Instant::now();
-        let tight = now + Duration::from_millis(0);
-
-        let result = search_sync_with_deadline(
-            root, "World", false, false, false, false, vec![], vec![], tight,
-        )
-        .unwrap();
-
-        // With effectively no budget, result count must be bounded and must
-        // not trigger any panic/error. Zero is valid; anything else is also
-        // valid as long as <= full.
-        let full = search_sync(root, "World", false, false, false, false, vec![], vec![]).unwrap();
-        let full_files = full.len();
-        assert!(
-            result.len() <= full_files,
-            "timed-out file count must not exceed untimed run"
-        );
-    }
-
-    #[test]
-    fn test_regex_size_limit_handles_oversized_pattern_gracefully() {
-        // A heavily-alternated pattern should either compile under the 1 MB
-        // size limit (regex crate is efficient about alternations) or surface
-        // a structured error. The guarantee is "no panic, no runaway memory."
-        let big_alt = (0..20_000)
-            .map(|i| format!("term{:06}", i))
-            .collect::<Vec<_>>()
-            .join("|");
-        let pattern = format!("({})", big_alt);
-
-        match build_regex(&pattern, false, false, true) {
-            Ok(_) => {
-                // Accepted — crate handled it within the budget. Fine.
-            }
-            Err(err) => {
-                assert!(
-                    err.contains("Invalid regex"),
-                    "error from build_regex must be the structured 'Invalid regex' form, got: {}",
-                    err
-                );
-            }
-        }
-    }
-
-    #[test]
-    fn test_redos_style_pattern_finishes_without_runaway() {
-        // The Rust `regex` crate is immune to catastrophic backtracking by
-        // construction. This guard test asserts the engine still produces a
-        // result (doesn't panic, doesn't deadlock) on a pattern that would
-        // be pathological in a backtracking engine. The assertion is purely
-        // functional — no wall-clock threshold to avoid CI flakiness.
-        let haystack = format!("{}!", "a".repeat(10_000));
-        let re = build_regex(r"(a+)+b", false, false, true).unwrap();
-        // Count must complete — zero matches since there is no 'b' in input.
-        assert_eq!(re.find_iter(&haystack).count(), 0);
-    }
-
-    #[test]
-    fn test_regex_size_limit_rejects_clearly_oversized_ast() {
-        // RegexBuilder::size_limit caps the AST size. A direct build that
-        // bypasses our helper with a tiny explicit limit must surface the
-        // structured "Invalid regex" error — proving the limit path is wired
-        // up and produces the contract we promise callers.
-        let pattern = "(abc|def|ghi|jkl|mno|pqr|stu|vwx|yz0)+";
-        let result = RegexBuilder::new(pattern)
-            .size_limit(64) // absurdly small — forces the limit to fire
-            .build()
-            .map_err(|e| format!("Invalid regex: {}", e));
-        assert!(result.is_err(), "expected size-limit rejection with tiny cap");
-        let err = result.unwrap_err();
-        assert!(
-            err.contains("Invalid regex"),
-            "size-limit errors must surface via the 'Invalid regex' contract, got: {}",
-            err
-        );
-    }
-}
+#[path = "content_search.test.rs"]
+mod tests;

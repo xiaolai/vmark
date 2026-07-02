@@ -78,13 +78,13 @@ pub fn merge_partial_capture(
 
     if merged {
         // Re-sort: main window first, then by label
-        session.windows.sort_by(|a, b| {
-            match (a.is_main_window, b.is_main_window) {
+        session
+            .windows
+            .sort_by(|a, b| match (a.is_main_window, b.is_main_window) {
                 (true, false) => std::cmp::Ordering::Less,
                 (false, true) => std::cmp::Ordering::Greater,
                 _ => a.window_label.cmp(&b.window_label),
-            }
-        });
+            });
     }
 
     // Preserve workspace from previous session if not set

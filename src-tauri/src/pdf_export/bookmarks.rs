@@ -127,11 +127,8 @@ pub fn add_bookmarks(pdf_path: &str, headings: &[Heading]) -> Result<(), String>
 }
 
 /// Extract text content from each page for heading search.
-fn build_page_texts(
-    doc: &PDFDocument,
-    page_count: objc2_foundation::NSUInteger,
-) -> Vec<String> {
-    let mut texts = Vec::with_capacity(page_count as usize);
+fn build_page_texts(doc: &PDFDocument, page_count: objc2_foundation::NSUInteger) -> Vec<String> {
+    let mut texts = Vec::with_capacity(page_count);
     for i in 0..page_count {
         // SAFETY: doc is a valid PDFDocument and i is in range [0, page_count).
         // pageAtIndex returns None for invalid indices; string() returns the
@@ -197,9 +194,7 @@ fn find_heading_page(page_texts: &[String], heading_text: &str, start_page: usiz
     }
 
     // Pass 4: Plain substring (last resort — accepts partial matches)
-    if let Some(idx) = search_pages_with(page_texts, start_page, |text| {
-        text.contains(needle)
-    }) {
+    if let Some(idx) = search_pages_with(page_texts, start_page, |text| text.contains(needle)) {
         return idx;
     }
 
@@ -239,12 +234,12 @@ fn contains_with_boundary(haystack: &str, needle: &str) -> bool {
             || !haystack[..abs]
                 .chars()
                 .next_back()
-                .map_or(false, |c| c.is_alphanumeric());
+                .is_some_and(|c| c.is_alphanumeric());
         let after_ok = abs + nlen >= bytes.len()
             || !haystack[abs + nlen..]
                 .chars()
                 .next()
-                .map_or(false, |c| c.is_alphanumeric());
+                .is_some_and(|c| c.is_alphanumeric());
         if before_ok && after_ok {
             return true;
         }

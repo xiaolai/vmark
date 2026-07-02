@@ -41,6 +41,27 @@ describe("search slice actions", () => {
     expect(useUIStore.getState().search.currentIndex).toBe(2);
   });
 
+  it("searchSetMatches clamps out-of-range values (audit-fix)", () => {
+    // Negative match count → 0 matches, no current index.
+    useUIStore.getState().searchSetMatches(-5, 3);
+    expect(useUIStore.getState().search.matchCount).toBe(0);
+    expect(useUIStore.getState().search.currentIndex).toBe(-1);
+
+    // Index beyond the last match → clamped to the last match.
+    useUIStore.getState().searchSetMatches(3, 10);
+    expect(useUIStore.getState().search.matchCount).toBe(3);
+    expect(useUIStore.getState().search.currentIndex).toBe(2);
+
+    // Index below -1 → clamped to -1 (no current match).
+    useUIStore.getState().searchSetMatches(3, -7);
+    expect(useUIStore.getState().search.currentIndex).toBe(-1);
+
+    // searchFindPrevious after clamping stays in range.
+    useUIStore.getState().searchSetMatches(3, 10);
+    useUIStore.getState().searchFindPrevious();
+    expect(useUIStore.getState().search.currentIndex).toBe(1);
+  });
+
   it("searchFindNext is a no-op when matchCount is 0", () => {
     useUIStore.getState().searchFindNext();
     expect(useUIStore.getState().search.currentIndex).toBe(-1);
@@ -237,6 +258,46 @@ describe("contentSearch slice actions", () => {
     expect(cs.isSearching).toBe(false);
   });
 
+  it("contentSearchRun short-query cancels an in-flight search (audit-fix)", async () => {
+    // Start a slow search whose promise we control.
+    let resolveSlow: (v: unknown) => void = () => {};
+    invokeMock.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveSlow = resolve;
+      }),
+    );
+    useUIStore.setState((s) => ({
+      contentSearch: { ...s.contentSearch, query: "abc" },
+    }));
+    const slowRun = useUIStore.getState().contentSearchRun("/root", []);
+    expect(useUIStore.getState().contentSearch.isSearching).toBe(true);
+
+    // User shortens the query below the threshold → results cleared and the
+    // in-flight request must be cancelled, not just ignored visually.
+    useUIStore.setState((s) => ({
+      contentSearch: { ...s.contentSearch, query: "ab" },
+    }));
+    await useUIStore.getState().contentSearchRun("/root", []);
+    expect(useUIStore.getState().contentSearch.isSearching).toBe(false);
+
+    // The old search lands afterwards — it must NOT repopulate stale results.
+    resolveSlow([
+      {
+        path: "/r/a.md",
+        relativePath: "a.md",
+        matches: [
+          { lineNumber: 1, lineContent: "abc", matchRanges: [{ start: 0, end: 3 }] },
+        ],
+      },
+    ]);
+    await slowRun;
+    const cs = useUIStore.getState().contentSearch;
+    expect(cs.results).toEqual([]);
+    expect(cs.totalMatches).toBe(0);
+    expect(cs.totalFiles).toBe(0);
+    expect(cs.isSearching).toBe(false);
+  });
+
   it("contentSearchRun records error message on invoke failure", async () => {
     invokeMock.mockRejectedValueOnce(new Error("backend down"));
     useUIStore.setState((s) => ({
@@ -301,6 +362,18 @@ describe("terminal slice actions", () => {
     useUIStore.getState().terminalSetActiveSession(a.id);
     sessions = useUIStore.getState().terminal.sessions;
     expect(sessions.find((s) => s.id === a.id)?.hasActivity).toBe(false);
+  });
+
+  it("terminalMarkActivity is a no-op for the active session (audit-fix)", () => {
+    useUIStore.getState().terminalCreateSession();
+    const b = useUIStore.getState().terminalCreateSession()!;
+    // b is active — marking activity on it must not set a stale flag that
+    // would show an activity dot after switching away.
+    useUIStore.getState().terminalMarkActivity(b.id);
+    const session = useUIStore
+      .getState()
+      .terminal.sessions.find((s) => s.id === b.id);
+    expect(session?.hasActivity).toBeFalsy();
   });
 
   it("terminalMarkSessionDead / Alive flip the isAlive flag", () => {

@@ -142,7 +142,7 @@ fn resolve_editor(editor_override: Option<&str>) -> String {
     // Platform default fallback.
     #[cfg(target_os = "macos")]
     {
-        return "open -t".to_string();
+        "open -t".to_string()
     }
     #[cfg(target_os = "windows")]
     {
@@ -202,9 +202,7 @@ pub fn open_in_external_editor(
         return Err(format!("path '{path}' is not a regular file"));
     }
     if !crate::is_openable_supported(&canonical) {
-        return Err(format!(
-            "path '{path}' is not an openable VMark file"
-        ));
+        return Err(format!("path '{path}' is not an openable VMark file"));
     }
 
     // Validate the GUI override BEFORE feeding it into the resolution
@@ -244,16 +242,14 @@ pub fn open_in_external_editor(
         match maybe_open_app_bundle(exe, &extra_args, &path) {
             Some((e, a)) => (e, a),
             None => {
-                let mut a: Vec<String> =
-                    extra_args.iter().map(|s| s.to_string()).collect();
+                let mut a: Vec<String> = extra_args.iter().map(|s| s.to_string()).collect();
                 a.push(path.clone());
                 (exe.to_string(), a)
             }
         };
     #[cfg(not(target_os = "macos"))]
     let (exe_owned, args_owned): (String, Vec<String>) = {
-        let mut a: Vec<String> =
-            extra_args.iter().map(|s| s.to_string()).collect();
+        let mut a: Vec<String> = extra_args.iter().map(|s| s.to_string()).collect();
         a.push(path.clone());
         (exe.to_string(), a)
     };
@@ -304,16 +300,25 @@ mod tests {
         std::env::set_var("VMARK_EXTERNAL_EDITOR", "vmark-env");
         std::env::set_var("VISUAL", "visual-env");
         std::env::set_var("EDITOR", "editor-env");
-        assert_eq!(resolve_editor(Some("/Applications/Cursor.app")), "/Applications/Cursor.app");
+        assert_eq!(
+            resolve_editor(Some("/Applications/Cursor.app")),
+            "/Applications/Cursor.app"
+        );
         // Empty / whitespace override falls through to env var chain.
         assert_eq!(resolve_editor(Some("")), "vmark-env");
         assert_eq!(resolve_editor(Some("   ")), "vmark-env");
         std::env::remove_var("VMARK_EXTERNAL_EDITOR");
         std::env::remove_var("VISUAL");
         std::env::remove_var("EDITOR");
-        if let Some(v) = _vmark { std::env::set_var("VMARK_EXTERNAL_EDITOR", v); }
-        if let Some(v) = _visual { std::env::set_var("VISUAL", v); }
-        if let Some(v) = _editor { std::env::set_var("EDITOR", v); }
+        if let Some(v) = _vmark {
+            std::env::set_var("VMARK_EXTERNAL_EDITOR", v);
+        }
+        if let Some(v) = _visual {
+            std::env::set_var("VISUAL", v);
+        }
+        if let Some(v) = _editor {
+            std::env::set_var("EDITOR", v);
+        }
     }
 
     #[test]
@@ -329,9 +334,15 @@ mod tests {
         std::env::remove_var("VMARK_EXTERNAL_EDITOR");
         std::env::remove_var("VISUAL");
         std::env::remove_var("EDITOR");
-        if let Some(v) = _vmark { std::env::set_var("VMARK_EXTERNAL_EDITOR", v); }
-        if let Some(v) = _visual { std::env::set_var("VISUAL", v); }
-        if let Some(v) = _editor { std::env::set_var("EDITOR", v); }
+        if let Some(v) = _vmark {
+            std::env::set_var("VMARK_EXTERNAL_EDITOR", v);
+        }
+        if let Some(v) = _visual {
+            std::env::set_var("VISUAL", v);
+        }
+        if let Some(v) = _editor {
+            std::env::set_var("EDITOR", v);
+        }
     }
 
     #[test]
@@ -345,25 +356,27 @@ mod tests {
         std::env::remove_var("EDITOR");
         let resolved = resolve_editor(None);
         assert!(!resolved.is_empty());
-        if let Some(v) = _vmark { std::env::set_var("VMARK_EXTERNAL_EDITOR", v); }
-        if let Some(v) = _visual { std::env::set_var("VISUAL", v); }
-        if let Some(v) = _editor { std::env::set_var("EDITOR", v); }
+        if let Some(v) = _vmark {
+            std::env::set_var("VMARK_EXTERNAL_EDITOR", v);
+        }
+        if let Some(v) = _visual {
+            std::env::set_var("VISUAL", v);
+        }
+        if let Some(v) = _editor {
+            std::env::set_var("EDITOR", v);
+        }
     }
 
     #[test]
     fn open_in_external_editor_rejects_missing_path() {
-        let result =
-            open_in_external_editor("/definitely/does/not/exist".to_string(), None);
+        let result = open_in_external_editor("/definitely/does/not/exist".to_string(), None);
         assert!(result.is_err());
     }
 
     #[test]
     fn open_in_external_editor_rejects_directory() {
         let dir = tempfile::tempdir().expect("tempdir");
-        let result = open_in_external_editor(
-            dir.path().to_string_lossy().into_owned(),
-            None,
-        );
+        let result = open_in_external_editor(dir.path().to_string_lossy().into_owned(), None);
         assert!(result.is_err(), "directories must be rejected");
     }
 
@@ -372,10 +385,7 @@ mod tests {
         let dir = tempfile::tempdir().expect("tempdir");
         let target = dir.path().join("secret.bin");
         std::fs::write(&target, b"not a markdown file").expect("write");
-        let result = open_in_external_editor(
-            target.to_string_lossy().into_owned(),
-            None,
-        );
+        let result = open_in_external_editor(target.to_string_lossy().into_owned(), None);
         assert!(
             result.is_err(),
             "files with unregistered extensions must be rejected"
@@ -451,15 +461,7 @@ mod tests {
         // Quotes are also rejected to prevent any future shell-out path
         // from being tricked into argv-injection.
         for input in &[
-            "code;",
-            "code|",
-            "code&",
-            "code`",
-            "code$",
-            "code>",
-            "code\"",
-            "code'",
-            "code\nrm",
+            "code;", "code|", "code&", "code`", "code$", "code>", "code\"", "code'", "code\nrm",
         ] {
             let result = validate_editor_override(input);
             assert!(
@@ -472,16 +474,12 @@ mod tests {
     #[test]
     fn validate_editor_override_rejects_flag_prefix() {
         let result = validate_editor_override("-c");
-        assert!(
-            result.is_err(),
-            "must reject overrides that start with '-'"
-        );
+        assert!(result.is_err(), "must reject overrides that start with '-'");
     }
 
     #[test]
     fn validate_editor_override_rejects_nonexistent_absolute_paths() {
-        let result =
-            validate_editor_override("/totally/not/a/real/path/code");
+        let result = validate_editor_override("/totally/not/a/real/path/code");
         assert!(
             result.is_err(),
             "non-existent absolute paths must be rejected (XSS gate)"
@@ -530,8 +528,7 @@ mod tests {
     #[test]
     fn maybe_open_app_bundle_returns_none_for_dot_app_string_that_isnt_a_dir() {
         // The string ends with .app but the path isn't a directory.
-        let result =
-            maybe_open_app_bundle("/tmp/not-real-cursor.app", &[], "/tmp/file.md");
+        let result = maybe_open_app_bundle("/tmp/not-real-cursor.app", &[], "/tmp/file.md");
         assert!(
             result.is_none(),
             "non-existent .app path should not trigger rewrite"

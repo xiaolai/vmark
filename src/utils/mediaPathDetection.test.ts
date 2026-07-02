@@ -68,6 +68,19 @@ describe("mediaPathDetection", () => {
       expect(hasVideoExtension("")).toBe(false);
       expect(hasVideoExtension("noext")).toBe(false);
     });
+
+    it("treats hidden basenames as having no extension", () => {
+      // ".mp4" is a hidden file named mp4, not a video (matches the
+      // canonical mediaExtensions.fileExtension basename semantics).
+      expect(hasVideoExtension(".mp4")).toBe(false);
+      expect(hasVideoExtension("/tmp/.mp4")).toBe(false);
+      expect(hasVideoExtension("./dir/.webm")).toBe(false);
+    });
+
+    it("handles Windows-style backslash paths", () => {
+      expect(hasVideoExtension("C:\\videos\\clip.mp4")).toBe(true);
+      expect(hasVideoExtension("C:\\videos\\.mp4")).toBe(false);
+    });
   });
 
   describe("hasAudioExtension", () => {
@@ -105,6 +118,11 @@ describe("mediaPathDetection", () => {
       expect(hasAudioExtension("")).toBe(false);
       expect(hasAudioExtension("noext")).toBe(false);
     });
+
+    it("treats hidden basenames as having no extension", () => {
+      expect(hasAudioExtension(".mp3")).toBe(false);
+      expect(hasAudioExtension("/music/.flac")).toBe(false);
+    });
   });
 
   describe("getMediaType", () => {
@@ -140,6 +158,11 @@ describe("mediaPathDetection", () => {
 
     it("handles URLs with query params", () => {
       expect(getMediaType("https://cdn.example.com/file.mp4?token=abc")).toBe("video");
+    });
+
+    it("returns null for hidden basenames", () => {
+      expect(getMediaType("/tmp/.mp4")).toBeNull();
+      expect(getMediaType(".png")).toBeNull();
     });
   });
 });

@@ -5,6 +5,6 @@
 //! installed separately by the user.
 //!
 //! @coordinates-with ai_provider/detection.rs — reuses login_shell_path()
-//! @coordinates-with ai_provider/cli.rs — reuses build_command()
+//! @coordinates-with ai_provider/spawn.rs — reuses build_command()
 
 pub mod commands;

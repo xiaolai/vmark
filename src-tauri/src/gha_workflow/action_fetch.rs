@@ -15,7 +15,7 @@
 //! frontend can distinguish "this action doesn't have action.yml yet"
 //! from "you're offline" from "the action.yml is malformed".
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
@@ -57,6 +57,38 @@ pub struct ActionInputSchema {
 pub struct ActionOutputSchema {
     #[serde(default)]
     pub description: Option<String>,
+}
+
+/// Raw `action.yml` document shape. `runs.using` is nested in the real
+/// format; `parse_action_yml` flattens it into `ActionMetadata.runs_using`.
+#[derive(Debug, Deserialize)]
+struct RawActionYml {
+    name: Option<String>,
+    description: Option<String>,
+    author: Option<String>,
+    #[serde(default)]
+    inputs: std::collections::BTreeMap<String, ActionInputSchema>,
+    #[serde(default)]
+    outputs: std::collections::BTreeMap<String, ActionOutputSchema>,
+    runs: Option<RawRuns>,
+}
+
+#[derive(Debug, Deserialize)]
+struct RawRuns {
+    using: Option<String>,
+}
+
+/// Parse action.yml text into the editor-facing metadata shape.
+pub fn parse_action_yml(yaml: &str) -> Result<ActionMetadata, String> {
+    let raw: RawActionYml = serde_yaml_ng::from_str(yaml).map_err(|e| e.to_string())?;
+    Ok(ActionMetadata {
+        name: raw.name,
+        description: raw.description,
+        author: raw.author,
+        inputs: raw.inputs,
+        outputs: raw.outputs,
+        runs_using: raw.runs.and_then(|r| r.using),
+    })
 }
 
 /// Result of a fetch — typed so the frontend can branch cleanly.
@@ -191,20 +223,29 @@ fn now_secs() -> u64 {
         .unwrap_or(0)
 }
 
+/// Tolerated clock skew for cache timestamps. Entries dated further in the
+/// future than this (clock rollback, tampering) are treated as stale rather
+/// than forever-fresh (`saturating_sub` would otherwise report age 0).
+const MAX_CLOCK_SKEW_SECS: u64 = 300;
+
 /// Read the cache file. Returns Some(metadata) only if the entry is
 /// fresh (within ttl_secs of now). Returns None on miss, expired, or
 /// any read/parse error.
-pub fn read_cache(path: &PathBuf, ttl_secs: u64) -> Option<ActionMetadata> {
+pub fn read_cache(path: &Path, ttl_secs: u64) -> Option<ActionMetadata> {
     let bytes = std::fs::read(path).ok()?;
     let entry: CacheEntry = serde_json::from_slice(&bytes).ok()?;
-    let age = now_secs().saturating_sub(entry.fetched_at);
+    let now = now_secs();
+    if entry.fetched_at > now + MAX_CLOCK_SKEW_SECS {
+        return None;
+    }
+    let age = now.saturating_sub(entry.fetched_at);
     if age > ttl_secs {
         return None;
     }
     Some(entry.metadata)
 }
 
-pub fn write_cache(path: &PathBuf, metadata: &ActionMetadata) -> Result<(), String> {
+pub fn write_cache(path: &Path, metadata: &ActionMetadata) -> Result<(), String> {
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent).map_err(|e| format!("mkdir: {}", e))?;
     }
@@ -213,7 +254,8 @@ pub fn write_cache(path: &PathBuf, metadata: &ActionMetadata) -> Result<(), Stri
         metadata: metadata.clone(),
     };
     let json = serde_json::to_vec_pretty(&entry).map_err(|e| format!("serialize: {}", e))?;
-    std::fs::write(path, json).map_err(|e| format!("write: {}", e))
+    // Atomic temp-file + rename so a concurrent reader never sees partial JSON.
+    crate::app_paths::atomic_write_file(path, &json)
 }
 
 fn build_url(action: &ActionRef, filename: &str) -> String {
@@ -251,7 +293,7 @@ pub async fn fetch_action_yml(action: &ActionRef) -> Result<String, FetchResult>
     for filename in &["action.yml", "action.yaml"] {
         let url = build_url(action, filename);
         let resp = client.get(&url).send().await;
-        let resp = match resp {
+        let mut resp = match resp {
             Ok(r) => r,
             Err(e) => {
                 return Err(FetchResult::NetworkError {
@@ -268,9 +310,9 @@ pub async fn fetch_action_yml(action: &ActionRef) -> Result<String, FetchResult>
                 message: format!("GET {} returned HTTP {}", url, status),
             });
         }
-        // Trust the server-reported Content-Length when present;
-        // bytes_stream() with a manual accumulator enforces the cap
-        // even when Content-Length is missing or lies.
+        // Reject early on the server-reported Content-Length when present;
+        // the chunked accumulator below enforces the cap even when
+        // Content-Length is missing or lies, without buffering past it.
         if let Some(len) = resp.content_length() {
             if len > MAX_ACTION_YML_BYTES {
                 return Err(FetchResult::NetworkError {
@@ -281,28 +323,30 @@ pub async fn fetch_action_yml(action: &ActionRef) -> Result<String, FetchResult>
                 });
             }
         }
-        let bytes = match resp.bytes().await {
-            Ok(b) => b,
-            Err(e) => {
-                return Err(FetchResult::NetworkError {
-                    message: format!("read body: {}", e),
-                });
+        let mut bytes: Vec<u8> = Vec::new();
+        loop {
+            match resp.chunk().await {
+                Ok(Some(chunk)) => {
+                    if bytes.len() as u64 + chunk.len() as u64 > MAX_ACTION_YML_BYTES {
+                        return Err(FetchResult::NetworkError {
+                            message: format!(
+                                "{} delivered more than {} bytes (cap exceeded)",
+                                url, MAX_ACTION_YML_BYTES
+                            ),
+                        });
+                    }
+                    bytes.extend_from_slice(&chunk);
+                }
+                Ok(None) => break,
+                Err(e) => {
+                    return Err(FetchResult::NetworkError {
+                        message: format!("read body: {}", e),
+                    });
+                }
             }
-        };
-        if (bytes.len() as u64) > MAX_ACTION_YML_BYTES {
-            return Err(FetchResult::NetworkError {
-                message: format!(
-                    "{} delivered {} bytes (cap: {})",
-                    url,
-                    bytes.len(),
-                    MAX_ACTION_YML_BYTES
-                ),
-            });
         }
-        return String::from_utf8(bytes.to_vec()).map_err(|e| {
-            FetchResult::NetworkError {
-                message: format!("non-UTF-8 response body: {}", e),
-            }
+        return String::from_utf8(bytes).map_err(|e| FetchResult::NetworkError {
+            message: format!("non-UTF-8 response body: {}", e),
         });
     }
 
@@ -317,27 +361,18 @@ pub async fn fetch_action_yml(action: &ActionRef) -> Result<String, FetchResult>
 /// Top-level fetch: cache → network → cache write. The `ttl_secs`
 /// parameter exists primarily for tests; production callers pass
 /// DEFAULT_TTL_SECS.
-pub async fn fetch_metadata(
-    app: &AppHandle,
-    uses: &str,
-    ttl_secs: u64,
-) -> FetchResult {
+pub async fn fetch_metadata(app: &AppHandle, uses: &str, ttl_secs: u64) -> FetchResult {
     let action = match parse_uses(uses) {
         Some(a) => a,
         None => {
             return FetchResult::InvalidUses {
-                message: format!(
-                    "Cannot parse uses string {:?} as owner/repo@ref",
-                    uses
-                ),
+                message: format!("Cannot parse uses string {:?} as owner/repo@ref", uses),
             }
         }
     };
 
-    let cache = match cache_path(app, uses) {
-        Ok(p) => Some(p),
-        Err(_) => None, // proceed without cache; just don't write
-    };
+    // On cache-path failure, proceed without cache; just don't write.
+    let cache = cache_path(app, uses).ok();
 
     if let Some(p) = &cache {
         if let Some(metadata) = read_cache(p, ttl_secs) {
@@ -353,7 +388,7 @@ pub async fn fetch_metadata(
         Err(err) => return err,
     };
 
-    let metadata: ActionMetadata = match serde_yaml_ng::from_str(&yaml) {
+    let metadata = match parse_action_yml(&yaml) {
         Ok(m) => m,
         Err(e) => {
             return FetchResult::ParseError {
@@ -379,170 +414,5 @@ pub fn default_ttl_secs() -> u64 {
 // ─── Tests ──────────────────────────────────────────────────────────
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn parse_uses_top_level_action() {
-        let r = parse_uses("actions/checkout@v4").unwrap();
-        assert_eq!(r.owner, "actions");
-        assert_eq!(r.repo, "checkout");
-        assert_eq!(r.path, "");
-        assert_eq!(r.git_ref, "v4");
-    }
-
-    #[test]
-    fn parse_uses_subpath_action() {
-        let r = parse_uses("actions/foo/sub/path@main").unwrap();
-        assert_eq!(r.owner, "actions");
-        assert_eq!(r.repo, "foo");
-        assert_eq!(r.path, "sub/path");
-        assert_eq!(r.git_ref, "main");
-    }
-
-    #[test]
-    fn parse_uses_sha_ref() {
-        let r = parse_uses("actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332").unwrap();
-        assert_eq!(r.git_ref, "692973e3d937129bcbf40652eb9f2f61becf3332");
-    }
-
-    #[test]
-    fn parse_uses_rejects_local_ref() {
-        assert!(parse_uses("./.github/actions/setup").is_none());
-    }
-
-    #[test]
-    fn parse_uses_rejects_docker_uri() {
-        assert!(parse_uses("docker://alpine:3.18").is_none());
-    }
-
-    #[test]
-    fn parse_uses_rejects_missing_ref() {
-        assert!(parse_uses("actions/checkout").is_none());
-    }
-
-    #[test]
-    fn parse_uses_rejects_empty_ref() {
-        assert!(parse_uses("actions/checkout@").is_none());
-    }
-
-    #[test]
-    fn parse_uses_rejects_traversal_attempts() {
-        // Audit round 5: input validation hardens against owner/repo/
-        // ref/path values that would coerce build_url into probing
-        // arbitrary paths under raw.githubusercontent.com.
-        assert!(parse_uses("..//evil@main").is_none());
-        assert!(parse_uses("owner/..%2F..%2Fevil@main").is_none());
-        assert!(parse_uses("owner/repo/..@main").is_none());
-        assert!(parse_uses("owner/repo@..").is_none());
-        // Control chars + spaces.
-        assert!(parse_uses("owner/repo@ma in").is_none());
-        assert!(parse_uses("owner/repo@\nmain").is_none());
-        // Percent encoding (shouldn't appear in honest uses strings).
-        assert!(parse_uses("owner/re%70o@main").is_none());
-    }
-
-    #[test]
-    fn parse_uses_accepts_legitimate_ref_shapes() {
-        assert!(parse_uses("actions/checkout@v4").is_some());
-        assert!(parse_uses("actions/checkout@v4.1.7").is_some());
-        // 40-char SHA.
-        assert!(
-            parse_uses("actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332")
-                .is_some()
-        );
-        // Branch with slash (`refs/heads/main` shape — uncommon but valid).
-        assert!(parse_uses("actions/checkout@refs/heads/main").is_some());
-        // Subpath action.
-        assert!(
-            parse_uses("github/super-linter/super-linter@v5.0.0").is_some()
-        );
-    }
-
-    #[test]
-    fn parse_uses_rejects_missing_repo() {
-        assert!(parse_uses("@v4").is_none());
-        assert!(parse_uses("actions@v4").is_none());
-    }
-
-    #[test]
-    fn build_url_top_level() {
-        let r = ActionRef {
-            owner: "actions".into(),
-            repo: "checkout".into(),
-            path: "".into(),
-            git_ref: "v4".into(),
-        };
-        assert_eq!(
-            build_url(&r, "action.yml"),
-            "https://raw.githubusercontent.com/actions/checkout/v4/action.yml"
-        );
-    }
-
-    #[test]
-    fn build_url_subpath() {
-        let r = ActionRef {
-            owner: "actions".into(),
-            repo: "foo".into(),
-            path: "sub/path".into(),
-            git_ref: "main".into(),
-        };
-        assert_eq!(
-            build_url(&r, "action.yaml"),
-            "https://raw.githubusercontent.com/actions/foo/main/sub/path/action.yaml"
-        );
-    }
-
-    #[test]
-    fn read_cache_returns_none_when_file_missing() {
-        let p = std::env::temp_dir().join("does-not-exist-xyz.json");
-        let _ = std::fs::remove_file(&p);
-        assert!(read_cache(&p, 60).is_none());
-    }
-
-    #[test]
-    fn cache_roundtrip_within_ttl() {
-        let p = std::env::temp_dir().join(format!(
-            "vmark-gha-cache-test-{}.json",
-            std::process::id()
-        ));
-        let _ = std::fs::remove_file(&p);
-        let metadata = ActionMetadata {
-            name: Some("test".into()),
-            description: Some("desc".into()),
-            author: None,
-            inputs: Default::default(),
-            outputs: Default::default(),
-            runs_using: Some("node20".into()),
-        };
-        write_cache(&p, &metadata).unwrap();
-        let read = read_cache(&p, 60).unwrap();
-        assert_eq!(read.name, metadata.name);
-        assert_eq!(read.runs_using, metadata.runs_using);
-        std::fs::remove_file(&p).ok();
-    }
-
-    #[test]
-    fn cache_returns_none_when_expired() {
-        let p = std::env::temp_dir().join(format!(
-            "vmark-gha-cache-expired-{}.json",
-            std::process::id()
-        ));
-        let _ = std::fs::remove_file(&p);
-        // Manually craft a stale entry.
-        let stale = CacheEntry {
-            fetched_at: 0, // Jan 1, 1970 — definitely older than 1s
-            metadata: ActionMetadata {
-                name: None,
-                description: None,
-                author: None,
-                inputs: Default::default(),
-                outputs: Default::default(),
-                runs_using: None,
-            },
-        };
-        std::fs::write(&p, serde_json::to_vec(&stale).unwrap()).unwrap();
-        assert!(read_cache(&p, 60).is_none());
-        std::fs::remove_file(&p).ok();
-    }
-}
+#[path = "action_fetch.test.rs"]
+mod tests;

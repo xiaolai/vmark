@@ -225,11 +225,8 @@ mod tests {
         let ws = tempfile::tempdir().expect("ws");
         let file_path = format!("{}/note\0.md", ws.path().to_string_lossy());
 
-        let err = validate_mcp_bridge_path(
-            &file_path,
-            &[ws.path().to_string_lossy().into_owned()],
-        )
-        .expect_err("null byte must be rejected");
+        let err = validate_mcp_bridge_path(&file_path, &[ws.path().to_string_lossy().into_owned()])
+            .expect_err("null byte must be rejected");
         assert!(err.contains("null byte"));
     }
 

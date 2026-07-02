@@ -3,382 +3,67 @@
  *
  * Purpose: Renders live previews below code blocks for special languages (LaTeX/math,
  * Mermaid diagrams, Markmap mindmaps, SVG, GitHub Actions workflow YAML) in WYSIWYG mode.
- * Also handles click-to-edit for block math ($$...$$ code blocks).
+ * Also handles click-to-edit for block math ($$...$$ code blocks). This file is the
+ * extension entry point; the heavy lifting lives in sibling modules.
  *
- * Pipeline: code_block node -> detect language -> render preview widget decoration
- *         -> debounced re-render on content change -> click to edit -> Cmd+Enter to commit
+ * Pipeline: code_block node -> detect language (transactionScan.ts) -> render preview
+ *         widget decoration (previewDecorations.ts) -> debounced re-render on content
+ *         change -> click to edit -> Cmd+Enter to commit (editMode.ts)
  *
  * Key decisions:
- *   - Previews are ProseMirror widget decorations (not node views) to avoid complicating
- *     the document schema
- *   - Preview rendering is debounced (200ms) to avoid re-rendering on every keystroke
- *   - Each preview type has its own renderer (in renderers/ directory)
- *   - Block math uses a special "$$math$$" sentinel language to distinguish from regular latex
- *   - Export buttons (copy SVG, download PNG) are injected into diagram previews
- *   - YAML code fences are previewed only when content has workflow shape
- *     (isWorkflowYaml). Plain YAML blocks (docker-compose, etc.) stay as text.
  *   - Plugin state tracks `codeBlockRanges` so the apply() fast path can skip the full
  *     doc.descendants() scan when a transaction doesn't touch any code block
- *   - exitEditMode guards stale editingPos (out-of-bounds, or pointing at a
- *     non-codeBlock node after a doc shift) and aborts the replaceWith path
- *     to prevent `Position N outside of fragment` crashes on save/cancel.
- *   - Selection placement resolves against tr.doc (not state.doc); see
- *     blockMathKeymap header for the same rule and motivation.
- *   - User-facing strings flow through i18n.t("editor:preview.*") rather than
- *     literal English.
+ *   - Block math uses a special "$$math$$" sentinel language to distinguish from
+ *     regular latex
+ *   - Shared module state (plugin key, meta keys, view registry, preview cache)
+ *     lives in pluginState.ts; this file re-exports the public names so import
+ *     paths stay stable
  *
- *   - Active EditorView instances are tracked in a module-level Set
- *     (`activeEditorViews`) populated via each plugin's `view()` lifecycle.
- *     refreshPreviews dispatches into every registered view, so split-pane or
- *     multi-window scenarios refresh consistently. exitEditMode falls back to
- *     the first registered view if a caller doesn't pass one.
- *
+ * @coordinates-with pluginState.ts — shared state, meta keys, plugin state types
+ * @coordinates-with transactionScan.ts — previewability + fast-path transaction checks
+ * @coordinates-with previewDecorations.ts — full-scan decoration builder
+ * @coordinates-with editMode.ts — debounced live preview + save/cancel edit mode
+ * @coordinates-with themeObserver.ts — dark-mode flips clear the preview cache
  * @coordinates-with blockMathKeymap.ts — keyboard shortcuts for math editing
- * @coordinates-with previewHelpers.ts — shared element creation and utility functions
- * @coordinates-with renderers/ — per-language preview renderers
  * @module plugins/codePreview/tiptap
  */
 
 import { Extension } from "@tiptap/core";
-import { Plugin, PluginKey, TextSelection, Transaction } from "@tiptap/pm/state";
-import { AttrStep } from "@tiptap/pm/transform";
-import type { EditorView } from "@tiptap/pm/view";
-import { Decoration, DecorationSet } from "@tiptap/pm/view";
-import { updateMermaidTheme } from "../mermaid";
-import { diagramWarn } from "@/utils/debug";
-import { updateMarkmapTheme } from "@/plugins/markmap";
+import { Plugin } from "@tiptap/pm/state";
+import { DecorationSet } from "@tiptap/pm/view";
 import { sweepDetached } from "@/plugins/shared/diagramCleanup";
 import { useBlockMathEditingStore } from "@/stores/blockMathEditingStore";
-import i18n from "@/i18n";
 import {
-  isLatexLanguage,
-  createPreviewElement,
-  createPreviewPlaceholder,
-  createLivePreview,
-  createEditHeader,
-  type PreviewCacheEntry,
-} from "./previewHelpers";
-import { updateLatexLivePreview, createLatexPreviewWidget } from "./renderers/renderLatex";
-import { updateMermaidLivePreview, createMermaidPreviewWidget } from "./renderers/renderMermaidPreview";
-import { updateMarkmapLivePreview, createMarkmapPreviewWidget } from "./renderers/renderMarkmapPreview";
-import { updateSvgLivePreview, createSvgPreviewWidget } from "./renderers/renderSvgPreview";
+  codePreviewPluginKey,
+  EDITING_STATE_CHANGED,
+  SETTINGS_CHANGED,
+  activeEditorViews,
+  previewCache,
+  type CodePreviewState,
+} from "./pluginState";
 import {
-  updateWorkflowLivePreview,
-  createWorkflowPreviewWidget,
-} from "./renderers/renderWorkflowPreview";
-import { isWorkflowYaml } from "@/lib/ghaWorkflow/detection";
-import { LruCache } from "@/utils/lruCache";
+  changesIntersectRanges,
+  countPreviewableCodeBlocks,
+  transactionMayAffectCodeBlock,
+} from "./transactionScan";
+import { updateLivePreview } from "./editMode";
+import {
+  buildCodePreviewDecorations,
+  type LivePreviewTracker,
+} from "./previewDecorations";
+import { setupThemeObserver } from "./themeObserver";
 import "./code-preview.css";
-import { errorMessage } from "@/utils/errorMessage";
-
-const codePreviewPluginKey = new PluginKey("codePreview");
-const PREVIEW_ONLY_LANGUAGES = new Set(["latex", "mermaid", "markmap", "svg", "$$math$$"]);
-const DEBOUNCE_MS = 200;
-
-/**
- * True when this code block should get an inline preview. Either:
- *   - language is in PREVIEW_ONLY_LANGUAGES (latex, mermaid, markmap, svg, $$math$$), OR
- *   - language is yaml/yml AND content has GitHub Actions workflow shape.
- *
- * Content-based gating for yaml means a docker-compose.yml in a fenced
- * code block stays as plain text; only real workflows get the diagram.
- */
-function isPreviewable(language: string, content: string): boolean {
-  if (PREVIEW_ONLY_LANGUAGES.has(language)) return true;
-  if (language === "yaml" || language === "yml") {
-    return isWorkflowYaml(content);
-  }
-  return false;
-}
-
-// Registry of active editor views. Populated/cleared via each plugin's
-// `view()` lifecycle. refreshPreviews() iterates this set so multi-editor
-// scenarios (split windows, embedded editors) all get refreshed instead of
-// only the most-recently-mounted instance.
-const activeEditorViews = new Set<EditorView>();
-
-// Bounded so editing diagram/latex/svg blocks doesn't grow the cache
-// unbounded across a session (WI-4.4, R1). Entries are lightweight
-// (rendered string / pending promise), so LRU eviction needs no disposal.
-const PREVIEW_CACHE_MAX = 100;
-const previewCache = new LruCache<string, PreviewCacheEntry>(PREVIEW_CACHE_MAX);
-
-let themeObserverSetup = false;
-
-function setupThemeObserver() {
-  /* v8 ignore next -- @preserve module-level themeObserverSetup is set on first call; re-entry and SSR path unreachable in tests */
-  if (themeObserverSetup || typeof window === "undefined") return;
-  themeObserverSetup = true;
-
-  const observer = new MutationObserver((mutations) => {
-    for (const mutation of mutations) {
-      if (mutation.attributeName === "class") {
-        const isDark = document.documentElement.classList.contains("dark");
-        updateMermaidTheme(isDark).then((themeChanged) => {
-          if (themeChanged) {
-            previewCache.clear();
-          }
-        }).catch((error: unknown) => {
-          /* v8 ignore next -- @preserve non-Error rejections from updateMermaidTheme are theoretically possible but untestable without mocking the MutationObserver callback chain */
-          diagramWarn("Mermaid theme update failed:", errorMessage(error));
-        });
-        /* v8 ignore start -- @preserve Symmetric with updateMermaidTheme above. Branch coverage is exercised by the markmap module's own tests; the MutationObserver-driven test in tiptap.test.ts can only hit the resolved path, leaving the no-op branch (themeChanged=false) and the .catch path uncoverable from this layer. */
-        updateMarkmapTheme(isDark).then((themeChanged) => {
-          if (themeChanged) {
-            previewCache.clear();
-          }
-        }).catch((error: unknown) => {
-          diagramWarn("Markmap theme update failed:", errorMessage(error));
-        });
-        /* v8 ignore stop */
-      }
-    }
-  });
-
-  observer.observe(document.documentElement, { attributes: true });
-}
 
 setupThemeObserver();
-
-/** Update live preview content with debouncing */
-let livePreviewTimeout: ReturnType<typeof setTimeout> | null = null;
-let livePreviewToken = 0;
-
-function updateLivePreview(
-  element: HTMLElement,
-  language: string,
-  content: string
-): void {
-  if (livePreviewTimeout) {
-    clearTimeout(livePreviewTimeout);
-  }
-
-  const currentToken = ++livePreviewToken;
-  const getToken = () => livePreviewToken;
-
-  livePreviewTimeout = setTimeout(async () => {
-    /* v8 ignore next -- @preserve stale-token guard: fires only when a prior timer somehow outlives a later updateLivePreview call; in practice all callers clear the timeout before incrementing the token, making the early-return unreachable in synchronous tests */
-    if (currentToken !== livePreviewToken) return;
-
-    try {
-      const trimmed = content.trim();
-      if (!trimmed) {
-        element.replaceChildren(
-          Object.assign(document.createElement("div"), {
-            className: "code-block-live-preview-empty",
-            textContent: i18n.t("editor:preview.empty"),
-          }),
-        );
-        return;
-      }
-
-      if (isLatexLanguage(language)) {
-        updateLatexLivePreview(element, trimmed, currentToken, getToken);
-      } else if (language === "mermaid") {
-        await updateMermaidLivePreview(element, trimmed, currentToken, getToken);
-      } else if (language === "markmap") {
-        await updateMarkmapLivePreview(element, trimmed, currentToken, getToken);
-      } else if (language === "yaml" || language === "yml") {
-        await updateWorkflowLivePreview(element, trimmed, currentToken, getToken);
-      } else {
-        // Only "svg" reaches this branch among PREVIEW_ONLY_LANGUAGES
-        updateSvgLivePreview(element, trimmed, currentToken, getToken);
-      }
-    } catch (error) {
-      const msg = errorMessage(error);
-      diagramWarn("code preview live render failed:", msg);
-      element.replaceChildren(
-        Object.assign(document.createElement("div"), {
-          className: "code-block-live-preview-error",
-          textContent: i18n.t("editor:preview.renderFailed"),
-        }),
-      );
-    }
-  }, DEBOUNCE_MS);
-}
-
-/** Meta key to signal editing state change */
-const EDITING_STATE_CHANGED = "codePreviewEditingChanged";
-/** Meta key to signal settings changed (font size, etc.) */
-const SETTINGS_CHANGED = "codePreviewSettingsChanged";
-
-interface CodeBlockRange {
-  from: number;
-  to: number;
-}
-
-interface CodePreviewState {
-  decorations: DecorationSet;
-  editingPos: number | null;
-  codeBlockRanges: CodeBlockRange[];
-}
-
-/**
- * Returns true if any step in the transaction's changed ranges (in OLD-position
- * space) overlaps with any of the tracked code block ranges.
- * Uses old positions because `codeBlockRanges` comes from the previous state.
- */
-function changesIntersectRanges(tr: Transaction, ranges: CodeBlockRange[]): boolean {
-  if (ranges.length === 0) return false;
-  for (let i = 0; i < tr.steps.length; i++) {
-    let intersects = false;
-    tr.mapping.maps[i].forEach((oldFrom: number, oldTo: number) => {
-      if (intersects) return;
-      for (const range of ranges) {
-        if (oldFrom < range.to && oldTo > range.from) {
-          intersects = true;
-          return;
-        }
-      }
-    });
-    if (intersects) return true;
-  }
-  return false;
-}
-
-/**
- * Returns true if any step in the transaction could introduce or change a
- * code-block node at any depth — used to decide whether the prose-only fast
- * path may safely skip the full document scan (O1 / WI-2.1).
- *
- * Two cases, both cheap (no whole-document walk):
- *  - inserted/markup slices that contain a code-block node (insert, paste,
- *    `setNodeMarkup` via ReplaceAroundStep) — scanned via the step's slice;
- *  - a pure attribute change (`AttrStep`, e.g. a code block's `language`
- *    becoming `mermaid`) which carries NO slice — so we conservatively bail on
- *    any AttrStep rather than miss a nested block becoming previewable.
- */
-function transactionMayAffectCodeBlock(tr: Transaction): boolean {
-  for (const step of tr.steps) {
-    // Pure attribute change — no slice to scan; could flip a code block's
-    // language to a previewable one anywhere in the doc.
-    if (step instanceof AttrStep) return true;
-
-    const slice = (step as unknown as { slice?: { content?: { descendants?: unknown } } }).slice;
-    const content = slice?.content as
-      | { descendants: (fn: (node: { type: { name: string } }) => boolean | void) => void }
-      | undefined;
-    if (!content?.descendants) continue;
-    let found = false;
-    content.descendants((node) => {
-      if (node.type.name === "codeBlock" || node.type.name === "code_block") {
-        found = true;
-        return false;
-      }
-      return !found;
-    });
-    if (found) return true;
-  }
-  return false;
-}
-
-/** Exit editing mode */
-function exitEditMode(view: EditorView | null, revert: boolean): void {
-  // Fall back to any active view if the caller didn't pass one (e.g. button
-  // click callbacks bound before the widget knew its view). Picks the first
-  // registered view — multi-editor scenarios should pass `view` explicitly.
-  const editorView = view ?? activeEditorViews.values().next().value ?? null;
-  if (!editorView) {
-    return;
-  }
-
-  const store = useBlockMathEditingStore.getState();
-  const { editingPos, originalContent } = store;
-
-  if (editingPos === null) {
-    return;
-  }
-
-  const { state, dispatch } = editorView;
-
-  // Guard: editingPos may be stale (doc shifted, node deleted, position past
-  // end). Without this, the replaceWith below can throw
-  // `Position N outside of fragment (...)` — the WYSIWYG crash class.
-  if (editingPos < 0 || editingPos >= state.doc.content.size) {
-    store.exitEditing();
-    dispatch(state.tr.setMeta(EDITING_STATE_CHANGED, true));
-    livePreviewToken++;
-    if (livePreviewTimeout) {
-      clearTimeout(livePreviewTimeout);
-      livePreviewTimeout = null;
-    }
-    return;
-  }
-  const node = state.doc.nodeAt(editingPos);
-
-  if (!node) {
-    store.exitEditing();
-    dispatch(state.tr.setMeta(EDITING_STATE_CHANGED, true));
-    livePreviewToken++;
-    /* v8 ignore next 3 -- @preserve livePreviewTimeout is set only when a live-preview debounce timer is pending at the exact moment a stale-position cancel is triggered; this race window is unreachable in synchronous jsdom tests */
-    if (livePreviewTimeout) {
-      clearTimeout(livePreviewTimeout);
-      livePreviewTimeout = null;
-    }
-    return;
-  }
-
-  if (node.type.name !== "codeBlock" && node.type.name !== "code_block") {
-    // editingPos no longer points at a code block — abort to avoid mutating
-    // unrelated content.
-    store.exitEditing();
-    dispatch(state.tr.setMeta(EDITING_STATE_CHANGED, true));
-    livePreviewToken++;
-    if (livePreviewTimeout) {
-      clearTimeout(livePreviewTimeout);
-      livePreviewTimeout = null;
-    }
-    return;
-  }
-
-  let tr = state.tr;
-
-  // If reverting, restore original content
-  if (revert && originalContent !== null) {
-    const currentContent = node.textContent;
-    if (currentContent !== originalContent) {
-      const start = editingPos + 1;
-      const end = editingPos + node.nodeSize - 1;
-      /* v8 ignore next -- @preserve originalContent is always truthy here (empty string exits via !== check) */
-      tr = tr.replaceWith(start, end, originalContent ? state.schema.text(originalContent) : []);
-    }
-  }
-
-  // Clear render cache for this content to force re-render
-  /* v8 ignore next -- @preserve defensive nullish fallback: PREVIEW_ONLY_LANGUAGES nodes always have a language attr; null/undefined only possible via malformed external doc */
-  const language = (node.attrs.language ?? "").toLowerCase();
-  const content = revert ? originalContent : node.textContent;
-  if (content) {
-    const cacheKey = `${language}:${content}`;
-    previewCache.delete(cacheKey);
-  }
-
-  // Move cursor after the code block. Resolve against tr.doc, not state.doc:
-  // a preceding replaceWith may have transformed the document, and PM rejects
-  // a selection whose $pos belongs to a different doc instance.
-  const nodeEnd = editingPos + node.nodeSize;
-  const $pos = tr.doc.resolve(Math.min(nodeEnd, tr.doc.content.size));
-  tr = tr.setSelection(TextSelection.near($pos));
-  tr.setMeta(EDITING_STATE_CHANGED, true);
-
-  // Exit editing FIRST (before dispatch, so decorations see the new state)
-  store.exitEditing();
-  dispatch(tr);
-
-  // Reset live preview token
-  livePreviewToken++;
-  if (livePreviewTimeout) {
-    clearTimeout(livePreviewTimeout);
-    livePreviewTimeout = null;
-  }
-}
 
 export const codePreviewExtension = Extension.create({
   name: "codePreview",
   addProseMirrorPlugins() {
     // Keep track of live preview element for updates
-    let currentLivePreview: HTMLElement | null = null;
-    let currentEditingLanguage: string | null = null;
+    const tracker: LivePreviewTracker = {
+      currentLivePreview: null,
+      currentEditingLanguage: null,
+    };
 
     return [
       new Plugin({
@@ -393,11 +78,11 @@ export const codePreviewExtension = Extension.create({
             const settingsChanged = tr.getMeta(SETTINGS_CHANGED);
 
             // Update live preview if doc changed and we're editing
-            if (tr.docChanged && storeEditingPos !== null && currentLivePreview && currentEditingLanguage) {
+            if (tr.docChanged && storeEditingPos !== null && tracker.currentLivePreview && tracker.currentEditingLanguage) {
               const node = newState.doc.nodeAt(storeEditingPos);
               /* v8 ignore next 3 -- @preserve false branch (node null) requires editingPos to point at a boundary-only position inside a just-modified doc, a race window unreachable in deterministic jsdom tests */
               if (node) {
-                updateLivePreview(currentLivePreview, currentEditingLanguage, node.textContent);
+                updateLivePreview(tracker.currentLivePreview, tracker.currentEditingLanguage, node.textContent);
               }
             }
 
@@ -417,9 +102,11 @@ export const codePreviewExtension = Extension.create({
             // AND the number of code blocks hasn't changed, skip the full scan.
             //
             // Cheap check first (changesIntersectRanges is O(steps × ranges)). Only
-            // pay the O(top-level-blocks) doc walk to verify no insertions/deletions
-            // when changes don't touch code blocks — otherwise the fast path would
-            // fail anyway and the count was wasted.
+            // pay the O(blocks) doc walk to verify no insertions/deletions when
+            // changes don't touch code blocks — otherwise the fast path would
+            // fail anyway and the count was wasted. The count is depth-aware
+            // (countPreviewableCodeBlocks) because the builder tracks nested
+            // blocks too — a top-level-only count let nested inserts slip past.
             if (
               tr.docChanged &&
               !editingChanged &&
@@ -427,20 +114,7 @@ export const codePreviewExtension = Extension.create({
               state.decorations !== DecorationSet.empty &&
               !changesIntersectRanges(tr, state.codeBlockRanges)
             ) {
-              let newCodeBlockCount = 0;
-              newState.doc.forEach((node) => {
-                if (
-                  (node.type.name === "codeBlock" || node.type.name === "code_block") &&
-                  isPreviewable(
-                    (node.attrs.language ?? "").toLowerCase(),
-                    node.textContent,
-                  )
-                ) {
-                  newCodeBlockCount++;
-                }
-              });
-
-              if (newCodeBlockCount === state.codeBlockRanges.length) {
+              if (countPreviewableCodeBlocks(newState.doc) === state.codeBlockRanges.length) {
                 return {
                   decorations: state.decorations.map(tr.mapping, tr.doc),
                   editingPos: state.editingPos,
@@ -456,27 +130,19 @@ export const codePreviewExtension = Extension.create({
             // code blocks the two fast paths above don't apply (both require a
             // non-empty decoration set), so every keystroke would otherwise fall
             // through to the full descendants() walk below. Confirm cheaply that
-            // no previewable block exists or was just inserted, then early-return
-            // the empty set without walking the whole document.
+            // no previewable block exists AT ANY DEPTH (a nested yaml block can
+            // become workflow-shaped from a plain text edit) or was just
+            // inserted, then early-return the empty set without the full walk.
             if (
               tr.docChanged &&
               !editingChanged &&
               !settingsChanged &&
               state.codeBlockRanges.length === 0
             ) {
-              let hasPreviewableTopLevel = false;
-              newState.doc.forEach((node) => {
-                if (
-                  (node.type.name === "codeBlock" || node.type.name === "code_block") &&
-                  isPreviewable(
-                    (node.attrs.language ?? "").toLowerCase(),
-                    node.textContent,
-                  )
-                ) {
-                  hasPreviewableTopLevel = true;
-                }
-              });
-              if (!hasPreviewableTopLevel && !transactionMayAffectCodeBlock(tr)) {
+              if (
+                countPreviewableCodeBlocks(newState.doc) === 0 &&
+                !transactionMayAffectCodeBlock(tr)
+              ) {
                 return {
                   decorations: DecorationSet.empty,
                   editingPos: state.editingPos,
@@ -488,182 +154,18 @@ export const codePreviewExtension = Extension.create({
             // Sweep diagram instances whose DOM was removed by ProseMirror
             sweepDetached();
 
-            const newDecorations: Decoration[] = [];
             const currentEditingPos = storeEditingPos;
-            const newCodeBlockRanges: CodeBlockRange[] = [];
-
-            newState.doc.descendants((node, pos) => {
-              if (node.type.name !== "codeBlock" && node.type.name !== "code_block") return;
-
-              const language = (node.attrs.language ?? "").toLowerCase();
-              const content = node.textContent;
-              if (!isPreviewable(language, content)) return;
-              const cacheKey = `${language}:${content}`;
-              const nodeStart = pos;
-              const nodeEnd = pos + node.nodeSize;
-
-              // Track this code block's range for future incremental updates
-              newCodeBlockRanges.push({ from: nodeStart, to: nodeEnd });
-
-              // Check if this block is being edited
-              const isEditing = currentEditingPos === nodeStart;
-
-              if (isEditing) {
-                currentEditingLanguage = language;
-
-                // Add header widget before the code block
-                const headerWidget = Decoration.widget(
-                  nodeStart,
-                  (widgetView) => {
-                    const onCopy = (language === "mermaid" || language === "markmap" || language === "svg")
-                      ? () => {
-                          const node = widgetView?.state.doc.nodeAt(nodeStart);
-                          if (node) navigator.clipboard.writeText(node.textContent);
-                        }
-                      : undefined;
-                    return createEditHeader(
-                      language,
-                      () => exitEditMode(widgetView, true), // Cancel
-                      () => exitEditMode(widgetView, false), // Save
-                      onCopy,
-                    );
-                  },
-                  { side: -1, key: `${nodeStart}:header` }
-                );
-                newDecorations.push(headerWidget);
-
-                // Add editing class to code block
-                newDecorations.push(
-                  Decoration.node(nodeStart, nodeEnd, {
-                    class: "code-block-editing",
-                    "data-language": language,
-                  })
-                );
-
-                // Add live preview widget after the code block
-                const previewWidget = Decoration.widget(
-                  nodeEnd,
-                  () => {
-                    const preview = createLivePreview(language);
-                    currentLivePreview = preview;
-                    // Initial render
-                    updateLivePreview(preview, language, content);
-                    return preview;
-                  },
-                  { side: 1, key: `${nodeStart}:live-preview` }
-                );
-                newDecorations.push(previewWidget);
-
-                return;
-              }
-
-              // Reset tracking when not editing
-              if (state.editingPos === nodeStart && currentEditingPos !== nodeStart) {
-                currentLivePreview = null;
-                currentEditingLanguage = null;
-              }
-
-              const handleEnterEdit = (view: EditorView | null | undefined) => {
-                if (!view) return;
-                // Update store FIRST (before dispatch, so decorations see the new state)
-                useBlockMathEditingStore.getState().startEditing(nodeStart, content);
-                // Then dispatch transaction to trigger decoration rebuild
-                const $pos = view.state.doc.resolve(nodeStart + 1);
-                const tr = view.state.tr.setSelection(TextSelection.near($pos));
-                tr.setMeta(EDITING_STATE_CHANGED, true);
-                view.dispatch(tr);
-                view.focus();
-              };
-
-              newDecorations.push(
-                Decoration.node(nodeStart, nodeEnd, {
-                  class: "code-block-preview-only",
-                  "data-language": language,
-                  contenteditable: "false",
-                })
-              );
-
-              if (!content.trim()) {
-                const placeholderLabel = language === "mermaid"
-                  ? i18n.t("editor:preview.emptyDiagram")
-                  : language === "markmap"
-                  ? i18n.t("editor:preview.emptyMindmap")
-                  : language === "svg"
-                  ? i18n.t("editor:preview.emptySvg")
-                  : (language === "yaml" || language === "yml")
-                  ? i18n.t("editor:preview.emptyWorkflow")
-                  : i18n.t("editor:preview.emptyMath");
-                const widget = Decoration.widget(
-                  nodeEnd,
-                  (view) => createPreviewPlaceholder(language, placeholderLabel, () => handleEnterEdit(view)),
-                  { side: 1, key: `${cacheKey}:placeholder` }
-                );
-                newDecorations.push(widget);
-                return;
-              }
-
-              // Check cache for already-rendered content
-              const cached = previewCache.get(cacheKey);
-              if (cached?.rendered) {
-                const rendered = cached.rendered;
-                const widget = Decoration.widget(
-                  nodeEnd,
-                  (view) => createPreviewElement(language, rendered, () => handleEnterEdit(view), content),
-                  { side: 1, key: cacheKey }
-                );
-                newDecorations.push(widget);
-                return;
-              }
-
-              // Markmap renders to live DOM — skip cache, always create fresh
-              if (language === "markmap") {
-                newDecorations.push(
-                  createMarkmapPreviewWidget(nodeEnd, content, cacheKey, handleEnterEdit)
-                );
-                return;
-              }
-
-              // LaTeX (async rendering with placeholder)
-              if (isLatexLanguage(language)) {
-                newDecorations.push(
-                  createLatexPreviewWidget(nodeEnd, content, cacheKey, previewCache, handleEnterEdit)
-                );
-                return;
-              }
-
-              // SVG (synchronous rendering)
-              if (language === "svg") {
-                newDecorations.push(
-                  createSvgPreviewWidget(nodeEnd, content, cacheKey, previewCache, handleEnterEdit)
-                );
-                return;
-              }
-
-              // Mermaid (async rendering with placeholder)
-              if (language === "mermaid") {
-                newDecorations.push(
-                  createMermaidPreviewWidget(nodeEnd, content, cacheKey, previewCache, handleEnterEdit)
-                );
-                return;
-              }
-
-              // GitHub Actions workflow YAML (async via xyflow snapshot
-              // pipeline). Pipes IR → toGraph + applyLayout → hidden
-              // ReactFlow root → html-to-image.toSvg → cached SVG.
-              // Visual parity with the side-panel JobNode by sharing
-              // the same React subtree. See
-              // dev-docs/plans/20260504-workflow-fence-snapshot.md.
-              if (language === "yaml" || language === "yml") {
-                newDecorations.push(
-                  createWorkflowPreviewWidget(nodeEnd, content, cacheKey, previewCache, handleEnterEdit)
-                );
-              }
-            });
+            const { decorations, codeBlockRanges } = buildCodePreviewDecorations(
+              newState.doc,
+              currentEditingPos,
+              state.editingPos,
+              tracker,
+            );
 
             return {
-              decorations: DecorationSet.create(newState.doc, newDecorations),
+              decorations: DecorationSet.create(newState.doc, decorations),
               editingPos: currentEditingPos,
-              codeBlockRanges: newCodeBlockRanges,
+              codeBlockRanges,
             };
           },
         },
@@ -674,11 +176,10 @@ export const codePreviewExtension = Extension.create({
           },
         },
         view(view) {
-          // Register this view so cross-cutting helpers (refreshPreviews,
-          // button-callback exitEditMode fallback) can find it. destroy()
-          // unregisters so refreshPreviews doesn't dispatch into torn-down
-          // editors. update() is a no-op (PM passes the same view across
-          // updates), kept for PluginView interface conformance.
+          // Register this view so refreshPreviews can dispatch into it.
+          // destroy() unregisters so refreshPreviews doesn't dispatch into
+          // torn-down editors. update() is a no-op (PM passes the same view
+          // across updates), kept for PluginView interface conformance.
           activeEditorViews.add(view);
           return {
             update() {

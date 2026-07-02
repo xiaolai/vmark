@@ -59,7 +59,11 @@ fn mode_checked(id: &str, mode: &str) -> bool {
 pub(crate) fn view_menu_targets(state: &ViewMenuState) -> Vec<(&'static str, bool, bool)> {
     let mut out = Vec::with_capacity(MODE_IDS.len() + 2);
     for id in MODE_IDS {
-        out.push((id, state.mode_applies && mode_checked(id, &state.mode), state.mode_applies));
+        out.push((
+            id,
+            state.mode_applies && mode_checked(id, &state.mode),
+            state.mode_applies,
+        ));
     }
     out.push(("word-wrap", false, state.word_wrap_applies));
     out.push(("line-numbers", false, state.line_numbers_applies));
@@ -111,7 +115,12 @@ pub fn sync_view_menu_state(
     word_wrap_applies: bool,
     line_numbers_applies: bool,
 ) -> Result<(), String> {
-    let next = ViewMenuState { mode, mode_applies, word_wrap_applies, line_numbers_applies };
+    let next = ViewMenuState {
+        mode,
+        mode_applies,
+        word_wrap_applies,
+        line_numbers_applies,
+    };
 
     let mut guard = MENU_STATE_CACHE.lock().map_err(|e| e.to_string())?;
     if guard.as_ref() == Some(&next) {
@@ -136,20 +145,33 @@ mod tests {
     }
 
     fn enabled_of(targets: &[(&'static str, bool, bool)], id: &str) -> bool {
-        targets.iter().find(|(i, _, _)| *i == id).copied().unwrap().2
+        targets
+            .iter()
+            .find(|(i, _, _)| *i == id)
+            .copied()
+            .unwrap()
+            .2
     }
 
     #[test]
     fn checks_only_the_active_mode_when_applicable() {
         let t = view_menu_targets(&state("source", true, true, true));
-        let checked: Vec<_> = t.iter().filter(|(_, c, _)| *c).map(|(id, _, _)| *id).collect();
+        let checked: Vec<_> = t
+            .iter()
+            .filter(|(_, c, _)| *c)
+            .map(|(id, _, _)| *id)
+            .collect();
         assert_eq!(checked, vec!["source-mode"]);
     }
 
     #[test]
     fn wysiwyg_is_the_checked_mode_by_default() {
         let t = view_menu_targets(&state("wysiwyg", true, false, true));
-        let checked: Vec<_> = t.iter().filter(|(_, c, _)| *c).map(|(id, _, _)| *id).collect();
+        let checked: Vec<_> = t
+            .iter()
+            .filter(|(_, c, _)| *c)
+            .map(|(id, _, _)| *id)
+            .collect();
         assert_eq!(checked, vec!["wysiwyg-mode"]);
     }
 
@@ -169,8 +191,14 @@ mod tests {
         // The #1070/ADR-5 case: markdown WYSIWYG disables word-wrap but keeps
         // line-numbers enabled (code-block gutters until #1082).
         let t = view_menu_targets(&state("wysiwyg", true, false, true));
-        assert!(!enabled_of(&t, "word-wrap"), "word-wrap disabled in WYSIWYG");
-        assert!(enabled_of(&t, "line-numbers"), "line-numbers stays enabled in WYSIWYG");
+        assert!(
+            !enabled_of(&t, "word-wrap"),
+            "word-wrap disabled in WYSIWYG"
+        );
+        assert!(
+            enabled_of(&t, "line-numbers"),
+            "line-numbers stays enabled in WYSIWYG"
+        );
     }
 
     #[test]

@@ -224,7 +224,10 @@ mod tests {
 
     #[test]
     fn error_display_cancelled() {
-        assert_eq!(CliInstallError::Cancelled.to_string(), "Operation cancelled.");
+        assert_eq!(
+            CliInstallError::Cancelled.to_string(),
+            "Operation cancelled."
+        );
     }
 
     #[test]

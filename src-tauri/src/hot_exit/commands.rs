@@ -3,22 +3,16 @@
 //! These commands provide session capture, restore, and management for the hot exit feature.
 //! They are used both in production (update restart flow) and for developer testing.
 
-use std::sync::LazyLock;
-use tokio::sync::Mutex;
-use tauri::AppHandle;
+use super::coordinator::{
+    capture_session, clear_pending_restore, get_window_restore_state, mark_window_restore_complete,
+    restore_session, restore_session_multi_window, CaptureResult, RestoreMultiWindowResult,
+};
 use super::merge::merge_partial_capture;
 use super::session::{SessionData, WindowState};
-use super::storage::{read_session, delete_session, write_session_atomic};
-use super::coordinator::{
-    capture_session,
-    restore_session,
-    restore_session_multi_window,
-    get_window_restore_state,
-    mark_window_restore_complete,
-    clear_pending_restore,
-    CaptureResult,
-    RestoreMultiWindowResult,
-};
+use super::storage::{delete_session, read_session, write_session_atomic};
+use std::sync::LazyLock;
+use tauri::AppHandle;
+use tokio::sync::Mutex;
 
 /// Serialization guard for the read-merge-write section of `hot_exit_capture`.
 /// Prevents TOCTOU races when two concurrent captures (e.g., restart + settings button)
@@ -34,7 +28,10 @@ static CAPTURE_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
 pub async fn hot_exit_capture(app: AppHandle) -> Result<SessionData, String> {
     // Capture outside the lock — the IPC broadcast can take up to CAPTURE_TIMEOUT_SECS.
     // Only the read-merge-write section needs serialization.
-    let CaptureResult { session, expected_labels } = capture_session(&app).await?;
+    let CaptureResult {
+        session,
+        expected_labels,
+    } = capture_session(&app).await?;
     let _guard = CAPTURE_LOCK.lock().await;
 
     // Merge partial captures (pure logic, table-tested in merge.rs): only

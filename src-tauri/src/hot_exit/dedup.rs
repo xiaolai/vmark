@@ -150,7 +150,10 @@ mod tests {
         run_serial(|| {
             let h = hash_payload("payload");
             record_written(h);
-            assert!(!payload_differs_from_last(&h), "sanity: cached after record");
+            assert!(
+                !payload_differs_from_last(&h),
+                "sanity: cached after record"
+            );
             reset();
             assert!(
                 payload_differs_from_last(&h),

@@ -56,8 +56,8 @@ import { resolveHardBreakStyle } from "@/utils/linebreaks";
 import { extractTiptapContext } from "@/plugins/formatToolbar/tiptapContext";
 import { useImageDragDrop } from "@/hooks/useImageDragDrop";
 import { handleTableScrollToSelection } from "@/plugins/tableScroll/scrollGuard";
-import { tiptapError, contentSearchLog } from "@/utils/debug";
-import { consumePendingContentSearchNav, openFindBarWithQuery } from "@/hooks/contentSearchNavigation";
+import { tiptapError } from "@/utils/debug";
+import { consumeWysiwygPendingNav } from "./wysiwygPendingNav";
 import { ImageContextMenu } from "./ImageContextMenu";
 
 /**
@@ -148,7 +148,10 @@ interface TiptapEditorInnerProps {
 export function TiptapEditorInner({ hidden = false, readOnly = false, preview = false }: TiptapEditorInnerProps) {
   const content = useDocumentContent();
   const cursorInfo = useDocumentCursorInfo();
-  const { setContent, setCursorInfo, setSelectedText } = useDocumentActions();
+  // Keyed per tab (#1081) — pin store writes to this editor's own tab so a
+  // late flush after a tab switch can't hit the new tab (cross-tab bleed).
+  const activeTabId = useActiveTabId() ?? undefined;
+  const { setContent, setCursorInfo, setSelectedText } = useDocumentActions(activeTabId);
   const preserveLineBreaks = useSettingsStore((state) => state.markdown.preserveLineBreaks);
   const hardBreakStyleOnSave = useSettingsStore((state) => state.markdown.hardBreakStyleOnSave);
   const codeBlockLineNumbers = useSettingsStore((state) => state.markdown.codeBlockLineNumbers);
@@ -156,9 +159,6 @@ export function TiptapEditorInner({ hidden = false, readOnly = false, preview = 
   const lintEnabled = useSettingsStore((state) => state.markdown.lintEnabled);
   const showInvisibles = useSettingsStore((state) => state.markdown.showInvisibles);
   const windowLabel = useWindowLabel();
-  // This pane's tab (pane-aware): in a split, the secondary editor tracks its
-  // own document, not the window's focused-pane alias (#1081).
-  const activeTabId = useActiveTabId() ?? undefined;
 
   const isInternalChange = useRef(false);
   const lastExternalContent = useRef<string>("");
@@ -208,7 +208,7 @@ export function TiptapEditorInner({ hidden = false, readOnly = false, preview = 
       const markdown = serializeMarkdown(editor.schema, editor.state.doc, {
         preserveLineBreaks: preserveLineBreaksRef.current,
         hardBreakStyle: (() => {
-          const tabId = useTabStore.getState().activeTabId[windowLabel];
+          const tabId = activeTabId ?? useTabStore.getState().activeTabId[windowLabel];
           /* v8 ignore next -- @preserve reason: no active tabId only if tab store is uninitialized; always set during normal editor lifecycle */
           if (!tabId) return resolveHardBreakStyle("unknown", hardBreakStyleOnSaveRef.current);
           const doc = useDocumentStore.getState().getDocument(tabId);
@@ -230,7 +230,7 @@ export function TiptapEditorInner({ hidden = false, readOnly = false, preview = 
         isInternalChange.current = false;
       });
     },
-    [setContent, windowLabel]
+    [setContent, windowLabel, activeTabId]
   );
   // Synced during render so the unmount-flush cleanup below sees the latest flusher
   // even if a passive effect hasn't run yet (#755).
@@ -331,17 +331,24 @@ export function TiptapEditorInner({ hidden = false, readOnly = false, preview = 
           }
         }
 
+        const view = getTiptapEditorView(editor);
+
         // Focus/cursor restore after content is set (skipped for hidden/preview
-        // so the preview can't steal focus from the editable source pane).
+        // so the preview can't steal focus from the editable source pane). A
+        // pending content-search jump takes priority: the RAF-deferred focus
+        // restore would clobber its selection, and without this consumption
+        // the initial navigation was dropped entirely — the visibility effect
+        // runs before this deferred init and never re-fires.
         if (!hiddenRef.current && !previewRef.current) {
-          scheduleTiptapFocusAndRestore(
-            editor,
-            () => cursorInfoRef.current,
-            restoreCursorInTiptap
-          );
+          if (!consumeWysiwygPendingNav(view, activeTabId)) {
+            scheduleTiptapFocusAndRestore(
+              editor,
+              () => cursorInfoRef.current,
+              restoreCursorInTiptap
+            );
+          }
         }
 
-        const view = getTiptapEditorView(editor);
         if (view && !previewRef.current) {
           useEditorStore.getState().setTiptapContext(extractTiptapContext(editor.state), view);
         }
@@ -480,7 +487,13 @@ export function TiptapEditorInner({ hidden = false, readOnly = false, preview = 
       // registry was racy — React cleans effects up in reverse registration order, so
       // the flusher deregistration ran first and the flush no-op'd, losing data (#755).
       if ((pendingRaf.current || pendingDebounceTimeout.current) && editorRef.current && flushToStoreRef.current) {
-        try { flushToStoreRef.current(editorRef.current); } catch { /* defensive */ }
+        try {
+          flushToStoreRef.current(editorRef.current);
+        } catch (error) {
+          // Surface the failure — a failed final serialization means edits
+          // from the debounce window were lost with this unmount.
+          tiptapError(" Unmount flush failed; edits in the debounce window may be lost:", error);
+        }
       }
       if (pendingRaf.current) {
         cancelAnimationFrame(pendingRaf.current);
@@ -599,49 +612,19 @@ export function TiptapEditorInner({ hidden = false, readOnly = false, preview = 
       editor, content, lastExternalContent, preserveLineBreaksRef.current,
     );
 
-    // Focus and restore cursor
-    scheduleTiptapFocusAndRestore(
-      editor,
-      () => cursorInfoRef.current,
-      restoreCursorInTiptap
-    );
+    // A markdown-split preview only needs the content sync — it must not steal
+    // focus or consume pending navigation that belongs to the editable pane.
+    if (previewRef.current) return;
 
-    // Consume pending content search nav (set when opening a file from Find in Files)
-    const activeTabId = useTabStore.getState().activeTabId[windowLabel];
-    if (activeTabId) {
-      const pendingNav = consumePendingContentSearchNav(activeTabId);
-      if (pendingNav) {
-        contentSearchLog("WYSIWYG nav to line", pendingNav.line);
-        // In WYSIWYG mode, scroll to approximate position by walking block nodes
-        const view = getTiptapEditorView(editor);
-        if (view) {
-          // Walk the document to find the Nth block (lines map roughly to blocks)
-          let blockCount = 0;
-          let targetPos = 0;
-          view.state.doc.descendants((node, pos) => {
-            if (node.isBlock && node.isTextblock) {
-              blockCount++;
-              if (blockCount === pendingNav.line) {
-                targetPos = pos;
-                return false; // stop walking
-              }
-            }
-            return true;
-          });
-          if (targetPos > 0) {
-            view.dispatch(
-              view.state.tr
-                .setSelection(Selection.near(view.state.doc.resolve(targetPos)))
-                .scrollIntoView()
-            );
-          }
-          // Pre-fill FindBar after a brief delay to let the scroll settle —
-          // only when there's a query (a file-link line jump just scrolls).
-          if (pendingNav.query) {
-            setTimeout(() => openFindBarWithQuery(pendingNav.query), 100);
-          }
-        }
-      }
+    // A pending content-search jump (Find in Files) wins over the plain
+    // focus/cursor restore, whose RAF-deferred selection reset would clobber
+    // the jump. The nav is scoped to this editor's own (pinned) tab.
+    if (!consumeWysiwygPendingNav(getTiptapEditorView(editor), activeTabId)) {
+      scheduleTiptapFocusAndRestore(
+        editor,
+        () => cursorInfoRef.current,
+        restoreCursorInTiptap
+      );
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hidden]);

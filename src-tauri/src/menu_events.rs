@@ -73,7 +73,8 @@ pub fn mark_window_ready(app: &AppHandle, label: &str) {
         for event in &pending {
             log::debug!(
                 "[menu_events] Flushing pending event '{}' to window '{}'",
-                event.event_name, label
+                event.event_name,
+                label
             );
             emit_event(&window, event);
         }
@@ -172,7 +173,9 @@ fn emit_event(window: &tauri::WebviewWindow, event: &PendingMenuEvent) {
     if let Err(e) = result {
         log::warn!(
             "[menu_events] Failed to emit '{}' to window '{}': {}",
-            event.event_name, label, e
+            event.event_name,
+            label,
+            e
         );
     }
 }
@@ -186,13 +189,15 @@ fn emit_or_queue_atomic(window: &tauri::WebviewWindow, event: PendingMenuEvent) 
     if check_ready_or_queue(label, event.clone()) {
         log::debug!(
             "[menu_events] Window '{}' is ready, emitting '{}' directly",
-            label, event_name
+            label,
+            event_name
         );
         emit_event(window, &event);
     } else {
         log::debug!(
             "[menu_events] Window '{}' not ready, queued '{}'",
-            label, event_name
+            label,
+            event_name
         );
     }
 }
@@ -227,7 +232,8 @@ fn create_window_and_queue(app: &AppHandle, event: PendingMenuEvent) {
     if let Ok(label) = crate::window_manager::create_document_window(app, None, None) {
         log::debug!(
             "[menu_events] Created window '{}', queueing event '{}'",
-            label, event.event_name
+            label,
+            event.event_name
         );
         queue_event(&label, event);
     }
@@ -373,11 +379,10 @@ pub fn handle_menu_event(app: &AppHandle, event: tauri::menu::MenuEvent) {
 
     // "new" creates a tab in current window, but if no windows exist, create a new window
     // (Cmd+N when last window closed should open a new window)
-    if id == "new"
-        && !has_document_windows(app) {
-            let _ = crate::window_manager::create_document_window(app, None, None);
-            return;
-        }
+    if id == "new" && !has_document_windows(app) {
+        let _ = crate::window_manager::create_document_window(app, None, None);
+        return;
+    }
 
     // "close" (Cmd+W) should only affect the focused window
     // Note: window.emit() broadcasts to all windows, so include target label in payload

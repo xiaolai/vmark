@@ -5,53 +5,23 @@
 //! the parent task kill the child via `child.kill().await` when the caller
 //! cancels (e.g., the workflow runner's per-step timeout fires).
 
-use std::process::{Command as StdCommand, Stdio};
+use std::process::Stdio;
 use std::sync::Arc;
 use std::time::Duration;
 
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use tokio::io::{AsyncWriteExt, BufReader};
 use tokio::process::Command as TokioCommand;
 use tokio_util::sync::CancellationToken;
 
 use super::detection::login_shell_path;
 use super::sink::AiSink;
+use super::spawn::build_command;
+use stream::{next_bounded_chunk, spawn_stderr_drain};
+
+mod stream;
 
 /// Maximum time a CLI provider is allowed to run before being killed.
 const CLI_TIMEOUT: Duration = Duration::from_secs(300);
-
-// ============================================================================
-// Command Building
-// ============================================================================
-
-/// Build a `std::process::Command` for the given executable and args.
-///
-/// On Windows, `.cmd`/`.bat` shims (created by npm/yarn global installs)
-/// must run through `cmd.exe /c`. On macOS/Linux this is a plain spawn.
-///
-/// Returns `std::process::Command` (not `tokio::process::Command`) so other
-/// modules (pandoc, actionlint) can keep using synchronous spawn semantics.
-/// `cli.rs` itself converts to `tokio::process::Command` at the call site.
-pub(crate) fn build_command(exe: &str, args: &[&str]) -> StdCommand {
-    #[cfg(target_os = "windows")]
-    {
-        let lower = exe.to_lowercase();
-        if lower.ends_with(".cmd") || lower.ends_with(".bat") {
-            // Use absolute path to cmd.exe to prevent CWD/PATH hijack attacks
-            let system_root =
-                std::env::var("SystemRoot").unwrap_or_else(|_| r"C:\Windows".to_string());
-            let cmd_path = std::path::PathBuf::from(system_root)
-                .join("System32")
-                .join("cmd.exe");
-            let mut c = StdCommand::new(cmd_path);
-            c.args(["/c", exe]);
-            c.args(args);
-            return c;
-        }
-    }
-    let mut c = StdCommand::new(exe);
-    c.args(args);
-    c
-}
 
 // ============================================================================
 // Public Entry
@@ -158,8 +128,11 @@ async fn run_cli_provider(
         .stdout
         .take()
         .ok_or_else(|| "Child stdout pipe missing".to_string())?;
-    let mut reader = BufReader::new(stdout).lines();
-    let stderr = child.stderr.take();
+    let mut reader = BufReader::new(stdout);
+    let mut pending: Vec<u8> = Vec::new();
+    // Drain stderr concurrently — a chatty-stderr child would otherwise fill
+    // the ~64 KiB pipe buffer, block on write, and never reach stdout EOF.
+    let stderr_drain = spawn_stderr_drain(child.stderr.take());
 
     let read_result = loop {
         tokio::select! {
@@ -168,10 +141,10 @@ async fn run_cli_provider(
                 sink.error("Cancelled");
                 return Ok(());
             }
-            line = reader.next_line() => {
-                match line {
+            chunk = next_bounded_chunk(&mut reader, &mut pending) => {
+                match chunk {
                     Ok(Some(text)) => {
-                        sink.chunk(&(text + "\n"));
+                        sink.chunk(&text);
                     }
                     Ok(None) => break Ok(()),       // EOF
                     Err(e) => {
@@ -199,15 +172,10 @@ async fn run_cli_provider(
     };
 
     if !status.success() {
-        // Drain stderr for the error message.
-        let stderr_text = if let Some(mut err_pipe) = stderr {
-            let mut buf = Vec::new();
-            tokio::io::AsyncReadExt::read_to_end(&mut err_pipe, &mut buf)
-                .await
-                .ok();
-            String::from_utf8_lossy(&buf).trim().to_string()
-        } else {
-            String::new()
+        // The concurrent drain retains a capped stderr head for the message.
+        let stderr_text = match stderr_drain {
+            Some(task) => task.await.unwrap_or_default(),
+            None => String::new(),
         };
         let msg = if stderr_text.is_empty() {
             format!("{} exited with status {}", cmd, status)
@@ -223,81 +191,5 @@ async fn run_cli_provider(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::ai_provider::sink::testing::{RecordingSink, SinkEvent};
-
-    /// Cancellation kills a long-running shim within a deadline.
-    #[tokio::test]
-    async fn cancellation_kills_long_running_shim() {
-        let typed = Arc::new(RecordingSink::new());
-        let sink: Arc<dyn AiSink> = typed.clone();
-
-        let cancel = CancellationToken::new();
-        let cancel_clone = cancel.clone();
-
-        // Use `sleep 30` as the long-running CLI shim. Available everywhere.
-        let task = tokio::spawn(async move {
-            run_cli_blocking(
-                sink,
-                cancel_clone,
-                "sleep",
-                vec!["30".into()],
-                None,
-                None,
-            )
-            .await
-        });
-
-        // Give the child a moment to spawn.
-        tokio::time::sleep(Duration::from_millis(100)).await;
-        cancel.cancel();
-
-        // Should return promptly — well before the 30-second sleep would finish.
-        let outcome = tokio::time::timeout(Duration::from_secs(3), task)
-            .await
-            .expect("task did not return within 3s of cancellation");
-        outcome.unwrap().unwrap();
-
-        // Sink received the Cancelled error event.
-        let events = typed.events();
-        assert!(
-            events.iter().any(|e| matches!(e, SinkEvent::Error(msg) if msg == "Cancelled")),
-            "expected Cancelled event in {:?}",
-            events
-        );
-    }
-
-    /// Successful exit emits Done, not Error.
-    #[tokio::test]
-    async fn successful_exit_emits_done() {
-        let typed = Arc::new(RecordingSink::new());
-        let sink: Arc<dyn AiSink> = typed.clone();
-        let cancel = CancellationToken::new();
-
-        // `echo hello` writes one line and exits 0.
-        let result = run_cli_blocking(
-            sink,
-            cancel,
-            "echo",
-            vec!["hello-from-echo".into()],
-            None,
-            None,
-        )
-        .await;
-        assert!(result.is_ok(), "got {:?}", result);
-
-        let events = typed.events();
-        // Echo's output should arrive as a chunk, then Done.
-        assert!(
-            events.iter().any(|e| matches!(e, SinkEvent::Chunk(s) if s.contains("hello-from-echo"))),
-            "expected chunk with echo text in {:?}",
-            events
-        );
-        assert!(
-            events.iter().any(|e| matches!(e, SinkEvent::Done)),
-            "expected Done in {:?}",
-            events
-        );
-    }
-}
+#[path = "cli.test.rs"]
+mod tests;

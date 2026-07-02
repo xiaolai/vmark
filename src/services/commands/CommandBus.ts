@@ -80,6 +80,16 @@ export function getCommand(id: string): CommandDefinition | undefined {
   return REGISTRY.get(id);
 }
 
+/**
+ * Whether a command id is already registered. Registrar modules use this
+ * as an HMR-safe guard: their module-local `registered` flag resets when
+ * Vite re-instantiates the module, but this registry survives in the
+ * module graph, so a sentinel-id check makes re-registration a no-op.
+ */
+export function hasCommand(id: string): boolean {
+  return REGISTRY.has(id);
+}
+
 /** Snapshot of every registered command. */
 export function listCommands(): CommandDefinition[] {
   return Array.from(REGISTRY.values());

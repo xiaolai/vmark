@@ -89,7 +89,9 @@ mod tests {
     #[tokio::test]
     async fn spawn_logged_passes_through_normal_completion() {
         let handle = spawn_logged("test-normal", async {});
-        handle.await.expect("normal task must complete without runtime error");
+        handle
+            .await
+            .expect("normal task must complete without runtime error");
     }
 
     #[tokio::test]
@@ -141,7 +143,9 @@ mod tests {
     #[test]
     fn spawn_thread_logged_passes_through_normal_completion() {
         let handle = spawn_thread_logged("test-thread-normal", || {});
-        handle.join().expect("normal thread must join without runtime error");
+        handle
+            .join()
+            .expect("normal thread must join without runtime error");
     }
 
     #[test]

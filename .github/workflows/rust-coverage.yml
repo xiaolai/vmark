@@ -1,0 +1,68 @@
+name: Rust Coverage
+
+# Weekly Rust line-coverage measurement (cargo-llvm-cov). PR CI deliberately
+# does NOT carry this: the instrumented rebuild costs ~10 runner-minutes per
+# run, and the frontend coverage gate already guards per-PR test discipline.
+# This job is the ratchet's measuring stick: it fails (visibly, but blocks
+# nothing — scheduled runs gate no PRs) if line coverage drops below the
+# recorded floor. Baseline 57.35% measured 2026-07-02 (floor set with ~2 pp
+# buffer for platform/toolchain variance). Raise the floor as coverage rises;
+# never lower it without written justification.
+# See dev-docs/testing-hardening.md (Rust coverage section).
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Weekly cadence: Monday 06:30 UTC (offset from mutation.yml's 06:00).
+    - cron: "30 6 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rust-coverage-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: ./.github/actions/setup-tauri-deps
+
+      - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable branch
+        with:
+          toolchain: stable
+          components: llvm-tools-preview
+
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: rust-llvm-cov-${{ runner.os }}-${{ hashFiles('src-tauri/Cargo.lock') }}
+          restore-keys: rust-llvm-cov-${{ runner.os }}-
+
+      - name: Create sidecar stub for Tauri build script
+        run: touch "src-tauri/binaries/vmark-mcp-server-x86_64-unknown-linux-gnu"
+
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@bffeee26d4db9be238a4ea78d8826604ebcb594d # v2.82.5
+        with:
+          tool: cargo-llvm-cov
+
+      - name: Measure coverage (floor 55% lines)
+        working-directory: src-tauri
+        run: |
+          cargo llvm-cov --lcov --output-path lcov.info --fail-under-lines 55
+          cargo llvm-cov report --summary-only
+
+      - name: Upload lcov report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-lcov
+          path: src-tauri/lcov.info
+          if-no-files-found: ignore

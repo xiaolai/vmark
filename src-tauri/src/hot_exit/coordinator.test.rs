@@ -9,7 +9,9 @@ use super::*;
 static TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
 fn acquire_test_lock() -> std::sync::MutexGuard<'static, ()> {
-    TEST_LOCK.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+    TEST_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
 fn make_window_state(label: &str, is_main: bool) -> WindowState {
@@ -30,7 +32,10 @@ fn make_window_state(label: &str, is_main: bool) -> WindowState {
             terminal_visible: false,
             terminal_height: 250,
         },
-        geometry: None, workspace_instance_ids: Vec::new(), active_workspace_instance_id: None, workspace_instances: Vec::new(),
+        geometry: None,
+        workspace_instance_ids: Vec::new(),
+        active_workspace_instance_id: None,
+        workspace_instances: Vec::new(),
     }
 }
 
@@ -70,7 +75,9 @@ fn pending_restore_state_clear() {
     let _lock = acquire_test_lock();
     let mut state = PendingRestoreState::default();
     state.expected_labels.insert("main".to_string());
-    state.window_states.insert("main".to_string(), make_window_state("main", true));
+    state
+        .window_states
+        .insert("main".to_string(), make_window_state("main", true));
     state.completed_windows.insert("main".to_string());
     state.clear();
     assert!(state.expected_labels.is_empty());
@@ -156,10 +163,7 @@ fn store_and_retrieve_window_state() {
 
     let ws = make_window_state("main", true);
     let expected: HashSet<String> = ["main".to_string()].into_iter().collect();
-    init_pending_restore_state_sync(
-        std::iter::once(("main".to_string(), ws.clone())),
-        expected,
-    );
+    init_pending_restore_state_sync(std::iter::once(("main".to_string(), ws.clone())), expected);
 
     let retrieved = get_window_restore_state("main");
     assert!(retrieved.is_some());
@@ -180,7 +184,9 @@ fn mark_complete_tracks_expected_only() {
     let _lock = acquire_test_lock();
     clear_pending_restore();
 
-    let expected: HashSet<String> = ["main".to_string(), "doc-1".to_string()].into_iter().collect();
+    let expected: HashSet<String> = ["main".to_string(), "doc-1".to_string()]
+        .into_iter()
+        .collect();
     init_pending_restore_state_sync(
         [
             ("main".to_string(), make_window_state("main", true)),
@@ -275,7 +281,10 @@ fn pre_stored_state_queryable_for_pre_allocated_labels() {
     let mut expected = HashSet::new();
 
     expected.insert(MAIN_WINDOW_LABEL.to_string());
-    states.push((MAIN_WINDOW_LABEL.to_string(), make_window_state(MAIN_WINDOW_LABEL, true)));
+    states.push((
+        MAIN_WINDOW_LABEL.to_string(),
+        make_window_state(MAIN_WINDOW_LABEL, true),
+    ));
 
     for label in &labels {
         expected.insert(label.clone());
@@ -339,7 +348,10 @@ fn generation_preserved_across_clear() {
     {
         let mut state = lock_pending_restore(&pending);
         state.advance_and_clear();
-        assert!(state.generation > gen, "advance_and_clear() must bump generation");
+        assert!(
+            state.generation > gen,
+            "advance_and_clear() must bump generation"
+        );
     }
 }
 
@@ -356,7 +368,9 @@ fn stale_generation_would_not_clear_new_state() {
     );
 
     // Simulate restore B (overwrites A)
-    let expected_b: HashSet<String> = ["main".to_string(), "doc-1".to_string()].into_iter().collect();
+    let expected_b: HashSet<String> = ["main".to_string(), "doc-1".to_string()]
+        .into_iter()
+        .collect();
     let gen_b = init_pending_restore_state_sync(
         [
             ("main".to_string(), make_window_state("main", true)),
@@ -393,12 +407,17 @@ async fn yield_advance_flush(duration: Duration) {
     tokio::task::yield_now().await;
 }
 
+// Holding the serialization lock across awaits is the point: paused-time
+// tests must not interleave with other tests mutating the global OnceLock.
+#[allow(clippy::await_holding_lock)]
 #[tokio::test(start_paused = true)]
 async fn timeout_clears_incomplete_restore() {
     let _lock = acquire_test_lock();
     clear_pending_restore();
 
-    let expected: HashSet<String> = ["main".to_string(), "doc-1".to_string()].into_iter().collect();
+    let expected: HashSet<String> = ["main".to_string(), "doc-1".to_string()]
+        .into_iter()
+        .collect();
     let gen = init_pending_restore_state_sync(
         [
             ("main".to_string(), make_window_state("main", true)),
@@ -417,10 +436,14 @@ async fn timeout_clears_incomplete_restore() {
     // State should be cleared by timeout
     let pending = get_pending_restore_state();
     let state = lock_pending_restore(&pending);
-    assert!(state.expected_labels.is_empty(), "Timeout must clear incomplete state");
+    assert!(
+        state.expected_labels.is_empty(),
+        "Timeout must clear incomplete state"
+    );
     assert!(state.window_states.is_empty());
 }
 
+#[allow(clippy::await_holding_lock)] // see timeout_clears_incomplete_restore
 #[tokio::test(start_paused = true)]
 async fn timeout_skips_already_completed_restore() {
     let _lock = acquire_test_lock();
@@ -446,6 +469,7 @@ async fn timeout_skips_already_completed_restore() {
     assert!(state.expected_labels.is_empty());
 }
 
+#[allow(clippy::await_holding_lock)] // see timeout_clears_incomplete_restore
 #[tokio::test(start_paused = true)]
 async fn new_restore_cancels_old_timeout() {
     let _lock = acquire_test_lock();
@@ -461,7 +485,9 @@ async fn new_restore_cancels_old_timeout() {
 
     // Before timeout fires, start restore B
     yield_advance_flush(Duration::from_secs(30)).await;
-    let expected_b: HashSet<String> = ["main".to_string(), "doc-1".to_string()].into_iter().collect();
+    let expected_b: HashSet<String> = ["main".to_string(), "doc-1".to_string()]
+        .into_iter()
+        .collect();
     let gen_b = init_pending_restore_state_sync(
         [
             ("main".to_string(), make_window_state("main", true)),
@@ -477,6 +503,10 @@ async fn new_restore_cancels_old_timeout() {
     // Restore B's state must NOT have been cleared (A's timeout was cancelled)
     let pending = get_pending_restore_state();
     let state = lock_pending_restore(&pending);
-    assert_eq!(state.expected_labels.len(), 2, "Restore B state must survive A's cancelled timeout");
+    assert_eq!(
+        state.expected_labels.len(),
+        2,
+        "Restore B state must survive A's cancelled timeout"
+    );
     assert!(state.window_states.contains_key("doc-1"));
 }

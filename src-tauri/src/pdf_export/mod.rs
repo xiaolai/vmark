@@ -5,6 +5,6 @@
 //! paginated PDF via WebKit's print pipeline, then adds bookmarks
 //! using PDFKit.
 
-pub mod commands;
 mod bookmarks;
+pub mod commands;
 mod renderer;

@@ -141,7 +141,10 @@ mod tests {
         std::fs::write(plan.staging.join("v.txt"), "new").unwrap();
         let out = execute_swap(&plan).unwrap();
         assert_eq!(out, plan.target);
-        assert_eq!(std::fs::read_to_string(plan.target.join("v.txt")).unwrap(), "new");
+        assert_eq!(
+            std::fs::read_to_string(plan.target.join("v.txt")).unwrap(),
+            "new"
+        );
         assert!(!plan.staging.exists());
         assert!(!plan.backup.exists());
     }
@@ -164,7 +167,10 @@ mod tests {
         std::fs::create_dir_all(&plan.target).unwrap();
         std::fs::write(plan.target.join("v.txt"), "old").unwrap();
         assert!(execute_swap(&plan).is_err());
-        assert_eq!(std::fs::read_to_string(plan.target.join("v.txt")).unwrap(), "old");
+        assert_eq!(
+            std::fs::read_to_string(plan.target.join("v.txt")).unwrap(),
+            "old"
+        );
         assert!(!plan.backup.exists());
         assert!(!plan.staging.exists());
     }
@@ -180,7 +186,10 @@ mod tests {
         std::fs::write(plan.staging.join("partial.txt"), "half").unwrap();
         reconcile(&plan).unwrap();
         assert!(plan.target.exists());
-        assert_eq!(std::fs::read_to_string(plan.target.join("good.txt")).unwrap(), "good");
+        assert_eq!(
+            std::fs::read_to_string(plan.target.join("good.txt")).unwrap(),
+            "good"
+        );
         assert!(!plan.staging.exists());
         assert!(!plan.backup.exists());
     }
@@ -192,7 +201,10 @@ mod tests {
         std::fs::create_dir_all(&plan.target).unwrap();
         std::fs::write(plan.target.join("keep.txt"), "keep").unwrap();
         reconcile(&plan).unwrap();
-        assert_eq!(std::fs::read_to_string(plan.target.join("keep.txt")).unwrap(), "keep");
+        assert_eq!(
+            std::fs::read_to_string(plan.target.join("keep.txt")).unwrap(),
+            "keep"
+        );
     }
 
     #[test]

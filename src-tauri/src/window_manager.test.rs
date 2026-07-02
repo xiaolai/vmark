@@ -91,7 +91,9 @@ fn decide_queues_and_requests_window_when_ready_without_window() {
     let outcome = decide_file_open_locked(&mut state, false, paths(&["/a.md"]), Some("/ws"));
     assert!(matches!(
         outcome,
-        FileOpenOutcome::Queued { create_window: true }
+        FileOpenOutcome::Queued {
+            create_window: true
+        }
     ));
     assert_eq!(state.pending.len(), 1);
     assert_eq!(state.pending[0].workspace_root.as_deref(), Some("/ws"));
@@ -103,7 +105,9 @@ fn decide_queues_only_when_not_ready() {
     let outcome = decide_file_open_locked(&mut state, true, paths(&["/a.md"]), None);
     assert!(matches!(
         outcome,
-        FileOpenOutcome::Queued { create_window: false }
+        FileOpenOutcome::Queued {
+            create_window: false
+        }
     ));
     assert_eq!(state.pending.len(), 1);
 }
@@ -359,10 +363,7 @@ fn allocate_label_returns_sequential_labels() {
 
 #[test]
 fn pick_reopen_returns_path_when_exists() {
-    let pick = pick_reopen_workspace_root_with(
-        Some("/some/workspace".to_string()),
-        |_| true,
-    );
+    let pick = pick_reopen_workspace_root_with(Some("/some/workspace".to_string()), |_| true);
     assert_eq!(pick, Some("/some/workspace".to_string()));
 }
 
@@ -370,10 +371,7 @@ fn pick_reopen_returns_path_when_exists() {
 fn pick_reopen_returns_none_when_path_missing() {
     // Path was the user's last workspace but the folder has been deleted
     // or moved — fall back to no-workspace so the new window opens fresh.
-    let pick = pick_reopen_workspace_root_with(
-        Some("/deleted/path".to_string()),
-        |_| false,
-    );
+    let pick = pick_reopen_workspace_root_with(Some("/deleted/path".to_string()), |_| false);
     assert_eq!(pick, None);
 }
 
@@ -393,17 +391,11 @@ fn pick_reopen_picks_real_directory_via_filesystem() {
     let missing = format!("{}/does-not-exist", real);
 
     assert_eq!(
-        pick_reopen_workspace_root_with(
-            Some(real.clone()),
-            |p| std::path::Path::new(p).is_dir(),
-        ),
+        pick_reopen_workspace_root_with(Some(real.clone()), |p| std::path::Path::new(p).is_dir(),),
         Some(real),
     );
     assert_eq!(
-        pick_reopen_workspace_root_with(
-            Some(missing),
-            |p| std::path::Path::new(p).is_dir(),
-        ),
+        pick_reopen_workspace_root_with(Some(missing), |p| std::path::Path::new(p).is_dir(),),
         None,
     );
 }
@@ -419,10 +411,7 @@ fn pick_reopen_rejects_path_that_is_a_regular_file() {
     let file_str = file.to_string_lossy().to_string();
 
     assert_eq!(
-        pick_reopen_workspace_root_with(
-            Some(file_str),
-            |p| std::path::Path::new(p).is_dir(),
-        ),
+        pick_reopen_workspace_root_with(Some(file_str), |p| std::path::Path::new(p).is_dir(),),
         None,
     );
 }

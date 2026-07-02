@@ -58,11 +58,9 @@ impl std::fmt::Display for ExprError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             ExprError::UnknownStep(s) => write!(f, "Reference to unknown step '{}'", s),
-            ExprError::MissingField { step, field } => write!(
-                f,
-                "Step '{}' output '{}' not available",
-                step, field
-            ),
+            ExprError::MissingField { step, field } => {
+                write!(f, "Step '{}' output '{}' not available", step, field)
+            }
             ExprError::UnknownEnv(name) => write!(f, "Reference to unknown env var '{}'", name),
             ExprError::Unsupported(body) => {
                 write!(f, "Unsupported expression: ${{{{ {} }}}}", body)
@@ -159,10 +157,13 @@ fn resolve_expr_body(
                 let map = outputs
                     .get(*id)
                     .ok_or_else(|| ExprError::UnknownStep((*id).to_string()))?;
-                return map.get("text").cloned().ok_or_else(|| ExprError::MissingField {
-                    step: (*id).to_string(),
-                    field: "text".to_string(),
-                });
+                return map
+                    .get("text")
+                    .cloned()
+                    .ok_or_else(|| ExprError::MissingField {
+                        step: (*id).to_string(),
+                        field: "text".to_string(),
+                    });
             }
             // steps.ID.outputs.FIELD
             [id, "outputs", field] => {
@@ -221,7 +222,11 @@ mod tests {
 
     #[test]
     fn unknown_step_errors() {
-        let r = resolve("${{ steps.ghost.outputs.text }}", &HashMap::new(), &HashMap::new());
+        let r = resolve(
+            "${{ steps.ghost.outputs.text }}",
+            &HashMap::new(),
+            &HashMap::new(),
+        );
         assert!(matches!(r, Err(ExprError::UnknownStep(_))));
     }
 
@@ -229,7 +234,9 @@ mod tests {
     fn missing_field_errors() {
         let o = outputs(&[("first", &[("text", "ok")])]);
         let r = resolve("${{ steps.first.outputs.score }}", &o, &HashMap::new());
-        assert!(matches!(r, Err(ExprError::MissingField { ref step, ref field }) if step == "first" && field == "score"));
+        assert!(
+            matches!(r, Err(ExprError::MissingField { ref step, ref field }) if step == "first" && field == "score")
+        );
     }
 
     // === ${{ steps.X.output }} sugar ===
@@ -245,7 +252,12 @@ mod tests {
 
     #[test]
     fn resolves_env() {
-        let r = resolve("${{ env.HOME }}", &HashMap::new(), &env(&[("HOME", "/home/x")])).unwrap();
+        let r = resolve(
+            "${{ env.HOME }}",
+            &HashMap::new(),
+            &env(&[("HOME", "/home/x")]),
+        )
+        .unwrap();
         assert_eq!(r, "/home/x");
     }
 
@@ -259,7 +271,12 @@ mod tests {
 
     #[test]
     fn legacy_env_var_still_works() {
-        let r = resolve("path/${HOME}/file", &HashMap::new(), &env(&[("HOME", "/u")])).unwrap();
+        let r = resolve(
+            "path/${HOME}/file",
+            &HashMap::new(),
+            &env(&[("HOME", "/u")]),
+        )
+        .unwrap();
         assert_eq!(r, "path//u/file");
     }
 
@@ -308,10 +325,7 @@ mod tests {
 
     #[test]
     fn multiple_expressions_in_one_value() {
-        let o = outputs(&[
-            ("a", &[("text", "alpha")]),
-            ("b", &[("text", "beta")]),
-        ]);
+        let o = outputs(&[("a", &[("text", "alpha")]), ("b", &[("text", "beta")])]);
         let r = resolve(
             "${{ steps.a.output }} + ${{ steps.b.output }}",
             &o,

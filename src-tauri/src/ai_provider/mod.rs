@@ -12,6 +12,7 @@
 //! - `detection`      -- CLI provider detection, login-shell PATH, env API keys
 //! - `rest_api`       -- API key testing, model listing, model validation
 //! - `cli`            -- CLI provider spawning and stdout streaming
+//! - `spawn`          -- Process-spawn platform utilities (no-console-window)
 //! - `rest_providers` -- REST provider prompt execution
 
 mod cli;
@@ -21,6 +22,7 @@ mod http_client;
 mod rest_api;
 mod rest_providers;
 pub mod sink;
+pub(crate) mod spawn;
 mod types;
 
 // Re-export everything from submodules that define Tauri `#[command]`s.
@@ -33,10 +35,9 @@ pub use rest_api::*;
 
 // Re-export crate-internal helpers used by other modules (e.g. mcp/).
 #[allow(unused_imports)]
-pub(crate) use cli::build_command;
-#[allow(unused_imports)]
-pub(crate) use detection::login_shell_path;
+pub(crate) use {detection::login_shell_path, spawn::build_command, spawn::which_command};
 
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tauri::{command, WebviewWindow};
 use tokio_util::sync::CancellationToken;
@@ -50,6 +51,17 @@ use types::require_api_key;
 /// (`runner::MAX_OUTPUT_SIZE_BYTES`).
 const MAX_COLLECT_BYTES: usize = 5 * 1024 * 1024;
 
+/// Bound on the collect channel's in-flight message depth.
+///
+/// The precise memory bound is the sink-side byte-gate (`ChannelSink` stops
+/// forwarding once cumulative output reaches `MAX_COLLECT_BYTES`), so this
+/// count is a coarse secondary backstop, not the primary limit. It is sized
+/// well above any realistic single-scheduler-poll burst — tokio's cooperative
+/// budget forces the dispatch task to yield (letting the collector drain) long
+/// before this many chunks queue up — so legitimate streaming never trips it.
+/// A `Full` send is treated as the cap being hit, same as the byte-gate.
+const COLLECT_CHANNEL_CAPACITY: usize = 1024;
+
 // ============================================================================
 // Internal Dispatch
 // ============================================================================
@@ -60,6 +72,7 @@ const MAX_COLLECT_BYTES: usize = 5 * 1024 * 1024;
 /// The `cancel` token is forwarded to providers that support cooperative
 /// cancellation (today: every CLI provider; REST providers honor the token
 /// via `tokio::select!` at call sites that wrap them).
+#[allow(clippy::too_many_arguments)]
 async fn dispatch_to_provider(
     sink: Arc<dyn AiSink>,
     cancel: CancellationToken,
@@ -133,7 +146,15 @@ async fn dispatch_to_provider(
             let endpoint = endpoint::resolve_endpoint(endpoint, "https://api.anthropic.com");
             let model = model.unwrap_or_else(|| "claude-sonnet-4-5-20250929".to_string());
             run_rest_with_cancel(sink, cancel, |s| async move {
-                rest_providers::run_rest_anthropic(s.as_ref(), &endpoint, key, &model, prompt, max_tokens).await
+                rest_providers::run_rest_anthropic(
+                    s.as_ref(),
+                    &endpoint,
+                    key,
+                    &model,
+                    prompt,
+                    max_tokens,
+                )
+                .await
             })
             .await
         }
@@ -144,7 +165,15 @@ async fn dispatch_to_provider(
             let endpoint = endpoint::resolve_endpoint(endpoint, "https://api.openai.com");
             let model = model.unwrap_or_else(|| "gpt-4o".to_string());
             run_rest_with_cancel(sink, cancel, |s| async move {
-                rest_providers::run_rest_openai(s.as_ref(), &endpoint, key, &model, prompt, max_tokens).await
+                rest_providers::run_rest_openai(
+                    s.as_ref(),
+                    &endpoint,
+                    key,
+                    &model,
+                    prompt,
+                    max_tokens,
+                )
+                .await
             })
             .await
         }
@@ -162,7 +191,8 @@ async fn dispatch_to_provider(
             let endpoint = endpoint::resolve_endpoint(endpoint, "http://localhost:11434");
             let model = model.unwrap_or_else(|| "llama3.2".to_string());
             run_rest_with_cancel(sink, cancel, |s| async move {
-                rest_providers::run_rest_ollama(s.as_ref(), &endpoint, &model, prompt, max_tokens).await
+                rest_providers::run_rest_ollama(s.as_ref(), &endpoint, &model, prompt, max_tokens)
+                    .await
             })
             .await
         }
@@ -207,6 +237,8 @@ where
 /// For REST providers: sends HTTP request via reqwest.
 /// `cli_path` is the resolved absolute path from detection (used on
 /// Windows where bare command names may not find `.cmd`/`.bat` shims).
+// The parameter list is the frontend `invoke()` IPC contract.
+#[allow(clippy::too_many_arguments)]
 #[command]
 pub async fn run_ai_prompt(
     window: WebviewWindow,
@@ -236,10 +268,13 @@ pub async fn run_ai_prompt(
 
 /// Run an AI prompt and collect the full response into a String.
 ///
-/// Drives a `ChannelSink` and a tokio mpsc receiver. Drops the dispatch
-/// future as soon as the receiver sees a terminal event (`Done`/`Error`/
-/// channel-close), and signals the cancellation token so any downstream
-/// provider work (CLI children, REST requests) is aborted promptly.
+/// Drives a `ChannelSink` and a *bounded* tokio mpsc receiver. Drops the
+/// dispatch future as soon as the receiver sees a terminal event
+/// (`Done`/`Error`/channel-close), and signals the cancellation token so any
+/// downstream provider work (CLI children, REST requests) is aborted promptly.
+/// The sink's cumulative byte-gate keeps peak buffered output bounded by
+/// `MAX_COLLECT_BYTES`; when it trips it fires `cancel` and sets `overflowed`
+/// so the collector surfaces the cap error rather than a plain cancellation.
 ///
 /// Returns:
 ///   - `Ok(text)` on `Done` — `text` is the concatenation of all chunks.
@@ -248,7 +283,8 @@ pub async fn run_ai_prompt(
 ///   - `Err("Provider output exceeded N MB cap")` if collected text grows
 ///     past `MAX_COLLECT_BYTES`.
 ///   - `Err("stream ended without done signal")` if the channel closes
-///     without a terminal event (provider crash, etc.).
+///     without a terminal event (provider crash, contract violation, etc.).
+#[allow(clippy::too_many_arguments)]
 pub async fn run_ai_prompt_collect(
     cancel: CancellationToken,
     provider: &str,
@@ -259,8 +295,13 @@ pub async fn run_ai_prompt_collect(
     cli_path: Option<&str>,
     max_tokens: Option<u64>,
 ) -> Result<String, String> {
-    let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<ChannelEvent>();
-    let sink: Arc<dyn AiSink> = Arc::new(ChannelSink::new(tx));
+    let (tx, rx) = tokio::sync::mpsc::channel::<ChannelEvent>(COLLECT_CHANNEL_CAPACITY);
+    let overflowed = Arc::new(AtomicBool::new(false));
+    let sink: Arc<dyn AiSink> = Arc::new(ChannelSink::new(
+        tx,
+        cancel.clone(),
+        Arc::clone(&overflowed),
+    ));
 
     let dispatch_cancel = cancel.clone();
     let dispatch_fut = dispatch_to_provider(
@@ -274,51 +315,104 @@ pub async fn run_ai_prompt_collect(
         cli_path.map(String::from),
         max_tokens,
     );
+
+    collect_from_channel(cancel, overflowed, rx, dispatch_fut).await
+}
+
+/// Collect loop shared by `run_ai_prompt_collect` — generic over the dispatch
+/// future so the terminal-event contract can be unit-tested with injected
+/// producers.
+async fn collect_from_channel<F>(
+    cancel: CancellationToken,
+    overflowed: Arc<AtomicBool>,
+    mut rx: tokio::sync::mpsc::Receiver<ChannelEvent>,
+    dispatch_fut: F,
+) -> Result<String, String>
+where
+    F: std::future::Future<Output = Result<(), String>>,
+{
     tokio::pin!(dispatch_fut);
 
     let mut text = String::new();
     let mut dispatch_done = false;
 
+    // The overflow (cap) verdict must win over EVERY other terminal outcome.
+    // When the sink's byte-gate trips it stores `overflowed` (SeqCst) *before*
+    // firing `cancel`, which kills the provider and closes the channel. That
+    // makes several terminal arms race: the cancel arm, the channel-closed
+    // (`recv` → `None`) arm, and any late Done/Error. `select!` picks a ready
+    // arm at random, so gating the cap check on only one arm is flaky — an
+    // over-cap run could otherwise surface "Cancelled" or "stream ended
+    // without done signal". `finalize` funnels every terminal return through a
+    // single check: if `overflowed` is set, the cap error always wins.
+    let cap_message = || {
+        format!(
+            "Provider output exceeded {} MB cap",
+            MAX_COLLECT_BYTES / (1024 * 1024)
+        )
+    };
+    let finalize = |outcome: Result<String, String>| -> Result<String, String> {
+        if overflowed.load(Ordering::SeqCst) {
+            return Err(cap_message());
+        }
+        outcome
+    };
+
     loop {
         tokio::select! {
-            // Caller cancelled — abort dispatch and return.
+            // Cancelled — abort dispatch and return. Fires for both a
+            // caller-initiated cancel and the sink's byte-gate; `finalize`
+            // maps the byte-gate case to the cap error.
             _ = cancel.cancelled() => {
-                // Drop the dispatch future implicitly when the loop exits.
-                return Err("Cancelled".to_string());
+                return finalize(Err("Cancelled".to_string()));
             }
             // Dispatch finished. The sink will already have emitted Done/Error
             // (which the recv arm picks up); just remember and let the recv
-            // arm produce the verdict.
+            // arm produce the verdict. A genuine dispatch error still defers to
+            // an overflow verdict via `finalize`.
             res = &mut dispatch_fut, if !dispatch_done => {
                 dispatch_done = true;
                 if let Err(e) = res {
-                    // Provider returned Err without emitting through sink —
-                    // surface that as the result.
-                    return Err(e);
+                    return finalize(Err(e));
                 }
             }
             event = rx.recv() => {
-                match event {
-                    Some(ChannelEvent::Chunk(s)) => {
-                        if text.len().saturating_add(s.len()) > MAX_COLLECT_BYTES {
-                            cancel.cancel();
-                            return Err(format!(
-                                "Provider output exceeded {} MB cap",
-                                MAX_COLLECT_BYTES / (1024 * 1024)
+                // Drain everything already queued before re-polling dispatch:
+                // one dispatch poll can enqueue many chunks, so consuming a
+                // single event per select iteration would waste wakeups. Peak
+                // buffered bytes are bounded upstream by the sink's byte-gate
+                // (it stops the producer at MAX_COLLECT_BYTES), so the queue
+                // this drains can never hold more than the cap plus one chunk;
+                // the receiver-side check below is a second, independent cap on
+                // the accumulated `text`.
+                let mut next = event;
+                loop {
+                    match next {
+                        Some(ChannelEvent::Chunk(s)) => {
+                            if text.len().saturating_add(s.len()) > MAX_COLLECT_BYTES {
+                                cancel.cancel();
+                                return Err(cap_message());
+                            }
+                            text.push_str(&s);
+                        }
+                        Some(ChannelEvent::Done) => return finalize(Ok(text)),
+                        Some(ChannelEvent::Error(msg)) => return finalize(Err(msg)),
+                        // Sender dropped without a terminal event. If the sink
+                        // overflowed, `finalize` reports the cap error; else the
+                        // sink contract (exactly one Done/Error per run) was
+                        // violated and `text` may be truncated, so surface
+                        // loudly rather than returning partial output as success.
+                        None => {
+                            return finalize(Err(
+                                "stream ended without done signal".to_string(),
                             ));
                         }
-                        text.push_str(&s);
                     }
-                    Some(ChannelEvent::Done) => return Ok(text),
-                    Some(ChannelEvent::Error(msg)) => return Err(msg),
-                    None => {
-                        // Sender dropped without a terminal event. If dispatch
-                        // returned Ok already, treat as orderly close; else
-                        // surface as crash.
-                        if dispatch_done {
-                            return Ok(text);
-                        }
-                        return Err("stream ended without done signal".to_string());
+                    use tokio::sync::mpsc::error::TryRecvError;
+                    match rx.try_recv() {
+                        Ok(e) => next = Some(e),
+                        Err(TryRecvError::Empty) => break,
+                        Err(TryRecvError::Disconnected) => next = None,
                     }
                 }
             }
@@ -327,106 +421,5 @@ pub async fn run_ai_prompt_collect(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// A successful CLI provider completion returns the collected text.
-    ///
-    /// Unix-only: relies on `/bin/echo` ignoring unknown flags. Windows has
-    /// no `/bin/echo` (echo is a cmd.exe builtin) so this path can't be
-    /// exercised cross-platform. macOS BSD echo and Linux GNU echo both
-    /// pass the test — they print all positional args including the prompt.
-    #[cfg(unix)]
-    #[tokio::test]
-    async fn collect_returns_text_on_done() {
-        let cancel = CancellationToken::new();
-        let result = run_ai_prompt_collect(
-            cancel,
-            "claude",
-            "ignored",
-            None,
-            None,
-            None,
-            // Force cli_path to /bin/echo. The args list emitted by
-            // dispatch_to_provider for "claude" is not what `echo` expects,
-            // but echo prints all its args verbatim. We assert "ignored"
-            // appears in the captured stdout.
-            Some("/bin/echo"),
-            None,
-        )
-        .await;
-
-        assert!(result.is_ok(), "expected Ok got {:?}", result);
-        let text = result.unwrap();
-        assert!(text.contains("ignored"), "expected echoed prompt in {}", text);
-    }
-
-    /// Cancellation aborts the collect with the canonical error.
-    ///
-    /// Tests the run_ai_prompt_collect → dispatch_to_provider →
-    /// cli::run_cli_blocking cancel-token plumbing end-to-end. The CLI
-    /// path is built with claude's args (which include `-p`); that means
-    /// any standin binary must tolerate unknown flags long enough for the
-    /// cancel signal to fire. macOS BSD `/bin/sleep` rejects `-p` and
-    /// returns immediately with a usage error — too fast for cancel to win.
-    /// `/usr/bin/yes` (POSIX) reads its args, then loops printing forever,
-    /// so it's still alive when the cancel arrives. Windows has no
-    /// equivalent we can rely on.
-    ///
-    /// The single-cli-level cancel primitive (no dispatcher) is covered
-    /// portably by `cli::tests::cancellation_kills_long_running_shim` —
-    /// this test verifies the additional dispatcher + collect layers.
-    #[cfg(unix)]
-    #[tokio::test]
-    async fn collect_cancellation_returns_cancelled() {
-        let cancel = CancellationToken::new();
-        let cancel_clone = cancel.clone();
-
-        let task = tokio::spawn(async move {
-            run_ai_prompt_collect(
-                cancel_clone,
-                "claude",
-                "ignored",
-                None,
-                None,
-                None,
-                // /usr/bin/yes ignores claude's `-p ...` args and prints
-                // forever; we cancel mid-stream and expect Err("Cancelled").
-                Some("/usr/bin/yes"),
-                None,
-            )
-            .await
-        });
-
-        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-        cancel.cancel();
-
-        let outcome = tokio::time::timeout(std::time::Duration::from_secs(3), task)
-            .await
-            .expect("task did not return within 3s of cancel");
-        let result = outcome.unwrap();
-        assert!(
-            matches!(result, Err(ref e) if e == "Cancelled"),
-            "expected Err(Cancelled), got {:?}",
-            result
-        );
-    }
-
-    /// Unknown provider yields an error path through the sink.
-    #[tokio::test]
-    async fn collect_unknown_provider_errors() {
-        let cancel = CancellationToken::new();
-        let result = run_ai_prompt_collect(
-            cancel,
-            "no-such-provider",
-            "anything",
-            None,
-            None,
-            None,
-            None,
-            None,
-        )
-        .await;
-        assert!(matches!(result, Err(ref msg) if msg.contains("Unknown provider")));
-    }
-}
+#[path = "collect.test.rs"]
+mod tests;

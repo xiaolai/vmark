@@ -184,6 +184,62 @@ describe("media pipeline converters", () => {
       const result = convertHtml(context, htmlNode, false);
       expect(result!.attrs.preload).toBe("auto");
     });
+
+    it("falls back to a nested <source> src when <video> has no src attr", () => {
+      const htmlNode: Html = {
+        type: "html",
+        value: '<video controls><source src="clip.mp4" type="video/mp4"></video>',
+      };
+      const result = convertHtml(context, htmlNode, false);
+      expect(result).not.toBeNull();
+      expect(result!.type.name).toBe("block_video");
+      expect(result!.attrs.src).toBe("clip.mp4");
+    });
+
+    it("uses the first nested <source> when several are present", () => {
+      const htmlNode: Html = {
+        type: "html",
+        value:
+          '<video controls><source src="clip.webm" type="video/webm"><source src="clip.mp4"></video>',
+      };
+      const result = convertHtml(context, htmlNode, false);
+      expect(result!.type.name).toBe("block_video");
+      expect(result!.attrs.src).toBe("clip.webm");
+    });
+
+    it("prefers the <video> src attr over a nested <source>", () => {
+      const htmlNode: Html = {
+        type: "html",
+        value: '<video src="main.mp4" controls><source src="fallback.mp4"></video>',
+      };
+      const result = convertHtml(context, htmlNode, false);
+      expect(result!.type.name).toBe("block_video");
+      expect(result!.attrs.src).toBe("main.mp4");
+    });
+
+    it("falls back to a nested <source> src when <audio> has no src attr", () => {
+      const htmlNode: Html = {
+        type: "html",
+        value: '<audio controls><source src="song.mp3" type="audio/mpeg"></audio>',
+      };
+      const result = convertHtml(context, htmlNode, false);
+      expect(result).not.toBeNull();
+      expect(result!.type.name).toBe("block_audio");
+      expect(result!.attrs.src).toBe("song.mp3");
+    });
+
+    it("parses unquoted attribute values", () => {
+      const htmlNode: Html = {
+        type: "html",
+        value: "<video src=clip.mp4 preload=auto controls></video>",
+      };
+      const result = convertHtml(context, htmlNode, false);
+      expect(result).not.toBeNull();
+      expect(result!.type.name).toBe("block_video");
+      expect(result!.attrs.src).toBe("clip.mp4");
+      expect(result!.attrs.preload).toBe("auto");
+      expect(result!.attrs.controls).toBe(true);
+    });
   });
 
   describe("convertParagraph — extension-based promotion", () => {

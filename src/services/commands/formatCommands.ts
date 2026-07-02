@@ -18,7 +18,7 @@
  * @module services/commands/formatCommands
  */
 
-import { registerCommand } from "./CommandBus";
+import { hasCommand, registerCommand } from "./CommandBus";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { getActiveTabId } from "@/services/navigation/activeDocument";
@@ -54,7 +54,7 @@ function activeKey(ctx: Ctx): string | null {
 /** Write (or clear, when formatId is null) one association, preserving the rest.
  *  Early-returns when nothing semantically changes — a no-op assignment would
  *  still trigger `recomputeAllFormatIds()` for every open tab via the
- *  bridge's reference comparison. (Audit finding M2.) */
+ *  bridge's reference comparison. */
 function setAssociation(key: string, formatId: string | null): boolean {
   const current = useSettingsStore.getState().formats.associations ?? {};
   if (formatId === null) {
@@ -72,51 +72,36 @@ function setAssociation(key: string, formatId: string | null): boolean {
   return true;
 }
 
+/** The three override commands differ only in target format (null = reset). */
+const OVERRIDE_COMMANDS = [
+  { id: "format.setPlainText", formatId: "txt" },
+  { id: "format.setMarkdown", formatId: "markdown" },
+  { id: "format.resetType", formatId: null },
+] as const;
+
 let registered = false;
 export function registerFormatCommands(): void {
-  if (registered) return;
+  // HMR: the module-local flag resets on reload, but the bus registry survives.
+  if (registered || hasCommand("format.setPlainText")) return;
 
-  registerCommand({
-    id: "format.setPlainText",
-    title: () => i18n.t("commands:format.setPlainText"),
-    category: "format",
-    when: (ctx: Ctx) => activeKey(ctx) !== null,
-    run: (_args, ctx: Ctx) => {
-      const key = activeKey(ctx);
-      if (!key) return;
-      if (setAssociation(key, "txt")) {
-        toast.info(i18n.t("commands:format.toast.set", { key, format: formatName("txt") }));
-      }
-    },
-  });
-
-  registerCommand({
-    id: "format.setMarkdown",
-    title: () => i18n.t("commands:format.setMarkdown"),
-    category: "format",
-    when: (ctx: Ctx) => activeKey(ctx) !== null,
-    run: (_args, ctx: Ctx) => {
-      const key = activeKey(ctx);
-      if (!key) return;
-      if (setAssociation(key, "markdown")) {
-        toast.info(i18n.t("commands:format.toast.set", { key, format: formatName("markdown") }));
-      }
-    },
-  });
-
-  registerCommand({
-    id: "format.resetType",
-    title: () => i18n.t("commands:format.resetType"),
-    category: "format",
-    when: (ctx: Ctx) => activeKey(ctx) !== null,
-    run: (_args, ctx: Ctx) => {
-      const key = activeKey(ctx);
-      if (!key) return;
-      if (setAssociation(key, null)) {
-        toast.info(i18n.t("commands:format.toast.reset", { key }));
-      }
-    },
-  });
+  for (const { id, formatId } of OVERRIDE_COMMANDS) {
+    registerCommand({
+      id,
+      title: () => i18n.t(`commands:${id}`),
+      category: "format",
+      when: (ctx: Ctx) => activeKey(ctx) !== null,
+      run: (_args, ctx: Ctx) => {
+        const key = activeKey(ctx);
+        if (!key) return;
+        if (!setAssociation(key, formatId)) return;
+        toast.info(
+          formatId === null
+            ? i18n.t("commands:format.toast.reset", { key })
+            : i18n.t("commands:format.toast.set", { key, format: formatName(formatId) }),
+        );
+      },
+    });
+  }
 
   registered = true;
 }

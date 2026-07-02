@@ -3,7 +3,7 @@
 
 use super::{
     atomic_write_file_sync, filter_supported_args, has_supported_extension, is_openable_supported,
-    MARKDOWN_ONLY_EXTENSIONS, SUPPORTED_EXTENSIONS, PARENT_MISSING_ERROR_PREFIX,
+    MARKDOWN_ONLY_EXTENSIONS, PARENT_MISSING_ERROR_PREFIX, SUPPORTED_EXTENSIONS,
 };
 use std::path::{Path, PathBuf};
 
@@ -122,10 +122,7 @@ fn accepts_existing_phase1a_files() {
     for ext in ["txt", "json", "yaml", "toml", "html"] {
         let file_path = dir.path().join(format!("file.{ext}"));
         std::fs::write(&file_path, b"data").expect("write");
-        assert!(
-            is_openable_supported(&file_path),
-            ".{ext} file should pass"
-        );
+        assert!(is_openable_supported(&file_path), ".{ext} file should pass");
     }
 }
 

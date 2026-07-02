@@ -4,7 +4,7 @@
 //! API) and depends on `playwright-chromium` (~150 MB, provisioned on first
 //! export). This module builds the export command's argument vector — the pure,
 //! testable core. The spawn itself routes through `ai_provider::build_command`
-//! + `login_shell_path` against the provisioned Slidev bundle's `slidev` bin,
+//! plus `login_shell_path` against the provisioned Slidev bundle's `slidev` bin,
 //! and Chromium provisioning is gated before the spawn (both = Phase 7 residue,
 //! external infra).
 

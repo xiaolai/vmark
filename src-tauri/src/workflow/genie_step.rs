@@ -198,13 +198,12 @@ pub fn process_output(
             Ok(out)
         }
         "json" => {
-            let parsed: serde_json::Value =
-                serde_json::from_str(response.trim()).map_err(|e| {
-                    GenieStepError::InvalidOutput(format!(
-                        "Output not valid JSON for genie '{}': {}",
-                        metadata.name, e
-                    ))
-                })?;
+            let parsed: serde_json::Value = serde_json::from_str(response.trim()).map_err(|e| {
+                GenieStepError::InvalidOutput(format!(
+                    "Output not valid JSON for genie '{}': {}",
+                    metadata.name, e
+                ))
+            })?;
 
             // Validate required schema keys if present.
             if let Some(schema) = &output.schema {
@@ -258,7 +257,10 @@ pub fn resolve_genies_dir(app_data_dir: &Path) -> std::path::PathBuf {
 /// Walks the directory tree (matching `scan_genies_dir`'s behavior) and
 /// returns the first `.md` file whose stem matches `name`. Returns
 /// `GenieStepError::NotFound` if no match.
-pub fn find_genie_file(genies_dir: &Path, name: &str) -> Result<std::path::PathBuf, GenieStepError> {
+pub fn find_genie_file(
+    genies_dir: &Path,
+    name: &str,
+) -> Result<std::path::PathBuf, GenieStepError> {
     fn walk(dir: &Path, name: &str) -> Option<std::path::PathBuf> {
         let entries = std::fs::read_dir(dir).ok()?;
         for entry in entries.flatten() {
@@ -274,10 +276,9 @@ pub fn find_genie_file(genies_dir: &Path, name: &str) -> Result<std::path::PathB
             } else if path
                 .extension()
                 .is_some_and(|e| e.eq_ignore_ascii_case("md"))
+                && path.file_stem().and_then(|s| s.to_str()) == Some(name)
             {
-                if path.file_stem().and_then(|s| s.to_str()) == Some(name) {
-                    return Some(path);
-                }
+                return Some(path);
             }
         }
         None
@@ -483,7 +484,8 @@ mod tests {
         // String top-level fields lose their quotes so downstream `${{ steps.X.outputs.foo }}`
         // gets the value, not the JSON-encoded value.
         let m = meta_v1("text", "json");
-        let r = process_output(&m, r#"{"title": "Hello", "summary": "World"}"#.to_string()).unwrap();
+        let r =
+            process_output(&m, r#"{"title": "Hello", "summary": "World"}"#.to_string()).unwrap();
         assert_eq!(r.get("title").map(String::as_str), Some("Hello"));
         assert_eq!(r.get("summary").map(String::as_str), Some("World"));
     }
@@ -503,11 +505,7 @@ mod tests {
             Err(GenieStepError::InvalidOutput(ref msg)) if msg.contains("summary")
         ));
         // All required present
-        let r = process_output(
-            &m,
-            r#"{"title": "ok", "summary": "fine"}"#.to_string(),
-        )
-        .unwrap();
+        let r = process_output(&m, r#"{"title": "ok", "summary": "fine"}"#.to_string()).unwrap();
         assert_eq!(r.get("summary").map(String::as_str), Some("fine"));
     }
 
@@ -541,7 +539,10 @@ mod tests {
         use std::io::Write;
         let tmp = tempfile::tempdir().unwrap();
         let f = tmp.path().join("improve.md");
-        std::fs::File::create(&f).unwrap().write_all(b"---\n---\nbody").unwrap();
+        std::fs::File::create(&f)
+            .unwrap()
+            .write_all(b"---\n---\nbody")
+            .unwrap();
         assert_eq!(find_genie_file(tmp.path(), "improve").unwrap(), f);
     }
 
@@ -552,7 +553,10 @@ mod tests {
         let sub = tmp.path().join("writing");
         std::fs::create_dir_all(&sub).unwrap();
         let f = sub.join("improve.md");
-        std::fs::File::create(&f).unwrap().write_all(b"---\n---\nbody").unwrap();
+        std::fs::File::create(&f)
+            .unwrap()
+            .write_all(b"---\n---\nbody")
+            .unwrap();
         assert_eq!(find_genie_file(tmp.path(), "improve").unwrap(), f);
     }
 
@@ -608,7 +612,11 @@ mod tests {
         // contain the text we passed via with.input.
         let map = res.unwrap();
         let text = map.get("text").cloned().unwrap_or_default();
-        assert!(text.contains("hello-text"), "expected echoed text in {}", text);
+        assert!(
+            text.contains("hello-text"),
+            "expected echoed text in {}",
+            text
+        );
     }
 
     #[tokio::test]

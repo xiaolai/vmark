@@ -17,6 +17,7 @@ vi.mock("@/services/ime/imeToast", () => ({
 import {
   executeCommand,
   getCommand,
+  listCommands,
   _resetCommandBus,
 } from "./CommandBus";
 import {
@@ -56,6 +57,17 @@ beforeEach(() => {
 
 afterEach(() => {
   _resetCommandBus();
+});
+
+describe("HMR re-registration (dev-only Vite reload)", () => {
+  it("does not throw when the module flag resets but the bus registry survives", () => {
+    const before = listCommands().length;
+    // Simulate Vite HMR: the registrar module re-instantiates (module-local
+    // `registered` flag resets) while CommandBus's REGISTRY survives.
+    __resetFormatCommandsRegistration();
+    expect(() => registerFormatCommands()).not.toThrow();
+    expect(listCommands().length).toBe(before);
+  });
 });
 
 describe("registerFormatCommands", () => {

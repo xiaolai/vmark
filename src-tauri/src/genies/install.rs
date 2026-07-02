@@ -82,7 +82,11 @@ const DEFAULT_GENIES: &[DefaultGenie] = &[
 pub fn default_genie_names() -> Vec<&'static str> {
     DEFAULT_GENIES
         .iter()
-        .filter_map(|g| std::path::Path::new(g.path).file_stem().and_then(|s| s.to_str()))
+        .filter_map(|g| {
+            std::path::Path::new(g.path)
+                .file_stem()
+                .and_then(|s| s.to_str())
+        })
         .collect()
 }
 
@@ -100,7 +104,11 @@ pub fn install_default_genies(app: &AppHandle) -> Result<(), String> {
         }
 
         // Atomic create — skip if file already exists (no TOCTOU race)
-        match OpenOptions::new().write(true).create_new(true).open(&target) {
+        match OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&target)
+        {
             Ok(mut file) => {
                 file.write_all(genie.content.as_bytes())
                     .map_err(|e| format!("Failed to write {:?}: {}", target, e))?;

@@ -155,3 +155,7 @@ dev-docs/baselines/*.png
 
 # E2E smoke harness screenshot artifacts (regenerate with `pnpm e2e:smoke`)
 e2e/artifacts/
+
+# Stryker mutation testing (run with `pnpm mutation:ts`)
+.stryker-tmp/
+reports/mutation/

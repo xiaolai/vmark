@@ -81,28 +81,18 @@ impl Default for WorkspaceConfig {
 /// safe at user scale but the cost of being defensive here is one extra
 /// filename character, paid for by `migrate_legacy_hash_filename` below.
 fn hash_root_path(root_path: &str) -> String {
-    let normalized = root_path
-        .trim_end_matches('/')
-        .trim_end_matches('\\');
+    let normalized = root_path.trim_end_matches('/').trim_end_matches('\\');
     let hash = Sha256::digest(normalized.as_bytes());
-    hash.iter()
-        .take(16)
-        .map(|b| format!("{:02x}", b))
-        .collect()
+    hash.iter().take(16).map(|b| format!("{:02x}", b)).collect()
 }
 
 /// Legacy 8-byte hash used in releases <= 0.7.22. Read-only — used by
 /// `migrate_legacy_hash_filename` to rename a pre-existing config file to
 /// the new 16-byte hash filename on first load.
 fn legacy_hash_root_path(root_path: &str) -> String {
-    let normalized = root_path
-        .trim_end_matches('/')
-        .trim_end_matches('\\');
+    let normalized = root_path.trim_end_matches('/').trim_end_matches('\\');
     let hash = Sha256::digest(normalized.as_bytes());
-    hash.iter()
-        .take(8)
-        .map(|b| format!("{:02x}", b))
-        .collect()
+    hash.iter().take(8).map(|b| format!("{:02x}", b)).collect()
 }
 
 /// Get the workspaces directory inside app data.
@@ -342,8 +332,7 @@ pub fn read_workspace_config(
     if let Some(config) = migrate_from_legacy(root_path)? {
         // Write to new location — only cleanup old .vmark/ on success
         let ws_dir = get_workspaces_dir(&app)?;
-        fs::create_dir_all(&ws_dir)
-            .map_err(|e| format!("Failed to create workspaces dir: {e}"))?;
+        fs::create_dir_all(&ws_dir).map_err(|e| format!("Failed to create workspaces dir: {e}"))?;
         let content = serde_json::to_string_pretty(&config)
             .map_err(|e| format!("Failed to serialize config: {e}"))?;
 
@@ -368,8 +357,7 @@ pub fn write_workspace_config(
 
     // Ensure parent directory exists
     if let Some(parent) = ws_path.parent() {
-        fs::create_dir_all(parent)
-            .map_err(|e| format!("Failed to create workspaces dir: {e}"))?;
+        fs::create_dir_all(parent).map_err(|e| format!("Failed to create workspaces dir: {e}"))?;
     }
 
     let content = serde_json::to_string_pretty(&config)
@@ -412,7 +400,10 @@ mod tests {
         let new_h = hash_root_path("/Users/test/project");
         let legacy_h = legacy_hash_root_path("/Users/test/project");
         assert_ne!(new_h, legacy_h);
-        assert!(new_h.starts_with(&legacy_h), "new hash should extend the legacy prefix");
+        assert!(
+            new_h.starts_with(&legacy_h),
+            "new hash should extend the legacy prefix"
+        );
     }
 
     #[test]
@@ -491,7 +482,9 @@ mod tests {
         // way is to give it a target path whose parent directory does not exist.
         let dir = tempdir().unwrap();
         let legacy = dir.path().join("aaaaaaaaaaaaaaaa.json");
-        let new_path = dir.path().join("missing-subdir/aaaaaaaaaaaaaaaabbbbbbbbbbbbbbbb.json");
+        let new_path = dir
+            .path()
+            .join("missing-subdir/aaaaaaaaaaaaaaaabbbbbbbbbbbbbbbb.json");
         fs::write(&legacy, b"{}").unwrap();
 
         let outcome = try_rename_legacy_hash(&legacy, &new_path);
@@ -556,7 +549,9 @@ mod tests {
         let config = migrate_from_legacy(root.to_str().unwrap())
             .unwrap()
             .unwrap();
-        assert!(config.exclude_folders.contains(&"legacy_folder".to_string()));
+        assert!(config
+            .exclude_folders
+            .contains(&"legacy_folder".to_string()));
         assert!(!config.exclude_folders.contains(&".vmark".to_string()));
         assert!(config.last_open_tabs.contains(&"old.md".to_string()));
     }

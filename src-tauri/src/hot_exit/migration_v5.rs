@@ -145,13 +145,14 @@ fn active_tab_in_list(active_tab_id: Option<&str>, tab_ids: &[String]) -> Option
     }
 }
 
-fn ordered_valid_ids(
-    raw_ids: &[String],
-    instances: &[WorkspaceInstanceState],
-) -> Vec<String> {
+fn ordered_valid_ids(raw_ids: &[String], instances: &[WorkspaceInstanceState]) -> Vec<String> {
     let mut ids: Vec<String> = raw_ids
         .iter()
-        .filter(|id| instances.iter().any(|instance| &instance.workspace_instance_id == *id))
+        .filter(|id| {
+            instances
+                .iter()
+                .any(|instance| &instance.workspace_instance_id == *id)
+        })
         .cloned()
         .collect();
     for instance in instances {
@@ -174,9 +175,10 @@ fn choose_active_instance_id(
         }
     }
     if let Some(tab_id) = active_tab_id {
-        if let Some(instance) = instances.iter().find(|instance| {
-            instance.tab_ids.iter().any(|candidate| candidate == tab_id)
-        }) {
+        if let Some(instance) = instances
+            .iter()
+            .find(|instance| instance.tab_ids.iter().any(|candidate| candidate == tab_id))
+        {
             return Some(instance.workspace_instance_id.clone());
         }
     }
@@ -209,7 +211,11 @@ fn normalize_path(path: &str) -> String {
     if normalized.len() >= 2 {
         let bytes = normalized.as_bytes();
         if bytes[0].is_ascii_uppercase() && bytes[1] == b':' {
-            normalized = format!("{}{}", (bytes[0] as char).to_ascii_lowercase(), &normalized[1..]);
+            normalized = format!(
+                "{}{}",
+                (bytes[0] as char).to_ascii_lowercase(),
+                &normalized[1..]
+            );
         }
     }
 

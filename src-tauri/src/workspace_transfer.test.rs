@@ -157,11 +157,13 @@ fn mismatched_ack_instance_id_leaves_route_intact() {
         .as_ref()
         .and_then(|map| map.get("req-wsi"))
         .map(|route| {
-            route.target_window_label == "doc-1"
-                && route.workspace_instance_id == "WRONG-WSI"
+            route.target_window_label == "doc-1" && route.workspace_instance_id == "WRONG-WSI"
         })
         .unwrap_or(false);
-    assert!(!matches, "mismatched workspace instance id must fail validation");
+    assert!(
+        !matches,
+        "mismatched workspace instance id must fail validation"
+    );
     assert!(ack_routes()
         .as_ref()
         .is_some_and(|m| m.contains_key("req-wsi")));

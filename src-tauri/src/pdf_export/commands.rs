@@ -19,10 +19,7 @@ pub async fn export_pdf(
     // Validate output path
     let path = Path::new(&output_path);
 
-    let ext = path
-        .extension()
-        .and_then(|e| e.to_str())
-        .unwrap_or("");
+    let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
     if !ext.eq_ignore_ascii_case("pdf") {
         return Err(rust_i18n::t!("errors.pdf.invalidExtension").to_string());
     }

@@ -105,12 +105,7 @@ fn resolve_placeholder(key: &str, with_map: &HashMap<String, String>) -> Resolut
     match key {
         // Rule 3: `{{context}}` is never fatal. If `with.context` missing,
         // resolves to the empty string.
-        "context" => Resolution::Bound(
-            with_map
-                .get("context")
-                .cloned()
-                .unwrap_or_default(),
-        ),
+        "context" => Resolution::Bound(with_map.get("context").cloned().unwrap_or_default()),
         // Rule 2: `{{content}}` aliases content → input. Fatal if neither.
         "content" => match with_map.get("content").or_else(|| with_map.get("input")) {
             Some(v) => Resolution::Bound(v.clone()),
@@ -173,7 +168,9 @@ mod tests {
     #[test]
     fn content_alias_fatal_when_neither_present() {
         let r = fill("Edit: {{content}}", &map(&[("other", "x")]));
-        assert!(matches!(r, Err(TemplateError::Unbound(ref v)) if v == &vec!["content".to_string()]));
+        assert!(
+            matches!(r, Err(TemplateError::Unbound(ref v)) if v == &vec!["content".to_string()])
+        );
     }
 
     #[test]
@@ -223,10 +220,7 @@ mod tests {
 
     #[test]
     fn one_unbound_one_bound_is_fatal() {
-        let r = fill(
-            "{{has}} and {{missing}}",
-            &map(&[("has", "ok")]),
-        );
+        let r = fill("{{has}} and {{missing}}", &map(&[("has", "ok")]));
         match r {
             Err(TemplateError::Unbound(names)) => {
                 assert_eq!(names, vec!["missing"]);

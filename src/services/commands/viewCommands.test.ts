@@ -130,6 +130,17 @@ describe("registerViewCommands — full command set", () => {
   });
 });
 
+describe("HMR re-registration (dev-only Vite reload)", () => {
+  it("does not throw when the module flag resets but the bus registry survives", () => {
+    const before = listCommands().length;
+    // Simulate Vite HMR: the registrar module re-instantiates (module-local
+    // `registered` flag resets) while CommandBus's REGISTRY survives.
+    __resetViewCommandsRegistration();
+    expect(() => registerViewCommands()).not.toThrow();
+    expect(listCommands().length).toBe(before);
+  });
+});
+
 describe("view command behavior", () => {
   it("toggleSourceMode cleans up then checkpoints the active window", async () => {
     await executeCommand("view.toggleSourceMode", undefined, { windowLabel: "main" });

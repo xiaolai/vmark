@@ -238,6 +238,38 @@ describe("imagePasteToastStore", () => {
       useImagePasteToastStore.getState().confirm();
       expect(useImagePasteToastStore.getState().isOpen).toBe(false);
     });
+
+    it("resets state before invoking onConfirm so the callback can open a new toast", () => {
+      const onConfirm = vi.fn(() => {
+        // At invoke time the previous toast must already be reset...
+        expect(useImagePasteToastStore.getState().isOpen).toBe(false);
+        // ...so a toast opened by the callback survives the confirm.
+        useImagePasteToastStore.getState().showToast({
+          imagePath: "second.png",
+          imageType: "url",
+          anchorRect: mockAnchorRect,
+          editorDom: mockEditorDom,
+          onConfirm: vi.fn(),
+          onDismiss: vi.fn(),
+        });
+      });
+
+      useImagePasteToastStore.getState().showToast({
+        imagePath: "first.png",
+        imageType: "url",
+        anchorRect: mockAnchorRect,
+        editorDom: mockEditorDom,
+        onConfirm,
+        onDismiss: vi.fn(),
+      });
+
+      useImagePasteToastStore.getState().confirm();
+
+      expect(onConfirm).toHaveBeenCalledOnce();
+      const state = useImagePasteToastStore.getState();
+      expect(state.isOpen).toBe(true);
+      expect(state.imagePath).toBe("second.png");
+    });
   });
 
   // ── dismiss ───────────────────────────────────────────────────────
@@ -264,6 +296,36 @@ describe("imagePasteToastStore", () => {
       useImagePasteToastStore.setState({ isOpen: true, onDismiss: null });
       useImagePasteToastStore.getState().dismiss();
       expect(useImagePasteToastStore.getState().isOpen).toBe(false);
+    });
+
+    it("resets state before invoking onDismiss so the callback can open a new toast", () => {
+      const onDismiss = vi.fn(() => {
+        expect(useImagePasteToastStore.getState().isOpen).toBe(false);
+        useImagePasteToastStore.getState().showToast({
+          imagePath: "second.png",
+          imageType: "url",
+          anchorRect: mockAnchorRect,
+          editorDom: mockEditorDom,
+          onConfirm: vi.fn(),
+          onDismiss: vi.fn(),
+        });
+      });
+
+      useImagePasteToastStore.getState().showToast({
+        imagePath: "first.png",
+        imageType: "url",
+        anchorRect: mockAnchorRect,
+        editorDom: mockEditorDom,
+        onConfirm: vi.fn(),
+        onDismiss,
+      });
+
+      useImagePasteToastStore.getState().dismiss();
+
+      expect(onDismiss).toHaveBeenCalledOnce();
+      const state = useImagePasteToastStore.getState();
+      expect(state.isOpen).toBe(true);
+      expect(state.imagePath).toBe("second.png");
     });
   });
 

@@ -4,7 +4,7 @@
 //! Uses stdin piping to avoid temp files. Runs blocking I/O on a dedicated
 //! thread with a timeout to avoid stalling the async runtime.
 //!
-//! @coordinates-with ai_provider/cli.rs — build_command() for cross-platform spawn
+//! @coordinates-with ai_provider/spawn.rs — build_command() for cross-platform spawn
 //! @coordinates-with ai_provider/detection.rs — login_shell_path(), which_command() for PATH resolution
 
 use std::process::Stdio;
@@ -46,10 +46,7 @@ pub(crate) fn validate_extension(output_path: &str) -> Result<(), String> {
 ///
 /// Returns the base args (`-f markdown -o <path> --standalone`) plus an
 /// optional `--resource-path=<dir>` when `source_dir` is provided.
-pub(crate) fn build_pandoc_args(
-    output_path: &str,
-    source_dir: Option<&str>,
-) -> Vec<String> {
+pub(crate) fn build_pandoc_args(output_path: &str, source_dir: Option<&str>) -> Vec<String> {
     let mut args = vec![
         "-f".to_string(),
         "markdown".to_string(),
@@ -78,7 +75,13 @@ pub struct PandocInfo {
 pub fn detect_pandoc() -> PandocInfo {
     let path = match resolve_pandoc_path() {
         Some(p) => p,
-        None => return PandocInfo { available: false, path: None, version: None },
+        None => {
+            return PandocInfo {
+                available: false,
+                path: None,
+                version: None,
+            }
+        }
     };
 
     let version = match build_command(&path, &["--version"])
@@ -141,9 +144,7 @@ pub async fn export_via_pandoc(
                 .to_string()
             })?;
             if !canonical.is_dir() {
-                return Err(
-                    rust_i18n::t!("errors.pandoc.notADirectory", dir = dir).to_string(),
-                );
+                return Err(rust_i18n::t!("errors.pandoc.notADirectory", dir = dir).to_string());
             }
             Some(canonical.to_string_lossy().into_owned())
         }
@@ -151,12 +152,17 @@ pub async fn export_via_pandoc(
     };
 
     // Resolve Pandoc path once (avoid TOCTOU with detect)
-    let pandoc_exe = resolve_pandoc_path()
-        .ok_or_else(|| rust_i18n::t!("errors.pandoc.notFound").to_string())?;
+    let pandoc_exe =
+        resolve_pandoc_path().ok_or_else(|| rust_i18n::t!("errors.pandoc.notFound").to_string())?;
 
     // Run blocking I/O on a dedicated thread with timeout
     let result = tokio::task::spawn_blocking(move || {
-        run_pandoc(&pandoc_exe, &markdown, &output_path, validated_source_dir.as_deref())
+        run_pandoc(
+            &pandoc_exe,
+            &markdown,
+            &output_path,
+            validated_source_dir.as_deref(),
+        )
     })
     .await
     .map_err(|e| rust_i18n::t!("errors.pandoc.taskPanicked", detail = e.to_string()).to_string())?;
@@ -178,7 +184,11 @@ pub(crate) fn resolve_pandoc_path() -> Option<String> {
 
     let raw = String::from_utf8_lossy(&output.stdout);
     let path = raw.lines().next().unwrap_or("").trim().to_string();
-    if path.is_empty() { None } else { Some(path) }
+    if path.is_empty() {
+        None
+    } else {
+        Some(path)
+    }
 }
 
 /// Execute Pandoc synchronously (called from spawn_blocking).
@@ -202,13 +212,15 @@ fn run_pandoc(
         .stdout(Stdio::null())
         .stderr(Stdio::piped())
         .spawn()
-        .map_err(|e| rust_i18n::t!("errors.pandoc.startFailed", detail = e.to_string()).to_string())?;
+        .map_err(|e| {
+            rust_i18n::t!("errors.pandoc.startFailed", detail = e.to_string()).to_string()
+        })?;
 
     // Write markdown to stdin
     if let Some(mut stdin) = child.stdin.take() {
-        stdin
-            .write_all(markdown.as_bytes())
-            .map_err(|e| rust_i18n::t!("errors.pandoc.stdinFailed", detail = e.to_string()).to_string())?;
+        stdin.write_all(markdown.as_bytes()).map_err(|e| {
+            rust_i18n::t!("errors.pandoc.stdinFailed", detail = e.to_string()).to_string()
+        })?;
         // stdin is dropped here, closing the pipe
     }
 
@@ -280,7 +292,11 @@ mod tests {
     #[test]
     fn allowed_extensions_rejects_dangerous() {
         for ext in &["exe", "sh", "bat", "html", "pdf", "js", "py"] {
-            assert!(!ALLOWED_EXTENSIONS.contains(ext), "{} should not be allowed", ext);
+            assert!(
+                !ALLOWED_EXTENSIONS.contains(ext),
+                "{} should not be allowed",
+                ext
+            );
         }
     }
 
@@ -419,7 +435,10 @@ mod tests {
     #[test]
     fn build_pandoc_args_base_without_source_dir() {
         let args = build_pandoc_args("/tmp/out.docx", None);
-        assert_eq!(args, vec!["-f", "markdown", "-o", "/tmp/out.docx", "--standalone"]);
+        assert_eq!(
+            args,
+            vec!["-f", "markdown", "-o", "/tmp/out.docx", "--standalone"]
+        );
     }
 
     #[test]

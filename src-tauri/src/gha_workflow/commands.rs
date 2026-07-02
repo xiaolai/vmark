@@ -29,9 +29,6 @@ pub async fn gha_lint(yaml: String, extra_path: Option<String>) -> Result<LintRe
 /// success/failure variant. Outer `Err` is reserved for fatal Tauri
 /// runtime errors that the frontend can't usefully recover from.
 #[tauri::command]
-pub async fn gha_fetch_action_yml(
-    app: AppHandle,
-    uses: String,
-) -> Result<FetchResult, String> {
+pub async fn gha_fetch_action_yml(app: AppHandle, uses: String) -> Result<FetchResult, String> {
     Ok(fetch_metadata(&app, &uses, default_ttl_secs()).await)
 }

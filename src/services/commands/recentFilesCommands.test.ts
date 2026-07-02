@@ -15,6 +15,7 @@ const mockOpenFileInNewTabCore = vi.fn();
 const mockReplaceTabWithFile = vi.fn();
 const mockResolveOpenAction = vi.fn();
 const mockToastError = vi.fn();
+const mockOpenWorkspaceWithConfig = vi.fn();
 
 vi.mock("@tauri-apps/plugin-fs", () => ({ exists: (...a: unknown[]) => mockExists(...a) }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ ask: (...a: unknown[]) => mockAsk(...a) }));
@@ -28,8 +29,11 @@ vi.mock("@/utils/openPolicy", () => ({
 }));
 vi.mock("@/services/ime/imeToast", () => ({ imeToast: { error: (...a: unknown[]) => mockToastError(...a) } }));
 vi.mock("@/hooks/useReplaceableTab", () => ({ getReplaceableTab: () => null }));
+vi.mock("@/hooks/openWorkspaceWithConfig", () => ({
+  openWorkspaceWithConfig: (...a: unknown[]) => mockOpenWorkspaceWithConfig(...a),
+}));
 
-import { executeCommand, _resetCommandBus } from "./CommandBus";
+import { executeCommand, listCommands, _resetCommandBus } from "./CommandBus";
 import {
   parseRecentFileArgs,
   openRecentInNewTab,
@@ -40,20 +44,33 @@ import {
 } from "./recentFilesCommands";
 import { useRecentFilesStore } from "@/stores/workspaceStore";
 import { useTabStore } from "@/stores/tabStore";
+import { useSettingsStore } from "@/stores/settingsStore";
 
 beforeEach(() => {
   _resetCommandBus();
   __resetRecentFilesCommandsRegistration();
-  [mockExists, mockAsk, mockInvoke, mockOpenFileInNewTabCore, mockReplaceTabWithFile, mockResolveOpenAction, mockToastError]
+  [mockExists, mockAsk, mockInvoke, mockOpenFileInNewTabCore, mockReplaceTabWithFile, mockResolveOpenAction, mockToastError, mockOpenWorkspaceWithConfig]
     .forEach((m) => m.mockReset());
   mockExists.mockResolvedValue(true);
   mockReplaceTabWithFile.mockResolvedValue({ ok: true });
   useRecentFilesStore.setState({ files: [{ path: "/docs/a.md" }] } as never);
   useTabStore.setState({ tabs: {}, activeTabId: {}, untitledCounter: 0, closedTabs: {} } as never);
+  useSettingsStore.setState((s) => ({ general: { ...s.general, openInNewTab: false } }));
   registerRecentFilesCommands();
 });
 
 afterEach(() => _resetCommandBus());
+
+describe("HMR re-registration (dev-only Vite reload)", () => {
+  it("does not throw when the module flag resets but the bus registry survives", () => {
+    const before = listCommands().length;
+    // Simulate Vite HMR: the registrar module re-instantiates (module-local
+    // `registered` flag resets) while CommandBus's REGISTRY survives.
+    __resetRecentFilesCommandsRegistration();
+    expect(() => registerRecentFilesCommands()).not.toThrow();
+    expect(listCommands().length).toBe(before);
+  });
+});
 
 describe("parseRecentFileArgs", () => {
   it.each([
@@ -155,11 +172,44 @@ describe("file.openRecent command dispatch", () => {
 
   it("create_tab routes through openRecentInNewTab", async () => {
     useTabStore.setState({ tabs: {}, activeTabId: {}, findTabByPath: () => null } as never);
-    mockResolveOpenAction.mockReturnValue({ action: "create_tab" });
+    mockResolveOpenAction.mockReturnValue({ action: "create_tab", filePath: "/docs/a.md" });
     mockExists.mockResolvedValue(true);
 
     await executeCommand("file.openRecent", "/docs/a.md", { windowLabel: "main" });
     expect(mockOpenFileInNewTabCore).toHaveBeenCalledWith("main", "/docs/a.md");
+    // In-workspace / rail-mode opens carry no workspaceRoot — stay in context.
+    expect(mockOpenWorkspaceWithConfig).not.toHaveBeenCalled();
+  });
+
+  it("create_tab with a resolved workspaceRoot opens that workspace first (#946 parity with Cmd+O)", async () => {
+    useTabStore.setState({ tabs: {}, activeTabId: {}, findTabByPath: () => null } as never);
+    mockResolveOpenAction.mockReturnValue({
+      action: "create_tab", filePath: "/ext/a.md", workspaceRoot: "/ext",
+    });
+    mockExists.mockResolvedValue(true);
+    mockOpenWorkspaceWithConfig.mockResolvedValue(null);
+
+    await executeCommand("file.openRecent", "/ext/a.md", { windowLabel: "main" });
+
+    expect(mockOpenWorkspaceWithConfig).toHaveBeenCalledWith("/ext", { windowLabel: "main" });
+    expect(mockOpenFileInNewTabCore).toHaveBeenCalledWith("main", "/ext/a.md");
+    // Workspace ownership must be claimed BEFORE the tab is created.
+    expect(mockOpenWorkspaceWithConfig.mock.invocationCallOrder[0]).toBeLessThan(
+      mockOpenFileInNewTabCore.mock.invocationCallOrder[0],
+    );
+  });
+
+  it("create_tab still opens the tab when claiming the workspace fails", async () => {
+    useTabStore.setState({ tabs: {}, activeTabId: {}, findTabByPath: () => null } as never);
+    mockResolveOpenAction.mockReturnValue({
+      action: "create_tab", filePath: "/ext/a.md", workspaceRoot: "/ext",
+    });
+    mockExists.mockResolvedValue(true);
+    mockOpenWorkspaceWithConfig.mockRejectedValue(new Error("config unreadable"));
+
+    await executeCommand("file.openRecent", "/ext/a.md", { windowLabel: "main" });
+
+    expect(mockOpenFileInNewTabCore).toHaveBeenCalledWith("main", "/ext/a.md");
   });
 
   it("replace_tab routes through the shared replace helper", async () => {
@@ -186,5 +236,52 @@ describe("file.openRecent command dispatch", () => {
       workspaceRoot: "/repo",
       filePath: "/repo/a.md",
     });
+  });
+});
+
+describe("file.openRecent honors general.openInNewTab (parity with Cmd+O)", () => {
+  beforeEach(() => {
+    useTabStore.setState({ tabs: {}, activeTabId: {}, findTabByPath: () => null } as never);
+    mockResolveOpenAction.mockReturnValue({ action: "no_op", reason: "test" });
+  });
+
+  it.each([[true], [false]])(
+    "passes openInNewTab=%s from settings into resolveOpenAction",
+    async (openInNewTab) => {
+      useSettingsStore.setState((s) => ({ general: { ...s.general, openInNewTab } }));
+
+      await executeCommand("file.openRecent", "/docs/a.md", { windowLabel: "main" });
+
+      expect(mockResolveOpenAction).toHaveBeenCalledWith(
+        expect.objectContaining({ openInNewTab }),
+      );
+    },
+  );
+});
+
+describe("file.clearRecent", () => {
+  it("does nothing when the recents list is empty", async () => {
+    useRecentFilesStore.setState({ files: [] } as never);
+
+    await executeCommand("file.clearRecent", undefined, { windowLabel: "main" });
+
+    expect(mockAsk).not.toHaveBeenCalled();
+  });
+
+  it("clears the list after the user confirms", async () => {
+    mockAsk.mockResolvedValue(true);
+
+    await executeCommand("file.clearRecent", undefined, { windowLabel: "main" });
+
+    expect(mockAsk).toHaveBeenCalledTimes(1);
+    expect(useRecentFilesStore.getState().files).toEqual([]);
+  });
+
+  it("keeps the list when the user cancels", async () => {
+    mockAsk.mockResolvedValue(false);
+
+    await executeCommand("file.clearRecent", undefined, { windowLabel: "main" });
+
+    expect(useRecentFilesStore.getState().files).toEqual([{ path: "/docs/a.md" }]);
   });
 });

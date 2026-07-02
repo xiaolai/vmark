@@ -150,7 +150,10 @@ mod tests {
         assert_eq!(classify(Some(OsStr::new("md"))), Some(GenieKind::Markdown));
         assert_eq!(classify(Some(OsStr::new("MD"))), Some(GenieKind::Markdown));
         assert_eq!(classify(Some(OsStr::new("yml"))), Some(GenieKind::Workflow));
-        assert_eq!(classify(Some(OsStr::new("YAML"))), Some(GenieKind::Workflow));
+        assert_eq!(
+            classify(Some(OsStr::new("YAML"))),
+            Some(GenieKind::Workflow)
+        );
         assert_eq!(classify(Some(OsStr::new("txt"))), None);
         assert_eq!(classify(None), None);
     }
@@ -207,4 +210,3 @@ mod tests {
         assert_eq!(titles, vec!["alpha", "zebra"]);
     }
 }
-

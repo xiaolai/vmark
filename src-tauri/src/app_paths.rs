@@ -75,9 +75,9 @@ fn get_legacy_dir() -> Option<PathBuf> {
 /// frontend invocations. They are intentionally separate — this one is sync
 /// for internal Rust callers (workspace config, MCP port file).
 pub fn atomic_write_file(path: &Path, contents: &[u8]) -> Result<(), String> {
-    let parent = path.parent().ok_or_else(|| {
-        format!("Cannot determine parent directory of {:?}", path)
-    })?;
+    let parent = path
+        .parent()
+        .ok_or_else(|| format!("Cannot determine parent directory of {:?}", path))?;
 
     // `NamedTempFile` in the SAME directory → same-filesystem atomic rename, and
     // RAII cleanup: on any early `?` (write/sync/persist failure) the temp file
@@ -112,9 +112,10 @@ pub fn atomic_write_file(path: &Path, contents: &[u8]) -> Result<(), String> {
                 .map_err(|e| format!("Failed to persist {:?}: {}", path, e.error))
         }
         #[cfg(not(windows))]
-        Err(persist_err) => {
-            Err(format!("Failed to persist {:?}: {}", path, persist_err.error))
-        }
+        Err(persist_err) => Err(format!(
+            "Failed to persist {:?}: {}",
+            path, persist_err.error
+        )),
     }
 }
 
@@ -211,7 +212,6 @@ mod tests {
         let entries: Vec<_> = fs::read_dir(dir.path()).unwrap().collect();
         assert_eq!(entries.len(), 1); // Only the subdir
     }
-
 
     // ------------------------------------------------------------------------
     // cleanup_legacy_home_dir tests

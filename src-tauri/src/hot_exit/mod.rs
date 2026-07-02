@@ -3,13 +3,13 @@
 //! Provides session capture and restore functionality for update restarts.
 //! The Rust coordinator ensures atomic file writes and multi-window coordination.
 
-pub mod session;
-pub mod storage;
-pub mod coordinator;
 pub mod commands;
+pub mod coordinator;
 pub mod dedup;
 pub mod merge;
 pub mod migration;
+pub mod session;
+pub mod storage;
 pub mod validation;
 
 // Re-export commonly used types

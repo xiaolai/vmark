@@ -64,7 +64,10 @@ fn make_window(label: &str, tab_ids: &[&str], active: Option<&str>) -> WindowSta
         active_tab_id: active.map(|s| s.to_string()),
         tabs: tab_ids.iter().map(|id| make_tab(id)).collect(),
         ui_state: make_ui_state(),
-        geometry: None, workspace_instance_ids: Vec::new(), active_workspace_instance_id: None, workspace_instances: Vec::new(),
+        geometry: None,
+        workspace_instance_ids: Vec::new(),
+        active_workspace_instance_id: None,
+        workspace_instances: Vec::new(),
     }
 }
 
@@ -80,9 +83,11 @@ fn make_session(windows: Vec<WindowState>) -> SessionData {
 
 #[test]
 fn valid_session_produces_no_warnings() {
-    let mut session = make_session(vec![
-        make_window("main", &["tab-1", "tab-2"], Some("tab-1")),
-    ]);
+    let mut session = make_session(vec![make_window(
+        "main",
+        &["tab-1", "tab-2"],
+        Some("tab-1"),
+    )]);
 
     let warnings = validate_and_repair(&mut session);
     assert!(warnings.is_empty());
@@ -90,9 +95,7 @@ fn valid_session_produces_no_warnings() {
 
 #[test]
 fn active_tab_id_none_is_valid() {
-    let mut session = make_session(vec![
-        make_window("main", &["tab-1"], None),
-    ]);
+    let mut session = make_session(vec![make_window("main", &["tab-1"], None)]);
 
     let warnings = validate_and_repair(&mut session);
     assert!(warnings.is_empty());
@@ -100,26 +103,23 @@ fn active_tab_id_none_is_valid() {
 
 #[test]
 fn fixes_active_tab_id_referencing_nonexistent_tab() {
-    let mut session = make_session(vec![
-        make_window("main", &["tab-1", "tab-2"], Some("tab-gone")),
-    ]);
+    let mut session = make_session(vec![make_window(
+        "main",
+        &["tab-1", "tab-2"],
+        Some("tab-gone"),
+    )]);
 
     let warnings = validate_and_repair(&mut session);
 
     assert_eq!(warnings.len(), 1);
     assert!(warnings[0].contains("active_tab_id 'tab-gone' not found"));
     // Should reset to first tab
-    assert_eq!(
-        session.windows[0].active_tab_id,
-        Some("tab-1".to_string())
-    );
+    assert_eq!(session.windows[0].active_tab_id, Some("tab-1".to_string()));
 }
 
 #[test]
 fn fixes_active_tab_id_to_none_when_no_tabs() {
-    let mut session = make_session(vec![
-        make_window("main", &[], Some("tab-gone")),
-    ]);
+    let mut session = make_session(vec![make_window("main", &[], Some("tab-gone"))]);
 
     let warnings = validate_and_repair(&mut session);
 
@@ -131,9 +131,11 @@ fn fixes_active_tab_id_to_none_when_no_tabs() {
 
 #[test]
 fn removes_duplicate_tab_ids() {
-    let mut session = make_session(vec![
-        make_window("main", &["tab-1", "tab-1", "tab-2", "tab-2", "tab-3"], Some("tab-1")),
-    ]);
+    let mut session = make_session(vec![make_window(
+        "main",
+        &["tab-1", "tab-1", "tab-2", "tab-2", "tab-3"],
+        Some("tab-1"),
+    )]);
 
     let warnings = validate_and_repair(&mut session);
 
@@ -151,9 +153,11 @@ fn removes_duplicate_tab_ids() {
 #[test]
 fn removes_duplicates_then_fixes_active_tab() {
     // active_tab_id was a duplicate that got removed
-    let mut session = make_session(vec![
-        make_window("main", &["tab-1", "tab-2", "tab-2"], Some("tab-dup-gone")),
-    ]);
+    let mut session = make_session(vec![make_window(
+        "main",
+        &["tab-1", "tab-2", "tab-2"],
+        Some("tab-dup-gone"),
+    )]);
 
     let warnings = validate_and_repair(&mut session);
 
@@ -161,10 +165,7 @@ fn removes_duplicates_then_fixes_active_tab() {
     assert!(warnings.iter().any(|w| w.contains("duplicate")));
     assert!(warnings.iter().any(|w| w.contains("active_tab_id")));
     // active_tab_id should be reset to first remaining tab
-    assert_eq!(
-        session.windows[0].active_tab_id,
-        Some("tab-1".to_string())
-    );
+    assert_eq!(session.windows[0].active_tab_id, Some("tab-1".to_string()));
 }
 
 #[test]
@@ -191,16 +192,17 @@ fn handles_multiple_windows_independently() {
 
     assert_eq!(warnings.len(), 2);
     // Window 1: duplicate
-    assert!(warnings.iter().any(|w| w.contains("Window 'main'") && w.contains("duplicate")));
+    assert!(warnings
+        .iter()
+        .any(|w| w.contains("Window 'main'") && w.contains("duplicate")));
     // Window 2: invalid active_tab_id
-    assert!(warnings.iter().any(|w| w.contains("Window 'secondary'") && w.contains("active_tab_id")));
+    assert!(warnings
+        .iter()
+        .any(|w| w.contains("Window 'secondary'") && w.contains("active_tab_id")));
 
     // Verify repairs
     assert_eq!(session.windows[0].tabs.len(), 1);
-    assert_eq!(
-        session.windows[1].active_tab_id,
-        Some("tab-a".to_string())
-    );
+    assert_eq!(session.windows[1].active_tab_id, Some("tab-a".to_string()));
 }
 
 #[test]
@@ -303,9 +305,12 @@ fn preserves_duplicate_path_tab_with_dirty_content() {
     let warnings = validate_and_repair(&mut session);
 
     // No "removed ... duplicate file_path" warning — both tabs survive.
-    assert!(!warnings.iter().any(|w| w.contains("removed")
-        && w.contains("duplicate file_path")));
-    assert!(warnings.iter().any(|w| w.contains("kept duplicate-path tab")));
+    assert!(!warnings
+        .iter()
+        .any(|w| w.contains("removed") && w.contains("duplicate file_path")));
+    assert!(warnings
+        .iter()
+        .any(|w| w.contains("kept duplicate-path tab")));
     let ids: Vec<&str> = session.windows[0]
         .tabs
         .iter()
@@ -375,7 +380,11 @@ fn drops_only_clean_identical_duplicate_keeps_dirty_one() {
         .iter()
         .map(|t| t.id.as_str())
         .collect();
-    assert_eq!(ids, vec!["t1", "t3"], "clean identical dup dropped, dirty kept");
+    assert_eq!(
+        ids,
+        vec!["t1", "t3"],
+        "clean identical dup dropped, dirty kept"
+    );
 }
 
 #[test]
@@ -400,17 +409,27 @@ fn prunes_workspace_instance_references_to_removed_tabs() {
     let warnings = validate_and_repair(&mut session);
 
     let instance = &session.windows[0].workspace_instances[0];
-    assert_eq!(instance.tab_ids, vec!["t1"], "removed tab pruned from tab_ids");
-    assert!(instance.closed_tab_ids.is_empty(), "removed tab pruned from closed_tab_ids");
-    assert!(instance.active_tab_id.is_none(), "active pointing at removed tab reset");
-    assert!(warnings.iter().any(|w| w.contains("pruned removed tab references")));
+    assert_eq!(
+        instance.tab_ids,
+        vec!["t1"],
+        "removed tab pruned from tab_ids"
+    );
+    assert!(
+        instance.closed_tab_ids.is_empty(),
+        "removed tab pruned from closed_tab_ids"
+    );
+    assert!(
+        instance.active_tab_id.is_none(),
+        "active pointing at removed tab reset"
+    );
+    assert!(warnings
+        .iter()
+        .any(|w| w.contains("pruned removed tab references")));
 }
 
 #[test]
 fn untitled_tabs_are_not_deduplicated_by_path() {
-    let mut session = make_session(vec![
-        make_window("main", &["t1", "t2", "t3"], Some("t1")),
-    ]);
+    let mut session = make_session(vec![make_window("main", &["t1", "t2", "t3"], Some("t1"))]);
     // All tabs have file_path: None (untitled) — no dedup should occur
 
     let warnings = validate_and_repair(&mut session);

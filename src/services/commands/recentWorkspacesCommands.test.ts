@@ -26,7 +26,7 @@ vi.mock("@/services/navigation/restoreWorkspaceTabs", () => ({
 }));
 vi.mock("@/services/ime/imeToast", () => ({ imeToast: { error: (...a: unknown[]) => mockToastError(...a) } }));
 
-import { executeCommand, _resetCommandBus } from "./CommandBus";
+import { executeCommand, listCommands, _resetCommandBus } from "./CommandBus";
 import {
   registerRecentWorkspacesCommands,
   __resetRecentWorkspacesCommandsRegistration,
@@ -51,6 +51,17 @@ beforeEach(() => {
 });
 
 afterEach(() => _resetCommandBus());
+
+describe("HMR re-registration (dev-only Vite reload)", () => {
+  it("does not throw when the module flag resets but the bus registry survives", () => {
+    const before = listCommands().length;
+    // Simulate Vite HMR: the registrar module re-instantiates (module-local
+    // `registered` flag resets) while CommandBus's REGISTRY survives.
+    __resetRecentWorkspacesCommandsRegistration();
+    expect(() => registerRecentWorkspacesCommands()).not.toThrow();
+    expect(listCommands().length).toBe(before);
+  });
+});
 
 describe("workspace.openRecent", () => {
   it.each([[[]], [[null]], [null], [undefined], [""]])(

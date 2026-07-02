@@ -39,8 +39,29 @@ fn is_hidden_by_metadata(metadata: &fs::Metadata) -> bool {
     (attrs & FILE_ATTRIBUTE_HIDDEN != 0) || (attrs & FILE_ATTRIBUTE_SYSTEM != 0)
 }
 
+/// Cross-platform hidden check: dot-prefix everywhere, plus the
+/// FILE_ATTRIBUTE_HIDDEN/SYSTEM attributes on Windows (stat only when the
+/// cheap name check didn't already decide).
+fn compute_is_hidden(name: &str, entry: &fs::DirEntry) -> bool {
+    if is_hidden_by_name(name) {
+        return true;
+    }
+    #[cfg(windows)]
+    {
+        if let Ok(metadata) = entry.metadata() {
+            return is_hidden_by_metadata(&metadata);
+        }
+    }
+    #[cfg(not(windows))]
+    let _ = entry; // no metadata needed off Windows
+    false
+}
+
 /// Maximum directory entries to return (safety limit for huge directories).
 pub const MAX_DIR_ENTRIES: usize = 10_000;
+// Compile-time sanity bounds: large enough for real workspaces, small enough
+// to keep a single IPC payload bounded.
+const _: () = assert!(MAX_DIR_ENTRIES >= 1000 && MAX_DIR_ENTRIES <= 100_000);
 
 /// List immediate children of a directory for the file explorer sidebar.
 ///
@@ -90,21 +111,7 @@ fn list_directory_entries_blocking(path: &str) -> Result<Vec<DirectoryEntry>, St
         //   - dot-prefixed names are hidden by name on every OS;
         //   - on Unix nothing else can mark a file hidden, so no stat at all;
         //   - only non-dotfiles on Windows need a stat for HIDDEN/SYSTEM attrs.
-        let is_hidden = if is_hidden_by_name(&name) {
-            true
-        } else {
-            #[cfg(windows)]
-            {
-                entry
-                    .metadata()
-                    .map(|metadata| is_hidden_by_metadata(&metadata))
-                    .unwrap_or(false)
-            }
-            #[cfg(not(windows))]
-            {
-                false
-            }
-        };
+        let is_hidden = compute_is_hidden(&name, &entry);
 
         results.push(DirectoryEntry {
             name,
@@ -117,7 +124,8 @@ fn list_directory_entries_blocking(path: &str) -> Result<Vec<DirectoryEntry>, St
     if truncated {
         log::warn!(
             "directory listing truncated at {} entries for: {}",
-            MAX_DIR_ENTRIES, path
+            MAX_DIR_ENTRIES,
+            path
         );
     }
 
@@ -129,12 +137,6 @@ mod tests {
     use super::*;
     use std::fs;
     use tempfile::tempdir;
-
-    #[test]
-    fn list_directory_entries_constant_exists() {
-        assert!(MAX_DIR_ENTRIES >= 1000);
-        assert!(MAX_DIR_ENTRIES <= 100_000);
-    }
 
     #[test]
     fn list_directory_entries_under_limit_returns_all() {
@@ -166,6 +168,36 @@ mod tests {
         assert!(visible.is_some());
         assert!(hidden.unwrap().is_hidden);
         assert!(!visible.unwrap().is_hidden);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn list_directory_entries_marks_windows_hidden_attribute() {
+        let dir = tempdir().unwrap();
+        let root = dir.path();
+        let hidden = root.join("attr-hidden.md");
+        fs::write(&hidden, "hidden by attribute").unwrap();
+        fs::write(root.join("plain.md"), "visible").unwrap();
+
+        // Set FILE_ATTRIBUTE_HIDDEN via attrib (no direct std API).
+        let status = std::process::Command::new("attrib")
+            .arg("+h")
+            .arg(&hidden)
+            .status()
+            .expect("attrib must be available on Windows");
+        assert!(status.success());
+
+        let entries = list_directory_entries_blocking(root.to_str().unwrap()).unwrap();
+        let by_attr = entries
+            .iter()
+            .find(|entry| entry.name == "attr-hidden.md")
+            .unwrap();
+        let plain = entries
+            .iter()
+            .find(|entry| entry.name == "plain.md")
+            .unwrap();
+        assert!(by_attr.is_hidden, "FILE_ATTRIBUTE_HIDDEN must mark hidden");
+        assert!(!plain.is_hidden);
     }
 
     #[test]

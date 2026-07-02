@@ -35,8 +35,7 @@ pub fn parse_genie(content: &str, path: &str) -> Result<GenieContent, String> {
     let trimmed = content.trim_start();
 
     // Require opening fence to be exactly "---" on its own line (not "----" or "--- extra")
-    let has_frontmatter = trimmed.starts_with("---")
-        && trimmed[3..].starts_with(|c: char| c == '\n' || c == '\r');
+    let has_frontmatter = trimmed.starts_with("---") && trimmed[3..].starts_with(['\n', '\r']);
     if !has_frontmatter {
         // No frontmatter — use filename as name
         let name = name_from_path(path);
@@ -118,9 +117,7 @@ fn metadata_from_yaml(yaml: &serde_yaml_ng::Value, name: String) -> GenieMetadat
     };
 
     let description = yaml_str(map, "description").unwrap_or("").to_string();
-    let scope = yaml_str(map, "scope")
-        .unwrap_or("selection")
-        .to_string();
+    let scope = yaml_str(map, "scope").unwrap_or("selection").to_string();
     let category = yaml_str(map, "category").map(String::from);
     let model = yaml_str(map, "model").map(String::from);
     let action = yaml_str(map, "action")
@@ -258,7 +255,10 @@ fn metadata_from_flat(frontmatter_block: &str, name: String) -> GenieMetadata {
         if let Some((key, value)) = line.split_once(':') {
             fields.insert(
                 key.trim().to_lowercase(),
-                value.trim().trim_matches(|c| c == '"' || c == '\'').to_string(),
+                value
+                    .trim()
+                    .trim_matches(|c| c == '"' || c == '\'')
+                    .to_string(),
             );
         }
     }

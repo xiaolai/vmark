@@ -99,7 +99,8 @@ pub(crate) fn generate_config_content(
                     }),
                 );
 
-            serde_json::to_string_pretty(&json).map_err(|e| format!("JSON serialization error: {}", e))
+            serde_json::to_string_pretty(&json)
+                .map_err(|e| format!("JSON serialization error: {}", e))
         }
         "codex" => {
             let mut toml_doc: toml::Table = existing_content
@@ -113,11 +114,15 @@ pub(crate) fn generate_config_content(
             if let toml::Value::Table(servers) = mcp_servers {
                 // No args needed - sidecar auto-discovers port from app data directory
                 let mut vmark_config = toml::Table::new();
-                vmark_config.insert("command".to_string(), toml::Value::String(binary_path.to_string()));
+                vmark_config.insert(
+                    "command".to_string(),
+                    toml::Value::String(binary_path.to_string()),
+                );
                 servers.insert("vmark".to_string(), toml::Value::Table(vmark_config));
             }
 
-            toml::to_string_pretty(&toml_doc).map_err(|e| format!("TOML serialization error: {}", e))
+            toml::to_string_pretty(&toml_doc)
+                .map_err(|e| format!("TOML serialization error: {}", e))
         }
         _ => Err(format!("Unknown provider: {}", provider_id)),
     }
@@ -134,17 +139,20 @@ pub(crate) fn remove_vmark_from_config(provider_id: &str, content: &str) -> Resu
                 servers.remove("vmark");
             }
 
-            serde_json::to_string_pretty(&json).map_err(|e| format!("JSON serialization error: {}", e))
+            serde_json::to_string_pretty(&json)
+                .map_err(|e| format!("JSON serialization error: {}", e))
         }
         "codex" => {
-            let mut toml_doc: toml::Table =
-                content.parse().map_err(|e| format!("Invalid TOML: {}", e))?;
+            let mut toml_doc: toml::Table = content
+                .parse()
+                .map_err(|e| format!("Invalid TOML: {}", e))?;
 
             if let Some(toml::Value::Table(servers)) = toml_doc.get_mut("mcp_servers") {
                 servers.remove("vmark");
             }
 
-            toml::to_string_pretty(&toml_doc).map_err(|e| format!("TOML serialization error: {}", e))
+            toml::to_string_pretty(&toml_doc)
+                .map_err(|e| format!("TOML serialization error: {}", e))
         }
         _ => Err(format!("Unknown provider: {}", provider_id)),
     }

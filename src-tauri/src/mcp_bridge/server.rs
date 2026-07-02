@@ -5,13 +5,10 @@
 
 use super::state::{
     cleanup_stale_pending, generate_auth_token, get_bridge_state, get_shutdown_holder,
-    get_write_lock, is_read_only_operation, is_webview_alive, remove_port_file,
-    set_webview_alive, write_port_file, ClientConnection, PendingRequest,
-    CLIENT_TX_CAPACITY, MAX_PENDING_REQUESTS,
+    get_write_lock, is_read_only_operation, is_webview_alive, remove_port_file, set_webview_alive,
+    write_port_file, ClientConnection, PendingRequest, CLIENT_TX_CAPACITY, MAX_PENDING_REQUESTS,
 };
-use super::types::{
-    ClientIdentity, McpRequest, McpRequestEvent, McpResponse, WsMessage,
-};
+use super::types::{ClientIdentity, McpRequest, McpRequestEvent, McpResponse, WsMessage};
 use futures_util::{SinkExt, StreamExt};
 use std::net::SocketAddr;
 use std::time::{Duration, Instant};
@@ -43,17 +40,14 @@ enum EnqueueOutcome {
 /// the dropped message is load-bearing (e.g. a request response). Both
 /// failure cases are logged here so call sites only need to act on the
 /// returned outcome.
-fn enqueue_client_msg(
-    client_id: u64,
-    tx: &mpsc::Sender<String>,
-    msg: String,
-) -> EnqueueOutcome {
+fn enqueue_client_msg(client_id: u64, tx: &mpsc::Sender<String>, msg: String) -> EnqueueOutcome {
     match tx.try_send(msg) {
         Ok(()) => EnqueueOutcome::Sent,
         Err(mpsc::error::TrySendError::Full(_)) => {
             log::warn!(
                 "[MCP Bridge] Client {} outbound queue full (cap {}) — dropping message",
-                client_id, CLIENT_TX_CAPACITY
+                client_id,
+                CLIENT_TX_CAPACITY
             );
             EnqueueOutcome::QueueFull
         }
@@ -80,7 +74,8 @@ async fn force_disconnect_client(client_id: u64, reason: &str) {
             let _ = shutdown_tx.send(());
             log::warn!(
                 "[MCP Bridge] Forcing client {} disconnect: {}",
-                client_id, reason
+                client_id,
+                reason
             );
         }
     }
@@ -197,11 +192,20 @@ pub async fn stop_bridge(app: &AppHandle) {
 /// Handle a single WebSocket connection.
 /// Requires the client to send an `auth` message with a valid token before
 /// any requests are processed.
-async fn handle_connection(stream: TcpStream, addr: SocketAddr, app: AppHandle, expected_token: String) {
+async fn handle_connection(
+    stream: TcpStream,
+    addr: SocketAddr,
+    app: AppHandle,
+    expected_token: String,
+) {
     let ws_stream = match accept_async(stream).await {
         Ok(ws) => ws,
         Err(e) => {
-            log::error!("[MCP Bridge] WebSocket handshake failed for {}: {}", addr, e);
+            log::error!(
+                "[MCP Bridge] WebSocket handshake failed for {}: {}",
+                addr,
+                e
+            );
             return;
         }
     };
@@ -261,41 +265,45 @@ async fn handle_connection(stream: TcpStream, addr: SocketAddr, app: AppHandle, 
 
     // --- Auth phase: wait for auth message before processing requests ---
     let mut authenticated = false;
-    let auth_timeout = tokio::time::timeout(
-        std::time::Duration::from_secs(10),
-        async {
-            while let Some(msg) = ws_receiver.next().await {
-                match msg {
-                    Ok(Message::Text(text)) => {
-                        if let Ok(ws_msg) = serde_json::from_str::<WsMessage>(&text) {
-                            if ws_msg.msg_type == "auth" {
-                                let token = ws_msg.payload.get("token")
-                                    .and_then(|v| v.as_str())
-                                    .unwrap_or("");
-                                if token == expected_token {
-                                    return Ok(true);
-                                } else {
-                                    log::warn!("[MCP Bridge] Client {} auth failed: invalid token", client_id);
-                                    return Ok(false);
-                                }
+    let auth_timeout = tokio::time::timeout(std::time::Duration::from_secs(10), async {
+        while let Some(msg) = ws_receiver.next().await {
+            match msg {
+                Ok(Message::Text(text)) => {
+                    if let Ok(ws_msg) = serde_json::from_str::<WsMessage>(&text) {
+                        if ws_msg.msg_type == "auth" {
+                            let token = ws_msg
+                                .payload
+                                .get("token")
+                                .and_then(|v| v.as_str())
+                                .unwrap_or("");
+                            if token == expected_token {
+                                return Ok(true);
+                            } else {
+                                log::warn!(
+                                    "[MCP Bridge] Client {} auth failed: invalid token",
+                                    client_id
+                                );
+                                return Ok(false);
                             }
-                            // Reject any non-auth first message (including identify)
-                            log::warn!(
-                                "[MCP Bridge] Client {} sent '{}' before auth — rejected",
-                                client_id, ws_msg.msg_type
-                            );
                         }
-                        // Unknown first message — reject
-                        return Ok(false);
+                        // Reject any non-auth first message (including identify)
+                        log::warn!(
+                            "[MCP Bridge] Client {} sent '{}' before auth — rejected",
+                            client_id,
+                            ws_msg.msg_type
+                        );
                     }
-                    Ok(Message::Close(_)) => return Err("closed"),
-                    Err(_) => return Err("error"),
-                    _ => continue,
+                    // Unknown first message — reject
+                    return Ok(false);
                 }
+                Ok(Message::Close(_)) => return Err("closed"),
+                Err(_) => return Err("error"),
+                _ => continue,
             }
-            Err("stream ended")
         }
-    ).await;
+        Err("stream ended")
+    })
+    .await;
 
     match auth_timeout {
         Ok(Ok(true)) => {
@@ -416,7 +424,8 @@ async fn wake_webview(app: &AppHandle, target_label: &str) {
         if let Err(e) = window.eval("void(0)") {
             log::debug!(
                 "[MCP Bridge] Failed to wake webview '{}': {} (continuing anyway)",
-                target_label, e
+                target_label,
+                e
             );
         }
     } else {
@@ -440,12 +449,12 @@ fn resolve_target_window(args: &serde_json::Value, app: &AppHandle) -> String {
 
     if window_id == "focused" {
         // Find the focused document window (main or doc-*)
-        let resolved = app.webview_windows()
+        let resolved = app
+            .webview_windows()
             .values()
             .find(|w| {
                 let label = w.label();
-                w.is_focused().unwrap_or(false)
-                    && (label == "main" || label.starts_with("doc-"))
+                w.is_focused().unwrap_or(false) && (label == "main" || label.starts_with("doc-"))
             })
             .map(|w| w.label().to_string());
 
@@ -543,9 +552,14 @@ async fn handle_message(text: &str, client_id: u64, app: &AppHandle) -> Result<(
 
     // Debug: Log request args to trace markdown escaping issues (dev only — may contain user content)
     #[cfg(debug_assertions)]
-    if request.request_type.starts_with("document.insert") || request.request_type == "selection.replace" {
+    if request.request_type.starts_with("document.insert")
+        || request.request_type == "selection.replace"
+    {
         log::debug!("[MCP Bridge DEBUG] Request type: {}", request.request_type);
-        log::debug!("[MCP Bridge DEBUG] Args: {}", serde_json::to_string_pretty(&request.args).unwrap_or_default());
+        log::debug!(
+            "[MCP Bridge DEBUG] Args: {}",
+            serde_json::to_string_pretty(&request.args).unwrap_or_default()
+        );
     }
 
     // Handle requests that Rust can answer directly (no webview needed).
@@ -600,7 +614,8 @@ async fn handle_message(text: &str, client_id: u64, app: &AppHandle) -> Result<(
     } else {
         log::debug!(
             "[MCP Bridge] Client {} acquiring write lock for {}",
-            client_id, request.request_type
+            client_id,
+            request.request_type
         );
         Some(write_lock.lock().await)
     };
@@ -635,8 +650,7 @@ async fn handle_message(text: &str, client_id: u64, app: &AppHandle) -> Result<(
     // Each window has its own webview with independent editor state, so we
     // must route to the correct one to avoid cross-window content leakage.
     // Serialize args to JSON string to avoid Tauri IPC double-encoding.
-    let args_json = serde_json::to_string(&request.args)
-        .unwrap_or_else(|_| "{}".to_string());
+    let args_json = serde_json::to_string(&request.args).unwrap_or_else(|_| "{}".to_string());
     let event = McpRequestEvent {
         id: request_id.clone(),
         request_type: request.request_type.clone(),
@@ -647,7 +661,9 @@ async fn handle_message(text: &str, client_id: u64, app: &AppHandle) -> Result<(
     let emit_result = if let Some(window) = app.get_webview_window(&target_label) {
         log::debug!(
             "[MCP Bridge] Emitting mcp-bridge:request to window '{}' for {} (id: {})",
-            target_label, request.request_type, request_id
+            target_label,
+            request.request_type,
+            request_id
         );
         window.emit("mcp-bridge:request", &event)
     } else {
@@ -717,16 +733,23 @@ async fn handle_message(text: &str, client_id: u64, app: &AppHandle) -> Result<(
                 if let Err(e) = window.emit("mcp-bridge:request", &event) {
                     log::warn!(
                         "[MCP Bridge] Retry emit to window '{}' failed: {}",
-                        target_label, e
+                        target_label,
+                        e
                     );
                     let state = get_bridge_state();
                     let mut guard = state.lock().await;
                     guard.pending.remove(&request_id);
                     drop(guard);
                     send_error_response(
-                        client_id, &client_tx, &msg.id,
-                        &format!("Failed to re-emit to window '{}' on retry: {}", target_label, e),
-                    ).await;
+                        client_id,
+                        &client_tx,
+                        &msg.id,
+                        &format!(
+                            "Failed to re-emit to window '{}' on retry: {}",
+                            target_label, e
+                        ),
+                    )
+                    .await;
                     return Ok(());
                 }
             } else {
@@ -739,9 +762,12 @@ async fn handle_message(text: &str, client_id: u64, app: &AppHandle) -> Result<(
                 guard.pending.remove(&request_id);
                 drop(guard);
                 send_error_response(
-                    client_id, &client_tx, &msg.id,
+                    client_id,
+                    &client_tx,
+                    &msg.id,
                     &format!("Target window '{}' was closed during retry", target_label),
-                ).await;
+                )
+                .await;
                 return Ok(());
             }
 
@@ -750,7 +776,8 @@ async fn handle_message(text: &str, client_id: u64, app: &AppHandle) -> Result<(
                 Ok(Ok(response)) => {
                     log::info!(
                         "[MCP Bridge] Retry succeeded for client {} request {}",
-                        client_id, request_type_for_log
+                        client_id,
+                        request_type_for_log
                     );
                     response
                 }
@@ -763,10 +790,17 @@ async fn handle_message(text: &str, client_id: u64, app: &AppHandle) -> Result<(
 
                     log::warn!(
                         "[MCP Bridge] Client {} request {} retry channel closed",
-                        client_id, request_type_for_log
+                        client_id,
+                        request_type_for_log
                     );
 
-                    send_error_response(client_id, &client_tx, &msg.id, "Response channel closed on retry").await;
+                    send_error_response(
+                        client_id,
+                        &client_tx,
+                        &msg.id,
+                        "Response channel closed on retry",
+                    )
+                    .await;
                     return Ok(());
                 }
                 Err(_) => {
@@ -778,7 +812,8 @@ async fn handle_message(text: &str, client_id: u64, app: &AppHandle) -> Result<(
 
                     log::warn!(
                         "[MCP Bridge] Client {} request {} timed out after retry (20s total)",
-                        client_id, request_type_for_log
+                        client_id,
+                        request_type_for_log
                     );
 
                     send_error_response(
@@ -786,7 +821,8 @@ async fn handle_message(text: &str, client_id: u64, app: &AppHandle) -> Result<(
                         &client_tx,
                         &msg.id,
                         "Request timeout after 20s (including retry with webview wake)",
-                    ).await;
+                    )
+                    .await;
                     return Ok(());
                 }
             }
@@ -796,7 +832,8 @@ async fn handle_message(text: &str, client_id: u64, app: &AppHandle) -> Result<(
     if !is_read {
         log::debug!(
             "[MCP Bridge] Client {} completed {} - releasing write lock",
-            client_id, request_type_for_log
+            client_id,
+            request_type_for_log
         );
     }
 

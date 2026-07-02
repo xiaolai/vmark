@@ -63,12 +63,22 @@ fn topological_sort(steps: Vec<RawStep>) -> Result<Vec<ResolvedStep>, String> {
     let mut id_set: HashSet<String> = HashSet::new();
 
     for step in steps {
-        let id = step
-            .id
-            .clone()
-            .unwrap_or_else(|| step.uses.split('/').last().unwrap_or("step").to_string());
+        let id = step.id.clone().unwrap_or_else(|| {
+            step.uses
+                .split('/')
+                .next_back()
+                .unwrap_or("step")
+                .to_string()
+        });
         let needs = step.needs.to_vec();
-        id_set.insert(id.clone());
+        // Duplicate IDs would silently overwrite earlier steps in step_map
+        // below, dropping work — fail loudly instead.
+        if !id_set.insert(id.clone()) {
+            return Err(format!(
+                "Duplicate step id '{}' — every step needs a unique id",
+                id
+            ));
+        }
         resolved.push(ResolvedStep { id, step, needs });
     }
 
@@ -92,7 +102,10 @@ fn topological_sort(steps: Vec<RawStep>) -> Result<Vec<ResolvedStep>, String> {
         in_degree.entry(rs.id.clone()).or_insert(0);
         adjacency.entry(rs.id.clone()).or_default();
         for dep in &rs.needs {
-            adjacency.entry(dep.clone()).or_default().push(rs.id.clone());
+            adjacency
+                .entry(dep.clone())
+                .or_default()
+                .push(rs.id.clone());
             *in_degree.entry(rs.id.clone()).or_insert(0) += 1;
         }
     }
@@ -125,10 +138,8 @@ fn topological_sort(steps: Vec<RawStep>) -> Result<Vec<ResolvedStep>, String> {
     }
 
     // Reorder resolved steps by sorted order
-    let mut step_map: HashMap<String, ResolvedStep> = resolved
-        .into_iter()
-        .map(|rs| (rs.id.clone(), rs))
-        .collect();
+    let mut step_map: HashMap<String, ResolvedStep> =
+        resolved.into_iter().map(|rs| (rs.id.clone(), rs)).collect();
     let mut ordered = Vec::new();
     for id in sorted_ids {
         if let Some(rs) = step_map.remove(&id) {
@@ -224,6 +235,7 @@ fn spawn_cancel_bridge(
 /// values cause genie steps to fail with a clear error rather than panic
 /// (lets the runner exercise action-only workflows from contexts where no
 /// AI provider has been selected yet).
+#[allow(clippy::too_many_arguments)]
 pub async fn run_workflow_sequential(
     app: &AppHandle,
     workflow: RawWorkflow,
@@ -504,10 +516,7 @@ pub async fn run_workflow_sequential(
                 // Store full structured output for downstream step consumption.
                 // Action steps + text genies have a single "text" entry; JSON
                 // genies populate one entry per top-level field.
-                let primary_text = step_outputs
-                    .get("text")
-                    .cloned()
-                    .unwrap_or_default();
+                let primary_text = step_outputs.get("text").cloned().unwrap_or_default();
                 outputs.insert(step_id.clone(), step_outputs);
                 completed_steps.insert(step_id.clone());
                 // Truncate only for IPC emission (char-safe, no byte-boundary panic)
@@ -614,14 +623,12 @@ fn resolve_params(
     let mut resolved = HashMap::new();
 
     for (key, value) in params {
-        let val = expressions::resolve(value, outputs, env)
-            .map_err(|e| e.to_string())?;
+        let val = expressions::resolve(value, outputs, env).map_err(|e| e.to_string())?;
 
         // Re-validate paths after substitution.
         if key == "path" {
-            validate_path(&val, workspace_root).map_err(|e| {
-                format!("Path validation failed after parameter resolution: {}", e)
-            })?;
+            validate_path(&val, workspace_root)
+                .map_err(|e| format!("Path validation failed after parameter resolution: {}", e))?;
         }
 
         resolved.insert(key.clone(), val);
@@ -656,10 +663,7 @@ async fn execute_step(
     } else if uses.starts_with("genie/") {
         execute_genie_step(step, params, cancel, provider, genies_dir, defaults).await
     } else if uses.starts_with("webhook/") {
-        Err(format!(
-            "Webhook '{}' execution not yet implemented",
-            uses
-        ))
+        Err(format!("Webhook '{}' execution not yet implemented", uses))
     } else {
         Err(format!("Unknown step type: {}", uses))
     }
@@ -679,8 +683,7 @@ async fn execute_genie_step(
     genies_dir: Option<&Path>,
     defaults: &RawDefaults,
 ) -> Result<HashMap<String, String>, String> {
-    let name = genie_step::parse_genie_name(&step.uses)
-        .map_err(|e| e.to_string())?;
+    let name = genie_step::parse_genie_name(&step.uses).map_err(|e| e.to_string())?;
     let provider = provider.ok_or_else(|| {
         format!(
             "Genie '{}' requires an active AI provider — none configured for this workflow run",
@@ -696,9 +699,13 @@ async fn execute_genie_step(
 
     let genie_path = genie_step::find_genie_file(genies_dir, name).map_err(|e| e.to_string())?;
     // Use tokio::fs to avoid blocking the runtime worker on slow disks.
-    let raw = tokio::fs::read_to_string(&genie_path)
-        .await
-        .map_err(|e| format!("Failed to read genie file '{}': {}", genie_path.display(), e))?;
+    let raw = tokio::fs::read_to_string(&genie_path).await.map_err(|e| {
+        format!(
+            "Failed to read genie file '{}': {}",
+            genie_path.display(),
+            e
+        )
+    })?;
 
     // Parse via the same path the editor uses, so v0 + v1 frontmatter behave
     // identically. We inline the call here rather than re-export `parse_genie`
@@ -768,6 +775,10 @@ async fn execute_action(
                 .get("path")
                 .ok_or("action/read-folder requires 'path' parameter")?;
             let path = validate_path(path_str, workspace_root)?;
+            // Canonical root for per-entry symlink containment checks below.
+            let canonical_root = workspace_root
+                .canonicalize()
+                .unwrap_or_else(|_| workspace_root.to_path_buf());
             let accept = params.get("accept").map(|s| s.as_str()).unwrap_or("*");
             let mut entries = Vec::new();
             let mut total_bytes: u64 = 0;
@@ -794,7 +805,22 @@ async fn execute_action(
                     continue;
                 }
 
-                let meta = match tokio::fs::metadata(entry.path()).await {
+                // Resolve symlinks and verify the target stays inside the
+                // workspace — the directory was validated, but an entry may
+                // be a symlink pointing outside the sandbox.
+                let entry_path = match tokio::fs::canonicalize(entry.path()).await {
+                    Ok(p) => p,
+                    Err(e) => {
+                        log::warn!("Skipping unresolvable entry '{}': {}", name, e);
+                        continue;
+                    }
+                };
+                if !entry_path.starts_with(&canonical_root) {
+                    log::warn!("Skipping '{}': resolves outside the workspace", name);
+                    continue;
+                }
+
+                let meta = match tokio::fs::metadata(&entry_path).await {
                     Ok(m) => m,
                     Err(e) => {
                         log::warn!("Skipping unreadable file '{}': {}", name, e);
@@ -816,7 +842,7 @@ async fn execute_action(
                     ));
                 }
 
-                match tokio::fs::read_to_string(entry.path()).await {
+                match tokio::fs::read_to_string(&entry_path).await {
                     Ok(content) => {
                         entries.push(format!("--- {} ---\n{}", name, content));
                     }
@@ -859,347 +885,19 @@ async fn execute_action(
     }
 }
 
-/// Check if a filename matches an accept pattern.
+/// Check if a filename matches an accept pattern. Supports `*`, a single
+/// suffix pattern (`*.md` / `.md`), or a comma-separated list (`*.md,*.txt`).
 fn matches_accept(name: &str, accept: &str) -> bool {
-    if accept == "*" {
+    if accept.trim().is_empty() || accept == "*" {
         return true;
     }
-    let ext = accept.trim_start_matches('*');
-    name.ends_with(ext)
+    accept
+        .split(',')
+        .map(str::trim)
+        .filter(|p| !p.is_empty())
+        .any(|p| p == "*" || name.ends_with(p.trim_start_matches('*')))
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_topological_sort_sequential() {
-        let steps = vec![
-            RawStep {
-                id: Some("a".into()),
-                uses: "action/read-file".into(),
-                with: HashMap::new(),
-                needs: NeedsDef::None,
-                condition: None,
-                model: None,
-                approval: None,
-                limits: None,
-            },
-            RawStep {
-                id: Some("b".into()),
-                uses: "genie/summarize".into(),
-                with: HashMap::new(),
-                needs: NeedsDef::Single("a".into()),
-                condition: None,
-                model: None,
-                approval: None,
-                limits: None,
-            },
-        ];
-        let sorted = topological_sort(steps).unwrap();
-        assert_eq!(sorted[0].id, "a");
-        assert_eq!(sorted[1].id, "b");
-    }
-
-    #[test]
-    fn test_topological_sort_fan_out() {
-        let steps = vec![
-            RawStep {
-                id: Some("read".into()),
-                uses: "action/read-folder".into(),
-                with: HashMap::new(),
-                needs: NeedsDef::None,
-                condition: None,
-                model: None,
-                approval: None,
-                limits: None,
-            },
-            RawStep {
-                id: Some("sum".into()),
-                uses: "genie/summarize".into(),
-                with: HashMap::new(),
-                needs: NeedsDef::Single("read".into()),
-                condition: None,
-                model: None,
-                approval: None,
-                limits: None,
-            },
-            RawStep {
-                id: Some("translate".into()),
-                uses: "genie/translate".into(),
-                with: HashMap::new(),
-                needs: NeedsDef::Single("read".into()),
-                condition: None,
-                model: None,
-                approval: None,
-                limits: None,
-            },
-            RawStep {
-                id: Some("save".into()),
-                uses: "action/save-file".into(),
-                with: HashMap::new(),
-                needs: NeedsDef::List(vec!["sum".into(), "translate".into()]),
-                condition: None,
-                model: None,
-                approval: None,
-                limits: None,
-            },
-        ];
-        let sorted = topological_sort(steps).unwrap();
-        // "read" must come first, "save" must come last
-        assert_eq!(sorted[0].id, "read");
-        assert_eq!(sorted[3].id, "save");
-        // "sum" and "translate" are in between (order among them doesn't matter)
-        let middle: HashSet<&str> = [sorted[1].id.as_str(), sorted[2].id.as_str()].into();
-        assert!(middle.contains("sum"));
-        assert!(middle.contains("translate"));
-    }
-
-    #[test]
-    fn test_topological_sort_circular() {
-        let steps = vec![
-            RawStep {
-                id: Some("a".into()),
-                uses: "action/read-file".into(),
-                with: HashMap::new(),
-                needs: NeedsDef::Single("b".into()),
-                condition: None,
-                model: None,
-                approval: None,
-                limits: None,
-            },
-            RawStep {
-                id: Some("b".into()),
-                uses: "genie/summarize".into(),
-                with: HashMap::new(),
-                needs: NeedsDef::Single("a".into()),
-                condition: None,
-                model: None,
-                approval: None,
-                limits: None,
-            },
-        ];
-        let result = topological_sort(steps);
-        assert!(result.is_err());
-        assert!(result.unwrap_err().contains("Circular"));
-    }
-
-    #[test]
-    fn test_topological_sort_missing_dep() {
-        let steps = vec![RawStep {
-            id: Some("a".into()),
-            uses: "action/read-file".into(),
-            with: HashMap::new(),
-            needs: NeedsDef::Single("nonexistent".into()),
-            condition: None,
-            model: None,
-            approval: None,
-            limits: None,
-        }];
-        let result = topological_sort(steps);
-        assert!(result.is_err());
-        assert!(result.unwrap_err().contains("unknown step"));
-    }
-
-    #[test]
-    fn test_truncate_utf8_safe_ascii() {
-        let s = "hello world";
-        assert_eq!(truncate_utf8_safe(s, 100), s);
-    }
-
-    #[test]
-    fn test_truncate_utf8_safe_cjk() {
-        let s = "你好世界测试数据";
-        // Each CJK char is 3 bytes. 8 chars = 24 bytes.
-        let result = truncate_utf8_safe(s, 10);
-        // Should truncate at char boundary, not panic
-        assert!(result.contains("..."));
-        assert!(!result.is_empty());
-    }
-
-    #[tokio::test]
-    async fn test_execute_action_notify() {
-        let mut params = HashMap::new();
-        params.insert("message".to_string(), "Hello".to_string());
-        let root = std::path::Path::new("/tmp");
-        let result = execute_action("action/notify", &params, root).await;
-        assert!(result.is_ok());
-        assert_eq!(result.unwrap(), "Hello");
-    }
-
-    #[tokio::test]
-    async fn test_execute_action_copy() {
-        let mut params = HashMap::new();
-        params.insert("input".to_string(), "test data".to_string());
-        let root = std::path::Path::new("/tmp");
-        let result = execute_action("action/copy", &params, root).await;
-        assert!(result.is_ok());
-        assert_eq!(result.unwrap(), "test data");
-    }
-
-    #[tokio::test]
-    async fn test_execute_action_unknown() {
-        let params = HashMap::new();
-        let root = std::path::Path::new("/tmp");
-        let result = execute_action("action/unknown", &params, root).await;
-        assert!(result.is_err());
-    }
-
-    fn step_with_uses(uses: &str) -> RawStep {
-        RawStep {
-            id: Some("s".into()),
-            uses: uses.into(),
-            with: HashMap::new(),
-            needs: NeedsDef::None,
-            condition: None,
-            model: None,
-            approval: None,
-            limits: None,
-        }
-    }
-
-    #[tokio::test]
-    async fn test_execute_step_unknown_type() {
-        let params = HashMap::new();
-        let root = std::path::Path::new("/tmp");
-        let defaults = RawDefaults::default();
-        let result = execute_step(
-            &step_with_uses("unknown/thing"),
-            &params,
-            root,
-            CancellationToken::new(),
-            None,
-            None,
-            &defaults,
-        )
-        .await;
-        assert!(result.is_err());
-    }
-
-    // Per-step timeout enforcement (WI-2.5): see cli::tests::cancellation_kills_long_running_shim
-    // for the cancellation primitive proof. The runner wraps each step
-    // exec in tokio::time::timeout(step_config.timeout_secs, ...) and fires
-    // the shared CancellationToken on elapsed; both layers are exercised
-    // separately by the ai_provider tests and the standard tokio test suite.
-
-    #[tokio::test]
-    async fn test_genie_step_without_provider_returns_error() {
-        // Without an active provider configured, a genie step fails fast
-        // with a clear message rather than panicking.
-        let params = HashMap::new();
-        let root = std::path::Path::new("/tmp");
-        let defaults = RawDefaults::default();
-        let result = execute_step(
-            &step_with_uses("genie/summarize"),
-            &params,
-            root,
-            CancellationToken::new(),
-            None,
-            None,
-            &defaults,
-        )
-        .await;
-        assert!(matches!(result, Err(ref e) if e.contains("provider")));
-    }
-
-    #[tokio::test]
-    async fn test_webhook_step_returns_error() {
-        let params = HashMap::new();
-        let root = std::path::Path::new("/tmp");
-        let defaults = RawDefaults::default();
-        let result = execute_step(
-            &step_with_uses("webhook/stripe"),
-            &params,
-            root,
-            CancellationToken::new(),
-            None,
-            None,
-            &defaults,
-        )
-        .await;
-        assert!(result.is_err());
-    }
-
-    #[tokio::test]
-    async fn test_prompt_returns_error() {
-        let params = HashMap::new();
-        let root = std::path::Path::new("/tmp");
-        let result = execute_action("action/prompt", &params, root).await;
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_matches_accept() {
-        assert!(matches_accept("readme.md", "*"));
-        assert!(matches_accept("readme.md", "*.md"));
-        assert!(matches_accept("readme.md", ".md"));
-        assert!(!matches_accept("readme.md", "*.txt"));
-    }
-
-    #[test]
-    fn test_env_substitution_via_resolver() {
-        // Legacy ${VAR} syntax still works via the new expression resolver.
-        let env: HashMap<String, String> = [("DIR".to_string(), "notes".to_string())].into();
-        let outputs = WorkflowOutputs::new();
-        let result = expressions::resolve("output/${DIR}/file.md", &outputs, &env).unwrap();
-        assert_eq!(result, "output/notes/file.md");
-    }
-
-    #[test]
-    fn test_env_substitution_multiple_vars_via_resolver() {
-        let env: HashMap<String, String> = [
-            ("A".to_string(), "hello".to_string()),
-            ("B".to_string(), "world".to_string()),
-        ]
-        .into();
-        let outputs = WorkflowOutputs::new();
-        let result = expressions::resolve("${A}/${B}", &outputs, &env).unwrap();
-        assert_eq!(result, "hello/world");
-    }
-
-    #[test]
-    fn test_resolve_params_output_ref_missing() {
-        let mut params = HashMap::new();
-        params.insert("input".to_string(), "missing.output".to_string());
-        let outputs = WorkflowOutputs::new();
-        let env = HashMap::new();
-        let root = std::path::Path::new("/tmp");
-        let result = resolve_params(&params, &outputs, &env, root);
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_resolve_params_steps_outputs_field() {
-        // WI-2.3: ${{ steps.X.outputs.Y }} resolves to outputs[X][Y].
-        let mut params = HashMap::new();
-        params.insert(
-            "input".to_string(),
-            "${{ steps.outline.outputs.text }}".to_string(),
-        );
-        let mut outputs = WorkflowOutputs::new();
-        outputs.insert(
-            "outline".to_string(),
-            HashMap::from([("text".to_string(), "section list".to_string())]),
-        );
-        let env = HashMap::new();
-        let root = std::path::Path::new("/tmp");
-        let resolved = resolve_params(&params, &outputs, &env, root).unwrap();
-        assert_eq!(resolved.get("input").unwrap(), "section list");
-    }
-
-    #[test]
-    fn test_resolve_params_bare_alias_still_works() {
-        // Backward compat: stepId.output reads outputs[id]["text"].
-        let mut params = HashMap::new();
-        params.insert("input".to_string(), "outline.output".to_string());
-        let mut outputs = WorkflowOutputs::new();
-        outputs.insert(
-            "outline".to_string(),
-            HashMap::from([("text".to_string(), "compat ok".to_string())]),
-        );
-        let env = HashMap::new();
-        let root = std::path::Path::new("/tmp");
-        let resolved = resolve_params(&params, &outputs, &env, root).unwrap();
-        assert_eq!(resolved.get("input").unwrap(), "compat ok");
-    }
-}
+#[path = "runner.test.rs"]
+mod tests;

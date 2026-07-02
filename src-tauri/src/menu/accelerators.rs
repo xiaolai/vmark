@@ -62,10 +62,7 @@ pub fn diff_accelerators(
     let mut changes: Vec<(String, String)> = next
         .iter()
         .filter_map(|(id, accel)| {
-            let is_changed = current
-                .get(id)
-                .map(|cur| cur != accel)
-                .unwrap_or(true);
+            let is_changed = current.get(id).map(|cur| cur != accel).unwrap_or(true);
             if is_changed {
                 Some((id.clone(), accel.clone()))
             } else {
@@ -266,14 +263,22 @@ mod tests {
         // Pre-populate to prove begin_rebuild actually clears.
         record_applied("bold", "CmdOrCtrl+B");
         assert_eq!(
-            accel_cache_snapshot_for_test().unwrap().get("bold").map(String::as_str),
+            accel_cache_snapshot_for_test()
+                .unwrap()
+                .get("bold")
+                .map(String::as_str),
             Some("CmdOrCtrl+B"),
         );
 
         begin_rebuild();
 
-        let snap = accel_cache_snapshot_for_test().expect("ACCEL_CACHE is Some after begin_rebuild");
-        assert!(snap.is_empty(), "begin_rebuild left stale entries: {:?}", snap);
+        let snap =
+            accel_cache_snapshot_for_test().expect("ACCEL_CACHE is Some after begin_rebuild");
+        assert!(
+            snap.is_empty(),
+            "begin_rebuild left stale entries: {:?}",
+            snap
+        );
     }
 
     #[test]
@@ -286,7 +291,10 @@ mod tests {
         record_applied("open", "CmdOrCtrl+O");
 
         let snap = accel_cache_snapshot_for_test().expect("ACCEL_CACHE created on first record");
-        assert_eq!(snap.get("save").map(String::as_str), Some("CmdOrCtrl+Shift+S"));
+        assert_eq!(
+            snap.get("save").map(String::as_str),
+            Some("CmdOrCtrl+Shift+S")
+        );
         assert_eq!(snap.get("open").map(String::as_str), Some("CmdOrCtrl+O"));
         assert_eq!(snap.len(), 2);
     }

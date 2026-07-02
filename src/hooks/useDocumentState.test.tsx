@@ -237,6 +237,92 @@ describe("useDocumentActions", () => {
     });
   });
 
+  // Regression: cross-tab content bleed. A per-tab editor's debounced flush
+  // can fire AFTER the active tab changed; with call-time tab resolution the
+  // old editor's content was written into the newly active tab and the
+  // originating tab lost the edit. An editor passing its own tab id must
+  // always write to that tab, regardless of the focused tab at flush time.
+  describe("ownTabId pinning", () => {
+    it("setContent writes to the owned tab even after the active tab changed", () => {
+      const tabA = useTabStore.getState().createTab(WINDOW, null);
+      useDocumentStore.getState().initDocument(tabA, "a-original", null);
+      const { result } = renderHook(() => useDocumentActions(tabA));
+
+      const tabB = useTabStore.getState().createTab(WINDOW, null);
+      useDocumentStore.getState().initDocument(tabB, "b-original", null);
+      useTabStore.getState().setActiveTab(WINDOW, tabB);
+
+      act(() => {
+        result.current.setContent("typed-into-A");
+      });
+
+      expect(useDocumentStore.getState().documents[tabA]?.content).toBe("typed-into-A");
+      expect(useDocumentStore.getState().documents[tabB]?.content).toBe("b-original");
+    });
+
+    it("setCursorInfo and setSelectedText target the owned tab after a switch", () => {
+      const tabA = useTabStore.getState().createTab(WINDOW, null);
+      useDocumentStore.getState().initDocument(tabA, "a", null);
+      const { result } = renderHook(() => useDocumentActions(tabA));
+
+      const tabB = useTabStore.getState().createTab(WINDOW, null);
+      useDocumentStore.getState().initDocument(tabB, "b", null);
+      useTabStore.getState().setActiveTab(WINDOW, tabB);
+
+      const cursor = {
+        sourceLine: 3,
+        wordAtCursor: "abc",
+        offsetInWord: 1,
+        nodeType: "paragraph",
+        positionPercent: 0.5,
+      } as unknown as import("@/stores/documentStore").CursorInfo;
+      act(() => {
+        result.current.setCursorInfo(cursor);
+        result.current.setSelectedText("sel-A");
+      });
+
+      expect(useDocumentStore.getState().documents[tabA]?.cursorInfo).toEqual(cursor);
+      expect(useDocumentStore.getState().documents[tabA]?.selectedText).toBe("sel-A");
+      expect(useDocumentStore.getState().documents[tabB]?.cursorInfo ?? null).toBeNull();
+      expect(useDocumentStore.getState().documents[tabB]?.selectedText ?? "").toBe("");
+    });
+
+    it("setContent no-ops (does not bleed) when the owned tab was closed", () => {
+      const tabA = useTabStore.getState().createTab(WINDOW, null);
+      useDocumentStore.getState().initDocument(tabA, "a", null);
+      const { result } = renderHook(() => useDocumentActions(tabA));
+
+      const tabB = useTabStore.getState().createTab(WINDOW, null);
+      useDocumentStore.getState().initDocument(tabB, "b-original", null);
+      useTabStore.getState().setActiveTab(WINDOW, tabB);
+      useDocumentStore.getState().removeDocument(tabA);
+
+      act(() => {
+        result.current.setContent("late-flush-from-A");
+      });
+
+      expect(useDocumentStore.getState().documents[tabA]).toBeUndefined();
+      expect(useDocumentStore.getState().documents[tabB]?.content).toBe("b-original");
+    });
+
+    it("without ownTabId, actions still resolve the focused tab at call time", () => {
+      const tabA = useTabStore.getState().createTab(WINDOW, null);
+      useDocumentStore.getState().initDocument(tabA, "a", null);
+      const { result } = renderHook(() => useDocumentActions());
+
+      const tabB = useTabStore.getState().createTab(WINDOW, null);
+      useDocumentStore.getState().initDocument(tabB, "b", null);
+      useTabStore.getState().setActiveTab(WINDOW, tabB);
+
+      act(() => {
+        result.current.setContent("focused-write");
+      });
+
+      expect(useDocumentStore.getState().documents[tabB]?.content).toBe("focused-write");
+      expect(useDocumentStore.getState().documents[tabA]?.content).toBe("a");
+    });
+  });
+
   it("loadContent updates content and file path", () => {
     const tabId = useTabStore.getState().createTab(WINDOW, null);
     useDocumentStore.getState().initDocument(tabId, "", null);

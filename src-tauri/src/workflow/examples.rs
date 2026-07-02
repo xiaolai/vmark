@@ -62,11 +62,7 @@ fn topo_order(workflow: &RawWorkflow) -> Result<Vec<String>, String> {
         }
     }
 
-    let mut queue: VecDeque<String> = ids
-        .iter()
-        .filter(|i| in_degree[*i] == 0)
-        .cloned()
-        .collect();
+    let mut queue: VecDeque<String> = ids.iter().filter(|i| in_degree[*i] == 0).cloned().collect();
     let mut order = Vec::new();
     while let Some(id) = queue.pop_front() {
         order.push(id.clone());

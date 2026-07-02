@@ -68,10 +68,13 @@ jobs:
             exit 1
           fi
 
-  # Perf bench smoke: ensure src/bench/*.bench.ts execute without error so the
-  # suite can't silently rot. SMOKE, not a threshold gate — `vitest bench` makes
-  # no timing assertions, so this fails only on real compile/runtime errors, not
-  # timing variance. ubuntu-latest only; no OS-matrix multiplication needed.
+  # Perf bench: on every run, src/bench/*.bench.ts must execute without error
+  # so the suite can't silently rot. On PRs, additionally benches the base ref
+  # in a worktree ON THE SAME RUNNER and compares means (same machine, same
+  # noise conditions — committed cross-machine baselines are meaningless).
+  # The comparison is a NON-BLOCKING signal (continue-on-error): shared-runner
+  # variance makes a hard gate cry wolf; the step summary carries the verdict.
+  # Threshold and semantics: scripts/compare-bench.mjs (2.5x mean, 1 ms floor).
   bench:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -89,7 +92,25 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - run: pnpm bench
+      - run: pnpm bench --outputJson /tmp/bench-current.json
+
+      - name: Bench base ref (same-runner reference)
+        id: bench-base
+        if: github.event_name == 'pull_request'
+        continue-on-error: true
+        run: |
+          git fetch --depth=1 origin "$BASE_REF"
+          git worktree add /tmp/bench-base FETCH_HEAD
+          cd /tmp/bench-base
+          pnpm install --frozen-lockfile
+          pnpm bench --outputJson /tmp/bench-base.json
+        env:
+          BASE_REF: ${{ github.base_ref }}
+
+      - name: Compare against base (non-blocking signal)
+        if: github.event_name == 'pull_request' && steps.bench-base.outcome == 'success'
+        continue-on-error: true
+        run: node scripts/compare-bench.mjs /tmp/bench-base.json /tmp/bench-current.json
 
   # Detect if Rust code changed — skip rust-test for frontend-only PRs
   changes:
@@ -123,6 +144,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable branch
         with:
           toolchain: stable
+          components: clippy, rustfmt
 
       - uses: actions/cache@v6
         with:
@@ -146,6 +168,17 @@ jobs:
             ext=""
           fi
           touch "src-tauri/binaries/vmark-mcp-server-${triple}${ext}"
+
+      # rustfmt is textual and platform-independent — one OS leg is enough.
+      - name: Format check (rustfmt)
+        if: runner.os == 'Linux'
+        run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
+
+      # Clippy runs per-OS because cfg-gated platform code (Windows/Linux
+      # branches) never compiles on the macOS leg. Runs before tests to fail
+      # fast; shares the same build cache.
+      - name: Lint (clippy, warnings are errors)
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
 
       - run: cargo test --manifest-path src-tauri/Cargo.toml
 

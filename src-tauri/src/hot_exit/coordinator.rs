@@ -3,15 +3,18 @@
 //! Orchestrates multi-window capture with timeout and restore logic.
 //! Supports multi-window restoration with pull-based state retrieval.
 
+use super::migration::{can_migrate, migrate_session, needs_migration};
+use super::session::{SessionData, WindowState, MAX_SESSION_AGE_DAYS, SCHEMA_VERSION};
+use super::{
+    EVENT_CAPTURE_REQUEST, EVENT_CAPTURE_RESPONSE, EVENT_CAPTURE_TIMEOUT, EVENT_RESTORE_START,
+    MAIN_WINDOW_LABEL,
+};
+use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
-use tokio::time::{timeout, Duration};
 use tauri::{AppHandle, Emitter, Listener, Manager};
-use serde::{Deserialize, Serialize};
-use super::session::{SessionData, WindowState, SCHEMA_VERSION, MAX_SESSION_AGE_DAYS};
-use super::migration::{can_migrate, migrate_session, needs_migration};
-use super::{EVENT_CAPTURE_REQUEST, EVENT_CAPTURE_RESPONSE, EVENT_CAPTURE_TIMEOUT, EVENT_RESTORE_START, MAIN_WINDOW_LABEL};
+use tokio::time::{timeout, Duration};
 
 /// Polling interval for waiting on responses
 const RESPONSE_POLL_INTERVAL_MS: u64 = 100;
@@ -41,7 +44,10 @@ impl PendingRestoreState {
     /// Check if all expected windows have completed
     fn all_complete(&self) -> bool {
         !self.expected_labels.is_empty()
-            && self.expected_labels.iter().all(|label| self.completed_windows.contains(label))
+            && self
+                .expected_labels
+                .iter()
+                .all(|label| self.completed_windows.contains(label))
     }
 
     /// Clear all state (preserves generation counter)
@@ -77,13 +83,13 @@ fn get_timeout_handle() -> Arc<Mutex<Option<TimeoutJoinHandle>>> {
 
 /// Get the pending restore state (for internal use)
 pub(crate) fn get_pending_restore_state() -> Arc<Mutex<PendingRestoreState>> {
-    Arc::clone(
-        PENDING_RESTORE.get_or_init(|| Arc::new(Mutex::new(PendingRestoreState::default())))
-    )
+    Arc::clone(PENDING_RESTORE.get_or_init(|| Arc::new(Mutex::new(PendingRestoreState::default()))))
 }
 
 /// Lock the pending restore state, recovering from poisoning
-fn lock_pending_restore(pending: &Arc<Mutex<PendingRestoreState>>) -> std::sync::MutexGuard<'_, PendingRestoreState> {
+fn lock_pending_restore(
+    pending: &Arc<Mutex<PendingRestoreState>>,
+) -> std::sync::MutexGuard<'_, PendingRestoreState> {
     pending.lock().unwrap_or_else(|poisoned| {
         log::warn!("[HotExit] Recovering from poisoned mutex");
         poisoned.into_inner()
@@ -126,11 +132,7 @@ static CAPTURE_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 /// millisecond never collide.
 fn generate_capture_id() -> String {
     let seq = CAPTURE_SEQUENCE.fetch_add(1, Ordering::Relaxed);
-    format!(
-        "capture-{}-{}",
-        chrono::Utc::now().timestamp_millis(),
-        seq
-    )
+    format!("capture-{}-{}", chrono::Utc::now().timestamp_millis(), seq)
 }
 
 /// Coordinator state for collecting window responses
@@ -162,8 +164,8 @@ pub struct CaptureResult {
 /// Enumerate the document windows (main + doc-*) eligible for capture.
 fn discover_document_windows(app: &AppHandle) -> Vec<String> {
     app.webview_windows()
-        .into_iter()
-        .filter_map(|(label, _)| {
+        .into_keys()
+        .filter_map(|label| {
             if label == MAIN_WINDOW_LABEL || label.starts_with("doc-") {
                 Some(label)
             } else {
@@ -175,10 +177,7 @@ fn discover_document_windows(app: &AppHandle) -> Vec<String> {
 
 /// Register the capture-response listener that accumulates window states into
 /// `state`. Returns the listener handle so the caller can unlisten when done.
-fn register_response_listener(
-    app: &AppHandle,
-    state: Arc<Mutex<CaptureState>>,
-) -> tauri::EventId {
+fn register_response_listener(app: &AppHandle, state: Arc<Mutex<CaptureState>>) -> tauri::EventId {
     app.listen(EVENT_CAPTURE_RESPONSE, move |event| {
         match serde_json::from_str::<CaptureResponse>(event.payload()) {
             Ok(mut response) => {
@@ -218,7 +217,9 @@ fn register_response_listener(
                 // Normalize: ensure state.window_label matches the response key
                 normalize_window_label(&mut response.state, &response.window_label);
 
-                state.responses.insert(response.window_label.clone(), response.state);
+                state
+                    .responses
+                    .insert(response.window_label.clone(), response.state);
             }
             Err(e) => {
                 log::error!(
@@ -340,7 +341,9 @@ pub async fn capture_session(app: &AppHandle) -> Result<CaptureResult, String> {
     // Always unlisten after waiting
     app.unlisten(unlisten);
 
-    let final_state = state.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    let final_state = state
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
 
     if result.is_err() {
         let missing: Vec<&String> = final_state
@@ -360,13 +363,18 @@ pub async fn capture_session(app: &AppHandle) -> Result<CaptureResult, String> {
     let expected_labels = final_state.expected_windows.clone();
     let session = assemble_session(windows_vec);
 
-    Ok(CaptureResult { session, expected_labels })
+    Ok(CaptureResult {
+        session,
+        expected_labels,
+    })
 }
 
 async fn wait_for_all_responses(state: Arc<Mutex<CaptureState>>, expected: usize) {
     loop {
         {
-            let current = state.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+            let current = state
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner());
             if current.responses.len() >= expected {
                 break;
             }
@@ -381,7 +389,8 @@ fn prepare_session_for_restore(session: SessionData) -> Result<SessionData, Stri
     let session = if needs_migration(&session) {
         log::info!(
             "[HotExit] Migrating session from v{} to v{}",
-            session.version, SCHEMA_VERSION
+            session.version,
+            SCHEMA_VERSION
         );
         migrate_session(session)?
     } else if !can_migrate(session.version) {
@@ -395,7 +404,10 @@ fn prepare_session_for_restore(session: SessionData) -> Result<SessionData, Stri
 
     // Check if session is stale (>7 days old)
     if session.is_stale(MAX_SESSION_AGE_DAYS) {
-        return Err(format!("Session is too old (>{} days)", MAX_SESSION_AGE_DAYS));
+        return Err(format!(
+            "Session is too old (>{} days)",
+            MAX_SESSION_AGE_DAYS
+        ));
     }
 
     Ok(session)
@@ -421,10 +433,7 @@ fn init_pending_restore_state_sync(
 ///
 /// Now uses pull-based approach: stores state in PendingRestoreState,
 /// then emits RESTORE_START signal to trigger main window to pull its state.
-pub fn restore_session(
-    app: &AppHandle,
-    session: SessionData,
-) -> Result<(), String> {
+pub fn restore_session(app: &AppHandle, session: SessionData) -> Result<(), String> {
     let session = prepare_session_for_restore(session)?;
 
     // Find the target window: prefer "main" label, fall back to first document window
@@ -516,7 +525,8 @@ pub fn restore_session_multi_window(
     // Pre-calculate how many windows we'll have
     let secondary_count = secondary_windows.len();
     let mut windows_created = Vec::with_capacity(secondary_count);
-    let mut window_states_to_store: Vec<(String, WindowState)> = Vec::with_capacity(secondary_count + 1);
+    let mut window_states_to_store: Vec<(String, WindowState)> =
+        Vec::with_capacity(secondary_count + 1);
     let mut expected_labels = HashSet::with_capacity(secondary_count + 1);
 
     // Prepare main window state — only include in expected_labels if state exists.
@@ -656,10 +666,8 @@ fn spawn_restore_timeout(generation: u64) {
                 state.clear();
             }
         };
-        if let Err(payload) = futures_util::FutureExt::catch_unwind(
-            std::panic::AssertUnwindSafe(body),
-        )
-        .await
+        if let Err(payload) =
+            futures_util::FutureExt::catch_unwind(std::panic::AssertUnwindSafe(body)).await
         {
             log::error!(
                 "[task:hot-exit-restore-timeout] task panicked: {}",

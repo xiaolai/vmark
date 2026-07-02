@@ -135,9 +135,7 @@ mod tests {
         let root = Path::new("/workspace/project");
         let result = validate_path("../../etc/passwd", root);
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .contains("outside the workspace root"));
+        assert!(result.unwrap_err().contains("outside the workspace root"));
     }
 
     #[test]

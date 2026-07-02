@@ -21,21 +21,28 @@ vi.mock("@/hooks/openWorkspaceWithConfig", () => ({
   openWorkspaceWithConfig: (...a: unknown[]) => mockOpenWorkspaceWithConfig(...a),
 }));
 
+const mockPersistWorkspaceSession = vi.fn();
+vi.mock("@/hooks/workspaceSession", () => ({
+  persistWorkspaceSession: (...a: unknown[]) => mockPersistWorkspaceSession(...a),
+}));
+
 vi.mock("@tauri-apps/plugin-fs", () => ({ readTextFile: vi.fn() }));
 
-import { executeCommand, _resetCommandBus } from "./CommandBus";
+import { executeCommand, listCommands, _resetCommandBus } from "./CommandBus";
 import {
   registerWorkspaceCommands,
   __resetWorkspaceCommandsRegistration,
 } from "./workspaceCommands";
 import { useUIStore } from "@/stores/uiStore";
 import { useTabStore } from "@/stores/tabStore";
+import { useWorkspaceStore } from "@/stores/workspaceStore";
 
 beforeEach(() => {
   _resetCommandBus();
   __resetWorkspaceCommandsRegistration();
   mockOpenPicker.mockReset();
   mockAsk.mockReset();
+  mockPersistWorkspaceSession.mockReset().mockResolvedValue(undefined);
   mockOpenWorkspaceWithConfig.mockReset().mockResolvedValue(null);
   useUIStore.setState({ sidebarVisible: false, sidebarViewMode: "outline" });
   // Pretend there is a dirty tab open — the old code would have shown a dialog.
@@ -50,6 +57,17 @@ beforeEach(() => {
 
 afterEach(() => {
   _resetCommandBus();
+});
+
+describe("HMR re-registration (dev-only Vite reload)", () => {
+  it("does not throw when the module flag resets but the bus registry survives", () => {
+    const before = listCommands().length;
+    // Simulate Vite HMR: the registrar module re-instantiates (module-local
+    // `registered` flag resets) while CommandBus's REGISTRY survives.
+    __resetWorkspaceCommandsRegistration();
+    expect(() => registerWorkspaceCommands()).not.toThrow();
+    expect(listCommands().length).toBe(before);
+  });
 });
 
 describe("workspace.openFolder (#1005)", () => {
@@ -76,5 +94,42 @@ describe("workspace.openFolder (#1005)", () => {
 
     expect(mockOpenWorkspaceWithConfig).not.toHaveBeenCalled();
     expect(mockAsk).not.toHaveBeenCalled();
+  });
+
+  it("ignores re-activation while the folder picker is already open (reentry guard)", async () => {
+    let resolvePicker!: (value: string | null) => void;
+    mockOpenPicker.mockImplementation(
+      () => new Promise<string | null>((resolve) => { resolvePicker = resolve; }),
+    );
+
+    const first = executeCommand("workspace.openFolder", {}, { windowLabel: "main" });
+    // Second activation while the picker is still open must be a no-op —
+    // without the guard it would open an overlapping picker.
+    await executeCommand("workspace.openFolder", {}, { windowLabel: "main" });
+    expect(mockOpenPicker).toHaveBeenCalledTimes(1);
+
+    resolvePicker(null);
+    await first;
+
+    // Guard released after completion: the command works again.
+    mockOpenPicker.mockResolvedValue(null);
+    await executeCommand("workspace.openFolder", {}, { windowLabel: "main" });
+    expect(mockOpenPicker).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("workspace.close", () => {
+  it("persists the window's session, then closes the workspace", async () => {
+    const closeWorkspace = vi.fn();
+    useWorkspaceStore.setState({ closeWorkspace } as never);
+
+    await executeCommand("workspace.close", {}, { windowLabel: "main" });
+
+    expect(mockPersistWorkspaceSession).toHaveBeenCalledWith("main");
+    expect(closeWorkspace).toHaveBeenCalledTimes(1);
+    // The session snapshot must be taken BEFORE workspace state is torn down.
+    expect(mockPersistWorkspaceSession.mock.invocationCallOrder[0]).toBeLessThan(
+      closeWorkspace.mock.invocationCallOrder[0],
+    );
   });
 });

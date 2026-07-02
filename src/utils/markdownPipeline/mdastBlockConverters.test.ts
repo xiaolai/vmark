@@ -182,6 +182,34 @@ describe("mdastBlockConverters", () => {
       expect(result!.attrs.id).toBe("id-hello-world");
     });
 
+    it("includes text nested in emphasis/strong/links/inline code in the heading ID", () => {
+      const seen: string[] = [];
+      const ctx: MdastToPmContext = {
+        ...createContext(),
+        generateHeadingId: (text: string) => {
+          seen.push(text);
+          return null;
+        },
+      };
+      const node: Heading = {
+        type: "heading",
+        depth: 2,
+        children: [
+          { type: "text", value: "Hello " },
+          { type: "emphasis", children: [{ type: "text", value: "brave " }] },
+          { type: "strong", children: [{ type: "text", value: "new " }] },
+          {
+            type: "link",
+            url: "https://example.com",
+            children: [{ type: "text", value: "world " }],
+          },
+          { type: "inlineCode", value: "code" },
+        ],
+      };
+      convertHeading(ctx, node, []);
+      expect(seen).toEqual(["Hello brave new world code"]);
+    });
+
     it("returns null when heading not in schema", () => {
       const ctx = createContext(minimalSchema);
       const node: Heading = { type: "heading", depth: 1, children: [] };
@@ -255,6 +283,15 @@ describe("mdastBlockConverters", () => {
       };
       const result = convertBlockquote(ctx, node, []);
       expect(result).toBeNull();
+    });
+
+    it("inserts an empty paragraph when converted children are empty (schema requires block+)", () => {
+      const node: Blockquote = { type: "blockquote", children: [] };
+      const result = convertBlockquote(context, node, []);
+      expect(result).not.toBeNull();
+      expect(result!.type.name).toBe("blockquote");
+      expect(result!.childCount).toBe(1);
+      expect(result!.child(0).type.name).toBe("paragraph");
     });
   });
 
@@ -1771,8 +1808,8 @@ describe("mdastBlockConverters", () => {
     });
   });
 
-  describe("convertHeading — child without value property (line 147)", () => {
-    it("produces empty string for non-text heading children", () => {
+  describe("convertHeading — nested phrasing children", () => {
+    it("converts headings containing non-text children without error", () => {
       const ctx = createContext();
       const node: Heading = {
         type: "heading",
@@ -1785,7 +1822,8 @@ describe("mdastBlockConverters", () => {
       const result = convertHeading(ctx, node, []);
       expect(result).not.toBeNull();
       expect(result!.type.name).toBe("heading");
-      // emphasis child doesn't have "value", so produces "" in headingText
+      // Nested phrasing text is extracted recursively for the heading ID —
+      // see "includes text nested in emphasis/strong/links/inline code".
     });
   });
 

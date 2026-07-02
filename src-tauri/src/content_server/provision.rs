@@ -98,7 +98,10 @@ impl ProvisionState {
         matches!(self, ProvisionState::Ready { .. })
     }
     pub fn is_terminal(&self) -> bool {
-        matches!(self, ProvisionState::Ready { .. } | ProvisionState::Failed { .. })
+        matches!(
+            self,
+            ProvisionState::Ready { .. } | ProvisionState::Failed { .. }
+        )
     }
 }
 
@@ -131,12 +134,23 @@ mod tests {
         s = transition(&s, ProvisionEvent::StartDownload { total: 100 });
         assert!(matches!(s, ProvisionState::Downloading { total: 100, .. }));
         s = transition(&s, ProvisionEvent::Progress { received: 50 });
-        assert_eq!(s, ProvisionState::Downloading { received: 50, total: 100 });
+        assert_eq!(
+            s,
+            ProvisionState::Downloading {
+                received: 50,
+                total: 100
+            }
+        );
         s = transition(&s, ProvisionEvent::DownloadComplete);
         assert_eq!(s, ProvisionState::Verifying);
         s = transition(&s, ProvisionEvent::ChecksumOk);
         assert_eq!(s, ProvisionState::Extracting);
-        s = transition(&s, ProvisionEvent::Extracted { version: "1.0.0".into() });
+        s = transition(
+            &s,
+            ProvisionEvent::Extracted {
+                version: "1.0.0".into(),
+            },
+        );
         assert!(s.is_ready() && s.is_terminal());
     }
 
@@ -150,10 +164,20 @@ mod tests {
     #[test]
     fn errored_from_any_state_fails() {
         let s = transition(
-            &ProvisionState::Downloading { received: 1, total: 2 },
-            ProvisionEvent::Errored { reason: "net".into() },
+            &ProvisionState::Downloading {
+                received: 1,
+                total: 2,
+            },
+            ProvisionEvent::Errored {
+                reason: "net".into(),
+            },
         );
-        assert_eq!(s, ProvisionState::Failed { reason: "net".into() });
+        assert_eq!(
+            s,
+            ProvisionState::Failed {
+                reason: "net".into()
+            }
+        );
     }
 
     #[test]
@@ -170,7 +194,10 @@ mod tests {
             "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824",
         );
         assert!(ok);
-        assert!(verify_checksum(b"hello", "2CF24DBA5FB0A30E26E83B2AC5B9E29E1B161E5C1FA7425E73043362938B9824"));
+        assert!(verify_checksum(
+            b"hello",
+            "2CF24DBA5FB0A30E26E83B2AC5B9E29E1B161E5C1FA7425E73043362938B9824"
+        ));
         assert!(!verify_checksum(b"hello", "deadbeef"));
     }
 }

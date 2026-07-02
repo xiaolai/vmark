@@ -35,9 +35,9 @@
 
 pub mod accelerators;
 mod commands;
-pub mod menu_state;
 mod dynamic;
 pub mod localized;
+pub mod menu_state;
 
 use std::sync::Mutex;
 

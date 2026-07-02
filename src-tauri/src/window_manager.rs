@@ -23,7 +23,7 @@
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::atomic::{AtomicU32, Ordering};
-use tauri::{menu::Menu, AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
+use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 
 use crate::PendingFileOpen;
 
@@ -286,9 +286,7 @@ pub(crate) fn create_document_window_with_url(
 
 /// Create a new document window for a tab transfer (drag-out).
 /// The URL includes `?transfer=true` so the frontend can claim the data.
-pub fn create_document_window_for_transfer(
-    app: &AppHandle,
-) -> Result<String, tauri::Error> {
+pub fn create_document_window_for_transfer(app: &AppHandle) -> Result<String, tauri::Error> {
     create_document_window_with_url(app, "/?transfer=true".to_string())
 }
 
@@ -381,10 +379,7 @@ pub fn create_main_window(
 
 /// Pure decision function for `pick_reopen_workspace_root` — testable without
 /// touching the filesystem or the recent-workspaces snapshot.
-fn pick_reopen_workspace_root_with<F>(
-    most_recent: Option<String>,
-    path_exists: F,
-) -> Option<String>
+fn pick_reopen_workspace_root_with<F>(most_recent: Option<String>, path_exists: F) -> Option<String>
 where
     F: Fn(&str) -> bool,
 {
@@ -399,10 +394,9 @@ where
 /// to keep behavior predictable: the user expects "the workspace I was just
 /// in," not an older one they may not remember.
 pub(crate) fn pick_reopen_workspace_root() -> Option<String> {
-    pick_reopen_workspace_root_with(
-        crate::menu::get_recent_workspace_path(0),
-        |p| std::path::Path::new(p).is_dir(),
-    )
+    pick_reopen_workspace_root_with(crate::menu::get_recent_workspace_path(0), |p| {
+        std::path::Path::new(p).is_dir()
+    })
 }
 
 /// Validate that a frontend-supplied path is safe to extend into the fs
@@ -430,9 +424,7 @@ fn validate_openable_path(raw: &str) -> Result<(), String> {
     // canonical path against `is_openable_supported`. A symlink whose
     // target lives outside the registered set fails this check.
     if !crate::is_openable_supported(&canonical) {
-        return Err(format!(
-            "path '{raw}' is not an openable VMark file"
-        ));
+        return Err(format!("path '{raw}' is not an openable VMark file"));
     }
     Ok(())
 }
@@ -475,12 +467,8 @@ pub fn open_workspace_in_new_window(
         validate_openable_path(path)?;
         crate::allow_fs_read(&app, path);
     }
-    create_document_window(
-        &app,
-        file_path.as_deref(),
-        Some(&workspace_root),
-    )
-    .map_err(|e| e.to_string())
+    create_document_window(&app, file_path.as_deref(), Some(&workspace_root))
+        .map_err(|e| e.to_string())
 }
 
 /// Open a workspace in a new window with multiple files.
@@ -508,12 +496,12 @@ pub fn open_workspace_with_files_in_new_window(
 /// Close a specific window by label
 #[tauri::command]
 pub fn close_window(app: AppHandle, label: String) -> Result<(), String> {
-        log::debug!("[Tauri] close_window called for '{}'", label);
+    log::debug!("[Tauri] close_window called for '{}'", label);
 
     if let Some(window) = app.get_webview_window(&label) {
-                log::debug!("[Tauri] destroying window '{}'", label);
+        log::debug!("[Tauri] destroying window '{}'", label);
         let result = window.destroy().map_err(|e| e.to_string());
-                log::debug!("[Tauri] window '{}' destroy result: {:?}", label, result);
+        log::debug!("[Tauri] window '{}' destroy result: {:?}", label, result);
         result
     } else {
         Err(format!("Window '{}' not found", label))
@@ -537,7 +525,10 @@ pub fn open_settings_window(app: AppHandle, section: Option<String>) -> Result<S
 /// Create or focus the settings window, optionally navigating to a specific section.
 /// If settings window exists, focuses it and navigates to the section.
 /// Otherwise creates a new one with the section in the URL.
-pub fn show_settings_window_section(app: &AppHandle, section: Option<&str>) -> Result<String, tauri::Error> {
+pub fn show_settings_window_section(
+    app: &AppHandle,
+    section: Option<&str>,
+) -> Result<String, tauri::Error> {
     use tauri::Emitter;
 
     const SETTINGS_LABEL: &str = "settings";
@@ -548,10 +539,10 @@ pub fn show_settings_window_section(app: &AppHandle, section: Option<&str>) -> R
 
     // If settings window exists, bring it to front, focus, and navigate to section
     if let Some(window) = app.get_webview_window(SETTINGS_LABEL) {
-                log::debug!("[window_manager] Settings window exists, focusing it");
+        log::debug!("[window_manager] Settings window exists, focusing it");
         // Unminimize if minimized
         if window.is_minimized().unwrap_or(false) {
-                        log::debug!("[window_manager] Settings was minimized, unminimizing");
+            log::debug!("[window_manager] Settings was minimized, unminimizing");
             let _ = window.unminimize();
         }
         // Show and focus
@@ -564,7 +555,7 @@ pub fn show_settings_window_section(app: &AppHandle, section: Option<&str>) -> R
         return Ok(SETTINGS_LABEL.to_string());
     }
 
-        log::debug!("[window_manager] Creating new settings window");
+    log::debug!("[window_manager] Creating new settings window");
 
     // Build URL with optional section query param. Percent-encode the section
     // so a value containing reserved chars (&, ?, #) can't corrupt the query.
@@ -581,16 +572,12 @@ pub fn show_settings_window_section(app: &AppHandle, section: Option<&str>) -> R
     // their final geometry up front so close/minimize/maximize respond
     // immediately.
     let settings_title = rust_i18n::t!("window.settings.title").to_string();
-    let mut builder = WebviewWindowBuilder::new(
-        app,
-        SETTINGS_LABEL,
-        WebviewUrl::App(url.into()),
-    )
-    .title(&settings_title)
-    .inner_size(SETTINGS_WIDTH, SETTINGS_HEIGHT)
-    .min_inner_size(SETTINGS_MIN_WIDTH, SETTINGS_MIN_HEIGHT)
-    .resizable(true)
-    .focused(true);
+    let mut builder = WebviewWindowBuilder::new(app, SETTINGS_LABEL, WebviewUrl::App(url.into()))
+        .title(&settings_title)
+        .inner_size(SETTINGS_WIDTH, SETTINGS_HEIGHT)
+        .min_inner_size(SETTINGS_MIN_WIDTH, SETTINGS_MIN_HEIGHT)
+        .resizable(true)
+        .focused(true);
 
     #[cfg(target_os = "macos")]
     {
@@ -602,10 +589,7 @@ pub fn show_settings_window_section(app: &AppHandle, section: Option<&str>) -> R
 
     #[cfg(not(target_os = "macos"))]
     {
-        builder = builder
-            .menu(Menu::new(app)?)
-            .center()
-            .visible(true);
+        builder = builder.menu(Menu::new(app)?).center().visible(true);
     }
 
     let window = builder.build()?;

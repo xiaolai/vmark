@@ -54,7 +54,10 @@ fn make_valid_session() -> SessionData {
                 terminal_visible: false,
                 terminal_height: 250,
             },
-            geometry: None, workspace_instance_ids: Vec::new(), active_workspace_instance_id: None, workspace_instances: Vec::new(),
+            geometry: None,
+            workspace_instance_ids: Vec::new(),
+            active_workspace_instance_id: None,
+            workspace_instances: Vec::new(),
         }],
         workspace: None,
     }
@@ -220,7 +223,10 @@ async fn fallback_to_backup_when_main_is_missing() {
     let result = read_session_from_paths(&session_path, &backup_path).await;
     assert!(result.is_ok());
     let data = result.unwrap();
-    assert!(data.is_some(), "Should restore from backup when main is missing");
+    assert!(
+        data.is_some(),
+        "Should restore from backup when main is missing"
+    );
 }
 
 #[tokio::test]
@@ -364,11 +370,7 @@ async fn fallback_to_backup_when_main_has_unsupported_version() {
     // Backup at current schema, fully valid.
     let mut backup = make_valid_session();
     backup.vmark_version = "backup-current".to_string();
-    std::fs::write(
-        &backup_path,
-        serde_json::to_string_pretty(&backup).unwrap(),
-    )
-    .unwrap();
+    std::fs::write(&backup_path, serde_json::to_string_pretty(&backup).unwrap()).unwrap();
 
     let result = read_session_from_paths(&session_path, &backup_path).await;
     let data = result.unwrap();
@@ -410,7 +412,10 @@ async fn backup_at_old_version_is_migrated_during_fallback() {
 
     let result = read_session_from_paths(&session_path, &backup_path).await;
     let data = result.unwrap().expect("backup should be restored");
-    assert_eq!(data.version, SCHEMA_VERSION, "backup must be migrated forward");
+    assert_eq!(
+        data.version, SCHEMA_VERSION,
+        "backup must be migrated forward"
+    );
     assert_eq!(data.vmark_version, "old-backup");
 }
 

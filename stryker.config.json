@@ -1,0 +1,32 @@
+{
+  "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "_comment": "Scoped TypeScript mutation testing, the frontend twin of src-tauri/mutants.toml (see that file's header for the philosophy). Mutates ONLY high-value pure-logic modules with real branching and solid unit tests — not the whole app, most of which is React/Tauri glue that mutation testing can't meaningfully evaluate from jsdom. Run weekly + on demand via .github/workflows/mutation.yml (ts-mutants job); non-blocking signal source, not a gate. Local run: pnpm mutation:ts (or narrow it: pnpm mutation:ts -- --mutate src/lib/lintEngine/linter.ts). Widen scope by appending globs to `mutate` once the current scope's kill rate is healthy.",
+  "testRunner": "vitest",
+  "plugins": ["@stryker-mutator/vitest-runner"],
+  "vitest": {
+    "configFile": "vitest.config.ts"
+  },
+  "mutate": [
+    "src/lib/cjkFormatter/rules/**/*.ts",
+    "src/lib/cjkFormatter/quotePairing.ts",
+    "src/lib/lintEngine/rules/**/*.ts",
+    "src/lib/lintEngine/linter.ts",
+    "!**/*.test.ts",
+    "!**/__tests__/**"
+  ],
+  "coverageAnalysis": "perTest",
+  "reporters": ["clear-text", "progress", "html", "json"],
+  "htmlReporter": {
+    "fileName": "reports/mutation/mutation.html"
+  },
+  "jsonReporter": {
+    "fileName": "reports/mutation/mutation.json"
+  },
+  "thresholds": {
+    "high": 85,
+    "low": 70,
+    "break": null
+  },
+  "tempDirName": ".stryker-tmp",
+  "cleanTempDir": true
+}
