@@ -16,6 +16,12 @@ import { imagePreviewError } from "@/utils/debug";
 import { getWindowLabel } from "@/hooks/useWindowFocus";
 import { decodeMarkdownUrl } from "@/utils/markdownUrl";
 import { normalizePathForAsset } from "@/services/media/resolveMediaSrc";
+import {
+  isAbsolutePath,
+  isExternalUrl,
+  isRelativePath,
+  validateImagePath,
+} from "@/plugins/shared/mediaSecurity";
 
 /** Maximum thumbnail dimensions (used by the view for initial positioning). */
 export const MAX_THUMBNAIL_WIDTH = 200;
@@ -35,27 +41,17 @@ function getActiveFilePath(): string | null {
   }
 }
 
-/** Check if a path is an external URL (http/https/data). */
-function isExternalUrl(src: string): boolean {
-  return src.startsWith("http://") || src.startsWith("https://") || src.startsWith("data:");
-}
-
-/** Check if a path is a document-relative path. */
-function isRelativePath(src: string): boolean {
-  return src.startsWith("./") || src.startsWith("assets/");
-}
-
-/** Check if a path is an absolute local path. */
-function isAbsolutePath(src: string): boolean {
-  return src.startsWith("/") || /^[A-Za-z]:/.test(src);
-}
-
 /**
  * Resolve a media path to an `asset://` URL for preview.
  * Decodes URL-encoded paths (e.g., `%20` -> space) for file system access.
+ *
+ * Path classification is shared with the editor NodeView via
+ * `plugins/shared/mediaSecurity` so the popup and the inline image agree on
+ * what counts as relative/absolute/external — a bare relative path like
+ * `evidence/page-1.png` resolves the same in both (issue #1086, fix #4).
  */
 export async function resolveImageSrc(src: string): Promise<string> {
-  // External URLs - use directly
+  // External URLs (http/https/data/asset:/tauri:) - use directly
   if (isExternalUrl(src)) {
     return src;
   }
@@ -70,6 +66,12 @@ export async function resolveImageSrc(src: string): Promise<string> {
 
   // Relative paths - resolve against document directory
   if (isRelativePath(decodedSrc)) {
+    // Validate against directory traversal (mirrors the editor NodeView).
+    if (!validateImagePath(decodedSrc)) {
+      imagePreviewError("Rejected invalid image path:", decodedSrc);
+      return "";
+    }
+
     const filePath = getActiveFilePath();
     if (!filePath) {
       return src;

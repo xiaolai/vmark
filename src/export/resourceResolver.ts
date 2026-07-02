@@ -276,7 +276,13 @@ export async function resolveResources(
       originalSrc: src,
       resolvedPath: null,
       exportSrc: src,
-      isRemote: isRemoteUrl(src),
+      // Tauri's convertFileSrc() emits the asset protocol as
+      // `https://asset.localhost/…` on newer macOS/WebKit and on Windows, which
+      // superficially matches the http(s) remote check. Those are LOCAL files,
+      // not remote URLs — classify them as local so they get inlined/copied for
+      // the off-screen print/PDF WKWebView (which has no asset:// handler)
+      // instead of being passed through as unreachable https URLs (issue #1086).
+      isRemote: isRemoteUrl(src) && !isAssetUrl(src),
       found: false,
     };
 

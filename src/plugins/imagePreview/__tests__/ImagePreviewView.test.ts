@@ -833,6 +833,39 @@ describe("ImagePreviewView path resolution", () => {
     view.destroy();
   });
 
+  // Regression for issue #1086 (fix #4): the preview popup used a narrower
+  // definition of "relative" than the editor NodeView — it only accepted
+  // `./`- and `assets/`-prefixed paths, so a bare relative path like
+  // `evidence/page-1.png` was left unresolved. Unified on
+  // mediaSecurity.isRelativePath so bare relative paths resolve against the
+  // document directory, matching the editor.
+  it("resolves bare relative path against document directory", async () => {
+    const { join } = await import("@tauri-apps/api/path");
+    const view = new ImagePreviewView();
+    const editorDom = container.querySelector(".ProseMirror") as HTMLElement;
+
+    view.show("evidence/page-1.png", anchorRect, editorDom);
+    await new Promise((r) => setTimeout(r, 50));
+
+    expect(join).toHaveBeenCalledWith("/test/dir", "evidence/page-1.png");
+
+    view.destroy();
+  });
+
+  it("does not resolve a parent-traversal relative path", async () => {
+    const { join } = await import("@tauri-apps/api/path");
+    (join as ReturnType<typeof vi.fn>).mockClear();
+    const view = new ImagePreviewView();
+    const editorDom = container.querySelector(".ProseMirror") as HTMLElement;
+
+    view.show("../secrets/key.png", anchorRect, editorDom);
+    await new Promise((r) => setTimeout(r, 50));
+
+    expect(join).not.toHaveBeenCalled();
+
+    view.destroy();
+  });
+
   it("falls back to original src when no active file for relative path", async () => {
     // Override mock to return no document
     const { useTabStore } = await import("@/stores/tabStore");
