@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { buildPdfExportHtml, type PdfOptions } from "../pdfHtmlTemplate";
+import { buildPdfExportHtml, getSharedContentCSS, type PdfOptions } from "../pdfHtmlTemplate";
 
 function baseOptions(overrides: Partial<PdfOptions> = {}): PdfOptions {
   return {
@@ -62,6 +62,33 @@ describe("pdfHtmlTemplate buildPdfExportHtml — @page size", () => {
     );
     const pageCss = getPageCss(html);
     expect(pageCss).toContain("margin: 10mm 15mm 20mm 25mm");
+  });
+});
+
+// Issue #1087: the PDF/Print shared CSS must fit tables to the fixed page
+// width. Stored ProseMirror colwidth (<col style="width:Npx">) and resized-cell
+// inline pixel widths otherwise survive the export re-render and, under
+// table-layout: fixed, push the table past the @page box where WebKit clips it.
+describe("pdfHtmlTemplate shared content CSS — table fit-to-page", () => {
+  const css = getSharedContentCSS();
+
+  it("uses auto table layout, never fixed", () => {
+    expect(css).toContain("table-layout: auto");
+    expect(css).not.toContain("table-layout: fixed");
+  });
+
+  it("resets stored column and cell pixel widths so columns reflow", () => {
+    expect(css).toContain("width: auto !important");
+    expect(css).toContain("min-width: 0 !important");
+  });
+
+  it("keeps cell word-wrapping for long content", () => {
+    expect(css).toContain("overflow-wrap: break-word");
+    expect(css).toContain("word-break: break-word");
+  });
+
+  it("constrains the table to full page width", () => {
+    expect(css).toContain("width: 100% !important");
   });
 });
 

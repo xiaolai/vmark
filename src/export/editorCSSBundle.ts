@@ -88,8 +88,11 @@ const INTERACTIVE_SELECTOR_PREFIXES = [
   ".ProseMirror-focused",
   ".ProseMirror-hideselection",
   ".pm-selection-",
-  // Note: .media-border-*, .media-align-*, .heading-align-*, .table-fit-to-width
-  // are NOT stripped — they control content layout and are propagated to the export wrapper.
+  // Note: .media-border-*, .media-align-*, .heading-align- classes are NOT
+  // stripped — they control content layout and carry over to the export
+  // wrapper. (.table-fit-to-width is ephemeral, markdown-less editor state that
+  // never survives the fresh export re-render; tables are instead fitted to the
+  // page unconditionally by the export table CSS — see exportOverrides.ts.)
   // Interactive plugin elements
   ".code-lang-dropdown",
   ".code-block-edit-",
