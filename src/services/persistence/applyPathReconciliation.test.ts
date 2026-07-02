@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
-import { applyPathReconciliation } from "@/hooks/commands/applyPathReconciliation";
+import { applyPathReconciliation } from "./applyPathReconciliation";
 
 const WINDOW_MAIN = "main";
 const WINDOW_DOC = "doc-1";

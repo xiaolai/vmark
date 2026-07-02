@@ -124,6 +124,7 @@ vi.mock("@/utils/paths", () => ({
 }));
 
 import { useTabContextMenuActions, type TabMenuItem } from "./useTabContextMenuActions";
+import { useTabRenameStore } from "@/stores/tabRenameStore";
 import type { Tab } from "@/stores/tabStore";
 import type { DocumentState } from "@/stores/documentStore";
 
@@ -223,6 +224,7 @@ describe("useTabContextMenuActions", () => {
     const ids = items.map((i) => i.id);
     expect(ids).toContain("moveToNewWindow");
     expect(ids).toContain("pin");
+    expect(ids).toContain("rename");
     expect(ids).toContain("copyPath");
     expect(ids).toContain("copyRelativePath");
     expect(ids).toContain("reveal");
@@ -236,6 +238,21 @@ describe("useTabContextMenuActions", () => {
   it("includes a separator", () => {
     const { items } = renderActions();
     expect(items.some((i) => i.separator)).toBe(true);
+  });
+
+  // ── Rename ───────────────────────────────────────────────────────
+
+  it("enables rename for a saved tab and disables it when unsaved", () => {
+    expect(findItem(renderActions({ filePath: "/workspace/project/one.md" }).items, "rename")?.disabled).toBeFalsy();
+    expect(findItem(renderActions({ filePath: null }).items, "rename")?.disabled).toBe(true);
+  });
+
+  it("rename action starts inline rename for the tab and closes the menu", () => {
+    useTabRenameStore.setState({ renamingTabId: null });
+    const { items, onClose } = renderActions({ tab: makeTab({ id: "tab-42" }) });
+    void findItem(items, "rename")?.action();
+    expect(useTabRenameStore.getState().renamingTabId).toBe("tab-42");
+    expect(onClose).toHaveBeenCalled();
   });
 
   // ── Pin/Unpin label ──────────────────────────────────────────────

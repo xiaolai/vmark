@@ -74,6 +74,7 @@
   "format.codeLua": "Lua",
   "tabMenu.moveToNewWindow": "移至新視窗",
   "tabMenu.pin": "釘選",
+  "tabMenu.rename": "重新命名",
   "tabMenu.unpin": "取消釘選",
   "tabMenu.copyPath": "複製路徑",
   "tabMenu.copyRelativePath": "複製相對路徑",

@@ -486,6 +486,11 @@ describe("TabContextMenu", () => {
 
       fireEvent.keyDown(menu, { key: "ArrowDown" });
       await waitFor(() => {
+        expect(document.activeElement?.textContent).toContain("Rename");
+      });
+
+      fireEvent.keyDown(menu, { key: "ArrowDown" });
+      await waitFor(() => {
         expect(document.activeElement?.textContent).toContain("Copy Path");
       });
     });

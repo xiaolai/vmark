@@ -1,24 +1,11 @@
 /**
  * useTabContextMenuActions
  *
- * Purpose: Builds the list of menu items for the tab context menu, with
- * enable/disable logic and action callbacks for each operation.
+ * Builds the tab context-menu items with state-driven availability and
+ * getState()-based actions (each calls onClose()): Move-to-New-Window needs a
+ * doc; Copy Relative Path needs a workspace file; Rename needs a saved file.
  *
- * Key decisions:
- *   - Actions use getState() pattern for stores (tabStore, documentStore)
- *     to avoid stale closures — the menu may stay open while state changes.
- *   - "Move to New Window" is disabled when it's the last tab in main window.
- *   - "Copy Relative Path" is only available when the file is within the
- *     current workspace root.
- *   - Conditional items (Restore to Disk, Revert to Saved) appear only when
- *     the document is in a relevant state (missing or dirty).
- *   - Every action calls onClose() after completion to dismiss the menu.
- *   - Undo for "Move to New Window" uses restoreTransferredTab to reverse
- *     the transfer via Tauri IPC.
- *
- * @coordinates-with TabContextMenu.tsx — renders the items this hook produces
- * @coordinates-with tabTransferActions.ts — restoreTransferredTab for undo
- * @coordinates-with tabCleanup.ts — cleanupTabState used on "Move to New Window" detach
+ * @coordinates-with TabContextMenu.tsx, tabTransferActions.ts, tabCleanup.ts
  * @module components/Tabs/useTabContextMenuActions
  */
 import { useCallback, useMemo } from "react";
@@ -30,6 +17,7 @@ import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { imeToast as toast } from "@/services/ime/imeToast";
 import { useTabStore, type Tab } from "@/stores/tabStore";
 import { useDocumentStore, type DocumentState } from "@/stores/documentStore";
+import { useTabRenameStore } from "@/stores/tabRenameStore";
 import { closeTabWithDirtyCheck, closeTabsWithDirtyCheck } from "@/hooks/useTabOperations";
 import { saveToPath } from "@/services/persistence/saveToPath";
 import { reloadTabFromDisk } from "@/services/persistence/reloadFromDisk";
@@ -116,6 +104,11 @@ export function useTabContextMenuActions({
     useTabStore.getState().togglePin(windowLabel, tab.id);
     onClose();
   }, [onClose, tab.id, windowLabel]);
+
+  const handleRename = useCallback(() => {
+    useTabRenameStore.getState().startRename(tab.id); // inline edit in the Tab pill
+    onClose();
+  }, [onClose, tab.id]);
 
   const handleMoveToNewWindow = useCallback(async () => {
     if (!doc) {
@@ -260,6 +253,12 @@ export function useTabContextMenuActions({
       action: handlePin,
     },
     {
+      id: "rename",
+      label: i18n.t("tabMenu.rename"),
+      action: handleRename,
+      disabled: !filePath,
+    },
+    {
       id: "copyPath",
       label: i18n.t("tabMenu.copyPath"),
       action: handleCopyPath,
@@ -338,6 +337,7 @@ export function useTabContextMenuActions({
     handleCopyRelativePath,
     handleMoveToNewWindow,
     handlePin,
+    handleRename,
     handleRestoreToDisk,
     handleRevertToSaved,
     handleRevealInFileManager,

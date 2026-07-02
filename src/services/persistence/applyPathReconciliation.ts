@@ -3,10 +3,12 @@
  *
  * Purpose: Applies path reconciliation results to open tabs — updates file
  *   paths when files are moved/renamed, or marks documents as missing when
- *   files are deleted.
+ *   files are deleted. Mutates stores, so it lives in the services tier
+ *   (ADR-013), not hooks — it is a plain function, not a React hook.
  *
- * @coordinates-with pathReconciliation.ts — pure reconciliation logic
- * @module hooks/commands/applyPathReconciliation
+ * @coordinates-with utils/pathReconciliation.ts — pure reconciliation logic
+ * @coordinates-with services/persistence/renameFile.ts — rename caller
+ * @module services/persistence/applyPathReconciliation
  */
 
 import { useTabStore } from "@/stores/tabStore";
