@@ -159,8 +159,16 @@ describe("isAssetUrl", () => {
     expect(isAssetUrl("https://asset.localhost/path/to/file.png")).toBe(true);
   });
 
+  it("returns true for http://asset.localhost/ (Windows/WebView2 scheme)", () => {
+    expect(isAssetUrl("http://asset.localhost/path/to/file.png")).toBe(true);
+  });
+
   it("returns false for regular https URLs", () => {
     expect(isAssetUrl("https://example.com/image.png")).toBe(false);
+  });
+
+  it("returns false for regular http URLs", () => {
+    expect(isAssetUrl("http://example.com/image.png")).toBe(false);
   });
 
   it("returns false for relative paths", () => {
@@ -624,6 +632,23 @@ describe("resolveResources", () => {
     expect(report.resolved[0].isRemote).toBe(false);
     expect(report.resolved[0].found).toBe(true);
     expect(report.missing).toHaveLength(0);
+  });
+
+  it("inlines http://asset.localhost/ (Windows) asset URLs as data URIs in single mode", async () => {
+    const src = `http://asset.localhost/${encodeURIComponent("/docs/evidence/page-1.png")}`;
+    const html = `<img src="${src}">`;
+    mockExists.mockResolvedValue(true);
+    mockReadFile.mockResolvedValue(new Uint8Array([1, 2, 3]));
+
+    const { html: result, report } = await resolveResources(html, {
+      baseDir: "/docs",
+      mode: "single",
+    });
+
+    expect(result).toContain("data:image/png;base64,");
+    expect(result).not.toContain("asset.localhost");
+    expect(report.resolved).toHaveLength(1);
+    expect(report.resolved[0].isRemote).toBe(false);
   });
 
   it("inlines asset://localhost/ asset URLs as data URIs in single mode", async () => {

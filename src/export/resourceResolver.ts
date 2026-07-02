@@ -87,15 +87,18 @@ export function isDataUri(src: string): boolean {
 /**
  * Check if a URL is a Tauri asset URL.
  * Tauri uses different formats depending on version/platform:
- * - asset://localhost/... (older)
- * - https://asset.localhost/... (newer, macOS/Linux)
- * - https://asset.localhost/... (Windows with modified CSP)
+ * - asset://localhost/... (macOS/Linux WebKit)
+ * - https://asset.localhost/... (newer macOS/WebKit, and Windows with modified CSP)
+ * - http://asset.localhost/... (Windows/WebView2 default)
+ * These are all LOCAL files served through Tauri's protocol handler, not
+ * remote resources — classifying them correctly matters for export inlining.
  */
 export function isAssetUrl(src: string): boolean {
   return (
     src.startsWith("asset://") ||
     src.startsWith("tauri://") ||
-    src.startsWith("https://asset.localhost/")
+    src.startsWith("https://asset.localhost/") ||
+    src.startsWith("http://asset.localhost/")
   );
 }
 
