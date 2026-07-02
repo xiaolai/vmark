@@ -159,8 +159,16 @@ describe("isAssetUrl", () => {
     expect(isAssetUrl("https://asset.localhost/path/to/file.png")).toBe(true);
   });
 
+  it("returns true for http://asset.localhost/ (Windows/WebView2 scheme)", () => {
+    expect(isAssetUrl("http://asset.localhost/path/to/file.png")).toBe(true);
+  });
+
   it("returns false for regular https URLs", () => {
     expect(isAssetUrl("https://example.com/image.png")).toBe(false);
+  });
+
+  it("returns false for regular http URLs", () => {
+    expect(isAssetUrl("http://example.com/image.png")).toBe(false);
   });
 
   it("returns false for relative paths", () => {
@@ -597,6 +605,91 @@ describe("resolveResources", () => {
     expect(report.missing).toHaveLength(1);
     expect(report.missing[0].found).toBe(false);
     expect(report.resolved).toHaveLength(0);
+  });
+
+  // Regression for issue #1086: on newer macOS/WebKit (and on Windows),
+  // Tauri's convertFileSrc() emits the asset protocol as
+  // `https://asset.localhost/…`. That superficially matches isRemoteUrl()'s
+  // https check, so resolveResources used to classify it as a remote URL and
+  // pass it through untouched — leaving an unreachable https URL in the
+  // print/PDF HTML that the off-screen WKWebView (no asset:// handler) cannot
+  // load, which surfaced as a missing image even though the editor rendered it
+  // fine. Asset URLs must be inlined as data URIs regardless of their scheme.
+  it("inlines https://asset.localhost/ asset URLs as data URIs in single mode", async () => {
+    const src = `https://asset.localhost/${encodeURIComponent("/docs/evidence/page-1.png")}`;
+    const html = `<img src="${src}">`;
+    mockExists.mockResolvedValue(true);
+    mockReadFile.mockResolvedValue(new Uint8Array([1, 2, 3]));
+
+    const { html: result, report } = await resolveResources(html, {
+      baseDir: "/docs",
+      mode: "single",
+    });
+
+    expect(result).toContain("data:image/png;base64,");
+    expect(result).not.toContain("asset.localhost");
+    expect(report.resolved).toHaveLength(1);
+    expect(report.resolved[0].isRemote).toBe(false);
+    expect(report.resolved[0].found).toBe(true);
+    expect(report.missing).toHaveLength(0);
+  });
+
+  it("inlines http://asset.localhost/ (Windows) asset URLs as data URIs in single mode", async () => {
+    const src = `http://asset.localhost/${encodeURIComponent("/docs/evidence/page-1.png")}`;
+    const html = `<img src="${src}">`;
+    mockExists.mockResolvedValue(true);
+    mockReadFile.mockResolvedValue(new Uint8Array([1, 2, 3]));
+
+    const { html: result, report } = await resolveResources(html, {
+      baseDir: "/docs",
+      mode: "single",
+    });
+
+    expect(result).toContain("data:image/png;base64,");
+    expect(result).not.toContain("asset.localhost");
+    expect(report.resolved).toHaveLength(1);
+    expect(report.resolved[0].isRemote).toBe(false);
+  });
+
+  it("inlines asset://localhost/ asset URLs as data URIs in single mode", async () => {
+    const src = `asset://localhost/${encodeURIComponent("/docs/evidence/page-1.png")}`;
+    const html = `<img src="${src}">`;
+    mockExists.mockResolvedValue(true);
+    mockReadFile.mockResolvedValue(new Uint8Array([1, 2, 3]));
+
+    const { html: result, report } = await resolveResources(html, {
+      baseDir: "/docs",
+      mode: "single",
+    });
+
+    expect(result).toContain("data:image/png;base64,");
+    expect(result).not.toContain("asset://");
+    expect(report.resolved).toHaveLength(1);
+    expect(report.resolved[0].isRemote).toBe(false);
+  });
+
+  it("copies https://asset.localhost/ asset URLs to assets folder in folder mode", async () => {
+    const src = `https://asset.localhost/${encodeURIComponent("/docs/page.png")}`;
+    const html = `<img src="${src}">`;
+    mockExists.mockImplementation(async (path: string) => {
+      if (path.includes("assets/images")) return false;
+      return true;
+    });
+    mockMkdir.mockResolvedValue(undefined);
+    mockCopyFile.mockResolvedValue(undefined);
+    mockStat.mockResolvedValue({ size: 7 });
+
+    const { html: result, report } = await resolveResources(html, {
+      baseDir: "/docs",
+      mode: "folder",
+      outputDir: "/output",
+    });
+
+    expect(result).toContain("assets/images/page.png");
+    expect(result).not.toContain("asset.localhost");
+    expect(mockCopyFile).toHaveBeenCalled();
+    expect(report.resolved).toHaveLength(1);
+    expect(report.resolved[0].isRemote).toBe(false);
   });
 
   it("copies images to assets folder in folder mode", async () => {

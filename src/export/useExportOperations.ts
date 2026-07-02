@@ -22,6 +22,7 @@ import { joinPath } from "@/utils/pathUtils";
 import { showError, FileErrors } from "@/services/dialogs/errorDialog";
 import { isMacPlatform } from "@/utils/shortcutMatch";
 import { errorMessage } from "@/utils/errorMessage";
+import { warnMissingResources } from "./exportResourceWarnings";
 
 /** Timeout for waiting on assets (fonts, images, math, diagrams) */
 const ASSET_WAIT_TIMEOUT = 10000;
@@ -285,10 +286,8 @@ export async function exportToPdfNative(options: ExportToPdfOptions): Promise<vo
     const baseDir = sourceFilePath
       ? await getDocumentBaseDir(sourceFilePath)
       : "/";
-    const { html: resolvedHtml } = await resolveResources(renderedHtml, {
-      baseDir,
-      mode: "single",
-    });
+    const { html: resolvedHtml, report } = await resolveResources(renderedHtml, { baseDir, mode: "single" });
+    warnMissingResources(report);
 
     // Open PDF export in native window
     const { openPdfExportWindow } = await import("@/services/navigation/pdfExportWindow");
@@ -375,11 +374,9 @@ async function exportToPdfBrowser(
     // through untouched. Resolved relative to the source document's directory.
     const { resolveResources, getDocumentBaseDir } = await import("./resourceResolver");
     const baseDir = await getDocumentBaseDir(sourceFilePath);
-    const { html: resolvedHtml } = await resolveResources(html, {
-      baseDir,
-      mode: "single",
-    });
+    const { html: resolvedHtml, report } = await resolveResources(html, { baseDir, mode: "single" });
     html = resolvedHtml;
+    warnMissingResources(report);
 
     const themeCSS = captureThemeCSS();
     const { getEditorContentCSS } = await import("./htmlExportStyles");

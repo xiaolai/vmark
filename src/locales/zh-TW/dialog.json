@@ -107,6 +107,8 @@
     "exportHtmlSuccess": "已匯出至資料夾",
     "exportHtmlResourceWarning_one": "1 個資源無法包含",
     "exportHtmlResourceWarning_other": "{{count}} 個資源無法包含",
+    "exportImageWarning_one": "1 張圖片無法嵌入，輸出中將缺失",
+    "exportImageWarning_other": "{{count}} 張圖片無法嵌入，輸出中將缺失",
     "printRequiresMac": "列印需要 macOS。",
     "nativePdfRequiresMac": "原生 PDF 匯出需要 macOS。請改用列印。",
     "failedToPreparePdf": "無法準備 PDF 匯出",

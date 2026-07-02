@@ -107,6 +107,8 @@
     "exportHtmlSuccess": "폴더로 내보냈습니다",
     "exportHtmlResourceWarning_one": "리소스 1개를 포함할 수 없습니다",
     "exportHtmlResourceWarning_other": "리소스 {{count}}개를 포함할 수 없습니다",
+    "exportImageWarning_one": "이미지 1개를 포함하지 못해 출력에서 누락되었습니다",
+    "exportImageWarning_other": "이미지 {{count}}개를 포함하지 못해 출력에서 누락되었습니다",
     "printRequiresMac": "인쇄 기능은 macOS가 필요합니다.",
     "nativePdfRequiresMac": "네이티브 PDF 내보내기는 macOS가 필요합니다. 인쇄를 사용하세요.",
     "failedToPreparePdf": "PDF 내보내기 준비에 실패했습니다",

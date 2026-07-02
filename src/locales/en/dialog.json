@@ -145,6 +145,8 @@
     "exportHtmlSuccess": "Exported to folder",
     "exportHtmlResourceWarning_one": "1 resource could not be included",
     "exportHtmlResourceWarning_other": "{{count}} resources could not be included",
+    "exportImageWarning_one": "1 image could not be embedded and is missing from the output",
+    "exportImageWarning_other": "{{count}} images could not be embedded and are missing from the output",
     "printRequiresMac": "Print requires macOS.",
     "nativePdfRequiresMac": "Native PDF export requires macOS. Use Print instead.",
     "failedToPreparePdf": "Failed to prepare PDF export",

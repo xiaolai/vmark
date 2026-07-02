@@ -85,17 +85,16 @@ export function isDataUri(src: string): boolean {
 }
 
 /**
- * Check if a URL is a Tauri asset URL.
- * Tauri uses different formats depending on version/platform:
- * - asset://localhost/... (older)
- * - https://asset.localhost/... (newer, macOS/Linux)
- * - https://asset.localhost/... (Windows with modified CSP)
+ * Check if a URL is a Tauri asset URL — a LOCAL file served through Tauri's
+ * protocol handler, not a remote resource. convertFileSrc() emits these as
+ * `asset://localhost/…` (macOS/Linux WebKit) or `http(s)://asset.localhost/…`
+ * (newer macOS/WebKit + Windows). Correct classification matters for inlining.
  */
 export function isAssetUrl(src: string): boolean {
   return (
     src.startsWith("asset://") ||
     src.startsWith("tauri://") ||
-    src.startsWith("https://asset.localhost/")
+    /^https?:\/\/asset\.localhost\//.test(src)
   );
 }
 
@@ -276,7 +275,8 @@ export async function resolveResources(
       originalSrc: src,
       resolvedPath: null,
       exportSrc: src,
-      isRemote: isRemoteUrl(src),
+      // Asset URLs are LOCAL files to inline, never remote passthrough (#1086).
+      isRemote: isRemoteUrl(src) && !isAssetUrl(src),
       found: false,
     };
 
