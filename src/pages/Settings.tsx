@@ -248,7 +248,7 @@ export function SettingsPage() {
         {/* Content */}
         <SettingsSearchContext.Provider value={normalizedQuery}>
           <div
-            className="flex-1 overflow-auto p-6"
+            className="flex-1 overflow-auto p-6 [scrollbar-gutter:stable]"
             data-settings-searching={searching ? "" : undefined}
           >
             {searching ? (
