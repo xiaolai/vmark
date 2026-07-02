@@ -23,8 +23,29 @@ import { showError, FileErrors } from "@/services/dialogs/errorDialog";
 import { isMacPlatform } from "@/utils/shortcutMatch";
 import { errorMessage } from "@/utils/errorMessage";
 
+import type { ResourceReport } from "./resourceResolver";
+
 /** Timeout for waiting on assets (fonts, images, math, diagrams) */
 const ASSET_WAIT_TIMEOUT = 10000;
+
+/**
+ * Surface images that could not be embedded during Print / Export PDF.
+ *
+ * The off-screen WKWebView that renders the print/PDF output has no Tauri
+ * asset:// handler, so any image `resolveResources` cannot inline is swapped
+ * for the "Image not found" placeholder. That substitution used to be silent
+ * (dev-only `exportWarn`); log every offending path and raise a single count
+ * toast so the user knows the output is missing images (issue #1086, fix #3).
+ */
+function warnMissingResources(report: ResourceReport): void {
+  if (report.missing.length === 0) return;
+  for (const resource of report.missing) {
+    exportWarn("Image could not be embedded for export:", resource.originalSrc);
+  }
+  toast.warning(
+    i18n.t("dialog:toast.exportImageWarning", { count: report.missing.length }),
+  );
+}
 
 /** Maximum time to wait for render before giving up */
 const RENDER_TIMEOUT = 15000;
@@ -285,10 +306,11 @@ export async function exportToPdfNative(options: ExportToPdfOptions): Promise<vo
     const baseDir = sourceFilePath
       ? await getDocumentBaseDir(sourceFilePath)
       : "/";
-    const { html: resolvedHtml } = await resolveResources(renderedHtml, {
+    const { html: resolvedHtml, report } = await resolveResources(renderedHtml, {
       baseDir,
       mode: "single",
     });
+    warnMissingResources(report);
 
     // Open PDF export in native window
     const { openPdfExportWindow } = await import("@/services/navigation/pdfExportWindow");
@@ -375,11 +397,12 @@ async function exportToPdfBrowser(
     // through untouched. Resolved relative to the source document's directory.
     const { resolveResources, getDocumentBaseDir } = await import("./resourceResolver");
     const baseDir = await getDocumentBaseDir(sourceFilePath);
-    const { html: resolvedHtml } = await resolveResources(html, {
+    const { html: resolvedHtml, report } = await resolveResources(html, {
       baseDir,
       mode: "single",
     });
     html = resolvedHtml;
+    warnMissingResources(report);
 
     const themeCSS = captureThemeCSS();
     const { getEditorContentCSS } = await import("./htmlExportStyles");

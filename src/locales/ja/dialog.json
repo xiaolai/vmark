@@ -107,6 +107,8 @@
     "exportHtmlSuccess": "フォルダにエクスポートしました",
     "exportHtmlResourceWarning_one": "1個のリソースを含められませんでした",
     "exportHtmlResourceWarning_other": "{{count}}個のリソースを含められませんでした",
+    "exportImageWarning_one": "1個の画像を埋め込めなかったため、出力から欠落しています",
+    "exportImageWarning_other": "{{count}}個の画像を埋め込めなかったため、出力から欠落しています",
     "printRequiresMac": "印刷にはmacOSが必要です。",
     "nativePdfRequiresMac": "ネイティブPDFエクスポートにはmacOSが必要です。代わりに印刷を使用してください。",
     "failedToPreparePdf": "PDFエクスポートの準備に失敗しました",

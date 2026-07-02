@@ -22,11 +22,13 @@ const {
   mockResolveResources,
   mockGetDocumentBaseDir,
   mockToastError,
+  mockToastWarning,
 } = vi.hoisted(() => ({
   mockInvoke: vi.fn(),
   mockResolveResources: vi.fn(),
   mockGetDocumentBaseDir: vi.fn(),
   mockToastError: vi.fn(),
+  mockToastWarning: vi.fn(),
 }));
 
 vi.mock("@tauri-apps/api/core", () => ({
@@ -46,7 +48,7 @@ vi.mock("@/utils/shortcutMatch", () => ({
 }));
 
 vi.mock("@/services/ime/imeToast", () => ({
-  imeToast: { error: mockToastError, success: vi.fn(), warning: vi.fn() },
+  imeToast: { error: mockToastError, success: vi.fn(), warning: mockToastWarning },
 }));
 
 vi.mock("../themeSnapshot", () => ({
@@ -163,5 +165,41 @@ describe("exportToPdf — local image inlining (issue #999)", () => {
     await exportToPdf({ markdown: "   \n\t" });
     expect(mockInvoke).not.toHaveBeenCalled();
     expect(mockResolveResources).not.toHaveBeenCalled();
+  });
+
+  // Issue #1086, fix #3: unembeddable images used to be silently swapped for
+  // the "Image not found" placeholder. Surface a warning toast so the user
+  // knows the printed/exported output is missing images.
+  it("warns when images could not be embedded", async () => {
+    installLiveEditor('<p><img src="asset://localhost/docs/my-notes/img/cat.png"></p>');
+    mockResolveResources.mockResolvedValueOnce({
+      html: '<p><img src="data:image/svg+xml,placeholder"></p>',
+      report: {
+        resources: [{ originalSrc: "img/cat.png" }],
+        resolved: [],
+        missing: [{ originalSrc: "img/cat.png" }],
+        totalSize: 0,
+      },
+    });
+
+    await exportToPdf({
+      markdown: "![cat](img/cat.png)",
+      sourceFilePath: "/docs/my-notes/note.md",
+    });
+
+    expect(mockToastWarning).toHaveBeenCalledTimes(1);
+    // Still prints — the placeholder output is delivered, just flagged.
+    expect(mockInvoke).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not warn when all images embed successfully", async () => {
+    installLiveEditor('<p><img src="asset://localhost/docs/my-notes/img/cat.png"></p>');
+    // Default mock reports zero missing resources.
+    await exportToPdf({
+      markdown: "![cat](img/cat.png)",
+      sourceFilePath: "/docs/my-notes/note.md",
+    });
+
+    expect(mockToastWarning).not.toHaveBeenCalled();
   });
 });

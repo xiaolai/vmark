@@ -107,6 +107,8 @@
     "exportHtmlSuccess": "In Ordner exportiert",
     "exportHtmlResourceWarning_one": "1 Ressource konnte nicht eingeschlossen werden",
     "exportHtmlResourceWarning_other": "{{count}} Ressourcen konnten nicht eingeschlossen werden",
+    "exportImageWarning_one": "1 Bild konnte nicht eingebettet werden und fehlt in der Ausgabe",
+    "exportImageWarning_other": "{{count}} Bilder konnten nicht eingebettet werden und fehlen in der Ausgabe",
     "printRequiresMac": "Drucken erfordert macOS.",
     "nativePdfRequiresMac": "Nativer PDF-Export erfordert macOS. Verwenden Sie stattdessen Drucken.",
     "failedToPreparePdf": "PDF-Export konnte nicht vorbereitet werden",

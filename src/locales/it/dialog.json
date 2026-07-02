@@ -107,6 +107,8 @@
     "exportHtmlSuccess": "Esportato nella cartella",
     "exportHtmlResourceWarning_one": "1 risorsa non è stata inclusa",
     "exportHtmlResourceWarning_other": "{{count}} risorse non sono state incluse",
+    "exportImageWarning_one": "Impossibile incorporare 1 immagine, che risulta assente dall'output",
+    "exportImageWarning_other": "Impossibile incorporare {{count}} immagini, che risultano assenti dall'output",
     "printRequiresMac": "La stampa richiede macOS.",
     "nativePdfRequiresMac": "L'esportazione PDF nativa richiede macOS. Usa Stampa.",
     "failedToPreparePdf": "Preparazione esportazione PDF fallita",
