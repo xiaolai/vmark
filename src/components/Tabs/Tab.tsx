@@ -10,6 +10,8 @@
  *   - Middle-click or click X to close
  *   - Right-click for context menu (handled by parent)
  *   - Pointer-down starts drag (handled by parent via onPointerDown)
+ *   - When flagged by tabRenameStore, the title becomes an inline rename
+ *     editor (TabRenameInput) instead of a static label
  *
  * Key decisions:
  *   - Wrapped in React.memo to avoid re-rendering all tabs when only one
@@ -23,6 +25,8 @@
  *
  * @coordinates-with StatusBar.tsx — renders Tab instances inside the tab strip
  * @coordinates-with TabContextMenu.tsx — right-click menu triggered via onContextMenu
+ * @coordinates-with TabRenameInput.tsx — inline title editor shown while renaming
+ * @coordinates-with stores/tabRenameStore.ts — flags which tab is being renamed
  * @module components/Tabs/Tab
  */
 import { memo, useCallback, type KeyboardEvent, type MouseEvent, type PointerEvent } from "react";
@@ -31,6 +35,8 @@ import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import type { Tab as TabType } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
+import { useTabRenameStore } from "@/stores/tabRenameStore";
+import { TabRenameInput } from "./TabRenameInput";
 
 interface TabProps {
   tab: TabType;
@@ -73,6 +79,11 @@ export const Tab = memo(function Tab({
   const isDivergent = useDocumentStore(
     (state) => state.documents[tab.id]?.isDivergent ?? false
   );
+  const docFilePath = useDocumentStore(
+    (state) => state.documents[tab.id]?.filePath ?? null
+  );
+  const isRenaming = useTabRenameStore((state) => state.renamingTabId === tab.id);
+  const filePath = tab.filePath ?? docFilePath;
   const showDivergent = isDivergent && !isMissing;
 
   const tooltip = isMissing
@@ -163,8 +174,15 @@ export const Tab = memo(function Tab({
           <span className="tab-dirty-dot" />
         )}
 
-        {/* Tab title */}
-        <span className="tab-title">{tab.title}</span>
+        {/* Tab title — inline editor while renaming, otherwise the label */}
+        {isRenaming && filePath ? (
+          <TabRenameInput
+            filePath={filePath}
+            fileName={filePath.split(/[/\\]/).pop() ?? tab.title}
+          />
+        ) : (
+          <span className="tab-title">{tab.title}</span>
+        )}
 
         {/* Close button (shown on hover for non-pinned) */}
         {!tab.isPinned && (

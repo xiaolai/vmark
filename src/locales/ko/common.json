@@ -74,6 +74,7 @@
   "format.codeLua": "Lua",
   "tabMenu.moveToNewWindow": "새 창으로 이동",
   "tabMenu.pin": "고정",
+  "tabMenu.rename": "이름 변경",
   "tabMenu.unpin": "고정 해제",
   "tabMenu.copyPath": "경로 복사",
   "tabMenu.copyRelativePath": "상대 경로 복사",

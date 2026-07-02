@@ -74,6 +74,7 @@
   "format.codeLua": "Lua",
   "tabMenu.moveToNewWindow": "Mover a una ventana nueva",
   "tabMenu.pin": "Fijar",
+  "tabMenu.rename": "Renombrar",
   "tabMenu.unpin": "Desfijar",
   "tabMenu.copyPath": "Copiar ruta",
   "tabMenu.copyRelativePath": "Copiar ruta relativa",

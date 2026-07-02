@@ -191,6 +191,23 @@
   text-overflow: ellipsis;
 }
 
+/* Inline rename editor — borderless, caret is the focus indicator (per popup
+   input convention); sized to match the title so the pill doesn't jump. */
+.tab-title-input {
+  max-width: 100px;
+  padding: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--text-color);
+  font: inherit;
+}
+
+.tab-title-input:focus {
+  outline: none;
+  box-shadow: none;
+}
+
 .tab-dirty-dot {
   width: 5px;
   height: 5px;

@@ -74,6 +74,7 @@
   "format.codeLua": "Lua",
   "tabMenu.moveToNewWindow": "新しいウィンドウに移動",
   "tabMenu.pin": "ピン留め",
+  "tabMenu.rename": "名前を変更",
   "tabMenu.unpin": "ピン留め解除",
   "tabMenu.copyPath": "パスをコピー",
   "tabMenu.copyRelativePath": "相対パスをコピー",

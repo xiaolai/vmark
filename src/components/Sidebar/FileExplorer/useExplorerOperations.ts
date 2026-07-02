@@ -9,10 +9,13 @@
  *     operations from rapid clicks or double-invocation.
  *   - Path reconciliation after rename/move/delete updates any open tabs pointing to
  *     the affected paths, so editors don't go stale.
+ *   - Rename delegates to the shared services/persistence/renameFile core so the
+ *     explorer and the tab context menu share identical rename semantics.
  *   - Delete uses a native confirmation dialog (Tauri ask) with parent folder context
  *     to help disambiguate similarly-named files.
  *
  * @coordinates-with FileExplorer.tsx — consumer of all exported operations
+ * @coordinates-with services/persistence/renameFile.ts — shared rename core
  * @coordinates-with utils/pathReconciliation.ts — updates open tabs after path changes
  * @module components/Sidebar/FileExplorer/useExplorerOperations
  */
@@ -34,9 +37,10 @@ import { imeToast as toast } from "@/services/ime/imeToast";
 import i18n from "@/i18n";
 import { useTabStore } from "@/stores/tabStore";
 import { reconcilePathChange } from "@/utils/pathReconciliation";
-import { applyPathReconciliation } from "@/hooks/commands";
+import { applyPathReconciliation } from "@/services/persistence/applyPathReconciliation";
 import { showError, FileErrors } from "@/services/dialogs/errorDialog";
 import { fileExplorerError } from "@/utils/debug";
+import { renameFile } from "@/services/persistence/renameFile";
 
 // Re-entry guards
 const isCreatingRef = { current: false };
@@ -105,48 +109,25 @@ export function useExplorerOperations() {
       isRenamingRef.current = true;
 
       try {
-        const oldName = await basename(oldPath);
-        const parentPath = oldPath.slice(0, -oldName.length - 1);
-
-        // Preserve .md extension for files
-        const isFile = !oldPath.endsWith("/") && oldName.includes(".");
-        const finalName = isFile && !newName.endsWith(".md")
-          ? `${newName}.md`
-          : newName;
-
-        const newPath = await join(parentPath, finalName);
-
-        if (oldPath === newPath) return oldPath;
-
-        if (await exists(newPath)) {
-          const isTargetFile = finalName.includes(".");
-          await showError(
-            isTargetFile
-              ? FileErrors.fileExists(finalName)
-              : FileErrors.folderExists(finalName)
-          );
-          return null;
+        // Shared rename core (handles .md preservation + open-tab reconciliation).
+        const outcome = await renameFile(oldPath, newName);
+        switch (outcome.status) {
+          case "renamed":
+            return outcome.newPath;
+          case "unchanged":
+            return outcome.path;
+          case "exists":
+            await showError(
+              outcome.isFile
+                ? FileErrors.fileExists(outcome.name)
+                : FileErrors.folderExists(outcome.name)
+            );
+            return null;
+          case "error":
+            fileExplorerError(" Failed to rename:", outcome.error);
+            await showError(FileErrors.renameFailed(newName));
+            return null;
         }
-
-        // Get open file paths before rename
-        const openFilePaths = useTabStore.getState().getAllOpenFilePaths();
-
-        await rename(oldPath, newPath);
-
-        // Reconcile: update any open tabs/documents pointing to old path
-        const results = reconcilePathChange({
-          changeType: "rename",
-          oldPath,
-          newPath,
-          openFilePaths,
-        });
-        applyPathReconciliation(results);
-
-        return newPath;
-      } catch (error) {
-        fileExplorerError(" Failed to rename:", error);
-        await showError(FileErrors.renameFailed(newName));
-        return null;
       } finally {
         isRenamingRef.current = false;
       }

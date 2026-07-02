@@ -70,6 +70,7 @@
   "format.codeLua": "Lua",
   "tabMenu.moveToNewWindow": "Move to New Window",
   "tabMenu.pin": "Pin",
+  "tabMenu.rename": "Rename",
   "tabMenu.unpin": "Unpin",
   "tabMenu.copyPath": "Copy Path",
   "tabMenu.copyRelativePath": "Copy Relative Path",
