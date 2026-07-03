@@ -53,3 +53,23 @@ describe("FormatsSettings — file type overrides (WI-5)", () => {
     expect(useSettingsStore.getState().formats.associations).toEqual({});
   });
 });
+
+describe("FormatsSettings — default view mode (WI-2.3)", () => {
+  beforeEach(() => {
+    useSettingsStore.setState({
+      formats: { ...useSettingsStore.getState().formats, defaultViewMode: "split" },
+    });
+  });
+
+  it("reflects the current default and writes changes back to the store", () => {
+    render(<FormatsSettings />);
+    const select = screen.getByRole("combobox") as HTMLSelectElement;
+    expect(select.value).toBe("split");
+
+    fireEvent.change(select, { target: { value: "preview" } });
+    expect(useSettingsStore.getState().formats.defaultViewMode).toBe("preview");
+
+    fireEvent.change(select, { target: { value: "source" } });
+    expect(useSettingsStore.getState().formats.defaultViewMode).toBe("source");
+  });
+});

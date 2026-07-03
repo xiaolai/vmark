@@ -16,7 +16,15 @@ import { useTranslation } from "react-i18next";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { X } from "lucide-react";
 import { imeToast as toast } from "@/services/ime/imeToast";
-import { SettingRow, SettingsGroup, Toggle, Button, SearchInput } from "./components";
+import {
+  SettingRow,
+  SettingsGroup,
+  Toggle,
+  Button,
+  SearchInput,
+  Select,
+} from "./components";
+import type { SplitViewMode } from "@/lib/formats/types";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { getFormatById } from "@/lib/formats";
 import { errorMessage } from "@/utils/errorMessage";
@@ -194,6 +202,20 @@ export function FormatsSettings() {
           <Toggle
             checked={formats.codeViewers}
             onChange={(v) => updateFormatsSetting("codeViewers", v)}
+          />
+        </SettingRow>
+        <SettingRow
+          label={t("formats.defaultViewMode.label")}
+          description={t("formats.defaultViewMode.description")}
+        >
+          <Select<SplitViewMode>
+            value={formats.defaultViewMode}
+            options={[
+              { value: "source", label: t("formats.defaultViewMode.source") },
+              { value: "split", label: t("formats.defaultViewMode.split") },
+              { value: "preview", label: t("formats.defaultViewMode.preview") },
+            ]}
+            onChange={(v) => updateFormatsSetting("defaultViewMode", v)}
           />
         </SettingRow>
       </SettingsGroup>

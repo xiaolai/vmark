@@ -15,6 +15,7 @@
  * @coordinates-with shortcutsStore.ts — reads configurable shortcut bindings
  * @coordinates-with editorStore.ts — toggles sourceMode, focusMode, etc.
  * @coordinates-with contentServerStore.ts — toggles the Knowledge Base panel
+ * @coordinates-with splitPaneViewShortcut.ts — F6/Shift+F6 branch for split-pane tabs
  * @module hooks/useViewShortcuts
  */
 
@@ -36,6 +37,7 @@ import { useLintStore } from "@/stores/documentStore";
 import { getActiveTabId } from "@/services/navigation/activeDocument";
 import { scrollToSelectedDiagnostic } from "@/hooks/lintNavigation";
 import { runActiveLint } from "@/services/lint/runActiveLint";
+import { applySplitPaneViewShortcut } from "@/hooks/splitPaneViewShortcut";
 
 // ---------------------------------------------------------------------------
 // Pure functions — exported for testing, no DOM or store access
@@ -182,6 +184,8 @@ function executeLintNav(direction: "next" | "prev"): void {
 export const VIEW_ACTION_EXECUTORS: Record<ViewAction, () => void> = {
   toggleTerminal: () => requestToggleTerminal(),
   sourceMode: () => {
+    // Split-pane / viewer tab with a preview: F6 toggles Source⇄Split.
+    if (applySplitPaneViewShortcut(getCurrentWindowLabel(), "source")) return;
     cleanupBeforeModeSwitch();
     toggleSourceModeWithCheckpoint(getCurrentWindowLabel());
   },
@@ -205,7 +209,11 @@ export const VIEW_ACTION_EXECUTORS: Record<ViewAction, () => void> = {
   fileExplorer: () => useUIStore.getState().toggleSidebarView("files"),
   viewHistory: () => useUIStore.getState().toggleSidebarView("history"),
   knowledgeBase: () => useContentServerStore.getState().togglePanel(),
-  markdownSplit: () => toggleMarkdownSplitWithCheckpoint(getCurrentWindowLabel()),
+  markdownSplit: () => {
+    // Split-pane / viewer tab with a preview: Shift+F6 toggles Preview⇄Split.
+    if (applySplitPaneViewShortcut(getCurrentWindowLabel(), "preview")) return;
+    toggleMarkdownSplitWithCheckpoint(getCurrentWindowLabel());
+  },
   splitDocuments: () => toggleSplitDocuments(getCurrentWindowLabel()),
 };
 

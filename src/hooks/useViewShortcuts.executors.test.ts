@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   scrollToSelectedDiagnostic: vi.fn(),
   getActiveTabId: vi.fn(() => "tab-1"),
   getCurrentWindowLabel: vi.fn(() => "main"),
+  applySplitPaneViewShortcut: vi.fn(() => false),
   // store method spies
   toggleFocusMode: vi.fn(),
   toggleTypewriterMode: vi.fn(),
@@ -54,6 +55,9 @@ vi.mock("@/services/navigation/activeDocument", () => ({
 vi.mock("@/services/persistence/workspaceStorage", () => ({
   getCurrentWindowLabel: mocks.getCurrentWindowLabel,
 }));
+vi.mock("@/hooks/splitPaneViewShortcut", () => ({
+  applySplitPaneViewShortcut: mocks.applySplitPaneViewShortcut,
+}));
 vi.mock("@/stores/uiStore", () => ({
   useUIStore: {
     getState: () => ({
@@ -90,6 +94,8 @@ describe("VIEW_ACTION_EXECUTORS", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.getActiveTabId.mockReturnValue("tab-1");
+    // Default: no split-pane tab focused → markdown fallback path runs.
+    mocks.applySplitPaneViewShortcut.mockReturnValue(false);
   });
 
   it("toggleTerminal requests the terminal toggle", () => {
@@ -101,6 +107,21 @@ describe("VIEW_ACTION_EXECUTORS", () => {
     VIEW_ACTION_EXECUTORS.sourceMode();
     expect(mocks.cleanupBeforeModeSwitch).toHaveBeenCalledTimes(1);
     expect(mocks.toggleSourceModeWithCheckpoint).toHaveBeenCalledWith("main");
+  });
+
+  it("sourceMode skips the markdown path when a split-pane tab handles F6", () => {
+    mocks.applySplitPaneViewShortcut.mockReturnValue(true);
+    VIEW_ACTION_EXECUTORS.sourceMode();
+    expect(mocks.applySplitPaneViewShortcut).toHaveBeenCalledWith("main", "source");
+    expect(mocks.cleanupBeforeModeSwitch).not.toHaveBeenCalled();
+    expect(mocks.toggleSourceModeWithCheckpoint).not.toHaveBeenCalled();
+  });
+
+  it("markdownSplit skips the markdown path when a split-pane tab handles Shift+F6", () => {
+    mocks.applySplitPaneViewShortcut.mockReturnValue(true);
+    VIEW_ACTION_EXECUTORS.markdownSplit();
+    expect(mocks.applySplitPaneViewShortcut).toHaveBeenCalledWith("main", "preview");
+    expect(mocks.toggleMarkdownSplitWithCheckpoint).not.toHaveBeenCalled();
   });
 
   it("focusMode / typewriterMode / wordWrap / lineNumbers toggle UI state", () => {

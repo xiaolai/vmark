@@ -129,7 +129,7 @@
     "src/stores/aiStore/suggestion.ts": 336,
     "src/stores/mcpStore.ts": 324,
     "src/stores/settingsStore/shortcuts.ts": 505,
-    "src/stores/tabStore.ts": 535,
+    "src/stores/tabStore.ts": 477,
     "src/stores/workflowStore.ts": 398,
     "src/stores/workspaceStore.ts": 383,
     "src/utils/cursorSync/codemirror.ts": 306,

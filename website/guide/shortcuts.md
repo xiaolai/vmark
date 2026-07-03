@@ -32,8 +32,8 @@ If you prefer keeping system functions on F-keys, you can customize VMark shortc
 | `F4` | Sort Lines Ascending |
 | `Shift + F4` | Sort Lines Descending |
 | `F5` | Source Peek |
-| `F6` | Toggle Source Mode |
-| `Shift + F6` | Toggle Markdown Split View |
+| `F6` | Source view (Markdown: WYSIWYG ⇄ Source; other formats: Source ⇄ Split) |
+| `Shift + F6` | Split / Preview (Markdown: split view; other formats: Preview ⇄ Split) |
 | `F7` | Toggle Status Bar |
 | `F8` | Focus Mode |
 | `F9` | Typewriter Mode |
@@ -157,8 +157,8 @@ If you prefer keeping system functions on F-keys, you can customize VMark shortc
 
 | Action | Shortcut |
 |--------|----------|
-| Toggle Source Mode | `F6` |
-| Toggle Markdown Split View | `Shift + F6` |
+| Source view (Markdown ⇄ Source; other formats Source ⇄ Split) | `F6` |
+| Split / Preview (Markdown split; other formats Preview ⇄ Split) | `Shift + F6` |
 | Split Editor — Two Documents | `Alt + Mod + \` |
 | Toggle Status Bar | `F7` |
 | Focus Mode | `F8` |

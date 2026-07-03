@@ -194,9 +194,12 @@ module.exports = [
     // Bumped 94 → 95 kB: lucide-react v1 removed brand icons, so AboutSettings
     // now ships the GitHub mark as a local inline SVG (GithubMark.tsx), pushing
     // this chunk ~38 B over the old 94 kB ceiling.
+    // Bumped 95 → 97 kB: the split-pane "Default view mode" Select in
+    // FormatsSettings (Source/Split/Preview) pushed this ~140 B over the old
+    // 95 kB ceiling; +2 kB restores headroom.
     name: "LAZY: Settings page",
     path: "dist/assets/Settings-*.js",
-    limit: "95 kB",
+    limit: "97 kB",
     brotli: false,
   },
   {

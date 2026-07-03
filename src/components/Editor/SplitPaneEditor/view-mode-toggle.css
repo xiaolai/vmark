@@ -1,0 +1,56 @@
+/* WI-2.1 — ViewModeToggle: segmented Source/Split/Preview control.
+ *
+ * Token-only; dark-mode parity is implicit. Positioned by the parent
+ * (SplitPaneEditor floats it top-right of the body).
+ */
+
+.view-mode-toggle {
+  display: inline-flex;
+  gap: var(--space-px);
+  padding: var(--space-px);
+  border: var(--border-thin) solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+}
+
+.view-mode-toggle__btn {
+  position: relative;
+  padding: var(--space-half) var(--space-2);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-snug);
+  cursor: pointer;
+  transition:
+    background var(--duration-fast),
+    color var(--duration-fast);
+}
+
+.view-mode-toggle__btn:hover:not(.view-mode-toggle__btn--active) {
+  background: var(--hover-bg);
+  color: var(--text-color);
+}
+
+.view-mode-toggle__btn--active {
+  background: var(--accent-bg);
+  color: var(--accent-primary);
+}
+
+/* Focus: U-shaped underline (matches toolbar/popup button idiom, rule 33). */
+.view-mode-toggle__btn:focus-visible {
+  outline: none;
+}
+
+.view-mode-toggle__btn:focus-visible::after {
+  content: "";
+  position: absolute;
+  bottom: var(--space-half);
+  left: var(--space-1);
+  right: var(--space-1);
+  height: var(--border-medium);
+  background: var(--accent-primary);
+  border-radius: var(--radius-sm);
+}

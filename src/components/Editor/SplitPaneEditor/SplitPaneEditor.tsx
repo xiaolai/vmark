@@ -24,14 +24,17 @@ import { useTranslation } from "react-i18next";
 import { SourcePane } from "./SourcePane";
 import { ReadOnlyBanner } from "./ReadOnlyBanner";
 import { ValidationGutter } from "./ValidationGutter";
+import { ViewModeToggle } from "./ViewModeToggle";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { imeToast as toast } from "@/services/ime/imeToast";
-import type {
-  FormatConfig,
-  PreviewRenderer,
-  ValidationDiagnostic,
+import {
+  isSplitViewMode,
+  type FormatConfig,
+  type PreviewRenderer,
+  type SplitViewMode,
+  type ValidationDiagnostic,
 } from "@/lib/formats/types";
 import "./split-pane-editor.css";
 import { errorMessage } from "@/utils/errorMessage";
@@ -98,6 +101,44 @@ export function SplitPaneEditor({ tabId, formatConfig }: SplitPaneEditorProps) {
   }, [content, filePath, formatConfig]);
   const hasPreview = Boolean(Preview);
 
+  // Per-tab view mode (Source/Split/Preview), falling back to the global
+  // default setting, then "split". Clamped to "source" for formats without a
+  // preview so a stale "preview" on a now-preview-less tab can't blank the
+  // editor. See dev-docs/plans/20260703-split-pane-view-modes.md.
+  const tabViewMode = useTabStore((s) => s.findTabById?.(tabId)?.viewMode);
+  const defaultViewMode = useSettingsStore((s) => s.formats.defaultViewMode);
+  // Normalize via the guard so a corrupt persisted setting can't yield an
+  // out-of-range mode (which would leave the toggle with no active radio).
+  const requestedMode = tabViewMode ?? defaultViewMode;
+  const viewMode: SplitViewMode = hasPreview
+    ? (isSplitViewMode(requestedMode) ? requestedMode : "split")
+    : "source";
+  const showSource = viewMode !== "preview";
+  const showPreview = hasPreview && viewMode !== "source";
+  const showResizeHandle = showSource && showPreview;
+
+  // In preview-only mode the SourcePane is unmounted, so its `diagnostics`
+  // callback stops firing and the state would go stale. Recompute from the
+  // pure validator for the preview's own hints; when the source pane is
+  // mounted, use its live diagnostics.
+  const previewDiagnostics = useMemo(() => {
+    if (showSource) return diagnostics;
+    // A buggy validator must not crash the preview surface — it runs here
+    // during render (no SourcePane to sandbox it), so guard it.
+    try {
+      return formatConfig.validator?.(content, filePath ?? undefined) ?? [];
+    } catch {
+      return [];
+    }
+  }, [showSource, diagnostics, formatConfig, content, filePath]);
+
+  const handleViewModeChange = useCallback(
+    (mode: SplitViewMode) => {
+      useTabStore.getState().setTabViewMode(tabId, mode);
+    },
+    [tabId],
+  );
+
   const onKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key === "ArrowLeft") {
       e.preventDefault();
@@ -154,7 +195,7 @@ export function SplitPaneEditor({ tabId, formatConfig }: SplitPaneEditorProps) {
       style={
         {
           "--split-pane-source-fraction": String(
-            hasPreview ? fraction : 1,
+            showResizeHandle ? fraction : 1,
           ),
         } as React.CSSProperties
       }
@@ -168,26 +209,33 @@ export function SplitPaneEditor({ tabId, formatConfig }: SplitPaneEditorProps) {
           onOpenExternal={filePath ? handleOpenExternal : undefined}
         />
       )}
+      {hasPreview && (
+        <div className="split-pane-editor__mode-toggle">
+          <ViewModeToggle mode={viewMode} onChange={handleViewModeChange} />
+        </div>
+      )}
       {/* Row body: source | resize | preview. Separated from the banner so
           the banner spans full width on top — the editor is a column, the
           body is the row. */}
       <div className="split-pane-editor__body">
-        <div className="split-pane-editor__source">
-          <SourcePane
-            tabId={tabId}
-            formatId={formatConfig.id}
-            formatConfig={formatConfig}
-            onDiagnostics={setDiagnostics}
-            onJumpHandleReady={(jump) => {
-              jumpHandleRef.current = jump;
-            }}
-            editingEnabled={editingEnabled}
-          />
-          {diagnostics.length > 0 && (
-            <ValidationGutter diagnostics={diagnostics} onJump={handleJump} />
-          )}
-        </div>
-        {hasPreview && (
+        {showSource && (
+          <div className="split-pane-editor__source">
+            <SourcePane
+              tabId={tabId}
+              formatId={formatConfig.id}
+              formatConfig={formatConfig}
+              onDiagnostics={setDiagnostics}
+              onJumpHandleReady={(jump) => {
+                jumpHandleRef.current = jump;
+              }}
+              editingEnabled={editingEnabled}
+            />
+            {diagnostics.length > 0 && (
+              <ValidationGutter diagnostics={diagnostics} onJump={handleJump} />
+            )}
+          </div>
+        )}
+        {showResizeHandle && (
           <div
             className="split-pane-editor__resize-handle"
             role="separator"
@@ -200,12 +248,12 @@ export function SplitPaneEditor({ tabId, formatConfig }: SplitPaneEditorProps) {
             onKeyDown={onKeyDown}
           />
         )}
-        {hasPreview && Preview && (
+        {showPreview && Preview && (
           <div className="split-pane-editor__preview">
             <Preview
               content={content}
               path={filePath}
-              diagnostics={diagnostics}
+              diagnostics={previewDiagnostics}
             />
           </div>
         )}

@@ -8,6 +8,7 @@
  */
 
 import type { LineEndingOnSave } from "@/utils/linebreakDetection";
+import type { SplitViewMode } from "@/lib/formats/types";
 
 // ---------------------------------------------------------------------------
 // Format support (multi-format rebrand opt-in)
@@ -42,6 +43,10 @@ export interface FormatsSettings {
   /** Explicit external-editor command for the read-only code-tab escape hatch.
    *  Empty = env-var fallback chain. Browse button populates. */
   externalEditor: string;
+  /** Default Source/Split/Preview view mode for newly-opened split-pane /
+   *  viewer tabs that have no per-tab override. `"split"` preserves today's
+   *  behavior. See dev-docs/plans/20260703-split-pane-view-modes.md. */
+  defaultViewMode: SplitViewMode;
   /** Internal: set true once the upgrade nudge toast has been shown so it
    *  never repeats. Not user-toggled — only updated by the nudge handler. */
   upgradeNudgeShown: boolean;

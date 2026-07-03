@@ -254,6 +254,20 @@ For the full list of formats and their previews, see [Supported Formats](/guide/
 
 When a category is off, the matching extensions fall through to the plain-text fallback so the file still opens — just without the schema view.
 
+### Default view mode
+
+Preview-capable files (HTML, SVG, Mermaid, JSON, YAML, TOML) open in one of three
+[view modes](/guide/formats#view-modes-source-split-preview):
+
+| Option | Result |
+|---|---|
+| **Source** | Editable source pane, full width. |
+| **Split** (default) | Source and preview side by side. |
+| **Preview** | Read-only render, full width. |
+
+This is the default for newly-opened tabs; each tab remembers its own choice, and
+you can switch any tab with the on-screen toggle or `F6` / `Shift + F6`.
+
 ### External editor
 
 For the **Open in external editor** button on read-only code tabs, pick the editor that should launch. An app bundle (e.g. `/Applications/Visual Studio Code.app`) or an executable.

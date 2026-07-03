@@ -35,44 +35,19 @@ import { imeToast as toast } from "@/services/ime/imeToast";
 import i18n from "@/i18n";
 import { getFileName, normalizePath } from "@/utils/paths";
 import { stripSupportedExtension } from "@/utils/dropPaths";
-import { dispatchEditor, getFormatById } from "@/lib/formats/registry";
+import { getFormatById } from "@/lib/formats/registry";
+import type { SplitViewMode } from "@/lib/formats/types";
+import type { Tab } from "@/stores/tabStoreTypes";
+import {
+  deriveFormatId,
+  updateTabById,
+  nextActiveAfterRemoval,
+} from "@/stores/tabStoreHelpers";
 import { notifyTabRemoved } from "@/stores/tabRemovalBus";
 
-/** A single editor tab with ID, optional file path, display title, pin state,
- *  the format adapter id (derived from filePath via dispatchEditor), and the
- *  WI-4.3 per-tab editingEnabled override. */
-export interface Tab {
-  id: string;
-  filePath: string | null; // null = untitled
-  title: string;
-  isPinned: boolean;
-  /** WI-1A.12 — format registry id (e.g. "markdown", "txt"). Derived from filePath
-   *  on createTab/createTransferredTab/updateTabPath. The Editor surface keys on
-   *  this; a kind change triggers remount + undo reset + toast (ADR-10). */
-  formatId: string;
-  /** WI-4.3 — per-tab override of `formatConfig.adapters.readOnlyDefault`.
-   *  When true, the editor mounts read-write even for kind="viewer"
-   *  formats. Persists across tab switches; resets on tab close. */
-  editingEnabled?: boolean;
-  /** WI-1A.13 — active schemaRenderer id for formats that ship multiple
-   *  (e.g. yaml-gha-workflow vs generic yaml tree). `undefined`/`null` means
-   *  "let the schemaDetector decide on each render". Persisted directly
-   *  in hot-exit so restore is deterministic and does not re-run pure
-   *  detectors against possibly-edited content. */
-  activeSchemaId?: string | null;
-}
-
-function deriveFormatId(filePath: string | null): string {
-  // dispatchEditor throws only when no formats are registered (test-only edge);
-  // production bootstraps markdown + txt + stubs at app start. Defensive try
-  // keeps the store usable in any code path that runs before bootstrap.
-  /* v8 ignore next 5 -- @preserve defensive fallback for unbootstrapped registry */
-  try {
-    return dispatchEditor(filePath).id;
-  } catch {
-    return "markdown";
-  }
-}
+// Re-exported so existing `import { Tab } from "@/stores/tabStore"` keeps working
+// while the shape lives in tabStoreTypes.ts (breaks the store↔helpers cycle).
+export type { Tab } from "@/stores/tabStoreTypes";
 
 // Per-window tab state
 interface TabState {
@@ -99,6 +74,7 @@ interface TabActions {
   setActiveTab: (windowLabel: string, tabId: string | null) => void;
   setTabEditingEnabled: (tabId: string, enabled: boolean) => void;
   setTabActiveSchemaId: (tabId: string, schemaId: string | null) => void;
+  setTabViewMode: (tabId: string, mode: SplitViewMode) => void;
   /** WI-1A.13 — overwrite a tab's `formatId` directly. Used by hot-exit
    *  restore for untitled tabs where path-based derivation cannot recover
    *  a non-markdown format (untitled JSON, etc.). Caller is responsible
@@ -160,45 +136,6 @@ function getLocalizedFormatName(formatId: string): string {
   return translated && translated !== `common:${config.nameI18nKey}`
     ? translated
     : formatId;
-}
-
-/**
- * Shared update helper for keyed-by-id tab field mutations.
- *
- * Three setters — setTabEditingEnabled, setTabActiveSchemaId, setTabFormatId
- * — share the same scan-and-map pattern: walk every window's tab array,
- * replace exactly one tab (by id) with a shallow-merged copy. Factoring
- * this out keeps the field-specific setters thin and prevents drift
- * (e.g., one setter forgetting to clone state.tabs).
- *
- * Returns a partial state slice for direct return from Zustand's `set`.
- * Unknown ids result in a no-op clone (same shape, same data) — safe.
- */
-function updateTabById(
-  state: { tabs: Record<string, Tab[]> },
-  tabId: string,
-  patch: Partial<Tab>,
-): { tabs: Record<string, Tab[]> } {
-  const newTabs = { ...state.tabs };
-  for (const windowLabel of Object.keys(newTabs)) {
-    newTabs[windowLabel] = newTabs[windowLabel].map((t) =>
-      t.id === tabId ? { ...t, ...patch } : t,
-    );
-  }
-  return { tabs: newTabs };
-}
-
-/** Active tab after removing `removedId` at `removedIndex`: keep current if not
- *  active, else the right neighbor, then left, then null (shared, no drift). */
-function nextActiveAfterRemoval(
-  current: string | null,
-  removedId: string,
-  removedIndex: number,
-  remaining: Tab[],
-): string | null {
-  if (current !== removedId) return current;
-  if (remaining.length === 0) return null;
-  return remaining[Math.min(removedIndex, remaining.length - 1)].id;
 }
 
 /** Manages per-window tab lifecycle — creation, closing, pinning, reordering, and reopen history. Use selectors, not destructuring. */
@@ -345,6 +282,11 @@ export const useTabStore = create<TabState & TabActions>((set, get) => ({
    *  Pass `null` to clear the override and let schemaDetector decide. */
   setTabActiveSchemaId: (tabId: string, schemaId: string | null) => {
     set((state) => updateTabById(state, tabId, { activeSchemaId: schemaId }));
+  },
+
+  /** Set a tab's Source/Split/Preview view mode (split-pane formats). */
+  setTabViewMode: (tabId: string, mode: SplitViewMode) => {
+    set((state) => updateTabById(state, tabId, { viewMode: mode }));
   },
 
   /** WI-1A.13 — overwrite a tab's `formatId`. Used by hot-exit restore for

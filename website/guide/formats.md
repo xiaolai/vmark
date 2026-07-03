@@ -36,6 +36,24 @@ On the first launch after upgrading to multi-format support, VMark surfaces a on
 
 Code files default to read-only with a banner offering **Enable editing** or **Open in external editor**.
 
+## View modes (Source / Split / Preview)
+
+Any format that has a preview — HTML, SVG, Mermaid, JSON, YAML, TOML — opens with
+a small **Source · Split · Preview** toggle in the top-right corner:
+
+- **Source** — the editable source pane, full width.
+- **Split** — source and preview side by side (the default).
+- **Preview** — the rendered result, full width. Preview is a **read-only**
+  render; to edit, switch back to Source or Split.
+
+You can also switch from the keyboard: **`F6`** toggles Source ⇄ Split and
+**`Shift + F6`** toggles Preview ⇄ Split (Split is the base state). The choice is
+remembered per tab. Set the default for newly-opened files under
+**Settings → Formats → Default view mode**.
+
+Formats without a preview (plain text, code viewers) always show source only, so
+no toggle appears.
+
 ## Media files (images, video, audio)
 
 Open a picture, video, or audio file and VMark shows it inline — like Quick

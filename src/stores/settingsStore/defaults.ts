@@ -162,6 +162,7 @@ export const initialState: SettingsState = {
     htmlPreview: false,
     codeViewers: false,
     externalEditor: "",
+    defaultViewMode: "split",
     upgradeNudgeShown: false,
     associations: {},
   },

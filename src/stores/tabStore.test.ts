@@ -625,6 +625,39 @@ describe("tabStore", () => {
     });
   });
 
+  describe("setTabViewMode", () => {
+    it("defaults to undefined (use the global setting)", () => {
+      const store = useTabStore.getState();
+      const id = store.createTab("main", "/page.html");
+      expect(useTabStore.getState().findTabById(id)?.viewMode).toBeUndefined();
+    });
+
+    it("stores the view mode on the target tab only", () => {
+      const store = useTabStore.getState();
+      const a = store.createTab("main", "/a.html");
+      const b = store.createTab("main", "/b.html");
+
+      store.setTabViewMode(a, "preview");
+      expect(useTabStore.getState().findTabById(a)?.viewMode).toBe("preview");
+      // Sibling tab is untouched.
+      expect(useTabStore.getState().findTabById(b)?.viewMode).toBeUndefined();
+    });
+
+    it("overwrites a previous mode", () => {
+      const store = useTabStore.getState();
+      const id = store.createTab("main", "/page.svg");
+
+      store.setTabViewMode(id, "source");
+      store.setTabViewMode(id, "preview");
+      expect(useTabStore.getState().findTabById(id)?.viewMode).toBe("preview");
+    });
+
+    it("is a no-op for an unknown tab id", () => {
+      const store = useTabStore.getState();
+      expect(() => store.setTabViewMode("nonexistent", "preview")).not.toThrow();
+    });
+  });
+
   describe("getTabsByWindow", () => {
     it("returns empty array for non-existent window", () => {
       const store = useTabStore.getState();

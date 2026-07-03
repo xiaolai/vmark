@@ -7,6 +7,8 @@ import { render, screen, cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { FormatConfig, ValidationDiagnostic } from "@/lib/formats/types";
+import { useTabStore } from "@/stores/tabStore";
+import { useSettingsStore } from "@/stores/settingsStore";
 import { SplitPaneEditor } from "./SplitPaneEditor";
 
 // CodeMirror is heavy and requires DOM; mock the source pane.
@@ -52,7 +54,19 @@ function GenericPreview({ content }: { content: string }) {
 }
 
 describe("SplitPaneEditor", () => {
-  afterEach(() => cleanup());
+  afterEach(() => {
+    cleanup();
+    // Isolate view-mode tests: reset the global default back to "split".
+    useSettingsStore.setState((s) => ({
+      formats: { ...s.formats, defaultViewMode: "split" },
+    }));
+  });
+
+  function setDefaultViewMode(mode: "source" | "split" | "preview") {
+    useSettingsStore.setState((s) => ({
+      formats: { ...s.formats, defaultViewMode: mode },
+    }));
+  }
 
   describe("skeleton (WI-1A.4)", () => {
     it("renders source pane slot", () => {
@@ -236,6 +250,133 @@ describe("SplitPaneEditor", () => {
       // No diagnostics → no error gutter rendered yet (gutter component
       // owned by SourcePane in this skeleton; outer skeleton just supplies).
       expect(screen.queryByTestId("validation-summary")).not.toBeInTheDocument();
+    });
+  });
+
+  describe("view modes (WI-1.2 / WI-1.3)", () => {
+    const previewConfig: FormatConfig = {
+      ...jsonStub,
+      genericPreview: GenericPreview,
+    };
+
+    // Unique path per call — createTab dedupes by file path, so reusing one
+    // path would return a prior test's tab (with its leftover viewMode).
+    let tabSeq = 0;
+    function makeTab(): string {
+      tabSeq += 1;
+      return useTabStore.getState().createTab("main", `/page-${tabSeq}.json`);
+    }
+
+    it("split mode renders source, preview, and resize handle", () => {
+      const id = makeTab(); // no override → settings default "split"
+      render(<SplitPaneEditor tabId={id} formatConfig={previewConfig} />);
+      expect(screen.getByTestId("source-pane")).toBeInTheDocument();
+      expect(screen.getByTestId("preview-content")).toBeInTheDocument();
+      expect(screen.getByRole("separator")).toBeInTheDocument();
+    });
+
+    it("source mode renders source only — no preview, no handle", () => {
+      const id = makeTab();
+      useTabStore.getState().setTabViewMode(id, "source");
+      render(<SplitPaneEditor tabId={id} formatConfig={previewConfig} />);
+      expect(screen.getByTestId("source-pane")).toBeInTheDocument();
+      expect(screen.queryByTestId("preview-content")).not.toBeInTheDocument();
+      expect(screen.queryByRole("separator")).not.toBeInTheDocument();
+    });
+
+    it("preview mode renders preview only — no source, no handle", () => {
+      const id = makeTab();
+      useTabStore.getState().setTabViewMode(id, "preview");
+      render(<SplitPaneEditor tabId={id} formatConfig={previewConfig} />);
+      expect(screen.queryByTestId("source-pane")).not.toBeInTheDocument();
+      expect(screen.getByTestId("preview-content")).toBeInTheDocument();
+      expect(screen.queryByRole("separator")).not.toBeInTheDocument();
+    });
+
+    it("per-tab viewMode overrides the global default", () => {
+      setDefaultViewMode("preview");
+      const id = makeTab();
+      useTabStore.getState().setTabViewMode(id, "source");
+      render(<SplitPaneEditor tabId={id} formatConfig={previewConfig} />);
+      // The tab's "source" override wins over the "preview" setting.
+      expect(screen.getByTestId("source-pane")).toBeInTheDocument();
+      expect(screen.queryByTestId("preview-content")).not.toBeInTheDocument();
+    });
+
+    it("an unset tab falls back to the global default setting", () => {
+      setDefaultViewMode("preview");
+      const id = makeTab(); // no per-tab override
+      render(<SplitPaneEditor tabId={id} formatConfig={previewConfig} />);
+      expect(screen.queryByTestId("source-pane")).not.toBeInTheDocument();
+      expect(screen.getByTestId("preview-content")).toBeInTheDocument();
+    });
+
+    it("a preview-less format ignores viewMode:preview and stays source-only", () => {
+      const id = makeTab();
+      useTabStore.getState().setTabViewMode(id, "preview");
+      render(<SplitPaneEditor tabId={id} formatConfig={txtStub} />);
+      expect(screen.getByTestId("source-pane")).toBeInTheDocument();
+      expect(screen.queryByTestId("preview-content")).not.toBeInTheDocument();
+      expect(screen.queryByRole("separator")).not.toBeInTheDocument();
+    });
+
+    it("shows the view-mode toggle when the format has a preview", () => {
+      const id = makeTab();
+      render(<SplitPaneEditor tabId={id} formatConfig={previewConfig} />);
+      expect(screen.getByRole("radiogroup")).toBeInTheDocument();
+    });
+
+    it("hides the view-mode toggle when the format has no preview", () => {
+      const id = makeTab();
+      render(<SplitPaneEditor tabId={id} formatConfig={txtStub} />);
+      expect(screen.queryByRole("radiogroup")).not.toBeInTheDocument();
+    });
+
+    it("falls back to split when the resolved mode is invalid (corrupt setting)", () => {
+      // Simulate a corrupt persisted default (bypasses the typed setter).
+      useSettingsStore.setState((s) => ({
+        formats: { ...s.formats, defaultViewMode: "bogus" as unknown as "split" },
+      }));
+      const id = makeTab();
+      render(<SplitPaneEditor tabId={id} formatConfig={previewConfig} />);
+      // Normalized back to split → all three panes render.
+      expect(screen.getByTestId("source-pane")).toBeInTheDocument();
+      expect(screen.getByTestId("preview-content")).toBeInTheDocument();
+      expect(screen.getByRole("separator")).toBeInTheDocument();
+    });
+
+    it("does not crash in preview mode when the validator throws", () => {
+      const boom = (() => {
+        throw new Error("boom");
+      }) as FormatConfig["validator"];
+      const config: FormatConfig = {
+        ...jsonStub,
+        genericPreview: GenericPreview,
+        validator: boom,
+      };
+      const id = makeTab();
+      useTabStore.getState().setTabViewMode(id, "preview");
+      expect(() =>
+        render(<SplitPaneEditor tabId={id} formatConfig={config} />),
+      ).not.toThrow();
+      expect(screen.getByTestId("preview-content")).toBeInTheDocument();
+    });
+
+    it("read-only viewer banner persists in preview mode (WI-1.3)", () => {
+      const viewerPreview: FormatConfig = {
+        ...jsonStub,
+        kind: "viewer",
+        genericPreview: GenericPreview,
+        adapters: { ...baseAdapters, readOnlyDefault: true },
+      };
+      const id = makeTab();
+      useTabStore.getState().setTabViewMode(id, "preview");
+      const { container } = render(
+        <SplitPaneEditor tabId={id} formatConfig={viewerPreview} />,
+      );
+      // Banner is outside the body → present even with the source unmounted.
+      expect(container.querySelector(".read-only-banner")).toBeInTheDocument();
+      expect(screen.queryByTestId("source-pane")).not.toBeInTheDocument();
     });
   });
 });
