@@ -71,6 +71,11 @@ describe("mediaExtensions canonical sets", () => {
     expect(fileExtension("https://x.com/a/b.png?w=1#frag")).toBe("png");
     expect(fileExtension("/p/.gitignore")).toBe("");
     expect(fileExtension("noext")).toBe("");
+    // Local paths keep `?`/`#` as literal filename characters (only URLs have
+    // real query/fragment syntax) — a file named `photo#1.png` is a .png.
+    expect(fileExtension("/x/photo#1.png")).toBe("png");
+    expect(fileExtension("/x/clip?draft.mp4")).toBe("mp4");
+    expect(fileExtension("file:///x/a.png?cb=1")).toBe("png"); // file:// is a URL
   });
 });
 

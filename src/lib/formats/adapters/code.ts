@@ -46,7 +46,6 @@ function makeCodeFormat(
       untitledExtension: extensions[0],
       exportEnabled: false,
       findEnabled: true,
-      searchAdapter: "codemirror",
       contentSearchIndexed: false,
       readOnlyDefault: true,
       reloadPolicy: "reload",

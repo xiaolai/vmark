@@ -35,8 +35,7 @@ describe("json adapter", () => {
       expect(jsonFormat.genericPreview).toBeDefined();
     });
 
-    it("uses CodeMirror search adapter, R/W, content-search-indexed", () => {
-      expect(jsonFormat.adapters.searchAdapter).toBe("codemirror");
+    it("is read-write and content-search-indexed", () => {
       expect(jsonFormat.adapters.readOnlyDefault).toBe(false);
       expect(jsonFormat.adapters.contentSearchIndexed).toBe(true);
     });

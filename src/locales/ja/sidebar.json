@@ -30,7 +30,8 @@
     "revealInFinder": "Finderで表示",
     "showInExplorer": "エクスプローラーで表示",
     "showInFileManager": "ファイルマネージャーで表示",
-    "ariaLabel": "ファイル操作"
+    "ariaLabel": "ファイル操作",
+    "moveToTitle": "「{{name}}」の移動先..."
   },
   "outline": {
     "documentOutline": "ドキュメントアウトライン",

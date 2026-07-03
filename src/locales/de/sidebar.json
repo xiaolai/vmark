@@ -30,7 +30,8 @@
     "revealInFinder": "Im Finder anzeigen",
     "showInExplorer": "Im Explorer anzeigen",
     "showInFileManager": "Im Dateimanager anzeigen",
-    "ariaLabel": "Dateiaktionen"
+    "ariaLabel": "Dateiaktionen",
+    "moveToTitle": "Verschiebe „{{name}}“ nach..."
   },
   "outline": {
     "documentOutline": "Dokumentgliederung",

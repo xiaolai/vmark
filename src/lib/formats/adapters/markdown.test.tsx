@@ -41,10 +41,6 @@ describe("markdown adapter", () => {
     });
   });
 
-  it("uses tiptap search adapter", () => {
-    expect(markdownFormat.adapters.searchAdapter).toBe("tiptap");
-  });
-
   it("declares .md as untitledExtension", () => {
     expect(markdownFormat.adapters.untitledExtension).toBe("md");
   });
@@ -100,7 +96,6 @@ describe("markdown adapter", () => {
       adapters: {
         saveDialogFilters: [{ name: "Plain", extensions: ["txt"] }],
         untitledExtension: "txt",
-        searchAdapter: "codemirror",
         readOnlyDefault: false,
         closeSavePolicy: "markdown-default",
         menuPolicy: {

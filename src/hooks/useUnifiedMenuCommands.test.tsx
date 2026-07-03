@@ -842,7 +842,6 @@ describe("useUnifiedMenuCommands", () => {
         adapters: {
           saveDialogFilters: [{ name: "Plain", extensions: ["txt"] }],
           untitledExtension: "txt",
-          searchAdapter: "codemirror",
           readOnlyDefault: false,
           closeSavePolicy: "markdown-default",
           menuPolicy: {
@@ -1059,7 +1058,6 @@ describe("useUnifiedMenuCommands", () => {
         adapters: {
           saveDialogFilters: [{ name: f.formatId, extensions: [ext] }],
           untitledExtension: ext,
-          searchAdapter: "codemirror",
           readOnlyDefault: f.kind === "viewer",
           closeSavePolicy: "markdown-default",
           menuPolicy: f.menuPolicy,

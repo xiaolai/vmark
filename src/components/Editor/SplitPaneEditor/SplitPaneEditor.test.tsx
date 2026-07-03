@@ -21,7 +21,6 @@ vi.mock("./SourcePane", () => ({
 const baseAdapters: FormatConfig["adapters"] = {
   saveDialogFilters: [{ name: "JSON", extensions: ["json"] }],
   untitledExtension: "json",
-  searchAdapter: "codemirror",
   readOnlyDefault: false,
   closeSavePolicy: "markdown-default",
   menuPolicy: {

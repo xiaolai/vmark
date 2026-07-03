@@ -203,7 +203,6 @@ export const mermaidFormat: FormatConfig = {
     untitledExtension: "mmd",
     exportEnabled: false,
     findEnabled: true,
-    searchAdapter: "codemirror",
     contentSearchIndexed: true,
     readOnlyDefault: false,
     reloadPolicy: "reload",

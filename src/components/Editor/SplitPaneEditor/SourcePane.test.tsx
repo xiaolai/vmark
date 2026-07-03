@@ -60,7 +60,6 @@ const txtConfig: FormatConfig = {
   adapters: {
     saveDialogFilters: [{ name: "Plain", extensions: ["txt"] }],
     untitledExtension: "txt",
-    searchAdapter: "codemirror",
     readOnlyDefault: false,
     closeSavePolicy: "markdown-default",
     menuPolicy: {

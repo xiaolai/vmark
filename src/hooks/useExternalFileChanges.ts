@@ -20,6 +20,7 @@
  *
  * @coordinates-with useWindowFileWatcher.ts — starts/stops the Rust watcher
  * @coordinates-with documentStore.ts — reads dirty state, updates content on reload
+ * @coordinates-with fileChangeBatch.ts — the reload-all/keep-all/review-each resolutions
  * @module hooks/useExternalFileChanges
  */
 import { useEffect, useRef, useCallback } from "react";
@@ -33,6 +34,11 @@ import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
 import { dispatchEditor } from "@/lib/formats/registry";
 import { isBinaryMediaPath } from "@/hooks/openMediaFile";
+import {
+  reloadAllFromDisk,
+  keepAllLocal,
+  reviewEachIndividually,
+} from "@/hooks/fileChangeBatch";
 import { resolveExternalChangeAction } from "@/utils/openPolicy";
 import { normalizePath } from "@/utils/paths";
 import { saveToPath } from "@/services/persistence/saveToPath";
@@ -246,39 +252,11 @@ export function useExternalFileChanges(): void {
         } as const;
 
         if (result === "Yes" || result === batchButtons.reloadAll) {
-          // Reload all files from disk
-          for (const { tabId, filePath } of pending) {
-            try {
-              await reloadTabFromDisk(tabId, filePath);
-            } catch (error) {
-              fileOpsError("Failed to reload file:", filePath, error);
-              useDocumentStore.getState().markMissing(tabId);
-            }
-          }
+          await reloadAllFromDisk(pending, reloadTabFromDisk);
         } else if (result === "No" || result === batchButtons.keepAll) {
-          // Keep all local versions - mark divergent and adopt current disk
-          // content as lastDiskContent so the same external state doesn't
-          // re-prompt next time the sync daemon touches the file (#904).
-          for (const { tabId, filePath } of pending) {
-            useDocumentStore.getState().markDivergent(tabId);
-            try {
-              const currentDisk = await readTextFile(filePath);
-              useDocumentStore
-                .getState()
-                .updateLastDiskContent(tabId, currentDisk);
-            } catch (error) {
-              fileOpsError(
-                "Failed to refresh lastDiskContent after Keep-all:",
-                filePath,
-                error,
-              );
-            }
-          }
+          await keepAllLocal(pending);
         } else {
-          // Review each - process individually
-          for (const { tabId, filePath } of pending) {
-            await handleDirtyChange(tabId, filePath);
-          }
+          await reviewEachIndividually(pending, handleDirtyChange);
         }
       }
     } finally {

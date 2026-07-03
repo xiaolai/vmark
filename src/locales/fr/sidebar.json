@@ -30,7 +30,8 @@
     "revealInFinder": "Afficher dans le Finder",
     "showInExplorer": "Afficher dans l'Explorateur",
     "showInFileManager": "Afficher dans le gestionnaire de fichiers",
-    "ariaLabel": "Actions du fichier"
+    "ariaLabel": "Actions du fichier",
+    "moveToTitle": "Déplacer « {{name}} » vers..."
   },
   "outline": {
     "documentOutline": "Plan du document",

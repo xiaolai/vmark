@@ -18,7 +18,6 @@ export const txtFormat: FormatConfig = {
     untitledExtension: "txt",
     exportEnabled: false,
     findEnabled: true,
-    searchAdapter: "codemirror",
     contentSearchIndexed: true,
     readOnlyDefault: false,
     reloadPolicy: "reload",

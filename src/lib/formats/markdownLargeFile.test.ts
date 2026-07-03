@@ -21,7 +21,6 @@ const stubMd: FormatConfig = {
   adapters: {
     saveDialogFilters: [{ name: "Markdown", extensions: ["md"] }],
     untitledExtension: "md",
-    searchAdapter: "tiptap",
     readOnlyDefault: false,
     closeSavePolicy: "markdown-default",
     menuPolicy: {
@@ -41,7 +40,6 @@ const stubTxt: FormatConfig = {
   adapters: {
     saveDialogFilters: [{ name: "Plain", extensions: ["txt"] }],
     untitledExtension: "txt",
-    searchAdapter: "codemirror",
     readOnlyDefault: false,
     closeSavePolicy: "markdown-default",
     menuPolicy: {

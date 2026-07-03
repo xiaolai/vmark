@@ -38,10 +38,6 @@ describe("txt adapter", () => {
     expect(txtFormat.loadLanguage).toBeUndefined();
   });
 
-  it("uses CodeMirror search adapter", () => {
-    expect(txtFormat.adapters.searchAdapter).toBe("codemirror");
-  });
-
   it("declares menuPolicy with all flags false (plain text is dumb)", () => {
     expect(txtFormat.adapters.menuPolicy).toEqual({
       sourceWysiwygToggle: false,

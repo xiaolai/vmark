@@ -136,7 +136,6 @@ export const markdownFormat: FormatConfig = {
     untitledExtension: "md",
     exportEnabled: true,
     findEnabled: true,
-    searchAdapter: "tiptap",
     contentSearchIndexed: true,
     readOnlyDefault: false,
     reloadPolicy: "reload",

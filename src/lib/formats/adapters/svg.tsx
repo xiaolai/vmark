@@ -163,7 +163,6 @@ export const svgFormat: FormatConfig = {
     untitledExtension: "svg",
     exportEnabled: false,
     findEnabled: true,
-    searchAdapter: "codemirror",
     contentSearchIndexed: true,
     readOnlyDefault: false,
     reloadPolicy: "reload",

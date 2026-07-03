@@ -47,7 +47,6 @@ export interface FormatAdapters {
   untitledExtension: string;
   exportEnabled?: boolean;
   findEnabled?: boolean;
-  searchAdapter: "codemirror" | "tiptap";
   contentSearchIndexed?: boolean;
   readOnlyDefault: boolean;
   reloadPolicy?: "reload" | "prompt";

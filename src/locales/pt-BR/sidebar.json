@@ -30,7 +30,8 @@
     "revealInFinder": "Mostrar no Finder",
     "showInExplorer": "Mostrar no Explorador",
     "showInFileManager": "Mostrar no gerenciador de arquivos",
-    "ariaLabel": "Ações de arquivo"
+    "ariaLabel": "Ações de arquivo",
+    "moveToTitle": "Mover \"{{name}}\" para..."
   },
   "outline": {
     "documentOutline": "Estrutura do documento",

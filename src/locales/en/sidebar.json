@@ -25,6 +25,7 @@
     "rename": "Rename",
     "duplicate": "Duplicate",
     "moveTo": "Move to...",
+    "moveToTitle": "Move \"{{name}}\" to...",
     "delete": "Delete",
     "copyPath": "Copy Path",
     "revealInFinder": "Reveal in Finder",

@@ -102,7 +102,6 @@ export const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(
     targetIsFolder: false,
   });
   const treeRef = useRef<TreeApi<FileNodeType> | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
   const [treeContainerRef, treeHeight] = useObservedHeight<HTMLDivElement>();
   const handleQuickLookKeyDown = useQuickLookHotkey(treeRef);
 
@@ -198,6 +197,41 @@ export const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(
     [openFile, openWithDefaultApp]
   );
 
+  // Create a new file/folder under `parentPath` (or the selected folder / root),
+  // then put it into rename mode once the tree has refreshed.
+  const createEntryAndEdit = useCallback(
+    async (
+      create: (parent: string, name: string) => Promise<string | null>,
+      defaultName: string,
+      parentPath?: string | null,
+    ) => {
+      if (!rootPath) return;
+      let targetPath = parentPath;
+      if (!targetPath) {
+        const selected = treeRef.current?.selectedNodes[0];
+        targetPath = selected?.data.isFolder ? selected.data.id : rootPath;
+      }
+      const path = await create(targetPath, defaultName);
+      if (path) {
+        await refresh();
+        setTimeout(() => treeRef.current?.get(path)?.edit(), 100);
+      }
+    },
+    [rootPath, refresh],
+  );
+
+  const handleNewFile = useCallback(
+    (parentPath?: string | null) =>
+      createEntryAndEdit(createFile, t("defaultFileName"), parentPath),
+    [createEntryAndEdit, createFile, t],
+  );
+
+  const handleNewFolder = useCallback(
+    (parentPath?: string | null) =>
+      createEntryAndEdit(createFolder, t("defaultFolderName"), parentPath),
+    [createEntryAndEdit, createFolder, t],
+  );
+
   // Handle context menu actions
   const handleContextMenuAction = useCallback(
     async (action: string) => {
@@ -227,7 +261,7 @@ export const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(
           if (targetPath && !targetIsFolder) {
             const currentFolder = getParentDir(targetPath);
             const destFolder = await openDialog({
-              title: `Move "${getFileName(targetPath)}" to...`,
+              title: t("contextMenu.moveToTitle", { name: getFileName(targetPath) }),
               directory: true,
               defaultPath: currentFolder ?? undefined,
             });
@@ -264,8 +298,7 @@ export const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(
           break;
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- handleNewFile/handleNewFolder use getState() pattern
-    [contextMenu, openFileByType, duplicateFile, moveItem, deleteItem, copyPath, revealInFinder]
+    [contextMenu, openFileByType, duplicateFile, moveItem, deleteItem, copyPath, revealInFinder, handleNewFile, handleNewFolder, t]
   );
 
   // Handle file activation (double-click or Enter)
@@ -318,52 +351,6 @@ export const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(
     [moveItem, rootPath]
   );
 
-  // Create new file
-  const handleNewFile = useCallback(
-    async (parentPath?: string | null) => {
-      if (!rootPath) return;
-
-      // Use provided path, selected folder, or root
-      let targetPath = parentPath;
-      if (!targetPath) {
-        const selected = treeRef.current?.selectedNodes[0];
-        targetPath = selected?.data.isFolder ? selected.data.id : rootPath;
-      }
-
-      const path = await createFile(targetPath, t("defaultFileName"));
-      if (path) {
-        await refresh();
-        setTimeout(() => {
-          const node = treeRef.current?.get(path);
-          node?.edit();
-        }, 100);
-      }
-    },
-    [rootPath, createFile, refresh, t]
-  );
-
-  // Create new folder
-  const handleNewFolder = useCallback(
-    async (parentPath?: string | null) => {
-      if (!rootPath) return;
-
-      let targetPath = parentPath;
-      if (!targetPath) {
-        const selected = treeRef.current?.selectedNodes[0];
-        targetPath = selected?.data.isFolder ? selected.data.id : rootPath;
-      }
-
-      const path = await createFolder(targetPath, t("defaultFolderName"));
-      if (path) {
-        await refresh();
-        setTimeout(() => {
-          const node = treeRef.current?.get(path);
-          node?.edit();
-        }, 100);
-      }
-    },
-    [rootPath, createFolder, refresh, t]
-  );
 
   // Expose methods to parent via ref
   useImperativeHandle(ref, () => ({
@@ -398,7 +385,7 @@ export const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(
   }
 
   return (
-    <div className="file-explorer" role="navigation" aria-label={t("aria.fileExplorer")} ref={containerRef}>
+    <div className="file-explorer" role="navigation" aria-label={t("aria.fileExplorer")}>
       {/* Workspace header when in workspace mode */}
       {isWorkspaceMode && workspaceName && (
         <div className="file-explorer-workspace-header">

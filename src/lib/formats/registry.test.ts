@@ -14,7 +14,6 @@ import type { FormatConfig } from "./types";
 const baseAdapters: FormatConfig["adapters"] = {
   saveDialogFilters: [{ name: "Plain", extensions: ["txt"] }],
   untitledExtension: "txt",
-  searchAdapter: "codemirror",
   readOnlyDefault: false,
   closeSavePolicy: "markdown-default",
   menuPolicy: {
@@ -39,7 +38,6 @@ const mdAdapters: FormatConfig["adapters"] = {
     { name: "Markdown", extensions: ["md", "markdown"] },
   ],
   untitledExtension: "md",
-  searchAdapter: "tiptap",
   menuPolicy: {
     sourceWysiwygToggle: true,
     cjkFormatActions: true,

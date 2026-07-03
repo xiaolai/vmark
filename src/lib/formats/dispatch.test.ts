@@ -19,7 +19,6 @@ import type { FormatConfig } from "./types";
 const baseAdapters: FormatConfig["adapters"] = {
   saveDialogFilters: [{ name: "Plain", extensions: ["txt"] }],
   untitledExtension: "txt",
-  searchAdapter: "codemirror",
   readOnlyDefault: false,
   closeSavePolicy: "markdown-default",
   menuPolicy: {
@@ -38,7 +37,7 @@ const md: FormatConfig = {
   extensions: ["md", "markdown", "mdx"],
   kind: "wysiwyg",
   wysiwygComponent: StubComponent,
-  adapters: { ...baseAdapters, searchAdapter: "tiptap" },
+  adapters: { ...baseAdapters },
 };
 
 const txt: FormatConfig = {
@@ -89,14 +88,19 @@ describe("formatLookupKeys", () => {
     expect(formatLookupKeys("/x/")).toEqual([]);
   });
 
-  it("strips query/fragment BEFORE finding the basename (audit Round B H1)", () => {
-    // Slashes inside the query value would otherwise confuse the basename
-    // split. Previously these resolved to the slice AFTER the intra-query
-    // slash (`["a"]`), which broke dispatch/association lookups.
-    expect(formatLookupKeys("/x/foo.md?next=/tmp/a")).toEqual(["foo.md", "md"]);
-    expect(formatLookupKeys("/x/foo.md#sec/2")).toEqual(["foo.md", "md"]);
+  it("strips query/fragment only for URLs (audit Round B H1), keeping local names literal", () => {
+    // For a genuine URL a slash inside the query value would otherwise confuse
+    // the basename split — strip query/fragment first.
     expect(formatLookupKeys("file:///x/foo.md?cb=/tmp/y")).toEqual([
       "foo.md",
+      "md",
+    ]);
+    expect(formatLookupKeys("https://x/foo.md#sec/2")).toEqual(["foo.md", "md"]);
+    // A LOCAL path keeps `?`/`#` as literal filename characters — a file named
+    // `photo#1.png` is a `.png`, not a mis-parsed extensionless "photo".
+    expect(formatLookupKeys("/x/photo#1.png")).toEqual(["photo#1.png", "png"]);
+    expect(formatLookupKeys("/x/report?draft.md")).toEqual([
+      "report?draft.md",
       "md",
     ]);
   });

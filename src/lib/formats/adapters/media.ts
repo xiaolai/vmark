@@ -47,7 +47,6 @@ export const mediaFormat: FormatConfig = {
     // Required by the shared FormatAdapters type but inert for kind:"media":
     // media never mounts a search surface (no CodeMirror/Tiptap editor). The
     // value is a placeholder to satisfy the type, not a real adapter selection.
-    searchAdapter: "codemirror",
     // Binary: never indexed for workspace content search (also guarded by the
     // Rust is_binary() NUL-byte scan).
     contentSearchIndexed: false,

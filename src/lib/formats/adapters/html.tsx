@@ -157,7 +157,6 @@ export const htmlFormat: FormatConfig = {
     untitledExtension: "html",
     exportEnabled: false,
     findEnabled: true,
-    searchAdapter: "codemirror",
     contentSearchIndexed: true,
     readOnlyDefault: false,
     reloadPolicy: "reload",

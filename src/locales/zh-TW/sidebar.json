@@ -30,7 +30,8 @@
     "revealInFinder": "在 Finder 中顯示",
     "showInExplorer": "在檔案總管中顯示",
     "showInFileManager": "在檔案管理員中顯示",
-    "ariaLabel": "檔案操作"
+    "ariaLabel": "檔案操作",
+    "moveToTitle": "將「{{name}}」移動到..."
   },
   "outline": {
     "documentOutline": "文件大綱",

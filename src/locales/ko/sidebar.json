@@ -30,7 +30,8 @@
     "revealInFinder": "Finder에서 보기",
     "showInExplorer": "탐색기에서 보기",
     "showInFileManager": "파일 관리자에서 보기",
-    "ariaLabel": "파일 작업"
+    "ariaLabel": "파일 작업",
+    "moveToTitle": "\"{{name}}\" 이동 위치..."
   },
   "outline": {
     "documentOutline": "문서 개요",
