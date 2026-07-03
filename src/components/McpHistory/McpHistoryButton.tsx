@@ -144,6 +144,7 @@ export function McpHistoryButton(): React.ReactElement {
   // render while open (the badge/count can shift the trigger rect); the functional
   // update bails when nothing moved, so there is no render loop and no flicker.
   const [popoverStyle, setPopoverStyle] = useState<React.CSSProperties>({ display: "none" });
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: remeasure every render while open (see note above); functional setState bails when unchanged, so no loop.
   useLayoutEffect(() => {
     if (!open) return;
     const rect = buttonRef.current?.getBoundingClientRect();

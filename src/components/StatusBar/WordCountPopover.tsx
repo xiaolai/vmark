@@ -68,6 +68,7 @@ export function WordCountPopover({
   // shifts as counts change while open); the functional update bails when nothing
   // moved, so there is no render loop.
   const [style, setStyle] = useState<React.CSSProperties>({ right: 8, bottom: 8, width: POPUP_WIDTH });
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: remeasure every render (see note above); functional setState bails when unchanged, so no loop.
   useLayoutEffect(() => {
     const rect = anchorRef.current?.getBoundingClientRect();
     if (!rect) return;
