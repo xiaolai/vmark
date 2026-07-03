@@ -589,7 +589,7 @@ pub fn show_settings_window_section(
 
     #[cfg(not(target_os = "macos"))]
     {
-        builder = builder.menu(Menu::new(app)?).center().visible(true);
+        builder = builder.menu(tauri::menu::Menu::new(app)?).center().visible(true);
     }
 
     let window = builder.build()?;
