@@ -76,7 +76,12 @@ export interface GenieMetadataV1 extends GenieMetadata {
 // ============================================================================
 
 export type CliProviderType = "claude" | "codex" | "gemini" | "ollama";
-export type RestProviderType = "anthropic" | "openai" | "google-ai" | "ollama-api";
+export type RestProviderType =
+  | "anthropic"
+  | "openai"
+  | "openai-compatible"
+  | "google-ai"
+  | "ollama-api";
 export type ProviderType = CliProviderType | RestProviderType;
 
 export interface CliProviderInfo {

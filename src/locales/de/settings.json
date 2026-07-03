@@ -343,6 +343,8 @@
   "integrations.aiProviders.notFound": "Nicht gefunden",
   "integrations.healthCheck.error": "Integritätsprüfung: {{error}}",
   "integrations.apiEndpoint": "API-Endpunkt",
+  "integrations.providerNamePlaceholder": "Anbietername (z. B. DeepSeek)",
+  "integrations.openaiCompatibleName": "OpenAI-kompatibel",
   "integrations.apiKey": "API-Schlüssel",
   "integrations.showApiKey": "API-Schlüssel anzeigen",
   "integrations.hideApiKey": "API-Schlüssel verbergen",

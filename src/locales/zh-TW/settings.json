@@ -343,6 +343,8 @@
   "integrations.aiProviders.notFound": "找不到",
   "integrations.healthCheck.error": "健康檢查：{{error}}",
   "integrations.apiEndpoint": "API 端點",
+  "integrations.providerNamePlaceholder": "服務商名稱（例如 DeepSeek）",
+  "integrations.openaiCompatibleName": "OpenAI 相容",
   "integrations.apiKey": "API 金鑰",
   "integrations.showApiKey": "顯示 API 金鑰",
   "integrations.hideApiKey": "隱藏 API 金鑰",

@@ -343,6 +343,8 @@
   "integrations.aiProviders.notFound": "見つかりません",
   "integrations.healthCheck.error": "ヘルスチェック: {{error}}",
   "integrations.apiEndpoint": "APIエンドポイント",
+  "integrations.providerNamePlaceholder": "プロバイダー名（例: DeepSeek）",
+  "integrations.openaiCompatibleName": "OpenAI 互換",
   "integrations.apiKey": "APIキー",
   "integrations.showApiKey": "APIキーを表示",
   "integrations.hideApiKey": "APIキーを非表示",

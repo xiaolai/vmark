@@ -343,6 +343,8 @@
   "integrations.aiProviders.notFound": "찾을 수 없음",
   "integrations.healthCheck.error": "상태 확인: {{error}}",
   "integrations.apiEndpoint": "API 엔드포인트",
+  "integrations.providerNamePlaceholder": "제공자 이름 (예: DeepSeek)",
+  "integrations.openaiCompatibleName": "OpenAI 호환",
   "integrations.apiKey": "API 키",
   "integrations.showApiKey": "API 키 표시",
   "integrations.hideApiKey": "API 키 숨기기",

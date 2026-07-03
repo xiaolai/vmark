@@ -30,6 +30,19 @@ fn require_key(api_key: Option<String>) -> Result<String, String> {
         .ok_or_else(|| "API key is required".to_string())
 }
 
+/// Resolve a base URL that MUST be user-supplied (no sensible default host).
+///
+/// The `openai-compatible` provider is generic — there is no vendor default to
+/// fall back to — so an empty endpoint is a hard error rather than a silent
+/// request to some placeholder host.
+fn require_endpoint(endpoint: Option<String>) -> Result<String, String> {
+    let base = resolve_endpoint(endpoint, "");
+    if base.is_empty() {
+        return Err("Endpoint (base URL) is required".to_string());
+    }
+    Ok(base)
+}
+
 async fn check_response(resp: reqwest::Response) -> Result<reqwest::Response, String> {
     if resp.status().is_success() {
         return Ok(resp);
@@ -42,63 +55,10 @@ async fn check_response(resp: reqwest::Response) -> Result<reqwest::Response, St
     Err(format!("HTTP {}: {}", status.as_u16(), text))
 }
 
-fn parse_ollama_models(json: &serde_json::Value) -> Result<Vec<String>, String> {
-    let arr = json
-        .get("models")
-        .and_then(|m| m.as_array())
-        .ok_or_else(|| {
-            "Unexpected model list response shape from Ollama (missing \"models\" key)".to_string()
-        })?;
-    Ok(arr
-        .iter()
-        .filter_map(|m| m.get("name").and_then(|n| n.as_str()).map(String::from))
-        .collect())
-}
-
-fn parse_openai_models(json: &serde_json::Value) -> Result<Vec<String>, String> {
-    let arr = json.get("data").and_then(|d| d.as_array()).ok_or_else(|| {
-        "Unexpected model list response shape from OpenAI (missing \"data\" key)".to_string()
-    })?;
-    // Use dash-suffixed prefixes to avoid false matches (e.g. "o1" matching "o100-*")
-    let prefixes = ["gpt-", "o1-", "o3-", "o4-", "chatgpt-"];
-    let exact = ["o1", "o3", "o4"];
-    let mut models: Vec<String> = arr
-        .iter()
-        .filter_map(|m| m.get("id").and_then(|id| id.as_str()).map(String::from))
-        .filter(|id| prefixes.iter().any(|p| id.starts_with(p)) || exact.contains(&id.as_str()))
-        .collect();
-    models.sort();
-    Ok(models)
-}
-
-fn parse_google_models(json: &serde_json::Value) -> Result<Vec<String>, String> {
-    let arr = json
-        .get("models")
-        .and_then(|m| m.as_array())
-        .ok_or_else(|| {
-            "Unexpected model list response shape from Google AI (missing \"models\" key)"
-                .to_string()
-        })?;
-    let mut models: Vec<String> = arr
-        .iter()
-        .filter_map(|m| {
-            // Only include models that support generateContent
-            let supports = m
-                .get("supportedGenerationMethods")
-                .and_then(|s| s.as_array())
-                .map(|arr| arr.iter().any(|v| v.as_str() == Some("generateContent")))
-                .unwrap_or(false);
-            if !supports {
-                return None;
-            }
-            m.get("name")
-                .and_then(|n| n.as_str())
-                .map(|n| n.strip_prefix("models/").unwrap_or(n).to_string())
-        })
-        .collect();
-    models.sort();
-    Ok(models)
-}
+mod rest_model_parsers;
+use rest_model_parsers::{
+    parse_google_models, parse_ollama_models, parse_openai_compatible_models, parse_openai_models,
+};
 
 // ============================================================================
 // API Key Testing
@@ -120,6 +80,20 @@ pub async fn test_api_key(
         "openai" => {
             let key = require_key(api_key)?;
             let base = resolve_endpoint(endpoint, "https://api.openai.com");
+            let resp = client
+                .get(format!("{}/v1/models", base))
+                .timeout(req_timeout)
+                .header("Authorization", format!("Bearer {}", key))
+                .send()
+                .await
+                .map_err(|e| format!("Request failed: {}", e))?;
+            check_response(resp).await?;
+            Ok("Connected".to_string())
+        }
+
+        "openai-compatible" => {
+            let key = require_key(api_key)?;
+            let base = require_endpoint(endpoint)?;
             let resp = client
                 .get(format!("{}/v1/models", base))
                 .timeout(req_timeout)
@@ -236,6 +210,24 @@ pub async fn list_models(
             parse_openai_models(&json)
         }
 
+        "openai-compatible" => {
+            let key = require_key(api_key)?;
+            let base = require_endpoint(endpoint)?;
+            let resp = client
+                .get(format!("{}/v1/models", base))
+                .timeout(req_timeout)
+                .header("Authorization", format!("Bearer {}", key))
+                .send()
+                .await
+                .map_err(|e| format!("Request failed: {}", e))?;
+            let resp = check_response(resp).await?;
+            let json: serde_json::Value = resp
+                .json()
+                .await
+                .map_err(|e| format!("Failed to parse response: {}", e))?;
+            parse_openai_compatible_models(&json)
+        }
+
         "google-ai" => {
             let key = require_key(api_key)?;
             let resp = client
@@ -286,6 +278,27 @@ pub async fn validate_model(
         "openai" => {
             let key = require_key(api_key)?;
             let base = resolve_endpoint(endpoint, "https://api.openai.com");
+            let body = serde_json::json!({
+                "model": model,
+                "max_tokens": 1,
+                "messages": [{"role": "user", "content": "Hi"}]
+            });
+            let resp = client
+                .post(format!("{}/v1/chat/completions", base))
+                .timeout(req_timeout)
+                .header("Authorization", format!("Bearer {}", key))
+                .header("content-type", "application/json")
+                .json(&body)
+                .send()
+                .await
+                .map_err(|e| format!("Request failed: {}", e))?;
+            check_response(resp).await?;
+            Ok("Model OK".to_string())
+        }
+
+        "openai-compatible" => {
+            let key = require_key(api_key)?;
+            let base = require_endpoint(endpoint)?;
             let body = serde_json::json!({
                 "model": model,
                 "max_tokens": 1,
@@ -371,81 +384,20 @@ pub async fn validate_model(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json::json;
 
     #[test]
-    fn ollama_parser_errors_on_missing_models_key() {
-        let err = parse_ollama_models(&json!({})).unwrap_err();
-        assert!(err.contains("Ollama"));
-        assert!(err.contains("models"));
+    fn require_endpoint_rejects_absent_or_empty() {
+        assert!(require_endpoint(None).is_err());
+        assert!(require_endpoint(Some(String::new())).is_err());
     }
 
     #[test]
-    fn ollama_parser_collects_names() {
-        let v = json!({
-            "models": [
-                {"name": "llama3.2"},
-                {"name": "qwen2.5"},
-            ]
-        });
+    fn require_endpoint_accepts_and_normalizes_v1_suffix() {
+        // A user who pastes `https://api.deepseek.com/v1` must not get a
+        // doubled `/v1/v1/...` path.
         assert_eq!(
-            parse_ollama_models(&v).unwrap(),
-            vec!["llama3.2", "qwen2.5"]
-        );
-    }
-
-    #[test]
-    fn openai_parser_errors_on_missing_data_key() {
-        let err = parse_openai_models(&json!({})).unwrap_err();
-        assert!(err.contains("OpenAI"));
-        assert!(err.contains("data"));
-    }
-
-    #[test]
-    fn openai_parser_filters_and_sorts() {
-        let v = json!({
-            "data": [
-                {"id": "gpt-4o"},
-                {"id": "text-embedding-3-small"},
-                {"id": "o1"},
-                {"id": "o100-foo"},
-                {"id": "chatgpt-4"},
-            ]
-        });
-        assert_eq!(
-            parse_openai_models(&v).unwrap(),
-            vec!["chatgpt-4", "gpt-4o", "o1"]
-        );
-    }
-
-    #[test]
-    fn google_parser_errors_on_missing_models_key() {
-        let err = parse_google_models(&json!({})).unwrap_err();
-        assert!(err.contains("Google AI"));
-        assert!(err.contains("models"));
-    }
-
-    #[test]
-    fn google_parser_keeps_only_generate_content_models() {
-        let v = json!({
-            "models": [
-                {
-                    "name": "models/gemini-2.0-flash",
-                    "supportedGenerationMethods": ["generateContent", "countTokens"]
-                },
-                {
-                    "name": "models/embedding-001",
-                    "supportedGenerationMethods": ["embedContent"]
-                },
-                {
-                    "name": "models/gemini-1.5-pro",
-                    "supportedGenerationMethods": ["generateContent"]
-                }
-            ]
-        });
-        assert_eq!(
-            parse_google_models(&v).unwrap(),
-            vec!["gemini-1.5-pro", "gemini-2.0-flash"]
+            require_endpoint(Some("https://api.deepseek.com/v1".into())).unwrap(),
+            "https://api.deepseek.com"
         );
     }
 }

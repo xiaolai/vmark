@@ -29,6 +29,7 @@ import type {
   ProviderType,
   RestProviderType,
 } from "@/types/aiGenies";
+import { DEFAULT_REST_PROVIDERS } from "./providerDefaults";
 
 interface AiProviderState {
   activeProvider: ProviderType | null;
@@ -51,37 +52,6 @@ interface AiProviderActions {
   loadEnvApiKeys(): Promise<void>;
   getActiveProviderName(): string;
 }
-
-const DEFAULT_REST_PROVIDERS: RestProviderConfig[] = [
-  {
-    type: "anthropic",
-    name: "Anthropic",
-    endpoint: "https://api.anthropic.com",
-    apiKey: "",
-    model: "claude-sonnet-4-5-20250929",
-  },
-  {
-    type: "openai",
-    name: "OpenAI",
-    endpoint: "https://api.openai.com",
-    apiKey: "",
-    model: "gpt-4o",
-  },
-  {
-    type: "google-ai",
-    name: "Google AI",
-    endpoint: "",
-    apiKey: "",
-    model: "gemini-2.0-flash",
-  },
-  {
-    type: "ollama-api",
-    name: "Ollama (API)",
-    endpoint: "http://localhost:11434",
-    apiKey: "",
-    model: "llama3.2",
-  },
-];
 
 /**
  * Shape-guard one persisted REST provider entry (T4). Coerces missing/
@@ -129,7 +99,13 @@ export function sanitizeAiProviderPersist(data: Record<string, unknown>): {
 }
 
 /** REST provider type identifiers that require API key configuration. CLI types are everything else. */
-export const REST_TYPES = new Set<string>(["anthropic", "openai", "google-ai", "ollama-api"]);
+export const REST_TYPES = new Set<string>([
+  "anthropic",
+  "openai",
+  "openai-compatible",
+  "google-ai",
+  "ollama-api",
+]);
 
 /** Ollama API doesn't require an API key. */
 export const KEY_OPTIONAL_REST = new Set<string>(["ollama-api"]);

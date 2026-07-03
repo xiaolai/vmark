@@ -177,6 +177,34 @@ async fn dispatch_to_provider(
             })
             .await
         }
+        "openai-compatible" => {
+            let Some(key) = require_api_key(sink.as_ref(), &api_key, "OpenAI-compatible") else {
+                return Ok(());
+            };
+            // Generic provider — no default host; an empty endpoint is a hard error.
+            let endpoint = endpoint::resolve_endpoint(endpoint, "");
+            if endpoint.is_empty() {
+                sink.error("Endpoint (base URL) is required for the OpenAI-compatible provider");
+                return Ok(());
+            }
+            let model = model.unwrap_or_default();
+            if model.is_empty() {
+                sink.error("Model is required for the OpenAI-compatible provider");
+                return Ok(());
+            }
+            run_rest_with_cancel(sink, cancel, |s| async move {
+                rest_providers::run_rest_openai(
+                    s.as_ref(),
+                    &endpoint,
+                    key,
+                    &model,
+                    prompt,
+                    max_tokens,
+                )
+                .await
+            })
+            .await
+        }
         "google-ai" => {
             let Some(key) = require_api_key(sink.as_ref(), &api_key, "Google AI") else {
                 return Ok(());

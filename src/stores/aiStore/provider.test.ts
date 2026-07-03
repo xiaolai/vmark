@@ -25,9 +25,26 @@ import {
   sanitizeAiProviderPersist,
   hydrateAndMigrateApiKeys,
   useAiProviderStore,
+  REST_TYPES,
 } from "./provider";
 
 const mockInvoke = vi.mocked(invoke);
+
+describe("openai-compatible provider slot", () => {
+  it("is a recognized REST type", () => {
+    expect(REST_TYPES.has("openai-compatible")).toBe(true);
+  });
+
+  it("ships as a default provider with an empty (user-supplied) endpoint and model", () => {
+    const slot = useAiProviderStore
+      .getState()
+      .restProviders.find((p) => p.type === "openai-compatible");
+    expect(slot).toBeDefined();
+    expect(slot?.endpoint).toBe("");
+    expect(slot?.model).toBe("");
+    expect(slot?.name).toBeTruthy(); // has a generic default label
+  });
+});
 
 describe("sanitizeAiProviderPersist (T4 persist-boundary guard)", () => {
   it("keeps a well-formed persisted blob", () => {

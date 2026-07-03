@@ -62,6 +62,68 @@ describe("RestProviderConfigFields", () => {
     expect(screen.getByPlaceholderText("Model")).toHaveValue("claude-sonnet-4-5-20250929");
   });
 
+  it("renders an editable Name field only for openai-compatible", () => {
+    const { rerender } = render(
+      <RestProviderConfigFields
+        type="openai"
+        endpoint="https://api.openai.com"
+        apiKey=""
+        model="gpt-4o"
+      />,
+    );
+    // Non-custom providers have no name field.
+    expect(screen.queryByPlaceholderText("Provider name (e.g. DeepSeek)")).toBeNull();
+
+    rerender(
+      <RestProviderConfigFields
+        type="openai-compatible"
+        name="DeepSeek"
+        endpoint="https://api.deepseek.com"
+        apiKey=""
+        model="deepseek-chat"
+      />,
+    );
+    expect(
+      screen.getByPlaceholderText("Provider name (e.g. DeepSeek)"),
+    ).toHaveValue("DeepSeek");
+  });
+
+  it("updates the provider name on Name field change (openai-compatible)", () => {
+    render(
+      <RestProviderConfigFields
+        type="openai-compatible"
+        name="OpenAI-compatible"
+        endpoint="https://api.deepseek.com"
+        apiKey=""
+        model="deepseek-chat"
+      />,
+    );
+
+    fireEvent.change(
+      screen.getByPlaceholderText("Provider name (e.g. DeepSeek)"),
+      { target: { value: "DeepSeek" } },
+    );
+
+    expect(getUpdateMock()).toHaveBeenCalledWith("openai-compatible", {
+      name: "DeepSeek",
+    });
+  });
+
+  it("shows the endpoint field for openai-compatible (unlike google-ai)", () => {
+    render(
+      <RestProviderConfigFields
+        type="openai-compatible"
+        name="DeepSeek"
+        endpoint="https://api.deepseek.com"
+        apiKey=""
+        model="deepseek-chat"
+      />,
+    );
+    expect(screen.getByPlaceholderText("API Endpoint")).toHaveValue(
+      "https://api.deepseek.com",
+    );
+  });
+
   it("hides endpoint input for google-ai provider", () => {
     render(
       <RestProviderConfigFields

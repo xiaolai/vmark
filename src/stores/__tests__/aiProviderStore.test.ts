@@ -17,6 +17,7 @@ describe("aiProviderStore", () => {
       restProviders: [
         { type: "anthropic", name: "Anthropic", endpoint: "https://api.anthropic.com", apiKey: "", model: "claude-sonnet-4-5-20250929" },
         { type: "openai", name: "OpenAI", endpoint: "https://api.openai.com", apiKey: "", model: "gpt-4o" },
+        { type: "openai-compatible", name: "OpenAI-compatible", endpoint: "", apiKey: "", model: "" },
         { type: "google-ai", name: "Google AI", endpoint: "", apiKey: "", model: "gemini-2.0-flash" },
         { type: "ollama-api", name: "Ollama (API)", endpoint: "http://localhost:11434", apiKey: "", model: "llama3.2" },
       ],
@@ -34,12 +35,13 @@ describe("aiProviderStore", () => {
     expect(useAiProviderStore.getState().cliProviders).toEqual([]);
   });
 
-  it("initializes with four default REST providers", () => {
+  it("initializes with five default REST providers", () => {
     const { restProviders } = useAiProviderStore.getState();
-    expect(restProviders).toHaveLength(4);
+    expect(restProviders).toHaveLength(5);
     expect(restProviders.map((p) => p.type)).toEqual([
       "anthropic",
       "openai",
+      "openai-compatible",
       "google-ai",
       "ollama-api",
     ]);
@@ -553,7 +555,7 @@ describe("aiProviderStore", () => {
 
   describe("persist onRehydrateStorage", () => {
     it("merges new default REST providers after rehydration", () => {
-      // Simulate a state with only 2 of the 4 default providers
+      // Simulate a state with only 2 of the 5 default providers
       useAiProviderStore.setState({
         restProviders: [
           { type: "anthropic", name: "Anthropic", endpoint: "https://api.anthropic.com", apiKey: "", model: "claude-sonnet-4-5-20250929" },
@@ -575,14 +577,14 @@ describe("aiProviderStore", () => {
     });
 
     it("does not duplicate existing providers on rehydration", () => {
-      // All 4 defaults already present
+      // All 5 defaults already present (incl. the openai-compatible slot)
       const options = useAiProviderStore.persist.getOptions();
       const onRehydrate = options.onRehydrateStorage!;
       const postHydrate = onRehydrate(useAiProviderStore.getState());
       postHydrate!();
 
       const { restProviders } = useAiProviderStore.getState();
-      expect(restProviders).toHaveLength(4);
+      expect(restProviders).toHaveLength(5);
     });
   });
 

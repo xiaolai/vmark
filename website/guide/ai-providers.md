@@ -55,6 +55,7 @@ REST providers connect directly to cloud APIs. Each requires an endpoint, API ke
 |----------|-----------------|--------------|
 | Anthropic | `https://api.anthropic.com` | `ANTHROPIC_API_KEY` |
 | OpenAI | `https://api.openai.com` | `OPENAI_API_KEY` |
+| OpenAI-compatible | *(you set it)* | — |
 | Google AI | *(built-in)* | `GOOGLE_API_KEY` or `GEMINI_API_KEY` |
 | Ollama (API) | `http://localhost:11434` | — |
 
@@ -92,6 +93,23 @@ Then restart VMark — no manual key entry needed.
 3. Paste your API key
 4. Choose a model (default: `gpt-4o`)
 
+### Setup: OpenAI-compatible (DeepSeek, Groq, OpenRouter, …)
+
+Many providers speak the same wire protocol as OpenAI (`/v1/chat/completions`, `Bearer` auth). The **OpenAI-compatible** slot connects to any of them — DeepSeek, Groq, OpenRouter, Together, Moonshot, a self-hosted gateway, and so on — without a per-vendor entry.
+
+It adds one extra field over the other REST providers: an editable **Provider name**, so the row reads "DeepSeek" (or whatever you set) instead of the generic label.
+
+Example — DeepSeek:
+
+1. Get an API key from [platform.deepseek.com](https://platform.deepseek.com)
+2. In VMark Settings > Integrations, select **OpenAI-compatible**
+3. Set **Provider name** to `DeepSeek` (optional, cosmetic)
+4. Set **API Endpoint** to `https://api.deepseek.com` (a trailing `/v1` is fine — VMark normalizes it)
+5. Paste your API key
+6. Set **Model** to `deepseek-chat` (or `deepseek-reasoner`). Type it directly, or click refresh to fetch the endpoint's model list
+
+The endpoint is required — there is no default host for this slot. Use the **Test** (⚡) and **Test model** (🧪) buttons to confirm connectivity before running a genie.
+
 ### Setup: Google AI (REST)
 
 1. Get an API key from [aistudio.google.com](https://aistudio.google.com)
@@ -117,6 +135,7 @@ Use this when you want REST-style access to a local Ollama instance, or when Oll
 | Already have Codex or Gemini installed | **Codex / Gemini (CLI)** — uses your subscription |
 | Need privacy / offline | Install Ollama → **Ollama (API)** at `http://localhost:11434` |
 | Custom or self-hosted model | **Ollama (API)** with your endpoint |
+| DeepSeek / Groq / OpenRouter / any OpenAI-compatible API | **OpenAI-compatible** — set the endpoint, key, and model |
 | Want the cheapest cloud option | **Any CLI provider** — subscription is dramatically cheaper than API |
 | No subscription, light usage only | Set API key env var → **REST provider** (pay-per-token) |
 | Need the highest quality output | **Claude (CLI)** or **Anthropic (REST)** with `claude-sonnet-4-5-20250929` |

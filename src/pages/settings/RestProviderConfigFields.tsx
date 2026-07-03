@@ -1,7 +1,10 @@
 /**
  * Inline config fields for a REST AI provider (endpoint, API key, model).
  *
- * Rendered when the provider is the active selection.
+ * Rendered when the provider is the active selection. The generic
+ * `openai-compatible` provider additionally exposes an editable display name
+ * so the provider list can read "DeepSeek" (or any vendor) instead of the
+ * generic label.
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -21,6 +24,8 @@ const iconBtnClass = `shrink-0 p-1 rounded
 
 interface RestProviderConfigFieldsProps {
   type: RestProviderType;
+  /** Editable display name — only consumed by the `openai-compatible` slot. */
+  name?: string;
   endpoint: string;
   apiKey: string;
   model: string;
@@ -28,6 +33,7 @@ interface RestProviderConfigFieldsProps {
 
 export function RestProviderConfigFields({
   type,
+  name = "",
   endpoint,
   apiKey,
   model,
@@ -50,7 +56,7 @@ export function RestProviderConfigFields({
     };
   }, []);
 
-  const handleChange = (field: "endpoint" | "apiKey" | "model", value: string) => {
+  const handleChange = (field: "name" | "endpoint" | "apiKey" | "model", value: string) => {
     useAiProviderStore.getState().updateRestProvider(type, { [field]: value });
   };
 
@@ -114,6 +120,13 @@ export function RestProviderConfigFields({
 
   return (
     <div className="flex flex-col gap-1.5 ml-5.5 mt-1">
+      {type === "openai-compatible" && (
+        <FieldInput
+          placeholder={t("integrations.providerNamePlaceholder")}
+          value={name}
+          onChange={(v) => handleChange("name", v)}
+        />
+      )}
       {type !== "google-ai" && (
         <FieldInput
           placeholder={t("integrations.apiEndpoint")}

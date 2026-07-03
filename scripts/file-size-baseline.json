@@ -4,7 +4,7 @@
   "files": {
     "src-tauri/src/ai_provider/detection.rs": 527,
     "src-tauri/src/ai_provider/mod.rs": 453,
-    "src-tauri/src/ai_provider/rest_api.rs": 451,
+    "src-tauri/src/ai_provider/rest_api.rs": 403,
     "src-tauri/src/ai_provider/rest_providers.rs": 395,
     "src-tauri/src/ai_provider/sink.rs": 373,
     "src-tauri/src/cli_install/mod.rs": 303,
@@ -125,7 +125,7 @@
     "src/plugins/wikiLinkPopup/WikiLinkPopupView.ts": 446,
     "src/services/assembly/sourceEditorExtensions.ts": 356,
     "src/services/persistence/hotExit/restoreHelpers.ts": 401,
-    "src/stores/aiStore/provider.ts": 381,
+    "src/stores/aiStore/provider.ts": 357,
     "src/stores/aiStore/suggestion.ts": 336,
     "src/stores/mcpStore.ts": 324,
     "src/stores/settingsStore/shortcuts.ts": 505,

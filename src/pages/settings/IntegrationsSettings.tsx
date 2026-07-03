@@ -357,28 +357,28 @@ function AiProviderSettings() {
         </div>
         {restProviders.map((p) => {
           const isActive = activeProvider === p.type;
+          // Editable name (openai-compatible slot) may be cleared — fall back
+          // to the generic label so the row never renders blank.
+          const displayName = p.name || t("integrations.openaiCompatibleName");
           return (
             <div key={p.type} className="mb-3">
               <div
                 className="flex items-center gap-2 text-xs py-1 cursor-pointer"
                 onClick={() => handleActivate(p.type)}
               >
-                <ProviderRadio
-                  checked={isActive}
-                  onChange={() => handleActivate(p.type)}
-                  label={p.name}
-                />
+                <ProviderRadio checked={isActive} onChange={() => handleActivate(p.type)} label={displayName} />
                 <span className={
                   isActive
                     ? "text-[var(--text-color)] font-medium"
                     : "text-[var(--text-secondary)]"
                 }>
-                  {p.name}
+                  {displayName}
                 </span>
               </div>
               {isActive && (
                 <RestProviderConfigFields
                   type={p.type}
+                  name={p.name}
                   endpoint={p.endpoint}
                   apiKey={p.apiKey}
                   model={p.model}

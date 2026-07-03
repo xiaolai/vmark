@@ -18,6 +18,10 @@ export const MODEL_SUGGESTIONS: Record<RestProviderType, string[]> = {
     "gpt-4.1-mini",
     "gpt-4.1-nano",
   ],
+  // Generic OpenAI-compatible provider — models vary by vendor, so there is
+  // no meaningful curated list. Users type the model or fetch it via the
+  // refresh button (backend `list_models` returns the endpoint's `/v1/models`).
+  "openai-compatible": [],
   "google-ai": [
     "gemini-2.5-flash",
     "gemini-2.5-pro",

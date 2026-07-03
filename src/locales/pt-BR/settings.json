@@ -343,6 +343,8 @@
   "integrations.aiProviders.notFound": "Não encontrado",
   "integrations.healthCheck.error": "Verificação de saúde: {{error}}",
   "integrations.apiEndpoint": "Endpoint da API",
+  "integrations.providerNamePlaceholder": "Nome do provedor (ex.: DeepSeek)",
+  "integrations.openaiCompatibleName": "Compatível com OpenAI",
   "integrations.apiKey": "Chave de API",
   "integrations.showApiKey": "Mostrar chave de API",
   "integrations.hideApiKey": "Ocultar chave de API",
