@@ -32,8 +32,33 @@ On the first launch after upgrading to multi-format support, VMark surfaces a on
 | Vector | `.svg` | requires **Diagrams & SVG** toggle | source + render | sanitized inline render |
 | Web | `.html`, `.htm` | requires **HTML preview** toggle | source + render | sandboxed iframe (empty `sandbox=""`, DOMPurify, CSP) |
 | Code (read-only) | `.ts`, `.tsx`, `.js`, `.jsx`, `.py`, `.rs`, `.go`, `.css`, `.sh`, `.bash`, `.rb`, `.lua` | requires **Code viewers** toggle | viewer (toggle to edit) | — |
+| Media | images (`.png`, `.jpg`, `.gif`, `.webp`, `.heic`, `.tiff`, …), video (`.mp4`, `.webm`, `.mov`, …), audio (`.mp3`, `.wav`, `.flac`, …) | always on | viewer (read-only) | native image / `<video>` / `<audio>` |
 
 Code files default to read-only with a banner offering **Enable editing** or **Open in external editor**.
+
+## Media files (images, video, audio)
+
+Open a picture, video, or audio file and VMark shows it inline — like Quick
+Look in Finder. Two ways to preview:
+
+- **Open it** (double-click / Enter in the file explorer, `Cmd+O`, or drag-in)
+  to view it in a tab.
+- **Quick Look**: select a file in the explorer and press **Space** for a
+  full-window preview overlay. Press **Space**, **Esc**, or click the backdrop
+  to close.
+
+How it works and what to expect:
+
+- **Never loaded as text.** Media is binary — VMark streams the file straight
+  to the viewer through the native asset pipeline. It is never read as UTF-8,
+  never held in memory as a document, and never editable or saved. Even
+  multi-gigabyte videos open instantly and seek natively.
+- **Broad format coverage.** VMark hands the file to the platform's media
+  engine, so support tracks what your system's webview can decode. On macOS
+  that is wide — HEIC, TIFF, `.mov`/H.264, and FLAC all play. Formats the
+  webview can't decode (e.g. `.mkv`, `.avi`, `.wmv`) still open, showing a
+  fallback panel with **Open with default app** and **Reveal in Finder**.
+- **Read-only.** Media tabs never become dirty and close without a save prompt.
 
 ## Schema-aware previews
 

@@ -2,12 +2,15 @@
  * Editor
  *
  * Purpose: Format-registry dispatcher (WI-1A.5). Reads the active tab's
- *   filePath, calls dispatchEditor() to resolve a FormatConfig, and mounts
- *   either the format's wysiwygComponent (markdown today) or the generic
- *   <SplitPaneEditor> for split-pane / viewer kinds.
+ *   filePath, calls dispatchEditor() to resolve a FormatConfig, and mounts one
+ *   of three surfaces: the format's wysiwygComponent (markdown today), the
+ *   dedicated read-only <MediaViewer> for kind:"media" (image/audio/video), or
+ *   the generic <SplitPaneEditor> for the remaining split-pane / viewer kinds.
  *
  * Pipeline: useActiveTabId → useTabStore.findTabById → dispatchEditor →
- *   FormatConfig.kind === "wysiwyg" ? <wysiwygComponent /> : <SplitPaneEditor />
+ *   kind === "wysiwyg" ? <wysiwygComponent />
+ *   : kind === "media" ? <MediaViewer />
+ *   : <SplitPaneEditor />
  *
  * Key decisions:
  *   - Markdown rendering surface lives in src/lib/formats/adapters/markdown.tsx
@@ -23,6 +26,7 @@
  *
  * @coordinates-with src/lib/formats/registry.ts — dispatchEditor()
  * @coordinates-with src/lib/formats/adapters/markdown.tsx — MarkdownEditorSurface
+ * @coordinates-with src/components/Editor/MediaViewer/MediaViewer — kind:"media" surface
  * @coordinates-with src/components/Editor/SplitPaneEditor — SplitPaneEditor
  * @coordinates-with src/components/Welcome/WelcomeScreen — shown when no tab open
  * @module components/Editor/Editor
@@ -32,14 +36,16 @@ import { useTabStore } from "@/stores/tabStore";
 import { dispatchEditor } from "@/lib/formats/registry";
 import { MarkdownEditorSurface } from "@/lib/formats/adapters/markdown";
 import { WelcomeScreen } from "@/components/Welcome/WelcomeScreen";
+import { MediaViewer } from "./MediaViewer/MediaViewer";
 import { SplitPaneEditor } from "./SplitPaneEditor/SplitPaneEditor";
 import "./editor.css";
 import "./heading-picker.css";
 import "@/styles/popup-shared.css";
 
 /** Top-level editor dispatcher. Resolves the active tab's FormatConfig and
- *  mounts the matching surface (wysiwyg or split-pane). useUnifiedMenuCommands
- *  mounts at this level so menu events reach every kind of surface. */
+ *  mounts the matching surface (wysiwyg, media viewer, or split-pane).
+ *  useUnifiedMenuCommands mounts at this level so menu events reach every
+ *  kind of surface. */
 export function Editor() {
   const tabId = useActiveTabId();
 
@@ -68,6 +74,11 @@ export function Editor() {
     /* v8 ignore next -- @preserve markdown surface dispatch — the only kind="wysiwyg" today */
     const Surface = formatConfig.wysiwygComponent ?? MarkdownEditorSurface;
     return <Surface key={key} tabId={tabId} />;
+  }
+  // Media (image/audio/video) renders in a dedicated read-only surface —
+  // NOT SplitPaneEditor, which would mount an empty CodeMirror source pane.
+  if (formatConfig.kind === "media") {
+    return <MediaViewer key={key} tabId={tabId} />;
   }
   return (
     <SplitPaneEditor

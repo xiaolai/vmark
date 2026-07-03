@@ -117,5 +117,7 @@
   "windowStatus.status.running": "실행 중",
   "windowStatus.status.idle": "대기",
   "windowStatus.status.error": "오류",
-  "windowStatus.status.attention": "주의 필요"
+  "windowStatus.status.attention": "주의 필요",
+  "format.media": "미디어",
+  "quickLook.close": "미리보기 닫기"
 }

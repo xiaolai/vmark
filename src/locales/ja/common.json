@@ -117,5 +117,7 @@
   "windowStatus.status.running": "実行中",
   "windowStatus.status.idle": "アイドル",
   "windowStatus.status.error": "エラー",
-  "windowStatus.status.attention": "要対応"
+  "windowStatus.status.attention": "要対応",
+  "format.media": "メディア",
+  "quickLook.close": "プレビューを閉じる"
 }

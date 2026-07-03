@@ -1,0 +1,96 @@
+/* Quick Look — Finder-style full-screen preview overlay */
+
+.quick-look-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-popup);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6);
+  background: var(--hover-bg-strong);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  animation: popup-fade-in var(--duration-fast) ease-out;
+}
+
+.quick-look-panel {
+  display: flex;
+  flex-direction: column;
+  width: min(880px, calc(100vw - var(--space-8)));
+  max-height: calc(100vh - var(--space-8));
+  border: var(--border-hairline) solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--bg-color);
+  box-shadow: var(--popup-shadow);
+  overflow: hidden;
+}
+
+.dark-theme .quick-look-panel {
+  box-shadow: var(--popup-shadow-dark);
+}
+
+.quick-look-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: var(--border-thin) solid var(--border-color);
+  background: var(--bg-secondary);
+}
+
+.quick-look-filename {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-size-base);
+  font-family: var(--font-sans);
+  color: var(--text-color);
+}
+
+.quick-look-position {
+  flex-shrink: 0;
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+}
+
+.quick-look-close {
+  flex-shrink: 0;
+  width: var(--icon-size-sm);
+  height: var(--icon-size-sm);
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background var(--duration-base), color var(--duration-base);
+}
+
+.quick-look-close:hover {
+  background: var(--hover-bg);
+  color: var(--text-color);
+}
+
+/* Focus indicator (rule 33): visible outline for a standalone control. */
+.quick-look-close:focus-visible {
+  outline: var(--border-medium) solid var(--primary-color);
+  outline-offset: var(--space-half);
+}
+
+.quick-look-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: auto;
+  padding: var(--space-4);
+  background: var(--bg-color);
+}

@@ -10,7 +10,11 @@ import type { ComponentType } from "react";
 export type FormatKind =
   | "wysiwyg"
   | "split-pane"
-  | "viewer";
+  | "viewer"
+  // Binary media (image/audio/video). Rendered full-width by a dedicated
+  // surface via the asset protocol — no CodeMirror source pane, never read as
+  // UTF-8 text, never editable. See dev-docs/plans/20260703-media-viewer.md.
+  | "media";
 
 export interface ValidationDiagnostic {
   severity: "error" | "warning" | "info";

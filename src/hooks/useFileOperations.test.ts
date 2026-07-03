@@ -296,9 +296,11 @@ describe("openFileInNewTabCore", () => {
   });
 
   it("does not add to recent files when readTextFile throws", async () => {
-    mockReadTextFile.mockRejectedValue(new Error("Binary file"));
+    // Use a text file — a media path (.png) now bypasses readTextFile entirely
+    // (path-only media open), so it can't exercise the read-failure branch.
+    mockReadTextFile.mockRejectedValue(new Error("read failed"));
 
-    await openFileInNewTabCore("main", "/path/to/binary.png");
+    await openFileInNewTabCore("main", "/path/to/broken.md");
 
     expect(mockAddFile).not.toHaveBeenCalled();
   });

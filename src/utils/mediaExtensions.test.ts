@@ -12,23 +12,54 @@ import { isImageFile } from "./imageUtils";
 import { getMediaType, hasVideoExtension } from "./mediaPathDetection";
 
 describe("mediaExtensions canonical sets", () => {
-  it("IMAGE is the agreed union (incl. previously-divergent avif/bmp/ico)", () => {
+  it("IMAGE is the agreed union, broadened for the media viewer", () => {
     expect([...IMAGE_EXTENSIONS]).toEqual([
       "png",
       "jpg",
       "jpeg",
+      "jfif",
       "gif",
       "webp",
       "svg",
       "bmp",
       "ico",
       "avif",
+      "apng",
+      "heic",
+      "heif",
+      "tiff",
+      "tif",
     ]);
   });
 
-  it("VIDEO and AUDIO sets are stable", () => {
-    expect([...VIDEO_EXTENSIONS]).toEqual(["mp4", "webm", "mov", "avi", "mkv", "m4v", "ogv"]);
-    expect([...AUDIO_EXTENSIONS]).toEqual(["mp3", "m4a", "ogg", "wav", "flac", "aac", "opus"]);
+  it("VIDEO and AUDIO sets cover the media viewer's formats", () => {
+    expect([...VIDEO_EXTENSIONS]).toEqual([
+      "mp4",
+      "webm",
+      "mov",
+      "avi",
+      "mkv",
+      "m4v",
+      "ogv",
+      "mpeg",
+      "mpg",
+      "wmv",
+      "flv",
+      "3gp",
+    ]);
+    expect([...AUDIO_EXTENSIONS]).toEqual([
+      "mp3",
+      "m4a",
+      "ogg",
+      "oga",
+      "wav",
+      "flac",
+      "aac",
+      "opus",
+      "weba",
+      "aiff",
+      "wma",
+    ]);
   });
 
   it("dotted form mirrors bare form", () => {

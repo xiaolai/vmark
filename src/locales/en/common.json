@@ -58,6 +58,7 @@
   "format.toml": "TOML",
   "format.mermaid": "Mermaid",
   "format.svg": "SVG",
+  "format.media": "Media",
   "format.html": "HTML",
   "format.codeTypescript": "TypeScript",
   "format.codeJavascript": "JavaScript",
@@ -113,5 +114,6 @@
   "windowStatus.status.running": "Running",
   "windowStatus.status.idle": "Idle",
   "windowStatus.status.error": "Error",
-  "windowStatus.status.attention": "Needs attention"
+  "windowStatus.status.attention": "Needs attention",
+  "quickLook.close": "Close preview"
 }

@@ -28,6 +28,7 @@ rust_i18n::i18n!("locales", fallback = "en");
 
 mod ai_provider;
 mod app_paths;
+mod asset_access;
 mod content_search;
 mod content_server;
 mod external_editor;
@@ -96,36 +97,28 @@ fn get_pending_file_opens() -> Vec<PendingFileOpen> {
     window_manager::mark_ready_and_drain(&mut state)
 }
 
-/// Runtime-extend the fs plugin's read scope for a path the user asked to open.
-///
-/// Tauri's static capability scope in `capabilities/default.json` grants
-/// read access only under `$HOME/**`, `/Volumes/**`, `/mnt/**`, `/media/**`.
-/// Files arriving via Finder (`RunEvent::Opened`), CLI args, or explicit
-/// "Open in new window" commands can live anywhere on disk (`/private/tmp`,
-/// `/etc`, etc.). Without extension, `readTextFile` in the webview rejects
-/// them with `forbidden path`, leaving tabs with empty content.
-///
-/// This mirrors what `tauri_plugin_dialog` does automatically for
-/// user-picked paths — the intent signal (user chose this file) is the same.
-/// Best-effort: failures are logged, not propagated.
+/// Runtime-extend the fs + asset read scopes for a path the user asked to open.
+/// The static capability scope (`capabilities/default.json`) covers `$HOME/**`,
+/// `/Volumes/**`, `/mnt/**`, `/media/**`; files from Finder / CLI / "open in new
+/// window" can live anywhere (`/private/tmp`, `/etc`), so `readTextFile` rejects
+/// them until extended here. The asset-protocol scope (cwd-relative) needs the
+/// same per-file grant so `convertFileSrc`/asset:// serves the file (inline
+/// images + media viewer). Best-effort: failures logged, not propagated.
 pub(crate) fn allow_fs_read<R: tauri::Runtime>(app: &tauri::AppHandle<R>, path: &str) {
     use tauri_plugin_fs::FsExt;
     if let Err(e) = app.fs_scope().allow_file(path) {
         log::warn!("[fs-scope] Failed to allow file '{}': {}", path, e);
     }
+    if let Err(e) = app.asset_protocol_scope().allow_file(path) {
+        log::warn!("[asset-scope] Failed to allow file '{}': {}", path, e);
+    }
 }
 
-/// Accepted file extensions (lowercased, without the leading dot).
-///
-/// Single source of truth for CLI arg filtering, Finder `Opened`
-/// filtering, the `validate_openable_path` security gate, and the
-/// macOS quarantine strip pass. Mirrors the TypeScript format
-/// registry's `getSupportedExtensions()` output; CI script
-/// `scripts/check-ext-sync.sh` enforces parity (ADR-12).
-///
-/// The original markdown-only list is preserved as
-/// `MARKDOWN_ONLY_EXTENSIONS` for places that genuinely mean "markdown
-/// adapter only" (e.g. parts of the macOS About-dialog narrative).
+/// Accepted file extensions (lowercased, no leading dot). Single source of
+/// truth for CLI arg filtering, Finder `Opened` filtering, `validate_openable_path`,
+/// and the macOS quarantine strip. Mirrors the TS registry's
+/// `getSupportedExtensions()`; parity enforced by `scripts/check-ext-sync.sh`
+/// (ADR-12). `MARKDOWN_ONLY_EXTENSIONS` below is the strict markdown-only list.
 pub(crate) const SUPPORTED_EXTENSIONS: &[&str] = &[
     // Markdown
     "md", "markdown", "mdown", "mkd", "mdx", // Plain text
@@ -133,6 +126,12 @@ pub(crate) const SUPPORTED_EXTENSIONS: &[&str] = &[
     "json", "jsonl", "yaml", "yml", "toml", // Phase 3 visual-render formats
     "mmd", "svg", "html", "htm", // Phase 4 code viewers
     "ts", "tsx", "js", "jsx", "py", "rs", "go", "css", "sh", "bash", "rb", "lua",
+    // Media viewer — images (svg is above, its own format)
+    "png", "jpg", "jpeg", "jfif", "gif", "webp", "bmp", "ico", "avif", "apng", "heic", "heif",
+    "tiff", "tif", // Media viewer — video
+    "mp4", "webm", "mov", "avi", "mkv", "m4v", "ogv", "mpeg", "mpg", "wmv", "flv", "3gp",
+    // Media viewer — audio
+    "mp3", "m4a", "ogg", "oga", "wav", "flac", "aac", "opus", "weba", "aiff", "wma",
 ];
 
 /// Strict markdown-only extensions — kept for callers that genuinely
@@ -723,11 +722,11 @@ fn handle_finder_opened(app: &tauri::AppHandle, urls: Vec<tauri::Url>) {
                 let _ = window_manager::create_document_window(app, None, Some(path_str));
                 continue;
             }
-            // Only queue markdown files — non-markdown files would create
-            // broken empty tabs (#661 audit gap 9.1). Uses the shared helper so
-            // CLI and Finder filters stay in sync.
+            // Only queue files with a registered extension — unsupported files
+            // would create broken empty tabs (#661 audit gap 9.1). Media flows
+            // through this same helper so CLI and Finder filters stay in sync.
             if !is_openable_supported(&path) {
-                log::warn!("[Finder] Skipping non-markdown file: {}", path_str);
+                log::warn!("[Finder] Skipping unsupported file: {}", path_str);
                 continue;
             }
             // Extend fs read scope so the webview's readTextFile succeeds for
@@ -917,6 +916,7 @@ pub fn run() {
             window_status::get_window_statuses,
             window_status::focus_window,
             get_pending_file_opens,
+            asset_access::grant_asset_access,
             external_editor::open_in_external_editor,
             menu::update_recent_files,
             menu::update_recent_workspaces,

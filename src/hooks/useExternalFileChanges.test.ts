@@ -13,6 +13,7 @@ import { renderHook } from "@testing-library/react";
 const mocks = vi.hoisted(() => ({
   listen: vi.fn(() => Promise.resolve(() => {})),
   readTextFile: vi.fn(),
+  exists: vi.fn(async () => true),
   toastInfo: vi.fn(),
   matchesPendingSave: vi.fn(() => false),
   hasPendingSave: vi.fn(() => false),
@@ -29,6 +30,7 @@ vi.mock("@tauri-apps/api/event", () => ({
 
 vi.mock("@tauri-apps/plugin-fs", () => ({
   readTextFile: mocks.readTextFile,
+  exists: mocks.exists,
 }));
 
 vi.mock("@tauri-apps/plugin-dialog", () => ({
@@ -77,6 +79,9 @@ vi.mock("@/services/workspaces/activeWorkspaceScope", () => ({
 
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
+import { __resetRegistry } from "@/lib/formats/registry";
+import { registerMarkdownFormat } from "@/lib/formats/adapters/markdown";
+import { registerMediaFormat } from "@/lib/formats/adapters/media";
 import { useExternalFileChanges } from "./useExternalFileChanges";
 
 type ListenCallback = (event: { payload: { watchId: string; rootPath: string; paths: string[]; kind: string } }) => Promise<void>;
@@ -1925,5 +1930,164 @@ describe("useExternalFileChanges — Keep my changes refreshes lastDiskContent",
     // the initial dialog read (worst case: prompt re-fires on the next event).
     const doc = useDocumentStore.getState().documents["tab-1"];
     expect(doc?.isDivergent).toBe(true);
+  });
+});
+
+// A media tab (image/audio/video) holds a binary file whose document content
+// is intentionally empty. The external-change watcher must NOT re-read such a
+// file as UTF-8 text on a modify/create event — the bytes are not text and a
+// read would surface garbage (or throw). Markdown tabs keep re-reading.
+describe("useExternalFileChanges — media tabs excluded from UTF-8 re-read", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.listen.mockImplementation(() => Promise.resolve(() => {}));
+    mocks.activeScopeRoot.mockReturnValue(null);
+    mocks.matchesPendingSave.mockReturnValue(false);
+    mocks.hasPendingSave.mockReturnValue(false);
+    // Real registry so getFormatById("media").kind === "media" resolves.
+    __resetRegistry();
+    registerMarkdownFormat();
+    registerMediaFormat();
+  });
+
+  afterEach(() => {
+    __resetRegistry();
+  });
+
+  function seedTab(id: string, filePath: string, formatId: string) {
+    useTabStore.setState({
+      tabs: { main: [{ id, title: filePath.split("/").pop()!, filePath, isPinned: false, formatId }] },
+      activeTabId: { main: id },
+      untitledCounter: 0,
+      closedTabs: {},
+    });
+    useDocumentStore.setState({
+      documents: {
+        [id]: {
+          content: formatId === "media" ? "" : "# old content",
+          savedContent: formatId === "media" ? "" : "# old content",
+          lastDiskContent: formatId === "media" ? "" : "# old content",
+          filePath,
+          isDirty: false,
+          documentId: 0,
+          cursorInfo: null,
+          lastAutoSave: null,
+          isMissing: false,
+          isDivergent: false,
+          lineEnding: "unknown",
+          hardBreakStyle: "unknown",
+        },
+      },
+    });
+  }
+
+  it("does NOT read a media file as text on a modify event", async () => {
+    seedTab("tab-media", "/workspace/photo.png", "media");
+    // If the guard were missing, this garbage would be loaded into the doc.
+    mocks.readTextFile.mockResolvedValue(" binary-bytes");
+
+    const callback = await setupHookAndCallback();
+
+    await callback({
+      payload: {
+        watchId: "main",
+        rootPath: "/workspace",
+        paths: ["/workspace/photo.png"],
+        kind: "modify",
+      },
+    });
+
+    // The binary re-read is skipped entirely.
+    expect(mocks.readTextFile).not.toHaveBeenCalled();
+    // Document content stays empty — no garbage loaded.
+    const doc = useDocumentStore.getState().documents["tab-media"];
+    expect(doc?.content).toBe("");
+  });
+
+  it("does NOT read a media file as text on a create event (recreation)", async () => {
+    seedTab("tab-media", "/workspace/clip.mp4", "media");
+    mocks.readTextFile.mockResolvedValue("binary");
+
+    const callback = await setupHookAndCallback();
+
+    await callback({
+      payload: {
+        watchId: "main",
+        rootPath: "/workspace",
+        paths: ["/workspace/clip.mp4"],
+        kind: "create",
+      },
+    });
+
+    expect(mocks.readTextFile).not.toHaveBeenCalled();
+  });
+
+  it("still reads a markdown file as text on a modify event (regression guard)", async () => {
+    seedTab("tab-md", "/workspace/notes.md", "markdown");
+    mocks.readTextFile.mockResolvedValue("# updated by external tool");
+
+    const callback = await setupHookAndCallback();
+
+    await callback({
+      payload: {
+        watchId: "main",
+        rootPath: "/workspace",
+        paths: ["/workspace/notes.md"],
+        kind: "modify",
+      },
+    });
+
+    // Markdown is unaffected — the text re-read still fires and reloads.
+    expect(mocks.readTextFile).toHaveBeenCalledWith("/workspace/notes.md");
+    const doc = useDocumentStore.getState().documents["tab-md"];
+    expect(doc?.content).toBe("# updated by external tool");
+  });
+
+  // F3 — a media file marked missing (deleted) recovers on a `create` event:
+  // clear isMissing so MediaView re-streams via asset://, WITHOUT reading text.
+  it("clears isMissing on a media create when the deleted file reappears", async () => {
+    seedTab("tab-media", "/workspace/photo.png", "media");
+    useDocumentStore.getState().markMissing("tab-media");
+    mocks.readTextFile.mockResolvedValue("binary");
+
+    const callback = await setupHookAndCallback();
+
+    await callback({
+      payload: {
+        watchId: "main",
+        rootPath: "/workspace",
+        paths: ["/workspace/photo.png"],
+        kind: "create",
+      },
+    });
+
+    const doc = useDocumentStore.getState().documents["tab-media"];
+    expect(doc?.isMissing).toBe(false);
+    // Recovery must never read the binary as text.
+    expect(mocks.readTextFile).not.toHaveBeenCalled();
+  });
+
+  // F2 — rename events on a media tab must be existence-probed, never read.
+  it("does NOT read a media file as text on a rename fallback", async () => {
+    seedTab("tab-media", "/workspace/photo.png", "media");
+    mocks.hasPendingSave.mockReturnValue(false);
+    mocks.exists.mockResolvedValue(true);
+    mocks.readTextFile.mockResolvedValue("binary");
+
+    const callback = await setupHookAndCallback();
+
+    await callback({
+      payload: {
+        watchId: "main",
+        rootPath: "/workspace",
+        paths: ["/workspace/photo.png"],
+        kind: "rename",
+      },
+    });
+
+    expect(mocks.readTextFile).not.toHaveBeenCalled();
+    expect(mocks.exists).toHaveBeenCalledWith("/workspace/photo.png");
+    const doc = useDocumentStore.getState().documents["tab-media"];
+    expect(doc?.isMissing).toBe(false);
   });
 });

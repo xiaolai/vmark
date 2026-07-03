@@ -117,5 +117,7 @@
   "windowStatus.status.running": "Em execução",
   "windowStatus.status.idle": "Ociosa",
   "windowStatus.status.error": "Erro",
-  "windowStatus.status.attention": "Requer atenção"
+  "windowStatus.status.attention": "Requer atenção",
+  "format.media": "Mídia",
+  "quickLook.close": "Fechar visualização"
 }

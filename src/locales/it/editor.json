@@ -333,5 +333,8 @@
   "terminal.pressAnyKeyToRestart": "Premi un tasto qualsiasi per riavviare...",
   "terminal.failedToStart": "Avvio della shell non riuscito: {{error}}",
   "terminal.pressAnyKeyToRetry": "Premi un tasto qualsiasi per riprovare...",
-  "terminal.restarting": "Riavvio della shell..."
+  "terminal.restarting": "Riavvio della shell...",
+  "media.cannotPreview": "Impossibile visualizzare l’anteprima di questo formato",
+  "media.openExternally": "Apri con l’app predefinita",
+  "media.revealInFinder": "Mostra nel Finder"
 }

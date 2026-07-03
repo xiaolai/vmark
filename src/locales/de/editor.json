@@ -338,5 +338,8 @@
   "terminal.pressAnyKeyToRestart": "Beliebige Taste zum Neustart drücken …",
   "terminal.failedToStart": "Shell konnte nicht gestartet werden: {{error}}",
   "terminal.pressAnyKeyToRetry": "Beliebige Taste zum Wiederholen drücken …",
-  "terminal.restarting": "Shell wird neu gestartet …"
+  "terminal.restarting": "Shell wird neu gestartet …",
+  "media.cannotPreview": "Dieses Format kann nicht in der Vorschau angezeigt werden",
+  "media.openExternally": "Mit Standard-App öffnen",
+  "media.revealInFinder": "Im Finder anzeigen"
 }

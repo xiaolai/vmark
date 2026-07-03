@@ -22,6 +22,7 @@ import { registerMermaidFormat } from "./adapters/mermaid";
 import { registerSvgFormat } from "./adapters/svg";
 import { registerHtmlFormat } from "./adapters/html";
 import { registerCodeFormats } from "./adapters/code";
+import { registerMediaFormat } from "./adapters/media";
 import { __resetRegistry } from "./registry";
 
 /** Per-category toggles for opt-in format registration. Markdown, txt,
@@ -62,6 +63,10 @@ export function bootstrapFormats(toggles?: Partial<FormatsToggles>): void {
   registerMarkdownFormat();
   registerTxtFormat();
   registerYamlFormat();
+
+  // Always-on: media viewer (image/audio/video). Not toggle-gated — previewing
+  // a picture is core, and it never reads binary as text.
+  registerMediaFormat();
 
   // Phase 2 — data formats (json + jsonl + toml). YAML is in the
   // always-on set so the GHA workflow viewer keeps working regardless.

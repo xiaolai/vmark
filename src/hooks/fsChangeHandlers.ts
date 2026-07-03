@@ -20,12 +20,21 @@
 export interface FsChangeContext {
   /** Read a file from disk; rejects if the file is gone/unreadable. */
   readTextFile: (path: string) => Promise<string>;
+  /** Existence probe that never loads content — used for binary media tabs. */
+  fileExists: (path: string) => Promise<boolean>;
   /** Normalize a path for map lookups and comparisons. */
   normalizePath: (path: string) => string;
   /** True if a save we initiated is still in flight for this normalized path. */
   hasPendingSave: (normalizedPath: string) => boolean;
   /** True if disk content matches a save we initiated (our own echo). */
   matchesPendingSave: (path: string, diskContent: string) => boolean;
+  /** True if the tab is a binary media tab (png/mp4/…) — never UTF-8-read it. */
+  /**
+   * True when a path is binary media (image/audio/video). Extension-based and
+   * association-independent — a media file must never be read as UTF-8 even if
+   * its tab's formatId was routed elsewhere by a user format association.
+   */
+  isMedia: (path: string) => boolean;
   /** Re-point a tab + its document at the renamed path and clear missing state. */
   applyRename: (tabId: string, newPath: string) => void;
   /** Apply modify-style policy (reload / prompt / no-op) for a changed file. */
@@ -77,6 +86,18 @@ export async function handleRenameEvent(
     // Skip our own atomic writes (rename is part of temp→target)
     if (ctx.hasPendingSave(normalizedPath)) continue;
 
+    // Media tabs stream from asset:// and hold no text — never read the binary
+    // to probe existence (it could be a multi-GB video). Existence-probe only;
+    // an ambiguous probe error is treated conservatively (do NOT mark missing).
+    if (ctx.isMedia(changedPath)) {
+      try {
+        if (!(await ctx.fileExists(changedPath))) ctx.handleDeletion(tabId);
+      } catch {
+        /* ambiguous probe error — leave the tab as-is, don't flag missing */
+      }
+      continue;
+    }
+
     // Verify file is actually gone before marking as deleted.
     // Atomic writes trigger rename events but the target still exists.
     try {
@@ -99,8 +120,24 @@ export async function handleRemoveEvent(
   tabId: string,
   changedPath: string,
   normalizedPath: string,
+  isMedia = false,
 ): Promise<void> {
   if (ctx.hasPendingSave(normalizedPath)) return;
+
+  // Media tabs stream from asset:// and hold no text content — never read the
+  // file to probe existence (it could be a multi-GB video). A spurious remove
+  // on a still-present file is a no-op; a real deletion marks the tab missing.
+  // An ambiguous probe error (permission/IO) must not escape the listener and
+  // must not conservatively mark missing (spurious "deleted" is worse).
+  if (isMedia) {
+    try {
+      if (!(await ctx.fileExists(changedPath))) ctx.handleDeletion(tabId);
+    } catch {
+      /* ambiguous probe error — leave the tab as-is, don't flag missing */
+    }
+    return;
+  }
+
   try {
     const diskContent = await ctx.readTextFile(changedPath);
     // File still exists — spurious remove. Run modify-style checks

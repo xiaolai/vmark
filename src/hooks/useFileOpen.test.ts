@@ -28,7 +28,7 @@ vi.mock("@tauri-apps/api/core", () => ({
 }));
 
 vi.mock("sonner", () => ({
-  toast: { error: vi.fn(), success: vi.fn() },
+  toast: { error: vi.fn(), success: vi.fn(), info: vi.fn(), warning: vi.fn() },
 }));
 
 vi.mock("@/utils/perfLog", () => ({
@@ -80,12 +80,16 @@ import {
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useRecentFilesStore } from "@/stores/workspaceStore";
+import { rebootstrapFormats } from "@/lib/formats/registryBootstrap";
 
 const WINDOW = "main";
 
 describe("openFileInNewTabCore", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Populate the format registry as production does at boot — the media
+    // branch resolves the format at the top of the open flow via dispatchEditor.
+    rebootstrapFormats();
     // Reset stores
     useTabStore.getState().removeWindow(WINDOW);
     Object.keys(useDocumentStore.getState().documents).forEach((id) =>
@@ -103,6 +107,34 @@ describe("openFileInNewTabCore", () => {
     expect(mockReadTextFile).toHaveBeenCalledWith("/docs/hello.md");
     expect(initDocSpy).toHaveBeenCalled();
     expect(addFileSpy).toHaveBeenCalledWith("/docs/hello.md");
+  });
+
+  it("opens a media file WITHOUT reading it as UTF-8 text", async () => {
+    const initDocSpy = vi.spyOn(useDocumentStore.getState(), "initDocument");
+    const addFileSpy = vi.spyOn(useRecentFilesStore.getState(), "addFile");
+
+    await openFileInNewTabCore(WINDOW, "/pics/photo.png");
+
+    // The binary file must never be UTF-8 read.
+    expect(mockReadTextFile).not.toHaveBeenCalled();
+    // Document is initialized with EMPTY content + the path (no bytes in store).
+    expect(initDocSpy).toHaveBeenCalledWith(
+      expect.any(String),
+      "",
+      "/pics/photo.png",
+    );
+    // The tab resolved to the media format.
+    const tab = useTabStore.getState().getTabsByWindow(WINDOW).at(-1);
+    expect(tab?.formatId).toBe("media");
+    expect(addFileSpy).toHaveBeenCalledWith("/pics/photo.png");
+  });
+
+  it("does not run the huge-file size gate for media (large video streams)", async () => {
+    // routeOpenBySize invokes get_file_size_bytes; media must skip it entirely.
+    mockInvoke.mockClear();
+    await openFileInNewTabCore(WINDOW, "/pics/movie.mp4");
+    expect(mockInvoke).not.toHaveBeenCalledWith("get_file_size_bytes", expect.anything());
+    expect(mockReadTextFile).not.toHaveBeenCalled();
   });
 
   it("cleans up orphaned tab on read failure", async () => {
@@ -183,6 +215,34 @@ describe("replaceTabWithFile", () => {
 
     expect(result.ok).toBe(true);
     expect(loadSpy).toHaveBeenCalled();
+  });
+
+  // F1 — the Cmd+O clean-tab REPLACE path must short-circuit media the same
+  // way openFileInNewTabCore does: no size gate, no readTextFile on binary.
+  it("replaces a clean tab with a media file WITHOUT reading it as text", async () => {
+    rebootstrapFormats();
+    const tabId = useTabStore.getState().createTab(WINDOW, null);
+    useDocumentStore.getState().initDocument(tabId, "# scratch", null);
+    const loadSpy = vi.spyOn(useDocumentStore.getState(), "loadContent");
+
+    const result = await replaceTabWithFile({
+      windowLabel: WINDOW,
+      tabId,
+      targetPath: "/pics/photo.png",
+      sourcePath: "/pics/photo.png",
+    });
+
+    expect(result.ok).toBe(true);
+    // Binary is never UTF-8-read, and the huge-file size gate never runs.
+    expect(mockReadTextFile).not.toHaveBeenCalled();
+    expect(mockInvoke).not.toHaveBeenCalledWith(
+      "get_file_size_bytes",
+      expect.anything(),
+    );
+    // Empty content written; the media surface streams via asset://.
+    expect(loadSpy).toHaveBeenCalledWith(tabId, "", "/pics/photo.png");
+    const tab = useTabStore.getState().findTabById(tabId);
+    expect(tab?.formatId).toBe("media");
   });
 
   it("does not mutate stores when the target tab is closed during the read", async () => {

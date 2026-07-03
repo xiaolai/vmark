@@ -55,8 +55,8 @@ fn accepts_uppercase_and_mixed_case_extensions() {
 
 #[test]
 fn rejects_unregistered_extensions() {
-    assert!(!has_supported_extension(Path::new("/a/image.png")));
-    assert!(!has_supported_extension(Path::new("/a/video.mp4")));
+    assert!(!has_supported_extension(Path::new("/a/archive.zip")));
+    assert!(!has_supported_extension(Path::new("/a/installer.exe")));
     // `.md.bak` resolves to extension `bak`, which is not registered.
     assert!(!has_supported_extension(Path::new("/a/note.md.bak")));
 }
@@ -111,8 +111,8 @@ fn accepts_existing_markdown_file() {
 #[test]
 fn rejects_existing_unregistered_file() {
     let dir = tempfile::tempdir().expect("create tempdir");
-    let file_path = dir.path().join("photo.png");
-    std::fs::write(&file_path, b"\x89PNG").expect("write temp file");
+    let file_path = dir.path().join("archive.zip");
+    std::fs::write(&file_path, b"PK\x03\x04").expect("write temp file");
     assert!(!is_openable_supported(&file_path));
 }
 
@@ -151,8 +151,8 @@ fn cli_filter_drops_unregistered_and_missing_and_directory() {
     let good = dir.path().join("keep.md");
     std::fs::write(&good, b"# hi").expect("write good");
 
-    let unregistered = dir.path().join("drop.png");
-    std::fs::write(&unregistered, b"png").expect("write unregistered");
+    let unregistered = dir.path().join("drop.zip");
+    std::fs::write(&unregistered, b"zip").expect("write unregistered");
 
     let md_dir = dir.path().join("looks-markdown.md");
     std::fs::create_dir(&md_dir).expect("mkdir");

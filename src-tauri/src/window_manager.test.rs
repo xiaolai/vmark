@@ -452,8 +452,8 @@ fn validate_rejects_unregistered_file_extension() {
     // (it's a registered Phase 1A format), so the test pivots to
     // an unambiguously unregistered extension.
     let dir = tempfile::tempdir().expect("create tempdir");
-    let file = dir.path().join("photo.png");
-    std::fs::write(&file, b"\x89PNG").expect("write");
+    let file = dir.path().join("archive.zip");
+    std::fs::write(&file, b"PK\x03\x04").expect("write");
     let err = validate_openable_path(file.to_str().unwrap()).unwrap_err();
     assert!(err.contains("not an openable VMark file"), "got: {err}");
 }
@@ -505,8 +505,8 @@ fn validate_rejects_supported_symlink_to_unregistered() {
     // set, but the canonicalize-then-check ordering still rejects
     // any symlink whose target is unregistered.
     let dir = tempfile::tempdir().expect("create tempdir");
-    let target = dir.path().join("real.png");
-    std::fs::write(&target, b"\x89PNG").expect("write target");
+    let target = dir.path().join("real.zip");
+    std::fs::write(&target, b"PK\x03\x04").expect("write target");
     let link = dir.path().join("looks-markdown.md");
     std::os::unix::fs::symlink(&target, &link).expect("symlink");
     let err = validate_openable_path(link.to_str().unwrap()).unwrap_err();

@@ -28,6 +28,11 @@ export const resolveMediaError = isDev
   ? (...args: unknown[]) => console.error("[ResolveMedia]", ...args)
   : (...args: unknown[]) => prodError("[ResolveMedia]", ...args);
 
+/** Error logger for the Media View render surface. */
+export const mediaViewError = isDev
+  ? (...args: unknown[]) => console.error("[MediaView]", ...args)
+  : (...args: unknown[]) => prodError("[MediaView]", ...args);
+
 /** Error logger for Source Peek. */
 export const sourcePeekError = isDev
   ? (...args: unknown[]) => console.error("[SourcePeek]", ...args)

@@ -264,5 +264,8 @@
   "terminal.pressAnyKeyToRestart": "Press any key to restart...",
   "terminal.failedToStart": "Failed to start shell: {{error}}",
   "terminal.pressAnyKeyToRetry": "Press any key to retry...",
-  "terminal.restarting": "Restarting shell..."
+  "terminal.restarting": "Restarting shell...",
+  "media.cannotPreview": "Can't preview this format",
+  "media.openExternally": "Open with default app",
+  "media.revealInFinder": "Reveal in Finder"
 }

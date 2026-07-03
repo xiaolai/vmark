@@ -19,6 +19,7 @@ import { routeOpenBySize } from "@/services/navigation/largeFileRouting";
 import { maybeMarkLargeMarkdownAsSource } from "@/lib/formats/markdownLargeFile";
 import { applyFileOwnershipAfterOpen } from "@/services/workspaces/fileOwnership";
 import { shouldShowProgressIndicator } from "@/utils/fileSizeThresholds";
+import { isBinaryMediaPath, replaceTabWithMediaFile } from "./openMediaFile";
 
 export type ReplaceTabResult =
   | { ok: true }
@@ -41,6 +42,17 @@ export async function replaceTabWithFile(params: {
   workspaceRoot?: string | null;
 }): Promise<ReplaceTabResult> {
   const { windowLabel, tabId, targetPath, sourcePath, workspaceRoot } = params;
+
+  // Binary media short-circuit (mirrors openFileInNewTabCore's tryOpenMediaFile):
+  // never size-gate or readTextFile a binary. Path-only, synchronous — the media
+  // surface streams the bytes via asset://. Must precede routeOpenBySize/read.
+  if (isBinaryMediaPath(sourcePath)) {
+    replaceTabWithMediaFile(tabId, targetPath);
+    if (workspaceRoot) {
+      await openWorkspaceWithConfig(workspaceRoot, { windowLabel });
+    }
+    return { ok: true };
+  }
 
   const route = await routeOpenBySize(sourcePath);
   if (!route.proceed) return { ok: false, cancelled: true };

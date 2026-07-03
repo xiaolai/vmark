@@ -117,5 +117,7 @@
   "windowStatus.status.running": "In esecuzione",
   "windowStatus.status.idle": "Inattiva",
   "windowStatus.status.error": "Errore",
-  "windowStatus.status.attention": "Richiede attenzione"
+  "windowStatus.status.attention": "Richiede attenzione",
+  "format.media": "Media",
+  "quickLook.close": "Chiudi anteprima"
 }

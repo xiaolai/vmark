@@ -150,7 +150,7 @@ mod tests {
     fn strips_root_and_every_supported_extension_child() {
         // WI-1B.16: scope expanded from .md-only to every registered
         // format. Verifies markdown + txt + json + yaml + html now all
-        // get cleared, while an unregistered extension (.png) is left
+        // get cleared, while an unregistered extension (.zip) is left
         // alone.
         let tmp = tempfile::tempdir().unwrap();
         let root = tmp.path();
@@ -160,8 +160,8 @@ mod tests {
         let json = root.join("d.json");
         let yaml = root.join("e.yaml");
         let html = root.join("f.html");
-        let png = root.join("g.png");
-        for path in [&md, &markdown, &txt, &json, &yaml, &html, &png] {
+        let zip = root.join("g.zip");
+        for path in [&md, &markdown, &txt, &json, &yaml, &html, &zip] {
             fs::write(path, b"data").unwrap();
             set_quarantine(path);
         }
@@ -170,13 +170,13 @@ mod tests {
         let stats = strip_workspace_quarantine(root);
 
         assert_eq!(stats.error_count, 0);
-        // Root + 6 supported children = 7. .png is left alone.
+        // Root + 6 supported children = 7. .zip is left alone.
         assert_eq!(stats.stripped_count, 7);
         for path in [&md, &markdown, &txt, &json, &yaml, &html] {
             assert!(!has_quarantine(path), "{} kept attr", path.display());
         }
         assert!(!has_quarantine(root));
-        assert!(has_quarantine(&png), "unregistered .png should keep attr");
+        assert!(has_quarantine(&zip), "unregistered .zip should keep attr");
     }
 
     #[test]

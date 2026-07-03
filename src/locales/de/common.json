@@ -117,5 +117,7 @@
   "windowStatus.status.running": "Läuft",
   "windowStatus.status.idle": "Inaktiv",
   "windowStatus.status.error": "Fehler",
-  "windowStatus.status.attention": "Benötigt Aufmerksamkeit"
+  "windowStatus.status.attention": "Benötigt Aufmerksamkeit",
+  "format.media": "Medien",
+  "quickLook.close": "Vorschau schließen"
 }

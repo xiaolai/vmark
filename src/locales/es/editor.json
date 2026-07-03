@@ -328,5 +328,8 @@
   "terminal.pressAnyKeyToRestart": "Pulsa cualquier tecla para reiniciar...",
   "terminal.failedToStart": "No se pudo iniciar el shell: {{error}}",
   "terminal.pressAnyKeyToRetry": "Pulsa cualquier tecla para reintentar...",
-  "terminal.restarting": "Reiniciando el shell..."
+  "terminal.restarting": "Reiniciando el shell...",
+  "media.cannotPreview": "No se puede previsualizar este formato",
+  "media.openExternally": "Abrir con la aplicación predeterminada",
+  "media.revealInFinder": "Mostrar en Finder"
 }

@@ -16,17 +16,28 @@
  * @module utils/mediaExtensions
  */
 
-/** Image extensions (bare, no leading dot). Canonical union of former copies. */
+/**
+ * Image extensions (bare, no leading dot). Canonical union of former copies,
+ * broadened for the media viewer. macOS WKWebView decodes heic/heif/tiff
+ * natively; where a webview can't decode a format the media viewer degrades to
+ * an "open externally" fallback rather than erroring.
+ */
 export const IMAGE_EXTENSIONS = [
   "png",
   "jpg",
   "jpeg",
+  "jfif",
   "gif",
   "webp",
   "svg",
   "bmp",
   "ico",
   "avif",
+  "apng",
+  "heic",
+  "heif",
+  "tiff",
+  "tif",
 ] as const;
 
 /** Video extensions (bare, no leading dot). */
@@ -38,6 +49,11 @@ export const VIDEO_EXTENSIONS = [
   "mkv",
   "m4v",
   "ogv",
+  "mpeg",
+  "mpg",
+  "wmv",
+  "flv",
+  "3gp",
 ] as const;
 
 /** Audio extensions (bare, no leading dot). */
@@ -45,10 +61,14 @@ export const AUDIO_EXTENSIONS = [
   "mp3",
   "m4a",
   "ogg",
+  "oga",
   "wav",
   "flac",
   "aac",
   "opus",
+  "weba",
+  "aiff",
+  "wma",
 ] as const;
 
 /** Image extensions with a leading dot (for path/URL suffix matching). */

@@ -47,12 +47,9 @@ import { useObservedHeight } from "./useObservedHeight";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { useWindowLabel } from "@/contexts/WindowContext";
 import { getFileName, getParentDir } from "@/utils/paths";
-import {
-  isMarkdownFileName,
-  isSupportedFileName,
-  isVMarkFileName,
-} from "@/utils/dropPaths";
+import { isMarkdownFileName, isSupportedFileName, isVMarkFileName } from "@/utils/dropPaths";
 import { isWorkflowEnabled } from "@/services/featureFlags/workflowFeatureFlag";
+import { useQuickLookHotkey } from "./useQuickLookHotkey";
 import type { FileNode as FileNodeType } from "./types";
 import "./FileExplorer.css";
 
@@ -107,6 +104,7 @@ export const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(
   const treeRef = useRef<TreeApi<FileNodeType> | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [treeContainerRef, treeHeight] = useObservedHeight<HTMLDivElement>();
+  const handleQuickLookKeyDown = useQuickLookHotkey(treeRef);
 
   // Workspace-only: no inferred root from file path
   const rootPath = isWorkspaceMode ? workspaceRootPath : null;
@@ -408,7 +406,7 @@ export const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(
           <span className="file-explorer-workspace-name">{workspaceName}</span>
         </div>
       )}
-      <div className="file-explorer-tree" ref={treeContainerRef} onContextMenu={handleContextMenu}>
+      <div className="file-explorer-tree" ref={treeContainerRef} onContextMenu={handleContextMenu} onKeyDown={handleQuickLookKeyDown}>
         <Tree<FileNodeType>
           ref={treeRef}
           data={tree}

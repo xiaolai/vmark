@@ -5,13 +5,16 @@ import {
   handleModifyOrCreateEvent,
   type FsChangeContext,
 } from "./fsChangeHandlers";
+import { isBinaryMediaPath } from "./openMediaFile";
 
 function makeContext(over: Partial<FsChangeContext> = {}): FsChangeContext {
   return {
     readTextFile: vi.fn(async () => "disk content"),
+    fileExists: vi.fn(async () => true),
     normalizePath: (p: string) => p,
     hasPendingSave: vi.fn(() => false),
     matchesPendingSave: vi.fn(() => false),
+    isMedia: vi.fn(() => false),
     applyRename: vi.fn(),
     handleModifyEvent: vi.fn(async () => {}),
     handleDeletion: vi.fn(),
@@ -79,6 +82,67 @@ describe("handleRenameEvent", () => {
     expect(ctx.handleModifyEvent).not.toHaveBeenCalled();
     expect(ctx.handleDeletion).not.toHaveBeenCalled();
   });
+
+  // F2 — rename fallback must be media-aware: binary media never gets a
+  // UTF-8 read; existence is probed instead (mirrors handleRemoveEvent).
+  it("media: fallback existence-probes and never reads a media file as text", async () => {
+    const ctx = makeContext({
+      isMedia: vi.fn(() => true),
+      fileExists: vi.fn(async () => true),
+    });
+    const openPaths = new Map([["/photo.png", "tab-1"]]);
+
+    await handleRenameEvent(ctx, ["/photo.png"], openPaths);
+
+    expect(ctx.readTextFile).not.toHaveBeenCalled();
+    expect(ctx.fileExists).toHaveBeenCalledWith("/photo.png");
+    expect(ctx.handleModifyEvent).not.toHaveBeenCalled();
+    expect(ctx.handleDeletion).not.toHaveBeenCalled();
+  });
+
+  it("media: fallback marks missing when the file is truly gone (no text read)", async () => {
+    const ctx = makeContext({
+      isMedia: vi.fn(() => true),
+      fileExists: vi.fn(async () => false),
+    });
+    const openPaths = new Map([["/photo.png", "tab-1"]]);
+
+    await handleRenameEvent(ctx, ["/photo.png"], openPaths);
+
+    expect(ctx.readTextFile).not.toHaveBeenCalled();
+    expect(ctx.handleDeletion).toHaveBeenCalledWith("tab-1");
+  });
+
+  it("media: an ambiguous probe error does not throw and does not mark missing", async () => {
+    const ctx = makeContext({
+      isMedia: vi.fn(() => true),
+      fileExists: vi.fn(async () => {
+        throw new Error("EACCES");
+      }),
+    });
+    const openPaths = new Map([["/photo.png", "tab-1"]]);
+
+    await expect(
+      handleRenameEvent(ctx, ["/photo.png"], openPaths),
+    ).resolves.toBeUndefined();
+    expect(ctx.readTextFile).not.toHaveBeenCalled();
+    expect(ctx.handleDeletion).not.toHaveBeenCalled();
+  });
+
+  // Round-2: the media gate must be EXTENSION-based (isBinaryMediaPath), not
+  // the tab's formatId — a .png with a user .png→txt association still must not
+  // be UTF-8-read. Wire the real predicate to prove it end-to-end.
+  it("media gate is extension-based: a .png rename probes existence, a .md reads text", async () => {
+    const png = makeContext({ isMedia: isBinaryMediaPath, fileExists: vi.fn(async () => true) });
+    await handleRenameEvent(png, ["/x/photo.png"], new Map([["/x/photo.png", "t1"]]));
+    expect(png.readTextFile).not.toHaveBeenCalled();
+    expect(png.fileExists).toHaveBeenCalledWith("/x/photo.png");
+
+    const md = makeContext({ isMedia: isBinaryMediaPath, readTextFile: vi.fn(async () => "text") });
+    await handleRenameEvent(md, ["/x/notes.md"], new Map([["/x/notes.md", "t2"]]));
+    expect(md.readTextFile).toHaveBeenCalledWith("/x/notes.md");
+    expect(md.fileExists).not.toHaveBeenCalled();
+  });
 });
 
 describe("handleRemoveEvent", () => {
@@ -112,6 +176,27 @@ describe("handleRemoveEvent", () => {
     expect(ctx.handleDeletion).not.toHaveBeenCalled();
   });
 
+  it("media: existing file → no read, no modify (binary must not load)", async () => {
+    const ctx = makeContext({ fileExists: vi.fn(async () => true) });
+
+    await handleRemoveEvent(ctx, "tab-1", "/photo.png", "/photo.png", true);
+
+    // Never read a (possibly huge) binary as text; existence-probe only.
+    expect(ctx.readTextFile).not.toHaveBeenCalled();
+    expect(ctx.fileExists).toHaveBeenCalledWith("/photo.png");
+    expect(ctx.handleModifyEvent).not.toHaveBeenCalled();
+    expect(ctx.handleDeletion).not.toHaveBeenCalled();
+  });
+
+  it("media: truly gone → marks missing, still no text read", async () => {
+    const ctx = makeContext({ fileExists: vi.fn(async () => false) });
+
+    await handleRemoveEvent(ctx, "tab-1", "/photo.png", "/photo.png", true);
+
+    expect(ctx.readTextFile).not.toHaveBeenCalled();
+    expect(ctx.handleDeletion).toHaveBeenCalledWith("tab-1");
+  });
+
   it("marks missing when the file is truly gone", async () => {
     const ctx = makeContext({
       readTextFile: vi.fn(async () => {
@@ -122,6 +207,23 @@ describe("handleRemoveEvent", () => {
     await handleRemoveEvent(ctx, "tab-1", "/file.md", "/file.md");
 
     expect(ctx.handleDeletion).toHaveBeenCalledWith("tab-1");
+  });
+
+  // F4 — a rejecting existence probe (permission/IO) must not escape the
+  // handler and must not conservatively mark the tab missing.
+  it("media: a fileExists rejection does not throw out of the handler or mark missing", async () => {
+    const ctx = makeContext({
+      fileExists: vi.fn(async () => {
+        throw new Error("EACCES");
+      }),
+    });
+
+    await expect(
+      handleRemoveEvent(ctx, "tab-1", "/photo.png", "/photo.png", true),
+    ).resolves.toBeUndefined();
+
+    expect(ctx.readTextFile).not.toHaveBeenCalled();
+    expect(ctx.handleDeletion).not.toHaveBeenCalled();
   });
 });
 

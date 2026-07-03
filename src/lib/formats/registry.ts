@@ -106,7 +106,10 @@ export function registerFormat(config: FormatConfig): void {
       `[formats] "${config.id}" kind=wysiwyg must not declare loadLanguage (CodeMirror is not mounted in WYSIWYG)`,
     );
   }
+  // kind:"media" is never editable (no editingEnabled toggle, no text), so the
+  // "read-only can still be toggled dirty" rationale below does not apply.
   if (
+    config.kind !== "media" &&
     config.adapters.readOnlyDefault === true &&
     config.adapters.closeSavePolicy !== "markdown-default"
   ) {

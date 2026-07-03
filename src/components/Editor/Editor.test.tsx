@@ -16,8 +16,12 @@ beforeEach(() => {
 afterEach(() => {
   __resetRegistry();
   __resetBootstrap();
-  // Restore the default active tab for tests that flipped it.
+  // Restore the default active tab / lookup for tests that flipped them.
   mockTabStore.activeTabId = { main: "tab-1" };
+  mockTabStore.findTabById = (id: string) =>
+    id === "tab-1"
+      ? { id: "tab-1", filePath: null, title: "Untitled", isPinned: false }
+      : null;
 });
 
 type Selector<T> = (state: T) => unknown;
@@ -168,6 +172,13 @@ const { mockTabStore } = vi.hoisted(() => ({
 
 vi.mock("@/stores/tabStore", () => ({ useTabStore: createZustandMock(mockTabStore) }));
 
+// Stub the media surface so the dispatch test asserts routing, not rendering.
+vi.mock("./MediaViewer/MediaViewer", () => ({
+  MediaViewer: ({ tabId }: { tabId: string }) => (
+    <div data-testid="media-viewer">{tabId}</div>
+  ),
+}));
+
 vi.mock("@/stores/settingsStore", () => {
   const state = {
     appearance: {
@@ -250,6 +261,21 @@ describe("Editor", () => {
       const cfg = dispatchEditor("/x/notes.txt");
       expect(cfg.id).toBe("txt");
       expect(cfg.kind).not.toBe("wysiwyg");
+    });
+
+    it("mounts MediaViewer (not SplitPaneEditor) for a kind:'media' tab", () => {
+      // The active tab points at an image file → dispatchEditor resolves the
+      // media format, and Editor.tsx must route it to MediaViewer so no
+      // CodeMirror source pane mounts.
+      mockTabStore.findTabById = (id: string) =>
+        id === "tab-1"
+          ? { id: "tab-1", filePath: "/pics/hero.png", title: "hero.png", isPinned: false }
+          : null;
+
+      renderWithProvider(<Editor />);
+
+      expect(screen.getByTestId("media-viewer")).toHaveTextContent("tab-1");
+      expect(document.querySelector(".split-pane-editor")).not.toBeInTheDocument();
     });
   });
 });

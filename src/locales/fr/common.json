@@ -117,5 +117,7 @@
   "windowStatus.status.running": "En cours",
   "windowStatus.status.idle": "Inactive",
   "windowStatus.status.error": "Erreur",
-  "windowStatus.status.attention": "Nécessite votre attention"
+  "windowStatus.status.attention": "Nécessite votre attention",
+  "format.media": "Média",
+  "quickLook.close": "Fermer l'aperçu"
 }

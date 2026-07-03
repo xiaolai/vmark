@@ -16,6 +16,7 @@ import { GeniePicker } from "@/components/GeniePicker/GeniePicker";
 import { ApprovalDialog } from "@/components/WorkflowApproval/ApprovalDialog";
 import { QuickOpen } from "@/components/QuickOpen/QuickOpen";
 import { ContentSearch } from "@/components/ContentSearch/ContentSearch";
+import { QuickLookOverlay } from "@/components/QuickLook/QuickLookOverlay";
 import { KnowledgeBaseOverlay } from "@/components/KnowledgeBasePanel/KnowledgeBaseOverlay";
 import { WindowStatusOverlay } from "@/components/WindowStatusPanel/WindowStatusOverlay";
 import { useWindowStatus } from "@/hooks/useWindowStatus";
@@ -223,6 +224,7 @@ function MainLayout() {
           <DropOverlay />
           <QuickOpen windowLabel={windowLabel} />
           <ContentSearch windowLabel={windowLabel} />
+          <QuickLookOverlay />
           <KnowledgeBaseOverlay />
           <WindowStatusOverlay />
           <GeniePicker />

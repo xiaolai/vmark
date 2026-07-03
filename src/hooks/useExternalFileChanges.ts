@@ -5,23 +5,18 @@
  *   auto-reloads clean docs, prompts for dirty docs, marks deleted files.
  *
  * Key decisions:
- *   - Clean documents auto-reload silently (brief toast notification)
- *   - Dirty documents batch into a single dialog to avoid prompt storms
+ *   - Clean docs auto-reload silently; dirty docs batch into one dialog
  *   - matchesPendingSave() filters out our own saves echoing back
- *   - Rename fallback verifies file existence before marking as deleted —
- *     prevents false-positive "file deleted" on atomic write renames
- *   - handleModifyEvent() is shared by modify/create and rename-fallback
- *   - Deleted files get isMissing flag (no auto-close — user may want to save)
- *   - `remove` events are verified before marking missing: Windows atomic
- *     saves (MoveFileEx) and sync daemons fire spurious `remove`s for files
- *     that still exist, so the handler skips our own pending saves and
- *     re-reads disk before flagging the doc missing (issue 995)
- *   - Divergent docs auto-recover when disk content matches editor content —
- *     e.g. git checkout restoring the same content the user has locally
- *   - After "Keep my changes", lastDiskContent is refreshed to current disk
- *     content so identical follow-up rewrites from cloud sync daemons
- *     (OneDrive/iCloud/Dropbox) are silently no-op'd by the soft-equals
- *     guard instead of firing the dialog repeatedly (issue 904)
+ *   - Rename/`remove` verify existence before marking deleted — Windows atomic
+ *     saves (MoveFileEx) and sync daemons fire spurious events for files that
+ *     still exist (issue 995); handleModifyEvent() is shared by both paths
+ *   - Media tabs (png/mp4/…) are never UTF-8-read: remove/rename existence-probe
+ *     only, and a media `create` clears isMissing so MediaView re-streams
+ *   - Deleted files get isMissing (no auto-close — user may want to save)
+ *   - Divergent docs auto-recover when disk content matches editor content
+ *   - After "Keep my changes", lastDiskContent is refreshed to current disk so
+ *     identical follow-up cloud-sync rewrites (OneDrive/iCloud/Dropbox) are
+ *     silently no-op'd by the soft-equals guard, not re-prompted (issue 904)
  *
  * @coordinates-with useWindowFileWatcher.ts — starts/stops the Rust watcher
  * @coordinates-with documentStore.ts — reads dirty state, updates content on reload
@@ -29,7 +24,7 @@
  */
 import { useEffect, useRef, useCallback } from "react";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import { readTextFile } from "@tauri-apps/plugin-fs";
+import { readTextFile, exists } from "@tauri-apps/plugin-fs";
 import { message, save } from "@tauri-apps/plugin-dialog";
 import { imeToast as toast } from "@/services/ime/imeToast";
 import i18n from "@/i18n";
@@ -37,6 +32,7 @@ import { useWindowLabel } from "@/contexts/WindowContext";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
 import { dispatchEditor } from "@/lib/formats/registry";
+import { isBinaryMediaPath } from "@/hooks/openMediaFile";
 import { resolveExternalChangeAction } from "@/utils/openPolicy";
 import { normalizePath } from "@/utils/paths";
 import { saveToPath } from "@/services/persistence/saveToPath";
@@ -83,8 +79,7 @@ export function useExternalFileChanges(): void {
   const unlistenRef = useRef<UnlistenFn | null>(null);
 
   // Batching state for dirty file changes. Keyed by normalized file path so
-  // duplicate fs events for the same file collapse into a single pending entry
-  // (a Map also de-dupes by tab implicitly, since one tab owns one path).
+  // duplicate fs events for the same file collapse into a single pending entry.
   const pendingDirtyChangesRef = useRef<Map<string, PendingDirtyChange>>(new Map());
   const batchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isProcessingBatchRef = useRef(false);
@@ -118,10 +113,8 @@ export function useExternalFileChanges(): void {
       const fileName = getFileName(filePath) || i18n.t("dialog:fileChanged.unknownFile");
       const doc = useDocumentStore.getState().getDocument(tabId);
 
-      // Single dialog with 3 options:
-      // Yes = "Save As..." (save current version to new location)
-      // No = "Reload" (discard changes and load from disk)
-      // Cancel = "Keep my changes" (do nothing, preserve user's work)
+      // Single dialog, 3 options: Yes = "Save As..." (save to new location),
+      // No = "Reload" (discard + load from disk), Cancel = "Keep my changes".
       const result = await message(
         i18n.t("dialog:fileChanged.message", { fileName }),
         {
@@ -182,20 +175,14 @@ export function useExternalFileChanges(): void {
         return;
       }
 
-      // Cancel = keep user's changes - mark as divergent so user knows local differs from disk
+      // Cancel = keep user's changes — mark divergent (local differs from disk).
       useDocumentStore.getState().markDivergent(tabId);
 
-      // Re-read disk and adopt its current content as `lastDiskContent` so a
-      // subsequent identical external rewrite is silently no-op'd by the
-      // soft-equals guard in handleModifyEvent. Without this, sync daemons
-      // (OneDrive/iCloud/Dropbox) that touch the file repeatedly with the
-      // same content would re-prompt this dialog every time — even though
-      // the user already said "Keep" once. Reported in issue 904 (OneDrive
-      // paused but auto-save warning persists; user has to manually save
-      // every time the dialog re-fires).
-      //
-      // Best-effort: read failure leaves lastDiskContent stale; worst case
-      // is the same prompt re-appears, which is the pre-fix behavior.
+      // Adopt current disk content as `lastDiskContent` so an identical external
+      // rewrite is no-op'd by the soft-equals guard in handleModifyEvent —
+      // otherwise cloud sync daemons that re-touch the file re-prompt this
+      // dialog even after "Keep" (issue 904). Best-effort: a read failure leaves
+      // lastDiskContent stale (worst case the prompt re-appears).
       try {
         const currentDisk = await readTextFile(filePath);
         useDocumentStore.getState().updateLastDiskContent(tabId, currentDisk);
@@ -210,7 +197,6 @@ export function useExternalFileChanges(): void {
     []
   );
 
-  // Handle file deletion
   const handleDeletion = useCallback((targetTabId: string) => {
     useDocumentStore.getState().markMissing(targetTabId);
   }, []);
@@ -423,9 +409,13 @@ export function useExternalFileChanges(): void {
         // collaborators; each branch is unit-tested in isolation there.
         const ctx: FsChangeContext = {
           readTextFile,
+          fileExists: exists,
           normalizePath,
           hasPendingSave,
           matchesPendingSave,
+          // Gate on the path's extension, not the tab's formatId — a .png→txt
+          // association can't make a binary file safe to read as text.
+          isMedia: (path) => isBinaryMediaPath(path),
           applyRename,
           handleModifyEvent,
           handleDeletion,
@@ -445,12 +435,22 @@ export function useExternalFileChanges(): void {
           const doc = useDocumentStore.getState().getDocument(tabId);
           if (!doc) continue;
 
+          // Binary media (png/mp4/…) hold no text: never UTF-8-read them.
+          const isMedia = ctx.isMedia(changedPath);
+
           if (kind === "remove") {
-            await handleRemoveEvent(ctx, tabId, changedPath, normalizedPath);
+            await handleRemoveEvent(ctx, tabId, changedPath, normalizedPath, isMedia);
             continue;
           }
-
-          // create could be a recreation after delete
+          if (isMedia) {
+            // A media `create` means a deleted file reappeared — clear missing
+            // so MediaView re-streams via asset://. `modify` needs no action
+            // (the asset URL already points at the fresh bytes). Never read.
+            if (kind === "create" && doc.isMissing) {
+              useDocumentStore.getState().clearMissing(tabId);
+            }
+            continue;
+          }
           if (kind === "modify" || kind === "create") {
             await handleModifyOrCreateEvent(ctx, tabId, changedPath);
           }

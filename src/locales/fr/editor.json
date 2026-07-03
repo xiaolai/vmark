@@ -329,5 +329,8 @@
   "terminal.pressAnyKeyToRestart": "Appuyez sur une touche pour redémarrer…",
   "terminal.failedToStart": "Échec du démarrage du shell : {{error}}",
   "terminal.pressAnyKeyToRetry": "Appuyez sur une touche pour réessayer…",
-  "terminal.restarting": "Redémarrage du shell…"
+  "terminal.restarting": "Redémarrage du shell…",
+  "media.cannotPreview": "Impossible de prévisualiser ce format",
+  "media.openExternally": "Ouvrir avec l’application par défaut",
+  "media.revealInFinder": "Afficher dans le Finder"
 }

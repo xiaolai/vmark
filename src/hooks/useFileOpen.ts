@@ -21,6 +21,7 @@ import { routeOpenBySize } from "@/services/navigation/largeFileRouting";
 import { maybeMarkLargeMarkdownAsSource } from "@/lib/formats/markdownLargeFile";
 import { getSupportedExtensions } from "@/lib/formats/registry";
 import { applyFileOwnershipAfterOpen } from "@/services/workspaces/fileOwnership";
+import { tryOpenMediaFile } from "./openMediaFile";
 import { shouldShowProgressIndicator } from "@/utils/fileSizeThresholds";
 import { errorMessage } from "@/utils/errorMessage";
 // Shared replace flow (also used by "Open Recent File"); re-exported so existing
@@ -40,16 +41,17 @@ export async function openFileInNewTabCore(
   options?: {
     /**
      * Invoked synchronously with the resolved tab id as soon as the tab is
-     * created (or an existing tab is reused), BEFORE the file content is read
-     * and the editor mounts. Callers that need to register pre-mount state
-     * (e.g. Find-in-Files pending scroll) use this to avoid a race where the
-     * editor mounts and consumes empty pending state before the open resolves.
+     * created/reused, BEFORE content is read and the editor mounts — lets
+     * callers register pre-mount state (e.g. Find-in-Files pending scroll)
+     * without racing the editor consuming empty pending state.
      */
     onTabCreated?: (tabId: string, isExistingTab: boolean) => void;
   }
 ): Promise<void> {
-  // Pre-read size check: refused files never create a tab; huge files
-  // confirm before going further; routeOpenBySize is a no-op for small files.
+  // Binary media: path-only open, never read as UTF-8. See openMediaFile.ts.
+  if (tryOpenMediaFile(windowLabel, path, options)) return;
+
+  // Pre-read size gate: refuse/confirm huge files; no-op for small ones.
   const route = await routeOpenBySize(path);
   if (!route.proceed) {
     perfMark("openFileInNewTab:refusedOrCancelled");
@@ -57,10 +59,8 @@ export async function openFileInNewTabCore(
   }
 
   perfStart("createTab");
-  // Detect dedup by comparing tab count before/after createTab.
-  // Ideally createTab would return { tabId, created } but changing its
-  // return type is a wider refactor — this count-based check is a safe
-  // interim guard since createTab is synchronous.
+  // Detect dedup by comparing tab count before/after createTab (createTab is
+  // synchronous and doesn't report created-vs-reused).
   const tabCountBefore = useTabStore.getState().getTabsByWindow(windowLabel).length;
   const tabId = useTabStore.getState().createTab(windowLabel, path);
   const isExistingTab = useTabStore.getState().getTabsByWindow(windowLabel).length === tabCountBefore;

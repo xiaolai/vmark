@@ -323,5 +323,8 @@
   "terminal.pressAnyKeyToRestart": "任意のキーを押して再起動...",
   "terminal.failedToStart": "シェルの起動に失敗しました: {{error}}",
   "terminal.pressAnyKeyToRetry": "任意のキーを押して再試行...",
-  "terminal.restarting": "シェルを再起動しています..."
+  "terminal.restarting": "シェルを再起動しています...",
+  "media.cannotPreview": "この形式はプレビューできません",
+  "media.openExternally": "デフォルトアプリで開く",
+  "media.revealInFinder": "Finderで表示"
 }

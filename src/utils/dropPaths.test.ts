@@ -98,9 +98,9 @@ describe("isSupportedFileName", () => {
   });
 
   it("returns false for unregistered extensions", () => {
-    expect(isSupportedFileName("image.png")).toBe(false);
-    expect(isSupportedFileName("video.mp4")).toBe(false);
     expect(isSupportedFileName("archive.zip")).toBe(false);
+    expect(isSupportedFileName("installer.exe")).toBe(false);
+    expect(isSupportedFileName("data.bin")).toBe(false);
   });
 
   it("returns false for paths with no extension", () => {
@@ -130,6 +130,8 @@ describe("filterSupportedPaths", () => {
       "/x/config.yaml",
       "/x/Cargo.toml",
       "/x/page.html",
+      // Media is a registered format now — a dropped image opens in VMark.
+      "/x/image.png",
     ]);
   });
 
@@ -192,10 +194,12 @@ describe("stripSupportedExtension", () => {
     expect(stripSupportedExtension("data.json")).toBe("data");
     expect(stripSupportedExtension("config.yaml")).toBe("config");
     expect(stripSupportedExtension("Cargo.toml")).toBe("Cargo");
+    // Media extensions are registered now.
+    expect(stripSupportedExtension("image.png")).toBe("image");
   });
 
   it("leaves unrelated extensions intact", () => {
-    expect(stripSupportedExtension("image.png")).toBe("image.png");
+    expect(stripSupportedExtension("archive.zip")).toBe("archive.zip");
     expect(stripSupportedExtension("archive.md.bak")).toBe("archive.md.bak");
   });
 });

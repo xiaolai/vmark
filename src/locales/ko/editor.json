@@ -323,5 +323,8 @@
   "terminal.pressAnyKeyToRestart": "아무 키나 눌러 다시 시작...",
   "terminal.failedToStart": "셸을 시작하지 못했습니다: {{error}}",
   "terminal.pressAnyKeyToRetry": "아무 키나 눌러 다시 시도...",
-  "terminal.restarting": "셸을 다시 시작하는 중..."
+  "terminal.restarting": "셸을 다시 시작하는 중...",
+  "media.cannotPreview": "이 형식은 미리 볼 수 없습니다",
+  "media.openExternally": "기본 앱으로 열기",
+  "media.revealInFinder": "Finder에서 보기"
 }

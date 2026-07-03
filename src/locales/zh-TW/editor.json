@@ -323,5 +323,8 @@
   "terminal.pressAnyKeyToRestart": "按任意鍵重新啟動……",
   "terminal.failedToStart": "啟動 shell 失敗：{{error}}",
   "terminal.pressAnyKeyToRetry": "按任意鍵重試……",
-  "terminal.restarting": "正在重新啟動 shell……"
+  "terminal.restarting": "正在重新啟動 shell……",
+  "media.cannotPreview": "無法預覽此格式",
+  "media.openExternally": "以預設應用程式開啟",
+  "media.revealInFinder": "在 Finder 中顯示"
 }
