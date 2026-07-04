@@ -35,8 +35,8 @@ pub fn update_recent_workspaces(app: AppHandle, workspaces: Vec<String>) -> Resu
 /// full rebuild and only touches the items whose bindings actually changed.
 #[tauri::command]
 pub fn rebuild_menu(app: AppHandle, shortcuts: HashMap<String, String>) -> Result<(), String> {
-    // create_localized_menu calls accelerators::begin_rebuild() up-front and
-    // records every applied accelerator into the cache, so we don't seed here.
+    // create_localized_menu commits the full accelerator snapshot to the
+    // cache once the menu tree is built, so we don't seed anything here.
     let menu = create_localized_menu(&app, Some(&shortcuts)).map_err(|e| e.to_string())?;
     app.set_menu(menu).map_err(|e| e.to_string())?;
 

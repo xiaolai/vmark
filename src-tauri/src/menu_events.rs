@@ -2,7 +2,13 @@
 //!
 //! Purpose: Routes native menu clicks to the correct frontend window via Tauri events.
 //!
-//! Pipeline: User clicks menu item → `handle_menu_event` → emits `menu:{id}` to focused window.
+//! Pipeline: User clicks menu item → `handle_menu_event` (in
+//! `menu_events_dispatch.rs`) → emits `menu:{id}` to focused window.
+//!
+//! This file owns the window-readiness/queueing machinery and the event
+//! constructors; id classification and per-action handlers live in the
+//! `dispatch` child module, window lookups in the `windows` child module
+//! (both included via `#[path]` for the file-size ratchet).
 //!
 //! Key decisions:
 //!   - Window readiness tracking prevents events from being lost during cold start.
@@ -20,7 +26,12 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, Manager};
 
-use crate::quit;
+#[path = "menu_events_dispatch.rs"]
+mod dispatch;
+#[path = "menu_events_windows.rs"]
+mod windows;
+
+pub use dispatch::handle_menu_event;
 
 /// Pending menu event to emit when window becomes ready
 #[derive(Clone)]
@@ -118,44 +129,6 @@ fn check_ready_or_queue(label: &str, event: PendingMenuEvent) -> bool {
     }
 }
 
-/// Check if there are any document windows open (ignores settings window)
-fn has_document_windows(app: &AppHandle) -> bool {
-    app.webview_windows()
-        .values()
-        .any(|w| w.label() != "settings" && w.label() != "pdf-export")
-}
-
-/// Get the focused window, if any
-fn get_focused_window(app: &AppHandle) -> Option<tauri::WebviewWindow> {
-    app.webview_windows()
-        .values()
-        .find(|w| w.is_focused().unwrap_or(false))
-        .cloned()
-}
-
-/// Get the focused document window (excludes settings and pdf-export windows)
-fn get_focused_document_window(app: &AppHandle) -> Option<tauri::WebviewWindow> {
-    app.webview_windows()
-        .values()
-        .find(|w| {
-            let label = w.label();
-            w.is_focused().unwrap_or(false) && (label == "main" || label.starts_with("doc-"))
-        })
-        .cloned()
-}
-
-/// Get any document window (main or doc-*), regardless of focus state.
-/// Prefers "main" for deterministic behavior; falls back to any doc-* window.
-fn get_any_document_window(app: &AppHandle) -> Option<tauri::WebviewWindow> {
-    let windows = app.webview_windows();
-    windows.get("main").cloned().or_else(|| {
-        windows
-            .values()
-            .find(|w| w.label().starts_with("doc-"))
-            .cloned()
-    })
-}
-
 /// Emit an event immediately using its payload format.
 ///
 /// Logs a warning on failure. The most common failure mode is the window
@@ -236,195 +209,5 @@ fn create_window_and_queue(app: &AppHandle, event: PendingMenuEvent) {
             event.event_name
         );
         queue_event(&label, event);
-    }
-}
-
-/// Route a native menu click to the correct frontend window via Tauri events.
-pub fn handle_menu_event(app: &AppHandle, event: tauri::menu::MenuEvent) {
-    let id = event.id().as_ref();
-
-    // Custom Quit (Cmd+Q) is handled in Rust so we can coordinate unsaved-changes prompts.
-    // request_quit applies the confirm-quit gate internally before starting coordinated quit.
-    if id == "quit" {
-        quit::request_quit(app);
-        return;
-    }
-
-    // Save All and Quit (Alt+Shift+Cmd+Q) - emit to document window to handle save-all logic
-    // Uses get_focused_document_window to skip Settings window
-    if id == "save-all-quit" {
-        let event = make_menu_event("menu:save-all-quit");
-        if let Some(focused) = get_focused_document_window(app) {
-            emit_or_queue_atomic(&focused, event);
-        } else if let Some(window) = get_any_document_window(app) {
-            emit_or_queue_atomic(&window, event);
-        } else {
-            // No document windows - nothing to save, just quit
-            crate::window_manager::force_quit(app.clone());
-        }
-        return;
-    }
-
-    // Handle recent file clicks specially - look up path from snapshot and emit
-    // Emit to focused window with (path, windowLabel) tuple
-    // Three cases: focused window, no windows, windows exist but not focused
-    if let Some(index_str) = id.strip_prefix("recent-file-") {
-        if let Ok(index) = index_str.parse::<usize>() {
-            // Look up path from the snapshot stored when menu was built
-            // This prevents race conditions if store changed since menu creation
-            if let Some(path) = crate::menu::get_recent_file_path(index) {
-                let event = make_recent_file_event(&path);
-                if let Some(focused) = get_focused_document_window(app) {
-                    // Case 1: Focused document window - emit directly (window is ready)
-                    emit_event(&focused, &event);
-                } else if !has_document_windows(app) {
-                    // Case 2: No windows - create one and queue event
-                    create_window_and_queue(app, event);
-                } else if let Some(window) = get_any_document_window(app) {
-                    // Case 3: Window exists but not focused (just created by Reopen)
-                    // Atomically queue event - will be flushed when window becomes ready
-                    emit_or_queue_atomic(&window, event);
-                }
-            }
-            return;
-        }
-    }
-
-    // Handle recent workspace clicks - similar to recent files
-    if let Some(index_str) = id.strip_prefix("recent-workspace-") {
-        if let Ok(index) = index_str.parse::<usize>() {
-            if let Some(path) = crate::menu::get_recent_workspace_path(index) {
-                let event = make_recent_workspace_event(&path);
-                if let Some(focused) = get_focused_document_window(app) {
-                    emit_event(&focused, &event);
-                } else if !has_document_windows(app) {
-                    create_window_and_queue(app, event);
-                } else if let Some(window) = get_any_document_window(app) {
-                    emit_or_queue_atomic(&window, event);
-                }
-            }
-            return;
-        }
-    }
-
-    // Handle genie item clicks — look up path from snapshot and emit
-    if let Some(index_str) = id.strip_prefix("genie-item-") {
-        if let Ok(index) = index_str.parse::<usize>() {
-            if let Some(path) = crate::menu::get_genie_path(index) {
-                let event = PendingMenuEvent {
-                    event_name: "menu:invoke-genie".to_string(),
-                    recent_file_path: Some(path),
-                };
-                if let Some(focused) = get_focused_document_window(app) {
-                    emit_event(&focused, &event);
-                }
-                return;
-            }
-        }
-    }
-
-    // Handle clear-recent-workspaces
-    if id == "clear-recent-workspaces" {
-        if let Some(focused) = get_focused_document_window(app) {
-            let _ = focused.emit("menu:clear-recent-workspaces", focused.label());
-        }
-        return;
-    }
-
-    // "install-cli" — Install or manage the `vmark` shell command (macOS only).
-    // Toggles between install/uninstall based on current status.
-    #[cfg(target_os = "macos")]
-    if id == "install-cli" {
-        crate::cli_install::dialog::run_install_toggle(app.clone());
-        return;
-    }
-
-    // "new-window" creates a new window directly in Rust
-    if id == "new-window" {
-        let _ = crate::window_manager::create_document_window(app, None, None);
-        return;
-    }
-
-    // "preferences" - always handle in Rust to ensure it works in all scenarios:
-    // - Settings already open and focused
-    // - Settings open but in background
-    // - No Settings window exists
-    // - No document windows exist
-    if id == "preferences" {
-        log::debug!("[menu_events] Handling 'preferences' menu event");
-        match crate::window_manager::show_settings_window(app) {
-            Ok(label) => {
-                log::debug!("[menu_events] Settings window ready: {}", label);
-            }
-            Err(e) => {
-                log::error!("[menu_events] Failed to show settings: {}", e);
-            }
-        }
-        return;
-    }
-
-    // "about" - open Settings window at About section
-    if id == "about" {
-        log::debug!("[menu_events] Handling 'about' menu event");
-        match crate::window_manager::show_settings_window_section(app, Some("about")) {
-            Ok(label) => {
-                log::debug!("[menu_events] Settings window (about) ready: {}", label);
-            }
-            Err(e) => {
-                log::error!("[menu_events] Failed to show about: {}", e);
-            }
-        }
-        return;
-    }
-
-    // "new" creates a tab in current window, but if no windows exist, create a new window
-    // (Cmd+N when last window closed should open a new window)
-    if id == "new" && !has_document_windows(app) {
-        let _ = crate::window_manager::create_document_window(app, None, None);
-        return;
-    }
-
-    // "close" (Cmd+W) should only affect the focused window
-    // Note: window.emit() broadcasts to all windows, so include target label in payload
-    if id == "close" {
-        if let Some(focused) = get_focused_window(app) {
-            let _ = focused.emit("menu:close", focused.label());
-        }
-        return;
-    }
-
-    // File operations that should work without windows
-    // Three cases to handle:
-    // 1. Focused window exists → emit directly
-    // 2. No windows at all → create window, queue event for when ready
-    // 3. Windows exist but none focused → queue event for when ready
-    if matches!(id, "open" | "open-folder" | "quick-open") {
-        let event = make_menu_event(&format!("menu:{id}"));
-        if let Some(focused) = get_focused_document_window(app) {
-            // Case 1: Focused document window - emit directly (window is ready)
-            emit_event(&focused, &event);
-        } else if !has_document_windows(app) {
-            // Case 2: No windows - create one and queue event
-            create_window_and_queue(app, event);
-        } else if let Some(window) = get_any_document_window(app) {
-            // Case 3: Window exists but not focused (just created by Reopen)
-            // Atomically queue event - will be flushed when window becomes ready
-            emit_or_queue_atomic(&window, event);
-        }
-        return;
-    }
-
-    // "clear-recent" can be handled without a window if needed
-    // But for consistency, we still emit to a window (frontend handles storage)
-
-    // All other menu events: try focused document window first, fall back to any document window.
-    // On Windows, clicking a menu item can momentarily shift focus away from the webview,
-    // causing is_focused() to return false. The fallback prevents silent event loss.
-    // Uses get_focused_document_window (not get_focused_window) to avoid sending
-    // document events (save, undo, etc.) to the settings window.
-    let target = get_focused_document_window(app).or_else(|| get_any_document_window(app));
-    if let Some(window) = target {
-        let event_name = format!("menu:{id}");
-        let _ = window.emit(&event_name, window.label());
     }
 }

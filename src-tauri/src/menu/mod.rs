@@ -3,7 +3,7 @@
 //! Purpose: Builds the native application menu bar with localized labels and
 //! keyboard accelerators, using `rust-i18n` for translation.
 //!
-//! Pipeline: `lib.rs` setup -> `localized::create_localized_menu()` -> Tauri `app.set_menu()`.
+//! Pipeline: `app_setup::setup_app` -> `localized::create_localized_menu()` -> Tauri `app.set_menu()`.
 //! When user changes locale (label change): frontend invokes `rebuild_menu`
 //!   -> `localized::create_localized_menu()` with custom shortcuts.
 //! When user edits a keyboard shortcut (accelerator-only change): frontend
@@ -20,17 +20,16 @@
 //!     handlers always resolve the correct path even if the store changed.
 //!   - Genies submenu is created dynamically inside Edit (not at build time)
 //!     so it can be toggled on/off without rebuilding the entire menu.
-//!   - The accelerator cache is seeded automatically inside `create_localized_menu`
-//!     via the `accel()` closure, so every rebuild leaves a correct baseline
-//!     for the next differential update — callers don't need to seed explicitly.
-//!
-//! Known limitations:
-//!   - Menu structure is duplicated across macOS and non-macOS variants
-//!     due to platform-specific items (App menu, Services, etc.).
+//!   - The accelerator baseline is committed by `create_localized_menu` (via
+//!     `accelerators::commit_rebuild`) only after the menu tree is fully
+//!     built, so a failed rebuild never corrupts the baseline — callers
+//!     don't need to seed explicitly.
+//!   - Platform differences (App menu, Print, Settings/Exit placement) are
+//!     cfg-gated tails appended to shared item lists, not duplicated menus.
 //!
 //! @coordinates-with `menu_events.rs` (dispatches click events to frontend)
 //! @coordinates-with `macos_menu.rs` (applies SF Symbol icons and workarounds)
-//! @coordinates-with `lib.rs` (registers Tauri commands and builds initial menu)
+//! @coordinates-with `lib.rs` (registers Tauri commands) / `app_setup.rs` (builds initial menu)
 //! @coordinates-with `locales/en.yml` (English locale strings)
 
 pub mod accelerators;

@@ -7,10 +7,10 @@
 //! ~150 ms UI-thread stall that made the Settings window freeze (Issue #825).
 //!
 //! Backed by one cache: `ACCEL_CACHE` — the last-applied accelerator per
-//! menu-id. Seeded automatically by the `accel()` closure inside
-//! `create_localized_menu`, so both startup and rebuild paths leave the
-//! baseline in a correct state. Call `begin_rebuild()` before constructing
-//! the menu to clear stale entries.
+//! menu-id. `create_localized_menu` collects every resolved accelerator into
+//! a local snapshot while it builds and calls `commit_rebuild()` only after
+//! the menu tree is fully constructed, so a failed rebuild leaves the
+//! previous baseline intact instead of a partial, lying one.
 //!
 //! `MenuItem<Wry>` handles are looked up by walking the live menu tree on
 //! every diff call. The walk is ~30 main-thread hops; combined with the
@@ -22,7 +22,7 @@
 //! commit cd5f7669). Walking fresh keeps that surface out of the binary.
 //!
 //! @coordinates-with `commands.rs` (exposes `update_menu_accelerators`)
-//! @coordinates-with `localized.rs` (records each applied accelerator)
+//! @coordinates-with `localized.rs` (commits the accelerator snapshot post-build)
 //! @coordinates-with `src/stores/shortcutsStore.ts` (calls the differential path)
 
 use std::collections::HashMap;
@@ -33,21 +33,15 @@ use tauri::{AppHandle, Wry};
 
 static ACCEL_CACHE: Mutex<Option<HashMap<String, String>>> = Mutex::new(None);
 
-/// Reset the accelerator baseline at the start of a full menu rebuild.
-/// `record_applied` will repopulate it as the menu is constructed.
-pub fn begin_rebuild() {
+/// Atomically replace the accelerator baseline with a fully-built snapshot.
+///
+/// Called by `create_localized_menu` only after the entire menu tree has
+/// been constructed successfully. Never called during construction: if a
+/// section builder fails, the previous baseline stays intact instead of
+/// being left half-repopulated for a menu that was never installed.
+pub fn commit_rebuild(snapshot: HashMap<String, String>) {
     if let Ok(mut a) = ACCEL_CACHE.lock() {
-        *a = Some(HashMap::new());
-    }
-}
-
-/// Record an accelerator that was just applied to a menu item. Called from
-/// inside `create_localized_menu` so the baseline tracks reality regardless of
-/// whether the caller passed a custom-shortcuts map.
-pub fn record_applied(id: &str, accel: &str) {
-    if let Ok(mut guard) = ACCEL_CACHE.lock() {
-        let map = guard.get_or_insert_with(HashMap::new);
-        map.insert(id.to_string(), accel.to_string());
+        *a = Some(snapshot);
     }
 }
 
@@ -176,126 +170,5 @@ pub(crate) fn clear_state_for_test() {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use std::sync::Mutex;
-
-    /// Cache-lifecycle tests share the module-scoped `ACCEL_CACHE`, so they
-    /// must not run in parallel with each other. Acquire this lock at the
-    /// start of any test that mutates or observes `ACCEL_CACHE`.
-    static STATIC_CACHE_LOCK: Mutex<()> = Mutex::new(());
-
-    fn map(pairs: &[(&str, &str)]) -> HashMap<String, String> {
-        pairs
-            .iter()
-            .map(|(k, v)| ((*k).to_string(), (*v).to_string()))
-            .collect()
-    }
-
-    #[test]
-    fn diff_returns_all_when_current_is_empty() {
-        let current = HashMap::new();
-        let next = map(&[("bold", "CmdOrCtrl+B"), ("italic", "CmdOrCtrl+I")]);
-        let out = diff_accelerators(&current, &next);
-        assert_eq!(
-            out,
-            vec![
-                ("bold".into(), "CmdOrCtrl+B".into()),
-                ("italic".into(), "CmdOrCtrl+I".into()),
-            ]
-        );
-    }
-
-    #[test]
-    fn diff_skips_unchanged_entries() {
-        let current = map(&[("bold", "CmdOrCtrl+B"), ("italic", "CmdOrCtrl+I")]);
-        let next = current.clone();
-        assert!(diff_accelerators(&current, &next).is_empty());
-    }
-
-    #[test]
-    fn diff_returns_only_changed_entries() {
-        let current = map(&[("bold", "CmdOrCtrl+B"), ("italic", "CmdOrCtrl+I")]);
-        let next = map(&[("bold", "CmdOrCtrl+B"), ("italic", "CmdOrCtrl+Shift+I")]);
-        assert_eq!(
-            diff_accelerators(&current, &next),
-            vec![("italic".into(), "CmdOrCtrl+Shift+I".into())]
-        );
-    }
-
-    #[test]
-    fn diff_treats_empty_accelerator_as_a_change_and_reports_it() {
-        // Empty string means "unbound" at the Rust layer; still a diff-worthy change.
-        let current = map(&[("bold", "CmdOrCtrl+B")]);
-        let next = map(&[("bold", "")]);
-        assert_eq!(
-            diff_accelerators(&current, &next),
-            vec![("bold".into(), "".into())]
-        );
-    }
-
-    #[test]
-    fn diff_ignores_keys_present_only_in_current() {
-        // The frontend might stop tracking an item (e.g., feature removed).
-        // We don't try to reset it — we only touch what the caller asks about.
-        let current = map(&[("bold", "CmdOrCtrl+B"), ("ghost", "F12")]);
-        let next = map(&[("bold", "CmdOrCtrl+B")]);
-        assert!(diff_accelerators(&current, &next).is_empty());
-    }
-
-    #[test]
-    fn diff_is_sorted_for_deterministic_application_order() {
-        let current = HashMap::new();
-        let next = map(&[("z", "Ctrl+Z"), ("a", "Ctrl+A"), ("m", "Ctrl+M")]);
-        let out = diff_accelerators(&current, &next);
-        let ids: Vec<&str> = out.iter().map(|(id, _)| id.as_str()).collect();
-        assert_eq!(ids, vec!["a", "m", "z"]);
-    }
-
-    // --- Cache-lifecycle tests ------------------------------------------------
-    // These poke the module-scoped `ACCEL_CACHE`. They must serialize via
-    // STATIC_CACHE_LOCK and clear state before each run; otherwise parallel
-    // `cargo test` scheduling would cross-contaminate them.
-
-    #[test]
-    fn begin_rebuild_clears_accel_cache() {
-        let _guard = STATIC_CACHE_LOCK.lock().unwrap();
-        // Pre-populate to prove begin_rebuild actually clears.
-        record_applied("bold", "CmdOrCtrl+B");
-        assert_eq!(
-            accel_cache_snapshot_for_test()
-                .unwrap()
-                .get("bold")
-                .map(String::as_str),
-            Some("CmdOrCtrl+B"),
-        );
-
-        begin_rebuild();
-
-        let snap =
-            accel_cache_snapshot_for_test().expect("ACCEL_CACHE is Some after begin_rebuild");
-        assert!(
-            snap.is_empty(),
-            "begin_rebuild left stale entries: {:?}",
-            snap
-        );
-    }
-
-    #[test]
-    fn record_applied_lazily_creates_map_and_overwrites_existing_ids() {
-        let _guard = STATIC_CACHE_LOCK.lock().unwrap();
-        clear_state_for_test();
-        // No begin_rebuild yet — record_applied must still work.
-        record_applied("save", "CmdOrCtrl+S");
-        record_applied("save", "CmdOrCtrl+Shift+S"); // overwrites
-        record_applied("open", "CmdOrCtrl+O");
-
-        let snap = accel_cache_snapshot_for_test().expect("ACCEL_CACHE created on first record");
-        assert_eq!(
-            snap.get("save").map(String::as_str),
-            Some("CmdOrCtrl+Shift+S")
-        );
-        assert_eq!(snap.get("open").map(String::as_str), Some("CmdOrCtrl+O"));
-        assert_eq!(snap.len(), 2);
-    }
-}
+#[path = "accelerators.test.rs"]
+mod tests;
