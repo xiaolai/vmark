@@ -25,6 +25,7 @@ fn partition_empty_input_yields_empty_buckets() {
     assert_eq!(out, OpenedPaths::default());
 }
 
+#[cfg(unix)] // POSIX path fixtures; production caller is macOS-only
 #[test]
 fn partition_routes_directories_to_dirs() {
     let out = partition_opened_urls(vec![url("file:///Users/a/project")], |_| true, |_| false);
@@ -33,6 +34,7 @@ fn partition_routes_directories_to_dirs() {
     assert!(out.skipped.is_empty());
 }
 
+#[cfg(unix)] // POSIX path fixtures; production caller is macOS-only
 #[test]
 fn partition_routes_supported_files_to_files() {
     let out = partition_opened_urls(
@@ -45,6 +47,7 @@ fn partition_routes_supported_files_to_files() {
     assert!(out.skipped.is_empty());
 }
 
+#[cfg(unix)] // POSIX path fixtures; production caller is macOS-only
 #[test]
 fn partition_skips_unsupported_files() {
     let out = partition_opened_urls(
@@ -59,6 +62,7 @@ fn partition_skips_unsupported_files() {
     assert_eq!(out.skipped, vec!["/Users/a/archive.zip"]);
 }
 
+#[cfg(unix)] // POSIX path fixtures; production caller is macOS-only
 #[test]
 fn partition_skips_non_file_urls() {
     // A non-file scheme cannot be converted to a local path — it must be
@@ -75,6 +79,7 @@ fn partition_skips_non_file_urls() {
     assert_eq!(out.skipped, vec!["https://example.com/note.md"]);
 }
 
+#[cfg(unix)] // POSIX path fixtures; production caller is macOS-only
 #[test]
 fn partition_directory_takes_precedence_over_file_predicate() {
     // A directory named like a supported file (e.g. `notes.md/`) must open
@@ -84,6 +89,7 @@ fn partition_directory_takes_precedence_over_file_predicate() {
     assert!(out.files.is_empty());
 }
 
+#[cfg(unix)] // POSIX path fixtures; production caller is macOS-only
 #[test]
 fn partition_mixed_batch_preserves_per_bucket_order() {
     let out = partition_opened_urls(
@@ -102,6 +108,7 @@ fn partition_mixed_batch_preserves_per_bucket_order() {
     assert_eq!(out.skipped, vec!["/ws1/c.zip"]);
 }
 
+#[cfg(unix)] // POSIX path fixtures; production caller is macOS-only
 #[test]
 fn partition_files_with_unicode_paths_survive() {
     let out = partition_opened_urls(
@@ -112,6 +119,7 @@ fn partition_files_with_unicode_paths_survive() {
     assert_eq!(out.files, vec!["/Users/a/\u{4e2d}\u{6587} notes.md"]);
 }
 
+#[cfg(unix)] // POSIX path fixtures; production caller is macOS-only
 #[test]
 fn partition_multi_workspace_files_feed_grouping() {
     // End-to-end with the (already unit-tested) workspace grouping: files
