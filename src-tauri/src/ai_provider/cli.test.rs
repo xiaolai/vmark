@@ -4,8 +4,14 @@
 //! (`sleep`, `echo`, `sh`) are POSIX utilities with no portable Windows
 //! equivalent (Windows `echo` is a cmd.exe builtin, there is no `sleep.exe`).
 
-use super::stream::{next_bounded_chunk, utf8_floor, MAX_LINE_BYTES, MAX_STDERR_BYTES};
+use super::stream::{next_bounded_chunk, utf8_floor, MAX_LINE_BYTES};
+// The following are only referenced by the Unix-gated tests below; on Windows
+// those tests are `#[cfg]`-ed out, leaving these imports unused.
+#[cfg(unix)]
+use super::stream::MAX_STDERR_BYTES;
+#[cfg(unix)]
 use super::*;
+#[cfg(unix)]
 use crate::ai_provider::sink::testing::{RecordingSink, SinkEvent};
 
 /// Cancellation kills a long-running shim within a deadline.

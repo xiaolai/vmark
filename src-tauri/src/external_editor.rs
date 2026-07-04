@@ -146,11 +146,11 @@ fn resolve_editor(editor_override: Option<&str>) -> String {
     }
     #[cfg(target_os = "windows")]
     {
-        return "notepad.exe".to_string();
+        "notepad.exe".to_string()
     }
     #[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
     {
-        return "xdg-open".to_string();
+        "xdg-open".to_string()
     }
 }
 

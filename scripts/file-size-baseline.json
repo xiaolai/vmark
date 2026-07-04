@@ -31,7 +31,7 @@
     "src-tauri/src/pty.rs": 401,
     "src-tauri/src/quit.rs": 875,
     "src-tauri/src/watcher.rs": 365,
-    "src-tauri/src/window_manager.rs": 626,
+    "src-tauri/src/window_manager.rs": 633,
     "src-tauri/src/workflow/commands.rs": 407,
     "src-tauri/src/workflow/condition.rs": 730,
     "src-tauri/src/workflow/expressions.rs": 359,

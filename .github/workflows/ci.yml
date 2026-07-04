@@ -217,4 +217,11 @@ jobs:
           tool: cargo-audit
 
       - name: Security audit (Rust)
-        run: cargo audit --file src-tauri/Cargo.lock
+        # RUSTSEC-2026-0194/0195: DoS advisories in `quick-xml`, pulled in only
+        # transitively and unfixable from here — `plist 1.9.0` (via `tauri 2.11.3`)
+        # pins `quick-xml ^0.39.2` and `tauri-winrt-notification` pins `^0.37`,
+        # while the fix is >=0.41.0. Neither is reachable without an upstream
+        # Tauri/plist release. quick-xml is used only for plist parsing (macOS
+        # bundle metadata) and Windows notifications, never for untrusted external
+        # XML in VMark. Remove these ignores once a Tauri bump pulls quick-xml >=0.41.
+        run: cargo audit --file src-tauri/Cargo.lock --ignore RUSTSEC-2026-0194 --ignore RUSTSEC-2026-0195

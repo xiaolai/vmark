@@ -20,6 +20,10 @@
 //! Known limitations:
 //!   - Window counter is process-global (AtomicU32); labels are not recycled.
 
+// Finder/dock-reopen helpers + the macOS-only settings `window` binding are
+// compiled everywhere but only used on macOS; silence the off-macOS lints.
+#![cfg_attr(not(target_os = "macos"), allow(dead_code, unused_variables))]
+
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -589,7 +593,10 @@ pub fn show_settings_window_section(
 
     #[cfg(not(target_os = "macos"))]
     {
-        builder = builder.menu(tauri::menu::Menu::new(app)?).center().visible(true);
+        builder = builder
+            .menu(tauri::menu::Menu::new(app)?)
+            .center()
+            .visible(true);
     }
 
     let window = builder.build()?;

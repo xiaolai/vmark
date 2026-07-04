@@ -136,7 +136,7 @@ pub(crate) const SUPPORTED_EXTENSIONS: &[&str] = &[
 
 /// Strict markdown-only extensions — kept for callers that genuinely
 /// mean "markdown editor candidate" rather than "any registered format."
-#[cfg_attr(target_os = "macos", allow(dead_code))]
+#[allow(dead_code)] // test-only today → dead in every non-test build
 pub(crate) const MARKDOWN_ONLY_EXTENSIONS: &[&str] = &["md", "markdown", "mdown", "mkd", "mdx"];
 
 /// True if `path` has any registered format's extension (case-insensitive).

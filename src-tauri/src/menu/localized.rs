@@ -265,7 +265,7 @@ pub fn create_localized_menu(
     let export_submenu = Submenu::with_id_and_items(
         app,
         "export-submenu",
-        &t!("menu.file.export").to_string(),
+        &t!("menu.file.export"),
         true,
         &[
             &html_item,
@@ -398,20 +398,20 @@ pub fn create_localized_menu(
     let file_menu = Submenu::with_id_and_items(
         app,
         "file-menu",
-        &t!("menu.file").to_string(),
+        &t!("menu.file"),
         true,
         &[
             &MenuItem::with_id(
                 app,
                 "new",
-                &t!("menu.file.new").to_string(),
+                &t!("menu.file.new"),
                 true,
                 accel("new", "CmdOrCtrl+N"),
             )?,
             &MenuItem::with_id(
                 app,
                 "new-window",
-                &t!("menu.file.newWindow").to_string(),
+                &t!("menu.file.newWindow"),
                 true,
                 accel("new-window", "CmdOrCtrl+Shift+N"),
             )?,
@@ -419,21 +419,21 @@ pub fn create_localized_menu(
             &MenuItem::with_id(
                 app,
                 "quick-open",
-                &t!("menu.file.quickOpen").to_string(),
+                &t!("menu.file.quickOpen"),
                 true,
                 accel("quick-open", "CmdOrCtrl+O"),
             )?,
             &MenuItem::with_id(
                 app,
                 "open",
-                &t!("menu.file.openFile").to_string(),
+                &t!("menu.file.openFile"),
                 true,
                 accel("open", ""),
             )?,
             &MenuItem::with_id(
                 app,
                 "open-folder",
-                &t!("menu.file.openWorkspace").to_string(),
+                &t!("menu.file.openWorkspace"),
                 true,
                 accel("open-folder", "CmdOrCtrl+Shift+O"),
             )?,
@@ -443,14 +443,14 @@ pub fn create_localized_menu(
             &MenuItem::with_id(
                 app,
                 "close",
-                &t!("menu.file.close").to_string(),
+                &t!("menu.file.close"),
                 true,
                 accel("close", "CmdOrCtrl+W"),
             )?,
             &MenuItem::with_id(
                 app,
                 "close-workspace",
-                &t!("menu.file.closeWorkspace").to_string(),
+                &t!("menu.file.closeWorkspace"),
                 true,
                 None::<&str>,
             )?,
@@ -458,21 +458,21 @@ pub fn create_localized_menu(
             &MenuItem::with_id(
                 app,
                 "save",
-                &t!("menu.file.save").to_string(),
+                &t!("menu.file.save"),
                 true,
                 accel("save", "CmdOrCtrl+S"),
             )?,
             &MenuItem::with_id(
                 app,
                 "save-as",
-                &t!("menu.file.saveAs").to_string(),
+                &t!("menu.file.saveAs"),
                 true,
                 accel("save-as", "CmdOrCtrl+Shift+S"),
             )?,
             &MenuItem::with_id(
                 app,
                 "move-to",
-                &t!("menu.file.moveTo").to_string(),
+                &t!("menu.file.moveTo"),
                 true,
                 accel("move-to", ""),
             )?,
@@ -490,7 +490,7 @@ pub fn create_localized_menu(
             &MenuItem::with_id(
                 app,
                 "preferences",
-                &t!("menu.app.settings").to_string(),
+                &t!("menu.app.settings"),
                 true,
                 accel("preferences", "CmdOrCtrl+,"),
             )?,
@@ -498,14 +498,14 @@ pub fn create_localized_menu(
             &MenuItem::with_id(
                 app,
                 "save-all-quit",
-                &t!("menu.file.saveAllExit").to_string(),
+                &t!("menu.file.saveAllExit"),
                 true,
                 accel("save-all-quit", "Alt+CmdOrCtrl+Shift+Q"),
             )?,
             &MenuItem::with_id(
                 app,
                 "quit",
-                &t!("menu.file.exit").to_string(),
+                &t!("menu.file.exit"),
                 true,
                 accel("quit", "CmdOrCtrl+Q"),
             )?,
@@ -1615,20 +1615,20 @@ pub fn create_localized_menu(
     let help_menu = Submenu::with_id_and_items(
         app,
         "help-menu",
-        &t!("menu.help").to_string(),
+        &t!("menu.help"),
         true,
         &[
             &MenuItem::with_id(
                 app,
                 "vmark-help",
-                &t!("menu.help.vmarkHelp").to_string(),
+                &t!("menu.help.vmarkHelp"),
                 true,
                 None::<&str>,
             )?,
             &MenuItem::with_id(
                 app,
                 "keyboard-shortcuts",
-                &t!("menu.help.keyboardShortcuts").to_string(),
+                &t!("menu.help.keyboardShortcuts"),
                 true,
                 None::<&str>,
             )?,
@@ -1636,18 +1636,12 @@ pub fn create_localized_menu(
             &MenuItem::with_id(
                 app,
                 "report-issue",
-                &t!("menu.help.reportIssue").to_string(),
+                &t!("menu.help.reportIssue"),
                 true,
                 None::<&str>,
             )?,
             &PredefinedMenuItem::separator(app)?,
-            &MenuItem::with_id(
-                app,
-                "about",
-                &t!("menu.app.about").to_string(),
-                true,
-                None::<&str>,
-            )?,
+            &MenuItem::with_id(app, "about", &t!("menu.app.about"), true, None::<&str>)?,
         ],
     )?;
 
