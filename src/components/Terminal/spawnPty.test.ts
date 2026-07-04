@@ -639,6 +639,40 @@ describe("spawnPty shell selection", () => {
     expect(fallbackEnv.env.VMARK_SHELL_RC).toBe("/bin/bash");
   });
 
+  it("throws and does not spawn when disposed during the buildShellEnv await (integration disabled)", async () => {
+    // Regression: the post-buildShellEnv disposed() check was gated on
+    // shellIntegrationEnabled. Even without integration, buildShellEnv is
+    // awaited (a microtask tick), so a session disposed in that window
+    // spawned an orphan PTY that nothing would ever kill.
+    vi.mocked(spawn).mockReturnValue({
+      onData: vi.fn(),
+      onExit: vi.fn(),
+      write: vi.fn(),
+      resize: vi.fn(),
+      kill: vi.fn(),
+    } as unknown as ReturnType<typeof spawn>);
+    vi.mocked(useSettingsStore.getState).mockReturnValue({
+      terminal: { shell: "", shellIntegration: false },
+    } as ReturnType<typeof useSettingsStore.getState>);
+    vi.mocked(invoke).mockImplementation((cmd: string) => {
+      if (cmd === "get_default_shell") return Promise.resolve("/bin/zsh");
+      if (cmd === "get_login_shell_path") return Promise.resolve("/usr/bin");
+      return Promise.resolve(null);
+    });
+
+    // First disposed() check (pre-buildShellEnv): alive. Any later check: disposed.
+    let calls = 0;
+    const disposedFn = () => {
+      calls++;
+      return calls >= 2;
+    };
+
+    await expect(
+      spawnPty({ term: mockTerm, onExit: vi.fn(), disposed: disposedFn }),
+    ).rejects.toThrow("disposed before spawn");
+    expect(spawn).not.toHaveBeenCalled();
+  });
+
   it("throws 'disposed before fallback spawn' when disposed becomes true after fallback shell resolved (L168)", async () => {
     // L168: disposed() check AFTER the fallback invoke resolves
     // Need: disposed() returns false at L143 (pre-spawn check) but true at L168 (post-fallback-await)
@@ -649,9 +683,10 @@ describe("spawnPty shell selection", () => {
     let callCount = 0;
     const disposedFn = () => {
       callCount++;
-      // First call (L143 check before spawn): not disposed
-      // Second call (L168 check after fallback await): disposed
-      return callCount >= 2;
+      // Call 1 (pre-buildShellEnv check): not disposed
+      // Call 2 (post-buildShellEnv check): not disposed
+      // Call 3 (check after the fallback get_default_shell await): disposed
+      return callCount >= 3;
     };
 
     // First spawn (configured shell) throws; second spawn never reached because disposed

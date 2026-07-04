@@ -387,6 +387,30 @@ describe("useGenieInvocation — picker store wiring", () => {
   });
 
   // =========================================================================
+  // listen() rejection → error state + lock released (no stuck processing)
+  // =========================================================================
+
+  it("sets error and releases the lock when listener registration fails", async () => {
+    setupProviderAndEditor();
+    const { listen } = await import("@tauri-apps/api/event");
+    vi.mocked(listen).mockRejectedValueOnce(new Error("event bridge down"));
+
+    const { result } = renderHook(() => useGenieInvocation());
+    // Must resolve (not reject) — a listener failure is handled, not thrown.
+    await act(async () => {
+      await result.current.invokeGenie(makeGenie());
+    });
+
+    expect(useGeniePickerStore.getState().mode).toBe("error");
+    expect(useGeniePickerStore.getState().pickerError).toBe("event bridge down");
+    expect(useAiInvocationStore.getState().error).toBe("event bridge down");
+    // The lock must be released so the next invocation can start.
+    expect(useAiInvocationStore.getState().isRunning).toBe(false);
+    // The stream must not be started when no listener is registered.
+    expect(mockInvoke).not.toHaveBeenCalled();
+  });
+
+  // =========================================================================
   // invoke() rejection with non-Error → string coercion
   // =========================================================================
 

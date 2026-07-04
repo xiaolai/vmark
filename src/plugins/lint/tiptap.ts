@@ -7,10 +7,14 @@
  * Key decisions:
  *   - Uses configurable tabId to scope diagnostics per tab.
  *   - Subscribes to lintStore to re-dispatch when results arrive.
+ *   - Subscribes to settingsStore so toggling markdown.lintEnabled takes
+ *     effect live: the extension is always registered and decorations are
+ *     gated on the CURRENT setting, not the mount-time value.
  *   - On docChanged: clears decorations (stale results dismissed).
  *   - skips "sourceOnly" diagnostics — they cannot be represented in WYSIWYG.
  *
  * @coordinates-with stores/lintStore.ts — listens for diagnostic changes
+ * @coordinates-with stores/settingsStore — markdown.lintEnabled gates decorations
  * @module plugins/lint/tiptap
  */
 
@@ -19,11 +23,17 @@ import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import type { Node as PMNode } from "@tiptap/pm/model";
 import { useLintStore } from "@/stores/documentStore";
+import { useSettingsStore } from "@/stores/settingsStore";
 import type { LintDiagnostic } from "@/lib/lintEngine/types";
 import { runOrQueueProseMirrorAction } from "@/utils/imeGuard";
 import "./lint.css";
 
 const lintPluginKey = new PluginKey("markdownLintWysiwyg");
+
+/** Live lint setting — read at decoration-build time so toggles apply without a remount. */
+function isLintEnabled(): boolean {
+  return useSettingsStore.getState().markdown.lintEnabled;
+}
 
 /** Build decorations from diagnostics. Skips "sourceOnly" entries.
  *  Builds a line-to-block map in a single O(B) pass, then looks up
@@ -89,6 +99,15 @@ export const LintExtension = Extension.create<LintExtensionOptions>({
 
         view: (editorView) => {
           let destroyed = false;
+          const dispatchRebuild = () => {
+            runOrQueueProseMirrorAction(editorView, () => {
+              if (destroyed) return;
+              editorView.dispatch(
+                editorView.state.tr.setMeta(lintPluginKey, "diagnosticsChanged")
+              );
+            });
+          };
+
           // Only react when diagnostics are ADDED (runLint), not cleared.
           // Clears are handled by apply() returning DecorationSet.empty on docChanged.
           let prevDiagnostics = useLintStore.getState().diagnosticsByTab[tabId];
@@ -102,25 +121,35 @@ export const LintExtension = Extension.create<LintExtensionOptions>({
             }
             if (nextDiagnostics !== prevDiagnostics) {
               prevDiagnostics = nextDiagnostics;
-              runOrQueueProseMirrorAction(editorView, () => {
-                if (destroyed) return;
-                editorView.dispatch(
-                  editorView.state.tr.setMeta(lintPluginKey, "diagnosticsChanged")
-                );
-              });
+              dispatchRebuild();
             }
+          });
+
+          // React to the lint toggle so it takes effect without a remount:
+          // OFF rebuilds to empty (clears lingering decorations), ON rebuilds
+          // from whatever diagnostics the store currently holds. Plain
+          // subscribe with manual prev tracking (project convention).
+          let prevEnabled = isLintEnabled();
+          const unsubscribeSettings = useSettingsStore.subscribe((state) => {
+            if (destroyed) return;
+            const enabled = state.markdown.lintEnabled;
+            if (enabled === prevEnabled) return;
+            prevEnabled = enabled;
+            dispatchRebuild();
           });
 
           return {
             destroy: () => {
               destroyed = true;
               unsubscribe();
+              unsubscribeSettings();
             },
           };
         },
 
         state: {
           init(_, { doc }) {
+            if (!isLintEnabled()) return DecorationSet.empty;
             const diagnostics =
               useLintStore.getState().diagnosticsByTab[tabId] ?? [];
             return buildDecorations(doc, diagnostics);
@@ -135,8 +164,10 @@ export const LintExtension = Extension.create<LintExtensionOptions>({
               return DecorationSet.empty;
             }
 
-            // Rebuild when diagnostics were updated
+            // Rebuild when diagnostics were updated (or the lint toggle
+            // flipped — disabled lint always rebuilds to empty).
             if (tr.getMeta(lintPluginKey) === "diagnosticsChanged") {
+              if (!isLintEnabled()) return DecorationSet.empty;
               const diagnostics =
                 useLintStore.getState().diagnosticsByTab[tabId] ?? [];
               return buildDecorations(tr.doc, diagnostics);

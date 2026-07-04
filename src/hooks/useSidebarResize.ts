@@ -74,6 +74,12 @@ export function useSidebarResize() {
   const handleResizeStart = useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault();
+      // A mousedown can arrive while a previous drag's listeners are still
+      // attached (e.g. mouseup outside the window was never delivered).
+      // Without this, handlersRef is overwritten and the previous
+      // mousemove/mouseup/blur listeners leak — firing alongside the new
+      // ones and doubling store writes per pointer move.
+      cleanup();
       isResizing.current = true;
       startX.current = e.clientX;
       startWidth.current = useUIStore.getState().sidebarWidth;
@@ -111,7 +117,7 @@ export function useSidebarResize() {
       const step = e.shiftKey
         ? KEYBOARD_RESIZE_STEP_LARGE
         : KEYBOARD_RESIZE_STEP;
-      let next: number | null = null;
+      let next: number;
 
       switch (e.key) {
         case "ArrowLeft":

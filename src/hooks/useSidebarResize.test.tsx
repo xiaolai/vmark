@@ -125,6 +125,27 @@ describe("useSidebarResize", () => {
     expect(mockSetSidebarWidth.mock.calls.length).toBe(callsBefore);
   });
 
+  it("rapid repeated mousedown does not leak the previous drag's listeners", () => {
+    // Regression: a second mousedown before mouseup used to overwrite
+    // handlersRef, orphaning the first drag's mousemove/mouseup listeners.
+    // The leaked mousemove handler then fired alongside the new one,
+    // producing duplicate store writes per pointer move.
+    const { result } = renderHook(() => useSidebarResize());
+    act(() => result.current.handleResizeStart(fireMouseDown(100)));
+    act(() => result.current.handleResizeStart(fireMouseDown(100)));
+
+    act(() => fireMouseMove(150));
+
+    // Exactly one write per mousemove — a leaked handler would double it.
+    expect(mockSetSidebarWidth).toHaveBeenCalledTimes(1);
+
+    // And mouseup must fully clean up: no further writes after release.
+    act(() => fireMouseUp());
+    const callsBefore = mockSetSidebarWidth.mock.calls.length;
+    act(() => fireMouseMove(400));
+    expect(mockSetSidebarWidth.mock.calls.length).toBe(callsBefore);
+  });
+
   it("unmount mid-drag runs cleanup", () => {
     const { result, unmount } = renderHook(() => useSidebarResize());
     act(() => result.current.handleResizeStart(fireMouseDown(0)));

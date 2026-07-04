@@ -40,8 +40,19 @@ describe("getExportOverrides", () => {
     expect(css).toContain("display: none !important");
   });
 
-  it("includes print alert icon fallbacks", () => {
-    expect(css).toContain("alert-note");
+  it("does NOT duplicate alert print icon fallbacks (they come from alert-block.css via the bundle)", () => {
+    // Single source of truth: alert-block.css already ships identical
+    // @media print alert-icon fallbacks, and editorCSSBundle keeps @media
+    // print blocks. Duplicating them here caused two competing definitions
+    // for the same print behavior (see editorCSSBundle.test.ts).
+    expect(css).not.toContain(".alert-note");
+    expect(css).not.toContain(".alert-block .alert-title::before");
+  });
+
+  it("keeps the details chevron print fallback (defined only here)", () => {
+    // details-block.css has no @media print section, so this fallback's
+    // single source of truth IS exportOverrides.
+    expect(css).toContain("details > summary::before");
     expect(css).toContain("background-image: url(");
   });
 

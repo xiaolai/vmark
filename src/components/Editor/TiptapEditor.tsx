@@ -23,119 +23,48 @@
  *   - Hidden mode skips all store updates and content syncs, deferring to visibility transition.
  *   - Preview mode (markdown split) syncs content but skips active-editor registration.
  *
+ * @coordinates-with useTiptapFlush.ts — serialize-to-store flush + adaptive debounce machinery
  * @coordinates-with SourceEditor.tsx — shares document content via documentStore
  * @coordinates-with utils/markdownPipeline/ — parseMarkdown/serializeMarkdown for round-tripping
  * @coordinates-with utils/wysiwygFlush.ts — registers flusher for on-demand serialization before save
  * @module components/Editor/TiptapEditor
  */
-import { useCallback, useEffect, useMemo, useRef, type MutableRefObject } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { EditorContent, useEditor } from "@tiptap/react";
 import type { Editor as TiptapEditor } from "@tiptap/core";
-import type { Node as PMNode } from "@tiptap/pm/model";
-import { Selection } from "@tiptap/pm/state";
 import { useActiveTabId, useDocumentActions, useDocumentContent, useDocumentCursorInfo } from "@/hooks/useDocumentState";
 import { useImageContextMenu } from "@/hooks/useImageContextMenu";
 import { useOutlineSync } from "@/hooks/useOutlineSync";
 import { initializeRevisionTracking } from "@/hooks/mcpBridge/revisionTracker";
-import { parseMarkdown, serializeMarkdown } from "@/utils/markdownPipeline";
-import { registerActiveWysiwygFlusher, registerWysiwygFlusher } from "@/utils/wysiwygFlush";
+import { parseMarkdown } from "@/utils/markdownPipeline";
+import { useWysiwygFlusherRegistration } from "@/hooks/useWysiwygFlusherRegistration";
+import { useTiptapUnmountFlush } from "@/hooks/useTiptapUnmountFlush";
 import { useFileLoadStore } from "@/stores/documentStore";
 import { getCursorInfoFromTiptap, restoreCursorInTiptap } from "@/utils/cursorSync/tiptap";
 import { getTiptapEditorView } from "@/services/editor/tiptapView";
 import { scheduleTiptapFocusAndRestore } from "@/services/editor/tiptapFocus";
 import { createTiptapExtensions } from "@/services/assembly/tiptapExtensions";
-import { setShowInvisibles } from "@/plugins/showInvisibles/tiptap";
+import { useTiptapSettingsSync } from "@/hooks/useTiptapSettingsSync";
 import type { CursorInfo } from "@/stores/documentStore";
 import { useEditorStore } from "@/stores/editorStore";
 import { useSettingsStore } from "@/stores/settingsStore";
-import { useTabStore } from "@/stores/tabStore";
-import { useDocumentStore } from "@/stores/documentStore";
 import { useWindowLabel } from "@/contexts/WindowContext";
 import { useFocusedPaneTiptapRegistration } from "@/hooks/useFocusedPaneTiptapRegistration";
-import { resolveHardBreakStyle } from "@/utils/linebreaks";
 import { extractTiptapContext } from "@/plugins/formatToolbar/tiptapContext";
 import { useImageDragDrop } from "@/hooks/useImageDragDrop";
 import { handleTableScrollToSelection } from "@/plugins/tableScroll/scrollGuard";
 import { tiptapError } from "@/utils/debug";
 import { consumeWysiwygPendingNav } from "./wysiwygPendingNav";
 import { ImageContextMenu } from "./ImageContextMenu";
-
-/**
- * Delay before enabling cursor tracking after editor creation.
- * Prevents spurious cursor sync during initial render/focus.
- */
-const CURSOR_TRACKING_DELAY_MS = 200;
-
-/**
- * Set editor content without adding to undo history.
- * Tiptap's setContent in v3.x does NOT exclude from history by default,
- * so we use a direct ProseMirror transaction with addToHistory: false.
- */
-function setContentWithoutHistory(editor: TiptapEditor, doc: PMNode): void {
-  const view = getTiptapEditorView(editor);
-  if (!view) {
-    // Fallback to standard setContent if view not available
-    editor.commands.setContent(doc, { emitUpdate: false });
-    return;
-  }
-
-  const { state } = view;
-  const tr = state.tr
-    .replaceWith(0, state.doc.content.size, doc.content)
-    .setMeta("addToHistory", false)
-    .setMeta("preventUpdate", true); // Don't emit update event
-  view.dispatch(tr);
-}
-
-/**
- * Calculate adaptive debounce delay based on document size.
- * Larger documents get longer delays to reduce parsing overhead during typing.
- *
- * @param docSize - Document size in characters
- * @returns Delay in milliseconds
- */
-function getAdaptiveDebounceDelay(docSize: number): number {
-  if (docSize > 1000000) return 5000; // 1M+: 5s (~1MB+ markdown)
-  if (docSize > 500000) return 2000;  // 500K+: 2s
-  if (docSize > 100000) return 1000;  // 100K+: 1s
-  if (docSize > 50000) return 500;    // 50K+: 500ms
-  if (docSize > 20000) return 300;    // 20K+: 300ms
-  return 100;                          // Default: 100ms (using RAF for small docs)
-}
-
-/**
- * Document-size threshold (in characters) above which content-visibility
- * optimization is enabled. Below this, the cv-idle toggle causes visible
- * layout shift on every keystroke-to-idle transition because `auto`
- * intrinsic-size estimates diverge from real block heights when off-screen
- * blocks have never been rendered. For small docs the optimization delivers
- * no measurable win and the toggle produces a "shaking" / rippling effect
- * as the total document height changes on each idle interval (#823).
- */
-const CV_IDLE_CHAR_THRESHOLD = 50_000;
-
-/**
- * Parse markdown and sync it into the editor without touching undo history.
- * Updates lastExternalContent tracking ref on success.
- * Returns true if content was synced, false if already current or on error.
- */
-function syncMarkdownToEditor(
-  editor: TiptapEditor,
-  markdown: string,
-  lastExternalContent: MutableRefObject<string>,
-  preserveLineBreaks: boolean,
-): boolean {
-  if (markdown === lastExternalContent.current) return false;
-  try {
-    const doc = parseMarkdown(editor.schema, markdown, { preserveLineBreaks });
-    setContentWithoutHistory(editor, doc);
-    lastExternalContent.current = markdown;
-    return true;
-  } catch (error) {
-    tiptapError(" Failed to sync markdown:", error);
-    return false;
-  }
-}
+import { useTiptapContentSync } from "./useTiptapContentSync";
+import { useTiptapFlush } from "./useTiptapFlush";
+import {
+  CURSOR_TRACKING_DELAY_MS,
+  CV_IDLE_CHAR_THRESHOLD,
+  setContentWithoutHistory,
+  suppressCvIdleDuringEdit,
+  syncMarkdownToEditor,
+} from "./tiptapEditorHelpers";
 
 interface TiptapEditorInnerProps {
   hidden?: boolean;
@@ -156,16 +85,10 @@ export function TiptapEditorInner({ hidden = false, readOnly = false, preview = 
   const hardBreakStyleOnSave = useSettingsStore((state) => state.markdown.hardBreakStyleOnSave);
   const codeBlockLineNumbers = useSettingsStore((state) => state.markdown.codeBlockLineNumbers);
   const cjkLetterSpacing = useSettingsStore((state) => state.appearance.cjkLetterSpacing);
-  const lintEnabled = useSettingsStore((state) => state.markdown.lintEnabled);
   const showInvisibles = useSettingsStore((state) => state.markdown.showInvisibles);
   const windowLabel = useWindowLabel();
 
-  const isInternalChange = useRef(false);
-  const lastExternalContent = useRef<string>("");
-  const pendingRaf = useRef<number | null>(null);
-  const pendingDebounceTimeout = useRef<number | null>(null);
   const pendingCursorRaf = useRef<number | null>(null);
-  const internalChangeRaf = useRef<number | null>(null);
   const pendingCursorInfo = useRef<CursorInfo | null>(null);
   const cursorTrackingEnabled = useRef(false);
   const trackingTimeoutId = useRef<number | null>(null);
@@ -180,7 +103,6 @@ export function TiptapEditorInner({ hidden = false, readOnly = false, preview = 
   const cvIdleTimeoutRef = useRef<number | null>(null);
   const contentRef = useRef(content);
   const editorRef = useRef<TiptapEditor | null>(null);
-  const flushToStoreRef = useRef<((editor: TiptapEditor) => void) | null>(null);
   // Latest-value refs synced during render: a deferred init parse (setTimeout) + the unmount-flush read these and need the latest committed value before effects run (#1063).
   /* eslint-disable react-hooks/refs */
   cursorInfoRef.current = cursorInfo;
@@ -192,46 +114,32 @@ export function TiptapEditorInner({ hidden = false, readOnly = false, preview = 
   /* eslint-enable react-hooks/refs */
 
   const extensions = useMemo(
-    () => createTiptapExtensions({ tabId: activeTabId, lintEnabled }),
-    // tabId and lintEnabled are captured at mount time — editor remounts per tab
+    () => createTiptapExtensions({ tabId: activeTabId }),
+    // tabId is captured at mount time — editor remounts per tab. The lint
+    // toggle is handled LIVE inside the lint extension (settings-store
+    // subscription), so it is deliberately not a dependency here.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     []
   );
 
-  const flushToStore = useCallback(
-    (editor: TiptapEditor) => {
-      if (pendingRaf.current) {
-        cancelAnimationFrame(pendingRaf.current);
-        pendingRaf.current = null;
-      }
-
-      const markdown = serializeMarkdown(editor.schema, editor.state.doc, {
-        preserveLineBreaks: preserveLineBreaksRef.current,
-        hardBreakStyle: (() => {
-          const tabId = activeTabId ?? useTabStore.getState().activeTabId[windowLabel];
-          /* v8 ignore next -- @preserve reason: no active tabId only if tab store is uninitialized; always set during normal editor lifecycle */
-          if (!tabId) return resolveHardBreakStyle("unknown", hardBreakStyleOnSaveRef.current);
-          const doc = useDocumentStore.getState().getDocument(tabId);
-          /* v8 ignore next -- @preserve reason: doc?.hardBreakStyle ?? fallback only when doc is null; doc always present for active tab */
-          return resolveHardBreakStyle(doc?.hardBreakStyle ?? "unknown", hardBreakStyleOnSaveRef.current);
-        })(),
-      });
-
-      isInternalChange.current = true;
-      lastExternalContent.current = markdown;
-      setContent(markdown);
-
-      // Cancel previous RAF if pending, then schedule reset
-      if (internalChangeRaf.current) {
-        cancelAnimationFrame(internalChangeRaf.current);
-      }
-      internalChangeRaf.current = requestAnimationFrame(() => {
-        internalChangeRaf.current = null;
-        isInternalChange.current = false;
-      });
-    },
-    [setContent, windowLabel, activeTabId]
-  );
+  // Serialization flush + adaptive debounce machinery (useTiptapFlush) —
+  // ref identities live there, stable for unmount-flush/content-sync below.
+  const {
+    isInternalChange,
+    lastExternalContent,
+    pendingRaf,
+    pendingDebounceTimeout,
+    internalChangeRaf,
+    flushToStore,
+    flushToStoreRef,
+    scheduleFlush,
+  } = useTiptapFlush({
+    activeTabId,
+    windowLabel,
+    setContent,
+    preserveLineBreaksRef,
+    hardBreakStyleOnSaveRef,
+  });
   // Synced during render so the unmount-flush cleanup below sees the latest flusher
   // even if a passive effect hasn't run yet (#755).
   // eslint-disable-next-line react-hooks/refs
@@ -375,57 +283,16 @@ export function TiptapEditorInner({ hidden = false, readOnly = false, preview = 
       /* v8 ignore next -- @preserve reason: hidden/preview path skips update; not exercised in WYSIWYG update tests */
       if (hiddenRef.current || previewRef.current) return;
 
-      // Suppress content-visibility during active typing — keeping cv on during
-      // edits costs O(blocks-after-insertion)/keystroke (378ms on a 2250-block
-      // doc). Re-enable after idle so scroll/repaint keep the optimization.
-      //
-      // Small documents (<CV_IDLE_CHAR_THRESHOLD) skip the re-enable entirely:
-      // the toggle causes visible shaking because `contain-intrinsic-size: auto`
-      // fallbacks don't match real block heights when off-screen blocks have
-      // never been rendered, and small docs don't need the optimization anyway (#823).
-      const container = editorContainerRef.current;
-      if (container) {
-        const docSizeNow = editor.state.doc.content.size;
-        container.classList.remove("cv-idle");
-        if (cvIdleTimeoutRef.current !== null) {
-          window.clearTimeout(cvIdleTimeoutRef.current);
-          cvIdleTimeoutRef.current = null;
-        }
-        if (docSizeNow >= CV_IDLE_CHAR_THRESHOLD) {
-          cvIdleTimeoutRef.current = window.setTimeout(() => {
-            cvIdleTimeoutRef.current = null;
-            editorContainerRef.current?.classList.add("cv-idle");
-          }, 500);
-        }
-      }
+      // Suppress content-visibility during active typing; re-enable after
+      // idle on large docs only (#823) — see suppressCvIdleDuringEdit.
+      suppressCvIdleDuringEdit(
+        editorContainerRef,
+        editor.state.doc.content.size,
+        cvIdleTimeoutRef,
+      );
 
-      // Cancel any pending flush
-      if (pendingRaf.current) {
-        cancelAnimationFrame(pendingRaf.current);
-        pendingRaf.current = null;
-      }
-      if (pendingDebounceTimeout.current) {
-        clearTimeout(pendingDebounceTimeout.current);
-        pendingDebounceTimeout.current = null;
-      }
-
-      // Use adaptive delay based on document size
-      const docSize = editor.state.doc.content.size;
-      const delay = getAdaptiveDebounceDelay(docSize);
-
-      if (delay <= 100) {
-        // Small documents: use RAF for immediate updates
-        pendingRaf.current = requestAnimationFrame(() => {
-          pendingRaf.current = null;
-          flushToStore(editor);
-        });
-      } else {
-        // Large documents: use debounced timeout
-        pendingDebounceTimeout.current = window.setTimeout(() => {
-          pendingDebounceTimeout.current = null;
-          flushToStore(editor);
-        }, delay);
-      }
+      // Debounced serialize-to-store (RAF for small docs, timeout for large).
+      scheduleFlush(editor);
     },
     onSelectionUpdate: ({ editor }) => {
       if (hiddenRef.current || previewRef.current) return;
@@ -447,22 +314,9 @@ export function TiptapEditorInner({ hidden = false, readOnly = false, preview = 
   // eslint-disable-next-line react-hooks/refs
   editorRef.current = editor ?? null;
 
-  // Show-invisibles toggle — flip the extension storage flag, then dispatch a
-  // tagged transaction the plugin's apply() picks up to rebuild decorations.
-  useEffect(() => {
-    if (!editor) return;
-    const allStorage = editor.storage as unknown as
-      | Record<string, { enabled?: boolean } | undefined>
-      | undefined;
-    const storage = allStorage?.showInvisibles;
-    // editor.storage is Tiptap's intentionally-mutable extension storage, not React state (#1063).
-    // eslint-disable-next-line react-hooks/immutability
-    if (storage) storage.enabled = showInvisibles;
-    // Force a rebuild via the plugin's helper (recognised by PluginKey identity).
-    const view = editor.view;
-    if (!view) return;
-    setShowInvisibles(view, showInvisibles);
-  }, [editor, showInvisibles]);
+  // Settings → editor sync (invisibles, CJK spacing, read-only) — extracted
+  // effects live in useTiptapSettingsSync.
+  useTiptapSettingsSync(editor, { showInvisibles, cjkLetterSpacing, readOnly });
 
   // Null view when hidden/preview so outline sync skips stale/preview editors.
   const getEditorView = useCallback(
@@ -481,82 +335,23 @@ export function TiptapEditorInner({ hidden = false, readOnly = false, preview = 
 
   // Cleanup pending timers/RAFs on unmount. Flush pending content BEFORE
   // cancelling — keystrokes in the debounce window live only in PM's doc (#755).
-  useEffect(() => {
-    return () => {
-      // Flush directly via this instance's editor: the global flushActiveWysiwygNow()
-      // registry was racy — React cleans effects up in reverse registration order, so
-      // the flusher deregistration ran first and the flush no-op'd, losing data (#755).
-      if ((pendingRaf.current || pendingDebounceTimeout.current) && editorRef.current && flushToStoreRef.current) {
-        try {
-          flushToStoreRef.current(editorRef.current);
-        } catch (error) {
-          // Surface the failure — a failed final serialization means edits
-          // from the debounce window were lost with this unmount.
-          tiptapError(" Unmount flush failed; edits in the debounce window may be lost:", error);
-        }
-      }
-      if (pendingRaf.current) {
-        cancelAnimationFrame(pendingRaf.current);
-        pendingRaf.current = null;
-      }
-      if (pendingDebounceTimeout.current) {
-        clearTimeout(pendingDebounceTimeout.current);
-        pendingDebounceTimeout.current = null;
-      }
-      if (pendingCursorRaf.current) {
-        cancelAnimationFrame(pendingCursorRaf.current);
-        pendingCursorRaf.current = null;
-      }
-      if (internalChangeRaf.current) {
-        cancelAnimationFrame(internalChangeRaf.current);
-        internalChangeRaf.current = null;
-      }
-      if (trackingTimeoutId.current !== null) {
-        window.clearTimeout(trackingTimeoutId.current);
-        trackingTimeoutId.current = null;
-      }
-      if (cvIdleTimeoutRef.current !== null) {
-        window.clearTimeout(cvIdleTimeoutRef.current);
-        cvIdleTimeoutRef.current = null;
-      }
-    };
-  }, []);
+  useTiptapUnmountFlush({
+    pendingRaf,
+    pendingDebounceTimeout,
+    pendingCursorRaf,
+    internalChangeRaf,
+    trackingTimeoutId,
+    cvIdleTimeoutRef,
+    editorRef,
+    flushToStoreRef,
+  });
 
   // Register save/Save-All flushers — only when visible and NOT a preview (a
   // preview must never serialize the read-only WYSIWYG over the source markdown).
-  useEffect(() => {
-    if (!editor || hidden || preview) return;
-    const flush = () => flushToStore(editor);
-    registerActiveWysiwygFlusher(flush);
-    if (activeTabId) registerWysiwygFlusher(activeTabId, flush);
-    return () => {
-      registerActiveWysiwygFlusher(null);
-      if (activeTabId) registerWysiwygFlusher(activeTabId, null);
-    };
-  }, [editor, flushToStore, hidden, preview, activeTabId]);
+  useWysiwygFlusherRegistration(editor, { flushToStore, hidden, preview, activeTabId });
 
   // Register into editorStore — visible + focused pane only (#1081).
   useFocusedPaneTiptapRegistration(editor, { hidden, preview, activeTabId, windowLabel });
-
-  // Force CJK letter spacing decorations to recalculate when setting changes.
-  // The plugin tracks wasEnabled state, but needs a transaction to trigger apply().
-  useEffect(() => {
-    if (!editor) return;
-    // Dispatch empty transaction to trigger plugin state recalculation
-    const view = getTiptapEditorView(editor);
-    if (view) {
-      const tr = view.state.tr
-        .setMeta("cjkLetterSpacingChanged", true)
-        .setMeta("addToHistory", false); // Settings change shouldn't pollute undo history
-      view.dispatch(tr);
-    }
-  }, [editor, cjkLetterSpacing]);
-
-  // Toggle editor editability when read-only mode changes
-  useEffect(() => {
-    if (!editor) return;
-    editor.setEditable(!readOnly, false);
-  }, [editor, readOnly]);
 
   // Clear shared selectedText when this editor becomes hidden — prevents
   // its last selection from lingering in the status bar while the other
@@ -565,69 +360,22 @@ export function TiptapEditorInner({ hidden = false, readOnly = false, preview = 
     if (hidden) setSelectedText("");
   }, [hidden, setSelectedText]);
 
-  // Sync external content changes TO the editor.
-  // Only runs for SUBSEQUENT content changes after onCreate has initialized the editor.
-  // This prevents double-loading on initial mount and React Strict Mode remounts.
-  useEffect(() => {
-    /* v8 ignore next -- @preserve reason: editor null guard; always defined by the time the content effect fires */
-    if (!editor) return;
-    // Skip sync when hidden — content will be synced on visibility transition
-    /* v8 ignore next -- @preserve reason: hidden branch skips external content sync; hidden tab scenario not covered in current tests */
-    if (hiddenRef.current) return;
-    /* v8 ignore next -- @preserve reason: isInternalChange guard; only set true during programmatic content updates, not exercised in isolation tests */
-    if (isInternalChange.current) return;
-    if (content === lastExternalContent.current) return;
-    // Skip if onCreate hasn't run yet - let onCreate handle initial content loading
-    if (!editorInitialized.current) return;
-
-    const synced = syncMarkdownToEditor(
-      editor, content, lastExternalContent, preserveLineBreaksRef.current,
-    );
-
-    // For fresh document load (no saved cursor position), set cursor to start
-    /* v8 ignore next -- @preserve reason: fresh-doc cursor reset only when synced and no saved cursor; requires specific initial state not exercised in tests */
-    if (synced && !cursorInfoRef.current) {
-      const view = getTiptapEditorView(editor);
-      /* v8 ignore next -- @preserve reason: view null guard; always present after editor init */
-      if (view) {
-        try {
-          const tr = view.state.tr
-            .setSelection(Selection.atStart(view.state.doc))
-            .scrollIntoView()
-            .setMeta("addToHistory", false);
-          view.dispatch(tr);
-        } catch {
-          // Ignore selection errors
-        }
-      }
-    }
-  }, [content, editor]);
-
-  // Handle visibility transitions: hidden → visible
-  useEffect(() => {
-    if (hidden) return;
-    if (!editor || !editorInitialized.current) return;
-
-    syncMarkdownToEditor(
-      editor, content, lastExternalContent, preserveLineBreaksRef.current,
-    );
-
-    // A markdown-split preview only needs the content sync — it must not steal
-    // focus or consume pending navigation that belongs to the editable pane.
-    if (previewRef.current) return;
-
-    // A pending content-search jump (Find in Files) wins over the plain
-    // focus/cursor restore, whose RAF-deferred selection reset would clobber
-    // the jump. The nav is scoped to this editor's own (pinned) tab.
-    if (!consumeWysiwygPendingNav(getTiptapEditorView(editor), activeTabId)) {
-      scheduleTiptapFocusAndRestore(
-        editor,
-        () => cursorInfoRef.current,
-        restoreCursorInTiptap
-      );
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hidden]);
+  // Sync external content changes TO the editor (subsequent changes only —
+  // onCreate owns the initial load) and handle hidden → visible transitions.
+  // Extracted effects live in useTiptapContentSync.
+  useTiptapContentSync({
+    editor,
+    content,
+    hidden,
+    activeTabId,
+    hiddenRef,
+    previewRef,
+    isInternalChange,
+    lastExternalContent,
+    editorInitialized,
+    preserveLineBreaksRef,
+    cursorInfoRef,
+  });
 
   // Initial cv-idle application is gated on document size — small docs skip the
   // optimization entirely to avoid the layout-shift / shaking pattern described

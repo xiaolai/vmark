@@ -99,10 +99,8 @@ import { LintExtension } from "@/plugins/lint/tiptap";
 import { inactiveSelectionExtension } from "@/plugins/inactiveSelection/tiptap";
 
 export interface TiptapExtensionConfig {
-  /** Tab ID for lint diagnostics (required when lintEnabled is true) */
+  /** Tab ID for lint diagnostics (lint extension is registered when present) */
   tabId?: string;
-  /** Whether to enable the markdown lint extension */
-  lintEnabled?: boolean;
 }
 
 /**
@@ -110,7 +108,7 @@ export interface TiptapExtensionConfig {
  * This is a pure factory function with no React dependencies.
  */
 export function createTiptapExtensions(config: TiptapExtensionConfig = {}): Extensions {
-  const { tabId, lintEnabled } = config;
+  const { tabId } = config;
   return [
     StarterKit.configure({
       // We parse/serialize markdown ourselves.
@@ -226,9 +224,10 @@ export function createTiptapExtensions(config: TiptapExtensionConfig = {}): Exte
     inactiveSelectionExtension,
     // Show-invisibles decorations (toggle via storage.enabled).
     showInvisiblesExtension,
-    // Lint decorations (block-level, WYSIWYG only)
-    ...(lintEnabled && tabId
-      ? [LintExtension.configure({ tabId })]
-      : []),
+    // Lint decorations (block-level, WYSIWYG only). Always registered when a
+    // tab is known — the plugin gates decoration building on the LIVE
+    // markdown.lintEnabled setting, so toggling lint takes effect without an
+    // editor remount (mount-time gating left WYSIWYG stale until remount).
+    ...(tabId ? [LintExtension.configure({ tabId })] : []),
   ];
 }

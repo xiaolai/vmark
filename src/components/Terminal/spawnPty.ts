@@ -225,10 +225,11 @@ export async function spawnPty(options: SpawnOptions): Promise<IPty> {
     useSettingsStore.getState().terminal.shellIntegration;
 
   const primaryEnv = await buildShellEnv(env, shell, shellIntegrationEnabled);
-  // The session may have been disposed while awaiting shell integration.
-  // Only checked when integration ran (it awaits IPC); without it there is
-  // no await between here and spawn, so the original code skipped this check.
-  if (shellIntegrationEnabled && disposed()) {
+  // The session may have been disposed while awaiting buildShellEnv. Even
+  // with integration disabled the call is awaited (a microtask tick), and
+  // with it enabled it does real IPC — either way a session disposed during
+  // that window must not spawn an orphan PTY.
+  if (disposed()) {
     throw new Error("disposed before spawn");
   }
 
@@ -240,7 +241,8 @@ export async function spawnPty(options: SpawnOptions): Promise<IPty> {
     // If configured shell fails, fall back to system default
     if (safeShell) {
       const fallback = await invoke<string>("get_default_shell");
-      if (disposed()) throw new Error("disposed before fallback spawn");
+      if (disposed())
+        throw new Error("disposed before fallback spawn", { cause: err });
       // Validate fallback shell is an absolute path (same check as primary shell)
       /* v8 ignore next 3 -- @preserve reason: platform-specific PTY fallback path; requires real shell spawning failure not reproducible in unit tests */
       const fallbackIsAbsolute = fallback.startsWith("/") || /^[a-zA-Z]:[/\\]/.test(fallback);
@@ -253,7 +255,8 @@ export async function spawnPty(options: SpawnOptions): Promise<IPty> {
         safeFallback,
         shellIntegrationEnabled,
       );
-      if (disposed()) throw new Error("disposed before fallback spawn");
+      if (disposed())
+        throw new Error("disposed before fallback spawn", { cause: err });
       pty = spawn(safeFallback, [], { ...baseSpawnOpts, env: fallbackEnv });
     } else {
       throw err;

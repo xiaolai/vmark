@@ -23,8 +23,16 @@ import type { Node as PMNode } from "@tiptap/pm/model";
 import { EditorState } from "@tiptap/pm/state";
 import { DecorationSet } from "@tiptap/pm/view";
 import { useLintStore } from "@/stores/documentStore";
+import { useSettingsStore } from "@/stores/settingsStore";
 import type { LintDiagnostic } from "@/lib/lintEngine/types";
 import { LintExtension } from "./tiptap";
+
+/** Flip the markdown.lintEnabled setting in the real settings store. */
+function setLintEnabled(enabled: boolean) {
+  useSettingsStore.setState((s) => ({
+    markdown: { ...s.markdown, lintEnabled: enabled },
+  }));
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -102,6 +110,7 @@ function getPlugins(tabId: string) {
 describe("LintExtension", () => {
   beforeEach(() => {
     useLintStore.setState({ diagnosticsByTab: {}, selectedIndexByTab: {} });
+    setLintEnabled(true);
     vi.clearAllMocks();
   });
 
@@ -560,6 +569,99 @@ describe("LintExtension", () => {
       expect(mockRunOrQueue).toHaveBeenCalledTimes(1);
 
       subscribeSpy.mockRestore();
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // Live lint toggle — decorations gated on markdown.lintEnabled (#audit)
+  // -----------------------------------------------------------------------
+  describe("live lintEnabled toggle", () => {
+    it("state.init returns empty decorations when lint is disabled, even with diagnostics", () => {
+      setLintEnabled(false);
+      // Set diagnostics AFTER disabling (disabling clears the store via the
+      // lint.ts module subscription, so order matters here).
+      useLintStore.setState({
+        diagnosticsByTab: { "tab-1": [makeDiagnostic({ line: 1 })] },
+      });
+
+      const doc = makeDoc(makePara("hello"));
+      const plugins = getPlugins("tab-1");
+      const decoSet = plugins[0].spec.state!.init!({} as never, { doc } as never);
+      expect(decoSet).toBe(DecorationSet.empty);
+    });
+
+    it("apply(diagnosticsChanged) returns empty decorations when lint is disabled", () => {
+      const doc = makeDoc(makePara("hello"));
+      const plugins = getPlugins("tab-1");
+      const state = EditorState.create({ doc, schema, plugins });
+
+      setLintEnabled(false);
+      useLintStore.setState({
+        diagnosticsByTab: { "tab-1": [makeDiagnostic({ line: 1 })] },
+      });
+
+      const pluginKey = state.plugins[0].spec.key!;
+      const tr = state.tr.setMeta(pluginKey, "diagnosticsChanged");
+      const newDecos = state.plugins[0].spec.state!.apply!(
+        tr,
+        DecorationSet.empty,
+        state,
+        state
+      );
+      expect(newDecos).toBe(DecorationSet.empty);
+    });
+
+    it("dispatches a rebuild when lintEnabled is toggled off (clears stale decorations live)", () => {
+      const plugins = getPlugins("tab-1");
+      const plugin = plugins[0];
+      const doc = makeDoc(makePara("hello"));
+      const dispatchMock = vi.fn();
+      const mockView = {
+        state: EditorState.create({ doc, schema, plugins }),
+        dispatch: dispatchMock,
+        composing: false,
+      } as unknown;
+      const viewFactory = plugin.spec.view as (
+        view: unknown
+      ) => { destroy: () => void };
+      const viewInstance = viewFactory(mockView);
+
+      // Toggling the setting OFF must trigger a re-dispatch so apply()
+      // rebuilds (to empty) — without it, stale decorations linger until the
+      // next doc edit or remount.
+      setLintEnabled(false);
+      expect(dispatchMock).toHaveBeenCalledTimes(1);
+
+      // Toggling back ON re-dispatches again (rebuild from current store).
+      setLintEnabled(true);
+      expect(dispatchMock).toHaveBeenCalledTimes(2);
+
+      // After destroy, further toggles are ignored.
+      viewInstance.destroy();
+      setLintEnabled(false);
+      expect(dispatchMock).toHaveBeenCalledTimes(2);
+    });
+
+    it("does not dispatch when an unrelated settings change fires", () => {
+      const plugins = getPlugins("tab-1");
+      const plugin = plugins[0];
+      const doc = makeDoc(makePara("hello"));
+      const dispatchMock = vi.fn();
+      const mockView = {
+        state: EditorState.create({ doc, schema, plugins }),
+        dispatch: dispatchMock,
+        composing: false,
+      } as unknown;
+      const viewFactory = plugin.spec.view as (
+        view: unknown
+      ) => { destroy: () => void };
+      const viewInstance = viewFactory(mockView);
+
+      // Same lintEnabled value — no rebuild dispatch.
+      useSettingsStore.setState((s) => ({ markdown: { ...s.markdown } }));
+      expect(dispatchMock).not.toHaveBeenCalled();
+
+      viewInstance.destroy();
     });
   });
 
