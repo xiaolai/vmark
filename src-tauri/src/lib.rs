@@ -64,24 +64,23 @@ mod macos_menu;
 mod pdf_export;
 mod window_status;
 
-// Crate-wide re-exports so existing `crate::` call sites keep working after
-// the mechanical extraction of these items out of `lib.rs`.
+// Crate-wide re-exports: existing `crate::` call sites (post lib.rs split).
 pub(crate) use file_open::allow_fs_read;
 pub use file_open::PendingFileOpen;
-pub(crate) use supported_files::{has_supported_extension, is_openable_supported};
+pub(crate) use supported_files::is_openable_supported;
+// macOS-gated: sole consumer (quarantine sweep) is macOS-only; unconditional
+// re-export = unused-import error on Linux/Windows CI (guarded by lib.test.rs).
+#[cfg(target_os = "macos")]
+pub(crate) use supported_files::has_supported_extension;
+#[cfg(test)]
+#[path = "lib.test.rs"]
+mod lib_test;
 
 /// Debug logging from frontend (logs to terminal, debug builds only)
 #[cfg(debug_assertions)]
 #[tauri::command]
 fn debug_log(message: String) {
     log::debug!("[Frontend] {}", message);
-}
-
-/// Register a file with macOS Dock recent documents
-#[cfg(target_os = "macos")]
-#[tauri::command]
-fn register_dock_recent(path: String) {
-    dock_recent::register_recent_document(&path);
 }
 
 /// Build and run the Tauri application with all plugins, commands, and event handlers.
@@ -232,7 +231,7 @@ pub fn run() {
             temp_html::write_temp_html,
             file_write::atomic_write_file,
             #[cfg(target_os = "macos")]
-            register_dock_recent,
+            dock_recent::register_dock_recent,
             #[cfg(target_os = "macos")]
             pdf_export::commands::export_pdf,
             #[cfg(target_os = "macos")]

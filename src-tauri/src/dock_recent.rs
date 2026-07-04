@@ -8,6 +8,12 @@ use objc2_app_kit::NSDocumentController;
 use objc2_foundation::{NSString, NSURL};
 use std::path::Path;
 
+/// Frontend command: register a file with macOS Dock recent documents.
+#[tauri::command]
+pub fn register_dock_recent(path: String) {
+    register_recent_document(&path);
+}
+
 /// Register a file path with macOS Recent Documents.
 /// This makes the file appear in the Dock right-click menu.
 pub fn register_recent_document(path: &str) {

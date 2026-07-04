@@ -2,8 +2,8 @@
 //
 // PreToolUse hook: scoped TDD guard for the Multi-Format Workspace
 // rebrand (Phase 1A onwards). Blocks Write/Edit on production source
-// files unless tests exist (sibling .test.ts(x) for JS/TS, inline
-// #[cfg(test)] mod tests for Rust).
+// files unless tests exist (sibling .test.ts(x) for JS/TS; inline
+// #[cfg(test)] mod tests OR sibling <name>.test.rs for Rust).
 //
 // Scope (per dev-docs/plans/20260506-multi-format-rebrand.md
 // Verification gates → TDD hook):
@@ -158,15 +158,25 @@ if (inRustScope) {
   // out of scope for v1 of this guard.
   if (/#\[cfg\([^\]]*\btest\b[^\]]*\)\]/.test(content)) process.exit(0);
 
+  // Sibling test file also satisfies the gate: the codebase migrated
+  // large modules to the sibling `.test.rs` convention (2026-07 lib.rs /
+  // window_manager decomposition), so "tests exist" is no longer
+  // inline-only. The sibling must already exist — write it first (RED).
+  {
+    const dir = dirname(abs);
+    const stem = basename(rel, ".rs");
+    if (existsSync(`${dir}/${stem}.test.rs`)) process.exit(0);
+  }
+
   const msg = [
     "",
-    "  TDD gate (multi-format-tdd-guard): no #[cfg(test)] block in this Rust file.",
+    "  TDD gate (multi-format-tdd-guard): no tests found for this Rust file.",
     "",
     `  Source:    ${rel}`,
     "",
     "  Per .claude/rules/10-tdd.md, RED comes before GREEN.",
-    "  Add an inline `#[cfg(test)] mod tests { ... }` with a failing test before",
-    "  modifying production code in this file.",
+    "  Add an inline `#[cfg(test)] mod tests { ... }` OR a sibling `<name>.test.rs`",
+    "  with a failing test before modifying production code in this file.",
     "",
     "  Scope: multi-format rebrand (dev-docs/plans/20260506-multi-format-rebrand.md).",
     "  Note: this guard uses whole-file scope — once the file has any test block,",
