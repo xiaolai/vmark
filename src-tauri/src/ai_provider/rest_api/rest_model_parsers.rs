@@ -44,9 +44,10 @@ pub(super) fn parse_openai_models(json: &serde_json::Value) -> Result<Vec<String
 pub(super) fn parse_openai_compatible_models(
     json: &serde_json::Value,
 ) -> Result<Vec<String>, String> {
-    let arr = json.get("data").and_then(|d| d.as_array()).ok_or_else(|| {
-        "Unexpected model list response shape (missing \"data\" key)".to_string()
-    })?;
+    let arr = json
+        .get("data")
+        .and_then(|d| d.as_array())
+        .ok_or_else(|| "Unexpected model list response shape (missing \"data\" key)".to_string())?;
     let mut models: Vec<String> = arr
         .iter()
         .filter_map(|m| m.get("id").and_then(|id| id.as_str()).map(String::from))
