@@ -23,7 +23,8 @@ use crate::window_manager;
 
 #[cfg(target_os = "macos")]
 use crate::supported_files::is_openable_supported;
-#[cfg(target_os = "macos")]
+// Unconditional: `allow_fs_read` (all platforms) needs Manager for
+// `asset_protocol_scope()` — a cfg(macos) gate here breaks Linux/Windows.
 use tauri::Manager;
 
 /// A file open request queued during cold start before the frontend is ready.
