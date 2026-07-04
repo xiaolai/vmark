@@ -1,12 +1,10 @@
 /**
  * Wiki Link Popup View
  *
- * DOM management for editing wiki link target.
- * The display text (alias) is edited inline in the editor.
- * This popup handles the target path and provides actions.
+ * DOM management for editing a wiki link's target path (the display alias is
+ * edited inline in the editor). Extends WysiwygPopupView for lifecycle.
  */
 
-import type { EditorView } from "@tiptap/pm/view";
 import { open } from "@tauri-apps/plugin-dialog";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import i18n from "@/i18n";
@@ -14,149 +12,79 @@ import { useWikiLinkPopupStore } from "@/stores/wikiLinkPopupStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { wikiLinkPopupWarn, wikiLinkPopupError } from "@/utils/debug";
 import { IMAGE_EXTENSIONS } from "@/utils/mediaExtensions";
-import {
-  calculatePopupPosition,
-  getBoundaryRects,
-  getViewportBounds,
-  type AnchorRect,
-} from "@/utils/popupPosition";
 import { isImeKeyEvent } from "@/utils/imeGuard";
-import {
-  buildPopupIconButton,
-  buildPopupInput,
-  handlePopupTabNavigation,
-} from "@/utils/popupComponents";
-import { getPopupHostForDom, toHostCoordsForDom } from "@/plugins/sourcePopup";
+import { buildPopupIconButton, buildPopupInput } from "@/utils/popupComponents";
+import { WysiwygPopupView, type EditorViewLike, type PopupStoreBase } from "@/plugins/shared";
+import { pathToWikiTarget, resolveWikiLinkPath } from "./wikiLinkPaths";
 
 const DEFAULT_POPUP_WIDTH = 320;
 const DEFAULT_POPUP_HEIGHT = 32;
 
-/**
- * Resolve a wiki link target to a full file path.
- */
-function resolveWikiLinkPath(target: string, workspaceRoot: string | null): string | null {
-  if (!target || !workspaceRoot) return null;
-
-  // If target already looks like a path, use it directly
-  if (target.includes("/") || target.endsWith(".md")) {
-    const normalized = target.endsWith(".md") ? target : `${target}.md`;
-    return `${workspaceRoot}/${normalized}`;
-  }
-
-  // Simple target name - assume it's in workspace root with .md extension
-  return `${workspaceRoot}/${target}.md`;
+/** Wiki link popup store state (extends base with wiki-link-specific fields) */
+interface WikiLinkPopupState extends PopupStoreBase {
+  target: string;
+  nodePos: number | null;
+  updateTarget: (target: string) => void;
 }
 
-/**
- * Convert an absolute file path to a wiki link target (workspace-relative, without .md).
- */
-function pathToWikiTarget(filePath: string, workspaceRoot: string | null): string {
-  if (!workspaceRoot) return filePath;
-
-  // Remove workspace root prefix
-  let relative = filePath;
-  if (filePath.startsWith(workspaceRoot)) {
-    relative = filePath.slice(workspaceRoot.length);
-    if (relative.startsWith("/")) {
-      relative = relative.slice(1);
-    }
-  }
-
-  // Remove .md extension
-  if (relative.endsWith(".md")) {
-    relative = relative.slice(0, -3);
-  }
-
-  return relative;
-}
-
-export class WikiLinkPopupView {
-  private container: HTMLElement;
-  private targetInput: HTMLInputElement;
-  private openBtn: HTMLButtonElement;
-  private unsubscribe: () => void;
-  private editorView: EditorView;
-  private justOpened = false;
-  private wasOpen = false;
-  private keydownHandler: ((e: KeyboardEvent) => void) | null = null;
-  private host: HTMLElement | null = null;
-
-  constructor(view: EditorView) {
-    this.editorView = view;
-
-    this.container = this.buildContainer();
-    this.targetInput = this.container.querySelector(
-      ".wiki-link-popup-target"
-    ) as HTMLInputElement;
-    this.openBtn = this.container.querySelector(
-      ".wiki-link-popup-btn-open"
-    ) as HTMLButtonElement;
-    // Container will be appended to host in show()
-
-    this.unsubscribe = useWikiLinkPopupStore.subscribe((state) => {
-      if (state.isOpen && state.anchorRect) {
-        if (!this.wasOpen) {
-          this.show(state.target, state.anchorRect);
-        }
-        this.wasOpen = true;
-      } else {
-        this.hide();
-        this.wasOpen = false;
-      }
-    });
-
-    document.addEventListener("mousedown", this.handleClickOutside);
-
-    // Handle mouse leaving the popup
+export class WikiLinkPopupView extends WysiwygPopupView<WikiLinkPopupState> {
+  constructor(view: EditorViewLike) {
+    super(view, useWikiLinkPopupStore);
+    // Handle mouse leaving the popup (arrow fields are initialized after super())
     this.container.addEventListener("mouseleave", this.handleMouseLeave);
-
-    // Close popup on scroll (popup position becomes stale)
-    this.editorView.dom.closest(".editor-container")?.addEventListener("scroll", this.handleScroll, true);
   }
 
-  private buildContainer(): HTMLElement {
+  // Lazy getters for DOM elements (avoids constructor timing issues)
+  private get targetInput(): HTMLInputElement {
+    return this.container.querySelector(".wiki-link-popup-target") as HTMLInputElement;
+  }
+
+  private get openBtn(): HTMLButtonElement {
+    return this.container.querySelector(".wiki-link-popup-btn-open") as HTMLButtonElement;
+  }
+
+  protected buildContainer(): HTMLElement {
     const container = document.createElement("div");
     container.className = "wiki-link-popup";
-    container.style.display = "none";
 
     // Single row: Input + Browse + Action buttons
     const targetInput = buildPopupInput({
       placeholder: i18n.t("editor:popup.wikiLink.target.placeholder"),
       className: "wiki-link-popup-target",
-      onInput: this.handleTargetChange,
-      onKeydown: this.handleInputKeydown,
+      onInput: (value) => this.handleTargetChange(value),
+      onKeydown: (e) => this.handleInputKeydown(e),
     });
 
     const browseBtn = buildPopupIconButton({
       icon: "folder",
       title: i18n.t("editor:popup.wikiLink.browse"),
-      onClick: this.handleBrowse,
+      onClick: () => void this.handleBrowse(),
     });
 
     const openBtn = buildPopupIconButton({
       icon: "open",
       title: i18n.t("editor:popup.wikiLink.open"),
-      onClick: this.handleOpen,
+      onClick: () => void this.handleOpen(),
     });
     openBtn.classList.add("wiki-link-popup-btn-open");
 
     const copyBtn = buildPopupIconButton({
       icon: "copy",
       title: i18n.t("editor:popup.wikiLink.copy"),
-      onClick: this.handleCopy,
+      onClick: () => void this.handleCopy(),
     });
 
     const saveBtn = buildPopupIconButton({
       icon: "save",
       title: i18n.t("editor:popup.wikiLink.save"),
-      onClick: this.handleSave,
+      onClick: () => this.handleSave(),
       variant: "primary",
     });
 
     const deleteBtn = buildPopupIconButton({
       icon: "delete",
       title: i18n.t("editor:popup.wikiLink.remove"),
-      onClick: this.handleDelete,
+      onClick: () => this.handleDelete(),
       variant: "danger",
     });
 
@@ -170,70 +98,19 @@ export class WikiLinkPopupView {
     return container;
   }
 
-  private setupKeyboardNavigation() {
-    this.keydownHandler = (e: KeyboardEvent) => {
-      if (isImeKeyEvent(e)) return;
-      handlePopupTabNavigation(e, this.container);
-    };
-    document.addEventListener("keydown", this.keydownHandler);
-  }
-
-  private removeKeyboardNavigation() {
-    if (this.keydownHandler) {
-      document.removeEventListener("keydown", this.keydownHandler);
-      this.keydownHandler = null;
-    }
-  }
-
-  private show(target: string, anchorRect: AnchorRect) {
-    this.targetInput.value = target;
-
-    // Mount to editor container if available, otherwise document.body
-    this.host = getPopupHostForDom(this.editorView.dom) ?? document.body;
-    if (this.container.parentElement !== this.host) {
-      this.container.style.position = this.host === document.body ? "fixed" : "absolute";
-      this.host.appendChild(this.container);
-    }
-
-    this.container.style.display = "flex";
-
-    this.updateOpenButtonState(target);
-
-    this.justOpened = true;
-    requestAnimationFrame(() => {
-      this.justOpened = false;
-    });
-
-    const containerEl = this.editorView.dom.closest(
-      ".editor-container"
-    ) as HTMLElement;
-    const bounds = containerEl
-      ? getBoundaryRects(this.editorView.dom as HTMLElement, containerEl)
-      : getViewportBounds();
-
-    const popupRect = this.container.getBoundingClientRect();
-    const { top, left } = calculatePopupPosition({
-      anchor: anchorRect,
-      popup: {
-        width: popupRect.width || DEFAULT_POPUP_WIDTH,
-        height: popupRect.height || DEFAULT_POPUP_HEIGHT,
-      },
-      bounds,
+  protected getPopupDimensions() {
+    const rect = this.container.getBoundingClientRect();
+    return {
+      width: rect.width || DEFAULT_POPUP_WIDTH,
+      height: rect.height || DEFAULT_POPUP_HEIGHT,
       gap: 6,
       preferAbove: true,
-    });
+    };
+  }
 
-    // Convert to host-relative coordinates if mounted inside editor container
-    if (this.host !== document.body) {
-      const hostPos = toHostCoordsForDom(this.host, { top, left });
-      this.container.style.top = `${hostPos.top}px`;
-      this.container.style.left = `${hostPos.left}px`;
-    } else {
-      this.container.style.top = `${top}px`;
-      this.container.style.left = `${left}px`;
-    }
-
-    this.setupKeyboardNavigation();
+  protected onShow(state: WikiLinkPopupState): void {
+    this.targetInput.value = state.target;
+    this.updateOpenButtonState(state.target);
 
     requestAnimationFrame(() => {
       this.targetInput.focus();
@@ -241,24 +118,22 @@ export class WikiLinkPopupView {
     });
   }
 
-  private hide() {
-    this.container.style.display = "none";
-    this.host = null;
-    this.removeKeyboardNavigation();
+  protected onHide(): void {
+    // No special cleanup needed
   }
 
-  private updateOpenButtonState(target: string) {
+  private updateOpenButtonState(target: string): void {
     const hasTarget = target.trim().length > 0;
     this.openBtn.disabled = !hasTarget;
     this.openBtn.style.opacity = hasTarget ? "1" : "0.4";
   }
 
-  private handleTargetChange = (value: string) => {
-    useWikiLinkPopupStore.getState().updateTarget(value);
+  private handleTargetChange(value: string): void {
+    this.store.getState().updateTarget(value);
     this.updateOpenButtonState(value);
-  };
+  }
 
-  private handleInputKeydown = (e: KeyboardEvent) => {
+  private handleInputKeydown(e: KeyboardEvent): void {
     if (isImeKeyEvent(e)) return;
     if (e.key === "Escape") {
       e.preventDefault();
@@ -269,9 +144,9 @@ export class WikiLinkPopupView {
       e.preventDefault();
       this.handleSave();
     }
-  };
+  }
 
-  private handleBrowse = async () => {
+  private async handleBrowse(): Promise<void> {
     try {
       const selected = await open({
         filters: [
@@ -289,16 +164,16 @@ export class WikiLinkPopupView {
       const target = pathToWikiTarget(selected, rootPath);
 
       this.targetInput.value = target;
-      useWikiLinkPopupStore.getState().updateTarget(target);
+      this.store.getState().updateTarget(target);
       this.updateOpenButtonState(target);
 
       this.targetInput.focus();
     } catch (error) {
       wikiLinkPopupError("Browse failed:", error);
     }
-  };
+  }
 
-  private handleOpen = async () => {
+  private async handleOpen(): Promise<void> {
     const target = this.targetInput.value.trim();
     if (!target) return;
 
@@ -313,13 +188,13 @@ export class WikiLinkPopupView {
     try {
       const currentWindow = getCurrentWebviewWindow();
       await currentWindow.emit("open-file", { path: filePath });
-      useWikiLinkPopupStore.getState().closePopup();
+      this.closePopup();
     } catch (error) {
       wikiLinkPopupError("Failed to open file:", error);
     }
-  };
+  }
 
-  private handleCopy = async () => {
+  private async handleCopy(): Promise<void> {
     const target = this.targetInput.value.trim();
     if (target) {
       try {
@@ -329,10 +204,10 @@ export class WikiLinkPopupView {
         wikiLinkPopupError("Failed to copy:", err);
       }
     }
-  };
+  }
 
-  private handleSave = () => {
-    const state = useWikiLinkPopupStore.getState();
+  private handleSave(): void {
+    const state = this.store.getState();
     const { nodePos } = state;
     const target = this.targetInput.value.trim();
 
@@ -356,11 +231,11 @@ export class WikiLinkPopupView {
     dispatch(tr);
 
     state.closePopup();
-    this.editorView.focus();
-  };
+    this.focusEditor();
+  }
 
-  private handleDelete = () => {
-    const state = useWikiLinkPopupStore.getState();
+  private handleDelete(): void {
+    const state = this.store.getState();
     const { nodePos } = state;
 
     if (nodePos === null) {
@@ -391,26 +266,15 @@ export class WikiLinkPopupView {
     dispatch(tr);
 
     state.closePopup();
-    this.editorView.focus();
-  };
+    this.focusEditor();
+  }
 
-  private handleCancel = () => {
-    useWikiLinkPopupStore.getState().closePopup();
-    this.editorView.focus();
-  };
+  private handleCancel(): void {
+    this.closePopup();
+    this.focusEditor();
+  }
 
-  private handleClickOutside = (e: MouseEvent) => {
-    if (this.justOpened) return;
-    const { isOpen } = useWikiLinkPopupStore.getState();
-    if (!isOpen) return;
-
-    const target = e.target as Node;
-    if (!this.container.contains(target)) {
-      useWikiLinkPopupStore.getState().closePopup();
-    }
-  };
-
-  private handleMouseLeave = (e: MouseEvent) => {
+  private handleMouseLeave = (e: MouseEvent): void => {
     const relatedTarget = e.relatedTarget as HTMLElement | null;
 
     // If moving back to a wiki link in the editor, don't close
@@ -424,23 +288,11 @@ export class WikiLinkPopupView {
     }
 
     // Close the popup
-    useWikiLinkPopupStore.getState().closePopup();
+    this.closePopup();
   };
 
-  private handleScroll = () => {
-    // Close popup on scroll - position becomes stale
-    const { isOpen } = useWikiLinkPopupStore.getState();
-    if (isOpen) {
-      useWikiLinkPopupStore.getState().closePopup();
-    }
-  };
-
-  destroy() {
-    this.unsubscribe();
-    this.removeKeyboardNavigation();
-    document.removeEventListener("mousedown", this.handleClickOutside);
+  destroy(): void {
     this.container.removeEventListener("mouseleave", this.handleMouseLeave);
-    this.editorView.dom.closest(".editor-container")?.removeEventListener("scroll", this.handleScroll, true);
-    this.container.remove();
+    super.destroy();
   }
 }

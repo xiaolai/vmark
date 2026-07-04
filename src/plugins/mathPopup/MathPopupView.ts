@@ -1,84 +1,58 @@
 /**
  * Math Popup View
  *
- * DOM management for the inline math editing popup.
+ * DOM management for the inline math editing popup with live KaTeX preview.
+ * Extends WysiwygPopupView for common popup lifecycle management.
  */
 
-import type { EditorView } from "@tiptap/pm/view";
 import i18n from "@/i18n";
 import { useMathPopupStore } from "@/stores/mathPopupStore";
-import {
-  calculatePopupPosition,
-  getBoundaryRects,
-  getViewportBounds,
-  type AnchorRect,
-} from "@/utils/popupPosition";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import { loadKatex } from "@/plugins/latex/katexLoader";
-import { getPopupHostForDom, toHostCoordsForDom } from "@/plugins/sourcePopup";
 import { renderWarn } from "@/utils/debug";
 import { errorMessage } from "@/utils/errorMessage";
+import { WysiwygPopupView, type EditorViewLike, type PopupStoreBase } from "@/plugins/shared";
 
 const DEFAULT_POPUP_WIDTH = 360;
 const DEFAULT_POPUP_HEIGHT = 200;
 
-export class MathPopupView {
-  private container: HTMLElement;
-  private textarea: HTMLTextAreaElement;
-  private preview: HTMLElement;
-  private error: HTMLElement;
-  private unsubscribe: () => void;
-  private editorView: EditorView;
-  private justOpened = false;
-  private wasOpen = false;
+/** Math popup store state (extends base with math-specific fields) */
+interface MathPopupState extends PopupStoreBase {
+  latex: string;
+  nodePos: number | null;
+  updateLatex: (latex: string) => void;
+}
+
+export class MathPopupView extends WysiwygPopupView<MathPopupState> {
   private renderToken = 0;
-  private host: HTMLElement | null = null;
 
-  constructor(view: EditorView) {
-    this.editorView = view;
-
-    this.container = this.buildContainer();
-    this.textarea = this.container.querySelector(
-      ".math-popup-input"
-    ) as HTMLTextAreaElement;
-    this.preview = this.container.querySelector(
-      ".math-popup-preview"
-    ) as HTMLElement;
-    this.error = this.container.querySelector(
-      ".math-popup-error"
-    ) as HTMLElement;
-
-    // Container will be appended to host in show()
-
-    this.unsubscribe = useMathPopupStore.subscribe((state) => {
-      if (state.isOpen && state.anchorRect) {
-        if (!this.wasOpen) {
-          this.show(state.latex, state.anchorRect);
-        }
-        this.wasOpen = true;
-      } else {
-        this.hide();
-        this.wasOpen = false;
-      }
-    });
-
-    document.addEventListener("mousedown", this.handleClickOutside);
-
-    // Close popup on scroll (popup position becomes stale)
-    this.editorView.dom.closest(".editor-container")?.addEventListener("scroll", this.handleScroll, true);
+  constructor(view: EditorViewLike) {
+    super(view, useMathPopupStore);
   }
 
-  private buildContainer(): HTMLElement {
+  // Lazy getters for DOM elements (avoids constructor timing issues)
+  private get textarea(): HTMLTextAreaElement {
+    return this.container.querySelector(".math-popup-input") as HTMLTextAreaElement;
+  }
+
+  private get preview(): HTMLElement {
+    return this.container.querySelector(".math-popup-preview") as HTMLElement;
+  }
+
+  private get error(): HTMLElement {
+    return this.container.querySelector(".math-popup-error") as HTMLElement;
+  }
+
+  protected buildContainer(): HTMLElement {
     const container = document.createElement("div");
     container.className = "math-popup";
-    container.style.display = "none";
 
     const textarea = document.createElement("textarea");
     textarea.className = "math-popup-input";
     textarea.placeholder = i18n.t("editor:popup.math.input.placeholder");
     textarea.rows = 3;
-    textarea.addEventListener("input", this.handleInputChange);
-    textarea.addEventListener("keydown", this.handleKeydown);
+    textarea.addEventListener("input", () => this.handleInputChange());
+    textarea.addEventListener("keydown", (e) => this.handleTextareaKeydown(e));
 
     const preview = document.createElement("div");
     preview.className = "math-popup-preview";
@@ -93,13 +67,13 @@ export class MathPopupView {
     cancelBtn.type = "button";
     cancelBtn.className = "math-popup-btn math-popup-btn-cancel";
     cancelBtn.textContent = i18n.t("editor:popup.math.cancel");
-    cancelBtn.addEventListener("click", this.handleCancel);
+    cancelBtn.addEventListener("click", () => this.handleCancel());
 
     const saveBtn = document.createElement("button");
     saveBtn.type = "button";
     saveBtn.className = "math-popup-btn math-popup-btn-save";
     saveBtn.textContent = i18n.t("editor:popup.math.save");
-    saveBtn.addEventListener("click", this.handleSave);
+    saveBtn.addEventListener("click", () => this.handleSave());
 
     buttons.appendChild(cancelBtn);
     buttons.appendChild(saveBtn);
@@ -112,53 +86,19 @@ export class MathPopupView {
     return container;
   }
 
-  private show(latex: string, anchorRect: AnchorRect) {
-    this.textarea.value = latex;
-
-    // Mount to editor container if available, otherwise document.body
-    this.host = getPopupHostForDom(this.editorView.dom) ?? document.body;
-    if (this.container.parentElement !== this.host) {
-      this.container.style.position = this.host === document.body ? "fixed" : "absolute";
-      this.host.appendChild(this.container);
-    }
-
-    this.container.style.display = "flex";
-
-    this.justOpened = true;
-    requestAnimationFrame(() => {
-      this.justOpened = false;
-    });
-
-    const containerEl = this.editorView.dom.closest(
-      ".editor-container"
-    ) as HTMLElement;
-    const bounds = containerEl
-      ? getBoundaryRects(this.editorView.dom as HTMLElement, containerEl)
-      : getViewportBounds();
-
-    const popupRect = this.container.getBoundingClientRect();
-    const { top, left } = calculatePopupPosition({
-      anchor: anchorRect,
-      popup: {
-        width: popupRect.width || DEFAULT_POPUP_WIDTH,
-        height: popupRect.height || DEFAULT_POPUP_HEIGHT,
-      },
-      bounds,
+  protected getPopupDimensions() {
+    const rect = this.container.getBoundingClientRect();
+    return {
+      width: rect.width || DEFAULT_POPUP_WIDTH,
+      height: rect.height || DEFAULT_POPUP_HEIGHT,
       gap: 8,
       preferAbove: true,
-    });
+    };
+  }
 
-    // Convert to host-relative coordinates if mounted inside editor container
-    if (this.host !== document.body) {
-      const hostPos = toHostCoordsForDom(this.host, { top, left });
-      this.container.style.top = `${hostPos.top}px`;
-      this.container.style.left = `${hostPos.left}px`;
-    } else {
-      this.container.style.top = `${top}px`;
-      this.container.style.left = `${left}px`;
-    }
-
-    this.renderPreview(latex);
+  protected onShow(state: MathPopupState): void {
+    this.textarea.value = state.latex;
+    this.renderPreview(state.latex);
 
     requestAnimationFrame(() => {
       this.textarea.focus();
@@ -166,21 +106,23 @@ export class MathPopupView {
     });
   }
 
-  private hide() {
-    this.container.style.display = "none";
-    this.host = null;
+  protected onHide(): void {
+    // No special cleanup needed
   }
 
-  private renderPreview(latex: string) {
+  private renderPreview(latex: string): void {
     const trimmed = latex.trim();
     this.error.textContent = "";
+
+    // Every render request invalidates any pending async render — including
+    // the empty-input case, so a stale loadKatex resolve can't overwrite a
+    // preview that was just cleared.
+    const token = ++this.renderToken;
 
     if (!trimmed) {
       this.preview.textContent = "";
       return;
     }
-
-    const token = ++this.renderToken;
 
     loadKatex()
       .then((katex) => {
@@ -203,13 +145,13 @@ export class MathPopupView {
       });
   }
 
-  private handleInputChange = () => {
+  private handleInputChange(): void {
     const value = this.textarea.value;
-    useMathPopupStore.getState().updateLatex(value);
+    this.store.getState().updateLatex(value);
     this.renderPreview(value);
-  };
+  }
 
-  private handleKeydown = (e: KeyboardEvent) => {
+  private handleTextareaKeydown(e: KeyboardEvent): void {
     if (isImeKeyEvent(e)) return;
     if (e.key === "Escape") {
       e.preventDefault();
@@ -221,10 +163,10 @@ export class MathPopupView {
       e.preventDefault();
       this.handleSave();
     }
-  };
+  }
 
-  private handleSave = () => {
-    const state = useMathPopupStore.getState();
+  private handleSave(): void {
+    const state = this.store.getState();
     const { nodePos, latex } = state;
     if (nodePos === null) return;
 
@@ -242,35 +184,11 @@ export class MathPopupView {
 
     dispatch(tr);
     state.closePopup();
-    this.editorView.focus();
-  };
+    this.focusEditor();
+  }
 
-  private handleCancel = () => {
-    useMathPopupStore.getState().closePopup();
-    this.editorView.focus();
-  };
-
-  private handleScroll = () => {
-    if (useMathPopupStore.getState().isOpen) {
-      useMathPopupStore.getState().closePopup();
-    }
-  };
-
-  private handleClickOutside = (e: MouseEvent) => {
-    if (this.justOpened) return;
-    const { isOpen } = useMathPopupStore.getState();
-    if (!isOpen) return;
-
-    const target = e.target as Node;
-    if (!this.container.contains(target)) {
-      useMathPopupStore.getState().closePopup();
-    }
-  };
-
-  destroy() {
-    this.unsubscribe();
-    document.removeEventListener("mousedown", this.handleClickOutside);
-    this.editorView.dom.closest(".editor-container")?.removeEventListener("scroll", this.handleScroll, true);
-    this.container.remove();
+  private handleCancel(): void {
+    this.closePopup();
+    this.focusEditor();
   }
 }

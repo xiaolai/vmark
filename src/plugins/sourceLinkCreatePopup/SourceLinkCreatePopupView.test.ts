@@ -66,7 +66,11 @@ vi.mock("@/utils/popupComponents", async (importOriginal) => ({
   },
 }));
 
-vi.mock("@/plugins/sourcePopup", () => ({
+vi.mock("@/plugins/sourcePopup/sourcePopupUtils", () => ({
+  getEditorBounds: () => ({
+    horizontal: { left: 0, right: 800 },
+    vertical: { top: 0, bottom: 600 },
+  }),
   getPopupHostForDom: () => null,
   toHostCoordsForDom: (_host: HTMLElement, pos: { top: number; left: number }) => pos,
 }));
@@ -326,6 +330,82 @@ describe("SourceLinkCreatePopupView", () => {
       );
     });
 
+    it("wraps a destination containing spaces in angle brackets (CommonMark)", () => {
+      emitStateChange({
+        isOpen: true,
+        anchorRect,
+        showTextInput: true,
+        text: "doc",
+        rangeFrom: 0,
+        rangeTo: 0,
+      });
+
+      storeState.url = "/path/with spaces/doc.md";
+      storeState.text = "doc";
+
+      const saveBtn = document.querySelector(".link-create-popup-btn-save") as HTMLElement;
+      saveBtn.click();
+
+      expect((view.dispatch as ReturnType<typeof vi.fn>)).toHaveBeenCalledWith(
+        expect.objectContaining({
+          changes: expect.objectContaining({
+            insert: "[doc](</path/with spaces/doc.md>)",
+          }),
+        })
+      );
+    });
+
+    it("wraps a destination containing Unicode whitespace in angle brackets", () => {
+      emitStateChange({
+        isOpen: true,
+        anchorRect,
+        showTextInput: true,
+        text: "doc",
+        rangeFrom: 0,
+        rangeTo: 0,
+      });
+
+      // U+3000 ideographic space
+      storeState.url = "/notes/全角　空格.md";
+      storeState.text = "doc";
+
+      const saveBtn = document.querySelector(".link-create-popup-btn-save") as HTMLElement;
+      saveBtn.click();
+
+      expect((view.dispatch as ReturnType<typeof vi.fn>)).toHaveBeenCalledWith(
+        expect.objectContaining({
+          changes: expect.objectContaining({
+            insert: "[doc](</notes/全角　空格.md>)",
+          }),
+        })
+      );
+    });
+
+    it("still escapes parentheses in destinations without whitespace", () => {
+      emitStateChange({
+        isOpen: true,
+        anchorRect,
+        showTextInput: true,
+        text: "doc",
+        rangeFrom: 0,
+        rangeTo: 0,
+      });
+
+      storeState.url = "https://en.wikipedia.org/wiki/Foo_(bar";
+      storeState.text = "doc";
+
+      const saveBtn = document.querySelector(".link-create-popup-btn-save") as HTMLElement;
+      saveBtn.click();
+
+      expect((view.dispatch as ReturnType<typeof vi.fn>)).toHaveBeenCalledWith(
+        expect.objectContaining({
+          changes: expect.objectContaining({
+            insert: "[doc](https://en.wikipedia.org/wiki/Foo_\\(bar)",
+          }),
+        })
+      );
+    });
+
     it("focuses URL input when URL is empty on save", () => {
       emitStateChange({
         isOpen: true,
@@ -558,7 +638,9 @@ describe("SourceLinkCreatePopupView", () => {
       document.dispatchEvent(tabEvent);
     });
 
-    it("activates button on Enter key in keyboard nav", () => {
+    it("does not swallow Enter on a focused button (native activation saves)", () => {
+      // Enter on a focused <button> is native browser activation (fires click).
+      // The popup must not preventDefault it, and the resulting click must save.
       emitStateChange({
         isOpen: true,
         anchorRect,
@@ -569,14 +651,17 @@ describe("SourceLinkCreatePopupView", () => {
       storeState.url = "https://example.com";
       storeState.text = "text";
 
-      const saveBtn = document.querySelector(".link-create-popup-btn-save") as HTMLElement;
+      const saveBtn = document.querySelector(".link-create-popup-btn-save") as HTMLButtonElement;
       saveBtn.focus();
 
-      const clickSpy = vi.spyOn(saveBtn, "click");
-      const enterEvent = new KeyboardEvent("keydown", { key: "Enter", bubbles: true });
-      document.dispatchEvent(enterEvent);
+      // Real keyboard events target the focused element and bubble up
+      const enterEvent = new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true });
+      saveBtn.dispatchEvent(enterEvent);
+      expect(enterEvent.defaultPrevented).toBe(false);
 
-      expect(clickSpy).toHaveBeenCalled();
+      // jsdom does not perform native activation; the click it would fire saves
+      saveBtn.click();
+      expect(view.dispatch).toHaveBeenCalled();
     });
 
     it("closes popup on Escape in keyboard nav handler", () => {
@@ -604,7 +689,7 @@ describe("SourceLinkCreatePopupView", () => {
 
     it("uses absolute positioning when getPopupHostForDom returns a non-body host", async () => {
       // Temporarily override the mock to return a custom host
-      const sourcePopup = await import("@/plugins/sourcePopup");
+      const sourcePopup = await import("@/plugins/sourcePopup/sourcePopupUtils");
       const hostEl = document.createElement("div");
       hostEl.style.position = "relative";
       hostEl.getBoundingClientRect = () => ({
@@ -723,8 +808,10 @@ describe("SourceLinkCreatePopupView", () => {
       const urlInput = container.querySelector(".link-create-popup-url") as HTMLInputElement;
       urlInput.addEventListener("focus", focusSpy);
 
+      // Real keyboard events target the focused element and bubble through
+      // the popup container (where the shared Tab handler lives)
       const tabEvent = new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true });
-      document.dispatchEvent(tabEvent);
+      textInput.dispatchEvent(tabEvent);
 
       // Verify focus moved to next element (urlInput)
       expect(focusSpy).toHaveBeenCalled();
@@ -743,8 +830,10 @@ describe("SourceLinkCreatePopupView", () => {
       const textInput = container.querySelector(".link-create-popup-text") as HTMLInputElement;
       textInput.addEventListener("focus", focusSpy);
 
+      // Real keyboard events target the focused element and bubble through
+      // the popup container (where the shared Tab handler lives)
       const tabEvent = new KeyboardEvent("keydown", { key: "Tab", shiftKey: true, bubbles: true, cancelable: true });
-      document.dispatchEvent(tabEvent);
+      urlInput.dispatchEvent(tabEvent);
 
       expect(focusSpy).toHaveBeenCalled();
     });
@@ -994,78 +1083,54 @@ describe("SourceLinkCreatePopupView", () => {
     });
   });
 
-  describe("Tab wrap-around from last element (line 148 ? 0 branch)", () => {
+  describe("Tab wrap-around from last element", () => {
     it("Tab wraps from last focusable element to first (nextIndex = 0)", () => {
       emitStateChange({ isOpen: true, anchorRect, showTextInput: true });
 
       const container = document.querySelector(".link-create-popup") as HTMLElement;
 
-      // Build a mock focusable list and invoke the keydownHandler directly
-      const btn1 = document.createElement("button");
-      const btn2 = document.createElement("button");
-      const btn3 = document.createElement("button");
-      [btn1, btn2, btn3].forEach((b) => container.appendChild(b));
+      // jsdom offsetParent is always null; patch so getFocusableElements sees them
+      const focusable = Array.from(
+        container.querySelectorAll<HTMLElement>("button:not([disabled]), input:not([disabled])")
+      );
+      focusable.forEach((el) => {
+        Object.defineProperty(el, "offsetParent", { value: container, configurable: true });
+      });
 
-      // Patch getFocusableElements to return our controlled list
-      const getFocusableSpy = vi.spyOn(
-        popup as unknown as { getFocusableElements(): HTMLElement[] },
-        "getFocusableElements"
-      ).mockReturnValue([btn1, btn2, btn3]);
-
-      // Patch document.activeElement to be the LAST element (btn3)
-      Object.defineProperty(document, "activeElement", { value: btn3, configurable: true });
-
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
       const focusSpy = vi.fn();
-      btn1.focus = focusSpy;
+      first.addEventListener("focus", focusSpy);
 
-      // Dispatch Tab — should call btn1.focus() (wrap to index 0)
+      // Focus the LAST element and press Tab — should wrap to the first
+      last.focus();
       const tabEvent = new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true });
-      document.dispatchEvent(tabEvent);
+      last.dispatchEvent(tabEvent);
 
       expect(focusSpy).toHaveBeenCalled();
-
-      getFocusableSpy.mockRestore();
-      // Reset activeElement
-      Object.defineProperty(document, "activeElement", { value: document.body, configurable: true });
-      [btn1, btn2, btn3].forEach((b) => b.remove());
     });
   });
 
-  describe("Escape in keyboard nav handler (line 159 true branch)", () => {
-    it("closes popup via keyboard nav Escape when active element is inside container", () => {
+  describe("Escape with focus on a popup button", () => {
+    it("closes popup on Escape when a button inside the popup is focused", () => {
       emitStateChange({ isOpen: true, anchorRect, showTextInput: true });
 
       const container = document.querySelector(".link-create-popup") as HTMLElement;
-      const urlInput = document.querySelector(".link-create-popup-url") as HTMLInputElement;
-
-      // Confirm urlInput is actually inside the container
-      expect(container.contains(urlInput)).toBe(true);
-
-      // Grab the keydownHandler while popup is open
-      const keydownHandler = (popup as unknown as Record<string, ((e: KeyboardEvent) => void) | null>).keydownHandler;
-      if (!keydownHandler) throw new Error("keydownHandler not set");
+      const saveBtn = container.querySelector(".link-create-popup-btn-save") as HTMLButtonElement;
+      saveBtn.focus();
 
       mockClosePopup.mockClear();
 
-      // Patch document.activeElement to urlInput (which is inside the container)
-      Object.defineProperty(document, "activeElement", { value: urlInput, configurable: true });
-
-      const fakeEvent = {
-        key: "Escape",
-        preventDefault: vi.fn(),
-      } as unknown as KeyboardEvent;
-
-      keydownHandler(fakeEvent);
+      const escapeEvent = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
+      saveBtn.dispatchEvent(escapeEvent);
 
       expect(mockClosePopup).toHaveBeenCalled();
-
-      // Restore activeElement
-      Object.defineProperty(document, "activeElement", { value: document.body, configurable: true });
+      expect(view.focus).toHaveBeenCalled();
     });
   });
 
-  describe("show() — anchorRect null early return (line 179)", () => {
-    it("returns early without building container when anchorRect is null", () => {
+  describe("Open with null anchorRect", () => {
+    it("does not show the popup when isOpen is true but anchorRect is null", () => {
       const view2 = createMockView();
       const popup2 = new SourceLinkCreatePopupView(view2);
 
@@ -1073,22 +1138,9 @@ describe("SourceLinkCreatePopupView", () => {
       // Container display starts as "none"
       expect(container.style.display).toBe("none");
 
-      // Call private show() directly with null anchorRect
-      (popup2 as unknown as Record<string, (s: object) => void>).show({
-        anchorRect: null,
-        showTextInput: true,
-        text: "",
-        url: "",
-        rangeFrom: 0,
-        rangeTo: 0,
-        isOpen: true,
-        closePopup: mockClosePopup,
-        setText: mockSetText,
-        setUrl: mockSetUrl,
-        openPopup: mockOpenPopup,
-      });
+      // Store opens without an anchor — the popup must stay hidden
+      emitStateChange({ isOpen: true, anchorRect: null });
 
-      // Container should still be "none" — show() returned early (line 179)
       expect(container.style.display).toBe("none");
 
       popup2.destroy();
@@ -1096,46 +1148,40 @@ describe("SourceLinkCreatePopupView", () => {
     });
   });
 
-  describe("Tab handler — currentIndex === -1 (line 140) via direct invocation", () => {
-    it("returns early when activeElement is not in the focusable list", () => {
+  describe("Tab handler — focus outside the popup", () => {
+    it("does not move focus when activeElement is not in the focusable list", () => {
       emitStateChange({ isOpen: true, anchorRect, showTextInput: true });
 
       const container = document.querySelector(".link-create-popup") as HTMLElement;
-      const btn1 = document.createElement("button");
-      const btn2 = document.createElement("button");
-      container.appendChild(btn1);
-      container.appendChild(btn2);
 
-      // getFocusableElements returns [btn1, btn2], but activeElement is an external element
+      // jsdom offsetParent is always null; patch so getFocusableElements sees them
+      const focusable = Array.from(
+        container.querySelectorAll<HTMLElement>("button:not([disabled]), input:not([disabled])")
+      );
+      focusable.forEach((el) => {
+        Object.defineProperty(el, "offsetParent", { value: container, configurable: true });
+      });
+
+      const focusSpies = focusable.map((el) => {
+        const spy = vi.fn();
+        el.addEventListener("focus", spy);
+        return spy;
+      });
+
+      // activeElement is an external element (not in the popup's focusable list)
       const externalEl = document.createElement("input");
       document.body.appendChild(externalEl);
-
-      const getFocusableSpy = vi.spyOn(
-        popup as unknown as { getFocusableElements(): HTMLElement[] },
-        "getFocusableElements"
-      ).mockReturnValue([btn1, btn2]);
-
-      // Patch activeElement to external element (not in the focusable list)
       Object.defineProperty(document, "activeElement", { value: externalEl, configurable: true });
 
-      const focusSpy1 = vi.fn();
-      const focusSpy2 = vi.fn();
-      btn1.focus = focusSpy1;
-      btn2.focus = focusSpy2;
+      // Tab bubbling through the container — currentIndex = -1 → no-op
+      const tabEvent = new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true });
+      container.dispatchEvent(tabEvent);
 
-      // Invoke keydownHandler directly — currentIndex = -1 → returns early at line 140
-      const keydownHandler = (popup as unknown as Record<string, (e: KeyboardEvent) => void>).keydownHandler;
-      keydownHandler(new KeyboardEvent("keydown", { key: "Tab" }));
+      // No popup element should have been focused
+      focusSpies.forEach((spy) => expect(spy).not.toHaveBeenCalled());
 
-      // Neither button should have been focused
-      expect(focusSpy1).not.toHaveBeenCalled();
-      expect(focusSpy2).not.toHaveBeenCalled();
-
-      getFocusableSpy.mockRestore();
       Object.defineProperty(document, "activeElement", { value: document.body, configurable: true });
       externalEl.remove();
-      btn1.remove();
-      btn2.remove();
     });
   });
 
@@ -1145,9 +1191,10 @@ describe("SourceLinkCreatePopupView", () => {
 
       mockSetText.mockClear();
 
-      // Nullify textInput on the popup instance then invoke the handler directly
-      (popup as unknown as Record<string, null>).textInput = null;
-      (popup as unknown as Record<string, () => void>).handleTextInput();
+      // Nullify textInput on the shared flow controller then invoke the handler directly
+      const flow = (popup as unknown as Record<string, unknown>).flow as Record<string, unknown>;
+      flow.textInput = null;
+      (flow.handleTextInput as () => void).call(flow);
 
       expect(mockSetText).not.toHaveBeenCalled();
     });

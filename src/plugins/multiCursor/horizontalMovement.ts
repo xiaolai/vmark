@@ -17,6 +17,7 @@ import { Selection, SelectionRange } from "@tiptap/pm/state";
 import type { EditorState, Transaction } from "@tiptap/pm/state";
 import { findWordEdge } from "@/utils/wordSegmentation";
 import { MultiSelection } from "./MultiSelection";
+import { graphemeStepTarget } from "./graphemeMovement";
 import { normalizeRangesWithPrimary, remapBackwardFlags } from "./rangeUtils";
 
 export type HorizontalUnit = "char" | "word" | "line";
@@ -39,11 +40,20 @@ function moveRangeHorizontally(
   const headPos = backward ? range.$from.pos : range.$to.pos;
 
   if (unit === "char") {
-    const startPos = Math.max(0, Math.min(doc.content.size, headPos + dir));
-    const $head = doc.resolve(startPos);
-    const found = Selection.findFrom($head, dir, true);
-    if (!found) return range;
-    const targetPos = dir < 0 ? found.from : found.to;
+    // Prefer grapheme-cluster stepping inside text so cursors never land
+    // inside surrogate pairs / emoji sequences; fall back to ProseMirror's
+    // own stepping at block boundaries and inline atoms.
+    let targetPos: number;
+    const graphemeTarget = graphemeStepTarget(doc, headPos, dir);
+    if (graphemeTarget !== null) {
+      targetPos = graphemeTarget;
+    } else {
+      const startPos = Math.max(0, Math.min(doc.content.size, headPos + dir));
+      const $head = doc.resolve(startPos);
+      const found = Selection.findFrom($head, dir, true);
+      if (!found) return range;
+      targetPos = dir < 0 ? found.from : found.to;
+    }
     if (extend) {
       const anchorPos = backward ? range.$to.pos : range.$from.pos;
       const from = Math.min(anchorPos, targetPos);
@@ -58,7 +68,7 @@ function moveRangeHorizontally(
   const blockStart = headPos - $head.parentOffset;
   const blockEnd = blockStart + $head.parent.content.size;
 
-  let targetPos = headPos;
+  let targetPos: number;
   if (unit === "line") {
     targetPos = dir < 0 ? blockStart : blockEnd;
   } else {

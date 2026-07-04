@@ -5,33 +5,34 @@
  * with inline editing, navigation to definition, and delete/renumber actions.
  *
  * Key decisions:
- *   - DOM-based (not React) for performance and to stay within the ProseMirror lifecycle
- *   - Popup is positioned relative to the popup host (editor container) using fixed coords
+ *   - Extends WysiwygPopupView for lifecycle (mount, position, dismiss, Tab cycling)
+ *   - Hover popup: never steals focus on show (getFirstFocusable returns null);
+ *     the textarea is focused only when the store requests autoFocus
+ *   - Re-shows while open when the hovered label changes or autoFocus turns on
+ *     (shouldReshow hook)
  *   - Input is borderless with caret-only focus indicator (matching popup design system)
- *   - Tab navigation cycles through focusable elements within the popup
  *   - Save parses textarea content as markdown via parseMarkdown to preserve formatting
  *     (bold, italic, links, etc.) instead of creating plain text nodes
  *
  * @coordinates-with tiptap.ts — creates and destroys this view based on hover/click events
  * @coordinates-with stores/footnotePopupStore.ts — popup visibility and position state
+ * @coordinates-with footnotePopupDom.ts — DOM construction and layout constants
  * @module plugins/footnotePopup/FootnotePopupView
  */
 
 import { useFootnotePopupStore } from "@/stores/footnotePopupStore";
 import { footnotePopupWarn, footnotePopupError } from "@/utils/debug";
-import {
-  calculatePopupPosition,
-  getBoundaryRects,
-  getViewportBounds,
-  type AnchorRect,
-} from "@/utils/popupPosition";
+import type { AnchorRect } from "@/utils/popupPosition";
 import { parseMarkdown } from "@/utils/markdownPipeline";
 import { isImeKeyEvent } from "@/utils/imeGuard";
-import { handlePopupTabNavigation } from "@/utils/popupComponents";
-import type { Node as PMNode } from "@tiptap/pm/model";
 import type { EditorView } from "@tiptap/pm/view";
 import { scrollToPosition } from "./tiptapDomUtils";
-import { getPopupHostForDom, toHostCoordsForDom } from "@/plugins/sourcePopup";
+import {
+  buildDeleteFootnoteTransaction,
+  collectVerifiedFootnoteDeletions,
+  normalizeToSingleParagraph,
+} from "./footnoteEditOps";
+import { WysiwygPopupView, type PopupStoreBase } from "@/plugins/shared";
 import {
   AUTOFOCUS_DELAY_MS,
   BLUR_CHECK_DELAY_MS,
@@ -42,103 +43,82 @@ import {
   createFootnotePopupDom,
 } from "./footnotePopupDom";
 
-export class FootnotePopupView {
-  private container: HTMLDivElement;
-  private textarea: HTMLTextAreaElement;
+/** Footnote popup store state (extends base with footnote-specific fields) */
+interface FootnotePopupState extends PopupStoreBase {
+  content: string;
+  label: string;
+  definitionPos: number | null;
+  referencePos: number | null;
+  autoFocus: boolean;
+  setContent: (content: string) => void;
+}
+
+export class FootnotePopupView extends WysiwygPopupView<FootnotePopupState> {
   private view: EditorView;
-  private unsubscribe: () => void;
-  private justOpened = false;
-  private wasOpen = false;
-  private lastLabel = "";
-  private lastAutoFocus = false;
   private focusTimeoutId: ReturnType<typeof setTimeout> | null = null;
   private blurTimeoutId: ReturnType<typeof setTimeout> | null = null;
-  private keydownHandler: ((e: KeyboardEvent) => void) | null = null;
-  private host: HTMLElement | null = null;
 
   constructor(view: EditorView) {
+    super(view, useFootnotePopupStore);
     this.view = view;
-
-    const dom = createFootnotePopupDom({
-      onInputChange: this.handleInputChange,
-      onInputKeydown: this.handleInputKeydown,
-      onTextareaClick: this.handleTextareaClick,
-      onTextareaBlur: this.handleTextareaBlur,
-      onGoto: this.handleGoto,
-      onSave: this.handleSave,
-      onDelete: this.handleDelete,
-    });
-    this.container = dom.container;
-    this.textarea = dom.textarea;
-
-    // Container will be appended to host in show()
 
     // Handle mouse leave from popup (only when not editing)
     this.container.addEventListener("mouseleave", this.handlePopupMouseLeave);
 
-    // Handle click outside
-    document.addEventListener("mousedown", this.handleClickOutside);
-
-    // Close popup on scroll (popup position becomes stale)
-    this.view.dom.closest(".editor-container")?.addEventListener("scroll", this.handleScroll, true);
-
-    // Subscribe to store - show() on open transition, label change, or autoFocus change
-    this.unsubscribe = useFootnotePopupStore.subscribe((state) => {
-      if (state.isOpen && state.anchorRect) {
-        // Show on open transition, label change, or autoFocus becoming true
-        const needsShow =
-          !this.wasOpen ||
-          state.label !== this.lastLabel ||
-          (state.autoFocus && !this.lastAutoFocus);
-
-        if (needsShow) {
-          this.show(state.content, state.anchorRect, state.definitionPos);
-        }
-        this.wasOpen = true;
-        this.lastLabel = state.label;
-        this.lastAutoFocus = state.autoFocus;
-      } else {
-        this.hide();
-        this.wasOpen = false;
-        this.lastLabel = "";
-        this.lastAutoFocus = false;
-      }
-    });
-
-    // Initial state
-    const state = useFootnotePopupStore.getState();
-    if (state.isOpen && state.anchorRect) {
-      this.show(state.content, state.anchorRect, state.definitionPos);
-      this.lastLabel = state.label;
-      this.lastAutoFocus = state.autoFocus;
-    }
+    // The hover popup may already be open when the editor view is recreated
+    this.syncFromStore();
   }
 
-  private show(content: string, anchorRect: AnchorRect, definitionPos: number | null) {
-    const state = useFootnotePopupStore.getState();
+  // Lazy getter for the textarea (avoids constructor timing issues)
+  private get textarea(): HTMLTextAreaElement {
+    return this.container.querySelector(".footnote-popup-textarea") as HTMLTextAreaElement;
+  }
 
-    this.textarea.value = content;
+  protected buildContainer(): HTMLElement {
+    const dom = createFootnotePopupDom({
+      onInputChange: () => this.handleInputChange(),
+      onInputKeydown: (e) => this.handleInputKeydown(e),
+      onTextareaClick: () => this.handleTextareaClick(),
+      onTextareaBlur: () => this.handleTextareaBlur(),
+      onGoto: () => this.handleGoto(),
+      onSave: () => this.handleSave(),
+      onDelete: () => this.handleDelete(),
+    });
+    return dom.container;
+  }
 
-    // Mount to editor container if available, otherwise document.body
-    this.host = getPopupHostForDom(this.view.dom) ?? document.body;
-    if (this.container.parentElement !== this.host) {
-      this.container.style.position = this.host === document.body ? "fixed" : "absolute";
-      this.host.appendChild(this.container);
-    }
+  protected shouldReshow(prev: FootnotePopupState, state: FootnotePopupState): boolean {
+    // Re-show on label change (hover moved to another footnote) or when
+    // autoFocus turns on (click on the reference while hover popup is open)
+    return state.label !== prev.label || (state.autoFocus && !prev.autoFocus);
+  }
 
-    this.container.style.display = "flex";
+  /** Hover popup must not steal focus on show; autoFocus is handled in onShow. */
+  protected getFirstFocusable(): HTMLElement | null {
+    return null;
+  }
+
+  protected getPopupDimensions() {
+    const rect = this.container.getBoundingClientRect();
+    return {
+      width: rect.width || DEFAULT_POPUP_WIDTH,
+      height: rect.height || DEFAULT_POPUP_HEIGHT,
+      gap: POPUP_GAP_PX,
+      preferAbove: true,
+    };
+  }
+
+  protected updatePosition(anchorRect: AnchorRect): void {
+    super.updatePosition(anchorRect);
+    this.autoResizeTextarea();
+  }
+
+  protected onShow(state: FootnotePopupState): void {
+    this.textarea.value = state.content;
 
     const gotoBtn = this.container.querySelector(".footnote-popup-btn-goto") as HTMLElement | null;
     /* v8 ignore next -- @preserve else branch: goto button is always found in popup DOM */
-    if (gotoBtn) gotoBtn.style.display = definitionPos !== null ? "flex" : "none";
-
-    this.justOpened = true;
-    requestAnimationFrame(() => { this.justOpened = false; });
-
-    this.updatePosition(anchorRect);
-    this.autoResizeTextarea();
-
-    this.setupKeyboardNavigation();
+    if (gotoBtn) gotoBtn.style.display = state.definitionPos !== null ? "flex" : "none";
 
     /* v8 ignore start -- @preserve else branch: autoFocus not exercised in tests */
     if (state.autoFocus) {
@@ -147,7 +127,7 @@ export class FootnotePopupView {
       this.focusTimeoutId = setTimeout(() => {
         // Only focus if popup is still open
         /* v8 ignore next -- @preserve else branch: popup closes before timeout fires in tests */
-        if (useFootnotePopupStore.getState().isOpen) {
+        if (this.store.getState().isOpen) {
           this.textarea.focus();
           this.textarea.select();
         }
@@ -156,107 +136,65 @@ export class FootnotePopupView {
     /* v8 ignore stop */
   }
 
-  private hide() {
-    this.container.style.display = "none";
-    this.host = null;
+  protected onHide(): void {
     this.clearFocusTimeout();
     this.clearBlurTimeout();
-    this.removeKeyboardNavigation();
   }
 
-  private clearFocusTimeout() {
+  private clearFocusTimeout(): void {
     if (this.focusTimeoutId) {
       clearTimeout(this.focusTimeoutId);
       this.focusTimeoutId = null;
     }
   }
 
-  private clearBlurTimeout() {
+  private clearBlurTimeout(): void {
     if (this.blurTimeoutId) {
       clearTimeout(this.blurTimeoutId);
       this.blurTimeoutId = null;
     }
   }
 
-  private setupKeyboardNavigation() {
-    this.keydownHandler = (e: KeyboardEvent) => {
-      if (isImeKeyEvent(e)) return;
-      handlePopupTabNavigation(e, this.container);
-    };
-    document.addEventListener("keydown", this.keydownHandler);
-  }
-
-  private removeKeyboardNavigation() {
-    if (this.keydownHandler) {
-      document.removeEventListener("keydown", this.keydownHandler);
-      this.keydownHandler = null;
-    }
-  }
-
-  private updatePosition(anchorRect: AnchorRect) {
-    const containerEl = this.view.dom.closest(".editor-container") as HTMLElement | null;
-    const bounds = containerEl
-      ? getBoundaryRects(this.view.dom as HTMLElement, containerEl)
-      : getViewportBounds();
-    const popupRect = this.container.getBoundingClientRect();
-    const position = calculatePopupPosition({
-      anchor: anchorRect,
-      popup: { width: popupRect.width || DEFAULT_POPUP_WIDTH, height: popupRect.height || DEFAULT_POPUP_HEIGHT },
-      bounds, gap: POPUP_GAP_PX, preferAbove: true,
-    });
-
-    // Convert to host-relative coordinates if mounted inside editor container
-    if (this.host !== document.body && this.host) {
-      const hostPos = toHostCoordsForDom(this.host, { top: position.top, left: position.left });
-      this.container.style.left = `${hostPos.left}px`;
-      this.container.style.top = `${hostPos.top}px`;
-    } else {
-      this.container.style.left = `${position.left}px`;
-      this.container.style.top = `${position.top}px`;
-    }
-  }
-
-  private autoResizeTextarea() {
+  private autoResizeTextarea(): void {
     this.textarea.style.height = "auto";
     this.textarea.style.height = Math.min(this.textarea.scrollHeight, TEXTAREA_MAX_HEIGHT) + "px";
   }
 
-  private handleInputChange = () => {
-    useFootnotePopupStore.getState().setContent(this.textarea.value);
+  private handleInputChange(): void {
+    this.store.getState().setContent(this.textarea.value);
     this.autoResizeTextarea();
-  };
+  }
 
-  private handleInputKeydown = (e: KeyboardEvent) => {
+  private handleInputKeydown(e: KeyboardEvent): void {
     if (isImeKeyEvent(e)) return;
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); this.handleSave(); }
     else if (e.key === "Escape") {
       e.preventDefault();
-      useFootnotePopupStore.getState().closePopup();
-      this.view.focus();
+      this.closeAndFocus();
     }
-  };
+  }
 
-  private handleTextareaClick = () => {
+  private handleTextareaClick(): void {
     this.container.classList.add("editing");
     this.textarea.focus();
-  };
+  }
 
-  private handleTextareaBlur = () => {
+  private handleTextareaBlur(): void {
     this.clearBlurTimeout();
     this.blurTimeoutId = setTimeout(() => {
       /* v8 ignore next -- @preserve else branch: container still contains active element after blur in tests */
       if (!this.container.contains(document.activeElement)) this.container.classList.remove("editing");
     }, BLUR_CHECK_DELAY_MS);
-  };
-
-  /** Close popup and return focus to editor */
-  private closeAndFocus() {
-    useFootnotePopupStore.getState().closePopup();
-    this.view.focus();
   }
 
-  private handleSave = () => {
-    const state = useFootnotePopupStore.getState();
+  /** Close popup and return focus to editor */
+  private closeAndFocus(): void {
+    this.closePopup();
+    this.focusEditor();
+  }
+
+  private handleSave(): void {
+    const state = this.store.getState();
     const { content, definitionPos, label } = state;
 
     if (definitionPos === null) {
@@ -281,40 +219,36 @@ export class FootnotePopupView {
         return;
       }
 
-      // Parse the markdown content into ProseMirror nodes to preserve formatting
+      // Parse markdown to PM nodes (preserving formatting), normalized to the
+      // single paragraph footnote_definition's content spec accepts —
+      // multi-block input would make replaceWith throw and lose the edit.
       const schema = editorState.schema;
-      const parsedDoc = parseMarkdown(schema, content);
-      const nodes: PMNode[] = [];
-      /* v8 ignore start -- @preserve reason: parsedDoc.forEach callback only runs when footnote has parsed content; not reachable in unit tests */
-      parsedDoc.forEach((child) => nodes.push(child));
-      /* v8 ignore stop */
+      const paragraph = normalizeToSingleParagraph(schema, parseMarkdown(schema, content));
 
-      // Replace the content of the footnote definition
-      // The structure is: footnote_definition > paragraph > text
+      // Replace the footnote definition's content (footnote_definition > paragraph)
       const contentStart = definitionPos + 1;
       const contentEnd = definitionPos + node.nodeSize - 1;
 
-      const tr = editorState.tr.replaceWith(contentStart, contentEnd, nodes);
+      const tr = editorState.tr.replaceWith(contentStart, contentEnd, paragraph);
       dispatch(tr);
 
       this.closeAndFocus();
     } catch (error) {
-      footnotePopupError("Save failed:", error);
-      this.closeAndFocus();
+      // Keep the popup open — closing would silently discard the user's text.
+      footnotePopupError("Save failed; keeping popup open to preserve the edit:", error);
     }
-  };
+  }
 
-  private handleGoto = () => {
-    const { definitionPos } = useFootnotePopupStore.getState();
+  private handleGoto(): void {
+    const { definitionPos } = this.store.getState();
     if (definitionPos !== null) {
       scrollToPosition(this.view, definitionPos);
       this.closeAndFocus();
     }
-  };
+  }
 
-  private handleDelete = () => {
-    const state = useFootnotePopupStore.getState();
-    const { referencePos, definitionPos } = state;
+  private handleDelete(): void {
+    const { referencePos, definitionPos, label } = this.store.getState();
 
     if (referencePos === null) {
       this.closeAndFocus();
@@ -324,38 +258,15 @@ export class FootnotePopupView {
     try {
       const { state: editorState, dispatch } = this.view;
 
-      // Delete reference first, then definition (in reverse order to preserve positions)
-      // We need to delete from the end to preserve positions
-      let tr = editorState.tr;
-
-      // Get node sizes before deletion
-      const refNode = editorState.doc.nodeAt(referencePos);
-      if (!refNode || refNode.type.name !== "footnote_reference") {
-        footnotePopupWarn("Reference node not found at position");
+      // Only delete nodes that are still verifiably THIS footnote (type and
+      // label match) — stale positions must never delete the wrong footnote.
+      const deletions =
+        collectVerifiedFootnoteDeletions(editorState.doc, label, referencePos, definitionPos);
+      const tr = buildDeleteFootnoteTransaction(editorState.tr, deletions);
+      if (!tr) {
+        footnotePopupWarn("No footnote nodes matching label found; nothing deleted");
         this.closeAndFocus();
         return;
-      }
-
-      // Delete definition first if it exists (it's typically at the end of doc)
-      if (definitionPos !== null) {
-        const defNode = editorState.doc.nodeAt(definitionPos);
-        if (defNode && defNode.type.name === "footnote_definition") {
-          // Definition is after reference, delete it first
-          if (definitionPos > referencePos) {
-            tr = tr.delete(definitionPos, definitionPos + defNode.nodeSize);
-            tr = tr.delete(referencePos, referencePos + refNode.nodeSize);
-          } else {
-            // Definition is before reference (unusual but handle it)
-            tr = tr.delete(referencePos, referencePos + refNode.nodeSize);
-            tr = tr.delete(definitionPos, definitionPos + defNode.nodeSize);
-          }
-        } else {
-          // Definition not found, just delete reference
-          tr = tr.delete(referencePos, referencePos + refNode.nodeSize);
-        }
-      } else {
-        // No definition, just delete reference
-        tr = tr.delete(referencePos, referencePos + refNode.nodeSize);
       }
 
       dispatch(tr);
@@ -364,47 +275,26 @@ export class FootnotePopupView {
       footnotePopupError("Delete failed:", error);
       this.closeAndFocus();
     }
-  };
+  }
 
-  private handlePopupMouseLeave = () => {
+  private handlePopupMouseLeave = (): void => {
     if (!this.container.classList.contains("editing")) {
-      useFootnotePopupStore.getState().closePopup();
+      this.closePopup();
     }
   };
 
-  private handleScroll = () => {
-    if (useFootnotePopupStore.getState().isOpen) {
-      useFootnotePopupStore.getState().closePopup();
-    }
-  };
-
-  private handleClickOutside = (e: MouseEvent) => {
-    if (this.justOpened) return;
-
-    const { isOpen } = useFootnotePopupStore.getState();
-    if (!isOpen) return;
-
-    const target = e.target as Node;
-    if (!this.container.contains(target)) {
-      useFootnotePopupStore.getState().closePopup();
-    }
-  };
-
-  update() {
-    const state = useFootnotePopupStore.getState();
+  /** Reposition the popup if the anchor moved (called on editor updates). */
+  update(): void {
+    const state = this.store.getState();
     if (state.isOpen && state.anchorRect) {
       this.updatePosition(state.anchorRect);
     }
   }
 
-  destroy() {
+  destroy(): void {
     this.clearFocusTimeout();
     this.clearBlurTimeout();
-    this.removeKeyboardNavigation();
-    this.unsubscribe();
     this.container.removeEventListener("mouseleave", this.handlePopupMouseLeave);
-    document.removeEventListener("mousedown", this.handleClickOutside);
-    this.view.dom.closest(".editor-container")?.removeEventListener("scroll", this.handleScroll, true);
-    this.container.remove();
+    super.destroy();
   }
 }

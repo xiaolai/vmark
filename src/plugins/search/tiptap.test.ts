@@ -199,7 +199,7 @@ describe("searchExtension", () => {
     });
 
     it("returns null for invalid regex patterns gracefully", () => {
-      let result: RegExp | null = null;
+      let result: RegExp | null;
       try {
         // eslint-disable-next-line no-invalid-regexp
         result = new RegExp("[invalid", "gi");

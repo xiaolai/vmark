@@ -46,6 +46,7 @@ export abstract class WysiwygPopupView<TState extends PopupStoreBase> {
   private wasOpen = false;
   private justOpened = false;
   private host: HTMLElement | null = null;
+  private lastState: TState | null = null;
 
   private boundHandleClickOutside: (e: MouseEvent) => void;
   private boundHandleKeydown: (e: KeyboardEvent) => void;
@@ -63,20 +64,45 @@ export abstract class WysiwygPopupView<TState extends PopupStoreBase> {
     this.boundHandleScroll = this.handleScroll.bind(this);
 
     this.unsubscribe = store.subscribe((state) => {
-      const { isOpen, anchorRect } = this.extractState(state);
-
-      if (isOpen && anchorRect) {
-        if (!this.wasOpen) {
-          this.show(anchorRect, state);
-        }
-        this.wasOpen = true;
-      } else {
-        if (this.wasOpen) {
-          this.hide();
-        }
-        this.wasOpen = false;
-      }
+      this.handleStoreState(state);
     });
+  }
+
+  private handleStoreState(state: TState): void {
+    const { isOpen, anchorRect } = this.extractState(state);
+
+    if (isOpen && anchorRect) {
+      const reshow =
+        this.wasOpen && this.lastState !== null && this.shouldReshow(this.lastState, state);
+      if (!this.wasOpen || reshow) {
+        this.show(anchorRect, state);
+      }
+      this.wasOpen = true;
+    } else {
+      if (this.wasOpen) {
+        this.hide();
+      }
+      this.wasOpen = false;
+    }
+    this.lastState = state;
+  }
+
+  /**
+   * Re-evaluate the current store state. Subclasses whose popup may already
+   * be open at construction time (e.g. hover popups recreated with the
+   * editor view) call this at the end of their constructor.
+   */
+  protected syncFromStore(): void {
+    this.handleStoreState(this.store.getState());
+  }
+
+  /**
+   * Whether an already-open popup should run show() again for this state
+   * change (e.g. the popup was retargeted to a different node while open).
+   * Default: never re-show while open.
+   */
+  protected shouldReshow(_prev: TState, _state: TState): boolean {
+    return false;
   }
 
   /** Build the popup DOM container. */
@@ -101,7 +127,7 @@ export abstract class WysiwygPopupView<TState extends PopupStoreBase> {
   /** Get first focusable element for initial focus. */
   protected getFirstFocusable(): HTMLElement | null {
     return this.container.querySelector<HTMLElement>(
-      'input:not([disabled]), button:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      'input:not([disabled]), textarea:not([disabled]), button:not([disabled]), [tabindex]:not([tabindex="-1"])'
     );
   }
 
@@ -119,6 +145,10 @@ export abstract class WysiwygPopupView<TState extends PopupStoreBase> {
       this.justOpened = false;
     });
 
+    // Let the subclass populate content BEFORE positioning, so popups that
+    // measure their own rect (getBoundingClientRect) see the final layout.
+    this.onShow(state);
+
     this.updatePosition(anchorRect);
 
     document.addEventListener("mousedown", this.boundHandleClickOutside);
@@ -129,8 +159,6 @@ export abstract class WysiwygPopupView<TState extends PopupStoreBase> {
       true
     );
     this.container.addEventListener("keydown", this.handleTabNavigation);
-
-    this.onShow(state);
 
     requestAnimationFrame(() => {
       const firstFocusable = this.getFirstFocusable();
@@ -200,9 +228,13 @@ export abstract class WysiwygPopupView<TState extends PopupStoreBase> {
 
   protected updatePosition(anchorRect: AnchorRect): void {
     const dimensions = this.getPopupDimensions();
-    const bounds = this.host === document.body
+    // Horizontal bounds come from the editor content, vertical bounds from
+    // the surrounding .editor-container (matches every popup's historical
+    // behavior); fall back to the viewport when there is no container.
+    const containerEl = this.editorView.dom.closest(".editor-container") as HTMLElement | null;
+    const bounds = this.host === document.body || !containerEl
       ? getViewportBounds()
-      : getBoundaryRects(this.editorView.dom, this.editorView.dom);
+      : getBoundaryRects(this.editorView.dom, containerEl);
 
     const { top, left } = calculatePopupPosition({
       anchor: anchorRect,
@@ -224,17 +256,6 @@ export abstract class WysiwygPopupView<TState extends PopupStoreBase> {
 
   protected isVisible(): boolean {
     return this.container.style.display !== "none";
-  }
-
-  protected buildIconButton(iconSvg: string, title: string, onClick: () => void): HTMLButtonElement {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "popup-icon-btn";
-    btn.title = title;
-    btn.setAttribute("aria-label", title);
-    btn.innerHTML = iconSvg;
-    btn.addEventListener("click", onClick);
-    return btn;
   }
 
   destroy(): void {

@@ -3,348 +3,79 @@
  *
  * Popup for creating new links in WYSIWYG mode.
  * Shows text + URL inputs when no selection, or just URL input when text is selected.
+ *
+ * Extends WysiwygPopupView for popup lifecycle; the shared LinkCreateFlow
+ * controller (linkCreateController.ts) owns the content rebuild, input
+ * wiring, validation, and save/cancel flow. This view only supplies the
+ * WYSIWYG commit strategy: applying a link mark via a ProseMirror transaction.
  */
 
-import i18n from "@/i18n";
 import { useLinkCreatePopupStore } from "@/stores/linkCreatePopupStore";
-import {
-  calculatePopupPosition,
-  getBoundaryRects,
-  getViewportBounds,
-} from "@/utils/popupPosition";
-import { isImeKeyEvent } from "@/utils/imeGuard";
 import { linkPopupError } from "@/utils/debug";
-import { buildPopupIconButton, popupIcons } from "@/utils/popupComponents";
-import { getPopupHostForDom, toHostCoordsForDom } from "@/plugins/sourcePopup";
-import type { EditorViewLike } from "@/plugins/shared/types";
-import { normalizeHref, isValidHref } from "./operations";
+import { WysiwygPopupView, type EditorViewLike, type PopupStoreBase } from "@/plugins/shared";
+import {
+  LinkCreateFlow,
+  getLinkCreatePopupDimensions,
+  type LinkCreateFlowState,
+} from "./linkCreateController";
 
-/** Build a link-create popup icon button with the popup's bespoke styling. */
-function buildLinkCreateBtn(iconSvg: string, title: string, onClick: () => void): HTMLButtonElement {
-  return buildPopupIconButton({ iconSvg, title, onClick, baseClass: "link-create-popup-btn" });
-}
+/** Link create popup store state (extends base with creation-specific fields) */
+type LinkCreatePopupState = PopupStoreBase & LinkCreateFlowState;
 
 /**
  * Link create popup view - manages the floating popup UI for creating links.
  */
-export class LinkCreatePopupView {
-  private container: HTMLElement;
-  private textInput: HTMLInputElement | null = null;
-  private urlInput: HTMLInputElement;
-  private unsubscribe: () => void;
-  private editorView: EditorViewLike;
-  private justOpened = false;
-  private wasOpen = false;
-  private keydownHandler: ((e: KeyboardEvent) => void) | null = null;
-  private host: HTMLElement | null = null;
+export class LinkCreatePopupView extends WysiwygPopupView<LinkCreatePopupState> {
+  private flow = new LinkCreateFlow(this.container, useLinkCreatePopupStore, {
+    commitLink: (finalUrl, linkText, state) => this.commitLink(finalUrl, linkText, state),
+    closePopup: () => this.closePopup(),
+    focusEditor: () => this.focusEditor(),
+    onError: (error) => linkPopupError("Save failed:", error),
+  });
 
   constructor(view: EditorViewLike) {
-    this.editorView = view;
-
-    // Build DOM structure (will be rebuilt on show based on showTextInput)
-    this.container = document.createElement("div");
-    this.container.className = "link-create-popup";
-    this.container.style.display = "none";
-    this.urlInput = document.createElement("input"); // Placeholder, rebuilt in show
-
-    // Subscribe to store changes
-    this.unsubscribe = useLinkCreatePopupStore.subscribe((state) => {
-      if (state.isOpen && state.anchorRect) {
-        if (!this.wasOpen) {
-          this.show(state);
-        }
-        this.wasOpen = true;
-      } else {
-        this.hide();
-        this.wasOpen = false;
-      }
-    });
-
-    // Handle click outside
-    document.addEventListener("mousedown", this.handleClickOutside);
-
-    // Close popup on scroll
-    this.editorView.dom.closest(".editor-container")?.addEventListener("scroll", this.handleScroll, true);
+    super(view, useLinkCreatePopupStore);
   }
 
-  private buildContainer(showTextInput: boolean): void {
-    // Clear existing content
-    this.container.innerHTML = "";
+  protected buildContainer(): HTMLElement {
+    // Bare shell — content is rebuilt on every show based on showTextInput
+    const container = document.createElement("div");
+    container.className = "link-create-popup";
+    return container;
+  }
 
-    // Text input row (only if no selection)
-    if (showTextInput) {
-      const textRow = document.createElement("div");
-      textRow.className = "link-create-popup-row";
+  protected getPopupDimensions() {
+    return getLinkCreatePopupDimensions(this.store.getState().showTextInput);
+  }
 
-      this.textInput = document.createElement("input");
-      this.textInput.type = "text";
-      this.textInput.className = "link-create-popup-input link-create-popup-text";
-      this.textInput.placeholder = i18n.t("editor:popup.linkCreate.text.placeholder");
-      this.textInput.autocapitalize = "off";
-      this.textInput.autocomplete = "off";
-      this.textInput.spellcheck = false;
-      this.textInput.addEventListener("input", this.handleTextInput);
-      this.textInput.addEventListener("keydown", this.handleInputKeydown);
+  protected onShow(state: LinkCreatePopupState): void {
+    this.flow.showContent(state);
+  }
 
-      textRow.appendChild(this.textInput);
-      this.container.appendChild(textRow);
+  protected onHide(): void {
+    // No special cleanup needed
+  }
+
+  /** WYSIWYG commit strategy: create/apply a link mark via a PM transaction. */
+  private commitLink(finalUrl: string, linkText: string | null, state: LinkCreateFlowState): boolean {
+    const { state: editorState, dispatch } = this.editorView;
+    if (!editorState) return false;
+
+    const linkMark = editorState.schema.marks.link;
+    if (!linkMark) return false;
+
+    const tr = editorState.tr;
+
+    if (state.showTextInput) {
+      // Create new text with link mark
+      const textNode = editorState.schema.text(linkText!, [linkMark.create({ href: finalUrl })]);
+      tr.replaceWith(state.rangeFrom, state.rangeTo, textNode);
     } else {
-      this.textInput = null;
+      // Apply link mark to existing selection/text
+      tr.addMark(state.rangeFrom, state.rangeTo, linkMark.create({ href: finalUrl }));
     }
 
-    // URL input row with buttons
-    const urlRow = document.createElement("div");
-    urlRow.className = "link-create-popup-row";
-
-    this.urlInput = document.createElement("input");
-    this.urlInput.type = "text";
-    this.urlInput.className = "link-create-popup-input link-create-popup-url";
-    this.urlInput.placeholder = i18n.t("editor:popup.linkCreate.url.placeholder");
-    this.urlInput.autocapitalize = "off";
-    this.urlInput.autocomplete = "off";
-    this.urlInput.spellcheck = false;
-    this.urlInput.setAttribute("autocorrect", "off");
-    this.urlInput.addEventListener("input", this.handleUrlInput);
-    this.urlInput.addEventListener("keydown", this.handleInputKeydown);
-
-    const saveBtn = buildLinkCreateBtn(popupIcons.save, i18n.t("editor:popup.linkCreate.create"), this.handleSave);
-    saveBtn.classList.add("link-create-popup-btn-save");
-    const cancelBtn = buildLinkCreateBtn(popupIcons.close, i18n.t("editor:popup.linkCreate.cancel"), this.handleCancel);
-    cancelBtn.classList.add("link-create-popup-btn-cancel");
-
-    urlRow.appendChild(this.urlInput);
-    urlRow.appendChild(saveBtn);
-    urlRow.appendChild(cancelBtn);
-
-    this.container.appendChild(urlRow);
-  }
-
-  private getFocusableElements(): HTMLElement[] {
-    return Array.from(
-      this.container.querySelectorAll<HTMLElement>(
-        'button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'
-      )
-    ).filter((el) => el.offsetParent !== null);
-  }
-
-  private setupKeyboardNavigation() {
-    this.keydownHandler = (e: KeyboardEvent) => {
-      if (isImeKeyEvent(e)) return;
-
-      if (e.key === "Tab") {
-        const focusable = this.getFocusableElements();
-        if (focusable.length === 0) return;
-
-        const activeEl = document.activeElement as HTMLElement;
-        const currentIndex = focusable.indexOf(activeEl);
-
-        if (currentIndex === -1) return;
-
-        e.preventDefault();
-
-        if (e.shiftKey) {
-          const prevIndex = currentIndex <= 0 ? focusable.length - 1 : currentIndex - 1;
-          focusable[prevIndex].focus();
-        } else {
-          const nextIndex = currentIndex >= focusable.length - 1 ? 0 : currentIndex + 1;
-          focusable[nextIndex].focus();
-        }
-      } else if (e.key === "Enter") {
-        const activeEl = document.activeElement as HTMLElement;
-        if (activeEl && activeEl.tagName === "BUTTON" && this.container.contains(activeEl)) {
-          e.preventDefault();
-          activeEl.click();
-        }
-      } else if (e.key === "Escape") {
-        const activeEl = document.activeElement as HTMLElement;
-        if (activeEl && this.container.contains(activeEl)) {
-          e.preventDefault();
-          useLinkCreatePopupStore.getState().closePopup();
-          this.editorView.focus();
-        }
-      }
-    };
-
-    document.addEventListener("keydown", this.keydownHandler);
-  }
-
-  private removeKeyboardNavigation() {
-    if (this.keydownHandler) {
-      document.removeEventListener("keydown", this.keydownHandler);
-      this.keydownHandler = null;
-    }
-  }
-
-  private show(state: ReturnType<typeof useLinkCreatePopupStore.getState>) {
-    const { anchorRect, showTextInput, text } = state;
-    /* v8 ignore next -- @preserve reason: show() is only called from the subscribe handler when state.anchorRect is truthy; this guard can never be false in practice */
-    if (!anchorRect) return;
-
-    // Rebuild container based on whether we need text input
-    this.buildContainer(showTextInput);
-
-    // Mount to editor container if available
-    this.host = getPopupHostForDom(this.editorView.dom) ?? document.body;
-    if (this.container.parentElement !== this.host) {
-      this.container.style.position = this.host === document.body ? "fixed" : "absolute";
-      this.host.appendChild(this.container);
-    }
-
-    this.container.style.display = "flex";
-
-    // Set initial values
-    if (this.textInput) {
-      this.textInput.value = text;
-    }
-    this.urlInput.value = "";
-
-    // Set guard to prevent immediate close
-    this.justOpened = true;
-    requestAnimationFrame(() => {
-      this.justOpened = false;
-    });
-
-    // Get boundaries
-    const containerEl = this.editorView.dom.closest(".editor-container") as HTMLElement | null;
-    const bounds = containerEl
-      ? getBoundaryRects(this.editorView.dom as HTMLElement, containerEl)
-      : getViewportBounds();
-
-    // Calculate position
-    const popupHeight = showTextInput ? 72 : 36;
-    const { top, left } = calculatePopupPosition({
-      anchor: anchorRect,
-      popup: { width: 320, height: popupHeight },
-      bounds,
-      gap: 6,
-      preferAbove: true,
-    });
-
-    // Convert to host-relative coordinates
-    if (this.host !== document.body) {
-      const hostPos = toHostCoordsForDom(this.host, { top, left });
-      this.container.style.top = `${hostPos.top}px`;
-      this.container.style.left = `${hostPos.left}px`;
-    } else {
-      this.container.style.top = `${top}px`;
-      this.container.style.left = `${left}px`;
-    }
-
-    // Set up keyboard navigation
-    this.setupKeyboardNavigation();
-
-    // Focus appropriate input
-    requestAnimationFrame(() => {
-      if (this.textInput && showTextInput) {
-        this.textInput.focus();
-        this.textInput.select();
-      } else {
-        this.urlInput.focus();
-      }
-    });
-  }
-
-  private hide() {
-    this.container.style.display = "none";
-    this.host = null;
-    this.removeKeyboardNavigation();
-  }
-
-  private handleTextInput = () => {
-    /* v8 ignore next -- @preserve reason: handler is bound to this.textInput's 'input' event, so textInput is always non-null when this handler fires */
-    if (this.textInput) {
-      useLinkCreatePopupStore.getState().setText(this.textInput.value);
-    }
-  };
-
-  private handleUrlInput = () => {
-    useLinkCreatePopupStore.getState().setUrl(this.urlInput.value);
-  };
-
-  private handleInputKeydown = (e: KeyboardEvent) => {
-    if (isImeKeyEvent(e)) return;
-    if (e.key === "Enter") {
-      e.preventDefault();
-      this.handleSave();
-    } else if (e.key === "Escape") {
-      e.preventDefault();
-      useLinkCreatePopupStore.getState().closePopup();
-      this.editorView.focus();
-    }
-  };
-
-  private handleSave = () => {
-    const state = useLinkCreatePopupStore.getState();
-    const { text, url, rangeFrom, rangeTo, showTextInput } = state;
-
-    // ADR-010: route URL normalization + validation through shared
-    // operations module so source-mode controller stays consistent.
-    const finalUrl = normalizeHref(url);
-    if (!isValidHref(finalUrl)) {
-      // Focus URL input if empty/invalid
-      this.urlInput.focus();
-      return;
-    }
-
-    // Get link text — falls back to the URL itself if user left text blank.
-    const linkText = showTextInput ? text.trim() || finalUrl : null;
-
-    try {
-      const { state: editorState, dispatch } = this.editorView;
-      if (!editorState) return;
-
-      const linkMark = editorState.schema.marks.link;
-      if (!linkMark) return;
-
-      const tr = editorState.tr;
-
-      if (showTextInput) {
-        // Create new text with link mark
-        const textNode = editorState.schema.text(linkText!, [linkMark.create({ href: finalUrl })]);
-        tr.replaceWith(rangeFrom, rangeTo, textNode);
-      } else {
-        // Apply link mark to existing selection/text
-        tr.addMark(rangeFrom, rangeTo, linkMark.create({ href: finalUrl }));
-      }
-
-      dispatch(tr);
-      useLinkCreatePopupStore.getState().closePopup();
-      this.editorView.focus();
-    } catch (error) {
-      linkPopupError("Save failed:", error);
-      useLinkCreatePopupStore.getState().closePopup();
-    }
-  };
-
-  private handleCancel = () => {
-    useLinkCreatePopupStore.getState().closePopup();
-    this.editorView.focus();
-  };
-
-  private handleClickOutside = (e: MouseEvent) => {
-    if (this.justOpened) return;
-
-    const { isOpen } = useLinkCreatePopupStore.getState();
-    if (!isOpen) return;
-
-    const target = e.target as Node;
-    if (!this.container.contains(target)) {
-      useLinkCreatePopupStore.getState().closePopup();
-    }
-  };
-
-  private handleScroll = () => {
-    const { isOpen } = useLinkCreatePopupStore.getState();
-    if (isOpen) {
-      useLinkCreatePopupStore.getState().closePopup();
-    }
-  };
-
-  destroy() {
-    this.unsubscribe();
-    this.removeKeyboardNavigation();
-    document.removeEventListener("mousedown", this.handleClickOutside);
-    this.editorView.dom.closest(".editor-container")?.removeEventListener("scroll", this.handleScroll, true);
-    this.container.remove();
+    dispatch(tr);
+    return true;
   }
 }

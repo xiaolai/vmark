@@ -122,6 +122,12 @@ function createMockView(overrides: Record<string, unknown> = {}) {
   const mockState = {
     schema: {
       marks: {},
+      nodes: {
+        paragraph: {
+          create: vi.fn(() => ({ type: { name: "paragraph" } })),
+        },
+      },
+      text: vi.fn((content: string) => ({ type: { name: "text" }, text: content })),
     },
     tr: mockTr,
     doc: {
@@ -322,8 +328,7 @@ describe("FootnotePopupView", () => {
   // Line 287 (catch block): handleSave dispatch throws
   // -------------------------------------------------------------------------
 
-  it("handleSave catch block logs error and closes popup when dispatch throws", () => {
-    
+  it("handleSave catch block logs error and keeps popup open when dispatch throws", () => {
     const viewWithError = createMockView({
       dispatch: vi.fn(() => { throw new Error("save dispatch failed"); }),
     });
@@ -331,21 +336,17 @@ describe("FootnotePopupView", () => {
     const popup = new FootnotePopupView(viewWithError as never);
     triggerStore({ isOpen: true, anchorRect: ANCHOR, definitionPos: 10, label: "1" });
 
-    // Trigger save via the save button
-    const _saveBtn = viewWithError._editorContainer.querySelector
-      ? null
-      : null;
-
     // Trigger via Enter key on textarea (which calls handleSave)
     const textarea = popup["textarea"] as HTMLTextAreaElement;
     const event = new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true });
     textarea.dispatchEvent(event);
 
     expect(footnotePopupError).toHaveBeenCalledWith(
-      "Save failed:",
+      "Save failed; keeping popup open to preserve the edit:",
       expect.any(Error)
     );
-    expect(mockClosePopup).toHaveBeenCalled();
+    // The popup must stay open so the user's edited text isn't lost
+    expect(mockClosePopup).not.toHaveBeenCalled();
 
     popup.destroy();
     viewWithError._editorContainer.remove();

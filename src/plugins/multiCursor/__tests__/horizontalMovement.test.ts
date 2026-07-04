@@ -143,6 +143,69 @@ describe("handleMultiCursorHorizontal", () => {
     });
   });
 
+  describe("char movement — grapheme clusters", () => {
+    // "a👍b": a at [1,2), 👍 (surrogate pair) at [2,4), b at [4,5)
+    it("moves right over an emoji as one step (no surrogate split)", () => {
+      const state = createMultiState("a👍b", [{ from: 2, to: 2 }]);
+      const tr = handleMultiCursorHorizontal(state, "ArrowRight", false, "char");
+      expect(tr).not.toBeNull();
+      const multiSel = state.apply(tr!).selection as MultiSelection;
+      expect(multiSel.ranges[0].$from.pos).toBe(4);
+    });
+
+    it("moves left over an emoji as one step (no surrogate split)", () => {
+      const state = createMultiState("a👍b", [{ from: 4, to: 4 }]);
+      const tr = handleMultiCursorHorizontal(state, "ArrowLeft", false, "char");
+      expect(tr).not.toBeNull();
+      const multiSel = state.apply(tr!).selection as MultiSelection;
+      expect(multiSel.ranges[0].$from.pos).toBe(2);
+    });
+
+    it("moves right over a ZWJ family emoji as one step", () => {
+      // 👨‍👩‍👧 is 8 UTF-16 code units (2+1+2+1+2)
+      const state = createMultiState("👨‍👩‍👧x", [{ from: 1, to: 1 }]);
+      const tr = handleMultiCursorHorizontal(state, "ArrowRight", false, "char");
+      expect(tr).not.toBeNull();
+      const multiSel = state.apply(tr!).selection as MultiSelection;
+      expect(multiSel.ranges[0].$from.pos).toBe(9);
+    });
+
+    it("moves right over a flag emoji as one step", () => {
+      // 🇺🇸 is 4 UTF-16 code units (two regional indicators)
+      const state = createMultiState("🇺🇸x", [{ from: 1, to: 1 }]);
+      const tr = handleMultiCursorHorizontal(state, "ArrowRight", false, "char");
+      expect(tr).not.toBeNull();
+      const multiSel = state.apply(tr!).selection as MultiSelection;
+      expect(multiSel.ranges[0].$from.pos).toBe(5);
+    });
+
+    it("moves left over a combining character sequence as one step", () => {
+      // "é" is one grapheme (e + combining acute), 2 code units at [1,3)
+      const state = createMultiState("éx", [{ from: 3, to: 3 }]);
+      const tr = handleMultiCursorHorizontal(state, "ArrowLeft", false, "char");
+      expect(tr).not.toBeNull();
+      const multiSel = state.apply(tr!).selection as MultiSelection;
+      expect(multiSel.ranges[0].$from.pos).toBe(1);
+    });
+
+    it("extends right over an emoji selecting the whole grapheme", () => {
+      const state = createMultiState("a👍b", [{ from: 2, to: 2 }]);
+      const tr = handleMultiCursorHorizontal(state, "ArrowRight", true, "char");
+      expect(tr).not.toBeNull();
+      const multiSel = state.apply(tr!).selection as MultiSelection;
+      expect(multiSel.ranges[0].$from.pos).toBe(2);
+      expect(multiSel.ranges[0].$to.pos).toBe(4);
+    });
+
+    it("still moves across plain ASCII one character at a time", () => {
+      const state = createMultiState("ab", [{ from: 1, to: 1 }]);
+      const tr = handleMultiCursorHorizontal(state, "ArrowRight", false, "char");
+      expect(tr).not.toBeNull();
+      const multiSel = state.apply(tr!).selection as MultiSelection;
+      expect(multiSel.ranges[0].$from.pos).toBe(2);
+    });
+  });
+
   describe("word movement", () => {
     it("moves cursor to next word boundary", () => {
       const state = createMultiState("hello world", [

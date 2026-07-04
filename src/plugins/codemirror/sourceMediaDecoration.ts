@@ -28,12 +28,18 @@ import {
   type ViewUpdate,
 } from "@codemirror/view";
 
-type MediaType = "video" | "audio" | "youtube" | "vimeo" | "bilibili";
+export type MediaType = "video" | "audio" | "youtube" | "vimeo" | "bilibili";
 
-interface MediaBlock {
+export interface MediaBlock {
   type: MediaType;
   startLine: number;
   endLine: number;
+}
+
+/** Minimal CodeMirror doc surface the pure scanning helpers need. */
+export interface MediaDocLike {
+  lines: number;
+  line(n: number): { text: string; from: number };
 }
 
 /** Maximum lines to scan forward looking for a closing tag */
@@ -60,7 +66,7 @@ const SELF_CLOSING_REGEX = /\/>\s*$/;
  * Classify an iframe line by its src attribute.
  * Returns null if the iframe doesn't match any known video platform.
  */
-function classifyIframe(text: string): MediaType | null {
+export function classifyIframe(text: string): MediaType | null {
   if (IFRAME_SRC_YOUTUBE.test(text)) return "youtube";
   if (IFRAME_SRC_VIMEO.test(text)) return "vimeo";
   if (IFRAME_SRC_BILIBILI.test(text)) return "bilibili";
@@ -68,67 +74,77 @@ function classifyIframe(text: string): MediaType | null {
 }
 
 /**
+ * Match a line against the media opening-tag pattern and classify it.
+ * Returns the raw tag (for close-tag matching) and the media type,
+ * or null when the line doesn't open a recognized media block.
+ */
+export function matchMediaOpenTag(text: string): { tag: string; type: MediaType } | null {
+  const openMatch = MEDIA_OPEN_REGEX.exec(text);
+  if (!openMatch) return null;
+
+  const tag = openMatch[1].toLowerCase(); // "video", "audio", or "iframe"
+  const type = tag === "video" || tag === "audio" ? tag : classifyIframe(text);
+  if (!type) return null;
+
+  return { tag, type };
+}
+
+/** Whether the opening line also completes the block (self-closing or same-line close). */
+export function isSingleLineMediaBlock(text: string, tag: string): boolean {
+  return SELF_CLOSING_REGEX.test(text) || CLOSE_REGEXES[tag].test(text);
+}
+
+/**
+ * Find the line carrying the closing tag for a block opened at `startLine`.
+ * Lookahead is bounded to MAX_LOOKAHEAD lines; returns null when no close
+ * tag is found within the bound (caller treats the block as single-line).
+ */
+export function findMediaCloseLine(doc: MediaDocLike, tag: string, startLine: number): number | null {
+  const closeRegex = CLOSE_REGEXES[tag];
+  let endLine = startLine;
+  while (endLine < doc.lines && endLine - startLine < MAX_LOOKAHEAD) {
+    endLine++;
+    if (closeRegex.test(doc.line(endLine).text)) {
+      return endLine;
+    }
+  }
+  return null;
+}
+
+/**
  * Find all media blocks in the document.
  * Uses a single combined regex per line and bounded lookahead for closing tags.
  */
-function findMediaBlocks(doc: { lines: number; line: (n: number) => { text: string; from: number } }): MediaBlock[] {
+export function findMediaBlocks(doc: MediaDocLike): MediaBlock[] {
   const blocks: MediaBlock[] = [];
   let i = 1;
 
   while (i <= doc.lines) {
-    const line = doc.line(i);
-    const text = line.text;
+    const text = doc.line(i).text;
 
-    const openMatch = MEDIA_OPEN_REGEX.exec(text);
-    if (!openMatch) {
+    const open = matchMediaOpenTag(text);
+    if (!open) {
       i++;
       continue;
     }
 
-    const tag = openMatch[1].toLowerCase(); // "video", "audio", or "iframe"
-    let type: MediaType | null = null;
-
-    if (tag === "video" || tag === "audio") {
-      type = tag;
-    } else {
-      // iframe — classify by src
-      type = classifyIframe(text);
-    }
-
-    if (!type) {
-      i++;
-      continue;
-    }
-
-    const closeRegex = CLOSE_REGEXES[tag];
     const startLine = i;
 
-    // Check if self-closing or close tag on same line
-    if (SELF_CLOSING_REGEX.test(text) || closeRegex.test(text)) {
-      blocks.push({ type, startLine, endLine: i });
+    if (isSingleLineMediaBlock(text, open.tag)) {
+      blocks.push({ type: open.type, startLine, endLine: startLine });
       i++;
       continue;
     }
 
-    // Find the closing tag on subsequent lines (bounded lookahead)
-    let endLine = i;
-    let foundClose = false;
-    while (endLine < doc.lines && endLine - startLine < MAX_LOOKAHEAD) {
-      endLine++;
-      const nextLine = doc.line(endLine);
-      if (closeRegex.test(nextLine.text)) {
-        foundClose = true;
-        break;
-      }
-    }
-
-    if (foundClose) {
-      blocks.push({ type, startLine, endLine });
+    const closeLine = findMediaCloseLine(doc, open.tag, startLine);
+    if (closeLine !== null) {
+      blocks.push({ type: open.type, startLine, endLine: closeLine });
+      i = closeLine + 1;
     } else {
       // No close tag within lookahead — treat as single-line
-      blocks.push({ type, startLine, endLine: startLine });
+      blocks.push({ type: open.type, startLine, endLine: startLine });
+      i = startLine + 1;
     }
-    i = (foundClose ? endLine : startLine) + 1;
   }
 
   return blocks;

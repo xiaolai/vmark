@@ -451,21 +451,6 @@ describe("WysiwygPopupView", () => {
   });
 
   describe("Utility methods", () => {
-    it("buildIconButton creates a button with click handler", () => {
-      const clickHandler = vi.fn();
-      const btn = (popup as unknown as { buildIconButton: (svg: string, title: string, onClick: () => void) => HTMLButtonElement }).buildIconButton(
-        "icon-text",
-        "Test Button",
-        clickHandler
-      );
-
-      expect(btn.tagName).toBe("BUTTON");
-      expect(btn.title).toBe("Test Button");
-
-      btn.click();
-      expect(clickHandler).toHaveBeenCalled();
-    });
-
     it("isVisible returns correct state", () => {
       const isVisible = (popup as unknown as { isVisible: () => boolean }).isVisible;
       expect(isVisible.call(popup)).toBe(false);
@@ -510,6 +495,84 @@ describe("WysiwygPopupView", () => {
       // Close again — wasOpen is already false, should not call onHide
       storeApi.emit({ isOpen: false, anchorRect: null });
       expect(popup.hideCalled).toBe(false);
+    });
+  });
+
+  describe("Reshow hook (shouldReshow)", () => {
+    class ReshowPopup extends TestPopupView {
+      protected shouldReshow(prev: TestState, state: TestState): boolean {
+        return prev.text !== state.text;
+      }
+    }
+
+    it("re-shows while open when shouldReshow returns true", () => {
+      popup.destroy();
+      storeApi = createMockStore();
+      popup = new ReshowPopup(view, storeApi.store);
+
+      storeApi.emit({ isOpen: true, anchorRect, text: "a" });
+      expect(popup.showCalled).toBe(true);
+      popup.showCalled = false;
+
+      storeApi.emit({ isOpen: true, anchorRect, text: "b" });
+      expect(popup.showCalled).toBe(true);
+    });
+
+    it("does not re-show while open when tracked state is unchanged", () => {
+      popup.destroy();
+      storeApi = createMockStore();
+      popup = new ReshowPopup(view, storeApi.store);
+
+      storeApi.emit({ isOpen: true, anchorRect, text: "a" });
+      popup.showCalled = false;
+
+      storeApi.emit({ isOpen: true, anchorRect, text: "a" });
+      expect(popup.showCalled).toBe(false);
+    });
+  });
+
+  describe("syncFromStore", () => {
+    class SyncPopup extends TestPopupView {
+      sync(): void {
+        this.syncFromStore();
+      }
+    }
+
+    it("shows popup when store is already open at sync time", () => {
+      popup.destroy();
+      storeApi = createMockStore();
+      // Store opens before the view exists (no emit — direct state)
+      const openState = {
+        ...storeApi.store.getState(),
+        isOpen: true,
+        anchorRect,
+      };
+      const syncStore: StoreApi<TestState> = {
+        getState: () => openState,
+        subscribe: storeApi.store.subscribe,
+      };
+
+      const syncPopup = new SyncPopup(view, syncStore);
+      expect(syncPopup.showCalled).toBe(false);
+
+      syncPopup.sync();
+      expect(syncPopup.showCalled).toBe(true);
+
+      syncPopup.destroy();
+      popup = new TestPopupView(view, storeApi.store);
+    });
+
+    it("is a no-op when store is closed", () => {
+      popup.destroy();
+      storeApi = createMockStore();
+      const syncPopup = new SyncPopup(view, storeApi.store);
+
+      syncPopup.sync();
+      expect(syncPopup.showCalled).toBe(false);
+      expect(syncPopup.hideCalled).toBe(false);
+
+      syncPopup.destroy();
+      popup = new TestPopupView(view, storeApi.store);
     });
   });
 

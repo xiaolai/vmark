@@ -36,7 +36,7 @@ export function selectNextOccurrence(state: EditorState): Transaction | null {
   let currentFrom: number;
   let currentTo: number;
   let selectedFromEmpty = false;
-  let bounds: { from: number; to: number } | null = null;
+  let bounds: { from: number; to: number } | null;
 
   // Get current ranges (may be MultiSelection or regular selection)
   const existingRanges: SelectionRange[] = [];

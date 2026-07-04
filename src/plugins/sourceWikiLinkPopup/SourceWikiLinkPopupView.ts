@@ -14,6 +14,7 @@ import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { sourceActionError } from "@/utils/debug";
 import { buildPopupIconButton, popupIcons } from "@/utils/popupComponents";
 import { IMAGE_EXTENSIONS } from "@/utils/mediaExtensions";
+import { pathToWikiTarget } from "@/plugins/wikiLinkPopup/wikiLinkPaths";
 import {
   copyWikiLinkTarget,
   openWikiLink,
@@ -24,29 +25,6 @@ import {
 /** Build a source-wiki-link popup icon button with the popup's bespoke styling. */
 function buildSourceWikiLinkBtn(iconSvg: string, title: string, onClick: () => void): HTMLButtonElement {
   return buildPopupIconButton({ iconSvg, title, onClick, baseClass: "source-wiki-link-popup-btn" });
-}
-
-/**
- * Convert an absolute file path to a wiki link target (workspace-relative, without .md).
- */
-function pathToWikiTarget(filePath: string, workspaceRoot: string | null): string {
-  if (!workspaceRoot) return filePath;
-
-  // Remove workspace root prefix
-  let relative = filePath;
-  if (filePath.startsWith(workspaceRoot)) {
-    relative = filePath.slice(workspaceRoot.length);
-    if (relative.startsWith("/")) {
-      relative = relative.slice(1);
-    }
-  }
-
-  // Remove .md extension
-  if (relative.endsWith(".md")) {
-    relative = relative.slice(0, -3);
-  }
-
-  return relative;
 }
 
 /**

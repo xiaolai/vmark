@@ -12,6 +12,7 @@ import { useWikiLinkPopupStore } from "@/stores/wikiLinkPopupStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { runOrQueueCodeMirrorAction } from "@/utils/imeGuard";
 import { sourcePopupWarn, sourceActionError } from "@/utils/debug";
+import { resolveWikiLinkPath } from "@/plugins/wikiLinkPopup/wikiLinkPaths";
 
 /**
  * Build wiki link markdown syntax.
@@ -56,23 +57,6 @@ function getWikiLinkRange(view: EditorView) {
   const { nodePos } = useWikiLinkPopupStore.getState();
   if (nodePos === null) return null;
   return findWikiLinkAtPos(view, nodePos);
-}
-
-/**
- * Resolve a wiki link target to a full file path.
- */
-function resolveWikiLinkPath(target: string, workspaceRoot: string | null): string | null {
-  /* v8 ignore next -- @preserve reason: missing target or workspace root not tested */
-  if (!target || !workspaceRoot) return null;
-
-  // If target already looks like a path, use it directly
-  if (target.includes("/") || target.endsWith(".md")) {
-    const normalized = target.endsWith(".md") ? target : `${target}.md`;
-    return `${workspaceRoot}/${normalized}`;
-  }
-
-  // Simple target name - assume it's in workspace root with .md extension
-  return `${workspaceRoot}/${target}.md`;
 }
 
 /**

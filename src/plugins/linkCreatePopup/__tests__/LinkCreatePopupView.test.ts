@@ -414,7 +414,9 @@ describe("LinkCreatePopupView", () => {
       document.dispatchEvent(event);
     });
 
-    it("Enter on button triggers click", async () => {
+    it("does not swallow Enter on a focused button (native activation saves)", async () => {
+      // Enter on a focused <button> is native browser activation (fires click).
+      // The popup must not preventDefault it, and the resulting click must save.
       emitStateChange({
         isOpen: true, anchorRect, showTextInput: true,
         text: "test", url: "https://example.com",
@@ -422,12 +424,16 @@ describe("LinkCreatePopupView", () => {
       });
       await new Promise((r) => requestAnimationFrame(r));
 
-      const saveBtn = dom.container.querySelector(".link-create-popup-btn-save") as HTMLElement;
+      const saveBtn = dom.container.querySelector(".link-create-popup-btn-save") as HTMLButtonElement;
       saveBtn.focus();
 
+      // Real keyboard events target the focused element and bubble up
       const event = new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true });
-      document.dispatchEvent(event);
+      saveBtn.dispatchEvent(event);
+      expect(event.defaultPrevented).toBe(false);
 
+      // jsdom does not perform native activation; the click it would fire saves
+      saveBtn.click();
       expect(view.dispatch).toHaveBeenCalled();
     });
 
@@ -965,9 +971,10 @@ describe("LinkCreatePopupView", () => {
       const last = candidates[candidates.length - 1];
       last.focus();
 
-      // Tab should wrap to first
+      // Tab should wrap to first (real keyboard events target the focused
+      // element and bubble through the popup container)
       const event = new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true });
-      document.dispatchEvent(event);
+      last.dispatchEvent(event);
 
       expect(document.activeElement).toBe(candidates[0]);
     });
@@ -990,9 +997,10 @@ describe("LinkCreatePopupView", () => {
       // Focus the FIRST focusable element
       candidates[0].focus();
 
-      // Shift+Tab should wrap to last
+      // Shift+Tab should wrap to last (real keyboard events target the
+      // focused element and bubble through the popup container)
       const event = new KeyboardEvent("keydown", { key: "Tab", shiftKey: true, bubbles: true, cancelable: true });
-      document.dispatchEvent(event);
+      candidates[0].dispatchEvent(event);
 
       expect(document.activeElement).toBe(candidates[candidates.length - 1]);
     });

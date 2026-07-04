@@ -60,6 +60,12 @@ vi.mock("../tiptapDomUtils", () => ({
   scrollToPosition: vi.fn(),
 }));
 
+// The real parser needs a real schema; the view tests use a mock schema,
+// so return an empty parsed doc (normalization then builds an empty paragraph).
+vi.mock("@/utils/markdownPipeline", () => ({
+  parseMarkdown: vi.fn(() => ({ forEach: (_cb: (child: unknown) => void) => {} })),
+}));
+
 vi.mock("../footnotePopupDom", () => ({
   AUTOFOCUS_DELAY_MS: 50,
   BLUR_CHECK_DELAY_MS: 50,
@@ -682,7 +688,7 @@ describe("FootnotePopupView", () => {
       expect(view.dispatch).not.toHaveBeenCalled();
     });
 
-    it("save catches error and closes", async () => {
+    it("save failure keeps the popup open (user's edit is not lost)", async () => {
       view.state.doc.nodeAt = vi.fn(() => ({
         type: { name: "footnote_definition" },
         attrs: { label: "1" },
@@ -703,8 +709,11 @@ describe("FootnotePopupView", () => {
       const saveBtn = dom.container.querySelector(".footnote-popup-btn-save") as HTMLElement;
       saveBtn.click();
 
-      expect(mockClosePopup).toHaveBeenCalled();
+      // Error is logged but the popup stays open so the text isn't discarded
       expect(consoleSpy).toHaveBeenCalled();
+      expect(mockClosePopup).not.toHaveBeenCalled();
+      const popupEl = dom.container.querySelector(".footnote-popup") as HTMLElement;
+      expect(popupEl.style.display).toBe("flex");
       consoleSpy.mockRestore();
     });
   });
@@ -865,6 +874,83 @@ describe("FootnotePopupView", () => {
       deleteBtn.click();
 
       expect(view.dispatch).toHaveBeenCalled();
+      expect(mockClosePopup).toHaveBeenCalled();
+    });
+
+    it("delete with stale reference label deletes only the matching definition", async () => {
+      // The doc changed since the popup captured referencePos: the node at
+      // referencePos is a footnote_reference, but for a DIFFERENT label.
+      view.state.doc.nodeAt = vi.fn((pos: number) => {
+        if (pos === 10) return { type: { name: "footnote_reference" }, attrs: { label: "2" }, nodeSize: 3 };
+        if (pos === 500) return { type: { name: "footnote_definition" }, attrs: { label: "1" }, nodeSize: 10 };
+        return null;
+      });
+      emitStateChange({
+        isOpen: true,
+        label: "1",
+        content: "Test",
+        anchorRect,
+        definitionPos: 500,
+        referencePos: 10,
+      });
+      await new Promise((r) => requestAnimationFrame(r));
+
+      const deleteBtn = dom.container.querySelector(".footnote-popup-btn-delete") as HTMLElement;
+      deleteBtn.click();
+
+      // Only the verified definition is deleted — never the mismatched reference
+      expect(view.state.tr.delete).toHaveBeenCalledTimes(1);
+      expect(view.state.tr.delete).toHaveBeenCalledWith(500, 510);
+      expect(view.dispatch).toHaveBeenCalled();
+      expect(mockClosePopup).toHaveBeenCalled();
+    });
+
+    it("delete with stale definition label deletes only the matching reference", async () => {
+      view.state.doc.nodeAt = vi.fn((pos: number) => {
+        if (pos === 10) return { type: { name: "footnote_reference" }, attrs: { label: "1" }, nodeSize: 3 };
+        if (pos === 500) return { type: { name: "footnote_definition" }, attrs: { label: "9" }, nodeSize: 10 };
+        return null;
+      });
+      emitStateChange({
+        isOpen: true,
+        label: "1",
+        content: "Test",
+        anchorRect,
+        definitionPos: 500,
+        referencePos: 10,
+      });
+      await new Promise((r) => requestAnimationFrame(r));
+
+      const deleteBtn = dom.container.querySelector(".footnote-popup-btn-delete") as HTMLElement;
+      deleteBtn.click();
+
+      expect(view.state.tr.delete).toHaveBeenCalledTimes(1);
+      expect(view.state.tr.delete).toHaveBeenCalledWith(10, 13);
+      expect(view.dispatch).toHaveBeenCalled();
+      expect(mockClosePopup).toHaveBeenCalled();
+    });
+
+    it("delete with both labels mismatched closes without deleting anything", async () => {
+      view.state.doc.nodeAt = vi.fn((pos: number) => {
+        if (pos === 10) return { type: { name: "footnote_reference" }, attrs: { label: "2" }, nodeSize: 3 };
+        if (pos === 500) return { type: { name: "footnote_definition" }, attrs: { label: "3" }, nodeSize: 10 };
+        return null;
+      });
+      emitStateChange({
+        isOpen: true,
+        label: "1",
+        content: "Test",
+        anchorRect,
+        definitionPos: 500,
+        referencePos: 10,
+      });
+      await new Promise((r) => requestAnimationFrame(r));
+
+      const deleteBtn = dom.container.querySelector(".footnote-popup-btn-delete") as HTMLElement;
+      deleteBtn.click();
+
+      expect(view.state.tr.delete).not.toHaveBeenCalled();
+      expect(view.dispatch).not.toHaveBeenCalled();
       expect(mockClosePopup).toHaveBeenCalled();
     });
 

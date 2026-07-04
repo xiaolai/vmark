@@ -581,6 +581,36 @@ describe("MathPopupView", () => {
       // (the error element might show text from the second render, not the stale one)
       // The test verifies no crash and the stale rejection path is exercised
     });
+
+    it("does not resurrect a cleared preview when a stale render resolves after input is emptied", async () => {
+      const { loadKatex } = await import("@/plugins/latex/katexLoader");
+      let resolveKatex!: (val: unknown) => void;
+      vi.mocked(loadKatex).mockImplementationOnce(
+        () => new Promise<unknown>((resolve) => { resolveKatex = resolve; })
+      );
+      // Make the (stale) render actually write into the preview element
+      mockRender.mockImplementationOnce((tex: string, el: HTMLElement) => {
+        el.textContent = tex;
+      });
+
+      // Open popup with non-empty latex — render for "x^2" is now pending
+      emitStateChange({ isOpen: true, latex: "x^2", nodePos: 5, anchorRect });
+      await new Promise((r) => requestAnimationFrame(r));
+
+      // Clear the input BEFORE the pending render resolves — preview clears
+      const textarea = dom.container.querySelector(".math-popup-input") as HTMLTextAreaElement;
+      textarea.value = "";
+      textarea.dispatchEvent(new Event("input", { bubbles: true }));
+
+      const preview = dom.container.querySelector(".math-popup-preview") as HTMLElement;
+      expect(preview.textContent).toBe("");
+
+      // Now the stale promise resolves — it must NOT overwrite the cleared preview
+      resolveKatex({ default: { render: mockRender } });
+      await new Promise((r) => setTimeout(r, 20));
+
+      expect(preview.textContent).toBe("");
+    });
   });
 
   describe("DOM structure", () => {
@@ -722,7 +752,10 @@ describe("MathPopupView", () => {
       emitStateChange({ isOpen: true, latex: "x", nodePos: 10, anchorRect });
       await new Promise((r) => requestAnimationFrame(r));
 
-      vi.spyOn(imeGuard, "isImeKeyEvent" as never).mockReturnValueOnce(true as never);
+      // A real IME key event reports true for EVERY handler that checks it
+      // (textarea handler, tab-nav handler, document-level Escape handler),
+      // so the mock must be persistent, not one-shot.
+      vi.spyOn(imeGuard, "isImeKeyEvent" as never).mockReturnValue(true as never);
 
       const textarea = dom.container.querySelector(".math-popup-input") as HTMLTextAreaElement;
       textarea.focus();

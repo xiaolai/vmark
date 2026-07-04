@@ -80,10 +80,6 @@ class TestPopupView extends WysiwygPopupView<TestState> {
     return this.isVisible();
   }
 
-  public testBuildIconButton(svg: string, title: string, onClick: () => void) {
-    return this.buildIconButton(svg, title, onClick);
-  }
-
   public getContainer(): HTMLElement {
     return this.container;
   }
@@ -299,19 +295,6 @@ describe("WysiwygPopupView", () => {
     }
 
     expect(closeFn).toHaveBeenCalled();
-  });
-
-  it("buildIconButton creates a button with click handler", () => {
-    const onClick = vi.fn();
-    const btn = view.testBuildIconButton("<svg></svg>", "Test", onClick);
-
-    expect(btn.tagName).toBe("BUTTON");
-    expect(btn.type).toBe("button");
-    expect(btn.className).toBe("popup-icon-btn");
-    expect(btn.title).toBe("Test");
-
-    btn.click();
-    expect(onClick).toHaveBeenCalled();
   });
 
   it("destroy removes container from DOM and unsubscribes", () => {
