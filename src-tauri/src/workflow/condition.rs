@@ -21,13 +21,14 @@
 //! | `${{ ... }}`, `steps.X.outputs.Y`, `env.NAME` | reference operands (via `expressions::resolve`) |
 //! | `==`, `!=` | equality (numeric if both parse as f64, else string) |
 //! | `>`, `<`, `>=`, `<=` | numeric comparison |
-//! | `&&`, `\|\|`, `!`, `( )` | boolean composition |
+//! | `&&`, `\|\|`, `!`, `( )` | boolean composition (`&&`/`\|\|` short-circuit: a dead RHS is parsed but never resolved) |
 //!
 //! Fail-loud: any unparseable or unsupported condition returns `Err(String)`.
 //! The runner MUST treat that `Err` as a step failure, never as a silent pass.
 
 use std::collections::HashMap;
 
+use super::condition_lexer::{tokenize, Token};
 use super::expressions::{self, WorkflowOutputs};
 
 /// Evaluate a step's `if:` condition to a boolean.
@@ -51,7 +52,7 @@ pub fn evaluate_condition(
         env,
         any_failed,
     };
-    let value = parser.parse_expr(0, 0)?;
+    let value = parser.parse_expr(0, 0, false)?;
     if parser.pos != parser.tokens.len() {
         return Err(format!(
             "Unexpected trailing tokens in condition: {}",
@@ -116,185 +117,9 @@ impl Value {
     }
 }
 
-// === Tokens ===
-
-#[derive(Debug, Clone, PartialEq)]
-enum Token {
-    /// Reference / literal operand text, resolved lazily at eval time.
-    /// `is_ref` distinguishes a quoted string literal (false) from a bare
-    /// identifier or `${{ }}` reference (true).
-    Operand {
-        text: String,
-        is_ref: bool,
-    },
-    Eq,
-    Ne,
-    Gt,
-    Lt,
-    Ge,
-    Le,
-    And,
-    Or,
-    Not,
-    LParen,
-    RParen,
-}
-
-fn tokenize(input: &str) -> Result<Vec<Token>, String> {
-    let chars: Vec<char> = input.chars().collect();
-    let mut tokens = Vec::new();
-    let mut i = 0;
-
-    while i < chars.len() {
-        let c = chars[i];
-
-        if c.is_whitespace() {
-            i += 1;
-            continue;
-        }
-
-        match c {
-            '(' => {
-                tokens.push(Token::LParen);
-                i += 1;
-            }
-            ')' => {
-                tokens.push(Token::RParen);
-                i += 1;
-            }
-            '!' => {
-                if peek(&chars, i + 1) == Some('=') {
-                    tokens.push(Token::Ne);
-                    i += 2;
-                } else {
-                    tokens.push(Token::Not);
-                    i += 1;
-                }
-            }
-            '=' => {
-                if peek(&chars, i + 1) == Some('=') {
-                    tokens.push(Token::Eq);
-                    i += 2;
-                } else {
-                    return Err("Unexpected '=' (did you mean '=='?)".to_string());
-                }
-            }
-            '>' => {
-                if peek(&chars, i + 1) == Some('=') {
-                    tokens.push(Token::Ge);
-                    i += 2;
-                } else {
-                    tokens.push(Token::Gt);
-                    i += 1;
-                }
-            }
-            '<' => {
-                if peek(&chars, i + 1) == Some('=') {
-                    tokens.push(Token::Le);
-                    i += 2;
-                } else {
-                    tokens.push(Token::Lt);
-                    i += 1;
-                }
-            }
-            '&' => {
-                if peek(&chars, i + 1) == Some('&') {
-                    tokens.push(Token::And);
-                    i += 2;
-                } else {
-                    return Err("Unexpected '&' (did you mean '&&'?)".to_string());
-                }
-            }
-            '|' => {
-                if peek(&chars, i + 1) == Some('|') {
-                    tokens.push(Token::Or);
-                    i += 2;
-                } else {
-                    return Err("Unexpected '|' (did you mean '||'?)".to_string());
-                }
-            }
-            '\'' | '"' => {
-                let quote = c;
-                let mut s = String::new();
-                i += 1;
-                let mut closed = false;
-                while i < chars.len() {
-                    if chars[i] == quote {
-                        closed = true;
-                        i += 1;
-                        break;
-                    }
-                    s.push(chars[i]);
-                    i += 1;
-                }
-                if !closed {
-                    return Err(format!("Unterminated string literal: {}{}", quote, s));
-                }
-                tokens.push(Token::Operand {
-                    text: s,
-                    is_ref: false,
-                });
-            }
-            '$' if peek(&chars, i + 1) == Some('{') && peek(&chars, i + 2) == Some('{') => {
-                // `${{ ... }}` reference operand — capture up to the matching `}}`.
-                let start = i;
-                i += 3;
-                let mut closed = false;
-                while i < chars.len() {
-                    if chars[i] == '}' && peek(&chars, i + 1) == Some('}') {
-                        i += 2;
-                        closed = true;
-                        break;
-                    }
-                    i += 1;
-                }
-                if !closed {
-                    return Err("Unterminated `${{` reference".to_string());
-                }
-                let text: String = chars[start..i].iter().collect();
-                tokens.push(Token::Operand { text, is_ref: true });
-            }
-            _ => {
-                // Bare operand: identifier path, number, or status function.
-                // Allowed chars: letters, digits, `.`, `_`, `-`. We stop at
-                // any operator, paren, or whitespace — except an immediately
-                // trailing `()` is consumed so status functions like
-                // `success()` tokenize as a single operand. A standalone `(`
-                // or `)` is left for the grouping branches above.
-                let start = i;
-                while i < chars.len() {
-                    let ch = chars[i];
-                    if ch.is_alphanumeric() || ch == '.' || ch == '_' || ch == '-' {
-                        i += 1;
-                    } else {
-                        break;
-                    }
-                }
-                // Consume a trailing `()` for function-call syntax only.
-                if peek(&chars, i) == Some('(') && peek(&chars, i + 1) == Some(')') {
-                    i += 2;
-                }
-                let text: String = chars[start..i].iter().collect();
-                if text.is_empty() {
-                    return Err(format!("Unexpected character '{}' in condition", c));
-                }
-                tokens.push(Token::Operand { text, is_ref: true });
-            }
-        }
-    }
-
-    if tokens.is_empty() {
-        return Err("Empty condition".to_string());
-    }
-
-    Ok(tokens)
-}
-
-fn peek(chars: &[char], idx: usize) -> Option<char> {
-    chars.get(idx).copied()
-}
-
 // === Parser (Pratt) ===
+// Tokens come from `condition_lexer::tokenize` (split into a sibling module
+// to keep this file within the size ratchet).
 
 /// Maximum nesting depth for the recursive-descent / Pratt parser.
 ///
@@ -339,14 +164,20 @@ impl Parser<'_> {
         }
     }
 
-    fn parse_expr(&mut self, min_bp: u8, depth: usize) -> Result<Value, String> {
+    /// Parse (and evaluate) an expression. When `skip` is true the tokens are
+    /// consumed with full syntax checking but nothing is *evaluated*: operand
+    /// resolution and operator application are bypassed, so a dead branch of
+    /// `&&` / `||` (GitHub-Actions-style short-circuit) cannot fail the
+    /// condition via a missing reference or type error. Syntax errors still
+    /// surface — short-circuiting skips evaluation, never parsing.
+    fn parse_expr(&mut self, min_bp: u8, depth: usize, skip: bool) -> Result<Value, String> {
         if depth > MAX_PARSE_DEPTH {
             return Err(format!(
                 "Condition nesting too deep (max {})",
                 MAX_PARSE_DEPTH
             ));
         }
-        let mut lhs = self.parse_prefix(depth + 1)?;
+        let mut lhs = self.parse_prefix(depth + 1, skip)?;
 
         while let Some(tok) = self.peek_tok() {
             let Some(bp) = Self::binary_bp(tok) else {
@@ -355,15 +186,37 @@ impl Parser<'_> {
             if bp < min_bp {
                 break;
             }
-            let op = self.advance().expect("peeked token exists");
-            let rhs = self.parse_expr(bp + 1, depth + 1)?;
-            lhs = self.apply_binary(&op, lhs, rhs)?;
+            // Clone the peeked operator and consume it in one step — no second
+            // lookup that could panic if peek and advance ever disagreed
+            // (release builds abort on panic; this parser sees user input).
+            let op = tok.clone();
+            self.pos += 1;
+            // Short-circuit: once the LHS decides an `&&` / `||`, the RHS is
+            // parsed in skip mode (dead branch).
+            let rhs_skip = skip
+                || match op {
+                    Token::And => !lhs.truthy(),
+                    Token::Or => lhs.truthy(),
+                    _ => false,
+                };
+            let rhs = self.parse_expr(bp + 1, depth + 1, rhs_skip)?;
+            lhs = if skip {
+                // Dead branch: keep parsing, never evaluate. The value is a
+                // placeholder the caller discards.
+                Value::Bool(false)
+            } else {
+                match op {
+                    Token::And => Value::Bool(lhs.truthy() && !rhs_skip && rhs.truthy()),
+                    Token::Or => Value::Bool(lhs.truthy() || (!rhs_skip && rhs.truthy())),
+                    _ => self.apply_binary(&op, lhs, rhs)?,
+                }
+            };
         }
 
         Ok(lhs)
     }
 
-    fn parse_prefix(&mut self, depth: usize) -> Result<Value, String> {
+    fn parse_prefix(&mut self, depth: usize, skip: bool) -> Result<Value, String> {
         if depth > MAX_PARSE_DEPTH {
             return Err(format!(
                 "Condition nesting too deep (max {})",
@@ -372,17 +225,24 @@ impl Parser<'_> {
         }
         match self.advance() {
             Some(Token::Not) => {
-                let v = self.parse_prefix(depth + 1)?;
+                let v = self.parse_prefix(depth + 1, skip)?;
                 Ok(Value::Bool(!v.truthy()))
             }
             Some(Token::LParen) => {
-                let v = self.parse_expr(0, depth + 1)?;
+                let v = self.parse_expr(0, depth + 1, skip)?;
                 match self.advance() {
                     Some(Token::RParen) => Ok(v),
                     _ => Err("Expected ')'".to_string()),
                 }
             }
-            Some(Token::Operand { text, is_ref }) => self.resolve_operand(&text, is_ref),
+            Some(Token::Operand { text, is_ref }) => {
+                if skip {
+                    // Dead branch: syntax-check only; never resolve references
+                    // or literals, so a missing ref cannot fail the condition.
+                    return Ok(Value::Bool(false));
+                }
+                self.resolve_operand(&text, is_ref)
+            }
             Some(other) => Err(format!(
                 "Unexpected operator where operand expected: {:?}",
                 other
@@ -442,10 +302,10 @@ impl Parser<'_> {
             .map_err(|e| format!("Condition reference failed: {}", e))
     }
 
+    /// Apply a comparison operator. `&&` / `||` are handled (with
+    /// short-circuit) directly in `parse_expr` and never reach here.
     fn apply_binary(&self, op: &Token, lhs: Value, rhs: Value) -> Result<Value, String> {
         match op {
-            Token::And => Ok(Value::Bool(lhs.truthy() && rhs.truthy())),
-            Token::Or => Ok(Value::Bool(lhs.truthy() || rhs.truthy())),
             Token::Eq | Token::Ne => {
                 let eq = match (lhs.as_number(), rhs.as_number()) {
                     (Some(a), Some(b)) => a == b,
@@ -465,7 +325,13 @@ impl Parser<'_> {
                     Token::Lt => a < b,
                     Token::Ge => a >= b,
                     Token::Le => a <= b,
-                    _ => unreachable!(),
+                    // Defensive: the outer arm restricts `op` to the four
+                    // comparison tokens, but this parser runs on user-authored
+                    // workflow YAML and the release profile aborts on panic —
+                    // fail with a parse error, never `unreachable!()`.
+                    other => {
+                        return Err(format!("Unexpected comparison operator: {:?}", other));
+                    }
                 };
                 Ok(Value::Bool(result))
             }
@@ -475,256 +341,5 @@ impl Parser<'_> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn outputs(pairs: &[(&str, &[(&str, &str)])]) -> WorkflowOutputs {
-        pairs
-            .iter()
-            .map(|(id, fields)| {
-                (
-                    (*id).to_string(),
-                    fields
-                        .iter()
-                        .map(|(k, v)| ((*k).to_string(), (*v).to_string()))
-                        .collect(),
-                )
-            })
-            .collect()
-    }
-
-    fn env(pairs: &[(&str, &str)]) -> HashMap<String, String> {
-        pairs
-            .iter()
-            .map(|(k, v)| ((*k).to_string(), (*v).to_string()))
-            .collect()
-    }
-
-    fn eval(cond: &str, any_failed: bool) -> Result<bool, String> {
-        evaluate_condition(cond, &HashMap::new(), &HashMap::new(), any_failed)
-    }
-
-    // === literals ===
-
-    #[test]
-    fn literal_true() {
-        assert!(eval("true", false).unwrap());
-        assert!(eval("TRUE", false).unwrap());
-        assert!(eval("1", false).unwrap());
-    }
-
-    #[test]
-    fn literal_false() {
-        assert!(!eval("false", false).unwrap());
-        assert!(!eval("False", false).unwrap());
-        assert!(!eval("0", false).unwrap());
-    }
-
-    // === status functions ===
-
-    #[test]
-    fn success_function() {
-        assert!(eval("success()", false).unwrap());
-        assert!(!eval("success()", true).unwrap());
-    }
-
-    #[test]
-    fn failure_function() {
-        assert!(!eval("failure()", false).unwrap());
-        assert!(eval("failure()", true).unwrap());
-    }
-
-    #[test]
-    fn always_function() {
-        assert!(eval("always()", false).unwrap());
-        assert!(eval("always()", true).unwrap());
-    }
-
-    // === string equality ===
-
-    #[test]
-    fn string_equality() {
-        assert!(eval("'ok' == 'ok'", false).unwrap());
-        assert!(!eval("'ok' == 'no'", false).unwrap());
-        assert!(eval("\"a\" != \"b\"", false).unwrap());
-        assert!(!eval("'a' != 'a'", false).unwrap());
-    }
-
-    // === numeric comparisons ===
-
-    #[test]
-    fn numeric_comparisons() {
-        assert!(eval("9 > 5", false).unwrap());
-        assert!(!eval("5 > 9", false).unwrap());
-        assert!(eval("5 < 9", false).unwrap());
-        assert!(eval("5 >= 5", false).unwrap());
-        assert!(eval("5 <= 5", false).unwrap());
-        assert!(eval("3.5 > 3", false).unwrap());
-    }
-
-    #[test]
-    fn numeric_equality_prefers_number() {
-        // "9" == "9.0" should be true numerically though strings differ.
-        assert!(eval("9 == 9.0", false).unwrap());
-        assert!(eval("9 != 8", false).unwrap());
-    }
-
-    #[test]
-    fn non_numeric_comparison_errors() {
-        let r = eval("'abc' > 5", false);
-        assert!(r.is_err(), "expected Err, got {:?}", r);
-    }
-
-    // === boolean composition ===
-
-    #[test]
-    fn boolean_and_or_not() {
-        assert!(eval("true && true", false).unwrap());
-        assert!(!eval("true && false", false).unwrap());
-        assert!(eval("false || true", false).unwrap());
-        assert!(!eval("false || false", false).unwrap());
-        assert!(eval("!false", false).unwrap());
-        assert!(!eval("!true", false).unwrap());
-    }
-
-    #[test]
-    fn precedence_and_binds_tighter_than_or() {
-        // false || (true && true) => true
-        assert!(eval("false || true && true", false).unwrap());
-        // (true && false) || false => false
-        assert!(!eval("true && false || false", false).unwrap());
-    }
-
-    #[test]
-    fn parentheses_override_precedence() {
-        // (false || true) && false => false
-        assert!(!eval("(false || true) && false", false).unwrap());
-        // !(false) => true
-        assert!(eval("!(false)", false).unwrap());
-    }
-
-    #[test]
-    fn comparison_combined_with_boolean() {
-        assert!(eval("9 > 5 && 'a' == 'a'", false).unwrap());
-        assert!(!eval("9 < 5 || 'a' == 'b'", false).unwrap());
-    }
-
-    // === reference resolution ===
-
-    #[test]
-    fn ref_in_condition_equality() {
-        let o = outputs(&[("first", &[("status", "ok")])]);
-        let r = evaluate_condition(
-            "${{ steps.first.outputs.status }} == 'ok'",
-            &o,
-            &HashMap::new(),
-            false,
-        )
-        .unwrap();
-        assert!(r);
-    }
-
-    #[test]
-    fn bare_ref_in_condition() {
-        let o = outputs(&[("first", &[("score", "42")])]);
-        let r = evaluate_condition("steps.first.outputs.score > 10", &o, &HashMap::new(), false)
-            .unwrap();
-        assert!(r);
-    }
-
-    #[test]
-    fn env_ref_in_condition() {
-        let e = env(&[("STAGE", "prod")]);
-        let r = evaluate_condition("env.STAGE == 'prod'", &HashMap::new(), &e, false).unwrap();
-        assert!(r);
-    }
-
-    #[test]
-    fn ref_resolution_failure_is_error() {
-        // Unknown step → expressions::resolve returns Err → we surface Err.
-        let r = evaluate_condition(
-            "${{ steps.ghost.outputs.x }} == 'ok'",
-            &HashMap::new(),
-            &HashMap::new(),
-            false,
-        );
-        assert!(r.is_err(), "expected Err, got {:?}", r);
-    }
-
-    // === outer wrapper stripping ===
-
-    #[test]
-    fn strips_outer_wrapper() {
-        let o = outputs(&[("first", &[("status", "ok")])]);
-        let r = evaluate_condition(
-            "${{ steps.first.outputs.status == 'ok' }}",
-            &o,
-            &HashMap::new(),
-            false,
-        )
-        .unwrap();
-        assert!(r);
-    }
-
-    #[test]
-    fn outer_wrapper_with_success() {
-        assert!(
-            evaluate_condition("${{ success() }}", &HashMap::new(), &HashMap::new(), false)
-                .unwrap()
-        );
-    }
-
-    // === fail-loud on garbage ===
-
-    #[test]
-    fn garbage_input_errors() {
-        assert!(eval("this is not @ valid", false).is_err());
-        assert!(eval("==", false).is_err());
-        assert!(eval("(true", false).is_err());
-        assert!(eval("true &&", false).is_err());
-        assert!(eval("", false).is_err());
-        assert!(eval("true true", false).is_err());
-    }
-
-    #[test]
-    fn unsupported_operand_errors() {
-        // `secrets.X` is not a supported reference root.
-        let r = eval("secrets.API == 'x'", false);
-        assert!(r.is_err(), "expected Err, got {:?}", r);
-    }
-
-    #[test]
-    fn unterminated_string_errors() {
-        assert!(eval("'unterminated", false).is_err());
-    }
-
-    // === recursion-depth cap (DoS guard) ===
-
-    #[test]
-    fn deeply_nested_parens_errors_not_overflows() {
-        // Far beyond MAX_PARSE_DEPTH: a crafted workflow could otherwise
-        // stack-overflow the backend. Must return Err, never panic/abort.
-        let depth = 5000;
-        let cond = format!("{}true{}", "(".repeat(depth), ")".repeat(depth));
-        let r = eval(&cond, false);
-        assert!(r.is_err(), "expected Err for deep parens, got {:?}", r);
-    }
-
-    #[test]
-    fn long_not_run_errors_not_overflows() {
-        // A long run of prefix `!` recurses via parse_prefix on every `!`.
-        let cond = format!("{}true", "!".repeat(5000));
-        let r = eval(&cond, false);
-        assert!(r.is_err(), "expected Err for long `!` run, got {:?}", r);
-    }
-
-    #[test]
-    fn normal_nesting_still_evaluates() {
-        // A few legitimate levels must keep working.
-        assert!(eval("(((true)))", false).unwrap());
-        assert!(eval("!!!false", false).unwrap());
-        assert!(eval("((true && false) || (true && true))", false).unwrap());
-        // true && (false||false) => false; ||false => false; !false => true
-        assert!(eval("!(true && (false || false) || false)", false).unwrap());
-    }
-}
+#[path = "condition.test.rs"]
+mod tests;

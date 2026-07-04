@@ -6,6 +6,7 @@
 pub mod approval;
 pub mod commands;
 pub mod condition;
+mod condition_lexer;
 #[cfg(test)]
 mod examples;
 pub mod expressions;
