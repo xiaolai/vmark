@@ -11,10 +11,12 @@ use super::{partition_opened_urls, OpenedPaths};
 // in window_manager tests, as is the multi-workspace grouping), everything
 // else is skipped. Predicates are injected so no real filesystem is needed.
 
+#[cfg(unix)] // used only by the unix-gated fixture tests below
 fn url(s: &str) -> tauri::Url {
     tauri::Url::parse(s).expect("parse url")
 }
 
+#[cfg(unix)]
 fn is_md(p: &std::path::Path) -> bool {
     p.extension().and_then(|e| e.to_str()) == Some("md")
 }
