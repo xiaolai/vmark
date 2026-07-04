@@ -1,11 +1,16 @@
-//! Tests for `lib.rs` (extracted to keep the production file under the
-//! size gate; included via `#[path]`).
+//! Tests for `supported_files.rs` (moved with the extension gate out of
+//! `lib.rs`; included via `#[path]`).
 
 use super::{
-    atomic_write_file_sync, filter_supported_args, has_supported_extension, is_openable_supported,
-    MARKDOWN_ONLY_EXTENSIONS, PARENT_MISSING_ERROR_PREFIX, SUPPORTED_EXTENSIONS,
+    filter_supported_args, has_supported_extension, is_openable_supported, SUPPORTED_EXTENSIONS,
 };
 use std::path::{Path, PathBuf};
+
+/// Strict markdown-only subset. Test-only: no production caller means
+/// "markdown editor candidate" today, so the list lives here (not compiled
+/// into the app). If a production caller appears, move it back into
+/// `supported_files.rs` next to `SUPPORTED_EXTENSIONS`.
+const MARKDOWN_ONLY_EXTENSIONS: &[&str] = &["md", "markdown", "mdown", "mkd", "mdx"];
 
 // -- SUPPORTED_EXTENSIONS constant ----------------------------------------
 
@@ -26,11 +31,13 @@ fn supported_extensions_cover_phase1a_set() {
     assert!(SUPPORTED_EXTENSIONS.contains(&"ts"));
     assert!(SUPPORTED_EXTENSIONS.contains(&"py"));
     assert!(SUPPORTED_EXTENSIONS.contains(&"rs"));
-    // Strict markdown subset is still available for narrow callers.
-    assert_eq!(
-        MARKDOWN_ONLY_EXTENSIONS,
-        &["md", "markdown", "mdown", "mkd", "mdx"],
-    );
+    // The strict markdown subset must stay within the registered set.
+    for ext in MARKDOWN_ONLY_EXTENSIONS {
+        assert!(
+            SUPPORTED_EXTENSIONS.contains(ext),
+            "markdown extension '{ext}' missing from SUPPORTED_EXTENSIONS",
+        );
+    }
 }
 
 // -- has_supported_extension ----------------------------------------------
@@ -181,7 +188,7 @@ fn cli_filter_empty_input_returns_empty() {
 #[test]
 fn finder_and_cli_share_acceptance_policy() {
     // The Finder RunEvent::Opened handler uses `is_openable_supported`
-    // directly (lib.rs `tauri::RunEvent::Opened` arm). The CLI filter
+    // directly (file_open.rs `handle_finder_opened`). The CLI filter
     // routes through the same predicate via filter_supported_args. This
     // test pins that invariant — if either surface diverges, this
     // fails loudly rather than letting drift recur silently.
@@ -198,148 +205,4 @@ fn finder_and_cli_share_acceptance_policy() {
     assert!(finder_accepts, "finder arm must accept note.MD");
     assert!(cli_accepts, "cli arm must accept note.MD");
     assert_eq!(finder_accepts, cli_accepts);
-}
-
-// -- allow_fs_read runtime scope extension (mock Tauri app) --------------
-//
-// Covers the wiring that the CLI, Finder, and `open_*_in_new_window`
-// entry points all rely on: calling `allow_fs_read(app, path)` must
-// mutate the fs plugin's scope so `readTextFile(path)` in the webview
-// later succeeds. Without this, the bug reported in #676 recurs
-// silently — validators pass, but the webview read is still denied.
-
-// tauri::test::MockRuntime crashes the test binary at startup on
-// windows-latest (STATUS_ENTRYPOINT_NOT_FOUND). The `test` feature of
-// tauri is not enabled on Windows (see Cargo.toml target-specific
-// dev-dependency), and these tests are cfg-gated to match. macOS/Linux
-// still exercise the scope-extension wiring end-to-end.
-#[cfg(not(target_os = "windows"))]
-use super::allow_fs_read;
-#[cfg(not(target_os = "windows"))]
-use tauri_plugin_fs::FsExt;
-
-#[cfg(not(target_os = "windows"))]
-fn mock_app_with_fs() -> tauri::App<tauri::test::MockRuntime> {
-    tauri::test::mock_builder()
-        .plugin(tauri_plugin_fs::init())
-        .build(tauri::test::mock_context(tauri::test::noop_assets()))
-        .expect("build mock app with fs plugin")
-}
-
-#[cfg(not(target_os = "windows"))]
-#[test]
-fn allow_fs_read_extends_scope_so_read_is_permitted() {
-    let dir = tempfile::tempdir().expect("tempdir");
-    let file = dir.path().join("note.md");
-    std::fs::write(&file, b"# hi").expect("write");
-
-    let app = mock_app_with_fs();
-    // Sanity: a fresh mock scope does NOT already allow this arbitrary
-    // path. If this flips, the rest of the test is meaningless.
-    assert!(
-        !app.fs_scope().is_allowed(&file),
-        "mock fs scope should reject unknown path before extension"
-    );
-
-    allow_fs_read(app.handle(), file.to_str().unwrap());
-
-    assert!(
-        app.fs_scope().is_allowed(&file),
-        "allow_fs_read should extend scope so the webview can read the path"
-    );
-}
-
-#[cfg(not(target_os = "windows"))]
-#[test]
-fn allow_fs_read_is_idempotent() {
-    // Calling twice must not panic, error, or double-allow in a way
-    // that breaks subsequent reads. The Finder cold-start path does
-    // this when a file arrives via both the pending queue and a later
-    // hot event.
-    let dir = tempfile::tempdir().expect("tempdir");
-    let file = dir.path().join("note.md");
-    std::fs::write(&file, b"# hi").expect("write");
-
-    let app = mock_app_with_fs();
-    allow_fs_read(app.handle(), file.to_str().unwrap());
-    allow_fs_read(app.handle(), file.to_str().unwrap());
-
-    assert!(app.fs_scope().is_allowed(&file));
-}
-
-#[cfg(not(target_os = "windows"))]
-#[test]
-fn allow_fs_read_does_not_grant_unrelated_paths() {
-    // Extending scope for one file must not leak into neighbors.
-    let dir = tempfile::tempdir().expect("tempdir");
-    let allowed = dir.path().join("keep.md");
-    let other = dir.path().join("other.md");
-    std::fs::write(&allowed, b"# hi").expect("write allowed");
-    std::fs::write(&other, b"# hi").expect("write other");
-
-    let app = mock_app_with_fs();
-    allow_fs_read(app.handle(), allowed.to_str().unwrap());
-
-    assert!(app.fs_scope().is_allowed(&allowed));
-    assert!(
-        !app.fs_scope().is_allowed(&other),
-        "scope extension must be per-file, not per-directory"
-    );
-}
-
-// -- atomic_write_file_sync ----------------------------------------------
-
-#[test]
-fn atomic_write_succeeds_when_parent_dir_exists() {
-    let dir = tempfile::tempdir().expect("create tempdir");
-    let target = dir.path().join("note.md");
-
-    atomic_write_file_sync(&target, "hello").expect("write should succeed");
-
-    let read_back = std::fs::read_to_string(&target).expect("read back");
-    assert_eq!(read_back, "hello");
-}
-
-#[test]
-fn atomic_write_returns_parent_missing_sentinel_when_dir_gone() {
-    // Regression test: if the parent directory was renamed/deleted
-    // between open and save, `NamedTempFile::new_in` would fail with a
-    // raw "No such file or directory (os error 2)". Our explicit
-    // pre-flight check converts that to a recognizable sentinel so the
-    // frontend can route into Save As instead of leaking the OS error.
-    let dir = tempfile::tempdir().expect("create tempdir");
-    let gone = dir.path().join("renamed-away");
-    let target = gone.join("note.md");
-    // gone/ is intentionally never created — the parent does not exist.
-
-    let err = atomic_write_file_sync(&target, "hello")
-        .expect_err("write must fail when parent dir is missing");
-
-    assert!(
-        err.starts_with(PARENT_MISSING_ERROR_PREFIX),
-        "expected sentinel prefix, got: {err}",
-    );
-    assert!(
-        err.contains("renamed-away"),
-        "expected missing dir path in error, got: {err}",
-    );
-    // Belt-and-suspenders: ensure we did NOT leak the raw OS error.
-    assert!(
-        !err.contains("os error 2"),
-        "raw OS error must not leak when parent is missing, got: {err}",
-    );
-}
-
-#[test]
-fn atomic_write_returns_parent_missing_when_parent_is_a_file() {
-    // Edge case: parent path exists but isn't a directory (someone
-    // replaced the folder with a file of the same name).
-    let dir = tempfile::tempdir().expect("create tempdir");
-    let parent_as_file = dir.path().join("not-a-dir");
-    std::fs::write(&parent_as_file, b"oops").expect("create file");
-    let target = parent_as_file.join("note.md");
-
-    let err = atomic_write_file_sync(&target, "hello")
-        .expect_err("write must fail when parent is a file, not a dir");
-    assert!(err.starts_with(PARENT_MISSING_ERROR_PREFIX), "got: {err}");
 }

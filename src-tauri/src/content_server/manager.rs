@@ -60,47 +60,11 @@ impl ContentServerManager {
         Self::default()
     }
 
-    /// Register metadata only (used by unit tests); no child / token.
-    #[allow(dead_code)] // test-support helper; production uses register_or_existing.
-    pub fn register(&self, workspace_root: &str, port: u16) -> u64 {
-        self.register_running(workspace_root, port, String::new(), None, None)
-    }
-
-    /// Register a fully-spawned server, returning its generation id. Replaces
-    /// any prior registration for the same root.
-    #[allow(dead_code)] // test-support helper; production uses register_or_existing.
-    pub fn register_running(
-        &self,
-        workspace_root: &str,
-        port: u16,
-        token: String,
-        child: Option<Child>,
-        port_file: Option<PathBuf>,
-    ) -> u64 {
-        let mut state = self.inner.lock().expect("content-server manager poisoned");
-        state.next_generation += 1;
-        let generation = state.next_generation;
-        state.servers.insert(
-            workspace_root.to_string(),
-            Managed {
-                server: RunningServer {
-                    workspace_root: workspace_root.to_string(),
-                    port,
-                    generation,
-                },
-                token,
-                child,
-                port_file,
-            },
-        );
-        generation
-    }
-
     /// Look up the running server metadata for a workspace.
     pub fn get(&self, workspace_root: &str) -> Option<RunningServer> {
         self.inner
             .lock()
-            .expect("content-server manager poisoned")
+            .unwrap_or_else(|p| p.into_inner())
             .servers
             .get(workspace_root)
             .map(|m| m.server.clone())
@@ -110,24 +74,10 @@ impl ContentServerManager {
     pub fn token(&self, workspace_root: &str) -> Option<String> {
         self.inner
             .lock()
-            .expect("content-server manager poisoned")
+            .unwrap_or_else(|p| p.into_inner())
             .servers
             .get(workspace_root)
             .map(|m| m.token.clone())
-    }
-
-    /// Deregister a server only if the caller's generation still matches — a
-    /// stale shutdown (older generation) is a no-op and returns false.
-    #[allow(dead_code)] // generation-guard API exercised by tests; stop() uses take().
-    pub fn deregister_if_current(&self, workspace_root: &str, generation: u64) -> bool {
-        let mut state = self.inner.lock().expect("content-server manager poisoned");
-        match state.servers.get(workspace_root) {
-            Some(m) if m.server.generation == generation => {
-                state.servers.remove(workspace_root);
-                true
-            }
-            _ => false,
-        }
     }
 
     /// Atomically register a freshly-spawned server UNLESS one already exists
@@ -142,7 +92,7 @@ impl ContentServerManager {
         mut child: Child,
         port_file: PathBuf,
     ) -> Option<RunningServer> {
-        let mut state = self.inner.lock().expect("content-server manager poisoned");
+        let mut state = self.inner.lock().unwrap_or_else(|p| p.into_inner());
         if let Some(m) = state.servers.get(workspace_root) {
             // A concurrent start already won — kill the child we were handed so
             // it is not orphaned (std::process::Child does NOT kill on drop).
@@ -173,7 +123,7 @@ impl ContentServerManager {
     /// the supervisor can surface the crash exactly once. A `take()`/stop that
     /// already removed the entry reports `NotCurrent` (no false crash signal).
     pub fn poll_current_child(&self, workspace_root: &str, generation: u64) -> ChildState {
-        let mut state = self.inner.lock().expect("content-server manager poisoned");
+        let mut state = self.inner.lock().unwrap_or_else(|p| p.into_inner());
         match state.servers.get_mut(workspace_root) {
             Some(m) if m.server.generation == generation => {
                 match m.child.as_mut().map(|c| c.try_wait()) {
@@ -199,17 +149,71 @@ impl ContentServerManager {
     pub fn take(&self, workspace_root: &str) -> Option<(Option<Child>, Option<PathBuf>)> {
         self.inner
             .lock()
-            .expect("content-server manager poisoned")
+            .unwrap_or_else(|p| p.into_inner())
             .servers
             .remove(workspace_root)
             .map(|m| (m.child, m.port_file))
     }
+}
 
-    #[allow(dead_code)] // test-support accessor.
+/// Test-support API — compiled only for tests so no dead code ships in the
+/// production binary. Production registration goes through
+/// `register_or_existing`; teardown goes through `take` / `Drop`.
+#[cfg(test)]
+impl ContentServerManager {
+    /// Register metadata only (no child / token).
+    pub fn register(&self, workspace_root: &str, port: u16) -> u64 {
+        self.register_running(workspace_root, port, String::new(), None, None)
+    }
+
+    /// Register a fully-spawned server, returning its generation id. Replaces
+    /// any prior registration for the same root.
+    pub fn register_running(
+        &self,
+        workspace_root: &str,
+        port: u16,
+        token: String,
+        child: Option<Child>,
+        port_file: Option<PathBuf>,
+    ) -> u64 {
+        let mut state = self.inner.lock().unwrap_or_else(|p| p.into_inner());
+        state.next_generation += 1;
+        let generation = state.next_generation;
+        state.servers.insert(
+            workspace_root.to_string(),
+            Managed {
+                server: RunningServer {
+                    workspace_root: workspace_root.to_string(),
+                    port,
+                    generation,
+                },
+                token,
+                child,
+                port_file,
+            },
+        );
+        generation
+    }
+
+    /// Deregister a server only if the caller's generation still matches — a
+    /// stale shutdown (older generation) is a no-op and returns false.
+    /// Generation-guard API exercised by tests; production `stop()` uses `take`.
+    pub fn deregister_if_current(&self, workspace_root: &str, generation: u64) -> bool {
+        let mut state = self.inner.lock().unwrap_or_else(|p| p.into_inner());
+        match state.servers.get(workspace_root) {
+            Some(m) if m.server.generation == generation => {
+                state.servers.remove(workspace_root);
+                true
+            }
+            _ => false,
+        }
+    }
+
+    /// Number of registered servers.
     pub fn count(&self) -> usize {
         self.inner
             .lock()
-            .expect("content-server manager poisoned")
+            .unwrap_or_else(|p| p.into_inner())
             .servers
             .len()
     }
@@ -219,15 +223,16 @@ impl Drop for ContentServerManager {
     /// Best-effort cleanup on app exit (Codex audit): kill any managed child
     /// content servers and remove their port files so nothing is orphaned.
     fn drop(&mut self) {
-        if let Ok(mut state) = self.inner.lock() {
-            for (_root, mut managed) in state.servers.drain() {
-                if let Some(mut child) = managed.child.take() {
-                    let _ = child.kill();
-                    let _ = child.wait();
-                }
-                if let Some(pf) = managed.port_file.take() {
-                    let _ = std::fs::remove_file(pf);
-                }
+        // Recover from a poisoned lock too — a panic elsewhere must not leave
+        // orphaned child servers behind on exit.
+        let mut state = self.inner.lock().unwrap_or_else(|p| p.into_inner());
+        for (_root, mut managed) in state.servers.drain() {
+            if let Some(mut child) = managed.child.take() {
+                let _ = child.kill();
+                let _ = child.wait();
+            }
+            if let Some(pf) = managed.port_file.take() {
+                let _ = std::fs::remove_file(pf);
             }
         }
     }

@@ -99,7 +99,7 @@ fn snapshot(map: &HashMap<String, WindowStatus>) -> Vec<WindowStatus> {
 fn broadcast(app: &AppHandle) {
     let snap = {
         let registry = app.state::<WindowStatusRegistry>();
-        let map = registry.0.lock().expect("window status registry poisoned");
+        let map = registry.0.lock().unwrap_or_else(|p| p.into_inner());
         snapshot(&map)
     };
     let _ = app.emit(EVENT, snap);
@@ -114,7 +114,7 @@ pub fn report_window_status(window: Window, doc_name: String, ai: String, elapse
     let label = window.label().to_string();
     {
         let registry = app.state::<WindowStatusRegistry>();
-        let mut map = registry.0.lock().expect("window status registry poisoned");
+        let mut map = registry.0.lock().unwrap_or_else(|p| p.into_inner());
         upsert_status(&mut map, &label, doc_name, ai, elapsed_seconds);
     }
     broadcast(&app);
@@ -127,7 +127,7 @@ pub fn set_window_attention(window: Window) {
     let label = window.label().to_string();
     let changed = {
         let registry = app.state::<WindowStatusRegistry>();
-        let mut map = registry.0.lock().expect("window status registry poisoned");
+        let mut map = registry.0.lock().unwrap_or_else(|p| p.into_inner());
         set_attention(&mut map, &label, true)
     };
     if changed {
@@ -142,7 +142,7 @@ pub fn clear_window_attention(window: Window) {
     let label = window.label().to_string();
     let changed = {
         let registry = app.state::<WindowStatusRegistry>();
-        let mut map = registry.0.lock().expect("window status registry poisoned");
+        let mut map = registry.0.lock().unwrap_or_else(|p| p.into_inner());
         set_attention(&mut map, &label, false)
     };
     if changed {
@@ -154,7 +154,7 @@ pub fn clear_window_attention(window: Window) {
 #[tauri::command]
 pub fn get_window_statuses(app: AppHandle) -> Vec<WindowStatus> {
     let registry = app.state::<WindowStatusRegistry>();
-    let map = registry.0.lock().expect("window status registry poisoned");
+    let map = registry.0.lock().unwrap_or_else(|p| p.into_inner());
     snapshot(&map)
 }
 
@@ -172,7 +172,7 @@ pub fn focus_window(app: AppHandle, label: String) -> Result<(), String> {
 pub fn prune(app: &AppHandle, label: &str) {
     {
         let registry = app.state::<WindowStatusRegistry>();
-        let mut map = registry.0.lock().expect("window status registry poisoned");
+        let mut map = registry.0.lock().unwrap_or_else(|p| p.into_inner());
         map.remove(label);
     }
     broadcast(app);
