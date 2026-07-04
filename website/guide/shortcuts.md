@@ -64,7 +64,6 @@ If you prefer keeping system functions on F-keys, you can customize VMark shortc
 | Wiki Link | `Alt + Mod + K` |
 | Bookmark Link | `Alt + Mod + B` |
 | Clear Formatting | `Mod + \` |
-| Cycle Emphasis | `Mod + Alt + E` _(none → italic → bold → bold+italic)_ |
 
 ## Block Formatting
 
@@ -74,14 +73,12 @@ If you prefer keeping system functions on F-keys, you can customize VMark shortc
 | Paragraph | `Mod + Shift + 0` |
 | Increase Heading Level | `Alt + Mod + ]` |
 | Decrease Heading Level | `Alt + Mod + [` |
-| Cycle Heading | `Mod + Alt + H` _(P → H1 → H2 → … → H6)_ |
 | Blockquote | `Alt + Mod + Q` |
 | Code Block | `Alt + Mod + C` |
 | Bullet List | `Alt + Mod + U` |
 | Ordered List | `Alt + Mod + O` |
 | Task List | `Alt + Mod + X` |
 | Toggle Task Checkbox | `Mod + Shift + Enter` _(context-aware; not customizable)_ |
-| Cycle List Type | _(customizable)_ |
 | Indent | `Mod + ]` |
 | Outdent | `Mod + [` |
 | Horizontal Line | `Alt + Mod + -` |
@@ -287,12 +284,6 @@ When cursor is inside a table:
 | Add Row Below | `Mod + Enter` |
 | Add Row Above | `Mod + Shift + Enter` |
 | Delete Row | `Mod + Backspace` |
-| Add Column Left | `Alt + Mod + Left` |
-| Add Column Right | `Alt + Mod + Right` |
-| Delete Column | `Alt + Mod + Backspace` |
-| Align Column Left | `Mod + Alt + Shift + L` |
-| Align Column Right | `Mod + Shift + R` |
-| Align Column Center | _(customizable)_ |
 | Format Table | `Alt + Mod + T` |
 | Exit Table | Arrow keys at table edge |
 

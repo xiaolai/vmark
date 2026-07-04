@@ -6,7 +6,7 @@
  */
 
 import React from "react";
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
@@ -22,6 +22,7 @@ import {
   CopyButton,
   CloseButton,
 } from "./components";
+import settingsEn from "@/locales/en/settings.json";
 
 // ============================================================================
 // SettingRow
@@ -168,6 +169,15 @@ describe("Toggle", () => {
 
     expect(screen.getByRole("switch")).toBeDisabled();
   });
+
+  it("knob uses a design token, not a hardcoded color (31-design-tokens)", () => {
+    render(<Toggle checked={true} onChange={vi.fn()} />);
+
+    const knob = screen.getByRole("switch").querySelector("span");
+    expect(knob).not.toBeNull();
+    expect(knob!.className).not.toContain("bg-white");
+    expect(knob!.className).toContain("var(--contrast-text)");
+  });
 });
 
 // ============================================================================
@@ -239,6 +249,16 @@ describe("Select", () => {
     render(<Select value="light" options={options} onChange={vi.fn()} disabled />);
 
     expect(screen.getByRole("combobox")).toBeDisabled();
+  });
+
+  it("chevron does not hardcode its color in an inline SVG data URI (31-design-tokens)", () => {
+    render(<Select value="light" options={options} onChange={vi.fn()} />);
+
+    const select = screen.getByRole("combobox") as HTMLSelectElement;
+    // The old implementation painted the chevron via a background-image data
+    // URI with stroke='%23999' — a hardcoded color the theme can't reach.
+    expect(select.style.backgroundImage ?? "").not.toContain("%23999");
+    expect(select.getAttribute("style") ?? "").not.toContain("%23999");
   });
 });
 
@@ -684,6 +704,47 @@ describe("TagInput", () => {
       fireEvent.click(container);
       expect(document.activeElement).toBe(input);
     });
+
+    it("Enter then blur adds exactly ONE tag (no stale re-add on blur)", () => {
+      // Regression guard: committing with Enter must not leave a value
+      // behind that a subsequent blur re-commits.
+      function Harness() {
+        const [tags, setTags] = React.useState<string[]>([]);
+        return <TagInput value={tags} onChange={setTags} />;
+      }
+      render(<Harness />);
+      const input = screen.getByRole("textbox");
+
+      fireEvent.change(input, { target: { value: "custom" } });
+      fireEvent.keyDown(input, { key: "Enter" });
+      fireEvent.blur(input);
+
+      expect(screen.getAllByText("custom://")).toHaveLength(1);
+      expect((input as HTMLInputElement).value).toBe("");
+    });
+
+    it("Enter then immediate blur fires onChange only once", () => {
+      render(<TagInput value={[]} onChange={onChange} />);
+      const input = screen.getByRole("textbox");
+
+      fireEvent.change(input, { target: { value: "custom" } });
+      fireEvent.keyDown(input, { key: "Enter" });
+      fireEvent.blur(input);
+
+      expect(onChange).toHaveBeenCalledTimes(1);
+      expect(onChange).toHaveBeenCalledWith(["custom"]);
+    });
+
+    it("default placeholder comes from the settings locale, not a hardcoded string", () => {
+      const key = "tagInput.placeholder";
+      const translated = (settingsEn as Record<string, string>)[key];
+      // The key must exist in src/locales/en/settings.json (i18n rule:
+      // no hardcoded user-facing English in UI code).
+      expect(translated).toBeDefined();
+
+      render(<TagInput value={[]} onChange={onChange} />);
+      expect(screen.getByPlaceholderText(translated)).toBeInTheDocument();
+    });
   });
 
   describe("IME composition guard", () => {
@@ -822,6 +883,12 @@ describe("CopyButton", () => {
     });
   });
 
+  afterEach(() => {
+    // Fake timers must never leak into later tests, even when an
+    // assertion fails before an inline vi.useRealTimers() call.
+    vi.useRealTimers();
+  });
+
   it("copies text to clipboard on click", async () => {
     render(<CopyButton text="hello" />);
 
@@ -852,6 +919,46 @@ describe("CopyButton", () => {
     await vi.advanceTimersByTimeAsync(1600);
 
     expect(screen.getByTitle("Copy")).toBeInTheDocument();
+    vi.useRealTimers();
+  });
+
+  it("re-click restarts the copied window instead of flickering on the stale timer", async () => {
+    vi.useFakeTimers();
+    render(<CopyButton text="hello" />);
+
+    fireEvent.click(screen.getByTitle("Copy"));
+    // Flush the clipboard promise so the revert timer is scheduled at t=0.
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(screen.getByTitle("Copied!")).toBeInTheDocument();
+
+    // Second click at t=1000 must reschedule the revert to t=2500. Without
+    // clearing, the first timer fires at t=1500 and flickers back early.
+    fireEvent.click(screen.getByTitle("Copied!"));
+    // Flush the clipboard promise so the new timer is scheduled at t=1000.
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(600); // t=1600
+    await vi.advanceTimersByTimeAsync(0); // let any pending re-render commit
+
+    expect(screen.getByTitle("Copied!")).toBeInTheDocument();
+
+    await vi.advanceTimersByTimeAsync(1000); // t=2600 > 1000+1500
+    await vi.advanceTimersByTimeAsync(0); // let the revert re-render commit
+    expect(screen.getByTitle("Copy")).toBeInTheDocument();
+    vi.useRealTimers();
+  });
+
+  it("clears the pending revert timer on unmount (no leaked setState)", async () => {
+    vi.useFakeTimers();
+    const { unmount } = render(<CopyButton text="hello" />);
+
+    fireEvent.click(screen.getByTitle("Copy"));
+    // Let the clipboard promise resolve so the revert timer is scheduled.
+    await vi.advanceTimersByTimeAsync(0);
+    expect(vi.getTimerCount()).toBe(1);
+
+    unmount();
+    expect(vi.getTimerCount()).toBe(0);
     vi.useRealTimers();
   });
 });

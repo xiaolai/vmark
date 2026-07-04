@@ -19,6 +19,7 @@ import { imeToast as toast } from "@/services/ime/imeToast";
 import {
   SettingRow,
   SettingsGroup,
+  SearchableSection,
   Toggle,
   Button,
   SearchInput,
@@ -60,45 +61,52 @@ function FileTypeOverrides() {
 
   return (
     <SettingsGroup title={t("formats.associations.group")}>
-      <div className="text-xs text-[var(--text-tertiary)] py-1">
-        {t("formats.associations.description")}
-      </div>
-      {entries.length === 0 ? (
-        <div className="text-xs text-[var(--text-tertiary)] py-2 italic">
-          {t("formats.associations.empty")}
+      {/* SearchableSection: this group has no SettingRow, so it must mark
+          itself searchable or settings search can never surface it. */}
+      <SearchableSection
+        label={t("formats.associations.group")}
+        description={t("formats.associations.description")}
+      >
+        <div className="text-xs text-[var(--text-tertiary)] py-1">
+          {t("formats.associations.description")}
         </div>
-      ) : (
-        <>
-          <ul className="py-1 space-y-1">
-            {entries.map(([key, formatId]) => (
-              <li
-                key={key}
-                className="flex items-center justify-between gap-2 py-1 text-sm"
-              >
-                <span className="text-[var(--text-color)]">
-                  <code className="font-mono text-[var(--text-secondary)]">{key}</code>
-                  {" → "}
-                  {formatName(formatId)}
-                </span>
-                <button
-                  onClick={() => removeOne(key)}
-                  aria-label={t("formats.associations.remove", { key })}
-                  className="p-0.5 rounded text-[var(--text-tertiary)] hover:text-[var(--error-color)]
-                             hover:bg-[var(--hover-bg)] transition-colors
-                             focus-visible:ring-2 focus-visible:ring-[var(--primary-color)] focus-visible:ring-offset-1"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </li>
-            ))}
-          </ul>
-          <div className="pt-1">
-            <Button variant="danger" onClick={clearAll}>
-              {t("formats.associations.clearAll")}
-            </Button>
+        {entries.length === 0 ? (
+          <div className="text-xs text-[var(--text-tertiary)] py-2 italic">
+            {t("formats.associations.empty")}
           </div>
-        </>
-      )}
+        ) : (
+          <>
+            <ul className="py-1 space-y-1">
+              {entries.map(([key, formatId]) => (
+                <li
+                  key={key}
+                  className="flex items-center justify-between gap-2 py-1 text-sm"
+                >
+                  <span className="text-[var(--text-color)]">
+                    <code className="font-mono text-[var(--text-secondary)]">{key}</code>
+                    {" → "}
+                    {formatName(formatId)}
+                  </span>
+                  <button
+                    onClick={() => removeOne(key)}
+                    aria-label={t("formats.associations.remove", { key })}
+                    className="p-0.5 rounded text-[var(--text-tertiary)] hover:text-[var(--error-color)]
+                               hover:bg-[var(--hover-bg)] transition-colors
+                               focus-visible:ring-2 focus-visible:ring-[var(--primary-color)] focus-visible:ring-offset-1"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <div className="pt-1">
+              <Button variant="danger" onClick={clearAll}>
+                {t("formats.associations.clearAll")}
+              </Button>
+            </div>
+          </>
+        )}
+      </SearchableSection>
     </SettingsGroup>
   );
 }
@@ -126,7 +134,7 @@ export function FormatsSettings() {
   }, [formats.externalEditor]);
 
   const browseForEditor = async () => {
-    let picked: string | string[] | null = null;
+    let picked: string | string[] | null;
     try {
       // On macOS, Tauri's dialog plugin treats `.app` bundles as
       // selectable file packages even with `directory: false` — the
@@ -223,6 +231,12 @@ export function FormatsSettings() {
       <FileTypeOverrides />
 
       <SettingsGroup title={t("formats.group.tooling")}>
+        {/* SearchableSection: custom layout (label + description + input
+            row) — must mark itself searchable, see FileTypeOverrides. */}
+        <SearchableSection
+          label={t("formats.externalEditor.label")}
+          description={`${t("formats.group.tooling")} ${t("formats.externalEditor.description")}`}
+        >
         <div className="text-xs text-[var(--text-tertiary)] py-1">
           {t("formats.group.toolingDescription")}
         </div>
@@ -258,6 +272,7 @@ export function FormatsSettings() {
             </Button>
           </div>
         </div>
+        </SearchableSection>
       </SettingsGroup>
     </div>
   );

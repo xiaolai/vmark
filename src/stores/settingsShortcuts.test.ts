@@ -265,6 +265,20 @@ describe("shortcutsStore", () => {
       const conflict = getConflict("mod-B"); // vs Mod-b
       expect(conflict).not.toBeNull();
     });
+
+    it("treats an empty binding as unbound — never a conflict", () => {
+      const { getConflict } = useShortcutsStore.getState();
+      // Several DEFAULT_SHORTCUTS ship unbound (defaultKey: ""). An empty
+      // candidate key must not "conflict" with the first unbound shortcut.
+      expect(getConflict("")).toBeNull();
+    });
+
+    it("skips shortcuts whose effective binding is empty", () => {
+      const { setShortcut, getConflict } = useShortcutsStore.getState();
+      // Unbinding a shortcut (custom "") must not make it conflict with "".
+      setShortcut("bold", "");
+      expect(getConflict("", "somethingElse")).toBeNull();
+    });
   });
 
   describe("exportConfig / importConfig", () => {
@@ -449,6 +463,20 @@ describe("shortcutsStore", () => {
       expect(formatKeyForDisplay("Mod-Right")).toBe("⌘→");
       expect(formatKeyForDisplay("Mod-Up")).toBe("⌘↑");
       expect(formatKeyForDisplay("Mod-Down")).toBe("⌘↓");
+    });
+
+    it("preserves a trailing '-' main key (zoomOut / horizontalLine)", () => {
+      // "Mod--" means ⌘ plus the minus key — the minus must survive display.
+      expect(formatKeyForDisplay("Mod--")).toBe("⌘-");
+      expect(formatKeyForDisplay("Alt-Mod--")).toBe("⌥⌘-");
+      expect(formatKeyForDisplay("Mod-Shift--")).toBe("⌘⇧-");
+    });
+
+    it("keeps ordinary keys and function keys intact", () => {
+      expect(formatKeyForDisplay("F6")).toBe("F6");
+      expect(formatKeyForDisplay("Mod-Shift-`")).toBe("⌘⇧`");
+      expect(formatKeyForDisplay("Mod-=")).toBe("⌘=");
+      expect(formatKeyForDisplay("")).toBe("");
     });
   });
 
