@@ -108,8 +108,11 @@ async fn collect_cancellation_returns_cancelled() {
 #[tokio::test]
 async fn collect_enforces_output_cap() {
     let dir = tempfile::tempdir().unwrap();
-    // `yes` prints its args ("-p ignored --output-format text") forever.
-    let shim = write_shim(&dir, "exec yes \"$@\"");
+    // Flood stdout forever to trip the byte cap. Ignore the provider's args and
+    // run bare `yes` (prints "y" endlessly): passing them through as `yes "$@"`
+    // is not portable — GNU `yes` (Linux) rejects the `-p` flag the claude
+    // provider emits, while BSD `yes` (macOS) treats it as text.
+    let shim = write_shim(&dir, "exec yes");
     let shim_path = shim.to_str().unwrap().to_string();
 
     let cancel = CancellationToken::new();
