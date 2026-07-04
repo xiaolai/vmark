@@ -39,6 +39,11 @@ export default defineConfig({
         "scripts/",
         "**/*.d.ts",
         "**/*.config.*",
+        // Invariant: every src/**/index.ts is a pure re-export barrel (or a
+        // documented data-only exception) — enforced by
+        // scripts/check-index-barrels.mjs (`pnpm lint:barrels`, in check:all).
+        // Logic added to an index.ts fails that gate, so nothing real can
+        // escape the coverage ratchet through this glob.
         "**/index.ts",
         "**/*.css",
         "src/assets/**",
@@ -50,12 +55,12 @@ export default defineConfig({
         // justification in the commit message. The per-relaxation history
         // that used to live here (2026-04 → 2026-07, ~290 lines) is in git
         // history. Per-file gaps: pnpm test:coverage, then coverage/index.html.
-        // Actuals at last ratchet (2026-07-02): st 93.17, br 89.99,
-        // fn 92.92, ln 93.85.
-        statements: 93.1,
-        branches: 89.9,
-        functions: 92.85,
-        lines: 93.8,
+        // Actuals at last ratchet (2026-07-04): st 93.63, br 90.33,
+        // fn 93.35, ln 94.32.
+        statements: 93.55,
+        branches: 90.25,
+        functions: 93.3,
+        lines: 94.25,
       },
     },
   },

@@ -3,6 +3,7 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 import { readFileSync } from "node:fs";
+import { manualChunks } from "./scripts/manualChunks";
 
 // @ts-expect-error process is a nodejs global
 const host = process.env.TAURI_DEV_HOST;
@@ -82,95 +83,11 @@ export default defineConfig(async () => ({
         // glob — hash-pinned `index-<hash>*` globs silently rotted and the
         // 1.2 MB entry chunk went unbudgeted (audit 20260612 H9).
         entryFileNames: "assets/entry-[hash].js",
-        manualChunks(id) {
-          // Vite's preload helper is a tiny runtime module. Left to Rollup it
-          // gets co-located into whichever vendor chunk is convenient
-          // (historically vendor-mermaid), which then drags that whole chunk
-          // into the entry's static-import graph and onto the cold-start
-          // modulepreload list. Pin it to vendor-react, which is always
-          // eagerly loaded anyway.
-          if (id.includes("vite/preload-helper")) return "vendor-react";
-          if (!id.includes("node_modules")) return;
-
-          const parts = id.split("node_modules/");
-          const pkgPath = parts[parts.length - 1] ?? "";
-          const pkgName = pkgPath.startsWith("@")
-            ? pkgPath.split("/").slice(0, 2).join("/")
-            : pkgPath.split("/")[0];
-
-          if (pkgName.startsWith("@lezer/")) return "vendor-lezer";
-          if (pkgName === "@codemirror/language-data") return "vendor-codemirror-languages";
-          // Keep all @codemirror packages together to avoid circular dependency issues
-          // Previously splitting @codemirror/lang-* and @codemirror/language caused
-          // "Cannot access 'kn' before initialization" in production builds
-          if (pkgName.startsWith("@codemirror/")) return "vendor-codemirror";
-          if (pkgName.startsWith("@tiptap/") || pkgName.startsWith("prosemirror")) return "vendor-tiptap";
-          // DOMPurify is imported eagerly by src/utils/sanitize.ts. Without an
-          // explicit chunk, Rollup co-locates it into vendor-mermaid, which then
-          // forces a modulepreload of the entire ~1.7 MB mermaid chunk (and the
-          // ~630 KB vendor-graph it pulls) on cold start — just to reach a ~20 KB
-          // sanitizer. Isolating it keeps mermaid genuinely lazy.
-          if (pkgName === "dompurify") return "vendor-dompurify";
-          // `@dagrejs/dagre` (maintained fork; audit 20260612) is used only by workflow
-          // layout (lib/workflow/layout.ts) which
-          // is reached lazily through WorkflowSidePanel. Mermaid uses its own bundled
-          // fork (`dagre-d3-es`), so isolating plain `dagre` is safe and removes ~150 KB
-          // from the eagerly-loaded vendor-mermaid chunk.
-          if (pkgName === "@dagrejs/dagre" || pkgName === "dagre") return "vendor-dagre";
-          // Keep all mermaid-related packages together to avoid circular dependency issues.
-          // Previously splitting mermaid, @mermaid-js/*, d3-*, dagre-d3-es caused
-          // "this.clear is not a function" error in production builds.
-          if (
-            pkgName === "mermaid" ||
-            pkgName.startsWith("@mermaid-js/") ||
-            pkgName.startsWith("d3-") ||
-            pkgName === "d3" ||
-            pkgName === "dagre-d3-es" ||
-            pkgName === "khroma"
-          ) {
-            return "vendor-mermaid";
-          }
-          // KaTeX stays in main bundle to preserve CSS cascade order.
-          // Separate chunk would load before index.css, causing Tailwind's
-          // preflight (border:0) to override KaTeX's border-style settings.
-          // See: dev-docs/css-dev-prod-differences.md
-          if (
-            pkgName === "html2pdf.js" ||
-            pkgName === "html2canvas" ||
-            pkgName === "jspdf" ||
-            pkgName === "canvg" ||
-            pkgName === "svg-pathdata" ||
-            pkgName === "stackblur-canvas"
-          ) {
-            if (pkgName === "html2canvas" || pkgName === "stackblur-canvas") return "vendor-html2canvas";
-            if (pkgName === "jspdf") return "vendor-jspdf";
-            if (pkgName === "html2pdf.js") return "vendor-html2pdf";
-            return "vendor-export";
-          }
-          if (
-            pkgName === "cytoscape" ||
-            pkgName === "cytoscape-cose-bilkent" ||
-            pkgName === "cytoscape-fcose" ||
-            pkgName === "cose-base" ||
-            pkgName === "layout-base"
-          ) {
-            return "vendor-graph";
-          }
-          if (pkgName.startsWith("@tauri-apps/")) return "vendor-tauri";
-          if (pkgName === "react-router-dom" || pkgName === "react-router") return "vendor-react";
-          if (pkgName === "react-dom" || pkgName === "react") return "vendor-react";
-          if (pkgName === "zustand" || pkgName.startsWith("@tanstack/")) return "vendor-state";
-          if (
-            pkgName.startsWith("remark") ||
-            pkgName.startsWith("unified") ||
-            pkgName.startsWith("mdast") ||
-            pkgName.startsWith("micromark")
-          ) {
-            return "vendor-markdown";
-          }
-
-          return undefined;
-        },
+        // Chunk policy lives in scripts/manualChunks.ts so it is
+        // unit-tested (scripts/manualChunks.test.ts — characterization
+        // cases lock every branch). Keep it in lockstep with
+        // .size-limit.cjs and scripts/check-eager-chunks.mjs.
+        manualChunks,
       },
     },
   },

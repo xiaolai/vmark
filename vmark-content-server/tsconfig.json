@@ -5,7 +5,6 @@
     "moduleResolution": "bundler",
     "lib": ["ES2022", "DOM"],
     "outDir": "./dist",
-    "baseUrl": ".",
     "paths": {
       "@vmark/markdown-plugins": ["../src/utils/markdownPipeline/nodeSafe.ts"]
     },

@@ -8,6 +8,7 @@
  */
 
 import { useSettingsStore } from "@/stores/settingsStore";
+import { asArrayBufferBacked } from "@/utils/binary";
 import { imageResizeLog } from "@/utils/debug";
 
 /**
@@ -157,7 +158,7 @@ export async function resizeImageIfNeeded(imageData: Uint8Array): Promise<Resize
   }
 
   // Load image to get dimensions
-  const blob = new Blob([imageData], { type: mimeType });
+  const blob = new Blob([asArrayBufferBacked(imageData)], { type: mimeType });
   const img = await loadImage(blob);
 
   const { width, height } = img;
@@ -177,8 +178,8 @@ export async function resizeImageIfNeeded(imageData: Uint8Array): Promise<Resize
   const resizedData = new Uint8Array(await resizedBlob.arrayBuffer());
 
   // Calculate new dimensions for logging
-  let newWidth = width;
-  let newHeight = height;
+  let newWidth: number;
+  let newHeight: number;
   if (width > height) {
     newHeight = Math.round((height * maxDimension) / width);
     newWidth = maxDimension;

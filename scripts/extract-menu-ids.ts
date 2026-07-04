@@ -4,10 +4,12 @@
  *
  * Usage: npx tsx scripts/extract-menu-ids.ts
  *
- * Reads every src-tauri/src/menu/*.rs file (the menu was split into
- * submodules in 2026-02; audit 20260612 H1 found this script still reading
- * the deleted menu.rs). Extraction and the exclusion list live in
- * src/shared/menuIdExtraction.ts so the contract test can reuse them.
+ * Reads every .rs file under src-tauri/src/menu/ RECURSIVELY (the menu was
+ * split into submodules in 2026-02, and into localized/ section builders in
+ * 2026-07; audit 20260612 H1 found this script still reading the deleted
+ * menu.rs — the recursive scan makes future reshuffles a no-op). Extraction
+ * and the exclusion list live in src/shared/menuIdExtraction.ts so the
+ * contract test can reuse them; menuIdExtraction.test.ts mirrors this scan.
  */
 
 import fs from "node:fs";
@@ -21,8 +23,7 @@ const MENU_DIR = path.join(process.cwd(), "src-tauri/src/menu");
 const OUTPUT_PATH = path.join(process.cwd(), "src/shared/menu-ids.json");
 
 function main() {
-  const rustFiles = fs
-    .readdirSync(MENU_DIR)
+  const rustFiles = (fs.readdirSync(MENU_DIR, { recursive: true }) as string[])
     .filter((f) => f.endsWith(".rs"))
     .sort();
   if (rustFiles.length === 0) {

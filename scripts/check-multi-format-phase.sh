@@ -195,12 +195,12 @@ case "$PHASE" in
     fi
 
     # WI-1B.4 — Rust SUPPORTED_EXTENSIONS
-    if grep -q "pub(crate) const SUPPORTED_EXTENSIONS:" src-tauri/src/lib.rs; then
+    if grep -q "pub(crate) const SUPPORTED_EXTENSIONS:" src-tauri/src/supported_files.rs; then
       ok "Rust SUPPORTED_EXTENSIONS const present"
     else
       fail "Rust SUPPORTED_EXTENSIONS missing"
     fi
-    if grep -q "fn has_supported_extension" src-tauri/src/lib.rs; then
+    if grep -q "fn has_supported_extension" src-tauri/src/supported_files.rs; then
       ok "has_supported_extension function present"
     else
       fail "has_supported_extension function missing"

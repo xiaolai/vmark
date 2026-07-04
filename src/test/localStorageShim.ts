@@ -1,6 +1,6 @@
 const storage = new Map<string, string>();
 
-let hasLocalStorage = false;
+let hasLocalStorage: boolean;
 try {
   hasLocalStorage = typeof globalThis.localStorage !== "undefined";
 } catch {

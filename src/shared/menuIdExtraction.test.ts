@@ -21,8 +21,10 @@ import {
 const MENU_DIR = path.resolve(__dirname, "../../src-tauri/src/menu");
 
 function extractFromDisk(): string[] {
-  const files = fs
-    .readdirSync(MENU_DIR)
+  // Recursive: menu construction lives in submodules (e.g. localized/) and
+  // must stay covered when files move — this scan mirrors
+  // scripts/extract-menu-ids.ts, which regenerates the contract.
+  const files = (fs.readdirSync(MENU_DIR, { recursive: true }) as string[])
     .filter((f) => f.endsWith(".rs"))
     .sort();
   const combined = files

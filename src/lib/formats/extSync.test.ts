@@ -11,14 +11,24 @@ import { __resetRegistry, getSupportedExtensions } from "./registry";
 import { bootstrapFormats, __resetBootstrap } from "./index";
 
 function readRustSupportedExtensions(): string[] {
-  const path = resolve(__dirname, "..", "..", "..", "src-tauri", "src", "lib.rs");
+  const path = resolve(
+    __dirname,
+    "..",
+    "..",
+    "..",
+    "src-tauri",
+    "src",
+    "supported_files.rs",
+  );
   const src = readFileSync(path, "utf8");
   // Match the const declaration's bracketed list (multi-line allowed).
   const match = src.match(
     /pub\(crate\)\s+const\s+SUPPORTED_EXTENSIONS:[^=]*=\s*&\[([\s\S]*?)\];/,
   );
   if (!match) {
-    throw new Error("Could not parse SUPPORTED_EXTENSIONS from lib.rs");
+    throw new Error(
+      "Could not parse SUPPORTED_EXTENSIONS from supported_files.rs",
+    );
   }
   const tokens = match[1].match(/"([a-z0-9]+)"/g) ?? [];
   return tokens.map((t) => t.slice(1, -1));

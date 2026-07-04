@@ -25,6 +25,7 @@
     "size": "size-limit",
     "lint:eager": "node scripts/check-eager-chunks.mjs",
     "lint:file-size": "node scripts/check-file-size.mjs",
+    "lint:barrels": "node scripts/check-index-barrels.mjs",
     "size:why": "size-limit --why",
     "lint": "eslint src",
     "lint:selection-styles": "node scripts/check-selection-styles.mjs",
@@ -40,7 +41,7 @@
     "mutation:ts": "stryker run",
     "test:sidecar": "pnpm --dir vmark-mcp-server test",
     "test:content-server": "pnpm --dir vmark-content-server build && pnpm --dir vmark-content-server smoke && pnpm --dir vmark-content-server test:coverage",
-    "check:all": "pnpm lint && pnpm lint:console && pnpm lint:selection-styles && pnpm lint:design-tokens && pnpm lint:emdash && pnpm lint:deps && pnpm lint:i18n && pnpm lint:themes && pnpm lint:file-size && pnpm knip && pnpm test:coverage && pnpm test:sidecar && pnpm test:content-server && pnpm build && pnpm lint:eager && pnpm size"
+    "check:all": "pnpm lint && pnpm lint:console && pnpm lint:selection-styles && pnpm lint:design-tokens && pnpm lint:emdash && pnpm lint:deps && pnpm lint:i18n && pnpm lint:themes && pnpm lint:file-size && pnpm lint:barrels && pnpm knip && pnpm test:coverage && pnpm test:sidecar && pnpm test:content-server && pnpm build && pnpm lint:eager && pnpm size"
   },
   "dependencies": {
     "@actions/languageservice": "0.3.55",
@@ -134,7 +135,7 @@
     "unist-util-visit": "^5.1.0",
     "vscode-languageserver-textdocument": "^1.0.12",
     "vscode-languageserver-types": "^3.18.0",
-    "yaml": "2.8.4",
+    "yaml": "2.9.0",
     "zustand": "^5.0.14"
   },
   "pnpm": {
@@ -149,7 +150,7 @@
       "typescript-eslint>minimatch": ">=9.0.7",
       "rollup": ">=4.59.0",
       "flatted": ">=3.4.2",
-      "undici": ">=6.24.0",
+      "undici@<6.24.0": ">=6.24.0 <7",
       "markdown-it": ">=14.1.1",
       "@modelcontextprotocol/sdk>ajv": ">=8.18.0",
       "dompurify": ">=3.3.2",
@@ -159,7 +160,7 @@
     }
   },
   "devDependencies": {
-    "@eslint/js": "^9.39.4",
+    "@eslint/js": "^10.0.1",
     "@hypothesi/tauri-mcp-server": "^0.7.0",
     "@size-limit/file": "^12.1.0",
     "@stryker-mutator/core": "9.6.1",
@@ -170,26 +171,26 @@
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
     "@types/mdast": "^4.0.4",
-    "@types/node": "^22.20.0",
+    "@types/node": "^26.1.0",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@types/turndown": "^5.0.6",
-    "@vitejs/plugin-react": "^5.2.0",
+    "@vitejs/plugin-react": "^6.0.3",
     "@vitest/coverage-v8": "^4.1.9",
-    "dependency-cruiser": "^17.4.3",
-    "eslint": "^9.39.4",
+    "dependency-cruiser": "^18.0.0",
+    "eslint": "^10.6.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "globals": "^17.7.0",
-    "jsdom": "^26.1.0",
+    "jsdom": "^29.1.1",
     "knip": "6.15.0",
     "markdownlint-cli2": "^0.21.0",
     "mdast-util-math": "^3.0.0",
     "size-limit": "^12.1.0",
     "tailwindcss": "^4.3.1",
     "tsx": "^4.22.4",
-    "typescript": "~5.8.3",
-    "typescript-eslint": "^8.62.0",
-    "vite": "^7.3.6",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.62.1",
+    "vite": "^8.1.0",
     "vitest": "^4.1.9",
     "vitest-axe": "0.1.0"
   }

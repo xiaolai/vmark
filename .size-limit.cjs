@@ -82,16 +82,19 @@ module.exports = [
     brotli: false,
   },
   {
-    // CodeMirror core. Eager today; narrowing language-data is a separate
-    // (B5) win. The negation glob excludes the `vendor-codemirror-languages-*`
-    // chunk below so growth in EITHER chunk fails its own budget rather
-    // than hiding in the sum.
+    // CodeMirror core + @lezer/* parsers. Eager today; narrowing language-data
+    // is a separate (B5) win. The negation glob excludes the
+    // `vendor-codemirror-languages-*` chunk below so growth in EITHER chunk
+    // fails its own budget rather than hiding in the sum.
+    // Absorbed the former vendor-lezer budget (650 kB): vite 8's rolldown
+    // merges the always-co-loaded @lezer group into this chunk, so the two
+    // budgets are now one (1050 + 650 -> 1700; actual 1.64 MB post-merge).
     name: "EAGER: vendor-codemirror",
     path: [
       "dist/assets/vendor-codemirror-*.js",
       "!dist/assets/vendor-codemirror-languages-*.js",
     ],
-    limit: "1050 kB",
+    limit: "1700 kB",
     brotli: false,
   },
   {
@@ -101,14 +104,6 @@ module.exports = [
     name: "EAGER: vendor-codemirror-languages",
     path: "dist/assets/vendor-codemirror-languages-*.js",
     limit: "30 kB",
-    brotli: false,
-  },
-  {
-    // @lezer/* parsers used by the codeBlock highlighter. Eager because
-    // code blocks render on first paint.
-    name: "EAGER: vendor-lezer",
-    path: "dist/assets/vendor-lezer-*.js",
-    limit: "650 kB",
     brotli: false,
   },
   {
@@ -197,9 +192,12 @@ module.exports = [
     // Bumped 95 → 97 kB: the split-pane "Default view mode" Select in
     // FormatsSettings (Source/Split/Preview) pushed this ~140 B over the old
     // 95 kB ceiling; +2 kB restores headroom.
+    // Bumped 97 → 99 kB: vite 8 (rolldown) emits ~2 kB more module-wrapper
+    // overhead on this chunk than rollup did for identical source inputs
+    // (95.35 → 97.5 kB across the bundler swap alone); +1.5 kB headroom.
     name: "LAZY: Settings page",
     path: "dist/assets/Settings-*.js",
-    limit: "97 kB",
+    limit: "99 kB",
     brotli: false,
   },
   {
@@ -210,10 +208,15 @@ module.exports = [
     brotli: false,
   },
   {
-    // CSS-as-JS string blob for HTML export. Lazy via the export flow.
+    // CSS-as-JS string blob for HTML export (raw editor/plugin CSS + inline
+    // KaTeX fonts). Lazy via the export flow. The chunk is pinned by name in
+    // vite.config.ts manualChunks — rolldown otherwise renames/merges it and
+    // the budget silently stops matching anything.
+    // Bumped 470 → 480 kB: vite 8 (rolldown) module-wrapper overhead on the
+    // base64 font strings (461.6 → 472.8 kB across the bundler swap alone).
     name: "LAZY: htmlExportStyles",
     path: "dist/assets/htmlExportStyles-*.js",
-    limit: "470 kB",
+    limit: "480 kB",
     brotli: false,
   },
 ];

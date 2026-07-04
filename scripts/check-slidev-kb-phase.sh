@@ -94,7 +94,7 @@ phase_5() {
   echo "Phase 5 — In-app panel (reachable)"
   assert_grep "view.toggleKnowledgeBase" "src/services/commands/viewCommands.ts" "toggle command (WI-5.1)"
   assert_grep "menu:knowledge-base" "src/services/commands/useCommandBootstrap.ts" "menu binding (WI-5.1)"
-  assert_grep "knowledge-base" "src-tauri/src/menu/localized.rs" "View-menu item (WI-5.1)"
+  assert_grep "knowledge-base" "src-tauri/src/menu/localized/view_menu.rs" "View-menu item (WI-5.1)"
   assert_grep "knowledgeBase" "src/stores/settingsStore/shortcuts.ts" "shortcut def (rule 41)"
   assert_file "src/components/KnowledgeBasePanel/KnowledgeBasePanel.tsx" "panel"
 }
