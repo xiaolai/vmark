@@ -141,6 +141,12 @@ export const BLOCK_ACTIONS = {
     category: "inserts",
     supports: { wysiwyg: true, source: true },
   },
+  insertGraphvizDiagram: {
+    id: "insertGraphvizDiagram",
+    label: "Insert Graphviz Diagram",
+    category: "inserts",
+    supports: { wysiwyg: true, source: true },
+  },
   insertMarkmap: {
     id: "insertMarkmap",
     label: "Insert Mindmap",

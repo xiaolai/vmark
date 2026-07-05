@@ -58,6 +58,7 @@ export const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
   // === Blocks ===
   { id: "mathBlock", label: "Math Block", category: "blocks", defaultKey: "Alt-Mod-Shift-m", menuId: "math-block", description: "Insert display math block ($$...$$)" },
   { id: "diagram", label: "Insert Diagram", category: "blocks", defaultKey: "Alt-Mod-Shift-d", menuId: "diagram", description: "Insert Mermaid diagram" },
+  { id: "graphvizDiagram", label: "Insert Graphviz Diagram", category: "blocks", defaultKey: "", menuId: "graphviz-diagram", description: "Insert Graphviz DOT diagram" },
   { id: "mindmap", label: "Insert Mindmap", category: "blocks", defaultKey: "Alt-Mod-Shift-k", menuId: "mindmap", description: "Insert Markmap mindmap" },
   { id: "heading1", label: "Heading 1", category: "blocks", defaultKey: "Mod-1", menuId: "heading-1" },
   { id: "heading2", label: "Heading 2", category: "blocks", defaultKey: "Mod-2", menuId: "heading-2" },

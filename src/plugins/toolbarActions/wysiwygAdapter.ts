@@ -6,14 +6,13 @@
  * Implementations split across category-specific modules for the ~300-line limit.
  *
  * Pipeline: toolbar click -> runToolbarAction(id) -> switch(id) -> handler module
- *
  * Key decisions:
  *   - Single giant switch for action routing (simple, greppable, no abstraction overhead)
  *   - Multi-selection actions delegate to wysiwygMultiSelection.ts for per-range handling
- *   - Link/wiki-link actions delegate to wysiwygAdapterLinks.ts to keep this file focused
- *   - Handler implementations split by category:
+ *   - Handler implementations split by category (links: wysiwygAdapterLinks.ts):
  *     - wysiwygAdapterFormatting.ts — text formatting, headings, blockquote
  *     - wysiwygAdapterInsert.ts — images, video, audio, YouTube, math, diagrams, code blocks
+ *     - wysiwygAdapterTables.ts — table insert/row/column/alignment/format operations
  *     - wysiwygAdapterLinkEditor.ts — link/wiki-link editing with smart clipboard
  *     - wysiwygAdapterCjk.ts — CJK formatting, trailing spaces, line endings
  *     - wysiwygAdapterBlockOps.ts — block move/duplicate/delete/join
@@ -24,11 +23,9 @@
  * @coordinates-with UniversalToolbar.tsx — calls runToolbarAction on button click
  * @module plugins/toolbarActions/wysiwygAdapter
  */
-import { imeToast as toast } from "@/services/ime/imeToast";
-import i18n from "@/i18n";
+import type { AlertType } from "@/plugins/alertBlock/tiptap";
 import { expandedToggleMarkTiptap } from "@/plugins/editorPlugins.tiptap";
 import { handleBlockquoteNest, handleBlockquoteUnnest, handleRemoveBlockquote, handleListIndent, handleListOutdent, handleRemoveList, handleToBulletList, handleToOrderedList } from "@/plugins/formatToolbar/nodeActions.tiptap";
-import { addColLeft, addColRight, addRowAbove, addRowBelow, alignColumn, deleteCurrentColumn, deleteCurrentRow, deleteCurrentTable, formatTable } from "@/plugins/tableUI/tableActions.tiptap";
 import { insertFootnoteAndOpenPopup } from "@/plugins/footnotePopup/tiptapInsertFootnote";
 import { toggleTaskList } from "@/plugins/taskToggle/tiptapTaskListUtils";
 import { expandSelectionInView, selectBlockInView, selectLineInView, selectWordInView } from "@/plugins/toolbarActions/tiptapSelectionActions";
@@ -36,11 +33,20 @@ import { canRunActionInMultiSelection } from "./multiSelectionPolicy";
 import { applyMultiSelectionBlockquoteAction, applyMultiSelectionHeading, applyMultiSelectionListAction } from "./wysiwygMultiSelection";
 import { insertWikiLink, insertBookmarkLink } from "./wysiwygAdapterLinks";
 import { clearFormattingInView, increaseHeadingLevel, decreaseHeadingLevel, toggleBlockquote, handleWysiwygTransformCase, toggleQuoteStyleAtCursor } from "./wysiwygAdapterFormatting";
-import { handleInsertImage, handleInsertVideo, handleInsertAudio, insertMathBlock, insertDiagramBlock, insertMarkmapBlock, insertInlineMath } from "./wysiwygAdapterInsert";
+import { handleInsertImage, handleInsertVideo, handleInsertAudio, insertMathBlock, insertDiagramBlock, insertGraphvizBlock, insertMarkmapBlock, insertInlineMath } from "./wysiwygAdapterInsert";
 import { openLinkEditor } from "./wysiwygAdapterLinkEditor";
 import { handleFormatCJK, handleFormatCJKFile, handleRemoveTrailingSpaces, handleCollapseBlankLines, handleLineEndings } from "./wysiwygAdapterCjk";
 import { handleWysiwygMoveBlockUp, handleWysiwygMoveBlockDown, handleWysiwygDuplicateBlock, handleWysiwygDeleteBlock, handleWysiwygJoinBlocks, handleWysiwygRemoveBlankLines } from "./wysiwygAdapterBlockOps";
+import { performWysiwygTableAction } from "./wysiwygAdapterTables";
 import type { WysiwygToolbarContext } from "./types";
+
+const ALERT_TYPE_BY_ACTION = {
+  insertAlertNote: "NOTE",
+  insertAlertTip: "TIP",
+  insertAlertImportant: "IMPORTANT",
+  insertAlertWarning: "WARNING",
+  insertAlertCaution: "CAUTION",
+} as const satisfies Record<string, AlertType>;
 
 /**
  * Set heading level in WYSIWYG mode. Exported for direct use by menu commands.
@@ -134,46 +140,24 @@ export function performWysiwygToolbarAction(action: string, context: WysiwygTool
       if (view && applyMultiSelectionListAction(view, action, context.editor)) return true;
       return view ? (handleRemoveList(view), true) : false;
 
-    // Table operations
+    // Table operations (implementations in wysiwygAdapterTables.ts)
     case "insertTable":
     case "insertTableBlock":
-      if (!context.editor) return false;
-      context.editor.chain().focus().insertTable({ rows: 2, cols: 2, withHeaderRow: true }).run();
-      return true;
     case "addRowAbove":
-      return view ? addRowAbove(view) : false;
     case "addRow":
-      return view ? addRowBelow(view) : false;
     case "addColLeft":
-      return view ? addColLeft(view) : false;
     case "addCol":
-      return view ? addColRight(view) : false;
     case "deleteRow":
-      return view ? deleteCurrentRow(view) : false;
     case "deleteCol":
-      return view ? deleteCurrentColumn(view) : false;
     case "deleteTable":
-      return view ? deleteCurrentTable(view) : false;
     case "alignLeft":
-      return view ? alignColumn(view, "left", false) : false;
     case "alignCenter":
-      return view ? alignColumn(view, "center", false) : false;
     case "alignRight":
-      return view ? alignColumn(view, "right", false) : false;
     case "alignAllLeft":
-      return view ? alignColumn(view, "left", true) : false;
     case "alignAllCenter":
-      return view ? alignColumn(view, "center", true) : false;
     case "alignAllRight":
-      return view ? alignColumn(view, "right", true) : false;
     case "formatTable":
-      if (!view) return false;
-      if (formatTable(view)) {
-        toast.success(i18n.t("dialog:toast.tableFormatted"));
-      } else {
-        toast.info(i18n.t("dialog:toast.tableAlreadyFormatted"));
-      }
-      return true;
+      return performWysiwygTableAction(action, context);
 
     // Blockquote
     case "nestBlockquote":
@@ -207,6 +191,8 @@ export function performWysiwygToolbarAction(action: string, context: WysiwygTool
       return insertMathBlock(context);
     case "insertDiagram":
       return insertDiagramBlock(context);
+    case "insertGraphvizDiagram":
+      return insertGraphvizBlock(context);
     case "insertMarkmap":
       return insertMarkmapBlock(context);
     case "insertInlineMath":
@@ -228,24 +214,12 @@ export function performWysiwygToolbarAction(action: string, context: WysiwygTool
       context.editor.commands.insertDetailsBlock();
       return true;
     case "insertAlertNote":
-      if (!context.editor) return false;
-      context.editor.commands.insertAlertBlock("NOTE");
-      return true;
     case "insertAlertTip":
-      if (!context.editor) return false;
-      context.editor.commands.insertAlertBlock("TIP");
-      return true;
     case "insertAlertImportant":
-      if (!context.editor) return false;
-      context.editor.commands.insertAlertBlock("IMPORTANT");
-      return true;
     case "insertAlertWarning":
-      if (!context.editor) return false;
-      context.editor.commands.insertAlertBlock("WARNING");
-      return true;
     case "insertAlertCaution":
       if (!context.editor) return false;
-      context.editor.commands.insertAlertBlock("CAUTION");
+      context.editor.commands.insertAlertBlock(ALERT_TYPE_BY_ACTION[action]);
       return true;
     case "insertFootnote":
       if (!context.editor) return false;

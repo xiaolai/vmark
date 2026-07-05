@@ -147,6 +147,7 @@ menu:
   insert.codeBlock: "コードブロック"
   insert.mathBlock: "数式ブロック"
   insert.diagram: "ダイアグラム"
+  insert.graphvizDiagram: "Graphviz ダイアグラム"
   insert.mindmap: "マインドマップ"
   insert.horizontalLine: "水平線"
   insert.footnote: "脚注"

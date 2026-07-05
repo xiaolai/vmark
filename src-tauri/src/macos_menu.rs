@@ -3,8 +3,7 @@
 //! Applies SF Symbol icons to menu items and registers Help/Window menus
 //! with NSApplication for native macOS behavior.
 //!
-//! All lookups use stable menu item IDs (not translated titles) for i18n safety.
-//! See: https://github.com/tauri-apps/muda/pull/322
+//! All lookups use stable menu item IDs (not translated titles) for i18n safety (see muda PR #322).
 
 use std::collections::HashMap;
 
@@ -210,6 +209,7 @@ const MENU_ICONS: &[(&str, &str)] = &[
     ("code-fences", "curlybraces"),
     ("math-block", "function"),
     ("diagram", "chart.xyaxis.line"),
+    ("graphviz-diagram", "chart.xyaxis.line"),
     ("horizontal-line", "minus"),
     ("footnote", "note.text"),
     ("collapsible-block", "chevron.down.square"),

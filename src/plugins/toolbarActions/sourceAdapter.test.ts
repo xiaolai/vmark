@@ -438,6 +438,20 @@ describe("performSourceToolbarAction", () => {
     }
   });
 
+  it("preserves a multi-line selection when inserting an alert (WI: no data loss)", () => {
+    const doc = "line one\nline two";
+    const view = createView(doc, [{ from: 0, to: doc.length }]);
+    const applied = performSourceToolbarAction("insertAlertNote", {
+      surface: "source",
+      view,
+      context: null,
+      multiSelection: singleSelection,
+    });
+    expect(applied).toBe(true);
+    expect(view.state.doc.toString()).toBe("> [!NOTE]\n> line one\n> line two");
+    view.destroy();
+  });
+
   it("inserts math block", () => {
     const view = createView("", [{ from: 0, to: 0 }]);
     const applied = performSourceToolbarAction("insertMath", {
@@ -461,6 +475,19 @@ describe("performSourceToolbarAction", () => {
     });
     expect(applied).toBe(true);
     expect(view.state.doc.toString()).toContain("```mermaid");
+    view.destroy();
+  });
+
+  it("inserts graphviz block", () => {
+    const view = createView("", [{ from: 0, to: 0 }]);
+    const applied = performSourceToolbarAction("insertGraphvizDiagram", {
+      surface: "source",
+      view,
+      context: null,
+      multiSelection: singleSelection,
+    });
+    expect(applied).toBe(true);
+    expect(view.state.doc.toString()).toContain("```dot");
     view.destroy();
   });
 

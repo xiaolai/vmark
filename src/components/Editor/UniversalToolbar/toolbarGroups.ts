@@ -4,8 +4,8 @@
  * Centralized group definitions for the UniversalToolbar.
  * Each group renders as a single dropdown button with menu items.
  *
- * Groups appear in spec order:
- * Block → Inline → List → Table → Blockquote → Insert → Expandables → Link
+ * Groups appear in spec order (pinned by toolbarGroups.test.ts):
+ * Block → Inline → List → Table → Blockquote → Link → Insert
  *
  * @module components/Editor/UniversalToolbar/toolbarGroups
  */
@@ -170,6 +170,7 @@ const INSERT_GROUP: ToolbarGroup = {
     { id: "insert-audio", icon: icons.audio, label: "Audio", action: "insertAudio", enabledIn: ["textblock"] },
     { id: "insert-code-block", icon: icons.codeBlock, label: "Code Block", shortcut: "⌥⌘C", action: "insertCodeBlock", enabledIn: ["textblock"] },
     { id: "insert-diagram", icon: icons.diagram, label: "Diagram", shortcut: "⇧⌥⌘D", action: "insertDiagram", enabledIn: ["textblock"] },
+    { id: "insert-graphviz", icon: icons.diagram, label: "Graphviz", action: "insertGraphvizDiagram", enabledIn: ["textblock"] },
     { id: "insert-mindmap", icon: icons.diagram, label: "Mindmap", shortcut: "⇧⌥⌘K", action: "insertMarkmap", enabledIn: ["textblock"] },
     { id: "insert-math", icon: icons.math, label: "Math Block", shortcut: "⇧⌥⌘M", action: "insertMath", enabledIn: ["textblock"] },
     { id: "insert-details", icon: icons.expand, label: "Details", action: "insertDetails", enabledIn: ["textblock"] },

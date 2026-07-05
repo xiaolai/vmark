@@ -30,6 +30,7 @@
     "format-cjk",
     "format-cjk-file",
     "format-table",
+    "graphviz-diagram",
     "heading-1",
     "heading-2",
     "heading-3",
@@ -146,6 +147,7 @@
     "format-cjk",
     "format-cjk-file",
     "format-table",
+    "graphviz-diagram",
     "heading-1",
     "heading-2",
     "heading-3",
@@ -238,5 +240,5 @@
     "zoom-in",
     "zoom-out"
   ],
-  "generatedAt": "2026-06-29T11:51:33.012Z"
+  "generatedAt": "2026-07-05T09:16:52.774Z"
 }

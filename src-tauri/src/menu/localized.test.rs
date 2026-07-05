@@ -81,6 +81,7 @@ const DEFAULT_ACCELERATORS: &[(&str, &str)] = &[
     ("format-cjk", "CmdOrCtrl+Shift+F"),
     ("format-cjk-file", "Alt+CmdOrCtrl+Shift+F"),
     ("format-table", "Alt+CmdOrCtrl+T"),
+    ("graphviz-diagram", ""),
     ("heading-1", "CmdOrCtrl+1"),
     ("heading-2", "CmdOrCtrl+2"),
     ("heading-3", "CmdOrCtrl+3"),

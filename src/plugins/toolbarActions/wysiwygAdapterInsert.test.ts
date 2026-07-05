@@ -40,6 +40,10 @@ vi.mock("@/plugins/markmap/constants", () => ({
   DEFAULT_MARKMAP_CONTENT: "# Topic\n## Branch",
 }));
 
+vi.mock("@/plugins/graphviz/constants", () => ({
+  DEFAULT_GRAPHVIZ_DIAGRAM: "digraph G {\n  a -> b\n}",
+}));
+
 vi.mock("@/utils/debug", () => ({
   wysiwygAdapterWarn: vi.fn(),
   wysiwygAdapterError: vi.fn(),
@@ -54,6 +58,7 @@ import {
   handleInsertImage,
   insertMathBlock,
   insertDiagramBlock,
+  insertGraphvizBlock,
   insertMarkmapBlock,
   insertInlineMath,
   handleInsertVideo,
@@ -70,8 +75,15 @@ import { wysiwygAdapterWarn } from "@/utils/debug";
 import { isViewConnected, getActiveFilePath } from "./wysiwygAdapterUtils";
 import type { WysiwygToolbarContext } from "./types";
 
-function createMockEditor() {
+function createMockEditor(opts?: {
+  selection?: { from: number; to: number; empty: boolean };
+  selectedText?: string;
+}) {
   const editor = {
+    state: {
+      selection: opts?.selection ?? { from: 0, to: 0, empty: true },
+      doc: { textBetween: vi.fn(() => opts?.selectedText ?? "") },
+    },
     chain: vi.fn().mockReturnThis(),
     focus: vi.fn().mockReturnThis(),
     insertContent: vi.fn().mockReturnThis(),
@@ -141,6 +153,30 @@ describe("insertDiagramBlock", () => {
   });
 });
 
+describe("insertGraphvizBlock", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("returns false when editor is null", () => {
+    const context = createBaseContext();
+    expect(insertGraphvizBlock(context)).toBe(false);
+  });
+
+  it("inserts a Graphviz (dot) code block", () => {
+    const editor = createMockEditor();
+    const context = createBaseContext({ editor: editor as never });
+
+    const result = insertGraphvizBlock(context);
+    expect(result).toBe(true);
+    expect(editor.insertContent).toHaveBeenCalledWith({
+      type: "codeBlock",
+      attrs: { language: "dot" },
+      content: [{ type: "text", text: "digraph G {\n  a -> b\n}" }],
+    });
+  });
+});
+
 describe("insertMarkmapBlock", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -161,6 +197,85 @@ describe("insertMarkmapBlock", () => {
       type: "codeBlock",
       attrs: { language: "markmap" },
       content: [{ type: "text", text: "# Topic\n## Branch" }],
+    });
+  });
+});
+
+describe("insert block builders — selection becomes block content", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("uses selected text as math block content instead of the default", () => {
+    const editor = createMockEditor({
+      selection: { from: 1, to: 8, empty: false },
+      selectedText: "E = mc^2",
+    });
+    const context = createBaseContext({ editor: editor as never });
+
+    expect(insertMathBlock(context)).toBe(true);
+    expect(editor.state.doc.textBetween).toHaveBeenCalledWith(1, 8, "\n");
+    expect(editor.insertContent).toHaveBeenCalledWith({
+      type: "codeBlock",
+      attrs: { language: "latex" },
+      content: [{ type: "text", text: "E = mc^2" }],
+    });
+  });
+
+  it("uses selected text as mermaid diagram content", () => {
+    const editor = createMockEditor({
+      selection: { from: 0, to: 20, empty: false },
+      selectedText: "sequenceDiagram\n  A->>B: hi",
+    });
+    const context = createBaseContext({ editor: editor as never });
+
+    expect(insertDiagramBlock(context)).toBe(true);
+    expect(editor.insertContent).toHaveBeenCalledWith({
+      type: "codeBlock",
+      attrs: { language: "mermaid" },
+      content: [{ type: "text", text: "sequenceDiagram\n  A->>B: hi" }],
+    });
+  });
+
+  it("uses selected text as graphviz content", () => {
+    const editor = createMockEditor({
+      selection: { from: 2, to: 12, empty: false },
+      selectedText: "digraph { x -> y }",
+    });
+    const context = createBaseContext({ editor: editor as never });
+
+    expect(insertGraphvizBlock(context)).toBe(true);
+    expect(editor.insertContent).toHaveBeenCalledWith({
+      type: "codeBlock",
+      attrs: { language: "dot" },
+      content: [{ type: "text", text: "digraph { x -> y }" }],
+    });
+  });
+
+  it("uses selected text as markmap content", () => {
+    const editor = createMockEditor({
+      selection: { from: 3, to: 9, empty: false },
+      selectedText: "# Root\n## Leaf",
+    });
+    const context = createBaseContext({ editor: editor as never });
+
+    expect(insertMarkmapBlock(context)).toBe(true);
+    expect(editor.insertContent).toHaveBeenCalledWith({
+      type: "codeBlock",
+      attrs: { language: "markmap" },
+      content: [{ type: "text", text: "# Root\n## Leaf" }],
+    });
+  });
+
+  it("falls back to default content when selection is empty", () => {
+    const editor = createMockEditor();
+    const context = createBaseContext({ editor: editor as never });
+
+    expect(insertDiagramBlock(context)).toBe(true);
+    expect(editor.insertContent).toHaveBeenCalledWith({
+      type: "codeBlock",
+      attrs: { language: "mermaid" },
+      content: [{ type: "text", text: "flowchart LR\n  A --> B" }],
     });
   });
 });
@@ -701,6 +816,59 @@ describe("handleInsertImage — async paths", () => {
         title: "",
       });
     });
+  });
+
+  it("recomputes the insert range when the doc changes during the async copy", async () => {
+    vi.mocked(readClipboardImagePath).mockResolvedValue({
+      isImage: true,
+      validated: true,
+      path: "/Users/test/photo.png",
+      needsCopy: true,
+      resolvedPath: "/Users/test/photo.png",
+    } as never);
+    vi.mocked(findWordAtCursor).mockReturnValue(null);
+
+    const imageCreate = vi.fn(() => ({ type: "image" }));
+    const trBefore = { replaceWith: vi.fn().mockReturnThis() };
+    const trAfter = { replaceWith: vi.fn().mockReturnThis() };
+
+    const stateBefore = {
+      selection: { from: 2, to: 7, $from: { nodeAfter: null, nodeBefore: null } },
+      doc: { textBetween: vi.fn(() => "hello") },
+      schema: { nodes: { image: { create: imageCreate } }, text: vi.fn() },
+      tr: trBefore,
+    };
+    const stateAfter = {
+      selection: { from: 0, to: 0, $from: { nodeAfter: null, nodeBefore: null } },
+      doc: { textBetween: vi.fn(() => "") },
+      schema: { nodes: { image: { create: imageCreate } }, text: vi.fn() },
+      tr: trAfter,
+    };
+
+    const mockView = {
+      state: stateBefore as unknown,
+      dispatch: vi.fn(),
+      focus: vi.fn(),
+      dom: { isConnected: true },
+    };
+
+    // Simulate an edit landing while the copy is in flight: the view's
+    // state (doc + selection) is replaced before the promise resolves.
+    vi.mocked(copyImageToAssets).mockImplementation(async () => {
+      mockView.state = stateAfter;
+      return "assets/photo.png";
+    });
+
+    const context = createBaseContext({ view: mockView as never });
+    handleInsertImage(context);
+
+    await vi.waitFor(() => {
+      // The insertion must target the post-copy selection (0,0), not the
+      // stale pre-copy range (2,7) against the new doc.
+      expect(trAfter.replaceWith).toHaveBeenCalledWith(0, 0, expect.anything());
+    });
+    expect(trBefore.replaceWith).not.toHaveBeenCalled();
+    expect(imageCreate).toHaveBeenCalledWith({ src: "assets/photo.png", alt: "", title: "" });
   });
 
   it("falls back to file picker when clipboard has no image", async () => {

@@ -147,6 +147,7 @@ menu:
   insert.codeBlock: "Bloque de código"
   insert.mathBlock: "Bloque matemático"
   insert.diagram: "Diagrama"
+  insert.graphvizDiagram: "Diagrama Graphviz"
   insert.mindmap: "Mapa mental"
   insert.horizontalLine: "Línea horizontal"
   insert.footnote: "Nota al pie"

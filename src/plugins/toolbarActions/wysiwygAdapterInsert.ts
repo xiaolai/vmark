@@ -2,16 +2,23 @@
  * WYSIWYG Adapter - Insert Actions
  *
  * Purpose: Handles insertion of block-level and inline content in WYSIWYG mode —
- * images (smart clipboard detection), video/audio (file picker + copy-to-assets),
- * math blocks/inline, diagrams, markmaps, code blocks.
+ * images (smart clipboard detection), video/audio (parameterized file-picker +
+ * copy-to-assets flow), math blocks/inline, diagrams, markmaps, code blocks.
+ *
+ * Key decisions:
+ *   - Smart image insertion computes its target range AFTER all awaits so a
+ *     doc edit during the async copy cannot misplace the replacement range
+ *   - Image/video/audio share one MediaPickerSpec-driven picker flow
+ *   - Inline math delegates to handleInlineMathShortcut (single source of truth)
  *
  * @coordinates-with wysiwygAdapter.ts — main dispatcher delegates insert actions here
  * @coordinates-with wysiwygAdapterUtils.ts — uses isViewConnected, getActiveFilePath
+ * @coordinates-with editorPlugins/inlineMathCommand.ts — shared inline math toggle
  * @module plugins/toolbarActions/wysiwygAdapterInsert
  */
 import { open, message } from "@tauri-apps/plugin-dialog";
 import type { EditorView } from "@tiptap/pm/view";
-import { NodeSelection, Selection } from "@tiptap/pm/state";
+import i18n from "@/i18n";
 import { findWordAtCursor } from "@/plugins/syntaxReveal/marks";
 import { copyImageToAssets, insertBlockImageNode } from "@/hooks/useImageOperations";
 import { copyMediaToAssets, insertBlockVideoNode, insertBlockAudioNode } from "@/hooks/useMediaOperations";
@@ -19,7 +26,9 @@ import { getWindowLabel } from "@/hooks/useWindowFocus";
 import { readClipboardImagePath } from "@/services/media/clipboardImagePath";
 import { withReentryGuard } from "@/utils/reentryGuard";
 import { DEFAULT_MERMAID_DIAGRAM } from "@/plugins/mermaid/constants";
+import { DEFAULT_GRAPHVIZ_DIAGRAM } from "@/plugins/graphviz/constants";
 import { DEFAULT_MARKMAP_CONTENT } from "@/plugins/markmap/constants";
+import { handleInlineMathShortcut } from "@/plugins/editorPlugins/inlineMathCommand";
 import { wysiwygAdapterWarn, wysiwygAdapterError } from "@/utils/debug";
 import { isViewConnected, getActiveFilePath } from "./wysiwygAdapterUtils";
 import { IMAGE_EXTENSIONS, VIDEO_EXTENSIONS, AUDIO_EXTENSIONS } from "@/utils/mediaExtensions";
@@ -27,7 +36,6 @@ import type { WysiwygToolbarContext } from "./types";
 import { errorMessage } from "@/utils/errorMessage";
 
 const DEFAULT_MATH_BLOCK = "c = \\pm\\sqrt{a^2 + b^2}";
-const INSERT_IMAGE_GUARD = "menu-insert-image";
 
 /**
  * Insert an image node with alt text.
@@ -53,6 +61,10 @@ function insertImageWithAlt(view: EditorView, src: string, alt: string, from: nu
  * - Selection exists -> use as alt text
  * - No selection, word at cursor -> use word as alt text
  * - No clipboard image -> return false (fall back to file picker)
+ *
+ * The target range and alt text are computed from the CURRENT view state
+ * after every await, so a doc change while the copy is in flight cannot
+ * replace a stale (now wrong) range.
  */
 async function trySmartImageInsertion(view: EditorView): Promise<boolean> {
   const clipboardResult = await readClipboardImagePath();
@@ -66,28 +78,6 @@ async function trySmartImageInsertion(view: EditorView): Promise<boolean> {
   if (!isViewConnected(view)) {
     wysiwygAdapterWarn("View disconnected after clipboard read");
     return false;
-  }
-
-  // Capture selection state after async operation (may have changed)
-  const { from, to } = view.state.selection;
-
-  // Determine alt text from selection or word expansion
-  let altText = "";
-  let insertFrom = from;
-  let insertTo = to;
-
-  if (from !== to) {
-    // Has selection: use as alt text
-    altText = view.state.doc.textBetween(from, to, "");
-  } else {
-    // No selection: try word expansion
-    const $from = view.state.selection.$from;
-    const wordRange = findWordAtCursor($from);
-    if (wordRange) {
-      altText = view.state.doc.textBetween(wordRange.from, wordRange.to, "");
-      insertFrom = wordRange.from;
-      insertTo = wordRange.to;
-    }
   }
 
   let imagePath = clipboardResult.path;
@@ -108,15 +98,34 @@ async function trySmartImageInsertion(view: EditorView): Promise<boolean> {
       // Copy failed, fall back to file picker
       return false;
     }
+
+    // Re-verify view is still connected after async copy
+    if (!isViewConnected(view)) {
+      wysiwygAdapterWarn("View disconnected after image copy");
+      return false;
+    }
   }
 
-  // Re-verify view is still connected after async copy
-  if (!isViewConnected(view)) {
-    wysiwygAdapterWarn("View disconnected after image copy");
-    return false;
+  // Determine target range and alt text from the selection as it is NOW —
+  // after all awaits — so edits during the copy can't misplace the insert.
+  const { from, to } = view.state.selection;
+  let altText = "";
+  let insertFrom = from;
+  let insertTo = to;
+
+  if (from !== to) {
+    // Has selection: use as alt text
+    altText = view.state.doc.textBetween(from, to, "");
+  } else {
+    // No selection: try word expansion
+    const wordRange = findWordAtCursor(view.state.selection.$from);
+    if (wordRange) {
+      altText = view.state.doc.textBetween(wordRange.from, wordRange.to, "");
+      insertFrom = wordRange.from;
+      insertTo = wordRange.to;
+    }
   }
 
-  // Insert image with the path
   insertImageWithAlt(view, imagePath, altText, insertFrom, insertTo);
   return true;
 }
@@ -127,14 +136,56 @@ function normalizeDialogPath(path: string | string[] | null): string | null {
   return path;
 }
 
-async function insertImageFromPicker(view: EditorView): Promise<boolean> {
+// --- Parameterized media insertion (image / video / audio) ---
+
+interface MediaPickerSpec {
+  /** Reentry guard id, e.g. "menu-insert-image" */
+  guardId: string;
+  /** File dialog filter label */
+  filterName: string;
+  extensions: readonly string[];
+  /** dialog:unsavedDocument.* message key shown when the document is unsaved */
+  unsavedMessageKey: string;
+  copyToAssets: (sourcePath: string, docPath: string) => Promise<string>;
+  insertNode: (view: EditorView, relativePath: string) => void;
+  /** Log prefix used in "<logLabel> insertion failed:" warnings */
+  logLabel: string;
+}
+
+const IMAGE_PICKER: MediaPickerSpec = {
+  guardId: "menu-insert-image",
+  filterName: "Images",
+  extensions: IMAGE_EXTENSIONS,
+  unsavedMessageKey: "dialog:unsavedDocument.messageInsertImages",
+  copyToAssets: copyImageToAssets,
+  insertNode: insertBlockImageNode,
+  logLabel: "Image",
+};
+
+const VIDEO_PICKER: MediaPickerSpec = {
+  guardId: "menu-insert-video",
+  filterName: "Videos",
+  extensions: VIDEO_EXTENSIONS,
+  unsavedMessageKey: "dialog:unsavedDocument.messageAddMedia",
+  copyToAssets: copyMediaToAssets,
+  insertNode: insertBlockVideoNode,
+  logLabel: "Video",
+};
+
+const AUDIO_PICKER: MediaPickerSpec = {
+  guardId: "menu-insert-audio",
+  filterName: "Audio",
+  extensions: AUDIO_EXTENSIONS,
+  unsavedMessageKey: "dialog:unsavedDocument.messageAddMedia",
+  copyToAssets: copyMediaToAssets,
+  insertNode: insertBlockAudioNode,
+  logLabel: "Audio",
+};
+
+/** Open a file picker for the media type, copy the pick to assets, insert the node. */
+async function insertMediaFromPicker(view: EditorView, spec: MediaPickerSpec): Promise<boolean> {
   const selected = await open({
-    filters: [
-      {
-        name: "Images",
-        extensions: [...IMAGE_EXTENSIONS],
-      },
-    ],
+    filters: [{ name: spec.filterName, extensions: [...spec.extensions] }],
   });
 
   const sourcePath = normalizeDialogPath(selected);
@@ -142,16 +193,25 @@ async function insertImageFromPicker(view: EditorView): Promise<boolean> {
 
   const filePath = getActiveFilePath();
   if (!filePath) {
-    await message(
-      "Please save the document first to copy images to assets folder.",
-      { title: "Unsaved Document", kind: "warning" }
-    );
+    await message(i18n.t(spec.unsavedMessageKey), {
+      title: i18n.t("dialog:unsavedDocument.title"),
+      kind: "warning",
+    });
     return false;
   }
 
-  const relativePath = await copyImageToAssets(sourcePath, filePath);
+  const relativePath = await spec.copyToAssets(sourcePath, filePath);
   if (!isViewConnected(view)) return false;
-  insertBlockImageNode(view, relativePath);
+  spec.insertNode(view, relativePath);
+  return true;
+}
+
+/** Run an async insertion task behind the spec's reentry guard, logging failures. */
+function runGuardedInsertion(spec: MediaPickerSpec, task: () => Promise<void>): boolean {
+  const windowLabel = getWindowLabel();
+  void withReentryGuard(windowLabel, spec.guardId, task).catch((error) => {
+    wysiwygAdapterWarn(`${spec.logLabel} insertion failed:`, errorMessage(error));
+  });
   return true;
 }
 
@@ -163,222 +223,11 @@ export function handleInsertImage(context: WysiwygToolbarContext): boolean {
   const view = context.view;
   if (!view) return false;
 
-  const windowLabel = getWindowLabel();
-  void withReentryGuard(windowLabel, INSERT_IMAGE_GUARD, async () => {
+  return runGuardedInsertion(IMAGE_PICKER, async () => {
     const handled = await trySmartImageInsertion(view);
     if (handled) return;
-    await insertImageFromPicker(view);
-  }).catch((error) => {
-    /* v8 ignore start -- @preserve reason: image insertion error path not exercised in unit tests */
-    wysiwygAdapterWarn("Image insertion failed:", errorMessage(error));
-    /* v8 ignore stop */
+    await insertMediaFromPicker(view, IMAGE_PICKER);
   });
-
-  return true;
-}
-
-/**
- * Insert a LaTeX math code block with default content.
- */
-export function insertMathBlock(context: WysiwygToolbarContext): boolean {
-  const editor = context.editor;
-  if (!editor) return false;
-
-  editor
-    .chain()
-    .focus()
-    .insertContent({
-      type: "codeBlock",
-      attrs: { language: "latex" },
-      content: [{ type: "text", text: DEFAULT_MATH_BLOCK }],
-    })
-    .run();
-  return true;
-}
-
-/**
- * Insert a Mermaid diagram code block with default content.
- */
-export function insertDiagramBlock(context: WysiwygToolbarContext): boolean {
-  const editor = context.editor;
-  if (!editor) return false;
-
-  editor
-    .chain()
-    .focus()
-    .insertContent({
-      type: "codeBlock",
-      attrs: { language: "mermaid" },
-      content: [{ type: "text", text: DEFAULT_MERMAID_DIAGRAM }],
-    })
-    .run();
-  return true;
-}
-
-/**
- * Insert a Markmap mind-map code block with default content.
- */
-export function insertMarkmapBlock(context: WysiwygToolbarContext): boolean {
-  const editor = context.editor;
-  if (!editor) return false;
-
-  editor
-    .chain()
-    .focus()
-    .insertContent({
-      type: "codeBlock",
-      attrs: { language: "markmap" },
-      content: [{ type: "text", text: DEFAULT_MARKMAP_CONTENT }],
-    })
-    .run();
-  return true;
-}
-
-/**
- * Insert inline math with word expansion.
- *
- * Behavior:
- * - Cursor at math_inline node -> unwrap (convert to text)
- * - Has selection -> wrap in math_inline, position cursor to enter edit mode
- * - No selection, word at cursor -> wrap word, position cursor to enter edit mode
- * - No selection, no word -> insert empty math_inline, enter edit mode
- */
-export function insertInlineMath(context: WysiwygToolbarContext): boolean {
-  const view = context.view;
-  if (!view) return false;
-
-  const { state, dispatch } = view;
-  const { from, to } = state.selection;
-  const mathInlineType = state.schema.nodes.math_inline;
-  if (!mathInlineType) return false;
-
-  const $from = state.selection.$from;
-
-  // Check if we're in a NodeSelection of a math node - toggle off (unwrap)
-  if (state.selection instanceof NodeSelection) {
-    const node = state.selection.node;
-    /* v8 ignore next -- @preserve reason: NodeSelection of non-math_inline node not tested */
-    if (node.type.name === "math_inline") {
-      const content = node.attrs.content || "";
-      const pos = state.selection.from;
-      const tr = state.tr.replaceWith(
-        pos,
-        pos + node.nodeSize,
-        content ? state.schema.text(content) : []
-      );
-      tr.setSelection(Selection.near(tr.doc.resolve(pos + content.length)));
-      dispatch(tr);
-      view.focus();
-      return true;
-    }
-  }
-
-  // Check if cursor's nodeAfter is math_inline - toggle off (unwrap)
-  const nodeAfter = $from.nodeAfter;
-  if (nodeAfter?.type.name === "math_inline") {
-    const nodeEnd = from + nodeAfter.nodeSize;
-    const content = nodeAfter.attrs.content || "";
-    const tr = state.tr.replaceWith(
-      from,
-      nodeEnd,
-      content ? state.schema.text(content) : []
-    );
-    tr.setSelection(Selection.near(tr.doc.resolve(from + content.length)));
-    dispatch(tr);
-    view.focus();
-    return true;
-  }
-
-  // Check if cursor's nodeBefore is math_inline - toggle off (unwrap)
-  const nodeBefore = $from.nodeBefore;
-  if (nodeBefore?.type.name === "math_inline") {
-    const nodeStart = from - nodeBefore.nodeSize;
-    const content = nodeBefore.attrs.content || "";
-    const tr = state.tr.replaceWith(
-      nodeStart,
-      from,
-      content ? state.schema.text(content) : []
-    );
-    tr.setSelection(Selection.near(tr.doc.resolve(nodeStart + content.length)));
-    dispatch(tr);
-    view.focus();
-    return true;
-  }
-
-  // Helper to focus math input after insertion with cursor at specific offset
-  const focusMathInput = (cursorOffset?: number) => {
-    requestAnimationFrame(() => {
-      const mathInput = view.dom.querySelector(".math-inline.editing .math-inline-input") as HTMLInputElement;
-      if (mathInput) {
-        mathInput.focus();
-        /* v8 ignore next -- @preserve reason: cursorOffset not provided is an untested code path */
-        if (cursorOffset !== undefined) {
-          mathInput.setSelectionRange(cursorOffset, cursorOffset);
-        }
-      }
-    });
-  };
-
-  // Case 1: Has selection - wrap in math_inline, enter edit mode
-  if (from !== to) {
-    const selectedText = state.doc.textBetween(from, to, "");
-    const mathNode = mathInlineType.create({ content: selectedText });
-    const tr = state.tr.replaceSelectionWith(mathNode);
-    tr.setSelection(Selection.near(tr.doc.resolve(from)));
-    dispatch(tr);
-    focusMathInput(selectedText.length);
-    return true;
-  }
-
-  // Case 2: No selection - try word expansion
-  const wordRange = findWordAtCursor($from);
-  if (wordRange) {
-    const wordText = state.doc.textBetween(wordRange.from, wordRange.to, "");
-    // Calculate cursor offset within the word (restore cursor position)
-    const cursorOffsetInWord = from - wordRange.from;
-    const mathNode = mathInlineType.create({ content: wordText });
-    const tr = state.tr.replaceWith(wordRange.from, wordRange.to, mathNode);
-    tr.setSelection(Selection.near(tr.doc.resolve(wordRange.from)));
-    dispatch(tr);
-    focusMathInput(cursorOffsetInWord);
-    return true;
-  }
-
-  // Case 3: No selection, no word - insert empty math node, enter edit mode
-  const mathNode = mathInlineType.create({ content: "" });
-  const tr = state.tr.replaceSelectionWith(mathNode);
-  tr.setSelection(Selection.near(tr.doc.resolve(from)));
-  dispatch(tr);
-  focusMathInput(0);
-  return true;
-}
-
-// --- Media insertion (video / audio / YouTube) ---
-
-const INSERT_VIDEO_GUARD = "menu-insert-video";
-const INSERT_AUDIO_GUARD = "menu-insert-audio";
-
-async function insertVideoFromPicker(view: EditorView): Promise<boolean> {
-  const selected = await open({
-    filters: [{ name: "Videos", extensions: [...VIDEO_EXTENSIONS] }],
-  });
-
-  const sourcePath = normalizeDialogPath(selected);
-  if (!sourcePath) return false;
-
-  const filePath = getActiveFilePath();
-  if (!filePath) {
-    await message(
-      "Please save the document first to copy videos to assets folder.",
-      { title: "Unsaved Document", kind: "warning" }
-    );
-    return false;
-  }
-
-  const relativePath = await copyMediaToAssets(sourcePath, filePath);
-  if (!isViewConnected(view)) return false;
-  insertBlockVideoNode(view, relativePath);
-  return true;
 }
 
 /**
@@ -388,37 +237,9 @@ export function handleInsertVideo(context: WysiwygToolbarContext): boolean {
   const view = context.view;
   if (!view) return false;
 
-  const windowLabel = getWindowLabel();
-  void withReentryGuard(windowLabel, INSERT_VIDEO_GUARD, async () => {
-    await insertVideoFromPicker(view);
-  }).catch((error) => {
-    wysiwygAdapterWarn("Video insertion failed:", errorMessage(error));
+  return runGuardedInsertion(VIDEO_PICKER, async () => {
+    await insertMediaFromPicker(view, VIDEO_PICKER);
   });
-
-  return true;
-}
-
-async function insertAudioFromPicker(view: EditorView): Promise<boolean> {
-  const selected = await open({
-    filters: [{ name: "Audio", extensions: [...AUDIO_EXTENSIONS] }],
-  });
-
-  const sourcePath = normalizeDialogPath(selected);
-  if (!sourcePath) return false;
-
-  const filePath = getActiveFilePath();
-  if (!filePath) {
-    await message(
-      "Please save the document first to copy audio to assets folder.",
-      { title: "Unsaved Document", kind: "warning" }
-    );
-    return false;
-  }
-
-  const relativePath = await copyMediaToAssets(sourcePath, filePath);
-  if (!isViewConnected(view)) return false;
-  insertBlockAudioNode(view, relativePath);
-  return true;
 }
 
 /**
@@ -428,13 +249,69 @@ export function handleInsertAudio(context: WysiwygToolbarContext): boolean {
   const view = context.view;
   if (!view) return false;
 
-  const windowLabel = getWindowLabel();
-  void withReentryGuard(windowLabel, INSERT_AUDIO_GUARD, async () => {
-    await insertAudioFromPicker(view);
-  }).catch((error) => {
-    wysiwygAdapterWarn("Audio insertion failed:", errorMessage(error));
+  return runGuardedInsertion(AUDIO_PICKER, async () => {
+    await insertMediaFromPicker(view, AUDIO_PICKER);
   });
+}
 
+// --- Block content insertion (math / diagram / graphviz / markmap) ---
+
+/**
+ * Insert a code block of `language`. A non-empty selection becomes the block
+ * content (mirroring source mode, which wraps the selection in the fence);
+ * otherwise `defaultText` is used.
+ */
+function insertLanguageBlock(
+  context: WysiwygToolbarContext,
+  language: string,
+  defaultText: string,
+): boolean {
+  const editor = context.editor;
+  if (!editor) return false;
+
+  const { selection, doc } = editor.state;
+  const selectedText = selection.empty ? "" : doc.textBetween(selection.from, selection.to, "\n");
+  const text = selectedText || defaultText;
+
+  editor
+    .chain()
+    .focus()
+    .insertContent({
+      type: "codeBlock",
+      attrs: { language },
+      content: [{ type: "text", text }],
+    })
+    .run();
   return true;
 }
 
+/** Insert a LaTeX math code block (selection becomes the formula). */
+export function insertMathBlock(context: WysiwygToolbarContext): boolean {
+  return insertLanguageBlock(context, "latex", DEFAULT_MATH_BLOCK);
+}
+
+/** Insert a Mermaid diagram code block (selection becomes the diagram source). */
+export function insertDiagramBlock(context: WysiwygToolbarContext): boolean {
+  return insertLanguageBlock(context, "mermaid", DEFAULT_MERMAID_DIAGRAM);
+}
+
+/** Insert a Graphviz DOT diagram code block (selection becomes the DOT source). */
+export function insertGraphvizBlock(context: WysiwygToolbarContext): boolean {
+  return insertLanguageBlock(context, "dot", DEFAULT_GRAPHVIZ_DIAGRAM);
+}
+
+/** Insert a Markmap mind-map code block (selection becomes the outline). */
+export function insertMarkmapBlock(context: WysiwygToolbarContext): boolean {
+  return insertLanguageBlock(context, "markmap", DEFAULT_MARKMAP_CONTENT);
+}
+
+/**
+ * Insert inline math with word expansion and toggle behavior.
+ * Delegates to the shared handleInlineMathShortcut implementation
+ * (also bound to the keyboard shortcut) — single source of truth.
+ */
+export function insertInlineMath(context: WysiwygToolbarContext): boolean {
+  const view = context.view;
+  if (!view) return false;
+  return handleInlineMathShortcut(view);
+}

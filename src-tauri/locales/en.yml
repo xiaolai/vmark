@@ -147,6 +147,7 @@ menu:
   insert.codeBlock: "Code Block"
   insert.mathBlock: "Math Block"
   insert.diagram: "Diagram"
+  insert.graphvizDiagram: "Graphviz Diagram"
   insert.mindmap: "Mindmap"
   insert.horizontalLine: "Horizontal Line"
   insert.footnote: "Footnote"

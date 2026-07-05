@@ -81,6 +81,7 @@ export const ITEM_LABEL_KEYS: Record<string, string> = {
   "insert-audio": "toolbar.insert.audio",
   "insert-code-block": "toolbar.insert.codeBlock",
   "insert-diagram": "toolbar.insert.diagram",
+  "insert-graphviz": "toolbar.insert.graphviz",
   "insert-mindmap": "toolbar.insert.mindmap",
   "insert-math": "toolbar.insert.mathBlock",
   "insert-details": "toolbar.insert.details",

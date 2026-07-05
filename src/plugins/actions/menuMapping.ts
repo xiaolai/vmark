@@ -85,6 +85,7 @@ export const MENU_TO_ACTION: Record<MenuEventId, MenuActionMapping> = {
   "menu:footnote": { actionId: "insertFootnote" },
   "menu:math-block": { actionId: "insertMath" },
   "menu:diagram": { actionId: "insertDiagram" },
+  "menu:graphviz-diagram": { actionId: "insertGraphvizDiagram" },
   "menu:mindmap": { actionId: "insertMarkmap" },
   "menu:horizontal-line": { actionId: "horizontalLine" },
   "menu:collapsible-block": { actionId: "insertDetails" },

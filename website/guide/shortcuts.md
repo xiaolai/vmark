@@ -123,6 +123,7 @@ If you prefer keeping system functions on F-keys, you can customize VMark shortc
 | Insert Caution | `Mod + Shift + U` |
 | Insert Collapsible | `Alt + Mod + D` |
 | Insert Diagram | `Alt + Mod + Shift + D` |
+| Insert Graphviz Diagram | _(customizable)_ |
 | Insert Mindmap | `Alt + Mod + Shift + K` |
 | Toggle Comment | `Mod + /` |
 

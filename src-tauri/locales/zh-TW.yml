@@ -147,6 +147,7 @@ menu:
   insert.codeBlock: "程式碼區塊"
   insert.mathBlock: "數學區塊"
   insert.diagram: "圖表"
+  insert.graphvizDiagram: "Graphviz 圖表"
   insert.mindmap: "心智圖"
   insert.horizontalLine: "水平線"
   insert.footnote: "註腳"

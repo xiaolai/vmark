@@ -147,6 +147,7 @@ menu:
   insert.codeBlock: "코드 블록"
   insert.mathBlock: "수식 블록"
   insert.diagram: "다이어그램"
+  insert.graphvizDiagram: "Graphviz 다이어그램"
   insert.mindmap: "마인드맵"
   insert.horizontalLine: "가로줄"
   insert.footnote: "각주"

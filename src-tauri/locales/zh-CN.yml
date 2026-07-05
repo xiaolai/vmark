@@ -147,6 +147,7 @@ menu:
   insert.codeBlock: "代码块"
   insert.mathBlock: "数学公式块"
   insert.diagram: "图表"
+  insert.graphvizDiagram: "Graphviz 图表"
   insert.mindmap: "思维导图"
   insert.horizontalLine: "水平分隔线"
   insert.footnote: "脚注"

@@ -141,6 +141,24 @@ function applyFormatToRange(
 }
 
 /**
+ * Clear formatting on the current selection. Multi-selection is handled
+ * first; single selections strip markers in place.
+ */
+export function handleClearFormatting(view: EditorView): boolean {
+  if (clearFormattingSelections(view)) return true;
+  const { from, to } = view.state.selection.main;
+  if (from === to) return false;
+  const selectedText = view.state.doc.sliceString(from, to);
+  const cleared = clearAllFormatting(selectedText);
+  view.dispatch({
+    changes: { from, to, insert: cleared },
+    selection: { anchor: from, head: from + cleared.length },
+  });
+  view.focus();
+  return true;
+}
+
+/**
  * Clear formatting across multiple selections.
  * Returns false if single selection or no text selected.
  */

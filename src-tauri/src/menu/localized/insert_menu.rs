@@ -67,6 +67,13 @@ pub(super) fn build(app: &tauri::AppHandle, accel: &AccelFn) -> tauri::Result<Su
             )?,
             &MenuItem::with_id(
                 app,
+                "graphviz-diagram",
+                &t!("menu.insert.graphvizDiagram"),
+                true,
+                accel("graphviz-diagram", ""),
+            )?,
+            &MenuItem::with_id(
+                app,
                 "mindmap",
                 &t!("menu.insert.mindmap"),
                 true,

@@ -89,6 +89,7 @@ export const ACTION_IDS = [
   "insertFootnote",
   "insertMath",
   "insertDiagram",
+  "insertGraphvizDiagram",
   "insertMarkmap",
   "insertInlineMath",
   "insertDetails",
@@ -192,9 +193,13 @@ export interface ActionDefinition {
 export type MenuEventId = `menu:${string}`;
 
 /**
- * Menu to action mapping entry
+ * Menu to action mapping entry.
+ *
+ * Discriminated on `actionId`: parameterized actions (currently only
+ * "setHeading") REQUIRE their typed params; every other action carries none.
+ * This makes `{ actionId: "bold", params: { level: 3 } }` and
+ * `{ actionId: "setHeading" }` (missing params) compile errors.
  */
-export interface MenuActionMapping {
-  actionId: ActionId;
-  params?: Record<string, unknown>;
-}
+export type MenuActionMapping =
+  | { actionId: "setHeading"; params: { level: HeadingLevel } }
+  | { actionId: Exclude<ActionId, "setHeading">; params?: never };
