@@ -62,6 +62,8 @@ mod dock_recent;
 mod macos_menu;
 #[cfg(target_os = "macos")]
 mod pdf_export;
+#[cfg(target_os = "macos")]
+mod text_substitution;
 mod window_status;
 
 // Crate-wide re-exports: existing `crate::` call sites (post lib.rs split).
@@ -86,6 +88,10 @@ fn debug_log(message: String) {
 /// Build and run the Tauri application with all plugins, commands, and event handlers.
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Before any webview input: smart dashes/quotes corrupt markdown syntax.
+    #[cfg(target_os = "macos")]
+    text_substitution::disable_smart_substitutions();
+
     #[allow(unused_mut)]
     let mut builder = tauri::Builder::default()
         .plugin(
