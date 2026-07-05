@@ -22,7 +22,7 @@
   "author": "VMark",
   "license": "MIT",
   "dependencies": {
-    "@hono/node-server": "^2.0.6",
+    "@hono/node-server": "^2.0.8",
     "@slidev/cli": "^52.16.0",
     "chokidar": "^4.0.3",
     "dompurify": "^3.4.11",
@@ -30,7 +30,7 @@
     "hono": "^4.12.27",
     "ignore": "^7.0.5",
     "jsdom": "^26.1.0",
-    "katex": "^0.16.47",
+    "katex": "^0.17.0",
     "mdast-util-find-and-replace": "^3.0.2",
     "playwright-chromium": "^1.61.1",
     "rehype-katex": "^7.0.1",
