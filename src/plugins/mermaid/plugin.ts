@@ -8,89 +8,77 @@
 
 import "./mermaid.css";
 import { diagramWarn } from "@/utils/debug";
+import {
+  readDiagramThemeTokens,
+  serializeDiagramThemeTokens,
+} from "@/plugins/shared/diagramThemeTokens";
+import { buildMermaidThemeVariables, exportThemeVariables } from "./themeConfig";
+import { cleanupMermaidContainer, getMonoFontSize } from "./renderDomUtils";
 
 // Lazy-loaded mermaid instance
 let mermaidModule: typeof import("mermaid") | null = null;
 let mermaidLoadPromise: Promise<typeof import("mermaid")> | null = null;
 
-// Track current theme and font size for re-initialization
+// Track the applied config (token snapshot + font size) for re-initialization
 let mermaidInitialized = false;
-let currentTheme: "default" | "dark" = "default";
 let currentFontSize: number = 14; // Default fallback
+let appliedConfigKey: string | null = null;
+/** Change-detection twin of appliedConfigKey for the (lock-free) observer path. */
+let observedConfigKey: string | null = null;
 
 /**
- * Detect if dark mode is active by checking document class
- */
-function isDarkMode(): boolean {
-  const cl = document.documentElement.classList;
-  return cl.contains("dark-theme") || cl.contains("dark");
-}
-
-/**
- * Get the current mono font size from CSS variable.
- * Falls back to 14px if not set.
- */
-function getMonoFontSize(): number {
-  const value = getComputedStyle(document.documentElement)
-    .getPropertyValue("--editor-font-size-mono")
-    .trim();
-  const parsed = parseFloat(value);
-  return isNaN(parsed) ? 14 : parsed;
-}
-
-/**
- * Lazy-load mermaid library
+ * Lazy-load mermaid library.
+ * A failed load is not cached: the promise is cleared so a later render
+ * can retry (e.g. after a transient chunk-load/network failure).
  */
 async function loadMermaid(): Promise<typeof import("mermaid")> {
   if (mermaidModule) return mermaidModule;
   if (mermaidLoadPromise) return mermaidLoadPromise;
 
-  mermaidLoadPromise = import("mermaid").then((mod) => {
-    mermaidModule = mod;
-    return mod;
-  });
+  const promise: Promise<typeof import("mermaid")> = import("mermaid").then(
+    (mod) => {
+      mermaidModule = mod;
+      return mod;
+    },
+    (error) => {
+      if (mermaidLoadPromise === promise) mermaidLoadPromise = null;
+      throw error;
+    }
+  );
+  mermaidLoadPromise = promise;
 
   return mermaidLoadPromise;
 }
 
 /**
- * Theme-specific fill and styling variables.
- * These ensure nodes and subgraphs have proper fills in both light and dark modes.
+ * Serializes renders that depend on Mermaid's GLOBAL config
+ * (`mermaid.initialize` mutates shared library state). Export renders
+ * temporarily switch that config, so a live render running concurrently
+ * could otherwise pick up the export theme mid-flight.
  */
-const lightThemeVariables = {
-  // Node fills
-  primaryColor: "#f0f4f8",
-  secondaryColor: "#e8f0fe",
-  tertiaryColor: "#fff",
-  // Subgraph fills
-  clusterBkg: "#f5f5f5",
-  clusterBorder: "#d5d5d5",
-  // Node borders
-  nodeBorder: "#9ca3af",
-  // Text
-  primaryTextColor: "#1a1a1a",
-  secondaryTextColor: "#4b5563",
-  lineColor: "#6b7280",
-};
+let renderLock: Promise<unknown> = Promise.resolve();
 
-const darkThemeVariables = {
-  // Node fills for dark mode
-  primaryColor: "#374151",
-  secondaryColor: "#1f2937",
-  tertiaryColor: "#111827",
-  // Subgraph fills
-  clusterBkg: "#1f2937",
-  clusterBorder: "#4b5563",
-  // Node borders
-  nodeBorder: "#6b7280",
-  // Text
-  primaryTextColor: "#f3f4f6",
-  secondaryTextColor: "#d1d5db",
-  lineColor: "#9ca3af",
-};
+function withRenderLock<T>(task: () => Promise<T>): Promise<T> {
+  const run = renderLock.then(task, task);
+  // The lock itself never rejects; callers still see their own errors via `run`.
+  renderLock = run.then(
+    () => undefined,
+    () => undefined
+  );
+  return run;
+}
+
+/** Current config key: token snapshot + font size. Read fresh per call. */
+function computeConfigKey(): string {
+  return `${serializeDiagramThemeTokens(readDiagramThemeTokens())}|${currentFontSize}`;
+}
 
 /**
- * Initialize Mermaid with current settings.
+ * Initialize Mermaid with the current design tokens and settings.
+ *
+ * Uses mermaid's "base" theme with themeVariables derived from the app's
+ * design tokens (see themeConfig.ts) so diagrams are theme-native in every
+ * app theme; dark output is a token-derived outcome, not a special case.
  *
  * fontSize is set to the editor's mono font size so mermaid renders text
  * at the correct size directly. CSS zoom is NOT used (--mermaid-scale is 1)
@@ -98,48 +86,57 @@ const darkThemeVariables = {
  * are left untouched so its node-sizing algorithm stays accurate.
  */
 function applyMermaidConfig(): void {
-  if (!mermaidModule) return;
+  const key = computeConfigKey();
+  if (!mermaidModule) {
+    appliedConfigKey = observedConfigKey = key;
+    return;
+  }
 
-  const themeVariables = currentTheme === "dark"
-    ? { ...darkThemeVariables, fontSize: `${currentFontSize}px` }
-    : { ...lightThemeVariables, fontSize: `${currentFontSize}px` };
+  const tokens = readDiagramThemeTokens();
+  const themeVariables = buildMermaidThemeVariables(tokens, currentFontSize);
 
   mermaidModule.default.initialize({
     startOnLoad: false,
-    theme: currentTheme,
+    theme: "base",
     // Use "antiscript" (mermaid's default) to allow inline styles from `style` directives
     // while still sanitizing scripts. "strict" would strip all custom styling.
     securityLevel: "antiscript",
-    fontFamily: "inherit",
+    fontFamily: tokens.fontMono,
     fontSize: currentFontSize,
     themeVariables,
   });
+  // Mark applied only AFTER a successful initialize — marking first would
+  // make the next render skip the re-apply and run on a broken config.
+  // Applied implies "observed" so the theme observer doesn't re-report it.
+  appliedConfigKey = observedConfigKey = key;
 }
 
 /**
- * Update Mermaid theme when app theme changes.
- * Call this when theme switches to trigger re-render.
+ * Re-read the design tokens and report whether they changed.
+ * Called by the theme observer on any theme change (class or token flip).
+ *
+ * Pure change detection — deliberately does NOT touch mermaid config:
+ * `mermaid.initialize` outside the render lock could race an in-flight
+ * (export) render. Config is applied lazily by the next locked render,
+ * which re-checks `appliedConfigKey` itself.
  */
-export async function updateMermaidTheme(isDark: boolean): Promise<boolean> {
-  const newTheme = isDark ? "dark" : "default";
-  if (newTheme !== currentTheme) {
-    currentTheme = newTheme;
-    applyMermaidConfig();
-    return true; // Theme changed
-  }
-  return false; // No change
+export async function updateMermaidTheme(): Promise<boolean> {
+  const key = computeConfigKey();
+  if (key === observedConfigKey) return false; // No change
+  observedConfigKey = key;
+  return true; // Theme changed
 }
 
 /**
  * Update Mermaid font size from CSS variable.
  * Call this when editor font size changes to trigger re-render.
- * Returns true if font size changed.
+ * Returns true if font size changed. Like updateMermaidTheme, this only
+ * records state — the next locked render applies the new config.
  */
 export function updateMermaidFontSize(): boolean {
   const newFontSize = getMonoFontSize();
   if (Math.abs(newFontSize - currentFontSize) > 0.1) {
     currentFontSize = newFontSize;
-    applyMermaidConfig();
     return true; // Font size changed
   }
   return false; // No change
@@ -150,23 +147,10 @@ async function initMermaid(): Promise<void> {
 
   if (mermaidInitialized) return;
 
-  currentTheme = isDarkMode() ? "dark" : "default";
+  // No config application here: the first locked render sees the null
+  // `appliedConfigKey`, mismatches, and applies config under the lock.
   currentFontSize = getMonoFontSize();
-  applyMermaidConfig();
-
   mermaidInitialized = true;
-}
-
-/**
- * Clean up Mermaid's temporary render container.
- * Mermaid creates a container with ID `d${diagramId}` in document.body.
- * This must be removed after rendering to prevent DOM pollution.
- */
-function cleanupMermaidContainer(diagramId: string): void {
-  const container = document.getElementById(`d${diagramId}`);
-  if (container) {
-    container.remove();
-  }
 }
 
 /**
@@ -179,29 +163,38 @@ export async function renderMermaid(
   content: string,
   id?: string
 ): Promise<string | null> {
-  await initMermaid();
-
-  // Sync font size before rendering to respect current editor settings
-  const newFontSize = getMonoFontSize();
-  if (Math.abs(newFontSize - currentFontSize) > 0.1) {
-    currentFontSize = newFontSize;
-    applyMermaidConfig();
-  }
-
-  const diagramId = id ?? `mermaid-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-
   try {
-    // mermaidModule is guaranteed non-null after initMermaid()
-    const { svg } = await mermaidModule!.default.render(diagramId, content);
-    // Clean up the temporary container Mermaid creates in document.body
-    cleanupMermaidContainer(diagramId);
-    return svg;
+    await initMermaid();
   } catch (error) {
-    // Clean up even on error - Mermaid leaves error displays in the body
-    cleanupMermaidContainer(diagramId);
-    diagramWarn("Failed to render diagram:", error);
+    // Null-on-failure contract: a failed load/init must not throw.
+    diagramWarn("Failed to initialize mermaid:", error);
     return null;
   }
+
+  return withRenderLock(async () => {
+    // Sync tokens + font size before rendering so every render reflects the
+    // current theme and editor settings (tokens are re-read, never captured).
+    currentFontSize = getMonoFontSize();
+
+    const diagramId =
+      id ?? `mermaid-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+
+    try {
+      if (appliedConfigKey !== computeConfigKey()) {
+        applyMermaidConfig();
+      }
+      // mermaidModule is guaranteed non-null after initMermaid()
+      const { svg } = await mermaidModule!.default.render(diagramId, content);
+      return svg;
+    } catch (error) {
+      diagramWarn("Failed to render diagram:", error);
+      return null;
+    } finally {
+      // Clean up the temporary container Mermaid creates in document.body
+      // (on error it leaves error displays there too).
+      cleanupMermaidContainer(diagramId);
+    }
+  });
 }
 
 /**
@@ -213,39 +206,48 @@ export async function renderMermaidForExport(
   content: string,
   theme: "light" | "dark"
 ): Promise<string | null> {
-  await initMermaid();
-
-  const savedTheme = currentTheme;
-
-  currentTheme = theme === "dark" ? "dark" : "default";
-  const themeVars = currentTheme === "dark"
-    ? { ...darkThemeVariables, fontSize: `${currentFontSize}px` }
-    : { ...lightThemeVariables, fontSize: `${currentFontSize}px` };
-
-  mermaidModule!.default.initialize({
-    startOnLoad: false,
-    theme: currentTheme,
-    securityLevel: "antiscript",
-    fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
-    fontSize: currentFontSize,
-    themeVariables: themeVars,
-  });
-
-  const diagramId = `export-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-
-  let svg: string | null = null;
   try {
-    const result = await mermaidModule!.default.render(diagramId, content);
-    svg = result.svg;
-    cleanupMermaidContainer(diagramId);
-  } catch {
-    cleanupMermaidContainer(diagramId);
+    await initMermaid();
+  } catch (error) {
+    // Null-on-failure contract: a failed load/init must not throw.
+    diagramWarn("Failed to initialize mermaid:", error);
+    return null;
   }
 
-  currentTheme = savedTheme;
-  applyMermaidConfig();
+  return withRenderLock(async () => {
+    const exportTheme = theme === "dark" ? "dark" : "default";
+    const themeVars = {
+      ...exportThemeVariables[theme === "dark" ? "dark" : "light"],
+      fontSize: `${currentFontSize}px`,
+    };
 
-  return svg;
+    const diagramId = `export-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+
+    try {
+      mermaidModule!.default.initialize({
+        startOnLoad: false,
+        theme: exportTheme,
+        securityLevel: "antiscript",
+        fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
+        fontSize: currentFontSize,
+        themeVariables: themeVars,
+      });
+      const { svg } = await mermaidModule!.default.render(diagramId, content);
+      return svg;
+    } catch (error) {
+      diagramWarn("Failed to render export diagram:", error);
+      return null;
+    } finally {
+      cleanupMermaidContainer(diagramId);
+      // ALWAYS restore the live token-driven config for subsequent in-app
+      // renders — even when the export initialize/render threw.
+      try {
+        applyMermaidConfig();
+      } catch (error) {
+        diagramWarn("Failed to restore mermaid config after export:", error);
+      }
+    }
+  });
 }
 
 /**
