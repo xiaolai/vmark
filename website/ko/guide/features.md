@@ -225,6 +225,12 @@ KaTeX 기반 LaTeX 렌더링:
 - 소스 모드의 실시간 미리보기 패널 (드래그, 크기 조정, 확대/축소)
 - [자세히 알아보기 →](/ko/guide/mermaid)
 
+동일한 미리보기 화면을 제공하는 Graphviz DOT 지원:
+
+- ` ```dot ` 및 ` ```graphviz ` 펜스드 블록의 로컬 렌더링 (WASM)
+- Mermaid 다이어그램과 동일한 팬, 줌, PNG 내보내기
+- [자세히 알아보기 →](/ko/guide/graphviz)
+
 ### SVG 그래픽
 
 ` ```svg ` 코드 블록을 통해 원시 SVG 인라인 렌더링:

@@ -43,6 +43,10 @@ export const ptBR = {
               link: "/pt-BR/guide/mermaid",
             },
             {
+              text: "Diagramas Graphviz",
+              link: "/pt-BR/guide/graphviz",
+            },
+            {
               text: "Mapas mentais Markmap",
               link: "/pt-BR/guide/markmap",
             },

@@ -252,6 +252,12 @@ Mermaid diagram support with live preview:
 - Live preview panel in Source mode (drag, resize, zoom)
 - [Learn more →](/guide/mermaid)
 
+Graphviz DOT support with the same preview surfaces:
+
+- ` ```dot ` and ` ```graphviz ` fenced blocks render locally (WASM)
+- Pan, zoom, and PNG export like Mermaid diagrams
+- [Learn more →](/guide/graphviz)
+
 ### SVG Graphics
 
 Render raw SVG inline via ` ```svg ` code blocks:

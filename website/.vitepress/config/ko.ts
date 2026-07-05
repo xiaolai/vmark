@@ -41,6 +41,10 @@ export const ko = {
               link: "/ko/guide/mermaid",
             },
             {
+              text: "Graphviz 다이어그램",
+              link: "/ko/guide/graphviz",
+            },
+            {
               text: "Markmap 마인드맵",
               link: "/ko/guide/markmap",
             },

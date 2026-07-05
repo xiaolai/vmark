@@ -122,6 +122,7 @@ VMark는 빠른 모드 전환을 위해 기능 키 (F4–F10)를 사용합니다
 | 주의 삽입 | `Mod + Shift + U` |
 | 접을 수 있는 섹션 삽입 | `Alt + Mod + D` |
 | 다이어그램 삽입 | `Alt + Shift + Mod + D` |
+| Graphviz 다이어그램 삽입 | _(사용자 정의 가능)_ |
 | 마인드맵 삽입 | `Alt + Shift + Mod + K` |
 | 주석 토글 | `Mod + /` |
 

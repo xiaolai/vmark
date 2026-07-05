@@ -124,6 +124,7 @@ Se preferisci mantenere le funzioni di sistema sui tasti F, puoi personalizzare 
 | Inserisci cautela | `Mod + Shift + U` |
 | Inserisci comprimibile | `Alt + Mod + D` |
 | Inserisci diagramma | `Alt + Shift + Mod + D` |
+| Inserisci diagramma Graphviz | _(personalizzabile)_ |
 | Inserisci mappa mentale | `Alt + Shift + Mod + K` |
 | Attiva/disattiva commento | `Mod + /` |
 

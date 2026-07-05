@@ -122,6 +122,7 @@ Wenn Sie die Systemfunktionen auf F-Tasten bevorzugen, können Sie VMark-Tastatu
 | Vorsicht einfügen | `Mod + Umschalt + U` |
 | Einklappbar einfügen | `Alt + Mod + D` |
 | Diagramm einfügen | `Alt + Umschalt + Mod + D` |
+| Graphviz-Diagramm einfügen | _(anpassbar)_ |
 | Mindmap einfügen | `Alt + Umschalt + Mod + K` |
 | Kommentar umschalten | `Mod + /` |
 

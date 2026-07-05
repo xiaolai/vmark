@@ -225,6 +225,12 @@ Prise en charge des diagrammes Mermaid avec aperçu en direct :
 - Panneau d'aperçu en direct en mode Source (glisser, redimensionner, zoomer)
 - [En savoir plus →](/fr/guide/mermaid)
 
+Prise en charge de Graphviz DOT avec les mêmes surfaces d'aperçu :
+
+- Les blocs délimités ` ```dot ` et ` ```graphviz ` sont rendus localement (WASM)
+- Panoramique, zoom et export PNG comme pour les diagrammes Mermaid
+- [En savoir plus →](/fr/guide/graphviz)
+
 ### Graphiques SVG
 
 Rendez du SVG brut en ligne via des blocs de code ` ```svg ` :

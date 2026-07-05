@@ -225,6 +225,12 @@ Mermaid-Diagrammunterstützung mit Live-Vorschau:
 - Live-Vorschaufenster im Quellmodus (ziehen, skalieren, zoomen)
 - [Mehr erfahren →](/de/guide/mermaid)
 
+Graphviz-DOT-Unterstützung mit denselben Vorschauflächen:
+
+- ` ```dot `- und ` ```graphviz `-Code-Blöcke werden lokal gerendert (WASM)
+- Schwenken, Zoomen und PNG-Export wie bei Mermaid-Diagrammen
+- [Mehr erfahren →](/de/guide/graphviz)
+
 ### SVG-Grafiken
 
 Rohes SVG inline über ` ```svg `-Codeblöcke rendern:

@@ -43,6 +43,10 @@ export const es = {
               link: "/es/guide/mermaid",
             },
             {
+              text: "Diagramas Graphviz",
+              link: "/es/guide/graphviz",
+            },
+            {
               text: "Mapas mentales Markmap",
               link: "/es/guide/markmap",
             },

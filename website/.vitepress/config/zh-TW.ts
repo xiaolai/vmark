@@ -39,6 +39,10 @@ export const zhTW = {
               link: "/zh-TW/guide/mermaid",
             },
             {
+              text: "Graphviz 圖表",
+              link: "/zh-TW/guide/graphviz",
+            },
+            {
               text: "Markmap 心智圖",
               link: "/zh-TW/guide/markmap",
             },

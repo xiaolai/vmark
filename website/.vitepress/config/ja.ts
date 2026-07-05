@@ -41,6 +41,10 @@ export const ja = {
               link: "/ja/guide/mermaid",
             },
             {
+              text: "Graphviz ダイアグラム",
+              link: "/ja/guide/graphviz",
+            },
+            {
               text: "Markmap マインドマップ",
               link: "/ja/guide/markmap",
             },

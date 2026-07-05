@@ -225,6 +225,12 @@ Soporte de diagramas Mermaid con vista previa en vivo:
 - Panel de vista previa en vivo en modo Fuente (arrastrar, redimensionar, zoom)
 - [Más información →](/es/guide/mermaid)
 
+Soporte de Graphviz DOT con las mismas superficies de vista previa:
+
+- Los bloques delimitados ` ```dot ` y ` ```graphviz ` se renderizan localmente (WASM)
+- Panorámica, zoom y exportación PNG como los diagramas Mermaid
+- [Más información →](/es/guide/graphviz)
+
 ### Gráficos SVG
 
 Renderiza SVG sin procesar en línea mediante bloques de código ` ```svg `:

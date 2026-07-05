@@ -42,6 +42,7 @@ export const en = {
             { text: "Multi-Cursor Editing", link: "/guide/multi-cursor" },
             { text: "Inline Popups", link: "/guide/popups" },
             { text: "Mermaid Diagrams", link: "/guide/mermaid" },
+            { text: "Graphviz Diagrams", link: "/guide/graphviz" },
             { text: "Markmap Mindmaps", link: "/guide/markmap" },
             { text: "GitHub Actions Workflow Viewer", link: "/guide/workflow-viewer" },
             { text: "SVG Graphics", link: "/guide/svg" },

@@ -122,6 +122,7 @@ Si prefieres mantener las funciones del sistema en las teclas F, puedes personal
 | Insertar Precaución | `Mod + Shift + U` |
 | Insertar Desplegable | `Alt + Mod + D` |
 | Insertar Diagrama | `Alt + Shift + Mod + D` |
+| Insertar Diagrama Graphviz | _(personalizable)_ |
 | Insertar Mapa Mental | `Alt + Shift + Mod + K` |
 | Alternar Comentario | `Mod + /` |
 

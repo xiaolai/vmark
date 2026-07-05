@@ -225,6 +225,12 @@ Mermaid 图表支持与实时预览：
 - 源码模式下的实时预览面板（可拖动、调整大小、缩放）
 - [了解更多 →](/zh-CN/guide/mermaid)
 
+Graphviz DOT 支持，提供相同的预览界面：
+
+- ` ```dot ` 和 ` ```graphviz ` 围栏代码块本地渲染（WASM）
+- 与 Mermaid 图表一样支持平移、缩放和 PNG 导出
+- [了解更多 →](/zh-CN/guide/graphviz)
+
 ### SVG 图形
 
 通过 ` ```svg ` 代码块内联渲染原始 SVG：

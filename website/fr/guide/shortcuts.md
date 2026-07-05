@@ -124,6 +124,7 @@ Si vous préférez conserver les fonctions système sur les touches F, vous pouv
 | Insérer une mise en garde | `Mod + Shift + U` |
 | Insérer un réductible | `Alt + Mod + D` |
 | Insérer un diagramme | `Alt + Shift + Mod + D` |
+| Insérer un diagramme Graphviz | _(personnalisable)_ |
 | Insérer une carte mentale | `Alt + Shift + Mod + K` |
 | Basculer le commentaire | `Mod + /` |
 

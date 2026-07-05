@@ -223,6 +223,12 @@ KaTeX 驅動的 LaTeX 渲染：
 - 原始碼模式中的即時預覽面板（可拖曳、調整大小、縮放）
 - [了解更多 →](/zh-TW/guide/mermaid)
 
+支援相同預覽介面的 Graphviz DOT：
+
+- ` ```dot ` 與 ` ```graphviz ` 圍欄區塊在本機渲染（WASM）
+- 與 Mermaid 圖表相同的平移、縮放與 PNG 匯出
+- [了解更多 →](/zh-TW/guide/graphviz)
+
 ### SVG 圖形
 
 透過 ` ```svg ` 程式碼區塊行內渲染原始 SVG：

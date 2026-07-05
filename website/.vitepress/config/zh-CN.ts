@@ -35,6 +35,10 @@ export const zhCN = {
               link: "/zh-CN/guide/mermaid",
             },
             {
+              text: "Graphviz 图表",
+              link: "/zh-CN/guide/graphviz",
+            },
+            {
               text: "Markmap 思维导图",
               link: "/zh-CN/guide/markmap",
             },

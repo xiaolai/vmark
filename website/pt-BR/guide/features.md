@@ -225,6 +225,12 @@ Suporte a diagramas Mermaid com visualização ao vivo:
 - Painel de visualização ao vivo no modo Fonte (arrastar, redimensionar, zoom)
 - [Saiba mais →](/pt-BR/guide/mermaid)
 
+Suporte a Graphviz DOT com as mesmas superfícies de visualização:
+
+- Blocos delimitados ` ```dot ` e ` ```graphviz ` renderizam localmente (WASM)
+- Pan, zoom e exportação PNG como nos diagramas Mermaid
+- [Saiba mais →](/pt-BR/guide/graphviz)
+
 ### Gráficos SVG
 
 Renderize SVG bruto inline via blocos de código ` ```svg `:

@@ -225,6 +225,12 @@ Supporto per diagrammi Mermaid con anteprima live:
 - Pannello di anteprima live in modalità Sorgente (trascina, ridimensiona, zoom)
 - [Scopri di più →](/it/guide/mermaid)
 
+Supporto Graphviz DOT con le stesse superfici di anteprima:
+
+- I blocchi delimitati ` ```dot ` e ` ```graphviz ` vengono renderizzati localmente (WASM)
+- Pan, zoom ed esportazione PNG come per i diagrammi Mermaid
+- [Scopri di più →](/it/guide/graphviz)
+
 ### Grafica SVG
 
 Renderizza SVG grezzo inline tramite blocchi di codice ` ```svg `:

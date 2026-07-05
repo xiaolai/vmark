@@ -124,6 +124,7 @@ Se você preferir manter as funções do sistema nas teclas F, pode personalizar
 | Inserir Cuidado | `Mod + Shift + U` |
 | Inserir Recolhível | `Alt + Mod + D` |
 | Inserir Diagrama | `Alt + Shift + Mod + D` |
+| Inserir Diagrama Graphviz | _(personalizável)_ |
 | Inserir Mapa Mental | `Alt + Shift + Mod + K` |
 | Alternar Comentário | `Mod + /` |
 
