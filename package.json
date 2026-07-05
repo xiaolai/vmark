@@ -26,6 +26,7 @@
     "lint:eager": "node scripts/check-eager-chunks.mjs",
     "lint:file-size": "node scripts/check-file-size.mjs",
     "lint:barrels": "node scripts/check-index-barrels.mjs",
+    "check:cross": "bash scripts/check-cross-target.sh",
     "size:why": "size-limit --why",
     "lint": "eslint src",
     "lint:selection-styles": "node scripts/check-selection-styles.mjs",

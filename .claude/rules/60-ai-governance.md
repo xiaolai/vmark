@@ -126,8 +126,13 @@ knip, the actionRegistry contract test, and function coverage were all
 failing, mutually masked, and nothing blocked the push.
 
 The structural fix is a versioned `pre-push` hook (`.githooks/pre-push`):
-before any push that updates `main` or a `v*` tag, it runs `pnpm check:all`
-and refuses the push on failure. Feature-branch pushes are not gated locally.
+before any push that updates `main` or a `v*` tag, it runs a Windows
+cross-target compile check (`scripts/check-cross-target.sh` — host-only
+cargo can't see `cfg(target_os)` breakage; the v0.8.26 release push hit
+that class 4× in a row) and then `pnpm check:all`, refusing the push on
+either failure. The cross check soft-skips (warning, not block) when the
+mingw-w64 toolchain isn't installed — CI stays the authoritative
+cross-platform gate. Feature-branch pushes are not gated locally.
 The hook is enabled by `git config core.hooksPath .githooks`, which the root
 `package.json` `prepare` script applies on `pnpm install` (no husky
 dependency). Overriding it (`git push --no-verify`) falls under §9.

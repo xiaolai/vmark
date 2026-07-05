@@ -45,7 +45,24 @@ if [ "$gated" -eq 0 ]; then
   exit 0
 fi
 
-echo "pre-push: updating main or a release tag — running the full quality gate (pnpm check:all)…"
+# Cross-target compile check first: it fails in seconds on the class of
+# bug the host-only gate can't see (cfg(target_os) imports/dead-code that
+# only break on Windows/Linux — the v0.8.26 release push hit this 4× in a
+# row). Soft-skips with a warning if the mingw toolchain isn't installed;
+# see scripts/check-cross-target.sh for setup.
+echo "pre-push: updating main or a release tag — cross-target compile check…"
+if ! bash scripts/check-cross-target.sh; then
+  cat >&2 <<'MSG'
+
+✖ pre-push blocked: cross-target compile check failed.
+  This code will not compile on Windows CI. Fix before pushing main/v*.
+  Overriding (`git push --no-verify`) requires explicit authorization —
+  see .claude/rules/60-ai-governance.md §9.
+MSG
+  exit 1
+fi
+
+echo "pre-push: running the full quality gate (pnpm check:all)…"
 if ! pnpm check:all; then
   cat >&2 <<'MSG'
 
