@@ -1,6 +1,6 @@
 {
   "name": "@vmark/mcp-server",
-  "version": "0.8.26",
+  "version": "0.8.27",
   "description": "MCP server for VMark — the plain-text workspace where humans and AI collaborate",
   "type": "module",
   "main": "dist/index.js",
