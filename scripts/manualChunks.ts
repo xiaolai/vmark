@@ -78,6 +78,11 @@ export function manualChunks(id: string): string | undefined {
   ) {
     return "vendor-mermaid";
   }
+  // Graphviz WASM build (@viz-js/viz). Reached only through the graphviz
+  // plugin's `await import(...)` — isolating it keeps the ~1.5 MB WASM blob
+  // off the cold-start path (denylisted in scripts/check-eager-chunks.mjs,
+  // budgeted as LAZY in .size-limit.cjs).
+  if (pkgName === "@viz-js/viz") return "vendor-graphviz";
   // KaTeX stays in main bundle to preserve CSS cascade order.
   // Separate chunk would load before index.css, causing Tailwind's
   // preflight (border:0) to override KaTeX's border-style settings.

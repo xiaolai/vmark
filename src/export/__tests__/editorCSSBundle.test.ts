@@ -47,8 +47,9 @@ describe("stripInteractiveRules", () => {
   });
 
   it("strips a whole comma selector group when ANY member is interactive", () => {
-    // Documented behavior: the filter matches on substring inclusion over the
-    // full selector text, so `.kept, .resize-handle` drops the entire group.
+    // Documented behavior: a token match anywhere in the selector text (at a
+    // class boundary) drops the entire group — the line-based parser cannot
+    // split a comma group, so `.kept, .resize-handle` is stripped whole.
     const css = [
       ".kept, .resize-handle {",
       "  border: 1px solid red;",
@@ -189,6 +190,118 @@ describe("stripInteractiveRules", () => {
 
   it("returns empty output for empty input", () => {
     expect(stripInteractiveRules("")).toBe("");
+  });
+
+  // --- Comment/string brace handling (Codex audit: raw-line brace counting
+  // desyncs on braces inside comments or strings) ---
+
+  it("ignores braces inside a single-line comment (depth stays in sync)", () => {
+    // The `{` in the comment must not open a phantom block — otherwise the
+    // following .resize-handle rule is mis-read as nested and survives.
+    const css = [
+      "/* tip: use { sparingly */",
+      ".resize-handle { width: 4px; }",
+      ".keep { color: red; }",
+    ].join("\n");
+    const out = stripInteractiveRules(css);
+    expect(out).not.toContain("width: 4px");
+    expect(out).toContain(".keep { color: red; }");
+  });
+
+  it("ignores braces inside a multi-line comment", () => {
+    const css = [
+      "/*",
+      " .editor-content { padding: 0; }",
+      "*/",
+      "h1 { color: red; }",
+      ".table-ui { display: flex; }",
+    ].join("\n");
+    const out = stripInteractiveRules(css);
+    expect(out).toContain("h1 { color: red; }");
+    expect(out).not.toContain("display: flex");
+  });
+
+  it("ignores braces inside string values (content: \"{\")", () => {
+    const css = [
+      '.foo::before { content: "{"; }',
+      ".resize-handle { width: 4px; }",
+      ".bar { color: blue; }",
+    ].join("\n");
+    const out = stripInteractiveRules(css);
+    expect(out).toContain('content: "{"');
+    expect(out).not.toContain("width: 4px");
+    expect(out).toContain(".bar { color: blue; }");
+  });
+
+  it("ignores braces inside single-quoted strings", () => {
+    const css = [
+      ".foo::after { content: '}'; }",
+      ".table-ui { display: flex; }",
+      ".baz { color: green; }",
+    ].join("\n");
+    const out = stripInteractiveRules(css);
+    expect(out).toContain("content: '}'");
+    expect(out).not.toContain("display: flex");
+    expect(out).toContain(".baz { color: green; }");
+  });
+
+  it("keeps nested at-rules intact inside a kept block", () => {
+    const css = [
+      "@media print {",
+      "  @supports (display: grid) {",
+      "    .grid { display: grid; }",
+      "  }",
+      "}",
+      ".after { color: black; }",
+    ].join("\n");
+    const out = stripInteractiveRules(css);
+    expect(out).toContain("@supports (display: grid)");
+    expect(out).toContain("display: grid;");
+    expect(out).toContain(".after { color: black; }");
+  });
+
+  // --- Class-boundary matching (Codex audit: bare substring includes()
+  // stripped unrelated selectors that merely CONTAIN a token) ---
+
+  it("keeps a selector whose class merely contains a token as substring", () => {
+    // `.editor-contents` is a different class than `.editor-content` — the
+    // letter continuation breaks the class-name boundary.
+    const css = [
+      ".editor-contents { margin: 0; }",
+      ".my-table-uid { padding: 0; }",
+    ].join("\n");
+    const out = stripInteractiveRules(css);
+    expect(out).toContain(".editor-contents { margin: 0; }");
+    expect(out).toContain(".my-table-uid { padding: 0; }");
+  });
+
+  it("still strips hyphen-extended family classes (current-strip contract)", () => {
+    // Real input relies on this: .code-block-live-preview-empty/-error are
+    // stripped today via the .code-block-live-preview token and must stay so.
+    const css = [
+      ".code-block-live-preview-error { color: red; }",
+      ".code-block-live-preview-empty { opacity: 0.5; }",
+    ].join("\n");
+    const out = stripInteractiveRules(css);
+    expect(out).not.toContain("color: red");
+    expect(out).not.toContain("opacity: 0.5");
+  });
+
+  it("still strips tokens matched mid-selector (descendant/compound positions)", () => {
+    // Real inputs rely on non-prefix matches: `.dark-theme .code-lang-dropdown`
+    // and compound `.math-inline.ProseMirror-selectednode`.
+    const css = [
+      ".dark-theme .code-lang-dropdown { background: black; }",
+      ".math-inline.ProseMirror-selectednode { outline: 1px solid; }",
+    ].join("\n");
+    const out = stripInteractiveRules(css);
+    expect(out).not.toContain("background: black");
+    expect(out).not.toContain("outline: 1px solid");
+  });
+
+  it("keeps pseudo-class-free selectors containing 'hover' as plain text", () => {
+    const css = ".my-hovercard { border: 1px solid; }";
+    expect(stripInteractiveRules(css)).toContain(".my-hovercard");
   });
 });
 

@@ -127,6 +127,16 @@ module.exports = [
     brotli: false,
   },
   {
+    // @viz-js/viz (Graphviz WASM, base64-inlined). LAZY: loads on the
+    // first ```dot / ```graphviz render via the graphviz plugin's dynamic
+    // import; denylisted in check-eager-chunks.mjs. ~1.36 MB at addition
+    // (v3.28); ~5% headroom.
+    name: "LAZY: vendor-graphviz",
+    path: "dist/assets/vendor-graphviz-*.js",
+    limit: "1430 kB",
+    brotli: false,
+  },
+  {
     // remark + unified + mdast + micromark. Eager because markdown
     // parsing happens on first open.
     name: "EAGER: vendor-markdown",

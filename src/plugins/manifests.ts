@@ -35,6 +35,7 @@ import { manifest as footnotePopup } from "./footnotePopup/manifest";
 import { manifest as formatToolbar } from "./formatToolbar/manifest";
 import { manifest as frontmatterPanel } from "./frontmatterPanel/manifest";
 import { manifest as ghaWorkflowPreview } from "./ghaWorkflowPreview/manifest";
+import { manifest as graphviz } from "./graphviz/manifest";
 import { manifest as highlight } from "./highlight/manifest";
 import { manifest as htmlPaste } from "./htmlPaste/manifest";
 import { manifest as imageHandler } from "./imageHandler/manifest";
@@ -97,7 +98,7 @@ const ALL = [
   blockquoteEscape, blockVideo, cjkLetterSpacing, codeBlockLineNumbers,
   codePaste, codePreview, compositionGuard, detailsBlock, focusMode,
   footnotePopup, formatToolbar, frontmatterPanel, ghaWorkflowPreview,
-  highlight, htmlPaste, imageHandler, imagePasteToast, imagePreview,
+  graphviz, highlight, htmlPaste, imageHandler, imagePasteToast, imagePreview,
   imageView, inactiveSelection, inlineCodeBoundary, inlineNodeEditing,
   latex, linkCreatePopup, linkPopup, lint, listBackspace, listClickFix,
   listContinuation, listEscape, markdownArtifacts, markdownCopy,

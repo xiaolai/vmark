@@ -32,9 +32,12 @@ import {
   createPreviewPlaceholder,
   createLivePreview,
   createEditHeader,
+  copyTextToClipboard,
 } from "./previewHelpers";
+import { isGraphvizLanguage } from "@/plugins/graphviz";
 import { createLatexPreviewWidget } from "./renderers/renderLatex";
 import { createMermaidPreviewWidget } from "./renderers/renderMermaidPreview";
+import { createGraphvizPreviewWidget } from "./renderers/renderGraphvizPreview";
 import { createMarkmapPreviewWidget } from "./renderers/renderMarkmapPreview";
 import { createSvgPreviewWidget } from "./renderers/renderSvgPreview";
 import { createWorkflowPreviewWidget } from "./renderers/renderWorkflowPreview";
@@ -119,10 +122,13 @@ export function buildCodePreviewDecorations(
       const headerWidget = Decoration.widget(
         nodeStart,
         (widgetView) => {
-          const onCopy = (language === "mermaid" || language === "markmap" || language === "svg")
-            ? () => {
+          const onCopy = (language === "mermaid" || language === "markmap" || language === "svg" || isGraphvizLanguage(language))
+            ? async () => {
                 const node = widgetView?.state.doc.nodeAt(nodeStart);
-                if (node) navigator.clipboard.writeText(node.textContent);
+                if (!node) return false;
+                // Resolves false on unavailable API / rejected write so the
+                // header shows error feedback instead of a false checkmark.
+                return copyTextToClipboard(node.textContent);
               }
             : undefined;
           return createEditHeader(
@@ -194,7 +200,7 @@ export function buildCodePreviewDecorations(
     );
 
     if (!content.trim()) {
-      const placeholderLabel = language === "mermaid"
+      const placeholderLabel = (language === "mermaid" || isGraphvizLanguage(language))
         ? i18n.t("editor:preview.emptyDiagram")
         : language === "markmap"
         ? i18n.t("editor:preview.emptyMindmap")
@@ -253,6 +259,14 @@ export function buildCodePreviewDecorations(
     if (language === "mermaid") {
       newDecorations.push(
         createMermaidPreviewWidget(nodeEnd, content, cacheKey, previewCache, handleEnterEdit)
+      );
+      return;
+    }
+
+    // Graphviz / DOT (async rendering with placeholder)
+    if (isGraphvizLanguage(language)) {
+      newDecorations.push(
+        createGraphvizPreviewWidget(nodeEnd, content, cacheKey, previewCache, handleEnterEdit)
       );
       return;
     }

@@ -8,8 +8,10 @@
  * Key decisions:
  *   - YAML code fences are previewed only when content has workflow shape
  *     (isWorkflowYaml). Plain YAML blocks (docker-compose, etc.) stay as text.
- *   - changesIntersectRanges works in OLD-position space because the tracked
- *     ranges come from the previous plugin state
+ *   - changesIntersectRanges maps the tracked ranges (which come from the
+ *     previous plugin state, i.e. the ORIGINAL old doc) forward through each
+ *     step's map before comparing — step i's positions are relative to the
+ *     doc before step i, not the original doc
  *   - transactionMayAffectCodeBlock conservatively bails on any AttrStep (no slice
  *     to scan) rather than miss a nested block becoming previewable
  *
@@ -24,11 +26,14 @@ import { AttrStep } from "@tiptap/pm/transform";
 import { isWorkflowYaml } from "@/lib/ghaWorkflow/detection";
 import type { CodeBlockRange } from "./pluginState";
 
-const PREVIEW_ONLY_LANGUAGES = new Set(["latex", "mermaid", "markmap", "svg", "$$math$$"]);
+const PREVIEW_ONLY_LANGUAGES = new Set([
+  "latex", "mermaid", "markmap", "svg", "$$math$$", "dot", "graphviz",
+]);
 
 /**
  * True when this code block should get an inline preview. Either:
- *   - language is in PREVIEW_ONLY_LANGUAGES (latex, mermaid, markmap, svg, $$math$$), OR
+ *   - language is in PREVIEW_ONLY_LANGUAGES (latex, mermaid, markmap, svg,
+ *     $$math$$, dot, graphviz), OR
  *   - language is yaml/yml AND content has GitHub Actions workflow shape.
  *
  * Content-based gating for yaml means a docker-compose.yml in a fenced
@@ -68,17 +73,25 @@ export function countPreviewableCodeBlocks(doc: PMNode): number {
 }
 
 /**
- * Returns true if any step in the transaction's changed ranges (in OLD-position
- * space) overlaps with any of the tracked code block ranges.
- * Uses old positions because `codeBlockRanges` comes from the previous state.
+ * Returns true if any step's changed ranges overlap with any of the tracked
+ * code block ranges. `ranges` come from the previous plugin state, i.e. the
+ * doc BEFORE the transaction — but step i's map reports positions relative to
+ * the doc before step i (after steps 0..i-1). So the tracked ranges are
+ * mapped forward through each step map after comparing, keeping every
+ * comparison in the same coordinate space. Without this, an earlier step in
+ * the same transaction (e.g. a prose insert before the block) shifts a later
+ * in-block edit past the unmapped range and the fast path wrongly kicks in.
  */
 export function changesIntersectRanges(tr: Transaction, ranges: CodeBlockRange[]): boolean {
   if (ranges.length === 0) return false;
+  // Working copy in the coordinate space of the doc before the current step.
+  let current = ranges;
   for (let i = 0; i < tr.steps.length; i++) {
+    const map = tr.mapping.maps[i];
     let intersects = false;
-    tr.mapping.maps[i].forEach((oldFrom: number, oldTo: number) => {
+    map.forEach((oldFrom: number, oldTo: number) => {
       if (intersects) return;
-      for (const range of ranges) {
+      for (const range of current) {
         if (oldFrom < range.to && oldTo > range.from) {
           intersects = true;
           return;
@@ -86,6 +99,13 @@ export function changesIntersectRanges(tr: Transaction, ranges: CodeBlockRange[]
       }
     });
     if (intersects) return true;
+    // Map ranges into the next step's space: block start associates forward
+    // (an insert exactly at the start pushes the block right), block end
+    // associates backward (an insert exactly at the end stays outside).
+    current = current.map((range) => ({
+      from: map.map(range.from, 1),
+      to: map.map(range.to, -1),
+    }));
   }
   return false;
 }

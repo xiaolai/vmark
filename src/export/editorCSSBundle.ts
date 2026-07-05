@@ -40,6 +40,7 @@ import mermaidCSS from "@/plugins/mermaid/mermaid.css?raw";
 // Mermaid CSS uses @import for these — imports are stripped by our filter,
 // so we include them explicitly to preserve the full style chain.
 import mermaidFallbackCSS from "@/plugins/mermaid/mermaid-fallback.css?raw";
+import graphvizCSS from "@/plugins/graphviz/graphviz.css?raw";
 
 /**
  * All content-relevant CSS files in import order.
@@ -68,13 +69,14 @@ const CSS_MODULES = [
   katexFixesCSS,
   mermaidFallbackCSS,
   mermaidCSS,
+  graphvizCSS,
 ];
 
 /**
  * Patterns for CSS rule blocks that are editor-interactive-only
  * and should be stripped from export output.
- * Matched against selectors — if a selector starts with any of these,
- * the rule is excluded.
+ * Matched against selectors — if a token appears anywhere in a selector at
+ * a class-name boundary (see `isInteractiveSelector`), the rule is excluded.
  */
 const INTERACTIVE_SELECTOR_PREFIXES = [
   // Editor layout (not content)
@@ -115,8 +117,64 @@ const INTERACTIVE_SELECTOR_PREFIXES = [
 ];
 
 /**
+ * Neutralize CSS block comments and string literals in one line so brace
+ * counting and selector matching never see braces inside a comment or a
+ * string value such as `content: "{"`.
+ * Comment/string contents are replaced with spaces; structural characters
+ * are preserved. Returns the sanitized line plus whether a block comment is
+ * still open at end of line (CSS strings cannot legally span lines, so
+ * string state never carries across lines).
+ */
+function sanitizeLine(
+  line: string,
+  startInComment: boolean,
+): { sanitized: string; inComment: boolean } {
+  let out = "";
+  let inComment = startInComment;
+  let quote: '"' | "'" | null = null;
+  let i = 0;
+  while (i < line.length) {
+    const ch = line[i];
+    if (inComment) {
+      if (ch === "*" && line[i + 1] === "/") {
+        inComment = false;
+        out += "  ";
+        i += 2;
+      } else {
+        out += " ";
+        i += 1;
+      }
+    } else if (quote) {
+      if (ch === "\\") {
+        out += "  "; // escape sequence — neutralize both characters
+        i += 2;
+      } else if (ch === quote) {
+        quote = null;
+        out += ch;
+        i += 1;
+      } else {
+        out += " ";
+        i += 1;
+      }
+    } else if (ch === "/" && line[i + 1] === "*") {
+      inComment = true;
+      out += "  ";
+      i += 2;
+    } else {
+      if (ch === '"' || ch === "'") quote = ch;
+      out += ch;
+      i += 1;
+    }
+  }
+  return { sanitized: out, inComment };
+}
+
+/**
  * Strip interactive-only CSS rules from raw CSS text.
  * Uses a simple state machine to parse rule blocks and filter by selector.
+ * Depth tracking and selector extraction run over comment/string-neutralized
+ * lines (see `sanitizeLine`) so braces inside comments or string values
+ * cannot desync the block parser; output lines are always the raw originals.
  * Exported for direct unit testing (this is a hand-rolled parser on the
  * export path — see editorCSSBundle.test.ts for its behavioral contract).
  */
@@ -125,16 +183,20 @@ export function stripInteractiveRules(css: string): string {
   const output: string[] = [];
   let depth = 0;
   let skipBlock = false;
+  let inComment = false;
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    const trimmed = line.trim();
+    const state = sanitizeLine(line, inComment);
+    inComment = state.inComment;
+    const sanitized = state.sanitized;
+    const trimmed = sanitized.trim();
 
     // Skip @import statements (already resolved by Vite for normal loads)
     if (trimmed.startsWith("@import")) continue;
 
     // Track nesting depth
-    const opens = (line.match(/{/g) || []).length;
-    const closes = (line.match(/}/g) || []).length;
+    const opens = (sanitized.match(/{/g) || []).length;
+    const closes = (sanitized.match(/}/g) || []).length;
 
     if (depth === 0 && opens > 0) {
       // Starting a new top-level rule block
@@ -170,20 +232,48 @@ export function stripInteractiveRules(css: string): string {
 }
 
 /**
+ * True when `token` occurs in `selector` ending on a class-name boundary:
+ * end of selector, or a character that cannot continue an identifier word.
+ * A hyphen counts as same-family continuation (`.code-block-live-preview`
+ * matches `.code-block-live-preview-error`), but a letter/digit does not
+ * (`.editor-content` does NOT match `.editor-contents`). Tokens ending in
+ * `-` are explicit family prefixes and match any continuation.
+ */
+function matchesAtClassBoundary(selector: string, token: string): boolean {
+  if (token.endsWith("-")) return selector.includes(token);
+  let from = 0;
+  for (;;) {
+    const idx = selector.indexOf(token, from);
+    if (idx === -1) return false;
+    const after = selector[idx + token.length];
+    if (after === undefined || !/[A-Za-z0-9_]/.test(after)) return true;
+    from = idx + 1;
+  }
+}
+
+/**
  * Check if a CSS selector targets interactive-only elements.
+ *
+ * Matching contract (verified against the real ?raw CSS inputs):
+ * - Tokens match ANYWHERE in the selector — descendant and compound
+ *   positions are load-bearing (`.dark-theme .code-lang-dropdown`,
+ *   `.math-inline.ProseMirror-selectednode`), not just prefixes.
+ * - Matches must end on a class-name boundary so unrelated classes that
+ *   merely contain a token as substring survive (see
+ *   `matchesAtClassBoundary`).
+ * - Comma groups are stripped whole when ANY member matches — the
+ *   line-based parser cannot split a block.
  */
 function isInteractiveSelector(selector: string): boolean {
-  // Check against prefix list
-  for (const prefix of INTERACTIVE_SELECTOR_PREFIXES) {
-    if (selector.includes(prefix)) return true;
+  for (const token of INTERACTIVE_SELECTOR_PREFIXES) {
+    if (matchesAtClassBoundary(selector, token)) return true;
   }
 
-  // Skip :hover and :focus-visible rules (non-interactive in export)
-  if (selector.includes(":hover") || selector.includes(":focus-visible")) {
-    return true;
-  }
-
-  return false;
+  // Strip :hover and :focus-visible rules (non-interactive in export)
+  return (
+    matchesAtClassBoundary(selector, ":hover") ||
+    matchesAtClassBoundary(selector, ":focus-visible")
+  );
 }
 
 /** Cached result — built once, reused across exports. */

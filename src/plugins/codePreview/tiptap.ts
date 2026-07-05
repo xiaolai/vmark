@@ -2,7 +2,8 @@
  * Code Preview Tiptap Extension
  *
  * Purpose: Renders live previews below code blocks for special languages (LaTeX/math,
- * Mermaid diagrams, Markmap mindmaps, SVG, GitHub Actions workflow YAML) in WYSIWYG mode.
+ * Mermaid diagrams, Graphviz/DOT diagrams, Markmap mindmaps, SVG, GitHub Actions
+ * workflow YAML) in WYSIWYG mode.
  * Also handles click-to-edit for block math ($$...$$ code blocks). This file is the
  * extension entry point; the heavy lifting lives in sibling modules.
  *
@@ -23,7 +24,7 @@
  * @coordinates-with transactionScan.ts — previewability + fast-path transaction checks
  * @coordinates-with previewDecorations.ts — full-scan decoration builder
  * @coordinates-with editMode.ts — debounced live preview + save/cancel edit mode
- * @coordinates-with themeObserver.ts — dark-mode flips clear the preview cache
+ * @coordinates-with themeObserver.ts — theme changes (class or token flips) invalidate previews
  * @coordinates-with blockMathKeymap.ts — keyboard shortcuts for math editing
  * @module plugins/codePreview/tiptap
  */

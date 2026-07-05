@@ -156,4 +156,52 @@ describe("changesIntersectRanges", () => {
     const tr = state.tr.insertText("!", 6);
     expect(changesIntersectRanges(tr, [])).toBe(false);
   });
+
+  /** Build a doc with a paragraph followed by a mermaid block; return its range. */
+  function createStateWithBlock() {
+    const { schema, plugins } = createProseOnlyState();
+    const doc = schema.nodes.doc.create(null, [
+      schema.nodes.paragraph.create(null, schema.text("hi")),
+      schema.nodes.codeBlock.create({ language: "mermaid" }, schema.text("graph TD")),
+    ]);
+    const state = EditorState.create({ schema, doc, plugins });
+    let from = -1;
+    let to = -1;
+    state.doc.forEach((node, offset) => {
+      if (node.type.name === "codeBlock") {
+        from = offset;
+        to = offset + node.nodeSize;
+      }
+    });
+    expect(from).toBeGreaterThanOrEqual(0);
+    return { state, ranges: [{ from, to }] };
+  }
+
+  it("detects an in-block edit when a preceding step in the SAME transaction shifts positions", () => {
+    // Audit finding: step i's map speaks the coordinate space of the doc
+    // BEFORE step i, but the tracked ranges are in the ORIGINAL doc space.
+    // Step 1 inserts 50 chars of prose before the block; step 2 then edits
+    // inside the block at post-step-1 positions. Without forward-mapping the
+    // ranges, step 2's positions land past the unmapped range end and the
+    // edit wrongly takes the fast path (stale decorations).
+    const { state, ranges } = createStateWithBlock();
+    const tr = state.tr.insertText("x".repeat(50), 1);
+    const insidePos = tr.mapping.map(ranges[0].from + 1);
+    tr.insertText("A", insidePos);
+    expect(changesIntersectRanges(tr, ranges)).toBe(true);
+  });
+
+  it("still returns false when every step of a multi-step transaction stays outside the ranges", () => {
+    const { state, ranges } = createStateWithBlock();
+    // Two prose insertions, both before the block — fast path must survive.
+    const tr = state.tr.insertText("x".repeat(50), 1);
+    tr.insertText("y", 2);
+    expect(changesIntersectRanges(tr, ranges)).toBe(false);
+  });
+
+  it("detects a single-step edit inside a tracked range", () => {
+    const { state, ranges } = createStateWithBlock();
+    const tr = state.tr.insertText("A", ranges[0].from + 1);
+    expect(changesIntersectRanges(tr, ranges)).toBe(true);
+  });
 });

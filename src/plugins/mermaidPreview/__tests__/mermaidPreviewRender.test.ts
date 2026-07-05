@@ -20,12 +20,17 @@ vi.mock("@/plugins/svg/svgRender", () => ({
   renderSvgBlock: vi.fn(),
 }));
 
+vi.mock("@/plugins/graphviz", () => ({
+  renderGraphviz: vi.fn(),
+}));
+
 vi.mock("@/utils/sanitize", () => ({
   sanitizeSvg: vi.fn((svg: string) => svg),
 }));
 
 import { renderPreview, type RenderContext } from "../mermaidPreviewRender";
 import { renderMermaid } from "@/plugins/mermaid";
+import { renderGraphviz } from "@/plugins/graphviz";
 import { renderSvgBlock } from "@/plugins/svg/svgRender";
 import { renderMarkmapToElement } from "@/plugins/markmap";
 
@@ -55,7 +60,8 @@ describe("renderPreview", () => {
 
     expect(ctx.preview.innerHTML).toBe("");
     expect(ctx.preview.classList.contains("mermaid-preview-empty")).toBe(true);
-    expect(token).toBe(0);
+    // Token advances even for empty renders so pending async output goes stale.
+    expect(token).toBe(1);
   });
 
   it("clears preview and adds empty class for whitespace-only content", () => {
@@ -98,7 +104,9 @@ describe("renderPreview", () => {
       expect(ctx.preview.innerHTML).toContain("rect");
       expect(ctx.error.textContent).toBe("");
       expect(ctx.applyZoom).toHaveBeenCalled();
-      expect(token).toBe(0); // Token unchanged for sync render
+      // Token advances for sync renders too — a pending async render must
+      // not be able to overwrite this output.
+      expect(token).toBe(1);
     });
 
     it("shows error for invalid SVG", () => {
@@ -202,6 +210,62 @@ describe("renderPreview", () => {
     });
   });
 
+  describe.each(["dot", "graphviz"])("Graphviz language (%s)", (lang) => {
+    it("increments render token and shows loading state", () => {
+      vi.mocked(renderGraphviz).mockResolvedValue("<svg>gv</svg>");
+      const ctx = createContext({ currentLanguage: lang });
+
+      const token = renderPreview("digraph { a -> b }", ctx);
+
+      expect(token).toBe(1);
+      expect(ctx.preview.querySelector(".mermaid-preview-loading")).not.toBeNull();
+      expect(renderGraphviz).toHaveBeenCalledWith("digraph { a -> b }");
+    });
+
+    it("renders graphviz SVG on success", async () => {
+      vi.mocked(renderGraphviz).mockResolvedValue("<svg>gv</svg>");
+      const ctx = createContext({ currentLanguage: lang });
+
+      ctx.renderToken = renderPreview("digraph { a }", ctx);
+      await vi.waitFor(() => {
+        expect(ctx.preview.innerHTML).toContain("gv");
+      });
+      expect(ctx.error.textContent).toBe("");
+      expect(ctx.applyZoom).toHaveBeenCalled();
+    });
+
+    it("shows error for null graphviz result", async () => {
+      vi.mocked(renderGraphviz).mockResolvedValue(null);
+      const ctx = createContext({ currentLanguage: lang });
+
+      ctx.renderToken = renderPreview("digraph {", ctx);
+      await vi.waitFor(() => {
+        expect(ctx.preview.classList.contains("mermaid-preview-error-state")).toBe(true);
+      });
+      expect(ctx.error.textContent).not.toBe("");
+    });
+
+    it("shows error on graphviz render rejection", async () => {
+      vi.mocked(renderGraphviz).mockRejectedValue(new Error("boom"));
+      const ctx = createContext({ currentLanguage: lang });
+
+      ctx.renderToken = renderPreview("digraph { a }", ctx);
+      await vi.waitFor(() => {
+        expect(ctx.preview.classList.contains("mermaid-preview-error-state")).toBe(true);
+      });
+    });
+
+    it("discards stale graphviz render", async () => {
+      vi.mocked(renderGraphviz).mockResolvedValue("<svg>stale</svg>");
+      const ctx = createContext({ currentLanguage: lang, getCurrentToken: () => 99 });
+
+      renderPreview("digraph { a }", ctx);
+      await new Promise((r) => setTimeout(r, 0));
+
+      expect(ctx.preview.innerHTML).not.toContain("stale");
+    });
+  });
+
   describe("Mermaid language", () => {
     it("increments render token for async render", () => {
       const ctx = createContext({ renderToken: 5 });
@@ -218,7 +282,8 @@ describe("renderPreview", () => {
 
       renderPreview("graph TD; A-->B", ctx);
 
-      expect(ctx.preview.innerHTML).toContain("Rendering...");
+      // Resolved via i18n key editor:preview.rendering — uses unicode ellipsis
+      expect(ctx.preview.textContent).toContain("Rendering…");
     });
 
     it("renders mermaid SVG on success", async () => {
@@ -283,6 +348,46 @@ describe("renderPreview", () => {
       await vi.waitFor(() => {
         expect(ctx.error.textContent).toBe("");
       });
+    });
+
+    it("advances the token on an EMPTY request so a pending async render cannot paint over it", async () => {
+      // Audit finding: the empty branch returned the old token, so a pending
+      // mermaid render still saw currentToken === getCurrentToken() and
+      // overwrote the newer empty state.
+      let resolveRender!: (svg: string | null) => void;
+      vi.mocked(renderMermaid).mockImplementation(
+        () => new Promise((resolve) => { resolveRender = resolve; }),
+      );
+      const ctx = createContext();
+
+      renderPreview("graph TD; A-->B", ctx); // async render pending
+      const emptyToken = renderPreview("", ctx); // newer request: empty state
+
+      expect(emptyToken).toBeGreaterThan(1);
+      resolveRender("<svg>stale</svg>");
+      await new Promise((r) => setTimeout(r, 0));
+
+      expect(ctx.preview.innerHTML).toBe("");
+      expect(ctx.preview.classList.contains("mermaid-preview-empty")).toBe(true);
+    });
+
+    it("advances the token on a SYNC SVG request so a pending async render cannot paint over it", async () => {
+      let resolveRender!: (svg: string | null) => void;
+      vi.mocked(renderMermaid).mockImplementation(
+        () => new Promise((resolve) => { resolveRender = resolve; }),
+      );
+      vi.mocked(renderSvgBlock).mockReturnValue("<svg>fresh</svg>");
+      const ctx = createContext({ currentLanguage: "mermaid" });
+
+      renderPreview("graph TD; A-->B", ctx); // async render pending
+      ctx.currentLanguage = "svg";
+      renderPreview("<svg>fresh</svg>", ctx); // newer request: sync SVG
+
+      expect(ctx.preview.innerHTML).toBe("<svg>fresh</svg>");
+      resolveRender("<svg>stale</svg>");
+      await new Promise((r) => setTimeout(r, 0));
+
+      expect(ctx.preview.innerHTML).toBe("<svg>fresh</svg>");
     });
 
     it("discards stale render when getCurrentToken returns a newer token", async () => {

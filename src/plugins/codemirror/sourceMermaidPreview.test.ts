@@ -10,7 +10,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach, beforeAll, afterAll } from "vitest";
-import { EditorState } from "@codemirror/state";
+import { EditorState, Text } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 
 const mockShow = vi.fn();
@@ -150,6 +150,36 @@ describe("sourceMermaidPreview", () => {
         expect.any(Object),
         view.dom,
         "svg",
+      );
+    });
+  });
+
+  describe("graphviz block detection", () => {
+    it("shows preview for dot block", async () => {
+      const content = "```dot\ndigraph { a -> b }\n```";
+      const pos = content.indexOf("digraph");
+      const view = tracked(content, pos);
+      await flushRaf();
+
+      expect(mockShow).toHaveBeenCalledWith(
+        expect.stringContaining("digraph"),
+        expect.any(Object),
+        view.dom,
+        "dot",
+      );
+    });
+
+    it("shows preview for graphviz block", async () => {
+      const content = "```graphviz\ndigraph { a -> b }\n```";
+      const pos = content.indexOf("digraph");
+      const view = tracked(content, pos);
+      await flushRaf();
+
+      expect(mockShow).toHaveBeenCalledWith(
+        expect.stringContaining("digraph"),
+        expect.any(Object),
+        view.dom,
+        "graphviz",
       );
     });
   });
@@ -395,6 +425,27 @@ describe("sourceMermaidPreview", () => {
   });
 
   describe("destroy", () => {
+    it("cancels pending rAF work on destroy — a destroyed plugin must not re-show the preview", async () => {
+      // Audit finding: scheduleCheck's requestAnimationFrame was never
+      // canceled, so destroying the plugin with a check pending let the
+      // callback fire afterwards and re-show the shared preview singleton.
+      mockIsVisible.mockReturnValue(false);
+      coordsSpy.mockReturnValue({ top: 100, left: 50, bottom: 120, right: 200 });
+      const content = "```mermaid\ngraph TD\n```";
+      const view = tracked(content, content.indexOf("graph TD"));
+      // Destroy BEFORE the constructor-scheduled rAF fires.
+      view.destroy();
+      createdViews.length = 0;
+      mockShow.mockClear();
+      mockUpdateContent.mockClear();
+
+      await flushRaf();
+      await flushRaf();
+
+      expect(mockShow).not.toHaveBeenCalled();
+      expect(mockUpdateContent).not.toHaveBeenCalled();
+    });
+
     it("hides preview and unsubscribes on destroy", async () => {
       const content = "```mermaid\ngraph TD\n```";
       const view = tracked(content, 14);
@@ -407,6 +458,56 @@ describe("sourceMermaidPreview", () => {
 
       expect(mockHide).toHaveBeenCalled();
       expect(editorStoreSubscribers.size).toBeLessThan(subCountBefore);
+    });
+  });
+
+  describe("fence-scan caching (perf)", () => {
+    it("does not rescan every document line on a pure selection change", async () => {
+      // Audit finding: the fence scan walked every doc line on each cursor
+      // movement. With fence ranges cached per doc (immutable Text identity),
+      // a selection-only change must do bounded work: locate the cursor line
+      // and extract block content — a handful of line lookups, not O(lines).
+      mockIsVisible.mockReturnValue(false);
+      coordsSpy.mockReturnValue({ top: 100, left: 50, bottom: 120, right: 200 });
+      const filler = Array.from({ length: 200 }, (_, i) => `line ${i}`).join("\n");
+      const content = `${filler}\n\`\`\`mermaid\ngraph TD\n\`\`\`\n${filler}`;
+      const pos = content.indexOf("graph TD");
+      const view = tracked(content, pos);
+      await flushRaf();
+
+      const lineSpy = vi.spyOn(Text.prototype, "line");
+      view.dispatch({ selection: { anchor: pos + 2 } });
+      await flushRaf();
+      await flushRaf();
+
+      // Full rescan would call doc.line() 400+ times; cached lookup stays tiny.
+      expect(lineSpy.mock.calls.length).toBeLessThanOrEqual(10);
+      lineSpy.mockRestore();
+    });
+
+    it("rescans and finds new fences after a document change", async () => {
+      mockIsVisible.mockReturnValue(false);
+      coordsSpy.mockReturnValue({ top: 100, left: 50, bottom: 120, right: 200 });
+      const content = "text here\nmore text";
+      const view = tracked(content, 0);
+      await flushRaf();
+      mockShow.mockClear();
+
+      // Turn the doc into a mermaid block and move the cursor inside it.
+      const block = "```mermaid\ngraph TD\n```";
+      view.dispatch({
+        changes: { from: 0, to: content.length, insert: block },
+        selection: { anchor: block.indexOf("graph TD") },
+      });
+      await flushRaf();
+      await flushRaf();
+
+      expect(mockShow).toHaveBeenCalledWith(
+        expect.stringContaining("graph TD"),
+        expect.any(Object),
+        view.dom,
+        "mermaid",
+      );
     });
   });
 

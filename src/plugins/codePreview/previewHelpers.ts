@@ -2,7 +2,8 @@
  * Preview Helpers
  *
  * Shared utilities for code block preview rendering — element creation,
- * double-click handling, preview cache types, and theme utilities.
+ * language → preview-class routing (getPreviewClass), clipboard copy,
+ * double-click handling, and preview cache types.
  *
  * Extracted from tiptap.ts to avoid circular dependencies between
  * renderers and the main extension file.
@@ -16,7 +17,11 @@ import i18n from "@/i18n";
 import { setupMermaidPanZoom } from "@/plugins/mermaid/mermaidPanZoom";
 import { setupMermaidExport } from "@/plugins/mermaid/mermaidExport";
 import { setupSvgExport } from "@/plugins/svg/svgExport";
+import { isGraphvizLanguage } from "@/plugins/graphviz";
+import { setupGraphvizExport } from "@/plugins/graphviz/graphvizExport";
 import { sanitizeKatex, sanitizeSvg } from "@/utils/sanitize";
+import { diagramWarn } from "@/utils/debug";
+import { errorMessage } from "@/utils/errorMessage";
 
 // --- Types ---
 
@@ -40,6 +45,50 @@ export function isLatexLanguage(lang: string): boolean {
   return lang === "latex" || lang === "$$math$$";
 }
 
+/** Widget flavor for getPreviewClass — rendered output, empty placeholder, or live edit preview. */
+export type PreviewMode = "rendered" | "placeholder" | "live";
+
+/**
+ * Single source of truth for the language → CSS-class routing shared by
+ * createPreviewElement / createPreviewPlaceholder / createLivePreview.
+ * The per-mode divergences are intentional:
+ *   - latex / $$math$$ → "latex" in every mode;
+ *   - dot / graphviz   → "graphviz" in every mode;
+ *   - svg              → "mermaid" for rendered/live output (reuses Mermaid's
+ *                        pan/zoom + sizing CSS), but the placeholder is a
+ *                        plain text label, so it keeps its own "svg" class;
+ *   - yaml / yml       → "workflow" ONLY for rendered output (the cache-hit
+ *                        rendering is a workflow SVG that needs
+ *                        .workflow-preview sizing); placeholder and live
+ *                        previews keep the raw language class.
+ */
+export function getPreviewClass(language: string, mode: PreviewMode): string {
+  if (isLatexLanguage(language)) return "latex";
+  if (isGraphvizLanguage(language)) return "graphviz";
+  if (language === "svg") return mode === "placeholder" ? "svg" : "mermaid";
+  if ((language === "yaml" || language === "yml") && mode === "rendered") {
+    return "workflow";
+  }
+  return language;
+}
+
+/**
+ * Copy text to the system clipboard. Resolves true on success, false when the
+ * Clipboard API is unavailable or the write fails — never rejects, so callers
+ * can branch feedback on the boolean without a try/catch.
+ */
+export async function copyTextToClipboard(text: string): Promise<boolean> {
+  const clipboard = typeof navigator === "undefined" ? undefined : navigator.clipboard;
+  if (!clipboard?.writeText) return false;
+  try {
+    await clipboard.writeText(text);
+    return true;
+  } catch (error) {
+    diagramWarn("Copy to clipboard failed:", errorMessage(error));
+    return false;
+  }
+}
+
 /** Install double-click handler for entering edit mode */
 export function installDoubleClickHandler(element: HTMLElement, onDoubleClick?: () => void): void {
   if (!onDoubleClick) return;
@@ -60,26 +109,18 @@ export function createPreviewElement(
   sourceContent?: string,
 ): HTMLElement {
   const wrapper = document.createElement("div");
-  // Class & sanitizer dispatch:
-  //   - latex / $$math$$  → latex-preview, sanitizeKatex
-  //   - svg               → mermaid-preview (reuses Mermaid's pan/zoom), sanitizeSvg
-  //   - mermaid           → mermaid-preview, sanitizeSvg
-  //   - yaml / yml        → workflow-preview, sanitizeSvg (Phase 3 GHA workflow
-  //                          previews — the cached rendering is a Mermaid SVG;
-  //                          without this branch the cache-hit path falls through
-  //                          to "yaml-preview" + sanitizeKatex, which strips the
-  //                          SVG and bypasses .workflow-preview CSS sizing).
+  // Class routing lives in getPreviewClass; sanitizer dispatch:
+  //   - SVG-producing languages (mermaid, svg, dot/graphviz, yaml/yml
+  //     workflow snapshots) → sanitizeSvg
+  //   - latex / $$math$$ → sanitizeKatex (sanitizeSvg would strip KaTeX HTML)
   const isWorkflowYamlLang = language === "yaml" || language === "yml";
-  const previewClass = isLatexLanguage(language) ? "latex"
-    : language === "svg" ? "mermaid"
-    : isWorkflowYamlLang ? "workflow"
-    : language;
-  wrapper.className = `code-block-preview ${previewClass}-preview`;
+  const isGraphviz = isGraphvizLanguage(language);
+  wrapper.className = `code-block-preview ${getPreviewClass(language, "rendered")}-preview`;
   const isSvgOutput =
-    language === "mermaid" || language === "svg" || isWorkflowYamlLang;
+    language === "mermaid" || language === "svg" || isGraphviz || isWorkflowYamlLang;
   const sanitized = isSvgOutput ? sanitizeSvg(rendered) : sanitizeKatex(rendered);
   wrapper.innerHTML = sanitized;
-  if (language === "mermaid" || language === "svg") {
+  if (language === "mermaid" || language === "svg" || isGraphviz) {
     // Defer panzoom/export setup — Panzoom requires DOM-attached elements,
     // but ProseMirror attaches the widget after the factory returns.
     // Panzoom and export auto-register cleanup via diagramCleanup
@@ -88,6 +129,8 @@ export function createPreviewElement(
       if (sourceContent) {
         if (language === "mermaid") {
           setupMermaidExport(wrapper, sourceContent);
+        } else if (isGraphviz) {
+          setupGraphvizExport(wrapper, sourceContent);
         } else {
           setupSvgExport(wrapper, sourceContent);
         }
@@ -105,8 +148,7 @@ export function createPreviewPlaceholder(
   onDoubleClick?: () => void
 ): HTMLElement {
   const wrapper = document.createElement("div");
-  // Use "latex" class for both "latex" and "$$math$$" languages
-  const previewClass = isLatexLanguage(language) ? "latex" : language;
+  const previewClass = getPreviewClass(language, "placeholder");
   wrapper.className = `code-block-preview ${previewClass}-preview code-block-preview-placeholder`;
   wrapper.textContent = label;
   installDoubleClickHandler(wrapper, onDoubleClick);
@@ -116,10 +158,7 @@ export function createPreviewPlaceholder(
 /** Create live preview element for edit mode */
 export function createLivePreview(language: string): HTMLElement {
   const wrapper = document.createElement("div");
-  const previewClass = isLatexLanguage(language) ? "latex"
-    : language === "svg" ? "mermaid"
-    : language === "markmap" ? "markmap" : language;
-  wrapper.className = `code-block-live-preview ${previewClass}-live-preview`;
+  wrapper.className = `code-block-live-preview ${getPreviewClass(language, "live")}-live-preview`;
   const loading = document.createElement("div");
   loading.className = "code-block-live-preview-loading";
   loading.textContent = i18n.t("editor:preview.rendering");
@@ -127,12 +166,19 @@ export function createLivePreview(language: string): HTMLElement {
   return wrapper;
 }
 
+const COPY_ICON =
+  `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
+const CHECK_ICON =
+  `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+const CROSS_ICON =
+  `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+
 /** Create edit mode header with title and cancel/save buttons */
 export function createEditHeader(
   language: string,
   onCancel: () => void,
   onSave: () => void,
-  onCopy?: () => void,
+  onCopy?: () => Promise<boolean>,
 ): HTMLElement {
   const header = document.createElement("div");
   header.className = "code-block-edit-header";
@@ -141,34 +187,50 @@ export function createEditHeader(
   title.className = "code-block-edit-title";
   title.textContent = language === "mermaid" ? "Mermaid"
     : language === "markmap" ? "Markmap"
+    : isGraphvizLanguage(language) ? "Graphviz"
     : language === "svg" ? "SVG" : "LaTeX";
 
   const actions = document.createElement("div");
   actions.className = "code-block-edit-actions";
 
-  // Copy button (mermaid only — passed via onCopy)
+  // Copy button (diagram languages only — passed via onCopy)
   if (onCopy) {
     const copyBtn = document.createElement("button");
     copyBtn.className = "code-block-edit-btn code-block-edit-copy";
     const copyLabel = i18n.t("editor:plugin.copySource");
     copyBtn.title = copyLabel;
     copyBtn.setAttribute("aria-label", copyLabel);
-    copyBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
+    copyBtn.innerHTML = COPY_ICON;
     copyBtn.addEventListener("mousedown", (e) => {
       e.preventDefault();
       e.stopPropagation();
     });
+    const showCopyFeedback = (icon: string, className: string) => {
+      copyBtn.innerHTML = icon;
+      copyBtn.classList.add(className);
+      setTimeout(() => {
+        copyBtn.innerHTML = COPY_ICON;
+        copyBtn.classList.remove(className);
+      }, 1500);
+    };
     copyBtn.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
-      onCopy();
-      // Brief checkmark feedback
-      copyBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
-      copyBtn.classList.add("code-block-edit-btn--success");
-      setTimeout(() => {
-        copyBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
-        copyBtn.classList.remove("code-block-edit-btn--success");
-      }, 1500);
+      // Feedback only after the clipboard write settles — a synchronous
+      // checkmark would report success even when the write failed.
+      void (async () => {
+        let copied = false;
+        try {
+          copied = await onCopy();
+        } catch (error) {
+          diagramWarn("Copy source failed:", errorMessage(error));
+        }
+        if (copied) {
+          showCopyFeedback(CHECK_ICON, "code-block-edit-btn--success");
+        } else {
+          showCopyFeedback(CROSS_ICON, "code-block-edit-btn--error");
+        }
+      })();
     });
     actions.appendChild(copyBtn);
   }
@@ -178,7 +240,7 @@ export function createEditHeader(
   const cancelLabel = i18n.t("editor:plugin.cancel");
   cancelBtn.title = cancelLabel;
   cancelBtn.setAttribute("aria-label", cancelLabel);
-  cancelBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+  cancelBtn.innerHTML = CROSS_ICON;
   // Prevent ProseMirror from capturing mousedown
   cancelBtn.addEventListener("mousedown", (e) => {
     e.preventDefault();
@@ -195,7 +257,7 @@ export function createEditHeader(
   const saveLabel = i18n.t("editor:plugin.save");
   saveBtn.title = saveLabel;
   saveBtn.setAttribute("aria-label", saveLabel);
-  saveBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+  saveBtn.innerHTML = CHECK_ICON;
   // Prevent ProseMirror from capturing mousedown
   saveBtn.addEventListener("mousedown", (e) => {
     e.preventDefault();

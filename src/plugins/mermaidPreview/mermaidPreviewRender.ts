@@ -5,7 +5,9 @@
  * Manages render tokens to discard stale async results.
  */
 
+import i18n from "@/i18n";
 import { renderMermaid } from "@/plugins/mermaid";
+import { renderGraphviz } from "@/plugins/graphviz";
 import { renderMarkmapToElement } from "@/plugins/markmap";
 import { cleanupDescendants } from "@/plugins/shared/diagramCleanup";
 import { renderSvgBlock } from "@/plugins/svg/svgRender";
@@ -32,10 +34,15 @@ export function renderPreview(content: string, ctx: RenderContext): number {
   ctx.error.textContent = "";
   ctx.preview.classList.remove("mermaid-preview-error-state");
 
+  // EVERY render request advances the token — including empty and synchronous
+  // ones. Otherwise a pending async render still matches getCurrentToken()
+  // and paints stale output over the newer empty/SVG state (audit finding).
+  const currentToken = ++ctx.renderToken;
+
   if (!trimmed) {
     ctx.preview.innerHTML = "";
     ctx.preview.classList.add("mermaid-preview-empty");
-    return ctx.renderToken;
+    return currentToken;
   }
 
   ctx.preview.classList.remove("mermaid-preview-empty");
@@ -50,9 +57,9 @@ export function renderPreview(content: string, ctx: RenderContext): number {
     } else {
       ctx.preview.innerHTML = "";
       ctx.preview.classList.add("mermaid-preview-error-state");
-      ctx.error.textContent = "Invalid SVG";
+      ctx.error.textContent = i18n.t("editor:preview.invalidSvg");
     }
-    return ctx.renderToken;
+    return currentToken;
   }
 
   // Markmap blocks: live SVG render
@@ -64,14 +71,13 @@ export function renderPreview(content: string, ctx: RenderContext): number {
     svgEl.style.height = "100%";
     ctx.preview.appendChild(svgEl);
 
-    const currentToken = ++ctx.renderToken;
     renderMarkmapToElement(svgEl, trimmed)
       .then((instance) => {
         if (currentToken !== ctx.getCurrentToken()) return;
         if (!instance) {
           ctx.preview.innerHTML = "";
           ctx.preview.classList.add("mermaid-preview-error-state");
-          ctx.error.textContent = "Invalid markmap syntax";
+          ctx.error.textContent = i18n.t("editor:preview.invalidMarkmapSyntax");
         } else {
           ctx.error.textContent = "";
         }
@@ -81,14 +87,42 @@ export function renderPreview(content: string, ctx: RenderContext): number {
         diagramWarn("Markmap render failed:", errorMessage(error));
         ctx.preview.innerHTML = "";
         ctx.preview.classList.add("mermaid-preview-error-state");
-        ctx.error.textContent = "Preview failed";
+        ctx.error.textContent = i18n.t("editor:preview.renderFailed");
+      });
+    return currentToken;
+  }
+
+  // Graphviz (dot) blocks: async render with loading state
+  if (ctx.currentLanguage === "dot" || ctx.currentLanguage === "graphviz") {
+    ctx.preview.innerHTML = '<div class="mermaid-preview-loading"></div>';
+    ctx.preview.firstElementChild!.textContent = i18n.t("editor:preview.rendering");
+
+    renderGraphviz(trimmed)
+      .then((svg) => {
+        if (currentToken !== ctx.getCurrentToken()) return;
+        if (svg) {
+          ctx.preview.innerHTML = sanitizeSvg(svg);
+          ctx.error.textContent = "";
+          ctx.applyZoom();
+        } else {
+          ctx.preview.innerHTML = "";
+          ctx.preview.classList.add("mermaid-preview-error-state");
+          ctx.error.textContent = i18n.t("editor:preview.renderFailed");
+        }
+      })
+      .catch((error: unknown) => {
+        if (currentToken !== ctx.getCurrentToken()) return;
+        diagramWarn("Graphviz render failed:", errorMessage(error));
+        ctx.preview.innerHTML = "";
+        ctx.preview.classList.add("mermaid-preview-error-state");
+        ctx.error.textContent = i18n.t("editor:preview.renderFailed");
       });
     return currentToken;
   }
 
   // Mermaid blocks: async render with loading state
-  const currentToken = ++ctx.renderToken;
-  ctx.preview.innerHTML = '<div class="mermaid-preview-loading">Rendering...</div>';
+  ctx.preview.innerHTML = '<div class="mermaid-preview-loading"></div>';
+  ctx.preview.firstElementChild!.textContent = i18n.t("editor:preview.rendering");
 
   renderMermaid(trimmed)
     .then((svg) => {
@@ -101,7 +135,7 @@ export function renderPreview(content: string, ctx: RenderContext): number {
       } else {
         ctx.preview.innerHTML = "";
         ctx.preview.classList.add("mermaid-preview-error-state");
-        ctx.error.textContent = "Invalid mermaid syntax";
+        ctx.error.textContent = i18n.t("editor:preview.invalidMermaidSyntax");
       }
     })
     .catch((error: unknown) => {
@@ -109,7 +143,7 @@ export function renderPreview(content: string, ctx: RenderContext): number {
       diagramWarn("Mermaid render failed:", errorMessage(error));
       ctx.preview.innerHTML = "";
       ctx.preview.classList.add("mermaid-preview-error-state");
-      ctx.error.textContent = "Preview failed";
+      ctx.error.textContent = i18n.t("editor:preview.renderFailed");
     });
   return currentToken;
 }

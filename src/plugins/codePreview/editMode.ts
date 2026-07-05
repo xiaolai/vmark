@@ -32,9 +32,11 @@ import type { EditorView } from "@tiptap/pm/view";
 import { diagramWarn } from "@/utils/debug";
 import { useBlockMathEditingStore } from "@/stores/blockMathEditingStore";
 import i18n from "@/i18n";
+import { isGraphvizLanguage } from "@/plugins/graphviz";
 import { isLatexLanguage } from "./previewHelpers";
 import { updateLatexLivePreview } from "./renderers/renderLatex";
 import { updateMermaidLivePreview } from "./renderers/renderMermaidPreview";
+import { updateGraphvizLivePreview } from "./renderers/renderGraphvizPreview";
 import { updateMarkmapLivePreview } from "./renderers/renderMarkmapPreview";
 import { updateSvgLivePreview } from "./renderers/renderSvgPreview";
 import { updateWorkflowLivePreview } from "./renderers/renderWorkflowPreview";
@@ -97,6 +99,8 @@ export function updateLivePreview(
         updateLatexLivePreview(element, trimmed, currentToken, getToken);
       } else if (language === "mermaid") {
         await updateMermaidLivePreview(element, trimmed, currentToken, getToken);
+      } else if (isGraphvizLanguage(language)) {
+        await updateGraphvizLivePreview(element, trimmed, currentToken, getToken);
       } else if (language === "markmap") {
         await updateMarkmapLivePreview(element, trimmed, currentToken, getToken);
       } else if (language === "yaml" || language === "yml") {

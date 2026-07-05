@@ -167,6 +167,15 @@ describe("PREVIEW_ONLY_LANGUAGES coverage", () => {
     expect(matches.length).toBeGreaterThan(0);
   });
 
+  it("treats 'dot' and 'graphviz' as preview-only", () => {
+    for (const lang of ["dot", "graphviz"]) {
+      const { state, plugins } = createStateWithCodeBlock(lang, "digraph { a -> b }");
+      const pluginState = plugins[0].getState(state);
+      const matches = findDecorationsByClass(pluginState.decorations.find(), "code-block-preview-only");
+      expect(matches.length).toBeGreaterThan(0);
+    }
+  });
+
   it("does not add preview for 'javascript'", () => {
     const { state, plugins } = createStateWithCodeBlock("javascript", "const x = 1;");
     const pluginState = plugins[0].getState(state);

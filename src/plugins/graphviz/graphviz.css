@@ -1,0 +1,43 @@
+/**
+ * Graphviz Plugin Styles
+ *
+ * Mirrors the mermaid preview surface: the wrapper owns the frame
+ * (background, radius); the SVG inside stays flat.
+ */
+
+/* Graphviz diagram container */
+.code-block-preview.graphviz-preview {
+  padding: 1rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: auto;
+  background-color: var(--bg-secondary);
+  border-radius: var(--radius-md);
+  min-height: 100px;
+}
+
+.code-block-preview.graphviz-preview svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Error state */
+.graphviz-error {
+  color: var(--error-color);
+  background-color: var(--error-bg);
+  padding: 1rem;
+  border-radius: var(--radius-md);
+  font-family: var(--font-mono);
+  font-size: var(--editor-font-size-mono);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Loading state */
+.graphviz-loading {
+  color: var(--text-secondary);
+  font-style: italic;
+  padding: 1rem;
+  text-align: center;
+}

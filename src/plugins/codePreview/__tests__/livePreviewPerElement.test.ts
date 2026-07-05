@@ -15,8 +15,14 @@ const renderWorkflowMock = vi.hoisted(() => ({
   createWorkflowPreviewWidget: vi.fn(),
 }));
 
+const renderGraphvizMock = vi.hoisted(() => ({
+  updateGraphvizLivePreview: vi.fn(async () => {}),
+  createGraphvizPreviewWidget: vi.fn(),
+}));
+
 vi.mock("../renderers/renderLatex", () => renderLatexMock);
 vi.mock("../renderers/renderWorkflowPreview", () => renderWorkflowMock);
+vi.mock("../renderers/renderGraphvizPreview", () => renderGraphvizMock);
 
 import { updateLivePreview } from "../editMode";
 
@@ -69,6 +75,20 @@ describe("updateLivePreview per-element debounce", () => {
     expect(renderWorkflowMock.updateWorkflowLivePreview).toHaveBeenCalledWith(
       el,
       expect.stringContaining("on: push"),
+      expect.any(Number),
+      expect.any(Function),
+    );
+  });
+
+  it.each(["dot", "graphviz"])("routes %s content to the graphviz live renderer", (lang) => {
+    const el = document.createElement("div");
+
+    updateLivePreview(el, lang, "digraph { a -> b }");
+    vi.runAllTimers();
+
+    expect(renderGraphvizMock.updateGraphvizLivePreview).toHaveBeenCalledWith(
+      el,
+      "digraph { a -> b }",
       expect.any(Number),
       expect.any(Function),
     );

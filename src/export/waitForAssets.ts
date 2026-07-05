@@ -152,8 +152,8 @@ function checkMathReady(container: HTMLElement): boolean {
  * Check if Mermaid diagrams have finished rendering.
  */
 function checkMermaidReady(container: HTMLElement): boolean {
-  // Check for loading placeholders
-  const loading = container.querySelectorAll(".mermaid-loading");
+  // Check for loading placeholders (mermaid and graphviz share this gate)
+  const loading = container.querySelectorAll(".mermaid-loading, .graphviz-loading");
   if (loading.length > 0) return false;
 
   // Check for error states (still considered "ready" — error is final state)
@@ -167,7 +167,11 @@ function checkMermaidReady(container: HTMLElement): boolean {
  */
 export function getStabilityStatus(container: HTMLElement): StabilityStatus {
   const imagesCheck = checkImages(container);
-  const fontsReady = document.fonts.status === "loaded";
+  // document.fonts is typed non-optional but the Font Loading API can be
+  // absent at runtime; waitForFonts already treats that as "ready", and the
+  // polling path must not throw where waitForFonts would not.
+  const fonts: FontFaceSet | undefined = document.fonts;
+  const fontsReady = !fonts || fonts.status === "loaded";
   const imagesReady = imagesCheck.ready;
   const mathReady = checkMathReady(container);
   const mermaidReady = checkMermaidReady(container);

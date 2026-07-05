@@ -140,6 +140,10 @@
   color: var(--success-color);
 }
 
+.code-block-edit-btn--error {
+  color: var(--error-color);
+}
+
 .code-block-edit-btn:focus-visible {
   outline: none;
   position: relative;

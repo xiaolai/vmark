@@ -65,6 +65,8 @@ describe("manualChunks — vendor dispatch (pnpm-style ids)", () => {
     ["d3", "vendor-mermaid"],
     ["dagre-d3-es", "vendor-mermaid"],
     ["khroma", "vendor-mermaid"],
+    // Graphviz WASM — lazy, isolated so it never rides an eager chunk
+    ["@viz-js/viz", "vendor-graphviz"],
     // Export/PDF family
     ["html2canvas", "vendor-html2canvas"],
     ["stackblur-canvas", "vendor-html2canvas"],

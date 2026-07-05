@@ -126,6 +126,26 @@ describe("waitForAssets — image stability", () => {
       expect(getStabilityStatus(container).imagesReady).toBe(true);
     });
 
+    it("does not throw when the Font Loading API is missing (Codex audit)", () => {
+      // waitForFonts already treats a missing document.fonts as "ready";
+      // the polling path must be equally defensive or every poll tick throws
+      // in environments without the CSS Font Loading API.
+      Object.defineProperty(document, "fonts", {
+        configurable: true,
+        value: undefined,
+      });
+      expect(() => getStabilityStatus(container)).not.toThrow();
+      expect(getStabilityStatus(container).fontsReady).toBe(true);
+    });
+
+    it("reports fonts not ready while the Font Loading API is still loading", () => {
+      Object.defineProperty(document, "fonts", {
+        configurable: true,
+        value: { status: "loading", ready: Promise.resolve() },
+      });
+      expect(getStabilityStatus(container).fontsReady).toBe(false);
+    });
+
     it("requires every image to be ready", () => {
       container.append(makeImg("asset://localhost/foo.png", true));
       container.append(makeImg("", true)); // still pending resolution
@@ -136,6 +156,39 @@ describe("waitForAssets — image stability", () => {
       container.append(makeImg("asset://localhost/foo.png", true));
       container.append(makeImg("", true, { errored: true }));
       expect(getStabilityStatus(container).imagesReady).toBe(true);
+    });
+  });
+
+  describe("diagram readiness (mermaid + graphviz loading placeholders)", () => {
+    it("flags a container with a pending mermaid render as not ready", () => {
+      const container = document.createElement("div");
+      const el = document.createElement("div");
+      el.className = "code-block-preview mermaid-preview mermaid-loading";
+      container.appendChild(el);
+
+      const status = getStabilityStatus(container);
+      expect(status.mermaidReady).toBe(false);
+      expect(status.allReady).toBe(false);
+    });
+
+    it("flags a container with a pending graphviz render as not ready", () => {
+      const container = document.createElement("div");
+      const el = document.createElement("div");
+      el.className = "code-block-preview graphviz-preview graphviz-loading";
+      container.appendChild(el);
+
+      const status = getStabilityStatus(container);
+      expect(status.mermaidReady).toBe(false);
+      expect(status.allReady).toBe(false);
+    });
+
+    it("treats rendered diagrams (no loading class) as ready", () => {
+      const container = document.createElement("div");
+      const el = document.createElement("div");
+      el.className = "code-block-preview graphviz-preview";
+      container.appendChild(el);
+
+      expect(getStabilityStatus(container).mermaidReady).toBe(true);
     });
   });
 

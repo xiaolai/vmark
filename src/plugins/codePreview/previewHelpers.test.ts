@@ -12,6 +12,10 @@ vi.mock("@/plugins/svg/svgExport", () => ({
   setupSvgExport: vi.fn(),
 }));
 
+vi.mock("@/plugins/graphviz/graphvizExport", () => ({
+  setupGraphvizExport: vi.fn(),
+}));
+
 vi.mock("@/utils/sanitize", () => ({
   sanitizeSvg: (svg: string) => svg,
   sanitizeKatex: (html: string) => html,
@@ -20,6 +24,7 @@ vi.mock("@/utils/sanitize", () => ({
 import { setupMermaidPanZoom } from "@/plugins/mermaid/mermaidPanZoom";
 import { setupMermaidExport } from "@/plugins/mermaid/mermaidExport";
 import { setupSvgExport } from "@/plugins/svg/svgExport";
+import { setupGraphvizExport } from "@/plugins/graphviz/graphvizExport";
 import {
   isLatexLanguage,
   installDoubleClickHandler,
@@ -27,6 +32,8 @@ import {
   createPreviewPlaceholder,
   createLivePreview,
   createEditHeader,
+  copyTextToClipboard,
+  getPreviewClass,
 } from "./previewHelpers";
 
 describe("isLatexLanguage", () => {
@@ -44,6 +51,66 @@ describe("isLatexLanguage", () => {
     expect(isLatexLanguage("markmap")).toBe(false);
     expect(isLatexLanguage("javascript")).toBe(false);
     expect(isLatexLanguage("")).toBe(false);
+  });
+});
+
+describe("getPreviewClass", () => {
+  // Table-driven coverage of the language → CSS-class routing for all three
+  // widget modes. Divergences are intentional and documented in the helper:
+  //   - svg reuses "mermaid" (pan/zoom CSS) for rendered/live output, but the
+  //     placeholder is a text label and keeps "svg";
+  //   - yaml/yml route to "workflow" only on the rendered (cache-hit SVG)
+  //     path; placeholder and live keep the raw language class.
+  it.each([
+    { language: "latex", rendered: "latex", placeholder: "latex", live: "latex" },
+    { language: "$$math$$", rendered: "latex", placeholder: "latex", live: "latex" },
+    { language: "mermaid", rendered: "mermaid", placeholder: "mermaid", live: "mermaid" },
+    { language: "svg", rendered: "mermaid", placeholder: "svg", live: "mermaid" },
+    { language: "markmap", rendered: "markmap", placeholder: "markmap", live: "markmap" },
+    { language: "dot", rendered: "graphviz", placeholder: "graphviz", live: "graphviz" },
+    { language: "graphviz", rendered: "graphviz", placeholder: "graphviz", live: "graphviz" },
+    { language: "yaml", rendered: "workflow", placeholder: "yaml", live: "yaml" },
+    { language: "yml", rendered: "workflow", placeholder: "yml", live: "yml" },
+  ])("routes $language across all modes", ({ language, rendered, placeholder, live }) => {
+    expect(getPreviewClass(language, "rendered")).toBe(rendered);
+    expect(getPreviewClass(language, "placeholder")).toBe(placeholder);
+    expect(getPreviewClass(language, "live")).toBe(live);
+  });
+});
+
+describe("copyTextToClipboard", () => {
+  const originalClipboard = navigator.clipboard;
+
+  afterEach(() => {
+    Object.defineProperty(navigator, "clipboard", {
+      value: originalClipboard,
+      configurable: true,
+    });
+  });
+
+  function setClipboard(value: unknown) {
+    Object.defineProperty(navigator, "clipboard", {
+      value,
+      configurable: true,
+    });
+  }
+
+  it("resolves true when the clipboard write succeeds", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    setClipboard({ writeText });
+    await expect(copyTextToClipboard("graph TD")).resolves.toBe(true);
+    expect(writeText).toHaveBeenCalledWith("graph TD");
+  });
+
+  it("resolves false (no unhandled rejection) when the clipboard write rejects", async () => {
+    const writeText = vi.fn().mockRejectedValue(new Error("denied"));
+    setClipboard({ writeText });
+    await expect(copyTextToClipboard("graph TD")).resolves.toBe(false);
+  });
+
+  it("resolves false when the Clipboard API is unavailable", async () => {
+    setClipboard(undefined);
+    await expect(copyTextToClipboard("graph TD")).resolves.toBe(false);
   });
 });
 
@@ -110,6 +177,24 @@ describe("createPreviewElement", () => {
   it("creates element with mermaid-preview class for mermaid language", () => {
     const el = createPreviewElement("mermaid", "<svg></svg>");
     expect(el.className).toBe("code-block-preview mermaid-preview");
+  });
+
+  it("creates element with graphviz-preview class for dot language", () => {
+    const el = createPreviewElement("dot", "<svg></svg>");
+    expect(el.className).toBe("code-block-preview graphviz-preview");
+  });
+
+  it("creates element with graphviz-preview class for graphviz language", () => {
+    const el = createPreviewElement("graphviz", "<svg></svg>");
+    expect(el.className).toBe("code-block-preview graphviz-preview");
+  });
+
+  it("sets up pan-zoom and graphviz export for dot content after requestAnimationFrame", async () => {
+    const el = createPreviewElement("dot", "<svg></svg>", undefined, "digraph { a -> b }");
+    await vi.advanceTimersByTimeAsync(16);
+    expect(setupMermaidPanZoom).toHaveBeenCalledWith(el);
+    expect(setupGraphvizExport).toHaveBeenCalledWith(el, "digraph { a -> b }");
+    expect(setupMermaidExport).not.toHaveBeenCalled();
   });
 
   it("sets up pan-zoom for mermaid content after requestAnimationFrame", async () => {
@@ -190,6 +275,11 @@ describe("createPreviewPlaceholder", () => {
     expect(el.className).toContain("mermaid-preview");
   });
 
+  it("uses graphviz class for dot language", () => {
+    const el = createPreviewPlaceholder("dot", "Empty diagram");
+    expect(el.className).toContain("graphviz-preview");
+  });
+
   it("installs double-click handler when provided", () => {
     const handler = vi.fn();
     const el = createPreviewPlaceholder("latex", "Empty", handler);
@@ -231,6 +321,11 @@ describe("createLivePreview", () => {
     const el = createLivePreview("mermaid");
     expect(el.className).toContain("mermaid-live-preview");
   });
+
+  it("creates live preview with graphviz class for dot and graphviz", () => {
+    expect(createLivePreview("dot").className).toContain("graphviz-live-preview");
+    expect(createLivePreview("graphviz").className).toContain("graphviz-live-preview");
+  });
 });
 
 describe("createEditHeader", () => {
@@ -256,6 +351,17 @@ describe("createEditHeader", () => {
     const header = createEditHeader("latex", vi.fn(), vi.fn());
     const title = header.querySelector(".code-block-edit-title");
     expect(title?.textContent).toBe("LaTeX");
+  });
+
+  it("creates header with correct title for dot and graphviz", () => {
+    expect(
+      createEditHeader("dot", vi.fn(), vi.fn()).querySelector(".code-block-edit-title")
+        ?.textContent,
+    ).toBe("Graphviz");
+    expect(
+      createEditHeader("graphviz", vi.fn(), vi.fn()).querySelector(".code-block-edit-title")
+        ?.textContent,
+    ).toBe("Graphviz");
   });
 
   it("calls onCancel when cancel button is clicked", () => {
@@ -318,7 +424,7 @@ describe("createEditHeader", () => {
   });
 
   it("calls onCopy when copy button is clicked", () => {
-    const onCopy = vi.fn();
+    const onCopy = vi.fn().mockResolvedValue(true);
     const header = createEditHeader("mermaid", vi.fn(), vi.fn(), onCopy);
     const copyBtn = header.querySelector(".code-block-edit-copy") as HTMLButtonElement;
 
@@ -327,27 +433,75 @@ describe("createEditHeader", () => {
     expect(onCopy).toHaveBeenCalledTimes(1);
   });
 
-  it("shows checkmark feedback after copy click", () => {
-    vi.useFakeTimers();
-    const onCopy = vi.fn();
+  it("shows checkmark feedback only AFTER onCopy resolves true", async () => {
+    // Audit finding: feedback used to appear synchronously on click,
+    // reporting success even when the clipboard write failed.
+    let resolveCopy!: (ok: boolean) => void;
+    const onCopy = vi.fn(
+      () => new Promise<boolean>((resolve) => { resolveCopy = resolve; }),
+    );
     const header = createEditHeader("mermaid", vi.fn(), vi.fn(), onCopy);
     const copyBtn = header.querySelector(".code-block-edit-copy") as HTMLButtonElement;
 
-    const clickEvent = new MouseEvent("click", { bubbles: true });
-    copyBtn.dispatchEvent(clickEvent);
+    copyBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 
-    // After click, should have success class
-    expect(copyBtn.classList.contains("code-block-edit-btn--success")).toBe(true);
+    // Still pending — no premature success feedback.
+    expect(copyBtn.classList.contains("code-block-edit-btn--success")).toBe(false);
+
+    resolveCopy(true);
+    await vi.waitFor(() => {
+      expect(copyBtn.classList.contains("code-block-edit-btn--success")).toBe(true);
+    });
     // Checkmark SVG should be present
     expect(copyBtn.innerHTML).toContain("polyline");
+  });
 
-    // After 1500ms, should revert
-    vi.advanceTimersByTime(1500);
+  it("reverts checkmark feedback after 1500ms", async () => {
+    vi.useFakeTimers();
+    const onCopy = vi.fn().mockResolvedValue(true);
+    const header = createEditHeader("mermaid", vi.fn(), vi.fn(), onCopy);
+    const copyBtn = header.querySelector(".code-block-edit-copy") as HTMLButtonElement;
+
+    copyBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await vi.advanceTimersByTimeAsync(0); // flush the onCopy microtask
+    expect(copyBtn.classList.contains("code-block-edit-btn--success")).toBe(true);
+
+    await vi.advanceTimersByTimeAsync(1500);
     expect(copyBtn.classList.contains("code-block-edit-btn--success")).toBe(false);
     // Rect SVG (copy icon) should be back
     expect(copyBtn.innerHTML).toContain("rect");
 
     vi.useRealTimers();
+  });
+
+  it("shows error feedback (not success) when onCopy resolves false", async () => {
+    vi.useFakeTimers();
+    const onCopy = vi.fn().mockResolvedValue(false);
+    const header = createEditHeader("mermaid", vi.fn(), vi.fn(), onCopy);
+    const copyBtn = header.querySelector(".code-block-edit-copy") as HTMLButtonElement;
+
+    copyBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(copyBtn.classList.contains("code-block-edit-btn--success")).toBe(false);
+    expect(copyBtn.classList.contains("code-block-edit-btn--error")).toBe(true);
+
+    await vi.advanceTimersByTimeAsync(1500);
+    expect(copyBtn.classList.contains("code-block-edit-btn--error")).toBe(false);
+    vi.useRealTimers();
+  });
+
+  it("shows error feedback when onCopy rejects (no unhandled rejection)", async () => {
+    const onCopy = vi.fn().mockRejectedValue(new Error("clipboard denied"));
+    const header = createEditHeader("mermaid", vi.fn(), vi.fn(), onCopy);
+    const copyBtn = header.querySelector(".code-block-edit-copy") as HTMLButtonElement;
+
+    copyBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+    await vi.waitFor(() => {
+      expect(copyBtn.classList.contains("code-block-edit-btn--error")).toBe(true);
+    });
+    expect(copyBtn.classList.contains("code-block-edit-btn--success")).toBe(false);
   });
 
   it("prevents default on copy button mousedown", () => {
