@@ -120,7 +120,7 @@
     "src/utils/exportNaming.ts": 327,
     "src/utils/markdownPipeline/mdastToProseMirror.ts": 382,
     "src/utils/markdownPipeline/pmBlockConverters.ts": 394,
-    "src/utils/markdownPipeline/serializer.ts": 405,
+    "src/utils/markdownPipeline/serializer.ts": 354,
     "src/utils/sanitize.ts": 335,
     "src/utils/textTransformations.ts": 362
   }

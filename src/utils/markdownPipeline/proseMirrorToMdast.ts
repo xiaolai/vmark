@@ -33,6 +33,7 @@ import type {
 } from "mdast";
 import type { FootnoteDefinition, WikiLink } from "./types";
 import * as inlineConverters from "./pmInlineConverters";
+import type { InlineItem } from "./pmInlineConverters";
 import {
   convertAlertBlock,
   convertBlockImage,
@@ -183,32 +184,40 @@ class PMToMdastConverter {
 
   /**
    * Convert inline content of a block node to MDAST phrasing content.
+   *
+   * Text nodes become inline items carrying their marks; groupInlineItems
+   * then factors marks shared by consecutive items into single MDAST
+   * wrappers, so `**a *b* c**` serializes as one strong node instead of
+   * adjacent strong siblings that do not round-trip (#1102). Atom nodes
+   * participate unmarked (their marks were never serialized).
    */
   private convertInlineContent(node: PMNode): PhrasingContent[] {
-    const result: PhrasingContent[] = [];
+    const items: InlineItem[] = [];
+    const pushAtom = (content: PhrasingContent) => {
+      items.push({ content, marks: [] });
+    };
 
     node.forEach((child) => {
       /* v8 ignore start -- @preserve reason: isText false-branch and remaining inline type branches are rare/defensive in test schema */
       if (child.isText) {
-        const converted = inlineConverters.convertTextWithMarks(child);
-        result.push(...converted);
+        items.push(...inlineConverters.textToInlineItems(child));
       } else if (child.type.name === "hardBreak") {
-        result.push(inlineConverters.convertHardBreak());
+        pushAtom(inlineConverters.convertHardBreak());
       } else if (child.type.name === "image") {
-        result.push(inlineConverters.convertImage(child));
+        pushAtom(inlineConverters.convertImage(child));
       } else if (child.type.name === "math_inline") {
-        result.push(inlineConverters.convertMathInline(child));
+        pushAtom(inlineConverters.convertMathInline(child));
       } else if (child.type.name === "footnote_reference") {
-        result.push(inlineConverters.convertFootnoteReference(child));
+        pushAtom(inlineConverters.convertFootnoteReference(child));
       } else if (child.type.name === "wikiLink") {
-        result.push(this.convertWikiLink(child));
+        pushAtom(this.convertWikiLink(child));
       } else if (child.type.name === "html_inline") {
-        result.push(this.convertHtmlInline(child));
+        pushAtom(this.convertHtmlInline(child));
       }
       /* v8 ignore stop */
     });
 
-    return result;
+    return inlineConverters.groupInlineItems(items);
   }
 
   // Custom node converters

@@ -7,6 +7,8 @@
  * Key decisions:
  *   - Mark-based nodes (bold, italic, etc.) accumulate marks via `newMarks` array
  *     passed down to children, producing flat PM text with stacked marks
+ *   - Same-type marks are never stacked twice (addMarkOnce) — nested identical
+ *     emphasis is legal CommonMark but must collapse to one mark (#1102)
  *   - URLs are validated via isSafeUrl() to prevent XSS — unsafe URLs become about:blank
  *   - Missing mark types in schema are gracefully handled by falling through
  *     to convertChildren without adding the mark (schema flexibility)
@@ -52,6 +54,18 @@ export function convertText(schema: Schema, node: Text, marks: Mark[]): PMNode |
 }
 
 /**
+ * Append a mark unless one of the same type is already active.
+ *
+ * CommonMark allows nested identical emphasis — `**a **b** c**` parses as
+ * strong inside strong. Stacking `bold` twice on the inner text prevents
+ * ProseMirror from merging the run with its neighbors, and the split then
+ * re-serializes as growing `**` runs on every save (#1102).
+ */
+function addMarkOnce(marks: Mark[], mark: Mark): Mark[] {
+  return marks.some((m) => m.type === mark.type) ? marks : [...marks, mark];
+}
+
+/**
  * Convert strong (bold) node.
  */
 export function convertStrong(
@@ -64,7 +78,7 @@ export function convertStrong(
   if (!markType) {
     return convertChildren(node.children as Content[], marks);
   }
-  const newMarks = [...marks, markType.create()];
+  const newMarks = addMarkOnce(marks, markType.create());
   return convertChildren(node.children as Content[], newMarks);
 }
 
@@ -81,7 +95,7 @@ export function convertEmphasis(
   if (!markType) {
     return convertChildren(node.children as Content[], marks);
   }
-  const newMarks = [...marks, markType.create()];
+  const newMarks = addMarkOnce(marks, markType.create());
   return convertChildren(node.children as Content[], newMarks);
 }
 
@@ -98,7 +112,7 @@ export function convertDelete(
   if (!markType) {
     return convertChildren(node.children as Content[], marks);
   }
-  const newMarks = [...marks, markType.create()];
+  const newMarks = addMarkOnce(marks, markType.create());
   return convertChildren(node.children as Content[], newMarks);
 }
 
@@ -114,7 +128,7 @@ export function convertInlineCode(
   if (!markType) {
     return schema.text(node.value, marks);
   }
-  const newMarks = [...marks, markType.create()];
+  const newMarks = addMarkOnce(marks, markType.create());
   return schema.text(node.value, newMarks);
 }
 
@@ -133,7 +147,7 @@ export function convertLink(
   }
   // Validate URL scheme to prevent XSS
   const href = isSafeUrl(node.url) ? node.url : "about:blank";
-  const newMarks = [...marks, markType.create({ href })];
+  const newMarks = addMarkOnce(marks, markType.create({ href }));
   return convertChildren(node.children as Content[], newMarks);
 }
 
@@ -200,7 +214,7 @@ export function convertSubscript(
   if (!markType) {
     return convertChildren(node.children as Content[], marks);
   }
-  const newMarks = [...marks, markType.create()];
+  const newMarks = addMarkOnce(marks, markType.create());
   return convertChildren(node.children as Content[], newMarks);
 }
 
@@ -217,7 +231,7 @@ export function convertSuperscript(
   if (!markType) {
     return convertChildren(node.children as Content[], marks);
   }
-  const newMarks = [...marks, markType.create()];
+  const newMarks = addMarkOnce(marks, markType.create());
   return convertChildren(node.children as Content[], newMarks);
 }
 
@@ -234,7 +248,7 @@ export function convertHighlight(
   if (!markType) {
     return convertChildren(node.children as Content[], marks);
   }
-  const newMarks = [...marks, markType.create()];
+  const newMarks = addMarkOnce(marks, markType.create());
   return convertChildren(node.children as Content[], newMarks);
 }
 
@@ -251,6 +265,6 @@ export function convertUnderline(
   if (!markType) {
     return convertChildren(node.children as Content[], marks);
   }
-  const newMarks = [...marks, markType.create()];
+  const newMarks = addMarkOnce(marks, markType.create());
   return convertChildren(node.children as Content[], newMarks);
 }

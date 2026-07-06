@@ -7,12 +7,13 @@
  * Key decisions:
  *   - Bullet: `-` (not `*`), emphasis: `*`, strong: `**`, fence: backtick
  *   - listItemIndent: "one" — minimizes diff noise compared to "tab"
- *   - Custom handlers for image/link to use angle brackets for URLs with spaces
- *     instead of percent-encoding (more readable, CommonMark compliant)
+ *   - Custom handlers for image/link (serializerHandlers.ts): angle brackets
+ *     for URLs with spaces instead of percent-encoding, and autolink
+ *     preservation for links whose text equals their URL (#1102)
  *   - tocToMarkdown handler serializes `toc` MDAST nodes back to `[TOC]` text
  *   - A verified cosmetic pass converts serializer-emitted &#x20; entities
  *     back to spaces and strips defensive backslash escapes ($, [, ], *, _,
- *     `, !, (, )) — but only when re-parsing the cleaned output yields the
+ *     `, !, (, ), :, @) — but only when re-parsing the cleaned output yields the
  *     exact same mdast as the conservative output. This guarantees the
  *     cosmetic pass can never change document meaning (audit H6/H7: the old
  *     unverified pass corrupted literal &#x20; in code blocks and turned
@@ -21,7 +22,7 @@
  *
  * @coordinates-with parser.ts — plugins must match between parser and serializer
  * @coordinates-with adapter.ts — wraps this with error handling
- * @coordinates-with markdownUrl.ts — shares URL whitespace detection pattern
+ * @coordinates-with serializerHandlers.ts — custom image/link to-markdown handlers
  * @module utils/markdownPipeline/serializer
  */
 
@@ -30,65 +31,11 @@ import remarkStringify from "remark-stringify";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import remarkFrontmatter from "remark-frontmatter";
-import type { Root, Image, Link, Parents } from "mdast";
+import type { Root } from "mdast";
 import { remarkCustomInline, remarkDetailsBlock, remarkWikiLinks, tocToMarkdown } from "./plugins";
+import { handleImage, handleLink } from "./serializerHandlers";
 import { parseMarkdownToMdast } from "./parser";
 import type { MarkdownPipelineOptions } from "./types";
-
-// Type for mdast-util-to-markdown state (simplified for our handlers)
-interface ToMarkdownState {
-  containerPhrasing: (
-    node: Link,
-    info: { before: string; after: string }
-  ) => string;
-}
-
-/** Pattern matching whitespace characters that need angle bracket wrapping */
-const WHITESPACE_PATTERN = /[\s\u00A0\u2002-\u200A\u202F\u205F\u3000]/;
-
-/**
- * Custom image handler that uses angle brackets for URLs with spaces.
- * This produces more readable markdown than percent-encoding.
- */
-function handleImage(node: Image): string {
-  const url = node.url;
-  const alt = node.alt || "";
-  const title = node.title;
-
-  // Use angle brackets for URLs with whitespace (CommonMark standard)
-  const formattedUrl = WHITESPACE_PATTERN.test(url) ? `<${url}>` : url;
-
-  if (title) {
-    return `![${alt}](${formattedUrl} "${title}")`;
-  }
-  return `![${alt}](${formattedUrl})`;
-}
-
-/**
- * Custom link handler that uses angle brackets for URLs with spaces.
- */
-function handleLink(
-  node: Link,
-  _parent: Parents | undefined,
-  state: ToMarkdownState
-): string {
-  const url = node.url;
-  const title = node.title;
-
-  // Use angle brackets for URLs with whitespace
-  const formattedUrl = WHITESPACE_PATTERN.test(url) ? `<${url}>` : url;
-
-  // Serialize children (the link text)
-  const text = state.containerPhrasing(node, {
-    before: "[",
-    after: "]",
-  });
-
-  if (title) {
-    return `[${text}](${formattedUrl} "${title}")`;
-  }
-  return `[${text}](${formattedUrl})`;
-}
 
 /**
  * Build the unified processor configured for VMark markdown serialization.
@@ -146,14 +93,16 @@ function getSerializer() {
  * Strip unnecessary backslash escapes added by remark-stringify.
  *
  * remark-stringify defensively escapes characters like $, [, *, _, `, (, )
- * in text nodes to prevent them from being parsed as markdown syntax.
- * Since these characters were already in plain text (not markup) in the
- * MDAST, the escapes are redundant and visually noisy.
+ * in text nodes to prevent them from being parsed as markdown syntax — and,
+ * with the GFM autolink-literal extension, : and @ in URL-like text (e.g.
+ * inside link labels). Since these characters were already in plain text
+ * (not markup) in the MDAST, the escapes are redundant and visually noisy.
  *
  * We only strip escapes that are safe — block-level triggers at line
- * start (#, -, *, >, +) are preserved to avoid creating headings/lists.
+ * start (#, -, *, >, +) are preserved to avoid creating headings/lists,
+ * and the whole pass is gated on a byte-identical re-parse.
  */
-const SAFE_UNESCAPE_RE = /\\([[\]$`_*!()])/g;
+const SAFE_UNESCAPE_RE = /\\([[\]$`_*!():@])/g;
 
 /** Characters that create block-level syntax at start of line. */
 const BLOCK_START_CHARS = new Set(["#", "-", "*", ">", "+"]);

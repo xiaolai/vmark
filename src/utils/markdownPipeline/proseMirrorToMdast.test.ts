@@ -35,7 +35,12 @@ const { mockConverters, mockInlineConverters } = vi.hoisted(() => ({
   mockInlineConverters: {
     convertHardBreak: vi.fn(() => ({ type: "break" })),
     convertImage: vi.fn(() => ({ type: "image", url: "test.png" })),
-    convertTextWithMarks: vi.fn(() => [{ type: "text", value: "test" }]),
+    textToInlineItems: vi.fn(() => [
+      { content: { type: "text", value: "test" }, marks: [] },
+    ]),
+    groupInlineItems: vi.fn(
+      (items: Array<{ content: unknown }>) => items.map((i) => i.content),
+    ),
     convertMathInline: vi.fn(() => ({ type: "inlineMath", value: "x" })),
     convertFootnoteReference: vi.fn(() => ({ type: "footnoteReference", identifier: "1" })),
   },

@@ -7,6 +7,11 @@
  * Key decisions:
  *   - Marks are converted by wrapping the text node from innermost to
  *     outermost — producing nested MDAST nodes
+ *   - Consecutive inline items sharing a mark are grouped under a single
+ *     MDAST wrapper (groupInlineItems). Wrapping each PM text node's marks
+ *     independently would emit adjacent emphasis siblings, which
+ *     mdast-util-to-markdown renders as `&#x20;`-padded growing `**` runs
+ *     that do not round-trip (#1102).
  *   - The `code` mark is always applied innermost, regardless of its
  *     position in the PM marks array. MDAST `inlineCode` is a leaf
  *     (no children), so applying it later against an already-wrapped
@@ -44,33 +49,104 @@ import type {
 import { mdPipelineWarn } from "@/utils/debug";
 
 /**
- * Convert a text node with marks to nested MDAST inline nodes.
+ * A pre-converted inline leaf plus the marks still to be applied as nested
+ * MDAST wrappers (innermost first — the last mark becomes the outermost).
  */
-export function convertTextWithMarks(node: PMNode): PhrasingContent[] {
+export interface InlineItem {
+  content: PhrasingContent;
+  marks: readonly Mark[];
+}
+
+/**
+ * Marks eligible for wrapping: `code` is excluded (it becomes the
+ * `inlineCode` leaf itself), and same-type duplicates are dropped so a
+ * malformed doc can never re-grow emphasis runs on save (#1102).
+ */
+function factorableMarks(marks: readonly Mark[]): Mark[] {
+  const seen = new Set<string>();
+  const out: Mark[] = [];
+  for (const mark of marks) {
+    if (mark.type.name === "code" || seen.has(mark.type.name)) continue;
+    seen.add(mark.type.name);
+    out.push(mark);
+  }
+  return out;
+}
+
+/**
+ * Convert a text node to an inline item with its leaf content pre-built.
+ *
+ * MDAST `inlineCode` is a leaf node (no children), so a `code` mark becomes
+ * the leaf itself rather than a wrapper. Required for `[`text`](url)` where
+ * PM stores both `link` and `code` marks on the same text.
+ */
+export function textToInlineItems(node: PMNode): InlineItem[] {
   const text = node.text || "";
   if (!text) return [];
 
-  const marks = node.marks;
-  if (!marks.length) {
-    return [{ type: "text", value: text } as Text];
+  const isCode = node.marks.some((m) => m.type.name === "code");
+  const content: PhrasingContent = isCode
+    ? ({ type: "inlineCode", value: text } as InlineCode)
+    : ({ type: "text", value: text } as Text);
+  return [{ content, marks: factorableMarks(node.marks) }];
+}
+
+/** Length of the run of items starting at `start` that all carry `mark`. */
+function markRunLength(
+  items: readonly InlineItem[],
+  start: number,
+  mark: Mark,
+): number {
+  let end = start;
+  while (end < items.length && items[end].marks.some((m) => m.eq(mark))) end++;
+  return end - start;
+}
+
+/**
+ * Group a flat sequence of inline items into nested MDAST phrasing content.
+ *
+ * Greedily factors out the mark whose run extends furthest, so consecutive
+ * items sharing a mark serialize under one wrapper: `**a *b* c**` stays one
+ * strong node instead of three adjacent strong siblings (#1102). On ties the
+ * last mark wins, preserving the historical single-node nesting order.
+ */
+export function groupInlineItems(items: readonly InlineItem[]): PhrasingContent[] {
+  const out: PhrasingContent[] = [];
+  let i = 0;
+  while (i < items.length) {
+    const { content, marks } = items[i];
+    if (!marks.length) {
+      out.push(content);
+      i++;
+      continue;
+    }
+    let best = marks[marks.length - 1];
+    let bestLen = 0;
+    for (let k = marks.length - 1; k >= 0; k--) {
+      const len = markRunLength(items, i, marks[k]);
+      if (len > bestLen) {
+        best = marks[k];
+        bestLen = len;
+      }
+    }
+    const inner: InlineItem[] = [];
+    for (let j = i; j < i + bestLen; j++) {
+      inner.push({
+        content: items[j].content,
+        marks: items[j].marks.filter((m) => !m.eq(best)),
+      });
+    }
+    out.push(...wrapWithMark(groupInlineItems(inner), best));
+    i += bestLen;
   }
+  return out;
+}
 
-  // MDAST `inlineCode` is a leaf node (no children), so the `code` mark must be
-  // the innermost wrapper. Apply it first to produce `inlineCode`, then wrap
-  // with the remaining marks. Without this, a text with both `link` and `code`
-  // marks (which arises from `[`text`](url)` markdown) would lose its content
-  // when `wrapWithMark("code")` runs against an already-wrapped link node.
-  const codeMark = marks.find((m) => m.type.name === "code");
-  let content: PhrasingContent[] = codeMark
-    ? [{ type: "inlineCode", value: text } as InlineCode]
-    : [{ type: "text", value: text } as Text];
-
-  for (const mark of marks) {
-    if (mark.type.name === "code") continue;
-    content = wrapWithMark(content, mark);
-  }
-
-  return content;
+/**
+ * Convert a single text node with marks to nested MDAST inline nodes.
+ */
+export function convertTextWithMarks(node: PMNode): PhrasingContent[] {
+  return groupInlineItems(textToInlineItems(node));
 }
 
 /**
