@@ -15,7 +15,7 @@ O terminal suporta até 5 sessões concorrentes, cada uma com seu próprio proce
 | Fechar sessão | Clique no ícone de lixeira |
 | Reiniciar shell | Clique no ícone de reiniciar |
 
-Quando você fecha a última sessão, o painel se oculta, mas a sessão permanece ativa — reabra com `` Ctrl + ` `` e você estará de volta onde parou. Se um processo de shell sair, pressione qualquer tecla para reiniciá-lo.
+Quando você fecha a última sessão, o painel se oculta, mas a sessão permanece ativa — reabra com `` Ctrl + ` `` e você estará de volta onde parou. Quando o shell sai de forma limpa (`exit` ou `Ctrl + D`), sua aba fecha automaticamente — e o painel se oculta se era a última. Se o shell sair com um erro, a aba permanece aberta mostrando o código de saída; pressione qualquer tecla para reiniciá-lo.
 
 ## Atalhos de Teclado
 

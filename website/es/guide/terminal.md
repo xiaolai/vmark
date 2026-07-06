@@ -15,7 +15,7 @@ El terminal admite hasta 5 sesiones concurrentes, cada una con su propio proceso
 | Cerrar sesión | Haz clic en el icono de papelera |
 | Reiniciar shell | Haz clic en el icono de reinicio |
 
-Cuando cierras la última sesión, el panel se oculta pero la sesión sigue activa — vuelve a abrirlo con `` Ctrl + ` `` y estarás donde lo dejaste. Si un proceso de shell termina, presiona cualquier tecla para reiniciarlo.
+Cuando cierras la última sesión, el panel se oculta pero la sesión sigue activa — vuelve a abrirlo con `` Ctrl + ` `` y estarás donde lo dejaste. Cuando el shell termina limpiamente (`exit` o `Ctrl + D`), su pestaña se cierra automáticamente — y el panel se oculta si era la última. Si el shell termina con un error, la pestaña permanece abierta mostrando el código de salida; presiona cualquier tecla para reiniciarlo.
 
 ## Atajos de Teclado
 

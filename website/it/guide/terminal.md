@@ -15,7 +15,7 @@ Il terminale supporta fino a 5 sessioni concorrenti, ognuna con il proprio proce
 | Chiudi sessione | Fai clic sull'icona cestino |
 | Riavvia shell | Fai clic sull'icona riavvia |
 
-Quando chiudi l'ultima sessione, il pannello si nasconde ma la sessione rimane attiva — riapri con `` Ctrl + ` `` e sei dove hai lasciato. Se un processo shell termina, premi qualsiasi tasto per riavviarlo.
+Quando chiudi l'ultima sessione, il pannello si nasconde ma la sessione rimane attiva — riapri con `` Ctrl + ` `` e sei dove hai lasciato. Quando la shell termina in modo pulito (`exit` o `Ctrl + D`), la sua scheda si chiude automaticamente — e il pannello si nasconde se era l'ultima. Se la shell termina con un errore, la scheda rimane aperta mostrando il codice di uscita; premi qualsiasi tasto per riavviarla.
 
 ## Scorciatoie da Tastiera
 

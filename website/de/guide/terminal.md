@@ -15,7 +15,7 @@ Das Terminal unterstützt bis zu 5 gleichzeitige Sitzungen, jede mit einem eigen
 | Sitzung schließen | Auf das Papierkorb-Symbol klicken |
 | Shell neu starten | Auf das Neustart-Symbol klicken |
 
-Wenn Sie die letzte Sitzung schließen, wird das Panel ausgeblendet, aber die Sitzung bleibt aktiv — mit `` Strg + ` `` erneut öffnen und Sie sind wieder wo Sie aufgehört haben. Wenn ein Shell-Prozess beendet wird, drücken Sie eine beliebige Taste, um ihn neu zu starten.
+Wenn Sie die letzte Sitzung schließen, wird das Panel ausgeblendet, aber die Sitzung bleibt aktiv — mit `` Strg + ` `` erneut öffnen und Sie sind wieder wo Sie aufgehört haben. Wenn die Shell sauber beendet wird (`exit` oder `Strg + D`), schließt sich ihr Tab automatisch — und das Panel wird ausgeblendet, wenn es der letzte war. Endet die Shell mit einem Fehler, bleibt der Tab geöffnet und zeigt den Exit-Code; drücken Sie eine beliebige Taste, um sie neu zu starten.
 
 ## Tastaturkürzel
 

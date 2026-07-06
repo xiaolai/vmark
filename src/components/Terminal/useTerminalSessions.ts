@@ -10,8 +10,9 @@
  *   - Shell spawn is deferred: the PTY is not started until the session's container
  *     is visible and fitAddon has measured real dimensions. This avoids spawning at
  *     80x24 defaults while hidden, which causes blank-line artifacts on resize.
- *   - After a shell exits, pressing any key respawns it — no manual restart needed.
- *     The "dead session" state is visually indicated in the tab bar.
+ *   - A clean shell exit (code 0) closes the session's tab (#1103). After a
+ *     non-zero exit, pressing any key respawns the shell — the "dead session"
+ *     state is visually indicated in the tab bar.
  *   - IME forwarding (composition commit + onData → PTY with grace-period
  *     block and chunked re-emission dedup) is implemented in
  *     terminalSessionInputWiring.ts (#59, #454, #525, #608, #619).

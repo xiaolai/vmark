@@ -6,9 +6,12 @@
  * visibility orchestration. Behavior preserved verbatim from the inline
  * implementation; user-facing status lines now route through i18n.
  *
- * Key decisions (unchanged):
+ * Key decisions:
  *   - Re-entrance guard (shellSpawning) prevents concurrent spawns.
  *   - spawnGen ignores a stale PTY's onExit after a restart.
+ *   - Clean exit (code 0) closes the tab — and hides the panel when it was
+ *     the last session (#1103). Non-zero exits keep the buffer open with a
+ *     "press any key to restart" prompt so the failure stays readable.
  *   - A new terminal inherits a live sibling's cwd (OSC 7), else falls back
  *     to workspace-or-file resolution.
  *   - Spawn failures mark the session dead and prompt "press any key".
@@ -82,14 +85,28 @@ export function useTerminalShellLifecycle(
             const e = sessionsRef.current.get(sessionId);
             // Ignore a stale exit from a PTY superseded by a restart.
             if (e && !e.disposed && e.spawnGen === gen) {
-              e.instance.term.write(processExitedLine(exitCode));
-              e.instance.term.write(pressAnyKeyToRestartLine());
               e.pty = null;
               // Clear the key-handler's PTY ref so keystrokes after exit
               // don't write to the dead process.
               e.ptyRefForKeys.current = null;
               e.shellExited = true;
-              useUIStore.getState().terminalMarkSessionDead(sessionId);
+              const ui = useUIStore.getState();
+              if (exitCode === 0) {
+                // Clean exit (Ctrl+D / `exit`) — close the tab (#1103), and
+                // hide the panel when this was the last session. A hidden
+                // panel stays hidden; reopening auto-creates a fresh session
+                // (TerminalPanel visibility effect).
+                const wasLast =
+                  ui.terminal.sessions.length === 1 &&
+                  ui.terminal.sessions[0].id === sessionId;
+                ui.terminalRemoveSession(sessionId);
+                if (wasLast && ui.terminalVisible) ui.toggleTerminal();
+              } else {
+                // Non-zero exit — keep the buffer readable and offer respawn.
+                e.instance.term.write(processExitedLine(exitCode));
+                e.instance.term.write(pressAnyKeyToRestartLine());
+                ui.terminalMarkSessionDead(sessionId);
+              }
             }
           },
           disposed: () => {

@@ -15,7 +15,7 @@ Le terminal prend en charge jusqu'à 5 sessions simultanées, chacune avec son p
 | Fermer une session | Cliquez sur l'icône corbeille |
 | Redémarrer le shell | Cliquez sur l'icône de redémarrage |
 
-Lorsque vous fermez la dernière session, le panneau se masque mais la session reste active — rouvrez avec `` Ctrl + ` `` et vous reprenez là où vous en étiez. Si un processus shell se termine, appuyez sur n'importe quelle touche pour le redémarrer.
+Lorsque vous fermez la dernière session, le panneau se masque mais la session reste active — rouvrez avec `` Ctrl + ` `` et vous reprenez là où vous en étiez. Lorsque le shell se termine proprement (`exit` ou `Ctrl + D`), son onglet se ferme automatiquement — et le panneau se masque s'il s'agissait du dernier. Si le shell se termine avec une erreur, l'onglet reste ouvert et affiche le code de sortie ; appuyez sur n'importe quelle touche pour le redémarrer.
 
 ## Raccourcis clavier
 
