@@ -47,7 +47,7 @@
   "devDependencies": {
     "@types/jsdom": "^21.1.7",
     "@types/katex": "^0.16.8",
-    "@types/node": "^22.20.0",
+    "@types/node": "^26.1.0",
     "@vitest/coverage-v8": "^4.1.10",
     "tsup": "^8.5.1",
     "typescript": "~6.0.3",
