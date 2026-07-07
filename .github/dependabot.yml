@@ -21,6 +21,12 @@ updates:
     groups:
       npm-minor-patch:
         update-types: ["minor", "patch"]
+    ignore:
+      # @types/node tracks the Node runtime major (22 — CI, dev, and the
+      # pkg-compiled sidecar all run 22). Majors are bumped manually when
+      # the runtime moves, not by Dependabot (#1101/#1094, 2026-07).
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: npm
     directory: /vmark-mcp-server
@@ -30,6 +36,10 @@ updates:
     groups:
       npm-minor-patch:
         update-types: ["minor", "patch"]
+    ignore:
+      # Same @types/node policy as the root manifest above.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: npm
     directory: /website
