@@ -49,7 +49,7 @@ jobs:
         run: touch "src-tauri/binaries/vmark-mcp-server-x86_64-unknown-linux-gnu"
 
       - name: Install cargo-llvm-cov
-        uses: taiki-e/install-action@c93ccc03e00cd0e08e494f5fd058a6c55a6a1907 # v2.82.8
+        uses: taiki-e/install-action@50414676f9f5d50a65992c6dd2ed02641263226c # v2.82.10
         with:
           tool: cargo-llvm-cov
 
