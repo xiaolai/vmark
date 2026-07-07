@@ -297,7 +297,7 @@ jobs:
           "$SIDECAR_PATH" --health-check
 
       - name: Build Tauri app
-        uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5 # v0
+        uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # v1.0.0
         timeout-minutes: 45
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -315,7 +315,8 @@ jobs:
           args: ${{ matrix.args }}
           # Disable per-job latest.json upload to avoid race condition
           # We generate and upload it once in publish-release job
-          includeUpdaterJson: false
+          # (renamed from includeUpdaterJson in tauri-action v1.0.0)
+          uploadUpdaterJson: false
 
   publish-release:
     needs: [create-release, build-tauri]
@@ -356,11 +357,13 @@ jobs:
           WINDOWS_MSI_SIG=""
           WINDOWS_EXE_SIG=""
 
-          if [ -f "sigs/VMark_aarch64.app.tar.gz.sig" ]; then
-            MACOS_AARCH64_SIG=$(cat "sigs/VMark_aarch64.app.tar.gz.sig")
+          # tauri-action v1.0.0 versions the .app.tar.gz assets like all
+          # other bundles: VMark_<version>_<arch>.app.tar.gz
+          if [ -f "sigs/VMark_${VERSION#v}_aarch64.app.tar.gz.sig" ]; then
+            MACOS_AARCH64_SIG=$(cat "sigs/VMark_${VERSION#v}_aarch64.app.tar.gz.sig")
           fi
-          if [ -f "sigs/VMark_x64.app.tar.gz.sig" ]; then
-            MACOS_X64_SIG=$(cat "sigs/VMark_x64.app.tar.gz.sig")
+          if [ -f "sigs/VMark_${VERSION#v}_x64.app.tar.gz.sig" ]; then
+            MACOS_X64_SIG=$(cat "sigs/VMark_${VERSION#v}_x64.app.tar.gz.sig")
           fi
           if [ -f "sigs/VMark_${VERSION#v}_amd64.AppImage.sig" ]; then
             LINUX_SIG=$(cat "sigs/VMark_${VERSION#v}_amd64.AppImage.sig")
@@ -391,11 +394,11 @@ jobs:
             "platforms": {
               "darwin-aarch64": {
                 "signature": "$MACOS_AARCH64_SIG",
-                "url": "$BASE_URL/VMark_aarch64.app.tar.gz"
+                "url": "$BASE_URL/VMark_${VERSION#v}_aarch64.app.tar.gz"
               },
               "darwin-x86_64": {
                 "signature": "$MACOS_X64_SIG",
-                "url": "$BASE_URL/VMark_x64.app.tar.gz"
+                "url": "$BASE_URL/VMark_${VERSION#v}_x64.app.tar.gz"
               },
               "linux-x86_64": {
                 "signature": "$LINUX_SIG",
