@@ -29,7 +29,7 @@ export type { ThemeColors } from "@/theme/themeColorsAdapter";
 // ---------------------------------------------------------------------------
 
 /** CJK letter spacing in em units (0 = off). */
-export type CJKLetterSpacingValue = "0" | "0.02" | "0.03" | "0.05" | "0.08" | "0.10" | "0.12";
+type CJKLetterSpacingValue = "0" | "0.02" | "0.03" | "0.05" | "0.08" | "0.10" | "0.12";
 
 /** How strongly Focus Mode dims non-focused content (on top of the color
  *  shift): "standard" keeps the color-only look, "strong"/"stronger" add

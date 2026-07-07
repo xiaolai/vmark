@@ -6,5 +6,5 @@
  */
 
 /* v8 ignore start -- @preserve reason: barrel re-export file with no executable logic */
-export { shouldPasteAsCodeBlock, type CodeDetectionResult } from "./codeDetection/index";
+export { shouldPasteAsCodeBlock } from "./codeDetection/index";
 /* v8 ignore stop */

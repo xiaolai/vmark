@@ -18,7 +18,7 @@ import { remarkWikiLinks } from "@vmark/markdown-plugins";
 import type { DocRefs } from "./types";
 
 /** Frontmatter keys treated as typed relations (plan §7 default set). */
-export const RELATION_KEYS = ["related", "up", "links", "down", "next", "prev"];
+const RELATION_KEYS = ["related", "up", "links", "down", "next", "prev"];
 
 const INLINE_TAG = /(^|\s)#([\p{L}\p{N}][\p{L}\p{N}_/-]*)/gu;
 

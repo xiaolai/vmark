@@ -121,14 +121,3 @@ export function __resetBootstrap(): void {
 
 // Re-export the registry surface for callers that just want the lookups.
 export { dispatchEditor, getFormatById, getSupportedExtensions, associationKey, setFormatAssociationsProvider } from "./registry";
-export type {
-  FormatConfig,
-  FormatKind,
-  FormatAdapters,
-  ValidationDiagnostic,
-  Validator,
-  SchemaDetector,
-  PreviewRenderer,
-  PreviewRendererProps,
-  TabFormatState,
-} from "./types";

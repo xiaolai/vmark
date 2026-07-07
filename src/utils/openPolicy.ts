@@ -10,18 +10,7 @@
  * @module utils/openPolicy
  */
 
-export type {
-  ReplaceableTabInfo,
-  OpenActionContext,
-  OpenActionResult,
-  MissingFileSaveContext,
-  MissingFileSaveAction,
-  ExternalChangeContext,
-  ExternalChangeAction,
-  PostSaveWorkspaceContext,
-  PostSaveWorkspaceAction,
-  TabInfo,
-} from "./openPolicy/types";
+export type { ReplaceableTabInfo, OpenActionContext, MissingFileSaveContext, ExternalChangeContext, PostSaveWorkspaceContext, TabInfo } from "./openPolicy/types";
 
 export {
   resolveOpenAction,

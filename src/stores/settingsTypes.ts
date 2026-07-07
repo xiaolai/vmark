@@ -12,13 +12,7 @@
 
 export type { HtmlAllowlistLevel } from "@/utils/htmlAllowlists";
 
-export type {
-  ThemeId,
-  ThemeColors,
-  CJKLetterSpacingValue,
-  FocusModeDim,
-  AppearanceSettings,
-} from "./settingsTypes/appearance";
+export type { ThemeId, ThemeColors, FocusModeDim, AppearanceSettings } from "./settingsTypes/appearance";
 
 export type {
   QuoteStyle,
@@ -40,21 +34,6 @@ export type {
   ImageSettings,
 } from "./settingsTypes/content";
 
-export type {
-  McpServerSettings,
-  TerminalPosition,
-  TerminalCursorStyle,
-  TerminalBellMode,
-  TerminalSettings,
-  AdvancedSettingsState,
-} from "./settingsTypes/system";
-
-export type {
-  FormatsSettings,
-  LargeFileSettings,
-  GeneralSettings,
-  UpdateCheckFrequency,
-  UpdateSettings,
-} from "./settingsTypes/workspace";
+export type { TerminalPosition, TerminalCursorStyle, TerminalBellMode, TerminalSettings } from "./settingsTypes/system";  export type {   FormatsSettings, LargeFileSettings, GeneralSettings, UpdateCheckFrequency, UpdateSettings } from "./settingsTypes/workspace";
 
 export type { SettingsState, SettingsActions } from "./settingsTypes/state";

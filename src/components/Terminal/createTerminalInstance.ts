@@ -110,7 +110,7 @@ export interface TerminalInstance {
 }
 
 /** User-configurable settings for creating a terminal instance. */
-export interface TerminalInstanceSettings {
+interface TerminalInstanceSettings {
   fontSize: number;
   lineHeight: number;
   cursorStyle: "block" | "underline" | "bar";

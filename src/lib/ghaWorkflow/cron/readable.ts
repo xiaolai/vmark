@@ -87,7 +87,7 @@ export interface ParsedCron {
  * `form.trigger.cron.<kind>` (Codex audit MED-5 fix — readable.ts
  * was previously English-only with no path to localized output).
  */
-export type CronTimePart =
+type CronTimePart =
   | { kind: "every-minute" }
   | { kind: "every-n-minutes"; n: number }
   | { kind: "at-time"; time: string }
@@ -104,7 +104,7 @@ export type CronTimePart =
  *   - dowList: day-of-week as comma list (e.g., "Mon, Wed")
  *   - dowRange: contiguous range (e.g., { from: "Mon", to: "Fri" })
  */
-export interface CronModifiers {
+interface CronModifiers {
   dom?: string;
   month?: string;
   dowList?: string;

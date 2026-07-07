@@ -58,7 +58,7 @@ function isEditorComposing(): boolean {
  * caller already provides an `action` (e.g. Undo on tab move), we respect
  * it — pin is skipped because we never display two action buttons.
  */
-export type PinnableToastOpts = NonNullable<Parameters<typeof toast.info>[1]> & {
+type PinnableToastOpts = NonNullable<Parameters<typeof toast.info>[1]> & {
   pin?: boolean;
 };
 

@@ -29,7 +29,7 @@ interface PandocInfo {
 /** Maps format key to display name and file extension. */
 export const PANDOC_FORMAT_KEYS = ["docx", "epub", "latex", "odt", "rtf", "txt"] as const;
 /** Union type of supported Pandoc export format keys. */
-export type PandocFormatKey = (typeof PANDOC_FORMAT_KEYS)[number];
+type PandocFormatKey = (typeof PANDOC_FORMAT_KEYS)[number];
 
 const FORMAT_META: Record<PandocFormatKey, { name: string; ext: string }> = {
   docx:  { name: "Word Document", ext: "docx" },

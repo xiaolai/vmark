@@ -6,4 +6,3 @@
  */
 
 export { useDocumentResilience, useResilienceStartup } from "./useDocumentResilience";
-export type { ResilienceState, ResilienceMachine } from "./machine";

@@ -21,7 +21,6 @@ import {
 
 export {
   normalizeWorkspacePathForIdentity,
-  type WorkspacePathIdentity,
   type WorkspacePlatform,
 } from "./workspaceIdentityPaths";
 
@@ -31,7 +30,7 @@ export {
  * - untrusted: Default for new workspaces. Limited capabilities.
  * - trusted: User has explicitly trusted this workspace. May run tasks.
  */
-export type WorkspaceTrustLevel = "untrusted" | "trusted";
+type WorkspaceTrustLevel = "untrusted" | "trusted";
 
 /**
  * Workspace identity data stored in config
@@ -166,7 +165,7 @@ export interface WorkspaceInstanceIdentity {
 }
 
 /** i18n keys for synthetic-instance display names, translated at render time. */
-export const WORKSPACE_INSTANCE_DISPLAY_NAME_KEYS = {
+const WORKSPACE_INSTANCE_DISPLAY_NAME_KEYS = {
   loose: "common:workspaceRail.looseFiles",
   placeholder: "common:untitled",
 } as const;

@@ -1,2 +1,2 @@
 export { lintMarkdown } from "./linter";
-export type { LintDiagnostic, LintRule, LintSeverity, UiHint } from "./types";
+export type { LintDiagnostic } from "./types";

@@ -8,19 +8,7 @@
  * @module plugins/formatToolbar/types
  */
 
-export type ContextMode = "format" | "inline-insert" | "block-insert";
-
-export interface HeadingInfo {
-  level: number; // 1-6, or 0 for paragraph
-  nodePos: number;
-}
-
-export interface CodeBlockInfo {
-  language: string;
-  nodePos: number;
-}
-
-export interface TableNodeContext {
+interface TableNodeContext {
   type: "table";
   tablePos: number;
   rowIndex: number;
@@ -29,14 +17,14 @@ export interface TableNodeContext {
   numCols: number;
 }
 
-export interface ListNodeContext {
+interface ListNodeContext {
   type: "list";
   listType: "bullet" | "ordered" | "task";
   nodePos: number;
   depth: number;
 }
 
-export interface BlockquoteNodeContext {
+interface BlockquoteNodeContext {
   type: "blockquote";
   nodePos: number;
   depth: number;

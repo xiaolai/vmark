@@ -12,7 +12,7 @@ import { getFileName } from "@/utils/pathUtils";
 import { getRelativePath as getRelativePathFromRoot } from "@/utils/paths/paths";
 
 /** Tier indicating the source of a Quick Open item: recent file, open tab, or workspace tree. */
-export type QuickOpenTier = "recent" | "open" | "workspace";
+type QuickOpenTier = "recent" | "open" | "workspace";
 
 /** A file entry in the Quick Open list with its display metadata. */
 export interface QuickOpenItem {

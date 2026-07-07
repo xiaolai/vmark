@@ -26,14 +26,14 @@ export type FormatId = "markdown" | "yaml" | "json" | "toml" | "html" | "css";
 export type Mode = "wysiwyg" | "source";
 
 /** A slot the plugin mounts content into (panel, overlay, toolbar group). */
-export interface SlotDescriptor {
+interface SlotDescriptor {
   id: string;
   position: "bottom" | "right" | "overlay" | "toolbar";
   priority?: number;
 }
 
 /** A command the plugin registers with the command bus (ADR-012). */
-export interface CommandDescriptor {
+interface CommandDescriptor {
   id: string;
   title: string;
   scope?: "global" | "editor" | "panel";

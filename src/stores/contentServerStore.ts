@@ -12,7 +12,7 @@
 import { create } from "zustand";
 
 /** Mirrors the Rust `ProvisionState` discriminant (see content_server/provision.rs). */
-export type ProvisionPhase =
+type ProvisionPhase =
   | "missing"
   | "downloading"
   | "verifying"

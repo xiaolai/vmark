@@ -10,9 +10,9 @@
  * - "block": gutter dot on containing block, no inline highlight
  * - "sourceOnly": cannot show in WYSIWYG; F2 switches to Source mode
  */
-export type UiHint = "exact" | "block" | "sourceOnly";
+type UiHint = "exact" | "block" | "sourceOnly";
 
-export type LintSeverity = "error" | "warning";
+type LintSeverity = "error" | "warning";
 
 export interface LintDiagnostic {
   /** Unique ID: `${ruleId}-${line}-${column}` */

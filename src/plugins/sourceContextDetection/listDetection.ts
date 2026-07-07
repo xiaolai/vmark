@@ -7,7 +7,7 @@
 import type { EditorView } from "@codemirror/view";
 import { useSettingsStore } from "@/stores/settingsStore";
 
-export type ListType = "bullet" | "ordered" | "task";
+type ListType = "bullet" | "ordered" | "task";
 
 /**
  * Get the tab size from settings.

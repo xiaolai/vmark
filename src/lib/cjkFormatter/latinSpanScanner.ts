@@ -27,7 +27,7 @@
 const CJK_LETTER_REGEX =
   /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Bopomofo}]/u;
 
-export type TechnicalSubspanType =
+type TechnicalSubspanType =
   | "urlLike"
   | "emailLike"
   | "domainLike"

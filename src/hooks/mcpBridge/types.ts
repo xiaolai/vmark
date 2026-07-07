@@ -31,9 +31,3 @@ export interface McpResponse {
   data?: unknown;
   error?: string;
 }
-
-/** Shared operation mode for MCP bridge handlers. */
-export type OperationMode = "apply" | "suggest" | "dryRun";
-
-/** Match policy for diff/replace operations. */
-export type MatchPolicy = "first" | "all" | "nth" | "error_if_multiple";

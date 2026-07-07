@@ -150,6 +150,3 @@ export const icons = Object.freeze(
   ),
 ) as { readonly [K in keyof typeof rawIcons]: SafeIconSvg };
 
-/** Convenience union of all known icon keys. */
-export type IconName = keyof typeof rawIcons;
-

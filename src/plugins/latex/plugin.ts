@@ -11,10 +11,6 @@
 import { escapeHtml } from "@/utils/sanitize";
 import { loadKatex, type KatexOptions } from "./katexLoader";
 
-export interface LatexConfig {
-  katexOptions?: KatexOptions;
-}
-
 /**
  * Render LaTeX content to HTML using KaTeX.
  */

@@ -15,7 +15,7 @@ export interface DocEntry {
 }
 
 /** A typed edge in the relationship graph. */
-export type EdgeKind = "link" | "wikiLink" | "tag" | "relation";
+type EdgeKind = "link" | "wikiLink" | "tag" | "relation";
 
 export interface GraphEdge {
   /** Source doc relPath. */

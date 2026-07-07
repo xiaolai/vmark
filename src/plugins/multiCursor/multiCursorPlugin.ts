@@ -17,7 +17,7 @@ import { handleMultiCursorPaste, handleMultiCursorCut, getMultiCursorClipboardTe
 import { addCursorAtPosition } from "./altClick";
 
 /** A snapshot of selection state for soft-undo history */
-export interface SelectionSnapshot {
+interface SelectionSnapshot {
   ranges: Array<{ from: number; to: number }>;
   primaryIndex: number;
 }

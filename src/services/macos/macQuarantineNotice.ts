@@ -33,7 +33,7 @@ import { imeToast as toast } from "@/services/ime/imeToast";
 import i18n from "@/i18n";
 import { workspaceError } from "@/utils/debug";
 
-export interface QuarantineStripStats {
+interface QuarantineStripStats {
   stripped_count: number;
   error_count: number;
 }

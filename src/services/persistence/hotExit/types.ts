@@ -10,7 +10,7 @@ export const SCHEMA_VERSION = 5;
 /**
  * Line ending types
  */
-export type LineEnding = '\n' | '\r\n' | 'unknown';
+type LineEnding = '\n' | '\r\n' | 'unknown';
 
 /**
  * Complete application session state
@@ -163,14 +163,14 @@ export interface UiState {
   terminal_height?: number;
 }
 
-export interface WindowGeometry {
+interface WindowGeometry {
   x: number;
   y: number;
   width: number;
   height: number;
 }
 
-export interface WorkspaceState {
+interface WorkspaceState {
   root_path: string | null;
   is_workspace_mode: boolean;
   show_hidden_files: boolean;

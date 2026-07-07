@@ -44,8 +44,8 @@ const OPENING_BRACKETS = "([{（【《〈「『";
 const CLOSING_BRACKETS = ")]}）】》〉」』";
 const TERMINAL_PUNCTUATION = "，。！？；：、.,!?;:";
 
-export type QuoteType = "double" | "single";
-export type QuoteRole = "open" | "close" | "apostrophe" | "prime" | "ambiguous";
+type QuoteType = "double" | "single";
+type QuoteRole = "open" | "close" | "apostrophe" | "prime" | "ambiguous";
 
 export interface QuoteToken {
   /** Position in text */
@@ -58,7 +58,7 @@ export interface QuoteToken {
   role: QuoteRole;
 }
 
-export interface QuotePair {
+interface QuotePair {
   /** Position of opening quote */
   openIndex: number;
   /** Position of closing quote */

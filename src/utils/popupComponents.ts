@@ -49,7 +49,7 @@ export const popupIcons = {
 
 export type PopupIconName = keyof typeof popupIcons;
 
-export type PopupIconButtonVariant = "default" | "primary" | "danger";
+type PopupIconButtonVariant = "default" | "primary" | "danger";
 
 export interface PopupIconButtonOptions {
   /** Named icon from {@link popupIcons}. Provide this OR {@link iconSvg}. */

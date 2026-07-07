@@ -15,7 +15,7 @@
  * @module services/commands/CommandBus
  */
 
-export type CommandScope = "global" | "editor" | "panel";
+type CommandScope = "global" | "editor" | "panel";
 
 export interface CommandContext {
   /** Free-form context passed by callers (active editor, selection, …). */

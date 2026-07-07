@@ -5,5 +5,3 @@
  */
 
 export { MultiSelection } from "./MultiSelection";
-export { type MultiCursorPluginState } from "./multiCursorPlugin";
-export { type MultiCursorOptions } from "./tiptap";

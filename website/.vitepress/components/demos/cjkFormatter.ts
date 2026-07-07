@@ -451,7 +451,7 @@ function getRightNeighbor(text: string, pos: number): string {
   return "";
 }
 
-export function containsCJK(text: string): boolean {
+function containsCJK(text: string): boolean {
   if (/[\u4e00-\u9fff\u3400-\u4dbf]/.test(text)) return true;
   if (/[\u3040-\u309f\u30a0-\u30ff\u31f0-\u31ff]/.test(text)) return true;
   if (/[\uac00-\ud7af\u1100-\u11ff\u3130-\u318f]/.test(text)) return true;
@@ -463,13 +463,13 @@ export function containsCJK(text: string): boolean {
 // Group 1: Universal
 // ============================================================
 
-export function normalizeEllipsis(text: string): string {
+function normalizeEllipsis(text: string): string {
   text = text.replace(/\s*\.\s+\.\s+\.(?:\s+\.)*/g, "...");
   text = text.replace(/\.\.\.\s*(?=\S)/g, "... ");
   return text;
 }
 
-export function collapseNewlines(text: string): string {
+function collapseNewlines(text: string): string {
   text = text.replace(/(\n\n)(<br\s*\/?>\n\n)+/g, "\n\n");
   text = text.replace(/\n\n<br\s*\/?>\n\n/g, "\n\n");
   text = text.replace(/\n{3,}/g, "\n\n");
@@ -480,7 +480,7 @@ export function collapseNewlines(text: string): string {
 // Group 2: Fullwidth Normalization
 // ============================================================
 
-export function normalizeFullwidthAlphanumeric(text: string): string {
+function normalizeFullwidthAlphanumeric(text: string): string {
   let result = "";
   for (const char of text) {
     const code = char.charCodeAt(0);
@@ -504,7 +504,7 @@ function isPartOfEllipsis(text: string, pos: number): boolean {
   return before === "." || after === ".";
 }
 
-export function normalizeFullwidthPunctuation(text: string): string {
+function normalizeFullwidthPunctuation(text: string): string {
   const latinSpans = scanLatinSpans(text);
   const result: string[] = [];
 
@@ -558,11 +558,11 @@ export function normalizeFullwidthPunctuation(text: string): string {
   return result.join("");
 }
 
-export function normalizeFullwidthParentheses(text: string): string {
+function normalizeFullwidthParentheses(text: string): string {
   return text.replace(new RegExp(`\\(([${CJK_NO_KOREAN}][^()]*)\\)`, "g"), "（$1）");
 }
 
-export function normalizeFullwidthBrackets(text: string): string {
+function normalizeFullwidthBrackets(text: string): string {
   return text.replace(new RegExp(`\\[([${CJK_NO_KOREAN}][^\\[\\]]*)\\]`, "g"), "【$1】");
 }
 
@@ -570,20 +570,20 @@ export function normalizeFullwidthBrackets(text: string): string {
 // Group 3: Spacing
 // ============================================================
 
-export function addCJKEnglishSpacing(text: string): string {
+function addCJKEnglishSpacing(text: string): string {
   const alphanumPattern = "(?:[$¥€£₹][ ]?)?[A-Za-z0-9]+(?:[%‰℃℉]|°[CcFf]?|[ ]?(?:USD|CNY|EUR|GBP|RMB))?";
   text = text.replace(new RegExp(`([${CJK_ALL}])(${alphanumPattern})`, "g"), "$1 $2");
   text = text.replace(new RegExp(`(${alphanumPattern})([${CJK_ALL}])`, "g"), "$1 $2");
   return text;
 }
 
-export function addCJKParenthesisSpacing(text: string): string {
+function addCJKParenthesisSpacing(text: string): string {
   text = text.replace(new RegExp(`([${CJK_ALL}])\\(`, "g"), "$1 (");
   text = text.replace(new RegExp(`\\)([${CJK_ALL}])`, "g"), ") $1");
   return text;
 }
 
-export function fixCurrencySpacing(text: string): string {
+function fixCurrencySpacing(text: string): string {
   // Prefix currency symbols bind tight
   text = text.replace(/([$¥€£₹])\s+(\d)/g, "$1$2");
   // Unit symbols bind tight to preceding number
@@ -593,11 +593,11 @@ export function fixCurrencySpacing(text: string): string {
   return text;
 }
 
-export function fixSlashSpacing(text: string): string {
+function fixSlashSpacing(text: string): string {
   return text.replace(/(?<![/:])\s*\/\s*(?!\/)/g, "/");
 }
 
-export function collapseSpaces(text: string): string {
+function collapseSpaces(text: string): string {
   return text.replace(/(\S) {2,}/g, "$1 ");
 }
 
@@ -605,7 +605,7 @@ export function collapseSpaces(text: string): string {
 // Group 4: Dash & Quote
 // ============================================================
 
-export function convertDashes(text: string): string {
+function convertDashes(text: string): string {
   const cjkBothPattern = new RegExp(`(${CJK_CHARS_PATTERN})\\s*-{2,}\\s*(${CJK_CHARS_PATTERN})`, "g");
   const cjkLeftPattern = new RegExp(`(${CJK_CHARS_PATTERN})\\s*-{2,}\\s*([A-Za-z0-9])`, "g");
   const cjkRightPattern = new RegExp(`([A-Za-z0-9])\\s*-{2,}\\s*(${CJK_CHARS_PATTERN})`, "g");
@@ -622,7 +622,7 @@ export function convertDashes(text: string): string {
   return text;
 }
 
-export function fixEmdashSpacing(text: string): string {
+function fixEmdashSpacing(text: string): string {
   return text.replace(/([^\s])\s*——\s*([^\s])/g, (_, before, after) => {
     const leftSpace = CJK_CLOSING_BRACKETS.includes(before) ? "" : " ";
     const rightSpace = CJK_OPENING_BRACKETS.includes(after) ? "" : " ";
@@ -636,7 +636,7 @@ const QUOTE_STYLES: Record<QuoteStyle, { doubleOpen: string; doubleClose: string
   guillemets: { doubleOpen: "«", doubleClose: "»", singleOpen: "‹", singleClose: "›" },
 };
 
-export function convertStraightToSmartQuotes(text: string, style: QuoteStyle): string {
+function convertStraightToSmartQuotes(text: string, style: QuoteStyle): string {
   const quotes = QUOTE_STYLES[style];
   // CJK character pattern for context checks
   const CJK_CHAR = /[\u4e00-\u9fff\u3400-\u4dbf\u3040-\u309f\u30a0-\u30ff\uac00-\ud7af]/;
@@ -679,11 +679,11 @@ export function convertStraightToSmartQuotes(text: string, style: QuoteStyle): s
   return text;
 }
 
-export function convertToCJKCornerQuotes(text: string): string {
+function convertToCJKCornerQuotes(text: string): string {
   return text.replace(/\u201c([^\u201d]*[\u4e00-\u9fff][^\u201d]*)\u201d/g, "「$1」");
 }
 
-export function convertNestedCornerQuotes(text: string): string {
+function convertNestedCornerQuotes(text: string): string {
   return text.replace(/「([^」]*)」/g, (_, content) => {
     const converted = content.replace(/\u2018([^\u2019]*)\u2019/g, "『$1』");
     return `「${converted}」`;
@@ -705,11 +705,11 @@ function fixQuoteSpacing(text: string, openingQuote: string, closingQuote: strin
   return text;
 }
 
-export function fixDoubleQuoteSpacing(text: string): string {
+function fixDoubleQuoteSpacing(text: string): string {
   return fixQuoteSpacing(text, "\u201c", "\u201d");
 }
 
-export function fixSingleQuoteSpacing(text: string): string {
+function fixSingleQuoteSpacing(text: string): string {
   return fixQuoteSpacing(text, "\u2018", "\u2019");
 }
 
@@ -717,7 +717,7 @@ export function fixSingleQuoteSpacing(text: string): string {
 // Group 5: Cleanup
 // ============================================================
 
-export function limitConsecutivePunctuation(text: string, limit: number): string {
+function limitConsecutivePunctuation(text: string, limit: number): string {
   if (limit === 0) return text;
   const marks = ["！", "？", "。"];
   for (const mark of marks) {
@@ -731,7 +731,7 @@ export function limitConsecutivePunctuation(text: string, limit: number): string
   return text;
 }
 
-export function removeTrailingSpaces(text: string): string {
+function removeTrailingSpaces(text: string): string {
   return text.replace(/ +$/gm, "");
 }
 

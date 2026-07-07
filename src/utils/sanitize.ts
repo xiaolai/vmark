@@ -38,7 +38,7 @@ import {
 } from "./htmlAllowlists";
 
 /** Whether the HTML preview allows inline-only or block-level elements. */
-export type HtmlPreviewContext = "inline" | "block";
+type HtmlPreviewContext = "inline" | "block";
 
 /** Options for sanitizeHtmlPreview: context level, style allowlist, and tag breadth. */
 export interface HtmlPreviewOptions {

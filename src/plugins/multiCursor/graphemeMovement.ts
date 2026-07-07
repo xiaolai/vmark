@@ -79,8 +79,3 @@ export function graphemeStepTarget(doc: PMNode, pos: number, dir: -1 | 1): numbe
   return pos + dir * step;
 }
 
-/** Reset the cached segmenter (for testing purposes only). @internal */
-export function _resetGraphemeSegmenterCache(): void {
-  cachedSegmenter = null;
-  segmenterChecked = false;
-}

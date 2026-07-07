@@ -7,32 +7,6 @@
 
 import { exportWarn } from "@/utils/debug";
 
-/** Configuration for a font to embed in exported HTML. */
-export interface FontConfig {
-  /** Font family name */
-  family: string;
-  /** Font source URL or path */
-  src: string;
-  /** Font weight (default: 'normal') */
-  weight?: string;
-  /** Font style (default: 'normal') */
-  style?: string;
-  /** Font format (woff2, woff, truetype, etc.) */
-  format?: string;
-}
-
-/** Result of font embedding including generated CSS, successes, and failures. */
-export interface FontEmbedResult {
-  /** CSS @font-face declarations */
-  css: string;
-  /** Fonts that were successfully embedded */
-  embedded: string[];
-  /** Fonts that failed to embed */
-  failed: string[];
-  /** Total size of embedded fonts in bytes */
-  totalSize: number;
-}
-
 /**
  * KaTeX fonts that must always be embedded for math rendering.
  * These are bundled with the application.
@@ -66,14 +40,6 @@ export interface FontFile {
   weight: string;
   /** Font style */
   style: string;
-}
-
-/** Downloaded font data */
-export interface DownloadedFont {
-  /** Font file info */
-  file: FontFile;
-  /** Binary font data */
-  data: Uint8Array;
 }
 
 /**

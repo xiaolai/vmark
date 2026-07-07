@@ -8,7 +8,7 @@ import type { EditorView } from "@codemirror/view";
 import { splitTableCells, parseTableRow } from "@/utils/tableParser";
 
 import type { SourceTableInfo } from "./tableTypes";
-export type { SourceTableInfo, TableAlignment } from "./tableTypes";
+export type { SourceTableInfo } from "./tableTypes";
 
 /**
  * Check if a line is part of a markdown table.

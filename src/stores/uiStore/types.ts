@@ -50,7 +50,7 @@ export interface SearchActions {
 
 /* ──────────────────────── content-search slice ────────────────────────── */
 
-export interface MatchRange {
+interface MatchRange {
   start: number;
   end: number;
 }

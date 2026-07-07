@@ -38,7 +38,7 @@ export interface WorkspaceActionOptions {
   cleanupTab?: (tabId: string) => void;
 }
 
-export type WorkspaceActionFailureReason =
+type WorkspaceActionFailureReason =
   | "disabled"
   | "missingInstance"
   | "invokeFailed"

@@ -108,7 +108,7 @@ export interface FormattedRangeContext {
 /**
  * Word range at cursor
  */
-export interface WordRange {
+interface WordRange {
   from: number;
   to: number;
 }

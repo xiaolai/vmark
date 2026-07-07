@@ -43,7 +43,7 @@ export const MAX_CONTENT_SERVER_RESTARTS = 3;
 
 /** Window during which a crash signal is treated as part of a user stop (ms).
  *  Bounds the stop-intent guard so it can't get stuck and suppress later crashes. */
-export const STOP_INTENT_GUARD_MS = 3000;
+const STOP_INTENT_GUARD_MS = 3000;
 
 /** Whether the supervisor should auto-restart given prior attempts. Pure. */
 export function shouldAutoRestart(

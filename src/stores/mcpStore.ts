@@ -92,7 +92,7 @@ function applyRetention(checkpoints: MCPCheckpoint[]): MCPCheckpoint[] {
 
 /* ─────────────────────────── health slice ─────────────────────────────── */
 
-export interface McpHealthInfo {
+interface McpHealthInfo {
   version: string | null;
   toolCount: number | null;
   resourceCount: number | null;

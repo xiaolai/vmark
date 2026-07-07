@@ -12,7 +12,7 @@
 import { icons, type SafeIconSvg } from "@/utils/icons";
 
 /** Contexts where a menu item is enabled */
-export type EnableContext =
+type EnableContext =
   | "always"       // Always enabled
   | "selection"    // When there's a text selection
   | "textblock"    // In any text block (paragraph, heading, etc.)

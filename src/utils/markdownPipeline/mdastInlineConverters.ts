@@ -36,16 +36,6 @@ import type { Subscript, Superscript, Highlight, Underline } from "./types";
 import { isSafeUrl } from "./urlValidation";
 
 /**
- * Helper type for converter functions.
- */
-export type InlineConverterFn<T> = (
-  schema: Schema,
-  node: T,
-  marks: Mark[],
-  convertChildren: (children: readonly Content[], marks: Mark[]) => PMNode[]
-) => PMNode | PMNode[] | null;
-
-/**
  * Convert a text node to ProseMirror text.
  */
 export function convertText(schema: Schema, node: Text, marks: Mark[]): PMNode | null {

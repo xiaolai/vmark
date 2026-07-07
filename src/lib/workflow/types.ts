@@ -80,5 +80,3 @@ export interface WorkflowLimits {
 // ============================================================================
 
 export type StepType = "genie" | "action" | "webhook";
-
-export type StepStatus = "pending" | "running" | "success" | "error" | "skipped";

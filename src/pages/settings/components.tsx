@@ -42,6 +42,5 @@
 
 export { SettingRow, SettingsGroup, CollapsibleGroup, SearchableSection } from "./layout";
 export { Toggle, Select, SearchInput, FieldInput } from "./inputs";
-export type { SearchInputProps, FieldInputProps } from "./inputs";
 export { TagInput } from "./TagInput";
 export { Button, CopyButton, CloseButton } from "./buttons";

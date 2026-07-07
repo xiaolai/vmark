@@ -5,20 +5,3 @@
  */
 
 export { resolveToolbarIntent } from "./toolbarIntent";
-export type {
-  ToolbarIntent,
-  CursorContext,
-  CodeBlockInfo,
-  BlockMathInfo,
-  TableInfo,
-  ListInfo,
-  BlockquoteInfo,
-  SelectionInfo,
-  FormattedRangeInfo,
-  LinkInfo,
-  ImageInfo,
-  InlineMathInfo,
-  FootnoteInfo,
-  HeadingInfo,
-  WordInfo,
-} from "./types";

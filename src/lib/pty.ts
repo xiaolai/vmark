@@ -40,13 +40,13 @@ import { errorMessage } from "@/utils/errorMessage";
 // Public types — match the tauri-pty interface that spawnPty.ts expects
 // ---------------------------------------------------------------------------
 
-export interface IDisposable {
+interface IDisposable {
   dispose(): void;
 }
 
 export type IEvent<T> = (listener: (data: T) => void) => IDisposable;
 
-export interface IPtyExitEvent {
+interface IPtyExitEvent {
   exitCode: number;
 }
 

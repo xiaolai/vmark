@@ -12,39 +12,10 @@ export interface MarkdownPipelineOptions {
 }
 
 // Re-export standard MDAST types
-export type {
-  Root,
-  Content,
-  Paragraph,
-  Heading,
-  ThematicBreak,
-  Blockquote,
-  List,
-  ListItem,
-  Code,
-  Html,
-  Text,
-  Emphasis,
-  Strong,
-  Delete,
-  InlineCode,
-  Link,
-  LinkReference,
-  Image,
-  Table,
-  TableRow,
-  TableCell,
-  Break,
-  Definition,
-  FootnoteDefinition,
-  FootnoteReference,
-} from "mdast";
-
-// Re-export math types from mdast-util-math (added by remark-math)
-export type { Math, InlineMath } from "mdast-util-math";
+export type { FootnoteDefinition, FootnoteReference } from "mdast";
 
 // Position type from unist (optional on all AST nodes)
-export interface UnistPosition {
+interface UnistPosition {
   start: { line: number; column: number; offset?: number };
   end: { line: number; column: number; offset?: number };
 }
@@ -90,7 +61,7 @@ export interface WikiLink {
 }
 
 // Alert block types (GitHub-style markdown alerts)
-export type AlertType = "NOTE" | "TIP" | "IMPORTANT" | "WARNING" | "CAUTION";
+type AlertType = "NOTE" | "TIP" | "IMPORTANT" | "WARNING" | "CAUTION";
 
 export interface Alert {
   type: "alert";
@@ -120,22 +91,13 @@ type BlockContentBase = import("mdast").BlockContent | Details;
 
 // Union type for all phrasing (inline) content
 // Note: mdast PhrasingContent already includes InlineMath via mdast-util-math augmentation
-export type PhrasingContent =
+type PhrasingContent =
   | import("mdast").PhrasingContent
   | Subscript
   | Superscript
   | Highlight
   | Underline
   | WikiLink;
-
-// Union type for all block content
-// Note: mdast BlockContent already includes Math via mdast-util-math augmentation
-export type BlockContent =
-  | import("mdast").BlockContent
-  | Yaml
-  | Alert
-  | Details
-  | Toc;
 
 // Augment MDAST module for custom VMark types
 // Note: math and inlineMath are already augmented by mdast-util-math

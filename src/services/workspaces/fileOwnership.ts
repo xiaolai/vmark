@@ -15,7 +15,7 @@ import {
   orderedWindowInstances,
 } from "./workspaceContextOwnership";
 
-export type FileOwnershipPlatform = "macos" | "windows" | "linux";
+type FileOwnershipPlatform = "macos" | "windows" | "linux";
 
 export interface FileOwnershipOptions {
   currentTabId?: string | null;
@@ -39,7 +39,7 @@ export interface FileOwnershipClaim {
   readOnly: boolean;
 }
 
-export type FileOpenOwnership =
+type FileOpenOwnership =
   | "disabled"
   | "writable"
   | "readonlyDuplicate"

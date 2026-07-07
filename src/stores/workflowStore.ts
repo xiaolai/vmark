@@ -35,7 +35,7 @@ import type { LayoutDirection } from "@/lib/ghaWorkflow/render/layout";
 
 /* ──────────────────────────── re-exported types ───────────────────────── */
 
-export type StepStatus =
+type StepStatus =
   | "pending"
   | "running"
   | "success"

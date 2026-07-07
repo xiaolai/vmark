@@ -40,7 +40,7 @@ export const packageJsonSchemaDetector: SchemaDetector = (path, content) => {
   return null;
 };
 
-export interface NpmDependency {
+interface NpmDependency {
   name: string;
   version: string;
 }

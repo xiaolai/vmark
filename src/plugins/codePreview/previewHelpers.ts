@@ -32,12 +32,6 @@ export interface PreviewCacheEntry {
 
 export type PreviewCache = Map<string, PreviewCacheEntry>;
 
-export type UpdateLivePreviewFn = (
-  element: HTMLElement,
-  language: string,
-  content: string,
-) => void;
-
 // --- Utility functions ---
 
 /** Check if language is a latex/math language (handles both "latex" and "$$math$$" sentinel) */

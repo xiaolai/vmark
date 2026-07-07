@@ -30,7 +30,7 @@ import { irToYamlMap } from "@/lib/ghaWorkflow/permissions/scopes";
 // ─── Patch types ──────────────────────────────────────────────────────
 
 /** Set a top-level workflow field (name, run-name, env.X, etc.). */
-export interface WorkflowSetPatch {
+interface WorkflowSetPatch {
   kind: "workflow.set";
   /** Dotted path, e.g., "name" or "env.NODE_VERSION". */
   path: string;
@@ -38,7 +38,7 @@ export interface WorkflowSetPatch {
 }
 
 /** Set a field on a specific job. path is dotted from the job's mapping. */
-export interface JobSetPatch {
+interface JobSetPatch {
   kind: "job.set";
   jobId: string;
   path: string;
@@ -46,7 +46,7 @@ export interface JobSetPatch {
 }
 
 /** Set a field on a specific step (by index in the job's steps[]). */
-export interface StepSetPatch {
+interface StepSetPatch {
   kind: "step.set";
   jobId: string;
   stepIndex: number;
@@ -55,7 +55,7 @@ export interface StepSetPatch {
 }
 
 /** Set a key in a step's `with:` block. */
-export interface WithSetPatch {
+interface WithSetPatch {
   kind: "with.set";
   jobId: string;
   stepIndex: number;
@@ -64,7 +64,7 @@ export interface WithSetPatch {
 }
 
 /** Remove a key from a step's `with:` block. */
-export interface WithRemovePatch {
+interface WithRemovePatch {
   kind: "with.remove";
   jobId: string;
   stepIndex: number;
@@ -72,14 +72,14 @@ export interface WithRemovePatch {
 }
 
 /** Add a job id to another job's `needs:`. */
-export interface NeedsAddPatch {
+interface NeedsAddPatch {
   kind: "needs.add";
   jobId: string;
   ref: string;
 }
 
 /** Remove a job id from another job's `needs:`. */
-export interface NeedsRemovePatch {
+interface NeedsRemovePatch {
   kind: "needs.remove";
   jobId: string;
   ref: string;
@@ -105,7 +105,7 @@ export type TriggerFilter =
   | "paths-ignore"
   | "types";
 
-export interface TriggerSetFiltersPatch {
+interface TriggerSetFiltersPatch {
   kind: "trigger.setFilters";
   event: string;
   filter: TriggerFilter;
@@ -113,20 +113,20 @@ export interface TriggerSetFiltersPatch {
 }
 
 /** Add a new job to jobs:. WI-C.1 */
-export interface JobCreatePatch {
+interface JobCreatePatch {
   kind: "job.create";
   jobId: string;
   runsOn?: string;
 }
 
 /** Remove a job from jobs:. WI-C.1 */
-export interface JobDeletePatch {
+interface JobDeletePatch {
   kind: "job.delete";
   jobId: string;
 }
 
 /** Insert a new step in a job's steps[] at the given index. WI-C.2 */
-export interface StepInsertPatch {
+interface StepInsertPatch {
   kind: "step.insert";
   jobId: string;
   index: number;
@@ -134,14 +134,14 @@ export interface StepInsertPatch {
 }
 
 /** Delete a step. WI-C.2 */
-export interface StepDeletePatch {
+interface StepDeletePatch {
   kind: "step.delete";
   jobId: string;
   stepIndex: number;
 }
 
 /** Move a step to a new index within the same job. WI-C.2 */
-export interface StepMovePatch {
+interface StepMovePatch {
   kind: "step.move";
   jobId: string;
   fromIndex: number;
@@ -149,7 +149,7 @@ export interface StepMovePatch {
 }
 
 /** Set workflow-level permissions. WI-C.3 */
-export interface PermissionsSetPatch {
+interface PermissionsSetPatch {
   kind: "workflow.permissions.set";
   /** "read-all" | "write-all" | "none" | record of scope→level | null (delete to restore default). */
   value:
@@ -161,7 +161,7 @@ export interface PermissionsSetPatch {
 }
 
 /** Set workflow-level concurrency. WI-C.3 */
-export interface ConcurrencySetPatch {
+interface ConcurrencySetPatch {
   kind: "workflow.concurrency.set";
   value:
     | string

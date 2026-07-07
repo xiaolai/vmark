@@ -36,7 +36,7 @@ export function apiKeySecretId(providerType: string): string {
  * - `error`   — the read itself failed (locked keychain, IPC error, etc.).
  *               `value` is `""` and MUST NOT be treated as "unset".
  */
-export type ApiKeyReadStatus = "present" | "absent" | "error";
+type ApiKeyReadStatus = "present" | "absent" | "error";
 export interface ApiKeyReadResult {
   status: ApiKeyReadStatus;
   value: string;

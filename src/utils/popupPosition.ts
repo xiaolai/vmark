@@ -35,7 +35,7 @@ export interface BoundaryRects {
 }
 
 /** Width and height of the popup element to be positioned. */
-export interface PopupDimensions {
+interface PopupDimensions {
   width: number;
   height: number;
 }

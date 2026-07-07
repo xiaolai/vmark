@@ -12,7 +12,7 @@
 // ---------------------------------------------------------------------------
 
 /** MCP server configuration — port, auto-start, and edit approval policy. */
-export interface McpServerSettings {
+interface McpServerSettings {
   port: number;        // Default: 9223 (VMark app MCP server; not Tauri automation)
   autoStart: boolean;  // Start on app launch
   autoApproveEdits: boolean; // Auto-approve AI document edits without preview

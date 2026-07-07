@@ -35,15 +35,7 @@ import {
   resetTerminalIdCounter,
 } from "./uiStore/terminalSlice";
 
-export type {
-  SidebarViewMode,
-  EffectiveTerminalPosition,
-  UIStore,
-  MatchRange,
-  LineMatch,
-  FileSearchResult,
-  TerminalSession,
-} from "./uiStore/types";
+export type { SidebarViewMode, EffectiveTerminalPosition, UIStore, LineMatch, FileSearchResult } from "./uiStore/types";
 export { MAX_TERMINAL_SESSIONS } from "./uiStore/terminalSlice";
 
 const SIDEBAR_MIN_WIDTH = 180;

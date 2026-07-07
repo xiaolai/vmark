@@ -43,7 +43,7 @@ export const cargoTomlSchemaDetector: SchemaDetector = (path, content) => {
   return null;
 };
 
-export interface CargoDependency {
+interface CargoDependency {
   name: string;
   version: string;
   features: string[];

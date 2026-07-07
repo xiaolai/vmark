@@ -59,7 +59,7 @@ export interface TopLevelPositions {
   jobs?: SourceRange;
 }
 
-export interface WorkflowDefaults {
+interface WorkflowDefaults {
   run?: {
     shell?: string;
     workingDirectory?: string;
@@ -73,7 +73,7 @@ export interface WorkflowDefaults {
  * also allowed (custom `repository_dispatch` event types, future GitHub
  * additions) — see TriggerIR.event.
  */
-export type TriggerEvent =
+type TriggerEvent =
   | "push"
   | "pull_request"
   | "pull_request_target"
@@ -143,12 +143,12 @@ export interface WorkflowInputIR {
   options?: string[];
 }
 
-export interface WorkflowCallSecretIR {
+interface WorkflowCallSecretIR {
   required?: boolean;
   description?: string;
 }
 
-export interface WorkflowCallOutputIR {
+interface WorkflowCallOutputIR {
   value: string;
   description?: string;
 }
@@ -257,7 +257,7 @@ export interface ContainerIR {
   options?: string;
 }
 
-export interface ContainerCredentialsIR {
+interface ContainerCredentialsIR {
   username?: string;
   password?: string;
 }

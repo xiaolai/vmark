@@ -12,9 +12,6 @@ import type { EditorView as CodeMirrorView } from "@codemirror/view";
 import type { CursorContext as WysiwygCursorContext } from "@/plugins/toolbarContext/types";
 import type { CursorContext as SourceCursorContext } from "@/types/cursorContext";
 
-/** The editing surface where a toolbar action is executed. */
-export type ToolbarSurface = "wysiwyg" | "source";
-
 /** Policy controlling whether a toolbar action supports multiple selections. */
 export type MultiSelectionPolicy = "allow" | "conditional" | "disallow";
 

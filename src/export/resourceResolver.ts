@@ -11,7 +11,7 @@ import { uint8ArrayToBase64 } from "./fontEmbedder";
 import { exportWarn } from "@/utils/debug";
 
 /** Metadata for a single resource (image/asset) found during HTML export. */
-export interface ResourceInfo {
+interface ResourceInfo {
   /** Original src value from HTML */
   originalSrc: string;
   /** Resolved absolute path (for local files) */

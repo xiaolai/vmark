@@ -21,7 +21,7 @@ export type NodeType =
  * Block-specific anchor for tables.
  * Provides stable intra-block positioning using row/column coordinates.
  */
-export interface TableAnchor {
+interface TableAnchor {
   kind: "table";
   /** Row index (0-based) */
   row: number;
@@ -35,7 +35,7 @@ export interface TableAnchor {
  * Block-specific anchor for code blocks.
  * Provides stable intra-block positioning using line/column within code.
  */
-export interface CodeBlockAnchor {
+interface CodeBlockAnchor {
   kind: "code";
   /** Line number within the code block (0-based) */
   lineInBlock: number;

@@ -22,7 +22,7 @@ import type { ReactNode } from "react";
 
 const BOTTOM_BAR_HEIGHT = 40;
 
-export type PanelPosition = "top" | "bottom" | "left" | "right";
+type PanelPosition = "top" | "bottom" | "left" | "right";
 
 export interface EditorAreaProps {
   /** The editor surface. */

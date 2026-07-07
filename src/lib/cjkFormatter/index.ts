@@ -20,5 +20,3 @@
 
 export { formatMarkdown, formatSelection } from "./formatter";
 export { removeTrailingSpaces, collapseNewlines } from "./rules";
-export type { IntegrityResult } from "./integrity";
-export type { CJKFormattingSettings } from "@/stores/settingsStore";

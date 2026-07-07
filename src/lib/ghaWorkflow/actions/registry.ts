@@ -38,14 +38,14 @@ export interface ActionRef {
   ref: string;
 }
 
-export interface ActionInputSchema {
+interface ActionInputSchema {
   description?: string;
   required?: boolean;
   default?: string;
   deprecation_message?: string;
 }
 
-export interface ActionOutputSchema {
+interface ActionOutputSchema {
   description?: string;
 }
 

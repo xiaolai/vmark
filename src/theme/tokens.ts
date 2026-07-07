@@ -13,7 +13,7 @@
  */
 
 /** 16-color ANSI palette consumed by the xterm.js terminal. */
-export interface AnsiPalette {
+interface AnsiPalette {
   black: string;
   red: string;
   green: string;

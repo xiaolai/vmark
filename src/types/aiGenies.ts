@@ -27,7 +27,7 @@ export interface GenieMetadata {
 
 /** Whether a genie is a one-shot markdown prompt or a multi-step YAML workflow.
  *  Mirrors the Rust enum `genies::types::GenieKind` (WI-7.1). */
-export type GenieKind = "markdown" | "workflow";
+type GenieKind = "markdown" | "workflow";
 
 export interface GenieDefinition {
   metadata: GenieMetadata;
@@ -43,39 +43,11 @@ export interface GenieDefinition {
 // Genie Spec v1 (Typed Input/Output for Workflows)
 // ============================================================================
 
-export type GenieInputType = "text" | "files" | "folder" | "none" | "pipe";
-export type GenieOutputType = "text" | "file" | "files" | "json";
-
-export interface GenieInput {
-  type: GenieInputType;
-  accept?: string;
-  description?: string;
-}
-
-export interface GenieOutput {
-  type: GenieOutputType;
-  filename?: string;
-  schema?: Record<string, unknown>;
-  description?: string;
-}
-
-/** Extended metadata for v1 Genies with typed I/O. */
-export interface GenieMetadataV1 extends GenieMetadata {
-  version: "v1";
-  input: GenieInput;
-  output: GenieOutput;
-  temperature?: number;
-  maxTokens?: number;
-  approval?: "auto" | "ask";
-  tags?: string[];
-}
-
-
 // ============================================================================
 // Provider Types
 // ============================================================================
 
-export type CliProviderType = "claude" | "codex" | "gemini" | "ollama";
+type CliProviderType = "claude" | "codex" | "gemini" | "ollama";
 export type RestProviderType =
   | "anthropic"
   | "openai"

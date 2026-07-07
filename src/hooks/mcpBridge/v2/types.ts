@@ -28,7 +28,7 @@ export interface SessionWindow {
   tabs: SessionTab[];
 }
 
-export interface SessionCapabilities {
+interface SessionCapabilities {
   /** App version — sourced from package.json. */
   version: string;
   /** Discriminator values supported by `document.transform` / mutation tools. */

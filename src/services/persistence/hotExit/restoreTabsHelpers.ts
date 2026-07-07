@@ -33,7 +33,7 @@ export interface DeduplicatedTabs {
  * content, and no unsaved content. Restoring such tabs only adds orphan
  * blank tabs the user has to close manually — there is nothing to recover.
  */
-export function isEmptyUntitledTab(tab: TabState): boolean {
+function isEmptyUntitledTab(tab: TabState): boolean {
   return tab.file_path === null
     && tab.document.content === ""
     && tab.document.saved_content === "";

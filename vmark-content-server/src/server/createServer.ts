@@ -46,7 +46,7 @@ export interface ContentServer {
 }
 
 /** Resolve a requested note path within root; returns null on escape/garbage. */
-export function containedAbsPath(root: string, relRequest: string): string | null {
+function containedAbsPath(root: string, relRequest: string): string | null {
   let decoded: string;
   try {
     decoded = decodeURIComponent(relRequest); // throws URIError on bad %-encoding

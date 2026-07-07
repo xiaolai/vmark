@@ -81,7 +81,7 @@ export function resolveTransferActiveTab(
 }
 
 /** True when `tab` belongs to `instance` — by explicit membership or root classification. */
-export function tabBelongsToWorkspace(
+function tabBelongsToWorkspace(
   tab: Tab,
   instance: WorkspaceInstanceRecord,
   activeInstanceId: string | null,

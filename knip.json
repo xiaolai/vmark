@@ -58,6 +58,10 @@
       "ignoreDependencies": [
         "esbuild",
         "@yao-pkg/pkg"
+      ],
+      "ignoreBinaries": [
+        "ps",
+        "powershell"
       ]
     },
     "website": {
@@ -70,11 +74,7 @@
         "cytoscape-cose-bilkent",
         "dayjs",
         "debug",
-        "@braintree/sanitize-url",
-        "mermaid"
-      ],
-      "ignoreBinaries": [
-        "vitepress"
+        "@braintree/sanitize-url"
       ]
     }
   }

@@ -7,7 +7,7 @@
 import type { Extension } from "@codemirror/state";
 import type { ComponentType } from "react";
 
-export type FormatKind =
+type FormatKind =
   | "wysiwyg"
   | "split-pane"
   | "viewer"
@@ -61,7 +61,7 @@ export interface PreviewRendererProps {
 }
 export type PreviewRenderer = ComponentType<PreviewRendererProps>;
 
-export interface FormatAdapters {
+interface FormatAdapters {
   saveDialogFilters: { name: string; extensions: string[] }[];
   untitledExtension: string;
   exportEnabled?: boolean;
@@ -96,10 +96,4 @@ export interface FormatConfig {
   schemaDetector?: SchemaDetector;
   schemaRenderers?: Record<string, PreviewRenderer>;
   adapters: FormatAdapters;
-}
-
-export interface TabFormatState {
-  formatId: string;
-  editingEnabled?: boolean;
-  activeSchemaId?: string | null;
 }

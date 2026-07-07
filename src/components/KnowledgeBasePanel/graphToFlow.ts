@@ -9,16 +9,16 @@
 import dagre from "@dagrejs/dagre";
 import type { Edge, Node } from "@xyflow/react";
 
-export type KbEdgeKind = "link" | "wikiLink" | "tag" | "relation";
+type KbEdgeKind = "link" | "wikiLink" | "tag" | "relation";
 
-export interface KbGraphNode {
+interface KbGraphNode {
   id: string;
   type: "doc" | "tag";
   label: string;
   title?: string;
   unresolved?: boolean;
 }
-export interface KbGraphEdge {
+interface KbGraphEdge {
   from: string;
   to: string;
   kind: KbEdgeKind;

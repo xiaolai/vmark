@@ -26,7 +26,7 @@ const TOUCH_HOLD_DELAY_MS = 180;
 const TOUCH_HOLD_CANCEL_PX = 8;
 
 /** Current phase of a tab drag interaction. */
-export type DragMode = "idle" | "hold" | "pending" | "reorder" | "dragout";
+type DragMode = "idle" | "hold" | "pending" | "reorder" | "dragout";
 
 /** Screen and viewport coordinates captured at the moment a tab is dragged out. */
 export interface DragOutPoint {
@@ -37,7 +37,7 @@ export interface DragOutPoint {
 }
 
 /** Payload emitted on each pointer move during a tab drag. */
-export interface DragMovePayload {
+interface DragMovePayload {
   tabId: string;
   mode: Exclude<DragMode, "idle" | "hold">;
   point: DragOutPoint;
