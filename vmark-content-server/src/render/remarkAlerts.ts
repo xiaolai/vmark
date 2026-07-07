@@ -25,7 +25,7 @@ export const ALERT_KINDS = [
   "caution",
 ] as const;
 
-export type AlertKind = (typeof ALERT_KINDS)[number];
+type AlertKind = (typeof ALERT_KINDS)[number];
 
 export interface AlertNode {
   type: "alert";
