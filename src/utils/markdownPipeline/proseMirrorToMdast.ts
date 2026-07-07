@@ -213,6 +213,10 @@ class PMToMdastConverter {
         pushAtom(this.convertWikiLink(child));
       } else if (child.type.name === "html_inline") {
         pushAtom(this.convertHtmlInline(child));
+      } else {
+        // Mirror convertNode's unknown-type warning — silent inline drops
+        // are hard-to-debug content loss.
+        mdPipelineWarn(`[PMToMdast] Unknown inline node type: ${child.type.name}`);
       }
       /* v8 ignore stop */
     });

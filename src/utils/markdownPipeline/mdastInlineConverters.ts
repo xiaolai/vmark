@@ -124,6 +124,8 @@ export function convertInlineCode(
   node: InlineCode,
   marks: Mark[]
 ): PMNode | null {
+  // Empty code spans cannot become PM text nodes — schema.text("") throws.
+  if (!node.value) return null;
   const markType = schema.marks.code;
   if (!markType) {
     return schema.text(node.value, marks);
@@ -147,7 +149,13 @@ export function convertLink(
   }
   // Validate URL scheme to prevent XSS
   const href = isSafeUrl(node.url) ? node.url : "about:blank";
-  const newMarks = addMarkOnce(marks, markType.create({ href }));
+  const linkMark = markType.create({ href });
+  // Unlike identical emphasis (where the duplicate is simply dropped), a
+  // nested link carries data — and the inner link binds in CommonMark — so
+  // replace an active link mark instead of keeping the outer href.
+  const newMarks = marks.some((m) => m.type === markType)
+    ? marks.map((m) => (m.type === markType ? linkMark : m))
+    : [...marks, linkMark];
   return convertChildren(node.children as Content[], newMarks);
 }
 

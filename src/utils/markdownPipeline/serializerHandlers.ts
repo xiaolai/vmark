@@ -12,13 +12,23 @@
  *     custom handler rewrote every autolink and bare GFM URL literal to
  *     `[https\://…](https://…)` — losing the authored form and injecting
  *     escapes into the label (#1102).
+ *   - Destinations, image alt text, and titles are escaped: a raw
+ *     destination cannot hold whitespace, control chars, unbalanced parens,
+ *     or a leading `<` (those switch to the `<…>` literal form with `\`,
+ *     `<`, `>` escaped and CR/LF percent-encoded); `"` in titles and
+ *     `[`/`]` in alt text are backslash-escaped so they cannot terminate
+ *     the construct early.
+ *   - Both handlers carry a `peek` function (upstream Handle contract) so
+ *     phrasing lookahead reads the first character without running the
+ *     full serializer.
  *
  * @coordinates-with serializer.ts — installs these handlers on remark-stringify
- * @coordinates-with markdownUrl.ts — shares URL whitespace detection pattern
+ * @coordinates-with @/utils/markdownUrl — shared whitespace predicate (urlNeedsBrackets)
  * @module utils/markdownPipeline/serializerHandlers
  */
 
 import type { Image, Link, Parents } from "mdast";
+import { urlNeedsBrackets } from "@/utils/markdownUrl";
 
 /** mdast-util-to-markdown state (simplified for our handlers). */
 export interface ToMarkdownState {
@@ -27,9 +37,6 @@ export interface ToMarkdownState {
     info: { before: string; after: string }
   ) => string;
 }
-
-/** Pattern matching whitespace characters that need angle bracket wrapping */
-const WHITESPACE_PATTERN = /[\s\u00A0\u2002-\u200A\u202F\u205F\u3000]/;
 
 /** URI scheme at the start of a URL (per CommonMark autolinks). */
 const URI_SCHEME_RE = /^[a-z][a-z+.-]+:/i;
@@ -41,6 +48,64 @@ function hasAutolinkUnsafeChar(url: string): boolean {
     if (code <= 0x20 || code === 0x7f || ch === "<" || ch === ">") return true;
   }
   return false;
+}
+
+/** True when `(`/`)` in the URL are not balanced (raw destinations require balance). */
+function hasUnbalancedParens(url: string): boolean {
+  let depth = 0;
+  for (const ch of url) {
+    if (ch === "(") depth++;
+    else if (ch === ")") {
+      depth--;
+      if (depth < 0) return true;
+    }
+  }
+  return depth !== 0;
+}
+
+/** True when the URL contains an ASCII control character or DEL. */
+function hasControlChar(url: string): boolean {
+  for (const ch of url) {
+    const code = ch.codePointAt(0) ?? 0;
+    if (code <= 0x1f || code === 0x7f) return true;
+  }
+  return false;
+}
+
+/**
+ * Format a destination for `[text](…)` / `![alt](…)`.
+ *
+ * Raw form is kept whenever CommonMark allows it. URLs that a raw
+ * destination cannot represent — empty, whitespace, control chars,
+ * unbalanced parens, or a leading `<` (which would read as the literal
+ * form) — switch to `<…>` with `\`, `<`, `>` escaped and CR/LF
+ * percent-encoded (newlines are invalid in a destination even escaped).
+ */
+function formatDestination(url: string): string {
+  const needsAngle =
+    url === "" ||
+    url.startsWith("<") ||
+    urlNeedsBrackets(url) ||
+    hasControlChar(url) ||
+    hasUnbalancedParens(url);
+  if (!needsAngle) return url;
+  const escaped = url
+    .replace(/\\/g, "\\\\")
+    .replace(/</g, "\\<")
+    .replace(/>/g, "\\>")
+    .replace(/\r/g, "%0D")
+    .replace(/\n/g, "%0A");
+  return `<${escaped}>`;
+}
+
+/** Escape a title for the double-quoted `"…"` position. */
+function formatTitle(title: string): string {
+  return title.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+}
+
+/** Escape image alt text for the `![…]` label position. */
+function formatAltText(alt: string): string {
+  return alt.replace(/[\\[\]]/g, "\\$&");
 }
 
 /**
@@ -61,28 +126,24 @@ function autolinkValue(node: Link): string | null {
 }
 
 /**
- * Custom image handler that uses angle brackets for URLs with spaces.
- * This produces more readable markdown than percent-encoding.
+ * Custom image handler: escaped alt/title, angle-bracket destination when
+ * the raw form cannot represent the URL.
  */
-export function handleImage(node: Image): string {
-  const url = node.url;
-  const alt = node.alt || "";
-  const title = node.title;
+function imageHandler(node: Image): string {
+  const alt = formatAltText(node.alt || "");
+  const formattedUrl = formatDestination(node.url);
 
-  // Use angle brackets for URLs with whitespace (CommonMark standard)
-  const formattedUrl = WHITESPACE_PATTERN.test(url) ? `<${url}>` : url;
-
-  if (title) {
-    return `![${alt}](${formattedUrl} "${title}")`;
+  if (node.title) {
+    return `![${alt}](${formattedUrl} "${formatTitle(node.title)}")`;
   }
   return `![${alt}](${formattedUrl})`;
 }
 
 /**
- * Custom link handler: preserves autolinks, uses angle brackets for URLs
- * with spaces.
+ * Custom link handler: preserves autolinks, escaped title, angle-bracket
+ * destination when the raw form cannot represent the URL.
  */
-export function handleLink(
+function linkHandler(
   node: Link,
   _parent: Parents | undefined,
   state: ToMarkdownState
@@ -93,11 +154,7 @@ export function handleLink(
     return `<${autolink}>`;
   }
 
-  const url = node.url;
-  const title = node.title;
-
-  // Use angle brackets for URLs with whitespace
-  const formattedUrl = WHITESPACE_PATTERN.test(url) ? `<${url}>` : url;
+  const formattedUrl = formatDestination(node.url);
 
   // Serialize children (the link text)
   const text = state.containerPhrasing(node, {
@@ -105,8 +162,18 @@ export function handleLink(
     after: "]",
   });
 
-  if (title) {
-    return `[${text}](${formattedUrl} "${title}")`;
+  if (node.title) {
+    return `[${text}](${formattedUrl} "${formatTitle(node.title)}")`;
   }
   return `[${text}](${formattedUrl})`;
 }
+
+/** Image handler with the upstream `peek` contract (lookahead sees `!`). */
+export const handleImage = Object.assign(imageHandler, {
+  peek: () => "!",
+});
+
+/** Link handler with the upstream `peek` contract (`<` for autolinks, `[` otherwise). */
+export const handleLink = Object.assign(linkHandler, {
+  peek: (node: Link) => (autolinkValue(node) !== null ? "<" : "["),
+});

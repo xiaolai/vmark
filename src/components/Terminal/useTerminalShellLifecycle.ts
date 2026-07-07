@@ -37,7 +37,45 @@ import {
   pressAnyKeyToRetryLine,
   restartingLine,
 } from "./terminalMessages";
-import type { SessionsRef } from "./terminalSessionTypes";
+import type { SessionEntry, SessionsRef } from "./terminalSessionTypes";
+
+/** Detach a dead PTY from its session entry so keystrokes can't reach it. */
+function detachExitedPty(entry: SessionEntry): void {
+  entry.pty = null;
+  entry.ptyRefForKeys.current = null;
+  entry.shellExited = true;
+}
+
+/**
+ * Clean exit (Ctrl+D / `exit`, code 0): close the tab (#1103), and hide the
+ * panel when this was the last session. Instance/registry teardown follows
+ * from the store removal via useTerminalSessions' subscription
+ * (removeSessionEntry). A hidden panel stays hidden; reopening auto-creates
+ * a fresh session (TerminalPanel visibility effect).
+ */
+function closeSessionOnCleanExit(sessionId: string): void {
+  const ui = useUIStore.getState();
+  const wasLast =
+    ui.terminal.sessions.length === 1 &&
+    ui.terminal.sessions[0].id === sessionId;
+  ui.terminalRemoveSession(sessionId);
+  if (!wasLast) return;
+  // Re-read state: removal ran subscribers synchronously — only hide a
+  // panel that is still visible.
+  const now = useUIStore.getState();
+  if (now.terminalVisible) now.toggleTerminal();
+}
+
+/** Non-zero exit: keep the buffer readable and offer respawn on any key. */
+function promptRestartOnErrorExit(
+  entry: SessionEntry,
+  sessionId: string,
+  exitCode: number,
+): void {
+  entry.instance.term.write(processExitedLine(exitCode));
+  entry.instance.term.write(pressAnyKeyToRestartLine());
+  useUIStore.getState().terminalMarkSessionDead(sessionId);
+}
 
 export interface TerminalShellLifecycle {
   /** Spawn the shell for a session entry. Guarded against re-entrance. */
@@ -84,29 +122,12 @@ export function useTerminalShellLifecycle(
           onExit: (exitCode) => {
             const e = sessionsRef.current.get(sessionId);
             // Ignore a stale exit from a PTY superseded by a restart.
-            if (e && !e.disposed && e.spawnGen === gen) {
-              e.pty = null;
-              // Clear the key-handler's PTY ref so keystrokes after exit
-              // don't write to the dead process.
-              e.ptyRefForKeys.current = null;
-              e.shellExited = true;
-              const ui = useUIStore.getState();
-              if (exitCode === 0) {
-                // Clean exit (Ctrl+D / `exit`) — close the tab (#1103), and
-                // hide the panel when this was the last session. A hidden
-                // panel stays hidden; reopening auto-creates a fresh session
-                // (TerminalPanel visibility effect).
-                const wasLast =
-                  ui.terminal.sessions.length === 1 &&
-                  ui.terminal.sessions[0].id === sessionId;
-                ui.terminalRemoveSession(sessionId);
-                if (wasLast && ui.terminalVisible) ui.toggleTerminal();
-              } else {
-                // Non-zero exit — keep the buffer readable and offer respawn.
-                e.instance.term.write(processExitedLine(exitCode));
-                e.instance.term.write(pressAnyKeyToRestartLine());
-                ui.terminalMarkSessionDead(sessionId);
-              }
+            if (!e || e.disposed || e.spawnGen !== gen) return;
+            detachExitedPty(e);
+            if (exitCode === 0) {
+              closeSessionOnCleanExit(sessionId);
+            } else {
+              promptRestartOnErrorExit(e, sessionId, exitCode);
             }
           },
           disposed: () => {
