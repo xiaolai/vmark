@@ -37,7 +37,7 @@ import {
 import { remarkAlerts, type AlertNode } from "./remarkAlerts";
 
 /** How a wiki-link target resolves to a served URL. */
-export interface WikiResolution {
+interface WikiResolution {
   href: string;
   /** False → render as a "missing" link (distinct styling, still navigable). */
   exists: boolean;

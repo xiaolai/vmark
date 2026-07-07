@@ -17,7 +17,7 @@ export const SEARCH_CAPS = {
   maxLineLen: 200,
 };
 
-export interface LineMatch {
+interface LineMatch {
   lineNumber: number;
   lineContent: string;
 }

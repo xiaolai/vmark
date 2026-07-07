@@ -9,7 +9,7 @@
  * - Backslash escape preservation
  */
 
-export type QuoteStyle = "curly" | "corner" | "guillemets";
+type QuoteStyle = "curly" | "corner" | "guillemets";
 
 export interface CJKFormattingSettings {
   // Group 1: Universal
