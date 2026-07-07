@@ -419,8 +419,8 @@ importers:
         specifier: ^52.16.0
         version: 52.16.0(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(@nuxt/kit@3.21.8(magicast@0.5.3))(@types/markdown-it@14.1.2)(@types/node@22.20.0)(@vue/compiler-sfc@3.5.39)(esbuild@0.27.7)(lightningcss@1.32.0)(magicast@0.5.3)(markdown-it@14.2.0)(playwright-chromium@1.61.1)(postcss@8.5.16)(react@19.2.7)(rolldown@1.1.4)(rollup@4.62.2)(sass@1.98.0)(tsx@4.22.4)
       chokidar:
-        specifier: ^4.0.3
-        version: 4.0.3
+        specifier: ^5.0.0
+        version: 5.0.0
       dompurify:
         specifier: '>=3.3.2'
         version: 3.4.11
