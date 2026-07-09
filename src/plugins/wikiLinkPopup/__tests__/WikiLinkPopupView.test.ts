@@ -87,6 +87,7 @@ vi.mock("@tauri-apps/plugin-dialog", () => ({
 
 vi.mock("@tauri-apps/api/webviewWindow", () => ({
   getCurrentWebviewWindow: vi.fn(() => ({
+    label: "main",
     emit: vi.fn(() => Promise.resolve()),
   })),
 }));
@@ -549,7 +550,7 @@ describe("WikiLinkPopupView", () => {
     it("emits open-file event when target is valid", async () => {
       const mockEmit = vi.fn(() => Promise.resolve());
       const { getCurrentWebviewWindow } = await import("@tauri-apps/api/webviewWindow");
-      vi.mocked(getCurrentWebviewWindow).mockReturnValue({ emit: mockEmit } as ReturnType<typeof getCurrentWebviewWindow>);
+      vi.mocked(getCurrentWebviewWindow).mockReturnValue({ label: "main", emit: mockEmit } as ReturnType<typeof getCurrentWebviewWindow>);
 
       storeState.nodePos = 10;
       emitStateChange({ isOpen: true, target: "docs/readme", nodePos: 10, anchorRect });
@@ -562,7 +563,7 @@ describe("WikiLinkPopupView", () => {
       openBtn.click();
 
       await new Promise((r) => setTimeout(r, 10));
-      expect(mockEmit).toHaveBeenCalledWith("open-file", { path: "/workspace/docs/readme.md" });
+      expect(mockEmit).toHaveBeenCalledWith("open-file", { path: "/workspace/docs/readme.md", windowLabel: "main" });
       expect(mockClosePopup).toHaveBeenCalled();
     });
 
@@ -749,7 +750,7 @@ describe("WikiLinkPopupView", () => {
     it("resolves target with / as path", async () => {
       const mockEmit = vi.fn(() => Promise.resolve());
       const { getCurrentWebviewWindow } = await import("@tauri-apps/api/webviewWindow");
-      vi.mocked(getCurrentWebviewWindow).mockReturnValue({ emit: mockEmit } as ReturnType<typeof getCurrentWebviewWindow>);
+      vi.mocked(getCurrentWebviewWindow).mockReturnValue({ label: "main", emit: mockEmit } as ReturnType<typeof getCurrentWebviewWindow>);
 
       emitStateChange({ isOpen: true, target: "sub/page", nodePos: 10, anchorRect });
       await new Promise((r) => requestAnimationFrame(r));
@@ -762,13 +763,13 @@ describe("WikiLinkPopupView", () => {
 
       await new Promise((r) => setTimeout(r, 10));
       // Target with / — appends .md
-      expect(mockEmit).toHaveBeenCalledWith("open-file", { path: "/workspace/sub/page.md" });
+      expect(mockEmit).toHaveBeenCalledWith("open-file", { path: "/workspace/sub/page.md", windowLabel: "main" });
     });
 
     it("resolves target with .md extension directly", async () => {
       const mockEmit = vi.fn(() => Promise.resolve());
       const { getCurrentWebviewWindow } = await import("@tauri-apps/api/webviewWindow");
-      vi.mocked(getCurrentWebviewWindow).mockReturnValue({ emit: mockEmit } as ReturnType<typeof getCurrentWebviewWindow>);
+      vi.mocked(getCurrentWebviewWindow).mockReturnValue({ label: "main", emit: mockEmit } as ReturnType<typeof getCurrentWebviewWindow>);
 
       emitStateChange({ isOpen: true, target: "page.md", nodePos: 10, anchorRect });
       await new Promise((r) => requestAnimationFrame(r));
@@ -781,7 +782,7 @@ describe("WikiLinkPopupView", () => {
 
       await new Promise((r) => setTimeout(r, 10));
       // Target ending in .md — used directly
-      expect(mockEmit).toHaveBeenCalledWith("open-file", { path: "/workspace/page.md" });
+      expect(mockEmit).toHaveBeenCalledWith("open-file", { path: "/workspace/page.md", windowLabel: "main" });
     });
   });
 
@@ -1033,7 +1034,7 @@ describe("WikiLinkPopupView", () => {
     it("returns null when target is empty string", async () => {
       const mockEmit = vi.fn(() => Promise.resolve());
       const { getCurrentWebviewWindow } = await import("@tauri-apps/api/webviewWindow");
-      vi.mocked(getCurrentWebviewWindow).mockReturnValue({ emit: mockEmit } as ReturnType<typeof getCurrentWebviewWindow>);
+      vi.mocked(getCurrentWebviewWindow).mockReturnValue({ label: "main", emit: mockEmit } as ReturnType<typeof getCurrentWebviewWindow>);
 
       emitStateChange({ isOpen: true, target: "", nodePos: 10, anchorRect });
       await new Promise((r) => requestAnimationFrame(r));

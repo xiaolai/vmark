@@ -44,6 +44,7 @@ vi.mock("@tauri-apps/plugin-clipboard-manager", () => ({
 const mockEmit = vi.fn(() => Promise.resolve());
 vi.mock("@tauri-apps/api/webviewWindow", () => ({
   getCurrentWebviewWindow: () => ({
+    label: "main",
     emit: mockEmit,
   }),
 }));
@@ -163,6 +164,7 @@ describe("openWikiLink", () => {
 
     expect(mockEmit).toHaveBeenCalledWith("open-file", {
       path: "/workspace/MyPage.md",
+      windowLabel: "main",
     });
     expect(mockClosePopup).toHaveBeenCalled();
   });
@@ -174,6 +176,7 @@ describe("openWikiLink", () => {
 
     expect(mockEmit).toHaveBeenCalledWith("open-file", {
       path: "/workspace/docs/readme.md",
+      windowLabel: "main",
     });
   });
 
@@ -184,6 +187,7 @@ describe("openWikiLink", () => {
 
     expect(mockEmit).toHaveBeenCalledWith("open-file", {
       path: "/workspace/docs/readme.md",
+      windowLabel: "main",
     });
   });
 
