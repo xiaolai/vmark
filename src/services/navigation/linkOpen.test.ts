@@ -88,6 +88,7 @@ describe("openFilepathLink", () => {
     expect(result).toBe(true);
     expect(mockEmit).toHaveBeenCalledWith("open-file", {
       path: "/repo/appendix/cards.md",
+      windowLabel: "main",
     });
   });
 
@@ -96,6 +97,7 @@ describe("openFilepathLink", () => {
     expect(result).toBe(true);
     expect(mockEmit).toHaveBeenCalledWith("open-file", {
       path: "/repo/docs/neighbour.md",
+      windowLabel: "main",
     });
   });
 
@@ -103,6 +105,7 @@ describe("openFilepathLink", () => {
     await openFilepathLink("./neighbour.md#anchor", SOURCE);
     expect(mockEmit).toHaveBeenCalledWith("open-file", {
       path: "/repo/docs/neighbour.md",
+      windowLabel: "main",
     });
   });
 
@@ -115,7 +118,10 @@ describe("openFilepathLink", () => {
   it("falls through to absolute path (minus fragment) when sourcePath is null", async () => {
     const result = await openFilepathLink("/abs/path/foo.md#x", null);
     expect(result).toBe(true);
-    expect(mockEmit).toHaveBeenCalledWith("open-file", { path: "/abs/path/foo.md" });
+    expect(mockEmit).toHaveBeenCalledWith("open-file", {
+      path: "/abs/path/foo.md",
+      windowLabel: "main",
+    });
   });
 
   it("passes through a Windows absolute path with a source doc (does not base-prefix)", async () => {
@@ -123,6 +129,7 @@ describe("openFilepathLink", () => {
     expect(result).toBe(true);
     expect(mockEmit).toHaveBeenCalledWith("open-file", {
       path: "C:/Users/me/foo.md",
+      windowLabel: "main",
     });
   });
 
@@ -131,6 +138,7 @@ describe("openFilepathLink", () => {
     expect(result).toBe(true);
     expect(mockEmit).toHaveBeenCalledWith("open-file", {
       path: "C:/Users/me/foo.md",
+      windowLabel: "main",
     });
   });
 
@@ -139,6 +147,7 @@ describe("openFilepathLink", () => {
     expect(result).toBe(true);
     expect(mockEmit).toHaveBeenCalledWith("open-file", {
       path: "D:/work/notes.md",
+      windowLabel: "main",
     });
   });
 

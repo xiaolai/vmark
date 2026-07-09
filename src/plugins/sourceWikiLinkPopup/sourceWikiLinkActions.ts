@@ -7,8 +7,8 @@
 
 import type { EditorView } from "@codemirror/view";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
-import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { useWikiLinkPopupStore } from "@/stores/wikiLinkPopupStore";
+import { emitOpenFileInCurrentWindow } from "@/services/navigation/openFileEvent";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { runOrQueueCodeMirrorAction } from "@/utils/imeGuard";
 import { sourcePopupWarn, sourceActionError } from "@/utils/debug";
@@ -101,8 +101,7 @@ export async function openWikiLink(): Promise<void> {
   }
 
   try {
-    const currentWindow = getCurrentWebviewWindow();
-    await currentWindow.emit("open-file", { path: filePath });
+    await emitOpenFileInCurrentWindow(filePath);
     useWikiLinkPopupStore.getState().closePopup();
   } catch (error) {
     sourceActionError("Failed to open file:", error);

@@ -22,9 +22,9 @@
  * @module services/navigation/linkOpen
  */
 
-import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { resolveMarkdownUrl } from "@/lib/markdownLinkCheck/check";
 import { linkPopupError } from "@/utils/debug";
+import { emitOpenFileInCurrentWindow } from "./openFileEvent";
 
 export type LinkKind = "fragment" | "external" | "filepath";
 
@@ -63,8 +63,6 @@ export async function openFilepathLink(
 ): Promise<boolean> {
   if (!href) return false;
 
-  const currentWindow = getCurrentWebviewWindow();
-
   // Strip fragment up front; the open-file event takes a plain path.
   const hashIdx = href.indexOf("#");
   const pathPart = hashIdx >= 0 ? href.slice(0, hashIdx) : href;
@@ -88,7 +86,7 @@ export async function openFilepathLink(
   if (!absolutePath) return false;
 
   try {
-    await currentWindow.emit("open-file", { path: absolutePath });
+    await emitOpenFileInCurrentWindow(absolutePath);
     return true;
   } catch (error) {
     linkPopupError("Failed to emit open-file:", error);

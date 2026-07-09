@@ -22,6 +22,7 @@ import { safeUnlistenAll } from "@/utils/safeUnlisten";
 
 import { handleSave, handleSaveAs, handleMoveTo, handleSaveAllQuit } from "./useFileSave";
 import { handleOpen, handleOpenFile, handleNew } from "./useFileOpen";
+import { OPEN_FILE_EVENT, type OpenFileEventPayload } from "@/services/navigation/openFileEvent";
 import { fileOpsLog, fileOpsError } from "@/utils/debug";
 
 /**
@@ -94,10 +95,14 @@ export function useFileShortcuts(windowLabel: string): void {
       if (cancelled) { unlistenSaveAllQuit(); return; }
       unlistenRefs.current.push(unlistenSaveAllQuit);
 
-      // Listen for open-file from FileExplorer (window-local event, payload contains path)
-      const unlistenOpenFile = await currentWindow.listen<{ path: string }>(
-        "open-file",
+      // Listen for open-file (file explorer, wiki links, markdown links).
+      // Tauri's window.emit() BROADCASTS to every window (#1112) — the
+      // payload's windowLabel is the only scoping, so filter like the
+      // menu:* listeners above.
+      const unlistenOpenFile = await currentWindow.listen<OpenFileEventPayload>(
+        OPEN_FILE_EVENT,
         async (event) => {
+          if (event.payload.windowLabel !== windowLabel) return;
           await handleOpenFile(windowLabel, event.payload.path);
         }
       );

@@ -30,7 +30,6 @@ import {
 } from "@tauri-apps/plugin-fs";
 import { ask } from "@tauri-apps/plugin-dialog";
 import { join, basename } from "@tauri-apps/api/path";
-import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { imeToast as toast } from "@/services/ime/imeToast";
@@ -39,6 +38,7 @@ import { useTabStore } from "@/stores/tabStore";
 import { reconcilePathChange } from "@/utils/pathReconciliation";
 import { applyPathReconciliation } from "@/services/persistence/applyPathReconciliation";
 import { showError, FileErrors } from "@/services/dialogs/errorDialog";
+import { emitOpenFileInCurrentWindow } from "@/services/navigation/openFileEvent";
 import { fileExplorerError } from "@/utils/debug";
 import { renameFile } from "@/services/persistence/renameFile";
 
@@ -229,7 +229,7 @@ export function useExplorerOperations() {
   );
 
   const openFile = useCallback(async (path: string): Promise<void> => {
-    await getCurrentWebviewWindow().emit("open-file", { path });
+    await emitOpenFileInCurrentWindow(path);
   }, []);
 
   const openWithDefaultApp = useCallback(async (path: string): Promise<void> => {

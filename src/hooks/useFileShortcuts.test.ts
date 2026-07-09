@@ -203,18 +203,36 @@ describe("useFileShortcuts", () => {
     });
   });
 
-  it("calls handleOpenFile for open-file events with path payload", async () => {
+  it("calls handleOpenFile for open-file events targeting this window", async () => {
     renderHook(() => useFileShortcuts("main"));
 
     await vi.waitFor(() => {
       expect(listenCallbacks["open-file"]).toBeDefined();
     });
 
-    listenCallbacks["open-file"]({ payload: { path: "/path/to/file.md" } });
+    listenCallbacks["open-file"]({
+      payload: { path: "/path/to/file.md", windowLabel: "main" },
+    });
 
     await vi.waitFor(() => {
       expect(mockHandleOpenFile).toHaveBeenCalledWith("main", "/path/to/file.md");
     });
+  });
+
+  it("ignores open-file events from OTHER windows (#1112 — emit broadcasts)", async () => {
+    renderHook(() => useFileShortcuts("main"));
+
+    await vi.waitFor(() => {
+      expect(listenCallbacks["open-file"]).toBeDefined();
+    });
+
+    listenCallbacks["open-file"]({
+      payload: { path: "/path/to/file.md", windowLabel: "window-2" },
+    });
+
+    // Give any wrongly-scheduled handler a tick to run before asserting.
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(mockHandleOpenFile).not.toHaveBeenCalled();
   });
 
   it("cleans up listeners on unmount", async () => {

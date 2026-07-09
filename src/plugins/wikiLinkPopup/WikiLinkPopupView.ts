@@ -6,11 +6,11 @@
  */
 
 import { open } from "@tauri-apps/plugin-dialog";
-import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import i18n from "@/i18n";
 import { useWikiLinkPopupStore } from "@/stores/wikiLinkPopupStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { wikiLinkPopupWarn, wikiLinkPopupError } from "@/utils/debug";
+import { emitOpenFileInCurrentWindow } from "@/services/navigation/openFileEvent";
 import { IMAGE_EXTENSIONS } from "@/utils/mediaExtensions";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import { buildPopupIconButton, buildPopupInput } from "@/utils/popupComponents";
@@ -186,8 +186,7 @@ export class WikiLinkPopupView extends WysiwygPopupView<WikiLinkPopupState> {
     }
 
     try {
-      const currentWindow = getCurrentWebviewWindow();
-      await currentWindow.emit("open-file", { path: filePath });
+      await emitOpenFileInCurrentWindow(filePath);
       this.closePopup();
     } catch (error) {
       wikiLinkPopupError("Failed to open file:", error);
