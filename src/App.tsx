@@ -13,6 +13,7 @@ import { BottomBar } from "@/components/BottomBar/BottomBar";
 import { TitleBar } from "@/components/TitleBar";
 import { AppShell, EditorArea } from "@/shell";
 import { GeniePicker } from "@/components/GeniePicker/GeniePicker";
+import { EditorContextMenu } from "@/components/Editor/EditorContextMenu/EditorContextMenu";
 import { ApprovalDialog } from "@/components/WorkflowApproval/ApprovalDialog";
 import { QuickOpen } from "@/components/QuickOpen/QuickOpen";
 import { ContentSearch } from "@/components/ContentSearch/ContentSearch";
@@ -228,6 +229,7 @@ function MainLayout() {
           <KnowledgeBaseOverlay />
           <WindowStatusOverlay />
           <GeniePicker />
+          <EditorContextMenu />
           <ApprovalDialog />
           <CommandPalette />
         </>

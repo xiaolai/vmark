@@ -31,7 +31,8 @@ import {
   handleJoinLines, handleSortLinesAsc, handleSortLinesDesc, handleRemoveBlankLines,
   handleTransformCase, toUpperCase, toLowerCase, toTitleCase, toggleCase,
 } from "./sourceTextTransforms";
-import { insertImage, insertVideoTag, insertAudioTag, unlinkAtCursor } from "./sourceImageActions";
+import { insertImage, insertVideoTag, insertAudioTag } from "./sourceImageActions";
+import { removeSourceLinkAtCursor } from "./sourceUnlink";
 import {
   handleBuildInsert, handleInsertAlert, insertCodeBlock, insertDivider,
   insertFootnote, insertListMarker, insertOrToggleBlockquote, insertTable,
@@ -101,7 +102,7 @@ export function performSourceToolbarAction(action: string, context: SourceToolba
     case "link:bookmark":
       return insertSourceBookmarkLink(view);
     case "unlink":
-      return unlinkAtCursor(view);
+      return removeSourceLinkAtCursor(view);
 
     // Clear formatting
     case "clearFormatting":

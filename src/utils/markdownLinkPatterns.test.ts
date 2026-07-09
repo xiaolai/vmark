@@ -4,6 +4,7 @@ import {
   findWikiLinksInLine,
   findMarkdownLinkAtPosition,
   findWikiLinkAtPosition,
+  findReferenceLinkAtPosition,
 } from "./markdownLinkPatterns";
 
 describe("markdownLinkPatterns", () => {
@@ -139,6 +140,63 @@ describe("markdownLinkPatterns", () => {
       const link = findWikiLinkAtPosition("[[target|alias]]", 0, 10);
       expect(link?.target).toBe("target");
       expect(link?.alias).toBe("alias");
+    });
+  });
+
+  // WI-4.1 follow-up (audit round 1): reference-link detection so source
+  // "Remove Link" can unwrap [text][label] and [text][] forms.
+  describe("findReferenceLinkAtPosition", () => {
+    it("finds a full reference link at the position", () => {
+      const link = findReferenceLinkAtPosition("see [text][label] here", 0, 6);
+      expect(link).toEqual({
+        from: 4,
+        to: 17,
+        text: "text",
+        label: "label",
+        fullMatch: "[text][label]",
+      });
+    });
+
+    it("finds a collapsed reference link", () => {
+      const link = findReferenceLinkAtPosition("[text][]", 0, 3);
+      expect(link).toEqual({ from: 0, to: 8, text: "text", label: "", fullMatch: "[text][]" });
+    });
+
+    it("skips image references", () => {
+      expect(findReferenceLinkAtPosition("![alt][ref]", 0, 4)).toBeNull();
+    });
+
+    it("does not match inline links (those have their own finder)", () => {
+      expect(findReferenceLinkAtPosition("[text](https://x)", 0, 3)).toBeNull();
+    });
+
+    it("returns null outside the link and honors document offsets", () => {
+      expect(findReferenceLinkAtPosition("pad [a][b]", 100, 102)).toBeNull();
+      expect(findReferenceLinkAtPosition("pad [a][b]", 100, 105)?.text).toBe("a");
+    });
+
+    it("handles CJK text and labels", () => {
+      const link = findReferenceLinkAtPosition("[中文][标签]", 0, 2);
+      expect(link?.text).toBe("中文");
+      expect(link?.label).toBe("标签");
+    });
+
+    it("handles one level of nested brackets in the link text", () => {
+      const link = findReferenceLinkAtPosition("[a [nested] text][ref]", 0, 5);
+      expect(link).toEqual({
+        from: 0,
+        to: 22,
+        text: "a [nested] text",
+        label: "ref",
+        fullMatch: "[a [nested] text][ref]",
+      });
+    });
+
+    it("picks the correct link among adjacent reference links", () => {
+      const line = "[a][r1] [b][r2]";
+      expect(findReferenceLinkAtPosition(line, 0, 1)?.label).toBe("r1");
+      expect(findReferenceLinkAtPosition(line, 0, 9)?.label).toBe("r2");
+      expect(findReferenceLinkAtPosition(line, 0, 7)).toBeNull();
     });
   });
 });

@@ -16,6 +16,7 @@
 
 import { useImagePasteToastStore } from "@/stores/imagePasteToastStore";
 import { useMediaPopupStore } from "@/stores/mediaPopupStore";
+import { usePopupStore } from "@/stores/popupStore";
 import { hideImagePreview } from "@/plugins/imagePreview/ImagePreviewView";
 import { flushActiveWysiwygNow } from "@/utils/wysiwygFlush";
 
@@ -24,6 +25,13 @@ export function cleanupBeforeModeSwitch(): void {
   const toastStore = useImagePasteToastStore.getState();
   if (toastStore.isOpen) {
     toastStore.hideToast();
+  }
+
+  // Close the editor context menu — its snapshot targets the surface that
+  // is about to unmount; activating it after the switch would dispatch
+  // against the wrong (or a dead) editor.
+  if (usePopupStore.getState().editorContextMenu.isOpen) {
+    usePopupStore.getState().editorContextCloseMenu();
   }
 
   flushActiveWysiwygNow();

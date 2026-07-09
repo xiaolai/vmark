@@ -5,6 +5,8 @@
  * store with one namespaced slice per popup. Each slice preserves its
  * original field shape; actions are prefixed with the slice name to
  * disambiguate the many `openPopup` / `closePopup` collisions.
+ * New popups add slices directly (no legacy shim): `editorContextMenu`
+ * (the editor right-click menu) was born here post-consolidation.
  *
  * Slice mapping (was → is):
  *   - blockMathEditingStore     → state.blockMathEditing
@@ -40,6 +42,7 @@ import { create } from "zustand";
 import {
   initialBlockMathEditing,
   initialDropZone,
+  initialEditorContextMenu,
   initialFootnotePopup,
   initialGeniePicker,
   initialHeadingPicker,
@@ -72,6 +75,7 @@ export type { PopupStore } from "./popupStore/types";
 export const usePopupStore = create<PopupStore>((set, get) => ({
   blockMathEditing: initialBlockMathEditing,
   dropZone: initialDropZone,
+  editorContextMenu: initialEditorContextMenu,
   footnotePopup: initialFootnotePopup,
   geniePicker: initialGeniePicker,
   headingPicker: initialHeadingPicker,

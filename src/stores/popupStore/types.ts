@@ -2,7 +2,7 @@
  * Popup-store shared types — combined store shape, action-group
  * interfaces, and action-creator helpers.
  *
- * Purpose: composes the 15 slice shapes from `./slices` with the three
+ * Purpose: composes the 16 slice shapes from `./slices` with the three
  * action-group interfaces (declared here) into the `PopupStore` type,
  * and defines the `PopupSet`/`PopupGet` aliases the action-creator files
  * use so every action closes over the same store factory `set`/`get`.
@@ -21,9 +21,11 @@ import type { HeadingWithId } from "@/utils/headingSlug";
 import type { ImageDimensions } from "@/types/image";
 import type { ImagePathResult } from "@/utils/imagePathDetection";
 import type { GenieScope } from "@/types/aiGenies";
+import type { EditorContextMenuSnapshot } from "@/types/editorContextMenu";
 import type {
   BlockMathEditingSlice,
   DropZoneSlice,
+  EditorContextMenuSlice,
   FootnotePopupSlice,
   GeniePickerSlice,
   HeadingPickerSlice,
@@ -47,6 +49,7 @@ import type {
 interface PopupStoreState {
   blockMathEditing: BlockMathEditingSlice;
   dropZone: DropZoneSlice;
+  editorContextMenu: EditorContextMenuSlice;
   footnotePopup: FootnotePopupSlice;
   geniePicker: GeniePickerSlice;
   headingPicker: HeadingPickerSlice;
@@ -72,6 +75,13 @@ export interface EditingPopupActions {
   /* dropZone */
   dropZoneSetDragging: (isDragging: boolean, hasImages?: boolean, imageCount?: number) => void;
   dropZoneReset: () => void;
+
+  /* editorContextMenu */
+  editorContextOpenMenu: (data: {
+    position: { x: number; y: number };
+    snapshot: EditorContextMenuSnapshot;
+  }) => void;
+  editorContextCloseMenu: () => void;
 
   /* imageContextMenu */
   imageContextOpenMenu: (data: {

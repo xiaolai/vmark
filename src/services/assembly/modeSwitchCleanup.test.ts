@@ -51,6 +51,8 @@ vi.mock("@/utils/wysiwygFlush", () => ({
 }));
 
 import { cleanupBeforeModeSwitch } from "./modeSwitchCleanup";
+import { usePopupStore } from "@/stores/popupStore";
+import { initialEditorContextMenu } from "@/stores/popupStore/slices";
 
 beforeEach(() => {
   mockHideToast.mockReset();
@@ -62,6 +64,26 @@ beforeEach(() => {
 });
 
 describe("cleanupBeforeModeSwitch", () => {
+  it("closes the editor context menu (its snapshot targets the old surface)", () => {
+    usePopupStore.getState().editorContextOpenMenu({
+      position: { x: 1, y: 2 },
+      snapshot: {
+        surface: "wysiwyg",
+        selectionEmpty: true,
+        inCodeBlock: false,
+        headingLevel: null,
+        listType: null,
+        inBlockquote: false,
+        link: null,
+        formatPolicy: { paragraphFormatting: true, insertBlockActions: true },
+        activeActions: [],
+        disabledActions: [],
+      },
+    });
+    cleanupBeforeModeSwitch();
+    expect(usePopupStore.getState().editorContextMenu).toEqual(initialEditorContextMenu);
+  });
+
   it("closes the image-paste toast when it is open", () => {
     toastState.isOpen = true;
     cleanupBeforeModeSwitch();

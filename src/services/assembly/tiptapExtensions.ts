@@ -64,6 +64,7 @@ import { listContinuationExtension } from "@/plugins/listContinuation/tiptap";
 import { listBackspaceExtension } from "@/plugins/listBackspace/tiptap";
 import { listClickFixExtension } from "@/plugins/listClickFix/tiptap";
 import { tableUIExtension } from "@/plugins/tableUI/tiptap";
+import { editorContextMenuExtension } from "@/plugins/editorContextMenu/tiptap";
 import { blockEscapeExtension } from "@/plugins/blockEscape";
 import { editorKeymapExtension } from "@/plugins/editorPlugins.tiptap";
 import { highlightExtension } from "@/plugins/highlight/tiptap";
@@ -183,6 +184,7 @@ export function createTiptapExtensions(config: TiptapExtensionConfig = {}): Exte
     AlignedTableCell,
     tableUIExtension,
     tableScrollFreezeExtension,
+    editorContextMenuExtension,
     blockEscapeExtension,
     compositionGuardExtension,
     blockImageExtension,

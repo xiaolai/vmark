@@ -31,7 +31,7 @@ import { toggleTaskList } from "@/plugins/taskToggle/tiptapTaskListUtils";
 import { expandSelectionInView, selectBlockInView, selectLineInView, selectWordInView } from "@/plugins/toolbarActions/tiptapSelectionActions";
 import { canRunActionInMultiSelection } from "./multiSelectionPolicy";
 import { applyMultiSelectionBlockquoteAction, applyMultiSelectionHeading, applyMultiSelectionListAction } from "./wysiwygMultiSelection";
-import { insertWikiLink, insertBookmarkLink } from "./wysiwygAdapterLinks";
+import { insertWikiLink, insertBookmarkLink, removeLinkAtCursor } from "./wysiwygAdapterLinks";
 import { clearFormattingInView, increaseHeadingLevel, decreaseHeadingLevel, toggleBlockquote, handleWysiwygTransformCase, toggleQuoteStyleAtCursor } from "./wysiwygAdapterFormatting";
 import { handleInsertImage, handleInsertVideo, handleInsertAudio, insertMathBlock, insertDiagramBlock, insertGraphvizBlock, insertMarkmapBlock, insertInlineMath } from "./wysiwygAdapterInsert";
 import { openLinkEditor } from "./wysiwygAdapterLinkEditor";
@@ -111,6 +111,8 @@ export function performWysiwygToolbarAction(action: string, context: WysiwygTool
       return insertWikiLink(context);
     case "link:bookmark":
       return insertBookmarkLink(context);
+    case "unlink":
+      return removeLinkAtCursor(context);
 
     // Headings
     case "increaseHeading":

@@ -16,6 +16,7 @@ import type { HeadingWithId } from "@/utils/headingSlug";
 import type { ImageDimensions } from "@/types/image";
 import type { ImagePathResult } from "@/utils/imagePathDetection";
 import type { GenieScope } from "@/types/aiGenies";
+import type { EditorContextMenuSnapshot } from "@/types/editorContextMenu";
 
 /* ─────────────────────── shared/exported types ───────────────────────── */
 
@@ -106,6 +107,14 @@ export const initialHeadingPicker: HeadingPickerSlice = {
   containerBounds: null,
   onSelect: null,
 };
+
+export interface EditorContextMenuSlice {
+  isOpen: boolean;
+  position: { x: number; y: number } | null;
+  snapshot: EditorContextMenuSnapshot | null;
+}
+export const initialEditorContextMenu: EditorContextMenuSlice =
+  { isOpen: false, position: null, snapshot: null };
 
 export interface ImageContextMenuSlice {
   isOpen: boolean;

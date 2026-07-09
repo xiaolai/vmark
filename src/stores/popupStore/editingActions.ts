@@ -1,6 +1,7 @@
 /**
  * Popup-store editing/toast action group — blockMathEditing, dropZone,
- * imageContextMenu, imagePasteToast, and inlineMathEditing.
+ * editorContextMenu, imageContextMenu, imagePasteToast, and
+ * inlineMathEditing.
  *
  * Purpose: action implementations for the transient editing-state and
  * image-toast slices of the popup store. Extracted verbatim from
@@ -15,6 +16,7 @@
 import {
   initialBlockMathEditing,
   initialDropZone,
+  initialEditorContextMenu,
   initialImageContextMenu,
   initialImagePasteToast,
   initialInlineMathEditing,
@@ -47,6 +49,17 @@ export function createEditingPopupActions(
     dropZoneSetDragging: (isDragging, hasImages = false, imageCount = 0) =>
       set({ dropZone: { isDragging, hasImages, imageCount } }),
     dropZoneReset: () => set({ dropZone: initialDropZone }),
+
+    /* editorContextMenu */
+    editorContextOpenMenu: (data) =>
+      set({
+        editorContextMenu: {
+          isOpen: true,
+          position: data.position,
+          snapshot: data.snapshot,
+        },
+      }),
+    editorContextCloseMenu: () => set({ editorContextMenu: initialEditorContextMenu }),
 
     /* imageContextMenu */
     imageContextOpenMenu: (data) =>

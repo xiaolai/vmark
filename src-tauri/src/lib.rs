@@ -1,17 +1,15 @@
 //! # VMark Tauri Application
 //!
-//! Purpose: Entry point for the Tauri backend — wires together all modules,
-//! registers commands, configures plugins, and runs the app.
+//! Purpose: Tauri backend entry point — wires modules, commands, and plugins.
 //!
 //! Key decisions:
 //!   - `lib.rs` stays a declarative composition root: setup steps and
 //!     app-level event dispatch live in `app_setup`, Finder/CLI file-open
-//!     queueing and fs-scope extension in `file_open`, the extension
-//!     acceptance gate in `supported_files`, shell resolution for the
-//!     integrated terminal in `shell_env`, and the temp-HTML export writer
-//!     in `temp_html`.
-//!   - AI provider API keys are persisted in the OS keychain via the
-//!     `secure_store` module, never in plaintext config.
+//!     queueing and fs-scope extension in `file_open`, the extension gate in
+//!     `supported_files`, terminal shell resolution in `shell_env`, and the
+//!     temp-HTML export writer in `temp_html`.
+//!   - AI provider API keys persist in the OS keychain (`secure_store`),
+//!     never in plaintext config.
 
 rust_i18n::i18n!("locales", fallback = "en");
 
@@ -47,6 +45,7 @@ mod tab_transfer;
 mod task;
 mod temp_html;
 mod watcher;
+mod webview_edit;
 mod window_manager;
 pub mod workflow;
 mod workspace;
@@ -236,6 +235,7 @@ pub fn run() {
             debug_log,
             temp_html::write_temp_html,
             file_write::atomic_write_file,
+            webview_edit::trigger_webview_edit,
             #[cfg(target_os = "macos")]
             dock_recent::register_dock_recent,
             #[cfg(target_os = "macos")]

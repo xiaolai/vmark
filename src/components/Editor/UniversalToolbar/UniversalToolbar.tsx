@@ -18,8 +18,7 @@ import { selectSourceEditing } from "@/stores/selectSourceEditing";
 import { useEditorStore } from "@/stores/editorStore";
 import { getToolbarButtonState, getToolbarItemState } from "@/plugins/toolbarActions/enableRules";
 import { getSourceMultiSelectionContext, getWysiwygMultiSelectionContext } from "@/plugins/toolbarActions/multiSelectionContext";
-import { performSourceToolbarAction, setSourceHeadingLevel } from "@/plugins/toolbarActions/sourceAdapter";
-import { performWysiwygToolbarAction, setWysiwygHeadingLevel } from "@/plugins/toolbarActions/wysiwygAdapter";
+import { dispatchEditorAction } from "@/plugins/toolbarActions/dispatch";
 import type { ToolbarContext } from "@/plugins/toolbarActions/types";
 import { TOOLBAR_GROUPS, getGroupButtons } from "./toolbarGroups";
 import { ToolbarButton } from "./ToolbarButton";
@@ -155,52 +154,8 @@ export function UniversalToolbar() {
   );
 
   const handleAction = useCallback((action: string) => {
-    if (action.startsWith("heading:")) {
-      const level = Number(action.split(":")[1]);
-      /* v8 ignore next -- @preserve reason: NaN guard for malformed heading action strings; valid heading IDs always produce a number */
-      if (Number.isNaN(level)) return;
-      const isSource = selectSourceEditing(useUIStore.getState());
-      if (isSource) {
-        const state = useEditorStore.getState().source;
-        setSourceHeadingLevel({
-          surface: "source",
-          view: state.editorView,
-          context: state.context,
-          multiSelection: getSourceMultiSelectionContext(state.editorView, state.context),
-        }, level);
-      } else {
-        const state = useEditorStore.getState().tiptap;
-        setWysiwygHeadingLevel({
-          surface: "wysiwyg",
-          view: state.editorView,
-          editor: state.editor,
-          context: state.context,
-          multiSelection: getWysiwygMultiSelectionContext(state.editorView, state.context),
-        }, level);
-      }
-      return;
-    }
-
-    const isSource = selectSourceEditing(useUIStore.getState());
-    if (isSource) {
-      const state = useEditorStore.getState().source;
-      performSourceToolbarAction(action, {
-        surface: "source",
-        view: state.editorView,
-        context: state.context,
-        multiSelection: getSourceMultiSelectionContext(state.editorView, state.context),
-      });
-      return;
-    }
-
-    const state = useEditorStore.getState().tiptap;
-    performWysiwygToolbarAction(action, {
-      surface: "wysiwyg",
-      view: state.editorView,
-      editor: state.editor,
-      context: state.context,
-      multiSelection: getWysiwygMultiSelectionContext(state.editorView, state.context),
-    });
+    const surface = selectSourceEditing(useUIStore.getState()) ? "source" : "wysiwyg";
+    dispatchEditorAction(action, surface);
   }, []);
 
   // Keyboard navigation

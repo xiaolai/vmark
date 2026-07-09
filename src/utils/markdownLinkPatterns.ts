@@ -1,8 +1,9 @@
 /**
  * Markdown Link Patterns
  *
- * Purpose: Centralized regex patterns for detecting markdown links and wiki links,
- * ensuring consistent parsing across all source mode features.
+ * Purpose: Centralized regex patterns for detecting markdown links, wiki
+ * links, and reference links, ensuring consistent parsing across all
+ * source mode features.
  *
  * Used by source mode popups, toolbar adapters, and inline detection.
  * Regex patterns are recreated per call to avoid stateful lastIndex issues.
@@ -115,6 +116,54 @@ export function findWikiLinksInLine(lineText: string, lineStart: number): WikiLi
   }
 
   return results;
+}
+
+/**
+ * Regex to match reference links: [text][label] or collapsed [text][].
+ * The text may contain one level of balanced nested brackets
+ * (`[a [nested] text][ref]`), matching the inline-link finder's tolerance;
+ * deeper nesting is out of scope. Shortcut references ([text] alone) are
+ * intentionally NOT matched — bare bracket text is too ambiguous without
+ * resolving definitions.
+ *
+ * Groups: [1] link text, [2] label ("" for collapsed form).
+ * Does NOT match images — caller-side `!` check like the inline regex.
+ */
+const REFERENCE_LINK_REGEX = /\[((?:[^\][]|\[[^\][]*\])+)\]\[([^\][]*)\]/g;
+
+/** Result of finding a reference link at a position. */
+export interface ReferenceLinkMatch {
+  from: number;
+  to: number;
+  text: string;
+  label: string;
+  fullMatch: string;
+}
+
+/**
+ * Find a reference link ([text][label] / [text][]) at a specific position.
+ * Skips image references (preceded by `!`).
+ *
+ * @param lineText - The text to search
+ * @param lineStart - The document offset where this line begins
+ * @param pos - The position to check (document offset)
+ */
+export function findReferenceLinkAtPosition(
+  lineText: string,
+  lineStart: number,
+  pos: number
+): ReferenceLinkMatch | null {
+  const regex = new RegExp(REFERENCE_LINK_REGEX.source, "g");
+  let match;
+  while ((match = regex.exec(lineText)) !== null) {
+    if (match.index > 0 && lineText[match.index - 1] === "!") continue;
+    const from = lineStart + match.index;
+    const to = from + match[0].length;
+    if (pos >= from && pos < to) {
+      return { from, to, text: match[1], label: match[2], fullMatch: match[0] };
+    }
+  }
+  return null;
 }
 
 /**

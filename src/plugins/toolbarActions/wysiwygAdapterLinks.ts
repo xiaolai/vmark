@@ -5,6 +5,7 @@
  * Handles wiki links and bookmark links.
  */
 
+import type { Mark, MarkType, ResolvedPos } from "@tiptap/pm/model";
 import { useHeadingPickerStore } from "@/stores/headingPickerStore";
 import { extractHeadingsWithIds } from "@/utils/headingSlug";
 import { getBoundaryRects, getViewportBounds } from "@/utils/popupPosition";
@@ -34,6 +35,74 @@ export function insertWikiLink(context: WysiwygToolbarContext): boolean {
   );
 
   dispatch(state.tr.replaceSelectionWith(node));
+  view.focus();
+  return true;
+}
+
+/**
+ * Full extent of the link mark around a caret position: locates the text
+ * node at (or immediately before) the caret carrying the mark, then
+ * expands over adjacent siblings with the same mark (type + attrs).
+ * Returns null when the caret is not on a link.
+ */
+function linkMarkRangeAt(
+  $pos: ResolvedPos,
+  markType: MarkType
+): { from: number; to: number } | null {
+  const parent = $pos.parent;
+  let startIndex = $pos.index();
+  let node = parent.maybeChild(startIndex);
+  let mark: Mark | undefined = node ? markType.isInSet(node.marks) ?? undefined : undefined;
+
+  // At a boundary the caret resolves after the linked node — look left.
+  if (!mark && startIndex > 0) {
+    startIndex -= 1;
+    node = parent.maybeChild(startIndex);
+    mark = node ? markType.isInSet(node.marks) ?? undefined : undefined;
+  }
+  if (!node || !mark) return null;
+
+  let endIndex = startIndex + 1;
+  while (startIndex > 0 && mark.isInSet(parent.child(startIndex - 1).marks)) {
+    startIndex -= 1;
+  }
+  while (endIndex < parent.childCount && mark.isInSet(parent.child(endIndex).marks)) {
+    endIndex += 1;
+  }
+
+  let from = $pos.start();
+  for (let i = 0; i < startIndex; i++) from += parent.child(i).nodeSize;
+  let to = from;
+  for (let i = startIndex; i < endIndex; i++) to += parent.child(i).nodeSize;
+  return { from, to };
+}
+
+/**
+ * Remove the link mark at the cursor ("unlink"). A caret removes the whole
+ * surrounding link; a selection removes the mark across the selection
+ * (macOS convention). Text content is untouched.
+ */
+export function removeLinkAtCursor(context: WysiwygToolbarContext): boolean {
+  const view = context.view;
+  if (!view) return false;
+
+  const { state } = view;
+  const linkType = state.schema.marks.link;
+  /* v8 ignore next -- @preserve reason: the Tiptap schema always defines the link mark; guard for minimal test schemas */
+  if (!linkType) return false;
+
+  const { $from, from, to, empty } = state.selection;
+  let start = from;
+  let end = to;
+  if (empty) {
+    const range = linkMarkRangeAt($from, linkType);
+    if (!range) return false;
+    start = range.from;
+    end = range.to;
+  }
+  if (start === end) return false;
+
+  view.dispatch(state.tr.removeMark(start, end, linkType));
   view.focus();
   return true;
 }

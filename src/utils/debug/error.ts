@@ -23,6 +23,11 @@ export const sourceLinkError = isDev
   ? (...args: unknown[]) => console.error("[SourceLink]", ...args)
   : (...args: unknown[]) => prodError("[SourceLink]", ...args);
 
+/** Error logger for the editor context menu. */
+export const contextMenuError = isDev
+  ? (...args: unknown[]) => console.error("[ContextMenu]", ...args)
+  : (...args: unknown[]) => prodError("[ContextMenu]", ...args);
+
 /** Error logger for Resolve Media. */
 export const resolveMediaError = isDev
   ? (...args: unknown[]) => console.error("[ResolveMedia]", ...args)

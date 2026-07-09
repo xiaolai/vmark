@@ -30,6 +30,7 @@ import { manifest as codePaste } from "./codePaste/manifest";
 import { manifest as codePreview } from "./codePreview/manifest";
 import { manifest as compositionGuard } from "./compositionGuard/manifest";
 import { manifest as detailsBlock } from "./detailsBlock/manifest";
+import { manifest as editorContextMenu } from "./editorContextMenu/manifest";
 import { manifest as focusMode } from "./focusMode/manifest";
 import { manifest as footnotePopup } from "./footnotePopup/manifest";
 import { manifest as formatToolbar } from "./formatToolbar/manifest";
@@ -96,7 +97,7 @@ import { manifest as workflowPreview } from "./workflowPreview/manifest";
 const ALL = [
   aiSuggestion, alertBlock, autoPair, blockAudio, blockEscape, blockImage,
   blockquoteEscape, blockVideo, cjkLetterSpacing, codeBlockLineNumbers,
-  codePaste, codePreview, compositionGuard, detailsBlock, focusMode,
+  codePaste, codePreview, compositionGuard, detailsBlock, editorContextMenu, focusMode,
   footnotePopup, formatToolbar, frontmatterPanel, ghaWorkflowPreview,
   graphviz, highlight, htmlPaste, imageHandler, imagePasteToast, imagePreview,
   imageView, inactiveSelection, inlineCodeBoundary, inlineNodeEditing,

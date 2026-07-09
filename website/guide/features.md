@@ -351,6 +351,18 @@ A formatting toolbar anchored at the bottom of the editor, providing quick acces
 - **Session memory:** The toolbar remembers which button was last focused during the current session, so re-focusing picks up where you left off.
 - **AI Genies shortcut:** The toolbar includes an AI Genies button that opens the genie picker (`Mod + Y`).
 
+## Editor Context Menu
+
+Right-click anywhere in the editor (WYSIWYG or Source mode) to open a context menu with common actions.
+
+- **Clipboard:** Cut, Copy, Paste, and Select All. On macOS these use the native clipboard pipeline, so pasting rich content (e.g. HTML copied from a browser) keeps its formatting — identical to `Mod + V`.
+- **Inline formatting:** Bold, Italic, Strikethrough, and Inline Code, with checkmarks showing the active marks at the cursor.
+- **Block operations:** Heading level and List type submenus, Blockquote, and Code Block — checkmarks reflect the current block.
+- **Links:** Insert Link on plain text; on an existing link the section swaps to Edit Link, Copy Link, and Remove Link.
+- **Context aware:** Inside tables the dedicated table menu appears instead; right-clicking an image opens the image menu; inside code blocks only clipboard actions are offered. Non-Markdown files (JSON, YAML, …) get a reduced clipboard-only menu.
+- **Selection handling:** Right-clicking inside a selection keeps it; right-clicking elsewhere moves the cursor there first (macOS convention).
+- **Keyboard:** Arrow keys navigate (disabled items are skipped), `Right`/`Left` enter and leave submenus, `Escape` closes the submenu first and then the menu. Shortcut hints reflect your custom key bindings.
+
 ## Export Options
 
 VMark offers flexible export options for sharing your documents.

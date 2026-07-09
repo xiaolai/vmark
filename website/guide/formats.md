@@ -114,7 +114,7 @@ Opens with a Python dependency tree — both PEP 621 (`[project]` + `[project.op
 ## Editing rules
 
 - **Markdown** ships the full toolbar, paragraph formatting, CJK rules, math, mermaid, footnotes — every existing markdown feature.
-- **Data formats** (JSON, YAML, TOML) ship in the source pane with parse-error gutter markers; the tree preview updates as you type. Markdown-only menu actions are disabled (CJK formatting, insert-block, paragraph formatting); mode-relevant controls remain active.
+- **Data formats** (JSON, YAML, TOML) ship in the source pane with parse-error gutter markers; the tree preview updates as you type. Markdown-only menu actions are disabled (CJK formatting, insert-block, paragraph formatting); mode-relevant controls remain active. The right-click context menu is reduced to clipboard actions (Cut/Copy/Paste/Select All).
 - **Visual formats** (Mermaid, SVG, HTML) ship in the source pane with the rendered view in the right pane (debounced).
 - **Code formats** open as syntax-highlighted viewers; toggle to edit in place or open in your external editor (see below).
 

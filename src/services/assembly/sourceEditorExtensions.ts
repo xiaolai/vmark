@@ -89,6 +89,7 @@ import {
   listSmartOutdentKeymap,
 } from "@/plugins/codemirror";
 import { buildSourceShortcutKeymap } from "@/plugins/codemirror/sourceShortcuts";
+import { sourceEditorContextMenuExtension } from "@/plugins/codemirror/editorContextMenu";
 import { toggleTaskList } from "@/plugins/sourceContextDetection/taskListActions";
 import { guardCodeMirrorKeyBinding } from "@/utils/imeGuard";
 import { isMacPlatform } from "@/utils/shortcutMatch";
@@ -136,10 +137,9 @@ interface ExtensionConfig {
  */
 export function createSourceEditorExtensions(config: ExtensionConfig): Extension[] {
   const { initialWordWrap, initialShowBrTags, initialAutoPair, initialShowLineNumbers, initialShowInvisibles = false, updateListener, tabId, lintEnabled, filePath } = config;
-  // YAML detection is independent of the workflow feature flag — every
-  // YAML file gets `lang-yaml` highlighting and parse-error linting.
-  // Workflow-only extensions (preview, completion, goto, cursor sync)
-  // additionally gate on `isWorkflowEnabled()`. Codex audit MED-2 fix.
+  // YAML detection ignores the workflow feature flag — every YAML file gets
+  // `lang-yaml` highlighting and parse-error linting; workflow-only extensions
+  // (preview, completion, goto, cursor sync) gate on isWorkflowEnabled(). MED-2.
   const isYaml = filePath
     ? isYamlFileName(filePath.split(/[\\/]/).pop() ?? "")
     : false;
@@ -171,8 +171,7 @@ export function createSourceEditorExtensions(config: ExtensionConfig): Extension
     createSourceCopyOnSelectPlugin(),
     // IME guard: flush queued work after composition ends
     createImeGuardPlugin(),
-    // Strip scrollIntoView from IME compose transactions so the viewport
-    // does not jitter on every pinyin/kana/hangul keystroke (issue #814)
+    // Strip scrollIntoView from IME compose transactions to avoid viewport jitter (#814)
     imeScrollGuard,
     // Focus mode: dim non-current paragraph
     createSourceFocusModePlugin(),
@@ -184,8 +183,7 @@ export function createSourceEditorExtensions(config: ExtensionConfig): Extension
     ...sourceMultiCursorExtensions,
     // Allow multiple selections
     EditorState.allowMultipleSelections.of(true),
-    // Render selection ranges as a dimmed overlay while the editor is
-    // blurred (typing in the built-in terminal, etc.).
+    // Dimmed selection overlay while the editor is blurred (e.g. in the terminal).
     ...sourceInactiveSelectionExtensions,
     // History (undo/redo)
     history(),
@@ -339,6 +337,8 @@ export function createSourceEditorExtensions(config: ExtensionConfig): Extension
     createSourceFootnotePopupPlugin(),
     // Table context menu
     ...sourceTableContextMenuExtensions,
+    // Generic editor context menu — after the table menu, which owns tables (ADR-5)
+    sourceEditorContextMenuExtension,
     // Table cell highlight
     ...sourceTableCellHighlightExtensions,
     // Diagram preview (mermaid + SVG)

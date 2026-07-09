@@ -32,6 +32,10 @@ export { createSourceMathPreviewPlugin } from "./sourceMathPreview";
 export { createSourceImagePreviewPlugin } from "./sourceImagePreview";
 export { sourceMultiCursorExtensions } from "./sourceMultiCursorPlugin";
 export { sourceTableContextMenuExtensions } from "./sourceTableContextMenu";
+// editorContextMenu is intentionally NOT re-exported here: it links the
+// toolbar-adapter graph, and exporting it from this barrel creates an
+// import cycle (barrel → editorContextMenu → … → codemirror barrel).
+// Consumers import "@/plugins/codemirror/editorContextMenu" directly.
 export { sourceTableCellHighlightExtensions } from "./sourceTableCellHighlight";
 export { sourceDiagramPreviewExtensions } from "./sourceMermaidPreview";
 export { sourceAlertDecorationExtensions } from "./sourceAlertDecoration";

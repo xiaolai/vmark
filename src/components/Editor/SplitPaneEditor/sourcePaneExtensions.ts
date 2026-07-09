@@ -20,6 +20,7 @@ import { syntaxHighlighting } from "@codemirror/language";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useUIStore } from "@/stores/uiStore";
 import { sourceEditorTheme, codeHighlightStyle } from "@/plugins/codemirror/theme";
+import { reducedEditorContextMenuExtension } from "@/plugins/codemirror/editorContextMenu";
 import type { FormatConfig, ValidationDiagnostic } from "@/lib/formats/types";
 
 /** Map a format ValidationDiagnostic to a CodeMirror Diagnostic, clamping
@@ -122,6 +123,9 @@ export function buildSourcePaneExtensions(args: BuildExtensionsArgs): Extension[
     // Empty initial language — the loadLanguage promise reconfigures this.
     languageCompartment.of([]),
     persistOnUpdate,
+    // Right-click menu, reduced to clipboard + Select All — split panes
+    // have no markdown context detection (plan WI-3.3).
+    reducedEditorContextMenuExtension,
   ];
 
   const validationLinter = buildValidationLinter(tabId, validator, onDiagnostics);

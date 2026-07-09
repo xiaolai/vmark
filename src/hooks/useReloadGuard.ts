@@ -49,8 +49,9 @@ function useProductionReloadGuard(): void {
     };
 
     // Block the native webview context menu (contains "Reload" on macOS).
-    // Custom context menus (table, image) call stopPropagation() so this
-    // global handler won't interfere with them.
+    // Custom context menus (editor, table, image, tabs, file explorer,
+    // terminal) claim their events with preventDefault()/stopPropagation()
+    // before this global fallback, so it won't interfere with them.
     const blockContextMenu = (e: MouseEvent) => {
       e.preventDefault();
     };

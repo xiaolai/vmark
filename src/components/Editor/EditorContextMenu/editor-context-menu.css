@@ -1,0 +1,50 @@
+/*
+ * Editor context menu — extends the shared .context-menu surface
+ * (imported from FileExplorer/ContextMenu.css by the component, same as
+ * the image and terminal menus). Only submenu geometry and the checkmark
+ * slot live here.
+ */
+
+/* Submenu anchor: the parent item is the positioning context. */
+.editor-context-menu-subwrap {
+  position: relative;
+}
+
+/* The submenu panel reuses the .context-menu surface but must be
+   absolutely positioned relative to its parent item, not the viewport.
+   Last-resort containment: on very short windows the panel scrolls
+   internally instead of escaping the window. */
+.editor-context-submenu {
+  position: absolute;
+  /* Positioning offset — literal per rule 31 (the app-overlay mount point
+     does not receive the --spacing-* scope, so var() would be invalid
+     here and silently fall back to static positioning). */
+  top: -4px;
+  left: 100%;
+  min-width: 150px;
+  max-height: calc(100vh - 20px);
+  overflow-y: auto;
+}
+
+/* Flipped open to the left when the right edge would overflow. */
+.editor-context-submenu--flip {
+  left: auto;
+  right: 100%;
+}
+
+/* Fixed-width leading slot so labels align whether the item shows a
+   checkmark, an icon, or nothing. */
+.editor-context-menu .context-menu-item-icon,
+.editor-context-submenu .context-menu-item-icon {
+  width: var(--size-icon-xs);
+  display: flex;
+  justify-content: center;
+}
+
+/* Submenu chevron sits after the label, pushed to the right edge. */
+.editor-context-menu-chevron {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  opacity: var(--opacity-subtle);
+}
