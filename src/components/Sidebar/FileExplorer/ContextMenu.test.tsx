@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
@@ -189,12 +189,13 @@ describe("ContextMenu ARIA and keyboard", () => {
     expect(items.length).toBe(6); // folder menu has 6 items
   });
 
-  it("closes on Escape key via document-level listener", async () => {
+  it("closes on Escape (owned by the roving hook)", () => {
     const onClose = vi.fn();
     renderMenu("file", vi.fn(), onClose);
 
-    // Fire keydown at document level (not via userEvent which targets focused element)
-    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    // Escape is handled on the menu (focus is seeded inside it on open),
+    // not via a document-level listener.
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
     expect(onClose).toHaveBeenCalled();
   });
 
@@ -204,7 +205,7 @@ describe("ContextMenu ARIA and keyboard", () => {
     const onClose = vi.fn();
     renderMenu("file", vi.fn(), onClose);
 
-    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape", isComposing: true });
     expect(onClose).not.toHaveBeenCalled();
 
     mockIsImeKeyEvent.mockReturnValue(false);

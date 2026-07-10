@@ -5,16 +5,22 @@
  * disabled ones) plus one level of submenu — ArrowRight/Enter opens a
  * submenu and focuses its first enabled child, ArrowLeft returns to the
  * parent, Escape is two-step (submenu first, then the menu itself).
- * Follows the FileExplorer/Tab menu conventions (arrows wrap, Home/End,
- * disabled items are skipped, Tab closes).
+ * The one-level disabled-skip math is shared with the flat context menus
+ * via `useMenuRovingFocus`'s helpers; the two-level submenu orchestration
+ * below is specific to this menu.
  *
  * @coordinates-with EditorContextMenu.tsx — renders per this state
+ * @coordinates-with hooks/useMenuRovingFocus.ts — findNextEnabled/findEdgeEnabled
  * @module components/Editor/EditorContextMenu/useMenuNavigation
  */
 
 import { useCallback, useState } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { isImeKeyEvent } from "@/utils/imeGuard";
+import {
+  findNextEnabled as nextEnabled,
+  findEdgeEnabled as edgeEnabled,
+} from "@/hooks/useMenuRovingFocus";
 import type { EditorMenuAction, EditorMenuItem } from "./menuModel";
 
 export interface MenuFocus {
@@ -27,20 +33,6 @@ interface UseMenuNavigationOptions {
   items: EditorMenuItem[];
   onActivate: (item: EditorMenuAction) => void;
   onClose: () => void;
-}
-
-function nextEnabled(items: readonly EditorMenuItem[], from: number, direction: 1 | -1): number {
-  if (items.length === 0) return -1;
-  let index = from;
-  for (let step = 0; step < items.length; step++) {
-    index = (index + direction + items.length) % items.length;
-    if (!items[index]?.disabled) return index;
-  }
-  return -1;
-}
-
-function edgeEnabled(items: readonly EditorMenuItem[], direction: 1 | -1): number {
-  return direction === 1 ? nextEnabled(items, -1, 1) : nextEnabled(items, 0, -1);
 }
 
 export function useMenuNavigation({ items, onActivate, onClose }: UseMenuNavigationOptions) {

@@ -20,8 +20,6 @@ import {
   useRef,
   useCallback,
   useMemo,
-  useState,
-  type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -34,8 +32,8 @@ import {
   FolderOpen,
   FolderInput,
 } from "lucide-react";
-import { isImeKeyEvent } from "@/utils/imeGuard";
 import { useDismissOnOutsideOrEscape } from "@/hooks/useDismissOnOutsideOrEscape";
+import { useMenuRovingFocus } from "@/hooks/useMenuRovingFocus";
 import "./ContextMenu.css";
 
 /** Determines which menu items are shown: file actions, folder actions, or empty-area actions. */
@@ -53,6 +51,8 @@ interface MenuItem {
   icon: React.ReactNode;
   shortcut?: string;
   separator?: boolean;
+  /** Unused today, but the shared roving-focus hook skips disabled items. */
+  disabled?: boolean;
 }
 
 // Build menu items using translated labels
@@ -97,13 +97,6 @@ function getMenuItems(type: ContextMenuType, labels: Record<string, string>): Me
   }
 }
 
-function findNextFocusable(total: number, current: number, direction: 1 | -1): number {
-  /* v8 ignore next -- @preserve reason: empty menu guard; menu always has at least one item */
-  if (total === 0) return -1;
-  if (current === -1) return direction === 1 ? 0 : total - 1;
-  return (current + direction + total) % total;
-}
-
 /** Platform-appropriate translation key for the "reveal in file manager" action. */
 function revealLabelKey(): string {
   const platform = typeof navigator !== "undefined" ? navigator.platform.toLowerCase() : "";
@@ -123,10 +116,6 @@ interface ContextMenuProps {
 export function ContextMenu({ type, position, onAction, onClose }: ContextMenuProps) {
   const { t } = useTranslation("sidebar");
   const menuRef = useRef<HTMLDivElement>(null);
-  const itemRefs = useRef<Array<HTMLButtonElement | null>>([]);
-  // Start focused on the first item — the menu always opens with item 0 focused.
-  // Using the initial state instead of a mount effect avoids an extra render (#1063).
-  const [focusedIndex, setFocusedIndex] = useState(0);
 
   // Resolve platform-appropriate "reveal in file manager" label via translation keys.
   // The React Compiler auto-memoizes the component, so no manual useMemo is needed —
@@ -147,8 +136,8 @@ export function ContextMenu({ type, position, onAction, onClose }: ContextMenuPr
 
   const items = getMenuItems(type, menuLabels);
 
-  // Close on click outside or Escape (Escape ignored during IME composition).
-  useDismissOnOutsideOrEscape(true, menuRef, onClose);
+  // Click-outside only; Escape/Tab are owned by the roving hook.
+  useDismissOnOutsideOrEscape(true, menuRef, onClose, { escape: false });
 
   // Position adjustment to keep menu in viewport
   useEffect(() => {
@@ -176,12 +165,6 @@ export function ContextMenu({ type, position, onAction, onClose }: ContextMenuPr
     menu.style.top = `${adjustedY}px`;
   }, [position]);
 
-  // Move DOM focus when focusedIndex changes
-  useEffect(() => {
-    if (focusedIndex < 0) return;
-    itemRefs.current[focusedIndex]?.focus();
-  }, [focusedIndex]);
-
   const handleItemClick = useCallback(
     (id: string) => {
       onAction(id);
@@ -190,49 +173,11 @@ export function ContextMenu({ type, position, onAction, onClose }: ContextMenuPr
     [onAction, onClose]
   );
 
-  const handleMenuKeyDown = useCallback(
-    (event: ReactKeyboardEvent<HTMLDivElement>) => {
-      if (isImeKeyEvent(event.nativeEvent)) return;
-
-      if (event.key === "ArrowDown") {
-        event.preventDefault();
-        setFocusedIndex((current) => findNextFocusable(items.length, current, 1));
-        return;
-      }
-
-      if (event.key === "ArrowUp") {
-        event.preventDefault();
-        setFocusedIndex((current) => findNextFocusable(items.length, current, -1));
-        return;
-      }
-
-      if (event.key === "Home") {
-        event.preventDefault();
-        setFocusedIndex(0);
-        return;
-      }
-
-      if (event.key === "End") {
-        event.preventDefault();
-        setFocusedIndex(items.length - 1);
-        return;
-      }
-
-      if (event.key === "Tab") {
-        onClose();
-        return;
-      }
-
-      if ((event.key === "Enter" || event.key === " ") && focusedIndex >= 0) {
-        event.preventDefault();
-        const item = items[focusedIndex];
-        /* v8 ignore next -- @preserve reason: null item guard; focusedIndex always valid in tests */
-        if (!item) return;
-        handleItemClick(item.id);
-      }
-    },
-    [items, focusedIndex, onClose, handleItemClick]
-  );
+  const { handleKeyDown, registerItem, itemProps } = useMenuRovingFocus<MenuItem>({
+    items,
+    onActivate: (item) => handleItemClick(item.id),
+    onDismiss: onClose,
+  });
 
   return (
     <div
@@ -241,22 +186,18 @@ export function ContextMenu({ type, position, onAction, onClose }: ContextMenuPr
       style={{ left: position.x, top: position.y }}
       role="menu"
       aria-label={t("contextMenu.ariaLabel")}
-      onKeyDown={handleMenuKeyDown}
+      onKeyDown={handleKeyDown}
     >
       {items.map((item, index) => (
         <div key={item.id}>
           {item.separator && index > 0 && <div className="context-menu-separator" />}
           <button
-            ref={(node) => {
-              itemRefs.current[index] = node;
-            }}
+            ref={(node) => registerItem(index, node)}
             type="button"
             role="menuitem"
             className="context-menu-item"
             onClick={() => handleItemClick(item.id)}
-            onFocus={() => setFocusedIndex(index)}
-            onMouseEnter={() => setFocusedIndex(index)}
-            tabIndex={focusedIndex === index ? 0 : -1}
+            {...itemProps(index)}
           >
             <span className="context-menu-item-icon">{item.icon}</span>
             <span className="context-menu-item-label">{item.label}</span>

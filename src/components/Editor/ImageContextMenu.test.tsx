@@ -152,20 +152,20 @@ describe("ImageContextMenu", () => {
 
   it("closes the menu when Escape is pressed", () => {
     render(<ImageContextMenu onAction={onAction} />);
-    fireEvent.keyDown(document, { key: "Escape" });
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
     expect(mocks.closeMenu).toHaveBeenCalled();
   });
 
   it("does not close on Escape during IME composition", () => {
     mocks.isImeKeyEvent.mockReturnValue(true);
     render(<ImageContextMenu onAction={onAction} />);
-    fireEvent.keyDown(document, { key: "Escape" });
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape", isComposing: true });
     expect(mocks.closeMenu).not.toHaveBeenCalled();
   });
 
-  it("does not close on non-Escape keys", () => {
+  it("does not close on non-Escape navigation keys", () => {
     render(<ImageContextMenu onAction={onAction} />);
-    fireEvent.keyDown(document, { key: "ArrowDown" });
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "ArrowDown" });
     expect(mocks.closeMenu).not.toHaveBeenCalled();
   });
 
@@ -192,12 +192,14 @@ describe("ImageContextMenu", () => {
 
   // ── Cleanup ──────────────────────────────────────────────────────
 
-  it("removes event listeners on unmount", () => {
+  it("removes the click-outside listener on unmount", () => {
+    // Escape is handled on the menu element (roving hook), so the dismiss
+    // hook runs with { escape: false } and registers only the mousedown
+    // click-outside listener — that is the one to clean up.
     const removeSpy = vi.spyOn(document, "removeEventListener");
     const { unmount } = render(<ImageContextMenu onAction={onAction} />);
     unmount();
     expect(removeSpy).toHaveBeenCalledWith("mousedown", expect.any(Function), true);
-    expect(removeSpy).toHaveBeenCalledWith("keydown", expect.any(Function));
     removeSpy.mockRestore();
   });
 

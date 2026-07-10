@@ -32,22 +32,15 @@
  * @coordinates-with createTerminalInstance.ts — provides resetDisplay()
  * @module components/Terminal/TerminalContextMenu
  */
-import {
-  useLayoutEffect,
-  useRef,
-  useState,
-  useCallback,
-  type KeyboardEvent as ReactKeyboardEvent,
-} from "react";
+import { useLayoutEffect, useRef, useState, useCallback } from "react";
 import { Copy, CopyMinus, ClipboardPaste, Square, Trash2, RefreshCw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { readText, writeText } from "@tauri-apps/plugin-clipboard-manager";
 import type { Terminal } from "@xterm/xterm";
 import { useDismissOnOutsideOrEscape } from "@/hooks/useDismissOnOutsideOrEscape";
-import { isImeKeyEvent } from "@/utils/imeGuard";
+import { useMenuRovingFocus } from "@/hooks/useMenuRovingFocus";
 import { clipboardWarn } from "@/utils/debug";
 import { unwrapTerminalSelection } from "./unwrapSelection";
-import { findNextEnabled, findEdgeEnabled } from "./terminalMenuNav";
 import "../Sidebar/FileExplorer/ContextMenu.css";
 import { errorMessage } from "@/utils/errorMessage";
 
@@ -76,8 +69,6 @@ export function TerminalContextMenu({
 }: TerminalContextMenuProps) {
   const { t } = useTranslation("statusbar");
   const menuRef = useRef<HTMLDivElement>(null);
-  const itemRefs = useRef<Array<HTMLButtonElement | null>>([]);
-  const [focusedIndex, setFocusedIndex] = useState(-1);
   // Snapshot selection state at open time so the Copy items keep a stable
   // enabled/disabled state for the menu's lifetime — arrowing around (which
   // re-renders) must not flip them. The action handler still checks
@@ -104,25 +95,9 @@ export function TerminalContextMenu({
     term.focus();
   }, [onClose, term]);
 
-  // Click-outside only (capture phase); Escape is owned by the menu's own
-  // key handler so it can refocus the terminal — unlike an outside click.
+  // Click-outside only (capture phase); Escape is owned by the roving hook
+  // so it can refocus the terminal — unlike an outside click.
   useDismissOnOutsideOrEscape(true, menuRef, onClose, { escape: false });
-
-  // Seed the roving target and move DOM focus BEFORE paint (layout effects)
-  // so the menu never renders a frame without an active tabIndex=0 item.
-  // Legitimate setState-in-effect: seeds focus on mount only (#1063).
-  useLayoutEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setFocusedIndex(findEdgeEnabled(items, 1));
-    // Items are recomputed each render but their enabled-ness only changes
-    // with `hasSelection`; seeding on mount is the intended behavior.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useLayoutEffect(() => {
-    if (focusedIndex < 0) return;
-    itemRefs.current[focusedIndex]?.focus();
-  }, [focusedIndex]);
 
   // Adjust position to keep in viewport (useLayoutEffect to avoid flicker)
   useLayoutEffect(() => {
@@ -203,49 +178,11 @@ export function TerminalContextMenu({
     [term, onResetDisplay, onClose],
   );
 
-  const handleMenuKeyDown = useCallback(
-    (event: ReactKeyboardEvent<HTMLDivElement>) => {
-      if (isImeKeyEvent(event.nativeEvent)) return;
-
-      switch (event.key) {
-        case "ArrowDown":
-          event.preventDefault();
-          setFocusedIndex((current) => findNextEnabled(items, current, 1));
-          return;
-        case "ArrowUp":
-          event.preventDefault();
-          setFocusedIndex((current) => findNextEnabled(items, current, -1));
-          return;
-        case "Home":
-          event.preventDefault();
-          setFocusedIndex(findEdgeEnabled(items, 1));
-          return;
-        case "End":
-          event.preventDefault();
-          setFocusedIndex(findEdgeEnabled(items, -1));
-          return;
-        case "Escape":
-          // Owned here (not the dismiss hook) so terminal focus is
-          // restored — an outside click intentionally does not.
-          event.preventDefault();
-          event.stopPropagation();
-          closeAndFocus();
-          return;
-        case "Tab":
-          event.preventDefault();
-          closeAndFocus();
-          return;
-        case "Enter":
-        case " ": {
-          event.preventDefault();
-          const item = items[focusedIndex];
-          if (item && !item.disabled) void handleAction(item.id);
-          return;
-        }
-      }
-    },
-    [items, focusedIndex, handleAction, closeAndFocus],
-  );
+  const { handleKeyDown, registerItem, itemProps } = useMenuRovingFocus<MenuItem>({
+    items,
+    onActivate: (item) => void handleAction(item.id),
+    onDismiss: closeAndFocus,
+  });
 
   return (
     <div
@@ -254,25 +191,19 @@ export function TerminalContextMenu({
       style={{ left: position.x, top: position.y }}
       role="menu"
       aria-label={t("terminal.contextMenu.ariaLabel")}
-      onKeyDown={handleMenuKeyDown}
+      onKeyDown={handleKeyDown}
     >
       {items.map((item, index) => (
         <div key={item.id}>
           {item.separatorBefore && <div className="context-menu-separator" />}
           <button
-            ref={(node) => {
-              itemRefs.current[index] = node;
-            }}
+            ref={(node) => registerItem(index, node)}
             type="button"
             role="menuitem"
             className="context-menu-item"
             disabled={item.disabled}
-            tabIndex={focusedIndex === index ? 0 : -1}
             onClick={() => handleAction(item.id)}
-            onFocus={() => setFocusedIndex(index)}
-            onMouseEnter={() => {
-              if (!item.disabled) setFocusedIndex(index);
-            }}
+            {...itemProps(index)}
           >
             <span className="context-menu-item-icon">{item.icon}</span>
             <span className="context-menu-item-label">{item.label}</span>

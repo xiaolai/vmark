@@ -22,15 +22,13 @@ import {
   useRef,
   useCallback,
   useMemo,
-  useState,
-  type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
 import { ImagePlus, Trash2, Copy, FolderOpen } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useImageContextMenuStore } from "@/stores/imageContextMenuStore";
 import "@/components/Sidebar/FileExplorer/ContextMenu.css";
-import { isImeKeyEvent } from "@/utils/imeGuard";
 import { useDismissOnOutsideOrEscape } from "@/hooks/useDismissOnOutsideOrEscape";
+import { useMenuRovingFocus } from "@/hooks/useMenuRovingFocus";
 import { getRevealInFileManagerLabel } from "@/utils/pathUtils";
 
 interface MenuItem {
@@ -38,6 +36,8 @@ interface MenuItem {
   label: string;
   icon: React.ReactNode;
   separator?: boolean;
+  /** Unused today, but the shared roving-focus hook skips disabled items. */
+  disabled?: boolean;
 }
 
 function buildMenuItems(
@@ -63,13 +63,6 @@ function buildMenuItems(
   ];
 }
 
-function findNextFocusable(total: number, current: number, direction: 1 | -1): number {
-  /* v8 ignore next -- @preserve reason: empty menu guard; menu always has items */
-  if (total === 0) return -1;
-  if (current === -1) return direction === 1 ? 0 : total - 1;
-  return (current + direction + total) % total;
-}
-
 interface ImageContextMenuProps {
   onAction: (action: string) => void;
 }
@@ -78,8 +71,6 @@ interface ImageContextMenuProps {
 export function ImageContextMenu({ onAction }: ImageContextMenuProps) {
   const { t } = useTranslation("editor");
   const menuRef = useRef<HTMLDivElement>(null);
-  const itemRefs = useRef<Array<HTMLButtonElement | null>>([]);
-  const [focusedIndex, setFocusedIndex] = useState(-1);
   const isOpen = useImageContextMenuStore((s) => s.isOpen);
   const position = useImageContextMenuStore((s) => s.position);
   const closeMenu = useImageContextMenuStore((s) => s.closeMenu);
@@ -96,8 +87,8 @@ export function ImageContextMenu({ onAction }: ImageContextMenuProps) {
     [revealLabel, t]
   );
 
-  // Close on click outside or Escape (Escape ignored during IME composition).
-  useDismissOnOutsideOrEscape(isOpen, menuRef, closeMenu);
+  // Click-outside only; Escape/Tab are owned by the roving hook.
+  useDismissOnOutsideOrEscape(isOpen, menuRef, closeMenu, { escape: false });
 
   // Position adjustment to keep menu in viewport
   useEffect(() => {
@@ -125,20 +116,6 @@ export function ImageContextMenu({ onAction }: ImageContextMenuProps) {
     menu.style.top = `${adjustedY}px`;
   }, [position]);
 
-  // Focus the first item whenever the menu opens (reset to -1 on close).
-  // Legitimate setState-in-effect: resets the roving-focus index on the open/close
-  // transition (including on mount), paired with the DOM-focus effect below (#1063).
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setFocusedIndex(isOpen ? 0 : -1);
-  }, [isOpen]);
-
-  // Move DOM focus when focusedIndex changes.
-  useEffect(() => {
-    if (focusedIndex < 0) return;
-    itemRefs.current[focusedIndex]?.focus();
-  }, [focusedIndex]);
-
   const handleItemClick = useCallback(
     (id: string) => {
       onAction(id);
@@ -147,49 +124,12 @@ export function ImageContextMenu({ onAction }: ImageContextMenuProps) {
     [onAction, closeMenu]
   );
 
-  const handleMenuKeyDown = useCallback(
-    (event: ReactKeyboardEvent<HTMLDivElement>) => {
-      if (isImeKeyEvent(event.nativeEvent)) return;
-
-      if (event.key === "ArrowDown") {
-        event.preventDefault();
-        setFocusedIndex((current) => findNextFocusable(menuItems.length, current, 1));
-        return;
-      }
-
-      if (event.key === "ArrowUp") {
-        event.preventDefault();
-        setFocusedIndex((current) => findNextFocusable(menuItems.length, current, -1));
-        return;
-      }
-
-      if (event.key === "Home") {
-        event.preventDefault();
-        setFocusedIndex(0);
-        return;
-      }
-
-      if (event.key === "End") {
-        event.preventDefault();
-        setFocusedIndex(menuItems.length - 1);
-        return;
-      }
-
-      if (event.key === "Tab") {
-        closeMenu();
-        return;
-      }
-
-      if ((event.key === "Enter" || event.key === " ") && focusedIndex >= 0) {
-        event.preventDefault();
-        const item = menuItems[focusedIndex];
-        /* v8 ignore next -- @preserve reason: null item guard; focusedIndex always valid in tests */
-        if (!item) return;
-        handleItemClick(item.id);
-      }
-    },
-    [menuItems, focusedIndex, closeMenu, handleItemClick]
-  );
+  const { handleKeyDown, registerItem, itemProps } = useMenuRovingFocus<MenuItem>({
+    items: menuItems,
+    onActivate: (item) => handleItemClick(item.id),
+    onDismiss: closeMenu,
+    enabled: isOpen,
+  });
 
   if (!isOpen || !position) return null;
 
@@ -200,7 +140,7 @@ export function ImageContextMenu({ onAction }: ImageContextMenuProps) {
       style={{ left: position.x, top: position.y }}
       role="menu"
       aria-label={t("imageMenu.ariaLabel")}
-      onKeyDown={handleMenuKeyDown}
+      onKeyDown={handleKeyDown}
     >
       {menuItems.map((item, index) => (
         <div key={item.id}>
@@ -208,16 +148,12 @@ export function ImageContextMenu({ onAction }: ImageContextMenuProps) {
             <div className="context-menu-separator" />
           )}
           <button
-            ref={(node) => {
-              itemRefs.current[index] = node;
-            }}
+            ref={(node) => registerItem(index, node)}
             type="button"
             role="menuitem"
             className="context-menu-item"
             onClick={() => handleItemClick(item.id)}
-            onFocus={() => setFocusedIndex(index)}
-            onMouseEnter={() => setFocusedIndex(index)}
-            tabIndex={focusedIndex === index ? 0 : -1}
+            {...itemProps(index)}
           >
             <span className="context-menu-item-icon">{item.icon}</span>
             <span className="context-menu-item-label">{item.label}</span>
