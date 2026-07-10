@@ -68,6 +68,7 @@
   "terminal.restartSession": "再起動",
   "terminal.swapPosition": "位置を入れ替え",
   "terminal.notify.attention": "{{name}} が対応待ちです",
+  "terminal.contextMenu.ariaLabel": "ターミナル操作",
   "terminal.contextMenu.copy": "コピー",
   "terminal.contextMenu.copyUnwrapped": "折り返しを解除してコピー",
   "terminal.contextMenu.paste": "貼り付け",

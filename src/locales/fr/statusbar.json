@@ -68,6 +68,7 @@
   "terminal.restartSession": "Redémarrer",
   "terminal.swapPosition": "Permuter la position",
   "terminal.notify.attention": "{{name}} demande votre attention",
+  "terminal.contextMenu.ariaLabel": "Actions du terminal",
   "terminal.contextMenu.copy": "Copier",
   "terminal.contextMenu.copyUnwrapped": "Copier sans retours à la ligne",
   "terminal.contextMenu.paste": "Coller",

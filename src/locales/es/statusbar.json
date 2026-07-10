@@ -68,6 +68,7 @@
   "terminal.restartSession": "Reiniciar",
   "terminal.swapPosition": "Intercambiar posición",
   "terminal.notify.attention": "{{name}} necesita atención",
+  "terminal.contextMenu.ariaLabel": "Acciones del terminal",
   "terminal.contextMenu.copy": "Copiar",
   "terminal.contextMenu.copyUnwrapped": "Copiar sin saltos de línea",
   "terminal.contextMenu.paste": "Pegar",

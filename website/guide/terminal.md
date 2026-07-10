@@ -63,6 +63,8 @@ Right-click inside the terminal to access:
 - **Clear** — clear visible output
 - **Reset Display** — re-paint the terminal and reset its rendering cache. Use this if characters start to overlap, mix cases, or render garbled after a long session — most often seen when running heavily styled CLIs (e.g. Claude Code) for hours.
 
+The menu is fully keyboard-navigable: it opens with the first available action focused, arrow keys move between items (skipping disabled ones), Home/End jump to the first/last, Enter or Space activates, and Escape or Tab closes it.
+
 ## Clickable Links
 
 The terminal detects three kinds of links in command output:

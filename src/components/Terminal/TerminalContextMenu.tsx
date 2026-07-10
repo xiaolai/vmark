@@ -4,8 +4,20 @@
  * Purpose: Right-click context menu for the terminal — copy, paste,
  * select all, clear, and reset-display operations.
  *
+ * User interactions:
+ *   - Arrow keys navigate menu items (disabled items are skipped);
+ *     Home/End jump to the first/last enabled item.
+ *   - Enter/Space activates the focused item.
+ *   - Escape, Tab, or click-outside closes the menu.
+ *
+ * Accessibility:
+ *   - Container is role="menu" with an aria-label; items are
+ *     role="menuitem" buttons using a roving tabindex (focused item
+ *     tabIndex=0, others -1). The first enabled item is focused on open.
+ *
  * Key decisions:
- *   - Copy is disabled when no text is selected (greyed out).
+ *   - Copy is disabled when no text is selected (greyed out via the shared
+ *     .context-menu-item:disabled rule).
  *   - Paste routes through `term.paste()` so xterm applies bracketed-paste
  *     wrapping when the app enabled it (multiline paste won't auto-execute, G2).
  *   - Reuses the FileExplorer ContextMenu.css for consistent macOS-style
@@ -20,12 +32,20 @@
  * @coordinates-with createTerminalInstance.ts — provides resetDisplay()
  * @module components/Terminal/TerminalContextMenu
  */
-import { useLayoutEffect, useRef, useCallback } from "react";
+import {
+  useLayoutEffect,
+  useEffect,
+  useRef,
+  useState,
+  useCallback,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from "react";
 import { Copy, CopyMinus, ClipboardPaste, Square, Trash2, RefreshCw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { readText, writeText } from "@tauri-apps/plugin-clipboard-manager";
 import type { Terminal } from "@xterm/xterm";
 import { useDismissOnOutsideOrEscape } from "@/hooks/useDismissOnOutsideOrEscape";
+import { isImeKeyEvent } from "@/utils/imeGuard";
 import { clipboardWarn } from "@/utils/debug";
 import { unwrapTerminalSelection } from "./unwrapSelection";
 import "../Sidebar/FileExplorer/ContextMenu.css";
@@ -37,6 +57,28 @@ interface MenuItem {
   icon: React.ReactNode;
   disabled?: boolean;
   separatorBefore?: boolean;
+}
+
+/** Next enabled item index in `direction`, skipping disabled items.
+ *  Returns the same index when no other enabled item exists. */
+function findNextEnabled(items: MenuItem[], current: number, direction: 1 | -1): number {
+  const total = items.length;
+  /* v8 ignore next -- @preserve reason: menu always has enabled items (paste/select-all/clear) */
+  if (total === 0) return -1;
+  let index = current;
+  for (let step = 0; step < total; step++) {
+    index = (index + direction + total) % total;
+    if (!items[index]?.disabled) return index;
+  }
+  /* v8 ignore next -- @preserve reason: unreachable — clear/paste are never disabled */
+  return current;
+}
+
+/** First (direction 1) or last (direction -1) enabled item. */
+function findEdgeEnabled(items: MenuItem[], direction: 1 | -1): number {
+  return direction === 1
+    ? findNextEnabled(items, items.length - 1, 1)
+    : findNextEnabled(items, 0, -1);
 }
 
 interface TerminalContextMenuProps {
@@ -56,7 +98,13 @@ export function TerminalContextMenu({
 }: TerminalContextMenuProps) {
   const { t } = useTranslation("statusbar");
   const menuRef = useRef<HTMLDivElement>(null);
-  const hasSelection = term.hasSelection();
+  const itemRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const [focusedIndex, setFocusedIndex] = useState(-1);
+  // Snapshot selection state at open time so the Copy items keep a stable
+  // enabled/disabled state for the menu's lifetime — arrowing around (which
+  // re-renders) must not flip them. The action handler still checks
+  // `term.hasSelection()` live, so a selection cleared after open is caught.
+  const [hasSelection] = useState(() => term.hasSelection());
 
   const items: MenuItem[] = [
     { id: "copy", label: t("terminal.contextMenu.copy"), icon: <Copy size={14} />, disabled: !hasSelection },
@@ -71,6 +119,22 @@ export function TerminalContextMenu({
 
   // Close on click outside (capture phase) and Escape (IME-aware).
   useDismissOnOutsideOrEscape(true, menuRef, onClose);
+
+  // Focus the first enabled item on open (roving-tabindex entry point).
+  // Legitimate setState-in-effect: seeds focus on mount only (#1063).
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setFocusedIndex(findEdgeEnabled(items, 1));
+    // Items are recomputed each render but their enabled-ness only changes
+    // with `hasSelection`; seeding on mount is the intended behavior.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Move DOM focus to the roving target.
+  useEffect(() => {
+    if (focusedIndex < 0) return;
+    itemRefs.current[focusedIndex]?.focus();
+  }, [focusedIndex]);
 
   // Adjust position to keep in viewport (useLayoutEffect to avoid flicker)
   useLayoutEffect(() => {
@@ -151,23 +215,73 @@ export function TerminalContextMenu({
     [term, onResetDisplay, onClose],
   );
 
+  const handleMenuKeyDown = useCallback(
+    (event: ReactKeyboardEvent<HTMLDivElement>) => {
+      if (isImeKeyEvent(event.nativeEvent)) return;
+
+      switch (event.key) {
+        case "ArrowDown":
+          event.preventDefault();
+          setFocusedIndex((current) => findNextEnabled(items, current, 1));
+          return;
+        case "ArrowUp":
+          event.preventDefault();
+          setFocusedIndex((current) => findNextEnabled(items, current, -1));
+          return;
+        case "Home":
+          event.preventDefault();
+          setFocusedIndex(findEdgeEnabled(items, 1));
+          return;
+        case "End":
+          event.preventDefault();
+          setFocusedIndex(findEdgeEnabled(items, -1));
+          return;
+        case "Tab":
+          event.preventDefault();
+          onClose();
+          return;
+        case "Enter":
+        case " ": {
+          event.preventDefault();
+          const item = items[focusedIndex];
+          if (item && !item.disabled) void handleAction(item.id);
+          return;
+        }
+      }
+    },
+    [items, focusedIndex, handleAction, onClose],
+  );
+
   return (
     <div
       ref={menuRef}
       className="context-menu"
       style={{ left: position.x, top: position.y }}
+      role="menu"
+      aria-label={t("terminal.contextMenu.ariaLabel")}
+      onKeyDown={handleMenuKeyDown}
     >
-      {items.map((item) => (
+      {items.map((item, index) => (
         <div key={item.id}>
           {item.separatorBefore && <div className="context-menu-separator" />}
-          <div
+          <button
+            ref={(node) => {
+              itemRefs.current[index] = node;
+            }}
+            type="button"
+            role="menuitem"
             className="context-menu-item"
-            style={{ opacity: item.disabled ? 0.4 : 1, pointerEvents: item.disabled ? "none" : "auto" }}
+            disabled={item.disabled}
+            tabIndex={focusedIndex === index ? 0 : -1}
             onClick={() => handleAction(item.id)}
+            onFocus={() => setFocusedIndex(index)}
+            onMouseEnter={() => {
+              if (!item.disabled) setFocusedIndex(index);
+            }}
           >
             <span className="context-menu-item-icon">{item.icon}</span>
             <span className="context-menu-item-label">{item.label}</span>
-          </div>
+          </button>
         </div>
       ))}
     </div>

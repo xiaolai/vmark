@@ -68,6 +68,7 @@
   "terminal.restartSession": "재시작",
   "terminal.swapPosition": "위치 바꾸기",
   "terminal.notify.attention": "{{name}}에 주의가 필요합니다",
+  "terminal.contextMenu.ariaLabel": "터미널 동작",
   "terminal.contextMenu.copy": "복사",
   "terminal.contextMenu.copyUnwrapped": "줄바꿈 해제하고 복사",
   "terminal.contextMenu.paste": "붙여넣기",

@@ -68,6 +68,7 @@
   "terminal.restartSession": "Neu starten",
   "terminal.swapPosition": "Position tauschen",
   "terminal.notify.attention": "{{name}} braucht Aufmerksamkeit",
+  "terminal.contextMenu.ariaLabel": "Terminal-Aktionen",
   "terminal.contextMenu.copy": "Kopieren",
   "terminal.contextMenu.copyUnwrapped": "Ohne Umbruch kopieren",
   "terminal.contextMenu.paste": "Einfügen",
