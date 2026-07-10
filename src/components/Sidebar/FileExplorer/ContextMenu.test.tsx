@@ -199,6 +199,47 @@ describe("ContextMenu ARIA and keyboard", () => {
     expect(onClose).toHaveBeenCalled();
   });
 
+  it("re-seeds focus and keeps Escape working when the type swaps in place", () => {
+    // A second right-click can change the menu type (file → empty) while
+    // the same instance stays mounted. Focus must move into the new items,
+    // not fall to <body> — otherwise menu-owned Escape would stop closing.
+    const onClose = vi.fn();
+    const { rerender } = render(
+      <ContextMenu type="file" position={{ x: 100, y: 100 }} onAction={vi.fn()} onClose={onClose} />,
+    );
+    // Move focus to the last file-menu item.
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "End" });
+
+    rerender(
+      <ContextMenu type="empty" position={{ x: 100, y: 100 }} onAction={vi.fn()} onClose={onClose} />,
+    );
+    // Empty menu has 2 items (New File, New Folder); focus lands on the first.
+    const items = screen.getAllByRole("menuitem");
+    expect(items).toHaveLength(2);
+    expect(document.activeElement).toBe(items[0]);
+
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it("re-seeds to the first item on file→folder swap even where the old index exists", () => {
+    // file menu index 2 = Duplicate; folder menu index 2 = Rename. After the
+    // swap, focus must land on the folder menu's first item (New File), not
+    // stay at index 2 (Rename) — otherwise Enter would fire the wrong action.
+    const { rerender } = render(
+      <ContextMenu type="file" position={{ x: 100, y: 100 }} onAction={vi.fn()} onClose={vi.fn()} />,
+    );
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "Home" });
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "ArrowDown" });
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "ArrowDown" }); // file index 2
+
+    rerender(
+      <ContextMenu type="folder" position={{ x: 100, y: 100 }} onAction={vi.fn()} onClose={vi.fn()} />,
+    );
+    const items = screen.getAllByRole("menuitem");
+    expect(document.activeElement).toBe(items[0]); // New File, not Rename
+  });
+
   it("does not close on IME key events during Escape handling", () => {
     mockIsImeKeyEvent.mockReturnValue(true);
 

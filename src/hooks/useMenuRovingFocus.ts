@@ -59,11 +59,16 @@ export function findNextEnabled(
   return current;
 }
 
-/** First (direction 1) or last (direction -1) enabled item. */
+/** First (direction 1) or last (direction -1) enabled item, or -1 when no
+ *  item is enabled. Unlike `findNextEnabled` (which returns `current` so
+ *  arrow keys stay put when nothing else is enabled), the edge/seed path
+ *  must report "no focusable target" as -1 rather than a disabled index. */
 export function findEdgeEnabled(items: readonly RovingMenuItem[], direction: 1 | -1): number {
-  return direction === 1
-    ? findNextEnabled(items, items.length - 1, 1)
-    : findNextEnabled(items, 0, -1);
+  const index =
+    direction === 1
+      ? findNextEnabled(items, items.length - 1, 1)
+      : findNextEnabled(items, 0, -1);
+  return index >= 0 && !items[index]?.disabled ? index : -1;
 }
 
 export interface UseMenuRovingFocusOptions<T extends RovingMenuItem> {
@@ -76,6 +81,13 @@ export interface UseMenuRovingFocusOptions<T extends RovingMenuItem> {
   /** Seed focus while true; reset to -1 while false. Default true. For
    *  always-mounted singletons, pass the open flag. */
   enabled?: boolean;
+  /** Re-seed focus when this value changes while the menu stays mounted —
+   *  pass a stable descriptor of the item shape (e.g. the file-explorer
+   *  menu `type`) so a menu whose items are swapped in place keeps focus
+   *  inside it. Without this, focus would fall to `<body>` and menu-owned
+   *  Escape would stop closing the menu. Omit when items never change
+   *  shape while open. */
+  resetKey?: unknown;
 }
 
 export interface UseMenuRovingFocusResult {
@@ -98,22 +110,33 @@ export function useMenuRovingFocus<T extends RovingMenuItem>({
   onActivate,
   onDismiss,
   enabled = true,
+  resetKey,
 }: UseMenuRovingFocusOptions<T>): UseMenuRovingFocusResult {
   const [focusedIndex, setFocusedIndex] = useState(-1);
   const itemRefs = useRef<Array<HTMLElement | null>>([]);
 
-  // Seed the first enabled item on open, reset on close — before paint so
-  // the menu never shows a frame without a roving target. Keyed on
-  // `enabled` alone: item labels recompute every render, but focus must
-  // only re-seed on the open/close transition, so `items` is intentionally
-  // read from the flip-render closure rather than added to the deps.
+  // Seed the first enabled item on open (and when the item shape changes
+  // via `resetKey`), reset on close — before paint so the menu never shows
+  // a frame without a roving target. Keyed on `enabled`/`resetKey`: item
+  // labels recompute every render, but focus must only re-seed on the
+  // open/close transition or a deliberate shape change, so `items` is read
+  // from the closure rather than added to the deps.
+  //
+  // Focus the SEED index directly here rather than letting the
+  // focusedIndex-keyed effect below handle it: on a resetKey swap the
+  // stale `focusedIndex` may still be valid in the new item set, and
+  // focusing it (via that effect) would fire the wrong item's onFocus and
+  // clobber this seed. Focusing the freshly-computed index sidesteps that.
   useLayoutEffect(() => {
+    const next = enabled ? findEdgeEnabled(items, 1) : -1;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- open/close seed (#1063)
-    setFocusedIndex(enabled ? findEdgeEnabled(items, 1) : -1);
+    setFocusedIndex(next);
+    if (next >= 0) itemRefs.current[next]?.focus();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled]);
+  }, [enabled, resetKey]);
 
-  // Move DOM focus to the roving target before paint.
+  // Move DOM focus to the roving target before paint (arrow navigation).
+  // NOT keyed on resetKey — the seed effect above owns reset-key focusing.
   useLayoutEffect(() => {
     if (focusedIndex < 0) return;
     itemRefs.current[focusedIndex]?.focus();

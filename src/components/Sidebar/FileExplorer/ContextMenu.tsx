@@ -177,6 +177,10 @@ export function ContextMenu({ type, position, onAction, onClose }: ContextMenuPr
     items,
     onActivate: (item) => handleItemClick(item.id),
     onDismiss: onClose,
+    // A second right-click can swap the item set (file → folder → empty)
+    // while this instance stays mounted; re-seed focus so it stays inside
+    // the menu and Escape keeps working.
+    resetKey: type,
   });
 
   return (

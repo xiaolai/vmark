@@ -63,6 +63,12 @@ describe("findEdgeEnabled", () => {
   it("returns -1 for an empty list", () => {
     expect(findEdgeEnabled([], 1)).toBe(-1);
   });
+
+  it("returns -1 when every item is disabled (no focusable target)", () => {
+    const allDisabled: RovingMenuItem[] = [{ disabled: true }, { disabled: true }];
+    expect(findEdgeEnabled(allDisabled, 1)).toBe(-1);
+    expect(findEdgeEnabled(allDisabled, -1)).toBe(-1);
+  });
 });
 
 /* ───────────────────────── hook harness ──────────────────────────────── */
@@ -192,5 +198,135 @@ describe("useMenuRovingFocus (integration)", () => {
     );
     // No menuitem focused (focusedIndex stays -1).
     expect(document.activeElement).toBe(document.body);
+  });
+
+  it("does not focus any item when every item is disabled", () => {
+    const allDisabled: HarnessItem[] = [
+      { id: "x", disabled: true },
+      { id: "y", disabled: true },
+    ];
+    render(<Harness items={allDisabled} onActivate={onActivate} onDismiss={onDismiss} />);
+    // No roving target on a disabled item — focusedIndex stays -1.
+    expect(document.activeElement).toBe(document.body);
+    for (const el of screen.getAllByRole("menuitem")) {
+      expect((el as HTMLButtonElement).tabIndex).toBe(-1);
+    }
+  });
+
+  it("refocuses the new index-0 node on a reset-key swap that keeps index 0", () => {
+    // Focus never leaves index 0, so setFocusedIndex(0) is a no-op and the
+    // focusedIndex effect can't fire — the seed effect's direct focus is the
+    // only thing that moves focus to the new node at index 0.
+    function ZeroHarness({ set }: { set: "a" | "b" }) {
+      const listA: HarnessItem[] = [{ id: "a1" }, { id: "a2" }];
+      const listB: HarnessItem[] = [{ id: "b1" }, { id: "b2" }];
+      const items = set === "a" ? listA : listB;
+      const nav = useMenuRovingFocus({ items, onActivate, onDismiss, resetKey: set });
+      return (
+        <div role="menu" onKeyDown={nav.handleKeyDown}>
+          {items.map((item, index) => (
+            <button
+              key={item.id}
+              ref={(n) => nav.registerItem(index, n)}
+              type="button"
+              role="menuitem"
+              {...nav.itemProps(index)}
+            >
+              {item.id}
+            </button>
+          ))}
+        </div>
+      );
+    }
+
+    const { rerender } = render(<ZeroHarness set="a" />);
+    expect(document.activeElement).toBe(screen.getByRole("menuitem", { name: "a1" }));
+
+    rerender(<ZeroHarness set="b" />);
+    expect(document.activeElement).toBe(screen.getByRole("menuitem", { name: "b1" }));
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
+    expect(onDismiss).toHaveBeenCalled();
+  });
+
+  it("re-seeds focus into the new items when resetKey changes (shape swap)", () => {
+    function ResetHarness({ set }: { set: "a" | "b" }) {
+      const listA: HarnessItem[] = [{ id: "a1" }, { id: "a2" }, { id: "a3" }];
+      const listB: HarnessItem[] = [{ id: "b1" }, { id: "b2" }];
+      const items = set === "a" ? listA : listB;
+      const { handleKeyDown, registerItem, itemProps } = useMenuRovingFocus({
+        items,
+        onActivate,
+        onDismiss,
+        resetKey: set,
+      });
+      return (
+        <div role="menu" onKeyDown={handleKeyDown}>
+          {items.map((item, index) => (
+            <button
+              key={item.id}
+              ref={(n) => registerItem(index, n)}
+              type="button"
+              role="menuitem"
+              {...itemProps(index)}
+            >
+              {item.id}
+            </button>
+          ))}
+        </div>
+      );
+    }
+
+    const { rerender } = render(<ResetHarness set="a" />);
+    // Navigate to the last item of set A.
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "End" });
+    expect(document.activeElement).toBe(screen.getByRole("menuitem", { name: "a3" }));
+
+    // Swap the item set in place — focus must move into set B's first item,
+    // not fall to <body> (which would break menu-owned Escape).
+    rerender(<ResetHarness set="b" />);
+    expect(document.activeElement).toBe(screen.getByRole("menuitem", { name: "b1" }));
+    // Escape still reaches the menu because focus stayed inside it.
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
+    expect(onDismiss).toHaveBeenCalled();
+  });
+
+  it("re-seeds to the FIRST item on a same-length swap where the old index still exists", () => {
+    // Regression (round 2): if the stale focusedIndex is still valid in the
+    // new set, the seed must still win — focus goes to the new first item,
+    // not the same index in the swapped set.
+    function OverlapHarness({ set }: { set: "a" | "b" }) {
+      const listA: HarnessItem[] = [{ id: "a1" }, { id: "a2" }, { id: "a3" }];
+      const listB: HarnessItem[] = [{ id: "b1" }, { id: "b2" }, { id: "b3" }];
+      const items = set === "a" ? listA : listB;
+      const { handleKeyDown, registerItem, itemProps } = useMenuRovingFocus({
+        items,
+        onActivate,
+        onDismiss,
+        resetKey: set,
+      });
+      return (
+        <div role="menu" onKeyDown={handleKeyDown}>
+          {items.map((item, index) => (
+            <button
+              key={item.id}
+              ref={(n) => registerItem(index, n)}
+              type="button"
+              role="menuitem"
+              {...itemProps(index)}
+            >
+              {item.id}
+            </button>
+          ))}
+        </div>
+      );
+    }
+
+    const { rerender } = render(<OverlapHarness set="a" />);
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "End" }); // A index 2 (a3)
+    expect(document.activeElement).toBe(screen.getByRole("menuitem", { name: "a3" }));
+
+    rerender(<OverlapHarness set="b" />); // index 2 (b3) still exists
+    // Must land on b1 (first), NOT b3 (the stale index).
+    expect(document.activeElement).toBe(screen.getByRole("menuitem", { name: "b1" }));
   });
 });
