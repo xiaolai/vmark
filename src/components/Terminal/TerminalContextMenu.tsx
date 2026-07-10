@@ -34,7 +34,6 @@
  */
 import {
   useLayoutEffect,
-  useEffect,
   useRef,
   useState,
   useCallback,
@@ -48,6 +47,7 @@ import { useDismissOnOutsideOrEscape } from "@/hooks/useDismissOnOutsideOrEscape
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import { clipboardWarn } from "@/utils/debug";
 import { unwrapTerminalSelection } from "./unwrapSelection";
+import { findNextEnabled, findEdgeEnabled } from "./terminalMenuNav";
 import "../Sidebar/FileExplorer/ContextMenu.css";
 import { errorMessage } from "@/utils/errorMessage";
 
@@ -57,28 +57,6 @@ interface MenuItem {
   icon: React.ReactNode;
   disabled?: boolean;
   separatorBefore?: boolean;
-}
-
-/** Next enabled item index in `direction`, skipping disabled items.
- *  Returns the same index when no other enabled item exists. */
-function findNextEnabled(items: MenuItem[], current: number, direction: 1 | -1): number {
-  const total = items.length;
-  /* v8 ignore next -- @preserve reason: menu always has enabled items (paste/select-all/clear) */
-  if (total === 0) return -1;
-  let index = current;
-  for (let step = 0; step < total; step++) {
-    index = (index + direction + total) % total;
-    if (!items[index]?.disabled) return index;
-  }
-  /* v8 ignore next -- @preserve reason: unreachable — clear/paste are never disabled */
-  return current;
-}
-
-/** First (direction 1) or last (direction -1) enabled item. */
-function findEdgeEnabled(items: MenuItem[], direction: 1 | -1): number {
-  return direction === 1
-    ? findNextEnabled(items, items.length - 1, 1)
-    : findNextEnabled(items, 0, -1);
 }
 
 interface TerminalContextMenuProps {
@@ -117,12 +95,23 @@ export function TerminalContextMenu({
       : []),
   ];
 
-  // Close on click outside (capture phase) and Escape (IME-aware).
-  useDismissOnOutsideOrEscape(true, menuRef, onClose);
+  // Close and return focus to the terminal — used by keyboard dismissal
+  // (Escape/Tab) and after every action, so keyboard users never lose
+  // terminal input. Click-outside does NOT refocus (the user clicked
+  // elsewhere on purpose), so it uses the bare `onClose`.
+  const closeAndFocus = useCallback(() => {
+    onClose();
+    term.focus();
+  }, [onClose, term]);
 
-  // Focus the first enabled item on open (roving-tabindex entry point).
+  // Click-outside only (capture phase); Escape is owned by the menu's own
+  // key handler so it can refocus the terminal — unlike an outside click.
+  useDismissOnOutsideOrEscape(true, menuRef, onClose, { escape: false });
+
+  // Seed the roving target and move DOM focus BEFORE paint (layout effects)
+  // so the menu never renders a frame without an active tabIndex=0 item.
   // Legitimate setState-in-effect: seeds focus on mount only (#1063).
-  useEffect(() => {
+  useLayoutEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setFocusedIndex(findEdgeEnabled(items, 1));
     // Items are recomputed each render but their enabled-ness only changes
@@ -130,8 +119,7 @@ export function TerminalContextMenu({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Move DOM focus to the roving target.
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (focusedIndex < 0) return;
     itemRefs.current[focusedIndex]?.focus();
   }, [focusedIndex]);
@@ -236,9 +224,16 @@ export function TerminalContextMenu({
           event.preventDefault();
           setFocusedIndex(findEdgeEnabled(items, -1));
           return;
+        case "Escape":
+          // Owned here (not the dismiss hook) so terminal focus is
+          // restored — an outside click intentionally does not.
+          event.preventDefault();
+          event.stopPropagation();
+          closeAndFocus();
+          return;
         case "Tab":
           event.preventDefault();
-          onClose();
+          closeAndFocus();
           return;
         case "Enter":
         case " ": {
@@ -249,7 +244,7 @@ export function TerminalContextMenu({
         }
       }
     },
-    [items, focusedIndex, handleAction, onClose],
+    [items, focusedIndex, handleAction, closeAndFocus],
   );
 
   return (
