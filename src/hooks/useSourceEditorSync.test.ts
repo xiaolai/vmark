@@ -545,6 +545,167 @@ describe("useSourceEditorContentSync — pending content and rerender", () => {
     expect(dispatch.mock.calls.length).toBe(firstCallCount);
   });
 
+  it("prefers the latest content prop over an older pending payload", () => {
+    const mockView = createMockView("old");
+    viewRef.current = mockView;
+    isInternalChange.current = true;
+
+    const { rerender } = renderHook(
+      ({ content }: { content: string }) =>
+        useSourceEditorContentSync(viewRef as never, isInternalChange, content),
+      { initialProps: { content: "A" } } // A deferred while internal change runs
+    );
+
+    isInternalChange.current = false;
+    rerender({ content: "B" }); // newest external truth is B — A must be dropped
+
+    const dispatch = (mockView as { dispatch: ReturnType<typeof vi.fn> }).dispatch;
+    const inserts = dispatch.mock.calls.map(
+      (c) => (c[0] as { changes?: { insert?: string } })?.changes?.insert
+    );
+    expect(inserts).toContain("B");
+    expect(inserts).not.toContain("A");
+  });
+
+  it("retry re-applies pending content that matches lastApplied when the doc drifted", () => {
+    // 1) "X" is applied normally → lastAppliedContentRef === "X".
+    const mockView = createMockView("old");
+    viewRef.current = mockView;
+    const cursor1 = vi.fn(() => ({ line: 1 }));
+    const cursor2 = vi.fn(() => ({ line: 1 }));
+
+    const { rerender } = renderHook(
+      ({ content, getCursorInfo }: { content: string; getCursorInfo: () => unknown }) =>
+        useSourceEditorContentSync(viewRef as never, isInternalChange, content, getCursorInfo),
+      { initialProps: { content: "X", getCursorInfo: cursor1 } }
+    );
+
+    // 2) Out-of-band edit replaces the doc.
+    (mockView as { state: { doc: { toString: () => string; length: number } } }).state.doc = {
+      toString: () => "OUT-OF-BAND",
+      length: "OUT-OF-BAND".length,
+    };
+
+    // 3) An internal change defers "X" again (effect re-runs via cursor dep).
+    isInternalChange.current = true;
+    rerender({ content: "X", getCursorInfo: cursor2 });
+
+    // 4) Internal change ends; the retry must repair the drifted doc back to
+    // "X" even though lastAppliedContentRef still equals "X".
+    isInternalChange.current = false;
+    const dispatch = (mockView as { dispatch: ReturnType<typeof vi.fn> }).dispatch;
+    dispatch.mockClear();
+    vi.advanceTimersByTime(150);
+
+    expect(dispatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        changes: expect.objectContaining({ insert: "X" }),
+      })
+    );
+  });
+
+  it("arms no timer when nothing is pending (idle editors are timer-free)", () => {
+    const mockView = createMockView("same content");
+    viewRef.current = mockView;
+
+    renderHook(() =>
+      useSourceEditorContentSync(viewRef as never, isInternalChange, "same content")
+    );
+
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("disarms the timer once pending content is applied", () => {
+    const mockView = createMockView("old");
+    viewRef.current = mockView;
+    isInternalChange.current = true;
+
+    renderHook(() =>
+      useSourceEditorContentSync(viewRef as never, isInternalChange, "pending content")
+    );
+    expect(vi.getTimerCount()).toBe(1);
+
+    isInternalChange.current = false;
+    vi.advanceTimersByTime(150);
+
+    expect((mockView as { dispatch: ReturnType<typeof vi.fn> }).dispatch).toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("keeps retrying while the internal change is still in progress", () => {
+    const mockView = createMockView("old");
+    viewRef.current = mockView;
+    isInternalChange.current = true;
+
+    renderHook(() =>
+      useSourceEditorContentSync(viewRef as never, isInternalChange, "pending content")
+    );
+
+    vi.advanceTimersByTime(500);
+    expect((mockView as { dispatch: ReturnType<typeof vi.fn> }).dispatch).not.toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBe(1); // still armed — payload not lost
+
+    isInternalChange.current = false;
+    vi.advanceTimersByTime(150);
+    expect((mockView as { dispatch: ReturnType<typeof vi.fn> }).dispatch).toHaveBeenCalled();
+  });
+
+  it("applies pending content after a hidden interval ends", () => {
+    const mockView = createMockView("old");
+    viewRef.current = mockView;
+    isInternalChange.current = true;
+    const hiddenRef = { current: false };
+
+    renderHook(() =>
+      useSourceEditorContentSync(
+        viewRef as never,
+        isInternalChange,
+        "pending",
+        undefined,
+        hiddenRef
+      )
+    );
+
+    isInternalChange.current = false;
+    hiddenRef.current = true;
+    vi.advanceTimersByTime(300);
+    expect((mockView as { dispatch: ReturnType<typeof vi.fn> }).dispatch).not.toHaveBeenCalled();
+
+    hiddenRef.current = false;
+    vi.advanceTimersByTime(150);
+    expect((mockView as { dispatch: ReturnType<typeof vi.fn> }).dispatch).toHaveBeenCalled();
+  });
+
+  it("consumes pending content without dispatch when the doc already matches", () => {
+    const mockView = createMockView("pending content");
+    viewRef.current = mockView;
+    isInternalChange.current = true;
+
+    renderHook(() =>
+      useSourceEditorContentSync(viewRef as never, isInternalChange, "pending content")
+    );
+
+    isInternalChange.current = false;
+    vi.advanceTimersByTime(150);
+
+    expect((mockView as { dispatch: ReturnType<typeof vi.fn> }).dispatch).not.toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("clears the retry timer on unmount", () => {
+    const mockView = createMockView("old");
+    viewRef.current = mockView;
+    isInternalChange.current = true;
+
+    const { unmount } = renderHook(() =>
+      useSourceEditorContentSync(viewRef as never, isInternalChange, "pending content")
+    );
+    expect(vi.getTimerCount()).toBe(1);
+
+    unmount();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
   it("does not apply pending content when hidden ref is true during polling", () => {
     const mockView = createMockView("old");
     viewRef.current = mockView;
