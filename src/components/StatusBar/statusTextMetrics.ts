@@ -1,4 +1,6 @@
-// audit-fix — strip punctuation before alfaaz; code-point-correct char count
+// NOTE: incrementalTextMetrics.ts mirrors this file's fence-pairing and
+// list-marker semantics for its segment model. Any behavioral change to
+// stripMarkdown must keep incrementalTextMetrics.test.ts equivalence green.
 import { countWords as alfaazCount } from "alfaaz";
 
 /** Strip markdown formatting to get plain text for word counting. */
@@ -62,7 +64,12 @@ export interface TextMetrics {
    * character counts as one word; punctuation marks are not counted.
    */
   words: number;
-  /** Every character, whitespace included (code-point count). */
+  /**
+   * Every character, whitespace included (code-point count). When computed
+   * via the segment cache (incrementalTextMetrics.ts), inter-block
+   * whitespace is normalized to one blank-line separator per block — see
+   * that module's documented charsWithSpaces semantics.
+   */
   charsWithSpaces: number;
   /** Characters with all whitespace (`\s`) removed. */
   charsNoSpaces: number;

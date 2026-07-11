@@ -24,7 +24,6 @@
  * @module components/StatusBar/WordCountPopover
  */
 
-// audit-fix — pure presentational; metrics + dismiss owned by StatusBarCounts
 import type { RefObject } from "react";
 import { useLayoutEffect, useState } from "react";
 import { useTranslation } from "react-i18next";

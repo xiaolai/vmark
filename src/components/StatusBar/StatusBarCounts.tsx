@@ -14,6 +14,12 @@
  *     drives both the inline display and the WordCountPopover from them, so
  *     inline and popover figures never diverge and the strip+compute work
  *     isn't duplicated.
+ *   - Totals AND selection go through per-instance segment caches
+ *     (incrementalTextMetrics) so a content flush recomputes only edited
+ *     blocks — the direct pipeline is O(document) per flush (~480 ms on a
+ *     ~1.9M-char CJK doc). Sharing one pipeline for both also guarantees the
+ *     popover can never show a selected count exceeding its total (the two
+ *     pipelines differ in documented charsWithSpaces edge semantics).
  *   - Owns the popover dismiss: trigger + popover live inside one wrapper, and
  *     useDismissOnOutsideOrEscape gates on the wrapper, so clicking the trigger
  *     while open counts as "inside" and the trigger toggle closes cleanly.
@@ -27,12 +33,11 @@
  * @module components/StatusBar/StatusBarCounts
  */
 
-// audit-fix — compute metrics once; own popover dismiss via wrapper ref
 import { memo, useCallback, useDeferredValue, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useDocumentContent, useDocumentSelectedText } from "@/hooks/useDocumentState";
 import { useDismissOnOutsideOrEscape } from "@/hooks/useDismissOnOutsideOrEscape";
-import { computeTextMetrics, stripMarkdown } from "./statusTextMetrics";
+import { createMetricsCache } from "./incrementalTextMetrics";
 import { WordCountPopover } from "./WordCountPopover";
 import "./status-bar-counts.css";
 
@@ -46,13 +51,25 @@ export const StatusBarCounts = memo(function StatusBarCounts() {
 
   // Compute the full metric breakdown ONCE for totals and selection. Both the
   // inline display and the popover read from these, so they can never diverge.
+  // Totals and selection each use a per-instance segment cache so only edited
+  // blocks recompute — and both share ONE pipeline's semantics, so a full-doc
+  // selection always equals the totals. The caches mutate internal generation
+  // maps during render; that is safe under discarded/replayed concurrent
+  // renders because a stale generation only costs a redundant recompute — it
+  // can never produce wrong numbers.
+  const totalsCacheRef = useRef<ReturnType<typeof createMetricsCache> | null>(null);
+  totalsCacheRef.current ??= createMetricsCache();
+  const computeTotals = totalsCacheRef.current;
+  const selectedCacheRef = useRef<ReturnType<typeof createMetricsCache> | null>(null);
+  selectedCacheRef.current ??= createMetricsCache();
+  const computeSelected = selectedCacheRef.current;
   const totals = useMemo(
-    () => computeTextMetrics(stripMarkdown(deferredContent)),
-    [deferredContent]
+    () => computeTotals(deferredContent),
+    [computeTotals, deferredContent]
   );
   const selected = useMemo(
-    () => computeTextMetrics(stripMarkdown(deferredSelected)),
-    [deferredSelected]
+    () => computeSelected(deferredSelected),
+    [computeSelected, deferredSelected]
   );
 
   // Detect selection from raw, trimmed text. Whitespace-only selections

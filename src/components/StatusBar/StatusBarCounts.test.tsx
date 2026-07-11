@@ -1,14 +1,41 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-// Mock document state hooks
-let mockContent = "";
-let mockSelectedText = "";
-vi.mock("@/hooks/useDocumentState", () => ({
-  useDocumentContent: () => mockContent,
-  useDocumentSelectedText: () => mockSelectedText,
-}));
+// Reactive document-state mock. The component is memo-wrapped with no props,
+// so a bare rerender() bails out — updates must flow through a subscription,
+// exactly like the real zustand-backed hooks. Assign docState.content /
+// docState.selectedText before render, or call setMockDocState() inside the
+// test to push an update into a mounted component.
+const docState = vi.hoisted(() => {
+  const listeners = new Set<() => void>();
+  return {
+    content: "",
+    selectedText: "",
+    listeners,
+    notify(): void {
+      for (const listener of listeners) listener();
+    },
+  };
+});
+vi.mock("@/hooks/useDocumentState", async () => {
+  const { useSyncExternalStore } = await import("react");
+  const subscribe = (cb: () => void): (() => void) => {
+    docState.listeners.add(cb);
+    return () => docState.listeners.delete(cb);
+  };
+  return {
+    useDocumentContent: () => useSyncExternalStore(subscribe, () => docState.content),
+    useDocumentSelectedText: () =>
+      useSyncExternalStore(subscribe, () => docState.selectedText),
+  };
+});
+
+function setMockDocState(content: string, selectedText = ""): void {
+  docState.content = content;
+  docState.selectedText = selectedText;
+  act(() => docState.notify());
+}
 
 // Mock alfaaz to avoid native module issues in test
 vi.mock("alfaaz", () => ({
@@ -22,41 +49,41 @@ vi.mock("alfaaz", () => ({
 import { StatusBarCounts } from "./StatusBarCounts";
 
 beforeEach(() => {
-  mockContent = "";
-  mockSelectedText = "";
+  docState.content = "";
+  docState.selectedText = "";
 });
 
 describe("StatusBarCounts", () => {
   it("renders 0 words and 0 chars for empty content", () => {
-    mockContent = "";
+    docState.content = "";
     render(<StatusBarCounts />);
     expect(screen.getByText("0 words")).toBeInTheDocument();
     expect(screen.getByText("0 chars")).toBeInTheDocument();
   });
 
   it("renders word and char counts for plain text", () => {
-    mockContent = "hello world";
+    docState.content = "hello world";
     render(<StatusBarCounts />);
     expect(screen.getByText("2 words")).toBeInTheDocument();
     expect(screen.getByText("10 chars")).toBeInTheDocument();
   });
 
   it("strips markdown before counting", () => {
-    mockContent = "# Heading\n\n**bold text**";
+    docState.content = "# Heading\n\n**bold text**";
     render(<StatusBarCounts />);
     // "Heading" + "bold text" = 3 words
     expect(screen.getByText("3 words")).toBeInTheDocument();
   });
 
   it("renders correct char count excluding whitespace", () => {
-    mockContent = "a b c";
+    docState.content = "a b c";
     render(<StatusBarCounts />);
     // 3 non-whitespace chars
     expect(screen.getByText("3 chars")).toBeInTheDocument();
   });
 
   it("renders spans with status-item class", () => {
-    mockContent = "test";
+    docState.content = "test";
     render(<StatusBarCounts />);
     const wordSpan = screen.getByText(/words/);
     const charSpan = screen.getByText(/chars/);
@@ -64,29 +91,58 @@ describe("StatusBarCounts", () => {
     expect(charSpan.className).toBe("status-item");
   });
 
+  it("updates counts when content changes in a mounted component (cache reuse path)", async () => {
+    docState.content = "alpha one.\n\nbeta two.";
+    render(<StatusBarCounts />);
+    expect(screen.getByText("4 words")).toBeInTheDocument();
+
+    // findByText lets the useDeferredValue re-render land after each change.
+    setMockDocState("alpha one.\n\nbeta two edited with more words.");
+    expect(await screen.findByText("8 words")).toBeInTheDocument();
+
+    setMockDocState("gamma.");
+    expect(await screen.findByText("1 words")).toBeInTheDocument();
+  });
+
+  it("select-all never displays selected counts exceeding totals", async () => {
+    // "A \n\n B" is the documented charsWithSpaces divergence case. If totals
+    // and selection ran through different pipelines, the popover's
+    // chars-with-spaces row could render an impossible "8 / 4" pair.
+    // Both must use the same semantics.
+    docState.content = "A \n\n B";
+    docState.selectedText = "A \n\n B";
+    const user = userEvent.setup();
+    render(<StatusBarCounts />);
+    expect(screen.getByText("2 / 2 chars")).toBeInTheDocument();
+    expect(screen.getByText("2 / 2 words")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /word count/i }));
+    expect(screen.getByTestId("metric-charsWithSpaces")).toHaveTextContent("4 / 4");
+  });
+
   it("handles whitespace-only content", () => {
-    mockContent = "   \n\n   ";
+    docState.content = "   \n\n   ";
     render(<StatusBarCounts />);
     expect(screen.getByText("0 words")).toBeInTheDocument();
     expect(screen.getByText("0 chars")).toBeInTheDocument();
   });
 
   it("handles single word content", () => {
-    mockContent = "hello";
+    docState.content = "hello";
     render(<StatusBarCounts />);
     expect(screen.getByText("1 words")).toBeInTheDocument();
     expect(screen.getByText("5 chars")).toBeInTheDocument();
   });
 
   it("strips code blocks before counting", () => {
-    mockContent = "before\n```js\nconst x = 1;\n```\nafter";
+    docState.content = "before\n```js\nconst x = 1;\n```\nafter";
     render(<StatusBarCounts />);
     // Only "before" and "after" remain
     expect(screen.getByText("2 words")).toBeInTheDocument();
   });
 
   it("handles markdown links", () => {
-    mockContent = "[click here](https://example.com)";
+    docState.content = "[click here](https://example.com)";
     render(<StatusBarCounts />);
     // "click here" = 2 words
     expect(screen.getByText("2 words")).toBeInTheDocument();
@@ -96,24 +152,24 @@ describe("StatusBarCounts", () => {
 
   describe("with selection", () => {
     it("shows selected/total when selection is non-empty", () => {
-      mockContent = "alpha beta gamma delta";
-      mockSelectedText = "alpha beta";
+      docState.content = "alpha beta gamma delta";
+      docState.selectedText = "alpha beta";
       render(<StatusBarCounts />);
       expect(screen.getByText("2 / 4 words")).toBeInTheDocument();
       expect(screen.getByText("9 / 19 chars")).toBeInTheDocument();
     });
 
     it("falls back to total-only when selection is empty", () => {
-      mockContent = "alpha beta gamma";
-      mockSelectedText = "";
+      docState.content = "alpha beta gamma";
+      docState.selectedText = "";
       render(<StatusBarCounts />);
       expect(screen.getByText("3 words")).toBeInTheDocument();
       expect(screen.getByText("14 chars")).toBeInTheDocument();
     });
 
     it("falls back to total-only when selection is whitespace", () => {
-      mockContent = "alpha beta";
-      mockSelectedText = "   \n\n  ";
+      docState.content = "alpha beta";
+      docState.selectedText = "   \n\n  ";
       render(<StatusBarCounts />);
       expect(screen.getByText("2 words")).toBeInTheDocument();
     });
@@ -121,16 +177,16 @@ describe("StatusBarCounts", () => {
     it("treats selection as present even when only markdown syntax is selected", () => {
       // Selecting just the bold markers around no text — stripped is empty,
       // but the user clearly intended to select something.
-      mockContent = "alpha **bold** gamma";
-      mockSelectedText = "**";
+      docState.content = "alpha **bold** gamma";
+      docState.selectedText = "**";
       render(<StatusBarCounts />);
       // Should still show selection mode (0 selected, total)
       expect(screen.getByText("0 / 3 words")).toBeInTheDocument();
     });
 
     it("strips markdown from selected text before counting", () => {
-      mockContent = "intro **bold word** outro";
-      mockSelectedText = "**bold word**";
+      docState.content = "intro **bold word** outro";
+      docState.selectedText = "**bold word**";
       render(<StatusBarCounts />);
       // selection: "bold word" -> 2 words, 8 non-ws chars;
       // total: "intro bold word outro" -> 4 words, 18 non-ws chars
@@ -141,7 +197,7 @@ describe("StatusBarCounts", () => {
 
   describe("word count popover trigger", () => {
     it("renders the counts inside a button with popover ARIA", () => {
-      mockContent = "hello world";
+      docState.content = "hello world";
       render(<StatusBarCounts />);
       const trigger = screen.getByRole("button", { name: /word count/i });
       expect(trigger).toHaveAttribute("aria-haspopup", "dialog");
@@ -150,7 +206,7 @@ describe("StatusBarCounts", () => {
 
     it("opens the popover on click and renders metrics", async () => {
       const user = userEvent.setup();
-      mockContent = "hello world";
+      docState.content = "hello world";
       render(<StatusBarCounts />);
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
       await user.click(screen.getByRole("button", { name: /word count/i }));
@@ -161,7 +217,7 @@ describe("StatusBarCounts", () => {
 
     it("toggles aria-expanded when open", async () => {
       const user = userEvent.setup();
-      mockContent = "hi";
+      docState.content = "hi";
       render(<StatusBarCounts />);
       const trigger = screen.getByRole("button", { name: /word count/i });
       await user.click(trigger);
@@ -170,7 +226,7 @@ describe("StatusBarCounts", () => {
 
     it("opens via keyboard (Enter)", async () => {
       const user = userEvent.setup();
-      mockContent = "hi";
+      docState.content = "hi";
       render(<StatusBarCounts />);
       const trigger = screen.getByRole("button", { name: /word count/i });
       trigger.focus();
@@ -180,7 +236,7 @@ describe("StatusBarCounts", () => {
 
     it("closes the popover on Escape", async () => {
       const user = userEvent.setup();
-      mockContent = "hi";
+      docState.content = "hi";
       render(<StatusBarCounts />);
       await user.click(screen.getByRole("button", { name: /word count/i }));
       expect(screen.getByRole("dialog")).toBeInTheDocument();
@@ -193,7 +249,7 @@ describe("StatusBarCounts", () => {
       // while open is "inside" — it must not be eaten by outside-click dismiss
       // and then reopened. A second trigger click must close cleanly.
       const user = userEvent.setup();
-      mockContent = "hi";
+      docState.content = "hi";
       render(<StatusBarCounts />);
       const trigger = screen.getByRole("button", { name: /word count/i });
       await user.click(trigger);
@@ -204,7 +260,7 @@ describe("StatusBarCounts", () => {
 
     it("closes the popover on an outside click", async () => {
       const user = userEvent.setup();
-      mockContent = "hi";
+      docState.content = "hi";
       render(<StatusBarCounts />);
       await user.click(screen.getByRole("button", { name: /word count/i }));
       expect(screen.getByRole("dialog")).toBeInTheDocument();
