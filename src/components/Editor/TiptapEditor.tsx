@@ -52,16 +52,18 @@ import { useWindowLabel } from "@/contexts/WindowContext";
 import { useFocusedPaneTiptapRegistration } from "@/hooks/useFocusedPaneTiptapRegistration";
 import { extractTiptapContext } from "@/plugins/formatToolbar/tiptapContext";
 import { useImageDragDrop } from "@/hooks/useImageDragDrop";
-import { handleTableScrollToSelection } from "@/plugins/tableScroll/scrollGuard";
 import { tiptapError } from "@/utils/debug";
 import { consumeWysiwygPendingNav } from "./wysiwygPendingNav";
 import { ImageContextMenu } from "./ImageContextMenu";
 import { useTiptapContentSync } from "./useTiptapContentSync";
 import { useTiptapFlush } from "./useTiptapFlush";
 import {
+  applySpellcheckForDocSize,
+  buildTiptapEditorProps,
   CURSOR_TRACKING_DELAY_MS,
   CV_IDLE_CHAR_THRESHOLD,
   setContentWithoutHistory,
+  spellcheckAttrForDocSize,
   suppressCvIdleDuringEdit,
   syncMarkdownToEditor,
 } from "./tiptapEditorHelpers";
@@ -171,20 +173,7 @@ export function TiptapEditorInner({ hidden = false, readOnly = false, preview = 
     // hooks, so the blanket re-render is wasted work — especially on large docs where
     // typing produces dozens of transactions per second.
     shouldRerenderOnTransaction: false,
-    editorProps: {
-      attributes: {
-        class: "ProseMirror",
-        // Disable native browser spellcheck on large documents — on 100K+ char docs
-        // the spellchecker holds the main thread while rescanning after every edit,
-        // causing visible typing lag. 100K threshold mirrors the debounce tier.
-        spellcheck: content.length > 100000 ? "false" : "true",
-      },
-      // Suppress ProseMirror's default scrollRectIntoView when cursor is in a table
-      // to prevent horizontal scroll jumps on .table-scroll-wrapper
-      handleScrollToSelection(view) {
-        return handleTableScrollToSelection(view);
-      },
-    },
+    editorProps: buildTiptapEditorProps(content.length),
     onCreate: ({ editor }) => {
       // Reset for this new editor instance (handles React Strict Mode double-mount)
       editorInitialized.current = false;
@@ -359,6 +348,16 @@ export function TiptapEditorInner({ hidden = false, readOnly = false, preview = 
   useEffect(() => {
     if (hidden) setSelectedText("");
   }, [hidden, setSelectedText]);
+
+  // Re-apply the spellcheck cutoff when the document crosses the 100K-char
+  // threshold mid-session — the mount-time editorProps value never updates
+  // on its own. The dep is the derived attribute, so the effect fires only
+  // on threshold crossings (at most once per debounced flush), not per edit.
+  const spellcheckAttr = spellcheckAttrForDocSize(content.length);
+  useEffect(() => {
+    if (!editor) return;
+    applySpellcheckForDocSize(editor, contentRef.current.length);
+  }, [editor, spellcheckAttr]);
 
   // Sync external content changes TO the editor (subsequent changes only —
   // onCreate owns the initial load) and handle hidden → visible transitions.
