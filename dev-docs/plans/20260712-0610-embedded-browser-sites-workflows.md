@@ -239,6 +239,19 @@
 >   logic. Both axes of "a true browser, driven and displayed in VMark" are now
 >   demonstrated live. Remaining is the long tail (MCP tool wiring 2.5, publishers,
 >   full workflow engine + recorder, native UX delegates, Windows/Linux, a11y).
+> Updated: 2026-07-12 — **WI-2.5 MCP `vmark.browser` tools wired (frontend half).**
+>   `vmark.browser.read` returns an ARIA snapshot of the current page (driver
+>   isolated-world eval); `vmark.browser.act` clicks/types by role+name through the
+>   R5 approval gate (browserApprovalStore) — upload hard-denied, un-granted ops
+>   queue a pending approval and tell the AI approval is required (human in the
+>   loop). Routed in `dispatchV2` + `SUPPORTED_TOOL_PREFIXES`; 6 handler tests.
+>   So an AI client can now, through MCP: read the page structurally and act on it
+>   by accessible name, gated by scoped standing grants. Remaining WI-2.5: the
+>   sidecar-side tool schema/registry (`vmark-mcp-server`) + session-protocol
+>   versioning. (Full `check:all` was green except a pre-existing load-flaky perf
+>   test — `uint8ArrayToBase64` 200 KB, 32/32 in isolation, no browser code
+>   touches it — same class as the `hotExitCoordination` timing flake; coverage
+>   thresholds held.)
 > Branch (proposed): `feature/embedded-browser`
 > Related: `20260331-workflow-engine.md` (Genie/internal workflow engine — distinct;
 >   see §1.5), `decisions/ADR-002-mcp-sidecar-architecture.md` (MCP bridge reused here)
