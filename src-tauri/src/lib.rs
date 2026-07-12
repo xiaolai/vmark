@@ -243,6 +243,7 @@ pub fn run() {
             browser::commands::browser_set_bounds,
             browser::commands::browser_destroy,
             browser::commands::browser_assert_no_bridge,
+            browser::commands::browser_eval,
             #[cfg(target_os = "macos")]
             dock_recent::register_dock_recent,
             #[cfg(target_os = "macos")]

@@ -97,3 +97,12 @@ pub async fn browser_assert_no_bridge(
 ) -> Result<String, String> {
     surface::assert_no_bridge(&app, tab_id)
 }
+
+/// Evaluate `script` in the driver's isolated content world and return its
+/// string result (WI-2.1). The script should `return` a JSON-serializable value.
+/// Origin-grant enforcement (R4) is applied by the caller (the MCP browser tools,
+/// WI-2.5) against the tab's current URL before invoking this primitive.
+#[tauri::command]
+pub async fn browser_eval(app: AppHandle, tab_id: String, script: String) -> Result<String, String> {
+    surface::eval(&app, tab_id, script)
+}
