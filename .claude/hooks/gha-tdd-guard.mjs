@@ -72,6 +72,14 @@ const SCOPED = [
   /^src\/plugins\/githubWorkflow\/.*\.tsx?$/,
   /^src\/stores\/workflowViewStore\.ts$/,
   /^src\/stores\/workflowEditStore\.ts$/,
+  // Embedded-browser feature (dev-docs/plans/20260712-0610-embedded-browser-*.md §13)
+  /^src\/lib\/browser\/.*\.tsx?$/,
+  /^src\/lib\/sites\/.*\.tsx?$/,
+  /^src\/components\/Browser\/.*\.tsx?$/,
+  /^src\/services\/browser\/.*\.tsx?$/,
+  /^src\/stores\/browserStore\.ts$/,
+  /^src\/stores\/webWorkflowStore\.ts$/,
+  /^src\/stores\/browserApprovalStore\.ts$/,
 ];
 
 const inScope = SCOPED.some((re) => re.test(rel));
