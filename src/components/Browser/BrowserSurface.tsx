@@ -24,6 +24,7 @@ import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { useTabStore } from "@/stores/tabStore";
 import { isBrowserTab } from "@/stores/tabStoreTypes";
 import { canonicalizeBrowserUrl } from "@/lib/browser/url";
+import { useBrowserNavEvents } from "./useBrowserNavEvents";
 import "./browser-surface.css";
 
 export function BrowserSurface({ tabId }: { tabId: string }): React.ReactElement {
@@ -75,6 +76,23 @@ export function BrowserSurface({ tabId }: { tabId: string }): React.ReactElement
     report();
     return () => observer.disconnect();
   }, [tabId]);
+
+  // Track native-driven navigation (redirects, AI clicks, reload) so the address
+  // bar and loading state reflect where the WKWebView actually is — the delegate
+  // (nav_delegate_macos.rs) is the source of truth once a load is underway.
+  useBrowserNavEvents(tabId, {
+    onNavigated: (next) => {
+      setUrlInput(next);
+      setLoading(true);
+      useTabStore.getState().updateBrowserTab(tabId, { url: next });
+    },
+    onLoaded: (next) => {
+      setUrlInput(next);
+      setLoading(false);
+      useTabStore.getState().updateBrowserTab(tabId, { url: next });
+    },
+    onFailed: () => setLoading(false),
+  });
 
   const navigate = (target: string) => {
     const next = canonicalizeBrowserUrl(target) ?? target;

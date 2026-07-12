@@ -1,6 +1,6 @@
 // WI-1.3 — BrowserSurface: wires the native browser commands into a React tab
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { render, screen, waitFor, cleanup } from "@testing-library/react";
+import { render, screen, waitFor, cleanup, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const invoke = vi.fn().mockResolvedValue(undefined);
@@ -8,6 +8,23 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: (...a: unknown[]) => invoke(...
 vi.mock("@tauri-apps/api/webviewWindow", () => ({
   getCurrentWebviewWindow: () => ({ label: "main" }),
 }));
+
+// Capturing event mock (overrides the global no-op) so tests can emit the
+// native nav-delegate events the surface now listens for.
+const eventListeners = new Map<string, (e: { payload: unknown }) => void>();
+vi.mock("@tauri-apps/api/event", () => ({
+  listen: (name: string, cb: (e: { payload: unknown }) => void) => {
+    eventListeners.set(name, cb);
+    return Promise.resolve(() => eventListeners.delete(name));
+  },
+  emit: vi.fn(),
+}));
+async function emitNav(name: string, payload: unknown) {
+  await act(async () => {
+    eventListeners.get(name)?.({ payload });
+    await Promise.resolve();
+  });
+}
 
 // Capture the ResizeObserver callback so tests can trigger a resize.
 let resizeCb: ResizeObserverCallback | null = null;
@@ -36,6 +53,7 @@ function seedBrowserTab(url: string): string {
 
 beforeEach(() => {
   invoke.mockClear();
+  eventListeners.clear();
   cleanup();
 });
 
@@ -103,5 +121,29 @@ describe("BrowserSurface", () => {
     invoke.mockClear();
     unmount();
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("browser_destroy", { tabId: id }));
+  });
+
+  it("updates the address bar when the native page navigates (delegate event)", async () => {
+    const id = seedBrowserTab("https://example.com/");
+    render(<BrowserSurface tabId={id} />);
+    await waitFor(() => expect(eventListeners.has("browser://loaded")).toBe(true));
+    // The WKWebView followed a redirect / AI-driven click to a new URL.
+    await emitNav("browser://loaded", {
+      tabId: id,
+      url: "https://www.iana.org/help/example-domains",
+      title: "Example Domains",
+    });
+    expect(screen.getByRole("textbox")).toHaveValue("https://www.iana.org/help/example-domains");
+    expect(useTabStore.getState().findTabById(id)).toMatchObject({
+      url: "https://www.iana.org/help/example-domains",
+    });
+  });
+
+  it("ignores nav events addressed to a different tab", async () => {
+    const id = seedBrowserTab("https://example.com/");
+    render(<BrowserSurface tabId={id} />);
+    await waitFor(() => expect(eventListeners.has("browser://navigated")).toBe(true));
+    await emitNav("browser://navigated", { tabId: "some-other-tab", url: "https://evil/" });
+    expect(screen.getByRole("textbox")).toHaveValue("https://example.com/");
   });
 });
