@@ -286,6 +286,22 @@
 >   React panel (`src/components/Browser/SiteStatus/`) and the live plugin
 >   `healthCheck()` bodies (auth probe + fixture extraction drive the native
 >   browser) — both need the dev-app loop.
+> Updated: 2026-07-12 — **Write-ness resolved + Phase-4 executable spine +
+>   WI-1.8 recovery core (TDD-first, gate-green).** Cleared pieces I had flagged
+>   as "gated" but which were in fact pure logic:
+>   | WI | Module | What | Tests |
+>   |---|---|---|---|
+>   | 4.2 | `workflow/classify.ts` | `stepWrites` — structural, fail-safe write-ness (extract/confirm = read; api/action/goal default to write). **Resolves the "spec decision" I'd deferred — not by guessing step text (the dangerous R8a heuristic I refused) but by a conservative default that can only err toward too-much-caution, never a double-post.** | 10 |
+>   | 4.2 | `workflow/runner.ts` | `runWebWorkflow` — the capstone: maps a parsed `WebWorkflow` → engine `{id,write}` via `toEngineStep`, drives `runWorkflow`, hands the executor the ORIGINAL step. **parse → classify → engine now runs end-to-end** (executor bodies stay driver-gated). | 7 |
+>   | 1.8 | `browser/recovery.rs` | `CrashTracker` — bounds the reload-crash loop (consecutive-crash budget → AutoReload vs ManualOnly; clean load forgives). Rust, clippy-clean. | 7 |
+>   The remaining work is now unambiguously native/hardware/service: driver-backed
+>   `StepExecutor` bodies + recorder page-world capture (4.3), the native
+>   crash/UX/download **delegates** that call into recovery.rs / uxPolicy
+>   (1.7/1.8), Windows/Linux backends (5.x, hardware), a self-hosted publish
+>   target (3.4), and the React status/run-log panels — best built once live data
+>   flows through them. The per-step read-declaration **grammar** (to re-enable
+>   self-heal for declared reads) is the one residual *design* choice; the safe
+>   default ships today.
 > Branch (proposed): `feature/embedded-browser`
 > Related: `20260331-workflow-engine.md` (Genie/internal workflow engine — distinct;
 >   see §1.5), `decisions/ADR-002-mcp-sidecar-architecture.md` (MCP bridge reused here)
