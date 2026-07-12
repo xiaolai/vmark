@@ -21,6 +21,7 @@ Update website docs when:
 | Change AI provider setup | `website/guide/ai-providers.md` |
 | Change AI Genies feature | `website/guide/ai-genies.md` |
 | Change terminal feature | `website/guide/terminal.md` |
+| Change embedded browser behavior (surface, delegates, chrome, entry point) | `website/guide/browser.md` |
 | Change SVG handling | `website/guide/svg.md` |
 | Change Markmap support | `website/guide/markmap.md` |
 | Add/modify markdown lint rules | `website/guide/lint.md` |
@@ -49,6 +50,7 @@ Update website docs when:
 | `src-tauri/src/ai_provider/` | `website/guide/ai-providers.md` |
 | `src/components/GeniePicker/` | `website/guide/ai-genies.md` |
 | `src/components/Terminal/`, `src-tauri/src/pty.rs` | `website/guide/terminal.md` |
+| `src/components/Browser/`, `src-tauri/src/browser/`, `src/services/commands/browserCommands.ts` | `website/guide/browser.md` |
 | `src/plugins/mermaid*/` | `website/guide/mermaid.md` |
 | `src/lib/cjkFormatter/`, `src/plugins/toolbarActions/*Cjk*` | `website/guide/cjk-formatting.md` |
 | `src/lib/lintEngine/`, `src/plugins/lint/` | `website/guide/lint.md` |
