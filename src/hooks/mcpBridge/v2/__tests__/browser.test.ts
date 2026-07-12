@@ -46,6 +46,14 @@ describe("handleBrowserRead", () => {
     expect((res.data as { snapshot: unknown[] }).snapshot).toEqual([{ role: "button", name: "Publish" }]);
   });
 
+  it("resolves the active browser tab when no tabId is given", async () => {
+    seedBrowserTab(); // createBrowserTab also makes it the active tab in "main"
+    invoke.mockResolvedValue(JSON.stringify([]));
+    await handleBrowserRead("r3", {});
+    expect(invoke).toHaveBeenCalledWith("browser_eval", expect.objectContaining({ script: expect.any(String) }));
+    expect(lastResponse()).toMatchObject({ id: "r3", success: true });
+  });
+
   it("errors when the tab is not a browser tab", async () => {
     useTabStore.setState({ tabs: {}, activeTabId: {}, untitledCounter: 0, closedTabs: {} });
     const docId = useTabStore.getState().createTab("main", "/a.md");
@@ -86,6 +94,15 @@ describe("handleBrowserAct", () => {
     await handleBrowserAct("a3", { tabId: id, operation: "upload", role: "button", name: "Choose file" });
     expect(invoke).not.toHaveBeenCalled();
     expect(lastResponse()).toMatchObject({ id: "a3", success: false });
+  });
+
+  it("defaults type text to empty when omitted", async () => {
+    const id = seedBrowserTab();
+    useBrowserApprovalStore.getState().grant("https://blog.example.com", ["type"]);
+    invoke.mockResolvedValue(JSON.stringify({ found: false, typed: false }));
+    await handleBrowserAct("a5", { tabId: id, operation: "type", role: "textbox", name: "X" });
+    expect(invoke).toHaveBeenCalledWith("browser_eval", expect.objectContaining({ script: expect.stringContaining("__vmarkType") }));
+    expect(lastResponse()).toMatchObject({ id: "a5", success: true });
   });
 
   it("uses a type script for the type operation", async () => {

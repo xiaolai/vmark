@@ -51,6 +51,15 @@ describe("traceToWorkflow", () => {
     }
   });
 
+  it("includes a trigger and tolerates events with missing fields", () => {
+    const src = traceToWorkflow(
+      [{ type: "navigate" }, { type: "click" }, { type: "type" }, { type: "extract" }],
+      { site: "x", trigger: "manual" },
+    );
+    expect(src).toContain("trigger: manual");
+    expect(parseWorkflow(src).ok).toBe(true); // undefined fields render as empty, still valid
+  });
+
   it("emits front-matter for an empty trace (which the parser flags as step-less)", () => {
     const src = traceToWorkflow([], { site: "x" });
     expect(src).toContain("site: x");

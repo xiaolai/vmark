@@ -53,4 +53,16 @@ describe("getOrCreateProfileId", () => {
     s.store.set("vmark.browser.profileId", "existing-id-123");
     expect(getOrCreateProfileId(s)).toBe("existing-id-123");
   });
+
+  it("falls back to a v4-shaped id when crypto.randomUUID is unavailable", () => {
+    const original = globalThis.crypto;
+    // Force the no-crypto fallback path.
+    Object.defineProperty(globalThis, "crypto", { value: undefined, configurable: true });
+    try {
+      const id = getOrCreateProfileId(memStorage());
+      expect(id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+    } finally {
+      Object.defineProperty(globalThis, "crypto", { value: original, configurable: true });
+    }
+  });
 });

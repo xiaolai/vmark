@@ -42,7 +42,9 @@ function quote(value: string): string {
 function stepLine(ev: RecordedEvent): string {
   switch (ev.type) {
     case "navigate":
-      return `action: navigate to ${ev.url ?? ""}`;
+      // Every step needs non-empty text for the parser; a url-less navigate is
+      // just "navigate" (degenerate but valid) rather than a dangling "to ".
+      return ev.url ? `action: navigate to ${ev.url}` : "action: navigate";
     case "click":
       return `action: click ${quote(ev.name ?? "")}${ev.role ? ` (${ev.role})` : ""}`;
     case "type": {
@@ -50,7 +52,8 @@ function stepLine(ev: RecordedEvent): string {
       return `action: type ${quote(value)} into ${quote(ev.name ?? "")}`;
     }
     case "extract":
-      return `extract: ${ev.text ?? ev.name ?? ""}`;
+      // `||` so an empty string also falls back — an empty extract line is invalid.
+      return `extract: ${ev.text || ev.name || "content"}`;
   }
 }
 

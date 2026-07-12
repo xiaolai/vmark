@@ -59,4 +59,17 @@ describe("proposeLocatorFix", () => {
   it("returns null for an empty snapshot", () => {
     expect(proposeLocatorFix({ role: "button", name: "Publish" }, [])).toBeNull();
   });
+
+  it("handles identical and empty names (edit-distance edge cases)", () => {
+    // Exact same name → confidence 1.
+    expect(
+      proposeLocatorFix({ role: "button", name: "Save" }, snap([["button", "Save"]])),
+    ).toMatchObject({ name: "Save", confidence: 1 });
+    // Both empty → treated as identical (similarity 1).
+    expect(
+      proposeLocatorFix({ role: "button", name: "" }, snap([["button", ""]])),
+    ).toMatchObject({ confidence: 1 });
+    // Empty vs non-empty → dissimilar, below threshold.
+    expect(proposeLocatorFix({ role: "button", name: "" }, snap([["button", "Save"]]))).toBeNull();
+  });
 });

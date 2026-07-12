@@ -91,15 +91,7 @@ export async function runWorkflow(
           reason: `step '${step.id}' needs a human decision (uncertain or unretryable outcome)`,
         };
       }
-      if (action === "abort") {
-        return {
-          status: "failed",
-          completedSteps: completed,
-          pausedAt: step.id,
-          reason: `step '${step.id}' aborted`,
-        };
-      }
-      // action === "retry"
+      // action === "retry" (decideAfterResult only yields done/stop-and-ask/retry)
       attempts += 1;
       if (attempts > maxRetries) {
         return {
