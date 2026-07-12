@@ -252,6 +252,28 @@
 >   test — `uint8ArrayToBase64` 200 KB, 32/32 in isolation, no browser code
 >   touches it — same class as the `hotExitCoordination` timing flake; coverage
 >   thresholds held.)
+> Updated: 2026-07-12 — **Pure-logic layer completed across all phases.** The
+>   testable core of every remaining WI that does not require the running app is
+>   now built + gate-green:
+>   | WI | Module | Tests |
+>   |---|---|---|
+>   | 1.5 | profile data-store mode + id (ADR-B4 macOS-14 gate) | 6 |
+>   | 1.7 | R12 UX surface policy (decided matrix, no TBD) | 10 |
+>   | 4.2 | workflow execution engine (R8a-gated step runner) | 9 |
+>   | 4.3 | recorder trace→workflow conversion (secret-redacting, R10) | 5 |
+>   | 4.4 | self-healing locator proposal | 7 |
+>   | 2.5 | MCP vmark.browser read/act tools + approval store | 15 |
+>   What remains is genuinely NOT cleanly autonomously completable in a session:
+>   (a) **native impl** — WKUIDelegate/WKDownloadDelegate rows (1.7), browser_freeze/
+>   thaw (1.4), crash-recovery FFI (1.8), recorder page-world capture (4.3), and the
+>   sidecar tool schema (2.5) — each needs the dev-app loop to verify; (b) **hard
+>   external gates** — Windows/Linux backends (5.1/5.2, need that hardware), a
+>   self-hosted publish target (3.4); (c) **a spec decision** — the workflow
+>   grammar must *declare* write-ness before the 4.2 executor / 4.5 tool can map
+>   steps safely (I refused to guess it with a keyword heuristic — misclassifying a
+>   write as a read is the exact R8a double-post failure). The engine, safety,
+>   approval, perception, reader, and recorder logic all sit ready behind those
+>   gates.
 > Branch (proposed): `feature/embedded-browser`
 > Related: `20260331-workflow-engine.md` (Genie/internal workflow engine — distinct;
 >   see §1.5), `decisions/ADR-002-mcp-sidecar-architecture.md` (MCP bridge reused here)
