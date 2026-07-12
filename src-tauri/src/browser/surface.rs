@@ -104,22 +104,32 @@ mod imp {
             let req = NSURLRequest::requestWithURL(&url_obj);
             let _ = unsafe { webview.loadRequest(&req) };
             parent.addSubview(&webview);
+            // Drive the first navigation + paint. A freshly added WKWebView does
+            // not begin rendering until the run loop cycles; the app's loop will,
+            // but pumping briefly here makes create deterministic (the spike did
+            // the same). Bounded so create stays responsive.
+            let run_loop = NSRunLoop::mainRunLoop();
+            pump(&run_loop, 1.5);
             WEBVIEWS.with(|m| m.borrow_mut().insert(tab_id, webview));
             Ok(())
         })
     }
 
-    /// Load `url` in an existing webview.
+    /// Load `url` in an existing webview. Clones the handle out of the map first
+    /// so no `RefCell` borrow is held while the run loop is pumped (a pump can
+    /// re-enter WEBVIEWS).
     pub fn navigate(app: &AppHandle, tab_id: String, url: String) -> Result<(), String> {
         on_main(app, move |_mtm| {
-            WEBVIEWS.with(|m| {
-                let map = m.borrow();
-                let webview = map.get(&tab_id).ok_or_else(|| format!("no webview: {tab_id}"))?;
-                let url_obj = ns_url(&url)?;
-                let req = NSURLRequest::requestWithURL(&url_obj);
-                let _ = unsafe { webview.loadRequest(&req) };
-                Ok(())
-            })
+            let webview = WEBVIEWS
+                .with(|m| m.borrow().get(&tab_id).cloned())
+                .ok_or_else(|| format!("no webview: {tab_id}"))?;
+            let url_obj = ns_url(&url)?;
+            let req = NSURLRequest::requestWithURL(&url_obj);
+            let _ = unsafe { webview.loadRequest(&req) };
+            // Drive the navigation + first paint (see create()).
+            let run_loop = NSRunLoop::mainRunLoop();
+            pump(&run_loop, 1.5);
+            Ok(())
         })
     }
 
