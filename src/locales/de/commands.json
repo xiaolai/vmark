@@ -81,5 +81,8 @@
   },
   "aria": {
     "commandPalette": "Befehlspalette"
+  },
+  "browser": {
+    "newTab": "Neuer Browser-Tab"
   }
 }

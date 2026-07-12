@@ -81,5 +81,8 @@
   },
   "aria": {
     "commandPalette": "Paleta de comandos"
+  },
+  "browser": {
+    "newTab": "Nueva pestaña del navegador"
   }
 }

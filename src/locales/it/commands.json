@@ -81,5 +81,8 @@
   },
   "aria": {
     "commandPalette": "Tavolozza comandi"
+  },
+  "browser": {
+    "newTab": "Nuova scheda del browser"
   }
 }

@@ -26,6 +26,7 @@ import { registerRecentWorkspacesCommands } from "./recentWorkspacesCommands";
 import { registerViewCommands } from "./viewCommands";
 import { registerWorkspaceCommands } from "./workspaceCommands";
 import { registerFormatCommands } from "./formatCommands";
+import { registerBrowserCommands } from "./browserCommands";
 
 const EXPORT_BINDINGS: MenuCommandBinding[] = [
   { menuEvent: "menu:export-html", commandId: "export.html" },
@@ -96,6 +97,7 @@ export function useCommandBootstrap(): void {
     registerRecentWorkspacesCommands();
     registerViewCommands();
     registerFormatCommands();
+    registerBrowserCommands();
 
     let unlisten: UnlistenFn | null = null;
     let cancelled = false;
