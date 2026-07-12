@@ -119,5 +119,8 @@
   "windowStatus.status.error": "Erro",
   "windowStatus.status.attention": "Requer atenção",
   "format.media": "Mídia",
-  "quickLook.close": "Fechar visualização"
+  "quickLook.close": "Fechar visualização",
+  "browser.reload": "Recarregar",
+  "browser.addressBar": "Barra de endereços",
+  "browser.loading": "Carregando…"
 }

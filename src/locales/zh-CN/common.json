@@ -119,5 +119,8 @@
   "windowStatus.status.error": "错误",
   "windowStatus.status.attention": "需要关注",
   "format.media": "媒体",
-  "quickLook.close": "关闭预览"
+  "quickLook.close": "关闭预览",
+  "browser.reload": "重新加载",
+  "browser.addressBar": "地址栏",
+  "browser.loading": "加载中…"
 }

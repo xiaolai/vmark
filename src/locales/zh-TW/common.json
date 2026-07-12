@@ -119,5 +119,8 @@
   "windowStatus.status.error": "錯誤",
   "windowStatus.status.attention": "需要注意",
   "format.media": "媒體",
-  "quickLook.close": "關閉預覽"
+  "quickLook.close": "關閉預覽",
+  "browser.reload": "重新載入",
+  "browser.addressBar": "網址列",
+  "browser.loading": "載入中…"
 }

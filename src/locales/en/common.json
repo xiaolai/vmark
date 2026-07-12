@@ -115,5 +115,8 @@
   "windowStatus.status.idle": "Idle",
   "windowStatus.status.error": "Error",
   "windowStatus.status.attention": "Needs attention",
-  "quickLook.close": "Close preview"
+  "quickLook.close": "Close preview",
+  "browser.reload": "Reload",
+  "browser.addressBar": "Address bar",
+  "browser.loading": "Loading…"
 }

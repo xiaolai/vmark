@@ -34,6 +34,7 @@
 import { useActiveTabId } from "@/hooks/useDocumentState";
 import { useTabStore } from "@/stores/tabStore";
 import { isBrowserTab, isDocumentTab } from "@/stores/tabStoreTypes";
+import { BrowserSurface } from "@/components/Browser/BrowserSurface";
 import { dispatchEditor } from "@/lib/formats/registry";
 import { MarkdownEditorSurface } from "@/lib/formats/adapters/markdown";
 import { WelcomeScreen } from "@/components/Welcome/WelcomeScreen";
@@ -64,11 +65,9 @@ export function Editor() {
 
   // R1: a browser tab is not a document — branch on `kind` BEFORE dispatchEditor,
   // or a browser tab (which has no filePath) would resolve as an untitled
-  // markdown document. The live browser surface is wired in WI-1.3; until then a
-  // browser tab (only creatable behind the default-off feature flag) renders
-  // nothing rather than a stray editor.
-  if (tab && isBrowserTab(tab)) {
-    return null;
+  // markdown document. Browser tabs render the embedded browser surface (WI-1.3).
+  if (tabId && tab && isBrowserTab(tab)) {
+    return <BrowserSurface key={tabId} tabId={tabId} />;
   }
 
   const filePath = tab && isDocumentTab(tab) ? tab.filePath : null;

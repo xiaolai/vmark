@@ -119,5 +119,8 @@
   "windowStatus.status.error": "Fehler",
   "windowStatus.status.attention": "Benötigt Aufmerksamkeit",
   "format.media": "Medien",
-  "quickLook.close": "Vorschau schließen"
+  "quickLook.close": "Vorschau schließen",
+  "browser.reload": "Neu laden",
+  "browser.addressBar": "Adressleiste",
+  "browser.loading": "Wird geladen…"
 }

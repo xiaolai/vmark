@@ -119,5 +119,8 @@
   "windowStatus.status.error": "오류",
   "windowStatus.status.attention": "주의 필요",
   "format.media": "미디어",
-  "quickLook.close": "미리보기 닫기"
+  "quickLook.close": "미리보기 닫기",
+  "browser.reload": "새로고침",
+  "browser.addressBar": "주소 표시줄",
+  "browser.loading": "로드 중…"
 }
