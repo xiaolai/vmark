@@ -79,7 +79,10 @@
             // events (commit/finish/fail) fire for that load too. Held in DELEGATES
             // because WKWebView's navigationDelegate reference is weak.
             let delegate = NavDelegate::new(mtm, tab_id.clone(), app_handle);
-            unsafe { webview.setNavigationDelegate(Some(delegate.as_protocol())) };
+            unsafe {
+                webview.setNavigationDelegate(Some(delegate.as_protocol()));
+                webview.setUIDelegate(Some(delegate.as_ui_protocol()));
+            }
             DELEGATES.with(|m| m.borrow_mut().insert(tab_id.clone(), delegate));
             let url_obj = ns_url(&url)?;
             let req = NSURLRequest::requestWithURL(&url_obj);
@@ -144,7 +147,10 @@
                 if let Some(webview) = m.borrow_mut().remove(&tab_id) {
                     // Detach the delegate before teardown so no late callback fires
                     // against a half-destroyed view.
-                    unsafe { webview.setNavigationDelegate(None) };
+                    unsafe {
+                        webview.setNavigationDelegate(None);
+                        webview.setUIDelegate(None);
+                    }
                     webview.removeFromSuperview();
                 }
             });

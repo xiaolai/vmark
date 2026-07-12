@@ -25,8 +25,11 @@
 use objc2::rc::Retained;
 use objc2::runtime::{NSObject, NSObjectProtocol, ProtocolObject};
 use objc2::{define_class, msg_send, DefinedClass, MainThreadMarker, MainThreadOnly};
-use objc2_foundation::NSError;
-use objc2_web_kit::{WKNavigation, WKNavigationDelegate, WKWebView};
+use objc2_foundation::{NSError, NSString};
+use objc2_web_kit::{
+    WKFrameInfo, WKNavigation, WKNavigationAction, WKNavigationDelegate, WKUIDelegate, WKWebView,
+    WKWebViewConfiguration, WKWindowFeatures,
+};
 use tauri::{AppHandle, Emitter, Manager};
 
 use crate::browser::recovery::RecoveryAction;
@@ -67,6 +70,20 @@ struct CrashPayload {
     tab_id: String,
     /// "auto-reload" while within the crash budget, else "manual".
     action: &'static str,
+}
+
+#[derive(serde::Serialize, Clone)]
+struct PopupPayload {
+    #[serde(rename = "tabId")]
+    tab_id: String,
+    url: String,
+}
+
+#[derive(serde::Serialize, Clone)]
+struct DialogPayload {
+    #[serde(rename = "tabId")]
+    tab_id: String,
+    message: String,
 }
 
 define_class!(
@@ -165,6 +182,57 @@ define_class!(
             }
         }
     }
+
+    // SAFETY: the method signatures match WKUIDelegate.
+    unsafe impl WKUIDelegate for NavDelegate {
+        // `window.open` / `target=_blank`: return nil to block the popup (WKWebView
+        // would otherwise create an untracked child webview outside VMark's tab
+        // model) and emit the target so the frontend can open it as a real tab,
+        // re-checking origin (R12).
+        #[unsafe(method_id(webView:createWebViewWithConfiguration:forNavigationAction:windowFeatures:))]
+        fn create_web_view(
+            &self,
+            _wv: &WKWebView,
+            _config: &WKWebViewConfiguration,
+            action: &WKNavigationAction,
+            _features: &WKWindowFeatures,
+        ) -> Option<Retained<WKWebView>> {
+            let ivars = self.ivars();
+            let url = unsafe { action.request() }
+                .URL()
+                .and_then(|u| u.absoluteString())
+                .map(|s| s.to_string())
+                .unwrap_or_default();
+            log::debug!("[browser] popup blocked for {} → {url}", ivars.tab_id);
+            let _ = ivars.app.emit(
+                "browser://popup",
+                PopupPayload { tab_id: ivars.tab_id.clone(), url },
+            );
+            None
+        }
+
+        // `alert()`: surface the message to the frontend and acknowledge so the
+        // page's JS continues (an unhandled panel would hang the page). confirm/
+        // prompt are intentionally left unimplemented for now → WebKit's default
+        // (suppressed) rather than an auto-answer that would fake a user decision.
+        #[unsafe(method(webView:runJavaScriptAlertPanelWithMessage:initiatedByFrame:completionHandler:))]
+        fn run_alert(
+            &self,
+            _wv: &WKWebView,
+            message: &NSString,
+            _frame: &WKFrameInfo,
+            completion_handler: &block2::DynBlock<dyn Fn()>,
+        ) {
+            let ivars = self.ivars();
+            let msg = message.to_string();
+            log::debug!("[browser] alert on {}: {msg}", ivars.tab_id);
+            let _ = ivars.app.emit(
+                "browser://dialog",
+                DialogPayload { tab_id: ivars.tab_id.clone(), message: msg },
+            );
+            completion_handler.call(());
+        }
+    }
 );
 
 impl NavDelegate {
@@ -177,6 +245,11 @@ impl NavDelegate {
 
     /// Wrap `self` as a WKNavigationDelegate protocol object for `setNavigationDelegate`.
     pub fn as_protocol(&self) -> &ProtocolObject<dyn WKNavigationDelegate> {
+        ProtocolObject::from_ref(self)
+    }
+
+    /// Wrap `self` as a WKUIDelegate protocol object for `setUIDelegate`.
+    pub fn as_ui_protocol(&self) -> &ProtocolObject<dyn WKUIDelegate> {
         ProtocolObject::from_ref(self)
     }
 
