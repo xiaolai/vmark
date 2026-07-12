@@ -366,6 +366,19 @@
 >   native crash observation (delegate, wired), and the recovery UI — with the
 >   single honest caveat that a real content-process crash can't be triggered on
 >   demand to exercise the delegate hop live.
+> Updated: 2026-07-12 — **Back/forward history navigation LIVE-VERIFIED (WI-1.7
+>   R12 "Back/forward/reload" row).** `browser_back`/`browser_forward` →
+>   `surface::go_history` → WKWebView `goBack`/`goForward` (one shared helper,
+>   drives to first paint only when a nav actually happens); chrome buttons wired;
+>   the resulting load flows through the nav delegate so the address bar updates
+>   automatically. Verified against the running app: example.com → iana.org →
+>   back → forward produced the title sequence `() → (Example Domains) → (Example
+>   Domain) → (Example Domains)` — the singular↔plural flip proves back returned
+>   to example.com and forward returned to iana.org. i18n back/forward in 10
+>   locales; 1 test; lib.rs baseline 310→312 (documented registry growth);
+>   gate-green, clippy-clean. So the R12 history row (back/forward/reload) is
+>   done; remaining Phase-1 UX rows: interactive dialogs, downloads, upload
+>   picker, media-deny, context menu.
 > Branch (proposed): `feature/embedded-browser`
 > Related: `20260331-workflow-engine.md` (Genie/internal workflow engine — distinct;
 >   see §1.5), `decisions/ADR-002-mcp-sidecar-architecture.md` (MCP bridge reused here)
