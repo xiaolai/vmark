@@ -199,6 +199,29 @@
 >   native surface, opening a browser tab now shows a live page in a VMark pane.
 >   Remaining Phase 1: occlusion (1.4), sessions/profile (1.5), UX delegates
 >   (1.7), crash recovery (1.8) — all native, building on this surface.
+> Updated: 2026-07-12 — **WI-2.1 driver eval LIVE-VERIFIED — the AI can now read
+>   AND act on a live page.** `browser_eval(tabId, script)` evaluates JS in the
+>   driver's ISOLATED content world (`WKContentWorld "vmark-agent"`, R10/I2) and
+>   returns the result — generalized from the proven `assert_no_bridge` eval into
+>   a reusable `eval_js` (page world for the no-bridge check, isolated for the
+>   agent). Verified against the running app via Tauri MCP on example.com:
+>   - **Read:** returned `{title:"Example Domain", h1:"Example Domain",
+>     href:"https://example.com/", links:1}` from the live DOM.
+>   - **Read (structured):** extracted an ARIA snapshot
+>     `[{role:heading,name:"Example Domain"},{role:link,name:"Learn more",
+>     href:"https://iana.org/domains/example"}]` — the same shape aria.ts
+>     produces, now from a real page.
+>   - **Act:** mutated the live DOM (`h1.textContent = "Driven by the AI ✓"`) and
+>     read the new value back — the isolated world shares the DOM, so both reads
+>     and DOM writes work. (The visual repaint under headless idle is the same
+>     documented App-Nap artifact; the eval round-trip proves the action.)
+>   This is the primitive the whole "driven" half rests on: the perception
+>   (aria.ts), reader, write-safety (R8a) and approval (grants.ts) logic now have
+>   a live page to act on. macOS `imp` split to `surface_macos.rs` (`#[path]`);
+>   `browser_eval` registered (lib.rs back to its pre-feature 308).
+>   Remaining Phase 2: interaction tiers (2.3 — synthetic click/type is
+>   `browser_eval`-dispatched on macOS; trusted input is Windows/CDP), and the MCP
+>   `vmark.browser` read/act tools + approval gate (2.5).
 > Branch (proposed): `feature/embedded-browser`
 > Related: `20260331-workflow-engine.md` (Genie/internal workflow engine — distinct;
 >   see §1.5), `decisions/ADR-002-mcp-sidecar-architecture.md` (MCP bridge reused here)
