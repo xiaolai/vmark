@@ -342,6 +342,16 @@
 >   (downloads), the file-upload openPanel (human-only), media-capture deny, and
 >   the minimal context menu — each an incremental protocol method on this proven
 >   delegate class.
+> Updated: 2026-07-12 — **Frontend closes the delegate→UI loop (WI-1.7).**
+>   `components/Browser/useBrowserNavEvents.ts` subscribes to `browser://navigated`
+>   / `loaded` / `load-failed`, filtered by tabId (handlers in a ref, updated in an
+>   effect per the React 19 compiler rule, so it subscribes once per tab).
+>   `BrowserSurface` wires them: a native-driven navigation (redirect, AI-driven
+>   click, reload) now updates the address bar, the tab-store url, and the loading
+>   state — previously the bar went stale after any navigation the React chrome
+>   didn't itself initiate. So the loop is whole: delegate emits (live-verified) →
+>   hook routes (unit-tested) → chrome reflects. 10 tests (hook 7 + surface 2 new
+>   emitting real events + tab-filter); full `check:all` green (branches 90.26%).
 > Branch (proposed): `feature/embedded-browser`
 > Related: `20260331-workflow-engine.md` (Genie/internal workflow engine — distinct;
 >   see §1.5), `decisions/ADR-002-mcp-sidecar-architecture.md` (MCP bridge reused here)
