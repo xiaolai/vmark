@@ -8,9 +8,10 @@
  * (ResizeObserver), navigates on address-bar submit, and destroys the webview on
  * unmount. It also listens (via `useBrowserNavEvents`) to the native
  * WKNavigationDelegate events so the address bar, tab url, and loading state
- * track navigation the page drives itself (redirects, AI clicks, reload). The
- * page paints in the native view over the viewport rect — the rect here is a
- * placeholder, deliberately empty.
+ * track navigation the page drives itself (redirects, AI clicks, reload), and on
+ * `browser://crashed` it freezes the native view and shows a page-crashed reload
+ * overlay (WI-1.8). The page paints in the native view over the viewport rect —
+ * the rect here is a placeholder, deliberately empty.
  *
  * `Editor.tsx` mounts this for `kind === "browser"` tabs (R1). Store access is
  * via selectors + `getState()` in callbacks (no destructuring).

@@ -6,8 +6,10 @@
  * AI-driven clicks, `reload`), so the React chrome cannot know the current URL
  * from `browser_navigate` alone. `browser/nav_delegate_macos.rs` emits
  * `browser://navigated` (committed), `browser://loaded` (finished, with title),
- * and `browser://load-failed`; this hook listens, filters by `tabId`, and calls
- * the matching handler so the address bar and loading state track reality.
+ * `browser://load-failed`, and `browser://crashed` (content-process death, with
+ * the recovery action); this hook listens, filters by `tabId`, and calls the
+ * matching handler so the chrome (address bar, loading, crash overlay) tracks
+ * reality.
  *
  * Handlers are held in a ref so the subscription is set up once per `tabId` and
  * never churns when the parent re-renders with fresh closures.
