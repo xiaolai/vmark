@@ -240,6 +240,8 @@ pub fn run() {
             webview_edit::trigger_webview_edit,
             browser::commands::browser_create,
             browser::commands::browser_navigate,
+            browser::commands::browser_back,
+            browser::commands::browser_forward,
             browser::commands::browser_set_bounds,
             browser::commands::browser_destroy,
             browser::commands::browser_assert_no_bridge,

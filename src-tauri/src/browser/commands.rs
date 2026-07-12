@@ -61,6 +61,19 @@ pub async fn browser_navigate(
     Ok(())
 }
 
+/// Go back in the tab's history. The nav delegate reports the resulting load,
+/// so the address bar and generation stay in step without extra bookkeeping here.
+#[tauri::command]
+pub async fn browser_back(app: AppHandle, tab_id: String) -> Result<(), String> {
+    surface::go_history(&app, tab_id, false)
+}
+
+/// Go forward in the tab's history.
+#[tauri::command]
+pub async fn browser_forward(app: AppHandle, tab_id: String) -> Result<(), String> {
+    surface::go_history(&app, tab_id, true)
+}
+
 /// Reposition/resize the native webview to match the React pane rect (points).
 #[tauri::command]
 pub async fn browser_set_bounds(

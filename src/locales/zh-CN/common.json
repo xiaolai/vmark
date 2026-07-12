@@ -121,6 +121,8 @@
   "format.media": "媒体",
   "quickLook.close": "关闭预览",
   "browser.reload": "重新加载",
+  "browser.back": "后退",
+  "browser.forward": "前进",
   "browser.addressBar": "地址栏",
   "browser.loading": "加载中…",
   "browser.crashed": "此页面已崩溃。",

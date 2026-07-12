@@ -117,6 +117,8 @@
   "windowStatus.status.attention": "Needs attention",
   "quickLook.close": "Close preview",
   "browser.reload": "Reload",
+  "browser.back": "Back",
+  "browser.forward": "Forward",
   "browser.addressBar": "Address bar",
   "browser.loading": "Loading…",
   "browser.crashed": "This page crashed.",

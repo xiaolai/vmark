@@ -88,10 +88,8 @@
             let req = NSURLRequest::requestWithURL(&url_obj);
             let _ = unsafe { webview.loadRequest(&req) };
             parent.addSubview(&webview);
-            // Drive the first navigation + paint. A freshly added WKWebView does
-            // not begin rendering until the run loop cycles; the app's loop will,
-            // but pumping briefly here makes create deterministic (the spike did
-            // the same). Bounded so create stays responsive.
+            // Drive the first navigation + paint: a freshly added WKWebView does
+            // not render until the run loop cycles. Bounded so create stays snappy.
             let run_loop = NSRunLoop::mainRunLoop();
             drive_load(&webview, &run_loop);
             WEBVIEWS.with(|m| m.borrow_mut().insert(tab_id, webview));
@@ -113,6 +111,21 @@
             // Drive the navigation + first paint (see create()).
             let run_loop = NSRunLoop::mainRunLoop();
             drive_load(&webview, &run_loop);
+            Ok(())
+        })
+    }
+
+    /// Go back/forward in history. No-op if nowhere to go; the nav delegate
+    /// reports the resulting load so the chrome updates like any other.
+    pub fn go_history(app: &AppHandle, tab_id: String, forward: bool) -> Result<(), String> {
+        on_main(app, move |_mtm| {
+            let wv = WEBVIEWS
+                .with(|m| m.borrow().get(&tab_id).cloned())
+                .ok_or_else(|| format!("no webview: {tab_id}"))?;
+            let nav = if forward { unsafe { wv.goForward() } } else { unsafe { wv.goBack() } };
+            if nav.is_some() {
+                drive_load(&wv, &NSRunLoop::mainRunLoop());
+            }
             Ok(())
         })
     }

@@ -129,6 +129,24 @@ export function BrowserSurface({ tabId }: { tabId: string }): React.ReactElement
         <button
           type="button"
           className="browser-chrome-btn"
+          onClick={() => void invoke("browser_back", { tabId }).catch(() => {})}
+          aria-label={t("browser.back")}
+          title={t("browser.back")}
+        >
+          ‹
+        </button>
+        <button
+          type="button"
+          className="browser-chrome-btn"
+          onClick={() => void invoke("browser_forward", { tabId }).catch(() => {})}
+          aria-label={t("browser.forward")}
+          title={t("browser.forward")}
+        >
+          ›
+        </button>
+        <button
+          type="button"
+          className="browser-chrome-btn"
           onClick={() => navigate(url)}
           aria-label={t("browser.reload")}
           title={t("browser.reload")}

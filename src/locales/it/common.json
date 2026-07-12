@@ -121,6 +121,8 @@
   "format.media": "Media",
   "quickLook.close": "Chiudi anteprima",
   "browser.reload": "Ricarica",
+  "browser.back": "Indietro",
+  "browser.forward": "Avanti",
   "browser.addressBar": "Barra degli indirizzi",
   "browser.loading": "Caricamento…",
   "browser.crashed": "Questa pagina è andata in crash.",

@@ -121,6 +121,8 @@
   "format.media": "Multimedia",
   "quickLook.close": "Cerrar vista previa",
   "browser.reload": "Recargar",
+  "browser.back": "Atrás",
+  "browser.forward": "Adelante",
   "browser.addressBar": "Barra de direcciones",
   "browser.loading": "Cargando…",
   "browser.crashed": "Esta página se bloqueó.",

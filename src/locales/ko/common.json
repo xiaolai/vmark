@@ -121,6 +121,8 @@
   "format.media": "미디어",
   "quickLook.close": "미리보기 닫기",
   "browser.reload": "새로고침",
+  "browser.back": "뒤로",
+  "browser.forward": "앞으로",
   "browser.addressBar": "주소 표시줄",
   "browser.loading": "로드 중…",
   "browser.crashed": "이 페이지가 다운되었습니다.",

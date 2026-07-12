@@ -70,6 +70,17 @@ describe("BrowserSurface", () => {
     );
   });
 
+  it("invokes browser_back and browser_forward from the history buttons", async () => {
+    const id = seedBrowserTab("https://example.com/");
+    render(<BrowserSurface tabId={id} />);
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("browser_create", expect.anything()));
+    invoke.mockClear();
+    await userEvent.click(screen.getByRole("button", { name: /back/i }));
+    await userEvent.click(screen.getByRole("button", { name: /forward/i }));
+    expect(invoke).toHaveBeenCalledWith("browser_back", { tabId: id });
+    expect(invoke).toHaveBeenCalledWith("browser_forward", { tabId: id });
+  });
+
   it("shows the current URL in the address bar", () => {
     const id = seedBrowserTab("https://example.com/");
     render(<BrowserSurface tabId={id} />);
