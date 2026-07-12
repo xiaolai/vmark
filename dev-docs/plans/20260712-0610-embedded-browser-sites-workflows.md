@@ -405,6 +405,19 @@
 >   confirm/prompt, downloads, upload picker, media-deny, and context menu as the
 >   remaining incremental delegate rows. The browser is a usable, documented,
 >   opt-in feature end-to-end on macOS.
+> Updated: 2026-07-12 — **Stop loading done → R12 nav-controls row complete
+>   (back/forward/reload/stop).** `browser_stop` → `WKWebView.stopLoading()`; the
+>   chrome's reload button flips to a stop (✕) button while loading. To fit it,
+>   the pure run-loop helpers (`pump`/`drive_load`) were extracted to
+>   `driver_loop_macos.rs`, dropping `surface_macos.rs` 299→271 and restoring
+>   headroom for future native rows; the extraction was live-verified (create →
+>   drive_load → nav delegate still fires). Also confirmed the R12 "Deny, hard"
+>   rows (TLS click-through, media capture) are satisfied by WebKit's *default*
+>   when the delegate method is unimplemented — so no explicit handler is added
+>   (adding one would risk *enabling* click-through). Remaining WI-1.7 rows —
+>   interactive confirm/prompt and downloads — both need a shared "hold the native
+>   completion block across a frontend round-trip" mechanism (a deliberate
+>   multi-part build); upload picker and context menu round out the row set.
 > Branch (proposed): `feature/embedded-browser`
 > Related: `20260331-workflow-engine.md` (Genie/internal workflow engine — distinct;
 >   see §1.5), `decisions/ADR-002-mcp-sidecar-architecture.md` (MCP bridge reused here)
