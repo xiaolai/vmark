@@ -44,7 +44,7 @@ mod imp;
 // (their native backends land in WI-5.1 / WI-5.2).
 
 #[cfg(target_os = "macos")]
-pub use imp::{assert_no_bridge, create, destroy, eval, navigate, set_bounds};
+pub use imp::{assert_no_bridge, create, destroy, eval, navigate, set_bounds, set_hidden};
 
 #[cfg(not(target_os = "macos"))]
 mod stub {
@@ -75,7 +75,10 @@ mod stub {
     pub fn eval(_a: &AppHandle, _t: String, _s: String) -> Result<String, String> {
         Err(MSG.into())
     }
+    pub fn set_hidden(_a: &AppHandle, _t: String, _h: bool) -> Result<(), String> {
+        Err(MSG.into())
+    }
 }
 
 #[cfg(not(target_os = "macos"))]
-pub use stub::{assert_no_bridge, create, destroy, eval, navigate, set_bounds};
+pub use stub::{assert_no_bridge, create, destroy, eval, navigate, set_bounds, set_hidden};

@@ -106,3 +106,16 @@ pub async fn browser_assert_no_bridge(
 pub async fn browser_eval(app: AppHandle, tab_id: String, script: String) -> Result<String, String> {
     surface::eval(&app, tab_id, script)
 }
+
+/// Freeze the browser tab — hide the native view so a DOM overlay paints over
+/// the rect instead of the live page (R2/WI-1.4 occlusion).
+#[tauri::command]
+pub async fn browser_freeze(app: AppHandle, tab_id: String) -> Result<(), String> {
+    surface::set_hidden(&app, tab_id, true)
+}
+
+/// Thaw the browser tab — show the native view again.
+#[tauri::command]
+pub async fn browser_thaw(app: AppHandle, tab_id: String) -> Result<(), String> {
+    surface::set_hidden(&app, tab_id, false)
+}

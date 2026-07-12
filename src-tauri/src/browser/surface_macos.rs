@@ -134,6 +134,19 @@
         })
     }
 
+    /// Hide (freeze) or show (thaw) the native view — the occlusion mechanism
+    /// (R2/WI-1.4). Hiding lets a DOM overlay paint in the rect instead of the
+    /// live page that would otherwise sit above all DOM.
+    pub fn set_hidden(app: &AppHandle, tab_id: String, hidden: bool) -> Result<(), String> {
+        on_main(app, move |_mtm| {
+            let webview = WEBVIEWS
+                .with(|m| m.borrow().get(&tab_id).cloned())
+                .ok_or_else(|| format!("no webview: {tab_id}"))?;
+            webview.setHidden(hidden);
+            Ok(())
+        })
+    }
+
     /// Evaluate `script` in `world`, pumping the run loop until the async result
     /// arrives (capped). Scripts should `return` a JSON-serializable value;
     /// the string result (or "<null>"/"<timeout>") is returned as-is.
