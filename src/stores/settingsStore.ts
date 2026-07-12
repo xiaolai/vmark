@@ -80,6 +80,7 @@ export type {
   GeneralSettings,
   UpdateSettings,
   LargeFileSettings,
+  BrowserSettings,
   SettingsState,
   SettingsActions,
 } from "./settingsTypes";
@@ -115,6 +116,7 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
       updateUpdateSetting: createSectionUpdater(set, "update"),
       updateLargeFileSetting: createSectionUpdater(set, "largeFile"),
       updateFormatsSetting: createSectionUpdater(set, "formats"),
+      updateBrowserSetting: createSectionUpdater(set, "browser"),
       toggleDevSection: () => set((state) => ({ showDevSection: !state.showDevSection })),
       resetSettings: () => set(structuredClone(initialState)),
     }),

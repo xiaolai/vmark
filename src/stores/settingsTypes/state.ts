@@ -12,6 +12,7 @@ import type { CJKFormattingSettings } from "./cjk";
 import type { ImageSettings, MarkdownSettings } from "./content";
 import type { AdvancedSettingsState, TerminalSettings } from "./system";
 import type {
+  BrowserSettings,
   FormatsSettings,
   GeneralSettings,
   LargeFileSettings,
@@ -34,6 +35,7 @@ export interface SettingsState {
   update: UpdateSettings;
   largeFile: LargeFileSettings;
   formats: FormatsSettings;
+  browser: BrowserSettings;
   // UI state
   showDevSection: boolean;
 }
@@ -79,6 +81,10 @@ export interface SettingsActions {
   updateFormatsSetting: <K extends keyof FormatsSettings>(
     key: K,
     value: FormatsSettings[K]
+  ) => void;
+  updateBrowserSetting: <K extends keyof BrowserSettings>(
+    key: K,
+    value: BrowserSettings[K]
   ) => void;
   toggleDevSection: () => void;
   resetSettings: () => void;

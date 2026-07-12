@@ -75,6 +75,17 @@ export interface LargeFileSettings {
   warnAbove5MB: boolean;
 }
 
+// ---------------------------------------------------------------------------
+// Embedded browser (WI-1.10)
+// ---------------------------------------------------------------------------
+
+/** Embedded-browser feature settings. Gated off by default until the surface,
+ *  driver, and site plugins ship — enabling exposes "New Browser Tab". */
+export interface BrowserSettings {
+  /** Master feature flag for the in-app embedded browser. Default false. */
+  enabled: boolean;
+}
+
 export interface GeneralSettings {
   // Auto-save
   autoSaveEnabled: boolean;

@@ -166,6 +166,10 @@ export const initialState: SettingsState = {
     upgradeNudgeShown: false,
     associations: {},
   },
+  browser: {
+    // Embedded browser is off by default until the surface + driver ship (WI-1.10).
+    enabled: false,
+  },
   showDevSection: false,
 };
 
@@ -180,4 +184,5 @@ export type ObjectSections =
   | "advanced"
   | "update"
   | "largeFile"
-  | "formats";
+  | "formats"
+  | "browser";

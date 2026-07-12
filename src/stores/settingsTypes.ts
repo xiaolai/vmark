@@ -34,6 +34,6 @@ export type {
   ImageSettings,
 } from "./settingsTypes/content";
 
-export type { TerminalPosition, TerminalCursorStyle, TerminalBellMode, TerminalSettings } from "./settingsTypes/system";  export type {   FormatsSettings, LargeFileSettings, GeneralSettings, UpdateCheckFrequency, UpdateSettings } from "./settingsTypes/workspace";
+export type { TerminalPosition, TerminalCursorStyle, TerminalBellMode, TerminalSettings } from "./settingsTypes/system";  export type {   FormatsSettings, LargeFileSettings, BrowserSettings, GeneralSettings, UpdateCheckFrequency, UpdateSettings } from "./settingsTypes/workspace";
 
 export type { SettingsState, SettingsActions } from "./settingsTypes/state";
