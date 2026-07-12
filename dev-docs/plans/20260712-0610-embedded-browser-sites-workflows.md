@@ -274,6 +274,18 @@
 >   write as a read is the exact R8a double-post failure). The engine, safety,
 >   approval, perception, reader, and recorder logic all sit ready behind those
 >   gates.
+> Updated: 2026-07-12 — **WI-3.5 site-plugin health-check core landed
+>   (TDD-first, gate-green).** `src/lib/sites/health.ts`: `classifyProbe` maps a
+>   per-plugin auth+fixture probe to `ok`/`degraded`/`failed` (fixture failure
+>   dominates auth state, so the "deliberately broken fixture" acceptance surfaces
+>   as a hard failure, mirroring the MCP sidecar health philosophy); `runSiteHealth`
+>   fans checks out concurrently over `listSites()` but returns them in registry
+>   order (stable status panel), reports `unknown` for a site with no check, and
+>   contains a throwing check as `failed` with its message. 14 tests. This is the
+>   logic `browser.listSites` and the status panel consume. Remaining WI-3.5: the
+>   React panel (`src/components/Browser/SiteStatus/`) and the live plugin
+>   `healthCheck()` bodies (auth probe + fixture extraction drive the native
+>   browser) — both need the dev-app loop.
 > Branch (proposed): `feature/embedded-browser`
 > Related: `20260331-workflow-engine.md` (Genie/internal workflow engine — distinct;
 >   see §1.5), `decisions/ADR-002-mcp-sidecar-architecture.md` (MCP bridge reused here)
