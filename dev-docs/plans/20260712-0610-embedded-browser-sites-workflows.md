@@ -352,6 +352,20 @@
 >   didn't itself initiate. So the loop is whole: delegate emits (live-verified) →
 >   hook routes (unit-tested) → chrome reflects. 10 tests (hook 7 + surface 2 new
 >   emitting real events + tab-filter); full `check:all` green (branches 90.26%).
+> Updated: 2026-07-12 — **WI-1.8 crash recovery now END-TO-END (policy +
+>   observation + UI).** The delegate emits `browser://crashed {action}`;
+>   `useBrowserNavEvents` routes it; `BrowserSurface` renders the plan's required
+>   "page crashed — reload" state. Because the native WKWebView paints *over* the
+>   DOM, the overlay first **freezes** (hides) the native view (WI-1.4 occlusion)
+>   so it's visible: `manual` (budget exhausted) shows a Reload button that thaws
+>   + re-navigates; `auto-reload` shows a reloading state until a clean
+>   `browser://loaded` clears it and thaws. The placeholder viewport drops
+>   `aria-hidden` while the overlay is the real content (a11y). i18n
+>   `browser.crashed`/`browser.reloading` in all 10 locales; 5 new tests. So
+>   WI-1.8 is complete across all three layers — `recovery.rs` policy (7 tests),
+>   native crash observation (delegate, wired), and the recovery UI — with the
+>   single honest caveat that a real content-process crash can't be triggered on
+>   demand to exercise the delegate hop live.
 > Branch (proposed): `feature/embedded-browser`
 > Related: `20260331-workflow-engine.md` (Genie/internal workflow engine — distinct;
 >   see §1.5), `decisions/ADR-002-mcp-sidecar-architecture.md` (MCP bridge reused here)
