@@ -16,7 +16,9 @@
 //! The macOS objc2 recipe is the productionized form of the validated Phase-0
 //! spike (git cd162e02:src-tauri/src/spike_embed.rs).
 
+use crate::browser::recovery::CrashTracker;
 use crate::browser::registry::BrowserRegistry;
+use std::collections::HashMap;
 use std::sync::Mutex;
 
 /// Tauri-managed browser state: the platform-independent lifecycle/identity
@@ -24,6 +26,9 @@ use std::sync::Mutex;
 #[derive(Default)]
 pub struct BrowserSurface {
     pub registry: Mutex<BrowserRegistry>,
+    /// Per-tab consecutive-crash state (WI-1.8). The navigation delegate records
+    /// crashes/clean-loads here to decide auto-reload vs. manual (recovery.rs).
+    pub crash_trackers: Mutex<HashMap<String, CrashTracker>>,
 }
 
 /// The read-only JS that asserts no Tauri bridge leaked into the browsed page

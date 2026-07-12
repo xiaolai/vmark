@@ -17,9 +17,17 @@
     use std::time::Duration;
     use tauri::AppHandle;
 
+    #[path = "nav_delegate_macos.rs"]
+    mod nav_delegate;
+    use nav_delegate::NavDelegate;
+
     thread_local! {
         /// Main-thread-only live webviews, keyed by tab id.
         static WEBVIEWS: RefCell<HashMap<String, Retained<WKWebView>>> = RefCell::new(HashMap::new());
+        /// Navigation delegates, kept alive here because `WKWebView` holds its
+        /// `navigationDelegate` **weakly** — dropping the `Retained` would silently
+        /// stop all lifecycle/crash callbacks. Cleared in `destroy`.
+        static DELEGATES: RefCell<HashMap<String, Retained<NavDelegate>>> = RefCell::new(HashMap::new());
     }
 
     /// Run `f` on the main thread and return its result (20s cap).
@@ -59,6 +67,7 @@
 
     /// Create the native webview for `tab_id`, add it as a subview, and load `url`.
     pub fn create(app: &AppHandle, tab_id: String, url: String) -> Result<(), String> {
+        let app_handle = app.clone();
         on_main(app, move |mtm| {
             let parent = content_view(mtm)?;
             let bounds = parent.bounds();
@@ -66,6 +75,12 @@
             let webview = unsafe {
                 WKWebView::initWithFrame_configuration(WKWebView::alloc(mtm), bounds, &config)
             };
+            // Attach the navigation delegate BEFORE the first load so its lifecycle
+            // events (commit/finish/fail) fire for that load too. Held in DELEGATES
+            // because WKWebView's navigationDelegate reference is weak.
+            let delegate = NavDelegate::new(mtm, tab_id.clone(), app_handle);
+            unsafe { webview.setNavigationDelegate(Some(delegate.as_protocol())) };
+            DELEGATES.with(|m| m.borrow_mut().insert(tab_id.clone(), delegate));
             let url_obj = ns_url(&url)?;
             let req = NSURLRequest::requestWithURL(&url_obj);
             let _ = unsafe { webview.loadRequest(&req) };
@@ -127,8 +142,14 @@
         on_main(app, move |_mtm| {
             WEBVIEWS.with(|m| {
                 if let Some(webview) = m.borrow_mut().remove(&tab_id) {
+                    // Detach the delegate before teardown so no late callback fires
+                    // against a half-destroyed view.
+                    unsafe { webview.setNavigationDelegate(None) };
                     webview.removeFromSuperview();
                 }
+            });
+            DELEGATES.with(|m| {
+                m.borrow_mut().remove(&tab_id);
             });
             Ok(())
         })
