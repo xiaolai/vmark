@@ -187,6 +187,18 @@
 >   the no-bridge check, and a Codex review of the lifecycle state machine
 >   (registry.rs) per governance §6. The core surface is proven — WI-1.3 (React
 >   surface + bounds sync) can now consume these commands.
+> Updated: 2026-07-12 — **WI-1.3 BrowserSurface — the embedded browser is now a
+>   real, usable tab.** `src/components/Browser/BrowserSurface.tsx` renders the
+>   chrome (address bar → `browser_navigate`, reload, loading state) and a
+>   reserved viewport whose bounds it reports to Rust via `browser_set_bounds` on
+>   layout/resize (ResizeObserver); it creates the native webview on mount and
+>   destroys it on unmount. `Editor.tsx` renders it (keyed per tab) for
+>   `kind==="browser"` tabs — the WI-1.1 `return null` stub is gone, closing the
+>   loop from tab model (1.1) → native surface (1.2) → UI (1.3). i18n in all 10
+>   locales; 5 behavior tests (mock invoke). Combined with the live-verified
+>   native surface, opening a browser tab now shows a live page in a VMark pane.
+>   Remaining Phase 1: occlusion (1.4), sessions/profile (1.5), UX delegates
+>   (1.7), crash recovery (1.8) — all native, building on this surface.
 > Branch (proposed): `feature/embedded-browser`
 > Related: `20260331-workflow-engine.md` (Genie/internal workflow engine — distinct;
 >   see §1.5), `decisions/ADR-002-mcp-sidecar-architecture.md` (MCP bridge reused here)
