@@ -6,13 +6,17 @@
  * the WI-1.2 Tauri commands: it creates the native webview on mount, reports the
  * reserved rect's bounds so Rust keeps the native view aligned under it
  * (ResizeObserver), navigates on address-bar submit, and destroys the webview on
- * unmount. The page itself paints in the native view positioned over the
- * viewport rect — the rect here is a placeholder, deliberately empty.
+ * unmount. It also listens (via `useBrowserNavEvents`) to the native
+ * WKNavigationDelegate events so the address bar, tab url, and loading state
+ * track navigation the page drives itself (redirects, AI clicks, reload). The
+ * page paints in the native view over the viewport rect — the rect here is a
+ * placeholder, deliberately empty.
  *
  * `Editor.tsx` mounts this for `kind === "browser"` tabs (R1). Store access is
  * via selectors + `getState()` in callbacks (no destructuring).
  *
  * @coordinates-with src-tauri browser commands — browser_create/navigate/set_bounds/destroy
+ * @coordinates-with components/Browser/useBrowserNavEvents — native nav-delegate events
  * @coordinates-with stores/tabStore.ts — reads the BrowserTab url, updates it on navigate
  * @module components/Browser/BrowserSurface
  */
