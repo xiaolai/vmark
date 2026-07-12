@@ -302,6 +302,29 @@
 >   flows through them. The per-step read-declaration **grammar** (to re-enable
 >   self-heal for declared reads) is the one residual *design* choice; the safe
 >   default ships today.
+> Updated: 2026-07-12 — **WKNavigationDelegate LIVE-VERIFIED (WI-1.7 nav
+>   lifecycle + WI-1.8 crash observation).** The first objc2 protocol-conforming
+>   class in the repo (`define_class!`), `browser/nav_delegate_macos.rs`. Attached
+>   in `create()` before the first load, held in a `DELEGATES` thread_local
+>   (WKWebView keeps `navigationDelegate` weakly). Per tab: **didCommit** bumps the
+>   navigation generation (R7a stale-command rejection) + marks Navigating;
+>   **didFinish** marks Live, forgives the crash streak (`recovery.rs`
+>   `on_load_success`), emits `browser://loaded {url,title}`; **didFail** emits
+>   `browser://load-failed`; **webViewWebContentProcessDidTerminate** records the
+>   crash in the tab's `CrashTracker`, marks Crashed, emits `browser://crashed`,
+>   auto-reloads within budget. Verified against the running dev app (rebuilt at
+>   16:57, my code) via Tauri MCP: `browser_create('example.com')` then
+>   `browser_navigate(iana.org/help/example-domains)` produced TWO `didFinish`
+>   callbacks in the log —
+>   `[browser] loaded deleg-test ()` then `[browser] loaded deleg-test (Example
+>   Domains)` — the second carrying the real page **title** from `webview.title()`.
+>   So the delegate fires on both initial load and navigation, extracts title,
+>   and runs the generation-bump + event-emit path. The crash callback is wired +
+>   unit-tested (`recovery.rs`, 7 tests) but cannot be crash-triggered (no
+>   WKWebView crash API) — it ships logged-and-wired, not crash-exercised.
+>   Remaining WI-1.7: WKUIDelegate (alert/confirm/prompt dialogs, `window.open`
+>   → new tab, permission denies) and WKDownloadDelegate — both need their objc2
+>   Cargo features enabled; dialogs are user-triggerable so live-verifiable.
 > Branch (proposed): `feature/embedded-browser`
 > Related: `20260331-workflow-engine.md` (Genie/internal workflow engine — distinct;
 >   see §1.5), `decisions/ADR-002-mcp-sidecar-architecture.md` (MCP bridge reused here)
