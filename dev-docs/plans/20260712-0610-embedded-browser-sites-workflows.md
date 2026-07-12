@@ -325,6 +325,23 @@
 >   Remaining WI-1.7: WKUIDelegate (alert/confirm/prompt dialogs, `window.open`
 >   → new tab, permission denies) and WKDownloadDelegate — both need their objc2
 >   Cargo features enabled; dialogs are user-triggerable so live-verifiable.
+> Updated: 2026-07-12 — **WKUIDelegate popup-block + alert LIVE-VERIFIED
+>   (WI-1.7).** Second protocol on the same delegate class (`setUIDelegate`
+>   alongside `setNavigationDelegate`), enabling the objc2-web-kit features
+>   WKUIDelegate/WKNavigationAction/WKWindowFeatures/WKFrameInfo (existing crate,
+>   no new dep, Cargo.lock unchanged). Two R12 rows: `window.open`/`target=_blank`
+>   → `createWebView` returns nil (blocks the untracked child webview) + emits
+>   `browser://popup {url}`; `alert()` → emits `browser://dialog {message}` +
+>   calls the completion handler so the page doesn't hang. confirm/prompt left at
+>   WebKit's default (suppressed) rather than auto-answered. Verified against the
+>   running dev app: eval'ing `window.open(...)` + `alert(...)` on a loaded tab
+>   logged `[browser] popup blocked for ux-test → https://example.org/popup-probe`
+>   and `[browser] alert on ux-test: vmark-ux-probe`. Browser Rust suite 18/18,
+>   clippy-clean. Remaining WI-1.7 UX rows: interactive confirm/prompt (needs the
+>   completion block held across a frontend round-trip), WKDownloadDelegate
+>   (downloads), the file-upload openPanel (human-only), media-capture deny, and
+>   the minimal context menu — each an incremental protocol method on this proven
+>   delegate class.
 > Branch (proposed): `feature/embedded-browser`
 > Related: `20260331-workflow-engine.md` (Genie/internal workflow engine — distinct;
 >   see §1.5), `decisions/ADR-002-mcp-sidecar-architecture.md` (MCP bridge reused here)
