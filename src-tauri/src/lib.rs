@@ -43,6 +43,7 @@ mod shell_integration;
 mod supported_files;
 mod tab_transfer;
 mod task;
+mod spike_embed; // SPIKE-1 embedding probe (debug-only, throwaway — remove before WI-1.2)
 mod temp_html;
 mod watcher;
 mod webview_edit;
@@ -236,6 +237,13 @@ pub fn run() {
             temp_html::write_temp_html,
             file_write::atomic_write_file,
             webview_edit::trigger_webview_edit,
+            spike_embed::spike_embed_browser,
+            spike_embed::spike_snapshot,
+            spike_embed::spike_datastore,
+            spike_embed::spike_trusted_input,
+            spike_embed::spike_fetch,
+            spike_embed::spike_open_browser,
+            spike_embed::spike_session_check,
             #[cfg(target_os = "macos")]
             dock_recent::register_dock_recent,
             #[cfg(target_os = "macos")]
