@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * VMark MCP Server — pruned 5-tool surface.
+ * VMark MCP Server — pruned tool surface (5 core + browser).
  *
  * Exposes VMark to AI assistants via the MCP protocol with five
  * composite tools: `session`, `workspace`, `document`, `workflow`,
@@ -41,6 +41,7 @@ export { registerWorkspaceTool } from './tools/workspace.js';
 export { registerDocumentTool } from './tools/document.js';
 export { registerWorkflowTool } from './tools/workflow.js';
 export { registerSelectionTool } from './tools/selection.js';
+export { registerBrowserTool } from './tools/browser.js';
 
 export type {
   Bridge,
@@ -65,10 +66,11 @@ import { registerWorkspaceTool } from './tools/workspace.js';
 import { registerDocumentTool } from './tools/document.js';
 import { registerWorkflowTool } from './tools/workflow.js';
 import { registerSelectionTool } from './tools/selection.js';
+import { registerBrowserTool } from './tools/browser.js';
 import type { Bridge } from './bridge/types.js';
 
 /**
- * Create a fully configured VMark MCP server with the pruned 5-tool
+ * Create a fully configured VMark MCP server with the pruned tool
  * surface registered (selection re-added per ADR-7).
  */
 export function createVMarkMcpServer(bridge: Bridge): VMarkMcpServer {
@@ -79,6 +81,7 @@ export function createVMarkMcpServer(bridge: Bridge): VMarkMcpServer {
   registerDocumentTool(server);  // document (3 actions)
   registerWorkflowTool(server);  // workflow (2 actions)
   registerSelectionTool(server); // selection (2 actions)
+  registerBrowserTool(server);   // browser (2 actions: read, act)
 
   return server;
 }
@@ -116,6 +119,12 @@ export const TOOL_CATEGORIES = [
     description:
       "Read or replace the user's current editor selection — cheap targeted edits on large documents (2 actions)",
     tools: ['selection'],
+  },
+  {
+    name: 'Browser',
+    description:
+      'Read (ARIA snapshot) and act (click/type by role+name) on the embedded browser tab; actions are approval-gated (2 actions: read, act)',
+    tools: ['browser'],
   },
 ] as const;
 

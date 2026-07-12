@@ -1,7 +1,7 @@
 /**
  * Core bridge types for communication between the MCP server and VMark.
  *
- * The pruned 5-tool surface defines BridgeRequest as a union of the 15
+ * The pruned tool surface (5 core + browser) defines BridgeRequest as a union of the
  * `vmark.*` action types. The Rust bridge parser extracts `type` as the
  * request_type and forwards every other key as args, so all extra
  * fields here are flat (not nested under `args`).
@@ -60,6 +60,15 @@ export type BridgeRequest =
       tabId?: string;
       content: string;
       expected_revision?: string;
+    }
+  | { type: 'vmark.browser.read'; tabId?: string }
+  | {
+      type: 'vmark.browser.act';
+      tabId?: string;
+      operation: string;
+      role: string;
+      name: string;
+      text?: string;
     };
 
 /**
