@@ -379,6 +379,21 @@
 >   gate-green, clippy-clean. So the R12 history row (back/forward/reload) is
 >   done; remaining Phase-1 UX rows: interactive dialogs, downloads, upload
 >   picker, media-deny, context menu.
+> Updated: 2026-07-12 — **Browser is now USER-REACHABLE (WI-1.10 entry point).**
+>   The feature had zero UI entry — `createBrowserTab` had no callers outside
+>   tests/MCP. Added: (1) `services/commands/browserCommands.ts` — a
+>   `browser.newTab` command on the CommandBus, gated by `browser.enabled` via the
+>   `when` predicate, whose run creates + activates a browser tab (default start
+>   page DuckDuckGo); (2) an "Embedded browser" toggle in Advanced → Experimental
+>   (dev-mode group, matching workflowEngine) wired to `updateBrowserSetting`, so
+>   the user can actually flip the flag. Enable → "New Browser Tab" appears in the
+>   palette → opens a live native page with back/forward/reload, address-bar
+>   tracking, and crash recovery. i18n in 10 locales (commands + settings); 6
+>   tests; gate-green. The full user path is verified in segments (command+gating
+>   unit-tested, BrowserSurface mount→browser_create unit-tested, browser_create→
+>   native render live-verified). Remaining WI-1.10: `website/guide/browser.md`
+>   (docs only). So Phase 1 now has a complete usable spine: enable → open → browse
+>   → history → recover.
 > Branch (proposed): `feature/embedded-browser`
 > Related: `20260331-workflow-engine.md` (Genie/internal workflow engine — distinct;
 >   see §1.5), `decisions/ADR-002-mcp-sidecar-architecture.md` (MCP bridge reused here)
