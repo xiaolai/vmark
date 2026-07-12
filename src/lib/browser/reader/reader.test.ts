@@ -33,6 +33,16 @@ describe("readPage — title + byline", () => {
     const r = readPage(`<body><article><p>Just body text, long enough here.</p></article></body>`, URL);
     expect(r.byline).toBeNull();
   });
+
+  it("finds a byline in a header before boilerplate removal strips it", () => {
+    const r = readPage(
+      `<body><header><a rel="author" href="/u/sam">Sam Author</a></header><article><p>The body paragraph with enough length to score.</p></article></body>`,
+      URL,
+    );
+    expect(r.byline).toBe("Sam Author");
+    // The header itself must not leak into the content.
+    expect(r.markdown).not.toContain("Sam Author");
+  });
 });
 
 describe("readPage — main-content selection", () => {
@@ -98,6 +108,23 @@ describe("readPage — markdown serialization", () => {
     expect(r.markdown).toContain("> quoted line");
     expect(r.markdown).toContain("use `foo()` now");
     expect(r.markdown).toMatch(/```\nconst x = 1;\n```/);
+  });
+
+  it("emits nothing for empty emphasis/strong and img without src", () => {
+    const r = readPage(wrap(`<p>x<strong></strong><em></em></p><img alt="no src">`), URL);
+    expect(r.markdown).not.toContain("**");
+    expect(r.markdown).not.toContain("![no src]");
+  });
+
+  it("serializes <br> as a newline and <hr> as a rule", () => {
+    const r = readPage(wrap(`<p>line one<br>line two</p><hr>`), URL);
+    expect(r.markdown).toContain("line one\nline two");
+    expect(r.markdown).toContain("---");
+  });
+
+  it("keeps a malformed href verbatim rather than throwing", () => {
+    const r = readPage(wrap(`<p>a <a href="http://">bad link</a> here</p>`), URL);
+    expect(r.markdown).toContain("[bad link](http://)");
   });
 
   it("drops script/style/noscript noise from the output", () => {

@@ -28,6 +28,11 @@ describe("computeRole", () => {
   it("honors an explicit role attribute over the implicit one", () => {
     expect(computeRole(el(`<div role="button">x</div>`))).toBe("button");
   });
+
+  it("maps range inputs to slider and hidden inputs to no role", () => {
+    expect(computeRole(el(`<input type="range">`))).toBe("slider");
+    expect(computeRole(el(`<input type="hidden">`))).toBeNull();
+  });
 });
 
 describe("accessibleName", () => {
@@ -49,6 +54,24 @@ describe("accessibleName", () => {
   it("falls back to placeholder for an unlabeled input", () => {
     expect(accessibleName(el(`<input type="text" placeholder="Search…">`))).toBe("Search…");
   });
+  it("resolves aria-labelledby to the referenced element text", () => {
+    const r = root(`<span id="lbl">Save changes</span><button aria-labelledby="lbl">x</button>`);
+    expect(accessibleName(r.querySelector("button")!)).toBe("Save changes");
+  });
+
+  it("uses a wrapping <label> when there is no `for`", () => {
+    const r = root(`<label>Full name <input type="text"></label>`);
+    expect(accessibleName(r.querySelector("input")!)).toBe("Full name");
+  });
+
+  it("uses the value of a submit input", () => {
+    expect(accessibleName(el(`<input type="submit" value="Send it">`))).toBe("Send it");
+  });
+
+  it("falls back to the title attribute for a roled element with no text", () => {
+    expect(accessibleName(el(`<div role="button" title="Helpful tip"></div>`))).toBe("Helpful tip");
+  });
+
   it("returns empty string when no name is derivable", () => {
     expect(accessibleName(el(`<input type="text">`))).toBe("");
   });
@@ -117,5 +140,16 @@ describe("ariaSnapshot", () => {
     expect(checkbox?.name).toBe("Agree");
     const button = snap.find((n) => n.role === "button");
     expect(button?.disabled).toBe(true);
+  });
+
+  it("reads ARIA state attributes (aria-checked, aria-disabled, aria-level)", () => {
+    const page = root(`
+      <div role="checkbox" aria-checked="true" aria-label="Terms"></div>
+      <div role="button" aria-disabled="true">Blocked</div>
+      <div role="heading" aria-level="3">Custom heading</div>`);
+    const snap = ariaSnapshot(page);
+    expect(snap.find((n) => n.role === "checkbox")?.checked).toBe(true);
+    expect(snap.find((n) => n.role === "button")?.disabled).toBe(true);
+    expect(snap.find((n) => n.role === "heading")?.level).toBe(3);
   });
 });
