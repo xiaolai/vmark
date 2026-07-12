@@ -114,6 +114,21 @@
 >     (needs the surface + feature flag); the records round-trip now.
 >   - Remaining Phase 1: WI-1.2 (native WKWebView surface) … WI-1.10. WI-1.2 is the
 >     native halt-gate item (human-run verification).
+> Updated: 2026-07-12 — **Phase 1 pure-software foundation complete (4 WIs), all
+>   TDD-first and gate-green, committed on `feature/embedded-browser`:**
+>   | WI | What | Verify |
+>   |---|---|---|
+>   | 1.1 | Tab `DocumentTab \| BrowserTab` union + downgrade-safe `sessionTabs` persistence | full `check:all` green (1018 test files); 21 Rust workspace tests |
+>   | 1.9 | Automation lease (R11) — AI/human arbitration, generation-stamped stale rejection | 13 unit tests |
+>   | 1.10 (gate) | `settings.browser.enabled` default-off feature flag | 3 tests; 74 existing settings tests green |
+>   | 1.6 | Hibernation LRU live-webview cap + keep-alive exemption (R6) | 10 unit tests |
+>   These are the parts that stand alone without the native surface. The lease,
+>   hibernation store, and feature flag define the *contracts* the native surface
+>   (WI-1.2) will satisfy; browser-tab restore-into-a-live-view, the occlusion
+>   service (1.4), sessions/profile (1.5), UX delegates (1.7), and crash recovery
+>   (1.8) all depend on WI-1.2 and its live-Tauri verification loop (dev app +
+>   Tauri MCP, as used for the Phase-0 spikes) — that is the next major push and
+>   is not autonomously completable without running the app.
 > Branch (proposed): `feature/embedded-browser`
 > Related: `20260331-workflow-engine.md` (Genie/internal workflow engine — distinct;
 >   see §1.5), `decisions/ADR-002-mcp-sidecar-architecture.md` (MCP bridge reused here)
