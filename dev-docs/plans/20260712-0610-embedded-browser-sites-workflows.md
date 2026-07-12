@@ -394,6 +394,17 @@
 >   native render live-verified). Remaining WI-1.10: `website/guide/browser.md`
 >   (docs only). So Phase 1 now has a complete usable spine: enable → open → browse
 >   → history → recover.
+> Updated: 2026-07-12 — **WI-1.10 COMPLETE + Phase-1 DoD script green.** Added
+>   `website/guide/browser.md` (enable/use/security-model/AI-driving/limitations),
+>   registered in the en sidebar, plus an Embedded Browser section in
+>   `settings.md` and the browser rows in the `21-website-docs` mapping rule; the
+>   website builds clean. `bash scripts/check-browser-phase.sh 1` passes (native
+>   WIs are live-verified, not script-checked, as the script notes). **Phase-1
+>   status:** 1.1–1.6, 1.8, 1.9, 1.10 done; 1.7 partial — nav lifecycle, popup,
+>   alert, and back/forward/reload done + live-verified, with interactive
+>   confirm/prompt, downloads, upload picker, media-deny, and context menu as the
+>   remaining incremental delegate rows. The browser is a usable, documented,
+>   opt-in feature end-to-end on macOS.
 > Branch (proposed): `feature/embedded-browser`
 > Related: `20260331-workflow-engine.md` (Genie/internal workflow engine — distinct;
 >   see §1.5), `decisions/ADR-002-mcp-sidecar-architecture.md` (MCP bridge reused here)
