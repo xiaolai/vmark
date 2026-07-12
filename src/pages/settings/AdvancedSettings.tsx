@@ -52,6 +52,8 @@ export function AdvancedSettings() {
     (state) => state.advanced.workflowActionlint
   );
   const updateAdvancedSetting = useSettingsStore((state) => state.updateAdvancedSetting);
+  const browserEnabled = useSettingsStore((state) => state.browser.enabled);
+  const updateBrowserSetting = useSettingsStore((state) => state.updateBrowserSetting);
   const isMac = isMacPlatform();
 
   return (
@@ -131,6 +133,15 @@ export function AdvancedSettings() {
       {/* Developer features - only visible when developer mode is enabled */}
       {devTools && (
         <SettingsGroup title={t("advanced.group.experimental")}>
+          <SettingRow
+            label={t("advanced.embeddedBrowser.label")}
+            description={t("advanced.embeddedBrowser.description")}
+          >
+            <Toggle
+              checked={browserEnabled}
+              onChange={(v) => updateBrowserSetting("enabled", v)}
+            />
+          </SettingRow>
           <SettingRow
             label={t("advanced.workflowEngine.label")}
             description={t("advanced.workflowEngine.description")}

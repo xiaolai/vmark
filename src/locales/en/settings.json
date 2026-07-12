@@ -672,5 +672,11 @@
   "integrations.ccSwitch.description": "Hand off VMark's MCP server to CC-Switch, which syncs it into the AI CLIs you manage there.",
   "integrations.ccSwitch.add": "Add to CC-Switch",
   "integrations.ccSwitch.opened": "Opened CC-Switch import link.",
-  "integrations.ccSwitch.binaryMissing": "Build VMark's MCP server binary first."
+  "integrations.ccSwitch.binaryMissing": "Build VMark's MCP server binary first.",
+  "advanced": {
+    "embeddedBrowser": {
+      "label": "Embedded browser",
+      "description": "Enable the experimental in-app web browser. Adds “New Browser Tab” to the command palette."
+    }
+  }
 }

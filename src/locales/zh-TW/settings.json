@@ -664,6 +664,10 @@
     "workflowEngine": {
       "label": "工作流程引擎",
       "description": "啟用搭配 React Flow 視覺化的 YAML 工作流程檔案（實驗性）"
+    },
+    "embeddedBrowser": {
+      "label": "內嵌瀏覽器",
+      "description": "啟用實驗性的應用程式內網頁瀏覽器。在命令面板中新增「新增瀏覽器分頁」。"
     }
   },
   "advanced.workflowEditorPreserveYamlFormatting.label": "Preserve YAML formatting on save",

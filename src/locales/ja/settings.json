@@ -659,6 +659,10 @@
     "workflowEngine": {
       "label": "ワークフローエンジン",
       "description": "React Flow による可視化を備えた YAML ワークフローファイルを有効にします（実験的）"
+    },
+    "embeddedBrowser": {
+      "label": "埋め込みブラウザ",
+      "description": "実験的なアプリ内Webブラウザを有効にします。コマンドパレットに「新しいブラウザタブ」を追加します。"
     }
   },
   "advanced.workflowEditorPreserveYamlFormatting.label": "Preserve YAML formatting on save",

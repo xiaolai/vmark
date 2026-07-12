@@ -771,6 +771,10 @@
     "workflowEngine": {
       "label": "Workflow-Engine",
       "description": "YAML-Workflow-Dateien mit React-Flow-Visualisierung aktivieren (experimentell)"
+    },
+    "embeddedBrowser": {
+      "label": "Eingebetteter Browser",
+      "description": "Aktiviert den experimentellen In-App-Webbrowser. Fügt „Neuer Browser-Tab“ zur Befehlspalette hinzu."
     }
   },
   "advanced.workflowEditorPreserveYamlFormatting.label": "Preserve YAML formatting on save",

@@ -685,6 +685,10 @@
     "workflowEngine": {
       "label": "Motore workflow",
       "description": "Abilita i file workflow YAML con visualizzazione React Flow (sperimentale)"
+    },
+    "embeddedBrowser": {
+      "label": "Browser integrato",
+      "description": "Abilita il browser web sperimentale integrato. Aggiunge “Nuova scheda del browser” alla palette dei comandi."
     }
   },
   "advanced.workflowEditorPreserveYamlFormatting.label": "Preserve YAML formatting on save",

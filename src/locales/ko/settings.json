@@ -659,6 +659,10 @@
     "workflowEngine": {
       "label": "워크플로 엔진",
       "description": "React Flow 시각화로 YAML 워크플로 파일 사용 (실험적)"
+    },
+    "embeddedBrowser": {
+      "label": "내장 브라우저",
+      "description": "실험적인 앱 내 웹 브라우저를 활성화합니다. 명령 팔레트에 '새 브라우저 탭'을 추가합니다."
     }
   },
   "advanced.workflowEditorPreserveYamlFormatting.label": "Preserve YAML formatting on save",

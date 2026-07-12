@@ -706,6 +706,10 @@
     "workflowEngine": {
       "label": "Moteur de workflow",
       "description": "Activer les fichiers de workflow YAML avec visualisation React Flow (expérimental)"
+    },
+    "embeddedBrowser": {
+      "label": "Navigateur intégré",
+      "description": "Active le navigateur web expérimental intégré. Ajoute « Nouvel onglet de navigateur » à la palette de commandes."
     }
   },
   "advanced.workflowEditorPreserveYamlFormatting.label": "Preserve YAML formatting on save",
