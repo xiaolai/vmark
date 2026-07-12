@@ -121,6 +121,7 @@
   "format.media": "미디어",
   "quickLook.close": "미리보기 닫기",
   "browser.reload": "새로고침",
+  "browser.stop": "중지",
   "browser.back": "뒤로",
   "browser.forward": "앞으로",
   "browser.addressBar": "주소 표시줄",

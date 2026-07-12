@@ -121,6 +121,7 @@
   "format.media": "媒體",
   "quickLook.close": "關閉預覽",
   "browser.reload": "重新載入",
+  "browser.stop": "停止",
   "browser.back": "上一頁",
   "browser.forward": "下一頁",
   "browser.addressBar": "網址列",

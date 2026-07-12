@@ -144,15 +144,27 @@ export function BrowserSurface({ tabId }: { tabId: string }): React.ReactElement
         >
           ›
         </button>
-        <button
-          type="button"
-          className="browser-chrome-btn"
-          onClick={() => navigate(url)}
-          aria-label={t("browser.reload")}
-          title={t("browser.reload")}
-        >
-          ⟳
-        </button>
+        {loading ? (
+          <button
+            type="button"
+            className="browser-chrome-btn"
+            onClick={() => void invoke("browser_stop", { tabId }).catch(() => {})}
+            aria-label={t("browser.stop")}
+            title={t("browser.stop")}
+          >
+            ✕
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="browser-chrome-btn"
+            onClick={() => navigate(url)}
+            aria-label={t("browser.reload")}
+            title={t("browser.reload")}
+          >
+            ⟳
+          </button>
+        )}
         <form
           className="browser-url-form"
           onSubmit={(e) => {

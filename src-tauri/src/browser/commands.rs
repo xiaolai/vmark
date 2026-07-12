@@ -74,6 +74,12 @@ pub async fn browser_forward(app: AppHandle, tab_id: String) -> Result<(), Strin
     surface::go_history(&app, tab_id, true)
 }
 
+/// Stop the tab's current load.
+#[tauri::command]
+pub async fn browser_stop(app: AppHandle, tab_id: String) -> Result<(), String> {
+    surface::stop(&app, tab_id)
+}
+
 /// Reposition/resize the native webview to match the React pane rect (points).
 #[tauri::command]
 pub async fn browser_set_bounds(

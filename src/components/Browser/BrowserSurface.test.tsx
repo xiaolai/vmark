@@ -81,6 +81,20 @@ describe("BrowserSurface", () => {
     expect(invoke).toHaveBeenCalledWith("browser_forward", { tabId: id });
   });
 
+  it("shows a stop button while loading and invokes browser_stop", async () => {
+    // Keep browser_create pending so `loading` stays true (the stop button shows
+    // only while loading); everything else resolves normally.
+    invoke.mockImplementation((cmd: string) =>
+      cmd === "browser_create" ? new Promise<void>(() => {}) : Promise.resolve(undefined),
+    );
+    const id = seedBrowserTab("https://example.com/");
+    render(<BrowserSurface tabId={id} />);
+    const stopBtn = await screen.findByRole("button", { name: /stop/i });
+    await userEvent.click(stopBtn);
+    expect(invoke).toHaveBeenCalledWith("browser_stop", { tabId: id });
+    invoke.mockImplementation(() => Promise.resolve(undefined)); // restore default
+  });
+
   it("shows the current URL in the address bar", () => {
     const id = seedBrowserTab("https://example.com/");
     render(<BrowserSurface tabId={id} />);

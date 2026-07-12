@@ -121,6 +121,7 @@
   "format.media": "Multimedia",
   "quickLook.close": "Cerrar vista previa",
   "browser.reload": "Recargar",
+  "browser.stop": "Detener",
   "browser.back": "Atrás",
   "browser.forward": "Adelante",
   "browser.addressBar": "Barra de direcciones",

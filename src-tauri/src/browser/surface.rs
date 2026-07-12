@@ -49,7 +49,9 @@ mod imp;
 // (their native backends land in WI-5.1 / WI-5.2).
 
 #[cfg(target_os = "macos")]
-pub use imp::{assert_no_bridge, create, destroy, eval, go_history, navigate, set_bounds, set_hidden};
+pub use imp::{
+    assert_no_bridge, create, destroy, eval, go_history, navigate, set_bounds, set_hidden, stop,
+};
 
 #[cfg(not(target_os = "macos"))]
 mod stub {
@@ -62,6 +64,9 @@ mod stub {
         Err(MSG.into())
     }
     pub fn go_history(_a: &AppHandle, _t: String, _forward: bool) -> Result<(), String> {
+        Err(MSG.into())
+    }
+    pub fn stop(_a: &AppHandle, _t: String) -> Result<(), String> {
         Err(MSG.into())
     }
     pub fn set_bounds(
@@ -89,4 +94,6 @@ mod stub {
 }
 
 #[cfg(not(target_os = "macos"))]
-pub use stub::{assert_no_bridge, create, destroy, eval, go_history, navigate, set_bounds, set_hidden};
+pub use stub::{
+    assert_no_bridge, create, destroy, eval, go_history, navigate, set_bounds, set_hidden, stop,
+};

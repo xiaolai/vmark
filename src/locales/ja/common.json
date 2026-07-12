@@ -121,6 +121,7 @@
   "format.media": "メディア",
   "quickLook.close": "プレビューを閉じる",
   "browser.reload": "再読み込み",
+  "browser.stop": "停止",
   "browser.back": "戻る",
   "browser.forward": "進む",
   "browser.addressBar": "アドレスバー",

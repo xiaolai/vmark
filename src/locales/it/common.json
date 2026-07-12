@@ -121,6 +121,7 @@
   "format.media": "Media",
   "quickLook.close": "Chiudi anteprima",
   "browser.reload": "Ricarica",
+  "browser.stop": "Interrompi",
   "browser.back": "Indietro",
   "browser.forward": "Avanti",
   "browser.addressBar": "Barra degli indirizzi",
