@@ -164,22 +164,29 @@
 >   - The non-`Send` `Retained<WKWebView>` handles live in a main-thread-local
 >     map; the `Send` lifecycle/identity registry stays in Tauri state. Confirmed
 >     working across the create→navigate→destroy sequence.
->   **Findings / hardening gaps (honest):**
->   - *First-paint driving:* a freshly added WKWebView does not begin rendering
->     until the main run loop cycles. `create`/`navigate` now pump the loop
->     briefly after `loadRequest` (fix 865cce5f). Under macOS App Nap / background
->     throttling (window unfocused, as in headless automation) the pump can be
->     insufficient and the first paint stalls — normal focused use renders
->     reliably; the robust fix (App-Nap suppression / a `WKNavigationDelegate`-
->     driven load-complete signal) is the top WI-1.2 hardening item.
+>   - **navigate verified:** navigating the live tab from example.com to another
+>     URL changed the rendered content (a fresh load painted) — the create → view
+>     → navigate → destroy sequence all work live.
+>   **Findings / hardening (honest):**
+>   - *First-paint driving (RESOLVED):* a freshly added WKWebView does not begin
+>     rendering until the run loop cycles. `create`/`navigate` now call
+>     `drive_load()` — pump until `isLoading` goes true→false + settle (fix
+>     9a31a873). This renders **deterministically even under App Nap** (captured
+>     immediately after create, window unfocused) because `pump` forces run-loop
+>     cycles; the earlier fixed-duration pump (865cce5f) was flaky there.
+>   - *Idle repaint on destroy (minor, open):* under headless/background
+>     throttling the window may not repaint after `removeFromSuperview` until the
+>     next event, leaving a stale frame (clears on any user interaction). A redraw
+>     nudge is small follow-up in the same idle-repaint family.
 >   - *No-bridge assertion (R3):* holds by construction (fresh config, not a Tauri
 >     webview) + Phase-0 SPIKE-1 on identical code. The live `assert_no_bridge`
 >     command pumps a nested run loop, which the MCP bridge's synchronous JS
 >     execution times out against — a verification-tooling limitation, not a
 >     product defect. A CI-runnable form is follow-up.
->   Remaining for WI-1.2: the App-Nap render hardening + a Codex review of the
->   lifecycle state machine (registry.rs), per governance §6. Then WI-1.3 (React
->   surface + bounds sync) can consume these commands.
+>   Remaining for WI-1.2: the minor destroy-repaint nudge, a CI-runnable form of
+>   the no-bridge check, and a Codex review of the lifecycle state machine
+>   (registry.rs) per governance §6. The core surface is proven — WI-1.3 (React
+>   surface + bounds sync) can now consume these commands.
 > Branch (proposed): `feature/embedded-browser`
 > Related: `20260331-workflow-engine.md` (Genie/internal workflow engine — distinct;
 >   see §1.5), `decisions/ADR-002-mcp-sidecar-architecture.md` (MCP bridge reused here)
