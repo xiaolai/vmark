@@ -148,6 +148,7 @@ pub fn run() {
             current_execution: std::sync::Arc::new(std::sync::Mutex::new(None)),
         })
         .manage(content_server::ContentServerManager::new())
+        .manage(browser::surface::BrowserSurface::default())
         .manage(window_status::WindowStatusRegistry::default())
         .invoke_handler(tauri::generate_handler![
             window_status::report_window_status,
@@ -237,6 +238,11 @@ pub fn run() {
             temp_html::write_temp_html,
             file_write::atomic_write_file,
             webview_edit::trigger_webview_edit,
+            browser::commands::browser_create,
+            browser::commands::browser_navigate,
+            browser::commands::browser_set_bounds,
+            browser::commands::browser_destroy,
+            browser::commands::browser_assert_no_bridge,
             #[cfg(target_os = "macos")]
             dock_recent::register_dock_recent,
             #[cfg(target_os = "macos")]

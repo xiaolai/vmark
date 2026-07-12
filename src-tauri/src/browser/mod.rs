@@ -14,9 +14,10 @@
 //!     which is verified in the live-Tauri loop; the validated objc2 recipe is
 //!     preserved in git at commit cd162e02:src-tauri/src/spike_embed.rs.)
 
-// The pure core is complete and unit-tested but its production consumers (the
-// native surface + Tauri commands) land with the FFI layer — until then its
-// public items are only reached from tests, which dead_code does not count.
+// Some pure-core items are reached only from tests until every command path
+// wires them up; dead_code does not count test usage.
 #![allow(dead_code)]
 
+pub mod commands;
 pub mod registry;
+pub mod surface;
