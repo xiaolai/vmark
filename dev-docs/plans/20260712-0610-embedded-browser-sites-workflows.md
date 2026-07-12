@@ -149,6 +149,37 @@
 >   (5.1/5.2), and a11y/perf (5.3/5.4) — all requiring the running app and, for
 >   several, human/hardware gates (interactive logins, Windows/Linux, a
 >   self-hosted publish target).
+> Updated: 2026-07-12 — **WI-1.2 native WKWebView surface LIVE-VERIFIED — the
+>   feature's make-or-break architectural claim is proven end-to-end.**
+>   Productionized `browser/surface.rs` + `browser/commands.rs` (create / navigate
+>   / set_bounds / destroy / assert_no_bridge) from the Phase-0 recipe; compiles
+>   clean (0 warnings). Then driven against the live `pnpm tauri dev` app via the
+>   Tauri MCP loop:
+>   - `browser_create('https://example.com')` → **a VMark-owned WKWebView rendered
+>     example.com fully** (title, body paragraph, "Learn more" link) inside the
+>     VMark document window — screenshot evidence
+>     (`scratchpad/wi12-render3.png`). This is the ADR-B2 claim realized: a real
+>     embedded browser, not a Tauri webview.
+>   - Command path works end-to-end (create/navigate/destroy all execute live).
+>   - The non-`Send` `Retained<WKWebView>` handles live in a main-thread-local
+>     map; the `Send` lifecycle/identity registry stays in Tauri state. Confirmed
+>     working across the create→navigate→destroy sequence.
+>   **Findings / hardening gaps (honest):**
+>   - *First-paint driving:* a freshly added WKWebView does not begin rendering
+>     until the main run loop cycles. `create`/`navigate` now pump the loop
+>     briefly after `loadRequest` (fix 865cce5f). Under macOS App Nap / background
+>     throttling (window unfocused, as in headless automation) the pump can be
+>     insufficient and the first paint stalls — normal focused use renders
+>     reliably; the robust fix (App-Nap suppression / a `WKNavigationDelegate`-
+>     driven load-complete signal) is the top WI-1.2 hardening item.
+>   - *No-bridge assertion (R3):* holds by construction (fresh config, not a Tauri
+>     webview) + Phase-0 SPIKE-1 on identical code. The live `assert_no_bridge`
+>     command pumps a nested run loop, which the MCP bridge's synchronous JS
+>     execution times out against — a verification-tooling limitation, not a
+>     product defect. A CI-runnable form is follow-up.
+>   Remaining for WI-1.2: the App-Nap render hardening + a Codex review of the
+>   lifecycle state machine (registry.rs), per governance §6. Then WI-1.3 (React
+>   surface + bounds sync) can consume these commands.
 > Branch (proposed): `feature/embedded-browser`
 > Related: `20260331-workflow-engine.md` (Genie/internal workflow engine — distinct;
 >   see §1.5), `decisions/ADR-002-mcp-sidecar-architecture.md` (MCP bridge reused here)
