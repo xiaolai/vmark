@@ -129,6 +129,26 @@
 >   (1.8) all depend on WI-1.2 and its live-Tauri verification loop (dev app +
 >   Tauri MCP, as used for the Phase-0 spikes) — that is the next major push and
 >   is not autonomously completable without running the app.
+> Updated: 2026-07-12 — **Pure logic layer of Phases 2 & 4 landed (TDD-first,
+>   gate-green) — the parts that don't need the native surface:**
+>   | WI | What | Tests |
+>   |---|---|---|
+>   | 2.4 | Generic reader `readPage(html,url)` — Readability-density main-content + Turndown-style DOM→Markdown | 13 fixture tests |
+>   | 2.2 | Agent perception — ARIA role/accessible-name, `ariaSnapshot`, `queryByRole` locators | 15 tests |
+>   | 4.2 (safety) | R8a write-safety core — three-valued outcomes (unknown never auto-retries), writes never auto-escalate, postcondition-before-retry, idempotency keys, genie-loop bounds | 14 tests |
+>   | 2.6 | Operation-based approval + scoped standing grants (reuses the origin guard; upload hard-denied per WI-1.7) | 11 tests |
+>   Combined with the Phase-0 pure cores (origin guard, site registry, workflow
+>   parser) and the Phase-1 foundation, essentially the **entire
+>   platform-independent logic layer of the feature is now built and verified**:
+>   perception (reader, aria), safety (R8a), security (origin guard, approval),
+>   the tab/persistence model, and the lease/hibernation/lifecycle policies. What
+>   remains is native + integration + live-gated: the WKWebView FFI surface (WI-1.2
+>   rest), the driver eval/interaction (2.1/2.3), MCP tools (2.5), the site
+>   reader/publisher *plugins* (3.3–3.5) and execution *engine* (4.2 rest) that
+>   feed these cores real DOM, the recorder (4.3), cross-platform backends
+>   (5.1/5.2), and a11y/perf (5.3/5.4) — all requiring the running app and, for
+>   several, human/hardware gates (interactive logins, Windows/Linux, a
+>   self-hosted publish target).
 > Branch (proposed): `feature/embedded-browser`
 > Related: `20260331-workflow-engine.md` (Genie/internal workflow engine — distinct;
 >   see §1.5), `decisions/ADR-002-mcp-sidecar-architecture.md` (MCP bridge reused here)
