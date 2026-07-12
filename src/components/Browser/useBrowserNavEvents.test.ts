@@ -33,11 +33,26 @@ async function mount(tabId: string, handlers: BrowserNavHandlers) {
 }
 
 describe("useBrowserNavEvents", () => {
-  it("subscribes to the three nav-delegate events", async () => {
+  it("subscribes to the four nav-delegate events", async () => {
     await mount("t1", {});
     expect(listeners.has("browser://navigated")).toBe(true);
     expect(listeners.has("browser://loaded")).toBe(true);
     expect(listeners.has("browser://load-failed")).toBe(true);
+    expect(listeners.has("browser://crashed")).toBe(true);
+  });
+
+  it("calls onCrashed with the recovery action for a matching tab", async () => {
+    const onCrashed = vi.fn();
+    await mount("t1", { onCrashed });
+    emit("browser://crashed", { tabId: "t1", action: "manual" });
+    expect(onCrashed).toHaveBeenCalledWith("manual");
+  });
+
+  it("ignores a crash addressed to a different tab", async () => {
+    const onCrashed = vi.fn();
+    await mount("t1", { onCrashed });
+    emit("browser://crashed", { tabId: "OTHER", action: "auto-reload" });
+    expect(onCrashed).not.toHaveBeenCalled();
   });
 
   it("calls onNavigated with the url for a matching tab", async () => {
@@ -88,6 +103,6 @@ describe("useBrowserNavEvents", () => {
     const { unmount } = await mount("t1", {});
     unmount();
     await Promise.resolve();
-    expect(unlisten).toHaveBeenCalledTimes(3);
+    expect(unlisten).toHaveBeenCalledTimes(4);
   });
 });

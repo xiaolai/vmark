@@ -122,5 +122,7 @@
   "quickLook.close": "关闭预览",
   "browser.reload": "重新加载",
   "browser.addressBar": "地址栏",
-  "browser.loading": "加载中…"
+  "browser.loading": "加载中…",
+  "browser.crashed": "此页面已崩溃。",
+  "browser.reloading": "正在重新加载…"
 }

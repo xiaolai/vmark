@@ -122,5 +122,7 @@
   "quickLook.close": "미리보기 닫기",
   "browser.reload": "새로고침",
   "browser.addressBar": "주소 표시줄",
-  "browser.loading": "로드 중…"
+  "browser.loading": "로드 중…",
+  "browser.crashed": "이 페이지가 다운되었습니다.",
+  "browser.reloading": "다시 로드하는 중…"
 }

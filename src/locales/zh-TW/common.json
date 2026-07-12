@@ -122,5 +122,7 @@
   "quickLook.close": "關閉預覽",
   "browser.reload": "重新載入",
   "browser.addressBar": "網址列",
-  "browser.loading": "載入中…"
+  "browser.loading": "載入中…",
+  "browser.crashed": "此頁面已當機。",
+  "browser.reloading": "正在重新載入…"
 }

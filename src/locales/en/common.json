@@ -118,5 +118,7 @@
   "quickLook.close": "Close preview",
   "browser.reload": "Reload",
   "browser.addressBar": "Address bar",
-  "browser.loading": "Loading…"
+  "browser.loading": "Loading…",
+  "browser.crashed": "This page crashed.",
+  "browser.reloading": "Reloading…"
 }

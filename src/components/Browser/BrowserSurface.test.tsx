@@ -1,6 +1,6 @@
 // WI-1.3 — BrowserSurface: wires the native browser commands into a React tab
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { render, screen, waitFor, cleanup, act } from "@testing-library/react";
+import { render, screen, waitFor, cleanup, act, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const invoke = vi.fn().mockResolvedValue(undefined);
@@ -145,5 +145,35 @@ describe("BrowserSurface", () => {
     await waitFor(() => expect(eventListeners.has("browser://navigated")).toBe(true));
     await emitNav("browser://navigated", { tabId: "some-other-tab", url: "https://evil/" });
     expect(screen.getByRole("textbox")).toHaveValue("https://example.com/");
+  });
+
+  it("shows a manual crash overlay and reloads on click (freezing then thawing the view)", async () => {
+    const id = seedBrowserTab("https://example.com/");
+    render(<BrowserSurface tabId={id} />);
+    await waitFor(() => expect(eventListeners.has("browser://crashed")).toBe(true));
+    await emitNav("browser://crashed", { tabId: id, action: "manual" });
+    // Overlay is shown and the native view was frozen so it's visible.
+    const alert = await screen.findByRole("alert");
+    expect(alert).toBeInTheDocument();
+    expect(invoke).toHaveBeenCalledWith("browser_freeze", { tabId: id });
+
+    invoke.mockClear();
+    // Scope to the overlay — the chrome also has a "Reload" button.
+    await userEvent.click(within(alert).getByRole("button", { name: /reload/i }));
+    // Reload thaws the view and re-navigates.
+    expect(invoke).toHaveBeenCalledWith("browser_thaw", { tabId: id });
+    expect(invoke).toHaveBeenCalledWith("browser_navigate", expect.objectContaining({ tabId: id }));
+  });
+
+  it("clears the crash overlay when a clean load recovers the process", async () => {
+    const id = seedBrowserTab("https://example.com/");
+    render(<BrowserSurface tabId={id} />);
+    await waitFor(() => expect(eventListeners.has("browser://crashed")).toBe(true));
+    await emitNav("browser://crashed", { tabId: id, action: "auto-reload" });
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+    // The auto-reload succeeded → a loaded event arrives and the overlay clears.
+    await emitNav("browser://loaded", { tabId: id, url: "https://example.com/", title: "Example" });
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(invoke).toHaveBeenCalledWith("browser_thaw", { tabId: id });
   });
 });

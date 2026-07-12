@@ -122,5 +122,7 @@
   "quickLook.close": "Vorschau schließen",
   "browser.reload": "Neu laden",
   "browser.addressBar": "Adressleiste",
-  "browser.loading": "Wird geladen…"
+  "browser.loading": "Wird geladen…",
+  "browser.crashed": "Diese Seite ist abgestürzt.",
+  "browser.reloading": "Wird neu geladen…"
 }

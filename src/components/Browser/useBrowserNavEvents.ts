@@ -25,6 +25,8 @@ export interface BrowserNavHandlers {
   onLoaded?: (url: string, title: string) => void;
   /** A (provisional or committed) navigation failed. */
   onFailed?: (message: string) => void;
+  /** The web content process died; `action` is "auto-reload" or "manual" (WI-1.8). */
+  onCrashed?: (action: string) => void;
 }
 
 interface NavPayload {
@@ -39,6 +41,10 @@ interface LoadedPayload {
 interface FailedPayload {
   tabId: string;
   message: string;
+}
+interface CrashPayload {
+  tabId: string;
+  action: string;
 }
 
 export function useBrowserNavEvents(tabId: string, handlers: BrowserNavHandlers): void {
@@ -73,6 +79,11 @@ export function useBrowserNavEvents(tabId: string, handlers: BrowserNavHandlers)
     track(
       listen<FailedPayload>("browser://load-failed", (e) => {
         if (e.payload.tabId === tabId) handlersRef.current.onFailed?.(e.payload.message);
+      }),
+    );
+    track(
+      listen<CrashPayload>("browser://crashed", (e) => {
+        if (e.payload.tabId === tabId) handlersRef.current.onCrashed?.(e.payload.action);
       }),
     );
 

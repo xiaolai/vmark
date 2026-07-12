@@ -122,5 +122,7 @@
   "quickLook.close": "Cerrar vista previa",
   "browser.reload": "Recargar",
   "browser.addressBar": "Barra de direcciones",
-  "browser.loading": "Cargando…"
+  "browser.loading": "Cargando…",
+  "browser.crashed": "Esta página se bloqueó.",
+  "browser.reloading": "Recargando…"
 }

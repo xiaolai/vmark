@@ -41,6 +41,9 @@ export function BrowserSurface({ tabId }: { tabId: string }): React.ReactElement
 
   const [urlInput, setUrlInput] = useState(url);
   const [loading, setLoading] = useState(true);
+  // Non-null while the web content process is down (WI-1.8). `action` is
+  // "auto-reload" (native is already reloading) or "manual" (needs the user).
+  const [crash, setCrash] = useState<{ action: string } | null>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
 
   // Mounted per-tab (keyed in Editor.tsx), so `url` is the initial target and
@@ -93,9 +96,20 @@ export function BrowserSurface({ tabId }: { tabId: string }): React.ReactElement
     onLoaded: (next) => {
       setUrlInput(next);
       setLoading(false);
+      // A clean load means the process recovered — reveal the native view again.
+      setCrash((prev) => {
+        if (prev) void invoke("browser_thaw", { tabId }).catch(() => {});
+        return null;
+      });
       useTabStore.getState().updateBrowserTab(tabId, { url: next });
     },
     onFailed: () => setLoading(false),
+    onCrashed: (action) => {
+      // The native view still occludes the DOM after a crash; freeze (hide) it so
+      // the recovery overlay is visible in its place (WI-1.4 occlusion / WI-1.8).
+      setCrash({ action });
+      void invoke("browser_freeze", { tabId }).catch(() => {});
+    },
   });
 
   const navigate = (target: string) => {
@@ -139,7 +153,30 @@ export function BrowserSurface({ tabId }: { tabId: string }): React.ReactElement
         </form>
         {loading && <span className="browser-loading" role="status" aria-label={t("browser.loading")} />}
       </div>
-      <div ref={viewportRef} className="browser-viewport" aria-hidden="true" />
+      {/* The viewport is a placeholder the native view paints over, so it is
+          hidden from a11y — except when the crash overlay is the real content. */}
+      <div ref={viewportRef} className="browser-viewport" aria-hidden={crash ? undefined : true}>
+        {crash && (
+          <div className="browser-crash-overlay" role="alert">
+            <p className="browser-crash-message">{t("browser.crashed")}</p>
+            {crash.action === "manual" ? (
+              <button
+                type="button"
+                className="browser-crash-reload"
+                onClick={() => {
+                  setCrash(null);
+                  void invoke("browser_thaw", { tabId }).catch(() => {});
+                  navigate(url);
+                }}
+              >
+                {t("browser.reload")}
+              </button>
+            ) : (
+              <span className="browser-crash-reloading">{t("browser.reloading")}</span>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
