@@ -434,6 +434,14 @@ This lets you create links like `obsidian://open?vault=...` or `vscode://file/..
 
 See [Workflow Viewer](/guide/workflow-viewer) for the full feature surface.
 
+### Embedded Browser
+
+| Setting | Description | Default | Options |
+|---------|-------------|---------|---------|
+| Embedded browser | Enable the experimental in-app web browser (macOS only). When on, **New Browser Tab** appears in the command palette | Off | On / Off |
+
+See [Embedded Browser](/guide/browser) for the full feature surface.
+
 ### Platform-Specific
 
 | Setting | Description | Default | Platforms |
