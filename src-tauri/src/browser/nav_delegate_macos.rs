@@ -83,7 +83,12 @@ struct PopupPayload {
 struct DialogPayload {
     #[serde(rename = "tabId")]
     tab_id: String,
+    /// "alert" (informational, no response) or "confirm" (needs an OK/Cancel answer).
+    kind: &'static str,
     message: String,
+    /// Present for interactive kinds — the id to pass back to `browser_dialog_respond`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    id: Option<u64>,
 }
 
 define_class!(
@@ -211,10 +216,9 @@ define_class!(
             None
         }
 
-        // `alert()`: surface the message to the frontend and acknowledge so the
-        // page's JS continues (an unhandled panel would hang the page). confirm/
-        // prompt are intentionally left unimplemented for now → WebKit's default
-        // (suppressed) rather than an auto-answer that would fake a user decision.
+        // `alert()`: surface the message and acknowledge so the page's JS continues
+        // (an unhandled panel hangs the page). `prompt()` stays at WebKit's default
+        // for now; `confirm()` is handled below.
         #[unsafe(method(webView:runJavaScriptAlertPanelWithMessage:initiatedByFrame:completionHandler:))]
         fn run_alert(
             &self,
@@ -228,9 +232,29 @@ define_class!(
             log::debug!("[browser] alert on {}: {msg}", ivars.tab_id);
             let _ = ivars.app.emit(
                 "browser://dialog",
-                DialogPayload { tab_id: ivars.tab_id.clone(), message: msg },
+                DialogPayload { tab_id: ivars.tab_id.clone(), kind: "alert", message: msg, id: None },
             );
             completion_handler.call(());
+        }
+
+        // `confirm()`: park the retained completion + surface an OK/Cancel dialog;
+        // `browser_dialog_respond` resumes the page's JS later (see dialogs_macos.rs).
+        #[unsafe(method(webView:runJavaScriptConfirmPanelWithMessage:initiatedByFrame:completionHandler:))]
+        fn run_confirm(
+            &self,
+            _wv: &WKWebView,
+            message: &NSString,
+            _frame: &WKFrameInfo,
+            completion_handler: &block2::DynBlock<dyn Fn(objc2::runtime::Bool)>,
+        ) {
+            let ivars = self.ivars();
+            let msg = message.to_string();
+            let id = super::dialogs::park_confirm(ivars.tab_id.clone(), completion_handler.copy());
+            log::debug!("[browser] confirm on {} (#{id}): {msg}", ivars.tab_id);
+            let _ = ivars.app.emit(
+                "browser://dialog",
+                DialogPayload { tab_id: ivars.tab_id.clone(), kind: "confirm", message: msg, id: Some(id) },
+            );
         }
     }
 );

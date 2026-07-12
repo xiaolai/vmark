@@ -80,6 +80,12 @@ pub async fn browser_stop(app: AppHandle, tab_id: String) -> Result<(), String> 
     surface::stop(&app, tab_id)
 }
 
+/// Answer a page `confirm()` dialog surfaced via `browser://dialog` (WI-1.7).
+#[tauri::command]
+pub async fn browser_dialog_respond(app: AppHandle, id: u64, accepted: bool) -> Result<(), String> {
+    surface::dialog_respond(&app, id, accepted)
+}
+
 /// Reposition/resize the native webview to match the React pane rect (points).
 #[tauri::command]
 pub async fn browser_set_bounds(

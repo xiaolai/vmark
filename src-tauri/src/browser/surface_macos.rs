@@ -25,6 +25,9 @@
     mod driver_loop;
     use driver_loop::{drive_load, pump};
 
+    #[path = "dialogs_macos.rs"]
+    mod dialogs;
+
     thread_local! {
         /// Main-thread-only live webviews, keyed by tab id.
         static WEBVIEWS: RefCell<HashMap<String, Retained<WKWebView>>> = RefCell::new(HashMap::new());
@@ -160,6 +163,8 @@
     /// Tear down and drop the native webview.
     pub fn destroy(app: &AppHandle, tab_id: String) -> Result<(), String> {
         on_main(app, move |_mtm| {
+            // Release any page JS blocked on a dialog before the webview goes away.
+            dialogs::drain_for(&tab_id);
             WEBVIEWS.with(|m| {
                 if let Some(webview) = m.borrow_mut().remove(&tab_id) {
                     // Detach the delegate before teardown so no late callback fires
@@ -174,6 +179,14 @@
             DELEGATES.with(|m| {
                 m.borrow_mut().remove(&tab_id);
             });
+            Ok(())
+        })
+    }
+
+    /// Resume a parked `confirm()` dialog with the user's answer (WI-1.7).
+    pub fn dialog_respond(app: &AppHandle, id: u64, accepted: bool) -> Result<(), String> {
+        on_main(app, move |_mtm| {
+            dialogs::respond(id, accepted);
             Ok(())
         })
     }

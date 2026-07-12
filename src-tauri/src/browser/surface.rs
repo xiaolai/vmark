@@ -50,7 +50,8 @@ mod imp;
 
 #[cfg(target_os = "macos")]
 pub use imp::{
-    assert_no_bridge, create, destroy, eval, go_history, navigate, set_bounds, set_hidden, stop,
+    assert_no_bridge, create, destroy, dialog_respond, eval, go_history, navigate, set_bounds,
+    set_hidden, stop,
 };
 
 #[cfg(not(target_os = "macos"))]
@@ -67,6 +68,9 @@ mod stub {
         Err(MSG.into())
     }
     pub fn stop(_a: &AppHandle, _t: String) -> Result<(), String> {
+        Err(MSG.into())
+    }
+    pub fn dialog_respond(_a: &AppHandle, _id: u64, _accepted: bool) -> Result<(), String> {
         Err(MSG.into())
     }
     pub fn set_bounds(
@@ -95,5 +99,6 @@ mod stub {
 
 #[cfg(not(target_os = "macos"))]
 pub use stub::{
-    assert_no_bridge, create, destroy, eval, go_history, navigate, set_bounds, set_hidden, stop,
+    assert_no_bridge, create, destroy, dialog_respond, eval, go_history, navigate, set_bounds,
+    set_hidden, stop,
 };

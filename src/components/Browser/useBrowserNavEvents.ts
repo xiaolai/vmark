@@ -6,10 +6,10 @@
  * AI-driven clicks, `reload`), so the React chrome cannot know the current URL
  * from `browser_navigate` alone. `browser/nav_delegate_macos.rs` emits
  * `browser://navigated` (committed), `browser://loaded` (finished, with title),
- * `browser://load-failed`, and `browser://crashed` (content-process death, with
- * the recovery action); this hook listens, filters by `tabId`, and calls the
- * matching handler so the chrome (address bar, loading, crash overlay) tracks
- * reality.
+ * `browser://load-failed`, `browser://crashed` (content-process death, with the
+ * recovery action), and `browser://dialog` (a page `alert`/`confirm`); this hook
+ * listens, filters by `tabId`, and calls the matching handler so the chrome
+ * (address bar, loading, crash overlay, dialog) tracks reality.
  *
  * Handlers are held in a ref so the subscription is set up once per `tabId` and
  * never churns when the parent re-renders with fresh closures.
@@ -29,6 +29,8 @@ export interface BrowserNavHandlers {
   onFailed?: (message: string) => void;
   /** The web content process died; `action` is "auto-reload" or "manual" (WI-1.8). */
   onCrashed?: (action: string) => void;
+  /** The page opened a JS dialog (`alert`/`confirm`). `id` is present for `confirm`. */
+  onDialog?: (dialog: { kind: string; message: string; id?: number }) => void;
 }
 
 interface NavPayload {
@@ -47,6 +49,12 @@ interface FailedPayload {
 interface CrashPayload {
   tabId: string;
   action: string;
+}
+interface DialogPayload {
+  tabId: string;
+  kind: string;
+  message: string;
+  id?: number;
 }
 
 export function useBrowserNavEvents(tabId: string, handlers: BrowserNavHandlers): void {
@@ -86,6 +94,16 @@ export function useBrowserNavEvents(tabId: string, handlers: BrowserNavHandlers)
     track(
       listen<CrashPayload>("browser://crashed", (e) => {
         if (e.payload.tabId === tabId) handlersRef.current.onCrashed?.(e.payload.action);
+      }),
+    );
+    track(
+      listen<DialogPayload>("browser://dialog", (e) => {
+        if (e.payload.tabId === tabId)
+          handlersRef.current.onDialog?.({
+            kind: e.payload.kind,
+            message: e.payload.message,
+            id: e.payload.id,
+          });
       }),
     );
 

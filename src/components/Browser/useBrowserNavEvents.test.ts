@@ -33,12 +33,20 @@ async function mount(tabId: string, handlers: BrowserNavHandlers) {
 }
 
 describe("useBrowserNavEvents", () => {
-  it("subscribes to the four nav-delegate events", async () => {
+  it("subscribes to the five nav-delegate events", async () => {
     await mount("t1", {});
     expect(listeners.has("browser://navigated")).toBe(true);
     expect(listeners.has("browser://loaded")).toBe(true);
     expect(listeners.has("browser://load-failed")).toBe(true);
     expect(listeners.has("browser://crashed")).toBe(true);
+    expect(listeners.has("browser://dialog")).toBe(true);
+  });
+
+  it("routes a confirm dialog with its id", async () => {
+    const onDialog = vi.fn();
+    await mount("t1", { onDialog });
+    emit("browser://dialog", { tabId: "t1", kind: "confirm", message: "Sure?", id: 7 });
+    expect(onDialog).toHaveBeenCalledWith({ kind: "confirm", message: "Sure?", id: 7 });
   });
 
   it("calls onCrashed with the recovery action for a matching tab", async () => {
@@ -103,6 +111,6 @@ describe("useBrowserNavEvents", () => {
     const { unmount } = await mount("t1", {});
     unmount();
     await Promise.resolve();
-    expect(unlisten).toHaveBeenCalledTimes(4);
+    expect(unlisten).toHaveBeenCalledTimes(5);
   });
 });

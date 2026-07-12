@@ -190,6 +190,46 @@ describe("BrowserSurface", () => {
     expect(invoke).toHaveBeenCalledWith("browser_navigate", expect.objectContaining({ tabId: id }));
   });
 
+  it("shows a confirm dialog, freezes the view, and answers OK", async () => {
+    const id = seedBrowserTab("https://example.com/");
+    render(<BrowserSurface tabId={id} />);
+    await waitFor(() => expect(eventListeners.has("browser://dialog")).toBe(true));
+    await emitNav("browser://dialog", { tabId: id, kind: "confirm", message: "Delete?", id: 42 });
+    const dlg = await screen.findByRole("alertdialog");
+    expect(dlg).toHaveTextContent("Delete?");
+    expect(invoke).toHaveBeenCalledWith("browser_freeze", { tabId: id });
+
+    invoke.mockClear();
+    await userEvent.click(within(dlg).getByRole("button", { name: /^ok$/i }));
+    // Answering resumes the page (id + accepted) and thaws the view.
+    expect(invoke).toHaveBeenCalledWith("browser_dialog_respond", { id: 42, accepted: true });
+    expect(invoke).toHaveBeenCalledWith("browser_thaw", { tabId: id });
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+  });
+
+  it("answers Cancel with accepted=false", async () => {
+    const id = seedBrowserTab("https://example.com/");
+    render(<BrowserSurface tabId={id} />);
+    await waitFor(() => expect(eventListeners.has("browser://dialog")).toBe(true));
+    await emitNav("browser://dialog", { tabId: id, kind: "confirm", message: "Sure?", id: 9 });
+    await userEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: /cancel/i }));
+    expect(invoke).toHaveBeenCalledWith("browser_dialog_respond", { id: 9, accepted: false });
+  });
+
+  it("shows an alert dialog with only an OK button (no respond call)", async () => {
+    const id = seedBrowserTab("https://example.com/");
+    render(<BrowserSurface tabId={id} />);
+    await waitFor(() => expect(eventListeners.has("browser://dialog")).toBe(true));
+    await emitNav("browser://dialog", { tabId: id, kind: "alert", message: "Heads up" });
+    const dlg = await screen.findByRole("alertdialog");
+    expect(within(dlg).queryByRole("button", { name: /cancel/i })).not.toBeInTheDocument();
+    invoke.mockClear();
+    await userEvent.click(within(dlg).getByRole("button", { name: /^ok$/i }));
+    // Alert has no id → no respond call, just dismiss + thaw.
+    expect(invoke).not.toHaveBeenCalledWith("browser_dialog_respond", expect.anything());
+    expect(invoke).toHaveBeenCalledWith("browser_thaw", { tabId: id });
+  });
+
   it("clears the crash overlay when a clean load recovers the process", async () => {
     const id = seedBrowserTab("https://example.com/");
     render(<BrowserSurface tabId={id} />);

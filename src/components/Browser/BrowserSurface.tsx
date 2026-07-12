@@ -8,10 +8,12 @@
  * (ResizeObserver), navigates on address-bar submit, and destroys the webview on
  * unmount. It also listens (via `useBrowserNavEvents`) to the native
  * WKNavigationDelegate events so the address bar, tab url, and loading state
- * track navigation the page drives itself (redirects, AI clicks, reload), and on
+ * track navigation the page drives itself (redirects, AI clicks, reload). On
  * `browser://crashed` it freezes the native view and shows a page-crashed reload
- * overlay (WI-1.8). The page paints in the native view over the viewport rect —
- * the rect here is a placeholder, deliberately empty.
+ * overlay (WI-1.8); on `browser://dialog` it freezes and shows an alert/confirm
+ * modal, answering `confirm()` via `browser_dialog_respond` (WI-1.7). Freezing is
+ * required because the native view paints over the DOM. The page paints in the
+ * native view over the viewport rect — the rect here is a placeholder, empty.
  *
  * `Editor.tsx` mounts this for `kind === "browser"` tabs (R1). Store access is
  * via selectors + `getState()` in callbacks (no destructuring).
@@ -45,6 +47,8 @@ export function BrowserSurface({ tabId }: { tabId: string }): React.ReactElement
   // Non-null while the web content process is down (WI-1.8). `action` is
   // "auto-reload" (native is already reloading) or "manual" (needs the user).
   const [crash, setCrash] = useState<{ action: string } | null>(null);
+  // Non-null while a page JS dialog (alert/confirm) is open (WI-1.7).
+  const [dialog, setDialog] = useState<{ kind: string; message: string; id?: number } | null>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
 
   // Mounted per-tab (keyed in Editor.tsx), so `url` is the initial target and
@@ -111,7 +115,22 @@ export function BrowserSurface({ tabId }: { tabId: string }): React.ReactElement
       setCrash({ action });
       void invoke("browser_freeze", { tabId }).catch(() => {});
     },
+    onDialog: (d) => {
+      // Same occlusion story: freeze the native view so the DOM dialog shows.
+      setDialog(d);
+      void invoke("browser_freeze", { tabId }).catch(() => {});
+    },
   });
+
+  // Answer (or dismiss) the open page dialog, then reveal the page again.
+  const closeDialog = (accepted: boolean) => {
+    const current = dialog;
+    setDialog(null);
+    void invoke("browser_thaw", { tabId }).catch(() => {});
+    if (current?.kind === "confirm" && current.id !== undefined) {
+      void invoke("browser_dialog_respond", { id: current.id, accepted }).catch(() => {});
+    }
+  };
 
   const navigate = (target: string) => {
     const next = canonicalizeBrowserUrl(target) ?? target;
@@ -185,8 +204,31 @@ export function BrowserSurface({ tabId }: { tabId: string }): React.ReactElement
         {loading && <span className="browser-loading" role="status" aria-label={t("browser.loading")} />}
       </div>
       {/* The viewport is a placeholder the native view paints over, so it is
-          hidden from a11y — except when the crash overlay is the real content. */}
-      <div ref={viewportRef} className="browser-viewport" aria-hidden={crash ? undefined : true}>
+          hidden from a11y — except when an overlay (crash / dialog) is the real content. */}
+      <div ref={viewportRef} className="browser-viewport" aria-hidden={crash || dialog ? undefined : true}>
+        {dialog && (
+          <div className="browser-dialog" role="alertdialog" aria-label={dialog.message}>
+            <p className="browser-dialog-message">{dialog.message}</p>
+            <div className="browser-dialog-actions">
+              {dialog.kind === "confirm" && (
+                <button
+                  type="button"
+                  className="browser-dialog-btn"
+                  onClick={() => closeDialog(false)}
+                >
+                  {t("cancel")}
+                </button>
+              )}
+              <button
+                type="button"
+                className="browser-dialog-btn browser-dialog-btn--primary"
+                onClick={() => closeDialog(true)}
+              >
+                {t("ok")}
+              </button>
+            </div>
+          </div>
+        )}
         {crash && (
           <div className="browser-crash-overlay" role="alert">
             <p className="browser-crash-message">{t("browser.crashed")}</p>

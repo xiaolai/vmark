@@ -130,3 +130,55 @@
   font-size: var(--font-size-sm);
   color: var(--text-tertiary);
 }
+
+/* Page JS dialog (alert/confirm). Shown over the frozen native view (WI-1.7). */
+.browser-dialog {
+  position: absolute;
+  inset: 0;
+  z-index: var(--z-popup);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-3);
+  padding: var(--spacing-3);
+  background: color-mix(in srgb, var(--bg-color) 92%, transparent);
+}
+
+.browser-dialog-message {
+  margin: 0;
+  max-width: 32em;
+  text-align: center;
+  color: var(--text-color);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.browser-dialog-actions {
+  display: flex;
+  gap: var(--spacing-2);
+}
+
+.browser-dialog-btn {
+  padding: var(--spacing-1) var(--spacing-3);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  color: var(--text-color);
+  cursor: pointer;
+}
+
+.browser-dialog-btn:hover {
+  background: var(--bg-tertiary);
+}
+
+.browser-dialog-btn--primary {
+  background: var(--primary-color);
+  border-color: var(--primary-color);
+  color: var(--contrast-text);
+}
+
+.browser-dialog-btn:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
