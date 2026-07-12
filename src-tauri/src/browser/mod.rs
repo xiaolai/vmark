@@ -19,5 +19,6 @@
 #![allow(dead_code)]
 
 pub mod commands;
+pub mod recovery;
 pub mod registry;
 pub mod surface;
