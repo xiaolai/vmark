@@ -64,7 +64,9 @@ export function buildSessionState(appVersion: string): SessionState {
 
   const windowLabels = Object.keys(tabState.tabs);
   const windows: SessionWindow[] = windowLabels.map((label) => {
-    const tabs = tabState.tabs[label] ?? [];
+    // D1-7: the legacy MCP session state describes documents only — browser
+    // tabs are omitted here (the browser MCP surface lands in WI-2.5).
+    const tabs = (tabState.tabs[label] ?? []).filter((t) => t.kind === "document");
     const sessionTabs: SessionTab[] = tabs.map((tab) => {
       const doc = docState.documents[tab.id];
       const content = doc?.content ?? "";

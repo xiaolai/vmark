@@ -199,8 +199,13 @@ export function captureWindowState(windowLabel: string, isMainWindow: boolean): 
   const documentStore = useDocumentStore.getState();
   const historyStore = useUnifiedHistoryStore.getState();
 
-  // Get tabs for this window
-  const windowTabs = tabStore.getTabsByWindow(windowLabel);
+  // Get tabs for this window. Browser tabs (WI-1.1 / R1) carry no document
+  // content to crash-recover; they are restored from the workspace session
+  // config (`sessionTabs`), not from this crash snapshot — so capture only
+  // document tabs here.
+  const windowTabs = tabStore
+    .getTabsByWindow(windowLabel)
+    .filter((tab) => tab.kind === "document");
 
   const tabs: TabState[] = windowTabs.map((tab) => ({
     id: tab.id,

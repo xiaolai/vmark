@@ -22,6 +22,7 @@ import { useWorkspaceStore, type WorkspaceConfig } from "@/stores/workspaceStore
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { needsBootstrap } from "@/services/persistence/workspaceBootstrap";
+import { documentPathsForRestore } from "@/services/persistence/sessionTabs";
 import { detectLinebreaks } from "@/utils/linebreakDetection";
 import { waitForRestoreComplete, RESTORE_WAIT_TIMEOUT_MS } from "@/services/persistence/hotExit/hotExitCoordination";
 import { findExistingTabForPath } from "@/hooks/useReplaceableTab";
@@ -65,11 +66,14 @@ export function useWorkspaceBootstrap() {
           workspaceWarn("Hot exit restore timed out, proceeding with dedup guard");
         }
 
-        // Restore tabs from lastOpenTabs if available
-        if (config?.lastOpenTabs && config.lastOpenTabs.length > 0) {
+        // Restore document tabs from the session config (new `sessionTabs`
+        // field when present, else legacy `lastOpenTabs`). Browser-tab restore
+        // lands with the browser surface (WI-1.3+).
+        const restorePaths = config ? documentPathsForRestore(config) : [];
+        if (restorePaths.length > 0) {
           const windowLabel = getCurrentWebviewWindow().label;
 
-          for (const filePath of config.lastOpenTabs) {
+          for (const filePath of restorePaths) {
             // Skip files already restored by hot exit
             if (findExistingTabForPath(windowLabel, filePath)) {
               continue;

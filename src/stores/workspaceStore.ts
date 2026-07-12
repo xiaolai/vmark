@@ -43,7 +43,7 @@ import { recentWarn } from "@/utils/debug";
 export interface WorkspaceConfig {
   version: 1;
   excludeFolders: string[];
-  lastOpenTabs: string[]; // File paths for session restore
+  lastOpenTabs: string[]; // Doc paths for session restore (WI-1.1 also persists an opaque `sessionTabs`; see sessionTabs.ts)
   showHiddenFiles: boolean;
   showAllFiles: boolean; // Show non-markdown files in the file explorer
   ai?: Record<string, unknown>; // Future AI settings

@@ -1,7 +1,7 @@
 import { isWorkspaceRailEnabled } from "@/services/featureFlags/workspaceRailFeatureFlag";
 import { imeToast as toast } from "@/services/ime/imeToast";
 import { useDocumentStore } from "@/stores/documentStore";
-import { useTabStore } from "@/stores/tabStore";
+import { useTabStore, tabFilePath } from "@/stores/tabStore";
 import {
   useWorkspaceInstancesStore,
   type WorkspaceInstanceRecord,
@@ -176,7 +176,7 @@ function collectFileOwnershipClaims(
     for (const tab of tabs) {
       if (tab.id === options.currentTabId) continue;
       const doc = documentState.getDocument(tab.id);
-      const candidatePath = doc?.filePath ?? tab.filePath;
+      const candidatePath = doc?.filePath ?? tabFilePath(tab);
       if (!candidatePath) continue;
       const identity = toOwnershipIdentity(
         candidatePath,

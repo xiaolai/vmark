@@ -33,7 +33,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useShortcutsStore, formatKeyForDisplay } from "@/stores/settingsStore";
-import { useTabStore, type Tab } from "@/stores/tabStore";
+import { useTabStore, tabFilePath, type Tab } from "@/stores/tabStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import { useDismissOnOutsideOrEscape } from "@/hooks/useDismissOnOutsideOrEscape";
@@ -86,7 +86,7 @@ export function TabContextMenu({ tab, position, windowLabel, onClose }: TabConte
 
   const revealLabel = useMemo(() => getRevealInFileManagerLabel(), []);
   const closeShortcutLabel = useMemo(() => formatKeyForDisplay(closeShortcut), [closeShortcut]);
-  const filePath = tab.filePath ?? doc?.filePath ?? null;
+  const filePath = tabFilePath(tab) ?? doc?.filePath ?? null;
 
   const menuItems = useTabContextMenuActions({
     tab,

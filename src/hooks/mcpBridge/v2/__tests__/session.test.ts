@@ -50,6 +50,7 @@ describe("vmark.session.get_state", () => {
       tabs: {
         main: [
           {
+            kind: "document",
             id: "tab-1",
             filePath: "/tmp/notes.md",
             title: "notes",
@@ -80,6 +81,7 @@ describe("vmark.session.get_state", () => {
       tabs: {
         main: [
           {
+            kind: "document",
             id: "tab-w",
             filePath: "/repo/.github/workflows/ci.yml",
             title: "ci",
@@ -104,6 +106,7 @@ describe("vmark.session.get_state", () => {
       tabs: {
         main: [
           {
+            kind: "document",
             id: "tab-u",
             filePath: null,
             title: "Untitled",
@@ -126,8 +129,8 @@ describe("vmark.session.get_state", () => {
     useTabStore.setState({
       tabs: {
         main: [
-          { id: "t1", filePath: null, title: "A", isPinned: false },
-          { id: "t2", filePath: null, title: "B", isPinned: false },
+          { kind: "document", id: "t1", filePath: null, title: "A", isPinned: false },
+          { kind: "document", id: "t2", filePath: null, title: "B", isPinned: false },
         ],
       },
       activeTabId: { main: "t1" },

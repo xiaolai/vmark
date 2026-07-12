@@ -74,6 +74,8 @@ async function writeDirtySnapshots(
     }
 
     for (const tab of tabs) {
+      // Browser tabs (R1) have no editable document to crash-recover.
+      if (tab.kind !== "document") continue;
       const doc = docStore.getDocument(tab.id);
       if (!doc || !doc.isDirty) continue;
 

@@ -13,6 +13,8 @@ vi.mock("@/stores/tabStore", () => ({
   useTabStore: {
     getState: vi.fn(),
   },
+  tabFilePath: (t: { kind?: string; filePath?: string | null }) =>
+    t?.kind === "document" ? (t.filePath ?? null) : null,
 }));
 
 vi.mock("@/stores/documentStore", () => ({
@@ -74,8 +76,8 @@ describe("getReplaceableTab", () => {
     vi.mocked(useTabStore.getState).mockReturnValue({
       tabs: {
         main: [
-          { id: "tab-1", filePath: null },
-          { id: "tab-2", filePath: "/path/to/file.md" },
+          { kind: "document", id: "tab-1", filePath: null },
+          { kind: "document", id: "tab-2", filePath: "/path/to/file.md" },
         ],
       },
     } as unknown as ReturnType<typeof useTabStore.getState>);
@@ -100,7 +102,7 @@ describe("getReplaceableTab", () => {
   it("returns replaceable tab info when found", () => {
     vi.mocked(useTabStore.getState).mockReturnValue({
       tabs: {
-        main: [{ id: "tab-1", filePath: null }],
+        main: [{ kind: "document", id: "tab-1", filePath: null }],
       },
     } as unknown as ReturnType<typeof useTabStore.getState>);
 
@@ -120,7 +122,7 @@ describe("getReplaceableTab", () => {
   it("handles missing document for a tab gracefully", () => {
     vi.mocked(useTabStore.getState).mockReturnValue({
       tabs: {
-        main: [{ id: "tab-1", filePath: null }],
+        main: [{ kind: "document", id: "tab-1", filePath: null }],
       },
     } as unknown as ReturnType<typeof useTabStore.getState>);
 
@@ -140,7 +142,7 @@ describe("getReplaceableTab", () => {
 
   it("uses empty array for undefined window tabs", () => {
     vi.mocked(useTabStore.getState).mockReturnValue({
-      tabs: { "doc-1": [{ id: "tab-1" }] },
+      tabs: { "doc-1": [{ kind: "document", id: "tab-1" }] },
     } as unknown as ReturnType<typeof useTabStore.getState>);
 
     vi.mocked(useDocumentStore.getState).mockReturnValue({

@@ -119,6 +119,7 @@
     "pdfExportFailed": "Falha ao exportar PDF: {{error}}",
     "cannotMoveTabNoDoc": "Não é possível mover a aba: o documento não está carregado.",
     "cannotMoveLastTab": "Não é possível mover a última aba da janela principal.",
+    "cannotMoveBrowserTab": "As abas do navegador não podem ser movidas para outra janela.",
     "tabMoved": "\"{{title}}\" movido para uma nova janela",
     "tabDetached": "\"{{title}}\" desanexado",
     "tabMovedToWindow": "\"{{title}}\" movido",

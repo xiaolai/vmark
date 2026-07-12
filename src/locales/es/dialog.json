@@ -119,6 +119,7 @@
     "pdfExportFailed": "Error al exportar PDF: {{error}}",
     "cannotMoveTabNoDoc": "No se puede mover la pestaña: el documento no está cargado.",
     "cannotMoveLastTab": "No se puede mover la última pestaña de la ventana principal.",
+    "cannotMoveBrowserTab": "Las pestañas del navegador no se pueden mover a otra ventana.",
     "tabMoved": "Se movió \"{{title}}\" a una nueva ventana",
     "tabDetached": "Se separó \"{{title}}\"",
     "tabMovedToWindow": "Se movió \"{{title}}\"",

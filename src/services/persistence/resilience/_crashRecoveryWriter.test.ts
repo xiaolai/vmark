@@ -43,9 +43,9 @@ describe("useCrashRecoveryWriter", () => {
     useTabStore.setState({
       tabs: {
         main: [
-          { id: "tab-1", filePath: null, title: "Untitled-1", isPinned: false },
-          { id: "tab-2", filePath: "/path/doc.md", title: "doc.md", isPinned: false },
-          { id: "tab-3", filePath: null, title: "Untitled-2", isPinned: false },
+          { kind: "document", id: "tab-1", filePath: null, title: "Untitled-1", isPinned: false },
+          { kind: "document", id: "tab-2", filePath: "/path/doc.md", title: "doc.md", isPinned: false },
+          { kind: "document", id: "tab-3", filePath: null, title: "Untitled-2", isPinned: false },
         ],
       },
       activeTabId: { main: "tab-1" },
@@ -193,8 +193,8 @@ describe("useCrashRecoveryWriter", () => {
     useTabStore.setState({
       tabs: {
         main: [
-          { id: "tab-2", filePath: "/path/doc.md", title: "doc.md", isPinned: false },
-          { id: "tab-3", filePath: null, title: "Untitled-2", isPinned: false },
+          { kind: "document", id: "tab-2", filePath: "/path/doc.md", title: "doc.md", isPinned: false },
+          { kind: "document", id: "tab-3", filePath: null, title: "Untitled-2", isPinned: false },
         ],
       },
     });

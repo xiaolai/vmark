@@ -12,7 +12,7 @@
  * @coordinates-with useFileOperations.ts — uses getReplaceableTab on file open
  * @module hooks/useReplaceableTab
  */
-import { useTabStore } from "@/stores/tabStore";
+import { useTabStore, tabFilePath } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { findReplaceableTab, type ReplaceableTabInfo, type TabInfo } from "@/utils/openPolicy";
 
@@ -39,7 +39,7 @@ export function getReplaceableTab(windowLabel: string): ReplaceableTabInfo | nul
   const documents = useDocumentStore.getState().documents;
   const tabsInfo: TabInfo[] = tabs.map((t) => ({
     id: t.id,
-    filePath: t.filePath,
+    filePath: tabFilePath(t),
     isDirty: documents[t.id]?.isDirty ?? false,
   }));
   return findReplaceableTab(tabsInfo);

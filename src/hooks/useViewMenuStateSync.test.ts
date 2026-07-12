@@ -24,7 +24,7 @@ import { useViewMenuStateSync } from "./useViewMenuStateSync";
 
 function seedTab(formatId: string) {
   useTabStore.setState({
-    tabs: { main: [{ id: "t1", title: "t", isPinned: false, formatId } as never] },
+    tabs: { main: [{ kind: "document", id: "t1", title: "t", isPinned: false, formatId } as never] },
     activeTabId: { main: "t1" },
   } as never);
 }

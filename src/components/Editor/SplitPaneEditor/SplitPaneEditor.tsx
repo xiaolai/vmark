@@ -72,7 +72,7 @@ export function SplitPaneEditor({ tabId, formatConfig }: SplitPaneEditorProps) {
   // the store; SplitPaneEditor reads it and dispatches to set it.
   const editingEnabled = useTabStore((s) => {
     const found = s.findTabById?.(tabId) ?? null;
-    return Boolean(found?.editingEnabled);
+    return found?.kind === "document" ? Boolean(found.editingEnabled) : false;
   });
 
   // WI-2.4 — schema-aware preview dispatch. When the format declares a
@@ -105,7 +105,10 @@ export function SplitPaneEditor({ tabId, formatConfig }: SplitPaneEditorProps) {
   // default setting, then "split". Clamped to "source" for formats without a
   // preview so a stale "preview" on a now-preview-less tab can't blank the
   // editor. See dev-docs/plans/20260703-split-pane-view-modes.md.
-  const tabViewMode = useTabStore((s) => s.findTabById?.(tabId)?.viewMode);
+  const tabViewMode = useTabStore((s) => {
+    const t = s.findTabById?.(tabId);
+    return t?.kind === "document" ? t.viewMode : undefined;
+  });
   const defaultViewMode = useSettingsStore((s) => s.formats.defaultViewMode);
   // Normalize via the guard so a corrupt persisted setting can't yield an
   // out-of-range mode (which would leave the toggle with no active radio).

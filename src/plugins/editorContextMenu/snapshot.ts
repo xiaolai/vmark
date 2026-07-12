@@ -50,7 +50,7 @@ export function getActiveFormatMenuPolicy(): EditorMenuFormatPolicy {
     const tabStore = useTabStore.getState();
     const activeTabId = tabStore.activeTabId[windowLabel] ?? null;
     const tab = activeTabId ? tabStore.findTabById(activeTabId) : null;
-    const format = tab ? getFormatById(tab.formatId) : undefined;
+    const format = tab && tab.kind === "document" ? getFormatById(tab.formatId) : undefined;
     if (!format) return { paragraphFormatting: true, insertBlockActions: true };
     return {
       paragraphFormatting: format.adapters.menuPolicy.paragraphFormatting,

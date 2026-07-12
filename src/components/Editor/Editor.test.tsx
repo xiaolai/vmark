@@ -20,7 +20,7 @@ afterEach(() => {
   mockTabStore.activeTabId = { main: "tab-1" };
   mockTabStore.findTabById = (id: string) =>
     id === "tab-1"
-      ? { id: "tab-1", filePath: null, title: "Untitled", isPinned: false }
+      ? { kind: "document", id: "tab-1", filePath: null, title: "Untitled", isPinned: false }
       : null;
 });
 
@@ -159,13 +159,13 @@ vi.mock("@/stores/documentStore", () => {
 // empty-workspace / Welcome-screen seam) and reset it afterwards.
 const { mockTabStore } = vi.hoisted(() => ({
   mockTabStore: {
-    tabs: { main: [{ id: "tab-1", filePath: null, title: "Untitled", isPinned: false }] },
+    tabs: { main: [{ kind: "document", id: "tab-1", filePath: null, title: "Untitled", isPinned: false }] },
     activeTabId: { main: "tab-1" as string | null },
-    getTabsByWindow: () => [{ id: "tab-1", filePath: null, title: "Untitled", isPinned: false }],
+    getTabsByWindow: () => [{ kind: "document", id: "tab-1", filePath: null, title: "Untitled", isPinned: false }],
     createTab: vi.fn(() => "tab-1"),
     findTabById: (id: string) =>
       id === "tab-1"
-        ? { id: "tab-1", filePath: null, title: "Untitled", isPinned: false }
+        ? { kind: "document", id: "tab-1", filePath: null, title: "Untitled", isPinned: false }
         : null,
   },
 }));
@@ -269,7 +269,7 @@ describe("Editor", () => {
       // CodeMirror source pane mounts.
       mockTabStore.findTabById = (id: string) =>
         id === "tab-1"
-          ? { id: "tab-1", filePath: "/pics/hero.png", title: "hero.png", isPinned: false }
+          ? { kind: "document", id: "tab-1", filePath: "/pics/hero.png", title: "hero.png", isPinned: false }
           : null;
 
       renderWithProvider(<Editor />);

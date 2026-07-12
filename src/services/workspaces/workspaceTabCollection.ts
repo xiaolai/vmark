@@ -10,7 +10,7 @@
  */
 
 import { useDocumentStore } from "@/stores/documentStore";
-import { useTabStore, type Tab } from "@/stores/tabStore";
+import { useTabStore, type DocumentTab } from "@/stores/tabStore";
 import {
   useWorkspaceInstancesStore,
   type WorkspaceInstanceRecord,
@@ -43,7 +43,7 @@ export type DuplicateSkipReason = "untitled" | "missing" | "dirty" | null;
  * duplicate filters out untitled / missing / dirty tabs.
  */
 export function classifyDuplicateEligibility(
-  tab: Tab,
+  tab: DocumentTab,
   doc: TabDocument,
   operation: WorkspaceWindowOperation,
 ): DuplicateSkipReason {
@@ -55,7 +55,7 @@ export function classifyDuplicateEligibility(
 }
 
 /** Serialize a tab + its document into the transfer payload shape. */
-export function serializeTransferTab(tab: Tab, doc: TabDocument): WorkspaceTransferTabPayload {
+export function serializeTransferTab(tab: DocumentTab, doc: TabDocument): WorkspaceTransferTabPayload {
   return {
     tabId: tab.id,
     title: tab.title,
@@ -82,7 +82,7 @@ export function resolveTransferActiveTab(
 
 /** True when `tab` belongs to `instance` — by explicit membership or root classification. */
 function tabBelongsToWorkspace(
-  tab: Tab,
+  tab: DocumentTab,
   instance: WorkspaceInstanceRecord,
   activeInstanceId: string | null,
 ): boolean {
@@ -114,6 +114,9 @@ export function collectWorkspaceTabs(
   };
 
   for (const tab of tabs) {
+    // R1: browser tabs do not participate in workspace transfer — the payload
+    // requires document content/dirty/saved state a browser tab has none of.
+    if (tab.kind !== "document") continue;
     if (!tabBelongsToWorkspace(tab, instance, activeInstanceId)) continue;
     const doc = documents.getDocument(tab.id);
     if (!doc) continue;

@@ -63,7 +63,7 @@ export function activeSplitPaneTarget(
   const tabId = getActiveTabId(windowLabel);
   if (!tabId) return null;
   const tab = useTabStore.getState().findTabById(tabId);
-  if (!tab) return null;
+  if (!tab || tab.kind !== "document") return null;
   const config = getFormatById(tab.formatId);
   if (!config) return null;
   if (config.kind !== "split-pane" && config.kind !== "viewer") return null;

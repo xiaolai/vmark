@@ -18,12 +18,12 @@ import {
 } from "./selectSourceEditing";
 
 beforeEach(() => {
-  findTabById.mockReset().mockReturnValue({ formatId: "markdown" });
+  findTabById.mockReset().mockReturnValue({ kind: "document", formatId: "markdown" });
 });
 
 describe("selectSourceEditing", () => {
   it("is true in Source mode regardless of tab format", () => {
-    findTabById.mockReturnValue({ formatId: "json" });
+    findTabById.mockReturnValue({ kind: "document", formatId: "json" });
     expect(selectSourceEditing({ sourceMode: true, markdownSplitView: false })).toBe(true);
   });
 
@@ -32,7 +32,7 @@ describe("selectSourceEditing", () => {
   });
 
   it("is FALSE in Split view when the active tab is NOT markdown (no misroute)", () => {
-    findTabById.mockReturnValue({ formatId: "json" });
+    findTabById.mockReturnValue({ kind: "document", formatId: "json" });
     expect(selectSourceEditing({ sourceMode: false, markdownSplitView: true })).toBe(false);
   });
 

@@ -85,6 +85,35 @@
 >   Debug probe commands (`spike_embed_browser/snapshot/datastore/trusted_input/fetch`) +
 >   their `Cargo.toml` deps (block2, several objc2 features) remain as validated WI-1.2/1.4/
 >   3.4 reference recipes — all `#[cfg(debug_assertions, macos)]`, removable.
+> Updated: 2026-07-12 — **Phase 1 started: WI-1.1 (tab discriminated union + versioned
+>   persistence) landed, TDD-first, `pnpm tsc` + all unit/Rust tests green.**
+>   - `Tab` is now `DocumentTab | BrowserTab` (`src/stores/tabStoreTypes.ts`) with
+>     `isDocumentTab`/`isBrowserTab`/`tabFilePath` guards. `DocumentTab` keeps the historical
+>     contract (only a `kind:"document"` discriminant added); `BrowserTab` carries
+>     `{kind,url,title,isPinned,scrollY?}` and has **no** `filePath`/`formatId`.
+>   - Store: `createBrowserTab` (canonical-URL dedup via new `src/lib/browser/url.ts`) +
+>     `updateBrowserTab`; `createTransferredTab` is now document-only.
+>   - `Editor.tsx` branches on `isBrowserTab` **before** `dispatchEditor` (R1 core). The
+>     whole-app narrowing sweep (~25 files, 49 sites) is complete and type-green; browser
+>     tabs are correctly excluded from path queries, save, transfer, hot-exit, crash
+>     recovery, and the legacy MCP session (D1-7).
+>   - Transfer of a browser tab is an explicit, user-visible no-op
+>     (`dialog:toast.cannotMoveBrowserTab`).
+>   - **Persistence deviation (recorded, with rationale):** the plan said "retype
+>     `lastOpenTabs` → versioned record." That would break a real *downgrade* — the Rust
+>     `WorkspaceConfig.last_open_tabs: Vec<String>` on an older binary would serde-choke on a
+>     JSON object, contradicting the WI-1.1 acceptance "browser tab in a downgraded build is
+>     skipped, not a crash." Implemented the **downgrade-safe additive** design instead:
+>     `lastOpenTabs` stays `string[]` (document paths → old binaries still restore docs) and a
+>     new additive `sessionTabs` versioned record (`services/persistence/sessionTabs.ts`, opaque
+>     `Option<serde_json::Value>` in Rust) carries the full ordered list incl. browser tabs.
+>     New builds prefer `sessionTabs`; unknown record kinds / future versions / malformed
+>     records are skipped with a warn (forward tolerance). Write + read paths wired
+>     (`workspaceSession.ts`, `useWorkspaceBootstrap.ts`, workspace open/recent commands).
+>     Browser-tab *restore into a live surface* is intentionally deferred to WI-1.3/1.10
+>     (needs the surface + feature flag); the records round-trip now.
+>   - Remaining Phase 1: WI-1.2 (native WKWebView surface) … WI-1.10. WI-1.2 is the
+>     native halt-gate item (human-run verification).
 > Branch (proposed): `feature/embedded-browser`
 > Related: `20260331-workflow-engine.md` (Genie/internal workflow engine — distinct;
 >   see §1.5), `decisions/ADR-002-mcp-sidecar-architecture.md` (MCP bridge reused here)

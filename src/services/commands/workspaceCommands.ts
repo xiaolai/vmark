@@ -14,6 +14,7 @@ import { persistWorkspaceSession } from "@/hooks/workspaceSession";
 import { openWorkspaceWithConfig } from "@/hooks/openWorkspaceWithConfig";
 import { withReentryGuard } from "@/utils/reentryGuard";
 import { restoreWorkspaceTabs, restoreSplitLayout } from "@/services/navigation/restoreWorkspaceTabs";
+import { documentPathsForRestore } from "@/services/persistence/sessionTabs";
 import { workspaceError } from "@/utils/debug";
 import i18n from "@/i18n";
 
@@ -54,7 +55,10 @@ export function registerWorkspaceCommands(): void {
 
           // Shared restore loop with dedup guard — skips files already open in
           // this window so an existing dirty tab is never re-init'd/overwritten.
-          await restoreWorkspaceTabs(windowLabel, existing?.lastOpenTabs);
+          await restoreWorkspaceTabs(
+            windowLabel,
+            existing ? documentPathsForRestore(existing) : undefined,
+          );
           restoreSplitLayout(windowLabel, path);
         } catch (error) {
           workspaceError("Failed to open folder:", error);

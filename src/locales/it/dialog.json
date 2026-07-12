@@ -119,6 +119,7 @@
     "pdfExportFailed": "Esportazione PDF fallita: {{error}}",
     "cannotMoveTabNoDoc": "Impossibile spostare la scheda: il documento non è caricato.",
     "cannotMoveLastTab": "Impossibile spostare l'ultima scheda nella finestra principale.",
+    "cannotMoveBrowserTab": "Le schede del browser non possono essere spostate in un'altra finestra.",
     "tabMoved": "\"{{title}}\" spostato in una nuova finestra",
     "tabDetached": "\"{{title}}\" separato",
     "tabMovedToWindow": "\"{{title}}\" spostato",

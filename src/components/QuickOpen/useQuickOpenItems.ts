@@ -4,7 +4,7 @@
  */
 
 import { useRecentFilesStore } from "@/stores/workspaceStore";
-import { useTabStore } from "@/stores/tabStore";
+import { useTabStore, tabFilePath } from "@/stores/tabStore";
 import { getActiveWorkspaceScope } from "@/services/workspaces/activeWorkspaceScope";
 import { fuzzyMatch, type FuzzyMatchResult } from "./fuzzyMatch";
 import type { FileNode } from "@/components/Sidebar/FileExplorer/types";
@@ -64,8 +64,8 @@ export function buildQuickOpenItems(
   const windowTabs = useTabStore.getState().getTabsByWindow(windowLabel);
   const openPathSet = new Set(
     windowTabs
-      .filter((t: { filePath?: string | null }) => t.filePath)
-      .map((t: { filePath?: string | null }) => t.filePath!),
+      .map((t) => tabFilePath(t))
+      .filter((p): p is string => Boolean(p)),
   );
 
   const seen = new Set<string>();

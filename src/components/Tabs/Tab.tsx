@@ -34,6 +34,7 @@ import { X, Pin, AlertTriangle, GitFork } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import type { Tab as TabType } from "@/stores/tabStore";
+import { tabFilePath } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabRenameStore } from "@/stores/tabRenameStore";
 import { TabRenameInput } from "./TabRenameInput";
@@ -83,7 +84,7 @@ export const Tab = memo(function Tab({
     (state) => state.documents[tab.id]?.filePath ?? null
   );
   const isRenaming = useTabRenameStore((state) => state.renamingTabId === tab.id);
-  const filePath = tab.filePath ?? docFilePath;
+  const filePath = tabFilePath(tab) ?? docFilePath;
   const showDivergent = isDivergent && !isMissing;
 
   const tooltip = isMissing

@@ -52,7 +52,8 @@ export function useViewMenuStateSync(): void {
   // (not just a tab switch) re-evaluates applicability.
   const activeFormatId = useTabStore((s) => {
     const id = s.activeTabId[getCurrentWindowLabel()];
-    return id ? (s.findTabById(id)?.formatId ?? null) : null;
+    const t = id ? s.findTabById(id) : null;
+    return t?.kind === "document" ? t.formatId : null;
   });
   // Large markdown files force Source mode without setting the global flag.
   const forcedSource = useLargeFileSessionStore((s) =>

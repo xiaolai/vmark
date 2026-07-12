@@ -17,6 +17,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 // the *tab-shape* portion of the capture path.
 
 interface StubTab {
+  kind: "document";
   id: string;
   filePath: string | null;
   title: string;
@@ -117,6 +118,7 @@ describe("captureWindowState — multi-format fields (WI-1A.13)", () => {
   it("captures format_id from the live Tab", () => {
     setTabs("main", [
       {
+        kind: "document",
         id: "t1",
         filePath: "/data/payload.json",
         title: "payload.json",
@@ -135,6 +137,7 @@ describe("captureWindowState — multi-format fields (WI-1A.13)", () => {
   it("defaults editing_enabled to true when the Tab does not override it", () => {
     setTabs("main", [
       {
+        kind: "document",
         id: "t1",
         filePath: "/notes/draft.md",
         title: "draft.md",
@@ -153,6 +156,7 @@ describe("captureWindowState — multi-format fields (WI-1A.13)", () => {
   it("captures editing_enabled=false override (e.g. code viewer)", () => {
     setTabs("main", [
       {
+        kind: "document",
         id: "t1",
         filePath: "/src/lib.rs",
         title: "lib.rs",
@@ -171,6 +175,7 @@ describe("captureWindowState — multi-format fields (WI-1A.13)", () => {
   it("defaults active_schema_id to null when the Tab does not set one", () => {
     setTabs("main", [
       {
+        kind: "document",
         id: "t1",
         filePath: "/x.yml",
         title: "x.yml",
@@ -188,6 +193,7 @@ describe("captureWindowState — multi-format fields (WI-1A.13)", () => {
   it("captures active_schema_id when set (e.g. yaml-gha-workflow)", () => {
     setTabs("main", [
       {
+        kind: "document",
         id: "t1",
         filePath: "/.github/workflows/ci.yml",
         title: "ci.yml",
@@ -206,6 +212,7 @@ describe("captureWindowState — multi-format fields (WI-1A.13)", () => {
   it("captures untitled non-markdown tabs (formatId preserved even with file_path=null)", () => {
     setTabs("main", [
       {
+        kind: "document",
         id: "t1",
         filePath: null,
         title: "Untitled-1.json",
@@ -224,6 +231,7 @@ describe("captureWindowState — multi-format fields (WI-1A.13)", () => {
   it("captures multiple tabs with mixed format states", () => {
     setTabs("main", [
       {
+        kind: "document",
         id: "t1",
         filePath: "/a.md",
         title: "a.md",
@@ -231,6 +239,7 @@ describe("captureWindowState — multi-format fields (WI-1A.13)", () => {
         formatId: "markdown",
       },
       {
+        kind: "document",
         id: "t2",
         filePath: "/b.rs",
         title: "b.rs",
@@ -239,6 +248,7 @@ describe("captureWindowState — multi-format fields (WI-1A.13)", () => {
         editingEnabled: false,
       },
       {
+        kind: "document",
         id: "t3",
         filePath: "/c.yml",
         title: "c.yml",

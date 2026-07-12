@@ -80,6 +80,15 @@ export async function transferTabFromDragOut({
   const tab = windowTabs.find((entry) => entry.id === tabId);
   if (!tab) return;
 
+  // R1: browser tabs do not participate in window transfer/detach — the
+  // transfer payload requires document content, saved content, dirty state and
+  // formatId a browser tab has none of. Explicit, user-visible no-op.
+  if (tab.kind !== "document") {
+    triggerSnapback(tabId);
+    announce(i18n.t("dialog:toast.cannotMoveBrowserTab"));
+    return;
+  }
+
   if (windowLabel === "main" && windowTabs.length <= 1) {
     triggerSnapback(tabId);
     announce(i18n.t("dialog:toast.cannotMoveLastTab"));

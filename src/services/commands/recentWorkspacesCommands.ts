@@ -18,6 +18,7 @@ import { useUIStore } from "@/stores/uiStore";
 import { withReentryGuard } from "@/utils/reentryGuard";
 import { openWorkspaceWithConfig } from "@/hooks/openWorkspaceWithConfig";
 import { restoreWorkspaceTabs, restoreSplitLayout } from "@/services/navigation/restoreWorkspaceTabs";
+import { documentPathsForRestore } from "@/services/persistence/sessionTabs";
 import i18n from "@/i18n";
 import { workspaceError } from "@/utils/debug";
 import { parseRecentPathArgs } from "./recentPathArgs";
@@ -110,7 +111,10 @@ export function registerRecentWorkspacesCommands(): void {
         useUIStore.getState().showSidebarWithView("files");
 
         // Shared restore loop with dedup guard — skips already-open tabs.
-        await restoreWorkspaceTabs(windowLabel, existing?.lastOpenTabs);
+        await restoreWorkspaceTabs(
+          windowLabel,
+          existing ? documentPathsForRestore(existing) : undefined,
+        );
         restoreSplitLayout(windowLabel, workspacePath);
 
         useRecentWorkspacesStore.getState().addWorkspace(workspacePath);

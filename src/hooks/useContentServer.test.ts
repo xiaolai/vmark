@@ -27,6 +27,8 @@ vi.mock("@/services/navigation/activeDocument", () => ({ getActiveTabId: () => "
 vi.mock("@/services/persistence/workspaceStorage", () => ({ getCurrentWindowLabel: () => "main" }));
 vi.mock("@/stores/tabStore", () => ({
   useTabStore: { getState: () => ({ findTabById: (...a: unknown[]) => findTabByIdMock(...a) }) },
+  tabFilePath: (t: { kind?: string; filePath?: string | null }) =>
+    t?.kind === "document" ? (t.filePath ?? null) : null,
 }));
 
 type ExitPayload = { workspaceRoot: string; code: number | null };
@@ -58,7 +60,7 @@ beforeEach(() => {
   exportSlidev.mockReset();
   openUrlMock.mockReset();
   saveMock.mockReset();
-  findTabByIdMock.mockReset().mockReturnValue({ filePath: "/ws/deck.md" });
+  findTabByIdMock.mockReset().mockReturnValue({ kind: "document", filePath: "/ws/deck.md" });
   unlisten.mockReset();
   exitHandler = null;
   useContentServerStore.getState().reset();
@@ -171,7 +173,7 @@ describe("useContentServer", () => {
   });
 
   it("previewSlides errors when there is no active deck", async () => {
-    findTabByIdMock.mockReturnValue({ filePath: null });
+    findTabByIdMock.mockReturnValue({ kind: "document", filePath: null });
     const { result } = renderHook(() => useContentServer());
     await act(async () => {
       await result.current.previewSlides();

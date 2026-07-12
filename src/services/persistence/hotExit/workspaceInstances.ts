@@ -3,7 +3,7 @@ import {
   useWorkspaceInstancesStore,
   type WorkspaceInstanceRecord,
 } from "@/stores/workspaceInstancesStore";
-import { useTabStore, type Tab } from "@/stores/tabStore";
+import { useTabStore, type Tab, tabFilePath } from "@/stores/tabStore";
 import type {
   HotExitWindowWorkspaceState,
   HotExitWorkspaceInstanceState,
@@ -147,7 +147,7 @@ function claimUnownedTabs(
   for (const tab of useTabStore.getState().getTabsByWindow(windowLabel)) {
     if (owned.has(tab.id)) continue;
     let owner = classifyWorkspaceContextForTab({
-      filePath: tab.filePath,
+      filePath: tabFilePath(tab),
       instances: orderedWindowInstances(windowLabel),
       activeWorkspaceInstanceId:
         useWorkspaceInstancesStore.getState().windows[windowLabel]?.activeWorkspaceInstanceId ?? null,
@@ -193,7 +193,7 @@ function ensureLooseInstanceForUnownedTabs(windowLabel: string): void {
   const activeId =
     useWorkspaceInstancesStore.getState().windows[windowLabel]?.activeWorkspaceInstanceId ?? null;
   const needsLoose = useTabStore.getState().getTabsByWindow(windowLabel).some((tab) =>
-    classifyWorkspaceContextForTab({ filePath: tab.filePath, instances, activeWorkspaceInstanceId: activeId }) === null
+    classifyWorkspaceContextForTab({ filePath: tabFilePath(tab), instances, activeWorkspaceInstanceId: activeId }) === null
   );
   if (needsLoose) {
     useWorkspaceInstancesStore.getState().ensureLooseInstance(windowLabel);
@@ -243,7 +243,7 @@ function assignTabsToInstances(
   const owned = new Map<string, string[]>();
   for (const tab of tabs) {
     const owner = classifyWorkspaceContextForTab({
-      filePath: tab.filePath,
+      filePath: tabFilePath(tab),
       instances,
       activeWorkspaceInstanceId,
     });

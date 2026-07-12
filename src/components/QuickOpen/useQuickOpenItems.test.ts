@@ -5,6 +5,8 @@ vi.mock("@/stores/workspaceStore", () => ({
 }));
 vi.mock("@/stores/tabStore", () => ({
   useTabStore: { getState: vi.fn(() => ({ getTabsByWindow: () => [] })) },
+  tabFilePath: (t: { kind?: string; filePath?: string | null }) =>
+    t?.kind === "document" ? (t.filePath ?? null) : null,
 }));
 vi.mock("@/services/workspaces/activeWorkspaceScope", () => ({
   getActiveWorkspaceScope: vi.fn(() => ({ rootPath: null })),
@@ -106,7 +108,7 @@ describe("buildQuickOpenItems", () => {
   it("includes current-window open tabs as tier 'open'", () => {
     mockTabStore.mockReturnValue({
       getTabsByWindow: (wl: string) =>
-        wl === "win" ? [{ filePath: "/b.md" }] : [],
+        wl === "win" ? [{ kind: "document", filePath: "/b.md" }] : [],
     } as any);
     const items = buildQuickOpenItems("win", []);
     expect(items.filter((i) => i.tier === "open")).toHaveLength(1);
@@ -134,7 +136,7 @@ describe("buildQuickOpenItems", () => {
       files: [{ path: "/a.md", name: "a", timestamp: 100 }],
     } as any);
     mockTabStore.mockReturnValue({
-      getTabsByWindow: () => [{ filePath: "/a.md" }],
+      getTabsByWindow: () => [{ kind: "document", filePath: "/a.md" }],
     } as any);
     const items = buildQuickOpenItems("win", ["/a.md"]);
     expect(items.filter((i) => i.path === "/a.md")).toHaveLength(1);
@@ -143,7 +145,7 @@ describe("buildQuickOpenItems", () => {
 
   it("deduplicates: open wins over workspace", () => {
     mockTabStore.mockReturnValue({
-      getTabsByWindow: () => [{ filePath: "/a.md" }],
+      getTabsByWindow: () => [{ kind: "document", filePath: "/a.md" }],
     } as any);
     const items = buildQuickOpenItems("win", ["/a.md"]);
     expect(items.filter((i) => i.path === "/a.md")).toHaveLength(1);
@@ -155,7 +157,7 @@ describe("buildQuickOpenItems", () => {
       files: [{ path: "/a.md", name: "a", timestamp: 100 }],
     } as any);
     mockTabStore.mockReturnValue({
-      getTabsByWindow: () => [{ filePath: "/a.md" }],
+      getTabsByWindow: () => [{ kind: "document", filePath: "/a.md" }],
     } as any);
     const items = buildQuickOpenItems("win", []);
     expect(items[0].isOpenTab).toBe(true);
@@ -210,7 +212,10 @@ describe("buildQuickOpenItems", () => {
 
   it("handles tabs without filePath (untitled tabs)", () => {
     mockTabStore.mockReturnValue({
-      getTabsByWindow: () => [{ filePath: null }, { filePath: "/b.md" }],
+      getTabsByWindow: () => [
+        { kind: "document", filePath: null },
+        { kind: "document", filePath: "/b.md" },
+      ],
     } as any);
     const items = buildQuickOpenItems("win", []);
     expect(items).toHaveLength(1);

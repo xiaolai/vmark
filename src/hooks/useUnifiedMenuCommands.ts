@@ -98,7 +98,7 @@ function isMenuActionAllowedForActiveFormat(
     const tab = activeTabId
       ? useTabStore.getState().findTabById(activeTabId)
       : null;
-    formatConfig = tab ? getFormatById(tab.formatId) : undefined;
+    formatConfig = tab && tab.kind === "document" ? getFormatById(tab.formatId) : undefined;
   } catch {
     formatConfig = undefined;
   }

@@ -149,8 +149,8 @@ describe("transferTabFromDragOut", () => {
 
   function setupTabsAndDoc() {
     mockGetTabsByWindow.mockReturnValue([
-      { id: "tab-1", title: "Doc 1", filePath: "/file1.md", isPinned: false },
-      { id: "tab-2", title: "Doc 2", filePath: "/file2.md", isPinned: false },
+      { kind: "document", id: "tab-1", title: "Doc 1", filePath: "/file1.md", isPinned: false },
+      { kind: "document", id: "tab-2", title: "Doc 2", filePath: "/file2.md", isPinned: false },
     ]);
     mockGetDocument.mockReturnValue({
       content: "# Content",
@@ -168,7 +168,7 @@ describe("transferTabFromDragOut", () => {
 
   it("blocks last tab in main window", async () => {
     mockGetTabsByWindow.mockReturnValue([
-      { id: "tab-1", title: "Only Tab", filePath: null, isPinned: false },
+      { kind: "document", id: "tab-1", title: "Only Tab", filePath: null, isPinned: false },
     ]);
     await transferTabFromDragOut(defaultOptions);
     expect(defaultOptions.triggerSnapback).toHaveBeenCalledWith("tab-1");
@@ -180,7 +180,7 @@ describe("transferTabFromDragOut", () => {
 
   it("allows last tab from non-main window", async () => {
     mockGetTabsByWindow.mockReturnValue([
-      { id: "tab-1", title: "Only Tab", filePath: null, isPinned: false },
+      { kind: "document", id: "tab-1", title: "Only Tab", filePath: null, isPinned: false },
     ]);
     mockGetDocument.mockReturnValue({
       content: "content",
@@ -198,8 +198,8 @@ describe("transferTabFromDragOut", () => {
 
   it("does nothing if document not found", async () => {
     mockGetTabsByWindow.mockReturnValue([
-      { id: "tab-1", title: "Doc 1", filePath: null, isPinned: false },
-      { id: "tab-2", title: "Doc 2", filePath: null, isPinned: false },
+      { kind: "document", id: "tab-1", title: "Doc 1", filePath: null, isPinned: false },
+      { kind: "document", id: "tab-2", title: "Doc 2", filePath: null, isPinned: false },
     ]);
     mockGetDocument.mockReturnValue(null);
     await transferTabFromDragOut(defaultOptions);
@@ -279,8 +279,8 @@ describe("transferTabFromDragOut", () => {
     // After detach, no remaining tabs
     mockGetTabsByWindow
       .mockReturnValueOnce([
-        { id: "tab-1", title: "Doc 1", filePath: "/f1.md", isPinned: false },
-        { id: "tab-2", title: "Doc 2", filePath: "/f2.md", isPinned: false },
+        { kind: "document", id: "tab-1", title: "Doc 1", filePath: "/f1.md", isPinned: false },
+        { kind: "document", id: "tab-2", title: "Doc 2", filePath: "/f2.md", isPinned: false },
       ])
       .mockReturnValueOnce([]); // remaining = 0
 
@@ -299,8 +299,8 @@ describe("transferTabFromDragOut", () => {
     // After detach, no remaining tabs but window is main
     mockGetTabsByWindow
       .mockReturnValueOnce([
-        { id: "tab-1", title: "Doc 1", filePath: "/f1.md", isPinned: false },
-        { id: "tab-2", title: "Doc 2", filePath: "/f2.md", isPinned: false },
+        { kind: "document", id: "tab-1", title: "Doc 1", filePath: "/f1.md", isPinned: false },
+        { kind: "document", id: "tab-2", title: "Doc 2", filePath: "/f2.md", isPinned: false },
       ])
       .mockReturnValueOnce([]); // remaining = 0
 
@@ -407,8 +407,8 @@ describe("transferTabFromDragOut", () => {
     // After detach, no remaining tabs in non-main window
     mockGetTabsByWindow
       .mockReturnValueOnce([
-        { id: "tab-1", title: "Doc 1", filePath: "/f1.md", isPinned: false },
-        { id: "tab-2", title: "Doc 2", filePath: "/f2.md", isPinned: false },
+        { kind: "document", id: "tab-1", title: "Doc 1", filePath: "/f1.md", isPinned: false },
+        { kind: "document", id: "tab-2", title: "Doc 2", filePath: "/f2.md", isPinned: false },
       ])
       .mockReturnValueOnce([]);
 
@@ -449,8 +449,8 @@ describe("transferTabFromDragOut", () => {
 
     mockGetTabsByWindow
       .mockReturnValueOnce([
-        { id: "tab-1", title: "Doc 1", filePath: "/f1.md", isPinned: false },
-        { id: "tab-2", title: "Doc 2", filePath: "/f2.md", isPinned: false },
+        { kind: "document", id: "tab-1", title: "Doc 1", filePath: "/f1.md", isPinned: false },
+        { kind: "document", id: "tab-2", title: "Doc 2", filePath: "/f2.md", isPinned: false },
       ])
       .mockReturnValueOnce([]);
 
@@ -474,8 +474,8 @@ describe("transferTabFromDragOut", () => {
 
   it("handles tab with null filePath", async () => {
     mockGetTabsByWindow.mockReturnValue([
-      { id: "tab-1", title: "Untitled", filePath: undefined, isPinned: false },
-      { id: "tab-2", title: "Doc 2", filePath: "/f.md", isPinned: false },
+      { kind: "document", id: "tab-1", title: "Untitled", filePath: undefined, isPinned: false },
+      { kind: "document", id: "tab-2", title: "Doc 2", filePath: "/f.md", isPinned: false },
     ]);
     mockGetDocument.mockReturnValue({
       content: "hello",

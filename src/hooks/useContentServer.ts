@@ -20,7 +20,7 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { save } from "@tauri-apps/plugin-dialog";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { useContentServerStore } from "@/stores/contentServerStore";
-import { useTabStore } from "@/stores/tabStore";
+import { useTabStore, tabFilePath } from "@/stores/tabStore";
 import { getActiveTabId } from "@/services/navigation/activeDocument";
 import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import { contentServerWarn } from "@/utils/debug";
@@ -72,7 +72,8 @@ export interface ContentServerControls {
 function activeDeckPath(): string | null {
   const tabId = getActiveTabId(getCurrentWindowLabel());
   if (!tabId) return null;
-  return useTabStore.getState().findTabById(tabId)?.filePath ?? null;
+  const tab = useTabStore.getState().findTabById(tabId);
+  return tab ? tabFilePath(tab) : null;
 }
 
 /** Derive the Slidev export format from the chosen output extension (WI-7.2). */

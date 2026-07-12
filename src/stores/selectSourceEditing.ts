@@ -23,7 +23,8 @@ import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 function activeTabIsMarkdown(): boolean {
   const ts = useTabStore.getState();
   const id = ts.activeTabId[getCurrentWindowLabel()];
-  return id ? ts.findTabById?.(id)?.formatId === "markdown" : false;
+  const t = id ? ts.findTabById?.(id) : null;
+  return t?.kind === "document" ? t.formatId === "markdown" : false;
 }
 
 export function selectSourceEditing(s: {

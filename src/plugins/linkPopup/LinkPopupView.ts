@@ -11,7 +11,7 @@ import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import i18n from "@/i18n";
 import { linkPopupError } from "@/utils/debug";
 import { useLinkPopupStore } from "@/stores/linkPopupStore";
-import { useTabStore } from "@/stores/tabStore";
+import { useTabStore, tabFilePath } from "@/stores/tabStore";
 import { navigateToHeadingById } from "@/utils/headingSlug";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import { popupIcons } from "@/utils/popupComponents";
@@ -213,7 +213,7 @@ export class LinkPopupView extends WysiwygPopupView<LinkPopupState> {
     const activeTab = useTabStore
       .getState()
       .getActiveTab(getCurrentWebviewWindow().label);
-    const sourcePath = activeTab?.filePath ?? null;
+    const sourcePath = activeTab ? tabFilePath(activeTab) : null;
     openFilepathLink(href, sourcePath).then((opened) => {
       if (opened) this.closePopup();
     }).catch((error: unknown) => {

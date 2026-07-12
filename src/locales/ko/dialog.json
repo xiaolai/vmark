@@ -119,6 +119,7 @@
     "pdfExportFailed": "PDF 내보내기 실패: {{error}}",
     "cannotMoveTabNoDoc": "탭을 이동할 수 없습니다: 문서가 로드되지 않았습니다.",
     "cannotMoveLastTab": "메인 창의 마지막 탭은 이동할 수 없습니다.",
+    "cannotMoveBrowserTab": "브라우저 탭은 다른 창으로 이동할 수 없습니다.",
     "tabMoved": "\"{{title}}\"을(를) 새 창으로 이동했습니다",
     "tabDetached": "\"{{title}}\"을(를) 분리했습니다",
     "tabMovedToWindow": "\"{{title}}\"을(를) 이동했습니다",

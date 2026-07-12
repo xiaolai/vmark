@@ -35,7 +35,7 @@ export function applyPathReconciliation(results: ReconcileResult[]): void {
       const newPath = normalizePath(result.newPath);
       for (const windowTabs of Object.values(tabStore.tabs)) {
         for (const tab of windowTabs) {
-          if (tab.filePath && normalizePath(tab.filePath) === targetPath) {
+          if (tab.kind === "document" && tab.filePath && normalizePath(tab.filePath) === targetPath) {
             tabStore.updateTabPath(tab.id, newPath);
             docStore.setFilePath(tab.id, newPath);
           }
@@ -45,7 +45,7 @@ export function applyPathReconciliation(results: ReconcileResult[]): void {
     } else if (result.action === "mark_missing") {
       for (const windowTabs of Object.values(tabStore.tabs)) {
         for (const tab of windowTabs) {
-          if (tab.filePath && normalizePath(tab.filePath) === targetPath) {
+          if (tab.kind === "document" && tab.filePath && normalizePath(tab.filePath) === targetPath) {
             docStore.markMissing(tab.id);
           }
         }

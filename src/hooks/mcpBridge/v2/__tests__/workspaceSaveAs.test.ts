@@ -64,7 +64,7 @@ function structuredError() {
 
 function seedTab(id: string, filePath: string | null, active = true) {
   useTabStore.setState({
-    tabs: { main: [{ id, filePath, title: "t", isPinned: false }] },
+    tabs: { main: [{ kind: "document", id, filePath, title: "t", isPinned: false }] },
     activeTabId: active ? { main: id } : {},
     untitledCounter: 0,
     closedTabs: {},

@@ -18,7 +18,7 @@ import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { linkPopupError } from "@/utils/debug";
 import { useLinkPopupStore } from "@/stores/linkPopupStore";
 import { useLinkCreatePopupStore } from "@/stores/linkCreatePopupStore";
-import { useTabStore } from "@/stores/tabStore";
+import { useTabStore, tabFilePath } from "@/stores/tabStore";
 import { navigateToHeadingById } from "@/utils/headingSlug";
 import { classifyLinkAction, openLink } from "./operations";
 import { LinkPopupView } from "./LinkPopupView";
@@ -147,7 +147,7 @@ function handleClick(view: EditorView, pos: number, event: MouseEvent): boolean 
             const activeTab = useTabStore
               .getState()
               .getActiveTab(getCurrentWebviewWindow().label);
-            const sourcePath = activeTab?.filePath ?? null;
+            const sourcePath = activeTab ? tabFilePath(activeTab) : null;
             // navigateToFragment passed as null — Tiptap path uses
             // navigateToHeadingById above for fragments, so openLink
             // only handles filepath here.

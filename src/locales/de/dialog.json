@@ -119,6 +119,7 @@
     "pdfExportFailed": "PDF-Export fehlgeschlagen: {{error}}",
     "cannotMoveTabNoDoc": "Tab kann nicht verschoben werden: Dokument ist nicht geladen.",
     "cannotMoveLastTab": "Der letzte Tab im Hauptfenster kann nicht verschoben werden.",
+    "cannotMoveBrowserTab": "Browser-Tabs können nicht in ein anderes Fenster verschoben werden.",
     "tabMoved": "\"{{title}}\" in ein neues Fenster verschoben",
     "tabDetached": "\"{{title}}\" abgetrennt",
     "tabMovedToWindow": "\"{{title}}\" verschoben",

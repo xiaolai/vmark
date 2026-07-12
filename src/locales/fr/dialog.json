@@ -119,6 +119,7 @@
     "pdfExportFailed": "Échec de l'exportation PDF : {{error}}",
     "cannotMoveTabNoDoc": "Impossible de déplacer l'onglet : le document n'est pas chargé.",
     "cannotMoveLastTab": "Impossible de déplacer le dernier onglet de la fenêtre principale.",
+    "cannotMoveBrowserTab": "Les onglets du navigateur ne peuvent pas être déplacés vers une autre fenêtre.",
     "tabMoved": "« {{title}} » déplacé vers une nouvelle fenêtre",
     "tabDetached": "« {{title}} » détaché",
     "tabMovedToWindow": "« {{title}} » déplacé",

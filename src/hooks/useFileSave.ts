@@ -100,14 +100,14 @@ async function buildDefaultSavePath(
   if (existingPath) return existingPath;
 
   const tab = useTabStore.getState().tabs[windowLabel]?.find(t => t.id === tabId);
+  const docTab = tab && tab.kind === "document" ? tab : null; // untitled save is document-only
   const suggestedName = getSaveFileName(content, tab?.title ?? "");
-  // WI-1B.9 — default extension is the active format's
-  // untitledExtension. Untitled tab → "markdown" formatId → ".md".
+  // WI-1B.9 — default extension = active format's untitledExtension (untitled → markdown → ".md").
   let ext = "md";
   try {
-    const cfg = tab?.formatId
-      ? (getFormatById(tab.formatId) ?? dispatchEditor(tab.filePath ?? null))
-      : dispatchEditor(tab?.filePath ?? null);
+    const cfg = docTab?.formatId
+      ? (getFormatById(docTab.formatId) ?? dispatchEditor(docTab.filePath ?? null))
+      : dispatchEditor(docTab?.filePath ?? null);
     ext = cfg.adapters.untitledExtension;
   } catch {
     /* registry not bootstrapped — keep .md default */
