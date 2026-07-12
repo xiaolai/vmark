@@ -1,8 +1,8 @@
 /**
  * BrowserSurface — the React surface for an embedded browser tab (WI-1.3).
  *
- * Purpose: renders the browser *chrome* (address bar, reload, loading state) and
- * a reserved viewport rect, and drives the VMark-owned native WKWebView through
+ * Purpose: renders the browser *chrome* (back/forward, address bar, reload,
+ * loading state) and a reserved viewport rect, and drives the native WKWebView through
  * the WI-1.2 Tauri commands: it creates the native webview on mount, reports the
  * reserved rect's bounds so Rust keeps the native view aligned under it
  * (ResizeObserver), navigates on address-bar submit, and destroys the webview on
