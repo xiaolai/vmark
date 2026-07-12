@@ -222,6 +222,23 @@
 >   Remaining Phase 2: interaction tiers (2.3 — synthetic click/type is
 >   `browser_eval`-dispatched on macOS; trusted input is Windows/CDP), and the MCP
 >   `vmark.browser` read/act tools + approval gate (2.5).
+> Updated: 2026-07-12 — **End-to-end AI-drives-the-page capstone, LIVE.** WI-2.3
+>   act-scripts (`buildSnapshotScript`/`buildClickScript`/`buildTypeScript`) generate
+>   the self-contained JS the driver evals to read/click/type by ARIA role+name
+>   (macOS synthetic tier = eval-dispatched DOM events; 6 jsdom tests). Composed
+>   with the live driver, verified against the running app:
+>   1. `browser_create('https://example.com')` → page renders;
+>   2. the AI **located the link named "Learn more"** and **clicked it** →
+>      `{found:true, clicked:true, href:"https://iana.org/domains/example"}`;
+>   3. reading `location.href` afterward returned
+>      `https://www.iana.org/help/example-domains` — **the page navigated as a
+>      result of the AI's click.**
+>   So the full loop — perceive → locate by accessible name → act → the page
+>   responds — works on a real page. Plus the WI-2.5 approval-gate store
+>   (browserApprovalStore) gates AI actions (R5) using the origin-scoped grants
+>   logic. Both axes of "a true browser, driven and displayed in VMark" are now
+>   demonstrated live. Remaining is the long tail (MCP tool wiring 2.5, publishers,
+>   full workflow engine + recorder, native UX delegates, Windows/Linux, a11y).
 > Branch (proposed): `feature/embedded-browser`
 > Related: `20260331-workflow-engine.md` (Genie/internal workflow engine — distinct;
 >   see §1.5), `decisions/ADR-002-mcp-sidecar-architecture.md` (MCP bridge reused here)
