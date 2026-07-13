@@ -66,7 +66,18 @@ impl BrowserSurface {
             .lock()
             .map_err(|e| e.to_string())?
             .remove(tab_id);
+        // A destroyed tab's one-shots must not linger to authorize a reused id.
+        self.clear_tab_one_shots(tab_id);
         Ok(())
+    }
+
+    /// Revoke every "Allow once" for `tab_id` (R7a). Called when the tab starts a
+    /// new navigation and when it is forgotten, so an approval never outlives the
+    /// page it was granted on. Best-effort: a poisoned lock leaves nothing to leak.
+    pub fn clear_tab_one_shots(&self, tab_id: &str) {
+        if let Ok(mut shots) = self.one_shots.lock() {
+            crate::browser::one_shot::clear_one_shots_for_tab(&mut shots, tab_id);
+        }
     }
 }
 
@@ -97,7 +108,7 @@ pub use imp::{
 mod stub {
     use tauri::AppHandle;
     const MSG: &str = "embedded browser surface is macOS-only in this build";
-    pub fn create(_a: &AppHandle, _t: String, _u: String) -> Result<(), String> {
+    pub fn create(_a: &AppHandle, _t: String, _w: String, _u: String) -> Result<(), String> {
         Err(MSG.into())
     }
     pub fn navigate(_a: &AppHandle, _t: String, _u: String) -> Result<(), String> {

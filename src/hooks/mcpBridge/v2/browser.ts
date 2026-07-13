@@ -172,9 +172,11 @@ export async function handleBrowserAct(id: string, args: Record<string, unknown>
       const target = { role, name };
       const authorizedOnce = useBrowserApprovalStore
         .getState()
-        .consumeOneShot(tab.url, operation, target);
+        .consumeOneShot(tab.url, operation, target, tab.tabId);
       if (!authorizedOnce) {
-        useBrowserApprovalStore.getState().requestApproval(id, tab.url, operation, target);
+        useBrowserApprovalStore
+          .getState()
+          .requestApproval(id, tab.url, operation, target, tab.tabId);
         await respond({
           id,
           success: false,
@@ -198,6 +200,10 @@ export async function handleBrowserAct(id: string, args: Record<string, unknown>
       script,
       operation,
       generation: tab.generation,
+      // The driver authorizes against this declared target — not by parsing the
+      // opaque script — and binds a consumed one-shot to it.
+      role,
+      name,
     });
     // Report the ACTION outcome, not merely that the eval completed: a click that
     // hit nothing or a type refused as readonly is a no-op, and telling the AI it

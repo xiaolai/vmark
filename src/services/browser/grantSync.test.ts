@@ -19,7 +19,7 @@ beforeEach(async () => {
   await flush();
   invoke.mockReset();
   invoke.mockResolvedValue(undefined);
-  useBrowserApprovalStore.setState({ grants: [], pending: [] });
+  useBrowserApprovalStore.setState({ grants: [], pending: [], oneShots: [] });
 });
 
 describe("startGrantSync", () => {
@@ -204,5 +204,47 @@ describe("grant-sync ordering and fail-closed retry", () => {
     // A single one-and-done push would leave the driver on stale (permissive) state
     // after a revocation. The syncer retries before giving up.
     expect(calls).toBeGreaterThan(1);
+  });
+});
+
+// The Rust driver binds a one-shot to (tab, generation, origin, operation, target).
+// The mint must therefore carry the tab id and the target — an earlier version sent
+// only originPattern+operation, so the driver's target/tab binding never received
+// the data it needed and would refuse the action the frontend authorized.
+describe("one-shot sync — full descriptor", () => {
+  it("forwards tabId, origin, operation and target to the driver", () => {
+    const stop = startGrantSync();
+    invoke.mockClear();
+
+    useBrowserApprovalStore
+      .getState()
+      .requestApproval("r1", "https://blog.example.com/p", "click", { role: "button", name: "Publish" }, "tab-7");
+    useBrowserApprovalStore.getState().resolveApproval("r1", "once");
+
+    expect(invoke).toHaveBeenCalledWith("browser_add_one_shot", {
+      tabId: "tab-7",
+      originPattern: "https://blog.example.com",
+      operation: "click",
+      target: { role: "button", name: "Publish" },
+    });
+    stop();
+  });
+
+  it("forwards a target-less read one-shot", () => {
+    const stop = startGrantSync();
+    invoke.mockClear();
+
+    useBrowserApprovalStore
+      .getState()
+      .requestApproval("r2", "https://blog.example.com", "read", undefined, "tab-7");
+    useBrowserApprovalStore.getState().resolveApproval("r2", "once");
+
+    expect(invoke).toHaveBeenCalledWith("browser_add_one_shot", {
+      tabId: "tab-7",
+      originPattern: "https://blog.example.com",
+      operation: "read",
+      target: undefined,
+    });
+    stop();
   });
 });

@@ -94,9 +94,15 @@ function makeGrantPusher(): (grants: StandingGrant[]) => void {
  * user already spent.
  */
 function pushOneShot(shot: OneShotApproval): void {
+  // The driver binds the one-shot to (tab, generation, origin, operation, target).
+  // It stamps the generation itself from the registry; the frontend supplies the
+  // rest. Omitting the tab or target would leave the driver unable to match — and
+  // refuse — the very action the user approved.
   void invoke("browser_add_one_shot", {
+    tabId: shot.tabId,
     originPattern: shot.originPattern,
     operation: shot.operation,
+    target: shot.target,
   }).catch((error: unknown) => {
     browserWarn("one-shot sync failed; the driver will refuse the action", error);
   });

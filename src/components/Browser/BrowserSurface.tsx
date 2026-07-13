@@ -24,10 +24,9 @@
  * @module components/Browser/BrowserSurface
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { invoke } from "@tauri-apps/api/core";
-import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { useTabStore } from "@/stores/tabStore";
 import { isBrowserTab } from "@/stores/tabStoreTypes";
 import { canonicalizeBrowserUrl } from "@/lib/browser/url";
@@ -56,7 +55,6 @@ function navigationTarget(input: string): string {
 
 export function BrowserSurface({ tabId }: { tabId: string }): React.ReactElement {
   const { t } = useTranslation("common");
-  const windowLabel = useMemo(() => getCurrentWebviewWindow().label, []);
   const url = useTabStore((s) => {
     const tab = s.findTabById(tabId);
     return tab && isBrowserTab(tab) ? tab.url : "";
@@ -77,7 +75,9 @@ export function BrowserSurface({ tabId }: { tabId: string }): React.ReactElement
   // Create the native webview on mount; destroy it on unmount.
   useEffect(() => {
     let active = true;
-    const created = invoke("browser_create", { tabId, windowLabel, url });
+    // The window is derived Rust-side from the invoking WebviewWindow (a caller
+    // can't assert a label), so we pass only tabId + url.
+    const created = invoke("browser_create", { tabId, url });
     void created.catch(() => {}).finally(() => active && setLoading(false));
     return () => {
       active = false;
@@ -88,7 +88,7 @@ export function BrowserSurface({ tabId }: { tabId: string }): React.ReactElement
     };
     // `url` is the initial navigation target only; navigation is explicit after.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tabId, windowLabel]);
+  }, [tabId]);
 
   // Report the reserved rect's viewport bounds to Rust on layout/resize so the
   // native view stays aligned under the placeholder.

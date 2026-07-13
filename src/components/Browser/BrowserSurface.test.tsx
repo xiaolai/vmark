@@ -62,9 +62,10 @@ describe("BrowserSurface", () => {
     const id = seedBrowserTab("https://example.com/");
     render(<BrowserSurface tabId={id} />);
     await waitFor(() =>
+      // No windowLabel: the driver derives the window from the invoking
+      // WebviewWindow (a caller cannot assert a label).
       expect(invoke).toHaveBeenCalledWith("browser_create", {
         tabId: id,
-        windowLabel: "main",
         url: "https://example.com/",
       }),
     );

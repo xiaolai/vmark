@@ -77,6 +77,10 @@ define_class!(
                 if let Ok(mut reg) = state.registry.lock() {
                     let _ = reg.clear_committed_url(&ivars.tab_id);
                 }
+                // R7a: authority lapses the instant the page starts changing. A
+                // one-shot the user approved for the outgoing page must not carry
+                // over to whatever loads next.
+                state.clear_tab_one_shots(&ivars.tab_id);
             }
         }
 

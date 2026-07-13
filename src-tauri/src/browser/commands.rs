@@ -11,8 +11,6 @@
 //! only these *driver* commands are capability-scoped, and `browser_eval` is where
 //! the origin gate is enforced.
 
-use crate::browser::one_shot::{self, OneShot};
-use crate::browser::origin_guard::{self, StandingGrant};
 use crate::browser::registry::{validate_navigation_url, Lifecycle};
 use crate::browser::surface::{self, BrowserSurface};
 use tauri::{AppHandle, State};
@@ -30,17 +28,22 @@ fn err<E: std::fmt::Debug>(e: E) -> String {
 #[tauri::command]
 pub async fn browser_create(
     app: AppHandle,
+    webview: tauri::WebviewWindow,
     state: State<'_, BrowserSurface>,
     tab_id: String,
-    window_label: String,
     url: String,
 ) -> Result<(), String> {
+    // The window is the INVOKING one, taken from Tauri — not a caller-supplied
+    // label. The old signature trusted a `window_label` argument, and the native
+    // layer ignored it anyway and attached to `keyWindow()`, so a browser tab
+    // could land in the wrong window. Deriving it here fixes both.
+    let window_label = webview.label().to_string();
     let url = validate_navigation_url(&url).map_err(err)?;
     {
         let mut reg = state.registry.lock().map_err(|e| e.to_string())?;
         reg.create(&tab_id, &window_label).map_err(err)?;
     }
-    if let Err(e) = surface::create(&app, tab_id.clone(), url) {
+    if let Err(e) = surface::create(&app, tab_id.clone(), window_label, url) {
         // Roll back BOTH halves of the tab's state — registry entry and crash
         // budget — so a retried tab id starts clean (see `forget_tab`).
         state.forget_tab(&tab_id)?;
@@ -169,107 +172,6 @@ pub async fn browser_destroy(
 #[tauri::command]
 pub async fn browser_assert_no_bridge(app: AppHandle, tab_id: String) -> Result<String, String> {
     surface::assert_no_bridge(&app, tab_id)
-}
-
-/// Mirror the frontend approval store's standing grants into the driver (WI-2.1).
-///
-/// The driver's copy is the **authoritative** one: `browser_eval` reads it, so a
-/// caller that never syncs simply gets default-deny. Passing an empty vec revokes
-/// everything.
-#[tauri::command]
-pub async fn browser_set_grants(
-    state: State<'_, BrowserSurface>,
-    grants: Vec<StandingGrant>,
-) -> Result<(), String> {
-    let mut current = state.grants.lock().map_err(|e| e.to_string())?;
-    *current = grants;
-    Ok(())
-}
-
-/// Mint a single-use authorization from the user's "Allow once" (R5).
-///
-/// Unlike grants, one-shots are ADDED (never wholesale replaced): the driver
-/// consumes them as actions are performed, so pushing a full list would resurrect
-/// ones already spent. `browser_eval` consumes a matching one atomically.
-#[tauri::command]
-pub async fn browser_add_one_shot(
-    state: State<'_, BrowserSurface>,
-    origin_pattern: String,
-    operation: String,
-) -> Result<(), String> {
-    // Reject a pattern the guard could not enforce, rather than storing authority
-    // that silently never matches.
-    if !origin_guard::is_origin_pattern(&origin_pattern) {
-        return Err(format!("not a valid origin pattern: '{origin_pattern}'"));
-    }
-    let mut shots = state.one_shots.lock().map_err(|e| e.to_string())?;
-    shots.push(OneShot {
-        origin_pattern,
-        operation,
-    });
-    Ok(())
-}
-
-/// Evaluate `script` in the driver's isolated content world and return its string
-/// result (WI-2.1). The script should `return` a JSON-serializable value.
-///
-/// **This is the security gate for R4/I3/R7a — the authoritative one.** Callers
-/// (the MCP browser tools) also check approval for UX, but that check is advisory:
-/// any code path reaching this command is still refused unless all three hold:
-///
-///   1. `generation` matches the tab's current navigation generation. This closes
-///      the TOCTOU where a page navigates between the approval decision and the
-///      eval, which would otherwise run an approved script against a *different*
-///      origin. A stale command is rejected, never "best-effort" applied.
-///   2. The tab has a **committed** top-level URL (R7a). A provisional/in-flight
-///      navigation grants nothing — a redirect chain must not briefly authorize an
-///      intermediate origin.
-///   3. That committed origin grants `operation` (R4/R5). The origin is read from
-///      the registry, never from a caller-supplied URL, so a caller cannot assert
-///      the origin it wishes it were on.
-#[tauri::command]
-pub async fn browser_eval(
-    app: AppHandle,
-    state: State<'_, BrowserSurface>,
-    tab_id: String,
-    script: String,
-    operation: String,
-    generation: u64,
-) -> Result<String, String> {
-    {
-        let reg = state.registry.lock().map_err(|e| e.to_string())?;
-
-        if !reg.is_command_fresh(&tab_id, generation) {
-            return Err(format!(
-                "stale command: tab '{tab_id}' navigated or closed since this operation was authorized"
-            ));
-        }
-
-        // The origin comes from the registry's committed URL — NOT from the caller.
-        let committed = reg.committed_url(&tab_id).ok_or_else(|| {
-            format!("tab '{tab_id}' has no committed page; nothing is granted yet")
-        })?;
-
-        let grants = state.grants.lock().map_err(|e| e.to_string())?;
-        if !origin_guard::is_driver_operation_allowed(committed, &operation, &grants) {
-            // No standing authority. A single-use "Allow once" may still authorize
-            // this exact action — consumed HERE, atomically, so the check and the
-            // spend cannot be separated (and so a one-shot the frontend believed in
-            // is actually honored by the authority rather than refused by it).
-            let mut one_shots = state.one_shots.lock().map_err(|e| e.to_string())?;
-            if !one_shot::consume_one_shot(&mut one_shots, committed, &operation) {
-                log::warn!(
-                    "[browser] REFUSED {operation} on {committed} (tab {tab_id}): origin not granted"
-                );
-                return Err(format!(
-                    "operation '{operation}' is not granted for the current origin"
-                ));
-            }
-            log::info!("[browser] {operation} on {committed} (tab {tab_id}): one-shot consumed");
-        }
-    }
-
-    surface::eval(&app, tab_id, script)
 }
 
 /// Freeze the browser tab — hide the native view so a DOM overlay paints over

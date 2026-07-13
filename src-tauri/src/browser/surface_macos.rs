@@ -6,9 +6,8 @@
 use objc2::rc::Retained;
 use objc2::runtime::AnyObject;
 use objc2::{MainThreadMarker, MainThreadOnly};
-use objc2_app_kit::{NSApplication, NSWindow};
 use objc2_core_foundation::{CGPoint, CGRect, CGSize};
-use objc2_foundation::{NSError, NSRunLoop, NSString, NSURLRequest, NSURL};
+use objc2_foundation::{NSError, NSRunLoop, NSString, NSURLRequest};
 use objc2_web_kit::{WKContentWorld, WKWebView, WKWebViewConfiguration};
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -56,31 +55,25 @@ where
         .map_err(|_| "main-thread op timed out".to_string())?
 }
 
-/// The Tauri window's content view (the parent for our native subview).
-fn content_view(mtm: MainThreadMarker) -> Result<Retained<objc2_app_kit::NSView>, String> {
-    let ns_app = NSApplication::sharedApplication(mtm);
-    let window: Option<Retained<NSWindow>> = ns_app
-        .keyWindow()
-        .or_else(|| ns_app.windows().firstObject());
-    let window = window.ok_or_else(|| "no key window".to_string())?;
-    window
-        .contentView()
-        .ok_or_else(|| "no contentView".to_string())
-}
+#[path = "surface_view_macos.rs"]
+mod view;
+use view::{content_view, ns_url};
 
-fn ns_url(url: &str) -> Result<Retained<NSURL>, String> {
-    NSURL::URLWithString(&NSString::from_str(url)).ok_or_else(|| format!("invalid URL: {url}"))
-}
-
-/// Create the native webview for `tab_id`, add it as a subview, and load `url`.
-pub fn create(app: &AppHandle, tab_id: String, url: String) -> Result<(), String> {
+/// Create the native webview for `tab_id`, add it as a subview of the
+/// `window_label` window's content view, and load `url`.
+pub fn create(
+    app: &AppHandle,
+    tab_id: String,
+    window_label: String,
+    url: String,
+) -> Result<(), String> {
     let app_handle = app.clone();
     on_main(app, move |mtm| {
         // Everything that can FAIL happens before anything is registered, so a
         // failed create leaves no native residue behind for the command layer's
         // registry rollback to be inconsistent with. (Building the request after
         // inserting the delegate leaked a DELEGATES entry on a bad URL.)
-        let parent = content_view(mtm)?;
+        let parent = content_view(&app_handle, &window_label, mtm)?;
         let url_obj = ns_url(&url)?;
         let req = NSURLRequest::requestWithURL(&url_obj);
 
