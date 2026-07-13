@@ -2,10 +2,11 @@
 //!
 //! Purpose: the pure, platform-independent core of the embedded-browser surface.
 //! It owns the identity map — `tabId ↔ window ↔ navigation generation ↔ lifecycle
-//! state` — and the lifecycle state machine. The native WKWebView (macOS) /
-//! WebView2 (Windows) / webkit2gtk (Linux) surface is layered on top and holds
-//! the actual view handle; this module owns the invariants the native layer, the
-//! automation lease (R11), and the eval watchdog (WI-1.8) all depend on.
+//! state` — and the lifecycle state machine. The native surface (WKWebView on
+//! macOS today; WebView2/webkit2gtk backends planned for Windows/Linux) is layered
+//! on top and holds the actual view handle; this module owns the invariants the
+//! native layer, the automation lease (R11), and the eval watchdog (WI-1.8) all
+//! depend on.
 //!
 //! The **navigation generation** is load-bearing: every driver command is stamped
 //! with the generation current when it was issued, and a command is rejected as
@@ -85,6 +86,15 @@ impl Lifecycle {
     /// Destroyed is the only terminal state.
     pub fn is_terminal(self) -> bool {
         matches!(self, Lifecycle::Destroyed)
+    }
+
+    /// Whether a live, committed page can be executed against in this state. Only
+    /// `Live`/`Navigating` own a webview with a committed top-level page (`Creating`
+    /// has not committed; `Crashed`/`Hibernated` have no live process; `Destroyed`
+    /// is gone). `browser_eval` freshness and the committed-origin invariant key off
+    /// this: a driver command must never authorize against a tab that cannot run it.
+    pub fn is_executable(self) -> bool {
+        matches!(self, Lifecycle::Live | Lifecycle::Navigating)
     }
 }
 
@@ -202,6 +212,14 @@ impl BrowserRegistry {
             });
         }
         entry.state = to;
+        // Authority is scoped to executable states. Entering a non-executable state
+        // (crash, hibernate, reload-to-Creating, teardown) revokes the committed
+        // origin in the SAME atomic transition, so an in-flight eval cannot pass the
+        // origin gate against a page the webview no longer holds. The next commit
+        // re-establishes it via `set_committed_url`.
+        if !to.is_executable() {
+            entry.committed_url = None;
+        }
         Ok(())
     }
 
@@ -244,10 +262,13 @@ impl BrowserRegistry {
     }
 
     /// A driver command tagged with `generation` is fresh iff the tab exists, is
-    /// not terminal, and the generation matches the current one (WI-1.8).
+    /// in an **executable** state, and the generation matches the current one
+    /// (WI-1.8). Restricting to executable states (not merely "non-terminal") is
+    /// what stops an eval from running against a crashed, hibernated, or
+    /// still-constructing webview that shares the current generation.
     pub fn is_command_fresh(&self, tab_id: &str, generation: u64) -> bool {
         match self.tabs.get(tab_id) {
-            Some(e) => !e.state.is_terminal() && e.generation == generation,
+            Some(e) => e.state.is_executable() && e.generation == generation,
             None => false,
         }
     }

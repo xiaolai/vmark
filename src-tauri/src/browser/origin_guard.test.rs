@@ -454,3 +454,96 @@ fn upload_is_refused_even_on_a_committed_granted_origin() {
         &g
     ));
 }
+
+// ---------------------------------------------------------------------------
+// R2 audit — trailing-dot parity, closed operation vocabulary, nav-gate rigor
+// ---------------------------------------------------------------------------
+
+#[test]
+fn rejects_multiple_trailing_dots_exactly_like_the_ts_layer() {
+    // `new URL("https://example.com..").hostname` keeps BOTH dots; the TS guard
+    // strips exactly ONE (`replace(/\.$/,"")`) → "example.com." → empty label →
+    // rejected. Stripping *every* trailing dot (the old Rust behaviour) collapsed
+    // "example.com.." to "example.com" and would match that origin's grant — the
+    // precise authorization divergence this module calls a security bug.
+    assert!(origin("https://example.com..").is_none());
+    assert!(origin("https://a.com...").is_none());
+    assert!(origin("https://1.2.3.4..").is_none());
+    // A single trailing dot (a rooted FQDN) still canonicalizes to the bare host.
+    assert_eq!(origin("https://example.com.").unwrap().host, "example.com");
+}
+
+#[test]
+fn multiple_trailing_dots_grant_nothing_on_target_or_pattern() {
+    // Neither a target nor a pattern carrying 2+ trailing dots may authorize.
+    assert!(!is_origin_granted(
+        "https://example.com..",
+        &["https://example.com".into()]
+    ));
+    assert!(!is_origin_granted(
+        "https://example.com",
+        &["https://example.com..".into()]
+    ));
+}
+
+#[test]
+fn unknown_and_case_variant_operations_are_denied_like_the_ts_vocabulary() {
+    // Parity with `isBrowserOperation` in lib/browser/approval/grants.ts: the
+    // operation vocabulary is CLOSED. A case-variant like "Upload" must not slip
+    // past the lowercase-only hard denial even when a malformed grant lists it —
+    // that is exactly how a grant bypasses the `upload` hard-deny.
+    let g = vec![StandingGrant {
+        origin_pattern: "https://blog.example.com".into(),
+        operations: vec![
+            "Upload".into(),
+            "Read".into(),
+            "frobnicate".into(),
+            "click".into(),
+        ],
+    }];
+    for op in ["Upload", "Read", "frobnicate", "CLICK", "read ", ""] {
+        assert!(
+            !is_driver_operation_allowed("https://blog.example.com", op, &g),
+            "unknown/variant operation {op:?} must be denied by the driver gate"
+        );
+        assert!(
+            !is_operation_granted("https://blog.example.com", op, &g),
+            "unknown/variant operation {op:?} must not be granted"
+        );
+    }
+    // The canonical lowercase spellings still behave exactly as before.
+    assert!(is_driver_operation_allowed(
+        "https://blog.example.com",
+        "read",
+        &g
+    ));
+    assert!(is_operation_granted(
+        "https://blog.example.com",
+        "click",
+        &g
+    ));
+}
+
+#[test]
+fn rejects_shorthand_and_backslash_authority_forms_as_nav_targets() {
+    // WHATWG folds every one of these to `https://path/`; the previously shipped
+    // gate, which only looked for `://` followed by a slash, waved them through.
+    // The nav gate promises an explicit, well-formed http(s) URL, so each is
+    // refused rather than silently reinterpreted.
+    for url in [
+        "https:/path",
+        "https:path",
+        "https:\\path",
+        "https://\\path",
+        "https://path\\x",
+        "HTTPS:/path",
+    ] {
+        assert!(
+            validate_navigation_url(url).is_err(),
+            "{url} must be rejected as a navigation target"
+        );
+    }
+    // Ordinary well-formed targets (incl. uppercase scheme) still pass.
+    assert!(validate_navigation_url("https://example.com").is_ok());
+    assert!(validate_navigation_url("HTTPS://EXAMPLE.COM/a?b#c").is_ok());
+}

@@ -45,11 +45,20 @@ import {
  */
 const KNOWN_OPERATIONS = new Set(["read", "click", "type"]);
 
+/** The specific element an `act` targets — its ARIA role + accessible name.
+ *  Absent for `read`, which snapshots the whole page rather than one element. */
+export interface ActionTarget {
+  role: string;
+  name: string;
+}
+
 /** A raised-but-unresolved approval request. */
 export interface PendingApproval {
   id: string;
   targetUrl: string;
   operation: string;
+  /** The element the AI asked to act on, so the approval binds to it. */
+  target?: ActionTarget;
 }
 
 /** How the user (or a policy) resolved a pending approval. */
@@ -60,6 +69,22 @@ export interface OneShotApproval {
   /** Canonical bare origin pattern the approval was granted on. */
   originPattern: string;
   operation: string;
+  /**
+   * The exact element the user approved. A one-shot for "click Publish" must not
+   * authorize "click Delete" on the same origin — the AI chooses what it retries
+   * with, so without this it could escalate to a different element inside the
+   * single-action window. The Rust driver's one-shot stays (origin, operation)
+   * because it runs an opaque script and cannot see the target; the frontend
+   * builds that script from role+name, so it is where the target is enforceable
+   * (and the AI reaches browser_eval only through here — R5).
+   */
+  target?: ActionTarget;
+}
+
+/** Same element? Both target-less (a read), or both naming the same role+name. */
+function sameTarget(a: ActionTarget | undefined, b: ActionTarget | undefined): boolean {
+  if (a === undefined || b === undefined) return a === b;
+  return a.role === b.role && a.name === b.name;
 }
 
 interface BrowserApprovalState {
@@ -90,15 +115,22 @@ interface BrowserApprovalActions {
   revoke: (originPattern: string) => void;
   /** Queue a pending approval request for the UI to resolve. Ignores an unknown
    *  operation and a duplicate id (one id must map to exactly one action). */
-  requestApproval: (id: string, targetUrl: string, operation: string) => void;
+  requestApproval: (
+    id: string,
+    targetUrl: string,
+    operation: string,
+    target?: ActionTarget,
+  ) => void;
   /** Resolve a pending request: `remember` promotes it to a standing grant scoped
    *  to the target's origin; `once` mints a single-use authorization for that
    *  (origin, operation); `deny` just clears it. No-op if the id is unknown. */
   resolveApproval: (id: string, outcome: ApprovalOutcome) => void;
-  /** Spend a one-shot authorization for `targetUrl` + `operation`, if one exists.
-   *  Returns whether the action is authorized. Consuming is the point: a one-shot
-   *  authorizes exactly one action, so this must be called only when about to act. */
-  consumeOneShot: (targetUrl: string, operation: string) => boolean;
+  /** Spend a one-shot authorizing `operation` on `targetUrl` against `target`, if
+   *  one exists. Returns whether the action is authorized. The target must match
+   *  what the user approved (a one-shot for "click Publish" refuses "click Delete").
+   *  Consuming is the point: a one-shot authorizes exactly one action, so this must
+   *  be called only when about to act. */
+  consumeOneShot: (targetUrl: string, operation: string, target?: ActionTarget) => boolean;
 }
 
 /** Bare origin pattern (`scheme://host[:port]`) for a URL, or null if opaque. */
@@ -135,14 +167,14 @@ export const useBrowserApprovalStore = create<BrowserApprovalState & BrowserAppr
       set((state) => ({ grants: revokeOrigin(state.grants, originPattern) }));
     },
 
-    requestApproval: (id, targetUrl, operation) => {
+    requestApproval: (id, targetUrl, operation, target) => {
       if (!KNOWN_OPERATIONS.has(operation)) return;
       set((state) =>
         // A duplicate id would let `resolveApproval` authorize one action while
         // dropping the other — keep the first, ignore the collision.
         state.pending.some((p) => p.id === id)
           ? state
-          : { pending: [...state.pending, { id, targetUrl, operation }] },
+          : { pending: [...state.pending, { id, targetUrl, operation, target }] },
       );
     },
 
@@ -164,19 +196,29 @@ export const useBrowserApprovalStore = create<BrowserApprovalState & BrowserAppr
             })
           : state.grants,
         oneShots: once
-          ? [...state.oneShots, { originPattern: pattern as string, operation: request.operation }]
+          ? [
+              ...state.oneShots,
+              {
+                originPattern: pattern as string,
+                operation: request.operation,
+                target: request.target,
+              },
+            ]
           : state.oneShots,
         pending: state.pending.filter((p) => p.id !== id),
       }));
     },
 
-    consumeOneShot: (targetUrl, operation) => {
+    consumeOneShot: (targetUrl, operation, target) => {
       if (!KNOWN_OPERATIONS.has(operation)) return false;
       const { oneShots } = get();
-      // Origin matching goes through the SAME guard as standing grants, so a
-      // one-shot can never be looser (no implicit subdomain wildcarding).
+      // Origin matching goes through the SAME guard as standing grants (no implicit
+      // subdomain wildcarding); the target must match the exact element approved.
       const index = oneShots.findIndex(
-        (s) => s.operation === operation && isOriginGranted(targetUrl, [s.originPattern]),
+        (s) =>
+          s.operation === operation &&
+          sameTarget(s.target, target) &&
+          isOriginGranted(targetUrl, [s.originPattern]),
       );
       if (index === -1) return false;
       set((state) => ({

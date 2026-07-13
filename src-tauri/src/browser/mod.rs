@@ -1,11 +1,12 @@
 //! Embedded browser surface (WI-1.2).
 //!
-//! VMark owns a raw native webview (WKWebView on macOS, WebView2 on Windows,
-//! webkit2gtk on Linux) added as a sibling native view of the Tauri window's
-//! content view — deliberately NOT a Tauri-created webview, so Tauri's IPC
-//! bridge is never injected into a browsed page (ADR-B2 / R3; the SPIKE-1
+//! VMark owns a raw native webview added as a sibling native view of the Tauri
+//! window's content view — deliberately NOT a Tauri-created webview, so Tauri's
+//! IPC bridge is never injected into a browsed page (ADR-B2 / R3; the SPIKE-1
 //! no-bridge assertion ships as a permanent regression test with the native
-//! surface).
+//! surface). Only the macOS backend (WKWebView) is implemented today; the
+//! Windows (WebView2) and Linux (webkit2gtk) backends are planned (WI-5.1 /
+//! WI-5.2) and currently compile to an explicit "unsupported" stub.
 //!
 //! This module tree:
 //!   - `registry` — pure lifecycle + identity core: the tab state machine, the
@@ -39,6 +40,7 @@
 
 pub mod commands;
 pub mod one_shot;
+pub mod operation;
 pub mod origin_guard;
 pub mod recovery;
 pub mod registry;

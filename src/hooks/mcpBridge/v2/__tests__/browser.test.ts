@@ -96,13 +96,24 @@ describe("handleBrowserAct", () => {
     expect(lastResponse()).toMatchObject({ id: "a3", success: false });
   });
 
-  it("defaults type text to empty when omitted", async () => {
+  it("rejects a type without a string text instead of clearing the field", async () => {
+    // Omitting `text` used to default to "" — a silent, destructive field clear.
+    // A `type` with no text is malformed input, not an intentional clear.
     const id = seedBrowserTab();
     useBrowserApprovalStore.getState().grant("https://blog.example.com", ["type"]);
     invoke.mockResolvedValue(JSON.stringify({ found: false, typed: false }));
     await handleBrowserAct("a5", { tabId: id, operation: "type", role: "textbox", name: "X" });
+    expect(invoke).not.toHaveBeenCalled();
+    expect(lastResponse()).toMatchObject({ id: "a5", success: false });
+  });
+
+  it("accepts an explicit empty text as an intentional clear", async () => {
+    const id = seedBrowserTab();
+    useBrowserApprovalStore.getState().grant("https://blog.example.com", ["type"]);
+    invoke.mockResolvedValue(JSON.stringify({ found: true, typed: true }));
+    await handleBrowserAct("a5b", { tabId: id, operation: "type", role: "textbox", name: "X", text: "" });
     expect(invoke).toHaveBeenCalledWith("browser_eval", expect.objectContaining({ script: expect.stringContaining("__vmarkType") }));
-    expect(lastResponse()).toMatchObject({ id: "a5", success: true });
+    expect(lastResponse()).toMatchObject({ id: "a5b", success: true });
   });
 
   it("uses a type script for the type operation", async () => {
@@ -201,7 +212,8 @@ describe("allow-once consumption (WI-2.6)", () => {
   it("a one-shot authorizes the retry, and only the retry", async () => {
     const tabId = seedBrowserTab();
     useTabStore.getState().updateBrowserTab(tabId, { generation: 1 });
-    invoke.mockResolvedValue("{}");
+    // A truthy click result: `act` now reports success only when the click landed.
+    invoke.mockResolvedValue(JSON.stringify({ found: true, clicked: true }));
 
     // 1) First attempt: no grant → refused, approval queued.
     await handleBrowserAct("act-1", { tabId, operation: "click", role: "button", name: "Publish" });
@@ -274,5 +286,107 @@ describe("act operation vocabulary", () => {
 
     expect(invoke).not.toHaveBeenCalled();
     expect(lastResponse()).toMatchObject({ id: "blank", success: false });
+  });
+
+  it("refuses a whitespace-only role or name (a padded blank is still blank)", async () => {
+    const tabId = seedBrowserTab();
+    useTabStore.getState().updateBrowserTab(tabId, { generation: 1 });
+    useBrowserApprovalStore.setState({
+      grants: [{ originPattern: "https://blog.example.com", operations: ["click"] }],
+      pending: [],
+      oneShots: [],
+    });
+    invoke.mockResolvedValue("{}");
+
+    await handleBrowserAct("ws", { tabId, operation: "click", role: "  ", name: "\t" });
+
+    expect(invoke).not.toHaveBeenCalled();
+    expect(lastResponse()).toMatchObject({ id: "ws", success: false });
+  });
+});
+
+// A completed eval is not a completed action: the script reports `found:false`,
+// `clicked:false`, or `typed:false` when the target was missing/disabled/readonly.
+// Reporting those as `success:true` tells the AI a no-op mutation happened.
+describe("act reports the action outcome, not merely eval completion", () => {
+  it("returns failure when a click found nothing", async () => {
+    const tabId = seedBrowserTab();
+    useTabStore.getState().updateBrowserTab(tabId, { generation: 1 });
+    useBrowserApprovalStore.setState({
+      grants: [{ originPattern: "https://blog.example.com", operations: ["click"] }],
+      pending: [],
+      oneShots: [],
+    });
+    invoke.mockResolvedValue(JSON.stringify({ found: false, clicked: false }));
+
+    await handleBrowserAct("miss", { tabId, operation: "click", role: "button", name: "Nope" });
+
+    const res = lastResponse();
+    expect(res).toMatchObject({ id: "miss", success: false });
+    // The detail rides along so the AI can see WHY it failed.
+    expect(res.data).toMatchObject({ result: { found: false, clicked: false } });
+  });
+
+  it("returns failure when a type was refused (readonly)", async () => {
+    const tabId = seedBrowserTab();
+    useTabStore.getState().updateBrowserTab(tabId, { generation: 1 });
+    useBrowserApprovalStore.setState({
+      grants: [{ originPattern: "https://blog.example.com", operations: ["type"] }],
+      pending: [],
+      oneShots: [],
+    });
+    invoke.mockResolvedValue(JSON.stringify({ found: true, typed: false, reason: "readonly" }));
+
+    await handleBrowserAct("ro", { tabId, operation: "type", role: "textbox", name: "Title", text: "x" });
+
+    expect(lastResponse()).toMatchObject({ id: "ro", success: false });
+  });
+
+  it("still reports success when the click landed", async () => {
+    const tabId = seedBrowserTab();
+    useTabStore.getState().updateBrowserTab(tabId, { generation: 1 });
+    useBrowserApprovalStore.setState({
+      grants: [{ originPattern: "https://blog.example.com", operations: ["click"] }],
+      pending: [],
+      oneShots: [],
+    });
+    invoke.mockResolvedValue(JSON.stringify({ found: true, clicked: true }));
+
+    await handleBrowserAct("hit", { tabId, operation: "click", role: "button", name: "Publish" });
+
+    expect(lastResponse()).toMatchObject({ id: "hit", success: true });
+  });
+});
+
+// An explicitly-supplied tabId that is empty/whitespace/non-string must NOT
+// silently fall back to the active tab — that could act on an unintended page.
+describe("tabId argument validation", () => {
+  it("rejects an empty-string tabId instead of falling back to the active tab", async () => {
+    seedBrowserTab();
+    await handleBrowserRead("empty-tab", { tabId: "" });
+    expect(invoke).not.toHaveBeenCalled();
+    expect(lastResponse()).toMatchObject({ id: "empty-tab", success: false });
+  });
+
+  it("rejects a whitespace-only tabId on act", async () => {
+    seedBrowserTab();
+    await handleBrowserAct("ws-tab", { tabId: "   ", operation: "click", role: "button", name: "Publish" });
+    expect(invoke).not.toHaveBeenCalled();
+    expect(lastResponse()).toMatchObject({ id: "ws-tab", success: false });
+  });
+
+  it("rejects a non-string tabId", async () => {
+    seedBrowserTab();
+    await handleBrowserRead("num-tab", { tabId: 42 });
+    expect(invoke).not.toHaveBeenCalled();
+    expect(lastResponse()).toMatchObject({ id: "num-tab", success: false });
+  });
+
+  it("still falls back to the active tab when tabId is absent", async () => {
+    seedBrowserTab();
+    invoke.mockResolvedValue(JSON.stringify([]));
+    await handleBrowserRead("no-tab", {});
+    expect(invoke).toHaveBeenCalledWith("browser_eval", expect.objectContaining({ operation: "read" }));
+    expect(lastResponse()).toMatchObject({ id: "no-tab", success: true });
   });
 });

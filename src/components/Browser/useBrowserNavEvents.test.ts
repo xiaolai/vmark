@@ -10,9 +10,12 @@ vi.mock("@/utils/debug", () => ({ browserWarn: vi.fn() }));
 type Listener = (event: { payload: unknown }) => void;
 const listeners = new Map<string, Listener>();
 const unlisten = vi.fn();
+/** How many times `listen()` was invoked — lets a test detect a resubscription. */
+let listenCalls = 0;
 
 /** Swappable so a test can make one registration fail. */
 const defaultListen = (name: string, cb: Listener) => {
+  listenCalls += 1;
   listeners.set(name, cb);
   return Promise.resolve(unlisten);
 };
@@ -31,6 +34,7 @@ beforeEach(() => {
   unlisten.mockClear();
   vi.mocked(browserWarn).mockClear();
   listenImpl = defaultListen;
+  listenCalls = 0;
 });
 
 async function mount(tabId: string, handlers: BrowserNavHandlers) {
@@ -105,17 +109,28 @@ describe("useBrowserNavEvents", () => {
   it("uses the latest handlers without resubscribing", async () => {
     const first = vi.fn();
     const second = vi.fn();
-    const { rerender } = await mount("t1", { onNavigated: first });
-    rerender();
-    // swap handlers via a fresh render with a new object, same tab
-    const r2 = renderHook(({ h }) => useBrowserNavEvents("t1", h), {
-      initialProps: { h: { onNavigated: second } as BrowserNavHandlers },
-    });
+    // Rerender the SAME hook instance with fresh handler closures (same tab), the
+    // real scenario: a parent re-render passing new handler objects.
+    const { rerender } = renderHook(
+      ({ h }: { h: BrowserNavHandlers }) => useBrowserNavEvents("t1", h),
+      { initialProps: { h: { onNavigated: first } as BrowserNavHandlers } },
+    );
     await Promise.resolve();
     await Promise.resolve();
+    const callsAfterMount = listenCalls;
+    expect(callsAfterMount).toBe(5); // five events, subscribed once
+
+    rerender({ h: { onNavigated: second } });
+    await Promise.resolve();
+
+    // No new subscription happened for the swap — the effect keys on tabId only.
+    expect(listenCalls).toBe(callsAfterMount);
+
     emit("browser://navigated", { tabId: "t1", url: "https://z/", generation: 1 });
+    // The event routes to the LATEST handler (ref-fresh), not the one captured at
+    // mount — and the stale handler is never called.
     expect(second).toHaveBeenCalledWith("https://z/", 1);
-    r2.unmount();
+    expect(first).not.toHaveBeenCalled();
   });
 
   it("unsubscribes every listener on unmount", async () => {

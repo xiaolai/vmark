@@ -63,3 +63,18 @@ fn crash_count_saturates_without_overflow() {
     assert_eq!(t.on_crash(), RecoveryAction::ManualOnly);
     assert_eq!(t.consecutive(), u32::MAX);
 }
+
+#[test]
+fn a_maximum_budget_still_switches_to_manual_after_the_budget_is_spent() {
+    // With budget == u32::MAX the count saturates AT the budget. The old
+    // "increment then compare with `<=`" left `consecutive == budget` forever equal
+    // to the ceiling, so every crash stayed AutoReload — violating "the next one and
+    // beyond is manual-only". Comparing BEFORE incrementing fixes the boundary.
+    let mut t = CrashTracker::default();
+    t.force_consecutive(u32::MAX - 1);
+    // Crash #MAX: the last one still within budget.
+    assert_eq!(t.on_crash_with_budget(u32::MAX), RecoveryAction::AutoReload);
+    assert_eq!(t.consecutive(), u32::MAX);
+    // Crash #(MAX+1): must be manual-only, not another auto-reload.
+    assert_eq!(t.on_crash_with_budget(u32::MAX), RecoveryAction::ManualOnly);
+}

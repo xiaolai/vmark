@@ -43,14 +43,21 @@ impl CrashTracker {
     /// Record a crash and decide against an explicit budget. The first `budget`
     /// consecutive crashes auto-reload; the next one (and beyond) is manual-only.
     /// Production always goes through `on_crash` (the default budget); the explicit
-    /// budget exists so the boundary is testable without 3 real crashes.
-    pub fn on_crash_with_budget(&mut self, budget: u32) -> RecoveryAction {
-        self.consecutive = self.consecutive.saturating_add(1);
-        if self.consecutive <= budget {
+    /// budget exists so the boundary is testable without 3 real crashes — it is
+    /// private so no production path can bypass the default invariant.
+    ///
+    /// The decision is made from the count BEFORE this crash, then the count
+    /// saturates. Incrementing first and comparing with `<=` broke the `u32::MAX`
+    /// budget: the count pinned at the ceiling stayed `== budget`, so every crash
+    /// read as within budget and auto-reloaded forever.
+    fn on_crash_with_budget(&mut self, budget: u32) -> RecoveryAction {
+        let action = if self.consecutive < budget {
             RecoveryAction::AutoReload
         } else {
             RecoveryAction::ManualOnly
-        }
+        };
+        self.consecutive = self.consecutive.saturating_add(1);
+        action
     }
 
     /// A clean load forgives the crash streak.

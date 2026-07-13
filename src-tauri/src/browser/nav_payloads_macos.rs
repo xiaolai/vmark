@@ -63,3 +63,7 @@ pub struct DialogPayload {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub id: Option<u64>,
 }
+
+#[cfg(test)]
+#[path = "nav_payloads.test.rs"]
+mod tests;

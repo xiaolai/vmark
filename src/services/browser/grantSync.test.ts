@@ -7,7 +7,16 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: (...a: unknown[]) => invoke(...
 import { startGrantSync } from "./grantSync";
 import { useBrowserApprovalStore } from "@/stores/browserApprovalStore";
 
-beforeEach(() => {
+/** Drain the microtask queue so a serialized push settles before we assert. */
+const flush = async () => {
+  for (let i = 0; i < 6; i += 1) await Promise.resolve();
+};
+
+beforeEach(async () => {
+  // Let any drain still in flight from a prior test settle against the old mock
+  // before we reset — pushes are serialized/async now, so a drain can outlive its
+  // test's synchronous body.
+  await flush();
   invoke.mockReset();
   invoke.mockResolvedValue(undefined);
   useBrowserApprovalStore.setState({ grants: [], pending: [] });
@@ -30,11 +39,13 @@ describe("startGrantSync", () => {
     stop();
   });
 
-  it("pushes on every grant change", () => {
+  it("pushes on every grant change", async () => {
     const stop = startGrantSync();
+    await flush(); // let the start push settle so the next push is not serialized behind it
     invoke.mockClear();
 
     useBrowserApprovalStore.getState().grant("https://b.com", ["read", "type"]);
+    await flush();
 
     expect(invoke).toHaveBeenCalledWith("browser_set_grants", {
       grants: [{ originPattern: "https://b.com", operations: ["read", "type"] }],
@@ -42,36 +53,42 @@ describe("startGrantSync", () => {
     stop();
   });
 
-  it("pushes an empty set on revoke — a revoked grant must reach the driver", () => {
+  it("pushes an empty set on revoke — a revoked grant must reach the driver", async () => {
     useBrowserApprovalStore.setState({
       grants: [{ originPattern: "https://a.com", operations: ["click"] }],
       pending: [],
     });
     const stop = startGrantSync();
+    await flush();
     invoke.mockClear();
 
     useBrowserApprovalStore.getState().revoke("https://a.com");
+    await flush();
 
     expect(invoke).toHaveBeenCalledWith("browser_set_grants", { grants: [] });
     stop();
   });
 
-  it("ignores unrelated store churn (pending approvals) — no redundant IPC", () => {
+  it("ignores unrelated store churn (pending approvals) — no redundant IPC", async () => {
     const stop = startGrantSync();
+    await flush();
     invoke.mockClear();
 
     useBrowserApprovalStore.getState().requestApproval("p1", "https://a.com", "click");
+    await flush();
 
     expect(invoke).not.toHaveBeenCalled();
     stop();
   });
 
-  it("stops syncing after the returned disposer runs", () => {
+  it("stops syncing after the returned disposer runs", async () => {
     const stop = startGrantSync();
+    await flush();
     stop();
     invoke.mockClear();
 
     useBrowserApprovalStore.getState().grant("https://c.com", ["read"]);
+    await flush();
 
     expect(invoke).not.toHaveBeenCalled();
   });
@@ -122,14 +139,70 @@ describe("one-shot sync", () => {
     stop();
   });
 
-  it("does not push a one-shot for 'remember' (that is a standing grant)", () => {
+  it("does not push a one-shot for 'remember' (that is a standing grant)", async () => {
     const stop = startGrantSync();
+    await flush();
     useBrowserApprovalStore.getState().requestApproval("r3", "https://a.com", "click");
     invoke.mockClear();
     useBrowserApprovalStore.getState().resolveApproval("r3", "remember");
+    await flush();
 
     expect(invoke).not.toHaveBeenCalledWith("browser_add_one_shot", expect.anything());
     expect(invoke).toHaveBeenCalledWith("browser_set_grants", expect.anything());
     stop();
+  });
+});
+
+// Grant pushes are the AUTHORITY's view of policy. Tauri does not guarantee that
+// two concurrently-dispatched commands complete in call order, so a fire-and-forget
+// push could let an older grant snapshot land AFTER a newer revocation — the driver
+// would then honor a grant the user already revoked. Pushes must be serialized.
+describe("grant-sync ordering and fail-closed retry", () => {
+  it("serializes pushes: a later change is not sent until the in-flight push settles", async () => {
+    const resolvers: Array<() => void> = [];
+    invoke.mockImplementation(() => new Promise<void>((resolve) => resolvers.push(() => resolve())));
+
+    const stop = startGrantSync(); // start push (empty grants) → invoke #1, left pending
+    expect(invoke).toHaveBeenCalledTimes(1);
+
+    // Two rapid changes while the start push is still in flight.
+    useBrowserApprovalStore.getState().grant("https://a.com", ["click"]);
+    useBrowserApprovalStore.getState().grant("https://b.com", ["read"]);
+
+    // Neither has been sent — the syncer waited for the in-flight push.
+    expect(invoke).toHaveBeenCalledTimes(1);
+
+    // The start push settles → exactly one more push carrying the LATEST state,
+    // coalescing the intermediate [a.com] snapshot away.
+    resolvers[0]();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(invoke).toHaveBeenCalledTimes(2);
+    expect(invoke).toHaveBeenLastCalledWith("browser_set_grants", {
+      grants: [
+        { originPattern: "https://a.com", operations: ["click"] },
+        { originPattern: "https://b.com", operations: ["read"] },
+      ],
+    });
+    resolvers[1]?.();
+    stop();
+  });
+
+  it("retries a failed grant sync rather than silently abandoning it (fail-closed)", async () => {
+    let calls = 0;
+    invoke.mockImplementation(() => {
+      calls += 1;
+      return Promise.reject(new Error("driver down"));
+    });
+
+    const stop = startGrantSync();
+    // Let the bounded retries flush.
+    for (let i = 0; i < 12; i += 1) await Promise.resolve();
+    stop();
+
+    // A single one-and-done push would leave the driver on stale (permissive) state
+    // after a revocation. The syncer retries before giving up.
+    expect(calls).toBeGreaterThan(1);
   });
 });

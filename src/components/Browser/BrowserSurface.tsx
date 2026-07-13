@@ -38,6 +38,22 @@ import {
 } from "./useBrowserNavEvents";
 import "./browser-surface.css";
 
+/**
+ * Canonicalize a navigation target while PRESERVING its fragment (`#section`).
+ *
+ * `canonicalizeBrowserUrl` is dedup-oriented and deliberately drops the fragment,
+ * but navigation must keep it so the page scrolls to the anchor — otherwise
+ * entering or reloading `page#section` silently loads `page`. Falls back to the
+ * raw input when it is not a navigable http(s) URL (about:blank, a scheme-less
+ * draft) so the tab still reaches the native side.
+ */
+function navigationTarget(input: string): string {
+  const canonical = canonicalizeBrowserUrl(input);
+  if (canonical === null) return input;
+  const hashIndex = input.indexOf("#");
+  return hashIndex >= 0 ? canonical + input.slice(hashIndex) : canonical;
+}
+
 export function BrowserSurface({ tabId }: { tabId: string }): React.ReactElement {
   const { t } = useTranslation("common");
   const windowLabel = useMemo(() => getCurrentWebviewWindow().label, []);
@@ -61,12 +77,14 @@ export function BrowserSurface({ tabId }: { tabId: string }): React.ReactElement
   // Create the native webview on mount; destroy it on unmount.
   useEffect(() => {
     let active = true;
-    void invoke("browser_create", { tabId, windowLabel, url })
-      .catch(() => {})
-      .finally(() => active && setLoading(false));
+    const created = invoke("browser_create", { tabId, windowLabel, url });
+    void created.catch(() => {}).finally(() => active && setLoading(false));
     return () => {
       active = false;
-      void invoke("browser_destroy", { tabId }).catch(() => {});
+      // Destroy only AFTER create settles: a create that resolves after this
+      // unmount would otherwise register a native webview this destroy already
+      // missed, orphaning a content process nothing tears down.
+      void created.catch(() => {}).then(() => void invoke("browser_destroy", { tabId }).catch(() => {}));
     };
     // `url` is the initial navigation target only; navigation is explicit after.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -143,8 +161,8 @@ export function BrowserSurface({ tabId }: { tabId: string }): React.ReactElement
   };
 
   const navigate = (target: string) => {
-    const next = canonicalizeBrowserUrl(target) ?? target;
-    setUrlInput(next); // reflect the canonical URL in the address bar
+    const next = navigationTarget(target);
+    setUrlInput(next); // reflect the canonical URL (with fragment) in the address bar
     setLoading(true);
     void invoke("browser_navigate", { tabId, url: next })
       .catch(() => {})

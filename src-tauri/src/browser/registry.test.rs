@@ -141,7 +141,10 @@ fn committed_url_writes_are_refused_on_a_destroyed_tab() {
         reg.set_committed_url("t1", "https://evil.com"),
         Err(BrowserError::TerminalTab("t1".into()))
     );
-    assert_eq!(reg.committed_url("t1"), Some("https://a.com"));
+    // Destroyed is non-executable, so the transition already revoked the committed
+    // origin: a dead tab holds NO committed authority — stronger than merely not
+    // being overwritten by the refused write.
+    assert_eq!(reg.committed_url("t1"), None);
 }
 
 #[test]
@@ -300,4 +303,77 @@ fn removing_a_tab_drops_its_committed_url() {
     reg.set_committed_url("t1", "https://a.com").unwrap();
     reg.remove("t1");
     assert_eq!(reg.committed_url("t1"), None);
+}
+
+// ---------------------------------------------------------------------------
+// R2 audit — authorization must not survive a crash/hibernate. A current-
+// generation eval could otherwise pass freshness + origin checks against a dead
+// or collapsed webview (registry.rs:193 / nav_delegate crash path).
+// ---------------------------------------------------------------------------
+
+#[test]
+fn only_live_and_navigating_are_executable_states() {
+    assert!(Lifecycle::Live.is_executable());
+    assert!(Lifecycle::Navigating.is_executable());
+    assert!(!Lifecycle::Creating.is_executable());
+    assert!(!Lifecycle::Crashed.is_executable());
+    assert!(!Lifecycle::Hibernated.is_executable());
+    assert!(!Lifecycle::Destroyed.is_executable());
+}
+
+#[test]
+fn a_crash_revokes_the_committed_url_and_freshness() {
+    let mut reg = BrowserRegistry::default();
+    reg.create("t1", "main").unwrap();
+    reg.transition("t1", Lifecycle::Live).unwrap();
+    reg.set_committed_url("t1", "https://a.com").unwrap();
+    let gen = reg.generation("t1").unwrap();
+    assert!(reg.is_command_fresh("t1", gen));
+
+    // The content process dies. An eval stamped with the CURRENT generation must
+    // no longer authorize: the committed origin is gone and the tab is not
+    // executable, so both the freshness gate and the origin gate fail closed.
+    reg.transition("t1", Lifecycle::Crashed).unwrap();
+    assert_eq!(reg.committed_url("t1"), None);
+    assert!(!reg.is_command_fresh("t1", gen));
+}
+
+#[test]
+fn hibernation_revokes_the_committed_url_and_freshness() {
+    let mut reg = BrowserRegistry::default();
+    reg.create("t1", "main").unwrap();
+    reg.transition("t1", Lifecycle::Live).unwrap();
+    reg.set_committed_url("t1", "https://a.com").unwrap();
+    let gen = reg.generation("t1").unwrap();
+
+    reg.transition("t1", Lifecycle::Hibernated).unwrap();
+    assert_eq!(reg.committed_url("t1"), None);
+    assert!(!reg.is_command_fresh("t1", gen));
+}
+
+#[test]
+fn a_reload_after_crash_re_establishes_authority_only_on_commit() {
+    let mut reg = BrowserRegistry::default();
+    reg.create("t1", "main").unwrap();
+    reg.transition("t1", Lifecycle::Live).unwrap();
+    reg.set_committed_url("t1", "https://a.com").unwrap();
+    reg.transition("t1", Lifecycle::Crashed).unwrap();
+    // The reload commits: authority returns, scoped to the freshly committed page.
+    reg.transition("t1", Lifecycle::Navigating).unwrap();
+    reg.set_committed_url("t1", "https://a.com").unwrap();
+    let gen = reg.generation("t1").unwrap();
+    assert_eq!(reg.committed_url("t1"), Some("https://a.com"));
+    assert!(reg.is_command_fresh("t1", gen));
+}
+
+#[test]
+fn an_executable_transition_preserves_the_committed_url() {
+    let mut reg = BrowserRegistry::default();
+    reg.create("t1", "main").unwrap();
+    reg.transition("t1", Lifecycle::Live).unwrap();
+    reg.set_committed_url("t1", "https://a.com").unwrap();
+    // Live → Navigating (a redirect committing) keeps the current committed page
+    // until the new one is recorded.
+    reg.transition("t1", Lifecycle::Navigating).unwrap();
+    assert_eq!(reg.committed_url("t1"), Some("https://a.com"));
 }

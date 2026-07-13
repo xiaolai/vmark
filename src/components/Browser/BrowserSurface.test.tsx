@@ -116,6 +116,23 @@ describe("BrowserSurface", () => {
     );
   });
 
+  it("preserves the fragment when navigating to an in-page anchor", async () => {
+    // The dedup canonicalizer drops `#frag`, but navigation must keep it so the
+    // page scrolls to the anchor — otherwise `page#section` silently loads `page`.
+    const id = seedBrowserTab("https://example.com/");
+    render(<BrowserSurface tabId={id} />);
+    const bar = screen.getByRole("textbox");
+    const user = userEvent.setup();
+    await user.clear(bar);
+    await user.type(bar, "https://example.org/docs#install{Enter}");
+    await waitFor(() =>
+      expect(invoke).toHaveBeenCalledWith("browser_navigate", {
+        tabId: id,
+        url: "https://example.org/docs#install",
+      }),
+    );
+  });
+
   it("reports the reserved rect bounds to Rust on resize", async () => {
     const id = seedBrowserTab("https://example.com/");
     render(<BrowserSurface tabId={id} />);
@@ -146,6 +163,33 @@ describe("BrowserSurface", () => {
     invoke.mockClear();
     unmount();
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("browser_destroy", { tabId: id }));
+  });
+
+  it("destroys only after create settles, so a rapid unmount cannot orphan the webview", async () => {
+    // Hold browser_create pending, unmount, then let create resolve. If destroy
+    // ran before create registered the native view, the view would be orphaned.
+    let resolveCreate: () => void = () => {};
+    invoke.mockImplementation((cmd: string) =>
+      cmd === "browser_create"
+        ? new Promise<void>((r) => {
+            resolveCreate = () => r();
+          })
+        : Promise.resolve(undefined),
+    );
+    const id = seedBrowserTab("https://example.com/");
+    const { unmount } = render(<BrowserSurface tabId={id} />);
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("browser_create", expect.anything()));
+    invoke.mockClear();
+
+    unmount();
+    await Promise.resolve();
+    // create is still pending → destroy must be deferred, not fired against a
+    // not-yet-registered webview.
+    expect(invoke).not.toHaveBeenCalledWith("browser_destroy", expect.anything());
+
+    resolveCreate();
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("browser_destroy", { tabId: id }));
+    invoke.mockImplementation(() => Promise.resolve(undefined)); // restore default
   });
 
   it("updates the address bar when the native page navigates (delegate event)", async () => {

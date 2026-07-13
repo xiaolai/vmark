@@ -102,14 +102,20 @@ export const useBrowserStore = create<BrowserState & BrowserActions>((set, get) 
   setKeepAlive: (tabId, keep) => {
     const { liveTabs, maxLive } = get();
     const keepAlive = { ...get().keepAlive };
-    if (keep) keepAlive[tabId] = true;
-    else delete keepAlive[tabId];
 
     // Protecting can only ever exceed the cap, never breach it — nothing to do.
     if (keep) {
+      keepAlive[tabId] = true;
       set({ keepAlive });
       return [];
     }
+
+    // Releasing a tab that was never protected changes nothing. An idempotent or
+    // stale release must NOT rebalance: another window could be legitimately over
+    // its cap (its own protections), and a spurious rebalance would evict its
+    // just-activated tab. Only a real protection lift can push a window over cap.
+    if (!keepAlive[tabId]) return [];
+    delete keepAlive[tabId];
 
     // Unprotecting may leave a window over its cap with no further activation
     // coming; rebalance now so the excess webviews are actually torn down.

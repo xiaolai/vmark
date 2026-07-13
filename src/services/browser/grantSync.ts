@@ -29,13 +29,61 @@ import {
 import type { StandingGrant } from "@/lib/browser/approval/grants";
 import { browserWarn } from "@/utils/debug";
 
-function push(grants: StandingGrant[]): void {
-  // A failed sync leaves the driver on its previous set. That is fail-closed for
-  // additions (the new grant simply isn't honored) and only ever *more*
-  // restrictive than intended, so it is safe to swallow — but never silent.
-  void invoke("browser_set_grants", { grants }).catch((error: unknown) => {
-    browserWarn("grant sync failed; driver keeps its previous grant set", error);
-  });
+/** How many times a failed grant push is retried before giving up loudly. Bounds
+ *  a permanently-unreachable driver from spinning while still healing the common
+ *  transient failure — the next legitimate change re-pushes the full state anyway. */
+const MAX_PUSH_ATTEMPTS = 3;
+
+/**
+ * A serialized, coalescing pusher for the full grant snapshot.
+ *
+ * `browser_set_grants` replaces the driver's whole grant vector, so only the
+ * LATEST snapshot matters — but Tauri does not guarantee two concurrently
+ * dispatched commands complete in call order. A fire-and-forget push therefore
+ * risks an older snapshot landing after a newer revocation, leaving the authority
+ * permissive. This runs at most one push at a time and always re-reads the latest
+ * desired snapshot, so the driver observes changes in order and converges on the
+ * final state. A failed push is retried (bounded) rather than silently abandoned,
+ * so a revocation whose sync failed is not left stale.
+ */
+function makeGrantPusher(): (grants: StandingGrant[]) => void {
+  let desired: StandingGrant[] | null = null;
+  let running = false;
+  let attempts = 0;
+
+  async function drain(): Promise<void> {
+    if (running) return; // the running loop will pick up the newer `desired`
+    running = true;
+    try {
+      while (desired !== null) {
+        const snapshot = desired;
+        desired = null;
+        try {
+          await invoke("browser_set_grants", { grants: snapshot });
+          attempts = 0;
+        } catch (error) {
+          browserWarn("grant sync failed; retrying", error);
+          if (desired !== null) {
+            attempts = 0; // a newer snapshot supersedes this one — push that instead
+          } else if (++attempts < MAX_PUSH_ATTEMPTS) {
+            desired = snapshot; // re-queue: never silently abandon a revocation
+          } else {
+            attempts = 0;
+            browserWarn(
+              "grant sync giving up after retries; the driver may hold a stale grant set",
+            );
+          }
+        }
+      }
+    } finally {
+      running = false;
+    }
+  }
+
+  return (grants) => {
+    desired = grants;
+    void drain();
+  };
 }
 
 /**
@@ -66,6 +114,9 @@ function pushOneShot(shot: OneShotApproval): void {
  * Returns a disposer.
  */
 export function startGrantSync(): () => void {
+  // One serialized pusher per sync session — its lifecycle matches the
+  // subscription, so a torn-down session leaves no in-flight drain behind.
+  const push = makeGrantPusher();
   push(useBrowserApprovalStore.getState().grants);
 
   let previousGrants = useBrowserApprovalStore.getState().grants;

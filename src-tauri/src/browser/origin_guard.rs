@@ -16,22 +16,20 @@
 //!   - `*.example.com` covers strict subdomains at any depth, NOT the apex,
 //!     NOT look-alike suffixes (`evil-example.com`)
 //!
-//! The `url` crate implements the same WHATWG URL spec as the browser's `URL`
-//! (it is already in the tree via Tauri), so both layers parse identically
-//! instead of two hand-rolled parsers drifting apart.
+//! The `url` crate implements the same WHATWG URL spec as the browser's `URL`, so
+//! both layers parse identically instead of two hand-rolled parsers drifting apart.
 //!
 //! @coordinates-with src/lib/browser/origin/originGuard.ts — the mirrored spec
-//! @coordinates-with src/lib/browser/approval/grants.ts — NEVER_AUTOMATED parity
 //! @coordinates-with browser/commands.rs — browser_eval calls the gate
 
 use url::{Host, Url};
 
+use crate::browser::operation::is_known_operation;
 use crate::browser::registry::BrowserError;
 
-/// Operations the AI may NEVER perform autonomously, even with a matching grant.
-/// Mirrors `NEVER_AUTOMATED` in `lib/browser/approval/grants.ts`: an AI-chosen
-/// file upload is an exfiltration path, so upload targets stay human-chosen.
-pub(crate) const NEVER_AUTOMATED: &[&str] = &["upload"];
+// The closed operation vocabulary lives in `browser/operation.rs`; `NEVER_AUTOMATED`
+// is re-exported for `one_shot.rs`, which imports it through the guard's surface.
+pub(crate) use crate::browser::operation::NEVER_AUTOMATED;
 
 /// A canonical web origin: scheme + host + port, nothing else.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -85,11 +83,15 @@ pub fn canonicalize_origin(input: &str) -> Option<CanonicalOrigin> {
     // structured address rather than a bracketed string.
     let host = match url.host()? {
         Host::Domain(d) => {
-            let trimmed = d.trim_end_matches('.');
+            // Strip EXACTLY ONE trailing dot, like the TS `replace(/\.$/,"")`, so
+            // `example.com.` is the bare origin but `example.com..` does NOT collapse
+            // to `example.com` and match its grant (the old `trim_end_matches` did).
+            let trimmed = d.strip_suffix('.').unwrap_or(d);
             if trimmed.is_empty() {
                 return None;
             }
-            // Reject empty labels (`https://..`, `https://.com`, `https://a..b.com`).
+            // Reject any remaining empty label (`example.com..` → `example.com.`
+            // still ends in one; also `https://.com`, `a..b.com`).
             if trimmed.split('.').any(|label| label.is_empty()) {
                 return None;
             }
@@ -163,13 +165,8 @@ fn parse_origin_pattern(pattern: &str) -> Option<ParsedPattern> {
 
 /// Is `pattern` a well-formed grant pattern the driver could enforce?
 ///
-/// Spec surface (see `origin_key`): the grants the driver receives are already
-/// validated by the frontend store, and an unenforceable pattern simply matches
-/// nothing here — default-deny holds either way.
-#[allow(
-    dead_code,
-    reason = "TS-parity spec surface, exercised by the parity tests"
-)]
+/// `browser_add_one_shot` calls this to reject a pattern the guard could never
+/// match, rather than storing inert authority that silently never fires.
 pub fn is_origin_pattern(pattern: &str) -> bool {
     parse_origin_pattern(pattern).is_some()
 }
@@ -215,7 +212,9 @@ pub fn is_origin_granted(target_url: &str, grants: &[String]) -> bool {
 /// This is the decision `browser_eval` enforces. Default-deny, and hard-deny for
 /// never-automatable operations regardless of any grant (R5).
 pub fn is_operation_granted(target_url: &str, operation: &str, grants: &[StandingGrant]) -> bool {
-    if NEVER_AUTOMATED.contains(&operation) {
+    // Closed vocabulary first (parity with `decideApproval`) — a grant listing a
+    // variant `"Upload"` cannot authorize it, and hard-deny never-automatable ops.
+    if !is_known_operation(operation) || NEVER_AUTOMATED.contains(&operation) {
         return false;
     }
     let Some(target) = canonicalize_origin(target_url) else {
@@ -232,10 +231,10 @@ pub fn is_operation_granted(target_url: &str, operation: &str, grants: &[Standin
 /// answered; `browser_eval` calls exactly this and nothing else.
 ///
 /// Two rules, both from the plan:
-///   - **`read` is granted per-tab on any committed navigable origin (R7a).** The
-///     user (or an already-approved `act`) is what put the page there — the AI has
-///     no navigate tool — so reading what is already on screen needs no standing
-///     grant. It remains refused on a non-navigable origin.
+///   - **`read` is granted per-tab on any committed navigable origin (R7a)** — the
+///     user (or an already-approved `act`) put the page there, and the AI has no
+///     navigate tool, so reading it needs no standing grant (still refused on a
+///     non-navigable origin).
 ///   - **Every other operation requires an explicit standing grant (R4/R5)**, and
 ///     `upload` is refused unconditionally. The read grant must never leak into
 ///     write authority: "read my blog" must not become "publish to my blog".
@@ -244,7 +243,8 @@ pub fn is_driver_operation_allowed(
     operation: &str,
     grants: &[StandingGrant],
 ) -> bool {
-    if NEVER_AUTOMATED.contains(&operation) {
+    // Closed vocabulary first — not even the per-tab `read` path (`"Read"` ≠ `read`).
+    if !is_known_operation(operation) || NEVER_AUTOMATED.contains(&operation) {
         return false;
     }
     if operation == "read" {
@@ -264,22 +264,26 @@ pub fn is_driver_operation_allowed(
 /// checked value back makes that divergence unrepresentable.
 ///
 /// Uses the same WHATWG parser as the origin canonicalizer, so malformed
-/// authorities (`https://@`, `https://:443`, `https://exa mple.com`) that the
-/// previous hand-rolled prefix check waved through are now rejected.
+/// authorities (`https://@`, `https://:443`, `https://exa mple.com`) are rejected.
 ///
-/// One deliberate extra strictness over bare canonicalization: a URL with an
-/// EMPTY authority (`https:///path`) is refused as a navigation target. WHATWG's
-/// "special authority ignore slashes" rule would silently reinterpret the first
-/// path segment as the host (`https://path/`) — legal, but never what a caller
-/// meant, and the previously shipped gate rejected it. Canonicalization itself
-/// stays WHATWG-faithful (see `matches_whatwg_extra_slash_handling…` in the test
-/// suite): the driver must resolve origins EXACTLY as the layer that granted
-/// them, so only this navigation gate is stricter, never the origin comparison.
+/// Deliberately STRICTER than bare canonicalization (only this navigation gate, so
+/// origin comparison stays WHATWG-faithful — parity is the security property): it
+/// requires an explicit `http(s)://` prefix and no backslashes, refusing the
+/// shorthand/empty-authority forms (`https:/path`, `https:path`, `https:///path`,
+/// `https://\path`) that WHATWG would reinterpret so the first path segment becomes
+/// the host — legal parsing, but never what a caller meant.
 pub fn validate_navigation_url(url: &str) -> Result<String, BrowserError> {
     let trimmed = url.trim();
     let invalid = || BrowserError::InvalidUrl(url.to_string());
 
-    // Reject an empty authority before parsing (see the note above).
+    // Require an explicit `http://`/`https://` prefix and reject backslashes: both
+    // close authority-reinterpretation forms the bare-`://` check below missed.
+    let lower = trimmed.to_ascii_lowercase();
+    if !(lower.starts_with("http://") || lower.starts_with("https://")) || trimmed.contains('\\') {
+        return Err(invalid());
+    }
+
+    // Reject an empty authority (`https:///path` → host `path`).
     if let Some(after_scheme) = trimmed.split_once("://").map(|(_, rest)| rest) {
         if after_scheme.starts_with('/') {
             return Err(invalid());

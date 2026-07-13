@@ -128,6 +128,41 @@ describe("keep-alive exemption (AI-driven tabs)", () => {
     expect(useBrowserStore.getState().isLive(W, "a")).toBe(true);
   });
 
+  it("clearing keep-alive for a tab that was never protected evicts nothing", () => {
+    // An idempotent or stale release must be a no-op. If a DIFFERENT window is
+    // legitimately over its cap (its own protections), releasing an unrelated,
+    // unprotected tab must not trigger a rebalance that tears down that window's
+    // just-activated tab.
+    useBrowserStore.setState({ maxLive: 1 });
+    const store = useBrowserStore.getState();
+    store.setKeepAlive("p", true);
+    store.activate("w1", "p");
+    store.activate("w1", "q"); // w1 over cap: "p" protected, "q" just activated
+    expect(useBrowserStore.getState().liveCount("w1")).toBe(2);
+
+    // "z" was never protected — releasing it changes nothing and must not rebalance.
+    const evicted = useBrowserStore.getState().setKeepAlive("z", false);
+
+    expect(evicted).toEqual([]);
+    expect(useBrowserStore.getState().liveCount("w1")).toBe(2); // untouched
+    expect(useBrowserStore.getState().isLive("w1", "q")).toBe(true);
+  });
+
+  it("a repeated (idempotent) unprotect does not evict on the second call", () => {
+    useBrowserStore.setState({ maxLive: 2 });
+    const store = useBrowserStore.getState();
+    store.setKeepAlive("a", true);
+    store.setKeepAlive("b", true);
+    store.activate(W, "a");
+    store.activate(W, "b");
+    store.activate(W, "c"); // 3 live: a/b protected, c just activated → nothing evictable
+    expect(useBrowserStore.getState().liveCount(W)).toBe(3);
+    expect(useBrowserStore.getState().setKeepAlive("a", false)).toEqual(["a"]);
+    // Second release is a no-op: "a" is already unprotected (and already evicted).
+    expect(useBrowserStore.getState().setKeepAlive("a", false)).toEqual([]);
+    expect(useBrowserStore.getState().liveCount(W)).toBe(2);
+  });
+
   it("rebalancing is scoped correctly across windows (each window keeps its own cap)", () => {
     useBrowserStore.setState({ maxLive: 1 });
     const store = useBrowserStore.getState();

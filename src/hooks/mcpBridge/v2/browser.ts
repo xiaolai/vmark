@@ -64,10 +64,38 @@ function parse(raw: string): unknown {
   }
 }
 
+/**
+ * Read an optional `tabId` argument: the id string, `undefined` when absent, or
+ * `null` when present-but-invalid (empty, whitespace-only, or non-string).
+ *
+ * An explicitly-supplied but invalid id must NOT silently fall back to the active
+ * tab — that could act on a page the caller never meant. Absent is the only case
+ * that legitimately means "use the active tab".
+ */
+function readTabIdArg(args: Record<string, unknown>): string | undefined | null {
+  if (args.tabId === undefined) return undefined;
+  if (typeof args.tabId !== "string" || args.tabId.trim() === "") return null;
+  return args.tabId;
+}
+
+/** Whether the parsed act result reports the action actually landed. A completed
+ *  eval is not a completed action: `{found:false}`/`{clicked:false}`/`{typed:false}`
+ *  (missing, disabled, readonly, non-editable target) is a no-op, not a success. */
+function actionSucceeded(operation: "click" | "type", result: unknown): boolean {
+  if (typeof result !== "object" || result === null) return false;
+  const flag = operation === "type" ? "typed" : "clicked";
+  return (result as Record<string, unknown>)[flag] === true;
+}
+
 /** `vmark.browser.read` — ARIA snapshot of the current page. Args `{tabId?}`. */
 export async function handleBrowserRead(id: string, args: Record<string, unknown>): Promise<void> {
   return wrapHandler(id, async () => {
-    const tab = resolveBrowserTab(typeof args.tabId === "string" ? args.tabId : undefined);
+    const tabIdArg = readTabIdArg(args);
+    if (tabIdArg === null) {
+      await respond({ id, success: false, error: "tabId must be a non-empty string when supplied" });
+      return;
+    }
+    const tab = resolveBrowserTab(tabIdArg);
     if (!tab) {
       await respond({ id, success: false, error: "no active browser tab" });
       return;
@@ -88,7 +116,12 @@ export async function handleBrowserRead(id: string, args: Record<string, unknown
  */
 export async function handleBrowserAct(id: string, args: Record<string, unknown>): Promise<void> {
   return wrapHandler(id, async () => {
-    const tab = resolveBrowserTab(typeof args.tabId === "string" ? args.tabId : undefined);
+    const tabIdArg = readTabIdArg(args);
+    if (tabIdArg === null) {
+      await respond({ id, success: false, error: "tabId must be a non-empty string when supplied" });
+      return;
+    }
+    const tab = resolveBrowserTab(tabIdArg);
     if (!tab) {
       await respond({ id, success: false, error: "no active browser tab" });
       return;
@@ -108,10 +141,20 @@ export async function handleBrowserAct(id: string, args: Record<string, unknown>
       });
       return;
     }
-    // A blank role/name matches the first unnamed element of that role — an
-    // unintended click or edit. Refuse rather than guess at the target.
-    if (!role || !name) {
+    // A blank (or whitespace-only) role/name matches the first unnamed element of
+    // that role — an unintended click or edit. Refuse rather than guess.
+    if (!role.trim() || !name.trim()) {
       await respond({ id, success: false, error: "act requires a non-empty role and name" });
+      return;
+    }
+    // A `type` with no `text` used to default to "" — a silent, destructive field
+    // clear. Require the caller to be explicit; an intentional clear passes "".
+    if (operation === "type" && typeof args.text !== "string") {
+      await respond({
+        id,
+        success: false,
+        error: "type requires a string 'text' (pass \"\" to intentionally clear the field)",
+      });
       return;
     }
 
@@ -121,15 +164,17 @@ export async function handleBrowserAct(id: string, args: Record<string, unknown>
       return;
     }
     if (decision === "needs-approval") {
-      // "Allow once" mints a single-use authorization for (origin, operation).
-      // The AI retries under a NEW request id, so it cannot be matched by id —
-      // spend it here, immediately before acting, or the approval would authorize
-      // nothing and the AI would re-prompt forever.
+      // "Allow once" mints a single-use authorization bound to (origin, operation,
+      // target). The AI retries under a NEW request id, so it cannot be matched by
+      // id — spend it here, immediately before acting, or the approval would
+      // authorize nothing and the AI would re-prompt forever. The target binding
+      // stops the AI escalating an approved "click Publish" into "click Delete".
+      const target = { role, name };
       const authorizedOnce = useBrowserApprovalStore
         .getState()
-        .consumeOneShot(tab.url, operation);
+        .consumeOneShot(tab.url, operation, target);
       if (!authorizedOnce) {
-        useBrowserApprovalStore.getState().requestApproval(id, tab.url, operation);
+        useBrowserApprovalStore.getState().requestApproval(id, tab.url, operation, target);
         await respond({
           id,
           success: false,
@@ -146,7 +191,7 @@ export async function handleBrowserAct(id: string, args: Record<string, unknown>
 
     const script =
       operation === "type"
-        ? buildTypeScript(role, name, typeof args.text === "string" ? args.text : "")
+        ? buildTypeScript(role, name, args.text as string)
         : buildClickScript(role, name);
     const raw = await invoke<string>("browser_eval", {
       tabId: tab.tabId,
@@ -154,6 +199,19 @@ export async function handleBrowserAct(id: string, args: Record<string, unknown>
       operation,
       generation: tab.generation,
     });
-    await respond({ id, success: true, data: { result: parse(raw) } });
+    // Report the ACTION outcome, not merely that the eval completed: a click that
+    // hit nothing or a type refused as readonly is a no-op, and telling the AI it
+    // succeeded would have it proceed as if the page changed.
+    const result = parse(raw);
+    if (!actionSucceeded(operation, result)) {
+      await respond({
+        id,
+        success: false,
+        error: `${operation} did not affect the target (role='${role}', name='${name}')`,
+        data: { result },
+      });
+      return;
+    }
+    await respond({ id, success: true, data: { result } });
   });
 }
