@@ -16,6 +16,14 @@ import type {
   CursorInfo as StoreCursorInfo,
 } from '@/stores/documentStore';
 
+/** Largest value Rust's `u32` accepts. */
+const U32_MAX = 0xffff_ffff;
+
+/** True for an integer in `[0, u32::MAX]` — the range Rust's `u32` accepts. */
+function isU32(value: number): boolean {
+  return Number.isInteger(value) && value >= 0 && value <= U32_MAX;
+}
+
 /** Convert store line ending format to hot exit format. */
 export function toHotExitLineEnding(lineEnding: StoreLineEnding): '\n' | '\r\n' | 'unknown' {
   switch (lineEnding) {
@@ -25,15 +33,35 @@ export function toHotExitLineEnding(lineEnding: StoreLineEnding): '\n' | '\r\n' 
       return '\r\n';
     case 'unknown':
       return 'unknown';
-    default:
-      // Exhaustiveness guard for future enum additions
+    default: {
+      // Compile-time exhaustiveness: a new StoreLineEnding variant fails to
+      // assign to `never` here. Runtime still degrades to 'unknown' rather than
+      // throwing — an exception during capture would lose the whole window.
+      const _exhaustive: never = lineEnding;
+      void _exhaustive;
       return 'unknown';
+    }
   }
 }
 
-/** Convert store cursor info to hot exit format. */
+/**
+ * Convert store cursor info to hot exit format.
+ *
+ * Rust's `CursorInfo` requires bounded numerics (`u32` line/offset, finite
+ * `f32` percent). A negative, fractional, non-finite, or oversized value makes
+ * serde reject the ENTIRE capture response — losing the window's recovery. When
+ * any numeric field is out of range, drop only the cursor (return `null`); a
+ * missing cursor position is recoverable, a lost window is not.
+ */
 export function toHotExitCursorInfo(cursorInfo: StoreCursorInfo | null | undefined): CursorInfo | null {
   if (!cursorInfo) return null;
+  if (
+    !isU32(cursorInfo.sourceLine) ||
+    !isU32(cursorInfo.offsetInWord) ||
+    !Number.isFinite(cursorInfo.percentInLine)
+  ) {
+    return null;
+  }
   return {
     source_line: cursorInfo.sourceLine,
     word_at_cursor: cursorInfo.wordAtCursor,
@@ -56,8 +84,15 @@ export function toHotExitCheckpoint(checkpoint: StoreHistoryCheckpoint) {
   };
 }
 
-/** Extract the untitled number from a tab title like "Untitled-5". */
+/** Extract the untitled number from a tab title like "Untitled-5".
+ *
+ * Persisted as Rust `Option<u32>`: a value past the `u32` (or JS safe-integer)
+ * range makes serde reject the whole capture response, so an out-of-range
+ * suffix is treated as "no untitled number" (`null`) rather than forwarded. */
 export function extractUntitledNumber(title: string): number | null {
   const match = title.match(/^Untitled-(\d+)$/);
-  return match ? parseInt(match[1], 10) : null;
+  if (!match) return null;
+  const value = parseInt(match[1], 10);
+  if (!Number.isSafeInteger(value) || value < 1 || value > U32_MAX) return null;
+  return value;
 }

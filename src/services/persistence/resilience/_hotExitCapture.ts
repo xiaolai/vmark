@@ -9,9 +9,8 @@ import { useEffect } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { useTabStore } from '@/stores/tabStore';
-import { useDocumentStore } from '@/stores/documentStore';
+import { useDocumentStore, useUnifiedHistoryStore } from '@/stores/documentStore';
 import { useUIStore } from '@/stores/uiStore';
-import { useUnifiedHistoryStore } from '@/stores/documentStore';
 import type { WindowState, TabState, CaptureRequest, CaptureResponse } from '../hotExit/types';
 import { HOT_EXIT_EVENTS, MAIN_WINDOW_LABEL } from '../hotExit/types';
 import { hotExitWarn, hotExitError } from '@/utils/debug';
@@ -209,18 +208,21 @@ export function useHotExitCapture() {
         const windowState = captureWindowState(windowLabel, isMainWindow);
         response = buildCaptureResponse(captureId, windowLabel, windowState);
       } catch (error) {
-        hotExitError('Failed to capture window state:', error);
-
-        // Build fallback state - getUiStateSafe won't throw
-        const fallbackState: WindowState = {
-          window_label: windowLabel,
-          is_main_window: isMainWindow,
-          active_tab_id: null,
-          tabs: [],
-          ui_state: getUiStateSafe(),
-          geometry: null,
-        };
-        response = buildCaptureResponse(captureId, windowLabel, fallbackState);
+        // Do NOT emit a fabricated empty-success response. The Rust coordinator
+        // would count this window as "captured with zero tabs" and overwrite
+        // the previous recoverable snapshot with nothing — a data-loss path.
+        // Emitting no response instead lets the coordinator time out for this
+        // window; `merge_partial_capture` then resurrects the window's previous
+        // state (partial capture), or `hot_exit_capture` aborts the write
+        // entirely when this is the only window (zero responses → Err). Either
+        // way the last good snapshot survives. The tradeoff is a one-time quit
+        // delay (up to the coordinator's capture timeout) on the rare capture
+        // exception, which is worth avoiding document loss.
+        hotExitError(
+          'Failed to capture window state; emitting no response so Rust keeps the previous snapshot:',
+          error,
+        );
+        return;
       }
 
       // Emit response - this MUST succeed or coordinator blocks

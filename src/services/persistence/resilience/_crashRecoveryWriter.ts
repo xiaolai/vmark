@@ -2,11 +2,12 @@
  * Crash Recovery Writer Hook
  *
  * Periodically snapshots all dirty documents to the recovery directory.
- * Runs every 10 seconds, skipping tabs whose content hasn't changed
- * since the last write (tracked via content hash).
+ * Runs every 10 seconds, skipping tabs whose persisted snapshot fields
+ * (content, path, title) match the last write — compared by value, not by a
+ * lossy content hash.
  *
- * @module hooks/useCrashRecoveryWriter
- * @coordinates-with crashRecovery.ts, useCrashRecoveryCleanup.ts
+ * @module services/persistence/resilience/_crashRecoveryWriter
+ * @coordinates-with crashRecovery.ts, _crashRecoveryCleanup.ts
  */
 
 import { useEffect, useRef } from "react";
@@ -88,7 +89,15 @@ async function writeDirtySnapshots(
       // Browser tabs (R1) have no editable document to crash-recover.
       if (tab.kind !== "document") continue;
       const doc = docStore.getDocument(tab.id);
-      if (!doc || !doc.isDirty) continue;
+      if (!doc || !doc.isDirty) {
+        // A clean (or vanished) document has no live snapshot on disk — the
+        // cleanup hook deletes it on save/close. Drop the cache entry so that
+        // if the document becomes dirty again with byte-identical content, we
+        // don't mistake the deleted snapshot for a current one and skip the
+        // write, leaving the re-dirtied document with no recovery file.
+        lastWritten.delete(tab.id);
+        continue;
+      }
 
       const snapshot: WrittenSnapshot = {
         content: doc.content,

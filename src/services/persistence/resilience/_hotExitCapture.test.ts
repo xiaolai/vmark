@@ -41,11 +41,16 @@ const tabsForWindow: Record<string, StubTab[]> = {};
 let activeTabId: string | null = null;
 /** Tab ids whose document entry is absent from the document store. */
 const tabsWithoutDocument = new Set<string>();
+/** When set, the tab store read throws — forces a capture-time exception. */
+let forceCaptureThrow = false;
 
 vi.mock("@/stores/tabStore", () => ({
   useTabStore: {
     getState: () => ({
-      getTabsByWindow: (windowLabel: string) => tabsForWindow[windowLabel] ?? [],
+      getTabsByWindow: (windowLabel: string) => {
+        if (forceCaptureThrow) throw new Error("capture boom");
+        return tabsForWindow[windowLabel] ?? [];
+      },
       getActiveTab: (windowLabel: string) =>
         (tabsForWindow[windowLabel] ?? []).find((t) => t.id === activeTabId) ??
         null,
@@ -135,6 +140,7 @@ beforeEach(() => {
   for (const k of Object.keys(tabsForWindow)) delete tabsForWindow[k];
   activeTabId = null;
   tabsWithoutDocument.clear();
+  forceCaptureThrow = false;
   mockHotExitError.mockClear();
   mockEmit.mockReset().mockResolvedValue(undefined);
   mockListen.mockReset().mockResolvedValue(vi.fn());
@@ -160,6 +166,27 @@ describe("useHotExitCapture", () => {
       window_label: "main",
       state: { active_tab_id: "t1" },
     });
+  });
+
+  it("emits NO response when capture throws, so Rust keeps the previous snapshot", async () => {
+    // A fabricated empty-success response would make the Rust coordinator count
+    // this window as "captured with zero tabs" and overwrite the previous
+    // recoverable snapshot. Emitting nothing lets the coordinator time out and
+    // merge_partial_capture resurrect the previous window state (or abort the
+    // write entirely for a single window) — either way, no data loss.
+    setTabs("main", [
+      { kind: "document", id: "t1", filePath: "/a.md", title: "a.md", isPinned: false, formatId: "markdown" },
+    ]);
+    forceCaptureThrow = true;
+
+    renderHook(() => useHotExitCapture());
+    const handler = mockListen.mock.calls[0][1] as (event: {
+      payload: { capture_id: string };
+    }) => Promise<void>;
+    await handler({ payload: { capture_id: "cap-err" } });
+
+    expect(mockEmit).not.toHaveBeenCalled();
+    expect(mockHotExitError).toHaveBeenCalled();
   });
 
   it("logs a listener-registration failure instead of rejecting unhandled", async () => {
