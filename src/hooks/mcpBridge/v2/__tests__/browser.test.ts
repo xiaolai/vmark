@@ -193,3 +193,86 @@ describe("driver-gate stamping (WI-2.1)", () => {
     expect(String(res.error)).toContain("stale command");
   });
 });
+
+// "Allow once" end-to-end: the AI's retry arrives under a NEW request id, so the
+// handler must consume the one-shot minted for (origin, operation) — otherwise
+// "Allow once" authorizes nothing and the AI re-prompts forever.
+describe("allow-once consumption (WI-2.6)", () => {
+  it("a one-shot authorizes the retry, and only the retry", async () => {
+    const tabId = seedBrowserTab();
+    useTabStore.getState().updateBrowserTab(tabId, { generation: 1 });
+    invoke.mockResolvedValue("{}");
+
+    // 1) First attempt: no grant → refused, approval queued.
+    await handleBrowserAct("act-1", { tabId, operation: "click", role: "button", name: "Publish" });
+    expect(lastResponse()).toMatchObject({ success: false });
+    expect(invoke).not.toHaveBeenCalled();
+
+    // 2) The human clicks "Allow once".
+    useBrowserApprovalStore.getState().resolveApproval("act-1", "once");
+
+    // 3) The AI retries under a NEW id — this must go through.
+    await handleBrowserAct("act-2", { tabId, operation: "click", role: "button", name: "Publish" });
+    expect(invoke).toHaveBeenCalledWith(
+      "browser_eval",
+      expect.objectContaining({ operation: "click" }),
+    );
+    expect(lastResponse()).toMatchObject({ id: "act-2", success: true });
+
+    // 4) A second retry is NOT authorized — the one-shot is spent.
+    invoke.mockClear();
+    await handleBrowserAct("act-3", { tabId, operation: "click", role: "button", name: "Publish" });
+    expect(invoke).not.toHaveBeenCalled();
+    expect(lastResponse()).toMatchObject({ id: "act-3", success: false });
+  });
+
+  it("a one-shot for click does not authorize a type", async () => {
+    const tabId = seedBrowserTab();
+    useTabStore.getState().updateBrowserTab(tabId, { generation: 1 });
+    invoke.mockResolvedValue("{}");
+
+    await handleBrowserAct("t-1", { tabId, operation: "click", role: "button", name: "Publish" });
+    useBrowserApprovalStore.getState().resolveApproval("t-1", "once");
+
+    await handleBrowserAct("t-2", { tabId, operation: "type", role: "textbox", name: "Title", text: "x" });
+    expect(invoke).not.toHaveBeenCalled();
+    expect(lastResponse()).toMatchObject({ id: "t-2", success: false });
+  });
+});
+
+// `act` maps every non-"type" operation to a CLICK script. A "read" (or any other
+// known-but-not-actionable operation) reaching act would therefore execute a
+// mutating click under the authority of a read grant. act accepts click|type only.
+describe("act operation vocabulary", () => {
+  it("refuses an operation that is not click or type", async () => {
+    const tabId = seedBrowserTab();
+    useTabStore.getState().updateBrowserTab(tabId, { generation: 1 });
+    useBrowserApprovalStore.setState({
+      grants: [{ originPattern: "https://blog.example.com", operations: ["read"] }],
+      pending: [],
+      oneShots: [],
+    });
+    invoke.mockResolvedValue("{}");
+
+    await handleBrowserAct("op-read", { tabId, operation: "read", role: "button", name: "Publish" });
+
+    expect(invoke).not.toHaveBeenCalled();
+    expect(lastResponse()).toMatchObject({ id: "op-read", success: false });
+  });
+
+  it("refuses an act with a blank role or name instead of targeting the first element", async () => {
+    const tabId = seedBrowserTab();
+    useTabStore.getState().updateBrowserTab(tabId, { generation: 1 });
+    useBrowserApprovalStore.setState({
+      grants: [{ originPattern: "https://blog.example.com", operations: ["click"] }],
+      pending: [],
+      oneShots: [],
+    });
+    invoke.mockResolvedValue("{}");
+
+    await handleBrowserAct("blank", { tabId, operation: "click", role: "", name: "" });
+
+    expect(invoke).not.toHaveBeenCalled();
+    expect(lastResponse()).toMatchObject({ id: "blank", success: false });
+  });
+});

@@ -77,10 +77,31 @@ export type BridgeRequest =
  * The `error` field carries either a free-form message (legacy) or a
  * JSON-stringified V2Error envelope ({error, message, current_revision?}).
  * Tools parse opportunistically.
+ *
+ * A failure MAY carry `data`. The browser approval gate (R5) is the reason: a
+ * refused action is not simply an error — it is a request for human consent, and
+ * the AI needs the structured envelope (`needsApproval`, `operation`, `url`) to
+ * explain what it wants to do. Modelling that as an error-only failure meant
+ * `sendBridgeRequest` threw `new Error(undefined)` and the AI learned nothing.
  */
+export interface NeedsApproval {
+  needsApproval: true;
+  operation: string;
+  url: string;
+}
+
+/** Is `data` the browser approval envelope? */
+export function isNeedsApproval(data: unknown): data is NeedsApproval {
+  return (
+    typeof data === 'object' &&
+    data !== null &&
+    (data as { needsApproval?: unknown }).needsApproval === true
+  );
+}
+
 export type BridgeResponse =
   | { success: true; data: unknown }
-  | { success: false; error: string; code?: string };
+  | { success: false; error: string; code?: string; data?: unknown };
 
 /**
  * Bridge interface — abstracts the WebSocket transport from the tools.

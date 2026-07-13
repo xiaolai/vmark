@@ -153,11 +153,21 @@ export class VMarkMcpServer implements McpServerInterface {
 
   /**
    * Helper to send a bridge request with proper typing.
+   *
+   * A failure may carry structured `data` (the browser approval envelope — R5).
+   * It is attached to the thrown error rather than dropped: a refused action is a
+   * request for human consent, and discarding the envelope left the AI with an
+   * error it could not act on. The message is defensive too — a failure without
+   * `error` previously produced `new Error(undefined)`, i.e. an empty message.
    */
   async sendBridgeRequest<T>(request: BridgeRequest): Promise<T> {
     const response = await this.bridge.send<T>(request);
     if (!response.success) {
-      throw new Error(response.error);
+      const error = new Error(response.error || 'VMark rejected the request') as Error & {
+        data?: unknown;
+      };
+      if (response.data !== undefined) error.data = response.data;
+      throw error;
     }
     return (response.data ?? undefined) as T;
   }

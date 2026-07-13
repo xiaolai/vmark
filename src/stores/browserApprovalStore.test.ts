@@ -161,3 +161,83 @@ describe("grant validation", () => {
     );
   });
 });
+
+// "Allow once" — a one-shot authorization (R5).
+//
+// Before this, resolveApproval(id, "once") only cleared the request. The AI's
+// retry arrives with a NEW request id, so nothing could match it back to the
+// user's approval: decide() returned "needs-approval" again, forever. "Allow
+// once" authorized nothing at all.
+//
+// A one-shot is therefore keyed by (origin, operation) — not by request id — and
+// is consumed exactly once by the next matching action.
+describe("allow-once (one-shot authorization)", () => {
+  beforeEach(() => {
+    useBrowserApprovalStore.setState({ grants: [], pending: [], oneShots: [] });
+  });
+
+  it("authorizes exactly one subsequent action, then expires", () => {
+    const store = useBrowserApprovalStore.getState();
+    store.requestApproval("req-1", "https://blog.example.com/p", "click");
+    store.resolveApproval("req-1", "once");
+
+    // The retry arrives under a DIFFERENT request id — the one-shot must still match.
+    expect(useBrowserApprovalStore.getState().consumeOneShot("https://blog.example.com/p", "click")).toBe(true);
+    // …and it is spent.
+    expect(useBrowserApprovalStore.getState().consumeOneShot("https://blog.example.com/p", "click")).toBe(false);
+  });
+
+  it("does not create a standing grant", () => {
+    const store = useBrowserApprovalStore.getState();
+    store.requestApproval("req-2", "https://blog.example.com", "click");
+    store.resolveApproval("req-2", "once");
+    expect(useBrowserApprovalStore.getState().grants).toEqual([]);
+    // decide() still says needs-approval: a one-shot is not standing authority.
+    expect(useBrowserApprovalStore.getState().decide("https://blog.example.com", "click")).toBe("needs-approval");
+  });
+
+  it("is scoped to the approved origin", () => {
+    const store = useBrowserApprovalStore.getState();
+    store.requestApproval("req-3", "https://blog.example.com", "click");
+    store.resolveApproval("req-3", "once");
+    expect(useBrowserApprovalStore.getState().consumeOneShot("https://evil.com", "click")).toBe(false);
+    // Unspent for the origin it was granted on.
+    expect(useBrowserApprovalStore.getState().consumeOneShot("https://blog.example.com", "click")).toBe(true);
+  });
+
+  it("is scoped to the approved operation", () => {
+    const store = useBrowserApprovalStore.getState();
+    store.requestApproval("req-4", "https://blog.example.com", "click");
+    store.resolveApproval("req-4", "once");
+    expect(useBrowserApprovalStore.getState().consumeOneShot("https://blog.example.com", "type")).toBe(false);
+  });
+
+  it("matches a subdomain no more loosely than a standing grant would", () => {
+    const store = useBrowserApprovalStore.getState();
+    store.requestApproval("req-5", "https://blog.example.com", "click");
+    store.resolveApproval("req-5", "once");
+    // No implicit subdomain wildcarding — same rule as grants.
+    expect(useBrowserApprovalStore.getState().consumeOneShot("https://evil.blog.example.com", "click")).toBe(false);
+  });
+
+  it("deny does not leave a one-shot behind", () => {
+    const store = useBrowserApprovalStore.getState();
+    store.requestApproval("req-6", "https://blog.example.com", "click");
+    store.resolveApproval("req-6", "deny");
+    expect(useBrowserApprovalStore.getState().consumeOneShot("https://blog.example.com", "click")).toBe(false);
+  });
+
+  it("remember does not also leave a one-shot behind (no double authorization)", () => {
+    const store = useBrowserApprovalStore.getState();
+    store.requestApproval("req-7", "https://blog.example.com", "click");
+    store.resolveApproval("req-7", "remember");
+    expect(useBrowserApprovalStore.getState().oneShots).toEqual([]);
+  });
+
+  it("refuses to mint a one-shot for an opaque origin", () => {
+    const store = useBrowserApprovalStore.getState();
+    store.requestApproval("req-8", "about:blank", "click");
+    store.resolveApproval("req-8", "once");
+    expect(useBrowserApprovalStore.getState().oneShots).toEqual([]);
+  });
+});

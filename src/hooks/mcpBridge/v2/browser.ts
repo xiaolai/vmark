@@ -97,19 +97,51 @@ export async function handleBrowserAct(id: string, args: Record<string, unknown>
     const role = typeof args.role === "string" ? args.role : "";
     const name = typeof args.name === "string" ? args.name : "";
 
+    // `act` performs exactly two things. Without this, EVERY operation that is not
+    // "type" fell through to the click script — so an operation authorized as a
+    // read would have executed a mutating click.
+    if (operation !== "click" && operation !== "type") {
+      await respond({
+        id,
+        success: false,
+        error: `act supports 'click' and 'type', not '${operation}'`,
+      });
+      return;
+    }
+    // A blank role/name matches the first unnamed element of that role — an
+    // unintended click or edit. Refuse rather than guess at the target.
+    if (!role || !name) {
+      await respond({ id, success: false, error: "act requires a non-empty role and name" });
+      return;
+    }
+
     const decision = useBrowserApprovalStore.getState().decide(tab.url, operation);
     if (decision === "denied") {
       await respond({ id, success: false, error: `operation '${operation}' is not permitted` });
       return;
     }
     if (decision === "needs-approval") {
-      useBrowserApprovalStore.getState().requestApproval(id, tab.url, operation);
-      await respond({
-        id,
-        success: false,
-        data: { needsApproval: true, operation, url: tab.url },
-      });
-      return;
+      // "Allow once" mints a single-use authorization for (origin, operation).
+      // The AI retries under a NEW request id, so it cannot be matched by id —
+      // spend it here, immediately before acting, or the approval would authorize
+      // nothing and the AI would re-prompt forever.
+      const authorizedOnce = useBrowserApprovalStore
+        .getState()
+        .consumeOneShot(tab.url, operation);
+      if (!authorizedOnce) {
+        useBrowserApprovalStore.getState().requestApproval(id, tab.url, operation);
+        await respond({
+          id,
+          success: false,
+          // `error` is required by the bridge contract: without it the sidecar's
+          // `throw new Error(response.error)` produced an EMPTY error and the AI
+          // never learned that consent was being asked for. The structured
+          // envelope rides alongside for clients that can render it.
+          error: `approval required: '${operation}' on ${tab.url}`,
+          data: { needsApproval: true, operation, url: tab.url },
+        });
+        return;
+      }
     }
 
     const script =

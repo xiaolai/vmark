@@ -11,6 +11,26 @@
  */
 
 import { VMarkMcpServer } from '../server.js';
+import { isNeedsApproval } from '../bridge/core-types.js';
+
+/**
+ * Turn a bridge failure into a tool result.
+ *
+ * An approval refusal is not an ordinary error — it is a request for human
+ * consent. Render it so the AI can tell the user exactly what is being asked
+ * for, and tell it not to just retry (a retry re-raises the same request).
+ */
+function toErrorResult(error: unknown) {
+  const data = (error as { data?: unknown })?.data;
+  if (isNeedsApproval(data)) {
+    return VMarkMcpServer.errorResult(
+      `approval required: '${data.operation}' on ${data.url}. ` +
+        'Ask the user to approve this action in VMark, then try again. ' +
+        'Do not retry until they have approved — a retry only re-raises the same request.',
+    );
+  }
+  return VMarkMcpServer.errorResult(error instanceof Error ? error.message : String(error));
+}
 
 export function registerBrowserTool(server: VMarkMcpServer): void {
   server.registerTool(
@@ -57,29 +77,35 @@ export function registerBrowserTool(server: VMarkMcpServer): void {
     async (args) => {
       const tabId = typeof args.tabId === 'string' ? args.tabId : undefined;
 
-      if (args.action === 'read') {
-        const data = await server.sendBridgeRequest({ type: 'vmark.browser.read', tabId });
-        return VMarkMcpServer.successJsonResult(data);
-      }
-      if (args.action === 'act') {
-        const operation = typeof args.operation === 'string' ? args.operation : '';
-        const role = typeof args.role === 'string' ? args.role : '';
-        const name = typeof args.name === 'string' ? args.name : '';
-        if (!operation || !role || !name) {
-          return VMarkMcpServer.errorResult('act requires operation, role, and name');
+      try {
+        if (args.action === 'read') {
+          const data = await server.sendBridgeRequest({ type: 'vmark.browser.read', tabId });
+          return VMarkMcpServer.successJsonResult(data);
         }
-        const text = typeof args.text === 'string' ? args.text : undefined;
-        const data = await server.sendBridgeRequest({
-          type: 'vmark.browser.act',
-          tabId,
-          operation,
-          role,
-          name,
-          ...(text !== undefined ? { text } : {}),
-        });
-        return VMarkMcpServer.successJsonResult(data);
+        if (args.action === 'act') {
+          const operation = typeof args.operation === 'string' ? args.operation : '';
+          const role = typeof args.role === 'string' ? args.role : '';
+          const name = typeof args.name === 'string' ? args.name : '';
+          // A blank role/name would target the first unnamed matching element —
+          // an unintended click or edit. Refuse rather than guess.
+          if (!operation || !role || !name) {
+            return VMarkMcpServer.errorResult('act requires operation, role, and name');
+          }
+          const text = typeof args.text === 'string' ? args.text : undefined;
+          const data = await server.sendBridgeRequest({
+            type: 'vmark.browser.act',
+            tabId,
+            operation,
+            role,
+            name,
+            ...(text !== undefined ? { text } : {}),
+          });
+          return VMarkMcpServer.successJsonResult(data);
+        }
+        return VMarkMcpServer.errorResult(`unknown action: ${String(args.action)}`);
+      } catch (error) {
+        return toErrorResult(error);
       }
-      return VMarkMcpServer.errorResult(`unknown action: ${String(args.action)}`);
     },
   );
 }

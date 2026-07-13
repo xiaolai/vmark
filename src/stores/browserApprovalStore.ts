@@ -25,7 +25,11 @@ import {
   type ApprovalDecision,
   type StandingGrant,
 } from "@/lib/browser/approval/grants";
-import { canonicalizeOrigin, isOriginPattern } from "@/lib/browser/origin/originGuard";
+import {
+  canonicalizeOrigin,
+  isOriginGranted,
+  isOriginPattern,
+} from "@/lib/browser/origin/originGuard";
 
 /**
  * The operations the browser act tools can actually perform, and therefore the
@@ -51,9 +55,26 @@ export interface PendingApproval {
 /** How the user (or a policy) resolved a pending approval. */
 export type ApprovalOutcome = "once" | "remember" | "deny";
 
+/** A single-use authorization minted by "Allow once". */
+export interface OneShotApproval {
+  /** Canonical bare origin pattern the approval was granted on. */
+  originPattern: string;
+  operation: string;
+}
+
 interface BrowserApprovalState {
   grants: StandingGrant[];
   pending: PendingApproval[];
+  /**
+   * One-shot authorizations from "Allow once" (R5).
+   *
+   * Keyed by (origin, operation), NOT by request id: the AI retries a refused
+   * action under a *new* request id, so an id-keyed approval could never be
+   * matched back and "Allow once" would authorize nothing at all. Each entry is
+   * consumed by exactly one subsequent action and never becomes standing
+   * authority — `decide()` keeps returning `needs-approval`.
+   */
+  oneShots: OneShotApproval[];
 }
 
 interface BrowserApprovalActions {
@@ -70,10 +91,14 @@ interface BrowserApprovalActions {
   /** Queue a pending approval request for the UI to resolve. Ignores an unknown
    *  operation and a duplicate id (one id must map to exactly one action). */
   requestApproval: (id: string, targetUrl: string, operation: string) => void;
-  /** Resolve a pending request: `remember` promotes it to a standing grant
-   *  scoped to the target's origin; `once`/`deny` just clear it. No-op if the
-   *  id is unknown. */
+  /** Resolve a pending request: `remember` promotes it to a standing grant scoped
+   *  to the target's origin; `once` mints a single-use authorization for that
+   *  (origin, operation); `deny` just clears it. No-op if the id is unknown. */
   resolveApproval: (id: string, outcome: ApprovalOutcome) => void;
+  /** Spend a one-shot authorization for `targetUrl` + `operation`, if one exists.
+   *  Returns whether the action is authorized. Consuming is the point: a one-shot
+   *  authorizes exactly one action, so this must be called only when about to act. */
+  consumeOneShot: (targetUrl: string, operation: string) => boolean;
 }
 
 /** Bare origin pattern (`scheme://host[:port]`) for a URL, or null if opaque. */
@@ -91,6 +116,7 @@ export const useBrowserApprovalStore = create<BrowserApprovalState & BrowserAppr
   (set, get) => ({
     grants: [],
     pending: [],
+    oneShots: [],
 
     decide: (targetUrl, operation) => {
       if (!KNOWN_OPERATIONS.has(operation)) return "denied";
@@ -123,15 +149,40 @@ export const useBrowserApprovalStore = create<BrowserApprovalState & BrowserAppr
     resolveApproval: (id, outcome) => {
       const request = get().pending.find((p) => p.id === id);
       if (!request) return;
-      const pattern = outcome === "remember" ? grantPatternFor(request.targetUrl) : null;
+      // An opaque origin (about:/data:) yields no pattern — it can be neither
+      // remembered nor authorized once. Fail closed.
+      const pattern = grantPatternFor(request.targetUrl);
+      const remember = outcome === "remember" && pattern !== null;
+      const once = outcome === "once" && pattern !== null;
       // One update: never expose a state where the grant exists but the request
       // is still pending (subscribers — grantSync — would see it and push twice).
       set((state) => ({
-        grants: pattern
-          ? addGrant(state.grants, { originPattern: pattern, operations: [request.operation] })
+        grants: remember
+          ? addGrant(state.grants, {
+              originPattern: pattern as string,
+              operations: [request.operation],
+            })
           : state.grants,
+        oneShots: once
+          ? [...state.oneShots, { originPattern: pattern as string, operation: request.operation }]
+          : state.oneShots,
         pending: state.pending.filter((p) => p.id !== id),
       }));
+    },
+
+    consumeOneShot: (targetUrl, operation) => {
+      if (!KNOWN_OPERATIONS.has(operation)) return false;
+      const { oneShots } = get();
+      // Origin matching goes through the SAME guard as standing grants, so a
+      // one-shot can never be looser (no implicit subdomain wildcarding).
+      const index = oneShots.findIndex(
+        (s) => s.operation === operation && isOriginGranted(targetUrl, [s.originPattern]),
+      );
+      if (index === -1) return false;
+      set((state) => ({
+        oneShots: state.oneShots.filter((_, i) => i !== index),
+      }));
+      return true;
     },
   }),
 );
