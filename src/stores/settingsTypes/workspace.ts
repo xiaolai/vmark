@@ -59,7 +59,6 @@ export interface FormatsSettings {
   associations: Record<string, string>;
 }
 
-/** General settings — auto-save, document history, tab size, line endings, and quit behavior. */
 // ---------------------------------------------------------------------------
 // Large file open behavior
 // ---------------------------------------------------------------------------
@@ -86,6 +85,7 @@ export interface BrowserSettings {
   enabled: boolean;
 }
 
+/** General settings — auto-save, document history, tab size, line endings, and quit behavior. */
 export interface GeneralSettings {
   // Auto-save
   autoSaveEnabled: boolean;
@@ -124,6 +124,6 @@ export interface UpdateSettings {
   autoCheckEnabled: boolean; // Periodically check for updates
   checkFrequency: UpdateCheckFrequency; // When to check
   autoDownload: boolean; // Download updates automatically
-  lastCheckTimestamp: number | null; // Unix timestamp of last check
+  lastCheckTimestamp: number | null; // Unix epoch MILLISECONDS (Date.now()) of last check; null = never checked
   skipVersion: string | null; // Version to skip (user clicked "Skip")
 }

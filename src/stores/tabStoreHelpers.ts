@@ -4,9 +4,15 @@
  * Purpose: the store's stateless helpers, extracted from tabStore.ts so it stays
  * under its size baseline — field updates (updateTabById), format derivation
  * (deriveFormatId), tab titles + localized format names (getTabTitle,
- * getLocalizedFormatName), path re-derivation (applyPathUpdate), and post-removal
- * active-tab selection. No store access — exercised via tabStore.test.ts through
- * the actions that use them.
+ * getLocalizedFormatName), path re-derivation (applyPathUpdate), tab removal +
+ * post-removal active-tab selection (removeTabAt), and pinned-zone placement
+ * (insertTabForPin, repositionForPin). No store access.
+ *
+ * Key decisions:
+ *   - `mapDocumentTabById` preserves object identity wherever nothing changed,
+ *     so a no-op setter doesn't wake every `state.tabs` subscriber.
+ *   - Pinned tabs are a contiguous zone at the LEFT of the strip. Every
+ *     placement helper here maintains that; the drag plan relies on it.
  *
  * @coordinates-with tabStore.ts — sole caller
  * @module stores/tabStoreHelpers
@@ -34,9 +40,16 @@ export function getTabTitle(filePath: string | null, untitledNum?: number): stri
 export function getLocalizedFormatName(formatId: string): string {
   const config = getFormatById(formatId);
   if (!config) return formatId;
-  const translated = i18n.t(`common:${config.nameI18nKey}`);
-  // i18next returns the key string when missing; treat that as a miss.
-  return translated && translated !== `common:${config.nameI18nKey}` ? translated : formatId;
+  const namespaced = `common:${config.nameI18nKey}`;
+  const translated = i18n.t(namespaced);
+  // i18next echoes the key back when the translation is missing, and it echoes
+  // it WITHOUT the namespace ("format.json", not "common:format.json") — so
+  // guarding only the namespaced form lets the raw key leak into the toast.
+  // Reject both echo forms.
+  if (!translated || translated === namespaced || translated === config.nameI18nKey) {
+    return formatId;
+  }
+  return translated;
 }
 
 /** Derive a tab's format id from its path, defaulting to markdown. */
@@ -53,33 +66,66 @@ export function deriveFormatId(filePath: string | null): string {
 }
 
 /**
+ * The one immutable cross-window "find the document tab with this id and
+ * replace it" primitive. `update` runs on the matching document tab; returning
+ * the same object means "no change".
+ *
+ * Object identity is preserved wherever nothing changed: untouched windows keep
+ * their array reference and an unknown id returns the ORIGINAL map. That is
+ * what makes a no-op setter a true no-op — cloning the whole map would hand
+ * every `state.tabs` subscriber a fresh reference and re-render the tab strip
+ * for nothing.
+ */
+function mapDocumentTabById(
+  tabs: Record<string, Tab[]>,
+  tabId: string,
+  update: (tab: DocumentTab) => DocumentTab,
+): Record<string, Tab[]> {
+  let changed = false;
+  const next: Record<string, Tab[]> = {};
+  for (const [windowLabel, windowTabs] of Object.entries(tabs)) {
+    let windowChanged = false;
+    const mapped = windowTabs.map((t) => {
+      if (t.id !== tabId || t.kind !== "document") return t;
+      const updated = update(t);
+      if (updated === t) return t;
+      windowChanged = true;
+      return updated;
+    });
+    next[windowLabel] = windowChanged ? mapped : windowTabs;
+    changed ||= windowChanged;
+  }
+  return changed ? next : tabs;
+}
+
+/**
  * Shared update helper for keyed-by-id tab field mutations.
  *
  * The per-field setters (setTabEditingEnabled, setTabActiveSchemaId,
- * setTabFormatId, setTabViewMode) share the same scan-and-map pattern: walk
- * every window's tab array, replace exactly one tab (by id) with a
- * shallow-merged copy. Factoring this out keeps the setters thin and prevents
- * drift (e.g., one setter forgetting to clone state.tabs).
+ * setTabFormatId, setTabViewMode) share the same scan-and-map pattern.
+ * Factoring this out keeps the setters thin and prevents drift (e.g., one
+ * setter forgetting to clone state.tabs).
  *
- * Returns a partial state slice for direct return from Zustand's `set`.
- * Unknown ids result in a no-op clone (same shape, same data) — safe.
+ * Returns a partial state slice for direct return from Zustand's `set`. An
+ * unknown id — or a patch that changes nothing — returns the original `tabs`
+ * reference, so subscribers stay asleep.
  *
- * The patch is `Partial<DocumentTab>` because every caller sets a document-only
- * field (editingEnabled, activeSchemaId, formatId, viewMode). Browser tabs pass
- * through untouched — a browser tab can never be the target of these setters.
+ * The patch is restricted to the per-tab document settings these setters own.
+ * Path/title/pin state have their own actions (updateTabPath, updateTabTitle,
+ * togglePin) that maintain invariants this helper knows nothing about.
  */
 export function updateTabById(
   state: { tabs: Record<string, Tab[]> },
   tabId: string,
-  patch: Partial<Omit<DocumentTab, "kind" | "id">>,
+  patch: Partial<Pick<DocumentTab, "editingEnabled" | "activeSchemaId" | "formatId" | "viewMode">>,
 ): { tabs: Record<string, Tab[]> } {
-  const newTabs = { ...state.tabs };
-  for (const windowLabel of Object.keys(newTabs)) {
-    newTabs[windowLabel] = newTabs[windowLabel].map((t) =>
-      t.id === tabId && t.kind === "document" ? { ...t, ...patch } : t,
-    );
-  }
-  return { tabs: newTabs };
+  const entries = Object.entries(patch) as [keyof DocumentTab, unknown][];
+  return {
+    tabs: mapDocumentTabById(state.tabs, tabId, (tab) => {
+      const unchanged = entries.every(([key, value]) => tab[key] === value);
+      return unchanged ? tab : { ...tab, ...patch };
+    }),
+  };
 }
 
 /**
@@ -93,21 +139,17 @@ export function applyPathUpdate(
   filePath: string,
 ): { tabs: Record<string, Tab[]>; formatChange: string | null } {
   let formatChange: string | null = null;
-  const next = { ...tabs };
-  for (const windowLabel of Object.keys(next)) {
-    next[windowLabel] = next[windowLabel].map((t) => {
-      if (t.id !== tabId || t.kind !== "document") return t;
-      const nextFormatId = deriveFormatId(filePath);
-      if (nextFormatId !== t.formatId) formatChange = nextFormatId;
-      return { ...t, filePath, title: getTabTitle(filePath), formatId: nextFormatId };
-    });
-  }
+  const next = mapDocumentTabById(tabs, tabId, (tab) => {
+    const nextFormatId = deriveFormatId(filePath);
+    if (nextFormatId !== tab.formatId) formatChange = nextFormatId;
+    return { ...tab, filePath, title: getTabTitle(filePath), formatId: nextFormatId };
+  });
   return { tabs: next, formatChange };
 }
 
 /** Active tab after removing `removedId` at `removedIndex`: keep current if not
  *  active, else the right neighbor, then left, then null (shared, no drift). */
-export function nextActiveAfterRemoval(
+function nextActiveAfterRemoval(
   current: string | null,
   removedId: string,
   removedIndex: number,
@@ -116,4 +158,59 @@ export function nextActiveAfterRemoval(
   if (current !== removedId) return current;
   if (remaining.length === 0) return null;
   return remaining[Math.min(removedIndex, remaining.length - 1)].id;
+}
+
+/** State slice both removal paths (close, detach) rewrite. */
+type RemovalSlice = { tabs: Record<string, Tab[]>; activeTabId: Record<string, string | null> };
+
+/**
+ * Drop the tab at `index` from `windowLabel` and re-pick the active tab. The one
+ * removal implementation — closeTab and detachTab differ only in whether they
+ * also record the tab in `closedTabs`, so they cannot drift apart here.
+ */
+export function removeTabAt(state: RemovalSlice, windowLabel: string, index: number): RemovalSlice {
+  const windowTabs = state.tabs[windowLabel] ?? [];
+  const removedId = windowTabs[index].id;
+  const remaining = windowTabs.filter((_, i) => i !== index);
+  return {
+    tabs: { ...state.tabs, [windowLabel]: remaining },
+    activeTabId: {
+      ...state.activeTabId,
+      [windowLabel]: nextActiveAfterRemoval(
+        state.activeTabId[windowLabel] ?? null,
+        removedId,
+        index,
+        remaining,
+      ),
+    },
+  };
+}
+
+/** Index just past the last pinned tab — pinned tabs form a contiguous zone at
+ *  the left of the strip, which is where a pinned tab must be (re)inserted. */
+function pinnedZoneEnd(tabs: Tab[]): number {
+  let end = 0;
+  while (end < tabs.length && tabs[end].isPinned) end++;
+  return end;
+}
+
+/** Insert `tab` at the position its pin state requires: pinned tabs join the end
+ *  of the pinned zone, unpinned tabs go to the end of the strip. */
+export function insertTabForPin(tabs: Tab[], tab: Tab): Tab[] {
+  if (!tab.isPinned) return [...tabs, tab];
+  const next = [...tabs];
+  next.splice(pinnedZoneEnd(next), 0, tab);
+  return next;
+}
+
+/** Reposition the tab at `index` after its pin state flipped. Either way it lands
+ *  at the pinned/unpinned boundary: pinning appends it to the pinned zone,
+ *  unpinning moves it to the head of the unpinned zone. Unpinning in place would
+ *  strand the remaining pinned tabs to the RIGHT of an unpinned one and break the
+ *  contiguity the drag plan assumes. */
+export function repositionForPin(tabs: Tab[], index: number, updated: Tab): Tab[] {
+  const remaining = tabs.filter((_, i) => i !== index);
+  const next = [...remaining];
+  next.splice(pinnedZoneEnd(remaining), 0, updated);
+  return next;
 }

@@ -173,16 +173,12 @@ export const initialState: SettingsState = {
   showDevSection: false,
 };
 
-// Object sections that can be updated with createSectionUpdater
-export type ObjectSections =
-  | "general"
-  | "appearance"
-  | "cjkFormatting"
-  | "markdown"
-  | "image"
-  | "terminal"
-  | "advanced"
-  | "update"
-  | "largeFile"
-  | "formats"
-  | "browser";
+/**
+ * Settings sections that can be updated with createSectionUpdater — every
+ * object-valued key of SettingsState (i.e. all of them except the `showDevSection`
+ * UI flag). Derived, not hand-listed: a new section is picked up automatically
+ * instead of drifting out of sync with SettingsState.
+ */
+export type ObjectSections = {
+  [K in keyof SettingsState]: SettingsState[K] extends object ? K : never;
+}[keyof SettingsState];

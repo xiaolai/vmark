@@ -493,4 +493,79 @@ describe("workspaceStore", () => {
       expect(DEFAULT_EXCLUDED_FOLDERS).not.toContain(".vmark");
     });
   });
+
+  // openWorkspace and bootstrapConfig both mint a WorkspaceConfig. The store
+  // promises every workspace carries an identity (trust gating reads it), and
+  // no config may alias the module-level default arrays.
+  describe("config normalization is identical on both paths", () => {
+    beforeEach(() => {
+      useWorkspaceStore.setState({ rootPath: "/path", isWorkspaceMode: true, config: null });
+    });
+
+    it("bootstrapConfig creates an identity for a legacy disk config that has none", () => {
+      useWorkspaceStore.getState().bootstrapConfig({
+        version: 1,
+        excludeFolders: ["custom"],
+        lastOpenTabs: [],
+        showHiddenFiles: false,
+        showAllFiles: false,
+      });
+
+      expect(useWorkspaceStore.getState().config?.identity?.id).toBe("mock-uuid-1234");
+      expect(useWorkspaceStore.getState().getWorkspaceId()).toBe("mock-uuid-1234");
+    });
+
+    it("bootstrapConfig creates an identity when there is no disk config at all", () => {
+      useWorkspaceStore.getState().bootstrapConfig(null);
+      expect(useWorkspaceStore.getState().config?.identity?.id).toBe("mock-uuid-1234");
+    });
+
+    it("bootstrapConfig preserves an existing identity", () => {
+      const identity = {
+        id: "disk-id",
+        createdAt: 1,
+        trustLevel: "trusted" as const,
+        trustedAt: 2,
+      };
+      useWorkspaceStore.getState().bootstrapConfig({
+        version: 1,
+        excludeFolders: [],
+        lastOpenTabs: [],
+        showHiddenFiles: false,
+        showAllFiles: false,
+        identity,
+      });
+      expect(useWorkspaceStore.getState().config?.identity?.id).toBe("disk-id");
+    });
+
+    it("does not hand live state the exported DEFAULT_EXCLUDED_FOLDERS array", () => {
+      useWorkspaceStore.getState().openWorkspace("/path");
+      const config = useWorkspaceStore.getState().config!;
+      expect(config.excludeFolders).toEqual(DEFAULT_EXCLUDED_FOLDERS);
+      expect(config.excludeFolders).not.toBe(DEFAULT_EXCLUDED_FOLDERS);
+
+      // A mutation of live state must not corrupt the module default that
+      // every future workspace is built from.
+      config.excludeFolders.push("mutated");
+      expect(DEFAULT_EXCLUDED_FOLDERS).not.toContain("mutated");
+
+      useWorkspaceStore.setState({ config: null });
+      useWorkspaceStore.getState().bootstrapConfig(null);
+      expect(useWorkspaceStore.getState().config?.excludeFolders).not.toBe(DEFAULT_EXCLUDED_FOLDERS);
+      expect(useWorkspaceStore.getState().config?.excludeFolders).not.toContain("mutated");
+    });
+
+    it("copies a caller-owned excludeFolders array", () => {
+      const callerOwned = ["dist"];
+      useWorkspaceStore.getState().openWorkspace("/path", {
+        version: 1,
+        excludeFolders: callerOwned,
+        lastOpenTabs: [],
+        showHiddenFiles: false,
+        showAllFiles: false,
+      });
+      expect(useWorkspaceStore.getState().config?.excludeFolders).toEqual(["dist"]);
+      expect(useWorkspaceStore.getState().config?.excludeFolders).not.toBe(callerOwned);
+    });
+  });
 });

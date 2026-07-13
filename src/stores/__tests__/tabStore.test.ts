@@ -1,8 +1,9 @@
 /**
  * Unit tests for tabStore — focused on path deduplication logic.
  */
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { useTabStore } from "../tabStore";
+import { onTabRemoved } from "../tabRemovalBus";
 
 const WINDOW = "main";
 
@@ -470,6 +471,116 @@ describe("tabStore", () => {
       expect(tabs.find((t) => t.id === id1)!.isPinned).toBe(false);
       // id2 unchanged
       expect(tabs.find((t) => t.id === id2)!.isPinned).toBe(false);
+    });
+  });
+
+  // #1081 — paneStore collapses a split when it hears a removal. A removal
+  // event without an actual removal collapses the split for nothing.
+  describe("tab-removal notifications fire only on a real removal", () => {
+    let removals: string[];
+    let unsubscribe: () => void;
+
+    beforeEach(() => {
+      removals = [];
+      unsubscribe = onTabRemoved((_w, tabId) => removals.push(tabId));
+    });
+
+    afterEach(() => unsubscribe());
+
+    it("notifies exactly once when closeTab actually removes a tab", () => {
+      const id = useTabStore.getState().createTab(WINDOW, "/file.md");
+      useTabStore.getState().closeTab(WINDOW, id);
+      expect(removals).toEqual([id]);
+    });
+
+    it("does NOT notify when closeTab targets a nonexistent tab", () => {
+      useTabStore.getState().closeTab(WINDOW, "nonexistent");
+      expect(removals).toEqual([]);
+    });
+
+    it("does NOT notify when closeTab refuses to close a pinned tab", () => {
+      const id = useTabStore.getState().createTab(WINDOW, "/file.md");
+      useTabStore.getState().togglePin(WINDOW, id);
+      useTabStore.getState().closeTab(WINDOW, id);
+      expect(useTabStore.getState().getTabsByWindow(WINDOW)).toHaveLength(1);
+      expect(removals).toEqual([]);
+    });
+
+    it("notifies exactly once when detachTab actually removes a tab", () => {
+      const id = useTabStore.getState().createTab(WINDOW, "/file.md");
+      useTabStore.getState().detachTab(WINDOW, id);
+      expect(removals).toEqual([id]);
+    });
+
+    it("does NOT notify when detachTab targets a nonexistent tab", () => {
+      useTabStore.getState().createTab(WINDOW, "/file.md");
+      useTabStore.getState().detachTab(WINDOW, "nonexistent");
+      expect(removals).toEqual([]);
+    });
+  });
+
+  // Pinned tabs form a contiguous zone at the left of the strip — the drag
+  // plan and the pin-insertion point both assume it.
+  describe("pinned zone stays contiguous", () => {
+    it("unpinning the FIRST of several pinned tabs moves it after the pinned group", () => {
+      const a = useTabStore.getState().createTab(WINDOW, "/a.md");
+      const b = useTabStore.getState().createTab(WINDOW, "/b.md");
+      const c = useTabStore.getState().createTab(WINDOW, "/c.md");
+      useTabStore.getState().togglePin(WINDOW, a);
+      useTabStore.getState().togglePin(WINDOW, b);
+      // [a(pin), b(pin), c]
+      useTabStore.getState().togglePin(WINDOW, a); // unpin the first pinned tab
+
+      const tabs = useTabStore.getState().getTabsByWindow(WINDOW);
+      expect(tabs.map((t) => t.id)).toEqual([b, a, c]);
+      expect(tabs.map((t) => t.isPinned)).toEqual([true, false, false]);
+    });
+
+    it("createTransferredTab drops a pinned transfer into the pinned zone", () => {
+      const a = useTabStore.getState().createTab(WINDOW, "/a.md");
+      useTabStore.getState().togglePin(WINDOW, a);
+      useTabStore.getState().createTab(WINDOW, "/b.md"); // unpinned
+
+      useTabStore.getState().createTransferredTab(WINDOW, {
+        id: "moved",
+        filePath: "/moved.md",
+        title: "moved",
+        isPinned: true,
+      });
+
+      const tabs = useTabStore.getState().getTabsByWindow(WINDOW);
+      expect(tabs.map((t) => t.id)).toEqual([a, "moved", tabs[2].id]);
+      expect(tabs.map((t) => t.isPinned)).toEqual([true, true, false]);
+    });
+  });
+
+  describe("createTransferredTab — path dedup", () => {
+    it("activates the existing tab instead of duplicating an already-open path", () => {
+      const existing = useTabStore.getState().createTab(WINDOW, "C:\\Users\\test\\file.md");
+      useTabStore.getState().createTab(WINDOW, "/other.md");
+
+      const id = useTabStore.getState().createTransferredTab(WINDOW, {
+        id: "transferred",
+        filePath: "c:/Users/test/file.md", // same path, different separators/case
+        title: "file",
+        isPinned: false,
+      });
+
+      expect(id).toBe(existing);
+      expect(useTabStore.getState().getTabsByWindow(WINDOW)).toHaveLength(2);
+      expect(useTabStore.getState().activeTabId[WINDOW]).toBe(existing);
+    });
+
+    it("still creates a tab for an untitled transfer (null path never dedups)", () => {
+      useTabStore.getState().createTab(WINDOW, null);
+      const id = useTabStore.getState().createTransferredTab(WINDOW, {
+        id: "transferred",
+        filePath: null,
+        title: "Untitled-9",
+        isPinned: false,
+      });
+      expect(id).toBe("transferred");
+      expect(useTabStore.getState().getTabsByWindow(WINDOW)).toHaveLength(2);
     });
   });
 });

@@ -11,7 +11,9 @@
  *   - Workspace identity (UUID + trust) enables future features like
  *     workspace-scoped AI settings and security gating.
  *   - Default excluded folders (.git, node_modules) are merged on open
- *     to ensure new defaults propagate to existing workspaces.
+ *     to ensure new defaults propagate to existing workspaces. openWorkspace
+ *     and bootstrapConfig share ONE normalizer (defaults, identity, array
+ *     copies), so a disk config lands in the same shape as a caller's.
  *
  * Known limitations:
  *   - Config is stored in localStorage (via windowScopedStorage), not on
@@ -20,6 +22,7 @@
  *
  * @coordinates-with tabStore.ts — lastOpenTabs drives session restore
  * @coordinates-with useWorkspaceBootstrap.ts — loads config from Tauri on startup
+ * @coordinates-with workspaceStoreHelpers.ts — serialized native-menu/dock IPC
  * @module stores/workspaceStore
  */
 
@@ -35,15 +38,19 @@ import {
 } from "@/utils/workspaceIdentity";
 import { windowScopedStorage } from "@/services/persistence/workspaceStorage";
 import { createSafeStorage } from "@/services/persistence/safeStorage";
-import { invoke } from "@tauri-apps/api/core";
 import { getFileName } from "@/utils/pathUtils";
-import { recentWarn } from "@/utils/debug";
+import type { SessionTabsV1 } from "@/services/persistence/sessionTabs";
+import { registerDockRecent, syncRecentFilesMenu, syncRecentWorkspacesMenu } from "@/stores/workspaceStoreHelpers";
 
 /** Workspace configuration — excluded folders, session restore tabs, file visibility, and trust identity. */
 export interface WorkspaceConfig {
   version: 1;
   excludeFolders: string[];
-  lastOpenTabs: string[]; // Doc paths for session restore (WI-1.1 also persists an opaque `sessionTabs`; see sessionTabs.ts)
+  lastOpenTabs: string[]; // Doc paths for session restore (legacy; kept for older builds)
+  /** WI-1.1 — full ordered tab list (documents + browser tabs). Written by
+   *  workspaceSession.ts, read back by sessionTabs.ts; the Rust side keeps it
+   *  as an opaque JSON value, so the schema lives on this side. */
+  sessionTabs?: SessionTabsV1;
   showHiddenFiles: boolean;
   showAllFiles: boolean; // Show non-markdown files in the file explorer
   ai?: Record<string, unknown>; // Future AI settings
@@ -83,13 +90,28 @@ interface WorkspaceActions {
 
 const DEFAULT_EXCLUDED_FOLDERS = [".git", "node_modules"];
 
-const DEFAULT_CONFIG: WorkspaceConfig = {
-  version: 1,
-  excludeFolders: DEFAULT_EXCLUDED_FOLDERS,
-  lastOpenTabs: [],
-  showHiddenFiles: false,
-  showAllFiles: false,
-};
+/**
+ * Bring any config (from disk, from a caller, or none at all) to the shape the
+ * store guarantees: defaults filled in, an identity present (trust gating reads
+ * it), and no array shared with the module defaults or the caller — live state
+ * that aliases `DEFAULT_EXCLUDED_FOLDERS` would let one in-place mutation
+ * corrupt every future workspace.
+ *
+ * Both entry points (openWorkspace, bootstrapConfig) run this, so a bootstrapped
+ * workspace can't end up without the identity an opened one always gets.
+ */
+function normalizeWorkspaceConfig(config?: WorkspaceConfig | null): WorkspaceConfig {
+  const source: Partial<WorkspaceConfig> = config ?? {};
+  return {
+    version: 1,
+    showHiddenFiles: false,
+    showAllFiles: false,
+    ...source,
+    excludeFolders: [...(source.excludeFolders ?? DEFAULT_EXCLUDED_FOLDERS)],
+    lastOpenTabs: [...(source.lastOpenTabs ?? [])],
+    identity: source.identity ?? createWorkspaceIdentity(),
+  };
+}
 
 /** Manages workspace folder state — open/close, config, excluded folders, and trust. Use selectors, not destructuring. */
 export const useWorkspaceStore = create<WorkspaceState & WorkspaceActions>()(
@@ -100,15 +122,9 @@ export const useWorkspaceStore = create<WorkspaceState & WorkspaceActions>()(
       isWorkspaceMode: false,
 
       openWorkspace: (rootPath, config = null) => {
-        // Merge defaults to ensure new fields are populated
-        const finalConfig = { ...DEFAULT_CONFIG, ...(config ?? {}) };
-        // Ensure workspace has an identity
-        if (!finalConfig.identity) {
-          finalConfig.identity = createWorkspaceIdentity();
-        }
         set({
           rootPath,
-          config: finalConfig,
+          config: normalizeWorkspaceConfig(config),
           isWorkspaceMode: true,
         });
       },
@@ -123,12 +139,12 @@ export const useWorkspaceStore = create<WorkspaceState & WorkspaceActions>()(
 
       bootstrapConfig: (config) => {
         const { rootPath, isWorkspaceMode } = get();
-        // Only bootstrap if we have a workspace but no config
+        // Only bootstrap when a workspace is actually open
         if (!rootPath || !isWorkspaceMode) return;
 
-        set({
-          config: config ? { ...DEFAULT_CONFIG, ...config } : { ...DEFAULT_CONFIG },
-        });
+        // Same normalization as openWorkspace — a legacy on-disk config without
+        // an identity gets one here too, or trust gating would read undefined.
+        set({ config: normalizeWorkspaceConfig(config) });
       },
 
       updateConfig: (updates) => {
@@ -262,20 +278,8 @@ interface RecentFilesState {
   syncToNativeMenu: () => void;
 }
 
-async function updateRecentFilesNativeMenu(files: RecentFile[]) {
-  try {
-    await invoke("update_recent_files", { files: files.map((f) => f.path) });
-  } catch (error) {
-    recentWarn("Failed to update recent files native menu:", error);
-  }
-}
-
-async function registerDockRecent(path: string) {
-  try {
-    await invoke("register_dock_recent", { path });
-  } catch {
-    /* macOS-only command; silent on other platforms */
-  }
+function updateRecentFilesNativeMenu(files: RecentFile[]) {
+  syncRecentFilesMenu(files.map((f) => f.path));
 }
 
 /** Manages recently opened files (max 10) with persistence and native menu sync. */
@@ -335,14 +339,8 @@ interface RecentWorkspacesState {
   syncToNativeMenu: () => void;
 }
 
-async function updateRecentWorkspacesNativeMenu(workspaces: RecentWorkspace[]) {
-  try {
-    await invoke("update_recent_workspaces", {
-      workspaces: workspaces.map((w) => w.path),
-    });
-  } catch (error) {
-    recentWarn("Failed to update recent workspaces native menu:", error);
-  }
+function updateRecentWorkspacesNativeMenu(workspaces: RecentWorkspace[]) {
+  syncRecentWorkspacesMenu(workspaces.map((w) => w.path));
 }
 
 /** Manages recently opened workspaces (max 10) with persistence and native menu sync. */

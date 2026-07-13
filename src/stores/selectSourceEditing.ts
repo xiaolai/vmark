@@ -20,6 +20,13 @@
 import { useTabStore } from "./tabStore";
 import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 
+/** The two mutually-exclusive editor-mode flags every selector here reads
+ *  (structurally satisfied by `uiStore`'s state). */
+export interface EditorModeFlags {
+  sourceMode: boolean;
+  markdownSplitView: boolean;
+}
+
 function activeTabIsMarkdown(): boolean {
   const ts = useTabStore.getState();
   const id = ts.activeTabId[getCurrentWindowLabel()];
@@ -27,10 +34,7 @@ function activeTabIsMarkdown(): boolean {
   return t?.kind === "document" ? t.formatId === "markdown" : false;
 }
 
-export function selectSourceEditing(s: {
-  sourceMode: boolean;
-  markdownSplitView: boolean;
-}): boolean {
+export function selectSourceEditing(s: EditorModeFlags): boolean {
   if (s.sourceMode) return true;
   // Split view only applies to markdown — don't treat other formats as source.
   return s.markdownSplitView && activeTabIsMarkdown();
@@ -49,10 +53,7 @@ export type EditorMode = "wysiwyg" | "source" | "split";
  * lookups; the flags are already kept mutually exclusive by their mutators in
  * uiStore, so `sourceMode` taking precedence here only matters defensively.
  */
-export function selectEditorMode(s: {
-  sourceMode: boolean;
-  markdownSplitView: boolean;
-}): EditorMode {
+export function selectEditorMode(s: EditorModeFlags): EditorMode {
   if (s.sourceMode) return "source";
   if (s.markdownSplitView) return "split";
   return "wysiwyg";
@@ -97,7 +98,7 @@ export interface ViewMenuTabContext {
  *   the global flags say WYSIWYG.
  */
 export function selectViewMenuModeState(
-  s: { sourceMode: boolean; markdownSplitView: boolean },
+  s: EditorModeFlags,
   ctx: ViewMenuTabContext,
 ): ViewMenuModeState {
   const mode: EditorMode = ctx.forcedSource ? "source" : selectEditorMode(s);

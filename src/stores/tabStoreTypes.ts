@@ -19,16 +19,23 @@
 
 import type { SplitViewMode } from "@/lib/formats/types";
 
+/** What every tab has, whatever it holds. Kept in one place so the shared fields
+ *  can't drift between the two union members. */
+interface BaseTab {
+  id: string;
+  title: string;
+  /** Pinned tabs form a contiguous zone at the LEFT of the strip (tabStore's
+   *  pin/reorder/transfer paths all maintain that) and refuse to close. */
+  isPinned: boolean;
+}
+
 /** A single editor tab backed by a document (file or untitled). Carries the
  *  format adapter id (derived from filePath via dispatchEditor) and the WI-4.3
  *  per-tab editingEnabled override. This is the historical `Tab` contract. */
-export interface DocumentTab {
+export interface DocumentTab extends BaseTab {
   /** R1 discriminant — a document tab, editable via the format registry. */
   kind: "document";
-  id: string;
   filePath: string | null; // null = untitled
-  title: string;
-  isPinned: boolean;
   /** WI-1A.12 — format registry id (e.g. "markdown", "txt"). Derived from filePath
    *  on createTab/createTransferredTab/updateTabPath. The Editor surface keys on
    *  this; a kind change triggers remount + undo reset + toast (ADR-10). */
@@ -54,14 +61,11 @@ export interface DocumentTab {
  *  minimal session-restorable state; the live native webview and its transient
  *  state (loading, favicon, snapshot) are owned by the browser surface, not the
  *  tab record. Browser tabs do NOT participate in workspace transfer in v1. */
-export interface BrowserTab {
+export interface BrowserTab extends BaseTab {
   /** R1 discriminant — a browser tab; has no document path or format. */
   kind: "browser";
-  id: string;
   /** Current URL (canonicalized for dedup on create; updated on navigation). */
   url: string;
-  title: string;
-  isPinned: boolean;
   /** Last known scroll offset, persisted for restore. */
   scrollY?: number;
   /**

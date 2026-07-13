@@ -45,10 +45,12 @@ import {
 import {
   deriveFormatId,
   updateTabById,
-  nextActiveAfterRemoval,
   getTabTitle,
   getLocalizedFormatName,
   applyPathUpdate,
+  removeTabAt,
+  insertTabForPin,
+  repositionForPin,
 } from "@/stores/tabStoreHelpers";
 import { notifyTabRemoved } from "@/stores/tabRemovalBus";
 
@@ -193,14 +195,26 @@ export const useTabStore = create<TabState & TabActions>((set, get) => ({
 
     set((state) => {
       const windowTabs = state.tabs[windowLabel] || [];
-      const existing = windowTabs.find((t) => t.id === fullTab.id);
+      // Dedup by id (a repeated transfer) AND by path (the file is already open
+      // in the target window) — same contract as createTab, so a transfer can't
+      // produce two tabs for one file in one window.
+      const normalized = fullTab.filePath ? normalizePath(fullTab.filePath) : null;
+      const existing = windowTabs.find(
+        (t) =>
+          t.id === fullTab.id ||
+          (normalized !== null &&
+            t.kind === "document" &&
+            !!t.filePath &&
+            normalizePath(t.filePath) === normalized),
+      );
       if (existing) {
         returnId = existing.id;
         return { activeTabId: { ...state.activeTabId, [windowLabel]: existing.id } };
       }
 
       return {
-        tabs: { ...state.tabs, [windowLabel]: [...windowTabs, fullTab] },
+        // A pinned transfer belongs in the pinned zone, not after the unpinned tabs.
+        tabs: { ...state.tabs, [windowLabel]: insertTabForPin(windowTabs, fullTab) },
         activeTabId: { ...state.activeTabId, [windowLabel]: fullTab.id },
       };
     });
@@ -232,6 +246,9 @@ export const useTabStore = create<TabState & TabActions>((set, get) => ({
   },
 
   closeTab: (windowLabel, tabId) => {
+    // #1081: notify ONLY on a real removal. A pinned (refused) or unknown tab
+    // removes nothing, and paneStore would collapse a split for no reason.
+    let removed = false;
     set((state) => {
       const windowTabs = state.tabs[windowLabel] || [];
       const tabIndex = windowTabs.findIndex((t) => t.id === tabId);
@@ -248,37 +265,28 @@ export const useTabStore = create<TabState & TabActions>((set, get) => ({
 
       // Add to closed tabs for reopen
       const closed = state.closedTabs[windowLabel] || [];
-      const newClosed = [tab, ...closed].slice(0, 10);
-
-      const newTabs = windowTabs.filter((t) => t.id !== tabId);
-      const newActiveId = nextActiveAfterRemoval(state.activeTabId[windowLabel], tabId, tabIndex, newTabs);
+      removed = true;
 
       return {
-        tabs: { ...state.tabs, [windowLabel]: newTabs },
-        activeTabId: { ...state.activeTabId, [windowLabel]: newActiveId },
-        closedTabs: { ...state.closedTabs, [windowLabel]: newClosed },
+        ...removeTabAt(state, windowLabel, tabIndex),
+        closedTabs: { ...state.closedTabs, [windowLabel]: [tab, ...closed].slice(0, 10) },
       };
     });
     // #1081: paneStore collapses a split whose pane held the tab.
-    notifyTabRemoved(windowLabel, tabId);
+    if (removed) notifyTabRemoved(windowLabel, tabId);
   },
 
   detachTab: (windowLabel, tabId) => {
+    let removed = false;
     set((state) => {
       const windowTabs = state.tabs[windowLabel] || [];
       const tabIndex = windowTabs.findIndex((t) => t.id === tabId);
       if (tabIndex === -1) return state;
-
-      const newTabs = windowTabs.filter((t) => t.id !== tabId);
-      const newActiveId = nextActiveAfterRemoval(state.activeTabId[windowLabel], tabId, tabIndex, newTabs);
-
-      return {
-        tabs: { ...state.tabs, [windowLabel]: newTabs },
-        activeTabId: { ...state.activeTabId, [windowLabel]: newActiveId },
-      };
+      removed = true;
+      return removeTabAt(state, windowLabel, tabIndex);
     });
     // #1081: detaching removes the tab here too — collapse a split that held it.
-    notifyTabRemoved(windowLabel, tabId);
+    if (removed) notifyTabRemoved(windowLabel, tabId);
   },
 
   setActiveTab: (windowLabel, tabId) => {
@@ -345,23 +353,14 @@ export const useTabStore = create<TabState & TabActions>((set, get) => ({
       const tab = windowTabs[tabIndex];
       const updatedTab = { ...tab, isPinned: !tab.isPinned };
 
-      // Move pinned tabs to the left
-      let newTabs: Tab[];
-      if (updatedTab.isPinned) {
-        // Find insertion point (after last pinned tab)
-        const lastPinnedIndex = windowTabs.reduce(
-          (last, t, i) => (t.isPinned ? i : last),
-          -1
-        );
-        newTabs = [...windowTabs];
-        newTabs.splice(tabIndex, 1);
-        newTabs.splice(lastPinnedIndex + 1, 0, updatedTab);
-      } else {
-        // Just update in place
-        newTabs = windowTabs.map((t) => (t.id === tabId ? updatedTab : t));
-      }
-
-      return { tabs: { ...state.tabs, [windowLabel]: newTabs } };
+      // Both directions land on the pinned/unpinned boundary, so the pinned
+      // zone stays contiguous at the left of the strip.
+      return {
+        tabs: {
+          ...state.tabs,
+          [windowLabel]: repositionForPin(windowTabs, tabIndex, updatedTab),
+        },
+      };
     });
   },
 
