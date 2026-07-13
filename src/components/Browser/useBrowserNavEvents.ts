@@ -17,8 +17,19 @@
  * @coordinates-with src-tauri browser/nav_delegate_macos.rs — the event emitter
  * @module components/Browser/useBrowserNavEvents
  */
-import { useEffect, useRef } from "react";
+import { useLayoutEffect, useEffect, useRef } from "react";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { browserWarn } from "@/utils/debug";
+
+/** How the native side is recovering from a content-process crash (WI-1.8):
+ *  it is already reloading, or the user has to act. */
+export type CrashAction = "auto-reload" | "manual";
+
+/** A page JS dialog. Only a `confirm` can be answered, and answering needs the
+ *  native completion-handler `id` — so the two travel together or not at all. */
+export type BrowserDialog =
+  | { kind: "alert"; message: string }
+  | { kind: "confirm"; message: string; id: number };
 
 export interface BrowserNavHandlers {
   /**
@@ -31,87 +42,88 @@ export interface BrowserNavHandlers {
   onLoaded?: (url: string, title: string) => void;
   /** A (provisional or committed) navigation failed. */
   onFailed?: (message: string) => void;
-  /** The web content process died; `action` is "auto-reload" or "manual" (WI-1.8). */
-  onCrashed?: (action: string) => void;
-  /** The page opened a JS dialog (`alert`/`confirm`). `id` is present for `confirm`. */
-  onDialog?: (dialog: { kind: string; message: string; id?: number }) => void;
+  /** The web content process died (WI-1.8). */
+  onCrashed?: (action: CrashAction) => void;
+  /** The page opened a JS dialog (`alert`/`confirm`). */
+  onDialog?: (dialog: BrowserDialog) => void;
 }
 
-interface NavPayload {
+interface TabScoped {
   tabId: string;
+}
+interface NavPayload extends TabScoped {
   url: string;
   generation: number;
 }
-interface LoadedPayload {
-  tabId: string;
+interface LoadedPayload extends TabScoped {
   url: string;
   title: string;
 }
-interface FailedPayload {
-  tabId: string;
+interface FailedPayload extends TabScoped {
   message: string;
 }
-interface CrashPayload {
-  tabId: string;
+interface CrashPayload extends TabScoped {
   action: string;
 }
-interface DialogPayload {
-  tabId: string;
+interface DialogPayload extends TabScoped {
   kind: string;
   message: string;
   id?: number;
 }
 
+/** Fail closed: an unrecognized action means we do NOT know a reload is coming,
+ *  so ask the user rather than show a "reloading…" that never completes. */
+function toCrashAction(action: string): CrashAction {
+  return action === "auto-reload" ? "auto-reload" : "manual";
+}
+
+/** A confirm without its completion-handler id cannot be answered — surface it as
+ *  an alert rather than offer OK/Cancel buttons whose answer reaches nobody. */
+function toDialog(p: DialogPayload): BrowserDialog {
+  return p.kind === "confirm" && typeof p.id === "number"
+    ? { kind: "confirm", message: p.message, id: p.id }
+    : { kind: "alert", message: p.message };
+}
+
 export function useBrowserNavEvents(tabId: string, handlers: BrowserNavHandlers): void {
   const handlersRef = useRef(handlers);
-  // Keep the ref current without touching it during render (React 19 compiler
-  // rule); listeners read handlersRef.current at event time, always after commit.
-  useEffect(() => {
+  // Layout effect, not a passive one: a native event can arrive between commit
+  // and a passive effect, and would then hit the previous render's handlers.
+  // (Writing the ref during render is what React 19 forbids — this is after commit.)
+  useLayoutEffect(() => {
     handlersRef.current = handlers;
   });
 
   useEffect(() => {
     let active = true;
     const unlisteners: UnlistenFn[] = [];
-    const track = (p: Promise<UnlistenFn>) => {
-      void p.then((un) => {
-        // If we already unmounted before the listen() promise resolved, undo it.
-        if (active) unlisteners.push(un);
-        else un();
-      });
+
+    /** Subscribe to one tab-scoped native event: filter by tab, dispatch to the
+     *  latest handler, track the unlisten (undoing it if we already unmounted),
+     *  and never let a failed registration become an unhandled rejection. */
+    const on = <P extends TabScoped>(
+      event: string,
+      dispatch: (payload: P, h: BrowserNavHandlers) => void,
+    ): void => {
+      listen<P>(event, (e) => {
+        if (e.payload.tabId === tabId) dispatch(e.payload, handlersRef.current);
+      })
+        .then((un) => {
+          if (active) unlisteners.push(un);
+          else un(); // unmounted before listen() resolved — undo it
+        })
+        .catch((error: unknown) => {
+          // A dead listener means this part of the chrome silently stops tracking
+          // reality (no crash overlay, a stale address bar) — say so, loudly.
+          browserWarn(`browser: failed to subscribe to ${event}`, error);
+        });
     };
 
-    track(
-      listen<NavPayload>("browser://navigated", (e) => {
-        if (e.payload.tabId === tabId)
-          handlersRef.current.onNavigated?.(e.payload.url, e.payload.generation);
-      }),
-    );
-    track(
-      listen<LoadedPayload>("browser://loaded", (e) => {
-        if (e.payload.tabId === tabId) handlersRef.current.onLoaded?.(e.payload.url, e.payload.title);
-      }),
-    );
-    track(
-      listen<FailedPayload>("browser://load-failed", (e) => {
-        if (e.payload.tabId === tabId) handlersRef.current.onFailed?.(e.payload.message);
-      }),
-    );
-    track(
-      listen<CrashPayload>("browser://crashed", (e) => {
-        if (e.payload.tabId === tabId) handlersRef.current.onCrashed?.(e.payload.action);
-      }),
-    );
-    track(
-      listen<DialogPayload>("browser://dialog", (e) => {
-        if (e.payload.tabId === tabId)
-          handlersRef.current.onDialog?.({
-            kind: e.payload.kind,
-            message: e.payload.message,
-            id: e.payload.id,
-          });
-      }),
-    );
+    on<NavPayload>("browser://navigated", (p, h) => h.onNavigated?.(p.url, p.generation));
+    on<LoadedPayload>("browser://loaded", (p, h) => h.onLoaded?.(p.url, p.title));
+    on<FailedPayload>("browser://load-failed", (p, h) => h.onFailed?.(p.message));
+    on<CrashPayload>("browser://crashed", (p, h) => h.onCrashed?.(toCrashAction(p.action)));
+    on<DialogPayload>("browser://dialog", (p, h) => h.onDialog?.(toDialog(p)));
 
     return () => {
       active = false;

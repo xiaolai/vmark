@@ -31,7 +31,11 @@ import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { useTabStore } from "@/stores/tabStore";
 import { isBrowserTab } from "@/stores/tabStoreTypes";
 import { canonicalizeBrowserUrl } from "@/lib/browser/url";
-import { useBrowserNavEvents } from "./useBrowserNavEvents";
+import {
+  useBrowserNavEvents,
+  type BrowserDialog,
+  type CrashAction,
+} from "./useBrowserNavEvents";
 import "./browser-surface.css";
 
 export function BrowserSurface({ tabId }: { tabId: string }): React.ReactElement {
@@ -46,9 +50,9 @@ export function BrowserSurface({ tabId }: { tabId: string }): React.ReactElement
   const [loading, setLoading] = useState(true);
   // Non-null while the web content process is down (WI-1.8). `action` is
   // "auto-reload" (native is already reloading) or "manual" (needs the user).
-  const [crash, setCrash] = useState<{ action: string } | null>(null);
+  const [crash, setCrash] = useState<{ action: CrashAction } | null>(null);
   // Non-null while a page JS dialog (alert/confirm) is open (WI-1.7).
-  const [dialog, setDialog] = useState<{ kind: string; message: string; id?: number } | null>(null);
+  const [dialog, setDialog] = useState<BrowserDialog | null>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
 
   // Mounted per-tab (keyed in Editor.tsx), so `url` is the initial target and
@@ -104,10 +108,12 @@ export function BrowserSurface({ tabId }: { tabId: string }): React.ReactElement
       setUrlInput(next);
       setLoading(false);
       // A clean load means the process recovered — reveal the native view again.
-      setCrash((prev) => {
-        if (prev) void invoke("browser_thaw", { tabId }).catch(() => {});
-        return null;
-      });
+      // The thaw is fired here, not inside the `setCrash` updater: React may
+      // re-invoke an updater (StrictMode), which would thaw twice.
+      if (crash) {
+        setCrash(null);
+        void invoke("browser_thaw", { tabId }).catch(() => {});
+      }
       useTabStore.getState().updateBrowserTab(tabId, { url: next });
     },
     onFailed: () => setLoading(false),
@@ -124,12 +130,14 @@ export function BrowserSurface({ tabId }: { tabId: string }): React.ReactElement
     },
   });
 
-  // Answer (or dismiss) the open page dialog, then reveal the page again.
+  // Answer (or dismiss) the open page dialog, then reveal the page again. Only a
+  // `confirm` can be answered — the type carries the completion-handler id, so
+  // there is no unanswerable-confirm case to guard against here.
   const closeDialog = (accepted: boolean) => {
     const current = dialog;
     setDialog(null);
     void invoke("browser_thaw", { tabId }).catch(() => {});
-    if (current?.kind === "confirm" && current.id !== undefined) {
+    if (current?.kind === "confirm") {
       void invoke("browser_dialog_respond", { id: current.id, accepted }).catch(() => {});
     }
   };

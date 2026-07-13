@@ -10,8 +10,17 @@
  * and the AI is told approval is required, so the human stays in the loop for
  * anything not pre-authorized.
  *
+ * **The check here is advisory, not the security boundary.** The authoritative
+ * gate is the Rust driver (`browser/origin_guard.rs`): it re-checks the operation
+ * against the tab's COMMITTED origin — read from its own registry, never from this
+ * layer — and rejects a command stamped with a stale navigation generation. This
+ * layer's job is to keep the human in the loop and to stamp each eval with
+ * `operation` + `generation`; if it were skipped entirely, the driver would still
+ * refuse anything un-granted.
+ *
+ * @coordinates-with src-tauri browser/origin_guard.rs — the authoritative R4/R5 gate
  * @coordinates-with src-tauri browser_eval — evaluates the generated scripts
- * @coordinates-with stores/browserApprovalStore.ts — the R5 gate
+ * @coordinates-with stores/browserApprovalStore.ts — the advisory R5 check + grant source
  * @coordinates-with lib/browser/agent/actScript.ts — snapshot/click/type scripts
  * @module hooks/mcpBridge/v2/browser
  */

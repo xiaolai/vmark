@@ -152,7 +152,9 @@ vi.mock("@/i18n", () => {
 
 // Mock Tauri APIs
 vi.mock("@tauri-apps/api/core", () => ({
-  invoke: vi.fn(),
+  // Resolves by default: the real `invoke` ALWAYS returns a Promise, so a bare
+  // `vi.fn()` (undefined) breaks `invoke(...).catch(...)` in tests only.
+  invoke: vi.fn(() => Promise.resolve()),
 }));
 
 vi.mock("@tauri-apps/plugin-fs", () => ({

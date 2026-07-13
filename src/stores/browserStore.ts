@@ -37,8 +37,11 @@ interface BrowserActions {
    *  least-recently-used non-protected tab(s) when over the cap. Returns the ids
    *  that were evicted (the caller hibernates their webviews). */
   activate: (windowLabel: string, tabId: string) => string[];
-  /** Protect (or unprotect) a tab from eviction — set true while the AI drives it. */
-  setKeepAlive: (tabId: string, keep: boolean) => void;
+  /** Protect (or unprotect) a tab from eviction — set true while the AI drives
+   *  it. Unprotecting rebalances every over-cap window immediately (protection is
+   *  what let them exceed the cap) and returns the ids that were evicted, in the
+   *  same contract as `activate`. Protecting never evicts. */
+  setKeepAlive: (tabId: string, keep: boolean) => string[];
   /** Force-hibernate a live tab. Returns whether it was live. */
   hibernate: (windowLabel: string, tabId: string) => boolean;
   /** Whether `tabId` currently has a live webview in `windowLabel`. */
@@ -53,6 +56,31 @@ interface BrowserActions {
   removeWindow: (windowLabel: string) => void;
 }
 
+/**
+ * Bring one window's live list down to the cap, in place. Evicts the front-most
+ * (LRU) tab that is neither protected nor `pinned` (the tab just activated), and
+ * stops early when every remaining tab is protected — the cap is exceeded rather
+ * than tearing down a page the AI is acting on. Returns the evicted ids.
+ *
+ * The single eviction rule, shared by `activate` (a tab arrived) and
+ * `setKeepAlive` (protection lifted): the two must not drift.
+ */
+function evictOverCap(
+  live: string[],
+  keepAlive: Record<string, boolean>,
+  maxLive: number,
+  pinned?: string,
+): string[] {
+  const evicted: string[] = [];
+  while (live.length > maxLive) {
+    const victimIndex = live.findIndex((id) => id !== pinned && !keepAlive[id]);
+    if (victimIndex === -1) break; // all protected → exceed the cap
+    evicted.push(live[victimIndex]);
+    live.splice(victimIndex, 1);
+  }
+  return evicted;
+}
+
 /** Manages which browser tabs keep a live webview (LRU cap + keep-alive). Use selectors, not destructuring. */
 export const useBrowserStore = create<BrowserState & BrowserActions>((set, get) => ({
   liveTabs: {},
@@ -65,27 +93,36 @@ export const useBrowserStore = create<BrowserState & BrowserActions>((set, get) 
     const live = (liveTabs[windowLabel] ?? []).filter((id) => id !== tabId);
     live.push(tabId);
 
-    const evicted: string[] = [];
-    while (live.length > maxLive) {
-      // Evict the front-most (LRU) tab that is neither protected nor the tab we
-      // just activated. If none qualifies (all protected), exceed the cap.
-      const victimIndex = live.findIndex((id) => id !== tabId && !keepAlive[id]);
-      if (victimIndex === -1) break;
-      evicted.push(live[victimIndex]);
-      live.splice(victimIndex, 1);
-    }
+    const evicted = evictOverCap(live, keepAlive, maxLive, tabId);
 
     set({ liveTabs: { ...liveTabs, [windowLabel]: live } });
     return evicted;
   },
 
   setKeepAlive: (tabId, keep) => {
-    set((state) => {
-      const next = { ...state.keepAlive };
-      if (keep) next[tabId] = true;
-      else delete next[tabId];
-      return { keepAlive: next };
-    });
+    const { liveTabs, maxLive } = get();
+    const keepAlive = { ...get().keepAlive };
+    if (keep) keepAlive[tabId] = true;
+    else delete keepAlive[tabId];
+
+    // Protecting can only ever exceed the cap, never breach it — nothing to do.
+    if (keep) {
+      set({ keepAlive });
+      return [];
+    }
+
+    // Unprotecting may leave a window over its cap with no further activation
+    // coming; rebalance now so the excess webviews are actually torn down.
+    const evicted: string[] = [];
+    const nextLive: Record<string, string[]> = {};
+    for (const [windowLabel, live] of Object.entries(liveTabs)) {
+      const next = [...live];
+      evicted.push(...evictOverCap(next, keepAlive, maxLive));
+      nextLive[windowLabel] = next;
+    }
+
+    set({ keepAlive, liveTabs: nextLive });
+    return evicted;
   },
 
   hibernate: (windowLabel, tabId) => {
@@ -114,8 +151,16 @@ export const useBrowserStore = create<BrowserState & BrowserActions>((set, get) 
 
   removeWindow: (windowLabel) => {
     set((state) => {
-      const { [windowLabel]: _drop, ...rest } = state.liveTabs;
-      return { liveTabs: rest };
+      const { [windowLabel]: closed = [], ...rest } = state.liveTabs;
+      // Drop the closed window's protections too — a keep-alive entry for a tab
+      // that no longer exists anywhere would protect a phantom forever (and, on
+      // id reuse, the wrong tab).
+      const keepAlive = { ...state.keepAlive };
+      const stillLive = new Set(Object.values(rest).flat());
+      for (const tabId of closed) {
+        if (!stillLive.has(tabId)) delete keepAlive[tabId];
+      }
+      return { liveTabs: rest, keepAlive };
     });
   },
 }));

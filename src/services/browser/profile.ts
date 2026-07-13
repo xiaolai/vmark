@@ -32,6 +32,9 @@ export function selectDataStoreMode(macosMajor: number): "identified" | "default
   return macosMajor >= MIN_IDENTIFIED_STORE_MACOS ? "identified" : "default";
 }
 
+/** Canonical RFC-4122 UUID — the only shape `dataStoreForIdentifier` accepts. */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+
 /** A UUID-ish id, preferring `crypto.randomUUID` and falling back deterministically-random. */
 function generateId(): string {
   const c = (globalThis as { crypto?: Crypto }).crypto;
@@ -44,11 +47,30 @@ function generateId(): string {
   });
 }
 
-/** Read the persisted browser profile id, generating + persisting one on first use. */
+/**
+ * Read the persisted browser profile id, generating + persisting one on first
+ * use — and replacing a persisted value that is not a canonical UUID (corrupted
+ * or hand-edited storage), because the native store is keyed by a real UUID and
+ * would otherwise fail to initialize.
+ *
+ * Storage is best-effort: a denied read (private mode) or a failed write (quota)
+ * yields a fresh, usable id for this session rather than aborting browser
+ * startup — the profile is then simply not stable across restarts.
+ */
 export function getOrCreateProfileId(storage: ProfileStorage): string {
-  const existing = storage.get(PROFILE_ID_KEY);
-  if (existing) return existing;
+  let existing: string | null;
+  try {
+    existing = storage.get(PROFILE_ID_KEY);
+  } catch {
+    existing = null; // storage unreadable → treat as first use
+  }
+  if (existing !== null && UUID_RE.test(existing)) return existing;
+
   const id = generateId();
-  storage.set(PROFILE_ID_KEY, id);
+  try {
+    storage.set(PROFILE_ID_KEY, id);
+  } catch {
+    // Not persistable → the id is session-only. Never fail browser init over it.
+  }
   return id;
 }
