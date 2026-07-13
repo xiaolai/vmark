@@ -35,7 +35,7 @@ export function makeBrowserTab(id: string, canonicalUrl: string, title?: string)
 export function patchBrowserTab(
   tabs: Record<string, Tab[]>,
   tabId: string,
-  patch: { url?: string; title?: string; scrollY?: number },
+  patch: { url?: string; title?: string; scrollY?: number; generation?: number },
 ): Record<string, Tab[]> {
   const next = { ...tabs };
   for (const windowLabel of Object.keys(next)) {
@@ -46,6 +46,8 @@ export function patchBrowserTab(
             ...(patch.url !== undefined ? { url: patch.url } : {}),
             ...(patch.title !== undefined ? { title: patch.title } : {}),
             ...(patch.scrollY !== undefined ? { scrollY: patch.scrollY } : {}),
+            // The driver's navigation generation for the committed page (WI-2.1).
+            ...(patch.generation !== undefined ? { generation: patch.generation } : {}),
           }
         : t,
     );

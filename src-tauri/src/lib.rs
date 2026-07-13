@@ -247,6 +247,7 @@ pub fn run() {
             browser::commands::browser_set_bounds,
             browser::commands::browser_destroy,
             browser::commands::browser_assert_no_bridge,
+            browser::commands::browser_set_grants,
             browser::commands::browser_eval,
             browser::commands::browser_freeze,
             browser::commands::browser_thaw,

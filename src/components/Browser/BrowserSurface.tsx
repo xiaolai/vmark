@@ -93,10 +93,12 @@ export function BrowserSurface({ tabId }: { tabId: string }): React.ReactElement
   // bar and loading state reflect where the WKWebView actually is — the delegate
   // (nav_delegate_macos.rs) is the source of truth once a load is underway.
   useBrowserNavEvents(tabId, {
-    onNavigated: (next) => {
+    onNavigated: (next, generation) => {
       setUrlInput(next);
       setLoading(true);
-      useTabStore.getState().updateBrowserTab(tabId, { url: next });
+      // Record the generation with the URL: driver operations are stamped with it,
+      // so one authorized against the previous page is refused by the Rust gate.
+      useTabStore.getState().updateBrowserTab(tabId, { url: next, generation });
     },
     onLoaded: (next) => {
       setUrlInput(next);

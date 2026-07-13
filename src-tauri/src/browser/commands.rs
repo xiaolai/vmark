@@ -4,6 +4,7 @@
 //! webview in step. The browser webview itself has NO capability/IPC (it is not
 //! a Tauri webview); only these *driver* commands are capability-scoped.
 
+use crate::browser::origin_guard::{self, StandingGrant};
 use crate::browser::registry::{validate_navigation_url, Lifecycle};
 use crate::browser::surface::{self, BrowserSurface};
 use tauri::{AppHandle, State};
@@ -123,12 +124,72 @@ pub async fn browser_assert_no_bridge(
     surface::assert_no_bridge(&app, tab_id)
 }
 
-/// Evaluate `script` in the driver's isolated content world and return its
-/// string result (WI-2.1). The script should `return` a JSON-serializable value.
-/// Origin-grant enforcement (R4) is applied by the caller (the MCP browser tools,
-/// WI-2.5) against the tab's current URL before invoking this primitive.
+/// Mirror the frontend approval store's standing grants into the driver (WI-2.1).
+///
+/// The driver's copy is the **authoritative** one: `browser_eval` reads it, so a
+/// caller that never syncs simply gets default-deny. Passing an empty vec revokes
+/// everything.
 #[tauri::command]
-pub async fn browser_eval(app: AppHandle, tab_id: String, script: String) -> Result<String, String> {
+pub async fn browser_set_grants(
+    state: State<'_, BrowserSurface>,
+    grants: Vec<StandingGrant>,
+) -> Result<(), String> {
+    let mut current = state.grants.lock().map_err(|e| e.to_string())?;
+    *current = grants;
+    Ok(())
+}
+
+/// Evaluate `script` in the driver's isolated content world and return its string
+/// result (WI-2.1). The script should `return` a JSON-serializable value.
+///
+/// **This is the security gate for R4/I3/R7a — the authoritative one.** Callers
+/// (the MCP browser tools) also check approval for UX, but that check is advisory:
+/// any code path reaching this command is still refused unless all three hold:
+///
+///   1. `generation` matches the tab's current navigation generation. This closes
+///      the TOCTOU where a page navigates between the approval decision and the
+///      eval, which would otherwise run an approved script against a *different*
+///      origin. A stale command is rejected, never "best-effort" applied.
+///   2. The tab has a **committed** top-level URL (R7a). A provisional/in-flight
+///      navigation grants nothing — a redirect chain must not briefly authorize an
+///      intermediate origin.
+///   3. That committed origin grants `operation` (R4/R5). The origin is read from
+///      the registry, never from a caller-supplied URL, so a caller cannot assert
+///      the origin it wishes it were on.
+#[tauri::command]
+pub async fn browser_eval(
+    app: AppHandle,
+    state: State<'_, BrowserSurface>,
+    tab_id: String,
+    script: String,
+    operation: String,
+    generation: u64,
+) -> Result<String, String> {
+    {
+        let reg = state.registry.lock().map_err(|e| e.to_string())?;
+
+        if !reg.is_command_fresh(&tab_id, generation) {
+            return Err(format!(
+                "stale command: tab '{tab_id}' navigated or closed since this operation was authorized"
+            ));
+        }
+
+        // The origin comes from the registry's committed URL — NOT from the caller.
+        let committed = reg.committed_url(&tab_id).ok_or_else(|| {
+            format!("tab '{tab_id}' has no committed page; nothing is granted yet")
+        })?;
+
+        let grants = state.grants.lock().map_err(|e| e.to_string())?;
+        if !origin_guard::is_driver_operation_allowed(committed, &operation, &grants) {
+            log::warn!(
+                "[browser] REFUSED {operation} on {committed} (tab {tab_id}): origin not granted"
+            );
+            return Err(format!(
+                "operation '{operation}' is not granted for the current origin"
+            ));
+        }
+    }
+
     surface::eval(&app, tab_id, script)
 }
 

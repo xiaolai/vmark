@@ -31,6 +31,11 @@ serde_json = "1"
 uuid = { version = "1", features = ["v4"] }
 regex = "1"
 urlencoding = "2"
+# WHATWG-spec URL parser — the same spec the browser's `URL` implements, so the
+# Rust origin guard (browser/origin_guard.rs) and the TS spec it mirrors parse
+# identically instead of drifting. Already in the tree via tauri; promoting it to
+# a direct dependency adds no new package to the lockfile.
+url = "2"
 notify = { version = "8", default-features = false, features = ["macos_fsevent"] }
 tokio = { version = "1", features = ["sync", "macros", "rt-multi-thread", "process", "io-util", "time"] }
 tokio-tungstenite = "0.28"

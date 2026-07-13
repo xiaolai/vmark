@@ -64,6 +64,13 @@ export interface BrowserTab {
   isPinned: boolean;
   /** Last known scroll offset, persisted for restore. */
   scrollY?: number;
+  /**
+   * Navigation generation of the currently committed page (WI-2.1 / R4).
+   * Driver operations are stamped with it, so one authorized against this page is
+   * rejected by the Rust gate once the page navigates away. `0` until the first
+   * commit — a value the driver will refuse, which is the correct default.
+   */
+  generation?: number;
 }
 
 /** A tab is a document or a browser page, discriminated on `kind`. */

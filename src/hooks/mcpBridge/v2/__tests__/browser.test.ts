@@ -123,3 +123,73 @@ describe("handleBrowserAct", () => {
     expect(lastResponse()).toMatchObject({ id: "a4", success: true });
   });
 });
+
+// WI-2.1 — the driver gate: every eval must be stamped with the operation and the
+// navigation generation, so the Rust origin guard (browser/origin_guard.rs) can
+// enforce R4/R5/R7a instead of trusting this layer's advisory check.
+describe("driver-gate stamping (WI-2.1)", () => {
+  it("read stamps operation=read and the tab's committed generation", async () => {
+    const id = seedBrowserTab();
+    useTabStore.getState().updateBrowserTab(id, { generation: 7 });
+    invoke.mockResolvedValue(JSON.stringify([]));
+
+    await handleBrowserRead("r-gate", { tabId: id });
+
+    expect(invoke).toHaveBeenCalledWith(
+      "browser_eval",
+      expect.objectContaining({ operation: "read", generation: 7 }),
+    );
+  });
+
+  it("act stamps the requested operation and generation", async () => {
+    const id = seedBrowserTab();
+    useTabStore.getState().updateBrowserTab(id, { generation: 3 });
+    useBrowserApprovalStore.setState({
+      grants: [{ originPattern: "https://blog.example.com", operations: ["click"] }],
+      pending: [],
+    });
+    invoke.mockResolvedValue("{}");
+
+    await handleBrowserAct("a-gate", { tabId: id, operation: "click", role: "button", name: "Publish" });
+
+    expect(invoke).toHaveBeenCalledWith(
+      "browser_eval",
+      expect.objectContaining({ operation: "click", generation: 3 }),
+    );
+  });
+
+  it("stamps generation 0 when no navigation has committed yet — the driver refuses it", async () => {
+    // Fail-closed: a tab that never committed a navigation has no committed origin
+    // in the registry, so the driver rejects the eval. The frontend must not invent
+    // a plausible-looking generation to paper over that.
+    const id = seedBrowserTab();
+    invoke.mockResolvedValue(JSON.stringify([]));
+
+    await handleBrowserRead("r-nogen", { tabId: id });
+
+    expect(invoke).toHaveBeenCalledWith(
+      "browser_eval",
+      expect.objectContaining({ generation: 0 }),
+    );
+  });
+
+  it("surfaces a driver refusal to the caller instead of swallowing it", async () => {
+    const id = seedBrowserTab();
+    useTabStore.getState().updateBrowserTab(id, { generation: 2 });
+    useBrowserApprovalStore.setState({
+      grants: [{ originPattern: "https://blog.example.com", operations: ["click"] }],
+      pending: [],
+    });
+    // The driver is the authority: even with a local grant, it can refuse (e.g. the
+    // page navigated). That refusal must reach the AI as a failure.
+    invoke.mockRejectedValue(
+      "stale command: tab navigated or closed since this operation was authorized",
+    );
+
+    await handleBrowserAct("a-stale", { tabId: id, operation: "click", role: "button", name: "Publish" });
+
+    const res = lastResponse();
+    expect(res).toMatchObject({ id: "a-stale", success: false });
+    expect(String(res.error)).toContain("stale command");
+  });
+});

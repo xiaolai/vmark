@@ -63,11 +63,13 @@ describe("useBrowserNavEvents", () => {
     expect(onCrashed).not.toHaveBeenCalled();
   });
 
-  it("calls onNavigated with the url for a matching tab", async () => {
+  it("calls onNavigated with the url and navigation generation for a matching tab", async () => {
     const onNavigated = vi.fn();
     await mount("t1", { onNavigated });
-    emit("browser://navigated", { tabId: "t1", url: "https://iana.org/" });
-    expect(onNavigated).toHaveBeenCalledWith("https://iana.org/");
+    // The generation stamps driver operations (WI-2.1) — it must reach the handler
+    // so an operation authorized against this page is rejected once it navigates.
+    emit("browser://navigated", { tabId: "t1", url: "https://iana.org/", generation: 4 });
+    expect(onNavigated).toHaveBeenCalledWith("https://iana.org/", 4);
   });
 
   it("ignores events addressed to a different tab", async () => {
@@ -102,8 +104,8 @@ describe("useBrowserNavEvents", () => {
     });
     await Promise.resolve();
     await Promise.resolve();
-    emit("browser://navigated", { tabId: "t1", url: "https://z/" });
-    expect(second).toHaveBeenCalledWith("https://z/");
+    emit("browser://navigated", { tabId: "t1", url: "https://z/", generation: 1 });
+    expect(second).toHaveBeenCalledWith("https://z/", 1);
     r2.unmount();
   });
 

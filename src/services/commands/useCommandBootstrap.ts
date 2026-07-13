@@ -27,6 +27,7 @@ import { registerViewCommands } from "./viewCommands";
 import { registerWorkspaceCommands } from "./workspaceCommands";
 import { registerFormatCommands } from "./formatCommands";
 import { registerBrowserCommands } from "./browserCommands";
+import { startGrantSync } from "@/services/browser/grantSync";
 
 const EXPORT_BINDINGS: MenuCommandBinding[] = [
   { menuEvent: "menu:export-html", commandId: "export.html" },
@@ -99,6 +100,11 @@ export function useCommandBootstrap(): void {
     registerFormatCommands();
     registerBrowserCommands();
 
+    // Mirror the user's standing browser grants into the Rust driver, which is the
+    // authoritative gate for R4/R5/R7a (WI-2.1). Without this the driver stays
+    // default-deny — safe, but the user's approvals would never take effect.
+    const stopGrantSync = startGrantSync();
+
     let unlisten: UnlistenFn | null = null;
     let cancelled = false;
 
@@ -144,6 +150,7 @@ export function useCommandBootstrap(): void {
     return () => {
       cancelled = true;
       if (unlisten) unlisten();
+      stopGrantSync();
     };
   }, []);
 }

@@ -16,6 +16,7 @@
 //! The macOS objc2 recipe is the productionized form of the validated Phase-0
 //! spike (git cd162e02:src-tauri/src/spike_embed.rs).
 
+use crate::browser::origin_guard::StandingGrant;
 use crate::browser::recovery::CrashTracker;
 use crate::browser::registry::BrowserRegistry;
 use std::collections::HashMap;
@@ -29,6 +30,12 @@ pub struct BrowserSurface {
     /// Per-tab consecutive-crash state (WI-1.8). The navigation delegate records
     /// crashes/clean-loads here to decide auto-reload vs. manual (recovery.rs).
     pub crash_trackers: Mutex<HashMap<String, CrashTracker>>,
+    /// Standing origin grants (R4/R5), mirrored from the frontend approval store
+    /// via `browser_set_grants`. **Default-deny**: an empty set authorizes nothing,
+    /// so a driver command is refused until the user has actually granted the
+    /// origin+operation. This is the authoritative copy — the TS store is a cache
+    /// for UX, not the enforcement point (WI-2.1).
+    pub grants: Mutex<Vec<StandingGrant>>,
 }
 
 /// The read-only JS that asserts no Tauri bridge leaked into the browsed page

@@ -1494,6 +1494,31 @@ Goal: the AI can snapshot, read, and interact with the current page under the or
 guard. No site plugins or publishing yet.
 
 #### WI-2.1: Rust driver — eval/snapshot/screenshot + origin guard (R3/R4)
+
+> **Status 2026-07-13 — origin guard LANDED (audit-driven).** `browser_eval` had
+> shipped ahead of its guard, with enforcement deferred to the TS caller — while
+> `originGuard.ts`'s own header already claimed "the driver (Rust) is the
+> authoritative enforcement point" and referenced an `origin_guard.rs` that did not
+> exist. Any code path reaching `invoke("browser_eval")` therefore bypassed R4/R5
+> entirely, and approval was decided against a *cached* tab URL while the script ran
+> against the *live* webview (TOCTOU: approve on site A, execute on site B).
+>
+> Now enforced in Rust (`browser/origin_guard.rs`, 60 tests): every eval must pass
+> (1) a navigation-generation freshness check, (2) a **committed**-origin lookup read
+> from the registry — never from the caller — and (3) an operation-scoped grant check.
+> `read` is granted per-tab on any committed navigable origin (R7a — the AI has no
+> navigate tool, so the human put the page there); every other operation needs an
+> explicit standing grant; `upload` is refused unconditionally. Grants are mirrored
+> from the approval store into the driver (`browser_set_grants` / `services/browser/
+> grantSync.ts`), so a revocation reaches the authority immediately and a caller
+> cannot influence what the driver believes it may do. Default-deny throughout.
+>
+> Also replaced the hand-rolled navigation-URL parser with the WHATWG `url` crate
+> (already in the tree via Tauri): the old prefix check accepted `https://@`,
+> `https://:443`, and `https://exa mple.com`.
+>
+> Still open in this WI: `screenshot`, and the Windows/Linux backends.
+
 - Goal: `browser_driver_eval/snapshot/screenshot`; origin allowlist enforced in Rust
   before any eval/navigate; per-platform backend behind a trait
   (`#[cfg(target_os)]`), macOS first.

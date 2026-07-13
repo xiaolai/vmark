@@ -47,6 +47,10 @@ struct NavPayload {
     #[serde(rename = "tabId")]
     tab_id: String,
     url: String,
+    /// The navigation generation this commit produced (WI-2.1). The frontend
+    /// stamps driver operations with it, so an operation authorized against this
+    /// page is rejected by the driver once the page navigates away.
+    generation: u64,
 }
 
 #[derive(serde::Serialize, Clone)]
@@ -105,19 +109,37 @@ define_class!(
 
     // SAFETY: the method signatures match WKNavigationDelegate.
     unsafe impl WKNavigationDelegate for NavDelegate {
+        // A navigation STARTS: revoke the committed origin immediately (R7a). Until
+        // the next commit lands the tab grants nothing, so a redirect chain can
+        // never leave the previous page's authority in force while a new origin is
+        // loading.
+        #[unsafe(method(webView:didStartProvisionalNavigation:))]
+        fn did_start_provisional(&self, _wv: &WKWebView, _nav: Option<&WKNavigation>) {
+            let ivars = self.ivars();
+            if let Some(state) = ivars.app.try_state::<BrowserSurface>() {
+                if let Ok(mut reg) = state.registry.lock() {
+                    let _ = reg.clear_committed_url(&ivars.tab_id);
+                }
+            }
+        }
+
         #[unsafe(method(webView:didCommitNavigation:))]
         fn did_commit(&self, web_view: &WKWebView, _nav: Option<&WKNavigation>) {
             let ivars = self.ivars();
             let url = current_url(web_view);
+            let mut generation = 0;
             if let Some(state) = ivars.app.try_state::<BrowserSurface>() {
                 if let Ok(mut reg) = state.registry.lock() {
-                    let _ = reg.bump_generation(&ivars.tab_id);
+                    generation = reg.bump_generation(&ivars.tab_id).unwrap_or(0);
                     let _ = reg.transition(&ivars.tab_id, Lifecycle::Navigating);
+                    // The COMMITTED url — the only origin the driver may act on
+                    // (R7a). Recorded from the webview itself, never from a caller.
+                    let _ = reg.set_committed_url(&ivars.tab_id, &url);
                 }
             }
             let _ = ivars.app.emit(
                 "browser://navigated",
-                NavPayload { tab_id: ivars.tab_id.clone(), url },
+                NavPayload { tab_id: ivars.tab_id.clone(), url, generation },
             );
         }
 

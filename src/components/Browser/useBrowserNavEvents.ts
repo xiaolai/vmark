@@ -21,8 +21,12 @@ import { useEffect, useRef } from "react";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 
 export interface BrowserNavHandlers {
-  /** A navigation committed; `url` is the new location. */
-  onNavigated?: (url: string) => void;
+  /**
+   * A navigation committed; `url` is the new location and `generation` is the
+   * driver's navigation generation for it (WI-2.1). Operations are stamped with
+   * the generation so the Rust gate rejects one authorized against an older page.
+   */
+  onNavigated?: (url: string, generation: number) => void;
   /** A load finished; `url` is final, `title` is the page title (may be ""). */
   onLoaded?: (url: string, title: string) => void;
   /** A (provisional or committed) navigation failed. */
@@ -36,6 +40,7 @@ export interface BrowserNavHandlers {
 interface NavPayload {
   tabId: string;
   url: string;
+  generation: number;
 }
 interface LoadedPayload {
   tabId: string;
@@ -78,7 +83,8 @@ export function useBrowserNavEvents(tabId: string, handlers: BrowserNavHandlers)
 
     track(
       listen<NavPayload>("browser://navigated", (e) => {
-        if (e.payload.tabId === tabId) handlersRef.current.onNavigated?.(e.payload.url);
+        if (e.payload.tabId === tabId)
+          handlersRef.current.onNavigated?.(e.payload.url, e.payload.generation);
       }),
     );
     track(

@@ -86,6 +86,11 @@ struct Entry {
     window_label: String,
     generation: u64,
     state: Lifecycle,
+    /// The **committed** top-level URL (R7a) — the only origin the driver may act
+    /// on. `None` until a navigation commits, and cleared again the moment a new
+    /// provisional navigation starts, so a redirect chain never briefly grants the
+    /// wrong origin. `browser_eval` gates on this, never on a caller-supplied URL.
+    committed_url: Option<String>,
 }
 
 /// The identity map: `tabId ↔ {window, generation, lifecycle}`. Not thread-safe
@@ -111,9 +116,42 @@ impl BrowserRegistry {
                 window_label: window_label.to_string(),
                 generation: 0,
                 state: Lifecycle::Creating,
+                // Not the target URL: nothing is committed until the nav delegate
+                // says so (R7a). A tab created pointing at an origin grants nothing.
+                committed_url: None,
             },
         );
         Ok(())
+    }
+
+    /// Record the committed top-level URL (called from `didCommitNavigation`).
+    /// This is the fact the origin gate reads — see `Entry::committed_url`.
+    pub fn set_committed_url(&mut self, tab_id: &str, url: &str) -> Result<(), BrowserError> {
+        let entry = self
+            .tabs
+            .get_mut(tab_id)
+            .ok_or_else(|| BrowserError::UnknownTab(tab_id.to_string()))?;
+        entry.committed_url = Some(url.to_string());
+        Ok(())
+    }
+
+    /// Revoke the committed URL (called when a new provisional navigation starts).
+    /// R7a: the grant lapses immediately, and is re-established only on the next
+    /// commit — otherwise a redirect chain briefly grants the wrong origin.
+    pub fn clear_committed_url(&mut self, tab_id: &str) -> Result<(), BrowserError> {
+        let entry = self
+            .tabs
+            .get_mut(tab_id)
+            .ok_or_else(|| BrowserError::UnknownTab(tab_id.to_string()))?;
+        entry.committed_url = None;
+        Ok(())
+    }
+
+    /// The tab's committed top-level URL, if a navigation has committed.
+    pub fn committed_url(&self, tab_id: &str) -> Option<&str> {
+        self.tabs
+            .get(tab_id)
+            .and_then(|e| e.committed_url.as_deref())
     }
 
     /// Apply a lifecycle transition, validating it against the state machine.
@@ -191,27 +229,11 @@ impl BrowserRegistry {
     }
 }
 
-/// Validate a navigation target: only http/https URLs are navigable. Opaque
-/// origins (`about:`/`data:`/`blob:`/`file:`/`javascript:`) are rejected for the
-/// driver-owned surface (R7a). This is a structural gate; full origin-grant
-/// enforcement is R4/WI-2.1.
-pub fn validate_navigation_url(url: &str) -> Result<(), BrowserError> {
-    let trimmed = url.trim();
-    let lower = trimmed.to_ascii_lowercase();
-    let scheme_len = if lower.starts_with("https://") {
-        8
-    } else if lower.starts_with("http://") {
-        7
-    } else {
-        return Err(BrowserError::InvalidUrl(url.to_string()));
-    };
-    let after = &trimmed[scheme_len..];
-    let authority_end = after.find(['/', '?', '#']).unwrap_or(after.len());
-    if after[..authority_end].is_empty() {
-        return Err(BrowserError::InvalidUrl(url.to_string()));
-    }
-    Ok(())
-}
+// `validate_navigation_url` now lives in browser/origin_guard.rs, which parses
+// with the WHATWG `url` crate instead of a hand-rolled prefix check. The old
+// version here accepted malformed authorities (`https://@`, `https://:443`,
+// `https://exa mple.com`). Re-exported so existing callers are unchanged.
+pub use crate::browser::origin_guard::validate_navigation_url;
 
 #[cfg(test)]
 #[path = "registry.test.rs"]

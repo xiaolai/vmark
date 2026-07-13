@@ -29,11 +29,22 @@ import {
   buildTypeScript,
 } from "@/lib/browser/agent/actScript";
 
-/** Resolve the target browser tab (by id, else the focused window's active tab). */
-function resolveBrowserTab(tabIdArg?: string): { tabId: string; url: string } | null {
+/**
+ * Resolve the target browser tab (by id, else the focused window's active tab).
+ *
+ * `generation` is the navigation generation of the tab's committed page. It
+ * stamps every driver command so the Rust gate can reject one authorized against
+ * a page that has since navigated. It defaults to 0 — a value the driver refuses
+ * — when nothing has committed yet: fail-closed, never invent a plausible stamp.
+ */
+function resolveBrowserTab(
+  tabIdArg?: string,
+): { tabId: string; url: string; generation: number } | null {
   const store = useTabStore.getState();
   const tab = tabIdArg ? store.findTabById(tabIdArg) : store.getActiveTab(getCurrentWindowLabel());
-  return tab && isBrowserTab(tab) ? { tabId: tab.id, url: tab.url } : null;
+  return tab && isBrowserTab(tab)
+    ? { tabId: tab.id, url: tab.url, generation: tab.generation ?? 0 }
+    : null;
 }
 
 function parse(raw: string): unknown {
@@ -52,7 +63,12 @@ export async function handleBrowserRead(id: string, args: Record<string, unknown
       await respond({ id, success: false, error: "no active browser tab" });
       return;
     }
-    const raw = await invoke<string>("browser_eval", { tabId: tab.tabId, script: buildSnapshotScript() });
+    const raw = await invoke<string>("browser_eval", {
+      tabId: tab.tabId,
+      script: buildSnapshotScript(),
+      operation: "read",
+      generation: tab.generation,
+    });
     await respond({ id, success: true, data: { url: tab.url, snapshot: parse(raw) } });
   });
 }
@@ -91,7 +107,12 @@ export async function handleBrowserAct(id: string, args: Record<string, unknown>
       operation === "type"
         ? buildTypeScript(role, name, typeof args.text === "string" ? args.text : "")
         : buildClickScript(role, name);
-    const raw = await invoke<string>("browser_eval", { tabId: tab.tabId, script });
+    const raw = await invoke<string>("browser_eval", {
+      tabId: tab.tabId,
+      script,
+      operation,
+      generation: tab.generation,
+    });
     await respond({ id, success: true, data: { result: parse(raw) } });
   });
 }

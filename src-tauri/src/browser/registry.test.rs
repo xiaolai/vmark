@@ -142,3 +142,68 @@ fn validate_navigation_url_rejects_opaque_and_empty() {
         );
     }
 }
+
+// ---------------------------------------------------------------------------
+// Committed-origin tracking (WI-2.1 / R7a) — the fact browser_eval gates on.
+//
+// R7a: "The grant attaches to the **committed** top-level origin
+// (didCommitNavigation), never to a *provisional* one — otherwise a redirect
+// chain briefly grants the wrong origin. It is **revoked the moment a new
+// provisional navigation starts**, and re-granted only on the next commit."
+// ---------------------------------------------------------------------------
+
+#[test]
+fn a_new_tab_has_no_committed_url_until_a_navigation_commits() {
+    let mut reg = BrowserRegistry::new();
+    reg.create("t1", "main").unwrap();
+    // Creating a tab with a target URL does NOT grant that origin — nothing has
+    // committed yet, so the driver must not be able to eval in it.
+    assert_eq!(reg.committed_url("t1"), None);
+}
+
+#[test]
+fn commit_records_the_committed_url() {
+    let mut reg = BrowserRegistry::new();
+    reg.create("t1", "main").unwrap();
+    reg.set_committed_url("t1", "https://a.com/page").unwrap();
+    assert_eq!(reg.committed_url("t1"), Some("https://a.com/page"));
+}
+
+#[test]
+fn a_new_provisional_navigation_revokes_the_committed_url() {
+    let mut reg = BrowserRegistry::new();
+    reg.create("t1", "main").unwrap();
+    reg.set_committed_url("t1", "https://a.com").unwrap();
+
+    // A redirect chain starts: the old origin's grant must lapse IMMEDIATELY,
+    // not linger until the next commit lands.
+    reg.clear_committed_url("t1").unwrap();
+    assert_eq!(reg.committed_url("t1"), None);
+
+    // …and is re-established only by the next commit.
+    reg.set_committed_url("t1", "https://b.com").unwrap();
+    assert_eq!(reg.committed_url("t1"), Some("https://b.com"));
+}
+
+#[test]
+fn committed_url_operations_reject_unknown_tabs() {
+    let mut reg = BrowserRegistry::new();
+    assert_eq!(
+        reg.set_committed_url("nope", "https://a.com"),
+        Err(BrowserError::UnknownTab("nope".into()))
+    );
+    assert_eq!(
+        reg.clear_committed_url("nope"),
+        Err(BrowserError::UnknownTab("nope".into()))
+    );
+    assert_eq!(reg.committed_url("nope"), None);
+}
+
+#[test]
+fn removing_a_tab_drops_its_committed_url() {
+    let mut reg = BrowserRegistry::new();
+    reg.create("t1", "main").unwrap();
+    reg.set_committed_url("t1", "https://a.com").unwrap();
+    reg.remove("t1");
+    assert_eq!(reg.committed_url("t1"), None);
+}

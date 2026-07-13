@@ -78,10 +78,10 @@ interface TabActions {
   /** WI-1.1 — create (or activate existing) browser tab for `url` (canonicalized
    *  for dedup). Returns the (possibly pre-existing) tab id. */
   createBrowserTab: (windowLabel: string, url: string, title?: string) => string;
-  /** WI-1.1 — patch a browser tab's url/title/scrollY. No-op on document tabs. */
+  /** WI-1.1 — patch a browser tab's url/title/scrollY/generation. No-op on document tabs. */
   updateBrowserTab: (
     tabId: string,
-    patch: { url?: string; title?: string; scrollY?: number },
+    patch: { url?: string; title?: string; scrollY?: number; generation?: number },
   ) => void;
   closeTab: (windowLabel: string, tabId: string) => void;
 

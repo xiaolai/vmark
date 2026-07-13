@@ -53,6 +53,11 @@ export const contentServerWarn = isDev
   ? (...args: unknown[]) => console.warn("[ContentServer]", ...args)
   : (...args: unknown[]) => prodWarn("[ContentServer]", ...args);
 
+/** Warn logger for the embedded browser (driver gate, grants, surface). */
+export const browserWarn = isDev
+  ? (...args: unknown[]) => console.warn("[Browser]", ...args)
+  : (...args: unknown[]) => prodWarn("[Browser]", ...args);
+
 /** Warn logger for Image Handler. */
 export const imageHandlerWarn = isDev
   ? (...args: unknown[]) => console.warn("[imageHandler]", ...args)

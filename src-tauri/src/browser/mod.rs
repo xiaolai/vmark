@@ -19,6 +19,7 @@
 #![allow(dead_code)]
 
 pub mod commands;
+pub mod origin_guard;
 pub mod recovery;
 pub mod registry;
 pub mod surface;
