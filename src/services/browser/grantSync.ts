@@ -22,7 +22,10 @@
  */
 
 import { invoke } from "@tauri-apps/api/core";
-import { useBrowserApprovalStore } from "@/stores/browserApprovalStore";
+import {
+  useBrowserApprovalStore,
+  type OneShotApproval,
+} from "@/stores/browserApprovalStore";
 import type { StandingGrant } from "@/lib/browser/approval/grants";
 import { browserWarn } from "@/utils/debug";
 
@@ -36,19 +39,50 @@ function push(grants: StandingGrant[]): void {
 }
 
 /**
- * Start mirroring grants to the driver. Pushes once immediately (so a driver that
- * just started is not left denying grants the user already made), then on every
- * change. Returns a disposer.
+ * Send a newly minted "Allow once" to the driver.
+ *
+ * One-shots are ADDED, never wholesale replaced: the driver consumes them as
+ * actions are performed, so pushing the full list would resurrect authority the
+ * user already spent.
+ */
+function pushOneShot(shot: OneShotApproval): void {
+  void invoke("browser_add_one_shot", {
+    originPattern: shot.originPattern,
+    operation: shot.operation,
+  }).catch((error: unknown) => {
+    browserWarn("one-shot sync failed; the driver will refuse the action", error);
+  });
+}
+
+/**
+ * Start mirroring the user's authorizations to the driver — the authoritative
+ * gate. Pushes grants once immediately (so a driver that just started is not left
+ * denying grants the user already made), then on every change, and forwards each
+ * newly minted one-shot.
+ *
+ * Without the one-shot leg, "Allow once" authorizes the frontend and is then
+ * REFUSED by the driver, which demands a standing grant it will never see.
+ *
+ * Returns a disposer.
  */
 export function startGrantSync(): () => void {
   push(useBrowserApprovalStore.getState().grants);
 
-  let previous = useBrowserApprovalStore.getState().grants;
+  let previousGrants = useBrowserApprovalStore.getState().grants;
+  let previousShots = useBrowserApprovalStore.getState().oneShots;
   return useBrowserApprovalStore.subscribe((state) => {
-    // Reference compare: the store's grant actions always produce a new array,
-    // and unrelated churn (pending approvals) must not spam the driver.
-    if (state.grants === previous) return;
-    previous = state.grants;
-    push(state.grants);
+    // Reference compare: the store's actions always produce new arrays, and
+    // unrelated churn (pending approvals) must not spam the driver.
+    if (state.grants !== previousGrants) {
+      previousGrants = state.grants;
+      push(state.grants);
+    }
+    if (state.oneShots !== previousShots) {
+      // Forward only the ADDITIONS. A shrinking list means the frontend spent its
+      // mirror copy; the driver has spent its own and must not be told again.
+      const added = state.oneShots.filter((s) => !previousShots.includes(s));
+      previousShots = state.oneShots;
+      for (const shot of added) pushOneShot(shot);
+    }
   });
 }

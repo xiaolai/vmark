@@ -31,7 +31,7 @@ use crate::browser::registry::BrowserError;
 /// Operations the AI may NEVER perform autonomously, even with a matching grant.
 /// Mirrors `NEVER_AUTOMATED` in `lib/browser/approval/grants.ts`: an AI-chosen
 /// file upload is an exfiltration path, so upload targets stay human-chosen.
-const NEVER_AUTOMATED: &[&str] = &["upload"];
+pub(crate) const NEVER_AUTOMATED: &[&str] = &["upload"];
 
 /// A canonical web origin: scheme + host + port, nothing else.
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -11,6 +11,7 @@
 //! only these *driver* commands are capability-scoped, and `browser_eval` is where
 //! the origin gate is enforced.
 
+use crate::browser::one_shot::{self, OneShot};
 use crate::browser::origin_guard::{self, StandingGrant};
 use crate::browser::registry::{validate_navigation_url, Lifecycle};
 use crate::browser::surface::{self, BrowserSurface};
@@ -185,6 +186,30 @@ pub async fn browser_set_grants(
     Ok(())
 }
 
+/// Mint a single-use authorization from the user's "Allow once" (R5).
+///
+/// Unlike grants, one-shots are ADDED (never wholesale replaced): the driver
+/// consumes them as actions are performed, so pushing a full list would resurrect
+/// ones already spent. `browser_eval` consumes a matching one atomically.
+#[tauri::command]
+pub async fn browser_add_one_shot(
+    state: State<'_, BrowserSurface>,
+    origin_pattern: String,
+    operation: String,
+) -> Result<(), String> {
+    // Reject a pattern the guard could not enforce, rather than storing authority
+    // that silently never matches.
+    if !origin_guard::is_origin_pattern(&origin_pattern) {
+        return Err(format!("not a valid origin pattern: '{origin_pattern}'"));
+    }
+    let mut shots = state.one_shots.lock().map_err(|e| e.to_string())?;
+    shots.push(OneShot {
+        origin_pattern,
+        operation,
+    });
+    Ok(())
+}
+
 /// Evaluate `script` in the driver's isolated content world and return its string
 /// result (WI-2.1). The script should `return` a JSON-serializable value.
 ///
@@ -227,12 +252,20 @@ pub async fn browser_eval(
 
         let grants = state.grants.lock().map_err(|e| e.to_string())?;
         if !origin_guard::is_driver_operation_allowed(committed, &operation, &grants) {
-            log::warn!(
-                "[browser] REFUSED {operation} on {committed} (tab {tab_id}): origin not granted"
-            );
-            return Err(format!(
-                "operation '{operation}' is not granted for the current origin"
-            ));
+            // No standing authority. A single-use "Allow once" may still authorize
+            // this exact action — consumed HERE, atomically, so the check and the
+            // spend cannot be separated (and so a one-shot the frontend believed in
+            // is actually honored by the authority rather than refused by it).
+            let mut one_shots = state.one_shots.lock().map_err(|e| e.to_string())?;
+            if !one_shot::consume_one_shot(&mut one_shots, committed, &operation) {
+                log::warn!(
+                    "[browser] REFUSED {operation} on {committed} (tab {tab_id}): origin not granted"
+                );
+                return Err(format!(
+                    "operation '{operation}' is not granted for the current origin"
+                ));
+            }
+            log::info!("[browser] {operation} on {committed} (tab {tab_id}): one-shot consumed");
         }
     }
 

@@ -16,6 +16,7 @@
 //! The macOS objc2 recipe is the productionized form of the validated Phase-0
 //! spike (git cd162e02:src-tauri/src/spike_embed.rs).
 
+use crate::browser::one_shot::OneShot;
 use crate::browser::origin_guard::StandingGrant;
 use crate::browser::recovery::CrashTracker;
 use crate::browser::registry::BrowserRegistry;
@@ -36,6 +37,11 @@ pub struct BrowserSurface {
     /// origin+operation. This is the authoritative copy — the TS store is a cache
     /// for UX, not the enforcement point (WI-2.1).
     pub grants: Mutex<Vec<StandingGrant>>,
+    /// Single-use authorizations from the user's "Allow once" (R5). They live here
+    /// rather than only in the TS store because the driver is the authority: a
+    /// one-shot the frontend held alone would be checked there and then refused
+    /// here, authorizing nothing. Each is consumed by the first matching action.
+    pub one_shots: Mutex<Vec<OneShot>>,
 }
 
 impl BrowserSurface {

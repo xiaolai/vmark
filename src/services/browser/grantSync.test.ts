@@ -87,3 +87,49 @@ describe("startGrantSync", () => {
     expect(invoke).toHaveBeenCalled();
   });
 });
+
+// "Allow once" must reach the DRIVER. The first version minted the one-shot in
+// the TS store only, while the Rust gate still demanded a standing grant — the
+// frontend authorized the action and the driver then refused it. A one-shot that
+// the authority never hears about authorizes nothing.
+describe("one-shot sync", () => {
+  it("pushes a newly minted one-shot to the driver", () => {
+    const stop = startGrantSync();
+    invoke.mockClear();
+
+    useBrowserApprovalStore.getState().requestApproval("r1", "https://blog.example.com/p", "click");
+    useBrowserApprovalStore.getState().resolveApproval("r1", "once");
+
+    expect(invoke).toHaveBeenCalledWith("browser_add_one_shot", {
+      originPattern: "https://blog.example.com",
+      operation: "click",
+    });
+    stop();
+  });
+
+  it("does NOT re-push one-shots the driver has already consumed", () => {
+    // The driver consumes them as actions run, so re-pushing the whole list would
+    // resurrect spent authority. Only additions are sent.
+    const stop = startGrantSync();
+    useBrowserApprovalStore.getState().requestApproval("r2", "https://a.com", "click");
+    useBrowserApprovalStore.getState().resolveApproval("r2", "once");
+    invoke.mockClear();
+
+    // An unrelated store change must not re-push the existing one-shot.
+    useBrowserApprovalStore.getState().grant("https://b.com", ["read"]);
+
+    expect(invoke).not.toHaveBeenCalledWith("browser_add_one_shot", expect.anything());
+    stop();
+  });
+
+  it("does not push a one-shot for 'remember' (that is a standing grant)", () => {
+    const stop = startGrantSync();
+    useBrowserApprovalStore.getState().requestApproval("r3", "https://a.com", "click");
+    invoke.mockClear();
+    useBrowserApprovalStore.getState().resolveApproval("r3", "remember");
+
+    expect(invoke).not.toHaveBeenCalledWith("browser_add_one_shot", expect.anything());
+    expect(invoke).toHaveBeenCalledWith("browser_set_grants", expect.anything());
+    stop();
+  });
+});

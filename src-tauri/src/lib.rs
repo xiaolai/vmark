@@ -70,8 +70,7 @@ mod window_status;
 pub(crate) use file_open::allow_fs_read;
 pub use file_open::PendingFileOpen;
 pub(crate) use supported_files::is_openable_supported;
-// macOS-gated: sole consumer (quarantine sweep) is macOS-only; unconditional
-// re-export = unused-import error on Linux/Windows CI (guarded by lib.test.rs).
+// macOS-gated: sole consumer (quarantine sweep) is macOS-only, so an unconditional re-export is an unused-import error on Linux/Windows CI (guarded by lib.test.rs).
 #[cfg(target_os = "macos")]
 pub(crate) use supported_files::has_supported_extension;
 #[cfg(test)]
@@ -241,6 +240,7 @@ pub fn run() {
             browser::commands::browser_destroy,
             browser::commands::browser_assert_no_bridge,
             browser::commands::browser_set_grants,
+            browser::commands::browser_add_one_shot,
             browser::commands::browser_eval,
             browser::commands::browser_freeze,
             browser::commands::browser_thaw,

@@ -38,6 +38,7 @@
 #![cfg_attr(not(target_os = "macos"), allow(dead_code))]
 
 pub mod commands;
+pub mod one_shot;
 pub mod origin_guard;
 pub mod recovery;
 pub mod registry;
