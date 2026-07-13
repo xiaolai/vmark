@@ -38,6 +38,32 @@ pub struct BrowserSurface {
     pub grants: Mutex<Vec<StandingGrant>>,
 }
 
+impl BrowserSurface {
+    /// Drop every trace of a tab: its registry entry **and** its crash budget.
+    ///
+    /// Both halves must go together. Removing only the registry entry (what
+    /// `browser_destroy` used to do) leaked one `crash_trackers` entry per tab for
+    /// the life of the process, and — worse — made a **reused** tab id inherit the
+    /// dead tab's exhausted budget, so the new tab's first crash would refuse to
+    /// auto-reload. Called on destroy and on failed creation.
+    ///
+    /// Idempotent: forgetting an unknown tab is a no-op, so a retried destroy is
+    /// safe.
+    pub fn forget_tab(&self, tab_id: &str) -> Result<(), String> {
+        // Taken sequentially, never nested: no other path holds both locks, so
+        // there is no lock-order to get wrong.
+        self.registry
+            .lock()
+            .map_err(|e| e.to_string())?
+            .remove(tab_id);
+        self.crash_trackers
+            .lock()
+            .map_err(|e| e.to_string())?
+            .remove(tab_id);
+        Ok(())
+    }
+}
+
 /// The read-only JS that asserts no Tauri bridge leaked into the browsed page
 /// (R3 / SPIKE-1). Returns a JSON object of booleans; all must be false.
 pub const NO_BRIDGE_ASSERTION: &str = "return JSON.stringify({\
@@ -109,3 +135,7 @@ pub use stub::{
     assert_no_bridge, create, destroy, dialog_respond, eval, go_history, navigate, set_bounds,
     set_hidden, stop,
 };
+
+#[cfg(test)]
+#[path = "surface.test.rs"]
+mod tests;

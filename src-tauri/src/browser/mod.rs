@@ -8,15 +8,34 @@
 //! surface).
 //!
 //! This module tree:
-//!   - `registry` — pure lifecycle + identity core (state machine, navigation
-//!     generation, URL validation); platform-independent and unit-tested.
-//!   - (native surface, config, and Tauri commands land with the FFI layer,
-//!     which is verified in the live-Tauri loop; the validated objc2 recipe is
-//!     preserved in git at commit cd162e02:src-tauri/src/spike_embed.rs.)
-
-// Some pure-core items are reached only from tests until every command path
-// wires them up; dead_code does not count test usage.
-#![allow(dead_code)]
+//!   - `registry` — pure lifecycle + identity core: the tab state machine, the
+//!     navigation generation that makes a late driver command stale, and the
+//!     committed-origin fact the driver gate reads (R7a). Platform-independent
+//!     and unit-tested.
+//!   - `origin_guard` — the authoritative origin/grant decision (R4/R5/R7a),
+//!     parsed with the same WHATWG parser as the browser's own `URL`.
+//!   - `recovery` — the pure crash-budget policy behind auto-reload (WI-1.8).
+//!   - `surface` — the `Send` state container plus the command-facing native API;
+//!     the macOS objc2 WKWebView implementation (`surface_macos.rs` and its
+//!     `#[path]` submodules: nav delegate, run-loop driver, JS dialogs) hangs off
+//!     it, and other platforms get an explicit "unsupported" stub.
+//!   - `commands` — the Tauri driver commands. Thin coordinators: they own no
+//!     lifecycle state of their own (the nav delegate does), and `browser_eval` is
+//!     where the origin gate is enforced.
+//!
+//! Dead code is **enforced on macOS** — the platform where every path is wired,
+//! and the platform VMark ships (AGENTS.md). The old blanket
+//! `#![allow(dead_code)]` covered the whole subtree on every target, so an orphan
+//! in the command or native layer could accumulate unnoticed even though those
+//! paths are live; now clippy's `-D warnings` catches it.
+//!
+//! It stays suppressed on Windows/Linux, and only there: their native surface is
+//! an explicit "unsupported" stub until WI-5.1/5.2, so everything only the macOS
+//! delegate reaches (the crash budget, generation bumps, committed-URL writes, the
+//! no-bridge assertion) is *legitimately* unreachable on those targets — not rot.
+//! The handful of items that are unwired on macOS too carry their own item-scoped
+//! `#[allow(dead_code)]` with a stated reason.
+#![cfg_attr(not(target_os = "macos"), allow(dead_code))]
 
 pub mod commands;
 pub mod origin_guard;

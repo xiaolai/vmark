@@ -45,6 +45,14 @@ pub struct CanonicalOrigin {
 }
 
 /// Stable string key for a canonical origin: `scheme://host:port`.
+///
+/// Part of the spec surface this module mirrors from `originGuard.ts`; the parity
+/// tests are its only caller today. The enforcement path (`browser_eval`) goes
+/// through `is_driver_operation_allowed`, which never needs a string key.
+#[allow(
+    dead_code,
+    reason = "TS-parity spec surface, exercised by the parity tests"
+)]
 pub fn origin_key(o: &CanonicalOrigin) -> String {
     format!("{}://{}:{}", o.scheme, o.host, o.port)
 }
@@ -154,6 +162,14 @@ fn parse_origin_pattern(pattern: &str) -> Option<ParsedPattern> {
 }
 
 /// Is `pattern` a well-formed grant pattern the driver could enforce?
+///
+/// Spec surface (see `origin_key`): the grants the driver receives are already
+/// validated by the frontend store, and an unenforceable pattern simply matches
+/// nothing here — default-deny holds either way.
+#[allow(
+    dead_code,
+    reason = "TS-parity spec surface, exercised by the parity tests"
+)]
 pub fn is_origin_pattern(pattern: &str) -> bool {
     parse_origin_pattern(pattern).is_some()
 }
@@ -179,6 +195,14 @@ pub fn origin_matches_pattern(target: &CanonicalOrigin, pattern: &str) -> bool {
 
 /// Is the target URL granted by at least one pattern? Default-deny: an empty
 /// grant set, or a target that is not a navigable origin, grants nothing.
+///
+/// Spec surface (see `origin_key`): the enforcement path always asks the
+/// *operation* question (`is_driver_operation_allowed`), never the coarser
+/// origin-only one, because an origin grant is never blanket authority.
+#[allow(
+    dead_code,
+    reason = "TS-parity spec surface, exercised by the parity tests"
+)]
 pub fn is_origin_granted(target_url: &str, grants: &[String]) -> bool {
     let Some(target) = canonicalize_origin(target_url) else {
         return false;
@@ -190,11 +214,7 @@ pub fn is_origin_granted(target_url: &str, grants: &[String]) -> bool {
 ///
 /// This is the decision `browser_eval` enforces. Default-deny, and hard-deny for
 /// never-automatable operations regardless of any grant (R5).
-pub fn is_operation_granted(
-    target_url: &str,
-    operation: &str,
-    grants: &[StandingGrant],
-) -> bool {
+pub fn is_operation_granted(target_url: &str, operation: &str, grants: &[StandingGrant]) -> bool {
     if NEVER_AUTOMATED.contains(&operation) {
         return false;
     }
@@ -238,6 +258,11 @@ pub fn is_driver_operation_allowed(
 /// Opaque origins (`about:`/`data:`/`blob:`/`file:`/`javascript:`) are rejected
 /// for the driver-owned surface (R7a).
 ///
+/// Returns the **exact string the caller must load** (the trimmed input). The
+/// gate used to validate `url.trim()` and return `()`, so callers went on to load
+/// the *untrimmed* original — validated value ≠ consumed value. Handing the
+/// checked value back makes that divergence unrepresentable.
+///
 /// Uses the same WHATWG parser as the origin canonicalizer, so malformed
 /// authorities (`https://@`, `https://:443`, `https://exa mple.com`) that the
 /// previous hand-rolled prefix check waved through are now rejected.
@@ -250,21 +275,20 @@ pub fn is_driver_operation_allowed(
 /// stays WHATWG-faithful (see `matches_whatwg_extra_slash_handling…` in the test
 /// suite): the driver must resolve origins EXACTLY as the layer that granted
 /// them, so only this navigation gate is stricter, never the origin comparison.
-pub fn validate_navigation_url(url: &str) -> Result<(), BrowserError> {
+pub fn validate_navigation_url(url: &str) -> Result<String, BrowserError> {
     let trimmed = url.trim();
     let invalid = || BrowserError::InvalidUrl(url.to_string());
 
     // Reject an empty authority before parsing (see the note above).
-    if let Some(after_scheme) = trimmed
-        .split_once("://")
-        .map(|(_, rest)| rest)
-    {
+    if let Some(after_scheme) = trimmed.split_once("://").map(|(_, rest)| rest) {
         if after_scheme.starts_with('/') {
             return Err(invalid());
         }
     }
 
-    canonicalize_origin(trimmed).map(|_| ()).ok_or_else(invalid)
+    canonicalize_origin(trimmed)
+        .map(|_| trimmed.to_string())
+        .ok_or_else(invalid)
 }
 
 #[cfg(test)]

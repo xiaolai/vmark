@@ -179,3 +179,13 @@ pub(crate) fn handle_run_event(app: &tauri::AppHandle, event: tauri::RunEvent) {
         _ => {}
     }
 }
+
+/// Debug logging from the frontend (logs to terminal, debug builds only).
+///
+/// Lives here rather than in `lib.rs` so that file stays a declarative
+/// composition root — the same reason the setup/event handlers were extracted.
+#[cfg(debug_assertions)]
+#[tauri::command]
+pub fn debug_log(message: String) {
+    log::debug!("[Frontend] {}", message);
+}

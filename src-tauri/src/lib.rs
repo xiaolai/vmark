@@ -17,6 +17,7 @@ mod ai_provider;
 mod app_paths;
 mod app_setup;
 mod asset_access;
+mod browser; // WI-1.2 embedded-browser surface (pure lifecycle/identity core landed)
 mod content_search;
 mod content_server;
 mod external_editor;
@@ -43,7 +44,6 @@ mod shell_integration;
 mod supported_files;
 mod tab_transfer;
 mod task;
-mod browser; // WI-1.2 embedded-browser surface (pure lifecycle/identity core landed)
 mod temp_html;
 mod watcher;
 mod webview_edit;
@@ -77,13 +77,6 @@ pub(crate) use supported_files::has_supported_extension;
 #[cfg(test)]
 #[path = "lib.test.rs"]
 mod lib_test;
-
-/// Debug logging from frontend (logs to terminal, debug builds only)
-#[cfg(debug_assertions)]
-#[tauri::command]
-fn debug_log(message: String) {
-    log::debug!("[Frontend] {}", message);
-}
 
 /// Build and run the Tauri application with all plugins, commands, and event handlers.
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -234,7 +227,7 @@ pub fn run() {
             ai_provider::list_models,
             ai_provider::validate_model,
             #[cfg(debug_assertions)]
-            debug_log,
+            app_setup::debug_log,
             temp_html::write_temp_html,
             file_write::atomic_write_file,
             webview_edit::trigger_webview_edit,

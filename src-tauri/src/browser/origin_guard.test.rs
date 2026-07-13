@@ -48,7 +48,10 @@ fn strips_trailing_dot_from_host() {
 fn punycodes_idn_hosts() {
     // The classic homograph vector: an IDN must canonicalize to punycode so a
     // Unicode look-alike can never match an ASCII grant by string equality.
-    assert_eq!(origin("https://bücher.de").unwrap().host, "xn--bcher-kva.de");
+    assert_eq!(
+        origin("https://bücher.de").unwrap().host,
+        "xn--bcher-kva.de"
+    );
     assert_eq!(origin("https://日本.jp").unwrap().host, "xn--wgv71a.jp");
 }
 
@@ -71,7 +74,10 @@ fn rejects_opaque_and_non_web_schemes() {
         "wss://a.com",
         "ftp://a.com",
     ] {
-        assert!(origin(url).is_none(), "{url} must not be a navigable origin");
+        assert!(
+            origin(url).is_none(),
+            "{url} must not be a navigable origin"
+        );
     }
 }
 
@@ -120,21 +126,39 @@ fn origin_key_is_scheme_host_port() {
 
 #[test]
 fn exact_pattern_matches_only_that_origin() {
-    assert!(is_origin_granted("https://a.com/x", &["https://a.com".into()]));
-    assert!(!is_origin_granted("https://b.com/x", &["https://a.com".into()]));
+    assert!(is_origin_granted(
+        "https://a.com/x",
+        &["https://a.com".into()]
+    ));
+    assert!(!is_origin_granted(
+        "https://b.com/x",
+        &["https://a.com".into()]
+    ));
 }
 
 #[test]
 fn scheme_and_port_must_match_exactly() {
-    assert!(!is_origin_granted("http://a.com", &["https://a.com".into()]));
-    assert!(!is_origin_granted("https://a.com:8443", &["https://a.com".into()]));
-    assert!(is_origin_granted("https://a.com:8443", &["https://a.com:8443".into()]));
+    assert!(!is_origin_granted(
+        "http://a.com",
+        &["https://a.com".into()]
+    ));
+    assert!(!is_origin_granted(
+        "https://a.com:8443",
+        &["https://a.com".into()]
+    ));
+    assert!(is_origin_granted(
+        "https://a.com:8443",
+        &["https://a.com:8443".into()]
+    ));
 }
 
 #[test]
 fn no_implicit_subdomain_wildcarding() {
     // R4: a grant for the apex must NOT cover subdomains.
-    assert!(!is_origin_granted("https://evil.a.com", &["https://a.com".into()]));
+    assert!(!is_origin_granted(
+        "https://evil.a.com",
+        &["https://a.com".into()]
+    ));
 }
 
 #[test]
@@ -146,7 +170,10 @@ fn explicit_wildcard_covers_strict_subdomains_at_any_depth() {
 
 #[test]
 fn wildcard_does_not_cover_the_apex() {
-    assert!(!is_origin_granted("https://a.com", &["https://*.a.com".into()]));
+    assert!(!is_origin_granted(
+        "https://a.com",
+        &["https://*.a.com".into()]
+    ));
 }
 
 #[test]
@@ -188,18 +215,17 @@ fn pattern_with_userinfo_is_rejected_not_reinterpreted() {
 
 #[test]
 fn pattern_with_path_query_or_fragment_is_rejected() {
-    for pattern in [
-        "https://a.com/path",
-        "https://a.com?q=1",
-        "https://a.com#f",
-    ] {
+    for pattern in ["https://a.com/path", "https://a.com?q=1", "https://a.com#f"] {
         assert!(
             !is_origin_granted("https://a.com", &[pattern.to_string()]),
             "non-bare pattern {pattern:?} must be rejected"
         );
     }
     // A bare origin with a lone trailing slash IS a bare origin.
-    assert!(is_origin_granted("https://a.com", &["https://a.com/".into()]));
+    assert!(is_origin_granted(
+        "https://a.com",
+        &["https://a.com/".into()]
+    ));
 }
 
 #[test]
@@ -210,20 +236,35 @@ fn empty_grant_set_denies_by_default() {
 #[test]
 fn non_navigable_target_is_never_granted() {
     // Even a wildcard-everything-shaped grant cannot cover an opaque origin.
-    assert!(!is_origin_granted("about:blank", &["https://*.a.com".into()]));
-    assert!(!is_origin_granted("file:///etc/passwd", &["https://a.com".into()]));
+    assert!(!is_origin_granted(
+        "about:blank",
+        &["https://*.a.com".into()]
+    ));
+    assert!(!is_origin_granted(
+        "file:///etc/passwd",
+        &["https://a.com".into()]
+    ));
 }
 
 #[test]
 fn idn_target_matches_punycode_grant_and_vice_versa() {
-    assert!(is_origin_granted("https://bücher.de", &["https://xn--bcher-kva.de".into()]));
-    assert!(is_origin_granted("https://xn--bcher-kva.de", &["https://bücher.de".into()]));
+    assert!(is_origin_granted(
+        "https://bücher.de",
+        &["https://xn--bcher-kva.de".into()]
+    ));
+    assert!(is_origin_granted(
+        "https://xn--bcher-kva.de",
+        &["https://bücher.de".into()]
+    ));
 }
 
 #[test]
 fn a_unicode_lookalike_does_not_match_an_ascii_grant() {
     // U+0430 CYRILLIC SMALL LETTER A — visually identical to ASCII 'a'.
-    assert!(!is_origin_granted("https://\u{0430}pple.com", &["https://apple.com".into()]));
+    assert!(!is_origin_granted(
+        "https://\u{0430}pple.com",
+        &["https://apple.com".into()]
+    ));
 }
 
 // ---------------------------------------------------------------------------
@@ -239,10 +280,22 @@ fn grants() -> Vec<StandingGrant> {
 
 #[test]
 fn grant_allows_only_its_listed_operations_on_its_origin() {
-    assert!(is_operation_granted("https://blog.example.com/p", "read", &grants()));
-    assert!(is_operation_granted("https://blog.example.com/p", "click", &grants()));
+    assert!(is_operation_granted(
+        "https://blog.example.com/p",
+        "read",
+        &grants()
+    ));
+    assert!(is_operation_granted(
+        "https://blog.example.com/p",
+        "click",
+        &grants()
+    ));
     // Operation not in the grant.
-    assert!(!is_operation_granted("https://blog.example.com/p", "publish", &grants()));
+    assert!(!is_operation_granted(
+        "https://blog.example.com/p",
+        "publish",
+        &grants()
+    ));
     // Right operation, wrong origin.
     assert!(!is_operation_granted("https://evil.com", "read", &grants()));
 }
@@ -255,7 +308,11 @@ fn upload_is_never_automatable_even_with_a_matching_grant() {
         origin_pattern: "https://blog.example.com".into(),
         operations: vec!["read".into(), "upload".into()],
     }];
-    assert!(!is_operation_granted("https://blog.example.com", "upload", &g));
+    assert!(!is_operation_granted(
+        "https://blog.example.com",
+        "upload",
+        &g
+    ));
 }
 
 #[test]
@@ -314,7 +371,10 @@ fn rejects_non_web_schemes_as_navigation_targets() {
         "about:blank",
         "blob:https://a.com/u",
     ] {
-        assert!(validate_navigation_url(url).is_err(), "{url} must be rejected");
+        assert!(
+            validate_navigation_url(url).is_err(),
+            "{url} must be rejected"
+        );
     }
 }
 
@@ -327,31 +387,59 @@ fn read_is_allowed_on_any_committed_page_without_a_standing_grant() {
     // R7a: "Reading a page the *user themselves* navigated to is granted per-tab."
     // This holds because the AI has NO navigate tool — the committed origin is
     // always a page the human (or an already-approved act) put there.
-    assert!(is_driver_operation_allowed("https://anything.com/p", "read", &[]));
+    assert!(is_driver_operation_allowed(
+        "https://anything.com/p",
+        "read",
+        &[]
+    ));
 }
 
 #[test]
 fn read_is_still_refused_on_a_non_navigable_committed_origin() {
     assert!(!is_driver_operation_allowed("about:blank", "read", &[]));
-    assert!(!is_driver_operation_allowed("file:///etc/passwd", "read", &[]));
+    assert!(!is_driver_operation_allowed(
+        "file:///etc/passwd",
+        "read",
+        &[]
+    ));
 }
 
 #[test]
 fn write_operations_require_an_explicit_standing_grant() {
     // The read grant must NOT leak into write authority — this is the whole point
     // of operation-scoped grants ("read my blog" never becomes "publish to it").
-    assert!(!is_driver_operation_allowed("https://blog.example.com", "click", &[]));
-    assert!(!is_driver_operation_allowed("https://blog.example.com", "type", &[]));
+    assert!(!is_driver_operation_allowed(
+        "https://blog.example.com",
+        "click",
+        &[]
+    ));
+    assert!(!is_driver_operation_allowed(
+        "https://blog.example.com",
+        "type",
+        &[]
+    ));
 
     let g = vec![StandingGrant {
         origin_pattern: "https://blog.example.com".into(),
         operations: vec!["click".into()],
     }];
-    assert!(is_driver_operation_allowed("https://blog.example.com", "click", &g));
+    assert!(is_driver_operation_allowed(
+        "https://blog.example.com",
+        "click",
+        &g
+    ));
     // Granted click does not confer type.
-    assert!(!is_driver_operation_allowed("https://blog.example.com", "type", &g));
+    assert!(!is_driver_operation_allowed(
+        "https://blog.example.com",
+        "type",
+        &g
+    ));
     // Granted on this origin does not confer authority elsewhere.
-    assert!(!is_driver_operation_allowed("https://evil.com", "click", &g));
+    assert!(!is_driver_operation_allowed(
+        "https://evil.com",
+        "click",
+        &g
+    ));
 }
 
 #[test]
@@ -360,5 +448,9 @@ fn upload_is_refused_even_on_a_committed_granted_origin() {
         origin_pattern: "https://blog.example.com".into(),
         operations: vec!["read".into(), "click".into(), "upload".into()],
     }];
-    assert!(!is_driver_operation_allowed("https://blog.example.com", "upload", &g));
+    assert!(!is_driver_operation_allowed(
+        "https://blog.example.com",
+        "upload",
+        &g
+    ));
 }

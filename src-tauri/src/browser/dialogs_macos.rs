@@ -26,14 +26,37 @@ thread_local! {
     static COUNTER: Cell<u64> = const { Cell::new(0) };
 }
 
-/// Park a `confirm()` completion, returning its dialog id (for the emitted event).
-pub(super) fn park_confirm(tab_id: String, block: RcBlock<dyn Fn(Bool)>) -> u64 {
-    let id = COUNTER.with(|c| {
-        let n = c.get().wrapping_add(1);
+/// JavaScript's `Number.MAX_SAFE_INTEGER`. A dialog id travels to the frontend as
+/// a JSON number and comes back through `browser_dialog_respond`, so an id past
+/// this ceiling cannot round-trip intact — it would come back rounded, answering
+/// a different dialog or none at all. Ids therefore wrap below it (`wrapping_add`
+/// on a u64 did not).
+const MAX_SAFE_ID: u64 = 9_007_199_254_740_991;
+
+/// The next dialog id, in `1..=MAX_SAFE_ID`.
+fn next_id() -> u64 {
+    COUNTER.with(|c| {
+        let n = if c.get() >= MAX_SAFE_ID {
+            1
+        } else {
+            c.get() + 1
+        };
         c.set(n);
         n
-    });
-    PENDING.with(|m| m.borrow_mut().insert(id, Pending { tab_id, block }));
+    })
+}
+
+/// Park a `confirm()` completion, returning its dialog id (for the emitted event).
+pub(super) fn park_confirm(tab_id: String, block: RcBlock<dyn Fn(Bool)>) -> u64 {
+    let id = next_id();
+    let displaced = PENDING.with(|m| m.borrow_mut().insert(id, Pending { tab_id, block }));
+    // Only reachable after the counter wraps, but the consequence is unbounded: a
+    // completion block that is dropped without being called leaves that page's JS
+    // blocked on `confirm()` forever. So a displaced dialog is CANCELLED, never
+    // silently discarded.
+    if let Some(p) = displaced {
+        p.block.call((Bool::new(false),));
+    }
     id
 }
 
@@ -45,8 +68,9 @@ pub(super) fn respond(id: u64, accepted: bool) {
     }
 }
 
-/// Cancel every pending dialog for `tab_id` (called on teardown) so the page's
-/// blocked JS is released before its webview goes away.
+/// Cancel every pending dialog for `tab_id` (teardown, navigation away, content-
+/// process death) so the page's blocked JS is released and no answer can later be
+/// routed to a dialog belonging to a page that is gone.
 pub(super) fn drain_for(tab_id: &str) {
     let drained: Vec<Pending> = PENDING.with(|m| {
         let mut map = m.borrow_mut();
@@ -61,3 +85,14 @@ pub(super) fn drain_for(tab_id: &str) {
         p.block.call((Bool::new(false),));
     }
 }
+
+/// Test seam: force the id counter so the wrap-around path is reachable without
+/// parking 2^53 dialogs.
+#[cfg(test)]
+fn set_counter(n: u64) {
+    COUNTER.with(|c| c.set(n));
+}
+
+#[cfg(test)]
+#[path = "dialogs.test.rs"]
+mod tests;

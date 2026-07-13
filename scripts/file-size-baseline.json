@@ -17,7 +17,7 @@
     "src-tauri/src/hot_exit/coordinator.rs": 726,
     "src-tauri/src/hot_exit/migration_v5_tests.rs": 306,
     "src-tauri/src/hot_exit/session.rs": 303,
-    "src-tauri/src/lib.rs": 314,
+    "src-tauri/src/lib.rs": 308,
     "src-tauri/src/macos_menu.rs": 489,
     "src-tauri/src/mcp_bridge/server.rs": 922,
     "src-tauri/src/mcp_bridge/state.rs": 830,

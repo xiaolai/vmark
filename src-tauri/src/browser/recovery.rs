@@ -25,16 +25,16 @@ pub enum RecoveryAction {
 pub const MAX_AUTO_RELOADS: u32 = 3;
 
 /// Consecutive-crash counter for one tab (reset on a successful load).
-#[derive(Debug, Default, Clone, Copy)]
+///
+/// Deliberately **not** `Copy`/`Clone`: the streak is per-tab mutable state living
+/// in `BrowserSurface::crash_trackers`, and a copy of it would be a second budget
+/// that silently diverges from the one the reload policy consults.
+#[derive(Debug, Default)]
 pub struct CrashTracker {
     consecutive: u32,
 }
 
 impl CrashTracker {
-    pub fn new() -> Self {
-        Self { consecutive: 0 }
-    }
-
     /// Record a crash and decide what to do, using the default budget.
     pub fn on_crash(&mut self) -> RecoveryAction {
         self.on_crash_with_budget(MAX_AUTO_RELOADS)
@@ -42,6 +42,8 @@ impl CrashTracker {
 
     /// Record a crash and decide against an explicit budget. The first `budget`
     /// consecutive crashes auto-reload; the next one (and beyond) is manual-only.
+    /// Production always goes through `on_crash` (the default budget); the explicit
+    /// budget exists so the boundary is testable without 3 real crashes.
     pub fn on_crash_with_budget(&mut self, budget: u32) -> RecoveryAction {
         self.consecutive = self.consecutive.saturating_add(1);
         if self.consecutive <= budget {
@@ -56,6 +58,9 @@ impl CrashTracker {
         self.consecutive = 0;
     }
 
+    /// Test-only observation seam: production reads the *decision*
+    /// (`RecoveryAction`), never the counter behind it.
+    #[cfg(test)]
     pub fn consecutive(&self) -> u32 {
         self.consecutive
     }
