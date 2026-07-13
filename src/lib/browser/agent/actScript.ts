@@ -85,9 +85,9 @@ function __vmarkControlName(el){
   return '';
 }
 function __vmarkName(el){
-  var al=el.getAttribute('aria-label'); if(al&&al.trim())return __vmarkNorm(al);
   var lb=el.getAttribute('aria-labelledby');
   if(lb){var t=__vmarkIdListText(el,lb); if(t)return t;}
+  var al=el.getAttribute('aria-label'); if(al&&al.trim())return __vmarkNorm(al);
   var tag=el.tagName.toLowerCase();
   if(tag==='img')return __vmarkNorm(el.getAttribute('alt'));
   if(tag==='input'||tag==='textarea'||tag==='select')return __vmarkControlName(el);

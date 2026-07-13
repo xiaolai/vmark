@@ -121,6 +121,48 @@ describe("idempotencyKey", () => {
     expect(idempotencyKey("s", { n: 1n })).not.toBe(idempotencyKey("s", { n: 1 }));
   });
 
+  it("distinguishes -0 from 0 (JSON.stringify flattens both to 0)", () => {
+    expect(idempotencyKey("s", { v: -0 })).not.toBe(idempotencyKey("s", { v: 0 }));
+  });
+
+  it("distinguishes a sparse array hole from an empty array and from undefined", () => {
+    const hole = idempotencyKey("s", { v: Array(1) }); // one hole, length 1
+    const empty = idempotencyKey("s", { v: [] });
+    const undef = idempotencyKey("s", { v: [undefined] });
+    expect(new Set([hole, empty, undef]).size).toBe(3);
+  });
+
+  it("rejects a Date subclass or a Date carrying own properties (class instance in disguise)", () => {
+    class MyDate extends Date {}
+    expect(() => idempotencyKey("s", { d: new MyDate("2026-01-01") })).toThrow(TypeError);
+    const tagged = new Date("2026-01-01");
+    (tagged as unknown as { extra: number }).extra = 1;
+    expect(() => idempotencyKey("s", { d: tagged })).toThrow(TypeError);
+  });
+
+  it("rejects an object with symbol keys instead of silently dropping them (would collide with {})", () => {
+    const withSymbol = { [Symbol("k")]: 1 };
+    expect(() => idempotencyKey("s", { o: withSymbol })).toThrow(TypeError);
+  });
+
+  it("does not let a non-enumerable property collide with {} (it is encoded, not dropped)", () => {
+    const o: Record<string, unknown> = {};
+    Object.defineProperty(o, "hidden", { value: 1, enumerable: false });
+    expect(idempotencyKey("s", { o })).not.toBe(idempotencyKey("s", { o: {} }));
+  });
+
+  it("rejects an object with accessor properties (a key must be deterministic, not side-effecting)", () => {
+    const o: Record<string, unknown> = {};
+    Object.defineProperty(o, "g", { get: () => 1, enumerable: true });
+    expect(() => idempotencyKey("s", { o })).toThrow(TypeError);
+  });
+
+  it("fails closed on input nested past the encoder's depth bound", () => {
+    let deep: unknown = 1;
+    for (let i = 0; i < 200; i++) deep = { n: deep };
+    expect(() => idempotencyKey("s", { deep })).toThrow(TypeError);
+  });
+
   it("throws on a cyclic input rather than recursing forever", () => {
     const cyclic: Record<string, unknown> = { a: 1 };
     cyclic.self = cyclic;
@@ -136,11 +178,40 @@ describe("idempotencyKey", () => {
   });
 });
 
+describe("decideAfterResult — fail-closed on malformed runtime data", () => {
+  it("stops and asks on an out-of-contract outcome instead of auto-retrying a write", () => {
+    // Runtime data (native/deserialized) can violate the compile-time Outcome type.
+    // A garbage outcome with postconditionMet:false must NOT slip into the retry path.
+    const malformed = { outcome: "weird" } as unknown as Parameters<typeof decideAfterResult>[1];
+    expect(decideAfterResult(true, { ...malformed, postconditionMet: false })).toBe("stop-and-ask");
+    expect(decideAfterResult(false, malformed)).toBe("stop-and-ask");
+  });
+});
+
 describe("loopStopReason (genie-loop bounds)", () => {
   const bounds = { maxIterations: 5, timeoutMs: 10_000 };
 
   it("continues when under all bounds", () => {
     expect(loopStopReason({ iterations: 2, elapsedMs: 1000, cancelled: false }, bounds)).toBeNull();
+  });
+
+  it("fails closed (stops) on a non-finite iteration bound rather than looping forever", () => {
+    // NaN never trips `iterations >= maxIterations`, so the loop would run unbounded.
+    expect(
+      loopStopReason({ iterations: 2, elapsedMs: 0, cancelled: false }, { maxIterations: NaN, timeoutMs: 10_000 }),
+    ).toBe("max-iterations");
+    expect(
+      loopStopReason({ iterations: 2, elapsedMs: 0, cancelled: false }, { maxIterations: 5, timeoutMs: Infinity }),
+    ).toBeNull(); // finite iteration bound still governs; time bound invalid but iterations under cap
+  });
+
+  it("fails closed on invalid live counters (NaN/negative)", () => {
+    expect(
+      loopStopReason({ iterations: NaN, elapsedMs: 0, cancelled: false }, bounds),
+    ).toBe("max-iterations");
+    expect(
+      loopStopReason({ iterations: 0, elapsedMs: NaN, cancelled: false }, bounds),
+    ).toBe("timeout");
   });
 
   it("cancellation wins over everything", () => {

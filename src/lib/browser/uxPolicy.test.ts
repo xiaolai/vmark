@@ -56,6 +56,17 @@ describe("R12 per-surface dispositions", () => {
     expect(dispositionFor("context-menu")).toBe("implement-minimal");
   });
 
+  it("routes basic-auth to a native prompt (the exact decided disposition)", () => {
+    expect(dispositionFor("basic-auth")).toBe("native-prompt");
+  });
+
+  it("keeps the no-AI-upload and no-TLS-click-through invariants unconditional (not matrix-derived)", () => {
+    // These are security invariants, not policy lookups: a future retint of the matrix
+    // must never be able to flip them. They answer `false` regardless of any disposition.
+    expect(aiMayChooseUploadFile()).toBe(false);
+    expect(isTlsClickThroughAllowed()).toBe(false);
+  });
+
   it("marks print explicitly unsupported (a decision, not a silent gap)", () => {
     expect(dispositionFor("print")).toBe("unsupported");
   });

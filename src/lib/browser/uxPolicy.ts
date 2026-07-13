@@ -86,16 +86,22 @@ export function isPermissionSurface(surface: UxSurface): boolean {
   return surface.startsWith(PERMISSION_PREFIX);
 }
 
-/** The AI may never choose an upload file (WI-1.7 / R12) — derived from the
- *  policy so it cannot contradict the matrix: only a human picker is allowed. */
+/** The AI may never choose an upload file (WI-1.7 / R12). Unconditional in v1: there
+ *  is no "ai-upload" disposition, so the answer is always no. This must NOT be derived
+ *  from the matrix with a negative check (`!== "human-picker"`) — that inverts the
+ *  invariant: any future retint of `file-upload` to another disposition would silently
+ *  flip this to `true` and open the exfiltration path. The security rule does not
+ *  depend on the matrix, so neither does this function. */
 export function aiMayChooseUploadFile(): boolean {
-  return dispositionFor("file-upload") !== "human-picker";
+  return false;
 }
 
-/** TLS/cert errors are a hard block — no click-through in v1. Derived from the
- *  matrix for the same reason. */
+/** TLS/cert errors are a hard block — no click-through in v1. Unconditional for the
+ *  same reason: no "allow-click-through" disposition exists, and a matrix-derived
+ *  negative check (`!== "deny-hard"`) would treat any other disposition as permission.
+ *  Fail closed. */
 export function isTlsClickThroughAllowed(): boolean {
-  return dispositionFor("tls-error") !== "deny-hard";
+  return false;
 }
 
 /** Devtools is available only in debug builds. */

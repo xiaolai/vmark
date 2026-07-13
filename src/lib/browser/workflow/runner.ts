@@ -25,6 +25,13 @@ import type { WebWorkflow, WorkflowStep } from "./types";
 export type WorkflowStepExecutor = (step: WorkflowStep, index: number) => Promise<StepOutcomeShape>;
 type StepOutcomeShape = Awaited<ReturnType<StepExecutor>>;
 
+/** Collapse a step into a fresh FROZEN plain object, reading each field exactly once.
+ *  A shared/Proxy/getter-backed step could otherwise report one `kind` when classified
+ *  and another when executed — a write run under read rules (the R8a double-post). */
+function freezeStep(step: WorkflowStep): WorkflowStep {
+  return Object.freeze({ index: step.index, kind: step.kind, text: step.text, line: step.line });
+}
+
 /**
  * Execute a parsed workflow end-to-end under R8a write-safety. Completes only if
  * every step succeeds; otherwise pauses (needs a human) or fails, reporting where.
@@ -34,10 +41,11 @@ export async function runWebWorkflow(
   execute: WorkflowStepExecutor,
   options: RunOptions = {},
 ): Promise<WorkflowRunResult> {
-  // Snapshot before classifying. Executing from the live `workflow.steps` would let a
-  // mutation during the (async) run pair a read-classified engine step with a step the
-  // safety layer never saw — a write executed under read rules is the R8a double-post.
-  const steps: readonly WorkflowStep[] = [...workflow.steps];
+  // Snapshot AND freeze before classifying. A shallow `[...workflow.steps]` copy would
+  // still share the step OBJECTS, so a getter/Proxy-backed `kind` could be read as a
+  // read at classification and a write at execution. Freezing each into a fresh plain
+  // object reads every field once, so the safety layer and the executor see the same step.
+  const steps: readonly WorkflowStep[] = workflow.steps.map(freezeStep);
   const engineSteps = steps.map(toEngineStep);
   return runWorkflow(engineSteps, (_engineStep, index) => execute(steps[index], index), options);
 }

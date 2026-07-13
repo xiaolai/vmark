@@ -73,6 +73,32 @@ describe("parseWorkflow — errors", () => {
     expect(r.ok).toBe(false);
   });
 
+  it("keeps errors accumulated before EOF when the front-matter is unterminated (collect-all)", () => {
+    // A duplicate key seen before the missing `---` must not be discarded — one pass
+    // shows every diagnostic, terminated or not.
+    const r = wf(["---", "site: a", "site: b", "goal: x"].join("\n"));
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.errors.some((e) => e.code === "unterminated-front-matter")).toBe(true);
+    expect(r.errors.some((e) => e.code === "duplicate-front-matter-key")).toBe(true);
+  });
+
+  it("does not catastrophically backtrack on a whitespace-heavy malformed step line (ReDoS guard)", () => {
+    const line = `x:${" ".repeat(50_000)}`;
+    const start = performance.now();
+    const r = wf(["---", "site: x", "---", "goal: ok", line].join("\n"));
+    const elapsed = performance.now() - start;
+    expect(r.ok).toBe(false); // empty text after the colon → malformed
+    expect(elapsed).toBeLessThan(1000); // linear parse, not seconds of backtracking
+  });
+
+  it("treats a step with only whitespace after the colon as malformed", () => {
+    const r = wf(["---", "site: x", "---", "action:   "].join("\n"));
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.errors.some((e) => e.code === "malformed-step")).toBe(true);
+  });
+
   it("errors when `site` is missing", () => {
     const r = wf(["---", "inputs: [a]", "---", "goal: a"].join("\n"));
     expect(r.ok).toBe(false);
@@ -213,6 +239,20 @@ describe("parseWorkflow — inputs validation", () => {
     if (r.ok) return;
     const e = r.errors.find((d) => d.code === "invalid-input-name");
     expect(e?.line).toBe(4);
+  });
+});
+
+describe("parseWorkflow — every step kind (incl. api, which replays authenticated requests)", () => {
+  it.each(["api", "action", "goal", "confirm", "extract"])("accepts the '%s' step kind", (kind) => {
+    const r = wf(["---", "site: x", "---", `${kind}: do the thing`].join("\n"));
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.workflow.steps[0].kind).toBe(kind);
+  });
+
+  it.each(["API", "Api", "gaol", "extractt"])("rejects the near-miss step kind '%s'", (kind) => {
+    const r = wf(["---", "site: x", "---", `${kind}: x`].join("\n"));
+    expect(r.ok).toBe(false);
   });
 });
 

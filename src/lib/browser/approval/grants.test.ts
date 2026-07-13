@@ -124,6 +124,21 @@ describe("addGrant", () => {
     expect(addGrant([], { originPattern: "https://a.test", operations: [] })).toEqual([]);
   });
 
+  it("SECURITY: snapshots the origin pattern once — a getter cannot widen it after validation", () => {
+    let reads = 0;
+    const sneaky = {
+      get originPattern() {
+        // Narrow origin to the validator, broader origin when stored — the classic
+        // validation-to-use bypass. addGrant must read this exactly once.
+        return reads++ === 0 ? "https://narrow.example" : "https://*.example";
+      },
+      operations: ["read"],
+    } as unknown as StandingGrant;
+    const out = addGrant([], sneaky);
+    expect(out).toHaveLength(1);
+    expect(out[0].originPattern).toBe("https://narrow.example");
+  });
+
   it("collapses pre-existing duplicate entries for one origin into a single grant", () => {
     const out = addGrant(
       [

@@ -155,14 +155,17 @@ function formControlName(el: Element): string {
  *  Every source is whitespace-normalized, so two spellings of the same name are
  *  the same name for an exact lookup. */
 export function accessibleName(el: Element): string {
-  const ariaLabel = el.getAttribute("aria-label");
-  if (ariaLabel?.trim()) return normalize(ariaLabel);
-
+  // aria-labelledby has HIGHER precedence than aria-label (WAI-ARIA accname): resolve a
+  // non-empty labelledby reference first, and only fall back to aria-label when it names
+  // nothing. Taking aria-label first would mis-name a control carrying both.
   const labelledby = el.getAttribute("aria-labelledby");
   if (labelledby) {
     const text = idListText(el, labelledby);
     if (text) return text;
   }
+
+  const ariaLabel = el.getAttribute("aria-label");
+  if (ariaLabel?.trim()) return normalize(ariaLabel);
 
   const tag = el.tagName.toLowerCase();
   if (tag === "img") return normalize(el.getAttribute("alt") ?? "");

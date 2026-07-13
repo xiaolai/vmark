@@ -31,6 +31,10 @@ const sites: SiteManifest[] = [];
 const byId = new Map<string, SiteManifest>();
 /** Exact (non-wildcard) origin key → owning plugin id, for collision detection + precedence. */
 const exactOrigin = new Map<string, string>();
+/** Canonical wildcard identity (`*.host:port`) → owning plugin id. Two plugins claiming
+ *  the SAME canonical wildcard would make dispatch registration-order-dependent and
+ *  silently shadow one of them — reject the collision across sites, not just within one. */
+const wildcardOrigin = new Map<string, string>();
 
 /**
  * Read every caller-controlled field EXACTLY ONCE into a plain object.
@@ -129,7 +133,13 @@ function validateOrigins(manifest: SiteManifest): void {
     }
     seen.add(identity);
 
-    if (info.wildcard) continue;
+    if (info.wildcard) {
+      const wildcardOwner = wildcardOrigin.get(identity);
+      if (wildcardOwner !== undefined) {
+        throw new Error(`Wildcard origin ${identity} already claimed by site "${wildcardOwner}".`);
+      }
+      continue;
+    }
     const owner = exactOrigin.get(originKey(info));
     if (owner !== undefined) {
       throw new Error(`Origin ${originKey(info)} already claimed by site "${owner}".`);
@@ -153,7 +163,9 @@ export function registerSite(manifest: SiteManifest): void {
 
   for (const pattern of frozen.origins) {
     const info = describeOriginPattern(pattern)!;
-    if (!info.wildcard) {
+    if (info.wildcard) {
+      wildcardOrigin.set(patternIdentity(info), frozen.id);
+    } else {
       exactOrigin.set(originKey(info), frozen.id);
     }
   }
@@ -203,4 +215,5 @@ export function __resetSiteRegistry(): void {
   sites.length = 0;
   byId.clear();
   exactOrigin.clear();
+  wildcardOrigin.clear();
 }

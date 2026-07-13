@@ -152,6 +152,31 @@ describe("readPage — markdown serialization", () => {
     expect(r.markdown).not.toContain("\\# not escaped");
   });
 
+  it("SECURITY: fences a code span longer than any backtick run inside it (cannot break out)", () => {
+    const r = readPage(wrap("<p>run <code>a`b</code></p>"), URL);
+    expect(r.markdown).toContain("``a`b``");
+  });
+
+  it("SECURITY: fences a pre block longer than any ``` run inside it (cannot forge structure)", () => {
+    const r = readPage(wrap("<pre><code>```\n# forged heading</code></pre>"), URL);
+    expect(r.markdown).toContain("````"); // outer fence is 4+ backticks, so the inner ``` is inert
+  });
+
+  it("SECURITY: wraps a link destination with parens/space in angle brackets (not truncated)", () => {
+    const r = readPage(wrap(`<p>see <a href="/a(b)c">link</a></p>`), URL);
+    expect(r.markdown).toContain("(<https://example.com/a(b)c>)");
+  });
+
+  it("SECURITY: escapes a decoded < in page text so a page cannot inject raw HTML", () => {
+    const r = readPage(wrap("<p>&lt;img src=x onerror=alert(1)&gt;</p>"), URL);
+    expect(r.markdown).toContain("\\<img");
+  });
+
+  it("SECURITY: normalizes multiline image alt so it cannot inject a heading", () => {
+    const r = readPage(wrap('<p>x</p><img src="/p.png" alt="safe&#10;&#10;# forged">'), URL);
+    expect(r.markdown).not.toMatch(/^# forged$/m);
+  });
+
   it("drops script/style/noscript noise from the output", () => {
     const r = readPage(
       wrap(`<p>Visible text of the article.</p><script>evil()</script><style>.x{color:red}</style>`),

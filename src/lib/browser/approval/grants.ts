@@ -109,7 +109,12 @@ export function addGrant(
   grants: readonly StandingGrant[],
   grant: StandingGrant,
 ): StandingGrant[] {
-  const identity = patternIdentity(grant.originPattern);
+  // SECURITY: read the caller-supplied fields EXACTLY ONCE. `grant` may be a getter- or
+  // Proxy-backed object that returns a narrow origin to the validator here and a broader
+  // one when stored below — a validation-to-use authorization bypass. Everything downstream
+  // uses these snapshots, never `grant` again (mirrors the registry's snapshotManifest).
+  const originPattern = grant.originPattern;
+  const identity = patternIdentity(originPattern);
   const operations = sanitizeOperations(grant.operations);
   if (identity === null || operations.length === 0) return [...grants];
 
@@ -130,7 +135,7 @@ export function addGrant(
     }
   }
   if (slot === -1) {
-    out.push({ originPattern: grant.originPattern, operations: [...merged] });
+    out.push({ originPattern, operations: [...merged] });
   } else {
     out[slot] = { originPattern: out[slot].originPattern, operations: [...merged] };
   }

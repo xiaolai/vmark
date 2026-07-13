@@ -45,6 +45,27 @@ function resolveUrl(href: string, baseUrl: string): string {
   }
 }
 
+/** Collapse internal whitespace and trim — the reader emits one-line fields. */
+function normalizeWs(text: string): string {
+  return text.replace(/\s+/g, " ").trim();
+}
+
+/** Longest run of consecutive backticks in `s` (0 if none) — used to pick a code
+ *  span/fence delimiter that the content cannot terminate early. */
+function longestBacktickRun(s: string): number {
+  const runs = s.match(/`+/g);
+  return runs ? Math.max(...runs.map((r) => r.length)) : 0;
+}
+
+/** A markdown link/image destination. Wrap in angle brackets when it contains
+ *  whitespace or parentheses, which would otherwise truncate the destination
+ *  (`[t](http://x/a))` drops the trailing `)` and leaks stray text). The angle form
+ *  forbids `<`/`>`/newline, which `resolveUrl` (a parsed `URL.href`) has already
+ *  percent-encoded away. */
+function mdDestination(url: string): string {
+  return /[()\s]/.test(url) ? `<${url}>` : url;
+}
+
 function serializeChildren(el: Element, baseUrl: string): string {
   let out = "";
   el.childNodes.forEach((node) => {
@@ -71,7 +92,9 @@ function escapeText(text: string): string {
     text
       // Backslash first, or it would escape the escapes added below.
       .replace(/\\/g, "\\\\")
-      .replace(/([`*_[\]])/g, "\\$1")
+      // `<` is escaped too: a decoded `<img onerror=…>` in page text would otherwise
+      // survive as a raw HTML node in the emitted markdown.
+      .replace(/([`*_[\]<])/g, "\\$1")
       // Block-level markers only bite at the start of a line/text run.
       .replace(/^(\s*)([-+>#])/, "$1\\$2")
       .replace(/^(\s*)(\d+)\./, "$1$2\\.")
@@ -107,19 +130,31 @@ function serializeNode(node: Node, baseUrl: string): string {
       const inner = serializeChildren(el, baseUrl).trim();
       return inner ? `*${inner}*` : "";
     }
-    case "code":
-      return `\`${el.textContent ?? ""}\``;
-    case "pre":
-      return `\n\n\`\`\`\n${(el.textContent ?? "").replace(/\n+$/, "")}\n\`\`\`\n\n`;
+    case "code": {
+      // Choose a fence longer than the longest backtick run so a backtick in the
+      // content cannot terminate the span early. Pad when it borders a backtick.
+      const code = el.textContent ?? "";
+      const fence = "`".repeat(longestBacktickRun(code) + 1);
+      const pad = code.startsWith("`") || code.endsWith("`") ? " " : "";
+      return `${fence}${pad}${code}${pad}${fence}`;
+    }
+    case "pre": {
+      // Same rule for a fenced block: the fence must be longer than any ``` inside,
+      // or hostile content could close the fence and forge document structure.
+      const body = (el.textContent ?? "").replace(/\n+$/, "");
+      const fence = "`".repeat(Math.max(3, longestBacktickRun(body) + 1));
+      return `\n\n${fence}\n${body}\n${fence}\n\n`;
+    }
     case "a": {
       const href = el.getAttribute("href");
       const text = serializeChildren(el, baseUrl).trim();
-      return href ? `[${text}](${resolveUrl(href, baseUrl)})` : text;
+      return href ? `[${text}](${mdDestination(resolveUrl(href, baseUrl))})` : text;
     }
     case "img": {
       const src = el.getAttribute("src");
       if (!src) return "";
-      return `![${escapeText(el.getAttribute("alt") ?? "")}](${resolveUrl(src, baseUrl)})`;
+      const alt = escapeText(normalizeWs(el.getAttribute("alt") ?? ""));
+      return `![${alt}](${mdDestination(resolveUrl(src, baseUrl))})`;
     }
     case "ul":
       return `\n\n${listItems(el)

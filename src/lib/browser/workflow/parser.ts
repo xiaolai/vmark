@@ -35,11 +35,18 @@ import {
 
 const KIND_SET = new Set<string>(STEP_KINDS);
 const KNOWN_FM_KEYS = new Set(["site", "inputs", "trigger"]);
-const STEP_RE = /^\s*(?:\d+\.|-)?\s*([a-z]+)\s*:\s*(.*\S)\s*$/;
-const VAR_NAME_RE = /^[a-zA-Z_][\w-]*$/;
-const VAR_REF_RE = /\{([a-zA-Z_][\w-]*)\}/g;
-/** UTF-8 BOM — a valid file may start with one (Windows editors add it). */
-const BOM = "﻿";
+// Trailing text is captured with a bounded `(.*)$` (no overlapping quantifiers) and
+// trimmed/emptiness-checked in code. The earlier `(.*\S)\s*$` form let `\s*` and `.*`
+// both range over the same trailing whitespace — superlinear backtracking on a
+// whitespace-heavy malformed line, which could freeze the synchronous UI thread (ReDoS).
+const STEP_RE = /^\s*(?:\d+\.|-)?\s*([a-z]+)\s*:\s*(.*)$/;
+// One grammar source for a variable name, so a declaration and a `{ref}` cannot drift.
+const VAR_NAME_SRC = "[a-zA-Z_][\\w-]*";
+const VAR_NAME_RE = new RegExp(`^${VAR_NAME_SRC}$`);
+const VAR_REF_RE = new RegExp(`\\{(${VAR_NAME_SRC})\\}`, "g");
+/** UTF-8 BOM — a valid file may start with one (Windows editors add it). Written as an
+ *  escape, not a literal, so an invisible format character can't be silently dropped. */
+const BOM = "\uFEFF";
 
 function err(line: number, code: DiagnosticCode, message: string): ErrorDiagnostic {
   return { line, code, message, severity: "error" };
@@ -57,7 +64,7 @@ export function parseWorkflow(source: string): ParseResult {
 
   const fm = extractFrontMatter(lines);
   warnings.push(...fm.warnings);
-  if (!fm.ok) return { ok: false, errors: [fm.error], warnings };
+  if (!fm.ok) return { ok: false, errors: fm.errors, warnings };
   errors.push(...fm.errors);
 
   const site = fm.fields.get("site");
@@ -99,7 +106,7 @@ type FrontMatter =
       headerLine: number;
       bodyStart: number;
     }
-  | { ok: false; error: ErrorDiagnostic; warnings: WarningDiagnostic[] };
+  | { ok: false; errors: ErrorDiagnostic[]; warnings: WarningDiagnostic[] };
 
 // Keys may contain letters, digits, `-` and `_` so hyphenated keys (`some-key`) are
 // recognized and warned as unknown rather than silently skipped.
@@ -110,7 +117,7 @@ function extractFrontMatter(lines: string[]): FrontMatter {
   if (lines[0]?.trim() !== "---") {
     return {
       ok: false,
-      error: err(1, "missing-front-matter", "Workflow must start with a `---` front-matter block."),
+      errors: [err(1, "missing-front-matter", "Workflow must start with a `---` front-matter block.")],
       warnings: [],
     };
   }
@@ -146,9 +153,11 @@ function extractFrontMatter(lines: string[]): FrontMatter {
     fields.set(key, value.trim());
     fieldLines.set(key, line);
   }
+  // Include everything diagnosed before EOF — a duplicate key or malformed line seen
+  // inside an unterminated block must not be silently dropped (collect-all-diagnostics).
   return {
     ok: false,
-    error: err(1, "unterminated-front-matter", "Unterminated front-matter (missing closing `---`)."),
+    errors: [...errors, err(1, "unterminated-front-matter", "Unterminated front-matter (missing closing `---`).")],
     warnings,
   };
 }
@@ -201,11 +210,14 @@ function parseSteps(lines: string[], bodyStart: number): { steps: WorkflowStep[]
 
     const line = i + 1;
     const m = STEP_RE.exec(raw);
-    if (!m) {
+    // `STEP_RE` now captures trailing text as `(.*)`, so trim + reject empties in code
+    // (a line that is only `kind:` with nothing after has no instruction — malformed).
+    const text = m ? m[2].trim() : "";
+    if (!m || text === "") {
       stepErrors.push(err(line, "malformed-step", `Step must be "<kind>: <text>" (got: ${trimmed}).`));
       continue;
     }
-    const [, kind, text] = m;
+    const kind = m[1];
     if (!KIND_SET.has(kind)) {
       stepErrors.push(
         err(line, "unknown-step-kind", `Unknown step kind "${kind}" (expected ${STEP_KINDS.join(", ")}).`),

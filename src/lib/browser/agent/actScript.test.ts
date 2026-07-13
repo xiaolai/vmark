@@ -56,6 +56,8 @@ describe("parity with aria.ts", () => {
       <div role="button link" title="Multi token">t</div>
       <p id="lbl">Save changes</p>
       <button aria-labelledby="lbl">x</button>
+      <p id="lbl2">Referenced name</p>
+      <button aria-labelledby="lbl2" aria-label="Direct name">combined</button>
       <button disabled>Disabled</button>
       <button aria-label="Close   dialog">x</button>
       <fieldset disabled><button>In fieldset</button></fieldset>

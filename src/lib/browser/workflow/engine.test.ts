@@ -77,6 +77,31 @@ describe("runWorkflow", () => {
     expect(exec).not.toHaveBeenCalled();
   });
 
+  it("pauses when the lease is lost DURING a step that then succeeds (R11 — rechecked after await)", async () => {
+    // Ownership can be lost while the final executor call is pending. Even if that call
+    // resolves success, the run must pause rather than report the workflow completed.
+    let held = true;
+    const exec = vi.fn(async () => {
+      held = false;
+      return { outcome: "success" } as const;
+    });
+    const res = await runWorkflow([write("b")], exec, { leaseHeld: () => held });
+    expect(res.status).toBe("paused");
+    expect(res.reasonCode).toBe("lease-lost");
+  });
+
+  it("fails closed to a paused lease-lost result when leaseHeld() itself throws", async () => {
+    const exec = vi.fn().mockResolvedValue({ outcome: "success" });
+    const res = await runWorkflow([read("a")], exec, {
+      leaseHeld: () => {
+        throw new Error("lease backend down");
+      },
+    });
+    expect(res.status).toBe("paused");
+    expect(res.reasonCode).toBe("lease-lost");
+    expect(exec).not.toHaveBeenCalled(); // never acted without a confirmed lease
+  });
+
   it("does NOT retry after the lease is lost mid-step (R11 — no acting on a page we lost)", async () => {
     let held = true;
     // The step fails retryably, but the lease is gone by the time the retry would run.

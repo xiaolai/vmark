@@ -77,6 +77,20 @@ describe("registerSite validation", () => {
     ).toThrow();
   });
 
+  it("rejects a WILDCARD-origin collision ACROSS plugins (dispatch would be order-dependent)", () => {
+    registerSite({ ...zhihu, id: "first", origins: ["https://*.shared.com"] });
+    expect(() =>
+      registerSite({ ...zhihu, id: "second", origins: ["https://*.shared.com"] }),
+    ).toThrow();
+  });
+
+  it("rejects a canonically-equivalent wildcard collision across plugins (case)", () => {
+    registerSite({ ...zhihu, id: "first", origins: ["https://*.shared.com"] });
+    expect(() =>
+      registerSite({ ...zhihu, id: "second", origins: ["https://*.SHARED.com"] }),
+    ).toThrow();
+  });
+
   it("rejects canonically-equivalent duplicate origins (case / trailing slash / default port)", () => {
     expect(() =>
       registerSite({ ...zhihu, origins: ["https://a.com", "https://A.com/"] }),

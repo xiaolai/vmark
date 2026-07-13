@@ -51,14 +51,46 @@ export interface SiteHealth {
  * fixture case). With the fixture working, auth state distinguishes ok vs degraded.
  */
 export function classifyProbe(probe: SiteHealthProbe): SiteHealthStatus {
+  // Zero-trust: a plugin's result is runtime data. Classify by ACTUAL booleans, not
+  // truthiness — a malformed `{ authenticated: "false", fixtureExtracted: "false" }`
+  // (strings) is truthy and would otherwise be reported `ok`. Anything malformed fails.
+  if (typeof probe.fixtureExtracted !== "boolean" || typeof probe.authenticated !== "boolean") {
+    return "failed";
+  }
   if (!probe.fixtureExtracted) return "failed";
   return probe.authenticated ? "ok" : "degraded";
+}
+
+/** Normalize any thrown/rejected value to a message without itself throwing. `String()`
+ *  can throw for a null-prototype object or a hostile proxy — which, inside `probeSite`'s
+ *  catch, would reject the whole `Promise.all` and discard every site's result. */
+function safeErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  try {
+    return String(error);
+  } catch {
+    return "unknown error (unstringifiable value)";
+  }
 }
 
 /** Default per-probe budget. A probe drives a real browser, so it is allowed to be
  *  slow — but never unbounded: one plugin that never settles would otherwise hang
  *  the aggregate and every other site's result with it. */
 const DEFAULT_PROBE_TIMEOUT_MS = 15_000;
+
+/** The platform `setTimeout` clamps anything above this to ~1ms — a value past it (or a
+ *  NaN/Infinity/negative one) would produce spurious immediate timeouts. */
+const MAX_TIMER_MS = 2_147_483_647;
+
+/** Validate the per-probe budget up front. An invalid `timeoutMs` (NaN, Infinity,
+ *  non-positive, or above the platform timer ceiling) collapses to an ~immediate timer
+ *  and would report every site as falsely timed-out — fail loud instead. */
+function validateTimeout(value: number): number {
+  if (!Number.isFinite(value) || value <= 0 || value > MAX_TIMER_MS) {
+    throw new RangeError(`timeoutMs must be a finite number in (0, ${MAX_TIMER_MS}] (got ${value}).`);
+  }
+  return value;
+}
 
 /** Reject with a timeout error if `promise` has not settled within `ms`. */
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
@@ -83,7 +115,8 @@ async function probeSite(
     return {
       ...base,
       status: classifyProbe(probe),
-      ...(probe.detail !== undefined ? { detail: probe.detail } : {}),
+      // Only surface a well-formed string detail — a non-string is malformed data.
+      ...(typeof probe.detail === "string" ? { detail: probe.detail } : {}),
     };
   } catch (error) {
     // Fail loud but contained: one plugin's thrown (or hung) probe must not sink
@@ -91,7 +124,7 @@ async function probeSite(
     return {
       ...base,
       status: "failed",
-      detail: error instanceof Error ? error.message : String(error),
+      detail: safeErrorMessage(error),
     };
   }
 }
@@ -115,7 +148,7 @@ export async function runSiteHealth(
   checks: ReadonlyMap<string, HealthCheckFn>,
   options: SiteHealthOptions = {},
 ): Promise<SiteHealth[]> {
-  const timeoutMs = options.timeoutMs ?? DEFAULT_PROBE_TIMEOUT_MS;
+  const timeoutMs = validateTimeout(options.timeoutMs ?? DEFAULT_PROBE_TIMEOUT_MS);
   return Promise.all(
     listSites().map((manifest) => probeSite(manifest, checks.get(manifest.id), timeoutMs)),
   );

@@ -127,6 +127,12 @@ async function runStep(
     if (!leaseHeld()) return LEASE_LOST;
 
     const { result, error } = await attempt(step, index, execute);
+
+    // R11 — re-check AFTER the await too: ownership can be lost while the executor is
+    // pending. Even a step that resolved success must pause (not complete) if the lease
+    // is gone, so the rest of the workflow never runs on a page the AI no longer owns.
+    if (!leaseHeld()) return LEASE_LOST;
+
     const action = decideAfterResult(step.write, result);
 
     switch (action) {
@@ -167,11 +173,24 @@ export async function runWorkflow(
   options: RunOptions = {},
 ): Promise<WorkflowRunResult> {
   const maxRetries = retryCap(options.maxRetries);
-  const leaseHeld = options.leaseHeld ?? (() => true);
+  // Fail closed on a throwing lease callback: a thrown lease check is not "still held".
+  // Keeping the structured-stop contract (a rejection never escapes runWorkflow) means a
+  // throw here becomes a paused lease-lost result, not an escaped exception.
+  const rawLease = options.leaseHeld ?? (() => true);
+  const leaseHeld = (): boolean => {
+    try {
+      return rawLease();
+    } catch {
+      return false;
+    }
+  };
+  // Snapshot the input array so a concurrent splice mid-run cannot change which steps
+  // execute (the elements are already frozen by the runner; this guards the array too).
+  const stepList = [...steps];
   let completedSteps = 0;
 
-  for (let i = 0; i < steps.length; i++) {
-    const step = steps[i];
+  for (let i = 0; i < stepList.length; i++) {
+    const step = stepList[i];
     const stop = await runStep(step, i, execute, maxRetries, leaseHeld);
     if (stop) return { ...stop, completedSteps, pausedAt: step.id };
     completedSteps += 1;

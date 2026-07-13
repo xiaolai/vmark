@@ -59,10 +59,19 @@ function visible(ev: RecordedEvent, raw: string | undefined): string {
   return ev.sensitive ? REDACTED : raw ?? "";
 }
 
+/** A recorded role is page-world data (R10), yet it is appended unquoted as `(role)`.
+ *  Only a clean ARIA-token role is kept; anything else (a newline, `)`, or `"` that
+ *  would break the line and forge a step, just like an unescaped name would) drops the
+ *  role, so the locator degrades to name-only rather than corrupting the file. */
+function safeRole(role: string | undefined): string {
+  return role && /^[a-zA-Z-]+$/.test(role) ? role : "";
+}
+
 /** `"name" (role)` — one target format for click AND type: an accessible name alone
  *  is ambiguous when two controls share it, so the role is part of the locator. */
 function target(ev: RecordedEvent): string {
-  return `${quote(ev.name ?? "")}${ev.role ? ` (${ev.role})` : ""}`;
+  const role = safeRole(ev.role);
+  return `${quote(ev.name ?? "")}${role ? ` (${role})` : ""}`;
 }
 
 /** The first value that carries something after trimming (whitespace-only text is not
@@ -73,11 +82,13 @@ function firstNonBlank(...values: Array<string | undefined>): string | undefined
 
 function stepLine(ev: RecordedEvent): string {
   switch (ev.type) {
-    case "navigate":
-      // Every step needs non-empty text for the parser; a url-less navigate is
-      // just "navigate" (degenerate but valid) rather than a dangling "to ".
+    case "navigate": {
+      // Normalize FIRST: a whitespace-only URL folds to empty, which must degrade to a
+      // bare "navigate" rather than a dangling "navigate to " the parser trips over.
       // The URL is data — a callback URL can carry a token (R10).
-      return ev.url ? `action: navigate to ${fold(visible(ev, ev.url))}` : "action: navigate";
+      const url = fold(visible(ev, ev.url ?? ""));
+      return url ? `action: navigate to ${url}` : "action: navigate";
+    }
     case "click":
       // A click has no data — only a target. Its accessible name is the locator.
       return `action: click ${target(ev)}`;
@@ -87,7 +98,9 @@ function stepLine(ev: RecordedEvent): string {
       // An extract instruction is prose, so it stays unquoted (a hand-written
       // `extract: new comments` must round-trip byte-for-byte). It still reaches the
       // end of the line, so line breaks — which would forge a step — are folded out.
-      const detail = ev.sensitive ? REDACTED : firstNonBlank(ev.text, ev.name) ?? "content";
+      // Redaction goes through the single `visible` helper so the security-critical
+      // rule cannot drift from the one every other event type uses.
+      const detail = visible(ev, firstNonBlank(ev.text, ev.name) ?? "content");
       return `extract: ${fold(detail)}`;
     }
   }

@@ -99,6 +99,27 @@ describe("runWebWorkflow", () => {
     expect(result.reason).toMatch(/driver crashed/);
   });
 
+  it("freezes each step so a getter-backed kind cannot differ between classify and execute (R8a)", async () => {
+    // A Proxy/getter step could return "extract" (read) at classification and "goal"
+    // (write) at execution — a write run under read rules. Freezing collapses `kind` to
+    // a fixed value read once, so both stages see the same classification.
+    let reads = 0;
+    const sneaky = {
+      index: 1,
+      text: "x",
+      line: 1,
+      get kind() {
+        return reads++ === 0 ? "extract" : "goal";
+      },
+    } as unknown as WorkflowStep;
+    let executed: StepKind | undefined;
+    await runWebWorkflow(workflow([sneaky]), async (s) => {
+      executed = s.kind;
+      return ok();
+    });
+    expect(executed).toBe("extract");
+  });
+
   it("runs from a snapshot — mutating workflow.steps mid-run cannot swap a classified step", async () => {
     // The safety classification is computed up front; executing from a live array
     // could pair a read-classified engine step with a write step it never saw.

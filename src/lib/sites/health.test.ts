@@ -46,6 +46,16 @@ describe("classifyProbe", () => {
       expect(classifyProbe({ authenticated, fixtureExtracted: false })).toBe("failed");
     },
   );
+
+  it("classifies a malformed probe (non-boolean fields) as failed, not ok", () => {
+    // A plugin result is runtime data; truthiness classification would report this `ok`.
+    expect(
+      classifyProbe({ authenticated: "false", fixtureExtracted: "false" } as unknown as SiteHealthProbe),
+    ).toBe("failed");
+    expect(
+      classifyProbe({ authenticated: 1, fixtureExtracted: 1 } as unknown as SiteHealthProbe),
+    ).toBe("failed");
+  });
 });
 
 describe("runSiteHealth", () => {
@@ -173,4 +183,27 @@ describe("runSiteHealth", () => {
     const [health] = await runSiteHealth(checks, { timeoutMs: 1000 });
     expect(health.status).toBe("ok");
   });
+
+  it("contains a null-prototype rejection without sinking the whole batch", async () => {
+    // `String(Object.create(null))` throws; inside probeSite's catch that would reject
+    // Promise.all and discard every site's result. It must be normalized safely.
+    registerSite(zhihu);
+    registerSite(medium);
+    const checks = new Map<string, HealthCheckFn>([
+      ["zhihu", () => Promise.reject(Object.create(null))],
+      ["medium", async () => passing],
+    ]);
+    const health = await runSiteHealth(checks);
+    expect(health.map((h) => h.id)).toEqual(["zhihu", "medium"]);
+    expect(health[0].status).toBe("failed");
+    expect(health[1].status).toBe("ok");
+  });
+
+  it.each([NaN, Infinity, -1, 0, 2_147_483_648])(
+    "rejects an invalid timeoutMs (%s) instead of producing spurious timeouts",
+    async (timeoutMs) => {
+      registerSite(zhihu);
+      await expect(runSiteHealth(new Map(), { timeoutMs })).rejects.toThrow(RangeError);
+    },
+  );
 });

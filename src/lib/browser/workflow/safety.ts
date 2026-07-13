@@ -51,6 +51,14 @@ export interface StepOutcome {
  * step (publish, submit, delete); reads are idempotent and may retry freely.
  */
 export function decideAfterResult(write: boolean, result: StepOutcome): NextAction {
+  // Zero-trust on runtime data: the outcome may arrive from a native/deserialized
+  // executor, so an out-of-contract value must fail closed. Without this guard a
+  // garbage outcome with `postconditionMet: false` would fall through to the failed
+  // path and be auto-retried — exactly the double-post this module prevents.
+  if (result.outcome !== "success" && result.outcome !== "failed" && result.outcome !== "unknown") {
+    return "stop-and-ask";
+  }
+
   if (result.outcome === "success") {
     // A write that reports success while its postcondition says it did NOT land is
     // self-contradictory. Believing the report marks a never-applied publish complete;
@@ -91,9 +99,19 @@ export function nextTier(current: Tier, write: boolean): Tier | null {
  * whose value is `undefined` disappears entirely, and `Map`/`Set` collapse to `{}`.
  * A key collision between two *different* writes is precisely the double-post this
  * module exists to prevent, so anything that cannot be encoded unambiguously
- * (symbol, function, class instance, cycle) throws instead of guessing.
+ * (symbol, function, class instance, accessor, cycle) throws instead of guessing;
+ * `-0`, sparse-array holes, and non-enumerable properties are encoded distinctly so
+ * they cannot silently share a key either.
  */
-function canonical(value: unknown, seen: Set<object>): string {
+
+/** Guard against an adversarially deep input blowing the stack while we build the
+ *  raw key. Workflow inputs are flat records, so this ceiling is far above any real one. */
+const MAX_ENCODE_DEPTH = 100;
+
+function canonical(value: unknown, seen: Set<object>, depth: number): string {
+  if (depth > MAX_ENCODE_DEPTH) {
+    throw new TypeError("idempotencyKey: input nested deeper than the encoder allows.");
+  }
   if (value === null) return "null";
   switch (typeof value) {
     case "undefined":
@@ -102,7 +120,9 @@ function canonical(value: unknown, seen: Set<object>): string {
       return value ? "true" : "false";
     case "number":
       // NaN / ±Infinity are not JSON — tag them so they cannot collide with `null`.
-      return Number.isFinite(value) ? JSON.stringify(value) : `#${String(value)}`;
+      if (!Number.isFinite(value)) return `#${String(value)}`;
+      // `-0` and `0` are distinct write inputs; JSON.stringify flattens both to "0".
+      return Object.is(value, -0) ? "-0" : JSON.stringify(value);
     case "bigint":
       return `${value}n`;
     case "string":
@@ -117,32 +137,67 @@ function canonical(value: unknown, seen: Set<object>): string {
   if (seen.has(obj)) throw new TypeError("idempotencyKey: cannot encode a cyclic value.");
   seen.add(obj);
   try {
-    if (Array.isArray(obj)) return `[${obj.map((v) => canonical(v, seen)).join(",")}]`;
-    if (obj instanceof Date) {
-      const t = obj.getTime();
-      return `Date(${Number.isNaN(t) ? "invalid" : obj.toISOString()})`;
-    }
+    if (Array.isArray(obj)) return encodeArray(obj, seen, depth);
+    if (obj instanceof Date) return encodeDate(obj);
     const proto: unknown = Object.getPrototypeOf(obj);
     if (proto !== Object.prototype && proto !== null) {
       throw new TypeError(`idempotencyKey: cannot encode a "${obj.constructor?.name ?? "object"}" value.`);
     }
-    const record = obj as Record<string, unknown>;
-    const body = Object.keys(record)
-      .sort()
-      .map((k) => `${JSON.stringify(k)}:${canonical(record[k], seen)}`)
-      .join(",");
-    return `{${body}}`;
+    return encodePlainObject(obj as Record<string, unknown>, seen, depth);
   } finally {
     // Only ancestors are "seen" — the same object twice in a tree is not a cycle.
     seen.delete(obj);
   }
 }
 
+/** Encode by index over the FULL length so a hole is distinct from `undefined` and
+ *  `Array(1)` cannot collide with `[]` (the default `.map` skips holes). */
+function encodeArray(arr: unknown[], seen: Set<object>, depth: number): string {
+  const parts: string[] = [];
+  for (let i = 0; i < arr.length; i++) {
+    parts.push(i in arr ? canonical(arr[i], seen, depth + 1) : "#hole");
+  }
+  return `[${parts.join(",")}]`;
+}
+
+/** A Date SUBCLASS, or a plain Date carrying own properties, is a class instance in
+ *  disguise — reject it rather than silently ignoring the extras and colliding. */
+function encodeDate(date: Date): string {
+  if (Object.getPrototypeOf(date) !== Date.prototype || Reflect.ownKeys(date).length > 0) {
+    throw new TypeError("idempotencyKey: cannot encode a Date subclass or a Date with own properties.");
+  }
+  const t = date.getTime();
+  return `Date(${Number.isNaN(t) ? "invalid" : date.toISOString()})`;
+}
+
+/** `Reflect.ownKeys` (not `Object.keys`) so a symbol key or a non-enumerable property
+ *  cannot silently vanish and collide with `{}`. Symbol keys and accessors are
+ *  rejected — an accessor is stateful/side-effecting, which a deterministic key must
+ *  not be. Non-enumerable own data properties ARE encoded, so they stay distinct. */
+function encodePlainObject(record: Record<string, unknown>, seen: Set<object>, depth: number): string {
+  const stringKeys: string[] = [];
+  for (const key of Reflect.ownKeys(record)) {
+    if (typeof key === "symbol") {
+      throw new TypeError("idempotencyKey: cannot encode an object with symbol keys.");
+    }
+    const desc = Object.getOwnPropertyDescriptor(record, key);
+    if (desc && (desc.get || desc.set)) {
+      throw new TypeError("idempotencyKey: cannot encode an object with accessor properties.");
+    }
+    stringKeys.push(key);
+  }
+  const body = stringKeys
+    .sort()
+    .map((k) => `${JSON.stringify(k)}:${canonical(record[k], seen, depth + 1)}`)
+    .join(",");
+  return `{${body}}`;
+}
+
 /** A stable key for a write, so a repeated attempt with the same inputs is
  *  detectable and can be deduplicated rather than re-applied. Throws (rather than
  *  returning an ambiguous key) on values it cannot encode — see `canonical`. */
 export function idempotencyKey(stepId: string, inputs: Record<string, unknown>): string {
-  return `${stepId}:${canonical(inputs, new Set())}`;
+  return `${stepId}:${canonical(inputs, new Set(), 0)}`;
 }
 
 /** Live loop counters. */
@@ -165,7 +220,13 @@ export function loopStopReason(
   bounds: LoopBounds,
 ): "cancelled" | "max-iterations" | "timeout" | null {
   if (state.cancelled) return "cancelled";
+  // Fail closed: a NaN or negative bound/counter silently defeats every `>=` guard
+  // (NaN comparisons are always false), which would let the loop run unbounded. Treat
+  // it as "stop now". `>= 0` rejects NaN and negatives while still allowing Infinity as
+  // an explicit "no limit" — the other bound then governs.
+  if (!(state.iterations >= 0) || !(bounds.maxIterations >= 0)) return "max-iterations";
   if (state.iterations >= bounds.maxIterations) return "max-iterations";
+  if (!(state.elapsedMs >= 0) || !(bounds.timeoutMs >= 0)) return "timeout";
   if (state.elapsedMs >= bounds.timeoutMs) return "timeout";
   return null;
 }

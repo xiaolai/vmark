@@ -13,8 +13,10 @@
 export const CURRENT_AGENT_API = 1;
 
 /** The capability vocabulary — the single source for both the type and the
- *  registry's runtime validation, so the two cannot drift apart. */
-export const SITE_CAPABILITIES = ["read", "publish"] as const;
+ *  registry's runtime validation, so the two cannot drift apart. Frozen because
+ *  `as const` is compile-time only: the validation vocabulary must not be mutable at
+ *  runtime (e.g. a `push` before the registry snapshots it into its allowlist Set). */
+export const SITE_CAPABILITIES = Object.freeze(["read", "publish"] as const);
 
 export type SiteCapability = (typeof SITE_CAPABILITIES)[number];
 

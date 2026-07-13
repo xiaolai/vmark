@@ -80,6 +80,20 @@ describe("accessibleName", () => {
     expect(accessibleName(r.querySelector("button")!)).toBe("Save changes");
   });
 
+  it("prefers aria-labelledby OVER aria-label (WAI-ARIA precedence)", () => {
+    // aria-labelledby outranks aria-label; taking aria-label here would name the
+    // control wrong and could target a different element.
+    const r = root(
+      `<span id="ref">Referenced name</span><button aria-labelledby="ref" aria-label="Direct name">x</button>`,
+    );
+    expect(accessibleName(r.querySelector("button")!)).toBe("Referenced name");
+  });
+
+  it("falls back to aria-label when aria-labelledby resolves to nothing", () => {
+    const r = root(`<button aria-labelledby="missing" aria-label="Fallback name">x</button>`);
+    expect(accessibleName(r.querySelector("button")!)).toBe("Fallback name");
+  });
+
   it("uses a wrapping <label> when there is no `for`", () => {
     const r = root(`<label>Full name <input type="text"></label>`);
     expect(accessibleName(r.querySelector("input")!)).toBe("Full name");
