@@ -1,8 +1,8 @@
 /**
  * File Save Utilities
  *
- * Purpose: Core save operations — save dialog with macOS Tahoe fallback,
- *   move tab to new workspace window, and Save/Save As/Move To handlers.
+ * Purpose: Core save operations — move tab to a new workspace window, and the
+ *   Save / Save As / Move To / Save-All-and-Quit handlers.
  *
  * @coordinates-with closeSave.ts — shared save prompt for dirty documents
  * @coordinates-with useFileOperations.ts — orchestrates save handlers via menu events
@@ -13,13 +13,10 @@ import { imeToast as toast } from "@/services/ime/imeToast";
 import i18n from "@/i18n";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { invoke } from "@tauri-apps/api/core";
-import { save } from "@tauri-apps/plugin-dialog";
 import { remove } from "@tauri-apps/plugin-fs";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
-import { dispatchEditor, getFormatById } from "@/lib/formats/registry";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
-import { getDefaultSaveFolderWithFallback } from "@/hooks/useDefaultSaveFolder";
 import { flushActiveWysiwygNow, flushAllWysiwygNow } from "@/utils/wysiwygFlush";
 import { withReentryGuard } from "@/utils/reentryGuard";
 import { saveToPath } from "@/services/persistence/saveToPath";
@@ -28,26 +25,14 @@ import {
   resolveMissingFileSaveAction,
 } from "@/utils/openPolicy";
 import { openWorkspaceWithConfig } from "@/hooks/openWorkspaceWithConfig";
-import { joinPath } from "@/utils/pathUtils";
-import { getSaveFileName } from "@/utils/exportNaming";
 import { isWithinRoot, getParentDir } from "@/utils/paths";
+import {
+  buildDefaultSavePath,
+  isSameFilePath,
+  promptForSavePath,
+} from "@/hooks/saveDialog";
 import { saveAllDocuments, type CloseSaveContext } from "@/hooks/closeSave";
 import { fileOpsLog, fileOpsWarn, fileOpsError } from "@/utils/debug";
-import { errorMessage } from "@/utils/errorMessage";
-
-/**
- * Open a native save dialog and return the chosen path (or null on cancel).
- *
- * We intentionally skip file-type filters because macOS 26 (Tahoe) deprecated
- * the `setAllowedFileTypes` API used by rfd, causing the dialog to hang or
- * crash. Omitting filters avoids the issue entirely — the default filename
- * already carries the `.md` extension, so users still save as Markdown.
- */
-export async function saveDialogWithFallback(
-  defaultPath: string,
-): Promise<string | null> {
-  return save({ defaultPath });
-}
 
 /**
  * Move a tab to a new workspace window if the file is outside current workspace.
@@ -64,9 +49,6 @@ export async function moveTabToNewWorkspaceWindow(
   // If no workspace or file is within workspace, nothing to do
   if (!workspaceRoot || isWithinRoot(workspaceRoot, filePath)) return;
 
-  const windowTabs = useTabStore.getState().tabs[windowLabel] || [];
-  const isLastTab = windowTabs.length === 1;
-
   // Open in new window - derive workspace from file's parent folder
   // Only close current tab/window if the new window opened successfully
   try {
@@ -80,41 +62,18 @@ export async function moveTabToNewWorkspaceWindow(
     return;
   }
 
+  // Re-read AFTER the await: a tab can be opened while the new window is coming
+  // up, and closing the window on a stale "last tab" snapshot would take that
+  // new tab (and its unsaved content) with it.
+  const windowTabs = useTabStore.getState().tabs[windowLabel] || [];
+  const isLastTab = windowTabs.length === 1;
+
   if (isLastTab) {
     const currentWindow = getCurrentWebviewWindow();
     await currentWindow.close();
   } else {
     useTabStore.getState().closeTab(windowLabel, tabId);
   }
-}
-
-/**
- * Build default path for save dialog from document content and tab info.
- */
-async function buildDefaultSavePath(
-  windowLabel: string,
-  tabId: string,
-  content: string,
-  existingPath: string | null,
-): Promise<string> {
-  if (existingPath) return existingPath;
-
-  const tab = useTabStore.getState().tabs[windowLabel]?.find(t => t.id === tabId);
-  const docTab = tab && tab.kind === "document" ? tab : null; // untitled save is document-only
-  const suggestedName = getSaveFileName(content, tab?.title ?? "");
-  // WI-1B.9 — default extension = active format's untitledExtension (untitled → markdown → ".md").
-  let ext = "md";
-  try {
-    const cfg = docTab?.formatId
-      ? (getFormatById(docTab.formatId) ?? dispatchEditor(docTab.filePath ?? null))
-      : dispatchEditor(docTab?.filePath ?? null);
-    ext = cfg.adapters.untitledExtension;
-  } catch {
-    /* registry not bootstrapped — keep .md default */
-  }
-  const filename = `${suggestedName}.${ext}`;
-  const folder = await getDefaultSaveFolderWithFallback(windowLabel);
-  return joinPath(folder, filename);
 }
 
 /**
@@ -178,22 +137,10 @@ export async function handleSave(windowLabel: string): Promise<void> {
       const defaultPath = await buildDefaultSavePath(windowLabel, tabId, doc.content, null);
       fileOpsLog("Opening save dialog with defaultPath:", defaultPath);
 
-      let path: string | null;
-      try {
-        path = await saveDialogWithFallback(defaultPath);
-        fileOpsLog("Save dialog returned:", path ?? "(cancelled)");
-      } catch (error) {
-        fileOpsError("Save dialog threw:", error);
-        toast.error(
-          i18n.t("dialog:toast.saveDialogFailed", { error: errorMessage(error) }),
-          { pin: true },
-        );
-        return;
-      }
+      const path = await promptForSavePath(defaultPath, "Save");
 
       if (path) {
         const success = await saveToPath(tabId, path, doc.content, "manual");
-        /* v8 ignore start -- @preserve saveToPath failure and isMissing paths not exercised in tests */
         if (success) {
           savedPath = path;
           // Clear missing state — pre-existing or just set during recovery
@@ -202,7 +149,6 @@ export async function handleSave(windowLabel: string): Promise<void> {
             useDocumentStore.getState().clearMissing(tabId);
           }
         }
-        /* v8 ignore stop */
       }
     }
 
@@ -246,17 +192,7 @@ export async function handleSaveAs(windowLabel: string): Promise<void> {
 
     const defaultPath = await buildDefaultSavePath(windowLabel, tabId, doc.content, doc.filePath);
 
-    let path: string | null;
-    try {
-      path = await saveDialogWithFallback(defaultPath);
-    } catch (error) {
-      fileOpsError("Save As dialog threw:", error);
-      toast.error(
-        i18n.t("dialog:toast.saveDialogFailed", { error: errorMessage(error) }),
-        { pin: true },
-      );
-      return;
-    }
+    const path = await promptForSavePath(defaultPath, "Save As");
     if (path) {
       const success = await saveToPath(tabId, path, doc.content, "manual");
       if (!success) return;
@@ -283,19 +219,14 @@ export async function handleMoveTo(windowLabel: string): Promise<void> {
     const oldPath = doc.filePath; // null for untitled files
     const defaultPath = await buildDefaultSavePath(windowLabel, tabId, doc.content, oldPath);
 
-    let newPath: string | null;
-    try {
-      newPath = await saveDialogWithFallback(defaultPath);
-    } catch (error) {
-      fileOpsError("Move To dialog threw:", error);
-      toast.error(
-        i18n.t("dialog:toast.saveDialogFailed", { error: errorMessage(error) }),
-        { pin: true },
-      );
-      return;
-    }
+    const newPath = await promptForSavePath(defaultPath, "Move To");
 
-    if (!newPath || newPath === oldPath) return;
+    // Moving a file onto itself is a no-op. The destination must be compared as
+    // a *file*, not as a string: a case/separator variant of oldPath is the same
+    // file on macOS/Windows, and writing it then deleting oldPath below would
+    // destroy the document.
+    if (!newPath) return;
+    if (oldPath && isSameFilePath(oldPath, newPath)) return;
 
     // Save to new location
     const success = await saveToPath(tabId, newPath, doc.content, "manual");

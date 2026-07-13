@@ -3,7 +3,7 @@
  *
  * @module hooks/useFileSave.test
  */
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 // Hoist mocks
 const {
@@ -97,7 +97,9 @@ vi.mock("@/utils/exportNaming", () => ({
   getSaveFileName: vi.fn(() => "Untitled"),
 }));
 
-vi.mock("@/utils/paths", () => ({
+vi.mock("@/utils/paths", async (importOriginal) => ({
+  // Keep the real normalizePath — isSameFilePath depends on its exact semantics.
+  ...(await importOriginal<typeof import("@/utils/paths")>()),
   isWithinRoot: vi.fn(() => true),
   getParentDir: vi.fn((path: string) => {
     const lastSlash = path.lastIndexOf("/");
@@ -116,13 +118,13 @@ vi.mock("@/utils/debug", () => ({
 }));
 
 import {
-  saveDialogWithFallback,
   moveTabToNewWorkspaceWindow,
   handleSave,
   handleSaveAs,
   handleMoveTo,
   handleSaveAllQuit,
 } from "./useFileSave";
+import { saveDialogWithFallback } from "./saveDialog";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
@@ -247,6 +249,30 @@ describe("moveTabToNewWorkspaceWindow", () => {
 
     expect(mockClose).toHaveBeenCalled();
     expect(mockCloseTab).not.toHaveBeenCalled();
+  });
+
+  it("re-reads the tab list after the IPC call before closing the window", async () => {
+    // A tab can be opened (Finder, drag-drop) while the new window is opening.
+    // Deciding "last tab" from the pre-await snapshot would close a window that
+    // now holds another tab, taking its unsaved document with it.
+    vi.mocked(isWithinRoot).mockReturnValue(false);
+    let tabs = [{ id: "tab-1" }];
+    vi.mocked(useTabStore.getState).mockImplementation(
+      () =>
+        ({
+          tabs: { main: tabs },
+          closeTab: mockCloseTab,
+        }) as unknown as ReturnType<typeof useTabStore.getState>,
+    );
+    mockInvoke.mockImplementation(() => {
+      tabs = [{ id: "tab-1" }, { id: "tab-2" }];
+      return Promise.resolve();
+    });
+
+    await moveTabToNewWorkspaceWindow("main", "tab-1", "/other/file.md");
+
+    expect(mockClose).not.toHaveBeenCalled();
+    expect(mockCloseTab).toHaveBeenCalledWith("main", "tab-1");
   });
 });
 
@@ -655,6 +681,102 @@ describe("handleMoveTo", () => {
 });
 
 // ---------------------------------------------------------------------------
+// handleMoveTo — same-file detection across path spellings
+//
+// The dialog can hand back a path that differs from the document's stored path
+// by separator or by case. On a case-insensitive filesystem (APFS default,
+// NTFS) that path is the SAME file: saving it and then removing the "old" path
+// deletes the file we just wrote.
+// ---------------------------------------------------------------------------
+describe("handleMoveTo — equivalent destination paths", () => {
+  const originalPlatform = navigator.platform;
+
+  function setPlatform(value: string): void {
+    Object.defineProperty(navigator, "platform", { value, configurable: true });
+  }
+
+  function mockDoc(filePath: string): void {
+    vi.mocked(useDocumentStore.getState).mockReturnValue({
+      getDocument: vi.fn(() => ({
+        content: "# Content",
+        filePath,
+        isDirty: false,
+        isMissing: false,
+      })),
+    } as unknown as ReturnType<typeof useDocumentStore.getState>);
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(useTabStore.getState).mockReturnValue({
+      activeTabId: { main: "tab-1" },
+      tabs: { main: [{ id: "tab-1", title: "Test" }] },
+    } as unknown as ReturnType<typeof useTabStore.getState>);
+    vi.mocked(useWorkspaceStore.getState).mockReturnValue({
+      rootPath: "/workspace",
+    } as unknown as ReturnType<typeof useWorkspaceStore.getState>);
+    mockSaveToPath.mockResolvedValue(true);
+  });
+
+  afterEach(() => {
+    Object.defineProperty(navigator, "platform", {
+      value: originalPlatform,
+      configurable: true,
+    });
+  });
+
+  it("treats a case-variant destination as the same file on macOS", async () => {
+    setPlatform("MacIntel");
+    mockDoc("/workspace/Notes.md");
+    mockSaveDialog.mockResolvedValueOnce("/workspace/notes.md");
+
+    await handleMoveTo("main");
+
+    expect(mockSaveToPath).not.toHaveBeenCalled();
+    expect(mockRemove).not.toHaveBeenCalled();
+  });
+
+  it("treats a backslash/case variant as the same file on Windows", async () => {
+    setPlatform("Win32");
+    mockDoc("C:/workspace/notes.md");
+    mockSaveDialog.mockResolvedValueOnce("C:\\Workspace\\Notes.md");
+
+    await handleMoveTo("main");
+
+    expect(mockSaveToPath).not.toHaveBeenCalled();
+    expect(mockRemove).not.toHaveBeenCalled();
+  });
+
+  it("treats a case-variant destination as a distinct file on Linux", async () => {
+    setPlatform("Linux x86_64");
+    mockDoc("/workspace/notes.md");
+    mockSaveDialog.mockResolvedValueOnce("/workspace/Notes.md");
+
+    await handleMoveTo("main");
+
+    // Case-sensitive filesystem — these really are two different files.
+    expect(mockSaveToPath).toHaveBeenCalledWith(
+      "tab-1",
+      "/workspace/Notes.md",
+      "# Content",
+      "manual",
+    );
+    expect(mockRemove).toHaveBeenCalledWith("/workspace/notes.md");
+  });
+
+  it("still moves to a genuinely different path on macOS", async () => {
+    setPlatform("MacIntel");
+    mockDoc("/workspace/old.md");
+    mockSaveDialog.mockResolvedValueOnce("/workspace/new.md");
+
+    await handleMoveTo("main");
+
+    expect(mockSaveToPath).toHaveBeenCalled();
+    expect(mockRemove).toHaveBeenCalledWith("/workspace/old.md");
+  });
+});
+
+// ---------------------------------------------------------------------------
 // handleSaveAllQuit
 // ---------------------------------------------------------------------------
 describe("handleSaveAllQuit", () => {
@@ -874,6 +996,29 @@ describe("handleSave — additional branches", () => {
     await handleSave("main");
 
     // No workspace open attempt because save failed
+    expect(mockOpenWorkspaceWithConfig).not.toHaveBeenCalled();
+  });
+
+  it("keeps the missing flag when the Save As recovery write fails", async () => {
+    const mockClearMissing = vi.fn();
+    vi.mocked(resolveMissingFileSaveAction).mockReturnValue("save_as_required" as never);
+    vi.mocked(useDocumentStore.getState).mockReturnValue({
+      getDocument: vi.fn(() => ({
+        content: "# Missing",
+        filePath: "/workspace/gone.md",
+        isDirty: true,
+        isMissing: true,
+      })),
+      clearMissing: mockClearMissing,
+    } as unknown as ReturnType<typeof useDocumentStore.getState>);
+
+    mockSaveDialog.mockResolvedValueOnce("/workspace/restored.md");
+    mockSaveToPath.mockResolvedValue(false); // write failed
+
+    await handleSave("main");
+
+    // Recovery failed: the document stays missing/dirty and no workspace opens.
+    expect(mockClearMissing).not.toHaveBeenCalled();
     expect(mockOpenWorkspaceWithConfig).not.toHaveBeenCalled();
   });
 

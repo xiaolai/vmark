@@ -66,8 +66,12 @@ vi.mock("@/utils/focusGuard", () => ({
   shouldBlockMenuAction: mockShouldBlockMenuAction,
 }));
 
+const { mockRunOrQueueProseMirrorAction } = vi.hoisted(() => ({
+  mockRunOrQueueProseMirrorAction: vi.fn((_view: unknown, fn: () => void) => fn()),
+}));
 vi.mock("@/utils/imeGuard", () => ({
   runOrQueueCodeMirrorAction: (_view: unknown, fn: () => void) => fn(),
+  runOrQueueProseMirrorAction: mockRunOrQueueProseMirrorAction,
   // Markdown adapter pulls in CodeMirror plugins that wrap their bindings
   // with this guard. Pass-through identity is fine for tests.
   guardCodeMirrorKeyBinding: (binding: unknown) => binding,
@@ -820,6 +824,140 @@ describe("useUnifiedMenuCommands", () => {
     unmount(); // disposed=true before any async work completes
     // Just verify no error thrown
     expect(true).toBe(true);
+  });
+
+  describe("retry lifecycle and IME safety", () => {
+    afterEach(() => {
+      useTabStore.setState({
+        tabs: {},
+        activeTabId: {},
+        untitledCounter: 0,
+        closedTabs: {},
+      });
+    });
+
+    it("routes WYSIWYG menu actions through the ProseMirror IME guard", async () => {
+      sourceMode = false;
+      const view = {};
+      activeWysiwygEditor = { view };
+
+      render(<TestHarness />);
+      await waitFor(() => expect(listeners.has("menu:italic")).toBe(true));
+
+      listeners.get("menu:italic")?.({ payload: "main" });
+
+      // A menu accelerator can fire mid-CJK-composition; the action must be
+      // queued behind the composition instead of dispatching into it.
+      expect(mockRunOrQueueProseMirrorAction).toHaveBeenCalledWith(
+        view,
+        expect.any(Function),
+      );
+      expect(performWysiwygToolbarAction).toHaveBeenCalledWith(
+        "italic",
+        expect.objectContaining({ surface: "wysiwyg" }),
+      );
+    });
+
+    it("drops a pending WYSIWYG retry when the active tab changes", async () => {
+      sourceMode = false;
+      activeWysiwygEditor = null; // forces the retry path
+      useTabStore.setState({ activeTabId: { main: "tab-a" } });
+
+      render(<TestHarness />);
+      await vi.waitFor(() => expect(listeners.has("menu:italic")).toBe(true));
+
+      listeners.get("menu:italic")?.({ payload: "main" });
+
+      // Editor mounts, but the user has switched to another tab meanwhile —
+      // the queued action belongs to tab-a and must not hit tab-b's editor.
+      activeWysiwygEditor = { view: {} };
+      useTabStore.setState({ activeTabId: { main: "tab-b" } });
+      await vi.advanceTimersByTimeAsync(250);
+
+      expect(performWysiwygToolbarAction).not.toHaveBeenCalled();
+    });
+
+    it("drops a pending Source retry when the active tab changes", async () => {
+      sourceMode = true;
+      activeSourceView = null;
+      useTabStore.setState({ activeTabId: { main: "tab-a" } });
+
+      render(<TestHarness />);
+      await vi.waitFor(() => expect(listeners.has("menu:italic")).toBe(true));
+
+      listeners.get("menu:italic")?.({ payload: "main" });
+
+      activeSourceView = {};
+      useTabStore.setState({ activeTabId: { main: "tab-b" } });
+      await vi.advanceTimersByTimeAsync(250);
+
+      expect(performSourceToolbarAction).not.toHaveBeenCalled();
+    });
+
+    it("cancels pending retries when the dispatcher unmounts", async () => {
+      sourceMode = false;
+      activeWysiwygEditor = null;
+
+      const { unmount } = render(<TestHarness />);
+      await vi.waitFor(() => expect(listeners.has("menu:italic")).toBe(true));
+
+      listeners.get("menu:italic")?.({ payload: "main" });
+      unmount();
+
+      // Editor becomes available after disposal — the retry must not fire.
+      activeWysiwygEditor = { view: {} };
+      await vi.advanceTimersByTimeAsync(250);
+
+      expect(performWysiwygToolbarAction).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("non-document (browser) active tab", () => {
+    afterEach(() => {
+      useTabStore.setState({
+        tabs: {},
+        activeTabId: {},
+        untitledCounter: 0,
+        closedTabs: {},
+      });
+    });
+
+    it("blocks editor actions while a browser tab is active", async () => {
+      // A browser tab has no document. The editor store can still hold the
+      // editor of the tab the user came from (unmount is async), so failing
+      // OPEN here would silently mutate a hidden document.
+      const tabId = useTabStore.getState().createBrowserTab("main", "https://example.com");
+      useTabStore.setState({ activeTabId: { main: tabId } });
+
+      sourceMode = false;
+      activeWysiwygEditor = { view: {} }; // stale editor from the previous tab
+
+      render(<TestHarness />);
+      await waitFor(() => expect(listeners.has("menu:italic")).toBe(true));
+
+      vi.mocked(performWysiwygToolbarAction).mockClear();
+      listeners.get("menu:italic")?.({ payload: "main" });
+      await vi.advanceTimersByTimeAsync(250);
+
+      expect(performWysiwygToolbarAction).not.toHaveBeenCalled();
+      expect(performSourceToolbarAction).not.toHaveBeenCalled();
+    });
+
+    it("blocks undo/redo while a browser tab is active", async () => {
+      const tabId = useTabStore.getState().createBrowserTab("main", "https://example.com");
+      useTabStore.setState({ activeTabId: { main: tabId } });
+
+      sourceMode = false;
+      activeWysiwygEditor = { view: {} };
+
+      render(<TestHarness />);
+      await waitFor(() => expect(listeners.has("menu:undo")).toBe(true));
+
+      listeners.get("menu:undo")?.({ payload: "main" });
+
+      // Unified undo would rewind the last document's history invisibly.
+      expect(performUnifiedUndo).not.toHaveBeenCalled();
+    });
   });
 
   describe("WI-1A.7 — per-format menuPolicy gating", () => {

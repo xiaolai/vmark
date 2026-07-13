@@ -140,6 +140,45 @@ describe("getReplaceableTab", () => {
     ]);
   });
 
+  it("never replaces a lone browser tab", () => {
+    // tabFilePath() returns null for a browser tab, so mapping it through the
+    // document-tab shape would make it look like a clean untitled document and
+    // get "replaced" — updateTabPath/loadContent do nothing for a browser tab,
+    // so the open would silently no-op.
+    vi.mocked(useTabStore.getState).mockReturnValue({
+      tabs: {
+        main: [{ kind: "browser", id: "browser-1", url: "https://example.com" }],
+      },
+    } as unknown as ReturnType<typeof useTabStore.getState>);
+
+    vi.mocked(useDocumentStore.getState).mockReturnValue({
+      documents: {},
+    } as unknown as ReturnType<typeof useDocumentStore.getState>);
+
+    mockFindReplaceableTab.mockReturnValue({ tabId: "browser-1" });
+
+    expect(getReplaceableTab("main")).toBeNull();
+    expect(mockFindReplaceableTab).not.toHaveBeenCalled();
+  });
+
+  it("does not treat a document tab as replaceable while a browser tab is open", () => {
+    vi.mocked(useTabStore.getState).mockReturnValue({
+      tabs: {
+        main: [
+          { kind: "document", id: "tab-1", filePath: null },
+          { kind: "browser", id: "browser-1", url: "https://example.com" },
+        ],
+      },
+    } as unknown as ReturnType<typeof useTabStore.getState>);
+
+    vi.mocked(useDocumentStore.getState).mockReturnValue({
+      documents: { "tab-1": { isDirty: false } },
+    } as unknown as ReturnType<typeof useDocumentStore.getState>);
+
+    expect(getReplaceableTab("main")).toBeNull();
+    expect(mockFindReplaceableTab).not.toHaveBeenCalled();
+  });
+
   it("uses empty array for undefined window tabs", () => {
     vi.mocked(useTabStore.getState).mockReturnValue({
       tabs: { "doc-1": [{ kind: "document", id: "tab-1" }] },

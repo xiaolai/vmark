@@ -172,6 +172,19 @@ describe("useContentServer", () => {
     expect(exportSlidev).not.toHaveBeenCalled();
   });
 
+  it("exportSlides surfaces a save-dialog failure instead of rejecting", async () => {
+    // The native dialog can throw (permission denied, macOS dialog failure).
+    // The control must report it via the store, not reject at the call site
+    // where the caller is a fire-and-forget click handler.
+    saveMock.mockRejectedValue(new Error("dialog exploded"));
+    const { result } = renderHook(() => useContentServer());
+    await act(async () => {
+      await expect(result.current.exportSlides()).resolves.toBeUndefined();
+    });
+    expect(exportSlidev).not.toHaveBeenCalled();
+    expect(useContentServerStore.getState().error).toBe("dialog exploded");
+  });
+
   it("previewSlides errors when there is no active deck", async () => {
     findTabByIdMock.mockReturnValue({ kind: "document", filePath: null });
     const { result } = renderHook(() => useContentServer());

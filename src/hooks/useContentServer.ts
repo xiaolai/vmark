@@ -183,16 +183,19 @@ export function useContentServer(): ContentServerControls {
       useContentServerStore.getState().setError(t("contentServer.slidev.noDeck"));
       return;
     }
-    const output = await save({
-      defaultPath: deck.replace(/\.[^.]+$/, ".pdf"),
-      filters: [
-        { name: "PDF", extensions: ["pdf"] },
-        { name: "PNG", extensions: ["png"] },
-        { name: "PowerPoint", extensions: ["pptx"] },
-      ],
-    });
-    if (!output) return; // user cancelled the save dialog
     try {
+      // The dialog itself can throw (permission denied, platform dialog
+      // failure) — keep it inside the boundary so the failure lands in the
+      // store instead of rejecting this fire-and-forget control.
+      const output = await save({
+        defaultPath: deck.replace(/\.[^.]+$/, ".pdf"),
+        filters: [
+          { name: "PDF", extensions: ["pdf"] },
+          { name: "PNG", extensions: ["png"] },
+          { name: "PowerPoint", extensions: ["pptx"] },
+        ],
+      });
+      if (!output) return; // user cancelled the save dialog
       await exportSlidev(root, deck, slidevFormatFromPath(output), output);
     } catch (e) {
       useContentServerStore.getState().setError(toMessage(e));

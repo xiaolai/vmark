@@ -105,7 +105,11 @@ export function useViewMenuStateSync(): void {
       .then((u) => {
         if (cancelled) u();
         else unlisten = u;
-      });
+      })
+      // Registration can fail (window gone, IPC error). Surface it instead of
+      // letting it become an unhandled rejection; cleanup stays safe because
+      // `unlisten` simply remains undefined.
+      .catch((e) => menuError("onFocusChanged failed:", e));
     return () => {
       cancelled = true;
       unlisten?.();

@@ -48,9 +48,10 @@ vi.mock("@/utils/linebreakDetection", () => ({
 
 let createdTabSeq = 0;
 const mockCreateTab = vi.fn(() => `tab-${++createdTabSeq}`);
+const mockCloseTab = vi.fn();
 vi.mock("@/stores/tabStore", () => ({
   useTabStore: {
-    getState: () => ({ createTab: mockCreateTab }),
+    getState: () => ({ createTab: mockCreateTab, closeTab: mockCloseTab }),
   },
 }));
 
@@ -66,8 +67,10 @@ vi.mock("@/stores/documentStore", () => ({
 }));
 
 const mockWorkspaceWarn = vi.fn();
+const mockWorkspaceError = vi.fn();
 vi.mock("@/utils/debug", () => ({
   workspaceWarn: (...args: unknown[]) => mockWorkspaceWarn(...args),
+  workspaceError: (...args: unknown[]) => mockWorkspaceError(...args),
 }));
 
 // Import AFTER mocks are registered (vitest hoists vi.mock).
@@ -100,9 +103,11 @@ beforeEach(() => {
   mockWaitForRestoreComplete.mockReset().mockResolvedValue(true);
   mockFindExistingTabForPath.mockReset().mockReturnValue(null);
   mockCreateTab.mockClear();
-  mockInitDocument.mockClear();
-  mockSetLineMetadata.mockClear();
+  mockCloseTab.mockClear();
+  mockInitDocument.mockReset();
+  mockSetLineMetadata.mockReset();
   mockWorkspaceWarn.mockClear();
+  mockWorkspaceError.mockClear();
   // Reset workspace store to a clean, non-workspace state.
   useWorkspaceStore.setState({
     rootPath: null,
@@ -137,8 +142,12 @@ describe("useWorkspaceBootstrap", () => {
     expect(mockInvoke).toHaveBeenCalledWith("read_workspace_config", {
       rootPath: "/ws",
     });
-    // bootstrapConfig(null) falls back to DEFAULT_CONFIG.
-    expect(useWorkspaceStore.getState().config).toEqual(makeConfig());
+    // bootstrapConfig(null) falls back to the store's default config. Asserted as
+    // a superset so store-owned additions (e.g. workspace identity) don't break
+    // this hook's contract.
+    expect(useWorkspaceStore.getState().config).toEqual(
+      expect.objectContaining(makeConfig())
+    );
     expect(mockCreateTab).not.toHaveBeenCalled();
   });
 
@@ -196,7 +205,9 @@ describe("useWorkspaceBootstrap", () => {
       expect(useWorkspaceStore.getState().config).not.toBeNull();
     });
 
-    expect(useWorkspaceStore.getState().config).toEqual(makeConfig());
+    expect(useWorkspaceStore.getState().config).toEqual(
+      expect.objectContaining(makeConfig())
+    );
     // No tab restore attempted on the failure path.
     expect(mockCreateTab).not.toHaveBeenCalled();
     // The silent catch logged via workspaceWarn (regression sentinel).
@@ -274,6 +285,67 @@ describe("useWorkspaceBootstrap", () => {
 
     expect(mockWorkspaceWarn).toHaveBeenCalledWith(
       "Hot exit restore timed out, proceeding with dedup guard"
+    );
+  });
+
+  it("keeps the loaded config when a later restore step fails", async () => {
+    // The config read succeeded and was applied. A failure afterwards (hot-exit
+    // coordination here) must NOT replace it with defaults — that would silently
+    // drop the user's exclusions/visibility settings and report a config-read
+    // failure that never happened.
+    enterWorkspaceNeedingBootstrap("/ws");
+    mockInvoke.mockResolvedValue(
+      makeConfig({ showHiddenFiles: true, lastOpenTabs: ["/ws/a.md"] })
+    );
+    mockWaitForRestoreComplete.mockRejectedValue(new Error("coordination blew up"));
+
+    renderHook(() => useWorkspaceBootstrap());
+
+    await waitFor(() => {
+      expect(useWorkspaceStore.getState().config).not.toBeNull();
+    });
+    await Promise.resolve();
+
+    expect(useWorkspaceStore.getState().config?.showHiddenFiles).toBe(true);
+    expect(useWorkspaceStore.getState().config?.lastOpenTabs).toEqual(["/ws/a.md"]);
+  });
+
+  it("rolls back the created tab when document initialization fails", async () => {
+    // readTextFile succeeded, so this is NOT a moved/deleted file — it is a real
+    // failure after the tab exists. The tab must not be left orphaned (no
+    // document), and the actual error must be logged, not swallowed as
+    // "file moved/deleted".
+    enterWorkspaceNeedingBootstrap("/ws");
+    mockInvoke.mockResolvedValue(
+      makeConfig({ lastOpenTabs: ["/ws/bad.md", "/ws/ok.md"] })
+    );
+    mockReadTextFile.mockResolvedValue("content");
+    const failure = new Error("initDocument blew up");
+    mockInitDocument.mockImplementationOnce(() => {
+      throw failure;
+    });
+
+    renderHook(() => useWorkspaceBootstrap());
+
+    await waitFor(() => {
+      expect(mockCreateTab).toHaveBeenCalledTimes(2);
+    });
+
+    // Orphan tab rolled back…
+    expect(mockCloseTab).toHaveBeenCalledWith("main", "tab-1");
+    // …the real error surfaced (not a "could not restore" file warning)…
+    expect(mockWorkspaceError).toHaveBeenCalledWith(
+      "Failed to initialize restored tab: /ws/bad.md",
+      failure
+    );
+    expect(mockWorkspaceWarn).not.toHaveBeenCalledWith(
+      "Could not restore tab: /ws/bad.md"
+    );
+    // …and the remaining file still restored.
+    expect(mockInitDocument).toHaveBeenLastCalledWith(
+      "tab-2",
+      "content",
+      "/ws/ok.md"
     );
   });
 
