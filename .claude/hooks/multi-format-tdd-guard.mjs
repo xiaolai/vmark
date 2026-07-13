@@ -42,14 +42,40 @@
 //   0 — allow
 //   2 — block; stderr is shown to the agent
 
-import { readFileSync, existsSync } from "node:fs";
-import { resolve, dirname, basename, extname } from "node:path";
+import { readFileSync, statSync, realpathSync } from "node:fs";
+import { resolve, relative, dirname, basename, extname, sep } from "node:path";
 
+/** realpath when the path exists, else the input — symlinked prefixes (macOS
+ *  /var → /private/var) otherwise break repo-root containment silently. */
+function realish(p) {
+  try {
+    return realpathSync.native(p);
+  } catch {
+    return p;
+  }
+}
+
+/** A real FILE exists at `p` (a directory named `foo.test.ts` must not pass). */
+function isFile(p) {
+  try {
+    return statSync(p).isFile();
+  } catch {
+    return false;
+  }
+}
+
+// FAIL CLOSED on unusable input. Exiting 0 here silently waives a mandatory gate
+// — the failure mode this hook exists to prevent (governance §9: don't bypass, ask).
 let payload;
 try {
   payload = JSON.parse(readFileSync(0, "utf8"));
-} catch (e) {
-  process.exit(0);
+} catch {
+  console.error("[multi-format-tdd-guard] unreadable hook payload — refusing to waive the TDD gate.");
+  process.exit(2);
+}
+if (payload === null || typeof payload !== "object") {
+  console.error("[multi-format-tdd-guard] malformed hook payload — refusing to waive the TDD gate.");
+  process.exit(2);
 }
 
 const tool = payload.tool_name ?? payload.toolName ?? "";
@@ -63,9 +89,18 @@ if (!filePath || typeof filePath !== "string") {
   process.exit(0);
 }
 
-const abs = resolve(filePath);
-const repoRoot = resolve(import.meta.dirname, "..", "..");
-const rel = abs.startsWith(repoRoot + "/") ? abs.slice(repoRoot.length + 1) : abs;
+const repoRoot = realish(resolve(import.meta.dirname, "..", ".."));
+// Resolve a relative file_path against the REPO ROOT, not process.cwd().
+const abs = realish(resolve(repoRoot, filePath));
+// Separators normalized to "/" so the scope patterns below match on Windows too.
+// The previous `abs.startsWith(repoRoot + "/")` could never be true on Windows
+// (paths use "\"), so `rel` stayed absolute, no ^src/... pattern matched, and the
+// guard silently allowed every scoped write.
+const rel = relative(repoRoot, abs).split(sep).join("/");
+// Outside the repository — not our business.
+if (rel.startsWith("../")) {
+  process.exit(0);
+}
 
 // ── Frontend scope ──────────────────────────────────────────────────────
 const FRONTEND_SCOPED = [
@@ -120,7 +155,9 @@ if (inFrontendScope) {
     `${dir}/__tests__/${stem}.test.ts`,
     `${dir}/__tests__/${stem}.test.tsx`,
   ];
-  const found = candidates.find((p) => existsSync(p));
+  // isFile(), not exists(): a DIRECTORY named `foo.test.ts` would otherwise
+  // satisfy the gate.
+  const found = candidates.find(isFile);
   if (found) process.exit(0);
 
   const msg = [
@@ -165,7 +202,7 @@ if (inRustScope) {
   {
     const dir = dirname(abs);
     const stem = basename(rel, ".rs");
-    if (existsSync(`${dir}/${stem}.test.rs`)) process.exit(0);
+    if (isFile(`${dir}/${stem}.test.rs`)) process.exit(0);
   }
 
   const msg = [
