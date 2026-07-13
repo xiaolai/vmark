@@ -80,16 +80,32 @@ export function resolveTransferActiveTab(
   return collected[0]?.tabId ?? null;
 }
 
-/** True when `tab` belongs to `instance` — by explicit membership or root classification. */
+/**
+ * True when `tab` belongs to `instance`.
+ *
+ * Explicit membership is resolved across ALL instances of the window first: a
+ * tab another instance already claims belongs to that instance, even when path
+ * classification would put it here (it can: a tab opened while workspace A was
+ * active classifies into workspace B once B's root is opened in the same
+ * window). Checking only `instance.tabIds` let two instances both collect the
+ * same tab — the wrong workspace could then move or duplicate it, leaving the
+ * real owner with a dangling tab id.
+ *
+ * Path classification decides only for tabs no instance has explicitly claimed.
+ */
 function tabBelongsToWorkspace(
   tab: DocumentTab,
   instance: WorkspaceInstanceRecord,
   activeInstanceId: string | null,
 ): boolean {
-  if (instance.tabIds.includes(tab.id)) return true;
+  const instances = orderedWindowInstances(instance.ownerWindowLabel);
+  const explicitOwner = instances.find((candidate) => candidate.tabIds.includes(tab.id));
+  if (explicitOwner) {
+    return explicitOwner.workspaceInstanceId === instance.workspaceInstanceId;
+  }
   const owner = classifyWorkspaceContextForTab({
     filePath: tab.filePath,
-    instances: orderedWindowInstances(instance.ownerWindowLabel),
+    instances,
     activeWorkspaceInstanceId: activeInstanceId,
   });
   return owner?.workspaceInstanceId === instance.workspaceInstanceId;

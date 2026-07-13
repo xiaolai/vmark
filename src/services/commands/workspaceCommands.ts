@@ -20,6 +20,15 @@ import i18n from "@/i18n";
 
 type Ctx = { windowLabel?: string };
 
+/**
+ * The re-entry guard key shared by EVERY command that transitions the window's
+ * workspace (open folder, open recent, close). One key per window, not one per
+ * command: two workspace transitions that interleave restore tabs and split
+ * layout into whichever workspace happens to land last, and a close racing an
+ * open persists the session of a half-torn-down workspace.
+ */
+export const WORKSPACE_TRANSITION_GUARD = "workspace-transition";
+
 let registered = false;
 export function registerWorkspaceCommands(): void {
   // HMR: the module-local flag resets on reload, but the bus registry survives.
@@ -33,7 +42,7 @@ export function registerWorkspaceCommands(): void {
       const windowLabel = ctx.windowLabel ?? "main";
       // Reentry guard: rapid repeated activation must not stack folder
       // pickers or race workspace restoration.
-      await withReentryGuard(windowLabel, "open-folder", async () => {
+      await withReentryGuard(windowLabel, WORKSPACE_TRANSITION_GUARD, async () => {
         try {
           const selected = await open({
             directory: true,
@@ -73,8 +82,13 @@ export function registerWorkspaceCommands(): void {
     category: "workspace",
     run: async (_args, ctx: Ctx) => {
       const windowLabel = ctx.windowLabel ?? "main";
-      await persistWorkspaceSession(windowLabel);
-      useWorkspaceStore.getState().closeWorkspace();
+      // Same guard as the open commands: a second close must not start a
+      // concurrent session write, and a close must not tear down a workspace
+      // an open is still restoring into.
+      await withReentryGuard(windowLabel, WORKSPACE_TRANSITION_GUARD, async () => {
+        await persistWorkspaceSession(windowLabel);
+        useWorkspaceStore.getState().closeWorkspace();
+      });
     },
   });
 

@@ -3,6 +3,7 @@ import {
   useWorkspaceInstancesStore,
   type WorkspaceInstanceRecord,
 } from "@/stores/workspaceInstancesStore";
+import { uniqueIds } from "@/stores/workspaceInstancesStore/helpers";
 import { useTabStore, type Tab, tabFilePath } from "@/stores/tabStore";
 import type {
   HotExitWindowWorkspaceState,
@@ -120,17 +121,28 @@ export function reconcileRestoredWindowWorkspaceInstances(
  * Seed each instance's restored tab list by remapping its persisted (old) tab
  * ids through the hot-exit recreation map. Stale ids that didn't recreate are
  * dropped; duplicates are collapsed.
+ *
+ * A recreated tab is claimed by AT MOST ONE instance: if two persisted
+ * instances list the same old tab id (a corrupt or drifted snapshot), the first
+ * instance in window order wins. Handing the same tab to two workspaces breaks
+ * exclusive ownership — a later move/close of one workspace would then take a
+ * tab the other still lists.
  */
 function buildAssignments(
   instances: WorkspaceInstanceRecord[],
   tabIdMap: Map<string, string>,
 ): Map<string, string[]> {
   const assignments = new Map<string, string[]>();
+  const claimed = new Set<string>();
   for (const instance of instances) {
-    const mapped = instance.tabIds
-      .map((id) => tabIdMap.get(id))
-      .filter((id): id is string => Boolean(id));
-    assignments.set(instance.workspaceInstanceId, uniqueIds(mapped));
+    const mapped: string[] = [];
+    for (const oldId of instance.tabIds) {
+      const newId = tabIdMap.get(oldId);
+      if (!newId || claimed.has(newId)) continue;
+      claimed.add(newId);
+      mapped.push(newId);
+    }
+    assignments.set(instance.workspaceInstanceId, mapped);
   }
   return assignments;
 }
@@ -195,8 +207,15 @@ function ensureLooseInstanceForUnownedTabs(windowLabel: string): void {
   const needsLoose = useTabStore.getState().getTabsByWindow(windowLabel).some((tab) =>
     classifyWorkspaceContextForTab({ filePath: tabFilePath(tab), instances, activeWorkspaceInstanceId: activeId }) === null
   );
-  if (needsLoose) {
-    useWorkspaceInstancesStore.getState().ensureLooseInstance(windowLabel);
+  if (!needsLoose) return;
+
+  const loose = useWorkspaceInstancesStore.getState().ensureLooseInstance(windowLabel);
+  // `ensureLooseInstance` ACTIVATES the loose instance. Capture is a read of
+  // live state (it runs on quit): repairing ownership must not switch the
+  // workspace the user had active — that would both flip the live rail and
+  // persist the wrong active context for the next launch.
+  if (activeId && activeId !== loose.workspaceInstanceId) {
+    useWorkspaceInstancesStore.getState().activateWorkspaceInstance(windowLabel, activeId);
   }
 }
 
@@ -271,15 +290,4 @@ function chooseActiveInstanceAfterReconcile(
   return instances.find((instance) => instance.kind !== "placeholder")?.workspaceInstanceId
     ?? instances[0]?.workspaceInstanceId
     ?? null;
-}
-
-function uniqueIds(ids: string[]): string[] {
-  const seen = new Set<string>();
-  const result: string[] = [];
-  for (const id of ids) {
-    if (seen.has(id)) continue;
-    seen.add(id);
-    result.push(id);
-  }
-  return result;
 }

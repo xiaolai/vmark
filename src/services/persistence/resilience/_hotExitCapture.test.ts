@@ -16,7 +16,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 // and history store can use minimal stubs since this test only exercises
 // the *tab-shape* portion of the capture path.
 
-interface StubTab {
+interface StubDocumentTab {
   kind: "document";
   id: string;
   filePath: string | null;
@@ -27,8 +27,20 @@ interface StubTab {
   activeSchemaId?: string | null;
 }
 
+interface StubBrowserTab {
+  kind: "browser";
+  id: string;
+  url: string;
+  title: string;
+  isPinned: boolean;
+}
+
+type StubTab = StubDocumentTab | StubBrowserTab;
+
 const tabsForWindow: Record<string, StubTab[]> = {};
 let activeTabId: string | null = null;
+/** Tab ids whose document entry is absent from the document store. */
+const tabsWithoutDocument = new Set<string>();
 
 vi.mock("@/stores/tabStore", () => ({
   useTabStore: {
@@ -44,19 +56,22 @@ vi.mock("@/stores/tabStore", () => ({
 vi.mock("@/stores/documentStore", () => ({
   useDocumentStore: {
     getState: () => ({
-      getDocument: () => ({
-        content: "",
-        savedContent: "",
-        isDirty: false,
-        isMissing: false,
-        isDivergent: false,
-        isReadOnly: false,
-        lineEnding: "lf",
-        cursorInfo: null,
-        lastModifiedTimestamp: null,
-        isUntitled: true,
-        untitledNumber: 1,
-      }),
+      getDocument: (tabId: string) =>
+        tabsWithoutDocument.has(tabId)
+          ? undefined
+          : {
+              content: "",
+              savedContent: "",
+              isDirty: false,
+              isMissing: false,
+              isDivergent: false,
+              isReadOnly: false,
+              lineEnding: "lf",
+              cursorInfo: null,
+              lastModifiedTimestamp: null,
+              isUntitled: true,
+              untitledNumber: 1,
+            },
     }),
   },
   useUnifiedHistoryStore: {
@@ -89,20 +104,27 @@ vi.mock("@/stores/uiStore", () => ({
   },
 }));
 
+const { mockHotExitError, mockListen, mockEmit } = vi.hoisted(() => ({
+  mockHotExitError: vi.fn(),
+  mockListen: vi.fn(),
+  mockEmit: vi.fn(),
+}));
+
 vi.mock("@/utils/debug", () => ({
   hotExitWarn: vi.fn(),
-  hotExitError: vi.fn(),
+  hotExitError: mockHotExitError,
 }));
 
-// `listen` and `webviewWindow` are only consumed by the hook (not by
+// `listen` and `webviewWindow` are consumed by the hook (not by
 // captureWindowState directly), but the SUT module imports them at the
 // top — so they need to mock cleanly.
-vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn() }));
+vi.mock("@tauri-apps/api/event", () => ({ listen: mockListen }));
 vi.mock("@tauri-apps/api/webviewWindow", () => ({
-  getCurrentWebviewWindow: () => ({ label: "main", emit: vi.fn() }),
+  getCurrentWebviewWindow: () => ({ label: "main", emit: mockEmit }),
 }));
 
-import { captureWindowState } from "./_hotExitCapture";
+import { renderHook } from "@testing-library/react";
+import { captureWindowState, useHotExitCapture } from "./_hotExitCapture";
 import { captureWindowGeometry } from "./windowGeometry";
 
 function setTabs(windowLabel: string, tabs: StubTab[]) {
@@ -112,6 +134,120 @@ function setTabs(windowLabel: string, tabs: StubTab[]) {
 beforeEach(() => {
   for (const k of Object.keys(tabsForWindow)) delete tabsForWindow[k];
   activeTabId = null;
+  tabsWithoutDocument.clear();
+  mockHotExitError.mockClear();
+  mockEmit.mockReset().mockResolvedValue(undefined);
+  mockListen.mockReset().mockResolvedValue(vi.fn());
+});
+
+describe("useHotExitCapture", () => {
+  it("answers a capture request with the window state, correlated by capture_id", async () => {
+    setTabs("main", [
+      { kind: "document", id: "t1", filePath: "/a.md", title: "a.md", isPinned: false, formatId: "markdown" },
+    ]);
+    activeTabId = "t1";
+
+    renderHook(() => useHotExitCapture());
+    const handler = mockListen.mock.calls[0][1] as (event: {
+      payload: { capture_id: string };
+    }) => Promise<void>;
+    await handler({ payload: { capture_id: "cap-1" } });
+
+    expect(mockEmit).toHaveBeenCalledTimes(1);
+    const [, response] = mockEmit.mock.calls[0];
+    expect(response).toMatchObject({
+      capture_id: "cap-1",
+      window_label: "main",
+      state: { active_tab_id: "t1" },
+    });
+  });
+
+  it("logs a listener-registration failure instead of rejecting unhandled", async () => {
+    mockListen.mockRejectedValue(new Error("event bridge down"));
+
+    const { unmount } = renderHook(() => useHotExitCapture());
+    await Promise.resolve();
+    await Promise.resolve();
+
+    // A rejected registration silently disables hot-exit capture for this
+    // window; it must be surfaced, and unmount must not throw on the rejection.
+    expect(mockHotExitError).toHaveBeenCalled();
+    expect(() => unmount()).not.toThrow();
+  });
+});
+
+describe("captureWindowState — active tab id (R1: browser tabs are not captured)", () => {
+  it("does not point active_tab_id at a tab that is absent from the payload", () => {
+    setTabs("main", [
+      {
+        kind: "document",
+        id: "t1",
+        filePath: "/a.md",
+        title: "a.md",
+        isPinned: false,
+        formatId: "markdown",
+      },
+      { kind: "browser", id: "b1", url: "https://example.com", title: "Example", isPinned: false },
+    ]);
+    activeTabId = "b1";
+
+    const state = captureWindowState("main", true);
+
+    expect(state.tabs.map((t) => t.id)).toEqual(["t1"]);
+    // A browser tab is filtered out of `tabs`; keeping its id as active_tab_id
+    // makes restore repair it to an arbitrary document.
+    expect(state.active_tab_id).toBeNull();
+  });
+
+  it("keeps active_tab_id when the active tab is a captured document tab", () => {
+    setTabs("main", [
+      {
+        kind: "document",
+        id: "t1",
+        filePath: "/a.md",
+        title: "a.md",
+        isPinned: false,
+        formatId: "markdown",
+      },
+      { kind: "browser", id: "b1", url: "https://example.com", title: "Example", isPinned: false },
+    ]);
+    activeTabId = "t1";
+
+    expect(captureWindowState("main", true).active_tab_id).toBe("t1");
+  });
+});
+
+describe("captureWindowState — tabs with no document entry", () => {
+  it("omits a file-backed tab whose document is missing instead of capturing it empty", () => {
+    // Restoring `content: ""` / `saved_content: ""` for a real file path
+    // resurrects the tab as an EMPTY clean document — a later save would then
+    // truncate the file on disk. There is nothing to recover, so drop the tab.
+    setTabs("main", [
+      {
+        kind: "document",
+        id: "ghost",
+        filePath: "/real/file.md",
+        title: "file.md",
+        isPinned: false,
+        formatId: "markdown",
+      },
+      {
+        kind: "document",
+        id: "t1",
+        filePath: "/a.md",
+        title: "a.md",
+        isPinned: false,
+        formatId: "markdown",
+      },
+    ]);
+    tabsWithoutDocument.add("ghost");
+    activeTabId = "ghost";
+
+    const state = captureWindowState("main", true);
+
+    expect(state.tabs.map((t) => t.id)).toEqual(["t1"]);
+    expect(state.active_tab_id).toBeNull();
+  });
 });
 
 describe("captureWindowState — multi-format fields (WI-1A.13)", () => {

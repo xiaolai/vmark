@@ -1,5 +1,5 @@
 // WI-1.1 — versioned session-tab persistence + legacy migration + downgrade tolerance
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   migratePersistedTabs,
   serializeSessionTabs,
@@ -8,6 +8,13 @@ import {
   type SessionTabsV1,
 } from "./sessionTabs";
 import type { Tab } from "@/stores/tabStoreTypes";
+
+const { mockWorkspaceWarn } = vi.hoisted(() => ({ mockWorkspaceWarn: vi.fn() }));
+vi.mock("@/utils/debug", () => ({ workspaceWarn: mockWorkspaceWarn }));
+
+beforeEach(() => {
+  mockWorkspaceWarn.mockClear();
+});
 
 describe("migratePersistedTabs", () => {
   it("migrates a legacy string[] to document records, in order", () => {
@@ -78,6 +85,47 @@ describe("migratePersistedTabs", () => {
     expect(migratePersistedTabs(session, [], { browserSupported: false })).toEqual([
       { kind: "document", path: "/a.md" },
     ]);
+    // A well-formed browser record this call intentionally drops is NOT a
+    // malformed record — warning about it cries wolf on every workspace open.
+    expect(mockWorkspaceWarn).not.toHaveBeenCalled();
+  });
+
+  it("warns only for genuinely unrecognized records", () => {
+    migratePersistedTabs(
+      { version: 1, tabs: [{ kind: "terminal" }, { kind: "document", path: "/a.md" }] },
+      [],
+    );
+    expect(mockWorkspaceWarn).toHaveBeenCalledTimes(1);
+  });
+
+  it("skips document records with an empty path", () => {
+    // documentPathsOf() already refuses empty paths; accepting one here would
+    // send "" down the restore path and into a filesystem read.
+    expect(
+      migratePersistedTabs({ version: 1, tabs: [{ kind: "document", path: "" }] }, []),
+    ).toEqual([]);
+    expect(documentPathsForRestore({ lastOpenTabs: ["", "/a.md"] })).toEqual(["/a.md"]);
+  });
+
+  it("drops a non-finite or negative scrollY instead of persisting it", () => {
+    const parsed = migratePersistedTabs(
+      {
+        version: 1,
+        tabs: [
+          { kind: "browser", url: "https://a.test/", title: "a", scrollY: -5 },
+          { kind: "browser", url: "https://b.test/", title: "b", scrollY: Number.NaN },
+          { kind: "browser", url: "https://c.test/", title: "c", scrollY: Number.POSITIVE_INFINITY },
+          { kind: "browser", url: "https://d.test/", title: "d", scrollY: 0 },
+        ],
+      },
+      [],
+    );
+    expect(parsed).toEqual([
+      { kind: "browser", url: "https://a.test/", title: "a" },
+      { kind: "browser", url: "https://b.test/", title: "b" },
+      { kind: "browser", url: "https://c.test/", title: "c" },
+      { kind: "browser", url: "https://d.test/", title: "d", scrollY: 0 },
+    ]);
   });
 
   it("falls back to legacy paths when sessionTabs has an unknown future version", () => {
@@ -123,6 +171,19 @@ describe("serializeSessionTabs", () => {
       url: "https://x.test/",
       title: "x",
     });
+  });
+
+  it("omits a non-finite or negative live scrollY", () => {
+    const tabs: Tab[] = [
+      { kind: "browser", id: "b1", url: "https://x.test/", title: "x", isPinned: false, scrollY: Number.NaN },
+      { kind: "browser", id: "b2", url: "https://y.test/", title: "y", isPinned: false, scrollY: -1 },
+    ];
+    // JSON.stringify turns NaN/Infinity into null, so persisting them is a
+    // silent corruption of the record.
+    expect(serializeSessionTabs(tabs).tabs).toEqual([
+      { kind: "browser", url: "https://x.test/", title: "x" },
+      { kind: "browser", url: "https://y.test/", title: "y" },
+    ]);
   });
 
   it("round-trips through migratePersistedTabs", () => {

@@ -61,33 +61,52 @@ interface MigrateOptions {
   browserSupported?: boolean;
 }
 
-/** Narrow one raw record to a `PersistedTab`, or null if unknown/malformed. */
-function parseRecord(raw: unknown, browserSupported: boolean): PersistedTab | null {
-  if (raw === null || typeof raw !== "object") return null;
+/**
+ * A parsed record, a well-formed record this call deliberately drops
+ * (`"unsupported"`), or a malformed/unknown one (`"malformed"`).
+ *
+ * The two rejections are NOT the same: a valid browser record read by a build
+ * with browser support off is expected, while a malformed record means the
+ * config is corrupt. Collapsing them made every persisted browser tab log an
+ * "unrecognized record" warning on each workspace open.
+ */
+type ParsedRecord = PersistedTab | "unsupported" | "malformed";
+
+/** A persisted scroll offset is usable only when it is finite and non-negative.
+ *  JSON turns NaN/Infinity into `null`, so persisting them corrupts the record. */
+function isValidScrollY(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0;
+}
+
+/** Narrow one raw record to a `PersistedTab`, or say why it was rejected. */
+function parseRecord(raw: unknown, browserSupported: boolean): ParsedRecord {
+  if (raw === null || typeof raw !== "object") return "malformed";
   const rec = raw as Record<string, unknown>;
 
   if (rec.kind === "document") {
     const { path } = rec;
-    if (path === null || typeof path === "string") {
+    // An empty path is not a restorable document (documentPathsOf() rejects it
+    // too) — accepting it would push "" into the filesystem restore loop.
+    if (path === null || (typeof path === "string" && path !== "")) {
       return { kind: "document", path };
     }
-    return null;
+    return "malformed";
   }
 
   if (rec.kind === "browser") {
-    if (!browserSupported) return null;
+    if (!browserSupported) return "unsupported";
     const { url, title, scrollY } = rec;
-    if (typeof url !== "string" || url === "") return null;
+    if (typeof url !== "string" || url === "") return "malformed";
     const out: PersistedBrowserTab = {
       kind: "browser",
       url,
       title: typeof title === "string" ? title : url,
     };
-    if (typeof scrollY === "number") out.scrollY = scrollY;
+    if (isValidScrollY(scrollY)) out.scrollY = scrollY;
     return out;
   }
 
-  return null; // unknown kind — a future record this build doesn't understand
+  return "malformed"; // unknown kind — a future record this build doesn't understand
 }
 
 /** True when `value` is a well-formed `SessionTabsV1` we can read. */
@@ -117,8 +136,11 @@ export function migratePersistedTabs(
       const out: PersistedTab[] = [];
       for (const raw of sessionTabs.tabs) {
         const parsed = parseRecord(raw, browserSupported);
-        if (parsed) out.push(parsed);
-        else workspaceWarn("Skipping unrecognized session-tab record:", raw);
+        if (parsed === "malformed") {
+          workspaceWarn("Skipping unrecognized session-tab record:", raw);
+        } else if (parsed !== "unsupported") {
+          out.push(parsed);
+        }
       }
       return out;
     }
@@ -127,7 +149,9 @@ export function migratePersistedTabs(
   }
 
   if (!legacyPaths || legacyPaths.length === 0) return [];
-  return legacyPaths.map((path) => ({ kind: "document", path }));
+  return legacyPaths
+    .filter((path) => path !== "")
+    .map((path) => ({ kind: "document", path }));
 }
 
 /** Serialize the live tab list into the versioned `sessionTabs` payload. */
@@ -137,7 +161,7 @@ export function serializeSessionTabs(tabs: readonly Tab[]): SessionTabsV1 {
     tabs: tabs.map((tab): PersistedTab => {
       if (tab.kind === "browser") {
         const rec: PersistedBrowserTab = { kind: "browser", url: tab.url, title: tab.title };
-        if (typeof tab.scrollY === "number") rec.scrollY = tab.scrollY;
+        if (isValidScrollY(tab.scrollY)) rec.scrollY = tab.scrollY;
         return rec;
       }
       return { kind: "document", path: tab.filePath };

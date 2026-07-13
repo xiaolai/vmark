@@ -12,60 +12,17 @@ import { useTabStore } from '@/stores/tabStore';
 import { useDocumentStore } from '@/stores/documentStore';
 import { useUIStore } from '@/stores/uiStore';
 import { useUnifiedHistoryStore } from '@/stores/documentStore';
-import type { WindowState, TabState, CaptureRequest, CaptureResponse, CursorInfo } from '../hotExit/types';
+import type { WindowState, TabState, CaptureRequest, CaptureResponse } from '../hotExit/types';
 import { HOT_EXIT_EVENTS, MAIN_WINDOW_LABEL } from '../hotExit/types';
 import { hotExitWarn, hotExitError } from '@/utils/debug';
-import type { LineEnding as StoreLineEnding } from '@/utils/linebreakDetection';
-import type { HistoryCheckpoint as StoreHistoryCheckpoint } from '@/stores/documentStore';
-import type { CursorInfo as StoreCursorInfo } from '@/stores/documentStore';
 import { captureWindowWorkspaceInstances } from '../hotExit/workspaceInstances';
 import { captureWindowGeometry } from './windowGeometry';
-
-/**
- * Convert store line ending format to hot exit format
- */
-function toHotExitLineEnding(lineEnding: StoreLineEnding): '\n' | '\r\n' | 'unknown' {
-  switch (lineEnding) {
-    case 'lf':
-      return '\n';
-    case 'crlf':
-      return '\r\n';
-    case 'unknown':
-      return 'unknown';
-    default:
-      // Exhaustiveness guard for future enum additions
-      return 'unknown';
-  }
-}
-
-/**
- * Convert store cursor info to hot exit format
- */
-function toHotExitCursorInfo(cursorInfo: StoreCursorInfo | null | undefined): CursorInfo | null {
-  if (!cursorInfo) return null;
-  return {
-    source_line: cursorInfo.sourceLine,
-    word_at_cursor: cursorInfo.wordAtCursor,
-    offset_in_word: cursorInfo.offsetInWord,
-    node_type: cursorInfo.nodeType,
-    percent_in_line: cursorInfo.percentInLine,
-    context_before: cursorInfo.contextBefore,
-    context_after: cursorInfo.contextAfter,
-    block_anchor: cursorInfo.blockAnchor,
-  };
-}
-
-/**
- * Convert store history checkpoint to hot exit format
- */
-function toHotExitCheckpoint(checkpoint: StoreHistoryCheckpoint) {
-  return {
-    markdown: checkpoint.markdown,
-    mode: checkpoint.mode,
-    cursor_info: toHotExitCursorInfo(checkpoint.cursorInfo),
-    timestamp: checkpoint.timestamp,
-  };
-}
+import {
+  extractUntitledNumber,
+  toHotExitCheckpoint,
+  toHotExitCursorInfo,
+  toHotExitLineEnding,
+} from './_hotExitCaptureConvert';
 
 /**
  * Gather UI state from stores (safe - catches errors)
@@ -118,29 +75,31 @@ function buildCaptureResponse(captureId: string, windowLabel: string, state: Win
   };
 }
 
-/**
- * Extract untitled number from tab title like "Untitled-5"
- */
-function extractUntitledNumber(title: string): number | null {
-  const match = title.match(/^Untitled-(\d+)$/);
-  return match ? parseInt(match[1], 10) : null;
-}
+/** A document that exists in the document store (capture skips tabs without one). */
+type CapturedDocument = NonNullable<
+  ReturnType<ReturnType<typeof useDocumentStore.getState>['getDocument']>
+>;
+
+/** Cap persisted undo/redo depth to keep IPC/serialization size bounded. */
+const MAX_HISTORY_CHECKPOINTS = 20;
 
 /**
- * Capture document state for a tab
+ * Capture document state for a tab.
+ *
+ * Takes the live document rather than looking it up: a tab whose document is
+ * absent from the store has NOTHING to capture, and persisting an empty
+ * document for a real file path would restore that file as an empty buffer
+ * (a later save then truncates it on disk). `captureWindowState` drops such
+ * tabs instead.
  */
 function captureDocumentState(
-  tabId: string,
   filePath: string | null,
   title: string,
-  documentStore: ReturnType<typeof useDocumentStore.getState>,
-  historyStore: ReturnType<typeof useUnifiedHistoryStore.getState>
+  doc: CapturedDocument,
+  historyStore: ReturnType<typeof useUnifiedHistoryStore.getState>,
+  tabId: string
 ) {
-  const doc = documentStore.getDocument(tabId);
   const docHistory = historyStore.documents[tabId];
-
-  // Capture undo/redo history (cap to prevent excessive IPC/serialization size)
-  const MAX_HISTORY_CHECKPOINTS = 20;
   const undoHistory = (docHistory?.undoStack ?? []).slice(-MAX_HISTORY_CHECKPOINTS).map(toHotExitCheckpoint);
   const redoHistory = (docHistory?.redoStack ?? []).slice(-MAX_HISTORY_CHECKPOINTS).map(toHotExitCheckpoint);
 
@@ -148,42 +107,23 @@ function captureDocumentState(
   const isUntitled = !filePath;
   const untitledNumber = isUntitled ? extractUntitledNumber(title) : null;
 
-  if (doc) {
-    return {
-      content: doc.content,
-      saved_content: doc.savedContent,
-      is_dirty: doc.isDirty,
-      is_missing: doc.isMissing,
-      is_divergent: doc.isDivergent,
-      is_read_only: doc.readOnly,
-      line_ending: toHotExitLineEnding(doc.lineEnding),
-      cursor_info: toHotExitCursorInfo(doc.cursorInfo),
-      last_modified_timestamp: doc.lastAutoSave,
-      is_untitled: isUntitled,
-      untitled_number: untitledNumber,
-      undo_history: undoHistory,
-      redo_history: redoHistory,
-      mode: doc.mode,
-      hard_break_style: doc.hardBreakStyle,
-      last_disk_content: doc.lastDiskContent,
-    };
-  }
-
-  // Fallback if document not found - still preserve history if available
   return {
-    content: '',
-    saved_content: '',
-    is_dirty: false,
-    is_missing: false,
-    is_divergent: false,
-    is_read_only: false,
-    line_ending: '\n' as const,
-    cursor_info: null,
-    last_modified_timestamp: null,
+    content: doc.content,
+    saved_content: doc.savedContent,
+    is_dirty: doc.isDirty,
+    is_missing: doc.isMissing,
+    is_divergent: doc.isDivergent,
+    is_read_only: doc.readOnly,
+    line_ending: toHotExitLineEnding(doc.lineEnding),
+    cursor_info: toHotExitCursorInfo(doc.cursorInfo),
+    last_modified_timestamp: doc.lastAutoSave,
     is_untitled: isUntitled,
     untitled_number: untitledNumber,
     undo_history: undoHistory,
     redo_history: redoHistory,
+    mode: doc.mode,
+    hard_break_style: doc.hardBreakStyle,
+    last_disk_content: doc.lastDiskContent,
   };
 }
 
@@ -207,25 +147,42 @@ export function captureWindowState(windowLabel: string, isMainWindow: boolean): 
     .getTabsByWindow(windowLabel)
     .filter((tab) => tab.kind === "document");
 
-  const tabs: TabState[] = windowTabs.map((tab) => ({
-    id: tab.id,
-    file_path: tab.filePath,
-    title: tab.title,
-    is_pinned: tab.isPinned,
-    document: captureDocumentState(tab.id, tab.filePath, tab.title, documentStore, historyStore),
-    // Multi-format fields (WI-1A.13). `formatId` is always present on
-    // the in-memory Tab; the other two have store-defined defaults.
-    format_id: tab.formatId,
-    editing_enabled: tab.editingEnabled ?? true,
-    active_schema_id: tab.activeSchemaId ?? null,
-  }));
+  const tabs: TabState[] = [];
+  for (const tab of windowTabs) {
+    const doc = documentStore.getDocument(tab.id);
+    if (!doc) {
+      // Inconsistent state (tab without document). Capturing it would persist
+      // an empty document for this tab's file path — restore would then show
+      // the file as empty and a save would truncate it. Nothing to recover.
+      hotExitError('Skipping tab with no document state:', tab.id, tab.filePath);
+      continue;
+    }
+    tabs.push({
+      id: tab.id,
+      file_path: tab.filePath,
+      title: tab.title,
+      is_pinned: tab.isPinned,
+      document: captureDocumentState(tab.filePath, tab.title, doc, historyStore, tab.id),
+      // Multi-format fields (WI-1A.13). `formatId` is always present on
+      // the in-memory Tab; the other two have store-defined defaults.
+      format_id: tab.formatId,
+      editing_enabled: tab.editingEnabled ?? true,
+      active_schema_id: tab.activeSchemaId ?? null,
+    });
+  }
 
+  // The active tab must be one of the CAPTURED tabs. A browser tab (filtered
+  // out above) or a dropped inconsistent tab would otherwise persist an
+  // active_tab_id that no restored tab carries, which restore then repairs to
+  // an arbitrary document — and workspace activation follows that wrong tab.
   const activeTab = tabStore.getActiveTab(windowLabel);
+  const activeTabId =
+    activeTab && tabs.some((tab) => tab.id === activeTab.id) ? activeTab.id : null;
 
   return {
     window_label: windowLabel,
     is_main_window: isMainWindow,
-    active_tab_id: activeTab?.id || null,
+    active_tab_id: activeTabId,
     tabs,
     ui_state: getUiStateSafe(),
     geometry: captureWindowGeometry(),
@@ -276,7 +233,15 @@ export function useHotExitCapture() {
         hotExitError('CRITICAL: Failed to emit capture response:', emitError);
         // No fallback possible - coordinator will timeout
       }
-    });
+    })
+      // Handle a failed registration HERE, not at unmount: a rejected listen()
+      // silently disables hot-exit capture for this window (the coordinator
+      // then times out on quit) and would surface only as an unhandled
+      // rejection. Resolve to a no-op unlisten so cleanup stays safe.
+      .catch((error: unknown) => {
+        hotExitError('CRITICAL: Failed to register hot-exit capture listener:', error);
+        return () => {};
+      });
 
     return () => {
       void unlistenPromise.then((unlisten) => unlisten()).catch((e) => {

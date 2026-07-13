@@ -132,4 +132,43 @@ describe("workspace.close", () => {
       closeWorkspace.mock.invocationCallOrder[0],
     );
   });
+
+  it("ignores re-activation while a close is still persisting (reentry guard)", async () => {
+    const closeWorkspace = vi.fn();
+    useWorkspaceStore.setState({ closeWorkspace } as never);
+    let finishPersist!: () => void;
+    mockPersistWorkspaceSession.mockImplementation(
+      () => new Promise<void>((resolve) => { finishPersist = () => resolve(); }),
+    );
+
+    const first = executeCommand("workspace.close", {}, { windowLabel: "main" });
+    // A second close while the session write is in flight would run a second
+    // concurrent persist — last writer wins over a half-torn-down workspace.
+    await executeCommand("workspace.close", {}, { windowLabel: "main" });
+    expect(mockPersistWorkspaceSession).toHaveBeenCalledTimes(1);
+
+    finishPersist();
+    await first;
+    expect(closeWorkspace).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not run while a workspace open is in flight in the same window", async () => {
+    const closeWorkspace = vi.fn();
+    useWorkspaceStore.setState({ closeWorkspace } as never);
+    let resolvePicker!: (value: string | null) => void;
+    mockOpenPicker.mockImplementation(
+      () => new Promise<string | null>((resolve) => { resolvePicker = resolve; }),
+    );
+
+    const opening = executeCommand("workspace.openFolder", {}, { windowLabel: "main" });
+    await executeCommand("workspace.close", {}, { windowLabel: "main" });
+
+    // Open and close are both workspace transitions: interleaving them tears
+    // down the workspace the open is still restoring into.
+    expect(mockPersistWorkspaceSession).not.toHaveBeenCalled();
+    expect(closeWorkspace).not.toHaveBeenCalled();
+
+    resolvePicker(null);
+    await opening;
+  });
 });

@@ -248,7 +248,13 @@ function toOwnershipIdentity(
   // Windows/Linux path normalization differs and a wrong default silently
   // mis-detects conflicts (T-platform finding).
   const resolved = platform ?? getRuntimePlatform();
-  const path = canonicalPath?.trim() || filePath;
+  // Trim only to DETECT a blank canonical path — never to rewrite it. POSIX and
+  // macOS allow leading/trailing spaces in filenames, so trimming the path we
+  // hand to the normalizer would collapse "/repo/notes " and "/repo/notes" into
+  // one identity (and contradicts normalizeWorkspacePathForIdentity's no-trim
+  // contract).
+  const hasCanonical = (canonicalPath ?? "").trim() !== "";
+  const path = hasCanonical && canonicalPath ? canonicalPath : filePath;
   // Single source of truth for path normalization — reuse the same helper that
   // workspace root identity uses, instead of a divergent local normalizer.
   const { platformIdentity } = normalizeWorkspacePathForIdentity(path, resolved);

@@ -25,32 +25,36 @@ import { normalizePath } from "@/utils/paths";
  * @param results - Results from reconcilePathChange
  */
 export function applyPathReconciliation(results: ReconcileResult[]): void {
-  const tabStore = useTabStore.getState();
-  const docStore = useDocumentStore.getState();
-
   for (const result of results) {
-    const targetPath = normalizePath(result.oldPath);
-    /* v8 ignore next -- @preserve reason: false branch (mark_missing) not exercised in unit tests */
+    const tabIds = documentTabIdsAtPath(result.oldPath);
     if (result.action === "update_path") {
       const newPath = normalizePath(result.newPath);
-      for (const windowTabs of Object.values(tabStore.tabs)) {
-        for (const tab of windowTabs) {
-          if (tab.kind === "document" && tab.filePath && normalizePath(tab.filePath) === targetPath) {
-            tabStore.updateTabPath(tab.id, newPath);
-            docStore.setFilePath(tab.id, newPath);
-          }
-        }
+      for (const tabId of tabIds) {
+        useTabStore.getState().updateTabPath(tabId, newPath);
+        useDocumentStore.getState().setFilePath(tabId, newPath);
       }
-    /* v8 ignore start -- @preserve mark_missing path requires a delete event with matching tab path */
-    } else if (result.action === "mark_missing") {
-      for (const windowTabs of Object.values(tabStore.tabs)) {
-        for (const tab of windowTabs) {
-          if (tab.kind === "document" && tab.filePath && normalizePath(tab.filePath) === targetPath) {
-            docStore.markMissing(tab.id);
-          }
-        }
+    } else {
+      for (const tabId of tabIds) {
+        useDocumentStore.getState().markMissing(tabId);
       }
     }
-    /* v8 ignore stop */
   }
+}
+
+/**
+ * The ids of every open document tab (across all windows) whose file path is
+ * `path`. Read fresh per result: `updateTabPath` replaces tab objects, so a
+ * snapshot taken before the loop would go stale after the first update.
+ */
+function documentTabIdsAtPath(path: string): string[] {
+  const targetPath = normalizePath(path);
+  const ids: string[] = [];
+  for (const windowTabs of Object.values(useTabStore.getState().tabs)) {
+    for (const tab of windowTabs) {
+      if (tab.kind === "document" && tab.filePath && normalizePath(tab.filePath) === targetPath) {
+        ids.push(tab.id);
+      }
+    }
+  }
+  return ids;
 }
