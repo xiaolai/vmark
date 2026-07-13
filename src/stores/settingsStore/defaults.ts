@@ -135,6 +135,7 @@ export const initialState: SettingsState = {
       autoApproveEdits: false, // Require approval by default (safer)
     },
     customLinkProtocols: ["obsidian", "vscode", "dict", "x-dictionary"],
+    developerMode: false,
     keepBothEditorsAlive: false,
     workflowEngine: false,
     workflowEditorPreserveYamlFormatting: true,

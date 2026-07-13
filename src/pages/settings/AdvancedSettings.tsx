@@ -4,7 +4,6 @@
  * Developer and system configuration.
  */
 
-import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { SettingRow, SettingsGroup, Toggle, TagInput } from "./components";
 import { useSettingsStore } from "@/stores/settingsStore";
@@ -13,7 +12,9 @@ import { isMacPlatform } from "@/utils/shortcutMatch";
 
 export function AdvancedSettings() {
   const { t } = useTranslation("settings");
-  const [devTools, setDevTools] = useState(false);
+  // Persisted (not ephemeral local state): once enabled, the experimental toggles
+  // stay revealed across Settings re-opens and in release builds.
+  const devTools = useSettingsStore((state) => state.advanced.developerMode);
   const customLinkProtocols = useSettingsStore((state) => state.advanced.customLinkProtocols);
   const keepBothEditorsAlive = useSettingsStore((state) => state.advanced.keepBothEditorsAlive);
   const workflowEngine = useSettingsStore((state) => state.advanced.workflowEngine);
@@ -38,7 +39,10 @@ export function AdvancedSettings() {
     <div>
       <SettingsGroup title={t("advanced.group.developer")}>
         <SettingRow label={t("advanced.devTools.label")} description={t("advanced.devTools.description")}>
-          <Toggle checked={devTools} onChange={setDevTools} />
+          <Toggle
+            checked={devTools}
+            onChange={(v) => updateAdvancedSetting("developerMode", v)}
+          />
         </SettingRow>
       </SettingsGroup>
 

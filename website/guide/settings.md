@@ -440,7 +440,8 @@ See [Workflow Viewer](/guide/workflow-viewer) for the full feature surface.
 |---------|-------------|---------|---------|
 | Embedded browser | Enable the experimental in-app web browser (macOS only). When on, **New Browser Tab** appears in the command palette | Off | On / Off |
 
-See [Embedded Browser](/guide/browser) for the full feature surface.
+This toggle lives under **Developer Tools** (see below) — turn Developer Tools on
+to reveal it. See [Embedded Browser](/guide/browser) for the full feature surface.
 
 ### Platform-Specific
 
@@ -451,7 +452,13 @@ See [Embedded Browser](/guide/browser) for the full feature surface.
 
 ### Developer Tools
 
-When **Developer tools** is toggled on, a **Hot Exit Dev Tools** panel appears with buttons to test session capture, inspection, restoration, clearing, and restart — useful for debugging hot exit behavior during development.
+**Developer tools** is a persisted master switch for experimental and
+development-only settings. Turning it on reveals the **Embedded browser** and
+**Workflow engine** toggles plus a **Hot Exit Dev Tools** panel (buttons to test
+session capture, inspection, restoration, clearing, and restart). Because the
+switch persists, an in-progress feature you enable stays reachable across sessions
+and in release builds — you do not need to re-enable Developer tools each time you
+open Settings.
 
 ## See Also
 
