@@ -127,6 +127,31 @@ describe("readPage — markdown serialization", () => {
     expect(r.markdown).toContain("[bad link](http://)");
   });
 
+  it("escapes markdown structure characters in page text (a page cannot inject headings/lists)", () => {
+    const r = readPage(wrap(`<p># Not a heading</p><p>- not a list item</p><p>1. not a list</p>`), URL);
+    expect(r.markdown).toContain("\\# Not a heading");
+    expect(r.markdown).toContain("\\- not a list item");
+    expect(r.markdown).toContain("1\\. not a list");
+    expect(r.markdown).not.toMatch(/^# Not a heading$/m);
+    expect(r.markdown).not.toMatch(/^- not a list item$/m);
+  });
+
+  it("escapes inline emphasis, link and code delimiters in page text", () => {
+    const r = readPage(wrap(`<p>a * b, snake_case, [bracket], back\\slash and a \` tick</p>`), URL);
+    expect(r.markdown).toContain("a \\* b");
+    expect(r.markdown).toContain("snake\\_case");
+    expect(r.markdown).toContain("\\[bracket\\]");
+    expect(r.markdown).toContain("back\\\\slash");
+    expect(r.markdown).toContain("\\` tick");
+  });
+
+  it("does NOT escape inside code spans and fenced blocks (they are literal by construction)", () => {
+    const r = readPage(wrap(`<p>run <code>a * b_c</code></p><pre><code># not escaped</code></pre>`), URL);
+    expect(r.markdown).toContain("`a * b_c`");
+    expect(r.markdown).toContain("# not escaped");
+    expect(r.markdown).not.toContain("\\# not escaped");
+  });
+
   it("drops script/style/noscript noise from the output", () => {
     const r = readPage(
       wrap(`<p>Visible text of the article.</p><script>evil()</script><style>.x{color:red}</style>`),

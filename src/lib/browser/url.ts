@@ -7,22 +7,27 @@
  * Tauri — built on the platform `URL` parser, which handles punycode/IDN and
  * default-port normalization for us.
  *
- * Canonicalization rules (dedup-oriented, deliberately lossy):
+ * Canonicalization rules (dedup-oriented, deliberately lossy in ONE dimension):
  *   - Only http/https URLs are navigable browser targets; anything else → null.
  *   - Scheme and host are lowercased (via `URL`); IDN hosts are punycoded.
- *   - Default ports (80/443) are dropped.
+ *   - Default ports (80/443) are dropped (by the `URL` parser).
  *   - A trailing dot on the host is stripped; empty-label hosts are rejected.
- *   - The fragment (`#…`) is dropped: it addresses a location *within* the same
- *     document, so `page#a` and `page#b` are the same tab for dedup purposes.
- *   - Path and query are preserved as the `URL` parser normalizes them.
+ *   - The fragment (`#…`) is dropped — the ONLY lossy rule: a fragment addresses a
+ *     location *within* the same document, so `page#a` and `page#b` are the same
+ *     tab for dedup purposes.
+ *   - Everything else the URL carries is preserved by re-serializing the parsed
+ *     `URL` (`href`) rather than rebuilding the string by hand. In particular
+ *     **userinfo is kept**: `https://alice@host/x` and `https://bob@host/x` are
+ *     different tabs and must not dedup together (and dropping the credentials
+ *     would silently navigate somewhere the user did not ask for). An empty query
+ *     delimiter (`/path?`) survives too — the server, not this module, decides
+ *     whether it is meaningful.
  *
  * @module lib/browser/url
  */
 
-const DEFAULT_PORTS: Record<string, number> = {
-  "http:": 80,
-  "https:": 443,
-};
+/** Only these schemes are navigable browser targets. */
+const NAVIGABLE_PROTOCOLS: ReadonlySet<string> = new Set(["http:", "https:"]);
 
 /**
  * Canonicalize a navigable http(s) URL to a stable string, or `null` if the
@@ -38,8 +43,7 @@ export function canonicalizeBrowserUrl(input: string): string | null {
     return null;
   }
 
-  const defaultPort = DEFAULT_PORTS[url.protocol];
-  if (defaultPort === undefined) return null; // only http/https are navigable
+  if (!NAVIGABLE_PROTOCOLS.has(url.protocol)) return null;
 
   // URL lowercases scheme/host and punycodes IDN; it does NOT strip a trailing dot.
   const host = url.hostname.replace(/\.$/, "");
@@ -50,8 +54,7 @@ export function canonicalizeBrowserUrl(input: string): string | null {
     return null;
   }
 
-  const scheme = url.protocol; // includes trailing ":"
-  const port = url.port === "" || Number(url.port) === defaultPort ? "" : `:${url.port}`;
-  // url.pathname is always at least "/"; url.search is "" or "?...".
-  return `${scheme}//${host}${port}${url.pathname}${url.search}`;
+  url.hostname = host; // write the trailing-dot-stripped host back
+  url.hash = ""; // drop the fragment (same document)
+  return url.href;
 }

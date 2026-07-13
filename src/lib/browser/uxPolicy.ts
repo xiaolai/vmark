@@ -17,35 +17,9 @@
  * @module lib/browser/uxPolicy
  */
 
-/** Every browser UX surface R12 decides. */
-export type UxSurface =
-  | "alert"
-  | "confirm"
-  | "prompt"
-  | "window-open"
-  | "download"
-  | "file-upload"
-  | "basic-auth"
-  | "tls-error"
-  | "permission-camera"
-  | "permission-mic"
-  | "permission-geolocation"
-  | "permission-notifications"
-  | "back"
-  | "forward"
-  | "reload"
-  | "stop"
-  | "find"
-  | "zoom"
-  | "context-menu"
-  | "print"
-  | "devtools"
-  | "pdf"
-  | "media"
-  | "fullscreen";
-
-/** The v1 disposition for a surface. `"tbd"` is intentionally impossible to
- *  assign here — R12 forbids deferring the decision. */
+/** The v1 disposition for a surface. There is deliberately no `"tbd"` member:
+ *  R12 forbids deferring the decision, and the type — not a runtime check — is
+ *  what makes a placeholder unrepresentable. */
 export type UxDisposition =
   | "native-dialog"
   | "new-tab"
@@ -58,38 +32,14 @@ export type UxDisposition =
   | "implement-minimal"
   | "unsupported"
   | "debug-only"
-  | "engine-default"
-  | "tbd";
+  | "engine-default";
 
-export const UX_SURFACES: readonly UxSurface[] = [
-  "alert",
-  "confirm",
-  "prompt",
-  "window-open",
-  "download",
-  "file-upload",
-  "basic-auth",
-  "tls-error",
-  "permission-camera",
-  "permission-mic",
-  "permission-geolocation",
-  "permission-notifications",
-  "back",
-  "forward",
-  "reload",
-  "stop",
-  "find",
-  "zoom",
-  "context-menu",
-  "print",
-  "devtools",
-  "pdf",
-  "media",
-  "fullscreen",
-];
-
-/** The decided R12 matrix — one disposition per surface, no gaps. */
-export const UX_POLICY: Record<UxSurface, UxDisposition> = {
+/**
+ * The decided R12 matrix — one disposition per surface, no gaps. This object is
+ * the single canonical inventory: `UxSurface` and `UX_SURFACES` are DERIVED from
+ * it, so a surface cannot exist in one list and be missing from another.
+ */
+export const UX_POLICY = {
   alert: "native-dialog",
   confirm: "native-dialog",
   prompt: "native-dialog",
@@ -114,7 +64,17 @@ export const UX_POLICY: Record<UxSurface, UxDisposition> = {
   pdf: "engine-default",
   media: "engine-default",
   fullscreen: "engine-default",
-};
+} as const satisfies Readonly<Record<string, UxDisposition>>;
+
+/** Every browser UX surface R12 decides — derived from the policy itself. */
+export type UxSurface = keyof typeof UX_POLICY;
+
+/** The surface inventory, derived from `UX_POLICY` (never hand-maintained). */
+export const UX_SURFACES: readonly UxSurface[] = Object.keys(UX_POLICY) as UxSurface[];
+
+/** Permission prompts are identified by WHAT THEY ARE, not by their current
+ *  disposition — a future surface that also denies silently is not a permission. */
+const PERMISSION_PREFIX = "permission-";
 
 /** The v1 disposition for `surface`. */
 export function dispositionFor(surface: UxSurface): UxDisposition {
@@ -123,17 +83,19 @@ export function dispositionFor(surface: UxSurface): UxDisposition {
 
 /** Whether `surface` is a permission prompt (all denied silently in v1). */
 export function isPermissionSurface(surface: UxSurface): boolean {
-  return UX_POLICY[surface] === "deny-silent";
+  return surface.startsWith(PERMISSION_PREFIX);
 }
 
-/** The AI may never choose an upload file — always false (WI-1.7 / R12). */
+/** The AI may never choose an upload file (WI-1.7 / R12) — derived from the
+ *  policy so it cannot contradict the matrix: only a human picker is allowed. */
 export function aiMayChooseUploadFile(): boolean {
-  return false;
+  return dispositionFor("file-upload") !== "human-picker";
 }
 
-/** TLS/cert errors are a hard block — no click-through in v1. */
+/** TLS/cert errors are a hard block — no click-through in v1. Derived from the
+ *  matrix for the same reason. */
 export function isTlsClickThroughAllowed(): boolean {
-  return false;
+  return dispositionFor("tls-error") !== "deny-hard";
 }
 
 /** Devtools is available only in debug builds. */

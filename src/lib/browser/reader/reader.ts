@@ -8,6 +8,10 @@
  * serializes it with a Turndown-style converter. Site-specific readers (WI-3.x)
  * harden this against a fixture corpus.
  *
+ * The page is untrusted input, so text nodes are Markdown-escaped: a paragraph
+ * that literally reads "# Sale" must not turn into a heading in the user's
+ * document. Code spans/blocks are exempt — they are literal by construction.
+ *
  * Runs in the webview/frontend against the page's captured `outerHTML` (fetched
  * by the driver via eval) — never in Rust — so `DOMParser`/DOM APIs are present.
  *
@@ -53,9 +57,30 @@ function listItems(el: Element): Element[] {
   return Array.from(el.children).filter((c) => c.tagName.toLowerCase() === "li");
 }
 
+/**
+ * Escape Markdown-significant characters in *page text*.
+ *
+ * The page is untrusted input: a paragraph that literally reads "# Sale" or
+ * "- item" must not become a heading or a list in the document the user gets. Only
+ * text nodes pass through here — code spans and fenced blocks are emitted from
+ * `textContent` verbatim (they are literal by construction), and the structural
+ * markers this module emits itself are added after escaping.
+ */
+function escapeText(text: string): string {
+  return (
+    text
+      // Backslash first, or it would escape the escapes added below.
+      .replace(/\\/g, "\\\\")
+      .replace(/([`*_[\]])/g, "\\$1")
+      // Block-level markers only bite at the start of a line/text run.
+      .replace(/^(\s*)([-+>#])/, "$1\\$2")
+      .replace(/^(\s*)(\d+)\./, "$1$2\\.")
+  );
+}
+
 function serializeNode(node: Node, baseUrl: string): string {
   if (node.nodeType === 3 /* TEXT_NODE */) {
-    return (node.textContent ?? "").replace(/\s+/g, " ");
+    return escapeText((node.textContent ?? "").replace(/\s+/g, " "));
   }
   if (node.nodeType !== 1 /* ELEMENT_NODE */) return "";
   const el = node as Element;
@@ -93,7 +118,8 @@ function serializeNode(node: Node, baseUrl: string): string {
     }
     case "img": {
       const src = el.getAttribute("src");
-      return src ? `![${el.getAttribute("alt") ?? ""}](${resolveUrl(src, baseUrl)})` : "";
+      if (!src) return "";
+      return `![${escapeText(el.getAttribute("alt") ?? "")}](${resolveUrl(src, baseUrl)})`;
     }
     case "ul":
       return `\n\n${listItems(el)

@@ -51,6 +51,16 @@ describe("decideApproval", () => {
     ];
     expect(decideApproval(URL, "publish", grants)).toBe("allowed");
   });
+
+  it.each([["Upload"], ["UPLOAD"], [" upload"], ["exfiltrate"], [""]])(
+    "DENIES the unknown/case-variant operation %j even when a grant lists it (fail closed)",
+    (operation) => {
+      const grants: StandingGrant[] = [
+        { originPattern: "https://blog.example.com", operations: [operation, "click"] },
+      ];
+      expect(decideApproval(URL, operation, grants)).toBe("denied");
+    },
+  );
 });
 
 describe("addGrant", () => {
@@ -73,6 +83,58 @@ describe("addGrant", () => {
     addGrant(input, { originPattern: "https://b.test", operations: ["click"] });
     expect(input).toHaveLength(1);
   });
+
+  it.each([
+    ["https://A.TEST", "case variant"],
+    ["https://a.test/", "trailing slash"],
+    ["https://a.test:443", "explicit default port"],
+  ])("merges %s (%s) into the canonically identical existing grant", (alias) => {
+    const out = addGrant([{ originPattern: "https://a.test", operations: ["read"] }], {
+      originPattern: alias,
+      operations: ["click"],
+    });
+    expect(out).toHaveLength(1);
+    expect([...out[0].operations].sort()).toEqual(["click", "read"]);
+  });
+
+  it("keeps a wildcard pattern distinct from its apex", () => {
+    const out = addGrant([{ originPattern: "https://a.test", operations: ["read"] }], {
+      originPattern: "https://*.a.test",
+      operations: ["read"],
+    });
+    expect(out).toHaveLength(2);
+  });
+
+  it("rejects an invalid origin pattern rather than storing an inert grant", () => {
+    const grants: StandingGrant[] = [{ originPattern: "https://a.test", operations: ["read"] }];
+    expect(addGrant(grants, { originPattern: "not-a-url", operations: ["read"] })).toEqual(grants);
+    expect(addGrant(grants, { originPattern: "https://a.test/path", operations: ["read"] })).toEqual(
+      grants,
+    );
+  });
+
+  it("filters forbidden and unknown operations, and never stores an empty grant", () => {
+    const out = addGrant([], {
+      originPattern: "https://a.test",
+      operations: ["read", "upload", "Click", "read"],
+    });
+    expect(out).toEqual([{ originPattern: "https://a.test", operations: ["read"] }]);
+    // Nothing survivable left → no grant at all (an empty grant is misleading state).
+    expect(addGrant([], { originPattern: "https://a.test", operations: ["upload"] })).toEqual([]);
+    expect(addGrant([], { originPattern: "https://a.test", operations: [] })).toEqual([]);
+  });
+
+  it("collapses pre-existing duplicate entries for one origin into a single grant", () => {
+    const out = addGrant(
+      [
+        { originPattern: "https://a.test", operations: ["read"] },
+        { originPattern: "https://A.test/", operations: ["type"] },
+      ],
+      { originPattern: "https://a.test", operations: ["click"] },
+    );
+    expect(out).toHaveLength(1);
+    expect([...out[0].operations].sort()).toEqual(["click", "read", "type"]);
+  });
 });
 
 describe("revokeOrigin", () => {
@@ -83,5 +145,33 @@ describe("revokeOrigin", () => {
     ];
     const out = revokeOrigin(grants, "https://a.test");
     expect(out).toEqual([{ originPattern: "https://b.test", operations: ["click"] }]);
+  });
+
+  it.each([["https://A.TEST"], ["https://a.test/"], ["https://a.test:443"]])(
+    "revokes by canonical identity, so the alias %s leaves no equivalent grant behind",
+    (alias) => {
+      const grants: StandingGrant[] = [{ originPattern: "https://a.test", operations: ["read"] }];
+      expect(revokeOrigin(grants, alias)).toEqual([]);
+    },
+  );
+
+  it("still revokes legacy state whose pattern the guard cannot parse (exact string)", () => {
+    const grants: StandingGrant[] = [
+      { originPattern: "not-a-url", operations: ["read"] },
+      { originPattern: "https://b.test", operations: ["click"] },
+    ];
+    expect(revokeOrigin(grants, "not-a-url")).toEqual([
+      { originPattern: "https://b.test", operations: ["click"] },
+    ]);
+  });
+
+  it("does not revoke the apex when revoking its wildcard", () => {
+    const grants: StandingGrant[] = [
+      { originPattern: "https://a.test", operations: ["read"] },
+      { originPattern: "https://*.a.test", operations: ["read"] },
+    ];
+    expect(revokeOrigin(grants, "https://*.a.test")).toEqual([
+      { originPattern: "https://a.test", operations: ["read"] },
+    ]);
   });
 });

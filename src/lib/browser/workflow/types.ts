@@ -8,29 +8,38 @@
  * writes, R8a). This module is pure data — no execution, no driver.
  */
 
-/** Execution tiers, chosen per step by the engine (R8). */
-export type StepKind = "api" | "action" | "goal" | "confirm" | "extract";
+/**
+ * What a step *is*. `api` / `action` / `goal` select an execution tier (R8, least
+ * to most autonomous); `confirm` (human gate) and `extract` (reader) are control /
+ * data steps, not tiers — the engine's `vision` tier has no authorable kind.
+ * The single source of truth: `StepKind` is derived from this tuple, so the
+ * parser's runtime validation and the compile-time type can never drift.
+ */
+export const STEP_KINDS = ["api", "action", "goal", "confirm", "extract"] as const;
 
-export const STEP_KINDS: readonly StepKind[] = ["api", "action", "goal", "confirm", "extract"];
+export type StepKind = (typeof STEP_KINDS)[number];
 
+/** A parsed step. Immutable: the runner derives its write-safety classification from
+ *  these fields, so a later mutation could invalidate a safety decision already made. */
 export interface WorkflowStep {
   /** 1-based position among steps (not source line). */
-  index: number;
-  kind: StepKind;
-  /** The instruction / goal / selector text, verbatim (CJK preserved). */
-  text: string;
+  readonly index: number;
+  readonly kind: StepKind;
+  /** The instruction / goal / selector text: the author's words, CJK and casing
+   *  preserved. Surrounding whitespace around `kind:` is not part of the text. */
+  readonly text: string;
   /** 1-based source line, for diagnostics. */
-  line: number;
+  readonly line: number;
 }
 
 export interface WebWorkflow {
   /** Site id the workflow targets (front-matter `site:`). */
-  site: string;
+  readonly site: string;
   /** Declared input variable names (front-matter `inputs:`). */
-  inputs: string[];
+  readonly inputs: readonly string[];
   /** Optional trigger descriptor (front-matter `trigger:`), e.g. "manual". */
-  trigger?: string;
-  steps: WorkflowStep[];
+  readonly trigger?: string;
+  readonly steps: readonly WorkflowStep[];
 }
 
 export type DiagnosticSeverity = "error" | "warning";
@@ -43,6 +52,7 @@ export type DiagnosticSeverity = "error" | "warning";
 export type DiagnosticCode =
   | "missing-front-matter"
   | "unterminated-front-matter"
+  | "malformed-front-matter"
   | "missing-site"
   | "duplicate-front-matter-key"
   | "unknown-front-matter-key"
@@ -54,16 +64,22 @@ export type DiagnosticCode =
   | "no-steps"
   | "undeclared-variable";
 
-export interface Diagnostic {
+/** Severity is a type parameter so a warning list cannot hold an error (and vice
+ *  versa) — the `ParseResult` union stays honest by construction. */
+export interface Diagnostic<S extends DiagnosticSeverity = DiagnosticSeverity> {
   /** 1-based source line. */
-  line: number;
+  readonly line: number;
   /** Stable code for localization/testing. */
-  code: DiagnosticCode;
+  readonly code: DiagnosticCode;
   /** Developer-facing English message (not for direct UI display — localize by `code`). */
-  message: string;
-  severity: DiagnosticSeverity;
+  readonly message: string;
+  readonly severity: S;
 }
 
+export type ErrorDiagnostic = Diagnostic<"error">;
+export type WarningDiagnostic = Diagnostic<"warning">;
+
+/** A failed parse still reports its warnings: one pass must show every diagnostic. */
 export type ParseResult =
-  | { ok: true; workflow: WebWorkflow; warnings: Diagnostic[] }
-  | { ok: false; errors: Diagnostic[] };
+  | { ok: true; workflow: WebWorkflow; warnings: WarningDiagnostic[] }
+  | { ok: false; errors: ErrorDiagnostic[]; warnings: WarningDiagnostic[] };

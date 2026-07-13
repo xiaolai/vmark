@@ -17,6 +17,7 @@
  * @module lib/browser/reader/siteReader
  */
 
+import { canonicalizeBrowserUrl } from "../url";
 import { readPage, type ReaderResult } from "./reader";
 
 /** A pluggable reader: matches some set of URLs and renders their DOM. */
@@ -55,17 +56,37 @@ export interface SitePublisher {
   createDraft: (input: PublishInput, targetUrl: string) => Promise<PublishResult>;
 }
 
-/** The built-in generic reader — matches any http(s) URL, uses `readPage`. */
+/** The built-in generic reader — matches any navigable http(s) URL, uses `readPage`.
+ *  Matching goes through the canonical URL parser, not a string prefix: `https://`
+ *  and `https:// not-a-host` look like http(s) but are not pages. */
 export const genericReader: SiteReader = {
   id: "generic",
-  match: (url) => /^https?:\/\//i.test(url),
+  match: (url) => canonicalizeBrowserUrl(url) !== null,
   read: (html, url) => readPage(html, url),
 };
 
 /**
- * Pick the reader for a URL: the first matching site-specific reader (in
- * registration order), else the generic reader.
+ * Whether `reader` claims `url`. A site reader is third-party code: a matcher that
+ * throws must not abort selection — later readers and the generic fallback still
+ * get their turn, and the faulty plugin simply does not match.
  */
-export function pickReader(url: string, readers: readonly SiteReader[]): SiteReader {
-  return readers.find((r) => r.match(url)) ?? genericReader;
+function claims(reader: SiteReader, url: string): boolean {
+  try {
+    return reader.match(url) === true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Pick the reader for a URL: the first matching site-specific reader (in
+ * registration order), else the generic reader — or `null` when nothing can read
+ * the URL (e.g. `file:///…`). Never returns a reader whose own matcher says it
+ * cannot handle the URL.
+ */
+export function pickReader(url: string, readers: readonly SiteReader[]): SiteReader | null {
+  for (const reader of readers) {
+    if (claims(reader, url)) return reader;
+  }
+  return claims(genericReader, url) ? genericReader : null;
 }

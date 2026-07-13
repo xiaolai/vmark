@@ -55,23 +55,39 @@ export function classifyProbe(probe: SiteHealthProbe): SiteHealthStatus {
   return probe.authenticated ? "ok" : "degraded";
 }
 
+/** Default per-probe budget. A probe drives a real browser, so it is allowed to be
+ *  slow — but never unbounded: one plugin that never settles would otherwise hang
+ *  the aggregate and every other site's result with it. */
+const DEFAULT_PROBE_TIMEOUT_MS = 15_000;
+
+/** Reject with a timeout error if `promise` has not settled within `ms`. */
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const expiry = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`health check timed out after ${ms}ms`)), ms);
+  });
+  return Promise.race([promise, expiry]).finally(() => clearTimeout(timer));
+}
+
 async function probeSite(
   manifest: SiteManifest,
   check: HealthCheckFn | undefined,
+  timeoutMs: number,
 ): Promise<SiteHealth> {
   const base = { id: manifest.id, capabilities: manifest.capabilities };
   if (check === undefined) {
     return { ...base, status: "unknown" };
   }
   try {
-    const probe = await check();
+    const probe = await withTimeout(check(), timeoutMs);
     return {
       ...base,
       status: classifyProbe(probe),
       ...(probe.detail !== undefined ? { detail: probe.detail } : {}),
     };
   } catch (error) {
-    // Fail loud but contained: one plugin's thrown probe must not sink the batch.
+    // Fail loud but contained: one plugin's thrown (or hung) probe must not sink
+    // the batch — it reports `failed` with the reason, like any other failure.
     return {
       ...base,
       status: "failed",
@@ -80,16 +96,27 @@ async function probeSite(
   }
 }
 
+/** Options for a health run. */
+export interface SiteHealthOptions {
+  /** Per-probe budget in ms; a probe that exceeds it is `failed` (not pending). */
+  timeoutMs?: number;
+}
+
 /**
  * Run health checks for every registered site and aggregate the results.
  *
  * Checks run concurrently (they are independent browser I/O), but the returned
  * array preserves registry order so the status panel renders a stable list. A
  * site with no entry in `checks` reports `unknown`; a throwing check reports
- * `failed` with its message.
+ * `failed` with its message; a check that outruns its budget reports `failed`
+ * with a timeout message rather than blocking the whole aggregate.
  */
 export async function runSiteHealth(
   checks: ReadonlyMap<string, HealthCheckFn>,
+  options: SiteHealthOptions = {},
 ): Promise<SiteHealth[]> {
-  return Promise.all(listSites().map((manifest) => probeSite(manifest, checks.get(manifest.id))));
+  const timeoutMs = options.timeoutMs ?? DEFAULT_PROBE_TIMEOUT_MS;
+  return Promise.all(
+    listSites().map((manifest) => probeSite(manifest, checks.get(manifest.id), timeoutMs)),
+  );
 }

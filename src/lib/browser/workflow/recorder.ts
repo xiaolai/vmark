@@ -9,13 +9,24 @@
  * trade, never a security boundary).
  *
  * R10 honesty rule enforced here: a value marked `sensitive` (a password/token/
- * CSRF field) is NEVER written into the workflow — it is redacted. The output is
- * always a document the parser accepts (round-trip verified in tests).
+ * CSRF field) is NEVER written into the workflow — it is redacted, on EVERY event
+ * type (a URL can carry a token just as a text field can).
  *
- * @coordinates-with lib/browser/workflow/parser.ts — output is parseable source
+ * The workflow file is line-oriented, so a recorded value is page-controlled data in
+ * a text format: an unescaped newline in an accessible name would FORGE A STEP the
+ * user never performed. Every recorded value is therefore emitted through `quote`
+ * (JSON string escaping — reversible, and it cannot break out of its line), and the
+ * front-matter scalars are validated rather than escaped, so a bad `site` fails loudly
+ * instead of producing a corrupt file. The output is a document the parser accepts —
+ * except for an EMPTY trace, which yields front-matter with no steps and is reported
+ * by the parser as `no-steps` (an empty recording is not a runnable workflow).
+ *
+ * @coordinates-with lib/browser/workflow/parser.ts — output is parseable source; input
+ *   names are validated with the parser's own rule
  * @coordinates-with lib/browser/agent/aria.ts — events are located by role+name
  * @module lib/browser/workflow/recorder
  */
+import { isValidInputName } from "./parser";
 
 /** One recorded user action. */
 export interface RecordedEvent {
@@ -32,11 +43,32 @@ export interface RecordedEvent {
   sensitive?: boolean;
 }
 
-const REDACTED = "‹redacted›"; // ‹redacted›
+const REDACTED = "‹redacted›";
 
-/** Quote a value for a step line without letting it break the quoting. */
+/** Encode a recorded value as a quoted scalar. JSON escaping is reversible (the old
+ *  `"` → `'` rewrite silently changed the value, so replay could target another
+ *  control) and, crucially, escapes line breaks — page content cannot forge a step. */
 function quote(value: string): string {
-  return `"${value.replace(/"/g, "'")}"`;
+  return JSON.stringify(value);
+}
+
+/** The DATA a step carries (typed text, target URL, extracted detail) — redacted when
+ *  the event is marked sensitive (R10). A locator is not data: the field's label
+ *  ("Password") stays, so the step is still replayable; only the secret goes. */
+function visible(ev: RecordedEvent, raw: string | undefined): string {
+  return ev.sensitive ? REDACTED : raw ?? "";
+}
+
+/** `"name" (role)` — one target format for click AND type: an accessible name alone
+ *  is ambiguous when two controls share it, so the role is part of the locator. */
+function target(ev: RecordedEvent): string {
+  return `${quote(ev.name ?? "")}${ev.role ? ` (${ev.role})` : ""}`;
+}
+
+/** The first value that carries something after trimming (whitespace-only text is not
+ *  a description — and an all-blank `extract:` line is not even parseable). */
+function firstNonBlank(...values: Array<string | undefined>): string | undefined {
+  return values.find((v) => v !== undefined && v.trim() !== "");
 }
 
 function stepLine(ev: RecordedEvent): string {
@@ -44,29 +76,64 @@ function stepLine(ev: RecordedEvent): string {
     case "navigate":
       // Every step needs non-empty text for the parser; a url-less navigate is
       // just "navigate" (degenerate but valid) rather than a dangling "to ".
-      return ev.url ? `action: navigate to ${ev.url}` : "action: navigate";
+      // The URL is data — a callback URL can carry a token (R10).
+      return ev.url ? `action: navigate to ${fold(visible(ev, ev.url))}` : "action: navigate";
     case "click":
-      return `action: click ${quote(ev.name ?? "")}${ev.role ? ` (${ev.role})` : ""}`;
-    case "type": {
-      const value = ev.sensitive ? REDACTED : ev.text ?? "";
-      return `action: type ${quote(value)} into ${quote(ev.name ?? "")}`;
+      // A click has no data — only a target. Its accessible name is the locator.
+      return `action: click ${target(ev)}`;
+    case "type":
+      return `action: type ${quote(visible(ev, ev.text))} into ${target(ev)}`;
+    case "extract": {
+      // An extract instruction is prose, so it stays unquoted (a hand-written
+      // `extract: new comments` must round-trip byte-for-byte). It still reaches the
+      // end of the line, so line breaks — which would forge a step — are folded out.
+      const detail = ev.sensitive ? REDACTED : firstNonBlank(ev.text, ev.name) ?? "content";
+      return `extract: ${fold(detail)}`;
     }
-    case "extract":
-      // `||` so an empty string also falls back — an empty extract line is invalid.
-      return `extract: ${ev.text || ev.name || "content"}`;
   }
 }
 
-/** Convert a recorded trace into workflow source text (parser-compatible). */
+/** Fold line breaks out of an unquoted field: page content must not start a new line
+ *  (and therefore a new step) in a line-oriented file. */
+function fold(value: string): string {
+  return value.replace(/[\r\n]+/g, " ").trim();
+}
+
+/** A front-matter value is written verbatim to the end of its line: a blank or
+ *  multi-line scalar would drop the field or terminate the block. Fail loudly. */
+function requireScalar(field: string, value: string): string {
+  if (value.trim() === "" || /[\r\n]/.test(value)) {
+    throw new TypeError(`traceToWorkflow: "${field}" must be a non-empty single-line value.`);
+  }
+  return value.trim();
+}
+
+/** Serialize `inputs: [a, b]` under the parser's OWN name rule — an invalid or
+ *  duplicated name would otherwise produce a file the parser rejects (or, worse, a
+ *  comma/bracket in a name would silently change the declared inputs). */
+function serializeInputs(inputs: readonly string[]): string {
+  const seen = new Set<string>();
+  for (const name of inputs) {
+    if (!isValidInputName(name)) {
+      throw new TypeError(`traceToWorkflow: invalid input name "${name}".`);
+    }
+    if (seen.has(name)) throw new TypeError(`traceToWorkflow: duplicate input name "${name}".`);
+    seen.add(name);
+  }
+  return `inputs: [${inputs.join(", ")}]`;
+}
+
+/** Convert a recorded trace into workflow source text (parser-compatible).
+ *  Throws `TypeError` on options that cannot be serialized (see `requireScalar`). */
 export function traceToWorkflow(
   trace: readonly RecordedEvent[],
   opts: { site: string; inputs?: string[]; trigger?: string },
 ): string {
-  const frontMatter = ["---", `site: ${opts.site}`];
+  const frontMatter = ["---", `site: ${requireScalar("site", opts.site)}`];
   if (opts.inputs && opts.inputs.length > 0) {
-    frontMatter.push(`inputs: [${opts.inputs.join(", ")}]`);
+    frontMatter.push(serializeInputs(opts.inputs));
   }
-  if (opts.trigger) frontMatter.push(`trigger: ${opts.trigger}`);
+  if (opts.trigger) frontMatter.push(`trigger: ${requireScalar("trigger", opts.trigger)}`);
   frontMatter.push("---");
 
   const steps = trace.map((ev, i) => `${i + 1}. ${stepLine(ev)}`);

@@ -46,6 +46,7 @@ describe("toEngineStep", () => {
     expect(toEngineStep({ index: 3, kind: "goal", text: "publish", line: 9 })).toEqual({
       id: "step-3",
       write: true,
+      retryable: true,
     });
   });
 
@@ -53,8 +54,26 @@ describe("toEngineStep", () => {
     expect(toEngineStep({ index: 1, kind: "extract", text: "read", line: 1 })).toEqual({
       id: "step-1",
       write: false,
+      retryable: true,
     });
   });
+
+  it("marks a confirm step NON-RETRYABLE — a human gate blocks, it is never re-asked", () => {
+    // Plan WI-4.2: "`confirm` blocks regardless of standing grants". A declined or
+    // failed confirmation must pause the run, not loop the prompt back at the human.
+    expect(toEngineStep({ index: 2, kind: "confirm", text: "ok?", line: 4 })).toEqual({
+      id: "step-2",
+      write: false,
+      retryable: false,
+    });
+  });
+
+  it.each(["api", "action", "goal", "extract"] as StepKind[])(
+    "leaves a %s step retryable (the engine's bounded retry still applies)",
+    (kind) => {
+      expect(toEngineStep(mk(kind)).retryable).toBe(true);
+    },
+  );
 
   it("derives a stable per-index id", () => {
     expect(toEngineStep(mk("action")).id).toBe("step-1");

@@ -150,6 +150,36 @@ describe("parseWorkflow — front-matter fields", () => {
     if (r.ok) return;
     expect(r.errors[0].code).toBeTruthy();
   });
+
+  it("ERRORS on a malformed front-matter line — a typo must not silently drop a field", () => {
+    // `inputs [title]` (missing colon) used to be skipped in silence: the workflow
+    // then parsed fine with NO inputs, quietly changing what it executes.
+    const r = wf(["---", "site: x", "inputs [title]", "---", "goal: post {title}"].join("\n"));
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    const e = r.errors.find((d) => d.code === "malformed-front-matter");
+    expect(e?.line).toBe(3);
+  });
+
+  it("still tolerates blank lines and `#` comments inside front-matter", () => {
+    const r = wf(["---", "", "# what this does", "site: x", "  ", "---", "goal: go"].join("\n"));
+    expect(r.ok).toBe(true);
+  });
+
+  it("keeps warnings alongside errors so one pass shows every diagnostic", () => {
+    const r = wf(["---", "site: x", "colour: blue", "---", "bogus: step"].join("\n"));
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.errors.some((e) => e.code === "unknown-step-kind")).toBe(true);
+    expect(r.warnings.some((w) => w.code === "unknown-front-matter-key")).toBe(true);
+  });
+
+  it("parses a file that begins with a UTF-8 BOM", () => {
+    const r = wf(["\uFEFF---", "site: x", "---", "goal: go"].join("\n"));
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.workflow.site).toBe("x");
+  });
 });
 
 describe("parseWorkflow — inputs validation", () => {

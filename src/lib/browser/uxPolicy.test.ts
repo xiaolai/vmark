@@ -8,6 +8,7 @@ import {
   aiMayChooseUploadFile,
   isTlsClickThroughAllowed,
   isDevtoolsAllowed,
+  type UxDisposition,
 } from "./uxPolicy";
 
 describe("R12 per-surface dispositions", () => {
@@ -69,7 +70,21 @@ describe("R12 per-surface dispositions", () => {
     for (const s of UX_SURFACES) {
       expect(UX_POLICY[s]).toBeDefined();
     }
-    // and no surface is left as a placeholder
-    expect(Object.values(UX_POLICY).every((d) => d !== "tbd")).toBe(true);
+    // "tbd" is not even a UxDisposition — R12 forbids deferring the decision, and
+    // the type system, not a runtime check, is what makes that impossible.
+    // @ts-expect-error — "tbd" must not be assignable to UxDisposition
+    const placeholder: UxDisposition = "tbd";
+    expect(placeholder).toBe("tbd");
+  });
+
+  it("derives UX_SURFACES from UX_POLICY so the two cannot drift", () => {
+    // A surface added to the policy is automatically in the list — no manual copy.
+    expect([...UX_SURFACES].sort()).toEqual(Object.keys(UX_POLICY).sort());
+  });
+
+  it("classifies permission surfaces by identity, not by their current disposition", () => {
+    for (const s of UX_SURFACES) {
+      expect(isPermissionSurface(s)).toBe(s.startsWith("permission-"));
+    }
   });
 });

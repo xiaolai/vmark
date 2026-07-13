@@ -75,4 +75,23 @@ describe("canonicalizeBrowserUrl", () => {
     expect(canonicalizeBrowserUrl("https://.com/a")).toBeNull();
     expect(canonicalizeBrowserUrl("https://a..b.com/a")).toBeNull();
   });
+
+  it("preserves userinfo — credentialed URLs for different users must not dedup together", () => {
+    expect(canonicalizeBrowserUrl("https://alice:pw@example.com/x")).toBe(
+      "https://alice:pw@example.com/x",
+    );
+    expect(canonicalizeBrowserUrl("https://alice@example.com/x")).not.toBe(
+      canonicalizeBrowserUrl("https://bob@example.com/x"),
+    );
+    expect(canonicalizeBrowserUrl("https://alice@example.com/x")).not.toBe(
+      canonicalizeBrowserUrl("https://example.com/x"),
+    );
+  });
+
+  it("preserves an empty query delimiter (`/path?` is not `/path`)", () => {
+    expect(canonicalizeBrowserUrl("https://example.com/path?")).toBe(
+      "https://example.com/path?",
+    );
+    expect(canonicalizeBrowserUrl("https://example.com/?#frag")).toBe("https://example.com/?");
+  });
 });

@@ -144,4 +144,33 @@ describe("runSiteHealth", () => {
     await runSiteHealth(new Map<string, HealthCheckFn>([["zhihu", check]]));
     expect(check).toHaveBeenCalledTimes(1);
   });
+
+  it("times out a probe that never settles instead of blocking every site", async () => {
+    vi.useFakeTimers();
+    try {
+      registerSite(zhihu);
+      registerSite(medium);
+      const checks = new Map<string, HealthCheckFn>([
+        ["zhihu", () => new Promise<SiteHealthProbe>(() => {})], // never settles
+        ["medium", async () => passing],
+      ]);
+      const pending = runSiteHealth(checks, { timeoutMs: 50 });
+      await vi.advanceTimersByTimeAsync(50);
+      const health = await pending;
+      expect(health.map((h) => h.id)).toEqual(["zhihu", "medium"]);
+      expect(health[0].status).toBe("failed");
+      expect(health[0].detail).toMatch(/timed out/i);
+      // The hung plugin must not sink the healthy one.
+      expect(health[1].status).toBe("ok");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not time out a probe that settles within the budget", async () => {
+    registerSite(zhihu);
+    const checks = new Map<string, HealthCheckFn>([["zhihu", async () => passing]]);
+    const [health] = await runSiteHealth(checks, { timeoutMs: 1000 });
+    expect(health.status).toBe("ok");
+  });
 });

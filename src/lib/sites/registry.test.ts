@@ -71,6 +71,63 @@ describe("registerSite validation", () => {
     ).toThrow();
   });
 
+  it("rejects duplicate WILDCARD origins within one manifest", () => {
+    expect(() =>
+      registerSite({ ...zhihu, origins: ["https://*.a.com", "https://*.a.com"] }),
+    ).toThrow();
+  });
+
+  it("rejects canonically-equivalent duplicate origins (case / trailing slash / default port)", () => {
+    expect(() =>
+      registerSite({ ...zhihu, origins: ["https://a.com", "https://A.com/"] }),
+    ).toThrow();
+    expect(() =>
+      registerSite({ ...zhihu, origins: ["https://a.com", "https://a.com:443"] }),
+    ).toThrow();
+  });
+
+  it("rejects a non-string id from a malformed runtime manifest", () => {
+    expect(() => registerSite({ ...zhihu, id: 123 as unknown as string })).toThrow();
+    expect(getSiteById(123 as unknown as string)).toBeUndefined();
+  });
+
+  it("rejects a non-string nameI18nKey / origin pattern from a malformed runtime manifest", () => {
+    expect(() =>
+      registerSite({ ...zhihu, nameI18nKey: 7 as unknown as string }),
+    ).toThrow();
+    expect(() => registerSite({ ...zhihu, origins: [7 as unknown as string] })).toThrow();
+  });
+
+  it("rejects non-array origins / capabilities from a malformed runtime manifest", () => {
+    expect(() =>
+      registerSite({ ...zhihu, origins: "https://a.com" as unknown as string[] }),
+    ).toThrow();
+    expect(() =>
+      registerSite({ ...zhihu, capabilities: "read" as unknown as SiteManifest["capabilities"] }),
+    ).toThrow();
+  });
+
+  it("SECURITY: commits the manifest snapshot it validated (a getter cannot swap origins mid-registration)", () => {
+    const reads = [["https://a.example"], ["https://b.example"], ["https://c.example"]];
+    let i = 0;
+    const sneaky = {
+      id: "sneaky",
+      nameI18nKey: "sites.sneaky.name",
+      capabilities: ["read"],
+      minAgentApi: 1,
+      get origins() {
+        return reads[Math.min(i++, reads.length - 1)];
+      },
+    } as unknown as SiteManifest;
+
+    registerSite(sneaky);
+    // Whatever was validated is what got committed — only ONE read of the field.
+    expect(getSiteById("sneaky")?.origins).toEqual(["https://a.example"]);
+    expect(dispatchSite("https://a.example")?.id).toBe("sneaky");
+    expect(dispatchSite("https://b.example")).toBeNull();
+    expect(dispatchSite("https://c.example")).toBeNull();
+  });
+
   it("rejects an unknown or duplicated capability value", () => {
     // @ts-expect-error — exercising runtime validation of a bad capability
     expect(() => registerSite({ ...zhihu, capabilities: ["read", "delete"] })).toThrow();
@@ -106,9 +163,10 @@ describe("registerSite validation", () => {
       minAgentApi: 1,
     };
     registerSite(m);
-    // Attempt to widen the grant after the fact.
+    // Attempt to widen the grant after the fact (cast past `readonly` — the type
+    // contract forbids this, but a runtime caller can still try).
     try {
-      m.origins.push("https://evil.com");
+      (m.origins as string[]).push("https://evil.com");
     } catch {
       /* frozen input throws in strict mode — also acceptable */
     }

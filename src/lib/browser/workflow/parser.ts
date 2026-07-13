@@ -13,17 +13,23 @@
  *   extract: <text>
  *
  * Front-matter is a deliberately tiny hand-parsed subset (site + inputs + trigger) —
- * not full YAML — to keep this a dependency-free leaf. Malformed input yields errors
- * (ok:false); an unknown front-matter key or undeclared `{var}` yields a warning.
- * Diagnostics carry a stable `code` so a UI layer can localize them (the parser is
- * pure and must not import `t()`).
+ * not full YAML — to keep this a dependency-free leaf. Inside the block only blank
+ * lines and `#` comments are tolerated; every other non-`key: value` line is an error,
+ * because silently skipping a typo (`inputs [title]`) would change what the workflow
+ * executes with no diagnostic at all. A leading UTF-8 BOM is accepted.
+ *
+ * Malformed input yields errors (ok:false); an unknown front-matter key or undeclared
+ * `{var}` yields a warning. Warnings are reported on BOTH outcomes, so one pass shows
+ * every diagnostic. Diagnostics carry a stable `code` so a UI layer can localize them
+ * (the parser is pure and must not import `t()`).
  */
 import {
   STEP_KINDS,
-  type Diagnostic,
   type DiagnosticCode,
+  type ErrorDiagnostic,
   type ParseResult,
   type StepKind,
+  type WarningDiagnostic,
   type WorkflowStep,
 } from "./types";
 
@@ -32,25 +38,31 @@ const KNOWN_FM_KEYS = new Set(["site", "inputs", "trigger"]);
 const STEP_RE = /^\s*(?:\d+\.|-)?\s*([a-z]+)\s*:\s*(.*\S)\s*$/;
 const VAR_NAME_RE = /^[a-zA-Z_][\w-]*$/;
 const VAR_REF_RE = /\{([a-zA-Z_][\w-]*)\}/g;
+/** UTF-8 BOM — a valid file may start with one (Windows editors add it). */
+const BOM = "﻿";
 
-function diag(line: number, code: DiagnosticCode, message: string, severity: Diagnostic["severity"]): Diagnostic {
-  return { line, code, message, severity };
+function err(line: number, code: DiagnosticCode, message: string): ErrorDiagnostic {
+  return { line, code, message, severity: "error" };
+}
+
+function warn(line: number, code: DiagnosticCode, message: string): WarningDiagnostic {
+  return { line, code, message, severity: "warning" };
 }
 
 /** Parse workflow source text. Never throws — all failure surfaces as diagnostics. */
 export function parseWorkflow(source: string): ParseResult {
-  const lines = source.split("\n");
-  const errors: Diagnostic[] = [];
-  const warnings: Diagnostic[] = [];
+  const lines = (source.startsWith(BOM) ? source.slice(BOM.length) : source).split("\n");
+  const errors: ErrorDiagnostic[] = [];
+  const warnings: WarningDiagnostic[] = [];
 
   const fm = extractFrontMatter(lines);
-  if (!fm.ok) return { ok: false, errors: [fm.error] };
-  errors.push(...fm.errors);
   warnings.push(...fm.warnings);
+  if (!fm.ok) return { ok: false, errors: [fm.error], warnings };
+  errors.push(...fm.errors);
 
   const site = fm.fields.get("site");
   if (site === undefined || site === "") {
-    errors.push(diag(fm.headerLine, "missing-site", "Front-matter is missing required `site`.", "error"));
+    errors.push(err(fm.headerLine, "missing-site", "Front-matter is missing required `site`."));
   }
 
   const inputsResult = parseInputs(fm.fields.get("inputs"), fm.fieldLines.get("inputs") ?? fm.headerLine);
@@ -61,14 +73,19 @@ export function parseWorkflow(source: string): ParseResult {
   const { steps, stepErrors } = parseSteps(lines, fm.bodyStart);
   errors.push(...stepErrors);
   if (steps.length === 0) {
-    errors.push(diag(fm.bodyStart + 1, "no-steps", "Workflow has no steps.", "error"));
+    errors.push(err(fm.bodyStart + 1, "no-steps", "Workflow has no steps."));
   }
 
-  if (errors.length > 0) return { ok: false, errors };
-
   warnings.push(...collectVariableWarnings(steps, inputsResult.inputs));
+  if (errors.length > 0) return { ok: false, errors, warnings };
+
   const workflow = { site: site!, inputs: inputsResult.inputs, steps, ...(trigger ? { trigger } : {}) };
   return { ok: true, workflow, warnings };
+}
+
+/** Is `name` a variable name the parser accepts (front-matter `inputs`, `{var}` refs)? */
+export function isValidInputName(name: string): boolean {
+  return VAR_NAME_RE.test(name);
 }
 
 type FrontMatter =
@@ -77,12 +94,12 @@ type FrontMatter =
       fields: Map<string, string>;
       /** 1-based source line of each field, for precise diagnostics. */
       fieldLines: Map<string, number>;
-      errors: Diagnostic[];
-      warnings: Diagnostic[];
+      errors: ErrorDiagnostic[];
+      warnings: WarningDiagnostic[];
       headerLine: number;
       bodyStart: number;
     }
-  | { ok: false; error: Diagnostic };
+  | { ok: false; error: ErrorDiagnostic; warnings: WarningDiagnostic[] };
 
 // Keys may contain letters, digits, `-` and `_` so hyphenated keys (`some-key`) are
 // recognized and warned as unknown rather than silently skipped.
@@ -93,34 +110,46 @@ function extractFrontMatter(lines: string[]): FrontMatter {
   if (lines[0]?.trim() !== "---") {
     return {
       ok: false,
-      error: diag(1, "missing-front-matter", "Workflow must start with a `---` front-matter block.", "error"),
+      error: err(1, "missing-front-matter", "Workflow must start with a `---` front-matter block."),
+      warnings: [],
     };
   }
   const fields = new Map<string, string>();
   const fieldLines = new Map<string, number>();
-  const errors: Diagnostic[] = [];
-  const warnings: Diagnostic[] = [];
+  const errors: ErrorDiagnostic[] = [];
+  const warnings: WarningDiagnostic[] = [];
   for (let i = 1; i < lines.length; i++) {
-    if (lines[i].trim() === "---") {
+    const raw = lines[i];
+    const trimmed = raw.trim();
+    if (trimmed === "---") {
       return { ok: true, fields, fieldLines, errors, warnings, headerLine: 1, bodyStart: i + 1 };
     }
-    const m = FM_KEY_RE.exec(lines[i]);
-    if (!m) continue; // blank/comment lines inside front-matter are tolerated
-    const [, key, value] = m;
     const line = i + 1;
+    if (trimmed === "" || trimmed.startsWith("#")) continue; // blank / comment — the ONLY tolerated non-field lines
+
+    const m = FM_KEY_RE.exec(raw);
+    if (!m) {
+      // Anything else is a typo, not a field. Skipping it silently (the old behavior)
+      // turned `inputs [title]` into a workflow with NO inputs — same file, different
+      // execution, no diagnostic. Fail loud instead.
+      errors.push(err(line, "malformed-front-matter", `Front-matter line must be "key: value" (got: ${trimmed}).`));
+      continue;
+    }
+    const [, key, value] = m;
     if (fields.has(key)) {
-      errors.push(diag(line, "duplicate-front-matter-key", `Duplicate front-matter key "${key}".`, "error"));
+      errors.push(err(line, "duplicate-front-matter-key", `Duplicate front-matter key "${key}".`));
       continue;
     }
     if (!KNOWN_FM_KEYS.has(key)) {
-      warnings.push(diag(line, "unknown-front-matter-key", `Unknown front-matter key "${key}".`, "warning"));
+      warnings.push(warn(line, "unknown-front-matter-key", `Unknown front-matter key "${key}".`));
     }
     fields.set(key, value.trim());
     fieldLines.set(key, line);
   }
   return {
     ok: false,
-    error: diag(1, "unterminated-front-matter", "Unterminated front-matter (missing closing `---`).", "error"),
+    error: err(1, "unterminated-front-matter", "Unterminated front-matter (missing closing `---`)."),
+    warnings,
   };
 }
 
@@ -129,14 +158,14 @@ function extractFrontMatter(lines: string[]): FrontMatter {
  * balanced (both or neither), names must match `VAR_NAME_RE`, and duplicates are
  * rejected. Absent/empty → `[]`.
  */
-function parseInputs(raw: string | undefined, line: number): { inputs: string[]; errors: Diagnostic[] } {
-  const errors: Diagnostic[] = [];
+function parseInputs(raw: string | undefined, line: number): { inputs: string[]; errors: ErrorDiagnostic[] } {
+  const errors: ErrorDiagnostic[] = [];
   if (raw === undefined || raw === "") return { inputs: [], errors };
 
   const open = raw.startsWith("[");
   const close = raw.endsWith("]");
   if (open !== close) {
-    errors.push(diag(line, "malformed-inputs", `Malformed inputs list "${raw}" (unbalanced brackets).`, "error"));
+    errors.push(err(line, "malformed-inputs", `Malformed inputs list "${raw}" (unbalanced brackets).`));
     return { inputs: [], errors };
   }
 
@@ -149,11 +178,11 @@ function parseInputs(raw: string | undefined, line: number): { inputs: string[];
   for (const name of entries) {
     if (name === "") {
       // An empty entry (`[a,,b]`, trailing comma) is malformed, not silently dropped.
-      errors.push(diag(line, "malformed-inputs", `Malformed inputs list "${raw}" (empty entry).`, "error"));
-    } else if (!VAR_NAME_RE.test(name)) {
-      errors.push(diag(line, "invalid-input-name", `Invalid input variable name "${name}".`, "error"));
+      errors.push(err(line, "malformed-inputs", `Malformed inputs list "${raw}" (empty entry).`));
+    } else if (!isValidInputName(name)) {
+      errors.push(err(line, "invalid-input-name", `Invalid input variable name "${name}".`));
     } else if (seen.has(name)) {
-      errors.push(diag(line, "duplicate-input-name", `Duplicate input variable "${name}".`, "error"));
+      errors.push(err(line, "duplicate-input-name", `Duplicate input variable "${name}".`));
     } else {
       seen.add(name);
     }
@@ -161,9 +190,9 @@ function parseInputs(raw: string | undefined, line: number): { inputs: string[];
   return { inputs: [...seen], errors };
 }
 
-function parseSteps(lines: string[], bodyStart: number): { steps: WorkflowStep[]; stepErrors: Diagnostic[] } {
+function parseSteps(lines: string[], bodyStart: number): { steps: WorkflowStep[]; stepErrors: ErrorDiagnostic[] } {
   const steps: WorkflowStep[] = [];
-  const stepErrors: Diagnostic[] = [];
+  const stepErrors: ErrorDiagnostic[] = [];
 
   for (let i = bodyStart; i < lines.length; i++) {
     const raw = lines[i];
@@ -173,13 +202,13 @@ function parseSteps(lines: string[], bodyStart: number): { steps: WorkflowStep[]
     const line = i + 1;
     const m = STEP_RE.exec(raw);
     if (!m) {
-      stepErrors.push(diag(line, "malformed-step", `Step must be "<kind>: <text>" (got: ${trimmed}).`, "error"));
+      stepErrors.push(err(line, "malformed-step", `Step must be "<kind>: <text>" (got: ${trimmed}).`));
       continue;
     }
     const [, kind, text] = m;
     if (!KIND_SET.has(kind)) {
       stepErrors.push(
-        diag(line, "unknown-step-kind", `Unknown step kind "${kind}" (expected ${STEP_KINDS.join(", ")}).`, "error"),
+        err(line, "unknown-step-kind", `Unknown step kind "${kind}" (expected ${STEP_KINDS.join(", ")}).`),
       );
       continue;
     }
@@ -190,14 +219,14 @@ function parseSteps(lines: string[], bodyStart: number): { steps: WorkflowStep[]
 }
 
 /** Warn when a step references `{var}` not declared in `inputs`. */
-function collectVariableWarnings(steps: readonly WorkflowStep[], inputs: readonly string[]): Diagnostic[] {
+function collectVariableWarnings(steps: readonly WorkflowStep[], inputs: readonly string[]): WarningDiagnostic[] {
   const declared = new Set(inputs);
-  const warnings: Diagnostic[] = [];
+  const warnings: WarningDiagnostic[] = [];
   for (const step of steps) {
     for (const match of step.text.matchAll(VAR_REF_RE)) {
       const name = match[1];
       if (!declared.has(name)) {
-        warnings.push(diag(step.line, "undeclared-variable", `Step references undeclared variable "{${name}}".`, "warning"));
+        warnings.push(warn(step.line, "undeclared-variable", `Step references undeclared variable "{${name}}".`));
       }
     }
   }

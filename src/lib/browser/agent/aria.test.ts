@@ -33,6 +33,27 @@ describe("computeRole", () => {
     expect(computeRole(el(`<input type="range">`))).toBe("slider");
     expect(computeRole(el(`<input type="hidden">`))).toBeNull();
   });
+
+  it("maps number to spinbutton and search to searchbox (not textbox)", () => {
+    expect(computeRole(el(`<input type="number">`))).toBe("spinbutton");
+    expect(computeRole(el(`<input type="search">`))).toBe("searchbox");
+  });
+
+  it("treats role as a token list — the first token wins", () => {
+    expect(computeRole(el(`<div role="button link">x</div>`))).toBe("button");
+    expect(computeRole(el(`<div role="  BUTTON  ">x</div>`))).toBe("button");
+  });
+
+  it("drops presentational roles (they carry no semantics)", () => {
+    expect(computeRole(el(`<div role="presentation">x</div>`))).toBeNull();
+    expect(computeRole(el(`<img role="none" alt="deco">`))).toBeNull();
+  });
+
+  it("maps a multiple/sized select to listbox, not combobox", () => {
+    expect(computeRole(el(`<select multiple></select>`))).toBe("listbox");
+    expect(computeRole(el(`<select size="4"></select>`))).toBe("listbox");
+    expect(computeRole(el(`<select size="1"></select>`))).toBe("combobox");
+  });
 });
 
 describe("accessibleName", () => {
@@ -75,6 +96,33 @@ describe("accessibleName", () => {
   it("returns empty string when no name is derivable", () => {
     expect(accessibleName(el(`<input type="text">`))).toBe("");
   });
+
+  it("returns empty for a control the platform associates no labels with", () => {
+    // A hidden input exposes `labels === null` — the label lookup must not throw.
+    expect(accessibleName(el(`<input type="hidden" value="csrf">`))).toBe("");
+  });
+
+  it("uses alt for an image input button", () => {
+    expect(accessibleName(el(`<input type="image" src="/go.png" alt="Search">`))).toBe("Search");
+  });
+
+  it("concatenates multiple associated labels in document order", () => {
+    const r = root(`<label for="e">Email</label><input id="e" type="text"><label for="e">(work)</label>`);
+    expect(accessibleName(r.querySelector("input")!)).toBe("Email (work)");
+  });
+
+  it("normalizes whitespace in every name source, not just text-derived ones", () => {
+    expect(accessibleName(el(`<button aria-label="Close\n  dialog">x</button>`))).toBe(
+      "Close dialog",
+    );
+    expect(accessibleName(el(`<input type="text" placeholder="Search\tthe   docs">`))).toBe(
+      "Search the docs",
+    );
+    expect(accessibleName(el(`<input type="submit" value="Send\n it">`))).toBe("Send it");
+    expect(accessibleName(el(`<div role="button" title="Helpful\n tip"></div>`))).toBe(
+      "Helpful tip",
+    );
+  });
 });
 
 describe("queryByRole", () => {
@@ -111,6 +159,23 @@ describe("queryByRole", () => {
 
   it("returns [] when nothing matches", () => {
     expect(queryByRole(page, "button", { name: "Nonexistent" })).toEqual([]);
+  });
+
+  it("SECURITY-OF-TARGETING: never returns a hidden element before the visible control", () => {
+    const r = root(`
+      <div hidden><button>Publish</button></div>
+      <div aria-hidden="true"><button>Publish</button></div>
+      <div style="display: none"><button>Publish</button></div>
+      <div inert><button>Publish</button></div>
+      <button id="real">Publish</button>`);
+    const found = queryByRole(r, "button", { name: "Publish" });
+    expect(found).toHaveLength(1);
+    expect(found[0].id).toBe("real");
+  });
+
+  it("excludes elements hidden by their own attributes / inline style", () => {
+    const r = root(`<button hidden>A</button><button style="visibility: hidden">B</button>`);
+    expect(queryByRole(r, "button")).toEqual([]);
   });
 });
 
@@ -151,5 +216,39 @@ describe("ariaSnapshot", () => {
     expect(snap.find((n) => n.role === "checkbox")?.checked).toBe(true);
     expect(snap.find((n) => n.role === "button")?.disabled).toBe(true);
     expect(snap.find((n) => n.role === "heading")?.level).toBe(3);
+  });
+
+  it("reports the LIVE checked state after user interaction, not the initial attribute", () => {
+    const page = root(`
+      <input type="checkbox" checked aria-label="Was checked">
+      <input type="checkbox" aria-label="Was unchecked">`);
+    const [initiallyChecked, initiallyUnchecked] = Array.from(
+      page.querySelectorAll("input"),
+    ) as HTMLInputElement[];
+    // The user clicks both: the attribute never moves, the property does.
+    initiallyChecked.checked = false;
+    initiallyUnchecked.checked = true;
+
+    const snap = ariaSnapshot(page);
+    expect(snap.find((n) => n.name === "Was checked")?.checked).toBe(false);
+    expect(snap.find((n) => n.name === "Was unchecked")?.checked).toBe(true);
+  });
+
+  it("reports a control disabled by an ancestor <fieldset> as disabled", () => {
+    const page = root(`<fieldset disabled><button>Save</button></fieldset>`);
+    expect(ariaSnapshot(page).find((n) => n.role === "button")?.disabled).toBe(true);
+  });
+
+  it("honors a bare `disabled` attribute on a custom control", () => {
+    const page = root(`<div role="button" disabled>Custom</div>`);
+    expect(ariaSnapshot(page).find((n) => n.role === "button")?.disabled).toBe(true);
+  });
+
+  it("omits hidden elements and their subtrees", () => {
+    const page = root(`
+      <div aria-hidden="true"><h1>Hidden headline</h1></div>
+      <h1>Real headline</h1>`);
+    const snap = ariaSnapshot(page);
+    expect(snap.map((n) => n.name)).toEqual(["Real headline"]);
   });
 });

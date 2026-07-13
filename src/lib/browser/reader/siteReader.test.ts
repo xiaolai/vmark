@@ -12,6 +12,12 @@ describe("genericReader", () => {
     expect(genericReader.match("file:///x")).toBe(false);
   });
 
+  it("rejects a malformed http(s) string that only looks like a URL", () => {
+    expect(genericReader.match("https://")).toBe(false);
+    expect(genericReader.match("https:// not-a-host")).toBe(false);
+    expect(genericReader.match("https://.com")).toBe(false);
+  });
+
   it("reads a page into a ReaderResult (delegates to readPage)", () => {
     const r = genericReader.read(ARTICLE, "https://example.com/post");
     expect(r.title).toBe("Hello");
@@ -40,5 +46,22 @@ describe("pickReader", () => {
     const a: SiteReader = { id: "a", match: () => true, read: genericReader.read };
     const b: SiteReader = { id: "b", match: () => true, read: genericReader.read };
     expect(pickReader("https://example.com/x", [a, b])).toBe(a);
+  });
+
+  it("returns null for a URL no reader can handle (never a reader that says it cannot)", () => {
+    expect(pickReader("file:///etc/passwd", [siteReader])).toBeNull();
+    expect(pickReader("about:blank", [])).toBeNull();
+  });
+
+  it("isolates a throwing plugin matcher so later readers and the fallback still run", () => {
+    const faulty: SiteReader = {
+      id: "faulty",
+      match: () => {
+        throw new Error("plugin blew up");
+      },
+      read: genericReader.read,
+    };
+    expect(pickReader("https://example.com/x", [faulty, siteReader])).toBe(siteReader);
+    expect(pickReader("https://other.org/x", [faulty])).toBe(genericReader);
   });
 });

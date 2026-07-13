@@ -79,4 +79,37 @@ describe("runWebWorkflow", () => {
     const result = await runWebWorkflow(workflow([]), async () => ok());
     expect(result).toEqual({ status: "completed", completedSteps: 0 });
   });
+
+  it("blocks on a failed confirm — a human gate is never auto-retried (WI-4.2)", async () => {
+    const wf = workflow([step(1, "confirm", "publish this draft?")]);
+    const execute = vi.fn<WorkflowStepExecutor>(async () => ({ outcome: "failed" }));
+    const result = await runWebWorkflow(wf, execute, { maxRetries: 3 });
+    expect(result.status).toBe("paused");
+    expect(result.pausedAt).toBe("step-1");
+    expect(execute).toHaveBeenCalledTimes(1); // the human is not asked three times
+  });
+
+  it("surfaces an executor rejection as a paused result, never as a throw", async () => {
+    const wf = workflow([step(1, "goal", "publish the draft")]);
+    const result = await runWebWorkflow(wf, async () => {
+      throw new Error("driver crashed");
+    });
+    expect(result.status).toBe("paused");
+    expect(result.pausedAt).toBe("step-1");
+    expect(result.reason).toMatch(/driver crashed/);
+  });
+
+  it("runs from a snapshot — mutating workflow.steps mid-run cannot swap a classified step", async () => {
+    // The safety classification is computed up front; executing from a live array
+    // could pair a read-classified engine step with a write step it never saw.
+    const wf = workflow([step(1, "extract"), step(2, "extract")]);
+    const seen: StepKind[] = [];
+    const result = await runWebWorkflow(wf, async (s) => {
+      seen.push(s.kind);
+      (wf.steps as WorkflowStep[]).splice(0, 2, step(1, "goal", "publish"), step(2, "goal", "publish"));
+      return ok();
+    });
+    expect(seen).toEqual(["extract", "extract"]);
+    expect(result.status).toBe("completed");
+  });
 });

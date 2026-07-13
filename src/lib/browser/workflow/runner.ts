@@ -34,6 +34,10 @@ export async function runWebWorkflow(
   execute: WorkflowStepExecutor,
   options: RunOptions = {},
 ): Promise<WorkflowRunResult> {
-  const engineSteps = workflow.steps.map(toEngineStep);
-  return runWorkflow(engineSteps, (_engineStep, index) => execute(workflow.steps[index], index), options);
+  // Snapshot before classifying. Executing from the live `workflow.steps` would let a
+  // mutation during the (async) run pair a read-classified engine step with a step the
+  // safety layer never saw — a write executed under read rules is the R8a double-post.
+  const steps: readonly WorkflowStep[] = [...workflow.steps];
+  const engineSteps = steps.map(toEngineStep);
+  return runWorkflow(engineSteps, (_engineStep, index) => execute(steps[index], index), options);
 }

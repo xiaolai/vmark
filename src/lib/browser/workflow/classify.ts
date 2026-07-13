@@ -10,9 +10,14 @@
  *   - `extract` (reader) and `confirm` (human gate) are read-only by construction —
  *     neither submits anything.
  *   - `api` / `action` / `goal` default to WRITE. Under R8a a write never
- *     auto-retries and never auto-escalates, so defaulting an ambiguous step to
- *     write is the safe direction: worst case the run stops and asks a human — it
- *     can never cause the double-post that reading a write as a read would.
+ *     auto-escalates, and it only auto-retries after a postcondition CONFIRMS it did
+ *     not apply (an unknown or inconclusive outcome stops and asks). So defaulting an
+ *     ambiguous step to write is the safe direction: worst case the run stops and asks
+ *     a human — it can never cause the double-post that reading a write as a read would.
+ *
+ * Write-ness is not the only axis: a `confirm` step is a read, but it is also a HUMAN
+ * GATE, and re-running it means re-asking a human who already answered. So the engine
+ * step carries `retryable` separately (plan WI-4.2: "confirm blocks").
  *
  * We deliberately do NOT inspect `step.text`. A "Publish"-substring heuristic could
  * misread a write as a read (the exact R8a failure); structural classification cannot.
@@ -29,6 +34,9 @@ import type { StepKind, WorkflowStep } from "./types";
 /** Kinds that are read-only by construction — they never mutate remote state. */
 const READ_KINDS: ReadonlySet<StepKind> = new Set<StepKind>(["extract", "confirm"]);
 
+/** Kinds the engine must never re-execute on its own (a human already answered). */
+const HUMAN_GATE_KINDS: ReadonlySet<StepKind> = new Set<StepKind>(["confirm"]);
+
 /**
  * Whether a step mutates remote state. Structural + fail-safe: read-only kinds
  * are reads; every other kind defaults to write (see module doc for why that
@@ -39,7 +47,16 @@ export function stepWrites(step: WorkflowStep): boolean {
   return !READ_KINDS.has(step.kind);
 }
 
+/**
+ * Whether the engine may re-execute the step by itself after a retryable failure.
+ * A human gate (`confirm`) is a read, but retrying it re-asks a human who already
+ * answered — so it blocks instead (plan WI-4.2).
+ */
+export function stepRetryable(step: WorkflowStep): boolean {
+  return !HUMAN_GATE_KINDS.has(step.kind);
+}
+
 /** Project a parsed step onto the engine's safety-relevant shape. */
 export function toEngineStep(step: WorkflowStep): EngineStep {
-  return { id: `step-${step.index}`, write: stepWrites(step) };
+  return { id: `step-${step.index}`, write: stepWrites(step), retryable: stepRetryable(step) };
 }

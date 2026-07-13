@@ -35,6 +35,19 @@ describe("decideAfterResult (R8a)", () => {
     // Inconclusive postcondition → never risk a double write.
     expect(decideAfterResult(true, { outcome: "failed" })).toBe("stop-and-ask");
   });
+
+  it("stops on a CONTRADICTORY write result (reported success, postcondition says not applied)", () => {
+    // Two signals disagree about whether the write landed. Trusting the success
+    // report marks a never-applied publish complete; trusting the postcondition and
+    // retrying could double-post. Neither is safe — a human decides.
+    expect(decideAfterResult(true, { outcome: "success", postconditionMet: false })).toBe(
+      "stop-and-ask",
+    );
+    // A confirming postcondition is not a contradiction.
+    expect(decideAfterResult(true, { outcome: "success", postconditionMet: true })).toBe("done");
+    // A read has no write to postcondition — a success is a success.
+    expect(decideAfterResult(false, { outcome: "success", postconditionMet: false })).toBe("done");
+  });
 });
 
 describe("nextTier (R8a: writes never auto-escalate)", () => {
@@ -75,6 +88,51 @@ describe("idempotencyKey", () => {
     const a = idempotencyKey("s", { a: { x: 1, y: 2 }, b: [3, 4] });
     const b = idempotencyKey("s", { b: [3, 4], a: { y: 2, x: 1 } });
     expect(a).toBe(b);
+  });
+
+  // A key COLLISION between two different writes is exactly the double-post this
+  // module exists to prevent — JSON.stringify collapses several distinct values.
+  it("never collides distinct values that JSON.stringify would flatten", () => {
+    const key = (v: unknown) => idempotencyKey("s", { v });
+    const distinct = [
+      key(NaN),
+      key(null),
+      key(undefined),
+      key("null"),
+      key(Infinity),
+      key(-Infinity),
+      key([undefined]),
+      key([]),
+      key([null]),
+      key(0),
+      key("0"),
+      key(false),
+    ];
+    expect(new Set(distinct).size).toBe(distinct.length);
+    // `{a: undefined}` is not `{}`.
+    expect(idempotencyKey("s", { a: undefined })).not.toBe(idempotencyKey("s", {}));
+  });
+
+  it("encodes dates and bigints instead of collapsing or throwing", () => {
+    const d1 = idempotencyKey("s", { at: new Date("2026-01-01T00:00:00Z") });
+    const d2 = idempotencyKey("s", { at: new Date("2026-01-02T00:00:00Z") });
+    expect(d1).not.toBe(d2);
+    expect(idempotencyKey("s", { n: 1n })).not.toBe(idempotencyKey("s", { n: 2n }));
+    expect(idempotencyKey("s", { n: 1n })).not.toBe(idempotencyKey("s", { n: 1 }));
+  });
+
+  it("throws on a cyclic input rather than recursing forever", () => {
+    const cyclic: Record<string, unknown> = { a: 1 };
+    cyclic.self = cyclic;
+    expect(() => idempotencyKey("s", cyclic)).toThrow(TypeError);
+  });
+
+  it("throws on values it cannot encode unambiguously", () => {
+    expect(() => idempotencyKey("s", { f: () => 1 })).toThrow(TypeError);
+    expect(() => idempotencyKey("s", { s: Symbol("x") })).toThrow(TypeError);
+    // A Map/Set would silently flatten to `{}` — two different maps must not share a key.
+    expect(() => idempotencyKey("s", { m: new Map([["a", 1]]) })).toThrow(TypeError);
+    expect(() => idempotencyKey("s", { s: new Set([1]) })).toThrow(TypeError);
   });
 });
 

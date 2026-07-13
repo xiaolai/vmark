@@ -15,25 +15,59 @@ import {
   describeOriginPattern,
   originKey,
   originMatchesPattern,
+  type OriginPatternInfo,
 } from "@/lib/browser/origin/originGuard";
-import { CURRENT_AGENT_API, type SiteCapability, type SiteManifest } from "./types";
+import {
+  CURRENT_AGENT_API,
+  SITE_CAPABILITIES,
+  type SiteCapability,
+  type SiteManifest,
+} from "./types";
 
 const ID_PATTERN = /^[a-z0-9-]+$/;
-const VALID_CAPABILITIES: ReadonlySet<SiteCapability> = new Set(["read", "publish"]);
+const VALID_CAPABILITIES: ReadonlySet<string> = new Set(SITE_CAPABILITIES);
 
 const sites: SiteManifest[] = [];
 const byId = new Map<string, SiteManifest>();
 /** Exact (non-wildcard) origin key → owning plugin id, for collision detection + precedence. */
 const exactOrigin = new Map<string, string>();
 
+/**
+ * Read every caller-controlled field EXACTLY ONCE into a plain object.
+ *
+ * SECURITY: validation and storage must see the same bytes. A manifest is
+ * caller-supplied, so a getter (or Proxy) could return a benign origin list to the
+ * validator and a different one to the code that commits it — a time-of-check /
+ * time-of-use hole in the origin→plugin boundary. Everything downstream of this
+ * function reads the snapshot, never `manifest` again.
+ */
+function snapshotManifest(manifest: SiteManifest): SiteManifest {
+  const origins = manifest.origins;
+  const capabilities = manifest.capabilities;
+  const id = manifest.id;
+  if (!Array.isArray(origins)) {
+    throw new Error(`Site "${String(id)}" has a non-array origins field.`);
+  }
+  if (!Array.isArray(capabilities)) {
+    throw new Error(`Site "${String(id)}" has a non-array capabilities field.`);
+  }
+  return {
+    id,
+    nameI18nKey: manifest.nameI18nKey,
+    origins: [...origins],
+    capabilities: [...capabilities],
+    minAgentApi: manifest.minAgentApi,
+  };
+}
+
 function validateManifest(manifest: SiteManifest): void {
-  if (!ID_PATTERN.test(manifest.id)) {
-    throw new Error(`Invalid site id "${manifest.id}" (must match ${ID_PATTERN}).`);
+  if (typeof manifest.id !== "string" || !ID_PATTERN.test(manifest.id)) {
+    throw new Error(`Invalid site id "${String(manifest.id)}" (must match ${ID_PATTERN}).`);
   }
   if (byId.has(manifest.id)) {
     throw new Error(`Duplicate site id "${manifest.id}".`);
   }
-  if (manifest.nameI18nKey.trim() === "") {
+  if (typeof manifest.nameI18nKey !== "string" || manifest.nameI18nKey.trim() === "") {
     throw new Error(`Site "${manifest.id}" has an empty nameI18nKey.`);
   }
   if (manifest.origins.length === 0) {
@@ -70,42 +104,57 @@ function validateAgentApi(manifest: SiteManifest): void {
   }
 }
 
+/** Canonical identity of a declared pattern. The wildcard flag is PART of the
+ *  identity: `https://*.a.com` and `https://a.com` are different claims. */
+function patternIdentity(info: OriginPatternInfo): string {
+  return info.wildcard ? `*.${originKey(info)}` : originKey(info);
+}
+
 function validateOrigins(manifest: SiteManifest): void {
-  const seenExact = new Set<string>();
+  const seen = new Set<string>();
   for (const pattern of manifest.origins) {
+    if (typeof pattern !== "string") {
+      throw new Error(`Site "${manifest.id}" has a non-string origin pattern.`);
+    }
     const info = describeOriginPattern(pattern);
     if (info === null) {
       throw new Error(`Site "${manifest.id}" has an invalid origin pattern "${pattern}".`);
     }
-    if (info.wildcard) continue;
-    const key = `${info.scheme}://${info.host}:${info.port}`;
-    if (seenExact.has(key)) {
-      throw new Error(`Site "${manifest.id}" lists origin ${key} more than once.`);
+    // Duplicate detection is canonical and covers wildcards too — a repeated
+    // pattern is redundant matching work and inconsistent validation, whichever
+    // spelling it arrives in.
+    const identity = patternIdentity(info);
+    if (seen.has(identity)) {
+      throw new Error(`Site "${manifest.id}" lists origin pattern "${pattern}" more than once.`);
     }
-    seenExact.add(key);
-    const owner = exactOrigin.get(key);
+    seen.add(identity);
+
+    if (info.wildcard) continue;
+    const owner = exactOrigin.get(originKey(info));
     if (owner !== undefined) {
-      throw new Error(`Origin ${key} already claimed by site "${owner}".`);
+      throw new Error(`Origin ${originKey(info)} already claimed by site "${owner}".`);
     }
   }
 }
 
 /** Register a site plugin manifest. Throws on any validation failure (fail loud). */
 export function registerSite(manifest: SiteManifest): void {
-  validateManifest(manifest);
+  // Snapshot FIRST: what gets validated is exactly what gets committed.
+  const snapshot = snapshotManifest(manifest);
+  validateManifest(snapshot);
 
-  // Commit a frozen deep copy so a later mutation of the caller's object cannot
-  // change dispatch (the origins list IS the security boundary).
+  // Commit a frozen copy so a later mutation of the caller's object cannot change
+  // dispatch (the origins list IS the security boundary).
   const frozen: SiteManifest = Object.freeze({
-    ...manifest,
-    origins: Object.freeze([...manifest.origins]) as string[],
-    capabilities: Object.freeze([...manifest.capabilities]) as SiteCapability[],
+    ...snapshot,
+    origins: Object.freeze(snapshot.origins),
+    capabilities: Object.freeze(snapshot.capabilities),
   });
 
   for (const pattern of frozen.origins) {
     const info = describeOriginPattern(pattern)!;
     if (!info.wildcard) {
-      exactOrigin.set(`${info.scheme}://${info.host}:${info.port}`, frozen.id);
+      exactOrigin.set(originKey(info), frozen.id);
     }
   }
   sites.push(frozen);

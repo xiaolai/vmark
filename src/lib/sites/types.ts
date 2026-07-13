@@ -12,21 +12,30 @@
 /** Current agent API version the host exposes to in-page plugin modules. */
 export const CURRENT_AGENT_API = 1;
 
-export type SiteCapability = "read" | "publish";
+/** The capability vocabulary — the single source for both the type and the
+ *  registry's runtime validation, so the two cannot drift apart. */
+export const SITE_CAPABILITIES = ["read", "publish"] as const;
 
+export type SiteCapability = (typeof SITE_CAPABILITIES)[number];
+
+/**
+ * A registered manifest is frozen (the registry commits a deep copy), so the type
+ * is `readonly` throughout: a mutation the type permitted would throw at runtime,
+ * and `origins` is the security boundary — it must not *look* widenable.
+ */
 export interface SiteManifest {
   /** Stable id, kebab-case: `/^[a-z0-9-]+$/`. */
-  id: string;
+  readonly id: string;
   /** i18n key for the display name (never a hardcoded string). */
-  nameI18nKey: string;
+  readonly nameI18nKey: string;
   /**
    * Origin patterns this plugin claims — each an exact origin (`https://zhihu.com`)
    * or a subdomain wildcard (`https://*.zhihu.com`). Feeds the driver allowlist (R4).
    * Must be non-empty and every entry must be a valid pattern.
    */
-  origins: string[];
+  readonly origins: readonly string[];
   /** Which capabilities the plugin provides. Must be non-empty. */
-  capabilities: SiteCapability[];
+  readonly capabilities: readonly SiteCapability[];
   /** Minimum agent API version required; rejected if > CURRENT_AGENT_API. */
-  minAgentApi: number;
+  readonly minAgentApi: number;
 }
