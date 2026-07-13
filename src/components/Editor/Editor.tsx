@@ -88,7 +88,13 @@ export function Editor() {
   );
 
   // No active tab → empty-workspace window: show the Welcome screen.
-  if (!tabId) {
+  //
+  // Also when `tabId` names a tab that no longer exists. A stale activeTabId is
+  // reachable (tab transfer, hot-exit restore, workspace switch), and falling
+  // through would resolve `null` to an untitled MARKDOWN document and mount a
+  // full editor over a document that does not exist — a phantom buffer the user
+  // can type into, backed by nothing. Fail closed.
+  if (!tabId || !tab) {
     return <WelcomeScreen />;
   }
 

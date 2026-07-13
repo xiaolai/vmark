@@ -11,6 +11,10 @@ export default defineConfig({
     include: [
       "src/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}",
       "scripts/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}",
+      // TDD-guard hooks are governance-critical and were previously untested.
+      // They run as subprocesses in their own tests (stdin JSON → exit code),
+      // so nothing here is imported into the in-process coverage graph.
+      ".claude/hooks/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}",
     ],
     server: {
       deps: {

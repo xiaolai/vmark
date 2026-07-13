@@ -75,7 +75,16 @@ export function registerBrowserTool(server: VMarkMcpServer): void {
       },
     },
     async (args) => {
-      const tabId = typeof args.tabId === 'string' ? args.tabId : undefined;
+      // tabId: omit → focused tab. If explicitly provided it must be a
+      // non-blank string; a blank/garbled id must not silently fall through to
+      // the active tab and read or mutate the wrong one.
+      let tabId: string | undefined;
+      if (args.tabId !== undefined) {
+        if (typeof args.tabId !== 'string' || args.tabId.trim().length === 0) {
+          return VMarkMcpServer.errorResult('tabId must be a non-empty string when provided');
+        }
+        tabId = args.tabId;
+      }
 
       try {
         if (args.action === 'read') {
@@ -90,6 +99,15 @@ export function registerBrowserTool(server: VMarkMcpServer): void {
           // an unintended click or edit. Refuse rather than guess.
           if (!operation || !role || !name) {
             return VMarkMcpServer.errorResult('act requires operation, role, and name');
+          }
+          // `type` MUST carry a text string. Omitting it previously reached the
+          // frontend as missing data, was coerced to "", and cleared the target
+          // field — an incomplete call silently destroying user data. An explicit
+          // "" is still allowed (intentional clear); undefined is not.
+          if (operation === 'type' && typeof args.text !== 'string') {
+            return VMarkMcpServer.errorResult(
+              "act operation 'type' requires a 'text' string (pass \"\" to intentionally clear the field)",
+            );
           }
           const text = typeof args.text === 'string' ? args.text : undefined;
           const data = await server.sendBridgeRequest({

@@ -317,6 +317,35 @@ describe('VMarkMcpServer', () => {
         server.sendBridgeRequest({ type: 'document.getContent' })
       ).rejects.toThrow('Bridge error');
     });
+
+    it('should attach a failure `data` envelope to the thrown error (R5 approval)', async () => {
+      // The browser approval gate rides on a FAILED response's `data`. It must
+      // survive the throw so the tool can render actionable consent guidance.
+      const envelope = { needsApproval: true, operation: 'click', url: 'https://a.com' };
+      bridge.setResponseHandler('vmark.browser.act', () => ({
+        success: false,
+        error: 'blocked',
+        data: envelope,
+      }));
+
+      await expect(
+        server.sendBridgeRequest({
+          type: 'vmark.browser.act', operation: 'click', role: 'button', name: 'Publish',
+        })
+      ).rejects.toMatchObject({ message: 'blocked', data: envelope });
+    });
+
+    it('should give a non-empty message when the failure omits `error`', async () => {
+      // A failure with no `error` field previously produced `new Error(undefined)`.
+      bridge.setResponseHandler('document.getContent', () => ({
+        success: false,
+        error: '',
+      }));
+
+      await expect(
+        server.sendBridgeRequest({ type: 'document.getContent' })
+      ).rejects.toThrow('VMark rejected the request');
+    });
   });
 
   describe('static helper methods', () => {

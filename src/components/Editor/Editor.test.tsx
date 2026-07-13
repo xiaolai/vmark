@@ -262,6 +262,21 @@ describe("Editor", () => {
     expect(content).toBeInTheDocument();
   });
 
+  it("renders the Welcome screen when activeTabId points at a tab that no longer exists", () => {
+    // A stale activeTabId (tab transfer, hot-exit restore, workspace switch) used
+    // to fall through to resolveFormat(null) -> untitled markdown, mounting a FULL
+    // EDITOR over a document that does not exist: a phantom buffer the user can
+    // type into. Fail closed to the Welcome screen instead.
+    mockTabStore.activeTabId = { main: "tab-gone" };
+    mockTabStore.findTabById = () => undefined;
+
+    renderWithProvider(<Editor />);
+
+    expect(screen.getByRole("button", { name: "New File" })).toBeInTheDocument();
+    expect(document.querySelector(".editor-content")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("split-pane-editor")).not.toBeInTheDocument();
+  });
+
   it("renders the Welcome screen (no editor) when no tab is active", () => {
     // Empty-workspace window: the last tab was closed, the window stays open.
     mockTabStore.activeTabId = { main: null };

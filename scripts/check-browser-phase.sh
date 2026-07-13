@@ -41,7 +41,21 @@ FULL=0
 for arg in "$@"; do
   case "$arg" in
     --full) FULL=1 ;;
-    *) [[ -z "$PHASE" ]] && PHASE="$arg" ;;
+    # Reject unknown flags rather than silently ignoring them: `1 --ful` must
+    # NOT quietly skip the heavyweight gates and still report green.
+    -*)
+      echo "Unknown flag: $arg" >&2
+      echo "Usage: $0 <phase-number> [--full]" >&2
+      exit 2
+      ;;
+    *)
+      if [[ -n "$PHASE" ]]; then
+        echo "Unexpected extra argument: '$arg' (phase already set to '$PHASE')" >&2
+        echo "Usage: $0 <phase-number> [--full]" >&2
+        exit 2
+      fi
+      PHASE="$arg"
+      ;;
   esac
 done
 
@@ -137,13 +151,38 @@ check_spike() {
   fi
 }
 
+# True if $1 begins with the 8-byte PNG magic signature. Uses od (present on
+# macOS + Linux) so it works without `file`.
+is_png() {
+  local sig
+  sig=$(head -c 8 "$1" 2>/dev/null | od -An -tx1 2>/dev/null | tr -d ' \n')
+  [[ "$sig" == "89504e470d0a1a0a" ]]
+}
+
 # SPIKE-1 is the load-bearing security probe. Its verdict must be backed by the
 # artifacts the probe actually produced — otherwise "PASS" is just a sentence.
+# An empty probe dir, or a zero-byte / non-PNG "capture", must NOT pass.
 check_spike1_evidence() {
   local ok=1
-  [[ -d "$GRILLS/spike1-probe" ]] || { fail "SPIKE-1 probe sources missing ($GRILLS/spike1-probe)"; ok=0; }
-  [[ -f "$GRILLS/spike1-embedded-evidence.png" ]] || { fail "SPIKE-1 embedding evidence capture missing"; ok=0; }
-  [[ "$ok" -eq 1 ]] && pass "SPIKE-1 evidence artifacts present (probe sources + capture)"
+  local probe="$GRILLS/spike1-probe"
+  local png="$GRILLS/spike1-embedded-evidence.png"
+
+  # The probe must carry its actual Rust sources, not just an empty directory.
+  if [[ ! -f "$probe/Cargo.toml" ]] || ! ls "$probe"/src/*.rs >/dev/null 2>&1; then
+    fail "SPIKE-1 probe sources incomplete ($probe — expected Cargo.toml + src/*.rs)"
+    ok=0
+  fi
+
+  # The embedding capture must be a real, non-empty PNG.
+  if [[ ! -s "$png" ]]; then
+    fail "SPIKE-1 embedding evidence capture missing or empty ($png)"
+    ok=0
+  elif ! is_png "$png"; then
+    fail "SPIKE-1 embedding evidence is not a valid PNG ($png)"
+    ok=0
+  fi
+
+  [[ "$ok" -eq 1 ]] && pass "SPIKE-1 evidence artifacts valid (probe sources + non-empty PNG)"
 }
 
 # The no-bridge invariant (R3/I1) must be a live, shipped assertion — not just a

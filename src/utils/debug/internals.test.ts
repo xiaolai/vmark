@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { formatArgs, prodWarn, prodError } from "./internals";
+import { formatArgs, prodWarn, prodError, createWarnLogger } from "./internals";
 
 describe("formatArgs", () => {
   it("joins primitives with the tag", () => {
@@ -56,5 +56,42 @@ describe("prodWarn / prodError (dev branch)", () => {
   it("prodError forwards to console.error", () => {
     prodError("[X]", "boom");
     expect(errSpy).toHaveBeenCalledWith("[X]", "boom");
+  });
+});
+
+describe("createWarnLogger", () => {
+  let warnSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+  });
+  afterEach(() => {
+    warnSpy.mockRestore();
+  });
+
+  it("returns a callable that prefixes with the tag", () => {
+    const log = createWarnLogger("[Thing]");
+    expect(typeof log).toBe("function");
+    log("hello");
+    expect(warnSpy).toHaveBeenCalledWith("[Thing]", "hello");
+  });
+
+  it("forwards every argument in order", () => {
+    const log = createWarnLogger("[Multi]");
+    log("a", 1, { k: "v" });
+    expect(warnSpy).toHaveBeenCalledWith("[Multi]", "a", 1, { k: "v" });
+  });
+
+  it("does not throw when called with no arguments", () => {
+    const log = createWarnLogger("[Empty]");
+    expect(() => log()).not.toThrow();
+    expect(warnSpy).toHaveBeenCalledWith("[Empty]");
+  });
+
+  it("gives each tag its own independent logger", () => {
+    createWarnLogger("[A]")("one");
+    createWarnLogger("[B]")("two");
+    expect(warnSpy).toHaveBeenNthCalledWith(1, "[A]", "one");
+    expect(warnSpy).toHaveBeenNthCalledWith(2, "[B]", "two");
   });
 });

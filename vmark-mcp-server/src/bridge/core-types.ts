@@ -1,10 +1,11 @@
 /**
  * Core bridge types for communication between the MCP server and VMark.
  *
- * The pruned tool surface (5 core + browser) defines BridgeRequest as a union of the
- * `vmark.*` action types. The Rust bridge parser extracts `type` as the
- * request_type and forwards every other key as args, so all extra
- * fields here are flat (not nested under `args`).
+ * The pruned tool surface exposes six MCP tool namespaces (session, workspace,
+ * document, workflow, selection, browser); BridgeRequest is the union of the
+ * individual `vmark.*` (tool, action) request variants they emit. The Rust
+ * bridge parser extracts `type` as the request_type and forwards every other
+ * key as args, so all extra fields here are flat (not nested under `args`).
  *
  * Plan: dev-docs/plans/20260504-mcp-pruning.md
  */
@@ -90,26 +91,43 @@ export interface NeedsApproval {
   url: string;
 }
 
-/** Is `data` the browser approval envelope? */
+/**
+ * Is `data` the browser approval envelope?
+ *
+ * Validates the full contract, not just the discriminant: consumers render
+ * `operation` and `url` directly, so a truthy-but-malformed `{needsApproval:true}`
+ * must NOT pass — it would produce guidance like `'undefined' on undefined` and
+ * swallow the real error. Empty strings are rejected too (a blank operation/url
+ * is not actionable guidance).
+ */
 export function isNeedsApproval(data: unknown): data is NeedsApproval {
+  if (typeof data !== 'object' || data === null) return false;
+  const d = data as { needsApproval?: unknown; operation?: unknown; url?: unknown };
   return (
-    typeof data === 'object' &&
-    data !== null &&
-    (data as { needsApproval?: unknown }).needsApproval === true
+    d.needsApproval === true &&
+    typeof d.operation === 'string' &&
+    d.operation.length > 0 &&
+    typeof d.url === 'string' &&
+    d.url.length > 0
   );
 }
 
-export type BridgeResponse =
-  | { success: true; data: unknown }
+/**
+ * Bridge response. Generic in the success payload so callers get an honest type:
+ * on success `data` is `T`; on failure `data` is optional and untyped (it carries
+ * the browser approval envelope, never the success payload). The previous
+ * `BridgeResponse & { data: T }` intersection made failure `data` a required `T`,
+ * forcing unsafe casts in every bridge implementation.
+ */
+export type BridgeResponse<T = unknown> =
+  | { success: true; data: T }
   | { success: false; error: string; code?: string; data?: unknown };
 
 /**
  * Bridge interface — abstracts the WebSocket transport from the tools.
  */
 export interface Bridge {
-  send<T = unknown>(
-    request: BridgeRequest,
-  ): Promise<BridgeResponse & { data: T }>;
+  send<T = unknown>(request: BridgeRequest): Promise<BridgeResponse<T>>;
   isConnected(): boolean;
   connect(): Promise<void>;
   disconnect(): Promise<void>;

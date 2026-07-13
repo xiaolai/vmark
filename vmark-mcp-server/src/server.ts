@@ -111,11 +111,7 @@ export class VMarkMcpServer implements McpServerInterface {
   async callTool(name: string, args: Record<string, unknown>): Promise<ToolCallResult> {
     const tool = this.tools.get(name);
     if (!tool) {
-      return {
-        success: false,
-        content: [{ type: 'text', text: `Unknown tool: ${name}` }],
-        isError: true,
-      };
+      return VMarkMcpServer.errorResult(`Unknown tool: ${name}`);
     }
 
     // Normalize args to empty object if null/undefined/non-object
@@ -126,11 +122,7 @@ export class VMarkMcpServer implements McpServerInterface {
       return await tool.handler(normalizedArgs);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      return {
-        success: false,
-        content: [{ type: 'text', text: `Tool error: ${message}` }],
-        isError: true,
-      };
+      return VMarkMcpServer.errorResult(`Tool error: ${message}`);
     }
   }
 
@@ -147,7 +139,8 @@ export class VMarkMcpServer implements McpServerInterface {
       return await resource.handler(uri);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`Resource error (${uri}): ${message}`);
+      // Preserve the original cause/stack for diagnosis, not just the message.
+      throw new Error(`Resource error (${uri}): ${message}`, { cause: error });
     }
   }
 

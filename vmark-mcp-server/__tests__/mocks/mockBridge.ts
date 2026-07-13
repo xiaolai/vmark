@@ -136,7 +136,7 @@ export class MockBridge implements Bridge {
 
   async send<T = unknown>(
     request: BridgeRequest
-  ): Promise<BridgeResponse & { data: T }> {
+  ): Promise<BridgeResponse<T>> {
     // Record request
     this.requests.push({ request, timestamp: Date.now() });
 
@@ -160,11 +160,11 @@ export class MockBridge implements Bridge {
     // Check for custom handler
     const customHandler = this.responseHandlers.get(request.type);
     if (customHandler) {
-      return customHandler(request) as BridgeResponse & { data: T };
+      return customHandler(request) as BridgeResponse<T>;
     }
 
     // Handle request with default mock behavior
-    return this.handleRequest(request) as BridgeResponse & { data: T };
+    return this.handleRequest(request) as BridgeResponse<T>;
   }
 
   isConnected(): boolean {

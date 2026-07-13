@@ -241,3 +241,69 @@ describe("allow-once (one-shot authorization)", () => {
     expect(useBrowserApprovalStore.getState().oneShots).toEqual([]);
   });
 });
+
+// Target binding — a one-shot approved for "click Publish" must NOT authorize
+// "click Delete" on the same origin+operation. The AI controls what it retries
+// with, so within the single-action window it could otherwise escalate to a
+// different element than the user actually approved.
+describe("one-shot target binding", () => {
+  beforeEach(() => {
+    useBrowserApprovalStore.setState({ grants: [], pending: [], oneShots: [] });
+  });
+
+  it("authorizes the exact approved target and nothing else", () => {
+    const store = useBrowserApprovalStore.getState();
+    store.requestApproval("req-1", "https://blog.example.com/p", "click", {
+      role: "button",
+      name: "Publish",
+    });
+    store.resolveApproval("req-1", "once");
+
+    // A different NAME on the same origin+operation is refused.
+    expect(
+      useBrowserApprovalStore
+        .getState()
+        .consumeOneShot("https://blog.example.com/p", "click", { role: "button", name: "Delete" }),
+    ).toBe(false);
+    // A different ROLE is refused.
+    expect(
+      useBrowserApprovalStore
+        .getState()
+        .consumeOneShot("https://blog.example.com/p", "click", { role: "link", name: "Publish" }),
+    ).toBe(false);
+    // The exact approved target is authorized...
+    expect(
+      useBrowserApprovalStore
+        .getState()
+        .consumeOneShot("https://blog.example.com/p", "click", { role: "button", name: "Publish" }),
+    ).toBe(true);
+    // ...and spent.
+    expect(
+      useBrowserApprovalStore
+        .getState()
+        .consumeOneShot("https://blog.example.com/p", "click", { role: "button", name: "Publish" }),
+    ).toBe(false);
+  });
+
+  it("a read one-shot (no target) is matched without a target", () => {
+    const store = useBrowserApprovalStore.getState();
+    store.requestApproval("req-2", "https://blog.example.com", "read");
+    store.resolveApproval("req-2", "once");
+    expect(
+      useBrowserApprovalStore.getState().consumeOneShot("https://blog.example.com", "read"),
+    ).toBe(true);
+  });
+
+  it("a targeted one-shot is not consumed by a target-less call", () => {
+    const store = useBrowserApprovalStore.getState();
+    store.requestApproval("req-3", "https://blog.example.com", "click", {
+      role: "button",
+      name: "Publish",
+    });
+    store.resolveApproval("req-3", "once");
+    // A click with no target descriptor must not spend a target-bound one-shot.
+    expect(
+      useBrowserApprovalStore.getState().consumeOneShot("https://blog.example.com", "click"),
+    ).toBe(false);
+  });
+});

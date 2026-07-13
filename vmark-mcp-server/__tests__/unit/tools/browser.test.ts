@@ -7,7 +7,10 @@
 // sendBridgeRequest did `throw new Error(response.error)` — with no `error`
 // field the AI received an EMPTY error and never learned consent was pending.
 import { describe, it, expect, vi } from 'vitest';
-import { isNeedsApproval } from '../../../src/bridge/core-types.js';
+import { isNeedsApproval, type BridgeResponse } from '../../../src/bridge/core-types.js';
+import { VMarkMcpServer } from '../../../src/server.js';
+import { registerBrowserTool } from '../../../src/tools/browser.js';
+import { MockBridge } from '../../mocks/mockBridge.js';
 
 describe('isNeedsApproval', () => {
   it('recognizes the approval envelope', () => {
@@ -22,6 +25,149 @@ describe('isNeedsApproval', () => {
     expect(isNeedsApproval('needsApproval')).toBe(false);
     // Truthy-but-not-true must not pass: authority is never inferred loosely.
     expect(isNeedsApproval({ needsApproval: 'yes' })).toBe(false);
+  });
+
+  it('rejects a malformed envelope missing string operation/url', () => {
+    // Consumers render `operation`/`url` directly; a bare {needsApproval:true}
+    // would produce `'undefined' on undefined`. The guard must demand both.
+    expect(isNeedsApproval({ needsApproval: true })).toBe(false);
+    expect(isNeedsApproval({ needsApproval: true, operation: 'click' })).toBe(false);
+    expect(isNeedsApproval({ needsApproval: true, url: 'https://a.com' })).toBe(false);
+    expect(isNeedsApproval({ needsApproval: true, operation: 3, url: 'https://a.com' })).toBe(false);
+    // Empty strings are not actionable guidance.
+    expect(isNeedsApproval({ needsApproval: true, operation: '', url: 'https://a.com' })).toBe(false);
+    expect(isNeedsApproval({ needsApproval: true, operation: 'click', url: '' })).toBe(false);
+  });
+});
+
+// Integration through the REAL server + a MockBridge — not a fabricated,
+// pre-decorated Error. This exercises core-types → sendBridgeRequest →
+// toErrorResult end to end, so a regression in ANY of them is caught.
+describe('browser tool — integration via server.callTool', () => {
+  function harness(handlers: Partial<Record<string, () => BridgeResponse>>) {
+    const bridge = new MockBridge();
+    for (const [type, handler] of Object.entries(handlers)) {
+      bridge.setResponseHandler(type, handler as () => BridgeResponse);
+    }
+    const server = new VMarkMcpServer({ bridge });
+    registerBrowserTool(server);
+    return { server, bridge };
+  }
+
+  it('read: sends {type, tabId} and returns the snapshot as JSON', async () => {
+    const snapshot = { url: 'https://x.com', snapshot: [{ role: 'button', name: 'Go' }] };
+    const { server, bridge } = harness({
+      'vmark.browser.read': () => ({ success: true, data: snapshot }),
+    });
+
+    const result = await server.callTool('browser', { action: 'read', tabId: 'tab-2' });
+
+    const req = bridge.getRequestsOfType('vmark.browser.read');
+    expect(req).toHaveLength(1);
+    expect(req[0].request).toEqual({ type: 'vmark.browser.read', tabId: 'tab-2' });
+    expect(result.isError).toBeUndefined();
+    expect(JSON.parse(result.content[0].text)).toEqual(snapshot);
+  });
+
+  it('click: forwards operation/role/name and no text field', async () => {
+    const { server, bridge } = harness({
+      'vmark.browser.act': () => ({ success: true, data: { ok: true } }),
+    });
+
+    await server.callTool('browser', {
+      action: 'act', operation: 'click', role: 'button', name: 'Publish',
+    });
+
+    const req = bridge.getRequestsOfType('vmark.browser.act')[0].request;
+    expect(req).toEqual({
+      type: 'vmark.browser.act', operation: 'click', role: 'button', name: 'Publish',
+    });
+    expect('text' in req).toBe(false);
+  });
+
+  it('type: propagates the text payload', async () => {
+    const { server, bridge } = harness({
+      'vmark.browser.act': () => ({ success: true, data: { ok: true } }),
+    });
+
+    await server.callTool('browser', {
+      action: 'act', operation: 'type', role: 'textbox', name: 'Title', text: 'Hello',
+    });
+
+    const req = bridge.getRequestsOfType('vmark.browser.act')[0].request;
+    expect(req).toMatchObject({ operation: 'type', role: 'textbox', name: 'Title', text: 'Hello' });
+  });
+
+  it('type: forwards an explicit empty string (intentional clear)', async () => {
+    const { server, bridge } = harness({
+      'vmark.browser.act': () => ({ success: true, data: { ok: true } }),
+    });
+
+    await server.callTool('browser', {
+      action: 'act', operation: 'type', role: 'textbox', name: 'Title', text: '',
+    });
+
+    const req = bridge.getRequestsOfType('vmark.browser.act')[0].request as { text?: unknown };
+    expect(req.text).toBe('');
+  });
+
+  it('type: refuses when text is omitted, never touching the bridge', async () => {
+    const { server, bridge } = harness({
+      'vmark.browser.act': () => ({ success: true, data: { ok: true } }),
+    });
+
+    const result = await server.callTool('browser', {
+      action: 'act', operation: 'type', role: 'textbox', name: 'Title',
+    });
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("'type' requires");
+    expect(bridge.getRequestsOfType('vmark.browser.act')).toHaveLength(0);
+  });
+
+  it('rejects a blank tabId instead of silently using the active tab', async () => {
+    const { server, bridge } = harness({
+      'vmark.browser.read': () => ({ success: true, data: {} }),
+    });
+
+    const result = await server.callTool('browser', { action: 'read', tabId: '   ' });
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain('tabId');
+    expect(bridge.requests).toHaveLength(0);
+  });
+
+  it('surfaces a bridge approval refusal (success:false + data) as guidance', async () => {
+    // The bridge fails WITH an approval envelope on `data`. This is the exact
+    // shape the previous test faked; here it flows through the real stack.
+    const { server } = harness({
+      'vmark.browser.act': () => ({
+        success: false,
+        error: 'blocked',
+        data: { needsApproval: true, operation: 'click', url: 'https://blog.example.com' },
+      }),
+    });
+
+    const result = await server.callTool('browser', {
+      action: 'act', operation: 'click', role: 'button', name: 'Publish',
+    });
+
+    const text = result.content.map((c) => c.text).join('\n');
+    expect(result.isError).toBe(true);
+    expect(text).toContain('approval');
+    expect(text).toContain('click');
+    expect(text).toContain('https://blog.example.com');
+  });
+
+  it('reports an ordinary bridge failure (no approval data) as a plain error', async () => {
+    const { server } = harness({
+      'vmark.browser.read': () => ({ success: false, error: 'no active browser tab' }),
+    });
+
+    const result = await server.callTool('browser', { action: 'read' });
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain('no active browser tab');
   });
 });
 
