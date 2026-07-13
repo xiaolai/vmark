@@ -45,6 +45,22 @@
   flex-basis: 0%;
   min-width: 0;
   overflow: hidden;
+  /* Column flex so the ValidationGutter — a SIBLING of .source-pane, rendered
+   * below it — gets its own track. Without this the container is a block box,
+   * .source-pane's `height: 100%` consumes all of it, and the gutter is pushed
+   * past the bottom edge where `overflow: hidden` clips it: validation
+   * diagnostics never appeared in split-pane formats. */
+  display: flex;
+  flex-direction: column;
+}
+
+/* Scoped to this container (SourcePane's `.source-pane` is themed elsewhere, so
+ * the base rule's `height: 100%` must not change for other surfaces): take the
+ * space the gutter does not, and allow shrinking below content height. */
+.split-pane-editor__source > .source-pane {
+  flex: 1 1 0%;
+  min-height: 0;
+  height: auto;
 }
 
 /* Resize handle: a wider transparent hit area surrounds a 2px visible

@@ -17,8 +17,17 @@
  *     disabled items during keyboard navigation.
  *   - Position auto-adjusts to stay within viewport (right/bottom overflow).
  *   - Listens for viewport resize/scroll to reposition dynamically.
+ *   - The menu dismisses itself when its target tab leaves the tab list (closed
+ *     from elsewhere, or moved to another window while the menu is open): the
+ *     actions hook resolves the tab's index against the live list, and an index
+ *     of -1 would make "Close Tabs to the Right" mean "close everything".
+ *   - Every activation (pointer or keyboard) goes through one activateItem():
+ *     it drops repeat activations while an async action is still running, and
+ *     closes the menu if the action rejects, so a failed close can't leave a
+ *     dead menu on screen with an unhandled rejection behind it.
  *
  * @coordinates-with useTabContextMenuActions.ts — provides menu item definitions
+ * @coordinates-with useMenuPosition.ts — placement + viewport clamping
  * @coordinates-with StatusBar.tsx — triggers this menu on tab right-click
  * @module components/Tabs/TabContextMenu
  */
@@ -38,14 +47,12 @@ import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import { useDismissOnOutsideOrEscape } from "@/hooks/useDismissOnOutsideOrEscape";
 import { getRevealInFileManagerLabel } from "@/utils/pathUtils";
-import { useTabContextMenuActions } from "./useTabContextMenuActions";
+import { tabContextError } from "@/utils/debug";
+import { useTabContextMenuActions, type TabMenuItem } from "./useTabContextMenuActions";
+import { useMenuPosition, type ContextMenuPosition } from "./useMenuPosition";
 import "./TabContextMenu.css";
 
-/** Viewport coordinates for tab context menu placement. */
-export interface ContextMenuPosition {
-  x: number;
-  y: number;
-}
+export type { ContextMenuPosition };
 
 interface TabContextMenuProps {
   tab: Tab;
@@ -75,7 +82,6 @@ export function TabContextMenu({ tab, position, windowLabel, onClose }: TabConte
   const { t } = useTranslation("common");
   const menuRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<Array<HTMLButtonElement | null>>([]);
-  const positionRef = useRef(position);
   const [focusedIndex, setFocusedIndex] = useState(-1);
 
   /* v8 ignore next -- @preserve reason: ?? [] fallback for missing windowLabel key; windowLabel always valid in tests */
@@ -107,51 +113,41 @@ export function TabContextMenu({ tab, position, windowLabel, onClose }: TabConte
     [menuItems]
   );
 
-
-  const applyMenuPosition = useCallback(() => {
-    const menu = menuRef.current;
-    /* v8 ignore next -- @preserve reason: menu is null only before mount; always exists when applyMenuPosition is called */
-    if (!menu) return;
-
-    const rect = menu.getBoundingClientRect();
-    const viewportWidth = window.innerWidth;
-    const viewportHeight = window.innerHeight;
-
-    let adjustedX = positionRef.current.x;
-    let adjustedY = positionRef.current.y;
-
-    if (adjustedX + rect.width > viewportWidth - 10) {
-      adjustedX = Math.max(10, viewportWidth - rect.width - 10);
-    }
-    if (adjustedY + rect.height > viewportHeight - 10) {
-      adjustedY = Math.max(10, viewportHeight - rect.height - 10);
-    }
-
-    menu.style.left = `${adjustedX}px`;
-    menu.style.top = `${adjustedY}px`;
-  }, []);
-
+  // The target tab can vanish while the menu is open (closed from a shortcut,
+  // moved to another window). Every tab-relative action would then act on a
+  // findIndex() of -1 — "Close Tabs to the Right" would close every unpinned
+  // tab. Dismiss instead of operating on a tab that no longer exists.
+  const isTabPresent = tabs.some((entry) => entry.id === tab.id);
   useEffect(() => {
-    positionRef.current = position;
-    applyMenuPosition();
-  }, [applyMenuPosition, position]);
+    if (!isTabPresent) onClose();
+  }, [isTabPresent, onClose]);
 
-  useEffect(() => {
-    const handleViewportChange = () => applyMenuPosition();
-    const visualViewport = window.visualViewport;
+  // One activation path for pointer and keyboard alike.
+  const runningRef = useRef(false);
+  const activateItem = useCallback(
+    (item: TabMenuItem) => {
+      if (item.separator || item.disabled) return;
+      // An action can await a dirty-check dialog while the menu is still up;
+      // repeat Enter/clicks would launch a second concurrent close.
+      if (runningRef.current) return;
+      runningRef.current = true;
+      void (async () => {
+        try {
+          await item.action();
+        } catch (error) {
+          tabContextError("Tab context menu action failed:", error);
+          onClose();
+        } finally {
+          runningRef.current = false;
+        }
+      })();
+    },
+    [onClose]
+  );
 
-    window.addEventListener("resize", handleViewportChange);
-    window.addEventListener("scroll", handleViewportChange, true);
-    visualViewport?.addEventListener("resize", handleViewportChange);
-    visualViewport?.addEventListener("scroll", handleViewportChange);
 
-    return () => {
-      window.removeEventListener("resize", handleViewportChange);
-      window.removeEventListener("scroll", handleViewportChange, true);
-      visualViewport?.removeEventListener("resize", handleViewportChange);
-      visualViewport?.removeEventListener("scroll", handleViewportChange);
-    };
-  }, [applyMenuPosition]);
+  // Placement + viewport clamping (see useMenuPosition).
+  useMenuPosition(menuRef, position);
 
   // Close on click outside or Escape (Escape ignored during IME composition).
   useDismissOnOutsideOrEscape(true, menuRef, onClose);
@@ -208,14 +204,18 @@ export function TabContextMenu({ tab, position, windowLabel, onClose }: TabConte
       /* v8 ignore next -- @preserve reason: false branch (other keys) is a no-op fall-through */
       if ((event.key === "Enter" || event.key === " ") && focusedIndex >= 0) {
         const item = menuItems[focusedIndex];
-        /* v8 ignore next -- @preserve reason: null item or separator/disabled guards; always a valid enabled item at focusedIndex in keyboard tests */
-        if (!item || item.separator || item.disabled) return;
+        /* v8 ignore next -- @preserve reason: null item guard; always a valid item at focusedIndex in keyboard tests */
+        if (!item) return;
         event.preventDefault();
-        void item.action();
+        activateItem(item);
       }
     },
-    [focusableIndices, focusedIndex, menuItems, onClose]
+    [activateItem, focusableIndices, focusedIndex, menuItems, onClose]
   );
+
+  // Defense in depth: the onClose above unmounts us, but never paint a menu
+  // whose actions would resolve against a tab that is no longer in the list.
+  if (!isTabPresent) return null;
 
   return (
     <div
@@ -228,7 +228,12 @@ export function TabContextMenu({ tab, position, windowLabel, onClose }: TabConte
     >
       {menuItems.map((item, index) =>
         item.separator ? (
-          <div key={item.id} className="tab-context-menu-separator" />
+          <div
+            key={item.id}
+            className="tab-context-menu-separator"
+            role="separator"
+            aria-orientation="horizontal"
+          />
         ) : (
           <button
             key={item.id}
@@ -239,7 +244,7 @@ export function TabContextMenu({ tab, position, windowLabel, onClose }: TabConte
             role="menuitem"
             className="tab-context-menu-item"
             onClick={() => {
-              void item.action();
+              activateItem(item);
             }}
             onFocus={() => {
               setFocusedIndex(index);

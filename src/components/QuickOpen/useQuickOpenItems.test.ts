@@ -316,6 +316,18 @@ describe("filterAndRankItems", () => {
     expect(result[0].item.tier).toBe("recent");
   });
 
+  it("matches a query with surrounding whitespace", () => {
+    // A trailing space (typed or pasted) used to be handed to fuzzyMatch as a
+    // character to find, so a query like " notes " matched nothing.
+    const items = [
+      { path: "/notes.md", filename: "notes.md", relPath: "notes.md", tier: "workspace" as const, isOpenTab: false },
+    ];
+    const padded = filterAndRankItems(items, "  notes  ");
+    expect(padded).toHaveLength(1);
+    expect(padded[0].item.path).toBe("/notes.md");
+    expect(padded[0].match!.score).toBe(filterAndRankItems(items, "notes")[0].match!.score);
+  });
+
   it("returns empty when no items match query", () => {
     const items = [
       { path: "/foo.md", filename: "foo.md", relPath: "foo.md", tier: "workspace" as const, isOpenTab: false },

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { TabContextMenu } from "./TabContextMenu";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore, type DocumentState } from "@/stores/documentStore";
@@ -713,6 +713,98 @@ describe("TabContextMenu", () => {
       });
       expect(mocks.toast.success).toHaveBeenCalledWith("File restored to disk.");
       expect(onClose).toHaveBeenCalled();
+    });
+  });
+
+  describe("stale target tab", () => {
+    it("dismisses instead of acting on a tab that left the tab list", async () => {
+      const onClose = vi.fn();
+      const staleTab = useTabStore.getState().tabs.main[0];
+      render(
+        <TabContextMenu
+          tab={staleTab}
+          position={{ x: 100, y: 100 }}
+          windowLabel="main"
+          onClose={onClose}
+        />
+      );
+      expect(screen.getByRole("menu", { name: "Tab actions" })).toBeInTheDocument();
+
+      // The tab is closed (or moved to another window) while its menu is open.
+      act(() => {
+        useTabStore.setState((state) => ({
+          tabs: { main: state.tabs.main.filter((entry) => entry.id !== "tab-1") },
+        }));
+      });
+
+      await waitFor(() => expect(onClose).toHaveBeenCalled());
+      // Nothing destructive is reachable: with the target's index resolving to
+      // -1, "Close Tabs to the Right" would have targeted every unpinned tab.
+      expect(screen.queryByRole("menu", { name: "Tab actions" })).not.toBeInTheDocument();
+      expect(mocks.closeTabsWithDirtyCheck).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("action execution", () => {
+    it("groups items with an accessible separator", () => {
+      render(
+        <TabContextMenu
+          tab={useTabStore.getState().tabs.main[0]}
+          position={{ x: 100, y: 100 }}
+          windowLabel="main"
+          onClose={vi.fn()}
+        />
+      );
+
+      expect(screen.getByRole("separator")).toBeInTheDocument();
+    });
+
+    it("ignores repeat activation while an action is still running", async () => {
+      let release!: (value: boolean) => void;
+      mocks.closeTabsWithDirtyCheck.mockImplementationOnce(
+        () => new Promise<boolean>((resolve) => { release = resolve; })
+      );
+      render(
+        <TabContextMenu
+          tab={useTabStore.getState().tabs.main[0]}
+          position={{ x: 100, y: 100 }}
+          windowLabel="main"
+          onClose={vi.fn()}
+        />
+      );
+
+      const closeAll = screen.getByRole("menuitem", { name: "Close All" });
+      // A close action awaits its dirty-check dialog with the menu still up.
+      fireEvent.click(closeAll);
+      fireEvent.click(closeAll);
+      fireEvent.keyDown(screen.getByRole("menu", { name: "Tab actions" }), { key: "Enter" });
+
+      expect(mocks.closeTabsWithDirtyCheck).toHaveBeenCalledTimes(1);
+      await act(async () => { release(true); });
+    });
+
+    it("closes the menu when an action rejects", async () => {
+      const onClose = vi.fn();
+      mocks.closeTabWithDirtyCheck.mockRejectedValueOnce(new Error("close failed"));
+      render(
+        <TabContextMenu
+          tab={useTabStore.getState().tabs.main[0]}
+          position={{ x: 100, y: 100 }}
+          windowLabel="main"
+          onClose={onClose}
+        />
+      );
+
+      // "Close" carries a shortcut hint, so match on the label span.
+      const closeItem = screen
+        .getAllByRole("menuitem")
+        .find((item) => item.querySelector(".tab-context-menu-item-label")?.textContent === "Close");
+      fireEvent.click(closeItem!);
+
+      // The action's own onClose() never runs when it throws — without a
+      // catch the menu would sit there and the rejection would go unhandled.
+      await waitFor(() => expect(onClose).toHaveBeenCalled());
+      expect(mocks.closeTabWithDirtyCheck).toHaveBeenCalledWith("main", "tab-1");
     });
   });
 

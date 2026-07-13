@@ -362,6 +362,33 @@ describe("SplitPaneEditor", () => {
       expect(screen.getByTestId("preview-content")).toBeInTheDocument();
     });
 
+    it("preview-only mode hands the full width share to the preview", () => {
+      // Regression: the CSS gives the preview `flex-grow: calc(1 - fraction)`
+      // with `flex-basis: 0`, so a fraction of 1 in preview-only mode collapsed
+      // the preview to zero width — rendered in the DOM, invisible on screen.
+      const id = makeTab();
+      useTabStore.getState().setTabViewMode(id, "preview");
+      const { container } = render(
+        <SplitPaneEditor tabId={id} formatConfig={previewConfig} />,
+      );
+      const fraction = (container.querySelector(
+        ".split-pane-editor",
+      ) as HTMLElement).style.getPropertyValue("--split-pane-source-fraction");
+      expect(parseFloat(fraction)).toBe(0);
+    });
+
+    it("source-only mode hands the full width share to the source", () => {
+      const id = makeTab();
+      useTabStore.getState().setTabViewMode(id, "source");
+      const { container } = render(
+        <SplitPaneEditor tabId={id} formatConfig={previewConfig} />,
+      );
+      const fraction = (container.querySelector(
+        ".split-pane-editor",
+      ) as HTMLElement).style.getPropertyValue("--split-pane-source-fraction");
+      expect(parseFloat(fraction)).toBe(1);
+    });
+
     it("read-only viewer banner persists in preview mode (WI-1.3)", () => {
       const viewerPreview: FormatConfig = {
         ...jsonStub,
@@ -377,6 +404,67 @@ describe("SplitPaneEditor", () => {
       // Banner is outside the body → present even with the source unmounted.
       expect(container.querySelector(".read-only-banner")).toBeInTheDocument();
       expect(screen.queryByTestId("source-pane")).not.toBeInTheDocument();
+    });
+  });
+
+  describe("schema dispatch (WI-2.4 / WI-1A.13)", () => {
+    function SchemaPreviewA() {
+      return <div data-testid="preview-content">schema-a</div>;
+    }
+    function SchemaPreviewB() {
+      return <div data-testid="preview-content">schema-b</div>;
+    }
+
+    const schemaConfig: FormatConfig = {
+      ...jsonStub,
+      genericPreview: GenericPreview,
+      schemaRenderers: { "schema-a": SchemaPreviewA, "schema-b": SchemaPreviewB },
+      schemaDetector: () => "schema-a",
+    };
+
+    let seq = 0;
+    function makeSchemaTab(): string {
+      seq += 1;
+      return useTabStore.getState().createTab("main", `/schema-${seq}.json`);
+    }
+
+    it("prefers the detected schema renderer over the generic preview", () => {
+      render(<SplitPaneEditor tabId={makeSchemaTab()} formatConfig={schemaConfig} />);
+      expect(screen.getByTestId("preview-content")).toHaveTextContent("schema-a");
+    });
+
+    it("falls back to the generic preview when the detected schema is unknown", () => {
+      const config: FormatConfig = { ...schemaConfig, schemaDetector: () => "nope" };
+      render(<SplitPaneEditor tabId={makeSchemaTab()} formatConfig={config} />);
+      expect(screen.getByTestId("preview-content")).toHaveTextContent("preview:");
+    });
+
+    it("falls back to the generic preview when the detector throws", () => {
+      const config: FormatConfig = {
+        ...schemaConfig,
+        schemaDetector: () => {
+          throw new Error("broken detector");
+        },
+      };
+      expect(() =>
+        render(<SplitPaneEditor tabId={makeSchemaTab()} formatConfig={config} />),
+      ).not.toThrow();
+      expect(screen.getByTestId("preview-content")).toHaveTextContent("preview:");
+    });
+
+    it("an explicit activeSchemaId outranks the detector", () => {
+      const id = makeSchemaTab();
+      useTabStore.getState().setTabActiveSchemaId(id, "schema-b");
+      render(<SplitPaneEditor tabId={id} formatConfig={schemaConfig} />);
+      // Detector says schema-a; the persisted per-tab pick says schema-b.
+      expect(screen.getByTestId("preview-content")).toHaveTextContent("schema-b");
+    });
+
+    it("an unregistered activeSchemaId falls back to the detector", () => {
+      const id = makeSchemaTab();
+      useTabStore.getState().setTabActiveSchemaId(id, "schema-gone");
+      render(<SplitPaneEditor tabId={id} formatConfig={schemaConfig} />);
+      expect(screen.getByTestId("preview-content")).toHaveTextContent("schema-a");
     });
   });
 });

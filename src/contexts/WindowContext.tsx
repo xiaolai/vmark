@@ -29,27 +29,29 @@
  *     one (familiar new-file UX). Hot-exit / lastOpenTabs restore can
  *     still populate tabs after init.
  *
+ * @coordinates-with tabTransferHandlers.ts — applies incoming transfers, answers the removal handshake
  * @coordinates-with tab_transfer.rs — claims transfer data from Rust registry
  * @coordinates-with tabTransferActions.ts — prepares transfer payloads for new windows
  * @coordinates-with workspaceStorage.ts — per-window localStorage key scoping + findActiveWorkspaceLabel
  * @coordinates-with useWorkspaceSync.ts — cross-window workspace config rehydration
  * @coordinates-with openPolicy.ts — resolves workspace root for external files
  * @coordinates-with lib.rs (Rust) — listens for "ready" event per window
- * @coordinates-with tabCleanup.ts — cleanupTabState used in removeTransferredTabData
  * @module contexts/WindowContext
  */
 import { createContext, useContext, useEffect, useState, useRef, type ReactNode } from "react";
 import { useWorkspaceSync } from "@/hooks/useWorkspaceSync";
-import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { useDocumentStore } from "../stores/documentStore";
 import { useTabStore } from "../stores/tabStore";
-import { useRecentFilesStore } from "../stores/workspaceStore";
 import { useRecentWorkspacesStore } from "../stores/workspaceStore";
 import { useWorkspaceStore } from "../stores/workspaceStore";
 import { useUIStore } from "../stores/uiStore";
 import { openWorkspaceWithConfig } from "../hooks/openWorkspaceWithConfig";
 import { loadStartupFileIntoTab, createBlankStartupTab } from "./startupFileOpen";
+import {
+  applyTabTransferData,
+  handleTabTransfer,
+  handleTabRemovalRequest,
+} from "./tabTransferHandlers";
 import {
   setCurrentWindowLabel,
   migrateWorkspaceStorage,
@@ -58,73 +60,9 @@ import {
 } from "@/services/persistence/workspaceStorage";
 import { resolveWorkspaceRootForExternalFile } from "../utils/openPolicy";
 import { isWithinRoot } from "../utils/paths";
-import type { TabTransferPayload } from "@/types/tabTransfer";
-import { windowCloseWarn, windowContextError } from "@/utils/debug";
-import { cleanupTabState } from "@/hooks/tabCleanup";
-import { errorMessage } from "@/utils/errorMessage";
+import type { TabRemovalRequestEvent, TabTransferPayload } from "@/types/tabTransfer";
+import { windowContextError } from "@/utils/debug";
 import { claimWorkspaceTransferForWindow } from "@/services/workspaces/workspaceWindowActions";
-
-async function applyTabTransferData(label: string, data: TabTransferPayload): Promise<void> {
-  // Set up workspace: prefer transferred root, fall back to file's parent
-  const workspaceRoot = data.workspaceRoot
-    ?? (data.filePath ? resolveWorkspaceRootForExternalFile(data.filePath) : null);
-  if (workspaceRoot) {
-    try {
-      await openWorkspaceWithConfig(workspaceRoot, { windowLabel: label });
-    } catch {
-      // Non-fatal — proceed without workspace
-    }
-  }
-
-  const tabId = useTabStore.getState().createTransferredTab(label, {
-    id: data.tabId,
-    filePath: data.filePath,
-    title: data.title,
-    isPinned: false,
-  });
-  useTabStore.getState().updateTabTitle(tabId, data.title);
-  useDocumentStore.getState().initDocument(
-    tabId,
-    data.content,
-    data.filePath,
-    data.savedContent
-  );
-  if (data.filePath) {
-    useRecentFilesStore.getState().addFile(data.filePath);
-  }
-}
-
-async function removeTransferredTabData(label: string, tabId: string): Promise<void> {
-  useTabStore.getState().detachTab(label, tabId);
-  cleanupTabState(tabId);
-
-  const remaining = useTabStore.getState().getTabsByWindow(label);
-  if (remaining.length === 0 && label !== "main") {
-    const win = getCurrentWebviewWindow();
-    await invoke("close_window", { label: win.label }).catch((error: unknown) => {
-      /* v8 ignore next -- @preserve String(error) fallback: invoke errors are always Error instances */
-      windowCloseWarn("Failed to close window:", errorMessage(error));
-    });
-  }
-}
-
-/**
- * Claim transfer data from Rust and create the tab + document.
- * Returns true if a transfer was handled (caller should skip normal init).
- */
-async function handleTabTransfer(label: string): Promise<boolean> {
-  const urlParams = new URLSearchParams(globalThis.location?.search || "");
-  if (!urlParams.has("transfer")) return false;
-
-  const data = await invoke<TabTransferPayload | null>(
-    "claim_tab_transfer",
-    { windowLabel: label }
-  );
-  if (!data) return false;
-  await applyTabTransferData(label, data);
-
-  return true;
-}
 
 /**
  * Delay before emitting "ready" event to Rust.
@@ -357,10 +295,13 @@ export function WindowProvider({ children }: WindowProviderProps) {
     });
 
     let unlistenRemove: (() => void) | null = null;
-    currentWindow.listen<{ tabId: string }>("tab:remove-by-id", (event) => {
+    currentWindow.listen<TabRemovalRequestEvent>("tab:remove-by-id", (event) => {
       if (cancelled) return;
-      const { tabId } = event.payload;
-      void removeTransferredTabData(windowLabel, tabId);
+      // Two-phase handshake — see tabTransferHandlers. `prepare` reports this
+      // window's live tab state and removes nothing; only `commit` removes.
+      void handleTabRemovalRequest(windowLabel, event.payload).catch((error) => {
+        windowContextError("Failed to handle tab removal request:", error);
+      });
     }).then((fn) => {
       if (cancelled) {
         fn();

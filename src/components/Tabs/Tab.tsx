@@ -22,6 +22,10 @@
  *   - Close button is hidden for pinned tabs to prevent accidental closure.
  *   - CSS class composition uses cn() for conditional classes including
  *     drag state classes (dragging, reordering, invalid-drop, snapback).
+ *   - The tab's key handler only fires for keys aimed at the tab itself. Nested
+ *     controls own their own keys: without that guard, arrows typed in the
+ *     rename input bubbled up and moved tab focus (blurring — and submitting —
+ *     the rename), and Enter on the close button also activated the tab.
  *
  * @coordinates-with StatusBar.tsx — renders Tab instances inside the tab strip
  * @coordinates-with TabContextMenu.tsx — right-click menu triggered via onContextMenu
@@ -37,6 +41,7 @@ import type { Tab as TabType } from "@/stores/tabStore";
 import { tabFilePath } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabRenameStore } from "@/stores/tabRenameStore";
+import { getFileName } from "@/utils/pathUtils";
 import { TabRenameInput } from "./TabRenameInput";
 
 interface TabProps {
@@ -124,6 +129,11 @@ export const Tab = memo(function Tab({
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
+      // Only handle keys targeted at the tab itself. Keys inside nested controls
+      // (rename input, close button) belong to those controls — bubbling them
+      // into tab navigation stole the caret keys during rename and made
+      // Enter/Space on the close button activate the tab as well.
+      if (e.target !== e.currentTarget) return;
       onKeyDown?.(tab.id, e);
     },
     [onKeyDown, tab.id]
@@ -162,7 +172,7 @@ export const Tab = memo(function Tab({
 
         {/* Missing file indicator (warning icon) */}
         {isMissing && (
-          <AlertTriangle className="w-3 h-3 text-amber-500 flex-shrink-0" />
+          <AlertTriangle className="w-3 h-3 text-[var(--warning-color)] flex-shrink-0" />
         )}
 
         {/* Divergent indicator (local differs from disk) */}
@@ -179,7 +189,7 @@ export const Tab = memo(function Tab({
         {isRenaming && filePath ? (
           <TabRenameInput
             filePath={filePath}
-            fileName={filePath.split(/[/\\]/).pop() ?? tab.title}
+            fileName={getFileName(filePath) || tab.title}
           />
         ) : (
           <span className="tab-title">{tab.title}</span>

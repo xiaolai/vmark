@@ -61,8 +61,11 @@ export function findLinkMarkRange(view: EditorView, pos: number): MarkRange | nu
 
   if (!linkMark) return null;
 
-  // Second pass: find the continuous range with the same href that contains pos
-  const targetHref = linkMark.attrs.href;
+  // Second pass: find the continuous range covered by an *equal* link mark that
+  // contains pos. Mark.eq compares attrs, not just href — two adjacent links
+  // that share an href but differ in any other attribute stay separate ranges,
+  // so editing one can no longer rewrite its neighbour.
+  const target = linkMark;
   currentOffset = 0;
 
   for (let i = 0; i < parent.childCount; i++) {
@@ -70,23 +73,19 @@ export function findLinkMarkRange(view: EditorView, pos: number): MarkRange | nu
     const childFrom = parentStart + currentOffset;
 
     if (child.isText) {
-      const mark = child.marks.find(
-        (m) => m.type.name === "link" && m.attrs.href === targetHref
-      );
+      const mark = child.marks.find((m) => m.eq(target));
 
       if (mark) {
         const rangeFrom = childFrom;
         let rangeTo = childFrom + child.nodeSize;
         const foundMark = mark;
 
-        // Continue checking subsequent children for continuous marks with same href
+        // Continue checking subsequent children for continuous equal marks
         let j = i + 1;
         while (j < parent.childCount) {
           const nextChild = parent.child(j);
           if (nextChild.isText) {
-            const nextMark = nextChild.marks.find(
-              (m) => m.type.name === "link" && m.attrs.href === targetHref
-            );
+            const nextMark = nextChild.marks.find((m) => m.eq(target));
             if (nextMark) {
               rangeTo += nextChild.nodeSize;
               j++;
@@ -170,14 +169,18 @@ function handleClick(view: EditorView, pos: number, event: MouseEvent): boolean 
           useLinkCreatePopupStore.getState().closePopup();
         }
 
-        // Compute anchor rect from link range coordinates
+        // Compute anchor rect from link range coordinates. When the link wraps
+        // across lines its end sits on a later line: pairing the first line's
+        // left edge with the last line's right edge yields an incoherent (often
+        // inverted) rect, so anchor on the first line only.
         const startCoords = view.coordsAtPos(linkRange.from);
         const endCoords = view.coordsAtPos(linkRange.to);
+        const wrapped = endCoords.top > startCoords.top;
         const anchorRect = {
           top: startCoords.top,
           left: startCoords.left,
           bottom: startCoords.bottom,
-          right: endCoords.right,
+          right: wrapped ? startCoords.left : endCoords.right,
         };
 
         useLinkPopupStore.getState().openPopup({
@@ -216,9 +219,7 @@ class LinkPopupPluginView {
     this.popupView = new LinkPopupView(view);
   }
 
-  update() {
-    // Popup updates via store subscription
-  }
+  // No update() — the popup tracks the store, not the plugin view lifecycle.
 
   destroy() {
     this.popupView.destroy();

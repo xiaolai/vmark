@@ -27,6 +27,8 @@ import {
 import { CONTEXT_MENU_DESCRIPTORS } from "@/components/Editor/EditorContextMenu/menuModel";
 import { getToolbarItemState } from "@/plugins/toolbarActions/enableRules";
 import { buildSourceContext, buildWysiwygContext } from "@/plugins/toolbarActions/dispatch";
+import { getWysiwygMultiSelectionContext } from "@/plugins/toolbarActions/multiSelectionContext";
+import { extractTiptapContext } from "@/plugins/formatToolbar/tiptapContext";
 import type { ToolbarContext } from "@/plugins/toolbarActions/types";
 import { getFormatById } from "@/lib/formats/registry";
 import { useTabStore } from "@/stores/tabStore";
@@ -81,18 +83,33 @@ function collectActionStates(context: ToolbarContext): {
 }
 
 /** Snapshot of the WYSIWYG surface, or null when no editor is ready.
- *  `selectionEmpty` reads the live view state (authoritative even inside
- *  the editor's initial cursor-tracking delay, when the stored cursor
- *  context can lag the caret move the trigger just dispatched). */
+ *
+ *  The whole snapshot is derived from the *live* view state, not from the
+ *  cursor context cached in editorStore: inside the editor's initial
+ *  cursor-tracking delay (CURSOR_TRACKING_DELAY_MS, TiptapEditor) selection
+ *  updates do not reach the store, so the cached context can still describe
+ *  the previous caret position — including the one the context-menu trigger
+ *  itself just moved. `extractTiptapContext` is the same pure builder the
+ *  store is fed from, so outside that window this is identical to the cached
+ *  value, and inside it, it is correct rather than stale. */
 export function buildWysiwygSnapshot(): EditorContextMenuSnapshot | null {
-  const toolbarContext = buildWysiwygContext();
-  const ctx = toolbarContext.context;
-  if (!toolbarContext.view || !ctx) return null;
+  const stored = buildWysiwygContext();
+  const view = stored.view;
+  // The store registers view + context together; a null context means the
+  // editor has not registered yet.
+  if (!view || !stored.context) return null;
+
+  const ctx = extractTiptapContext(view.state);
+  const toolbarContext: ToolbarContext = {
+    ...stored,
+    context: ctx,
+    multiSelection: getWysiwygMultiSelectionContext(view, ctx),
+  };
 
   const { active, disabled } = collectActionStates(toolbarContext);
   return {
     surface: "wysiwyg",
-    selectionEmpty: toolbarContext.view.state.selection.empty,
+    selectionEmpty: view.state.selection.empty,
     inCodeBlock: Boolean(ctx.inCodeBlock),
     headingLevel: ctx.inHeading && ctx.inHeading.level > 0 ? ctx.inHeading.level : null,
     listType: ctx.inList?.listType ?? null,
