@@ -126,8 +126,15 @@ MISSING=()
 for wi in "${WIS[@]}"; do
   in_commit=0
   in_test=0
-  echo "$COMMIT_LOG" | grep -F -q "$wi" && in_commit=1
-  echo "$TEST_HEADERS" | grep -F -q "$wi" && in_test=1
+  # Herestrings, NOT `echo ... | grep`. Under `set -o pipefail`, `grep -q` exits the
+  # instant it matches, which closes the pipe and hands `echo` a SIGPIPE (141) — and
+  # pipefail then reports the PIPELINE as failed even though grep found the match. It
+  # only bites once the log is long enough that echo is still writing when grep bails,
+  # so commit-based linkage worked until commit messages grew, then quietly stopped.
+  # It failed closed (reporting a linked WI as unlinked), which is the safe direction,
+  # but a gate that lies in either direction is a gate you stop trusting.
+  grep -F -q -- "$wi" <<<"$COMMIT_LOG" && in_commit=1
+  grep -F -q -- "$wi" <<<"$TEST_HEADERS" && in_test=1
   if (( in_commit + in_test > 0 )); then
     LINKED=$((LINKED+1))
     src="commit"
