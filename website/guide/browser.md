@@ -45,7 +45,25 @@ An AI assistant connected over [MCP](./mcp-tools) can operate the browser tab:
 - **Read** — get a structured accessibility snapshot of the page (each interactive or structural element as a role + accessible name).
 - **Act** — click or type by ARIA **role + accessible name** (for example, click the link named "Learn more"), so the AI targets elements the way a person reading the page would.
 
-Actions are **approval-gated**: an operation the you haven't pre-authorized is not performed — the AI is told approval is required and waits. File uploads are **never** permitted for the AI (an AI-chosen file upload would be a data-exfiltration path); those stay strictly human-driven.
+Actions are **approval-gated**: an operation you haven't authorized is not performed — the AI is told approval is required and waits. File uploads are **never** permitted for the AI (an AI-chosen file upload would be a data-exfiltration path); those stay strictly human-driven.
+
+### Approving an action
+
+When the AI asks to act, VMark raises a prompt and pauses the page. It tells you exactly three things — the **site**, the **action**, and the **element** (its role and its accessible name, e.g. `button "Publish"`):
+
+- **Allow once** — authorizes exactly that one action, on that element, on that page. It is spent immediately and does not become standing permission.
+- **Allow on this site** — the AI may perform *that operation* on *that site* without asking again. It does not widen to other operations or other sites.
+- **Deny** — nothing happens. Pressing `Escape`, or just hitting `Enter`, also denies: the prompt is deliberately biased toward refusing.
+
+The prompt shows you a **description of the action, not a picture of the page** — and that is on purpose. A web page controls its own pixels, so a hostile one could style a "Delete everything" button to look like "Publish". What VMark shows you is the exact thing the security gate enforces, taken from the browser engine rather than from the page's own claims about itself.
+
+Permission also **lapses when the page navigates**. A prompt describes an action on a *specific* page; if the page changes while you're deciding, the request is dropped rather than applied to whatever loaded instead. An unspent "Allow once" is discarded the same way.
+
+### Reviewing and revoking permissions
+
+**Settings → Advanced → Site permissions** lists every site you've granted, and what it may do. **Revoke** takes it back immediately — the next AI action on that site asks again.
+
+Site permissions are held in memory only: they are **never written to disk** and they lapse when VMark quits. Letting an AI keep the ability to click on a site across restarts is a bigger promise than it looks, so VMark doesn't make it silently.
 
 ## Current limitations
 

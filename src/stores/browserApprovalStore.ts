@@ -5,15 +5,27 @@
  * the user's scoped standing grants and the queue of pending approval requests
  * that the MCP browser tools raise before the AI acts. The decision logic itself
  * is the pure `approval/grants.ts` (origin-scoped, upload hard-denied); this
- * store adds persistence-shaped state + the request/resolve lifecycle the
- * approval UI (WI-2.6) and the `vmark.browser` act tools (WI-2.5) drive.
+ * store adds the request/resolve lifecycle that the approval UI and the
+ * `vmark.browser` act tools (WI-2.5) drive.
  *
  * "Remember" resolves to a standing grant scoped to the target's *origin*
  * (any path), so approving one click on a site authorizes that operation there
  * without re-prompting — but never widens the operation set or the origin.
  *
+ * Grants are held in memory only: they are never written to disk and lapse when
+ * VMark quits. Persisting "the AI may click on this site" across restarts is a real
+ * escalation of authority and deserves an explicit decision rather than falling out
+ * of a store that happens to have a `grants` array.
+ *
+ * `dismissForNavigation` is the R7a hinge (WI-S0.8): pending prompts and unspent
+ * one-shots die with the page they described. Standing grants do not — they are
+ * origin-scoped and were chosen deliberately.
+ *
  * @coordinates-with lib/browser/approval/grants.ts — the pure decision logic
  * @coordinates-with lib/browser/origin/originGuard.ts — origin canonicalization
+ * @coordinates-with components/Browser/BrowserApprovalDialog — resolves `pending`
+ * @coordinates-with components/Browser/BrowserGrantsList — lists/revokes `grants`
+ * @coordinates-with services/browser/grantSync — mirrors grants + one-shots into Rust
  * @module stores/browserApprovalStore
  */
 
@@ -143,6 +155,20 @@ interface BrowserApprovalActions {
     target: ActionTarget | undefined,
     tabId: string,
   ) => boolean;
+  /**
+   * The tab navigated: drop its pending prompts and its unspent one-shots (R7a).
+   *
+   * A prompt describes an action on a *specific page*. Once the tab has moved on,
+   * answering it would authorize that action against whatever loaded instead — the
+   * user would be consenting to something they were never shown. The same is true of
+   * an unspent one-shot. The authoritative driver already clears its own one-shots on
+   * navigation-start; this keeps the frontend's advisory copy honest rather than
+   * letting the two layers disagree.
+   *
+   * Standing grants are NOT touched: the user chose those deliberately and they are
+   * scoped to an origin, not to a page instance.
+   */
+  dismissForNavigation: (tabId: string) => void;
 }
 
 /** Bare origin pattern (`scheme://host[:port]`) for a URL, or null if opaque. */
@@ -240,6 +266,13 @@ export const useBrowserApprovalStore = create<BrowserApprovalState & BrowserAppr
         oneShots: state.oneShots.filter((_, i) => i !== index),
       }));
       return true;
+    },
+
+    dismissForNavigation: (tabId) => {
+      set((state) => ({
+        pending: state.pending.filter((p) => p.tabId !== tabId),
+        oneShots: state.oneShots.filter((s) => s.tabId !== tabId),
+      }));
     },
   }),
 );

@@ -127,5 +127,22 @@
   "browser.addressBar": "주소 표시줄",
   "browser.loading": "로드 중…",
   "browser.crashed": "이 페이지가 다운되었습니다.",
-  "browser.reloading": "다시 로드하는 중…"
+  "browser.reloading": "다시 로드하는 중…",
+  "browser.approval.title": "이 AI 작업을 허용하시겠습니까?",
+  "browser.approval.site": "사이트",
+  "browser.approval.action": "작업",
+  "browser.approval.element": "요소",
+  "browser.approval.operation.read": "페이지 읽기",
+  "browser.approval.operation.click": "클릭",
+  "browser.approval.operation.type": "입력",
+  "browser.approval.note": "AI가 요청했습니다. 허용하지 않으면 아무 일도 일어나지 않습니다.",
+  "browser.approval.sessionNote": "사이트 권한은 VMark를 종료할 때까지 유지됩니다.",
+  "browser.approval.deny": "거부",
+  "browser.approval.allowOnce": "한 번만 허용",
+  "browser.approval.allowSite": "이 사이트에서 허용",
+  "browser.grants.heading": "사이트 권한",
+  "browser.grants.empty": "권한이 부여된 사이트가 없습니다.",
+  "browser.grants.revoke": "취소",
+  "browser.grants.description": "AI가 매번 묻지 않고 작업할 수 있는 사이트입니다. VMark를 종료할 때까지만 유지되며 디스크에 저장되지 않습니다.",
+  "browser.grants.revokeLabel": "{{origin}}의 권한 취소"
 }

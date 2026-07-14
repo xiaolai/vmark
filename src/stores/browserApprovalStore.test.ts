@@ -1,13 +1,61 @@
 // WI-2.5 / R5 — browser approval store: standing grants + pending approvals
+// WI-S0.8 — dismissForNavigation: authority and prompts lapse when the page changes
 import { describe, it, expect, beforeEach } from "vitest";
 import { useBrowserApprovalStore } from "./browserApprovalStore";
 
 const URL = "https://blog.example.com/wp-admin/post-new.php";
 
 function reset() {
-  useBrowserApprovalStore.setState({ grants: [], pending: [] });
+  useBrowserApprovalStore.setState({ grants: [], pending: [], oneShots: [] });
 }
 beforeEach(reset);
+
+describe("dismissForNavigation (R7a)", () => {
+  it("drops a pending prompt for the tab that navigated", () => {
+    const s = useBrowserApprovalStore.getState();
+    s.requestApproval("r1", URL, "click", { role: "button", name: "Publish" }, "tab-1");
+    expect(useBrowserApprovalStore.getState().pending).toHaveLength(1);
+
+    // The page navigated away — the prompt described a page that no longer exists.
+    // Answering it would authorize the action against whatever loaded instead.
+    useBrowserApprovalStore.getState().dismissForNavigation("tab-1");
+    expect(useBrowserApprovalStore.getState().pending).toHaveLength(0);
+  });
+
+  it("drops an unspent one-shot for the tab that navigated", () => {
+    const s = useBrowserApprovalStore.getState();
+    s.requestApproval("r1", URL, "click", { role: "button", name: "Publish" }, "tab-1");
+    s.resolveApproval("r1", "once");
+    expect(useBrowserApprovalStore.getState().oneShots).toHaveLength(1);
+
+    useBrowserApprovalStore.getState().dismissForNavigation("tab-1");
+    expect(useBrowserApprovalStore.getState().oneShots).toHaveLength(0);
+    // And it really cannot be spent afterwards.
+    expect(
+      useBrowserApprovalStore
+        .getState()
+        .consumeOneShot(URL, "click", { role: "button", name: "Publish" }, "tab-1"),
+    ).toBe(false);
+  });
+
+  it("leaves other tabs' prompts and one-shots untouched", () => {
+    const s = useBrowserApprovalStore.getState();
+    s.requestApproval("r1", URL, "click", { role: "button", name: "Publish" }, "tab-1");
+    s.requestApproval("r2", URL, "click", { role: "button", name: "Publish" }, "tab-2");
+    s.resolveApproval("r2", "once");
+
+    useBrowserApprovalStore.getState().dismissForNavigation("tab-1");
+    expect(useBrowserApprovalStore.getState().pending).toHaveLength(0); // r1 gone
+    expect(useBrowserApprovalStore.getState().oneShots).toHaveLength(1); // tab-2's survives
+    expect(useBrowserApprovalStore.getState().oneShots[0].tabId).toBe("tab-2");
+  });
+
+  it("does NOT revoke standing grants (the user chose those deliberately)", () => {
+    useBrowserApprovalStore.getState().grant("https://blog.example.com", ["click"]);
+    useBrowserApprovalStore.getState().dismissForNavigation("tab-1");
+    expect(useBrowserApprovalStore.getState().decide(URL, "click")).toBe("allowed");
+  });
+});
 
 describe("decide", () => {
   it("needs approval with no grants", () => {

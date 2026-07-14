@@ -123,5 +123,22 @@
   "browser.addressBar": "Address bar",
   "browser.loading": "Loading…",
   "browser.crashed": "This page crashed.",
-  "browser.reloading": "Reloading…"
+  "browser.reloading": "Reloading…",
+  "browser.approval.title": "Allow this AI action?",
+  "browser.approval.site": "Site",
+  "browser.approval.action": "Action",
+  "browser.approval.element": "Element",
+  "browser.approval.operation.read": "Read the page",
+  "browser.approval.operation.click": "Click",
+  "browser.approval.operation.type": "Type into",
+  "browser.approval.note": "The AI requested this. Nothing happens unless you allow it.",
+  "browser.approval.deny": "Deny",
+  "browser.approval.allowOnce": "Allow once",
+  "browser.approval.allowSite": "Allow on this site",
+  "browser.approval.sessionNote": "Site permissions last until VMark quits.",
+  "browser.grants.heading": "Site permissions",
+  "browser.grants.empty": "No site has been given permission.",
+  "browser.grants.revoke": "Revoke",
+  "browser.grants.description": "Sites the AI may act on without asking each time. These last until VMark quits — they are never written to disk.",
+  "browser.grants.revokeLabel": "Revoke permissions for {{origin}}"
 }

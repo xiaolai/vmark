@@ -1,0 +1,109 @@
+/* BrowserApprovalDialog (WI-S0.8) — the AI-action consent prompt.
+
+   The backdrop is deliberately OPAQUE. The native WKWebView is frozen (hidden) while
+   this is up, which leaves a blank rect behind it — a translucent backdrop would show
+   that blank, and, worse, would invite the reader to take visual context from a page
+   that is no longer being rendered. The dialog is self-contained: everything the user
+   needs in order to decide is the descriptor it prints. */
+
+.browser-approval-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-popup);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-3);
+  background: var(--bg-color);
+}
+
+.browser-approval {
+  width: 100%;
+  max-width: 30em;
+  padding: var(--space-5);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--bg-secondary);
+  box-shadow: var(--popup-shadow);
+}
+
+.browser-approval-title {
+  margin: 0 0 var(--spacing-3);
+  font-size: var(--font-size-lg);
+  color: var(--text-color);
+}
+
+.browser-approval-descriptor {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--spacing-1) var(--spacing-3);
+  margin: 0 0 var(--spacing-3);
+}
+
+.browser-approval-descriptor dt {
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.browser-approval-descriptor dd {
+  margin: 0;
+  color: var(--text-color);
+  word-break: break-word;
+}
+
+/* The origin is the security-relevant string — give it the weight of one. */
+.browser-approval-origin {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+}
+
+.browser-approval-role {
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+}
+
+.browser-approval-name {
+  color: var(--text-color);
+}
+
+.browser-approval-note {
+  margin: 0 0 var(--space-5);
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.browser-approval-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--spacing-2);
+}
+
+.browser-approval-btn {
+  padding: var(--spacing-1) var(--spacing-3);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-color);
+  color: var(--text-color);
+  cursor: pointer;
+}
+
+.browser-approval-btn:hover {
+  background: var(--bg-tertiary);
+}
+
+.browser-approval-btn:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
+/* Deny is the default (it holds focus). It is not styled as the scary option —
+   denying is the safe outcome, and nothing about the UI should nudge toward allow. */
+.browser-approval-btn--deny {
+  border-color: var(--text-secondary);
+}
+
+.browser-approval-btn--remember {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}

@@ -127,5 +127,22 @@
   "browser.addressBar": "Barra degli indirizzi",
   "browser.loading": "Caricamento…",
   "browser.crashed": "Questa pagina è andata in crash.",
-  "browser.reloading": "Ricaricamento…"
+  "browser.reloading": "Ricaricamento…",
+  "browser.approval.title": "Consentire questa azione dell'IA?",
+  "browser.approval.site": "Sito",
+  "browser.approval.action": "Azione",
+  "browser.approval.element": "Elemento",
+  "browser.approval.operation.read": "Leggere la pagina",
+  "browser.approval.operation.click": "Fare clic",
+  "browser.approval.operation.type": "Digitare in",
+  "browser.approval.note": "L'IA lo ha richiesto. Non accadrà nulla senza il tuo consenso.",
+  "browser.approval.sessionNote": "Le autorizzazioni del sito durano fino alla chiusura di VMark.",
+  "browser.approval.deny": "Nega",
+  "browser.approval.allowOnce": "Consenti una volta",
+  "browser.approval.allowSite": "Consenti su questo sito",
+  "browser.grants.heading": "Autorizzazioni dei siti",
+  "browser.grants.empty": "Nessun sito ha autorizzazioni.",
+  "browser.grants.revoke": "Revoca",
+  "browser.grants.description": "Siti su cui l'IA può agire senza chiedere ogni volta. Durano fino alla chiusura di VMark e non vengono mai scritte su disco.",
+  "browser.grants.revokeLabel": "Revoca le autorizzazioni per {{origin}}"
 }

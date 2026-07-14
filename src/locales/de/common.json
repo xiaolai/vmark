@@ -127,5 +127,22 @@
   "browser.addressBar": "Adressleiste",
   "browser.loading": "Wird geladen…",
   "browser.crashed": "Diese Seite ist abgestürzt.",
-  "browser.reloading": "Wird neu geladen…"
+  "browser.reloading": "Wird neu geladen…",
+  "browser.approval.title": "Diese KI-Aktion zulassen?",
+  "browser.approval.site": "Website",
+  "browser.approval.action": "Aktion",
+  "browser.approval.element": "Element",
+  "browser.approval.operation.read": "Seite lesen",
+  "browser.approval.operation.click": "Klicken",
+  "browser.approval.operation.type": "Eingeben in",
+  "browser.approval.note": "Die KI hat dies angefordert. Es geschieht nichts, solange Sie es nicht zulassen.",
+  "browser.approval.sessionNote": "Website-Berechtigungen gelten, bis VMark beendet wird.",
+  "browser.approval.deny": "Ablehnen",
+  "browser.approval.allowOnce": "Einmal zulassen",
+  "browser.approval.allowSite": "Auf dieser Website zulassen",
+  "browser.grants.heading": "Website-Berechtigungen",
+  "browser.grants.empty": "Keiner Website wurde eine Berechtigung erteilt.",
+  "browser.grants.revoke": "Widerrufen",
+  "browser.grants.description": "Websites, auf denen die KI ohne erneute Nachfrage handeln darf. Sie gelten, bis VMark beendet wird, und werden nie auf die Festplatte geschrieben.",
+  "browser.grants.revokeLabel": "Berechtigungen für {{origin}} widerrufen"
 }

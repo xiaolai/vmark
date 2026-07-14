@@ -15,6 +15,13 @@
  * page paints in the native view over the viewport rect — the rect here is a
  * placeholder, empty, except when a full-cover overlay (crash / dialog) is showing.
  *
+ * Freezing goes through `browserOcclusion` (WI-S0.8), never a raw `browser_freeze`:
+ * occluders are reference-counted, so a crash overlay, a page dialog and an approval
+ * prompt can be up at once without one thawing the view out from under another.
+ *
+ * A navigation (or the surface unmounting) also dismisses any approval prompt raised
+ * against this tab — R7a: authority and prompts lapse with the page they described.
+ *
  * The nav chrome (back/forward/reload + address bar) is NOT here anymore — it lives
  * in the bottom `StatusBar` as `BrowserOmnibox` (ADR-4). This surface is viewport +
  * full-cover overlays only.
@@ -36,7 +43,9 @@ import { invoke } from "@tauri-apps/api/core";
 import { useTabStore } from "@/stores/tabStore";
 import { isBrowserTab } from "@/stores/tabStoreTypes";
 import { useBrowserUiStore } from "@/stores/browserUiStore";
+import { useBrowserApprovalStore } from "@/stores/browserApprovalStore";
 import { reloadBrowser } from "@/services/browser/browserNavigation";
+import { browserOcclusion, OCCLUDER } from "@/services/browser/browserOcclusion";
 import {
   useBrowserNavEvents,
   type BrowserDialog,
@@ -79,6 +88,12 @@ export function BrowserSurface({ tabId }: { tabId: string }): React.ReactElement
         .catch(() => {})
         .then(() => void invoke("browser_destroy", { tabId }).catch(() => {}));
       useBrowserUiStore.getState().clearForTab(tabId);
+      // The native view is going away, so drop its occlusion bookkeeping outright —
+      // no thaw, there is nothing left to show. Leaving a stale occluder behind would
+      // freeze the NEXT view created for this tab id.
+      browserOcclusion.removeTab(tabId);
+      // Any prompt raised against this tab describes a page that is being destroyed.
+      useBrowserApprovalStore.getState().dismissForNavigation(tabId);
     };
     // `url` is the initial navigation target only; navigation is explicit after.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -113,6 +128,11 @@ export function BrowserSurface({ tabId }: { tabId: string }): React.ReactElement
       const ui = useBrowserUiStore.getState();
       ui.setUrlInput(tabId, next);
       ui.setLoading(tabId, true);
+      // R7a: authority and prompts lapse with the page. A pending approval describes
+      // an action on the page we just left — answering it would authorize that action
+      // against whatever loaded instead. The driver clears its own one-shots on
+      // navigation-start; this keeps the frontend's copy in step.
+      useBrowserApprovalStore.getState().dismissForNavigation(tabId);
       // Record the generation with the URL: driver operations are stamped with it,
       // so one authorized against the previous page is refused by the Rust gate.
       useTabStore.getState().updateBrowserTab(tabId, { url: next, generation });
@@ -121,12 +141,12 @@ export function BrowserSurface({ tabId }: { tabId: string }): React.ReactElement
       const ui = useBrowserUiStore.getState();
       ui.setUrlInput(tabId, next);
       ui.setLoading(tabId, false);
-      // A clean load means the process recovered — reveal the native view again.
-      // The thaw is fired here, not inside the `setCrash` updater: React may
-      // re-invoke an updater (StrictMode), which would thaw twice.
+      // A clean load means the process recovered — release the crash occluder. The
+      // release is fired here, not inside the `setCrash` updater: React may re-invoke
+      // an updater (StrictMode), which would release twice.
       if (crash) {
         setCrash(null);
-        void invoke("browser_thaw", { tabId }).catch(() => {});
+        browserOcclusion.removeOccluder(tabId, OCCLUDER.crash);
       }
       useTabStore.getState().updateBrowserTab(tabId, { url: next });
     },
@@ -136,25 +156,28 @@ export function BrowserSurface({ tabId }: { tabId: string }): React.ReactElement
       useBrowserUiStore.getState().setHistory(tabId, canGoBack, canGoForward),
     onFailed: () => useBrowserUiStore.getState().setLoading(tabId, false),
     onCrashed: (action) => {
-      // The native view still occludes the DOM after a crash; freeze (hide) it so
-      // the recovery overlay is visible in its place (WI-1.4 occlusion / WI-1.8).
+      // The native view still paints over the DOM after a crash; freeze it so the
+      // recovery overlay is visible in its place (WI-1.4 occlusion / WI-1.8). Via the
+      // reference-counted controller, so a page dialog or approval prompt already
+      // freezing this tab is not disturbed — and neither can thaw the view out from
+      // under the other (WI-S0.8).
       setCrash({ action });
-      void invoke("browser_freeze", { tabId }).catch(() => {});
+      browserOcclusion.addOccluder(tabId, OCCLUDER.crash);
     },
     onDialog: (d) => {
       // Same occlusion story: freeze the native view so the DOM dialog shows.
       setDialog(d);
-      void invoke("browser_freeze", { tabId }).catch(() => {});
+      browserOcclusion.addOccluder(tabId, OCCLUDER.dialog);
     },
   });
 
-  // Answer (or dismiss) the open page dialog, then reveal the page again. Only a
+  // Answer (or dismiss) the open page dialog, then release its occluder. Only a
   // `confirm` can be answered — the type carries the completion-handler id, so
   // there is no unanswerable-confirm case to guard against here.
   const closeDialog = (accepted: boolean) => {
     const current = dialog;
     setDialog(null);
-    void invoke("browser_thaw", { tabId }).catch(() => {});
+    browserOcclusion.removeOccluder(tabId, OCCLUDER.dialog);
     if (current?.kind === "confirm") {
       void invoke("browser_dialog_respond", { id: current.id, accepted }).catch(() => {});
     }
@@ -197,7 +220,7 @@ export function BrowserSurface({ tabId }: { tabId: string }): React.ReactElement
                 className="browser-crash-reload"
                 onClick={() => {
                   setCrash(null);
-                  void invoke("browser_thaw", { tabId }).catch(() => {});
+                  browserOcclusion.removeOccluder(tabId, OCCLUDER.crash);
                   reloadBrowser(tabId);
                 }}
               >

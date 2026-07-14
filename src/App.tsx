@@ -15,6 +15,7 @@ import { AppShell, EditorArea } from "@/shell";
 import { GeniePicker } from "@/components/GeniePicker/GeniePicker";
 import { EditorContextMenu } from "@/components/Editor/EditorContextMenu/EditorContextMenu";
 import { ApprovalDialog } from "@/components/WorkflowApproval/ApprovalDialog";
+import { BrowserApprovalDialog } from "@/components/Browser/BrowserApprovalDialog";
 import { QuickOpen } from "@/components/QuickOpen/QuickOpen";
 import { ContentSearch } from "@/components/ContentSearch/ContentSearch";
 import { QuickLookOverlay } from "@/components/QuickLook/QuickLookOverlay";
@@ -231,6 +232,10 @@ function MainLayout() {
           <GeniePicker />
           <EditorContextMenu />
           <ApprovalDialog />
+          {/* The AI-action consent prompt (WI-S0.8). It freezes the browser tab it
+              belongs to, so the page cannot paint over the dialog asking whether it
+              may be acted upon. */}
+          <BrowserApprovalDialog />
           <CommandPalette />
         </>
       }
