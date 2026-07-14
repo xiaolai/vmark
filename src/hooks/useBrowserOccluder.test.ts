@@ -1,4 +1,6 @@
-// WI-SOC.1 — useBrowserOccluder: freeze every mounted browser tab while an overlay is up.
+// WI-SOC.1 / WI-SOC.1c — useBrowserOccluder: freeze every mounted browser tab while an
+// overlay is up. Every MOUNTED tab, not just the focused one: in split view a browser
+// can sit in an unfocused pane and still paint over whatever is drawn on top of it.
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { renderHook } from "@testing-library/react";
 

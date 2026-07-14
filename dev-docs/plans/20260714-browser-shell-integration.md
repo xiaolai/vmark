@@ -77,7 +77,8 @@ rule keys off the **focused** tab's kind. In split view a browser can be mounted
 *unfocused* pane while a document pane has focus — so `UniversalToolbar`, `FindBar`,
 `WordCountPopover` and the status-bar popovers render *over a still-mounted browser
 rect*. **The correct rule is per-mounted-browser-rectangle, not per-focused-tab.**
-This is a defect in the shipped WI-S1.3 and is owned by WI-SOC.4.
+This is a defect in the shipped WI-S1.3, and it is what WI-SOC.1c fixes: occlusion keys
+off every MOUNTED browser rect, never off the focused tab's kind.
 
 **Two further findings surfaced while building this inventory (both belong to the
 `20260712` plan's landed work, recorded here because Phase OC must not paper over them):**
@@ -352,38 +353,42 @@ Focus return after navigation/dialogs, and IME preservation, are part of this co
 >
 > Phase OC therefore collapses from "build a snapshot pipeline" to **"register every
 > overlay as an occluder"** — mechanical work on a spine that now exists
-> (`browserOcclusion`, reference-counted, serialized). The snapshot spike (WI-SOC.2)
-> becomes **optional**, pursued only if a real case appears where the user must see the
-> live page *and* a partial overlay at once. **No phase is blocked on it.**
+> (`browserOcclusion`, reference-counted, serialized). The snapshot spike is **dropped**,
+> and would only return if a real case appeared where the user must see the live page
+> *and* a partial overlay at once. **No phase is blocked on it.**
 
-- **WI-SOC.1** — **Occluder inventory** (the table above), one acceptance row per
-  reachable overlay, each resolved as: *relocate out of the rect* / *full-cover with
-  hide-only freeze* / *snapshot-freeze* / *disable while a browser is visible*.
-- **WI-SOC.1b (NEW — the actual unlock)** — **Opaque frozen placeholder.** Render an
-  opaque surface into `BrowserSurface`'s viewport whenever `browserOcclusion` reports the
-  tab frozen, so a hidden native view never leaves a blank hole. This makes hide-only
-  freeze correct for **every** overlay class, translucent backdrops included — which is
-  what Codex (v3 D1#3) correctly identified as broken today. Requires a reactive frozen
-  flag (the controller pushes `isFrozen` into `browserUiStore`).
-- **WI-SOC.1c** — Register the remaining inventory overlays as occluders via
-  `browserOcclusion.addOccluder`/`removeOccluder`. Mechanical, now that the spine exists.
-- **WI-SOC.2 (OPTIONAL — no longer gating)** — **SPIKE**: prove the full snapshot
-  choreography end-to-end —
-  `takeSnapshotWithConfiguration:` → concrete wire format (PNG?) → IPC transfer → DOM
-  `img.decode()` + paint barrier → hide native view → show occluder → object-URL
-  cleanup. **Benchmark the whole thing**, not just the WebKit capture (the existing
-  SPIKE-5's 14 ms measured capture only; encode/transfer/decode can dominate at 2× on a
-  4K window). Test during load/animation and under rapid open/close.
-- **WI-SOC.3** — **Production** snapshot-freeze API (v2's fatal omission: it spiked but
-  never implemented). Bind snapshots to `tab + generation + bounds`; invalidate on
-  navigation/resize; serialize operations; **reference-count** occluders; define the
-  capture-failure fallback.
-- **WI-SOC.4** — Wire every inventory row to its resolution; a failing/absent snapshot
-  path must **mechanically** disable the partial overlays, not merely warn in prose.
-- **DoD:** every row of the inventory has a passing acceptance check; a live E2E opens
-  the command palette over a browser tab at several window sizes and the page does not
-  paint over it. **If WI-SOC.2 FAILS, the fallback (disable/relocate) ships instead —
-  the gate closes either way, never by prose.**
+- **WI-SOC.1 ✅ DONE** — **Overlay registry + automated assertion.** Every app-level
+  overlay declares `freeze` or `no-overlap` (with a reason) in
+  `services/browser/overlayPolicies.ts`. A hand-written table cannot be the gate: the
+  plan's first inventory WAS one, and the review found a missing entry (`ContentSearch`)
+  on its first read. So one test reads `App.tsx` and fails if a rendered overlay has no
+  policy; a second fails if an overlay declares `freeze` and never calls the hook —
+  declaring is not honouring. *(The first cut of that gate had the disease it was built
+  to cure: its regex matched only self-closing `<X />` and silently skipped
+  `<QuickOpen windowLabel={…} />` and `<ContentSearch windowLabel={…} />`. Fixed.)*
+- **WI-SOC.1b ✅ DONE** — **Opaque frozen placeholder.** `BrowserSurface` paints an
+  opaque surface wherever the native view has been hidden, so a vacated rect is never a
+  blank hole. **This is the unlock**: it makes hide-only freeze correct for *every*
+  overlay class, translucent backdrops included — which is precisely what Codex (v3
+  D1#3) identified as broken.
+- **WI-SOC.1c ✅ DONE** — **Every overlay wired.** Command palette, quick open, content
+  search, genie picker, quick look, knowledge base, window status, file drop, workflow
+  approval, tab context menu, word-count popover. The last two open *upward* out of the
+  bottom bar and into the rect. `useBrowserOccluder` freezes every **mounted** browser
+  tab, not just the focused one — in split view a browser can sit in an unfocused pane
+  and its native view still paints over what is drawn on it (Codex v3, D2#2).
+- **The snapshot pipeline — DROPPED (ADR-10).** Two work items used to live here: the
+  snapshot choreography (capture → encode → IPC → DOM decode → paint) and the production
+  API on top of it. Their IDs are retired rather than left dangling — a dead work item
+  that a gate still demands linkage for is just noise. **A snapshot is
+  a fidelity improvement, not a correctness requirement.** The blank rect that appeared to
+  demand one is blank only because nothing was drawn there; WI-SOC.1b draws something. What
+  is lost is the *picture of the page behind the overlay*, and for every overlay in the
+  registry the user is deliberately doing something other than reading the page. For the
+  approval prompt, showing the page is actively *undesirable* (ADR-9). This re-enters as a
+  fresh work item only if a real case appears where the user must see the live page **and**
+  a partial overlay at once. **Nothing is blocked on it.**
+- **DoD:** ✅ `bash scripts/check-browser-shell-phase.sh OC`.
 
 ### Phase 1 — Nav chrome → bottom bar (omnibox) — ✅ **IMPLEMENTED (not committed)**
 
@@ -463,7 +468,9 @@ malformed URL, destroyed tab, and rapid repeated submits.
 - **Phase gates (§3):** `scripts/check-browser-shell-phase.sh` — to be created (WI-S0.6).
 - **Cross-model review (§6):** v1 → MAJOR GAPS; v2 → MAJOR GAPS (thread
   `019f5ea6-4da6-7cb3-8ad6-fa64d1a181de`). **v3 must be re-reviewed before Phase 2.**
-- **Spike before commit (§7):** WI-SOC.2 gates all partial-overlap UI.
+- **Spike before commit (§7):** no spike is outstanding. The one this plan used to carry
+  (the occlusion snapshot) was retired by ADR-10 — the assumption it existed to test
+  turned out to be the thing that needed testing, and it did not survive.
 
 ## Risks / open questions
 

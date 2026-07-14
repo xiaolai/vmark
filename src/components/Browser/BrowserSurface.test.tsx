@@ -2,6 +2,9 @@
 // WI-S1.2 — writes nav state (urlInput/loading/history) into browserUiStore
 // WI-S1.4 — the top nav chrome is GONE (moved to the bottom bar); the surface is
 //           now viewport + full-cover overlays (crash / dialog) only
+// WI-S0.3b — bounds are re-reported when the layout MOVES the rect, not only on resize
+// WI-S0.9 — a failed create/load is shown, with its cause and a retry, not swallowed
+// WI-S0.10 — a stale deferred destroy cannot tear down a newer mount's webview
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen, waitFor, cleanup, act, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";

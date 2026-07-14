@@ -1,3 +1,5 @@
+// WI-S0.7 — the palette dispatches with the INVOKING window's label; without it a
+//           window-scoped command (browser.newTab) always acted on "main".
 /**
  * CommandPalette tests — a11y (WI-4.7, A3) + behavior.
  *

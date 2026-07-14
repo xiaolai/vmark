@@ -1,4 +1,4 @@
-//! WI-S0.3 — DOM→AppKit coordinate conversion for the native browser view.
+//! WI-S0.3a — DOM→AppKit coordinate conversion for the native browser view.
 //!
 //! Found by the Codex cross-model review (v3, D3#3). The bug it caught is subtle:
 //! `set_bounds` passed `getBoundingClientRect()` values straight into

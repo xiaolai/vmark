@@ -1,3 +1,5 @@
+//! WI-S0.2 — window routing. Every browser event used to be broadcast to every window;
+//! routing needs one fact, and this is where it lives: which window owns this tab.
 //! Unit tests for the browser lifecycle + identity registry (WI-1.2).
 
 use super::*;
@@ -376,4 +378,27 @@ fn an_executable_transition_preserves_the_committed_url() {
     // until the new one is recorded.
     reg.transition("t1", Lifecycle::Navigating).unwrap();
     assert_eq!(reg.committed_url("t1"), Some("https://a.com"));
+}
+
+// WI-S0.2 — window-routed events. The delegate used to `app.emit`, broadcasting every
+// browser event to every window. Routing needs one fact: which window owns this tab.
+// It is recorded at create time from the invoking WebviewWindow, never from a caller's
+// claim, and this is the lookup the emitter depends on.
+#[test]
+fn window_of_names_the_window_that_owns_the_tab() {
+    let mut reg = BrowserRegistry::default();
+    reg.create("t1", "main").expect("create");
+    reg.create("t2", "doc-2").expect("create");
+
+    assert_eq!(reg.window_of("t1"), Some("main"));
+    assert_eq!(reg.window_of("t2"), Some("doc-2"));
+}
+
+#[test]
+fn window_of_is_none_for_an_unknown_tab_so_an_event_is_dropped_not_broadcast() {
+    // The emitter drops an event whose owner it cannot resolve. That is deliberate: an
+    // event with no known window has no window it is entitled to reach, and sending it
+    // to all of them is how a routing failure becomes a leak.
+    let reg = BrowserRegistry::default();
+    assert_eq!(reg.window_of("ghost"), None);
 }
