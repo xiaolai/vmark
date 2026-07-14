@@ -70,6 +70,10 @@ The prompt shows you a **description of the action, not a picture of the page** 
 
 Permission also **lapses when the page navigates**. A prompt describes an action on a *specific* page; if the page changes while you're deciding, the request is dropped rather than applied to whatever loaded instead. An unspent "Allow once" is discarded the same way.
 
+This includes navigation *within* a page. Most modern sites move between views without ever loading a new page — the address changes, the content is rewritten, but the site never leaves. That matters here, because the site and the origin stay the same while the `button "Publish"` you approved may no longer be the button under that name. So VMark treats an in-page navigation exactly like any other: authorization lapses with the **view** it was granted against, not merely with the page.
+
+What carries the weight, though, is the descriptor itself. A site can rewrite its own content at any moment without navigating at all, and no browser engine reports that. So what an "Allow once" authorizes is precisely one operation, on one element identified by its role and accessible name, on one site — and it is spent immediately. "Allow on this site" is the one to think twice about: it is a standing permission for that operation on that site, and a site you grant it to is a site you are trusting with it.
+
 ### Reviewing and revoking permissions
 
 **Settings → Advanced → Site permissions** lists every site you've granted, and what it may do. **Revoke** takes it back immediately — the next AI action on that site asks again.

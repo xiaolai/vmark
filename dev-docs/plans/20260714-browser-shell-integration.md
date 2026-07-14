@@ -289,6 +289,27 @@ Focus return after navigation/dialogs, and IME preservation, are part of this co
   create may land before the first destroy removes the only native view. Give each
   mount an instance token, or serialize create/destroy per tab. Test StrictMode and
   rapid A→B→A switching. (Codex v3, D2#5.)
+- **WI-S0.11 (NEW) ✅ DONE** — **R7a same-document expiry actually fires.** The audit's
+  own remediation for same-document navigation wired `expire_authority` to a callback
+  named `webView:didSameDocumentNavigation:`. **That selector does not exist.** The public
+  `WKNavigationDelegate` protocol has no same-document method at all (WebKit's is the
+  private three-part `_webView:navigation:didSameDocumentNavigation:`, which is SPI), and
+  `define_class!` registers whatever method name it is handed — so it compiled, passed
+  clippy, and the runtime never called it once. The R7a hole it claimed to close stayed
+  open: an SPA could `pushState` and rewrite its whole DOM under a live one-shot, and
+  "click Publish", approved against one view, could be spent against another.
+  Replaced with **KVO on `WKWebView.URL`** (documented KVO-compliant, public), in
+  `browser/nav_kvo_macos.rs`. A `loading` flag distinguishes the URL change a full load
+  makes at commit — `did_commit` owns that path — from a same-document one, and a
+  committed-URL comparison makes the two paths idempotent in either interleaving.
+  Teardown unobserves on **both** paths (`destroy` and the create/destroy-race
+  `evict_existing`), because KVO raises if an observee outlives its observer; `create` was
+  reordered to evict before registering the new delegate for the same reason.
+  **The structural fix is `nav_selectors.test.rs`**: it parses the delegate's own source
+  and asks the ObjC runtime whether each declared selector is really in the protocol it
+  claims to implement. Verified to fail on the original bug. Nothing else in the build
+  could have caught it — this class of error is invisible to rustc, clippy, and any
+  screenshot. (Audit verification round 2, finding 11.)
 - **WI-S0.2** — Window-route **every** browser event (ADR-6). Rust-side `emit_to` the
   owning window; payload carries `windowLabel`; frontend filters. TDD: payload shape +
   a two-window test proving no cross-wiring.
@@ -476,6 +497,33 @@ malformed URL, destroyed tab, and rapid repeated submits.
   (the occlusion snapshot) was retired by ADR-10 — the assumption it existed to test
   turned out to be the thing that needed testing, and it did not survive.
 
+### Post-implementation audit (9-dimension, 58 files)
+
+Two rounds. Round 1 fixed 11 findings; independent verification returned **8 FIXED,
+1 PARTIAL, 2 NOT FIXED** — so round 2 closed the remaining three:
+
+| # | Finding | Resolution |
+|---|---|---|
+| 11 | R7a same-document expiry wired to `webView:didSameDocumentNavigation:` — **not a real selector** | KVO on `WKWebView.URL` (`nav_kvo_macos.rs`), plus `nav_selectors.test.rs`, which asks the ObjC runtime whether every declared selector really is in the protocol it claims. Verified to fail on the original bug. **Residual — see Risks: "the gap navigation-expiry cannot close".** |
+| 11b | The KVO fix itself introduced a teardown race: `create` registered the observer and `DELEGATES` but filled `WEBVIEWS` only *after* `drive_load` — which pumps the run loop, so a reentrant `destroy` dropped the delegate without unobserving, leaving a dangling KVO observer | Both maps are now registered atomically, before anything can pump. `detach` logs an error if the invariant is ever broken again. (Found by round-2 verification.) |
+| 4 | Occluder froze a tab before its native view existed; the failure was never retried | `OcclusionController.resync`, called once `browser_create` resolves. |
+| 4b | `resync` alone was still lost if the doomed freeze was **in flight** when it arrived — `pump`'s "a loop is already running" early return swallowed it, and the failing op then abandoned the loop | A `stale` mark, set by `resync` and consumed by `pump`, retries exactly once per resync. (Found by round-2 verification.) |
+| 5 | Error occluder keyed on the error *string* — one failure replacing another thawed then refroze | Keyed on `hasError`. |
+
+Two lessons worth keeping.
+
+**A security control can compile, pass clippy, pass every test, and do nothing.**
+`define_class!` registers whatever selector name it is handed. No part of the Rust
+toolchain can see that WebKit will never call it, and no screenshot could — the native
+layer is not in the capture. Only the ObjC runtime knows. Where a control's correctness
+lives in *another system's* contract, assert against **that** system, not against our own
+source. That is what `nav_selectors.test.rs` now does.
+
+**Both round-1 fixes were right in mechanism and wrong at the boundary** — the KVO
+observer was correct but its registration raced teardown; `resync` was the correct trigger
+but was dropped when it arrived mid-flight. Each survived a full green gate. Adversarial
+re-reading, not the test suite, is what caught them.
+
 ## Risks / open questions
 
 - **Occlusion of existing overlays** is the dominant risk and the halt gate (Phase OC).
@@ -483,5 +531,22 @@ malformed URL, destroyed tab, and rapid repeated submits.
   browsing — verified live, not theoretical.
 - **History persistence scope** is a privacy decision (a browsing history on disk is
   sensitive). Phase 2 starts session-only; persisting it is a separate, opt-in decision.
+- **The gap navigation-expiry cannot close (follow-up, not scheduled).** WI-S0.11 makes
+  same-document *navigations* expire authority. Chasing that fix to the bottom showed the
+  control is the wrong shape. A URL change is only a **proxy** for "the page you approved
+  against is gone", and the proxy has holes no callback can plug:
+  `history.pushState({}, "", location.href)` rewrites the view without changing the URL,
+  and a plain `innerHTML =` rewrites it without touching history at all. Neither fires
+  *any* navigation signal — not the public delegate, not WebKit's private same-document
+  SPI, not KVO. A site can therefore still swap the DOM under a live one-shot, and the
+  `button "Publish"` the user approved can become a different button of the same name.
+  What actually binds the authorization is the **descriptor** (origin + operation + role +
+  accessible name) — navigation expiry narrows the window but was never carrying the
+  weight. Closing the class means binding to the *element*, not the page: at approval time
+  tag the matched element from the **isolated** content world with a nonce; at act time
+  refuse unless exactly one element still carries it. A DOM rewrite destroys the tag, so
+  the one-shot fails closed without having to observe anything. (The isolated world
+  matters: the page must not be able to read or forge the nonce — R3 forbids giving it a
+  bridge.) A design change, not a fix — deliberately not attempted in the audit.
 - **Windows/Linux:** the native surface is macOS-only; this plan's UI is cross-platform
   but the pane only renders on macOS until the cross-platform backends land.
