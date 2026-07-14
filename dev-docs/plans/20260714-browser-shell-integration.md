@@ -11,10 +11,9 @@
 >   genuinely closed (bottom-lane precedence, ADR-5 lifecycle, terminal semantics,
 >   the WI-linkage false green) and caught a **Critical latent coordinate bug** plus a
 >   Critical incompleteness in the occluder inventory. Both are reflected below.
-> Status: **Phase 0 is OPEN** — only WI-S0.1 (trigger), WI-S0.3a (coordinate
->   conversion) and WI-S0.6 (linkage checker) are done. **Phase 1 (bottom-bar chrome)
->   is IMPLEMENTED and green.** Nothing is committed. Everything from Phase 2 on is
->   **HALTED** behind Phase 0 → Phase OC, in that order.
+> Status: **ALL PHASES COMPLETE.** Phase 0, Phase OC, Phase 1, Phase 2, Phase 3 and
+>   Phase 4 each pass `bash scripts/check-browser-shell-phase.sh <phase>`, and every WI
+>   is linked to a commit or a test header. The plan is now a record rather than a queue.
 > Depends on the embedded browser surface/driver from
 >   `20260712-0610-embedded-browser-sites-workflows.md` (WI-1.x/2.1 on
 >   `feature/embedded-browser`). WI-IDs here use the `WI-S*` namespace to avoid

@@ -16,17 +16,28 @@ The browser is off by default. To turn it on:
 
 Once enabled, **New Browser Tab** appears in the command palette (open it with your command-palette shortcut and type "browser").
 
+Once enabled, **New Browser Tab** appears in the **File** menu (`Alt + Mod + Shift + B`) and in the command palette.
+
 ## Using it
 
-Running **New Browser Tab** opens a browser tab with a start page. The tab has a compact chrome bar:
+A browser tab opens in the editor area, alongside your documents — the sidebar, tab strip, terminal, and status bar all stay where they are. Its controls live in the **bottom bar**, in the same place VMark keeps the editor's own tools:
 
 | Control | Action |
 |---------|--------|
-| ‹ / › | Back / forward through the tab's history |
-| ⟳ | Reload the current page |
-| Address bar | Type a URL (or a term) and press Enter to navigate |
+| ‹ / › | Back / forward. Greyed out when there is nowhere to go |
+| ⟳ / ✕ | Reload, or stop a load in progress |
+| Address bar | An **omnibox**: type a URL to go there, or anything else to search |
+| ☆ / ★ | Bookmark this page |
 
 The address bar tracks the page automatically: if a site redirects, or a link takes you elsewhere, the bar updates to show where you actually are.
+
+## The sidebar follows the tab
+
+When a browser tab is active, the sidebar shows **browsing history** and **bookmarks**. When you switch back to a document, it shows the file explorer, outline, and file history again — automatically. There is no second mode to keep in sync, and each side remembers what you last had open, so a glance at a browser tab does not cost you the file tree you were using.
+
+**History** is per-window and lives only for the session: it is never written to disk. (There is still a **Clear** button — "it goes away when you quit" is not the same as "you can get rid of it now.") A reload does not add a duplicate entry, and a site that redirects you records the page you *meant* to visit rather than every hop along the way.
+
+**Bookmarks** do persist. They are stored under the exact URL you bookmarked — same page, different section (`#install` vs `#usage`) are two bookmarks, and VMark will not quietly "tidy" a URL's query parameters, because a rewritten URL may not take you back to what you saw.
 
 ### If a page crashes
 
@@ -64,6 +75,14 @@ Permission also **lapses when the page navigates**. A prompt describes an action
 **Settings → Advanced → Site permissions** lists every site you've granted, and what it may do. **Revoke** takes it back immediately — the next AI action on that site asks again.
 
 Site permissions are held in memory only: they are **never written to disk** and they lapse when VMark quits. Letting an AI keep the ability to click on a site across restarts is a bigger promise than it looks, so VMark doesn't make it silently.
+
+## Co-driving: watch an AI drive the browser from the terminal
+
+The browser is a pane, not a mode. That makes a particular workflow possible: open a **terminal** (`Ctrl + \``) beside a browser tab, run an AI agent in it, and watch the page respond as it works.
+
+The terminal and the browser sit **side by side** — the browser resizes to make room rather than being covered. So you see the page the whole time the agent is operating on it, and every action it takes still has to come past you (see *Approving an action* above).
+
+This is the intended shape of AI browser use in VMark: the agent proposes, the page is visible, and you approve. It is not the agent working in a window you cannot see.
 
 ## When a page fails to load
 

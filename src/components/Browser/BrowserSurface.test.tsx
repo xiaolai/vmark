@@ -5,6 +5,9 @@
 // WI-S0.3b — bounds are re-reported when the layout MOVES the rect, not only on resize
 // WI-S0.9 — a failed create/load is shown, with its cause and a retry, not swallowed
 // WI-S0.10 — a stale deferred destroy cannot tear down a newer mount's webview
+// WI-S4.1 — the terminal is a flex SIBLING that resizes the browser rect, NOT an
+//           occluder. Freezing on terminal-open would blank the very page you opened
+//           the terminal to watch an AI drive.
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen, waitFor, cleanup, act, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -69,6 +72,9 @@ beforeEach(() => {
   eventListeners.clear();
   useBrowserUiStore.setState({ entries: {} });
   useBrowserHistoryStore.setState({ byWindow: {} });
+  // Layout state is global: a previous test that opened the terminal would otherwise make
+  // the next one's "open the terminal" a no-op, and its bounds re-report never fire.
+  useUIStore.setState({ terminalVisible: false, sidebarVisible: false });
   cleanup();
 });
 
@@ -135,6 +141,34 @@ describe("BrowserSurface", () => {
         expect.objectContaining({ tabId: id }),
       ),
     );
+  });
+
+  // WI-S4.1 — the terminal is a flex SIBLING that changes the browser rect, not an
+  // overlay that covers it. The v2 plan called it a full-cover occluder and would have
+  // frozen the page every time you opened a terminal — which is exactly the co-driving
+  // case: watch an AI drive the browser FROM the terminal. Freezing there would blank the
+  // thing you opened the terminal to watch.
+  it("opening the terminal resizes the browser rather than freezing it", async () => {
+    const id = seedBrowserTab("https://example.com/");
+    render(<BrowserSurface tabId={id} />);
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("browser_create", expect.anything()));
+    invoke.mockClear();
+
+    await act(async () => {
+      useUIStore.setState({ terminalVisible: true });
+      await Promise.resolve();
+    });
+
+    // The rect moves...
+    await waitFor(() =>
+      expect(invoke).toHaveBeenCalledWith(
+        "browser_set_bounds",
+        expect.objectContaining({ tabId: id }),
+      ),
+    );
+    // ...and the page keeps painting. It is not hidden behind the terminal; it is beside it.
+    expect(invoke).not.toHaveBeenCalledWith("browser_freeze", { tabId: id });
+    expect(useBrowserUiStore.getState().entries[id]?.frozen).toBe(false);
   });
 
   it("destroys the native webview on unmount", async () => {

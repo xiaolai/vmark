@@ -37,7 +37,9 @@ fail() { echo "  ✗ $1"; FAILED=1; }
 has() {
   local file="$1" pattern="$2" what="$3"
   if [[ ! -f "$file" ]]; then fail "$what — $file does not exist"; return; fi
-  if grep -qE "$pattern" "$file"; then pass "$what"; else fail "$what — not found in $file"; fi
+  # Case-insensitive: a gate that fails because a heading is capitalised is noise,
+  # and noise is how a gate gets ignored.
+  if grep -qiE "$pattern" "$file"; then pass "$what"; else fail "$what — not found in $file"; fi
 }
 
 # Every WI in the phase is traceable to a commit or a test header.
