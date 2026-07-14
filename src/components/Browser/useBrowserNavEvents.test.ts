@@ -128,11 +128,17 @@ describe("useBrowserNavEvents", () => {
     expect(onLoaded).not.toHaveBeenCalled();
   });
 
-  it("calls onLoaded with url and title", async () => {
+  it("calls onLoaded with url, title and the committed generation", async () => {
     const onLoaded = vi.fn();
     await mount("t1", { onLoaded });
-    emit("browser://loaded", { tabId: "t1", url: "https://iana.org/", title: "Example Domains" });
-    expect(onLoaded).toHaveBeenCalledWith("https://iana.org/", "Example Domains");
+    emit("browser://loaded", {
+      tabId: "t1",
+      url: "https://iana.org/",
+      title: "Example Domains",
+      generation: 3,
+    });
+    // Generation is forwarded so the store can drop a stale (out-of-order) loaded event.
+    expect(onLoaded).toHaveBeenCalledWith("https://iana.org/", "Example Domains", 3);
   });
 
   it("calls onFailed with the message", async () => {
@@ -222,8 +228,8 @@ describe("subscription failures", () => {
     );
 
     // The other four still work — one failed registration is not a dead surface.
-    emit("browser://loaded", { tabId: "t1", url: "https://x/", title: "X" });
-    expect(onLoaded).toHaveBeenCalledWith("https://x/", "X");
+    emit("browser://loaded", { tabId: "t1", url: "https://x/", title: "X", generation: 1 });
+    expect(onLoaded).toHaveBeenCalledWith("https://x/", "X", 1);
 
     unmount();
     await Promise.resolve();

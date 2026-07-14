@@ -128,6 +128,31 @@ impl NavDelegate {
         generation
     }
 
+    /// A load finished cleanly: reset the tab's crash budget, the mirror of `record_crash`.
+    pub(super) fn record_load_success(&self) {
+        let ivars = self.ivars();
+        if let Some(state) = ivars.app.try_state::<BrowserSurface>() {
+            if let Ok(mut trackers) = state.crash_trackers.lock() {
+                trackers
+                    .entry(ivars.tab_id.clone())
+                    .or_default()
+                    .on_load_success();
+            }
+        }
+    }
+
+    /// The tab's current committed generation, or 0 if the registry is unavailable. Read at
+    /// `did_finish` so a late `loaded` event carries the generation of the page that
+    /// finished — the store then drops it if a newer navigation has since bumped past it.
+    pub(super) fn committed_generation(&self) -> u64 {
+        let ivars = self.ivars();
+        ivars
+            .app
+            .try_state::<BrowserSurface>()
+            .and_then(|state| state.registry.lock().ok().and_then(|reg| reg.generation(&ivars.tab_id)))
+            .unwrap_or(0)
+    }
+
     /// Build a delegate bound to `tab_id`, emitting on `app`.
     pub fn new(mtm: MainThreadMarker, tab_id: String, app: AppHandle) -> Retained<Self> {
         let this = Self::alloc(mtm).set_ivars(NavDelegateIvars {

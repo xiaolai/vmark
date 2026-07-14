@@ -148,22 +148,17 @@ define_class!(
             let url = current_url(web_view);
             let title = current_title(web_view);
             self.set_state(Lifecycle::Live);
-            if let Some(state) = ivars.app.try_state::<BrowserSurface>() {
-                if let Ok(mut trackers) = state.crash_trackers.lock() {
-                    trackers
-                        .entry(ivars.tab_id.clone())
-                        .or_default()
-                        .on_load_success();
-                }
-            }
+            self.record_load_success();
             log::debug!("[browser] loaded {} ({title})", ivars.tab_id);
             let (can_go_back, can_go_forward) = history_state(web_view);
+            let generation = self.committed_generation();
             let _ = self.emit_owned(
                 "browser://loaded",
                 LoadedPayload {
                     tab_id: ivars.tab_id.clone(),
                     url,
                     title,
+                    generation,
                     can_go_back,
                     can_go_forward,
                 },

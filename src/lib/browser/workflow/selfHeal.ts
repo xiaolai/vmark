@@ -2,6 +2,12 @@
  * Workflow self-healing — propose a locator fix when a step's target moves
  * (WI-4.4 / R8a).
  *
+ * ⚠️ **NOT WIRED — no production caller.** A repair re-targets an action to a DIFFERENT
+ * same-role element than the one the user approved — exactly the escalation the one-shot
+ * target binding defends against. A healed target MUST pass a fresh approval gate before
+ * this is wired; today it returns an ordinary proposal with no such requirement. (Branch
+ * audit.)
+ *
  * Purpose: sites change their markup and a role+name locator that used to match
  * stops matching. Rather than fail hard, this proposes the most similar
  * same-role element in the *current* page snapshot as a candidate fix, with a

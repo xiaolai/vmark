@@ -134,7 +134,7 @@ export function BrowserSurface({ tabId }: { tabId: string }): React.ReactElement
       // so one authorized against the previous page is refused by the Rust gate.
       useTabStore.getState().updateBrowserTab(tabId, { url: next, generation });
     },
-    onLoaded: (next, title) => {
+    onLoaded: (next, title, generation) => {
       const ui = useBrowserUiStore.getState();
       ui.setUrlInput(tabId, next);
       ui.setLoading(tabId, false);
@@ -148,7 +148,10 @@ export function BrowserSurface({ tabId }: { tabId: string }): React.ReactElement
         setCrash(null);
         browserOcclusion.removeOccluder(tabId, OCCLUDER.crash);
       }
-      useTabStore.getState().updateBrowserTab(tabId, { url: next });
+      // Stamped with the generation of the page that finished: a late `loaded` for a page
+      // this tab has already left carries an older generation, and the store drops it
+      // rather than regress the url/title (audit, Medium).
+      useTabStore.getState().updateBrowserTab(tabId, { url: next, generation });
     },
     // The webview owns the back/forward list; mirror it so the omnibox can disable
     // its history controls instead of offering no-op buttons (WI-S1.6).

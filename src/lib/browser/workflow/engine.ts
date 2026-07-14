@@ -1,6 +1,16 @@
 /**
  * Web workflow execution engine (WI-4.2 / R8/R8a/R11).
  *
+ *
+ * ⚠️ **NOT WIRED. The entire web-workflow engine has no production entry point.** Nothing
+ * outside tests calls `runWorkflow`/`runWebWorkflow`, and the MCP bridge does not reach it.
+ * So the R8a write-safety gate, the R11 lease coupling, and the retry/self-heal paths below
+ * do not run in the product. **In particular: this engine re-executes recorded steps without
+ * a fresh per-attempt approval gate — which would be a serious authorization flaw if it were
+ * live, and must be built BEFORE it is wired.** An approval is for one action, once; replay
+ * must not launder it into standing automation. Treat everything here as an unfinished spec,
+ * not a deployed guarantee. (Branch audit.)
+ *
  * Purpose: run a parsed workflow's steps in order against an injected executor
  * (the driver in production, a mock in tests), applying the write-safety
  * decision core (safety.ts) after each step: a step completes, retries (bounded),

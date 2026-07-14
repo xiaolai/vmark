@@ -51,6 +51,7 @@ import {
   removeTabAt,
   insertTabForPin,
   repositionForPin,
+  setActiveTabGuarded,
 } from "@/stores/tabStoreHelpers";
 import { notifyTabRemoved } from "@/stores/tabRemovalBus";
 
@@ -290,16 +291,7 @@ export const useTabStore = create<TabState & TabActions>((set, get) => ({
   },
 
   setActiveTab: (windowLabel, tabId) => {
-    set((state) => {
-      // Only null, or an id this window actually contains. A foreign id — a stale reopen,
-      // an id from another window mid-drag — would otherwise become `activeTabId` and every
-      // downstream lookup (getActiveTab, editor dispatch) would resolve to a tab that is not
-      // here. Guard the keyed write rather than trust the caller. (Audit, High.)
-      if (tabId !== null && !state.tabs[windowLabel]?.some((t) => t.id === tabId)) {
-        return state;
-      }
-      return { activeTabId: { ...state.activeTabId, [windowLabel]: tabId } };
-    });
+    set((state) => setActiveTabGuarded(state, windowLabel, tabId));
   },
 
   /** WI-4.3 — promote a tab to read-write or revert to read-only. */

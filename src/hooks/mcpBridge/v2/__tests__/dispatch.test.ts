@@ -34,6 +34,10 @@ vi.mock("../selection", () => ({
   handleSelectionGet: vi.fn(async () => undefined),
   handleSelectionSet: vi.fn(async () => undefined),
 }));
+vi.mock("../browser", () => ({
+  handleBrowserRead: vi.fn(async () => undefined),
+  handleBrowserAct: vi.fn(async () => undefined),
+}));
 
 import { handleSessionGetState } from "../session";
 import {
@@ -55,6 +59,7 @@ import {
   handleWorkflowValidate,
 } from "../workflow";
 import { handleSelectionGet, handleSelectionSet } from "../selection";
+import { handleBrowserRead, handleBrowserAct } from "../browser";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -146,6 +151,16 @@ const ROUTES: Array<{
     handler: handleSelectionSet as unknown as ReturnType<typeof vi.fn>,
     args: { content: "x" },
   },
+  {
+    type: "vmark.browser.read",
+    handler: handleBrowserRead as unknown as ReturnType<typeof vi.fn>,
+    args: {},
+  },
+  {
+    type: "vmark.browser.act",
+    handler: handleBrowserAct as unknown as ReturnType<typeof vi.fn>,
+    args: { operation: "click", role: "button", name: "Go" },
+  },
 ];
 
 describe("dispatchV2 — routing", () => {
@@ -200,6 +215,8 @@ describe("dispatchV2 — routing", () => {
     const types = ROUTES.map((r) => r.type).sort();
     expect(types).toEqual(
       [
+        "vmark.browser.act",
+        "vmark.browser.read",
         "vmark.document.read",
         "vmark.document.transform",
         "vmark.document.write",

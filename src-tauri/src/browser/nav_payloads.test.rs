@@ -42,6 +42,7 @@ fn loaded_payload_shape() {
         tab_id: "t1".into(),
         url: "https://a.com".into(),
         title: "Hello".into(),
+        generation: 7,
         can_go_back: false,
         can_go_forward: true,
     };
@@ -51,6 +52,7 @@ fn loaded_payload_shape() {
             "tabId": "t1",
             "url": "https://a.com",
             "title": "Hello",
+            "generation": 7,
             "canGoBack": false,
             "canGoForward": true
         })
@@ -74,6 +76,7 @@ fn history_flags_ride_every_navigation_event() {
         tab_id: "t1".into(),
         url: "https://a.com".into(),
         title: "T".into(),
+        generation: 1,
         can_go_back: true,
         can_go_forward: true,
     });

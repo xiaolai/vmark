@@ -45,7 +45,7 @@ export interface BrowserNavHandlers {
    */
   onNavigated?: (url: string, generation: number, redirected: boolean) => void;
   /** A load finished; `url` is final, `title` is the page title (may be ""). */
-  onLoaded?: (url: string, title: string) => void;
+  onLoaded?: (url: string, title: string, generation: number) => void;
   /**
    * The webview's back/forward-list state (WI-S1.6). Fires on BOTH commit and
    * finish — a redirect, a same-document push, or a `goBack()` can change history
@@ -78,6 +78,9 @@ interface NavPayload extends TabScoped, HistoryScoped {
 interface LoadedPayload extends TabScoped, HistoryScoped {
   url: string;
   title: string;
+  /** Committed generation of the page that finished — lets the store drop a stale
+   *  (out-of-order) loaded event, the same way `navigated` does. (Audit, Medium.) */
+  generation: number;
 }
 interface FailedPayload extends TabScoped {
   message: string;
@@ -149,7 +152,7 @@ export function useBrowserNavEvents(tabId: string, handlers: BrowserNavHandlers)
       history(p, h);
     });
     on<LoadedPayload>("browser://loaded", (p, h) => {
-      h.onLoaded?.(p.url, p.title);
+      h.onLoaded?.(p.url, p.title, p.generation);
       history(p, h);
     });
     on<FailedPayload>("browser://load-failed", (p, h) => h.onFailed?.(p.message));

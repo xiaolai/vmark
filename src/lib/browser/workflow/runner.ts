@@ -1,4 +1,7 @@
 /**
+ * ⚠️ **NOT WIRED — no production caller.** `runWebWorkflow` is invoked only by tests;
+ * see engine.ts for the missing per-attempt approval gate this must not ship without.
+ *
  * Purpose: Top-level web-workflow runner (WI-4.2) — the capstone that wires the
  * parsed IR to the R8a-safe engine. It maps each `WorkflowStep` to the engine's
  * safety shape via the write-ness classifier, then drives the generic

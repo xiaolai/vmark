@@ -370,6 +370,37 @@ Focus return after navigation/dialogs, and IME preservation, are part of this co
     as reachable — which is exactly how four tested-but-dead security controls passed the
     dead-code gate. (Recorded as an open question; changing knip's entry set has a blast
     radius that needs its own change.)
+- **WI-S0.15 (NEW) ✅ DONE** — **Branch audit, part 3: live surface + the dead-subsystem
+  finding.**
+  - **A late `loaded` event could regress a browser tab.** `browser://loaded` carried no
+    generation, so an out-of-order completion for a page already left overwrote the newer
+    url/title. It now carries the committed generation (Rust → payload → handler), and the
+    store's generation guard (WI-S0.14) drops the stale one. (Medium.)
+  - **The MCP dispatch surface gate was blind to the browser routes.** The "exactly the
+    supported tool surface" assertion — the one that forces a deliberate edit when the
+    surface changes — omitted `vmark.browser.read`/`.act`, so deleting a browser route would
+    have passed. Both added to the route table and the assertion; verified the gate now
+    fails on a removed route. (Medium.)
+  - **THE HEADLINE FINDING — an entire browser-automation subsystem is dead.** Eleven
+    modules are built, unit-tested, documented with security guarantees, and have **zero
+    production importers**: the workflow record/replay/self-heal engine (`workflow/engine`,
+    `runner`, `recorder`, `selfHeal`, `classify`), the R11 automation lease (`lease.ts`),
+    the R12 UX-disposition matrix (`uxPolicy.ts`), the R6 webview LRU cap (`browserStore.ts`),
+    the ADR-B4 isolated data store (`profile.ts` — and the Rust surface never sets a data
+    store either, so the browser runs on the DEFAULT one and the browsed web's cookies are
+    not isolated from the app), the site reader/publisher contract (`siteReader.ts`), and
+    site health (`health.ts`). Codex flagged "Critical: workflow replay is not
+    approval-gated" — accurate about the code, but **not a live vulnerability, because the
+    engine cannot run.** The right response was NOT to build authorization-gating into a
+    dead engine (that makes it look more done); it was to mark every entry point NOT WIRED,
+    with the specific security work each needs before it may be wired (per-attempt approval
+    on replay; a fresh gate on a self-healed target; trusted-side secret redaction in the
+    recorder; draft-only enforcement in the publisher).
+  - **Root cause of the whole pattern:** `knip.json` lists `src/**/*.test.ts` as **entry
+    points**, so a module imported only by its own test reads as reachable. That is how a
+    dozen tested-but-dead modules — several of them security controls — passed the dead-code
+    gate. Fixing knip's entry set is its own change (large blast radius); recorded as an
+    open question.
 - **WI-S0.2** — Window-route **every** browser event (ADR-6). Rust-side `emit_to` the
   owning window; payload carries `windowLabel`; frontend filters. TDD: payload shape +
   a two-window test proving no cross-wiring.

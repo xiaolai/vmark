@@ -1,6 +1,10 @@
 /**
  * Pluggable page readers + publishers (WI-3.3).
  *
+ * ⚠️ **NOT WIRED — no production caller.** `createDraft` is documented as "never a live
+ * post", but nothing in the type or the driver enforces draft-only; that must be a
+ * capability the authoritative side checks before this is wired. (Branch audit.)
+ *
  * Purpose: the plugin contract that lets a site opt into a bespoke reader (or
  * publisher) while everything else falls back to the generic reader (WI-2.4).
  * A `SiteReader` is chosen by URL match; the built-in `genericReader` matches

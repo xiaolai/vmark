@@ -6,11 +6,34 @@ const W = "main";
 
 beforeEach(() => {
   usePaneStore.setState({ byWindow: {} });
-  useTabStore.setState({ activeTabId: { [W]: "primary-tab" } } as never);
+  // Both tabs must actually EXIST in the window: `setActiveTab` now refuses an id the
+  // window does not contain (a foreign/stale id would otherwise become the active tab and
+  // resolve to nothing). A split only ever activates tabs that are already open, so this
+  // reflects production — the old setup stubbed `activeTabId` alone, which was an
+  // unreachable state.
+  useTabStore.setState({
+    tabs: {
+      [W]: [
+        { id: "primary-tab", kind: "document", title: "p", filePath: null, isPinned: false },
+        { id: "secondary-tab", kind: "document", title: "s", filePath: null, isPinned: false },
+        { id: "other-tab", kind: "document", title: "o", filePath: null, isPinned: false },
+      ],
+    },
+    activeTabId: { [W]: "primary-tab" },
+  } as never);
 });
 
 function activeTab() {
   return useTabStore.getState().activeTabId[W];
+}
+
+/** Simulate a real tab close: tabStore removes the tab, THEN paneStore.handleTabClosed
+ *  reacts. handleTabClosed only collapses when the tab is actually gone (a still-present
+ *  tab means the close was declined, e.g. a pinned tab). */
+function removeFromWindow(tabId: string) {
+  useTabStore.setState((state) => ({
+    tabs: { ...state.tabs, [W]: (state.tabs[W] ?? []).filter((t) => t.id !== tabId) },
+  }));
 }
 
 describe("paneStore (#1081)", () => {
@@ -71,6 +94,7 @@ describe("paneStore (#1081)", () => {
 
   it("handleTabClosed collapses the split when the secondary pane's tab is closed (H1)", () => {
     usePaneStore.getState().openSplit(W, "secondary-tab");
+    removeFromWindow("secondary-tab"); // the real close removes it first; then the handler reacts
     usePaneStore.getState().handleTabClosed(W, "secondary-tab");
     expect(usePaneStore.getState().getSplit(W).enabled).toBe(false);
   });
@@ -78,6 +102,7 @@ describe("paneStore (#1081)", () => {
   it("handleTabClosed collapses the split when the primary pane's tab is closed (H1)", () => {
     useTabStore.setState({ activeTabId: { [W]: "primary-tab" } } as never);
     usePaneStore.getState().openSplit(W, "secondary-tab"); // primaryTabId = "primary-tab"
+    removeFromWindow("primary-tab");
     usePaneStore.getState().handleTabClosed(W, "primary-tab");
     expect(usePaneStore.getState().getSplit(W).enabled).toBe(false);
   });

@@ -34,6 +34,11 @@ pub struct LoadedPayload {
     pub tab_id: String,
     pub url: String,
     pub title: String,
+    /// The committed generation of the page that finished. A late `loaded` for a page the
+    /// tab has already left carries an older generation, and the frontend store drops a
+    /// patch whose generation is stale — so this closes the same out-of-order race the
+    /// `navigated` event's generation does. (Audit, Medium.)
+    pub generation: u64,
     /// See `NavPayload` — history can change on commit OR finish, so both carry it.
     #[serde(rename = "canGoBack")]
     pub can_go_back: bool,

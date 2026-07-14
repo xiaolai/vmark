@@ -1,4 +1,6 @@
 /**
+ * ⚠️ **NOT WIRED — no production caller.** (Branch audit.)
+ *
  * Purpose: Site plugin health checks (WI-3.5) — turn a per-plugin auth+fixture
  * probe into a status, and aggregate across the registry for `browser.listSites`
  * and the status panel. Mirrors the MCP sidecar health-check philosophy: a

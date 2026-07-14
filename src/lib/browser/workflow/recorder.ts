@@ -1,6 +1,11 @@
 /**
  * Workflow recorder — action trace → workflow file (WI-4.3 / R10).
  *
+ * ⚠️ **NOT WIRED — no production caller.** Also: secret redaction here trusts the
+ * page-world `sensitive` flag, so a hostile page could mark a password field
+ * `sensitive: false` and have it serialized. Redaction must move to trusted browser
+ * code before this is wired. (Branch audit.)
+ *
  * Purpose: convert a recorded trace of user actions (navigate / click / type /
  * extract, located by ARIA role + accessible name) into the workflow text the
  * parser reads, so a human can record a task once and replay/edit it. This is

@@ -168,6 +168,23 @@ type RemovalSlice = { tabs: Record<string, Tab[]>; activeTabId: Record<string, s
  * removal implementation — closeTab and detachTab differ only in whether they
  * also record the tab in `closedTabs`, so they cannot drift apart here.
  */
+/**
+ * Set a window's active tab, but only to null or an id the window actually contains.
+ *
+ * A foreign id — a stale reopen, an id from another window mid-drag — would otherwise
+ * become `activeTabId` and every downstream lookup (getActiveTab, editor dispatch) would
+ * resolve to a tab that is not in this window. Guard the keyed write rather than trust the
+ * caller; returns the state unchanged when the id is not a member. (Audit, High.)
+ */
+export function setActiveTabGuarded<
+  S extends { tabs: Record<string, { id: string }[]>; activeTabId: Record<string, string | null> },
+>(state: S, windowLabel: string, tabId: string | null): S {
+  if (tabId !== null && !state.tabs[windowLabel]?.some((t) => t.id === tabId)) {
+    return state;
+  }
+  return { ...state, activeTabId: { ...state.activeTabId, [windowLabel]: tabId } };
+}
+
 export function removeTabAt(state: RemovalSlice, windowLabel: string, index: number): RemovalSlice {
   const windowTabs = state.tabs[windowLabel] ?? [];
   // Out of range (or a missing window) is a no-op, not a crash: `windowTabs[index]` would
