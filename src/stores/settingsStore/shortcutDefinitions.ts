@@ -153,6 +153,9 @@ export const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
 
   // === File ===
   { id: "newTab", label: "New Tab", category: "file", defaultKey: "Mod-t", description: "Create a new tab", scope: "global" },
+  // Frontend-only (no menuId): dispatched via CommandBus, gated by the
+  // `browser.enabled` setting. Off by default; the chord is otherwise unbound.
+  { id: "newBrowserTab", label: "New Browser Tab", category: "file", defaultKey: "Alt-Mod-Shift-b", scope: "global", description: "Open a new embedded browser tab (requires the browser feature enabled)" },
   { id: "nextTab", label: "Next Tab", category: "view", defaultKey: "Mod-Shift-]", description: "Switch to the next tab", scope: "global" },
   { id: "prevTab", label: "Previous Tab", category: "view", defaultKey: "Mod-Shift-[", description: "Switch to the previous tab", scope: "global" },
   { id: "newFile", label: "New File", category: "file", defaultKey: "Mod-n", menuId: "new", scope: "global" },

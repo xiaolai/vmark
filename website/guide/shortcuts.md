@@ -232,6 +232,7 @@ If you prefer keeping system functions on F-keys, you can customize VMark shortc
 |--------|----------|
 | New Window | `Mod + Shift + N` |
 | New Tab | `Mod + T` |
+| New Browser Tab | `Alt + Mod + Shift + B` |
 | Next Tab | `Mod + Shift + ]` |
 | Previous Tab | `Mod + Shift + [` |
 | Close Tab | `Mod + W` |
@@ -240,6 +241,12 @@ If you prefer keeping system functions on F-keys, you can customize VMark shortc
 
 ::: tip Windows/Linux Note
 Toggle Hidden Files uses `Ctrl + H` on Windows and Linux.
+:::
+
+::: tip New Browser Tab
+`Alt + Mod + Shift + B` opens an embedded browser tab. It only does something
+when the embedded browser is enabled (off by default — turn it on under
+Settings → Advanced). The shortcut is customizable like any other.
 :::
 
 ## Help (macOS only)
