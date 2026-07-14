@@ -20,8 +20,9 @@
 //! @coordinates-with browser/dialogs_macos.rs — parked confirm() completions
 
 use objc2::rc::Retained;
-use objc2::runtime::{NSObject, NSObjectProtocol};
+use objc2::runtime::{AnyObject, NSObject, NSObjectProtocol};
 use objc2::{define_class, DefinedClass, MainThreadOnly};
+use core::ffi::c_void;
 use objc2_foundation::{NSError, NSString};
 use objc2_web_kit::{
     WKFrameInfo, WKNavigation, WKNavigationAction, WKNavigationDelegate, WKUIDelegate, WKWebView,
@@ -50,6 +51,11 @@ mod emit;
 mod registry_bridge;
 use registry_bridge::NavDelegateIvars;
 
+// Asserts every selector declared below is REAL — see nav_selectors.test.rs.
+#[cfg(test)]
+#[path = "nav_selectors.test.rs"]
+mod selectors_test;
+
 define_class!(
     // SAFETY:
     // - NSObject has no subclassing requirements.
@@ -62,6 +68,30 @@ define_class!(
     // SAFETY: NSObjectProtocol has no safety requirements.
     unsafe impl NSObjectProtocol for NavDelegate {}
 
+    // KVO on `WKWebView.URL` — the only PUBLIC way to observe a same-document navigation
+    // (pushState / replaceState / a fragment jump). Those fire no navigation-delegate
+    // callback: the public WKNavigationDelegate protocol has no same-document method at
+    // all. See `same_document_navigated` for why this replaced a selector that never fired.
+    impl NavDelegate {
+        #[unsafe(method(observeValueForKeyPath:ofObject:change:context:))]
+        fn observe_value(
+            &self,
+            key_path: Option<&NSString>,
+            object: Option<&AnyObject>,
+            _change: Option<&AnyObject>,
+            _context: *mut c_void,
+        ) {
+            if key_path.map(|k| k.to_string()).as_deref() != Some(registry_bridge::URL_KEY_PATH) {
+                return;
+            }
+            let Some(object) = object else { return };
+            // SAFETY: this observer is registered on exactly one key path of exactly one
+            // object — the tab's WKWebView (`observe_url`) — so `object` is that webview.
+            let web_view: &WKWebView = unsafe { &*(object as *const AnyObject).cast() };
+            self.same_document_navigated(web_view);
+        }
+    }
+
     // SAFETY: the method signatures match WKNavigationDelegate.
     unsafe impl WKNavigationDelegate for NavDelegate {
         // A navigation STARTS: revoke the committed origin immediately (R7a). Until
@@ -72,6 +102,7 @@ define_class!(
         fn did_start_provisional(&self, _wv: &WKWebView, _nav: Option<&WKNavigation>) {
             let ivars = self.ivars();
             ivars.redirected.set(false); // a fresh navigation has followed no redirects
+            ivars.loading.set(true); // a URL change now belongs to THIS load, not to an SPA
                                          // The outgoing page's dialogs die with it: release its blocked JS now,
                                          // or a stale answer would be routed to a page that no longer exists.
             super::dialogs::drain_for(&ivars.tab_id);
@@ -95,39 +126,9 @@ define_class!(
         #[unsafe(method(webView:didCommitNavigation:))]
         fn did_commit(&self, web_view: &WKWebView, _nav: Option<&WKNavigation>) {
             let ivars = self.ivars();
+            ivars.loading.set(false); // committed: a URL change after this is same-document
             let url = current_url(web_view);
-            let mut generation = 0;
-            if let Some(state) = ivars.app.try_state::<BrowserSurface>() {
-                match state.registry.lock() {
-                    Ok(mut reg) => {
-                        // One bump per commit, and only here — the navigate command
-                        // used to bump too, advancing the generation twice for one
-                        // navigation (and once for a navigation that never happened).
-                        match reg.bump_generation(&ivars.tab_id) {
-                            Ok(g) => generation = g,
-                            Err(e) => log::warn!(
-                                "[browser] generation bump refused for {}: {e:?}",
-                                ivars.tab_id
-                            ),
-                        }
-                        if let Err(e) = reg.transition(&ivars.tab_id, Lifecycle::Navigating) {
-                            log::warn!(
-                                "[browser] commit transition refused for {}: {e:?}",
-                                ivars.tab_id
-                            );
-                        }
-                        // The COMMITTED url — the only origin the driver may act on
-                        // (R7a). Recorded from the webview itself, never from a caller.
-                        if let Err(e) = reg.set_committed_url(&ivars.tab_id, &url) {
-                            log::warn!(
-                                "[browser] committed-url write refused for {}: {e:?}",
-                                ivars.tab_id
-                            );
-                        }
-                    }
-                    Err(e) => log::warn!("[browser] registry lock poisoned on commit: {e}"),
-                }
-            }
+            let generation = self.commit_navigation(&url);
             let (can_go_back, can_go_forward) = history_state(web_view);
             let _ = self.emit_owned(
                 "browser://navigated",

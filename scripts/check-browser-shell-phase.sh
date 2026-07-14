@@ -42,6 +42,15 @@ has() {
   if grep -qiE "$pattern" "$file"; then pass "$what"; else fail "$what — not found in $file"; fi
 }
 
+# An assertion that a file exists AND does NOT contain a pattern — for the things that must
+# stay gone. The file-exists half is not pedantry: a `grep -v` against a missing file
+# succeeds, so without it a deleted file would satisfy every negative assertion about it.
+hasnt() {
+  local file="$1" pattern="$2" what="$3"
+  if [[ ! -f "$file" ]]; then fail "$what — $file does not exist"; return; fi
+  if grep -qiE "$pattern" "$file"; then fail "$what — still present in $file"; else pass "$what"; fi
+}
+
 # Every WI in the phase is traceable to a commit or a test header.
 linkage() {
   local phase="$1"
@@ -82,7 +91,13 @@ case "$PHASE" in
     else
       pass "S0.9 browser command failures are surfaced, not swallowed"
     fi
-    has src/components/Browser/BrowserSurface.tsx 'mountTokens' "S0.10 a stale destroy cannot kill a newer mount"
+    has src/components/Browser/useBrowserNativeView.ts 'mountTokens' "S0.10 a stale destroy cannot kill a newer mount"
+    # S0.11: the R7a same-document expiry must be attached to a callback that REALLY FIRES.
+    # The first attempt used `webView:didSameDocumentNavigation:`, which is not a selector
+    # WebKit has — define_class! registered it and the runtime never called it, so the
+    # control was decoration. KVO on `URL` is the public mechanism that works.
+    has src-tauri/src/browser/nav_kvo_macos.rs 'addObserver_forKeyPath_options_context' "S0.11 same-document navigation is observed via KVO on URL"
+    hasnt src-tauri/src/browser/nav_delegate_macos.rs 'didSameDocumentNavigation' "S0.11 the invented selector is not reintroduced"
     ;;
 
   OC)

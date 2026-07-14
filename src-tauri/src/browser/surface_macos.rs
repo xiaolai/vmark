@@ -6,6 +6,7 @@
 use objc2::rc::Retained;
 use objc2::runtime::AnyObject;
 use objc2::{MainThreadMarker, MainThreadOnly};
+use objc2_core_foundation::CGRect;
 use objc2_foundation::{NSError, NSRunLoop, NSString, NSURLRequest};
 use objc2_web_kit::{WKContentWorld, WKWebView, WKWebViewConfiguration};
 use std::cell::RefCell;
@@ -81,11 +82,34 @@ pub fn create(
         let url_obj = ns_url(&url)?;
         let req = NSURLRequest::requestWithURL(&url_obj);
 
-        let bounds = parent.bounds();
+        // ZERO frame, NOT the parent's bounds.
+        //
+        // The parent is the window's content view, so `parent.bounds()` is the WHOLE
+        // WINDOW — and `drive_load` below pumps the run loop to force a first paint. A
+        // view created at that size is therefore added, rendered, and visible across the
+        // entire window (titlebar, sidebar, status bar and all) for as long as it takes
+        // the frontend's first `browser_set_bounds` to arrive. A web page painting over
+        // the whole of VMark, able to take clicks meant for it, is not a cosmetic
+        // problem.
+        //
+        // The frontend reports the reserved rect on mount, so the view gets its real
+        // geometry immediately. Until then it occupies nothing, which is the only safe
+        // default: invisible is recoverable, covering the app is not.
         let config = unsafe { WKWebViewConfiguration::new(mtm) };
         let webview = unsafe {
-            WKWebView::initWithFrame_configuration(WKWebView::alloc(mtm), bounds, &config)
+            WKWebView::initWithFrame_configuration(WKWebView::alloc(mtm), CGRect::ZERO, &config)
         };
+        // Evict any webview still registered under this tab id BEFORE registering the new
+        // delegate (WI-S0.10). A rapid tab switch can land a second `create` before the
+        // first `destroy` — and inserting over the key merely DROPS the old
+        // `Retained<WKWebView>`, which does not remove it from the view hierarchy. The
+        // old view would stay a subview forever: a live, invisible page over the UI.
+        //
+        // Eviction runs FIRST because it has to unobserve the old view's `URL` before the
+        // old delegate is dropped: inserting the new delegate over the key would release
+        // the old one while it was still registered as a KVO observer, and KVO raises when
+        // an observee outlives its observer.
+        evict_existing(&tab_id);
         // Attach the navigation delegate BEFORE the first load so its lifecycle
         // events (commit/finish/fail) fire for that load too. Held in DELEGATES
         // because WKWebView's navigationDelegate reference is weak.
@@ -94,20 +118,21 @@ pub fn create(
             webview.setNavigationDelegate(Some(delegate.as_protocol()));
             webview.setUIDelegate(Some(delegate.as_ui_protocol()));
         }
+        // Same-document navigations (pushState / fragment) fire NO delegate callback, so
+        // R7a authority expiry needs KVO on `URL` to see them at all (audit #11).
+        delegate.observe_url(&webview);
+        // BOTH maps, together, BEFORE anything can pump the run loop — the pairing
+        // invariant that makes teardown sound. See surface_lifecycle_macos.rs.
         DELEGATES.with(|m| m.borrow_mut().insert(tab_id.clone(), delegate));
+        WEBVIEWS.with(|m| m.borrow_mut().insert(tab_id.clone(), webview.clone()));
         let _ = unsafe { webview.loadRequest(&req) };
-        // Evict any webview still registered under this tab id before adding the new
-        // one (WI-S0.10). A rapid tab switch can land a second `create` before the
-        // first `destroy` — and inserting over the key merely DROPS the old
-        // `Retained<WKWebView>`, which does not remove it from the view hierarchy. The
-        // old view would stay a subview forever: a live, invisible page over the UI.
-        evict_existing(&tab_id);
         parent.addSubview(&webview);
         // Drive the first navigation + paint: a freshly added WKWebView does
         // not render until the run loop cycles. Bounded so create stays snappy.
+        // A reentrant destroy during this pump is safe, and correctly wins: it tears the
+        // view down and this function returns, registering nothing further.
         let run_loop = NSRunLoop::mainRunLoop();
         drive_load(&webview, &run_loop);
-        WEBVIEWS.with(|m| m.borrow_mut().insert(tab_id, webview));
         Ok(())
     })
 }
