@@ -7,8 +7,42 @@ use objc2::rc::Retained;
 use objc2::runtime::AnyObject;
 use objc2::{ClassType, MainThreadMarker};
 use objc2_app_kit::{NSApplication, NSView, NSWindow};
+use objc2_core_foundation::{CGPoint, CGRect, CGSize};
 use objc2_foundation::{NSString, NSURL};
+use objc2_web_kit::WKWebView;
 use tauri::AppHandle;
+
+/// The AppKit frame for a rect the frontend measured in DOM space.
+///
+/// DOM rects are top-left/y-down; an unflipped `NSView` is bottom-left/y-up. The
+/// conversion is resolved against the webview's ACTUAL parent (its height and its
+/// `isFlipped`) rather than assumed — see `browser/geometry.rs`, which owns the
+/// arithmetic and the tests, including the symmetric-layout trap that hid this bug.
+pub(super) fn frame_for_dom_rect(
+    webview: &WKWebView,
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
+) -> CGRect {
+    // SAFETY: read-only view-hierarchy access on the main thread (callers are
+    // inside on_main); the webview is retained by the caller's map.
+    let origin_y = match unsafe { webview.superview() } {
+        Some(parent) => crate::browser::geometry::appkit_origin_y(
+            parent.bounds().size.height,
+            parent.isFlipped(),
+            y,
+            height,
+        ),
+        // Detached mid-teardown: nothing will be seen either way — keep the DOM
+        // value rather than invent a frame.
+        None => y,
+    };
+    CGRect {
+        origin: CGPoint { x, y: origin_y },
+        size: CGSize { width, height },
+    }
+}
 
 /// Turn a `callAsyncJavaScript` result object into a string WITHOUT assuming its
 /// class.

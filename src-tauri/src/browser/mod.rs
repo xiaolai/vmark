@@ -40,6 +40,7 @@
 
 pub mod commands;
 pub mod commands_auth;
+pub mod geometry;
 pub mod one_shot;
 pub mod operation;
 pub mod origin_guard;

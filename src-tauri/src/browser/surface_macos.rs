@@ -6,7 +6,6 @@
 use objc2::rc::Retained;
 use objc2::runtime::AnyObject;
 use objc2::{MainThreadMarker, MainThreadOnly};
-use objc2_core_foundation::{CGPoint, CGRect, CGSize};
 use objc2_foundation::{NSError, NSRunLoop, NSString, NSURLRequest};
 use objc2_web_kit::{WKContentWorld, WKWebView, WKWebViewConfiguration};
 use std::cell::RefCell;
@@ -57,7 +56,7 @@ where
 
 #[path = "surface_view_macos.rs"]
 mod view;
-use view::{content_view, js_result_to_string, ns_url};
+use view::{content_view, frame_for_dom_rect, js_result_to_string, ns_url};
 
 /// Create the native webview for `tab_id`, add it as a subview of the
 /// `window_label` window's content view, and load `url`.
@@ -154,11 +153,9 @@ pub fn set_bounds(
             let webview = map
                 .get(&tab_id)
                 .ok_or_else(|| format!("no webview: {tab_id}"))?;
-            let rect = CGRect {
-                origin: CGPoint { x, y },
-                size: CGSize { width, height },
-            };
-            webview.setFrame(rect);
+            // The frontend measured a DOM rect; AppKit needs it in the parent's
+            // coordinate space (see surface_view_macos::frame_for_dom_rect).
+            webview.setFrame(frame_for_dom_rect(webview, x, y, width, height));
             Ok(())
         })
     })
