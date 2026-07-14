@@ -14,6 +14,7 @@ menu:
   file: "Fichier"
   file.new: "Nouveau"
   file.newWindow: "Nouvelle fenêtre"
+  file.newBrowserTab: "Nouvel onglet de navigateur"
   file.quickOpen: "Ouverture rapide"
   file.openFile: "Ouvrir un fichier..."
   file.openWorkspace: "Ouvrir un espace de travail..."

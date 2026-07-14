@@ -27,6 +27,8 @@ import { registerViewCommands } from "./viewCommands";
 import { registerWorkspaceCommands } from "./workspaceCommands";
 import { registerFormatCommands } from "./formatCommands";
 import { registerBrowserCommands } from "./browserCommands";
+import { invoke } from "@tauri-apps/api/core";
+import { useSettingsStore } from "@/stores/settingsStore";
 import { startGrantSync } from "@/services/browser/grantSync";
 
 const EXPORT_BINDINGS: MenuCommandBinding[] = [
@@ -38,6 +40,7 @@ const EXPORT_BINDINGS: MenuCommandBinding[] = [
 ];
 
 const MISC_BINDINGS: MenuCommandBinding[] = [
+  { menuEvent: "menu:new-browser-tab", commandId: "browser.newTab" },
   { menuEvent: "menu:preferences", commandId: "app.preferences" },
   { menuEvent: "menu:clear-history", commandId: "history.clearAll" },
   { menuEvent: "menu:clear-workspace-history", commandId: "history.clearWorkspace" },
@@ -105,6 +108,23 @@ export function useCommandBootstrap(): void {
     // default-deny — safe, but the user's approvals would never take effect.
     const stopGrantSync = startGrantSync();
 
+    // Keep the native "New Browser Tab" menu item in step with the setting (WI-S0.5).
+    // The item exists natively so its accelerator survives the browser taking keyboard
+    // focus; it starts disabled because the feature is off by default, and a
+    // permanently-dead menu item is worse than no item.
+    const pushBrowserMenuEnabled = (enabled: boolean) => {
+      void invoke("set_browser_menu_enabled", { enabled }).catch(() => {
+        // The menu may not exist yet (early boot) or on a platform branch without the
+        // item. Not worth surfacing: the command still works from the palette.
+      });
+    };
+    pushBrowserMenuEnabled(useSettingsStore.getState().browser.enabled);
+    const stopBrowserMenuSync = useSettingsStore.subscribe((state, prev) => {
+      if (state.browser.enabled !== prev.browser.enabled) {
+        pushBrowserMenuEnabled(state.browser.enabled);
+      }
+    });
+
     let unlisten: UnlistenFn | null = null;
     let cancelled = false;
 
@@ -151,6 +171,7 @@ export function useCommandBootstrap(): void {
       cancelled = true;
       if (unlisten) unlisten();
       stopGrantSync();
+      stopBrowserMenuSync();
     };
   }, []);
 }

@@ -39,6 +39,15 @@ export interface BrowserUiEntry {
    * without a page snapshot.
    */
   frozen: boolean;
+  /**
+   * The last failure on this tab, or null (WI-S0.9).
+   *
+   * Every browser command used to swallow its rejection (`.catch(() => {})`), so a
+   * failed create or navigate produced a blank viewport and a stale address bar with
+   * no signal whatsoever. Silence is the worst report available: the user cannot tell
+   * a slow page from a dead one, and neither can a support thread.
+   */
+  error: string | null;
 }
 
 interface BrowserUiState {
@@ -59,6 +68,9 @@ interface BrowserUiActions {
   /** Record whether the native view is hidden (guarded). Driven ONLY by
    *  `browserOcclusion`, which owns the occluder reference counts. */
   setFrozen: (tabId: string, frozen: boolean) => void;
+  /** Record a failure (or clear it with null). Setting an error also stops the
+   *  spinner — a load that died is not a load still running. Guarded. */
+  setError: (tabId: string, error: string | null) => void;
   /** Drop a tab's entry on close. */
   clearForTab: (tabId: string) => void;
 }
@@ -92,6 +104,7 @@ export const useBrowserUiStore = create<BrowserUiState & BrowserUiActions>((set)
                 canGoBack: false,
                 canGoForward: false,
                 frozen: false,
+                error: null,
               },
             },
           },
@@ -108,6 +121,17 @@ export const useBrowserUiStore = create<BrowserUiState & BrowserUiActions>((set)
 
   setFrozen: (tabId, frozen) =>
     set((state) => updateEntry(state, tabId, (e) => ({ ...e, frozen }))),
+
+  setError: (tabId, error) =>
+    set((state) =>
+      updateEntry(state, tabId, (e) => ({
+        ...e,
+        error,
+        // A failed load is not a loading one. Clearing this here means no caller can
+        // forget to, and leave a spinner turning over a page that will never arrive.
+        loading: error === null ? e.loading : false,
+      })),
+    ),
 
   clearForTab: (tabId) =>
     set((state) => {

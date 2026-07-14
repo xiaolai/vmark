@@ -16,6 +16,7 @@ describe("browserUiStore", () => {
       canGoBack: false,
       canGoForward: false,
       frozen: false,
+      error: null,
     });
   });
 
@@ -54,6 +55,33 @@ describe("browserUiStore", () => {
     expect(useBrowserUiStore.getState().entries["ghost"]).toBeUndefined();
   });
 
+  // WI-S0.9 — every browser command used to `.catch(() => {})`, so a failed create or
+  // navigate left a blank viewport and a stale URL with no signal at all. Silence is
+  // the worst possible report: the user cannot tell a slow page from a dead one.
+  it("seeds a tab with no error", () => {
+    useBrowserUiStore.getState().ensureEntry("tab-1", "https://a.com/");
+    expect(useBrowserUiStore.getState().entries["tab-1"].error).toBeNull();
+  });
+
+  it("setError records a failure, and clears it when the next load starts", () => {
+    useBrowserUiStore.getState().ensureEntry("tab-1", "https://a.com/");
+    useBrowserUiStore.getState().setError("tab-1", "offline");
+    expect(useBrowserUiStore.getState().entries["tab-1"].error).toBe("offline");
+    useBrowserUiStore.getState().setError("tab-1", null);
+    expect(useBrowserUiStore.getState().entries["tab-1"].error).toBeNull();
+  });
+
+  it("a failure also stops the spinner — a dead load is not a loading one", () => {
+    useBrowserUiStore.getState().ensureEntry("tab-1", "https://a.com/");
+    useBrowserUiStore.getState().setError("tab-1", "boom");
+    expect(useBrowserUiStore.getState().entries["tab-1"].loading).toBe(false);
+  });
+
+  it("setError on a missing tab is a no-op", () => {
+    useBrowserUiStore.getState().setError("ghost", "boom");
+    expect(useBrowserUiStore.getState().entries["ghost"]).toBeUndefined();
+  });
+
   it("ensureEntry does not clobber an existing entry", () => {
     useBrowserUiStore.getState().ensureEntry("tab-1", "https://example.com/");
     useBrowserUiStore.getState().setUrlInput("tab-1", "https://edited.com/");
@@ -66,6 +94,7 @@ describe("browserUiStore", () => {
       canGoBack: false,
       canGoForward: false,
       frozen: false,
+      error: null,
     });
   });
 

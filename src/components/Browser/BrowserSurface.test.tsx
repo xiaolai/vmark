@@ -198,6 +198,52 @@ describe("BrowserSurface", () => {
     invoke.mockImplementation(() => Promise.resolve(undefined));
   });
 
+  // WI-S0.9 — every browser command used to `.catch(() => {})`. A failed load was
+  // indistinguishable from a slow one: a blank rect and a spinner, forever.
+  it("shows what went wrong when a load fails, and offers a retry", async () => {
+    const id = seedBrowserTab("https://example.com/");
+    render(<BrowserSurface tabId={id} />);
+    await waitFor(() => expect(eventListeners.has("browser://load-failed")).toBe(true));
+
+    await emitNav("browser://load-failed", {
+      tabId: id,
+      message: "A server with the specified hostname could not be found.",
+    });
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(/could not be found/i);
+    // ...and the spinner is not still turning over a page that will never arrive.
+    expect(useBrowserUiStore.getState().entries[id]?.loading).toBe(false);
+
+    invoke.mockClear();
+    await userEvent.click(within(alert).getByRole("button", { name: /try again/i }));
+    expect(invoke).toHaveBeenCalledWith("browser_navigate", expect.objectContaining({ tabId: id }));
+  });
+
+  it("reports a create that never produced a native view", async () => {
+    invoke.mockImplementation((cmd: string) =>
+      cmd === "browser_create" ? Promise.reject(new Error("no contentView")) : Promise.resolve(),
+    );
+    const id = seedBrowserTab("https://example.com/");
+    render(<BrowserSurface tabId={id} />);
+
+    // A failed create leaves NO native view — the tab would otherwise sit blank forever.
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(/no contentView/i);
+    invoke.mockImplementation(() => Promise.resolve(undefined));
+  });
+
+  it("a fresh navigation clears the previous failure", async () => {
+    const id = seedBrowserTab("https://example.com/");
+    render(<BrowserSurface tabId={id} />);
+    await waitFor(() => expect(eventListeners.has("browser://load-failed")).toBe(true));
+    await emitNav("browser://load-failed", { tabId: id, message: "offline" });
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+
+    await emitNav("browser://navigated", { tabId: id, url: "https://ok.com/", generation: 2 });
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
   it("writes the omnibox state when the native page navigates (delegate event)", async () => {
     const id = seedBrowserTab("https://example.com/");
     render(<BrowserSurface tabId={id} />);

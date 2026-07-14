@@ -59,6 +59,11 @@ export const EXCLUDED_MENU_IDS: ReadonlySet<string> = new Set([
   // File operations (dedicated listeners)
   "new",
   "new-window",
+  // Routed through the CommandBus (menu:new-browser-tab -> browser.newTab), not the
+  // editor action registry: it opens a tab, it does not act on a document. It exists as
+  // a NATIVE menu item because the embedded browser's WKWebView takes keyboard focus,
+  // and a DOM shortcut cannot fire while a page has it (WI-S0.5).
+  "new-browser-tab",
   "open",
   "open-folder",
   "close",

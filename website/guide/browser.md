@@ -65,6 +65,13 @@ Permission also **lapses when the page navigates**. A prompt describes an action
 
 Site permissions are held in memory only: they are **never written to disk** and they lapse when VMark quits. Letting an AI keep the ability to click on a site across restarts is a bigger promise than it looks, so VMark doesn't make it silently.
 
+## When a page fails to load
+
+An offline network, a bad hostname, a rejected certificate, or a refused connection all
+produce a message in the browser pane saying what went wrong, with a **Try again**
+button. Earlier builds showed a blank pane instead, which was indistinguishable from a
+page that was merely slow.
+
 ## Current limitations
 
 - macOS only in this build.

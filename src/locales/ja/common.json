@@ -144,5 +144,7 @@
   "browser.grants.empty": "許可されたサイトはありません。",
   "browser.grants.revoke": "取り消す",
   "browser.grants.description": "AI が毎回確認せずに操作できるサイトです。VMark を終了するまで有効で、ディスクには保存されません。",
-  "browser.grants.revokeLabel": "{{origin}} の許可を取り消す"
+  "browser.grants.revokeLabel": "{{origin}} の許可を取り消す",
+  "browser.error.title": "このページを読み込めませんでした。",
+  "browser.error.retry": "再試行"
 }

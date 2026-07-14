@@ -144,5 +144,7 @@
   "browser.grants.empty": "Keiner Website wurde eine Berechtigung erteilt.",
   "browser.grants.revoke": "Widerrufen",
   "browser.grants.description": "Websites, auf denen die KI ohne erneute Nachfrage handeln darf. Sie gelten, bis VMark beendet wird, und werden nie auf die Festplatte geschrieben.",
-  "browser.grants.revokeLabel": "Berechtigungen für {{origin}} widerrufen"
+  "browser.grants.revokeLabel": "Berechtigungen für {{origin}} widerrufen",
+  "browser.error.title": "Diese Seite konnte nicht geladen werden.",
+  "browser.error.retry": "Erneut versuchen"
 }

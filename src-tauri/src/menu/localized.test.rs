@@ -114,6 +114,7 @@ const DEFAULT_ACCELERATORS: &[(&str, &str)] = &[
     ("move-to", ""),
     ("new", "CmdOrCtrl+N"),
     ("new-window", "CmdOrCtrl+Shift+N"),
+    ("new-browser-tab", "Alt+CmdOrCtrl+Shift+B"),
     ("open", ""),
     ("open-folder", "CmdOrCtrl+Shift+O"),
     ("ordered-list", "Alt+CmdOrCtrl+O"),

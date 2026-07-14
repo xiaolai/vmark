@@ -144,5 +144,7 @@
   "browser.grants.empty": "Ningún sitio tiene permisos.",
   "browser.grants.revoke": "Revocar",
   "browser.grants.description": "Sitios en los que la IA puede actuar sin preguntar cada vez. Duran hasta que se cierre VMark: nunca se guardan en el disco.",
-  "browser.grants.revokeLabel": "Revocar permisos de {{origin}}"
+  "browser.grants.revokeLabel": "Revocar permisos de {{origin}}",
+  "browser.error.title": "No se pudo cargar esta página.",
+  "browser.error.retry": "Reintentar"
 }

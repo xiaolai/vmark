@@ -38,19 +38,20 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { useTranslation } from "react-i18next";
 import { invoke } from "@tauri-apps/api/core";
 import { useTabStore } from "@/stores/tabStore";
 import { isBrowserTab } from "@/stores/tabStoreTypes";
 import { useBrowserUiStore } from "@/stores/browserUiStore";
 import { useBrowserApprovalStore } from "@/stores/browserApprovalStore";
 import { reloadBrowser } from "@/services/browser/browserNavigation";
+import { errorMessage } from "@/utils/errorMessage";
 import { browserOcclusion, OCCLUDER } from "@/services/browser/browserOcclusion";
 import {
   useBrowserNavEvents,
   type BrowserDialog,
   type CrashAction,
 } from "./useBrowserNavEvents";
+import { BrowserOverlays } from "./BrowserOverlays";
 import "./browser-surface.css";
 import { useUIStore } from "@/stores/uiStore";
 
@@ -69,7 +70,6 @@ const mountTokens = new Map<string, number>();
 let nextMountToken = 0;
 
 export function BrowserSurface({ tabId }: { tabId: string }): React.ReactElement {
-  const { t } = useTranslation("common");
   const url = useTabStore((s) => {
     const tab = s.findTabById(tabId);
     return tab && isBrowserTab(tab) ? tab.url : "";
@@ -84,6 +84,8 @@ export function BrowserSurface({ tabId }: { tabId: string }): React.ReactElement
   // True while an occluder has the native view hidden (WI-SOC.1b). Owned by
   // `browserOcclusion`, which is the only writer.
   const frozen = useBrowserUiStore((s) => s.entries[tabId]?.frozen ?? false);
+  // The last failure on this tab, surfaced rather than swallowed (WI-S0.9).
+  const error = useBrowserUiStore((s) => s.entries[tabId]?.error ?? null);
   // Any layout state that can MOVE the reserved rect without resizing it (WI-S0.3b).
   // Cheap boolean join: it changes only when the shell actually reflows.
   const layoutVersion = useUIStore(
@@ -103,7 +105,11 @@ export function BrowserSurface({ tabId }: { tabId: string }): React.ReactElement
     // can't assert a label), so we pass only tabId + url.
     const created = invoke("browser_create", { tabId, url });
     void created
-      .catch(() => {})
+      .catch((e: unknown) => {
+        // A create that fails leaves NO native view at all — the tab would sit there
+        // as an empty rect forever. Say so (WI-S0.9).
+        if (active) useBrowserUiStore.getState().setError(tabId, errorMessage(e));
+      })
       .finally(() => active && useBrowserUiStore.getState().setLoading(tabId, false));
     return () => {
       active = false;
@@ -165,6 +171,7 @@ export function BrowserSurface({ tabId }: { tabId: string }): React.ReactElement
       const ui = useBrowserUiStore.getState();
       ui.setUrlInput(tabId, next);
       ui.setLoading(tabId, true);
+      ui.setError(tabId, null); // a fresh load supersedes the previous failure
       // R7a: authority and prompts lapse with the page. A pending approval describes
       // an action on the page we just left — answering it would authorize that action
       // against whatever loaded instead. The driver clears its own one-shots on
@@ -191,7 +198,11 @@ export function BrowserSurface({ tabId }: { tabId: string }): React.ReactElement
     // its history controls instead of offering no-op buttons (WI-S1.6).
     onHistoryChanged: (canGoBack, canGoForward) =>
       useBrowserUiStore.getState().setHistory(tabId, canGoBack, canGoForward),
-    onFailed: () => useBrowserUiStore.getState().setLoading(tabId, false),
+    onFailed: (message) => {
+      // Offline, DNS failure, TLS rejection, a refused connection: the native side knows
+      // exactly what went wrong and used to tell nobody (WI-S0.9).
+      useBrowserUiStore.getState().setError(tabId, message);
+    },
     onCrashed: (action) => {
       // The native view still paints over the DOM after a crash; freeze it so the
       // recovery overlay is visible in its place (WI-1.4 occlusion / WI-1.8). Via the
@@ -224,57 +235,20 @@ export function BrowserSurface({ tabId }: { tabId: string }): React.ReactElement
     <div className="browser-surface">
       {/* The viewport is a placeholder the native view paints over, so it is
           hidden from a11y — except when an overlay (crash / dialog) is the real content. */}
-      <div ref={viewportRef} className="browser-viewport" aria-hidden={crash || dialog ? undefined : true}>
-        {/* The native view is hidden, which leaves a blank rect. Paint an opaque
-            surface in its place so any overlay above — translucent backdrop, small
-            popup, full modal — composites over something real rather than a hole.
-            This is what lets hide-only freeze stand in for a page snapshot
-            (WI-SOC.1b). It is decorative: the overlay that caused the freeze carries
-            the meaning, so it stays out of the a11y tree. */}
-        {frozen && <div className="browser-frozen" aria-hidden="true" />}
-        {dialog && (
-          <div className="browser-dialog" role="alertdialog" aria-label={dialog.message}>
-            <p className="browser-dialog-message">{dialog.message}</p>
-            <div className="browser-dialog-actions">
-              {dialog.kind === "confirm" && (
-                <button
-                  type="button"
-                  className="browser-dialog-btn"
-                  onClick={() => closeDialog(false)}
-                >
-                  {t("cancel")}
-                </button>
-              )}
-              <button
-                type="button"
-                className="browser-dialog-btn browser-dialog-btn--primary"
-                onClick={() => closeDialog(true)}
-              >
-                {t("ok")}
-              </button>
-            </div>
-          </div>
-        )}
-        {crash && (
-          <div className="browser-crash-overlay" role="alert">
-            <p className="browser-crash-message">{t("browser.crashed")}</p>
-            {crash.action === "manual" ? (
-              <button
-                type="button"
-                className="browser-crash-reload"
-                onClick={() => {
-                  setCrash(null);
-                  browserOcclusion.removeOccluder(tabId, OCCLUDER.crash);
-                  reloadBrowser(tabId);
-                }}
-              >
-                {t("browser.reload")}
-              </button>
-            ) : (
-              <span className="browser-crash-reloading">{t("browser.reloading")}</span>
-            )}
-          </div>
-        )}
+      <div ref={viewportRef} className="browser-viewport" aria-hidden={crash || dialog || error ? undefined : true}>
+        <BrowserOverlays
+          frozen={frozen}
+          error={error}
+          crash={crash}
+          dialog={dialog}
+          onRetry={() => reloadBrowser(tabId)}
+          onCloseDialog={closeDialog}
+          onRecover={() => {
+            setCrash(null);
+            browserOcclusion.removeOccluder(tabId, OCCLUDER.crash);
+            reloadBrowser(tabId);
+          }}
+        />
       </div>
     </div>
   );

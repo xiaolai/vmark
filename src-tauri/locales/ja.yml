@@ -14,6 +14,7 @@ menu:
   file: "ファイル"
   file.new: "新規"
   file.newWindow: "新しいウィンドウ"
+  file.newBrowserTab: "新しいブラウザタブ"
   file.quickOpen: "クイックオープン"
   file.openFile: "ファイルを開く..."
   file.openWorkspace: "ワークスペースを開く..."

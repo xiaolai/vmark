@@ -144,5 +144,7 @@
   "browser.grants.empty": "권한이 부여된 사이트가 없습니다.",
   "browser.grants.revoke": "취소",
   "browser.grants.description": "AI가 매번 묻지 않고 작업할 수 있는 사이트입니다. VMark를 종료할 때까지만 유지되며 디스크에 저장되지 않습니다.",
-  "browser.grants.revokeLabel": "{{origin}}의 권한 취소"
+  "browser.grants.revokeLabel": "{{origin}}의 권한 취소",
+  "browser.error.title": "이 페이지를 불러오지 못했습니다.",
+  "browser.error.retry": "다시 시도"
 }

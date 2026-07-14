@@ -144,5 +144,7 @@
   "browser.grants.empty": "Nessun sito ha autorizzazioni.",
   "browser.grants.revoke": "Revoca",
   "browser.grants.description": "Siti su cui l'IA può agire senza chiedere ogni volta. Durano fino alla chiusura di VMark e non vengono mai scritte su disco.",
-  "browser.grants.revokeLabel": "Revoca le autorizzazioni per {{origin}}"
+  "browser.grants.revokeLabel": "Revoca le autorizzazioni per {{origin}}",
+  "browser.error.title": "Impossibile caricare questa pagina.",
+  "browser.error.retry": "Riprova"
 }

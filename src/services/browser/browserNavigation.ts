@@ -20,6 +20,7 @@ import { useTabStore } from "@/stores/tabStore";
 import { isBrowserTab } from "@/stores/tabStoreTypes";
 import { useBrowserUiStore } from "@/stores/browserUiStore";
 import { resolveOmnibox, navigationTarget } from "@/lib/browser/omnibox";
+import { errorMessage } from "@/utils/errorMessage";
 
 /** Load an already-resolved URL: show it in the omnibox, mark loading, and drive the
  *  native navigation.
@@ -37,9 +38,19 @@ function loadUrl(tabId: string, url: string): void {
   const ui = useBrowserUiStore.getState();
   ui.setUrlInput(tabId, url);
   ui.setLoading(tabId, true);
-  void invoke("browser_navigate", { tabId, url }).catch(() => {
-    useBrowserUiStore.getState().setLoading(tabId, false);
+  // A new load clears the previous failure — the user is trying again, and the old
+  // error is no longer what is on screen.
+  ui.setError(tabId, null);
+  void invoke("browser_navigate", { tabId, url }).catch((e: unknown) => {
+    // Do NOT swallow this (WI-S0.9). A rejected navigate used to leave a spinner and a
+    // blank rect, indistinguishable from a slow page.
+    useBrowserUiStore.getState().setError(tabId, errorMessage(e));
   });
+}
+
+/** Report a failed native command instead of silently dropping it (WI-S0.9). */
+function reportFailure(tabId: string): (e: unknown) => void {
+  return (e: unknown) => useBrowserUiStore.getState().setError(tabId, errorMessage(e));
 }
 
 /** Submit the omnibox: classify URL-or-search, then navigate. Blank input is ignored. */
@@ -57,13 +68,13 @@ export function reloadBrowser(tabId: string): void {
 }
 
 export function backBrowser(tabId: string): void {
-  void invoke("browser_back", { tabId }).catch(() => {});
+  void invoke("browser_back", { tabId }).catch(reportFailure(tabId));
 }
 
 export function forwardBrowser(tabId: string): void {
-  void invoke("browser_forward", { tabId }).catch(() => {});
+  void invoke("browser_forward", { tabId }).catch(reportFailure(tabId));
 }
 
 export function stopBrowser(tabId: string): void {
-  void invoke("browser_stop", { tabId }).catch(() => {});
+  void invoke("browser_stop", { tabId }).catch(reportFailure(tabId));
 }

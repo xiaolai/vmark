@@ -14,6 +14,7 @@ menu:
   file: "파일"
   file.new: "새로 만들기"
   file.newWindow: "새 창"
+  file.newBrowserTab: "새 브라우저 탭"
   file.quickOpen: "빠른 열기"
   file.openFile: "파일 열기..."
   file.openWorkspace: "워크스페이스 열기..."
