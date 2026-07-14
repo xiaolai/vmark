@@ -245,15 +245,39 @@ Focus return after navigation/dialogs, and IME preservation, are part of this co
   context**, so `browser.newTab` falls back to `ctx.windowLabel ?? "main"` and always
   creates its tab in the **main** window — wrong when the palette is invoked from a
   second document window. Pass the invoking window's label. TDD.
-- **WI-S0.8 (NEW — BLOCKING)** — **Browser approval + standing-grant UI.**
-  `requestApproval()` queues a pending request "for the UI to resolve" and the MCP
-  bridge refuses the AI's operation — but **nothing renders `pending` or calls
-  `resolveApproval`**, and nothing sets or revokes standing grants. **The AI `act`
-  path is therefore permanent-deny in normal UI use, and the human-in-the-loop
-  security model has no human.** Build: allow-once / remember / deny / revoke,
-  stale-generation dismissal, and its occlusion behaviour (it is a **snapshot-freeze**
-  overlay — the user must *see the page* they are authorising an action against).
-  (Codex v3, D2#3/D5#4.) Not "future polish" — a prerequisite.
+- **WI-S0.8 ✅ DONE — Browser approval + standing-grant UI (the consent half).**
+  The enforcement half (origin guard, standing grants, one-shots bound to
+  tab+generation+origin+operation+target, R7a expiry) was built and audited, but
+  **nothing rendered `pending` or called `resolveApproval`** — so the AI `act` path was
+  **permanent-deny** and the human-in-the-loop model had no human. Now shipped:
+  - `BrowserApprovalDialog` — allow-once / allow-on-this-site / deny. **Escape denies
+    and Deny holds focus**, so a stray Enter can never authorize an action.
+  - `BrowserGrantsList` (Settings → Advanced) — see and **revoke** standing grants. A
+    permission model without revocation is not a permission model.
+  - `dismissForNavigation` — R7a parity: a pending prompt and an unspent one-shot both
+    lapse when the tab navigates. A prompt describes an action on a *specific page*;
+    answering it after the page changed would authorize that action against whatever
+    loaded instead. Standing grants are untouched (origin-scoped, chosen deliberately).
+  - `browserOcclusion` — `OcclusionController` was **written but never instantiated**,
+    while `BrowserSurface` called `browser_freeze`/`browser_thaw` **raw, with no
+    reference counting**: a crash overlay and a page dialog up together meant
+    dismissing either thawed the view out from under the other. It is now the single
+    freeze/thaw authority, and every occluder goes through it.
+  - **Scope, stated honestly:** grants live in memory only and lapse when VMark quits.
+    Persisting "the AI may click on this site" across restarts is a real escalation of
+    authority and should be its own reviewed decision, not a side effect of a `grants`
+    array. The UI says so rather than letting the user assume otherwise.
+
+  **ADR-9 — the prompt shows the DESCRIPTOR, not the page.** The authorization is bound
+  to exactly (origin, operation, element role+name). A page controls its own pixels and
+  could dress "Delete everything" up as "Publish", so approving a *rendering of the page*
+  is strictly **weaker** than approving the tuple the gate enforces. The origin shown is
+  the **committed** one — recorded by Rust from the webview, never the page's claim about
+  itself. This **contradicts the v3 review's recommendation** that the approval dialog be
+  a snapshot-freeze overlay so the user "must see the page they are authorising an action
+  against"; the disagreement is deliberate, and the consequence is that an **opaque
+  hide-only freeze is sufficient** — the security model does **not** depend on the
+  snapshot spike.
 - **WI-S0.9 (NEW — BLOCKING)** — **Error-path repair.** `create`, `navigate`,
   `set_bounds`, `back`, `forward`, `stop`, `freeze`, `thaw` all `.catch(() => {})`,
   so a failure leaves a blank viewport or a stale URL with no user-visible signal.
@@ -308,10 +332,43 @@ Focus return after navigation/dialogs, and IME preservation, are part of this co
 
 ### Phase OC — Occlusion (the halt gate) — **must close before Phase 2**
 
+> **Re-scoped after WI-S0.8 (ADR-10).** Phase OC was blocked on building a snapshot
+> pipeline (capture → encode → IPC → DOM decode → paint), and every downstream phase
+> was blocked on Phase OC. That framing was wrong, and the approval dialog is the proof:
+>
+> **A snapshot is a fidelity improvement, not a correctness requirement.** The reason
+> partial overlap "needs" a snapshot is that hiding the native view leaves a *blank
+> rect*, which shows through a translucent backdrop or beside a small popup. But the
+> blank rect is only a problem because nothing is drawn there. Render an **opaque frozen
+> placeholder** into `BrowserSurface`'s viewport whenever the tab is frozen, and every
+> overlay — translucent, partial, or full — composites correctly over *that*. No capture,
+> no encode, no IPC, no decode.
+>
+> What is lost is the *picture of the page* behind the overlay. For every overlay in the
+> inventory (command palette, quick open, genie picker, approval prompt, context menus)
+> the user is deliberately doing something **other than** reading the page, so the
+> picture is not load-bearing. And for the approval prompt specifically, showing the page
+> is actively **undesirable** (ADR-9).
+>
+> Phase OC therefore collapses from "build a snapshot pipeline" to **"register every
+> overlay as an occluder"** — mechanical work on a spine that now exists
+> (`browserOcclusion`, reference-counted, serialized). The snapshot spike (WI-SOC.2)
+> becomes **optional**, pursued only if a real case appears where the user must see the
+> live page *and* a partial overlay at once. **No phase is blocked on it.**
+
 - **WI-SOC.1** — **Occluder inventory** (the table above), one acceptance row per
   reachable overlay, each resolved as: *relocate out of the rect* / *full-cover with
   hide-only freeze* / *snapshot-freeze* / *disable while a browser is visible*.
-- **WI-SOC.2** — **SPIKE**: prove the full snapshot choreography end-to-end —
+- **WI-SOC.1b (NEW — the actual unlock)** — **Opaque frozen placeholder.** Render an
+  opaque surface into `BrowserSurface`'s viewport whenever `browserOcclusion` reports the
+  tab frozen, so a hidden native view never leaves a blank hole. This makes hide-only
+  freeze correct for **every** overlay class, translucent backdrops included — which is
+  what Codex (v3 D1#3) correctly identified as broken today. Requires a reactive frozen
+  flag (the controller pushes `isFrozen` into `browserUiStore`).
+- **WI-SOC.1c** — Register the remaining inventory overlays as occluders via
+  `browserOcclusion.addOccluder`/`removeOccluder`. Mechanical, now that the spine exists.
+- **WI-SOC.2 (OPTIONAL — no longer gating)** — **SPIKE**: prove the full snapshot
+  choreography end-to-end —
   `takeSnapshotWithConfiguration:` → concrete wire format (PNG?) → IPC transfer → DOM
   `img.decode()` + paint barrier → hide native view → show occluder → object-URL
   cleanup. **Benchmark the whole thing**, not just the WebKit capture (the existing
