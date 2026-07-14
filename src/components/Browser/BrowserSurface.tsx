@@ -66,6 +66,9 @@ export function BrowserSurface({ tabId }: { tabId: string }): React.ReactElement
   // Non-null while a page JS dialog (alert/confirm) is open (WI-1.7).
   const [dialog, setDialog] = useState<BrowserDialog | null>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
+  // True while an occluder has the native view hidden (WI-SOC.1b). Owned by
+  // `browserOcclusion`, which is the only writer.
+  const frozen = useBrowserUiStore((s) => s.entries[tabId]?.frozen ?? false);
 
   // Create the native webview on mount; destroy it on unmount. Seed/clear the
   // transient omnibox UI state (ADR-5) alongside the native view's lifecycle so
@@ -188,6 +191,13 @@ export function BrowserSurface({ tabId }: { tabId: string }): React.ReactElement
       {/* The viewport is a placeholder the native view paints over, so it is
           hidden from a11y — except when an overlay (crash / dialog) is the real content. */}
       <div ref={viewportRef} className="browser-viewport" aria-hidden={crash || dialog ? undefined : true}>
+        {/* The native view is hidden, which leaves a blank rect. Paint an opaque
+            surface in its place so any overlay above — translucent backdrop, small
+            popup, full modal — composites over something real rather than a hole.
+            This is what lets hide-only freeze stand in for a page snapshot
+            (WI-SOC.1b). It is decorative: the overlay that caused the freeze carries
+            the meaning, so it stays out of the a11y tree. */}
+        {frozen && <div className="browser-frozen" aria-hidden="true" />}
         {dialog && (
           <div className="browser-dialog" role="alertdialog" aria-label={dialog.message}>
             <p className="browser-dialog-message">{dialog.message}</p>

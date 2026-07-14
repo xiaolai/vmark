@@ -51,6 +51,7 @@ import { tabContextError } from "@/utils/debug";
 import { useTabContextMenuActions, type TabMenuItem } from "./useTabContextMenuActions";
 import { useMenuPosition, type ContextMenuPosition } from "./useMenuPosition";
 import "./TabContextMenu.css";
+import { useBrowserOccluder } from "@/hooks/useBrowserOccluder";
 
 export type { ContextMenuPosition };
 
@@ -79,6 +80,9 @@ function findNextFocusable(
 
 /** Renders a right-click context menu for a tab with keyboard navigation and viewport-aware positioning. */
 export function TabContextMenu({ tab, position, windowLabel, onClose }: TabContextMenuProps) {
+  // Opens UPWARD out of the bottom bar and into the browser rect, where the native
+  // view would paint straight over it. Freeze while shown (WI-SOC.1).
+  useBrowserOccluder(true, "tab-context-menu");
   const { t } = useTranslation("common");
   const menuRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<Array<HTMLButtonElement | null>>([]);

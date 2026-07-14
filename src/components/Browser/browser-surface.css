@@ -109,3 +109,13 @@
   outline: 2px solid var(--primary-color);
   outline-offset: 2px;
 }
+
+/* The native view is hidden by an occluder, leaving a blank rect (WI-SOC.1b). This
+   opaque surface stands in its place so an overlay above — including one with a
+   translucent backdrop — composites over something real instead of a hole. It is what
+   makes hide-only freeze correct without capturing a page snapshot. */
+.browser-frozen {
+  position: absolute;
+  inset: 0;
+  background: var(--bg-color);
+}

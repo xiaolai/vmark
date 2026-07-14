@@ -47,6 +47,7 @@ import {
 import { ContentSearchToggles } from "./ContentSearchToggles";
 import { ContentSearchResults } from "./ContentSearchResults";
 import "./content-search.css";
+import { useBrowserOccluder } from "@/hooks/useBrowserOccluder";
 
 interface ContentSearchProps {
   windowLabel: string;
@@ -56,6 +57,9 @@ interface ContentSearchProps {
 export function ContentSearch({ windowLabel }: ContentSearchProps) {
   const { t } = useTranslation("editor");
   const isOpen = useUIStore((s) => s.contentSearch.isOpen);
+  // The native browser view paints over all React DOM in its rect, so freeze every
+  // mounted browser tab while this overlay is up (WI-SOC.1).
+  useBrowserOccluder(isOpen, "content-search");
   const query = useUIStore((s) => s.contentSearch.query);
   const results = useUIStore((s) => s.contentSearch.results);
   const selectedIndex = useUIStore((s) => s.contentSearch.selectedIndex);

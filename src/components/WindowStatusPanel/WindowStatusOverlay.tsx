@@ -9,9 +9,13 @@
 import { useWindowStatusStore, selectPanelOpen } from "@/stores/windowStatusStore";
 import { WindowStatusPanel } from "./WindowStatusPanel";
 import "./window-status-overlay.css";
+import { useBrowserOccluder } from "@/hooks/useBrowserOccluder";
 
 export function WindowStatusOverlay() {
   const open = useWindowStatusStore(selectPanelOpen);
+  // The native browser view paints over all React DOM in its rect, so freeze every
+  // mounted browser tab while this overlay is up (WI-SOC.1).
+  useBrowserOccluder(open, "window-status");
   if (!open) return null;
   return (
     <div className="window-status-overlay" data-testid="window-status-overlay">

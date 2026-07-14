@@ -15,6 +15,7 @@ describe("browserUiStore", () => {
       loading: true,
       canGoBack: false,
       canGoForward: false,
+      frozen: false,
     });
   });
 
@@ -32,6 +33,27 @@ describe("browserUiStore", () => {
     expect(useBrowserUiStore.getState().entries["ghost"]).toBeUndefined();
   });
 
+  // WI-SOC.1b — the frozen flag is what lets BrowserSurface paint an opaque
+  // placeholder where the hidden native view used to be, so an overlay never
+  // composites over a blank hole.
+  it("seeds a tab as not frozen", () => {
+    useBrowserUiStore.getState().ensureEntry("tab-1", "https://a.com/");
+    expect(useBrowserUiStore.getState().entries["tab-1"].frozen).toBe(false);
+  });
+
+  it("setFrozen records that the native view is hidden", () => {
+    useBrowserUiStore.getState().ensureEntry("tab-1", "https://a.com/");
+    useBrowserUiStore.getState().setFrozen("tab-1", true);
+    expect(useBrowserUiStore.getState().entries["tab-1"].frozen).toBe(true);
+    useBrowserUiStore.getState().setFrozen("tab-1", false);
+    expect(useBrowserUiStore.getState().entries["tab-1"].frozen).toBe(false);
+  });
+
+  it("setFrozen on a missing tab is a no-op", () => {
+    useBrowserUiStore.getState().setFrozen("ghost", true);
+    expect(useBrowserUiStore.getState().entries["ghost"]).toBeUndefined();
+  });
+
   it("ensureEntry does not clobber an existing entry", () => {
     useBrowserUiStore.getState().ensureEntry("tab-1", "https://example.com/");
     useBrowserUiStore.getState().setUrlInput("tab-1", "https://edited.com/");
@@ -43,6 +65,7 @@ describe("browserUiStore", () => {
       loading: false,
       canGoBack: false,
       canGoForward: false,
+      frozen: false,
     });
   });
 

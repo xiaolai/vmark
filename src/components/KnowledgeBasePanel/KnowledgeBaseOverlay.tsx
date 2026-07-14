@@ -12,9 +12,13 @@ import { useContentServerStore, selectPanelOpen } from "@/stores/contentServerSt
 import { useContentServer } from "@/hooks/useContentServer";
 import { KnowledgeBasePanel } from "./KnowledgeBasePanel";
 import "./knowledge-base-overlay.css";
+import { useBrowserOccluder } from "@/hooks/useBrowserOccluder";
 
 export function KnowledgeBaseOverlay() {
   const open = useContentServerStore(selectPanelOpen);
+  // The native browser view paints over all React DOM in its rect, so freeze every
+  // mounted browser tab while this overlay is up (WI-SOC.1).
+  useBrowserOccluder(open, "knowledge-base");
   const { start, stop, openInBrowser, previewSlides, exportSlides } = useContentServer();
   if (!open) return null;
   return (

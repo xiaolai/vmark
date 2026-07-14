@@ -167,6 +167,25 @@ describe("BrowserSurface", () => {
     expect(useBrowserUiStore.getState().entries[id]?.urlInput).toBe("https://example.com/");
   });
 
+  // WI-SOC.1b — hiding the native view leaves a BLANK rect. An overlay with a
+  // translucent backdrop (or a small popup beside it) would composite over that hole.
+  // The placeholder is what makes hide-only freeze correct without a page snapshot.
+  it("paints an opaque placeholder over the rect while the native view is frozen", async () => {
+    const id = seedBrowserTab("https://example.com/");
+    const { container } = render(<BrowserSurface tabId={id} />);
+    expect(container.querySelector(".browser-frozen")).toBeNull();
+
+    act(() => {
+      useBrowserUiStore.getState().setFrozen(id, true);
+    });
+    expect(container.querySelector(".browser-frozen")).not.toBeNull();
+
+    act(() => {
+      useBrowserUiStore.getState().setFrozen(id, false);
+    });
+    expect(container.querySelector(".browser-frozen")).toBeNull();
+  });
+
   it("shows a manual crash overlay and reloads on click (freezing then thawing the view)", async () => {
     const id = seedBrowserTab("https://example.com/");
     render(<BrowserSurface tabId={id} />);

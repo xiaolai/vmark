@@ -29,6 +29,7 @@ import { useLayoutEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TextMetrics } from "./statusTextMetrics";
 import "./word-count-popover.css";
+import { useBrowserOccluder } from "@/hooks/useBrowserOccluder";
 
 const POPUP_WIDTH = 260;
 
@@ -59,6 +60,9 @@ export function WordCountPopover({
   selected,
   hasSelection,
 }: WordCountPopoverProps): React.ReactElement {
+  // Opens UPWARD out of the bottom bar and into the browser rect, where the native
+  // view would paint straight over it. Freeze while shown (WI-SOC.1).
+  useBrowserOccluder(true, "word-count-popover");
   const { t } = useTranslation("statusbar");
 
   // Position above the anchor by measuring it in a layout effect (before paint),

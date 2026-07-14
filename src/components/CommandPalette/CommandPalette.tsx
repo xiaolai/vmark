@@ -20,6 +20,7 @@ import { useCommandPaletteStore } from "./commandPaletteStore";
 import { menuError } from "@/utils/debug";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import "./command-palette.css";
+import { useBrowserOccluder } from "@/hooks/useBrowserOccluder";
 
 /**
  * Run a command without swallowing its errors. Awaits the result and
@@ -37,6 +38,9 @@ async function runCommand(id: string): Promise<void> {
 export function CommandPalette() {
   const { t } = useTranslation();
   const isOpen = useCommandPaletteStore((s) => s.isOpen);
+  // The native browser view paints over all React DOM in its rect, so freeze every
+  // mounted browser tab while this overlay is up (WI-SOC.1).
+  useBrowserOccluder(isOpen, "command-palette");
   const close = useCommandPaletteStore((s) => s.close);
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);

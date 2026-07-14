@@ -29,6 +29,16 @@ export interface BrowserUiEntry {
    *  history controls from these — without them they are no-op buttons. */
   canGoBack: boolean;
   canGoForward: boolean;
+  /**
+   * The native view is currently hidden by an occluder (WI-SOC.1b).
+   *
+   * Hiding it leaves a BLANK rect, which shows through a translucent backdrop or
+   * beside a small popup. `BrowserSurface` paints an opaque placeholder while this
+   * is true, so every overlay — translucent, partial or full — composites over a
+   * real surface instead of a hole. This is what makes hide-only freeze correct
+   * without a page snapshot.
+   */
+  frozen: boolean;
 }
 
 interface BrowserUiState {
@@ -46,6 +56,9 @@ interface BrowserUiActions {
   /** Record the webview's back/forward-list state (guarded). Driven by the nav
    *  delegate, which reads it off the live WKWebView on every nav event. */
   setHistory: (tabId: string, canGoBack: boolean, canGoForward: boolean) => void;
+  /** Record whether the native view is hidden (guarded). Driven ONLY by
+   *  `browserOcclusion`, which owns the occluder reference counts. */
+  setFrozen: (tabId: string, frozen: boolean) => void;
   /** Drop a tab's entry on close. */
   clearForTab: (tabId: string) => void;
 }
@@ -78,6 +91,7 @@ export const useBrowserUiStore = create<BrowserUiState & BrowserUiActions>((set)
                 loading: true,
                 canGoBack: false,
                 canGoForward: false,
+                frozen: false,
               },
             },
           },
@@ -91,6 +105,9 @@ export const useBrowserUiStore = create<BrowserUiState & BrowserUiActions>((set)
 
   setHistory: (tabId, canGoBack, canGoForward) =>
     set((state) => updateEntry(state, tabId, (e) => ({ ...e, canGoBack, canGoForward }))),
+
+  setFrozen: (tabId, frozen) =>
+    set((state) => updateEntry(state, tabId, (e) => ({ ...e, frozen }))),
 
   clearForTab: (tabId) =>
     set((state) => {
