@@ -26,6 +26,11 @@ use driver_loop::{drive_load, pump_until};
 #[path = "dialogs_macos.rs"]
 mod dialogs;
 
+#[path = "surface_lifecycle_macos.rs"]
+mod lifecycle;
+pub use lifecycle::destroy;
+use lifecycle::evict_existing;
+
 thread_local! {
     /// Main-thread-only live webviews, keyed by tab id.
     static WEBVIEWS: RefCell<HashMap<String, Retained<WKWebView>>> = RefCell::new(HashMap::new());
@@ -91,6 +96,12 @@ pub fn create(
         }
         DELEGATES.with(|m| m.borrow_mut().insert(tab_id.clone(), delegate));
         let _ = unsafe { webview.loadRequest(&req) };
+        // Evict any webview still registered under this tab id before adding the new
+        // one (WI-S0.10). A rapid tab switch can land a second `create` before the
+        // first `destroy` — and inserting over the key merely DROPS the old
+        // `Retained<WKWebView>`, which does not remove it from the view hierarchy. The
+        // old view would stay a subview forever: a live, invisible page over the UI.
+        evict_existing(&tab_id);
         parent.addSubview(&webview);
         // Drive the first navigation + paint: a freshly added WKWebView does
         // not render until the run loop cycles. Bounded so create stays snappy.
@@ -158,29 +169,6 @@ pub fn set_bounds(
             webview.setFrame(frame_for_dom_rect(webview, x, y, width, height));
             Ok(())
         })
-    })
-}
-
-/// Tear down and drop the native webview.
-pub fn destroy(app: &AppHandle, tab_id: String) -> Result<(), String> {
-    on_main(app, move |_mtm| {
-        // Release any page JS blocked on a dialog before the webview goes away.
-        dialogs::drain_for(&tab_id);
-        WEBVIEWS.with(|m| {
-            if let Some(webview) = m.borrow_mut().remove(&tab_id) {
-                // Detach the delegate before teardown so no late callback fires
-                // against a half-destroyed view.
-                unsafe {
-                    webview.setNavigationDelegate(None);
-                    webview.setUIDelegate(None);
-                }
-                webview.removeFromSuperview();
-            }
-        });
-        DELEGATES.with(|m| {
-            m.borrow_mut().remove(&tab_id);
-        });
-        Ok(())
     })
 }
 

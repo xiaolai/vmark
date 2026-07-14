@@ -28,7 +28,7 @@ use objc2_web_kit::{
     WKFrameInfo, WKNavigation, WKNavigationAction, WKNavigationDelegate, WKUIDelegate, WKWebView,
     WKWebViewConfiguration, WKWindowFeatures,
 };
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Manager};
 
 use crate::browser::recovery::RecoveryAction;
 use crate::browser::registry::Lifecycle;
@@ -41,6 +41,9 @@ use payloads::{CrashPayload, DialogPayload, LoadedPayload, NavPayload, PopupPayl
 #[path = "nav_webview_macos.rs"]
 mod webview;
 use webview::{current_title, current_url, history_state};
+
+#[path = "nav_emit_macos.rs"]
+mod emit;
 
 // The registry/lifecycle half of the delegate (construction, transitions, crash
 // recording, reload) — see nav_registry_macos.rs.
@@ -125,7 +128,7 @@ define_class!(
                 }
             }
             let (can_go_back, can_go_forward) = history_state(web_view);
-            let _ = ivars.app.emit(
+            let _ = self.emit_owned(
                 "browser://navigated",
                 NavPayload {
                     tab_id: ivars.tab_id.clone(),
@@ -153,7 +156,7 @@ define_class!(
             }
             log::debug!("[browser] loaded {} ({title})", ivars.tab_id);
             let (can_go_back, can_go_forward) = history_state(web_view);
-            let _ = ivars.app.emit(
+            let _ = self.emit_owned(
                 "browser://loaded",
                 LoadedPayload {
                     tab_id: ivars.tab_id.clone(),
@@ -194,7 +197,7 @@ define_class!(
             // nothing to reload; announcing "auto-reload" and then not navigating
             // leaves the frontend waiting on a load event that can never arrive.
             let reloading = action == RecoveryAction::AutoReload && self.try_reload(web_view);
-            let _ = ivars.app.emit(
+            let _ = self.emit_owned(
                 "browser://crashed",
                 CrashPayload {
                     tab_id: ivars.tab_id.clone(),
@@ -225,7 +228,7 @@ define_class!(
                 .map(|s| s.to_string())
                 .unwrap_or_default();
             log::debug!("[browser] popup blocked for {} → {url}", ivars.tab_id);
-            let _ = ivars.app.emit(
+            let _ = self.emit_owned(
                 "browser://popup",
                 PopupPayload {
                     tab_id: ivars.tab_id.clone(),
@@ -249,7 +252,7 @@ define_class!(
             let ivars = self.ivars();
             let msg = message.to_string();
             log::debug!("[browser] alert on {}: {msg}", ivars.tab_id);
-            let _ = ivars.app.emit(
+            let _ = self.emit_owned(
                 "browser://dialog",
                 DialogPayload {
                     tab_id: ivars.tab_id.clone(),
@@ -275,7 +278,7 @@ define_class!(
             let msg = message.to_string();
             let id = super::dialogs::park_confirm(ivars.tab_id.clone(), completion_handler.copy());
             log::debug!("[browser] confirm on {} (#{id}): {msg}", ivars.tab_id);
-            let emitted = ivars.app.emit(
+            let emitted = self.emit_owned(
                 "browser://dialog",
                 DialogPayload {
                     tab_id: ivars.tab_id.clone(),
@@ -287,8 +290,8 @@ define_class!(
             // Parking + emitting is one transaction: a dialog nobody was told about
             // is a dialog nobody can answer, and the page's JS would block on
             // `confirm()` forever. If the event never left, cancel it here.
-            if let Err(e) = emitted {
-                log::warn!("[browser] confirm #{id} not delivered ({e}); cancelling");
+            if !emitted {
+                log::warn!("[browser] confirm #{id} not delivered; cancelling");
                 super::dialogs::respond(id, false);
             }
         }

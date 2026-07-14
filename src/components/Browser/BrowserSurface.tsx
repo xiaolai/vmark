@@ -52,6 +52,21 @@ import {
   type CrashAction,
 } from "./useBrowserNavEvents";
 import "./browser-surface.css";
+import { useUIStore } from "@/stores/uiStore";
+
+/**
+ * The mount that currently owns each tab's native webview (WI-S0.10).
+ *
+ * A rapid switch away and back remounts the surface while the first mount's
+ * `browser_create` is still in flight. That mount's `destroy` is deferred until its
+ * create settles — and by then the SECOND mount may already own a fresh native view
+ * for the same tab id. Firing the stale destroy then would tear down the live view and
+ * leave the tab blank. So each mount takes a token, and only the newest one may
+ * destroy. (Rust evicts a superseded view on its side too — belt and braces, since the
+ * native map is keyed by tab id and an insert would otherwise orphan the old subview.)
+ */
+const mountTokens = new Map<string, number>();
+let nextMountToken = 0;
 
 export function BrowserSurface({ tabId }: { tabId: string }): React.ReactElement {
   const { t } = useTranslation("common");
@@ -69,12 +84,20 @@ export function BrowserSurface({ tabId }: { tabId: string }): React.ReactElement
   // True while an occluder has the native view hidden (WI-SOC.1b). Owned by
   // `browserOcclusion`, which is the only writer.
   const frozen = useBrowserUiStore((s) => s.entries[tabId]?.frozen ?? false);
+  // Any layout state that can MOVE the reserved rect without resizing it (WI-S0.3b).
+  // Cheap boolean join: it changes only when the shell actually reflows.
+  const layoutVersion = useUIStore(
+    (s) =>
+      `${s.sidebarVisible}|${s.terminalVisible}|${s.statusBarVisible}|${s.universalToolbarVisible}`,
+  );
 
   // Create the native webview on mount; destroy it on unmount. Seed/clear the
   // transient omnibox UI state (ADR-5) alongside the native view's lifecycle so
   // the bottom-bar omnibox has this tab's url the moment it renders.
   useEffect(() => {
     let active = true;
+    const token = ++nextMountToken;
+    mountTokens.set(tabId, token);
     useBrowserUiStore.getState().ensureEntry(tabId, url);
     // The window is derived Rust-side from the invoking WebviewWindow (a caller
     // can't assert a label), so we pass only tabId + url.
@@ -89,7 +112,12 @@ export function BrowserSurface({ tabId }: { tabId: string }): React.ReactElement
       // missed, orphaning a content process nothing tears down.
       void created
         .catch(() => {})
-        .then(() => void invoke("browser_destroy", { tabId }).catch(() => {}));
+        .then(() => {
+          // Only the mount that still owns this tab may destroy it (WI-S0.10).
+          if (mountTokens.get(tabId) !== token) return;
+          mountTokens.delete(tabId);
+          void invoke("browser_destroy", { tabId }).catch(() => {});
+        });
       useBrowserUiStore.getState().clearForTab(tabId);
       // The native view is going away, so drop its occlusion bookkeeping outright —
       // no thaw, there is nothing left to show. Leaving a stale occluder behind would
@@ -104,6 +132,12 @@ export function BrowserSurface({ tabId }: { tabId: string }): React.ReactElement
 
   // Report the reserved rect's viewport bounds to Rust on layout/resize so the
   // native view stays aligned under the placeholder.
+  //
+  // `layoutVersion` is why this is not a ResizeObserver alone (WI-S0.3b): the observer
+  // fires on SIZE. A panel that moves the rect without resizing it — a terminal
+  // switching sides, a bar appearing above it, a split pane rebalancing — changes the
+  // rect's x/y silently, and the native view would sit where it used to be, painting
+  // over unrelated UI. Re-run whenever the layout state that can move us changes.
   useEffect(() => {
     const el = viewportRef.current;
     if (!el) return;
@@ -121,7 +155,7 @@ export function BrowserSurface({ tabId }: { tabId: string }): React.ReactElement
     observer.observe(el);
     report();
     return () => observer.disconnect();
-  }, [tabId]);
+  }, [tabId, layoutVersion]);
 
   // Track native-driven navigation (redirects, AI clicks, reload) so the omnibox
   // (reading browserUiStore) reflects where the WKWebView actually is — the

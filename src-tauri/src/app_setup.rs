@@ -116,6 +116,18 @@ pub(crate) fn handle_document_window_close_event(
         }
         // Settings and other non-document windows close normally
     }
+
+    // The window is actually gone: tear down any embedded browser it owned (WI-S0.4).
+    //
+    // BrowserSurface normally sends `browser_destroy` from a React unmount cleanup, but
+    // that cleanup runs in the very webview being destroyed — the IPC races its own
+    // teardown and may never arrive. The native WKWebViews would then outlive the window
+    // that owned them: orphaned content processes still holding the page, with nothing
+    // left that could reach them. The native side does not have that problem, so it does
+    // the job here.
+    if let tauri::WindowEvent::Destroyed = event {
+        crate::browser::teardown::destroy_window(&window.app_handle().clone(), window.label());
+    }
 }
 
 /// Handle an app exit request, preserving macOS last-window-close behavior
