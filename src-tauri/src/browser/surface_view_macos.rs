@@ -4,10 +4,40 @@
 //! surface.rs). Pure objc2/Tauri glue — no thread-local state.
 
 use objc2::rc::Retained;
-use objc2::MainThreadMarker;
+use objc2::runtime::AnyObject;
+use objc2::{ClassType, MainThreadMarker};
 use objc2_app_kit::{NSApplication, NSView, NSWindow};
 use objc2_foundation::{NSString, NSURL};
 use tauri::AppHandle;
+
+/// Turn a `callAsyncJavaScript` result object into a string WITHOUT assuming its
+/// class.
+///
+/// The result maps a JS value to an ObjC type: a string → `NSString`, but a number
+/// → `NSNumber`, an array → `NSArray`, a bool → `NSNumber`, etc. The old code cast
+/// every result straight to `NSString` and called an `NSString` method on it; a
+/// script that returned anything but a string therefore hit
+/// `-[NSNumber ...]: unrecognized selector` — an uncaught `NSException` that
+/// **terminates the whole app** (found in the live E2E run). VMark's own agent
+/// scripts always `return JSON.stringify(...)` (strings), but a crash of the entire
+/// process is a far worse failure than a wrong eval result, so this handles any
+/// class: `NSString` verbatim, everything else via `-description` (which every
+/// `NSObject` answers), and null as `<null>`.
+pub(super) fn js_result_to_string(value: *mut AnyObject) -> String {
+    if value.is_null() {
+        return "<null>".into();
+    }
+    // SAFETY: WebKit hands the completion handler a valid (autoreleased) object.
+    let obj: &AnyObject = unsafe { &*value };
+    let is_string: bool = unsafe { objc2::msg_send![obj, isKindOfClass: NSString::class()] };
+    if is_string {
+        let ns: *const NSString = value.cast();
+        return unsafe { (*ns).to_string() };
+    }
+    // Non-string result: describe it rather than crash on a bad cast.
+    let desc: Retained<NSString> = unsafe { objc2::msg_send![obj, description] };
+    desc.to_string()
+}
 
 /// The content view of the SPECIFIC Tauri window `window_label` names — the parent
 /// for our native subview.

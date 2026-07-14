@@ -57,7 +57,7 @@ where
 
 #[path = "surface_view_macos.rs"]
 mod view;
-use view::{content_view, ns_url};
+use view::{content_view, js_result_to_string, ns_url};
 
 /// Create the native webview for `tab_id`, add it as a subview of the
 /// `window_label` window's content view, and load `url`.
@@ -221,12 +221,7 @@ fn eval_js(
     let body = NSString::from_str(script);
     let sink = out.clone();
     let handler = block2::RcBlock::new(move |value: *mut AnyObject, _e: *mut NSError| {
-        if value.is_null() {
-            *sink.borrow_mut() = Some("<null>".into());
-        } else {
-            let ns: *const NSString = value.cast();
-            *sink.borrow_mut() = Some(unsafe { (*ns).to_string() });
-        }
+        *sink.borrow_mut() = Some(js_result_to_string(value));
     });
     unsafe {
         webview.callAsyncJavaScript_arguments_inFrame_inContentWorld_completionHandler(
