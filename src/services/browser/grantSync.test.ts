@@ -74,7 +74,7 @@ describe("startGrantSync", () => {
     await flush();
     invoke.mockClear();
 
-    useBrowserApprovalStore.getState().requestApproval("p1", "https://a.com", "click");
+    useBrowserApprovalStore.getState().requestApproval("p1", "https://a.com", "click", undefined, "tab-1", 1);
     await flush();
 
     expect(invoke).not.toHaveBeenCalled();
@@ -114,12 +114,15 @@ describe("one-shot sync", () => {
     const stop = startGrantSync();
     invoke.mockClear();
 
-    useBrowserApprovalStore.getState().requestApproval("r1", "https://blog.example.com/p", "click");
+    useBrowserApprovalStore.getState().requestApproval("r1", "https://blog.example.com/p", "click", undefined, "tab-1", 1);
     useBrowserApprovalStore.getState().resolveApproval("r1", "once");
 
     expect(invoke).toHaveBeenCalledWith("browser_add_one_shot", {
+      tabId: "tab-1",
+      generation: 1,
       originPattern: "https://blog.example.com",
       operation: "click",
+      target: undefined,
     });
     stop();
   });
@@ -128,7 +131,7 @@ describe("one-shot sync", () => {
     // The driver consumes them as actions run, so re-pushing the whole list would
     // resurrect spent authority. Only additions are sent.
     const stop = startGrantSync();
-    useBrowserApprovalStore.getState().requestApproval("r2", "https://a.com", "click");
+    useBrowserApprovalStore.getState().requestApproval("r2", "https://a.com", "click", undefined, "tab-1", 1);
     useBrowserApprovalStore.getState().resolveApproval("r2", "once");
     invoke.mockClear();
 
@@ -142,7 +145,7 @@ describe("one-shot sync", () => {
   it("does not push a one-shot for 'remember' (that is a standing grant)", async () => {
     const stop = startGrantSync();
     await flush();
-    useBrowserApprovalStore.getState().requestApproval("r3", "https://a.com", "click");
+    useBrowserApprovalStore.getState().requestApproval("r3", "https://a.com", "click", undefined, "tab-1", 1);
     invoke.mockClear();
     useBrowserApprovalStore.getState().resolveApproval("r3", "remember");
     await flush();
@@ -218,11 +221,12 @@ describe("one-shot sync — full descriptor", () => {
 
     useBrowserApprovalStore
       .getState()
-      .requestApproval("r1", "https://blog.example.com/p", "click", { role: "button", name: "Publish" }, "tab-7");
+      .requestApproval("r1", "https://blog.example.com/p", "click", { role: "button", name: "Publish" }, "tab-7", 1);
     useBrowserApprovalStore.getState().resolveApproval("r1", "once");
 
     expect(invoke).toHaveBeenCalledWith("browser_add_one_shot", {
       tabId: "tab-7",
+      generation: 1,
       originPattern: "https://blog.example.com",
       operation: "click",
       target: { role: "button", name: "Publish" },
@@ -236,11 +240,12 @@ describe("one-shot sync — full descriptor", () => {
 
     useBrowserApprovalStore
       .getState()
-      .requestApproval("r2", "https://blog.example.com", "read", undefined, "tab-7");
+      .requestApproval("r2", "https://blog.example.com", "read", undefined, "tab-7", 1);
     useBrowserApprovalStore.getState().resolveApproval("r2", "once");
 
     expect(invoke).toHaveBeenCalledWith("browser_add_one_shot", {
       tabId: "tab-7",
+      generation: 1,
       originPattern: "https://blog.example.com",
       operation: "read",
       target: undefined,

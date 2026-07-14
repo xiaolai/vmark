@@ -13,7 +13,7 @@ beforeEach(reset);
 describe("dismissForNavigation (R7a)", () => {
   it("drops a pending prompt for the tab that navigated", () => {
     const s = useBrowserApprovalStore.getState();
-    s.requestApproval("r1", URL, "click", { role: "button", name: "Publish" }, "tab-1");
+    s.requestApproval("r1", URL, "click", { role: "button", name: "Publish" }, "tab-1", 1);
     expect(useBrowserApprovalStore.getState().pending).toHaveLength(1);
 
     // The page navigated away — the prompt described a page that no longer exists.
@@ -24,7 +24,7 @@ describe("dismissForNavigation (R7a)", () => {
 
   it("drops an unspent one-shot for the tab that navigated", () => {
     const s = useBrowserApprovalStore.getState();
-    s.requestApproval("r1", URL, "click", { role: "button", name: "Publish" }, "tab-1");
+    s.requestApproval("r1", URL, "click", { role: "button", name: "Publish" }, "tab-1", 1);
     s.resolveApproval("r1", "once");
     expect(useBrowserApprovalStore.getState().oneShots).toHaveLength(1);
 
@@ -40,8 +40,8 @@ describe("dismissForNavigation (R7a)", () => {
 
   it("leaves other tabs' prompts and one-shots untouched", () => {
     const s = useBrowserApprovalStore.getState();
-    s.requestApproval("r1", URL, "click", { role: "button", name: "Publish" }, "tab-1");
-    s.requestApproval("r2", URL, "click", { role: "button", name: "Publish" }, "tab-2");
+    s.requestApproval("r1", URL, "click", { role: "button", name: "Publish" }, "tab-1", 1);
+    s.requestApproval("r2", URL, "click", { role: "button", name: "Publish" }, "tab-2", 1);
     s.resolveApproval("r2", "once");
 
     useBrowserApprovalStore.getState().dismissForNavigation("tab-1");
@@ -81,7 +81,7 @@ describe("decide", () => {
 
 describe("pending approval flow", () => {
   it("requestApproval adds a pending entry keyed by id", () => {
-    useBrowserApprovalStore.getState().requestApproval("req1", URL, "click");
+    useBrowserApprovalStore.getState().requestApproval("req1", URL, "click", undefined, "tab-1", 1);
     const pending = useBrowserApprovalStore.getState().pending;
     expect(pending).toHaveLength(1);
     expect(pending[0]).toMatchObject({ id: "req1", targetUrl: URL, operation: "click" });
@@ -89,7 +89,7 @@ describe("pending approval flow", () => {
 
   it("resolve('once') removes the pending but grants nothing standing", () => {
     const s = useBrowserApprovalStore.getState();
-    s.requestApproval("req1", URL, "click");
+    s.requestApproval("req1", URL, "click", undefined, "tab-1", 1);
     s.resolveApproval("req1", "once");
     expect(useBrowserApprovalStore.getState().pending).toHaveLength(0);
     // A later request still needs approval — nothing was remembered.
@@ -98,7 +98,7 @@ describe("pending approval flow", () => {
 
   it("resolve('remember') grants the operation on the target's origin", () => {
     const s = useBrowserApprovalStore.getState();
-    s.requestApproval("req1", URL, "click");
+    s.requestApproval("req1", URL, "click", undefined, "tab-1", 1);
     s.resolveApproval("req1", "remember");
     expect(useBrowserApprovalStore.getState().pending).toHaveLength(0);
     // Future clicks on that origin are now allowed (any path).
@@ -109,7 +109,7 @@ describe("pending approval flow", () => {
 
   it("resolve('deny') removes the pending and grants nothing", () => {
     const s = useBrowserApprovalStore.getState();
-    s.requestApproval("req1", URL, "click");
+    s.requestApproval("req1", URL, "click", undefined, "tab-1", 1);
     s.resolveApproval("req1", "deny");
     expect(useBrowserApprovalStore.getState().pending).toHaveLength(0);
     expect(useBrowserApprovalStore.getState().decide(URL, "click")).toBe("needs-approval");
@@ -123,8 +123,8 @@ describe("pending approval flow", () => {
     // Resolving picked the FIRST match but dropped EVERY entry with that id —
     // authorizing one action while silently discarding the other.
     const s = useBrowserApprovalStore.getState();
-    s.requestApproval("req1", URL, "click");
-    s.requestApproval("req1", "https://evil.example/", "type");
+    s.requestApproval("req1", URL, "click", undefined, "tab-1", 1);
+    s.requestApproval("req1", "https://evil.example/", "type", undefined, "tab-1", 1);
     const pending = useBrowserApprovalStore.getState().pending;
     expect(pending).toHaveLength(1);
     expect(pending[0]).toMatchObject({ targetUrl: URL, operation: "click" });
@@ -138,7 +138,7 @@ describe("pending approval flow", () => {
 
   it("resolve('remember') lands the grant and the removal in ONE update", () => {
     const s = useBrowserApprovalStore.getState();
-    s.requestApproval("req1", URL, "click");
+    s.requestApproval("req1", URL, "click", undefined, "tab-1", 1);
     const seen: { grants: number; pending: number }[] = [];
     const un = useBrowserApprovalStore.subscribe((st) =>
       seen.push({ grants: st.grants.length, pending: st.pending.length }),
@@ -150,7 +150,7 @@ describe("pending approval flow", () => {
   });
 
   it("does not queue an approval for an unknown operation", () => {
-    useBrowserApprovalStore.getState().requestApproval("req1", URL, "scroll");
+    useBrowserApprovalStore.getState().requestApproval("req1", URL, "scroll", undefined, "tab-1", 1);
     expect(useBrowserApprovalStore.getState().pending).toHaveLength(0);
   });
 });
@@ -226,18 +226,18 @@ describe("allow-once (one-shot authorization)", () => {
 
   it("authorizes exactly one subsequent action, then expires", () => {
     const store = useBrowserApprovalStore.getState();
-    store.requestApproval("req-1", "https://blog.example.com/p", "click");
+    store.requestApproval("req-1", "https://blog.example.com/p", "click", undefined, "tab-1", 1);
     store.resolveApproval("req-1", "once");
 
     // The retry arrives under a DIFFERENT request id — the one-shot must still match.
-    expect(useBrowserApprovalStore.getState().consumeOneShot("https://blog.example.com/p", "click")).toBe(true);
+    expect(useBrowserApprovalStore.getState().consumeOneShot("https://blog.example.com/p", "click", undefined, "tab-1")).toBe(true);
     // …and it is spent.
-    expect(useBrowserApprovalStore.getState().consumeOneShot("https://blog.example.com/p", "click")).toBe(false);
+    expect(useBrowserApprovalStore.getState().consumeOneShot("https://blog.example.com/p", "click", undefined, "tab-1")).toBe(false);
   });
 
   it("does not create a standing grant", () => {
     const store = useBrowserApprovalStore.getState();
-    store.requestApproval("req-2", "https://blog.example.com", "click");
+    store.requestApproval("req-2", "https://blog.example.com", "click", undefined, "tab-1", 1);
     store.resolveApproval("req-2", "once");
     expect(useBrowserApprovalStore.getState().grants).toEqual([]);
     // decide() still says needs-approval: a one-shot is not standing authority.
@@ -246,45 +246,45 @@ describe("allow-once (one-shot authorization)", () => {
 
   it("is scoped to the approved origin", () => {
     const store = useBrowserApprovalStore.getState();
-    store.requestApproval("req-3", "https://blog.example.com", "click");
+    store.requestApproval("req-3", "https://blog.example.com", "click", undefined, "tab-1", 1);
     store.resolveApproval("req-3", "once");
-    expect(useBrowserApprovalStore.getState().consumeOneShot("https://evil.com", "click")).toBe(false);
+    expect(useBrowserApprovalStore.getState().consumeOneShot("https://evil.com", "click", undefined, "tab-1")).toBe(false);
     // Unspent for the origin it was granted on.
-    expect(useBrowserApprovalStore.getState().consumeOneShot("https://blog.example.com", "click")).toBe(true);
+    expect(useBrowserApprovalStore.getState().consumeOneShot("https://blog.example.com", "click", undefined, "tab-1")).toBe(true);
   });
 
   it("is scoped to the approved operation", () => {
     const store = useBrowserApprovalStore.getState();
-    store.requestApproval("req-4", "https://blog.example.com", "click");
+    store.requestApproval("req-4", "https://blog.example.com", "click", undefined, "tab-1", 1);
     store.resolveApproval("req-4", "once");
-    expect(useBrowserApprovalStore.getState().consumeOneShot("https://blog.example.com", "type")).toBe(false);
+    expect(useBrowserApprovalStore.getState().consumeOneShot("https://blog.example.com", "type", undefined, "tab-1")).toBe(false);
   });
 
   it("matches a subdomain no more loosely than a standing grant would", () => {
     const store = useBrowserApprovalStore.getState();
-    store.requestApproval("req-5", "https://blog.example.com", "click");
+    store.requestApproval("req-5", "https://blog.example.com", "click", undefined, "tab-1", 1);
     store.resolveApproval("req-5", "once");
     // No implicit subdomain wildcarding — same rule as grants.
-    expect(useBrowserApprovalStore.getState().consumeOneShot("https://evil.blog.example.com", "click")).toBe(false);
+    expect(useBrowserApprovalStore.getState().consumeOneShot("https://evil.blog.example.com", "click", undefined, "tab-1")).toBe(false);
   });
 
   it("deny does not leave a one-shot behind", () => {
     const store = useBrowserApprovalStore.getState();
-    store.requestApproval("req-6", "https://blog.example.com", "click");
+    store.requestApproval("req-6", "https://blog.example.com", "click", undefined, "tab-1", 1);
     store.resolveApproval("req-6", "deny");
-    expect(useBrowserApprovalStore.getState().consumeOneShot("https://blog.example.com", "click")).toBe(false);
+    expect(useBrowserApprovalStore.getState().consumeOneShot("https://blog.example.com", "click", undefined, "tab-1")).toBe(false);
   });
 
   it("remember does not also leave a one-shot behind (no double authorization)", () => {
     const store = useBrowserApprovalStore.getState();
-    store.requestApproval("req-7", "https://blog.example.com", "click");
+    store.requestApproval("req-7", "https://blog.example.com", "click", undefined, "tab-1", 1);
     store.resolveApproval("req-7", "remember");
     expect(useBrowserApprovalStore.getState().oneShots).toEqual([]);
   });
 
   it("refuses to mint a one-shot for an opaque origin", () => {
     const store = useBrowserApprovalStore.getState();
-    store.requestApproval("req-8", "about:blank", "click");
+    store.requestApproval("req-8", "about:blank", "click", undefined, "tab-1", 1);
     store.resolveApproval("req-8", "once");
     expect(useBrowserApprovalStore.getState().oneShots).toEqual([]);
   });
@@ -304,41 +304,41 @@ describe("one-shot target binding", () => {
     store.requestApproval("req-1", "https://blog.example.com/p", "click", {
       role: "button",
       name: "Publish",
-    });
+    }, "tab-1", 1);
     store.resolveApproval("req-1", "once");
 
     // A different NAME on the same origin+operation is refused.
     expect(
       useBrowserApprovalStore
         .getState()
-        .consumeOneShot("https://blog.example.com/p", "click", { role: "button", name: "Delete" }),
+        .consumeOneShot("https://blog.example.com/p", "click", { role: "button", name: "Delete" }, "tab-1"),
     ).toBe(false);
     // A different ROLE is refused.
     expect(
       useBrowserApprovalStore
         .getState()
-        .consumeOneShot("https://blog.example.com/p", "click", { role: "link", name: "Publish" }),
+        .consumeOneShot("https://blog.example.com/p", "click", { role: "link", name: "Publish" }, "tab-1"),
     ).toBe(false);
     // The exact approved target is authorized...
     expect(
       useBrowserApprovalStore
         .getState()
-        .consumeOneShot("https://blog.example.com/p", "click", { role: "button", name: "Publish" }),
+        .consumeOneShot("https://blog.example.com/p", "click", { role: "button", name: "Publish" }, "tab-1"),
     ).toBe(true);
     // ...and spent.
     expect(
       useBrowserApprovalStore
         .getState()
-        .consumeOneShot("https://blog.example.com/p", "click", { role: "button", name: "Publish" }),
+        .consumeOneShot("https://blog.example.com/p", "click", { role: "button", name: "Publish" }, "tab-1"),
     ).toBe(false);
   });
 
   it("a read one-shot (no target) is matched without a target", () => {
     const store = useBrowserApprovalStore.getState();
-    store.requestApproval("req-2", "https://blog.example.com", "read");
+    store.requestApproval("req-2", "https://blog.example.com", "read", undefined, "tab-1", 1);
     store.resolveApproval("req-2", "once");
     expect(
-      useBrowserApprovalStore.getState().consumeOneShot("https://blog.example.com", "read"),
+      useBrowserApprovalStore.getState().consumeOneShot("https://blog.example.com", "read", undefined, "tab-1"),
     ).toBe(true);
   });
 
@@ -347,11 +347,11 @@ describe("one-shot target binding", () => {
     store.requestApproval("req-3", "https://blog.example.com", "click", {
       role: "button",
       name: "Publish",
-    });
+    }, "tab-1", 1);
     store.resolveApproval("req-3", "once");
     // A click with no target descriptor must not spend a target-bound one-shot.
     expect(
-      useBrowserApprovalStore.getState().consumeOneShot("https://blog.example.com", "click"),
+      useBrowserApprovalStore.getState().consumeOneShot("https://blog.example.com", "click", undefined, "tab-1"),
     ).toBe(false);
   });
 });

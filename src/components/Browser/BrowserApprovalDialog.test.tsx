@@ -57,7 +57,7 @@ const TARGET = { role: "button", name: "Publish" };
 // the default back in, which silently gave the "read" case an element it should not
 // have had. Explicit arguments only.
 function raise(id: string, operation: string, target: typeof TARGET | undefined) {
-  useBrowserApprovalStore.getState().requestApproval(id, URL, operation, target, TAB);
+  useBrowserApprovalStore.getState().requestApproval(id, URL, operation, target, TAB, 1);
 }
 /** The common case: a click on the Publish button. */
 function raiseClick(id = "r1") {
