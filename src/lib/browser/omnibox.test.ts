@@ -72,3 +72,17 @@ describe("resolveOmnibox — empty", () => {
     expect(resolveOmnibox("")).toBe("");
   });
 });
+
+// Audit finding (High): `/^127\./` matched `127.evil.com` — a registrable domain — and
+// silently downgraded it from https to http. A prefix test on a hostname is not an IP test.
+describe("resolveOmnibox — the loopback shortcut is an IP test, not a prefix test", () => {
+  it("does NOT treat a domain that merely starts with 127. as loopback", () => {
+    expect(resolveOmnibox("127.evil.com")).toBe("https://127.evil.com/");
+    expect(resolveOmnibox("127.0.0.1.attacker.net")).toBe("https://127.0.0.1.attacker.net/");
+  });
+
+  it("still uses http for a real IPv4 loopback", () => {
+    expect(resolveOmnibox("127.0.0.1:8080")).toBe("http://127.0.0.1:8080/");
+    expect(resolveOmnibox("127.1.2.3")).toBe("http://127.1.2.3/");
+  });
+});

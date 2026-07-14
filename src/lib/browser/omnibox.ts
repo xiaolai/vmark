@@ -44,10 +44,18 @@ function hostOf(entry: string): string {
   return entry.split(/[/?#]/, 1)[0];
 }
 
-/** Loopback hosts get http (dev servers rarely have https certs); others get https. */
+/** A real IPv4 loopback address — `127.x.x.x`, all four octets numeric.
+ *
+ *  NOT `/^127\./`. That matches `127.evil.com`, which is a perfectly registrable domain
+ *  name: an attacker who owns it would get their host silently DOWNGRADED from https to
+ *  http, and the user would never see it happen. A prefix test on a hostname is not an
+ *  IP test. */
+const IPV4_LOOPBACK = /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/;
+
+/** Loopback hosts get http (dev servers rarely have https certs); everything else https. */
 function schemeFor(entry: string): "http" | "https" {
   const host = hostOf(entry).split(":", 1)[0].toLowerCase();
-  if (host === "localhost" || host === "::1" || host === "[::1]" || /^127\./.test(host)) {
+  if (host === "localhost" || host === "::1" || host === "[::1]" || IPV4_LOOPBACK.test(host)) {
     return "http";
   }
   return "https";

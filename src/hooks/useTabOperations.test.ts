@@ -439,3 +439,32 @@ describe("closeTabWithDirtyCheck — orphan cleanup", () => {
     expect(findOrphanedImages).not.toHaveBeenCalled();
   });
 });
+
+// Audit finding (High): a browser tab has no document — it is a web page, not a file. The
+// guard `if (!doc || !tab) return true` therefore took the "already closed" branch and
+// reported success while the tab stayed on screen. The close button and Cmd+W did nothing
+// at all, forever.
+describe("closeTabWithDirtyCheck — browser tabs", () => {
+  beforeEach(() => {
+    useTabStore.setState({ tabs: {}, activeTabId: {}, untitledCounter: 0, closedTabs: {} });
+  });
+
+  it("actually closes a browser tab (it has no document, and does not need one)", async () => {
+    const id = useTabStore.getState().createBrowserTab("main", "https://a.com/", "A");
+    expect(useTabStore.getState().tabs["main"]).toHaveLength(1);
+
+    const closed = await closeTabWithDirtyCheck("main", id);
+
+    expect(closed).toBe(true);
+    expect(useTabStore.getState().tabs["main"] ?? []).toHaveLength(0);
+  });
+
+  it("does not prompt to save a web page", async () => {
+    vi.mocked(message).mockClear();
+    const id = useTabStore.getState().createBrowserTab("main", "https://a.com/", "A");
+    await closeTabWithDirtyCheck("main", id);
+    // There is nothing to save; a save dialog here would be nonsense.
+    expect(message).not.toHaveBeenCalled();
+    expect(save).not.toHaveBeenCalled();
+  });
+});

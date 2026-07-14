@@ -18,6 +18,10 @@
  *   - Pinned tabs are short-circuited with the unpin-before-closing toast
  *     BEFORE cleanup runs — tabStore.closeTab silently refuses them, so
  *     letting cleanupTabState run anyway wipes the document of a visible tab
+ *   - Browser tabs close without a document. "No document" is the normal state
+ *     for a web page, not a sign the tab is already gone, so they get their own
+ *     branch ahead of the missing-document check — nothing to save, nothing to
+ *     prompt about, and no orphan-image cleanup to run
  *
  * @coordinates-with closeSave.ts — promptSaveForDirtyDocument dialog
  * @coordinates-with tabStore.ts — closeTab leaves a valid empty-window state
@@ -35,6 +39,7 @@ import { findOrphanedImages, deleteOrphanedImages } from "@/services/media/orpha
 import { cleanupTabState } from "@/hooks/tabCleanup";
 import { imeToast as toast } from "@/services/ime/imeToast";
 import i18n from "@/i18n";
+import { isBrowserTab } from "@/stores/tabStoreTypes";
 
 /**
  * Clean up orphaned images for a document if setting is enabled.
@@ -88,8 +93,8 @@ export async function closeTabWithDirtyCheck(
   const doc = useDocumentStore.getState().getDocument(tabId);
   const tab = useTabStore.getState().tabs[windowLabel]?.find((t) => t.id === tabId);
 
-  // Tab or document doesn't exist - treat as already closed
-  if (!doc || !tab) return true;
+  // No tab at all — treat as already closed.
+  if (!tab) return true;
 
   // Pinned tabs are refused by tabStore.closeTab — but the caller path
   // here would still run cleanupTabState() and wipe the document state
@@ -99,6 +104,19 @@ export async function closeTabWithDirtyCheck(
     toast.info(i18n.t("dialog:toast.unpinBeforeClosing"));
     return false;
   }
+
+  // A BROWSER tab has no document, and that is not a defect — it is a web page, not a
+  // file. The old guard was `if (!doc || !tab) return true`, so a browser tab took the
+  // "already closed" branch and was reported closed while remaining on screen: the close
+  // button and Cmd+W simply did nothing, forever. Nothing to save, so nothing to prompt
+  // about — close it. (Audit finding, High.)
+  if (isBrowserTab(tab)) {
+    useTabStore.getState().closeTab(windowLabel, tabId);
+    return true;
+  }
+
+  // A document tab with no document state is genuinely already gone.
+  if (!doc) return true;
 
   closingTabIds.add(tabId);
   try {

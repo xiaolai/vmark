@@ -20,7 +20,12 @@
  *   - the **fragment**. This is the one place bookmark identity departs from *tab* identity:
  *     a tab treats `page#a` and `page#b` as the same document (they are), but someone who
  *     bookmarks a section asked for that section.
- *   - **userinfo** — different credentials are different destinations.
+ *   - **the username**, if any — `alice@host` and `bob@host` are different destinations.
+ *
+ * **Stripped:** the **password**. A bookmark is written to disk in cleartext and rendered
+ * in the sidebar; keeping `https://alice:hunter2@host/x` would persist a credential the
+ * user never asked us to store and then display it. The username is kept because it is
+ * part of the destination; the secret is not ours to keep.
  *
  * Leaf-pure: platform `URL` only, no stores, no Tauri.
  *
@@ -56,9 +61,14 @@ export function canonicalizeBookmarkUrl(input: string): string | null {
   }
   url.hostname = host;
 
-  // Re-serialize via `href` rather than rebuilding by hand: it drops the default port,
-  // and it keeps the path, the query (order and duplicates intact), the fragment, and any
-  // userinfo exactly as they were. Everything we want to preserve is preserved by NOT
-  // touching it.
+  // Drop the password. A bookmark is persisted in cleartext and rendered in the sidebar,
+  // so keeping `https://alice:hunter2@host/x` would write a secret to disk the user never
+  // asked us to store, and then show it to whoever is looking at the screen. The username
+  // stays: it is part of the destination, not a credential.
+  url.password = "";
+
+  // Re-serialize via `href` rather than rebuilding by hand: it drops the default port, and
+  // keeps the path, the query (order and duplicates intact), and the fragment exactly as
+  // they were. Everything we want to preserve is preserved by NOT touching it.
   return url.href;
 }

@@ -5,7 +5,6 @@
  */
 
 import { useTranslation } from "react-i18next";
-import { BrowserGrantsList } from "@/components/Browser/BrowserGrantsList";
 import { SettingRow, SettingsGroup, Toggle, TagInput } from "./components";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { HotExitDevTools } from "./HotExitDevTools";
@@ -13,7 +12,6 @@ import { isMacPlatform } from "@/utils/shortcutMatch";
 
 export function AdvancedSettings() {
   const { t } = useTranslation("settings");
-  const { t: tCommon } = useTranslation("common");
   // Persisted (not ephemeral local state): once enabled, the experimental toggles
   // stay revealed across Settings re-opens and in release builds.
   const devTools = useSettingsStore((state) => state.advanced.developerMode);
@@ -126,17 +124,12 @@ export function AdvancedSettings() {
               onChange={(v) => updateBrowserSetting("enabled", v)}
             />
           </SettingRow>
-          {/* Standing AI permissions (WI-S0.8). Only meaningful while the browser is
-              on, and revocation must be reachable without one — so it hangs off the
-              toggle it belongs to. */}
-          {browserEnabled && (
-            <SettingRow
-              label={tCommon("browser.grants.heading")}
-              description={tCommon("browser.grants.description")}
-            >
-              <BrowserGrantsList />
-            </SettingRow>
-          )}
+          {/* Site permissions are NOT here. Settings opens as a separate Tauri window with
+              its own JS context, so it has its own Zustand store: a grants list rendered
+              here reads an empty array and its Revoke button mutates a store the document
+              window never sees. It told you that you had revoked, and you had not. They
+              live in the browser sidebar instead, in the window that owns them.
+              (Audit finding, High.) */}
           <SettingRow
             label={t("advanced.workflowEngine.label")}
             description={t("advanced.workflowEngine.description")}

@@ -28,7 +28,7 @@ export type SidebarViewMode = "files" | "outline" | "history";
  * its site permissions both lapse when VMark quits, so remembering which of them you were
  * looking at would outlive the thing it pointed at.
  */
-export type BrowserSidebarView = "browser-history" | "bookmarks";
+export type BrowserSidebarView = "browser-history" | "bookmarks" | "permissions";
 export type EffectiveTerminalPosition = "top" | "bottom" | "left" | "right";
 
 /* ─────────────────────────── search slice ─────────────────────────────── */

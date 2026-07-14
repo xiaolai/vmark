@@ -80,9 +80,21 @@ describe("canonicalizeBookmarkUrl — preserves what carries meaning", () => {
     );
   });
 
-  it("keeps userinfo — different credentials are different destinations", () => {
+  it("keeps the username — alice@host and bob@host are different destinations", () => {
     expect(canonicalizeBookmarkUrl("https://alice@example.com/x")).toBe(
       "https://alice@example.com/x",
+    );
+  });
+
+  // Audit finding (High): a bookmark is written to disk in cleartext and rendered in the
+  // sidebar. Keeping the password would persist a secret the user never asked us to store,
+  // and then display it to anyone looking at the screen.
+  it("STRIPS an embedded password — it is not ours to keep", () => {
+    expect(canonicalizeBookmarkUrl("https://alice:hunter2@example.com/x")).toBe(
+      "https://alice@example.com/x",
+    );
+    expect(canonicalizeBookmarkUrl("https://alice:hunter2@example.com/x")).not.toContain(
+      "hunter2",
     );
   });
 });

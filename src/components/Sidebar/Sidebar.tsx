@@ -21,11 +21,21 @@ import "./Sidebar.css";
 import { useSidebarContext } from "@/hooks/useSidebarContext";
 import { BrowserHistoryView } from "@/components/Browser/BrowserHistoryView";
 import { BookmarksView } from "@/components/Browser/BookmarksView";
+import { BrowserGrantsList } from "@/components/Browser/BrowserGrantsList";
+import type { BrowserSidebarView } from "@/stores/uiStore/types";
 
 // Constants
 const TRAFFIC_LIGHTS_SPACER_PX = 28;
 
 // View mode configuration - single source of truth (icon and next only; titles come from t())
+/** The browser kind's own cycle. Its views are a separate union from the document ones,
+ *  so it needs its own ring — reusing VIEW_CONFIG is what caused the bug. */
+const BROWSER_VIEW_NEXT: Record<BrowserSidebarView, BrowserSidebarView> = {
+  "browser-history": "bookmarks",
+  bookmarks: "permissions",
+  permissions: "browser-history",
+};
+
 const VIEW_CONFIG: Record<SidebarViewMode, {
   icon: typeof FolderTree;
   next: SidebarViewMode;
@@ -85,7 +95,15 @@ export function Sidebar() {
     }
   }, [filePath, t]);
 
+  // Cycle within the ACTIVE KIND's views (WI-S2.1). This used to always advance the
+  // DOCUMENT view: with a browser tab open, the button silently rewrote the remembered
+  // document sub-view (so returning to a document landed you somewhere you never chose)
+  // and could never reach bookmarks at all. (Audit finding, High.)
   const handleToggleView = () => {
+    if (sidebar.kind === "browser") {
+      sidebar.setView(BROWSER_VIEW_NEXT[sidebar.view as BrowserSidebarView]);
+      return;
+    }
     const { sidebarViewMode, setSidebarViewMode } = useUIStore.getState();
     setSidebarViewMode(VIEW_CONFIG[sidebarViewMode].next);
   };
@@ -165,6 +183,13 @@ export function Sidebar() {
           <>
             {sidebar.view === "browser-history" && <BrowserHistoryView />}
             {sidebar.view === "bookmarks" && <BookmarksView />}
+            {/* Site permissions live HERE, in the document window, not in Settings.
+                Settings opens as a separate Tauri window with its own JS context and
+                therefore its own Zustand store — the grants list rendered there read an
+                empty array and its Revoke button mutated a store nobody was listening to.
+                A permission model whose revocation silently does nothing is worse than
+                none, because it tells you that you revoked. (Audit finding, High.) */}
+            {sidebar.view === "permissions" && <BrowserGrantsList />}
           </>
         ) : (
           <>
