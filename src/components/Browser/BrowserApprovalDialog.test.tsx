@@ -18,12 +18,36 @@ import userEvent from "@testing-library/user-event";
 
 const occlusion = vi.hoisted(() => ({
   browserOcclusion: { addOccluder: vi.fn(), removeOccluder: vi.fn() },
-  OCCLUDER: { crash: "crash-overlay", dialog: "page-dialog", approval: "approval-dialog" },
+  OCCLUDER: {
+    crash: "crash-overlay",
+    dialog: "page-dialog",
+    approval: "approval-dialog",
+    error: "error-overlay",
+  },
 }));
 vi.mock("@/services/browser/browserOcclusion", () => occlusion);
+// The dialog now freezes EVERY mounted browser (audit finding), which it does through the
+// hook — a second browser pane must not be able to paint over the consent prompt.
+vi.mock("@/hooks/useBrowserOccluder", async () => {
+  const { useEffect } = await import("react");
+  const { useBrowserUiStore } = await import("@/stores/browserUiStore");
+  return {
+    useBrowserOccluder: (active: boolean, id: string) => {
+      useEffect(() => {
+        if (!active) return;
+        const tabs = Object.keys(useBrowserUiStore.getState().entries);
+        for (const t of tabs) occlusion.browserOcclusion.addOccluder(t, id);
+        return () => {
+          for (const t of tabs) occlusion.browserOcclusion.removeOccluder(t, id);
+        };
+      }, [active, id]);
+    },
+  };
+});
 
 import { BrowserApprovalDialog } from "./BrowserApprovalDialog";
 import { useBrowserApprovalStore } from "@/stores/browserApprovalStore";
+import { useBrowserUiStore } from "@/stores/browserUiStore";
 
 const TAB = "tab-1";
 const URL = "https://blog.example.com/wp-admin/post-new.php";
@@ -43,6 +67,7 @@ function raiseClick(id = "r1") {
 beforeEach(() => {
   cleanup();
   useBrowserApprovalStore.setState({ grants: [], pending: [], oneShots: [] });
+  useBrowserUiStore.setState({ entries: {} });
   occlusion.browserOcclusion.addOccluder.mockClear();
   occlusion.browserOcclusion.removeOccluder.mockClear();
 });
@@ -63,10 +88,18 @@ describe("BrowserApprovalDialog", () => {
     expect(dlg).toHaveTextContent("Publish");
   });
 
-  it("freezes the browser tab while it is up, and thaws it on resolve", async () => {
+  it("freezes EVERY mounted browser while it is up — not just the tab being asked about", async () => {
+    // Split view: a second browser pane. If it stays live it can paint over the consent
+    // prompt and forge it. (Audit finding, High.)
+    useBrowserUiStore.getState().ensureEntry(TAB, "https://a.com/");
+    useBrowserUiStore.getState().ensureEntry("other-tab", "https://evil.com/");
     raiseClick();
     render(<BrowserApprovalDialog />);
     expect(occlusion.browserOcclusion.addOccluder).toHaveBeenCalledWith(TAB, "approval-dialog");
+    expect(occlusion.browserOcclusion.addOccluder).toHaveBeenCalledWith(
+      "other-tab",
+      "approval-dialog",
+    );
 
     await userEvent.click(screen.getByRole("button", { name: /deny/i }));
     await waitFor(() =>

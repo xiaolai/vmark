@@ -172,3 +172,112 @@ describe("race safety (serialized driver ops)", () => {
     expect(ctl.isFrozen(TAB)).toBe(false);
   });
 });
+
+// Audit verification (#4, NOT FIXED). BrowserSurface seeds the browserUiStore entry
+// BEFORE it invokes `browser_create`, so an overlay that is already up freezes a tab
+// whose native view does not exist yet. Rust rejects it, `confirmed` correctly stays
+// false — and then nothing ever retried, because a retry only happens on the next
+// reconcile and no occluder changed. The native view finished creating and came up
+// LIVE, on top of the overlay: exactly the failure occlusion exists to prevent.
+//
+// The controller was always right that "the next reconcile retries it". What was
+// missing is anything to *trigger* that reconcile once the view exists.
+describe("resync — retrying a freeze the driver could not yet apply", () => {
+  it("re-drives a freeze that failed because the native view did not exist yet", async () => {
+    let viewExists = false;
+    const freeze = vi.fn(async (_tabId: string) => {
+      // What Rust does for an unknown tab id.
+      if (!viewExists) throw new Error("no such browser tab");
+    });
+    const controller = new OcclusionController({ freeze, thaw: vi.fn(async () => {}) });
+
+    // An overlay is up at the moment the surface mounts — the palette IS how you open
+    // a browser tab, so this is the common path, not a corner.
+    controller.addOccluder("t1", "palette");
+    await flush();
+    expect(freeze).toHaveBeenCalledTimes(1); // tried, and failed
+    expect(controller.isFrozen("t1")).toBe(true); // intent stands
+
+    // browser_create resolves: the native view now exists.
+    viewExists = true;
+    controller.resync("t1");
+    await flush();
+
+    expect(freeze).toHaveBeenCalledTimes(2); // retried against the view that now exists
+  });
+
+  it("is a no-op when reality already matches intent", async () => {
+    const freeze = vi.fn(async () => {});
+    const controller = new OcclusionController({ freeze, thaw: vi.fn(async () => {}) });
+
+    controller.addOccluder("t1", "palette");
+    await flush();
+    expect(freeze).toHaveBeenCalledTimes(1);
+
+    controller.resync("t1");
+    await flush();
+    expect(freeze).toHaveBeenCalledTimes(1); // confirmed === desired — nothing to do
+  });
+
+  it("does not freeze a tab no overlay covers", async () => {
+    const freeze = vi.fn(async () => {});
+    const controller = new OcclusionController({ freeze, thaw: vi.fn(async () => {}) });
+
+    controller.resync("t1");
+    await flush();
+    expect(freeze).not.toHaveBeenCalled();
+  });
+});
+
+// Audit verification round 2 (#4, still NOT FIXED). `resync` alone was not enough.
+//
+// `pump` bails out when a loop is already running — "the running loop will see the new
+// intent". True for an INTENT change, but a resync is not one: the intent was already
+// "frozen". So if the doomed freeze is still IN FLIGHT when the create resolves, the
+// resync is swallowed by that early return; the freeze then rejects, the catch returns,
+// and no loop is left running. Desired stays true, confirmed stays false, and nothing will
+// ever try again — the native view exists and is live under the overlay.
+//
+// The window is real: `browser_freeze` (rejecting) and `browser_create` (resolving) are
+// two concurrent IPC calls, and nothing orders them.
+describe("resync — when the failing freeze is still in flight", () => {
+  it("retries after an in-flight freeze fails, not only after it has already failed", async () => {
+    let viewExists = false;
+    let rejectFirst: ((e: Error) => void) | undefined;
+    const freeze = vi.fn(
+      (_tabId: string) =>
+        new Promise<void>((resolve, reject) => {
+          if (viewExists) return resolve();
+          rejectFirst = reject; // hold the first freeze open
+        }),
+    );
+    const controller = new OcclusionController({ freeze, thaw: vi.fn(async () => {}) });
+
+    controller.addOccluder("t1", "palette"); // freeze issued, still pending
+    await flush();
+    expect(freeze).toHaveBeenCalledTimes(1);
+
+    // browser_create resolves WHILE the freeze is still in flight.
+    viewExists = true;
+    controller.resync("t1");
+    await flush();
+
+    // Now the freeze that was aimed at a view that did not exist finally fails.
+    rejectFirst?.(new Error("no such browser tab"));
+    await flush();
+
+    expect(freeze).toHaveBeenCalledTimes(2); // it must try again against the view that now exists
+    expect(controller.isFrozen("t1")).toBe(true);
+  });
+
+  it("does not spin: a freeze that keeps failing with no resync is attempted once", async () => {
+    const freeze = vi.fn(async () => {
+      throw new Error("still no view");
+    });
+    const controller = new OcclusionController({ freeze, thaw: vi.fn(async () => {}) });
+    controller.addOccluder("t1", "palette");
+    await flush();
+    await flush();
+    expect(freeze).toHaveBeenCalledTimes(1); // no hot loop against a driver that keeps failing
+  });
+});

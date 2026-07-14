@@ -2,10 +2,10 @@
  * BrowserSurface — the React surface for an embedded browser tab (WI-1.3, chrome
  * relocated in WI-S1.4).
  *
- * Purpose: owns the native WKWebView for one browser tab and a reserved viewport
- * rect. It creates the native webview on mount, reports the reserved rect's bounds
- * so Rust keeps the native view aligned under it (ResizeObserver), and destroys the
- * webview on unmount. It listens (via `useBrowserNavEvents`) to the native
+ * Purpose: a reserved viewport rect for one browser tab, plus the full-cover overlays
+ * that can replace it. The native WKWebView's own lifecycle — create, align, destroy,
+ * and the races around all three — belongs to `useBrowserNativeView`; this component
+ * reserves the rect and hands it over. It listens (via `useBrowserNavEvents`) to the native
  * WKNavigationDelegate events and writes the address-bar text + loading flag into
  * `browserUiStore` (ADR-5) — the bottom-bar `BrowserOmnibox` reads them and drives
  * navigation. On `browser://crashed` it freezes the native view and shows a
@@ -29,7 +29,7 @@
  * `Editor.tsx` mounts this for `kind === "browser"` tabs (R1). Store access is via
  * selectors + `getState()` in callbacks (no destructuring).
  *
- * @coordinates-with src-tauri browser commands — browser_create/set_bounds/destroy/freeze/thaw
+ * @coordinates-with components/Browser/useBrowserNativeView — the native view's lifecycle
  * @coordinates-with components/Browser/useBrowserNavEvents — native nav-delegate events
  * @coordinates-with stores/browserUiStore — writes urlInput/loading; seeds/clears the entry
  * @coordinates-with services/browser/browserNavigation — reloadBrowser for the crash overlay
@@ -39,14 +39,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { useBrowserNativeView } from "./useBrowserNativeView";
 import { useTabStore } from "@/stores/tabStore";
 import { isBrowserTab } from "@/stores/tabStoreTypes";
 import { useBrowserUiStore } from "@/stores/browserUiStore";
 import { useBrowserApprovalStore } from "@/stores/browserApprovalStore";
 import { reloadBrowser } from "@/services/browser/browserNavigation";
-import { errorMessage } from "@/utils/errorMessage";
 import { browserOcclusion, OCCLUDER } from "@/services/browser/browserOcclusion";
-import { takeNavIntent, clearNavIntent } from "@/services/browser/navIntent";
+import { takeNavIntent } from "@/services/browser/navIntent";
 import { useBrowserHistoryStore } from "@/stores/browserHistoryStore";
 import { useWindowLabel } from "@/contexts/WindowContext";
 import {
@@ -57,20 +57,6 @@ import {
 import { BrowserOverlays } from "./BrowserOverlays";
 import "./browser-surface.css";
 import { useUIStore } from "@/stores/uiStore";
-
-/**
- * The mount that currently owns each tab's native webview (WI-S0.10).
- *
- * A rapid switch away and back remounts the surface while the first mount's
- * `browser_create` is still in flight. That mount's `destroy` is deferred until its
- * create settles — and by then the SECOND mount may already own a fresh native view
- * for the same tab id. Firing the stale destroy then would tear down the live view and
- * leave the tab blank. So each mount takes a token, and only the newest one may
- * destroy. (Rust evicts a superseded view on its side too — belt and braces, since the
- * native map is keyed by tab id and an insert would otherwise orphan the old subview.)
- */
-const mountTokens = new Map<string, number>();
-let nextMountToken = 0;
 
 export function BrowserSurface({ tabId }: { tabId: string }): React.ReactElement {
   const windowLabel = useWindowLabel();
@@ -92,81 +78,36 @@ export function BrowserSurface({ tabId }: { tabId: string }): React.ReactElement
   const error = useBrowserUiStore((s) => s.entries[tabId]?.error ?? null);
   // Any layout state that can MOVE the reserved rect without resizing it (WI-S0.3b).
   // Cheap boolean join: it changes only when the shell actually reflows.
+  // `effectiveTerminalPosition` matters as much as `terminalVisible`: moving the terminal
+  // from the bottom to the side changes the rect's x/y WITHOUT changing its size or the
+  // visible flag, so neither the ResizeObserver nor a visibility-only signal would notice,
+  // and the native view would stay where the terminal used to be. (Audit finding, High.)
   const layoutVersion = useUIStore(
     (s) =>
-      `${s.sidebarVisible}|${s.terminalVisible}|${s.statusBarVisible}|${s.universalToolbarVisible}`,
+      `${s.sidebarVisible}|${s.terminalVisible}|${s.effectiveTerminalPosition}` +
+      `|${s.statusBarVisible}|${s.universalToolbarVisible}`,
   );
 
-  // Create the native webview on mount; destroy it on unmount. Seed/clear the
-  // transient omnibox UI state (ADR-5) alongside the native view's lifecycle so
-  // the bottom-bar omnibox has this tab's url the moment it renders.
-  useEffect(() => {
-    let active = true;
-    const token = ++nextMountToken;
-    mountTokens.set(tabId, token);
-    useBrowserUiStore.getState().ensureEntry(tabId, url);
-    // The window is derived Rust-side from the invoking WebviewWindow (a caller
-    // can't assert a label), so we pass only tabId + url.
-    const created = invoke("browser_create", { tabId, url });
-    void created
-      .catch((e: unknown) => {
-        // A create that fails leaves NO native view at all — the tab would sit there
-        // as an empty rect forever. Say so (WI-S0.9).
-        if (active) useBrowserUiStore.getState().setError(tabId, errorMessage(e));
-      })
-      .finally(() => active && useBrowserUiStore.getState().setLoading(tabId, false));
-    return () => {
-      active = false;
-      // Destroy only AFTER create settles: a create that resolves after this
-      // unmount would otherwise register a native webview this destroy already
-      // missed, orphaning a content process nothing tears down.
-      void created
-        .catch(() => {})
-        .then(() => {
-          // Only the mount that still owns this tab may destroy it (WI-S0.10).
-          if (mountTokens.get(tabId) !== token) return;
-          mountTokens.delete(tabId);
-          void invoke("browser_destroy", { tabId }).catch(() => {});
-        });
-      useBrowserUiStore.getState().clearForTab(tabId);
-      // The native view is going away, so drop its occlusion bookkeeping outright —
-      // no thaw, there is nothing left to show. Leaving a stale occluder behind would
-      // freeze the NEXT view created for this tab id.
-      browserOcclusion.removeTab(tabId);
-      // Any prompt raised against this tab describes a page that is being destroyed.
-      useBrowserApprovalStore.getState().dismissForNavigation(tabId);
-      clearNavIntent(tabId);
-    };
-    // `url` is the initial navigation target only; navigation is explicit after.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tabId]);
+  // The native view itself: create, keep aligned, destroy — plus the create/destroy race,
+  // the post-create occlusion resync, and reflow-driven bounds. See useBrowserNativeView.
+  useBrowserNativeView(tabId, url, layoutVersion, viewportRef);
 
-  // Report the reserved rect's viewport bounds to Rust on layout/resize so the
-  // native view stays aligned under the placeholder.
-  //
-  // `layoutVersion` is why this is not a ResizeObserver alone (WI-S0.3b): the observer
-  // fires on SIZE. A panel that moves the rect without resizing it — a terminal
-  // switching sides, a bar appearing above it, a split pane rebalancing — changes the
-  // rect's x/y silently, and the native view would sit where it used to be, painting
-  // over unrelated UI. Re-run whenever the layout state that can move us changes.
+  // An error overlay is DOM, and the native view paints over all DOM in its rect — so a
+  // load failure used to render the message underneath a live (or blank) web page, where
+  // nobody could see it. Freeze the view for as long as there is an error to show.
+  // (Audit finding, High.) Covers a failed create too: the surface has an error and no
+  // native view, and freezing a tab with no view is a harmless no-op.
+  // Keyed on WHETHER there is an error, not on WHICH error. Depending on the message
+  // string meant that one failure replacing another (a retry that fails differently) tore
+  // the occluder down and put it back, opening an asynchronous thaw-then-freeze window in
+  // which the page was visible again with the error overlay still on screen. Nothing about
+  // the freeze depends on the text. (Audit verification, PARTIAL.)
+  const hasError = error !== null;
   useEffect(() => {
-    const el = viewportRef.current;
-    if (!el) return;
-    const report = () => {
-      const r = el.getBoundingClientRect();
-      void invoke("browser_set_bounds", {
-        tabId,
-        x: r.x,
-        y: r.y,
-        width: r.width,
-        height: r.height,
-      }).catch(() => {});
-    };
-    const observer = new ResizeObserver(report);
-    observer.observe(el);
-    report();
-    return () => observer.disconnect();
-  }, [tabId, layoutVersion]);
+    if (!hasError) return;
+    browserOcclusion.addOccluder(tabId, OCCLUDER.error);
+    return () => browserOcclusion.removeOccluder(tabId, OCCLUDER.error);
+  }, [tabId, hasError]);
 
   // Track native-driven navigation (redirects, AI clicks, reload) so the omnibox
   // (reading browserUiStore) reflects where the WKWebView actually is — the
@@ -218,6 +159,7 @@ export function BrowserSurface({ tabId }: { tabId: string }): React.ReactElement
       // exactly what went wrong and used to tell nobody (WI-S0.9).
       useBrowserUiStore.getState().setError(tabId, message);
     },
+
     onCrashed: (action) => {
       // The native view still paints over the DOM after a crash; freeze it so the
       // recovery overlay is visible in its place (WI-1.4 occlusion / WI-1.8). Via the

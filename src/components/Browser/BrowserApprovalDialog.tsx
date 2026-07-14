@@ -33,7 +33,8 @@
 import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useBrowserApprovalStore, type ApprovalOutcome } from "@/stores/browserApprovalStore";
-import { browserOcclusion, OCCLUDER } from "@/services/browser/browserOcclusion";
+import { OCCLUDER } from "@/services/browser/browserOcclusion";
+import { useBrowserOccluder } from "@/hooks/useBrowserOccluder";
 import { canonicalizeOrigin } from "@/lib/browser/origin/originGuard";
 import "./browser-approval-dialog.css";
 
@@ -56,17 +57,22 @@ export function BrowserApprovalDialog(): React.ReactElement | null {
   const request = useBrowserApprovalStore((s) => s.pending[0] ?? null);
   const denyRef = useRef<HTMLButtonElement>(null);
 
-  const tabId = request?.tabId;
   const requestId = request?.id;
 
-  // Freeze the tab's native view while the prompt is up, so it cannot paint over the
-  // very dialog asking whether it may be acted upon. Reference-counted, so a crash
-  // overlay or page dialog already freezing this tab is not disturbed.
-  useEffect(() => {
-    if (!tabId) return;
-    browserOcclusion.addOccluder(tabId, OCCLUDER.approval);
-    return () => browserOcclusion.removeOccluder(tabId, OCCLUDER.approval);
-  }, [tabId, requestId]);
+  // Freeze EVERY mounted browser, not just the tab being asked about.
+  //
+  // The prompt is a full-window overlay, and every native browser view paints over all
+  // DOM in its own rect. Freezing only the target tab left any OTHER mounted browser — a
+  // second pane in split view — free to paint over the consent dialog and draw whatever it
+  // liked on top of it, including a convincing forgery of this very prompt. A security
+  // question that an attacker-controlled page can redraw is not a security question.
+  // (Audit finding, High.)
+  //
+  // Reference-counted, so this does not disturb a crash overlay or page dialog already
+  // freezing one of those tabs. Keyed on `requestId` only through `active`: consecutive
+  // requests for the same tab must NOT thaw-and-refreeze between prompts, which would open
+  // an asynchronous window with the page visible and a dialog on screen.
+  useBrowserOccluder(Boolean(requestId), OCCLUDER.approval);
 
   // Deny holds focus: a stray Enter must never authorize an action.
   useEffect(() => {

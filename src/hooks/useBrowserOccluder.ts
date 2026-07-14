@@ -36,14 +36,35 @@ import { browserOcclusion } from "@/services/browser/browserOcclusion";
 export function useBrowserOccluder(active: boolean, occluderId: string): void {
   useEffect(() => {
     if (!active) return;
-    // Snapshot the tabs at freeze time and release exactly those: a tab that unmounts
-    // meanwhile has its occlusion state dropped wholesale by `removeTab`, and a tab
-    // that mounts meanwhile was never frozen by us, so releasing it would be wrong.
-    const tabs = Object.keys(useBrowserUiStore.getState().entries);
-    if (tabs.length === 0) return;
-    for (const tabId of tabs) browserOcclusion.addOccluder(tabId, occluderId);
+
+    /** Every browser tab that currently has a native view. */
+    const mounted = () => Object.keys(useBrowserUiStore.getState().entries);
+
+    // Freeze what is mounted now...
+    const frozen = new Set<string>();
+    const freeze = (tabId: string) => {
+      if (frozen.has(tabId)) return;
+      frozen.add(tabId);
+      browserOcclusion.addOccluder(tabId, occluderId);
+    };
+    for (const tabId of mounted()) freeze(tabId);
+
+    // ...and keep watching, because the mounted set is NOT fixed for the overlay's
+    // lifetime. An earlier version snapshotted it once, which meant a browser tab that
+    // mounted while the palette was still open was never frozen — and a native view
+    // appearing over an open dialog is the exact failure this hook exists to prevent.
+    // (Audit finding, High.) It can happen for real: the palette is how you run
+    // "New Browser Tab", so the overlay is open at the moment the surface mounts.
+    const unsubscribe = useBrowserUiStore.subscribe((state) => {
+      for (const tabId of Object.keys(state.entries)) freeze(tabId);
+    });
+
     return () => {
-      for (const tabId of tabs) browserOcclusion.removeOccluder(tabId, occluderId);
+      unsubscribe();
+      // Release exactly what we froze. A tab that has since unmounted had its occlusion
+      // state dropped wholesale by `removeTab`, so releasing it again is a harmless no-op;
+      // a tab we never froze is not ours to release.
+      for (const tabId of frozen) browserOcclusion.removeOccluder(tabId, occluderId);
     };
   }, [active, occluderId]);
 }

@@ -45,6 +45,9 @@ export const OCCLUDER = {
   dialog: "page-dialog",
   /** The AI-action approval prompt (WI-S0.8). */
   approval: "approval-dialog",
+  /** A load/create failure overlay. The native view paints over DOM, so an error message
+   *  drawn under a live page is a message nobody can read (audit finding). */
+  error: "error-overlay",
 } as const;
 
 /** The one controller. Do not construct another — reference counts must be shared. */
@@ -74,6 +77,14 @@ export const browserOcclusion = {
   },
   removeOccluder(tabId: string, occluderId: string): void {
     controller.removeOccluder(tabId, occluderId);
+    syncFrozen(tabId);
+  },
+  /** The tab's native view now exists: re-drive any freeze the driver could not apply
+   *  before it did. `BrowserSurface` calls this once `browser_create` resolves —
+   *  without it, an overlay raised before the view existed stayed unenforced and the
+   *  new view came up live on top of it. (Audit verification, #4.) */
+  resync(tabId: string): void {
+    controller.resync(tabId);
     syncFrozen(tabId);
   },
   /** The tab's view is gone: drop the bookkeeping outright (no thaw, nothing to show).

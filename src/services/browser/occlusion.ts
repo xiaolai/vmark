@@ -25,6 +25,13 @@
  * failure: a failed snapshot keeps the intent "hidden" — never show a stale live
  * frame under an overlay.
  *
+ * "The next reconcile" only arrives when an occluder is added or removed, which is not
+ * enough on its own: a freeze can fail because the tab's native view does not exist YET
+ * (the surface seeds its store entry before `browser_create` resolves, and the command
+ * palette — an occluder — is how you open a browser tab). No occluder changes while that
+ * create is in flight, so nothing retried and the view came up live over the overlay.
+ * `resync` is the missing trigger: call it when a tab's view becomes available.
+ *
  * Pure orchestration: the actual snapshot/hide/show is the injected
  * `OcclusionDriver` (the Rust `browser_freeze`/`browser_thaw` commands in
  * production, a mock in tests). The overlay/drag event wiring is a thin adapter
@@ -49,6 +56,8 @@ export class OcclusionController {
   private readonly confirmed = new Map<string, boolean>();
   /** Tabs whose serialized op loop is currently running. */
   private readonly pumping = new Set<string>();
+  /** Tabs whose native view changed under an in-flight op — see `pump`. */
+  private readonly stale = new Set<string>();
 
   constructor(private readonly driver: OcclusionDriver) {}
 
@@ -73,12 +82,34 @@ export class OcclusionController {
     return this.desired.get(tabId) ?? false;
   }
 
+  /**
+   * Re-drive the tab toward its desired state.
+   *
+   * A driver failure deliberately leaves `confirmed` untouched so the next reconcile
+   * retries it — but a reconcile only happens when an occluder is added or removed, and
+   * the case that matters has neither. `BrowserSurface` seeds its store entry *before*
+   * invoking `browser_create`, so an overlay that is already up (the command palette is
+   * how you open a browser tab) freezes a tab whose native view does not exist yet. Rust
+   * rejects it, correctly; nothing then retried, and the view finished creating and came
+   * up LIVE on top of the overlay. Call this when a tab's native view becomes available:
+   * it makes the "next reconcile" actually arrive. (Audit verification, #4.)
+   *
+   * Idempotent — a no-op when reality already matches intent.
+   */
+  resync(tabId: string): void {
+    // Marked BEFORE pumping: if an op is already in flight against the world as it was, the
+    // early return in `pump` would otherwise drop this on the floor.
+    this.stale.add(tabId);
+    void this.pump(tabId);
+  }
+
   /** Drop all occlusion state for a closed tab (no thaw — the view is gone).
    *  A running op loop observes this and stops before touching the driver again. */
   removeTab(tabId: string): void {
     this.occluders.delete(tabId);
     this.desired.delete(tabId);
     this.confirmed.delete(tabId);
+    this.stale.delete(tabId);
   }
 
   private setFor(tabId: string): Set<string> {
@@ -100,21 +131,32 @@ export class OcclusionController {
    * time. At most one loop runs per tab, and it re-reads `desired` after every
    * completion — so intent that changed mid-op is picked up, and superseded
    * intent is simply never sent.
+   *
+   * `stale` is why a failed op is not simply abandoned. A driver failure normally means
+   * "this cannot work right now", and retrying it on the spot would spin. But a resync says
+   * something else — *the world changed, the view exists now* — and it can arrive while the
+   * doomed op is still in flight, where the early return below would swallow it. So a
+   * resync marks the tab stale, and a failure is retried exactly when the attempt it failed
+   * on was made against a world that has since changed. One retry per resync: no spin.
    */
   private async pump(tabId: string): Promise<void> {
-    if (this.pumping.has(tabId)) return; // the running loop will see the new intent
+    if (this.pumping.has(tabId)) return; // the running loop will observe `stale`
     this.pumping.add(tabId);
     try {
       for (;;) {
         if (!this.occluders.has(tabId)) return; // tab closed — its view is gone
         const want = this.desired.get(tabId) ?? false;
         if (want === (this.confirmed.get(tabId) ?? false)) return; // reality matches intent
+        // We are about to act on the world as it stands. Anything that changes it from here
+        // on re-marks the tab, and the catch below will see that and try again.
+        this.stale.delete(tabId);
         try {
           await (want ? this.driver.freeze(tabId) : this.driver.thaw(tabId));
         } catch {
-          // Unconfirmed: leave `confirmed` as-is so the next reconcile retries
-          // and no thaw is sent for a view the driver never actually froze. The
-          // intent stands — a failed snapshot must not reveal a live frame.
+          // Unconfirmed: leave `confirmed` as-is so no thaw is ever sent for a view the
+          // driver never actually froze. The intent stands — a failed freeze must not
+          // reveal a live frame.
+          if (this.stale.has(tabId)) continue; // the view arrived mid-flight: try again
           return;
         }
         if (!this.occluders.has(tabId)) return; // closed while the op was in flight
