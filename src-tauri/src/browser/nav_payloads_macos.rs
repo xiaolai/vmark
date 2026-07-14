@@ -22,6 +22,9 @@ pub struct NavPayload {
     pub can_go_back: bool,
     #[serde(rename = "canGoForward")]
     pub can_go_forward: bool,
+    /// This navigation followed a server redirect (WI-S2.2). History folds a redirect
+    /// chain into one entry — the user went to one place, even though every hop commits.
+    pub redirected: bool,
 }
 
 /// `browser://loaded` — the load FINISHED cleanly (didFinishNavigation).

@@ -21,6 +21,7 @@ fn nav_payload_uses_camelcase_tab_id_and_carries_generation() {
         generation: 7,
         can_go_back: true,
         can_go_forward: false,
+        redirected: false,
     };
     assert_eq!(
         value(&p),
@@ -29,7 +30,8 @@ fn nav_payload_uses_camelcase_tab_id_and_carries_generation() {
             "url": "https://a.com",
             "generation": 7,
             "canGoBack": true,
-            "canGoForward": false
+            "canGoForward": false,
+            "redirected": false
         })
     );
 }
@@ -66,6 +68,7 @@ fn history_flags_ride_every_navigation_event() {
         generation: 1,
         can_go_back: true,
         can_go_forward: true,
+        redirected: false,
     });
     let loaded = value(&LoadedPayload {
         tab_id: "t1".into(),
@@ -152,9 +155,29 @@ fn generation_serializes_as_a_json_number_at_the_safe_integer_boundary() {
         generation: 9_007_199_254_740_991, // 2^53 - 1
         can_go_back: false,
         can_go_forward: false,
+        redirected: false,
     };
     let g = value(&p);
     let g = g.get("generation").expect("generation key present");
     assert!(g.is_number(), "generation must serialize as a JSON number");
     assert_eq!(g.as_u64(), Some(9_007_199_254_740_991));
+}
+
+#[test]
+fn a_redirected_commit_says_so() {
+    // WI-S2.2 — history folds a redirect chain into one entry, because the user went to
+    // one place even though every hop commits. That needs the real signal, not a timing
+    // heuristic that would mistake a fast link click for a redirect.
+    let p = NavPayload {
+        tab_id: "t1".into(),
+        url: "https://a.com/final".into(),
+        generation: 2,
+        can_go_back: false,
+        can_go_forward: false,
+        redirected: true,
+    };
+    assert_eq!(
+        value(&p).get("redirected").and_then(|v| v.as_bool()),
+        Some(true)
+    );
 }

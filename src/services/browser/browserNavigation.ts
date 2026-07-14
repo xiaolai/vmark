@@ -21,6 +21,7 @@ import { isBrowserTab } from "@/stores/tabStoreTypes";
 import { useBrowserUiStore } from "@/stores/browserUiStore";
 import { resolveOmnibox, navigationTarget } from "@/lib/browser/omnibox";
 import { errorMessage } from "@/utils/errorMessage";
+import { setNavIntent } from "./navIntent";
 
 /** Load an already-resolved URL: show it in the omnibox, mark loading, and drive the
  *  native navigation.
@@ -57,6 +58,8 @@ function reportFailure(tabId: string): (e: unknown) => void {
 export function submitOmnibox(tabId: string, entry: string): void {
   const target = resolveOmnibox(entry);
   if (target === "") return;
+  // The user typed this. History wants to know that (WI-S2.2).
+  setNavIntent(tabId, "typed");
   loadUrl(tabId, target);
 }
 
@@ -64,14 +67,19 @@ export function submitOmnibox(tabId: string, entry: string): void {
 export function reloadBrowser(tabId: string): void {
   const tab = useTabStore.getState().findTabById(tabId);
   if (!tab || !isBrowserTab(tab) || !tab.url) return;
+  // A reload commits the same url again; history collapses it rather than listing the
+  // page twice.
+  setNavIntent(tabId, "reload");
   loadUrl(tabId, navigationTarget(tab.url));
 }
 
 export function backBrowser(tabId: string): void {
+  setNavIntent(tabId, "back-forward");
   void invoke("browser_back", { tabId }).catch(reportFailure(tabId));
 }
 
 export function forwardBrowser(tabId: string): void {
+  setNavIntent(tabId, "back-forward");
   void invoke("browser_forward", { tabId }).catch(reportFailure(tabId));
 }
 

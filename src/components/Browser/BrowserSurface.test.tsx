@@ -14,6 +14,10 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: (...a: unknown[]) => invoke(...
 vi.mock("@tauri-apps/api/webviewWindow", () => ({
   getCurrentWebviewWindow: () => ({ label: "main" }),
 }));
+vi.mock("@/contexts/WindowContext", () => ({
+  useWindowLabel: () => "main",
+  useIsDocumentWindow: () => true,
+}));
 
 // Capturing event mock (overrides the global no-op) so tests can emit the
 // native nav-delegate events the surface now listens for.
@@ -53,6 +57,7 @@ import { BrowserSurface } from "./BrowserSurface";
 import { useTabStore } from "@/stores/tabStore";
 import { useBrowserUiStore } from "@/stores/browserUiStore";
 import { useUIStore } from "@/stores/uiStore";
+import { useBrowserHistoryStore } from "@/stores/browserHistoryStore";
 
 function seedBrowserTab(url: string): string {
   useTabStore.setState({ tabs: {}, activeTabId: {}, untitledCounter: 0, closedTabs: {} });
@@ -63,6 +68,7 @@ beforeEach(() => {
   invoke.mockClear();
   eventListeners.clear();
   useBrowserUiStore.setState({ entries: {} });
+  useBrowserHistoryStore.setState({ byWindow: {} });
   cleanup();
 });
 

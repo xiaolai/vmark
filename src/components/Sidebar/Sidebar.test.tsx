@@ -11,10 +11,23 @@ import { render, screen } from "@testing-library/react";
 import { useUIStore } from "@/stores/uiStore";
 import { useShortcutsStore, formatKeyForDisplay } from "@/stores/settingsStore";
 import { Sidebar } from "./Sidebar";
+import { useTabStore } from "@/stores/tabStore";
 
 // FileExplorer pulls in the workspace stack (Tauri FS, watchers, etc.) which
 // is irrelevant to these assertions. Stub it to a static node so the test
 // stays focused on the Sidebar shell wiring.
+// The sidebar now follows the active tab's KIND (WI-S2.1), so it needs a window.
+vi.mock("@/contexts/WindowContext", () => ({
+  useWindowLabel: () => "main",
+  useIsDocumentWindow: () => true,
+}));
+vi.mock("@/components/Browser/BrowserHistoryView", () => ({
+  BrowserHistoryView: () => <div data-testid="browser-history-view" />,
+}));
+vi.mock("@/components/Browser/BookmarksView", () => ({
+  BookmarksView: () => <div data-testid="bookmarks-view" />,
+}));
+
 vi.mock("./FileExplorer", () => ({
   FileExplorer: () => null,
 }));
@@ -83,5 +96,40 @@ describe("Sidebar — tooltips surface shortcuts", () => {
     expect(display).not.toBe("");
     expect(newFileBtn.getAttribute("title")).toContain(display);
     expect(newFileBtn.getAttribute("title")).toBe(newFileBtn.getAttribute("aria-label"));
+  });
+});
+
+// WI-S2.1 — the sidebar follows the active tab's kind (ADR-2). No manual switch: the
+// sidebar reflects what you are actually looking at.
+describe("Sidebar — follows the active tab's kind", () => {
+  beforeEach(() => {
+    useTabStore.setState({ tabs: {}, activeTabId: {}, untitledCounter: 0, closedTabs: {} });
+    useUIStore.setState({
+      sidebarVisible: true,
+      sidebarViewMode: "outline",
+      sidebarBrowserViewMode: "browser-history",
+    });
+  });
+
+  it("shows document views for a document tab", () => {
+    const id = useTabStore.getState().createTab("main", null);
+    useTabStore.getState().setActiveTab("main", id);
+    render(<Sidebar />);
+    expect(screen.queryByTestId("browser-history-view")).toBeNull();
+  });
+
+  it("shows browser history for a browser tab, with no manual switch", () => {
+    const id = useTabStore.getState().createBrowserTab("main", "https://a.com/", "A");
+    useTabStore.getState().setActiveTab("main", id);
+    render(<Sidebar />);
+    expect(screen.getByTestId("browser-history-view")).toBeInTheDocument();
+  });
+
+  it("shows bookmarks when that is the remembered browser sub-view", () => {
+    const id = useTabStore.getState().createBrowserTab("main", "https://a.com/", "A");
+    useTabStore.getState().setActiveTab("main", id);
+    useUIStore.setState({ sidebarBrowserViewMode: "bookmarks" });
+    render(<Sidebar />);
+    expect(screen.getByTestId("bookmarks-view")).toBeInTheDocument();
   });
 });

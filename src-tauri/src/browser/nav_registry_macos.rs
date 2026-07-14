@@ -19,15 +19,32 @@ use objc2_web_kit::{WKNavigationDelegate, WKUIDelegate, WKWebView};
 use tauri::{AppHandle, Emitter, Manager};
 
 use super::payloads::FailedPayload;
-use super::{NavDelegate, NavDelegateIvars};
+use super::NavDelegate;
 use crate::browser::recovery::RecoveryAction;
 use crate::browser::registry::Lifecycle;
 use crate::browser::surface::BrowserSurface;
 
+/// Per-delegate context: which tab it serves and the handle to emit events on.
+pub struct NavDelegateIvars {
+    pub(super) tab_id: String,
+    pub(super) app: AppHandle,
+    /// Did the CURRENT provisional navigation follow a server redirect (WI-S2.2)?
+    ///
+    /// History folds a redirect chain into one entry — the user went to one place, even
+    /// though every hop commits. Knowing that requires the real signal, not a timing
+    /// heuristic that would mistake a fast link click for a redirect. Reset when a
+    /// navigation starts, set by the redirect callback, read at commit.
+    pub(super) redirected: std::cell::Cell<bool>,
+}
+
 impl NavDelegate {
     /// Build a delegate bound to `tab_id`, emitting on `app`.
     pub fn new(mtm: MainThreadMarker, tab_id: String, app: AppHandle) -> Retained<Self> {
-        let this = Self::alloc(mtm).set_ivars(NavDelegateIvars { tab_id, app });
+        let this = Self::alloc(mtm).set_ivars(NavDelegateIvars {
+            tab_id,
+            app,
+            redirected: std::cell::Cell::new(false),
+        });
         // SAFETY: NSObject's init has the standard signature.
         unsafe { msg_send![super(this), init] }
     }

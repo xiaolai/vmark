@@ -421,9 +421,14 @@ Focus return after navigation/dialogs, and IME preservation, are part of this co
   suppression, max size, failed loads, popup navigation, privacy clearing, window
   shutdown). "A visited list from nav events" is not a spec.
 - **WI-S2.3** Kind switching preserves each kind's remembered sub-view.
-- **WI-S2.4** **Hot-exit migration**: hot-exit persists one unrestricted
-  `sidebar_view_mode` string; two remembered modes need a versioned field, a migration,
-  and a defined downgrade path.
+- **WI-S2.4 ✅ DONE — and the migration turned out not to be needed.** The concern was
+  real: hot-exit persists one unrestricted `sidebar_view_mode` string, and two remembered
+  modes looked like a schema bump. But the browser sub-view is **session-only**, which is
+  the coherent choice rather than a dodge — the browser's history and its site permissions
+  both lapse when VMark quits, so remembering *which of them you were looking at* would
+  outlive the thing it pointed at. The two views are separate fields with separate types,
+  so the persisted v5 contract is untouched. A test asserts a browser value can never reach
+  the persisted field, which is what makes "no migration" safe rather than merely convenient.
 - **DoD:** activating a browser tab shows browser views and a document tab file views;
   two-window test shows no history cross-wiring; migration test green; gate green.
 

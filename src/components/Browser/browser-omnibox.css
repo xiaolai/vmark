@@ -84,3 +84,9 @@
     transform: rotate(360deg);
   }
 }
+
+/* A bookmarked page (WI-S3.2). The star is filled, and coloured — this is state, not an
+   action, so it should read at a glance without hovering. */
+.browser-omnibox-btn--on {
+  color: var(--primary-color);
+}

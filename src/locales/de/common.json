@@ -146,5 +146,13 @@
   "browser.grants.description": "Websites, auf denen die KI ohne erneute Nachfrage handeln darf. Sie gelten, bis VMark beendet wird, und werden nie auf die Festplatte geschrieben.",
   "browser.grants.revokeLabel": "Berechtigungen für {{origin}} widerrufen",
   "browser.error.title": "Diese Seite konnte nicht geladen werden.",
-  "browser.error.retry": "Erneut versuchen"
+  "browser.error.retry": "Erneut versuchen",
+  "browser.history.heading": "Verlauf",
+  "browser.history.empty": "Noch nichts besucht.",
+  "browser.history.clear": "Löschen",
+  "browser.bookmarks.heading": "Lesezeichen",
+  "browser.bookmarks.empty": "Noch keine Lesezeichen.",
+  "browser.bookmarks.removeLabel": "{{title}} entfernen",
+  "browser.bookmarks.add": "Lesezeichen für diese Seite",
+  "browser.bookmarks.remove": "Lesezeichen entfernen"
 }

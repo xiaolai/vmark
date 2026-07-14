@@ -146,5 +146,13 @@
   "browser.grants.description": "AI が毎回確認せずに操作できるサイトです。VMark を終了するまで有効で、ディスクには保存されません。",
   "browser.grants.revokeLabel": "{{origin}} の許可を取り消す",
   "browser.error.title": "このページを読み込めませんでした。",
-  "browser.error.retry": "再試行"
+  "browser.error.retry": "再試行",
+  "browser.history.heading": "履歴",
+  "browser.history.empty": "まだ何も閲覧していません。",
+  "browser.history.clear": "消去",
+  "browser.bookmarks.heading": "ブックマーク",
+  "browser.bookmarks.empty": "ブックマークはまだありません。",
+  "browser.bookmarks.removeLabel": "{{title}} を削除",
+  "browser.bookmarks.add": "このページをブックマーク",
+  "browser.bookmarks.remove": "ブックマークを削除"
 }

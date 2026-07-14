@@ -18,6 +18,9 @@ import { FileExplorer, type FileExplorerHandle } from "./FileExplorer";
 import { OutlineView } from "./OutlineView";
 import { HistoryView } from "./HistoryView";
 import "./Sidebar.css";
+import { useSidebarContext } from "@/hooks/useSidebarContext";
+import { BrowserHistoryView } from "@/components/Browser/BrowserHistoryView";
+import { BookmarksView } from "@/components/Browser/BookmarksView";
 
 // Constants
 const TRAFFIC_LIGHTS_SPACER_PX = 28;
@@ -38,6 +41,7 @@ export function Sidebar() {
   const sidebarShortcut = useShortcutsStore((state) => state.getShortcut("toggleSidebar"));
   const newFileShortcut = useShortcutsStore((state) => state.getShortcut("newFile"));
   const viewMode = useUIStore((state) => state.sidebarViewMode);
+  const sidebar = useSidebarContext();
   // WI-2.3 — bind aria-expanded on the close-sidebar button to live state
   // instead of hardcoding `true`. The button only renders when the sidebar
   // is open, but binding to the store keeps maintainers honest if rendering
@@ -153,9 +157,22 @@ export function Sidebar() {
       </div>
 
       <div className="sidebar-content">
-        {viewMode === "files" && <FileExplorer ref={fileExplorerRef} currentFilePath={filePath} />}
-        {viewMode === "outline" && <OutlineView />}
-        {viewMode === "history" && <HistoryView />}
+        {/* The sidebar follows the active tab's KIND (ADR-2, WI-S2.1): a browser tab gets
+            browser views, a document tab gets file views, and neither needs a manual
+            switch. Each kind remembers its own sub-view, so glancing at a browser and
+            coming back does not cost you the file tree you had open (WI-S2.3). */}
+        {sidebar.kind === "browser" ? (
+          <>
+            {sidebar.view === "browser-history" && <BrowserHistoryView />}
+            {sidebar.view === "bookmarks" && <BookmarksView />}
+          </>
+        ) : (
+          <>
+            {viewMode === "files" && <FileExplorer ref={fileExplorerRef} currentFilePath={filePath} />}
+            {viewMode === "outline" && <OutlineView />}
+            {viewMode === "history" && <HistoryView />}
+          </>
+        )}
       </div>
 
       <div className="sidebar-footer">

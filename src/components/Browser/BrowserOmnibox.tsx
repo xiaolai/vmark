@@ -22,6 +22,9 @@
  */
 import { useTranslation } from "react-i18next";
 import { useBrowserUiStore } from "@/stores/browserUiStore";
+import { useBookmarkStore } from "@/stores/bookmarkStore";
+import { useTabStore } from "@/stores/tabStore";
+import { isBrowserTab } from "@/stores/tabStoreTypes";
 import {
   submitOmnibox,
   reloadBrowser,
@@ -39,6 +42,17 @@ export function BrowserOmnibox({ tabId }: { tabId: string }): React.ReactElement
   // no history, so these controls must be disabled rather than silently do nothing.
   const canGoBack = useBrowserUiStore((s) => s.entries[tabId]?.canGoBack ?? false);
   const canGoForward = useBrowserUiStore((s) => s.entries[tabId]?.canGoForward ?? false);
+  // Bookmarking works off the COMMITTED url — the page the webview actually has — not the
+  // address-bar text, which may be a half-typed url the user has not gone to yet.
+  const committedUrl = useTabStore((s) => {
+    const tab = s.findTabById(tabId);
+    return tab && isBrowserTab(tab) ? tab.url : "";
+  });
+  const committedTitle = useTabStore((s) => {
+    const tab = s.findTabById(tabId);
+    return tab && isBrowserTab(tab) ? tab.title : "";
+  });
+  const bookmarked = useBookmarkStore((s) => s.has(committedUrl));
 
   return (
     <div className="browser-omnibox">
@@ -100,6 +114,20 @@ export function BrowserOmnibox({ tabId }: { tabId: string }): React.ReactElement
           autoComplete="off"
         />
       </form>
+      <button
+        type="button"
+        className={`browser-omnibox-btn${bookmarked ? " browser-omnibox-btn--on" : ""}`}
+        onClick={() => {
+          const store = useBookmarkStore.getState();
+          if (bookmarked) store.remove(committedUrl);
+          else store.add(committedUrl, committedTitle || committedUrl);
+        }}
+        aria-pressed={bookmarked}
+        aria-label={bookmarked ? t("browser.bookmarks.remove") : t("browser.bookmarks.add")}
+        title={bookmarked ? t("browser.bookmarks.remove") : t("browser.bookmarks.add")}
+      >
+        {bookmarked ? "★" : "☆"}
+      </button>
       {loading && (
         <span className="browser-omnibox-loading" role="status" aria-label={t("browser.loading")} />
       )}

@@ -146,5 +146,13 @@
   "browser.grants.description": "AI 无需每次询问即可操作的站点。这些权限在 VMark 退出前有效，且从不写入磁盘。",
   "browser.grants.revokeLabel": "撤销 {{origin}} 的权限",
   "browser.error.title": "无法加载此页面。",
-  "browser.error.retry": "重试"
+  "browser.error.retry": "重试",
+  "browser.history.heading": "历史记录",
+  "browser.history.empty": "尚未访问任何页面。",
+  "browser.history.clear": "清除",
+  "browser.bookmarks.heading": "书签",
+  "browser.bookmarks.empty": "暂无书签。",
+  "browser.bookmarks.removeLabel": "移除 {{title}}",
+  "browser.bookmarks.add": "收藏此页面",
+  "browser.bookmarks.remove": "移除书签"
 }

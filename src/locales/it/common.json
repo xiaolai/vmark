@@ -146,5 +146,13 @@
   "browser.grants.description": "Siti su cui l'IA può agire senza chiedere ogni volta. Durano fino alla chiusura di VMark e non vengono mai scritte su disco.",
   "browser.grants.revokeLabel": "Revoca le autorizzazioni per {{origin}}",
   "browser.error.title": "Impossibile caricare questa pagina.",
-  "browser.error.retry": "Riprova"
+  "browser.error.retry": "Riprova",
+  "browser.history.heading": "Cronologia",
+  "browser.history.empty": "Niente visitato finora.",
+  "browser.history.clear": "Cancella",
+  "browser.bookmarks.heading": "Segnalibri",
+  "browser.bookmarks.empty": "Nessun segnalibro.",
+  "browser.bookmarks.removeLabel": "Rimuovi {{title}}",
+  "browser.bookmarks.add": "Aggiungi questa pagina ai segnalibri",
+  "browser.bookmarks.remove": "Rimuovi segnalibro"
 }

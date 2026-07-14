@@ -43,7 +43,7 @@ export interface BrowserNavHandlers {
    * driver's navigation generation for it (WI-2.1). Operations are stamped with
    * the generation so the Rust gate rejects one authorized against an older page.
    */
-  onNavigated?: (url: string, generation: number) => void;
+  onNavigated?: (url: string, generation: number, redirected: boolean) => void;
   /** A load finished; `url` is final, `title` is the page title (may be ""). */
   onLoaded?: (url: string, title: string) => void;
   /**
@@ -72,6 +72,8 @@ interface HistoryScoped {
 interface NavPayload extends TabScoped, HistoryScoped {
   url: string;
   generation: number;
+  /** This navigation followed a server redirect (WI-S2.2). */
+  redirected?: boolean;
 }
 interface LoadedPayload extends TabScoped, HistoryScoped {
   url: string;
@@ -143,7 +145,7 @@ export function useBrowserNavEvents(tabId: string, handlers: BrowserNavHandlers)
       h.onHistoryChanged?.(!!p.canGoBack, !!p.canGoForward);
 
     on<NavPayload>("browser://navigated", (p, h) => {
-      h.onNavigated?.(p.url, p.generation);
+      h.onNavigated?.(p.url, p.generation, !!p.redirected);
       history(p, h);
     });
     on<LoadedPayload>("browser://loaded", (p, h) => {

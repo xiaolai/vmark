@@ -13,8 +13,7 @@
 //! on demand — WKWebView exposes no crash API — so it ships wired and unit-tested
 //! through recovery.rs, but the live delegate hop itself has no automated test.
 //!
-//! Included via `#[path]` from surface_macos.rs to keep both files under the
-//! size limit; `super::` there refers to the `imp` module.
+//! Included via `#[path]` from surface_macos.rs; `super::` refers to the `imp` module.
 //!
 //! @coordinates-with browser/recovery.rs — CrashTracker / RecoveryAction
 //! @coordinates-with browser/registry.rs — generation bump + Lifecycle transitions
@@ -28,7 +27,7 @@ use objc2_web_kit::{
     WKFrameInfo, WKNavigation, WKNavigationAction, WKNavigationDelegate, WKUIDelegate, WKWebView,
     WKWebViewConfiguration, WKWindowFeatures,
 };
-use tauri::{AppHandle, Manager};
+use tauri::Manager;
 
 use crate::browser::recovery::RecoveryAction;
 use crate::browser::registry::Lifecycle;
@@ -49,12 +48,7 @@ mod emit;
 // recording, reload) — see nav_registry_macos.rs.
 #[path = "nav_registry_macos.rs"]
 mod registry_bridge;
-
-/// Per-delegate context: which tab it serves and the handle to emit events on.
-pub struct NavDelegateIvars {
-    tab_id: String,
-    app: AppHandle,
-}
+use registry_bridge::NavDelegateIvars;
 
 define_class!(
     // SAFETY:
@@ -77,8 +71,9 @@ define_class!(
         #[unsafe(method(webView:didStartProvisionalNavigation:))]
         fn did_start_provisional(&self, _wv: &WKWebView, _nav: Option<&WKNavigation>) {
             let ivars = self.ivars();
-            // The outgoing page's dialogs die with it: release its blocked JS now,
-            // or a stale answer would be routed to a page that no longer exists.
+            ivars.redirected.set(false); // a fresh navigation has followed no redirects
+                                         // The outgoing page's dialogs die with it: release its blocked JS now,
+                                         // or a stale answer would be routed to a page that no longer exists.
             super::dialogs::drain_for(&ivars.tab_id);
             if let Some(state) = ivars.app.try_state::<BrowserSurface>() {
                 if let Ok(mut reg) = state.registry.lock() {
@@ -91,6 +86,12 @@ define_class!(
             }
         }
 
+        // Recorded, not announced: history wants to know how the user SET OFF, and a
+        // redirect is something the site did afterwards (WI-S2.2).
+        #[unsafe(method(webView:didReceiveServerRedirectForProvisionalNavigation:))]
+        fn did_receive_redirect(&self, _wv: &WKWebView, _nav: Option<&WKNavigation>) {
+            self.ivars().redirected.set(true);
+        }
         #[unsafe(method(webView:didCommitNavigation:))]
         fn did_commit(&self, web_view: &WKWebView, _nav: Option<&WKNavigation>) {
             let ivars = self.ivars();
@@ -136,10 +137,10 @@ define_class!(
                     generation,
                     can_go_back,
                     can_go_forward,
+                    redirected: ivars.redirected.get(),
                 },
             );
         }
-
         #[unsafe(method(webView:didFinishNavigation:))]
         fn did_finish(&self, web_view: &WKWebView, _nav: Option<&WKNavigation>) {
             let ivars = self.ivars();
@@ -167,7 +168,6 @@ define_class!(
                 },
             );
         }
-
         #[unsafe(method(webView:didFailProvisionalNavigation:withError:))]
         fn did_fail_provisional(
             &self,

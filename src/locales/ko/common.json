@@ -146,5 +146,13 @@
   "browser.grants.description": "AI가 매번 묻지 않고 작업할 수 있는 사이트입니다. VMark를 종료할 때까지만 유지되며 디스크에 저장되지 않습니다.",
   "browser.grants.revokeLabel": "{{origin}}의 권한 취소",
   "browser.error.title": "이 페이지를 불러오지 못했습니다.",
-  "browser.error.retry": "다시 시도"
+  "browser.error.retry": "다시 시도",
+  "browser.history.heading": "기록",
+  "browser.history.empty": "아직 방문한 페이지가 없습니다.",
+  "browser.history.clear": "지우기",
+  "browser.bookmarks.heading": "북마크",
+  "browser.bookmarks.empty": "아직 북마크가 없습니다.",
+  "browser.bookmarks.removeLabel": "{{title}} 제거",
+  "browser.bookmarks.add": "이 페이지 북마크",
+  "browser.bookmarks.remove": "북마크 제거"
 }

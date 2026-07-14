@@ -35,7 +35,7 @@ import {
   resetTerminalIdCounter,
 } from "./uiStore/terminalSlice";
 
-export type { SidebarViewMode, EffectiveTerminalPosition, UIStore, LineMatch, FileSearchResult } from "./uiStore/types";
+export type { SidebarViewMode, BrowserSidebarView, EffectiveTerminalPosition, UIStore, LineMatch, FileSearchResult } from "./uiStore/types";
 export { MAX_TERMINAL_SESSIONS } from "./uiStore/terminalSlice";
 
 const SIDEBAR_MIN_WIDTH = 180;
@@ -64,6 +64,7 @@ export const useUIStore = create<UIStore>((set, get) => ({
   sidebarVisible: false,
   sidebarWidth: SIDEBAR_DEFAULT_WIDTH,
   sidebarViewMode: "outline",
+  sidebarBrowserViewMode: "browser-history",
   activeHeadingLine: null,
   statusBarVisible: true,
   _savedStatusBarVisible: null,
@@ -119,6 +120,9 @@ export const useUIStore = create<UIStore>((set, get) => ({
       return { sidebarVisible: true, sidebarViewMode: mode };
     }),
   setSidebarViewMode: (mode) => set({ sidebarViewMode: mode }),
+  // Each kind remembers its own sub-view, so switching between a document tab and a
+  // browser tab does not clobber the other's (WI-S2.3).
+  setSidebarBrowserViewMode: (mode) => set({ sidebarBrowserViewMode: mode }),
   showSidebarWithView: (mode) =>
     set({ sidebarVisible: true, sidebarViewMode: mode }),
   setActiveHeadingLine: (line) => set({ activeHeadingLine: line }),

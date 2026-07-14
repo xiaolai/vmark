@@ -46,6 +46,9 @@ import { useBrowserApprovalStore } from "@/stores/browserApprovalStore";
 import { reloadBrowser } from "@/services/browser/browserNavigation";
 import { errorMessage } from "@/utils/errorMessage";
 import { browserOcclusion, OCCLUDER } from "@/services/browser/browserOcclusion";
+import { takeNavIntent, clearNavIntent } from "@/services/browser/navIntent";
+import { useBrowserHistoryStore } from "@/stores/browserHistoryStore";
+import { useWindowLabel } from "@/contexts/WindowContext";
 import {
   useBrowserNavEvents,
   type BrowserDialog,
@@ -70,6 +73,7 @@ const mountTokens = new Map<string, number>();
 let nextMountToken = 0;
 
 export function BrowserSurface({ tabId }: { tabId: string }): React.ReactElement {
+  const windowLabel = useWindowLabel();
   const url = useTabStore((s) => {
     const tab = s.findTabById(tabId);
     return tab && isBrowserTab(tab) ? tab.url : "";
@@ -131,6 +135,7 @@ export function BrowserSurface({ tabId }: { tabId: string }): React.ReactElement
       browserOcclusion.removeTab(tabId);
       // Any prompt raised against this tab describes a page that is being destroyed.
       useBrowserApprovalStore.getState().dismissForNavigation(tabId);
+      clearNavIntent(tabId);
     };
     // `url` is the initial navigation target only; navigation is explicit after.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -167,11 +172,18 @@ export function BrowserSurface({ tabId }: { tabId: string }): React.ReactElement
   // (reading browserUiStore) reflects where the WKWebView actually is — the
   // delegate (nav_delegate_macos.rs) is the source of truth once a load is underway.
   useBrowserNavEvents(tabId, {
-    onNavigated: (next, generation) => {
+    onNavigated: (next, generation, redirected) => {
       const ui = useBrowserUiStore.getState();
       ui.setUrlInput(tabId, next);
       ui.setLoading(tabId, true);
       ui.setError(tabId, null); // a fresh load supersedes the previous failure
+      // Record where the user went, and how they set off (WI-S2.2). A redirect is
+      // something the SITE did — it folds into the entry rather than becoming its own.
+      useBrowserHistoryStore.getState().record(windowLabel, {
+        tabId,
+        url: next,
+        transitionKind: redirected ? "redirect" : takeNavIntent(tabId),
+      });
       // R7a: authority and prompts lapse with the page. A pending approval describes
       // an action on the page we just left — answering it would authorize that action
       // against whatever loaded instead. The driver clears its own one-shots on
@@ -181,10 +193,13 @@ export function BrowserSurface({ tabId }: { tabId: string }): React.ReactElement
       // so one authorized against the previous page is refused by the Rust gate.
       useTabStore.getState().updateBrowserTab(tabId, { url: next, generation });
     },
-    onLoaded: (next) => {
+    onLoaded: (next, title) => {
       const ui = useBrowserUiStore.getState();
       ui.setUrlInput(tabId, next);
       ui.setLoading(tabId, false);
+      // The title only exists once the page finished. It is attached to the entry it
+      // belongs to — a slow finish for a page we already left must not retitle this one.
+      if (title) useBrowserHistoryStore.getState().setTitle(windowLabel, tabId, next, title);
       // A clean load means the process recovered — release the crash occluder. The
       // release is fired here, not inside the `setCrash` updater: React may re-invoke
       // an updater (StrictMode), which would release twice.

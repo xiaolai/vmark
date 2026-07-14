@@ -82,7 +82,8 @@ describe("useBrowserNavEvents", () => {
     // The generation stamps driver operations (WI-2.1) — it must reach the handler
     // so an operation authorized against this page is rejected once it navigates.
     emit("browser://navigated", { tabId: "t1", url: "https://iana.org/", generation: 4 });
-    expect(onNavigated).toHaveBeenCalledWith("https://iana.org/", 4);
+    // The third argument says whether a server redirect got us here (WI-S2.2).
+    expect(onNavigated).toHaveBeenCalledWith("https://iana.org/", 4, false);
   });
 
   // WI-S1.6 (Codex re-review D3#5): the omnibox's back/forward disabled state comes
@@ -164,7 +165,7 @@ describe("useBrowserNavEvents", () => {
     emit("browser://navigated", { tabId: "t1", url: "https://z/", generation: 1 });
     // The event routes to the LATEST handler (ref-fresh), not the one captured at
     // mount — and the stale handler is never called.
-    expect(second).toHaveBeenCalledWith("https://z/", 1);
+    expect(second).toHaveBeenCalledWith("https://z/", 1, false);
     expect(first).not.toHaveBeenCalled();
   });
 

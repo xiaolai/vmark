@@ -146,5 +146,13 @@
   "browser.grants.description": "Sitios en los que la IA puede actuar sin preguntar cada vez. Duran hasta que se cierre VMark: nunca se guardan en el disco.",
   "browser.grants.revokeLabel": "Revocar permisos de {{origin}}",
   "browser.error.title": "No se pudo cargar esta página.",
-  "browser.error.retry": "Reintentar"
+  "browser.error.retry": "Reintentar",
+  "browser.history.heading": "Historial",
+  "browser.history.empty": "Aún no has visitado nada.",
+  "browser.history.clear": "Borrar",
+  "browser.bookmarks.heading": "Marcadores",
+  "browser.bookmarks.empty": "Aún no hay marcadores.",
+  "browser.bookmarks.removeLabel": "Eliminar {{title}}",
+  "browser.bookmarks.add": "Añadir esta página a marcadores",
+  "browser.bookmarks.remove": "Eliminar marcador"
 }

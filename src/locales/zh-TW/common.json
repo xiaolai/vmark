@@ -146,5 +146,13 @@
   "browser.grants.description": "AI 無需每次詢問即可操作的網站。這些權限在 VMark 結束前有效，且從不寫入磁碟。",
   "browser.grants.revokeLabel": "撤銷 {{origin}} 的權限",
   "browser.error.title": "無法載入此頁面。",
-  "browser.error.retry": "重試"
+  "browser.error.retry": "重試",
+  "browser.history.heading": "瀏覽記錄",
+  "browser.history.empty": "尚未瀏覽任何頁面。",
+  "browser.history.clear": "清除",
+  "browser.bookmarks.heading": "書籤",
+  "browser.bookmarks.empty": "尚無書籤。",
+  "browser.bookmarks.removeLabel": "移除 {{title}}",
+  "browser.bookmarks.add": "將此頁面加入書籤",
+  "browser.bookmarks.remove": "移除書籤"
 }
