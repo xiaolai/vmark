@@ -236,3 +236,61 @@ describe("documentPathsOf", () => {
     expect(documentPathsOf(tabs)).toEqual(["/a.md"]);
   });
 });
+
+// WI-S0.14 — a password never reaches the workspace config.
+//
+// Pinned here, at the boundary that actually writes the file, and not only in url.ts:
+// this is the guarantee ("nothing we persist carries a credential"), and a future refactor
+// that stops calling the redactor would leave url.ts's own tests green while quietly
+// putting secrets back on disk. (Audit, High.)
+describe("serializeSessionTabs — credentials do not go to disk", () => {
+  it("strips an embedded password from a browser tab's url", () => {
+    const out = serializeSessionTabs([
+      {
+        id: "t1",
+        kind: "browser",
+        title: "Example",
+        url: "https://alice:hunter2@example.com/inbox?token=abc",
+      } as Tab,
+    ]);
+    const rec = out.tabs[0] as { url: string };
+    expect(rec.url).not.toContain("hunter2");
+    expect(rec.url).toBe("https://alice@example.com/inbox?token=abc");
+  });
+
+  it("leaves a credential-free url untouched", () => {
+    const out = serializeSessionTabs([
+      { id: "t1", kind: "browser", title: "E", url: "https://example.com/a?b=1#c" } as Tab,
+    ]);
+    expect((out.tabs[0] as { url: string }).url).toBe("https://example.com/a?b=1#c");
+  });
+});
+
+// WI-S0.14 — a URL read back from a config file is untrusted input.
+//
+// The restore path checked only that url was a non-empty string. The config on disk can be
+// hand-edited or corrupted, so that is not enough: a `javascript:` or `file://` value would
+// be turned straight into a browser tab and navigated. Only navigable http(s) survives —
+// the same rule the live browser enforces. (Audit, Medium.)
+describe("migratePersistedTabs — a persisted browser URL must be a real web URL", () => {
+  const browserSession = (url: unknown): SessionTabsV1 =>
+    ({ version: 1, tabs: [{ kind: "browser", url, title: "x" }] }) as SessionTabsV1;
+
+  it("drops a javascript: URL", () => {
+    expect(migratePersistedTabs(browserSession("javascript:alert(1)"), null)).toEqual([]);
+  });
+
+  it("drops a file:// URL", () => {
+    expect(migratePersistedTabs(browserSession("file:///etc/passwd"), null)).toEqual([]);
+  });
+
+  it("drops a non-string url", () => {
+    expect(migratePersistedTabs(browserSession(42), null)).toEqual([]);
+  });
+
+  it("keeps a normal https URL", () => {
+    const out = migratePersistedTabs(browserSession("https://example.com/p"), null);
+    expect(out).toHaveLength(1);
+    expect((out[0] as { url: string }).url).toBe("https://example.com/p");
+  });
+});

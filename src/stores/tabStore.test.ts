@@ -845,3 +845,36 @@ describe("tabStore", () => {
     });
   });
 });
+
+// WI-S0.14 — keyed-state guards (project rule: never assume a key exists).
+describe("setActiveTab guards against a foreign id", () => {
+  it("ignores an id that is not in the target window", () => {
+    const store = useTabStore.getState();
+    const real = store.createTab("main", "/a.md");
+    store.setActiveTab("main", real);
+
+    // An id from nowhere — a stale reopen, a cross-window drag mid-flight — must NOT become
+    // the active tab: getActiveTab would then resolve to nothing and the editor dispatch
+    // would look up a tab this window does not contain.
+    store.setActiveTab("main", "ghost-id");
+    expect(useTabStore.getState().activeTabId.main).toBe(real);
+  });
+
+  it("ignores an id that belongs to a DIFFERENT window", () => {
+    const store = useTabStore.getState();
+    const inMain = store.createTab("main", "/a.md");
+    const inOther = store.createTab("w2", "/b.md");
+    store.setActiveTab("main", inMain);
+
+    store.setActiveTab("main", inOther); // belongs to w2, not main
+    expect(useTabStore.getState().activeTabId.main).toBe(inMain);
+  });
+
+  it("still accepts null (clear the active tab)", () => {
+    const store = useTabStore.getState();
+    const real = store.createTab("main", "/a.md");
+    store.setActiveTab("main", real);
+    store.setActiveTab("main", null);
+    expect(useTabStore.getState().activeTabId.main).toBeNull();
+  });
+});

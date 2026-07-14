@@ -170,7 +170,13 @@ type RemovalSlice = { tabs: Record<string, Tab[]>; activeTabId: Record<string, s
  */
 export function removeTabAt(state: RemovalSlice, windowLabel: string, index: number): RemovalSlice {
   const windowTabs = state.tabs[windowLabel] ?? [];
-  const removedId = windowTabs[index].id;
+  // Out of range (or a missing window) is a no-op, not a crash: `windowTabs[index]` would
+  // otherwise be `undefined` and `.id` would throw. Callers guard today, but the helper is
+  // exported and must not depend on that — the project rule is to guard keyed access here.
+  // (Audit, Medium.)
+  const removed = windowTabs[index];
+  if (!removed) return state;
+  const removedId = removed.id;
   const remaining = windowTabs.filter((_, i) => i !== index);
   return {
     tabs: { ...state.tabs, [windowLabel]: remaining },

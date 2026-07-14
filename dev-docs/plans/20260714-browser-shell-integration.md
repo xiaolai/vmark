@@ -338,6 +338,38 @@ Focus return after navigation/dialogs, and IME preservation, are part of this co
     of the DOM. Redacted at the trust boundary (`urlForAgent`); the authorization path still
     sees the real URL, because the origin guard must. Authorization logs likewise carry the
     origin, not the query string. (High / Medium.)
+- **WI-S0.14 (NEW) ✅ DONE** — **Branch audit, part 2: stores + persistence.**
+  - **A browser tab's URL was persisted to disk with its password.** `serializeSessionTabs`
+    wrote `tab.url` verbatim into the workspace config, and browser URLs keep userinfo by
+    design — so `https://alice:hunter2@host` landed in a cleartext file that outlives the
+    session. Stripped at the persistence boundary (`urlForPersistence`), username kept (it
+    is an address, not a credential), pinned by a test at the boundary that writes the file.
+    (High.)
+  - **A persisted URL was restored without scheme validation** — a hand-edited or corrupt
+    config could restore a `javascript:` or `file://` browser tab. The restore path now runs
+    the same http(s) gate the live browser does (`canonicalizeBrowserUrl`); the legacy
+    `string[]` path likewise rejects non-string entries. Config-on-disk is untrusted input.
+    (Medium.)
+  - **`setActiveTab` accepted a foreign id** (one from another window, or a stale one),
+    leaving `activeTabId` pointing at a tab the window does not contain. **`removeTabAt`
+    dereferenced `windowTabs[index].id` with no bounds check.** Both now guard the keyed
+    access — the project's standing rule. (High / Medium.)
+  - **A stale-generation nav patch could regress a browser tab.** Events cross the IPC
+    boundary and can arrive out of order; a late `onLoaded` for a page already left carries
+    the old generation and would overwrite the newer url/title. `patchBrowserTab` now rejects
+    a patch whose generation is older than the tab's (generation is monotonic); a
+    generation-less scroll patch is unaffected. (High.)
+  - **Two more unwired controls found** (bringing the total to four). `stores/browserStore.ts`
+    (R6 — the live-webview LRU cap: bound how many WKWebView content processes are alive) has
+    no production consumers, so nothing bounds them. `services/browser/profile.ts` (ADR-B4 —
+    an *isolated* WKWebsiteDataStore) is unwired on both sides: the Rust surface never sets a
+    data store, so the embedded browser runs on the **default** store and the browsed web's
+    cookies are not isolated from the app. Both marked NOT WIRED.
+  - **Root cause of the unwired-control pattern identified.** `knip.json` lists
+    `src/**/*.test.ts` as **entry points**, so a module imported only by its own test counts
+    as reachable — which is exactly how four tested-but-dead security controls passed the
+    dead-code gate. (Recorded as an open question; changing knip's entry set has a blast
+    radius that needs its own change.)
 - **WI-S0.2** — Window-route **every** browser event (ADR-6). Rust-side `emit_to` the
   owning window; payload carries `windowLabel`; frontend filters. TDD: payload shape +
   a two-window test proving no cross-wiring.

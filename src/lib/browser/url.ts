@@ -86,3 +86,31 @@ export function urlForAgent(url: string): string {
     return url;
   }
 }
+
+/**
+ * The URL as it may be **written to disk** (hot exit / session restore): the same page,
+ * with any embedded password removed.
+ *
+ * A browser tab's URL is persisted into the workspace config so the tab can be restored.
+ * `canonicalizeBrowserUrl` keeps userinfo on purpose — it is part of the tab's identity —
+ * but a password inside it is a credential, and persisting it puts a secret in a cleartext
+ * file that outlives the session that had a reason for it. Bookmarks already refuse to keep
+ * one (`canonicalizeBookmarkUrl`); session restore did not.
+ *
+ * The **username stays**, and that is the same call bookmarks make: `alice@host` and
+ * `bob@host` are different destinations, so dropping it would restore the wrong one. A
+ * password is a credential; a username is an address.
+ *
+ * A URL that will not parse is returned unchanged — this is a redactor, not a validator.
+ * (Audit, High.)
+ */
+export function urlForPersistence(url: string): string {
+  try {
+    const parsed = new URL(url);
+    if (!parsed.password) return url;
+    parsed.password = "";
+    return parsed.href;
+  } catch {
+    return url;
+  }
+}

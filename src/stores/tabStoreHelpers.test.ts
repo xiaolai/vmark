@@ -19,7 +19,7 @@ vi.mock("@/i18n", () => ({
   default: { t: (...args: unknown[]) => t(...args) },
 }));
 
-import { getLocalizedFormatName, updateTabById } from "./tabStoreHelpers";
+import { getLocalizedFormatName, updateTabById, removeTabAt } from "./tabStoreHelpers";
 import type { Tab } from "./tabStoreTypes";
 
 beforeEach(() => {
@@ -97,5 +97,26 @@ describe("updateTabById", () => {
     const state = { tabs: { main: [browser] } };
     const next = updateTabById(state, "b1", { formatId: "json" });
     expect(next.tabs).toBe(state.tabs);
+  });
+});
+
+// WI-S0.14 — removeTabAt guards its index (project rule: never assume a key exists).
+describe("removeTabAt — out-of-range is a no-op, not a crash", () => {
+  const state = {
+    tabs: { main: [{ id: "a" }, { id: "b" }] },
+    activeTabId: { main: "a" },
+  } as unknown as Parameters<typeof removeTabAt>[0];
+
+  it("returns state unchanged for an index past the end", () => {
+    expect(removeTabAt(state, "main", 5)).toBe(state);
+  });
+
+  it("returns state unchanged for a window that does not exist", () => {
+    expect(removeTabAt(state, "ghost", 0)).toBe(state);
+  });
+
+  it("still removes a valid index", () => {
+    const out = removeTabAt(state, "main", 0) as { tabs: { main: { id: string }[] } };
+    expect(out.tabs.main.map((t) => t.id)).toEqual(["b"]);
   });
 });

@@ -84,3 +84,44 @@ describe("patchBrowserTab — no-ops keep referential identity (no store-wide re
     expect(next.w1[0]).toBe(before.w1[0]); // the sibling document tab is untouched
   });
 });
+
+// WI-S0.14 — a browser tab's generation only moves forward.
+//
+// Nav events cross the IPC boundary and can arrive out of order: a late `onLoaded` for a
+// page we have already navigated away from carries the OLD generation, and its url/title
+// belong to that old page. Applying it regresses the tab to a page it has left. The
+// generation is monotonic by construction (Rust bumps it on every commit), so a patch that
+// reports an older one is, by definition, stale — and its url/title/scroll are all stale
+// with it. (Audit, High.)
+describe("patchBrowserTab — a stale-generation patch is rejected whole", () => {
+  function atGen2(): Record<string, Tab[]> {
+    const t = makeBrowserTab("b1", "https://example.com/new", "New");
+    return { w1: [{ ...t, generation: 2 } as Tab] };
+  }
+
+  it("drops a patch whose generation is older than the tab's", () => {
+    const before = atGen2();
+    const after = patchBrowserTab(before, "b1", {
+      generation: 1,
+      url: "https://example.com/old",
+      title: "Old",
+    });
+    expect(after).toBe(before); // untouched — referential identity preserved
+  });
+
+  it("applies a patch at the same or a newer generation", () => {
+    const after = patchBrowserTab(atGen2(), "b1", {
+      generation: 3,
+      url: "https://example.com/newer",
+      title: "Newer",
+    });
+    const tab = after.w1[0] as { url: string; generation: number };
+    expect(tab.url).toBe("https://example.com/newer");
+    expect(tab.generation).toBe(3);
+  });
+
+  it("still applies a generation-LESS patch (scroll updates are not navigations)", () => {
+    const after = patchBrowserTab(atGen2(), "b1", { scrollY: 400 });
+    expect((after.w1[0] as { scrollY: number }).scrollY).toBe(400);
+  });
+});

@@ -70,6 +70,22 @@ export function patchBrowserTab(
     if (index === -1) continue;
 
     const tab = windowTabs[index] as BrowserTab;
+
+    // A patch that reports an OLDER generation describes a page this tab has already
+    // navigated away from — nav events cross the IPC boundary and can arrive out of order,
+    // and a late `onLoaded` for the previous page carries its stale generation. The
+    // generation only moves forward (Rust bumps it on every commit), so an older one means
+    // the patch's url/title/scroll are all stale together. Reject it whole rather than let
+    // it regress the tab. A generation-less patch (a scroll update) is not a navigation and
+    // is unaffected. (Audit, High.)
+    if (
+      patch.generation !== undefined &&
+      tab.generation !== undefined &&
+      patch.generation < tab.generation
+    ) {
+      return tabs;
+    }
+
     const changed = changedFields(tab, patch);
     if (Object.keys(changed).length === 0) return tabs; // nothing to do
 

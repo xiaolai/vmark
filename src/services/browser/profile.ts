@@ -1,6 +1,13 @@
 /**
  * Browser profile — data-store mode selection + stable profile id (WI-1.5 / ADR-B4).
  *
+ * ⚠️ **NOT WIRED, ON BOTH SIDES.** This module has no production consumers, and the Rust
+ * surface never sets a data store at all — `WKWebViewConfiguration::new()` is used as-is,
+ * so the embedded browser runs on the **default** `WKWebsiteDataStore`. The isolation this
+ * module exists to select (ADR-B4: the browsed web's cookies and localStorage kept out of
+ * the app's own store) does not currently happen. The version gate below is correct and
+ * unit-tested; nothing calls it. (Audit, Medium.)
+ *
  * Purpose: the embedded browser wants a persistent, isolated `WKWebsiteDataStore`
  * (its own cookies/localStorage, kept out of the main app) keyed by a stable
  * identifier. `dataStoreForIdentifier` is only available on macOS 14+ and crashes

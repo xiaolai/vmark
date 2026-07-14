@@ -1,6 +1,6 @@
 // WI-1.1 — browser URL canonicalization for tab dedup + persistence
 import { describe, it, expect } from "vitest";
-import { canonicalizeBrowserUrl, urlForAgent } from "./url";
+import { canonicalizeBrowserUrl, urlForAgent, urlForPersistence } from "./url";
 
 describe("canonicalizeBrowserUrl", () => {
   it("lowercases scheme and host", () => {
@@ -122,5 +122,39 @@ describe("urlForAgent — credentials never cross to the AI", () => {
   it("passes through a url it cannot parse rather than inventing one", () => {
     expect(urlForAgent("about:blank")).toBe("about:blank");
     expect(urlForAgent("")).toBe("");
+  });
+});
+
+// WI-S0.14 — a browser tab's URL is written to disk (hot exit / session restore).
+//
+// `canonicalizeBrowserUrl` keeps userinfo deliberately: it is part of tab identity, and
+// dropping it would restore a tab pointing somewhere the user did not ask for. But the same
+// URL is persisted verbatim into the workspace config, so an embedded password ends up in a
+// file on disk, in cleartext, outliving the session that had a reason for it. Bookmarks
+// already refuse to keep it; session restore did not. (Audit, High.)
+describe("urlForPersistence — a secret is not ours to write to disk", () => {
+  it("strips an embedded password", () => {
+    expect(urlForPersistence("https://alice:hunter2@example.com/x")).toBe(
+      "https://alice@example.com/x",
+    );
+    expect(urlForPersistence("https://alice:hunter2@example.com/x")).not.toContain("hunter2");
+  });
+
+  it("KEEPS the username — it names the destination, and it is not a secret", () => {
+    // Same call as bookmarks make: alice@host and bob@host are different places, so
+    // dropping the username would restore the wrong one. A password is a credential; a
+    // username is an address.
+    expect(urlForPersistence("https://alice@example.com/x")).toBe("https://alice@example.com/x");
+  });
+
+  it("changes nothing about a url that carries no credential", () => {
+    expect(urlForPersistence("https://example.com/docs/42?q=a#frag")).toBe(
+      "https://example.com/docs/42?q=a#frag",
+    );
+  });
+
+  it("passes an unparseable url through rather than inventing one", () => {
+    expect(urlForPersistence("about:blank")).toBe("about:blank");
+    expect(urlForPersistence("")).toBe("");
   });
 });

@@ -29,6 +29,7 @@
 
 import type { Tab } from "@/stores/tabStoreTypes";
 import { workspaceWarn } from "@/utils/debug";
+import { canonicalizeBrowserUrl, urlForPersistence } from "@/lib/browser/url";
 
 /** A persisted document tab: only the path is restorable; content is re-read. */
 export interface PersistedDocumentTab {
@@ -97,10 +98,16 @@ function parseRecord(raw: unknown, browserSupported: boolean): ParsedRecord {
     if (!browserSupported) return "unsupported";
     const { url, title, scrollY } = rec;
     if (typeof url !== "string" || url === "") return "malformed";
+    // The config on disk is untrusted input: it can be hand-edited or corrupted. A url that
+    // is not a navigable web URL — `javascript:`, `file://`, an opaque scheme — must never be
+    // turned into a browser tab and navigated. `canonicalizeBrowserUrl` is the same http(s)
+    // gate the live browser applies, and it returns null for anything else. (Audit, Medium.)
+    const canonical = canonicalizeBrowserUrl(url);
+    if (canonical === null) return "malformed";
     const out: PersistedBrowserTab = {
       kind: "browser",
-      url,
-      title: typeof title === "string" ? title : url,
+      url: canonical,
+      title: typeof title === "string" ? title : canonical,
     };
     if (isValidScrollY(scrollY)) out.scrollY = scrollY;
     return out;
@@ -149,8 +156,11 @@ export function migratePersistedTabs(
   }
 
   if (!legacyPaths || legacyPaths.length === 0) return [];
+  // `legacyPaths` is read off disk and typed `string[]`, but the file is untrusted: a
+  // corrupt config can hold nulls, numbers, or objects. Keep only non-empty strings, or a
+  // non-string path would flow into the filesystem restore loop. (Audit, Medium.)
   return legacyPaths
-    .filter((path) => path !== "")
+    .filter((path): path is string => typeof path === "string" && path !== "")
     .map((path) => ({ kind: "document", path }));
 }
 
@@ -160,7 +170,14 @@ export function serializeSessionTabs(tabs: readonly Tab[]): SessionTabsV1 {
     version: SESSION_TABS_VERSION,
     tabs: tabs.map((tab): PersistedTab => {
       if (tab.kind === "browser") {
-        const rec: PersistedBrowserTab = { kind: "browser", url: tab.url, title: tab.title };
+        // The URL goes to a cleartext file on disk that outlives this session, so an
+        // embedded password does not go with it (audit, High). The username stays — it is
+        // part of the destination, not a credential.
+        const rec: PersistedBrowserTab = {
+          kind: "browser",
+          url: urlForPersistence(tab.url),
+          title: tab.title,
+        };
         if (isValidScrollY(tab.scrollY)) rec.scrollY = tab.scrollY;
         return rec;
       }

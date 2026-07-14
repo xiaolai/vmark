@@ -1,6 +1,13 @@
 /**
  * Browser hibernation store — live-webview LRU policy (WI-1.6 / R6).
  *
+ * ⚠️ **NOT WIRED. This store has no production consumers.** Nothing calls `activate`,
+ * `hibernate`, `setKeepAlive`, `removeTab` or `removeWindow`, so the live-webview cap
+ * below is not in force: every browser tab keeps a full content process alive, without
+ * bound. The policy is correct and unit-tested; it is simply not connected to anything.
+ *
+ * Do not read the cap as a guarantee. (Audit, High.)
+ *
  * Purpose: a native webview is expensive (a full content process), so only a
  * bounded number of browser tabs keep a *live* webview per window; the rest
  * hibernate to their persisted `{url, title, scrollY, snapshot}` (held on the
