@@ -1,6 +1,11 @@
 /**
  * Browser UX surface policy — the decided R12 per-surface matrix (WI-1.7).
  *
+ * ⚠️ **NOT WIRED. This module has no production importers.** It is a decision record, not
+ * an enforcement point: the native delegates implement their dispositions independently,
+ * and nothing reads this matrix at runtime. Treat it as the spec it is — a divergence
+ * between it and the native code will not be caught by anything here.
+ *
  * Purpose: the single source of truth for how the embedded browser handles every
  * UX surface a real browser must — JS dialogs, popups, downloads, uploads, auth,
  * TLS errors, permission prompts, history/find/zoom, context menu, print,

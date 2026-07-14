@@ -6,7 +6,7 @@
 use objc2::rc::Retained;
 use objc2::runtime::AnyObject;
 use objc2::{ClassType, MainThreadMarker};
-use objc2_app_kit::{NSApplication, NSView, NSWindow};
+use objc2_app_kit::{NSView, NSWindow};
 use objc2_core_foundation::{CGPoint, CGRect, CGSize};
 use objc2_foundation::{NSString, NSURL};
 use objc2_web_kit::WKWebView;
@@ -79,35 +79,35 @@ pub(super) fn js_result_to_string(value: *mut AnyObject) -> String {
 /// Resolving the exact window (via Tauri's own handle) rather than `keyWindow()`
 /// is what makes a browser tab land in the window it belongs to: with two windows
 /// open, the key one is whichever the user last clicked, not necessarily the one
-/// that owns the tab. Falls back to the key/first window only when the label can't
-/// be resolved (a window torn down mid-create), so a stray tab never silently
-/// attaches to the wrong window without that being the explicit fallback.
+/// that owns the tab.
+///
+/// **There is no fallback, and that is deliberate.** This used to attach to the key (or
+/// first) window when the label could not be resolved, reasoning that a visible attach
+/// beat a silent failure. It does not. The label fails to resolve when the window has been
+/// torn down — so the tab that asked for this browser is gone, and there is nothing left to
+/// show it in. Attaching anyway drops a live web page into a window that never asked for
+/// one, on top of a document the user is editing, taking the clicks meant for it. A create
+/// that cannot find its window fails, the command layer rolls the registry entry back, and
+/// the surface shows the error (WI-S0.9). (Audit, High.)
 pub(super) fn content_view(
     app: &AppHandle,
     window_label: &str,
-    mtm: MainThreadMarker,
+    _mtm: MainThreadMarker,
 ) -> Result<Retained<NSView>, String> {
     use tauri::Manager;
-    if let Some(win) = app.get_webview_window(window_label) {
-        if let Ok(ptr) = win.ns_window() {
-            // SAFETY: Tauri owns the NSWindow; we borrow it on the main thread
-            // (we are inside on_main) only to read its content view. The pointer
-            // is non-null when ns_window() succeeds.
-            let ns_window: &NSWindow = unsafe { &*ptr.cast::<NSWindow>() };
-            return ns_window
-                .contentView()
-                .ok_or_else(|| format!("window '{window_label}' has no contentView"));
-        }
-    }
-    // Fallback: the labelled window is gone. Better a visible attach to the key
-    // window than a silent failure — but this is the exception, not the rule.
-    let ns_app = NSApplication::sharedApplication(mtm);
-    ns_app
-        .keyWindow()
-        .or_else(|| ns_app.windows().firstObject())
-        .ok_or_else(|| "no key window".to_string())?
+    let win = app
+        .get_webview_window(window_label)
+        .ok_or_else(|| format!("window '{window_label}' is gone; nothing to attach a browser to"))?;
+    let ptr = win
+        .ns_window()
+        .map_err(|e| format!("window '{window_label}' has no NSWindow: {e}"))?;
+    // SAFETY: Tauri owns the NSWindow; we borrow it on the main thread (we are inside
+    // on_main) only to read its content view. The pointer is non-null when ns_window()
+    // succeeds.
+    let ns_window: &NSWindow = unsafe { &*ptr.cast::<NSWindow>() };
+    ns_window
         .contentView()
-        .ok_or_else(|| "no contentView".to_string())
+        .ok_or_else(|| format!("window '{window_label}' has no contentView"))
 }
 
 pub(super) fn ns_url(url: &str) -> Result<Retained<NSURL>, String> {

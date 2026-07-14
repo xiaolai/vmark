@@ -23,6 +23,7 @@
 //! @coordinates-with browser/registry.rs — the generation the freshness rests on
 //! @coordinates-with services/browser/grantSync.ts — mints these from the store
 
+use crate::browser::operation::is_known_operation;
 use crate::browser::origin_guard::{canonicalize_origin, origin_matches_pattern, NEVER_AUTOMATED};
 
 /// The element an `act` targets — ARIA role + accessible name. Absent for `read`,
@@ -71,7 +72,13 @@ pub fn consume_one_shot(
     operation: &str,
     target: Option<&OneShotTarget>,
 ) -> bool {
-    if NEVER_AUTOMATED.contains(&operation) {
+    // The vocabulary is CLOSED, and it has to be closed here too. The standing-grant path
+    // (`is_driver_operation_allowed`) already refuses an unknown operation; this one only
+    // refused a never-automatable one, so an operation outside the set could be minted and
+    // then spent through the one-shot route — precisely the "opaque permission" that
+    // operation.rs promises cannot exist. One route enforcing it is not enforcement.
+    // (Audit, Medium.)
+    if !is_known_operation(operation) || NEVER_AUTOMATED.contains(&operation) {
         return false;
     }
     let Some(origin) = canonicalize_origin(target_url) else {

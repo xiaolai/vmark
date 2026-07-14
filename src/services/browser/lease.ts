@@ -7,6 +7,16 @@
  * AI clicked Publish" from "the AI clicked Publish on a page the human had
  * already navigated away from" (Codex D2-8).
  *
+ * ⚠️ **NOT WIRED. This module has no production importers.** `browser.ts` (the MCP bridge)
+ * neither acquires nor validates a lease, and nothing calls `reclaimForHuman`, so none of
+ * the guarantees below are in force today. The rules are correct and unit-tested; they are
+ * simply not connected to anything, which makes this a specification, not a control.
+ *
+ * That distinction is the point. A security control that is written, tested and documented
+ * but never called reads as done and protects nothing — the same failure as the R7a
+ * same-document callback that named a selector WebKit never invokes (WI-S0.11). Wiring it
+ * is tracked in the plan; until then, do not cite this file as a reason an action is safe.
+ *
  * Rules encoded here (all unit-tested; the native side wires the real event
  * sources in WI-1.2/1.8):
  *   - Human input ALWAYS reclaims the lease (`reclaimForHuman`), immediately and

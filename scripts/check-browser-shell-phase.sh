@@ -73,7 +73,12 @@ case "$PHASE" in
     has src-tauri/src/browser/nav_emit_macos.rs 'emit_to' "S0.2 browser events are window-routed"
     # ...and no event is broadcast any more. This is the assertion that would catch a
     # regression, not the one that confirms the fix.
-    if grep -qE 'ivars\.app\.emit\(' src-tauri/src/browser/nav_delegate_macos.rs 2>/dev/null; then
+    #
+    # Scans the WHOLE browser module, not one file. It used to name nav_delegate_macos.rs
+    # alone — and then the delegate was split, `emit_failed` moved to nav_registry_macos.rs,
+    # and a live broadcast sat there passing a green gate. A gate pinned to a filename tests
+    # the filename, not the property. (Audit, High.)
+    if grep -rqE '\.emit\(' src-tauri/src/browser/ 2>/dev/null; then
       fail "S0.2 a browser event is still BROADCAST (ivars.app.emit) — route it to the owner"
     else
       pass "S0.2 no browser event is broadcast to every window"

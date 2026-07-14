@@ -95,11 +95,16 @@ function makeGrantPusher(): (grants: StandingGrant[]) => void {
  */
 function pushOneShot(shot: OneShotApproval): void {
   // The driver binds the one-shot to (tab, generation, origin, operation, target).
-  // It stamps the generation itself from the registry; the frontend supplies the
-  // rest. Omitting the tab or target would leave the driver unable to match — and
-  // refuse — the very action the user approved.
+  //
+  // The generation is the one the APPROVAL WAS RAISED AGAINST, sent explicitly. The driver
+  // used to stamp it from the registry at mint time — so if the page navigated between the
+  // prompt appearing and the user clicking "Allow once", the approval landed on the new
+  // page's generation and authorized an action on a page the user never saw. The driver now
+  // refuses a mint whose generation is no longer current, which turns that race into a
+  // refusal instead of an escalation. (Audit, High.)
   void invoke("browser_add_one_shot", {
     tabId: shot.tabId,
+    generation: shot.generation,
     originPattern: shot.originPattern,
     operation: shot.operation,
     target: shot.target,

@@ -37,6 +37,7 @@ import {
   buildSnapshotScript,
   buildTypeScript,
 } from "@/lib/browser/agent/actScript";
+import { urlForAgent } from "@/lib/browser/url";
 
 /**
  * Resolve the target browser tab (by id, else the focused window's active tab).
@@ -106,7 +107,13 @@ export async function handleBrowserRead(id: string, args: Record<string, unknown
       operation: "read",
       generation: tab.generation,
     });
-    await respond({ id, success: true, data: { url: tab.url, snapshot: parse(raw) } });
+    // Redacted at the trust boundary: credentials in a URL are the one thing about a page
+    // the AI could not read out of the DOM anyway (audit, High).
+    await respond({
+      id,
+      success: true,
+      data: { url: urlForAgent(tab.url), snapshot: parse(raw) },
+    });
   });
 }
 
@@ -176,7 +183,9 @@ export async function handleBrowserAct(id: string, args: Record<string, unknown>
       if (!authorizedOnce) {
         useBrowserApprovalStore
           .getState()
-          .requestApproval(id, tab.url, operation, target, tab.tabId);
+          // Stamped with the generation the AI's request was evaluated against, so the
+          // approval binds to the page the user is being shown (audit, High).
+          .requestApproval(id, tab.url, operation, target, tab.tabId, tab.generation);
         await respond({
           id,
           success: false,
@@ -184,8 +193,8 @@ export async function handleBrowserAct(id: string, args: Record<string, unknown>
           // `throw new Error(response.error)` produced an EMPTY error and the AI
           // never learned that consent was being asked for. The structured
           // envelope rides alongside for clients that can render it.
-          error: `approval required: '${operation}' on ${tab.url}`,
-          data: { needsApproval: true, operation, url: tab.url },
+          error: `approval required: '${operation}' on ${urlForAgent(tab.url)}`,
+          data: { needsApproval: true, operation, url: urlForAgent(tab.url) },
         });
         return;
       }

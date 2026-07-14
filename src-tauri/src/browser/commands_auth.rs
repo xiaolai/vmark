@@ -7,6 +7,8 @@
 //! authority (a caller that never syncs simply gets default-deny).
 
 use crate::browser::one_shot::{self, OneShot, OneShotTarget};
+use crate::browser::operation;
+use crate::browser::redact;
 use crate::browser::origin_guard::{self, StandingGrant};
 use crate::browser::surface::{self, BrowserSurface};
 use tauri::{AppHandle, State};
@@ -35,6 +37,7 @@ pub async fn browser_set_grants(
 pub async fn browser_add_one_shot(
     state: State<'_, BrowserSurface>,
     tab_id: String,
+    generation: u64,
     origin_pattern: String,
     operation: String,
     target: Option<OneShotTarget>,
@@ -44,14 +47,33 @@ pub async fn browser_add_one_shot(
     if !origin_guard::is_origin_pattern(&origin_pattern) {
         return Err(format!("not a valid origin pattern: '{origin_pattern}'"));
     }
-    // Stamp the tab's CURRENT generation: the one-shot is valid only while the tab
-    // stays on the page the user approved (R7a). A navigation clears it outright,
-    // and a stale-generation command can't spend it either.
-    let generation = {
+    // And reject an operation outside the closed vocabulary at the boundary, rather than
+    // minting authority the gate can only discover is meaningless later. `operation.rs`
+    // says anything outside the set is refused rather than treated as an opaque
+    // permission — this is where that becomes true for one-shots. (Audit, Medium.)
+    if !operation::is_known_operation(&operation) {
+        return Err(format!("not a browser operation: '{operation}'"));
+    }
+    // The caller states which generation the user APPROVED against, and we refuse the mint
+    // unless the tab is still on it.
+    //
+    // This used to stamp the tab's CURRENT generation instead — which is a different fact.
+    // The page can navigate between the prompt being raised and the user clicking "Allow
+    // once", and stamping "current" then bound the approval to the page that had just
+    // loaded: authority for a page the user never saw. Reading the generation from the
+    // caller and *checking* it turns that race into a refusal. (Audit, High.)
+    {
         let reg = state.registry.lock().map_err(|e| e.to_string())?;
-        reg.generation(&tab_id)
-            .ok_or_else(|| format!("unknown tab '{tab_id}'"))?
-    };
+        let current = reg
+            .generation(&tab_id)
+            .ok_or_else(|| format!("unknown tab '{tab_id}'"))?;
+        if current != generation {
+            return Err(format!(
+                "stale approval: tab '{tab_id}' navigated since this was authorized \
+                 (approved gen {generation}, now {current})"
+            ));
+        }
+    }
     let mut shots = state.one_shots.lock().map_err(|e| e.to_string())?;
     shots.push(OneShot {
         tab_id,
@@ -95,9 +117,19 @@ pub async fn browser_eval(
     role: Option<String>,
     name: Option<String>,
 ) -> Result<String, String> {
+    // A target is both halves or neither. `(Some(role), None)` used to fall into the `_`
+    // arm and become `None` — silently turning "click the button named Publish" into a
+    // target-less authorization, which a target-less one-shot would then satisfy. A
+    // half-specified target is a caller bug, and the safe reading of a caller bug in an
+    // authorization path is refusal, not the weaker interpretation. (Audit, High.)
     let target = match (role, name) {
         (Some(role), Some(name)) => Some(OneShotTarget { role, name }),
-        _ => None,
+        (None, None) => None,
+        (role, name) => {
+            return Err(format!(
+                "a target needs both role and name (got role={role:?}, name={name:?})"
+            ))
+        }
     };
     {
         let reg = state.registry.lock().map_err(|e| e.to_string())?;
@@ -130,14 +162,21 @@ pub async fn browser_eval(
                 &operation,
                 target.as_ref(),
             ) {
+                // Origin only. The committed URL's query string routinely carries session
+                // tokens and document ids, and a refusal log is not a place to persist
+                // them. (Audit, Medium.)
                 log::warn!(
-                    "[browser] REFUSED {operation} on {committed} (tab {tab_id}): not granted"
+                    "[browser] REFUSED {operation} on {} (tab {tab_id}): not granted",
+                    redact::redact(committed)
                 );
                 return Err(format!(
                     "operation '{operation}' is not granted for the current origin"
                 ));
             }
-            log::info!("[browser] {operation} on {committed} (tab {tab_id}): one-shot consumed");
+            log::info!(
+                "[browser] {operation} on {} (tab {tab_id}): one-shot consumed",
+                redact::redact(committed)
+            );
         }
     }
 

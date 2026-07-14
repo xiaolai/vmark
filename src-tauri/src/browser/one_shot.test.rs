@@ -226,3 +226,48 @@ fn clear_for_tab_drops_only_that_tabs_one_shots() {
     assert_eq!(shots.len(), 1);
     assert_eq!(shots[0].tab_id, "t2");
 }
+
+// WI-S0.13 — the closed operation vocabulary must be closed on BOTH paths.
+//
+// `is_driver_operation_allowed` rejects an unknown operation, so the standing-grant path
+// is closed. `consume_one_shot` only checked NEVER_AUTOMATED — so an operation outside the
+// vocabulary could be minted and then spent through the one-shot path, which is exactly the
+// "treated as an opaque permission" that operation.rs says cannot happen. A closed set that
+// is only closed on one of two routes is not closed. (Audit, Medium.)
+#[test]
+fn an_operation_outside_the_vocabulary_can_never_be_consumed() {
+    for bogus in ["frobnicate", "Click", "read ", "", "click\n"] {
+        let mut shots = vec![OneShot {
+            tab_id: "t1".into(),
+            generation: 1,
+            origin_pattern: "https://example.com".into(),
+            operation: bogus.into(),
+            target: None,
+        }];
+        assert!(
+            !consume_one_shot(&mut shots, "t1", 1, "https://example.com/p", bogus, None),
+            "{bogus:?} is not a browser operation and must not be spendable",
+        );
+        assert_eq!(shots.len(), 1, "a refused consume must not spend the one-shot");
+    }
+}
+
+#[test]
+fn a_known_operation_is_still_consumable() {
+    let mut shots = vec![OneShot {
+        tab_id: "t1".into(),
+        generation: 1,
+        origin_pattern: "https://example.com".into(),
+        operation: "click".into(),
+        target: None,
+    }];
+    assert!(consume_one_shot(
+        &mut shots,
+        "t1",
+        1,
+        "https://example.com/p",
+        "click",
+        None
+    ));
+    assert!(shots.is_empty());
+}

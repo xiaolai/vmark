@@ -310,6 +310,34 @@ Focus return after navigation/dialogs, and IME preservation, are part of this co
   claims to implement. Verified to fail on the original bug. Nothing else in the build
   could have caught it — this class of error is invisible to rustc, clippy, and any
   screenshot. (Audit verification round 2, finding 11.)
+- **WI-S0.13 (NEW) ✅ DONE** — **Branch audit: the authorization boundary.** Six findings
+  from the full-branch 9-dimension audit, all in the path that decides whether an AI may
+  act on a real logged-in page:
+  - **A one-shot was stamped with the tab's generation at MINT time, not the generation the
+    user approved against.** The page can navigate between the prompt appearing and the
+    click on "Allow once" — and the approval then bound to the page that had just loaded.
+    `dismissForNavigation` narrows that window but cannot close it: the resolve and the
+    navigation event are independent messages. The approved generation is now carried end
+    to end, and the driver refuses a mint that is no longer current. (High.)
+  - **`browser://load-failed` was broadcast to every window** — and survived precisely
+    because the gate forbidding broadcasts grepped `nav_delegate_macos.rs`, which is no
+    longer where that code lives. The gate now scans the whole module and matches any raw
+    `.emit(`, not a receiver spelled `app`. **A gate pinned to a filename tests the
+    filename.** (High.)
+  - **A create whose window had gone attached the page to the *key* window instead** — a
+    live web page dropped into a window that never asked for one, over a document the user
+    was editing, taking its clicks. The fallback is gone; a create that cannot find its
+    window fails. (High.)
+  - **A half-specified target `(role, no name)` silently became "no target"**, downgrading
+    a target-bound authorization into a target-less one. Refused now. (High.)
+  - **The closed operation vocabulary was closed on only one of two routes** — the
+    standing-grant path validated, the one-shot path did not, so an operation outside the
+    set could be minted and spent. Closed at mint and at consume. (Medium.)
+  - **Credentials leaked to the AI**: the `read`/`act` responses returned the committed URL
+    verbatim, and embedded userinfo is the one thing about a page the AI could not read out
+    of the DOM. Redacted at the trust boundary (`urlForAgent`); the authorization path still
+    sees the real URL, because the origin guard must. Authorization logs likewise carry the
+    origin, not the query string. (High / Medium.)
 - **WI-S0.2** — Window-route **every** browser event (ADR-6). Rust-side `emit_to` the
   owning window; payload carries `windowLabel`; frontend filters. TDD: payload shape +
   a two-window test proving no cross-wiring.
@@ -548,5 +576,16 @@ re-reading, not the test suite, is what caught them.
   the one-shot fails closed without having to observe anything. (The isolated world
   matters: the page must not be able to read or forge the nonce — R3 forbids giving it a
   bridge.) A design change, not a fix — deliberately not attempted in the audit.
+- **Two security controls are written but not wired (follow-up).** The branch audit found
+  that `services/browser/lease.ts` (R11 — the automation lease: a human touching the page
+  reclaims it, and the AI can only act on a tab it holds) and `lib/browser/uxPolicy.ts`
+  (the R12 disposition matrix) have **no production importers at all**. Both are complete,
+  unit-tested, and documented as enforcement points; neither is called by anything. The MCP
+  bridge acquires no lease and validates none, so a human can be typing into a form while
+  an AI command lands on it. Both files now say so at the top, because the real hazard is
+  not that they are missing — it is that they *read as done*. This is the same failure mode
+  as the R7a same-document callback that named a selector WebKit never invokes: written,
+  tested, green, inert. Wiring the lease is a design change (it needs a native
+  human-input signal), so it is recorded here rather than faked in the audit.
 - **Windows/Linux:** the native surface is macOS-only; this plan's UI is cross-platform
   but the pane only renders on macOS until the cross-platform backends land.

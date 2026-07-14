@@ -248,3 +248,36 @@ describe("one-shot sync — full descriptor", () => {
     stop();
   });
 });
+
+// WI-S0.13 — a one-shot must bind to the page the user LOOKED AT.
+//
+// The driver used to stamp the one-shot with the tab's generation as it stood *at mint
+// time*, and the frontend sent none. Between the prompt being raised and the user clicking
+// "Allow once", the page can navigate — and the approval would then be stamped onto the new
+// page's generation, authorizing an action on a page the user never saw. `dismissForNavigation`
+// narrows the window but cannot close it: the resolve and the navigation event are two
+// independent messages, and the invoke is in flight across both.
+//
+// The generation the approval was RAISED against is now carried end to end, and the driver
+// refuses a mint whose generation is no longer current. (Audit, High.)
+describe("one-shot generation — authority cannot drift onto a page nobody approved", () => {
+  it("sends the generation the approval was raised against, not whatever is current", async () => {
+    startGrantSync();
+    useBrowserApprovalStore
+      .getState()
+      .requestApproval(
+        "a1",
+        "https://example.com/publish",
+        "click",
+        { role: "button", name: "Publish" },
+        "t1",
+        5,
+      );
+    useBrowserApprovalStore.getState().resolveApproval("a1", "once");
+    await flush();
+
+    const call = invoke.mock.calls.find(([cmd]) => cmd === "browser_add_one_shot");
+    expect(call).toBeDefined();
+    expect(call?.[1]).toMatchObject({ tabId: "t1", generation: 5 });
+  });
+});

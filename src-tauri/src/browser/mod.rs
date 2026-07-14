@@ -44,6 +44,7 @@ pub mod geometry;
 pub mod one_shot;
 pub mod operation;
 pub mod origin_guard;
+pub mod redact;
 pub mod recovery;
 pub mod registry;
 pub mod surface;

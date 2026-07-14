@@ -16,7 +16,7 @@ use objc2::runtime::ProtocolObject;
 use objc2::{msg_send, DefinedClass, MainThreadMarker, MainThreadOnly};
 use objc2_foundation::NSError;
 use objc2_web_kit::{WKNavigationDelegate, WKUIDelegate, WKWebView};
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Manager};
 
 use super::payloads::FailedPayload;
 use super::NavDelegate;
@@ -241,7 +241,11 @@ impl NavDelegate {
         let message = error.localizedDescription().to_string();
         log::debug!("[browser] load failed for {}: {message}", ivars.tab_id);
         self.settle_after_failure();
-        let _ = ivars.app.emit(
+        // Routed to the owning window, NOT broadcast (ADR-6). This was the last
+        // `app.emit` in the browser code, and it survived precisely because the gate that
+        // forbids broadcasts grepped nav_delegate_macos.rs — and this function had since
+        // moved out of that file. The gate now scans the whole module. (Audit, High.)
+        let _ = self.emit_owned(
             "browser://load-failed",
             FailedPayload {
                 tab_id: ivars.tab_id.clone(),

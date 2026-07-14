@@ -1,6 +1,6 @@
 // WI-1.1 — browser URL canonicalization for tab dedup + persistence
 import { describe, it, expect } from "vitest";
-import { canonicalizeBrowserUrl } from "./url";
+import { canonicalizeBrowserUrl, urlForAgent } from "./url";
 
 describe("canonicalizeBrowserUrl", () => {
   it("lowercases scheme and host", () => {
@@ -93,5 +93,34 @@ describe("canonicalizeBrowserUrl", () => {
       "https://example.com/path?",
     );
     expect(canonicalizeBrowserUrl("https://example.com/?#frag")).toBe("https://example.com/?");
+  });
+});
+
+// WI-S0.13 — what the AI is told the page is.
+//
+// `canonicalizeBrowserUrl` keeps userinfo on purpose: it is part of tab identity, and
+// dropping it would navigate somewhere the user did not ask for. But the URL also crosses
+// to the AI in the `read`/`act` responses — and embedded credentials are the one thing on a
+// page the AI could not otherwise obtain by reading the DOM. That makes the URL a leak
+// channel that the whole approval model does not otherwise open. (Audit, High.)
+describe("urlForAgent — credentials never cross to the AI", () => {
+  it("strips embedded credentials entirely — username as well as password", () => {
+    // Both, not just the password: the username names an account, and the AI has no use
+    // for it that reading the page would not already serve.
+    expect(urlForAgent("https://alice:hunter2@example.com/x")).toBe("https://example.com/x");
+    expect(urlForAgent("https://alice:hunter2@example.com/x")).not.toContain("hunter2");
+    expect(urlForAgent("https://alice@example.com/x")).toBe("https://example.com/x");
+  });
+
+  it("keeps everything the AI legitimately needs to reason about the page", () => {
+    expect(urlForAgent("https://example.com/docs/42?q=a&b=2#frag")).toBe(
+      "https://example.com/docs/42?q=a&b=2#frag",
+    );
+    expect(urlForAgent("https://example.com:8443/x")).toBe("https://example.com:8443/x");
+  });
+
+  it("passes through a url it cannot parse rather than inventing one", () => {
+    expect(urlForAgent("about:blank")).toBe("about:blank");
+    expect(urlForAgent("")).toBe("");
   });
 });

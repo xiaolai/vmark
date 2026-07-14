@@ -58,3 +58,31 @@ export function canonicalizeBrowserUrl(input: string): string | null {
   url.hash = ""; // drop the fragment (same document)
   return url.href;
 }
+
+/**
+ * The URL as the **AI** may see it: the same page, with any embedded credentials removed.
+ *
+ * `canonicalizeBrowserUrl` keeps userinfo deliberately — it is part of a tab's identity,
+ * and dropping it would navigate somewhere the user did not ask for. But the URL also
+ * crosses the trust boundary into the AI's `read`/`act` responses, and credentials in a URL
+ * are the one thing about a page the AI could not otherwise obtain by reading the DOM.
+ * Handing them over would open a leak channel that nothing else in the approval model opens.
+ *
+ * The username goes too, not just the password: it names an account, and the AI has no use
+ * for it that reading the page would not already serve. Everything the AI legitimately needs
+ * to reason about where it is — scheme, host, port, path, query, fragment — is preserved.
+ *
+ * A URL that will not parse is returned unchanged: this is a redactor, not a validator, and
+ * inventing a value here would hide the real one from the caller. (Audit, High.)
+ */
+export function urlForAgent(url: string): string {
+  try {
+    const parsed = new URL(url);
+    if (!parsed.username && !parsed.password) return url;
+    parsed.username = "";
+    parsed.password = "";
+    return parsed.href;
+  } catch {
+    return url;
+  }
+}

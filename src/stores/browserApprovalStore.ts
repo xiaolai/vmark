@@ -74,6 +74,17 @@ export interface PendingApproval {
   /** The browser tab the action targets. The driver binds the one-shot to it +
    *  the tab's committed generation, so authority lapses on navigation (R7a). */
   tabId: string;
+  /**
+   * The tab's navigation generation AT THE MOMENT THE PROMPT WAS RAISED — i.e. the page
+   * the user is actually being shown and asked about.
+   *
+   * Carried explicitly because the driver used to stamp the one-shot with whatever
+   * generation was current when the mint arrived. Between raising the prompt and the user
+   * clicking "Allow once" the page can navigate, and the approval would then be bound to a
+   * page the user never saw. `dismissForNavigation` narrows that window but cannot close
+   * it — the resolve and the navigation event are independent messages. (Audit, High.)
+   */
+  generation: number;
 }
 
 /** How the user (or a policy) resolved a pending approval. */
@@ -84,6 +95,8 @@ export interface OneShotApproval {
   /** Canonical bare origin pattern the approval was granted on. */
   originPattern: string;
   operation: string;
+  /** The generation the user approved against — see `PendingApproval.generation`. */
+  generation: number;
   /**
    * The exact element the user approved. A one-shot for "click Publish" must not
    * authorize "click Delete" on the same origin — the AI chooses what it retries
@@ -139,6 +152,9 @@ interface BrowserApprovalActions {
     operation: string,
     target: ActionTarget | undefined,
     tabId: string,
+    /** The tab's generation NOW — the page the user is being shown. See
+     *  `PendingApproval.generation`. */
+    generation: number,
   ) => void;
   /** Resolve a pending request: `remember` promotes it to a standing grant scoped
    *  to the target's origin; `once` mints a single-use authorization for that
@@ -205,14 +221,14 @@ export const useBrowserApprovalStore = create<BrowserApprovalState & BrowserAppr
       set((state) => ({ grants: revokeOrigin(state.grants, originPattern) }));
     },
 
-    requestApproval: (id, targetUrl, operation, target, tabId) => {
+    requestApproval: (id, targetUrl, operation, target, tabId, generation) => {
       if (!KNOWN_OPERATIONS.has(operation)) return;
       set((state) =>
         // A duplicate id would let `resolveApproval` authorize one action while
         // dropping the other — keep the first, ignore the collision.
         state.pending.some((p) => p.id === id)
           ? state
-          : { pending: [...state.pending, { id, targetUrl, operation, target, tabId }] },
+          : { pending: [...state.pending, { id, targetUrl, operation, target, tabId, generation }] },
       );
     },
 
@@ -241,6 +257,9 @@ export const useBrowserApprovalStore = create<BrowserApprovalState & BrowserAppr
                 operation: request.operation,
                 target: request.target,
                 tabId: request.tabId,
+                // The generation the prompt was RAISED against — not whatever is current
+                // when the driver eventually receives the mint. (Audit, High.)
+                generation: request.generation,
               },
             ]
           : state.oneShots,

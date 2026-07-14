@@ -547,3 +547,4 @@ fn rejects_shorthand_and_backslash_authority_forms_as_nav_targets() {
     assert!(validate_navigation_url("https://example.com").is_ok());
     assert!(validate_navigation_url("HTTPS://EXAMPLE.COM/a?b#c").is_ok());
 }
+
