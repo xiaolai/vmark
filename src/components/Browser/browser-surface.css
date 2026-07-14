@@ -1,4 +1,5 @@
-/* BrowserSurface (WI-1.3) — chrome + reserved viewport for the native webview. */
+/* BrowserSurface (WI-1.3) — reserved viewport + full-cover overlays for the native
+   webview. The nav chrome moved to the bottom StatusBar (BrowserOmnibox, WI-S1.4). */
 
 .browser-surface {
   display: flex;
@@ -6,80 +7,6 @@
   width: 100%;
   height: 100%;
   background: var(--bg-color);
-}
-
-.browser-chrome {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-1);
-  padding: var(--spacing-1) var(--spacing-2);
-  border-bottom: 1px solid var(--border-color);
-  background: var(--bg-secondary);
-}
-
-.browser-chrome-btn {
-  width: var(--icon-size-sm);
-  height: var(--icon-size-sm);
-  padding: 0;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: var(--font-size-lg);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background var(--duration-base), color var(--duration-base);
-}
-
-.browser-chrome-btn:hover {
-  background: var(--hover-bg);
-  color: var(--text-color);
-}
-
-.browser-chrome-btn:focus-visible {
-  outline: none;
-  border-bottom: var(--border-medium) solid var(--primary-color);
-}
-
-.browser-url-form {
-  flex: 1;
-  display: flex;
-}
-
-.browser-url-input {
-  flex: 1;
-  border: none;
-  border-bottom: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  padding: var(--spacing-1) var(--spacing-2);
-  background: var(--bg-color);
-  color: var(--text-color);
-  font-family: var(--font-mono);
-  font-size: var(--font-size-sm);
-  outline: none;
-}
-
-.browser-url-input:focus {
-  /* Focus indicator = bottom border (rule 33, dialog inputs). */
-  border-bottom-color: var(--primary-color);
-}
-
-.browser-loading {
-  flex: none;
-  width: var(--space-2);
-  height: var(--space-2);
-  border: var(--border-medium) solid var(--border-color);
-  border-top-color: var(--primary-color);
-  border-radius: 50%;
-  animation: browser-spin var(--duration-slower) linear infinite;
-}
-
-@keyframes browser-spin {
-  to {
-    transform: rotate(360deg);
-  }
 }
 
 .browser-viewport {

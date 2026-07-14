@@ -38,6 +38,10 @@ use crate::browser::surface::BrowserSurface;
 mod payloads;
 use payloads::{CrashPayload, DialogPayload, LoadedPayload, NavPayload, PopupPayload};
 
+#[path = "nav_webview_macos.rs"]
+mod webview;
+use webview::{current_title, current_url, history_state};
+
 // The registry/lifecycle half of the delegate (construction, transitions, crash
 // recording, reload) — see nav_registry_macos.rs.
 #[path = "nav_registry_macos.rs"]
@@ -120,12 +124,15 @@ define_class!(
                     Err(e) => log::warn!("[browser] registry lock poisoned on commit: {e}"),
                 }
             }
+            let (can_go_back, can_go_forward) = history_state(web_view);
             let _ = ivars.app.emit(
                 "browser://navigated",
                 NavPayload {
                     tab_id: ivars.tab_id.clone(),
                     url,
                     generation,
+                    can_go_back,
+                    can_go_forward,
                 },
             );
         }
@@ -145,12 +152,15 @@ define_class!(
                 }
             }
             log::debug!("[browser] loaded {} ({title})", ivars.tab_id);
+            let (can_go_back, can_go_forward) = history_state(web_view);
             let _ = ivars.app.emit(
                 "browser://loaded",
                 LoadedPayload {
                     tab_id: ivars.tab_id.clone(),
                     url,
                     title,
+                    can_go_back,
+                    can_go_forward,
                 },
             );
         }
@@ -284,16 +294,3 @@ define_class!(
         }
     }
 );
-
-fn current_url(web_view: &WKWebView) -> String {
-    unsafe { web_view.URL() }
-        .and_then(|u| u.absoluteString())
-        .map(|s| s.to_string())
-        .unwrap_or_default()
-}
-
-fn current_title(web_view: &WKWebView) -> String {
-    unsafe { web_view.title() }
-        .map(|s| s.to_string())
-        .unwrap_or_default()
-}

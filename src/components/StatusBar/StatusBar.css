@@ -36,6 +36,12 @@
   min-width: 0;
 }
 
+/* When a browser tab is active, the left section shrinks to its content (the tab
+   strip) so the sibling BrowserOmnibox (flex: 1) fills the rest of the bar. */
+.status-bar-left--compact {
+  flex: 0 1 auto;
+}
+
 .status-item {
   color: var(--text-secondary);
   white-space: nowrap;

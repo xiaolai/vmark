@@ -1,4 +1,7 @@
 // WI-1.3 — BrowserSurface: wires the native browser commands into a React tab
+// WI-S1.2 — writes nav state (urlInput/loading/history) into browserUiStore
+// WI-S1.4 — the top nav chrome is GONE (moved to the bottom bar); the surface is
+//           now viewport + full-cover overlays (crash / dialog) only
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen, waitFor, cleanup, act, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -45,6 +48,7 @@ beforeEach(() => {
 
 import { BrowserSurface } from "./BrowserSurface";
 import { useTabStore } from "@/stores/tabStore";
+import { useBrowserUiStore } from "@/stores/browserUiStore";
 
 function seedBrowserTab(url: string): string {
   useTabStore.setState({ tabs: {}, activeTabId: {}, untitledCounter: 0, closedTabs: {} });
@@ -54,6 +58,7 @@ function seedBrowserTab(url: string): string {
 beforeEach(() => {
   invoke.mockClear();
   eventListeners.clear();
+  useBrowserUiStore.setState({ entries: {} });
   cleanup();
 });
 
@@ -71,68 +76,10 @@ describe("BrowserSurface", () => {
     );
   });
 
-  it("invokes browser_back and browser_forward from the history buttons", async () => {
-    const id = seedBrowserTab("https://example.com/");
-    render(<BrowserSurface tabId={id} />);
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith("browser_create", expect.anything()));
-    invoke.mockClear();
-    await userEvent.click(screen.getByRole("button", { name: /back/i }));
-    await userEvent.click(screen.getByRole("button", { name: /forward/i }));
-    expect(invoke).toHaveBeenCalledWith("browser_back", { tabId: id });
-    expect(invoke).toHaveBeenCalledWith("browser_forward", { tabId: id });
-  });
-
-  it("shows a stop button while loading and invokes browser_stop", async () => {
-    // Keep browser_create pending so `loading` stays true (the stop button shows
-    // only while loading); everything else resolves normally.
-    invoke.mockImplementation((cmd: string) =>
-      cmd === "browser_create" ? new Promise<void>(() => {}) : Promise.resolve(undefined),
-    );
-    const id = seedBrowserTab("https://example.com/");
-    render(<BrowserSurface tabId={id} />);
-    const stopBtn = await screen.findByRole("button", { name: /stop/i });
-    await userEvent.click(stopBtn);
-    expect(invoke).toHaveBeenCalledWith("browser_stop", { tabId: id });
-    invoke.mockImplementation(() => Promise.resolve(undefined)); // restore default
-  });
-
-  it("shows the current URL in the address bar", () => {
-    const id = seedBrowserTab("https://example.com/");
-    render(<BrowserSurface tabId={id} />);
-    expect(screen.getByRole("textbox")).toHaveValue("https://example.com/");
-  });
-
-  it("navigates when the address bar is submitted", async () => {
-    const id = seedBrowserTab("https://example.com/");
-    render(<BrowserSurface tabId={id} />);
-    const bar = screen.getByRole("textbox");
-    const user = userEvent.setup();
-    await user.clear(bar);
-    await user.type(bar, "https://example.org/{Enter}");
-    await waitFor(() =>
-      expect(invoke).toHaveBeenCalledWith("browser_navigate", {
-        tabId: id,
-        url: "https://example.org/",
-      }),
-    );
-  });
-
-  it("preserves the fragment when navigating to an in-page anchor", async () => {
-    // The dedup canonicalizer drops `#frag`, but navigation must keep it so the
-    // page scrolls to the anchor — otherwise `page#section` silently loads `page`.
-    const id = seedBrowserTab("https://example.com/");
-    render(<BrowserSurface tabId={id} />);
-    const bar = screen.getByRole("textbox");
-    const user = userEvent.setup();
-    await user.clear(bar);
-    await user.type(bar, "https://example.org/docs#install{Enter}");
-    await waitFor(() =>
-      expect(invoke).toHaveBeenCalledWith("browser_navigate", {
-        tabId: id,
-        url: "https://example.org/docs#install",
-      }),
-    );
-  });
+  // The nav chrome (back/forward/reload/stop + address bar + omnibox submit) moved
+  // to the bottom StatusBar in WI-S1.4 and is tested in BrowserOmnibox.test.tsx,
+  // browserNavigation.test.ts, and omnibox.test.ts. BrowserSurface now owns only
+  // the native-view lifecycle, bounds, nav-event → store wiring, and overlays.
 
   it("reports the reserved rect bounds to Rust on resize", async () => {
     const id = seedBrowserTab("https://example.com/");
@@ -193,7 +140,7 @@ describe("BrowserSurface", () => {
     invoke.mockImplementation(() => Promise.resolve(undefined)); // restore default
   });
 
-  it("updates the address bar when the native page navigates (delegate event)", async () => {
+  it("writes the omnibox state when the native page navigates (delegate event)", async () => {
     const id = seedBrowserTab("https://example.com/");
     render(<BrowserSurface tabId={id} />);
     await waitFor(() => expect(eventListeners.has("browser://loaded")).toBe(true));
@@ -203,7 +150,10 @@ describe("BrowserSurface", () => {
       url: "https://www.iana.org/help/example-domains",
       title: "Example Domains",
     });
-    expect(screen.getByRole("textbox")).toHaveValue("https://www.iana.org/help/example-domains");
+    // The omnibox reads urlInput from browserUiStore (the chrome moved to the bar).
+    expect(useBrowserUiStore.getState().entries[id]?.urlInput).toBe(
+      "https://www.iana.org/help/example-domains",
+    );
     expect(useTabStore.getState().findTabById(id)).toMatchObject({
       url: "https://www.iana.org/help/example-domains",
     });
@@ -214,7 +164,7 @@ describe("BrowserSurface", () => {
     render(<BrowserSurface tabId={id} />);
     await waitFor(() => expect(eventListeners.has("browser://navigated")).toBe(true));
     await emitNav("browser://navigated", { tabId: "some-other-tab", url: "https://evil/" });
-    expect(screen.getByRole("textbox")).toHaveValue("https://example.com/");
+    expect(useBrowserUiStore.getState().entries[id]?.urlInput).toBe("https://example.com/");
   });
 
   it("shows a manual crash overlay and reloads on click (freezing then thawing the view)", async () => {
@@ -228,9 +178,8 @@ describe("BrowserSurface", () => {
     expect(invoke).toHaveBeenCalledWith("browser_freeze", { tabId: id });
 
     invoke.mockClear();
-    // Scope to the overlay — the chrome also has a "Reload" button.
     await userEvent.click(within(alert).getByRole("button", { name: /reload/i }));
-    // Reload thaws the view and re-navigates.
+    // Reload thaws the view and re-navigates (via the browserNavigation service).
     expect(invoke).toHaveBeenCalledWith("browser_thaw", { tabId: id });
     expect(invoke).toHaveBeenCalledWith("browser_navigate", expect.objectContaining({ tabId: id }));
   });

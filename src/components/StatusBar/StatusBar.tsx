@@ -4,6 +4,9 @@
  * Purpose: Bottom bar combining tab strip, word/character counts, auto-save indicator,
  * AI status indicator, MCP status, terminal toggle, and editor mode toggle into a
  * single horizontal bar. Auto-shows when AI has active status (hasActiveStatus).
+ * For a BROWSER tab it is also the browser's chrome: document-only controls give way
+ * to <BrowserOmnibox>, and the bar survives F7 — the omnibox is the page's only
+ * address bar, so hiding it would leave the page undrivable (ADR-4 / WI-S1.3).
  *
  * User interactions:
  *   - Click a tab pill to switch documents; middle-click or X to close
@@ -29,12 +32,13 @@
  * @coordinates-with Tabs/TabContextMenu.tsx — right-click menu for tabs
  * @module components/StatusBar/StatusBar
  */
-import { useCallback, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
+import { useCallback, useRef, useState, type MouseEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { PanelLeft } from "lucide-react";
 import { useUIStore } from "@/stores/uiStore";
 import { useWindowLabel, useIsDocumentWindow } from "@/contexts/WindowContext";
 import { useTabStore, type Tab as TabType } from "@/stores/tabStore";
+import { BrowserOmnibox } from "@/components/Browser/BrowserOmnibox";
 import { useDocumentStore, useLargeFileSessionStore } from "@/stores/documentStore";
 import { closeTabWithDirtyCheck } from "@/hooks/useTabOperations";
 import { activateTabInFocusedPane } from "@/services/navigation/activateTabInFocusedPane";
@@ -61,35 +65,11 @@ import { openSettingsWindow } from "@/services/navigation/settingsWindow";
 import { StatusBarRight } from "./StatusBarRight";
 import { useStatusBarTabDrag } from "./useStatusBarTabDrag";
 import { useQuitFeedback } from "./useQuitFeedback";
+import { ARIA_LIVE_STYLE, preventSelectAllOnButtons, pickActiveBrowserTabId } from "./statusBarHelpers";
 import "./StatusBar.css";
 
 // Stable empty array to avoid creating new reference on each render.
 const EMPTY_TABS: never[] = [];
-
-const ARIA_LIVE_STYLE = {
-  position: "absolute",
-  width: 1,
-  height: 1,
-  padding: 0,
-  margin: -1,
-  overflow: "hidden",
-  clip: "rect(0, 0, 0, 0)",
-  whiteSpace: "nowrap",
-  border: 0,
-} as const;
-
-/**
- * Prevent Cmd+A from selecting all page content when focus is on non-input elements.
- * Only prevents when active element is a button or similar non-text element.
- */
-function preventSelectAllOnButtons(event: KeyboardEvent) {
-  if ((event.metaKey || event.ctrlKey) && event.key === "a") {
-    const target = event.target as HTMLElement;
-    if (target.tagName !== "INPUT" && target.tagName !== "TEXTAREA") {
-      event.preventDefault();
-    }
-  }
-}
 
 /** Bottom bar combining tab strip, word/char counts, auto-save indicator, AI status, and mode toggle. */
 export function StatusBar() {
@@ -126,6 +106,7 @@ export function StatusBar() {
 
   const tabs = useTabStore((state) => (isDocumentWindow ? state.tabs[windowLabel] ?? EMPTY_TABS : EMPTY_TABS));
   const activeTabId = useTabStore((state) => (isDocumentWindow ? state.activeTabId[windowLabel] : null));
+  const activeBrowserTabId = pickActiveBrowserTabId(tabs, activeTabId);
   /* v8 ignore next 3 -- @preserve defensive `!activeTabId` fallback is not exercised — the StatusBar always has an active tab in tests */
   const activeTabForcedSource = useLargeFileSessionStore((s) =>
     activeTabId ? Boolean(s.forcedSourceTabs[activeTabId]) : false
@@ -211,7 +192,9 @@ export function StatusBar() {
   const showTabs = isDocumentWindow && tabs.length >= 1;
   const showNewTabButton = isDocumentWindow;
 
-  if (!statusBarVisible && !aiHasActiveStatus) return null;
+  // A browser tab keeps the bar even when hidden (F7): the omnibox is its only
+  // address bar and nav, so stripping it would leave the page undrivable.
+  if (!statusBarVisible && !aiHasActiveStatus && !activeBrowserTabId) return null;
 
   return (
     <>
@@ -221,7 +204,7 @@ export function StatusBar() {
         onKeyDown={preventSelectAllOnButtons}
       >
         <div className="status-bar">
-          <div className="status-bar-left" ref={tabDragScopeRef}>
+          <div className={`status-bar-left${activeBrowserTabId ? " status-bar-left--compact" : ""}`} ref={tabDragScopeRef}>
             {!sidebarVisible && isDocumentWindow && (
               <button
                 type="button"
@@ -265,37 +248,43 @@ export function StatusBar() {
             )}
           </div>
 
-          <StatusBarRight
-            aiRunning={aiRunning}
-            elapsedSeconds={aiElapsed}
-            aiError={aiError}
-            showSuccess={aiShowSuccess}
-            onCancelAi={() => useAiInvocationStore.getState().cancel()}
-            onRetryAi={handleRetryAi}
-            onDismissError={() => useAiInvocationStore.getState().dismissError()}
-            mcpRunning={mcpRunning}
-            mcpLoading={mcpLoading}
-            mcpError={mcpError}
-            mcpClients={mcpClients}
-            openMcpSettings={openMcpSettings}
-            showAutoSavePaused={showAutoSavePaused}
-            isDivergent={isDivergent}
-            showAutoSave={showAutoSave}
-            lastAutoSave={lastAutoSave}
-            autoSaveTime={autoSaveTime}
-            terminalVisible={terminalVisible}
-            terminalShortcut={terminalShortcut}
-            saveShortcut={saveShortcut}
-            sourceMode={sourceMode}
-            sourceModeShortcut={sourceModeShortcut}
-            onToggleSourceMode={() => toggleSourceModeWithCheckpoint(windowLabel)}
-            modeToggleHidden={modeToggleHidden}
-            readOnly={readOnly}
-            readOnlyShortcut={readOnlyShortcut}
-            onToggleReadOnly={() => {
-              if (activeTabId) toggleDocumentReadOnlyWithOwnership(activeTabId);
-            }}
-          />
+          {activeBrowserTabId ? (
+            // A browser tab is active: the omnibox (ADR-4) takes the right side in
+            // place of the document-only counts/mode/auto-save controls.
+            <BrowserOmnibox tabId={activeBrowserTabId} />
+          ) : (
+            <StatusBarRight
+              aiRunning={aiRunning}
+              elapsedSeconds={aiElapsed}
+              aiError={aiError}
+              showSuccess={aiShowSuccess}
+              onCancelAi={() => useAiInvocationStore.getState().cancel()}
+              onRetryAi={handleRetryAi}
+              onDismissError={() => useAiInvocationStore.getState().dismissError()}
+              mcpRunning={mcpRunning}
+              mcpLoading={mcpLoading}
+              mcpError={mcpError}
+              mcpClients={mcpClients}
+              openMcpSettings={openMcpSettings}
+              showAutoSavePaused={showAutoSavePaused}
+              isDivergent={isDivergent}
+              showAutoSave={showAutoSave}
+              lastAutoSave={lastAutoSave}
+              autoSaveTime={autoSaveTime}
+              terminalVisible={terminalVisible}
+              terminalShortcut={terminalShortcut}
+              saveShortcut={saveShortcut}
+              sourceMode={sourceMode}
+              sourceModeShortcut={sourceModeShortcut}
+              onToggleSourceMode={() => toggleSourceModeWithCheckpoint(windowLabel)}
+              modeToggleHidden={modeToggleHidden}
+              readOnly={readOnly}
+              readOnlyShortcut={readOnlyShortcut}
+              onToggleReadOnly={() => {
+                if (activeTabId) toggleDocumentReadOnlyWithOwnership(activeTabId);
+              }}
+            />
+          )}
         </div>
       </div>
 

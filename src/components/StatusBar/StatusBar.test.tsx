@@ -81,6 +81,8 @@ vi.mock("@/components/Tabs/TabContextMenu", () => ({
 import { StatusBar } from "./StatusBar";
 import { useUIStore } from "@/stores/uiStore";
 import { useShortcutsStore, formatKeyForDisplay } from "@/stores/settingsStore";
+import { useTabStore } from "@/stores/tabStore";
+import { useBrowserUiStore } from "@/stores/browserUiStore";
 
 describe("StatusBar accessibility", () => {
   beforeEach(() => {
@@ -111,5 +113,53 @@ describe("StatusBar accessibility", () => {
     expect(display).not.toBe("");
     expect(toggle.getAttribute("title")).toContain(display);
     expect(toggle.getAttribute("title")).toBe(toggle.getAttribute("aria-label"));
+  });
+});
+
+describe("StatusBar — browser omnibox (WI-S1.3)", () => {
+  beforeEach(() => {
+    useUIStore.setState({ sidebarVisible: true, statusBarVisible: true });
+    useTabStore.setState({ tabs: {}, activeTabId: {}, untitledCounter: 0, closedTabs: {} });
+    useBrowserUiStore.setState({ entries: {} });
+  });
+
+  it("shows the omnibox and hides the editor controls when a browser tab is active", () => {
+    const id = useTabStore.getState().createBrowserTab("main", "https://example.com/", "Ex");
+    useTabStore.getState().setActiveTab("main", id);
+    // BrowserSurface (not rendered here) seeds this on mount; simulate it.
+    useBrowserUiStore.getState().ensureEntry(id, "https://example.com/");
+    render(<StatusBar />);
+    // Omnibox present (its address bar is the only textbox), editor controls gone.
+    expect(screen.getByRole("textbox")).toHaveValue("https://example.com/");
+    expect(screen.getByRole("button", { name: /back/i })).toBeInTheDocument();
+    expect(screen.queryByTestId("status-bar-right")).toBeNull();
+  });
+
+  it("shows the editor controls (not the omnibox) when a document tab is active", () => {
+    const id = useTabStore.getState().createTab("main", null);
+    useTabStore.getState().setActiveTab("main", id);
+    render(<StatusBar />);
+    expect(screen.getByTestId("status-bar-right")).toBeInTheDocument();
+    expect(screen.queryByRole("textbox")).toBeNull();
+  });
+
+  // Codex re-review (D1#4): the omnibox is the browser's ONLY chrome. Hiding the
+  // status bar (F7) must not strip a browser tab of its address bar and nav —
+  // otherwise the page becomes undrivable.
+  it("still renders the omnibox for a browser tab when the status bar is hidden (F7)", () => {
+    useUIStore.setState({ sidebarVisible: true, statusBarVisible: false });
+    const id = useTabStore.getState().createBrowserTab("main", "https://example.com/", "Ex");
+    useTabStore.getState().setActiveTab("main", id);
+    useBrowserUiStore.getState().ensureEntry(id, "https://example.com/");
+    render(<StatusBar />);
+    expect(screen.getByRole("textbox")).toHaveValue("https://example.com/");
+  });
+
+  it("still hides the bar for a document tab when the status bar is hidden (F7)", () => {
+    useUIStore.setState({ sidebarVisible: true, statusBarVisible: false });
+    const id = useTabStore.getState().createTab("main", null);
+    useTabStore.getState().setActiveTab("main", id);
+    const { container } = render(<StatusBar />);
+    expect(container).toBeEmptyDOMElement();
   });
 });

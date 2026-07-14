@@ -15,6 +15,13 @@ pub struct NavPayload {
     /// stamps driver operations with it, so an operation authorized against this
     /// page is rejected by the driver once the page navigates away.
     pub generation: u64,
+    /// WKWebView's back/forward-list state at this event (WI-S1.6). The omnibox's
+    /// back/forward controls derive their disabled state from these — without them
+    /// they ship as always-enabled no-ops.
+    #[serde(rename = "canGoBack")]
+    pub can_go_back: bool,
+    #[serde(rename = "canGoForward")]
+    pub can_go_forward: bool,
 }
 
 /// `browser://loaded` — the load FINISHED cleanly (didFinishNavigation).
@@ -24,6 +31,11 @@ pub struct LoadedPayload {
     pub tab_id: String,
     pub url: String,
     pub title: String,
+    /// See `NavPayload` — history can change on commit OR finish, so both carry it.
+    #[serde(rename = "canGoBack")]
+    pub can_go_back: bool,
+    #[serde(rename = "canGoForward")]
+    pub can_go_forward: bool,
 }
 
 /// `browser://load-failed` — the load failed, provisionally or after commit.

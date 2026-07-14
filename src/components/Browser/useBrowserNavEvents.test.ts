@@ -85,6 +85,41 @@ describe("useBrowserNavEvents", () => {
     expect(onNavigated).toHaveBeenCalledWith("https://iana.org/", 4);
   });
 
+  // WI-S1.6 (Codex re-review D3#5): the omnibox's back/forward disabled state comes
+  // from the webview's own back/forward list, which can change on EITHER event.
+  it("reports history state from a committed navigation", async () => {
+    const onHistoryChanged = vi.fn();
+    await mount("t1", { onHistoryChanged });
+    emit("browser://navigated", {
+      tabId: "t1",
+      url: "https://a.com/",
+      generation: 1,
+      canGoBack: true,
+      canGoForward: false,
+    });
+    expect(onHistoryChanged).toHaveBeenCalledWith(true, false);
+  });
+
+  it("reports history state from a finished load", async () => {
+    const onHistoryChanged = vi.fn();
+    await mount("t1", { onHistoryChanged });
+    emit("browser://loaded", {
+      tabId: "t1",
+      url: "https://a.com/",
+      title: "A",
+      canGoBack: false,
+      canGoForward: true,
+    });
+    expect(onHistoryChanged).toHaveBeenCalledWith(false, true);
+  });
+
+  it("coerces missing history flags to false rather than passing undefined", async () => {
+    const onHistoryChanged = vi.fn();
+    await mount("t1", { onHistoryChanged });
+    emit("browser://loaded", { tabId: "t1", url: "https://a.com/", title: "A" });
+    expect(onHistoryChanged).toHaveBeenCalledWith(false, false);
+  });
+
   it("ignores events addressed to a different tab", async () => {
     const onLoaded = vi.fn();
     await mount("t1", { onLoaded });

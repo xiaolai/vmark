@@ -19,10 +19,18 @@ fn nav_payload_uses_camelcase_tab_id_and_carries_generation() {
         tab_id: "t1".into(),
         url: "https://a.com".into(),
         generation: 7,
+        can_go_back: true,
+        can_go_forward: false,
     };
     assert_eq!(
         value(&p),
-        json!({ "tabId": "t1", "url": "https://a.com", "generation": 7 })
+        json!({
+            "tabId": "t1",
+            "url": "https://a.com",
+            "generation": 7,
+            "canGoBack": true,
+            "canGoForward": false
+        })
     );
 }
 
@@ -32,11 +40,44 @@ fn loaded_payload_shape() {
         tab_id: "t1".into(),
         url: "https://a.com".into(),
         title: "Hello".into(),
+        can_go_back: false,
+        can_go_forward: true,
     };
     assert_eq!(
         value(&p),
-        json!({ "tabId": "t1", "url": "https://a.com", "title": "Hello" })
+        json!({
+            "tabId": "t1",
+            "url": "https://a.com",
+            "title": "Hello",
+            "canGoBack": false,
+            "canGoForward": true
+        })
     );
+}
+
+#[test]
+fn history_flags_ride_every_navigation_event() {
+    // WI-S1.6 (Codex re-review D3#5): back/forward shipped as always-enabled no-ops.
+    // The omnibox derives its disabled state from these flags, so both the commit
+    // and the finish event must carry them — a page can gain history on either.
+    let nav = value(&NavPayload {
+        tab_id: "t1".into(),
+        url: "https://a.com".into(),
+        generation: 1,
+        can_go_back: true,
+        can_go_forward: true,
+    });
+    let loaded = value(&LoadedPayload {
+        tab_id: "t1".into(),
+        url: "https://a.com".into(),
+        title: "T".into(),
+        can_go_back: true,
+        can_go_forward: true,
+    });
+    for v in [&nav, &loaded] {
+        assert!(v.get("canGoBack").is_some_and(|b| b.is_boolean()));
+        assert!(v.get("canGoForward").is_some_and(|b| b.is_boolean()));
+    }
 }
 
 #[test]
@@ -109,6 +150,8 @@ fn generation_serializes_as_a_json_number_at_the_safe_integer_boundary() {
         tab_id: "t1".into(),
         url: "https://a.com".into(),
         generation: 9_007_199_254_740_991, // 2^53 - 1
+        can_go_back: false,
+        can_go_forward: false,
     };
     let g = value(&p);
     let g = g.get("generation").expect("generation key present");

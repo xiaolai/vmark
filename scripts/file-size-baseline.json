@@ -45,7 +45,7 @@
     "src/components/GeniePicker/GeniePicker.tsx": 508,
     "src/components/Sidebar/FileExplorer/FileExplorer.tsx": 431,
     "src/components/Sidebar/FileExplorer/useExplorerOperations.ts": 315,
-    "src/components/StatusBar/StatusBar.tsx": 326,
+    "src/components/StatusBar/StatusBar.tsx": 315,
     "src/components/StatusBar/useStatusBarTabDrag.ts": 330,
     "src/components/Tabs/useTabContextMenuActions.ts": 350,
     "src/contexts/WindowContext.tsx": 356,

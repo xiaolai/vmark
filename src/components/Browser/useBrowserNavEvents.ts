@@ -11,6 +11,12 @@
  * listens, filters by `tabId`, and calls the matching handler so the chrome
  * (address bar, loading, crash overlay, dialog) tracks reality.
  *
+ * The commit and finish events also carry the webview's back/forward-list state,
+ * surfaced as `onHistoryChanged` (WI-S1.6) — history can change on either, and the
+ * omnibox derives its disabled back/forward controls from it. Missing flags are
+ * coerced to `false`: an older or partial payload must disable the controls, never
+ * hand `undefined` to the store as though it were a known state.
+ *
  * Handlers are held in a ref so the subscription is set up once per `tabId` and
  * never churns when the parent re-renders with fresh closures.
  *
@@ -40,6 +46,13 @@ export interface BrowserNavHandlers {
   onNavigated?: (url: string, generation: number) => void;
   /** A load finished; `url` is final, `title` is the page title (may be ""). */
   onLoaded?: (url: string, title: string) => void;
+  /**
+   * The webview's back/forward-list state (WI-S1.6). Fires on BOTH commit and
+   * finish — a redirect, a same-document push, or a `goBack()` can change history
+   * on either — so the omnibox's back/forward controls can be disabled correctly
+   * instead of shipping as no-ops.
+   */
+  onHistoryChanged?: (canGoBack: boolean, canGoForward: boolean) => void;
   /** A (provisional or committed) navigation failed. */
   onFailed?: (message: string) => void;
   /** The web content process died (WI-1.8). */
@@ -51,11 +64,16 @@ export interface BrowserNavHandlers {
 interface TabScoped {
   tabId: string;
 }
-interface NavPayload extends TabScoped {
+/** Back/forward-list state, carried by every event that can change it (WI-S1.6). */
+interface HistoryScoped {
+  canGoBack?: boolean;
+  canGoForward?: boolean;
+}
+interface NavPayload extends TabScoped, HistoryScoped {
   url: string;
   generation: number;
 }
-interface LoadedPayload extends TabScoped {
+interface LoadedPayload extends TabScoped, HistoryScoped {
   url: string;
   title: string;
 }
@@ -119,8 +137,19 @@ export function useBrowserNavEvents(tabId: string, handlers: BrowserNavHandlers)
         });
     };
 
-    on<NavPayload>("browser://navigated", (p, h) => h.onNavigated?.(p.url, p.generation));
-    on<LoadedPayload>("browser://loaded", (p, h) => h.onLoaded?.(p.url, p.title));
+    // Coerce the history flags: an older/partial payload must disable the controls,
+    // never hand `undefined` to the store as if it were a known state.
+    const history = (p: HistoryScoped, h: BrowserNavHandlers) =>
+      h.onHistoryChanged?.(!!p.canGoBack, !!p.canGoForward);
+
+    on<NavPayload>("browser://navigated", (p, h) => {
+      h.onNavigated?.(p.url, p.generation);
+      history(p, h);
+    });
+    on<LoadedPayload>("browser://loaded", (p, h) => {
+      h.onLoaded?.(p.url, p.title);
+      history(p, h);
+    });
     on<FailedPayload>("browser://load-failed", (p, h) => h.onFailed?.(p.message));
     on<CrashPayload>("browser://crashed", (p, h) => h.onCrashed?.(toCrashAction(p.action)));
     on<DialogPayload>("browser://dialog", (p, h) => h.onDialog?.(toDialog(p)));
