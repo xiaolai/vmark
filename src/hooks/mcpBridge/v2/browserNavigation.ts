@@ -73,6 +73,17 @@ async function waitForNavigation(
 ): Promise<void> {
   const result = await browserEventBroker.wait(tabId, navigationId, timeoutMs);
   if (result.kind === "loaded") {
+    // Persist the committed generation (and url) onto the tab record. `open`
+    // waits on the broker for the initial load, whose event is consumed here
+    // before BrowserSurface mounts its own nav-event listener — so without this
+    // the tab keeps `generation: undefined`, resolveBrowserTab defaults it to 0,
+    // and the driver rejects the first read/act as a stale command until an
+    // unrelated navigation happens to sync it. The store ignores an older
+    // generation, so this never regresses a tab BrowserSurface already advanced.
+    useTabStore.getState().updateBrowserTab(tabId, {
+      url: result.url,
+      generation: result.generation,
+    });
     await respond({ id, success: true, data: eventData(result, tabId) });
   } else if (result.kind === "failed") {
     await failure(id, "NAVIGATION_FAILED", {

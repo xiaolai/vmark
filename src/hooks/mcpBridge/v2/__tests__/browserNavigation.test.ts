@@ -93,6 +93,17 @@ describe("open", () => {
     expect(lastResponse()).toMatchObject({ id: "open-1", success: true });
   });
 
+  it("stamps the committed generation so the first read/act is not rejected as stale", async () => {
+    // Regression: `open` waits on the broker for the initial load, but that
+    // loaded event fires before BrowserSurface mounts its own nav-event
+    // listener — so without persisting the generation here the tab keeps
+    // `generation: undefined`, resolveBrowserTab defaults it to 0, and the
+    // driver rejects the very first read/act as a stale command until some
+    // unrelated navigation happens to sync it.
+    await handleBrowserOpen("open-gen", { url: URL });
+    expect(useTabStore.getState().tabs.main[0].generation).toBe(1);
+  });
+
   it.each([
     [{ url: "" }, "INVALID_URL"],
     [{ url: URL, timeoutMs: 0 }, "INVALID_TIMEOUT"],
@@ -145,6 +156,12 @@ describe("navigate", () => {
       expect.objectContaining({ tabId, url: URL }),
     );
     expect(lastResponse()).toMatchObject({ id: "nav-1", success: true });
+  });
+
+  it("stamps the committed generation when a navigation completes", async () => {
+    const tabId = seed();
+    await handleBrowserNavigate("nav-gen", { tabId, url: URL, timeoutMs: 1000 });
+    expect(useTabStore.getState().findTabById(tabId)?.generation).toBe(1);
   });
 
   it("refuses human-owned tabs and missing targets", async () => {
