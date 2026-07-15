@@ -17,6 +17,7 @@
  * @module components/Browser/BrowserSessionsList
  */
 import { invoke } from "@tauri-apps/api/core";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useBrowserSessionStore } from "@/stores/browserSessionStore";
 import "./browser-grants-list.css";
@@ -25,16 +26,32 @@ export function BrowserSessionsList(): React.ReactElement {
   const { t } = useTranslation("common");
   const sessions = useBrowserSessionStore((s) => s.sessions);
   const profiles = useBrowserSessionStore((s) => s.profiles);
+  // Removal is only reported done once the NATIVE side confirms it (the store row is
+  // dropped after the invoke resolves, never before). A failed revocation keeps the
+  // row and shows why, so the UI never claims a login is gone while it survives on
+  // disk (sec review WI-P6.1 Removal).
+  const [error, setError] = useState<string | null>(null);
 
-  const forgetSession = (handle: string): void => {
-    void invoke("browser_forget_storage_state", { handle }).catch(() => {});
-    useBrowserSessionStore.getState().forgetSession(handle);
+  const forgetSession = async (handle: string): Promise<void> => {
+    setError(null);
+    try {
+      await invoke("browser_forget_storage_state", { handle });
+      useBrowserSessionStore.getState().forgetSession(handle);
+    } catch {
+      setError(t("browser.sessions.forgetFailed", { handle }));
+    }
   };
 
-  const removeProfile = (name: string): void => {
-    // Revoke the on-disk store, then drop the registry row (both, so neither lingers).
-    void invoke("browser_forget_profile", { profile: name }).catch(() => {});
-    useBrowserSessionStore.getState().removeProfile(name);
+  const removeProfile = async (name: string): Promise<void> => {
+    setError(null);
+    try {
+      // Await confirmed on-disk revocation BEFORE dropping the registry row, so
+      // neither lingers and the row never disappears on an unconfirmed delete.
+      await invoke("browser_forget_profile", { profile: name });
+      useBrowserSessionStore.getState().removeProfile(name);
+    } catch {
+      setError(t("browser.profiles.removeFailed", { name }));
+    }
   };
 
   if (sessions.length === 0 && profiles.length === 0) {
@@ -43,6 +60,11 @@ export function BrowserSessionsList(): React.ReactElement {
 
   return (
     <div className="browser-sessions">
+      {error !== null && (
+        <p className="browser-grants-error" role="alert">
+          {error}
+        </p>
+      )}
       {sessions.length > 0 && (
         <ul className="browser-grants">
           {sessions.map((s) => (
@@ -55,7 +77,7 @@ export function BrowserSessionsList(): React.ReactElement {
                 type="button"
                 className="browser-grants-revoke"
                 aria-label={t("browser.sessions.forgetLabel", { handle: s.handle })}
-                onClick={() => forgetSession(s.handle)}
+                onClick={() => void forgetSession(s.handle)}
               >
                 {t("browser.sessions.forget")}
               </button>
@@ -75,7 +97,7 @@ export function BrowserSessionsList(): React.ReactElement {
                 type="button"
                 className="browser-grants-revoke"
                 aria-label={t("browser.profiles.removeLabel", { name: p.name })}
-                onClick={() => removeProfile(p.name)}
+                onClick={() => void removeProfile(p.name)}
               >
                 {t("browser.profiles.remove")}
               </button>

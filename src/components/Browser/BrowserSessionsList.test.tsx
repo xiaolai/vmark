@@ -1,6 +1,6 @@
 // WI-P6.4/P6.5 — the saved-sessions + named-profiles management list.
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const invoke = vi.fn();
@@ -33,7 +33,8 @@ describe("BrowserSessionsList", () => {
     render(<BrowserSessionsList />);
     await user.click(screen.getByRole("button", { name: /forget saved session work_login/i }));
     expect(invoke).toHaveBeenCalledWith("browser_forget_storage_state", { handle: "work_login" });
-    expect(useBrowserSessionStore.getState().sessions).toEqual([]);
+    // Row drops only after the native clear resolves.
+    await waitFor(() => expect(useBrowserSessionStore.getState().sessions).toEqual([]));
   });
 
   it("removing a profile revokes its on-disk store AND the registry row", async () => {
@@ -41,8 +42,31 @@ describe("BrowserSessionsList", () => {
     useBrowserSessionStore.getState().recordProfileUse("work", 1);
     render(<BrowserSessionsList />);
     await user.click(screen.getByRole("button", { name: /remove profile work/i }));
-    // The Medium fix: removal must actually revoke the login, not just the metadata.
+    // The fix: removal must actually revoke the login, not just the metadata.
     expect(invoke).toHaveBeenCalledWith("browser_forget_profile", { profile: "work" });
-    expect(useBrowserSessionStore.getState().profiles).toEqual([]);
+    await waitFor(() => expect(useBrowserSessionStore.getState().profiles).toEqual([]));
+  });
+
+  it("keeps the profile row and warns when the native revocation FAILS", async () => {
+    // Re-verify WI-P6.1 Removal: the UI must never claim a login is gone while it
+    // survives on disk. A rejected `browser_forget_profile` leaves the row and alerts.
+    invoke.mockRejectedValueOnce(new Error("PROFILE_STORE_LIMIT"));
+    const user = userEvent.setup();
+    useBrowserSessionStore.getState().recordProfileUse("work", 1);
+    render(<BrowserSessionsList />);
+    await user.click(screen.getByRole("button", { name: /remove profile work/i }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(/couldn't remove/i);
+    // The row is still there — the login was NOT confirmed gone.
+    expect(useBrowserSessionStore.getState().profiles.map((p) => p.name)).toEqual(["work"]);
+  });
+
+  it("keeps the session row and warns when the native clear FAILS", async () => {
+    invoke.mockRejectedValueOnce(new Error("boom"));
+    const user = userEvent.setup();
+    useBrowserSessionStore.getState().recordSession("work_login", "x", 1);
+    render(<BrowserSessionsList />);
+    await user.click(screen.getByRole("button", { name: /forget saved session work_login/i }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(/couldn't forget/i);
+    expect(useBrowserSessionStore.getState().sessions.map((s) => s.handle)).toEqual(["work_login"]);
   });
 });

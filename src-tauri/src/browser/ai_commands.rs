@@ -169,6 +169,16 @@ pub async fn browser_ai_create(
                 state.forget_tab(&tab_id)?;
                 return Err("PROFILE_NOT_APPROVED".into());
             }
+            drop(opens);
+            // Pin READ confinement to the approved origin for the tab's whole life
+            // (WI-P6.1 H1): the login stays attached across later redirects (SSO works),
+            // but the AI can only read this origin, never an off-origin page.
+            state
+                .registry
+                .lock()
+                .map_err(|e| e.to_string())?
+                .set_profile_origin(&tab_id, &url)
+                .map_err(|e| format!("{e:?}"))?;
             Some(name)
         }
         _ => None,

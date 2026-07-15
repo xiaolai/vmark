@@ -398,23 +398,37 @@ fn legacy_human_wrapper_refuses_read_without_a_human_attachment() {
 #[test]
 fn sandbox_read_is_allowed_but_human_read_requires_attachment() {
     assert!(is_driver_operation_allowed_for_mode(
-        "https://example.com/page", "read", &[], AutomationMode::AiSandbox, false, false
+        "https://example.com/page", "read", &[], AutomationMode::AiSandbox, false, false, true
     ));
     assert!(!is_driver_operation_allowed_for_mode(
-        "https://example.com/page", "read", &[], AutomationMode::Human, false, false
+        "https://example.com/page", "read", &[], AutomationMode::Human, false, false, true
     ));
     assert!(is_driver_operation_allowed_for_mode(
-        "https://example.com/page", "read", &[], AutomationMode::Human, true, false
+        "https://example.com/page", "read", &[], AutomationMode::Human, true, false, true
     ));
 }
 
 #[test]
 fn shared_read_requires_current_destination_approval() {
     assert!(!is_driver_operation_allowed_for_mode(
-        "https://example.com/page", "read", &[], AutomationMode::AiShared, false, false
+        "https://example.com/page", "read", &[], AutomationMode::AiShared, false, false, true
     ));
     assert!(is_driver_operation_allowed_for_mode(
-        "https://example.com/page", "read", &[], AutomationMode::AiShared, false, true
+        "https://example.com/page", "read", &[], AutomationMode::AiShared, false, true, true
+    ));
+}
+
+#[test]
+fn profile_confined_sandbox_read_is_refused_off_the_approved_origin() {
+    // WI-P6.1 H1: a profile-backed tab whose committed origin is NOT the approved one
+    // (sandbox_read_allowed=false) must be refused a read even though it is AiSandbox —
+    // this is what stops a profile-approved X tab from reading authenticated Y.
+    assert!(!is_driver_operation_allowed_for_mode(
+        "https://evil.com/page", "read", &[], AutomationMode::AiSandbox, false, false, false
+    ));
+    // On the approved origin (sandbox_read_allowed=true) the same read is allowed.
+    assert!(is_driver_operation_allowed_for_mode(
+        "https://example.com/page", "read", &[], AutomationMode::AiSandbox, false, false, true
     ));
 }
 
@@ -543,6 +557,7 @@ fn unknown_and_case_variant_operations_are_denied_like_the_ts_vocabulary() {
         AutomationMode::AiSandbox,
         false,
         false,
+        true,
     ));
     assert!(is_operation_granted(
         "https://blog.example.com",

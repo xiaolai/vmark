@@ -89,6 +89,13 @@ pub(crate) fn authorize_driver_op(
     }
     let shared_origin_approved =
         mode == AutomationMode::AiShared && reg.shared_navigation_approved(tab_id, committed);
+    // For a profile-backed sandbox tab, a read is only allowed on the approved origin;
+    // an ordinary sandbox tab (no profile) reads unconfined. The registry is the origin
+    // authority, never the caller — WI-P6.1 H1.
+    let sandbox_read_allowed = match mode {
+        AutomationMode::AiSandbox => reg.profile_read_allowed(tab_id, committed),
+        _ => true,
+    };
     let attached = state.is_tab_attached(tab_id, generation);
     let grants = state.grants.lock().map_err(|e| e.to_string())?;
     let allowed = origin_guard::is_driver_operation_allowed_for_mode(
@@ -98,8 +105,18 @@ pub(crate) fn authorize_driver_op(
         mode,
         attached,
         shared_origin_approved,
+        sandbox_read_allowed,
     );
     drop(grants); // authority computed; don't hold this lock across the spends below
+
+    // A profile-backed tab that has left its approved origin is HARD-denied a read
+    // (and screenshot, which authorizes as `read`): not even a one-shot may rescue it.
+    // The page is loaded with the profile's real login, and the user approved reading
+    // only the approved origin — so a later "read once", or a stale read one-shot, must
+    // never expose authenticated off-origin content. (WI-P6.1 H1, re-verify round 2.)
+    if operation == "read" && mode == AutomationMode::AiSandbox && !sandbox_read_allowed {
+        return Err("PROFILE_ORIGIN_CONFINED".into());
+    }
 
     // A human tab requires an ephemeral attachment for EVERY operation — read AND
     // mutating — on top of any standing grant or one-shot. A grant authorizes the

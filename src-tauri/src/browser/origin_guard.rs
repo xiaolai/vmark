@@ -256,6 +256,7 @@ pub fn is_driver_operation_allowed(
         AutomationMode::Human,
         false,
         false,
+        true, // human path — irrelevant; a read still needs `human_attached`
     )
 }
 
@@ -269,6 +270,10 @@ pub fn is_driver_operation_allowed_for_mode(
     mode: AutomationMode,
     human_attached: bool,
     shared_origin_approved: bool,
+    // For an AiSandbox tab, whether a READ is allowed on the committed origin: `true`
+    // for a profile-less tab, but for a profile-backed tab only on the origin its
+    // profile-open grant approved — WI-P6.1 H1 (no reading Y after a redirect off X).
+    sandbox_read_allowed: bool,
 ) -> bool {
     // Closed vocabulary first — not even the per-tab `read` path (`"Read"` ≠ `read`).
     if !is_known_operation(operation) || NEVER_AUTOMATED.contains(&operation) {
@@ -279,7 +284,7 @@ pub fn is_driver_operation_allowed_for_mode(
         return has_page
             && match mode {
                 AutomationMode::Human => human_attached,
-                AutomationMode::AiSandbox => true,
+                AutomationMode::AiSandbox => sandbox_read_allowed,
                 AutomationMode::AiShared => shared_origin_approved,
             };
     }

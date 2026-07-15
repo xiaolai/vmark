@@ -44,7 +44,9 @@ pub fn create_with_mode(
 
         // Start at zero size; the frontend supplies the measured browser rect immediately.
         let config = unsafe { WKWebViewConfiguration::new(mtm) };
-        super::browser_store::configure(&config, mtm, mode, profile.as_deref());
+        // Fails closed if the named-store cap is exceeded (never shares the sandbox
+        // store) — WI-P6.1 H2. Checked before any native object is registered.
+        super::browser_store::configure(&config, mtm, mode, profile.as_deref())?;
         // Page-world console-capture shim (WI-P7.1) — AiSandbox only; no message handler.
         super::console_shim::configure(&config, mtm, mode);
         let webview = unsafe {
@@ -79,7 +81,6 @@ pub fn create_with_mode(
 /// management UI's "Remove profile". Main-thread; no-op for an unknown profile.
 pub fn forget_profile(app: &AppHandle, profile: String) -> Result<(), String> {
     super::on_main(app, move |mtm| {
-        super::browser_store::forget_profile(&profile, mtm);
-        Ok(())
+        super::browser_store::forget_profile(&profile, mtm)
     })
 }

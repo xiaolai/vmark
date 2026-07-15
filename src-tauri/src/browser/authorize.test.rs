@@ -247,3 +247,53 @@ fn a_human_tab_click_via_one_shot_and_attachment_consumes_both() {
     );
     assert!(!surface.is_tab_attached("t", 0), "attachment consumed");
 }
+
+#[test]
+fn a_profile_confined_read_off_origin_is_denied_even_with_a_read_one_shot() {
+    // WI-P6.1 H1 (re-verify round 2): once a profile-backed tab leaves its approved
+    // origin, a read is HARD-denied — a one-shot must not rescue it, and must not be
+    // spent on the denial (the page carries the profile's login).
+    let surface = enabled_surface();
+    // Approved origin is github.com, but the tab committed at evil.com (a redirect).
+    commit_tab(&surface, "t", "https://evil.com/", AutomationMode::AiSandbox);
+    surface
+        .registry
+        .lock()
+        .unwrap()
+        .set_profile_origin("t", "https://github.com/login")
+        .unwrap();
+    surface.one_shots.lock().unwrap().push(OneShot {
+        tab_id: "t".into(),
+        generation: 0,
+        origin_pattern: "https://evil.com".into(),
+        operation: "read".into(),
+        target: None,
+        payload_hash: None,
+    });
+    let err = authorize_driver_op(&surface, "t", 0, "read", None, None).unwrap_err();
+    assert_eq!(err, "PROFILE_ORIGIN_CONFINED");
+    assert_eq!(
+        surface.one_shots.lock().unwrap().len(),
+        1,
+        "the read one-shot must NOT be spent on a confinement denial"
+    );
+}
+
+#[test]
+fn a_profile_confined_read_on_the_approved_origin_is_allowed() {
+    let surface = enabled_surface();
+    commit_tab(
+        &surface,
+        "t",
+        "https://github.com/account",
+        AutomationMode::AiSandbox,
+    );
+    surface
+        .registry
+        .lock()
+        .unwrap()
+        .set_profile_origin("t", "https://github.com/login")
+        .unwrap();
+    // Same origin as approved → the ordinary sandbox auto-read applies.
+    assert!(authorize_driver_op(&surface, "t", 0, "read", None, None).is_ok());
+}

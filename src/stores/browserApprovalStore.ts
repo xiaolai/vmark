@@ -39,7 +39,7 @@ const KNOWN_OPERATIONS = new Set(["read", "attach", "click", "type", "scroll", "
 /** Cap on queued approval prompts. The AI client is untrusted and each pending
  *  entry may hold a full script; beyond this a further request is dropped rather
  *  than growing the store unbounded. Only one prompt shows at a time anyway. */
-const MAX_PENDING_APPROVALS = 64;
+export const MAX_PENDING_APPROVALS = 64;
 
 /** Same element? Both target-less (a read), or both naming the same role+name. */
 function sameTarget(a: ActionTarget | undefined, b: ActionTarget | undefined): boolean {
@@ -187,12 +187,17 @@ export const useBrowserApprovalStore = create<BrowserApprovalState & BrowserAppr
         return;
       }
       // Profile-OPEN (WI-P6.1 H1): "Allow once" mints a single-use grant bound to
-      // (profile, origin) — never a standing grant.
+      // (profile, origin) — never a standing grant. Capped and de-duplicated so a
+      // stream of approvals can't grow `profileOpens` without bound (mirrors the
+      // pending cap and the Rust-side profile-open cap). (Re-verify WI-P6.1.)
       if (request.profile !== undefined) {
         const p = request.profile;
         set((state) => ({
           profileOpens:
-            outcome === "once" && pattern !== null
+            outcome === "once" &&
+            pattern !== null &&
+            state.profileOpens.length < MAX_PENDING_APPROVALS &&
+            !state.profileOpens.some((g) => g.profile === p && g.originPattern === pattern)
               ? [...state.profileOpens, { profile: p, originPattern: pattern }]
               : state.profileOpens,
           pending: state.pending.filter((r) => r.id !== id),

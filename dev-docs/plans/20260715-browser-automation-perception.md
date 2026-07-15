@@ -571,6 +571,49 @@ plan.
   on-disk store (needs `removeDataStoreForIdentifier`), and Rust not validating the
   untrusted profile name. **Next step: design the per-use profile-open authorization
   (H1) before re-implementing WI-P6.1.**
+- 2026-07-16 — **WI-P6.1 named contexts + UI (P6.4/P6.5): first cut landed, then
+  security re-verify caught real holes → all fixed and re-verified.** The first cut
+  (a89ab922) built the per-use profile-open authorization
+  (`grills/browser-automation/wi-p6.1-profile-open-auth-design.md`): a single-use grant
+  bound to (profile, destination origin), consumed AUTHORITATIVELY in
+  `browser_ai_create` before the profile is applied. The mandatory re-verify then
+  found the OPEN gate was correct but the tab was not confined AFTER creation, plus
+  fail-open/hardening gaps. **Round-2 fixes:**
+  - **H1 (cross-origin credential read):** a profile-backed sandbox tab now carries a
+    permanent `profile_origin` (`registry.rs`, set once, never cleared on navigation);
+    the driver gate (`authorize.rs` → `origin_guard.rs`) confines the AI's `read`/
+    `screenshot` to that origin. Navigation is still allowed, so SSO/login redirects
+    complete — but the AI cannot read an off-origin page reached by redirect.
+  - **H2 (isolation fail-open):** `browser_store_macos.rs::configure` now returns a
+    `Result` and fails closed with `PROFILE_STORE_LIMIT` at the 32-store cap — never
+    shares the unnamed sandbox store; `surface_create_macos.rs` propagates with `?`.
+  - **Removal:** `forget_profile` pumps the run loop until `removeDataStoreForIdentifier`
+    confirms (Err on failure/timeout); `BrowserSessionsList.tsx` awaits it and drops
+    the row only on success (keeps it + alerts on failure).
+  - **Validation / pending cap:** `browserNavigation.ts` returns `INVALID_PROFILE` for
+    a malformed requested profile (no silent downgrade) and honors
+    `MAX_PENDING_APPROVALS`; `browserApprovalStore.ts` caps + de-dupes `profileOpens`.
+  A round-2 re-verify then found two residuals — a `read` one-shot could still override
+  the confinement, and an empty-string profile still downgraded — both fixed:
+  `authorize.rs` HARD-denies an off-origin profile read (`PROFILE_ORIGIN_CONFINED`)
+  before any one-shot is consulted; `set_profile_origin` is set-once; the frontend
+  rejects any present-but-malformed profile (incl. empty/whitespace).
+  Tests: new `registry`/`origin_guard`/`authorize` confinement + set-once cases +
+  `browserNavigation`/`BrowserSessionsList` failure-path tests; 197 browser Rust + 473
+  browser-frontend green; typecheck/eslint/file-size green. **Round-3 security re-verify:
+  all items FIXED, no regression — statically authorization-safe and isolation-safe for
+  the implemented scope.** **Live-driven via Tauri MCP** (port 9323) against the running
+  debug app on macOS 14+: H1 read-confinement CONFIRMED (off-origin read →
+  `PROFILE_ORIGIN_CONFINED`; on-origin read + cross-origin navigation both allowed),
+  open-gate (no grant → `PROFILE_NOT_APPROVED`), Rust profile-name validation, and
+  confirmed removal (errors while the profile's tab is live/holding the store; succeeds
+  after teardown — the exact false-success the fix removed). Byte-level cookie isolation
+  across profiles is guarded by the very gates that (correctly) prevent ungated
+  observation of stored credentials, so it stays covered by unit tests + static
+  re-verify rather than an ad-hoc probe. NOTE: a recent Rust **stable**
+  release put the whole `src-tauri` crate in rustfmt + clippy drift (pre-existing,
+  repo-wide, also affects untouched files + `main`); CI's `rust` check needs a separate
+  toolchain-update chore — out of scope for this security fix.
 - **TDD hook:** extend the `SCOPED` array in `.claude/hooks/gha-tdd-guard.mjs` to
   cover the new touched paths (`src/lib/browser/agent/**`,
   `src/hooks/mcpBridge/v2/browser*.ts`) so production edits require sibling tests

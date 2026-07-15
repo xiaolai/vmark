@@ -68,7 +68,13 @@ beforeEach(() => {
   mocks.ensureNative.mockReset().mockResolvedValue(undefined);
   mocks.nativeReady.mockReset().mockResolvedValue(undefined);
   resetTabs();
-  useBrowserApprovalStore.setState({ grants: [], pending: [], oneShots: [], attachments: [] });
+  useBrowserApprovalStore.setState({
+    grants: [],
+    pending: [],
+    oneShots: [],
+    attachments: [],
+    profileOpens: [],
+  });
   useSettingsStore.getState().updateBrowserSetting("enabled", true);
   useSettingsStore.getState().updateBrowserSetting("aiSession", "sandbox");
   mocks.invoke.mockImplementation(async (command: string, args?: Record<string, unknown>) => {
@@ -116,6 +122,18 @@ describe("open", () => {
     // The grant is single-use — spent.
     expect(useBrowserApprovalStore.getState().profileOpens).toEqual([]);
   });
+
+  it.each([["has space"], [""], ["  "]])(
+    "rejects a PRESENT but malformed profile %j instead of silently opening an unnamed tab",
+    async (badProfile) => {
+      // Re-verify WI-P6.1 Validation: a bad profile name — including empty/whitespace —
+      // must NOT downgrade to an unnamed sandbox tab (a different posture) — it is refused.
+      await handleBrowserOpen("bad-prof", { url: URL, profile: badProfile });
+      expect(lastResponse()).toMatchObject({ success: false, error: "INVALID_PROFILE" });
+      expect(Object.values(useTabStore.getState().tabs).flat()).toEqual([]);
+      expect(mocks.ensureNative).not.toHaveBeenCalled();
+    },
+  );
 
   it("stamps the committed generation so the first read/act is not rejected as stale", async () => {
     // Regression: `open` waits on the broker for the initial load, but that

@@ -262,18 +262,22 @@ case "$PHASE" in
     ;;
 
   6)
-    echo "Phase 6 — session & storage (credential-by-reference CORE). Running the DoD suites:"
-    echo "  NOTE: this covers the security-critical, unit-testable core (WI-P6.2/P6.3/P6.6)."
-    echo "  Deferred to live-E2E / UI follow-ups: native cookie capture (WKHTTPCookieStore),"
-    echo "  named persistent contexts (WI-P6.1), and the profile/data-management UI (WI-P6.4/P6.5)."
+    echo "Phase 6 — session & storage (credentials). Running the DoD suites:"
+    echo "  Security-reviewed: session storage-state (WI-P6.2/P6.3), cookie capture, and"
+    echo "  named contexts (WI-P6.1, per-use open authorization) — each with its own review + re-verify."
+    echo "  Live-E2E (macOS 14+): context A→A persists, A≠B isolated, clearing revokes."
     run_cargo session_state "WI-P6.2 keychain persistence + secret-hygiene + handle validation"
-    run_cargo session_commands "WI-P6.3 replay is origin-bound (no cross-origin credential write)"
+    run_cargo session_commands "WI-P6.2/P6.3 replay origin-bound + cookie host/origin scoping"
+    run_cargo profile_open "WI-P6.1 profile-open authorization (single-use, profile+origin bound)"
     run_cargo operation "WI-P6.3 session op vocabulary (never-grantable, payload-binding) parity"
     run_cargo origin_guard "WI-P6.3 session never granted authoritatively (Rust)"
     run_vitest src/hooks/mcpBridge/v2/__tests__/browserSession.test.ts "WI-P6.2/P6.3 session save/load handlers (approval, handle-only, substitution-refused)"
+    run_vitest src/hooks/mcpBridge/v2/__tests__/browserNavigation.test.ts "WI-P6.1 open-profile needs per-use approval (no tab created without it)"
     run_vitest src/lib/browser/approval/grants.test.ts "WI-P6.3 session never grantable (frontend drift)"
     run_vitest src/stores/browserApprovalStore.test.ts "WI-P6.3 approval store binds action:handle"
-    run_script "WI-P6.6 sidecar session_save/session_load" pnpm --dir vmark-mcp-server exec vitest run __tests__/unit/tools/browser.test.ts
+    run_vitest src/stores/browserSessionStore.test.ts "WI-P6.4/P6.5 session/profile registry (metadata only, no values)"
+    run_vitest src/components/Browser/BrowserSessionsList.test.tsx "WI-P6.4/P6.5 management UI (forget session, remove profile revokes store)"
+    run_script "WI-P6.6 sidecar session + open profile" pnpm --dir vmark-mcp-server exec vitest run __tests__/unit/tools/browser.test.ts
     run_script "WI-linkage for phase P6" bash scripts/check-wi-linkage.sh "$PLAN" --phase=P6
     run_cross
     if [[ "$FULL" -eq 1 ]]; then
