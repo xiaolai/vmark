@@ -495,6 +495,26 @@ plan.
   script runs in `worldWithName("vmark-agent")` (isolated). `check-…-phase.sh 5`
   passes its suites; live-E2E isolated-world containment is a WKContentWorld
   guarantee jsdom cannot model.
+- 2026-07-16 — **Phase 6 core landed (partial); native + UI deferred.** The
+  security-critical, unit-testable credential-by-reference core (WI-P6.2/P6.3/P6.6):
+  a new `session` op — NEVER grantable (per-call user approval only) AND
+  payload-bound to an `action:handle` so an approved `load:work_login` can't be
+  spent on another handle. `session_state.rs` persists the storage-state blob in the
+  **OS keychain** (encryption-at-rest for free, reusing `secure_store.rs`; no crypto
+  dep), with `redacted_summary` the only value-free view allowed out — 6 unit tests
+  incl. secret-hygiene + handle validation. `session_commands.rs`
+  (`browser_save/load/forget_storage_state`) gates on the shared
+  `authorize_driver_op`; `save` returns counts only, `load` returns nothing, values
+  are never logged. Frontend `browserSession.ts` + dispatch + sidecar
+  `session_save`/`session_load` + the approval dialog showing the bound
+  `action:handle`. **localStorage** is captured/replayed via the isolated-world
+  eval. **Mandatory /security-review (credentials): run** (see grills/).
+  **Deliberately deferred as live-E2E / UI follow-ups** (not shipped as unverified
+  credential-marshaling): native **cookie** capture via `WKHTTPCookieStore`
+  (part of WI-P6.2), **named persistent contexts** WI-P6.1, and the **profile /
+  data-management UI** WI-P6.4/P6.5. `StorageState` already carries a `cookies` vec.
+  `check-…-phase.sh 6` runs the core suites (WI-linkage reports P6.1/P6.4/P6.5 still
+  open — accurate for a partial phase).
 - **TDD hook:** extend the `SCOPED` array in `.claude/hooks/gha-tdd-guard.mjs` to
   cover the new touched paths (`src/lib/browser/agent/**`,
   `src/hooks/mcpBridge/v2/browser*.ts`) so production edits require sibling tests

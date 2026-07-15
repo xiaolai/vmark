@@ -370,6 +370,17 @@ own JS heap/globals. It is approved **per call only** (never a standing grant, e
 the Rust driver), the approval shows the script, and the return value is flagged
 **untrusted** and never auto-fed into a later `act`. Prefer `query`/`style` first.
 
+### `session_save` / `session_load`
+
+Arguments: `tabId?`, `handle` (`[A-Za-z0-9._-]`, 1–128 chars). `session_save` snapshots
+the tab's session into an **OS-keychain** entry named by `handle` and returns a
+value-free summary (counts); `session_load` restores it and returns only
+`{loaded: true}`. This is credential-**by-reference** (ADR-A7): the AI names a saved
+session and never receives cookie/token values, which are never logged. Both are the
+`session` permission — **never a standing grant** (approved per call), and an approval
+for one handle cannot be spent on another. *Today this covers `localStorage`; cookie
+capture is a live-testing follow-up.*
+
 ### `screenshot`
 
 Arguments: `tabId?`. Returns an **image content block** (base64 JPEG, quality-bounded) of

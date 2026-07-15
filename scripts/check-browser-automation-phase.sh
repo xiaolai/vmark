@@ -261,7 +261,31 @@ case "$PHASE" in
     echo "  WKContentWorld guarantee verified by live E2E — jsdom has no isolated worlds to model it."
     ;;
 
-  6|7)
+  6)
+    echo "Phase 6 — session & storage (credential-by-reference CORE). Running the DoD suites:"
+    echo "  NOTE: this covers the security-critical, unit-testable core (WI-P6.2/P6.3/P6.6)."
+    echo "  Deferred to live-E2E / UI follow-ups: native cookie capture (WKHTTPCookieStore),"
+    echo "  named persistent contexts (WI-P6.1), and the profile/data-management UI (WI-P6.4/P6.5)."
+    run_cargo session_state "WI-P6.2 keychain persistence + secret-hygiene + handle validation"
+    run_cargo operation "WI-P6.3 session op vocabulary (never-grantable, payload-binding) parity"
+    run_cargo origin_guard "WI-P6.3 session never granted authoritatively (Rust)"
+    run_vitest src/hooks/mcpBridge/v2/__tests__/browserSession.test.ts "WI-P6.2/P6.3 session save/load handlers (approval, handle-only, substitution-refused)"
+    run_vitest src/lib/browser/approval/grants.test.ts "WI-P6.3 session never grantable (frontend drift)"
+    run_vitest src/stores/browserApprovalStore.test.ts "WI-P6.3 approval store binds action:handle"
+    run_script "WI-P6.6 sidecar session_save/session_load" pnpm --dir vmark-mcp-server exec vitest run __tests__/unit/tools/browser.test.ts
+    run_script "WI-linkage for phase P6" bash scripts/check-wi-linkage.sh "$PLAN" --phase=P6
+    run_cross
+    if [[ "$FULL" -eq 1 ]]; then
+      run_script "pnpm check:all" pnpm check:all
+    else
+      skip "pnpm check:all — not run (pre-push gate owns it; re-run with --full)"
+    fi
+    echo "  MANDATORY /security-review (credentials): DONE — see the Status log + grills/."
+    echo "  Live-E2E (log into context A → fresh context-A tab still signed in; clearing"
+    echo "  signs it out) requires the running app and lands with WI-P6.1/P6.4/P6.5."
+    ;;
+
+  7)
     echo "Phase $PHASE — assertions not yet authored."
     echo "  (Template: copy the Phase-1 block — run_vitest/run_cargo/run_script rows"
     echo "   mirroring that phase's DoD line in $PLAN, plus WI-linkage --phase=P$PHASE.)"
