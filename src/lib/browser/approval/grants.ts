@@ -22,7 +22,9 @@ import { describeOriginPattern, isOriginGranted } from "../origin/originGuard";
 /** Every operation the AI can ask to perform in the browser. An operation string
  *  is an authorization token, so the vocabulary is closed: anything outside this
  *  list is rejected rather than silently becoming a standing permission. */
-const BROWSER_OPERATIONS = ["read", "attach", "click", "type", "scroll", "key", "navigate", "publish", "upload"] as const;
+const BROWSER_OPERATIONS = [
+  "read", "attach", "click", "type", "scroll", "key", "style", "navigate", "publish", "upload", "eval",
+] as const;
 
 type BrowserOperation = (typeof BROWSER_OPERATIONS)[number];
 
@@ -32,6 +34,12 @@ const KNOWN_OPERATIONS: ReadonlySet<string> = new Set(BROWSER_OPERATIONS);
  *  AI-chosen file upload is an exfiltration path — upload targets are always
  *  human-chosen (WI-1.7). */
 const NEVER_AUTOMATED: ReadonlySet<string> = new Set<BrowserOperation>(["upload"]);
+
+/** Operations that are known and one-shot-able (approved per call) but can NEVER
+ *  become a standing grant — an origin can't be "remembered" for them. Raw
+ *  isolated-world `eval` (`execute_js`) is too powerful to grant once and reuse
+ *  silently; every call raises a fresh approval showing the script (ADR-A6). */
+const NEVER_GRANTABLE: ReadonlySet<string> = new Set<BrowserOperation>(["eval"]);
 
 /** Is `operation` a known browser operation? Misspellings and case variants
  *  (`"Upload"`) are NOT — treating them as opaque strings is how a hard denial
@@ -66,10 +74,16 @@ function patternIdentity(pattern: string): string | null {
   return `${info.scheme}://${info.wildcard ? "*." : ""}${info.host}:${info.port}`;
 }
 
-/** Known, automatable operations only — deduped, order-preserving. */
+/** Known, grantable operations only — deduped, order-preserving. Excludes
+ *  never-automatable (`upload`) AND never-grantable (`eval`) ops, so a standing
+ *  grant can never carry them. */
 function sanitizeOperations(operations: readonly string[]): string[] {
   return [
-    ...new Set(operations.filter((op) => isBrowserOperation(op) && !NEVER_AUTOMATED.has(op))),
+    ...new Set(
+      operations.filter(
+        (op) => isBrowserOperation(op) && !NEVER_AUTOMATED.has(op) && !NEVER_GRANTABLE.has(op),
+      ),
+    ),
   ];
 }
 
@@ -88,6 +102,8 @@ export function decideApproval(
   // defined effect, so it can never be pre-authorized.
   if (!isBrowserOperation(operation)) return "denied";
   if (NEVER_AUTOMATED.has(operation)) return "denied";
+  // A never-grantable op (`eval`) is always per-call: never allowed via a grant.
+  if (NEVER_GRANTABLE.has(operation)) return "needs-approval";
   for (const grant of grants) {
     if (grant.operations.includes(operation) && isOriginGranted(targetUrl, [grant.originPattern])) {
       return "allowed";

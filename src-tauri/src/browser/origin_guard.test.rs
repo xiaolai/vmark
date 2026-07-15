@@ -574,3 +574,22 @@ fn rejects_shorthand_and_backslash_authority_forms_as_nav_targets() {
     assert!(validate_navigation_url("https://example.com").is_ok());
     assert!(validate_navigation_url("HTTPS://EXAMPLE.COM/a?b#c").is_ok());
 }
+
+#[test]
+fn eval_is_never_granted_even_when_a_grant_lists_it() {
+    // ADR-A6: the authoritative gate refuses `eval` via a standing grant, so raw
+    // isolated-world eval always requires a fresh per-call one-shot. `style` IS
+    // grantable, proving the exclusion is specific to `eval`.
+    let eval_grant = vec![StandingGrant {
+        origin_pattern: "https://blog.example.com".into(),
+        operations: vec!["read".into(), "eval".into()],
+    }];
+    assert!(!is_operation_granted("https://blog.example.com/p", "eval", &eval_grant));
+    assert!(is_operation_granted("https://blog.example.com/p", "read", &eval_grant));
+
+    let style_grant = vec![StandingGrant {
+        origin_pattern: "https://blog.example.com".into(),
+        operations: vec!["style".into()],
+    }];
+    assert!(is_operation_granted("https://blog.example.com/p", "style", &style_grant));
+}

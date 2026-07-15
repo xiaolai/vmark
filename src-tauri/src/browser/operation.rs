@@ -14,6 +14,15 @@
 /// human-chosen (mirrors `NEVER_AUTOMATED` in the TS layer).
 pub(crate) const NEVER_AUTOMATED: &[&str] = &["upload"];
 
+/// Operations that are known and one-shot-able (per-call approval) but can NEVER
+/// be authorized by a standing grant — raw isolated-world `eval` (`execute_js`)
+/// is too powerful to grant once and reuse silently (ADR-A6). This is the
+/// AUTHORITATIVE enforcement: even if a caller pushes `eval` into the grant set
+/// via `browser_set_grants`, the origin guard refuses it, so `eval` always
+/// requires a fresh per-call one-shot. Mirrors `NEVER_GRANTABLE` in
+/// `src/lib/browser/approval/grants.ts`.
+pub(crate) const NEVER_GRANTABLE: &[&str] = &["eval"];
+
 /// The closed browser-operation vocabulary. The `Deserialize` impl is the
 /// enforceable form: it rejects unknown/variant spellings at the wire boundary.
 /// `from_wire` is the single source of truth — both the deserializer and
@@ -26,9 +35,11 @@ pub enum BrowserOperation {
     Type,
     Scroll,
     Key,
+    Style,
     Navigate,
     Publish,
     Upload,
+    Eval,
 }
 
 impl BrowserOperation {
@@ -41,9 +52,11 @@ impl BrowserOperation {
             "type" => Some(Self::Type),
             "scroll" => Some(Self::Scroll),
             "key" => Some(Self::Key),
+            "style" => Some(Self::Style),
             "navigate" => Some(Self::Navigate),
             "publish" => Some(Self::Publish),
             "upload" => Some(Self::Upload),
+            "eval" => Some(Self::Eval),
             _ => None,
         }
     }

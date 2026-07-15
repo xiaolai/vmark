@@ -33,7 +33,7 @@ pub use navigation_policy::validate_navigation_url;
 
 // The closed operation vocabulary lives in `browser/operation.rs`; `NEVER_AUTOMATED`
 // is re-exported for `one_shot.rs`, which imports it through the guard's surface.
-pub(crate) use crate::browser::operation::NEVER_AUTOMATED;
+pub(crate) use crate::browser::operation::{NEVER_AUTOMATED, NEVER_GRANTABLE};
 
 /// A canonical web origin: scheme + host + port, nothing else.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -217,8 +217,13 @@ pub fn is_origin_granted(target_url: &str, grants: &[String]) -> bool {
 /// never-automatable operations regardless of any grant (R5).
 pub fn is_operation_granted(target_url: &str, operation: &str, grants: &[StandingGrant]) -> bool {
     // Closed vocabulary first (parity with `decideApproval`) — a grant listing a
-    // variant `"Upload"` cannot authorize it, and hard-deny never-automatable ops.
-    if !is_known_operation(operation) || NEVER_AUTOMATED.contains(&operation) {
+    // variant `"Upload"` cannot authorize it, hard-deny never-automatable ops, and
+    // refuse never-grantable ops (`eval`) even if a grant somehow carries one, so
+    // raw eval always requires a fresh per-call one-shot (ADR-A6).
+    if !is_known_operation(operation)
+        || NEVER_AUTOMATED.contains(&operation)
+        || NEVER_GRANTABLE.contains(&operation)
+    {
         return false;
     }
     let Some(target) = canonicalize_origin(target_url) else {
