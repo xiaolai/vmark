@@ -307,11 +307,19 @@ stable handle for that element, valid for the life of the current view.
 
 ### `act`
 
-Arguments: `tabId?`, `operation: "click" | "type"`, a target — either `ref` (from a prior
-read) **or** `role` + `name` — and `text?` for typing. A `ref` is precise and
-order-independent, but is only honored for an **already-granted** operation; if the action
-may need approval, use `role` + `name` so the prompt can show the user a readable element.
-Read first and target the exact accessible role/name. Mutating operations require an
+Arguments: `tabId?`, `operation: "click" | "type" | "scroll" | "key"`, and per-operation
+targets:
+
+- **click / type** — a target, either `ref` (from a prior read) **or** `role` + `name`,
+  and `text?` for typing. A `ref` is precise and order-independent but is only honored for
+  an **already-granted** operation; if the action may need approval, use `role` + `name` so
+  the prompt shows the user a readable element.
+- **scroll** — `ref` (scroll it into view) **or** `dy` (a vertical pixel delta).
+- **key** — `key` (e.g. `"Enter"`, `"Escape"`, `"Tab"`), optional `ref` to target, and
+  optional `modifiers: {ctrl, shift, alt, meta}`.
+
+`scroll` and `key` are act-class (approval-gated) and dispatch **synthetic** DOM events, so
+a site gating on `event.isTrusted` may ignore them. Mutating operations require an
 origin-scoped approval; AI-chosen uploads are never permitted.
 
 ### `open`

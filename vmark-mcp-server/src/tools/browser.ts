@@ -55,7 +55,7 @@ export function registerBrowserTool(server: VMarkMcpServer): void {
         'Read and act on the embedded browser tab.\n\n' +
         'Actions:\n' +
         "- read: Return {url, snapshot} where snapshot is a flat ARIA tree [{role,name}] of the page's interactive/structural elements. Pass `tabId` to target a specific browser tab; omit to use the focused tab. Read before acting so you target elements by their real accessible name.\n" +
-        '- act: Click or type a target — either by a stable {ref} from a prior read (precise, order-independent) or by ARIA {role, name}. Args: {tabId?, operation: "click"|"type", ref? OR (role, name), text?}. A `ref` is only honored for an already-granted operation; if the action may need approval, use role+name so the user can see what they are approving. Locating by role/name never crosses roles (a button named "Publish" is not a link named "Publish"). Actions are gated by the user\'s standing grants: an un-granted operation returns success:false with data.needsApproval:true — surface that to the user and wait for approval rather than retrying. Upload is never permitted (an AI-chosen file upload is an exfiltration path).\n' +
+        '- act: Interact with the page. operation "click"|"type" target a stable {ref} from a prior read (precise) or ARIA {role, name} — a ref is only honored for an already-granted operation; if it may need approval use role+name so the user sees what they approve. operation "scroll" takes {ref} (scroll it into view) or {dy} (a pixel delta). operation "key" takes {key} (e.g. "Enter", "Escape", "Tab"), optional {ref} to target, and optional {modifiers:{ctrl,shift,alt,meta}}. scroll/key dispatch SYNTHETIC events, so a site gating on event.isTrusted may ignore them. All actions are gated by the user\'s standing grants: an un-granted operation returns success:false with data.needsApproval:true — surface that and wait rather than retrying. Upload is never permitted (an AI-chosen file upload is an exfiltration path).\n' +
         '- open: Create an AI-owned browser tab at an HTTP(S) URL and wait for its navigation.\n' +
         '- navigate: Navigate an AI-owned tab and wait for the returned navigation ticket.\n' +
         '- wait: Wait for an existing navigation ticket without starting a new navigation. All waits are bounded to 12 seconds.\n' +
@@ -75,8 +75,26 @@ export function registerBrowserTool(server: VMarkMcpServer): void {
           },
           operation: {
             type: 'string',
-            enum: ['click', 'type'],
+            enum: ['click', 'type', 'scroll', 'key'],
             description: 'The interaction to perform (act only).',
+          },
+          dy: {
+            type: 'number',
+            description: 'Vertical pixel delta for a delta scroll (act, operation=scroll, no ref).',
+          },
+          key: {
+            type: 'string',
+            description: 'Key name to press, e.g. "Enter", "Escape", "Tab" (act, operation=key).',
+          },
+          modifiers: {
+            type: 'object',
+            description: 'Optional keyboard modifiers {ctrl,shift,alt,meta} (act, operation=key).',
+            properties: {
+              ctrl: { type: 'boolean' },
+              shift: { type: 'boolean' },
+              alt: { type: 'boolean' },
+              meta: { type: 'boolean' },
+            },
           },
           role: {
             type: 'string',
@@ -134,8 +152,39 @@ export function registerBrowserTool(server: VMarkMcpServer): void {
           const role = typeof args.role === 'string' ? args.role : '';
           const name = typeof args.name === 'string' ? args.name : '';
           const ref = typeof args.ref === 'string' ? args.ref : '';
-          if (operation !== 'click' && operation !== 'type') {
-            return VMarkMcpServer.errorResult("act operation must be 'click' or 'type'");
+          if (!['click', 'type', 'scroll', 'key'].includes(operation)) {
+            return VMarkMcpServer.errorResult("act operation must be 'click', 'type', 'scroll', or 'key'");
+          }
+          if (operation === 'scroll') {
+            const hasRef = ref.trim().length > 0;
+            const dy = typeof args.dy === 'number' && Number.isFinite(args.dy) ? args.dy : undefined;
+            if (hasRef === (dy !== undefined)) {
+              return VMarkMcpServer.errorResult('scroll requires exactly one of a `ref` (from read) or a numeric `dy` pixel delta');
+            }
+            const data = await server.sendBridgeRequest({
+              type: 'vmark.browser.act',
+              tabId,
+              operation: 'scroll',
+              ...(hasRef ? { ref } : { dy }),
+            });
+            return VMarkMcpServer.successJsonResult(data);
+          }
+          if (operation === 'key') {
+            const key = typeof args.key === 'string' && args.key.length > 0 ? args.key : '';
+            if (!key) {
+              return VMarkMcpServer.errorResult("act operation 'key' requires a non-empty `key` name (e.g. \"Enter\")");
+            }
+            const modifiers =
+              typeof args.modifiers === 'object' && args.modifiers !== null ? args.modifiers : undefined;
+            const data = await server.sendBridgeRequest({
+              type: 'vmark.browser.act',
+              tabId,
+              operation: 'key',
+              key,
+              ...(ref.trim() ? { ref } : {}),
+              ...(modifiers !== undefined ? { modifiers } : {}),
+            });
+            return VMarkMcpServer.successJsonResult(data);
           }
           // Exactly one targeting mode: a precise {ref} (already-granted ops) or a
           // {role, name} pair. A blank of either would target the first matching

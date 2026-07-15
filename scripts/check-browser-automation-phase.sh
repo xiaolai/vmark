@@ -215,7 +215,25 @@ case "$PHASE" in
     echo "        is verified manually in a session."
     ;;
 
-  4|5|6|7)
+  4)
+    echo "Phase 4 — richer interaction (scroll, key). Running the DoD suites:"
+    run_vitest src/lib/browser/agent/interactScript.test.ts "WI-P4.2 scroll/key injected scripts (ref/delta/modifiers/stale-ref)"
+    run_vitest src/hooks/mcpBridge/v2/__tests__/browserAct.test.ts "WI-P4.2 act scroll/key handler (grant/approval/refusals)"
+    run_vitest src/hooks/mcpBridge/v2/__tests__/browser.test.ts "WI-P2.2 act click/type/ref (via re-export)"
+    run_cargo operation "WI-P4.1 scroll/key operation-vocabulary parity (TS <-> Rust)"
+    run_script "WI-P4.3 sidecar act scroll/key" pnpm --dir vmark-mcp-server exec vitest run __tests__/unit/tools/browser.test.ts
+    run_script "WI-linkage for phase P4" bash scripts/check-wi-linkage.sh "$PLAN" --phase=P4
+    run_cross
+    if [[ "$FULL" -eq 1 ]]; then
+      run_script "pnpm check:all" pnpm check:all
+    else
+      skip "pnpm check:all — not run (pre-push gate owns it; re-run with --full)"
+    fi
+    echo "  NOTE: live E2E (key Enter submits a search form; scroll reveals + clicks an"
+    echo "        off-screen control; synthetic-input caveat) is verified manually."
+    ;;
+
+  5|6|7)
     echo "Phase $PHASE — assertions not yet authored."
     echo "  (Template: copy the Phase-1 block — run_vitest/run_cargo/run_script rows"
     echo "   mirroring that phase's DoD line in $PLAN, plus WI-linkage --phase=P$PHASE.)"

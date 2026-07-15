@@ -229,8 +229,10 @@ function __vmarkTypeRef(ref,gen,text){
   return {found:true,typed:true};
 }`;
 
-/** Standalone role/name/refs/query/snapshot/click/type library, injected verbatim. */
-const AGENT_LIB = [LIB_ROLE, LIB_NAME, LIB_REFS, LIB_QUERY, LIB_ACT].join("\n");
+/** Standalone role/name/refs/query/snapshot/click/type library, injected verbatim.
+ *  Exported so sibling injected-script modules (`interactScript.ts`) can prepend
+ *  it and reuse `__vmarkQueryByRef` / `__vmarkQuery` / `__vmarkRefFor`. */
+export const AGENT_LIB = [LIB_ROLE, LIB_NAME, LIB_REFS, LIB_QUERY, LIB_ACT].join("\n");
 
 /** Script: read the page as a flat ARIA snapshot (`[{role,name,ref,…},…]`).
  *  `generation` scopes the ref store, so refs reset across a navigation. */

@@ -461,6 +461,15 @@ plan.
   driver's run-loop pump cap. Reports `matched: true|false` (found vs timed out).
   New `browserWaitFor.ts` handler + `vmark.browser.wait_for` sidecar action;
   read-class (human tab needs an attachment). `check-…-phase.sh 3` exits 0.
+- 2026-07-15 — **Phase 4 complete.** `scroll` + `key` act-class ops (WI-P4.1–4.3):
+  added to the closed vocabulary (`grants.ts` / `operation.rs`, parity test
+  updated); new `interactScript.ts` injects `__vmarkScroll` / `__vmarkKey`
+  (synthetic DOM events per SPIKE-3 — a site gating on `event.isTrusted` ignores
+  them; documented). The `act` handler was **extracted to `browserAct.ts`**
+  (audit #9 — browser.ts is now a 54-line read handler + re-export barrel) and
+  gained scroll/key branches; a ref scroll/key is granted-only, a delta scroll /
+  focused key goes through the approval flow. Sidecar `act` enum → click | type |
+  scroll | key with `dy` / `key` / `modifiers`. `check-…-phase.sh 4` exits 0.
 - **TDD hook:** extend the `SCOPED` array in `.claude/hooks/gha-tdd-guard.mjs` to
   cover the new touched paths (`src/lib/browser/agent/**`,
   `src/hooks/mcpBridge/v2/browser*.ts`) so production edits require sibling tests

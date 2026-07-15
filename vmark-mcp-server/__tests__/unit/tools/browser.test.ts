@@ -107,6 +107,36 @@ describe('browser tool — integration via server.callTool', () => {
     expect(bridge.getRequestsOfType('vmark.browser.act')).toHaveLength(0);
   });
 
+  it('act scroll: forwards a delta scroll', async () => {
+    const { server, bridge } = harness({ 'vmark.browser.act': () => ({ success: true, data: { scrolled: true } }) });
+    await server.callTool('browser', { action: 'act', operation: 'scroll', dy: 400 });
+    expect(bridge.getRequestsOfType('vmark.browser.act')[0].request).toEqual({
+      type: 'vmark.browser.act', operation: 'scroll', dy: 400,
+    });
+  });
+
+  it('act scroll: refuses both ref and dy', async () => {
+    const { server, bridge } = harness({ 'vmark.browser.act': () => ({ success: true, data: {} }) });
+    const r = await server.callTool('browser', { action: 'act', operation: 'scroll', ref: 'e1', dy: 10 });
+    expect(r.isError).toBe(true);
+    expect(bridge.getRequestsOfType('vmark.browser.act')).toHaveLength(0);
+  });
+
+  it('act key: forwards key + modifiers', async () => {
+    const { server, bridge } = harness({ 'vmark.browser.act': () => ({ success: true, data: { dispatched: true } }) });
+    await server.callTool('browser', { action: 'act', operation: 'key', key: 'Enter', modifiers: { ctrl: true } });
+    expect(bridge.getRequestsOfType('vmark.browser.act')[0].request).toEqual({
+      type: 'vmark.browser.act', operation: 'key', key: 'Enter', modifiers: { ctrl: true },
+    });
+  });
+
+  it('act key: refuses a missing key name', async () => {
+    const { server, bridge } = harness({ 'vmark.browser.act': () => ({ success: true, data: {} }) });
+    const r = await server.callTool('browser', { action: 'act', operation: 'key' });
+    expect(r.isError).toBe(true);
+    expect(bridge.getRequestsOfType('vmark.browser.act')).toHaveLength(0);
+  });
+
   it('type: propagates the text payload', async () => {
     const { server, bridge } = harness({
       'vmark.browser.act': () => ({ success: true, data: { ok: true } }),

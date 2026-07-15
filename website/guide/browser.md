@@ -55,6 +55,8 @@ An AI assistant connected over [MCP](./mcp-tools) can operate the browser tab:
 
 - **Read** — get a structured accessibility snapshot of the page (each interactive or structural element as a role + accessible name, plus a stable **ref** handle like `e5`).
 - **Act** — click or type a target, either by its precise **ref** from a prior read, or by ARIA **role + accessible name** (for example, click the link named "Learn more"). A ref is only honored for an already-granted action; anything that needs your approval uses role + name, so the prompt can show you a readable element.
+- **Scroll** — bring an element (by ref) into view, or scroll by a pixel amount. Act-class (approval-gated like Click).
+- **Key** — send a keypress (`Enter`, `Escape`, `Tab`, arrows, with optional Ctrl/Shift/Alt/Meta) to a focused element or a ref — for example, submit a form or dismiss a dialog. Act-class. Note: keys and scrolls are **synthetic** DOM events, so a site that only trusts real hardware input may ignore them.
 - **Open** — create an AI-owned tab and load an HTTP(S) URL.
 - **Navigate** — navigate an AI-owned tab and wait for its navigation ticket.
 - **Wait** — wait for a specific navigation ticket without starting another load.

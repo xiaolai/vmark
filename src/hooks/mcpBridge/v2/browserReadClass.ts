@@ -22,6 +22,17 @@ import { useBrowserApprovalStore } from "@/stores/browserApprovalStore";
 import { urlForAgent } from "@/lib/browser/url";
 import { browserEnabled, readTabIdArg, resolveBrowserTab, type BrowserTarget } from "./browserHelpers";
 
+/** Parse a `browser_eval` string result as JSON, falling back to the raw string
+ *  (shared by read and act). A completed eval returns a JSON payload; anything
+ *  else is handed back verbatim rather than throwing. */
+export function parseEvalResult(raw: string): unknown {
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return raw;
+  }
+}
+
 /**
  * Ensure the AI may touch this tab. A non-human tab needs no attachment; a human
  * tab needs an explicit one, and without it this queues an `attach` approval,

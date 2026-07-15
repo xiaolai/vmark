@@ -16,7 +16,7 @@ import {
 } from "@/lib/browser/origin/originGuard";
 
 /** Closed operation vocabulary; upload is intentionally never grantable. */
-const KNOWN_OPERATIONS = new Set(["read", "attach", "click", "type", "navigate", "publish"]);
+const KNOWN_OPERATIONS = new Set(["read", "attach", "click", "type", "scroll", "key", "navigate", "publish"]);
 
 /** The specific element an `act` targets — its ARIA role + accessible name.
  *  Absent for `read`, which snapshots the whole page rather than one element. */
