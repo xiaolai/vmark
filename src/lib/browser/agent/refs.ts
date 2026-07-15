@@ -28,8 +28,10 @@
 interface RefStore {
   /** element → ref, so a repeated read returns the same ref. */
   refs: WeakMap<Element, string>;
-  /** ref → element, so `act` can resolve a handle back to a node. */
-  byRef: Map<string, Element>;
+  /** ref → element (weakly), so `act` can resolve a handle back to a node without
+   *  pinning a detached subtree alive for the life of the document — a long-lived
+   *  SPA that swaps controls would otherwise accumulate them indefinitely. */
+  byRef: Map<string, WeakRef<Element>>;
   /** Monotonic counter — the next ref is `e${n + 1}`. */
   n: number;
 }
@@ -55,14 +57,16 @@ export function refFor(el: Element): string {
   if (existing) return existing;
   const ref = `e${(store.n += 1)}`;
   store.refs.set(el, ref);
-  store.byRef.set(ref, el);
+  store.byRef.set(ref, new WeakRef(el));
   return ref;
 }
 
 /** Resolve a ref back to its element, or null if the ref is unknown to this
- *  document or its element has since left the DOM (a stale handle is not acted on). */
+ *  document, its element has been garbage-collected or left the DOM, or it has
+ *  been adopted into another document (whose store must own it, not this one).
+ *  A stale handle is never acted on. */
 export function queryByRef(doc: Document, ref: string): Element | null {
-  const el = storeFor(doc).byRef.get(ref);
-  if (!el || !el.isConnected) return null;
+  const el = storeFor(doc).byRef.get(ref)?.deref();
+  if (!el || !el.isConnected || el.ownerDocument !== doc) return null;
   return el;
 }

@@ -23,8 +23,13 @@
  * `aria-hidden`, `inert`, or an inline style) is not detected — that needs layout,
  * which jsdom does not have; `aria-checked="mixed"` collapses to `false`.
  *
+ * `ariaSnapshot` also stamps each emitted node with a stable `ref` (WI-P2.1) via
+ * `refs.ts`, so `act` can target an element exactly instead of re-resolving a
+ * fuzzy role + name.
+ *
  * @coordinates-with lib/browser/agent/actScript.ts — the injected copy of these
  *   rules; `actScript.test.ts` asserts the two perceive a page identically
+ * @coordinates-with lib/browser/agent/refs.ts — the per-node stable ref store
  * @module lib/browser/agent/aria
  */
 

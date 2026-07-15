@@ -19,7 +19,12 @@
  * an act that could not be performed reports `{clicked:false, reason}` rather than
  * a false success.
  *
+ * The snapshot also stamps each node with a stable `ref` (WI-P2.1); the injected
+ * ref store (`LIB_REFS`) mirrors `refs.ts` on the same `document.__vmarkRefStore`,
+ * so the two agree and `actScript.test.ts` keeps them from drifting.
+ *
  * @coordinates-with lib/browser/agent/aria.ts — same role/name/state/visibility rules
+ * @coordinates-with lib/browser/agent/refs.ts — the mirrored per-node ref store
  * @coordinates-with src-tauri browser_eval — evaluates these scripts
  * @module lib/browser/agent/actScript
  */
@@ -109,12 +114,12 @@ function __vmarkRefFor(el){
   var s=__vmarkRefStore(),ex=s.refs.get(el);
   if(ex)return ex;
   var ref='e'+(++s.n);
-  s.refs.set(el,ref);s.byRef.set(ref,el);
+  s.refs.set(el,ref);s.byRef.set(ref,new WeakRef(el));
   return ref;
 }
 function __vmarkQueryByRef(ref){
-  var s=__vmarkRefStore(),el=s.byRef.get(ref);
-  if(!el||!el.isConnected)return null;
+  var s=__vmarkRefStore(),w=s.byRef.get(ref),el=w?w.deref():null;
+  if(!el||!el.isConnected||el.ownerDocument!==document)return null;
   return el;
 }`;
 

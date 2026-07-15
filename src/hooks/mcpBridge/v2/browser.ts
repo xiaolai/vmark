@@ -36,6 +36,7 @@ import {
 } from "@/lib/browser/agent/actScript";
 import { urlForAgent } from "@/lib/browser/url";
 import { browserEnabled, readTabIdArg, resolveBrowserTab } from "./browserHelpers";
+import { requireHumanAttachment, runReadClass } from "./browserReadClass";
 export {
   handleBrowserNavigate,
   handleBrowserOpen,
@@ -76,66 +77,23 @@ function actionSucceeded(operation: "click" | "type", result: unknown): boolean 
   return (result as Record<string, unknown>)[flag] === true;
 }
 
-export function requireHumanAttachment(
-  id: string,
-  tab: ReturnType<typeof resolveBrowserTab>,
-): boolean {
-  if (!tab || tab.automationMode !== "human") return true;
-  const approvals = useBrowserApprovalStore.getState();
-  if (approvals.isHumanTabAttached(tab.tabId, tab.generation)) return true;
-  approvals.requestApproval(id, tab.url, "attach", undefined, tab.tabId, tab.generation);
-  void respond({
-    id,
-    success: false,
-    error: "ATTACHMENT_REQUIRED",
-    data: {
-      needsApproval: true,
-      operation: "attach",
-      url: urlForAgent(tab.url),
-      tabId: tab.tabId,
-      generation: tab.generation,
-    },
-  });
-  return false;
-}
-
-/** `vmark.browser.read` — ARIA snapshot of the current page. Args `{tabId?}`. */
+/** `vmark.browser.read` — ARIA snapshot of the current page. Args `{tabId?}`.
+ *  A read-class op: the shared executor handles the gate/attachment/consume flow. */
 export async function handleBrowserRead(id: string, args: Record<string, unknown>): Promise<void> {
-  return wrapHandler(id, async () => {
-    if (!browserEnabled()) {
-      await respond({ id, success: false, error: "BROWSER_DISABLED" });
-      return;
-    }
-    const tabIdArg = readTabIdArg(args);
-    if (tabIdArg === null) {
-      await respond({ id, success: false, error: "tabId must be a non-empty string when supplied" });
-      return;
-    }
-    const tab = resolveBrowserTab(tabIdArg);
-    if (!tab) {
-      await respond({ id, success: false, error: "no active browser tab" });
-      return;
-    }
-    if (!requireHumanAttachment(id, tab)) return;
-    const approvals = useBrowserApprovalStore.getState();
-    const humanRead =
-      tab.automationMode === "human" &&
-      approvals.isHumanTabAttached(tab.tabId, tab.generation);
-    const raw = await invoke<string>("browser_eval", {
-      tabId: tab.tabId,
-      script: buildSnapshotScript(),
-      operation: "read",
-      generation: tab.generation,
-    });
-    if (humanRead) approvals.consumeHumanTabAttachment(tab.tabId, tab.generation);
-    // Redacted at the trust boundary: credentials in a URL are the one thing about a page
-    // the AI could not read out of the DOM anyway (audit, High).
-    await respond({
-      id,
-      success: true,
-      data: { url: urlForAgent(tab.url), snapshot: parse(raw) },
-    });
-  });
+  return wrapHandler(id, () =>
+    runReadClass<string>(id, args, {
+      invoke: (tab) =>
+        invoke<string>("browser_eval", {
+          tabId: tab.tabId,
+          script: buildSnapshotScript(),
+          operation: "read",
+          generation: tab.generation,
+        }),
+      // Redacted at the trust boundary: credentials in a URL are the one thing about
+      // a page the AI could not read out of the DOM anyway (audit, High).
+      data: (tab, raw) => ({ url: urlForAgent(tab.url), snapshot: parse(raw) }),
+    }),
+  );
 }
 
 /**
@@ -158,7 +116,7 @@ export async function handleBrowserAct(id: string, args: Record<string, unknown>
       await respond({ id, success: false, error: "no active browser tab" });
       return;
     }
-    if (!requireHumanAttachment(id, tab)) return;
+    if (!(await requireHumanAttachment(id, tab))) return;
     const operation = typeof args.operation === "string" ? args.operation : "";
     const role = typeof args.role === "string" ? args.role : "";
     const name = typeof args.name === "string" ? args.name : "";
