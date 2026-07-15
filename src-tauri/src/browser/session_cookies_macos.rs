@@ -38,20 +38,30 @@ use std::rc::Rc;
 use std::time::Duration;
 use tauri::AppHandle;
 
-/// Does a cookie `domain` cover `host`? Host-only (`example.com` ⇒ `example.com`)
-/// or a domain cookie (`.example.com` ⇒ `example.com`, `www.example.com`). Never a
-/// suffix match across a label boundary (`evil-example.com` does NOT match
-/// `example.com`). Pure — unit-tested. NOTE: this is not public-suffix-aware; WebKit's
-/// own cookie ingestion rejects public-suffix ("supercookie") domains, and the blob
-/// is keychain-stored (not attacker-editable), so PSL rejection is a defence-in-depth
-/// follow-up, not a live hole here. (Sec review — cookie L1.)
+/// Does a cookie `domain` cover `host`, per `NSHTTPCookie` domain semantics?
+///   - A **domain cookie** (leading dot, `.example.com`) covers the base host and
+///     its subdomains (`example.com`, `www.example.com`).
+///   - A **host-only cookie** (no leading dot, `example.com`) covers ONLY the exact
+///     host — never a subdomain. Conflating the two would over-capture a parent's
+///     host-only cookie while on a subdomain. (Sec review cookie M1.)
+/// Never a suffix match across a label boundary (`evil-example.com` ≠ `example.com`).
+/// Pure — unit-tested. NOTE: not public-suffix-aware; WebKit's own ingestion rejects
+/// supercookie domains and the blob is keychain-stored (not attacker-editable), so
+/// PSL rejection is a defence-in-depth follow-up, not a live hole. (Cookie L1.)
 pub(crate) fn cookie_domain_matches(domain: &str, host: &str) -> bool {
-    let domain = domain.trim().trim_start_matches('.').to_ascii_lowercase();
     let host = host.trim().to_ascii_lowercase();
-    if domain.is_empty() || host.is_empty() {
+    let raw = domain.trim().to_ascii_lowercase();
+    if host.is_empty() {
         return false;
     }
-    host == domain || host.ends_with(&format!(".{domain}"))
+    match raw.strip_prefix('.') {
+        // Domain cookie: exact base OR a subdomain of it.
+        Some(base) if !base.is_empty() => host == base || host.ends_with(&format!(".{base}")),
+        // Host-only cookie: exact host only.
+        Some(_) => false, // a bare "." is not a valid domain
+        None if raw.is_empty() => false,
+        None => host == raw,
+    }
 }
 
 /// Snapshot the cookies whose domain covers `committed_host` (NOT the whole store).
@@ -87,7 +97,11 @@ pub fn capture_cookies(
                     secure: unsafe { cookie.isSecure() },
                     http_only: unsafe { cookie.isHTTPOnly() },
                     expires: cookie.expiresDate().map(|d| d.timeIntervalSince1970()),
-                    same_site: unsafe { cookie.sameSitePolicy() }.map(|s| s.to_string()),
+                    // Only keep a recognised SameSite value; an unexpected string is
+                    // dropped rather than stored (fail-safe). (Sec review cookie.)
+                    same_site: unsafe { cookie.sameSitePolicy() }
+                        .map(|s| s.to_string())
+                        .filter(|s| matches!(s.to_ascii_lowercase().as_str(), "strict" | "lax" | "none")),
                 });
             }
             *sink.borrow_mut() = Some(v);
@@ -150,6 +164,7 @@ pub fn apply_cookies(
     app: &AppHandle,
     tab_id: String,
     committed_host: String,
+    committed_origin: String,
     cookies: Vec<StoredCookie>,
 ) -> Result<(), String> {
     super::on_main(app, move |_mtm| {
@@ -157,11 +172,15 @@ pub fn apply_cookies(
             .with(|m| m.borrow().get(&tab_id).cloned())
             .ok_or_else(|| format!("no webview: {tab_id}"))?;
         // [M2] Freshness on the main thread, immediately before the write: refuse if
-        // the tab has navigated off the approved host.
-        let current_host = unsafe { webview.URL() }
-            .and_then(|u| unsafe { u.host() })
-            .map(|h| h.to_string());
-        if current_host.as_deref() != Some(committed_host.as_str()) {
+        // the tab has navigated off the approved ORIGIN (scheme+host+port, not just
+        // host — an HTTPS→HTTP or port change must not slip through). A residual
+        // async window remains (setCookie completes after this check while the run
+        // loop pumps); it is bounded and the cookie stays domain-scoped regardless.
+        let current_origin = unsafe { webview.URL() }
+            .and_then(|u| u.absoluteString())
+            .and_then(|s| url::Url::parse(&s.to_string()).ok())
+            .map(|u| u.origin().ascii_serialization());
+        if current_origin.as_deref() != Some(committed_origin.as_str()) {
             return Err(
                 "stale command: the tab left the approved origin before the cookies could be restored"
                     .into(),
@@ -208,20 +227,30 @@ mod tests {
     use super::cookie_domain_matches;
 
     #[test]
-    fn host_only_and_domain_cookies_match_their_host() {
-        assert!(cookie_domain_matches("example.com", "example.com"));
+    fn a_domain_cookie_covers_the_base_and_its_subdomains() {
         assert!(cookie_domain_matches(".example.com", "example.com"));
         assert!(cookie_domain_matches(".example.com", "www.example.com"));
-        assert!(cookie_domain_matches("example.com", "app.example.com"));
+        assert!(cookie_domain_matches(".example.com", "a.b.example.com"));
+    }
+
+    #[test]
+    fn a_host_only_cookie_covers_only_the_exact_host() {
+        // [Sec review cookie M1] host-only (no leading dot) is EXACT-host only —
+        // it must NOT be treated as covering subdomains.
+        assert!(cookie_domain_matches("example.com", "example.com"));
+        assert!(!cookie_domain_matches("example.com", "app.example.com"));
+        assert!(!cookie_domain_matches("app.example.com", "example.com"));
     }
 
     #[test]
     fn a_cookie_never_leaks_across_a_label_boundary() {
         assert!(!cookie_domain_matches("example.com", "evil-example.com"));
+        assert!(!cookie_domain_matches(".example.com", "evil-example.com"));
         assert!(!cookie_domain_matches("example.com", "notexample.com"));
         assert!(!cookie_domain_matches("example.com", "example.com.attacker.com"));
         assert!(!cookie_domain_matches("example.com", "attacker.com"));
         assert!(!cookie_domain_matches("", "example.com"));
+        assert!(!cookie_domain_matches(".", "example.com"));
         assert!(!cookie_domain_matches("example.com", ""));
     }
 }

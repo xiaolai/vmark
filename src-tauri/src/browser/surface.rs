@@ -253,6 +253,7 @@ mod stub {
         _a: &AppHandle,
         _t: String,
         _host: String,
+        _origin: String,
         _c: Vec<crate::browser::session_state::StoredCookie>,
     ) -> Result<(), String> {
         Err(MSG.into())

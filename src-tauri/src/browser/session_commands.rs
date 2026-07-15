@@ -147,7 +147,11 @@ fn apply(
     if !state.cookies.is_empty() {
         let host = host_of(committed)
             .ok_or_else(|| "current page has no host for cookie replay".to_string())?;
-        surface::apply_cookies(app, tab_id.to_string(), host, state.cookies.clone())?;
+        let origin = url::Url::parse(committed)
+            .ok()
+            .map(|u| u.origin().ascii_serialization())
+            .ok_or_else(|| "current page has no canonical origin".to_string())?;
+        surface::apply_cookies(app, tab_id.to_string(), host, origin, state.cookies.clone())?;
     }
     // All saved origins equal `committed` (ensure_same_origin), so flatten and write once.
     let items: Vec<&(String, String)> = state.origins.iter().flat_map(|o| &o.items).collect();
