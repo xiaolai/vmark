@@ -31,11 +31,18 @@ import { wrapHandler } from "./wrapHandler";
 import { useBrowserApprovalStore } from "@/stores/browserApprovalStore";
 import {
   buildClickScript,
+  buildClickByRefScript,
   buildSnapshotScript,
   buildTypeScript,
+  buildTypeByRefScript,
 } from "@/lib/browser/agent/actScript";
 import { urlForAgent } from "@/lib/browser/url";
-import { browserEnabled, readTabIdArg, resolveBrowserTab } from "./browserHelpers";
+import {
+  browserEnabled,
+  readTabIdArg,
+  resolveBrowserTab,
+  type BrowserTarget,
+} from "./browserHelpers";
 import { requireHumanAttachment, runReadClass } from "./browserReadClass";
 export {
   handleBrowserNavigate,
@@ -97,8 +104,61 @@ export async function handleBrowserRead(id: string, args: Record<string, unknown
 }
 
 /**
- * `vmark.browser.act` — click/type by ARIA role + name, approval-gated (R5).
- * Args `{tabId?, operation: "click"|"type", role, name, text?}`.
+ * Invoke `browser_eval` for a built act `script` and report the ACTION outcome
+ * (not mere eval completion). `target` binds a one-shot on the role/name path;
+ * the ref path passes none — it is authorized by a standing grant, never a
+ * one-shot — so no ref ever reaches the driver's one-shot binding.
+ */
+async function finishAct(
+  id: string,
+  tab: BrowserTarget,
+  operation: "click" | "type",
+  script: string,
+  target?: { role: string; name: string },
+): Promise<void> {
+  const approvals = useBrowserApprovalStore.getState();
+  const raw = await invoke<string>("browser_eval", {
+    tabId: tab.tabId,
+    script,
+    operation,
+    generation: tab.generation,
+    ...(target ?? {}),
+  });
+  const humanAct =
+    tab.automationMode === "human" &&
+    approvals.isHumanTabAttached(tab.tabId, tab.generation);
+  // Rust consumes the one-shot attachment while authorizing browser_eval. Mirror
+  // that after the command succeeds so the next action cannot pass the frontend
+  // check and then fail in the driver.
+  if (humanAct) approvals.consumeHumanTabAttachment(tab.tabId, tab.generation);
+  // Report the ACTION outcome: a click that hit nothing or a type refused as
+  // readonly is a no-op; telling the AI it succeeded would have it proceed as if
+  // the page changed. The `result` detail rides along so it can see why.
+  const result = parse(raw);
+  if (!actionSucceeded(operation, result)) {
+    await respond({
+      id,
+      success: false,
+      error: `${operation} did not affect the target`,
+      data: { result },
+    });
+    return;
+  }
+  await respond({ id, success: true, data: { result } });
+}
+
+/**
+ * `vmark.browser.act` — click/type by a precise `{ref}` (from a prior `read`) or
+ * by ARIA `{role, name}`, approval-gated (R5). Args
+ * `{tabId?, operation: "click"|"type", ref? | (role, name), text?}`.
+ *
+ * `ref` is the precise, order-independent fast-path but is only honored for an
+ * ALREADY-GRANTED operation: an approval prompt must show the user a
+ * human-readable element, and a bare ref ("e5") is not one — so an ungranted
+ * ref-act is refused with guidance to retry with `{role, name}`, which routes
+ * through the normal approval flow. As a result no ref is ever bound into a
+ * one-shot (a simplification of WI-P2.3: the escalation-prone ref-approval
+ * binding is avoided entirely, and every approval stays human-legible).
  */
 export async function handleBrowserAct(id: string, args: Record<string, unknown>): Promise<void> {
   return wrapHandler(id, async () => {
@@ -120,22 +180,12 @@ export async function handleBrowserAct(id: string, args: Record<string, unknown>
     const operation = typeof args.operation === "string" ? args.operation : "";
     const role = typeof args.role === "string" ? args.role : "";
     const name = typeof args.name === "string" ? args.name : "";
+    const ref = typeof args.ref === "string" ? args.ref : "";
 
-    // `act` performs exactly two things. Without this, EVERY operation that is not
-    // "type" fell through to the click script — so an operation authorized as a
-    // read would have executed a mutating click.
+    // `act` performs exactly two things. Without this, EVERY non-"type" operation
+    // fell through to the click script — so a read-authorized op would have clicked.
     if (operation !== "click" && operation !== "type") {
-      await respond({
-        id,
-        success: false,
-        error: `act supports 'click' and 'type', not '${operation}'`,
-      });
-      return;
-    }
-    // A blank (or whitespace-only) role/name matches the first unnamed element of
-    // that role — an unintended click or edit. Refuse rather than guess.
-    if (!role.trim() || !name.trim()) {
-      await respond({ id, success: false, error: "act requires a non-empty role and name" });
+      await respond({ id, success: false, error: `act supports 'click' and 'type', not '${operation}'` });
       return;
     }
     // A `type` with no `text` used to default to "" — a silent, destructive field
@@ -148,6 +198,40 @@ export async function handleBrowserAct(id: string, args: Record<string, unknown>
       });
       return;
     }
+    // Exactly one targeting mode: a precise `{ref}` or a `{role, name}` pair.
+    const wantsRef = ref.trim().length > 0;
+    if (wantsRef && (role.trim() || name.trim())) {
+      await respond({ id, success: false, error: "act takes either {ref} or {role, name}, not both" });
+      return;
+    }
+
+    if (wantsRef) {
+      if (useBrowserApprovalStore.getState().decide(tab.url, operation) !== "allowed") {
+        await respond({
+          id,
+          success: false,
+          error:
+            `ref actions need a standing grant for '${operation}' on ${urlForAgent(tab.url)}; ` +
+            "for a one-time approval retry with role+name so the user can see the element",
+          data: { operation, url: urlForAgent(tab.url), tabId: tab.tabId, generation: tab.generation },
+        });
+        return;
+      }
+      const script =
+        operation === "type"
+          ? buildTypeByRefScript(ref, args.text as string, tab.generation)
+          : buildClickByRefScript(ref, tab.generation);
+      await finishAct(id, tab, operation, script);
+      return;
+    }
+
+    // Role + name path (the approval-legible one).
+    // A blank (or whitespace-only) role/name matches the first unnamed element of
+    // that role — an unintended click or edit. Refuse rather than guess.
+    if (!role.trim() || !name.trim()) {
+      await respond({ id, success: false, error: "act requires {ref} or a non-empty role and name" });
+      return;
+    }
 
     const approvals = useBrowserApprovalStore.getState();
     const decision = approvals.decide(tab.url, operation);
@@ -157,10 +241,9 @@ export async function handleBrowserAct(id: string, args: Record<string, unknown>
     }
     if (decision === "needs-approval") {
       // "Allow once" mints a single-use authorization bound to (origin, operation,
-      // target). The AI retries under a NEW request id, so it cannot be matched by
-      // id — spend it here, immediately before acting, or the approval would
-      // authorize nothing and the AI would re-prompt forever. The target binding
-      // stops the AI escalating an approved "click Publish" into "click Delete".
+      // target). The AI retries under a NEW request id, so spend it here immediately
+      // before acting. The target binding stops the AI escalating an approved
+      // "click Publish" into "click Delete".
       const target = { role, name };
       const authorizedOnce = useBrowserApprovalStore
         .getState()
@@ -168,16 +251,10 @@ export async function handleBrowserAct(id: string, args: Record<string, unknown>
       if (!authorizedOnce) {
         useBrowserApprovalStore
           .getState()
-          // Stamped with the generation the AI's request was evaluated against, so the
-          // approval binds to the page the user is being shown (audit, High).
           .requestApproval(id, tab.url, operation, target, tab.tabId, tab.generation);
         await respond({
           id,
           success: false,
-          // `error` is required by the bridge contract: without it the sidecar's
-          // `throw new Error(response.error)` produced an EMPTY error and the AI
-          // never learned that consent was being asked for. The structured
-          // envelope rides alongside for clients that can render it.
           error: `approval required: '${operation}' on ${urlForAgent(tab.url)}`,
           data: {
             needsApproval: true,
@@ -195,36 +272,6 @@ export async function handleBrowserAct(id: string, args: Record<string, unknown>
       operation === "type"
         ? buildTypeScript(role, name, args.text as string)
         : buildClickScript(role, name);
-    const raw = await invoke<string>("browser_eval", {
-      tabId: tab.tabId,
-      script,
-      operation,
-      generation: tab.generation,
-      // The driver authorizes against this declared target — not by parsing the
-      // opaque script — and binds a consumed one-shot to it.
-      role,
-      name,
-    });
-    const humanAct =
-      tab.automationMode === "human" &&
-      approvals.isHumanTabAttached(tab.tabId, tab.generation);
-    // Rust consumes the one-shot attachment while authorizing browser_eval.
-    // Mirror that consumption after the command succeeds so the next action
-    // cannot pass the frontend check and then fail in the driver.
-    if (humanAct) approvals.consumeHumanTabAttachment(tab.tabId, tab.generation);
-    // Report the ACTION outcome, not merely that the eval completed: a click that
-    // hit nothing or a type refused as readonly is a no-op, and telling the AI it
-    // succeeded would have it proceed as if the page changed.
-    const result = parse(raw);
-    if (!actionSucceeded(operation, result)) {
-      await respond({
-        id,
-        success: false,
-        error: `${operation} did not affect the target (role='${role}', name='${name}')`,
-        data: { result },
-      });
-      return;
-    }
-    await respond({ id, success: true, data: { result } });
+    await finishAct(id, tab, operation, script, { role, name });
   });
 }

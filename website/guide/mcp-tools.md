@@ -302,13 +302,17 @@ MCP are redacted through the same boundary used by the app's browser session sta
 ### `read`
 
 Returns `{url, snapshot}` for the focused browser tab, or the tab named by `tabId`.
-`snapshot` is an ARIA-oriented list of roles and accessible names.
+`snapshot` is an ARIA-oriented list of `{role, name, ref}` — each `ref` (e.g. `"e5"`) is a
+stable handle for that element, valid for the life of the current view.
 
 ### `act`
 
-Arguments: `tabId?`, `operation: "click" | "type"`, `role`, `name`, and `text?` for
-typing. Read first and target the exact accessible role/name. Mutating operations require
-an origin-scoped approval; AI-chosen uploads are never permitted.
+Arguments: `tabId?`, `operation: "click" | "type"`, a target — either `ref` (from a prior
+read) **or** `role` + `name` — and `text?` for typing. A `ref` is precise and
+order-independent, but is only honored for an **already-granted** operation; if the action
+may need approval, use `role` + `name` so the prompt can show the user a readable element.
+Read first and target the exact accessible role/name. Mutating operations require an
+origin-scoped approval; AI-chosen uploads are never permitted.
 
 ### `open`
 

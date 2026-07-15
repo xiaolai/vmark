@@ -55,7 +55,7 @@ export function registerBrowserTool(server: VMarkMcpServer): void {
         'Read and act on the embedded browser tab.\n\n' +
         'Actions:\n' +
         "- read: Return {url, snapshot} where snapshot is a flat ARIA tree [{role,name}] of the page's interactive/structural elements. Pass `tabId` to target a specific browser tab; omit to use the focused tab. Read before acting so you target elements by their real accessible name.\n" +
-        '- act: Click or type by ARIA role + accessible name. Args: {tabId?, operation: "click"|"type", role, name, text?}. Locating never crosses roles (a button named "Publish" is not a link named "Publish"). Actions are gated by the user\'s standing grants: an un-granted operation returns success:false with data.needsApproval:true — surface that to the user and wait for approval rather than retrying. Upload is never permitted (an AI-chosen file upload is an exfiltration path).\n' +
+        '- act: Click or type a target — either by a stable {ref} from a prior read (precise, order-independent) or by ARIA {role, name}. Args: {tabId?, operation: "click"|"type", ref? OR (role, name), text?}. A `ref` is only honored for an already-granted operation; if the action may need approval, use role+name so the user can see what they are approving. Locating by role/name never crosses roles (a button named "Publish" is not a link named "Publish"). Actions are gated by the user\'s standing grants: an un-granted operation returns success:false with data.needsApproval:true — surface that to the user and wait for approval rather than retrying. Upload is never permitted (an AI-chosen file upload is an exfiltration path).\n' +
         '- open: Create an AI-owned browser tab at an HTTP(S) URL and wait for its navigation.\n' +
         '- navigate: Navigate an AI-owned tab and wait for the returned navigation ticket.\n' +
         '- wait: Wait for an existing navigation ticket without starting a new navigation. All waits are bounded to 12 seconds.\n' +
@@ -83,7 +83,12 @@ export function registerBrowserTool(server: VMarkMcpServer): void {
           },
           name: {
             type: 'string',
-            description: 'Accessible name of the target element (act only).',
+            description: 'Accessible name of the target element (act, role/name mode).',
+          },
+          ref: {
+            type: 'string',
+            description:
+              'Stable element handle from a prior read (e.g. "e5"). The precise act target — used instead of role+name, and only for an already-granted operation (act only).',
           },
           text: {
             type: 'string',
@@ -127,10 +132,20 @@ export function registerBrowserTool(server: VMarkMcpServer): void {
           const operation = typeof args.operation === 'string' ? args.operation : '';
           const role = typeof args.role === 'string' ? args.role : '';
           const name = typeof args.name === 'string' ? args.name : '';
-          // A blank role/name would target the first unnamed matching element —
-          // an unintended click or edit. Refuse rather than guess.
-          if (!operation || !role || !name) {
-            return VMarkMcpServer.errorResult('act requires operation, role, and name');
+          const ref = typeof args.ref === 'string' ? args.ref : '';
+          if (operation !== 'click' && operation !== 'type') {
+            return VMarkMcpServer.errorResult("act operation must be 'click' or 'type'");
+          }
+          // Exactly one targeting mode: a precise {ref} (already-granted ops) or a
+          // {role, name} pair. A blank of either would target the first matching
+          // element — an unintended click or edit. Refuse rather than guess.
+          const hasRef = ref.trim().length > 0;
+          const hasRoleName = role.trim().length > 0 || name.trim().length > 0;
+          if (hasRef && hasRoleName) {
+            return VMarkMcpServer.errorResult('act takes either `ref` or `role`+`name`, not both');
+          }
+          if (!hasRef && !(role.trim() && name.trim())) {
+            return VMarkMcpServer.errorResult('act requires a `ref` (from read) or both `role` and `name`');
           }
           // `type` MUST carry a text string. Omitting it previously reached the
           // frontend as missing data, was coerced to "", and cleared the target
@@ -146,8 +161,7 @@ export function registerBrowserTool(server: VMarkMcpServer): void {
             type: 'vmark.browser.act',
             tabId,
             operation,
-            role,
-            name,
+            ...(hasRef ? { ref } : { role, name }),
             ...(text !== undefined ? { text } : {}),
           });
           return VMarkMcpServer.successJsonResult(data);

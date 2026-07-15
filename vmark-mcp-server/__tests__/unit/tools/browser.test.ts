@@ -86,6 +86,27 @@ describe('browser tool — integration via server.callTool', () => {
     expect('text' in req).toBe(false);
   });
 
+  it('act by ref: forwards {operation, ref} with no role/name', async () => {
+    const { server, bridge } = harness({
+      'vmark.browser.act': () => ({ success: true, data: { ok: true } }),
+    });
+    await server.callTool('browser', { action: 'act', operation: 'click', ref: 'e5' });
+    const req = bridge.getRequestsOfType('vmark.browser.act')[0].request as Record<string, unknown>;
+    expect(req).toEqual({ type: 'vmark.browser.act', operation: 'click', ref: 'e5' });
+    expect('role' in req).toBe(false);
+  });
+
+  it('act: refuses ref and role/name together, never touching the bridge', async () => {
+    const { server, bridge } = harness({
+      'vmark.browser.act': () => ({ success: true, data: {} }),
+    });
+    const result = await server.callTool('browser', {
+      action: 'act', operation: 'click', ref: 'e5', role: 'button', name: 'X',
+    });
+    expect(result.isError).toBe(true);
+    expect(bridge.getRequestsOfType('vmark.browser.act')).toHaveLength(0);
+  });
+
   it('type: propagates the text payload', async () => {
     const { server, bridge } = harness({
       'vmark.browser.act': () => ({ success: true, data: { ok: true } }),
