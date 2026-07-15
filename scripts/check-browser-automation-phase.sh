@@ -267,6 +267,7 @@ case "$PHASE" in
     echo "  Deferred to live-E2E / UI follow-ups: native cookie capture (WKHTTPCookieStore),"
     echo "  named persistent contexts (WI-P6.1), and the profile/data-management UI (WI-P6.4/P6.5)."
     run_cargo session_state "WI-P6.2 keychain persistence + secret-hygiene + handle validation"
+    run_cargo session_commands "WI-P6.3 replay is origin-bound (no cross-origin credential write)"
     run_cargo operation "WI-P6.3 session op vocabulary (never-grantable, payload-binding) parity"
     run_cargo origin_guard "WI-P6.3 session never granted authoritatively (Rust)"
     run_vitest src/hooks/mcpBridge/v2/__tests__/browserSession.test.ts "WI-P6.2/P6.3 session save/load handlers (approval, handle-only, substitution-refused)"

@@ -20,7 +20,8 @@
 //! @coordinates-with browser/session_state.rs — keychain persistence + the model
 //! @coordinates-with browser/authorize.rs — the shared driver-authorization gate
 
-use crate::browser::authorize::authorize_driver_op;
+use crate::browser::authorize::{authorize_driver_op, command_still_fresh};
+use crate::browser::origin_guard::canonicalize_origin;
 use crate::browser::session_state::{self, OriginStorage, StorageState};
 use crate::browser::surface::{self, BrowserSurface};
 use sha2::{Digest, Sha256};
@@ -44,10 +45,19 @@ fn committed_origin(state: &BrowserSurface, tab_id: &str) -> Result<String, Stri
 /// Capture the current page's `localStorage` (per-origin) via the isolated-world
 /// eval. Cookies are the remaining native piece (see module note); a
 /// localStorage-only blob still round-trips app-local session state.
+///
+/// FAILS CLOSED: a failed/timed-out eval (`<null>`/`<timeout>`) or an unparseable
+/// result is an error, NEVER an empty blob — so a capture that could not read the
+/// page cannot silently overwrite a good saved session with nothing. (Sec review
+/// P6, Medium.)
 fn capture(app: &AppHandle, tab_id: &str, origin: &str) -> Result<StorageState, String> {
     let script = "return JSON.stringify(Object.keys(localStorage).map(function(k){return [k, localStorage.getItem(k)];}));";
     let raw = surface::eval(app, tab_id.to_string(), script.to_string())?;
-    let items: Vec<(String, String)> = serde_json::from_str(&raw).unwrap_or_default();
+    if raw == "<null>" || raw == "<timeout>" || raw.is_empty() {
+        return Err("capture failed: could not read the page's storage".into());
+    }
+    let items: Vec<(String, String)> =
+        serde_json::from_str(&raw).map_err(|e| format!("capture parse error: {e}"))?;
     let origins = if items.is_empty() {
         Vec::new()
     } else {
@@ -62,8 +72,36 @@ fn capture(app: &AppHandle, tab_id: &str, origin: &str) -> Result<StorageState, 
     })
 }
 
-/// Replay a blob's `localStorage` into the current page. Never returns values.
-fn apply(app: &AppHandle, tab_id: &str, state: &StorageState) -> Result<(), String> {
+/// Every saved origin must canonically equal the destination's committed origin,
+/// or the whole restore is refused. This is the cross-origin credential-release
+/// guard (Sec review P6, Critical/High) — pure, so it is unit-tested directly.
+pub(crate) fn ensure_same_origin(committed: &str, state: &StorageState) -> Result<(), String> {
+    let here = canonicalize_origin(committed)
+        .ok_or_else(|| "current page has no canonical origin".to_string())?;
+    for origin in &state.origins {
+        let saved = canonicalize_origin(&origin.origin)
+            .ok_or_else(|| "saved session has a non-canonical origin".to_string())?;
+        if saved != here {
+            return Err(
+                "STORAGE_STATE_ORIGIN_MISMATCH: the saved session is for a different origin \
+                 than the current page — refusing to write credentials cross-origin"
+                    .into(),
+            );
+        }
+    }
+    Ok(())
+}
+
+/// Replay a blob's `localStorage` into the current page — ONLY into a page whose
+/// committed origin matches every saved entry's origin (`ensure_same_origin`), so a
+/// credential can never be written cross-origin. Never returns values. (Sec review P6.)
+fn apply(
+    app: &AppHandle,
+    tab_id: &str,
+    committed: &str,
+    state: &StorageState,
+) -> Result<(), String> {
+    ensure_same_origin(committed, state)?;
     for origin in &state.origins {
         // The values are injected as a JSON literal the isolated-world script reads
         // — never interpolated into code — and setItem failures are swallowed
@@ -98,6 +136,14 @@ pub async fn browser_save_storage_state(
     )?;
     let origin = committed_origin(&state, &tab_id)?;
     let captured = capture(&app, &tab_id, &origin)?;
+    // The capture eval could have raced a navigation, leaving `captured` labelled
+    // with `origin` but read from a different page. Re-check freshness before
+    // persisting so a mislabelled blob never overwrites a good saved session.
+    if !command_still_fresh(&state, &tab_id, generation) {
+        return Err(format!(
+            "stale command: tab '{tab_id}' navigated or closed during capture"
+        ));
+    }
     session_state::persist(&handle, &captured)?;
     // Counts only — never a cookie/localStorage name or value.
     Ok(captured.redacted_summary())
@@ -125,7 +171,17 @@ pub async fn browser_load_storage_state(
     )?;
     let blob = session_state::load(&handle)?
         .ok_or_else(|| "no saved session for that handle".to_string())?;
-    apply(&app, &tab_id, &blob)
+    // The keychain read + main-thread dispatch open a window in which the page can
+    // navigate. A credential write cannot be undone, so re-check freshness right
+    // before replay (as browser_eval does) and read the CURRENT committed origin —
+    // `apply` refuses unless every saved entry's origin matches it. (Sec review P6.)
+    if !command_still_fresh(&state, &tab_id, generation) {
+        return Err(format!(
+            "stale command: tab '{tab_id}' navigated or closed before the session could be restored"
+        ));
+    }
+    let committed = committed_origin(&state, &tab_id)?;
+    apply(&app, &tab_id, &committed, &blob)
 }
 
 /// Delete a saved session. User-initiated cleanup (the profile UI / data
@@ -134,3 +190,7 @@ pub async fn browser_load_storage_state(
 pub async fn browser_forget_storage_state(handle: String) -> Result<(), String> {
     session_state::forget(&handle)
 }
+
+#[cfg(test)]
+#[path = "session_commands.test.rs"]
+mod tests;

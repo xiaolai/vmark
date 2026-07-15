@@ -1,6 +1,6 @@
 // WI-1.1 — browser URL canonicalization for tab dedup + persistence
 import { describe, it, expect } from "vitest";
-import { canonicalizeBrowserUrl, urlForAgent, urlForPersistence } from "./url";
+import { canonicalizeBrowserUrl, urlForAgent, urlForPersistence, originForAgent } from "./url";
 
 describe("canonicalizeBrowserUrl", () => {
   it("lowercases scheme and host", () => {
@@ -136,6 +136,22 @@ describe("urlForAgent — credentials never cross to the AI", () => {
   it("passes through a url it cannot parse rather than inventing one", () => {
     expect(urlForAgent("about:blank")).toBe("about:blank");
     expect(urlForAgent("")).toBe("");
+  });
+});
+
+// Security review P6 (High): a pre-authorization approval envelope must expose the
+// ORIGIN only — even the path can carry a token (`/magic-login/<token>`).
+describe("originForAgent — origin only, for approval envelopes", () => {
+  it("keeps scheme/host/port but drops path, query, fragment, and userinfo", () => {
+    expect(originForAgent("https://example.com/magic-login/SECRET?t=1#f")).toBe("https://example.com");
+    expect(originForAgent("https://example.com/magic-login/SECRET")).not.toContain("SECRET");
+    expect(originForAgent("https://example.com:8443/x")).toBe("https://example.com:8443");
+    expect(originForAgent("https://alice:pw@example.com/x")).toBe("https://example.com");
+  });
+
+  it("falls back to the stripped form for an opaque origin rather than exposing 'null'", () => {
+    expect(originForAgent("about:blank")).toBe("about:blank");
+    expect(originForAgent("")).toBe("");
   });
 });
 

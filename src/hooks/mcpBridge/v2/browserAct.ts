@@ -32,7 +32,7 @@ import {
   buildKeyScript,
   type KeyModifiers,
 } from "@/lib/browser/agent/interactScript";
-import { urlForAgent } from "@/lib/browser/url";
+import { originForAgent } from "@/lib/browser/url";
 import {
   browserEnabled,
   readTabIdArg,
@@ -105,8 +105,8 @@ async function approveAndAct(
       await respond({
         id,
         success: false,
-        error: `approval required: '${operation}' on ${urlForAgent(tab.url)}`,
-        data: { needsApproval: true, operation, url: urlForAgent(tab.url), tabId: tab.tabId, generation: tab.generation },
+        error: `approval required: '${operation}' on ${originForAgent(tab.url)}`,
+        data: { needsApproval: true, operation, url: originForAgent(tab.url), tabId: tab.tabId, generation: tab.generation },
       });
       return;
     }
@@ -122,9 +122,9 @@ async function refuseUngrantedRef(id: string, tab: BrowserTarget, operation: Act
     id,
     success: false,
     error:
-      `ref actions need a standing grant for '${operation}' on ${urlForAgent(tab.url)}; ` +
+      `ref actions need a standing grant for '${operation}' on ${originForAgent(tab.url)}; ` +
       "for a one-time approval retry with role+name so the user can see the element",
-    data: { operation, url: urlForAgent(tab.url), tabId: tab.tabId, generation: tab.generation },
+    data: { operation, url: originForAgent(tab.url), tabId: tab.tabId, generation: tab.generation },
   });
   return true;
 }

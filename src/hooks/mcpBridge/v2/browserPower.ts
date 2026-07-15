@@ -24,7 +24,7 @@ import {
   type QueryFields,
   type StyleOps,
 } from "@/lib/browser/agent/powerScript";
-import { urlForAgent } from "@/lib/browser/url";
+import { urlForAgent, originForAgent } from "@/lib/browser/url";
 import { browserEnabled, readTabIdArg, resolveBrowserTab, type BrowserTarget } from "./browserHelpers";
 import { requireHumanAttachment, runReadClass, parseEvalResult } from "./browserReadClass";
 
@@ -118,11 +118,13 @@ async function approveOp(
       useBrowserApprovalStore
         .getState()
         .requestApproval(id, tab.url, operation, undefined, tab.tabId, tab.generation, script);
+      // Origin-only in the pre-authorization envelope — the path can carry a token.
+      const origin = originForAgent(tab.url);
       await respond({
         id,
         success: false,
-        error: `approval required: '${operation}' on ${urlForAgent(tab.url)}`,
-        data: { needsApproval: true, operation, url: urlForAgent(tab.url), tabId: tab.tabId, generation: tab.generation, ...extraData },
+        error: `approval required: '${operation}' on ${origin}`,
+        data: { needsApproval: true, operation, url: origin, tabId: tab.tabId, generation: tab.generation, ...extraData },
       });
       return false;
     }

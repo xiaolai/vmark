@@ -8,8 +8,10 @@
  * and the one-shot is bound to the exact `action:handle` (so an approved
  * `load:work_login` can't be spent on a different handle — the anti-substitution
  * rule from the Phase 5 security review). `save` returns a value-free summary;
- * `load` returns only `{loaded:true}`. The values live in the OS keychain (Rust
- * session_state.rs) and never cross this boundary.
+ * `load` returns `{loaded:true, handle}` — a confirmation plus the AI-supplied
+ * handle, never any values. A `load` only applies to a page with the SAME origin
+ * the session was saved from (Rust enforces it). The values live in the OS keychain
+ * (Rust session_state.rs) and never cross this boundary.
  *
  * @coordinates-with src-tauri browser/session_commands.rs — the authoritative gate + persistence
  * @module hooks/mcpBridge/v2/browserSession
@@ -19,7 +21,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { respond } from "../utils";
 import { wrapHandler } from "./wrapHandler";
 import { useBrowserApprovalStore } from "@/stores/browserApprovalStore";
-import { urlForAgent } from "@/lib/browser/url";
+import { originForAgent } from "@/lib/browser/url";
 import { browserEnabled, readTabIdArg, resolveBrowserTab, type BrowserTarget } from "./browserHelpers";
 import { requireHumanAttachment } from "./browserReadClass";
 
@@ -58,11 +60,13 @@ async function approveSession(id: string, tab: BrowserTarget, action: string, ha
   const ok = store.consumeOneShot(tab.url, "session", undefined, tab.tabId, payload);
   if (!ok) {
     store.requestApproval(id, tab.url, "session", undefined, tab.tabId, tab.generation, payload);
+    // Origin-only in the pre-authorization envelope — the path can carry a token.
+    const origin = originForAgent(tab.url);
     await respond({
       id,
       success: false,
-      error: `approval required: '${action}' session '${handle}' on ${urlForAgent(tab.url)}`,
-      data: { needsApproval: true, operation: "session", action, handle, url: urlForAgent(tab.url), tabId: tab.tabId, generation: tab.generation },
+      error: `approval required: '${action}' session '${handle}' on ${origin}`,
+      data: { needsApproval: true, operation: "session", action, handle, url: origin, tabId: tab.tabId, generation: tab.generation },
     });
     return false;
   }

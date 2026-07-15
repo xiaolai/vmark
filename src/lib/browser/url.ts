@@ -92,6 +92,28 @@ export function urlForAgent(url: string): string {
 }
 
 /**
+ * The **origin only** — `scheme://host[:port]`, no path/query/fragment/userinfo.
+ *
+ * Use this for an **approval envelope** the AI sees BEFORE it is authorized to read
+ * the page: even the path can carry a credential (`/magic-login/<token>`,
+ * `/reset/<token>`), so a pre-authorization prompt must not hand the AI more than
+ * the origin it is being asked to approve an action against. `urlForAgent` (which
+ * keeps the path) is fine for a POST-authorization read response, where the AI is
+ * already reading the page anyway. (Security review P6, High.)
+ *
+ * An opaque origin (`about:`, `data:`) serialises to the string `"null"`; fall back
+ * to the userinfo/query/fragment-stripped form rather than exposing `"null"`.
+ */
+export function originForAgent(url: string): string {
+  try {
+    const origin = new URL(url).origin;
+    return origin === "null" ? urlForAgent(url) : origin;
+  } catch {
+    return url;
+  }
+}
+
+/**
  * The URL as it may be **written to disk** (hot exit / session restore): the same page,
  * with any embedded password removed.
  *
