@@ -109,7 +109,8 @@ export type BridgeRequest =
     }
   | { type: 'vmark.browser.execute_js'; tabId?: string; script: string }
   | { type: 'vmark.browser.session.save'; tabId?: string; handle: string }
-  | { type: 'vmark.browser.session.load'; tabId?: string; handle: string };
+  | { type: 'vmark.browser.session.load'; tabId?: string; handle: string }
+  | { type: 'vmark.browser.console'; tabId?: string; clear?: boolean };
 
 /**
  * Bridge response types — what VMark returns.

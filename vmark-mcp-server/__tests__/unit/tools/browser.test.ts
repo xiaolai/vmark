@@ -360,6 +360,14 @@ describe('browser tool — integration via server.callTool', () => {
     expect(bridge.getRequestsOfType('vmark.browser.execute_js')).toHaveLength(0);
   });
 
+  it('console: forwards {clear} only when requested', async () => {
+    const { server, bridge } = harness({ 'vmark.browser.console': () => ({ success: true, data: { entries: [] } }) });
+    await server.callTool('browser', { action: 'console' });
+    expect(bridge.getRequestsOfType('vmark.browser.console')[0].request).toEqual({ type: 'vmark.browser.console' });
+    await server.callTool('browser', { action: 'console', clear: true });
+    expect(bridge.getRequestsOfType('vmark.browser.console')[1].request).toEqual({ type: 'vmark.browser.console', clear: true });
+  });
+
   it('session_save / session_load: forward the handle; reject a bad one', async () => {
     const { server, bridge } = harness({
       'vmark.browser.session.save': () => ({ success: true, data: { handle: 'work', summary: '0 cookie(s)' } }),

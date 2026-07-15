@@ -287,11 +287,23 @@ case "$PHASE" in
     ;;
 
   7)
-    echo "Phase $PHASE — assertions not yet authored."
-    echo "  (Template: copy the Phase-1 block — run_vitest/run_cargo/run_script rows"
-    echo "   mirroring that phase's DoD line in $PLAN, plus WI-linkage --phase=P$PHASE.)"
-    echo "Phase $PHASE: NOT IMPLEMENTED — treated as not passing."
-    exit 3
+    echo "Phase 7 — observation: console capture (stretch). Design-reviewed core:"
+    echo "  Design review (the plan's gate): dev-docs/grills/browser-automation/phase7-console-design.md"
+    echo "  — Option C (page-world shim → shared DOM ring buffer → isolated-world read)"
+    echo "  is the ONLY design that preserves the no-bridge invariant. Testable core:"
+    run_vitest src/lib/browser/agent/consoleShim.test.ts "WI-P7.1 console shim (ring buffer, cap, transparent, never-throws)"
+    run_vitest src/hooks/mcpBridge/v2/__tests__/browserConsole.test.ts "WI-P7.1 console read handler (read-class, clear option)"
+    run_script "WI-P7.1 sidecar console action" pnpm --dir vmark-mcp-server exec vitest run __tests__/unit/tools/browser.test.ts
+    run_script "WI-linkage for phase P7" bash scripts/check-wi-linkage.sh "$PLAN" --phase=P7
+    run_cross
+    if [[ "$FULL" -eq 1 ]]; then
+      run_script "pnpm check:all" pnpm check:all
+    else
+      skip "pnpm check:all — not run (pre-push gate owns it; re-run with --full)"
+    fi
+    echo "  DEFERRED (live-E2E, per the design review): the native page-world WKUserScript"
+    echo "  injection (AiSandbox-only, opt-in) that actually populates the buffer — the shim"
+    echo "  source + reader + handler + sidecar are done and tested; injection is verified live."
     ;;
 
   *)
