@@ -349,6 +349,27 @@ matched element's `ref` for a ref/role condition) — so you can tell "found" fr
 out". Read-class. Use it to make a flow deterministic: act, `wait_for` the result, then
 read.
 
+### `query`
+
+Arguments: `tabId?`, `selector` (CSS), and optional `fields: {attributes, box, styles:[...]}`.
+Returns `{count, elements: [{ref, tag, text, …}]}` — structured DOM data the ARIA snapshot
+cannot name (tables, computed values). **Read-class.** Runs in the isolated content world.
+
+### `style`
+
+Arguments: `tabId?`, a target (`ref` **or** `selector`), and one of `set: {prop: value}`,
+`addClasses`, `removeClasses`, or `injectCss`. Dismiss a blocking overlay, highlight a
+target, etc. **Act-class** (approval-gated, op `style`). Isolated content world.
+
+### `execute_js`
+
+Arguments: `tabId?`, `script` (must `return` a JSON-serializable value). The escape hatch
+for what the structured verbs cannot express. It runs in the **isolated content world** —
+it shares the DOM (so `querySelector`, `element.style` work) but **cannot** see the page's
+own JS heap/globals. It is approved **per call only** (never a standing grant, enforced in
+the Rust driver), the approval shows the script, and the return value is flagged
+**untrusted** and never auto-fed into a later `act`. Prefer `query`/`style` first.
+
 ### `screenshot`
 
 Arguments: `tabId?`. Returns an **image content block** (base64 JPEG, quality-bounded) of

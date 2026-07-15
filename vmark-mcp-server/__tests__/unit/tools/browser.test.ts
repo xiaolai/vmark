@@ -320,6 +320,38 @@ describe('browser tool — integration via server.callTool', () => {
     ).toBe(true);
     expect(bridge.getRequestsOfType('vmark.browser.wait_for')).toHaveLength(0);
   });
+
+  it('query: forwards selector + fields', async () => {
+    const { server, bridge } = harness({ 'vmark.browser.query': () => ({ success: true, data: { count: 0, elements: [] } }) });
+    await server.callTool('browser', { action: 'query', selector: 'table', fields: { attributes: true } });
+    expect(bridge.getRequestsOfType('vmark.browser.query')[0].request).toEqual({
+      type: 'vmark.browser.query', selector: 'table', fields: { attributes: true },
+    });
+  });
+
+  it('query: refuses a missing selector', async () => {
+    const { server, bridge } = harness({ 'vmark.browser.query': () => ({ success: true, data: {} }) });
+    expect((await server.callTool('browser', { action: 'query' })).isError).toBe(true);
+    expect(bridge.getRequestsOfType('vmark.browser.query')).toHaveLength(0);
+  });
+
+  it('style: forwards selector + set, and refuses when no op is given', async () => {
+    const { server, bridge } = harness({ 'vmark.browser.style': () => ({ success: true, data: { styled: true } }) });
+    await server.callTool('browser', { action: 'style', selector: '.overlay', set: { display: 'none' } });
+    expect(bridge.getRequestsOfType('vmark.browser.style')[0].request).toEqual({
+      type: 'vmark.browser.style', selector: '.overlay', set: { display: 'none' },
+    });
+    expect((await server.callTool('browser', { action: 'style', selector: '.x' })).isError).toBe(true);
+  });
+
+  it('execute_js: forwards the script, and refuses a missing one', async () => {
+    const { server, bridge } = harness({ 'vmark.browser.execute_js': () => ({ success: true, data: { result: 1, untrusted: true } }) });
+    await server.callTool('browser', { action: 'execute_js', script: 'return 1;' });
+    expect(bridge.getRequestsOfType('vmark.browser.execute_js')[0].request).toEqual({
+      type: 'vmark.browser.execute_js', script: 'return 1;',
+    });
+    expect((await server.callTool('browser', { action: 'execute_js' })).isError).toBe(true);
+  });
 });
 
 describe('registerBrowserTools — approval handling', () => {

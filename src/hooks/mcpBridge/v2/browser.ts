@@ -29,6 +29,7 @@ export {
 export { handleBrowserScreenshot } from "./browserScreenshot";
 export { handleBrowserWaitFor } from "./browserWaitFor";
 export { handleBrowserAct } from "./browserAct";
+export { handleBrowserQuery, handleBrowserStyle, handleBrowserExecuteJs } from "./browserPower";
 
 /**
  * `vmark.browser.read` — ARIA snapshot (with a stable `ref` per node) of the

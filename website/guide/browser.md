@@ -57,6 +57,9 @@ An AI assistant connected over [MCP](./mcp-tools) can operate the browser tab:
 - **Act** — click or type a target, either by its precise **ref** from a prior read, or by ARIA **role + accessible name** (for example, click the link named "Learn more"). A ref is only honored for an already-granted action; anything that needs your approval uses role + name, so the prompt can show you a readable element.
 - **Scroll** — bring an element (by ref) into view, or scroll by a pixel amount. Act-class (approval-gated like Click).
 - **Key** — send a keypress (`Enter`, `Escape`, `Tab`, arrows, with optional Ctrl/Shift/Alt/Meta) to a focused element or a ref — for example, submit a form or dismiss a dialog. Act-class. Note: keys and scrolls are **synthetic** DOM events, so a site that only trusts real hardware input may ignore them.
+- **Query** — structured DOM detection the accessibility snapshot can't name (tables, computed values, attributes) by CSS selector. Read-class.
+- **Style** — CSS manipulation (dismiss a blocking overlay, highlight a target) by setting inline styles, toggling classes, or injecting a scoped `<style>`. Act-class.
+- **Execute JS** — the escape hatch: run a script for what the structured verbs can't express. It runs in the **isolated content world** (DOM + CSS, **never** the page's own JavaScript), is approved **per call** (never remembered), and its result is treated as **untrusted**. Prefer Query/Style; reach for this only when they fall short.
 - **Open** — create an AI-owned tab and load an HTTP(S) URL.
 - **Navigate** — navigate an AI-owned tab and wait for its navigation ticket.
 - **Wait** — wait for a specific navigation ticket without starting another load.

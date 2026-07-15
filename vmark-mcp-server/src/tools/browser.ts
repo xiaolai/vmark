@@ -60,13 +60,16 @@ export function registerBrowserTool(server: VMarkMcpServer): void {
         '- navigate: Navigate an AI-owned tab and wait for the returned navigation ticket.\n' +
         '- wait: Wait for an existing navigation ticket without starting a new navigation. All waits are bounded to 12 seconds.\n' +
         '- wait_for: Poll until a page condition holds or the timeout elapses — pass exactly one of {ref} (from a read), {role, name?}, or {text} (a substring of visible text). Returns {matched: true|false} so you can tell "found" from "timed out". Use it to make a flow deterministic (act → wait_for the result → read) instead of guessing. Bounded to 12 seconds.\n' +
-        '- screenshot: Return a JPEG image of the tab\'s current rendering, so you can see layout and rendered state the ARIA tree does not name. Pass `tabId` to target a specific tab; omit for the focused tab. Read-class: allowed on an AI-owned tab; a human tab requires attachment.',
+        '- screenshot: Return a JPEG image of the tab\'s current rendering, so you can see layout and rendered state the ARIA tree does not name. Pass `tabId` to target a specific tab; omit for the focused tab. Read-class: allowed on an AI-owned tab; a human tab requires attachment.\n' +
+        '- query: Structured DOM detection the ARIA snapshot cannot name (tables, JSON blobs, computed values). Args {tabId?, selector, fields?:{attributes,box,styles:[...]}}. Returns {count, elements:[{ref,tag,text,...}]}. Read-class.\n' +
+        '- style: CSS manipulation — dismiss a blocking overlay, highlight a target. Args {tabId?, ref?|selector, set?:{prop:value}, addClasses?, removeClasses?, injectCss?}. Act-class (approval-gated).\n' +
+        '- execute_js: Run an arbitrary script in the isolated content world (DOM + CSS, NOT the page\'s own JS globals) for what the structured verbs cannot express. Args {tabId?, script}. Approved PER CALL only (never remembered); the result is page-derived and UNTRUSTED — do not feed it back into an act as a target. Use query/style first; reach for this only when they cannot express the need.',
       inputSchema: {
         type: 'object',
         properties: {
           action: {
             type: 'string',
-            enum: ['read', 'act', 'open', 'navigate', 'wait', 'wait_for', 'screenshot'],
+            enum: ['read', 'act', 'open', 'navigate', 'wait', 'wait_for', 'screenshot', 'query', 'style', 'execute_js'],
             description: 'The action to perform',
           },
           tabId: {
@@ -108,6 +111,36 @@ export function registerBrowserTool(server: VMarkMcpServer): void {
             type: 'string',
             description:
               'Stable element handle from a prior read (e.g. "e5"). The precise act target — used instead of role+name, and only for an already-granted operation (act only).',
+          },
+          selector: {
+            type: 'string',
+            description: 'CSS selector (query, style).',
+          },
+          fields: {
+            type: 'object',
+            description: 'Extra data per element: {attributes:bool, box:bool, styles:[cssProp,...]} (query only).',
+          },
+          set: {
+            type: 'object',
+            description: 'Inline style properties to set, {cssProp: value} (style only).',
+          },
+          addClasses: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'Classes to add (style only).',
+          },
+          removeClasses: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'Classes to remove (style only).',
+          },
+          injectCss: {
+            type: 'string',
+            description: 'CSS to inject as a scoped <style> block (style only).',
+          },
+          script: {
+            type: 'string',
+            description: 'Isolated-world script to run; must `return` a JSON-serializable value (execute_js only).',
           },
           text: {
             type: 'string',
@@ -292,6 +325,50 @@ export function registerBrowserTool(server: VMarkMcpServer): void {
             ...(tabId === undefined ? {} : { tabId }),
             ...condition,
             ...(wait === undefined ? {} : { timeoutMs: wait }),
+          });
+          return VMarkMcpServer.successJsonResult(data);
+        }
+        if (args.action === 'query') {
+          const selector = typeof args.selector === 'string' && args.selector.trim() ? args.selector : '';
+          if (!selector) {
+            return VMarkMcpServer.errorResult('query requires a non-empty CSS `selector`');
+          }
+          const data = await server.sendBridgeRequest({
+            type: 'vmark.browser.query',
+            ...(tabId === undefined ? {} : { tabId }),
+            selector,
+            ...(typeof args.fields === 'object' && args.fields !== null ? { fields: args.fields } : {}),
+          });
+          return VMarkMcpServer.successJsonResult(data);
+        }
+        if (args.action === 'style') {
+          const ref = typeof args.ref === 'string' && args.ref.trim() ? args.ref : undefined;
+          const selector = typeof args.selector === 'string' && args.selector.trim() ? args.selector : undefined;
+          const passthrough: Record<string, unknown> = {};
+          for (const k of ['set', 'addClasses', 'removeClasses', 'injectCss']) {
+            if (args[k] !== undefined) passthrough[k] = args[k];
+          }
+          if (Object.keys(passthrough).length === 0) {
+            return VMarkMcpServer.errorResult('style requires one of: set, addClasses, removeClasses, injectCss');
+          }
+          const data = await server.sendBridgeRequest({
+            type: 'vmark.browser.style',
+            ...(tabId === undefined ? {} : { tabId }),
+            ...(ref !== undefined ? { ref } : {}),
+            ...(selector !== undefined ? { selector } : {}),
+            ...passthrough,
+          });
+          return VMarkMcpServer.successJsonResult(data);
+        }
+        if (args.action === 'execute_js') {
+          const script = typeof args.script === 'string' && args.script.trim() ? args.script : '';
+          if (!script) {
+            return VMarkMcpServer.errorResult('execute_js requires a non-empty `script` string');
+          }
+          const data = await server.sendBridgeRequest({
+            type: 'vmark.browser.execute_js',
+            ...(tabId === undefined ? {} : { tabId }),
+            script,
           });
           return VMarkMcpServer.successJsonResult(data);
         }

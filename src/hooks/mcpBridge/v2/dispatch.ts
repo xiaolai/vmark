@@ -43,6 +43,9 @@ import {
   handleBrowserWait,
   handleBrowserScreenshot,
   handleBrowserWaitFor,
+  handleBrowserQuery,
+  handleBrowserStyle,
+  handleBrowserExecuteJs,
 } from "./browser";
 
 /**
@@ -141,6 +144,15 @@ export async function dispatchV2(event: McpRequestEvent): Promise<boolean> {
       return true;
     case "vmark.browser.wait_for":
       await handleBrowserWaitFor(id, args);
+      return true;
+    case "vmark.browser.query":
+      await handleBrowserQuery(id, args);
+      return true;
+    case "vmark.browser.style":
+      await handleBrowserStyle(id, args);
+      return true;
+    case "vmark.browser.execute_js":
+      await handleBrowserExecuteJs(id, args);
       return true;
 
     default:
