@@ -25,6 +25,7 @@ import { invoke } from "@tauri-apps/api/core";
 import {
   useBrowserApprovalStore,
   type OneShotApproval,
+  type ProfileOpenApproval,
 } from "@/stores/browserApprovalStore";
 import type { StandingGrant } from "@/lib/browser/approval/grants";
 import { browserWarn } from "@/utils/debug";
@@ -118,6 +119,19 @@ function pushOneShot(shot: OneShotApproval): void {
   });
 }
 
+/** Send a newly minted profile-open grant (WI-P6.1 H1) to the driver, which is the
+ *  authority: `browser_ai_create` consumes a matching (profile, origin) before it
+ *  applies a named profile. Without this leg, an approved profile-open authorizes the
+ *  frontend and is then refused by the driver. */
+function pushProfileOpen(grant: ProfileOpenApproval): void {
+  void invoke("browser_add_profile_open", {
+    profile: grant.profile,
+    originPattern: grant.originPattern,
+  }).catch((error: unknown) => {
+    browserWarn("profile-open sync failed; the driver will refuse the open", error);
+  });
+}
+
 /**
  * Start mirroring the user's authorizations to the driver — the authoritative
  * gate. Pushes grants once immediately (so a driver that just started is not left
@@ -137,6 +151,7 @@ export function startGrantSync(): () => void {
 
   let previousGrants = useBrowserApprovalStore.getState().grants;
   let previousShots = useBrowserApprovalStore.getState().oneShots;
+  let previousProfileOpens = useBrowserApprovalStore.getState().profileOpens;
   return useBrowserApprovalStore.subscribe((state) => {
     // Reference compare: the store's actions always produce new arrays, and
     // unrelated churn (pending approvals) must not spam the driver.
@@ -150,6 +165,13 @@ export function startGrantSync(): () => void {
       const added = state.oneShots.filter((s) => !previousShots.includes(s));
       previousShots = state.oneShots;
       for (const shot of added) pushOneShot(shot);
+    }
+    if (state.profileOpens !== previousProfileOpens) {
+      // Forward only the ADDITIONS (a shrinking list means the frontend spent its
+      // mirror; the driver spent its own and must not be told again).
+      const added = state.profileOpens.filter((g) => !previousProfileOpens.includes(g));
+      previousProfileOpens = state.profileOpens;
+      for (const grant of added) pushProfileOpen(grant);
     }
   });
 }

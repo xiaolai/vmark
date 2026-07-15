@@ -22,6 +22,7 @@ import { useSidebarContext } from "@/hooks/useSidebarContext";
 import { BrowserHistoryView } from "@/components/Browser/BrowserHistoryView";
 import { BookmarksView } from "@/components/Browser/BookmarksView";
 import { BrowserGrantsList } from "@/components/Browser/BrowserGrantsList";
+import { BrowserSessionsList } from "@/components/Browser/BrowserSessionsList";
 import type { BrowserSidebarView } from "@/stores/uiStore/types";
 
 // Constants
@@ -189,7 +190,14 @@ export function Sidebar() {
                 empty array and its Revoke button mutated a store nobody was listening to.
                 A permission model whose revocation silently does nothing is worse than
                 none, because it tells you that you revoked. (Audit finding, High.) */}
-            {sidebar.view === "permissions" && <BrowserGrantsList />}
+            {sidebar.view === "permissions" && (
+              <>
+                <BrowserGrantsList />
+                {/* Saved sessions + named profiles live alongside site permissions —
+                    both are AI browser authority the user manages here (WI-P6.4/P6.5). */}
+                <BrowserSessionsList />
+              </>
+            )}
           </>
         ) : (
           <>

@@ -94,12 +94,13 @@ pub fn capture_cookies(
                     value: cookie.value().to_string(),
                     domain,
                     path: cookie.path().to_string(),
-                    secure: unsafe { cookie.isSecure() },
-                    http_only: unsafe { cookie.isHTTPOnly() },
+                    secure: cookie.isSecure(),
+                    http_only: cookie.isHTTPOnly(),
                     expires: cookie.expiresDate().map(|d| d.timeIntervalSince1970()),
                     // Only keep a recognised SameSite value; an unexpected string is
                     // dropped rather than stored (fail-safe). (Sec review cookie.)
-                    same_site: unsafe { cookie.sameSitePolicy() }
+                    same_site: cookie
+                        .sameSitePolicy()
                         .map(|s| s.to_string())
                         .filter(|s| matches!(s.to_ascii_lowercase().as_str(), "strict" | "lax" | "none")),
                 });
@@ -125,9 +126,7 @@ fn build_cookie(c: &StoredCookie) -> Option<Retained<NSHTTPCookie>> {
     let path = NSString::from_str(if c.path.is_empty() { "/" } else { &c.path });
     // Owned values kept alive for the whole function so the ref slices stay valid.
     let secure_val = c.secure.then(|| NSString::from_str("TRUE"));
-    let expires_val = c
-        .expires
-        .map(|e| unsafe { NSDate::dateWithTimeIntervalSince1970(e) });
+    let expires_val = c.expires.map(NSDate::dateWithTimeIntervalSince1970);
     let samesite_val = c.same_site.as_ref().map(|s| NSString::from_str(s));
 
     let mut keys: Vec<&NSHTTPCookiePropertyKey> = unsafe {

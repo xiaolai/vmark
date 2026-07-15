@@ -94,6 +94,11 @@ pub async fn browser_ai_create(
     state: State<'_, BrowserSurface>,
     tab_id: String,
     url: String,
+    // Optional named profile (WI-P6.1): an AiSandbox tab opened against a `profile`
+    // uses an isolated persistent store so a login persists for reuse. Opening a
+    // profile is per-use user-approved — a matching profile-open grant is consumed
+    // authoritatively below, BEFORE the profile is applied (H1).
+    profile: Option<String>,
 ) -> Result<AiNavigationResult, String> {
     let policy = ai_policy(&state)?;
     if !policy.enabled {
@@ -151,7 +156,26 @@ pub async fn browser_ai_create(
         }
         ticket
     };
-    if let Err(error) = surface::create_with_mode(&app, tab_id.clone(), window_label, url, mode) {
+    // A named profile only applies to an AiSandbox tab, and opening it requires a
+    // fresh per-use approval (H1): consume a profile-open grant bound to (profile,
+    // this destination origin) BEFORE the profile is applied. No grant → refuse and
+    // NEVER apply the profile (so a guessed profile can't silently open authenticated
+    // content). The frontend raises the approval; the driver is the authority.
+    let create_profile = match (mode, profile) {
+        (AutomationMode::AiSandbox, Some(name)) => {
+            crate::browser::profile_open::validate_profile(&name)?;
+            let mut opens = state.profile_opens.lock().map_err(|e| e.to_string())?;
+            if !crate::browser::profile_open::consume_profile_open(&mut opens, &name, &url) {
+                state.forget_tab(&tab_id)?;
+                return Err("PROFILE_NOT_APPROVED".into());
+            }
+            Some(name)
+        }
+        _ => None,
+    };
+    if let Err(error) =
+        surface::create_with_mode(&app, tab_id.clone(), window_label, url, mode, create_profile)
+    {
         state.forget_tab(&tab_id)?;
         return Err(error);
     }

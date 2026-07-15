@@ -130,6 +130,15 @@ export function BrowserApprovalDialog(): React.ReactElement | null {
           <dt>{t("browser.approval.action")}</dt>
           <dd>{operation}</dd>
 
+          {request.profile !== undefined && (
+            <>
+              <dt>{t("browser.profiles.label")}</dt>
+              <dd>
+                <span className="browser-approval-name">“{request.profile}”</span>
+              </dd>
+            </>
+          )}
+
           {request.target && (
             <>
               <dt>{t("browser.approval.element")}</dt>

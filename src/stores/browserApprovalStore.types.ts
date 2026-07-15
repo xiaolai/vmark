@@ -43,6 +43,10 @@ export interface PendingApproval {
    * binds role+name instead). (Security review P5, High #1.)
    */
   script?: string;
+  /** For a profile-OPEN approval (WI-P6.1 H1): the named profile the AI wants to
+   *  open. Present only for that approval kind; on "Allow once" it mints a
+   *  ProfileOpenApproval instead of a tab-bound one-shot. */
+  profile?: string;
 }
 
 /** How the user (or a policy) resolved a pending approval. */
@@ -78,4 +82,12 @@ export interface HumanTabAttachment {
   tabId: string;
   generation: number;
   once: boolean;
+}
+
+/** A single-use grant to open a named persistent context (WI-P6.1 H1), bound to
+ *  (profile, origin). Minted from a per-use approval, mirrored to the driver, and
+ *  consumed authoritatively by `browser_ai_create` before the profile is applied. */
+export interface ProfileOpenApproval {
+  profile: string;
+  originPattern: string;
 }

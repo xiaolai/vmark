@@ -78,7 +78,7 @@ export type BridgeRequest =
       key?: string;
       modifiers?: { ctrl?: boolean; shift?: boolean; alt?: boolean; meta?: boolean };
     }
-  | { type: 'vmark.browser.open'; url: string; timeoutMs?: number }
+  | { type: 'vmark.browser.open'; url: string; timeoutMs?: number; profile?: string }
   | { type: 'vmark.browser.navigate'; tabId?: string; url: string; timeoutMs?: number }
   | {
       type: 'vmark.browser.wait';

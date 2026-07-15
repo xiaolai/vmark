@@ -21,6 +21,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { respond } from "../utils";
 import { wrapHandler } from "./wrapHandler";
 import { useBrowserApprovalStore } from "@/stores/browserApprovalStore";
+import { useBrowserSessionStore } from "@/stores/browserSessionStore";
 import { originForAgent } from "@/lib/browser/url";
 import { browserEnabled, readTabIdArg, resolveBrowserTab, type BrowserTarget } from "./browserHelpers";
 import { requireHumanAttachment } from "./browserReadClass";
@@ -90,6 +91,8 @@ export async function handleBrowserSessionSave(id: string, args: Record<string, 
       generation: tab.generation,
       handle,
     });
+    // Record in the metadata-only registry so the management UI can list it.
+    useBrowserSessionStore.getState().recordSession(handle, summary, Date.now());
     await respond({ id, success: true, data: { handle, summary } });
   });
 }

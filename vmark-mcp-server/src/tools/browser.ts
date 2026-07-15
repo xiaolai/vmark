@@ -62,7 +62,7 @@ export function registerBrowserTool(server: VMarkMcpServer): void {
         'Actions:\n' +
         "- read: Return {url, snapshot} where snapshot is a flat ARIA tree [{role,name}] of the page's interactive/structural elements. Pass `tabId` to target a specific browser tab; omit to use the focused tab. Read before acting so you target elements by their real accessible name.\n" +
         '- act: Interact with the page. operation "click"|"type" target a stable {ref} from a prior read (precise) or ARIA {role, name} — a ref is only honored for an already-granted operation; if it may need approval use role+name so the user sees what they approve. operation "scroll" takes {ref} (scroll it into view) or {dy} (a pixel delta). operation "key" takes {key} (e.g. "Enter", "Escape", "Tab"), optional {ref} to target, and optional {modifiers:{ctrl,shift,alt,meta}}. scroll/key dispatch SYNTHETIC events, so a site gating on event.isTrusted may ignore them. All actions are gated by the user\'s standing grants: an un-granted operation returns success:false with data.needsApproval:true — surface that and wait rather than retrying. Upload is never permitted (an AI-chosen file upload is an exfiltration path).\n' +
-        '- open: Create an AI-owned browser tab at an HTTP(S) URL and wait for its navigation.\n' +
+        '- open: Create an AI-owned browser tab at an HTTP(S) URL and wait for its navigation. Optional `profile` ([A-Za-z0-9._-]) opens the tab against a NAMED persistent context to reuse a login — this needs a per-use user approval (you get needsApproval until the user allows it), and you never see any credentials (macOS 14+; sandbox mode).\n' +
         '- navigate: Navigate an AI-owned tab and wait for the returned navigation ticket.\n' +
         '- wait: Wait for an existing navigation ticket without starting a new navigation. All waits are bounded to 12 seconds.\n' +
         '- wait_for: Poll until a page condition holds or the timeout elapses — pass exactly one of {ref} (from a read), {role, name?}, or {text} (a substring of visible text). Returns {matched: true|false} so you can tell "found" from "timed out". Use it to make a flow deterministic (act → wait_for the result → read) instead of guessing. Bounded to 12 seconds.\n' +
@@ -158,6 +158,10 @@ export function registerBrowserTool(server: VMarkMcpServer): void {
           clear: {
             type: 'boolean',
             description: 'Drain the console buffer as it is read, so the next call sees only new output (console only).',
+          },
+          profile: {
+            type: 'string',
+            description: 'Named persistent context [A-Za-z0-9._-] to reuse a saved login (open only; per-use approved; macOS 14+).',
           },
           text: {
             type: 'string',
@@ -274,10 +278,15 @@ export function registerBrowserTool(server: VMarkMcpServer): void {
           if (args.timeoutMs !== undefined && wait === undefined) {
             return VMarkMcpServer.errorResult('timeoutMs must be an integer from 1 to 12000');
           }
+          const profile =
+            typeof args.profile === 'string' && /^[A-Za-z0-9._-]{1,64}$/.test(args.profile.trim())
+              ? args.profile.trim()
+              : undefined;
           const data = await server.sendBridgeRequest({
             type: 'vmark.browser.open',
             url: args.url,
             ...(wait === undefined ? {} : { timeoutMs: wait }),
+            ...(profile === undefined ? {} : { profile }),
           });
           return VMarkMcpServer.successJsonResult(data);
         }

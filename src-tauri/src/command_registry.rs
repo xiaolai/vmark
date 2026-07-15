@@ -109,6 +109,8 @@ macro_rules! all_commands {
             browser::ai_commands::browser_ai_create,
             browser::ai_commands::browser_ai_navigate,
             browser::ai_commands::browser_ai_state,
+            browser::commands_auth::browser_add_profile_open,
+            browser::commands_auth::browser_forget_profile,
             browser::commands::browser_back,
             browser::commands::browser_forward,
             browser::commands::browser_stop,

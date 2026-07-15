@@ -20,6 +20,7 @@ import type {
   ApprovalOutcome,
   OneShotApproval,
   HumanTabAttachment,
+  ProfileOpenApproval,
 } from "./browserApprovalStore.types";
 
 // Re-exported so consumers keep importing these from `@/stores/browserApprovalStore`.
@@ -29,6 +30,7 @@ export type {
   ApprovalOutcome,
   OneShotApproval,
   HumanTabAttachment,
+  ProfileOpenApproval,
 } from "./browserApprovalStore.types";
 
 /** Closed operation vocabulary; upload is intentionally never grantable. */
@@ -50,6 +52,7 @@ interface BrowserApprovalState {
   pending: PendingApproval[];
   oneShots: OneShotApproval[];
   attachments: HumanTabAttachment[];
+  profileOpens: ProfileOpenApproval[];
 }
 
 interface BrowserApprovalActions {
@@ -135,6 +138,7 @@ export const useBrowserApprovalStore = create<BrowserApprovalState & BrowserAppr
     pending: [],
     oneShots: [],
     attachments: [],
+    profileOpens: [],
 
     decide: (targetUrl, operation) => {
       if (!KNOWN_OPERATIONS.has(operation)) return "denied";
@@ -180,6 +184,19 @@ export const useBrowserApprovalStore = create<BrowserApprovalState & BrowserAppr
         if (outcome !== "deny") {
           get().attachHumanTab(request.tabId, request.generation, outcome === "once");
         }
+        return;
+      }
+      // Profile-OPEN (WI-P6.1 H1): "Allow once" mints a single-use grant bound to
+      // (profile, origin) — never a standing grant.
+      if (request.profile !== undefined) {
+        const p = request.profile;
+        set((state) => ({
+          profileOpens:
+            outcome === "once" && pattern !== null
+              ? [...state.profileOpens, { profile: p, originPattern: pattern }]
+              : state.profileOpens,
+          pending: state.pending.filter((r) => r.id !== id),
+        }));
         return;
       }
       const remember = outcome === "remember" && pattern !== null;
@@ -245,7 +262,7 @@ export const useBrowserApprovalStore = create<BrowserApprovalState & BrowserAppr
       }));
     },
 
-    clearEphemeral: () => set({ pending: [], oneShots: [], attachments: [] }),
+    clearEphemeral: () => set({ pending: [], oneShots: [], attachments: [], profileOpens: [] }),
 
     attachHumanTab: (tabId, generation, once) => {
       void Promise.resolve(invoke("browser_ai_attach", { tabId, generation, once })).then(

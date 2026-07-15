@@ -4,6 +4,9 @@ import { wrapHandler } from "./wrapHandler";
 import { useTabStore } from "@/stores/tabStore";
 import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import { useBrowserApprovalStore } from "@/stores/browserApprovalStore";
+import { useBrowserSessionStore } from "@/stores/browserSessionStore";
+import { originForAgent } from "@/lib/browser/url";
+import { isOriginGranted } from "@/lib/browser/origin/originGuard";
 import {
   ensureBrowserNativeView,
   waitForBrowserNativeView,
@@ -111,9 +114,42 @@ export async function handleBrowserOpen(id: string, args: Record<string, unknown
     if (timeoutMs === null) return failure(id, "INVALID_TIMEOUT");
     await ensureBrokerStarted();
     const windowLabel = getCurrentWindowLabel();
+    // Optional named profile (WI-P6.1): AI-sandbox persistent store, safe charset.
+    const profile =
+      typeof args.profile === "string" && /^[A-Za-z0-9._-]{1,64}$/.test(args.profile.trim())
+        ? args.profile.trim()
+        : undefined;
+    // H1: opening a named profile needs a FRESH per-use approval — without a
+    // single-use (profile, origin) grant, raise the prompt and DON'T create the tab,
+    // so a guessed profile can't silently open authenticated content. The driver
+    // (browser_ai_create) re-enforces this authoritatively.
+    if (profile) {
+      const targetUrl = String(args.url);
+      const approvals = useBrowserApprovalStore;
+      const grantIdx = approvals
+        .getState()
+        .profileOpens.findIndex((g) => g.profile === profile && isOriginGranted(targetUrl, [g.originPattern]));
+      if (grantIdx === -1) {
+        if (!approvals.getState().pending.some((p) => p.id === id)) {
+          approvals.setState((s) => ({
+            pending: [...s.pending, { id, targetUrl, operation: "session", tabId: "", generation: 0, profile }],
+          }));
+        }
+        const origin = originForAgent(targetUrl);
+        await respond({
+          id,
+          success: false,
+          error: `approval required: open profile '${profile}' on ${origin}`,
+          data: { needsApproval: true, operation: "session", action: "open-profile", profile, url: origin },
+        });
+        return;
+      }
+      approvals.setState((s) => ({ profileOpens: s.profileOpens.filter((_, i) => i !== grantIdx) }));
+    }
     const tabId = useTabStore.getState().createBrowserTab(windowLabel, args.url, undefined, aiMode());
     try {
-      await ensureBrowserNativeView(tabId, args.url, aiMode());
+      await ensureBrowserNativeView(tabId, args.url, aiMode(), profile);
+      if (profile) useBrowserSessionStore.getState().recordProfileUse(profile, Date.now());
     } catch (error) {
       if (String(error).includes("APPROVAL_REQUIRED")) {
         await requestNavigationApproval(id, tabId, args.url, 0);

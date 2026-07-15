@@ -17,6 +17,7 @@
 //! spike (git cd162e02:src-tauri/src/spike_embed.rs).
 
 use crate::browser::one_shot::OneShot;
+use crate::browser::profile_open::ProfileOpen;
 use crate::browser::ai_policy::AiBrowserPolicy;
 use crate::browser::origin_guard::StandingGrant;
 use crate::browser::recovery::CrashTracker;
@@ -50,6 +51,10 @@ pub struct BrowserSurface {
     /// Ephemeral human-tab attachments. Exact tab + generation binding prevents
     /// an approval from following a page navigation or a reused tab id.
     pub attachments: Mutex<Vec<TabAttachment>>,
+    /// Single-use grants to open a named persistent context (WI-P6.1 H1). Bound to
+    /// (profile, destination origin); minted from the user's per-use approval,
+    /// consumed authoritatively in `browser_ai_create` before the profile is applied.
+    pub profile_opens: Mutex<Vec<ProfileOpen>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -184,7 +189,7 @@ mod imp;
 #[cfg(target_os = "macos")]
 pub use imp::{
     assert_no_bridge, clear_ai_sandbox_store, create, create_with_mode, destroy, dialog_respond,
-    eval, go_history, navigate, screenshot::screenshot,
+    eval, forget_profile, go_history, navigate, screenshot::screenshot,
     session_cookies::{apply_cookies, capture_cookies},
     set_bounds, set_hidden, stop,
 };
@@ -202,7 +207,11 @@ mod stub {
         _w: String,
         _u: String,
         _mode: crate::browser::registry::AutomationMode,
+        _profile: Option<String>,
     ) -> Result<(), String> {
+        Err("UNSUPPORTED_PLATFORM".into())
+    }
+    pub fn forget_profile(_a: &AppHandle, _p: String) -> Result<(), String> {
         Err("UNSUPPORTED_PLATFORM".into())
     }
     pub fn clear_ai_sandbox_store(_a: &AppHandle) -> Result<(), String> {
@@ -266,8 +275,8 @@ mod stub {
 #[cfg(not(target_os = "macos"))]
 pub use stub::{
     apply_cookies, assert_no_bridge, capture_cookies, clear_ai_sandbox_store, create,
-    create_with_mode, destroy, dialog_respond, eval, go_history, navigate, screenshot, set_bounds,
-    set_hidden, stop,
+    create_with_mode, destroy, dialog_respond, eval, forget_profile, go_history, navigate,
+    screenshot, set_bounds, set_hidden, stop,
 };
 
 #[cfg(test)]

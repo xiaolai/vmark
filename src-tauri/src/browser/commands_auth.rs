@@ -11,6 +11,7 @@ use crate::browser::authorize::{authorize_driver_op, command_still_fresh};
 use crate::browser::one_shot::{OneShot, OneShotTarget};
 use crate::browser::operation;
 use crate::browser::origin_guard::{self, StandingGrant};
+use crate::browser::profile_open::{self, ProfileOpen};
 use crate::browser::registry::AutomationMode;
 use crate::browser::surface::{self, BrowserSurface};
 use sha2::{Digest, Sha256};
@@ -230,4 +231,37 @@ pub async fn browser_screenshot(
         ));
     }
     Ok(image)
+}
+
+/// Mint a per-use profile-open grant from the user's "Allow once" (WI-P6.1 H1). The
+/// driver is the authority: `browser_ai_create` consumes a matching grant (profile +
+/// destination origin) before applying a named profile.
+#[tauri::command]
+pub async fn browser_add_profile_open(
+    state: State<'_, BrowserSurface>,
+    profile: String,
+    origin_pattern: String,
+) -> Result<(), String> {
+    profile_open::validate_profile(&profile)?;
+    if !origin_guard::is_origin_pattern(&origin_pattern) {
+        return Err(format!("not a valid origin pattern: '{origin_pattern}'"));
+    }
+    let mut opens = state.profile_opens.lock().map_err(|e| e.to_string())?;
+    // Bound an untrusted client from piling up pending approvals.
+    if opens.len() >= 64 {
+        return Err("too many pending profile approvals".into());
+    }
+    opens.push(ProfileOpen {
+        profile,
+        origin_pattern,
+    });
+    Ok(())
+}
+
+/// Delete a named profile's on-disk WebKit data (WI-P6.5) — user-initiated from the
+/// management UI's "Remove profile", so removal actually revokes the login.
+#[tauri::command]
+pub async fn browser_forget_profile(app: AppHandle, profile: String) -> Result<(), String> {
+    profile_open::validate_profile(&profile)?;
+    surface::forget_profile(&app, profile)
 }
