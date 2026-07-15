@@ -34,25 +34,35 @@ interface RefStore {
   byRef: Map<string, WeakRef<Element>>;
   /** Monotonic counter — the next ref is `e${n + 1}`. */
   n: number;
+  /** The navigation generation this store was minted against. */
+  gen: number;
 }
 
 type DocWithStore = Document & { __vmarkRefStore?: RefStore };
 
-/** Get (or lazily create) the ref store bound to `doc`. */
-function storeFor(doc: Document): RefStore {
+/**
+ * Get (or lazily create) the ref store bound to `doc`, keyed to `generation`.
+ *
+ * The store resets whenever the generation changes. A full-page navigation
+ * already replaces the document (fresh store for free); this additionally covers
+ * a **same-document (SPA) navigation**, which keeps the document but replaces the
+ * view and bumps the generation — refs minted against the old view must not
+ * resolve against the new one (Audit #11).
+ */
+function storeFor(doc: Document, generation: number): RefStore {
   const holder = doc as DocWithStore;
-  if (!holder.__vmarkRefStore) {
-    holder.__vmarkRefStore = { refs: new WeakMap(), byRef: new Map(), n: 0 };
+  if (!holder.__vmarkRefStore || holder.__vmarkRefStore.gen !== generation) {
+    holder.__vmarkRefStore = { refs: new WeakMap(), byRef: new Map(), n: 0, gen: generation };
   }
   return holder.__vmarkRefStore;
 }
 
-/** The stable ref for `el`, assigning a fresh one on first sight. Returns "" for
- *  a detached element with no owner document (nothing to key a store on). */
-export function refFor(el: Element): string {
+/** The stable ref for `el` at `generation`, assigning a fresh one on first sight.
+ *  Returns "" for a detached element with no owner document. */
+export function refFor(el: Element, generation: number): string {
   const doc = el.ownerDocument;
   if (!doc) return "";
-  const store = storeFor(doc);
+  const store = storeFor(doc, generation);
   const existing = store.refs.get(el);
   if (existing) return existing;
   const ref = `e${(store.n += 1)}`;
@@ -61,12 +71,12 @@ export function refFor(el: Element): string {
   return ref;
 }
 
-/** Resolve a ref back to its element, or null if the ref is unknown to this
- *  document, its element has been garbage-collected or left the DOM, or it has
- *  been adopted into another document (whose store must own it, not this one).
+/** Resolve a ref back to its element at `generation`, or null if the store has
+ *  reset (a newer generation), the ref is unknown, its element has been
+ *  garbage-collected or left the DOM, or it was adopted into another document.
  *  A stale handle is never acted on. */
-export function queryByRef(doc: Document, ref: string): Element | null {
-  const el = storeFor(doc).byRef.get(ref)?.deref();
+export function queryByRef(doc: Document, ref: string, generation: number): Element | null {
+  const el = storeFor(doc, generation).byRef.get(ref)?.deref();
   if (!el || !el.isConnected || el.ownerDocument !== doc) return null;
   return el;
 }

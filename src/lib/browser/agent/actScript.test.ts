@@ -1,6 +1,12 @@
 // WI-2.3 — injected act scripts: snapshot / click / type by role+name, run via eval
 import { describe, it, expect } from "vitest";
-import { buildSnapshotScript, buildClickScript, buildTypeScript } from "./actScript";
+import {
+  buildSnapshotScript,
+  buildClickScript,
+  buildTypeScript,
+  buildClickByRefScript,
+  buildTypeByRefScript,
+} from "./actScript";
 import { ariaSnapshot } from "./aria";
 
 function parse(html: string): Document {
@@ -100,6 +106,43 @@ describe("parity with aria.ts", () => {
     const doc = parse(`<input type="checkbox" checked aria-label="Agree">`);
     (doc.querySelector("input") as HTMLInputElement).checked = false;
     expect(exec(doc, buildSnapshotScript())).toEqual(ariaSnapshot(doc.body));
+  });
+});
+
+describe("act by ref (WI-P2.2)", () => {
+  it("clicks the element bound to a ref minted by a snapshot at the same generation", () => {
+    const doc = parse(`<button id="a">One</button><button id="b">Two</button>`);
+    const snap = exec(doc, buildSnapshotScript(5)) as Array<{ ref: string; name: string }>;
+    const two = snap.find((n) => n.name === "Two")!;
+    let clicked = "";
+    doc.querySelectorAll("button").forEach((b) => b.addEventListener("click", () => (clicked = b.id)));
+    const res = exec(doc, buildClickByRefScript(two.ref, 5)) as ActResult;
+    expect(res).toEqual({ found: true, clicked: true });
+    expect(clicked).toBe("b");
+  });
+
+  it("types into the field bound to a ref", () => {
+    const doc = parse(`<label for="e">Email</label><input id="e" type="text">`);
+    const snap = exec(doc, buildSnapshotScript(1)) as Array<{ ref: string; role: string }>;
+    const field = snap.find((n) => n.role === "textbox")!;
+    const res = exec(doc, buildTypeByRefScript(field.ref, "hi@x.com", 1)) as ActResult;
+    expect(res.typed).toBe(true);
+    expect((doc.getElementById("e") as HTMLInputElement).value).toBe("hi@x.com");
+  });
+
+  it("refuses a stale ref after the generation bumps (store reset on navigation)", () => {
+    const doc = parse(`<button id="a">One</button>`);
+    const ref = (exec(doc, buildSnapshotScript(1)) as Array<{ ref: string }>)[0].ref;
+    // Same document, new generation (SPA nav): the ref must no longer resolve.
+    const res = exec(doc, buildClickByRefScript(ref, 2)) as ActResult;
+    expect(res.found).toBe(false);
+  });
+
+  it("refuses a disabled ref target rather than reporting a click", () => {
+    const doc = parse(`<button id="a" disabled>Go</button>`);
+    const ref = (exec(doc, buildSnapshotScript(1)) as Array<{ ref: string }>)[0].ref;
+    const res = exec(doc, buildClickByRefScript(ref, 1)) as ActResult;
+    expect(res).toEqual({ found: true, clicked: false, reason: "disabled" });
   });
 });
 

@@ -105,20 +105,22 @@ function __vmarkName(el){
  *  reset when a navigation replaces the document. Same shape + assignment order as
  *  `refs.ts`, so `actScript.test.ts`'s parity check holds. */
 const LIB_REFS = `
-function __vmarkRefStore(){
+function __vmarkRefStore(gen){
   var d=document;
-  if(!d.__vmarkRefStore){d.__vmarkRefStore={refs:new WeakMap(),byRef:new Map(),n:0};}
+  if(!d.__vmarkRefStore||d.__vmarkRefStore.gen!==gen){
+    d.__vmarkRefStore={refs:new WeakMap(),byRef:new Map(),n:0,gen:gen};
+  }
   return d.__vmarkRefStore;
 }
-function __vmarkRefFor(el){
-  var s=__vmarkRefStore(),ex=s.refs.get(el);
+function __vmarkRefFor(el,gen){
+  var s=__vmarkRefStore(gen),ex=s.refs.get(el);
   if(ex)return ex;
   var ref='e'+(++s.n);
   s.refs.set(el,ref);s.byRef.set(ref,new WeakRef(el));
   return ref;
 }
-function __vmarkQueryByRef(ref){
-  var s=__vmarkRefStore(),w=s.byRef.get(ref),el=w?w.deref():null;
+function __vmarkQueryByRef(ref,gen){
+  var s=__vmarkRefStore(gen),w=s.byRef.get(ref),el=w?w.deref():null;
   if(!el||!el.isConnected||el.ownerDocument!==document)return null;
   return el;
 }`;
@@ -156,12 +158,12 @@ function __vmarkQuery(role,name){
   return out;
 }
 var __vmarkLevels={H1:1,H2:2,H3:3,H4:4,H5:5,H6:6};
-function __vmarkSnapshot(){
+function __vmarkSnapshot(gen){
   var all=document.querySelectorAll('*'),out=[];
   for(var i=0;i<all.length;i++){
     var el=all[i],role=__vmarkRole(el);
     if(!role||__vmarkHidden(el))continue;
-    var node={role:role,name:__vmarkName(el),ref:__vmarkRefFor(el)};
+    var node={role:role,name:__vmarkName(el),ref:__vmarkRefFor(el,gen)};
     if(role==='heading')node.level=__vmarkLevels[el.tagName]||(Number(el.getAttribute('aria-level'))||undefined);
     if(role==='checkbox'||role==='radio')node.checked=__vmarkChecked(el);
     if(__vmarkDisabled(el))node.disabled=true;
@@ -203,14 +205,37 @@ function __vmarkType(role,name,text){
     return {found:true,typed:false,reason:String((e&&e.message)||e)};
   }
   return {found:true,typed:true};
+}
+function __vmarkClickRef(ref,gen){
+  var el=__vmarkQueryByRef(ref,gen); if(!el)return {found:false,clicked:false};
+  if(__vmarkDisabled(el))return {found:true,clicked:false,reason:'disabled'};
+  el.click();
+  return {found:true,clicked:true};
+}
+function __vmarkTypeRef(ref,gen,text){
+  var el=__vmarkQueryByRef(ref,gen); if(!el)return {found:false,typed:false};
+  var tag=el.tagName.toLowerCase();
+  if(__vmarkDisabled(el))return {found:true,typed:false,reason:'disabled'};
+  if(tag!=='input'&&tag!=='textarea')return {found:true,typed:false,reason:'not-editable'};
+  if(el.readOnly)return {found:true,typed:false,reason:'readonly'};
+  try{
+    if(el.focus)el.focus();
+    __vmarkSetValue(el,text);
+    el.dispatchEvent(new Event('input',{bubbles:true}));
+    el.dispatchEvent(new Event('change',{bubbles:true}));
+  }catch(e){
+    return {found:true,typed:false,reason:String((e&&e.message)||e)};
+  }
+  return {found:true,typed:true};
 }`;
 
 /** Standalone role/name/refs/query/snapshot/click/type library, injected verbatim. */
 const AGENT_LIB = [LIB_ROLE, LIB_NAME, LIB_REFS, LIB_QUERY, LIB_ACT].join("\n");
 
-/** Script: read the page as a flat ARIA snapshot (`[{role,name,…},…]`). */
-export function buildSnapshotScript(): string {
-  return `${AGENT_LIB}\nreturn JSON.stringify(__vmarkSnapshot());`;
+/** Script: read the page as a flat ARIA snapshot (`[{role,name,ref,…},…]`).
+ *  `generation` scopes the ref store, so refs reset across a navigation. */
+export function buildSnapshotScript(generation = 0): string {
+  return `${AGENT_LIB}\nreturn JSON.stringify(__vmarkSnapshot(${Number(generation)}));`;
 }
 
 /** Script: click the element with `role` + accessible `name` (exact). Reports
@@ -224,4 +249,18 @@ export function buildClickScript(role: string, name: string): string {
  *  non-editable target is refused, never silently mutated. */
 export function buildTypeScript(role: string, name: string, text: string): string {
   return `${AGENT_LIB}\nreturn JSON.stringify(__vmarkType(${JSON.stringify(role)}, ${JSON.stringify(name)}, ${JSON.stringify(text)}));`;
+}
+
+/** Script: click the element bound to `ref` at `generation` (exact, order-
+ *  independent). Resolves nothing — reports `{found:false}` — if the ref is stale
+ *  (the store reset on navigation), so an old handle can never hit a new element. */
+export function buildClickByRefScript(ref: string, generation: number): string {
+  return `${AGENT_LIB}\nreturn JSON.stringify(__vmarkClickRef(${JSON.stringify(ref)}, ${Number(generation)}));`;
+}
+
+/** Script: type `text` into the field bound to `ref` at `generation`. Same
+ *  refusals as `buildTypeScript` (disabled/readonly/non-editable), and a stale
+ *  ref is `{found:false}`. */
+export function buildTypeByRefScript(ref: string, text: string, generation: number): string {
+  return `${AGENT_LIB}\nreturn JSON.stringify(__vmarkTypeRef(${JSON.stringify(ref)}, ${Number(generation)}, ${JSON.stringify(text)}));`;
 }

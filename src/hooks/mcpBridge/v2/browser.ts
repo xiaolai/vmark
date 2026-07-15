@@ -85,7 +85,7 @@ export async function handleBrowserRead(id: string, args: Record<string, unknown
       invoke: (tab) =>
         invoke<string>("browser_eval", {
           tabId: tab.tabId,
-          script: buildSnapshotScript(),
+          script: buildSnapshotScript(tab.generation),
           operation: "read",
           generation: tab.generation,
         }),

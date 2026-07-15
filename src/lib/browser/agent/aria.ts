@@ -245,12 +245,12 @@ function isChecked(el: Element): boolean {
 
 /** Render the page's interesting, visible elements as a flat list of accessibility
  *  nodes (generic containers with no role, and hidden subtrees, are omitted). */
-export function ariaSnapshot(root: Element): AriaNode[] {
+export function ariaSnapshot(root: Element, generation = 0): AriaNode[] {
   const nodes: AriaNode[] = [];
   root.querySelectorAll("*").forEach((el) => {
     const role = computeRole(el);
     if (!role || isHidden(el)) return;
-    const node: AriaNode = { role, name: accessibleName(el), ref: refFor(el) };
+    const node: AriaNode = { role, name: accessibleName(el), ref: refFor(el, generation) };
     const level = HEADING_TAGS[el.tagName.toLowerCase()];
     if (role === "heading") node.level = level ?? (Number(el.getAttribute("aria-level")) || undefined);
     if (role === "checkbox" || role === "radio") node.checked = isChecked(el);
