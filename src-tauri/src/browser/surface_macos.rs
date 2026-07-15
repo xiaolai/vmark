@@ -34,6 +34,8 @@ use lifecycle::evict_existing;
 
 #[path = "browser_store_macos.rs"]
 mod browser_store;
+#[path = "console_shim_macos.rs"]
+mod console_shim;
 
 #[path = "screenshot_macos.rs"]
 pub mod screenshot;
@@ -100,6 +102,9 @@ pub fn create_with_mode(
         // Start at zero size; the frontend supplies the measured browser rect immediately.
         let config = unsafe { WKWebViewConfiguration::new(mtm) };
         browser_store::configure(&config, mtm, mode);
+        // Page-world console-capture shim (WI-P7.1) — AiSandbox only; writes to a
+        // shared DOM buffer the isolated-world reader polls (no message handler).
+        console_shim::configure(&config, mtm, mode);
         let webview = unsafe {
             WKWebView::initWithFrame_configuration(WKWebView::alloc(mtm), CGRect::ZERO, &config)
         };
