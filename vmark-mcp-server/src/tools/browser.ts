@@ -58,13 +58,14 @@ export function registerBrowserTool(server: VMarkMcpServer): void {
         '- act: Click or type by ARIA role + accessible name. Args: {tabId?, operation: "click"|"type", role, name, text?}. Locating never crosses roles (a button named "Publish" is not a link named "Publish"). Actions are gated by the user\'s standing grants: an un-granted operation returns success:false with data.needsApproval:true — surface that to the user and wait for approval rather than retrying. Upload is never permitted (an AI-chosen file upload is an exfiltration path).\n' +
         '- open: Create an AI-owned browser tab at an HTTP(S) URL and wait for its navigation.\n' +
         '- navigate: Navigate an AI-owned tab and wait for the returned navigation ticket.\n' +
-        '- wait: Wait for an existing navigation ticket without starting a new navigation. All waits are bounded to 12 seconds.',
+        '- wait: Wait for an existing navigation ticket without starting a new navigation. All waits are bounded to 12 seconds.\n' +
+        '- screenshot: Return a JPEG image of the tab\'s current rendering, so you can see layout and rendered state the ARIA tree does not name. Pass `tabId` to target a specific tab; omit for the focused tab. Read-class: allowed on an AI-owned tab; a human tab requires attachment.',
       inputSchema: {
         type: 'object',
         properties: {
           action: {
             type: 'string',
-            enum: ['read', 'act', 'open', 'navigate', 'wait'],
+            enum: ['read', 'act', 'open', 'navigate', 'wait', 'screenshot'],
             description: 'The action to perform',
           },
           tabId: {
@@ -200,6 +201,26 @@ export function registerBrowserTool(server: VMarkMcpServer): void {
             ...(wait === undefined ? {} : { timeoutMs: wait }),
           });
           return VMarkMcpServer.successJsonResult(data);
+        }
+        if (args.action === 'screenshot') {
+          const data = await server.sendBridgeRequest<{ url?: unknown; image?: unknown }>({
+            type: 'vmark.browser.screenshot',
+            ...(tabId === undefined ? {} : { tabId }),
+          });
+          // The bridge returns { url, image } where image is a base64 JPEG. Guard
+          // the shape: a missing image would otherwise become an image content
+          // block with `data: undefined`, which the client renders as broken.
+          if (typeof data?.image !== 'string' || data.image.length === 0) {
+            return VMarkMcpServer.errorResult('screenshot returned no image data');
+          }
+          const url = typeof data.url === 'string' ? data.url : 'the current page';
+          return {
+            success: true,
+            content: [
+              { type: 'text', text: `Screenshot of ${url}` },
+              { type: 'image', data: data.image, mimeType: 'image/jpeg' },
+            ],
+          };
         }
         return VMarkMcpServer.errorResult(`unknown action: ${String(args.action)}`);
       } catch (error) {

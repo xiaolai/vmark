@@ -165,7 +165,7 @@ mod imp;
 #[cfg(target_os = "macos")]
 pub use imp::{
     assert_no_bridge, clear_ai_sandbox_store, create, create_with_mode, destroy, dialog_respond,
-    eval, go_history, navigate, set_bounds, set_hidden, stop,
+    eval, go_history, navigate, screenshot::screenshot, set_bounds, set_hidden, stop,
 };
 
 #[cfg(not(target_os = "macos"))]
@@ -218,6 +218,9 @@ mod stub {
     pub fn eval(_a: &AppHandle, _t: String, _s: String) -> Result<String, String> {
         Err(MSG.into())
     }
+    pub fn screenshot(_a: &AppHandle, _t: String) -> Result<String, String> {
+        Err(MSG.into())
+    }
     pub fn set_hidden(_a: &AppHandle, _t: String, _h: bool) -> Result<(), String> {
         Err(MSG.into())
     }
@@ -226,7 +229,7 @@ mod stub {
 #[cfg(not(target_os = "macos"))]
 pub use stub::{
     assert_no_bridge, clear_ai_sandbox_store, create, create_with_mode, destroy, dialog_respond,
-    eval, go_history, navigate, set_bounds, set_hidden, stop,
+    eval, go_history, navigate, screenshot, set_bounds, set_hidden, stop,
 };
 
 #[cfg(test)]

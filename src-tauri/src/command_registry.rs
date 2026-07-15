@@ -120,6 +120,7 @@ macro_rules! all_commands {
             browser::commands_auth::browser_add_one_shot,
             browser::commands_auth::browser_ai_attach,
             browser::commands_auth::browser_eval,
+            browser::commands_auth::browser_screenshot,
             browser::commands::browser_freeze,
             browser::commands::browser_thaw,
             #[cfg(target_os = "macos")]

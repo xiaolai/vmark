@@ -296,7 +296,7 @@ Returns `{revision, replaced_chars}` on success. `replaced_chars` is the length 
 ## `browser`
 
 The browser tool is available only when **Settings → Advanced → Embedded browser** is
-enabled. All five actions fail with `BROWSER_DISABLED` while it is off. URLs returned to
+enabled. All six actions fail with `BROWSER_DISABLED` while it is off. URLs returned to
 MCP are redacted through the same boundary used by the app's browser session state.
 
 ### `read`
@@ -327,6 +327,14 @@ retrieve the terminal result.
 Arguments: `tabId?`, optional `navigationId`, and optional `timeoutMs`. It never starts a
 navigation. It returns a buffered load/failure result, `NAVIGATION_SUPERSEDED`, or
 `TIMEOUT` when the ticket does not finish within the bound.
+
+### `screenshot`
+
+Arguments: `tabId?`. Returns an **image content block** (base64 JPEG, quality-bounded) of
+the tab's current rendering, plus a text line naming the page — a visual channel onto
+layout and rendered state the ARIA snapshot cannot describe. It is captured natively
+(`takeSnapshot`) and reads no page DOM or JavaScript. Read-class: authorized exactly like
+`read` (allowed on an AI-owned tab; a human tab needs an attachment, consumed on capture).
 
 Shared posture asks for destination approval for every new origin unless a matching
 `navigate` grant exists. A human-created tab requires an ephemeral attachment approval

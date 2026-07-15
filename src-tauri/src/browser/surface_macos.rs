@@ -35,6 +35,9 @@ use lifecycle::evict_existing;
 #[path = "browser_store_macos.rs"]
 mod browser_store;
 
+#[path = "screenshot_macos.rs"]
+pub mod screenshot;
+
 thread_local! {
     /// Main-thread-only live webviews, keyed by tab id.
     static WEBVIEWS: RefCell<HashMap<String, Retained<WKWebView>>> = RefCell::new(HashMap::new());
@@ -75,13 +78,7 @@ pub fn create(
     window_label: String,
     url: String,
 ) -> Result<(), String> {
-    create_with_mode(
-        app,
-        tab_id,
-        window_label,
-        url,
-        super::super::registry::AutomationMode::Human,
-    )
+    create_with_mode(app, tab_id, window_label, url, super::super::registry::AutomationMode::Human)
 }
 
 /// Create a browser webview with an explicit data-store posture. The store is

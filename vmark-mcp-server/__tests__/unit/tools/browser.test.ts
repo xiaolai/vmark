@@ -1,4 +1,5 @@
 // WI-2.5/R5 — the browser tool's approval path.
+// WI-P1.3 — the `screenshot` action (returns a base64 JPEG image content block).
 //
 // A refused action is NOT an ordinary error: it is a request for human consent.
 // The bridge failure carries a structured envelope ({needsApproval, operation,
@@ -207,6 +208,45 @@ describe('browser tool — integration via server.callTool', () => {
     expect(bridge.getRequestsOfType('vmark.browser.wait')[0].request).toEqual({
       type: 'vmark.browser.wait', tabId: 'ai-1', navigationId: 'nav-2', timeoutMs: 100,
     });
+  });
+
+  it('screenshot: returns an image content block with the JPEG data and the url as text', async () => {
+    const { server, bridge } = harness({
+      'vmark.browser.screenshot': () => ({
+        success: true,
+        data: { url: 'https://shop.example.com/cart', image: 'BASE64JPEG' },
+      }),
+    });
+
+    const result = await server.callTool('browser', { action: 'screenshot', tabId: 'ai-1' });
+
+    expect(bridge.getRequestsOfType('vmark.browser.screenshot')[0].request).toEqual({
+      type: 'vmark.browser.screenshot', tabId: 'ai-1',
+    });
+    expect(result.isError).toBeUndefined();
+    const image = result.content.find((c) => c.type === 'image');
+    expect(image).toEqual({ type: 'image', data: 'BASE64JPEG', mimeType: 'image/jpeg' });
+    // The url rides along as text so the model knows what it is looking at.
+    expect(result.content.some((c) => c.type === 'text' && c.text?.includes('shop.example.com'))).toBe(true);
+  });
+
+  it('screenshot: omits tabId to target the focused tab', async () => {
+    const { server, bridge } = harness({
+      'vmark.browser.screenshot': () => ({ success: true, data: { url: 'https://x.com', image: 'AA' } }),
+    });
+    await server.callTool('browser', { action: 'screenshot' });
+    expect(bridge.getRequestsOfType('vmark.browser.screenshot')[0].request).toEqual({
+      type: 'vmark.browser.screenshot',
+    });
+  });
+
+  it('screenshot: reports a missing image as an error rather than a broken block', async () => {
+    const { server } = harness({
+      'vmark.browser.screenshot': () => ({ success: true, data: { url: 'https://x.com' } }),
+    });
+    const result = await server.callTool('browser', { action: 'screenshot' });
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain('no image');
   });
 });
 

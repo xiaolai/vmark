@@ -41,6 +41,7 @@ export {
   handleBrowserOpen,
   handleBrowserWait,
 } from "./browserNavigation";
+export { handleBrowserScreenshot } from "./browserScreenshot";
 
 /**
  * Resolve the target browser tab (by id, else the focused window's active tab).
@@ -75,7 +76,7 @@ function actionSucceeded(operation: "click" | "type", result: unknown): boolean 
   return (result as Record<string, unknown>)[flag] === true;
 }
 
-function requireHumanAttachment(
+export function requireHumanAttachment(
   id: string,
   tab: ReturnType<typeof resolveBrowserTab>,
 ): boolean {
