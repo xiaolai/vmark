@@ -101,16 +101,34 @@ fn apply(
     committed: &str,
     state: &StorageState,
 ) -> Result<(), String> {
+    // Defence in depth: refuse a cross-origin blob on the COMMAND thread before we
+    // even dispatch. But the authoritative check is IN the replay script below —
+    // the command-thread check can be raced by a navigation before the main-thread
+    // write actually runs (Sec review P6 re-verify, PARTIAL #1).
     ensure_same_origin(committed, state)?;
-    for origin in &state.origins {
-        // The values are injected as a JSON literal the isolated-world script reads
-        // — never interpolated into code — and setItem failures are swallowed
-        // per-item so one quota rejection doesn't abort the whole restore.
-        let pairs = serde_json::to_string(&origin.items).map_err(|e| e.to_string())?;
-        let script = format!(
-            "var d={pairs};for(var i=0;i<d.length;i++){{try{{localStorage.setItem(d[i][0],d[i][1]);}}catch(e){{}}}}return true;"
+    // All saved origins equal `committed` (ensure_same_origin), so flatten and write once.
+    let items: Vec<&(String, String)> = state.origins.iter().flat_map(|o| &o.items).collect();
+    if items.is_empty() {
+        return Ok(());
+    }
+    // The values are injected as a JSON literal the script READS — never interpolated
+    // into code. The script re-checks the EXECUTING document's live origin against the
+    // approved one immediately before any write, in the SAME synchronous turn, so a
+    // navigation that raced the main-thread dispatch cannot land the credential in a
+    // different origin. Both sides use the browser's own origin normalization.
+    let pairs = serde_json::to_string(&items).map_err(|e| e.to_string())?;
+    let expected = serde_json::to_string(committed).map_err(|e| e.to_string())?;
+    let script = format!(
+        "if(new URL({expected}).origin!==location.origin){{return JSON.stringify({{applied:false,reason:'origin-changed'}});}}\
+         var d={pairs};for(var i=0;i<d.length;i++){{try{{localStorage.setItem(d[i][0],d[i][1]);}}catch(e){{}}}}return JSON.stringify({{applied:true}});"
+    );
+    let raw = surface::eval(app, tab_id.to_string(), script)?;
+    if raw.contains("origin-changed") {
+        return Err(
+            "stale command: the page's origin changed before the session could be restored \
+             — refusing to write credentials into a different origin"
+                .into(),
         );
-        surface::eval(app, tab_id.to_string(), script)?;
     }
     Ok(())
 }

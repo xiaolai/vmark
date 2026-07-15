@@ -61,6 +61,20 @@ describe("handleBrowserSessionSave (op=session, never grantable)", () => {
     expect(JSON.stringify(res.data)).not.toMatch(/token|secret|cookie-value/i);
   });
 
+  // Sec review P6 re-verify (High): the pre-authorization envelope must be origin-only.
+  it("exposes only the origin in the approval envelope, never a credential-bearing path", async () => {
+    useTabStore.setState({ tabs: {}, activeTabId: {}, untitledCounter: 0, closedTabs: {} });
+    const id = useTabStore
+      .getState()
+      .createBrowserTab("main", "https://blog.example.com/magic-login/SECRET-TOKEN", "Blog", "ai-sandbox");
+    useTabStore.getState().updateBrowserTab(id, { generation: 1 });
+    await handleBrowserSessionSave("env", { tabId: id, handle: "h" });
+    const res = lastResponse();
+    expect((res.data as { url?: string }).url).toBe("https://blog.example.com");
+    expect(JSON.stringify(res.data)).not.toContain("SECRET-TOKEN");
+    expect(res.error).not.toContain("SECRET-TOKEN");
+  });
+
   it("refuses a bad handle without touching the driver", async () => {
     const id = seed();
     await handleBrowserSessionSave("sv-x", { tabId: id, handle: "../etc/passwd" });

@@ -101,15 +101,18 @@ export function urlForAgent(url: string): string {
  * keeps the path) is fine for a POST-authorization read response, where the AI is
  * already reading the page anyway. (Security review P6, High.)
  *
- * An opaque origin (`about:`, `data:`) serialises to the string `"null"`; fall back
- * to the userinfo/query/fragment-stripped form rather than exposing `"null"`.
+ * FAILS CLOSED for an opaque origin: `data:`/`about:`/`blob:` serialise their origin
+ * as `"null"`, and a `data:` URL carries its whole payload in the "path" — so we
+ * expose only the SCHEME (`data:(opaque)`), never the payload. An unparseable input
+ * yields a placeholder, not the raw string. (Security review P6 + re-verify, High.)
  */
 export function originForAgent(url: string): string {
   try {
-    const origin = new URL(url).origin;
-    return origin === "null" ? urlForAgent(url) : origin;
+    const parsed = new URL(url);
+    if (parsed.origin === "null") return `${parsed.protocol}(opaque)`;
+    return parsed.origin;
   } catch {
-    return url;
+    return "(unknown origin)";
   }
 }
 

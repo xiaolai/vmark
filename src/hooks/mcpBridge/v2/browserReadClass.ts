@@ -10,7 +10,9 @@
  * `no-circular` error).
  *
  * This layer keeps the human in the loop; the Rust driver is the authoritative
- * gate (browser/authorize.rs). URLs in responses pass through `urlForAgent`.
+ * gate (browser/authorize.rs). A post-authorization data response passes URLs
+ * through `urlForAgent` (path kept); a PRE-authorization approval envelope uses
+ * `originForAgent` (origin only) so a credential-bearing path can't leak.
  *
  * @coordinates-with hooks/mcpBridge/v2/browser.ts — handleBrowserRead / handleBrowserAct
  * @coordinates-with hooks/mcpBridge/v2/browserScreenshot.ts — handleBrowserScreenshot
@@ -19,7 +21,7 @@
 
 import { respond } from "../utils";
 import { useBrowserApprovalStore } from "@/stores/browserApprovalStore";
-import { urlForAgent } from "@/lib/browser/url";
+import { originForAgent } from "@/lib/browser/url";
 import { browserEnabled, readTabIdArg, resolveBrowserTab, type BrowserTarget } from "./browserHelpers";
 
 /** Parse a `browser_eval` string result as JSON, falling back to the raw string
@@ -55,7 +57,9 @@ export async function requireHumanAttachment(
     data: {
       needsApproval: true,
       operation: "attach",
-      url: urlForAgent(tab.url),
+      // Origin only — this pre-authorization envelope must not leak a credential-
+      // bearing path (`/magic-login/<token>`). (Sec review P6 re-verify.)
+      url: originForAgent(tab.url),
       tabId: tab.tabId,
       generation: tab.generation,
     },

@@ -149,9 +149,12 @@ describe("originForAgent — origin only, for approval envelopes", () => {
     expect(originForAgent("https://alice:pw@example.com/x")).toBe("https://example.com");
   });
 
-  it("falls back to the stripped form for an opaque origin rather than exposing 'null'", () => {
-    expect(originForAgent("about:blank")).toBe("about:blank");
-    expect(originForAgent("")).toBe("");
+  it("fails closed for an opaque origin — scheme only, never the payload", () => {
+    // A data: URL carries its payload in the "path"; only the scheme may show.
+    expect(originForAgent("data:text/html,<h1>SECRET</h1>")).toBe("data:(opaque)");
+    expect(originForAgent("data:text/html,<h1>SECRET</h1>")).not.toContain("SECRET");
+    expect(originForAgent("about:blank")).toBe("about:(opaque)");
+    expect(originForAgent("")).toBe("(unknown origin)");
   });
 });
 

@@ -374,12 +374,23 @@ the Rust driver), the approval shows the script, and the return value is flagged
 
 Arguments: `tabId?`, `handle` (`[A-Za-z0-9._-]`, 1–128 chars). `session_save` snapshots
 the tab's session into an **OS-keychain** entry named by `handle` and returns a
-value-free summary (counts); `session_load` restores it and returns only
-`{loaded: true}`. This is credential-**by-reference** (ADR-A7): the AI names a saved
-session and never receives cookie/token values, which are never logged. Both are the
-`session` permission — **never a standing grant** (approved per call), and an approval
-for one handle cannot be spent on another. *Today this covers `localStorage`; cookie
-capture is a live-testing follow-up.*
+value-free summary (counts); `session_load` restores it and returns `{loaded: true,
+handle}` — a confirmation plus the AI-supplied handle, never any values. A `session_load`
+only applies to a page with the **same origin** the session was saved from. This is
+credential-**by-reference** (ADR-A7): the AI names a saved session and never receives
+cookie/token values, which are never logged. Both are the `session` permission —
+**never a standing grant** (approved per call), and an approval for one handle cannot
+be spent on another. *Today this covers `localStorage`; cookie capture is a
+live-testing follow-up.*
+
+### `console`
+
+Arguments: `tabId?`, `clear?`. Returns `{entries: [{level, text}], url}` — the page's
+captured `console.*` output. **Read-class**, sandbox-tabs only. The capture works by a
+page-world shim that writes into a hidden DOM buffer which the driver reads from the
+isolated world — so **no messaging channel** is opened back into VMark (the no-bridge
+guarantee holds). The output is page-controlled and **untrusted** — treat it like a
+`read`, never as an `act` target. Pass `clear: true` to drain the buffer as you read it.
 
 ### `screenshot`
 
