@@ -50,6 +50,7 @@ export {
   handleBrowserWait,
 } from "./browserNavigation";
 export { handleBrowserScreenshot } from "./browserScreenshot";
+export { handleBrowserWaitFor } from "./browserWaitFor";
 
 /**
  * Resolve the target browser tab (by id, else the focused window's active tab).

@@ -58,6 +58,7 @@ An AI assistant connected over [MCP](./mcp-tools) can operate the browser tab:
 - **Open** — create an AI-owned tab and load an HTTP(S) URL.
 - **Navigate** — navigate an AI-owned tab and wait for its navigation ticket.
 - **Wait** — wait for a specific navigation ticket without starting another load.
+- **Wait for** — poll until a condition holds (an element by ref or role + name, or a piece of visible text appears) or a timeout elapses, reporting whether it matched. Makes a multi-step flow deterministic — act, then wait for the result, then read — instead of guessing.
 - **Screenshot** — get a JPEG image of the page's current rendering, so the AI can see layout and rendered state that the accessibility snapshot does not name. Like *Read*, it is non-mutating: allowed on an AI-owned tab, and on a human tab only while you have attached it.
 
 AI browser posture is configured under **Settings → Advanced → Embedded Browser**:

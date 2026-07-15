@@ -269,6 +269,27 @@ describe('browser tool — integration via server.callTool', () => {
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toContain('no image');
   });
+
+  it('wait_for: forwards a single condition and the bounded timeout', async () => {
+    const { server, bridge } = harness({
+      'vmark.browser.wait_for': () => ({ success: true, data: { matched: true } }),
+    });
+    await server.callTool('browser', { action: 'wait_for', text: 'Done', timeoutMs: 3000 });
+    expect(bridge.getRequestsOfType('vmark.browser.wait_for')[0].request).toEqual({
+      type: 'vmark.browser.wait_for', text: 'Done', timeoutMs: 3000,
+    });
+  });
+
+  it('wait_for: refuses zero or multiple conditions without touching the bridge', async () => {
+    const { server, bridge } = harness({
+      'vmark.browser.wait_for': () => ({ success: true, data: {} }),
+    });
+    expect((await server.callTool('browser', { action: 'wait_for' })).isError).toBe(true);
+    expect(
+      (await server.callTool('browser', { action: 'wait_for', text: 'a', role: 'button' })).isError,
+    ).toBe(true);
+    expect(bridge.getRequestsOfType('vmark.browser.wait_for')).toHaveLength(0);
+  });
 });
 
 describe('registerBrowserTools — approval handling', () => {

@@ -332,6 +332,15 @@ Arguments: `tabId?`, optional `navigationId`, and optional `timeoutMs`. It never
 navigation. It returns a buffered load/failure result, `NAVIGATION_SUPERSEDED`, or
 `TIMEOUT` when the ticket does not finish within the bound.
 
+### `wait_for`
+
+Arguments: `tabId?`, exactly one of `ref` (from a read), `role` (+ optional `name`), or
+`text` (a substring of visible text), and optional `timeoutMs` (1–12,000 ms). Polls until
+the condition holds or the timeout elapses and returns `{matched: true|false}` (plus the
+matched element's `ref` for a ref/role condition) — so you can tell "found" from "timed
+out". Read-class. Use it to make a flow deterministic: act, `wait_for` the result, then
+read.
+
 ### `screenshot`
 
 Arguments: `tabId?`. Returns an **image content block** (base64 JPEG, quality-bounded) of

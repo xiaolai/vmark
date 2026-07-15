@@ -264,3 +264,30 @@ export function buildClickByRefScript(ref: string, generation: number): string {
 export function buildTypeByRefScript(ref: string, text: string, generation: number): string {
   return `${AGENT_LIB}\nreturn JSON.stringify(__vmarkTypeRef(${JSON.stringify(ref)}, ${Number(generation)}, ${JSON.stringify(text)}));`;
 }
+
+/** A `wait_for` condition: a ref present, a role (+optional name) present, or a
+ *  substring present in the page's visible text. Exactly one is set. */
+export interface WaitCondition {
+  ref?: string;
+  role?: string;
+  name?: string;
+  text?: string;
+}
+
+/** Script: a single SYNCHRONOUS check of `condition` (no observer, no blocking —
+ *  the frontend polls this). Reports `{matched}` and, for a ref/role condition,
+ *  the matched `ref`. A stale ref (store reset on navigation) is `matched:false`. */
+export function buildWaitConditionScript(condition: WaitCondition, generation: number): string {
+  const gen = Number(generation);
+  let expr: string;
+  if (condition.ref !== undefined) {
+    expr = `(function(){var el=__vmarkQueryByRef(${JSON.stringify(condition.ref)},${gen});return el?{matched:true,ref:${JSON.stringify(condition.ref)}}:{matched:false};})()`;
+  } else if (condition.role !== undefined) {
+    const nameArg = condition.name !== undefined ? JSON.stringify(condition.name) : "null";
+    expr = `(function(){var m=__vmarkQuery(${JSON.stringify(condition.role)},${nameArg});return m.length?{matched:true,ref:__vmarkRefFor(m[0],${gen})}:{matched:false};})()`;
+  } else {
+    const text = JSON.stringify(condition.text ?? "");
+    expr = `(function(){var b=document.body,t=(b&&(b.innerText||b.textContent))||'';return {matched:t.indexOf(${text})>=0};})()`;
+  }
+  return `${AGENT_LIB}\nreturn JSON.stringify(${expr});`;
+}

@@ -59,13 +59,14 @@ export function registerBrowserTool(server: VMarkMcpServer): void {
         '- open: Create an AI-owned browser tab at an HTTP(S) URL and wait for its navigation.\n' +
         '- navigate: Navigate an AI-owned tab and wait for the returned navigation ticket.\n' +
         '- wait: Wait for an existing navigation ticket without starting a new navigation. All waits are bounded to 12 seconds.\n' +
+        '- wait_for: Poll until a page condition holds or the timeout elapses — pass exactly one of {ref} (from a read), {role, name?}, or {text} (a substring of visible text). Returns {matched: true|false} so you can tell "found" from "timed out". Use it to make a flow deterministic (act → wait_for the result → read) instead of guessing. Bounded to 12 seconds.\n' +
         '- screenshot: Return a JPEG image of the tab\'s current rendering, so you can see layout and rendered state the ARIA tree does not name. Pass `tabId` to target a specific tab; omit for the focused tab. Read-class: allowed on an AI-owned tab; a human tab requires attachment.',
       inputSchema: {
         type: 'object',
         properties: {
           action: {
             type: 'string',
-            enum: ['read', 'act', 'open', 'navigate', 'wait', 'screenshot'],
+            enum: ['read', 'act', 'open', 'navigate', 'wait', 'wait_for', 'screenshot'],
             description: 'The action to perform',
           },
           tabId: {
@@ -212,6 +213,35 @@ export function registerBrowserTool(server: VMarkMcpServer): void {
             type: 'vmark.browser.wait',
             ...(tabId === undefined ? {} : { tabId }),
             ...(navigationId === undefined ? {} : { navigationId }),
+            ...(wait === undefined ? {} : { timeoutMs: wait }),
+          });
+          return VMarkMcpServer.successJsonResult(data);
+        }
+        if (args.action === 'wait_for') {
+          const wait = timeoutMs(args.timeoutMs);
+          if (args.timeoutMs !== undefined && wait === undefined) {
+            return VMarkMcpServer.errorResult('timeoutMs must be an integer from 1 to 12000');
+          }
+          const ref = typeof args.ref === 'string' && args.ref.trim() ? args.ref : undefined;
+          const role = typeof args.role === 'string' && args.role.trim() ? args.role : undefined;
+          const text = typeof args.text === 'string' && args.text.length > 0 ? args.text : undefined;
+          const modes = [ref, role, text].filter((v) => v !== undefined).length;
+          if (modes !== 1) {
+            return VMarkMcpServer.errorResult(
+              'wait_for needs exactly one of: ref, role (+optional name), or text',
+            );
+          }
+          const name = typeof args.name === 'string' ? args.name : undefined;
+          const condition =
+            ref !== undefined
+              ? { ref }
+              : role !== undefined
+                ? { role, ...(name !== undefined ? { name } : {}) }
+                : { text };
+          const data = await server.sendBridgeRequest({
+            type: 'vmark.browser.wait_for',
+            ...(tabId === undefined ? {} : { tabId }),
+            ...condition,
             ...(wait === undefined ? {} : { timeoutMs: wait }),
           });
           return VMarkMcpServer.successJsonResult(data);

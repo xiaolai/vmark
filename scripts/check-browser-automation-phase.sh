@@ -199,7 +199,23 @@ case "$PHASE" in
     echo "        is verified manually in a session."
     ;;
 
-  3|4|5|6|7)
+  3)
+    echo "Phase 3 — condition waits (wait_for). Running the DoD suites:"
+    run_vitest src/lib/browser/agent/actScript.test.ts "WI-P3.1 wait-condition script (ref/role/text, stale-ref refusal)"
+    run_vitest src/hooks/mcpBridge/v2/__tests__/browserWaitFor.test.ts "WI-P3.1 wait_for handler (match / poll / timeout / attachment)"
+    run_script "WI-P3.2 sidecar wait_for action" pnpm --dir vmark-mcp-server exec vitest run __tests__/unit/tools/browser.test.ts
+    run_script "WI-linkage for phase P3" bash scripts/check-wi-linkage.sh "$PLAN" --phase=P3
+    run_cross
+    if [[ "$FULL" -eq 1 ]]; then
+      run_script "pnpm check:all" pnpm check:all
+    else
+      skip "pnpm check:all — not run (pre-push gate owns it; re-run with --full)"
+    fi
+    echo "  NOTE: live E2E (click a link, wait_for the destination heading, then read)"
+    echo "        is verified manually in a session."
+    ;;
+
+  4|5|6|7)
     echo "Phase $PHASE — assertions not yet authored."
     echo "  (Template: copy the Phase-1 block — run_vitest/run_cargo/run_script rows"
     echo "   mirroring that phase's DoD line in $PLAN, plus WI-linkage --phase=P$PHASE.)"

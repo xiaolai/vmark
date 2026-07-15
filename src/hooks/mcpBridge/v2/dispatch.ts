@@ -42,6 +42,7 @@ import {
   handleBrowserNavigate,
   handleBrowserWait,
   handleBrowserScreenshot,
+  handleBrowserWaitFor,
 } from "./browser";
 
 /**
@@ -137,6 +138,9 @@ export async function dispatchV2(event: McpRequestEvent): Promise<boolean> {
       return true;
     case "vmark.browser.screenshot":
       await handleBrowserScreenshot(id, args);
+      return true;
+    case "vmark.browser.wait_for":
+      await handleBrowserWaitFor(id, args);
       return true;
 
     default:

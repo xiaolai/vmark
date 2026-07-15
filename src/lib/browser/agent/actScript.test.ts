@@ -6,6 +6,7 @@ import {
   buildTypeScript,
   buildClickByRefScript,
   buildTypeByRefScript,
+  buildWaitConditionScript,
 } from "./actScript";
 import { ariaSnapshot } from "./aria";
 
@@ -143,6 +144,44 @@ describe("act by ref (WI-P2.2)", () => {
     const ref = (exec(doc, buildSnapshotScript(1)) as Array<{ ref: string }>)[0].ref;
     const res = exec(doc, buildClickByRefScript(ref, 1)) as ActResult;
     expect(res).toEqual({ found: true, clicked: false, reason: "disabled" });
+  });
+});
+
+describe("buildWaitConditionScript (WI-P3.1)", () => {
+  it("matches when the page text contains the target", () => {
+    const res = run(`<main><h1>Order confirmed</h1></main>`, buildWaitConditionScript({ text: "confirmed" }, 1)) as {
+      matched: boolean;
+    };
+    expect(res.matched).toBe(true);
+  });
+
+  it("does not match absent text", () => {
+    const res = run(`<main><h1>Loading…</h1></main>`, buildWaitConditionScript({ text: "confirmed" }, 1)) as {
+      matched: boolean;
+    };
+    expect(res.matched).toBe(false);
+  });
+
+  it("matches a role+name and returns its ref", () => {
+    const res = run(`<button>Continue</button>`, buildWaitConditionScript({ role: "button", name: "Continue" }, 4)) as {
+      matched: boolean;
+      ref: string;
+    };
+    expect(res.matched).toBe(true);
+    expect(res.ref).toMatch(/^e\d+$/);
+  });
+
+  it("does not match a role that is absent", () => {
+    const res = run(`<p>text</p>`, buildWaitConditionScript({ role: "button", name: "Go" }, 1)) as { matched: boolean };
+    expect(res.matched).toBe(false);
+  });
+
+  it("matches a ref minted at the same generation, and not after it bumps", () => {
+    const doc = parse(`<button id="a">A</button>`);
+    const ref = (exec(doc, buildSnapshotScript(7)) as Array<{ ref: string }>)[0].ref;
+    expect((exec(doc, buildWaitConditionScript({ ref }, 7)) as { matched: boolean }).matched).toBe(true);
+    // A generation bump (navigation) resets the store; the old ref no longer matches.
+    expect((exec(doc, buildWaitConditionScript({ ref }, 8)) as { matched: boolean }).matched).toBe(false);
   });
 });
 

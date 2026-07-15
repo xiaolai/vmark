@@ -454,6 +454,13 @@ plan.
   the Phases table note) — no ref reaches a one-shot, so the escalation surface
   is removed, not mitigated. `check-browser-automation-phase.sh 2` exits 0
   (suites + WI-linkage for P2 all green).
+- 2026-07-15 — **Phase 3 complete.** `wait_for` (WI-P3.1/P3.2): a bounded
+  frontend poll of fast synchronous condition checks
+  (`buildWaitConditionScript` — ref / role+name / visible-text), re-resolving the
+  tab each round so it tracks navigation and each eval stays well under the
+  driver's run-loop pump cap. Reports `matched: true|false` (found vs timed out).
+  New `browserWaitFor.ts` handler + `vmark.browser.wait_for` sidecar action;
+  read-class (human tab needs an attachment). `check-…-phase.sh 3` exits 0.
 - **TDD hook:** extend the `SCOPED` array in `.claude/hooks/gha-tdd-guard.mjs` to
   cover the new touched paths (`src/lib/browser/agent/**`,
   `src/hooks/mcpBridge/v2/browser*.ts`) so production edits require sibling tests
