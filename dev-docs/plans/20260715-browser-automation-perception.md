@@ -537,6 +537,18 @@ plan.
   the native page-world `WKUserScript` injection (AiSandbox-only) that populates the
   buffer — it duplicates the shim source into Rust and needs a build-time decision +
   live verification. `check-…-phase.sh 7` runs the core suites.
+- 2026-07-16 — **Native credential pieces deferred by explicit decision.** WI-P7.1's
+  native page-world shim injection landed (console output — not a credential). But an
+  attempt to implement WI-P6's native `WKHTTPCookieStore` **cookie** capture (live
+  session credentials → keychain) was halted: shipping it would have reversed the
+  twice-reviewed decision to not land unverified credential-marshaling, and skipped
+  the mandatory `/security-review` (rule 60 §6) every other credential change here
+  went through. A safety gate flagged exactly that. On the surfaced choice, the owner
+  chose to **defer** the native credential pieces — cookie capture, named persistent
+  contexts (WI-P6.1), and the profile/data-management UI (WI-P6.4/P6.5) — to a session
+  with the app running, each to carry its own security review. This is the deliberate,
+  authorized close-out state: every unit-verifiable layer is done + reviewed; the
+  native/UI halves whose DoD requires live-app E2E are held, on purpose.
 - **TDD hook:** extend the `SCOPED` array in `.claude/hooks/gha-tdd-guard.mjs` to
   cover the new touched paths (`src/lib/browser/agent/**`,
   `src/hooks/mcpBridge/v2/browser*.ts`) so production edits require sibling tests
