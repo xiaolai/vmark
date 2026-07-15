@@ -318,12 +318,21 @@ does not disturb the occlusion/freeze state.
 
 ### Phase 2 — Stable element handles (ref-IDs)
 
-| WI | Deliverable | Primary files |
-|---|---|---|
-| WI-P2.1 | `ariaSnapshot` emits a stable `ref` per node; isolated-world `WeakMap` ref store; `queryByRef` | `src/lib/browser/agent/aria.ts`, `actScript.ts`, tests |
-| WI-P2.2 | `read` response includes `ref` on each node; `act` accepts `{ref}` (preferred) or `{role, name}` (fallback); half-specified target still refused | `src/hooks/mcpBridge/v2/browser.ts` |
-| WI-P2.3 | One-shot target binding accepts a ref descriptor so an "Allow once" is bound to the exact element, not a fuzzy name | `browserApprovalStore.ts`, `commands_auth.rs` (`OneShotTarget`) |
-| WI-P2.4 | Sidecar schema: add `ref` to `act`; update description to prefer refs | `vmark-mcp-server/src/tools/browser.ts` |
+| WI | Deliverable | Primary files | Status |
+|---|---|---|---|
+| WI-P2.1 | `ariaSnapshot` emits a stable `ref` per node; `WeakMap` ref store (generation-scoped); `queryByRef` | `src/lib/browser/agent/refs.ts`, `aria.ts`, `actScript.ts`, tests | ✅ done |
+| WI-P2.2 | `read` response includes `ref` on each node; `act` accepts `{ref}` (precise) or `{role, name}`; half-specified target still refused | `src/hooks/mcpBridge/v2/browser.ts`, `actScript.ts` | ✅ done |
+| WI-P2.3 | ~~One-shot target binding accepts a ref descriptor~~ | — | 🔀 **superseded** — see below |
+| WI-P2.4 | Sidecar schema: add `ref` to `act`; description | `vmark-mcp-server/src/tools/browser.ts` | ✅ done |
+
+> **WI-P2.3 superseded (first-principles change).** Binding a one-shot to a bare
+> `ref` requires showing the human a `ref` (`"e5"`) in the approval prompt — not
+> a legible element — or resolving it natively and trusting the AI's claimed
+> role/name, which reopens mislabel-escalation. Instead, `ref` is honored **only
+> for an already-granted operation** (a precise fast-path), and anything needing
+> approval uses `{role, name}` (legible). No `ref` is ever bound into a one-shot,
+> so `OneShotTarget` is unchanged and the escalation surface is removed rather
+> than mitigated. Same targeting-ambiguity fix, smaller trust boundary.
 
 **DoD:** `aria.test.ts`/`actScript.test.ts` assert ref stability across repeated
 snapshots and cross-generation invalidation; an `act`-by-ref test proves the
@@ -438,6 +447,13 @@ plan.
   untrusted-result handling. Phase 6: credential-by-reference (tokens never reach
   the AI), at-rest encryption of exported state, no-logging, and the
   user-approval gate on `load`.
+- 2026-07-15 — **Phase 2 complete.** Stable refs land in `read`
+  (`refs.ts`, generation-scoped), `act` accepts a precise `{ref}` on the
+  already-granted path (`actScript.ts` ref click/type; `browser.ts` handler;
+  sidecar `ref` arg), and WI-P2.3's ref-one-shot binding is **superseded** (see
+  the Phases table note) — no ref reaches a one-shot, so the escalation surface
+  is removed, not mitigated. `check-browser-automation-phase.sh 2` exits 0
+  (suites + WI-linkage for P2 all green).
 - **TDD hook:** extend the `SCOPED` array in `.claude/hooks/gha-tdd-guard.mjs` to
   cover the new touched paths (`src/lib/browser/agent/**`,
   `src/hooks/mcpBridge/v2/browser*.ts`) so production edits require sibling tests

@@ -180,7 +180,26 @@ case "$PHASE" in
     echo "        occlusion/freeze disturbance) is verified manually in a session."
     ;;
 
-  2|3|4|5|6|7)
+  2)
+    echo "Phase 2 — stable element refs + act-by-ref. Running the DoD suites:"
+    run_vitest src/lib/browser/agent/refs.test.ts "WI-P2.1 ref store (stability + generation scoping)"
+    run_vitest src/lib/browser/agent/aria.test.ts "WI-P2.1 ariaSnapshot stamps stable refs"
+    run_vitest src/lib/browser/agent/actScript.test.ts "WI-P2.1/P2.2 injected parity + ref click/type + stale-ref refusal"
+    run_vitest src/hooks/mcpBridge/v2/__tests__/browser.test.ts "WI-P2.2 act accepts {ref} (granted-only) or {role,name}"
+    run_script "WI-P2.4 sidecar act ref arg" pnpm --dir vmark-mcp-server exec vitest run __tests__/unit/tools/browser.test.ts
+    run_script "WI-linkage for phase P2" bash scripts/check-wi-linkage.sh "$PLAN" --phase=P2
+    run_cross
+    if [[ "$FULL" -eq 1 ]]; then
+      run_script "pnpm check:all" pnpm check:all
+    else
+      skip "pnpm check:all — not run (pre-push gate owns it; re-run with --full)"
+    fi
+    echo "  NOTE: live E2E (read → act by the returned ref clicks the intended"
+    echo "        element; the 'More information…'/'Learn more' ambiguity is gone)"
+    echo "        is verified manually in a session."
+    ;;
+
+  3|4|5|6|7)
     echo "Phase $PHASE — assertions not yet authored."
     echo "  (Template: copy the Phase-1 block — run_vitest/run_cargo/run_script rows"
     echo "   mirroring that phase's DoD line in $PLAN, plus WI-linkage --phase=P$PHASE.)"
