@@ -39,6 +39,8 @@ mod console_shim;
 
 #[path = "screenshot_macos.rs"]
 pub mod screenshot;
+#[path = "session_cookies_macos.rs"]
+pub mod session_cookies;
 
 thread_local! {
     /// Main-thread-only live webviews, keyed by tab id.

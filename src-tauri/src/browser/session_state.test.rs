@@ -25,6 +25,7 @@ fn mock_entry(suffix: &str) -> Entry {
 
 fn sample() -> StorageState {
     StorageState {
+        origin: Some("https://example.com".into()),
         cookies: vec![StoredCookie {
             name: "session".into(),
             value: "SUPER-SECRET-TOKEN".into(),
@@ -33,6 +34,7 @@ fn sample() -> StorageState {
             secure: true,
             http_only: true,
             expires: Some(1_800_000_000.0),
+            same_site: Some("strict".into()),
         }],
         origins: vec![OriginStorage {
             origin: "https://example.com".into(),

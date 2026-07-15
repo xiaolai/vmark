@@ -184,7 +184,9 @@ mod imp;
 #[cfg(target_os = "macos")]
 pub use imp::{
     assert_no_bridge, clear_ai_sandbox_store, create, create_with_mode, destroy, dialog_respond,
-    eval, go_history, navigate, screenshot::screenshot, set_bounds, set_hidden, stop,
+    eval, go_history, navigate, screenshot::screenshot,
+    session_cookies::{apply_cookies, capture_cookies},
+    set_bounds, set_hidden, stop,
 };
 
 #[cfg(not(target_os = "macos"))]
@@ -240,6 +242,21 @@ mod stub {
     pub fn screenshot(_a: &AppHandle, _t: String) -> Result<String, String> {
         Err(MSG.into())
     }
+    pub fn capture_cookies(
+        _a: &AppHandle,
+        _t: String,
+        _host: String,
+    ) -> Result<Vec<crate::browser::session_state::StoredCookie>, String> {
+        Err(MSG.into())
+    }
+    pub fn apply_cookies(
+        _a: &AppHandle,
+        _t: String,
+        _host: String,
+        _c: Vec<crate::browser::session_state::StoredCookie>,
+    ) -> Result<(), String> {
+        Err(MSG.into())
+    }
     pub fn set_hidden(_a: &AppHandle, _t: String, _h: bool) -> Result<(), String> {
         Err(MSG.into())
     }
@@ -247,8 +264,9 @@ mod stub {
 
 #[cfg(not(target_os = "macos"))]
 pub use stub::{
-    assert_no_bridge, clear_ai_sandbox_store, create, create_with_mode, destroy, dialog_respond,
-    eval, go_history, navigate, screenshot, set_bounds, set_hidden, stop,
+    apply_cookies, assert_no_bridge, capture_cookies, clear_ai_sandbox_store, create,
+    create_with_mode, destroy, dialog_respond, eval, go_history, navigate, screenshot, set_bounds,
+    set_hidden, stop,
 };
 
 #[cfg(test)]

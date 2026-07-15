@@ -42,9 +42,10 @@ fn committed_origin(state: &BrowserSurface, tab_id: &str) -> Result<String, Stri
         .ok_or_else(|| format!("tab '{tab_id}' has no committed page"))
 }
 
-/// Capture the current page's `localStorage` (per-origin) via the isolated-world
-/// eval. Cookies are the remaining native piece (see module note); a
-/// localStorage-only blob still round-trips app-local session state.
+/// Capture the current page's session: `localStorage` (per-origin, via the
+/// isolated-world eval) AND cookies (via the native `WKHTTPCookieStore`). The blob
+/// records the committed `origin` it was captured from, so load can bind the whole
+/// restore to it (even a cookies-only blob with empty `origins`).
 ///
 /// FAILS CLOSED: a failed/timed-out eval (`<null>`/`<timeout>`) or an unparseable
 /// result is an error, NEVER an empty blob — so a capture that could not read the
@@ -66,10 +67,22 @@ fn capture(app: &AppHandle, tab_id: &str, origin: &str) -> Result<StorageState, 
             items,
         }]
     };
+    // Cookies from the native store, DOMAIN-SCOPED to the committed host (never the
+    // whole store). A failed native capture is an error, not an empty set.
+    let host = host_of(origin).ok_or_else(|| "committed page has no host".to_string())?;
+    let cookies = surface::capture_cookies(app, tab_id.to_string(), host)?;
     Ok(StorageState {
-        cookies: Vec::new(),
+        origin: Some(origin.to_string()),
+        cookies,
         origins,
     })
+}
+
+/// The host of a committed URL (for cookie domain-scoping on replay).
+fn host_of(url: &str) -> Option<String> {
+    url::Url::parse(url)
+        .ok()
+        .and_then(|u| u.host_str().map(|h| h.to_string()))
 }
 
 /// Every saved origin must canonically equal the destination's committed origin,
@@ -78,15 +91,37 @@ fn capture(app: &AppHandle, tab_id: &str, origin: &str) -> Result<StorageState, 
 pub(crate) fn ensure_same_origin(committed: &str, state: &StorageState) -> Result<(), String> {
     let here = canonicalize_origin(committed)
         .ok_or_else(|| "current page has no canonical origin".to_string())?;
+    let mismatch = || -> String {
+        "STORAGE_STATE_ORIGIN_MISMATCH: the saved session is for a different origin \
+         than the current page — refusing to write credentials cross-origin"
+            .to_string()
+    };
+    // Session-level binding: covers a COOKIES-ONLY blob (empty `origins`), which the
+    // per-localStorage-origin loop below would otherwise pass vacuously. (Sec review
+    // P6 re-verify note.)
+    match &state.origin {
+        Some(saved) => {
+            let saved = canonicalize_origin(saved)
+                .ok_or_else(|| "saved session has a non-canonical origin".to_string())?;
+            if saved != here {
+                return Err(mismatch());
+            }
+        }
+        // [L2] A blob carrying cookies MUST carry a canonical origin to bind them to;
+        // refuse an origin-less cookie blob rather than let it apply anywhere.
+        None if !state.cookies.is_empty() => {
+            return Err(
+                "STORAGE_STATE_UNSCOPED: a saved session with cookies has no origin to bind to"
+                    .into(),
+            );
+        }
+        None => {}
+    }
     for origin in &state.origins {
         let saved = canonicalize_origin(&origin.origin)
             .ok_or_else(|| "saved session has a non-canonical origin".to_string())?;
         if saved != here {
-            return Err(
-                "STORAGE_STATE_ORIGIN_MISMATCH: the saved session is for a different origin \
-                 than the current page — refusing to write credentials cross-origin"
-                    .into(),
-            );
+            return Err(mismatch());
         }
     }
     Ok(())
@@ -106,6 +141,14 @@ fn apply(
     // the command-thread check can be raced by a navigation before the main-thread
     // write actually runs (Sec review P6 re-verify, PARTIAL #1).
     ensure_same_origin(committed, state)?;
+    // Cookies first: replayed into the native store, DOMAIN-SCOPED to the committed
+    // host (apply_cookies drops any cookie whose domain doesn't cover it), so a saved
+    // session's cookies can never be planted under an unrelated origin.
+    if !state.cookies.is_empty() {
+        let host = host_of(committed)
+            .ok_or_else(|| "current page has no host for cookie replay".to_string())?;
+        surface::apply_cookies(app, tab_id.to_string(), host, state.cookies.clone())?;
+    }
     // All saved origins equal `committed` (ensure_same_origin), so flatten and write once.
     let items: Vec<&(String, String)> = state.origins.iter().flat_map(|o| &o.items).collect();
     if items.is_empty() {

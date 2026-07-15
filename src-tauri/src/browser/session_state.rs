@@ -32,11 +32,20 @@ pub struct StoredCookie {
     pub path: String,
     #[serde(default)]
     pub secure: bool,
+    /// Whether the cookie was HttpOnly at capture. `cookieWithProperties:` CANNOT
+    /// recreate an HttpOnly cookie, so replay SKIPS these rather than restoring them
+    /// without the flag (which would let an untrusted page read the credential via
+    /// `document.cookie`). HttpOnly logins are the named-context feature's job.
+    /// (Sec review — cookie H1.)
     #[serde(default, rename = "httpOnly")]
     pub http_only: bool,
-    /// Unix seconds; `None` for a session cookie.
+    /// Unix seconds; `None` for a session cookie. Preserved on replay.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub expires: Option<f64>,
+    /// SameSite policy string (`strict`/`lax`/`none`), if any — preserved on replay
+    /// so a Strict cookie is not restored with weaker cross-site behaviour.
+    #[serde(default, rename = "sameSite", skip_serializing_if = "Option::is_none")]
+    pub same_site: Option<String>,
 }
 
 /// Per-origin `localStorage` snapshot. Values are SECRET.
@@ -50,6 +59,13 @@ pub struct OriginStorage {
 /// A full storage-state blob for one saved session.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub struct StorageState {
+    /// The committed origin this session was captured from (`scheme://host[:port]`),
+    /// or `None` for a legacy blob. Load binds the WHOLE restore to it — including a
+    /// cookies-only blob (which has empty `origins`) — so a saved session can never
+    /// be replayed into a different origin. (Sec review P6: cookie work must add its
+    /// own destination enforcement, not rely on the per-localStorage-origin check.)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub origin: Option<String>,
     pub cookies: Vec<StoredCookie>,
     #[serde(default)]
     pub origins: Vec<OriginStorage>,
