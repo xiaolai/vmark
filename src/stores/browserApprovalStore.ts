@@ -32,7 +32,7 @@ export type {
 } from "./browserApprovalStore.types";
 
 /** Closed operation vocabulary; upload is intentionally never grantable. */
-const KNOWN_OPERATIONS = new Set(["read", "attach", "click", "type", "scroll", "key", "style", "navigate", "publish", "eval"]);
+const KNOWN_OPERATIONS = new Set(["read", "attach", "click", "type", "scroll", "key", "style", "navigate", "publish", "eval", "session"]);
 
 /** Cap on queued approval prompts. The AI client is untrusted and each pending
  *  entry may hold a full script; beyond this a further request is dropped rather

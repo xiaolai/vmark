@@ -46,6 +46,8 @@ import {
   handleBrowserQuery,
   handleBrowserStyle,
   handleBrowserExecuteJs,
+  handleBrowserSessionSave,
+  handleBrowserSessionLoad,
 } from "./browser";
 
 /**
@@ -153,6 +155,12 @@ export async function dispatchV2(event: McpRequestEvent): Promise<boolean> {
       return true;
     case "vmark.browser.execute_js":
       await handleBrowserExecuteJs(id, args);
+      return true;
+    case "vmark.browser.session.save":
+      await handleBrowserSessionSave(id, args);
+      return true;
+    case "vmark.browser.session.load":
+      await handleBrowserSessionLoad(id, args);
       return true;
 
     default:

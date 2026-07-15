@@ -107,7 +107,9 @@ export type BridgeRequest =
       removeClasses?: string[];
       injectCss?: string;
     }
-  | { type: 'vmark.browser.execute_js'; tabId?: string; script: string };
+  | { type: 'vmark.browser.execute_js'; tabId?: string; script: string }
+  | { type: 'vmark.browser.session.save'; tabId?: string; handle: string }
+  | { type: 'vmark.browser.session.load'; tabId?: string; handle: string };
 
 /**
  * Bridge response types — what VMark returns.

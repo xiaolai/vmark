@@ -50,5 +50,7 @@ pub mod origin_guard;
 pub mod redact;
 pub mod recovery;
 pub mod registry;
+pub mod session_commands;
+pub mod session_state;
 pub mod surface;
 pub mod teardown;

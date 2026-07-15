@@ -359,6 +359,24 @@ describe('browser tool — integration via server.callTool', () => {
     expect(r.isError).toBe(true);
     expect(bridge.getRequestsOfType('vmark.browser.execute_js')).toHaveLength(0);
   });
+
+  it('session_save / session_load: forward the handle; reject a bad one', async () => {
+    const { server, bridge } = harness({
+      'vmark.browser.session.save': () => ({ success: true, data: { handle: 'work', summary: '0 cookie(s)' } }),
+      'vmark.browser.session.load': () => ({ success: true, data: { loaded: true } }),
+    });
+    await server.callTool('browser', { action: 'session_save', handle: 'work_login' });
+    expect(bridge.getRequestsOfType('vmark.browser.session.save')[0].request).toEqual({
+      type: 'vmark.browser.session.save', handle: 'work_login',
+    });
+    await server.callTool('browser', { action: 'session_load', handle: 'work_login' });
+    expect(bridge.getRequestsOfType('vmark.browser.session.load')[0].request).toEqual({
+      type: 'vmark.browser.session.load', handle: 'work_login',
+    });
+    // A path-traversal-ish handle never reaches the bridge.
+    expect((await server.callTool('browser', { action: 'session_load', handle: '../secrets' })).isError).toBe(true);
+    expect(bridge.getRequestsOfType('vmark.browser.session.load')).toHaveLength(1);
+  });
 });
 
 describe('registerBrowserTools — approval handling', () => {

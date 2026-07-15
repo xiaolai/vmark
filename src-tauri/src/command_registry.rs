@@ -121,6 +121,9 @@ macro_rules! all_commands {
             browser::commands_auth::browser_ai_attach,
             browser::commands_auth::browser_eval,
             browser::commands_auth::browser_screenshot,
+            browser::session_commands::browser_save_storage_state,
+            browser::session_commands::browser_load_storage_state,
+            browser::session_commands::browser_forget_storage_state,
             browser::commands::browser_freeze,
             browser::commands::browser_thaw,
             #[cfg(target_os = "macos")]
