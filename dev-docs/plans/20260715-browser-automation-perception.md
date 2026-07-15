@@ -1,8 +1,12 @@
 # Browser Automation — Richer Perception & Interaction
 
 > Created: 2026-07-15
-> Status: **DRAFT — not started.** Design complete; awaiting §6 cross-model review
->   (mandatory: >3 phases) before Phase 1 commits.
+> Status: **Phases 0–5 COMPLETE** (screenshot, stable refs, wait_for, scroll/key,
+>   and the scripted power tools query/style/execute_js — the last hardened after a
+>   mandatory security review + Codex re-verification; see the Status log).
+>   **Phase 6 (session/storage — credentials) and Phase 7 (console, stretch) remain.**
+>   Phase 6 is a native credential subsystem whose DoD requires live-app E2E and its
+>   own mandatory `/security-review`.
 > Depends on the shipped embedded-browser surface + AI driver from
 >   `20260714-ai-browser-navigation.md` (WI-N*) and
 >   `20260712-0610-embedded-browser-sites-workflows.md` (WI-1.x/2.x), now merged to `main`.
