@@ -28,10 +28,15 @@
  * @module lib/browser/agent/aria
  */
 
+import { refFor } from "./refs";
+
 /** A compact accessibility node for the AI to read. */
 export interface AriaNode {
   role: string;
   name: string;
+  /** Stable handle for this element within the committed page (WI-P2.1). `act`
+   *  can target `{ref}` exactly instead of re-resolving a fuzzy role + name. */
+  ref: string;
   /** Heading level (1–6), when `role === "heading"`. */
   level?: number;
   /** Checked state, when `role` is checkbox/radio. */
@@ -240,7 +245,7 @@ export function ariaSnapshot(root: Element): AriaNode[] {
   root.querySelectorAll("*").forEach((el) => {
     const role = computeRole(el);
     if (!role || isHidden(el)) return;
-    const node: AriaNode = { role, name: accessibleName(el) };
+    const node: AriaNode = { role, name: accessibleName(el), ref: refFor(el) };
     const level = HEADING_TAGS[el.tagName.toLowerCase()];
     if (role === "heading") node.level = level ?? (Number(el.getAttribute("aria-level")) || undefined);
     if (role === "checkbox" || role === "radio") node.checked = isChecked(el);

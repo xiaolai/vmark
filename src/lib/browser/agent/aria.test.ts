@@ -265,4 +265,21 @@ describe("ariaSnapshot", () => {
     const snap = ariaSnapshot(page);
     expect(snap.map((n) => n.name)).toEqual(["Real headline"]);
   });
+
+  it("stamps each node with a stable ref that survives repeated snapshots (WI-P2.1)", () => {
+    const page = root(`<h1>Title</h1><button>OK</button><a href="/x">Link</a>`);
+    const first = ariaSnapshot(page);
+    expect(first.every((n) => /^e\d+$/.test(n.ref))).toBe(true);
+    // Re-reading the SAME document must not move any node's ref.
+    const second = ariaSnapshot(page);
+    expect(second.map((n) => n.ref)).toEqual(first.map((n) => n.ref));
+  });
+
+  it("restarts refs for a freshly parsed document, never leaking across pages (WI-P2.1)", () => {
+    const p1 = root(`<button>A</button>`);
+    const p2 = root(`<button>B</button>`);
+    // Each document has its own store, so a navigation cannot carry a ref across.
+    expect(ariaSnapshot(p1)[0].ref).toBe("e1");
+    expect(ariaSnapshot(p2)[0].ref).toBe("e1");
+  });
 });

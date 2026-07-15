@@ -95,6 +95,29 @@ function __vmarkName(el){
   return __vmarkNorm(el.getAttribute('title'));
 }`;
 
+/** Stable per-document element refs — mirrors `refs.ts` (`refFor`/`queryByRef`).
+ *  The store lives on `document`, so refs persist across reads within a page and
+ *  reset when a navigation replaces the document. Same shape + assignment order as
+ *  `refs.ts`, so `actScript.test.ts`'s parity check holds. */
+const LIB_REFS = `
+function __vmarkRefStore(){
+  var d=document;
+  if(!d.__vmarkRefStore){d.__vmarkRefStore={refs:new WeakMap(),byRef:new Map(),n:0};}
+  return d.__vmarkRefStore;
+}
+function __vmarkRefFor(el){
+  var s=__vmarkRefStore(),ex=s.refs.get(el);
+  if(ex)return ex;
+  var ref='e'+(++s.n);
+  s.refs.set(el,ref);s.byRef.set(ref,el);
+  return ref;
+}
+function __vmarkQueryByRef(ref){
+  var s=__vmarkRefStore(),el=s.byRef.get(ref);
+  if(!el||!el.isConnected)return null;
+  return el;
+}`;
+
 /** Visibility, state, locating, snapshot — mirrors `isHidden`/`isDisabled`/
  *  `isChecked`/`queryByRole`/`ariaSnapshot`. */
 const LIB_QUERY = `
@@ -133,7 +156,7 @@ function __vmarkSnapshot(){
   for(var i=0;i<all.length;i++){
     var el=all[i],role=__vmarkRole(el);
     if(!role||__vmarkHidden(el))continue;
-    var node={role:role,name:__vmarkName(el)};
+    var node={role:role,name:__vmarkName(el),ref:__vmarkRefFor(el)};
     if(role==='heading')node.level=__vmarkLevels[el.tagName]||(Number(el.getAttribute('aria-level'))||undefined);
     if(role==='checkbox'||role==='radio')node.checked=__vmarkChecked(el);
     if(__vmarkDisabled(el))node.disabled=true;
@@ -177,8 +200,8 @@ function __vmarkType(role,name,text){
   return {found:true,typed:true};
 }`;
 
-/** Standalone role/name/query/snapshot/click/type library, injected verbatim. */
-const AGENT_LIB = [LIB_ROLE, LIB_NAME, LIB_QUERY, LIB_ACT].join("\n");
+/** Standalone role/name/refs/query/snapshot/click/type library, injected verbatim. */
+const AGENT_LIB = [LIB_ROLE, LIB_NAME, LIB_REFS, LIB_QUERY, LIB_ACT].join("\n");
 
 /** Script: read the page as a flat ARIA snapshot (`[{role,name,…},…]`). */
 export function buildSnapshotScript(): string {

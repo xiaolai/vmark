@@ -39,6 +39,15 @@ describe("buildSnapshotScript", () => {
     expect(byRole.link).toBe("More");
     expect(snap.some((n) => n.role === "generic")).toBe(false);
   });
+
+  it("stamps each snapshot node with a ref (WI-P2.1)", () => {
+    const snap = run(
+      `<button>Publish</button><a href="/x">More</a>`,
+      buildSnapshotScript(),
+    ) as Array<{ ref: string }>;
+    expect(snap.length).toBeGreaterThan(0);
+    expect(snap.every((n) => /^e\d+$/.test(n.ref))).toBe(true);
+  });
 });
 
 // The injected library is a standalone copy of `aria.ts` (it must run in the page
