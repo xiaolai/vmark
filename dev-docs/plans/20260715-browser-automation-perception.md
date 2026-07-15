@@ -495,8 +495,23 @@ plan.
     so no regression. **Still open in Phase 2:** act-by-`ref` (WI-P2.2), the
     ref-bound one-shot + native ref→role/name resolution for the human prompt
     (WI-P2.3), and the sidecar `ref` arg (WI-P2.4).
-  - **Gates still open (human-in-the-loop, by design):** the mandatory Codex
-    `/cc-suite:review-plan` (rule 60 §6) before any Phase-1 commit; WI-linkage
-    for WI-P1.3/P1.4 completes in that commit message; live E2E (a real JPEG of
-    an AI tab via Tauri MCP) is verified manually in a session. Nothing is
-    committed.
+  - **Gates still open (human-in-the-loop, by design):** live E2E (a real JPEG of
+    an AI tab via Tauri MCP) is verified manually in a session.
+- 2026-07-15 — **Committed** Phases 0/1/2.1 (5 commits) and ran a **Codex
+  cross-model audit-fix** (`gpt-5.6-sol`, 2 rounds, `/cc-suite:audit-fix`).
+  15 findings; fixed + Codex-verified: human-tab attachment now required for
+  every op (a grant no longer bypasses it) and consumed atomically under a held
+  lock (no one-shot burned on a lost race); `browser_eval` disabled-precedence
+  restored; `browser_screenshot` re-checks freshness after capture (TOCTOU) and
+  bounds width via `snapshotWidth` (downscale-only); the auth gate extracted to
+  `authorize.rs` with expanded tests; refs use `WeakRef` + owner-document checks;
+  `requireHumanAttachment` awaits `respond`; and the `browser.ts` ↔
+  `browserScreenshot.ts` **circular dependency** (a `lint:deps` error that was
+  failing `check:all`) removed by extracting a shared `browserReadClass.ts`.
+  `pnpm check:all` now green. **Deferred (noted):** native-capture integration
+  tests (#6, live E2E); the pre-existing `handleBrowserAct` / sidecar-dispatcher
+  size (#9/#10). **Must fix inside Phase 2's act-by-`ref` work:** the injected
+  ref resolver is unused until then (#7), and the ref store is document-scoped
+  not generation-scoped — a same-document (SPA) navigation retains refs, so
+  P2.2/P2.3 MUST bind the mint generation or reset the store (#11, Codex:
+  "becomes security-relevant before act-by-ref is enabled").
