@@ -19,14 +19,21 @@ use objc2_app_kit::{
     NSImageCompressionFactor,
 };
 use objc2_foundation::{NSData, NSDictionary, NSError, NSNumber, NSRunLoop};
+use objc2_web_kit::WKSnapshotConfiguration;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::time::Duration;
 use tauri::AppHandle;
 
-/// JPEG quality for captures — bounded well below 1.0 so a full-page retina
-/// snapshot does not balloon the base64 payload the model receives.
+/// JPEG quality for captures — kept below 1.0 as one of the two payload bounds.
 const JPEG_QUALITY: f64 = 0.7;
+
+/// Hard cap on the captured width (points). Bounding pixels at the *source* — via
+/// `WKSnapshotConfiguration.snapshotWidth`, before encoding — is what actually
+/// keeps a large or high-DPI page from ballooning the base64 payload handed to
+/// the model; JPEG quality alone does not. A wide page is scaled down (aspect
+/// preserved) rather than captured at full resolution.
+const MAX_SNAPSHOT_WIDTH: f64 = 1600.0;
 
 /// Encoded JPEG bytes, or a stable reason string. Shared between the async
 /// completion handler and the pumping caller.
@@ -39,7 +46,7 @@ type CaptureResult = Result<Vec<u8>, String>;
 /// yields `no webview`; a snapshot that fails or produces no image yields a
 /// stable reason string rather than a panic.
 pub fn screenshot(app: &AppHandle, tab_id: String) -> Result<String, String> {
-    super::on_main(app, move |_mtm| {
+    super::on_main(app, move |mtm| {
         let webview = super::WEBVIEWS
             .with(|m| m.borrow().get(&tab_id).cloned())
             .ok_or_else(|| format!("no webview: {tab_id}"))?;
@@ -49,8 +56,18 @@ pub fn screenshot(app: &AppHandle, tab_id: String) -> Result<String, String> {
         let handler = RcBlock::new(move |image: *mut NSImage, error: *mut NSError| {
             *sink.borrow_mut() = Some(encode_snapshot(image, error));
         });
-        // A `None` configuration captures the whole view (SPIKE-5).
-        unsafe { webview.takeSnapshotWithConfiguration_completionHandler(None, &handler) };
+        // Cap the captured width so the payload is bounded before it is ever
+        // allocated/base64-expanded (WebKit scales the whole view to this width,
+        // aspect preserved). Downscale ONLY: never upscale a narrow view (that
+        // would just inflate the payload); leave the natural width when the view
+        // is within the cap or not yet laid out (width 0).
+        let config = unsafe { WKSnapshotConfiguration::new(mtm) };
+        let view_width = webview.frame().size.width;
+        if view_width > MAX_SNAPSHOT_WIDTH {
+            let width = NSNumber::numberWithDouble(MAX_SNAPSHOT_WIDTH);
+            unsafe { config.setSnapshotWidth(Some(&width)) };
+        }
+        unsafe { webview.takeSnapshotWithConfiguration_completionHandler(Some(&config), &handler) };
 
         let run_loop = NSRunLoop::mainRunLoop();
         super::pump_until(&run_loop, Duration::from_secs(10), 0.02, || {

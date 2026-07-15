@@ -1,14 +1,15 @@
 //! Authorization commands for the embedded browser driver (WI-2.1 / R4 / R5).
 //!
 //! The origin/operation/one-shot enforcement surface, split from the lifecycle
-//! commands to keep each file under the size limit. `browser_eval` is the
-//! authoritative gate; `browser_set_grants` / `browser_add_one_shot` are how the
-//! frontend mirrors the user's approvals into the driver, which is the sole
-//! authority (a caller that never syncs simply gets default-deny).
+//! commands to keep each file under the size limit. The authoritative gate
+//! (`authorize_driver_op`) lives in `authorize.rs`; these are the
+//! `#[tauri::command]` entry points, plus `browser_set_grants` /
+//! `browser_add_one_shot`, how the frontend mirrors the user's approvals into
+//! the driver — the sole authority (a caller that never syncs gets default-deny).
 
-use crate::browser::one_shot::{self, OneShot, OneShotTarget};
+use crate::browser::authorize::{authorize_driver_op, command_still_fresh};
+use crate::browser::one_shot::{OneShot, OneShotTarget};
 use crate::browser::operation;
-use crate::browser::redact;
 use crate::browser::origin_guard::{self, StandingGrant};
 use crate::browser::registry::AutomationMode;
 use crate::browser::surface::{self, BrowserSurface};
@@ -106,125 +107,6 @@ pub async fn browser_ai_attach(
     state.attach_tab(tab_id, generation, once.unwrap_or(false))
 }
 
-/// The full driver authorization gate, shared by every command that drives a
-/// **committed** page (`browser_eval`, `browser_screenshot`).
-///
-/// **This is the authoritative security gate for R4/I3/R7a.** It is extracted
-/// into one function precisely so a second command cannot grow its own inline
-/// copy that drifts from this one — the mutually-masked divergence
-/// `.claude/rules/60-ai-governance.md` §10 warns about. Taking `&BrowserSurface`
-/// (not an AppHandle-bound `State`) also makes the gate unit-testable without a
-/// Tauri harness. Callers still check approval for UX, but that check is
-/// advisory: any code path reaching a driver command is refused unless all
-/// three invariants hold —
-///
-///   1. `generation` matches the tab's current navigation generation. This
-///      closes the TOCTOU where a page navigates between the approval decision
-///      and the command, which would otherwise run an approved action against a
-///      *different* origin. A stale command is rejected, never best-effort applied.
-///   2. The tab has a **committed** top-level URL (R7a). A provisional/in-flight
-///      navigation grants nothing — a redirect chain must not briefly authorize
-///      an intermediate origin.
-///   3. That committed origin grants `operation` (R4/R5), by standing grant or a
-///      one-shot consumed here atomically (or, for a human tab, an attachment
-///      consumed here). The origin is read from the registry, never from a
-///      caller-supplied URL. A denied action consumes neither a one-shot nor an
-///      attachment.
-///
-/// On `Ok(())` the caller may run its AppHandle-bound side effect (the eval or
-/// the capture); nothing here touches the page.
-pub(crate) fn authorize_driver_op(
-    state: &BrowserSurface,
-    tab_id: &str,
-    generation: u64,
-    operation: &str,
-    // The element an `act` targets (absent for a `read`/`screenshot`). Passed as
-    // structured data — not parsed out of an opaque script — so the decision and
-    // a one-shot's target binding rest on the descriptor the caller declared.
-    target: Option<&OneShotTarget>,
-) -> Result<(), String> {
-    let policy = state
-        .ai_policy
-        .lock()
-        .map_err(|e| e.to_string())
-        .map(|policy| *policy)?;
-    if !policy.enabled {
-        return Err("BROWSER_DISABLED".into());
-    }
-    let reg = state.registry.lock().map_err(|e| e.to_string())?;
-
-    if !reg.is_command_fresh(tab_id, generation) {
-        return Err(format!(
-            "stale command: tab '{tab_id}' navigated or closed since this operation was authorized"
-        ));
-    }
-
-    // The origin comes from the registry's committed URL — NOT from the caller.
-    let committed = reg
-        .committed_url(tab_id)
-        .ok_or_else(|| format!("tab '{tab_id}' has no committed page; nothing is granted yet"))?;
-
-    let mode = reg
-        .automation_mode(tab_id)
-        .ok_or_else(|| "TAB_NOT_FOUND".to_string())?;
-    if mode != AutomationMode::Human && reg.policy_epoch(tab_id) != Some(policy.epoch) {
-        return Err("POLICY_STALE".into());
-    }
-    let shared_origin_approved =
-        mode == AutomationMode::AiShared && reg.shared_navigation_approved(tab_id, committed);
-    let attached = state.is_tab_attached(tab_id, generation);
-    let grants = state.grants.lock().map_err(|e| e.to_string())?;
-    let allowed = origin_guard::is_driver_operation_allowed_for_mode(
-        committed,
-        operation,
-        &grants,
-        mode,
-        attached,
-        shared_origin_approved,
-    );
-    if !allowed {
-        if mode == AutomationMode::Human && !attached {
-            return Err("ATTACHMENT_REQUIRED".into());
-        }
-        // No standing authority. A single-use "Allow once" may still authorize
-        // this exact action — consumed HERE, atomically, so the check and the
-        // spend cannot be separated (and so a one-shot the frontend believed in
-        // is actually honored by the authority rather than refused by it). The
-        // full descriptor (tab, generation, origin, operation, target) must
-        // match, so an approval can't be spent on a different page or element.
-        let mut one_shots = state.one_shots.lock().map_err(|e| e.to_string())?;
-        if !one_shot::consume_one_shot(
-            &mut one_shots,
-            tab_id,
-            generation,
-            committed,
-            operation,
-            target,
-        ) {
-            // Origin only. The committed URL's query string routinely carries session
-            // tokens and document ids, and a refusal log is not a place to persist
-            // them. (Audit, Medium.)
-            log::warn!(
-                "[browser] REFUSED {operation} on {} (tab {tab_id}): not granted",
-                redact::redact(committed)
-            );
-            return Err(format!(
-                "operation '{operation}' is not granted for the current origin"
-            ));
-        }
-        log::info!(
-            "[browser] {operation} on {} (tab {tab_id}): one-shot consumed",
-            redact::redact(committed)
-        );
-    }
-    if mode == AutomationMode::Human && attached {
-        // Burn a one-shot attachment only after operation authorization
-        // succeeds; a denied action must not consume user consent.
-        let _ = state.consume_tab_attachment(tab_id, generation);
-    }
-    Ok(())
-}
-
 /// Evaluate `script` in the driver's isolated content world and return its
 /// string result (WI-2.1). The script should `return` a JSON-serializable value.
 /// Authorization is delegated to `authorize_driver_op` (the shared gate); this
@@ -241,6 +123,13 @@ pub async fn browser_eval(
     role: Option<String>,
     name: Option<String>,
 ) -> Result<String, String> {
+    // A disabled browser is refused before anything else — including argument
+    // validation — preserving the original command's error precedence
+    // (BROWSER_DISABLED outranks a malformed target). The shared gate re-checks
+    // this authoritatively; this is the cheap up-front guard. (Audit, High.)
+    if !state.ai_policy.lock().map_err(|e| e.to_string())?.enabled {
+        return Err("BROWSER_DISABLED".into());
+    }
     // A target is both halves or neither. `(Some(role), None)` must NOT fall
     // through to a target-less authorization (which a target-less one-shot would
     // then satisfy) — a half-specified target is a caller bug, and the safe
@@ -275,9 +164,15 @@ pub async fn browser_screenshot(
     generation: u64,
 ) -> Result<String, String> {
     authorize_driver_op(&state, &tab_id, generation, "read", None)?;
-    surface::screenshot(&app, tab_id)
+    let image = surface::screenshot(&app, tab_id.clone())?;
+    // The capture pumped the run loop for up to ten seconds; if the page navigated
+    // in that window the pixels are from a page the caller was never authorized
+    // against. Re-check freshness (without re-consuming consent) and discard a
+    // stale capture rather than hand it back (Audit, High).
+    if !command_still_fresh(&state, &tab_id, generation) {
+        return Err(format!(
+            "stale command: tab '{tab_id}' navigated or closed during capture"
+        ));
+    }
+    Ok(image)
 }
-
-#[cfg(test)]
-#[path = "commands_auth.test.rs"]
-mod tests;

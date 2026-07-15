@@ -38,6 +38,7 @@
 //! `#[allow(dead_code)]` with a stated reason.
 #![cfg_attr(not(target_os = "macos"), allow(dead_code))]
 
+pub mod authorize;
 pub mod commands;
 pub mod commands_auth;
 pub mod ai_policy;

@@ -66,10 +66,12 @@ fn human_attachment_is_bound_to_generation_and_once_mode_is_consumed() {
     s.attach_tab("t1".into(), 3, true).unwrap();
     assert!(s.is_tab_attached("t1", 3));
     assert!(!s.is_tab_attached("t1", 4));
-    assert!(s.consume_tab_attachment("t1", 3));
+    // The consumption logic lives in the free `consume_attachment_in` (so the auth
+    // gate can hold the attachments lock across a one-shot spend, authorize.rs).
+    assert!(super::consume_attachment_in(&mut s.attachments.lock().unwrap(), "t1", 3));
     assert!(!s.is_tab_attached("t1", 3));
 
     s.attach_tab("t1".into(), 5, false).unwrap();
-    assert!(s.consume_tab_attachment("t1", 5));
+    assert!(super::consume_attachment_in(&mut s.attachments.lock().unwrap(), "t1", 5));
     assert!(s.is_tab_attached("t1", 5));
 }
