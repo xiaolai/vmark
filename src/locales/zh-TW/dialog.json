@@ -119,6 +119,7 @@
     "pdfExportFailed": "PDF 匯出失敗：{{error}}",
     "cannotMoveTabNoDoc": "無法移動標籤頁：文件未載入。",
     "cannotMoveLastTab": "無法移動主視窗中最後一個標籤頁。",
+    "cannotMoveBrowserTab": "瀏覽器分頁無法移動到其他視窗。",
     "tabMoved": "已將「{{title}}」移至新視窗",
     "tabDetached": "已分離「{{title}}」",
     "tabMovedToWindow": "已移動「{{title}}」",

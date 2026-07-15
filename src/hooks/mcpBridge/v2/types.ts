@@ -11,16 +11,35 @@
 /** Document kind discriminator. Drives which mutation tool applies. */
 export type DocumentKind = "markdown" | "yaml-workflow";
 
-/** Tab info returned in session.get_state. */
-export interface SessionTab {
+/** Document tab info returned in session.get_state. */
+export interface DocumentSessionTab {
   id: string;
+  /**
+   * Keep the pre-browser protocol discriminator. Clients use this value to
+   * choose document.write versus workflow.apply_patch.
+   */
+  kind: DocumentKind;
   filePath: string | null;
   title: string;
   dirty: boolean;
   /** Per-document revision token (currently shares the global revision). */
   revision: string;
-  kind: DocumentKind;
+  /** Additive alias for clients that prefer an explicit field name. */
+  documentKind: DocumentKind;
 }
+
+/** Browser tab info returned in session.get_state. */
+export interface BrowserSessionTab {
+  id: string;
+  kind: "browser";
+  title: string;
+  url: string;
+  loading: boolean;
+  generation: number;
+  automationMode: "human" | "ai-sandbox" | "ai-shared";
+}
+
+export type SessionTab = DocumentSessionTab | BrowserSessionTab;
 
 export interface SessionWindow {
   label: string;

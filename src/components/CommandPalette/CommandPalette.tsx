@@ -20,15 +20,21 @@ import { useCommandPaletteStore } from "./commandPaletteStore";
 import { menuError } from "@/utils/debug";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import "./command-palette.css";
+import { useBrowserOccluder } from "@/hooks/useBrowserOccluder";
+import { useWindowLabel } from "@/contexts/WindowContext";
 
 /**
  * Run a command without swallowing its errors. Awaits the result and
  * logs (rather than crashes the palette) on rejection so an action
  * failure never produces an unhandled promise rejection.
+ *
+ * The invoking window's label rides in the context (WI-S0.7). Without it,
+ * a window-scoped command falls back to "main" — so invoking "New Browser Tab"
+ * from a second document window opened the tab in the FIRST one.
  */
-async function runCommand(id: string): Promise<void> {
+async function runCommand(id: string, windowLabel: string): Promise<void> {
   try {
-    await executeCommand(id);
+    await executeCommand(id, null, { windowLabel });
   } catch (err) {
     menuError(`Command ${id} threw:`, err);
   }
@@ -36,7 +42,11 @@ async function runCommand(id: string): Promise<void> {
 
 export function CommandPalette() {
   const { t } = useTranslation();
+  const windowLabel = useWindowLabel();
   const isOpen = useCommandPaletteStore((s) => s.isOpen);
+  // The native browser view paints over all React DOM in its rect, so freeze every
+  // mounted browser tab while this overlay is up (WI-SOC.1).
+  useBrowserOccluder(isOpen, "command-palette");
   const close = useCommandPaletteStore((s) => s.close);
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -45,8 +55,8 @@ export function CommandPalette() {
   const previousFocusRef = useRef<Element | null>(null);
 
   const ranked: RankedCommand[] = useMemo(
-    () => (isOpen ? searchCommands(query) : []),
-    [isOpen, query],
+    () => (isOpen ? searchCommands(query, { windowLabel }) : []),
+    [isOpen, query, windowLabel],
   );
 
   // Reset the highlighted row to the top whenever the query changes — adjusted
@@ -104,7 +114,7 @@ export function CommandPalette() {
       const picked = ranked[selectedIndex]?.command;
       if (picked) {
         close();
-        await runCommand(picked.id);
+        await runCommand(picked.id, windowLabel);
       }
       return;
     }
@@ -154,7 +164,7 @@ export function CommandPalette() {
                 onMouseDown={(e) => {
                   e.preventDefault();
                   close();
-                  void runCommand(row.command.id);
+                  void runCommand(row.command.id, windowLabel);
                 }}
               >
                 <span className="command-palette__title">

@@ -7,6 +7,9 @@
 //! registry + creates new window → new window calls `claim_tab_transfer` on mount →
 //! receives full document state (content, dirty flag, workspace root).
 //!
+//! Undo (move a tab back): `remove_tab_from_window` is a two-phase handshake, not
+//! a fire-and-forget removal — see `TabRemovalAck`.
+//!
 //! Key decisions:
 //!   - Transfer data is stored in a global Mutex<HashMap> keyed by window label,
 //!     not passed via URL params, to handle large document content safely.
@@ -14,14 +17,30 @@
 //!     leaks when a window is destroyed before claiming its transfer.
 //!   - `find_drop_target_window` uses screen coordinates and prefers focused windows
 //!     to support spring-loaded drag targeting.
+//!   - Undoing a move is a round trip (`prepare` → `commit`), mirroring the
+//!     claim/ack protocol in `workspace_transfer.rs`. `prepare` asks the
+//!     destination for the tab's CURRENT state and destroys nothing; the source
+//!     restores from that ack (never from its stale pre-transfer snapshot) and
+//!     only then sends `commit`, which removes the destination's copy. A
+//!     destination that is unreachable or refuses leaves its tab intact and the
+//!     undo fails — losing an undo beats losing the user's edits.
 
 use std::collections::HashMap;
 use std::sync::Mutex;
 
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Emitter, Listener, Manager};
+use tokio::time::{timeout, Duration};
 
 use crate::window_manager;
+
+mod removal;
+
+pub use removal::TabRemovalAck;
+use removal::{
+    drop_pending_ack, register_pending_ack, route_ack, validate_phase, TabRemovalRequest,
+    REMOVAL_ACK_TIMEOUT_MS, REMOVE_ACK_EVENT, REMOVE_EVENT,
+};
 
 /// Document state transferred when a tab is dragged between windows.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -137,19 +156,63 @@ pub fn focus_existing_window(app: AppHandle, window_label: String) -> Result<(),
     window.set_focus().map_err(|e| e.to_string())
 }
 
-/// Ask a target window to remove a transferred tab by id.
+/// Run one phase of the removal handshake against `target_window_label`.
+///
+/// Returns the destination's ack. Errors (window gone, emit failed, no answer
+/// within the timeout) mean *nothing was removed* — the caller must abort the
+/// undo rather than assume the tab is gone.
 #[tauri::command]
-pub fn remove_tab_from_window(
+pub async fn remove_tab_from_window(
     app: AppHandle,
     target_window_label: String,
     tab_id: String,
-) -> Result<(), String> {
+    phase: String,
+) -> Result<TabRemovalAck, String> {
+    validate_phase(&phase)?;
     let Some(window) = app.get_webview_window(&target_window_label) else {
         return Err(format!("Target window '{}' not found", target_window_label));
     };
-    window
-        .emit("tab:remove-by-id", serde_json::json!({ "tabId": tab_id }))
-        .map_err(|e| e.to_string())
+
+    let request_id = format!("tabrm-{}", uuid::Uuid::new_v4());
+    let rx = register_pending_ack(&request_id);
+
+    // Listen before emitting so a fast destination cannot answer into the void.
+    let listener = app.listen(REMOVE_ACK_EVENT, |event| {
+        match serde_json::from_str::<TabRemovalAck>(event.payload()) {
+            Ok(ack) => route_ack(ack),
+            Err(e) => log::error!("[TabTransfer] Malformed tab-removal ack: {}", e),
+        }
+    });
+
+    let emitted = window.emit(
+        REMOVE_EVENT,
+        TabRemovalRequest {
+            request_id: request_id.clone(),
+            tab_id,
+            phase: phase.clone(),
+        },
+    );
+    if let Err(e) = emitted {
+        app.unlisten(listener);
+        drop_pending_ack(&request_id);
+        return Err(e.to_string());
+    }
+
+    let result = timeout(Duration::from_millis(REMOVAL_ACK_TIMEOUT_MS), rx).await;
+    app.unlisten(listener);
+    drop_pending_ack(&request_id);
+
+    match result {
+        Ok(Ok(ack)) => Ok(ack),
+        Ok(Err(_)) => Err(format!(
+            "Window '{}' dropped the tab-removal request",
+            target_window_label
+        )),
+        Err(_) => Err(format!(
+            "Timed out waiting for window '{}' to acknowledge tab removal ({})",
+            target_window_label, phase
+        )),
+    }
 }
 
 /// Claim transfer data for a window. Returns the data and removes it from the registry.
@@ -191,40 +254,5 @@ fn point_in_window_rect(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::point_in_window_rect;
-
-    #[test]
-    fn point_inside_rect() {
-        // window at (100,100) size 800x600 → (500,400) is inside.
-        assert!(point_in_window_rect(100, 100, 800, 600, 500.0, 400.0));
-    }
-
-    #[test]
-    fn point_on_edge_is_inside() {
-        // Top-left and bottom-right corners are inclusive.
-        assert!(point_in_window_rect(100, 100, 800, 600, 100.0, 100.0));
-        assert!(point_in_window_rect(100, 100, 800, 600, 900.0, 700.0));
-    }
-
-    #[test]
-    fn point_outside_rect() {
-        assert!(!point_in_window_rect(100, 100, 800, 600, 50.0, 400.0)); // left of
-        assert!(!point_in_window_rect(100, 100, 800, 600, 901.0, 400.0)); // right of
-        assert!(!point_in_window_rect(100, 100, 800, 600, 500.0, 99.0)); // above
-        assert!(!point_in_window_rect(100, 100, 800, 600, 500.0, 701.0)); // below
-    }
-
-    #[test]
-    fn zero_size_window_never_matches() {
-        assert!(!point_in_window_rect(100, 100, 0, 600, 100.0, 100.0));
-        assert!(!point_in_window_rect(100, 100, 800, 0, 100.0, 100.0));
-    }
-
-    #[test]
-    fn negative_origin_window() {
-        // Windows can sit at negative coords on a multi-monitor setup.
-        assert!(point_in_window_rect(-200, -100, 400, 300, -50.0, 50.0));
-        assert!(!point_in_window_rect(-200, -100, 400, 300, 300.0, 50.0));
-    }
-}
+#[path = "tab_transfer.test.rs"]
+mod tests;

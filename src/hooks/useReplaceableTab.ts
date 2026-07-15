@@ -12,7 +12,7 @@
  * @coordinates-with useFileOperations.ts — uses getReplaceableTab on file open
  * @module hooks/useReplaceableTab
  */
-import { useTabStore } from "@/stores/tabStore";
+import { useTabStore, tabFilePath } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { findReplaceableTab, type ReplaceableTabInfo, type TabInfo } from "@/utils/openPolicy";
 
@@ -36,10 +36,15 @@ export { findExistingTabForPath } from "@/services/tabs/findExistingTabForPath";
  */
 export function getReplaceableTab(windowLabel: string): ReplaceableTabInfo | null {
   const tabs = useTabStore.getState().tabs[windowLabel] ?? [];
+  // Only document tabs can be replaced. A browser tab has no filePath and no
+  // document entry, so mapping it into TabInfo would make a lone browser tab
+  // look like a clean untitled document — and "replacing" it silently does
+  // nothing (updateTabPath/loadContent are no-ops for a non-document tab).
+  if (tabs.some((t) => t.kind !== "document")) return null;
   const documents = useDocumentStore.getState().documents;
   const tabsInfo: TabInfo[] = tabs.map((t) => ({
     id: t.id,
-    filePath: t.filePath,
+    filePath: tabFilePath(t),
     isDirty: documents[t.id]?.isDirty ?? false,
   }));
   return findReplaceableTab(tabsInfo);

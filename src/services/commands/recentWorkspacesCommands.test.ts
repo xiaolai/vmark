@@ -9,16 +9,24 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockExists = vi.fn();
 const mockAsk = vi.fn();
+const mockOpenPicker = vi.fn();
 const mockInvoke = vi.fn();
 const mockOpenWorkspaceWithConfig = vi.fn();
 const mockRestoreWorkspaceTabs = vi.fn();
 const mockToastError = vi.fn();
+const mockPersistWorkspaceSession = vi.fn();
 
 vi.mock("@tauri-apps/plugin-fs", () => ({ exists: (...a: unknown[]) => mockExists(...a) }));
-vi.mock("@tauri-apps/plugin-dialog", () => ({ ask: (...a: unknown[]) => mockAsk(...a) }));
+vi.mock("@tauri-apps/plugin-dialog", () => ({
+  ask: (...a: unknown[]) => mockAsk(...a),
+  open: (...a: unknown[]) => mockOpenPicker(...a),
+}));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: (...a: unknown[]) => mockInvoke(...a) }));
 vi.mock("@/hooks/openWorkspaceWithConfig", () => ({
   openWorkspaceWithConfig: (...a: unknown[]) => mockOpenWorkspaceWithConfig(...a),
+}));
+vi.mock("@/hooks/workspaceSession", () => ({
+  persistWorkspaceSession: (...a: unknown[]) => mockPersistWorkspaceSession(...a),
 }));
 vi.mock("@/services/navigation/restoreWorkspaceTabs", () => ({
   restoreWorkspaceTabs: (...a: unknown[]) => mockRestoreWorkspaceTabs(...a),
@@ -31,26 +39,45 @@ import {
   registerRecentWorkspacesCommands,
   __resetRecentWorkspacesCommandsRegistration,
 } from "./recentWorkspacesCommands";
+import {
+  registerWorkspaceCommands,
+  __resetWorkspaceCommandsRegistration,
+} from "./workspaceCommands";
 import { useRecentWorkspacesStore } from "@/stores/workspaceStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 
+// The dirty-tab tests below stub the stores' METHODS via setState. Zustand
+// merges, so those stubs would leak into every later test unless the real
+// implementations (captured here, before any test runs) are restored each time.
+const realGetTabsByWindow = useTabStore.getState().getTabsByWindow;
+const realGetDocument = useDocumentStore.getState().getDocument;
+
 beforeEach(() => {
   _resetCommandBus();
   __resetRecentWorkspacesCommandsRegistration();
-  [mockExists, mockAsk, mockInvoke, mockOpenWorkspaceWithConfig, mockRestoreWorkspaceTabs, mockToastError]
+  __resetWorkspaceCommandsRegistration();
+  [mockExists, mockAsk, mockOpenPicker, mockInvoke, mockOpenWorkspaceWithConfig,
+    mockRestoreWorkspaceTabs, mockToastError, mockPersistWorkspaceSession]
     .forEach((m) => m.mockReset());
   mockExists.mockResolvedValue(true);
   mockOpenWorkspaceWithConfig.mockResolvedValue(null);
   mockRestoreWorkspaceTabs.mockResolvedValue(0);
   mockInvoke.mockResolvedValue(undefined);
+  mockPersistWorkspaceSession.mockResolvedValue(undefined);
   useRecentWorkspacesStore.setState({ workspaces: [{ path: "/repo" }] } as never);
-  useTabStore.setState({ tabs: {}, activeTabId: {}, untitledCounter: 0, closedTabs: {} } as never);
-  useDocumentStore.setState({ documents: {} } as never);
+  useTabStore.setState({
+    tabs: {}, activeTabId: {}, untitledCounter: 0, closedTabs: {},
+    getTabsByWindow: realGetTabsByWindow,
+  } as never);
+  useDocumentStore.setState({ documents: {}, getDocument: realGetDocument } as never);
   registerRecentWorkspacesCommands();
 });
 
-afterEach(() => _resetCommandBus());
+afterEach(() => {
+  _resetCommandBus();
+  __resetWorkspaceCommandsRegistration();
+});
 
 describe("HMR re-registration (dev-only Vite reload)", () => {
   it("does not throw when the module flag resets but the bus registry survives", () => {
@@ -115,6 +142,46 @@ describe("workspace.openRecent", () => {
     });
     // Did not open in the current window.
     expect(mockOpenWorkspaceWithConfig).not.toHaveBeenCalled();
+  });
+
+  it("is skipped while a workspace open is already in flight in the same window", async () => {
+    registerWorkspaceCommands();
+    let resolvePicker!: (value: string | null) => void;
+    mockOpenPicker.mockImplementation(
+      () => new Promise<string | null>((resolve) => { resolvePicker = resolve; }),
+    );
+
+    const opening = executeCommand("workspace.openFolder", {}, { windowLabel: "main" });
+    // Both commands are workspace transitions for the same window. Running them
+    // concurrently restores tabs/split layout into whichever workspace lands
+    // last — they must share one guard, not two independent keys.
+    await executeCommand("workspace.openRecent", "/repo", { windowLabel: "main" });
+
+    expect(mockExists).not.toHaveBeenCalled();
+    expect(mockOpenWorkspaceWithConfig).not.toHaveBeenCalled();
+
+    resolvePicker(null);
+    await opening;
+
+    // Guard released after the first transition completes.
+    await executeCommand("workspace.openRecent", "/repo", { windowLabel: "main" });
+    expect(mockOpenWorkspaceWithConfig).toHaveBeenCalledWith("/repo", { windowLabel: "main" });
+  });
+
+  it("does not block a workspace open in a different window", async () => {
+    registerWorkspaceCommands();
+    let resolvePicker!: (value: string | null) => void;
+    mockOpenPicker.mockImplementation(
+      () => new Promise<string | null>((resolve) => { resolvePicker = resolve; }),
+    );
+
+    const opening = executeCommand("workspace.openFolder", {}, { windowLabel: "main" });
+    await executeCommand("workspace.openRecent", "/repo", { windowLabel: "doc-1" });
+
+    expect(mockOpenWorkspaceWithConfig).toHaveBeenCalledWith("/repo", { windowLabel: "doc-1" });
+
+    resolvePicker(null);
+    await opening;
   });
 
   it("toasts a localized error when the dirty-tab new-window IPC fails", async () => {

@@ -1,3 +1,6 @@
+// WI-S0.1 — the embedded browser's user-facing trigger: the newBrowserTab shortcut
+//           dispatches `browser.newTab` through the CommandBus, so the
+//           `browser.enabled` gate lives in exactly one place.
 import { render, act } from "@testing-library/react";
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { useTabStore } from "@/stores/tabStore";
@@ -22,16 +25,27 @@ vi.mock("@/utils/imeGuard", () => ({
 }));
 
 let matchesShortcutResult = false;
+// When set, matchesShortcutEvent matches ONLY this key — lets a test target a
+// single binding (e.g. newBrowserTab) without the blanket `() => true` firing
+// an earlier handler (newTab). Null → legacy blanket behaviour.
+let selectiveMatchKey: string | null = null;
 vi.mock("@/utils/shortcutMatch", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/utils/shortcutMatch")>();
   return {
     ...actual,
-    matchesShortcutEvent: () => matchesShortcutResult,
+    matchesShortcutEvent: (_e: KeyboardEvent, key: string) =>
+      selectiveMatchKey !== null ? key === selectiveMatchKey : matchesShortcutResult,
   };
 });
 
+const mockExecuteCommand = vi.fn((..._args: unknown[]) => Promise.resolve(true));
+vi.mock("@/services/commands/CommandBus", () => ({
+  executeCommand: (...args: unknown[]) => mockExecuteCommand(...args),
+}));
+
 // Import after mocks
 import { useTabShortcuts } from "./useTabShortcuts";
+import { useShortcutsStore } from "@/stores/settingsStore";
 
 const WINDOW = "main";
 
@@ -200,6 +214,66 @@ describe("useTabShortcuts — newTab shortcut", () => {
     expect(tabsAfter).toBe(tabsBefore + 1);
 
     matchesShortcutResult = false;
+  });
+});
+
+describe("useTabShortcuts — newBrowserTab shortcut (WI-S0.1)", () => {
+  beforeEach(() => {
+    resetStores();
+    vi.clearAllMocks();
+    matchesShortcutResult = false;
+    selectiveMatchKey = null;
+  });
+
+  it("dispatches the browser.newTab command when the newBrowserTab shortcut matches", async () => {
+    // Match ONLY the newBrowserTab binding so the earlier newTab handler
+    // (Mod-t) does not fire first.
+    selectiveMatchKey = useShortcutsStore.getState().getShortcut("newBrowserTab");
+    expect(selectiveMatchKey).toBeTruthy(); // the binding must exist
+
+    await act(async () => {
+      render(<TestHarness />);
+    });
+
+    let event!: KeyboardEvent;
+    act(() => {
+      event = new KeyboardEvent("keydown", {
+        key: "b",
+        metaKey: true,
+        altKey: true,
+        shiftKey: true,
+        bubbles: true,
+        cancelable: true,
+      });
+      window.dispatchEvent(event);
+    });
+
+    // Routed through the CommandBus so the browser.enabled `when` gate applies
+    // in exactly one place; ctx carries the window label the command needs.
+    expect(mockExecuteCommand).toHaveBeenCalledWith(
+      "browser.newTab",
+      null,
+      { windowLabel: WINDOW },
+    );
+    expect(event.defaultPrevented).toBe(true);
+  });
+
+  it("does not dispatch browser.newTab for an unrelated shortcut", async () => {
+    // Blanket-match everything EXCEPT — selective off, blanket off: nothing matches.
+    selectiveMatchKey = "Mod-t"; // matches newTab, not newBrowserTab
+
+    await act(async () => {
+      render(<TestHarness />);
+    });
+
+    act(() => {
+      window.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "t", metaKey: true, bubbles: true, cancelable: true }),
+      );
+    });
+
+    expect(mockExecuteCommand).not.toHaveBeenCalled();
+    selectiveMatchKey = null;
   });
 });
 

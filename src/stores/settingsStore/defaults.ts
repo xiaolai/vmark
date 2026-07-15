@@ -135,6 +135,7 @@ export const initialState: SettingsState = {
       autoApproveEdits: false, // Require approval by default (safer)
     },
     customLinkProtocols: ["obsidian", "vscode", "dict", "x-dictionary"],
+    developerMode: false,
     keepBothEditorsAlive: false,
     workflowEngine: false,
     workflowEditorPreserveYamlFormatting: true,
@@ -166,18 +167,21 @@ export const initialState: SettingsState = {
     upgradeNudgeShown: false,
     associations: {},
   },
+  browser: {
+    // Embedded browser is off by default until the surface + driver ship (WI-1.10).
+    enabled: false,
+    aiSession: "sandbox",
+    aiAllowLoopback: false,
+  },
   showDevSection: false,
 };
 
-// Object sections that can be updated with createSectionUpdater
-export type ObjectSections =
-  | "general"
-  | "appearance"
-  | "cjkFormatting"
-  | "markdown"
-  | "image"
-  | "terminal"
-  | "advanced"
-  | "update"
-  | "largeFile"
-  | "formats";
+/**
+ * Settings sections that can be updated with createSectionUpdater — every
+ * object-valued key of SettingsState (i.e. all of them except the `showDevSection`
+ * UI flag). Derived, not hand-listed: a new section is picked up automatically
+ * instead of drifting out of sync with SettingsState.
+ */
+export type ObjectSections = {
+  [K in keyof SettingsState]: SettingsState[K] extends object ? K : never;
+}[keyof SettingsState];

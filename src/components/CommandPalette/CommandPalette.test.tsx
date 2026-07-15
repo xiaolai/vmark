@@ -1,3 +1,5 @@
+// WI-S0.7 — the palette dispatches with the INVOKING window's label; without it a
+//           window-scoped command (browser.newTab) always acted on "main".
 /**
  * CommandPalette tests — a11y (WI-4.7, A3) + behavior.
  *
@@ -25,6 +27,11 @@ vi.mock("@/services/commands", () => ({
 
 vi.mock("@/utils/imeGuard", () => ({
   isImeKeyEvent: vi.fn(() => false),
+}));
+
+vi.mock("@/contexts/WindowContext", () => ({
+  useWindowLabel: () => "main",
+  useIsDocumentWindow: () => true,
 }));
 
 import { CommandPalette } from "./CommandPalette";
@@ -157,7 +164,27 @@ describe("CommandPalette", () => {
     // Flush the microtask in runCommand.
     await Promise.resolve();
 
-    expect(mockExecuteCommand).toHaveBeenCalledWith("cmd.two");
+    // Context carries the invoking window (WI-S0.7): without it a window-scoped
+    // command like `browser.newTab` falls back to "main" and acts on the wrong window.
+    expect(mockExecuteCommand).toHaveBeenCalledWith("cmd.two", null, { windowLabel: "main" });
     expect(useCommandPaletteStore.getState().isOpen).toBe(false);
+  });
+});
+
+// WI-S0.7 — the palette ran commands with NO context, so `browser.newTab` fell back to
+// `ctx.windowLabel ?? "main"` and always opened its tab in the MAIN window — wrong when
+// the palette is invoked from a second document window.
+describe("CommandPalette — window context (WI-S0.7)", () => {
+  it("dispatches the picked command with the invoking window's label", () => {
+    useCommandPaletteStore.setState({ isOpen: true });
+    render(<CommandPalette />);
+    const input = screen.getByRole("combobox");
+    fireEvent.keyDown(input, { key: "Enter" });
+
+    expect(mockExecuteCommand).toHaveBeenCalledWith(
+      expect.any(String),
+      null,
+      expect.objectContaining({ windowLabel: expect.any(String) }),
+    );
   });
 });

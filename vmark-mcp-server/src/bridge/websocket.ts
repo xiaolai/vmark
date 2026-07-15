@@ -496,7 +496,7 @@ export class WebSocketBridge implements Bridge {
    */
   async send<T = unknown>(
     request: BridgeRequest
-  ): Promise<BridgeResponse & { data: T }> {
+  ): Promise<BridgeResponse<T>> {
     // Check rate limit
     if (!this.checkRateLimit()) {
       throw new Error('Rate limit exceeded');
@@ -523,7 +523,7 @@ export class WebSocketBridge implements Bridge {
    */
   private queueRequest<T = unknown>(
     request: BridgeRequest
-  ): Promise<BridgeResponse & { data: T }> {
+  ): Promise<BridgeResponse<T>> {
     // Check queue capacity before creating the promise.
     // Since JS is single-threaded, the check + push below is atomic
     // (no other code runs between them), preventing queue overflow.
@@ -567,7 +567,7 @@ export class WebSocketBridge implements Bridge {
    */
   private sendImmediate<T = unknown>(
     request: BridgeRequest
-  ): Promise<BridgeResponse & { data: T }> {
+  ): Promise<BridgeResponse<T>> {
     const id = this.nextRequestId();
 
     return new Promise((resolve, reject) => {

@@ -12,7 +12,17 @@ import { PaneProvider } from "@/contexts/PaneContext";
 const W = "main";
 
 beforeEach(() => {
-  useTabStore.setState({ activeTabId: { [W]: "primary-tab" } } as never);
+  useTabStore.setState({
+    // `setActiveTab` now refuses an id the window does not contain, so the tabs the
+    // panes reference must actually exist — the old stub set only activeTabId.
+    tabs: {
+      [W]: [
+        { id: "primary-tab", kind: "document", title: "primary-tab", filePath: null, isPinned: false },
+        { id: "secondary-tab", kind: "document", title: "secondary-tab", filePath: null, isPinned: false },
+      ],
+    },
+    activeTabId: { [W]: "primary-tab" },
+  } as never);
   usePaneStore.setState({ byWindow: {} });
 });
 

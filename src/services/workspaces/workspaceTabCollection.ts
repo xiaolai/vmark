@@ -10,7 +10,7 @@
  */
 
 import { useDocumentStore } from "@/stores/documentStore";
-import { useTabStore, type Tab } from "@/stores/tabStore";
+import { useTabStore, type DocumentTab } from "@/stores/tabStore";
 import {
   useWorkspaceInstancesStore,
   type WorkspaceInstanceRecord,
@@ -43,7 +43,7 @@ export type DuplicateSkipReason = "untitled" | "missing" | "dirty" | null;
  * duplicate filters out untitled / missing / dirty tabs.
  */
 export function classifyDuplicateEligibility(
-  tab: Tab,
+  tab: DocumentTab,
   doc: TabDocument,
   operation: WorkspaceWindowOperation,
 ): DuplicateSkipReason {
@@ -55,7 +55,7 @@ export function classifyDuplicateEligibility(
 }
 
 /** Serialize a tab + its document into the transfer payload shape. */
-export function serializeTransferTab(tab: Tab, doc: TabDocument): WorkspaceTransferTabPayload {
+export function serializeTransferTab(tab: DocumentTab, doc: TabDocument): WorkspaceTransferTabPayload {
   return {
     tabId: tab.id,
     title: tab.title,
@@ -80,16 +80,32 @@ export function resolveTransferActiveTab(
   return collected[0]?.tabId ?? null;
 }
 
-/** True when `tab` belongs to `instance` — by explicit membership or root classification. */
+/**
+ * True when `tab` belongs to `instance`.
+ *
+ * Explicit membership is resolved across ALL instances of the window first: a
+ * tab another instance already claims belongs to that instance, even when path
+ * classification would put it here (it can: a tab opened while workspace A was
+ * active classifies into workspace B once B's root is opened in the same
+ * window). Checking only `instance.tabIds` let two instances both collect the
+ * same tab — the wrong workspace could then move or duplicate it, leaving the
+ * real owner with a dangling tab id.
+ *
+ * Path classification decides only for tabs no instance has explicitly claimed.
+ */
 function tabBelongsToWorkspace(
-  tab: Tab,
+  tab: DocumentTab,
   instance: WorkspaceInstanceRecord,
   activeInstanceId: string | null,
 ): boolean {
-  if (instance.tabIds.includes(tab.id)) return true;
+  const instances = orderedWindowInstances(instance.ownerWindowLabel);
+  const explicitOwner = instances.find((candidate) => candidate.tabIds.includes(tab.id));
+  if (explicitOwner) {
+    return explicitOwner.workspaceInstanceId === instance.workspaceInstanceId;
+  }
   const owner = classifyWorkspaceContextForTab({
     filePath: tab.filePath,
-    instances: orderedWindowInstances(instance.ownerWindowLabel),
+    instances,
     activeWorkspaceInstanceId: activeInstanceId,
   });
   return owner?.workspaceInstanceId === instance.workspaceInstanceId;
@@ -114,6 +130,9 @@ export function collectWorkspaceTabs(
   };
 
   for (const tab of tabs) {
+    // R1: browser tabs do not participate in workspace transfer — the payload
+    // requires document content/dirty/saved state a browser tab has none of.
+    if (tab.kind !== "document") continue;
     if (!tabBelongsToWorkspace(tab, instance, activeInstanceId)) continue;
     const doc = documents.getDocument(tab.id);
     if (!doc) continue;

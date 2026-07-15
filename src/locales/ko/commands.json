@@ -81,5 +81,8 @@
   },
   "aria": {
     "commandPalette": "명령 팔레트"
+  },
+  "browser": {
+    "newTab": "새 브라우저 탭"
   }
 }

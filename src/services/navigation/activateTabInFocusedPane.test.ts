@@ -7,7 +7,18 @@ const W = "main";
 
 beforeEach(() => {
   usePaneStore.setState({ byWindow: {} });
-  useTabStore.setState({ activeTabId: { [W]: "primary-tab" } } as never);
+  useTabStore.setState({
+    // `setActiveTab` now refuses an id the window does not contain, so the tabs the
+    // panes reference must actually exist — the old stub set only activeTabId.
+    tabs: {
+      [W]: [
+        { id: "primary-tab", kind: "document", title: "primary-tab", filePath: null, isPinned: false },
+        { id: "tab-2", kind: "document", title: "tab-2", filePath: null, isPinned: false },
+        { id: "tab-x", kind: "document", title: "tab-x", filePath: null, isPinned: false },
+      ],
+    },
+    activeTabId: { [W]: "primary-tab" },
+  } as never);
 });
 
 describe("activateTabInFocusedPane (#1081)", () => {

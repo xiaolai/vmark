@@ -5,18 +5,31 @@
  * Shows when clicking on a link, allows editing/opening/copying/removing.
  *
  * Extends WysiwygPopupView for common popup lifecycle management.
+ *
+ * Key decisions:
+ *   - The input — not the store — is the source of truth for the URL. Paste /
+ *     IME / drop can land in the DOM without the synthetic `input` event that
+ *     mirrors the value into the store, so save, open and copy all read (and
+ *     trim) `input.value`.
+ *   - The captured `[linkFrom, linkTo)` range is re-validated against the live
+ *     document before every mutation (`linkRangeIsIntact`). A concurrent edit
+ *     (MCP, external reload) can shift the range; applying it blindly would
+ *     rewrite whatever now occupies those positions.
+ *   - `shouldReshow` reopens the popup when it is retargeted at a different
+ *     link range, so the input can never keep the previous link's URL.
  */
 
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import i18n from "@/i18n";
 import { linkPopupError } from "@/utils/debug";
 import { useLinkPopupStore } from "@/stores/linkPopupStore";
-import { useTabStore } from "@/stores/tabStore";
+import { useTabStore, tabFilePath } from "@/stores/tabStore";
 import { navigateToHeadingById } from "@/utils/headingSlug";
 import { isImeKeyEvent } from "@/utils/imeGuard";
-import { popupIcons } from "@/utils/popupComponents";
 import { classifyHref, openExternalLink, openFilepathLink } from "@/services/navigation/linkOpen";
 import { WysiwygPopupView, type EditorViewLike, type PopupStoreBase } from "@/plugins/shared";
+import { buildLinkPopupContainer } from "./linkPopupDom";
+import { linkRangeIsIntact } from "./linkRange";
 
 /** Link popup store state (extends base with link-specific fields) */
 interface LinkPopupState extends PopupStoreBase {
@@ -30,6 +43,12 @@ interface LinkPopupState extends PopupStoreBase {
  * Link popup view - manages the floating popup UI.
  */
 export class LinkPopupView extends WysiwygPopupView<LinkPopupState> {
+  /** The href the popup was opened on — the identity used to re-validate the
+   *  captured range. Not the input value, which the user is free to change. */
+  private openedHref = "";
+  /** Pending focus frame, cancelled if the popup closes before it runs. */
+  private focusFrame: number | null = null;
+
   constructor(view: EditorViewLike) {
     super(view, useLinkPopupStore);
     // Attach event listeners after super() (arrow functions are now initialized)
@@ -71,67 +90,64 @@ export class LinkPopupView extends WysiwygPopupView<LinkPopupState> {
   }
 
   protected buildContainer(): HTMLElement {
-    const container = document.createElement("div");
-    container.className = "link-popup";
-
-    // Input field (event listeners attached in attachEventListeners)
-    const input = document.createElement("input");
-    input.type = "text";
-    input.className = "link-popup-input";
-    input.placeholder = i18n.t("editor:popup.link.url.placeholder");
-    input.autocapitalize = "off";
-    input.autocomplete = "off";
-    input.spellcheck = false;
-    input.setAttribute("autocorrect", "off");
-
-    // Icon buttons (event listeners attached in attachEventListeners)
-    const openBtn = this.buildButton(popupIcons.open, i18n.t("editor:popup.link.openLink"), "link-popup-btn-open");
-    const copyBtn = this.buildButton(popupIcons.copy, i18n.t("editor:popup.link.copyUrl"), "link-popup-btn-copy");
-    const saveBtn = this.buildButton(popupIcons.save, i18n.t("editor:popup.link.save"), "link-popup-btn-save");
-    const deleteBtn = this.buildButton(popupIcons.delete, i18n.t("editor:popup.link.remove"), "link-popup-btn-delete");
-
-    container.appendChild(input);
-    container.appendChild(openBtn);
-    container.appendChild(copyBtn);
-    container.appendChild(saveBtn);
-    container.appendChild(deleteBtn);
-
-    return container;
+    // Markup only — listeners are attached in attachEventListeners().
+    return buildLinkPopupContainer();
   }
 
-  /** Build a button without click handler (attached later in constructor) */
-  private buildButton(iconSvg: string, title: string, className: string): HTMLButtonElement {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = `link-popup-btn ${className}`;
-    btn.title = title;
-    btn.setAttribute("aria-label", title);
-    btn.innerHTML = iconSvg;
-    return btn;
+  /** An open popup retargeted at a different link must re-run show(), or the
+   *  input keeps the previous link's URL while the store already points at the
+   *  new range — saving would then write URL A over link B. */
+  protected shouldReshow(prev: LinkPopupState, next: LinkPopupState): boolean {
+    return prev.linkFrom !== next.linkFrom || prev.linkTo !== next.linkTo;
+  }
+
+  /** The base class focuses this in a deferred frame; yield nothing once the
+   *  popup is hidden, so a fast Escape / outside click cannot pull focus back
+   *  out of the editor and into a hidden input. */
+  protected getFirstFocusable(): HTMLElement | null {
+    if (!this.isVisible() || !this.container.isConnected) return null;
+    return this.input;
   }
 
   protected onShow(state: LinkPopupState): void {
     const isBookmark = state.href.startsWith("#");
 
+    this.openedHref = state.href;
     this.input.value = state.href;
-    this.input.disabled = false;
-    this.input.classList.remove("disabled");
-    this.saveBtn.style.display = "";
     const openLabel = isBookmark
       ? i18n.t("editor:popup.link.goToHeading")
       : i18n.t("editor:popup.link.openLink");
     this.openBtn.title = openLabel;
     this.openBtn.setAttribute("aria-label", openLabel);
 
-    // Focus and select input
-    requestAnimationFrame(() => {
+    // Focus and select input. Guarded: a fast Escape / outside click can close
+    // the popup before the frame runs, and focusing a hidden input would steal
+    // focus back from the editor.
+    this.cancelFocusFrame();
+    this.focusFrame = requestAnimationFrame(() => {
+      this.focusFrame = null;
+      if (!this.isVisible() || !this.container.isConnected) return;
       this.input.focus();
       this.input.select();
     });
   }
 
   protected onHide(): void {
-    // No special cleanup needed
+    this.cancelFocusFrame();
+  }
+
+  private cancelFocusFrame(): void {
+    if (this.focusFrame !== null) {
+      cancelAnimationFrame(this.focusFrame);
+      this.focusFrame = null;
+    }
+  }
+
+  /** The URL currently shown in the popup, trimmed. Surrounding whitespace
+   *  would otherwise be stored verbatim and later misclassified as a filepath
+   *  or fail URL parsing. */
+  private currentHref(): string {
+    return this.input.value.trim();
   }
 
   private handleInputChange = () => {
@@ -152,41 +168,55 @@ export class LinkPopupView extends WysiwygPopupView<LinkPopupState> {
     /* v8 ignore stop */
   };
 
-  private handleSave = () => {
-    // Read directly from the input rather than the store: paste / IME / drop
-    // can land in the DOM without the synthetic `input` event we rely on to
-    // mirror the value into the store, leaving the store stale at save time.
-    const href = this.input.value;
+  /**
+   * Rewrite the captured link range: drop the existing link mark and, when
+   * `href` is non-null, add a link mark carrying it. Closes the popup and
+   * returns focus to the editor on every path, including failures.
+   */
+  private mutateLinkRange(href: string | null, errorLabel: string): void {
     const { linkFrom, linkTo } = this.store.getState();
+    const editorState = this.editorView.state;
+    if (!editorState) return;
 
-    if (!href.trim()) {
+    const linkMark = editorState.schema.marks.link;
+    if (!linkMark) return;
+
+    try {
+      if (!linkRangeIsIntact(editorState, linkFrom, linkTo, this.openedHref)) {
+        // The document changed under the open popup (MCP edit, external
+        // reload): the captured range no longer describes this link, so
+        // applying it would rewrite unrelated text. Bail out instead.
+        linkPopupError("Stale link range — skipping mutation:", { linkFrom, linkTo });
+      } else {
+        let tr = editorState.tr.removeMark(linkFrom, linkTo, linkMark);
+        if (href !== null) {
+          tr = tr.addMark(linkFrom, linkTo, linkMark.create({ href }));
+        }
+        this.editorView.dispatch(tr.setMeta("preventAutolink", true));
+      }
+    } catch (error) {
+      linkPopupError(errorLabel, error);
+    }
+
+    this.closePopup();
+    this.focusEditor();
+  }
+
+  private handleSave = () => {
+    const href = this.currentHref();
+    if (!href) {
       this.handleRemove();
       return;
     }
+    this.mutateLinkRange(href, "Save failed:");
+  };
 
-    try {
-      const { state: editorState, dispatch } = this.editorView;
-      if (!editorState) return;
-
-      const linkMark = editorState.schema.marks.link;
-      if (!linkMark) return;
-
-      const tr = editorState.tr
-        .removeMark(linkFrom, linkTo, linkMark)
-        .addMark(linkFrom, linkTo, linkMark.create({ href }))
-        .setMeta("preventAutolink", true);
-
-      dispatch(tr);
-      this.closePopup();
-      this.focusEditor();
-    } catch (error) {
-      linkPopupError("Save failed:", error);
-      this.closePopup();
-    }
+  private handleRemove = () => {
+    this.mutateLinkRange(null, "Remove failed:");
   };
 
   private handleOpen = () => {
-    const { href } = this.store.getState();
+    const href = this.currentHref();
     if (!href) return;
 
     const kind = classifyHref(href);
@@ -213,46 +243,29 @@ export class LinkPopupView extends WysiwygPopupView<LinkPopupState> {
     const activeTab = useTabStore
       .getState()
       .getActiveTab(getCurrentWebviewWindow().label);
-    const sourcePath = activeTab?.filePath ?? null;
+    const sourcePath = activeTab ? tabFilePath(activeTab) : null;
+    const { linkFrom, linkTo } = this.store.getState();
     openFilepathLink(href, sourcePath).then((opened) => {
-      if (opened) this.closePopup();
+      if (!opened) return;
+      // The popup may have been closed or retargeted at another link while the
+      // open was in flight — only close the popup this click belongs to.
+      const state = this.store.getState();
+      if (state.isOpen && state.linkFrom === linkFrom && state.linkTo === linkTo) {
+        this.closePopup();
+      }
     }).catch((error: unknown) => {
       linkPopupError("Failed to open file link:", error);
     });
   };
 
   private handleCopy = async () => {
-    const { href } = this.store.getState();
+    const href = this.currentHref();
     if (href) {
       try {
         await navigator.clipboard.writeText(href);
       } catch (err) {
         linkPopupError("Failed to copy URL:", err);
       }
-    }
-  };
-
-  private handleRemove = () => {
-    const state = this.store.getState();
-    const { linkFrom, linkTo } = state;
-
-    try {
-      const { state: editorState, dispatch } = this.editorView;
-      if (!editorState) return;
-
-      const linkMark = editorState.schema.marks.link;
-      if (!linkMark) return;
-
-      const tr = editorState.tr
-        .removeMark(linkFrom, linkTo, linkMark)
-        .setMeta("preventAutolink", true);
-
-      dispatch(tr);
-      this.closePopup();
-      this.focusEditor();
-    } catch (error) {
-      linkPopupError("Remove failed:", error);
-      this.closePopup();
     }
   };
 }

@@ -18,9 +18,11 @@ import { useUIStore } from "@/stores/uiStore";
 import { withReentryGuard } from "@/utils/reentryGuard";
 import { openWorkspaceWithConfig } from "@/hooks/openWorkspaceWithConfig";
 import { restoreWorkspaceTabs, restoreSplitLayout } from "@/services/navigation/restoreWorkspaceTabs";
+import { documentPathsForRestore } from "@/services/persistence/sessionTabs";
 import i18n from "@/i18n";
 import { workspaceError } from "@/utils/debug";
 import { parseRecentPathArgs } from "./recentPathArgs";
+import { WORKSPACE_TRANSITION_GUARD } from "./workspaceCommands";
 
 type Ctx = { windowLabel?: string };
 
@@ -61,7 +63,9 @@ export function registerRecentWorkspacesCommands(): void {
       const workspacePath = parseRecentPathArgs(args);
       if (!workspacePath) return;
 
-      await withReentryGuard(windowLabel, "open-recent-workspace", async () => {
+      // Shares the workspace-transition guard with workspace.openFolder /
+      // workspace.close — a per-command key would let two workspace opens race.
+      await withReentryGuard(windowLabel, WORKSPACE_TRANSITION_GUARD, async () => {
         const pathExists = await exists(workspacePath);
         if (!pathExists) {
           const remove = await ask(
@@ -110,7 +114,10 @@ export function registerRecentWorkspacesCommands(): void {
         useUIStore.getState().showSidebarWithView("files");
 
         // Shared restore loop with dedup guard — skips already-open tabs.
-        await restoreWorkspaceTabs(windowLabel, existing?.lastOpenTabs);
+        await restoreWorkspaceTabs(
+          windowLabel,
+          existing ? documentPathsForRestore(existing) : undefined,
+        );
         restoreSplitLayout(windowLabel, workspacePath);
 
         useRecentWorkspacesStore.getState().addWorkspace(workspacePath);

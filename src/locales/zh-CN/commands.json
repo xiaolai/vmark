@@ -81,5 +81,8 @@
   },
   "aria": {
     "commandPalette": "命令面板"
+  },
+  "browser": {
+    "newTab": "新建浏览器标签页"
   }
 }

@@ -6238,6 +6238,7 @@ name = "vmark"
 version = "0.8.32"
 dependencies = [
  "base64 0.22.1",
+ "block2 0.6.2",
  "chrono",
  "dirs",
  "ed25519-dalek",
@@ -6280,6 +6281,7 @@ dependencies = [
  "tokio-tungstenite",
  "tokio-util",
  "toml 1.1.2+spec-1.1.0",
+ "url",
  "urlencoding",
  "uuid",
  "xattr",

@@ -184,6 +184,7 @@
     "move-to",
     "nest-blockquote",
     "new",
+    "new-browser-tab",
     "new-window",
     "no-recent",
     "no-recent-workspace",
@@ -240,5 +241,5 @@
     "zoom-in",
     "zoom-out"
   ],
-  "generatedAt": "2026-07-05T09:16:52.774Z"
+  "generatedAt": "2026-07-14T05:47:21.697Z"
 }

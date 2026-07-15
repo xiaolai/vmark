@@ -15,6 +15,20 @@
 import type { StoreApi } from "zustand";
 
 export type SidebarViewMode = "files" | "outline" | "history";
+
+/**
+ * The sidebar's views when a BROWSER tab is active (ADR-2, WI-S2.1).
+ *
+ * A separate type from `SidebarViewMode`, not an extension of it, and deliberately: the
+ * document mode is persisted into the hot-exit snapshot as a bare string, and widening
+ * that union would let a browser value be written into a v5 snapshot that has no idea
+ * what it means. Keeping them apart means no schema bump and no migration.
+ *
+ * This one is SESSION-ONLY, which is also the coherent choice: the browser's history and
+ * its site permissions both lapse when VMark quits, so remembering which of them you were
+ * looking at would outlive the thing it pointed at.
+ */
+export type BrowserSidebarView = "browser-history" | "bookmarks" | "permissions";
 export type EffectiveTerminalPosition = "top" | "bottom" | "left" | "right";
 
 /* ─────────────────────────── search slice ─────────────────────────────── */
@@ -135,6 +149,8 @@ interface UIState {
   sidebarVisible: boolean;
   sidebarWidth: number;
   sidebarViewMode: SidebarViewMode;
+  /** The sidebar view for a BROWSER tab. Session-only (see BrowserSidebarView). */
+  sidebarBrowserViewMode: BrowserSidebarView;
   activeHeadingLine: number | null;
   statusBarVisible: boolean;
   _savedStatusBarVisible: boolean | null;
@@ -166,6 +182,7 @@ interface UIActions extends SearchActions, ContentSearchActions, TerminalActions
   toggleSidebar: () => void;
   toggleSidebarView: (mode: SidebarViewMode) => void;
   setSidebarViewMode: (mode: SidebarViewMode) => void;
+  setSidebarBrowserViewMode: (mode: BrowserSidebarView) => void;
   showSidebarWithView: (mode: SidebarViewMode) => void;
   setActiveHeadingLine: (line: number | null) => void;
   setSidebarWidth: (width: number) => void;

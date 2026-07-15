@@ -54,6 +54,13 @@ export interface TerminalSettings {
 export interface AdvancedSettingsState {
   mcpServer: McpServerSettings;
   customLinkProtocols: string[]; // Custom URL protocols to recognize (e.g., "obsidian", "vscode")
+  /**
+   * Developer mode: reveals the experimental toggles (embedded browser, workflow
+   * engine). Persisted rather than ephemeral so it survives a Settings re-open and
+   * works in release builds — a developer testing an in-progress feature should
+   * not have to re-enable it every session. Default: false.
+   */
+  developerMode: boolean;
   keepBothEditorsAlive: boolean; // Keep both editors mounted for faster mode switching (default: false)
   workflowEngine: boolean; // Enable YAML workflow engine (developer feature, default: false)
   /**

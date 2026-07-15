@@ -52,7 +52,8 @@ export function useViewMenuStateSync(): void {
   // (not just a tab switch) re-evaluates applicability.
   const activeFormatId = useTabStore((s) => {
     const id = s.activeTabId[getCurrentWindowLabel()];
-    return id ? (s.findTabById(id)?.formatId ?? null) : null;
+    const t = id ? s.findTabById(id) : null;
+    return t?.kind === "document" ? t.formatId : null;
   });
   // Large markdown files force Source mode without setting the global flag.
   const forcedSource = useLargeFileSessionStore((s) =>
@@ -104,7 +105,11 @@ export function useViewMenuStateSync(): void {
       .then((u) => {
         if (cancelled) u();
         else unlisten = u;
-      });
+      })
+      // Registration can fail (window gone, IPC error). Surface it instead of
+      // letting it become an unhandled rejection; cleanup stays safe because
+      // `unlisten` simply remains undefined.
+      .catch((e) => menuError("onFocusChanged failed:", e));
     return () => {
       cancelled = true;
       unlisten?.();

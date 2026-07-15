@@ -297,4 +297,61 @@ describe("hot-exit workspace instance restore", () => {
     expect(useWorkspaceInstancesStore.getState().instances["ws-1"]?.closedTabIds)
       .toEqual(["new-closed"]);
   });
+
+  it("gives a recreated tab to exactly one instance when two instances claim it", () => {
+    mockWorkspaceRailEnabled.mockReturnValue(true);
+    const windowState = makeWindowState({
+      workspace_instance_ids: ["ws-1", "ws-2"],
+      active_workspace_instance_id: "ws-1",
+      workspace_instances: [
+        { ...makeInstance("ws-1"), tabIds: ["old-a"], activeTabId: "old-a" },
+        { ...makeInstance("ws-2"), tabIds: ["old-a"], activeTabId: "old-a" },
+      ],
+    });
+    restoreWindowWorkspaceInstances("main", windowState);
+
+    const newTabId = useTabStore.getState().createTab("main", "/tmp/ws-1/a.md");
+    useDocumentStore.getState().initDocument(newTabId, "content", "/tmp/ws-1/a.md");
+
+    reconcileRestoredWindowWorkspaceInstances(
+      "main",
+      windowState,
+      new Map([["old-a", newTabId]]),
+    );
+
+    const state = useWorkspaceInstancesStore.getState();
+    const owners = ["ws-1", "ws-2"].filter((id) =>
+      state.instances[id]?.tabIds.includes(newTabId),
+    );
+    // Exclusive ownership: a recreated tab must not live in two workspaces.
+    expect(owners).toEqual(["ws-1"]);
+    expect(state.instances["ws-2"]?.tabIds).toEqual([]);
+  });
+});
+
+describe("hot-exit capture does not mutate live workspace activation", () => {
+  beforeEach(() => {
+    mockWorkspaceRailEnabled.mockReturnValue(true);
+    useWorkspaceInstancesStore.getState().resetWorkspaceInstances();
+    useTabStore.setState({ tabs: {}, activeTabId: {}, closedTabs: {}, untitledCounter: 0 });
+    useDocumentStore.setState({ documents: {} });
+  });
+
+  it("keeps the user's active workspace instance when an unowned tab forces a loose context", () => {
+    const store = useWorkspaceInstancesStore.getState();
+    store.addWorkspaceInstance(makeInstance("ws-1"));
+    store.activateWorkspaceInstance("main", "ws-1");
+
+    // A tab outside every workspace root — capture must ensure a loose context
+    // owns it, but that repair must not switch the ACTIVE workspace instance.
+    const tabId = useTabStore.getState().createTab("main", "/elsewhere/loose.md");
+    useDocumentStore.getState().initDocument(tabId, "loose", "/elsewhere/loose.md");
+
+    const captured = captureWindowWorkspaceInstances("main");
+
+    expect(captured.active_workspace_instance_id).toBe("ws-1");
+    expect(
+      useWorkspaceInstancesStore.getState().windows.main.activeWorkspaceInstanceId,
+    ).toBe("ws-1");
+  });
 });

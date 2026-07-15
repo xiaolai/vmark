@@ -8,13 +8,18 @@ const invokeMock = vi.fn(() => Promise.resolve());
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: (...args: unknown[]) => invokeMock(...args),
 }));
+const onFocusChangedMock = vi.fn(() => Promise.resolve(() => {}));
 vi.mock("@tauri-apps/api/webviewWindow", () => ({
   getCurrentWebviewWindow: () => ({
-    onFocusChanged: vi.fn(() => Promise.resolve(() => {})),
+    onFocusChanged: (...args: unknown[]) => onFocusChangedMock(...args),
   }),
 }));
 vi.mock("@/services/persistence/workspaceStorage", () => ({
   getCurrentWindowLabel: () => "main",
+}));
+const menuErrorMock = vi.fn();
+vi.mock("@/utils/debug", () => ({
+  menuError: (...args: unknown[]) => menuErrorMock(...args),
 }));
 
 import { useUIStore } from "@/stores/uiStore";
@@ -24,7 +29,7 @@ import { useViewMenuStateSync } from "./useViewMenuStateSync";
 
 function seedTab(formatId: string) {
   useTabStore.setState({
-    tabs: { main: [{ id: "t1", title: "t", isPinned: false, formatId } as never] },
+    tabs: { main: [{ kind: "document", id: "t1", title: "t", isPinned: false, formatId } as never] },
     activeTabId: { main: "t1" },
   } as never);
 }
@@ -37,6 +42,8 @@ function lastInvokeArgs() {
 beforeEach(() => {
   vi.useFakeTimers();
   invokeMock.mockClear();
+  menuErrorMock.mockClear();
+  onFocusChangedMock.mockReset().mockResolvedValue(() => {});
   useUIStore.setState({ sourceMode: false, markdownSplitView: false } as never);
   useLargeFileSessionStore.setState({ forcedSourceTabs: {} } as never);
 });
@@ -110,5 +117,18 @@ describe("useViewMenuStateSync", () => {
       wordWrapApplies: true,
       lineNumbersApplies: true,
     });
+  });
+
+  it("logs a focus-listener registration failure instead of rejecting unhandled", async () => {
+    const failure = new Error("listener registration failed");
+    onFocusChangedMock.mockRejectedValue(failure);
+    seedTab("markdown");
+
+    const { unmount } = renderHook(() => useViewMenuStateSync());
+    await vi.runAllTimersAsync();
+
+    expect(menuErrorMock).toHaveBeenCalledWith("onFocusChanged failed:", failure);
+    // Cleanup must still be safe when no unlistener was ever produced.
+    expect(() => unmount()).not.toThrow();
   });
 });

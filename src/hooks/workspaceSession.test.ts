@@ -57,6 +57,13 @@ describe("persistWorkspaceSession", () => {
       config: {
         ...config,
         lastOpenTabs: ["/project/a.md", "/project/b.md"],
+        sessionTabs: {
+          version: 1,
+          tabs: [
+            { kind: "document", path: "/project/a.md" },
+            { kind: "document", path: "/project/b.md" },
+          ],
+        },
       },
     });
   });
@@ -85,7 +92,49 @@ describe("persistWorkspaceSession", () => {
       rootPath: "/project",
       config: {
         ...config,
+        // Legacy field: only the saved path (untitled excluded).
         lastOpenTabs: ["/project/a.md"],
+        // New field: full ordered list including the untitled tab.
+        sessionTabs: {
+          version: 1,
+          tabs: [
+            { kind: "document", path: "/project/a.md" },
+            { kind: "document", path: null },
+          ],
+        },
+      },
+    });
+  });
+
+  it("persists a browser tab into sessionTabs but NOT into legacy lastOpenTabs", async () => {
+    const config: WorkspaceConfig = {
+      version: 1,
+      excludeFolders: [".git"],
+      lastOpenTabs: [],
+      showHiddenFiles: false,
+      showAllFiles: false,
+    };
+    useWorkspaceStore.setState({ rootPath: "/project", config, isWorkspaceMode: true });
+
+    useTabStore.getState().createTab(WINDOW_LABEL, "/project/a.md");
+    useTabStore.getState().createBrowserTab(WINDOW_LABEL, "https://example.com/", "Example");
+
+    await persistWorkspaceSession(WINDOW_LABEL);
+
+    expect(invoke).toHaveBeenCalledWith("write_workspace_config", {
+      rootPath: "/project",
+      config: {
+        ...config,
+        // Downgrade-safe: old binaries read this and restore only the document.
+        lastOpenTabs: ["/project/a.md"],
+        // New builds read this and get the browser tab back too.
+        sessionTabs: {
+          version: 1,
+          tabs: [
+            { kind: "document", path: "/project/a.md" },
+            { kind: "browser", url: "https://example.com/", title: "Example" },
+          ],
+        },
       },
     });
   });

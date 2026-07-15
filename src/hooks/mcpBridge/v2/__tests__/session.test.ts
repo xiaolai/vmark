@@ -50,6 +50,7 @@ describe("vmark.session.get_state", () => {
       tabs: {
         main: [
           {
+            kind: "document",
             id: "tab-1",
             filePath: "/tmp/notes.md",
             title: "notes",
@@ -71,7 +72,7 @@ describe("vmark.session.get_state", () => {
     expect(state.windows).toHaveLength(1);
     expect(state.windows[0].label).toBe("main");
     expect(state.windows[0].focused).toBe(true);
-    expect(state.windows[0].tabs[0].kind).toBe("markdown");
+    expect(state.windows[0].tabs[0]).toMatchObject({ kind: "markdown", documentKind: "markdown" });
     expect(state.windows[0].tabs[0].filePath).toBe("/tmp/notes.md");
   });
 
@@ -80,6 +81,7 @@ describe("vmark.session.get_state", () => {
       tabs: {
         main: [
           {
+            kind: "document",
             id: "tab-w",
             filePath: "/repo/.github/workflows/ci.yml",
             title: "ci",
@@ -96,7 +98,7 @@ describe("vmark.session.get_state", () => {
       .initDocument("tab-w", WORKFLOW_YAML, "/repo/.github/workflows/ci.yml");
 
     const state = buildSessionState("0.7.0");
-    expect(state.windows[0].tabs[0].kind).toBe("yaml-workflow");
+    expect(state.windows[0].tabs[0]).toMatchObject({ kind: "yaml-workflow", documentKind: "yaml-workflow" });
   });
 
   it("classifies an unsaved workflow YAML via shape heuristic", () => {
@@ -104,6 +106,7 @@ describe("vmark.session.get_state", () => {
       tabs: {
         main: [
           {
+            kind: "document",
             id: "tab-u",
             filePath: null,
             title: "Untitled",
@@ -118,7 +121,7 @@ describe("vmark.session.get_state", () => {
     useDocumentStore.getState().initDocument("tab-u", WORKFLOW_YAML, null);
 
     const state = buildSessionState("0.7.0");
-    expect(state.windows[0].tabs[0].kind).toBe("yaml-workflow");
+    expect(state.windows[0].tabs[0]).toMatchObject({ kind: "yaml-workflow", documentKind: "yaml-workflow" });
     expect(state.windows[0].tabs[0].filePath).toBeNull();
   });
 
@@ -126,8 +129,8 @@ describe("vmark.session.get_state", () => {
     useTabStore.setState({
       tabs: {
         main: [
-          { id: "t1", filePath: null, title: "A", isPinned: false },
-          { id: "t2", filePath: null, title: "B", isPinned: false },
+          { kind: "document", id: "t1", filePath: null, title: "A", isPinned: false },
+          { kind: "document", id: "t2", filePath: null, title: "B", isPinned: false },
         ],
       },
       activeTabId: { main: "t1" },
@@ -143,6 +146,26 @@ describe("vmark.session.get_state", () => {
     const state = buildSessionState("0.7.0");
     expect(state.windows[0].tabs[0].revision).toBe("rev-AAAAAAAA");
     expect(state.windows[0].tabs[1].revision).toBe("rev-BBBBBBBB");
+  });
+
+  it("includes browser tabs with redacted URLs and stable automation metadata", () => {
+    const id = useTabStore.getState().createBrowserTab(
+      "main",
+      "https://alice:secret@example.com/private",
+      "Example",
+      "ai-sandbox",
+    );
+    useTabStore.getState().updateBrowserTab(id, { generation: 4 });
+    const state = buildSessionState("0.7.0");
+    expect(state.windows[0].tabs).toContainEqual({
+      id,
+      kind: "browser",
+      title: "Example",
+      url: "https://example.com/private",
+      loading: false,
+      generation: 4,
+      automationMode: "ai-sandbox",
+    });
   });
 
   it("handleSessionGetState calls respond with the structured payload", async () => {

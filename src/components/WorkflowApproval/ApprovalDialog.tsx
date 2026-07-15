@@ -24,6 +24,7 @@ import { useWorkflowExecution } from "@/hooks/useWorkflowExecution";
 import { workflowError } from "@/utils/debug";
 
 import "./approval-dialog.css";
+import { useBrowserOccluder } from "@/hooks/useBrowserOccluder";
 
 export function ApprovalDialog() {
   const { t } = useTranslation();
@@ -73,6 +74,10 @@ export function ApprovalDialog() {
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [pending, respond]);
+
+  // The native browser view paints over all React DOM in its rect, so freeze every
+  // mounted browser tab while this overlay is up (WI-SOC.1).
+  useBrowserOccluder(Boolean(pending), "workflow-approval");
 
   if (!pending) return null;
 

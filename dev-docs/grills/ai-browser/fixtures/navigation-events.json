@@ -1,0 +1,8 @@
+{
+  "events": [
+    { "kind": "navigated", "tabId": "tab-a", "navigationId": "nav-a-1", "generation": 1 },
+    { "kind": "loaded", "tabId": "tab-a", "navigationId": "nav-a-1", "generation": 1 },
+    { "kind": "navigated", "tabId": "tab-a", "navigationId": "nav-a-2", "generation": 2 },
+    { "kind": "failed", "tabId": "tab-a", "navigationId": "nav-a-2", "message": "blocked" }
+  ]
+}

@@ -9,6 +9,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, renderHook } from "@testing-library/react";
 import type { ReactNode } from "react";
+import type { TabRemovalRequestEvent } from "@/types/tabTransfer";
 import { useUIStore } from "../stores/uiStore";
 
 // --- Mocks (must precede imports) ---
@@ -913,7 +914,7 @@ describe("WindowContext", () => {
       // Make getTabsByWindow return remaining tabs so window doesn't close
       mockGetTabsByWindow.mockReturnValue([{ id: "other-tab" }]);
 
-      removeHandler({ payload: { tabId: "tab-to-remove" } });
+      removeHandler({ payload: { requestId: "req-1", tabId: "tab-to-remove", phase: "commit" } });
 
       await waitFor(() => {
         expect(mockDetachTab).toHaveBeenCalledWith("main", "tab-to-remove");
@@ -945,7 +946,7 @@ describe("WindowContext", () => {
       // No remaining tabs after removal
       mockGetTabsByWindow.mockReturnValue([]);
 
-      removeHandler({ payload: { tabId: "last-tab" } });
+      removeHandler({ payload: { requestId: "req-1", tabId: "last-tab", phase: "commit" } });
 
       await waitFor(() => {
         expect(invoke).toHaveBeenCalledWith("close_window", { label: "doc-close" });
@@ -1359,11 +1360,11 @@ describe("WindowContext", () => {
 
     it("returns early in tab:remove-by-id callback when cancelled", async () => {
       // This covers line 352: `if (cancelled) return;` inside the tab:remove-by-id callback
-      let removeCallback: ((event: { payload: { tabId: string } }) => void) | null = null;
+      let removeCallback: ((event: { payload: TabRemovalRequestEvent }) => void) | null = null;
 
       mockListen.mockImplementation((event: string, cb: (e: unknown) => void) => {
         if (event === "tab:remove-by-id") {
-          removeCallback = cb as (event: { payload: { tabId: string } }) => void;
+          removeCallback = cb as (event: { payload: TabRemovalRequestEvent }) => void;
         }
         return Promise.resolve(vi.fn());
       });
@@ -1384,7 +1385,7 @@ describe("WindowContext", () => {
 
       // Fire the tab:remove-by-id callback AFTER unmount — should return early (line 352)
       if (removeCallback) {
-        removeCallback({ payload: { tabId: "stale-tab" } });
+        removeCallback({ payload: { requestId: "req-1", tabId: "stale-tab", phase: "commit" } });
       }
 
       // removeTransferredTabData calls detachTab internally
@@ -1555,7 +1556,7 @@ describe("WindowContext", () => {
       );
       if (removeCall) {
         const removeHandler = removeCall![1];
-        removeHandler({ payload: { tabId: "last-tab" } });
+        removeHandler({ payload: { requestId: "req-1", tabId: "last-tab", phase: "commit" } });
 
         await new Promise((r) => setTimeout(r, 100));
 

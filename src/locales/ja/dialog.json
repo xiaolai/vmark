@@ -119,6 +119,7 @@
     "pdfExportFailed": "PDFエクスポートが失敗しました: {{error}}",
     "cannotMoveTabNoDoc": "タブを移動できません: ドキュメントが読み込まれていません。",
     "cannotMoveLastTab": "メインウィンドウの最後のタブは移動できません。",
+    "cannotMoveBrowserTab": "ブラウザタブは別のウィンドウに移動できません。",
     "tabMoved": "「{{title}}」を新しいウィンドウに移動しました",
     "tabDetached": "「{{title}}」を切り離しました",
     "tabMovedToWindow": "「{{title}}」を移動しました",

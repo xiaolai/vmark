@@ -108,3 +108,23 @@ describe("settingsStore — terminal.scrollback (G7/WI-4.2)", () => {
     expect(useSettingsStore.getState().terminal.scrollback).toBe(10000);
   });
 });
+
+describe("settingsStore — advanced.developerMode", () => {
+  beforeEach(() => {
+    useSettingsStore.getState().resetSettings();
+  });
+
+  // Persisted (not ephemeral component state) so that once a developer turns on
+  // developer mode, the experimental toggles — including the embedded browser —
+  // stay reachable across sessions, in release builds too.
+  it("defaults to false", () => {
+    expect(useSettingsStore.getState().advanced.developerMode).toBe(false);
+  });
+
+  it("can be toggled via updateAdvancedSetting and persists in the store", () => {
+    useSettingsStore.getState().updateAdvancedSetting("developerMode", true);
+    expect(useSettingsStore.getState().advanced.developerMode).toBe(true);
+    useSettingsStore.getState().updateAdvancedSetting("developerMode", false);
+    expect(useSettingsStore.getState().advanced.developerMode).toBe(false);
+  });
+});

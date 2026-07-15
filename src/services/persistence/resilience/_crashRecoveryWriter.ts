@@ -2,11 +2,12 @@
  * Crash Recovery Writer Hook
  *
  * Periodically snapshots all dirty documents to the recovery directory.
- * Runs every 10 seconds, skipping tabs whose content hasn't changed
- * since the last write (tracked via content hash).
+ * Runs every 10 seconds, skipping tabs whose persisted snapshot fields
+ * (content, path, title) match the last write — compared by value, not by a
+ * lossy content hash.
  *
- * @module hooks/useCrashRecoveryWriter
- * @coordinates-with crashRecovery.ts, useCrashRecoveryCleanup.ts
+ * @module services/persistence/resilience/_crashRecoveryWriter
+ * @coordinates-with crashRecovery.ts, _crashRecoveryCleanup.ts
  */
 
 import { useEffect, useRef } from "react";
@@ -25,14 +26,14 @@ const WRITE_INTERVAL_MS = 10_000;
  */
 export function useCrashRecoveryWriter(): void {
   const windowLabel = useWindowLabel();
-  const lastHashRef = useRef<Map<string, string>>(new Map());
+  const lastWrittenRef = useRef<Map<string, WrittenSnapshot>>(new Map());
   const writingRef = useRef(false);
 
   useEffect(() => {
     const interval = setInterval(() => {
       void writeDirtySnapshots(
         windowLabel,
-        lastHashRef.current,
+        lastWrittenRef.current,
         writingRef
       );
     }, WRITE_INTERVAL_MS);
@@ -42,21 +43,32 @@ export function useCrashRecoveryWriter(): void {
 }
 
 /**
- * Simple string hash for change detection.
- * Not cryptographic — just fast deduplication.
+ * The persisted fields of the last snapshot written for a tab. Dedup compares
+ * these by value — a lossy fingerprint (the previous 32-bit string hash) can
+ * collide ("Aa" / "BB" hash identically under the classic 31-multiplier), which
+ * would silently keep a STALE recovery snapshot for a document that changed.
+ * Holding the content string costs nothing while it is unchanged: it is the
+ * very string the document store already holds.
  */
-function simpleHash(str: string): string {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    const ch = str.charCodeAt(i);
-    hash = ((hash << 5) - hash + ch) | 0;
-  }
-  return hash.toString(36);
+interface WrittenSnapshot {
+  content: string;
+  filePath: string | null;
+  title: string;
+}
+
+/** True when the snapshot on disk already matches what we would write now. */
+function isUnchanged(previous: WrittenSnapshot | undefined, next: WrittenSnapshot): boolean {
+  return (
+    previous !== undefined
+    && previous.content === next.content
+    && previous.filePath === next.filePath
+    && previous.title === next.title
+  );
 }
 
 async function writeDirtySnapshots(
   windowLabel: string,
-  lastHashes: Map<string, string>,
+  lastWritten: Map<string, WrittenSnapshot>,
   writingRef: React.RefObject<boolean>
 ): Promise<void> {
   // In-flight guard — skip if previous write pass is still running
@@ -67,32 +79,49 @@ async function writeDirtySnapshots(
     const tabs = useTabStore.getState().getTabsByWindow(windowLabel);
     const docStore = useDocumentStore.getState();
 
-    // Prune hash entries for tabs that no longer exist
+    // Prune cache entries for tabs that no longer exist
     const currentTabIds = new Set(tabs.map((t) => t.id));
-    for (const key of lastHashes.keys()) {
-      if (!currentTabIds.has(key)) lastHashes.delete(key);
+    for (const key of lastWritten.keys()) {
+      if (!currentTabIds.has(key)) lastWritten.delete(key);
     }
 
     for (const tab of tabs) {
+      // Browser tabs (R1) have no editable document to crash-recover.
+      if (tab.kind !== "document") continue;
       const doc = docStore.getDocument(tab.id);
-      if (!doc || !doc.isDirty) continue;
+      if (!doc || !doc.isDirty) {
+        // A clean (or vanished) document has no live snapshot on disk — the
+        // cleanup hook deletes it on save/close. Drop the cache entry so that
+        // if the document becomes dirty again with byte-identical content, we
+        // don't mistake the deleted snapshot for a current one and skip the
+        // write, leaving the re-dirtied document with no recovery file.
+        lastWritten.delete(tab.id);
+        continue;
+      }
 
-      const hash = simpleHash(doc.content);
-      if (lastHashes.get(tab.id) === hash) continue;
+      const snapshot: WrittenSnapshot = {
+        content: doc.content,
+        filePath: tab.filePath,
+        title: tab.title,
+      };
+      if (isUnchanged(lastWritten.get(tab.id), snapshot)) continue;
 
+      // Per-tab isolation: one failing snapshot must never starve the tabs
+      // behind it in this pass.
       const success = await writeRecoverySnapshot({
         version: 1,
         tabId: tab.id,
         windowLabel,
-        content: doc.content,
-        filePath: tab.filePath,
-        title: tab.title,
+        ...snapshot,
         timestamp: Date.now(),
+      }).catch((error: unknown) => {
+        crashRecoveryLog("Snapshot write failed for", tab.id, errorMessage(error));
+        return false;
       });
 
-      // Only cache hash on success — failed writes will be retried next interval
+      // Only cache on success — failed writes will be retried next interval
       if (success) {
-        lastHashes.set(tab.id, hash);
+        lastWritten.set(tab.id, snapshot);
       }
     }
   } catch (error) {

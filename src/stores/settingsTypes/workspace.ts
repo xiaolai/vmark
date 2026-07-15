@@ -59,7 +59,6 @@ export interface FormatsSettings {
   associations: Record<string, string>;
 }
 
-/** General settings — auto-save, document history, tab size, line endings, and quit behavior. */
 // ---------------------------------------------------------------------------
 // Large file open behavior
 // ---------------------------------------------------------------------------
@@ -75,6 +74,22 @@ export interface LargeFileSettings {
   warnAbove5MB: boolean;
 }
 
+// ---------------------------------------------------------------------------
+// Embedded browser (WI-1.10)
+// ---------------------------------------------------------------------------
+
+/** Embedded-browser feature settings. Gated off by default until the surface,
+ *  driver, and site plugins ship — enabling exposes "New Browser Tab". */
+export interface BrowserSettings {
+  /** Master feature flag for the in-app embedded browser. Default false. */
+  enabled: boolean;
+  /** AI-owned browser data posture. Sandbox is isolated from human tabs. */
+  aiSession: "sandbox" | "shared";
+  /** Explicitly relax only loopback blocking for AI navigation. */
+  aiAllowLoopback: boolean;
+}
+
+/** General settings — auto-save, document history, tab size, line endings, and quit behavior. */
 export interface GeneralSettings {
   // Auto-save
   autoSaveEnabled: boolean;
@@ -113,6 +128,6 @@ export interface UpdateSettings {
   autoCheckEnabled: boolean; // Periodically check for updates
   checkFrequency: UpdateCheckFrequency; // When to check
   autoDownload: boolean; // Download updates automatically
-  lastCheckTimestamp: number | null; // Unix timestamp of last check
+  lastCheckTimestamp: number | null; // Unix epoch MILLISECONDS (Date.now()) of last check; null = never checked
   skipVersion: string | null; // Version to skip (user clicked "Skip")
 }

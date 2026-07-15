@@ -119,6 +119,7 @@
     "pdfExportFailed": "PDF 导出失败：{{error}}",
     "cannotMoveTabNoDoc": "无法移动标签页：文档未加载。",
     "cannotMoveLastTab": "无法移动主窗口中的最后一个标签页。",
+    "cannotMoveBrowserTab": "浏览器标签页无法移动到其他窗口。",
     "tabMoved": "已将\"{{title}}\"移动到新窗口",
     "tabDetached": "已分离\"{{title}}\"",
     "tabMovedToWindow": "已将\"{{title}}\"移动",

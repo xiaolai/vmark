@@ -95,4 +95,41 @@ describe("applyPathReconciliation", () => {
     expect(useDocumentStore.getState().getDocument(savedTab)?.isMissing).toBe(true);
     expect(useDocumentStore.getState().getDocument(unsavedTab)?.isMissing).toBeFalsy();
   });
+
+  it("clears isMissing when a previously missing document is re-pointed", () => {
+    // A file marked missing (deleted, then recreated at a new path via a
+    // rename event) must lose its missing flag when re-pointed — otherwise
+    // autosave stays disabled and the missing-file UI lingers on a live file.
+    const oldPath = "/tmp/moved.md";
+    const newPath = "/tmp/moved-renamed.md";
+    const tab = useTabStore.getState().createTab(WINDOW_MAIN, oldPath);
+    useDocumentStore.getState().initDocument(tab, "x", oldPath);
+    useDocumentStore.getState().markMissing(tab);
+    expect(useDocumentStore.getState().getDocument(tab)?.isMissing).toBe(true);
+
+    applyPathReconciliation([{ action: "update_path", oldPath, newPath }]);
+
+    const doc = useDocumentStore.getState().getDocument(tab);
+    expect(doc?.filePath).toBe(newPath);
+    expect(doc?.isMissing).toBe(false);
+  });
+
+  it("does not collapse chained path updates onto one file", () => {
+    // For a batch [a→b, b→c] the tab that started at `a` must land at `b`, and
+    // the tab that started at `b` must land at `c`. Re-reading tab state per
+    // result would drag the just-moved a-tab into the b→c result and land both
+    // on c — a later save would then write to the wrong file.
+    const tabA = useTabStore.getState().createTab(WINDOW_MAIN, "/tmp/a.md");
+    const tabB = useTabStore.getState().createTab(WINDOW_MAIN, "/tmp/b.md");
+    useDocumentStore.getState().initDocument(tabA, "a", "/tmp/a.md");
+    useDocumentStore.getState().initDocument(tabB, "b", "/tmp/b.md");
+
+    applyPathReconciliation([
+      { action: "update_path", oldPath: "/tmp/a.md", newPath: "/tmp/b.md" },
+      { action: "update_path", oldPath: "/tmp/b.md", newPath: "/tmp/c.md" },
+    ]);
+
+    expect(useDocumentStore.getState().getDocument(tabA)?.filePath).toBe("/tmp/b.md");
+    expect(useDocumentStore.getState().getDocument(tabB)?.filePath).toBe("/tmp/c.md");
+  });
 });

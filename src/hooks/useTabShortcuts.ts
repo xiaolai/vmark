@@ -1,8 +1,8 @@
 /**
  * Tab Shortcuts Hook
  *
- * Purpose: Keyboard shortcut handler for tab and UI operations — new tab,
- *   close tab (with dirty check), and status bar toggle.
+ * Purpose: Keyboard shortcut handler for tab and UI operations — new tab, new
+ *   *browser* tab, tab cycling, close tab (with dirty check), and status bar toggle.
  *
  * Key decisions:
  *   - Mod+W intentionally hardcoded (not configurable) for layered close handling
@@ -10,10 +10,18 @@
  *     the window open on the Welcome screen (empty-workspace window); the window
  *     itself is closed via the menu:close path in useWindowClose.
  *   - New tab and status bar toggle use configurable shortcuts from store
+ *   - New *browser* tab (WI-S0.1) is dispatched through the CommandBus rather than
+ *     calling the store directly, so the `browser.enabled` gate lives in exactly one
+ *     place (the command's `when` predicate) and this hook stays feature-agnostic.
  *   - Only active in document windows (not settings or other window types)
+ *
+ * Known limitation: these are DOM keydown listeners, so none of them fire while the
+ * embedded browser's native WKWebView is first responder (it consumes the key event
+ * before React sees it). Native routing for global browser commands is WI-S0.5.
  *
  * @coordinates-with useTabOperations.ts — closeTabWithDirtyCheck for save prompts
  * @coordinates-with shortcutsStore.ts — reads configurable shortcut bindings
+ * @coordinates-with services/commands/CommandBus — browser.newTab dispatch
  * @module hooks/useTabShortcuts
  */
 
@@ -28,6 +36,7 @@ import { fileOpsError } from "@/utils/debug";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import { matchesShortcutEvent } from "@/utils/shortcutMatch";
 import { cycleTabId } from "@/utils/tabCycling";
+import { executeCommand } from "@/services/commands/CommandBus";
 
 /** Hook that handles keyboard shortcuts for new tab, close tab (with dirty check), and status bar toggle. */
 export function useTabShortcuts() {
@@ -48,6 +57,18 @@ export function useTabShortcuts() {
         e.preventDefault();
         const tabId = useTabStore.getState().createTab(windowLabel, null);
         useDocumentStore.getState().initDocument(tabId, "", null);
+        return;
+      }
+
+      // New browser tab (WI-S0.1) — the only user-facing trigger for the
+      // embedded browser. Routed through the CommandBus so the
+      // `browser.enabled` `when` gate lives in exactly one place (no-ops when
+      // the feature is off). The chord is otherwise unbound, so preventing
+      // default on a match is safe even while disabled.
+      const newBrowserTabKey = shortcuts.getShortcut("newBrowserTab");
+      if (newBrowserTabKey && matchesShortcutEvent(e, newBrowserTabKey)) {
+        e.preventDefault();
+        void executeCommand("browser.newTab", null, { windowLabel });
         return;
       }
 

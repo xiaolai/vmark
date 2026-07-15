@@ -38,6 +38,7 @@ import { handleSpotlightTabTrap } from "@/components/spotlight/spotlightDialog";
 import { QuickOpenList } from "./QuickOpenList";
 import { quickOpenWarn } from "@/utils/debug";
 import "./QuickOpen.css";
+import { useBrowserOccluder } from "@/hooks/useBrowserOccluder";
 
 interface QuickOpenProps {
   windowLabel: string;
@@ -47,6 +48,9 @@ interface QuickOpenProps {
 export function QuickOpen({ windowLabel }: QuickOpenProps) {
   const { t } = useTranslation("editor");
   const isOpen = useQuickOpenStore((s) => s.isOpen);
+  // The native browser view paints over all React DOM in its rect, so freeze every
+  // mounted browser tab while this overlay is up (WI-SOC.1).
+  useBrowserOccluder(isOpen, "quick-open");
   const [filter, setFilter] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
   // Revision counter — incremented on each open to force item rebuild

@@ -20,7 +20,7 @@ afterEach(() => {
   mockTabStore.activeTabId = { main: "tab-1" };
   mockTabStore.findTabById = (id: string) =>
     id === "tab-1"
-      ? { id: "tab-1", filePath: null, title: "Untitled", isPinned: false }
+      ? { kind: "document", id: "tab-1", filePath: null, title: "Untitled", isPinned: false }
       : null;
 });
 
@@ -159,13 +159,13 @@ vi.mock("@/stores/documentStore", () => {
 // empty-workspace / Welcome-screen seam) and reset it afterwards.
 const { mockTabStore } = vi.hoisted(() => ({
   mockTabStore: {
-    tabs: { main: [{ id: "tab-1", filePath: null, title: "Untitled", isPinned: false }] },
+    tabs: { main: [{ kind: "document", id: "tab-1", filePath: null, title: "Untitled", isPinned: false }] },
     activeTabId: { main: "tab-1" as string | null },
-    getTabsByWindow: () => [{ id: "tab-1", filePath: null, title: "Untitled", isPinned: false }],
+    getTabsByWindow: () => [{ kind: "document", id: "tab-1", filePath: null, title: "Untitled", isPinned: false }],
     createTab: vi.fn(() => "tab-1"),
     findTabById: (id: string) =>
       id === "tab-1"
-        ? { id: "tab-1", filePath: null, title: "Untitled", isPinned: false }
+        ? { kind: "document", id: "tab-1", filePath: null, title: "Untitled", isPinned: false }
         : null,
   },
 }));
@@ -176,6 +176,32 @@ vi.mock("@/stores/tabStore", () => ({ useTabStore: createZustandMock(mockTabStor
 vi.mock("./MediaViewer/MediaViewer", () => ({
   MediaViewer: ({ tabId }: { tabId: string }) => (
     <div data-testid="media-viewer">{tabId}</div>
+  ),
+}));
+
+// Stub the generic split-pane + browser surfaces for the same reason: these
+// tests assert which surface the dispatcher picks and what it hands it, not
+// how those surfaces render (CodeMirror / native webview).
+vi.mock("./SplitPaneEditor/SplitPaneEditor", () => ({
+  SplitPaneEditor: ({
+    tabId,
+    formatConfig,
+  }: {
+    tabId: string;
+    formatConfig: { id: string; kind: string };
+  }) => (
+    <div
+      data-testid="split-pane-editor"
+      data-tab-id={tabId}
+      data-format-id={formatConfig.id}
+      data-format-kind={formatConfig.kind}
+    />
+  ),
+}));
+
+vi.mock("@/components/Browser/BrowserSurface", () => ({
+  BrowserSurface: ({ tabId }: { tabId: string }) => (
+    <div data-testid="browser-surface">{tabId}</div>
   ),
 }));
 
@@ -236,6 +262,21 @@ describe("Editor", () => {
     expect(content).toBeInTheDocument();
   });
 
+  it("renders the Welcome screen when activeTabId points at a tab that no longer exists", () => {
+    // A stale activeTabId (tab transfer, hot-exit restore, workspace switch) used
+    // to fall through to resolveFormat(null) -> untitled markdown, mounting a FULL
+    // EDITOR over a document that does not exist: a phantom buffer the user can
+    // type into. Fail closed to the Welcome screen instead.
+    mockTabStore.activeTabId = { main: "tab-gone" };
+    mockTabStore.findTabById = () => undefined;
+
+    renderWithProvider(<Editor />);
+
+    expect(screen.getByRole("button", { name: "New File" })).toBeInTheDocument();
+    expect(document.querySelector(".editor-content")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("split-pane-editor")).not.toBeInTheDocument();
+  });
+
   it("renders the Welcome screen (no editor) when no tab is active", () => {
     // Empty-workspace window: the last tab was closed, the window stays open.
     mockTabStore.activeTabId = { main: null };
@@ -269,13 +310,74 @@ describe("Editor", () => {
       // CodeMirror source pane mounts.
       mockTabStore.findTabById = (id: string) =>
         id === "tab-1"
-          ? { id: "tab-1", filePath: "/pics/hero.png", title: "hero.png", isPinned: false }
+          ? { kind: "document", id: "tab-1", filePath: "/pics/hero.png", title: "hero.png", isPinned: false }
           : null;
 
       renderWithProvider(<Editor />);
 
       expect(screen.getByTestId("media-viewer")).toHaveTextContent("tab-1");
-      expect(document.querySelector(".split-pane-editor")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("split-pane-editor")).not.toBeInTheDocument();
+    });
+
+    it("mounts SplitPaneEditor with the resolved format for a .txt tab", () => {
+      // The generic split-pane route, asserted at the dispatcher boundary:
+      // the tabId and the FormatConfig must both reach SplitPaneEditor.
+      mockTabStore.findTabById = (id: string) =>
+        id === "tab-1"
+          ? { kind: "document", id: "tab-1", filePath: "/x/notes.txt", title: "notes.txt", isPinned: false, formatId: "txt" }
+          : null;
+
+      renderWithProvider(<Editor />);
+
+      const surface = screen.getByTestId("split-pane-editor");
+      expect(surface).toHaveAttribute("data-tab-id", "tab-1");
+      expect(surface).toHaveAttribute("data-format-id", "txt");
+      expect(surface.getAttribute("data-format-kind")).not.toBe("wysiwyg");
+      expect(document.querySelector(".editor-content")).not.toBeInTheDocument();
+    });
+
+    it("mounts BrowserSurface (and no document surface) for a kind:'browser' tab", () => {
+      // R1: a browser tab has no filePath. Without the kind branch it would
+      // resolve as an untitled markdown document and mount the editor.
+      mockTabStore.findTabById = (id: string) =>
+        id === "tab-1"
+          ? { kind: "browser", id: "tab-1", url: "https://example.com", title: "Example", isPinned: false }
+          : null;
+
+      renderWithProvider(<Editor />);
+
+      expect(screen.getByTestId("browser-surface")).toHaveTextContent("tab-1");
+      expect(screen.queryByTestId("split-pane-editor")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("media-viewer")).not.toBeInTheDocument();
+      expect(document.querySelector(".editor-content")).not.toBeInTheDocument();
+    });
+
+    it("honors an UNTITLED tab's formatId instead of falling back to markdown", () => {
+      // Regression: createUntitledTab("main", "json") and hot-exit restore both
+      // record a non-markdown formatId on a tab with filePath === null.
+      // dispatchEditor(null) can only answer "markdown", so resolving from the
+      // path alone mounted the markdown WYSIWYG for an untitled JSON document.
+      mockTabStore.findTabById = (id: string) =>
+        id === "tab-1"
+          ? { kind: "document", id: "tab-1", filePath: null, title: "Untitled-1", isPinned: false, formatId: "json" }
+          : null;
+
+      renderWithProvider(<Editor />);
+
+      expect(screen.getByTestId("split-pane-editor")).toHaveAttribute("data-format-id", "json");
+      expect(document.querySelector(".editor-content")).not.toBeInTheDocument();
+    });
+
+    it("falls back to markdown when an untitled tab's formatId is not registered", () => {
+      mockTabStore.findTabById = (id: string) =>
+        id === "tab-1"
+          ? { kind: "document", id: "tab-1", filePath: null, title: "Untitled-1", isPinned: false, formatId: "no-such-format" }
+          : null;
+
+      renderWithProvider(<Editor />);
+
+      expect(document.querySelector(".editor-content")).toBeInTheDocument();
+      expect(screen.queryByTestId("split-pane-editor")).not.toBeInTheDocument();
     });
   });
 });

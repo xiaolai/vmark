@@ -111,13 +111,32 @@ function createMockView(editorDom: HTMLElement) {
     setMeta: vi.fn().mockReturnThis(),
   };
 
+  // Save/remove re-validate the captured range against the live document
+  // (linkRangeIsIntact). This stub models "the range still holds exactly the
+  // link the popup was opened on" — the healthy case these lifecycle tests
+  // exercise. The stale-range paths are covered in ../LinkPopupView.test.ts
+  // and ../linkRange.test.ts against real ProseMirror documents.
+  const linkMark = () => ({ type: "link", attrs: { href: storeState.href } });
+
   return {
     dom: editorDom,
     state: {
-      doc: { resolve: vi.fn() },
+      doc: {
+        resolve: vi.fn(),
+        content: { size: 1000 },
+        nodesBetween: (
+          from: number,
+          to: number,
+          f: (node: unknown, pos: number) => void
+        ) => f({ isText: true, nodeSize: to - from, marks: [linkMark()] }, from),
+      },
       schema: {
         marks: {
-          link: { create: (attrs: Record<string, unknown>) => ({ type: "link", attrs }) },
+          link: {
+            create: (attrs: Record<string, unknown>) => ({ type: "link", attrs }),
+            isInSet: (marks: Array<{ type: string }>) =>
+              marks.find((m) => m.type === "link"),
+          },
         },
       },
       tr,

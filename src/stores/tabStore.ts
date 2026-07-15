@@ -1,9 +1,9 @@
 /**
  * Tab Store
  *
- * Purpose: Manages per-window tab lifecycle — creation, closing, pinning,
- *   reordering, drag-detach, recently-closed history for reopen, and
- *   per-tab format-registry id (Tab.formatId derived from path).
+ * Purpose: Manages per-window tab lifecycle for the `DocumentTab | BrowserTab`
+ *   union — create/close/pin/reorder/drag-detach, reopen history, per-doc-tab
+ *   formatId, and browser tabs (create/update; helpers in tabStoreBrowser.ts).
  *
  * Key decisions:
  *   - State is keyed by window label to support multi-window (each window
@@ -33,23 +33,36 @@
 import { create } from "zustand";
 import { imeToast as toast } from "@/services/ime/imeToast";
 import i18n from "@/i18n";
-import { getFileName, normalizePath } from "@/utils/paths";
-import { stripSupportedExtension } from "@/utils/dropPaths";
-import { getFormatById } from "@/lib/formats/registry";
+import { normalizePath } from "@/utils/paths";
 import type { SplitViewMode } from "@/lib/formats/types";
-import type { Tab } from "@/stores/tabStoreTypes";
+import type {
+  BrowserAutomationMode,
+  Tab,
+  DocumentTab,
+} from "@/stores/tabStoreTypes";
+import {
+  browserTabUrl,
+  findBrowserTab,
+  makeBrowserTab,
+  patchBrowserTab,
+} from "@/stores/tabStoreBrowser";
 import {
   deriveFormatId,
   updateTabById,
-  nextActiveAfterRemoval,
+  getTabTitle,
+  getLocalizedFormatName,
+  applyPathUpdate,
+  removeTabAt,
+  insertTabForPin,
+  repositionForPin,
+  setActiveTabGuarded,
 } from "@/stores/tabStoreHelpers";
 import { notifyTabRemoved } from "@/stores/tabRemovalBus";
 
-// Re-exported so existing `import { Tab } from "@/stores/tabStore"` keeps working
-// while the shape lives in tabStoreTypes.ts (breaks the store↔helpers cycle).
-export type { Tab } from "@/stores/tabStoreTypes";
+// Re-exported so existing `import { Tab } from "@/stores/tabStore"` keeps working (shapes live in tabStoreTypes.ts, which breaks the store↔helpers cycle).
+export type { Tab, DocumentTab, BrowserTab } from "@/stores/tabStoreTypes";
+export { tabFilePath } from "@/stores/tabStoreTypes";
 
-// Per-window tab state
 interface TabState {
   // Tabs keyed by window label
   tabs: Record<string, Tab[]>;
@@ -66,8 +79,20 @@ interface TabActions {
   createTab: (windowLabel: string, filePath?: string | null) => string;
   createTransferredTab: (
     windowLabel: string,
-    tab: Omit<Tab, "formatId"> & { formatId?: string },
+    tab: Omit<DocumentTab, "formatId" | "kind"> & { formatId?: string; kind?: "document" },
   ) => string;
+  /** Create (or activate) a browser tab for `url`, deduplicated by mode. */
+  createBrowserTab: (
+    windowLabel: string,
+    url: string,
+    title?: string,
+    automationMode?: BrowserAutomationMode,
+  ) => string;
+  /** Patch browser metadata. No-op on document tabs. */
+  updateBrowserTab: (
+    tabId: string,
+    patch: { url?: string; title?: string; scrollY?: number; generation?: number },
+  ) => void;
   closeTab: (windowLabel: string, tabId: string) => void;
 
   // Tab state
@@ -75,20 +100,12 @@ interface TabActions {
   setTabEditingEnabled: (tabId: string, enabled: boolean) => void;
   setTabActiveSchemaId: (tabId: string, schemaId: string | null) => void;
   setTabViewMode: (tabId: string, mode: SplitViewMode) => void;
-  /** WI-1A.13 — overwrite a tab's `formatId` directly. Used by hot-exit
-   *  restore for untitled tabs where path-based derivation cannot recover
-   *  a non-markdown format (untitled JSON, etc.). Caller is responsible
-   *  for passing a valid registered id; invalid ids fall back to txt at
-   *  render time via dispatchEditor. */
+  /** Overwrite a tab's format id, used by hot-exit restore. */
   setTabFormatId: (tabId: string, formatId: string) => void;
   updateTabPath: (tabId: string, filePath: string) => void;
   updateTabTitle: (tabId: string, title: string) => void;
   togglePin: (windowLabel: string, tabId: string) => void;
-  /** Re-resolve every tab's `formatId` against the current registry.
-   *  Called after the user toggles a format-support setting and the
-   *  registry rebuilds — a tab whose adapter just got unregistered
-   *  must fall back to the txt format (and vice versa). The Editor
-   *  remount key picks up the change automatically. */
+  /** Re-resolve document format ids after the format registry changes. */
   recomputeAllFormatIds: () => void;
 
   // Detach (drag-out) — remove without adding to closedTabs
@@ -109,34 +126,7 @@ interface TabActions {
   removeWindow: (windowLabel: string) => void;
 }
 
-// Generate unique tab ID
 const generateTabId = (): string => `tab-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-
-// Get filename from path for tab title
-const getTabTitle = (filePath: string | null, untitledNum?: number): string => {
-  if (!filePath) {
-    // Translated "Untitled" — `common:untitled`. The numbered suffix
-    // stays a plain "-N" because file names don't carry locale formatting.
-    const base = i18n.t("common:untitled");
-    return untitledNum ? `${base}-${untitledNum}` : base;
-  }
-  // Extract filename without markdown extension
-  const name = getFileName(filePath) || filePath;
-  return stripSupportedExtension(name);
-};
-
-// Resolve a format id (e.g. "markdown", "json") to its localized display
-// name. Falls back to the id itself if the format isn't registered or the
-// translation key is missing — never throws, never blocks tab updates.
-function getLocalizedFormatName(formatId: string): string {
-  const config = getFormatById(formatId);
-  if (!config) return formatId;
-  const translated = i18n.t(`common:${config.nameI18nKey}`);
-  // i18next returns the key string when missing; treat that as a miss.
-  return translated && translated !== `common:${config.nameI18nKey}`
-    ? translated
-    : formatId;
-}
 
 /** Manages per-window tab lifecycle — creation, closing, pinning, reordering, and reopen history. Use selectors, not destructuring. */
 export const useTabStore = create<TabState & TabActions>((set, get) => ({
@@ -156,7 +146,7 @@ export const useTabStore = create<TabState & TabActions>((set, get) => ({
         const windowTabs = state.tabs[windowLabel] || [];
         const normalized = normalizePath(filePath);
         const existing = windowTabs.find(
-          (t) => t.filePath && normalizePath(t.filePath) === normalized
+          (t) => t.kind === "document" && t.filePath && normalizePath(t.filePath) === normalized
         );
         if (existing) {
           returnId = existing.id;
@@ -174,7 +164,8 @@ export const useTabStore = create<TabState & TabActions>((set, get) => ({
         title = getTabTitle(null, newCounter);
       }
 
-      const newTab: Tab = {
+      const newTab: DocumentTab = {
+        kind: "document",
         id,
         filePath,
         title,
@@ -195,21 +186,34 @@ export const useTabStore = create<TabState & TabActions>((set, get) => ({
 
   createTransferredTab: (windowLabel, tab) => {
     let returnId = tab.id;
-    const fullTab: Tab = {
+    const fullTab: DocumentTab = {
       ...tab,
+      kind: "document",
       formatId: tab.formatId ?? deriveFormatId(tab.filePath),
     };
 
     set((state) => {
       const windowTabs = state.tabs[windowLabel] || [];
-      const existing = windowTabs.find((t) => t.id === fullTab.id);
+      // Dedup by id (a repeated transfer) AND by path (the file is already open
+      // in the target window) — same contract as createTab, so a transfer can't
+      // produce two tabs for one file in one window.
+      const normalized = fullTab.filePath ? normalizePath(fullTab.filePath) : null;
+      const existing = windowTabs.find(
+        (t) =>
+          t.id === fullTab.id ||
+          (normalized !== null &&
+            t.kind === "document" &&
+            !!t.filePath &&
+            normalizePath(t.filePath) === normalized),
+      );
       if (existing) {
         returnId = existing.id;
         return { activeTabId: { ...state.activeTabId, [windowLabel]: existing.id } };
       }
 
       return {
-        tabs: { ...state.tabs, [windowLabel]: [...windowTabs, fullTab] },
+        // A pinned transfer belongs in the pinned zone, not after the unpinned tabs.
+        tabs: { ...state.tabs, [windowLabel]: insertTabForPin(windowTabs, fullTab) },
         activeTabId: { ...state.activeTabId, [windowLabel]: fullTab.id },
       };
     });
@@ -217,7 +221,36 @@ export const useTabStore = create<TabState & TabActions>((set, get) => ({
     return returnId;
   },
 
+  createBrowserTab: (windowLabel, url, title, automationMode = "human") => {
+    const canonical = browserTabUrl(url);
+    const id = generateTabId();
+    let returnId = id;
+    set((state) => {
+      const windowTabs = state.tabs[windowLabel] || [];
+      const existing = findBrowserTab(windowTabs, canonical, automationMode);
+      if (existing) {
+        returnId = existing.id;
+        return { activeTabId: { ...state.activeTabId, [windowLabel]: existing.id } };
+      }
+      return {
+        tabs: {
+          ...state.tabs,
+          [windowLabel]: [...windowTabs, makeBrowserTab(id, canonical, title, automationMode)],
+        },
+        activeTabId: { ...state.activeTabId, [windowLabel]: id },
+      };
+    });
+    return returnId;
+  },
+
+  updateBrowserTab: (tabId, patch) => {
+    set((state) => ({ tabs: patchBrowserTab(state.tabs, tabId, patch) }));
+  },
+
   closeTab: (windowLabel, tabId) => {
+    // #1081: notify ONLY on a real removal. A pinned (refused) or unknown tab
+    // removes nothing, and paneStore would collapse a split for no reason.
+    let removed = false;
     set((state) => {
       const windowTabs = state.tabs[windowLabel] || [];
       const tabIndex = windowTabs.findIndex((t) => t.id === tabId);
@@ -234,43 +267,32 @@ export const useTabStore = create<TabState & TabActions>((set, get) => ({
 
       // Add to closed tabs for reopen
       const closed = state.closedTabs[windowLabel] || [];
-      const newClosed = [tab, ...closed].slice(0, 10);
-
-      const newTabs = windowTabs.filter((t) => t.id !== tabId);
-      const newActiveId = nextActiveAfterRemoval(state.activeTabId[windowLabel], tabId, tabIndex, newTabs);
+      removed = true;
 
       return {
-        tabs: { ...state.tabs, [windowLabel]: newTabs },
-        activeTabId: { ...state.activeTabId, [windowLabel]: newActiveId },
-        closedTabs: { ...state.closedTabs, [windowLabel]: newClosed },
+        ...removeTabAt(state, windowLabel, tabIndex),
+        closedTabs: { ...state.closedTabs, [windowLabel]: [tab, ...closed].slice(0, 10) },
       };
     });
     // #1081: paneStore collapses a split whose pane held the tab.
-    notifyTabRemoved(windowLabel, tabId);
+    if (removed) notifyTabRemoved(windowLabel, tabId);
   },
 
   detachTab: (windowLabel, tabId) => {
+    let removed = false;
     set((state) => {
       const windowTabs = state.tabs[windowLabel] || [];
       const tabIndex = windowTabs.findIndex((t) => t.id === tabId);
       if (tabIndex === -1) return state;
-
-      const newTabs = windowTabs.filter((t) => t.id !== tabId);
-      const newActiveId = nextActiveAfterRemoval(state.activeTabId[windowLabel], tabId, tabIndex, newTabs);
-
-      return {
-        tabs: { ...state.tabs, [windowLabel]: newTabs },
-        activeTabId: { ...state.activeTabId, [windowLabel]: newActiveId },
-      };
+      removed = true;
+      return removeTabAt(state, windowLabel, tabIndex);
     });
     // #1081: detaching removes the tab here too — collapse a split that held it.
-    notifyTabRemoved(windowLabel, tabId);
+    if (removed) notifyTabRemoved(windowLabel, tabId);
   },
 
   setActiveTab: (windowLabel, tabId) => {
-    set((state) => ({
-      activeTabId: { ...state.activeTabId, [windowLabel]: tabId },
-    }));
+    set((state) => setActiveTabGuarded(state, windowLabel, tabId));
   },
 
   /** WI-4.3 — promote a tab to read-write or revert to read-only. */
@@ -296,35 +318,16 @@ export const useTabStore = create<TabState & TabActions>((set, get) => ({
   },
 
   updateTabPath: (tabId, filePath) => {
-    let kindChange:
-      | { previousFormatId: string; nextFormatId: string }
-      | null = null;
+    let formatChange: string | null = null;
     set((state) => {
-      const newTabs = { ...state.tabs };
-      for (const windowLabel of Object.keys(newTabs)) {
-        newTabs[windowLabel] = newTabs[windowLabel].map((t) => {
-          if (t.id !== tabId) return t;
-          const nextFormatId = deriveFormatId(filePath);
-          if (nextFormatId !== t.formatId) {
-            kindChange = { previousFormatId: t.formatId, nextFormatId };
-          }
-          return {
-            ...t,
-            filePath,
-            title: getTabTitle(filePath),
-            formatId: nextFormatId,
-          };
-        });
-      }
-      return { tabs: newTabs };
+      const result = applyPathUpdate(state.tabs, tabId, filePath);
+      formatChange = result.formatChange;
+      return { tabs: result.tabs };
     });
-    /* v8 ignore next 8 -- @preserve fired only on cross-format rename; unit-tested separately */
-    if (kindChange) {
-      const change = kindChange as { previousFormatId: string; nextFormatId: string };
+    /* v8 ignore next 5 -- @preserve fired only on cross-format rename; unit-tested separately */
+    if (formatChange) {
       toast.info(
-        i18n.t("dialog:toast.tabFormatChanged", {
-          format: getLocalizedFormatName(change.nextFormatId),
-        }),
+        i18n.t("dialog:toast.tabFormatChanged", { format: getLocalizedFormatName(formatChange) }),
       );
     }
   },
@@ -350,23 +353,14 @@ export const useTabStore = create<TabState & TabActions>((set, get) => ({
       const tab = windowTabs[tabIndex];
       const updatedTab = { ...tab, isPinned: !tab.isPinned };
 
-      // Move pinned tabs to the left
-      let newTabs: Tab[];
-      if (updatedTab.isPinned) {
-        // Find insertion point (after last pinned tab)
-        const lastPinnedIndex = windowTabs.reduce(
-          (last, t, i) => (t.isPinned ? i : last),
-          -1
-        );
-        newTabs = [...windowTabs];
-        newTabs.splice(tabIndex, 1);
-        newTabs.splice(lastPinnedIndex + 1, 0, updatedTab);
-      } else {
-        // Just update in place
-        newTabs = windowTabs.map((t) => (t.id === tabId ? updatedTab : t));
-      }
-
-      return { tabs: { ...state.tabs, [windowLabel]: newTabs } };
+      // Both directions land on the pinned/unpinned boundary, so the pinned
+      // zone stays contiguous at the left of the strip.
+      return {
+        tabs: {
+          ...state.tabs,
+          [windowLabel]: repositionForPin(windowTabs, tabIndex, updatedTab),
+        },
+      };
     });
   },
 
@@ -419,7 +413,11 @@ export const useTabStore = create<TabState & TabActions>((set, get) => ({
   findTabByPath: (windowLabel, filePath) => {
     const windowTabs = get().tabs[windowLabel] || [];
     const normalized = normalizePath(filePath);
-    return windowTabs.find((t) => t.filePath && normalizePath(t.filePath) === normalized) || null;
+    return (
+      windowTabs.find(
+        (t) => t.kind === "document" && t.filePath && normalizePath(t.filePath) === normalized,
+      ) || null
+    );
   },
 
   // Tab IDs are globally unique by construction (generateTabId uses
@@ -440,7 +438,7 @@ export const useTabStore = create<TabState & TabActions>((set, get) => ({
     const paths: string[] = [];
     for (const windowTabs of Object.values(state.tabs)) {
       for (const tab of windowTabs) {
-        if (tab.filePath) paths.push(tab.filePath);
+        if (tab.kind === "document" && tab.filePath) paths.push(tab.filePath);
       }
     }
     return paths;
@@ -452,6 +450,7 @@ export const useTabStore = create<TabState & TabActions>((set, get) => ({
       let changed = false;
       for (const windowLabel of Object.keys(state.tabs)) {
         newTabs[windowLabel] = state.tabs[windowLabel].map((t) => {
+          if (t.kind !== "document") return t; // browser tabs have no formatId
           const nextFormatId = deriveFormatId(t.filePath);
           if (nextFormatId === t.formatId) return t;
           changed = true;

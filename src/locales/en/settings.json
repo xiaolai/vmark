@@ -647,6 +647,12 @@
   "advanced.group.experimental": "Experimental Features",
   "advanced.workflowEngine.label": "Workflow Engine",
   "advanced.workflowEngine.description": "Enable YAML workflow files with React Flow visualization (experimental)",
+  "advanced.browserAiSession.label": "AI browser session",
+  "advanced.browserAiSession.description": "Sandbox keeps AI cookies separate from human tabs; Shared uses the human browser profile and asks before changing destinations.",
+  "advanced.browserAiSession.sandbox": "Sandbox (recommended)",
+  "advanced.browserAiSession.shared": "Shared profile",
+  "advanced.browserAiAllowLoopback.label": "Allow AI loopback access",
+  "advanced.browserAiAllowLoopback.description": "Permit AI navigation to localhost and loopback addresses. Private LAN, metadata, and link-local ranges remain blocked.",
   "advanced.workflowEditorPreserveYamlFormatting.label": "Preserve YAML formatting on save",
   "advanced.workflowEditorPreserveYamlFormatting.description": "When the structured editor saves changes, preserve comments, anchors, and existing formatting through a CST round-trip. Disable to reformat through plain yaml.stringify on every save (drops comments).",
   "advanced.group.hotExitDevTools": "Hot Exit Dev Tools",
@@ -672,5 +678,11 @@
   "integrations.ccSwitch.description": "Hand off VMark's MCP server to CC-Switch, which syncs it into the AI CLIs you manage there.",
   "integrations.ccSwitch.add": "Add to CC-Switch",
   "integrations.ccSwitch.opened": "Opened CC-Switch import link.",
-  "integrations.ccSwitch.binaryMissing": "Build VMark's MCP server binary first."
+  "integrations.ccSwitch.binaryMissing": "Build VMark's MCP server binary first.",
+  "advanced": {
+    "embeddedBrowser": {
+      "label": "Embedded browser",
+      "description": "Enable the experimental in-app web browser. Adds “New Browser Tab” to the command palette."
+    }
+  }
 }

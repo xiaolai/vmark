@@ -111,11 +111,7 @@ export class VMarkMcpServer implements McpServerInterface {
   async callTool(name: string, args: Record<string, unknown>): Promise<ToolCallResult> {
     const tool = this.tools.get(name);
     if (!tool) {
-      return {
-        success: false,
-        content: [{ type: 'text', text: `Unknown tool: ${name}` }],
-        isError: true,
-      };
+      return VMarkMcpServer.errorResult(`Unknown tool: ${name}`);
     }
 
     // Normalize args to empty object if null/undefined/non-object
@@ -126,11 +122,7 @@ export class VMarkMcpServer implements McpServerInterface {
       return await tool.handler(normalizedArgs);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      return {
-        success: false,
-        content: [{ type: 'text', text: `Tool error: ${message}` }],
-        isError: true,
-      };
+      return VMarkMcpServer.errorResult(`Tool error: ${message}`);
     }
   }
 
@@ -147,17 +139,28 @@ export class VMarkMcpServer implements McpServerInterface {
       return await resource.handler(uri);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`Resource error (${uri}): ${message}`);
+      // Preserve the original cause/stack for diagnosis, not just the message.
+      throw new Error(`Resource error (${uri}): ${message}`, { cause: error });
     }
   }
 
   /**
    * Helper to send a bridge request with proper typing.
+   *
+   * A failure may carry structured `data` (the browser approval envelope — R5).
+   * It is attached to the thrown error rather than dropped: a refused action is a
+   * request for human consent, and discarding the envelope left the AI with an
+   * error it could not act on. The message is defensive too — a failure without
+   * `error` previously produced `new Error(undefined)`, i.e. an empty message.
    */
   async sendBridgeRequest<T>(request: BridgeRequest): Promise<T> {
     const response = await this.bridge.send<T>(request);
     if (!response.success) {
-      throw new Error(response.error);
+      const error = new Error(response.error || 'VMark rejected the request') as Error & {
+        data?: unknown;
+      };
+      if (response.data !== undefined) error.data = response.data;
+      throw error;
     }
     return (response.data ?? undefined) as T;
   }

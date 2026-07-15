@@ -1,0 +1,7 @@
+{
+  "tabs": [
+    { "id": "human-1", "kind": "browser", "url": "https://example.com/", "automationMode": "human", "persistPolicy": "restore-human" },
+    { "id": "sandbox-1", "kind": "browser", "url": "https://example.com/", "automationMode": "ai-sandbox", "persistPolicy": "transient-ai" },
+    { "id": "shared-1", "kind": "browser", "url": "https://example.com/", "automationMode": "ai-shared", "persistPolicy": "transient-ai" }
+  ]
+}

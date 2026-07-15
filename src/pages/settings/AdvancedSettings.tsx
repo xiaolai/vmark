@@ -4,38 +4,17 @@
  * Developer and system configuration.
  */
 
-import { useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
 import { useTranslation } from "react-i18next";
-import { imeToast as toast } from "@/services/ime/imeToast";
-import { SettingRow, SettingsGroup, Toggle, TagInput } from "./components";
+import { SettingRow, SettingsGroup, Toggle, TagInput, Select } from "./components";
 import { useSettingsStore } from "@/stores/settingsStore";
-import { restartWithHotExit } from "@/services/persistence/hotExit/restartWithHotExit";
-import { restoreCommandFor } from "@/services/persistence/hotExit/restoreDispatch";
-import type { SessionData } from "@/services/persistence/hotExit/types";
+import { HotExitDevTools } from "./HotExitDevTools";
 import { isMacPlatform } from "@/utils/shortcutMatch";
-
-/**
- * Helper to wrap async operations with error handling
- */
-async function withErrorHandling<T>(
-  fn: () => Promise<T>,
-  errorMessage: string
-): Promise<T | null> {
-  try {
-    return await fn();
-  } catch (error) {
-    toast.error(errorMessage, {
-      description: error instanceof Error ? error.message : String(error),
-    });
-    return null;
-  }
-}
 
 export function AdvancedSettings() {
   const { t } = useTranslation("settings");
-  const [devTools, setDevTools] = useState(false);
-  const [isBusy, setIsBusy] = useState(false);
+  // Persisted (not ephemeral local state): once enabled, the experimental toggles
+  // stay revealed across Settings re-opens and in release builds.
+  const devTools = useSettingsStore((state) => state.advanced.developerMode);
   const customLinkProtocols = useSettingsStore((state) => state.advanced.customLinkProtocols);
   const keepBothEditorsAlive = useSettingsStore((state) => state.advanced.keepBothEditorsAlive);
   const workflowEngine = useSettingsStore((state) => state.advanced.workflowEngine);
@@ -52,13 +31,20 @@ export function AdvancedSettings() {
     (state) => state.advanced.workflowActionlint
   );
   const updateAdvancedSetting = useSettingsStore((state) => state.updateAdvancedSetting);
+  const browserEnabled = useSettingsStore((state) => state.browser.enabled);
+  const updateBrowserSetting = useSettingsStore((state) => state.updateBrowserSetting);
+  const browserAiSession = useSettingsStore((state) => state.browser.aiSession);
+  const browserAiAllowLoopback = useSettingsStore((state) => state.browser.aiAllowLoopback);
   const isMac = isMacPlatform();
 
   return (
     <div>
       <SettingsGroup title={t("advanced.group.developer")}>
         <SettingRow label={t("advanced.devTools.label")} description={t("advanced.devTools.description")}>
-          <Toggle checked={devTools} onChange={setDevTools} />
+          <Toggle
+            checked={devTools}
+            onChange={(v) => updateAdvancedSetting("developerMode", v)}
+          />
         </SettingRow>
       </SettingsGroup>
 
@@ -125,12 +111,49 @@ export function AdvancedSettings() {
               onChange={(v) => updateAdvancedSetting("clearMacQuarantineOnOpen", v)}
             />
           </SettingRow>
+          <SettingRow
+            label={t("advanced.browserAiSession.label")}
+            description={t("advanced.browserAiSession.description")}
+          >
+            <Select
+              value={browserAiSession}
+              options={[
+                { value: "sandbox", label: t("advanced.browserAiSession.sandbox") },
+                { value: "shared", label: t("advanced.browserAiSession.shared") },
+              ]}
+              onChange={(value) => updateBrowserSetting("aiSession", value)}
+            />
+          </SettingRow>
+          <SettingRow
+            label={t("advanced.browserAiAllowLoopback.label")}
+            description={t("advanced.browserAiAllowLoopback.description")}
+          >
+            <Toggle
+              checked={browserAiAllowLoopback}
+              onChange={(value) => updateBrowserSetting("aiAllowLoopback", value)}
+            />
+          </SettingRow>
         </SettingsGroup>
       )}
 
       {/* Developer features - only visible when developer mode is enabled */}
       {devTools && (
         <SettingsGroup title={t("advanced.group.experimental")}>
+          <SettingRow
+            label={t("advanced.embeddedBrowser.label")}
+            description={t("advanced.embeddedBrowser.description")}
+          >
+            <Toggle
+              checked={browserEnabled}
+              onChange={(v) => updateBrowserSetting("enabled", v)}
+            />
+          </SettingRow>
+          {/* Site permissions are NOT here. Settings opens as a separate Tauri window with
+              its own JS context, so it has its own Zustand store: a grants list rendered
+              here reads an empty array and its Revoke button mutates a store the document
+              window never sees. It told you that you had revoked, and you had not. They
+              live in the browser sidebar instead, in the window that owns them.
+              (Audit finding, High.) */}
           <SettingRow
             label={t("advanced.workflowEngine.label")}
             description={t("advanced.workflowEngine.description")}
@@ -162,127 +185,7 @@ export function AdvancedSettings() {
       )}
 
       {/* Hot Exit Dev Tools - only visible when developer mode is enabled */}
-      {devTools && (
-        <SettingsGroup title={t("advanced.group.hotExitDevTools")}>
-          <div className="py-2.5 space-y-3">
-            <div className="text-sm text-[var(--text-secondary)] mb-3">
-              {t("advanced.hotExit.hint")}
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={async () => {
-                  if (isBusy) return;
-                  setIsBusy(true);
-                  const session = await withErrorHandling(
-                    () => invoke<SessionData>("hot_exit_capture"),
-                    t("advanced.hotExit.captureFailed")
-                  );
-                  if (session) {
-                    toast.success(t("advanced.hotExit.captureSuccess", { count: session.windows.length }), {
-                      description: `v${session.vmark_version}`,
-                    });
-                  }
-                  setIsBusy(false);
-                }}
-                disabled={isBusy}
-                className="px-3 py-1.5 text-sm bg-[var(--bg-tertiary)] hover:bg-[var(--hover-bg)] disabled:opacity-50 disabled:cursor-not-allowed rounded border border-[var(--border-color)] transition-colors"
-              >
-                {t("advanced.hotExit.testCapture")}
-              </button>
-
-              <button
-                onClick={async () => {
-                  if (isBusy) return;
-                  setIsBusy(true);
-                  const session = await withErrorHandling(
-                    () => invoke<SessionData | null>("hot_exit_inspect_session"),
-                    t("advanced.hotExit.inspectFailed")
-                  );
-                  if (session) {
-                    const age = Math.max(0, Math.floor((Date.now() - session.timestamp * 1000) / 1000));
-                    toast.info(t("advanced.hotExit.sessionFound", { age }), {
-                      description: t("advanced.hotExit.sessionFoundDetail", { count: session.windows.length, version: session.vmark_version }),
-                    });
-                  } else if (session === null) {
-                    toast.info(t("advanced.hotExit.noSession"));
-                  }
-                  setIsBusy(false);
-                }}
-                disabled={isBusy}
-                className="px-3 py-1.5 text-sm bg-[var(--bg-tertiary)] hover:bg-[var(--hover-bg)] disabled:opacity-50 disabled:cursor-not-allowed rounded border border-[var(--border-color)] transition-colors"
-              >
-                {t("advanced.hotExit.inspectSession")}
-              </button>
-
-              <button
-                onClick={async () => {
-                  if (isBusy) return;
-                  setIsBusy(true);
-                  const session = await withErrorHandling(
-                    () => invoke<SessionData | null>("hot_exit_inspect_session"),
-                    t("advanced.hotExit.restoreFailed")
-                  );
-                  if (session) {
-                    // Match the auto-restore flow: a multi-window session must
-                    // use the multi-window command, or secondary windows are
-                    // silently dropped (#970).
-                    const result = await withErrorHandling(
-                      () => invoke<void>(restoreCommandFor(session), { session }),
-                      t("advanced.hotExit.restoreFailed")
-                    );
-                    if (result !== null) {
-                      toast.success(t("advanced.hotExit.restoreSuccess"));
-                    }
-                  } else if (session === null) {
-                    toast.info(t("advanced.hotExit.noSessionToRestore"));
-                  }
-                  setIsBusy(false);
-                }}
-                disabled={isBusy}
-                className="px-3 py-1.5 text-sm bg-[var(--bg-tertiary)] hover:bg-[var(--hover-bg)] disabled:opacity-50 disabled:cursor-not-allowed rounded border border-[var(--border-color)] transition-colors"
-              >
-                {t("advanced.hotExit.testRestore")}
-              </button>
-
-              <button
-                onClick={async () => {
-                  if (isBusy) return;
-                  setIsBusy(true);
-                  const result = await withErrorHandling(
-                    () => invoke<void>("hot_exit_clear_session"),
-                    t("advanced.hotExit.clearFailed")
-                  );
-                  if (result !== null) {
-                    toast.success(t("advanced.hotExit.sessionCleared"));
-                  }
-                  setIsBusy(false);
-                }}
-                disabled={isBusy}
-                className="px-3 py-1.5 text-sm bg-[var(--error-bg)] hover:bg-[var(--error-color)] hover:text-[var(--contrast-text)] disabled:opacity-50 disabled:cursor-not-allowed text-[var(--error-color)] rounded border border-[var(--error-color)] transition-colors"
-              >
-                {t("advanced.hotExit.clearSession")}
-              </button>
-
-              <button
-                onClick={async () => {
-                  if (isBusy) return;
-                  setIsBusy(true);
-                  await withErrorHandling(
-                    () => restartWithHotExit(),
-                    t("advanced.hotExit.restartFailed")
-                  );
-                  // Note: If restart succeeds, app will close - setIsBusy won't run
-                }}
-                disabled={isBusy}
-                className="px-3 py-1.5 text-sm bg-[var(--primary-color)] hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed text-[var(--contrast-text)] rounded border border-[var(--primary-color)] transition-opacity"
-              >
-                {t("advanced.hotExit.testRestart")}
-              </button>
-            </div>
-          </div>
-        </SettingsGroup>
-      )}
+      {devTools && <HotExitDevTools />}
     </div>
   );
 }

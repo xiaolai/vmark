@@ -45,7 +45,11 @@ import { createSafeStorage } from "@/services/persistence/safeStorage";
 import { migrateWorkspaceRailModeToGeneral } from "./settingsStore/migrations";
 import { initialState, type ObjectSections } from "./settingsStore/defaults";
 import { clampMergedSettings, clampSettingValue } from "./settingsStore/clamp";
-import { sanitizePersistedSettings } from "./settingsStore/persistGuards";
+import {
+  isPlainObject,
+  normalizeBrowserSettings,
+  sanitizePersistedSettings,
+} from "./settingsStore/persistGuards";
 import type { SettingsState, SettingsActions } from "./settingsTypes";
 
 // Re-exported for tests + existing callers that import from "@/stores/settingsStore".
@@ -80,6 +84,7 @@ export type {
   GeneralSettings,
   UpdateSettings,
   LargeFileSettings,
+  BrowserSettings,
   SettingsState,
   SettingsActions,
 } from "./settingsTypes";
@@ -104,7 +109,11 @@ const createSectionUpdater = <T extends ObjectSections>(
 export const useSettingsStore = create<SettingsState & SettingsActions>()(
   persist(
     (set) => ({
-      ...initialState,
+      // Deep clone: a shallow spread would have live state share every nested
+      // section object (and array) with the canonical defaults, so one in-place
+      // mutation anywhere would corrupt `initialState` — and with it every
+      // future resetSettings().
+      ...structuredClone(initialState),
       updateGeneralSetting: createSectionUpdater(set, "general"),
       updateAppearanceSetting: createSectionUpdater(set, "appearance"),
       updateCJKFormattingSetting: createSectionUpdater(set, "cjkFormatting"),
@@ -115,6 +124,7 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
       updateUpdateSetting: createSectionUpdater(set, "update"),
       updateLargeFileSetting: createSectionUpdater(set, "largeFile"),
       updateFormatsSetting: createSectionUpdater(set, "formats"),
+      updateBrowserSetting: createSectionUpdater(set, "browser"),
       toggleDevSection: () => set((state) => ({ showDevSection: !state.showDevSection })),
       resetSettings: () => set(structuredClone(initialState)),
     }),
@@ -141,11 +151,17 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
       // Deep merge to preserve new default properties when loading old localStorage
       merge: (persistedState, currentState) => {
         const rawPersisted = (persistedState ?? {}) as Record<string, unknown>;
-        // Migration: paragraphSpacing -> blockSpacing. Runs on the raw blob
-        // before shape-sanitization, while `appearance` is still trusted as an
-        // object here (sanitization would drop it if it weren't).
-        const appearance = rawPersisted.appearance as Record<string, unknown> | undefined;
-        if (appearance && "paragraphSpacing" in appearance && !("blockSpacing" in appearance)) {
+        // Migration: paragraphSpacing -> blockSpacing. Runs on the raw blob,
+        // BEFORE shape-sanitization — so `appearance` is still untrusted here.
+        // `in` throws a TypeError on a primitive (`appearance: "evil"`), which
+        // would abort hydration and silently drop every persisted setting;
+        // isPlainObject is the same guard the sibling migration already uses.
+        const appearance = rawPersisted.appearance;
+        if (
+          isPlainObject(appearance) &&
+          "paragraphSpacing" in appearance &&
+          !("blockSpacing" in appearance)
+        ) {
           appearance.blockSpacing = appearance.paragraphSpacing;
           delete appearance.paragraphSpacing;
         }
@@ -163,16 +179,21 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
           currentState as unknown as Record<string, unknown>,
           persisted
         ) as unknown as typeof currentState;
-        // Union array-typed defaults so new entries (e.g., link protocols) reach existing users
+        // Union array-typed defaults so new entries (e.g., link protocols) reach
+        // existing users. The persist guards validate that the value IS an array,
+        // not what is in it — drop non-string entries here, or they reach the
+        // link-scheme allowlist and the settings UI as `42` / `null` / `{}`.
         const defaultProtocols = currentState.advanced.customLinkProtocols;
         const persistedAdvanced = persisted.advanced as Record<string, unknown> | undefined;
         const persistedProtocols = persistedAdvanced?.customLinkProtocols;
         if (Array.isArray(persistedProtocols)) {
-          merged.advanced.customLinkProtocols = [...new Set([...defaultProtocols, ...persistedProtocols])];
+          const strings = persistedProtocols.filter((p): p is string => typeof p === "string");
+          merged.advanced.customLinkProtocols = [...new Set([...defaultProtocols, ...strings])];
         }
         // D4: clamp bounded numeric fields so a corrupt persisted value
         // (e.g. `appearance.fontSize: 999`) can't render the editor broken.
         clampMergedSettings(merged as unknown as Record<string, unknown>);
+        normalizeBrowserSettings(merged.browser as unknown as Record<string, unknown>);
         return merged;
       },
     }

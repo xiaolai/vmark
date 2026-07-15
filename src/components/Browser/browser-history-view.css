@@ -1,0 +1,132 @@
+/* BrowserHistoryView (WI-S2.2) — this window's browsing, in the sidebar. */
+
+.browser-history {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.browser-history-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-2);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.browser-history-title {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  letter-spacing: var(--letter-spacing-loose);
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.browser-history-clear {
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+}
+
+.browser-history-clear:hover {
+  color: var(--error-color);
+}
+
+.browser-history-clear:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
+.browser-history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+}
+
+.browser-history-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-px);
+  width: 100%;
+  padding: var(--spacing-1) var(--spacing-2);
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.browser-history-item:hover:not(:disabled) {
+  background: var(--hover-bg);
+}
+
+.browser-history-item:disabled {
+  opacity: var(--opacity-disabled);
+  cursor: default;
+}
+
+.browser-history-item:focus-visible {
+  outline: none;
+  background: var(--accent-bg);
+}
+
+.browser-history-item-title {
+  color: var(--text-color);
+  font-size: var(--font-size-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The url is the fact; the title is the site's claim about itself. */
+.browser-history-item-url {
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.browser-history-empty {
+  margin: 0;
+  padding: var(--spacing-3);
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+/* Bookmarks reuse the history list's shape; only the remove affordance is extra. */
+.browser-bookmark-row {
+  display: flex;
+  align-items: center;
+}
+
+.browser-bookmark-row .browser-history-item {
+  flex: 1;
+  min-width: 0;
+}
+
+.browser-bookmark-remove {
+  flex: none;
+  width: var(--size-btn-xs);
+  height: var(--size-btn-xs);
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+}
+
+.browser-bookmark-remove:hover {
+  background: var(--hover-bg);
+  color: var(--error-color);
+}
+
+.browser-bookmark-remove:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}

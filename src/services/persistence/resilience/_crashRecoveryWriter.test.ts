@@ -43,9 +43,9 @@ describe("useCrashRecoveryWriter", () => {
     useTabStore.setState({
       tabs: {
         main: [
-          { id: "tab-1", filePath: null, title: "Untitled-1", isPinned: false },
-          { id: "tab-2", filePath: "/path/doc.md", title: "doc.md", isPinned: false },
-          { id: "tab-3", filePath: null, title: "Untitled-2", isPinned: false },
+          { kind: "document", id: "tab-1", filePath: null, title: "Untitled-1", isPinned: false },
+          { kind: "document", id: "tab-2", filePath: "/path/doc.md", title: "doc.md", isPinned: false },
+          { kind: "document", id: "tab-3", filePath: null, title: "Untitled-2", isPinned: false },
         ],
       },
       activeTabId: { main: "tab-1" },
@@ -171,6 +171,141 @@ describe("useCrashRecoveryWriter", () => {
     expect(mockWriteRecoverySnapshot).toHaveBeenCalled();
   });
 
+  it("keeps writing later tabs when an earlier snapshot write rejects", async () => {
+    // tab-1 always fails; tab-2 must still be snapshotted in the same pass.
+    mockWriteRecoverySnapshot.mockImplementation((snapshot: { tabId: string }) =>
+      snapshot.tabId === "tab-1"
+        ? Promise.reject(new Error("disk full"))
+        : Promise.resolve(true)
+    );
+
+    renderHook(() => useCrashRecoveryWriter());
+    await vi.advanceTimersByTimeAsync(10_000);
+
+    expect(mockWriteRecoverySnapshot).toHaveBeenCalledWith(
+      expect.objectContaining({ tabId: "tab-2" })
+    );
+  });
+
+  it("does not throw when reading the stores fails", async () => {
+    const spy = vi.spyOn(useTabStore, "getState").mockImplementationOnce(() => {
+      throw new Error("store exploded");
+    });
+
+    renderHook(() => useCrashRecoveryWriter());
+    await vi.advanceTimersByTimeAsync(10_000);
+
+    expect(mockWriteRecoverySnapshot).not.toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
+  it("re-writes content whose 32-bit hash collides with the previous content", async () => {
+    // "Aa" and "BB" collide under the classic 31-multiplier string hash, so a
+    // hash-only dedup silently keeps the stale snapshot. Recovery data must
+    // follow the content, not a lossy fingerprint.
+    useDocumentStore.setState({
+      documents: {
+        ...useDocumentStore.getState().documents,
+        "tab-1": { ...useDocumentStore.getState().documents["tab-1"], content: "Aa" },
+      },
+    });
+
+    renderHook(() => useCrashRecoveryWriter());
+    await vi.advanceTimersByTimeAsync(10_000);
+    mockWriteRecoverySnapshot.mockClear();
+
+    useDocumentStore.setState({
+      documents: {
+        ...useDocumentStore.getState().documents,
+        "tab-1": { ...useDocumentStore.getState().documents["tab-1"], content: "BB" },
+      },
+    });
+
+    await vi.advanceTimersByTimeAsync(10_000);
+
+    expect(mockWriteRecoverySnapshot).toHaveBeenCalledWith(
+      expect.objectContaining({ tabId: "tab-1", content: "BB" })
+    );
+  });
+
+  it("re-writes when only persisted metadata (path/title) changed", async () => {
+    renderHook(() => useCrashRecoveryWriter());
+    await vi.advanceTimersByTimeAsync(10_000);
+    mockWriteRecoverySnapshot.mockClear();
+
+    // Same content, new path + title (e.g. the dirty doc was renamed on disk).
+    useTabStore.setState({
+      tabs: {
+        main: [
+          { kind: "document", id: "tab-1", filePath: null, title: "Untitled-1", isPinned: false },
+          { kind: "document", id: "tab-2", filePath: "/path/renamed.md", title: "renamed.md", isPinned: false },
+          { kind: "document", id: "tab-3", filePath: null, title: "Untitled-2", isPinned: false },
+        ],
+      },
+    });
+
+    await vi.advanceTimersByTimeAsync(10_000);
+
+    expect(mockWriteRecoverySnapshot).toHaveBeenCalledWith(
+      expect.objectContaining({ tabId: "tab-2", filePath: "/path/renamed.md", title: "renamed.md" })
+    );
+  });
+
+  it("re-writes a re-dirtied document even when its content is byte-identical", async () => {
+    // Lifecycle: dirty (content X) → saved (clean; cleanup deletes the on-disk
+    // snapshot) → dirty again with the SAME content X (savedContent moved on).
+    // If the writer keeps its cache entry across the clean phase it would think
+    // X is already on disk and skip the write — leaving the re-dirtied document
+    // with no recovery snapshot. The cache must be dropped when a doc goes clean.
+    useDocumentStore.setState({
+      documents: {
+        ...useDocumentStore.getState().documents,
+        "tab-2": makeDocState({
+          content: "X",
+          savedContent: "old",
+          filePath: "/path/doc.md",
+          isDirty: true,
+          documentId: 2,
+        }),
+      },
+    });
+
+    renderHook(() => useCrashRecoveryWriter());
+    await vi.advanceTimersByTimeAsync(10_000); // writes X, caches it
+    mockWriteRecoverySnapshot.mockClear();
+
+    // Document is saved → becomes clean (cleanup deletes its on-disk snapshot).
+    useDocumentStore.setState({
+      documents: {
+        ...useDocumentStore.getState().documents,
+        "tab-2": {
+          ...useDocumentStore.getState().documents["tab-2"],
+          savedContent: "X",
+          isDirty: false,
+        },
+      },
+    });
+    await vi.advanceTimersByTimeAsync(10_000); // clean pass — must clear cache
+
+    // Re-dirtied with byte-identical content X but a different saved baseline.
+    useDocumentStore.setState({
+      documents: {
+        ...useDocumentStore.getState().documents,
+        "tab-2": {
+          ...useDocumentStore.getState().documents["tab-2"],
+          content: "X",
+          savedContent: "newer",
+          isDirty: true,
+        },
+      },
+    });
+    await vi.advanceTimersByTimeAsync(10_000);
+
+    expect(mockWriteRecoverySnapshot).toHaveBeenCalledWith(
+      expect.objectContaining({ tabId: "tab-2", content: "X" })
+    );
+  });
+
   it("cleans up interval on unmount", async () => {
     const { unmount } = renderHook(() => useCrashRecoveryWriter());
     unmount();
@@ -193,8 +328,8 @@ describe("useCrashRecoveryWriter", () => {
     useTabStore.setState({
       tabs: {
         main: [
-          { id: "tab-2", filePath: "/path/doc.md", title: "doc.md", isPinned: false },
-          { id: "tab-3", filePath: null, title: "Untitled-2", isPinned: false },
+          { kind: "document", id: "tab-2", filePath: "/path/doc.md", title: "doc.md", isPinned: false },
+          { kind: "document", id: "tab-3", filePath: null, title: "Untitled-2", isPinned: false },
         ],
       },
     });

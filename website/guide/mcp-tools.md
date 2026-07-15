@@ -1,6 +1,6 @@
 # MCP Tools Reference
 
-VMark exposes **five composite MCP tools** to AI assistants: `session`, `workspace`, `document`, `workflow`, and `selection`. Together they cover **15 actions** — the read/write spine plus the file/window lifecycle plus CST-safe edits for GitHub Actions YAML plus targeted edits on the user's current selection.
+VMark exposes **six composite MCP tools** to AI assistants: `session`, `workspace`, `document`, `workflow`, `selection`, and `browser`. Together they cover the editor spine, file/window lifecycle, CST-safe workflow edits, targeted selection edits, and bounded browser navigation.
 
 The previous 12-tool / 76-action surface was pruned because in-document formatting tools (bold, headings, tables, etc.) duplicate work that AI agents already do trivially via Markdown round-trip. `selection` was kept (per ADR-7 of the pruning plan) because the full-doc round-trip is uneconomical on large files — every edit pays the whole document in input tokens, the whole document in output tokens (~5× input price), and a longer write window that widens the stale-revision retry loop. See [the MCP pruning plan](https://github.com/xiaolai/vmark/blob/main/dev-docs/plans/20260504-mcp-pruning.md) for the full rationale.
 
@@ -290,6 +290,47 @@ Replaces whatever the editor reports as the current selection. **In WYSIWYG mode
 Returns `{revision, replaced_chars}` on success. `replaced_chars` is the length of the text that was selected before the call — useful for the AI to confirm it edited what it expected.
 
 `STALE` returns `{error: "STALE", message, current_revision}` exactly like `document.write`. The doc-level revision catches keystrokes between `get` and `set`. Pure cursor movement (without a keystroke) is not arbitrated by the server — if the user moved the cursor between `get` and `set`, the edit lands at the new position.
+
+---
+
+## `browser`
+
+The browser tool is available only when **Settings → Advanced → Embedded browser** is
+enabled. All five actions fail with `BROWSER_DISABLED` while it is off. URLs returned to
+MCP are redacted through the same boundary used by the app's browser session state.
+
+### `read`
+
+Returns `{url, snapshot}` for the focused browser tab, or the tab named by `tabId`.
+`snapshot` is an ARIA-oriented list of roles and accessible names.
+
+### `act`
+
+Arguments: `tabId?`, `operation: "click" | "type"`, `role`, `name`, and `text?` for
+typing. Read first and target the exact accessible role/name. Mutating operations require
+an origin-scoped approval; AI-chosen uploads are never permitted.
+
+### `open`
+
+Arguments: `url` and optional `timeoutMs` (1–12,000 ms). Creates an AI-owned tab using the
+current Sandbox or Shared posture and returns its `tabId`, `navigationId`, URL, title, and
+generation after the load completes.
+
+### `navigate`
+
+Arguments: `tabId?`, `url`, and optional `timeoutMs`. Navigates an AI-owned tab and returns
+the navigation ticket result. A timeout still returns the ticket so a later `wait` can
+retrieve the terminal result.
+
+### `wait`
+
+Arguments: `tabId?`, optional `navigationId`, and optional `timeoutMs`. It never starts a
+navigation. It returns a buffered load/failure result, `NAVIGATION_SUPERSEDED`, or
+`TIMEOUT` when the ticket does not finish within the bound.
+
+Shared posture asks for destination approval for every new origin unless a matching
+`navigate` grant exists. A human-created tab requires an ephemeral attachment approval
+before AI read/act. Sandbox tabs use a separate non-persistent AI cookie store.
 
 ---
 

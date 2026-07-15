@@ -35,6 +35,13 @@ import {
   handleWorkflowValidate,
 } from "./workflow";
 import { handleSelectionGet, handleSelectionSet } from "./selection";
+import {
+  handleBrowserRead,
+  handleBrowserAct,
+  handleBrowserOpen,
+  handleBrowserNavigate,
+  handleBrowserWait,
+} from "./browser";
 
 /**
  * App version used in the `session.get_state` capabilities payload.
@@ -56,6 +63,7 @@ export const SUPPORTED_TOOL_PREFIXES = [
   "vmark.document.*",
   "vmark.workflow.*",
   "vmark.selection.*",
+  "vmark.browser.*",
 ] as const;
 
 export async function dispatchV2(event: McpRequestEvent): Promise<boolean> {
@@ -109,6 +117,22 @@ export async function dispatchV2(event: McpRequestEvent): Promise<boolean> {
       return true;
     case "vmark.selection.set":
       await handleSelectionSet(id, args);
+      return true;
+
+    case "vmark.browser.read":
+      await handleBrowserRead(id, args);
+      return true;
+    case "vmark.browser.act":
+      await handleBrowserAct(id, args);
+      return true;
+    case "vmark.browser.open":
+      await handleBrowserOpen(id, args);
+      return true;
+    case "vmark.browser.navigate":
+      await handleBrowserNavigate(id, args);
+      return true;
+    case "vmark.browser.wait":
+      await handleBrowserWait(id, args);
       return true;
 
     default:

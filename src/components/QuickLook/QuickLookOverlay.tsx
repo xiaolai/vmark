@@ -30,6 +30,7 @@ import { X } from "lucide-react";
 import { useQuickLookStore } from "@/stores/quickLookStore";
 import { MediaView } from "@/components/Editor/MediaView/MediaView";
 import "./QuickLookOverlay.css";
+import { useBrowserOccluder } from "@/hooks/useBrowserOccluder";
 
 /** Extract the trailing filename from an absolute path (cross-platform). */
 function basenameOf(path: string): string {
@@ -41,6 +42,9 @@ function basenameOf(path: string): string {
 export function QuickLookOverlay() {
   const { t } = useTranslation("common");
   const isOpen = useQuickLookStore((s) => s.isOpen);
+  // The native browser view paints over all React DOM in its rect, so freeze every
+  // mounted browser tab while this overlay is up (WI-SOC.1).
+  useBrowserOccluder(isOpen, "quick-look");
   const path = useQuickLookStore((s) => s.path);
   const index = useQuickLookStore((s) => s.index);
   const total = useQuickLookStore((s) => s.siblings.length);

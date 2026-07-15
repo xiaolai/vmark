@@ -38,6 +38,8 @@ import type {
   SessionTab,
   SessionWindow,
 } from "./types";
+import { browserEventBroker } from "@/services/browser/browserEventBroker";
+import { urlForAgent } from "@/lib/browser/url";
 
 const MCP_PROTOCOL_VERSION = "0.2.0";
 
@@ -64,17 +66,29 @@ export function buildSessionState(appVersion: string): SessionState {
 
   const windowLabels = Object.keys(tabState.tabs);
   const windows: SessionWindow[] = windowLabels.map((label) => {
-    const tabs = tabState.tabs[label] ?? [];
-    const sessionTabs: SessionTab[] = tabs.map((tab) => {
+    const sessionTabs: SessionTab[] = (tabState.tabs[label] ?? []).map((tab) => {
+      if (tab.kind === "browser") {
+        return {
+          id: tab.id,
+          kind: "browser" as const,
+          title: tab.title,
+          url: urlForAgent(tab.url),
+          loading: browserEventBroker.isLoading(tab.id) ?? false,
+          generation: tab.generation ?? 0,
+          automationMode: tab.automationMode ?? "human",
+        };
+      }
       const doc = docState.documents[tab.id];
       const content = doc?.content ?? "";
+      const documentKind = detectKind(tab.filePath, content);
       return {
         id: tab.id,
+        kind: documentKind,
         filePath: tab.filePath,
         title: tab.title,
         dirty: doc?.isDirty ?? false,
         revision: revisionStore.getRevision(tab.id),
-        kind: detectKind(tab.filePath, content),
+        documentKind,
       };
     });
     return {

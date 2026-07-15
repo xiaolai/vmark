@@ -81,5 +81,8 @@
   },
   "aria": {
     "commandPalette": "指令面板"
+  },
+  "browser": {
+    "newTab": "新增瀏覽器分頁"
   }
 }

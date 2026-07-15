@@ -220,6 +220,44 @@ describe("linkPopupExtension", () => {
       expect(result).toBeNull();
     });
 
+    it("distinguishes adjacent links that share an href but differ in attrs", () => {
+      // Two links, same href, different `title` → distinct marks. Merging them
+      // into one range would let an edit to the first rewrite the second.
+      const schemaWithTitle = new Schema({
+        nodes: {
+          doc: { content: "block+" },
+          paragraph: { group: "block", content: "inline*" },
+          text: { inline: true, group: "inline" },
+        },
+        marks: {
+          link: {
+            attrs: { href: { default: "" }, title: { default: null } },
+            toDOM: (mark) => ["a", { href: mark.attrs.href }, 0] as const,
+          },
+        },
+      });
+      const href = "http://example.com";
+      const first = schemaWithTitle.marks.link.create({ href, title: "one" });
+      const second = schemaWithTitle.marks.link.create({ href, title: "two" });
+
+      const doc = schemaWithTitle.node("doc", null, [
+        schemaWithTitle.node("paragraph", null, [
+          schemaWithTitle.text("aaa", [first]),
+          schemaWithTitle.text("bbb", [second]),
+        ]),
+      ]);
+      const state = EditorState.create({ doc, schema: schemaWithTitle });
+      const view = createMockView(state);
+
+      const resultA = findLinkMarkRange(view, 2);
+      expect(resultA).toEqual(expect.objectContaining({ from: 1, to: 4 }));
+      expect(resultA!.mark.attrs.title).toBe("one");
+
+      const resultB = findLinkMarkRange(view, 5);
+      expect(resultB).toEqual(expect.objectContaining({ from: 4, to: 7 }));
+      expect(resultB!.mark.attrs.title).toBe("two");
+    });
+
     it("distinguishes links with different hrefs", () => {
       // Two links with different hrefs next to each other
       const link1 = schema.marks.link.create({ href: "http://a.com" });
@@ -278,6 +316,48 @@ describe("linkPopupExtension", () => {
           linkTo: 9,
         })
       );
+    });
+
+    it("anchors the popup on the link's full width when it fits one line", () => {
+      const handleClick = getHandleClick();
+      const doc = createDocWithLink("", "click me", "http://example.com", "");
+      const state = EditorState.create({ doc, schema });
+      const view = createMockView(state);
+      // from → line 1 start; to → line 1 end
+      vi.mocked(view.coordsAtPos).mockImplementation((pos: number) =>
+        pos === 1
+          ? { top: 100, bottom: 120, left: 50, right: 50 }
+          : { top: 100, bottom: 120, left: 300, right: 300 }
+      );
+
+      handleClick(view, 3, new MouseEvent("click"));
+
+      expect(mockLinkPopupState.openPopup).toHaveBeenCalledWith(
+        expect.objectContaining({
+          anchorRect: { top: 100, bottom: 120, left: 50, right: 300 },
+        })
+      );
+    });
+
+    it("anchors on the first line for a link that wraps across lines", () => {
+      const handleClick = getHandleClick();
+      const doc = createDocWithLink("", "a very long wrapping link", "http://example.com", "");
+      const state = EditorState.create({ doc, schema });
+      const view = createMockView(state);
+      // The link starts near the right edge of line 1 and ends on line 2 — the
+      // end's `right` (30) is left of the start's `left` (600).
+      vi.mocked(view.coordsAtPos).mockImplementation((pos: number) =>
+        pos === 1
+          ? { top: 100, bottom: 120, left: 600, right: 600 }
+          : { top: 130, bottom: 150, left: 30, right: 30 }
+      );
+
+      handleClick(view, 3, new MouseEvent("click"));
+
+      const { anchorRect } = mockLinkPopupState.openPopup.mock.calls[0][0];
+      // No inverted rect: right must not fall left of left.
+      expect(anchorRect.right).toBeGreaterThanOrEqual(anchorRect.left);
+      expect(anchorRect).toEqual({ top: 100, bottom: 120, left: 600, right: 600 });
     });
 
     it("closes popups on regular click outside any link", () => {

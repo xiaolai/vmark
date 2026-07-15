@@ -208,3 +208,22 @@ mod tests {
         assert!(!enabled_of(&t, "line-numbers"));
     }
 }
+
+/// Frontend → Rust: enable or disable the "New Browser Tab" menu item (WI-S0.5).
+///
+/// The item exists natively so its accelerator survives the embedded browser taking
+/// keyboard focus — a DOM shortcut cannot, because once the WKWebView is first responder
+/// React never sees the key. But the browser is off by default, and a permanently-dead
+/// menu item is worse than no item at all, so the frontend pushes the setting here.
+#[tauri::command]
+pub fn set_browser_menu_enabled(app: AppHandle, enabled: bool) -> Result<(), String> {
+    let menu = app.menu().ok_or_else(|| "No menu".to_string())?;
+    let mut index: HashMap<String, MenuItemKind<Wry>> = HashMap::new();
+    collect_items_from_menu(&menu, &mut index)?;
+    // Absent on a platform branch that does not build the item — same tolerance as the
+    // view-state sync and the accelerator updater.
+    if let Some(MenuItemKind::MenuItem(item)) = index.get("new-browser-tab") {
+        item.set_enabled(enabled).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}

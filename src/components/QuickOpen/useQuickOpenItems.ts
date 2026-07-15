@@ -4,7 +4,7 @@
  */
 
 import { useRecentFilesStore } from "@/stores/workspaceStore";
-import { useTabStore } from "@/stores/tabStore";
+import { useTabStore, tabFilePath } from "@/stores/tabStore";
 import { getActiveWorkspaceScope } from "@/services/workspaces/activeWorkspaceScope";
 import { fuzzyMatch, type FuzzyMatchResult } from "./fuzzyMatch";
 import type { FileNode } from "@/components/Sidebar/FileExplorer/types";
@@ -64,15 +64,16 @@ export function buildQuickOpenItems(
   const windowTabs = useTabStore.getState().getTabsByWindow(windowLabel);
   const openPathSet = new Set(
     windowTabs
-      .filter((t: { filePath?: string | null }) => t.filePath)
-      .map((t: { filePath?: string | null }) => t.filePath!),
+      .map((t) => tabFilePath(t))
+      .filter((p): p is string => Boolean(p)),
   );
 
   const seen = new Set<string>();
   const items: QuickOpenItem[] = [];
 
   // Shared construction so the three source loops don't repeat the
-  // seen/dedup/item-shape logic. Returns false if the path was already added.
+  // seen/dedup/item-shape logic. A path already added by an earlier (higher-
+  // priority) tier is skipped, so the first tier to claim a path owns it.
   const addItem = (path: string, tier: QuickOpenTier, isOpenTab: boolean): void => {
     if (seen.has(path)) return;
     seen.add(path);
@@ -109,7 +110,12 @@ export function filterAndRankItems(
   query: string,
   maxResults = 50,
 ): RankedItem[] {
-  if (!query.trim()) {
+  // Trim once and match on the trimmed query. Surrounding whitespace used to
+  // reach fuzzyMatch verbatim, where a leading/trailing space is just another
+  // character to find in the filename — so `" foo "` matched nothing at all.
+  const normalizedQuery = query.trim();
+
+  if (!normalizedQuery) {
     return items
       .filter((i) => i.tier !== "workspace")
       .sort((a, b) => TIER_ORDER[a.tier] - TIER_ORDER[b.tier])
@@ -123,7 +129,7 @@ export function filterAndRankItems(
   type ScoredItem = RankedItem & { match: FuzzyMatchResult };
   const scored: ScoredItem[] = [];
   for (const item of items) {
-    const match = fuzzyMatch(query, item.filename, item.relPath);
+    const match = fuzzyMatch(normalizedQuery, item.filename, item.relPath);
     if (match) scored.push({ item, tier: item.tier, match });
   }
 

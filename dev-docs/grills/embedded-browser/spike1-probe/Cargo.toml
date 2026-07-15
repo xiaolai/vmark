@@ -1,0 +1,27 @@
+# SPIKE-1 probe — throwaway. Proves a VMark-CONSTRUCTED WKWebView carries NO Tauri
+# bridge (R3/I1). Standalone crate (not part of the app) so it is isolated and fast.
+# Versions match the app's DIRECT objc2 deps (src-tauri/Cargo.toml: objc2 0.6, *-kit 0.3).
+[package]
+name = "spike1-no-bridge-probe"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "spike1_no_bridge"
+path = "src/main.rs"
+
+[dependencies]
+objc2 = "0.6"
+block2 = "0.6"
+objc2-foundation = { version = "0.3", features = [
+  "NSString", "NSError", "NSRunLoop", "NSDate", "NSURL", "NSGeometry", "NSObjCRuntime",
+] }
+objc2-app-kit = { version = "0.3", features = [
+  "NSApplication", "NSResponder", "NSView",
+] }
+objc2-web-kit = { version = "0.3", features = [
+  "WKWebView", "WKWebViewConfiguration", "WKNavigation", "WKContentWorld", "WKFrameInfo",
+  "block2", "objc2-core-foundation",
+] }
+objc2-core-foundation = { version = "0.3", features = ["CFCGTypes"] }

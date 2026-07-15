@@ -7,20 +7,20 @@
 //! On first read, migrates from legacy `.vmark/` directory format if present.
 //!
 //! Key decisions:
-//!   - Workspace root paths are hashed (SHA-256, first 8 bytes) to produce deterministic
-//!     filenames, avoiding special-character issues in path-based filenames.
+//!   - Root paths are hashed (SHA-256, first 16 bytes) into deterministic filenames.
+//!     Releases <= 0.7.22 used 8 bytes; those files are renamed forward on first read.
 //!   - Legacy migration is one-shot: after writing to the new location, the old `.vmark/`
 //!     directory is cleaned up (best-effort).
 //!   - Writes use atomic_write_file to prevent partial reads by concurrent processes.
 //!
 //! Known limitations:
-//!   - Hash collisions are theoretically possible but extremely unlikely (2^64 space).
+//!   - Hash collisions are possible in theory but vanishingly unlikely (2^64 space).
 
 use crate::app_paths;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 /// Workspace identity and trust information for permission management.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -49,6 +49,17 @@ pub struct WorkspaceConfig {
     pub show_hidden_files: bool,
     #[serde(rename = "lastOpenTabs")]
     pub last_open_tabs: Vec<String>,
+    /// WI-1.1 — versioned session-tab records (documents + browser tabs), kept
+    /// as an opaque JSON value here: the schema and its migration live on the TS
+    /// side (`services/persistence/sessionTabs.ts`). Additive and downgrade-safe:
+    /// `lastOpenTabs` still carries document paths so an older binary keeps
+    /// restoring documents and ignores this unknown field.
+    #[serde(
+        rename = "sessionTabs",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub session_tabs: Option<serde_json::Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ai: Option<serde_json::Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -62,6 +73,7 @@ impl Default for WorkspaceConfig {
             exclude_folders: vec![".git".to_string(), "node_modules".to_string()],
             show_hidden_files: false,
             last_open_tabs: vec![],
+            session_tabs: None,
             ai: None,
             identity: None,
         }
@@ -72,27 +84,25 @@ impl Default for WorkspaceConfig {
 // Path hashing
 // ============================================================================
 
-/// Hash a workspace root path to a deterministic 32-hex-char filename.
-/// Normalizes trailing separators before hashing for cross-platform consistency.
-///
-/// 16 bytes (128 bits) of hash gives 2^64 collision space at the birthday
-/// bound — vastly more than a real user will ever accumulate workspaces.
-/// The previous 8-byte truncation (2^32 collision bound) was empirically
-/// safe at user scale but the cost of being defensive here is one extra
-/// filename character, paid for by `migrate_legacy_hash_filename` below.
-fn hash_root_path(root_path: &str) -> String {
+/// Truncated SHA-256 of a workspace root path, hex-encoded, for use as a filename.
+/// The normalization is deliberately NOT "tidied up": these hashes ARE filenames on
+/// disk, so changing it silently orphans every existing user's config. Frozen.
+fn hash_root_path_bytes(root_path: &str, n: usize) -> String {
     let normalized = root_path.trim_end_matches('/').trim_end_matches('\\');
     let hash = Sha256::digest(normalized.as_bytes());
-    hash.iter().take(16).map(|b| format!("{:02x}", b)).collect()
+    hash.iter().take(n).map(|b| format!("{:02x}", b)).collect()
 }
 
-/// Legacy 8-byte hash used in releases <= 0.7.22. Read-only — used by
-/// `migrate_legacy_hash_filename` to rename a pre-existing config file to
-/// the new 16-byte hash filename on first load.
+/// Current filename hash: 16 bytes (128 bits) → 2^64 collision space at the
+/// birthday bound, vastly more than a user will ever accumulate.
+fn hash_root_path(root_path: &str) -> String {
+    hash_root_path_bytes(root_path, 16)
+}
+
+/// Legacy 8-byte hash used in releases <= 0.7.22 (2^32 birthday bound). Read-only:
+/// `migrate_legacy_hash_filename` renames such a file to the 16-byte name on load.
 fn legacy_hash_root_path(root_path: &str) -> String {
-    let normalized = root_path.trim_end_matches('/').trim_end_matches('\\');
-    let hash = Sha256::digest(normalized.as_bytes());
-    hash.iter().take(8).map(|b| format!("{:02x}", b)).collect()
+    hash_root_path_bytes(root_path, 8)
 }
 
 /// Get the workspaces directory inside app data.
@@ -120,9 +130,8 @@ fn get_legacy_workspace_config_path(
     Ok(ws_dir.join(format!("{hash}.json")))
 }
 
-/// Outcome of a hash-filename migration attempt. Returned from
-/// `try_rename_legacy_hash` purely so tests can assert which branch ran;
-/// production callers ignore the value (every branch is benign).
+/// Outcome of a hash-filename migration. `RenameFailed` is load-bearing: the caller
+/// must fall back to the legacy file rather than treat it as absent.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum HashMigrationOutcome {
     /// New-layout file already exists; nothing to do.
@@ -168,21 +177,17 @@ fn try_rename_legacy_hash(
     }
 }
 
-/// If a legacy-hash config exists for this workspace, rename it to the new
-/// hash. Returns whether or not a migration happened — failure to migrate
-/// is logged and treated as "no legacy config" so reads continue.
-fn migrate_legacy_hash_filename(
-    app: &tauri::AppHandle,
-    root_path: &str,
-    new_path: &std::path::Path,
-) {
-    if new_path.exists() {
-        return; // Already on new layout.
+/// Migrate the legacy-hash file to `new_path`, and hand back the legacy path ONLY when
+/// the rename failed and the file is therefore still sitting there. The caller MUST read
+/// from it: treating a failed rename as "no config" returns `None`, and the next write
+/// then buries the user's excludes, tabs and identity/trust grant under a fresh default.
+///
+/// AppHandle-free so the fallback decision itself is unit-testable.
+fn fallback_after_rename(legacy: PathBuf, new_path: &Path) -> Option<PathBuf> {
+    match try_rename_legacy_hash(&legacy, new_path) {
+        HashMigrationOutcome::RenameFailed => Some(legacy),
+        _ => None,
     }
-    let Ok(legacy_path) = get_legacy_workspace_config_path(app, root_path) else {
-        return;
-    };
-    let _ = try_rename_legacy_hash(&legacy_path, new_path);
 }
 
 // ============================================================================
@@ -227,8 +232,15 @@ struct AncientLegacyConfig {
 // Legacy migration
 // ============================================================================
 
+/// Strip `.vmark` from a legacy exclude list — the directory no longer exists.
+fn clean_excludes(folders: Vec<String>) -> Vec<String> {
+    folders.into_iter().filter(|f| f != ".vmark").collect()
+}
+
 /// Try to read config from legacy `.vmark/` directory or ancient `.vmark` file.
-/// Returns `Ok(Some(config))` if found, `Ok(None)` if no legacy exists.
+/// Returns `Ok(Some(config))` if found, `Ok(None)` if no legacy exists. Both branches
+/// spread `WorkspaceConfig::default()` and name only the fields the legacy format
+/// carried, so a field added later cannot be migrated inconsistently between them.
 fn migrate_from_legacy(root_path: &str) -> Result<Option<WorkspaceConfig>, String> {
     let root = Path::new(root_path);
     let dot_vmark = root.join(".vmark");
@@ -239,48 +251,35 @@ fn migrate_from_legacy(root_path: &str) -> Result<Option<WorkspaceConfig>, Strin
         if ws_file_path.exists() {
             let content = fs::read_to_string(&ws_file_path)
                 .map_err(|e| format!("Failed to read legacy workspace file: {e}"))?;
-            let ws_file: LegacyWorkspaceFile = serde_json::from_str(&content)
+            let ws: LegacyWorkspaceFile = serde_json::from_str(&content)
                 .map_err(|e| format!("Failed to parse legacy workspace file: {e}"))?;
 
-            // Strip ".vmark" from exclude_folders if present (no longer needed)
-            let exclude_folders: Vec<String> = ws_file
-                .settings
-                .exclude_folders
-                .into_iter()
-                .filter(|f| f != ".vmark")
-                .collect();
-
             return Ok(Some(WorkspaceConfig {
-                version: 1,
-                exclude_folders,
-                show_hidden_files: ws_file.settings.show_hidden_files,
-                last_open_tabs: ws_file.settings.last_open_tabs,
-                ai: ws_file.settings.ai,
-                identity: ws_file.settings.identity,
+                exclude_folders: clean_excludes(ws.settings.exclude_folders),
+                show_hidden_files: ws.settings.show_hidden_files,
+                last_open_tabs: ws.settings.last_open_tabs,
+                ai: ws.settings.ai,
+                identity: ws.settings.identity,
+                ..WorkspaceConfig::default()
             }));
         }
     }
 
     // 2. Try .vmark as a plain file (ancient format)
-    if dot_vmark.exists() && dot_vmark.is_file() {
+    if dot_vmark.is_file() {
         let content = fs::read_to_string(&dot_vmark)
             .map_err(|e| format!("Failed to read ancient .vmark: {e}"))?;
         let ancient: AncientLegacyConfig = serde_json::from_str(&content)
             .map_err(|e| format!("Failed to parse ancient .vmark: {e}"))?;
 
-        let exclude_folders: Vec<String> = ancient
-            .exclude_folders
-            .into_iter()
-            .filter(|f| f != ".vmark")
-            .collect();
-
         return Ok(Some(WorkspaceConfig {
-            version: ancient.version,
-            exclude_folders,
-            show_hidden_files: false,
+            // A file predating the `version` key deserializes to 0 — a schema version
+            // we never emitted. Clamp to the v1 it is, rather than persisting 0.
+            version: ancient.version.max(1),
+            exclude_folders: clean_excludes(ancient.exclude_folders),
             last_open_tabs: ancient.last_open_tabs,
             ai: ancient.ai,
-            identity: None,
+            ..WorkspaceConfig::default()
         }));
     }
 
@@ -307,6 +306,12 @@ fn cleanup_old_vmark(root_path: &str) {
 // Tauri commands
 // ============================================================================
 
+/// Read + parse a config file. AppHandle-free so tests can drive it directly.
+fn read_config_at(path: &Path) -> Result<WorkspaceConfig, String> {
+    let raw = fs::read_to_string(path).map_err(|e| format!("Failed to read config: {e}"))?;
+    serde_json::from_str(&raw).map_err(|e| format!("Failed to parse workspace config: {e}"))
+}
+
 /// Read workspace config from app data, with one-time migration from legacy `.vmark/`.
 #[tauri::command]
 pub fn read_workspace_config(
@@ -315,29 +320,33 @@ pub fn read_workspace_config(
 ) -> Result<Option<WorkspaceConfig>, String> {
     let ws_path = get_workspace_config_path(&app, root_path)?;
 
-    // Migrate from the previous 8-byte hash filename if present. After this
-    // call, ws_path will exist if a legacy config was found.
-    migrate_legacy_hash_filename(&app, root_path, &ws_path);
+    // Migrate from the previous 8-byte hash filename if present. A failed rename
+    // hands back the legacy path so we still read the user's real state.
+    let legacy_fallback = get_legacy_workspace_config_path(&app, root_path)
+        .ok()
+        .and_then(|legacy| fallback_after_rename(legacy, &ws_path));
 
-    // New location exists — read directly
     if ws_path.exists() {
-        let content = fs::read_to_string(&ws_path)
-            .map_err(|e| format!("Failed to read workspace config: {e}"))?;
-        let config: WorkspaceConfig = serde_json::from_str(&content)
-            .map_err(|e| format!("Failed to parse workspace config: {e}"))?;
-        return Ok(Some(config));
+        return Ok(Some(read_config_at(&ws_path)?));
+    }
+    if let Some(legacy) = legacy_fallback {
+        return Ok(Some(read_config_at(&legacy)?));
     }
 
     // Try migrate from legacy locations
     if let Some(config) = migrate_from_legacy(root_path)? {
-        // Write to new location — only cleanup old .vmark/ on success
         let ws_dir = get_workspaces_dir(&app)?;
         fs::create_dir_all(&ws_dir).map_err(|e| format!("Failed to create workspaces dir: {e}"))?;
         let content = serde_json::to_string_pretty(&config)
             .map_err(|e| format!("Failed to serialize config: {e}"))?;
 
-        if app_paths::atomic_write_file(&ws_path, content.as_bytes()).is_ok() {
-            cleanup_old_vmark(root_path);
+        // Only drop the old `.vmark/` once the new file is durably written; if it is
+        // not, say so — silence here means the migration re-runs every launch unseen.
+        match app_paths::atomic_write_file(&ws_path, content.as_bytes()) {
+            Ok(()) => cleanup_old_vmark(root_path),
+            Err(e) => log::warn!(
+                "[workspace] migrated config not persisted ({e}); keeping legacy .vmark for retry"
+            ),
         }
 
         return Ok(Some(config));
@@ -371,262 +380,5 @@ pub fn write_workspace_config(
 // ============================================================================
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use std::fs;
-    use tempfile::tempdir;
-
-    #[test]
-    fn test_hash_root_path_deterministic() {
-        let h1 = hash_root_path("/Users/test/project");
-        let h2 = hash_root_path("/Users/test/project");
-        assert_eq!(h1, h2);
-        assert_eq!(h1.len(), 32); // 16 bytes = 32 hex chars
-    }
-
-    #[test]
-    fn test_legacy_hash_root_path_unchanged_8_bytes() {
-        // The legacy helper exists for migration; its output must remain
-        // exactly 16 hex chars / 8 bytes so it matches files produced by
-        // previous releases.
-        let h = legacy_hash_root_path("/Users/test/project");
-        assert_eq!(h.len(), 16);
-    }
-
-    #[test]
-    fn test_new_hash_differs_from_legacy() {
-        // 16-byte hash must not collide with the 8-byte prefix — this is
-        // what makes the new path distinct from the old one for migration.
-        let new_h = hash_root_path("/Users/test/project");
-        let legacy_h = legacy_hash_root_path("/Users/test/project");
-        assert_ne!(new_h, legacy_h);
-        assert!(
-            new_h.starts_with(&legacy_h),
-            "new hash should extend the legacy prefix"
-        );
-    }
-
-    #[test]
-    fn test_hash_root_path_normalizes_trailing_slash() {
-        let h1 = hash_root_path("/Users/test/project");
-        let h2 = hash_root_path("/Users/test/project/");
-        assert_eq!(h1, h2);
-    }
-
-    #[test]
-    fn test_hash_root_path_normalizes_trailing_backslash() {
-        let h1 = hash_root_path("C:\\Users\\test\\project");
-        let h2 = hash_root_path("C:\\Users\\test\\project\\");
-        assert_eq!(h1, h2);
-    }
-
-    #[test]
-    fn test_hash_root_path_different_paths_differ() {
-        let h1 = hash_root_path("/Users/test/project-a");
-        let h2 = hash_root_path("/Users/test/project-b");
-        assert_ne!(h1, h2);
-    }
-
-    // ----- hash-filename migration -----------------------------------------
-    //
-    // Exercises `try_rename_legacy_hash` (the AppHandle-free helper extracted
-    // from `migrate_legacy_hash_filename`) on every branch: already migrated,
-    // no legacy file present, successful rename, and rename failure.
-
-    #[test]
-    fn migration_already_migrated_when_new_path_exists() {
-        let dir = tempdir().unwrap();
-        let legacy = dir.path().join("aaaaaaaaaaaaaaaa.json");
-        let new_path = dir.path().join("aaaaaaaaaaaaaaaabbbbbbbbbbbbbbbb.json");
-        fs::write(&legacy, b"{}").unwrap();
-        fs::write(&new_path, b"{\"current\": true}").unwrap();
-
-        let outcome = try_rename_legacy_hash(&legacy, &new_path);
-        assert_eq!(outcome, HashMigrationOutcome::AlreadyMigrated);
-        // Legacy file untouched — we did not clobber.
-        assert!(legacy.exists());
-        let new_contents = fs::read_to_string(&new_path).unwrap();
-        assert!(new_contents.contains("current"));
-    }
-
-    #[test]
-    fn migration_no_op_when_no_legacy_file() {
-        let dir = tempdir().unwrap();
-        let legacy = dir.path().join("aaaaaaaaaaaaaaaa.json");
-        let new_path = dir.path().join("aaaaaaaaaaaaaaaabbbbbbbbbbbbbbbb.json");
-
-        let outcome = try_rename_legacy_hash(&legacy, &new_path);
-        assert_eq!(outcome, HashMigrationOutcome::NoLegacyFile);
-        assert!(!new_path.exists());
-    }
-
-    #[test]
-    fn migration_renames_legacy_to_new_path() {
-        let dir = tempdir().unwrap();
-        let legacy = dir.path().join("aaaaaaaaaaaaaaaa.json");
-        let new_path = dir.path().join("aaaaaaaaaaaaaaaabbbbbbbbbbbbbbbb.json");
-        let payload = b"{\"legacy\": true}";
-        fs::write(&legacy, payload).unwrap();
-
-        let outcome = try_rename_legacy_hash(&legacy, &new_path);
-        assert_eq!(outcome, HashMigrationOutcome::Renamed);
-        assert!(!legacy.exists(), "legacy file must be gone after rename");
-        assert!(new_path.exists(), "new path must contain the renamed file");
-        let new_contents = fs::read(&new_path).unwrap();
-        assert_eq!(new_contents.as_slice(), payload);
-    }
-
-    #[test]
-    fn migration_reports_failure_when_rename_target_is_invalid() {
-        // Forcing fs::rename to fail is OS-specific; the cleanest cross-platform
-        // way is to give it a target path whose parent directory does not exist.
-        let dir = tempdir().unwrap();
-        let legacy = dir.path().join("aaaaaaaaaaaaaaaa.json");
-        let new_path = dir
-            .path()
-            .join("missing-subdir/aaaaaaaaaaaaaaaabbbbbbbbbbbbbbbb.json");
-        fs::write(&legacy, b"{}").unwrap();
-
-        let outcome = try_rename_legacy_hash(&legacy, &new_path);
-        assert_eq!(outcome, HashMigrationOutcome::RenameFailed);
-        // Legacy file must be left in place on failure — the next attempt
-        // can retry. Losing the legacy file would lose user state.
-        assert!(legacy.exists(), "legacy file must survive a failed rename");
-    }
-
-    #[test]
-    fn test_default_workspace_config() {
-        let config = WorkspaceConfig::default();
-        assert_eq!(config.version, 1);
-        assert!(config.exclude_folders.contains(&".git".to_string()));
-        assert!(config.exclude_folders.contains(&"node_modules".to_string()));
-        assert!(!config.exclude_folders.contains(&".vmark".to_string()));
-        assert!(!config.show_hidden_files);
-        assert!(config.last_open_tabs.is_empty());
-    }
-
-    #[test]
-    fn test_migrate_from_legacy_directory_format() {
-        let dir = tempdir().unwrap();
-        let root = dir.path();
-
-        // Create .vmark/vmark.code-workspace
-        let vmark_dir = root.join(".vmark");
-        fs::create_dir_all(&vmark_dir).unwrap();
-        let ws_content = r#"{
-            "folders": [{"path": "."}],
-            "settings": {
-                "vmark.excludeFolders": [".git", "node_modules", ".vmark"],
-                "vmark.showHiddenFiles": true,
-                "vmark.lastOpenTabs": ["doc.md"]
-            }
-        }"#;
-        fs::write(vmark_dir.join("vmark.code-workspace"), ws_content).unwrap();
-
-        let config = migrate_from_legacy(root.to_str().unwrap())
-            .unwrap()
-            .unwrap();
-        assert!(config.show_hidden_files);
-        assert!(config.last_open_tabs.contains(&"doc.md".to_string()));
-        // .vmark should be stripped from exclude_folders
-        assert!(!config.exclude_folders.contains(&".vmark".to_string()));
-        assert!(config.exclude_folders.contains(&".git".to_string()));
-    }
-
-    #[test]
-    fn test_migrate_from_legacy_ancient_file_format() {
-        let dir = tempdir().unwrap();
-        let root = dir.path();
-
-        // Create .vmark as plain file
-        let legacy_content = r#"{
-            "version": 1,
-            "excludeFolders": ["legacy_folder", ".vmark"],
-            "lastOpenTabs": ["old.md"]
-        }"#;
-        fs::write(root.join(".vmark"), legacy_content).unwrap();
-
-        let config = migrate_from_legacy(root.to_str().unwrap())
-            .unwrap()
-            .unwrap();
-        assert!(config
-            .exclude_folders
-            .contains(&"legacy_folder".to_string()));
-        assert!(!config.exclude_folders.contains(&".vmark".to_string()));
-        assert!(config.last_open_tabs.contains(&"old.md".to_string()));
-    }
-
-    #[test]
-    fn test_migrate_from_legacy_nothing() {
-        let dir = tempdir().unwrap();
-        let result = migrate_from_legacy(dir.path().to_str().unwrap()).unwrap();
-        assert!(result.is_none());
-    }
-
-    #[test]
-    fn test_cleanup_old_vmark_directory() {
-        let dir = tempdir().unwrap();
-        let root = dir.path();
-
-        // Create .vmark directory with workspace file
-        let vmark_dir = root.join(".vmark");
-        fs::create_dir_all(&vmark_dir).unwrap();
-        fs::write(vmark_dir.join("vmark.code-workspace"), "{}").unwrap();
-
-        cleanup_old_vmark(root.to_str().unwrap());
-
-        // Directory should be removed (was empty after file removal)
-        assert!(!vmark_dir.exists());
-    }
-
-    #[test]
-    fn test_cleanup_old_vmark_directory_non_empty() {
-        let dir = tempdir().unwrap();
-        let root = dir.path();
-
-        // Create .vmark directory with extra file
-        let vmark_dir = root.join(".vmark");
-        fs::create_dir_all(&vmark_dir).unwrap();
-        fs::write(vmark_dir.join("vmark.code-workspace"), "{}").unwrap();
-        fs::write(vmark_dir.join("other-file"), "keep").unwrap();
-
-        cleanup_old_vmark(root.to_str().unwrap());
-
-        // Directory should still exist (has other files)
-        assert!(vmark_dir.exists());
-        // But workspace file should be gone
-        assert!(!vmark_dir.join("vmark.code-workspace").exists());
-    }
-
-    #[test]
-    fn test_cleanup_old_vmark_file() {
-        let dir = tempdir().unwrap();
-        let root = dir.path();
-
-        // Create .vmark as plain file
-        fs::write(root.join(".vmark"), "{}").unwrap();
-
-        cleanup_old_vmark(root.to_str().unwrap());
-
-        assert!(!root.join(".vmark").exists());
-    }
-
-    #[test]
-    fn test_workspace_config_serialization_roundtrip() {
-        let config = WorkspaceConfig {
-            version: 1,
-            exclude_folders: vec!["test".to_string()],
-            show_hidden_files: true,
-            last_open_tabs: vec!["file.md".to_string()],
-            ai: None,
-            identity: None,
-        };
-
-        let json = serde_json::to_string_pretty(&config).unwrap();
-        let back: WorkspaceConfig = serde_json::from_str(&json).unwrap();
-
-        assert_eq!(back.exclude_folders, config.exclude_folders);
-        assert_eq!(back.show_hidden_files, config.show_hidden_files);
-        assert_eq!(back.last_open_tabs, config.last_open_tabs);
-    }
-}
+#[path = "workspace.test.rs"]
+mod tests;

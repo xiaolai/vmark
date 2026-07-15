@@ -1,3 +1,7 @@
+//! WI-S0.5 — the "new-browser-tab" item is NATIVE, not a DOM shortcut: once the
+//! embedded browser's WKWebView is first responder it eats key events, so React never
+//! sees them. AppKit dispatches menu accelerators regardless of focus. The contract
+//! table below is what keeps its accelerator in step with shortcuts.ts + the docs.
 //! Executable contract tests for the localized menu tree.
 //!
 //! Two contracts are pinned here without needing a Tauri `AppHandle`:
@@ -114,6 +118,7 @@ const DEFAULT_ACCELERATORS: &[(&str, &str)] = &[
     ("move-to", ""),
     ("new", "CmdOrCtrl+N"),
     ("new-window", "CmdOrCtrl+Shift+N"),
+    ("new-browser-tab", "Alt+CmdOrCtrl+Shift+B"),
     ("open", ""),
     ("open-folder", "CmdOrCtrl+Shift+O"),
     ("ordered-list", "Alt+CmdOrCtrl+O"),

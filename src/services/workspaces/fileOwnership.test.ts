@@ -236,4 +236,34 @@ describe("file ownership", () => {
       }),
     ).toMatchObject({ ok: true });
   });
+
+  it("keeps a canonical path whose filename ends in a space distinct", () => {
+    enableRailMode();
+    // POSIX/macOS allow trailing spaces in filenames: "/repo/notes " and
+    // "/repo/notes" are DIFFERENT files. Trimming the canonical path would
+    // collapse them into one ownership identity and force a bogus conflict.
+    addTab("main", "tab-a", "/repo/notes ", { dirty: true });
+    addTab("doc-1", "tab-b", "/repo/notes");
+
+    expect(
+      resolveWritableFileOwnership("tab-b", "/repo/notes", {
+        canonicalPath: "/repo/notes",
+        canonicalPaths: { "/repo/notes ": "/repo/notes " },
+        platform: "macos",
+      }),
+    ).toMatchObject({ ok: true });
+  });
+
+  it("falls back to the file path when the canonical path is blank", () => {
+    enableRailMode();
+    addTab("main", "tab-a", "/repo/notes.md", { dirty: true });
+    addTab("doc-1", "tab-b", "/repo/notes.md");
+
+    expect(
+      resolveWritableFileOwnership("tab-b", "/repo/notes.md", {
+        canonicalPath: "   ",
+        platform: "macos",
+      }),
+    ).toMatchObject({ ok: false, reason: "dirtyWritableConflict" });
+  });
 });

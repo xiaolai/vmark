@@ -328,6 +328,64 @@ describe("settingsStore — corrupted config recovery", () => {
     });
   });
 
+  describe("hostile persisted shapes reach the merge hook", () => {
+    it("survives a primitive `appearance` and still applies the VALID siblings", () => {
+      // The paragraphSpacing→blockSpacing migration ran `"key" in appearance`
+      // on the raw blob: `in` throws a TypeError on a primitive, aborting the
+      // whole hydration and silently dropping every persisted setting.
+      const storedData = {
+        state: {
+          appearance: "evil",
+          general: { autoSaveInterval: 60 },
+        },
+        version: 1,
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(storedData));
+
+      expect(() => useSettingsStore.persist.rehydrate()).not.toThrow();
+
+      const state = useSettingsStore.getState();
+      // The corrupt branch is dropped; the live default survives.
+      expect(state.appearance.theme).toBe("paper");
+      expect(state.appearance.fontSize).toBe(18);
+      // …and the valid sibling was still hydrated (hydration did not abort).
+      expect(state.general.autoSaveInterval).toBe(60);
+    });
+
+    it("survives an array `appearance`", () => {
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({ state: { appearance: [1, 2], general: { tabSize: 4 } }, version: 1 }),
+      );
+
+      expect(() => useSettingsStore.persist.rehydrate()).not.toThrow();
+
+      const state = useSettingsStore.getState();
+      expect(state.appearance.fontSize).toBe(18);
+      expect(state.general.tabSize).toBe(4);
+    });
+
+    it("drops non-string entries from a persisted customLinkProtocols array", () => {
+      // Array element types are not validated at the persist boundary, and the
+      // union below re-admits them into live state, where consumers treat every
+      // entry as a string.
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({
+          state: { advanced: { customLinkProtocols: ["zotero", 42, null, { evil: true }] } },
+          version: 1,
+        }),
+      );
+
+      useSettingsStore.persist.rehydrate();
+
+      const protocols = useSettingsStore.getState().advanced.customLinkProtocols;
+      expect(protocols).toContain("zotero");
+      expect(protocols).toContain("obsidian"); // defaults still unioned in
+      expect(protocols.every((p) => typeof p === "string")).toBe(true);
+    });
+  });
+
   describe("edge cases", () => {
     it("handles stored data where a section is a non-object (e.g., string)", () => {
       const defaults = {

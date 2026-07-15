@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 import { restoreTransferredTab, transferTabFromDragOut } from "./tabTransferActions";
-import type { TabTransferPayload } from "@/types/tabTransfer";
+import type { TabRemovalAck, TabTransferPayload } from "@/types/tabTransfer";
 
 // Mock sonner toast (imeToast forwards message to sonner.message when not composing)
 vi.mock("sonner", () => ({
@@ -91,38 +91,186 @@ beforeEach(() => {
   mockGetWorkspaceState.mockReturnValue({ rootPath: "/workspace" });
 });
 
+/** The state the destination window reports back on `prepare` — by definition
+ *  newer than the snapshot the source captured when it handed the tab over. */
+const liveInDestination: TabTransferPayload = {
+  tabId: "tab-1",
+  title: "Test Document",
+  filePath: "/path/to/file.md",
+  content: "# Hello\n\nEdited in the destination window",
+  savedContent: "# Hello",
+  isDirty: true,
+  workspaceRoot: null,
+};
+
+function ackPrepare(data: TabTransferPayload | null, reason?: string): TabRemovalAck {
+  return {
+    requestId: "req-1",
+    tabId: "tab-1",
+    phase: "prepare",
+    accepted: data !== null,
+    reason,
+    data: data ?? undefined,
+  };
+}
+
+/** Route invoke() by command + phase so tests don't depend on call ordering. */
+function mockRemovalProtocol(options: {
+  prepare: TabRemovalAck | Error;
+  commit?: TabRemovalAck | Error;
+}) {
+  mockInvoke.mockImplementation((cmd: string, args?: Record<string, unknown>) => {
+    if (cmd !== "remove_tab_from_window") return Promise.resolve(undefined);
+    const outcome = args?.phase === "commit"
+      ? options.commit ?? { ...ackPrepare(null), phase: "commit", accepted: true }
+      : options.prepare;
+    return outcome instanceof Error ? Promise.reject(outcome) : Promise.resolve(outcome);
+  });
+}
+
 describe("restoreTransferredTab", () => {
-  it("removes tab from target window via invoke", async () => {
+  it("asks the destination to prepare before anything is destroyed", async () => {
+    mockRemovalProtocol({ prepare: ackPrepare(liveInDestination) });
     await restoreTransferredTab("main", "window-2", baseTransferData);
     expect(mockInvoke).toHaveBeenCalledWith("remove_tab_from_window", {
       targetWindowLabel: "window-2",
       tabId: "tab-1",
+      phase: "prepare",
     });
   });
 
-  it("creates transferred tab in source window", async () => {
+  it("restores the destination's CURRENT content, NOT the stale snapshot", async () => {
+    // DATA-LOSS REGRESSION: the user edited the doc in the destination window
+    // after the move. Undo must bring those edits back — restoring the
+    // pre-transfer snapshot silently destroys them.
+    mockRemovalProtocol({ prepare: ackPrepare(liveInDestination) });
+
     await restoreTransferredTab("main", "window-2", baseTransferData);
+
+    expect(mockInitDocument).toHaveBeenCalledWith(
+      "restored-tab-id",
+      "# Hello\n\nEdited in the destination window",
+      "/path/to/file.md",
+      "# Hello",
+    );
+    // The snapshot's content must never reach the restored document.
+    expect(mockInitDocument).not.toHaveBeenCalledWith(
+      expect.anything(),
+      "# Hello",
+      expect.anything(),
+      expect.anything(),
+    );
+  });
+
+  it("restores the tab BEFORE the destination drops its copy", async () => {
+    // Ordering is the safety property: if the commit leg fails we want a
+    // duplicate tab (recoverable), never a hole (unrecoverable).
+    const order: string[] = [];
+    mockCreateTransferredTab.mockImplementationOnce(() => {
+      order.push("restore");
+      return "restored-tab-id";
+    });
+    mockInvoke.mockImplementation((cmd: string, args?: Record<string, unknown>) => {
+      if (cmd === "remove_tab_from_window") order.push(String(args?.phase));
+      return Promise.resolve(
+        args?.phase === "prepare" ? ackPrepare(liveInDestination) : undefined,
+      );
+    });
+
+    await restoreTransferredTab("main", "window-2", baseTransferData);
+
+    expect(order).toEqual(["prepare", "restore", "commit"]);
+  });
+
+  it("commits the removal in the destination once the tab is safe", async () => {
+    mockRemovalProtocol({ prepare: ackPrepare(liveInDestination) });
+    await restoreTransferredTab("main", "window-2", baseTransferData);
+    expect(mockInvoke).toHaveBeenCalledWith("remove_tab_from_window", {
+      targetWindowLabel: "window-2",
+      tabId: "tab-1",
+      phase: "commit",
+    });
+  });
+
+  it("fails safely and destroys nothing when the destination refuses", async () => {
+    mockRemovalProtocol({ prepare: ackPrepare(null, "tabNotFound") });
+
+    await expect(
+      restoreTransferredTab("main", "window-2", baseTransferData),
+    ).rejects.toThrow(/refused|tabNotFound/i);
+
+    expect(mockCreateTransferredTab).not.toHaveBeenCalled();
+    expect(mockInitDocument).not.toHaveBeenCalled();
+    // Crucially: no commit — the destination keeps its tab.
+    expect(mockInvoke).not.toHaveBeenCalledWith(
+      "remove_tab_from_window",
+      expect.objectContaining({ phase: "commit" }),
+    );
+  });
+
+  it("fails safely and destroys nothing when the destination cannot be reached", async () => {
+    mockRemovalProtocol({ prepare: new Error("Timed out waiting for 'window-2'") });
+
+    await expect(
+      restoreTransferredTab("main", "window-2", baseTransferData),
+    ).rejects.toThrow(/timed out/i);
+
+    expect(mockCreateTransferredTab).not.toHaveBeenCalled();
+    expect(mockInvoke).not.toHaveBeenCalledWith(
+      "remove_tab_from_window",
+      expect.objectContaining({ phase: "commit" }),
+    );
+  });
+
+  it("keeps the restored tab when the commit leg fails (duplicate beats data loss)", async () => {
+    mockRemovalProtocol({
+      prepare: ackPrepare(liveInDestination),
+      commit: new Error("target window vanished"),
+    });
+
+    await expect(
+      restoreTransferredTab("main", "window-2", baseTransferData),
+    ).resolves.toBeUndefined();
+
+    expect(mockInitDocument).toHaveBeenCalledWith(
+      "restored-tab-id",
+      "# Hello\n\nEdited in the destination window",
+      "/path/to/file.md",
+      "# Hello",
+    );
+    const { tabContextError } = await import("@/utils/debug");
+    expect(tabContextError).toHaveBeenCalledWith(
+      expect.stringContaining("could not be removed"),
+      expect.any(Error),
+    );
+  });
+
+  it("restores the destination's current title and path (renamed / saved-as there)", async () => {
+    mockRemovalProtocol({
+      prepare: ackPrepare({
+        ...liveInDestination,
+        title: "renamed.md",
+        filePath: "/path/to/renamed.md",
+      }),
+    });
+
+    await restoreTransferredTab("main", "window-2", baseTransferData);
+
     expect(mockCreateTransferredTab).toHaveBeenCalledWith("main", {
       id: "tab-1",
-      filePath: "/path/to/file.md",
-      title: "Test Document",
+      filePath: "/path/to/renamed.md",
+      title: "renamed.md",
       isPinned: false,
     });
   });
 
-  it("initializes document with transfer data", async () => {
-    await restoreTransferredTab("main", "window-2", baseTransferData);
-    expect(mockInitDocument).toHaveBeenCalledWith(
-      "restored-tab-id",
-      "# Hello",
-      "/path/to/file.md",
-      "# Hello"
-    );
-  });
+  it("handles a destination tab with no file path", async () => {
+    mockRemovalProtocol({
+      prepare: ackPrepare({ ...liveInDestination, filePath: null }),
+    });
 
-  it("handles null filePath", async () => {
-    const data = { ...baseTransferData, filePath: null };
-    await restoreTransferredTab("main", "window-2", data);
+    await restoreTransferredTab("main", "window-2", baseTransferData);
+
     expect(mockCreateTransferredTab).toHaveBeenCalledWith("main", {
       id: "tab-1",
       filePath: null,
@@ -131,10 +279,21 @@ describe("restoreTransferredTab", () => {
     });
     expect(mockInitDocument).toHaveBeenCalledWith(
       "restored-tab-id",
-      "# Hello",
+      "# Hello\n\nEdited in the destination window",
       null,
-      "# Hello"
+      "# Hello",
     );
+  });
+
+  it("rejects an accepted prepare that carries no data (malformed ack)", async () => {
+    mockRemovalProtocol({
+      prepare: { ...ackPrepare(null), accepted: true, data: undefined },
+    });
+
+    await expect(
+      restoreTransferredTab("main", "window-2", baseTransferData),
+    ).rejects.toThrow();
+    expect(mockCreateTransferredTab).not.toHaveBeenCalled();
   });
 });
 
@@ -149,8 +308,8 @@ describe("transferTabFromDragOut", () => {
 
   function setupTabsAndDoc() {
     mockGetTabsByWindow.mockReturnValue([
-      { id: "tab-1", title: "Doc 1", filePath: "/file1.md", isPinned: false },
-      { id: "tab-2", title: "Doc 2", filePath: "/file2.md", isPinned: false },
+      { kind: "document", id: "tab-1", title: "Doc 1", filePath: "/file1.md", isPinned: false },
+      { kind: "document", id: "tab-2", title: "Doc 2", filePath: "/file2.md", isPinned: false },
     ]);
     mockGetDocument.mockReturnValue({
       content: "# Content",
@@ -168,7 +327,7 @@ describe("transferTabFromDragOut", () => {
 
   it("blocks last tab in main window", async () => {
     mockGetTabsByWindow.mockReturnValue([
-      { id: "tab-1", title: "Only Tab", filePath: null, isPinned: false },
+      { kind: "document", id: "tab-1", title: "Only Tab", filePath: null, isPinned: false },
     ]);
     await transferTabFromDragOut(defaultOptions);
     expect(defaultOptions.triggerSnapback).toHaveBeenCalledWith("tab-1");
@@ -180,7 +339,7 @@ describe("transferTabFromDragOut", () => {
 
   it("allows last tab from non-main window", async () => {
     mockGetTabsByWindow.mockReturnValue([
-      { id: "tab-1", title: "Only Tab", filePath: null, isPinned: false },
+      { kind: "document", id: "tab-1", title: "Only Tab", filePath: null, isPinned: false },
     ]);
     mockGetDocument.mockReturnValue({
       content: "content",
@@ -196,14 +355,17 @@ describe("transferTabFromDragOut", () => {
     expect(opts.triggerSnapback).not.toHaveBeenCalled();
   });
 
-  it("does nothing if document not found", async () => {
+  it("snaps back and announces when the document is missing", async () => {
     mockGetTabsByWindow.mockReturnValue([
-      { id: "tab-1", title: "Doc 1", filePath: null, isPinned: false },
-      { id: "tab-2", title: "Doc 2", filePath: null, isPinned: false },
+      { kind: "document", id: "tab-1", title: "Doc 1", filePath: null, isPinned: false },
+      { kind: "document", id: "tab-2", title: "Doc 2", filePath: null, isPinned: false },
     ]);
     mockGetDocument.mockReturnValue(null);
     await transferTabFromDragOut(defaultOptions);
     expect(mockInvoke).not.toHaveBeenCalled();
+    // A dropped tab that silently returns to nowhere reads as a broken drag.
+    expect(defaultOptions.triggerSnapback).toHaveBeenCalledWith("tab-1");
+    expect(defaultOptions.announce).toHaveBeenCalledWith("dialog:toast.cannotMoveTabNoDoc");
   });
 
   it("transfers to existing window when drop target found", async () => {
@@ -279,8 +441,8 @@ describe("transferTabFromDragOut", () => {
     // After detach, no remaining tabs
     mockGetTabsByWindow
       .mockReturnValueOnce([
-        { id: "tab-1", title: "Doc 1", filePath: "/f1.md", isPinned: false },
-        { id: "tab-2", title: "Doc 2", filePath: "/f2.md", isPinned: false },
+        { kind: "document", id: "tab-1", title: "Doc 1", filePath: "/f1.md", isPinned: false },
+        { kind: "document", id: "tab-2", title: "Doc 2", filePath: "/f2.md", isPinned: false },
       ])
       .mockReturnValueOnce([]); // remaining = 0
 
@@ -299,8 +461,8 @@ describe("transferTabFromDragOut", () => {
     // After detach, no remaining tabs but window is main
     mockGetTabsByWindow
       .mockReturnValueOnce([
-        { id: "tab-1", title: "Doc 1", filePath: "/f1.md", isPinned: false },
-        { id: "tab-2", title: "Doc 2", filePath: "/f2.md", isPinned: false },
+        { kind: "document", id: "tab-1", title: "Doc 1", filePath: "/f1.md", isPinned: false },
+        { kind: "document", id: "tab-2", title: "Doc 2", filePath: "/f2.md", isPinned: false },
       ])
       .mockReturnValueOnce([]); // remaining = 0
 
@@ -325,13 +487,19 @@ describe("transferTabFromDragOut", () => {
     const toastCall = vi.mocked(toast.message).mock.calls[0];
     const action = (toastCall[1] as Record<string, unknown>).action as { onClick: () => void };
 
-    // Reset invoke to track restore calls
-    mockInvoke.mockResolvedValue(undefined);
+    // Reset invoke to drive the removal handshake
+    mockRemovalProtocol({ prepare: ackPrepare(liveInDestination) });
     action.onClick();
 
-    // Should invoke remove_tab_from_window
+    // Undo must round-trip through the destination and restore ITS content
     await vi.waitFor(() => {
-      expect(mockInvoke).toHaveBeenCalledWith("remove_tab_from_window", expect.objectContaining({ targetWindowLabel: "window-2" }));
+      expect(mockInvoke).toHaveBeenCalledWith("remove_tab_from_window", expect.objectContaining({ targetWindowLabel: "window-2", phase: "prepare" }));
+      expect(mockInitDocument).toHaveBeenCalledWith(
+        "restored-tab-id",
+        "# Hello\n\nEdited in the destination window",
+        "/path/to/file.md",
+        "# Hello",
+      );
     });
   });
 
@@ -346,11 +514,12 @@ describe("transferTabFromDragOut", () => {
     const toastCall = vi.mocked(toast.message).mock.calls[0];
     const action = (toastCall[1] as Record<string, unknown>).action as { onClick: () => void };
 
-    mockInvoke.mockResolvedValue(undefined);
+    mockRemovalProtocol({ prepare: ackPrepare(liveInDestination) });
     action.onClick();
 
     await vi.waitFor(() => {
-      expect(mockInvoke).toHaveBeenCalledWith("remove_tab_from_window", expect.objectContaining({ targetWindowLabel: "new-win" }));
+      expect(mockInvoke).toHaveBeenCalledWith("remove_tab_from_window", expect.objectContaining({ targetWindowLabel: "new-win", phase: "prepare" }));
+      expect(mockCreateTransferredTab).toHaveBeenCalled();
     });
   });
 
@@ -407,8 +576,8 @@ describe("transferTabFromDragOut", () => {
     // After detach, no remaining tabs in non-main window
     mockGetTabsByWindow
       .mockReturnValueOnce([
-        { id: "tab-1", title: "Doc 1", filePath: "/f1.md", isPinned: false },
-        { id: "tab-2", title: "Doc 2", filePath: "/f2.md", isPinned: false },
+        { kind: "document", id: "tab-1", title: "Doc 1", filePath: "/f1.md", isPinned: false },
+        { kind: "document", id: "tab-2", title: "Doc 2", filePath: "/f2.md", isPinned: false },
       ])
       .mockReturnValueOnce([]);
 
@@ -449,8 +618,8 @@ describe("transferTabFromDragOut", () => {
 
     mockGetTabsByWindow
       .mockReturnValueOnce([
-        { id: "tab-1", title: "Doc 1", filePath: "/f1.md", isPinned: false },
-        { id: "tab-2", title: "Doc 2", filePath: "/f2.md", isPinned: false },
+        { kind: "document", id: "tab-1", title: "Doc 1", filePath: "/f1.md", isPinned: false },
+        { kind: "document", id: "tab-2", title: "Doc 2", filePath: "/f2.md", isPinned: false },
       ])
       .mockReturnValueOnce([]);
 
@@ -474,8 +643,8 @@ describe("transferTabFromDragOut", () => {
 
   it("handles tab with null filePath", async () => {
     mockGetTabsByWindow.mockReturnValue([
-      { id: "tab-1", title: "Untitled", filePath: undefined, isPinned: false },
-      { id: "tab-2", title: "Doc 2", filePath: "/f.md", isPinned: false },
+      { kind: "document", id: "tab-1", title: "Untitled", filePath: undefined, isPinned: false },
+      { kind: "document", id: "tab-2", title: "Doc 2", filePath: "/f.md", isPinned: false },
     ]);
     mockGetDocument.mockReturnValue({
       content: "hello",

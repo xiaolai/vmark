@@ -67,12 +67,20 @@ export function SplitPaneEditor({ tabId, formatConfig }: SplitPaneEditorProps) {
   const handleJump = useCallback((line: number, column: number) => {
     jumpHandleRef.current?.(line, column);
   }, []);
+  // Stable identity: SourcePane re-emits the handle in an effect keyed on this
+  // callback, so an inline arrow would re-run that effect on every keystroke.
+  const handleJumpHandleReady = useCallback(
+    (jump: (line: number, column: number) => void) => {
+      jumpHandleRef.current = jump;
+    },
+    [],
+  );
   // WI-4.3 — per-tab editing override sourced from tabStore so it
   // survives tab switches. The Tab.editingEnabled flag persists in
   // the store; SplitPaneEditor reads it and dispatches to set it.
   const editingEnabled = useTabStore((s) => {
     const found = s.findTabById?.(tabId) ?? null;
-    return Boolean(found?.editingEnabled);
+    return found?.kind === "document" ? Boolean(found.editingEnabled) : false;
   });
 
   // WI-2.4 — schema-aware preview dispatch. When the format declares a
@@ -84,28 +92,42 @@ export function SplitPaneEditor({ tabId, formatConfig }: SplitPaneEditorProps) {
   const filePath = useDocumentStore(
     (state) => state.documents?.[tabId]?.filePath ?? null,
   );
+  // WI-1A.13 — an explicit schema choice (set via setTabActiveSchemaId, and
+  // restored verbatim by hot-exit so the pick survives a restart) outranks the
+  // detector. `null`/`undefined` means "let the detector decide on each render".
+  const activeSchemaId = useTabStore((s) => {
+    const found = s.findTabById?.(tabId) ?? null;
+    return found?.kind === "document" ? (found.activeSchemaId ?? null) : null;
+  });
   const Preview: PreviewRenderer | undefined = useMemo(() => {
-    const detector = formatConfig.schemaDetector;
     const renderers = formatConfig.schemaRenderers;
-    if (detector && renderers) {
-      try {
-        const schemaId = detector(filePath ?? "", content);
-        if (schemaId && renderers[schemaId]) {
-          return renderers[schemaId];
+    if (renderers) {
+      const chosen = activeSchemaId ? renderers[activeSchemaId] : undefined;
+      if (chosen) return chosen;
+      const detector = formatConfig.schemaDetector;
+      if (detector) {
+        try {
+          const schemaId = detector(filePath ?? "", content);
+          if (schemaId && renderers[schemaId]) {
+            return renderers[schemaId];
+          }
+        } catch {
+          /* detector errors fall through to generic preview */
         }
-      } catch {
-        /* detector errors fall through to generic preview */
       }
     }
     return formatConfig.genericPreview;
-  }, [content, filePath, formatConfig]);
+  }, [activeSchemaId, content, filePath, formatConfig]);
   const hasPreview = Boolean(Preview);
 
   // Per-tab view mode (Source/Split/Preview), falling back to the global
   // default setting, then "split". Clamped to "source" for formats without a
   // preview so a stale "preview" on a now-preview-less tab can't blank the
   // editor. See dev-docs/plans/20260703-split-pane-view-modes.md.
-  const tabViewMode = useTabStore((s) => s.findTabById?.(tabId)?.viewMode);
+  const tabViewMode = useTabStore((s) => {
+    const t = s.findTabById?.(tabId);
+    return t?.kind === "document" ? t.viewMode : undefined;
+  });
   const defaultViewMode = useSettingsStore((s) => s.formats.defaultViewMode);
   // Normalize via the guard so a corrupt persisted setting can't yield an
   // out-of-range mode (which would leave the toggle with no active radio).
@@ -194,8 +216,14 @@ export function SplitPaneEditor({ tabId, formatConfig }: SplitPaneEditorProps) {
       data-format-id={formatConfig.id}
       style={
         {
+          // The CSS pairs `flex-grow: var(--f)` on the source with
+          // `flex-grow: calc(1 - var(--f))` on the preview, both with
+          // `flex-basis: 0`. A single-pane mode must therefore hand the whole
+          // share to the mounted pane: 1 when only the source shows, 0 when
+          // only the preview shows (1 would give the preview grow: 0 → a
+          // zero-width, invisible preview).
           "--split-pane-source-fraction": String(
-            showResizeHandle ? fraction : 1,
+            showResizeHandle ? fraction : showSource ? 1 : 0,
           ),
         } as React.CSSProperties
       }
@@ -225,9 +253,7 @@ export function SplitPaneEditor({ tabId, formatConfig }: SplitPaneEditorProps) {
               formatId={formatConfig.id}
               formatConfig={formatConfig}
               onDiagnostics={setDiagnostics}
-              onJumpHandleReady={(jump) => {
-                jumpHandleRef.current = jump;
-              }}
+              onJumpHandleReady={handleJumpHandleReady}
               editingEnabled={editingEnabled}
             />
             {diagnostics.length > 0 && (

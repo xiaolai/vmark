@@ -604,6 +604,12 @@
   "advanced.group.experimental": "Experimental Features",
   "advanced.workflowEngine.label": "Workflow Engine",
   "advanced.workflowEngine.description": "Enable YAML workflow files with React Flow visualization (experimental)",
+  "advanced.browserAiSession.label": "AI browser session",
+  "advanced.browserAiSession.description": "Sandbox keeps AI cookies separate from human tabs; Shared uses the human browser profile and asks before changing destinations.",
+  "advanced.browserAiSession.sandbox": "Sandbox (recommended)",
+  "advanced.browserAiSession.shared": "Shared profile",
+  "advanced.browserAiAllowLoopback.label": "Allow AI loopback access",
+  "advanced.browserAiAllowLoopback.description": "Permit AI navigation to localhost and loopback addresses. Private LAN, metadata, and link-local ranges remain blocked.",
   "nav": {
     "terminal": "Terminal"
   },
@@ -706,6 +712,10 @@
     "workflowEngine": {
       "label": "Moteur de workflow",
       "description": "Activer les fichiers de workflow YAML avec visualisation React Flow (expérimental)"
+    },
+    "embeddedBrowser": {
+      "label": "Navigateur intégré",
+      "description": "Active le navigateur web expérimental intégré. Ajoute « Nouvel onglet de navigateur » à la palette de commandes."
     }
   },
   "advanced.workflowEditorPreserveYamlFormatting.label": "Preserve YAML formatting on save",

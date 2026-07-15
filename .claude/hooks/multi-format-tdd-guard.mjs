@@ -17,20 +17,26 @@
 //     src/hooks/useFileSave.ts
 //     src/hooks/useDragDropOpen.ts
 //     src/hooks/useFinderFileOpen.ts
-//     src/hooks/useRecentFilesMenuEvents.ts
+//     src/hooks/useRecentFilesSync.ts   (was useRecentFilesMenuEvents.ts)
 //     src/hooks/closeSave.ts
 //     src/hooks/useExternalFileChanges.ts
 //     src/stores/tabStore.ts
-//     src/stores/contentSearchStore.ts
+//     src/stores/uiStore/contentSearchSlice.ts   (was stores/contentSearchStore.ts)
 //     src/utils/dropPaths.ts
-//     src/utils/newFile.ts
-//     src/utils/macQuarantineNotice.ts
-//     src/utils/yamlOpenRouting.ts  (until WI-2.6 deletes it)
+//     src/services/navigation/newFile.ts   (was utils/newFile.ts)
+//     src/services/macos/macQuarantineNotice.ts   (was utils/macQuarantineNotice.ts)
+//     (yamlOpenRouting.ts was deleted by WI-2.6 — scope removed)
+//
+//   The 2026-07 refactors relocated four of these sites; the guard tracks
+//   their CURRENT paths. Pointing at the deleted originals silently disabled
+//   the gate for the moved code (representative edits exited 0) — the exact
+//   fail-open governance §9 forbids. Regression-tested in the sibling
+//   .test.mjs so a future move surfaces as a red test, not a silent bypass.
 //
 //   Rust (inline #[cfg(test)] required — whole-file scope per
 //   plan: granular-function scoping not supported by current model):
 //     src-tauri/src/lib.rs
-//     src-tauri/src/window_manager.rs
+//     src-tauri/src/window_manager/**.rs   (window_manager.rs was decomposed)
 //     src-tauri/src/quarantine.rs
 //
 // Allow-list within scope (no test required):
@@ -42,14 +48,40 @@
 //   0 — allow
 //   2 — block; stderr is shown to the agent
 
-import { readFileSync, existsSync } from "node:fs";
-import { resolve, dirname, basename, extname } from "node:path";
+import { readFileSync, statSync, realpathSync } from "node:fs";
+import { resolve, relative, dirname, basename, extname, join, sep } from "node:path";
 
+/** realpath when the path exists, else the input — symlinked prefixes (macOS
+ *  /var → /private/var) otherwise break repo-root containment silently. */
+function realish(p) {
+  try {
+    return realpathSync.native(p);
+  } catch {
+    return p;
+  }
+}
+
+/** A real FILE exists at `p` (a directory named `foo.test.ts` must not pass). */
+function isFile(p) {
+  try {
+    return statSync(p).isFile();
+  } catch {
+    return false;
+  }
+}
+
+// FAIL CLOSED on unusable input. Exiting 0 here silently waives a mandatory gate
+// — the failure mode this hook exists to prevent (governance §9: don't bypass, ask).
 let payload;
 try {
   payload = JSON.parse(readFileSync(0, "utf8"));
-} catch (e) {
-  process.exit(0);
+} catch {
+  console.error("[multi-format-tdd-guard] unreadable hook payload — refusing to waive the TDD gate.");
+  process.exit(2);
+}
+if (payload === null || typeof payload !== "object") {
+  console.error("[multi-format-tdd-guard] malformed hook payload — refusing to waive the TDD gate.");
+  process.exit(2);
 }
 
 const tool = payload.tool_name ?? payload.toolName ?? "";
@@ -63,9 +95,25 @@ if (!filePath || typeof filePath !== "string") {
   process.exit(0);
 }
 
-const abs = resolve(filePath);
-const repoRoot = resolve(import.meta.dirname, "..", "..");
-const rel = abs.startsWith(repoRoot + "/") ? abs.slice(repoRoot.length + 1) : abs;
+const repoRoot = realish(resolve(import.meta.dirname, "..", ".."));
+// Resolve a relative file_path against the REPO ROOT, not process.cwd().
+// Realpath the PARENT (not the whole path): on a Write the file itself does
+// not exist yet, so realpath'ing the full path fails and falls back to the
+// lexical (symlink-unresolved) alias — which can appear outside repoRoot and
+// let a scoped write slip through. Canonicalizing the existing parent and
+// re-appending the basename keeps a symlinked path inside repoRoot, matching
+// the sibling gha-tdd-guard.
+const lexical = resolve(repoRoot, filePath);
+const abs = join(realish(dirname(lexical)), basename(lexical));
+// Separators normalized to "/" so the scope patterns below match on Windows too.
+// The previous `abs.startsWith(repoRoot + "/")` could never be true on Windows
+// (paths use "\"), so `rel` stayed absolute, no ^src/... pattern matched, and the
+// guard silently allowed every scoped write.
+const rel = relative(repoRoot, abs).split(sep).join("/");
+// Outside the repository — not our business.
+if (rel.startsWith("../")) {
+  process.exit(0);
+}
 
 // ── Frontend scope ──────────────────────────────────────────────────────
 const FRONTEND_SCOPED = [
@@ -77,21 +125,23 @@ const FRONTEND_SCOPED = [
   /^src\/hooks\/useFileSave\.ts$/,
   /^src\/hooks\/useDragDropOpen\.ts$/,
   /^src\/hooks\/useFinderFileOpen\.ts$/,
-  /^src\/hooks\/useRecentFilesMenuEvents\.ts$/,
+  /^src\/hooks\/useRecentFilesSync\.ts$/,
   /^src\/hooks\/closeSave\.ts$/,
   /^src\/hooks\/useExternalFileChanges\.ts$/,
   /^src\/stores\/tabStore\.ts$/,
-  /^src\/stores\/contentSearchStore\.ts$/,
+  /^src\/stores\/uiStore\/contentSearchSlice\.ts$/,
   /^src\/utils\/dropPaths\.ts$/,
-  /^src\/utils\/newFile\.ts$/,
-  /^src\/utils\/macQuarantineNotice\.ts$/,
-  /^src\/utils\/yamlOpenRouting\.ts$/,
+  /^src\/services\/navigation\/newFile\.ts$/,
+  /^src\/services\/macos\/macQuarantineNotice\.ts$/,
 ];
 
 // ── Rust scope ──────────────────────────────────────────────────────────
+// window_manager.rs was decomposed into window_manager/**; scope the whole
+// module tree so path_validation.rs / commands.rs are covered, not a file
+// that no longer exists.
 const RUST_SCOPED = [
   /^src-tauri\/src\/lib\.rs$/,
-  /^src-tauri\/src\/window_manager\.rs$/,
+  /^src-tauri\/src\/window_manager\/.*\.rs$/,
   /^src-tauri\/src\/quarantine\.rs$/,
 ];
 
@@ -120,7 +170,9 @@ if (inFrontendScope) {
     `${dir}/__tests__/${stem}.test.ts`,
     `${dir}/__tests__/${stem}.test.tsx`,
   ];
-  const found = candidates.find((p) => existsSync(p));
+  // isFile(), not exists(): a DIRECTORY named `foo.test.ts` would otherwise
+  // satisfy the gate.
+  const found = candidates.find(isFile);
   if (found) process.exit(0);
 
   const msg = [
@@ -129,7 +181,9 @@ if (inFrontendScope) {
     "",
     `  Source:    ${rel}`,
     "  Expected one of:",
-    ...candidates.map((p) => `    - ${p.replace(repoRoot + "/", "")}`),
+    // relative()+normalize, not `repoRoot + "/"`: the hardcoded "/" left
+    // absolute paths in Windows diagnostics (repoRoot uses "\").
+    ...candidates.map((p) => `    - ${relative(repoRoot, p).split(sep).join("/")}`),
     "",
     "  Per .claude/rules/10-tdd.md, RED comes before GREEN.",
     "  Write the failing test first, then this hook will allow the source edit.",
@@ -165,7 +219,7 @@ if (inRustScope) {
   {
     const dir = dirname(abs);
     const stem = basename(rel, ".rs");
-    if (existsSync(`${dir}/${stem}.test.rs`)) process.exit(0);
+    if (isFile(`${dir}/${stem}.test.rs`)) process.exit(0);
   }
 
   const msg = [

@@ -81,5 +81,8 @@
   },
   "aria": {
     "commandPalette": "コマンドパレット"
+  },
+  "browser": {
+    "newTab": "新しいブラウザタブ"
   }
 }

@@ -35,6 +35,21 @@ pub(super) fn build(app: &tauri::AppHandle, accel: &AccelFn) -> tauri::Result<Su
             true,
             accel("new-window", "CmdOrCtrl+Shift+N"),
         )?),
+        // Embedded browser (WI-S0.5). A NATIVE item, not just a DOM shortcut: once the
+        // browser's WKWebView is first responder it consumes the key event, so React's
+        // window.keydown never fires and no frontend shortcut works while browsing.
+        // AppKit dispatches menu accelerators regardless of who holds focus.
+        //
+        // Starts DISABLED — the browser is off by default, and a permanently-dead menu
+        // item is worse than no item. The frontend enables it via
+        // `set_browser_menu_enabled` when the setting is on.
+        Box::new(MenuItem::with_id(
+            app,
+            "new-browser-tab",
+            &t!("menu.file.newBrowserTab"),
+            false,
+            accel("new-browser-tab", "Alt+CmdOrCtrl+Shift+B"),
+        )?),
         Box::new(PredefinedMenuItem::separator(app)?),
         Box::new(MenuItem::with_id(
             app,

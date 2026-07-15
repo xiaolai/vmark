@@ -1,0 +1,65 @@
+/* BrowserGrantsList (WI-S0.8) — standing AI permissions, in settings. */
+
+.browser-grants {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-1);
+}
+
+.browser-grants-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-3);
+  padding: var(--spacing-2);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-color);
+}
+
+.browser-grants-origin-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-half);
+  min-width: 0;
+}
+
+.browser-grants-origin {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  color: var(--text-color);
+  word-break: break-all;
+}
+
+.browser-grants-ops {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+.browser-grants-revoke {
+  flex: none;
+  padding: var(--space-half) var(--spacing-2);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  color: var(--error-color);
+  cursor: pointer;
+}
+
+.browser-grants-revoke:hover {
+  background: var(--error-bg);
+}
+
+.browser-grants-revoke:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
+.browser-grants-empty {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+}

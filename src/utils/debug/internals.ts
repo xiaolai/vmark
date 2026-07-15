@@ -54,6 +54,20 @@ export function prodWarn(tag: string, ...args: unknown[]) {
   }
 }
 
+/**
+ * Build a tagged warn logger.
+ *
+ * Replaces ~50 copy-pasted `isDev ? console.warn : prodWarn` ternaries in
+ * `warn.ts`. `prodWarn` already branches on `isDev` (dev → console.warn only;
+ * prod → console.warn + tauri-plugin-log), so routing every logger through it
+ * is behavior-identical to the old per-logger ternary in both modes — the
+ * ternary carried no tree-shaking benefit here because warn loggers are never
+ * no-ops in production.
+ */
+export function createWarnLogger(tag: string): (...args: unknown[]) => void {
+  return (...args: unknown[]) => prodWarn(tag, ...args);
+}
+
 /** Error logger that persists to file in production. Always outputs to console as fallback. */
 export function prodError(tag: string, ...args: unknown[]) {
   /* v8 ignore next 5 -- @preserve reason: isDev is always true in Vitest */

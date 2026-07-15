@@ -20,7 +20,7 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { save } from "@tauri-apps/plugin-dialog";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { useContentServerStore } from "@/stores/contentServerStore";
-import { useTabStore } from "@/stores/tabStore";
+import { useTabStore, tabFilePath } from "@/stores/tabStore";
 import { getActiveTabId } from "@/services/navigation/activeDocument";
 import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import { contentServerWarn } from "@/utils/debug";
@@ -72,7 +72,8 @@ export interface ContentServerControls {
 function activeDeckPath(): string | null {
   const tabId = getActiveTabId(getCurrentWindowLabel());
   if (!tabId) return null;
-  return useTabStore.getState().findTabById(tabId)?.filePath ?? null;
+  const tab = useTabStore.getState().findTabById(tabId);
+  return tab ? tabFilePath(tab) : null;
 }
 
 /** Derive the Slidev export format from the chosen output extension (WI-7.2). */
@@ -182,16 +183,19 @@ export function useContentServer(): ContentServerControls {
       useContentServerStore.getState().setError(t("contentServer.slidev.noDeck"));
       return;
     }
-    const output = await save({
-      defaultPath: deck.replace(/\.[^.]+$/, ".pdf"),
-      filters: [
-        { name: "PDF", extensions: ["pdf"] },
-        { name: "PNG", extensions: ["png"] },
-        { name: "PowerPoint", extensions: ["pptx"] },
-      ],
-    });
-    if (!output) return; // user cancelled the save dialog
     try {
+      // The dialog itself can throw (permission denied, platform dialog
+      // failure) — keep it inside the boundary so the failure lands in the
+      // store instead of rejecting this fire-and-forget control.
+      const output = await save({
+        defaultPath: deck.replace(/\.[^.]+$/, ".pdf"),
+        filters: [
+          { name: "PDF", extensions: ["pdf"] },
+          { name: "PNG", extensions: ["png"] },
+          { name: "PowerPoint", extensions: ["pptx"] },
+        ],
+      });
+      if (!output) return; // user cancelled the save dialog
       await exportSlidev(root, deck, slidevFormatFromPath(output), output);
     } catch (e) {
       useContentServerStore.getState().setError(toMessage(e));

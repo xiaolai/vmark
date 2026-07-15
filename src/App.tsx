@@ -12,9 +12,10 @@ import { WorkspaceRail, WORKSPACE_RAIL_WIDTH } from "@/components/WorkspaceRail"
 import { BottomBar } from "@/components/BottomBar/BottomBar";
 import { TitleBar } from "@/components/TitleBar";
 import { AppShell, EditorArea } from "@/shell";
-import { GeniePicker } from "@/components/GeniePicker/GeniePicker";
+import { GeniePickerOverlay } from "@/components/GeniePicker/GeniePickerOverlay";
 import { EditorContextMenu } from "@/components/Editor/EditorContextMenu/EditorContextMenu";
 import { ApprovalDialog } from "@/components/WorkflowApproval/ApprovalDialog";
+import { BrowserApprovalDialog } from "@/components/Browser/BrowserApprovalDialog";
 import { QuickOpen } from "@/components/QuickOpen/QuickOpen";
 import { ContentSearch } from "@/components/ContentSearch/ContentSearch";
 import { QuickLookOverlay } from "@/components/QuickLook/QuickLookOverlay";
@@ -36,6 +37,7 @@ import {
 } from "@/hooks/lifecycle";
 import { cssVars } from "@/theme";
 import { appError } from "@/utils/debug";
+import { useBrowserOccluder } from "@/hooks/useBrowserOccluder";
 
 const TerminalPanel = lazy(() =>
   import("@/components/Terminal").then((m) => ({ default: m.TerminalPanel }))
@@ -103,6 +105,9 @@ const DROP_LABEL_FONT_SIZE = 14;
 function DropOverlay() {
   const { t } = useTranslation();
   const isDragging = useUIStore((state) => state.isDraggingFiles);
+  // The native browser view paints over all React DOM in its rect, so freeze every
+  // mounted browser tab while this overlay is up (WI-SOC.1).
+  useBrowserOccluder(isDragging, "file-drop");
   if (!isDragging) return null;
 
   return (
@@ -228,9 +233,13 @@ function MainLayout() {
           <QuickLookOverlay />
           <KnowledgeBaseOverlay />
           <WindowStatusOverlay />
-          <GeniePicker />
+          <GeniePickerOverlay />
           <EditorContextMenu />
           <ApprovalDialog />
+          {/* The AI-action consent prompt (WI-S0.8). It freezes the browser tab it
+              belongs to, so the page cannot paint over the dialog asking whether it
+              may be acted upon. */}
+          <BrowserApprovalDialog />
           <CommandPalette />
         </>
       }
