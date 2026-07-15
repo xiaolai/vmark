@@ -34,6 +34,11 @@ export type {
 /** Closed operation vocabulary; upload is intentionally never grantable. */
 const KNOWN_OPERATIONS = new Set(["read", "attach", "click", "type", "scroll", "key", "style", "navigate", "publish", "eval"]);
 
+/** Cap on queued approval prompts. The AI client is untrusted and each pending
+ *  entry may hold a full script; beyond this a further request is dropped rather
+ *  than growing the store unbounded. Only one prompt shows at a time anyway. */
+const MAX_PENDING_APPROVALS = 64;
+
 /** Same element? Both target-less (a read), or both naming the same role+name. */
 function sameTarget(a: ActionTarget | undefined, b: ActionTarget | undefined): boolean {
   if (a === undefined || b === undefined) return a === b;
@@ -152,8 +157,11 @@ export const useBrowserApprovalStore = create<BrowserApprovalState & BrowserAppr
       if (!KNOWN_OPERATIONS.has(operation)) return;
       set((state) =>
         // A duplicate id would let `resolveApproval` authorize one action while
-        // dropping the other — keep the first, ignore the collision.
-        state.pending.some((p) => p.id === id)
+        // dropping the other — keep the first, ignore the collision. And the AI
+        // client is UNTRUSTED: cap the queue so a flood of unique requests cannot
+        // grow the store without bound (each pending may retain a full script).
+        // (Security review P5 re-verify — High #1 availability.)
+        state.pending.some((p) => p.id === id) || state.pending.length >= MAX_PENDING_APPROVALS
           ? state
           : {
               pending: [...state.pending, { id, targetUrl, operation, target, tabId, generation, script }],

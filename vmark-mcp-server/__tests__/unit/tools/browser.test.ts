@@ -352,6 +352,13 @@ describe('browser tool — integration via server.callTool', () => {
     });
     expect((await server.callTool('browser', { action: 'execute_js' })).isError).toBe(true);
   });
+
+  it('execute_js: refuses an oversized script before it crosses the bridge', async () => {
+    const { server, bridge } = harness({ 'vmark.browser.execute_js': () => ({ success: true, data: {} }) });
+    const r = await server.callTool('browser', { action: 'execute_js', script: 'x'.repeat(64 * 1024 + 1) });
+    expect(r.isError).toBe(true);
+    expect(bridge.getRequestsOfType('vmark.browser.execute_js')).toHaveLength(0);
+  });
 });
 
 describe('registerBrowserTools — approval handling', () => {

@@ -14,6 +14,12 @@ import { VMarkMcpServer } from '../server.js';
 import type { ToolArgs } from '../server.js';
 import { isNeedsApproval } from '../bridge/core-types.js';
 
+/** Cap on a caller-supplied script / injected CSS. The app retains an approved
+ *  payload verbatim and renders it in the approval dialog, so an untrusted client
+ *  must not be able to stream unbounded payloads across the bridge. Kept in sync
+ *  with `MAX_SCRIPT_BYTES` in `src/hooks/mcpBridge/v2/browserPower.ts`. */
+const MAX_SCRIPT_BYTES = 64 * 1024;
+
 /**
  * Turn a bridge failure into a tool result.
  *
@@ -136,7 +142,7 @@ export function registerBrowserTool(server: VMarkMcpServer): void {
           },
           injectCss: {
             type: 'string',
-            description: 'CSS to inject as a scoped <style> block (style only).',
+            description: 'CSS to inject as a <style> block — page-wide, NOT selector-scoped (style only).',
           },
           script: {
             type: 'string',
@@ -351,6 +357,9 @@ export function registerBrowserTool(server: VMarkMcpServer): void {
           if (Object.keys(passthrough).length === 0) {
             return VMarkMcpServer.errorResult('style requires one of: set, addClasses, removeClasses, injectCss');
           }
+          if (typeof passthrough.injectCss === 'string' && passthrough.injectCss.length > MAX_SCRIPT_BYTES) {
+            return VMarkMcpServer.errorResult(`style injectCss exceeds the ${MAX_SCRIPT_BYTES}-byte limit`);
+          }
           const data = await server.sendBridgeRequest({
             type: 'vmark.browser.style',
             ...(tabId === undefined ? {} : { tabId }),
@@ -364,6 +373,11 @@ export function registerBrowserTool(server: VMarkMcpServer): void {
           const script = typeof args.script === 'string' && args.script.trim() ? args.script : '';
           if (!script) {
             return VMarkMcpServer.errorResult('execute_js requires a non-empty `script` string');
+          }
+          // Bound the payload before it crosses the bridge — the app retains an
+          // approved script verbatim and renders it in the approval dialog.
+          if (script.length > MAX_SCRIPT_BYTES) {
+            return VMarkMcpServer.errorResult(`execute_js script exceeds the ${MAX_SCRIPT_BYTES}-byte limit`);
           }
           const data = await server.sendBridgeRequest({
             type: 'vmark.browser.execute_js',

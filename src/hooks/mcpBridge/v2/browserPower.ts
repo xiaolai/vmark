@@ -28,6 +28,15 @@ import { urlForAgent } from "@/lib/browser/url";
 import { browserEnabled, readTabIdArg, resolveBrowserTab, type BrowserTarget } from "./browserHelpers";
 import { requireHumanAttachment, runReadClass, parseEvalResult } from "./browserReadClass";
 
+/**
+ * Cap on a caller-supplied script / CSS payload. The AI client is UNTRUSTED, and
+ * an approved payload is retained verbatim in `PendingApproval` and rendered in the
+ * approval dialog — so an unbounded stream of large scripts would grow the store
+ * and make the dialog expensive to render. 64 KiB is far above any legitimate
+ * automation snippet. (Security review P5 re-verify — High #1 availability.)
+ */
+const MAX_SCRIPT_BYTES = 64 * 1024;
+
 function readFields(f: unknown): QueryFields | undefined {
   if (typeof f !== "object" || f === null) return undefined;
   const o = f as Record<string, unknown>;
@@ -153,6 +162,10 @@ export async function handleBrowserStyle(id: string, args: Record<string, unknow
       await respond({ id, success: false, error: "style requires a {ref} or {selector} (injectCss needs neither)" });
       return;
     }
+    if (ops.injectCss && ops.injectCss.length > MAX_SCRIPT_BYTES) {
+      await respond({ id, success: false, error: `style injectCss exceeds the ${MAX_SCRIPT_BYTES}-byte limit` });
+      return;
+    }
     // Build the exact script BEFORE approval so the one-shot binds this payload — a
     // later retry with different ops rebuilds a different script and is refused rather
     // than riding the prior approval. (Security review P5, High #1 / Medium #4.)
@@ -182,6 +195,10 @@ export async function handleBrowserExecuteJs(id: string, args: Record<string, un
     const script = typeof args.script === "string" && args.script.trim() ? args.script : "";
     if (!script) {
       await respond({ id, success: false, error: "execute_js requires a non-empty 'script' string" });
+      return;
+    }
+    if (script.length > MAX_SCRIPT_BYTES) {
+      await respond({ id, success: false, error: `execute_js script exceeds the ${MAX_SCRIPT_BYTES}-byte limit` });
       return;
     }
     // The approval envelope shows the exact script (truncated) — the user must see

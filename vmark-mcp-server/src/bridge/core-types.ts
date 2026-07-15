@@ -64,12 +64,19 @@ export type BridgeRequest =
     }
   | { type: 'vmark.browser.read'; tabId?: string }
   | {
+      // `act` targets EITHER a precise `ref` OR an ARIA `role`+`name` (click/type),
+      // and for scroll/key carries `dy`/`key`/`modifiers` — so every target field
+      // is optional at the type level; the handler validates the combination.
       type: 'vmark.browser.act';
       tabId?: string;
       operation: string;
-      role: string;
-      name: string;
+      role?: string;
+      name?: string;
       text?: string;
+      ref?: string;
+      dy?: number;
+      key?: string;
+      modifiers?: { ctrl?: boolean; shift?: boolean; alt?: boolean; meta?: boolean };
     }
   | { type: 'vmark.browser.open'; url: string; timeoutMs?: number }
   | { type: 'vmark.browser.navigate'; tabId?: string; url: string; timeoutMs?: number }
@@ -78,7 +85,29 @@ export type BridgeRequest =
       tabId?: string;
       navigationId?: string;
       timeoutMs?: number;
-    };
+    }
+  | {
+      type: 'vmark.browser.wait_for';
+      tabId?: string;
+      ref?: string;
+      role?: string;
+      name?: string;
+      text?: string;
+      timeoutMs?: number;
+    }
+  | { type: 'vmark.browser.screenshot'; tabId?: string }
+  | { type: 'vmark.browser.query'; tabId?: string; selector: string; fields?: unknown }
+  | {
+      type: 'vmark.browser.style';
+      tabId?: string;
+      ref?: string;
+      selector?: string;
+      set?: Record<string, string>;
+      addClasses?: string[];
+      removeClasses?: string[];
+      injectCss?: string;
+    }
+  | { type: 'vmark.browser.execute_js'; tabId?: string; script: string };
 
 /**
  * Bridge response types — what VMark returns.

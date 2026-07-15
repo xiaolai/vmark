@@ -82,6 +82,26 @@ describe("handleBrowserStyle (act-class, op=style)", () => {
     expect(invoke).not.toHaveBeenCalled();
     expect(lastResponse()).toMatchObject({ success: false });
   });
+
+  // Security review P5 (Medium #4): style is payload-bound like eval — an
+  // Allow-once for one styling must not authorize a different one on the retry.
+  it("refuses a substituted style payload under a prior Allow-once", async () => {
+    const id = seed();
+    await handleBrowserStyle("st-a", { tabId: id, selector: ".x", set: { color: "red" } });
+    useBrowserApprovalStore.getState().resolveApproval("st-a", "once");
+    invoke.mockResolvedValue(JSON.stringify({ styled: true }));
+    await handleBrowserStyle("st-b", { tabId: id, selector: ".x", set: { color: "blue" } });
+    expect(invoke).not.toHaveBeenCalled();
+    expect((lastResponse().data as { needsApproval?: boolean }).needsApproval).toBe(true);
+  });
+
+  it("refuses an oversized injectCss payload", async () => {
+    const id = seed();
+    grant("style");
+    await handleBrowserStyle("s4", { tabId: id, injectCss: "a".repeat(64 * 1024 + 1) });
+    expect(invoke).not.toHaveBeenCalled();
+    expect(lastResponse()).toMatchObject({ success: false });
+  });
 });
 
 describe("handleBrowserExecuteJs (eval — per-call approval only)", () => {
@@ -113,6 +133,16 @@ describe("handleBrowserExecuteJs (eval — per-call approval only)", () => {
     const id = seed();
     await handleBrowserExecuteJs("x2", { tabId: id });
     expect(invoke).not.toHaveBeenCalled();
+    expect(lastResponse()).toMatchObject({ success: false });
+  });
+
+  // Security review P5 re-verify (High #1 availability): the untrusted client
+  // cannot flood the store/dialog with an unbounded script.
+  it("refuses an oversized script before any approval is queued", async () => {
+    const id = seed();
+    await handleBrowserExecuteJs("x3", { tabId: id, script: "x".repeat(64 * 1024 + 1) });
+    expect(invoke).not.toHaveBeenCalled();
+    expect(useBrowserApprovalStore.getState().pending).toHaveLength(0);
     expect(lastResponse()).toMatchObject({ success: false });
   });
 
