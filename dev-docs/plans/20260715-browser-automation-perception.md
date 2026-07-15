@@ -549,6 +549,28 @@ plan.
   with the app running, each to carry its own security review. This is the deliberate,
   authorized close-out state: every unit-verifiable layer is done + reviewed; the
   native/UI halves whose DoD requires live-app E2E are held, on purpose.
+- 2026-07-16 — **Cookie storage-state landed; WI-P6.1 named contexts NOT landed
+  (authorization gap).** The cookie half of session save/load (WI-P6.2) is complete
+  and fully reviewed: WKHTTPCookieStore capture/replay, HttpOnly-skipped +
+  Secure/SameSite/Expires-preserved, domain-scoped, origin-bound, fail-closed —
+  mandatory /security-review + re-verify + re-verify fixes (host-only cookie
+  semantics, full-origin freshness). Committed.
+  **WI-P6.1 named persistent contexts** was implemented (dataStoreForIdentifier,
+  macOS-14-guarded) + a metadata-only session/profile UI, but its mandatory
+  /security-review (`grills/browser-automation/security-review-P6.1-named-contexts.md`)
+  found **two High blockers** and it was **reverted, not landed**:
+  (H1) opening a named profile required NO user consent — a malicious AI could open a
+  guessed profile (`github-work`) and read authenticated page content; ADR-A7 wants a
+  per-call, non-grantable `session` approval bound to (profile, destination origin),
+  authoritatively enforced in Rust. That is a genuinely new PRE-navigation
+  authorization mechanism (the existing one-shot binds a *committed* origin, which
+  doesn't exist before the tab loads) and must be designed, not rushed.
+  (H2) on macOS 10.15–13 every named profile collapsed into the shared sandbox store,
+  breaking isolation (fix: a separate per-profile non-persistent store below 14, never
+  the singleton). Plus Mediums: unbounded profile creation, "Remove" not revoking the
+  on-disk store (needs `removeDataStoreForIdentifier`), and Rust not validating the
+  untrusted profile name. **Next step: design the per-use profile-open authorization
+  (H1) before re-implementing WI-P6.1.**
 - **TDD hook:** extend the `SCOPED` array in `.claude/hooks/gha-tdd-guard.mjs` to
   cover the new touched paths (`src/lib/browser/agent/**`,
   `src/hooks/mcpBridge/v2/browser*.ts`) so production edits require sibling tests
