@@ -1,12 +1,15 @@
 # Browser Automation — Richer Perception & Interaction
 
 > Created: 2026-07-15
-> Status: **Phases 0–5 COMPLETE** (screenshot, stable refs, wait_for, scroll/key,
->   and the scripted power tools query/style/execute_js — the last hardened after a
->   mandatory security review + Codex re-verification; see the Status log).
->   **Phase 6 (session/storage — credentials) and Phase 7 (console, stretch) remain.**
->   Phase 6 is a native credential subsystem whose DoD requires live-app E2E and its
->   own mandatory `/security-review`.
+> Status: **All 8 phases addressed** (see the Status log). Phases 0–5 COMPLETE
+>   (screenshot, stable refs, wait_for, scroll/key, and the query/style/execute_js
+>   power tools — the last hardened after a mandatory security review + re-verify).
+>   **Phase 6 (credentials)** and **Phase 7 (console, stretch)** landed their
+>   security-critical, unit-testable CORES, each with its mandatory `/security-review`
+>   run and re-verified; their **native + UI pieces are deferred as live-E2E
+>   follow-ups** — cookie capture / named contexts / profile UI (P6), and the
+>   page-world shim injection (P7) — deliberately not shipped as unverified native
+>   code. Those are the only open items.
 > Depends on the shipped embedded-browser surface + AI driver from
 >   `20260714-ai-browser-navigation.md` (WI-N*) and
 >   `20260712-0610-embedded-browser-sites-workflows.md` (WI-1.x/2.x), now merged to `main`.
@@ -515,6 +518,25 @@ plan.
   data-management UI** WI-P6.4/P6.5. `StorageState` already carries a `cookies` vec.
   `check-…-phase.sh 6` runs the core suites (WI-linkage reports P6.1/P6.4/P6.5 still
   open — accurate for a partial phase).
+- 2026-07-16 — **Phase 6 replay hardened (security re-verify).** Codex re-verified
+  the Phase 6 fixes: capture fail-closed confirmed, but the origin binding was still a
+  command-thread check racing the async main-thread write. The load-replay script now
+  re-checks the EXECUTING document's live origin (`new URL(committed).origin ===
+  location.origin`) synchronously before `setItem`, so a raced navigation cannot write
+  cross-origin. Also: the shared human-attachment approval envelope and `originForAgent`
+  for opaque `data:` URLs now expose origin-only (no credential-bearing path/payload),
+  and the public MCP guide's load shape was corrected.
+- 2026-07-16 — **Phase 7 (stretch) design-reviewed; testable core landed.** WI-P7.1
+  console capture. The plan's required design review
+  (`dev-docs/grills/browser-automation/phase7-console-design.md`) concluded that the
+  only design preserving the no-bridge invariant is a page-world shim writing to a
+  hidden DOM ring buffer that the isolated-world driver reads (no message handler).
+  Landed + tested: `consoleShim.ts` (bounded ring buffer, transparent, never-throws;
+  6 jsdom tests), `browserConsole.ts` (read-class handler; untrusted output), the
+  dispatch route + sidecar `console` action. **Deferred (live-E2E, per the review):**
+  the native page-world `WKUserScript` injection (AiSandbox-only) that populates the
+  buffer — it duplicates the shim source into Rust and needs a build-time decision +
+  live verification. `check-…-phase.sh 7` runs the core suites.
 - **TDD hook:** extend the `SCOPED` array in `.claude/hooks/gha-tdd-guard.mjs` to
   cover the new touched paths (`src/lib/browser/agent/**`,
   `src/hooks/mcpBridge/v2/browser*.ts`) so production edits require sibling tests
