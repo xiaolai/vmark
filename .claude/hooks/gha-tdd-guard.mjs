@@ -24,6 +24,10 @@
 //     - src/stores/webWorkflowStore.ts
 //     - src/stores/browserApprovalStore.ts
 //
+//   Browser automation — richer perception & interaction
+//   (dev-docs/plans/20260715-browser-automation-perception.md governance)
+//     - src/hooks/mcpBridge/v2/browser*.{ts,tsx}  (the MCP browser handlers)
+//
 // Behavior for a Write/Edit/MultiEdit targeting a file in scope:
 //   - If the file is itself a *.test.ts(x), allow (we're writing tests).
 //   - If the file is type-only (types.ts, *.d.ts) or CSS, allow.
@@ -136,6 +140,12 @@ const SCOPED = [
   /^src\/stores\/browserStore\.ts$/,
   /^src\/stores\/webWorkflowStore\.ts$/,
   /^src\/stores\/browserApprovalStore\.ts$/,
+  // Browser automation — richer perception & interaction
+  // (dev-docs/plans/20260715-browser-automation-perception.md governance).
+  // The MCP browser handlers (browser.ts, browserNavigation.ts,
+  // browserScreenshot.ts, browserHelpers.ts). The agent-script layer
+  // (src/lib/browser/**) is already covered above.
+  /^src\/hooks\/mcpBridge\/v2\/browser.*\.tsx?$/,
 ];
 
 if (!SCOPED.some((re) => re.test(rel))) {

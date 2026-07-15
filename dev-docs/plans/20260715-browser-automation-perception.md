@@ -1,0 +1,502 @@
+# Browser Automation — Richer Perception & Interaction
+
+> Created: 2026-07-15
+> Status: **DRAFT — not started.** Design complete; awaiting §6 cross-model review
+>   (mandatory: >3 phases) before Phase 1 commits.
+> Depends on the shipped embedded-browser surface + AI driver from
+>   `20260714-ai-browser-navigation.md` (WI-N*) and
+>   `20260712-0610-embedded-browser-sites-workflows.md` (WI-1.x/2.x), now merged to `main`.
+> WI-IDs use the `WI-P*` namespace (Perception & interaction) to avoid colliding
+>   with the `WI-1.x` / `WI-N*` / `WI-S*` namespaces of the prior browser plans.
+> Owner: —
+
+## Motivation
+
+The AI browser surface today exposes five actions — `read`, `act`, `open`,
+`navigate`, `wait`. Live Tauri-MCP E2E (2026-07-15) surfaced two structural
+limits, and a source read of `@hypothesi/tauri-mcp-server` (v0.12.0, 20 tools)
+showed the shape of the fix:
+
+1. **The AI is blind.** `read` returns only an ARIA tree; there is no visual
+   channel. A model cannot see layout, rendered state, or anything the DOM does
+   not name.
+2. **`act` targeting is resolved by role+accessible-name *at act time*, which is
+   ambiguous.** During E2E, `act` matched "More information…" against a link
+   actually named "Learn more" (silent no-op), and a blank role/name matches the
+   first element of that role. Perception and action are two steps fused into one
+   fuzzy lookup.
+
+The Tauri MCP separates automation into three verbs with **stable element
+handles**: *observe* (`dom_snapshot` assigns each node a ref like `e3`) → *wait*
+(`wait_for` a condition) → *act* (`interact`/`keyboard` targeting `ref=e3`). This
+plan borrows that loop — snapshot-with-refs → wait → act-by-ref — plus a visual
+channel, and adds the escape-hatch tier the structured verbs cannot cover:
+**scripted `execute_js`, DOM detection (`query`), and CSS manipulation (`style`)**.
+Every one of these runs inside the driver's **isolated content world**
+(`browser_eval`, `WKContentWorld`): it shares the DOM — so `querySelector`,
+`element.style`, and injected `<style>` all work — but cannot see the page's own
+JS heap/globals. That containment is what makes a caller-supplied script safe
+*enough* to expose to an LLM on an untrusted page while still declining the two
+things VMark will not do here: **main-world / page-JS eval** (Playwright-style
+access to the site's own functions) and the Tauri MCP's **`ipc_*`** tools (which
+drive a Tauri webview's IPC bridge — VMark's browser is a raw `WKWebView` with
+**no bridge injected**, the SPIKE-1 no-bridge invariant, so there is nothing to
+drive). The one native addition, `screenshot`, uses `WKWebView.takeSnapshot` and
+touches no page JS. The raw `execute_js` is fenced on four sides (ADR-A6); its
+residual exfiltration risk is real and explicitly accepted.
+
+## Outcomes
+
+### Desired behavior
+
+The `browser` MCP tool gains four capabilities, each routed through the same
+sidecar → `mcp-bridge:request` → `dispatchV2` → `handleBrowser*` → Rust path:
+
+- **`screenshot`** — return a JPEG of the tab's current rendering (the AI's own
+  sandbox tab, or a human tab it is attached to). Read-class.
+- **Stable element refs** — `read` assigns every node a ref (`e1`, `e2`, …) that
+  is stable for the life of the committed page; `act` accepts `{ref}` as an
+  alternative to `{role, name}`. Ref targeting is exact and order-independent.
+- **`wait_for`** — block until an element/text appears (or a timeout), so a
+  multi-step flow is deterministic instead of "click → guess → re-read → retry".
+- **Richer `act` operations** — `scroll` (reach off-screen content) and `key`
+  (send Enter/Tab/Escape and modifier combos: submit a form, dismiss a dialog,
+  move between fields). Act-class.
+- **Scripted power tools** — the escape hatch, layered safest-first:
+  - **`query`** (DOM detection) — return structured data (text, attributes,
+    computed-style subset, box, refs) for elements matching a CSS selector.
+    Read-class; covers what the ARIA snapshot cannot name (tables, JSON blobs,
+    computed values).
+  - **`style`** (CSS manipulation) — set inline styles / toggle classes / inject
+    a scoped `<style>` (dismiss a blocking overlay, highlight the AI's target for
+    the human co-driver). Act-class.
+  - **`execute_js`** — an arbitrary isolated-world script for anything the
+    structured verbs miss. Highest-friction: per-call approval, script logged,
+    result flagged untrusted (ADR-A6).
+- **Session & storage management** — keep and reuse login status without sharing
+  the human's whole live session:
+  - **Named browser contexts** — persistent, isolated per-profile data stores an
+    AI tab can open against, so a login done in profile `github-work` survives
+    app restarts and is invisible to profile `github-personal` and to the human's
+    store.
+  - **`save_storage_state` / `load_storage_state`** — snapshot a tab's session
+    (cookies + localStorage) and replay it into a fresh context. Enables *human
+    logs in once → save → AI reuses it in an isolated context*. The AI works with
+    a **named handle, never the raw cookie/token values** (credential-by-
+    reference, ADR-A7).
+  - **Data management** — inspect a profile's site list and **clear** a site's or
+    a profile's data (the "sign out / forget this site" the browser lacks today).
+
+Optional stretch (Phase 7): **console** (the tab's console output), read-class.
+
+### Security outcome
+
+The implementation must keep every existing invariant and add **no new trust
+boundary**:
+
+1. Each new capability maps to the **existing operation vocabulary**
+   (`src/lib/browser/approval/grants.ts` `BROWSER_OPERATIONS` and
+   `src-tauri/src/browser/operation.rs`). Read-class verbs (`screenshot`,
+   `wait_for`, `styles`, console) authorize like `read` — allowed on the tab's
+   own committed origin for an AI-owned tab, and requiring human attachment for a
+   human tab. Act-class verbs (`scroll`, `key`) authorize like `click`/`type` —
+   default-deny, approval-gated, generation-stamped.
+2. **Rust stays authoritative.** `browser_eval` (`commands_auth.rs`) remains the
+   only gate: it re-checks the operation against the tab's committed origin (read
+   from its own registry) and rejects a command whose navigation generation is
+   stale. New operations extend its vocabulary; they do not open a new command
+   path. Screenshot gets one new native command (`browser_screenshot`) that
+   applies the identical generation + committed-origin + policy-epoch checks
+   before capturing.
+3. **No bridge; scripted eval is fenced.** Most scripts are the driver's own
+   isolated-world scripts (extensions of `aria.ts`/`actScript.ts`). The one
+   caller-supplied-script path — `execute_js` (Phase 5) — also runs only in the
+   isolated content world (DOM + CSS, never the page's JS heap/globals), is
+   approved per call rather than by a standing grant, and returns a value flagged
+   untrusted that is never auto-fed into a later `act` (ADR-A6). Main-world eval
+   stays out of scope. `screenshot` uses the native snapshot API and reads no
+   page state.
+4. **Redaction at the boundary.** Screenshot payloads and console output can
+   carry secrets. Screenshots of a human tab require an attachment (one-shot,
+   consumed on capture, per the existing model); URLs in returned metadata pass
+   through `urlForAgent`; console capture is opt-in and sandbox-scoped by default.
+5. Disabling `browser.enabled` fails every new action closed, exactly as the
+   existing five (the `browserEnabled()` advisory check + the Rust
+   `policy.enabled` gate both already run for these code paths).
+
+### Non-goals
+
+- **No main-world / page-JS eval.** `execute_js` (Phase 5) is exposed, but only
+  in the **isolated content world** — DOM + CSS, never the page's own JS
+  functions or heap. Playwright-style `page.evaluate` against the site's globals
+  stays a separate future decision with its own threat model.
+- **No standing grant for raw `execute_js`.** It is approved per call, never
+  "remembered for this site" (ADR-A6). `query`/`style` are grantable; raw eval is
+  not.
+- **No IPC surface into the page.** The browser has no bridge, by design.
+- **No per-request network policy engine.** Read-only network *observation* is
+  noted as future work (below), not built here; it needs `WKURLSchemeHandler` /
+  resource-delegate work out of scope for this plan.
+- **No trusted synthetic input.** `key`/`scroll` dispatch DOM events from the
+  isolated world; SPIKE-3 already established macOS = synthetic tier, so sites
+  gating on `event.isTrusted` will ignore them. This is documented, not "fixed".
+- **No new npm/crate dependencies** are anticipated; if one appears it goes
+  through `scripts/check-new-deps.sh` + a manual repo/download-count look.
+
+## Constraints & Dependencies
+
+- **Runtime:** Tauri v2, React 19, Zustand v5, Vite v7, Vitest v4, pnpm, Rust.
+- **Native surface:** VMark-owned `WKWebView` on macOS; not a Tauri webview, no
+  IPC globals. Windows/Linux remain "unsupported" stubs — new native commands
+  (`browser_screenshot`) must ship a `cfg(not(target_os = "macos"))` stub that
+  fails clearly and keeps `pnpm check:cross` green.
+- **macOS threading:** AppKit/WebKit objects are main-thread-only;
+  `takeSnapshot` completes on the main thread with a completion handler.
+- **macOS version:** named persistent contexts (Phase 6) use
+  `WKWebsiteDataStore(forIdentifier:)`, which is macOS 14+. Gate it at runtime and
+  degrade cleanly (fall back to the existing sandbox/shared postures) on older
+  systems; SPIKE-4 already confirmed the identifier store constructs without
+  crashing on the target OS.
+- **Budget:** every new blocking verb (`wait_for`, and the internal waits inside
+  `screenshot`) uses the existing 12,000 ms default / hard-max model in
+  `validateTimeout` (`browserHelpers.ts`), measured monotonically, below the Rust
+  20 s / sidecar 25 s ceilings.
+- **Generation contract:** builds on the 2026-07-15 fix (`browserNavigation.ts`
+  stamps committed generation in `waitForNavigation`); `read`/`act`/new verbs all
+  depend on the frontend tab carrying the committed generation.
+
+## Architecture Decisions
+
+### ADR-A1 — Screenshot is a native command, not an eval
+
+`read`/`act` inject JS into the isolated content world via `browser_eval`. A
+screenshot cannot be produced that way (an isolated world cannot rasterize the
+page). It is a new native command `browser_screenshot(tabId, generation)` calling
+`WKWebView.takeSnapshotWithConfiguration:completionHandler:`. **SPIKE-5 already
+proved this on a VMark-owned embedded webview** (14 ms, full-size image;
+`dev-docs/grills/embedded-browser/SPIKE-5.md`). The command applies the same
+freshness/origin/policy checks as `browser_eval` before capturing, returns a
+base64 JPEG (quality-bounded to cap payload size), and never reads DOM. The
+occlusion controller (`browser_freeze`/`browser_thaw`) is unaffected — screenshot
+captures the live view, not a frozen snapshot.
+
+### ADR-A2 — Element refs live in the isolated world, invalidated per generation
+
+`ariaSnapshot` (`aria.ts`) gains a monotonic ref per emitted node, backed by a
+`WeakMap<Element, string>` **held in the isolated content world** so refs survive
+repeated `read`s within one committed page. On navigation the world is torn down
+(new document), so refs cannot leak across pages — and `act`-by-ref still passes
+`generation`, so a ref from an old page is rejected by the Rust freshness gate
+regardless. `queryByRef(ref)` resolves the handle back to the element for
+`actScript.ts`. Refs are advisory-locating only; **authorization is still by
+committed origin + operation**, never by ref.
+
+### ADR-A3 — `wait_for` polls inside the isolated world, bounded by the budget
+
+A `wait_for(condition, timeoutMs)` handler runs a bounded `MutationObserver` (with
+an interval fallback) in the isolated world and resolves on first match or
+timeout. It is read-class (observing the DOM), returns the matched ref(s), and
+never mutates. The wait is capped by `validateTimeout`; the Rust side treats it
+as a `read` operation for authorization.
+
+### ADR-A4 — `scroll`/`key` are act-class, and honestly synthetic
+
+`scroll` (via `scrollIntoView`/element scroll) and `key` (via dispatched
+`KeyboardEvent`) mutate observable state, so they are act-class: approval-gated,
+generation-stamped, one-shot-target-bindable, exactly like `click`/`type`. Per
+SPIKE-3 the events are synthetic (not `isTrusted`); the tool description states
+this limitation so the model does not conclude a site "ignored" a keypress it
+never trusted. `key` never sends OS-level shortcuts — only page-directed
+`KeyboardEvent`s to a focused ref.
+
+### ADR-A5 — Operation vocabulary extends in exactly two places
+
+New operations are added to `BROWSER_OPERATIONS`
+(`src/lib/browser/approval/grants.ts`) and the Rust `Operation` enum
+(`src-tauri/src/browser/operation.rs`) — the two single-definition sets the whole
+gate reads. The additions fall into three authorization classes:
+
+| Class | Operations | Consent |
+|---|---|---|
+| **read** (non-mutating perception) | `screenshot`, `wait`, `query` — authorize under the existing `read` grant | a "read" grant already covers non-mutating perception; no new grantable op |
+| **act** (mutation) | `scroll`, `key`, `style` — new grantable ops, default-deny, approval-gated, generation-stamped | like `click`/`type` |
+| **eval** (escape hatch) | `execute_js` — new op, **per-call approval only, never a standing grant** | highest friction; see ADR-A6 |
+| **session** (identity) | `session.save` / `session.load` / `session.clear` — user-gated, not AI-grantable | handles credentials; see ADR-A7 |
+
+A test asserts the frontend and Rust vocabularies never drift, and that `eval` and
+the `session` ops are excluded from the grantable (remember-able) set.
+
+### ADR-A6 — Scripted eval is isolated-world, per-call-approved, untrusted-result
+
+`execute_js` is the capability VMark otherwise avoids, so it is fenced on four
+sides rather than one:
+
+1. **Isolated content world only.** Caller scripts run in the driver's
+   `WKContentWorld`, which shares the DOM but not the page's JS heap/globals. That
+   is exactly what makes DOM detection and CSS manipulation safe-ish — they are
+   DOM operations — while denying access to the page's own functions and any
+   secret held only in page JS. Main-world / `pageWorld` eval is **out of scope**;
+   adding it is a separate decision.
+2. **Per-call approval, never a standing grant.** `eval` is absent from the set an
+   origin can be *remembered* for. Every `execute_js` raises a fresh approval that
+   shows the script; "remember for this site" is not offered. `query` (read) and
+   `style` (act) remain grantable; raw `eval` is not.
+3. **Generation-stamped + committed-origin gated**, identical to `read`/`act`.
+   `browser_eval` already reads the committed origin from its own registry and
+   rejects a stale generation; caller scripts get no weaker path. The command
+   gains a caller-script arm guarded by the `eval` op, not a new command.
+4. **Result is untrusted.** The return value is handed to the AI labeled
+   page-derived/untrusted and is never auto-fed into a subsequent `act` target;
+   the full script is logged (URL redacted) for audit. This *bounds* — it does not
+   eliminate — the exfiltration risk that is inherent to giving an LLM eval on an
+   untrusted page, and which the product owner has explicitly accepted.
+
+### ADR-A7 — Sessions are named contexts; the AI holds a reference, never the tokens
+
+Login reuse today is coarse: `aiSession: "shared"` puts the AI inside the human's
+entire live persistent session; `"sandbox"` is wiped every app-lifetime. This ADR
+adds a middle tier borrowed from Playwright's *browser contexts + `storageState`*,
+under four rules:
+
+1. **Named, persistent, isolated contexts.** Each profile is its own
+   `WKWebsiteDataStore` keyed by a stable UUID via
+   `dataStoreForIdentifier:` (macOS 14+; SPIKE-4 already probed identifier stores
+   with no crash). Extends `browser_store_macos.rs`, which today holds one
+   non-persistent sandbox store, into a keyed map of named stores. Contexts do not
+   share cookies/storage with each other, with the sandbox store, or with the
+   human's default store.
+2. **Credential-by-reference.** Cookies are session tokens. The AI names a context
+   (`"github-work"`) or a saved-state handle; it **never receives raw cookie or
+   token values**. Export/import moves through Rust (`WKHTTPCookieStore` for
+   cookies; per-origin isolated-world eval for `localStorage`, best-effort). The
+   secret stays server-side.
+3. **Secrets are protected at rest and never logged.** A named context lives in
+   the OS-protected WebKit container. An *exported* `storageState` blob is
+   sensitive-at-rest: it is encrypted (OS keychain-wrapped key) or written only to
+   a user-chosen secure location — never plaintext in a workflow file, never in
+   logs, always redacted at the trust boundary.
+4. **Loading an identity is a user decision.** `load_storage_state` / opening a tab
+   against a named context grants the AI an authenticated identity, so it requires
+   explicit user approval (its own `session` operation class — user-gated, not an
+   AI-grantable standing operation). Clearing data is likewise user-initiated.
+
+## Phases
+
+Sequenced by value/leverage: unblind the model, then make targeting reliable, then
+make multi-step flows deterministic, then extend interaction.
+
+### Phase 0 — Feasibility (mostly retired)
+
+Most risk is already discharged by prior spikes; this phase only closes the two
+genuinely new unknowns.
+
+| WI | Spike | Status |
+|---|---|---|
+| WI-P0.1 | `takeSnapshot` on the embedded webview | **PASS (SPIKE-5)** — reuse evidence |
+| WI-P0.2 | Synthetic key/scroll trust tier | **REFUTED-by-design (SPIKE-3)** — documented caveat |
+| WI-P0.3 | Ref stability across repeated reads within a generation | **NEW** — isolated-world `WeakMap` probe |
+| WI-P0.4 | `wait_for` MutationObserver in the isolated world resolves + tears down on timeout | **NEW** — probe |
+
+**DoD:** WI-P0.3/0.4 have runnable probes under
+`dev-docs/grills/browser-automation/` with recorded PASS output; WI-P0.1/0.2 cite
+the prior spike files. `bash scripts/check-browser-automation-phase.sh 0` exits 0.
+
+### Phase 1 — Visual perception (`screenshot`)
+
+| WI | Deliverable | Primary files |
+|---|---|---|
+| WI-P1.1 | Native `browser_screenshot(tabId, generation)` — main-thread `takeSnapshot`, generation/committed-origin/policy checks, base64 JPEG, quality/size cap; `cfg(not(macos))` stub | `src-tauri/src/browser/surface*_macos.rs`, `commands.rs`/new `screenshot_macos.rs`, `command_registry.rs`, `mod.rs` stub |
+| WI-P1.2 | Frontend `handleBrowserScreenshot` — `browserEnabled()` gate, `resolveBrowserTab`, human-attachment requirement (read-class), redacted metadata, respond `{url, image}` | `src/hooks/mcpBridge/v2/browser*.ts`, `dispatch.ts` (`vmark.browser.screenshot`) |
+| WI-P1.3 | Sidecar tool: add `screenshot` to the action enum + description; return image content block | `vmark-mcp-server/src/tools/browser.ts`, `__tests__/unit/tools/browser.test.ts` |
+| WI-P1.4 | Docs: `website/guide/browser.md` + `mcp-tools.md`; `21-website-docs.md` mapping already covers `browserCommands`/`browser/` | website + `AGENTS.md` mapping note |
+
+**DoD:** unit tests for the handler (gate, attachment, redaction) + sidecar tool;
+Rust test for the command's auth checks (stale generation → refused, disabled →
+`BROWSER_DISABLED`); live E2E via Tauri MCP capturing a real JPEG of an AI tab;
+`check-browser-automation-phase.sh 1` green. **No visual regression:** capturing
+does not disturb the occlusion/freeze state.
+
+### Phase 2 — Stable element handles (ref-IDs)
+
+| WI | Deliverable | Primary files |
+|---|---|---|
+| WI-P2.1 | `ariaSnapshot` emits a stable `ref` per node; isolated-world `WeakMap` ref store; `queryByRef` | `src/lib/browser/agent/aria.ts`, `actScript.ts`, tests |
+| WI-P2.2 | `read` response includes `ref` on each node; `act` accepts `{ref}` (preferred) or `{role, name}` (fallback); half-specified target still refused | `src/hooks/mcpBridge/v2/browser.ts` |
+| WI-P2.3 | One-shot target binding accepts a ref descriptor so an "Allow once" is bound to the exact element, not a fuzzy name | `browserApprovalStore.ts`, `commands_auth.rs` (`OneShotTarget`) |
+| WI-P2.4 | Sidecar schema: add `ref` to `act`; update description to prefer refs | `vmark-mcp-server/src/tools/browser.ts` |
+
+**DoD:** `aria.test.ts`/`actScript.test.ts` assert ref stability across repeated
+snapshots and cross-generation invalidation; an `act`-by-ref test proves the
+"More information…"/"Learn more" ambiguity class is gone; live E2E: read → act by
+ref clicks the intended element; gate green.
+
+### Phase 3 — Condition waits (`wait_for`)
+
+| WI | Deliverable | Primary files |
+|---|---|---|
+| WI-P3.1 | `wait_for` isolated-world observer (element present by ref/role+name, or text present), bounded by `validateTimeout`, read-class | new `src/lib/browser/agent/waitFor.ts`, `browser.ts` handler, `dispatch.ts` |
+| WI-P3.2 | Sidecar action `wait_for {tabId?, ref?|role?+name?|text?, timeoutMs?}`; distinguish "matched" vs "timeout" in the response | `vmark-mcp-server/src/tools/browser.ts` |
+
+**DoD:** unit tests for match, timeout, and teardown-on-timeout (no leaked
+observer); Rust authorizes it as `read`; live E2E: click a link, `wait_for` the
+destination heading, then `read`; gate green.
+
+### Phase 4 — Richer interaction (`scroll`, `key`)
+
+| WI | Deliverable | Primary files |
+|---|---|---|
+| WI-P4.1 | Add `scroll`, `key` to `BROWSER_OPERATIONS` + Rust `Operation`; vocabulary-parity test | `grants.ts`, `operation.rs`, tests |
+| WI-P4.2 | `act` operations `scroll` (to a ref / by delta) and `key` (named key + modifiers to a focused ref); act-class approval + generation stamp; synthetic-input caveat surfaced | `actScript.ts`, `browser.ts` handler |
+| WI-P4.3 | Sidecar schema: extend `act` operation enum to `click|type|scroll|key`; document the trust caveat | `vmark-mcp-server/src/tools/browser.ts` |
+
+**DoD:** unit tests for each op incl. blank/half-specified refusal and
+`actionSucceeded` semantics (a no-op scroll/keypress is not a success); Rust
+approval-gate test; live E2E: `key` Enter submits a search form, `scroll` reveals
+and clicks an off-screen control; gate green.
+
+### Phase 5 — Scripted power tools (`query`, `style`, `execute_js`)
+
+The escape-hatch tier, layered safest-first. All three run in the driver's
+**isolated content world**: they share the DOM (so `querySelector`,
+`element.style`, injected `<style>` all work) but cannot see the page's own JS
+globals/heap. Governed by ADR-A6. Build the structured verbs (`query`, `style`)
+before the raw hatch (`execute_js`) so the common cases have a grantable,
+auditable path and eval is reserved for what they cannot express.
+
+| WI | Deliverable | Class | Primary files |
+|---|---|---|---|
+| WI-P5.1 | **`query`** (DOM detection) — `{selector | ref, fields}` returns structured element data (text, attributes, computed-style subset, box, visibility, matched refs); isolated-world, read-only | read | `src/lib/browser/agent/query.ts`, `browser.ts` handler, `dispatch.ts` |
+| WI-P5.2 | **`style`** (CSS manipulation) — `{ref | selector, set | classes | injectCss}` sets inline styles / toggles classes / injects a scoped `<style>` (dismiss a blocking overlay, highlight a target); isolated-world | act (op `style`) | `src/lib/browser/agent/style.ts`, `actScript.ts`, `grants.ts`, `operation.rs`, `browser.ts` handler |
+| WI-P5.3 | **`execute_js`** — arbitrary isolated-world script; **per-call approval only** (no standing grant), generation-stamped, full script logged (URL-redacted), result returned but flagged untrusted and never auto-fed into a later `act`; a test asserts the isolated world cannot read a page-world global | eval (op `eval`) | `commands_auth.rs` (caller-script arm of `browser_eval` under the `eval` op), `browser.ts` handler, `browserApprovalStore.ts` |
+| WI-P5.4 | Sidecar: add `query` / `style` / `execute_js` actions; descriptions state isolated-world containment, per-call-approval, and untrusted-result semantics | — | `vmark-mcp-server/src/tools/browser.ts`, `__tests__/unit/tools/browser.test.ts` |
+| WI-P5.5 | Docs: `website/guide/browser.md` + `mcp-tools.md` — the containment model, what `execute_js` can/can't reach, and the exfiltration caveat | website |
+
+**DoD:** unit tests: `query` returns structured data and never mutates; `style`
+is approval-gated + generation-stamped; `execute_js` refuses without a fresh
+per-call approval, refuses a stale generation, logs the script, marks the result
+untrusted, and is rejected from any standing grant; a **containment test** asserts
+an isolated-world script cannot read a page-world global. Rust: `browser_eval`
+under the `eval` op enforces the same committed-origin + generation gate as
+`read`/`act`. Live E2E: `query` a table the ARIA snapshot omits; `style` to hide
+a cookie banner then `act`; `execute_js` (after approval) returns a value the
+structured verbs cannot. `check-browser-automation-phase.sh 5` green.
+
+### Phase 6 — Session & storage management (named contexts + `storageState`)
+
+Keep and reuse login status without handing the AI the human's whole live session.
+Governed by ADR-A7. The credential (cookies/tokens) stays server-side in Rust; the
+AI only ever names a context or a saved-state handle.
+
+| WI | Deliverable | Primary files |
+|---|---|---|
+| WI-P6.1 | **Named persistent contexts** — extend `browser_store_macos.rs` from one non-persistent sandbox store to a keyed map; persistent isolated stores via `dataStoreForIdentifier:`; open an AI tab against a named `profile`; `cfg(not(macos))` stub | `src-tauri/src/browser/browser_store_macos.rs`, `surface*_macos.rs`, `ai_commands.rs` (`browser_ai_create` gains `profile`), `mod.rs` stub |
+| WI-P6.2 | **`save_storage_state(tabId) → handle`** — snapshot cookies (`WKHTTPCookieStore.getAllCookies`) + per-origin `localStorage` (isolated-world eval); persist the blob **encrypted at rest** (keychain-wrapped key); return only a handle | new `session_macos.rs`, `command_registry.rs`, `browserApprovalStore`/session store |
+| WI-P6.3 | **`load_storage_state(handle, → context)`** — replay cookies (`setCookie`) + `localStorage` into a context; **explicit user approval** required (new `session` op class, user-gated, not AI-grantable); never returns raw values | `session_macos.rs`, `browser.ts` handler, `dispatch.ts` (`vmark.browser.session.*`) |
+| WI-P6.4 | **Human "log in for the AI"** flow — human opens a named-context tab, logs in, the login persists in that profile; the AI later reuses it by name. Consent + minimal UI (profile list) | `src/components/Browser/*`, `browserStore` |
+| WI-P6.5 | **Data management** — summarize a profile's site list and **clear** a site's or a profile's data (`WKWebsiteDataStore.removeDataOfTypes:modifiedSince:`), user-initiated | `browser_store_macos.rs`, browser sidebar UI |
+| WI-P6.6 | **Secret hygiene tests + sidecar + docs** — assert tokens never reach the AI, never hit logs, and the blob is encrypted at rest; add `vmark.browser.session.*` to the sidecar; document the model + credential-sensitivity in `browser.md` | tests, `vmark-mcp-server/src/tools/browser.ts`, website |
+
+**DoD:** unit + Rust tests: two named contexts don't share cookies/storage; a
+saved state loaded into a fresh context is authenticated; the AI response for
+`save`/`load` carries a **handle only, no cookie/token values**; the blob is
+encrypted at rest and appears in no log; `load` refuses without user approval.
+Live E2E: log into a fixture in context A → open a fresh context-A tab → still
+signed in; context B is not; clearing context A's data signs it out.
+**Mandatory `/security-review` before this phase lands** (credentials).
+`check-browser-automation-phase.sh 6` green.
+
+### Phase 7 — Observation (stretch: console)
+
+| WI | Deliverable | Notes |
+|---|---|---|
+| WI-P7.1 | Console capture (sandbox-scoped, opt-in) — the tab's `console.*` output for automation debugging | read-class; needs a page-world console shim, so more invasive — design-review before building |
+
+**Future work (not scoped here):** read-only **network observation** (a
+request/response ring buffer modeled on the Tauri MCP's `ipc_monitor` /
+`ipc_get_captured`, but backed by `WKURLSchemeHandler` / resource-delegate). It
+would let the AI verify a POST landed and give teeth to the "per-request network
+policy not yet implemented" note in `browser.md`. Real native effort; its own
+plan.
+
+## Governance
+
+- **Phase gate:** copy `scripts/check-gha-phase.sh` to
+  `scripts/check-browser-automation-phase.sh` and fill per-phase assertions
+  (WI-linkage + `run_vitest`/`run_cargo` rows mirroring each DoD). Required to
+  exit 0 before a phase's status ticks (rule 60 §3).
+- **WI linkage:** every WI in a "complete" phase linked via a commit message or a
+  test-file header (`// WI-P1.2 — …`); verified by
+  `bash scripts/check-wi-linkage.sh <this-file> --phase=N` (rule 60 §2).
+- **Cross-model review (mandatory):** this plan is 8 phases — run
+  `/cc-suite:review-plan` (Codex) before any Phase 1 commit (rule 60 §6). Its
+  different blind spots catch API/assumption errors a single model misses.
+- **Security review (mandatory for Phases 5 and 6):** Phase 5's `execute_js` /
+  `style` tier widens the AI's reach on untrusted pages; Phase 6 handles
+  **credentials** (session cookies/tokens). Before each lands, run a focused
+  `/security-review`. Phase 5: isolated-world containment (verify a script cannot
+  read a page-world global *at runtime*, not just jsdom), per-call approval,
+  untrusted-result handling. Phase 6: credential-by-reference (tokens never reach
+  the AI), at-rest encryption of exported state, no-logging, and the
+  user-approval gate on `load`.
+- **TDD hook:** extend the `SCOPED` array in `.claude/hooks/gha-tdd-guard.mjs` to
+  cover the new touched paths (`src/lib/browser/agent/**`,
+  `src/hooks/mcpBridge/v2/browser*.ts`) so production edits require sibling tests
+  (rule 60 §5).
+- **Dependencies:** none expected; any addition triggers
+  `scripts/check-new-deps.sh` (npm) / manual crate review (rule 60 §4).
+- **Cross-platform:** each native command ships a non-macOS stub; `pnpm
+  check:cross` must stay green.
+
+## Status log
+
+- 2026-07-15 — Plan drafted on `feature/browser-automation-tools` after merging
+  `feature/embedded-browser` to `main`. Grounded in live Tauri-MCP E2E findings
+  (blind AI; brittle role+name targeting; the open→read generation bug, now
+  fixed) and a source read of `@hypothesi/tauri-mcp-server` v0.12.0. Nothing
+  built yet; Phase 0 probes + §6 review are the blocking next steps.
+- 2026-07-15 — **Scope decision (product owner):** add the escape-hatch tier —
+  `execute_js`, DOM detection (`query`), CSS manipulation (`style`) — as Phase 5.
+  This reverses the original "structured verbs only" stance. Design constrains it
+  to the **isolated content world** (DOM + CSS, no page-JS heap), with raw
+  `execute_js` behind per-call approval and an untrusted result (ADR-A6);
+  main-world eval and `ipc_*` remain out of scope. The residual exfiltration risk
+  of LLM-driven eval on untrusted pages is documented and explicitly accepted;
+  Phase 5 carries a mandatory security review.
+- 2026-07-15 — Added **Phase 6 — Session & storage management** (named contexts +
+  `storageState`) after confirming the shipped browser has *no* cookie/storage
+  management surface: login persists only via the human's persistent store
+  (`aiSession: "shared"`, coarse) or not at all (`"sandbox"`, wiped per
+  app-lifetime); no save/restore, no named profiles, no clear/inspect. Design
+  borrows Playwright's contexts + `storageState`, with credential-by-reference
+  (the AI never sees tokens; ADR-A7) and a mandatory Phase-6 security review.
+  Observation moved to Phase 7.
+- 2026-07-15 — **Implementation began (uncommitted, on
+  `feature/browser-automation-tools`).**
+  - **Governance scaffolding:** `scripts/check-browser-automation-phase.sh`
+    authored (Phase 0/1 blocks live; 2–7 fail closed); the TDD guard hook scope
+    extended to `src/hooks/mcpBridge/v2/browser*.ts`.
+  - **Phase 0 (probes):** `dev-docs/grills/browser-automation/probe-refs.mjs`
+    (WI-P0.3) and `probe-waitfor.mjs` (WI-P0.4) run green; SPIKE-P0.3/P0.4
+    write-ups carry `Verdict: PASS`. `check-browser-automation-phase.sh 0` → 0.
+  - **Phase 1 (screenshot):** native `browser_screenshot` (WI-P1.1) — the
+    `browser_eval` gate was **extracted** into a shared, unit-testable
+    `authorize_driver_op` so the two commands can't drift (rule 60 §10); native
+    `takeSnapshot` → bounded-JPEG → base64 in `screenshot_macos.rs`. Frontend
+    `handleBrowserScreenshot` (WI-P1.2), sidecar `screenshot` action returning an
+    image content block (WI-P1.3), docs (WI-P1.4). All unit/Rust/sidecar suites
+    green; clippy + file-size + cross-target green.
+  - **Phase 2 (WI-P2.1, stable refs in perception):** new
+    `src/lib/browser/agent/refs.ts` — a per-`document` ref store (persists across
+    reads within a page, resets on navigation; productionizes the Phase-0 probe).
+    `ariaSnapshot` now stamps each node with a stable `ref`; the injected
+    `actScript.ts` mirror carries the same `document.__vmarkRefStore` shape, and
+    the byte-identical parity contract still holds. 601 browser-lib + MCP-handler
+    tests green; the only `AriaNode` consumer (`selfHeal.ts`) `Pick`s role/name,
+    so no regression. **Still open in Phase 2:** act-by-`ref` (WI-P2.2), the
+    ref-bound one-shot + native ref→role/name resolution for the human prompt
+    (WI-P2.3), and the sidecar `ref` arg (WI-P2.4).
+  - **Gates still open (human-in-the-loop, by design):** the mandatory Codex
+    `/cc-suite:review-plan` (rule 60 §6) before any Phase-1 commit; WI-linkage
+    for WI-P1.3/P1.4 completes in that commit message; live E2E (a real JPEG of
+    an AI tab via Tauri MCP) is verified manually in a session. Nothing is
+    committed.
