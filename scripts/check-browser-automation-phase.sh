@@ -233,7 +233,35 @@ case "$PHASE" in
     echo "        off-screen control; synthetic-input caveat) is verified manually."
     ;;
 
-  5|6|7)
+  5)
+    echo "Phase 5 — scripted power tools (query, style, execute_js). Running the DoD suites:"
+    run_vitest src/lib/browser/agent/powerScript.test.ts "WI-P5.1/P5.2 query + style injected scripts"
+    run_vitest src/hooks/mcpBridge/v2/__tests__/browserPower.test.ts "WI-P5.1/P5.2/P5.3 query/style/execute_js handlers (incl. script-substitution refusal)"
+    run_vitest src/lib/browser/approval/grants.test.ts "WI-P5.3 eval never grantable (frontend drift)"
+    run_vitest src/lib/browser/url.test.ts "WI-P5.3 agent URL strips userinfo/query/fragment"
+    run_vitest src/stores/browserApprovalStore.test.ts "WI-P5.3 approval store binds the eval/style payload"
+    run_cargo one_shot "WI-P5.3 one-shot payload binding (approved-A refuses run-B)"
+    run_cargo origin_guard "WI-P5.3 eval never granted authoritatively (Rust)"
+    run_cargo operation "WI-P5 style/eval vocabulary parity"
+    run_cargo commands_auth "WI-P5.3 driver eval gate (payload hash + pre-dispatch freshness)"
+    run_script "WI-P5.4 sidecar query/style/execute_js" pnpm --dir vmark-mcp-server exec vitest run __tests__/unit/tools/browser.test.ts
+    run_script "WI-linkage for phase P5" bash scripts/check-wi-linkage.sh "$PLAN" --phase=P5
+    run_cross
+    if [[ "$FULL" -eq 1 ]]; then
+      run_script "pnpm check:all" pnpm check:all
+    else
+      skip "pnpm check:all — not run (pre-push gate owns it; re-run with --full)"
+    fi
+    echo "  MANDATORY /security-review: DONE (dev-docs/grills/browser-automation/security-review-P5.md)."
+    echo "  It found — and this phase FIXED — the approved-A/run-B script-substitution (High #1),"
+    echo "  the eval navigation race (High #2, narrowed via pre-dispatch freshness recheck),"
+    echo "  the agent-URL query/fragment leak (Medium #3), the style payload binding (Medium #4),"
+    echo "  and the misleading eval 'Remember' button (Low #5)."
+    echo "  NOTE: isolated-world containment (a caller script cannot read a page-world global) is a"
+    echo "  WKContentWorld guarantee verified by live E2E — jsdom has no isolated worlds to model it."
+    ;;
+
+  6|7)
     echo "Phase $PHASE — assertions not yet authored."
     echo "  (Template: copy the Phase-1 block — run_vitest/run_cargo/run_script rows"
     echo "   mirroring that phase's DoD line in $PLAN, plus WI-linkage --phase=P$PHASE.)"

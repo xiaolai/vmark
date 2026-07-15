@@ -30,7 +30,7 @@ fn commit_tab(surface: &BrowserSurface, tab_id: &str, url: &str, mode: Automatio
 #[test]
 fn disabled_browser_refuses_before_touching_the_registry() {
     let surface = BrowserSurface::default(); // policy.enabled defaults to false
-    let err = authorize_driver_op(&surface, "no-such-tab", 0, "read", None).unwrap_err();
+    let err = authorize_driver_op(&surface, "no-such-tab", 0, "read", None, None).unwrap_err();
     assert_eq!(err, "BROWSER_DISABLED");
 }
 
@@ -39,7 +39,7 @@ fn stale_generation_is_refused() {
     let surface = enabled_surface();
     commit_tab(&surface, "t", "https://ex.com/", AutomationMode::AiSandbox);
     // The tab is at generation 0; a command stamped generation 5 is stale.
-    let err = authorize_driver_op(&surface, "t", 5, "read", None).unwrap_err();
+    let err = authorize_driver_op(&surface, "t", 5, "read", None, None).unwrap_err();
     assert!(err.contains("stale command"), "got: {err}");
 }
 
@@ -49,11 +49,12 @@ fn a_tab_with_no_committed_page_grants_nothing() {
     {
         // Navigating but never committed: executable + fresh, yet no origin.
         let mut reg = surface.registry.lock().unwrap();
-        reg.create_with_mode("t", "main", AutomationMode::AiSandbox).unwrap();
+        reg.create_with_mode("t", "main", AutomationMode::AiSandbox)
+            .unwrap();
         reg.begin_navigation("t", "https://ex.com/").unwrap();
         reg.set_policy_epoch("t", 0).unwrap();
     }
-    let err = authorize_driver_op(&surface, "t", 0, "read", None).unwrap_err();
+    let err = authorize_driver_op(&surface, "t", 0, "read", None, None).unwrap_err();
     assert!(err.contains("no committed page"), "got: {err}");
 }
 
@@ -61,7 +62,7 @@ fn a_tab_with_no_committed_page_grants_nothing() {
 fn ai_sandbox_may_read_its_own_committed_page() {
     let surface = enabled_surface();
     commit_tab(&surface, "t", "https://ex.com/", AutomationMode::AiSandbox);
-    assert!(authorize_driver_op(&surface, "t", 0, "read", None).is_ok());
+    assert!(authorize_driver_op(&surface, "t", 0, "read", None, None).is_ok());
 }
 
 #[test]
@@ -71,7 +72,7 @@ fn ai_sandbox_read_is_refused_when_the_policy_epoch_moved() {
     // The policy epoch advanced (a posture change) but the tab still carries the
     // old one: its authority is stale.
     surface.ai_policy.lock().unwrap().epoch = 1;
-    let err = authorize_driver_op(&surface, "t", 0, "read", None).unwrap_err();
+    let err = authorize_driver_op(&surface, "t", 0, "read", None, None).unwrap_err();
     assert_eq!(err, "POLICY_STALE");
 }
 
@@ -79,7 +80,7 @@ fn ai_sandbox_read_is_refused_when_the_policy_epoch_moved() {
 fn a_human_tab_read_requires_an_attachment() {
     let surface = enabled_surface();
     commit_tab(&surface, "t", "https://ex.com/", AutomationMode::Human);
-    let err = authorize_driver_op(&surface, "t", 0, "read", None).unwrap_err();
+    let err = authorize_driver_op(&surface, "t", 0, "read", None, None).unwrap_err();
     assert_eq!(err, "ATTACHMENT_REQUIRED");
 }
 
@@ -89,7 +90,7 @@ fn a_human_tab_read_with_an_attachment_is_allowed_and_consumes_it() {
     commit_tab(&surface, "t", "https://ex.com/", AutomationMode::Human);
     surface.attach_tab("t".into(), 0, true).unwrap();
 
-    assert!(authorize_driver_op(&surface, "t", 0, "read", None).is_ok());
+    assert!(authorize_driver_op(&surface, "t", 0, "read", None, None).is_ok());
     // A one-shot attachment is spent by the authorized read — the next read must
     // require a fresh attachment.
     assert!(!surface.is_tab_attached("t", 0));
@@ -101,7 +102,7 @@ fn an_unknown_operation_is_refused_even_on_an_ai_owned_tab() {
     commit_tab(&surface, "t", "https://ex.com/", AutomationMode::AiSandbox);
     // Screenshot authorizes as "read"; a bogus operation string has no grant and
     // no one-shot, so it is refused rather than treated as an opaque permission.
-    let err = authorize_driver_op(&surface, "t", 0, "frobnicate", None).unwrap_err();
+    let err = authorize_driver_op(&surface, "t", 0, "frobnicate", None, None).unwrap_err();
     assert!(err.contains("not granted"), "got: {err}");
 }
 
@@ -123,7 +124,7 @@ fn a_human_tab_click_needs_an_attachment_even_with_a_standing_grant() {
     let surface = enabled_surface();
     commit_tab(&surface, "t", "https://ex.com/", AutomationMode::Human);
     grant(&surface, "https://ex.com", &["click"]);
-    let err = authorize_driver_op(&surface, "t", 0, "click", None).unwrap_err();
+    let err = authorize_driver_op(&surface, "t", 0, "click", None, None).unwrap_err();
     assert_eq!(err, "ATTACHMENT_REQUIRED");
 }
 
@@ -133,7 +134,7 @@ fn a_human_tab_click_with_grant_and_attachment_is_allowed_and_consumes_the_attac
     commit_tab(&surface, "t", "https://ex.com/", AutomationMode::Human);
     grant(&surface, "https://ex.com", &["click"]);
     surface.attach_tab("t".into(), 0, true).unwrap();
-    assert!(authorize_driver_op(&surface, "t", 0, "click", None).is_ok());
+    assert!(authorize_driver_op(&surface, "t", 0, "click", None, None).is_ok());
     assert!(!surface.is_tab_attached("t", 0));
 }
 
@@ -144,9 +145,9 @@ fn a_single_use_attachment_authorizes_exactly_one_operation() {
     let surface = enabled_surface();
     commit_tab(&surface, "t", "https://ex.com/", AutomationMode::Human);
     surface.attach_tab("t".into(), 0, true).unwrap();
-    assert!(authorize_driver_op(&surface, "t", 0, "read", None).is_ok());
+    assert!(authorize_driver_op(&surface, "t", 0, "read", None, None).is_ok());
     assert_eq!(
-        authorize_driver_op(&surface, "t", 0, "read", None).unwrap_err(),
+        authorize_driver_op(&surface, "t", 0, "read", None, None).unwrap_err(),
         "ATTACHMENT_REQUIRED"
     );
 }
@@ -156,7 +157,7 @@ fn ai_sandbox_click_is_authorized_by_a_standing_grant() {
     let surface = enabled_surface();
     commit_tab(&surface, "t", "https://ex.com/", AutomationMode::AiSandbox);
     grant(&surface, "https://ex.com", &["click"]);
-    assert!(authorize_driver_op(&surface, "t", 0, "click", None).is_ok());
+    assert!(authorize_driver_op(&surface, "t", 0, "click", None, None).is_ok());
 }
 
 #[test]
@@ -174,20 +175,29 @@ fn a_one_shot_binds_to_its_exact_target_and_a_mismatch_does_not_spend_it() {
             role: "button".into(),
             name: "Publish".into(),
         }),
+        payload_hash: None,
     });
     let wrong = OneShotTarget {
         role: "button".into(),
         name: "Delete".into(),
     };
-    assert!(authorize_driver_op(&surface, "t", 0, "click", Some(&wrong)).is_err());
-    assert_eq!(surface.one_shots.lock().unwrap().len(), 1, "mismatch must not spend it");
+    assert!(authorize_driver_op(&surface, "t", 0, "click", Some(&wrong), None).is_err());
+    assert_eq!(
+        surface.one_shots.lock().unwrap().len(),
+        1,
+        "mismatch must not spend it"
+    );
 
     let right = OneShotTarget {
         role: "button".into(),
         name: "Publish".into(),
     };
-    assert!(authorize_driver_op(&surface, "t", 0, "click", Some(&right)).is_ok());
-    assert_eq!(surface.one_shots.lock().unwrap().len(), 0, "exact match consumes it");
+    assert!(authorize_driver_op(&surface, "t", 0, "click", Some(&right), None).is_ok());
+    assert_eq!(
+        surface.one_shots.lock().unwrap().len(),
+        0,
+        "exact match consumes it"
+    );
 }
 
 #[test]
@@ -203,10 +213,15 @@ fn a_human_tab_without_attachment_does_not_burn_a_one_shot() {
         origin_pattern: "https://ex.com".into(),
         operation: "click".into(),
         target: None,
+        payload_hash: None,
     });
-    let err = authorize_driver_op(&surface, "t", 0, "click", None).unwrap_err();
+    let err = authorize_driver_op(&surface, "t", 0, "click", None, None).unwrap_err();
     assert_eq!(err, "ATTACHMENT_REQUIRED");
-    assert_eq!(surface.one_shots.lock().unwrap().len(), 1, "one-shot must be untouched");
+    assert_eq!(
+        surface.one_shots.lock().unwrap().len(),
+        1,
+        "one-shot must be untouched"
+    );
 }
 
 #[test]
@@ -221,9 +236,14 @@ fn a_human_tab_click_via_one_shot_and_attachment_consumes_both() {
         origin_pattern: "https://ex.com".into(),
         operation: "click".into(),
         target: None,
+        payload_hash: None,
     });
     surface.attach_tab("t".into(), 0, true).unwrap();
-    assert!(authorize_driver_op(&surface, "t", 0, "click", None).is_ok());
-    assert_eq!(surface.one_shots.lock().unwrap().len(), 0, "one-shot consumed");
+    assert!(authorize_driver_op(&surface, "t", 0, "click", None, None).is_ok());
+    assert_eq!(
+        surface.one_shots.lock().unwrap().len(),
+        0,
+        "one-shot consumed"
+    );
     assert!(!surface.is_tab_attached("t", 0), "attachment consumed");
 }

@@ -39,7 +39,7 @@ const NEVER_AUTOMATED: ReadonlySet<string> = new Set<BrowserOperation>(["upload"
  *  become a standing grant — an origin can't be "remembered" for them. Raw
  *  isolated-world `eval` (`execute_js`) is too powerful to grant once and reuse
  *  silently; every call raises a fresh approval showing the script (ADR-A6). */
-const NEVER_GRANTABLE: ReadonlySet<string> = new Set<BrowserOperation>(["eval"]);
+export const NEVER_GRANTABLE: ReadonlySet<string> = new Set<BrowserOperation>(["eval"]);
 
 /** Is `operation` a known browser operation? Misspellings and case variants
  *  (`"Upload"`) are NOT — treating them as opaque strings is how a hard denial

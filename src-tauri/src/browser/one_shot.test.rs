@@ -22,6 +22,7 @@ fn click_shot(tab: &str, gen: u64, role: &str, name: &str) -> OneShot {
         origin_pattern: "https://blog.example.com".into(),
         operation: "click".into(),
         target: Some(target(role, name)),
+        payload_hash: None,
     }
 }
 
@@ -35,6 +36,7 @@ fn authorizes_the_exact_action_with_no_standing_grant() {
         "https://blog.example.com/p",
         "click",
         Some(&target("button", "Publish")),
+        None,
     ));
     assert!(shots.is_empty(), "spent");
 }
@@ -49,7 +51,8 @@ fn is_spent_by_the_first_matching_action() {
         args.1,
         args.2,
         args.3,
-        Some(&target("button", "Publish"))
+        Some(&target("button", "Publish")),
+        None
     ));
     assert!(!consume_one_shot(
         &mut shots,
@@ -57,7 +60,8 @@ fn is_spent_by_the_first_matching_action() {
         args.1,
         args.2,
         args.3,
-        Some(&target("button", "Publish"))
+        Some(&target("button", "Publish")),
+        None
     ));
 }
 
@@ -71,7 +75,8 @@ fn refuses_a_different_target_on_the_same_origin_and_operation() {
         3,
         "https://blog.example.com",
         "click",
-        Some(&target("button", "Delete"))
+        Some(&target("button", "Delete")),
+        None
     ));
     // Different role.
     assert!(!consume_one_shot(
@@ -80,7 +85,8 @@ fn refuses_a_different_target_on_the_same_origin_and_operation() {
         3,
         "https://blog.example.com",
         "click",
-        Some(&target("link", "Publish"))
+        Some(&target("link", "Publish")),
+        None
     ));
     assert_eq!(shots.len(), 1, "untouched by the refused attempts");
 }
@@ -95,7 +101,8 @@ fn refuses_a_stale_generation_the_tab_has_navigated() {
         4,
         "https://blog.example.com",
         "click",
-        Some(&target("button", "Publish"))
+        Some(&target("button", "Publish")),
+        None
     ));
     assert_eq!(shots.len(), 1);
 }
@@ -110,7 +117,8 @@ fn refuses_a_different_tab_at_the_same_generation() {
         0,
         "https://blog.example.com",
         "click",
-        Some(&target("button", "Publish"))
+        Some(&target("button", "Publish")),
+        None
     ));
 }
 
@@ -123,7 +131,8 @@ fn refuses_a_different_origin_and_operation() {
         3,
         "https://evil.com",
         "click",
-        Some(&target("button", "Publish"))
+        Some(&target("button", "Publish")),
+        None
     ));
     assert!(!consume_one_shot(
         &mut shots,
@@ -131,7 +140,8 @@ fn refuses_a_different_origin_and_operation() {
         3,
         "https://blog.example.com",
         "type",
-        Some(&target("button", "Publish"))
+        Some(&target("button", "Publish")),
+        None
     ));
     assert_eq!(shots.len(), 1);
 }
@@ -145,7 +155,8 @@ fn matches_origins_no_more_loosely_than_a_standing_grant() {
         3,
         "https://evil.blog.example.com",
         "click",
-        Some(&target("button", "Publish"))
+        Some(&target("button", "Publish")),
+        None
     ));
 }
 
@@ -157,6 +168,7 @@ fn a_read_one_shot_has_no_target_and_matches_target_less() {
         origin_pattern: "https://blog.example.com".into(),
         operation: "read".into(),
         target: None,
+        payload_hash: None,
     }];
     // A read snapshots the whole page — no element target.
     assert!(consume_one_shot(
@@ -165,6 +177,7 @@ fn a_read_one_shot_has_no_target_and_matches_target_less() {
         2,
         "https://blog.example.com",
         "read",
+        None,
         None
     ));
 }
@@ -178,6 +191,7 @@ fn a_targeted_one_shot_is_not_consumed_target_less() {
         3,
         "https://blog.example.com",
         "click",
+        None,
         None
     ));
 }
@@ -190,6 +204,7 @@ fn never_authorizes_a_never_automatable_operation() {
         origin_pattern: "https://blog.example.com".into(),
         operation: "upload".into(),
         target: Some(target("button", "Upload")),
+        payload_hash: None,
     }];
     assert!(!consume_one_shot(
         &mut shots,
@@ -197,7 +212,8 @@ fn never_authorizes_a_never_automatable_operation() {
         1,
         "https://blog.example.com",
         "upload",
-        Some(&target("button", "Upload"))
+        Some(&target("button", "Upload")),
+        None
     ));
 }
 
@@ -210,9 +226,61 @@ fn not_consumed_for_a_non_navigable_origin() {
         3,
         "about:blank",
         "click",
-        Some(&target("button", "Publish"))
+        Some(&target("button", "Publish")),
+        None
     ));
     assert_eq!(shots.len(), 1);
+}
+
+// Security review P5 (High #1): a `style`/`eval` one-shot binds the EXACT payload
+// hash, so an approval for script A cannot be spent on a substituted script B.
+#[test]
+fn a_payload_bound_one_shot_refuses_a_substituted_script() {
+    let mut shots = vec![OneShot {
+        tab_id: "t1".into(),
+        generation: 1,
+        origin_pattern: "https://blog.example.com".into(),
+        operation: "eval".into(),
+        target: None,
+        payload_hash: Some("hash-of-A".into()),
+    }];
+    // A substituted script (different hash) is refused, and does NOT spend the one-shot.
+    assert!(!consume_one_shot(
+        &mut shots,
+        "t1",
+        1,
+        "https://blog.example.com",
+        "eval",
+        None,
+        Some("hash-of-B"),
+    ));
+    assert_eq!(
+        shots.len(),
+        1,
+        "a mismatched payload must not spend the approval"
+    );
+    // Omitting the hash entirely (a target-less match) must also fail closed.
+    assert!(!consume_one_shot(
+        &mut shots,
+        "t1",
+        1,
+        "https://blog.example.com",
+        "eval",
+        None,
+        None,
+    ));
+    assert_eq!(shots.len(), 1);
+    // The exact approved script consumes it.
+    assert!(consume_one_shot(
+        &mut shots,
+        "t1",
+        1,
+        "https://blog.example.com",
+        "eval",
+        None,
+        Some("hash-of-A"),
+    ));
+    assert!(shots.is_empty(), "the exact payload spends the one-shot");
 }
 
 #[test]
@@ -243,12 +311,25 @@ fn an_operation_outside_the_vocabulary_can_never_be_consumed() {
             origin_pattern: "https://example.com".into(),
             operation: bogus.into(),
             target: None,
+            payload_hash: None,
         }];
         assert!(
-            !consume_one_shot(&mut shots, "t1", 1, "https://example.com/p", bogus, None),
+            !consume_one_shot(
+                &mut shots,
+                "t1",
+                1,
+                "https://example.com/p",
+                bogus,
+                None,
+                None
+            ),
             "{bogus:?} is not a browser operation and must not be spendable",
         );
-        assert_eq!(shots.len(), 1, "a refused consume must not spend the one-shot");
+        assert_eq!(
+            shots.len(),
+            1,
+            "a refused consume must not spend the one-shot"
+        );
     }
 }
 
@@ -260,6 +341,7 @@ fn a_known_operation_is_still_consumable() {
         origin_pattern: "https://example.com".into(),
         operation: "click".into(),
         target: None,
+        payload_hash: None,
     }];
     assert!(consume_one_shot(
         &mut shots,
@@ -267,6 +349,7 @@ fn a_known_operation_is_still_consumable() {
         1,
         "https://example.com/p",
         "click",
+        None,
         None
     ));
     assert!(shots.is_empty());

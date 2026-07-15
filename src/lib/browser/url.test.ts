@@ -112,11 +112,25 @@ describe("urlForAgent — credentials never cross to the AI", () => {
     expect(urlForAgent("https://alice@example.com/x")).toBe("https://example.com/x");
   });
 
-  it("keeps everything the AI legitimately needs to reason about the page", () => {
-    expect(urlForAgent("https://example.com/docs/42?q=a&b=2#frag")).toBe(
-      "https://example.com/docs/42?q=a&b=2#frag",
-    );
+  it("keeps scheme/host/port/path for the AI to reason about where it is", () => {
+    expect(urlForAgent("https://example.com/docs/42")).toBe("https://example.com/docs/42");
     expect(urlForAgent("https://example.com:8443/x")).toBe("https://example.com:8443/x");
+  });
+
+  // Security review P5 (Medium #3): query and fragment routinely carry secrets
+  // (OAuth callbacks, magic links, implicit-flow access_token=…), so they are
+  // stripped from the AI-facing URL — the earlier redaction removed userinfo only.
+  it("strips the query string and fragment — they carry tokens the AI must not see", () => {
+    expect(urlForAgent("https://service.example/callback?access_token=SECRET")).toBe(
+      "https://service.example/callback",
+    );
+    expect(urlForAgent("https://service.example/callback?access_token=SECRET")).not.toContain(
+      "SECRET",
+    );
+    expect(urlForAgent("https://example.com/x#access_token=SECRET")).toBe("https://example.com/x");
+    expect(urlForAgent("https://example.com/docs/42?q=a&b=2#frag")).toBe(
+      "https://example.com/docs/42",
+    );
   });
 
   it("passes through a url it cannot parse rather than inventing one", () => {

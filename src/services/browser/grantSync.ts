@@ -108,6 +108,11 @@ function pushOneShot(shot: OneShotApproval): void {
     originPattern: shot.originPattern,
     operation: shot.operation,
     target: shot.target,
+    // The exact script (for `style`/`eval`) so the driver binds the payload hash and
+    // refuses a substituted retry. The driver REQUIRES it for those operations —
+    // without it the mint is rejected, so "Allow once" would authorize nothing rather
+    // than the wrong thing. (Security review P5, High #1.)
+    evalScript: shot.script,
   }).catch((error: unknown) => {
     browserWarn("one-shot sync failed; the driver will refuse the action", error);
   });

@@ -13,7 +13,18 @@ use crate::browser::operation;
 use crate::browser::origin_guard::{self, StandingGrant};
 use crate::browser::registry::AutomationMode;
 use crate::browser::surface::{self, BrowserSurface};
+use sha2::{Digest, Sha256};
 use tauri::{AppHandle, State};
+
+/// Hex SHA-256 of a script — binds a `style`/`eval` one-shot to the EXACT payload
+/// the user approved, so an approved-A cannot be spent on a substituted-B on the
+/// retry. Computed here (authoritative) both when minting the one-shot and when
+/// running the eval. (Security review P5, High #1.)
+fn script_hash(script: &str) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(script.as_bytes());
+    format!("{:x}", hasher.finalize())
+}
 
 /// Mirror the frontend approval store's standing grants into the driver (WI-2.1).
 ///
@@ -36,6 +47,7 @@ pub async fn browser_set_grants(
 /// consumes them as actions are performed, so pushing a full list would resurrect
 /// ones already spent. `browser_eval` consumes a matching one atomically.
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 pub async fn browser_add_one_shot(
     state: State<'_, BrowserSurface>,
     tab_id: String,
@@ -43,6 +55,11 @@ pub async fn browser_add_one_shot(
     origin_pattern: String,
     operation: String,
     target: Option<OneShotTarget>,
+    // The exact script a `style`/`eval` one-shot authorizes. Required for those
+    // payload-binding operations, ignored otherwise. The driver stores only its
+    // hash and binds the eval to it — an approved script cannot be swapped out on
+    // the retry. (Security review P5, High #1.)
+    eval_script: Option<String>,
 ) -> Result<(), String> {
     // Reject a pattern the guard could not enforce, rather than storing authority
     // that silently never matches.
@@ -56,6 +73,17 @@ pub async fn browser_add_one_shot(
     if !operation::is_known_operation(&operation) {
         return Err(format!("not a browser operation: '{operation}'"));
     }
+    // A payload-binding operation (`style`/`eval`) MUST carry its script so the
+    // one-shot binds the exact payload — refuse to mint authority that could be
+    // spent on a different script than the user approved. (Security review P5.)
+    let payload_hash = if operation::operation_binds_payload(&operation) {
+        let script = eval_script.ok_or_else(|| {
+            format!("operation '{operation}' requires the exact script to bind the approval to")
+        })?;
+        Some(script_hash(&script))
+    } else {
+        None
+    };
     // The caller states which generation the user APPROVED against, and we refuse the mint
     // unless the tab is still on it.
     //
@@ -83,6 +111,7 @@ pub async fn browser_add_one_shot(
         origin_pattern,
         operation,
         target,
+        payload_hash,
     });
     Ok(())
 }
@@ -143,7 +172,33 @@ pub async fn browser_eval(
             ))
         }
     };
-    authorize_driver_op(&state, &tab_id, generation, &operation, target.as_ref())?;
+    // A `style`/`eval` one-shot is bound to the EXACT script; hash it so the gate can
+    // match what the user approved against what is about to run. `None` for the
+    // target-only operations (click/type/…), which bind role+name instead.
+    let payload_hash = operation::operation_binds_payload(&operation).then(|| script_hash(&script));
+    authorize_driver_op(
+        &state,
+        &tab_id,
+        generation,
+        &operation,
+        target.as_ref(),
+        payload_hash.as_deref(),
+    )?;
+    // Authorization and dispatch are separate steps, and a hostile page can time a
+    // navigation into the gap. Unlike a click, an eval side effect cannot be undone
+    // by a post-check, so re-verify freshness immediately before handing the script
+    // to the main-thread WebKit dispatch — a page that navigated (bumping the
+    // generation / clearing the committed origin) between authorization and here is
+    // refused rather than scripted against the wrong document. This narrows the race
+    // to the residual window between this check and the main-thread closure actually
+    // running; fully closing it requires the committed-generation re-check to move
+    // INSIDE surface::eval's main-thread closure (which needs the registry threaded
+    // in — tracked as a follow-up). (Security review P5, High #2.)
+    if !command_still_fresh(&state, &tab_id, generation) {
+        return Err(format!(
+            "stale command: tab '{tab_id}' navigated or closed before the script could run"
+        ));
+    }
     surface::eval(&app, tab_id, script)
 }
 
@@ -163,7 +218,7 @@ pub async fn browser_screenshot(
     tab_id: String,
     generation: u64,
 ) -> Result<String, String> {
-    authorize_driver_op(&state, &tab_id, generation, "read", None)?;
+    authorize_driver_op(&state, &tab_id, generation, "read", None, None)?;
     let image = surface::screenshot(&app, tab_id.clone())?;
     // The capture pumped the run loop for up to ten seconds; if the page navigated
     // in that window the pixels are from a page the caller was never authorized

@@ -15,6 +15,11 @@
 //!   - **origin + operation + target** stop lateral escalation: an approval for
 //!     "click Publish" cannot be spent on "click Delete", a different origin, or a
 //!     different operation.
+//!   - **payload hash** (for `style`/`eval`, which run a caller-supplied script):
+//!     the one-shot binds a hash of the exact script the user approved, so an
+//!     "Allow once" for `return document.title` cannot be spent on a substituted
+//!     `steal-the-session` retry — the AI chooses what it re-sends, and without
+//!     this the approved-A-runs-B escalation is open. (Security review P5, High #1.)
 //!
 //! Consumption is deliberately not separable from the check: a one-shot authorizes
 //! exactly ONE action, so `consume_one_shot` removes it as it answers.
@@ -34,7 +39,9 @@ pub struct OneShotTarget {
     pub name: String,
 }
 
-/// A single-use authorization bound to (tab, generation, origin, operation, target).
+/// A single-use authorization bound to (tab, generation, origin, operation, target,
+/// payload_hash). `payload_hash` is `Some` only for `style`/`eval` — the operations
+/// that run a caller-supplied script — and is a hex SHA-256 of that exact script.
 #[derive(Debug, Clone, serde::Deserialize)]
 pub struct OneShot {
     #[serde(rename = "tabId")]
@@ -45,6 +52,11 @@ pub struct OneShot {
     pub operation: String,
     #[serde(default)]
     pub target: Option<OneShotTarget>,
+    /// Hex SHA-256 of the exact script this one-shot authorizes — `Some` for
+    /// `style`/`eval`, `None` otherwise. Binds the approval to the payload so an
+    /// approved-A cannot be spent on a substituted-B. (Security review P5, High #1.)
+    #[serde(default)]
+    pub payload_hash: Option<String>,
 }
 
 /// Same element? Both target-less (a read), or both naming the same role + name.
@@ -71,6 +83,10 @@ pub fn consume_one_shot(
     target_url: &str,
     operation: &str,
     target: Option<&OneShotTarget>,
+    // Hex SHA-256 of the exact script (for `style`/`eval`), or `None`. Must match the
+    // stored one-shot's `payload_hash` — an approval for script A cannot be spent on a
+    // substituted script B. Both `None` for operations that carry no script.
+    payload_hash: Option<&str>,
 ) -> bool {
     // The vocabulary is CLOSED, and it has to be closed here too. The standing-grant path
     // (`is_driver_operation_allowed`) already refuses an unknown operation; this one only
@@ -89,6 +105,10 @@ pub fn consume_one_shot(
             && s.generation == generation
             && s.operation == operation
             && same_target(s.target.as_ref(), target)
+            // The payload must match exactly: a `style`/`eval` approval binds the
+            // script's hash, and a substituted retry (approved-A, run-B) is refused.
+            // Both `None` for a target-only op leaves this a no-op. (Sec review P5.)
+            && s.payload_hash.as_deref() == payload_hash
             && origin_matches_pattern(&origin, &s.origin_pattern)
     }) else {
         return false;

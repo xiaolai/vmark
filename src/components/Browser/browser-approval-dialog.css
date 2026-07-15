@@ -107,3 +107,22 @@
   border-color: var(--primary-color);
   color: var(--primary-color);
 }
+
+/* The exact eval script the user is authorizing. Rendered verbatim and
+   scrollable — the user must be able to read precisely what runs, and a long or
+   wide script must never push the Deny button off-screen. (Security review P5.) */
+.browser-approval-script {
+  margin: 0;
+  max-height: 9rem;
+  overflow: auto;
+  padding: var(--spacing-2);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--code-bg-color);
+  color: var(--code-text-color);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-normal);
+  white-space: pre-wrap;
+  word-break: break-word;
+}

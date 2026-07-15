@@ -45,6 +45,7 @@ use crate::browser::surface::{self, BrowserSurface};
 ///
 /// On `Ok(())` the caller may run its AppHandle-bound side effect (the eval or
 /// the capture); nothing here touches the page.
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn authorize_driver_op(
     state: &BrowserSurface,
     tab_id: &str,
@@ -54,6 +55,10 @@ pub(crate) fn authorize_driver_op(
     // structured data — not parsed out of an opaque script — so the decision and
     // a one-shot's target binding rest on the descriptor the caller declared.
     target: Option<&OneShotTarget>,
+    // Hex SHA-256 of the exact script, for `style`/`eval` (`None` otherwise). The
+    // one-shot path binds it so an approved script cannot be swapped for another on
+    // the retry. (Security review P5, High #1.)
+    payload_hash: Option<&str>,
 ) -> Result<(), String> {
     let policy = state
         .ai_policy
@@ -127,8 +132,15 @@ pub(crate) fn authorize_driver_op(
         // full descriptor (tab, generation, origin, operation, target) must
         // match, so an approval can't be spent on a different page or element.
         let mut one_shots = state.one_shots.lock().map_err(|e| e.to_string())?;
-        if !one_shot::consume_one_shot(&mut one_shots, tab_id, generation, committed, operation, target)
-        {
+        if !one_shot::consume_one_shot(
+            &mut one_shots,
+            tab_id,
+            generation,
+            committed,
+            operation,
+            target,
+            payload_hash,
+        ) {
             // Origin only. The committed URL's query string routinely carries session
             // tokens and document ids, and a refusal log is not a place to persist
             // them. (Audit, Medium.)

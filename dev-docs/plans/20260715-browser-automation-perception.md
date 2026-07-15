@@ -470,6 +470,27 @@ plan.
   gained scroll/key branches; a ref scroll/key is granted-only, a delta scroll /
   focused key goes through the approval flow. Sidecar `act` enum → click | type |
   scroll | key with `dy` / `key` / `modifiers`. `check-…-phase.sh 4` exits 0.
+- 2026-07-16 — **Phase 5 complete.** Scripted power tools (WI-P5.1–P5.5): `query`
+  (read-class DOM detection), `style` (act-class, op `style`), `execute_js` (op
+  `eval`, per-call approval only). New `powerScript.ts` (`__vmarkQueryDom` /
+  `__vmarkStyleOp`, capped, invalid-selector-safe) + `browserPower.ts` handlers +
+  dispatch routes + sidecar actions. All run in the isolated content world.
+  **`execute_js`/`style` are the payload-binding ops:** the one-shot binds a
+  SHA-256 of the exact script (Rust-authoritative in `one_shot.rs` /
+  `commands_auth.rs`, mirrored advisory in `browserApprovalStore.ts`), and the
+  approval dialog shows the eval script.
+  **Mandatory /security-review: DONE** (`dev-docs/grills/browser-automation/security-review-P5.md`).
+  It caught, and this phase fixed: **High #1** approved-A/run-B script substitution
+  (the payload binding above); **High #2** eval navigation race (pre-dispatch
+  `command_still_fresh` recheck; the residual main-thread-queue window and its
+  in-closure fix are noted as a follow-up); **Medium #3** `urlForAgent` now strips
+  query + fragment (token leak), not just userinfo; **Medium #4** `style` payload
+  is bound too and the false "scoped `<style>`" claim corrected; **Low #5** the
+  "Allow on this site" button is hidden for never-grantable `eval`. Verified
+  controls: `eval` is never standing-grantable (Rust + frontend), and the caller
+  script runs in `worldWithName("vmark-agent")` (isolated). `check-…-phase.sh 5`
+  passes its suites; live-E2E isolated-world containment is a WKContentWorld
+  guarantee jsdom cannot model.
 - **TDD hook:** extend the `SCOPED` array in `.claude/hooks/gha-tdd-guard.mjs` to
   cover the new touched paths (`src/lib/browser/agent/**`,
   `src/hooks/mcpBridge/v2/browser*.ts`) so production edits require sibling tests

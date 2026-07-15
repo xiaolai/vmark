@@ -115,4 +115,18 @@ describe("handleBrowserExecuteJs (eval — per-call approval only)", () => {
     expect(invoke).not.toHaveBeenCalled();
     expect(lastResponse()).toMatchObject({ success: false });
   });
+
+  // Security review P5 (High #1): the one-shot binds the EXACT script. Approving a
+  // harmless script A must not let the AI run a substituted script B on the retry.
+  it("refuses a substituted script under a prior Allow-once (approve A, run B)", async () => {
+    const id = seed();
+    await handleBrowserExecuteJs("sub-a", { tabId: id, script: "return document.title;" });
+    useBrowserApprovalStore.getState().resolveApproval("sub-a", "once");
+    invoke.mockResolvedValue(JSON.stringify("stolen"));
+    // Retry with a DIFFERENT script — the approval bound script A, so B is refused
+    // and must raise a fresh approval rather than ride the prior one-shot.
+    await handleBrowserExecuteJs("sub-b", { tabId: id, script: "return document.cookie;" });
+    expect(invoke).not.toHaveBeenCalled();
+    expect((lastResponse().data as { needsApproval?: boolean }).needsApproval).toBe(true);
+  });
 });

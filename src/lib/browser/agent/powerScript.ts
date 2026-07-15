@@ -58,8 +58,14 @@ export function buildQueryScript(selector: string, generation: number, fields?: 
   return `${AGENT_LIB}\n${QUERY_LIB}\nreturn JSON.stringify(__vmarkQueryDom(${JSON.stringify(selector)}, ${Number(generation)}, ${JSON.stringify(fields ?? {})}));`;
 }
 
-/** A `style` op: set inline styles, add/remove classes, or inject a scoped
- *  `<style>`. Applied to a `{ref}` or every element matching `{selector}`. */
+/** A `style` op: set inline styles, add/remove classes, or inject a `<style>` block.
+ *  Applied to a `{ref}` or every element matching `{selector}`.
+ *
+ *  `injectCss` is NOT selector-scoped — it appends the caller's CSS to the document
+ *  head verbatim, so it can restyle the whole page (and CSS can reach the network via
+ *  `url()`/`@import`). This is act-class and the exact CSS is bound into the one-shot
+ *  the user approves, so it cannot be swapped for other CSS after approval — but the
+ *  user is approving page-wide CSS, not a scoped rule. (Security review P5, Medium #4.) */
 export interface StyleOps {
   set?: Record<string, string>;
   addClasses?: string[];
@@ -68,8 +74,8 @@ export interface StyleOps {
 }
 
 /** Script: apply `ops` to the target (`ref` or `selector`) in the isolated world.
- *  Reports `{found, styled}` (or `{injected}` for injectCss); a stale ref is
- *  `{found:false}`. */
+ *  Reports `{found, styled}` (or `{injected}` for injectCss — which appends a
+ *  page-wide `<style>`, not a scoped rule); a stale ref is `{found:false}`. */
 export function buildStyleScript(
   target: { ref?: string; selector?: string },
   generation: number,

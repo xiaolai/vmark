@@ -23,6 +23,15 @@ pub(crate) const NEVER_AUTOMATED: &[&str] = &["upload"];
 /// `src/lib/browser/approval/grants.ts`.
 pub(crate) const NEVER_GRANTABLE: &[&str] = &["eval"];
 
+/// Operations whose one-shot must bind the exact PAYLOAD that will run, not merely
+/// `(origin, operation)`. `style` and `eval` carry a caller-supplied script/CSS, so
+/// an "Allow once" the user approved for payload A must NOT authorize a substituted
+/// payload B on the retry. The driver binds a hash of the exact script the eval will
+/// run and refuses a mismatched retry. (Security review P5 — High #1, Medium #4.)
+pub(crate) fn operation_binds_payload(operation: &str) -> bool {
+    matches!(operation, "style" | "eval")
+}
+
 /// The closed browser-operation vocabulary. The `Deserialize` impl is the
 /// enforceable form: it rejects unknown/variant spellings at the wire boundary.
 /// `from_wire` is the single source of truth — both the deserializer and

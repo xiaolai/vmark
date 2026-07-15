@@ -31,7 +31,11 @@ pub struct AiBrowserState {
 }
 
 fn ai_policy(state: &BrowserSurface) -> Result<AiBrowserPolicy, String> {
-    state.ai_policy.lock().map(|policy| *policy).map_err(|e| e.to_string())
+    state
+        .ai_policy
+        .lock()
+        .map(|policy| *policy)
+        .map_err(|e| e.to_string())
 }
 
 fn authorize_shared_navigation(
@@ -46,7 +50,7 @@ fn authorize_shared_navigation(
     }
     drop(grants);
     let mut shots = state.one_shots.lock().map_err(|e| e.to_string())?;
-    if one_shot::consume_one_shot(&mut shots, tab_id, generation, url, "navigate", None) {
+    if one_shot::consume_one_shot(&mut shots, tab_id, generation, url, "navigate", None, None) {
         Ok(())
     } else {
         Err("APPROVAL_REQUIRED".into())
@@ -122,7 +126,10 @@ pub async fn browser_ai_create(
         }
     };
     if let Some(navigation_id) = existing_ticket {
-        return Ok(AiNavigationResult { tab_id, navigation_id });
+        return Ok(AiNavigationResult {
+            tab_id,
+            navigation_id,
+        });
     }
     if mode == AutomationMode::AiShared {
         let generation = state
@@ -135,7 +142,8 @@ pub async fn browser_ai_create(
     }
     let ticket = {
         let mut reg = state.registry.lock().map_err(|e| e.to_string())?;
-        let ticket = reg.begin_navigation(&tab_id, &url)
+        let ticket = reg
+            .begin_navigation(&tab_id, &url)
             .map_err(|e| format!("{e:?}"))?;
         if mode == AutomationMode::AiShared {
             reg.set_shared_navigation_approval(&tab_id, &url)
@@ -147,7 +155,10 @@ pub async fn browser_ai_create(
         state.forget_tab(&tab_id)?;
         return Err(error);
     }
-    Ok(AiNavigationResult { tab_id, navigation_id: ticket.id })
+    Ok(AiNavigationResult {
+        tab_id,
+        navigation_id: ticket.id,
+    })
 }
 
 #[tauri::command]
@@ -174,11 +185,19 @@ pub async fn browser_ai_navigate(
         if reg.policy_epoch(&tab_id) != Some(policy.epoch) {
             return Err("POLICY_STALE".into());
         }
-        let previous_state = reg.state(&tab_id).ok_or_else(|| "TAB_NOT_FOUND".to_string())?;
+        let previous_state = reg
+            .state(&tab_id)
+            .ok_or_else(|| "TAB_NOT_FOUND".to_string())?;
         let previous_committed_url = reg.committed_url(&tab_id).map(str::to_owned);
         let previous_ticket = reg.navigation_ticket(&tab_id).cloned();
         let previous_shared_origin = reg.shared_navigation_origin(&tab_id);
-        (mode, previous_state, previous_committed_url, previous_ticket, previous_shared_origin)
+        (
+            mode,
+            previous_state,
+            previous_committed_url,
+            previous_ticket,
+            previous_shared_origin,
+        )
     };
     let generation = {
         let reg = state.registry.lock().map_err(|e| e.to_string())?;
@@ -189,7 +208,8 @@ pub async fn browser_ai_navigate(
     }
     let ticket = {
         let mut reg = state.registry.lock().map_err(|e| e.to_string())?;
-        let ticket = reg.begin_navigation(&tab_id, &url)
+        let ticket = reg
+            .begin_navigation(&tab_id, &url)
             .map_err(|e| format!("{e:?}"))?;
         if mode == AutomationMode::AiShared {
             reg.set_shared_navigation_approval(&tab_id, &url)
@@ -209,7 +229,10 @@ pub async fn browser_ai_navigate(
         );
         return Err(error);
     }
-    Ok(AiNavigationResult { tab_id, navigation_id: ticket.id })
+    Ok(AiNavigationResult {
+        tab_id,
+        navigation_id: ticket.id,
+    })
 }
 
 #[tauri::command]
@@ -218,13 +241,17 @@ pub async fn browser_ai_state(
     tab_id: String,
 ) -> Result<AiBrowserState, String> {
     let reg = state.registry.lock().map_err(|e| e.to_string())?;
-    let mode = reg.automation_mode(&tab_id).ok_or_else(|| "TAB_NOT_FOUND".to_string())?;
+    let mode = reg
+        .automation_mode(&tab_id)
+        .ok_or_else(|| "TAB_NOT_FOUND".to_string())?;
     let generation = reg.generation(&tab_id).unwrap_or(0);
     let lifecycle = reg
         .state(&tab_id)
         .map(|state| format!("{state:?}"))
         .unwrap_or_else(|| "Destroyed".into());
-    let navigation_id = reg.navigation_ticket(&tab_id).map(|ticket| ticket.id.clone());
+    let navigation_id = reg
+        .navigation_ticket(&tab_id)
+        .map(|ticket| ticket.id.clone());
     Ok(AiBrowserState {
         tab_id,
         automation_mode: mode,

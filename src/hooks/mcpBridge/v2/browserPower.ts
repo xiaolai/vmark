@@ -91,6 +91,9 @@ async function approveOp(
   id: string,
   tab: BrowserTarget,
   operation: string,
+  // The EXACT script that will run (for `style`/`eval`) — bound into the one-shot so
+  // an approved payload cannot be swapped on the retry. (Security review P5, High #1.)
+  script: string | undefined,
   extraData?: Record<string, unknown>,
 ): Promise<boolean> {
   const decision = useBrowserApprovalStore.getState().decide(tab.url, operation);
@@ -99,9 +102,13 @@ async function approveOp(
     return false;
   }
   if (decision === "needs-approval") {
-    const ok = useBrowserApprovalStore.getState().consumeOneShot(tab.url, operation, undefined, tab.tabId);
+    const ok = useBrowserApprovalStore
+      .getState()
+      .consumeOneShot(tab.url, operation, undefined, tab.tabId, script);
     if (!ok) {
-      useBrowserApprovalStore.getState().requestApproval(id, tab.url, operation, undefined, tab.tabId, tab.generation);
+      useBrowserApprovalStore
+        .getState()
+        .requestApproval(id, tab.url, operation, undefined, tab.tabId, tab.generation, script);
       await respond({
         id,
         success: false,
@@ -146,10 +153,14 @@ export async function handleBrowserStyle(id: string, args: Record<string, unknow
       await respond({ id, success: false, error: "style requires a {ref} or {selector} (injectCss needs neither)" });
       return;
     }
-    if (!(await approveOp(id, tab, "style"))) return;
+    // Build the exact script BEFORE approval so the one-shot binds this payload — a
+    // later retry with different ops rebuilds a different script and is refused rather
+    // than riding the prior approval. (Security review P5, High #1 / Medium #4.)
+    const script = buildStyleScript({ ref, selector }, tab.generation, ops);
+    if (!(await approveOp(id, tab, "style", script))) return;
     const raw = await invoke<string>("browser_eval", {
       tabId: tab.tabId,
-      script: buildStyleScript({ ref, selector }, tab.generation, ops),
+      script,
       operation: "style",
       generation: tab.generation,
     });
@@ -174,8 +185,10 @@ export async function handleBrowserExecuteJs(id: string, args: Record<string, un
       return;
     }
     // The approval envelope shows the exact script (truncated) — the user must see
-    // what they authorize. `eval` is never grantable, so this is always per-call.
-    if (!(await approveOp(id, tab, "eval", { script: script.slice(0, 2000) }))) return;
+    // what they authorize — and the FULL script is bound into the one-shot, so an
+    // approved script cannot be swapped for another on the retry. `eval` is never
+    // grantable, so this is always per-call. (Security review P5, High #1.)
+    if (!(await approveOp(id, tab, "eval", script, { script: script.slice(0, 2000) }))) return;
     const raw = await invoke<string>("browser_eval", {
       tabId: tab.tabId,
       script,

@@ -60,17 +60,20 @@ export function canonicalizeBrowserUrl(input: string): string | null {
 }
 
 /**
- * The URL as the **AI** may see it: the same page, with any embedded credentials removed.
+ * The URL as the **AI** may see it: scheme, host, port, and path — with userinfo,
+ * query string, AND fragment removed.
  *
- * `canonicalizeBrowserUrl` keeps userinfo deliberately — it is part of a tab's identity,
- * and dropping it would navigate somewhere the user did not ask for. But the URL also
- * crosses the trust boundary into the AI's `read`/`act` responses, and credentials in a URL
- * are the one thing about a page the AI could not otherwise obtain by reading the DOM.
- * Handing them over would open a leak channel that nothing else in the approval model opens.
- *
- * The username goes too, not just the password: it names an account, and the AI has no use
- * for it that reading the page would not already serve. Everything the AI legitimately needs
- * to reason about where it is — scheme, host, port, path, query, fragment — is preserved.
+ * This URL crosses the trust boundary into the AI's `read`/`act`/`query` responses and
+ * approval envelopes. Three parts of a URL routinely carry secrets the AI could not
+ * otherwise read from the DOM, so all three are stripped:
+ *   - **userinfo** (`user:pass@`) — an embedded credential;
+ *   - **query** (`?access_token=…`) — OAuth callbacks, magic links, signed-document and
+ *     password-reset URLs commonly put the secret here;
+ *   - **fragment** (`#access_token=…`) — the OAuth *implicit* flow returns tokens in it.
+ * Handing any of these to the AI would open a leak channel nothing else in the approval
+ * model opens. The scheme/host/port/path that remain are enough for the AI to reason about
+ * where it is; if it legitimately needs a query value it can read the rendered page.
+ * (Security review P5, Medium #3 — extends the earlier userinfo-only redaction.)
  *
  * A URL that will not parse is returned unchanged: this is a redactor, not a validator, and
  * inventing a value here would hide the real one from the caller. (Audit, High.)
@@ -78,9 +81,10 @@ export function canonicalizeBrowserUrl(input: string): string | null {
 export function urlForAgent(url: string): string {
   try {
     const parsed = new URL(url);
-    if (!parsed.username && !parsed.password) return url;
     parsed.username = "";
     parsed.password = "";
+    parsed.search = "";
+    parsed.hash = "";
     return parsed.href;
   } catch {
     return url;
