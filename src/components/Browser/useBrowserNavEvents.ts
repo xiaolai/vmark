@@ -43,9 +43,9 @@ export interface BrowserNavHandlers {
    * driver's navigation generation for it (WI-2.1). Operations are stamped with
    * the generation so the Rust gate rejects one authorized against an older page.
    */
-  onNavigated?: (url: string, generation: number, redirected: boolean) => void;
+  onNavigated?: (url: string, generation: number, redirected: boolean, navigationId?: string) => void;
   /** A load finished; `url` is final, `title` is the page title (may be ""). */
-  onLoaded?: (url: string, title: string, generation: number) => void;
+  onLoaded?: (url: string, title: string, generation: number, navigationId?: string) => void;
   /**
    * The webview's back/forward-list state (WI-S1.6). Fires on BOTH commit and
    * finish — a redirect, a same-document push, or a `goBack()` can change history
@@ -54,7 +54,7 @@ export interface BrowserNavHandlers {
    */
   onHistoryChanged?: (canGoBack: boolean, canGoForward: boolean) => void;
   /** A (provisional or committed) navigation failed. */
-  onFailed?: (message: string) => void;
+  onFailed?: (message: string, navigationId?: string) => void;
   /** The web content process died (WI-1.8). */
   onCrashed?: (action: CrashAction) => void;
   /** The page opened a JS dialog (`alert`/`confirm`). */
@@ -74,6 +74,7 @@ interface NavPayload extends TabScoped, HistoryScoped {
   generation: number;
   /** This navigation followed a server redirect (WI-S2.2). */
   redirected?: boolean;
+  navigationId?: string;
 }
 interface LoadedPayload extends TabScoped, HistoryScoped {
   url: string;
@@ -81,9 +82,11 @@ interface LoadedPayload extends TabScoped, HistoryScoped {
   /** Committed generation of the page that finished — lets the store drop a stale
    *  (out-of-order) loaded event, the same way `navigated` does. (Audit, Medium.) */
   generation: number;
+  navigationId?: string;
 }
 interface FailedPayload extends TabScoped {
   message: string;
+  navigationId?: string;
 }
 interface CrashPayload extends TabScoped {
   action: string;
@@ -148,14 +151,19 @@ export function useBrowserNavEvents(tabId: string, handlers: BrowserNavHandlers)
       h.onHistoryChanged?.(!!p.canGoBack, !!p.canGoForward);
 
     on<NavPayload>("browser://navigated", (p, h) => {
-      h.onNavigated?.(p.url, p.generation, !!p.redirected);
+      if (p.navigationId === undefined) h.onNavigated?.(p.url, p.generation, !!p.redirected);
+      else h.onNavigated?.(p.url, p.generation, !!p.redirected, p.navigationId);
       history(p, h);
     });
     on<LoadedPayload>("browser://loaded", (p, h) => {
-      h.onLoaded?.(p.url, p.title, p.generation);
+      if (p.navigationId === undefined) h.onLoaded?.(p.url, p.title, p.generation);
+      else h.onLoaded?.(p.url, p.title, p.generation, p.navigationId);
       history(p, h);
     });
-    on<FailedPayload>("browser://load-failed", (p, h) => h.onFailed?.(p.message));
+    on<FailedPayload>("browser://load-failed", (p, h) => {
+      if (p.navigationId === undefined) h.onFailed?.(p.message);
+      else h.onFailed?.(p.message, p.navigationId);
+    });
     on<CrashPayload>("browser://crashed", (p, h) => h.onCrashed?.(toCrashAction(p.action)));
     on<DialogPayload>("browser://dialog", (p, h) => h.onDialog?.(toDialog(p)));
 

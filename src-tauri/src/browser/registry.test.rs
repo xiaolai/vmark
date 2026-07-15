@@ -12,6 +12,93 @@ fn create_registers_a_tab_in_creating_state_at_generation_zero() {
     assert_eq!(reg.generation("t1"), Some(0));
     assert_eq!(reg.window_of("t1"), Some("main"));
     assert!(reg.contains("t1"));
+    assert_eq!(reg.automation_mode("t1"), Some(AutomationMode::Human));
+}
+
+#[test]
+fn provenance_is_set_at_creation_and_cannot_be_inferred_from_url() {
+    let mut reg = BrowserRegistry::default();
+    reg.create_with_mode("sandbox", "main", AutomationMode::AiSandbox)
+        .unwrap();
+    reg.create_with_mode("shared", "main", AutomationMode::AiShared)
+        .unwrap();
+    assert_eq!(reg.automation_mode("sandbox"), Some(AutomationMode::AiSandbox));
+    assert_eq!(reg.automation_mode("shared"), Some(AutomationMode::AiShared));
+}
+
+#[test]
+fn policy_epoch_is_recorded_separately_from_navigation_generation() {
+    let mut reg = BrowserRegistry::default();
+    reg.create_with_mode("ai", "main", AutomationMode::AiSandbox).unwrap();
+    assert_eq!(reg.policy_epoch("ai"), Some(0));
+    reg.set_policy_epoch("ai", 7).unwrap();
+    assert_eq!(reg.policy_epoch("ai"), Some(7));
+    assert_eq!(reg.generation("ai"), Some(0));
+}
+
+#[test]
+fn shared_navigation_approval_is_origin_bound_and_cleared_by_new_navigation() {
+    let mut r = BrowserRegistry::default();
+    r.create_with_mode("shared", "main", AutomationMode::AiShared)
+        .unwrap();
+    r.begin_navigation("shared", "https://example.com/start").unwrap();
+    r.set_shared_navigation_approval("shared", "https://example.com/start/path")
+        .unwrap();
+    assert!(r.shared_navigation_approved("shared", "https://example.com/other"));
+    assert!(!r.shared_navigation_approved("shared", "https://other.example/"));
+
+    r.begin_navigation("shared", "https://other.example/").unwrap();
+    assert!(!r.shared_navigation_approved("shared", "https://example.com/other"));
+}
+
+#[test]
+fn begin_navigation_returns_a_monotonic_ticket_and_replaces_previous_ticket() {
+    let mut reg = BrowserRegistry::default();
+    reg.create("t1", "main").unwrap();
+    let first = reg.begin_navigation("t1", "https://a.example/").unwrap();
+    let second = reg.begin_navigation("t1", "https://b.example/").unwrap();
+    assert!(second.sequence > first.sequence);
+    assert_ne!(first.id, second.id);
+    assert_eq!(reg.navigation_ticket("t1").map(|t| t.id.as_str()), Some(second.id.as_str()));
+    assert_eq!(reg.committed_url("t1"), None);
+}
+
+#[test]
+fn failed_navigation_can_clear_its_ticket_for_a_retry() {
+    let mut reg = BrowserRegistry::default();
+    reg.create("t1", "main").unwrap();
+    reg.transition("t1", Lifecycle::Live).unwrap();
+    reg.begin_navigation("t1", "https://a.example/").unwrap();
+    reg.transition("t1", Lifecycle::Live).unwrap();
+    reg.clear_navigation("t1").unwrap();
+    assert_eq!(reg.navigation_ticket("t1"), None);
+    let retry = reg.begin_navigation("t1", "https://b.example/").unwrap();
+    assert_eq!(retry.sequence, 2);
+}
+
+#[test]
+fn rollback_restores_the_previous_page_when_native_navigation_fails() {
+    let mut reg = BrowserRegistry::default();
+    reg.create("t1", "main").unwrap();
+    reg.transition("t1", Lifecycle::Live).unwrap();
+    reg.set_committed_url("t1", "https://a.example/").unwrap();
+    let previous = reg.begin_navigation("t1", "https://old.example/").unwrap();
+    reg.transition("t1", Lifecycle::Live).unwrap();
+    reg.set_committed_url("t1", "https://a.example/").unwrap();
+    let next = reg.begin_navigation("t1", "https://b.example/").unwrap();
+    assert!(reg
+        .rollback_navigation(
+            "t1",
+            &next.id,
+            Lifecycle::Live,
+            Some("https://a.example/".into()),
+            Some(previous),
+            None,
+        )
+        .unwrap());
+    assert_eq!(reg.state("t1"), Some(Lifecycle::Live));
+    assert_eq!(reg.committed_url("t1"), Some("https://a.example/"));
+    assert_eq!(reg.navigation_ticket("t1").map(|ticket| ticket.id.as_str()), Some("nav-t1-1"));
 }
 
 #[test]

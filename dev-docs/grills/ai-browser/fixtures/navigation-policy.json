@@ -1,0 +1,11 @@
+{
+  "cases": [
+    { "name": "public-https", "url": "https://example.com/", "expected": "allow" },
+    { "name": "loopback", "url": "http://127.0.0.1:9323/", "expected": "block" },
+    { "name": "alternate-ipv4", "url": "http://2130706433/", "expected": "block" },
+    { "name": "private-lan", "url": "http://192.168.1.1/", "expected": "block" },
+    { "name": "metadata", "url": "http://169.254.169.254/latest/", "expected": "block" },
+    { "name": "userinfo", "url": "https://example.com@evil.test/", "expected": "block" },
+    { "name": "unsupported-scheme", "url": "file:///etc/passwd", "expected": "block" }
+  ]
+}

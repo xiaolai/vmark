@@ -10,6 +10,7 @@ use crate::browser::one_shot::{self, OneShot, OneShotTarget};
 use crate::browser::operation;
 use crate::browser::redact;
 use crate::browser::origin_guard::{self, StandingGrant};
+use crate::browser::registry::AutomationMode;
 use crate::browser::surface::{self, BrowserSurface};
 use tauri::{AppHandle, State};
 
@@ -85,6 +86,26 @@ pub async fn browser_add_one_shot(
     Ok(())
 }
 
+/// Attach AI access to a human-created tab for exactly its current generation.
+/// The UI calls this only after the user has accepted the visible prompt.
+#[tauri::command]
+pub async fn browser_ai_attach(
+    state: State<'_, BrowserSurface>,
+    tab_id: String,
+    generation: u64,
+    once: Option<bool>,
+) -> Result<(), String> {
+    let reg = state.registry.lock().map_err(|e| e.to_string())?;
+    if reg.automation_mode(&tab_id) != Some(AutomationMode::Human) {
+        return Err("TAB_NOT_HUMAN".into());
+    }
+    if reg.generation(&tab_id) != Some(generation) {
+        return Err("STALE_NAVIGATION".into());
+    }
+    drop(reg);
+    state.attach_tab(tab_id, generation, once.unwrap_or(false))
+}
+
 /// Evaluate `script` in the driver's isolated content world and return its string
 /// result (WI-2.1). The script should `return` a JSON-serializable value.
 ///
@@ -117,6 +138,10 @@ pub async fn browser_eval(
     role: Option<String>,
     name: Option<String>,
 ) -> Result<String, String> {
+    let policy = state.ai_policy.lock().map_err(|e| e.to_string()).map(|policy| *policy)?;
+    if !policy.enabled {
+        return Err("BROWSER_DISABLED".into());
+    }
     // A target is both halves or neither. `(Some(role), None)` used to fall into the `_`
     // arm and become `None` — silently turning "click the button named Publish" into a
     // target-less authorization, which a target-less one-shot would then satisfy. A
@@ -145,8 +170,28 @@ pub async fn browser_eval(
             format!("tab '{tab_id}' has no committed page; nothing is granted yet")
         })?;
 
+        let mode = reg
+            .automation_mode(&tab_id)
+            .ok_or_else(|| "TAB_NOT_FOUND".to_string())?;
+        if mode != AutomationMode::Human && reg.policy_epoch(&tab_id) != Some(policy.epoch) {
+            return Err("POLICY_STALE".into());
+        }
+        let shared_origin_approved = mode == AutomationMode::AiShared
+            && reg.shared_navigation_approved(&tab_id, committed);
+        let attached = state.is_tab_attached(&tab_id, generation);
         let grants = state.grants.lock().map_err(|e| e.to_string())?;
-        if !origin_guard::is_driver_operation_allowed(committed, &operation, &grants) {
+        let allowed = origin_guard::is_driver_operation_allowed_for_mode(
+            committed,
+            &operation,
+            &grants,
+            mode,
+            attached,
+            shared_origin_approved,
+        );
+        if !allowed {
+            if mode == AutomationMode::Human && !attached {
+                return Err("ATTACHMENT_REQUIRED".into());
+            }
             // No standing authority. A single-use "Allow once" may still authorize
             // this exact action — consumed HERE, atomically, so the check and the
             // spend cannot be separated (and so a one-shot the frontend believed in
@@ -154,6 +199,9 @@ pub async fn browser_eval(
             // full descriptor (tab, generation, origin, operation, target) must
             // match, so an approval can't be spent on a different page or element.
             let mut one_shots = state.one_shots.lock().map_err(|e| e.to_string())?;
+            if mode == AutomationMode::Human && !attached {
+                return Err("ATTACHMENT_REQUIRED".into());
+            }
             if !one_shot::consume_one_shot(
                 &mut one_shots,
                 &tab_id,
@@ -177,6 +225,11 @@ pub async fn browser_eval(
                 "[browser] {operation} on {} (tab {tab_id}): one-shot consumed",
                 redact::redact(committed)
             );
+        }
+        if mode == AutomationMode::Human && attached {
+            // Burn a one-shot attachment only after operation authorization
+            // succeeds; a denied action must not consume user consent.
+            let _ = state.consume_tab_attachment(&tab_id, generation);
         }
     }
 

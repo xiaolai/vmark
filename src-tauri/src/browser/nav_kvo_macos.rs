@@ -34,6 +34,7 @@ use super::super::payloads::NavPayload;
 use super::super::webview::{current_url, history_state};
 use super::super::NavDelegate;
 use crate::browser::surface::BrowserSurface;
+use crate::browser::ai_policy::validate_ai_navigation_url;
 
 /// The one property observed. `WKWebView.URL` is documented KVO-compliant.
 pub(in crate::browser) const URL_KEY_PATH: &str = "URL";
@@ -66,6 +67,41 @@ impl NavDelegate {
         if committed.as_deref() == Some(url.as_str()) {
             return; // already recorded — nothing changed, so no authority to expire
         }
+        let mode = state
+            .registry
+            .lock()
+            .ok()
+            .and_then(|reg| reg.automation_mode(&ivars.tab_id));
+        if let Some(mode) = mode {
+            let policy = state.ai_policy.lock().map(|policy| *policy).ok();
+            let valid = policy.is_some_and(|policy| {
+                policy.enabled
+                    && (mode == crate::browser::registry::AutomationMode::Human
+                        || state
+                            .registry
+                            .lock()
+                            .map(|reg| reg.policy_epoch(&ivars.tab_id) == Some(policy.epoch))
+                            .unwrap_or(false))
+                    && match mode {
+                        crate::browser::registry::AutomationMode::Human => true,
+                        crate::browser::registry::AutomationMode::AiSandbox => {
+                            validate_ai_navigation_url(&url, policy.allow_loopback).is_ok()
+                        }
+                        crate::browser::registry::AutomationMode::AiShared => {
+                            validate_ai_navigation_url(&url, policy.allow_loopback).is_ok()
+                                && state
+                                    .registry
+                                    .lock()
+                                    .map(|reg| reg.shared_navigation_approved(&ivars.tab_id, &url))
+                                    .unwrap_or(false)
+                        }
+                    }
+            });
+            if !valid {
+                self.emit_policy_failed("AI same-document destination blocked by policy");
+                return;
+            }
+        }
         log::debug!(
             "[browser] same-document navigation on {}: {url}",
             ivars.tab_id
@@ -78,6 +114,7 @@ impl NavDelegate {
                 tab_id: ivars.tab_id.clone(),
                 url,
                 generation,
+                navigation_id: self.current_navigation_id(),
                 can_go_back,
                 can_go_forward,
                 redirected: false,

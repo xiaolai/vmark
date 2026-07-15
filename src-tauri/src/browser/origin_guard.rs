@@ -25,7 +25,11 @@
 use url::{Host, Url};
 
 use crate::browser::operation::is_known_operation;
-use crate::browser::registry::BrowserError;
+use crate::browser::registry::AutomationMode;
+
+#[path = "navigation_policy.rs"]
+mod navigation_policy;
+pub use navigation_policy::validate_navigation_url;
 
 // The closed operation vocabulary lives in `browser/operation.rs`; `NEVER_AUTOMATED`
 // is re-exported for `one_shot.rs`, which imports it through the guard's surface.
@@ -230,69 +234,55 @@ pub fn is_operation_granted(target_url: &str, operation: &str, grants: &[Standin
 /// page. This is the single audited place where "may the driver do this?" is
 /// answered; `browser_eval` calls exactly this and nothing else.
 ///
-/// Two rules, both from the plan:
-///   - **`read` is granted per-tab on any committed navigable origin (R7a)** — the
-///     user (or an already-approved `act`) put the page there, and the AI has no
-///     navigate tool, so reading it needs no standing grant (still refused on a
-///     non-navigable origin).
-///   - **Every other operation requires an explicit standing grant (R4/R5)**, and
-///     `upload` is refused unconditionally. The read grant must never leak into
-///     write authority: "read my blog" must not become "publish to my blog".
+/// Mode-specific access is explicit: sandbox AI reads need a committed page, shared AI
+/// reads need the currently approved destination, and human reads need an attachment.
+/// Every mutating operation still requires an explicit standing grant or one-shot, and
+/// `upload` is refused unconditionally.
+#[allow(dead_code, reason = "legacy helper retained for non-AI callers and compatibility tests")]
 pub fn is_driver_operation_allowed(
     committed_url: &str,
     operation: &str,
     grants: &[StandingGrant],
+) -> bool {
+    is_driver_operation_allowed_for_mode(
+        committed_url,
+        operation,
+        grants,
+        AutomationMode::Human,
+        false,
+        false,
+    )
+}
+
+/// Authorize an eval with the tab's Rust-owned provenance and ephemeral access
+/// state. Human tabs require an explicit attachment; sandbox AI tabs may read
+/// their own committed page; shared AI tabs may read only their approved origin.
+pub fn is_driver_operation_allowed_for_mode(
+    committed_url: &str,
+    operation: &str,
+    grants: &[StandingGrant],
+    mode: AutomationMode,
+    human_attached: bool,
+    shared_origin_approved: bool,
 ) -> bool {
     // Closed vocabulary first — not even the per-tab `read` path (`"Read"` ≠ `read`).
     if !is_known_operation(operation) || NEVER_AUTOMATED.contains(&operation) {
         return false;
     }
     if operation == "read" {
-        // R7a per-tab read grant — scoped to a real web origin.
-        return canonicalize_origin(committed_url).is_some();
+        let has_page = canonicalize_origin(committed_url).is_some();
+        return has_page
+            && match mode {
+                AutomationMode::Human => human_attached,
+                AutomationMode::AiSandbox => true,
+                AutomationMode::AiShared => shared_origin_approved,
+            };
     }
-    is_operation_granted(committed_url, operation, grants)
-}
-
-/// Validate a navigation target: only well-formed http/https URLs are navigable.
-/// Opaque origins (`about:`/`data:`/`blob:`/`file:`/`javascript:`) are rejected
-/// for the driver-owned surface (R7a).
-///
-/// Returns the **exact string the caller must load** (the trimmed input). The
-/// gate used to validate `url.trim()` and return `()`, so callers went on to load
-/// the *untrimmed* original — validated value ≠ consumed value. Handing the
-/// checked value back makes that divergence unrepresentable.
-///
-/// Uses the same WHATWG parser as the origin canonicalizer, so malformed
-/// authorities (`https://@`, `https://:443`, `https://exa mple.com`) are rejected.
-///
-/// Deliberately STRICTER than bare canonicalization (only this navigation gate, so
-/// origin comparison stays WHATWG-faithful — parity is the security property): it
-/// requires an explicit `http(s)://` prefix and no backslashes, refusing the
-/// shorthand/empty-authority forms (`https:/path`, `https:path`, `https:///path`,
-/// `https://\path`) that WHATWG would reinterpret so the first path segment becomes
-/// the host — legal parsing, but never what a caller meant.
-pub fn validate_navigation_url(url: &str) -> Result<String, BrowserError> {
-    let trimmed = url.trim();
-    let invalid = || BrowserError::InvalidUrl(url.to_string());
-
-    // Require an explicit `http://`/`https://` prefix and reject backslashes: both
-    // close authority-reinterpretation forms the bare-`://` check below missed.
-    let lower = trimmed.to_ascii_lowercase();
-    if !(lower.starts_with("http://") || lower.starts_with("https://")) || trimmed.contains('\\') {
-        return Err(invalid());
-    }
-
-    // Reject an empty authority (`https:///path` → host `path`).
-    if let Some(after_scheme) = trimmed.split_once("://").map(|(_, rest)| rest) {
-        if after_scheme.starts_with('/') {
-            return Err(invalid());
+    match mode {
+        AutomationMode::Human | AutomationMode::AiSandbox | AutomationMode::AiShared => {
+            is_operation_granted(committed_url, operation, grants)
         }
     }
-
-    canonicalize_origin(trimmed)
-        .map(|_| trimmed.to_string())
-        .ok_or_else(invalid)
 }
 
 #[cfg(test)]

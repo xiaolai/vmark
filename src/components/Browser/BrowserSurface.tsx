@@ -64,6 +64,10 @@ export function BrowserSurface({ tabId }: { tabId: string }): React.ReactElement
     const tab = s.findTabById(tabId);
     return tab && isBrowserTab(tab) ? tab.url : "";
   });
+  const automationMode = useTabStore((s) => {
+    const tab = s.findTabById(tabId);
+    return tab && isBrowserTab(tab) ? tab.automationMode ?? "human" : "human";
+  });
 
   // Non-null while the web content process is down (WI-1.8). `action` is
   // "auto-reload" (native is already reloading) or "manual" (needs the user).
@@ -90,7 +94,7 @@ export function BrowserSurface({ tabId }: { tabId: string }): React.ReactElement
 
   // The native view itself: create, keep aligned, destroy — plus the create/destroy race,
   // the post-create occlusion resync, and reflow-driven bounds. See useBrowserNativeView.
-  useBrowserNativeView(tabId, url, layoutVersion, viewportRef);
+  useBrowserNativeView(tabId, url, layoutVersion, viewportRef, automationMode);
 
   // An error overlay is DOM, and the native view paints over all DOM in its rect — so a
   // load failure used to render the message underneath a live (or blank) web page, where

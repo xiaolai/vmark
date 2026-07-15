@@ -169,6 +169,45 @@ describe('browser tool — integration via server.callTool', () => {
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toContain('no active browser tab');
   });
+
+  it('open: forwards the URL and bounded timeout', async () => {
+    const { server, bridge } = harness({
+      'vmark.browser.open': () => ({
+        success: true,
+        data: { tabId: 'ai-1', navigationId: 'nav-1', loading: false },
+      }),
+    });
+    const result = await server.callTool('browser', {
+      action: 'open', url: 'https://example.com', timeoutMs: 5000,
+    });
+    expect(bridge.getRequestsOfType('vmark.browser.open')[0].request).toEqual({
+      type: 'vmark.browser.open', url: 'https://example.com', timeoutMs: 5000,
+    });
+    expect(JSON.parse(result.content[0].text)).toMatchObject({ tabId: 'ai-1' });
+  });
+
+  it('navigate: rejects an invalid timeout before touching the bridge', async () => {
+    const { server, bridge } = harness({
+      'vmark.browser.navigate': () => ({ success: true, data: {} }),
+    });
+    const result = await server.callTool('browser', {
+      action: 'navigate', url: 'https://example.com', timeoutMs: 12_001,
+    });
+    expect(result.isError).toBe(true);
+    expect(bridge.getRequestsOfType('vmark.browser.navigate')).toHaveLength(0);
+  });
+
+  it('wait: forwards an existing navigation ticket without creating a navigation', async () => {
+    const { server, bridge } = harness({
+      'vmark.browser.wait': () => ({ success: true, data: { navigationId: 'nav-2', loading: false } }),
+    });
+    await server.callTool('browser', {
+      action: 'wait', tabId: 'ai-1', navigationId: 'nav-2', timeoutMs: 100,
+    });
+    expect(bridge.getRequestsOfType('vmark.browser.wait')[0].request).toEqual({
+      type: 'vmark.browser.wait', tabId: 'ai-1', navigationId: 'nav-2', timeoutMs: 100,
+    });
+  });
 });
 
 describe('registerBrowserTools — approval handling', () => {

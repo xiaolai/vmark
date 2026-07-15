@@ -70,6 +70,14 @@ export type BridgeRequest =
       role: string;
       name: string;
       text?: string;
+    }
+  | { type: 'vmark.browser.open'; url: string; timeoutMs?: number }
+  | { type: 'vmark.browser.navigate'; tabId?: string; url: string; timeoutMs?: number }
+  | {
+      type: 'vmark.browser.wait';
+      tabId?: string;
+      navigationId?: string;
+      timeoutMs?: number;
     };
 
 /**
@@ -89,6 +97,8 @@ export interface NeedsApproval {
   needsApproval: true;
   operation: string;
   url: string;
+  tabId?: string;
+  generation?: number;
 }
 
 /**
@@ -102,13 +112,21 @@ export interface NeedsApproval {
  */
 export function isNeedsApproval(data: unknown): data is NeedsApproval {
   if (typeof data !== 'object' || data === null) return false;
-  const d = data as { needsApproval?: unknown; operation?: unknown; url?: unknown };
+  const d = data as {
+    needsApproval?: unknown;
+    operation?: unknown;
+    url?: unknown;
+    tabId?: unknown;
+    generation?: unknown;
+  };
   return (
     d.needsApproval === true &&
     typeof d.operation === 'string' &&
     d.operation.length > 0 &&
     typeof d.url === 'string' &&
-    d.url.length > 0
+    d.url.length > 0 &&
+    (d.tabId === undefined || (typeof d.tabId === 'string' && d.tabId.length > 0)) &&
+    (d.generation === undefined || (typeof d.generation === 'number' && Number.isInteger(d.generation)))
   );
 }
 

@@ -30,6 +30,7 @@ import { registerBrowserCommands } from "./browserCommands";
 import { invoke } from "@tauri-apps/api/core";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { startGrantSync } from "@/services/browser/grantSync";
+import { startBrowserAiPolicySync } from "@/services/browser/browserAiPolicySync";
 
 const EXPORT_BINDINGS: MenuCommandBinding[] = [
   { menuEvent: "menu:export-html", commandId: "export.html" },
@@ -107,6 +108,7 @@ export function useCommandBootstrap(): void {
     // authoritative gate for R4/R5/R7a (WI-2.1). Without this the driver stays
     // default-deny — safe, but the user's approvals would never take effect.
     const stopGrantSync = startGrantSync();
+    const stopBrowserAiPolicySync = startBrowserAiPolicySync();
 
     // Keep the native "New Browser Tab" menu item in step with the setting (WI-S0.5).
     // The item exists natively so its accelerator survives the browser taking keyboard
@@ -171,6 +173,7 @@ export function useCommandBootstrap(): void {
       cancelled = true;
       if (unlisten) unlisten();
       stopGrantSync();
+      stopBrowserAiPolicySync();
       stopBrowserMenuSync();
     };
   }, []);

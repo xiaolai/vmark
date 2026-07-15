@@ -1,35 +1,7 @@
-/**
- * Browser approval store — standing grants + pending approvals (WI-2.5 / R5).
- *
- * Purpose: the reactive state behind the operation-based approval gate. It holds
- * the user's scoped standing grants and the queue of pending approval requests
- * that the MCP browser tools raise before the AI acts. The decision logic itself
- * is the pure `approval/grants.ts` (origin-scoped, upload hard-denied); this
- * store adds the request/resolve lifecycle that the approval UI and the
- * `vmark.browser` act tools (WI-2.5) drive.
- *
- * "Remember" resolves to a standing grant scoped to the target's *origin*
- * (any path), so approving one click on a site authorizes that operation there
- * without re-prompting — but never widens the operation set or the origin.
- *
- * Grants are held in memory only: they are never written to disk and lapse when
- * VMark quits. Persisting "the AI may click on this site" across restarts is a real
- * escalation of authority and deserves an explicit decision rather than falling out
- * of a store that happens to have a `grants` array.
- *
- * `dismissForNavigation` is the R7a hinge (WI-S0.8): pending prompts and unspent
- * one-shots die with the page they described. Standing grants do not — they are
- * origin-scoped and were chosen deliberately.
- *
- * @coordinates-with lib/browser/approval/grants.ts — the pure decision logic
- * @coordinates-with lib/browser/origin/originGuard.ts — origin canonicalization
- * @coordinates-with components/Browser/BrowserApprovalDialog — resolves `pending`
- * @coordinates-with components/Browser/BrowserGrantsList — lists/revokes `grants`
- * @coordinates-with services/browser/grantSync — mirrors grants + one-shots into Rust
- * @module stores/browserApprovalStore
- */
+/** Browser approval store — standing grants and page-scoped ephemeral approvals (R5/R7a). */
 
 import { create } from "zustand";
+import { invoke } from "@tauri-apps/api/core";
 import {
   addGrant,
   decideApproval,
@@ -43,19 +15,8 @@ import {
   isOriginPattern,
 } from "@/lib/browser/origin/originGuard";
 
-/**
- * The operations the browser act tools can actually perform, and therefore the
- * ONLY ones a standing grant may name.
- *
- * SECURITY: the act tool maps every non-`type` operation to a *click* script, so
- * an operation outside this set that ever reached "allowed" would click the page
- * under a label the user never understood ("scroll", say). Grants and pending
- * requests are the two ways an operation becomes authority — both are checked
- * against this set here, at the boundary where MCP-supplied strings enter state.
- * `upload` is deliberately absent: it is never automatable (grants.ts), so it
- * must never be *grantable* either.
- */
-const KNOWN_OPERATIONS = new Set(["read", "click", "type"]);
+/** Closed operation vocabulary; upload is intentionally never grantable. */
+const KNOWN_OPERATIONS = new Set(["read", "attach", "click", "type", "navigate", "publish"]);
 
 /** The specific element an `act` targets — its ARIA role + accessible name.
  *  Absent for `read`, which snapshots the whole page rather than one element. */
@@ -112,6 +73,12 @@ export interface OneShotApproval {
   tabId: string;
 }
 
+export interface HumanTabAttachment {
+  tabId: string;
+  generation: number;
+  once: boolean;
+}
+
 /** Same element? Both target-less (a read), or both naming the same role+name. */
 function sameTarget(a: ActionTarget | undefined, b: ActionTarget | undefined): boolean {
   if (a === undefined || b === undefined) return a === b;
@@ -121,16 +88,8 @@ function sameTarget(a: ActionTarget | undefined, b: ActionTarget | undefined): b
 interface BrowserApprovalState {
   grants: StandingGrant[];
   pending: PendingApproval[];
-  /**
-   * One-shot authorizations from "Allow once" (R5).
-   *
-   * Keyed by (origin, operation), NOT by request id: the AI retries a refused
-   * action under a *new* request id, so an id-keyed approval could never be
-   * matched back and "Allow once" would authorize nothing at all. Each entry is
-   * consumed by exactly one subsequent action and never becomes standing
-   * authority — `decide()` keeps returning `needs-approval`.
-   */
   oneShots: OneShotApproval[];
+  attachments: HumanTabAttachment[];
 }
 
 interface BrowserApprovalActions {
@@ -185,6 +144,12 @@ interface BrowserApprovalActions {
    * scoped to an origin, not to a page instance.
    */
   dismissForNavigation: (tabId: string) => void;
+  /** Drop approvals that are valid only for the current app/browser session. */
+  clearEphemeral: () => void;
+  /** Record a successful human-tab attachment for the current generation. */
+  attachHumanTab: (tabId: string, generation: number, once: boolean) => void;
+  isHumanTabAttached: (tabId: string, generation: number) => boolean;
+  consumeHumanTabAttachment: (tabId: string, generation: number) => void;
 }
 
 /** Bare origin pattern (`scheme://host[:port]`) for a URL, or null if opaque. */
@@ -203,6 +168,7 @@ export const useBrowserApprovalStore = create<BrowserApprovalState & BrowserAppr
     grants: [],
     pending: [],
     oneShots: [],
+    attachments: [],
 
     decide: (targetUrl, operation) => {
       if (!KNOWN_OPERATIONS.has(operation)) return "denied";
@@ -238,6 +204,13 @@ export const useBrowserApprovalStore = create<BrowserApprovalState & BrowserAppr
       // An opaque origin (about:/data:) yields no pattern — it can be neither
       // remembered nor authorized once. Fail closed.
       const pattern = grantPatternFor(request.targetUrl);
+      if (request.operation === "attach") {
+        set((state) => ({ pending: state.pending.filter((p) => p.id !== id) }));
+        if (outcome !== "deny") {
+          get().attachHumanTab(request.tabId, request.generation, outcome === "once");
+        }
+        return;
+      }
       const remember = outcome === "remember" && pattern !== null;
       const once = outcome === "once" && pattern !== null;
       // One update: never expose a state where the grant exists but the request
@@ -291,6 +264,35 @@ export const useBrowserApprovalStore = create<BrowserApprovalState & BrowserAppr
       set((state) => ({
         pending: state.pending.filter((p) => p.tabId !== tabId),
         oneShots: state.oneShots.filter((s) => s.tabId !== tabId),
+        attachments: state.attachments.filter((a) => a.tabId !== tabId),
+      }));
+    },
+
+    clearEphemeral: () => set({ pending: [], oneShots: [], attachments: [] }),
+
+    attachHumanTab: (tabId, generation, once) => {
+      void Promise.resolve(invoke("browser_ai_attach", { tabId, generation, once })).then(
+        () => set((state) => ({
+          attachments: [
+            ...state.attachments.filter((a) => a.tabId !== tabId),
+            { tabId, generation, once },
+          ],
+        })),
+        () => {},
+      );
+    },
+
+    isHumanTabAttached: (tabId, generation) =>
+      get().attachments.some((a) => a.tabId === tabId && a.generation === generation),
+
+    consumeHumanTabAttachment: (tabId, generation) => {
+      set((state) => ({
+        attachments: state.attachments.filter(
+          (attachment) =>
+            !(attachment.tabId === tabId &&
+              attachment.generation === generation &&
+              attachment.once),
+        ),
       }));
     },
   }),

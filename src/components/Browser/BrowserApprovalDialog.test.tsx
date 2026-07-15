@@ -66,7 +66,7 @@ function raiseClick(id = "r1") {
 
 beforeEach(() => {
   cleanup();
-  useBrowserApprovalStore.setState({ grants: [], pending: [], oneShots: [] });
+  useBrowserApprovalStore.setState({ grants: [], pending: [], oneShots: [], attachments: [] });
   useBrowserUiStore.setState({ entries: {} });
   occlusion.browserOcclusion.addOccluder.mockClear();
   occlusion.browserOcclusion.removeOccluder.mockClear();

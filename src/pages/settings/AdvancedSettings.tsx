@@ -5,7 +5,7 @@
  */
 
 import { useTranslation } from "react-i18next";
-import { SettingRow, SettingsGroup, Toggle, TagInput } from "./components";
+import { SettingRow, SettingsGroup, Toggle, TagInput, Select } from "./components";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { HotExitDevTools } from "./HotExitDevTools";
 import { isMacPlatform } from "@/utils/shortcutMatch";
@@ -33,6 +33,8 @@ export function AdvancedSettings() {
   const updateAdvancedSetting = useSettingsStore((state) => state.updateAdvancedSetting);
   const browserEnabled = useSettingsStore((state) => state.browser.enabled);
   const updateBrowserSetting = useSettingsStore((state) => state.updateBrowserSetting);
+  const browserAiSession = useSettingsStore((state) => state.browser.aiSession);
+  const browserAiAllowLoopback = useSettingsStore((state) => state.browser.aiAllowLoopback);
   const isMac = isMacPlatform();
 
   return (
@@ -107,6 +109,28 @@ export function AdvancedSettings() {
             <Toggle
               checked={clearMacQuarantineOnOpen}
               onChange={(v) => updateAdvancedSetting("clearMacQuarantineOnOpen", v)}
+            />
+          </SettingRow>
+          <SettingRow
+            label={t("advanced.browserAiSession.label")}
+            description={t("advanced.browserAiSession.description")}
+          >
+            <Select
+              value={browserAiSession}
+              options={[
+                { value: "sandbox", label: t("advanced.browserAiSession.sandbox") },
+                { value: "shared", label: t("advanced.browserAiSession.shared") },
+              ]}
+              onChange={(value) => updateBrowserSetting("aiSession", value)}
+            />
+          </SettingRow>
+          <SettingRow
+            label={t("advanced.browserAiAllowLoopback.label")}
+            description={t("advanced.browserAiAllowLoopback.description")}
+          >
+            <Toggle
+              checked={browserAiAllowLoopback}
+              onChange={(value) => updateBrowserSetting("aiAllowLoopback", value)}
             />
           </SettingRow>
         </SettingsGroup>

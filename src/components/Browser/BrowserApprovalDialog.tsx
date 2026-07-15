@@ -99,6 +99,7 @@ export function BrowserApprovalDialog(): React.ReactElement | null {
 
   const origin = displayOrigin(request.targetUrl);
   const operation = t(`browser.approval.operation.${request.operation}`, request.operation);
+  const attachment = request.operation === "attach";
 
   return (
     <div className="browser-approval-backdrop">
@@ -155,7 +156,7 @@ export function BrowserApprovalDialog(): React.ReactElement | null {
             className="browser-approval-btn browser-approval-btn--remember"
             onClick={() => resolve("remember")}
           >
-            {t("browser.approval.allowSite")}
+            {t(attachment ? "browser.approval.allowTab" : "browser.approval.allowSite")}
           </button>
         </div>
       </div>

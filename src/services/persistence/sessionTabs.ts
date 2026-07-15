@@ -43,6 +43,8 @@ export interface PersistedBrowserTab {
   url: string;
   title: string;
   scrollY?: number;
+  /** Optional migration marker. AI records are never restored. */
+  automationMode?: "human" | "ai-sandbox" | "ai-shared";
 }
 
 /** A persisted tab record (discriminated on `kind`). */
@@ -104,6 +106,12 @@ function parseRecord(raw: unknown, browserSupported: boolean): ParsedRecord {
     // gate the live browser applies, and it returns null for anything else. (Audit, Medium.)
     const canonical = canonicalizeBrowserUrl(url);
     if (canonical === null) return "malformed";
+    if (rec.automationMode === "ai-sandbox" || rec.automationMode === "ai-shared") {
+      return "unsupported";
+    }
+    if (rec.automationMode !== undefined && rec.automationMode !== "human") {
+      return "malformed";
+    }
     const out: PersistedBrowserTab = {
       kind: "browser",
       url: canonical,
@@ -168,8 +176,9 @@ export function migratePersistedTabs(
 export function serializeSessionTabs(tabs: readonly Tab[]): SessionTabsV1 {
   return {
     version: SESSION_TABS_VERSION,
-    tabs: tabs.map((tab): PersistedTab => {
+    tabs: tabs.flatMap((tab): PersistedTab[] => {
       if (tab.kind === "browser") {
+        if ((tab.automationMode ?? "human") !== "human") return [];
         // The URL goes to a cleartext file on disk that outlives this session, so an
         // embedded password does not go with it (audit, High). The username stays — it is
         // part of the destination, not a credential.
@@ -179,9 +188,9 @@ export function serializeSessionTabs(tabs: readonly Tab[]): SessionTabsV1 {
           title: tab.title,
         };
         if (isValidScrollY(tab.scrollY)) rec.scrollY = tab.scrollY;
-        return rec;
+        return [rec];
       }
-      return { kind: "document", path: tab.filePath };
+      return [{ kind: "document", path: tab.filePath }];
     }),
   };
 }

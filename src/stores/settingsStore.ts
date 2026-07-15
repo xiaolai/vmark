@@ -45,7 +45,11 @@ import { createSafeStorage } from "@/services/persistence/safeStorage";
 import { migrateWorkspaceRailModeToGeneral } from "./settingsStore/migrations";
 import { initialState, type ObjectSections } from "./settingsStore/defaults";
 import { clampMergedSettings, clampSettingValue } from "./settingsStore/clamp";
-import { isPlainObject, sanitizePersistedSettings } from "./settingsStore/persistGuards";
+import {
+  isPlainObject,
+  normalizeBrowserSettings,
+  sanitizePersistedSettings,
+} from "./settingsStore/persistGuards";
 import type { SettingsState, SettingsActions } from "./settingsTypes";
 
 // Re-exported for tests + existing callers that import from "@/stores/settingsStore".
@@ -189,6 +193,7 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
         // D4: clamp bounded numeric fields so a corrupt persisted value
         // (e.g. `appearance.fontSize: 999`) can't render the editor broken.
         clampMergedSettings(merged as unknown as Record<string, unknown>);
+        normalizeBrowserSettings(merged.browser as unknown as Record<string, unknown>);
         return merged;
       },
     }

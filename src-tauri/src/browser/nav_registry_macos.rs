@@ -14,15 +14,21 @@
 use objc2::rc::Retained;
 use objc2::runtime::ProtocolObject;
 use objc2::{msg_send, DefinedClass, MainThreadMarker, MainThreadOnly};
-use objc2_foundation::NSError;
 use objc2_web_kit::{WKNavigationDelegate, WKUIDelegate, WKWebView};
 use tauri::{AppHandle, Manager};
 
-use super::payloads::FailedPayload;
 use super::NavDelegate;
 use crate::browser::recovery::RecoveryAction;
 use crate::browser::registry::Lifecycle;
 use crate::browser::surface::BrowserSurface;
+
+#[path = "nav_failure_macos.rs"]
+mod failure;
+#[path = "nav_registry_policy_macos.rs"]
+mod policy;
+use policy::ai_commit_allowed;
+#[path = "nav_registry_identity_macos.rs"]
+mod identity;
 
 /// Per-delegate context: which tab it serves and the handle to emit events on.
 pub struct NavDelegateIvars {
@@ -41,6 +47,13 @@ pub struct NavDelegateIvars {
     /// load changes `URL` too — at commit — and `did_commit` owns that path. A change seen
     /// while NO navigation is in flight is same-document.
     pub(super) loading: std::cell::Cell<bool>,
+    /// Native navigation identity paired with the registry ticket. WebKit can
+    /// deliver a late callback for an older `WKNavigation` after a newer load
+    /// has started; pointer identity lets the delegate drop that callback.
+    pub(super) native_navigation: std::cell::RefCell<Vec<(usize, String)>>,
+    /// Ticket selected by the most recent navigation-policy callback, consumed
+    /// when WebKit announces that native navigation actually started.
+    pub(super) pending_navigation_id: std::cell::RefCell<Option<String>>,
 }
 
 // Same-document navigation (KVO on `URL`) — see nav_kvo_macos.rs.
@@ -56,16 +69,40 @@ impl NavDelegate {
     /// One bump per commit, and only here: the navigate command used to bump too, which
     /// advanced the generation twice for one navigation — and once for a navigation that
     /// never happened.
-    pub(super) fn commit_navigation(&self, url: &str) -> u64 {
+    pub(super) fn commit_navigation(&self, url: &str, navigation_id: &str) -> Option<u64> {
         let ivars = self.ivars();
         let Some(state) = ivars.app.try_state::<BrowserSurface>() else {
-            return 0;
+            return None;
         };
+        if state
+            .registry
+            .lock()
+            .ok()
+            .and_then(|reg| reg.navigation_ticket(&ivars.tab_id).map(|ticket| ticket.id == navigation_id))
+            != Some(true)
+        {
+            return None;
+        }
+        let mode = state
+            .registry
+            .lock()
+            .ok()
+            .and_then(|reg| reg.automation_mode(&ivars.tab_id));
+        if let Some(mode) = mode {
+            if !ai_commit_allowed(&state, mode, &ivars.tab_id, url) {
+                state.clear_tab_one_shots(&ivars.tab_id);
+                state.clear_tab_attachment(&ivars.tab_id);
+                if let Ok(mut reg) = state.registry.lock() {
+                    let _ = reg.clear_committed_url(&ivars.tab_id);
+                }
+                return None;
+            }
+        }
         let mut reg = match state.registry.lock() {
             Ok(reg) => reg,
             Err(e) => {
                 log::warn!("[browser] registry lock poisoned on commit: {e}");
-                return 0;
+            return None;
             }
         };
         let generation = match reg.bump_generation(&ivars.tab_id) {
@@ -90,7 +127,7 @@ impl NavDelegate {
                 ivars.tab_id
             );
         }
-        generation
+        Some(generation)
     }
 
     /// R7a: the view this tab's authority was granted against is gone. Bump the
@@ -124,6 +161,7 @@ impl NavDelegate {
                 }
             }
             state.clear_tab_one_shots(&ivars.tab_id);
+            state.clear_tab_attachment(&ivars.tab_id);
         }
         generation
     }
@@ -160,6 +198,8 @@ impl NavDelegate {
             app,
             redirected: std::cell::Cell::new(false),
             loading: std::cell::Cell::new(false),
+            native_navigation: std::cell::RefCell::new(Vec::new()),
+            pending_navigation_id: std::cell::RefCell::new(None),
         });
         // SAFETY: NSObject's init has the standard signature.
         unsafe { msg_send![super(this), init] }
@@ -191,33 +231,6 @@ impl NavDelegate {
                 }
             }
             Err(e) => log::warn!("[browser] registry lock poisoned: {e}"),
-        }
-    }
-
-    /// A load failed. The webview is alive and idle on whatever it was showing, so
-    /// the tab settles back to `Live` — leaving it in `Creating`/`Navigating` (what
-    /// this used to do) stranded the entry in a transient state indefinitely. The
-    /// committed URL stays revoked, so a page that never loaded grants nothing.
-    fn settle_after_failure(&self) {
-        let ivars = self.ivars();
-        let Some(state) = ivars.app.try_state::<BrowserSurface>() else {
-            return;
-        };
-        let locked = state.registry.lock();
-        let Ok(mut reg) = locked else {
-            return;
-        };
-        // Only the transient states settle: a crashed or destroyed tab keeps its.
-        if matches!(
-            reg.state(&ivars.tab_id),
-            Some(Lifecycle::Creating | Lifecycle::Navigating)
-        ) {
-            if let Err(e) = reg.transition(&ivars.tab_id, Lifecycle::Live) {
-                log::warn!(
-                    "[browser] failed-load settle refused for {}: {e:?}",
-                    ivars.tab_id
-                );
-            }
         }
     }
 
@@ -256,26 +269,4 @@ impl NavDelegate {
         false
     }
 
-    /// Settle the lifecycle, then report the failure to the frontend.
-    pub(super) fn emit_failed(&self, error: &NSError) {
-        let ivars = self.ivars();
-        // The load is over. Leaving this set would mute the URL observer for the rest of
-        // the tab's life, and every same-document navigation after a single failed load
-        // would silently keep the page's authority alive.
-        ivars.loading.set(false);
-        let message = error.localizedDescription().to_string();
-        log::debug!("[browser] load failed for {}: {message}", ivars.tab_id);
-        self.settle_after_failure();
-        // Routed to the owning window, NOT broadcast (ADR-6). This was the last
-        // `app.emit` in the browser code, and it survived precisely because the gate that
-        // forbids broadcasts grepped nav_delegate_macos.rs — and this function had since
-        // moved out of that file. The gate now scans the whole module. (Audit, High.)
-        let _ = self.emit_owned(
-            "browser://load-failed",
-            FailedPayload {
-                tab_id: ivars.tab_id.clone(),
-                message,
-            },
-        );
-    }
 }

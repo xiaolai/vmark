@@ -50,6 +50,23 @@ pub enum Lifecycle {
     Destroyed,
 }
 
+/// Authoritative browser-tab provenance. The frontend mirrors this value for UI
+/// and tab discovery, but Rust commands select and enforce it at creation time.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum AutomationMode {
+    Human,
+    AiSandbox,
+    AiShared,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NavigationTicket {
+    pub id: String,
+    pub sequence: u64,
+    pub requested_url: String,
+}
+
 impl Lifecycle {
     /// Whether `self → to` is a valid lifecycle transition.
     ///
@@ -124,6 +141,11 @@ struct Entry {
     /// provisional navigation starts, so a redirect chain never briefly grants the
     /// wrong origin. `browser_eval` gates on this, never on a caller-supplied URL.
     committed_url: Option<String>,
+    automation_mode: AutomationMode,
+    navigation_sequence: u64,
+    active_navigation: Option<NavigationTicket>,
+    shared_navigation_origin: Option<String>,
+    policy_epoch: u64,
 }
 
 /// The identity map: `tabId ↔ {window, generation, lifecycle}`. Not thread-safe
@@ -133,9 +155,26 @@ pub struct BrowserRegistry {
     tabs: HashMap<String, Entry>,
 }
 
+#[path = "registry_navigation.rs"]
+mod navigation;
+
+#[path = "registry_state.rs"]
+mod state;
+
 impl BrowserRegistry {
     /// Register a new browser tab in `Creating` state at generation 0.
     pub fn create(&mut self, tab_id: &str, window_label: &str) -> Result<(), BrowserError> {
+        self.create_with_mode(tab_id, window_label, AutomationMode::Human)
+    }
+
+    /// Register a tab with explicit provenance. Existing human callers use
+    /// `create`, while the AI command family must choose its mode here.
+    pub fn create_with_mode(
+        &mut self,
+        tab_id: &str,
+        window_label: &str,
+        automation_mode: AutomationMode,
+    ) -> Result<(), BrowserError> {
         if self.tabs.contains_key(tab_id) {
             return Err(BrowserError::DuplicateTab(tab_id.to_string()));
         }
@@ -148,145 +187,20 @@ impl BrowserRegistry {
                 // Not the target URL: nothing is committed until the nav delegate
                 // says so (R7a). A tab created pointing at an origin grants nothing.
                 committed_url: None,
+                automation_mode,
+                navigation_sequence: 0,
+                active_navigation: None,
+                shared_navigation_origin: None,
+                policy_epoch: 0,
             },
         );
         Ok(())
     }
 
-    /// Record the committed top-level URL (called from `didCommitNavigation`).
-    /// This is the fact the origin gate reads — see `Entry::committed_url`.
-    ///
-    /// Refused on a terminal tab: a callback arriving after teardown must never
-    /// re-grant an origin on a dead tab.
-    pub fn set_committed_url(&mut self, tab_id: &str, url: &str) -> Result<(), BrowserError> {
-        let entry = self.live_entry_mut(tab_id)?;
-        entry.committed_url = Some(url.to_string());
-        Ok(())
+    pub fn automation_mode(&self, tab_id: &str) -> Option<AutomationMode> {
+        self.tabs.get(tab_id).map(|entry| entry.automation_mode)
     }
 
-    /// Revoke the committed URL (called when a new provisional navigation starts).
-    /// R7a: the grant lapses immediately, and is re-established only on the next
-    /// commit — otherwise a redirect chain briefly grants the wrong origin.
-    ///
-    /// Unlike `set_committed_url` this is allowed in every state: revoking
-    /// authority is never the unsafe direction.
-    pub fn clear_committed_url(&mut self, tab_id: &str) -> Result<(), BrowserError> {
-        let entry = self
-            .tabs
-            .get_mut(tab_id)
-            .ok_or_else(|| BrowserError::UnknownTab(tab_id.to_string()))?;
-        entry.committed_url = None;
-        Ok(())
-    }
-
-    /// A mutable entry that is known, and not terminal — the precondition for any
-    /// mutation that grants authority or advances navigation.
-    fn live_entry_mut(&mut self, tab_id: &str) -> Result<&mut Entry, BrowserError> {
-        let entry = self
-            .tabs
-            .get_mut(tab_id)
-            .ok_or_else(|| BrowserError::UnknownTab(tab_id.to_string()))?;
-        if entry.state.is_terminal() {
-            return Err(BrowserError::TerminalTab(tab_id.to_string()));
-        }
-        Ok(entry)
-    }
-
-    /// The tab's committed top-level URL, if a navigation has committed.
-    pub fn committed_url(&self, tab_id: &str) -> Option<&str> {
-        self.tabs
-            .get(tab_id)
-            .and_then(|e| e.committed_url.as_deref())
-    }
-
-    /// Apply a lifecycle transition, validating it against the state machine.
-    pub fn transition(&mut self, tab_id: &str, to: Lifecycle) -> Result<(), BrowserError> {
-        let entry = self
-            .tabs
-            .get_mut(tab_id)
-            .ok_or_else(|| BrowserError::UnknownTab(tab_id.to_string()))?;
-        if !entry.state.can_transition_to(to) {
-            return Err(BrowserError::InvalidTransition {
-                from: entry.state,
-                to,
-            });
-        }
-        entry.state = to;
-        // Authority is scoped to executable states. Entering a non-executable state
-        // (crash, hibernate, reload-to-Creating, teardown) revokes the committed
-        // origin in the SAME atomic transition, so an in-flight eval cannot pass the
-        // origin gate against a page the webview no longer holds. The next commit
-        // re-establishes it via `set_committed_url`.
-        if !to.is_executable() {
-            entry.committed_url = None;
-        }
-        Ok(())
-    }
-
-    /// Bump the navigation generation (a page navigated); returns the new value.
-    /// Invalidates in-flight driver commands stamped with the old generation.
-    ///
-    /// Refused on a terminal tab: `Destroyed` is terminal in every respect, so a
-    /// late callback cannot mutate an entry that is on its way out.
-    pub fn bump_generation(&mut self, tab_id: &str) -> Result<u64, BrowserError> {
-        let entry = self.live_entry_mut(tab_id)?;
-        entry.generation = entry.generation.saturating_add(1);
-        Ok(entry.generation)
-    }
-
-    /// The current navigation generation — what a driver command must be stamped
-    /// with to be fresh. Production learns it from the `browser://navigated` event
-    /// the delegate emits, so this reader is the tests' window onto the same fact.
-    #[allow(dead_code, reason = "observation seam for the generation tests")]
-    pub fn generation(&self, tab_id: &str) -> Option<u64> {
-        self.tabs.get(tab_id).map(|e| e.generation)
-    }
-
-    pub fn state(&self, tab_id: &str) -> Option<Lifecycle> {
-        self.tabs.get(tab_id).map(|e| e.state)
-    }
-
-    #[allow(dead_code, reason = "consumer is the per-window teardown WI")]
-    pub fn window_of(&self, tab_id: &str) -> Option<&str> {
-        self.tabs.get(tab_id).map(|e| e.window_label.as_str())
-    }
-
-    #[allow(dead_code, reason = "observation seam for the lifecycle tests")]
-    pub fn contains(&self, tab_id: &str) -> bool {
-        self.tabs.contains_key(tab_id)
-    }
-
-    #[allow(dead_code, reason = "observation seam for the lifecycle tests")]
-    pub fn is_empty(&self) -> bool {
-        self.tabs.is_empty()
-    }
-
-    /// A driver command tagged with `generation` is fresh iff the tab exists, is
-    /// in an **executable** state, and the generation matches the current one
-    /// (WI-1.8). Restricting to executable states (not merely "non-terminal") is
-    /// what stops an eval from running against a crashed, hibernated, or
-    /// still-constructing webview that shares the current generation.
-    pub fn is_command_fresh(&self, tab_id: &str, generation: u64) -> bool {
-        match self.tabs.get(tab_id) {
-            Some(e) => e.state.is_executable() && e.generation == generation,
-            None => false,
-        }
-    }
-
-    /// Remove a tab (after its native webview is torn down).
-    pub fn remove(&mut self, tab_id: &str) {
-        self.tabs.remove(tab_id);
-    }
-
-    /// All tab ids in `window_label` (for per-window teardown).
-    #[allow(dead_code, reason = "consumer is the per-window teardown WI")]
-    pub fn tabs_in_window(&self, window_label: &str) -> Vec<String> {
-        self.tabs
-            .iter()
-            .filter(|(_, e)| e.window_label == window_label)
-            .map(|(id, _)| id.clone())
-            .collect()
-    }
 }
 
 // `validate_navigation_url` now lives in browser/origin_guard.rs, which parses

@@ -62,6 +62,16 @@ export function sanitizePersistedSettings(
   return clean;
 }
 
+/** Normalize persisted enum-like browser posture values to the safest mode. */
+export function normalizeBrowserSettings(browser: Record<string, unknown>): void {
+  if (browser.aiSession !== "sandbox" && browser.aiSession !== "shared") {
+    browser.aiSession = "sandbox";
+  }
+  if (typeof browser.aiAllowLoopback !== "boolean") {
+    browser.aiAllowLoopback = false;
+  }
+}
+
 /**
  * True when a persisted leaf value is type-compatible with its default. The
  * default's runtime type is the contract; arrays and `null` are handled

@@ -17,6 +17,7 @@
 //! spike (git cd162e02:src-tauri/src/spike_embed.rs).
 
 use crate::browser::one_shot::OneShot;
+use crate::browser::ai_policy::AiBrowserPolicy;
 use crate::browser::origin_guard::StandingGrant;
 use crate::browser::recovery::CrashTracker;
 use crate::browser::registry::BrowserRegistry;
@@ -42,6 +43,20 @@ pub struct BrowserSurface {
     /// one-shot the frontend held alone would be checked there and then refused
     /// here, authorizing nothing. Each is consumed by the first matching action.
     pub one_shots: Mutex<Vec<OneShot>>,
+    /// Rust-authoritative feature and AI posture state. Frontend settings are a
+    /// desired state only; commands consult this copy before creating or driving
+    /// an AI-owned tab.
+    pub ai_policy: Mutex<AiBrowserPolicy>,
+    /// Ephemeral human-tab attachments. Exact tab + generation binding prevents
+    /// an approval from following a page navigation or a reused tab id.
+    pub attachments: Mutex<Vec<TabAttachment>>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TabAttachment {
+    pub tab_id: String,
+    pub generation: u64,
+    pub uses: Option<u8>,
 }
 
 impl BrowserSurface {
@@ -68,6 +83,7 @@ impl BrowserSurface {
             .remove(tab_id);
         // A destroyed tab's one-shots must not linger to authorize a reused id.
         self.clear_tab_one_shots(tab_id);
+        self.clear_tab_attachment(tab_id);
         Ok(())
     }
 
@@ -78,6 +94,54 @@ impl BrowserSurface {
         if let Ok(mut shots) = self.one_shots.lock() {
             crate::browser::one_shot::clear_one_shots_for_tab(&mut shots, tab_id);
         }
+    }
+
+    pub fn attach_tab(&self, tab_id: String, generation: u64, once: bool) -> Result<(), String> {
+        let mut attachments = self.attachments.lock().map_err(|e| e.to_string())?;
+        attachments.retain(|attachment| attachment.tab_id != tab_id);
+        attachments.push(TabAttachment {
+            tab_id,
+            generation,
+            uses: once.then_some(1),
+        });
+        Ok(())
+    }
+
+    pub fn is_tab_attached(&self, tab_id: &str, generation: u64) -> bool {
+        self.attachments
+            .lock()
+            .map(|attachments| {
+                attachments
+                    .iter()
+                    .any(|attachment| attachment.tab_id == tab_id && attachment.generation == generation)
+            })
+            .unwrap_or(false)
+    }
+
+    pub fn clear_tab_attachment(&self, tab_id: &str) {
+        if let Ok(mut attachments) = self.attachments.lock() {
+            attachments.retain(|attachment| attachment.tab_id != tab_id);
+        }
+    }
+
+    pub fn consume_tab_attachment(&self, tab_id: &str, generation: u64) -> bool {
+        let Ok(mut attachments) = self.attachments.lock() else { return false };
+        let Some(index) = attachments.iter().position(|attachment| {
+            attachment.tab_id == tab_id && attachment.generation == generation
+        }) else {
+            return false;
+        };
+        if let Some(uses) = attachments[index].uses.as_mut() {
+            if *uses == 0 {
+                attachments.remove(index);
+                return false;
+            }
+            *uses -= 1;
+            if *uses == 0 {
+                attachments.remove(index);
+            }
+        }
+        true
     }
 }
 
@@ -100,8 +164,8 @@ mod imp;
 
 #[cfg(target_os = "macos")]
 pub use imp::{
-    assert_no_bridge, create, destroy, dialog_respond, eval, go_history, navigate, set_bounds,
-    set_hidden, stop,
+    assert_no_bridge, clear_ai_sandbox_store, create, create_with_mode, destroy, dialog_respond,
+    eval, go_history, navigate, set_bounds, set_hidden, stop,
 };
 
 #[cfg(not(target_os = "macos"))]
@@ -110,6 +174,18 @@ mod stub {
     const MSG: &str = "embedded browser surface is macOS-only in this build";
     pub fn create(_a: &AppHandle, _t: String, _w: String, _u: String) -> Result<(), String> {
         Err(MSG.into())
+    }
+    pub fn create_with_mode(
+        _a: &AppHandle,
+        _t: String,
+        _w: String,
+        _u: String,
+        _mode: crate::browser::registry::AutomationMode,
+    ) -> Result<(), String> {
+        Err("UNSUPPORTED_PLATFORM".into())
+    }
+    pub fn clear_ai_sandbox_store(_a: &AppHandle) -> Result<(), String> {
+        Err("UNSUPPORTED_PLATFORM".into())
     }
     pub fn navigate(_a: &AppHandle, _t: String, _u: String) -> Result<(), String> {
         Err(MSG.into())
@@ -149,8 +225,8 @@ mod stub {
 
 #[cfg(not(target_os = "macos"))]
 pub use stub::{
-    assert_no_bridge, create, destroy, dialog_respond, eval, go_history, navigate, set_bounds,
-    set_hidden, stop,
+    assert_no_bridge, clear_ai_sandbox_store, create, create_with_mode, destroy, dialog_respond,
+    eval, go_history, navigate, set_bounds, set_hidden, stop,
 };
 
 #[cfg(test)]

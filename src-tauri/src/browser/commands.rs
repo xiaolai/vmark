@@ -11,7 +11,7 @@
 //! only these *driver* commands are capability-scoped, and `browser_eval` is where
 //! the origin gate is enforced.
 
-use crate::browser::registry::{validate_navigation_url, Lifecycle};
+use crate::browser::registry::{validate_navigation_url, AutomationMode, Lifecycle};
 use crate::browser::surface::{self, BrowserSurface};
 use tauri::{AppHandle, State};
 
@@ -33,6 +33,9 @@ pub async fn browser_create(
     tab_id: String,
     url: String,
 ) -> Result<(), String> {
+    if !state.ai_policy.lock().map_err(|e| e.to_string())?.enabled {
+        return Err("BROWSER_DISABLED".into());
+    }
     // The window is the INVOKING one, taken from Tauri — not a caller-supplied
     // label. The old signature trusted a `window_label` argument, and the native
     // layer ignored it anyway and attached to `keyWindow()`, so a browser tab
@@ -42,6 +45,7 @@ pub async fn browser_create(
     {
         let mut reg = state.registry.lock().map_err(|e| e.to_string())?;
         reg.create(&tab_id, &window_label).map_err(err)?;
+        reg.begin_navigation(&tab_id, &url).map_err(err)?;
     }
     if let Err(e) = surface::create(&app, tab_id.clone(), window_label, url) {
         // Roll back BOTH halves of the tab's state — registry entry and crash
@@ -70,10 +74,20 @@ pub async fn browser_navigate(
     tab_id: String,
     url: String,
 ) -> Result<(), String> {
+    if !state.ai_policy.lock().map_err(|e| e.to_string())?.enabled {
+        return Err("BROWSER_DISABLED".into());
+    }
     let url = validate_navigation_url(&url).map_err(err)?;
     {
         let mut reg = state.registry.lock().map_err(|e| e.to_string())?;
-        reg.clear_committed_url(&tab_id).map_err(err)?;
+        reg.begin_navigation(&tab_id, &url).map_err(err)?;
+        // This command is the user's omnibox path, including when the tab was
+        // originally created in shared AI posture. The native delegate must
+        // not reinterpret that explicit human navigation as an AI destination
+        // requiring a separate approval prompt.
+        if reg.automation_mode(&tab_id) == Some(AutomationMode::AiShared) {
+            reg.set_shared_navigation_approval(&tab_id, &url).map_err(err)?;
+        }
     }
     surface::navigate(&app, tab_id, url)
 }

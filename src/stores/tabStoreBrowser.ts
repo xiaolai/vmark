@@ -10,7 +10,12 @@
  */
 
 import { canonicalizeBrowserUrl } from "@/lib/browser/url";
-import type { Tab, BrowserTab } from "./tabStoreTypes";
+import type {
+  BrowserAutomationMode,
+  BrowserPersistPolicy,
+  Tab,
+  BrowserTab,
+} from "./tabStoreTypes";
 
 /** Canonical URL for a browser tab; falls back to the raw string when the URL
  *  is not a navigable http(s) URL (about:blank, a scheme-less draft) so the tab
@@ -20,13 +25,36 @@ export function browserTabUrl(url: string): string {
 }
 
 /** The existing browser tab in `windowTabs` with this canonical url, if any. */
-export function findBrowserTab(windowTabs: Tab[], canonicalUrl: string): Tab | undefined {
-  return windowTabs.find((t) => t.kind === "browser" && t.url === canonicalUrl);
+export function findBrowserTab(
+  windowTabs: Tab[],
+  canonicalUrl: string,
+  automationMode: BrowserAutomationMode = "human",
+): Tab | undefined {
+  return windowTabs.find(
+    (t) =>
+      t.kind === "browser" &&
+      t.url === canonicalUrl &&
+      (t.automationMode ?? "human") === automationMode,
+  );
 }
 
 /** Construct a new browser tab record. */
-export function makeBrowserTab(id: string, canonicalUrl: string, title?: string): BrowserTab {
-  return { kind: "browser", id, url: canonicalUrl, title: title ?? canonicalUrl, isPinned: false };
+export function makeBrowserTab(
+  id: string,
+  canonicalUrl: string,
+  title?: string,
+  automationMode: BrowserAutomationMode = "human",
+): BrowserTab {
+  const persistPolicy: BrowserPersistPolicy = automationMode === "human" ? "restore-human" : "transient-ai";
+  return {
+    kind: "browser",
+    id,
+    url: canonicalUrl,
+    title: title ?? canonicalUrl,
+    isPinned: false,
+    automationMode,
+    persistPolicy,
+  };
 }
 
 /** The mutable fields of a browser tab. `generation` is the driver's navigation

@@ -170,6 +170,8 @@ export const initialState: SettingsState = {
   browser: {
     // Embedded browser is off by default until the surface + driver ship (WI-1.10).
     enabled: false,
+    aiSession: "sandbox",
+    aiAllowLoopback: false,
   },
   showDevSection: false,
 };

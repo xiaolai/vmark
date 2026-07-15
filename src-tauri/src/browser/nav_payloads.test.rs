@@ -19,6 +19,7 @@ fn nav_payload_uses_camelcase_tab_id_and_carries_generation() {
         tab_id: "t1".into(),
         url: "https://a.com".into(),
         generation: 7,
+        navigation_id: "nav-1".into(),
         can_go_back: true,
         can_go_forward: false,
         redirected: false,
@@ -29,6 +30,7 @@ fn nav_payload_uses_camelcase_tab_id_and_carries_generation() {
             "tabId": "t1",
             "url": "https://a.com",
             "generation": 7,
+            "navigationId": "nav-1",
             "canGoBack": true,
             "canGoForward": false,
             "redirected": false
@@ -43,6 +45,7 @@ fn loaded_payload_shape() {
         url: "https://a.com".into(),
         title: "Hello".into(),
         generation: 7,
+        navigation_id: "nav-1".into(),
         can_go_back: false,
         can_go_forward: true,
     };
@@ -53,6 +56,7 @@ fn loaded_payload_shape() {
             "url": "https://a.com",
             "title": "Hello",
             "generation": 7,
+            "navigationId": "nav-1",
             "canGoBack": false,
             "canGoForward": true
         })
@@ -68,6 +72,7 @@ fn history_flags_ride_every_navigation_event() {
         tab_id: "t1".into(),
         url: "https://a.com".into(),
         generation: 1,
+        navigation_id: "nav-1".into(),
         can_go_back: true,
         can_go_forward: true,
         redirected: false,
@@ -77,6 +82,7 @@ fn history_flags_ride_every_navigation_event() {
         url: "https://a.com".into(),
         title: "T".into(),
         generation: 1,
+        navigation_id: "nav-1".into(),
         can_go_back: true,
         can_go_forward: true,
     });
@@ -91,8 +97,12 @@ fn failed_payload_shape() {
     let p = FailedPayload {
         tab_id: "t1".into(),
         message: "boom".into(),
+        navigation_id: "nav-1".into(),
     };
-    assert_eq!(value(&p), json!({ "tabId": "t1", "message": "boom" }));
+    assert_eq!(
+        value(&p),
+        json!({ "tabId": "t1", "message": "boom", "navigationId": "nav-1" })
+    );
 }
 
 #[test]
@@ -156,6 +166,7 @@ fn generation_serializes_as_a_json_number_at_the_safe_integer_boundary() {
         tab_id: "t1".into(),
         url: "https://a.com".into(),
         generation: 9_007_199_254_740_991, // 2^53 - 1
+        navigation_id: "nav-1".into(),
         can_go_back: false,
         can_go_forward: false,
         redirected: false,
@@ -175,6 +186,7 @@ fn a_redirected_commit_says_so() {
         tab_id: "t1".into(),
         url: "https://a.com/final".into(),
         generation: 2,
+        navigation_id: "nav-1".into(),
         can_go_back: false,
         can_go_forward: false,
         redirected: true,

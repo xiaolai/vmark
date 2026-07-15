@@ -5,6 +5,7 @@
 //! A divergence here is a security bug, not a cosmetic one.
 
 use super::*;
+use crate::browser::registry::AutomationMode;
 
 fn origin(url: &str) -> Option<CanonicalOrigin> {
     canonicalize_origin(url)
@@ -383,14 +384,37 @@ fn rejects_non_web_schemes_as_navigation_targets() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn read_is_allowed_on_any_committed_page_without_a_standing_grant() {
+fn legacy_human_wrapper_refuses_read_without_a_human_attachment() {
     // R7a: "Reading a page the *user themselves* navigated to is granted per-tab."
     // This holds because the AI has NO navigate tool — the committed origin is
     // always a page the human (or an already-approved act) put there.
-    assert!(is_driver_operation_allowed(
+    assert!(!is_driver_operation_allowed(
         "https://anything.com/p",
         "read",
         &[]
+    ));
+}
+
+#[test]
+fn sandbox_read_is_allowed_but_human_read_requires_attachment() {
+    assert!(is_driver_operation_allowed_for_mode(
+        "https://example.com/page", "read", &[], AutomationMode::AiSandbox, false, false
+    ));
+    assert!(!is_driver_operation_allowed_for_mode(
+        "https://example.com/page", "read", &[], AutomationMode::Human, false, false
+    ));
+    assert!(is_driver_operation_allowed_for_mode(
+        "https://example.com/page", "read", &[], AutomationMode::Human, true, false
+    ));
+}
+
+#[test]
+fn shared_read_requires_current_destination_approval() {
+    assert!(!is_driver_operation_allowed_for_mode(
+        "https://example.com/page", "read", &[], AutomationMode::AiShared, false, false
+    ));
+    assert!(is_driver_operation_allowed_for_mode(
+        "https://example.com/page", "read", &[], AutomationMode::AiShared, false, true
     ));
 }
 
@@ -512,10 +536,13 @@ fn unknown_and_case_variant_operations_are_denied_like_the_ts_vocabulary() {
         );
     }
     // The canonical lowercase spellings still behave exactly as before.
-    assert!(is_driver_operation_allowed(
+    assert!(is_driver_operation_allowed_for_mode(
         "https://blog.example.com",
         "read",
-        &g
+        &g,
+        AutomationMode::AiSandbox,
+        false,
+        false,
     ));
     assert!(is_operation_granted(
         "https://blog.example.com",
@@ -547,4 +574,3 @@ fn rejects_shorthand_and_backslash_authority_forms_as_nav_targets() {
     assert!(validate_navigation_url("https://example.com").is_ok());
     assert!(validate_navigation_url("HTTPS://EXAMPLE.COM/a?b#c").is_ok());
 }
-

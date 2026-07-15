@@ -6,7 +6,7 @@ import { useBrowserApprovalStore } from "./browserApprovalStore";
 const URL = "https://blog.example.com/wp-admin/post-new.php";
 
 function reset() {
-  useBrowserApprovalStore.setState({ grants: [], pending: [], oneShots: [] });
+  useBrowserApprovalStore.setState({ grants: [], pending: [], oneShots: [], attachments: [] });
 }
 beforeEach(reset);
 
@@ -221,7 +221,7 @@ describe("grant validation", () => {
 // is consumed exactly once by the next matching action.
 describe("allow-once (one-shot authorization)", () => {
   beforeEach(() => {
-    useBrowserApprovalStore.setState({ grants: [], pending: [], oneShots: [] });
+    useBrowserApprovalStore.setState({ grants: [], pending: [], oneShots: [], attachments: [] });
   });
 
   it("authorizes exactly one subsequent action, then expires", () => {
@@ -296,7 +296,7 @@ describe("allow-once (one-shot authorization)", () => {
 // different element than the user actually approved.
 describe("one-shot target binding", () => {
   beforeEach(() => {
-    useBrowserApprovalStore.setState({ grants: [], pending: [], oneShots: [] });
+    useBrowserApprovalStore.setState({ grants: [], pending: [], oneShots: [], attachments: [] });
   });
 
   it("authorizes the exact approved target and nothing else", () => {

@@ -12,7 +12,7 @@ import { useBrowserApprovalStore } from "@/stores/browserApprovalStore";
 
 beforeEach(() => {
   cleanup();
-  useBrowserApprovalStore.setState({ grants: [], pending: [], oneShots: [] });
+  useBrowserApprovalStore.setState({ grants: [], pending: [], oneShots: [], attachments: [] });
   vi.clearAllMocks();
 });
 

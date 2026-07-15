@@ -439,6 +439,8 @@ See [Workflow Viewer](/guide/workflow-viewer) for the full feature surface.
 | Setting | Description | Default | Options |
 |---------|-------------|---------|---------|
 | Embedded browser | Enable the experimental in-app web browser (macOS only). When on, **New Browser Tab** appears in the command palette | Off | On / Off |
+| AI browser session | Choose `Sandbox` (recommended, isolated non-persistent AI cookies) or `Shared profile` (human profile with destination approvals) | Sandbox | Sandbox / Shared |
+| Allow AI loopback access | Allow AI navigation to localhost and loopback addresses. Private LAN, metadata, and link-local ranges remain blocked | Off | On / Off |
 
 This toggle lives under **Developer Tools** (see below) — turn Developer Tools on
 to reveal it. See [Embedded Browser](/guide/browser) for the full feature surface.

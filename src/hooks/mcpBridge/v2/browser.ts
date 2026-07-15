@@ -28,9 +28,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { respond } from "../utils";
 import { wrapHandler } from "./wrapHandler";
-import { useTabStore } from "@/stores/tabStore";
-import { isBrowserTab } from "@/stores/tabStoreTypes";
-import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import { useBrowserApprovalStore } from "@/stores/browserApprovalStore";
 import {
   buildClickScript,
@@ -38,6 +35,12 @@ import {
   buildTypeScript,
 } from "@/lib/browser/agent/actScript";
 import { urlForAgent } from "@/lib/browser/url";
+import { browserEnabled, readTabIdArg, resolveBrowserTab } from "./browserHelpers";
+export {
+  handleBrowserNavigate,
+  handleBrowserOpen,
+  handleBrowserWait,
+} from "./browserNavigation";
 
 /**
  * Resolve the target browser tab (by id, else the focused window's active tab).
@@ -47,24 +50,6 @@ import { urlForAgent } from "@/lib/browser/url";
  * a page that has since navigated. It defaults to 0 — a value the driver refuses
  * — when nothing has committed yet: fail-closed, never invent a plausible stamp.
  */
-function resolveBrowserTab(
-  tabIdArg?: string,
-): { tabId: string; url: string; generation: number } | null {
-  const store = useTabStore.getState();
-  const tab = tabIdArg ? store.findTabById(tabIdArg) : store.getActiveTab(getCurrentWindowLabel());
-  return tab && isBrowserTab(tab)
-    ? { tabId: tab.id, url: tab.url, generation: tab.generation ?? 0 }
-    : null;
-}
-
-function parse(raw: string): unknown {
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return raw;
-  }
-}
-
 /**
  * Read an optional `tabId` argument: the id string, `undefined` when absent, or
  * `null` when present-but-invalid (empty, whitespace-only, or non-string).
@@ -73,11 +58,13 @@ function parse(raw: string): unknown {
  * tab — that could act on a page the caller never meant. Absent is the only case
  * that legitimately means "use the active tab".
  */
-function readTabIdArg(args: Record<string, unknown>): string | undefined | null {
-  if (args.tabId === undefined) return undefined;
-  if (typeof args.tabId !== "string" || args.tabId.trim() === "") return null;
-  return args.tabId;
-}
+const parse = (raw: string): unknown => {
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return raw;
+  }
+};
 
 /** Whether the parsed act result reports the action actually landed. A completed
  *  eval is not a completed action: `{found:false}`/`{clicked:false}`/`{typed:false}`
@@ -88,9 +75,36 @@ function actionSucceeded(operation: "click" | "type", result: unknown): boolean 
   return (result as Record<string, unknown>)[flag] === true;
 }
 
+function requireHumanAttachment(
+  id: string,
+  tab: ReturnType<typeof resolveBrowserTab>,
+): boolean {
+  if (!tab || tab.automationMode !== "human") return true;
+  const approvals = useBrowserApprovalStore.getState();
+  if (approvals.isHumanTabAttached(tab.tabId, tab.generation)) return true;
+  approvals.requestApproval(id, tab.url, "attach", undefined, tab.tabId, tab.generation);
+  void respond({
+    id,
+    success: false,
+    error: "ATTACHMENT_REQUIRED",
+    data: {
+      needsApproval: true,
+      operation: "attach",
+      url: urlForAgent(tab.url),
+      tabId: tab.tabId,
+      generation: tab.generation,
+    },
+  });
+  return false;
+}
+
 /** `vmark.browser.read` — ARIA snapshot of the current page. Args `{tabId?}`. */
 export async function handleBrowserRead(id: string, args: Record<string, unknown>): Promise<void> {
   return wrapHandler(id, async () => {
+    if (!browserEnabled()) {
+      await respond({ id, success: false, error: "BROWSER_DISABLED" });
+      return;
+    }
     const tabIdArg = readTabIdArg(args);
     if (tabIdArg === null) {
       await respond({ id, success: false, error: "tabId must be a non-empty string when supplied" });
@@ -101,12 +115,18 @@ export async function handleBrowserRead(id: string, args: Record<string, unknown
       await respond({ id, success: false, error: "no active browser tab" });
       return;
     }
+    if (!requireHumanAttachment(id, tab)) return;
+    const approvals = useBrowserApprovalStore.getState();
+    const humanRead =
+      tab.automationMode === "human" &&
+      approvals.isHumanTabAttached(tab.tabId, tab.generation);
     const raw = await invoke<string>("browser_eval", {
       tabId: tab.tabId,
       script: buildSnapshotScript(),
       operation: "read",
       generation: tab.generation,
     });
+    if (humanRead) approvals.consumeHumanTabAttachment(tab.tabId, tab.generation);
     // Redacted at the trust boundary: credentials in a URL are the one thing about a page
     // the AI could not read out of the DOM anyway (audit, High).
     await respond({
@@ -123,6 +143,10 @@ export async function handleBrowserRead(id: string, args: Record<string, unknown
  */
 export async function handleBrowserAct(id: string, args: Record<string, unknown>): Promise<void> {
   return wrapHandler(id, async () => {
+    if (!browserEnabled()) {
+      await respond({ id, success: false, error: "BROWSER_DISABLED" });
+      return;
+    }
     const tabIdArg = readTabIdArg(args);
     if (tabIdArg === null) {
       await respond({ id, success: false, error: "tabId must be a non-empty string when supplied" });
@@ -133,6 +157,7 @@ export async function handleBrowserAct(id: string, args: Record<string, unknown>
       await respond({ id, success: false, error: "no active browser tab" });
       return;
     }
+    if (!requireHumanAttachment(id, tab)) return;
     const operation = typeof args.operation === "string" ? args.operation : "";
     const role = typeof args.role === "string" ? args.role : "";
     const name = typeof args.name === "string" ? args.name : "";
@@ -165,7 +190,8 @@ export async function handleBrowserAct(id: string, args: Record<string, unknown>
       return;
     }
 
-    const decision = useBrowserApprovalStore.getState().decide(tab.url, operation);
+    const approvals = useBrowserApprovalStore.getState();
+    const decision = approvals.decide(tab.url, operation);
     if (decision === "denied") {
       await respond({ id, success: false, error: `operation '${operation}' is not permitted` });
       return;
@@ -194,7 +220,13 @@ export async function handleBrowserAct(id: string, args: Record<string, unknown>
           // never learned that consent was being asked for. The structured
           // envelope rides alongside for clients that can render it.
           error: `approval required: '${operation}' on ${urlForAgent(tab.url)}`,
-          data: { needsApproval: true, operation, url: urlForAgent(tab.url) },
+          data: {
+            needsApproval: true,
+            operation,
+            url: urlForAgent(tab.url),
+            tabId: tab.tabId,
+            generation: tab.generation,
+          },
         });
         return;
       }
@@ -214,6 +246,13 @@ export async function handleBrowserAct(id: string, args: Record<string, unknown>
       role,
       name,
     });
+    const humanAct =
+      tab.automationMode === "human" &&
+      approvals.isHumanTabAttached(tab.tabId, tab.generation);
+    // Rust consumes the one-shot attachment while authorizing browser_eval.
+    // Mirror that consumption after the command succeeds so the next action
+    // cannot pass the frontend check and then fail in the driver.
+    if (humanAct) approvals.consumeHumanTabAttachment(tab.tabId, tab.generation);
     // Report the ACTION outcome, not merely that the eval completed: a click that
     // hit nothing or a type refused as readonly is a no-op, and telling the AI it
     // succeeded would have it proceed as if the page changed.

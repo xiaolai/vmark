@@ -37,18 +37,70 @@ import { invoke } from "@tauri-apps/api/core";
 import { useBrowserUiStore } from "@/stores/browserUiStore";
 import { useBrowserApprovalStore } from "@/stores/browserApprovalStore";
 import { browserOcclusion } from "@/services/browser/browserOcclusion";
+import { browserEventBroker } from "@/services/browser/browserEventBroker";
 import { clearNavIntent } from "@/services/browser/navIntent";
 import { errorMessage } from "@/utils/errorMessage";
+import type { BrowserAutomationMode } from "@/stores/tabStoreTypes";
 
 /** The mount that currently owns each tab's native webview — see hazard 1 above. */
 const mountTokens = new Map<string, number>();
 let nextMountToken = 0;
+const nativeReady = new Map<string, Promise<void>>();
+const activeMounts = new Set<string>();
+
+/**
+ * Start native creation once per tab. The hook and MCP handlers can race when
+ * an AI tab is first opened; sharing this promise makes one of them the owner
+ * without allowing the other to issue a second approval-gated command.
+ */
+export function ensureBrowserNativeView(
+  tabId: string,
+  url: string,
+  automationMode: BrowserAutomationMode,
+): Promise<void> {
+  const existing = nativeReady.get(tabId);
+  if (existing) return existing;
+  const command = automationMode === "human" ? "browser_create" : "browser_ai_create";
+  const created = invoke<void>(command, { tabId, url })
+    .then(() => {
+      // A previous approval denial may have left the tab with a transient
+      // error even though this retry now owns a live native view.
+      useBrowserUiStore.getState().setError(tabId, null);
+      useBrowserUiStore.getState().setLoading(tabId, false);
+      if (activeMounts.has(tabId)) browserOcclusion.resync(tabId);
+    })
+    .catch((error: unknown) => {
+      if (nativeReady.get(tabId) === created) nativeReady.delete(tabId);
+      throw error;
+    });
+  nativeReady.set(tabId, created);
+  return created;
+}
+
+/** Wait until an activated tab's React surface has registered its native view. */
+export async function waitForBrowserNativeView(tabId: string, timeoutMs: number): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  let ready = nativeReady.get(tabId);
+  while (!ready && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    ready = nativeReady.get(tabId);
+  }
+  if (!ready) throw new Error("native browser surface unavailable");
+  const remaining = Math.max(1, deadline - Date.now());
+  await Promise.race([
+    ready,
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("native browser surface timed out")), remaining),
+    ),
+  ]);
+}
 
 export function useBrowserNativeView(
   tabId: string,
   url: string,
   layoutVersion: string,
   viewportRef: RefObject<HTMLDivElement | null>,
+  automationMode: BrowserAutomationMode = "human",
 ): void {
   // Create on mount; destroy on unmount. Seed/clear the transient omnibox state (ADR-5)
   // alongside the native view's lifecycle so the bottom bar has this tab's url the moment
@@ -57,10 +109,9 @@ export function useBrowserNativeView(
     let active = true;
     const token = ++nextMountToken;
     mountTokens.set(tabId, token);
+    activeMounts.add(tabId);
     useBrowserUiStore.getState().ensureEntry(tabId, url);
-    // The window is derived Rust-side from the invoking WebviewWindow (a caller can't
-    // assert a label), so we pass only tabId + url.
-    const created = invoke("browser_create", { tabId, url });
+    const created = ensureBrowserNativeView(tabId, url, automationMode);
     void created
       .then(() => {
         // The native view exists NOW — not when the store entry above was seeded. Hazard 2.
@@ -75,6 +126,8 @@ export function useBrowserNativeView(
 
     return () => {
       active = false;
+      if (mountTokens.get(tabId) === token) activeMounts.delete(tabId);
+      if (nativeReady.get(tabId) === created) nativeReady.delete(tabId);
       // Destroy only AFTER create settles: a create that resolves after this unmount would
       // otherwise register a native webview this destroy already missed, orphaning a
       // content process nothing tears down.
@@ -90,6 +143,7 @@ export function useBrowserNativeView(
       // thaw, there is nothing left to show. A stale occluder left behind would freeze the
       // NEXT view created for this tab id.
       browserOcclusion.removeTab(tabId);
+      if (mountTokens.get(tabId) === token) browserEventBroker.cancelTab(tabId);
       // Any prompt raised against this tab describes a page that is being destroyed.
       useBrowserApprovalStore.getState().dismissForNavigation(tabId);
       clearNavIntent(tabId);

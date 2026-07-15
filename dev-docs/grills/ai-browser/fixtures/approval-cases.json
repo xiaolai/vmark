@@ -1,0 +1,8 @@
+{
+  "cases": [
+    { "operation": "read", "mode": "ai-sandbox", "expected": "allow" },
+    { "operation": "read", "mode": "human", "attached": false, "expected": "attach" },
+    { "operation": "navigate", "mode": "ai-shared", "grant": false, "expected": "approval" },
+    { "operation": "upload", "mode": "ai-sandbox", "grant": true, "expected": "deny" }
+  ]
+}

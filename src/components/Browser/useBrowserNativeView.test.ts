@@ -26,7 +26,7 @@ vi.mock("@/services/browser/browserOcclusion", () => ({
   OCCLUDER: { crash: "crash-overlay", dialog: "page-dialog", approval: "approval-dialog", error: "error-overlay" },
 }));
 
-import { useBrowserNativeView } from "./useBrowserNativeView";
+import { ensureBrowserNativeView, useBrowserNativeView } from "./useBrowserNativeView";
 import { useBrowserUiStore } from "@/stores/browserUiStore";
 
 // jsdom has no ResizeObserver. The hook observes the reserved rect, so it needs one; the
@@ -71,6 +71,40 @@ describe("useBrowserNativeView — create/destroy", () => {
     await waitFor(() =>
       expect(useBrowserUiStore.getState().entries.t1?.error).toBe("no window"),
     );
+  });
+
+  it("shares an AI create promise when the hook and MCP open race", async () => {
+    let resolveCreate!: () => void;
+    invoke.mockImplementation((cmd: string) =>
+      cmd === "browser_ai_create"
+        ? new Promise<void>((resolve) => {
+            resolveCreate = resolve;
+          })
+        : Promise.resolve(),
+    );
+    const first = ensureBrowserNativeView("ai-1", "https://example.com", "ai-sandbox");
+    const second = ensureBrowserNativeView("ai-1", "https://example.com", "ai-sandbox");
+    expect(first).toBe(second);
+    expect(invoke).toHaveBeenCalledTimes(1);
+    resolveCreate();
+    await expect(first).resolves.toBeUndefined();
+  });
+
+  it("allows a fresh AI create after approval rejection and clears the old error", async () => {
+    invoke
+      .mockRejectedValueOnce(new Error("APPROVAL_REQUIRED"))
+      .mockResolvedValueOnce(undefined);
+    useBrowserUiStore.getState().ensureEntry("ai-2", "https://example.com");
+    useBrowserUiStore.getState().setError("ai-2", "APPROVAL_REQUIRED");
+
+    await expect(
+      ensureBrowserNativeView("ai-2", "https://example.com", "ai-shared"),
+    ).rejects.toThrow("APPROVAL_REQUIRED");
+    await expect(
+      ensureBrowserNativeView("ai-2", "https://example.com", "ai-shared"),
+    ).resolves.toBeUndefined();
+    expect(useBrowserUiStore.getState().entries["ai-2"]?.error).toBeNull();
+    expect(invoke).toHaveBeenCalledTimes(2);
   });
 
   it("destroys the native view on unmount", async () => {

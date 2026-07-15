@@ -11,6 +11,7 @@
  */
 
 import { VMarkMcpServer } from '../server.js';
+import type { ToolArgs } from '../server.js';
 import { isNeedsApproval } from '../bridge/core-types.js';
 
 /**
@@ -32,6 +33,20 @@ function toErrorResult(error: unknown) {
   return VMarkMcpServer.errorResult(error instanceof Error ? error.message : String(error));
 }
 
+function timeoutMs(value: unknown): number | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value !== 'number' || !Number.isFinite(value) || !Number.isInteger(value)) return undefined;
+  return value >= 1 && value <= 12_000 ? value : undefined;
+}
+
+function optionalId(value: unknown, field: string): string | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    throw new Error(`${field} must be a non-empty string when provided`);
+  }
+  return value;
+}
+
 export function registerBrowserTool(server: VMarkMcpServer): void {
   server.registerTool(
     {
@@ -40,13 +55,16 @@ export function registerBrowserTool(server: VMarkMcpServer): void {
         'Read and act on the embedded browser tab.\n\n' +
         'Actions:\n' +
         "- read: Return {url, snapshot} where snapshot is a flat ARIA tree [{role,name}] of the page's interactive/structural elements. Pass `tabId` to target a specific browser tab; omit to use the focused tab. Read before acting so you target elements by their real accessible name.\n" +
-        '- act: Click or type by ARIA role + accessible name. Args: {tabId?, operation: "click"|"type", role, name, text?}. Locating never crosses roles (a button named "Publish" is not a link named "Publish"). Actions are gated by the user\'s standing grants: an un-granted operation returns success:false with data.needsApproval:true — surface that to the user and wait for approval rather than retrying. Upload is never permitted (an AI-chosen file upload is an exfiltration path).',
+        '- act: Click or type by ARIA role + accessible name. Args: {tabId?, operation: "click"|"type", role, name, text?}. Locating never crosses roles (a button named "Publish" is not a link named "Publish"). Actions are gated by the user\'s standing grants: an un-granted operation returns success:false with data.needsApproval:true — surface that to the user and wait for approval rather than retrying. Upload is never permitted (an AI-chosen file upload is an exfiltration path).\n' +
+        '- open: Create an AI-owned browser tab at an HTTP(S) URL and wait for its navigation.\n' +
+        '- navigate: Navigate an AI-owned tab and wait for the returned navigation ticket.\n' +
+        '- wait: Wait for an existing navigation ticket without starting a new navigation. All waits are bounded to 12 seconds.',
       inputSchema: {
         type: 'object',
         properties: {
           action: {
             type: 'string',
-            enum: ['read', 'act'],
+            enum: ['read', 'act', 'open', 'navigate', 'wait'],
             description: 'The action to perform',
           },
           tabId: {
@@ -70,20 +88,33 @@ export function registerBrowserTool(server: VMarkMcpServer): void {
             type: 'string',
             description: 'Text to type into the target (act, operation=type).',
           },
+          url: {
+            type: 'string',
+            description: 'HTTP(S) destination (open/navigate only).',
+          },
+          navigationId: {
+            type: 'string',
+            description: 'Existing navigation ticket (wait only).',
+          },
+          timeoutMs: {
+            type: 'integer',
+            minimum: 1,
+            maximum: 12000,
+            description: 'Maximum wait in milliseconds (default 12000).',
+          },
         },
         required: ['action'],
       },
     },
-    async (args) => {
+    async (args: ToolArgs) => {
       // tabId: omit → focused tab. If explicitly provided it must be a
       // non-blank string; a blank/garbled id must not silently fall through to
       // the active tab and read or mutate the wrong one.
       let tabId: string | undefined;
-      if (args.tabId !== undefined) {
-        if (typeof args.tabId !== 'string' || args.tabId.trim().length === 0) {
-          return VMarkMcpServer.errorResult('tabId must be a non-empty string when provided');
-        }
-        tabId = args.tabId;
+      try {
+        tabId = optionalId(args.tabId, 'tabId');
+      } catch (error) {
+        return VMarkMcpServer.errorResult(error instanceof Error ? error.message : String(error));
       }
 
       try {
@@ -117,6 +148,56 @@ export function registerBrowserTool(server: VMarkMcpServer): void {
             role,
             name,
             ...(text !== undefined ? { text } : {}),
+          });
+          return VMarkMcpServer.successJsonResult(data);
+        }
+        if (args.action === 'open') {
+          if (typeof args.url !== 'string' || args.url.trim().length === 0) {
+            return VMarkMcpServer.errorResult('url must be a non-empty string');
+          }
+          const wait = timeoutMs(args.timeoutMs);
+          if (args.timeoutMs !== undefined && wait === undefined) {
+            return VMarkMcpServer.errorResult('timeoutMs must be an integer from 1 to 12000');
+          }
+          const data = await server.sendBridgeRequest({
+            type: 'vmark.browser.open',
+            url: args.url,
+            ...(wait === undefined ? {} : { timeoutMs: wait }),
+          });
+          return VMarkMcpServer.successJsonResult(data);
+        }
+        if (args.action === 'navigate') {
+          if (typeof args.url !== 'string' || args.url.trim().length === 0) {
+            return VMarkMcpServer.errorResult('url must be a non-empty string');
+          }
+          const wait = timeoutMs(args.timeoutMs);
+          if (args.timeoutMs !== undefined && wait === undefined) {
+            return VMarkMcpServer.errorResult('timeoutMs must be an integer from 1 to 12000');
+          }
+          const data = await server.sendBridgeRequest({
+            type: 'vmark.browser.navigate',
+            ...(tabId === undefined ? {} : { tabId }),
+            url: args.url,
+            ...(wait === undefined ? {} : { timeoutMs: wait }),
+          });
+          return VMarkMcpServer.successJsonResult(data);
+        }
+        if (args.action === 'wait') {
+          let navigationId: string | undefined;
+          try {
+            navigationId = optionalId(args.navigationId, 'navigationId');
+          } catch (error) {
+            return VMarkMcpServer.errorResult(error instanceof Error ? error.message : String(error));
+          }
+          const wait = timeoutMs(args.timeoutMs);
+          if (args.timeoutMs !== undefined && wait === undefined) {
+            return VMarkMcpServer.errorResult('timeoutMs must be an integer from 1 to 12000');
+          }
+          const data = await server.sendBridgeRequest({
+            type: 'vmark.browser.wait',
+            ...(tabId === undefined ? {} : { tabId }),
+            ...(navigationId === undefined ? {} : { navigationId }),
+            ...(wait === undefined ? {} : { timeoutMs: wait }),
           });
           return VMarkMcpServer.successJsonResult(data);
         }

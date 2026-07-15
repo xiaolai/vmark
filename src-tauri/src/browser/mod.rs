@@ -40,6 +40,8 @@
 
 pub mod commands;
 pub mod commands_auth;
+pub mod ai_policy;
+pub mod ai_commands;
 pub mod geometry;
 pub mod one_shot;
 pub mod operation;

@@ -65,6 +65,7 @@ pub fn destroy_window(app: &AppHandle, window_label: &str) {
         // Authority dies with the tab: a one-shot is bound to a tab that can never be
         // acted on again.
         state.clear_tab_one_shots(&tab_id);
+        state.clear_tab_attachment(&tab_id);
         if let Ok(mut trackers) = state.crash_trackers.lock() {
             trackers.remove(&tab_id);
         }

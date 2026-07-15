@@ -22,7 +22,7 @@ import { describeOriginPattern, isOriginGranted } from "../origin/originGuard";
 /** Every operation the AI can ask to perform in the browser. An operation string
  *  is an authorization token, so the vocabulary is closed: anything outside this
  *  list is rejected rather than silently becoming a standing permission. */
-const BROWSER_OPERATIONS = ["read", "click", "type", "publish", "upload"] as const;
+const BROWSER_OPERATIONS = ["read", "attach", "click", "type", "navigate", "publish", "upload"] as const;
 
 type BrowserOperation = (typeof BROWSER_OPERATIONS)[number];
 

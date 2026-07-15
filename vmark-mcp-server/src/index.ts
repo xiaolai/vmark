@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /**
- * VMark MCP Server — pruned tool surface (5 core + browser).
+ * VMark MCP Server — pruned tool surface (5 editor tools + browser).
  *
- * Exposes VMark to AI assistants via the MCP protocol with five
+ * Exposes VMark to AI assistants via the MCP protocol with six
  * composite tools: `session`, `workspace`, `document`, `workflow`,
- * `selection`. The legacy 12-tool surface (format/structure/media/table/etc.)
+ * `selection`, and `browser`. The legacy 12-tool surface (format/structure/media/table/etc.)
  * was removed in WI-1.5; `selection.{get,set}` was re-added per ADR-7
  * after the round-trip cost on large documents proved a real burden.
  * See dev-docs/plans/20260504-mcp-pruning.md for the full rationale.
@@ -35,7 +35,7 @@ export type { VMarkMcpServerConfig, ToolArgs } from './server.js';
 export { WebSocketBridge } from './bridge/websocket.js';
 export type { WebSocketBridgeConfig, Logger } from './bridge/websocket.js';
 
-// Pruned 5-tool surface (selection re-added per ADR-7)
+// Pruned editor surface plus the embedded browser (selection re-added per ADR-7)
 export { registerSessionTool } from './tools/session.js';
 export { registerWorkspaceTool } from './tools/workspace.js';
 export { registerDocumentTool } from './tools/document.js';
@@ -70,8 +70,8 @@ import { registerBrowserTool } from './tools/browser.js';
 import type { Bridge } from './bridge/types.js';
 
 /**
- * Create a fully configured VMark MCP server with the pruned tool
- * surface registered (selection re-added per ADR-7).
+ * Create a fully configured VMark MCP server with the pruned editor and browser
+ * surfaces registered (selection re-added per ADR-7).
  */
 export function createVMarkMcpServer(bridge: Bridge): VMarkMcpServer {
   const server = new VMarkMcpServer({ bridge });
@@ -81,7 +81,7 @@ export function createVMarkMcpServer(bridge: Bridge): VMarkMcpServer {
   registerDocumentTool(server);  // document (3 actions)
   registerWorkflowTool(server);  // workflow (2 actions)
   registerSelectionTool(server); // selection (2 actions)
-  registerBrowserTool(server);   // browser (2 actions: read, act)
+  registerBrowserTool(server);   // browser (5 actions: read, act, open, navigate, wait)
 
   return server;
 }
@@ -123,7 +123,7 @@ export const TOOL_CATEGORIES = [
   {
     name: 'Browser',
     description:
-      'Read (ARIA snapshot) and act (click/type by role+name) on the embedded browser tab; actions are approval-gated (2 actions: read, act)',
+      'Read, act, open, navigate, and wait on the embedded browser tab; actions are approval-gated (5 actions)',
     tools: ['browser'],
   },
 ] as const;

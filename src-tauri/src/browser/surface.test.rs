@@ -59,3 +59,17 @@ fn forget_tab_is_idempotent_for_an_unknown_tab() {
     s.forget_tab("never-existed").unwrap();
     assert!(s.registry.lock().unwrap().is_empty());
 }
+
+#[test]
+fn human_attachment_is_bound_to_generation_and_once_mode_is_consumed() {
+    let s = surface_with_tab("t1");
+    s.attach_tab("t1".into(), 3, true).unwrap();
+    assert!(s.is_tab_attached("t1", 3));
+    assert!(!s.is_tab_attached("t1", 4));
+    assert!(s.consume_tab_attachment("t1", 3));
+    assert!(!s.is_tab_attached("t1", 3));
+
+    s.attach_tab("t1".into(), 5, false).unwrap();
+    assert!(s.consume_tab_attachment("t1", 5));
+    assert!(s.is_tab_attached("t1", 5));
+}

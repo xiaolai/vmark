@@ -83,6 +83,10 @@ export interface LargeFileSettings {
 export interface BrowserSettings {
   /** Master feature flag for the in-app embedded browser. Default false. */
   enabled: boolean;
+  /** AI-owned browser data posture. Sandbox is isolated from human tabs. */
+  aiSession: "sandbox" | "shared";
+  /** Explicitly relax only loopback blocking for AI navigation. */
+  aiAllowLoopback: boolean;
 }
 
 /** General settings — auto-save, document history, tab size, line endings, and quit behavior. */

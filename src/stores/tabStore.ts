@@ -35,7 +35,11 @@ import { imeToast as toast } from "@/services/ime/imeToast";
 import i18n from "@/i18n";
 import { normalizePath } from "@/utils/paths";
 import type { SplitViewMode } from "@/lib/formats/types";
-import type { Tab, DocumentTab } from "@/stores/tabStoreTypes";
+import type {
+  BrowserAutomationMode,
+  Tab,
+  DocumentTab,
+} from "@/stores/tabStoreTypes";
 import {
   browserTabUrl,
   findBrowserTab,
@@ -59,7 +63,6 @@ import { notifyTabRemoved } from "@/stores/tabRemovalBus";
 export type { Tab, DocumentTab, BrowserTab } from "@/stores/tabStoreTypes";
 export { tabFilePath } from "@/stores/tabStoreTypes";
 
-// Per-window tab state
 interface TabState {
   // Tabs keyed by window label
   tabs: Record<string, Tab[]>;
@@ -78,10 +81,14 @@ interface TabActions {
     windowLabel: string,
     tab: Omit<DocumentTab, "formatId" | "kind"> & { formatId?: string; kind?: "document" },
   ) => string;
-  /** WI-1.1 — create (or activate existing) browser tab for `url` (canonicalized
-   *  for dedup). Returns the (possibly pre-existing) tab id. */
-  createBrowserTab: (windowLabel: string, url: string, title?: string) => string;
-  /** WI-1.1 — patch a browser tab's url/title/scrollY/generation. No-op on document tabs. */
+  /** Create (or activate) a browser tab for `url`, deduplicated by mode. */
+  createBrowserTab: (
+    windowLabel: string,
+    url: string,
+    title?: string,
+    automationMode?: BrowserAutomationMode,
+  ) => string;
+  /** Patch browser metadata. No-op on document tabs. */
   updateBrowserTab: (
     tabId: string,
     patch: { url?: string; title?: string; scrollY?: number; generation?: number },
@@ -93,20 +100,12 @@ interface TabActions {
   setTabEditingEnabled: (tabId: string, enabled: boolean) => void;
   setTabActiveSchemaId: (tabId: string, schemaId: string | null) => void;
   setTabViewMode: (tabId: string, mode: SplitViewMode) => void;
-  /** WI-1A.13 — overwrite a tab's `formatId` directly. Used by hot-exit
-   *  restore for untitled tabs where path-based derivation cannot recover
-   *  a non-markdown format (untitled JSON, etc.). Caller is responsible
-   *  for passing a valid registered id; invalid ids fall back to txt at
-   *  render time via dispatchEditor. */
+  /** Overwrite a tab's format id, used by hot-exit restore. */
   setTabFormatId: (tabId: string, formatId: string) => void;
   updateTabPath: (tabId: string, filePath: string) => void;
   updateTabTitle: (tabId: string, title: string) => void;
   togglePin: (windowLabel: string, tabId: string) => void;
-  /** Re-resolve every tab's `formatId` against the current registry.
-   *  Called after the user toggles a format-support setting and the
-   *  registry rebuilds — a tab whose adapter just got unregistered
-   *  must fall back to the txt format (and vice versa). The Editor
-   *  remount key picks up the change automatically. */
+  /** Re-resolve document format ids after the format registry changes. */
   recomputeAllFormatIds: () => void;
 
   // Detach (drag-out) — remove without adding to closedTabs
@@ -127,7 +126,6 @@ interface TabActions {
   removeWindow: (windowLabel: string) => void;
 }
 
-// Generate unique tab ID
 const generateTabId = (): string => `tab-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 
 /** Manages per-window tab lifecycle — creation, closing, pinning, reordering, and reopen history. Use selectors, not destructuring. */
@@ -223,19 +221,22 @@ export const useTabStore = create<TabState & TabActions>((set, get) => ({
     return returnId;
   },
 
-  createBrowserTab: (windowLabel, url, title) => {
+  createBrowserTab: (windowLabel, url, title, automationMode = "human") => {
     const canonical = browserTabUrl(url);
     const id = generateTabId();
     let returnId = id;
     set((state) => {
       const windowTabs = state.tabs[windowLabel] || [];
-      const existing = findBrowserTab(windowTabs, canonical);
+      const existing = findBrowserTab(windowTabs, canonical, automationMode);
       if (existing) {
         returnId = existing.id;
         return { activeTabId: { ...state.activeTabId, [windowLabel]: existing.id } };
       }
       return {
-        tabs: { ...state.tabs, [windowLabel]: [...windowTabs, makeBrowserTab(id, canonical, title)] },
+        tabs: {
+          ...state.tabs,
+          [windowLabel]: [...windowTabs, makeBrowserTab(id, canonical, title, automationMode)],
+        },
         activeTabId: { ...state.activeTabId, [windowLabel]: id },
       };
     });

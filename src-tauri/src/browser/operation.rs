@@ -21,8 +21,10 @@ pub(crate) const NEVER_AUTOMATED: &[&str] = &["upload"];
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BrowserOperation {
     Read,
+    Attach,
     Click,
     Type,
+    Navigate,
     Publish,
     Upload,
 }
@@ -32,8 +34,10 @@ impl BrowserOperation {
     fn from_wire(s: &str) -> Option<Self> {
         match s {
             "read" => Some(Self::Read),
+            "attach" => Some(Self::Attach),
             "click" => Some(Self::Click),
             "type" => Some(Self::Type),
+            "navigate" => Some(Self::Navigate),
             "publish" => Some(Self::Publish),
             "upload" => Some(Self::Upload),
             _ => None,

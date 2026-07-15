@@ -64,6 +64,10 @@ export interface DocumentTab extends BaseTab {
 export interface BrowserTab extends BaseTab {
   /** R1 discriminant — a browser tab; has no document path or format. */
   kind: "browser";
+  /** R1 — immutable provenance used to select the native data store and Rust policy. */
+  automationMode: BrowserAutomationMode;
+  /** AI tabs are transient; human tabs may be restored as human tabs. */
+  persistPolicy: BrowserPersistPolicy;
   /** Current URL (canonicalized for dedup on create; updated on navigation). */
   url: string;
   /** Last known scroll offset, persisted for restore. */
@@ -76,6 +80,9 @@ export interface BrowserTab extends BaseTab {
    */
   generation?: number;
 }
+
+export type BrowserAutomationMode = "human" | "ai-sandbox" | "ai-shared";
+export type BrowserPersistPolicy = "restore-human" | "transient-ai";
 
 /** A tab is a document or a browser page, discriminated on `kind`. */
 export type Tab = DocumentTab | BrowserTab;

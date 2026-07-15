@@ -32,6 +32,9 @@ mod lifecycle;
 pub use lifecycle::destroy;
 use lifecycle::evict_existing;
 
+#[path = "browser_store_macos.rs"]
+mod browser_store;
+
 thread_local! {
     /// Main-thread-only live webviews, keyed by tab id.
     static WEBVIEWS: RefCell<HashMap<String, Retained<WKWebView>>> = RefCell::new(HashMap::new());
@@ -72,43 +75,39 @@ pub fn create(
     window_label: String,
     url: String,
 ) -> Result<(), String> {
+    create_with_mode(
+        app,
+        tab_id,
+        window_label,
+        url,
+        super::super::registry::AutomationMode::Human,
+    )
+}
+
+/// Create a browser webview with an explicit data-store posture. The store is
+/// selected before WKWebView construction, which is the only safe WebKit seam.
+pub fn create_with_mode(
+    app: &AppHandle,
+    tab_id: String,
+    window_label: String,
+    url: String,
+    mode: super::super::registry::AutomationMode,
+) -> Result<(), String> {
     let app_handle = app.clone();
     on_main(app, move |mtm| {
-        // Everything that can FAIL happens before anything is registered, so a
-        // failed create leaves no native residue behind for the command layer's
-        // registry rollback to be inconsistent with. (Building the request after
-        // inserting the delegate leaked a DELEGATES entry on a bad URL.)
+        // Validate all fallible inputs before registering native objects.
         let parent = content_view(&app_handle, &window_label, mtm)?;
         let url_obj = ns_url(&url)?;
         let req = NSURLRequest::requestWithURL(&url_obj);
 
-        // ZERO frame, NOT the parent's bounds.
-        //
-        // The parent is the window's content view, so `parent.bounds()` is the WHOLE
-        // WINDOW — and `drive_load` below pumps the run loop to force a first paint. A
-        // view created at that size is therefore added, rendered, and visible across the
-        // entire window (titlebar, sidebar, status bar and all) for as long as it takes
-        // the frontend's first `browser_set_bounds` to arrive. A web page painting over
-        // the whole of VMark, able to take clicks meant for it, is not a cosmetic
-        // problem.
-        //
-        // The frontend reports the reserved rect on mount, so the view gets its real
-        // geometry immediately. Until then it occupies nothing, which is the only safe
-        // default: invisible is recoverable, covering the app is not.
+        // Start at zero size; the frontend supplies the measured browser rect immediately.
         let config = unsafe { WKWebViewConfiguration::new(mtm) };
+        browser_store::configure(&config, mtm, mode);
         let webview = unsafe {
             WKWebView::initWithFrame_configuration(WKWebView::alloc(mtm), CGRect::ZERO, &config)
         };
-        // Evict any webview still registered under this tab id BEFORE registering the new
-        // delegate (WI-S0.10). A rapid tab switch can land a second `create` before the
-        // first `destroy` — and inserting over the key merely DROPS the old
-        // `Retained<WKWebView>`, which does not remove it from the view hierarchy. The
-        // old view would stay a subview forever: a live, invisible page over the UI.
-        //
-        // Eviction runs FIRST because it has to unobserve the old view's `URL` before the
-        // old delegate is dropped: inserting the new delegate over the key would release
-        // the old one while it was still registered as a KVO observer, and KVO raises when
-        // an observee outlives its observer.
+        // Evict before replacing the delegate so the old view is removed and its KVO
+        // observer is detached before its retained delegate is released.
         evict_existing(&tab_id);
         // Attach the navigation delegate BEFORE the first load so its lifecycle
         // events (commit/finish/fail) fire for that load too. Held in DELEGATES
@@ -118,8 +117,6 @@ pub fn create(
             webview.setNavigationDelegate(Some(delegate.as_protocol()));
             webview.setUIDelegate(Some(delegate.as_ui_protocol()));
         }
-        // Same-document navigations (pushState / fragment) fire NO delegate callback, so
-        // R7a authority expiry needs KVO on `URL` to see them at all (audit #11).
         delegate.observe_url(&webview);
         // BOTH maps, together, BEFORE anything can pump the run loop — the pairing
         // invariant that makes teardown sound. See surface_lifecycle_macos.rs.
@@ -127,12 +124,17 @@ pub fn create(
         WEBVIEWS.with(|m| m.borrow_mut().insert(tab_id.clone(), webview.clone()));
         let _ = unsafe { webview.loadRequest(&req) };
         parent.addSubview(&webview);
-        // Drive the first navigation + paint: a freshly added WKWebView does
-        // not render until the run loop cycles. Bounded so create stays snappy.
-        // A reentrant destroy during this pump is safe, and correctly wins: it tears the
-        // view down and this function returns, registering nothing further.
+        // Drive the first navigation + paint with a bounded run-loop pump.
         let run_loop = NSRunLoop::mainRunLoop();
         drive_load(&webview, &run_loop);
+        Ok(())
+    })
+}
+
+/// Release the sandbox profile after AI views are torn down or posture changes.
+pub fn clear_ai_sandbox_store(app: &AppHandle) -> Result<(), String> {
+    on_main(app, move |_mtm| {
+        browser_store::clear();
         Ok(())
     })
 }

@@ -12,18 +12,25 @@ import { respond } from "../../utils";
 import { handleBrowserRead, handleBrowserAct } from "../browser";
 import { useTabStore } from "@/stores/tabStore";
 import { useBrowserApprovalStore } from "@/stores/browserApprovalStore";
+import { useSettingsStore } from "@/stores/settingsStore";
 
 const BLOG = "https://blog.example.com/";
 
 function seedBrowserTab(): string {
   useTabStore.setState({ tabs: {}, activeTabId: {}, untitledCounter: 0, closedTabs: {} });
-  return useTabStore.getState().createBrowserTab("main", BLOG, "Blog");
+  return useTabStore.getState().createBrowserTab("main", BLOG, "Blog", "ai-sandbox");
+}
+
+function seedHumanBrowserTab(): string {
+  useTabStore.setState({ tabs: {}, activeTabId: {}, untitledCounter: 0, closedTabs: {} });
+  return useTabStore.getState().createBrowserTab("main", BLOG, "Blog", "human");
 }
 
 beforeEach(() => {
   invoke.mockReset();
   vi.mocked(respond).mockClear();
-  useBrowserApprovalStore.setState({ grants: [], pending: [] });
+  useBrowserApprovalStore.setState({ grants: [], pending: [], oneShots: [], attachments: [] });
+  useSettingsStore.getState().updateBrowserSetting("enabled", true);
 });
 
 function lastResponse() {
@@ -32,6 +39,18 @@ function lastResponse() {
 }
 
 describe("handleBrowserRead", () => {
+  it("requests explicit attachment before reading a human browser tab", async () => {
+    const id = seedHumanBrowserTab();
+    await handleBrowserRead("attach-1", { tabId: id });
+    expect(invoke).not.toHaveBeenCalled();
+    expect(lastResponse()).toMatchObject({ error: "ATTACHMENT_REQUIRED" });
+    expect(useBrowserApprovalStore.getState().pending[0]).toMatchObject({
+      operation: "attach",
+      tabId: id,
+      generation: 0,
+    });
+  });
+
   it("evals the ARIA snapshot script and responds with the parsed snapshot + url", async () => {
     const id = seedBrowserTab();
     invoke.mockResolvedValue(JSON.stringify([{ role: "button", name: "Publish" }]));
@@ -74,6 +93,27 @@ describe("handleBrowserAct", () => {
       expect.objectContaining({ tabId: id, script: expect.stringContaining("__vmarkClick") }),
     );
     expect(lastResponse()).toMatchObject({ id: "a1", success: true });
+  });
+
+  it("consumes a one-shot human attachment after the driver accepts an action", async () => {
+    const id = seedHumanBrowserTab();
+    useBrowserApprovalStore.setState({
+      grants: [{ originPattern: "https://blog.example.com", operations: ["click"] }],
+      pending: [],
+      oneShots: [],
+      attachments: [{ tabId: id, generation: 0, once: true }],
+    });
+    invoke.mockResolvedValue(JSON.stringify({ found: true, clicked: true }));
+
+    await handleBrowserAct("human-act", {
+      tabId: id,
+      operation: "click",
+      role: "button",
+      name: "Publish",
+    });
+
+    expect(lastResponse()).toMatchObject({ id: "human-act", success: true });
+    expect(useBrowserApprovalStore.getState().attachments).toEqual([]);
   });
 
   it("requests approval (and does not act) when not granted", async () => {

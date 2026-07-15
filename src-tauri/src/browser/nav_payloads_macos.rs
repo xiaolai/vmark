@@ -15,6 +15,8 @@ pub struct NavPayload {
     /// stamps driver operations with it, so an operation authorized against this
     /// page is rejected by the driver once the page navigates away.
     pub generation: u64,
+    #[serde(rename = "navigationId")]
+    pub navigation_id: String,
     /// WKWebView's back/forward-list state at this event (WI-S1.6). The omnibox's
     /// back/forward controls derive their disabled state from these — without them
     /// they ship as always-enabled no-ops.
@@ -39,6 +41,8 @@ pub struct LoadedPayload {
     /// patch whose generation is stale — so this closes the same out-of-order race the
     /// `navigated` event's generation does. (Audit, Medium.)
     pub generation: u64,
+    #[serde(rename = "navigationId")]
+    pub navigation_id: String,
     /// See `NavPayload` — history can change on commit OR finish, so both carry it.
     #[serde(rename = "canGoBack")]
     pub can_go_back: bool,
@@ -52,6 +56,8 @@ pub struct FailedPayload {
     #[serde(rename = "tabId")]
     pub tab_id: String,
     pub message: String,
+    #[serde(rename = "navigationId")]
+    pub navigation_id: String,
 }
 
 /// `browser://crashed` — the web content process died (WI-1.8).
