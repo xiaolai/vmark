@@ -118,6 +118,8 @@
   "windowStatus.status.idle": "Inaktiv",
   "windowStatus.status.error": "Fehler",
   "windowStatus.status.attention": "Benötigt Aufmerksamkeit",
+  "windowStatus.pin": "Anheften — Bereich beim Fensterwechsel geöffnet lassen",
+  "windowStatus.unpin": "Anheften aufheben",
   "format.media": "Medien",
   "quickLook.close": "Vorschau schließen",
   "browser.reload": "Neu laden",

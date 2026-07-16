@@ -118,6 +118,8 @@
   "windowStatus.status.idle": "Ociosa",
   "windowStatus.status.error": "Erro",
   "windowStatus.status.attention": "Requer atenção",
+  "windowStatus.pin": "Fixar — manter o painel aberto ao trocar de janela",
+  "windowStatus.unpin": "Desafixar painel",
   "format.media": "Mídia",
   "quickLook.close": "Fechar visualização",
   "browser.reload": "Recarregar",

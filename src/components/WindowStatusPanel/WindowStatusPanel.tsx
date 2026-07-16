@@ -11,10 +11,11 @@
  */
 import { useTranslation } from "react-i18next";
 import { invoke } from "@tauri-apps/api/core";
-import { X, Bell } from "lucide-react";
+import { X, Bell, Pin } from "lucide-react";
 import {
   useWindowStatusStore,
   selectWindows,
+  selectPinned,
   selectOtherWindowsRanked,
   type WindowStatusEntry,
 } from "@/stores/windowStatusStore";
@@ -33,16 +34,21 @@ function statusKey(w: WindowStatusEntry): StatusKey {
 export function WindowStatusPanel() {
   const { t } = useTranslation("common");
   const windows = useWindowStatusStore(selectWindows);
+  const pinned = useWindowStatusStore(selectPinned);
   const self = getCurrentWindowLabel();
   const others = selectOtherWindowsRanked(windows, self);
 
   const close = () => useWindowStatusStore.getState().setPanelOpen(false);
+  const togglePin = () => useWindowStatusStore.getState().togglePinned();
   const goTo = (label: string) => {
-    // Close only after the focus succeeds. If the target window is gone/stale,
-    // keep the panel open and refresh the list so the dead row drops out
-    // immediately (rather than waiting for its Destroyed-event prune).
+    // Close after the focus succeeds — UNLESS pinned, where the panel stays put
+    // as persistent "mission control" (#1120). If the target window is
+    // gone/stale, keep the panel open and refresh the list so the dead row
+    // drops out immediately (rather than waiting for its Destroyed-event prune).
     void invoke("focus_window", { label })
-      .then(() => close())
+      .then(() => {
+        if (!useWindowStatusStore.getState().pinned) close();
+      })
       .catch(() => {
         void invoke<WindowStatusEntry[]>("get_window_statuses")
           .then((list) => useWindowStatusStore.getState().setWindows(list))
@@ -59,15 +65,27 @@ export function WindowStatusPanel() {
     >
       <header className="window-status-panel__header">
         <span className="window-status-panel__title">{t("windowStatus.title")}</span>
-        <button
-          type="button"
-          className="window-status-panel__close"
-          onClick={close}
-          title={t("close")}
-          aria-label={t("close")}
-        >
-          <X size={14} />
-        </button>
+        <div className="window-status-panel__actions">
+          <button
+            type="button"
+            className="window-status-panel__pin"
+            onClick={togglePin}
+            title={t(pinned ? "windowStatus.unpin" : "windowStatus.pin")}
+            aria-label={t(pinned ? "windowStatus.unpin" : "windowStatus.pin")}
+            aria-pressed={pinned}
+          >
+            <Pin size={14} />
+          </button>
+          <button
+            type="button"
+            className="window-status-panel__close"
+            onClick={close}
+            title={t("close")}
+            aria-label={t("close")}
+          >
+            <X size={14} />
+          </button>
+        </div>
       </header>
 
       {others.length === 0 ? (

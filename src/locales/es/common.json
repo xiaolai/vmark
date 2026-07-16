@@ -118,6 +118,8 @@
   "windowStatus.status.idle": "Inactiva",
   "windowStatus.status.error": "Error",
   "windowStatus.status.attention": "Requiere atención",
+  "windowStatus.pin": "Fijar — mantener el panel abierto al cambiar de ventana",
+  "windowStatus.unpin": "Dejar de fijar el panel",
   "format.media": "Multimedia",
   "quickLook.close": "Cerrar vista previa",
   "browser.reload": "Recargar",

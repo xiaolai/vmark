@@ -30,6 +30,13 @@
   color: var(--text-color);
 }
 
+.window-status-panel__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-half);
+}
+
+.window-status-panel__pin,
 .window-status-panel__close {
   display: flex;
   align-items: center;
@@ -44,14 +51,22 @@
   cursor: pointer;
 }
 
+.window-status-panel__pin:hover,
 .window-status-panel__close:hover {
   background: var(--hover-bg);
   color: var(--text-color);
 }
 
+.window-status-panel__pin:focus-visible,
 .window-status-panel__close:focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px var(--accent-bg);
+}
+
+/* Pinned: accent color + subtle fill so the active state reads at a glance. */
+.window-status-panel__pin[aria-pressed="true"] {
+  color: var(--accent-primary);
+  background: var(--accent-bg);
 }
 
 .window-status-panel__empty {

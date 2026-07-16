@@ -518,7 +518,7 @@ VMark automatically checks for updates and can download and install them in-app:
 - Quick file switching
 - Recent files tracking
 - Window size and position remembered across sessions
-- Window Status panel — see every open window's live Claude Code / AI status and jump straight to the one that needs you
+- Window Status panel — see every open window's live Claude Code / AI status and jump straight to the one that needs you; pin it to keep it open while you jump between windows (open/pin state is remembered per window)
 
 [Learn more →](/guide/workspace-management)
 

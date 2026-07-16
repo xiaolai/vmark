@@ -215,6 +215,8 @@ Each row shows the window's document name and its current status:
 
 Rows are ranked attention-first, so the window that needs you sits at the top. Click any row to focus and raise that window; focusing a window clears its "needs attention" flag. The status is sourced from two reliable signals — VMark's own AI-genie invocation state and the terminal bell — not by parsing terminal output.
 
+**Pin the panel** with the pin button in its header to use it as persistent "mission control": while pinned, clicking a row focuses the target window but leaves the panel open, so you can bounce between several windows without reopening it. The panel's open and pinned state is remembered per window across restarts, so a window you set up as your dashboard stays that way.
+
 ## External Changes
 
 VMark watches your workspace for changes made by other programs (Git, external editors, build tools, etc.) and keeps open documents in sync.
