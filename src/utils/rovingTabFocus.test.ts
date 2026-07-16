@@ -53,6 +53,28 @@ describe("moveRovingTabFocus", () => {
     expect(moveRovingTabFocus(orphan, "ArrowRight")).toBe(false);
   });
 
+  it("returns false when the tablist has no tabs", () => {
+    document.body.innerHTML = "";
+    const tablist = document.createElement("div");
+    tablist.setAttribute("role", "tablist");
+    const child = document.createElement("button"); // not role="tab"
+    tablist.appendChild(child);
+    document.body.appendChild(tablist);
+    expect(moveRovingTabFocus(child, "ArrowRight")).toBe(false);
+  });
+
+  it("returns false when the origin is inside the tablist but not within a tab", () => {
+    document.body.innerHTML = "";
+    const tablist = document.createElement("div");
+    tablist.setAttribute("role", "tablist");
+    const realTab = document.createElement("button");
+    realTab.setAttribute("role", "tab");
+    const notTab = document.createElement("button"); // sibling, not a tab
+    tablist.append(realTab, notTab);
+    document.body.appendChild(tablist);
+    expect(moveRovingTabFocus(notTab, "ArrowRight")).toBe(false);
+  });
+
   it("works when the origin is a child of the tab element", () => {
     const b = buildTablist();
     const icon = document.createElement("span");

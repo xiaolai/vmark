@@ -60,6 +60,16 @@ describe("BrowserPageTabs", () => {
     expect(useTabStore.getState().activeTabId.main).toBe(a);
   });
 
+  it("ignores keys that are neither activation nor navigation", () => {
+    const { pages, a, b } = seedPages();
+    render(<BrowserPageTabs pages={pages} activePageId={b} windowLabel="main" />);
+    const aTab = screen.getByRole("tab", { name: /A/ });
+    aTab.focus();
+    fireEvent.keyDown(aTab, { key: "x" });
+    expect(useTabStore.getState().activeTabId.main).toBe(b); // unchanged — no activation
+    expect(a).not.toBe(b);
+  });
+
   it("moves focus with ArrowRight/Home/End (roving tablist)", () => {
     const { pages, b } = seedPages();
     render(<BrowserPageTabs pages={pages} activePageId={b} windowLabel="main" />);
