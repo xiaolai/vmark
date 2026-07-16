@@ -62,6 +62,22 @@ MSG
   exit 1
 fi
 
+# rustfmt gate: same blind spot as clippy below — `pnpm check:all` never runs
+# cargo fmt, so a formatting drift in src-tauri (the whole browser/ module drifted
+# under a rustfmt stable bump) rides straight onto main and only trips CI's
+# Linux-only Format check. Run the exact CI command here so main stays fmt-clean.
+echo "pre-push: cargo fmt --check…"
+if ! cargo fmt --manifest-path src-tauri/Cargo.toml --check; then
+  cat >&2 <<'MSG'
+
+✖ pre-push blocked: cargo fmt --check found unformatted Rust.
+  Run `cargo fmt --manifest-path src-tauri/Cargo.toml` and re-commit.
+  Overriding (`git push --no-verify`) requires explicit authorization —
+  see .claude/rules/60-ai-governance.md §9.
+MSG
+  exit 1
+fi
+
 # Clippy gate: `pnpm check:all` is frontend-only — it never runs cargo clippy,
 # so a `-D warnings` violation in src-tauri can (and did, #1113 triage) land on
 # main red because the PR-gated CI clippy step never runs on a direct push.

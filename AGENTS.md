@@ -46,8 +46,9 @@ Shared instructions for all AI agents (Claude, Codex, etc.).
     `pre-push` hook (`.githooks/pre-push`) runs a Windows cross-target compile
     check (`pnpm check:cross` — catches `cfg(target_os)` breakage that
     macOS-local cargo can never see; soft-skips if mingw-w64 isn't installed),
-    then `cargo clippy --all-targets -- -D warnings` (the same lint CI's
-    `rust-test` job runs — `pnpm check:all` is frontend-only and never runs it),
+    then `cargo fmt --check` and `cargo clippy --all-targets -- -D warnings`
+    (the same rustfmt + lint CI's `rust-test` job runs — `pnpm check:all` is
+    frontend-only and never runs either),
     and then `pnpm check:all` before any push that updates `main` or a release
     tag, and refuses the push if any is red. Feature-branch pushes are not
     gated locally — CI gates those via the PR's required `frontend` check. The hook is auto-enabled by the root
