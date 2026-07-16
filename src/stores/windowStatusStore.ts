@@ -6,7 +6,7 @@
  * every open window with its live Claude Code status and jump to it.
  *
  * The data is owned by Rust (`src-tauri/src/window_status`); this store is a
- * passive mirror — `useWindowStatusSync` seeds it via `get_window_statuses`
+ * passive mirror — `useWindowStatus` seeds it via `get_window_statuses`
  * and keeps it current from the broadcast. Components MUST use selectors.
  *
  * @coordinates-with src-tauri/src/window_status/mod.rs — source of truth
