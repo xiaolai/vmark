@@ -54,11 +54,30 @@ Shared instructions for all AI agents (Claude, Codex, etc.).
     command. Bypassing (`git push --no-verify`) requires explicit
     authorization — see `.claude/rules/60-ai-governance.md` §9.
 
-  - No dev server; ask the user to run interactive app flows.
+  - **E2E testing:** see `dev-docs/e2e-testing.md` for the full guide (the two MCP
+    bridges, the dev-mode reconfigure procedure, and the gotchas). Key rules:
 
-  - For E2E, use Tauri MCP tools. **Never use Chrome DevTools MCP** — VMark is a Tauri app, not a browser app.
+    - E2E needs a running debug app (`pnpm tauri:dev`) — launch it or ask the user; unit
+      tests and `pnpm check:all` do **not**.
 
-  - **Tauri MCP automation port = 9323.** The `tauri-plugin-mcp-bridge` (debug-only) is pinned to `127.0.0.1:9323` in `src-tauri/src/lib.rs`. Connect with `tauri_driver_session` action `start`, `port: 9323`. Do **not** rely on the default 9223 — that is VMark's own MCP bridge (sidecar ↔ webview, for AI clients) and is auth-protected, so commands sent there drop with "Connection closed".
+    - **AI-driven features** (embedded browser automation, the `browser`/`document`/
+      `selection`/`workspace` MCP tools, approval flows) are tested through **VMark MCP
+      (`mcp__vmark__*`) exclusively** — that is the surface that ships. Do not fake an AI
+      flow through the Tauri harness.
+
+    - **Non-AI UI/plumbing** (menus, shortcuts, window/tab lifecycle, Tauri IPC,
+      screenshots, logs) uses the **Tauri MCP** (`mcp__tauri__*`) — a debug-only harness,
+      pinned to `127.0.0.1:9323` (`src-tauri/src/lib.rs`); connect with
+      `tauri_driver_session` `start`, `port: 9323`. It is **absent in release builds**.
+
+    - The VMark bridge port is **dynamic** (OS-assigned) — never point at a fixed port
+      (9223 is discarded); the sidecar auto-discovers it from
+      `~/Library/Application Support/app.vmark/mcp-port`. In dev, **rebuild the sidecar**
+      (`pnpm --dir vmark-mcp-server build:sidecar`), reconfigure the client to the dev
+      binary (Integrations settings / `mcp_config_install`), then **restart the AI
+      client** — MCP servers bind at startup.
+
+    - **Never use Chrome DevTools MCP** — VMark is a Tauri app, not a browser app.
 
   - **Internationalization (i18n)**: All user-facing strings must use `t()` (React) or `t!()` (Rust).
     Never hardcode English strings in UI code. Translation keys use flat dot-separated camelCase
