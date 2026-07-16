@@ -99,6 +99,7 @@ const MENU_ICONS: &[(&str, &str)] = &[
     // ── File menu ──
     ("new", "doc.badge.plus"),
     ("new-window", "macwindow.badge.plus"),
+    ("new-browser-tab", "globe"),
     ("quick-open", "magnifyingglass"),
     ("open", "folder"),
     ("open-folder", "folder.badge.gearshape"),
