@@ -101,6 +101,23 @@ any `cargo build --locked` / `--frozen` (release + CI).
 - Using different versions across files
 - **Using `git push --tags`** (pushes stale tags, triggers duplicate releases)
 
+## Tauri npm/crate version sync (release-only failure class)
+
+`tauri build` refuses to build when a Tauri package's npm and Rust crate
+versions are on different major/minor releases — and that check runs **only at
+`tauri build` (release) time**. `pnpm check:all` runs `vite build`, not
+`tauri build`, so a dependabot bump of a `tauri-plugin-*` crate (or the npm
+side) without its counterpart passes every PR gate and only breaks mid-release.
+The v0.9.0 release hit this: `tauri-plugin-log` crate 2.9.0 (dependabot #1123)
+vs `@tauri-apps/plugin-log` npm 2.8.0 aborted all four platform builds.
+
+`scripts/check-tauri-versions.mjs` (`pnpm lint:tauri-versions`, wired into
+`check:all`) now runs the same comparison standalone, so CI's `frontend` check
+and the pre-push gate catch the skew **before** a tag ever ships. When it fires,
+align the flagged pair on the same major/minor: bump the npm package in
+`package.json` (then `pnpm install`) or the crate in `src-tauri/Cargo.toml`
+(then `cargo update`).
+
 ## Verification
 
 1. Check About VMark dialog shows single version number

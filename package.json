@@ -33,6 +33,7 @@
     "lint:design-tokens": "node scripts/check-design-tokens.mjs",
     "lint:emdash": "node scripts/check-emdash-spacing.mjs",
     "lint:deps": "depcruise src --config .dependency-cruiser.cjs",
+    "lint:tauri-versions": "node scripts/check-tauri-versions.mjs",
     "lint:console": "bash scripts/lint-console.sh",
     "lint:i18n": "tsx scripts/check-i18n-keys.ts",
     "lint:themes": "bash scripts/check-theme-names.sh",
@@ -42,7 +43,7 @@
     "mutation:ts": "stryker run",
     "test:sidecar": "pnpm --dir vmark-mcp-server test",
     "test:content-server": "pnpm --dir vmark-content-server build && pnpm --dir vmark-content-server smoke && pnpm --dir vmark-content-server test:coverage",
-    "check:all": "pnpm lint && pnpm lint:console && pnpm lint:selection-styles && pnpm lint:design-tokens && pnpm lint:emdash && pnpm lint:deps && pnpm lint:i18n && pnpm lint:themes && pnpm lint:file-size && pnpm lint:barrels && pnpm knip && pnpm test:coverage && pnpm test:sidecar && pnpm test:content-server && pnpm build && pnpm lint:eager && pnpm size"
+    "check:all": "pnpm lint && pnpm lint:console && pnpm lint:selection-styles && pnpm lint:design-tokens && pnpm lint:emdash && pnpm lint:deps && pnpm lint:tauri-versions && pnpm lint:i18n && pnpm lint:themes && pnpm lint:file-size && pnpm lint:barrels && pnpm knip && pnpm test:coverage && pnpm test:sidecar && pnpm test:content-server && pnpm build && pnpm lint:eager && pnpm size"
   },
   "dependencies": {
     "@actions/languageservice": "0.3.58",
