@@ -78,7 +78,7 @@ export async function dispatchV2(event: McpRequestEvent): Promise<boolean> {
   const { id, type, args } = event;
   switch (type) {
     case "vmark.session.get_state":
-      await handleSessionGetState(id, APP_VERSION);
+      await handleSessionGetState(id, APP_VERSION, args);
       return true;
 
     case "vmark.workspace.new":

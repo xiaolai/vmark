@@ -88,6 +88,7 @@ const ROUTES: Array<{
   {
     type: "vmark.session.get_state",
     handler: handleSessionGetState as unknown as ReturnType<typeof vi.fn>,
+    args: { clientProtocol: "0.3.0" },
     passesArgsObject: false,
   },
   {
@@ -185,10 +186,9 @@ describe("dispatchV2 — routing", () => {
     expect(route.handler).toHaveBeenCalledTimes(1);
 
     if (route.passesArgsObject === false) {
-      // session.get_state takes (id, version-string) — both arguments
-      // are present, second is a non-empty string, but the dispatcher
-      // does not forward `args`.
-      expect(route.handler).toHaveBeenCalledWith(id, expect.any(String));
+      // session.get_state takes (id, version-string, args) — the app version
+      // plus the request args, which carry the client's declared protocol.
+      expect(route.handler).toHaveBeenCalledWith(id, expect.any(String), args);
     } else {
       expect(route.handler).toHaveBeenCalledWith(id, args);
     }

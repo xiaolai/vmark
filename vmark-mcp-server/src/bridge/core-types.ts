@@ -17,6 +17,13 @@
 export type WindowId = string;
 
 /**
+ * MCP bridge protocol version this server speaks. Sent to VMark on
+ * `session.get_state` so the app can gate protocol-versioned data (browser tabs
+ * arrived at 0.3.0). Bump in lockstep with the app's MCP_PROTOCOL_VERSION.
+ */
+export const MCP_PROTOCOL_VERSION = '0.3.0';
+
+/**
  * Bridge request types — every command the MCP server can send.
  *
  * One entry per (tool, action) pair. See the workflow tool for the
@@ -26,7 +33,7 @@ export type WindowId = string;
  * duplicate the shape here.
  */
 export type BridgeRequest =
-  | { type: 'vmark.session.get_state' }
+  | { type: 'vmark.session.get_state'; clientProtocol?: string }
   | { type: 'vmark.workspace.new'; kind?: string; windowLabel?: string }
   | { type: 'vmark.workspace.open'; filePath: string; windowLabel?: string }
   | { type: 'vmark.workspace.save'; tabId?: string }

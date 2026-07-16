@@ -156,7 +156,7 @@ describe("vmark.session.get_state", () => {
       "ai-sandbox",
     );
     useTabStore.getState().updateBrowserTab(id, { generation: 4 });
-    const state = buildSessionState("0.7.0");
+    const state = buildSessionState("0.7.0", "0.3.0");
     expect(state.windows[0].tabs).toContainEqual({
       id,
       kind: "browser",
@@ -181,11 +181,59 @@ describe("vmark.session.get_state", () => {
       "Two",
     );
 
-    const state = buildSessionState("0.7.0");
+    const state = buildSessionState("0.7.0", "0.3.0");
     expect(state.windows[0].tabs).toEqual([
       expect.objectContaining({ id: first, kind: "browser", active: false }),
       expect.objectContaining({ id: second, kind: "browser", active: true }),
     ]);
+  });
+
+  describe("browser-tab protocol gating", () => {
+    beforeEach(() => {
+      useTabStore.getState().createBrowserTab("main", "https://example.com/", "Ex");
+      useTabStore.setState({
+        tabs: {
+          main: [
+            { kind: "document", id: "doc", filePath: "/a.md", title: "a", isPinned: false },
+            ...useTabStore.getState().tabs.main!.filter((t) => t.kind === "browser"),
+          ],
+        },
+      });
+    });
+
+    it("omits browser tabs when the client declares no protocol (pre-0.3)", () => {
+      const state = buildSessionState("0.7.0");
+      expect(state.windows[0].tabs.every((t) => t.kind !== "browser")).toBe(true);
+      expect(state.windows[0].tabs.some((t) => t.kind === "markdown")).toBe(true);
+    });
+
+    it("omits browser tabs for a pre-0.3 client protocol", () => {
+      const state = buildSessionState("0.7.0", "0.2.0");
+      expect(state.windows[0].tabs.every((t) => t.kind !== "browser")).toBe(true);
+    });
+
+    it("includes browser tabs for a 0.3.0+ client protocol", () => {
+      expect(buildSessionState("0.7.0", "0.3.0").windows[0].tabs.some((t) => t.kind === "browser")).toBe(true);
+      expect(buildSessionState("0.7.0", "1.0.0").windows[0].tabs.some((t) => t.kind === "browser")).toBe(true);
+    });
+
+    it.each(["not-a-version", "0.3.", "0.3.0junk", "0.3e0.0", "", "3", "v0.3.0"])(
+      "omits browser tabs for the malformed protocol %j (strict parse, fails safe)",
+      (proto) => {
+        const state = buildSessionState("0.7.0", proto);
+        expect(state.windows[0].tabs.every((t) => t.kind !== "browser")).toBe(true);
+      },
+    );
+
+    it("handleSessionGetState gates on the request's clientProtocol arg", async () => {
+      await handleSessionGetState("req-old", "0.7.0", {});
+      const oldData = vi.mocked(respond).mock.calls.at(-1)![0].data as { windows: { tabs: { kind: string }[] }[] };
+      expect(oldData.windows[0].tabs.every((t) => t.kind !== "browser")).toBe(true);
+
+      await handleSessionGetState("req-new", "0.7.0", { clientProtocol: "0.3.0" });
+      const newData = vi.mocked(respond).mock.calls.at(-1)![0].data as { windows: { tabs: { kind: string }[] }[] };
+      expect(newData.windows[0].tabs.some((t) => t.kind === "browser")).toBe(true);
+    });
   });
 
   it("handleSessionGetState calls respond with the structured payload", async () => {
