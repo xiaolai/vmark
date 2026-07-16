@@ -115,6 +115,8 @@
   "windowStatus.status.idle": "Idle",
   "windowStatus.status.error": "Error",
   "windowStatus.status.attention": "Needs attention",
+  "windowStatus.pin": "Pin — keep open after switching windows",
+  "windowStatus.unpin": "Unpin panel",
   "quickLook.close": "Close preview",
   "browser.reload": "Reload",
   "browser.stop": "Stop",

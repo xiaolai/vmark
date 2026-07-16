@@ -13,6 +13,9 @@
  * @module stores/windowStatusStore
  */
 import { create } from "zustand";
+import { persist, createJSONStorage } from "zustand/middleware";
+
+import { windowStatusScopedStorage } from "@/services/persistence/windowStatusStorage";
 
 /** VMark AI-genie invocation state for a window (mirrors the Rust `ai` field). */
 export type WindowAiStatus = "idle" | "running" | "error";
@@ -30,24 +33,52 @@ interface WindowStatusState {
   windows: WindowStatusEntry[];
   /** Whether the Window-Status panel is open in THIS window. */
   panelOpen: boolean;
+  /**
+   * Whether the panel is pinned. When pinned, jumping to a window focuses it
+   * but leaves the panel open, so the panel works as persistent "mission
+   * control" across many windows (#1120).
+   */
+  pinned: boolean;
   setWindows: (windows: WindowStatusEntry[]) => void;
   togglePanel: () => void;
   setPanelOpen: (open: boolean) => void;
+  togglePinned: () => void;
+  setPinned: (pinned: boolean) => void;
   reset: () => void;
 }
 
-export const useWindowStatusStore = create<WindowStatusState>((set) => ({
-  windows: [],
-  panelOpen: false,
-  setWindows: (windows) => set({ windows }),
-  togglePanel: () => set((s) => ({ panelOpen: !s.panelOpen })),
-  setPanelOpen: (panelOpen) => set({ panelOpen }),
-  reset: () => set({ windows: [], panelOpen: false }),
-}));
+export const useWindowStatusStore = create<WindowStatusState>()(
+  persist(
+    (set) => ({
+      windows: [],
+      panelOpen: false,
+      pinned: false,
+      setWindows: (windows) => set({ windows }),
+      togglePanel: () => set((s) => ({ panelOpen: !s.panelOpen })),
+      setPanelOpen: (panelOpen) => set({ panelOpen }),
+      togglePinned: () => set((s) => ({ pinned: !s.pinned })),
+      setPinned: (pinned) => set({ pinned }),
+      reset: () => set({ windows: [], panelOpen: false, pinned: false }),
+    }),
+    {
+      // Name is ignored by windowStatusScopedStorage (keys by window label).
+      name: "vmark-window-status",
+      storage: createJSONStorage(() => windowStatusScopedStorage),
+      // Persist ONLY the user's panel preferences. `windows` is Rust-owned
+      // live data re-seeded each session — persisting it would resurrect a
+      // stale snapshot on reload.
+      partialize: (s) => ({ panelOpen: s.panelOpen, pinned: s.pinned }),
+      // useWindowStatus rehydrates on mount — after WindowContext has set the
+      // window label — so each window reads from its own key (like workspace).
+      skipHydration: true,
+    },
+  ),
+);
 
 /* Selectors — components MUST use these (no store destructuring). */
 export const selectWindows = (s: WindowStatusState): WindowStatusEntry[] => s.windows;
 export const selectPanelOpen = (s: WindowStatusState): boolean => s.panelOpen;
+export const selectPinned = (s: WindowStatusState): boolean => s.pinned;
 
 /**
  * Windows other than the given label, sorted attention-first then running, so

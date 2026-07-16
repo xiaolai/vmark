@@ -81,4 +81,35 @@ describe("WindowStatusPanel", () => {
     render(<WindowStatusPanel />);
     expect(screen.getByText(/untitled/i)).toBeInTheDocument();
   });
+
+  it("pin button toggles the pinned state (#1120)", async () => {
+    const user = userEvent.setup();
+    useWindowStatusStore.getState().setWindows([
+      entry({ label: "self" }),
+      entry({ label: "w", docName: "o.md" }),
+    ]);
+    render(<WindowStatusPanel />);
+    // The pin button is the only one exposing aria-pressed.
+    const pin = screen.getByRole("button", { pressed: false });
+    await user.click(pin);
+    expect(useWindowStatusStore.getState().pinned).toBe(true);
+    expect(screen.getByRole("button", { pressed: true })).toBeInTheDocument();
+  });
+
+  it("when pinned, clicking a row focuses the window but keeps the panel open (#1120)", async () => {
+    const user = userEvent.setup();
+    useWindowStatusStore.getState().setPinned(true);
+    useWindowStatusStore.getState().setWindows([
+      entry({ label: "self" }),
+      entry({ label: "w-2", docName: "other.md" }),
+    ]);
+    render(<WindowStatusPanel />);
+    await user.click(screen.getByRole("button", { name: /other\.md/i }));
+    expect(invoke).toHaveBeenCalledWith("focus_window", { label: "w-2" });
+    // Pinned → panel stays open as mission control (contrast: the unpinned
+    // case above closes it).
+    await vi.waitFor(() => expect(invoke).toHaveBeenCalled());
+    await Promise.resolve();
+    expect(useWindowStatusStore.getState().panelOpen).toBe(true);
+  });
 });

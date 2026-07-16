@@ -47,7 +47,14 @@ export function prosemirrorToTauri(key: string): string {
 
 /**
  * Format key for display (user-friendly).
- * Mod-b -> ⌘B (on macOS)
+ * Mod-b -> ⌘B (on macOS), Ctrl+B (on Windows/Linux)
+ *
+ * Platform-specific rendering:
+ *   - macOS: symbol glyphs joined with no separator, in authored order (⌘⇧B).
+ *   - Windows/Linux: word modifiers joined with "+", normalized to the
+ *     conventional Ctrl → Alt → Shift → key order regardless of how the
+ *     shortcut was authored (#1113). Without this the context menu rendered
+ *     "CtrlShiftX" (no separators) in a non-standard modifier order.
  *
  * Token-aware: `-` is the separator, but a trailing empty part means the
  * main key IS the minus key (e.g. `Mod--` for zoomOut, `Alt-Mod--` for
@@ -63,6 +70,8 @@ export function formatKeyForDisplay(key: string): string {
     alt: isMac ? "⌥" : "Alt",
     shift: isMac ? "⇧" : "Shift",
   };
+  // Canonical modifier precedence for Windows/Linux display: Ctrl → Alt → Shift.
+  const modifierRank: Record<string, number> = { mod: 0, ctrl: 0, alt: 1, shift: 2 };
   const specialKeys: Record<string, string> = {
     BACKSPACE: "⌫",
     LEFT: "←",
@@ -72,24 +81,31 @@ export function formatKeyForDisplay(key: string): string {
   };
 
   const parts = key.split("-");
-  const tokens: string[] = [];
+  const modifiers: { rank: number; label: string }[] = [];
+  let mainKey = "";
 
   for (let i = 0; i < parts.length; i++) {
     const part = parts[i];
     if (part === "" && i === parts.length - 1) {
       // Trailing empty part: the main key is "-" itself.
-      tokens.push("-");
+      mainKey = "-";
       continue;
     }
     if (part === "") continue;
-    const modifier = modifierDisplay[part.toLowerCase()];
+    const lower = part.toLowerCase();
+    const modifier = modifierDisplay[lower];
     if (modifier !== undefined && i < parts.length - 1) {
-      tokens.push(modifier);
+      modifiers.push({ rank: modifierRank[lower], label: modifier });
       continue;
     }
     const upper = part.toUpperCase();
-    tokens.push(specialKeys[upper] ?? upper);
+    mainKey = specialKeys[upper] ?? upper;
   }
 
-  return tokens.join("");
+  if (isMac) {
+    // Preserve authored order and glyph-only rendering (macOS is primary).
+    return [...modifiers.map((m) => m.label), mainKey].join("");
+  }
+  const ordered = [...modifiers].sort((a, b) => a.rank - b.rank).map((m) => m.label);
+  return [...ordered, mainKey].join("+");
 }

@@ -4,7 +4,7 @@
  * Verifies keyboard shortcut management, customization, and conflict detection.
  */
 
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
   useShortcutsStore,
   DEFAULT_SHORTCUTS,
@@ -476,6 +476,43 @@ describe("shortcutsStore", () => {
       expect(formatKeyForDisplay("F6")).toBe("F6");
       expect(formatKeyForDisplay("Mod-Shift-`")).toBe("⌘⇧`");
       expect(formatKeyForDisplay("Mod-=")).toBe("⌘=");
+      expect(formatKeyForDisplay("")).toBe("");
+    });
+  });
+
+  describe("formatKeyForDisplay — non-macOS (Windows/Linux) (#1113)", () => {
+    beforeEach(async () => {
+      const { isMacPlatform } = await import("@/utils/shortcutMatch");
+      vi.mocked(isMacPlatform).mockReturnValue(false);
+    });
+    afterEach(async () => {
+      const { isMacPlatform } = await import("@/utils/shortcutMatch");
+      vi.mocked(isMacPlatform).mockReturnValue(true);
+    });
+
+    it("joins modifiers and key with '+' separators", () => {
+      // Regression: context menu rendered "CtrlShiftX" with no separators.
+      expect(formatKeyForDisplay("Mod-Shift-x")).toBe("Ctrl+Shift+X");
+      expect(formatKeyForDisplay("Mod-Shift-s")).toBe("Ctrl+Shift+S");
+      expect(formatKeyForDisplay("Mod-b")).toBe("Ctrl+B");
+    });
+
+    it("normalizes modifier order to Ctrl → Alt → Shift → key", () => {
+      // Definitions can be authored in any order; display must be conventional.
+      expect(formatKeyForDisplay("Shift-Mod-i")).toBe("Ctrl+Shift+I");
+      expect(formatKeyForDisplay("Alt-Mod-b")).toBe("Ctrl+Alt+B");
+      expect(formatKeyForDisplay("Shift-Alt-Down")).toBe("Alt+Shift+↓");
+    });
+
+    it("preserves a trailing '-' main key with '+' separators", () => {
+      expect(formatKeyForDisplay("Mod--")).toBe("Ctrl+-");
+      expect(formatKeyForDisplay("Alt-Mod--")).toBe("Ctrl+Alt+-");
+      expect(formatKeyForDisplay("Mod-Shift--")).toBe("Ctrl+Shift+-");
+    });
+
+    it("keeps single keys and special keys intact", () => {
+      expect(formatKeyForDisplay("F6")).toBe("F6");
+      expect(formatKeyForDisplay("Mod-Backspace")).toBe("Ctrl+⌫");
       expect(formatKeyForDisplay("")).toBe("");
     });
   });

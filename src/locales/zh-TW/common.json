@@ -118,6 +118,8 @@
   "windowStatus.status.idle": "閒置",
   "windowStatus.status.error": "錯誤",
   "windowStatus.status.attention": "需要注意",
+  "windowStatus.pin": "釘選（切換視窗後仍保持面板開啟）",
+  "windowStatus.unpin": "取消釘選面板",
   "format.media": "媒體",
   "quickLook.close": "關閉預覽",
   "browser.reload": "重新載入",

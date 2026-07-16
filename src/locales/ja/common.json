@@ -118,6 +118,8 @@
   "windowStatus.status.idle": "アイドル",
   "windowStatus.status.error": "エラー",
   "windowStatus.status.attention": "要対応",
+  "windowStatus.pin": "ピン留め（ウィンドウを切り替えてもパネルを開いたままにする）",
+  "windowStatus.unpin": "パネルのピン留めを解除",
   "format.media": "メディア",
   "quickLook.close": "プレビューを閉じる",
   "browser.reload": "再読み込み",

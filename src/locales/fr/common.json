@@ -118,6 +118,8 @@
   "windowStatus.status.idle": "Inactive",
   "windowStatus.status.error": "Erreur",
   "windowStatus.status.attention": "Nécessite votre attention",
+  "windowStatus.pin": "Épingler — garder le panneau ouvert après changement de fenêtre",
+  "windowStatus.unpin": "Désépingler le panneau",
   "format.media": "Média",
   "quickLook.close": "Fermer l'aperçu",
   "browser.reload": "Recharger",
