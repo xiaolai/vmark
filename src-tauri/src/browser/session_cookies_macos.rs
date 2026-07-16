@@ -100,10 +100,9 @@ pub fn capture_cookies(
                     expires: cookie.expiresDate().map(|d| d.timeIntervalSince1970()),
                     // Only keep a recognised SameSite value; an unexpected string is
                     // dropped rather than stored (fail-safe). (Sec review cookie.)
-                    same_site: cookie
-                        .sameSitePolicy()
-                        .map(|s| s.to_string())
-                        .filter(|s| matches!(s.to_ascii_lowercase().as_str(), "strict" | "lax" | "none")),
+                    same_site: cookie.sameSitePolicy().map(|s| s.to_string()).filter(|s| {
+                        matches!(s.to_ascii_lowercase().as_str(), "strict" | "lax" | "none")
+                    }),
                 });
             }
             *sink.borrow_mut() = Some(v);
@@ -111,7 +110,9 @@ pub fn capture_cookies(
         unsafe { store.getAllCookies(&handler) };
 
         let run_loop = NSRunLoop::mainRunLoop();
-        super::pump_until(&run_loop, Duration::from_secs(3), 0.05, || out.borrow().is_some());
+        super::pump_until(&run_loop, Duration::from_secs(3), 0.05, || {
+            out.borrow().is_some()
+        });
         let captured = out.borrow_mut().take();
         captured.ok_or_else(|| "cookie capture timed out".to_string())
     })
@@ -138,8 +139,12 @@ fn build_cookie(c: &StoredCookie) -> Option<Retained<NSHTTPCookie>> {
             NSHTTPCookiePath,
         ]
     };
-    let mut vals: Vec<&AnyObject> =
-        vec![name.as_ref(), value.as_ref(), domain.as_ref(), path.as_ref()];
+    let mut vals: Vec<&AnyObject> = vec![
+        name.as_ref(),
+        value.as_ref(),
+        domain.as_ref(),
+        path.as_ref(),
+    ];
     if let Some(v) = &secure_val {
         keys.push(unsafe { NSHTTPCookieSecure });
         vals.push(v.as_ref());
@@ -198,8 +203,9 @@ pub fn apply_cookies(
             if c.http_only {
                 continue; // cannot restore securely — skip rather than downgrade [H1]
             }
-            let cookie = build_cookie(c)
-                .ok_or_else(|| "a saved on-domain cookie is malformed; restore aborted".to_string())?;
+            let cookie = build_cookie(c).ok_or_else(|| {
+                "a saved on-domain cookie is malformed; restore aborted".to_string()
+            })?;
             to_set.push(cookie);
         }
         let expected = to_set.len();
@@ -214,7 +220,9 @@ pub fn apply_cookies(
             unsafe { store.setCookie_completionHandler(cookie, Some(&handler)) };
         }
         let run_loop = NSRunLoop::mainRunLoop();
-        super::pump_until(&run_loop, Duration::from_secs(3), 0.05, || done.get() >= expected);
+        super::pump_until(&run_loop, Duration::from_secs(3), 0.05, || {
+            done.get() >= expected
+        });
         if done.get() < expected {
             return Err("cookie restore timed out before all cookies were set".into());
         }
@@ -247,7 +255,10 @@ mod tests {
         assert!(!cookie_domain_matches("example.com", "evil-example.com"));
         assert!(!cookie_domain_matches(".example.com", "evil-example.com"));
         assert!(!cookie_domain_matches("example.com", "notexample.com"));
-        assert!(!cookie_domain_matches("example.com", "example.com.attacker.com"));
+        assert!(!cookie_domain_matches(
+            "example.com",
+            "example.com.attacker.com"
+        ));
         assert!(!cookie_domain_matches("example.com", "attacker.com"));
         assert!(!cookie_domain_matches("", "example.com"));
         assert!(!cookie_domain_matches(".", "example.com"));

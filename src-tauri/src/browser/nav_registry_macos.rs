@@ -72,12 +72,10 @@ impl NavDelegate {
     pub(super) fn commit_navigation(&self, url: &str, navigation_id: &str) -> Option<u64> {
         let ivars = self.ivars();
         let state = ivars.app.try_state::<BrowserSurface>()?;
-        if state
-            .registry
-            .lock()
-            .ok()
-            .and_then(|reg| reg.navigation_ticket(&ivars.tab_id).map(|ticket| ticket.id == navigation_id))
-            != Some(true)
+        if state.registry.lock().ok().and_then(|reg| {
+            reg.navigation_ticket(&ivars.tab_id)
+                .map(|ticket| ticket.id == navigation_id)
+        }) != Some(true)
         {
             return None;
         }
@@ -100,7 +98,7 @@ impl NavDelegate {
             Ok(reg) => reg,
             Err(e) => {
                 log::warn!("[browser] registry lock poisoned on commit: {e}");
-            return None;
+                return None;
             }
         };
         let generation = match reg.bump_generation(&ivars.tab_id) {
@@ -185,7 +183,13 @@ impl NavDelegate {
         ivars
             .app
             .try_state::<BrowserSurface>()
-            .and_then(|state| state.registry.lock().ok().and_then(|reg| reg.generation(&ivars.tab_id)))
+            .and_then(|state| {
+                state
+                    .registry
+                    .lock()
+                    .ok()
+                    .and_then(|reg| reg.generation(&ivars.tab_id))
+            })
             .unwrap_or(0)
     }
 
@@ -266,5 +270,4 @@ impl NavDelegate {
         self.set_state(Lifecycle::Crashed);
         false
     }
-
 }

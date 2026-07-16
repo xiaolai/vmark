@@ -86,7 +86,8 @@ pub async fn browser_navigate(
         // not reinterpret that explicit human navigation as an AI destination
         // requiring a separate approval prompt.
         if reg.automation_mode(&tab_id) == Some(AutomationMode::AiShared) {
-            reg.set_shared_navigation_approval(&tab_id, &url).map_err(err)?;
+            reg.set_shared_navigation_approval(&tab_id, &url)
+                .map_err(err)?;
         }
     }
     surface::navigate(&app, tab_id, url)

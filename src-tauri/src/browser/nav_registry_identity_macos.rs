@@ -56,7 +56,9 @@ impl NavDelegate {
     }
 
     pub(crate) fn remember_pending_navigation(&self, navigation_id: String) {
-        self.ivars().pending_navigation_id.replace(Some(navigation_id));
+        self.ivars()
+            .pending_navigation_id
+            .replace(Some(navigation_id));
     }
 
     pub(crate) fn is_current_navigation(&self, navigation_id: &str) -> bool {

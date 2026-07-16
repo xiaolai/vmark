@@ -22,14 +22,21 @@ fn provenance_is_set_at_creation_and_cannot_be_inferred_from_url() {
         .unwrap();
     reg.create_with_mode("shared", "main", AutomationMode::AiShared)
         .unwrap();
-    assert_eq!(reg.automation_mode("sandbox"), Some(AutomationMode::AiSandbox));
-    assert_eq!(reg.automation_mode("shared"), Some(AutomationMode::AiShared));
+    assert_eq!(
+        reg.automation_mode("sandbox"),
+        Some(AutomationMode::AiSandbox)
+    );
+    assert_eq!(
+        reg.automation_mode("shared"),
+        Some(AutomationMode::AiShared)
+    );
 }
 
 #[test]
 fn policy_epoch_is_recorded_separately_from_navigation_generation() {
     let mut reg = BrowserRegistry::default();
-    reg.create_with_mode("ai", "main", AutomationMode::AiSandbox).unwrap();
+    reg.create_with_mode("ai", "main", AutomationMode::AiSandbox)
+        .unwrap();
     assert_eq!(reg.policy_epoch("ai"), Some(0));
     reg.set_policy_epoch("ai", 7).unwrap();
     assert_eq!(reg.policy_epoch("ai"), Some(7));
@@ -41,13 +48,15 @@ fn shared_navigation_approval_is_origin_bound_and_cleared_by_new_navigation() {
     let mut r = BrowserRegistry::default();
     r.create_with_mode("shared", "main", AutomationMode::AiShared)
         .unwrap();
-    r.begin_navigation("shared", "https://example.com/start").unwrap();
+    r.begin_navigation("shared", "https://example.com/start")
+        .unwrap();
     r.set_shared_navigation_approval("shared", "https://example.com/start/path")
         .unwrap();
     assert!(r.shared_navigation_approved("shared", "https://example.com/other"));
     assert!(!r.shared_navigation_approved("shared", "https://other.example/"));
 
-    r.begin_navigation("shared", "https://other.example/").unwrap();
+    r.begin_navigation("shared", "https://other.example/")
+        .unwrap();
     assert!(!r.shared_navigation_approved("shared", "https://example.com/other"));
 }
 
@@ -57,14 +66,16 @@ fn profile_read_is_confined_to_the_approved_origin_and_survives_navigation() {
     let mut r = BrowserRegistry::default();
     r.create_with_mode("p", "main", AutomationMode::AiSandbox)
         .unwrap();
-    r.set_profile_origin("p", "https://github.com/login").unwrap();
+    r.set_profile_origin("p", "https://github.com/login")
+        .unwrap();
     // On the approved origin (any path) → allowed.
     assert!(r.profile_read_allowed("p", "https://github.com/account"));
     // A redirect/navigation to another origin → read refused (the crux of H1).
     assert!(!r.profile_read_allowed("p", "https://evil.com/x"));
     assert!(!r.profile_read_allowed("p", "https://gist.github.com/x"));
     // Unlike shared-origin, a new navigation must NOT clear the confinement.
-    r.begin_navigation("p", "https://github.com/somewhere").unwrap();
+    r.begin_navigation("p", "https://github.com/somewhere")
+        .unwrap();
     assert!(!r.profile_read_allowed("p", "https://evil.com/x"));
     assert!(r.profile_read_allowed("p", "https://github.com/still-ok"));
 }
@@ -75,7 +86,8 @@ fn set_profile_origin_is_set_once_and_never_widens() {
     let mut r = BrowserRegistry::default();
     r.create_with_mode("p", "main", AutomationMode::AiSandbox)
         .unwrap();
-    r.set_profile_origin("p", "https://github.com/login").unwrap();
+    r.set_profile_origin("p", "https://github.com/login")
+        .unwrap();
     // A later call with a different origin is a no-op — the first pin stands.
     r.set_profile_origin("p", "https://evil.com/x").unwrap();
     assert!(r.profile_read_allowed("p", "https://github.com/x"));
@@ -102,7 +114,10 @@ fn begin_navigation_returns_a_monotonic_ticket_and_replaces_previous_ticket() {
     let second = reg.begin_navigation("t1", "https://b.example/").unwrap();
     assert!(second.sequence > first.sequence);
     assert_ne!(first.id, second.id);
-    assert_eq!(reg.navigation_ticket("t1").map(|t| t.id.as_str()), Some(second.id.as_str()));
+    assert_eq!(
+        reg.navigation_ticket("t1").map(|t| t.id.as_str()),
+        Some(second.id.as_str())
+    );
     assert_eq!(reg.committed_url("t1"), None);
 }
 
@@ -141,7 +156,10 @@ fn rollback_restores_the_previous_page_when_native_navigation_fails() {
         .unwrap());
     assert_eq!(reg.state("t1"), Some(Lifecycle::Live));
     assert_eq!(reg.committed_url("t1"), Some("https://a.example/"));
-    assert_eq!(reg.navigation_ticket("t1").map(|ticket| ticket.id.as_str()), Some("nav-t1-1"));
+    assert_eq!(
+        reg.navigation_ticket("t1").map(|ticket| ticket.id.as_str()),
+        Some("nav-t1-1")
+    );
 }
 
 #[test]

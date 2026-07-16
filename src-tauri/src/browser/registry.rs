@@ -214,7 +214,6 @@ impl BrowserRegistry {
     pub fn automation_mode(&self, tab_id: &str) -> Option<AutomationMode> {
         self.tabs.get(tab_id).map(|entry| entry.automation_mode)
     }
-
 }
 
 // `validate_navigation_url` now lives in browser/origin_guard.rs, which parses

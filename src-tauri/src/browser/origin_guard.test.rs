@@ -398,23 +398,53 @@ fn legacy_human_wrapper_refuses_read_without_a_human_attachment() {
 #[test]
 fn sandbox_read_is_allowed_but_human_read_requires_attachment() {
     assert!(is_driver_operation_allowed_for_mode(
-        "https://example.com/page", "read", &[], AutomationMode::AiSandbox, false, false, true
+        "https://example.com/page",
+        "read",
+        &[],
+        AutomationMode::AiSandbox,
+        false,
+        false,
+        true
     ));
     assert!(!is_driver_operation_allowed_for_mode(
-        "https://example.com/page", "read", &[], AutomationMode::Human, false, false, true
+        "https://example.com/page",
+        "read",
+        &[],
+        AutomationMode::Human,
+        false,
+        false,
+        true
     ));
     assert!(is_driver_operation_allowed_for_mode(
-        "https://example.com/page", "read", &[], AutomationMode::Human, true, false, true
+        "https://example.com/page",
+        "read",
+        &[],
+        AutomationMode::Human,
+        true,
+        false,
+        true
     ));
 }
 
 #[test]
 fn shared_read_requires_current_destination_approval() {
     assert!(!is_driver_operation_allowed_for_mode(
-        "https://example.com/page", "read", &[], AutomationMode::AiShared, false, false, true
+        "https://example.com/page",
+        "read",
+        &[],
+        AutomationMode::AiShared,
+        false,
+        false,
+        true
     ));
     assert!(is_driver_operation_allowed_for_mode(
-        "https://example.com/page", "read", &[], AutomationMode::AiShared, false, true, true
+        "https://example.com/page",
+        "read",
+        &[],
+        AutomationMode::AiShared,
+        false,
+        true,
+        true
     ));
 }
 
@@ -424,11 +454,23 @@ fn profile_confined_sandbox_read_is_refused_off_the_approved_origin() {
     // (sandbox_read_allowed=false) must be refused a read even though it is AiSandbox —
     // this is what stops a profile-approved X tab from reading authenticated Y.
     assert!(!is_driver_operation_allowed_for_mode(
-        "https://evil.com/page", "read", &[], AutomationMode::AiSandbox, false, false, false
+        "https://evil.com/page",
+        "read",
+        &[],
+        AutomationMode::AiSandbox,
+        false,
+        false,
+        false
     ));
     // On the approved origin (sandbox_read_allowed=true) the same read is allowed.
     assert!(is_driver_operation_allowed_for_mode(
-        "https://example.com/page", "read", &[], AutomationMode::AiSandbox, false, false, true
+        "https://example.com/page",
+        "read",
+        &[],
+        AutomationMode::AiSandbox,
+        false,
+        false,
+        true
     ));
 }
 
@@ -599,12 +641,24 @@ fn eval_is_never_granted_even_when_a_grant_lists_it() {
         origin_pattern: "https://blog.example.com".into(),
         operations: vec!["read".into(), "eval".into()],
     }];
-    assert!(!is_operation_granted("https://blog.example.com/p", "eval", &eval_grant));
-    assert!(is_operation_granted("https://blog.example.com/p", "read", &eval_grant));
+    assert!(!is_operation_granted(
+        "https://blog.example.com/p",
+        "eval",
+        &eval_grant
+    ));
+    assert!(is_operation_granted(
+        "https://blog.example.com/p",
+        "read",
+        &eval_grant
+    ));
 
     let style_grant = vec![StandingGrant {
         origin_pattern: "https://blog.example.com".into(),
         operations: vec!["style".into()],
     }];
-    assert!(is_operation_granted("https://blog.example.com/p", "style", &style_grant));
+    assert!(is_operation_granted(
+        "https://blog.example.com/p",
+        "style",
+        &style_grant
+    ));
 }

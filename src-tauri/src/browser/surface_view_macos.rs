@@ -95,9 +95,9 @@ pub(super) fn content_view(
     _mtm: MainThreadMarker,
 ) -> Result<Retained<NSView>, String> {
     use tauri::Manager;
-    let win = app
-        .get_webview_window(window_label)
-        .ok_or_else(|| format!("window '{window_label}' is gone; nothing to attach a browser to"))?;
+    let win = app.get_webview_window(window_label).ok_or_else(|| {
+        format!("window '{window_label}' is gone; nothing to attach a browser to")
+    })?;
     let ptr = win
         .ns_window()
         .map_err(|e| format!("window '{window_label}' has no NSWindow: {e}"))?;

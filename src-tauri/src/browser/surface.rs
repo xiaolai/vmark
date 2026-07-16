@@ -16,10 +16,10 @@
 //! The macOS objc2 recipe is the productionized form of the validated Phase-0
 //! spike (git cd162e02:src-tauri/src/spike_embed.rs).
 
-use crate::browser::one_shot::OneShot;
-use crate::browser::profile_open::ProfileOpen;
 use crate::browser::ai_policy::AiBrowserPolicy;
+use crate::browser::one_shot::OneShot;
 use crate::browser::origin_guard::StandingGrant;
+use crate::browser::profile_open::ProfileOpen;
 use crate::browser::recovery::CrashTracker;
 use crate::browser::registry::BrowserRegistry;
 use std::collections::HashMap;
@@ -124,7 +124,6 @@ impl BrowserSurface {
             attachments.retain(|attachment| attachment.tab_id != tab_id);
         }
     }
-
 }
 
 /// Is there an attachment for exactly this tab + generation? A peek — no consume.
@@ -189,7 +188,8 @@ mod imp;
 #[cfg(target_os = "macos")]
 pub use imp::{
     assert_no_bridge, clear_ai_sandbox_store, create, create_with_mode, destroy, dialog_respond,
-    eval, forget_profile, go_history, navigate, screenshot::screenshot,
+    eval, forget_profile, go_history, navigate,
+    screenshot::screenshot,
     session_cookies::{apply_cookies, capture_cookies},
     set_bounds, set_hidden, stop,
 };

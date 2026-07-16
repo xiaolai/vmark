@@ -126,9 +126,7 @@ pub(super) fn ai_commit_allowed(
     }
     match mode {
         AutomationMode::Human => true,
-        AutomationMode::AiSandbox => {
-            validate_ai_navigation_url(url, policy.allow_loopback).is_ok()
-        }
+        AutomationMode::AiSandbox => validate_ai_navigation_url(url, policy.allow_loopback).is_ok(),
         AutomationMode::AiShared => {
             if validate_ai_navigation_url(url, policy.allow_loopback).is_err() {
                 return false;

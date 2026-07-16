@@ -33,8 +33,8 @@ use tauri::Manager;
 use super::super::payloads::NavPayload;
 use super::super::webview::{current_url, history_state};
 use super::super::NavDelegate;
-use crate::browser::surface::BrowserSurface;
 use crate::browser::ai_policy::validate_ai_navigation_url;
+use crate::browser::surface::BrowserSurface;
 
 /// The one property observed. `WKWebView.URL` is documented KVO-compliant.
 pub(in crate::browser) const URL_KEY_PATH: &str = "URL";

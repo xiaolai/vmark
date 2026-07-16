@@ -255,7 +255,12 @@ fn a_profile_confined_read_off_origin_is_denied_even_with_a_read_one_shot() {
     // spent on the denial (the page carries the profile's login).
     let surface = enabled_surface();
     // Approved origin is github.com, but the tab committed at evil.com (a redirect).
-    commit_tab(&surface, "t", "https://evil.com/", AutomationMode::AiSandbox);
+    commit_tab(
+        &surface,
+        "t",
+        "https://evil.com/",
+        AutomationMode::AiSandbox,
+    );
     surface
         .registry
         .lock()

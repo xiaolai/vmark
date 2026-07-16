@@ -71,17 +71,17 @@ pub fn validate_ai_navigation_url(input: &str, allow_loopback: bool) -> Result<S
 
     let host = parsed.host_str().ok_or(AiUrlError::Blocked)?;
     let normalized_host = host.trim_end_matches('.').to_ascii_lowercase();
-    if normalized_host.is_empty() || normalized_host.contains('.') && normalized_host.starts_with('.') {
+    if normalized_host.is_empty()
+        || normalized_host.contains('.') && normalized_host.starts_with('.')
+    {
         return Err(AiUrlError::Blocked);
     }
 
-    let ip = parsed
-        .host()
-        .and_then(|host| match host {
-            url::Host::Ipv4(address) => Some(IpAddr::V4(address)),
-            url::Host::Ipv6(address) => Some(IpAddr::V6(address)),
-            url::Host::Domain(_) => parse_legacy_ipv4(&normalized_host).map(IpAddr::V4),
-        });
+    let ip = parsed.host().and_then(|host| match host {
+        url::Host::Ipv4(address) => Some(IpAddr::V4(address)),
+        url::Host::Ipv6(address) => Some(IpAddr::V6(address)),
+        url::Host::Domain(_) => parse_legacy_ipv4(&normalized_host).map(IpAddr::V4),
+    });
 
     if let Some(address) = ip {
         if blocked_ip(address, allow_loopback) {
@@ -143,14 +143,22 @@ fn blocked_ipv4(address: Ipv4Addr, allow_loopback: bool) -> bool {
 }
 
 fn in_ipv4_range(address: u32, network: u32, prefix: u8) -> bool {
-    let mask = if prefix == 0 { 0 } else { u32::MAX << (32 - prefix) };
+    let mask = if prefix == 0 {
+        0
+    } else {
+        u32::MAX << (32 - prefix)
+    };
     address & mask == network & mask
 }
 
 fn in_ipv6_range(address: Ipv6Addr, network: Ipv6Addr, prefix: u8) -> bool {
     let address = u128::from(address);
     let network = u128::from(network);
-    let mask = if prefix == 0 { 0 } else { u128::MAX << (128 - prefix) };
+    let mask = if prefix == 0 {
+        0
+    } else {
+        u128::MAX << (128 - prefix)
+    };
     address & mask == network & mask
 }
 
@@ -174,9 +182,7 @@ fn parse_legacy_ipv4(host: &str) -> Option<Ipv4Addr> {
     let value = match values.as_slice() {
         [a] if *a <= 0xffff_ffff => *a,
         [a, b] if *a <= 0xff && *b <= 0xff_ffff => (a << 24) | b,
-        [a, b, c] if *a <= 0xff && *b <= 0xff && *c <= 0xffff => {
-            (a << 24) | (b << 16) | c
-        }
+        [a, b, c] if *a <= 0xff && *b <= 0xff && *c <= 0xffff => (a << 24) | (b << 16) | c,
         [a, b, c, d] if [a, b, c, d].iter().all(|v| **v <= 0xff) => {
             (a << 24) | (b << 16) | (c << 8) | d
         }
@@ -186,9 +192,15 @@ fn parse_legacy_ipv4(host: &str) -> Option<Ipv4Addr> {
 }
 
 fn parse_number(value: &str) -> Option<u64> {
-    let (digits, radix) = if let Some(rest) = value.strip_prefix("0x").or_else(|| value.strip_prefix("0X")) {
+    let (digits, radix) = if let Some(rest) = value
+        .strip_prefix("0x")
+        .or_else(|| value.strip_prefix("0X"))
+    {
         (rest, 16)
-    } else if let Some(rest) = value.strip_prefix("0o").or_else(|| value.strip_prefix("0O")) {
+    } else if let Some(rest) = value
+        .strip_prefix("0o")
+        .or_else(|| value.strip_prefix("0O"))
+    {
         (rest, 8)
     } else if value.starts_with('0') && value.len() > 1 {
         (value, 8)

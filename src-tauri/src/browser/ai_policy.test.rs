@@ -18,7 +18,10 @@ fn rejects_unsupported_schemes_and_userinfo() {
         "https://user:password@example.com/",
         "https://example.com\\@127.0.0.1/",
     ] {
-        assert_eq!(validate_ai_navigation_url(url, false), Err(AiUrlError::Blocked));
+        assert_eq!(
+            validate_ai_navigation_url(url, false),
+            Err(AiUrlError::Blocked)
+        );
     }
 }
 
@@ -43,7 +46,11 @@ fn rejects_loopback_and_private_literal_addresses() {
         "http://198.18.0.1/",
         "http://[2001:db8::1]/",
     ] {
-        assert_eq!(validate_ai_navigation_url(url, false), Err(AiUrlError::Blocked), "{url}");
+        assert_eq!(
+            validate_ai_navigation_url(url, false),
+            Err(AiUrlError::Blocked),
+            "{url}"
+        );
     }
 }
 
@@ -60,8 +67,17 @@ fn loopback_can_be_explicitly_enabled_without_opening_private_ranges() {
 
 #[test]
 fn rejects_metadata_and_special_hostnames() {
-    for host in ["metadata.google.internal", "metadata", "instance-data", "LOCALHOST.", "app.localhost"] {
+    for host in [
+        "metadata.google.internal",
+        "metadata",
+        "instance-data",
+        "LOCALHOST.",
+        "app.localhost",
+    ] {
         let url = format!("https://{host}/");
-        assert_eq!(validate_ai_navigation_url(&url, false), Err(AiUrlError::Blocked));
+        assert_eq!(
+            validate_ai_navigation_url(&url, false),
+            Err(AiUrlError::Blocked)
+        );
     }
 }

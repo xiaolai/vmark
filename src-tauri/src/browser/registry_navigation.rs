@@ -72,7 +72,12 @@ impl BrowserRegistry {
             .tabs
             .get_mut(tab_id)
             .ok_or_else(|| BrowserError::UnknownTab(tab_id.to_string()))?;
-        if entry.active_navigation.as_ref().map(|ticket| ticket.id.as_str()) != Some(navigation_id) {
+        if entry
+            .active_navigation
+            .as_ref()
+            .map(|ticket| ticket.id.as_str())
+            != Some(navigation_id)
+        {
             return Ok(false);
         }
         entry.state = state;
@@ -91,8 +96,9 @@ impl BrowserRegistry {
             .tabs
             .get_mut(tab_id)
             .ok_or_else(|| BrowserError::UnknownTab(tab_id.to_string()))?;
-        entry.shared_navigation_origin = crate::browser::origin_guard::canonicalize_origin(destination_url)
-            .map(|origin| crate::browser::origin_guard::origin_key(&origin));
+        entry.shared_navigation_origin =
+            crate::browser::origin_guard::canonicalize_origin(destination_url)
+                .map(|origin| crate::browser::origin_guard::origin_key(&origin));
         Ok(())
     }
 

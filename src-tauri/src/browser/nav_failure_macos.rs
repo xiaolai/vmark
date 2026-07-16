@@ -39,11 +39,17 @@ impl NavDelegate {
             Some(Lifecycle::Creating | Lifecycle::Navigating)
         ) {
             if let Err(e) = reg.transition(&ivars.tab_id, Lifecycle::Live) {
-                log::warn!("[browser] failed-load settle refused for {}: {e:?}", ivars.tab_id);
+                log::warn!(
+                    "[browser] failed-load settle refused for {}: {e:?}",
+                    ivars.tab_id
+                );
             }
         }
         if let Err(e) = reg.clear_navigation(&ivars.tab_id) {
-            log::warn!("[browser] failed-load ticket clear refused for {}: {e:?}", ivars.tab_id);
+            log::warn!(
+                "[browser] failed-load ticket clear refused for {}: {e:?}",
+                ivars.tab_id
+            );
         }
     }
 

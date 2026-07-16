@@ -243,7 +243,10 @@ pub fn is_operation_granted(target_url: &str, operation: &str, grants: &[Standin
 /// reads need the currently approved destination, and human reads need an attachment.
 /// Every mutating operation still requires an explicit standing grant or one-shot, and
 /// `upload` is refused unconditionally.
-#[allow(dead_code, reason = "legacy helper retained for non-AI callers and compatibility tests")]
+#[allow(
+    dead_code,
+    reason = "legacy helper retained for non-AI callers and compatibility tests"
+)]
 pub fn is_driver_operation_allowed(
     committed_url: &str,
     operation: &str,

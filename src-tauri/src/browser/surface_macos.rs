@@ -36,12 +36,12 @@ mod browser_store;
 #[path = "console_shim_macos.rs"]
 mod console_shim;
 
+#[path = "surface_create_macos.rs"]
+mod creation;
 #[path = "screenshot_macos.rs"]
 pub mod screenshot;
 #[path = "session_cookies_macos.rs"]
 pub mod session_cookies;
-#[path = "surface_create_macos.rs"]
-mod creation;
 pub use creation::{create, create_with_mode, forget_profile};
 
 thread_local! {

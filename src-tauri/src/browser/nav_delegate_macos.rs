@@ -1,11 +1,11 @@
 //! WKNavigationDelegate for the embedded browser. Lifecycle and ticket state live in
 //! `nav_registry_macos.rs`; wire payloads live in `nav_payloads_macos.rs`.
 
+use core::ffi::c_void;
+use objc2::rc::Retained;
 use objc2::runtime::{AnyObject, NSObject, NSObjectProtocol};
 use objc2::{define_class, DefinedClass, MainThreadOnly};
-use core::ffi::c_void;
 use objc2_foundation::{NSError, NSString};
-use objc2::rc::Retained;
 use objc2_web_kit::{
     WKFrameInfo, WKNavigation, WKNavigationAction, WKNavigationActionPolicy, WKNavigationDelegate,
     WKUIDelegate, WKWebView, WKWebViewConfiguration, WKWindowFeatures,

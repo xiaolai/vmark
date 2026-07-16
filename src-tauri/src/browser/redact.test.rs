@@ -11,7 +11,10 @@ fn redact_keeps_the_origin_and_drops_everything_that_can_carry_a_secret() {
     );
     assert!(!redact("https://example.com/p?token=abc123").contains("abc123"));
     assert!(!redact("https://alice:pw@example.com/p").contains("pw"));
-    assert_eq!(redact("https://example.com:8443/x"), "https://example.com:8443");
+    assert_eq!(
+        redact("https://example.com:8443/x"),
+        "https://example.com:8443"
+    );
     assert_eq!(redact("http://example.com:80/x"), "http://example.com");
 }
 

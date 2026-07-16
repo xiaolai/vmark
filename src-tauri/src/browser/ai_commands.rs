@@ -180,9 +180,14 @@ pub async fn browser_ai_create(
         }
         _ => None,
     };
-    if let Err(error) =
-        surface::create_with_mode(&app, tab_id.clone(), window_label, url, mode, create_profile)
-    {
+    if let Err(error) = surface::create_with_mode(
+        &app,
+        tab_id.clone(),
+        window_label,
+        url,
+        mode,
+        create_profile,
+    ) {
         state.forget_tab(&tab_id)?;
         return Err(error);
     }
