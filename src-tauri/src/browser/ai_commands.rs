@@ -117,11 +117,8 @@ pub async fn browser_ai_create(
             if reg.policy_epoch(&tab_id) != Some(policy.epoch) {
                 return Err("POLICY_STALE".into());
             }
-            if let Some(existing) = reg.navigation_ticket(&tab_id) {
-                Some(existing.id.clone())
-            } else {
-                None
-            }
+            reg.navigation_ticket(&tab_id)
+                .map(|existing| existing.id.clone())
         } else {
             reg.create_with_mode(&tab_id, &window_label, mode)
                 .map_err(|e| format!("{e:?}"))?;

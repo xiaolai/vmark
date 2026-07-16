@@ -44,6 +44,7 @@ use tauri::AppHandle;
 ///   - A **host-only cookie** (no leading dot, `example.com`) covers ONLY the exact
 ///     host — never a subdomain. Conflating the two would over-capture a parent's
 ///     host-only cookie while on a subdomain. (Sec review cookie M1.)
+///
 /// Never a suffix match across a label boundary (`evil-example.com` ≠ `example.com`).
 /// Pure — unit-tested. NOTE: not public-suffix-aware; WebKit's own ingestion rejects
 /// supercookie domains and the blob is keychain-stored (not attacker-editable), so

@@ -71,9 +71,7 @@ impl NavDelegate {
     /// never happened.
     pub(super) fn commit_navigation(&self, url: &str, navigation_id: &str) -> Option<u64> {
         let ivars = self.ivars();
-        let Some(state) = ivars.app.try_state::<BrowserSurface>() else {
-            return None;
-        };
+        let state = ivars.app.try_state::<BrowserSurface>()?;
         if state
             .registry
             .lock()

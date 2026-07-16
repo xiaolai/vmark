@@ -28,7 +28,7 @@ const MAX_NAMED_STORES: usize = 32;
 
 thread_local! {
     /// One app-lifetime non-persistent store shared by UNNAMED AI sandbox tabs.
-    static AI_SANDBOX_STORE: RefCell<Option<Retained<WKWebsiteDataStore>>> = RefCell::new(None);
+    static AI_SANDBOX_STORE: RefCell<Option<Retained<WKWebsiteDataStore>>> = const { RefCell::new(None) };
     /// One isolated store per profile name (persistent on macOS 14+, else a distinct
     /// non-persistent store — never the shared singleton).
     static NAMED_STORES: RefCell<HashMap<String, Retained<WKWebsiteDataStore>>> =

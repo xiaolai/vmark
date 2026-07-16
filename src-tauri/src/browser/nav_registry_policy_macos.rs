@@ -92,13 +92,12 @@ impl NavDelegate {
             Ok(ticket) => ticket,
             Err(_) => return false,
         };
-        if mode == AutomationMode::AiShared {
-            if registry
+        if mode == AutomationMode::AiShared
+            && registry
                 .set_shared_navigation_approval(&ivars.tab_id, url)
                 .is_err()
-            {
-                return false;
-            }
+        {
+            return false;
         }
         self.remember_pending_navigation(ticket.id);
         true
