@@ -1,6 +1,7 @@
 {
   "openSidebar": "Seitenleiste öffnen",
   "newTabTitle": "Neuer Tab",
+  "browserWorkspace": "Browser",
   "autoSavePaused": "Automatisches Speichern pausiert",
   "autoSavePausedTitle": "Automatisches Speichern pausiert: Datei wurde vom Datenträger gelöscht. Manuell speichern mit {{shortcut}}.",
   "divergent": "Abweichend",

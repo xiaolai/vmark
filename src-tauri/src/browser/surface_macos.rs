@@ -5,10 +5,9 @@
 
 use objc2::rc::Retained;
 use objc2::runtime::AnyObject;
-use objc2::{MainThreadMarker, MainThreadOnly};
-use objc2_core_foundation::CGRect;
+use objc2::MainThreadMarker;
 use objc2_foundation::{NSError, NSRunLoop, NSString, NSURLRequest};
-use objc2_web_kit::{WKContentWorld, WKWebView, WKWebViewConfiguration};
+use objc2_web_kit::{WKContentWorld, WKWebView};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -34,6 +33,16 @@ use lifecycle::evict_existing;
 
 #[path = "browser_store_macos.rs"]
 mod browser_store;
+#[path = "console_shim_macos.rs"]
+mod console_shim;
+
+#[path = "screenshot_macos.rs"]
+pub mod screenshot;
+#[path = "session_cookies_macos.rs"]
+pub mod session_cookies;
+#[path = "surface_create_macos.rs"]
+mod creation;
+pub use creation::{create, create_with_mode, forget_profile};
 
 thread_local! {
     /// Main-thread-only live webviews, keyed by tab id.
@@ -66,70 +75,6 @@ where
 #[path = "surface_view_macos.rs"]
 mod view;
 use view::{content_view, frame_for_dom_rect, js_result_to_string, ns_url};
-
-/// Create the native webview for `tab_id`, add it as a subview of the
-/// `window_label` window's content view, and load `url`.
-pub fn create(
-    app: &AppHandle,
-    tab_id: String,
-    window_label: String,
-    url: String,
-) -> Result<(), String> {
-    create_with_mode(
-        app,
-        tab_id,
-        window_label,
-        url,
-        super::super::registry::AutomationMode::Human,
-    )
-}
-
-/// Create a browser webview with an explicit data-store posture. The store is
-/// selected before WKWebView construction, which is the only safe WebKit seam.
-pub fn create_with_mode(
-    app: &AppHandle,
-    tab_id: String,
-    window_label: String,
-    url: String,
-    mode: super::super::registry::AutomationMode,
-) -> Result<(), String> {
-    let app_handle = app.clone();
-    on_main(app, move |mtm| {
-        // Validate all fallible inputs before registering native objects.
-        let parent = content_view(&app_handle, &window_label, mtm)?;
-        let url_obj = ns_url(&url)?;
-        let req = NSURLRequest::requestWithURL(&url_obj);
-
-        // Start at zero size; the frontend supplies the measured browser rect immediately.
-        let config = unsafe { WKWebViewConfiguration::new(mtm) };
-        browser_store::configure(&config, mtm, mode);
-        let webview = unsafe {
-            WKWebView::initWithFrame_configuration(WKWebView::alloc(mtm), CGRect::ZERO, &config)
-        };
-        // Evict before replacing the delegate so the old view is removed and its KVO
-        // observer is detached before its retained delegate is released.
-        evict_existing(&tab_id);
-        // Attach the navigation delegate BEFORE the first load so its lifecycle
-        // events (commit/finish/fail) fire for that load too. Held in DELEGATES
-        // because WKWebView's navigationDelegate reference is weak.
-        let delegate = NavDelegate::new(mtm, tab_id.clone(), app_handle);
-        unsafe {
-            webview.setNavigationDelegate(Some(delegate.as_protocol()));
-            webview.setUIDelegate(Some(delegate.as_ui_protocol()));
-        }
-        delegate.observe_url(&webview);
-        // BOTH maps, together, BEFORE anything can pump the run loop — the pairing
-        // invariant that makes teardown sound. See surface_lifecycle_macos.rs.
-        DELEGATES.with(|m| m.borrow_mut().insert(tab_id.clone(), delegate));
-        WEBVIEWS.with(|m| m.borrow_mut().insert(tab_id.clone(), webview.clone()));
-        let _ = unsafe { webview.loadRequest(&req) };
-        parent.addSubview(&webview);
-        // Drive the first navigation + paint with a bounded run-loop pump.
-        let run_loop = NSRunLoop::mainRunLoop();
-        drive_load(&webview, &run_loop);
-        Ok(())
-    })
-}
 
 /// Release the sandbox profile after AI views are torn down or posture changes.
 pub fn clear_ai_sandbox_store(app: &AppHandle) -> Result<(), String> {

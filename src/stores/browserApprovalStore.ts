@@ -14,70 +14,32 @@ import {
   isOriginGranted,
   isOriginPattern,
 } from "@/lib/browser/origin/originGuard";
+import type {
+  ActionTarget,
+  PendingApproval,
+  ApprovalOutcome,
+  OneShotApproval,
+  HumanTabAttachment,
+  ProfileOpenApproval,
+} from "./browserApprovalStore.types";
+
+// Re-exported so consumers keep importing these from `@/stores/browserApprovalStore`.
+export type {
+  ActionTarget,
+  PendingApproval,
+  ApprovalOutcome,
+  OneShotApproval,
+  HumanTabAttachment,
+  ProfileOpenApproval,
+} from "./browserApprovalStore.types";
 
 /** Closed operation vocabulary; upload is intentionally never grantable. */
-const KNOWN_OPERATIONS = new Set(["read", "attach", "click", "type", "navigate", "publish"]);
+const KNOWN_OPERATIONS = new Set(["read", "attach", "click", "type", "scroll", "key", "style", "navigate", "publish", "eval", "session"]);
 
-/** The specific element an `act` targets — its ARIA role + accessible name.
- *  Absent for `read`, which snapshots the whole page rather than one element. */
-export interface ActionTarget {
-  role: string;
-  name: string;
-}
-
-/** A raised-but-unresolved approval request. */
-export interface PendingApproval {
-  id: string;
-  targetUrl: string;
-  operation: string;
-  /** The element the AI asked to act on, so the approval binds to it. */
-  target?: ActionTarget;
-  /** The browser tab the action targets. The driver binds the one-shot to it +
-   *  the tab's committed generation, so authority lapses on navigation (R7a). */
-  tabId: string;
-  /**
-   * The tab's navigation generation AT THE MOMENT THE PROMPT WAS RAISED — i.e. the page
-   * the user is actually being shown and asked about.
-   *
-   * Carried explicitly because the driver used to stamp the one-shot with whatever
-   * generation was current when the mint arrived. Between raising the prompt and the user
-   * clicking "Allow once" the page can navigate, and the approval would then be bound to a
-   * page the user never saw. `dismissForNavigation` narrows that window but cannot close
-   * it — the resolve and the navigation event are independent messages. (Audit, High.)
-   */
-  generation: number;
-}
-
-/** How the user (or a policy) resolved a pending approval. */
-export type ApprovalOutcome = "once" | "remember" | "deny";
-
-/** A single-use authorization minted by "Allow once". */
-export interface OneShotApproval {
-  /** Canonical bare origin pattern the approval was granted on. */
-  originPattern: string;
-  operation: string;
-  /** The generation the user approved against — see `PendingApproval.generation`. */
-  generation: number;
-  /**
-   * The exact element the user approved. A one-shot for "click Publish" must not
-   * authorize "click Delete" on the same origin — the AI chooses what it retries
-   * with, so without this it could escalate to a different element inside the
-   * single-action window. Enforced on both sides: this frontend copy (advisory)
-   * and the authoritative driver one-shot, which also binds the tab + committed
-   * generation so authority cannot survive a navigation.
-   */
-  target?: ActionTarget;
-  /** The tab the approval was granted for. Carried so the mint (browser_add_one_shot)
-   *  can bind the driver one-shot to it; the advisory frontend consume also matches
-   *  it so the two layers agree in the common case. */
-  tabId: string;
-}
-
-export interface HumanTabAttachment {
-  tabId: string;
-  generation: number;
-  once: boolean;
-}
+/** Cap on queued approval prompts. The AI client is untrusted and each pending
+ *  entry may hold a full script; beyond this a further request is dropped rather
+ *  than growing the store unbounded. Only one prompt shows at a time anyway. */
+export const MAX_PENDING_APPROVALS = 64;
 
 /** Same element? Both target-less (a read), or both naming the same role+name. */
 function sameTarget(a: ActionTarget | undefined, b: ActionTarget | undefined): boolean {
@@ -90,6 +52,7 @@ interface BrowserApprovalState {
   pending: PendingApproval[];
   oneShots: OneShotApproval[];
   attachments: HumanTabAttachment[];
+  profileOpens: ProfileOpenApproval[];
 }
 
 interface BrowserApprovalActions {
@@ -114,6 +77,9 @@ interface BrowserApprovalActions {
     /** The tab's generation NOW — the page the user is being shown. See
      *  `PendingApproval.generation`. */
     generation: number,
+    /** The exact script (for `style`/`eval`) the user is approving — shown in the
+     *  prompt and bound into the one-shot. Omit for target-based ops. */
+    script?: string,
   ) => void;
   /** Resolve a pending request: `remember` promotes it to a standing grant scoped
    *  to the target's origin; `once` mints a single-use authorization for that
@@ -129,6 +95,9 @@ interface BrowserApprovalActions {
     operation: string,
     target: ActionTarget | undefined,
     tabId: string,
+    /** The exact script (for `style`/`eval`); must equal what the one-shot bound,
+     *  so an approved script A refuses a substituted script B. Omit otherwise. */
+    script?: string,
   ) => boolean;
   /**
    * The tab navigated: drop its pending prompts and its unspent one-shots (R7a).
@@ -169,6 +138,7 @@ export const useBrowserApprovalStore = create<BrowserApprovalState & BrowserAppr
     pending: [],
     oneShots: [],
     attachments: [],
+    profileOpens: [],
 
     decide: (targetUrl, operation) => {
       if (!KNOWN_OPERATIONS.has(operation)) return "denied";
@@ -187,14 +157,19 @@ export const useBrowserApprovalStore = create<BrowserApprovalState & BrowserAppr
       set((state) => ({ grants: revokeOrigin(state.grants, originPattern) }));
     },
 
-    requestApproval: (id, targetUrl, operation, target, tabId, generation) => {
+    requestApproval: (id, targetUrl, operation, target, tabId, generation, script) => {
       if (!KNOWN_OPERATIONS.has(operation)) return;
       set((state) =>
         // A duplicate id would let `resolveApproval` authorize one action while
-        // dropping the other — keep the first, ignore the collision.
-        state.pending.some((p) => p.id === id)
+        // dropping the other — keep the first, ignore the collision. And the AI
+        // client is UNTRUSTED: cap the queue so a flood of unique requests cannot
+        // grow the store without bound (each pending may retain a full script).
+        // (Security review P5 re-verify — High #1 availability.)
+        state.pending.some((p) => p.id === id) || state.pending.length >= MAX_PENDING_APPROVALS
           ? state
-          : { pending: [...state.pending, { id, targetUrl, operation, target, tabId, generation }] },
+          : {
+              pending: [...state.pending, { id, targetUrl, operation, target, tabId, generation, script }],
+            },
       );
     },
 
@@ -209,6 +184,24 @@ export const useBrowserApprovalStore = create<BrowserApprovalState & BrowserAppr
         if (outcome !== "deny") {
           get().attachHumanTab(request.tabId, request.generation, outcome === "once");
         }
+        return;
+      }
+      // Profile-OPEN (WI-P6.1 H1): "Allow once" mints a single-use grant bound to
+      // (profile, origin) — never a standing grant. Capped and de-duplicated so a
+      // stream of approvals can't grow `profileOpens` without bound (mirrors the
+      // pending cap and the Rust-side profile-open cap). (Re-verify WI-P6.1.)
+      if (request.profile !== undefined) {
+        const p = request.profile;
+        set((state) => ({
+          profileOpens:
+            outcome === "once" &&
+            pattern !== null &&
+            state.profileOpens.length < MAX_PENDING_APPROVALS &&
+            !state.profileOpens.some((g) => g.profile === p && g.originPattern === pattern)
+              ? [...state.profileOpens, { profile: p, originPattern: pattern }]
+              : state.profileOpens,
+          pending: state.pending.filter((r) => r.id !== id),
+        }));
         return;
       }
       const remember = outcome === "remember" && pattern !== null;
@@ -233,6 +226,9 @@ export const useBrowserApprovalStore = create<BrowserApprovalState & BrowserAppr
                 // The generation the prompt was RAISED against — not whatever is current
                 // when the driver eventually receives the mint. (Audit, High.)
                 generation: request.generation,
+                // The exact script the user saw and approved — bound so a substituted
+                // retry is refused on both layers. (Security review P5, High #1.)
+                script: request.script,
               },
             ]
           : state.oneShots,
@@ -240,17 +236,20 @@ export const useBrowserApprovalStore = create<BrowserApprovalState & BrowserAppr
       }));
     },
 
-    consumeOneShot: (targetUrl, operation, target, tabId) => {
+    consumeOneShot: (targetUrl, operation, target, tabId, script) => {
       if (!KNOWN_OPERATIONS.has(operation)) return false;
       const { oneShots } = get();
       // Origin matching goes through the SAME guard as standing grants (no implicit
-      // subdomain wildcarding); the tab and target must match the exact action
-      // approved, so the two layers agree with the authoritative driver.
+      // subdomain wildcarding); the tab, target, AND script must match the exact
+      // action approved, so the two layers agree with the authoritative driver. The
+      // script comparison is what refuses an approved-A / run-B substitution for
+      // `style`/`eval`; it is `undefined === undefined` for target-based ops.
       const index = oneShots.findIndex(
         (s) =>
           s.operation === operation &&
           s.tabId === tabId &&
           sameTarget(s.target, target) &&
+          s.script === script &&
           isOriginGranted(targetUrl, [s.originPattern]),
       );
       if (index === -1) return false;
@@ -268,7 +267,7 @@ export const useBrowserApprovalStore = create<BrowserApprovalState & BrowserAppr
       }));
     },
 
-    clearEphemeral: () => set({ pending: [], oneShots: [], attachments: [] }),
+    clearEphemeral: () => set({ pending: [], oneShots: [], attachments: [], profileOpens: [] }),
 
     attachHumanTab: (tabId, generation, once) => {
       void Promise.resolve(invoke("browser_ai_attach", { tabId, generation, once })).then(

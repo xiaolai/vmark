@@ -33,7 +33,7 @@ pub use navigation_policy::validate_navigation_url;
 
 // The closed operation vocabulary lives in `browser/operation.rs`; `NEVER_AUTOMATED`
 // is re-exported for `one_shot.rs`, which imports it through the guard's surface.
-pub(crate) use crate::browser::operation::NEVER_AUTOMATED;
+pub(crate) use crate::browser::operation::{NEVER_AUTOMATED, NEVER_GRANTABLE};
 
 /// A canonical web origin: scheme + host + port, nothing else.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -217,8 +217,13 @@ pub fn is_origin_granted(target_url: &str, grants: &[String]) -> bool {
 /// never-automatable operations regardless of any grant (R5).
 pub fn is_operation_granted(target_url: &str, operation: &str, grants: &[StandingGrant]) -> bool {
     // Closed vocabulary first (parity with `decideApproval`) — a grant listing a
-    // variant `"Upload"` cannot authorize it, and hard-deny never-automatable ops.
-    if !is_known_operation(operation) || NEVER_AUTOMATED.contains(&operation) {
+    // variant `"Upload"` cannot authorize it, hard-deny never-automatable ops, and
+    // refuse never-grantable ops (`eval`) even if a grant somehow carries one, so
+    // raw eval always requires a fresh per-call one-shot (ADR-A6).
+    if !is_known_operation(operation)
+        || NEVER_AUTOMATED.contains(&operation)
+        || NEVER_GRANTABLE.contains(&operation)
+    {
         return false;
     }
     let Some(target) = canonicalize_origin(target_url) else {
@@ -251,6 +256,7 @@ pub fn is_driver_operation_allowed(
         AutomationMode::Human,
         false,
         false,
+        true, // human path — irrelevant; a read still needs `human_attached`
     )
 }
 
@@ -264,6 +270,10 @@ pub fn is_driver_operation_allowed_for_mode(
     mode: AutomationMode,
     human_attached: bool,
     shared_origin_approved: bool,
+    // For an AiSandbox tab, whether a READ is allowed on the committed origin: `true`
+    // for a profile-less tab, but for a profile-backed tab only on the origin its
+    // profile-open grant approved — WI-P6.1 H1 (no reading Y after a redirect off X).
+    sandbox_read_allowed: bool,
 ) -> bool {
     // Closed vocabulary first — not even the per-tab `read` path (`"Read"` ≠ `read`).
     if !is_known_operation(operation) || NEVER_AUTOMATED.contains(&operation) {
@@ -274,7 +284,7 @@ pub fn is_driver_operation_allowed_for_mode(
         return has_page
             && match mode {
                 AutomationMode::Human => human_attached,
-                AutomationMode::AiSandbox => true,
+                AutomationMode::AiSandbox => sandbox_read_allowed,
                 AutomationMode::AiShared => shared_origin_approved,
             };
     }

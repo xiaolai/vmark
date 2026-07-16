@@ -15,6 +15,12 @@
   background-color: var(--bg-color);
 }
 
+.browser-workspace-active {
+  /* --workspace-rail-width is set on the shell root from WORKSPACE_RAIL_WIDTH
+     (App.tsx) so this layout inherits the single TS-sourced value. */
+  background-color: var(--browser-bg-color);
+}
+
 .app-shell__sidebar {
   height: 100%;
   flex-shrink: 0;
@@ -27,6 +33,42 @@
   flex-direction: column;
   overflow: clip;
   min-width: 0;
+}
+
+/* Browser pages are native content, so the VMark shell around them stays
+   neutral even when the selected editor theme is colored or dark. Scope the
+   token aliases to the primary and document sidebar only: the workspace rail
+   remains the user's persistent colored identity strip. */
+.browser-workspace-active .app-shell__primary {
+  --bg-color: var(--browser-bg-color);
+  --bg-secondary: var(--browser-bg-secondary);
+  --bg-tertiary: var(--browser-bg-tertiary);
+  --text-color: var(--browser-text-color);
+  --text-secondary: var(--browser-text-secondary);
+  --text-tertiary: var(--browser-text-tertiary);
+  --border-color: var(--browser-border-color);
+  --hover-bg: var(--browser-hover-bg);
+  --hover-bg-strong: var(--browser-hover-bg-strong);
+  --accent-bg: var(--browser-accent-bg);
+  --accent-primary: var(--browser-accent-primary);
+  --primary-color: var(--browser-accent-primary);
+  background-color: var(--browser-bg-color);
+  color: var(--browser-text-color);
+}
+
+.browser-workspace-active .app-sidebar-stack__sidebar {
+  --sidebar-bg: var(--browser-bg-color);
+  --bg-color: var(--browser-bg-color);
+  --bg-secondary: var(--browser-bg-secondary);
+  --bg-tertiary: var(--browser-bg-tertiary);
+  --text-color: var(--browser-text-color);
+  --text-secondary: var(--browser-text-secondary);
+  --text-tertiary: var(--browser-text-tertiary);
+  --border-color: var(--browser-border-color);
+  --selection-color: var(--browser-accent-bg);
+  --accent-primary: var(--browser-accent-primary);
+  --primary-color: var(--browser-accent-primary);
+  background-color: var(--browser-bg-color);
 }
 
 .app-sidebar-stack {

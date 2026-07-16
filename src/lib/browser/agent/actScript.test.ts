@@ -1,6 +1,13 @@
 // WI-2.3 — injected act scripts: snapshot / click / type by role+name, run via eval
 import { describe, it, expect } from "vitest";
-import { buildSnapshotScript, buildClickScript, buildTypeScript } from "./actScript";
+import {
+  buildSnapshotScript,
+  buildClickScript,
+  buildTypeScript,
+  buildClickByRefScript,
+  buildTypeByRefScript,
+  buildWaitConditionScript,
+} from "./actScript";
 import { ariaSnapshot } from "./aria";
 
 function parse(html: string): Document {
@@ -38,6 +45,15 @@ describe("buildSnapshotScript", () => {
     expect(byRole.button).toBe("Publish");
     expect(byRole.link).toBe("More");
     expect(snap.some((n) => n.role === "generic")).toBe(false);
+  });
+
+  it("stamps each snapshot node with a ref (WI-P2.1)", () => {
+    const snap = run(
+      `<button>Publish</button><a href="/x">More</a>`,
+      buildSnapshotScript(),
+    ) as Array<{ ref: string }>;
+    expect(snap.length).toBeGreaterThan(0);
+    expect(snap.every((n) => /^e\d+$/.test(n.ref))).toBe(true);
   });
 });
 
@@ -91,6 +107,81 @@ describe("parity with aria.ts", () => {
     const doc = parse(`<input type="checkbox" checked aria-label="Agree">`);
     (doc.querySelector("input") as HTMLInputElement).checked = false;
     expect(exec(doc, buildSnapshotScript())).toEqual(ariaSnapshot(doc.body));
+  });
+});
+
+describe("act by ref (WI-P2.2)", () => {
+  it("clicks the element bound to a ref minted by a snapshot at the same generation", () => {
+    const doc = parse(`<button id="a">One</button><button id="b">Two</button>`);
+    const snap = exec(doc, buildSnapshotScript(5)) as Array<{ ref: string; name: string }>;
+    const two = snap.find((n) => n.name === "Two")!;
+    let clicked = "";
+    doc.querySelectorAll("button").forEach((b) => b.addEventListener("click", () => (clicked = b.id)));
+    const res = exec(doc, buildClickByRefScript(two.ref, 5)) as ActResult;
+    expect(res).toEqual({ found: true, clicked: true });
+    expect(clicked).toBe("b");
+  });
+
+  it("types into the field bound to a ref", () => {
+    const doc = parse(`<label for="e">Email</label><input id="e" type="text">`);
+    const snap = exec(doc, buildSnapshotScript(1)) as Array<{ ref: string; role: string }>;
+    const field = snap.find((n) => n.role === "textbox")!;
+    const res = exec(doc, buildTypeByRefScript(field.ref, "hi@x.com", 1)) as ActResult;
+    expect(res.typed).toBe(true);
+    expect((doc.getElementById("e") as HTMLInputElement).value).toBe("hi@x.com");
+  });
+
+  it("refuses a stale ref after the generation bumps (store reset on navigation)", () => {
+    const doc = parse(`<button id="a">One</button>`);
+    const ref = (exec(doc, buildSnapshotScript(1)) as Array<{ ref: string }>)[0].ref;
+    // Same document, new generation (SPA nav): the ref must no longer resolve.
+    const res = exec(doc, buildClickByRefScript(ref, 2)) as ActResult;
+    expect(res.found).toBe(false);
+  });
+
+  it("refuses a disabled ref target rather than reporting a click", () => {
+    const doc = parse(`<button id="a" disabled>Go</button>`);
+    const ref = (exec(doc, buildSnapshotScript(1)) as Array<{ ref: string }>)[0].ref;
+    const res = exec(doc, buildClickByRefScript(ref, 1)) as ActResult;
+    expect(res).toEqual({ found: true, clicked: false, reason: "disabled" });
+  });
+});
+
+describe("buildWaitConditionScript (WI-P3.1)", () => {
+  it("matches when the page text contains the target", () => {
+    const res = run(`<main><h1>Order confirmed</h1></main>`, buildWaitConditionScript({ text: "confirmed" }, 1)) as {
+      matched: boolean;
+    };
+    expect(res.matched).toBe(true);
+  });
+
+  it("does not match absent text", () => {
+    const res = run(`<main><h1>Loading…</h1></main>`, buildWaitConditionScript({ text: "confirmed" }, 1)) as {
+      matched: boolean;
+    };
+    expect(res.matched).toBe(false);
+  });
+
+  it("matches a role+name and returns its ref", () => {
+    const res = run(`<button>Continue</button>`, buildWaitConditionScript({ role: "button", name: "Continue" }, 4)) as {
+      matched: boolean;
+      ref: string;
+    };
+    expect(res.matched).toBe(true);
+    expect(res.ref).toMatch(/^e\d+$/);
+  });
+
+  it("does not match a role that is absent", () => {
+    const res = run(`<p>text</p>`, buildWaitConditionScript({ role: "button", name: "Go" }, 1)) as { matched: boolean };
+    expect(res.matched).toBe(false);
+  });
+
+  it("matches a ref minted at the same generation, and not after it bumps", () => {
+    const doc = parse(`<button id="a">A</button>`);
+    const ref = (exec(doc, buildSnapshotScript(7)) as Array<{ ref: string }>)[0].ref;
+    expect((exec(doc, buildWaitConditionScript({ ref }, 7)) as { matched: boolean }).matched).toBe(true);
+    // A generation bump (navigation) resets the store; the old ref no longer matches.
+    expect((exec(doc, buildWaitConditionScript({ ref }, 8)) as { matched: boolean }).matched).toBe(false);
   });
 });
 

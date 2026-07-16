@@ -3,7 +3,10 @@ import { respond } from "../utils";
 import { wrapHandler } from "./wrapHandler";
 import { useTabStore } from "@/stores/tabStore";
 import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
-import { useBrowserApprovalStore } from "@/stores/browserApprovalStore";
+import { MAX_PENDING_APPROVALS, useBrowserApprovalStore } from "@/stores/browserApprovalStore";
+import { useBrowserSessionStore } from "@/stores/browserSessionStore";
+import { originForAgent } from "@/lib/browser/url";
+import { isOriginGranted } from "@/lib/browser/origin/originGuard";
 import {
   ensureBrowserNativeView,
   waitForBrowserNativeView,
@@ -111,9 +114,57 @@ export async function handleBrowserOpen(id: string, args: Record<string, unknown
     if (timeoutMs === null) return failure(id, "INVALID_TIMEOUT");
     await ensureBrokerStarted();
     const windowLabel = getCurrentWindowLabel();
+    // Optional named profile (WI-P6.1): AI-sandbox persistent store, safe charset.
+    // A profile that is PRESENT but malformed — including an empty/whitespace string —
+    // is rejected, never silently downgraded to an unnamed tab (a different posture
+    // than asked for). Only an absent profile means "no profile" (sec review WI-P6.1
+    // Validation, re-verify round 2). The Rust side validates again.
+    let profile: string | undefined;
+    if (args.profile != null) {
+      const raw = typeof args.profile === "string" ? args.profile.trim() : "";
+      if (!/^[A-Za-z0-9._-]{1,64}$/.test(raw)) return failure(id, "INVALID_PROFILE");
+      profile = raw;
+    }
+    // H1: opening a named profile needs a FRESH per-use approval — without a
+    // single-use (profile, origin) grant, raise the prompt and DON'T create the tab,
+    // so a guessed profile can't silently open authenticated content. The driver
+    // (browser_ai_create) re-enforces this authoritatively.
+    if (profile) {
+      const targetUrl = String(args.url);
+      const approvals = useBrowserApprovalStore;
+      const grantIdx = approvals
+        .getState()
+        .profileOpens.findIndex((g) => g.profile === profile && isOriginGranted(targetUrl, [g.originPattern]));
+      if (grantIdx === -1) {
+        // Queue the prompt — but honor the same dedup + cap as `requestApproval`, so
+        // an untrusted client cannot grow `pending` without bound by flooding
+        // profile-open requests (sec review WI-P6.1 regression). Over-cap requests
+        // are dropped (fail-safe: no tab, no grant).
+        approvals.setState((s) =>
+          s.pending.some((p) => p.id === id) || s.pending.length >= MAX_PENDING_APPROVALS
+            ? s
+            : {
+                pending: [
+                  ...s.pending,
+                  { id, targetUrl, operation: "session", tabId: "", generation: 0, profile },
+                ],
+              },
+        );
+        const origin = originForAgent(targetUrl);
+        await respond({
+          id,
+          success: false,
+          error: `approval required: open profile '${profile}' on ${origin}`,
+          data: { needsApproval: true, operation: "session", action: "open-profile", profile, url: origin },
+        });
+        return;
+      }
+      approvals.setState((s) => ({ profileOpens: s.profileOpens.filter((_, i) => i !== grantIdx) }));
+    }
     const tabId = useTabStore.getState().createBrowserTab(windowLabel, args.url, undefined, aiMode());
     try {
-      await ensureBrowserNativeView(tabId, args.url, aiMode());
+      await ensureBrowserNativeView(tabId, args.url, aiMode(), profile);
+      if (profile) useBrowserSessionStore.getState().recordProfileUse(profile, Date.now());
     } catch (error) {
       if (String(error).includes("APPROVAL_REQUIRED")) {
         await requestNavigationApproval(id, tabId, args.url, 0);

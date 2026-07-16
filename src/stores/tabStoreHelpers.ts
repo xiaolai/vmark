@@ -24,6 +24,11 @@ import { getFileName } from "@/utils/paths";
 import { stripSupportedExtension } from "@/utils/dropPaths";
 import type { Tab, DocumentTab } from "./tabStoreTypes";
 
+/** Generate a process-unique tab id. Shared by the general store and the
+ *  browser-workspace actions so the id format cannot drift between them. */
+export const generateTabId = (): string =>
+  `tab-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+
 /** Tab display title from a file path (or a numbered "Untitled" for null). */
 export function getTabTitle(filePath: string | null, untitledNum?: number): string {
   if (!filePath) {
@@ -161,7 +166,11 @@ function nextActiveAfterRemoval(
 }
 
 /** State slice both removal paths (close, detach) rewrite. */
-type RemovalSlice = { tabs: Record<string, Tab[]>; activeTabId: Record<string, string | null> };
+type RemovalSlice = {
+  tabs: Record<string, Tab[]>;
+  activeTabId: Record<string, string | null>;
+  lastActiveBrowserPageId?: Record<string, string | null>;
+};
 
 /**
  * Drop the tab at `index` from `windowLabel` and re-pick the active tab. The one
@@ -195,17 +204,19 @@ export function removeTabAt(state: RemovalSlice, windowLabel: string, index: num
   if (!removed) return state;
   const removedId = removed.id;
   const remaining = windowTabs.filter((_, i) => i !== index);
+  const nextActive = nextActiveAfterRemoval(state.activeTabId[windowLabel] ?? null, removedId, index, remaining);
+  // If the successor is a browser page, it becomes the workspace's reopen target
+  // (closing the active page bypasses setActiveTab, which would otherwise track it).
+  const trackBrowser =
+    state.lastActiveBrowserPageId !== undefined &&
+    !!nextActive &&
+    remaining.some((t) => t.id === nextActive && t.kind === "browser");
   return {
     tabs: { ...state.tabs, [windowLabel]: remaining },
-    activeTabId: {
-      ...state.activeTabId,
-      [windowLabel]: nextActiveAfterRemoval(
-        state.activeTabId[windowLabel] ?? null,
-        removedId,
-        index,
-        remaining,
-      ),
-    },
+    activeTabId: { ...state.activeTabId, [windowLabel]: nextActive },
+    ...(trackBrowser
+      ? { lastActiveBrowserPageId: { ...state.lastActiveBrowserPageId, [windowLabel]: nextActive } }
+      : {}),
   };
 }
 

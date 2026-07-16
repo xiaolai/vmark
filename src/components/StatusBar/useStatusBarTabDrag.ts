@@ -34,7 +34,7 @@ import { statusBarWarn } from "@/utils/debug";
 import { useTabStore, type Tab } from "@/stores/tabStore";
 import { useTabDragOut, type DragOutPoint } from "@/hooks/useTabDragOut";
 import { handleTabKeyboard } from "./tabKeyboard";
-import { planReorder } from "./tabDragRules";
+import { planReorder, planDocumentReorder } from "./tabDragRules";
 import { transferTabFromDragOut } from "./tabTransferActions";
 import type { TabDropPreviewEvent } from "@/types/tabTransfer";
 import { errorMessage } from "@/utils/errorMessage";
@@ -117,21 +117,20 @@ export function useStatusBarTabDrag({ tabs, windowLabel, tabBarRef, onActivateTa
   const handleReorder = useCallback(
     (tabId: string, dropIdx: number) => {
       const windowTabs = useTabStore.getState().tabs[windowLabel] ?? [];
-      const fromIndex = windowTabs.findIndex((t) => t.id === tabId);
-      if (fromIndex === -1) return;
-      const tab = windowTabs[fromIndex];
+      // dropIdx is in document (strip) space — translate to flat store indices.
+      const plan = planDocumentReorder(windowTabs, tabId, dropIdx);
+      const tab = windowTabs[plan.fromFlat];
       if (!tab) return;
 
-      const plan = planReorder(windowTabs, fromIndex, dropIdx);
-      if (!plan.allowed || fromIndex === plan.toIndex) {
-        if (!plan.allowed && plan.blockedReason === "pinned-zone") {
+      if (!plan.allowed) {
+        if (plan.blockedReason === "pinned-zone") {
           triggerSnapback(tabId);
           announce(i18n.t("dialog:toast.tabDropPinnedZone"));
         }
         return;
       }
 
-      useTabStore.getState().reorderTabs(windowLabel, fromIndex, plan.toIndex);
+      useTabStore.getState().reorderTabs(windowLabel, plan.fromFlat, plan.toFlat);
       toast.message(i18n.t("dialog:toast.tabReordered", { title: tab.title }), {
         action: {
           label: i18n.t("dialog:common.undo"),
@@ -139,7 +138,7 @@ export function useStatusBarTabDrag({ tabs, windowLabel, tabBarRef, onActivateTa
             const currentTabs = useTabStore.getState().tabs[windowLabel] ?? [];
             const currentIndex = currentTabs.findIndex((t) => t.id === tab.id);
             if (currentIndex !== -1) {
-              useTabStore.getState().reorderTabs(windowLabel, currentIndex, fromIndex);
+              useTabStore.getState().reorderTabs(windowLabel, currentIndex, plan.fromFlat);
             }
           },
         },
@@ -167,15 +166,16 @@ export function useStatusBarTabDrag({ tabs, windowLabel, tabBarRef, onActivateTa
   );
 
   const handleTabKeyDown = useCallback((tabId: string, event: KeyboardEvent) => {
-    const windowTabs = useTabStore.getState().tabs[windowLabel] ?? [];
+    // Pass document-space `tabs` (not the flat array) so keyboard reorder shares
+    // the index space handleReorder maps back to flat store positions.
     handleTabKeyboard({
       tabId,
       event,
-      tabs: windowTabs,
+      tabs,
       onReorder: handleReorder,
       onActivate: onActivateTab,
     });
-  }, [handleReorder, onActivateTab, windowLabel]);
+  }, [tabs, handleReorder, onActivateTab]);
 
   const { getTabDragHandlers, isDragging, isReordering, dragMode, dragTabId, dropIndex, dragPoint } = useTabDragOut({
     tabBarRef,

@@ -1,13 +1,13 @@
 /**
- * BrowserSurface — the React surface for an embedded browser tab (WI-1.3, chrome
- * relocated in WI-S1.4).
+ * BrowserSurface — the React surface for an embedded browser tab. BrowserChrome
+ * owns the webpage tabs and navigation controls.
  *
  * Purpose: a reserved viewport rect for one browser tab, plus the full-cover overlays
  * that can replace it. The native WKWebView's own lifecycle — create, align, destroy,
  * and the races around all three — belongs to `useBrowserNativeView`; this component
  * reserves the rect and hands it over. It listens (via `useBrowserNavEvents`) to the native
  * WKNavigationDelegate events and writes the address-bar text + loading flag into
- * `browserUiStore` (ADR-5) — the bottom-bar `BrowserOmnibox` reads them and drives
+ * `browserUiStore` (ADR-5) — `BrowserChrome` and its `BrowserOmnibox` read them and drive
  * navigation. On `browser://crashed` it freezes the native view and shows a
  * page-crashed reload overlay (WI-1.8); on `browser://dialog` it freezes and shows
  * an alert/confirm modal, answering `confirm()` via `browser_dialog_respond`
@@ -23,8 +23,7 @@
  * against this tab — R7a: authority and prompts lapse with the page they described.
  *
  * The nav chrome (back/forward/reload + address bar) is NOT here anymore — it lives
- * in the bottom `StatusBar` as `BrowserOmnibox` (ADR-4). This surface is viewport +
- * full-cover overlays only.
+ * in `BrowserChrome` (ADR-4). This surface is viewport + full-cover overlays only.
  *
  * `Editor.tsx` mounts this for `kind === "browser"` tabs (R1). Store access is via
  * selectors + `getState()` in callbacks (no destructuring).

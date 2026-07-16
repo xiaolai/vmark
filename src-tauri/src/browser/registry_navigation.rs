@@ -109,4 +109,43 @@ impl BrowserRegistry {
             .as_deref()
             == Some(expected)
     }
+
+    /// Pin a profile-backed AiSandbox tab to the origin its profile-open grant
+    /// approved. Called once, right after the grant is consumed in `browser_ai_create`;
+    /// never cleared on navigation, so the confinement outlives redirects (WI-P6.1 H1).
+    /// **Set-once**: an already-pinned tab keeps its original origin (a second call is a
+    /// no-op), so a later call can never widen or relax an existing confinement.
+    pub fn set_profile_origin(
+        &mut self,
+        tab_id: &str,
+        approved_url: &str,
+    ) -> Result<(), BrowserError> {
+        let entry = self
+            .tabs
+            .get_mut(tab_id)
+            .ok_or_else(|| BrowserError::UnknownTab(tab_id.to_string()))?;
+        if entry.profile_origin.is_some() {
+            return Ok(()); // set-once — never relax an existing confinement
+        }
+        entry.profile_origin = crate::browser::origin_guard::canonicalize_origin(approved_url)
+            .map(|origin| crate::browser::origin_guard::origin_key(&origin));
+        Ok(())
+    }
+
+    /// May the AI READ `committed_url` on this tab? `true` for a profile-less tab
+    /// (ordinary unconfined sandbox read). For a profile-backed tab, `true` ONLY when
+    /// the committed origin equals the approved profile origin — so a profile-approved
+    /// X tab cannot read authenticated Y after a redirect/navigation (WI-P6.1 H1).
+    pub fn profile_read_allowed(&self, tab_id: &str, committed_url: &str) -> bool {
+        let Some(entry) = self.tabs.get(tab_id) else {
+            return false;
+        };
+        let Some(expected) = entry.profile_origin.as_deref() else {
+            return true; // no profile → unconfined sandbox read
+        };
+        crate::browser::origin_guard::canonicalize_origin(committed_url)
+            .map(|origin| crate::browser::origin_guard::origin_key(&origin))
+            .as_deref()
+            == Some(expected)
+    }
 }

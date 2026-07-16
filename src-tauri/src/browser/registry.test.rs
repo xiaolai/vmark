@@ -52,6 +52,49 @@ fn shared_navigation_approval_is_origin_bound_and_cleared_by_new_navigation() {
 }
 
 #[test]
+fn profile_read_is_confined_to_the_approved_origin_and_survives_navigation() {
+    // WI-P6.1 H1: a profile-backed sandbox tab may READ only its approved origin.
+    let mut r = BrowserRegistry::default();
+    r.create_with_mode("p", "main", AutomationMode::AiSandbox)
+        .unwrap();
+    r.set_profile_origin("p", "https://github.com/login").unwrap();
+    // On the approved origin (any path) → allowed.
+    assert!(r.profile_read_allowed("p", "https://github.com/account"));
+    // A redirect/navigation to another origin → read refused (the crux of H1).
+    assert!(!r.profile_read_allowed("p", "https://evil.com/x"));
+    assert!(!r.profile_read_allowed("p", "https://gist.github.com/x"));
+    // Unlike shared-origin, a new navigation must NOT clear the confinement.
+    r.begin_navigation("p", "https://github.com/somewhere").unwrap();
+    assert!(!r.profile_read_allowed("p", "https://evil.com/x"));
+    assert!(r.profile_read_allowed("p", "https://github.com/still-ok"));
+}
+
+#[test]
+fn set_profile_origin_is_set_once_and_never_widens() {
+    // Re-verify WI-P6.1 H1: a second call must NOT relax an existing confinement.
+    let mut r = BrowserRegistry::default();
+    r.create_with_mode("p", "main", AutomationMode::AiSandbox)
+        .unwrap();
+    r.set_profile_origin("p", "https://github.com/login").unwrap();
+    // A later call with a different origin is a no-op — the first pin stands.
+    r.set_profile_origin("p", "https://evil.com/x").unwrap();
+    assert!(r.profile_read_allowed("p", "https://github.com/x"));
+    assert!(!r.profile_read_allowed("p", "https://evil.com/x"));
+}
+
+#[test]
+fn a_profile_less_sandbox_tab_reads_its_committed_page_unconfined() {
+    let mut r = BrowserRegistry::default();
+    r.create_with_mode("s", "main", AutomationMode::AiSandbox)
+        .unwrap();
+    // No profile origin set → any committed origin is readable (ordinary sandbox).
+    assert!(r.profile_read_allowed("s", "https://anything.com/p"));
+    assert!(r.profile_read_allowed("s", "https://other.example/q"));
+    // An unknown tab is refused, not defaulted open.
+    assert!(!r.profile_read_allowed("missing", "https://anything.com/p"));
+}
+
+#[test]
 fn begin_navigation_returns_a_monotonic_ticket_and_replaces_previous_ticket() {
     let mut reg = BrowserRegistry::default();
     reg.create("t1", "main").unwrap();

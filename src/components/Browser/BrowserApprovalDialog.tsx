@@ -33,6 +33,7 @@
 import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useBrowserApprovalStore, type ApprovalOutcome } from "@/stores/browserApprovalStore";
+import { NEVER_GRANTABLE } from "@/lib/browser/approval/grants";
 import { OCCLUDER } from "@/services/browser/browserOcclusion";
 import { useBrowserOccluder } from "@/hooks/useBrowserOccluder";
 import { canonicalizeOrigin } from "@/lib/browser/origin/originGuard";
@@ -100,6 +101,15 @@ export function BrowserApprovalDialog(): React.ReactElement | null {
   const origin = displayOrigin(request.targetUrl);
   const operation = t(`browser.approval.operation.${request.operation}`, request.operation);
   const attachment = request.operation === "attach";
+  // `eval` runs a caller-supplied script and `session` names which saved session to
+  // restore — the user MUST see the exact payload they authorize, not just the op
+  // (Security review P5, High #1; WI-P6.3). Both carry a readable `script`.
+  const payloadOps = new Set(["eval", "session"]);
+  const evalScript = payloadOps.has(request.operation) ? request.script : undefined;
+  // A never-grantable operation (eval) cannot become a standing grant — offering
+  // "Allow on this site" would be a button that silently does nothing (the grant is
+  // sanitized away), which is misleading security UX (Security review P5, Low #5).
+  const grantable = !NEVER_GRANTABLE.has(request.operation);
 
   return (
     <div className="browser-approval-backdrop">
@@ -120,12 +130,30 @@ export function BrowserApprovalDialog(): React.ReactElement | null {
           <dt>{t("browser.approval.action")}</dt>
           <dd>{operation}</dd>
 
+          {request.profile !== undefined && (
+            <>
+              <dt>{t("browser.profiles.label")}</dt>
+              <dd>
+                <span className="browser-approval-name">“{request.profile}”</span>
+              </dd>
+            </>
+          )}
+
           {request.target && (
             <>
               <dt>{t("browser.approval.element")}</dt>
               <dd>
                 <span className="browser-approval-role">{request.target.role}</span>{" "}
                 <span className="browser-approval-name">“{request.target.name}”</span>
+              </dd>
+            </>
+          )}
+
+          {evalScript !== undefined && (
+            <>
+              <dt>{t("browser.approval.script")}</dt>
+              <dd>
+                <pre className="browser-approval-script">{evalScript}</pre>
               </dd>
             </>
           )}
@@ -151,13 +179,15 @@ export function BrowserApprovalDialog(): React.ReactElement | null {
           >
             {t("browser.approval.allowOnce")}
           </button>
-          <button
-            type="button"
-            className="browser-approval-btn browser-approval-btn--remember"
-            onClick={() => resolve("remember")}
-          >
-            {t(attachment ? "browser.approval.allowTab" : "browser.approval.allowSite")}
-          </button>
+          {grantable && (
+            <button
+              type="button"
+              className="browser-approval-btn browser-approval-btn--remember"
+              onClick={() => resolve("remember")}
+            >
+              {t(attachment ? "browser.approval.allowTab" : "browser.approval.allowSite")}
+            </button>
+          )}
         </div>
       </div>
     </div>

@@ -13,6 +13,12 @@
 //! stale once the page navigates (generation bumped). This is what stops a late
 //! eval result from being applied to a page that has since navigated away.
 //!
+//! A **profile-backed AiSandbox tab** also pins a set-once `profile_origin` (the
+//! origin its profile-open grant approved). The driver gate confines the AI's reads
+//! to that origin for the tab's whole life — unlike the per-navigation shared-origin
+//! approval, it is never cleared — so a persistent-login profile cannot be read
+//! cross-origin after a redirect (WI-P6.1 H1).
+//!
 //! Lifecycle state machine:
 //! ```text
 //!   Creating ─▶ Live ⇄ Navigating ⟲   (a redirect chain commits again)
@@ -145,6 +151,13 @@ struct Entry {
     navigation_sequence: u64,
     active_navigation: Option<NavigationTicket>,
     shared_navigation_origin: Option<String>,
+    /// For a profile-backed AiSandbox tab, the origin key the profile-open grant
+    /// approved. Set ONCE at creation and NEVER cleared on navigation (unlike
+    /// `shared_navigation_origin`), so read-confinement persists for the tab's whole
+    /// life: a profile tab may navigate anywhere (logins/redirects work), but the AI
+    /// may only READ this origin (sec review WI-P6.1 H1). `None` for a profile-less
+    /// tab, which reads its committed page unconfined.
+    profile_origin: Option<String>,
     policy_epoch: u64,
 }
 
@@ -191,6 +204,7 @@ impl BrowserRegistry {
                 navigation_sequence: 0,
                 active_navigation: None,
                 shared_navigation_origin: None,
+                profile_origin: None,
                 policy_epoch: 0,
             },
         );

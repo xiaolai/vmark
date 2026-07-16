@@ -4,11 +4,11 @@
  * A single "New Browser Tab" command, gated by the `browser.enabled` setting
  * (off by default) via the CommandBus `when` predicate, so the palette/menu
  * simply don't surface it until the user opts in. Mirrors viewCommands'
- * registration pattern. The command creates (and activates) a browser tab, which
- * `Editor.tsx` renders as a `BrowserSurface` for `kind === "browser"`.
+ * registration pattern. The command creates (and activates) a browser page in the
+ * browser workspace, which `Editor.tsx` renders as a native browser surface.
  *
  * @coordinates-with stores/settingsStore — the `browser.enabled` gate
- * @coordinates-with stores/tabStore — createBrowserTab
+ * @coordinates-with stores/tabStore — createBrowserPage
  * @module services/commands/browserCommands
  */
 import { hasCommand, registerCommand } from "./CommandBus";
@@ -40,7 +40,7 @@ export function registerBrowserCommands(): void {
     when: () => useSettingsStore.getState().browser.enabled,
     run: (_args, ctx: Ctx) => {
       const windowLabel = ctx.windowLabel ?? "main";
-      useTabStore.getState().createBrowserTab(windowLabel, NEW_BROWSER_TAB_URL);
+      useTabStore.getState().createBrowserPage(windowLabel, NEW_BROWSER_TAB_URL);
     },
   });
 }

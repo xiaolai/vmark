@@ -17,6 +17,13 @@
 export type WindowId = string;
 
 /**
+ * MCP bridge protocol version this server speaks. Sent to VMark on
+ * `session.get_state` so the app can gate protocol-versioned data (browser tabs
+ * arrived at 0.3.0). Bump in lockstep with the app's MCP_PROTOCOL_VERSION.
+ */
+export const MCP_PROTOCOL_VERSION = '0.3.0';
+
+/**
  * Bridge request types — every command the MCP server can send.
  *
  * One entry per (tool, action) pair. See the workflow tool for the
@@ -26,7 +33,7 @@ export type WindowId = string;
  * duplicate the shape here.
  */
 export type BridgeRequest =
-  | { type: 'vmark.session.get_state' }
+  | { type: 'vmark.session.get_state'; clientProtocol?: string }
   | { type: 'vmark.workspace.new'; kind?: string; windowLabel?: string }
   | { type: 'vmark.workspace.open'; filePath: string; windowLabel?: string }
   | { type: 'vmark.workspace.save'; tabId?: string }
@@ -64,21 +71,53 @@ export type BridgeRequest =
     }
   | { type: 'vmark.browser.read'; tabId?: string }
   | {
+      // `act` targets EITHER a precise `ref` OR an ARIA `role`+`name` (click/type),
+      // and for scroll/key carries `dy`/`key`/`modifiers` — so every target field
+      // is optional at the type level; the handler validates the combination.
       type: 'vmark.browser.act';
       tabId?: string;
       operation: string;
-      role: string;
-      name: string;
+      role?: string;
+      name?: string;
       text?: string;
+      ref?: string;
+      dy?: number;
+      key?: string;
+      modifiers?: { ctrl?: boolean; shift?: boolean; alt?: boolean; meta?: boolean };
     }
-  | { type: 'vmark.browser.open'; url: string; timeoutMs?: number }
+  | { type: 'vmark.browser.open'; url: string; timeoutMs?: number; profile?: string }
   | { type: 'vmark.browser.navigate'; tabId?: string; url: string; timeoutMs?: number }
   | {
       type: 'vmark.browser.wait';
       tabId?: string;
       navigationId?: string;
       timeoutMs?: number;
-    };
+    }
+  | {
+      type: 'vmark.browser.wait_for';
+      tabId?: string;
+      ref?: string;
+      role?: string;
+      name?: string;
+      text?: string;
+      timeoutMs?: number;
+    }
+  | { type: 'vmark.browser.screenshot'; tabId?: string }
+  | { type: 'vmark.browser.query'; tabId?: string; selector: string; fields?: unknown }
+  | {
+      type: 'vmark.browser.style';
+      tabId?: string;
+      ref?: string;
+      selector?: string;
+      set?: Record<string, string>;
+      addClasses?: string[];
+      removeClasses?: string[];
+      injectCss?: string;
+    }
+  | { type: 'vmark.browser.execute_js'; tabId?: string; script: string }
+  | { type: 'vmark.browser.session.save'; tabId?: string; handle: string }
+  | { type: 'vmark.browser.session.load'; tabId?: string; handle: string }
+  | { type: 'vmark.browser.console'; tabId?: string; clear?: boolean };
 
 /**
  * Bridge response types — what VMark returns.

@@ -1,6 +1,7 @@
 {
   "openSidebar": "打开侧边栏",
   "newTabTitle": "新标签页",
+  "browserWorkspace": "浏览器",
   "autoSavePaused": "自动保存已暂停",
   "autoSavePausedTitle": "自动保存已暂停:文件已从磁盘删除。请使用 {{shortcut}} 手动保存。",
   "divergent": "内容不一致",

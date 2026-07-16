@@ -64,3 +64,56 @@ export function planReorder(tabs: Tab[], fromIndex: number, visualDropIndex: num
 
   return { allowed: true, toIndex, blockedReason: "none" };
 }
+
+/** A document-tab reorder resolved to FLAT store indices for `reorderTabs`. */
+export interface DocumentReorderPlan {
+  allowed: boolean;
+  blockedReason: "none" | "pinned-zone";
+  /** Flat index of the dragged tab in the window's tab array. */
+  fromFlat: number;
+  /** Flat insertion index; equals `fromFlat` when the move is a no-op/blocked. */
+  toFlat: number;
+}
+
+/**
+ * Plan a document-tab reorder given the window's FLAT tab array and a drop index
+ * in *document* (strip) space.
+ *
+ * The status-bar strip renders document tabs only — browser pages collapse into
+ * a single trailing "workspace" tab — so the drop index counts document tabs
+ * (plus that synthetic tab), NOT flat store positions. Planning in the flat
+ * space directly would move the wrong tab whenever a browser page is interleaved
+ * among documents. This plans the reorder among document tabs (so pinned-zone
+ * rules apply to what the user actually sees), then translates the target back
+ * to a flat index for `reorderTabs`.
+ */
+export function planDocumentReorder(
+  windowTabs: Tab[],
+  tabId: string,
+  documentDropIndex: number,
+): DocumentReorderPlan {
+  const documentFlatIndices: number[] = [];
+  for (let i = 0; i < windowTabs.length; i++) {
+    if (windowTabs[i].kind !== "browser") documentFlatIndices.push(i);
+  }
+
+  const fromFlat = windowTabs.findIndex((t) => t.id === tabId);
+  const docFrom = documentFlatIndices.indexOf(fromFlat);
+  // Not a document tab (or unknown id) — the strip never drag-reorders browser pages.
+  if (docFrom === -1) {
+    return { allowed: false, blockedReason: "none", fromFlat, toFlat: fromFlat };
+  }
+
+  const documentTabs = documentFlatIndices.map((i) => windowTabs[i]);
+  const plan = planReorder(documentTabs, docFrom, documentDropIndex);
+  if (!plan.allowed || docFrom === plan.toIndex) {
+    return { allowed: false, blockedReason: plan.blockedReason, fromFlat, toFlat: fromFlat };
+  }
+
+  return {
+    allowed: true,
+    blockedReason: "none",
+    fromFlat,
+    toFlat: documentFlatIndices[plan.toIndex],
+  };
+}

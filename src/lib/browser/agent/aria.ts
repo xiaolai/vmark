@@ -23,15 +23,25 @@
  * `aria-hidden`, `inert`, or an inline style) is not detected — that needs layout,
  * which jsdom does not have; `aria-checked="mixed"` collapses to `false`.
  *
+ * `ariaSnapshot` also stamps each emitted node with a stable `ref` (WI-P2.1) via
+ * `refs.ts`, so `act` can target an element exactly instead of re-resolving a
+ * fuzzy role + name.
+ *
  * @coordinates-with lib/browser/agent/actScript.ts — the injected copy of these
  *   rules; `actScript.test.ts` asserts the two perceive a page identically
+ * @coordinates-with lib/browser/agent/refs.ts — the per-node stable ref store
  * @module lib/browser/agent/aria
  */
+
+import { refFor } from "./refs";
 
 /** A compact accessibility node for the AI to read. */
 export interface AriaNode {
   role: string;
   name: string;
+  /** Stable handle for this element within the committed page (WI-P2.1). `act`
+   *  can target `{ref}` exactly instead of re-resolving a fuzzy role + name. */
+  ref: string;
   /** Heading level (1–6), when `role === "heading"`. */
   level?: number;
   /** Checked state, when `role` is checkbox/radio. */
@@ -235,12 +245,12 @@ function isChecked(el: Element): boolean {
 
 /** Render the page's interesting, visible elements as a flat list of accessibility
  *  nodes (generic containers with no role, and hidden subtrees, are omitted). */
-export function ariaSnapshot(root: Element): AriaNode[] {
+export function ariaSnapshot(root: Element, generation = 0): AriaNode[] {
   const nodes: AriaNode[] = [];
   root.querySelectorAll("*").forEach((el) => {
     const role = computeRole(el);
     if (!role || isHidden(el)) return;
-    const node: AriaNode = { role, name: accessibleName(el) };
+    const node: AriaNode = { role, name: accessibleName(el), ref: refFor(el, generation) };
     const level = HEADING_TAGS[el.tagName.toLowerCase()];
     if (role === "heading") node.level = level ?? (Number(el.getAttribute("aria-level")) || undefined);
     if (role === "checkbox" || role === "radio") node.checked = isChecked(el);

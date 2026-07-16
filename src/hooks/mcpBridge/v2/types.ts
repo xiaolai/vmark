@@ -32,6 +32,8 @@ export interface DocumentSessionTab {
 export interface BrowserSessionTab {
   id: string;
   kind: "browser";
+  /** True when this webpage is the currently visible page in its workspace. */
+  active: boolean;
   title: string;
   url: string;
   loading: boolean;

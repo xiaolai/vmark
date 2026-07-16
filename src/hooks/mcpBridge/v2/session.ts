@@ -41,7 +41,39 @@ import type {
 import { browserEventBroker } from "@/services/browser/browserEventBroker";
 import { urlForAgent } from "@/lib/browser/url";
 
-const MCP_PROTOCOL_VERSION = "0.2.0";
+// Bumped to 0.3.0 when browser tabs entered session state. Browser tabs are
+// gated: the client declares the protocol it speaks (`clientProtocol` on the
+// get_state request), and browser tabs are withheld from clients older than
+// 0.3.0 — including any request that omits the field, which is how a pre-0.3
+// sidecar (whose tool contract knows only document kinds) presents itself. The
+// bundled sidecar (tauri.conf.json `externalBin`) is version-locked in shipped
+// builds, so this only matters under version skew (a stale local sidecar, or a
+// manually swapped one); the gate closes that case rather than relying on the
+// bundling alone.
+const MCP_PROTOCOL_VERSION = "0.3.0";
+
+// Minimum client protocol that understands `kind: "browser"` tabs.
+const BROWSER_TABS_MIN_PROTOCOL = { major: 0, minor: 3 };
+// Strict `major.minor` (optional `.patch`), digits only — a malformed value
+// must not slip through loose Number() coercion (e.g. "0.3e0.0").
+const PROTOCOL_RE = /^(\d+)\.(\d+)(?:\.\d+)?$/;
+
+/**
+ * Whether the requesting client's declared protocol understands browser tabs.
+ * Absent or malformed → treated as pre-0.3, so browser tabs are withheld (a
+ * document-only client never receives records its tool contract can't classify).
+ */
+function clientSupportsBrowserTabs(clientProtocol: string | undefined): boolean {
+  if (!clientProtocol) return false;
+  const match = PROTOCOL_RE.exec(clientProtocol);
+  if (!match) return false;
+  const major = Number(match[1]);
+  const minor = Number(match[2]);
+  return (
+    major > BROWSER_TABS_MIN_PROTOCOL.major ||
+    (major === BROWSER_TABS_MIN_PROTOCOL.major && minor >= BROWSER_TABS_MIN_PROTOCOL.minor)
+  );
+}
 
 function detectKind(
   filePath: string | null,
@@ -55,10 +87,14 @@ function detectKind(
 /**
  * Build the session-state payload from current store state.
  *
+ * `clientProtocol` is the protocol the requesting client declared; browser tabs
+ * are omitted for clients older than 0.3.0 (or that declare nothing).
+ *
  * Pure function over store state — exported for unit testing without
  * the bridge `respond` round-trip.
  */
-export function buildSessionState(appVersion: string): SessionState {
+export function buildSessionState(appVersion: string, clientProtocol?: string): SessionState {
+  const includeBrowserTabs = clientSupportsBrowserTabs(clientProtocol);
   const tabState = useTabStore.getState();
   const docState = useDocumentStore.getState();
   const revisionStore = useRevisionStore.getState();
@@ -66,11 +102,14 @@ export function buildSessionState(appVersion: string): SessionState {
 
   const windowLabels = Object.keys(tabState.tabs);
   const windows: SessionWindow[] = windowLabels.map((label) => {
-    const sessionTabs: SessionTab[] = (tabState.tabs[label] ?? []).map((tab) => {
+    const sessionTabs: SessionTab[] = (tabState.tabs[label] ?? [])
+      .filter((tab) => includeBrowserTabs || tab.kind !== "browser")
+      .map((tab) => {
       if (tab.kind === "browser") {
         return {
           id: tab.id,
           kind: "browser" as const,
+          active: tab.id === tabState.activeTabId[label],
           title: tab.title,
           url: urlForAgent(tab.url),
           loading: browserEventBroker.isLoading(tab.id) ?? false,
@@ -111,14 +150,18 @@ export function buildSessionState(appVersion: string): SessionState {
 /**
  * Handle `vmark.session.get_state` requests.
  *
- * No args. Returns the full session state — orientation in one round-trip.
+ * The only arg is the optional `clientProtocol` the client declares (a pre-0.3
+ * client omits it, and then does not receive browser tabs). Returns the full
+ * session state — orientation in one round-trip.
  */
 export async function handleSessionGetState(
   id: string,
   appVersion: string,
+  args?: Record<string, unknown>,
 ): Promise<void> {
   return wrapHandler(id, async () => {
-    const state = buildSessionState(appVersion);
+    const clientProtocol = typeof args?.clientProtocol === "string" ? args.clientProtocol : undefined;
+    const state = buildSessionState(appVersion, clientProtocol);
     await respond({ id, success: true, data: state });
   });
 }

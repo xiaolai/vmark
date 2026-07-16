@@ -1,4 +1,5 @@
 // WI-2.5/R5 — the browser tool's approval path.
+// WI-P1.3 — the `screenshot` action (returns a base64 JPEG image content block).
 //
 // A refused action is NOT an ordinary error: it is a request for human consent.
 // The bridge failure carries a structured envelope ({needsApproval, operation,
@@ -83,6 +84,57 @@ describe('browser tool — integration via server.callTool', () => {
       type: 'vmark.browser.act', operation: 'click', role: 'button', name: 'Publish',
     });
     expect('text' in req).toBe(false);
+  });
+
+  it('act by ref: forwards {operation, ref} with no role/name', async () => {
+    const { server, bridge } = harness({
+      'vmark.browser.act': () => ({ success: true, data: { ok: true } }),
+    });
+    await server.callTool('browser', { action: 'act', operation: 'click', ref: 'e5' });
+    const req = bridge.getRequestsOfType('vmark.browser.act')[0].request as Record<string, unknown>;
+    expect(req).toEqual({ type: 'vmark.browser.act', operation: 'click', ref: 'e5' });
+    expect('role' in req).toBe(false);
+  });
+
+  it('act: refuses ref and role/name together, never touching the bridge', async () => {
+    const { server, bridge } = harness({
+      'vmark.browser.act': () => ({ success: true, data: {} }),
+    });
+    const result = await server.callTool('browser', {
+      action: 'act', operation: 'click', ref: 'e5', role: 'button', name: 'X',
+    });
+    expect(result.isError).toBe(true);
+    expect(bridge.getRequestsOfType('vmark.browser.act')).toHaveLength(0);
+  });
+
+  it('act scroll: forwards a delta scroll', async () => {
+    const { server, bridge } = harness({ 'vmark.browser.act': () => ({ success: true, data: { scrolled: true } }) });
+    await server.callTool('browser', { action: 'act', operation: 'scroll', dy: 400 });
+    expect(bridge.getRequestsOfType('vmark.browser.act')[0].request).toEqual({
+      type: 'vmark.browser.act', operation: 'scroll', dy: 400,
+    });
+  });
+
+  it('act scroll: refuses both ref and dy', async () => {
+    const { server, bridge } = harness({ 'vmark.browser.act': () => ({ success: true, data: {} }) });
+    const r = await server.callTool('browser', { action: 'act', operation: 'scroll', ref: 'e1', dy: 10 });
+    expect(r.isError).toBe(true);
+    expect(bridge.getRequestsOfType('vmark.browser.act')).toHaveLength(0);
+  });
+
+  it('act key: forwards key + modifiers', async () => {
+    const { server, bridge } = harness({ 'vmark.browser.act': () => ({ success: true, data: { dispatched: true } }) });
+    await server.callTool('browser', { action: 'act', operation: 'key', key: 'Enter', modifiers: { ctrl: true } });
+    expect(bridge.getRequestsOfType('vmark.browser.act')[0].request).toEqual({
+      type: 'vmark.browser.act', operation: 'key', key: 'Enter', modifiers: { ctrl: true },
+    });
+  });
+
+  it('act key: refuses a missing key name', async () => {
+    const { server, bridge } = harness({ 'vmark.browser.act': () => ({ success: true, data: {} }) });
+    const r = await server.callTool('browser', { action: 'act', operation: 'key' });
+    expect(r.isError).toBe(true);
+    expect(bridge.getRequestsOfType('vmark.browser.act')).toHaveLength(0);
   });
 
   it('type: propagates the text payload', async () => {
@@ -207,6 +259,131 @@ describe('browser tool — integration via server.callTool', () => {
     expect(bridge.getRequestsOfType('vmark.browser.wait')[0].request).toEqual({
       type: 'vmark.browser.wait', tabId: 'ai-1', navigationId: 'nav-2', timeoutMs: 100,
     });
+  });
+
+  it('screenshot: returns an image content block with the JPEG data and the url as text', async () => {
+    const { server, bridge } = harness({
+      'vmark.browser.screenshot': () => ({
+        success: true,
+        data: { url: 'https://shop.example.com/cart', image: 'BASE64JPEG' },
+      }),
+    });
+
+    const result = await server.callTool('browser', { action: 'screenshot', tabId: 'ai-1' });
+
+    expect(bridge.getRequestsOfType('vmark.browser.screenshot')[0].request).toEqual({
+      type: 'vmark.browser.screenshot', tabId: 'ai-1',
+    });
+    expect(result.isError).toBeUndefined();
+    const image = result.content.find((c) => c.type === 'image');
+    expect(image).toEqual({ type: 'image', data: 'BASE64JPEG', mimeType: 'image/jpeg' });
+    // The url rides along as text so the model knows what it is looking at.
+    expect(result.content.some((c) => c.type === 'text' && c.text?.includes('shop.example.com'))).toBe(true);
+  });
+
+  it('screenshot: omits tabId to target the focused tab', async () => {
+    const { server, bridge } = harness({
+      'vmark.browser.screenshot': () => ({ success: true, data: { url: 'https://x.com', image: 'AA' } }),
+    });
+    await server.callTool('browser', { action: 'screenshot' });
+    expect(bridge.getRequestsOfType('vmark.browser.screenshot')[0].request).toEqual({
+      type: 'vmark.browser.screenshot',
+    });
+  });
+
+  it('screenshot: reports a missing image as an error rather than a broken block', async () => {
+    const { server } = harness({
+      'vmark.browser.screenshot': () => ({ success: true, data: { url: 'https://x.com' } }),
+    });
+    const result = await server.callTool('browser', { action: 'screenshot' });
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain('no image');
+  });
+
+  it('wait_for: forwards a single condition and the bounded timeout', async () => {
+    const { server, bridge } = harness({
+      'vmark.browser.wait_for': () => ({ success: true, data: { matched: true } }),
+    });
+    await server.callTool('browser', { action: 'wait_for', text: 'Done', timeoutMs: 3000 });
+    expect(bridge.getRequestsOfType('vmark.browser.wait_for')[0].request).toEqual({
+      type: 'vmark.browser.wait_for', text: 'Done', timeoutMs: 3000,
+    });
+  });
+
+  it('wait_for: refuses zero or multiple conditions without touching the bridge', async () => {
+    const { server, bridge } = harness({
+      'vmark.browser.wait_for': () => ({ success: true, data: {} }),
+    });
+    expect((await server.callTool('browser', { action: 'wait_for' })).isError).toBe(true);
+    expect(
+      (await server.callTool('browser', { action: 'wait_for', text: 'a', role: 'button' })).isError,
+    ).toBe(true);
+    expect(bridge.getRequestsOfType('vmark.browser.wait_for')).toHaveLength(0);
+  });
+
+  it('query: forwards selector + fields', async () => {
+    const { server, bridge } = harness({ 'vmark.browser.query': () => ({ success: true, data: { count: 0, elements: [] } }) });
+    await server.callTool('browser', { action: 'query', selector: 'table', fields: { attributes: true } });
+    expect(bridge.getRequestsOfType('vmark.browser.query')[0].request).toEqual({
+      type: 'vmark.browser.query', selector: 'table', fields: { attributes: true },
+    });
+  });
+
+  it('query: refuses a missing selector', async () => {
+    const { server, bridge } = harness({ 'vmark.browser.query': () => ({ success: true, data: {} }) });
+    expect((await server.callTool('browser', { action: 'query' })).isError).toBe(true);
+    expect(bridge.getRequestsOfType('vmark.browser.query')).toHaveLength(0);
+  });
+
+  it('style: forwards selector + set, and refuses when no op is given', async () => {
+    const { server, bridge } = harness({ 'vmark.browser.style': () => ({ success: true, data: { styled: true } }) });
+    await server.callTool('browser', { action: 'style', selector: '.overlay', set: { display: 'none' } });
+    expect(bridge.getRequestsOfType('vmark.browser.style')[0].request).toEqual({
+      type: 'vmark.browser.style', selector: '.overlay', set: { display: 'none' },
+    });
+    expect((await server.callTool('browser', { action: 'style', selector: '.x' })).isError).toBe(true);
+  });
+
+  it('execute_js: forwards the script, and refuses a missing one', async () => {
+    const { server, bridge } = harness({ 'vmark.browser.execute_js': () => ({ success: true, data: { result: 1, untrusted: true } }) });
+    await server.callTool('browser', { action: 'execute_js', script: 'return 1;' });
+    expect(bridge.getRequestsOfType('vmark.browser.execute_js')[0].request).toEqual({
+      type: 'vmark.browser.execute_js', script: 'return 1;',
+    });
+    expect((await server.callTool('browser', { action: 'execute_js' })).isError).toBe(true);
+  });
+
+  it('execute_js: refuses an oversized script before it crosses the bridge', async () => {
+    const { server, bridge } = harness({ 'vmark.browser.execute_js': () => ({ success: true, data: {} }) });
+    const r = await server.callTool('browser', { action: 'execute_js', script: 'x'.repeat(64 * 1024 + 1) });
+    expect(r.isError).toBe(true);
+    expect(bridge.getRequestsOfType('vmark.browser.execute_js')).toHaveLength(0);
+  });
+
+  it('console: forwards {clear} only when requested', async () => {
+    const { server, bridge } = harness({ 'vmark.browser.console': () => ({ success: true, data: { entries: [] } }) });
+    await server.callTool('browser', { action: 'console' });
+    expect(bridge.getRequestsOfType('vmark.browser.console')[0].request).toEqual({ type: 'vmark.browser.console' });
+    await server.callTool('browser', { action: 'console', clear: true });
+    expect(bridge.getRequestsOfType('vmark.browser.console')[1].request).toEqual({ type: 'vmark.browser.console', clear: true });
+  });
+
+  it('session_save / session_load: forward the handle; reject a bad one', async () => {
+    const { server, bridge } = harness({
+      'vmark.browser.session.save': () => ({ success: true, data: { handle: 'work', summary: '0 cookie(s)' } }),
+      'vmark.browser.session.load': () => ({ success: true, data: { loaded: true } }),
+    });
+    await server.callTool('browser', { action: 'session_save', handle: 'work_login' });
+    expect(bridge.getRequestsOfType('vmark.browser.session.save')[0].request).toEqual({
+      type: 'vmark.browser.session.save', handle: 'work_login',
+    });
+    await server.callTool('browser', { action: 'session_load', handle: 'work_login' });
+    expect(bridge.getRequestsOfType('vmark.browser.session.load')[0].request).toEqual({
+      type: 'vmark.browser.session.load', handle: 'work_login',
+    });
+    // A path-traversal-ish handle never reaches the bridge.
+    expect((await server.callTool('browser', { action: 'session_load', handle: '../secrets' })).isError).toBe(true);
+    expect(bridge.getRequestsOfType('vmark.browser.session.load')).toHaveLength(1);
   });
 });
 

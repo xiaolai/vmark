@@ -11,6 +11,7 @@
  */
 
 import { VMarkMcpServer } from '../server.js';
+import { MCP_PROTOCOL_VERSION } from '../bridge/core-types.js';
 
 export function registerSessionTool(server: VMarkMcpServer): void {
   server.registerTool(
@@ -19,7 +20,7 @@ export function registerSessionTool(server: VMarkMcpServer): void {
       description:
         'One-shot session orientation — discover every open window, every tab, and the server\'s capabilities in a single call. Use this first to learn what is available; subsequent tool calls reference tabs by their `id`.\n\n' +
         'Action:\n' +
-        '- get_state: Return windows[], capabilities. Each tab carries {id, filePath, title, dirty, revision, kind}. `kind` is `"markdown"` or `"yaml-workflow"` and tells you whether to use `document.write` or `workflow.apply_patch` for that tab.\n\n' +
+        '- get_state: Return windows[], capabilities. Document tabs carry {id, filePath, title, dirty, revision, kind} where `kind` is `"markdown"` or `"yaml-workflow"` (use `document.write` or `workflow.apply_patch` respectively). Browser tabs carry {id, kind:"browser", title, url, active, loading, automationMode} — act on those with the `browser.*` tools.\n\n' +
         'Returns: {windows, capabilities}.',
       inputSchema: {
         type: 'object',
@@ -42,6 +43,9 @@ export function registerSessionTool(server: VMarkMcpServer): void {
       }
       const data = await server.sendBridgeRequest({
         type: 'vmark.session.get_state',
+        // Declare the protocol we speak so the app can gate versioned data
+        // (browser tabs are withheld from clients older than 0.3.0).
+        clientProtocol: MCP_PROTOCOL_VERSION,
       });
       return VMarkMcpServer.successJsonResult(data);
     },

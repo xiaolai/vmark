@@ -12,7 +12,13 @@ vi.mock("sonner", () => ({
 const W = "main";
 
 function resetTabStore() {
-  useTabStore.setState({ tabs: {}, activeTabId: {}, untitledCounter: 0, closedTabs: {} });
+  useTabStore.setState({
+    tabs: {},
+    activeTabId: {},
+    lastActiveBrowserPageId: {},
+    untitledCounter: 0,
+    closedTabs: {},
+  });
 }
 
 beforeEach(() => {
@@ -61,6 +67,95 @@ describe("createBrowserTab", () => {
     const tab = useTabStore.getState().findTabById(id);
     expect(tab).not.toBeNull();
     if (isBrowserTab(tab!)) expect(tab.url).toBe("about:blank");
+  });
+
+  it("creates a fresh page without URL deduplication", () => {
+    const first = useTabStore.getState().createBrowserPage(W, "https://example.com/");
+    const second = useTabStore.getState().createBrowserPage(W, "https://example.com/");
+
+    expect(second).not.toBe(first);
+    expect(useTabStore.getState().getTabsByWindow(W)).toHaveLength(2);
+    expect(useTabStore.getState().activeTabId[W]).toBe(second);
+  });
+});
+
+// Security-sensitive: an AI-driven page must never inherit the human
+// "restore-human" persist policy (it would silently survive restarts). The
+// persistPolicy is derived from automationMode, so both creation paths are
+// guarded here.
+describe("browser tab provenance (automationMode → persistPolicy)", () => {
+  it("defaults to human / restore-human when no mode is given", () => {
+    const tab = useTabStore.getState().findTabById(
+      useTabStore.getState().createBrowserTab(W, "https://example.com/"),
+    );
+    if (isBrowserTab(tab!)) {
+      expect(tab.automationMode).toBe("human");
+      expect(tab.persistPolicy).toBe("restore-human");
+    }
+  });
+
+  it("createBrowserTab with ai-sandbox derives transient-ai", () => {
+    const tab = useTabStore.getState().findTabById(
+      useTabStore.getState().createBrowserTab(W, "https://ai.example/", "AI", "ai-sandbox"),
+    );
+    if (isBrowserTab(tab!)) {
+      expect(tab.automationMode).toBe("ai-sandbox");
+      expect(tab.persistPolicy).toBe("transient-ai");
+    }
+  });
+
+  it("createBrowserPage with ai-shared derives transient-ai", () => {
+    const tab = useTabStore.getState().findTabById(
+      useTabStore.getState().createBrowserPage(W, "https://ai.example/", "AI", "ai-shared"),
+    );
+    if (isBrowserTab(tab!)) {
+      expect(tab.automationMode).toBe("ai-shared");
+      expect(tab.persistPolicy).toBe("transient-ai");
+    }
+  });
+
+  it("createBrowserPage defaults to human / restore-human", () => {
+    const tab = useTabStore.getState().findTabById(
+      useTabStore.getState().createBrowserPage(W, "https://example.com/"),
+    );
+    if (isBrowserTab(tab!)) {
+      expect(tab.automationMode).toBe("human");
+      expect(tab.persistPolicy).toBe("restore-human");
+    }
+  });
+});
+
+describe("lastActiveBrowserPageId (reopen memory)", () => {
+  it("records the created page and updates on activation", () => {
+    const a = useTabStore.getState().createBrowserPage(W, "https://a.example/");
+    expect(useTabStore.getState().lastActiveBrowserPageId[W]).toBe(a);
+    const b = useTabStore.getState().createBrowserPage(W, "https://b.example/");
+    expect(useTabStore.getState().lastActiveBrowserPageId[W]).toBe(b);
+
+    // Re-activating an earlier page updates the memory.
+    useTabStore.getState().setActiveTab(W, a);
+    expect(useTabStore.getState().lastActiveBrowserPageId[W]).toBe(a);
+  });
+
+  it("is not changed when activating a non-browser tab", () => {
+    const a = useTabStore.getState().createBrowserPage(W, "https://a.example/");
+    useTabStore.getState().setActiveTab(W, null);
+    expect(useTabStore.getState().lastActiveBrowserPageId[W]).toBe(a);
+  });
+
+  it("tracks the browser successor when the active page is closed", () => {
+    const a = useTabStore.getState().createBrowserPage(W, "https://a.example/");
+    const b = useTabStore.getState().createBrowserPage(W, "https://b.example/");
+    const c = useTabStore.getState().createBrowserPage(W, "https://c.example/");
+    useTabStore.getState().setActiveTab(W, b); // active middle page
+
+    useTabStore.getState().closeTab(W, b);
+    const successor = useTabStore.getState().activeTabId[W];
+
+    expect(successor).not.toBe(b);
+    expect([a, c]).toContain(successor); // a browser page succeeded it
+    // Memory follows the successor, not the closed page — so reopening returns to it.
+    expect(useTabStore.getState().lastActiveBrowserPageId[W]).toBe(successor);
   });
 });
 

@@ -57,11 +57,18 @@ export function ensureBrowserNativeView(
   tabId: string,
   url: string,
   automationMode: BrowserAutomationMode,
+  /** Named profile (WI-P6.1): AI-sandbox only — a persistent isolated store so a
+   *  login persists for later reuse. Ignored for the human create path. */
+  profile?: string,
 ): Promise<void> {
   const existing = nativeReady.get(tabId);
   if (existing) return existing;
   const command = automationMode === "human" ? "browser_create" : "browser_ai_create";
-  const created = invoke<void>(command, { tabId, url })
+  const created = invoke<void>(command, {
+    tabId,
+    url,
+    ...(command === "browser_ai_create" && profile ? { profile } : {}),
+  })
     .then(() => {
       // A previous approval denial may have left the tab with a transient
       // error even though this retry now owns a live native view.

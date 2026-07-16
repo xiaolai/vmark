@@ -38,6 +38,7 @@
 //! `#[allow(dead_code)]` with a stated reason.
 #![cfg_attr(not(target_os = "macos"), allow(dead_code))]
 
+pub mod authorize;
 pub mod commands;
 pub mod commands_auth;
 pub mod ai_policy;
@@ -46,8 +47,11 @@ pub mod geometry;
 pub mod one_shot;
 pub mod operation;
 pub mod origin_guard;
+pub mod profile_open;
 pub mod redact;
 pub mod recovery;
 pub mod registry;
+pub mod session_commands;
+pub mod session_state;
 pub mod surface;
 pub mod teardown;

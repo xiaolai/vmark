@@ -1,6 +1,6 @@
 // WI-1.1 — browser URL canonicalization for tab dedup + persistence
 import { describe, it, expect } from "vitest";
-import { canonicalizeBrowserUrl, urlForAgent, urlForPersistence } from "./url";
+import { canonicalizeBrowserUrl, urlForAgent, urlForPersistence, originForAgent } from "./url";
 
 describe("canonicalizeBrowserUrl", () => {
   it("lowercases scheme and host", () => {
@@ -112,16 +112,49 @@ describe("urlForAgent — credentials never cross to the AI", () => {
     expect(urlForAgent("https://alice@example.com/x")).toBe("https://example.com/x");
   });
 
-  it("keeps everything the AI legitimately needs to reason about the page", () => {
-    expect(urlForAgent("https://example.com/docs/42?q=a&b=2#frag")).toBe(
-      "https://example.com/docs/42?q=a&b=2#frag",
-    );
+  it("keeps scheme/host/port/path for the AI to reason about where it is", () => {
+    expect(urlForAgent("https://example.com/docs/42")).toBe("https://example.com/docs/42");
     expect(urlForAgent("https://example.com:8443/x")).toBe("https://example.com:8443/x");
+  });
+
+  // Security review P5 (Medium #3): query and fragment routinely carry secrets
+  // (OAuth callbacks, magic links, implicit-flow access_token=…), so they are
+  // stripped from the AI-facing URL — the earlier redaction removed userinfo only.
+  it("strips the query string and fragment — they carry tokens the AI must not see", () => {
+    expect(urlForAgent("https://service.example/callback?access_token=SECRET")).toBe(
+      "https://service.example/callback",
+    );
+    expect(urlForAgent("https://service.example/callback?access_token=SECRET")).not.toContain(
+      "SECRET",
+    );
+    expect(urlForAgent("https://example.com/x#access_token=SECRET")).toBe("https://example.com/x");
+    expect(urlForAgent("https://example.com/docs/42?q=a&b=2#frag")).toBe(
+      "https://example.com/docs/42",
+    );
   });
 
   it("passes through a url it cannot parse rather than inventing one", () => {
     expect(urlForAgent("about:blank")).toBe("about:blank");
     expect(urlForAgent("")).toBe("");
+  });
+});
+
+// Security review P6 (High): a pre-authorization approval envelope must expose the
+// ORIGIN only — even the path can carry a token (`/magic-login/<token>`).
+describe("originForAgent — origin only, for approval envelopes", () => {
+  it("keeps scheme/host/port but drops path, query, fragment, and userinfo", () => {
+    expect(originForAgent("https://example.com/magic-login/SECRET?t=1#f")).toBe("https://example.com");
+    expect(originForAgent("https://example.com/magic-login/SECRET")).not.toContain("SECRET");
+    expect(originForAgent("https://example.com:8443/x")).toBe("https://example.com:8443");
+    expect(originForAgent("https://alice:pw@example.com/x")).toBe("https://example.com");
+  });
+
+  it("fails closed for an opaque origin — scheme only, never the payload", () => {
+    // A data: URL carries its payload in the "path"; only the scheme may show.
+    expect(originForAgent("data:text/html,<h1>SECRET</h1>")).toBe("data:(opaque)");
+    expect(originForAgent("data:text/html,<h1>SECRET</h1>")).not.toContain("SECRET");
+    expect(originForAgent("about:blank")).toBe("about:(opaque)");
+    expect(originForAgent("")).toBe("(unknown origin)");
   });
 });
 

@@ -430,3 +430,57 @@ describe("tabId argument validation", () => {
     expect(lastResponse()).toMatchObject({ id: "no-tab", success: true });
   });
 });
+
+// act-by-ref: a precise, order-independent target for an ALREADY-GRANTED
+// operation. An ungranted ref-act is refused (approvals must stay human-legible),
+// so no ref is ever bound into a one-shot.
+describe("act by ref (WI-P2.2)", () => {
+  it("clicks by ref on a granted origin via a ref click script, with no role/name target", async () => {
+    const id = seedBrowserTab();
+    useTabStore.getState().updateBrowserTab(id, { generation: 2 });
+    useBrowserApprovalStore.getState().grant("https://blog.example.com", ["click"]);
+    invoke.mockResolvedValue(JSON.stringify({ found: true, clicked: true }));
+
+    await handleBrowserAct("ref-1", { tabId: id, operation: "click", ref: "e5" });
+
+    expect(invoke).toHaveBeenCalledWith(
+      "browser_eval",
+      expect.objectContaining({ script: expect.stringContaining("__vmarkClickRef"), operation: "click", generation: 2 }),
+    );
+    const call = invoke.mock.calls.find((c) => c[0] === "browser_eval")![1] as Record<string, unknown>;
+    expect("role" in call).toBe(false);
+    expect("name" in call).toBe(false);
+    expect(lastResponse()).toMatchObject({ id: "ref-1", success: true });
+  });
+
+  it("refuses a ref act on an un-granted origin (refs are never one-shot bound)", async () => {
+    const id = seedBrowserTab();
+    await handleBrowserAct("ref-ng", { tabId: id, operation: "click", ref: "e5" });
+    expect(invoke).not.toHaveBeenCalled();
+    const res = lastResponse();
+    expect(res.success).toBe(false);
+    expect(String(res.error)).toContain("standing grant");
+  });
+
+  it("refuses when both ref and role/name are given", async () => {
+    const id = seedBrowserTab();
+    await handleBrowserAct("ref-both", { tabId: id, operation: "click", ref: "e5", role: "button", name: "X" });
+    expect(invoke).not.toHaveBeenCalled();
+    expect(lastResponse()).toMatchObject({ success: false });
+  });
+
+  it("types by ref on a granted origin via a ref type script", async () => {
+    const id = seedBrowserTab();
+    useTabStore.getState().updateBrowserTab(id, { generation: 1 });
+    useBrowserApprovalStore.getState().grant("https://blog.example.com", ["type"]);
+    invoke.mockResolvedValue(JSON.stringify({ found: true, typed: true }));
+
+    await handleBrowserAct("ref-type", { tabId: id, operation: "type", ref: "e3", text: "hi" });
+
+    expect(invoke).toHaveBeenCalledWith(
+      "browser_eval",
+      expect.objectContaining({ script: expect.stringContaining("__vmarkTypeRef") }),
+    );
+    expect(lastResponse()).toMatchObject({ id: "ref-type", success: true });
+  });
+});

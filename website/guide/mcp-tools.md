@@ -296,19 +296,31 @@ Returns `{revision, replaced_chars}` on success. `replaced_chars` is the length 
 ## `browser`
 
 The browser tool is available only when **Settings → Advanced → Embedded browser** is
-enabled. All five actions fail with `BROWSER_DISABLED` while it is off. URLs returned to
+enabled. All six actions fail with `BROWSER_DISABLED` while it is off. URLs returned to
 MCP are redacted through the same boundary used by the app's browser session state.
 
 ### `read`
 
 Returns `{url, snapshot}` for the focused browser tab, or the tab named by `tabId`.
-`snapshot` is an ARIA-oriented list of roles and accessible names.
+`snapshot` is an ARIA-oriented list of `{role, name, ref}` — each `ref` (e.g. `"e5"`) is a
+stable handle for that element, valid for the life of the current view.
 
 ### `act`
 
-Arguments: `tabId?`, `operation: "click" | "type"`, `role`, `name`, and `text?` for
-typing. Read first and target the exact accessible role/name. Mutating operations require
-an origin-scoped approval; AI-chosen uploads are never permitted.
+Arguments: `tabId?`, `operation: "click" | "type" | "scroll" | "key"`, and per-operation
+targets:
+
+- **click / type** — a target, either `ref` (from a prior read) **or** `role` + `name`,
+  and `text?` for typing. A `ref` is precise and order-independent but is only honored for
+  an **already-granted** operation; if the action may need approval, use `role` + `name` so
+  the prompt shows the user a readable element.
+- **scroll** — `ref` (scroll it into view) **or** `dy` (a vertical pixel delta).
+- **key** — `key` (e.g. `"Enter"`, `"Escape"`, `"Tab"`), optional `ref` to target, and
+  optional `modifiers: {ctrl, shift, alt, meta}`.
+
+`scroll` and `key` are act-class (approval-gated) and dispatch **synthetic** DOM events, so
+a site gating on `event.isTrusted` may ignore them. Mutating operations require an
+origin-scoped approval; AI-chosen uploads are never permitted.
 
 ### `open`
 
@@ -327,6 +339,66 @@ retrieve the terminal result.
 Arguments: `tabId?`, optional `navigationId`, and optional `timeoutMs`. It never starts a
 navigation. It returns a buffered load/failure result, `NAVIGATION_SUPERSEDED`, or
 `TIMEOUT` when the ticket does not finish within the bound.
+
+### `wait_for`
+
+Arguments: `tabId?`, exactly one of `ref` (from a read), `role` (+ optional `name`), or
+`text` (a substring of visible text), and optional `timeoutMs` (1–12,000 ms). Polls until
+the condition holds or the timeout elapses and returns `{matched: true|false}` (plus the
+matched element's `ref` for a ref/role condition) — so you can tell "found" from "timed
+out". Read-class. Use it to make a flow deterministic: act, `wait_for` the result, then
+read.
+
+### `query`
+
+Arguments: `tabId?`, `selector` (CSS), and optional `fields: {attributes, box, styles:[...]}`.
+Returns `{count, elements: [{ref, tag, text, …}]}` — structured DOM data the ARIA snapshot
+cannot name (tables, computed values). **Read-class.** Runs in the isolated content world.
+
+### `style`
+
+Arguments: `tabId?`, a target (`ref` **or** `selector`), and one of `set: {prop: value}`,
+`addClasses`, `removeClasses`, or `injectCss`. Dismiss a blocking overlay, highlight a
+target, etc. **Act-class** (approval-gated, op `style`). Isolated content world.
+
+### `execute_js`
+
+Arguments: `tabId?`, `script` (must `return` a JSON-serializable value). The escape hatch
+for what the structured verbs cannot express. It runs in the **isolated content world** —
+it shares the DOM (so `querySelector`, `element.style` work) but **cannot** see the page's
+own JS heap/globals. It is approved **per call only** (never a standing grant, enforced in
+the Rust driver), the approval shows the script, and the return value is flagged
+**untrusted** and never auto-fed into a later `act`. Prefer `query`/`style` first.
+
+### `session_save` / `session_load`
+
+Arguments: `tabId?`, `handle` (`[A-Za-z0-9._-]`, 1–128 chars). `session_save` snapshots
+the tab's session into an **OS-keychain** entry named by `handle` and returns a
+value-free summary (counts); `session_load` restores it and returns `{loaded: true,
+handle}` — a confirmation plus the AI-supplied handle, never any values. A `session_load`
+only applies to a page with the **same origin** the session was saved from. This is
+credential-**by-reference** (ADR-A7): the AI names a saved session and never receives
+cookie/token values, which are never logged. Both are the `session` permission —
+**never a standing grant** (approved per call), and an approval for one handle cannot
+be spent on another. *Today this covers `localStorage`; cookie capture is a
+live-testing follow-up.*
+
+### `console`
+
+Arguments: `tabId?`, `clear?`. Returns `{entries: [{level, text}], url}` — the page's
+captured `console.*` output. **Read-class**, sandbox-tabs only. The capture works by a
+page-world shim that writes into a hidden DOM buffer which the driver reads from the
+isolated world — so **no messaging channel** is opened back into VMark (the no-bridge
+guarantee holds). The output is page-controlled and **untrusted** — treat it like a
+`read`, never as an `act` target. Pass `clear: true` to drain the buffer as you read it.
+
+### `screenshot`
+
+Arguments: `tabId?`. Returns an **image content block** (base64 JPEG, quality-bounded) of
+the tab's current rendering, plus a text line naming the page — a visual channel onto
+layout and rendered state the ARIA snapshot cannot describe. It is captured natively
+(`takeSnapshot`) and reads no page DOM or JavaScript. Read-class: authorized exactly like
+`read` (allowed on an AI-owned tab; a human tab needs an attachment, consumed on capture).
 
 Shared posture asks for destination approval for every new origin unless a matching
 `navigate` grant exists. A human-created tab requires an ephemeral attachment approval

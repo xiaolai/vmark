@@ -398,23 +398,37 @@ fn legacy_human_wrapper_refuses_read_without_a_human_attachment() {
 #[test]
 fn sandbox_read_is_allowed_but_human_read_requires_attachment() {
     assert!(is_driver_operation_allowed_for_mode(
-        "https://example.com/page", "read", &[], AutomationMode::AiSandbox, false, false
+        "https://example.com/page", "read", &[], AutomationMode::AiSandbox, false, false, true
     ));
     assert!(!is_driver_operation_allowed_for_mode(
-        "https://example.com/page", "read", &[], AutomationMode::Human, false, false
+        "https://example.com/page", "read", &[], AutomationMode::Human, false, false, true
     ));
     assert!(is_driver_operation_allowed_for_mode(
-        "https://example.com/page", "read", &[], AutomationMode::Human, true, false
+        "https://example.com/page", "read", &[], AutomationMode::Human, true, false, true
     ));
 }
 
 #[test]
 fn shared_read_requires_current_destination_approval() {
     assert!(!is_driver_operation_allowed_for_mode(
-        "https://example.com/page", "read", &[], AutomationMode::AiShared, false, false
+        "https://example.com/page", "read", &[], AutomationMode::AiShared, false, false, true
     ));
     assert!(is_driver_operation_allowed_for_mode(
-        "https://example.com/page", "read", &[], AutomationMode::AiShared, false, true
+        "https://example.com/page", "read", &[], AutomationMode::AiShared, false, true, true
+    ));
+}
+
+#[test]
+fn profile_confined_sandbox_read_is_refused_off_the_approved_origin() {
+    // WI-P6.1 H1: a profile-backed tab whose committed origin is NOT the approved one
+    // (sandbox_read_allowed=false) must be refused a read even though it is AiSandbox —
+    // this is what stops a profile-approved X tab from reading authenticated Y.
+    assert!(!is_driver_operation_allowed_for_mode(
+        "https://evil.com/page", "read", &[], AutomationMode::AiSandbox, false, false, false
+    ));
+    // On the approved origin (sandbox_read_allowed=true) the same read is allowed.
+    assert!(is_driver_operation_allowed_for_mode(
+        "https://example.com/page", "read", &[], AutomationMode::AiSandbox, false, false, true
     ));
 }
 
@@ -543,6 +557,7 @@ fn unknown_and_case_variant_operations_are_denied_like_the_ts_vocabulary() {
         AutomationMode::AiSandbox,
         false,
         false,
+        true,
     ));
     assert!(is_operation_granted(
         "https://blog.example.com",
@@ -573,4 +588,23 @@ fn rejects_shorthand_and_backslash_authority_forms_as_nav_targets() {
     // Ordinary well-formed targets (incl. uppercase scheme) still pass.
     assert!(validate_navigation_url("https://example.com").is_ok());
     assert!(validate_navigation_url("HTTPS://EXAMPLE.COM/a?b#c").is_ok());
+}
+
+#[test]
+fn eval_is_never_granted_even_when_a_grant_lists_it() {
+    // ADR-A6: the authoritative gate refuses `eval` via a standing grant, so raw
+    // isolated-world eval always requires a fresh per-call one-shot. `style` IS
+    // grantable, proving the exclusion is specific to `eval`.
+    let eval_grant = vec![StandingGrant {
+        origin_pattern: "https://blog.example.com".into(),
+        operations: vec!["read".into(), "eval".into()],
+    }];
+    assert!(!is_operation_granted("https://blog.example.com/p", "eval", &eval_grant));
+    assert!(is_operation_granted("https://blog.example.com/p", "read", &eval_grant));
+
+    let style_grant = vec![StandingGrant {
+        origin_pattern: "https://blog.example.com".into(),
+        operations: vec!["style".into()],
+    }];
+    assert!(is_operation_granted("https://blog.example.com/p", "style", &style_grant));
 }

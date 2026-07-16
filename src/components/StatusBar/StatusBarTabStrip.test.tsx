@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { StatusBarTabStrip } from "./StatusBarTabStrip";
 import type { Tab as TabType } from "@/stores/tabStore";
@@ -41,6 +41,7 @@ function setup(props: Partial<Parameters<typeof StatusBarTabStrip>[0]> = {}) {
       onContextMenu={vi.fn()}
       onTabKeyDown={vi.fn()}
       onNewTab={vi.fn()}
+      onActivateBrowserWorkspace={vi.fn()}
       {...props}
     />,
   );
@@ -117,5 +118,79 @@ describe("StatusBarTabStrip", () => {
   it("renders no tablist when showTabs is false", () => {
     setup({ showTabs: false });
     expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
+  });
+
+  describe("browser workspace tab", () => {
+    it("is absent when there are no browser pages", () => {
+      setup({ browserWorkspaceCount: 0 });
+      expect(screen.queryByRole("tab", { name: /browser/i })).not.toBeInTheDocument();
+    });
+
+    it("renders when there are browser pages", () => {
+      setup({ browserWorkspaceCount: 2, browserWorkspaceActive: false });
+      expect(screen.getByRole("tab", { name: /browser/i })).toBeInTheDocument();
+    });
+
+    it("activates the workspace on click", async () => {
+      const user = userEvent.setup();
+      const onActivateBrowserWorkspace = vi.fn();
+      setup({ browserWorkspaceCount: 1, onActivateBrowserWorkspace });
+      await user.click(screen.getByRole("tab", { name: /browser/i }));
+      expect(onActivateBrowserWorkspace).toHaveBeenCalledOnce();
+    });
+
+    it("activates the workspace on Enter (native button)", async () => {
+      const user = userEvent.setup();
+      const onActivateBrowserWorkspace = vi.fn();
+      setup({ browserWorkspaceCount: 1, browserWorkspaceActive: true, onActivateBrowserWorkspace });
+      const wsTab = screen.getByRole("tab", { name: /browser/i });
+      wsTab.focus();
+      await user.keyboard("{Enter}");
+      expect(onActivateBrowserWorkspace).toHaveBeenCalled();
+    });
+
+    it("is focusable (tabindex 0) and excluded from drop math when active", () => {
+      setup({ browserWorkspaceCount: 1, browserWorkspaceActive: true });
+      const wsTab = screen.getByRole("tab", { name: /browser/i });
+      expect(wsTab).toHaveAttribute("tabindex", "0");
+      expect(wsTab).toHaveAttribute("data-workspace-tab");
+    });
+
+    it("has roving tabindex -1 when not the active tab", () => {
+      setup({ browserWorkspaceCount: 1, browserWorkspaceActive: false });
+      expect(screen.getByRole("tab", { name: /browser/i })).toHaveAttribute("tabindex", "-1");
+    });
+
+    it("renders the trailing drop indicator before the workspace tab", () => {
+      setup({
+        tabs: [makeTab({ id: "t1", title: "one" })],
+        browserWorkspaceCount: 1,
+        isReordering: true,
+        dropIndex: 1, // >= documentTabs.length → end-of-documents drop
+        dragTabId: "t1",
+      });
+      const tablist = screen.getByRole("tablist");
+      const indicator = tablist.querySelector(".tab-drop-indicator");
+      const wsTab = screen.getByRole("tab", { name: /browser/i });
+      expect(indicator).toBeInTheDocument();
+      // The indicator must precede the synthetic workspace tab in the DOM.
+      expect(
+        indicator!.compareDocumentPosition(wsTab) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    });
+
+    it("ArrowLeft moves focus from the workspace tab to the preceding document tab", () => {
+      setup({
+        tabs: [makeTab({ id: "t1", title: "one" })],
+        activeTabId: null as never,
+        browserWorkspaceCount: 1,
+        browserWorkspaceActive: true,
+      });
+      const wsTab = screen.getByRole("tab", { name: /browser/i });
+      const docTab = screen.getByRole("tab", { name: /one/i });
+      wsTab.focus();
+      fireEvent.keyDown(wsTab, { key: "ArrowLeft" });
+      expect(document.activeElement).toBe(docTab);
+    });
   });
 });

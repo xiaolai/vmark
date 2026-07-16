@@ -1,6 +1,7 @@
 {
   "openSidebar": "Apri barra laterale",
   "newTabTitle": "Nuova scheda",
+  "browserWorkspace": "Browser",
   "autoSavePaused": "Salvataggio automatico sospeso",
   "autoSavePausedTitle": "Salvataggio automatico sospeso: il file è stato eliminato dal disco. Salva manualmente con {{shortcut}}.",
   "divergent": "Divergente",

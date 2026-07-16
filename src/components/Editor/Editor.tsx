@@ -2,13 +2,13 @@
  * Editor
  *
  * Purpose: Format-registry dispatcher (WI-1A.5). Reads the active tab, resolves
- *   a FormatConfig for it, and mounts one of four surfaces: <BrowserSurface> for
- *   kind:"browser" tabs, the format's wysiwygComponent (markdown today), the
+ *   a FormatConfig for it, and mounts one of four surfaces: <BrowserWorkspaceSurface>
+ *   for kind:"browser" tabs, the format's wysiwygComponent (markdown today), the
  *   dedicated read-only <MediaViewer> for kind:"media" (image/audio/video), or
  *   the generic <SplitPaneEditor> for the remaining split-pane / viewer kinds.
  *
  * Pipeline: useActiveTabId → useTabStore.findTabById →
- *   tab.kind === "browser" ? <BrowserSurface />
+ *   tab.kind === "browser" ? <BrowserWorkspaceSurface />
  *   : resolveFormat(tab) →
  *     kind === "wysiwyg" ? <wysiwygComponent />
  *     : kind === "media" ? <MediaViewer />
@@ -38,7 +38,7 @@
  *
  * @coordinates-with src/lib/formats/registry.ts — dispatchEditor() / getFormatById()
  * @coordinates-with src/lib/formats/adapters/markdown.tsx — MarkdownEditorSurface
- * @coordinates-with src/components/Browser/BrowserSurface — kind:"browser" surface
+ * @coordinates-with src/components/Browser/BrowserWorkspaceSurface — kind:"browser" workspace surface
  * @coordinates-with src/components/Editor/MediaViewer/MediaViewer — kind:"media" surface
  * @coordinates-with src/components/Editor/SplitPaneEditor — SplitPaneEditor
  * @coordinates-with src/components/Welcome/WelcomeScreen — shown when no tab open
@@ -49,7 +49,7 @@ import { useActiveTabId } from "@/hooks/useDocumentState";
 import { useTabStore } from "@/stores/tabStore";
 import { isBrowserTab, isDocumentTab } from "@/stores/tabStoreTypes";
 import type { DocumentTab } from "@/stores/tabStoreTypes";
-import { BrowserSurface } from "@/components/Browser/BrowserSurface";
+import { BrowserWorkspaceSurface } from "@/components/Browser/BrowserWorkspaceSurface";
 import { dispatchEditor, getFormatById } from "@/lib/formats/registry";
 import type { FormatConfig } from "@/lib/formats/types";
 import { MarkdownEditorSurface } from "@/lib/formats/adapters/markdown";
@@ -98,11 +98,11 @@ export function Editor() {
     return <WelcomeScreen />;
   }
 
-  // R1: a browser tab is not a document — branch on `kind` BEFORE dispatchEditor,
+  // R1: a browser page is not a document — branch on `kind` BEFORE dispatchEditor,
   // or a browser tab (which has no filePath) would resolve as an untitled
-  // markdown document. Browser tabs render the embedded browser surface (WI-1.3).
+  // markdown document. Browser pages render inside the Browser workspace (WI-1.3).
   if (tab && isBrowserTab(tab)) {
-    return <BrowserSurface key={tabId} tabId={tabId} />;
+    return <BrowserWorkspaceSurface />;
   }
 
   const formatConfig = resolveFormat(tab && isDocumentTab(tab) ? tab : null);

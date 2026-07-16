@@ -70,7 +70,7 @@ function calcDropIndex(bar: HTMLElement, clientX: number): number {
   const tablist = bar.querySelector("[role='tablist']");
   if (!tablist) return -1;
 
-  const tabs = Array.from(tablist.querySelectorAll<HTMLElement>("[role='tab']"));
+  const tabs = Array.from(tablist.querySelectorAll<HTMLElement>("[role='tab']:not([data-workspace-tab])")); // exclude synthetic workspace tab
   if (tabs.length === 0) return -1;
 
   for (let i = 0; i < tabs.length; i++) {

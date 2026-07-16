@@ -19,7 +19,12 @@
  * an act that could not be performed reports `{clicked:false, reason}` rather than
  * a false success.
  *
+ * The snapshot also stamps each node with a stable `ref` (WI-P2.1); the injected
+ * ref store (`LIB_REFS`) mirrors `refs.ts` on the same `document.__vmarkRefStore`,
+ * so the two agree and `actScript.test.ts` keeps them from drifting.
+ *
  * @coordinates-with lib/browser/agent/aria.ts — same role/name/state/visibility rules
+ * @coordinates-with lib/browser/agent/refs.ts — the mirrored per-node ref store
  * @coordinates-with src-tauri browser_eval — evaluates these scripts
  * @module lib/browser/agent/actScript
  */
@@ -95,6 +100,31 @@ function __vmarkName(el){
   return __vmarkNorm(el.getAttribute('title'));
 }`;
 
+/** Stable per-document element refs — mirrors `refs.ts` (`refFor`/`queryByRef`).
+ *  The store lives on `document`, so refs persist across reads within a page and
+ *  reset when a navigation replaces the document. Same shape + assignment order as
+ *  `refs.ts`, so `actScript.test.ts`'s parity check holds. */
+const LIB_REFS = `
+function __vmarkRefStore(gen){
+  var d=document;
+  if(!d.__vmarkRefStore||d.__vmarkRefStore.gen!==gen){
+    d.__vmarkRefStore={refs:new WeakMap(),byRef:new Map(),n:0,gen:gen};
+  }
+  return d.__vmarkRefStore;
+}
+function __vmarkRefFor(el,gen){
+  var s=__vmarkRefStore(gen),ex=s.refs.get(el);
+  if(ex)return ex;
+  var ref='e'+(++s.n);
+  s.refs.set(el,ref);s.byRef.set(ref,new WeakRef(el));
+  return ref;
+}
+function __vmarkQueryByRef(ref,gen){
+  var s=__vmarkRefStore(gen),w=s.byRef.get(ref),el=w?w.deref():null;
+  if(!el||!el.isConnected||el.ownerDocument!==document)return null;
+  return el;
+}`;
+
 /** Visibility, state, locating, snapshot — mirrors `isHidden`/`isDisabled`/
  *  `isChecked`/`queryByRole`/`ariaSnapshot`. */
 const LIB_QUERY = `
@@ -128,12 +158,12 @@ function __vmarkQuery(role,name){
   return out;
 }
 var __vmarkLevels={H1:1,H2:2,H3:3,H4:4,H5:5,H6:6};
-function __vmarkSnapshot(){
+function __vmarkSnapshot(gen){
   var all=document.querySelectorAll('*'),out=[];
   for(var i=0;i<all.length;i++){
     var el=all[i],role=__vmarkRole(el);
     if(!role||__vmarkHidden(el))continue;
-    var node={role:role,name:__vmarkName(el)};
+    var node={role:role,name:__vmarkName(el),ref:__vmarkRefFor(el,gen)};
     if(role==='heading')node.level=__vmarkLevels[el.tagName]||(Number(el.getAttribute('aria-level'))||undefined);
     if(role==='checkbox'||role==='radio')node.checked=__vmarkChecked(el);
     if(__vmarkDisabled(el))node.disabled=true;
@@ -175,14 +205,39 @@ function __vmarkType(role,name,text){
     return {found:true,typed:false,reason:String((e&&e.message)||e)};
   }
   return {found:true,typed:true};
+}
+function __vmarkClickRef(ref,gen){
+  var el=__vmarkQueryByRef(ref,gen); if(!el)return {found:false,clicked:false};
+  if(__vmarkDisabled(el))return {found:true,clicked:false,reason:'disabled'};
+  el.click();
+  return {found:true,clicked:true};
+}
+function __vmarkTypeRef(ref,gen,text){
+  var el=__vmarkQueryByRef(ref,gen); if(!el)return {found:false,typed:false};
+  var tag=el.tagName.toLowerCase();
+  if(__vmarkDisabled(el))return {found:true,typed:false,reason:'disabled'};
+  if(tag!=='input'&&tag!=='textarea')return {found:true,typed:false,reason:'not-editable'};
+  if(el.readOnly)return {found:true,typed:false,reason:'readonly'};
+  try{
+    if(el.focus)el.focus();
+    __vmarkSetValue(el,text);
+    el.dispatchEvent(new Event('input',{bubbles:true}));
+    el.dispatchEvent(new Event('change',{bubbles:true}));
+  }catch(e){
+    return {found:true,typed:false,reason:String((e&&e.message)||e)};
+  }
+  return {found:true,typed:true};
 }`;
 
-/** Standalone role/name/query/snapshot/click/type library, injected verbatim. */
-const AGENT_LIB = [LIB_ROLE, LIB_NAME, LIB_QUERY, LIB_ACT].join("\n");
+/** Standalone role/name/refs/query/snapshot/click/type library, injected verbatim.
+ *  Exported so sibling injected-script modules (`interactScript.ts`) can prepend
+ *  it and reuse `__vmarkQueryByRef` / `__vmarkQuery` / `__vmarkRefFor`. */
+export const AGENT_LIB = [LIB_ROLE, LIB_NAME, LIB_REFS, LIB_QUERY, LIB_ACT].join("\n");
 
-/** Script: read the page as a flat ARIA snapshot (`[{role,name,…},…]`). */
-export function buildSnapshotScript(): string {
-  return `${AGENT_LIB}\nreturn JSON.stringify(__vmarkSnapshot());`;
+/** Script: read the page as a flat ARIA snapshot (`[{role,name,ref,…},…]`).
+ *  `generation` scopes the ref store, so refs reset across a navigation. */
+export function buildSnapshotScript(generation = 0): string {
+  return `${AGENT_LIB}\nreturn JSON.stringify(__vmarkSnapshot(${Number(generation)}));`;
 }
 
 /** Script: click the element with `role` + accessible `name` (exact). Reports
@@ -196,4 +251,45 @@ export function buildClickScript(role: string, name: string): string {
  *  non-editable target is refused, never silently mutated. */
 export function buildTypeScript(role: string, name: string, text: string): string {
   return `${AGENT_LIB}\nreturn JSON.stringify(__vmarkType(${JSON.stringify(role)}, ${JSON.stringify(name)}, ${JSON.stringify(text)}));`;
+}
+
+/** Script: click the element bound to `ref` at `generation` (exact, order-
+ *  independent). Resolves nothing — reports `{found:false}` — if the ref is stale
+ *  (the store reset on navigation), so an old handle can never hit a new element. */
+export function buildClickByRefScript(ref: string, generation: number): string {
+  return `${AGENT_LIB}\nreturn JSON.stringify(__vmarkClickRef(${JSON.stringify(ref)}, ${Number(generation)}));`;
+}
+
+/** Script: type `text` into the field bound to `ref` at `generation`. Same
+ *  refusals as `buildTypeScript` (disabled/readonly/non-editable), and a stale
+ *  ref is `{found:false}`. */
+export function buildTypeByRefScript(ref: string, text: string, generation: number): string {
+  return `${AGENT_LIB}\nreturn JSON.stringify(__vmarkTypeRef(${JSON.stringify(ref)}, ${Number(generation)}, ${JSON.stringify(text)}));`;
+}
+
+/** A `wait_for` condition: a ref present, a role (+optional name) present, or a
+ *  substring present in the page's visible text. Exactly one is set. */
+export interface WaitCondition {
+  ref?: string;
+  role?: string;
+  name?: string;
+  text?: string;
+}
+
+/** Script: a single SYNCHRONOUS check of `condition` (no observer, no blocking —
+ *  the frontend polls this). Reports `{matched}` and, for a ref/role condition,
+ *  the matched `ref`. A stale ref (store reset on navigation) is `matched:false`. */
+export function buildWaitConditionScript(condition: WaitCondition, generation: number): string {
+  const gen = Number(generation);
+  let expr: string;
+  if (condition.ref !== undefined) {
+    expr = `(function(){var el=__vmarkQueryByRef(${JSON.stringify(condition.ref)},${gen});return el?{matched:true,ref:${JSON.stringify(condition.ref)}}:{matched:false};})()`;
+  } else if (condition.role !== undefined) {
+    const nameArg = condition.name !== undefined ? JSON.stringify(condition.name) : "null";
+    expr = `(function(){var m=__vmarkQuery(${JSON.stringify(condition.role)},${nameArg});return m.length?{matched:true,ref:__vmarkRefFor(m[0],${gen})}:{matched:false};})()`;
+  } else {
+    const text = JSON.stringify(condition.text ?? "");
+    expr = `(function(){var b=document.body,t=(b&&(b.innerText||b.textContent))||'';return {matched:t.indexOf(${text})>=0};})()`;
+  }
+  return `${AGENT_LIB}\nreturn JSON.stringify(${expr});`;
 }

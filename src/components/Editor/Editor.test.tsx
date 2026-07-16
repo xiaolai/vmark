@@ -199,10 +199,8 @@ vi.mock("./SplitPaneEditor/SplitPaneEditor", () => ({
   ),
 }));
 
-vi.mock("@/components/Browser/BrowserSurface", () => ({
-  BrowserSurface: ({ tabId }: { tabId: string }) => (
-    <div data-testid="browser-surface">{tabId}</div>
-  ),
+vi.mock("@/components/Browser/BrowserWorkspaceSurface", () => ({
+  BrowserWorkspaceSurface: () => <div data-testid="browser-workspace-surface" />,
 }));
 
 vi.mock("@/stores/settingsStore", () => {
@@ -336,7 +334,7 @@ describe("Editor", () => {
       expect(document.querySelector(".editor-content")).not.toBeInTheDocument();
     });
 
-    it("mounts BrowserSurface (and no document surface) for a kind:'browser' tab", () => {
+    it("mounts the browser workspace surface (and no document surface) for a kind:'browser' tab", () => {
       // R1: a browser tab has no filePath. Without the kind branch it would
       // resolve as an untitled markdown document and mount the editor.
       mockTabStore.findTabById = (id: string) =>
@@ -346,7 +344,7 @@ describe("Editor", () => {
 
       renderWithProvider(<Editor />);
 
-      expect(screen.getByTestId("browser-surface")).toHaveTextContent("tab-1");
+      expect(screen.getByTestId("browser-workspace-surface")).toBeInTheDocument();
       expect(screen.queryByTestId("split-pane-editor")).not.toBeInTheDocument();
       expect(screen.queryByTestId("media-viewer")).not.toBeInTheDocument();
       expect(document.querySelector(".editor-content")).not.toBeInTheDocument();

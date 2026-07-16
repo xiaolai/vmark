@@ -150,7 +150,9 @@ describe("pending approval flow", () => {
   });
 
   it("does not queue an approval for an unknown operation", () => {
-    useBrowserApprovalStore.getState().requestApproval("req1", URL, "scroll", undefined, "tab-1", 1);
+    // `frobnicate` is outside the closed vocabulary (unlike scroll/key/style/eval,
+    // which are all known operations now).
+    useBrowserApprovalStore.getState().requestApproval("req1", URL, "frobnicate", undefined, "tab-1", 1);
     expect(useBrowserApprovalStore.getState().pending).toHaveLength(0);
   });
 });
@@ -159,16 +161,16 @@ describe("operation vocabulary (an unknown operation can never become authority)
   it("denies an operation outside the known set", () => {
     // The act tool maps every non-"type" operation to a CLICK script, so an
     // unknown operation that reached "allowed" would click under a bogus label.
-    expect(useBrowserApprovalStore.getState().decide(URL, "scroll")).toBe("denied");
+    expect(useBrowserApprovalStore.getState().decide(URL, "frobnicate")).toBe("denied");
     expect(useBrowserApprovalStore.getState().decide(URL, "")).toBe("denied");
   });
 
   it("refuses to grant an unknown operation", () => {
-    expect(useBrowserApprovalStore.getState().grant("https://blog.example.com", ["scroll"])).toBe(
+    expect(useBrowserApprovalStore.getState().grant("https://blog.example.com", ["frobnicate"])).toBe(
       false,
     );
     expect(useBrowserApprovalStore.getState().grants).toEqual([]);
-    expect(useBrowserApprovalStore.getState().decide(URL, "scroll")).toBe("denied");
+    expect(useBrowserApprovalStore.getState().decide(URL, "frobnicate")).toBe("denied");
   });
 
   it("refuses to grant a never-automatable operation (upload)", () => {

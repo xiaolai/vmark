@@ -68,7 +68,13 @@ beforeEach(() => {
   mocks.ensureNative.mockReset().mockResolvedValue(undefined);
   mocks.nativeReady.mockReset().mockResolvedValue(undefined);
   resetTabs();
-  useBrowserApprovalStore.setState({ grants: [], pending: [], oneShots: [], attachments: [] });
+  useBrowserApprovalStore.setState({
+    grants: [],
+    pending: [],
+    oneShots: [],
+    attachments: [],
+    profileOpens: [],
+  });
   useSettingsStore.getState().updateBrowserSetting("enabled", true);
   useSettingsStore.getState().updateBrowserSetting("aiSession", "sandbox");
   mocks.invoke.mockImplementation(async (command: string, args?: Record<string, unknown>) => {
@@ -89,9 +95,45 @@ describe("open", () => {
     const tabs = useTabStore.getState().tabs.main;
     expect(tabs).toHaveLength(1);
     expect(tabs[0]).toMatchObject({ automationMode: "ai-sandbox", url: URL });
-    expect(mocks.ensureNative).toHaveBeenCalledWith(tabs[0].id, URL, "ai-sandbox");
+    // open now passes an optional profile (WI-P6.1) — undefined when not supplied.
+    expect(mocks.ensureNative).toHaveBeenCalledWith(tabs[0].id, URL, "ai-sandbox", undefined);
     expect(lastResponse()).toMatchObject({ id: "open-1", success: true });
   });
+
+  it("opening a named profile without approval raises a prompt and creates NO tab (WI-P6.1 H1)", async () => {
+    await handleBrowserOpen("p-1", { url: URL, profile: "github_work" });
+    expect(lastResponse()).toMatchObject({ success: false });
+    expect((lastResponse().data as { needsApproval?: boolean; action?: string }).needsApproval).toBe(true);
+    expect((lastResponse().data as { action?: string }).action).toBe("open-profile");
+    // No tab, and the native create was never invoked — a guessed profile can't leak.
+    expect(Object.values(useTabStore.getState().tabs).flat()).toEqual([]);
+    expect(mocks.ensureNative).not.toHaveBeenCalled();
+    expect(useBrowserApprovalStore.getState().pending[0]).toMatchObject({ operation: "session", profile: "github_work" });
+  });
+
+  it("opens a named profile once a profile-open grant exists, forwarding the profile", async () => {
+    useBrowserApprovalStore.setState({
+      profileOpens: [{ profile: "github_work", originPattern: "https://example.com" }],
+    });
+    await handleBrowserOpen("p-2", { url: URL, profile: "github_work" });
+    const tabs = useTabStore.getState().tabs.main;
+    expect(tabs).toHaveLength(1);
+    expect(mocks.ensureNative).toHaveBeenCalledWith(tabs[0].id, URL, "ai-sandbox", "github_work");
+    // The grant is single-use — spent.
+    expect(useBrowserApprovalStore.getState().profileOpens).toEqual([]);
+  });
+
+  it.each([["has space"], [""], ["  "]])(
+    "rejects a PRESENT but malformed profile %j instead of silently opening an unnamed tab",
+    async (badProfile) => {
+      // Re-verify WI-P6.1 Validation: a bad profile name — including empty/whitespace —
+      // must NOT downgrade to an unnamed sandbox tab (a different posture) — it is refused.
+      await handleBrowserOpen("bad-prof", { url: URL, profile: badProfile });
+      expect(lastResponse()).toMatchObject({ success: false, error: "INVALID_PROFILE" });
+      expect(Object.values(useTabStore.getState().tabs).flat()).toEqual([]);
+      expect(mocks.ensureNative).not.toHaveBeenCalled();
+    },
+  );
 
   it("stamps the committed generation so the first read/act is not rejected as stale", async () => {
     // Regression: `open` waits on the broker for the initial load, but that

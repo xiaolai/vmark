@@ -1,0 +1,333 @@
+#!/usr/bin/env bash
+#
+# DoD checker for the Browser Automation — Richer Perception & Interaction plan.
+# Plan: dev-docs/plans/20260715-browser-automation-perception.md
+#
+# Usage: bash scripts/check-browser-automation-phase.sh <phase-number> [--full]
+#
+#   --full  also run the heavyweight gates a phase's DoD names but that the
+#           pre-push hook normally owns (`pnpm check:all`, website build).
+#           Without it those rows report SKIP, never PASS.
+#
+# Exit codes:
+#   0  every assertion for the phase passed
+#   1  one or more assertions failed
+#   2  bad usage (no/unknown phase)
+#   3  phase recognized but its assertions are not authored yet (fail closed)
+#
+# Governance (.claude/rules/60-ai-governance.md §3): a phase gate must be
+# machine-checkable and RUN THE TESTS its DoD names — asserting a file exists
+# proves nothing about whether it works. Un-authored phases fail closed (exit 3);
+# each phase block below is filled in only when that phase's code lands.
+
+set -uo pipefail
+cd "$(dirname "$0")/.." || exit 1
+
+GRILLS="dev-docs/grills/browser-automation"
+PLAN="dev-docs/plans/20260715-browser-automation-perception.md"
+
+PHASE=""
+FULL=0
+for arg in "$@"; do
+  case "$arg" in
+    --full) FULL=1 ;;
+    -*)
+      echo "Unknown flag: $arg" >&2
+      echo "Usage: $0 <phase-number> [--full]" >&2
+      exit 2
+      ;;
+    *)
+      if [[ -n "$PHASE" ]]; then
+        echo "Unexpected extra argument: '$arg' (phase already set to '$PHASE')" >&2
+        exit 2
+      fi
+      PHASE="$arg"
+      ;;
+  esac
+done
+
+FAIL=0
+
+if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then
+  C_OK=$'\033[32m'; C_BAD=$'\033[31m'; C_DIM=$'\033[2m'; C_OFF=$'\033[0m'
+else
+  C_OK=""; C_BAD=""; C_DIM=""; C_OFF=""
+fi
+
+pass() { printf '  %sPASS%s %s\n' "$C_OK" "$C_OFF" "$1"; }
+fail() { printf '  %sFAIL%s %s\n' "$C_BAD" "$C_OFF" "$1"; FAIL=1; }
+skip() { printf '  %sSKIP%s %s\n' "$C_DIM" "$C_OFF" "$1"; }
+
+# Extract the single structured `Verdict:` token from a spike write-up, or an
+# ERROR:<reason> sentinel. Mirrors scripts/check-browser-phase.sh.
+spike_verdict() {
+  local file="$1" lines count raw tok
+  lines=$(grep -iE '^[[:space:]>*_]*\*{0,2}Verdict\*{0,2}[[:space:]]*:' "$file" 2>/dev/null)
+  count=$(printf '%s' "$lines" | grep -c .)
+  if [[ "$count" -eq 0 ]]; then echo "ERROR:no-verdict-line"; return; fi
+  if [[ "$count" -gt 1 ]]; then echo "ERROR:$count-conflicting-verdict-lines"; return; fi
+  raw=$(printf '%s' "$lines" | sed -E 's/.*[Vv][Ee][Rr][Dd][Ii][Cc][Tt][*_[:space:]]*:[*_[:space:]]*//')
+  tok=$(printf '%s' "$raw" | tr '[:lower:]' '[:upper:]')
+  case "$tok" in
+    PASS|PASS[!A-Z0-9_-]*)         echo "PASS" ;;
+    FAIL|FAIL[!A-Z0-9_-]*)         echo "FAIL" ;;
+    REFUTED|REFUTED[!A-Z0-9_-]*)   echo "REFUTED" ;;
+    *)                             echo "ERROR:unrecognized-verdict" ;;
+  esac
+}
+
+# A spike write-up passes when it exists and carries an accepted verdict token.
+check_spike() {
+  local file="$1" desc="$2"; shift 2
+  local accepted="$*" verdict
+  if [[ ! -f "$file" ]]; then fail "spike write-up missing ($file) — $desc"; return; fi
+  verdict=$(spike_verdict "$file")
+  if [[ "$verdict" == ERROR:* ]]; then
+    fail "$file verdict unusable (${verdict#ERROR:}) — $desc"; return
+  fi
+  if [[ " $accepted " == *" $verdict "* ]]; then
+    pass "$(basename "$file") $verdict — $desc"
+  else
+    fail "$(basename "$file") verdict is $verdict; accepts only [$accepted] — $desc"
+  fi
+}
+
+# A runnable probe passes when the node script exits 0.
+run_probe() {
+  local file="$1" label="$2"
+  if [[ ! -f "$file" ]]; then fail "$label — probe missing ($file)"; return; fi
+  if node "$file" >/dev/null 2>&1; then
+    pass "$label — $file green"
+  else
+    fail "$label — $file FAILING (rerun: node $file)"
+  fi
+}
+
+# The plan cites a prior spike for an already-discharged risk. Assert the
+# citation is really in the plan, so a reused-evidence claim can't rot silently.
+check_cites() {
+  local needle="$1" label="$2"
+  if grep -qF "$needle" "$PLAN" 2>/dev/null; then
+    pass "$label (plan cites $needle)"
+  else
+    fail "$label — plan does not cite $needle"
+  fi
+}
+
+run_vitest() {
+  local file="$1" label="$2"
+  if [[ ! -f "$file" ]]; then fail "$label — test file missing ($file)"; return; fi
+  if pnpm exec vitest run "$file" >/dev/null 2>&1; then
+    pass "$label — $file green"
+  else
+    fail "$label — $file FAILING (rerun: pnpm exec vitest run $file)"
+  fi
+}
+
+run_cargo() {
+  local filter="$1" label="$2"
+  if cargo test --manifest-path src-tauri/Cargo.toml --lib "$filter" >/dev/null 2>&1; then
+    pass "$label — cargo --lib $filter green"
+  else
+    fail "$label — cargo --lib $filter FAILING (rerun: cargo test --manifest-path src-tauri/Cargo.toml --lib $filter)"
+  fi
+}
+
+run_script() {
+  local label="$1"; shift
+  if "$@" >/dev/null 2>&1; then pass "$label"; else fail "$label (rerun: $*)"; fi
+}
+
+# check:cross soft-skips when the mingw toolchain is absent (see the plan's
+# cross-platform note). A hard FAIL here would punish a mac-only dev box.
+run_cross() {
+  local out
+  out=$(bash scripts/check-cross-target.sh 2>&1)
+  if [[ $? -eq 0 ]]; then
+    pass "check:cross — Windows cross-target compile green (or soft-skipped)"
+  else
+    fail "check:cross — Windows cross-target compile FAILING"
+    printf '%s\n' "$out" | tail -5
+  fi
+}
+
+case "$PHASE" in
+  0)
+    echo "Phase 0 — feasibility probes (structured verdict + runnable evidence):"
+    check_spike "$GRILLS/SPIKE-P0.3-refs.md"    "WI-P0.3 ref stability across repeated reads" PASS
+    check_spike "$GRILLS/SPIKE-P0.4-waitfor.md" "WI-P0.4 wait_for resolves + tears down"      PASS
+    echo "Phase 0 — probes actually run green:"
+    run_probe "$GRILLS/probe-refs.mjs"    "WI-P0.3 probe"
+    run_probe "$GRILLS/probe-waitfor.mjs" "WI-P0.4 probe"
+    echo "Phase 0 — prior spikes cited for already-discharged risk:"
+    check_cites "SPIKE-5" "WI-P0.1 (takeSnapshot) reuses screenshot spike evidence"
+    check_cites "SPIKE-3" "WI-P0.2 (synthetic input) reuses the trusted-input spike"
+    ;;
+
+  1)
+    echo "Phase 1 — visual perception (screenshot). Running the DoD suites:"
+    run_vitest src/hooks/mcpBridge/v2/__tests__/browserScreenshot.test.ts "WI-P1.2 screenshot handler (gate, attachment, redaction)"
+    run_cargo commands_auth "WI-P1.1 shared driver-auth gate (browser_screenshot + browser_eval)"
+    run_script "WI-P1.3 sidecar browser tool (screenshot action)" pnpm --dir vmark-mcp-server exec vitest run __tests__/unit/tools/browser.test.ts
+    run_script "WI-linkage for phase P1" bash scripts/check-wi-linkage.sh "$PLAN" --phase=P1
+    run_cross
+    if [[ "$FULL" -eq 1 ]]; then
+      run_script "pnpm check:all" pnpm check:all
+    else
+      skip "pnpm check:all — not run (pre-push gate owns it; re-run with --full)"
+    fi
+    echo "  NOTE: live E2E (capture a real JPEG of an AI tab via Tauri MCP, and no"
+    echo "        occlusion/freeze disturbance) is verified manually in a session."
+    ;;
+
+  2)
+    echo "Phase 2 — stable element refs + act-by-ref. Running the DoD suites:"
+    run_vitest src/lib/browser/agent/refs.test.ts "WI-P2.1 ref store (stability + generation scoping)"
+    run_vitest src/lib/browser/agent/aria.test.ts "WI-P2.1 ariaSnapshot stamps stable refs"
+    run_vitest src/lib/browser/agent/actScript.test.ts "WI-P2.1/P2.2 injected parity + ref click/type + stale-ref refusal"
+    run_vitest src/hooks/mcpBridge/v2/__tests__/browser.test.ts "WI-P2.2 act accepts {ref} (granted-only) or {role,name}"
+    run_script "WI-P2.4 sidecar act ref arg" pnpm --dir vmark-mcp-server exec vitest run __tests__/unit/tools/browser.test.ts
+    run_script "WI-linkage for phase P2" bash scripts/check-wi-linkage.sh "$PLAN" --phase=P2
+    run_cross
+    if [[ "$FULL" -eq 1 ]]; then
+      run_script "pnpm check:all" pnpm check:all
+    else
+      skip "pnpm check:all — not run (pre-push gate owns it; re-run with --full)"
+    fi
+    echo "  NOTE: live E2E (read → act by the returned ref clicks the intended"
+    echo "        element; the 'More information…'/'Learn more' ambiguity is gone)"
+    echo "        is verified manually in a session."
+    ;;
+
+  3)
+    echo "Phase 3 — condition waits (wait_for). Running the DoD suites:"
+    run_vitest src/lib/browser/agent/actScript.test.ts "WI-P3.1 wait-condition script (ref/role/text, stale-ref refusal)"
+    run_vitest src/hooks/mcpBridge/v2/__tests__/browserWaitFor.test.ts "WI-P3.1 wait_for handler (match / poll / timeout / attachment)"
+    run_script "WI-P3.2 sidecar wait_for action" pnpm --dir vmark-mcp-server exec vitest run __tests__/unit/tools/browser.test.ts
+    run_script "WI-linkage for phase P3" bash scripts/check-wi-linkage.sh "$PLAN" --phase=P3
+    run_cross
+    if [[ "$FULL" -eq 1 ]]; then
+      run_script "pnpm check:all" pnpm check:all
+    else
+      skip "pnpm check:all — not run (pre-push gate owns it; re-run with --full)"
+    fi
+    echo "  NOTE: live E2E (click a link, wait_for the destination heading, then read)"
+    echo "        is verified manually in a session."
+    ;;
+
+  4)
+    echo "Phase 4 — richer interaction (scroll, key). Running the DoD suites:"
+    run_vitest src/lib/browser/agent/interactScript.test.ts "WI-P4.2 scroll/key injected scripts (ref/delta/modifiers/stale-ref)"
+    run_vitest src/hooks/mcpBridge/v2/__tests__/browserAct.test.ts "WI-P4.2 act scroll/key handler (grant/approval/refusals)"
+    run_vitest src/hooks/mcpBridge/v2/__tests__/browser.test.ts "WI-P2.2 act click/type/ref (via re-export)"
+    run_cargo operation "WI-P4.1 scroll/key operation-vocabulary parity (TS <-> Rust)"
+    run_script "WI-P4.3 sidecar act scroll/key" pnpm --dir vmark-mcp-server exec vitest run __tests__/unit/tools/browser.test.ts
+    run_script "WI-linkage for phase P4" bash scripts/check-wi-linkage.sh "$PLAN" --phase=P4
+    run_cross
+    if [[ "$FULL" -eq 1 ]]; then
+      run_script "pnpm check:all" pnpm check:all
+    else
+      skip "pnpm check:all — not run (pre-push gate owns it; re-run with --full)"
+    fi
+    echo "  NOTE: live E2E (key Enter submits a search form; scroll reveals + clicks an"
+    echo "        off-screen control; synthetic-input caveat) is verified manually."
+    ;;
+
+  5)
+    echo "Phase 5 — scripted power tools (query, style, execute_js). Running the DoD suites:"
+    run_vitest src/lib/browser/agent/powerScript.test.ts "WI-P5.1/P5.2 query + style injected scripts"
+    run_vitest src/hooks/mcpBridge/v2/__tests__/browserPower.test.ts "WI-P5.1/P5.2/P5.3 query/style/execute_js handlers (incl. script-substitution refusal)"
+    run_vitest src/lib/browser/approval/grants.test.ts "WI-P5.3 eval never grantable (frontend drift)"
+    run_vitest src/lib/browser/url.test.ts "WI-P5.3 agent URL strips userinfo/query/fragment"
+    run_vitest src/stores/browserApprovalStore.test.ts "WI-P5.3 approval store binds the eval/style payload"
+    run_cargo one_shot "WI-P5.3 one-shot payload binding (approved-A refuses run-B)"
+    run_cargo origin_guard "WI-P5.3 eval never granted authoritatively (Rust)"
+    run_cargo operation "WI-P5 style/eval vocabulary parity"
+    run_cargo commands_auth "WI-P5.3 driver eval gate (payload hash + pre-dispatch freshness)"
+    run_script "WI-P5.4 sidecar query/style/execute_js" pnpm --dir vmark-mcp-server exec vitest run __tests__/unit/tools/browser.test.ts
+    run_script "WI-linkage for phase P5" bash scripts/check-wi-linkage.sh "$PLAN" --phase=P5
+    run_cross
+    if [[ "$FULL" -eq 1 ]]; then
+      run_script "pnpm check:all" pnpm check:all
+    else
+      skip "pnpm check:all — not run (pre-push gate owns it; re-run with --full)"
+    fi
+    echo "  MANDATORY /security-review: DONE (dev-docs/grills/browser-automation/security-review-P5.md)."
+    echo "  It found — and this phase FIXED — the approved-A/run-B script-substitution (High #1),"
+    echo "  the eval navigation race (High #2, narrowed via pre-dispatch freshness recheck),"
+    echo "  the agent-URL query/fragment leak (Medium #3), the style payload binding (Medium #4),"
+    echo "  and the misleading eval 'Remember' button (Low #5)."
+    echo "  NOTE: isolated-world containment (a caller script cannot read a page-world global) is a"
+    echo "  WKContentWorld guarantee verified by live E2E — jsdom has no isolated worlds to model it."
+    ;;
+
+  6)
+    echo "Phase 6 — session & storage (credentials). Running the DoD suites:"
+    echo "  Security-reviewed: session storage-state (WI-P6.2/P6.3), cookie capture, and"
+    echo "  named contexts (WI-P6.1, per-use open authorization) — each with its own review + re-verify."
+    echo "  Live-E2E (macOS 14+): context A→A persists, A≠B isolated, clearing revokes."
+    run_cargo session_state "WI-P6.2 keychain persistence + secret-hygiene + handle validation"
+    run_cargo session_commands "WI-P6.2/P6.3 replay origin-bound + cookie host/origin scoping"
+    run_cargo profile_open "WI-P6.1 profile-open authorization (single-use, profile+origin bound)"
+    run_cargo operation "WI-P6.3 session op vocabulary (never-grantable, payload-binding) parity"
+    run_cargo origin_guard "WI-P6.3 session never granted authoritatively (Rust)"
+    run_vitest src/hooks/mcpBridge/v2/__tests__/browserSession.test.ts "WI-P6.2/P6.3 session save/load handlers (approval, handle-only, substitution-refused)"
+    run_vitest src/hooks/mcpBridge/v2/__tests__/browserNavigation.test.ts "WI-P6.1 open-profile needs per-use approval (no tab created without it)"
+    run_vitest src/lib/browser/approval/grants.test.ts "WI-P6.3 session never grantable (frontend drift)"
+    run_vitest src/stores/browserApprovalStore.test.ts "WI-P6.3 approval store binds action:handle"
+    run_vitest src/stores/browserSessionStore.test.ts "WI-P6.4/P6.5 session/profile registry (metadata only, no values)"
+    run_vitest src/components/Browser/BrowserSessionsList.test.tsx "WI-P6.4/P6.5 management UI (forget session, remove profile revokes store)"
+    run_script "WI-P6.6 sidecar session + open profile" pnpm --dir vmark-mcp-server exec vitest run __tests__/unit/tools/browser.test.ts
+    run_script "WI-linkage for phase P6" bash scripts/check-wi-linkage.sh "$PLAN" --phase=P6
+    run_cross
+    if [[ "$FULL" -eq 1 ]]; then
+      run_script "pnpm check:all" pnpm check:all
+    else
+      skip "pnpm check:all — not run (pre-push gate owns it; re-run with --full)"
+    fi
+    echo "  MANDATORY /security-review (credentials): DONE — see the Status log + grills/."
+    echo "  Live-E2E (log into context A → fresh context-A tab still signed in; clearing"
+    echo "  signs it out) requires the running app and lands with WI-P6.1/P6.4/P6.5."
+    ;;
+
+  7)
+    echo "Phase 7 — observation: console capture (stretch). Design-reviewed core:"
+    echo "  Design review (the plan's gate): dev-docs/grills/browser-automation/phase7-console-design.md"
+    echo "  — Option C (page-world shim → shared DOM ring buffer → isolated-world read)"
+    echo "  is the ONLY design that preserves the no-bridge invariant. Testable core:"
+    run_vitest src/lib/browser/agent/consoleShim.test.ts "WI-P7.1 console shim (ring buffer, cap, transparent, never-throws)"
+    run_vitest src/hooks/mcpBridge/v2/__tests__/browserConsole.test.ts "WI-P7.1 console read handler (read-class, clear option)"
+    run_script "WI-P7.1 sidecar console action" pnpm --dir vmark-mcp-server exec vitest run __tests__/unit/tools/browser.test.ts
+    run_script "WI-linkage for phase P7" bash scripts/check-wi-linkage.sh "$PLAN" --phase=P7
+    run_cross
+    if [[ "$FULL" -eq 1 ]]; then
+      run_script "pnpm check:all" pnpm check:all
+    else
+      skip "pnpm check:all — not run (pre-push gate owns it; re-run with --full)"
+    fi
+    echo "  DEFERRED (live-E2E, per the design review): the native page-world WKUserScript"
+    echo "  injection (AiSandbox-only, opt-in) that actually populates the buffer — the shim"
+    echo "  source + reader + handler + sidecar are done and tested; injection is verified live."
+    ;;
+
+  *)
+    echo "Usage: $0 <phase-number> [--full]"
+    echo "  0  Feasibility probes (ref stability, wait_for teardown)"
+    echo "  1  Visual perception (screenshot)"
+    echo "  2  Stable element handles (ref-IDs)"
+    echo "  3  Condition waits (wait_for)"
+    echo "  4  Richer interaction (scroll, key)"
+    echo "  5  Scripted power tools (query, style, execute_js)"
+    echo "  6  Session & storage management"
+    echo "  7  Observation (stretch: console)"
+    exit 2
+    ;;
+esac
+
+echo
+if [[ "$FAIL" -eq 0 ]]; then
+  echo "Phase $PHASE: all assertions passed."
+  exit 0
+fi
+echo "Phase $PHASE: one or more assertions FAILED."
+exit 1

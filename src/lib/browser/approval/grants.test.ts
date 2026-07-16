@@ -190,3 +190,33 @@ describe("revokeOrigin", () => {
     ]);
   });
 });
+
+// ADR-A5/A6 — `eval` (execute_js) is KNOWN + one-shot-able but NEVER grantable.
+describe("eval is never grantable (per-call approval only)", () => {
+  it("needs approval even when a grant tries to carry eval", () => {
+    // A grant listing eval must not authorize it — every call is per-call.
+    const grants: StandingGrant[] = [
+      { originPattern: "https://blog.example.com", operations: ["read", "eval"] },
+    ];
+    expect(decideApproval(URL, "eval", grants)).toBe("needs-approval");
+    // read still works from the same grant.
+    expect(decideApproval(URL, "read", grants)).toBe("allowed");
+  });
+
+  it("strips eval when adding a grant, so it can never be stored", () => {
+    const grants = addGrant([], {
+      originPattern: "https://blog.example.com",
+      operations: ["click", "eval"],
+    });
+    expect(grants).toHaveLength(1);
+    expect(grants[0].operations).toContain("click");
+    expect(grants[0].operations).not.toContain("eval");
+  });
+
+  it("allows style through a grant (style IS grantable, unlike eval)", () => {
+    const grants: StandingGrant[] = [
+      { originPattern: "https://blog.example.com", operations: ["style"] },
+    ];
+    expect(decideApproval(URL, "style", grants)).toBe("allowed");
+  });
+});

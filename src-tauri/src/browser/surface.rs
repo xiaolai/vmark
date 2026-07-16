@@ -17,6 +17,7 @@
 //! spike (git cd162e02:src-tauri/src/spike_embed.rs).
 
 use crate::browser::one_shot::OneShot;
+use crate::browser::profile_open::ProfileOpen;
 use crate::browser::ai_policy::AiBrowserPolicy;
 use crate::browser::origin_guard::StandingGrant;
 use crate::browser::recovery::CrashTracker;
@@ -50,6 +51,10 @@ pub struct BrowserSurface {
     /// Ephemeral human-tab attachments. Exact tab + generation binding prevents
     /// an approval from following a page navigation or a reused tab id.
     pub attachments: Mutex<Vec<TabAttachment>>,
+    /// Single-use grants to open a named persistent context (WI-P6.1 H1). Bound to
+    /// (profile, destination origin); minted from the user's per-use approval,
+    /// consumed authoritatively in `browser_ai_create` before the profile is applied.
+    pub profile_opens: Mutex<Vec<ProfileOpen>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -110,11 +115,7 @@ impl BrowserSurface {
     pub fn is_tab_attached(&self, tab_id: &str, generation: u64) -> bool {
         self.attachments
             .lock()
-            .map(|attachments| {
-                attachments
-                    .iter()
-                    .any(|attachment| attachment.tab_id == tab_id && attachment.generation == generation)
-            })
+            .map(|attachments| attachment_present(&attachments, tab_id, generation))
             .unwrap_or(false)
     }
 
@@ -124,25 +125,48 @@ impl BrowserSurface {
         }
     }
 
-    pub fn consume_tab_attachment(&self, tab_id: &str, generation: u64) -> bool {
-        let Ok(mut attachments) = self.attachments.lock() else { return false };
-        let Some(index) = attachments.iter().position(|attachment| {
-            attachment.tab_id == tab_id && attachment.generation == generation
-        }) else {
+}
+
+/// Is there an attachment for exactly this tab + generation? A peek — no consume.
+pub(crate) fn attachment_present(
+    attachments: &[TabAttachment],
+    tab_id: &str,
+    generation: u64,
+) -> bool {
+    attachments
+        .iter()
+        .any(|attachment| attachment.tab_id == tab_id && attachment.generation == generation)
+}
+
+/// Consume a matching attachment on an already-held guard: decrement a one-use
+/// count (removing it at zero) and return whether one was present. A persistent
+/// attachment (`uses = None`) is left in place and still returns true. Kept as a
+/// free function so the authorization gate can hold the attachments lock across a
+/// one-shot spend (see `authorize.rs`): the presence check and the consume then
+/// cannot be raced apart, so a one-shot is never burned for an action a lost
+/// attachment race would deny.
+pub(crate) fn consume_attachment_in(
+    attachments: &mut Vec<TabAttachment>,
+    tab_id: &str,
+    generation: u64,
+) -> bool {
+    let Some(index) = attachments
+        .iter()
+        .position(|attachment| attachment.tab_id == tab_id && attachment.generation == generation)
+    else {
+        return false;
+    };
+    if let Some(uses) = attachments[index].uses.as_mut() {
+        if *uses == 0 {
+            attachments.remove(index);
             return false;
-        };
-        if let Some(uses) = attachments[index].uses.as_mut() {
-            if *uses == 0 {
-                attachments.remove(index);
-                return false;
-            }
-            *uses -= 1;
-            if *uses == 0 {
-                attachments.remove(index);
-            }
         }
-        true
+        *uses -= 1;
+        if *uses == 0 {
+            attachments.remove(index);
+        }
     }
+    true
 }
 
 /// The read-only JS that asserts no Tauri bridge leaked into the browsed page
@@ -165,7 +189,9 @@ mod imp;
 #[cfg(target_os = "macos")]
 pub use imp::{
     assert_no_bridge, clear_ai_sandbox_store, create, create_with_mode, destroy, dialog_respond,
-    eval, go_history, navigate, set_bounds, set_hidden, stop,
+    eval, forget_profile, go_history, navigate, screenshot::screenshot,
+    session_cookies::{apply_cookies, capture_cookies},
+    set_bounds, set_hidden, stop,
 };
 
 #[cfg(not(target_os = "macos"))]
@@ -181,7 +207,11 @@ mod stub {
         _w: String,
         _u: String,
         _mode: crate::browser::registry::AutomationMode,
+        _profile: Option<String>,
     ) -> Result<(), String> {
+        Err("UNSUPPORTED_PLATFORM".into())
+    }
+    pub fn forget_profile(_a: &AppHandle, _p: String) -> Result<(), String> {
         Err("UNSUPPORTED_PLATFORM".into())
     }
     pub fn clear_ai_sandbox_store(_a: &AppHandle) -> Result<(), String> {
@@ -218,6 +248,25 @@ mod stub {
     pub fn eval(_a: &AppHandle, _t: String, _s: String) -> Result<String, String> {
         Err(MSG.into())
     }
+    pub fn screenshot(_a: &AppHandle, _t: String) -> Result<String, String> {
+        Err(MSG.into())
+    }
+    pub fn capture_cookies(
+        _a: &AppHandle,
+        _t: String,
+        _host: String,
+    ) -> Result<Vec<crate::browser::session_state::StoredCookie>, String> {
+        Err(MSG.into())
+    }
+    pub fn apply_cookies(
+        _a: &AppHandle,
+        _t: String,
+        _host: String,
+        _origin: String,
+        _c: Vec<crate::browser::session_state::StoredCookie>,
+    ) -> Result<(), String> {
+        Err(MSG.into())
+    }
     pub fn set_hidden(_a: &AppHandle, _t: String, _h: bool) -> Result<(), String> {
         Err(MSG.into())
     }
@@ -225,8 +274,9 @@ mod stub {
 
 #[cfg(not(target_os = "macos"))]
 pub use stub::{
-    assert_no_bridge, clear_ai_sandbox_store, create, create_with_mode, destroy, dialog_respond,
-    eval, go_history, navigate, set_bounds, set_hidden, stop,
+    apply_cookies, assert_no_bridge, capture_cookies, clear_ai_sandbox_store, create,
+    create_with_mode, destroy, dialog_respond, eval, forget_profile, go_history, navigate,
+    screenshot, set_bounds, set_hidden, stop,
 };
 
 #[cfg(test)]

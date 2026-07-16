@@ -53,11 +53,24 @@ Sessions (logins, cookies) persist per profile in the OS webview's own data stor
 
 An AI assistant connected over [MCP](./mcp-tools) can operate the browser tab:
 
-- **Read** — get a structured accessibility snapshot of the page (each interactive or structural element as a role + accessible name).
-- **Act** — click or type by ARIA **role + accessible name** (for example, click the link named "Learn more"), so the AI targets elements the way a person reading the page would.
+- **Read** — get a structured accessibility snapshot of the page (each interactive or structural element as a role + accessible name, plus a stable **ref** handle like `e5`).
+- **Act** — click or type a target, either by its precise **ref** from a prior read, or by ARIA **role + accessible name** (for example, click the link named "Learn more"). A ref is only honored for an already-granted action; anything that needs your approval uses role + name, so the prompt can show you a readable element.
+- **Scroll** — bring an element (by ref) into view, or scroll by a pixel amount. Act-class (approval-gated like Click).
+- **Key** — send a keypress (`Enter`, `Escape`, `Tab`, arrows, with optional Ctrl/Shift/Alt/Meta) to a focused element or a ref — for example, submit a form or dismiss a dialog. Act-class. Note: keys and scrolls are **synthetic** DOM events, so a site that only trusts real hardware input may ignore them.
+- **Query** — structured DOM detection the accessibility snapshot can't name (tables, computed values, attributes) by CSS selector. Read-class.
+- **Style** — CSS manipulation (dismiss a blocking overlay, highlight a target) by setting inline styles, toggling classes, or injecting a `<style>` block (page-wide, not selector-scoped). Act-class, and the approval binds the exact styling — it can't be swapped for other CSS after you allow it.
+- **Execute JS** — the escape hatch: run a script for what the structured verbs can't express. It runs in the **isolated content world** (DOM + CSS, **never** the page's own JavaScript), is approved **per call** (never remembered — there is no "Allow on this site" for it), and its result is treated as **untrusted**. The approval prompt shows you the **exact script**, and that script is what runs — the AI cannot get you to approve one script and then run another. Prefer Query/Style; reach for this only when they fall short.
+- **Session save / load** — save the tab's current session under a **handle** (a name you approve), and later restore it so a flow starts already-signed-in — *without the AI ever seeing your cookies or tokens*. The values are stored in the **OS keychain** (encrypted at rest), and the AI receives only the handle and a count summary. Both save and load are **approved per call**, and an approval for one handle can't be spent on another. A restore only applies to a page on the **same origin** it was saved from. This is credential-**by-reference**: the AI names a session, VMark holds the secret.
+- **Console** — read the page's captured `console.*` output (log/warn/error…) so the AI can debug a page it's driving. Read-only, and the output is treated as **untrusted** page data. This is built to preserve the private-by-design guarantee: the capture writes into the page's own DOM and VMark reads it from there, so no messaging channel is opened back into the app.
+
+::: warning Session save/load — what ships today
+The credential-by-reference model — the `session` permission, keychain storage, per-call approval, and handle-only responses — is in place and covers **`localStorage`**. Capturing **cookies** (the part most logins actually use) via the native cookie store, plus named persistent profiles and the profile-management UI, are the remaining pieces and land with live testing. Until then, session save/load round-trips app-local `localStorage` state, not cookie-based logins.
+:::
 - **Open** — create an AI-owned tab and load an HTTP(S) URL.
 - **Navigate** — navigate an AI-owned tab and wait for its navigation ticket.
 - **Wait** — wait for a specific navigation ticket without starting another load.
+- **Wait for** — poll until a condition holds (an element by ref or role + name, or a piece of visible text appears) or a timeout elapses, reporting whether it matched. Makes a multi-step flow deterministic — act, then wait for the result, then read — instead of guessing.
+- **Screenshot** — get a JPEG image of the page's current rendering, so the AI can see layout and rendered state that the accessibility snapshot does not name. Like *Read*, it is non-mutating: allowed on an AI-owned tab, and on a human tab only while you have attached it.
 
 AI browser posture is configured under **Settings → Advanced → Embedded Browser**:
 

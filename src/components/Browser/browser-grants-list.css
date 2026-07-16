@@ -63,3 +63,12 @@
   color: var(--text-secondary);
   font-size: var(--font-size-sm);
 }
+
+.browser-grants-error {
+  margin: 0 0 var(--spacing-2);
+  padding: var(--spacing-1) var(--spacing-2);
+  border-radius: var(--radius-sm);
+  background: var(--error-bg);
+  color: var(--error-color);
+  font-size: var(--font-size-sm);
+}

@@ -1,6 +1,7 @@
 {
   "openSidebar": "Ouvrir la barre latérale",
   "newTabTitle": "Nouvel onglet",
+  "browserWorkspace": "Navigateur",
   "autoSavePaused": "Enregistrement automatique suspendu",
   "autoSavePausedTitle": "Enregistrement automatique suspendu : le fichier a été supprimé du disque. Enregistrez manuellement avec {{shortcut}}.",
   "divergent": "Divergent",

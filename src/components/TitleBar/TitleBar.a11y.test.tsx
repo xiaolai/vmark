@@ -4,7 +4,7 @@
 // both the filename-hidden and filename-shown configurations, and must pass
 // axe with no violations.
 
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { axe } from "vitest-axe";
 
@@ -56,5 +56,33 @@ describe("TitleBar — banner landmark (RW-15 / L11)", () => {
     mocks.showFilename = true;
     const { container } = render(<TitleBar />);
     expect(await axe(container, AXE_OPTS)).toHaveNoViolations();
+  });
+
+  it("renders browser navigation in the draggable title-bar shell", () => {
+    render(<TitleBar browserChrome={<div data-testid="browser-navigation" />} />);
+
+    const titleBar = screen.getByRole("banner");
+    expect(titleBar).toHaveClass("title-bar--browser");
+    expect(titleBar).toHaveAttribute("data-tauri-drag-region");
+    expect(screen.getByTestId("browser-navigation")).toBeInTheDocument();
+    expect(screen.queryByText("notes")).not.toBeInTheDocument();
+  });
+
+  it("abandons an in-progress rename when browser chrome takes over", () => {
+    mocks.showFilename = true;
+    const { rerender } = render(<TitleBar />);
+
+    // Enter rename mode on the document title bar.
+    fireEvent.doubleClick(screen.getByText("notes"));
+    expect(screen.getByRole("textbox")).toBeInTheDocument();
+
+    // Browser workspace becomes active on the same instance.
+    rerender(<TitleBar browserChrome={<div data-testid="browser-navigation" />} />);
+    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+
+    // Returning to a document must NOT resurrect the stale rename input.
+    rerender(<TitleBar />);
+    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+    expect(screen.getByText("notes")).toBeInTheDocument();
   });
 });
