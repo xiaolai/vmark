@@ -1,5 +1,5 @@
 /**
- * BrowserOmnibox — the browser's nav chrome, rendered in the bottom StatusBar
+ * BrowserOmnibox — the browser's nav chrome, rendered in BrowserChrome
  * (WI-S1.3 / ADR-4).
  *
  * Purpose: back / forward / reload-or-stop controls plus the address bar (an
@@ -9,15 +9,14 @@
  * (`urlInput`, `loading`) from `browserUiStore` and drives navigation through the
  * stateless `browserNavigation` service — no `invoke` here.
  *
- * The `StatusBar` mounts this only while the active tab is a browser, in place of
- * the editor-only right-side controls (counts, mode toggle). It sits below the
- * browser rect, so it never overlaps the native view — no occlusion freeze needed
- * (ADR-1). No autocomplete dropdown in v1 (a dropdown would overlap the rect and
- * needs snapshot-freeze — SPIKE-S0.2).
+ * BrowserChrome mounts this only while the active tab is a browser. It sits
+ * above the browser rect, so it never overlaps the native view — no occlusion
+ * freeze is needed (ADR-1). No autocomplete dropdown in v1 (a dropdown would
+ * overlap the rect and needs snapshot-freeze — SPIKE-S0.2).
  *
  * @coordinates-with stores/browserUiStore — urlInput/loading for the active browser tab
  * @coordinates-with services/browser/browserNavigation — submit/back/forward/reload/stop
- * @coordinates-with components/StatusBar/StatusBar — mounts this for a browser tab
+ * @coordinates-with components/Browser/BrowserChrome — mounts this for a browser tab
  * @module components/Browser/BrowserOmnibox
  */
 import { useTranslation } from "react-i18next";

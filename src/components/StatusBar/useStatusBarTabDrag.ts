@@ -34,7 +34,7 @@ import { statusBarWarn } from "@/utils/debug";
 import { useTabStore, type Tab } from "@/stores/tabStore";
 import { useTabDragOut, type DragOutPoint } from "@/hooks/useTabDragOut";
 import { handleTabKeyboard } from "./tabKeyboard";
-import { planReorder } from "./tabDragRules";
+import { planReorder, planDocumentReorder } from "./tabDragRules";
 import { transferTabFromDragOut } from "./tabTransferActions";
 import type { TabDropPreviewEvent } from "@/types/tabTransfer";
 import { errorMessage } from "@/utils/errorMessage";
@@ -117,21 +117,23 @@ export function useStatusBarTabDrag({ tabs, windowLabel, tabBarRef, onActivateTa
   const handleReorder = useCallback(
     (tabId: string, dropIdx: number) => {
       const windowTabs = useTabStore.getState().tabs[windowLabel] ?? [];
-      const fromIndex = windowTabs.findIndex((t) => t.id === tabId);
-      if (fromIndex === -1) return;
-      const tab = windowTabs[fromIndex];
+      // `dropIdx` is an index in document (strip) space — browser pages are not
+      // shown as individual pills — so plan in that space and translate back to
+      // flat store indices. Using the flat array directly moves the wrong tab
+      // when a browser page is interleaved among documents.
+      const plan = planDocumentReorder(windowTabs, tabId, dropIdx);
+      const tab = windowTabs[plan.fromFlat];
       if (!tab) return;
 
-      const plan = planReorder(windowTabs, fromIndex, dropIdx);
-      if (!plan.allowed || fromIndex === plan.toIndex) {
-        if (!plan.allowed && plan.blockedReason === "pinned-zone") {
+      if (!plan.allowed) {
+        if (plan.blockedReason === "pinned-zone") {
           triggerSnapback(tabId);
           announce(i18n.t("dialog:toast.tabDropPinnedZone"));
         }
         return;
       }
 
-      useTabStore.getState().reorderTabs(windowLabel, fromIndex, plan.toIndex);
+      useTabStore.getState().reorderTabs(windowLabel, plan.fromFlat, plan.toFlat);
       toast.message(i18n.t("dialog:toast.tabReordered", { title: tab.title }), {
         action: {
           label: i18n.t("dialog:common.undo"),
@@ -139,7 +141,7 @@ export function useStatusBarTabDrag({ tabs, windowLabel, tabBarRef, onActivateTa
             const currentTabs = useTabStore.getState().tabs[windowLabel] ?? [];
             const currentIndex = currentTabs.findIndex((t) => t.id === tab.id);
             if (currentIndex !== -1) {
-              useTabStore.getState().reorderTabs(windowLabel, currentIndex, fromIndex);
+              useTabStore.getState().reorderTabs(windowLabel, currentIndex, plan.fromFlat);
             }
           },
         },
@@ -167,15 +169,18 @@ export function useStatusBarTabDrag({ tabs, windowLabel, tabBarRef, onActivateTa
   );
 
   const handleTabKeyDown = useCallback((tabId: string, event: KeyboardEvent) => {
-    const windowTabs = useTabStore.getState().tabs[windowLabel] ?? [];
+    // Keyboard reorder (Alt+Shift+Arrow) must share the strip's document index
+    // space — `handleReorder` maps document-space drops back to flat store
+    // indices. Passing the flat array here would jump/no-op when a browser page
+    // is interleaved among documents.
     handleTabKeyboard({
       tabId,
       event,
-      tabs: windowTabs,
+      tabs,
       onReorder: handleReorder,
       onActivate: onActivateTab,
     });
-  }, [handleReorder, onActivateTab, windowLabel]);
+  }, [tabs, handleReorder, onActivateTab]);
 
   const { getTabDragHandlers, isDragging, isReordering, dragMode, dragTabId, dropIndex, dragPoint } = useTabDragOut({
     tabBarRef,

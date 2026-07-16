@@ -41,7 +41,7 @@ import type {
 import { browserEventBroker } from "@/services/browser/browserEventBroker";
 import { urlForAgent } from "@/lib/browser/url";
 
-const MCP_PROTOCOL_VERSION = "0.2.0";
+const MCP_PROTOCOL_VERSION = "0.3.0";
 
 function detectKind(
   filePath: string | null,
@@ -71,6 +71,7 @@ export function buildSessionState(appVersion: string): SessionState {
         return {
           id: tab.id,
           kind: "browser" as const,
+          active: tab.id === tabState.activeTabId[label],
           title: tab.title,
           url: urlForAgent(tab.url),
           loading: browserEventBroker.isLoading(tab.id) ?? false,

@@ -12,6 +12,19 @@
   --text-color: #1a1a1a;
   --primary-color: #0066cc;
 
+  /* Browser chrome stays light and neutral around native web content. */
+  --browser-bg-color: #ffffff;
+  --browser-bg-secondary: #f7f7f7;
+  --browser-bg-tertiary: #f1f3f4;
+  --browser-text-color: #202124;
+  --browser-text-secondary: #5f6368;
+  --browser-text-tertiary: #80868b;
+  --browser-border-color: #dadce0;
+  --browser-hover-bg: rgba(60, 64, 67, 0.08);
+  --browser-hover-bg-strong: rgba(60, 64, 67, 0.12);
+  --browser-accent-bg: #e8f0fe;
+  --browser-accent-primary: #1a73e8;
+
   /* Focus mode */
   --blur-text-color: #c8c8c8;
   --blur-image-opacity: 0.5;

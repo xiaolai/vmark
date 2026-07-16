@@ -1,6 +1,7 @@
 {
   "openSidebar": "サイドバーを開く",
   "newTabTitle": "新しいタブ",
+  "browserWorkspace": "ブラウザ",
   "autoSavePaused": "自動保存停止中",
   "autoSavePausedTitle": "自動保存停止中: ファイルがディスクから削除されました。{{shortcut}} で手動保存してください。",
   "divergent": "内容が異なります",

@@ -5,24 +5,6 @@
  * @module components/StatusBar/statusBarHelpers
  */
 import type { KeyboardEvent } from "react";
-import { isBrowserTab, type Tab } from "@/stores/tabStoreTypes";
-
-/**
- * The active tab's id iff it is a browser tab, else null.
- *
- * When set, the bottom bar shows the browser omnibox (ADR-4) in place of the
- * document-only controls — and, per the Codex re-review, the bar must render even
- * when the user has hidden the status bar, since the omnibox is the browser's only
- * chrome.
- */
-export function pickActiveBrowserTabId(
-  tabs: readonly Tab[],
-  activeTabId: string | null,
-): string | null {
-  if (!activeTabId) return null;
-  const tab = tabs.find((t) => t.id === activeTabId);
-  return tab && isBrowserTab(tab) ? activeTabId : null;
-}
 
 /** Off-screen style for the ARIA live region that announces drag-and-drop outcomes. */
 export const ARIA_LIVE_STYLE = {

@@ -1,0 +1,222 @@
+/* Browser chrome is intentionally light even when the editor uses a colored or
+   dark theme. The native page remains outside this DOM theme scope. */
+.browser-chrome {
+  --bg-color: var(--browser-bg-color);
+  --bg-secondary: var(--browser-bg-secondary);
+  --bg-tertiary: var(--browser-bg-tertiary);
+  --text-color: var(--browser-text-color);
+  --text-secondary: var(--browser-text-secondary);
+  --text-tertiary: var(--browser-text-tertiary);
+  --border-color: var(--browser-border-color);
+  --hover-bg: var(--browser-hover-bg);
+  --hover-bg-strong: var(--browser-hover-bg-strong);
+  --accent-bg: var(--browser-accent-bg);
+  --accent-primary: var(--browser-accent-primary);
+  --primary-color: var(--browser-accent-primary);
+
+  position: relative;
+  z-index: var(--z-toolbar);
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 auto;
+  min-width: 0;
+  color: var(--text-color);
+  background: var(--bg-color);
+  border-bottom: var(--border-thin) solid var(--border-color);
+}
+
+/* The page tabs stay in the workspace below the title bar. */
+.browser-chrome--workspace {
+  width: 100%;
+}
+
+/* The title bar owns navigation; its surrounding area remains a native drag
+   region, while this interactive island explicitly opts out of dragging. */
+.browser-chrome--titlebar {
+  flex: 1;
+  flex-direction: row;
+  min-height: 0;
+  height: 100%;
+  border-bottom: 0;
+  background: transparent;
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
+.browser-titlebar-navigation {
+  flex: 0 1 clamp(320px, 44vw, 720px);
+  width: clamp(320px, 44vw, 720px);
+  min-width: 320px;
+  max-width: 720px;
+  min-height: 0;
+  height: 100%;
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
+.browser-titlebar-navigation .browser-omnibox {
+  width: 100%;
+}
+
+.browser-titlebar-tabs {
+  flex: 0 1 40%;
+  min-width: 140px;
+  max-width: 40%;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
+.browser-titlebar-tabs .browser-page-tabs {
+  min-height: 0;
+  height: 100%;
+  padding: 0;
+}
+
+.browser-titlebar-tabs .browser-page-tab {
+  height: 28px;
+}
+
+.browser-titlebar-drag-space {
+  flex: 1 1 auto;
+  min-width: var(--space-5);
+  height: 100%;
+  -webkit-app-region: drag;
+  app-region: drag;
+  cursor: default;
+}
+
+.browser-page-tabs {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: 34px;
+  padding: var(--space-1) var(--space-2) 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  user-select: none;
+}
+
+.browser-page-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.browser-page-new,
+.browser-page-tab-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  border: 0;
+  color: var(--text-secondary);
+  background: transparent;
+  cursor: pointer;
+}
+
+.browser-page-new {
+  width: var(--icon-size-md);
+  height: var(--icon-size-md);
+  border-radius: var(--radius-sm);
+}
+
+.browser-page-new:hover,
+.browser-page-tab-close:hover {
+  color: var(--text-color);
+  background: var(--hover-bg-strong);
+}
+
+.browser-page-tab {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  max-width: 220px;
+  height: 28px;
+  padding: 0 var(--space-1-5) 0 var(--space-2);
+  border: var(--border-thin) solid transparent;
+  border-bottom: 0;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  color: var(--text-secondary);
+  background: transparent;
+  cursor: pointer;
+}
+
+.browser-page-tab:hover {
+  background: var(--hover-bg);
+  color: var(--text-color);
+}
+
+.browser-page-tab.active {
+  border-color: var(--border-color);
+  color: var(--text-color);
+  background: var(--bg-color);
+}
+
+.browser-page-tab:focus-visible,
+.browser-page-new:focus-visible,
+.browser-page-tab-close:focus-visible {
+  outline: none;
+  box-shadow: inset 0 -2px 0 var(--accent-primary);
+}
+
+.browser-page-tab-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-size-sm);
+}
+
+.browser-page-tab-close {
+  width: var(--size-icon-xs);
+  height: var(--size-icon-xs);
+  padding: 0;
+  border-radius: var(--radius-sm);
+}
+
+.browser-chrome .browser-omnibox {
+  min-height: 38px;
+  padding: 0 var(--space-2);
+  gap: var(--space-1-5);
+  border-top: var(--border-thin) solid var(--border-color);
+}
+
+.browser-chrome--titlebar .browser-omnibox {
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  padding: 0 var(--space-2);
+  border-top: 0;
+}
+
+.browser-chrome .browser-omnibox-input {
+  background: transparent;
+  border: 0;
+  border-bottom: var(--border-thin) solid var(--border-color);
+  border-radius: 0;
+  padding: var(--space-half) var(--space-1);
+  font-family: var(--font-sans);
+}
+
+.browser-chrome .browser-omnibox-input:focus {
+  border-bottom-color: var(--accent-primary);
+}
+
+.browser-chrome .browser-omnibox-btn {
+  color: var(--text-secondary);
+}
+
+.browser-chrome .browser-omnibox-btn:hover:not(:disabled) {
+  background: var(--hover-bg);
+  color: var(--text-color);
+}
+
+@media (max-width: 680px) {
+  .browser-page-tab {
+    max-width: 160px;
+  }
+}

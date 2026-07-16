@@ -24,7 +24,7 @@
  * @coordinates-with useTitleBarRename.ts — performs the actual file rename via Tauri fs
  * @module components/TitleBar/TitleBar
  */
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { emitTo } from "@tauri-apps/api/event";
 import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
@@ -35,8 +35,13 @@ import { useTitleBarRename } from "./useTitleBarRename";
 import { getFileNameWithoutExtension } from "@/utils/pathUtils";
 import "./title-bar.css";
 
+interface TitleBarProps {
+  /** Browser navigation replaces the filename while preserving the drag region. */
+  browserChrome?: ReactNode;
+}
+
 /** macOS-style title bar displaying the document filename with inline rename on double-click. */
-export function TitleBar() {
+export function TitleBar({ browserChrome }: TitleBarProps = {}) {
   const { t } = useTranslation("common");
   const filePath = useDocumentFilePath();
   const isDirty = useDocumentIsDirty();
@@ -75,6 +80,18 @@ export function TitleBar() {
     setEditValue(displayName);
     setIsEditing(true);
   }, [displayName, isUnsaved]);
+
+  // Browser chrome replaces the filename UI on the same instance. Abandon any
+  // in-progress rename the moment browser mode takes over so stale edit state
+  // can't resurface — and rename the wrong file — when we return to a document.
+  // Adjust-state-during-render (a stable boolean, not the re-created element)
+  // per React's "you might not need an effect".
+  const [wasBrowserChrome, setWasBrowserChrome] = useState(false);
+  const isBrowserChrome = Boolean(browserChrome);
+  if (isBrowserChrome !== wasBrowserChrome) {
+    setWasBrowserChrome(isBrowserChrome);
+    if (isBrowserChrome && isEditing) setIsEditing(false);
+  }
 
   // Focus and select input when entering edit mode
   useEffect(() => {
@@ -125,6 +142,22 @@ export function TitleBar() {
     // Cancel on blur for simplicity
     setIsEditing(false);
   }, []);
+
+  if (browserChrome) {
+    return (
+      <div
+        className="title-bar title-bar--browser"
+        role="banner"
+        aria-label={t("aria.appTitleBar")}
+        data-tauri-drag-region
+      >
+        <div className="title-bar-browser" data-tauri-drag-region>
+          <div className="title-bar-browser-leading" data-tauri-drag-region />
+          {browserChrome}
+        </div>
+      </div>
+    );
+  }
 
   // Don't show filename when setting is off
   if (!showFilename) {

@@ -24,6 +24,11 @@ import { getFileName } from "@/utils/paths";
 import { stripSupportedExtension } from "@/utils/dropPaths";
 import type { Tab, DocumentTab } from "./tabStoreTypes";
 
+/** Generate a process-unique tab id. Shared by the general store and the
+ *  browser-workspace actions so the id format cannot drift between them. */
+export const generateTabId = (): string =>
+  `tab-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+
 /** Tab display title from a file path (or a numbered "Untitled" for null). */
 export function getTabTitle(filePath: string | null, untitledNum?: number): string {
   if (!filePath) {

@@ -1,6 +1,7 @@
 {
   "openSidebar": "Abrir barra lateral",
   "newTabTitle": "Nueva pestaña",
+  "browserWorkspace": "Navegador",
   "autoSavePaused": "Guardado automático pausado",
   "autoSavePausedTitle": "Guardado automático pausado: el archivo fue eliminado del disco. Guarda manualmente con {{shortcut}}.",
   "divergent": "Divergente",

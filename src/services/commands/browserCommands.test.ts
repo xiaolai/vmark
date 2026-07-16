@@ -9,7 +9,12 @@ import { isBrowserTab } from "@/stores/tabStoreTypes";
 
 beforeEach(() => {
   _resetCommandBus();
-  useTabStore.setState({ tabs: {}, activeTabId: {}, untitledCounter: 0, closedTabs: {} });
+  useTabStore.setState({
+    tabs: {},
+    activeTabId: {},
+    untitledCounter: 0,
+    closedTabs: {},
+  });
   useSettingsStore.getState().updateBrowserSetting("enabled", false);
   registerBrowserCommands();
 });

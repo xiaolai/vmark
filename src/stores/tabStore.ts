@@ -41,11 +41,9 @@ import type {
   DocumentTab,
 } from "@/stores/tabStoreTypes";
 import {
-  browserTabUrl,
-  findBrowserTab,
-  makeBrowserTab,
   patchBrowserTab,
 } from "@/stores/tabStoreBrowser";
+import { createBrowserPageAction, createBrowserTabAction } from "@/stores/tabStoreBrowserWorkspace";
 import {
   deriveFormatId,
   updateTabById,
@@ -56,6 +54,7 @@ import {
   insertTabForPin,
   repositionForPin,
   setActiveTabGuarded,
+  generateTabId,
 } from "@/stores/tabStoreHelpers";
 import { notifyTabRemoved } from "@/stores/tabRemovalBus";
 
@@ -83,6 +82,13 @@ interface TabActions {
   ) => string;
   /** Create (or activate) a browser tab for `url`, deduplicated by mode. */
   createBrowserTab: (
+    windowLabel: string,
+    url: string,
+    title?: string,
+    automationMode?: BrowserAutomationMode,
+  ) => string;
+  /** Create a fresh browser page in the current browser workspace. */
+  createBrowserPage: (
     windowLabel: string,
     url: string,
     title?: string,
@@ -125,8 +131,6 @@ interface TabActions {
   // Cleanup
   removeWindow: (windowLabel: string) => void;
 }
-
-const generateTabId = (): string => `tab-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 
 /** Manages per-window tab lifecycle — creation, closing, pinning, reordering, and reopen history. Use selectors, not destructuring. */
 export const useTabStore = create<TabState & TabActions>((set, get) => ({
@@ -222,25 +226,11 @@ export const useTabStore = create<TabState & TabActions>((set, get) => ({
   },
 
   createBrowserTab: (windowLabel, url, title, automationMode = "human") => {
-    const canonical = browserTabUrl(url);
-    const id = generateTabId();
-    let returnId = id;
-    set((state) => {
-      const windowTabs = state.tabs[windowLabel] || [];
-      const existing = findBrowserTab(windowTabs, canonical, automationMode);
-      if (existing) {
-        returnId = existing.id;
-        return { activeTabId: { ...state.activeTabId, [windowLabel]: existing.id } };
-      }
-      return {
-        tabs: {
-          ...state.tabs,
-          [windowLabel]: [...windowTabs, makeBrowserTab(id, canonical, title, automationMode)],
-        },
-        activeTabId: { ...state.activeTabId, [windowLabel]: id },
-      };
-    });
-    return returnId;
+    return createBrowserTabAction((updater) => set(updater), windowLabel, url, title, automationMode);
+  },
+
+  createBrowserPage: (windowLabel, url, title, automationMode = "human") => {
+    return createBrowserPageAction((updater) => set(updater), windowLabel, url, title, automationMode);
   },
 
   updateBrowserTab: (tabId, patch) => {

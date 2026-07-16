@@ -28,8 +28,8 @@ export function BottomBar() {
   const hasActiveTab = useTabStore(
     (s) => (s.activeTabId[windowLabel] ?? null) !== null,
   );
-  // A browser tab owns this lane: its omnibox (in the StatusBar) is its ONLY
-  // chrome, and both the editor formatting toolbar and the find bar would cover
+  // A browser tab owns this lane: its StatusBar workspace controls are its only
+  // bottom chrome, and both the editor formatting toolbar and the find bar would cover
   // it — neither applies to a native page (VMark's find searches the editor
   // document, which a browser tab has none of). Boolean selector, so a plain tab
   // switch re-renders only when the document↔browser kind actually flips.

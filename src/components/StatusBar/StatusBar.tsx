@@ -4,9 +4,8 @@
  * Purpose: Bottom bar combining tab strip, word/character counts, auto-save indicator,
  * AI status indicator, MCP status, terminal toggle, and editor mode toggle into a
  * single horizontal bar. Auto-shows when AI has active status (hasActiveStatus).
- * For a BROWSER tab it is also the browser's chrome: document-only controls give way
- * to <BrowserOmnibox>, and the bar survives F7 — the omnibox is the page's only
- * address bar, so hiding it would leave the page undrivable (ADR-4 / WI-S1.3).
+ * Browser pages are grouped into one bottom-level Browser workspace tab. Browser
+ * navigation and webpage tabs live in the dedicated top BrowserChrome surface.
  *
  * User interactions:
  *   - Click a tab pill to switch documents; middle-click or X to close
@@ -38,7 +37,7 @@ import { PanelLeft } from "lucide-react";
 import { useUIStore } from "@/stores/uiStore";
 import { useWindowLabel, useIsDocumentWindow } from "@/contexts/WindowContext";
 import { useTabStore, type Tab as TabType } from "@/stores/tabStore";
-import { BrowserOmnibox } from "@/components/Browser/BrowserOmnibox";
+import { useBrowserWorkspaceState } from "@/components/Browser/useBrowserWorkspaceState";
 import { useDocumentStore, useLargeFileSessionStore } from "@/stores/documentStore";
 import { closeTabWithDirtyCheck } from "@/hooks/useTabOperations";
 import { activateTabInFocusedPane } from "@/services/navigation/activateTabInFocusedPane";
@@ -65,11 +64,8 @@ import { openSettingsWindow } from "@/services/navigation/settingsWindow";
 import { StatusBarRight } from "./StatusBarRight";
 import { useStatusBarTabDrag } from "./useStatusBarTabDrag";
 import { useQuitFeedback } from "./useQuitFeedback";
-import { ARIA_LIVE_STYLE, preventSelectAllOnButtons, pickActiveBrowserTabId } from "./statusBarHelpers";
+import { ARIA_LIVE_STYLE, preventSelectAllOnButtons } from "./statusBarHelpers";
 import "./StatusBar.css";
-
-// Stable empty array to avoid creating new reference on each render.
-const EMPTY_TABS: never[] = [];
 
 /** Bottom bar combining tab strip, word/char counts, auto-save indicator, AI status, and mode toggle. */
 export function StatusBar() {
@@ -96,6 +92,7 @@ export function StatusBar() {
   const aiHasActiveStatus = useAiInvocationStore((state) => state.hasActiveStatus);
   const { running: mcpRunning, loading: mcpLoading, error: mcpError } = useMcpServer();
   const mcpClients = useMcpClients(mcpRunning);
+  const { activeTabId, browserWorkspace, activeBrowserPageId: activeBrowserTabId, browserReturnPageId } = useBrowserWorkspaceState();
 
   const openMcpSettings = useCallback(() => openSettingsWindow("integrations"), []);
   const handleRetryAi = useCallback(() => {
@@ -104,9 +101,6 @@ export function StatusBar() {
   }, []);
   const showAutoSavePaused = (isMissing || isDivergent) && autoSaveEnabled;
 
-  const tabs = useTabStore((state) => (isDocumentWindow ? state.tabs[windowLabel] ?? EMPTY_TABS : EMPTY_TABS));
-  const activeTabId = useTabStore((state) => (isDocumentWindow ? state.activeTabId[windowLabel] : null));
-  const activeBrowserTabId = pickActiveBrowserTabId(tabs, activeTabId);
   /* v8 ignore next 3 -- @preserve defensive `!activeTabId` fallback is not exercised — the StatusBar always has an active tab in tests */
   const activeTabForcedSource = useLargeFileSessionStore((s) =>
     activeTabId ? Boolean(s.forcedSourceTabs[activeTabId]) : false
@@ -181,19 +175,19 @@ export function StatusBar() {
     ariaAnnouncement,
     handleTabKeyDown,
   } = useStatusBarTabDrag({
-    tabs,
+    tabs: browserWorkspace.documentTabs,
     windowLabel,
     tabBarRef: tabDragScopeRef,
     onActivateTab: handleActivateTab,
   });
 
-  const dragTab = dragTabId ? tabs.find((tab) => tab.id === dragTabId) ?? null : null;
+  const dragTab = dragTabId ? browserWorkspace.documentTabs.find((tab) => tab.id === dragTabId) ?? null : null;
 
-  const showTabs = isDocumentWindow && tabs.length >= 1;
+  const showTabs = isDocumentWindow && (browserWorkspace.documentTabs.length >= 1 || browserWorkspace.browserPages.length >= 1);
   const showNewTabButton = isDocumentWindow;
 
-  // A browser tab keeps the bar even when hidden (F7): the omnibox is its only
-  // address bar and nav, so stripping it would leave the page undrivable.
+  // A browser tab keeps the workspace bar even when hidden (F7): it remains
+  // the user's route back to the Browser workspace and its page tabs.
   if (!statusBarVisible && !aiHasActiveStatus && !activeBrowserTabId) return null;
 
   return (
@@ -203,8 +197,8 @@ export function StatusBar() {
         role="contentinfo"
         onKeyDown={preventSelectAllOnButtons}
       >
-        <div className="status-bar">
-          <div className={`status-bar-left${activeBrowserTabId ? " status-bar-left--compact" : ""}`} ref={tabDragScopeRef}>
+        <div className={`status-bar${activeBrowserTabId ? " status-bar--browser" : ""}`}>
+          <div className="status-bar-left" ref={tabDragScopeRef}>
             {!sidebarVisible && isDocumentWindow && (
               <button
                 type="button"
@@ -222,8 +216,8 @@ export function StatusBar() {
             <FileLoadIndicator />
             <SourceModeUpgrade />
             <StatusBarTabStrip
-              tabs={tabs}
-              activeTabId={activeTabId}
+              tabs={browserWorkspace.documentTabs}
+              activeTabId={activeBrowserTabId ? null : activeTabId}
               showTabs={showTabs}
               showNewTabButton={showNewTabButton}
               isDragging={isDragging}
@@ -239,6 +233,13 @@ export function StatusBar() {
               onContextMenu={handleContextMenu}
               onTabKeyDown={handleTabKeyDown}
               onNewTab={handleNewTab}
+              browserWorkspaceCount={browserWorkspace.browserPages.length}
+              browserWorkspaceActive={browserWorkspace.browserWorkspaceActive}
+              onActivateBrowserWorkspace={() => {
+                const pageId = browserWorkspace.activeBrowserPageId
+                  ?? browserReturnPageId;
+                if (pageId) activateTabInFocusedPane(windowLabel, pageId);
+              }}
             />
 
             {quitMessage && (
@@ -248,11 +249,7 @@ export function StatusBar() {
             )}
           </div>
 
-          {activeBrowserTabId ? (
-            // A browser tab is active: the omnibox (ADR-4) takes the right side in
-            // place of the document-only counts/mode/auto-save controls.
-            <BrowserOmnibox tabId={activeBrowserTabId} />
-          ) : (
+          {!activeBrowserTabId && (
             <StatusBarRight
               aiRunning={aiRunning}
               elapsedSeconds={aiElapsed}

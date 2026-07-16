@@ -1,6 +1,5 @@
-/* BrowserOmnibox (WI-S1.3 / ADR-4) — browser nav chrome inside the bottom StatusBar.
-   Sits where the editor-only right controls go when a browser tab is active. It
-   flexes to fill the bar; the input is the wide element. */
+/* BrowserOmnibox (WI-S1.3 / ADR-4) — browser nav chrome inside BrowserChrome.
+   It flexes to fill the toolbar; the input is the wide element. */
 
 .browser-omnibox {
   display: flex;

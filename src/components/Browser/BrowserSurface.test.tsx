@@ -1,7 +1,7 @@
 // WI-1.3 — BrowserSurface: wires the native browser commands into a React tab
 // WI-S1.2 — writes nav state (urlInput/loading/history) into browserUiStore
-// WI-S1.4 — the top nav chrome is GONE (moved to the bottom bar); the surface is
-//           now viewport + full-cover overlays (crash / dialog) only
+// WI-S1.4 — the nav chrome lives in BrowserChrome; the surface is now viewport
+//           + full-cover overlays (crash / dialog) only
 // WI-S0.3b — bounds are re-reported when the layout MOVES the rect, not only on resize
 // WI-S0.9 — a failed create/load is shown, with its cause and a retry, not swallowed
 // WI-S0.10 — a stale deferred destroy cannot tear down a newer mount's webview
@@ -63,7 +63,12 @@ import { useUIStore } from "@/stores/uiStore";
 import { useBrowserHistoryStore } from "@/stores/browserHistoryStore";
 
 function seedBrowserTab(url: string): string {
-  useTabStore.setState({ tabs: {}, activeTabId: {}, untitledCounter: 0, closedTabs: {} });
+  useTabStore.setState({
+    tabs: {},
+    activeTabId: {},
+    untitledCounter: 0,
+    closedTabs: {},
+  });
   return useTabStore.getState().createBrowserTab("main", url, "Example");
 }
 
@@ -92,8 +97,8 @@ describe("BrowserSurface", () => {
     );
   });
 
-  // The nav chrome (back/forward/reload/stop + address bar + omnibox submit) moved
-  // to the bottom StatusBar in WI-S1.4 and is tested in BrowserOmnibox.test.tsx,
+  // The nav chrome (back/forward/reload/stop + address bar + omnibox submit) lives
+  // in BrowserChrome and is tested in BrowserOmnibox.test.tsx,
   // browserNavigation.test.ts, and omnibox.test.ts. BrowserSurface now owns only
   // the native-view lifecycle, bounds, nav-event → store wiring, and overlays.
 

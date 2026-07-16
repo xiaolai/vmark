@@ -20,6 +20,23 @@
   color: var(--text-secondary);
 }
 
+/* Browser chrome is intentionally neutral and light. This scope covers only
+   VMark's bottom workspace bar; the native webpage is not recolored. */
+.status-bar--browser {
+  --bg-color: var(--browser-bg-color);
+  --bg-secondary: var(--browser-bg-secondary);
+  --text-color: var(--browser-text-color);
+  --text-secondary: var(--browser-text-secondary);
+  --text-tertiary: var(--browser-text-tertiary);
+  --border-color: var(--browser-border-color);
+  --hover-bg: var(--browser-hover-bg);
+  --hover-bg-strong: var(--browser-hover-bg-strong);
+  --accent-bg: var(--browser-accent-bg);
+  --accent-primary: var(--browser-accent-primary);
+  --primary-color: var(--browser-accent-primary);
+  background-color: var(--bg-color);
+}
+
 .status-bar-container--drop-target .status-bar {
   box-shadow: inset 0 0 0 2px var(--accent-primary);
 }
@@ -34,12 +51,6 @@
 .status-bar-left {
   flex: 1;
   min-width: 0;
-}
-
-/* When a browser tab is active, the left section shrinks to its content (the tab
-   strip) so the sibling BrowserOmnibox (flex: 1) fills the rest of the bar. */
-.status-bar-left--compact {
-  flex: 0 1 auto;
 }
 
 .status-item {
@@ -189,6 +200,47 @@
   background-color: var(--bg-color);
   color: var(--text-color);
   box-shadow: var(--shadow-sm);
+}
+
+.browser-workspace-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  height: var(--status-pill-height);
+  padding: 0 var(--space-2);
+  border: none;
+  border-radius: var(--status-pill-radius);
+  color: var(--text-secondary);
+  background: transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  font: inherit;
+  font-size: var(--font-size-sm);
+}
+
+.browser-workspace-tab:hover {
+  color: var(--text-color);
+  background: var(--hover-bg);
+}
+
+.browser-workspace-tab.active {
+  color: var(--accent-primary);
+  background: var(--accent-bg);
+}
+
+.browser-workspace-tab:focus-visible {
+  outline: none;
+  box-shadow: inset 0 -2px 0 var(--accent-primary);
+}
+
+.browser-workspace-count {
+  min-width: 16px;
+  padding: 0 var(--space-half);
+  border-radius: var(--radius-pill);
+  color: var(--text-tertiary);
+  background: var(--hover-bg);
+  font-size: var(--font-size-2xs);
+  text-align: center;
 }
 
 .tab-title {

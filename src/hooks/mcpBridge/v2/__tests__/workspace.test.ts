@@ -236,6 +236,18 @@ describe("vmark.workspace.switch_tab", () => {
     expect(useTabStore.getState().activeTabId.main).toBe("b");
     expect(lastRespond().success).toBe(true);
   });
+
+  it("activates any enumerated browser webpage by its stable tab id", async () => {
+    const first = useTabStore.getState().createBrowserTab("main", "https://one.example");
+    const second = useTabStore.getState().createBrowserPage("main", "https://two.example");
+
+    await handleWorkspaceSwitchTab("req-browser", { tabId: first });
+    expect(useTabStore.getState().activeTabId.main).toBe(first);
+
+    await handleWorkspaceSwitchTab("req-browser-2", { tabId: second });
+    expect(useTabStore.getState().activeTabId.main).toBe(second);
+    expect(lastRespond().success).toBe(true);
+  });
 });
 
 describe("vmark.workspace.save / save_as", () => {

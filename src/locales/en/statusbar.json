@@ -1,6 +1,7 @@
 {
   "openSidebar": "Open Sidebar",
   "newTabTitle": "New Tab",
+  "browserWorkspace": "Browser",
   "autoSavePaused": "Auto-save paused",
   "autoSavePausedTitle": "Auto-save paused: file was deleted from disk. Save manually with {{shortcut}}.",
   "divergent": "Divergent",

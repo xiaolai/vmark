@@ -12,6 +12,45 @@
   box-sizing: border-box;
 }
 
+/* Keep the application chrome legible around a native webpage even when the
+   editor is using a colored or dark theme. The page itself is not recolored. */
+.browser-workspace-active .title-bar {
+  background: var(--browser-bg-color);
+  color: var(--browser-text-color);
+}
+
+.browser-workspace-active.workspace-rail-visible .title-bar {
+  left: var(--workspace-rail-width);
+}
+
+.title-bar--browser {
+  align-items: stretch;
+  justify-content: stretch;
+  padding-top: 0;
+  background: var(--browser-bg-color);
+  color: var(--browser-text-color);
+}
+
+.title-bar-browser {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  padding: 0 var(--space-2) 0 72px;
+}
+
+.workspace-rail-visible .title-bar-browser {
+  /* Keep the native macOS traffic-light area clear after the title bar starts
+     beside the 30px workspace rail. */
+  padding-left: calc(70px - var(--workspace-rail-width));
+}
+
+.title-bar-browser-leading {
+  flex: 0 0 var(--space-2);
+  min-width: 0;
+}
+
 .title-bar-content {
   /* Center the content, accounting for traffic lights on macOS (~70px) */
   margin-left: 70px;

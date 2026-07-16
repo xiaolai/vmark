@@ -11,7 +11,7 @@
  * @module components/StatusBar/StatusBarTabStrip
  */
 import type { KeyboardEvent, MouseEvent } from "react";
-import { Plus } from "lucide-react";
+import { Globe2, Plus } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Tab } from "@/components/Tabs/Tab";
 import type { Tab as TabType } from "@/stores/tabStore";
@@ -39,6 +39,9 @@ interface StatusBarTabStripProps {
   onContextMenu: (event: MouseEvent, tab: TabType) => void;
   onTabKeyDown: (tabId: string, event: KeyboardEvent) => void;
   onNewTab: () => void;
+  browserWorkspaceCount?: number;
+  browserWorkspaceActive?: boolean;
+  onActivateBrowserWorkspace?: () => void;
 }
 
 export function StatusBarTabStrip({
@@ -59,6 +62,9 @@ export function StatusBarTabStrip({
   onContextMenu,
   onTabKeyDown,
   onNewTab,
+  browserWorkspaceCount = 0,
+  browserWorkspaceActive = false,
+  onActivateBrowserWorkspace,
 }: StatusBarTabStripProps) {
   const { t } = useTranslation("statusbar");
   const newTabShortcut = useShortcutsStore((state) => state.getShortcut("newTab"));
@@ -104,6 +110,22 @@ export function StatusBarTabStrip({
               />
             );
           })}
+          {browserWorkspaceCount > 0 && (
+            <button
+              type="button"
+              role="tab"
+              aria-selected={browserWorkspaceActive}
+              className={`browser-workspace-tab${browserWorkspaceActive ? " active" : ""}`}
+              onClick={onActivateBrowserWorkspace}
+              title={t("browserWorkspace")}
+            >
+              <Globe2 size={14} aria-hidden="true" />
+              <span>{t("browserWorkspace")}</span>
+              {browserWorkspaceCount > 1 && (
+                <span className="browser-workspace-count">{browserWorkspaceCount}</span>
+              )}
+            </button>
+          )}
           {isReordering &&
             dropIndex !== null &&
             dropIndex >= tabs.length &&

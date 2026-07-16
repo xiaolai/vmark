@@ -42,7 +42,7 @@ describe("vmark.session.get_state", () => {
       "markdown",
       "yaml-workflow",
     ]);
-    expect(state.capabilities.mcpProtocol).toBe("0.2.0");
+    expect(state.capabilities.mcpProtocol).toBe("0.3.0");
   });
 
   it("classifies a markdown tab as kind=markdown", () => {
@@ -160,12 +160,32 @@ describe("vmark.session.get_state", () => {
     expect(state.windows[0].tabs).toContainEqual({
       id,
       kind: "browser",
+      active: true,
       title: "Example",
       url: "https://example.com/private",
       loading: false,
       generation: 4,
       automationMode: "ai-sandbox",
     });
+  });
+
+  it("marks only the focused browser webpage active while enumerating every page", () => {
+    const first = useTabStore.getState().createBrowserTab(
+      "main",
+      "https://one.example",
+      "One",
+    );
+    const second = useTabStore.getState().createBrowserPage(
+      "main",
+      "https://two.example",
+      "Two",
+    );
+
+    const state = buildSessionState("0.7.0");
+    expect(state.windows[0].tabs).toEqual([
+      expect.objectContaining({ id: first, kind: "browser", active: false }),
+      expect.objectContaining({ id: second, kind: "browser", active: true }),
+    ]);
   });
 
   it("handleSessionGetState calls respond with the structured payload", async () => {

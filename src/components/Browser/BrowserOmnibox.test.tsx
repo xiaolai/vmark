@@ -1,4 +1,4 @@
-// WI-S1.3 — BrowserOmnibox: browser nav chrome rendered in the bottom StatusBar
+// WI-S1.3 — BrowserOmnibox: browser nav chrome rendered in BrowserChrome
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
