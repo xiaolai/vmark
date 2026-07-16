@@ -62,6 +62,22 @@ MSG
   exit 1
 fi
 
+# Clippy gate: `pnpm check:all` is frontend-only — it never runs cargo clippy,
+# so a `-D warnings` violation in src-tauri can (and did, #1113 triage) land on
+# main red because the PR-gated CI clippy step never runs on a direct push.
+# This is the exact command CI's rust-test job runs; main must be clippy-clean.
+echo "pre-push: cargo clippy (warnings as errors)…"
+if ! cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings; then
+  cat >&2 <<'MSG'
+
+✖ pre-push blocked: cargo clippy reported warnings (treated as errors).
+  This is the exact check CI's rust-test job runs; main must be clippy-clean.
+  Overriding (`git push --no-verify`) requires explicit authorization —
+  see .claude/rules/60-ai-governance.md §9.
+MSG
+  exit 1
+fi
+
 echo "pre-push: running the full quality gate (pnpm check:all)…"
 if ! pnpm check:all; then
   cat >&2 <<'MSG'

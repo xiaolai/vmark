@@ -45,9 +45,11 @@ Shared instructions for all AI agents (Claude, Codex, etc.).
   - **Pushes to `main` and `v*` tags are gated at push time.** A versioned
     `pre-push` hook (`.githooks/pre-push`) runs a Windows cross-target compile
     check (`pnpm check:cross` — catches `cfg(target_os)` breakage that
-    macOS-local cargo can never see; soft-skips if mingw-w64 isn't installed)
+    macOS-local cargo can never see; soft-skips if mingw-w64 isn't installed),
+    then `cargo clippy --all-targets -- -D warnings` (the same lint CI's
+    `rust-test` job runs — `pnpm check:all` is frontend-only and never runs it),
     and then `pnpm check:all` before any push that updates `main` or a release
-    tag, and refuses the push if either is red. Feature-branch pushes are not
+    tag, and refuses the push if any is red. Feature-branch pushes are not
     gated locally — CI gates those via the PR's required `frontend` check. The hook is auto-enabled by the root
     `prepare` script (`git config core.hooksPath .githooks`) on `pnpm install`;
     if a fresh clone hasn't run install yet, enable it manually with the same
