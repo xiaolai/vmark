@@ -16,7 +16,8 @@
 }
 
 .browser-workspace-active {
-  --workspace-rail-width: 30px;
+  /* --workspace-rail-width is set on the shell root from WORKSPACE_RAIL_WIDTH
+     (App.tsx) so this layout inherits the single TS-sourced value. */
   background-color: var(--browser-bg-color);
 }
 

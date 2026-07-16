@@ -92,7 +92,8 @@ export function StatusBar() {
   const aiHasActiveStatus = useAiInvocationStore((state) => state.hasActiveStatus);
   const { running: mcpRunning, loading: mcpLoading, error: mcpError } = useMcpServer();
   const mcpClients = useMcpClients(mcpRunning);
-  const { activeTabId, browserWorkspace, activeBrowserPageId: activeBrowserTabId, browserReturnPageId } = useBrowserWorkspaceState();
+  const { activeTabId, browserWorkspace } = useBrowserWorkspaceState();
+  const activeBrowserTabId = browserWorkspace.activeBrowserPageId;
 
   const openMcpSettings = useCallback(() => openSettingsWindow("integrations"), []);
   const handleRetryAi = useCallback(() => {
@@ -237,7 +238,7 @@ export function StatusBar() {
               browserWorkspaceActive={browserWorkspace.browserWorkspaceActive}
               onActivateBrowserWorkspace={() => {
                 const pageId = browserWorkspace.activeBrowserPageId
-                  ?? browserReturnPageId;
+                  ?? browserWorkspace.browserReturnPageId;
                 if (pageId) activateTabInFocusedPane(windowLabel, pageId);
               }}
             />

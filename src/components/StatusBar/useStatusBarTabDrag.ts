@@ -117,10 +117,7 @@ export function useStatusBarTabDrag({ tabs, windowLabel, tabBarRef, onActivateTa
   const handleReorder = useCallback(
     (tabId: string, dropIdx: number) => {
       const windowTabs = useTabStore.getState().tabs[windowLabel] ?? [];
-      // `dropIdx` is an index in document (strip) space — browser pages are not
-      // shown as individual pills — so plan in that space and translate back to
-      // flat store indices. Using the flat array directly moves the wrong tab
-      // when a browser page is interleaved among documents.
+      // dropIdx is in document (strip) space — translate to flat store indices.
       const plan = planDocumentReorder(windowTabs, tabId, dropIdx);
       const tab = windowTabs[plan.fromFlat];
       if (!tab) return;
@@ -169,10 +166,8 @@ export function useStatusBarTabDrag({ tabs, windowLabel, tabBarRef, onActivateTa
   );
 
   const handleTabKeyDown = useCallback((tabId: string, event: KeyboardEvent) => {
-    // Keyboard reorder (Alt+Shift+Arrow) must share the strip's document index
-    // space — `handleReorder` maps document-space drops back to flat store
-    // indices. Passing the flat array here would jump/no-op when a browser page
-    // is interleaved among documents.
+    // Pass document-space `tabs` (not the flat array) so keyboard reorder shares
+    // the index space handleReorder maps back to flat store positions.
     handleTabKeyboard({
       tabId,
       event,

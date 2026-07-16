@@ -10,13 +10,13 @@ import { Sidebar } from "@/components/Sidebar";
 import { SidebarResizeHandle } from "@/components/Sidebar/SidebarResizeHandle";
 import { WorkspaceRail, WORKSPACE_RAIL_WIDTH } from "@/components/WorkspaceRail";
 import { BottomBar } from "@/components/BottomBar/BottomBar";
-import { TitleBar } from "@/components/TitleBar";
 import { AppShell, EditorArea } from "@/shell";
+import { appShellClassName } from "@/shell/appShellClassName";
 import { GeniePickerOverlay } from "@/components/GeniePicker/GeniePickerOverlay";
 import { EditorContextMenu } from "@/components/Editor/EditorContextMenu/EditorContextMenu";
 import { ApprovalDialog } from "@/components/WorkflowApproval/ApprovalDialog";
 import { BrowserApprovalDialog } from "@/components/Browser/BrowserApprovalDialog";
-import { BrowserChrome } from "@/components/Browser/BrowserChrome";
+import { AppTitleBar } from "@/components/Browser/AppTitleBar";
 import { QuickOpen } from "@/components/QuickOpen/QuickOpen";
 import { ContentSearch } from "@/components/ContentSearch/ContentSearch";
 import { QuickLookOverlay } from "@/components/QuickLook/QuickLookOverlay";
@@ -30,7 +30,7 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import { useTheme } from "@/hooks/useTheme";
 import { useTerminalPosition } from "@/components/Terminal/useTerminalPosition";
 import { useTabModeSync } from "@/hooks/useTabModeSync";
-import { useBrowserWorkspaceState } from "@/components/Browser/useBrowserWorkspaceState";
+import { useBrowserWorkspaceActive } from "@/components/Browser/useBrowserWorkspaceState";
 import {
   useWorkspaceLifecycle,
   useEditorLifecycle,
@@ -156,7 +156,9 @@ function MainLayout() {
   const sidebarWidth = useUIStore((state) => state.sidebarWidth);
   const findBarOpen = useUIStore((state) => state.search.isOpen);
   const terminalPosition = useUIStore((state) => state.effectiveTerminalPosition);
-  const browserWorkspaceActive = useBrowserWorkspaceState().browserWorkspace.browserWorkspaceActive;
+  // Primitive boolean selector — the shell re-renders only when this flips, not
+  // on every tab-metadata change (a full-projection read would do the latter).
+  const browserWorkspaceActive = useBrowserWorkspaceActive();
   const workspaceRailMode = useSettingsStore((state) => state.general.workspaceRailMode);
   const showWorkspaceRail = isDocumentWindow && workspaceRailMode;
   const sideWidth = (showWorkspaceRail ? WORKSPACE_RAIL_WIDTH : 0) + (sidebarVisible ? sidebarWidth : 0);
@@ -174,20 +176,20 @@ function MainLayout() {
   // double-mount it, #1081); targets the focused pane via pane-aware hooks.
   useUnifiedMenuCommands();
 
-  const className = [focusModeEnabled && "focus-mode", typewriterModeEnabled && "typewriter-mode", findBarOpen && "find-bar-open", browserWorkspaceActive && "browser-workspace-active", showWorkspaceRail && "workspace-rail-visible"].filter(Boolean).join(" ");
+  const className = appShellClassName({ focusMode: focusModeEnabled, typewriterMode: typewriterModeEnabled, findBarOpen, browserWorkspaceActive, workspaceRailVisible: showWorkspaceRail });
 
   return (
     <AppShell
       className={className}
-      chrome={<TitleBar browserChrome={browserWorkspaceActive ? <BrowserChrome placement="titlebar" /> : null} />}
+      // Single source for the rail width: descendants (incl. the browser-active
+      // layout offsets) inherit it from here instead of a hardcoded CSS value.
+      style={{ "--workspace-rail-width": `${WORKSPACE_RAIL_WIDTH}px` } as CSSProperties}
+      chrome={<AppTitleBar />}
       sidebar={
         showWorkspaceRail || sidebarVisible ? (
           <div className="app-sidebar-stack">
             {showWorkspaceRail && (
-              <div
-                className="app-sidebar-stack__rail"
-                style={{ "--workspace-rail-width": `${WORKSPACE_RAIL_WIDTH}px` } as CSSProperties}
-              >
+              <div className="app-sidebar-stack__rail">
                 <WorkspaceRail windowLabel={windowLabel} />
               </div>
             )}

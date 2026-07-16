@@ -15,6 +15,7 @@ function resetTabStore() {
   useTabStore.setState({
     tabs: {},
     activeTabId: {},
+    lastActiveBrowserPageId: {},
     untitledCounter: 0,
     closedTabs: {},
   });
@@ -121,6 +122,40 @@ describe("browser tab provenance (automationMode → persistPolicy)", () => {
       expect(tab.automationMode).toBe("human");
       expect(tab.persistPolicy).toBe("restore-human");
     }
+  });
+});
+
+describe("lastActiveBrowserPageId (reopen memory)", () => {
+  it("records the created page and updates on activation", () => {
+    const a = useTabStore.getState().createBrowserPage(W, "https://a.example/");
+    expect(useTabStore.getState().lastActiveBrowserPageId[W]).toBe(a);
+    const b = useTabStore.getState().createBrowserPage(W, "https://b.example/");
+    expect(useTabStore.getState().lastActiveBrowserPageId[W]).toBe(b);
+
+    // Re-activating an earlier page updates the memory.
+    useTabStore.getState().setActiveTab(W, a);
+    expect(useTabStore.getState().lastActiveBrowserPageId[W]).toBe(a);
+  });
+
+  it("is not changed when activating a non-browser tab", () => {
+    const a = useTabStore.getState().createBrowserPage(W, "https://a.example/");
+    useTabStore.getState().setActiveTab(W, null);
+    expect(useTabStore.getState().lastActiveBrowserPageId[W]).toBe(a);
+  });
+
+  it("tracks the browser successor when the active page is closed", () => {
+    const a = useTabStore.getState().createBrowserPage(W, "https://a.example/");
+    const b = useTabStore.getState().createBrowserPage(W, "https://b.example/");
+    const c = useTabStore.getState().createBrowserPage(W, "https://c.example/");
+    useTabStore.getState().setActiveTab(W, b); // active middle page
+
+    useTabStore.getState().closeTab(W, b);
+    const successor = useTabStore.getState().activeTabId[W];
+
+    expect(successor).not.toBe(b);
+    expect([a, c]).toContain(successor); // a browser page succeeded it
+    // Memory follows the successor, not the closed page — so reopening returns to it.
+    expect(useTabStore.getState().lastActiveBrowserPageId[W]).toBe(successor);
   });
 });
 

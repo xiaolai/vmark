@@ -5,6 +5,7 @@ import { generateTabId } from "./tabStoreHelpers";
 type BrowserStoreState = {
   tabs: Record<string, Tab[]>;
   activeTabId: Record<string, string | null>;
+  lastActiveBrowserPageId: Record<string, string | null>;
 };
 
 type BrowserStoreSetter = (
@@ -37,12 +38,16 @@ function addBrowserPage(
       const existing = findBrowserTab(windowTabs, canonical, automationMode);
       if (existing) {
         returnId = existing.id;
-        return { activeTabId: { ...state.activeTabId, [windowLabel]: existing.id } };
+        return {
+          activeTabId: { ...state.activeTabId, [windowLabel]: existing.id },
+          lastActiveBrowserPageId: { ...state.lastActiveBrowserPageId, [windowLabel]: existing.id },
+        };
       }
     }
     return {
       tabs: { ...state.tabs, [windowLabel]: [...windowTabs, makeBrowserTab(id, canonical, title, automationMode)] },
       activeTabId: { ...state.activeTabId, [windowLabel]: id },
+      lastActiveBrowserPageId: { ...state.lastActiveBrowserPageId, [windowLabel]: id },
     };
   });
   return returnId;

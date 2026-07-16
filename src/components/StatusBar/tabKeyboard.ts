@@ -23,6 +23,7 @@
  */
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import type { Tab } from "@/stores/tabStore";
+import { isRovingNavKey, moveRovingTabFocus } from "@/utils/rovingTabFocus";
 
 interface HandleTabKeyboardOptions {
   tabId: string;
@@ -45,15 +46,8 @@ export function handleTabKeyboard({ tabId, event, tabs, onReorder, onActivate }:
     return;
   }
 
-  if (
-    !event.altKey &&
-    !event.shiftKey &&
-    (event.key === "ArrowLeft" ||
-      event.key === "ArrowRight" ||
-      event.key === "Home" ||
-      event.key === "End")
-  ) {
-    if (moveTabFocus(event.currentTarget as HTMLElement, event.key)) {
+  if (!event.altKey && !event.shiftKey && isRovingNavKey(event.key)) {
+    if (moveRovingTabFocus(event.currentTarget as HTMLElement, event.key)) {
       event.preventDefault();
     }
     return;
@@ -63,34 +57,4 @@ export function handleTabKeyboard({ tabId, event, tabs, onReorder, onActivate }:
     event.preventDefault();
     onActivate(tabId);
   }
-}
-
-/**
- * Move DOM focus between [role="tab"] elements of the enclosing tablist
- * (APG pattern, wrap-around). Returns true when focus moved.
- */
-function moveTabFocus(origin: HTMLElement, key: string): boolean {
-  const tablist = origin.closest('[role="tablist"]');
-  if (!tablist) return false;
-  const tabs = Array.from(tablist.querySelectorAll<HTMLElement>('[role="tab"]'));
-  if (tabs.length === 0) return false;
-  const current = tabs.indexOf(origin.closest('[role="tab"]') as HTMLElement);
-  if (current === -1) return false;
-
-  let next: number;
-  switch (key) {
-    case "ArrowLeft":
-      next = (current - 1 + tabs.length) % tabs.length;
-      break;
-    case "ArrowRight":
-      next = (current + 1) % tabs.length;
-      break;
-    case "Home":
-      next = 0;
-      break;
-    default:
-      next = tabs.length - 1;
-  }
-  tabs[next].focus();
-  return true;
 }

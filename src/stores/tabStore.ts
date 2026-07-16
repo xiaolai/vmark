@@ -67,6 +67,8 @@ interface TabState {
   tabs: Record<string, Tab[]>;
   // Active tab ID per window
   activeTabId: Record<string, string | null>;
+  // Last active browser page per window — reopen target for the browser workspace (validated at read time).
+  lastActiveBrowserPageId: Record<string, string | null>;
   // Counter for untitled tabs
   untitledCounter: number;
   // Recently closed tabs for reopen (per window, max 10)
@@ -136,6 +138,7 @@ interface TabActions {
 export const useTabStore = create<TabState & TabActions>((set, get) => ({
   tabs: {},
   activeTabId: {},
+  lastActiveBrowserPageId: {},
   untitledCounter: 0,
   closedTabs: {},
 
@@ -282,7 +285,14 @@ export const useTabStore = create<TabState & TabActions>((set, get) => ({
   },
 
   setActiveTab: (windowLabel, tabId) => {
-    set((state) => setActiveTabGuarded(state, windowLabel, tabId));
+    set((state) => {
+      const next = setActiveTabGuarded(state, windowLabel, tabId);
+      const active = next.activeTabId[windowLabel] ?? null;
+      if (active && next.tabs[windowLabel]?.some((t) => t.id === active && t.kind === "browser")) {
+        return { ...next, lastActiveBrowserPageId: { ...next.lastActiveBrowserPageId, [windowLabel]: active } };
+      }
+      return next;
+    });
   },
 
   /** WI-4.3 — promote a tab to read-write or revert to read-only. */

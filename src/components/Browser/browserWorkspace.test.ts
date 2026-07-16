@@ -64,4 +64,25 @@ describe("getBrowserWorkspaceView", () => {
     expect(view.activeBrowserPageId).toBeNull();
     expect(view.browserWorkspaceActive).toBe(false);
   });
+
+  describe("browserReturnPageId (reopen target)", () => {
+    const pages = [browserTab("a"), browserTab("b"), browserTab("c")];
+
+    it("defaults to the first page when no last-active page is remembered", () => {
+      expect(getBrowserWorkspaceView(pages, null).browserReturnPageId).toBe("a");
+    });
+
+    it("returns the remembered page when it still exists", () => {
+      expect(getBrowserWorkspaceView(pages, null, "c").browserReturnPageId).toBe("c");
+    });
+
+    it("falls back to the first page when the remembered page was closed", () => {
+      const view = getBrowserWorkspaceView([browserTab("a"), browserTab("c")], null, "b");
+      expect(view.browserReturnPageId).toBe("a");
+    });
+
+    it("is null when there are no browser pages", () => {
+      expect(getBrowserWorkspaceView([documentTab("notes")], "notes", "b").browserReturnPageId).toBeNull();
+    });
+  });
 });

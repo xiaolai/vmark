@@ -8,6 +8,9 @@ export interface BrowserWorkspaceView {
   /** The active page only when the browser workspace is currently selected. */
   activeBrowserPageId: string | null;
   browserWorkspaceActive: boolean;
+  /** Page to activate when reopening the workspace from a document: the last
+   *  active page if it still exists, otherwise the first page. */
+  browserReturnPageId: string | null;
 }
 
 /**
@@ -19,6 +22,7 @@ export interface BrowserWorkspaceView {
 export function getBrowserWorkspaceView(
   tabs: readonly Tab[],
   activeTabId: string | null,
+  lastActiveBrowserPageId: string | null = null,
 ): BrowserWorkspaceView {
   const documentTabs: DocumentTab[] = [];
   const browserPages: BrowserTab[] = [];
@@ -29,6 +33,11 @@ export function getBrowserWorkspaceView(
   }
 
   const activeBrowserPage = browserPages.find((tab) => tab.id === activeTabId);
+  const remembered =
+    lastActiveBrowserPageId !== null &&
+    browserPages.some((tab) => tab.id === lastActiveBrowserPageId)
+      ? lastActiveBrowserPageId
+      : null;
 
   return {
     documentTabs,
@@ -36,5 +45,6 @@ export function getBrowserWorkspaceView(
     browserWorkspaceTabId: browserPages[0]?.id ?? null,
     activeBrowserPageId: activeBrowserPage?.id ?? null,
     browserWorkspaceActive: activeBrowserPage !== undefined,
+    browserReturnPageId: remembered ?? browserPages[0]?.id ?? null,
   };
 }

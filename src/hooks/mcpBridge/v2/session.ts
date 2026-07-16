@@ -41,6 +41,18 @@ import type {
 import { browserEventBroker } from "@/services/browser/browserEventBroker";
 import { urlForAgent } from "@/lib/browser/url";
 
+// Bumped to 0.3.0 when browser tabs entered session state. The change is
+// additive and backward-compatible: browser tabs carry the `kind: "browser"`
+// discriminant (plus browser-only fields), so any client that dispatches on
+// `kind` ignores what it doesn't understand. `get_state` has no per-request
+// client version to negotiate against, and the sidecar is BUNDLED with the app
+// (tauri.conf.json `externalBin: binaries/vmark-mcp-server`) and spawned by it,
+// so in a shipped build the sidecar's protocol always matches this constant.
+// The only skew is a dev environment with a stale local sidecar — a documented
+// "rebuild the sidecar" dev step (AGENTS.md), not a shipping risk — so there is
+// deliberately no version-gated browser-tab filtering here. Adding it would
+// require threading the client's version through the request (a protocol change
+// across app + sidecar) to guard a case the bundling already prevents.
 const MCP_PROTOCOL_VERSION = "0.3.0";
 
 function detectKind(

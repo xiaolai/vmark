@@ -2,9 +2,10 @@
  * StatusBarTabStrip
  *
  * Purpose: Renders the StatusBar's tab list (the "+" new-tab button, the tab
- * pills with drag/drop state, and the trailing drop indicator). Split out of
- * StatusBar so that component focuses on state wiring rather than tab markup.
- * Behavior preserved verbatim.
+ * pills with drag/drop state, the trailing drop indicator, and the synthetic
+ * browser-workspace tab). Split out of StatusBar so that component focuses on
+ * state wiring rather than tab markup. The workspace tab is a roving APG tab
+ * (keyboard-navigable) and is excluded from reorder drop-index math.
  *
  * @coordinates-with StatusBar.tsx — parent
  * @coordinates-with Tabs/Tab.tsx — individual tab pill
@@ -17,6 +18,7 @@ import { Tab } from "@/components/Tabs/Tab";
 import type { Tab as TabType } from "@/stores/tabStore";
 import { useShortcutsStore, formatKeyForDisplay } from "@/stores/settingsStore";
 import { tooltipWithShortcut } from "@/utils/tooltipWithShortcut";
+import { isRovingNavKey, moveRovingTabFocus } from "@/utils/rovingTabFocus";
 import type { useStatusBarTabDrag } from "./useStatusBarTabDrag";
 
 type TabDragResult = ReturnType<typeof useStatusBarTabDrag>;
@@ -41,7 +43,8 @@ interface StatusBarTabStripProps {
   onNewTab: () => void;
   browserWorkspaceCount?: number;
   browserWorkspaceActive?: boolean;
-  onActivateBrowserWorkspace?: () => void;
+  /** Required so a visible workspace tab can never silently do nothing. */
+  onActivateBrowserWorkspace: () => void;
 }
 
 export function StatusBarTabStrip({
@@ -110,13 +113,31 @@ export function StatusBarTabStrip({
               />
             );
           })}
+          {/* Trailing drop indicator sits before the workspace tab: reorder
+              drops target document tabs only, so the end-of-list marker belongs
+              after the last document, not after the synthetic workspace tab. */}
+          {isReordering &&
+            dropIndex !== null &&
+            dropIndex >= tabs.length &&
+            !isReorderBlocked && <div className="tab-drop-indicator" />}
           {browserWorkspaceCount > 0 && (
             <button
               type="button"
               role="tab"
+              // Excluded from reorder drop-index math (it is not a document tab).
+              data-workspace-tab
               aria-selected={browserWorkspaceActive}
+              // Roving tabindex: focusable directly only when it is the active tab.
+              tabIndex={browserWorkspaceActive ? 0 : -1}
               className={`browser-workspace-tab${browserWorkspaceActive ? " active" : ""}`}
               onClick={onActivateBrowserWorkspace}
+              onKeyDown={(event) => {
+                // A native button already activates on Enter/Space; only the
+                // roving arrow/home/end navigation needs handling here.
+                if (isRovingNavKey(event.key) && moveRovingTabFocus(event.currentTarget, event.key)) {
+                  event.preventDefault();
+                }
+              }}
               title={t("browserWorkspace")}
             >
               <Globe2 size={14} aria-hidden="true" />
@@ -126,10 +147,6 @@ export function StatusBarTabStrip({
               )}
             </button>
           )}
-          {isReordering &&
-            dropIndex !== null &&
-            dropIndex >= tabs.length &&
-            !isReorderBlocked && <div className="tab-drop-indicator" />}
         </div>
       )}
     </>

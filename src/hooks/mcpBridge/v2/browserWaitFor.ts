@@ -84,7 +84,7 @@ export async function handleBrowserWaitFor(id: string, args: Record<string, unkn
         await respond({ id, success: true, data: { matched: false, reason: "tab-gone" } });
         return;
       }
-      let matched = false;
+      let matched: boolean;
       let matchedRef: string | undefined;
       try {
         const raw = await invoke<string>("browser_eval", {

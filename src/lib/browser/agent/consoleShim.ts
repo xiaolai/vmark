@@ -50,7 +50,7 @@ export function installConsoleCapture(
     return e;
   }
   function push(level: string, args: IArguments | unknown[]): void {
-    let text = "";
+    let text: string;
     try {
       text = Array.prototype.map
         .call(args, (a: unknown) => {
