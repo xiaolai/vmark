@@ -68,8 +68,8 @@ export const useWindowStatusStore = create<WindowStatusState>()(
       // live data re-seeded each session — persisting it would resurrect a
       // stale snapshot on reload.
       partialize: (s) => ({ panelOpen: s.panelOpen, pinned: s.pinned }),
-      // WindowContext calls setCurrentWindowLabel() then rehydrate() at mount,
-      // so each window reads from its own key (matches the workspace store).
+      // useWindowStatus rehydrates on mount — after WindowContext has set the
+      // window label — so each window reads from its own key (like workspace).
       skipHydration: true,
     },
   ),

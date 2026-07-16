@@ -6,8 +6,8 @@
  * workspace setup, tab transfers from other windows, and signals "ready" to Rust.
  *
  * Pipeline: Tauri creates window → WindowProvider mounts → detect label →
- * rehydrate workspace + window-status stores → handle transfer / URL params /
- * empty init → emit "ready" to Rust → render children.
+ * rehydrate workspace store → handle transfer / URL params / empty init →
+ * emit "ready" to Rust → render children.
  *
  * Key decisions:
  *   - initStartedRef guards against React.StrictMode double-init in dev.
@@ -33,7 +33,6 @@
  * @coordinates-with tab_transfer.rs — claims transfer data from Rust registry
  * @coordinates-with tabTransferActions.ts — prepares transfer payloads for new windows
  * @coordinates-with workspaceStorage.ts — per-window localStorage key scoping + findActiveWorkspaceLabel
- * @coordinates-with windowStatusStore.ts — rehydrates the panel's per-window open/pin prefs (#1120)
  * @coordinates-with useWorkspaceSync.ts — cross-window workspace config rehydration
  * @coordinates-with openPolicy.ts — resolves workspace root for external files
  * @coordinates-with lib.rs (Rust) — listens for "ready" event per window
@@ -46,7 +45,6 @@ import { useTabStore } from "../stores/tabStore";
 import { useRecentWorkspacesStore } from "../stores/workspaceStore";
 import { useWorkspaceStore } from "../stores/workspaceStore";
 import { useUIStore } from "../stores/uiStore";
-import { useWindowStatusStore } from "../stores/windowStatusStore";
 import { openWorkspaceWithConfig } from "../hooks/openWorkspaceWithConfig";
 import { loadStartupFileIntoTab, createBlankStartupTab } from "./startupFileOpen";
 import {
@@ -124,10 +122,6 @@ export function WindowProvider({ children }: WindowProviderProps) {
         // Rehydrate workspace store from window-specific storage key
         // This ensures new windows don't inherit main's workspace
         useWorkspaceStore.persist.rehydrate();
-
-        // Rehydrate the Window-Status panel's open/pin prefs for this window
-        // (#1120). Keyed by the same window label, its own namespace.
-        useWindowStatusStore.persist.rehydrate();
 
         setWindowLabel(label);
 
