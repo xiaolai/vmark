@@ -161,5 +161,17 @@
   "browser.bookmarks.empty": "Noch keine Lesezeichen.",
   "browser.bookmarks.removeLabel": "{{title}} entfernen",
   "browser.bookmarks.add": "Lesezeichen für diese Seite",
-  "browser.bookmarks.remove": "Lesezeichen entfernen"
+  "browser.bookmarks.remove": "Lesezeichen entfernen",
+  "browser.approval.script": "Skript",
+  "browser.approval.operation.session": "Anmeldung speichern oder wiederherstellen",
+  "browser.sessions.heading": "Gespeicherte Sitzungen & Profile",
+  "browser.sessions.description": "Anmeldungen, die die KI namentlich wiederverwenden kann — ohne jemals Ihre Cookies oder Tokens zu sehen. Beim Vergessen werden die gespeicherten Daten gelöscht.",
+  "browser.sessions.empty": "Keine gespeicherte Sitzung oder kein Profil.",
+  "browser.sessions.forget": "Vergessen",
+  "browser.sessions.forgetLabel": "Gespeicherte Sitzung {{handle}} vergessen",
+  "browser.sessions.forgetFailed": "„{{handle}}“ konnte nicht vergessen werden — die gespeicherten Daten sind möglicherweise noch vorhanden. Versuchen Sie es erneut.",
+  "browser.profiles.label": "Benanntes Profil",
+  "browser.profiles.remove": "Entfernen",
+  "browser.profiles.removeLabel": "Profil {{name}} entfernen",
+  "browser.profiles.removeFailed": "„{{name}}“ konnte nicht entfernt werden — die Anmeldung ist möglicherweise noch auf der Festplatte. Versuchen Sie es erneut."
 }

@@ -161,5 +161,17 @@
   "browser.bookmarks.empty": "Aún no hay marcadores.",
   "browser.bookmarks.removeLabel": "Eliminar {{title}}",
   "browser.bookmarks.add": "Añadir esta página a marcadores",
-  "browser.bookmarks.remove": "Eliminar marcador"
+  "browser.bookmarks.remove": "Eliminar marcador",
+  "browser.approval.script": "Script",
+  "browser.approval.operation.session": "Guardar o restaurar un inicio de sesión",
+  "browser.sessions.heading": "Sesiones y perfiles guardados",
+  "browser.sessions.description": "Inicios de sesión que la IA puede reutilizar por nombre, sin ver nunca tus cookies ni tokens. Al olvidar se borran los datos almacenados.",
+  "browser.sessions.empty": "No hay ninguna sesión ni perfil guardado.",
+  "browser.sessions.forget": "Olvidar",
+  "browser.sessions.forgetLabel": "Olvidar la sesión guardada {{handle}}",
+  "browser.sessions.forgetFailed": "No se pudo olvidar «{{handle}}»: es posible que los datos almacenados sigan presentes. Inténtalo de nuevo.",
+  "browser.profiles.label": "Perfil con nombre",
+  "browser.profiles.remove": "Eliminar",
+  "browser.profiles.removeLabel": "Eliminar el perfil {{name}}",
+  "browser.profiles.removeFailed": "No se pudo eliminar «{{name}}»: el inicio de sesión puede seguir en el disco. Inténtalo de nuevo."
 }

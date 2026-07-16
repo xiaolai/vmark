@@ -161,5 +161,17 @@
   "browser.bookmarks.empty": "Nenhum favorito ainda.",
   "browser.bookmarks.removeLabel": "Remover {{title}}",
   "browser.bookmarks.add": "Adicionar esta página aos favoritos",
-  "browser.bookmarks.remove": "Remover favorito"
+  "browser.bookmarks.remove": "Remover favorito",
+  "browser.approval.script": "Script",
+  "browser.approval.operation.session": "Salvar ou restaurar um login",
+  "browser.sessions.heading": "Sessões e perfis salvos",
+  "browser.sessions.description": "Logins que a IA pode reutilizar por nome, sem nunca ver seus cookies ou tokens. Esquecer apaga os dados armazenados.",
+  "browser.sessions.empty": "Nenhuma sessão ou perfil salvo.",
+  "browser.sessions.forget": "Esquecer",
+  "browser.sessions.forgetLabel": "Esquecer a sessão salva {{handle}}",
+  "browser.sessions.forgetFailed": "Não foi possível esquecer \"{{handle}}\" — os dados armazenados podem ainda estar presentes. Tente novamente.",
+  "browser.profiles.label": "Perfil nomeado",
+  "browser.profiles.remove": "Remover",
+  "browser.profiles.removeLabel": "Remover o perfil {{name}}",
+  "browser.profiles.removeFailed": "Não foi possível remover \"{{name}}\" — o login pode ainda estar no disco. Tente novamente."
 }

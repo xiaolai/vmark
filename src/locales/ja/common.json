@@ -161,5 +161,17 @@
   "browser.bookmarks.empty": "ブックマークはまだありません。",
   "browser.bookmarks.removeLabel": "{{title}} を削除",
   "browser.bookmarks.add": "このページをブックマーク",
-  "browser.bookmarks.remove": "ブックマークを削除"
+  "browser.bookmarks.remove": "ブックマークを削除",
+  "browser.approval.script": "スクリプト",
+  "browser.approval.operation.session": "ログインを保存または復元",
+  "browser.sessions.heading": "保存されたセッションとプロファイル",
+  "browser.sessions.description": "AI が名前で再利用できるログイン情報です。Cookie やトークンが見られることはありません。削除すると保存データが消去されます。",
+  "browser.sessions.empty": "保存されたセッションまたはプロファイルはありません。",
+  "browser.sessions.forget": "削除",
+  "browser.sessions.forgetLabel": "保存されたセッション {{handle}} を削除",
+  "browser.sessions.forgetFailed": "「{{handle}}」を削除できませんでした。保存データがまだ残っている可能性があります。もう一度お試しください。",
+  "browser.profiles.label": "名前付きプロファイル",
+  "browser.profiles.remove": "削除",
+  "browser.profiles.removeLabel": "プロファイル {{name}} を削除",
+  "browser.profiles.removeFailed": "「{{name}}」を削除できませんでした。ログイン情報がまだディスクに残っている可能性があります。もう一度お試しください。"
 }
