@@ -38,7 +38,7 @@ urlencoding = "2"
 url = "2"
 notify = { version = "8", default-features = false, features = ["macos_fsevent"] }
 tokio = { version = "1", features = ["sync", "macros", "rt-multi-thread", "process", "io-util", "time"] }
-tokio-tungstenite = "0.28"
+tokio-tungstenite = "0.30"
 tokio-util = { version = "0.7", features = ["rt"] }
 futures-util = "0.3"
 portable-pty = "0.9"
