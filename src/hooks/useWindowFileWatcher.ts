@@ -4,9 +4,10 @@
  * Purpose: Starts and stops a Rust filesystem watcher for the current window —
  *   watches the workspace root or active document's directory for external changes.
  *
- * Pipeline: This hook determines watchPath → invoke("start_watching") →
- *   Rust debounced watcher emits file:changed/file:deleted events →
- *   useExternalFileChanges handles them
+ * Pipeline: This hook determines watchPath (via pickWatchRoot) →
+ *   invoke("start_watching") → Rust debounced watcher emits `fs:changed` →
+ *   useWorkspaceEventBus normalizes → consumers (useFileTree,
+ *   useExternalFileChanges) react
  *
  * Key decisions:
  *   - Workspace mode: watches workspace root
@@ -20,7 +21,8 @@
  *     through an ordered per-window queue preserves effect order (stop → start)
  *     regardless of individual invoke resolution timing.
  *
- * @coordinates-with useExternalFileChanges.ts — handles the change events
+ * @coordinates-with useExternalFileChanges.ts — reacts to the change events
+ * @coordinates-with utils/watchRoot.ts — pickWatchRoot (shared with useWorkspaceEventBus) picks the watched dir
  * @module hooks/useWindowFileWatcher
  */
 
@@ -30,7 +32,7 @@ import { useWindowLabel } from "@/contexts/WindowContext";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useActiveWorkspaceScope } from "@/hooks/useActiveWorkspaceScope";
-import { getDirectory } from "@/utils/pathUtils";
+import { pickWatchRoot } from "@/utils/watchRoot";
 import { watcherWarn } from "@/utils/debug";
 
 /**
@@ -96,18 +98,15 @@ export function useWindowFileWatcher(): void {
     activeTabId ? state.documents[activeTabId]?.filePath ?? null : null
   );
 
-  const watchPath = useMemo(() => {
-    if (workspaceScope.isWorkspaceMode && workspaceScope.rootPath) {
-      return workspaceScope.rootPath;
-    }
-    if (activeFilePath) {
-      const dir = getDirectory(activeFilePath);
-      if (dir && !/^[A-Za-z]:$/.test(dir)) {
-        return dir;
-      }
-    }
-    return null;
-  }, [workspaceScope.isWorkspaceMode, workspaceScope.rootPath, activeFilePath]);
+  const watchPath = useMemo(
+    () =>
+      pickWatchRoot({
+        isWorkspaceMode: workspaceScope.isWorkspaceMode,
+        workspaceRoot: workspaceScope.rootPath,
+        activeFilePath,
+      }),
+    [workspaceScope.isWorkspaceMode, workspaceScope.rootPath, activeFilePath],
+  );
 
   useEffect(() => {
     if (!watchPath) {

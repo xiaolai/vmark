@@ -26,7 +26,7 @@
  *
  * @coordinates-with saveToPath.ts — registers pending save before write
  * @coordinates-with reloadFromDisk.ts — checks matchesPendingSave to skip self-triggered reloads
- * @coordinates-with fsEventFilter.ts — uses hasPendingSave for quick watcher event filtering
+ * @coordinates-with services/workspaceEvents/normalizeFsEvents — hasPendingSave flags self-write echoes
  * @module utils/pendingSaves
  */
 
