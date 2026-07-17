@@ -9,8 +9,11 @@
  *   functions own only the control flow.
  *
  * @coordinates-with useExternalFileChanges.ts — sole caller; builds the context
+ * @coordinates-with services/workspaceEvents — handleSemanticBatch consumes its SemanticWorkspaceEvent
  * @module hooks/fsChangeHandlers
  */
+
+import type { SemanticWorkspaceEvent } from "@/services/workspaceEvents";
 
 /**
  * Injected collaborators for the FS-change handlers. Mirrors exactly the
@@ -41,6 +44,10 @@ export interface FsChangeContext {
   handleModifyEvent: (tabId: string, changedPath: string, diskContent: string) => Promise<void>;
   /** Mark a tab's document missing (file truly gone). */
   handleDeletion: (tabId: string) => void;
+  /** True if the tab's document is currently flagged missing. */
+  isMissing: (tabId: string) => boolean;
+  /** Clear a tab's missing flag (e.g. a media file reappeared on disk). */
+  clearMissing: (tabId: string) => void;
 }
 
 /**
@@ -167,4 +174,69 @@ export async function handleModifyOrCreateEvent(
   }
   if (ctx.matchesPendingSave(changedPath, diskContent)) return;
   await ctx.handleModifyEvent(tabId, changedPath, diskContent);
+}
+
+/**
+ * Route a coalesced batch of normalized workspace events onto the per-kind
+ * handlers. Scope, self-write flagging, and no-op suppression already happened
+ * upstream (the workspace event source), so this is pure routing.
+ *
+ * Rename handling: only *complete* [old, new] pairs go to {@link handleRenameEvent}
+ * — mixing unpaired entries into its flat array would corrupt positional pairing;
+ * unpaired renames (atomic-write targets) route as a modify. `getOpenPaths` is
+ * re-read after renames because {@link FsChangeContext.applyRename} re-points tabs,
+ * invalidating a pre-rename path map.
+ */
+export async function handleSemanticBatch(
+  ctx: FsChangeContext,
+  events: SemanticWorkspaceEvent[],
+  getOpenPaths: () => Map<string, string>,
+): Promise<void> {
+  const renamed = events.filter((e) => e.kind === "renamed");
+  const rest = events.filter((e) => e.kind !== "renamed");
+
+  if (renamed.length > 0) {
+    const openPaths = getOpenPaths();
+    // Only *complete* pairs go to the flat-array handler — mixing unpaired
+    // entries in would corrupt its positional [old, new] pairing.
+    const pairs: string[] = [];
+    for (const event of renamed) {
+      if (event.previousPath !== undefined) pairs.push(event.previousPath, event.path);
+    }
+    if (pairs.length > 0) await handleRenameEvent(ctx, pairs, openPaths);
+    // Unpaired renames (atomic-write targets / lone paths) each go through the
+    // fallback individually — a single-element array can't be mis-paired, and
+    // this preserves the probe semantics (readable → modify, gone → delete,
+    // media → existence-only).
+    for (const event of renamed) {
+      if (event.previousPath === undefined) {
+        await handleRenameEvent(ctx, [event.path], openPaths);
+      }
+    }
+  }
+
+  if (rest.length === 0) return;
+  // Rebuild the map: a rename above may have re-pointed a tab (applyRename
+  // mutates the store), so a pre-rename snapshot would misroute related events.
+  const openPaths = getOpenPaths();
+  for (const event of rest) {
+    const normalizedPath = ctx.normalizePath(event.path);
+    const tabId = openPaths.get(normalizedPath);
+    if (!tabId) continue; // not an open file
+
+    const isMedia = ctx.isMedia(event.path);
+    if (event.kind === "deleted") {
+      await handleRemoveEvent(ctx, tabId, event.path, normalizedPath, isMedia);
+      continue;
+    }
+    if (isMedia) {
+      // A media `create` means a deleted file reappeared — clear missing so the
+      // viewer re-streams via asset://. `modify` needs no action (the asset URL
+      // already points at the fresh bytes). Never read the binary.
+      if (event.kind === "created" && ctx.isMissing(tabId)) ctx.clearMissing(tabId);
+      continue;
+    }
+    // created / modified
+    await handleModifyOrCreateEvent(ctx, tabId, event.path);
+  }
 }

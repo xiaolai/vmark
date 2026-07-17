@@ -22,6 +22,7 @@ const mocks = vi.hoisted(() => ({
   saveToPath: vi.fn(),
   reloadTabFromDisk: vi.fn(),
   activeScopeRoot: vi.fn(() => null as string | null),
+  subscribeWorkspaceEvents: vi.fn((_label: string, _cb: unknown) => () => {}),
 }));
 
 vi.mock("@tauri-apps/api/event", () => ({
@@ -77,6 +78,10 @@ vi.mock("@/services/workspaces/activeWorkspaceScope", () => ({
   getActiveWorkspaceScope: vi.fn(() => ({ rootPath: mocks.activeScopeRoot() })),
 }));
 
+vi.mock("@/hooks/useWorkspaceEventBus", () => ({
+  subscribeWorkspaceEvents: mocks.subscribeWorkspaceEvents,
+}));
+
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
 import { __resetRegistry } from "@/lib/formats/registry";
@@ -116,18 +121,52 @@ function seedStores(overrides: { isMissing?: boolean; isDirty?: boolean; lastDis
   });
 }
 
-/** Extract the callback registered via listen("fs:changed", cb) */
-function captureListenCallback(): ListenCallback {
-  const calls = mocks.listen.mock.calls as unknown as unknown[][];
-  const call = calls.find((c) => c[0] === "fs:changed");
-  if (!call) throw new Error("listen('fs:changed') was not called");
-  return call[1] as ListenCallback;
+/** Map a raw fs:changed payload to the SemanticWorkspaceEvent[] the bus delivers. */
+function toSemantic(payload: { rootPath: string; paths: string[]; kind: string }) {
+  const { kind, paths, rootPath } = payload;
+  if (kind === "rename") {
+    const events = [];
+    for (let i = 0; i < paths.length; i += 2) {
+      const paired = i + 1 < paths.length;
+      events.push({
+        kind: "renamed" as const,
+        path: paired ? paths[i + 1] : paths[i],
+        previousPath: paired ? paths[i] : undefined,
+        rootPath,
+        selfWrite: false,
+      });
+    }
+    return events;
+  }
+  const k = kind === "create" ? "created" : kind === "remove" ? "deleted" : "modified";
+  return paths.map((p) => ({ kind: k as const, path: p, rootPath, selfWrite: false }));
 }
 
-/** Render hook, wait for listener, and return the captured callback */
+/**
+ * Compat shim: the hook now subscribes to the workspace event source instead of
+ * `listen("fs:changed")`. This wraps the captured subscriber so existing tests
+ * keep firing the historical raw payload — it emulates the watchId scoping the
+ * source now owns, converts raw → semantic, delivers to the hook, and awaits the
+ * async routing so `await callback(payload)` still means "effects applied".
+ */
+function captureListenCallback(): ListenCallback {
+  const calls = mocks.subscribeWorkspaceEvents.mock.calls as unknown as unknown[][];
+  const call = calls.find((c) => typeof c[1] === "function");
+  if (!call) throw new Error("subscribeWorkspaceEvents was not called");
+  const listener = call[1] as (events: unknown[]) => void;
+  return async ({ payload }) => {
+    if (payload.watchId !== "main") return; // the source scopes by watchId
+    const activeRoot = mocks.activeScopeRoot();
+    if (activeRoot && payload.rootPath !== activeRoot) return; // …and by the watched root
+    listener(toSemantic(payload));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  };
+}
+
+/** Render hook, wait for the subscription, and return the compat callback. */
 async function setupHookAndCallback(): Promise<ListenCallback> {
   renderHook(() => useExternalFileChanges());
-  await vi.waitFor(() => expect(mocks.listen).toHaveBeenCalled());
+  await vi.waitFor(() => expect(mocks.subscribeWorkspaceEvents).toHaveBeenCalled());
   return captureListenCallback();
 }
 
@@ -604,6 +643,7 @@ describe("useExternalFileChanges — dirty file prompt", () => {
     vi.resetAllMocks();
     // Restore default mock implementations after resetAllMocks clears them
     mocks.listen.mockImplementation(() => Promise.resolve(() => {}));
+    mocks.subscribeWorkspaceEvents.mockImplementation((_label: string, _cb: unknown) => () => {});
     mocks.matchesPendingSave.mockReturnValue(false);
     mocks.hasPendingSave.mockReturnValue(false);
   });
@@ -856,6 +896,7 @@ describe("useExternalFileChanges — additional coverage", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     mocks.listen.mockImplementation(() => Promise.resolve(() => {}));
+    mocks.subscribeWorkspaceEvents.mockImplementation((_label: string, _cb: unknown) => () => {});
     mocks.matchesPendingSave.mockReturnValue(false);
     mocks.hasPendingSave.mockReturnValue(false);
   });
@@ -1007,8 +1048,9 @@ describe("useExternalFileChanges — additional coverage", () => {
       },
     });
 
-    // tabId found in openPaths, but doc is null at line 349 → continue → no read
-    expect(mocks.readTextFile).not.toHaveBeenCalled();
+    // Doc vanished between path-map build and routing → the modify handler reads
+    // then no-ops on the null doc; the observable outcome is no reload/toast.
+    expect(mocks.toastInfo).not.toHaveBeenCalled();
   });
 
   it("unmounts with pending batch timeout — cleans up timer", async () => {
@@ -1043,7 +1085,7 @@ describe("useExternalFileChanges — additional coverage", () => {
     mocks.dialogMessage.mockResolvedValue("Cancel");
 
     const { unmount } = renderHook(() => useExternalFileChanges());
-    await vi.waitFor(() => expect(mocks.listen).toHaveBeenCalled());
+    await vi.waitFor(() => expect(mocks.subscribeWorkspaceEvents).toHaveBeenCalled());
     const callback = captureListenCallback();
 
     // Trigger change to queue dirty change (starts batch timer)
@@ -1063,92 +1105,16 @@ describe("useExternalFileChanges — additional coverage", () => {
     expect(mocks.dialogMessage).not.toHaveBeenCalled();
   });
 
-  it("handles cancellation before listen resolves (cancelled = true before await listen)", async () => {
+  it("unsubscribes from the workspace event source on unmount", async () => {
     seedStores();
-    // Make listen return a promise that resolves after a tick
-    let resolveUnlisten: ((fn: () => void) => void) | null = null;
-    mocks.listen.mockImplementationOnce(
-      () => new Promise<() => void>((resolve) => { resolveUnlisten = resolve; })
-    );
+    const unsubscribe = vi.fn();
+    mocks.subscribeWorkspaceEvents.mockReturnValueOnce(unsubscribe);
 
     const { unmount } = renderHook(() => useExternalFileChanges());
-    await vi.waitFor(() => expect(mocks.listen).toHaveBeenCalled());
+    await vi.waitFor(() => expect(mocks.subscribeWorkspaceEvents).toHaveBeenCalled());
 
-    // Unmount before listen resolves → cancelled = true before setupListener continues
     unmount();
-
-    // Now resolve listen — setupListener will check `cancelled` and call unlisten immediately
-    resolveUnlisten!(() => {});
-
-    // Give async resolution a tick to complete
-    await new Promise((r) => setTimeout(r, 0));
-
-    // Should not crash, unlistened was called immediately
-  });
-
-  it("handles cancellation after listen resolves (cancelled after store, unlisten called in cleanup)", async () => {
-    seedStores();
-
-    const { unmount } = renderHook(() => useExternalFileChanges());
-    await vi.waitFor(() => expect(mocks.listen).toHaveBeenCalled());
-
-    // Unmount immediately — cleanup sets cancelled=true, calls unlistenRef.current()
-    unmount();
-
-    // Should not crash
-    expect(mocks.listen).toHaveBeenCalled();
-  });
-
-  it("cleanup skips unlisten when hook unmounts before listen resolves", async () => {
-    seedStores();
-    // Hook unmounts before listen completes — unlistenRef.current stays null
-    let resolveUnlisten: ((fn: () => void) => void) | null = null;
-    mocks.listen.mockImplementationOnce(
-      () => new Promise<() => void>((resolve) => { resolveUnlisten = resolve; })
-    );
-
-    const { unmount } = renderHook(() => useExternalFileChanges());
-    await vi.waitFor(() => expect(mocks.listen).toHaveBeenCalled());
-
-    // Unmount before listen resolves — unlistenRef.current is still null
-    unmount();
-
-    // Resolve listen after unmount — cleanup path with cancelled=true runs
-    resolveUnlisten!(() => {});
-    await new Promise((r) => setTimeout(r, 0));
-
-    // Should not crash (unlistenRef.current was null, but cancelled path calls unlisten directly)
-    expect(mocks.listen).toHaveBeenCalled();
-  });
-
-  it("handles event callback when hook is already unmounted (cancelled = true inside callback)", async () => {
-    seedStores();
-    let capturedCallback: ListenCallback | null = null;
-    mocks.listen.mockImplementationOnce((_event: string, cb: ListenCallback) => {
-      capturedCallback = cb;
-      return Promise.resolve(() => {});
-    });
-
-    const { unmount } = renderHook(() => useExternalFileChanges());
-    await vi.waitFor(() => expect(mocks.listen).toHaveBeenCalled());
-
-    // Unmount before triggering the event
-    unmount();
-
-    // Fire the event after unmount — should return early because cancelled = true
-    if (capturedCallback) {
-      await capturedCallback({
-        payload: {
-          watchId: "main",
-          rootPath: "/workspace",
-          paths: ["/workspace/test.md"],
-          kind: "modify",
-        },
-      });
-    }
-
-    // Should not have read the file because cancelled guard returned early
-    expect(mocks.readTextFile).not.toHaveBeenCalled();
+    expect(unsubscribe).toHaveBeenCalledTimes(1);
   });
 
   it("handleModifyEvent returns early when doc is not found (line 252 guard)", async () => {
@@ -1189,31 +1155,13 @@ describe("useExternalFileChanges — additional coverage", () => {
     getDocSpy.mockRestore();
   });
 
-  it("ignores event with unhandled kind (branch 33[1] — not modify or create)", async () => {
-    // An event kind that isn't rename/remove/modify/create reaches the final if check and skips
-    seedStores({ lastDiskContent: "# old content" });
-
-    const callback = await setupHookAndCallback();
-
-    await callback({
-      payload: {
-        watchId: "main",
-        rootPath: "/workspace",
-        paths: ["/workspace/test.md"],
-        kind: "access" as "modify", // Unknown kind that passes watchId check
-      },
-    });
-
-    // Should not read file or show any dialog for unknown kind
-    expect(mocks.readTextFile).not.toHaveBeenCalled();
-    expect(mocks.toastInfo).not.toHaveBeenCalled();
-  });
 });
 
 describe("useExternalFileChanges — re-queue after batch processing", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     mocks.listen.mockImplementation(() => Promise.resolve(() => {}));
+    mocks.subscribeWorkspaceEvents.mockImplementation((_label: string, _cb: unknown) => () => {});
     mocks.matchesPendingSave.mockReturnValue(false);
     mocks.hasPendingSave.mockReturnValue(false);
   });
@@ -1428,42 +1376,13 @@ describe("useExternalFileChanges — re-queue after batch processing", () => {
     expect(shownMessage).not.toContain("files have been modified");
   });
 
-  it("cancelled=true guard inside event callback (line 293)", async () => {
-    seedStores();
-    let capturedCallback: ((event: object) => Promise<void>) | null = null;
-    mocks.listen.mockImplementationOnce((_event: string, cb: (event: object) => Promise<void>) => {
-      capturedCallback = cb;
-      return Promise.resolve(() => {});
-    });
-
-    const { unmount } = renderHook(() => useExternalFileChanges());
-    await vi.waitFor(() => expect(mocks.listen).toHaveBeenCalled());
-
-    // Unmount sets cancelled = true
-    unmount();
-
-    // Fire event after unmount — the inner `if (cancelled) return;` guard fires
-    if (capturedCallback) {
-      await capturedCallback({
-        payload: {
-          watchId: "main",
-          rootPath: "/workspace",
-          paths: ["/workspace/test.md"],
-          kind: "remove",
-        },
-      });
-    }
-
-    // Doc should NOT be marked missing because we returned early due to cancelled
-    // (The store might already be cleaned up, but no marking should have occurred post-unmount)
-    expect(mocks.readTextFile).not.toHaveBeenCalled();
-  });
 });
 
 describe("useExternalFileChanges — fileName fallback (getFileName returns empty)", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     mocks.listen.mockImplementation(() => Promise.resolve(() => {}));
+    mocks.subscribeWorkspaceEvents.mockImplementation((_label: string, _cb: unknown) => () => {});
     mocks.matchesPendingSave.mockReturnValue(false);
     mocks.hasPendingSave.mockReturnValue(false);
   });
@@ -1534,6 +1453,7 @@ describe("useExternalFileChanges — multi-file batch dialog", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     mocks.listen.mockImplementation(() => Promise.resolve(() => {}));
+    mocks.subscribeWorkspaceEvents.mockImplementation((_label: string, _cb: unknown) => () => {});
     mocks.matchesPendingSave.mockReturnValue(false);
     mocks.hasPendingSave.mockReturnValue(false);
   });
@@ -1738,6 +1658,7 @@ describe("useExternalFileChanges — divergent auto-recovery (issue #522)", () =
   beforeEach(() => {
     vi.resetAllMocks();
     mocks.listen.mockImplementation(() => Promise.resolve(() => {}));
+    mocks.subscribeWorkspaceEvents.mockImplementation((_label: string, _cb: unknown) => () => {});
     mocks.matchesPendingSave.mockReturnValue(false);
     mocks.hasPendingSave.mockReturnValue(false);
   });
@@ -1941,6 +1862,7 @@ describe("useExternalFileChanges — media tabs excluded from UTF-8 re-read", ()
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.listen.mockImplementation(() => Promise.resolve(() => {}));
+    mocks.subscribeWorkspaceEvents.mockImplementation((_label: string, _cb: unknown) => () => {});
     mocks.activeScopeRoot.mockReturnValue(null);
     mocks.matchesPendingSave.mockReturnValue(false);
     mocks.hasPendingSave.mockReturnValue(false);
