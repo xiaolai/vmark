@@ -3,9 +3,11 @@ import {
   handleRenameEvent,
   handleRemoveEvent,
   handleModifyOrCreateEvent,
+  handleSemanticBatch,
   type FsChangeContext,
 } from "./fsChangeHandlers";
 import { isBinaryMediaPath } from "./openMediaFile";
+import type { SemanticWorkspaceEvent } from "@/services/workspaceEvents";
 
 function makeContext(over: Partial<FsChangeContext> = {}): FsChangeContext {
   return {
@@ -18,8 +20,14 @@ function makeContext(over: Partial<FsChangeContext> = {}): FsChangeContext {
     applyRename: vi.fn(),
     handleModifyEvent: vi.fn(async () => {}),
     handleDeletion: vi.fn(),
+    isMissing: vi.fn(() => false),
+    clearMissing: vi.fn(),
     ...over,
   };
+}
+
+function evt(over: Partial<SemanticWorkspaceEvent> = {}): SemanticWorkspaceEvent {
+  return { kind: "modified", path: "/ws/a.md", rootPath: "/ws", selfWrite: false, ...over };
 }
 
 beforeEach(() => {
@@ -257,5 +265,89 @@ describe("handleModifyOrCreateEvent", () => {
     await handleModifyOrCreateEvent(ctx, "tab-1", "/file.md");
 
     expect(ctx.handleModifyEvent).toHaveBeenCalledWith("tab-1", "/file.md", "external edit");
+  });
+});
+
+describe("handleSemanticBatch", () => {
+  const openPaths = () => new Map<string, string>([["/ws/a.md", "tab-a"]]);
+
+  it("ignores events for files that are not open", async () => {
+    const ctx = makeContext({ readTextFile: vi.fn(async () => "x") });
+    await handleSemanticBatch(ctx, [evt({ path: "/ws/not-open.md" })], openPaths);
+    expect(ctx.handleModifyEvent).not.toHaveBeenCalled();
+  });
+
+  it("routes a modified event on an open file to the modify handler", async () => {
+    const ctx = makeContext({ readTextFile: vi.fn(async () => "edited") });
+    await handleSemanticBatch(ctx, [evt({ path: "/ws/a.md", kind: "modified" })], openPaths);
+    expect(ctx.handleModifyEvent).toHaveBeenCalledWith("tab-a", "/ws/a.md", "edited");
+  });
+
+  it("routes a deleted event to the remove handler", async () => {
+    const ctx = makeContext({
+      readTextFile: vi.fn(async () => {
+        throw new Error("gone");
+      }),
+    });
+    await handleSemanticBatch(ctx, [evt({ path: "/ws/a.md", kind: "deleted" })], openPaths);
+    expect(ctx.handleDeletion).toHaveBeenCalledWith("tab-a");
+  });
+
+  it("reconstructs [old, new] pairs so a rename re-points the open tab", async () => {
+    const ctx = makeContext();
+    const map = new Map<string, string>([["/ws/old.md", "tab-a"]]);
+    await handleSemanticBatch(
+      ctx,
+      [evt({ kind: "renamed", path: "/ws/new.md", previousPath: "/ws/old.md" })],
+      () => map,
+    );
+    expect(ctx.applyRename).toHaveBeenCalledWith("tab-a", "/ws/new.md");
+  });
+
+  it("clears missing on a media re-create without reading the binary", async () => {
+    const readTextFile = vi.fn(async () => "x");
+    const ctx = makeContext({
+      readTextFile,
+      isMedia: () => true,
+      isMissing: () => true,
+    });
+    const map = new Map<string, string>([["/ws/pic.png", "tab-p"]]);
+    await handleSemanticBatch(ctx, [evt({ path: "/ws/pic.png", kind: "created" })], () => map);
+    expect(ctx.clearMissing).toHaveBeenCalledWith("tab-p");
+    expect(readTextFile).not.toHaveBeenCalled();
+  });
+
+  it("handles a mixed batch (rename + modify) in one pass", async () => {
+    const ctx = makeContext({ readTextFile: vi.fn(async () => "edited") });
+    const map = new Map<string, string>([
+      ["/ws/a.md", "tab-a"],
+      ["/ws/old.md", "tab-b"],
+    ]);
+    await handleSemanticBatch(
+      ctx,
+      [
+        evt({ kind: "renamed", path: "/ws/new.md", previousPath: "/ws/old.md" }),
+        evt({ kind: "modified", path: "/ws/a.md" }),
+      ],
+      () => map,
+    );
+    expect(ctx.applyRename).toHaveBeenCalledWith("tab-b", "/ws/new.md");
+    expect(ctx.handleModifyEvent).toHaveBeenCalledWith("tab-a", "/ws/a.md", "edited");
+  });
+
+  it("does not mis-pair a paired rename that follows an unpaired one", async () => {
+    const ctx = makeContext({ readTextFile: vi.fn(async () => "x") });
+    const map = new Map<string, string>([["/ws/old.md", "tab-r"]]);
+    await handleSemanticBatch(
+      ctx,
+      [
+        evt({ kind: "renamed", path: "/ws/atomic.md" }), // unpaired first
+        evt({ kind: "renamed", path: "/ws/new.md", previousPath: "/ws/old.md" }), // real pair
+      ],
+      () => map,
+    );
+    // The real pair must re-point tab-r — never positionally paired with the unpaired path.
+    expect(ctx.applyRename).toHaveBeenCalledWith("tab-r", "/ws/new.md");
+    expect(ctx.applyRename).toHaveBeenCalledTimes(1);
   });
 });

@@ -23,15 +23,15 @@
  *     back to VMark, regardless of whether fs:changed fired.
  *
  * @coordinates-with FileExplorer.tsx — consumes the tree data and refresh callback
- * @coordinates-with utils/fsEventFilter.ts — determines if an fs event should trigger refresh
+ * @coordinates-with hooks/useWorkspaceEventBus.ts — the shared, scoped fs-event source it subscribes to
  * @module components/Sidebar/FileExplorer/useFileTree
  */
 import { useState, useEffect, useCallback, useRef } from "react";
-import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { type UnlistenFn } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import type { FileNode, FsChangeEvent, DirectoryEntry } from "./types";
-import { shouldRefreshTree } from "@/utils/fsEventFilter";
+import type { FileNode, DirectoryEntry } from "./types";
+import { subscribeWorkspaceEvents } from "@/hooks/useWorkspaceEventBus";
 import {
   isMarkdownFileName,
   isSupportedFileName,
@@ -128,7 +128,6 @@ export function useFileTree(
   const [tree, setTree] = useState<FileNode[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const requestIdRef = useRef(0);
-  const unlistenRef = useRef<UnlistenFn | null>(null);
   // Serialize excludeFolders for dependency comparison
   const excludeFoldersKey = excludeFolders.join(",");
 
@@ -177,31 +176,16 @@ export function useFileTree(
 
     loadTree();
 
-    // Listen for fs changes
-    let cancelled = false;
-    listen<FsChangeEvent>("fs:changed", (event) => {
-      if (cancelled) return;
-      // Use pure helper to determine if we should refresh
-      if (shouldRefreshTree(event.payload, watchId, rootPath)) {
-        loadTree();
-      }
-    }).then((unlisten) => {
-      if (cancelled) {
-        unlisten();
-      } else {
-        unlistenRef.current = unlisten;
-      }
-    }).catch((error: unknown) => {
-      fileExplorerError(" Failed to listen for fs changes:",
-        errorMessage(error));
+    // Subscribe to the shared, already-scoped workspace event stream: any
+    // in-scope batch (create / delete / rename / real modify) triggers a
+    // reload. Scoping + self-write filtering + no-op suppression are done by
+    // the source, so this stays a one-liner.
+    const unsubscribe = subscribeWorkspaceEvents(watchId, () => {
+      loadTree();
     });
 
     return () => {
-      cancelled = true;
-      if (unlistenRef.current) {
-        unlistenRef.current();
-        unlistenRef.current = null;
-      }
+      unsubscribe();
     };
   }, [rootPath, loadTree, watchId]);
 

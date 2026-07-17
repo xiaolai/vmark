@@ -14,18 +14,16 @@ vi.mock("@tauri-apps/api/core", () => ({
   invoke: (cmd: string, args?: unknown) => invokeMock(cmd, args),
 }));
 
-let fsChangeCallback: ((evt: { payload: unknown }) => void) | null = null;
-const listenMock = vi.fn(
-  async (_name: string, cb: (evt: { payload: unknown }) => void) => {
-    fsChangeCallback = cb;
-    return () => {
-      fsChangeCallback = null;
-    };
-  },
-);
-vi.mock("@tauri-apps/api/event", () => ({
-  listen: (...args: unknown[]) =>
-    (listenMock as unknown as (...a: unknown[]) => unknown)(...args),
+let wsEventCallback: ((events: unknown[]) => void) | null = null;
+const subscribeMock = vi.fn((_label: string, cb: (events: unknown[]) => void) => {
+  wsEventCallback = cb;
+  return () => {
+    wsEventCallback = null;
+  };
+});
+vi.mock("@/hooks/useWorkspaceEventBus", () => ({
+  subscribeWorkspaceEvents: (...args: unknown[]) =>
+    (subscribeMock as unknown as (...a: unknown[]) => unknown)(...args),
 }));
 
 vi.mock("@tauri-apps/api/path", () => ({
@@ -55,7 +53,8 @@ beforeEach(() => {
   });
   onFocusChangedMock.mockClear();
   focusCallback = null;
-  fsChangeCallback = null;
+  subscribeMock.mockClear();
+  wsEventCallback = null;
 });
 
 describe("useFileTree — window-focus refresh", () => {
@@ -154,25 +153,28 @@ describe("useFileTree — window-focus refresh", () => {
   });
 });
 
-describe("useFileTree — fs:changed listener", () => {
-  it("re-lists when an fs:changed event matches the watched root", async () => {
+describe("useFileTree — workspace event subscription", () => {
+  it("subscribes to the shared source with the tree's watchId as window label", async () => {
+    renderHook(() => useFileTree("/root", { watchId: "main" }));
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(subscribeMock).toHaveBeenCalledWith("main", expect.any(Function));
+  });
+
+  it("re-lists the directory when the source delivers a batch", async () => {
     renderHook(() => useFileTree("/root", { watchId: "main" }));
     await Promise.resolve();
     await Promise.resolve();
     await Promise.resolve();
-    expect(fsChangeCallback).toBeTypeOf("function");
+    expect(wsEventCallback).toBeTypeOf("function");
     const initial = invokeMock.mock.calls.filter(
       ([cmd]) => cmd === "list_directory_entries",
     ).length;
 
-    fsChangeCallback!({
-      payload: {
-        watchId: "main",
-        rootPath: "/root",
-        paths: ["/root/new.md"],
-        kind: "create",
-      },
-    });
+    // Scope + watchId filtering + suppression are the source's job; useFileTree
+    // simply re-lists on any delivered batch.
+    wsEventCallback!([{ kind: "created", path: "/root/new.md", rootPath: "/root", selfWrite: false }]);
     await Promise.resolve();
     await Promise.resolve();
 
@@ -182,47 +184,26 @@ describe("useFileTree — fs:changed listener", () => {
     expect(after).toBeGreaterThan(initial);
   });
 
-  it("logs without throwing when the fs:changed listen subscription rejects with an Error", async () => {
-    listenMock.mockImplementationOnce(async () => {
-      throw new Error("listen rejected");
-    });
-    expect(() => renderHook(() => useFileTree("/root"))).not.toThrow();
+  it("does not subscribe when rootPath is null", async () => {
+    renderHook(() => useFileTree(null));
     await Promise.resolve();
     await Promise.resolve();
+
+    expect(subscribeMock).not.toHaveBeenCalled();
   });
 
-  it("logs without throwing when the fs:changed listen subscription rejects with a non-Error", async () => {
-    listenMock.mockImplementationOnce(async () => {
-      throw "rejected as string";
+  it("unsubscribes on unmount", async () => {
+    const unsub = vi.fn();
+    subscribeMock.mockImplementationOnce((_label: string, cb: (events: unknown[]) => void) => {
+      wsEventCallback = cb;
+      return unsub;
     });
-    expect(() => renderHook(() => useFileTree("/root"))).not.toThrow();
+    const { unmount } = renderHook(() => useFileTree("/root"));
     await Promise.resolve();
     await Promise.resolve();
-  });
+    unmount();
 
-  it("ignores fs:changed from a different watchId", async () => {
-    renderHook(() => useFileTree("/root", { watchId: "main" }));
-    await Promise.resolve();
-    await Promise.resolve();
-    await Promise.resolve();
-    const initial = invokeMock.mock.calls.filter(
-      ([cmd]) => cmd === "list_directory_entries",
-    ).length;
-
-    fsChangeCallback!({
-      payload: {
-        watchId: "doc-1",
-        rootPath: "/other",
-        paths: ["/other/new.md"],
-        kind: "create",
-      },
-    });
-    await Promise.resolve();
-
-    const after = invokeMock.mock.calls.filter(
-      ([cmd]) => cmd === "list_directory_entries",
-    ).length;
-    expect(after).toBe(initial);
+    expect(unsub).toHaveBeenCalledTimes(1);
   });
 });
 
