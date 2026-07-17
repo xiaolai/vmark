@@ -19,12 +19,13 @@
  *     silently no-op'd by the soft-equals guard, not re-prompted (issue 904)
  *
  * @coordinates-with useWindowFileWatcher.ts — starts/stops the Rust watcher
+ * @coordinates-with useWorkspaceEventBus.ts — subscribes to the shared normalized fs-event source
+ * @coordinates-with fsChangeHandlers.ts — handleSemanticBatch routes each batch to the per-kind handlers
  * @coordinates-with documentStore.ts — reads dirty state, updates content on reload
  * @coordinates-with fileChangeBatch.ts — the reload-all/keep-all/review-each resolutions
  * @module hooks/useExternalFileChanges
  */
 import { useEffect, useRef, useCallback } from "react";
-import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { readTextFile, exists } from "@tauri-apps/plugin-fs";
 import { message, save } from "@tauri-apps/plugin-dialog";
 import { imeToast as toast } from "@/services/ime/imeToast";
@@ -46,15 +47,10 @@ import { detectLinebreaks } from "@/utils/linebreakDetection";
 import { softContentEquals } from "@/utils/linebreaks";
 import { reloadTabFromDisk } from "@/services/persistence/reloadFromDisk";
 import { matchesPendingSave, hasPendingSave } from "@/utils/pendingSaves";
-import { getActiveWorkspaceScope } from "@/services/workspaces/activeWorkspaceScope";
 import { getFileName } from "@/utils/paths";
 import { fileOpsError } from "@/utils/debug";
-import {
-  handleRenameEvent,
-  handleRemoveEvent,
-  handleModifyOrCreateEvent,
-  type FsChangeContext,
-} from "./fsChangeHandlers";
+import { subscribeWorkspaceEvents } from "@/hooks/useWorkspaceEventBus";
+import { handleSemanticBatch, type FsChangeContext } from "./fsChangeHandlers";
 
 /** Pending dirty file change awaiting user decision */
 interface PendingDirtyChange {
@@ -64,13 +60,6 @@ interface PendingDirtyChange {
 
 /** Debounce window for batching external changes (ms) */
 const BATCH_DEBOUNCE_MS = 300;
-
-interface FsChangeEvent {
-  watchId: string;
-  rootPath: string;
-  paths: string[];
-  kind: "create" | "modify" | "remove" | "rename";
-}
 
 /**
  * Hook to handle external file changes for documents in the current window.
@@ -82,7 +71,6 @@ interface FsChangeEvent {
  */
 export function useExternalFileChanges(): void {
   const windowLabel = useWindowLabel();
-  const unlistenRef = useRef<UnlistenFn | null>(null);
 
   // Batching state for dirty file changes. Keyed by normalized file path so
   // duplicate fs events for the same file collapse into a single pending entry.
@@ -366,98 +354,39 @@ export function useExternalFileChanges(): void {
   );
 
   useEffect(() => {
-    let cancelled = false;
-
-    const setupListener = async () => {
-      /* v8 ignore next -- @preserve cancelled is only true during React cleanup; race condition branch */
-      if (cancelled) return;
-
-      const unlisten = await listen<FsChangeEvent>("fs:changed", async (event) => {
-        if (cancelled) return;
-
-        const { kind, paths, rootPath, watchId } = event.payload;
-
-        if (watchId !== windowLabel) return;
-        const activeRoot = getActiveWorkspaceScope(windowLabel).rootPath;
-        if (activeRoot && normalizePath(rootPath) !== normalizePath(activeRoot)) return;
-
-        const openPaths = getOpenFilePaths();
-
-        // Pure routing layer (see fsChangeHandlers.ts) — the hook supplies its
-        // collaborators; each branch is unit-tested in isolation there.
-        const ctx: FsChangeContext = {
-          readTextFile,
-          fileExists: exists,
-          normalizePath,
-          hasPendingSave,
-          matchesPendingSave,
-          // Gate on the path's extension, not the tab's formatId — a .png→txt
-          // association can't make a binary file safe to read as text.
-          isMedia: (path) => isBinaryMediaPath(path),
-          applyRename,
-          handleModifyEvent,
-          handleDeletion,
-        };
-
-        if (kind === "rename") {
-          await handleRenameEvent(ctx, paths, openPaths);
-          return;
-        }
-
-        for (const changedPath of paths) {
-          const normalizedPath = normalizePath(changedPath);
-          const tabId = openPaths.get(normalizedPath);
-
-          if (!tabId) continue; // Not an open file
-
-          const doc = useDocumentStore.getState().getDocument(tabId);
-          if (!doc) continue;
-
-          // Binary media (png/mp4/…) hold no text: never UTF-8-read them.
-          const isMedia = ctx.isMedia(changedPath);
-
-          if (kind === "remove") {
-            await handleRemoveEvent(ctx, tabId, changedPath, normalizedPath, isMedia);
-            continue;
-          }
-          if (isMedia) {
-            // A media `create` means a deleted file reappeared — clear missing
-            // so MediaView re-streams via asset://. `modify` needs no action
-            // (the asset URL already points at the fresh bytes). Never read.
-            if (kind === "create" && doc.isMissing) {
-              useDocumentStore.getState().clearMissing(tabId);
-            }
-            continue;
-          }
-          if (kind === "modify" || kind === "create") {
-            await handleModifyOrCreateEvent(ctx, tabId, changedPath);
-          }
-        }
-      });
-
-      if (cancelled) {
-        unlisten();
-        return;
-      }
-
-      unlistenRef.current = unlisten;
+    // The shared workspace event source already scoped these events to the
+    // watch root, flagged self-writes, coalesced, and suppressed content
+    // no-ops. This hook owns only the per-tab reaction policy. The routing
+    // context's collaborators are stable useCallbacks + store reads.
+    const ctx: FsChangeContext = {
+      readTextFile,
+      fileExists: exists,
+      normalizePath,
+      hasPendingSave,
+      matchesPendingSave,
+      // Gate on the path's extension, not the tab's formatId — a .png→txt
+      // association can't make a binary file safe to read as text.
+      isMedia: (path) => isBinaryMediaPath(path),
+      applyRename,
+      handleModifyEvent,
+      handleDeletion,
+      isMissing: (tabId) => useDocumentStore.getState().getDocument(tabId)?.isMissing ?? false,
+      clearMissing: (tabId) => useDocumentStore.getState().clearMissing(tabId),
     };
 
-    setupListener().catch((error) => {
-      fileOpsError("Failed to setup external file change listener:", error);
+    const unsubscribe = subscribeWorkspaceEvents(windowLabel, (events) => {
+      void handleSemanticBatch(ctx, events, getOpenFilePaths).catch((error) => {
+        fileOpsError("Failed to handle external file changes:", error);
+      });
     });
 
     return () => {
-      cancelled = true;
-      if (unlistenRef.current) {
-        unlistenRef.current();
-        unlistenRef.current = null;
-      }
+      unsubscribe();
       // Clean up batch timeout on unmount
       if (batchTimeoutRef.current) {
         clearTimeout(batchTimeoutRef.current);
         batchTimeoutRef.current = null;
       }
     };
-  }, [windowLabel, getOpenFilePaths, queueDirtyChange, handleDeletion, handleModifyEvent, applyRename]);
+  }, [windowLabel, getOpenFilePaths, handleDeletion, handleModifyEvent, applyRename]);
 }

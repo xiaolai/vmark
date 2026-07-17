@@ -87,6 +87,9 @@ export const menuDispatcherWarn = createWarnLogger("[UnifiedMenuDispatcher]");
 /** Warn logger for File Watcher. */
 export const watcherWarn = createWarnLogger("[Watcher]");
 
+/** Warn logger for the workspace event layer (normalized fs events). */
+export const workspaceEventsWarn = createWarnLogger("[WorkspaceEvents]");
+
 /** Warn logger for Export. */
 export const exportWarn = createWarnLogger("[Export]");
 
