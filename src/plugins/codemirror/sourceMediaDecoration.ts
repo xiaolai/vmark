@@ -11,11 +11,15 @@
  *   - Uses a single combined regex per line instead of 5 separate tests
  *   - Closing-tag lookahead is bounded to 200 lines to prevent O(n) scans on unclosed tags
  *   - Each media type gets a distinct CSS class for type-specific colors
- *   - Rebuilds decorations on doc change or viewport change
+ *   - Rebuilds on doc/viewport change, scanning only the viewport window
+ *     (viewportScanWindow) so cost is O(viewport), not O(document). The window
+ *     margin equals MAX_LOOKAHEAD, so any block intersecting the viewport has
+ *     its opening tag inside the window — viewport scanning is complete here.
  *
  * @coordinates-with blockVideo/tiptap.ts — WYSIWYG counterpart for video
  * @coordinates-with blockAudio/tiptap.ts — WYSIWYG counterpart for audio
  * @coordinates-with videoEmbed/tiptap.ts — WYSIWYG counterpart for video embeds
+ * @coordinates-with viewportScan.ts — bounds the scan to the visible line window
  * @module plugins/codemirror/sourceMediaDecoration
  */
 
@@ -27,6 +31,7 @@ import {
   type DecorationSet,
   type ViewUpdate,
 } from "@codemirror/view";
+import { viewportScanWindow } from "./viewportScan";
 
 export type MediaType = "video" | "audio" | "youtube" | "vimeo" | "bilibili";
 
@@ -112,14 +117,19 @@ export function findMediaCloseLine(doc: MediaDocLike, tag: string, startLine: nu
 }
 
 /**
- * Find all media blocks in the document.
- * Uses a single combined regex per line and bounded lookahead for closing tags.
+ * Find all media blocks whose opening tag falls in [fromLine, toLine].
+ * Bounds default to the whole document. Uses a single combined regex per line
+ * and bounded lookahead for closing tags.
  */
-export function findMediaBlocks(doc: MediaDocLike): MediaBlock[] {
+export function findMediaBlocks(
+  doc: MediaDocLike,
+  fromLine: number = 1,
+  toLine: number = doc.lines,
+): MediaBlock[] {
   const blocks: MediaBlock[] = [];
-  let i = 1;
+  let i = fromLine;
 
-  while (i <= doc.lines) {
+  while (i <= toLine) {
     const text = doc.line(i).text;
 
     const open = matchMediaOpenTag(text);
@@ -157,7 +167,10 @@ function buildMediaDecorations(view: EditorView): DecorationSet {
   const builder = new RangeSetBuilder<Decoration>();
   const doc = view.state.doc;
 
-  const mediaBlocks = findMediaBlocks(doc);
+  // Margin = MAX_LOOKAHEAD bounds block length, so any block intersecting the
+  // viewport has its opening tag inside the window — the scan stays complete.
+  const { startLine, endLine } = viewportScanWindow(view, MAX_LOOKAHEAD);
+  const mediaBlocks = findMediaBlocks(doc, startLine, endLine);
 
   for (const block of mediaBlocks) {
     const typeClass = `cm-media-${block.type}`;

@@ -7,9 +7,11 @@
  * Key decisions:
  *   - Detects the `> [!TYPE]` syntax pattern and decorates all lines of the blockquote
  *   - Each alert type gets a distinct CSS class for colored borders matching WYSIWYG rendering
- *   - Rebuilds decorations on doc change (simple approach; alert blocks are infrequent)
+ *   - Rebuilds decorations on doc/viewport change, scanning only the viewport
+ *     window (viewportScanWindow) so cost is O(viewport), not O(document)
  *
  * @coordinates-with alertBlock/tiptap.ts — WYSIWYG counterpart
+ * @coordinates-with viewportScan.ts — bounds the scan to the visible line window
  * @module plugins/codemirror/sourceAlertDecoration
  */
 
@@ -21,6 +23,7 @@ import {
   type DecorationSet,
   type ViewUpdate,
 } from "@codemirror/view";
+import { viewportScanWindow } from "./viewportScan";
 
 /** Supported alert types matching WYSIWYG */
 const ALERT_TYPES = ["NOTE", "TIP", "IMPORTANT", "WARNING", "CAUTION"] as const;
@@ -42,13 +45,21 @@ interface AlertBlock {
 }
 
 /**
- * Find all alert blocks in the document.
+ * Find all alert blocks whose marker line falls in [fromLine, toLine].
+ * Bounds default to the whole document. A block's downward extent is followed
+ * to its true end (bounded by the blockquote run), so a block that begins
+ * inside the window but continues below it is still fully described.
+ * @internal Exported for testing.
  */
-function findAlertBlocks(doc: { lines: number; line: (n: number) => { text: string; from: number } }): AlertBlock[] {
+export function findAlertBlocks(
+  doc: { lines: number; line: (n: number) => { text: string; from: number } },
+  fromLine: number = 1,
+  toLine: number = doc.lines,
+): AlertBlock[] {
   const blocks: AlertBlock[] = [];
-  let i = 1;
+  let i = fromLine;
 
-  while (i <= doc.lines) {
+  while (i <= toLine) {
     const line = doc.line(i);
     const text = line.text;
 
@@ -62,9 +73,13 @@ function findAlertBlocks(doc: { lines: number; line: (n: number) => { text: stri
         const alertType = typeName as AlertType;
         const startLine = i;
 
-        // Find end of this blockquote (continue while lines start with >)
+        // Extend the block while lines start with `>`, but never past `toLine`.
+        // Blockquotes are unbounded, so without this cap a long `>`-quoted run
+        // beginning with an alert marker would scan + decorate O(document) lines
+        // on every keystroke. Lines below the window aren't rendered anyway and
+        // are decorated on scroll (viewportChanged rebuilds with a new window).
         let endLine = i;
-        while (endLine < doc.lines) {
+        while (endLine < toLine) {
           const nextLine = doc.line(endLine + 1);
           if (BLOCKQUOTE_LINE_REGEX.test(nextLine.text)) {
             endLine++;
@@ -98,7 +113,8 @@ function buildAlertDecorations(view: EditorView): DecorationSet {
   const builder = new RangeSetBuilder<Decoration>();
   const doc = view.state.doc;
 
-  const alertBlocks = findAlertBlocks(doc);
+  const { startLine, endLine } = viewportScanWindow(view);
+  const alertBlocks = findAlertBlocks(doc, startLine, endLine);
 
   for (const block of alertBlocks) {
     const typeClass = `cm-alert-${block.type.toLowerCase()}`;

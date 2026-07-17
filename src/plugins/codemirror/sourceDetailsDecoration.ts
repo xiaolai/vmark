@@ -7,9 +7,13 @@
  * Key decisions:
  *   - Two syntax formats supported because markdown-it plugins use either convention
  *   - Uses line decorations for the visual border, similar to alert block decoration
- *   - Rebuilds on doc change (details blocks are infrequent, no incremental update needed)
+ *   - Rebuilds on doc/viewport change, scanning only the viewport window
+ *     (viewportScanWindow) so cost is O(viewport), not O(document). The window
+ *     margin equals MAX_LOOKAHEAD, so any block intersecting the viewport has
+ *     its opening line inside the window — viewport scanning is complete here.
  *
  * @coordinates-with detailsBlock/tiptap.ts — WYSIWYG counterpart
+ * @coordinates-with viewportScan.ts — bounds the scan to the visible line window
  * @module plugins/codemirror/sourceDetailsDecoration
  */
 
@@ -21,6 +25,7 @@ import {
   type DecorationSet,
   type ViewUpdate,
 } from "@codemirror/view";
+import { viewportScanWindow } from "./viewportScan";
 
 /** Regex to match opening of HTML details block */
 const DETAILS_HTML_OPEN = /^<details(?:\s|>|$)/i;
@@ -51,13 +56,19 @@ interface DetailsBlock {
 }
 
 /**
- * Find all details blocks in the document.
+ * Find all details blocks whose opening line falls in [fromLine, toLine].
+ * Bounds default to the whole document.
+ * @internal Exported for testing.
  */
-function findDetailsBlocks(doc: { lines: number; line: (n: number) => { text: string; from: number } }): DetailsBlock[] {
+export function findDetailsBlocks(
+  doc: { lines: number; line: (n: number) => { text: string; from: number } },
+  fromLine: number = 1,
+  toLine: number = doc.lines,
+): DetailsBlock[] {
   const blocks: DetailsBlock[] = [];
-  let i = 1;
+  let i = fromLine;
 
-  while (i <= doc.lines) {
+  while (i <= toLine) {
     const line = doc.line(i);
     const text = line.text.trimStart();
 
@@ -138,7 +149,10 @@ function buildDetailsDecorations(view: EditorView): DecorationSet {
   const builder = new RangeSetBuilder<Decoration>();
   const doc = view.state.doc;
 
-  const detailsBlocks = findDetailsBlocks(doc);
+  // Margin = MAX_LOOKAHEAD bounds block length, so any block intersecting the
+  // viewport has its opening line inside the window — the scan stays complete.
+  const { startLine, endLine } = viewportScanWindow(view, MAX_LOOKAHEAD);
+  const detailsBlocks = findDetailsBlocks(doc, startLine, endLine);
 
   for (const block of detailsBlocks) {
     for (let lineNum = block.startLine; lineNum <= block.endLine; lineNum++) {

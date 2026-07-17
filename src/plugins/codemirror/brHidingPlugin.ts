@@ -6,9 +6,12 @@
  *
  * Key decisions:
  *   - Uses line decorations (CSS class) rather than replacing content — preserves document integrity
- *   - Rebuilds decorations on every doc change for simplicity (br lines are rare)
+ *   - Rebuilds on doc/viewport change, scanning only the viewport window
+ *     (viewportScanWindow, margin 0 — <br /> lines stand alone) so cost is
+ *     O(viewport), not O(document)
  *
  * @coordinates-with stores/settingsStore.ts — reads linebreak visibility setting
+ * @coordinates-with viewportScan.ts — bounds the scan to the visible line window
  * @module plugins/codemirror/brHidingPlugin
  */
 
@@ -20,11 +23,36 @@ import {
   type DecorationSet,
   type ViewUpdate,
 } from "@codemirror/view";
+import { viewportScanWindow } from "./viewportScan";
 
 /**
  * Decoration to hide <br /> lines.
  */
 const hiddenLineDecoration = Decoration.line({ class: "cm-br-hidden" });
+
+/** Matches a line that is only a <br> / <br /> tag (with optional whitespace). */
+const BR_LINE_REGEX = /^\s*<br\s*\/?>\s*$/;
+
+/**
+ * Collect the start offsets of standalone <br /> lines in [fromLine, toLine].
+ * Bounds default to the whole document. Each line stands alone, so no
+ * look-back margin is needed when the caller passes a viewport window.
+ * @internal Exported for testing.
+ */
+export function findBrLineStarts(
+  doc: { lines: number; line: (n: number) => { text: string; from: number } },
+  fromLine: number = 1,
+  toLine: number = doc.lines,
+): number[] {
+  const starts: number[] = [];
+  for (let i = fromLine; i <= toLine; i++) {
+    const line = doc.line(i);
+    if (BR_LINE_REGEX.test(line.text)) {
+      starts.push(line.from);
+    }
+  }
+  return starts;
+}
 
 /**
  * Creates a ViewPlugin that decorates <br /> lines to hide them.
@@ -51,14 +79,10 @@ export function createBrHidingPlugin(hide: boolean) {
 
       buildDecorations(view: EditorView) {
         const builder = new RangeSetBuilder<Decoration>();
-        const doc = view.state.doc;
+        const { startLine, endLine } = viewportScanWindow(view, 0);
 
-        for (let i = 1; i <= doc.lines; i++) {
-          const line = doc.line(i);
-          // Match lines that are just <br /> (with optional whitespace)
-          if (/^\s*<br\s*\/?>\s*$/.test(line.text)) {
-            builder.add(line.from, line.from, hiddenLineDecoration);
-          }
+        for (const from of findBrLineStarts(view.state.doc, startLine, endLine)) {
+          builder.add(from, from, hiddenLineDecoration);
         }
 
         return builder.finish();
