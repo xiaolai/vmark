@@ -530,7 +530,21 @@ phase_3() {
     fail "SKIP_TESTS=1 set — WI-3.6 suite not run"
   fi
 
-  local PENDING=(3.5 3.6-ui 3.7 3.8 3.9)
+  echo "— WI-3.5 (resolve): delegated MCP resolution —"
+  assert_grep "vmark.coherence.resolve" src-tauri/src/mcp_bridge/coherence_answers.rs "resolve arm, principal-bound"
+  assert_grep "perform_resolve_as" src-tauri/src/coherence/commands.rs "actor-generic resolve with audit ref"
+  assert_grep "let principal = {" src-tauri/src/mcp_bridge/server.rs "authenticated principal plumbed from the bridge"
+  if [[ "${SKIP_TESTS:-}" != "1" ]]; then
+    if cargo test --manifest-path src-tauri/Cargo.toml --lib mcp_bridge::routing --quiet >/dev/null 2>&1; then
+      ok "WI-3.5 delegated-resolve suite green"
+    else
+      fail "WI-3.5 delegated-resolve suite red"
+    fi
+  else
+    fail "SKIP_TESTS=1 set — WI-3.5 suite not run"
+  fi
+
+  local PENDING=(3.5-f5f6 3.6-ui 3.7 3.8 3.9)
   echo "— pending WIs (fail-closed until implemented) —"
   for wi in "${PENDING[@]}"; do
     fail "WI-$wi assertions not yet defined (fail-closed)"

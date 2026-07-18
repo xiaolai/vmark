@@ -80,6 +80,23 @@ pub fn perform_resolve(
     req: &ResolveRequest,
     actor: &str,
 ) -> Result<ResolveReceipt, String> {
+    perform_resolve_as(
+        kernel,
+        req,
+        &serde_json::json!({ "type": "human", "id": actor }),
+        None,
+    )
+}
+
+/// WI-3.5 (D2.4): the actor-generic resolve — agent resolutions carry
+/// the delegation reference (spec §5.4.3 rev 2 typed validation rejects
+/// them without it).
+pub fn perform_resolve_as(
+    kernel: &mut WorkspaceKernel,
+    req: &ResolveRequest,
+    actor: &serde_json::Value,
+    delegation: Option<uuid::Uuid>,
+) -> Result<ResolveReceipt, String> {
     let kind = match req.action.as_str() {
         "accept-newer" => "ratification",
         "waive" => "waiver",
@@ -111,10 +128,14 @@ pub fn perform_resolve(
         "upstream_object": edge.upstream,
         "pinned": edge.pinned,
         "resolved_against": resolved_against,
-        "actor": { "type": "human", "id": actor },
+        "actor": actor,
         "reason": req.reason,
         "expires": req.expires,
     });
+    let mut body = body;
+    if let Some(grant_entry) = delegation {
+        body["delegation"] = serde_json::json!(grant_entry.to_string());
+    }
     let env = super::types::Envelope::create(kind, kernel.writer(), body);
     let entry_id = env.id;
     kernel.append_and_apply(&env)?;

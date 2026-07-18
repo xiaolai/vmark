@@ -24,7 +24,7 @@ fn status_on_uninitialized_workspace_reports_defaults() {
     let state = coherence_state();
     let args = serde_json::json!({ "workspace_root": dir.path() });
 
-    let response = answer_coherence(&state, "vmark.coherence.status", &args);
+    let response = answer_coherence(&state, "vmark.coherence.status", &args, None);
 
     assert!(response.success, "error: {:?}", response.error);
     assert!(response.error.is_none());
@@ -46,7 +46,7 @@ fn edges_on_uninitialized_workspace_returns_empty_array() {
     let state = coherence_state();
     let args = serde_json::json!({ "workspace_root": dir.path() });
 
-    let response = answer_coherence(&state, "vmark.coherence.edges", &args);
+    let response = answer_coherence(&state, "vmark.coherence.edges", &args, None);
 
     assert!(response.success, "error: {:?}", response.error);
     assert_eq!(response.data, Some(serde_json::json!([])));
@@ -62,7 +62,7 @@ fn missing_workspace_root_is_clean_error() {
         serde_json::json!({ "workspace_root": 42 }), // wrong type
         serde_json::json!({ "workspace_root": null }),
     ] {
-        let response = answer_coherence(&state, "vmark.coherence.status", &args);
+        let response = answer_coherence(&state, "vmark.coherence.status", &args, None);
         assert!(!response.success);
         assert!(response.data.is_none());
         assert!(
@@ -82,7 +82,7 @@ fn nonexistent_workspace_root_is_clean_error() {
     let state = coherence_state();
     let args = serde_json::json!({ "workspace_root": "/nonexistent/path/that/does/not/exist" });
 
-    let response = answer_coherence(&state, "vmark.coherence.edges", &args);
+    let response = answer_coherence(&state, "vmark.coherence.edges", &args, None);
 
     assert!(!response.success);
     assert!(
@@ -105,7 +105,7 @@ fn file_workspace_root_is_clean_error() {
     let state = coherence_state();
     let args = serde_json::json!({ "workspace_root": file });
 
-    let response = answer_coherence(&state, "vmark.coherence.status", &args);
+    let response = answer_coherence(&state, "vmark.coherence.status", &args, None);
 
     assert!(!response.success);
     assert!(response
@@ -123,7 +123,7 @@ fn unknown_coherence_request_type_is_clean_error() {
     let state = coherence_state();
     let args = serde_json::json!({ "workspace_root": dir.path() });
 
-    let response = answer_coherence(&state, "vmark.coherence.delete_all", &args);
+    let response = answer_coherence(&state, "vmark.coherence.delete_all", &args, None);
 
     assert!(!response.success);
     assert!(response
@@ -153,7 +153,7 @@ fn handle_rust_side_answers_coherence_status() {
         args: serde_json::json!({ "workspace_root": dir.path() }),
     };
 
-    let response = handle_rust_side(&request, app.handle()).expect("answered in Rust");
+    let response = handle_rust_side(&request, app.handle(), None).expect("answered in Rust");
 
     // Audit C1: arbitrary roots are refused — only workspaces this
     // installation has opened (config marker present) are queryable. The
@@ -180,7 +180,7 @@ fn handle_rust_side_answers_coherence_edges() {
         args: serde_json::json!({ "workspace_root": dir.path() }),
     };
 
-    let response = handle_rust_side(&request, app.handle()).expect("answered in Rust");
+    let response = handle_rust_side(&request, app.handle(), None).expect("answered in Rust");
 
     assert!(!response.success, "unknown roots are refused (audit C1)");
 }
@@ -198,7 +198,7 @@ fn handle_rust_side_without_managed_state_errors_instead_of_panicking() {
         args: serde_json::json!({ "workspace_root": "/tmp" }),
     };
 
-    let response = handle_rust_side(&request, app.handle()).expect("still answered in Rust");
+    let response = handle_rust_side(&request, app.handle(), None).expect("still answered in Rust");
 
     assert!(!response.success);
     assert!(response
@@ -217,7 +217,7 @@ fn handle_rust_side_falls_through_for_unrelated_types() {
         args: serde_json::json!({}),
     };
 
-    assert!(handle_rust_side(&request, app.handle()).is_none());
+    assert!(handle_rust_side(&request, app.handle(), None).is_none());
 }
 
 // WI-2b.8 — the read-only semantic-layer views over MCP.
@@ -228,15 +228,146 @@ fn claims_and_contexts_answer_read_only() {
     let root = td.path().to_string_lossy().into_owned();
     let args = serde_json::json!({ "workspace_root": root });
 
-    let claims = answer_coherence(&state, "vmark.coherence.claims", &args);
+    let claims = answer_coherence(&state, "vmark.coherence.claims", &args, None);
     assert!(claims.success, "{:?}", claims.error);
     assert_eq!(claims.data.unwrap(), serde_json::json!([]));
 
-    let contexts = answer_coherence(&state, "vmark.coherence.contexts", &args);
+    let contexts = answer_coherence(&state, "vmark.coherence.contexts", &args, None);
     assert!(contexts.success, "{:?}", contexts.error);
     let rows = contexts.data.unwrap();
     let rows = rows.as_array().unwrap();
     assert_eq!(rows.len(), 1, "implicit default always present");
     assert_eq!(rows[0]["name"], "default");
     assert_eq!(rows[0]["enforcement"], "greenhouse");
+}
+
+// ── WI-3.5: the delegated resolve — principal-bound, fail-closed ────────
+
+fn stale_workspace(td: &tempfile::TempDir, state: &CoherenceState) -> (uuid::Uuid, u32) {
+    use crate::coherence::capture::{capture, CaptureInputSpec, CaptureRequest};
+    use crate::coherence::types::{Agent, AgentType, Confidence, InputRole, Intent};
+    let kernel = state
+        .registry
+        .kernel_for(td.path(), state.writer)
+        .expect("kernel");
+    let mut kernel = kernel.lock().unwrap();
+    let mut cap = |rel: &str, content: &str, inputs: Vec<CaptureInputSpec>| {
+        std::fs::write(td.path().join(rel), content).unwrap();
+        capture(
+            &mut kernel,
+            CaptureRequest {
+                path: rel.into(),
+                content: content.into(),
+                inputs,
+                agent: Agent {
+                    kind: AgentType::Human,
+                    id: Some("t".into()),
+                },
+                intent: Intent {
+                    kind: "test".into(),
+                    summary: "t".into(),
+                    prompt_hash: None,
+                },
+                confidence: Confidence::Exact,
+                rewrite_identity: true,
+                idem: None,
+            },
+        )
+        .unwrap();
+    };
+    cap("elena.md", "green\n", vec![]);
+    cap(
+        "scene.md",
+        "derived\n",
+        vec![CaptureInputSpec {
+            path: Some("elena.md".into()),
+            object_id: None,
+            revision: None,
+            role: InputRole::Direct,
+        }],
+    );
+    cap("elena.md", "brown\n", vec![]);
+    let rows = crate::coherence::commands::perform_breakdown(&mut kernel).unwrap();
+    (rows[0].txf, rows[0].input)
+}
+
+fn grant_for(td: &tempfile::TempDir, state: &CoherenceState, principal: &str, scope: &str) {
+    use crate::coherence::delegation::{perform_delegate, DelegateRequest};
+    let kernel = state.registry.kernel_for(td.path(), state.writer).unwrap();
+    let mut kernel = kernel.lock().unwrap();
+    perform_delegate(
+        &mut kernel,
+        &DelegateRequest {
+            delegate: principal.into(),
+            scope: vec![scope.into()],
+            expires: "2099-01-01T00:00:00Z".into(),
+            revoke: None,
+        },
+        "xiaolai",
+        "2026-07-19T00:00:00Z",
+    )
+    .unwrap();
+}
+
+#[test]
+fn delegated_resolve_requires_principal_grant_and_live_edge() {
+    let td = tempfile::tempdir().unwrap();
+    let state = coherence_state();
+    let (txf, input) = stale_workspace(&td, &state);
+    let root = td.path().to_string_lossy().into_owned();
+    let args = serde_json::json!({
+        "workspace_root": root, "txf": txf.to_string(), "input": input,
+        "resolution": "accept-newer",
+    });
+
+    // No identity → refused.
+    let r = answer_coherence(&state, "vmark.coherence.resolve", &args, None);
+    assert!(!r.success);
+    assert!(r.error.unwrap().contains("unidentified"));
+
+    // Identified but no grant → refused.
+    let r = answer_coherence(&state, "vmark.coherence.resolve", &args, Some("codex-cli"));
+    assert!(!r.success);
+    assert!(r.error.unwrap().contains("no live delegation"));
+
+    // Granted for the OTHER scope → still refused.
+    grant_for(&td, &state, "codex-cli", "resolve.waive");
+    let r = answer_coherence(&state, "vmark.coherence.resolve", &args, Some("codex-cli"));
+    assert!(!r.success);
+
+    // Proper grant → the resolution lands with agent actor + audit ref.
+    grant_for(&td, &state, "codex-cli", "resolve.accept-newer");
+    let r = answer_coherence(&state, "vmark.coherence.resolve", &args, Some("codex-cli"));
+    assert!(r.success, "{:?}", r.error);
+    let kernel = state.registry.kernel_for(td.path(), state.writer).unwrap();
+    let kernel = kernel.lock().unwrap();
+    let entries = kernel.ledger().read_all().unwrap().entries;
+    let res = entries.iter().find(|e| e.kind == "ratification").unwrap();
+    assert_eq!(res.body["actor"]["type"], "agent");
+    assert_eq!(res.body["actor"]["id"], "codex-cli");
+    assert!(
+        res.body["delegation"].is_string(),
+        "audit reference present"
+    );
+
+    // The edge is now resolved — a second delegated resolve fails (not live).
+    drop(kernel);
+    let r = answer_coherence(&state, "vmark.coherence.resolve", &args, Some("codex-cli"));
+    assert!(!r.success);
+    assert!(r.error.unwrap().contains("not live"));
+}
+
+#[test]
+fn delegated_waive_still_requires_a_reason() {
+    let td = tempfile::tempdir().unwrap();
+    let state = coherence_state();
+    let (txf, input) = stale_workspace(&td, &state);
+    grant_for(&td, &state, "codex-cli", "resolve.waive");
+    let root = td.path().to_string_lossy().into_owned();
+    let args = serde_json::json!({
+        "workspace_root": root, "txf": txf.to_string(), "input": input,
+        "resolution": "waive",
+    });
+    let r = answer_coherence(&state, "vmark.coherence.resolve", &args, Some("codex-cli"));
+    assert!(!r.success, "waiver without reason must be refused");
 }

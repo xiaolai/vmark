@@ -81,6 +81,7 @@ pub(super) fn resolve_target_window<R: Runtime>(
 pub(super) fn handle_rust_side<R: Runtime>(
     request: &McpRequest,
     app: &AppHandle<R>,
+    principal: Option<String>,
 ) -> Option<McpResponse> {
     match request.request_type.as_str() {
         "windows.list" => {
@@ -161,6 +162,7 @@ pub(super) fn handle_rust_side<R: Runtime>(
                 &state,
                 &request.request_type,
                 &request.args,
+                principal.as_deref(),
             ))
         }
         _ => None,
@@ -197,34 +199,41 @@ pub(super) use super::coherence_answers::answer_coherence;
 pub(super) async fn answer_rust_side<R: Runtime>(
     request: &McpRequest,
     app: &tauri::AppHandle<R>,
+    principal: Option<String>,
 ) -> Option<McpResponse> {
     if request.request_type.starts_with("vmark.coherence.") {
-        return Some(answer_coherence_async(request, app).await);
+        return Some(answer_coherence_async(request, app, principal).await);
     }
-    handle_rust_side(request, app)
+    handle_rust_side(request, app, principal)
 }
 
 async fn answer_coherence_async<R: Runtime>(
     request: &McpRequest,
     app: &tauri::AppHandle<R>,
+    principal: Option<String>,
 ) -> McpResponse {
     let write_lock = super::state::get_write_lock();
-    let _write_guard = if request.request_type == "vmark.coherence.edges" {
+    // Mutations (resolve) serialize with document writes, like edges.
+    let _write_guard = if request.request_type == "vmark.coherence.edges"
+        || request.request_type == "vmark.coherence.resolve"
+    {
         Some(write_lock.lock().await)
     } else {
         None
     };
     let app_clone = app.clone();
     let request_clone = request.clone();
-    tauri::async_runtime::spawn_blocking(move || handle_rust_side(&request_clone, &app_clone))
-        .await
-        .ok()
-        .flatten()
-        .unwrap_or_else(|| McpResponse {
-            success: false,
-            data: None,
-            error: Some("coherence request failed to execute".to_string()),
-        })
+    tauri::async_runtime::spawn_blocking(move || {
+        handle_rust_side(&request_clone, &app_clone, principal)
+    })
+    .await
+    .ok()
+    .flatten()
+    .unwrap_or_else(|| McpResponse {
+        success: false,
+        data: None,
+        error: Some("coherence request failed to execute".to_string()),
+    })
 }
 
 #[cfg(test)]

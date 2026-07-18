@@ -121,7 +121,17 @@ export type BridgeRequest =
   // Coherence layer (WI-1.10) — READ-ONLY, answered entirely in Rust
   // (src-tauri/src/mcp_bridge/routing.rs), no webview hop.
   | { type: 'vmark.coherence.status'; workspace_root: string }
-  | { type: 'vmark.coherence.edges'; workspace_root: string };
+  | { type: 'vmark.coherence.edges'; workspace_root: string }
+  | { type: 'vmark.coherence.claims'; workspace_root: string }
+  | { type: 'vmark.coherence.contexts'; workspace_root: string }
+  | {
+      type: 'vmark.coherence.resolve';
+      workspace_root: string;
+      txf: unknown;
+      input: unknown;
+      resolution: unknown;
+      reason?: unknown;
+    };
 
 /**
  * Bridge response types — what VMark returns.
