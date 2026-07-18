@@ -315,17 +315,24 @@ impl Envelope {
         chrono::DateTime::parse_from_rfc3339(&self.time).ok().map(|t| (t, self.id))
     }
 
-    #[cfg(test)]
-    pub fn new_test(kind: &str, body: serde_json::Value) -> Self {
+    /// Mint a new entry: fresh UUIDv7 `id` and `idem` (the idem is created
+    /// once per logical operation and reused verbatim on any retry —
+    /// spec §5.1), current UTC time.
+    pub fn create(kind: &str, writer: WriterId, body: serde_json::Value) -> Self {
         Self {
             format: FORMAT_VERSION,
             id: Uuid::now_v7(),
             kind: kind.to_string(),
             time: chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true),
-            writer: WriterId(Uuid::now_v7()),
+            writer,
             idem: Uuid::now_v7(),
             body,
         }
+    }
+
+    #[cfg(test)]
+    pub fn new_test(kind: &str, body: serde_json::Value) -> Self {
+        Self::create(kind, WriterId(Uuid::now_v7()), body)
     }
 }
 
