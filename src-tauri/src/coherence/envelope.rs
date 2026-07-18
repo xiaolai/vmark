@@ -69,9 +69,17 @@ impl Envelope {
             // Known Phase-2b kinds: preserved, but schema-VALIDATED now so
             // malformed records quarantine instead of festering (§5.6).
             "check-result" => {
-                for key in ["edge", "pinned", "checked_against", "verdict"] {
-                    if b.get(key).is_none() {
-                        return Err(format!("check-result missing {key}"));
+                let edge = b.get("edge").ok_or("check-result missing edge")?;
+                if !edge.is_object() || edge.get("txf").and_then(|v| v.as_str()).is_none() {
+                    return Err("check-result edge malformed".into());
+                }
+                for key in ["pinned", "checked_against"] {
+                    let ok = b
+                        .get(key)
+                        .and_then(|v| v.as_str())
+                        .is_some_and(|v| super::types::RevisionId::parse(v).is_ok());
+                    if !ok {
+                        return Err(format!("check-result {key} is not a revision id"));
                     }
                 }
                 let verdict = b

@@ -16,7 +16,9 @@ use rusqlite::Connection;
 
 use super::types::{Envelope, InputRole, ObjectId, TypedBody};
 
-const SCHEMA_VERSION: i32 = 1;
+// v2: applied keyed by idem; edges.confidence; held/disk_lag tables.
+// Any v1 index (pre-release dev/E2E artifacts only) wipes + rebuilds.
+const SCHEMA_VERSION: i32 = 2;
 
 const SCHEMA: &str = "
 CREATE TABLE IF NOT EXISTS revisions (
@@ -79,7 +81,18 @@ impl CoherenceIndex {
         // schema is not contract (R16, spec §12).
         let needs_rebuild = version != SCHEMA_VERSION;
         if needs_rebuild && version != 0 {
-            for table in ["revisions", "edges", "resolutions", "registry", "applied"] {
+            // Version mismatch: FULL reset including session-state tables —
+            // their shapes may have changed with the schema.
+            for table in [
+                "revisions",
+                "edges",
+                "resolutions",
+                "registry",
+                "applied",
+                "absent",
+                "held",
+                "disk_lag",
+            ] {
                 let _ = conn.execute(&format!("DROP TABLE IF EXISTS {table}"), []);
             }
         }
@@ -198,14 +211,9 @@ impl CoherenceIndex {
         self.conn
             .pragma_update(None, "user_version", 0)
             .map_err(|e| e.to_string())?;
-        for table in [
-            "revisions",
-            "edges",
-            "resolutions",
-            "registry",
-            "applied",
-            "absent",
-        ] {
+        // Ledger-derived tables only: `absent`/`held`/`disk_lag` are
+        // scan-owned session state a rebuild must not forget (A12/A18).
+        for table in ["revisions", "edges", "resolutions", "registry", "applied"] {
             self.conn
                 .execute(&format!("DELETE FROM {table}"), [])
                 .map_err(|e| e.to_string())?;
