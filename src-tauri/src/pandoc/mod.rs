@@ -8,3 +8,4 @@
 //! @coordinates-with ai_provider/spawn.rs — reuses build_command()
 
 pub mod commands;
+mod run;

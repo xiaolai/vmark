@@ -7,8 +7,10 @@
 //! debounce + filter → `app.emit("fs:changed", ...)` → frontend `useFileTree`.
 //!
 //! Key decisions:
-//!   - Per-path debouncing (200ms) suppresses duplicate events from macOS FSEvents
-//!     which fires multiple events for a single write.
+//!   - Debouncing (200ms) keyed by (watch_id, path, kind) suppresses duplicate
+//!     events from macOS FSEvents, which fires multiple events for a single
+//!     write. Kind is part of the key so a `create` followed by a `remove`
+//!     within the window is never swallowed.
 //!   - Specific noise directories (.git, node_modules, .obsidian) are filtered,
 //!     but user-visible dot-dirs (.github, .vscode) are allowed through.
 //!   - Each watcher is keyed by `watch_id` (typically window label) so multi-window
@@ -16,6 +18,10 @@
 //!
 //! Known limitations:
 //!   - No recursive ignore patterns — filtering is component-based, not glob-based.
+//!   - Debounce is leading-edge only (suppress, not defer): when a burst of
+//!     same-kind events lands within the window, the trailing events are
+//!     dropped rather than re-emitted after the window, so the frontend may
+//!     briefly show content one write behind until the next event arrives.
 
 use notify::{Config, Event, RecommendedWatcher, RecursiveMode, Watcher};
 use serde::Serialize;
@@ -115,12 +121,37 @@ fn should_ignore_path(path: &Path) -> bool {
     false
 }
 
+/// Debounce key: (watch_id, path, kind). Kind is part of the key so distinct
+/// kinds for the same path (e.g. `create` then `remove`) never suppress each
+/// other.
+type DebounceKey = (String, String, String);
+
 /// Per-path debounce state to suppress duplicate events from macOS FSEvents.
-/// Key: (watch_id, path), Value: last emitted time.
-static LAST_EMITTED: Mutex<Option<HashMap<(String, String), Instant>>> = Mutex::new(None);
+/// Value: last emitted time for the key.
+static LAST_EMITTED: Mutex<Option<HashMap<DebounceKey, Instant>>> = Mutex::new(None);
+
+/// Decide whether an event for `(watch_id, path, kind)` should be emitted,
+/// recording `now` as its emission time when it should. Only a repeat of the
+/// SAME kind within `DEBOUNCE_INTERVAL` is suppressed.
+fn should_emit_and_record(
+    map: &mut HashMap<DebounceKey, Instant>,
+    watch_id: &str,
+    path: &str,
+    kind: &str,
+    now: Instant,
+) -> bool {
+    let key = (watch_id.to_string(), path.to_string(), kind.to_string());
+    if let Some(last) = map.get(&key) {
+        if now.duration_since(*last) < DEBOUNCE_INTERVAL {
+            return false; // Skip: same kind within debounce window
+        }
+    }
+    map.insert(key, now);
+    true
+}
 
 /// Handle a notify event and emit it to the frontend.
-/// Deduplicates events for the same path within DEBOUNCE_INTERVAL.
+/// Deduplicates same-kind events for the same path within DEBOUNCE_INTERVAL.
 fn handle_event(app: &AppHandle, watch_id: &str, root_path: &str, event: Event) {
     let Some(kind_str) = event_kind_to_string(&event.kind) else {
         return;
@@ -143,15 +174,7 @@ fn handle_event(app: &AppHandle, watch_id: &str, root_path: &str, event: Event) 
         .filter(|p| !should_ignore_path(p))
         .filter_map(|p| {
             let path_str = p.to_string_lossy().to_string();
-            let key = (watch_id.to_string(), path_str.clone());
-
-            if let Some(last) = map.get(&key) {
-                if now.duration_since(*last) < DEBOUNCE_INTERVAL {
-                    return None; // Skip: within debounce window
-                }
-            }
-            map.insert(key, now);
-            Some(path_str)
+            should_emit_and_record(map, watch_id, &path_str, kind_str, now).then_some(path_str)
         })
         .collect();
 
@@ -222,144 +245,12 @@ pub fn stop_watching(watch_id: String) -> Result<(), String> {
     // Clean up debounce entries for this watch_id
     if let Ok(mut debounce_guard) = LAST_EMITTED.lock() {
         if let Some(map) = debounce_guard.as_mut() {
-            map.retain(|(wid, _), _| wid != &watch_id);
+            map.retain(|(wid, _, _), _| wid != &watch_id);
         }
     }
     Ok(())
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use notify::EventKind;
-
-    #[test]
-    fn test_event_kind_create() {
-        let kind = EventKind::Create(notify::event::CreateKind::File);
-        assert_eq!(event_kind_to_string(&kind), Some("create"));
-    }
-
-    #[test]
-    fn test_event_kind_modify() {
-        let kind = EventKind::Modify(notify::event::ModifyKind::Data(
-            notify::event::DataChange::Content,
-        ));
-        assert_eq!(event_kind_to_string(&kind), Some("modify"));
-    }
-
-    #[test]
-    fn test_event_kind_remove() {
-        let kind = EventKind::Remove(notify::event::RemoveKind::File);
-        assert_eq!(event_kind_to_string(&kind), Some("remove"));
-    }
-
-    #[test]
-    fn test_event_kind_access_ignored() {
-        let kind = EventKind::Access(notify::event::AccessKind::Read);
-        assert_eq!(event_kind_to_string(&kind), None);
-    }
-
-    #[test]
-    fn test_event_kind_other_ignored() {
-        let kind = EventKind::Other;
-        assert_eq!(event_kind_to_string(&kind), None);
-    }
-
-    #[test]
-    fn test_ignore_git_dir() {
-        assert!(should_ignore_path(Path::new("/project/.git/objects/abc")));
-        assert!(should_ignore_path(Path::new("/project/.git/HEAD")));
-    }
-
-    #[test]
-    fn test_ignore_obsidian_dir() {
-        assert!(should_ignore_path(Path::new(
-            "/vault/.obsidian/workspace.json"
-        )));
-        assert!(should_ignore_path(Path::new(
-            "/vault/.obsidian/plugins/foo"
-        )));
-    }
-
-    #[test]
-    fn test_ignore_node_modules() {
-        assert!(should_ignore_path(Path::new(
-            "/project/node_modules/pkg/index.js"
-        )));
-    }
-
-    #[test]
-    fn test_allow_dot_directories_not_in_ignore_list() {
-        // User-visible dot-directories must NOT be filtered — external change
-        // detection depends on events reaching the frontend.
-        assert!(!should_ignore_path(Path::new(
-            "/project/.github/workflows/ci.yml"
-        )));
-        assert!(!should_ignore_path(Path::new(
-            "/project/.vscode/settings.json"
-        )));
-        assert!(!should_ignore_path(Path::new("/home/.config/app.toml")));
-        assert!(!should_ignore_path(Path::new("/project/.husky/pre-commit")));
-        assert!(!should_ignore_path(Path::new(
-            "/project/.devcontainer/devcontainer.json"
-        )));
-    }
-
-    #[test]
-    fn test_allow_normal_paths() {
-        assert!(!should_ignore_path(Path::new("/project/src/foo.md")));
-        assert!(!should_ignore_path(Path::new("/project/notes/chapter1.md")));
-        assert!(!should_ignore_path(Path::new("/project/README.md")));
-    }
-
-    #[test]
-    fn test_ignore_ds_store() {
-        assert!(should_ignore_path(Path::new("/project/.DS_Store")));
-    }
-
-    #[test]
-    fn test_ignore_pycache() {
-        assert!(should_ignore_path(Path::new(
-            "/project/__pycache__/mod.pyc"
-        )));
-    }
-
-    #[test]
-    fn test_ignore_temp_files_from_named_temp_file() {
-        // NamedTempFile creates files like ".tmpXXXXXX"
-        assert!(should_ignore_path(Path::new("/workspace/.tmpabcdef")));
-        assert!(should_ignore_path(Path::new("/workspace/.tmp123456")));
-    }
-
-    #[test]
-    fn test_ignore_temp_files_from_app_paths() {
-        // app_paths.rs creates files like ".{name}.tmp.{pid}"
-        assert!(should_ignore_path(Path::new(
-            "/workspace/.test.md.tmp.12345"
-        )));
-        assert!(should_ignore_path(Path::new("/workspace/.notes.tmp.9999")));
-    }
-
-    #[test]
-    fn test_allow_normal_tmp_extension() {
-        // Files that happen to end in .tmp but aren't our temp files
-        // should still be allowed (no ".tmp." infix, no ".tmp" prefix)
-        assert!(!should_ignore_path(Path::new("/workspace/notes.md")));
-        assert!(!should_ignore_path(Path::new("/workspace/data.txt")));
-    }
-
-    #[test]
-    fn test_fs_change_event_serialization() {
-        let event = FsChangeEvent {
-            watch_id: "main".to_string(),
-            root_path: "/Users/test".to_string(),
-            paths: vec!["/Users/test/file.md".to_string()],
-            kind: "modify".to_string(),
-        };
-
-        let json = serde_json::to_string(&event).unwrap();
-        assert!(json.contains("\"watchId\":\"main\""));
-        assert!(json.contains("\"rootPath\":\"/Users/test\""));
-        assert!(json.contains("\"kind\":\"modify\""));
-    }
-}
+#[path = "watcher.test.rs"]
+mod tests;

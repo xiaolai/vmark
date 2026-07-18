@@ -4,20 +4,26 @@
 //! Uses stdin piping to avoid temp files. Runs blocking I/O on a dedicated
 //! thread with a timeout to avoid stalling the async runtime.
 //!
+//! @coordinates-with pandoc/run.rs — run_pandoc() blocking subprocess execution
 //! @coordinates-with ai_provider/spawn.rs — build_command() for cross-platform spawn
 //! @coordinates-with ai_provider/detection.rs — login_shell_path(), which_command() for PATH resolution
 
-use std::process::Stdio;
 use std::time::Duration;
 use tauri::command;
 
-use crate::ai_provider::{build_command, login_shell_path, which_command};
+use crate::ai_provider::{
+    build_command, capture_stdout_with_timeout, login_shell_path, which_command,
+};
 
 /// Allowed output extensions (strict allowlist).
 pub(crate) const ALLOWED_EXTENSIONS: &[&str] = &["docx", "epub", "tex", "odt", "rtf", "txt"];
 
 /// Maximum time to wait for Pandoc to finish (2 minutes).
 const PANDOC_TIMEOUT: Duration = Duration::from_secs(120);
+
+/// Maximum time to wait for `pandoc --version` during detection. Detection is
+/// a lightweight probe; a wedged binary must not hang the command forever.
+const PANDOC_DETECT_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// Validate that a file extension is in the allowed set.
 ///
@@ -71,8 +77,26 @@ pub struct PandocInfo {
 }
 
 /// Detect whether Pandoc is installed and return its absolute path + version.
+///
+/// `async` + `spawn_blocking` because detection spawns subprocesses
+/// (`which pandoc`, `pandoc --version`) — a sync command would run them on
+/// the main thread and beachball the UI.
 #[command]
-pub fn detect_pandoc() -> PandocInfo {
+pub async fn detect_pandoc() -> PandocInfo {
+    tokio::task::spawn_blocking(detect_pandoc_blocking)
+        .await
+        .unwrap_or_else(|e| {
+            log::warn!("[pandoc] detection task failed: {e}");
+            PandocInfo {
+                available: false,
+                path: None,
+                version: None,
+            }
+        })
+}
+
+/// Blocking body of `detect_pandoc` (runs on the blocking thread pool).
+fn detect_pandoc_blocking() -> PandocInfo {
     let path = match resolve_pandoc_path() {
         Some(p) => p,
         None => {
@@ -84,20 +108,17 @@ pub fn detect_pandoc() -> PandocInfo {
         }
     };
 
-    let version = match build_command(&path, &["--version"])
-        .env("PATH", login_shell_path())
-        .output()
-    {
-        Ok(output) if output.status.success() => {
-            let raw = String::from_utf8_lossy(&output.stdout);
-            // First line is "pandoc 3.1.2" or similar
-            raw.lines()
-                .next()
-                .and_then(|line| line.strip_prefix("pandoc "))
-                .map(|v| v.trim().to_string())
-        }
-        _ => None,
-    };
+    let mut version_cmd = build_command(&path, &["--version"]);
+    version_cmd.env("PATH", login_shell_path());
+    let version =
+        capture_stdout_with_timeout(version_cmd, PANDOC_DETECT_TIMEOUT, "pandoc --version")
+            .and_then(|raw| {
+                // First line is "pandoc 3.1.2" or similar
+                raw.lines()
+                    .next()
+                    .and_then(|line| line.strip_prefix("pandoc "))
+                    .map(|v| v.trim().to_string())
+            });
 
     PandocInfo {
         available: true,
@@ -157,11 +178,12 @@ pub async fn export_via_pandoc(
 
     // Run blocking I/O on a dedicated thread with timeout
     let result = tokio::task::spawn_blocking(move || {
-        run_pandoc(
+        super::run::run_pandoc(
             &pandoc_exe,
             &markdown,
             &output_path,
             validated_source_dir.as_deref(),
+            PANDOC_TIMEOUT,
         )
     })
     .await
@@ -191,326 +213,10 @@ pub(crate) fn resolve_pandoc_path() -> Option<String> {
     }
 }
 
-/// Execute Pandoc synchronously (called from spawn_blocking).
-///
-/// Reads stderr in a separate thread to avoid pipe-buffer deadlocks,
-/// then polls the child with a timeout.
-fn run_pandoc(
-    pandoc_exe: &str,
-    markdown: &str,
-    output_path: &str,
-    source_dir: Option<&str>,
-) -> Result<(), String> {
-    use std::io::Write;
-
-    let args_owned = build_pandoc_args(output_path, source_dir);
-    let args: Vec<&str> = args_owned.iter().map(|s| s.as_str()).collect();
-
-    let mut child = build_command(pandoc_exe, &args)
-        .env("PATH", login_shell_path())
-        .stdin(Stdio::piped())
-        .stdout(Stdio::null())
-        .stderr(Stdio::piped())
-        .spawn()
-        .map_err(|e| {
-            rust_i18n::t!("errors.pandoc.startFailed", detail = e.to_string()).to_string()
-        })?;
-
-    // Write markdown to stdin
-    if let Some(mut stdin) = child.stdin.take() {
-        stdin.write_all(markdown.as_bytes()).map_err(|e| {
-            rust_i18n::t!("errors.pandoc.stdinFailed", detail = e.to_string()).to_string()
-        })?;
-        // stdin is dropped here, closing the pipe
-    }
-
-    // Drain stderr in a background thread to prevent pipe-buffer deadlock.
-    // If Pandoc writes more than the OS pipe buffer (~64 KB) to stderr while
-    // we're polling try_wait(), the child would block on the write and never
-    // exit — causing a false timeout. Reading stderr concurrently avoids this.
-    let stderr_handle = child.stderr.take().map(|stderr| {
-        std::thread::spawn(move || {
-            use std::io::Read;
-            let mut buf = Vec::new();
-            let mut reader = stderr;
-            let _ = reader.read_to_end(&mut buf);
-            buf
-        })
-    });
-
-    // Wait with timeout
-    let start = std::time::Instant::now();
-    loop {
-        match child.try_wait() {
-            Ok(Some(status)) => {
-                let stderr_buf = stderr_handle
-                    .and_then(|h| h.join().ok())
-                    .unwrap_or_default();
-
-                if status.success() {
-                    return Ok(());
-                }
-
-                let stderr = String::from_utf8_lossy(&stderr_buf);
-                let msg = if stderr.trim().is_empty() {
-                    rust_i18n::t!("errors.pandoc.exitedWithCode", code = status.to_string())
-                        .to_string()
-                } else {
-                    stderr.trim().to_string()
-                };
-                return Err(msg);
-            }
-            Ok(None) => {
-                if start.elapsed() > PANDOC_TIMEOUT {
-                    let _ = child.kill();
-                    return Err(rust_i18n::t!("errors.pandoc.timeout").to_string());
-                }
-                std::thread::sleep(Duration::from_millis(100));
-            }
-            Err(e) => {
-                return Err(
-                    rust_i18n::t!("errors.pandoc.waitFailed", detail = e.to_string()).to_string(),
-                );
-            }
-        }
-    }
-}
-
 // ============================================================================
 // Tests
 // ============================================================================
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    // ---- ALLOWED_EXTENSIONS constant ----
-
-    // Constant-membership tests removed — the behavioral tests on
-    // validate_extension() + the length assertion below cover these with better signal.
-
-    #[test]
-    fn allowed_extensions_rejects_dangerous() {
-        for ext in &["exe", "sh", "bat", "html", "pdf", "js", "py"] {
-            assert!(
-                !ALLOWED_EXTENSIONS.contains(ext),
-                "{} should not be allowed",
-                ext
-            );
-        }
-    }
-
-    #[test]
-    fn allowed_extensions_rejects_pdf() {
-        assert!(!ALLOWED_EXTENSIONS.contains(&"pdf"));
-    }
-
-    #[test]
-    fn allowed_extensions_rejects_js() {
-        assert!(!ALLOWED_EXTENSIONS.contains(&"js"));
-    }
-
-    #[test]
-    fn allowed_extensions_has_exactly_six_entries() {
-        assert_eq!(ALLOWED_EXTENSIONS.len(), 6);
-    }
-
-    // ---- validate_extension ----
-
-    #[test]
-    fn validate_extension_accepts_docx() {
-        assert!(validate_extension("/tmp/output.docx").is_ok());
-    }
-
-    #[test]
-    fn validate_extension_accepts_epub() {
-        assert!(validate_extension("/tmp/book.epub").is_ok());
-    }
-
-    #[test]
-    fn validate_extension_accepts_tex() {
-        assert!(validate_extension("/home/user/paper.tex").is_ok());
-    }
-
-    #[test]
-    fn validate_extension_accepts_odt() {
-        assert!(validate_extension("document.odt").is_ok());
-    }
-
-    #[test]
-    fn validate_extension_accepts_rtf() {
-        assert!(validate_extension("notes.rtf").is_ok());
-    }
-
-    #[test]
-    fn validate_extension_accepts_txt() {
-        assert!(validate_extension("readme.txt").is_ok());
-    }
-
-    #[test]
-    fn validate_extension_is_case_insensitive() {
-        assert!(validate_extension("file.DOCX").is_ok());
-        assert!(validate_extension("file.Docx").is_ok());
-        assert!(validate_extension("file.DocX").is_ok());
-        assert!(validate_extension("file.EPUB").is_ok());
-        assert!(validate_extension("file.TXT").is_ok());
-    }
-
-    #[test]
-    fn validate_extension_rejects_exe() {
-        let err = validate_extension("malware.exe").unwrap_err();
-        assert!(err.contains("Unsupported format"));
-        assert!(err.contains(".exe"));
-    }
-
-    #[test]
-    fn validate_extension_rejects_sh() {
-        assert!(validate_extension("script.sh").is_err());
-    }
-
-    #[test]
-    fn validate_extension_rejects_html() {
-        assert!(validate_extension("page.html").is_err());
-    }
-
-    #[test]
-    fn validate_extension_rejects_pdf() {
-        assert!(validate_extension("document.pdf").is_err());
-    }
-
-    #[test]
-    fn validate_extension_rejects_js() {
-        assert!(validate_extension("app.js").is_err());
-    }
-
-    #[test]
-    fn validate_extension_rejects_py() {
-        assert!(validate_extension("script.py").is_err());
-    }
-
-    #[test]
-    fn validate_extension_rejects_bat() {
-        assert!(validate_extension("run.bat").is_err());
-    }
-
-    #[test]
-    fn validate_extension_rejects_no_extension() {
-        let err = validate_extension("/tmp/output").unwrap_err();
-        assert!(err.contains("Unsupported format"));
-        // Empty extension shows as '.'
-        assert!(err.contains("'.'"));
-    }
-
-    #[test]
-    fn validate_extension_uses_last_extension_for_double_dot() {
-        // "file.tar.gz" — only the last extension ("gz") is checked
-        assert!(validate_extension("archive.tar.gz").is_err());
-    }
-
-    #[test]
-    fn validate_extension_handles_dot_only_filename() {
-        // ".docx" — on Unix this is a hidden file named "docx" with no extension
-        // std::path::Path::new(".docx").extension() returns None
-        assert!(validate_extension(".docx").is_err());
-    }
-
-    #[test]
-    fn validate_extension_handles_path_with_spaces() {
-        assert!(validate_extension("/tmp/my documents/output file.docx").is_ok());
-    }
-
-    #[test]
-    fn validate_extension_error_lists_supported_formats() {
-        let err = validate_extension("bad.xyz").unwrap_err();
-        assert!(err.contains("docx"));
-        assert!(err.contains("epub"));
-        assert!(err.contains("tex"));
-        assert!(err.contains("odt"));
-        assert!(err.contains("rtf"));
-        assert!(err.contains("txt"));
-    }
-
-    // ---- build_pandoc_args ----
-
-    #[test]
-    fn build_pandoc_args_base_without_source_dir() {
-        let args = build_pandoc_args("/tmp/out.docx", None);
-        assert_eq!(
-            args,
-            vec!["-f", "markdown", "-o", "/tmp/out.docx", "--standalone"]
-        );
-    }
-
-    #[test]
-    fn build_pandoc_args_with_source_dir() {
-        let args = build_pandoc_args("/tmp/out.epub", Some("/home/user/docs"));
-        assert_eq!(
-            args,
-            vec![
-                "-f",
-                "markdown",
-                "-o",
-                "/tmp/out.epub",
-                "--standalone",
-                "--resource-path=/home/user/docs",
-            ]
-        );
-    }
-
-    #[test]
-    fn build_pandoc_args_source_dir_with_spaces() {
-        let args = build_pandoc_args("out.docx", Some("/home/user/my docs"));
-        let last = args.last().unwrap();
-        assert_eq!(last, "--resource-path=/home/user/my docs");
-    }
-
-    #[test]
-    fn build_pandoc_args_always_uses_standalone() {
-        let args = build_pandoc_args("out.tex", None);
-        assert!(args.contains(&"--standalone".to_string()));
-    }
-
-    #[test]
-    fn build_pandoc_args_always_specifies_markdown_format() {
-        let args = build_pandoc_args("out.txt", None);
-        let f_idx = args.iter().position(|a| a == "-f").unwrap();
-        assert_eq!(args[f_idx + 1], "markdown");
-    }
-
-    #[test]
-    fn build_pandoc_args_output_path_follows_o_flag() {
-        let args = build_pandoc_args("/custom/path.rtf", None);
-        let o_idx = args.iter().position(|a| a == "-o").unwrap();
-        assert_eq!(args[o_idx + 1], "/custom/path.rtf");
-    }
-
-    // ---- resolve_pandoc_path ----
-
-    #[test]
-    fn resolve_pandoc_path_returns_option() {
-        // This test verifies the function returns Some or None without panicking.
-        // On CI without pandoc, this returns None. On dev machines with pandoc, Some.
-        let result = resolve_pandoc_path();
-        match &result {
-            Some(path) => {
-                // If found, the path should be non-empty and point to a real file
-                assert!(!path.is_empty());
-                assert!(
-                    std::path::Path::new(path).exists(),
-                    "Resolved path '{}' should exist on disk",
-                    path
-                );
-            }
-            None => {
-                // Pandoc not installed — this is valid in CI
-            }
-        }
-    }
-
-    // ---- PANDOC_TIMEOUT constant ----
-
-    #[test]
-    fn pandoc_timeout_is_two_minutes() {
-        assert_eq!(PANDOC_TIMEOUT, Duration::from_secs(120));
-    }
-}
+#[path = "commands.test.rs"]
+mod tests;

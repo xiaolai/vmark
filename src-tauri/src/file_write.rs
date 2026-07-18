@@ -5,8 +5,10 @@
 //! keep that file under the size gate.
 //!
 //! NOTE: A separate sync variant exists in `app_paths::atomic_write_file` for
-//! internal use (workspace config, MCP port file). They are intentionally
-//! separate — this one is async for the frontend invoke path.
+//! internal use (workspace config, MCP port file). Both are thin wrappers
+//! over the shared `atomic_replace` core; they stay separate commands because
+//! this one is async for the frontend invoke path and carries frontend-only
+//! validation and error semantics.
 
 /// Sentinel prefix returned when the target's parent directory does not
 /// exist (renamed/deleted externally). The frontend (`saveToPath.ts`) parses
@@ -16,12 +18,16 @@ pub const PARENT_MISSING_ERROR_PREFIX: &str = "PARENT_MISSING:";
 
 /// Synchronous core of `atomic_write_file`. Extracted so it can be unit-tested
 /// without spinning up a tokio runtime. Same semantics as the async wrapper.
+///
+/// Validation (path traversal, absolute path, parent-missing sentinel) and
+/// the parent-directory sync are the frontend-specific parts; the actual
+/// temp-file + fsync + rename is `atomic_replace::atomic_replace`, shared
+/// with `app_paths::atomic_write_file`.
 pub(crate) fn atomic_write_file_sync(
     target: &std::path::Path,
     content: &str,
 ) -> Result<(), String> {
-    use std::io::Write;
-    use tempfile::NamedTempFile;
+    use crate::atomic_replace::{atomic_replace, AtomicReplaceError};
 
     // Defense-in-depth: reject path traversal to prevent writing outside
     // intended directories if the webview is compromised.
@@ -48,21 +54,15 @@ pub(crate) fn atomic_write_file_sync(
         return Err(format!("{}{}", PARENT_MISSING_ERROR_PREFIX, dir.display()));
     }
 
-    let mut tmp =
-        NamedTempFile::new_in(dir).map_err(|e| format!("Failed to create temp file: {}", e))?;
-
-    tmp.write_all(content.as_bytes())
-        .map_err(|e| format!("Failed to write temp file: {}", e))?;
-
-    tmp.flush()
-        .map_err(|e| format!("Failed to flush temp file: {}", e))?;
-
-    tmp.as_file()
-        .sync_all()
-        .map_err(|e| format!("Failed to sync temp file: {}", e))?;
-
-    tmp.persist(target)
-        .map_err(|e| format!("Failed to persist file: {}", e))?;
+    atomic_replace(target, dir, content.as_bytes()).map_err(|e| match e {
+        AtomicReplaceError::CreateTemp { source, .. } => {
+            format!("Failed to create temp file: {}", source)
+        }
+        AtomicReplaceError::WriteTemp(e) => format!("Failed to write temp file: {}", e),
+        AtomicReplaceError::FlushTemp(e) => format!("Failed to flush temp file: {}", e),
+        AtomicReplaceError::SyncTemp(e) => format!("Failed to sync temp file: {}", e),
+        AtomicReplaceError::Persist(e) => format!("Failed to persist file: {}", e),
+    })?;
 
     // Sync parent directory for crash safety. Best-effort (the file itself is
     // already synced and persisted), but a failure here weakens the crash

@@ -3,10 +3,12 @@
 //! Manages the TCP listener, WebSocket upgrades, per-client message loops,
 //! and request routing to the frontend.
 
+use super::delivery::{deliver_response, enqueue_client_msg, send_error_response};
+use super::routing::{handle_rust_side, resolve_target_window, wake_webview};
 use super::state::{
-    cleanup_stale_pending, generate_auth_token, get_bridge_state, get_shutdown_holder,
-    get_write_lock, is_read_only_operation, is_webview_alive, remove_port_file, set_webview_alive,
-    write_port_file, ClientConnection, PendingRequest, CLIENT_TX_CAPACITY, MAX_PENDING_REQUESTS,
+    generate_auth_token, get_bridge_state, get_shutdown_holder, get_write_lock,
+    is_read_only_operation, is_webview_alive, remove_port_file, set_webview_alive,
+    try_register_pending, write_port_file, ClientConnection, PendingRequest, CLIENT_TX_CAPACITY,
 };
 use super::types::{ClientIdentity, McpRequest, McpRequestEvent, McpResponse, WsMessage};
 use futures_util::{SinkExt, StreamExt};
@@ -19,66 +21,23 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::{mpsc, oneshot};
 use tokio_tungstenite::{accept_async, tungstenite::Message};
 
-/// Outcome of an `enqueue_client_msg` attempt.
-///
-/// `Sent` is the happy path. The two failure variants distinguish "client is
-/// alive but backpressured beyond the cap" from "client is gone" so callers
-/// can pick the right policy — silent drop for notifications, disconnect for
-/// in-flight request responses.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum EnqueueOutcome {
-    Sent,
-    QueueFull,
-    Closed,
-}
+/// Monotonic counter behind `next_bridge_request_id`.
+static NEXT_REQUEST_ID: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
 
-/// Enqueue an outbound message on a client's bounded channel.
+/// Mint a bridge-internal request id.
 ///
-/// Uses `try_send` so the server is never blocked by a slow client. On a
-/// full queue or closed receiver the message is dropped at this layer and
-/// the outcome is returned so callers can take protocol-level action when
-/// the dropped message is load-bearing (e.g. a request response). Both
-/// failure cases are logged here so call sites only need to act on the
-/// returned outcome.
-fn enqueue_client_msg(client_id: u64, tx: &mpsc::Sender<String>, msg: String) -> EnqueueOutcome {
-    match tx.try_send(msg) {
-        Ok(()) => EnqueueOutcome::Sent,
-        Err(mpsc::error::TrySendError::Full(_)) => {
-            log::warn!(
-                "[MCP Bridge] Client {} outbound queue full (cap {}) — dropping message",
-                client_id,
-                CLIENT_TX_CAPACITY
-            );
-            EnqueueOutcome::QueueFull
-        }
-        Err(mpsc::error::TrySendError::Closed(_)) => {
-            log::debug!(
-                "[MCP Bridge] Client {} send channel closed — dropping message",
-                client_id
-            );
-            EnqueueOutcome::Closed
-        }
-    }
-}
-
-/// Signal the shutdown channel for a client so its read/write tasks tear
-/// down promptly. Used after dropping a load-bearing message (e.g. a
-/// request response) — leaving the client connected after losing a
-/// response would otherwise let it hang waiting for a reply that will
-/// never arrive.
-async fn force_disconnect_client(client_id: u64, reason: &str) {
-    let state = get_bridge_state();
-    let mut guard = state.lock().await;
-    if let Some(client) = guard.clients.get_mut(&client_id) {
-        if let Some(shutdown_tx) = client.shutdown.take() {
-            let _ = shutdown_tx.send(());
-            log::warn!(
-                "[MCP Bridge] Forcing client {} disconnect: {}",
-                client_id,
-                reason
-            );
-        }
-    }
+/// Pending requests — and the events emitted to the frontend, which echoes
+/// the event id back via `mcp_bridge_respond` — are keyed by this id rather
+/// than the client-supplied message id: two connected sidecars generate their
+/// message ids independently and can collide, and a collision in the pending
+/// map would silently drop one client's response channel and route its
+/// response to the other. The client's own message id is only used when
+/// writing the WebSocket response back to that client.
+fn next_bridge_request_id() -> String {
+    format!(
+        "bridge-{}",
+        NEXT_REQUEST_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+    )
 }
 
 /// Start the MCP bridge WebSocket server.
@@ -410,109 +369,66 @@ async fn handle_connection(
     send_task.abort();
 }
 
-/// Try to wake the target webview by evaluating a no-op JS snippet.
-///
-/// When macOS suspends the webview (App Nap, display sleep), emitted events
-/// are queued but the frontend JS never executes. Calling the Tauri webview
-/// eval API nudges the webview process and can revive the JS event loop.
-async fn wake_webview(app: &AppHandle, target_label: &str) {
-    if let Some(window) = app.get_webview_window(target_label) {
-        log::debug!(
-            "[MCP Bridge] Attempting to wake webview '{}' via Tauri eval API",
-            target_label
-        );
-        if let Err(e) = window.eval("void(0)") {
+/// Handle the `identify` message a client sends after connecting.
+async fn handle_identify<R: tauri::Runtime>(
+    payload: serde_json::Value,
+    client_id: u64,
+    app: &AppHandle<R>,
+) {
+    if let Ok(identity) = serde_json::from_value::<ClientIdentity>(payload) {
+        let state = get_bridge_state();
+        let mut guard = state.lock().await;
+
+        if let Some(client) = guard.clients.get_mut(&client_id) {
             log::debug!(
-                "[MCP Bridge] Failed to wake webview '{}': {} (continuing anyway)",
-                target_label,
-                e
+                "[MCP Bridge] Client {} identified as {}",
+                client_id,
+                identity.display_name()
             );
+            client.identity = Some(identity);
         }
-    } else {
-        log::warn!(
-            "[MCP Bridge] Cannot wake webview — window '{}' not found",
-            target_label
-        );
+        drop(guard);
+
+        // Notify frontend that connected clients changed
+        let _ = app.emit("mcp-bridge:clients-changed", ());
     }
 }
 
-/// Resolve the target window label from a bridge request's args.
+/// Parse the MCP payload of a `request` envelope.
 ///
-/// Extracts the `windowId` field from request args. If `"focused"`, resolves to
-/// the currently focused document window. Falls back to `"main"` when no
-/// `windowId` is provided or no window has focus.
-fn resolve_target_window(args: &serde_json::Value, app: &AppHandle) -> String {
-    let window_id = args
-        .get("windowId")
-        .and_then(|v| v.as_str())
-        .unwrap_or("focused");
-
-    if window_id == "focused" {
-        // Find the focused document window (main or doc-*)
-        let resolved = app
-            .webview_windows()
-            .values()
-            .find(|w| {
-                let label = w.label();
-                w.is_focused().unwrap_or(false) && (label == "main" || label.starts_with("doc-"))
-            })
-            .map(|w| w.label().to_string());
-
-        if resolved.is_none() {
-            log::warn!(
-                "[MCP Bridge] No focused document window found — falling back to 'main'. \
-                 Non-document window may have focus, or app may be in background."
-            );
-        }
-        resolved.unwrap_or_else(|| "main".to_string())
-    } else {
-        window_id.to_string()
-    }
-}
-
-/// Send an error response back to the MCP sidecar client.
-/// Send an error response back to the MCP sidecar client.
-///
-/// Async because dropping a response (queue full or closed) is treated as
-/// a transport failure — silently losing an in-flight response leaves the
-/// client hanging on `await` forever. On `EnqueueOutcome::QueueFull` or
-/// `Closed`, the client is forced to disconnect so it can reconnect and
-/// retry, instead of waiting indefinitely for a reply that won't arrive.
-async fn send_error_response(
+/// The envelope itself parsed fine, so the client message id is known — on a
+/// malformed payload, answer the client with the parse error instead of
+/// bubbling it up to the log-only message loop, which would leave the client
+/// hanging until its own timeout (Codex audit 20260718).
+async fn parse_request_or_reply(
+    msg_id: &str,
+    payload: serde_json::Value,
     client_id: u64,
     client_tx: &mpsc::Sender<String>,
-    msg_id: &str,
-    error: &str,
-) {
-    let error_response = McpResponse {
-        success: false,
-        data: None,
-        error: Some(error.to_string()),
-    };
-    let ws_response = WsMessage {
-        id: msg_id.to_string(),
-        msg_type: "response".to_string(),
-        payload: serde_json::to_value(&error_response).unwrap_or_default(),
-    };
-    if let Ok(json) = serde_json::to_string(&ws_response) {
-        match enqueue_client_msg(client_id, client_tx, json) {
-            EnqueueOutcome::Sent => {}
-            EnqueueOutcome::QueueFull => {
-                force_disconnect_client(
-                    client_id,
-                    "error-response could not be enqueued (queue full)",
-                )
-                .await;
-            }
-            EnqueueOutcome::Closed => {
-                // Already gone — nothing to disconnect.
-            }
+) -> Option<McpRequest> {
+    match McpRequest::from_value(payload) {
+        Ok(request) => Some(request),
+        Err(e) => {
+            log::warn!(
+                "[MCP Bridge] Client {} sent request with invalid payload: {}",
+                client_id,
+                e
+            );
+            send_error_response(client_id, client_tx, msg_id, &e).await;
+            None
         }
     }
 }
 
 /// Handle an incoming WebSocket message.
-async fn handle_message(text: &str, client_id: u64, app: &AppHandle) -> Result<(), String> {
+///
+/// Generic over the Tauri runtime so tests can drive the full path with
+/// `tauri::test::MockRuntime`; production callers pass the default runtime.
+async fn handle_message<R: tauri::Runtime>(
+    text: &str,
+    client_id: u64,
+    app: &AppHandle<R>,
+) -> Result<(), String> {
     // Debug: Log raw WebSocket message to trace markdown escaping (dev only — may contain user content)
     #[cfg(debug_assertions)]
     if text.contains("insert") {
@@ -524,23 +440,7 @@ async fn handle_message(text: &str, client_id: u64, app: &AppHandle) -> Result<(
 
     // Handle identify message (client sends this after connecting)
     if msg.msg_type == "identify" {
-        if let Ok(identity) = serde_json::from_value::<ClientIdentity>(msg.payload) {
-            let state = get_bridge_state();
-            let mut guard = state.lock().await;
-
-            if let Some(client) = guard.clients.get_mut(&client_id) {
-                log::debug!(
-                    "[MCP Bridge] Client {} identified as {}",
-                    client_id,
-                    identity.display_name()
-                );
-                client.identity = Some(identity);
-            }
-            drop(guard);
-
-            // Notify frontend that connected clients changed
-            let _ = app.emit("mcp-bridge:clients-changed", ());
-        }
+        handle_identify(msg.payload, client_id, app).await;
         return Ok(());
     }
 
@@ -548,7 +448,20 @@ async fn handle_message(text: &str, client_id: u64, app: &AppHandle) -> Result<(
         return Ok(());
     }
 
-    let request = McpRequest::from_value(msg.payload.clone())?;
+    // Fetch the client's tx channel up front — every later step (payload
+    // parse failure, rust-side answer, overload, unknown window, response)
+    // needs it to answer the client.
+    let client_tx = {
+        let state = get_bridge_state();
+        let guard = state.lock().await;
+        guard.clients.get(&client_id).map(|c| c.tx.clone())
+    };
+    let client_tx = client_tx.ok_or("Client not found")?;
+
+    let Some(request) = parse_request_or_reply(&msg.id, msg.payload, client_id, &client_tx).await
+    else {
+        return Ok(());
+    };
 
     // Debug: Log request args to trace markdown escaping issues (dev only — may contain user content)
     #[cfg(debug_assertions)]
@@ -565,46 +478,18 @@ async fn handle_message(text: &str, client_id: u64, app: &AppHandle) -> Result<(
     // Handle requests that Rust can answer directly (no webview needed).
     // This prevents timeouts when the webview is suspended by macOS App Nap.
     if let Some(response) = handle_rust_side(&request, app) {
-        let client_tx = {
-            let state = get_bridge_state();
-            let guard = state.lock().await;
-            guard.clients.get(&client_id).map(|c| c.tx.clone())
-        };
-        let client_tx = client_tx.ok_or("Client not found")?;
-
-        let ws_response = WsMessage {
-            id: msg.id,
-            msg_type: "response".to_string(),
-            payload: serde_json::to_value(&response).unwrap_or_default(),
-        };
-        let response_json = serde_json::to_string(&ws_response)
-            .map_err(|e| format!("Failed to serialize: {}", e))?;
-        match enqueue_client_msg(client_id, &client_tx, response_json) {
-            EnqueueOutcome::Sent | EnqueueOutcome::Closed => {}
-            EnqueueOutcome::QueueFull => {
-                // Response could not be enqueued; client is stuck. Force a
-                // disconnect so it reconnects and retries rather than
-                // hanging on its `await` indefinitely.
-                force_disconnect_client(
-                    client_id,
-                    "rust-side response could not be enqueued (queue full)",
-                )
-                .await;
-            }
-        }
+        deliver_response(
+            client_id,
+            &client_tx,
+            msg.id,
+            &response,
+            "rust-side response could not be enqueued (queue full)",
+        )
+        .await?;
         return Ok(());
     }
 
     let is_read = is_read_only_operation(&request.request_type);
-
-    // Get client's tx channel
-    let client_tx = {
-        let state = get_bridge_state();
-        let guard = state.lock().await;
-        guard.clients.get(&client_id).map(|c| c.tx.clone())
-    };
-
-    let client_tx = client_tx.ok_or("Client not found")?;
 
     // For write operations, acquire the write lock
     // This serializes writes while allowing concurrent reads
@@ -623,27 +508,27 @@ async fn handle_message(text: &str, client_id: u64, app: &AppHandle) -> Result<(
     // Create a oneshot channel for the response
     let (response_tx, response_rx) = oneshot::channel();
 
-    let request_id = msg.id.clone();
+    let request_id = next_bridge_request_id();
     let request_type_for_log = request.request_type.clone();
 
-    // Store the pending request (clean up stale entries first)
-    {
+    // Store the pending request (sweeps stale entries, enforces the
+    // overload cap). The state lock is released before responding —
+    // send_error_response may force-disconnect, which re-locks it.
+    let registered = {
         let state = get_bridge_state();
         let mut guard = state.lock().await;
-        cleanup_stale_pending(&mut guard);
-        if guard.pending.len() >= MAX_PENDING_REQUESTS {
-            return Err(format!(
-                "MCP bridge pending request queue full ({} in flight)",
-                MAX_PENDING_REQUESTS
-            ));
-        }
-        guard.pending.insert(
-            request_id.clone(),
-            PendingRequest {
-                response_tx,
-                created_at: Instant::now(),
-            },
+        try_register_pending(&mut guard, request_id.clone(), response_tx)
+    };
+    if let Err(err) = registered {
+        log::warn!(
+            "[MCP Bridge] Client {} request rejected: {}",
+            client_id,
+            err
         );
+        // Answer the client instead of silently dropping the request —
+        // otherwise it hangs until its own timeout.
+        send_error_response(client_id, &client_tx, &msg.id, &err).await;
+        return Ok(());
     }
 
     // Emit event to the target window (not broadcast to all windows).
@@ -667,19 +552,29 @@ async fn handle_message(text: &str, client_id: u64, app: &AppHandle) -> Result<(
         );
         window.emit("mcp-bridge:request", &event)
     } else {
-        // Window not found — clean up and report error
+        // Window not found — clean up, answer the client, and stop. Without
+        // the error response the client would hang until its own timeout.
         let state = get_bridge_state();
         let mut guard = state.lock().await;
         guard.pending.remove(&request_id);
-        return Err(format!("Target window '{}' not found", target_label));
+        drop(guard);
+        let err = format!("Target window '{}' not found", target_label);
+        log::warn!("[MCP Bridge] Client {} request failed: {}", client_id, err);
+        send_error_response(client_id, &client_tx, &msg.id, &err).await;
+        return Ok(());
     };
 
     if let Err(e) = emit_result {
-        // Clean up pending request on emit failure
+        // Emit failed — clean up, answer the client, and stop. Without the
+        // error response the client would hang until its own timeout.
         let state = get_bridge_state();
         let mut guard = state.lock().await;
         guard.pending.remove(&request_id);
-        return Err(format!("Failed to emit event: {}", e));
+        drop(guard);
+        let err = format!("Failed to emit event: {}", e);
+        log::warn!("[MCP Bridge] Client {} request failed: {}", client_id, err);
+        send_error_response(client_id, &client_tx, &msg.id, &err).await;
+        return Ok(());
     }
 
     // Wait for response with timeout (10 seconds - operations should be fast)
@@ -840,83 +735,18 @@ async fn handle_message(text: &str, client_id: u64, app: &AppHandle) -> Result<(
     // Write lock is automatically released here when _write_guard is dropped
 
     // Send response back to client
-    let ws_response = WsMessage {
-        id: msg.id,
-        msg_type: "response".to_string(),
-        payload: serde_json::to_value(&response).unwrap_or_default(),
-    };
-
-    let response_json =
-        serde_json::to_string(&ws_response).map_err(|e| format!("Failed to serialize: {}", e))?;
-
-    match enqueue_client_msg(client_id, &client_tx, response_json) {
-        EnqueueOutcome::Sent | EnqueueOutcome::Closed => {}
-        EnqueueOutcome::QueueFull => {
-            // Response would be lost; force disconnect so the client
-            // reconnects rather than blocking on `await` forever.
-            force_disconnect_client(
-                client_id,
-                "request response could not be enqueued (queue full)",
-            )
-            .await;
-        }
-    }
+    deliver_response(
+        client_id,
+        &client_tx,
+        msg.id,
+        &response,
+        "request response could not be enqueued (queue full)",
+    )
+    .await?;
 
     Ok(())
 }
 
-/// Handle requests directly in Rust without involving the webview.
-/// Returns `Some(response)` if handled, `None` to fall through to webview.
-///
-/// This avoids timeouts when the webview is suspended by macOS (App Nap,
-/// display sleep) for simple window queries that Tauri can answer natively.
-fn handle_rust_side(request: &McpRequest, app: &AppHandle) -> Option<McpResponse> {
-    match request.request_type.as_str() {
-        "windows.list" => {
-            let windows: Vec<serde_json::Value> = app
-                .webview_windows()
-                .iter()
-                .filter(|(label, _)| {
-                    // Only expose document windows (main, doc-*)
-                    *label == "main" || label.starts_with("doc-")
-                })
-                .map(|(label, window)| {
-                    serde_json::json!({
-                        "label": label,
-                        "title": window.title().unwrap_or_default(),
-                        "filePath": null,
-                        "isFocused": window.is_focused().unwrap_or(false),
-                        "isAiExposed": true,
-                    })
-                })
-                .collect();
-
-            Some(McpResponse {
-                success: true,
-                data: Some(serde_json::to_value(&windows).unwrap_or_default()),
-                error: None,
-            })
-        }
-        "windows.getFocused" => {
-            // Only consider document windows (main, doc-*), not settings/utility windows
-            let focused = app
-                .webview_windows()
-                .iter()
-                .find(|(label, w)| {
-                    w.is_focused().unwrap_or(false)
-                        && (*label == "main" || label.starts_with("doc-"))
-                })
-                .map(|(label, _)| label.clone());
-
-            Some(McpResponse {
-                success: true,
-                data: Some(match focused {
-                    Some(label) => serde_json::Value::String(label),
-                    None => serde_json::Value::Null,
-                }),
-                error: None,
-            })
-        }
-        _ => None,
-    }
-}
+#[cfg(test)]
+#[path = "server.test.rs"]
+mod tests;

@@ -11,6 +11,8 @@
 //! - MCP sidecar uses platform-specific path to find the app data directory
 
 pub mod commands;
+mod delivery;
+mod routing;
 mod server;
 mod state;
 mod types;

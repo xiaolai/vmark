@@ -100,9 +100,12 @@ tauri = { version = "2", features = ["protocol-asset", "test"] }
 # - lto = "thin": ~5–8% smaller binary, ~25% slower link, retains good per-fn opt.
 # - codegen-units = 1: aggressive optimization across the crate; slower builds.
 # - strip = "symbols": drop symbol tables; macOS keeps a separate .dSYM if produced.
-# - panic = "abort": ~2–3% smaller; safe because the codebase has no `catch_unwind`.
+# - panic stays "unwind" (the default): the containment architecture relies on
+#   `catch_unwind` (task.rs spawn wrappers, pty.rs reader thread, hot_exit,
+#   cli_install, workflow approval) to keep a panicking background task from
+#   taking down the whole app; `panic = "abort"` would defeat all of it for a
+#   ~2–3% size win.
 [profile.release]
 lto = "thin"
 codegen-units = 1
 strip = "symbols"
-panic = "abort"
