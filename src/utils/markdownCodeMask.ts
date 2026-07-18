@@ -18,6 +18,28 @@
  * @coordinates-with cjkFormatter/formatter.ts — mask prevents CJK rules from mangling code
  * @module utils/markdownCodeMask
  */
+/**
+ * True if a backtick run of exactly `runLen` exists in `markdown` at or after
+ * `from`. A CommonMark code span is closed only by a run of equal length; runs
+ * of a different length are content and are skipped. An opener with no such
+ * closing run is literal text, NOT a code span.
+ */
+function hasClosingBacktickRun(markdown: string, from: number, runLen: number): boolean {
+  const len = markdown.length;
+  let i = from;
+  while (i < len) {
+    if (markdown[i] === "`") {
+      let r = 1;
+      while (i + r < len && markdown[i + r] === "`") r += 1;
+      if (r === runLen) return true;
+      i += r;
+    } else {
+      i += 1;
+    }
+  }
+  return false;
+}
+
 export function buildCodeMask(markdown: string): Uint8Array {
   const len = markdown.length;
   const mask = new Uint8Array(len); // all zeros
@@ -125,6 +147,16 @@ export function buildCodeMask(markdown: string): Uint8Array {
       }
 
       if (!inInlineCode) {
+        // An opener only starts a code span if a matching-length closing run
+        // exists later; otherwise the backticks are literal text (CommonMark).
+        // Without this check an unpaired backtick would mask the entire rest of
+        // the document as code.
+        if (!hasClosingBacktickRun(markdown, i + runLen, runLen)) {
+          // Literal backticks: leave as 0 and continue normal processing so any
+          // fenced block / code span in the tail is still detected.
+          i += runLen;
+          continue;
+        }
         inInlineCode = true;
         inlineFenceLen = runLen;
         // Opening backticks: leave as 0
