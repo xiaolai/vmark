@@ -60,7 +60,8 @@
     "zoomOut": "Alejar",
     "toggleShowInvisibles": "Alternar caracteres invisibles",
     "toggleWindowStatus": "Estado de ventanas",
-    "toggleBreakdown": "Desglose de coherencia"
+    "toggleBreakdown": "Desglose de coherencia",
+    "toggleClaims": "Afirmaciones canónicas"
   },
   "lint": {
     "check": "Revisar Markdown",
@@ -85,5 +86,8 @@
   },
   "browser": {
     "newTab": "Nueva pestaña del navegador"
+  },
+  "claims": {
+    "extractFromSelection": "Extraer afirmación de la selección"
   }
 }

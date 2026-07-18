@@ -22,7 +22,7 @@ import { ContentSearch } from "@/components/ContentSearch/ContentSearch";
 import { QuickLookOverlay } from "@/components/QuickLook/QuickLookOverlay";
 import { KnowledgeBaseOverlay } from "@/components/KnowledgeBasePanel/KnowledgeBaseOverlay";
 import { WindowStatusOverlay } from "@/components/WindowStatusPanel/WindowStatusOverlay";
-import { BreakdownOverlay } from "@/components/BreakdownPanel/BreakdownOverlay";
+import { CoherenceOverlays } from "@/components/CoherenceOverlays";
 import { useWindowStatus } from "@/hooks/useWindowStatus";
 import { CommandPalette } from "@/components/CommandPalette";
 import { WindowProvider, useIsDocumentWindow, useWindowLabel } from "@/contexts/WindowContext";
@@ -233,7 +233,7 @@ function MainLayout() {
           <QuickLookOverlay />
           <KnowledgeBaseOverlay />
           <WindowStatusOverlay />
-          <BreakdownOverlay />
+          <CoherenceOverlays />
           <GeniePickerOverlay />
           <EditorContextMenu />
           <ApprovalDialog />
