@@ -109,6 +109,15 @@ describe("openFilepathLink", () => {
     });
   });
 
+  it("percent-decodes the href so Cmd+click on %20 links opens the file", async () => {
+    const result = await openFilepathLink("my%20file.md", SOURCE);
+    expect(result).toBe(true);
+    expect(mockEmit).toHaveBeenCalledWith("open-file", {
+      path: "/repo/docs/my file.md",
+      windowLabel: "main",
+    });
+  });
+
   it("returns false when sourcePath is null and href is relative", async () => {
     const result = await openFilepathLink("./neighbour.md", null);
     expect(result).toBe(false);

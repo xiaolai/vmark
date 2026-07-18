@@ -81,9 +81,29 @@ describe("generateSlug", () => {
     expect(generateSlug("hello\tworld")).toBe("hello-world");
   });
 
-  it("handles mixed CJK scripts — only CJK Unified Ideographs are preserved", () => {
-    // Hiragana (\u3040-\u309f) is outside the regex range \u4e00-\u9fff, so it's stripped
-    expect(generateSlug("\u4f60\u597d\u3053\u3093\u306b\u3061\u306f")).toBe("\u4f60\u597d");
+  it("preserves kana alongside Han (GitHub-style, Unicode letters)", () => {
+    // Hiragana is a Unicode letter — GitHub keeps it in slugs.
+    expect(generateSlug("\u4f60\u597d\u3053\u3093\u306b\u3061\u306f")).toBe(
+      "\u4f60\u597d\u3053\u3093\u306b\u3061\u306f"
+    );
+  });
+
+  it("generates a slug for a kana-only heading", () => {
+    expect(generateSlug("\u3053\u3093\u306b\u3061\u306f")).toBe("\u3053\u3093\u306b\u3061\u306f");
+    expect(generateSlug("\u3053\u3093\u306b\u3061\u306f \u4e16\u754c")).toBe(
+      "\u3053\u3093\u306b\u3061\u306f-\u4e16\u754c"
+    );
+  });
+
+  it("generates a slug for a hangul heading", () => {
+    expect(generateSlug("\ud55c\uad6d\uc5b4")).toBe("\ud55c\uad6d\uc5b4");
+    expect(generateSlug("\ud55c\uad6d\uc5b4 \uc548\ub0b4")).toBe(
+      "\ud55c\uad6d\uc5b4-\uc548\ub0b4"
+    );
+  });
+
+  it("preserves accented Latin letters", () => {
+    expect(generateSlug("\u00c9tat R\u00e9sum\u00e9")).toBe("\u00e9tat-r\u00e9sum\u00e9");
   });
 
   it("removes parentheses and brackets", () => {
@@ -392,6 +412,24 @@ describe("findHeadingByIdCM", () => {
     expect(findHeadingByIdCM(doc, "not-a-heading")).toBeNull();
   });
 
+  it("finds ATX headings indented by 1-3 spaces (valid CommonMark)", () => {
+    // Regression (Codex audit): the heading regex required column 0, so
+    // "   # Intro" (still a heading per CommonMark) was never found.
+    const doc = createMockDoc([
+      " # One Space",
+      "  ## Two Spaces",
+      "   ### Three Spaces",
+    ]);
+    expect(findHeadingByIdCM(doc, "one-space")).toBe(0);
+    expect(findHeadingByIdCM(doc, "two-spaces")).not.toBeNull();
+    expect(findHeadingByIdCM(doc, "three-spaces")).not.toBeNull();
+  });
+
+  it("does NOT match 4-space-indented hashes (indented code block)", () => {
+    const doc = createMockDoc(["    # not a heading"]);
+    expect(findHeadingByIdCM(doc, "not-a-heading")).toBeNull();
+  });
+
   it("ignores heading-like content without space after hash", () => {
     const doc = createMockDoc(["#NoSpace"]);
     expect(findHeadingByIdCM(doc, "nospace")).toBeNull();
@@ -428,6 +466,30 @@ describe("findHeadingByIdCM", () => {
     // Should skip the first heading and find the second
     const pos = findHeadingByIdCM(doc, "real");
     expect(pos).not.toBeNull();
+  });
+
+  it("finds a kana-only heading", () => {
+    const doc = createMockDoc(["## こんにちは"]);
+    expect(findHeadingByIdCM(doc, "こんにちは")).toBe(0);
+  });
+
+  it("slugs a heading with an inline link the same as the WYSIWYG path", () => {
+    // WYSIWYG slugs rendered textContent ("See docs"); the raw source line
+    // must strip the link syntax so both modes produce "see-docs".
+    expect(generateSlug("See docs")).toBe("see-docs");
+    const doc = createMockDoc(["## See [docs](https://x.com)"]);
+    expect(findHeadingByIdCM(doc, "see-docs")).toBe(0);
+  });
+
+  it("strips inline code delimiters, keeping the code text", () => {
+    // WYSIWYG textContent of "Using `npm`" is "Using npm".
+    const doc = createMockDoc(["## Using `npm`"]);
+    expect(findHeadingByIdCM(doc, "using-npm")).toBe(0);
+  });
+
+  it("drops images entirely (PM image nodes have empty textContent)", () => {
+    const doc = createMockDoc(["## Fig ![alt text](x.png)"]);
+    expect(findHeadingByIdCM(doc, "fig")).toBe(0);
   });
 });
 

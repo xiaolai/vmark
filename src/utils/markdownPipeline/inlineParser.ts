@@ -38,7 +38,8 @@ export function parseInlineMarkdown(text: string): Content[] {
   }
 
   // Check if text contains any markdown characters that need parsing
-  if (!/[*_`~[\]]/.test(text)) {
+  // (=, +, ^ cover the custom ==highlight==, ++underline++, ^sup^ marks)
+  if (!/[*_`~[\]=+^]/.test(text)) {
     // No markdown characters - return as plain text
     return [{ type: "text", value: text } as Content];
   }
@@ -57,18 +58,17 @@ export function parseInlineMarkdown(text: string): Content[] {
     /* v8 ignore next -- @preserve runSync output always has children for valid remark processors */
     const children = (transformed as { children?: Content[] }).children ?? [];
 
-    if (children.length === 0) {
-      return [{ type: "text", value: text } as Content];
-    }
-
-    // If the first child is a paragraph, return its children (inline content)
+    // Inline contexts (e.g. a details <summary>) accept phrasing content
+    // only. Anything that parsed to something other than exactly one
+    // paragraph — a thematic break for "***", a heading, multiple blocks —
+    // is not representable inline and would throw when inserted into an
+    // inline-only schema. Fall back to the literal text instead.
     const first = children[0];
-    if (first && first.type === "paragraph") {
+    if (children.length === 1 && first?.type === "paragraph") {
       return (first as Paragraph).children as Content[];
     }
 
-    // Otherwise return the children as-is (shouldn't happen for inline text)
-    return children;
+    return [{ type: "text", value: text } as Content];
   } catch (error) {
     // If parsing fails, return as plain text
     mdPipelineWarn("Failed to parse inline markdown:", error);

@@ -10,6 +10,9 @@
  *
  * Algorithm extracted from the battle-tested `preprocessEscapedMarkers()`
  * in `parser.ts` — O(n) single-pass construction, O(1) per-match lookup.
+ * Inline-code state resets at blank lines (paragraph boundaries) —
+ * CommonMark never lets an inline code span cross a blank line, so an
+ * unclosed backtick cannot mask the rest of the document.
  *
  * @coordinates-with markdownLinkPatterns.ts — consumers use mask to skip code before link detection
  * @coordinates-with cjkFormatter/formatter.ts — mask prevents CJK rules from mangling code
@@ -37,6 +40,17 @@ export function buildCodeMask(markdown: string): Uint8Array {
 
   for (let i = 0; i < len; ) {
     const atLineStart = i === 0 || markdown[i - 1] === "\n";
+
+    // Paragraph boundary: CommonMark inline code spans never cross a
+    // blank line, so an unclosed backtick must not keep masking the next
+    // paragraph (or suppress fence detection there).
+    if (atLineStart && inInlineCode) {
+      const lineEnd = getLineEnd(i);
+      if (markdown.slice(i, lineEnd).trim() === "") {
+        inInlineCode = false;
+        inlineFenceLen = 0;
+      }
+    }
 
     // Fenced code blocks: line-based detection
     if (atLineStart && !inInlineCode) {
@@ -79,17 +93,32 @@ export function buildCodeMask(markdown: string): Uint8Array {
       }
     }
 
-    // Inside fenced block but not at line start (shouldn't normally happen
-    // because we advance by full lines above, but safety net)
-    /* v8 ignore next -- @preserve safety net for mid-line characters inside fenced block; loop advances by full lines */
-    if (inFencedCodeBlock) {
-      mask[i] = 1;
-      i += 1;
-      continue;
-    }
+    // Invariant: while inFencedCodeBlock is true, the block above always
+    // `continue`s after advancing whole lines (open fence, close fence, or
+    // content line), and fence state is only ever entered at a line start
+    // with inInlineCode false — so fenced state can never reach the
+    // character-level scanning below.
 
     // Inline code spans: backtick runs
     if (markdown[i] === "`") {
+      // A backslash-escaped backtick (\`) is a literal character, not a
+      // span opener (CommonMark 2.4). Parity matters: `\\` is an escaped
+      // backslash, so a backtick after it IS live. Escapes only apply
+      // OUTSIDE code — inside a span backslashes are literal and any
+      // matching-length run still closes, so the check is opener-only.
+      if (!inInlineCode) {
+        let backslashes = 0;
+        for (let k = i - 1; k >= 0 && markdown[k] === "\\"; k--) {
+          backslashes += 1;
+        }
+        if (backslashes % 2 === 1) {
+          // Escaped: skip the literal backtick; any following backticks
+          // are evaluated on their own as a potential opener run.
+          i += 1;
+          continue;
+        }
+      }
+
       let runLen = 1;
       while (i + runLen < len && markdown[i + runLen] === "`") {
         runLen += 1;

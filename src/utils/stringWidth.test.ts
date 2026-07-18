@@ -41,10 +41,29 @@ describe("stringWidth", () => {
     });
 
     it("counts Fullwidth Forms as width 2", () => {
-      // Fullwidth Forms (0xff00-0xffef)
+      // Fullwidth variants (0xff01-0xff60)
       expect(getDisplayWidth("Ａ")).toBe(2); // U+FF21 Fullwidth A
       expect(getDisplayWidth("１")).toBe(2); // U+FF11 Fullwidth 1
       expect(getDisplayWidth("！")).toBe(2); // U+FF01 Fullwidth exclamation
+    });
+
+    it("counts halfwidth Katakana as width 1", () => {
+      // U+FF65-FF9F halfwidth forms are narrow (East Asian Width "H").
+      // Regression (Codex audit): the blanket FF00-FFEF range counted
+      // them as width 2.
+      expect(getDisplayWidth("ｱｲｳ")).toBe(3); // U+FF71 U+FF72 U+FF73
+      expect(getDisplayWidth("ﾜｰﾄﾞ")).toBe(4); // includes U+FF70 and U+FF9E
+      expect(getDisplayWidth("･")).toBe(1); // U+FF65 halfwidth middle dot
+    });
+
+    it("counts halfwidth CJK punctuation and Hangul as width 1", () => {
+      expect(getDisplayWidth("｡｢｣")).toBe(3); // U+FF61-FF63
+      expect(getDisplayWidth("ﾡﾢ")).toBe(2); // U+FFA1-FFA2 halfwidth hangul
+    });
+
+    it("still counts fullwidth signs as width 2", () => {
+      expect(getDisplayWidth("￥")).toBe(2); // U+FFE5 fullwidth yen
+      expect(getDisplayWidth("￠￡")).toBe(4); // U+FFE0-FFE1
     });
 
     it("handles mixed ASCII and CJK", () => {
@@ -68,6 +87,36 @@ describe("stringWidth", () => {
       // Emojis are not in the defined CJK ranges, so they get width 1
       // Note: This may not match visual width, but matches the function's definition
       expect(getDisplayWidth("😀")).toBe(1);
+    });
+
+    it("counts Hiragana as width 2", () => {
+      // Hiragana (0x3040-0x309f)
+      expect(getDisplayWidth("ひらがな")).toBe(8);
+      expect(getDisplayWidth("あ")).toBe(2);
+    });
+
+    it("counts Katakana as width 2", () => {
+      // Katakana (0x30a0-0x30ff)
+      expect(getDisplayWidth("カタカナ")).toBe(8);
+      expect(getDisplayWidth("ー")).toBe(2); // U+30FC prolonged sound mark
+    });
+
+    it("counts Hangul syllables as width 2", () => {
+      // Hangul Syllables (0xac00-0xd7a3)
+      expect(getDisplayWidth("한국어")).toBe(6);
+      expect(getDisplayWidth("가")).toBe(2); // U+AC00
+    });
+
+    it("counts supplementary-plane Han (CJK Extension B+) as width 2", () => {
+      // CJK Extension B starts at U+20000 — a surrogate pair in UTF-16,
+      // which the for...of loop yields as one code point.
+      expect(getDisplayWidth("𠀀")).toBe(2); // U+20000
+      expect(getDisplayWidth("𠮷")).toBe(2); // U+20BB7 (jargon "yoshi")
+    });
+
+    it("handles mixed ASCII, kana, and hangul", () => {
+      // "aあb한" = 1 + 2 + 1 + 2 = 6
+      expect(getDisplayWidth("aあb한")).toBe(6);
     });
   });
 

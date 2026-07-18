@@ -15,7 +15,7 @@ When a target is missing, the link's text is underlined with a red squiggle and 
 ## What it skips
 
 - **Fragment-only links** (`#anchor`) — handled by the `linkFragments` rule which checks against the current document's headings
-- **External URLs** — `http://`, `https://`, `ftp://`, `mailto:`, `tel:`, `data:`, `file:`
+- **External URLs** — any URI scheme (`http:`, `https:`, `mailto:`, `obsidian:`, `vscode:`, …) and protocol-relative `//host/…` URLs. Windows drive-letter paths (`C:\…`, `C:/…`) are still checked as file paths
 - **Untitled documents** — without a saved file path, relative URLs can't be resolved against any directory
 
 ## How resolution works
@@ -30,6 +30,8 @@ Link Check resolves paths relative to the source file's directory:
 | `[a](/docs/intro.md)` | `/repo/docs/docs/intro.md` (rooted as relative within the file's dir) |
 
 Fragments are stripped before file lookup — `[a](./other.md#section)` checks `./other.md` only.
+
+Percent-encoded paths are decoded before lookup — `![x](photo%20one.png)` checks `photo one.png`, matching how the editor renders it.
 
 ## Performance
 

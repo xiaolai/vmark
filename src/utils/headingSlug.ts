@@ -21,13 +21,14 @@ type NavigableEditorView = {
 
 /**
  * Generate a URL-safe slug from heading text.
- * Follows GitHub-style slug generation.
+ * Follows GitHub-style slug generation: keeps all Unicode letters
+ * (Latin, Han, kana, hangul, ...), combining marks, and numbers.
  */
 export function generateSlug(text: string): string {
   return text
     .toLowerCase()
     .trim()
-    .replace(/[^\w\s\u4e00-\u9fff-]/g, "") // Keep alphanumeric, spaces, CJK, hyphens
+    .replace(/[^\p{L}\p{M}\p{N}\s_-]/gu, "") // Keep letters, marks, numbers, spaces, underscores, hyphens
     .replace(/\s+/g, "-") // Spaces to hyphens
     .replace(/-+/g, "-") // Collapse multiple hyphens
     .replace(/^-|-$/g, ""); // Trim leading/trailing hyphens
@@ -120,8 +121,24 @@ export function navigateToHeadingById(view: NavigableEditorView, targetId: strin
 }
 
 /**
+ * Strip inline markdown syntax from a raw heading source line so it slugs
+ * the same as the rendered text the WYSIWYG path sees (`node.textContent`):
+ * images contribute nothing (ProseMirror image nodes have empty
+ * textContent), links contribute their label, inline code contributes its
+ * content.
+ */
+function stripInlineMarkdown(text: string): string {
+  return text
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, "") // images → nothing
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1") // links → label
+    .replace(/`([^`]+)`/g, "$1"); // inline code → content
+}
+
+/**
  * Find a heading by its ID in a CodeMirror document.
  * Returns the line start position or null if not found.
+ * Inline markdown (images, links, code spans) is stripped from the raw
+ * line before slugging so Source mode resolves the same IDs as WYSIWYG.
  */
 export function findHeadingByIdCM(
   doc: { lines: number; line: (n: number) => { from: number; text: string } },
@@ -133,10 +150,12 @@ export function findHeadingByIdCM(
     const line = doc.line(i);
     const text = line.text;
 
-    // Check if line starts with # (heading)
-    const headingMatch = text.match(/^(#{1,6})\s+(.+)/);
+    // ATX heading: 0-3 leading spaces are valid CommonMark (4+ is an
+    // indented code block). Setext headings (underlined with === / ---)
+    // are an accepted gap here — the WYSIWYG path handles those docs.
+    const headingMatch = text.match(/^ {0,3}(#{1,6})\s+(.+)/);
     if (headingMatch) {
-      const headingText = headingMatch[2];
+      const headingText = stripInlineMarkdown(headingMatch[2]);
       const baseSlug = generateSlug(headingText);
       const id = makeUniqueSlug(baseSlug, usedSlugs);
 

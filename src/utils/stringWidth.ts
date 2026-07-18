@@ -24,7 +24,16 @@ export function getDisplayWidth(str: string): number {
       (code >= 0x3400 && code <= 0x4dbf) || // CJK Extension A
       (code >= 0xf900 && code <= 0xfaff) || // CJK Compatibility
       (code >= 0x3000 && code <= 0x303f) || // CJK Punctuation
-      (code >= 0xff00 && code <= 0xffef) // Fullwidth Forms
+      (code >= 0x3040 && code <= 0x309f) || // Hiragana
+      (code >= 0x30a0 && code <= 0x30ff) || // Katakana
+      (code >= 0xac00 && code <= 0xd7a3) || // Hangul Syllables
+      (code >= 0x20000 && code <= 0x2fffd) || // CJK Extension B+ (supplementary plane)
+      // Halfwidth and Fullwidth Forms block (FF00-FFEF): only the
+      // FULLWIDTH sub-ranges are wide. Halfwidth Katakana (FF65-FF9F),
+      // halfwidth Hangul (FFA0-FFDC), and halfwidth signs (FFE8-FFEE)
+      // are East Asian Width "H" — width 1.
+      (code >= 0xff01 && code <= 0xff60) || // Fullwidth ASCII/punct variants
+      (code >= 0xffe0 && code <= 0xffe6) // Fullwidth signs (￠￡￢￣￤￥￦)
     ) {
       width += 2;
     } else {
