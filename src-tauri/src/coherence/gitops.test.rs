@@ -20,8 +20,14 @@ fn obs(head_ref: &str, head_sha: &str, shas: &[&str], merging: bool) -> GitObser
 fn not_git_and_appearing_repos() {
     assert_eq!(classify(None, None), GitClass::NotGit);
     let a = obs("main", "s1", &["s1"], false);
-    assert!(matches!(classify(None, Some(&a)), GitClass::ExternalUnknown));
-    assert!(matches!(classify(Some(&a), None), GitClass::ExternalUnknown));
+    assert!(matches!(
+        classify(None, Some(&a)),
+        GitClass::ExternalUnknown
+    ));
+    assert!(matches!(
+        classify(Some(&a), None),
+        GitClass::ExternalUnknown
+    ));
 }
 
 #[test]
@@ -64,7 +70,10 @@ fn fast_forward_merge_is_navigation() {
     // on the other branch (G2 recommended handling).
     let b = obs("main", "s1", &["s1", "s9"], false);
     let a = obs("main", "s9", &["s1", "s9"], false);
-    assert!(matches!(classify(Some(&b), Some(&a)), GitClass::Navigation { .. }));
+    assert!(matches!(
+        classify(Some(&b), Some(&a)),
+        GitClass::Navigation { .. }
+    ));
 }
 
 #[test]
@@ -73,7 +82,10 @@ fn branch_switch_to_same_sha_is_navigation_not_noop() {
     // context changed — record the navigation.
     let b = obs("main", "s1", &["s1"], false);
     let a = obs("feature", "s1", &["s1"], false);
-    assert!(matches!(classify(Some(&b), Some(&a)), GitClass::Navigation { .. }));
+    assert!(matches!(
+        classify(Some(&b), Some(&a)),
+        GitClass::Navigation { .. }
+    ));
 }
 
 #[test]
@@ -89,7 +101,10 @@ fn reset_hard_shrinking_sha_set_is_still_navigation() {
     // monotonic growth.
     let b = obs("main", "s2", &["s1", "s2"], false);
     let a = obs("main", "s1", &["s1"], false);
-    assert!(matches!(classify(Some(&b), Some(&a)), GitClass::Navigation { .. }));
+    assert!(matches!(
+        classify(Some(&b), Some(&a)),
+        GitClass::Navigation { .. }
+    ));
 }
 
 #[test]
@@ -104,7 +119,10 @@ fn unknown_head_is_external_unknown() {
     let b = obs("main", "s1", &["s1"], false);
     let mut a = obs("main", "s1", &["s1"], false);
     a.head_sha = None;
-    assert!(matches!(classify(Some(&b), Some(&a)), GitClass::ExternalUnknown));
+    assert!(matches!(
+        classify(Some(&b), Some(&a)),
+        GitClass::ExternalUnknown
+    ));
 }
 
 // ── integration: real repos in temp dirs ────────────────────────────────
@@ -119,7 +137,11 @@ fn run_git(dir: &std::path::Path, args: &[&str]) {
         .env("GIT_COMMITTER_EMAIL", "t@t")
         .output()
         .expect("git runs");
-    assert!(out.status.success(), "git {args:?}: {}", String::from_utf8_lossy(&out.stderr));
+    assert!(
+        out.status.success(),
+        "git {args:?}: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
 }
 
 #[test]
@@ -147,12 +169,18 @@ fn observe_and_classify_checkout_and_revert_in_real_repo() {
     // Navigation: checkout the older commit (detached HEAD).
     run_git(root, &["checkout", "-q", "HEAD~1"]);
     let after_nav = observe(root).unwrap();
-    assert!(matches!(classify(Some(&before), Some(&after_nav)), GitClass::Navigation { .. }));
+    assert!(matches!(
+        classify(Some(&before), Some(&after_nav)),
+        GitClass::Navigation { .. }
+    ));
 
     // Mutation: back to main, then revert the last commit.
     run_git(root, &["checkout", "-q", "main"]);
     let before_revert = observe(root).unwrap();
     run_git(root, &["revert", "--no-edit", "HEAD"]);
     let after_revert = observe(root).unwrap();
-    assert!(matches!(classify(Some(&before_revert), Some(&after_revert)), GitClass::Mutation { .. }));
+    assert!(matches!(
+        classify(Some(&before_revert), Some(&after_revert)),
+        GitClass::Mutation { .. }
+    ));
 }

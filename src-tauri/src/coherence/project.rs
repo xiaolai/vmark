@@ -57,7 +57,10 @@ pub struct EdgeCheck {
 /// Spec §6.2 / §9.2 display states.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum EdgeState {
-    Fresh { ratified: bool, ahead: bool },
+    Fresh {
+        ratified: bool,
+        ahead: bool,
+    },
     /// Version-stale, no applicable check result yet.
     VersionStale,
     StaleValid,
@@ -66,7 +69,9 @@ pub enum EdgeState {
     Waived,
     /// `multi_head`: live selection over a multi-head upstream (no single
     /// `resolved_against` exists — accept-newer and waive are disabled).
-    Diverged { multi_head: bool },
+    Diverged {
+        multi_head: bool,
+    },
     /// Context pins a revision the upstream never had — surfaced, never
     /// guessed.
     Unpinnable,
@@ -129,8 +134,7 @@ pub fn project_edge(
     // actually selects (multi-head live downstream: any head qualifies).
     match resolve(ctx, dag, &edge.downstream) {
         Resolved::Single(r) if r == edge.downstream_rev => {}
-        Resolved::DivergedHeads
-            if dag.heads(&edge.downstream).contains(&edge.downstream_rev) => {}
+        Resolved::DivergedHeads if dag.heads(&edge.downstream).contains(&edge.downstream_rev) => {}
         _ => return None,
     }
 
@@ -143,7 +147,10 @@ pub fn project_edge(
     if let Some(r) = latest_resolution(resolutions, &sel) {
         match r.kind {
             ResolutionKind::Ratification => {
-                return Some(EdgeState::Fresh { ratified: true, ahead: false })
+                return Some(EdgeState::Fresh {
+                    ratified: true,
+                    ahead: false,
+                })
             }
             ResolutionKind::Waiver if waiver_active(r, now) => return Some(EdgeState::Waived),
             ResolutionKind::Waiver => {} // expired — fall through to axis 1
@@ -151,18 +158,26 @@ pub fn project_edge(
     }
 
     if edge.pinned == sel {
-        return Some(EdgeState::Fresh { ratified: false, ahead: false });
-    }
-    if dag.is_ancestor(&edge.upstream, &edge.pinned, &sel) {
-        return Some(match latest_check(checks, &edge.pinned, &sel).map(|c| c.verdict) {
-            Some(CheckVerdict::NoContradiction) => EdgeState::StaleValid,
-            Some(CheckVerdict::Contradiction) => EdgeState::StaleContradicted,
-            Some(CheckVerdict::Unknown) => EdgeState::StaleUnknown,
-            None => EdgeState::VersionStale,
+        return Some(EdgeState::Fresh {
+            ratified: false,
+            ahead: false,
         });
     }
+    if dag.is_ancestor(&edge.upstream, &edge.pinned, &sel) {
+        return Some(
+            match latest_check(checks, &edge.pinned, &sel).map(|c| c.verdict) {
+                Some(CheckVerdict::NoContradiction) => EdgeState::StaleValid,
+                Some(CheckVerdict::Contradiction) => EdgeState::StaleContradicted,
+                Some(CheckVerdict::Unknown) => EdgeState::StaleUnknown,
+                None => EdgeState::VersionStale,
+            },
+        );
+    }
     if dag.is_ancestor(&edge.upstream, &sel, &edge.pinned) {
-        return Some(EdgeState::Fresh { ratified: false, ahead: true });
+        return Some(EdgeState::Fresh {
+            ratified: false,
+            ahead: true,
+        });
     }
     Some(EdgeState::Diverged { multi_head: false })
 }

@@ -17,8 +17,13 @@ use super::types::{Envelope, WriterId, FORMAT_VERSION};
 const MAX_SEGMENT_BYTES: u64 = 8 * 1024 * 1024;
 
 /// I5 tripwire — every public method, mirrored by the test suite.
-pub const PUBLIC_API: [&str; 5] =
-    ["new", "with_max_segment_bytes", "append", "read_all", "active_segment_path_for_test"];
+pub const PUBLIC_API: [&str; 5] = [
+    "new",
+    "with_max_segment_bytes",
+    "append",
+    "read_all",
+    "active_segment_path_for_test",
+];
 
 pub fn writer_file_stem(writer: &WriterId) -> String {
     writer.0.to_string()
@@ -49,11 +54,19 @@ pub struct Ledger {
 
 impl Ledger {
     pub fn new(dir: PathBuf, writer: WriterId) -> Self {
-        Self { dir, writer, max_segment_bytes: MAX_SEGMENT_BYTES }
+        Self {
+            dir,
+            writer,
+            max_segment_bytes: MAX_SEGMENT_BYTES,
+        }
     }
 
     pub fn with_max_segment_bytes(dir: PathBuf, writer: WriterId, max: u64) -> Self {
-        Self { dir, writer, max_segment_bytes: max }
+        Self {
+            dir,
+            writer,
+            max_segment_bytes: max,
+        }
     }
 
     /// The segment the next append lands in: highest existing suffix for
@@ -93,18 +106,22 @@ impl Ledger {
                     .append(true)
                     .open(&path)
                     .map_err(|e| format!("ledger open failed: {e}"))?;
-                f.write_all(b"\n").map_err(|e| format!("tail termination failed: {e}"))?;
+                f.write_all(b"\n")
+                    .map_err(|e| format!("tail termination failed: {e}"))?;
             }
         }
-        let mut line = serde_json::to_string(entry).map_err(|e| format!("serialize failed: {e}"))?;
+        let mut line =
+            serde_json::to_string(entry).map_err(|e| format!("serialize failed: {e}"))?;
         line.push('\n');
         let mut f = fs::OpenOptions::new()
             .create(true)
             .append(true)
             .open(&path)
             .map_err(|e| format!("ledger open failed: {e}"))?;
-        f.write_all(line.as_bytes()).map_err(|e| format!("ledger append failed: {e}"))?;
-        f.sync_all().map_err(|e| format!("ledger fsync failed: {e}"))?;
+        f.write_all(line.as_bytes())
+            .map_err(|e| format!("ledger append failed: {e}"))?;
+        f.sync_all()
+            .map_err(|e| format!("ledger fsync failed: {e}"))?;
         Ok(())
     }
 
@@ -121,8 +138,12 @@ impl Ledger {
             .collect();
         segments.sort();
         for seg in segments {
-            let seg_name = seg.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
-            let bytes = fs::read(&seg).map_err(|e| format!("segment read failed ({seg_name}): {e}"))?;
+            let seg_name = seg
+                .file_name()
+                .map(|n| n.to_string_lossy().into_owned())
+                .unwrap_or_default();
+            let bytes =
+                fs::read(&seg).map_err(|e| format!("segment read failed ({seg_name}): {e}"))?;
             for (i, line) in bytes.split(|b| *b == b'\n').enumerate() {
                 if line.is_empty() {
                     continue;
@@ -132,13 +153,17 @@ impl Ledger {
                     LineOutcome::FutureFormat => read.future_format += 1,
                     LineOutcome::Malformed(reason) => {
                         self.quarantine(&seg_name, i + 1, line, &reason);
-                        read.quarantined.push(QuarantineRecord { segment: seg_name.clone(), line: i + 1, reason });
+                        read.quarantined.push(QuarantineRecord {
+                            segment: seg_name.clone(),
+                            line: i + 1,
+                            reason,
+                        });
                     }
                 }
             }
         }
         // Dedupe by idem: smallest (time, id) wins (spec §5.1).
-        raw.sort_by(|a, b| a.sort_key().cmp(&b.sort_key()));
+        raw.sort_by_key(|a| a.sort_key());
         let mut seen = std::collections::HashSet::new();
         read.entries = raw.into_iter().filter(|e| seen.insert(e.idem)).collect();
         Ok(read)
@@ -158,9 +183,13 @@ impl Ledger {
                 return;
             }
         }
-        let _ = fs::OpenOptions::new().create(true).append(true).open(&bad).and_then(|mut f| {
-            f.write_all(format!("# line {line_no}, {reason}\n{line_str}\n").as_bytes())
-        });
+        let _ = fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&bad)
+            .and_then(|mut f| {
+                f.write_all(format!("# line {line_no}, {reason}\n{line_str}\n").as_bytes())
+            });
     }
 }
 
@@ -197,9 +226,11 @@ fn file_ends_with_newline(path: &Path) -> Result<bool, String> {
     if len == 0 {
         return Ok(true);
     }
-    f.seek(SeekFrom::End(-1)).map_err(|e| format!("seek failed: {e}"))?;
+    f.seek(SeekFrom::End(-1))
+        .map_err(|e| format!("seek failed: {e}"))?;
     let mut buf = [0u8; 1];
-    f.read_exact(&mut buf).map_err(|e| format!("read failed: {e}"))?;
+    f.read_exact(&mut buf)
+        .map_err(|e| format!("read failed: {e}"))?;
     Ok(buf[0] == b'\n')
 }
 

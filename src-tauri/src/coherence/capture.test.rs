@@ -1,0 +1,206 @@
+// WI-1.6 — capture: the editor-save vertical slice (save → identity →
+// snapshot → ledger → index → restart → identical), input resolution
+// with validation and on-the-fly adoption, no-op saves, and the
+// append-only property over the full flow.
+
+use super::*;
+use crate::coherence::state::WorkspaceKernel;
+use crate::coherence::types::WriterId;
+use std::path::Path;
+
+const NOW: &str = "2026-07-18T12:00:00Z";
+
+fn workspace() -> (tempfile::TempDir, WorkspaceKernel) {
+    let dir = tempfile::tempdir().unwrap();
+    let kernel = WorkspaceKernel::open(dir.path(), WriterId(uuid::Uuid::from_u128(1))).unwrap();
+    (dir, kernel)
+}
+
+fn write_file(root: &Path, rel: &str, content: &str) {
+    let abs = root.join(rel);
+    std::fs::create_dir_all(abs.parent().unwrap()).unwrap();
+    std::fs::write(abs, content).unwrap();
+}
+
+fn human_save(path: &str, content: &str) -> CaptureRequest {
+    CaptureRequest {
+        path: path.into(),
+        content: content.into(),
+        inputs: vec![],
+        agent: Agent {
+            kind: AgentType::Human,
+            id: None,
+        },
+        intent: Intent {
+            kind: "editor-save".into(),
+            summary: "manual save".into(),
+            prompt_hash: None,
+        },
+        confidence: Confidence::Exact,
+    }
+}
+
+#[test]
+fn vertical_slice_save_assigns_identity_snapshots_and_survives_restart() {
+    let (dir, mut kernel) = workspace();
+    write_file(dir.path(), "scene.md", "# Scene\nrain\n");
+    let receipt = capture(&mut kernel, human_save("scene.md", "# Scene\nrain\n")).unwrap();
+
+    // Identity was assigned and written back to disk.
+    let on_disk = std::fs::read_to_string(dir.path().join("scene.md")).unwrap();
+    assert!(on_disk.contains("vmark:"), "identity written to the file");
+    assert_eq!(
+        receipt.content_with_identity.as_deref(),
+        Some(on_disk.as_str())
+    );
+    assert!(receipt.entry_id.is_some());
+
+    // Snapshot exists and is the masked canonical content.
+    use crate::coherence::canonical::text_content_hash;
+    assert!(kernel.snapshots().contains(&text_content_hash(&on_disk)));
+
+    // Restart: delete the index, reopen, identical state (R16 end-to-end).
+    let heads_before = kernel.index().heads(&receipt.object).unwrap();
+    drop(kernel);
+    std::fs::remove_file(dir.path().join(".vmark/index.db")).unwrap();
+    let kernel = WorkspaceKernel::open(dir.path(), WriterId(uuid::Uuid::from_u128(1))).unwrap();
+    assert_eq!(kernel.index().heads(&receipt.object).unwrap(), heads_before);
+    assert_eq!(heads_before, vec![receipt.revision]);
+}
+
+#[test]
+fn second_save_extends_the_revision_chain() {
+    let (dir, mut kernel) = workspace();
+    write_file(dir.path(), "scene.md", "v1\n");
+    let r1 = capture(&mut kernel, human_save("scene.md", "v1\n")).unwrap();
+    // The identity rewrite changed the on-disk content; a real editor
+    // buffer would now hold it. Save v2 with the identity block intact.
+    let with_id = r1.content_with_identity.unwrap().replace("v1\n", "v2\n");
+    write_file(dir.path(), "scene.md", &with_id);
+    let r2 = capture(&mut kernel, human_save("scene.md", &with_id)).unwrap();
+    assert_eq!(r1.object, r2.object);
+    assert_ne!(r1.revision, r2.revision);
+    assert!(
+        r2.content_with_identity.is_none(),
+        "identity already present"
+    );
+    assert_eq!(kernel.index().heads(&r1.object).unwrap(), vec![r2.revision]);
+}
+
+#[test]
+fn identical_content_save_is_a_noop() {
+    let (dir, mut kernel) = workspace();
+    write_file(dir.path(), "scene.md", "same\n");
+    let r1 = capture(&mut kernel, human_save("scene.md", "same\n")).unwrap();
+    let with_id = r1.content_with_identity.unwrap();
+    let r2 = capture(&mut kernel, human_save("scene.md", &with_id)).unwrap();
+    assert!(r2.entry_id.is_none(), "no entry for identical content");
+    assert_eq!(r2.revision, r1.revision);
+}
+
+#[test]
+fn unknown_confidence_is_rejected() {
+    let (_dir, mut kernel) = workspace();
+    let mut req = human_save("x.md", "x\n");
+    req.confidence = Confidence::Unknown;
+    assert!(capture(&mut kernel, req).is_err());
+}
+
+#[test]
+fn ai_generation_with_input_paths_adopts_and_records_edges() {
+    // The genie flow: scene generated against an uncaptured character
+    // sheet — the sheet is adopted on the fly, the edge recorded, and a
+    // later sheet update surfaces the scene in the breakdown.
+    let (dir, mut kernel) = workspace();
+    write_file(dir.path(), "elena.md", "# Elena\nEyes: green.\n");
+    write_file(dir.path(), "scene.md", "# Scene\nHer green eyes.\n");
+
+    let req = CaptureRequest {
+        path: "scene.md".into(),
+        content: "# Scene\nHer green eyes.\n".into(),
+        inputs: vec![CaptureInputSpec {
+            path: Some("elena.md".into()),
+            object_id: None,
+            revision: None,
+            role: InputRole::Direct,
+        }],
+        agent: Agent {
+            kind: AgentType::Model,
+            id: Some("test-model".into()),
+        },
+        intent: Intent {
+            kind: "genie".into(),
+            summary: "write scene".into(),
+            prompt_hash: None,
+        },
+        confidence: Confidence::Exact,
+    };
+    let receipt = capture(&mut kernel, req).unwrap();
+    assert!(receipt.entry_id.is_some());
+
+    // elena.md was adopted: identity on disk + observed-external root.
+    let elena_disk = std::fs::read_to_string(dir.path().join("elena.md")).unwrap();
+    assert!(elena_disk.contains("vmark:"));
+
+    // Fresh edge — breakdown is empty.
+    assert!(kernel.index().breakdown(NOW).unwrap().is_empty());
+
+    // Update elena: the scene's edge goes version-stale.
+    let elena_v2 = elena_disk.replace("green", "grey");
+    write_file(dir.path(), "elena.md", &elena_v2);
+    capture(&mut kernel, human_save("elena.md", &elena_v2)).unwrap();
+    let rows = kernel.index().breakdown(NOW).unwrap();
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].upstream_path.as_deref(), Some("elena.md"));
+    assert_eq!(rows[0].downstream_path.as_deref(), Some("scene.md"));
+}
+
+#[test]
+fn caller_supplied_revision_is_validated() {
+    let (dir, mut kernel) = workspace();
+    write_file(dir.path(), "elena.md", "elena\n");
+    let elena = capture(&mut kernel, human_save("elena.md", "elena\n")).unwrap();
+
+    let mut req = human_save("scene.md", "scene\n");
+    write_file(dir.path(), "scene.md", "scene\n");
+    req.inputs = vec![CaptureInputSpec {
+        path: None,
+        object_id: Some(elena.object),
+        revision: Some(RevisionId::parse(&format!("rev1:{}", "0".repeat(64))).unwrap()),
+        role: InputRole::Direct,
+    }];
+    let err = capture(&mut kernel, req).unwrap_err();
+    assert!(err.contains("does not belong"), "no silent fallback: {err}");
+}
+
+#[test]
+fn input_without_path_or_object_is_rejected() {
+    let (dir, mut kernel) = workspace();
+    write_file(dir.path(), "scene.md", "scene\n");
+    let mut req = human_save("scene.md", "scene\n");
+    req.inputs = vec![CaptureInputSpec {
+        path: None,
+        object_id: None,
+        revision: None,
+        role: InputRole::Direct,
+    }];
+    assert!(capture(&mut kernel, req).is_err());
+}
+
+#[test]
+fn rename_appends_registry_entry_not_revision() {
+    let (dir, mut kernel) = workspace();
+    write_file(dir.path(), "old.md", "content\n");
+    let r1 = capture(&mut kernel, human_save("old.md", "content\n")).unwrap();
+    let with_id = r1.content_with_identity.unwrap();
+    // Same content saved from a new path: registry moves, chain does not.
+    write_file(dir.path(), "new.md", &with_id);
+    let r2 = capture(&mut kernel, human_save("new.md", &with_id)).unwrap();
+    assert_eq!(r1.object, r2.object);
+    assert!(r2.entry_id.is_none(), "identical content: no new revision");
+    let registry = kernel.index().registry_state().unwrap();
+    assert_eq!(
+        registry.path_of.get(&r1.object).map(String::as_str),
+        Some("new.md")
+    );
+}

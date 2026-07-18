@@ -20,6 +20,7 @@ pub mod dag;
 pub mod frontmatter;
 pub mod gitops;
 pub mod index;
+pub mod index_query;
 pub mod ledger;
 pub mod project;
 pub mod scan;

@@ -20,8 +20,8 @@ fn rev(n: u8, parents: &[RevisionId]) -> RevisionId {
 /// Linear: r0 -> r1 -> r2
 fn linear(dag: &mut RevisionDag) -> (RevisionId, RevisionId, RevisionId) {
     let r0 = rev(0, &[]);
-    let r1 = rev(1, &[r0.clone()]);
-    let r2 = rev(2, &[r1.clone()]);
+    let r1 = rev(1, std::slice::from_ref(&r0));
+    let r2 = rev(2, std::slice::from_ref(&r1));
     dag.record_output(oid(1), r0.clone(), vec![]);
     dag.record_output(oid(1), r1.clone(), vec![r0.clone()]);
     dag.record_output(oid(1), r2.clone(), vec![r1.clone()]);
@@ -36,14 +36,17 @@ fn linear_history_has_single_head_and_ancestry() {
     assert!(dag.is_ancestor(&oid(1), &r0, &r2));
     assert!(dag.is_ancestor(&oid(1), &r1, &r2));
     assert!(!dag.is_ancestor(&oid(1), &r2, &r0));
-    assert!(!dag.is_ancestor(&oid(1), &r2, &r2), "strict ancestry: self is not ancestor");
+    assert!(
+        !dag.is_ancestor(&oid(1), &r2, &r2),
+        "strict ancestry: self is not ancestor"
+    );
 }
 
 #[test]
 fn branched_history_has_two_heads_and_incomparable_tips() {
     let mut dag = RevisionDag::default();
     let (r0, _r1, r2) = linear(&mut dag);
-    let fork = rev(9, &[r0.clone()]);
+    let fork = rev(9, std::slice::from_ref(&r0));
     dag.record_output(oid(1), fork.clone(), vec![r0.clone()]);
     let mut heads = dag.heads(&oid(1));
     heads.sort();
@@ -59,7 +62,7 @@ fn branched_history_has_two_heads_and_incomparable_tips() {
 fn merge_revision_unifies_heads() {
     let mut dag = RevisionDag::default();
     let (r0, _r1, r2) = linear(&mut dag);
-    let fork = rev(9, &[r0.clone()]);
+    let fork = rev(9, std::slice::from_ref(&r0));
     dag.record_output(oid(1), fork.clone(), vec![r0.clone()]);
     let merge = rev(10, &[r2.clone(), fork.clone()]);
     dag.record_output(oid(1), merge.clone(), vec![r2.clone(), fork.clone()]);
@@ -85,7 +88,10 @@ fn objects_are_isolated() {
     let other = rev(7, &[]);
     dag.record_output(oid(2), other.clone(), vec![]);
     assert_eq!(dag.heads(&oid(2)), vec![other.clone()]);
-    assert!(!dag.is_ancestor(&oid(2), &r0, &r2), "ancestry never crosses objects");
+    assert!(
+        !dag.is_ancestor(&oid(2), &r0, &r2),
+        "ancestry never crosses objects"
+    );
 }
 
 #[test]
@@ -107,9 +113,12 @@ fn resolve_live_single_head() {
 fn resolve_live_multi_head_is_diverged_heads() {
     let mut dag = RevisionDag::default();
     let (r0, _r1, _r2) = linear(&mut dag);
-    let fork = rev(9, &[r0.clone()]);
+    let fork = rev(9, std::slice::from_ref(&r0));
     dag.record_output(oid(1), fork, vec![r0]);
-    assert_eq!(resolve(&ContextView::all_live(), &dag, &oid(1)), Resolved::DivergedHeads);
+    assert_eq!(
+        resolve(&ContextView::all_live(), &dag, &oid(1)),
+        Resolved::DivergedHeads
+    );
 }
 
 #[test]
@@ -128,7 +137,10 @@ fn resolve_pinned_wins_over_live_and_validates_membership() {
 #[test]
 fn resolve_object_with_no_revisions_is_absent() {
     let dag = RevisionDag::default();
-    assert_eq!(resolve(&ContextView::all_live(), &dag, &oid(5)), Resolved::Absent);
+    assert_eq!(
+        resolve(&ContextView::all_live(), &dag, &oid(5)),
+        Resolved::Absent
+    );
 }
 
 #[test]
@@ -140,7 +152,7 @@ fn deep_chain_ancestor_walk_terminates() {
     let root = prev.clone();
     for i in 0..500u32 {
         let h = ContentHash::parse(&format!("sha256:{}", format!("{:08x}", i).repeat(8))).unwrap();
-        let r = RevisionId::compute(&h, &[prev.clone()]);
+        let r = RevisionId::compute(&h, std::slice::from_ref(&prev));
         dag.record_output(oid(1), r.clone(), vec![prev.clone()]);
         prev = r;
     }

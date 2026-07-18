@@ -29,18 +29,38 @@ fn txf_entry(time: &str, inputs: Vec<InputRef>, outputs: Vec<OutputRef>) -> Enve
     let t = Transformation {
         inputs,
         outputs,
-        agent: Agent { kind: AgentType::Model, id: Some("test-model".into()) },
-        intent: Intent { kind: "test".into(), summary: "test".into(), prompt_hash: None },
+        agent: Agent {
+            kind: AgentType::Model,
+            id: Some("test-model".into()),
+        },
+        intent: Intent {
+            kind: "test".into(),
+            summary: "test".into(),
+            prompt_hash: None,
+        },
         confidence: Confidence::Exact,
     };
-    let mut e = Envelope::create("transformation", writer(), serde_json::to_value(&t).unwrap());
+    let mut e = Envelope::create(
+        "transformation",
+        writer(),
+        serde_json::to_value(&t).unwrap(),
+    );
     e.time = time.to_string();
     e
 }
 
 fn registered(object: ObjectId, path: &str, time: &str) -> Envelope {
-    let r = ObjectRegistered { object, path: path.into(), schema: None, derived_from: None };
-    let mut e = Envelope::create("object-registered", writer(), serde_json::to_value(&r).unwrap());
+    let r = ObjectRegistered {
+        object,
+        path: path.into(),
+        schema: None,
+        derived_from: None,
+    };
+    let mut e = Envelope::create(
+        "object-registered",
+        writer(),
+        serde_json::to_value(&r).unwrap(),
+    );
     e.time = time.to_string();
     e
 }
@@ -55,7 +75,7 @@ struct Fixture {
 
 fn fixture() -> Fixture {
     let e0 = rev(0, &[]);
-    let e1 = rev(1, &[e0.clone()]);
+    let e1 = rev(1, std::slice::from_ref(&e0));
     let s0 = rev(10, &[]);
     let mut entries = vec![
         registered(oid(1), "elena.md", "2026-07-18T09:00:00Z"),
@@ -63,22 +83,46 @@ fn fixture() -> Fixture {
         txf_entry(
             "2026-07-18T09:00:02Z",
             vec![],
-            vec![OutputRef { object: oid(1), revision: e0.clone(), content_hash: hash(0), parents: vec![] }],
+            vec![OutputRef {
+                object: oid(1),
+                revision: e0.clone(),
+                content_hash: hash(0),
+                parents: vec![],
+            }],
         ),
     ];
     let scene_txf = txf_entry(
         "2026-07-18T09:00:03Z",
-        vec![InputRef { object: oid(1), revision: e0.clone(), role: InputRole::Direct }],
-        vec![OutputRef { object: oid(2), revision: s0.clone(), content_hash: hash(10), parents: vec![] }],
+        vec![InputRef {
+            object: oid(1),
+            revision: e0.clone(),
+            role: InputRole::Direct,
+        }],
+        vec![OutputRef {
+            object: oid(2),
+            revision: s0.clone(),
+            content_hash: hash(10),
+            parents: vec![],
+        }],
     );
     let txf_id = scene_txf.id;
     entries.push(scene_txf);
     entries.push(txf_entry(
         "2026-07-18T09:00:04Z",
         vec![],
-        vec![OutputRef { object: oid(1), revision: e1.clone(), content_hash: hash(1), parents: vec![e0.clone()] }],
+        vec![OutputRef {
+            object: oid(1),
+            revision: e1.clone(),
+            content_hash: hash(1),
+            parents: vec![e0.clone()],
+        }],
     ));
-    Fixture { entries, e0, e1, txf_id }
+    Fixture {
+        entries,
+        e0,
+        e1,
+        txf_id,
+    }
 }
 
 fn mem_index_with(entries: &[Envelope]) -> CoherenceIndex {
@@ -99,7 +143,10 @@ fn upstream_advance_appears_in_breakdown() {
     assert_eq!(row.upstream_path.as_deref(), Some("elena.md"));
     assert_eq!(row.downstream_path.as_deref(), Some("scene-12.md"));
     assert_eq!(row.pinned, f.e0);
-    assert!(matches!(row.state, crate::coherence::project::EdgeState::VersionStale));
+    assert!(matches!(
+        row.state,
+        crate::coherence::project::EdgeState::VersionStale
+    ));
 }
 
 #[test]
@@ -115,18 +162,27 @@ fn ratification_clears_the_breakdown_row() {
     let f = fixture();
     let mut idx = mem_index_with(&f.entries);
     let r = Resolution {
-        edge: EdgeRef { txf: f.txf_id, input: 0 },
+        edge: EdgeRef {
+            txf: f.txf_id,
+            input: 0,
+        },
         upstream_object: oid(1),
         pinned: f.e0.clone(),
         resolved_against: f.e1.clone(),
-        actor: Actor { kind: ActorType::Human, id: "xiaolai".into() },
+        actor: Actor {
+            kind: ActorType::Human,
+            id: "xiaolai".into(),
+        },
         reason: None,
         expires: None,
     };
     let mut e = Envelope::create("ratification", writer(), serde_json::to_value(&r).unwrap());
     e.time = "2026-07-18T10:00:00Z".to_string();
     idx.apply_entry(&e).unwrap();
-    assert!(idx.breakdown(NOW).unwrap().is_empty(), "ratified edge is fresh");
+    assert!(
+        idx.breakdown(NOW).unwrap().is_empty(),
+        "ratified edge is fresh"
+    );
 }
 
 #[test]
@@ -134,11 +190,17 @@ fn waiver_shows_as_waived_distinctly() {
     let f = fixture();
     let mut idx = mem_index_with(&f.entries);
     let r = Resolution {
-        edge: EdgeRef { txf: f.txf_id, input: 0 },
+        edge: EdgeRef {
+            txf: f.txf_id,
+            input: 0,
+        },
         upstream_object: oid(1),
         pinned: f.e0.clone(),
         resolved_against: f.e1.clone(),
-        actor: Actor { kind: ActorType::Human, id: "xiaolai".into() },
+        actor: Actor {
+            kind: ActorType::Human,
+            id: "xiaolai".into(),
+        },
         reason: Some("intentional".into()),
         expires: None,
     };
@@ -147,7 +209,10 @@ fn waiver_shows_as_waived_distinctly() {
     idx.apply_entry(&e).unwrap();
     let rows = idx.breakdown(NOW).unwrap();
     assert_eq!(rows.len(), 1);
-    assert!(matches!(rows[0].state, crate::coherence::project::EdgeState::Waived));
+    assert!(matches!(
+        rows[0].state,
+        crate::coherence::project::EdgeState::Waived
+    ));
 }
 
 #[test]
@@ -170,7 +235,8 @@ fn navigation_and_unknown_kinds_are_ignored() {
         json!({ "git": { "op": "checkout", "from": "a", "to": "b" } }),
     ))
     .unwrap();
-    idx.apply_entry(&Envelope::create("hologram-sync", writer(), json!({}))).unwrap();
+    idx.apply_entry(&Envelope::create("hologram-sync", writer(), json!({})))
+        .unwrap();
     assert_eq!(idx.breakdown(NOW).unwrap().len(), 1);
 }
 
@@ -214,7 +280,10 @@ fn schema_version_mismatch_triggers_silent_reset() {
         conn.pragma_update(None, "user_version", 9999).unwrap();
     }
     let (idx, needs_rebuild) = CoherenceIndex::open(&db).unwrap();
-    assert!(needs_rebuild, "version mismatch must reset and request rescan");
+    assert!(
+        needs_rebuild,
+        "version mismatch must reset and request rescan"
+    );
     assert!(idx.breakdown(NOW).unwrap().is_empty(), "old data wiped");
 }
 

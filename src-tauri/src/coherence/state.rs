@@ -1,1 +1,171 @@
-//! Placeholder — implemented by its Phase 1 WI (see coherence/mod.rs).
+//! Per-workspace kernel lifecycle (WI-1.12, ADR-C4 services tier).
+//!
+//! One `WorkspaceKernel` per workspace root, shared across windows via
+//! `KernelRegistry` (spec §5.1: all in-app writes serialize through one
+//! instance). `.vmark/` is created lazily on the first capture — never on
+//! mere open (spec §1). Opening a workspace with an existing ledger
+//! rebuilds the index when needed (R16); failed init surfaces an error
+//! without blocking the editor (callers treat coherence as unavailable).
+
+use std::collections::HashMap;
+use std::fs;
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
+
+use uuid::Uuid;
+
+use super::cas::SnapshotStore;
+use super::gitops::GitObservation;
+use super::index::CoherenceIndex;
+use super::ledger::Ledger;
+use super::types::{Envelope, WriterId};
+
+pub struct WorkspaceKernel {
+    root: PathBuf,
+    writer: WriterId,
+    ledger: Ledger,
+    snapshots: SnapshotStore,
+    index: CoherenceIndex,
+    initialized: bool,
+    /// Last git observation for scan classification (WI-1.7).
+    pub last_git: Option<GitObservation>,
+    /// Quarantined-line count from the last ledger read (status surface).
+    pub quarantined: usize,
+}
+
+impl WorkspaceKernel {
+    /// Open a workspace. Creates nothing on disk when `.vmark/` is absent
+    /// (in-memory index until first capture).
+    pub fn open(root: &Path, writer: WriterId) -> Result<Self, String> {
+        let vmark = root.join(".vmark");
+        let initialized = vmark.is_dir();
+        let ledger = Ledger::new(vmark.join("ledger"), writer);
+        let snapshots = SnapshotStore::new(vmark.join("snapshots"));
+        let (mut index, needs_rebuild) = if initialized {
+            CoherenceIndex::open(&vmark.join("index.db"))?
+        } else {
+            CoherenceIndex::open_in_memory()?
+        };
+        let mut quarantined = 0;
+        if needs_rebuild || !initialized {
+            let read = ledger.read_all()?;
+            quarantined = read.quarantined.len();
+            index.rebuild_from(&read.entries)?;
+        }
+        Ok(Self {
+            root: root.to_path_buf(),
+            writer,
+            ledger,
+            snapshots,
+            index,
+            initialized,
+            last_git: None,
+            quarantined,
+        })
+    }
+
+    /// Lazily create the on-disk structure (spec §1) before the first
+    /// write: ledger + snapshot dirs, `.gitignore` (index.db) and
+    /// `.gitattributes` (merge=union). Idempotent.
+    pub fn ensure_initialized(&mut self) -> Result<(), String> {
+        if self.initialized {
+            return Ok(());
+        }
+        let vmark = self.root.join(".vmark");
+        fs::create_dir_all(vmark.join("ledger")).map_err(|e| format!("init ledger dir: {e}"))?;
+        fs::create_dir_all(vmark.join("snapshots")).map_err(|e| format!("init snapshots: {e}"))?;
+        let gitignore = vmark.join(".gitignore");
+        if !gitignore.exists() {
+            fs::write(&gitignore, "index.db*\n").map_err(|e| format!("init .gitignore: {e}"))?;
+        }
+        let gitattributes = vmark.join(".gitattributes");
+        if !gitattributes.exists() {
+            fs::write(&gitattributes, "ledger/*.jsonl merge=union\n")
+                .map_err(|e| format!("init .gitattributes: {e}"))?;
+        }
+        // Swap the in-memory index for the file-backed one.
+        let (mut index, _) = CoherenceIndex::open(&vmark.join("index.db"))?;
+        let read = self.ledger.read_all()?;
+        self.quarantined = read.quarantined.len();
+        index.rebuild_from(&read.entries)?;
+        self.index = index;
+        self.initialized = true;
+        Ok(())
+    }
+
+    /// The single write path: durable ledger append, then index apply
+    /// (I1/I2 — appends only).
+    pub fn append_and_apply(&mut self, env: &Envelope) -> Result<(), String> {
+        self.ledger.append(env)?;
+        self.index.apply_entry(env)
+    }
+
+    pub fn root(&self) -> &Path {
+        &self.root
+    }
+    pub fn writer(&self) -> WriterId {
+        self.writer
+    }
+    pub fn is_initialized(&self) -> bool {
+        self.initialized
+    }
+    pub fn index(&self) -> &CoherenceIndex {
+        &self.index
+    }
+    pub fn index_mut(&mut self) -> &mut CoherenceIndex {
+        &mut self.index
+    }
+    pub fn snapshots(&self) -> &SnapshotStore {
+        &self.snapshots
+    }
+    pub fn ledger(&self) -> &Ledger {
+        &self.ledger
+    }
+}
+
+/// One kernel per workspace root, lazily created, shared across windows.
+#[derive(Default)]
+pub struct KernelRegistry {
+    kernels: Mutex<HashMap<PathBuf, Arc<Mutex<WorkspaceKernel>>>>,
+}
+
+impl KernelRegistry {
+    pub fn kernel_for(
+        &self,
+        root: &Path,
+        writer: WriterId,
+    ) -> Result<Arc<Mutex<WorkspaceKernel>>, String> {
+        let canonical = root
+            .canonicalize()
+            .map_err(|e| format!("workspace root not accessible: {e}"))?;
+        let mut map = self
+            .kernels
+            .lock()
+            .map_err(|_| "kernel registry poisoned".to_string())?;
+        if let Some(k) = map.get(&canonical) {
+            return Ok(Arc::clone(k));
+        }
+        let kernel = Arc::new(Mutex::new(WorkspaceKernel::open(&canonical, writer)?));
+        map.insert(canonical, Arc::clone(&kernel));
+        Ok(kernel)
+    }
+}
+
+/// Per-installation writer identity (spec §2.2) — stored in app data,
+/// never inside a (git-shared) workspace.
+pub fn load_or_create_writer_id(app_data_dir: &Path) -> Result<WriterId, String> {
+    let path = app_data_dir.join("coherence-writer-id");
+    if let Ok(existing) = fs::read_to_string(&path) {
+        if let Ok(id) = Uuid::parse_str(existing.trim()) {
+            return Ok(WriterId(id));
+        }
+    }
+    let id = Uuid::now_v7();
+    fs::create_dir_all(app_data_dir).map_err(|e| format!("writer-id dir: {e}"))?;
+    fs::write(&path, id.to_string()).map_err(|e| format!("writer-id write: {e}"))?;
+    Ok(WriterId(id))
+}
+
+#[cfg(test)]
+#[path = "state.test.rs"]
+mod tests;

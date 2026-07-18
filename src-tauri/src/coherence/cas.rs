@@ -11,7 +11,9 @@ use std::path::PathBuf;
 
 use uuid::Uuid;
 
-use super::canonical::{binary_content_hash, canonical_masked_bytes, text_content_hash, insert_identity};
+use super::canonical::{
+    binary_content_hash, canonical_masked_bytes, insert_identity, text_content_hash,
+};
 use super::types::ContentHash;
 
 #[derive(Debug)]
@@ -71,9 +73,12 @@ impl SnapshotStore {
         fs::create_dir_all(target.parent().expect("cas path has parent"))
             .map_err(|e| format!("snapshot mkdir failed: {e}"))?;
         let tmp_path = tmp_dir.join(Uuid::now_v7().to_string());
-        let mut f = fs::File::create(&tmp_path).map_err(|e| format!("snapshot create failed: {e}"))?;
-        f.write_all(bytes).map_err(|e| format!("snapshot write failed: {e}"))?;
-        f.sync_all().map_err(|e| format!("snapshot fsync failed: {e}"))?;
+        let mut f =
+            fs::File::create(&tmp_path).map_err(|e| format!("snapshot create failed: {e}"))?;
+        f.write_all(bytes)
+            .map_err(|e| format!("snapshot write failed: {e}"))?;
+        f.sync_all()
+            .map_err(|e| format!("snapshot fsync failed: {e}"))?;
         drop(f);
         fs::rename(&tmp_path, &target).map_err(|e| format!("snapshot rename failed: {e}"))?;
         if let Some(parent) = target.parent() {

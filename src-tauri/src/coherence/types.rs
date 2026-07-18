@@ -12,7 +12,9 @@ use uuid::Uuid;
 pub const FORMAT_VERSION: u32 = 0;
 
 fn is_lower_hex_64(s: &str) -> bool {
-    s.len() == 64 && s.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+    s.len() == 64
+        && s.bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
 }
 
 /// Stable object identity (frontmatter `vmark.id`, spec §2.1). UUIDv7.
@@ -275,9 +277,15 @@ pub enum TypedBody {
     ObjectRegistered(ObjectRegistered),
     Diagnostic(Diagnostic),
     /// Known-by-spec, consumed from Phase 2b on; preserved untouched here.
-    Preserved { kind: String, body: serde_json::Value },
+    Preserved {
+        kind: String,
+        body: serde_json::Value,
+    },
     /// Forward compatibility: unknown kinds are preserved and ignored.
-    Unknown { kind: String, body: serde_json::Value },
+    Unknown {
+        kind: String,
+        body: serde_json::Value,
+    },
 }
 
 impl Envelope {
@@ -304,15 +312,23 @@ impl Envelope {
             "waiver" => TypedBody::Waiver(parse(b)?),
             "object-registered" => TypedBody::ObjectRegistered(parse(b)?),
             "diagnostic" => TypedBody::Diagnostic(parse(b)?),
-            "check-result" | "claim" => TypedBody::Preserved { kind: self.kind.clone(), body: b.clone() },
-            _ => TypedBody::Unknown { kind: self.kind.clone(), body: b.clone() },
+            "check-result" | "claim" => TypedBody::Preserved {
+                kind: self.kind.clone(),
+                body: b.clone(),
+            },
+            _ => TypedBody::Unknown {
+                kind: self.kind.clone(),
+                body: b.clone(),
+            },
         })
     }
 
     /// Deterministic reader order: (parsed RFC 3339 time, entry id).
     /// `None` for unparseable times — callers treat that as malformed.
     pub fn sort_key(&self) -> Option<(chrono::DateTime<chrono::FixedOffset>, Uuid)> {
-        chrono::DateTime::parse_from_rfc3339(&self.time).ok().map(|t| (t, self.id))
+        chrono::DateTime::parse_from_rfc3339(&self.time)
+            .ok()
+            .map(|t| (t, self.id))
     }
 
     /// Mint a new entry: fresh UUIDv7 `id` and `idem` (the idem is created

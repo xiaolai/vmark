@@ -41,6 +41,22 @@ pub(crate) fn machine_id_hash() -> String {
 /// individually readable and the builder chain stays declarative.
 pub(crate) fn setup_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     app.manage(pty::PtyState::default());
+
+    // Coherence layer: per-installation writer identity (spec §2.2) +
+    // per-workspace kernel registry. A writer-id load failure falls back
+    // to an ephemeral id — coherence degrades, the app never blocks.
+    let writer = tauri::Manager::path(app.handle())
+        .app_data_dir()
+        .ok()
+        .and_then(|dir| crate::coherence::state::load_or_create_writer_id(&dir).ok())
+        .unwrap_or_else(|| {
+            log::warn!("coherence: falling back to ephemeral writer id");
+            crate::coherence::types::WriterId(uuid::Uuid::now_v7())
+        });
+    app.manage(crate::coherence::commands::CoherenceState {
+        registry: crate::coherence::state::KernelRegistry::default(),
+        writer,
+    });
     let menu = menu::localized::create_localized_menu(app.handle(), None)?;
     app.set_menu(menu)?;
 

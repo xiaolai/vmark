@@ -28,10 +28,15 @@ pub enum GitClass {
     NotGit,
     NoOp,
     /// HEAD moved to previously known content — record, never mint (R18).
-    Navigation { from: String, to: String },
+    Navigation {
+        from: String,
+        to: String,
+    },
     /// New commits minted with HEAD on one (revert, merge commit): real
     /// new content, captured as git-attributed transformations.
-    Mutation { new_shas: Vec<String> },
+    Mutation {
+        new_shas: Vec<String>,
+    },
     /// Mid-conflict merge: defer reconciliation until it concludes.
     MergeInProgress,
     /// Observation gap (repo appeared/disappeared, unreadable HEAD):
@@ -61,7 +66,12 @@ pub fn observe(root: &Path) -> Option<GitObservation> {
         .unwrap_or_default();
     let merge_in_progress =
         git_output(root, &["rev-parse", "-q", "--verify", "MERGE_HEAD"]).is_some();
-    Some(GitObservation { head_ref, head_sha, known_shas, merge_in_progress })
+    Some(GitObservation {
+        head_ref,
+        head_sha,
+        known_shas,
+        merge_in_progress,
+    })
 }
 
 /// Classify what happened between two observations (G2 matrix).
@@ -78,8 +88,7 @@ pub fn classify(before: Option<&GitObservation>, after: Option<&GitObservation>)
         return GitClass::ExternalUnknown;
     };
     let new_shas: Vec<String> = {
-        let mut v: Vec<String> =
-            a.known_shas.difference(&b.known_shas).cloned().collect();
+        let mut v: Vec<String> = a.known_shas.difference(&b.known_shas).cloned().collect();
         v.sort();
         v
     };

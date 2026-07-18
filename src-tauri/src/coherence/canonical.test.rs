@@ -6,7 +6,8 @@ use super::*;
 
 const BARE: &str = "# Scene 12\nElena waited in the rain.\n";
 const BARE_HASH: &str = "sha256:e59856b8f84f657f19d657aa2504758f3504e79dcc6e4aa999b0f9125edd4221";
-const AUTHOR_FM_HASH: &str = "sha256:56c0dc6798a8150ebd2d806e1903a6e2afc6a43b9c5c332d358b2c3e52b308d2";
+const AUTHOR_FM_HASH: &str =
+    "sha256:56c0dc6798a8150ebd2d806e1903a6e2afc6a43b9c5c332d358b2c3e52b308d2";
 
 #[test]
 fn golden_vector_bare_document() {
@@ -102,7 +103,11 @@ fn insert_identity_roundtrips_with_masking() {
         let inserted = insert_identity(original, ID, Some("scene"));
         assert!(inserted.contains(&format!("  id: {ID}")));
         assert!(inserted.contains("  schema: scene"));
-        assert_eq!(mask_identity(&inserted), *original, "mask(insert(x)) == x for {original:?}");
+        assert_eq!(
+            mask_identity(&inserted),
+            *original,
+            "mask(insert(x)) == x for {original:?}"
+        );
     }
 }
 
