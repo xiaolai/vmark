@@ -29,6 +29,13 @@ pub(super) fn build_window_menu(app: &tauri::AppHandle) -> tauri::Result<Submenu
             )?,
             &MenuItem::with_id(
                 app,
+                "breakdown",
+                &t!("menu.window.breakdown"),
+                true,
+                None::<&str>,
+            )?,
+            &MenuItem::with_id(
+                app,
                 "bring-all-to-front",
                 &t!("menu.window.bringAllToFront"),
                 true,

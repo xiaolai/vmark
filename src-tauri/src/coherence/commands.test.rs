@@ -37,6 +37,7 @@ fn save(kernel: &mut WorkspaceKernel, rel: &str, content: &str) -> CaptureReceip
                 prompt_hash: None,
             },
             confidence: Confidence::Exact,
+            rewrite_identity: true,
         },
     )
     .unwrap()
@@ -68,6 +69,7 @@ fn stale_edge(root: &std::path::Path, kernel: &mut WorkspaceKernel) -> (Uuid, u3
                 prompt_hash: None,
             },
             confidence: Confidence::Exact,
+            rewrite_identity: true,
         },
     )
     .unwrap();

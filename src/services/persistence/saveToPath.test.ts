@@ -30,6 +30,14 @@ vi.mock("@/stores/workspaceStore", () => ({
   useRecentFilesStore: {
     getState: vi.fn(),
   },
+  useWorkspaceStore: {
+    getState: vi.fn(() => ({ rootPath: null })),
+  },
+}));
+
+const mockCaptureWrite = vi.fn().mockResolvedValue(null);
+vi.mock("@/services/coherence/captureFunnel", () => ({
+  captureWrite: (...args: unknown[]) => mockCaptureWrite(...args),
 }));
 
 vi.mock("@/stores/settingsStore", () => ({
@@ -159,6 +167,28 @@ describe("saveToPath", () => {
       mergeWindowSeconds: 30,
       maxFileSizeKB: 512,
     });
+  });
+
+  it("reports the write to the coherence capture funnel (WI-1.6, fire-and-forget)", async () => {
+    vi.mocked(invoke).mockResolvedValue(undefined);
+
+    await saveToPath("tab-1", "/tmp/doc.md", "Hello", "manual");
+
+    expect(mockCaptureWrite).toHaveBeenCalledWith({
+      absolutePath: "/tmp/doc.md",
+      content: "Hello",
+      agent: { type: "human" },
+      intent: { kind: "editor-save", summary: "manual save" },
+    });
+  });
+
+  it("save succeeds even when the coherence funnel rejects", async () => {
+    vi.mocked(invoke).mockResolvedValue(undefined);
+    mockCaptureWrite.mockRejectedValueOnce(new Error("kernel down"));
+
+    const result = await saveToPath("tab-1", "/tmp/doc.md", "Hello", "manual");
+
+    expect(result).toBe(true);
   });
 
   it("blocks saving when another workspace instance owns a dirty writable copy", async () => {

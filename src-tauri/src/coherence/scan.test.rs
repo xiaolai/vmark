@@ -39,6 +39,7 @@ fn captured_doc(kernel: &mut WorkspaceKernel, root: &Path, rel: &str, body: &str
                 prompt_hash: None,
             },
             confidence: Confidence::Exact,
+            rewrite_identity: true,
         },
     )
     .unwrap();
@@ -121,6 +122,7 @@ fn delete_marks_absent_and_restore_revives() {
                 prompt_hash: None,
             },
             confidence: Confidence::Exact,
+            rewrite_identity: true,
         },
     )
     .unwrap();
@@ -284,6 +286,7 @@ fn git_navigation_never_mints_revisions() {
                 prompt_hash: None,
             },
             confidence: Confidence::Exact,
+            rewrite_identity: true,
         },
     )
     .unwrap();
@@ -335,6 +338,7 @@ fn git_revert_is_captured_as_git_mutation() {
                 prompt_hash: None,
             },
             confidence: Confidence::Exact,
+            rewrite_identity: true,
         },
     )
     .unwrap();

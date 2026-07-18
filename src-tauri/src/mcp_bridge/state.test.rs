@@ -109,6 +109,15 @@ fn read_only_browser_operations() {
 }
 
 #[test]
+fn read_only_coherence_operations() {
+    // WI-1.10 — coherence status/edges are answered Rust-side before the
+    // write lock is ever consulted, but they are pure reads and must be
+    // classified as such if the routing ever changes.
+    assert!(is_read_only_operation("vmark.coherence.status"));
+    assert!(is_read_only_operation("vmark.coherence.edges"));
+}
+
+#[test]
 fn write_operations_not_read_only() {
     assert!(!is_read_only_operation("document.insertAtCursor"));
     assert!(!is_read_only_operation("document.insertAtPosition"));
