@@ -252,6 +252,32 @@ phase_1() {
   echo "  ⓘ WI linkage: bash scripts/check-wi-linkage.sh $PLAN --phase=1"
 }
 
+# ─── Phase 2 (2b semantic layer; grows per-WI, rule 60 §3) ───────────────
+phase_2() {
+  echo "Phase 2 — semantic layer (WI-2b.0..10; design-2a.md is the contract)"
+
+  echo "— WI-2b.0: contract first (R21) —"
+  local DESIGN=dev-docs/grills/coherence/design-2a.md
+  assert_file "$DESIGN" "Phase 2a design record"
+  assert_grep "Status: \*\*APPROVED\*\*" "$DESIGN" "design record APPROVED by owner review"
+  assert_grep "Owner decision record" "$DESIGN" "owner decision record quoted"
+  assert_grep "claims_fingerprint" "$DESIGN" "D5.6 additive wire fields designed"
+  local SPEC=dev-docs/specs/coherence-format-v0.md
+  assert_grep "Spec revision 1 of format 0" "$SPEC" "spec advanced to revision 1"
+  assert_grep "claims_fingerprint" "$SPEC" "check-result carries claims_fingerprint"
+  assert_grep "stable claim-object id" "$SPEC" "claim id vs entry id separated (D2.1)"
+  assert_grep "additively only" "$SPEC" "additive-only claim inheritance (D1.3)"
+  assert_grep "Resolved (Phase 2a" dev-docs/coherence-layer-paper.md "paper §O bullets record resolutions"
+  assert_grep "WI-2b.0" dev-docs/plans/20260718-coherence-layer.md "plan decomposes Phase 2b"
+
+  # Later WIs append their assertions (and suite runs) here as they land.
+  local PENDING=(2b.1 2b.2 2b.3 2b.4 2b.5 2b.6 2b.7 2b.8 2b.9 2b.10)
+  echo "— pending WIs (fail-closed until implemented) —"
+  for wi in "${PENDING[@]}"; do
+    fail "WI-$wi assertions not yet defined (fail-closed)"
+  done
+}
+
 # ─── Stubs ───────────────────────────────────────────────────────────────
 phase_stub() {
   echo "Phase $1 — stub (decomposed by plan amendment after Phase 2a; rule 60 §3)"
@@ -261,6 +287,7 @@ phase_stub() {
 case "$PHASE" in
   0) phase_0 ;;
   1) phase_1 ;;
+  2) phase_2 ;;
   2a|2b|3|4) phase_stub "$PHASE" ;;
   *) echo "unknown phase: $PHASE"; exit 64 ;;
 esac
