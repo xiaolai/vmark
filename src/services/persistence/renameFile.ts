@@ -6,7 +6,16 @@
  * the File Explorer (tree node) and the tab context menu behave identically.
  *
  * Key decisions:
- *   - Preserves the `.md` extension for files when the user omits it.
+ *   - Preserves the file's ORIGINAL extension when the submitted name omits
+ *     one (rename inputs prefill the extensionless name, so "notes.txt" +
+ *     "notes2" → "notes2.txt"); an explicitly typed extension wins as-is.
+ *   - Folder-ness comes from the caller's `isFolder` flag when known, else a
+ *     filesystem stat — never from name heuristics (a folder named
+ *     "v2.0-drafts" is not a file).
+ *   - `newName` must be a bare name: empty/whitespace-only names, path
+ *     separators, NUL bytes, and "."/".." are rejected with an `error`
+ *     outcome BEFORE any filesystem access — a separator or ".." would
+ *     silently MOVE the file instead of renaming it.
  *   - Refuses to overwrite an existing target (returns `exists`, no write).
  *   - Reconciles open tabs via reconcilePathChange + applyPathReconciliation,
  *     which also refreshes each affected tab's title (tabStore.updateTabPath).
@@ -19,8 +28,8 @@
  * @coordinates-with components/Tabs/TabRenameInput.tsx — tab context-menu caller
  * @module services/persistence/renameFile
  */
-import { rename, exists } from "@tauri-apps/plugin-fs";
-import { basename, join } from "@tauri-apps/api/path";
+import { rename, exists, stat } from "@tauri-apps/plugin-fs";
+import { basename, dirname, join } from "@tauri-apps/api/path";
 import { useTabStore } from "@/stores/tabStore";
 import { reconcilePathChange } from "@/utils/pathReconciliation";
 import { applyPathReconciliation } from "./applyPathReconciliation";
@@ -32,6 +41,37 @@ export type RenameOutcome =
   | { status: "exists"; name: string; isFile: boolean }
   | { status: "error"; error: unknown };
 
+/** Options for {@link renameFile}. */
+export interface RenameOptions {
+  /** Whether `oldPath` is a folder. Callers that know (e.g. tree nodes carry
+   *  `isFolder`) should pass it; when omitted, a filesystem stat decides. */
+  isFolder?: boolean;
+}
+
+/**
+ * The extension of `name` including its leading dot, or "" when there is
+ * none. The split is at the LAST dot; a dot at position 0 (dotfiles like
+ * `.gitignore`) does not count as an extension.
+ */
+export function fileExtensionOf(name: string): string {
+  const dot = name.lastIndexOf(".");
+  return dot > 0 ? name.slice(dot) : "";
+}
+
+/**
+ * Why `newName` cannot be used as a file/folder name, or null when it can.
+ * Joined unvalidated, a separator or ".." would MOVE the file; "" or "."
+ * would resolve to the parent itself.
+ */
+function invalidNameReason(name: string): string | null {
+  const trimmed = name.trim();
+  if (trimmed === "") return "name is empty";
+  if (/[/\\]/.test(name)) return "name contains a path separator";
+  if (name.includes("\0")) return "name contains a NUL byte";
+  if (trimmed === "." || trimmed === "..") return "name is a reserved path";
+  return null;
+}
+
 /**
  * Rename the item at `oldPath` to `newName` (a bare name, not a path).
  * Open tabs/documents pointing at the old path are reconciled to the new path.
@@ -39,20 +79,36 @@ export type RenameOutcome =
 export async function renameFile(
   oldPath: string,
   newName: string,
+  options: RenameOptions = {},
 ): Promise<RenameOutcome> {
+  const reason = invalidNameReason(newName);
+  if (reason) {
+    return {
+      status: "error",
+      error: new Error(`Invalid name ${JSON.stringify(newName)}: ${reason}`),
+    };
+  }
   try {
     const oldName = await basename(oldPath);
-    const parentPath = oldPath.slice(0, -oldName.length - 1);
+    // dirname, not string slicing: slicing yields "" for root-level paths,
+    // and join("", name) produces a RELATIVE path.
+    const parentPath = await dirname(oldPath);
 
-    // Preserve the .md extension for files (folders keep the raw name).
-    const isFile = !oldPath.endsWith("/") && oldName.includes(".");
-    const finalName = isFile && !newName.endsWith(".md") ? `${newName}.md` : newName;
+    const isFolder = options.isFolder ?? (await stat(oldPath)).isDirectory;
+
+    // Preserve the file's original extension when the submitted name has no
+    // extension of its own (rename inputs prefill the extensionless name);
+    // an explicitly typed extension wins. Folders keep the raw name.
+    const finalName =
+      !isFolder && fileExtensionOf(newName) === ""
+        ? `${newName}${fileExtensionOf(oldName)}`
+        : newName;
 
     const newPath = await join(parentPath, finalName);
     if (oldPath === newPath) return { status: "unchanged", path: oldPath };
 
     if (await exists(newPath)) {
-      return { status: "exists", name: finalName, isFile: finalName.includes(".") };
+      return { status: "exists", name: finalName, isFile: !isFolder };
     }
 
     // Capture open paths before the move so reconciliation can match them.

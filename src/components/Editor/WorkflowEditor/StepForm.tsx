@@ -11,10 +11,11 @@
  *   - `uses:` is read-only in this form (Phase 7). Changing the action
  *     reference is a structural edit better expressed in source until
  *     a dedicated action picker exists.
- *   - `with:` rows hold local state; on blur or the "remove" button
- *     they emit one with.set or with.remove patch each. Rename of an
- *     existing key emits a remove + a set, which is exactly what the
- *     mutator needs.
+ *   - `with:` rows hold local state; blur commits via the pure plans in
+ *     withRowPlans.ts (rename = remove + set, chains cancel intermediate
+ *     keys, duplicate keys are rejected with an inline error). Removing a
+ *     row cancels its queued sets and queues with.remove for its original
+ *     key, so a deleted row never writes back on Save.
  *   - Action-metadata-driven field discovery (Phase 6 registry) is
  *     deferred to Phase 9 polish — the registry exists but threading
  *     the async fetch through this synchronous form needs more design.
@@ -23,13 +24,20 @@
  * @module components/Editor/WorkflowEditor/StepForm
  */
 
-import { useEffect, useRef, useState, type ReactElement } from "react";
+import { useEffect, useState, type ReactElement } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronLeft, ChevronRight, ArrowUp } from "lucide-react";
 import type { StepIR } from "@/lib/ghaWorkflow/types";
 import { useWorkflowStore } from "@/stores/workflowStore";
 import { useActionMetadata } from "./useActionMetadata";
 import { ExpressionEditor } from "./ExpressionEditor";
+import {
+  newWithRow,
+  planWithRowCommit,
+  planWithRowRemoval,
+  withRowsFromStep,
+  type WithRow,
+} from "./withRowPlans";
 import "./workflow-editor.css";
 
 type ExpandTarget = null | { field: "if" | "run"; value: string };
@@ -47,22 +55,6 @@ interface StepFormProps {
   prevStepId?: string | null;
   /** Step id to navigate to with Next. null/undefined disables the button. */
   nextStepId?: string | null;
-}
-
-interface WithRow {
-  key: string;
-  value: string;
-  /** Original key when this row was loaded from IR; null for newly added rows. */
-  originalKey: string | null;
-}
-
-function withRowsFromStep(step: StepIR): WithRow[] {
-  if (!step.with) return [];
-  return Object.entries(step.with).map(([key, value]) => ({
-    key,
-    value: value == null ? "" : String(value),
-    originalKey: key,
-  }));
 }
 
 export function StepForm({
@@ -84,16 +76,11 @@ export function StepForm({
     useWorkflowStore.getState().selectJob(jobId);
   };
 
-  // Refs the parent uses to restore focus after a step→step navigation
-  // remount. Auto-focus does NOT happen here in StepForm because each
-  // remount produces a fresh component with fresh refs and no memory
-  // of whether the mount was triggered by user nav or by a fresh step
-  // selection. WorkflowEditorPanel owns that distinction (it can
-  // observe selectedStepId transitions) and reaches into the new DOM
-  // via querySelector to land focus on the appropriate nav button.
-  const nextBtnRef = useRef<HTMLButtonElement>(null);
-  const prevBtnRef = useRef<HTMLButtonElement>(null);
-  const backBtnRef = useRef<HTMLButtonElement>(null);
+  // Focus restoration after a step→step navigation remount is owned by
+  // WorkflowEditorPanel: a remounted StepForm has no memory of whether the
+  // mount came from user nav, so the panel observes selectedStepId
+  // transitions and reaches into the fresh DOM via querySelector to land
+  // focus on the appropriate nav button.
 
   // Keyboard nav: Alt+Left / Alt+Right walk steps. Listens on the
   // window so the form doesn't have to be focused — accessible from
@@ -195,9 +182,7 @@ export function StepForm({
 
   const addSuggestedKey = (key: string): void => {
     setWithRows((rows) =>
-      rows.some((r) => r.key === key)
-        ? rows
-        : [...rows, { key, value: "", originalKey: null }],
+      rows.some((r) => r.key === key) ? rows : [...rows, newWithRow(key)],
     );
   };
 
@@ -210,44 +195,21 @@ export function StepForm({
     queue({ kind: "step.set", jobId, stepIndex, path, value: next });
   };
 
-  const commitWithRow = (row: WithRow): void => {
-    if (!row.key) return;
-    const renamed = !!row.originalKey && row.originalKey !== row.key;
-    // Look up the original value via the IR (not via stale local state).
-    // This dedupes blur events that fire without an actual edit — tabbing
-    // through rows previously dirtied the queue with a no-op patch every
-    // time. (auditor finding: real bug.)
-    const originalValue =
-      row.originalKey && step.with
-        ? String(step.with[row.originalKey] ?? "")
-        : null;
-    const valueChanged = originalValue === null || row.value !== originalValue;
-    if (!renamed && !valueChanged) {
-      // Revert to original: drop any queued with.set for this key.
-      cancel({
-        kind: "with.set",
-        jobId,
-        stepIndex,
-        key: row.originalKey ?? row.key,
-        value: "",
-      });
+  // Every OTHER row — duplicate detection + patch-ownership guards.
+  const otherRows = (idx: number): WithRow[] =>
+    withRows.filter((_, i) => i !== idx);
+
+  const commitWithRow = (idx: number): void => {
+    const row = withRows[idx];
+    const plan = planWithRowCommit({ jobId, stepIndex }, row, otherRows(idx), step.with);
+    if (plan.kind === "noop") return;
+    for (const patch of plan.cancels) cancel(patch);
+    if (plan.kind === "duplicate") {
+      updateRow(idx, { duplicateKey: true, committedKey: null });
       return;
     }
-    if (renamed) {
-      queue({
-        kind: "with.remove",
-        jobId,
-        stepIndex,
-        key: row.originalKey!,
-      });
-    }
-    queue({
-      kind: "with.set",
-      jobId,
-      stepIndex,
-      key: row.key,
-      value: row.value,
-    });
+    for (const patch of plan.queues) queue(patch);
+    updateRow(idx, { duplicateKey: false, committedKey: plan.committedKey });
   };
 
   const updateRow = (idx: number, patch: Partial<WithRow>): void => {
@@ -257,27 +219,20 @@ export function StepForm({
   };
 
   const removeRow = (idx: number): void => {
-    const row = withRows[idx];
-    if (row.originalKey) {
-      queue({
-        kind: "with.remove",
-        jobId,
-        stepIndex,
-        key: row.originalKey,
-      });
-    }
+    const plan = planWithRowRemoval({ jobId, stepIndex }, withRows[idx], otherRows(idx));
+    for (const patch of plan.cancels) cancel(patch);
+    for (const patch of plan.queues) queue(patch);
     setWithRows((rows) => rows.filter((_, i) => i !== idx));
   };
 
   const addRow = (): void => {
-    setWithRows((rows) => [...rows, { key: "", value: "", originalKey: null }]);
+    setWithRows((rows) => [...rows, newWithRow()]);
   };
 
   return (
     <form className="workflow-form" onSubmit={(e) => e.preventDefault()}>
       <header className="workflow-form__header workflow-form__header--step">
         <button
-          ref={backBtnRef}
           type="button"
           className="workflow-form__nav-btn"
           onClick={backToJob}
@@ -289,7 +244,6 @@ export function StepForm({
           <ArrowUp size={14} />
         </button>
         <button
-          ref={prevBtnRef}
           type="button"
           className="workflow-form__nav-btn"
           onClick={() => goToStep(prevStepId)}
@@ -311,7 +265,6 @@ export function StepForm({
           })}
         </span>
         <button
-          ref={nextBtnRef}
           type="button"
           className="workflow-form__nav-btn"
           onClick={() => goToStep(nextStepId)}
@@ -437,8 +390,9 @@ export function StepForm({
                           ? `${datalistId}-help`
                           : undefined
                       }
+                      aria-invalid={row.duplicateKey || undefined}
                       onChange={(e) => updateRow(idx, { key: e.target.value })}
-                      onBlur={() => commitWithRow(withRows[idx])}
+                      onBlur={() => commitWithRow(idx)}
                     />
                     <input
                       className="workflow-form__input workflow-form__input--mono"
@@ -448,7 +402,7 @@ export function StepForm({
                         schema?.default ?? t("form.step.with.valuePlaceholder")
                       }
                       onChange={(e) => updateRow(idx, { value: e.target.value })}
-                      onBlur={() => commitWithRow(withRows[idx])}
+                      onBlur={() => commitWithRow(idx)}
                     />
                     <button
                       type="button"
@@ -459,6 +413,11 @@ export function StepForm({
                       ×
                     </button>
                   </div>
+                  {row.duplicateKey && (
+                    <span className="workflow-form__with-error" role="alert">
+                      {t("form.step.with.duplicateKey")}
+                    </span>
+                  )}
                   {schema?.description && (
                     <span className="workflow-form__metadata-desc">
                       {schema.description}
