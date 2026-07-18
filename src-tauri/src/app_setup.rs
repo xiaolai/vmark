@@ -148,8 +148,11 @@ fn handle_exit_requested(app: &tauri::AppHandle, api: &tauri::ExitRequestApi, co
     ) {
         quit::ExitRequestAction::AllowExit => {
             log::debug!("[Tauri] ExitRequested: allowing exit");
+            // When exit was NOT routed through finalize_quit (which already
+            // ran this), clean up child-process subsystems here — allowing
+            // the exit leads to `std::process::exit`, which skips all Drops.
             if !quit::is_exit_allowed() {
-                crate::mcp_server::cleanup(app);
+                quit::shutdown_child_process_subsystems(app);
             }
         }
         quit::ExitRequestAction::PreventAndStartQuit => {
@@ -180,6 +183,13 @@ pub(crate) fn handle_run_event(app: &tauri::AppHandle, event: tauri::RunEvent) {
             tab_transfer::clear_unclaimed_transfer(&label);
             workspace_transfer::clear_unclaimed_transfer(&label);
             window_status::prune(app, &label);
+            // Drop the window's filesystem watcher. The frontend's own
+            // `stop_watching` invoke runs in the dying webview and can race
+            // its teardown; window labels are never reused, so without this
+            // each closed window would leak a recursive watcher (idempotent).
+            if let Err(e) = crate::watcher::stop_watching(label.clone()) {
+                log::warn!("[Tauri] Failed to stop watcher for '{}': {}", label, e);
+            }
         }
         #[cfg(target_os = "macos")]
         tauri::RunEvent::Reopen {

@@ -44,6 +44,31 @@ fn atomic_write_returns_parent_missing_sentinel_when_dir_gone() {
     );
 }
 
+/// Overwriting an existing file must preserve its permission bits — the
+/// temp-file + rename dance would otherwise silently reset an executable
+/// 0755 script to the temp file's 0600.
+#[cfg(unix)]
+#[test]
+fn atomic_write_preserves_existing_permissions() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let dir = tempfile::tempdir().expect("create tempdir");
+    let target = dir.path().join("script.md");
+    std::fs::write(&target, "old").expect("seed file");
+    std::fs::set_permissions(&target, std::fs::Permissions::from_mode(0o755))
+        .expect("set mode 0755");
+
+    atomic_write_file_sync(&target, "new").expect("write should succeed");
+
+    assert_eq!(std::fs::read_to_string(&target).expect("read back"), "new");
+    let mode = std::fs::metadata(&target)
+        .expect("metadata")
+        .permissions()
+        .mode()
+        & 0o777;
+    assert_eq!(mode, 0o755, "atomic write must not reset permissions");
+}
+
 #[test]
 fn atomic_write_returns_parent_missing_when_parent_is_a_file() {
     // Edge case: parent path exists but isn't a directory (someone

@@ -15,9 +15,17 @@ use crate::ai_provider;
 /// CLI tools (node, claude, etc.) are discoverable, matching system terminal behavior.
 ///
 /// Delegates to `ai_provider::login_shell_path()` which caches the result.
+/// `async` + `spawn_blocking` because the first (uncached) call spawns
+/// `$SHELL -lic` with a multi-second timeout — a sync command would run that
+/// on the main thread and beachball the UI.
 #[tauri::command]
-pub fn get_login_shell_path() -> String {
-    ai_provider::login_shell_path()
+pub async fn get_login_shell_path() -> String {
+    tokio::task::spawn_blocking(ai_provider::login_shell_path)
+        .await
+        .unwrap_or_else(|e| {
+            log::warn!("[shell_env] login-shell PATH probe task failed: {e}");
+            String::new()
+        })
 }
 
 /// Return the user's default shell.

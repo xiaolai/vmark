@@ -19,6 +19,7 @@ mod ai_provider;
 mod app_paths;
 mod app_setup;
 mod asset_access;
+mod atomic_replace;
 mod browser; // WI-1.2 embedded-browser surface (pure lifecycle/identity core landed)
 mod content_search;
 mod content_server;

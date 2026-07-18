@@ -27,3 +27,16 @@ pub mod spawn;
 pub mod swap;
 
 pub use manager::{ChildState, ContentServerManager};
+
+/// Kill all managed content-server children and remove their port files.
+///
+/// Must be called explicitly on the quit path (`quit::finalize_quit` and the
+/// `ExitRequested` → `AllowExit` branch): `app.exit` terminates the process
+/// via `std::process::exit`, which never drops Tauri-managed state, so the
+/// manager's `Drop` cannot be relied on at quit. Idempotent.
+pub fn cleanup(app: &tauri::AppHandle) {
+    use tauri::Manager;
+    if let Some(mgr) = app.try_state::<ContentServerManager>() {
+        mgr.shutdown_all();
+    }
+}

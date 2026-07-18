@@ -16,138 +16,38 @@
 //!     point-to-point (no `app.emit` broadcast to every window).
 //!   - Pause/resume uses `Condvar` so a paused reader truly sleeps (zero CPU)
 //!     instead of busy-waiting.
-//!   - Two-phase startup: `pty_spawn` creates the session, `pty_start` begins
-//!     the reader thread. The frontend wires the output Channel's `onmessage`
-//!     and the `pty:exit:{pid}` listener before calling `pty_start`, so no
-//!     output or exit signal is lost (no data-loss race).
+//!   - Two-phase startup: `pty_spawn` creates the session (on the blocking
+//!     pool — `openpty`/`spawn_command` are synchronous syscalls), `pty_start`
+//!     begins the reader thread. The frontend wires the output Channel's
+//!     `onmessage` and the `pty:exit:{pid}` listener before calling
+//!     `pty_start`, so no output or exit signal is lost (no data-loss race).
 //!   - Child exit is detected in the reader thread (after the read loop ends)
 //!     via `child.wait()`, then emitted as a `pty:exit:{pid}` event.
 //!   - Sessions are removed from the map via `pty_close` (called by the
 //!     frontend after receiving the exit event) to prevent FD/memory leaks.
+//!     A close BETWEEN spawn and start kills + reaps the still-owned child
+//!     (no reader thread exists yet to `wait()` on it).
 //!   - Writer and master use `std::sync::Mutex` (not tokio) because the
-//!     underlying operations are fast syscalls, not async I/O.
+//!     underlying operations are plain syscalls, not async I/O. Writes still
+//!     run inside `spawn_blocking`: `write_all` blocks when the PTY buffer is
+//!     full (e.g. a large paste into a non-reading foreground process), and a
+//!     blocked tokio worker would starve the runtime.
 //!
 //! @coordinates-with lib.rs — commands registered in generate_handler![]
 //! @coordinates-with src/lib/pty.ts — frontend wrapper (output Channel + exit event)
 //! @module pty
 
-use portable_pty::{native_pty_system, Child, ChildKiller, CommandBuilder, MasterPty, PtySize};
-use serde::Serialize;
+mod session;
+
+pub use session::{kill_all, PtyState};
+
+use portable_pty::PtySize;
+use session::{get_session, PtyExitEvent};
 use std::collections::BTreeMap;
 use std::io::{Read, Write};
-use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
-use std::sync::{Arc, Condvar, Mutex as StdMutex};
+use std::sync::atomic::Ordering;
+use std::sync::Arc;
 use tauri::{AppHandle, Emitter, Runtime};
-use tokio::sync::{Mutex, RwLock};
-
-// ---------------------------------------------------------------------------
-// Flow control
-// ---------------------------------------------------------------------------
-
-struct PauseControl {
-    paused: StdMutex<bool>,
-    cond: Condvar,
-}
-
-impl PauseControl {
-    fn new() -> Self {
-        Self {
-            paused: StdMutex::new(false),
-            cond: Condvar::new(),
-        }
-    }
-
-    fn pause(&self) {
-        *self.paused.lock().unwrap_or_else(|p| p.into_inner()) = true;
-    }
-
-    fn resume(&self) {
-        *self.paused.lock().unwrap_or_else(|p| p.into_inner()) = false;
-        self.cond.notify_one();
-    }
-
-    /// Block the calling thread until unpaused. No-op when not paused.
-    fn wait_if_paused(&self) {
-        let mut guard = self.paused.lock().unwrap_or_else(|p| p.into_inner());
-        while *guard {
-            guard = self.cond.wait(guard).unwrap_or_else(|p| p.into_inner());
-        }
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Session state
-// ---------------------------------------------------------------------------
-
-struct Session {
-    reader: Mutex<Option<Box<dyn Read + Send>>>,
-    child: Mutex<Option<Box<dyn Child + Send + Sync>>>,
-    child_killer: StdMutex<Box<dyn ChildKiller + Send + Sync>>,
-    writer: StdMutex<Box<dyn Write + Send>>,
-    master: StdMutex<Box<dyn MasterPty + Send>>,
-    pause_ctl: Arc<PauseControl>,
-    shutdown: Arc<AtomicBool>,
-}
-
-pub struct PtyState {
-    next_id: AtomicU32,
-    sessions: RwLock<BTreeMap<u32, Arc<Session>>>,
-}
-
-impl Default for PtyState {
-    fn default() -> Self {
-        Self {
-            next_id: AtomicU32::new(1),
-            sessions: RwLock::new(BTreeMap::new()),
-        }
-    }
-}
-
-impl Drop for PtyState {
-    fn drop(&mut self) {
-        // Kill all active PTY child processes on app exit so they don't become
-        // orphans. get_mut() is safe here because Drop receives &mut self.
-        let sessions = std::mem::take(self.sessions.get_mut());
-        for (pid, session) in sessions {
-            session.shutdown.store(true, Ordering::Release);
-            session.pause_ctl.resume();
-            // We only hold the `ChildKiller` here; the `Child` itself was moved
-            // into the reader thread in `pty_start` (and `ChildKiller` does not
-            // expose `wait()`). Reaping is therefore intentionally NOT done here:
-            // the kill makes the reader's `read()` return, its loop breaks, and
-            // the reader thread's `child.wait()` reaps the child — no zombie, no
-            // redundant wait at this site (WI-4.4 / G9).
-            if let Ok(mut killer) = session.child_killer.lock() {
-                if let Err(e) = killer.kill() {
-                    log::warn!("[pty] Failed to kill PTY {pid} during cleanup: {e}");
-                }
-            }
-        }
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Event payloads
-// ---------------------------------------------------------------------------
-
-#[derive(Clone, Serialize)]
-struct PtyExitEvent {
-    exit_code: u32,
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-async fn get_session(state: &PtyState, pid: u32) -> Result<Arc<Session>, String> {
-    state
-        .sessions
-        .read()
-        .await
-        .get(&pid)
-        .cloned()
-        .ok_or_else(|| format!("Unknown PTY session {pid}"))
-}
 
 // ---------------------------------------------------------------------------
 // Commands
@@ -155,6 +55,10 @@ async fn get_session(state: &PtyState, pid: u32) -> Result<Arc<Session>, String>
 
 /// Create a PTY session and spawn the child process.
 /// Returns the session PID. Call `pty_start` after registering event listeners.
+///
+/// The blocking pieces (`openpty`, `spawn_command`) run on the blocking pool
+/// — see the module header's async-safety rules; only the session-map insert
+/// touches the async runtime.
 #[tauri::command]
 pub async fn pty_spawn(
     file: String,
@@ -165,57 +69,14 @@ pub async fn pty_spawn(
     env: BTreeMap<String, String>,
     state: tauri::State<'_, PtyState>,
 ) -> Result<u32, String> {
-    let pty_system = native_pty_system();
-    let pair = pty_system
-        .openpty(PtySize {
-            // Clamp to ≥1: a 0 dimension yields an invalid/degenerate PTY.
-            rows: rows.max(1),
-            cols: cols.max(1),
-            pixel_width: 0,
-            pixel_height: 0,
-        })
-        .map_err(|e| e.to_string())?;
-
-    let writer = pair.master.take_writer().map_err(|e| e.to_string())?;
-    let reader = pair.master.try_clone_reader().map_err(|e| e.to_string())?;
-
-    // Defense-in-depth: validate that the shell is an absolute path to an
-    // existing executable.  The frontend is trusted, but if the webview were
-    // compromised this prevents spawning arbitrary binaries.
-    let shell_path = std::path::Path::new(&file);
-    if !shell_path.is_absolute() {
-        return Err("Shell must be an absolute path".into());
-    }
-    if !shell_path.exists() {
-        return Err(format!("Shell not found: {}", file));
-    }
-
-    let mut cmd = CommandBuilder::new(&file);
-    cmd.args(args);
-    if let Some(ref d) = cwd {
-        cmd.cwd(d);
-    }
-    for (k, v) in &env {
-        cmd.env(k, v);
-    }
-
-    let child = pair.slave.spawn_command(cmd).map_err(|e| e.to_string())?;
-    let child_killer = child.clone_killer();
-    // Close the slave fd — the child has its own copy.
-    // This ensures the reader gets EOF when the child exits.
-    drop(pair.slave);
+    let session = tokio::task::spawn_blocking(move || {
+        session::create_session(file, args, cols, rows, cwd, env)
+    })
+    .await
+    .map_err(|e| format!("PTY spawn task failed: {e}"))??;
 
     let pid = state.next_id.fetch_add(1, Ordering::Relaxed);
-    let session = Arc::new(Session {
-        reader: Mutex::new(Some(reader)),
-        child: Mutex::new(Some(child)),
-        child_killer: StdMutex::new(child_killer),
-        writer: StdMutex::new(writer),
-        master: StdMutex::new(pair.master),
-        pause_ctl: Arc::new(PauseControl::new()),
-        shutdown: Arc::new(AtomicBool::new(false)),
-    });
-    state.sessions.write().await.insert(pid, session);
+    state.sessions.write().await.insert(pid, Arc::new(session));
     Ok(pid)
 }
 
@@ -298,11 +159,17 @@ pub async fn pty_start<R: Runtime>(
                         // Any other read error ends the session. Log it before
                         // breaking so a terminal that dies on a read error leaves
                         // a diagnostic (WI-4.3 / G8) instead of vanishing silently.
+                        // Kill the child too: on a fatal read error the shell may
+                        // still be running, and the child.wait() below would then
+                        // block this thread forever instead of reaping.
                         Err(e) => {
                             log::warn!(
                                 "[pty] reader {pid_for_log} read error ({:?}): {e}",
                                 e.kind(),
                             );
+                            if let Ok(mut killer) = session_for_panic.child_killer.lock() {
+                                let _ = killer.kill();
+                            }
                             break;
                         }
                     }
@@ -332,6 +199,10 @@ pub async fn pty_start<R: Runtime>(
 }
 
 /// Write data to the PTY.
+///
+/// The write runs on the blocking pool: a full PTY buffer makes `write_all`
+/// block until the foreground process reads, which would otherwise pin a
+/// tokio worker thread (and the writer mutex) for the duration.
 #[tauri::command]
 pub async fn pty_write(
     pid: u32,
@@ -339,11 +210,15 @@ pub async fn pty_write(
     state: tauri::State<'_, PtyState>,
 ) -> Result<(), String> {
     let session = get_session(&state, pid).await?;
-    let mut writer = session.writer.lock().map_err(|e| e.to_string())?;
-    writer
-        .write_all(data.as_bytes())
-        .map_err(|e| e.to_string())?;
-    writer.flush().map_err(|e| e.to_string())
+    tokio::task::spawn_blocking(move || {
+        let mut writer = session.writer.lock().map_err(|e| e.to_string())?;
+        writer
+            .write_all(data.as_bytes())
+            .map_err(|e| e.to_string())?;
+        writer.flush().map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| format!("PTY write task failed: {e}"))?
 }
 
 /// Resize the PTY.
@@ -377,11 +252,18 @@ pub async fn pty_kill(pid: u32, state: tauri::State<'_, PtyState>) -> Result<(),
 }
 
 /// Remove session from the map, freeing FDs and memory.
-/// Called by the frontend after receiving the `pty:exit:{pid}` event.
+/// Called by the frontend after receiving the `pty:exit:{pid}` event — and
+/// also legal between `pty_spawn` and `pty_start`, where the session still
+/// owns the child: no reader thread exists to reap it, so close kills and
+/// reaps it here (a bare map-remove would drop the child unreaped).
 #[tauri::command]
 pub async fn pty_close(pid: u32, state: tauri::State<'_, PtyState>) -> Result<(), String> {
-    state.sessions.write().await.remove(&pid);
-    Ok(())
+    let Some(session) = state.sessions.write().await.remove(&pid) else {
+        return Ok(());
+    };
+    tokio::task::spawn_blocking(move || session::kill_and_reap_unstarted(&session))
+        .await
+        .map_err(|e| format!("PTY close task failed: {e}"))
 }
 
 /// Pause the PTY reader (flow control).

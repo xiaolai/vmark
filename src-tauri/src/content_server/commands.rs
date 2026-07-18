@@ -12,6 +12,7 @@ use std::path::PathBuf;
 use std::time::Duration;
 use tauri::{AppHandle, State};
 
+use super::manager::RegisterOutcome;
 use super::spawn::{monitor_child, resolve_cli, resolve_node, spawn_server};
 use super::ContentServerManager;
 
@@ -112,16 +113,22 @@ pub async fn content_server_start(
         return Err("content server did not report a port in time".into());
     };
 
-    // Atomic register; if a concurrent start already won, the manager kills the
-    // child we spawned (so it is not orphaned) and returns the existing server.
-    if let Some(existing) =
-        mgr.register_or_existing(&workspace_root, port, token, child, port_file.clone())
-    {
-        let _ = std::fs::remove_file(&port_file);
-        return Ok(ServerHandle {
-            url: format!("http://127.0.0.1:{}", existing.port),
-            port: existing.port,
-        });
+    // Atomic register; on a lost concurrent-start race or a shutdown that
+    // began mid-spawn, the manager kills + reaps the child we spawned (so it
+    // is not orphaned) — we only clean up the port-file we own.
+    match mgr.register_or_existing(&workspace_root, port, token, child, port_file.clone()) {
+        RegisterOutcome::Existing(existing) => {
+            let _ = std::fs::remove_file(&port_file);
+            return Ok(ServerHandle {
+                url: format!("http://127.0.0.1:{}", existing.port),
+                port: existing.port,
+            });
+        }
+        RegisterOutcome::ShuttingDown => {
+            let _ = std::fs::remove_file(&port_file);
+            return Err("app is shutting down; not starting a content server".into());
+        }
+        RegisterOutcome::Registered => {}
     }
 
     // Supervise the freshly-registered child: detect an unexpected exit, log it,
