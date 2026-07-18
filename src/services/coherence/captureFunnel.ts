@@ -1,20 +1,29 @@
 /**
  * Coherence capture funnel (WI-1.6)
  *
- * Purpose: report successful workspace writes to the Rust coherence kernel
- * (`coherence_capture`) so every write becomes a Transformation with
- * provenance (spec §5.4.1). Fire-and-forget by design: a failed capture
- * logs and returns null — it never fails the write it describes (the scan
+ * Purpose: the single frontend seam into the Rust coherence kernel —
+ * write capture (`captureWrite`), live-buffer AI-edit capture
+ * (`captureAiEdit`, no disk rewrite), MCP write capture with the
+ * session-observed read set (`captureMcpWrite` + `recordMcpRead`, reads
+ * pinned to read-time revisions via `coherence_head`), and the explorer
+ * new-file helper. Fire-and-forget by design: a failed capture logs and
+ * returns null — it never fails the write it describes (the scan
  * reconciler heals any gap, spec §9.4).
  *
  * Key decisions:
- *   - Only files inside the open workspace are captured; the kernel owns
- *     coherence state per workspace root.
+ *   - All captures from one webview run strictly in submission order
+ *     (module-level promise queue) so an older buffer can never become
+ *     the newest revision.
+ *   - Only files inside the open workspace are captured (traversal
+ *     segments rejected here AND in the Rust path guard); the kernel
+ *     owns coherence state per workspace root.
  *   - When the kernel rewrites the file to (re)insert the identity block,
  *     a pending save is registered with the rewritten content so the file
  *     watcher swallows the kernel's own write instead of prompting.
+ *   - MCP session reads are bounded (256, FIFO) and consumed per write;
+ *     in-flight revision pins are awaited (bounded 500 ms) first.
  *
- * @coordinates-with src-tauri/src/coherence/commands.rs — coherence_capture
+ * @coordinates-with src-tauri/src/coherence/commands.rs — coherence_capture / coherence_head
  * @coordinates-with pendingSaves.ts — watcher echo suppression
  * @module services/coherence/captureFunnel
  */
