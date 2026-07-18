@@ -123,7 +123,19 @@ pub fn perform_resolve(
 /// Pull-based breakdown (R15): reconcile, then project.
 pub fn perform_breakdown(kernel: &mut WorkspaceKernel) -> Result<Vec<EdgeRow>, String> {
     scan_workspace(kernel)?;
-    kernel.index().breakdown(&now_rfc3339())
+    // D5.6: the v1 UI projects the implicit default context — check
+    // liveness binds to its current claim snapshot.
+    let read = kernel.ledger().read_all()?;
+    let store = super::claims::ClaimStore::from_entries(&read.entries);
+    let contexts =
+        super::contexts::ContextSet::load(&kernel.root().join(".vmark").join("contexts"));
+    let visible = contexts.effective_claims(super::contexts::DEFAULT_CONTEXT_ID);
+    let fingerprint = store.claims_fingerprint(&visible);
+    kernel.index().breakdown_checked(
+        &now_rfc3339(),
+        &super::contexts::DEFAULT_CONTEXT_ID.to_string(),
+        &fingerprint,
+    )
 }
 
 pub fn perform_status(kernel: &mut WorkspaceKernel) -> Result<CoherenceStatus, String> {

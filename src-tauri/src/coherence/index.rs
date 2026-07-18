@@ -17,8 +17,9 @@ use rusqlite::Connection;
 use super::types::{Envelope, InputRole, ObjectId, TypedBody};
 
 // v2: applied keyed by idem; edges.confidence; held/disk_lag tables.
-// Any v1 index (pre-release dev/E2E artifacts only) wipes + rebuilds.
-const SCHEMA_VERSION: i32 = 2;
+// v3: check_results table (WI-2b.3 — D5.6 context-snapshot liveness).
+// Any older index wipes + rebuilds (derived, R16).
+const SCHEMA_VERSION: i32 = 3;
 
 const SCHEMA: &str = "
 CREATE TABLE IF NOT EXISTS revisions (
@@ -52,6 +53,12 @@ CREATE TABLE IF NOT EXISTS registry (
   schema TEXT, time TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS applied (idem TEXT PRIMARY KEY);
+CREATE TABLE IF NOT EXISTS check_results (
+  entry_id TEXT PRIMARY KEY, txf TEXT NOT NULL, input_idx INTEGER NOT NULL,
+  pinned TEXT NOT NULL, checked_against TEXT NOT NULL, verdict TEXT NOT NULL,
+  time TEXT NOT NULL, context TEXT, claims_fingerprint TEXT
+);
+CREATE INDEX IF NOT EXISTS check_results_by_edge ON check_results (txf, input_idx);
 ";
 
 pub struct CoherenceIndex {
@@ -92,6 +99,7 @@ impl CoherenceIndex {
                 "absent",
                 "held",
                 "disk_lag",
+                "check_results",
             ] {
                 let _ = conn.execute(&format!("DROP TABLE IF EXISTS {table}"), []);
             }
@@ -199,7 +207,29 @@ impl CoherenceIndex {
                 )
                 .map_err(|e| e.to_string())?;
             }
-            _ => {} // navigation, diagnostics, preserved and unknown kinds
+            TypedBody::Preserved { ref kind, ref body } if kind == "check-result" => {
+                // WI-2b.3: validated at parse (envelope.rs); the D5.6
+                // context fields are nullable — results without them are
+                // pre-revision-1 history and never satisfy liveness.
+                tx.execute(
+                    "INSERT OR IGNORE INTO check_results
+                     (entry_id, txf, input_idx, pinned, checked_against, verdict, time, context, claims_fingerprint)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+                    rusqlite::params![
+                        env.id.to_string(),
+                        body["edge"]["txf"].as_str().unwrap_or_default(),
+                        body["edge"]["input"].as_i64().unwrap_or_default(),
+                        body["pinned"].as_str().unwrap_or_default(),
+                        body["checked_against"].as_str().unwrap_or_default(),
+                        body["verdict"].as_str().unwrap_or_default(),
+                        env.time,
+                        body.get("context").and_then(|v| v.as_str()),
+                        body.get("claims_fingerprint").and_then(|v| v.as_str()),
+                    ],
+                )
+                .map_err(|e| e.to_string())?;
+            }
+            _ => {} // navigation, diagnostics, other preserved and unknown kinds
         }
         tx.commit().map_err(|e| e.to_string())
     }
@@ -213,7 +243,14 @@ impl CoherenceIndex {
             .map_err(|e| e.to_string())?;
         // Ledger-derived tables only: `absent`/`held`/`disk_lag` are
         // scan-owned session state a rebuild must not forget (A12/A18).
-        for table in ["revisions", "edges", "resolutions", "registry", "applied"] {
+        for table in [
+            "revisions",
+            "edges",
+            "resolutions",
+            "registry",
+            "applied",
+            "check_results",
+        ] {
             self.conn
                 .execute(&format!("DELETE FROM {table}"), [])
                 .map_err(|e| e.to_string())?;

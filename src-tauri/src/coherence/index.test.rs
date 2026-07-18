@@ -3,6 +3,7 @@
 // and THE R16 test: delete the index, rescan, identical query results.
 
 use super::*;
+use crate::coherence::project::EdgeState;
 use crate::coherence::types::{
     Actor, ActorType, Agent, AgentType, Confidence, ContentHash, EdgeRef, Envelope, InputRef,
     InputRole, Intent, ObjectId, ObjectRegistered, OutputRef, Resolution, RevisionId,
@@ -309,4 +310,117 @@ fn heads_come_from_the_materialized_dag() {
     let idx = mem_index_with(&f.entries);
     assert_eq!(idx.heads(&oid(1)).unwrap(), vec![f.e1.clone()]);
     assert_eq!(idx.heads(&oid(99)).unwrap(), Vec::<RevisionId>::new());
+}
+
+// ── WI-2b.3: check-result indexing + D5.6 context-snapshot liveness ──────
+
+const NIL_CTX: &str = "00000000-0000-0000-0000-000000000000";
+const EMPTY_FEED: &str = "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+
+fn check_entry(
+    f: &Fixture,
+    verdict: &str,
+    checked_against: &RevisionId,
+    ctx_fp: Option<(&str, &str)>,
+) -> Envelope {
+    let mut body = json!({
+        "edge": { "txf": f.txf_id.to_string(), "input": 0 },
+        "pinned": f.e0.as_str(),
+        "checked_against": checked_against.as_str(),
+        "verdict": verdict,
+        "model": "test-model",
+        "prompt_version": "check-v1",
+        "evidence": [],
+        "confidence": 0.95,
+    });
+    if let Some((ctx, fp)) = ctx_fp {
+        body["context"] = json!(ctx);
+        body["claims_fingerprint"] = json!(fp);
+    }
+    let mut e = Envelope::create("check-result", writer(), body);
+    e.time = "2026-07-18T09:00:05Z".into();
+    e
+}
+
+#[test]
+fn live_contradiction_refines_version_stale() {
+    let f = fixture();
+    let mut entries = f.entries.clone();
+    entries.push(check_entry(
+        &f,
+        "contradiction",
+        &f.e1,
+        Some((NIL_CTX, EMPTY_FEED)),
+    ));
+    let idx = mem_index_with(&entries);
+    let rows = idx.breakdown(NOW).unwrap();
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].state, EdgeState::StaleContradicted);
+}
+
+#[test]
+fn live_no_contradiction_and_unknown_map_to_axis2_states() {
+    for (verdict, expected) in [
+        ("no-contradiction", EdgeState::StaleValid),
+        ("unknown", EdgeState::StaleUnknown),
+    ] {
+        let f = fixture();
+        let mut entries = f.entries.clone();
+        entries.push(check_entry(&f, verdict, &f.e1, Some((NIL_CTX, EMPTY_FEED))));
+        let idx = mem_index_with(&entries);
+        let rows = idx.breakdown(NOW).unwrap();
+        assert_eq!(rows[0].state, expected, "verdict {verdict}");
+    }
+}
+
+#[test]
+fn check_without_context_fields_is_historical_only() {
+    let f = fixture();
+    let mut entries = f.entries.clone();
+    entries.push(check_entry(&f, "contradiction", &f.e1, None));
+    let idx = mem_index_with(&entries);
+    let rows = idx.breakdown(NOW).unwrap();
+    assert!(
+        matches!(rows[0].state, EdgeState::VersionStale),
+        "pre-revision-1 results never project"
+    );
+}
+
+#[test]
+fn fingerprint_or_context_mismatch_ignores_check() {
+    let f = fixture();
+    let mut entries = f.entries.clone();
+    entries.push(check_entry(
+        &f,
+        "contradiction",
+        &f.e1,
+        Some((NIL_CTX, EMPTY_FEED)),
+    ));
+    let idx = mem_index_with(&entries);
+    // Same context, different claim snapshot → not live (D5.6).
+    let rows = idx
+        .breakdown_checked(NOW, NIL_CTX, "sha256:deadbeef")
+        .unwrap();
+    assert!(matches!(rows[0].state, EdgeState::VersionStale));
+    // Different context → not live.
+    let rows = idx
+        .breakdown_checked(NOW, "11111111-1111-1111-1111-111111111111", EMPTY_FEED)
+        .unwrap();
+    assert!(matches!(rows[0].state, EdgeState::VersionStale));
+}
+
+#[test]
+fn endpoint_advance_expires_check() {
+    let f = fixture();
+    let mut entries = f.entries.clone();
+    // Checked against e0 (not the current head e1) — expired on arrival.
+    entries.push(check_entry(
+        &f,
+        "contradiction",
+        &f.e0.clone(),
+        Some((NIL_CTX, EMPTY_FEED)),
+    ));
+    let idx = mem_index_with(&entries);
+    let rows = idx.breakdown(NOW).unwrap();
+    assert!(matches!(rows[0].state, EdgeState::VersionStale));
 }
