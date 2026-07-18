@@ -243,7 +243,12 @@ VMark 對 AI 助理開放**七個複合 MCP 工具**：`session`、`workspace`�
 
 工作區一致性層的**唯讀**視圖 —— 顯示哪些衍生文件相對於其生成時所依據的上游已經過期。兩個操作都不會修改文件、帳本或任何編輯器狀態；它們完全由 Rust 後端從各工作區的核心直接回應，因此即使沒有任何編輯器視窗在前景也能運作。
 
-兩個操作都需要 `workspace_root`：要查詢的工作區的絕對路徑。可從 `session.get_state`(已開啟分頁的 `filePath`)或 workspace 工具取得。路徑缺失、不是絕對路徑或不是目錄時，會以純字串錯誤拒絕。
+另有兩個唯讀操作揭示語意層：
+
+- `claims` —— 目前的正典設定：`{claim, entryId, statement, maturity, invalidAt, visible}`。只有 `established` 狀態的設定才會約束語意檢查；`visible` 反映的是 default 情境。
+- `contexts` —— 情境集合（隱含的 `default` 始終存在）：`{id, name, parent, enforcement, visibleClaims, errors}`。
+
+所有操作都需要 `workspace_root`：要查詢的工作區的絕對路徑。可從 `session.get_state`(已開啟分頁的 `filePath`)或 workspace 工具取得。路徑缺失、不是絕對路徑或不是目錄時，會以純字串錯誤拒絕。
 
 ### `status`
 

@@ -243,7 +243,12 @@ GitHub Actions 워크플로우 YAML을 위한 `actionlint` 검증과 **CST 안�
 
 워크스페이스 정합성 레이어의 **읽기 전용** 뷰 — 어떤 파생 문서가 자신을 생성한 업스트림에 비해 오래되었는지 보여줍니다. 두 액션 모두 문서, 원장, 편집기 상태를 수정하지 않습니다. 둘 다 워크스페이스별 커널에서 Rust 백엔드가 전적으로 응답하므로, 편집기 창이 앞에 없어도 작동합니다.
 
-두 액션 모두 `workspace_root`가 필요합니다: 조회할 워크스페이스의 절대 경로입니다. `session.get_state` (열린 탭의 `filePath`) 또는 workspace 도구에서 알아내세요. 누락되었거나, 절대 경로가 아니거나, 디렉터리가 아닌 경로는 일반 문자열 오류로 거부됩니다.
+읽기 전용 액션 두 개가 추가로 의미 레이어를 노출합니다:
+
+- `claims` — 현재의 캐논 설정: `{claim, entryId, statement, maturity, invalidAt, visible}`. 의미 검사를 제약하는 것은 `established` 설정뿐입니다. `visible`은 default 컨텍스트를 반영합니다.
+- `contexts` — 컨텍스트 집합 (암묵적인 `default`는 항상 존재합니다): `{id, name, parent, enforcement, visibleClaims, errors}`.
+
+모든 액션에는 `workspace_root`가 필요합니다: 조회할 워크스페이스의 절대 경로입니다. `session.get_state` (열린 탭의 `filePath`) 또는 workspace 도구에서 알아내세요. 누락되었거나, 절대 경로가 아니거나, 디렉터리가 아닌 경로는 일반 문자열 오류로 거부됩니다.
 
 ### `status`
 

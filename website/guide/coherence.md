@@ -61,6 +61,35 @@ Accept-newer and waive are disabled when the upstream has multiple
 current versions — there is no single revision to resolve against;
 revise (or reconcile the versions) first.
 
+## Semantic checking, claims, and contexts
+
+Version staleness says an upstream *moved*; semantic checking says whether
+that movement actually *contradicts* the derived document. Checks are
+**pull-only**: press **Check** on a stale edge and VMark asks your
+configured AI provider to compare the pinned upstream revision, the
+current one, and the derived text. The verdict lands as a badge — *checked
+valid*, *contradicted* (always with a verbatim evidence quote), or
+*unchecked* when the model was unsure, timed out, or answered below the
+confidence bar. Unknown is honest, never hidden. A check expires the
+moment either document moves again — or the claim set changes.
+
+**Canon claims** are facts you have made explicit ("Elena is
+left-handed"). Select text in a document and run *Extract Claim from
+Selection*: the claim is born a **draft** with provenance (which document,
+which revision). Promote it to **established** when it becomes canon —
+only established claims are fed to semantic checks. Correcting or retiring
+a claim appends history; nothing is ever deleted. Hiding a claim in a
+context is reversible visibility, not retirement.
+
+**Contexts** are named views of the workspace (the *default* context is
+always there). Each context selects what "current" means and which claims
+apply; a child context inherits its parent's claims additively. Contexts
+are **greenhouse** by default — check verdicts read as advisory tension.
+Flipping one to **enforcing** (an explicit, confirmed act) labels
+contradictions as canon violations. The Breakdown's context picker chooses
+which context you are looking through; check results are bound to the
+exact context and claim snapshot that produced them and never leak across.
+
 ## Frontmatter identity
 
 The first time a file is captured, VMark adds a small identity block to

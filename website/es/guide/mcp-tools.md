@@ -243,7 +243,12 @@ Devuelve `{ok, diagnostics, binaryAvailable}`. Cada diagnóstico contiene `{line
 
 Una vista de **solo lectura** de la capa de coherencia del espacio de trabajo — qué documentos derivados están obsoletos respecto a las fuentes a partir de las cuales se generaron. Ninguna de las dos acciones modifica documentos, el registro (ledger) ni ningún estado del editor; ambas se responden por completo desde el backend en Rust a partir del kernel por espacio de trabajo, por lo que funcionan incluso cuando ninguna ventana del editor está en primer plano.
 
-Ambas acciones requieren `workspace_root`: la ruta absoluta del espacio de trabajo a consultar. Obtenla de `session.get_state` (el `filePath` de las pestañas abiertas) o de la herramienta workspace. Una ruta ausente, no absoluta o que no sea un directorio se rechaza con un error de cadena simple.
+Dos acciones más de solo lectura exponen la capa semántica:
+
+- `claims` — las afirmaciones canónicas actuales: `{claim, entryId, statement, maturity, invalidAt, visible}`. Solo las afirmaciones `established` restringen las verificaciones semánticas; `visible` refleja el contexto default.
+- `contexts` — el conjunto de contextos (el `default` implícito siempre está presente): `{id, name, parent, enforcement, visibleClaims, errors}`.
+
+Todas las acciones requieren `workspace_root`: la ruta absoluta del espacio de trabajo a consultar. Obtenla de `session.get_state` (el `filePath` de las pestañas abiertas) o de la herramienta workspace. Una ruta ausente, no absoluta o que no sea un directorio se rechaza con un error de cadena simple.
 
 ### `status`
 

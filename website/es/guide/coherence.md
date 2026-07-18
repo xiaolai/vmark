@@ -33,6 +33,14 @@ Cada elemento ofrece tres acciones honestas — ninguna reescribe el historial:
 
 Aceptar más reciente y eximir se deshabilitan cuando la fuente tiene varias versiones actuales — no hay una única revisión contra la cual resolver; revisa (o reconcilia las versiones) primero.
 
+## Verificación semántica, afirmaciones y contextos
+
+La obsolescencia de versión dice que una fuente *se movió*; la verificación semántica dice si ese movimiento realmente *contradice* el documento derivado. Las verificaciones son estrictamente **bajo demanda** (pull): pulsa **Verificar** sobre una arista obsoleta y VMark pide a tu proveedor de IA configurado que compare la revisión fijada de la fuente, la actual y el texto derivado. El veredicto llega como una insignia — *verificada válida*, *contradicha* (siempre con una cita textual como evidencia) o *sin verificar* cuando el modelo dudó, agotó el tiempo o respondió por debajo del umbral de confianza. Lo desconocido es honesto, nunca se oculta. Una verificación caduca en el momento en que cualquiera de los dos documentos vuelve a moverse — o cambia el conjunto de afirmaciones.
+
+Las **afirmaciones canónicas** son hechos que has hecho explícitos («Elena es zurda»). Selecciona texto en un documento y ejecuta *Extraer afirmación de la selección*: la afirmación nace como **borrador**, con su procedencia (qué documento, qué revisión). Pásala a **establecida** cuando se convierta en canon — solo las afirmaciones establecidas alimentan las verificaciones semánticas. Corregir o retirar una afirmación añade historial; nada se borra jamás. Ocultar una afirmación en un contexto es visibilidad reversible, no un retiro.
+
+Los **contextos** son vistas con nombre del espacio de trabajo (el contexto *default* siempre está ahí). Cada contexto decide qué significa «actual» y qué afirmaciones aplican; un contexto hijo hereda las afirmaciones de su padre de forma aditiva. Los contextos son **invernadero** por defecto — los veredictos de verificación se leen como tensión consultiva. Cambiar uno a **aplicado** (un acto explícito y confirmado) marca las contradicciones como violaciones del canon. El selector de contexto del desglose elige a través de qué contexto estás mirando; los resultados de verificación quedan ligados exactamente al contexto y a la instantánea de afirmaciones que los produjeron y nunca se filtran de uno a otro.
+
 ## Identidad en el frontmatter
 
 La primera vez que se captura un archivo, VMark añade un pequeño bloque de identidad a su frontmatter:

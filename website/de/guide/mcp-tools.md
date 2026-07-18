@@ -243,7 +243,12 @@ Gibt `{ok, diagnostics, binaryAvailable}` zurück. Jede Diagnose trägt `{line, 
 
 Eine **schreibgeschützte** Sicht auf die Kohärenzschicht des Arbeitsbereichs — welche abgeleiteten Dokumente gegenüber den Upstreams, aus denen sie erzeugt wurden, veraltet sind. Keine der beiden Aktionen verändert Dokumente, das Ledger oder irgendeinen Editor-Zustand; beide werden vollständig vom Rust-Backend aus dem Kernel des jeweiligen Arbeitsbereichs beantwortet und funktionieren daher auch, wenn kein Editor-Fenster im Vordergrund ist.
 
-Beide Aktionen erfordern `workspace_root`: den absoluten Pfad des abzufragenden Arbeitsbereichs. Sie erfahren ihn über `session.get_state` (das `filePath` der offenen Tabs) oder das workspace-Tool. Ein Pfad, der fehlt, nicht absolut ist oder kein Verzeichnis ist, wird mit einem einfachen String-Fehler abgelehnt.
+Zwei weitere schreibgeschützte Aktionen legen die semantische Schicht offen:
+
+- `claims` — die aktuellen Kanon-Aussagen: `{claim, entryId, statement, maturity, invalidAt, visible}`. Nur `established`-Aussagen schränken semantische Prüfungen ein; `visible` spiegelt den Default-Kontext wider.
+- `contexts` — die Kontextmenge (der implizite `default` ist immer vorhanden): `{id, name, parent, enforcement, visibleClaims, errors}`.
+
+Alle Aktionen erfordern `workspace_root`: den absoluten Pfad des abzufragenden Arbeitsbereichs. Sie erfahren ihn über `session.get_state` (das `filePath` der offenen Tabs) oder das workspace-Tool. Ein Pfad, der fehlt, nicht absolut ist oder kein Verzeichnis ist, wird mit einem einfachen String-Fehler abgelehnt.
 
 ### `status`
 

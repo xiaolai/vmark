@@ -33,6 +33,14 @@ Cada item oferece três ações honestas — nenhuma delas reescreve o históric
 
 Aceitar mais recente e isentar ficam desabilitados quando a origem tem várias versões atuais — não há uma única revisão contra a qual resolver; revise (ou reconcilie as versões) primeiro.
 
+## Verificação semântica, afirmações e contextos
+
+A desatualização de versão diz que uma origem *se moveu*; a verificação semântica diz se esse movimento realmente *contradiz* o documento derivado. As verificações são estritamente **sob demanda** (pull): pressione **Verificar** em uma aresta desatualizada e o VMark pede ao provedor de IA configurado que compare a revisão fixada da origem, a atual e o texto derivado. O veredicto chega como um selo — *verificado válido*, *contradito* (sempre com uma citação textual como evidência) ou *não verificado* quando o modelo ficou em dúvida, estourou o tempo ou respondeu abaixo do limiar de confiança. O desconhecido é honesto, nunca escondido. Uma verificação expira no momento em que qualquer um dos dois documentos se move de novo — ou o conjunto de afirmações muda.
+
+As **afirmações canônicas** são fatos que você tornou explícitos ("Elena é canhota"). Selecione texto em um documento e execute *Extrair afirmação da seleção*: a afirmação nasce como **rascunho**, com proveniência (qual documento, qual revisão). Promova-a a **estabelecida** quando ela virar cânone — apenas afirmações estabelecidas alimentam as verificações semânticas. Corrigir ou encerrar uma afirmação acrescenta histórico; nada é jamais apagado. Ocultar uma afirmação em um contexto é visibilidade reversível, não encerramento.
+
+Os **contextos** são visões nomeadas do workspace (o contexto *default* está sempre lá). Cada contexto decide o que "atual" significa e quais afirmações se aplicam; um contexto filho herda as afirmações do pai de forma aditiva. Os contextos são **estufa** por padrão — os veredictos de verificação se leem como tensão consultiva. Mudar um deles para **aplicado** (um ato explícito e confirmado) marca as contradições como violações do cânone. O seletor de contexto do detalhamento escolhe através de qual contexto você está olhando; os resultados de verificação ficam vinculados exatamente ao contexto e ao instantâneo de afirmações que os produziram e nunca vazam de um para outro.
+
 ## Identidade no frontmatter
 
 Na primeira vez que um arquivo é capturado, o VMark adiciona um pequeno bloco de identidade ao seu frontmatter:
