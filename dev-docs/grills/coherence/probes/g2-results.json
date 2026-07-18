@@ -1,0 +1,202 @@
+{
+  "probe": "g2-gitops",
+  "generatedAt": "2026-07-18T06:59:10.152Z",
+  "platform": "darwin 25.5.0",
+  "git": "git version 2.50.1 (Apple Git-155)",
+  "watcherBlindSpot": "src-tauri/src/watcher.rs IGNORED_DIRS ignores `.git` — no .git/HEAD events reach VMark. Every classification above was computed from before/after scan observations only (HEAD content incl. worktree `gitdir:` indirection, resolved HEAD sha, rev-list --all HEAD set, MERGE_HEAD/ORIG_HEAD presence, reflog tail), proving scan-time reconciliation suffices.",
+  "summary": {
+    "total": 12,
+    "pass": 12,
+    "fail": 0
+  },
+  "rows": [
+    {
+      "scenario": "checkout-older-commit-detached",
+      "expected": "NAVIGATION",
+      "observed": "NAVIGATION",
+      "pass": true,
+      "observables": {
+        "headRefBefore": "refs/heads/main",
+        "headRefAfter": "(detached)",
+        "headShaMoved": true,
+        "newShasMinted": 0,
+        "filesChangedByOp": true,
+        "origHeadAfter": null,
+        "reflogSubject": "checkout: moving from main to 0c3684756920fb9532724c3630168d13d42b9753",
+        "detachedAfter": true
+      }
+    },
+    {
+      "scenario": "branch-create-and-switch",
+      "expected": "NAVIGATION",
+      "observed": "NAVIGATION",
+      "pass": true,
+      "observables": {
+        "headRefBefore": "refs/heads/main",
+        "headRefAfter": "refs/heads/feature",
+        "headShaMoved": false,
+        "newShasMinted": 0,
+        "filesChangedByOp": false,
+        "origHeadAfter": null,
+        "reflogSubject": "checkout: moving from main to feature",
+        "detachedAfter": false
+      }
+    },
+    {
+      "scenario": "reset-hard-to-older",
+      "expected": "NAVIGATION",
+      "observed": "NAVIGATION",
+      "pass": true,
+      "observables": {
+        "headRefBefore": "refs/heads/main",
+        "headRefAfter": "refs/heads/main",
+        "headShaMoved": true,
+        "newShasMinted": 0,
+        "filesChangedByOp": true,
+        "origHeadAfter": "95db233438703edd606c0e47a8b50eb7eab1b422",
+        "reflogSubject": "reset: moving to HEAD~1",
+        "detachedAfter": false
+      }
+    },
+    {
+      "scenario": "revert",
+      "expected": "MUTATION",
+      "observed": "MUTATION",
+      "pass": true,
+      "observables": {
+        "headRefBefore": "refs/heads/main",
+        "headRefAfter": "refs/heads/main",
+        "headShaMoved": true,
+        "newShasMinted": 1,
+        "filesChangedByOp": true,
+        "origHeadAfter": null,
+        "reflogSubject": "revert: Revert \"c3\"",
+        "detachedAfter": false
+      }
+    },
+    {
+      "scenario": "fast-forward-merge",
+      "expected": "NAVIGATION",
+      "observed": "NAVIGATION",
+      "pass": true,
+      "observables": {
+        "headRefBefore": "refs/heads/main",
+        "headRefAfter": "refs/heads/main",
+        "headShaMoved": true,
+        "newShasMinted": 0,
+        "filesChangedByOp": true,
+        "origHeadAfter": "dd2f3d211612ee291943508d1750d67000b4f1f9",
+        "reflogSubject": "merge b: Fast-forward",
+        "detachedAfter": false
+      },
+      "note": "HEAD landed on a pre-existing sha (b's tip) — no new content minted, but working files changed to content this checkout never had. Distinguishers vs. plain checkout: reflog subject + ORIG_HEAD set + branch ref unchanged but moved."
+    },
+    {
+      "scenario": "true-merge-no-conflict",
+      "expected": "MUTATION",
+      "observed": "MUTATION",
+      "pass": true,
+      "observables": {
+        "headRefBefore": "refs/heads/main",
+        "headRefAfter": "refs/heads/main",
+        "headShaMoved": true,
+        "newShasMinted": 1,
+        "filesChangedByOp": true,
+        "origHeadAfter": "96a31366c40bc405d0c66c4e07001212b47b792e",
+        "reflogSubject": "merge b: Merge made by the 'ort' strategy.",
+        "detachedAfter": false
+      },
+      "mergeParents": 2
+    },
+    {
+      "scenario": "merge-conflict-mid-scan",
+      "expected": "MERGE_IN_PROGRESS",
+      "observed": "MERGE_IN_PROGRESS",
+      "pass": true,
+      "observables": {
+        "headRefBefore": "refs/heads/main",
+        "headRefAfter": "refs/heads/main",
+        "headShaMoved": false,
+        "newShasMinted": 0,
+        "filesChangedByOp": true,
+        "origHeadAfter": "ec5b19cde523ad347381eec742e7e66d1962d665",
+        "reflogSubject": "commit: story-on-main",
+        "detachedAfter": false
+      },
+      "mergeExitedNonzero": true,
+      "conflictMarkersInWorktree": true
+    },
+    {
+      "scenario": "merge-conflict-resolved",
+      "expected": "MUTATION",
+      "observed": "MUTATION",
+      "pass": true,
+      "observables": {
+        "headRefBefore": "refs/heads/main",
+        "headRefAfter": "refs/heads/main",
+        "headShaMoved": true,
+        "newShasMinted": 1,
+        "filesChangedByOp": true,
+        "origHeadAfter": "ec5b19cde523ad347381eec742e7e66d1962d665",
+        "reflogSubject": "commit (merge): Merge branch 'b'",
+        "detachedAfter": false
+      }
+    },
+    {
+      "scenario": "worktree-add-independent-heads",
+      "expected": "INDEPENDENT",
+      "observed": "INDEPENDENT",
+      "pass": true,
+      "observables": {
+        "linkedDotGitIsFile": true,
+        "linkedGitDir": "/private/var/folders/vd/14lftkrx0_g5tr_x8x9pl2040000gn/T/vmark-g2-tiNeow/.git/worktrees/wt2",
+        "linkedHeadRaw": "ref: refs/heads/wtb",
+        "primaryHeadRef": "refs/heads/main",
+        "linkedHeadRef": "refs/heads/wtb"
+      },
+      "note": "Switching between worktrees is workspace switching: each worktree has its own HEAD, observed independently; no git operation occurs in either repo."
+    },
+    {
+      "scenario": "worktree-checkout-inside-linked",
+      "expected": "NAVIGATION",
+      "observed": "NAVIGATION",
+      "pass": true,
+      "observables": {
+        "headRefBefore": "refs/heads/wtb",
+        "headRefAfter": "(detached)",
+        "headShaMoved": true,
+        "newShasMinted": 0,
+        "filesChangedByOp": true,
+        "origHeadAfter": "dd2f3d211612ee291943508d1750d67000b4f1f9",
+        "reflogSubject": "checkout: moving from wtb to a0bba4b760f419aabcaccfd935255fb4ae256bd6",
+        "detachedAfter": true
+      }
+    },
+    {
+      "scenario": "no-op-rescan",
+      "expected": "NO_OP",
+      "observed": "NO_OP",
+      "pass": true,
+      "observables": {
+        "headRefBefore": "refs/heads/main",
+        "headRefAfter": "refs/heads/main",
+        "headShaMoved": false,
+        "newShasMinted": 0,
+        "filesChangedByOp": false,
+        "origHeadAfter": null,
+        "reflogSubject": "commit: c3",
+        "detachedAfter": false
+      }
+    },
+    {
+      "scenario": "no-git-workspace",
+      "expected": "NOT_GIT",
+      "observed": "NOT_GIT",
+      "pass": true,
+      "observables": {
+        "isGit": false
+      },
+      "note": "Classifier reports NOT_GIT; all changes are ordinary external edits (scan reconciliation)."
+    }
+  ]
+}
