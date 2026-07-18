@@ -44,5 +44,13 @@
     "enforceConfirm": "強制執行此情境後，對所有投影它的人而言，矛盾都會被標記為違反正典。已確立的設定將開始發揮約束作用。要啟用嗎？",
     "enforceTitle": "強制執行情境",
     "error": "情境錯誤：{{error}}"
+  },
+  "provenance": {
+    "heading": "來源未知",
+    "hint": "有 {{count}} 個先前的輸入可復原",
+    "suggest": "建議輸入",
+    "confirm": "確認來源",
+    "empty": "未選取任何輸入",
+    "stale": "文件已變更 — 建議已重新整理"
   }
 }

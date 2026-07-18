@@ -44,6 +44,18 @@ export interface EdgeRow {
   prior_waivers: number;
 }
 
+/** Mirror of the Rust `ProvenanceCandidate` (WI-3.2). */
+export interface ProvenanceCandidate {
+  path: string;
+  proposed: number;
+}
+
+/** Mirror of the Rust `ProposedInput` (WI-3.2). */
+export interface ProposedInput {
+  path: string;
+  role: "direct" | "contextual";
+}
+
 /** Mirror of the Rust `ContextRow` (camelCase — serde rename_all). */
 export interface ContextRow {
   id: string;
@@ -61,6 +73,8 @@ interface BreakdownState {
   contexts: ContextRow[];
   /** The context the breakdown projects; null = the implicit default. */
   selectedContext: string | null;
+  /** Orphaned-but-recoverable artifacts (WI-3.2, pull-only). */
+  provenance: ProvenanceCandidate[];
   /** Whether the Breakdown panel is open in THIS window. */
   panelOpen: boolean;
   /** A refresh is in flight. */
@@ -69,6 +83,7 @@ interface BreakdownState {
   error: string | null;
   setRows: (rows: EdgeRow[]) => void;
   setContexts: (contexts: ContextRow[]) => void;
+  setProvenance: (candidates: ProvenanceCandidate[]) => void;
   setSelectedContext: (id: string | null) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
@@ -85,11 +100,13 @@ export const useBreakdownStore = create<BreakdownState>()((set) => ({
   rows: [],
   contexts: [],
   selectedContext: null,
+  provenance: [],
   panelOpen: false,
   loading: false,
   error: null,
   setRows: (rows) => set({ rows }),
   setContexts: (contexts) => set({ contexts }),
+  setProvenance: (provenance) => set({ provenance }),
   setSelectedContext: (selectedContext) => set({ selectedContext }),
   setLoading: (loading) => set({ loading }),
   setError: (error) => set({ error }),
@@ -100,6 +117,7 @@ export const useBreakdownStore = create<BreakdownState>()((set) => ({
       rows: [],
       contexts: [],
       selectedContext: null,
+      provenance: [],
       panelOpen: false,
       loading: false,
       error: null,

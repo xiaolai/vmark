@@ -25,8 +25,10 @@ import {
   createContext,
   refreshBreakdown,
   refreshContexts,
+  refreshProvenance,
   setContextEnforcement,
 } from "@/services/breakdown/breakdownService";
+import { ProvenanceGroup } from "./ProvenanceGroup";
 import { ask } from "@tauri-apps/plugin-dialog";
 import { BreakdownRow } from "./BreakdownRow";
 import "./breakdown-panel.css";
@@ -52,6 +54,7 @@ export function BreakdownPanel() {
     if (rootPath) {
       void refreshContexts(rootPath);
       void refreshBreakdown(rootPath);
+      void refreshProvenance(rootPath);
     }
   }, [rootPath]);
 
@@ -211,6 +214,7 @@ export function BreakdownPanel() {
           {t("capNotice", { shown: RESULT_CAP, total: rows.length })}
         </p>
       )}
+      <ProvenanceGroup workspaceRoot={rootPath} />
     </div>
   );
 }

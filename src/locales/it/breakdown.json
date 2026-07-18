@@ -44,5 +44,13 @@
     "enforceConfirm": "Applicando questo contesto, le contraddizioni vengono contrassegnate come violazioni del canone per tutti coloro che lo proiettano. Le affermazioni stabilite iniziano a vincolare. Attivare?",
     "enforceTitle": "Applica contesto",
     "error": "Errore di contesto: {{error}}"
+  },
+  "provenance": {
+    "heading": "Provenienza sconosciuta",
+    "hint": "Input precedenti recuperabili: {{count}}",
+    "suggest": "Suggerisci input",
+    "confirm": "Conferma provenienza",
+    "empty": "Nessun input selezionato",
+    "stale": "Il documento è cambiato — suggerimenti aggiornati"
   }
 }
