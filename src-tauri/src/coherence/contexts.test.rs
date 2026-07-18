@@ -23,6 +23,7 @@ fn manifest(id: Uuid, name: &str, parent: Option<Uuid>) -> ContextManifest {
         selections: HashMap::new(),
         enforcement: Enforcement::Greenhouse,
         visible_claims: Vec::new(),
+        extra: Default::default(),
     }
 }
 
@@ -227,4 +228,33 @@ impl IntoObject for Uuid {
     fn into_object(self) -> ObjectId {
         ObjectId(self)
     }
+}
+
+// WI-3.0 — the round-trip guarantee (design-3.md, format section): a
+// manifest writer must preserve fields it does not understand, or a
+// newer build's additive field (e.g. git_branch) dies on first rewrite.
+#[test]
+fn manifest_rewrite_preserves_unknown_fields() {
+    let (_td, dir) = ctx_dir();
+    let id = Uuid::now_v7();
+    std::fs::write(
+        dir.join("mapped.json"),
+        format!(
+            r#"{{"format":0,"id":"{id}","name":"mapped","parent":null,"selections":{{}},"visible_claims":[],"git_branch":"night-arc","future_field":{{"nested":true}}}}"#
+        ),
+    )
+    .unwrap();
+    let set = ContextSet::load(&dir);
+    let m = set.manifests.get(&id).unwrap().clone();
+    write_manifest(&dir, &m).unwrap();
+    let raw: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(dir.join("mapped.json")).unwrap()).unwrap();
+    assert_eq!(
+        raw["git_branch"], "night-arc",
+        "additive field survives rewrite"
+    );
+    assert_eq!(
+        raw["future_field"]["nested"], true,
+        "unknown field survives rewrite"
+    );
 }

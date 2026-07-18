@@ -115,6 +115,7 @@ pub fn perform_context_create(
         selections: Default::default(),
         enforcement: Enforcement::Greenhouse, // D1.4: always opt-in later
         visible_claims: Vec::new(),
+        extra: Default::default(),
     };
     write_manifest(&dir, &manifest)?;
     Ok(ContextReceipt { id: manifest.id })

@@ -431,6 +431,41 @@ phase_2() {
   done
 }
 
+# ─── Phase 3 (grows per-WI, rule 60 §3; design-3.md is the contract) ─────
+phase_3() {
+  echo "Phase 3 — human-edit inference, delegation, branch contexts (WI-3.0..3.9)"
+
+  echo "— WI-3.0: contract first (R21) —"
+  local DESIGN=dev-docs/grills/coherence/design-3.md
+  assert_file "$DESIGN" "Phase 3 design record"
+  assert_grep "Status: \*\*APPROVED\*\*" "$DESIGN" "design record APPROVED by owner review"
+  assert_grep "Owner decision record" "$DESIGN" "owner decision record quoted"
+  local SPEC=dev-docs/specs/coherence-format-v0.md
+  assert_grep "Spec revision 2 of format 0" "$SPEC" "spec advanced to revision 2"
+  assert_grep "provenance-confirmation" "$SPEC" "re-emission rules normative"
+  assert_grep "5.4.7" "$SPEC" "delegation entry kind specified"
+  assert_grep "Round-trip guarantee" "$SPEC" "manifest round-trip guarantee"
+  assert_grep "authenticated bridge principal" "$SPEC" "principal-bound delegation"
+  assert_grep "Resolved (Phase 3 design" dev-docs/coherence-layer-paper.md "paper O2 resolution recorded"
+  assert_grep "WI-3.0" dev-docs/plans/20260718-coherence-layer.md "plan decomposes Phase 3"
+  assert_grep "extra: serde_json::Map" src-tauri/src/coherence/contexts.rs "manifest unknown-field preservation implemented"
+  if [[ "${SKIP_TESTS:-}" != "1" ]]; then
+    if cargo test --manifest-path src-tauri/Cargo.toml --lib coherence::contexts --quiet >/dev/null 2>&1; then
+      ok "WI-3.0 round-trip suite green"
+    else
+      fail "WI-3.0 round-trip suite red"
+    fi
+  else
+    fail "SKIP_TESTS=1 set — WI-3.0 suite not run"
+  fi
+
+  local PENDING=(3.1 3.2 3.3 3.4 3.5 3.6 3.7 3.8 3.9)
+  echo "— pending WIs (fail-closed until implemented) —"
+  for wi in "${PENDING[@]}"; do
+    fail "WI-$wi assertions not yet defined (fail-closed)"
+  done
+}
+
 # ─── Stubs ───────────────────────────────────────────────────────────────
 phase_stub() {
   echo "Phase $1 — stub (decomposed by plan amendment after Phase 2a; rule 60 §3)"
@@ -441,7 +476,8 @@ case "$PHASE" in
   0) phase_0 ;;
   1) phase_1 ;;
   2) phase_2 ;;
-  2a|2b|3|4) phase_stub "$PHASE" ;;
+  3) phase_3 ;;
+  2a|2b|4) phase_stub "$PHASE" ;;
   *) echo "unknown phase: $PHASE"; exit 64 ;;
 esac
 
