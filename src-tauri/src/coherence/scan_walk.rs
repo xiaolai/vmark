@@ -26,6 +26,13 @@ pub(super) fn walk_markdown(
             .unwrap_or(&dir)
             .to_string_lossy()
             .into_owned();
+        // F2 (dogfood session 2): a directory carrying the standard
+        // CACHEDIR.TAG (cargo `target/`, other build caches) is a
+        // self-declared cache — never content. Walking one dominated M5
+        // on a real repo. Tag presence is exact; no name-based guessing.
+        if dir != root && dir.join("CACHEDIR.TAG").is_file() {
+            continue;
+        }
         let entries = match std::fs::read_dir(&dir) {
             Ok(entries) => entries,
             Err(e) => {

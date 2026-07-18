@@ -245,6 +245,34 @@ fn ignored_directories_are_never_scanned() {
     assert_eq!(report.adopted, 0);
 }
 
+#[test]
+fn cachedir_tagged_directories_are_never_scanned() {
+    // F2 (dogfood session 2): build trees like cargo's `target/` carry a
+    // standard CACHEDIR.TAG; walking them dominated a 12.4 s M5 on a real
+    // repo. The tag is semantically exact — no name-based guessing.
+    let (dir, mut kernel) = workspace();
+    captured_doc(&mut kernel, dir.path(), "seed.md", "init\n");
+    write_file(
+        dir.path(),
+        "target/CACHEDIR.TAG",
+        "Signature: 8a477f597d28d172789f06886806bc55\n",
+    );
+    write_file(
+        dir.path(),
+        "target/notes/fake.md",
+        "---\nvmark:\n  id: 018f3c7a-9f2e-7cc1-b302-5e9d4a6b21c8\n---\nx\n",
+    );
+    // An untagged dir with the same name is still scanned (no name-based
+    // skipping — a creator may legitimately have a content dir "target").
+    write_file(
+        dir.path(),
+        "sub/target/real.md",
+        "---\nvmark:\n  id: 018f3c7a-9f2e-7cc1-b302-5e9d4a6b21c9\n---\ny\n",
+    );
+    let report = scan_workspace(&mut kernel).unwrap();
+    assert_eq!(report.adopted, 1, "only the untagged target/ dir is walked");
+}
+
 // ── git integration (real repos) ────────────────────────────────────────
 
 fn run_git(dir: &Path, args: &[&str]) {
