@@ -23,6 +23,7 @@ fn manifest(id: Uuid, name: &str, parent: Option<Uuid>) -> ContextManifest {
         selections: HashMap::new(),
         enforcement: Enforcement::Greenhouse,
         visible_claims: Vec::new(),
+        git_branch: None,
         extra: Default::default(),
     }
 }

@@ -115,6 +115,7 @@ pub fn perform_context_create(
         selections: Default::default(),
         enforcement: Enforcement::Greenhouse, // D1.4: always opt-in later
         visible_claims: Vec::new(),
+        git_branch: None,
         extra: Default::default(),
     };
     write_manifest(&dir, &manifest)?;
@@ -144,6 +145,104 @@ pub fn perform_context_enforce(
         Enforcement::Greenhouse
     };
     write_manifest(&dir, &m)
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BranchCandidate {
+    pub branch: String,
+    /// The single mapped context, when unambiguous.
+    pub context: Option<Uuid>,
+    pub context_name: Option<String>,
+    /// Multiple contexts map this branch — surfaced, never guessed.
+    pub ambiguous: bool,
+}
+
+/// D3.2: the pull-only candidate for the chip. None when there is no
+/// branch (detached/no git) or no mapping — the selection NEVER changes
+/// here; switching is the UI's explicit act.
+pub fn perform_branch_candidate(
+    kernel: &mut WorkspaceKernel,
+) -> Result<Option<BranchCandidate>, String> {
+    let Some(branch) = super::gitops::current_branch(kernel.root()) else {
+        return Ok(None);
+    };
+    let set = ContextSet::load(&contexts_dir(kernel));
+    let mapped: Vec<&ContextManifest> = set
+        .manifests
+        .values()
+        .filter(|m| m.git_branch.as_deref() == Some(branch.as_str()))
+        .collect();
+    Ok(match mapped.len() {
+        0 => None,
+        1 => Some(BranchCandidate {
+            branch,
+            context: Some(mapped[0].id),
+            context_name: Some(mapped[0].name.clone()),
+            ambiguous: false,
+        }),
+        _ => Some(BranchCandidate {
+            branch,
+            context: None,
+            context_name: None,
+            ambiguous: true,
+        }),
+    })
+}
+
+/// D3.1: one explicit act — a greenhouse context named after the
+/// current branch with the mapping set. Fails loud without a branch.
+pub fn perform_context_create_from_branch(
+    kernel: &mut WorkspaceKernel,
+) -> Result<ContextReceipt, String> {
+    let Some(branch) = super::gitops::current_branch(kernel.root()) else {
+        return Err("no current branch (detached HEAD or not a git repository)".into());
+    };
+    let name: String = branch
+        .chars()
+        .map(|c| {
+            if c.is_alphanumeric() || c == '-' || c == '_' {
+                c
+            } else {
+                '-'
+            }
+        })
+        .collect();
+    let receipt = perform_context_create(kernel, &name, None)?;
+    let dir = contexts_dir(kernel);
+    let set = ContextSet::load(&dir);
+    let mut m = set
+        .manifests
+        .get(&receipt.id)
+        .cloned()
+        .ok_or("created context vanished")?;
+    m.git_branch = Some(branch);
+    write_manifest(&dir, &m)?;
+    Ok(receipt)
+}
+
+#[tauri::command]
+pub async fn coherence_branch_candidate(
+    state: tauri::State<'_, super::commands::CoherenceState>,
+    workspace_root: String,
+) -> Result<Option<BranchCandidate>, String> {
+    let kernel = state
+        .registry
+        .kernel_for(std::path::Path::new(&workspace_root), state.writer)?;
+    let mut kernel = kernel.lock().map_err(|_| "kernel poisoned".to_string())?;
+    perform_branch_candidate(&mut kernel)
+}
+
+#[tauri::command]
+pub async fn coherence_context_from_branch(
+    state: tauri::State<'_, super::commands::CoherenceState>,
+    workspace_root: String,
+) -> Result<ContextReceipt, String> {
+    let kernel = state
+        .registry
+        .kernel_for(std::path::Path::new(&workspace_root), state.writer)?;
+    let mut kernel = kernel.lock().map_err(|_| "kernel poisoned".to_string())?;
+    perform_context_create_from_branch(&mut kernel)
 }
 
 #[tauri::command]
