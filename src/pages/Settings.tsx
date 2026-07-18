@@ -243,7 +243,11 @@ export function SettingsPage() {
       </div>
 
       {/* Content area */}
-      <div className="flex-1 flex flex-col">
+      {/* min-w-0: without it this flex item cannot shrink below its content's
+          min-content width (e.g. an unbreakable release-notes URL plus the
+          update card's button column), and the whole window grows a
+          document-level horizontal scrollbar. */}
+      <div className="flex-1 flex flex-col min-w-0">
         {isMac && <div data-tauri-drag-region className="h-12 shrink-0" />}
         {/* Content */}
         <SettingsSearchContext.Provider value={normalizedQuery}>
