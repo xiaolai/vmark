@@ -35,6 +35,9 @@ export const initialState: SettingsState = {
   },
   appearance: {
     theme: "paper",
+    followSystemAppearance: false, // Manual theme selection by default (#1125)
+    systemLightTheme: "paper", // Paired light theme when following the system
+    systemDarkTheme: "night", // Paired dark theme when following the system
     latinFont: "system",
     cjkFont: "system",
     monoFont: "system",

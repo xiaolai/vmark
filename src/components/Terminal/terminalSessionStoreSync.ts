@@ -1,8 +1,9 @@
 /**
  * terminalSessionStoreSync
  *
- * Purpose: Subscribes a set of live xterm sessions to three Zustand stores
- * (settings.appearance.theme, workspace.rootPath, settings.terminal) and
+ * Purpose: Subscribes a set of live xterm sessions to the Zustand stores
+ * (effective theme — settings.appearance + systemAppearanceStore —,
+ * workspace.rootPath, settings.terminal) and
  * keeps each session in sync as those stores change. Extracted from
  * useTerminalSessions to keep that hook as an orchestrator.
  *
@@ -25,6 +26,8 @@
 import { useEffect } from "react";
 import type { IPty } from "@/lib/pty";
 import { useSettingsStore } from "@/stores/settingsStore";
+import { useSystemAppearanceStore } from "@/stores/systemAppearanceStore";
+import { getEffectiveThemeId } from "@/hooks/useEffectiveTheme";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { useWorkspaceInstancesStore } from "@/stores/workspaceInstancesStore";
 import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
@@ -89,14 +92,15 @@ export function flushPendingRoot(entry: SyncableSessionEntry): boolean {
 export function useUIStoreSync(
   sessionsRef: React.RefObject<Map<string, SyncableSessionEntry>>,
 ): void {
-  // Theme + mono-font sync
+  // Theme + mono-font sync. The theme compared is the EFFECTIVE theme id
+  // (manual pick, or the paired light/dark theme while follow-system is on),
+  // so it must also react to OS flips via systemAppearanceStore (#1125).
   useEffect(() => {
-    const appearance = () => useSettingsStore.getState().appearance;
-    let prevTheme = appearance().theme;
-    let prevMono = appearance().monoFont;
-    return useSettingsStore.subscribe((state) => {
-      const themeId = state.appearance.theme;
-      const monoFont = state.appearance.monoFont;
+    let prevTheme = getEffectiveThemeId();
+    let prevMono = useSettingsStore.getState().appearance.monoFont;
+    const sync = () => {
+      const themeId = getEffectiveThemeId();
+      const monoFont = useSettingsStore.getState().appearance.monoFont;
       const themeChanged = themeId !== prevTheme;
       const monoChanged = monoFont !== prevMono;
       if (!themeChanged && !monoChanged) return;
@@ -114,7 +118,14 @@ export function useUIStoreSync(
         if (newTheme) entry.instance.term.options.theme = newTheme;
         entry.instance.term.options.fontFamily = newFont;
       }
-    });
+    };
+    const unsubs = [
+      useSettingsStore.subscribe(sync),
+      useSystemAppearanceStore.subscribe(sync),
+    ];
+    return () => {
+      for (const unsub of unsubs) unsub();
+    };
   }, [sessionsRef]);
 
   // Workspace-root sync — cd running sessions when the root changes
