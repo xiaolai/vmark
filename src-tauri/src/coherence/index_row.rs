@@ -18,6 +18,9 @@ pub struct EdgeRow {
     pub downstream: ObjectId,
     pub downstream_path: Option<String>,
     pub downstream_rev: RevisionId,
+    /// Provenance confidence of the recording transformation (R28: the
+    /// UI renders degraded provenance distinctly).
+    pub confidence: String,
     #[serde(serialize_with = "serialize_state")]
     pub state: EdgeState,
 }

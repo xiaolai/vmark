@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS edges (
   txf TEXT NOT NULL, input_idx INTEGER NOT NULL,
   upstream TEXT NOT NULL, pinned TEXT NOT NULL,
   downstream TEXT NOT NULL, downstream_rev TEXT NOT NULL,
-  role TEXT NOT NULL,
+  role TEXT NOT NULL, confidence TEXT NOT NULL DEFAULT 'exact',
   PRIMARY KEY (txf, input_idx, downstream, downstream_rev)
 ) WITHOUT ROWID;
 CREATE INDEX IF NOT EXISTS edges_by_upstream ON edges (upstream);
@@ -49,7 +49,7 @@ CREATE TABLE IF NOT EXISTS registry (
   entry_id TEXT PRIMARY KEY, object TEXT NOT NULL, path TEXT NOT NULL,
   schema TEXT, time TEXT NOT NULL
 );
-CREATE TABLE IF NOT EXISTS applied (entry_id TEXT PRIMARY KEY);
+CREATE TABLE IF NOT EXISTS applied (idem TEXT PRIMARY KEY);
 ";
 
 pub struct CoherenceIndex {
@@ -96,10 +96,12 @@ impl CoherenceIndex {
             .typed()
             .map_err(|e| format!("index apply on malformed entry: {e}"))?;
         let tx = self.conn.transaction().map_err(|e| e.to_string())?;
+        // Keyed by IDEM, not entry id (audit A4): a crash-recovery replay
+        // carries the same idem with a fresh id and must not re-apply.
         let inserted = tx
             .execute(
-                "INSERT OR IGNORE INTO applied (entry_id) VALUES (?1)",
-                [env.id.to_string()],
+                "INSERT OR IGNORE INTO applied (idem) VALUES (?1)",
+                [env.idem.to_string()],
             )
             .map_err(|e| e.to_string())?;
         if inserted == 0 {
@@ -126,8 +128,8 @@ impl CoherenceIndex {
                     .map_err(|e| e.to_string())?;
                     for (i, input) in t.inputs.iter().enumerate() {
                         tx.execute(
-                            "INSERT OR IGNORE INTO edges (txf, input_idx, upstream, pinned, downstream, downstream_rev, role)
-                             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                            "INSERT OR IGNORE INTO edges (txf, input_idx, upstream, pinned, downstream, downstream_rev, role, confidence)
+                             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
                             rusqlite::params![
                                 env.id.to_string(),
                                 i as i64,
@@ -138,6 +140,11 @@ impl CoherenceIndex {
                                 match input.role {
                                     InputRole::Direct => "direct",
                                     InputRole::Contextual => "contextual",
+                                },
+                                match t.confidence {
+                                    super::types::Confidence::Exact => "exact",
+                                    super::types::Confidence::Inferred => "inferred",
+                                    super::types::Confidence::Unknown => "unknown",
                                 }
                             ],
                         )

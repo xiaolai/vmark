@@ -113,20 +113,15 @@ impl CoherenceIndex {
         rev.map(|r| RevisionId::parse(&r)).transpose()
     }
 
+    /// Latest path per object — derived from the parsed-time-ordered
+    /// registry (audit A-M13: no lexical SQL time ordering anywhere).
     fn latest_paths(&self) -> Result<std::collections::HashMap<String, String>, String> {
-        let mut stmt = self
-            .conn
-            .prepare("SELECT object, path FROM registry ORDER BY time ASC, entry_id ASC")
-            .map_err(|e| e.to_string())?;
-        let rows = stmt
-            .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))
-            .map_err(|e| e.to_string())?;
-        let mut map = std::collections::HashMap::new();
-        for row in rows {
-            let (obj, path) = row.map_err(|e| e.to_string())?;
-            map.insert(obj, path); // last (largest time, id) wins
-        }
-        Ok(map)
+        let registry = self.registry_state()?;
+        Ok(registry
+            .path_of
+            .into_iter()
+            .map(|(object, path)| (object.0.to_string(), path))
+            .collect())
     }
 
     /// All live, non-fresh direct edges in the all-live default context,
@@ -140,7 +135,7 @@ impl CoherenceIndex {
 
         let mut stmt = self
             .conn
-            .prepare("SELECT txf, input_idx, upstream, pinned, downstream, downstream_rev, role FROM edges")
+            .prepare("SELECT txf, input_idx, upstream, pinned, downstream, downstream_rev, role, confidence FROM edges")
             .map_err(|e| e.to_string())?;
         let edge_rows = stmt
             .query_map([], |r| {
@@ -152,6 +147,7 @@ impl CoherenceIndex {
                     r.get::<_, String>(4)?,
                     r.get::<_, String>(5)?,
                     r.get::<_, String>(6)?,
+                    r.get::<_, String>(7)?,
                 ))
             })
             .map_err(|e| e.to_string())?;
@@ -159,7 +155,8 @@ impl CoherenceIndex {
         let all_resolutions = self.all_resolutions()?;
         let mut out = Vec::new();
         for row in edge_rows {
-            let (txf, idx, up, pinned, down, down_rev, role) = row.map_err(|e| e.to_string())?;
+            let (txf, idx, up, pinned, down, down_rev, role, confidence) =
+                row.map_err(|e| e.to_string())?;
             if absent.contains(&up) || absent.contains(&down) {
                 continue;
             }
@@ -195,6 +192,7 @@ impl CoherenceIndex {
                 downstream_path: paths.get(&down).cloned(),
                 downstream: edge.downstream,
                 downstream_rev: edge.downstream_rev,
+                confidence,
                 state,
             });
         }

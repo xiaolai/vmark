@@ -180,6 +180,9 @@ export async function captureAiEdit(
 // client cannot grow this without limit.
 const MAX_SESSION_READS = 256;
 const sessionReads = new Map<string, string | undefined>();
+// In-flight revision pins (audit B5): a write consuming the read set
+// awaits these (bounded) so read-time revisions actually arrive.
+const pendingPins = new Set<Promise<void>>();
 
 /** Record a document read served to the MCP client (absolute path).
  *  Pins the coherence revision served at READ time (audit T5) so a later
@@ -194,7 +197,7 @@ export function recordMcpRead(absolutePath: string): void {
   if (!root) return;
   const rel = workspaceRelativePath(root, absolutePath);
   if (!rel) return;
-  void invoke<{ object: string; revision: string } | null>("coherence_head", {
+  const pin = invoke<{ object: string; revision: string } | null>("coherence_head", {
     workspaceRoot: root,
     path: rel,
   })
@@ -204,6 +207,17 @@ export function recordMcpRead(absolutePath: string): void {
       }
     })
     .catch(() => {}); // pinning is best-effort; unpinned reads still count
+  pendingPins.add(pin);
+  void pin.finally(() => pendingPins.delete(pin));
+}
+
+/** Wait (bounded) for in-flight read pins — audit B5. */
+async function awaitPendingPins(): Promise<void> {
+  if (pendingPins.size === 0) return;
+  await Promise.race([
+    Promise.allSettled([...pendingPins]),
+    new Promise((resolve) => setTimeout(resolve, 500)),
+  ]);
 }
 
 /** Consume the session-read set as capture inputs for an MCP write. */
@@ -231,6 +245,7 @@ export async function captureMcpWrite(args: {
   try {
     const root = useWorkspaceStore.getState().rootPath;
     if (!root) return null;
+    await awaitPendingPins();
     const inputs = takeMcpReadInputs(root).filter((i) => {
       // The written doc itself is the transformation target, not an input.
       return i.path !== workspaceRelativePath(root, args.absolutePath);

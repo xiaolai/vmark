@@ -87,10 +87,10 @@ impl Envelope {
                 }
             }
             "claim" => {
-                for key in ["claim", "statement"] {
-                    if b.get(key).is_none() {
-                        return Err(format!("claim missing {key}"));
-                    }
+                if b.get("claim").and_then(|v| v.as_str()).is_none()
+                    || b.get("statement").and_then(|v| v.as_str()).is_none()
+                {
+                    return Err("claim requires string claim + statement".into());
                 }
                 TypedBody::Preserved {
                     kind: self.kind.clone(),

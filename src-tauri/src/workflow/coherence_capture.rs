@@ -24,19 +24,27 @@ pub type StepSlice = (String, String, HashMap<String, String>);
 /// template value.
 fn referenced_ids(value: &str, known_ids: &HashSet<&str>) -> Vec<String> {
     let mut out = Vec::new();
-    // `steps.X` occurrences (covers `${{ steps.X.outputs.Y }}` and
-    // `steps.X.text` forms).
-    let mut rest = value;
-    while let Some(pos) = rest.find("steps.") {
-        let after = &rest[pos + "steps.".len()..];
-        let id: String = after
-            .chars()
-            .take_while(|c| c.is_ascii_alphanumeric() || *c == '_' || *c == '-')
-            .collect();
-        if !id.is_empty() {
-            out.push(id);
+    // `steps.X` refs count only inside `${{ … }}` template regions
+    // (audit A-M11): a literal path like `notes/steps.foo.md` in a plain
+    // param must not become a false dependency.
+    let mut scan = value;
+    while let Some(open) = scan.find("${{") {
+        let region = &scan[open + 3..];
+        let close = region.find("}}").unwrap_or(region.len());
+        let inner = &region[..close];
+        let mut rest = inner;
+        while let Some(pos) = rest.find("steps.") {
+            let after = &rest[pos + "steps.".len()..];
+            let id: String = after
+                .chars()
+                .take_while(|c| c.is_ascii_alphanumeric() || *c == '_' || *c == '-')
+                .collect();
+            if !id.is_empty() {
+                out.push(id);
+            }
+            rest = after;
         }
-        rest = after;
+        scan = &region[close..];
     }
     // Bare whole-value alias `X.output` (legacy grammar).
     let trimmed = value.trim();
@@ -128,9 +136,10 @@ pub fn capture_save_file(
     .map(|_| ())
 }
 
-/// Runner-facing entry: resolve state, spawn off-thread, never block or
-/// fail the workflow.
-pub fn capture_save_file_detached(
+/// Runner-facing entry: runs off-thread but is AWAITED by the runner
+/// (audit A11 — captures land in step order; a same-path later step can
+/// never record before an earlier one). Failures log; steps never fail.
+pub async fn capture_save_file_ordered(
     app: &AppHandle,
     workspace_root: &Path,
     steps: Vec<StepSlice>,
@@ -143,7 +152,7 @@ pub fn capture_save_file_detached(
     };
     let app = app.clone();
     let root = workspace_root.to_path_buf();
-    tauri::async_runtime::spawn_blocking(move || {
+    let task = tauri::async_runtime::spawn_blocking(move || {
         let state = app.state::<CoherenceState>();
         let kernel = match state.registry.kernel_for(&root, state.writer) {
             Ok(k) => k,
@@ -163,6 +172,9 @@ pub fn capture_save_file_detached(
             log::warn!("coherence: workflow capture failed (step untouched): {e}");
         }
     });
+    if task.await.is_err() {
+        log::warn!("coherence: workflow capture task panicked (step untouched)");
+    }
 }
 
 #[cfg(test)]

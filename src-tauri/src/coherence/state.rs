@@ -209,19 +209,15 @@ pub fn load_or_create_writer_id(app_data_dir: &Path) -> Result<WriterId, String>
     }
     let id = Uuid::now_v7();
     fs::create_dir_all(app_data_dir).map_err(|e| format!("writer-id dir: {e}"))?;
-    // create_new: if another process wins the race, adopt ITS id instead
-    // of overwriting (audit R12 — two writers must never share segments).
-    match fs::OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .open(&path)
-    {
-        Ok(mut f) => {
-            use std::io::Write;
-            f.write_all(id.to_string().as_bytes())
-                .map_err(|e| format!("writer-id write: {e}"))?;
-            Ok(WriterId(id))
-        }
+    // Write-then-link (audit A17): the file becomes visible ONLY with its
+    // full content — no window where another process reads it empty. A
+    // link collision means we lost the race: adopt THEIR id.
+    let tmp = app_data_dir.join(format!(".writer-id-{id}"));
+    fs::write(&tmp, id.to_string()).map_err(|e| format!("writer-id tmp write: {e}"))?;
+    let link_result = fs::hard_link(&tmp, &path);
+    let _ = fs::remove_file(&tmp);
+    match link_result.map(|_| ()) {
+        Ok(()) => Ok(WriterId(id)),
         Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {
             let existing = fs::read_to_string(&path).map_err(|e| format!("writer-id read: {e}"))?;
             match Uuid::parse_str(existing.trim()) {

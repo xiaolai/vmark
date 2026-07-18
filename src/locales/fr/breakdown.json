@@ -24,5 +24,11 @@
     "diverged": "Divergente",
     "divergedMultiHead": "Divergente (plusieurs versions)",
     "unpinnable": "Non épinglable"
+  },
+  "confidence": {
+    "inferred": "Provenance inférée — l'ensemble d'entrées enregistré sous-estime ce que l'agent a réellement consulté",
+    "inferredShort": "inférée",
+    "unknown": "Provenance inconnue — cette modification a été observée hors de VMark",
+    "unknownShort": "inconnue"
   }
 }

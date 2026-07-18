@@ -24,5 +24,11 @@
     "diverged": "Divergiert",
     "divergedMultiHead": "Divergiert (mehrere Versionen)",
     "unpinnable": "Nicht fixierbar"
+  },
+  "confidence": {
+    "inferred": "Provenienz abgeleitet — die erfasste Eingabemenge unterschätzt, was der Agent tatsächlich herangezogen hat",
+    "inferredShort": "abgeleitet",
+    "unknown": "Provenienz unbekannt — diese Änderung wurde außerhalb von VMark beobachtet",
+    "unknownShort": "unbekannt"
   }
 }

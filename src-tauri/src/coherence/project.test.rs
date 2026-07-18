@@ -277,17 +277,13 @@ fn unknown_pin_surfaces_unpinnable() {
 }
 
 #[test]
-fn edge_on_one_of_multiple_downstream_heads_stays_live() {
+fn multi_head_downstream_suppresses_its_edges() {
+    // Spec §9.2 strict liveness: with resolve(C, D) undefined
+    // (DivergedHeads), no downstream revision "equals" the selection —
+    // the edge is suppressed; the divergence shows where D is upstream.
     let mut w = world();
-    // Downstream forks: down0 and a sibling are both heads.
     let sibling = rev(12, &[]);
     w.dag.record_output(oid(DOWN), sibling, vec![]);
     let e = edge(&w, &w.up1);
-    assert_eq!(
-        project(&w, &e, &ContextView::all_live(), &[], &[]),
-        Some(EdgeState::Fresh {
-            ratified: false,
-            ahead: false
-        })
-    );
+    assert_eq!(project(&w, &e, &ContextView::all_live(), &[], &[]), None);
 }

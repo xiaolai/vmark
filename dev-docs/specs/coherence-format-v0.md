@@ -62,9 +62,10 @@ Rules:
   Provenance never appears in frontmatter.
 - **Duplicate IDs** (file copied, then both edited) are detected on scan and
   surfaced to the human — never auto-resolved (I3). Until resolved, the
-  kernel treats the duplicate set as read-only for capture: it records
-  observed-external transformations against a synthetic `duplicate-of:`
-  object and raises a workspace diagnostic.
+  object is **capture-held**: the kernel rejects captures against it with
+  an explanatory error and raises a durable workspace diagnostic; the
+  hold releases automatically once a scan finds the ID at exactly one
+  path again.
 - A file with no frontmatter gets a frontmatter block prepended at first
   capture. A file with frontmatter but no `vmark` key gets the key added.
   Identity assignment does **not** create a new revision (§3.3).
@@ -523,7 +524,7 @@ Per-transformation `confidence` states:
 
 | State | Meaning | Producers |
 |---|---|---|
-| `exact` | The input set is exactly what the generation consumed | In-app instrumented AI paths (genies, suggestion apply, workflow steps) and editor saves (prior-revision link) |
+| `exact` | The input set is exactly what the generation consumed | In-app instrumented AI paths (genies, suggestion apply, workflow steps) and editor saves (prior-revision link). **Exception:** when the pre-apply buffer had diverged from the last captured revision, the recorded input revision under-describes what the model actually read — such applies are captured as `inferred` (honest under-claiming) |
 | `inferred` | Inputs are an honest under- or re-construction, not the agent's verified full context | **MCP bridge writes** (G1 finding: the session-observed read set under-approximates an external agent's true context); Phase 3 human-edit inference |
 | `unknown` | Inputs not knowable — observed external edit | Scan reconciliation (R9) |
 

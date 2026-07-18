@@ -16,6 +16,7 @@ pub(super) fn walk_markdown(
     report: &mut ScanReport,
     kernel: &mut WorkspaceKernel,
     existing: &mut HashSet<(String, String)>,
+    skipped_md: &mut Vec<String>,
 ) -> Result<Vec<(String, String)>, String> {
     let mut out = Vec::new();
     let mut stack: Vec<PathBuf> = vec![root.to_path_buf()];
@@ -42,7 +43,13 @@ pub(super) fn walk_markdown(
                 continue;
             }
         };
-        for entry in entries.flatten() {
+        for entry in entries {
+            // Entry errors surface and mark the walk incomplete (audit
+            // A14) — a skipped entry must never become a deletion.
+            let Ok(entry) = entry else {
+                report.complete = false;
+                continue;
+            };
             if out.len() >= MAX_SCAN_FILES {
                 report.complete = false;
                 super::scan::emit_diagnostic(
@@ -87,6 +94,7 @@ pub(super) fn walk_markdown(
                 continue;
             }
             if meta.len() > MAX_SCAN_FILE_BYTES {
+                skipped_md.push(rel.clone());
                 super::scan::emit_diagnostic(
                     kernel,
                     existing,
@@ -100,17 +108,21 @@ pub(super) fn walk_markdown(
             match std::fs::read(&path) {
                 Ok(bytes) => match String::from_utf8(bytes) {
                     Ok(text) => out.push((rel, text)),
-                    Err(_) => super::scan::emit_diagnostic(
-                        kernel,
-                        existing,
-                        report,
-                        "invalid-utf8",
-                        "expected UTF-8 text",
-                        &rel,
-                    )?,
+                    Err(_) => {
+                        skipped_md.push(rel.clone());
+                        super::scan::emit_diagnostic(
+                            kernel,
+                            existing,
+                            report,
+                            "invalid-utf8",
+                            "expected UTF-8 text",
+                            &rel,
+                        )?;
+                    }
                 },
                 Err(e) => {
                     report.complete = false;
+                    skipped_md.push(rel.clone());
                     super::scan::emit_diagnostic(
                         kernel,
                         existing,

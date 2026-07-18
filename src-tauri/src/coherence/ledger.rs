@@ -151,10 +151,16 @@ impl Ledger {
             Err(e) => return Err(format!("ledger dir unreadable: {e}")),
         };
         let mut raw: Vec<Envelope> = Vec::new();
-        let mut segments: Vec<PathBuf> = dir_entries
-            .filter_map(|e| e.ok().map(|e| e.path()))
-            .filter(|p| p.extension().is_some_and(|x| x == "jsonl"))
-            .collect();
+        let mut segments: Vec<PathBuf> = Vec::new();
+        for entry in dir_entries {
+            // Iterator errors surface (audit A13): silently skipping a
+            // segment would let a rebuild wipe its visible history.
+            let entry = entry.map_err(|e| format!("ledger dir entry unreadable: {e}"))?;
+            let path = entry.path();
+            if path.extension().is_some_and(|x| x == "jsonl") {
+                segments.push(path);
+            }
+        }
         segments.sort();
         for seg in segments {
             let seg_name = seg

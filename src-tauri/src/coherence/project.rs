@@ -132,11 +132,13 @@ pub fn project_edge(
     if edge.role != InputRole::Direct {
         return None;
     }
-    // Liveness: the edge belongs to the downstream revision this context
-    // actually selects (multi-head live downstream: any head qualifies).
+    // Liveness (spec §9.2, strict): projected iff the downstream revision
+    // EQUALS resolve(C, D). A multi-head downstream has no defined
+    // selection, so its edges are suppressed — the divergence surfaces
+    // wherever that object is an UPSTREAM (audit A23; the spec letter won
+    // over the any-head reading in review round 2).
     match resolve(ctx, dag, &edge.downstream) {
         Resolved::Single(r) if r == edge.downstream_rev => {}
-        Resolved::DivergedHeads if dag.heads(&edge.downstream).contains(&edge.downstream_rev) => {}
         _ => return None,
     }
 
