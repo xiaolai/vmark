@@ -9,6 +9,7 @@ use crate::coherence::commands::{
 };
 use crate::coherence::context_commands::perform_contexts_list;
 use crate::coherence::delegation::DelegationStore;
+use tauri::Runtime;
 
 /// Answer a `vmark.coherence.*` read request from the managed kernel state.
 ///
@@ -16,6 +17,24 @@ use crate::coherence::delegation::DelegationStore;
 /// Tauri app. Never panics: every failure (missing/invalid workspace_root,
 /// kernel open failure, poisoned lock) becomes `success: false` with the
 /// error string.
+/// Whether `root` is a workspace this installation has opened (its config
+/// marker exists) — the coherence tool's root allow-list (audit C1).
+pub(super) fn is_known_workspace<R: Runtime>(app: &tauri::AppHandle<R>, root: &str) -> bool {
+    use tauri::Manager;
+    let Ok(ws_dir) = app.path().app_data_dir().map(|d| d.join("workspaces")) else {
+        return false;
+    };
+    ws_dir
+        .join(format!("{}.json", crate::workspace::hash_root_path(root)))
+        .exists()
+        || ws_dir
+            .join(format!(
+                "{}.json",
+                crate::workspace::legacy_hash_root_path(root)
+            ))
+            .exists()
+}
+
 pub(super) fn answer_coherence(
     state: &CoherenceState,
     request_type: &str,

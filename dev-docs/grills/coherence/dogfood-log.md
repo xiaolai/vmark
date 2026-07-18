@@ -113,9 +113,14 @@ ratification is session-external.*
 focused/main window only; a workspace opened in a `doc-*` window is
 invisible to the MCP path-scoping guard. Worked around by opening the
 workspace in `main` via the app's own recent-workspace command; worth a
-Phase 3 look (route by workspace, not window). F6 (operational) — an MCP
-client disconnect closes session-opened tabs and can drop the workspace
-in `main`; reproduce-and-file before Phase 3's mutating MCP.
+Phase 3 look (route by workspace, not window). F6 (retracted on
+investigation — WI-3.5) — the reported "disconnect closes tabs / drops
+the workspace" symptom does NOT come from the bridge: neither the Rust
+disconnect handler nor the frontend `clients-changed` listener closes
+tabs or drops a workspace (both verified). The session-2/3 symptom was
+manual localStorage manipulation during the test drive, not bridge
+behavior. The guarantee is now locked by a regression test
+(`disconnect_preserves_window_workspaces`).
 
 **Owner verdict (codex-as-human): PASS.** Next step: Phase 3 plan
 amendment, starting with lazy-confirmation inference for human edits.

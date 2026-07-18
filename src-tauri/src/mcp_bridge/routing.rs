@@ -4,11 +4,15 @@
 //! a bridge request, waking a suspended webview, and answering requests that
 //! Rust can handle natively without involving the webview.
 
-use super::types::{McpRequest, McpResponse};
+use super::delivery::send_error_response;
+use super::state::get_bridge_state;
+use super::types::{McpRequest, McpRequestEvent, McpResponse};
 use crate::coherence::commands::CoherenceState;
 use tauri::AppHandle;
+use tauri::Emitter;
 use tauri::Manager;
 use tauri::Runtime;
+use tokio::sync::mpsc::Sender;
 
 /// Try to wake the target webview by evaluating a no-op JS snippet.
 ///
@@ -41,38 +45,101 @@ pub(super) async fn wake_webview<R: Runtime>(app: &AppHandle<R>, target_label: &
 /// Extracts the `windowId` field from request args. If `"focused"`, resolves to
 /// the currently focused document window. Falls back to `"main"` when no
 /// `windowId` is provided or no window has focus.
-pub(super) fn resolve_target_window<R: Runtime>(
-    args: &serde_json::Value,
+/// Emit a routed request to its target window. If the window vanished
+/// (a close raced the routing snapshot) or the emit failed, clean up the
+/// pending entry and reply to the client with the error. Returns `false`
+/// when it has already replied — the caller returns.
+#[allow(clippy::too_many_arguments)]
+pub(super) async fn emit_to_window_or_reply<R: Runtime>(
     app: &AppHandle<R>,
-) -> String {
-    let window_id = args
-        .get("windowId")
-        .and_then(|v| v.as_str())
-        .unwrap_or("focused");
-
-    if window_id == "focused" {
-        // Find the focused document window (main or doc-*)
-        let resolved = app
-            .webview_windows()
-            .values()
-            .find(|w| {
-                let label = w.label();
-                w.is_focused().unwrap_or(false) && (label == "main" || label.starts_with("doc-"))
-            })
-            .map(|w| w.label().to_string());
-
-        if resolved.is_none() {
-            log::warn!(
-                "[MCP Bridge] No focused document window found — falling back to 'main'. \
-                 Non-document window may have focus, or app may be in background."
+    target_label: &str,
+    event: &McpRequestEvent,
+    request_type: &str,
+    request_id: &str,
+    client_id: u64,
+    client_tx: &Sender<String>,
+    msg_id: &str,
+) -> bool {
+    let outcome = match app.get_webview_window(target_label) {
+        Some(window) => {
+            log::debug!(
+                "[MCP Bridge] Emitting mcp-bridge:request to '{target_label}' for {request_type} (id: {request_id})"
             );
+            window
+                .emit("mcp-bridge:request", event)
+                .map_err(|e| format!("Failed to emit event: {e}"))
         }
-        resolved.unwrap_or_else(|| "main".to_string())
-    } else {
-        window_id.to_string()
+        None => Err(format!("Target window '{target_label}' not found")),
+    };
+    if let Err(err) = outcome {
+        let state = get_bridge_state();
+        let mut guard = state.lock().await;
+        guard.pending.remove(request_id);
+        drop(guard);
+        log::warn!("[MCP Bridge] Client {client_id} request failed: {err}");
+        send_error_response(client_id, client_tx, msg_id, &err).await;
+        return false;
+    }
+    true
+}
+
+/// F5 (WI-3.5): resolve the target window for a frontend-routed request,
+/// snapshotting the window→workspace map. On a routing refusal (ambiguity,
+/// conflict, missing pinned window) it removes the pending entry, replies
+/// to the client with the error, and returns `None` — the caller returns.
+pub(super) async fn route_target_or_reply<R: Runtime>(
+    request: &McpRequest,
+    app: &AppHandle<R>,
+    request_id: &str,
+    client_id: u64,
+    client_tx: &Sender<String>,
+    msg_id: &str,
+) -> Option<String> {
+    let window_workspaces = {
+        let state = get_bridge_state();
+        let guard = state.lock().await;
+        guard.window_workspaces.clone()
+    };
+    match resolve_target_window(&request.args, app, &window_workspaces) {
+        Ok(label) => Some(label),
+        Err(err) => {
+            let state = get_bridge_state();
+            let mut guard = state.lock().await;
+            guard.pending.remove(request_id);
+            drop(guard);
+            log::warn!("[MCP Bridge] Client {client_id} routing refused: {err}");
+            send_error_response(client_id, client_tx, msg_id, &err).await;
+            None
+        }
     }
 }
 
+pub(super) fn resolve_target_window<R: Runtime>(
+    args: &serde_json::Value,
+    app: &AppHandle<R>,
+    window_workspaces: &std::collections::HashMap<String, String>,
+) -> Result<String, String> {
+    // An explicit windowId (anything but the "focused" sentinel) is a pin.
+    let explicit = args
+        .get("windowId")
+        .and_then(|v| v.as_str())
+        .filter(|w| *w != "focused");
+    let path = super::window_routing::scoping_path(args);
+    let candidates: Vec<super::window_routing::WindowCandidate> = app
+        .webview_windows()
+        .values()
+        .map(|w| {
+            let label = w.label().to_string();
+            super::window_routing::WindowCandidate {
+                workspace: window_workspaces.get(&label).cloned(),
+                focused: w.is_focused().unwrap_or(false),
+                is_document: label == "main" || label.starts_with("doc-"),
+                label,
+            }
+        })
+        .collect();
+    super::window_routing::pick_target_window(explicit, path.as_deref(), &candidates)
+}
 /// Handle requests directly in Rust without involving the webview.
 /// Returns `Some(response)` if handled, `None` to fall through to webview.
 ///
@@ -147,7 +214,7 @@ pub(super) fn handle_rust_side<R: Runtime>(
             // filesystem roots (audit C1): only workspaces this
             // installation has actually opened are queryable.
             if let Some(root) = request.args.get("workspace_root").and_then(|v| v.as_str()) {
-                if !is_known_workspace(app, root) {
+                if !super::coherence_answers::is_known_workspace(app, root) {
                     return Some(McpResponse {
                         success: false,
                         data: None,
@@ -167,24 +234,6 @@ pub(super) fn handle_rust_side<R: Runtime>(
         }
         _ => None,
     }
-}
-
-/// Whether `root` is a workspace this installation has opened (its config
-/// marker exists) — the coherence tool's root allow-list (audit C1).
-fn is_known_workspace<R: Runtime>(app: &tauri::AppHandle<R>, root: &str) -> bool {
-    use tauri::Manager;
-    let Ok(ws_dir) = app.path().app_data_dir().map(|d| d.join("workspaces")) else {
-        return false;
-    };
-    ws_dir
-        .join(format!("{}.json", crate::workspace::hash_root_path(root)))
-        .exists()
-        || ws_dir
-            .join(format!(
-                "{}.json",
-                crate::workspace::legacy_hash_root_path(root)
-            ))
-            .exists()
 }
 
 /// Async dispatch for coherence requests (audit C2/C3/C5): `edges` runs

@@ -75,6 +75,7 @@ macro_rules! all_commands {
             mcp_server::mcp_bridge_client_count,
             mcp_server::mcp_bridge_connected_clients,
             mcp_bridge::commands::mcp_bridge_respond,
+            mcp_bridge::commands::mcp_bridge_set_window_workspace,
             mcp_bridge::commands::mcp_bridge_heartbeat,
             mcp_bridge_path_guard::mcp_bridge_check_path,
             mcp_config::commands::mcp_config_diagnose,
