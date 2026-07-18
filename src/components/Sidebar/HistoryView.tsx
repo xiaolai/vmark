@@ -23,6 +23,7 @@ import {
 import { buildHistorySettings, HISTORY_CLEARED_EVENT } from "@/utils/historyTypes";
 import { formatSnapshotTime, groupByDay } from "@/utils/dateUtils";
 import { historyError } from "@/utils/debug";
+import { captureWrite } from "@/services/coherence/captureFunnel";
 
 /** Renders the document version history sidebar with revert and delete actions. */
 export function HistoryView() {
@@ -120,6 +121,13 @@ export function HistoryView() {
       if (restoredContent !== null) {
         // Write to file
         await writeTextFile(filePath, restoredContent);
+        // Coherence (WI-1.6): a snapshot restore is a human transformation.
+        void captureWrite({
+          absolutePath: filePath,
+          content: restoredContent,
+          agent: { type: "human" },
+          intent: { kind: "history-revert", summary: "restore version snapshot" },
+        }).catch(() => {});
         // Update editor
         loadContent(restoredContent, filePath);
         // Refresh snapshots

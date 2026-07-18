@@ -30,7 +30,7 @@
  *     exclusive so AI clients can branch without parsing free-form text.
  *
  * @coordinates-with stores/revisionStore.ts — current revision + isCurrentRevision
- * @coordinates-with lib/cjkFormatter — formatMarkdown for transform
+ * @coordinates-with documentTransform.ts — CJK transform helpers (extracted)
  * @coordinates-with utils/markdownPipeline.ts — parseMarkdown / serializeMarkdown
  * @coordinates-with stores/documentStore.ts — content + dirty state
  * @coordinates-with stores/tabStore.ts — tab → window resolution

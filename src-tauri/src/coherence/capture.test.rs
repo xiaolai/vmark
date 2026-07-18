@@ -271,3 +271,43 @@ fn buffer_capture_without_rewrite_leaves_disk_untouched() {
     let report = crate::coherence::scan::scan_workspace(&mut kernel).unwrap();
     assert_eq!(report.external_edits, 0);
 }
+
+#[test]
+fn malformed_frontmatter_surfaces_a_diagnostic_on_first_capture() {
+    // Spec §2.1: malformed frontmatter (unterminated fence) is content,
+    // not identity — the first capture surfaces a diagnostic instead of
+    // silently misparsing, while history stays gap-free.
+    let (dir, mut kernel) = workspace();
+    let broken = "---\ntitle: Elena\nno closing fence here\n";
+    write_file(dir.path(), "broken.md", broken);
+    let receipt = capture(&mut kernel, human_save("broken.md", broken)).unwrap();
+    assert!(receipt.entry_id.is_some(), "capture still succeeds");
+    let diags: Vec<_> = kernel
+        .ledger()
+        .read_all()
+        .unwrap()
+        .entries
+        .iter()
+        .filter_map(|e| match e.typed().ok()? {
+            crate::coherence::types::TypedBody::Diagnostic(d) => Some(d),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(diags.len(), 1);
+    assert_eq!(diags[0].code, "malformed-frontmatter");
+    assert_eq!(diags[0].path.as_deref(), Some("broken.md"));
+    // A second save of the same (still-broken) file does not re-diagnose:
+    // the object is already registered.
+    let broken2 = format!("{broken}more\n");
+    write_file(dir.path(), "broken.md", &broken2);
+    capture(&mut kernel, human_save("broken.md", &broken2)).unwrap();
+    let diag_count = kernel
+        .ledger()
+        .read_all()
+        .unwrap()
+        .entries
+        .iter()
+        .filter(|e| e.kind == "diagnostic")
+        .count();
+    assert_eq!(diag_count, 1);
+}

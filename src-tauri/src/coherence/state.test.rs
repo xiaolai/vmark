@@ -102,3 +102,30 @@ fn corrupt_writer_id_file_is_replaced() {
     let reloaded = load_or_create_writer_id(dir.path()).unwrap();
     assert_eq!(id, reloaded);
 }
+
+#[test]
+fn snapshot_read_surfaces_missing_and_corrupt_as_diagnostics() {
+    // Spec §4.3: a missing or hash-mismatched snapshot surfaces a
+    // diagnostic and an explicit error — never silently empty content.
+    use crate::coherence::canonical::text_content_hash;
+    let dir = tmp();
+    let mut kernel = WorkspaceKernel::open(dir.path(), writer(1)).unwrap();
+    kernel.ensure_initialized().unwrap();
+    let hash = text_content_hash("never stored\n");
+    let err = kernel.read_snapshot(&hash).unwrap_err();
+    assert!(err.contains("missing"), "{err}");
+    // Corrupt: store then tamper.
+    let stored = kernel.snapshots().put_text("real content\n").unwrap();
+    std::fs::write(kernel.snapshots().path_for(&stored), b"tampered").unwrap();
+    let err = kernel.read_snapshot(&stored).unwrap_err();
+    assert!(err.contains("corrupt"), "{err}");
+    let diag_count = kernel
+        .ledger()
+        .read_all()
+        .unwrap()
+        .entries
+        .iter()
+        .filter(|e| e.kind == "diagnostic")
+        .count();
+    assert_eq!(diag_count, 2, "both failures recorded durably");
+}
