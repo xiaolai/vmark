@@ -275,3 +275,125 @@ fn status_reports_counts() {
     assert_eq!(status.objects, 2);
     assert_eq!(status.open_items, 1);
 }
+
+/// Synthetic dogfood session (plan "Dogfood protocol"): a scripted story
+/// session through the REAL kernel APIs — the same code paths the app's
+/// funnels call. Measures M1 = AI generations carrying complete input
+/// sets at the designed confidence. Results are recorded in
+/// dev-docs/grills/coherence/dogfood-log.md, labeled synthetic.
+#[test]
+fn synthetic_dogfood_session_m1() {
+    let (dir, mut kernel) = workspace();
+    let root = dir.path();
+
+    // Session: world docs written by hand, scenes generated against them.
+    for (path, body) in [
+        ("elena.md", "# Elena\nEyes: green. Fears deep water.\n"),
+        ("marcus.md", "# Marcus\nElena's father. Keeps bees.\n"),
+        ("world.md", "# World\nTidebinding smells of salt.\n"),
+    ] {
+        write_file(root, path, body);
+        save(&mut kernel, path, body);
+    }
+
+    let mut ai_generations = 0usize;
+    let mut complete_at_designed_confidence = 0usize;
+
+    // Three in-app AI generations (genie-style, exact) with input sets.
+    for (out, body, inputs) in [
+        ("scene-01.md", "Elena at the shore.\n", vec!["elena.md", "world.md"]),
+        ("scene-02.md", "Marcus among the hives.\n", vec!["marcus.md"]),
+        ("scene-03.md", "Father and daughter argue.\n", vec!["elena.md", "marcus.md"]),
+    ] {
+        write_file(root, out, body);
+        let receipt = capture(
+            &mut kernel,
+            CaptureRequest {
+                path: out.into(),
+                content: body.into(),
+                inputs: inputs
+                    .iter()
+                    .map(|p| CaptureInputSpec {
+                        path: Some((*p).into()),
+                        object_id: None,
+                        revision: None,
+                        role: InputRole::Direct,
+                    })
+                    .collect(),
+                agent: Agent { kind: AgentType::Model, id: Some("genie".into()) },
+                intent: Intent { kind: "genie".into(), summary: "scene".into(), prompt_hash: None },
+                confidence: Confidence::Exact,
+                rewrite_identity: true,
+            },
+        )
+        .unwrap();
+        ai_generations += 1;
+        if receipt.entry_id.is_some() {
+            complete_at_designed_confidence += 1;
+        }
+    }
+
+    // One MCP-style write (inferred, session reads as inputs).
+    write_file(root, "chapter-1.md", "The war began on a Tuesday.\n");
+    let receipt = capture(
+        &mut kernel,
+        CaptureRequest {
+            path: "chapter-1.md".into(),
+            content: "The war began on a Tuesday.\n".into(),
+            inputs: vec![CaptureInputSpec {
+                path: Some("world.md".into()),
+                object_id: None,
+                revision: None,
+                role: InputRole::Direct,
+            }],
+            agent: Agent { kind: AgentType::Model, id: Some("mcp-client".into()) },
+            intent: Intent { kind: "mcp-document-write".into(), summary: "document.write".into(), prompt_hash: None },
+            confidence: Confidence::Inferred,
+            rewrite_identity: true,
+        },
+    )
+    .unwrap();
+    ai_generations += 1;
+    if receipt.entry_id.is_some() {
+        complete_at_designed_confidence += 1;
+    }
+
+    // M1: every AI generation captured, complete, zero manual metadata.
+    assert_eq!(ai_generations, 4);
+    assert_eq!(complete_at_designed_confidence, 4, "M1 = 4/4 = 100%");
+
+    // Recursion moment: rewrite Elena aggressively; blast radius visible.
+    let elena = std::fs::read_to_string(root.join("elena.md")).unwrap();
+    let elena_v2 = elena.replace("green", "grey");
+    write_file(root, "elena.md", &elena_v2);
+    save(&mut kernel, "elena.md", &elena_v2);
+    let rows = perform_breakdown(&mut kernel).unwrap();
+    let stale_downstreams: Vec<_> =
+        rows.iter().filter_map(|r| r.downstream_path.as_deref()).collect();
+    assert_eq!(stale_downstreams, vec!["scene-01.md", "scene-03.md"], "M5: exact blast radius, instantly");
+
+    // Resolve one (M4 workload sample): ratify scene-01, waive scene-03.
+    let r0 = &rows[0];
+    perform_resolve(
+        &mut kernel,
+        &ResolveRequest { action: "accept-newer".into(), txf: r0.txf, input: r0.input, reason: None },
+        "dogfood",
+    )
+    .unwrap();
+    let rows = perform_breakdown(&mut kernel).unwrap();
+    assert_eq!(rows.len(), 1);
+    perform_resolve(
+        &mut kernel,
+        &ResolveRequest {
+            action: "waive".into(),
+            txf: rows[0].txf,
+            input: rows[0].input,
+            reason: Some("her eyes changed with the tide — intentional".into()),
+        },
+        "dogfood",
+    )
+    .unwrap();
+    let rows = perform_breakdown(&mut kernel).unwrap();
+    assert_eq!(rows.len(), 1, "waived stays visible, distinctly");
+    assert!(matches!(rows[0].state, EdgeState::Waived));
+}
