@@ -3,9 +3,13 @@
  *
  * Verifies that:
  * 1. execFileSync is used with argument arrays (not shell interpolation)
- * 2. ppid is safely converted via String() — never template-interpolated into a command string
+ * 2. On macOS/Linux the ppid is converted via String() and passed as a discrete
+ *    array element; on Windows it is validated with Number.isInteger and only
+ *    then embedded in the -Command string (string-form -Command never populates
+ *    $args, so positional passing silently breaks detection)
  * 3. Timeout is enforced (500ms)
- * 4. Malicious ppid values are harmless (passed as single array element)
+ * 4. Malicious ppid values are harmless (single array element on Unix;
+ *    rejected before any command is built on Windows)
  * 5. Platform branching is correct
  * 6. All error/edge cases return undefined gracefully
  */
@@ -164,41 +168,39 @@ describe('getParentProcessName', () => {
       );
     });
 
-    it('win32 uses execFileSync with powershell and argument array', () => {
+    it('win32 interpolates the validated integer PID into the -Command string', () => {
       mockExecFileSync.mockReturnValue('code\n');
 
       getParentProcessName(4567, 'win32');
 
-      // PID is bound to $args[0] and passed positionally after `--`, not
-      // interpolated into the -Command string (#280).
+      // String-form -Command never populates $args, so the PID must be
+      // embedded directly. Safe because it is validated as an integer first —
+      // integers cannot carry injection payloads.
       expect(mockExecFileSync).toHaveBeenCalledWith(
         'powershell',
-        ['-NoProfile', '-Command', '(Get-Process -Id $args[0]).ProcessName', '--', '4567'],
+        ['-NoProfile', '-Command', '(Get-Process -Id 4567).ProcessName'],
         expect.objectContaining({ encoding: 'utf8', timeout: 500 }),
       );
       expect(Array.isArray(mockExecFileSync.mock.calls[0][1])).toBe(true);
     });
 
-    it('win32: malicious ppid is a positional PowerShell argument, never in the command string', () => {
-      mockExecFileSync.mockImplementation(() => {
-        throw new Error('Get-Process error');
-      });
+    it('win32: non-integer ppid is rejected before any command is built', () => {
+      const result = getParentProcessName(
+        '1; Remove-Item -Recurse C:\\' as unknown as number,
+        'win32',
+      );
 
-      getParentProcessName('1; Remove-Item -Recurse C:\\' as unknown as number, 'win32');
+      // The malicious value fails Number.isInteger validation, so PowerShell
+      // is never invoked at all — nothing to inject into.
+      expect(result).toBeUndefined();
+      expect(mockExecFileSync).not.toHaveBeenCalled();
+    });
 
-      const args = mockExecFileSync.mock.calls[0][1] as string[];
-      // The PID is passed positionally (bound to $args[0]) — execFileSync sends
-      // it to powershell.exe as a separate argument, never through a shell.
-      expect(args).toEqual([
-        '-NoProfile',
-        '-Command',
-        '(Get-Process -Id $args[0]).ProcessName',
-        '--',
-        '1; Remove-Item -Recurse C:\\',
-      ]);
-      // The -Command string holds only the $args[0] placeholder — the malicious
-      // value is NOT interpolated into it.
-      expect(args[2]).not.toContain('Remove-Item');
+    it('win32: fractional ppid is rejected before any command is built', () => {
+      const result = getParentProcessName(12.5, 'win32');
+
+      expect(result).toBeUndefined();
+      expect(mockExecFileSync).not.toHaveBeenCalled();
     });
   });
 

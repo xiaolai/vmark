@@ -72,9 +72,15 @@ import type { Bridge } from './bridge/types.js';
 /**
  * Create a fully configured VMark MCP server with the pruned editor and browser
  * surfaces registered (selection re-added per ADR-7).
+ *
+ * `options.version` lets the cli thread its VERSION constant through so
+ * getServerInfo() reports the real sidecar version instead of the fallback.
  */
-export function createVMarkMcpServer(bridge: Bridge): VMarkMcpServer {
-  const server = new VMarkMcpServer({ bridge });
+export function createVMarkMcpServer(
+  bridge: Bridge,
+  options?: { version?: string },
+): VMarkMcpServer {
+  const server = new VMarkMcpServer({ bridge, version: options?.version });
 
   registerSessionTool(server);   // session (1 action)
   registerWorkspaceTool(server); // workspace (7 actions)

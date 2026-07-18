@@ -1,8 +1,11 @@
 /**
  * Cross-platform parent process name detection.
  *
- * Uses execFileSync with argument arrays (not shell interpolation)
- * to prevent command injection via crafted ppid values.
+ * Uses execFileSync with argument arrays (no shell involved) to prevent
+ * command injection via crafted ppid values. On Windows the PID must be
+ * embedded in the PowerShell -Command string (string-form -Command never
+ * populates $args), so it is validated with Number.isInteger first —
+ * integers cannot carry injection payloads.
  *
  * @coordinates-with cli.ts (detectClientIdentity)
  */
@@ -16,8 +19,10 @@ import { execFileSync } from 'child_process';
  * - Windows: PowerShell `Get-Process`
  *
  * Security: Uses execFileSync with argument arrays to prevent
- * command injection. The pid is passed as String(pid) in an
- * array element, never interpolated into a shell command string.
+ * command injection. On macOS/Linux the pid is passed as String(pid)
+ * in an array element. On Windows it is validated as an integer and
+ * only then embedded in the PowerShell command text (no shell is
+ * involved — execFileSync spawns powershell.exe directly).
  *
  * @param pid - The process ID to look up. Defaults to process.ppid.
  * @param currentPlatform - The platform. Defaults to process.platform.
@@ -40,11 +45,17 @@ export function getParentProcessName(
       }).trim();
       return result || undefined;
     } else if (plat === 'win32') {
-      // Use PowerShell — wmic is deprecated on Windows 11+
-      // Pass PID via $args[0] to avoid string interpolation (#280)
+      // Use PowerShell — wmic is deprecated on Windows 11+.
+      // String-form -Command never populates $args (arguments after the
+      // command string are appended to the command text), so positional
+      // passing always errored and detection silently returned undefined.
+      // The PID must be embedded in the command string; validate it as an
+      // integer first — integers cannot carry injection payloads.
+      const pidNum = Number(targetPid);
+      if (!Number.isInteger(pidNum)) return undefined;
       const result = execFileSync('powershell', [
         '-NoProfile', '-Command',
-        '(Get-Process -Id $args[0]).ProcessName', '--', String(targetPid),
+        `(Get-Process -Id ${pidNum}).ProcessName`,
       ], { encoding: 'utf8', timeout: 500 }).trim();
       return result || undefined;
     }

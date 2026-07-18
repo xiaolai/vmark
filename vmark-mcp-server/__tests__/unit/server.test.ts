@@ -4,6 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { VMarkMcpServer, resolveWindowId } from '../../src/server.js';
+import { createVMarkMcpServer } from '../../src/index.js';
 import { MockBridge } from '../mocks/mockBridge.js';
 
 describe('VMarkMcpServer', () => {
@@ -32,6 +33,13 @@ describe('VMarkMcpServer', () => {
       const info = customServer.getServerInfo();
       expect(info.name).toBe('custom-server');
       expect(info.version).toBe('2.0.0');
+    });
+
+    it('createVMarkMcpServer threads the caller version into server info (cli VERSION path)', () => {
+      // The cli passes its VERSION constant here so MCP metadata reports the
+      // real sidecar version instead of the '0.1.0' fallback (Codex finding 4).
+      const versionedServer = createVMarkMcpServer(bridge, { version: '9.9.9' });
+      expect(versionedServer.getServerInfo().version).toBe('9.9.9');
     });
   });
 

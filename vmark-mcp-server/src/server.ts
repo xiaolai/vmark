@@ -56,7 +56,8 @@ export class VMarkMcpServer implements McpServerInterface {
   constructor(config: VMarkMcpServerConfig) {
     this.bridge = config.bridge;
     this.serverName = config.name ?? 'vmark';
-    // MCP protocol version (distinct from app version in cli.ts)
+    // Fallback for tests / direct construction only. The shipped path
+    // (cli.ts → createVMarkMcpServer) passes the real sidecar VERSION.
     this.serverVersion = config.version ?? '0.1.0';
   }
 

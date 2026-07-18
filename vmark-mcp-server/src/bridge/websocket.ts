@@ -260,6 +260,30 @@ export class WebSocketBridge implements Bridge {
   }
 
   /**
+   * Detach and dispose the current WebSocket instance (idempotent).
+   *
+   * Listeners are removed FIRST so a socket still mid-handshake cannot fire a
+   * stale 'open'/'close' into this bridge after `this.ws` is nulled. The
+   * no-op 'error' listener is required because ws aborts a CONNECTING
+   * handshake by emitting 'error', and an unhandled 'error' event would
+   * crash the process. CONNECTING sockets are closed too — not just OPEN
+   * ones. Single implementation shared by connect()'s pre-cleanup,
+   * disconnect(), and handleDisconnect() so the paths cannot drift.
+   */
+  private cleanupSocket(): void {
+    const socket = this.ws;
+    if (!socket) {
+      return;
+    }
+    socket.removeAllListeners();
+    socket.on('error', () => {});
+    if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) {
+      socket.close();
+    }
+    this.ws = null;
+  }
+
+  /**
    * Connect to VMark WebSocket server.
    */
   async connect(): Promise<void> {
@@ -333,26 +357,34 @@ export class WebSocketBridge implements Bridge {
       try {
         // Clean up any previous WebSocket instance to prevent memory leaks
         // and duplicate message handling on reconnection
-        if (this.ws) {
-          this.ws.removeAllListeners();
-          if (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING) {
-            this.ws.close();
-          }
-          this.ws = null;
-        }
+        this.cleanupSocket();
 
-        this.ws = new WebSocket(url);
+        // Attempt-local handle: every callback of THIS attempt must act on
+        // `socket`, never `this.ws`, which may already belong to a newer
+        // attempt by the time a timer fires.
+        const socket = new WebSocket(url);
+        this.ws = socket;
 
         const connectionTimeout = setTimeout(() => {
+          if (this.ws !== socket) {
+            // This attempt was superseded (disconnect() or a newer connect())
+            // and its socket was already cleaned up. Never touch the CURRENT
+            // socket — a stale timer must not kill a newer connection. Still
+            // settle this attempt's promise (no-op if already settled).
+            reject(new Error(`Connection attempt superseded (${url})`));
+            return;
+          }
           if (!this.connected) {
-            this.ws?.close();
+            // Close the attempt-local socket; its still-attached 'close'
+            // listener drives handleDisconnect → reconnect scheduling.
+            socket.close();
             this.connecting = false;
             // Let the caller (scheduleReconnect's catch block) handle reconnection
             reject(new Error(`Connection timeout to ${url}`));
           }
         }, this.timeout);
 
-        this.ws.on('open', () => {
+        socket.on('open', () => {
           clearTimeout(connectionTimeout);
 
           // Send auth token if available (required by VMark bridge)
@@ -364,7 +396,7 @@ export class WebSocketBridge implements Bridge {
               payload: { token: authToken },
             };
             try {
-              this.ws!.send(JSON.stringify(authMsg));
+              socket.send(JSON.stringify(authMsg));
             } catch (error) {
               this.logger.warn('Failed to send auth message:', error);
               this.connecting = false;
@@ -381,7 +413,8 @@ export class WebSocketBridge implements Bridge {
                 this._authResolve = null;
                 this._authReject = null;
                 this._authTimer = null;
-                this.ws?.close();
+                // Attempt-local socket, not this.ws — see connectionTimeout.
+                socket.close();
                 onReject('Auth handshake timeout');
               }
             }, this.timeout);
@@ -424,15 +457,15 @@ export class WebSocketBridge implements Bridge {
           }
         });
 
-        this.ws.on('message', (data: WebSocket.RawData) => {
+        socket.on('message', (data: WebSocket.RawData) => {
           this.handleMessage(data);
         });
 
-        this.ws.on('close', () => {
+        socket.on('close', () => {
           this.handleDisconnect();
         });
 
-        this.ws.on('error', (error: Error) => {
+        socket.on('error', (error: Error) => {
           clearTimeout(connectionTimeout);
           if (!this.connected) {
             this.connecting = false;
@@ -472,12 +505,7 @@ export class WebSocketBridge implements Bridge {
     }
     this.requestQueue = [];
 
-    if (this.ws) {
-      if (this.ws.readyState === WebSocket.OPEN) {
-        this.ws.close();
-      }
-      this.ws = null;
-    }
+    this.cleanupSocket();
 
     this.connected = false;
     this.connecting = false;
@@ -504,6 +532,23 @@ export class WebSocketBridge implements Bridge {
 
     // Queue if disconnected and queueing is enabled
     if (!this.isConnected()) {
+      // Revive a dead reconnect loop: once maxReconnectAttempts is exhausted
+      // nothing re-kicks connect(), so every later call would fail forever
+      // even after VMark comes back. A send() arriving while the loop is
+      // fully idle — no connect in flight, none scheduled — resets the
+      // attempt budget and starts a fresh connection in the background.
+      if (
+        this.autoReconnect &&
+        !this.intentionalDisconnect &&
+        !this.connecting &&
+        !this.reconnectTimer
+      ) {
+        this.reconnectAttempts = 0;
+        this.connect().catch(() => {
+          // Failure handling (scheduling further retries) is owned by the
+          // reconnect loop; this call only revives it.
+        });
+      }
       if (
         this.queueWhileDisconnected &&
         this.autoReconnect &&
@@ -686,10 +731,7 @@ export class WebSocketBridge implements Bridge {
 
     // Remove all listeners before dereferencing to prevent stale handlers
     // from firing and interfering with a new connection
-    if (this.ws) {
-      this.ws.removeAllListeners();
-    }
-    this.ws = null;
+    this.cleanupSocket();
 
     // Reject all pending requests
     for (const [id, pending] of this.pendingRequests) {

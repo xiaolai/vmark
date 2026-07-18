@@ -35,6 +35,16 @@ export interface ToolCallResult {
     text?: string;
     data?: string;
     mimeType?: string;
+    /**
+     * Embedded resource payload for `type: 'resource'` items (MCP spec):
+     * exactly one of `text` (textual contents) or `blob` (base64 binary).
+     */
+    resource?: {
+      uri: string;
+      text?: string;
+      blob?: string;
+      mimeType?: string;
+    };
   }>;
   isError?: boolean;
 }
