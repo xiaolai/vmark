@@ -14,19 +14,20 @@
  *   - Post-format integrity check verifies structural patterns survived;
  *     returns original text on mismatch (defense-in-depth)
  *
- * @coordinates-with markdownParser.ts — identifies protected regions and segments
+ * @coordinates-with markdownParser.ts — identifies protected regions
+ * @coordinates-with segments.ts — extracts formattable segments and reconstructs text
  * @coordinates-with rules.ts — contains the actual CJK formatting rules
  * @coordinates-with integrity.ts — post-format integrity verification
  * @module lib/cjkFormatter/formatter
  */
 
 import type { CJKFormattingSettings } from "@/stores/settingsStore";
+import { findProtectedRegions } from "./markdownParser";
 import {
-  findProtectedRegions,
   extractFormattableSegments,
   reconstructText,
   type TextSegment,
-} from "./markdownParser";
+} from "./segments";
 import { applyRules } from "./rules";
 import { splitTableCells } from "@/utils/tableParser";
 import { verifyIntegrity } from "./integrity";
@@ -255,8 +256,10 @@ export function formatMarkdown(
     }
   }
 
-  // Final cleanup: trim trailing whitespace and remove trailing backslashes
-  out = out.trimEnd().replace(/\\+$/, "");
+  // Final cleanup: trim trailing whitespace. Trailing backslashes are kept —
+  // a literal backslash at EOF (e.g. a Windows path) is legitimate content,
+  // and a hard-break backslash at EOF is harmless.
+  out = out.trimEnd();
 
   // Integrity check: verify structural patterns survived formatting.
   // If any pattern count changed, the parser has a bug — return original text.
@@ -278,15 +281,4 @@ export function formatSelection(
   options: { preserveTwoSpaceHardBreaks?: boolean } = {}
 ): string {
   return applyRules(text, config, options);
-}
-
-/**
- * Format entire file content
- */
-export function formatFile(
-  content: string,
-  config: CJKFormattingSettings,
-  options: { preserveTwoSpaceHardBreaks?: boolean } = {}
-): string {
-  return formatMarkdown(content, config, options);
 }

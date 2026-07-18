@@ -20,8 +20,11 @@
  *   - Thematic breaks (---) are protected to avoid dash-to-emdash conversion
  *   - Reference sections (## References, ## Further Reading) can be optionally
  *     skipped via skipReferenceSections option to protect bibliographic formatting
+ *   - Overlapping or contained regions are coalesced before returning, so
+ *     callers can rely on sorted, strictly non-overlapping regions
  *
  * @coordinates-with formatter.ts — calls findProtectedRegions before formatting
+ * @coordinates-with segments.ts — segment extraction/reconstruction over these regions
  * @coordinates-with rules.ts — formatting rules operate only on non-protected segments
  * @module lib/cjkFormatter/markdownParser
  */
@@ -290,7 +293,24 @@ export function findProtectedRegions(
   // Sort by start position
   regions.sort((a, b) => a.start - b.start);
 
-  return regions;
+  // Coalesce overlapping or contained regions. Detectors only guard their
+  // match START against existing regions, so a later-pass region can fully
+  // contain an earlier one (e.g. an indented code block containing a link
+  // URL, or a reference section containing anything). Segment extraction and
+  // reconstruction require strictly non-overlapping regions — without this
+  // pass, the overlapped range would be emitted twice in the output.
+  // A merged region keeps the type of the earliest-starting region.
+  const merged: ProtectedRegion[] = [];
+  for (const region of regions) {
+    const last = merged[merged.length - 1];
+    if (last && region.start < last.end) {
+      if (region.end > last.end) last.end = region.end;
+    } else {
+      merged.push({ ...region });
+    }
+  }
+
+  return merged;
 }
 
 /**
@@ -298,75 +318,4 @@ export function findProtectedRegions(
  */
 function isInsideRegion(pos: number, regions: ProtectedRegion[]): boolean {
   return regions.some((r) => pos >= r.start && pos < r.end);
-}
-
-/**
- * Extract text segments that should be formatted (non-protected regions).
- * Returns array of { start, end, text } for regions to format.
- */
-export interface TextSegment {
-  start: number;
-  end: number;
-  text: string;
-}
-
-export function extractFormattableSegments(
-  text: string,
-  protectedRegions: ProtectedRegion[]
-): TextSegment[] {
-  const segments: TextSegment[] = [];
-  let currentPos = 0;
-
-  for (const region of protectedRegions) {
-    if (region.start > currentPos) {
-      segments.push({
-        start: currentPos,
-        end: region.start,
-        text: text.slice(currentPos, region.start),
-      });
-    }
-    currentPos = region.end;
-  }
-
-  // Add remaining text after last protected region
-  if (currentPos < text.length) {
-    segments.push({
-      start: currentPos,
-      end: text.length,
-      text: text.slice(currentPos),
-    });
-  }
-
-  return segments;
-}
-
-/**
- * Reconstruct the full text after formatting segments.
- */
-export function reconstructText(
-  originalText: string,
-  formattedSegments: TextSegment[],
-  protectedRegions: ProtectedRegion[]
-): string {
-  const parts: { start: number; text: string }[] = [];
-
-  // Add protected regions
-  for (const region of protectedRegions) {
-    parts.push({
-      start: region.start,
-      text: originalText.slice(region.start, region.end),
-    });
-  }
-
-  // Add formatted segments
-  for (const segment of formattedSegments) {
-    parts.push({
-      start: segment.start,
-      text: segment.text,
-    });
-  }
-
-  // Sort by original position and join
-  parts.sort((a, b) => a.start - b.start);
-  return parts.map((p) => p.text).join("");
 }

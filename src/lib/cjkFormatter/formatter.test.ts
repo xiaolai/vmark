@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import type { CJKFormattingSettings } from "@/stores/settingsStore";
-import { formatMarkdown, formatSelection, formatFile } from "./formatter";
+import { formatMarkdown, formatSelection } from "./formatter";
 
 function makeConfig(partial: Partial<CJKFormattingSettings> = {}): CJKFormattingSettings {
   return {
@@ -546,34 +546,62 @@ describe("segment architecture: no placeholder collision possible", () => {
   });
 });
 
-describe("formatFile", () => {
-  it("delegates to formatMarkdown", () => {
-    const input = "中文Python内容";
-    const config = makeConfig();
-    const fileOut = formatFile(input, config);
-    const markdownOut = formatMarkdown(input, config);
-    expect(fileOut).toBe(markdownOut);
+
+describe("nested protected regions do not duplicate text (F1 regression)", () => {
+  it("does not duplicate content when indented code contains a link", () => {
+    const input =
+      "Intro 文字\n\n    See [docs](https://example.com) for info\n\nMore 文字";
+    const out = formatMarkdown(input, makeConfig());
+
+    // The overlapped range must appear exactly once, not twice.
+    expect(out.split("https://example.com").length - 1).toBe(1);
+    expect(out.split(") for info").length - 1).toBe(1);
+    expect(out).toContain("    See [docs](https://example.com) for info");
   });
 
-  it("handles tables in file content", () => {
-    const input = [
-      "| 中文Python | data |",
-      "| --- | --- |",
-      "| 内容Python | more |",
-    ].join("\n");
+  it("does not duplicate content when a reference section contains a link", () => {
+    const input =
+      "中文,内容\n\n## References\n\n引用 [链接](https://example.com) 内容\n";
+    const out = formatMarkdown(input, makeConfig({ skipReferenceSections: true }));
 
-    const out = formatFile(input, makeConfig());
-    expect(out).toContain("| 中文 Python |");
-    expect(out).toContain("| 内容 Python |");
+    expect(out.split("https://example.com").length - 1).toBe(1);
+    // Formatting still applies outside the protected reference section.
+    expect(out).toContain("中文，内容");
+    // Reference section content is preserved verbatim.
+    expect(out).toContain("引用 [链接](https://example.com) 内容");
   });
 
-  it("passes options through", () => {
-    const out = formatFile(
-      "中文Python  \nmore",
-      makeConfig({ trailingSpaceRemoval: true }),
-      { preserveTwoSpaceHardBreaks: true }
-    );
-    expect(out).toContain("  \n");
+  it("formats without spurious integrity failure when a nested region contains a backtick", () => {
+    const input = "中文,内容\n\n## References\n\n引用 `code` 内容\n";
+    const out = formatMarkdown(input, makeConfig({ skipReferenceSections: true }));
+
+    // Pre-fix, the duplicated inline-code range doubled the backtick count,
+    // the integrity check tripped, and the whole document was silently
+    // returned unformatted. Post-fix, formatting outside the section applies.
+    expect(out).toContain("中文，内容");
+    expect(out).toContain("引用 `code` 内容");
+    expect(out.split("`").length - 1).toBe(2);
   });
 });
 
+describe("fullwidth brackets do not destroy markdown links (F5 regression)", () => {
+  it("preserves an inline link with a CJK label end-to-end", () => {
+    const out = formatMarkdown(
+      "请看[中文文档](https://example.com)哦",
+      makeConfig()
+    );
+    expect(out).toContain("[中文文档](https://example.com)");
+  });
+});
+
+describe("trailing backslash preservation (F6 regression)", () => {
+  it("preserves a legitimate trailing backslash at end of file", () => {
+    const out = formatMarkdown("路径分隔符是 C:\\", makeConfig());
+    expect(out).toBe("路径分隔符是 C:\\");
+  });
+
+  it("preserves a trailing backslash inside an unterminated code fence", () => {
+    const input = "```\ncontent\\";
+    expect(formatMarkdown(input, makeConfig())).toBe(input);
+  });
+});

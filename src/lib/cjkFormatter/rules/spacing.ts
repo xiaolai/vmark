@@ -102,10 +102,12 @@ export function fixCurrencySpacing(
   return text;
 }
 
-/** Remove spaces around slashes (preserves URLs). */
+/** Remove same-line spaces around slashes (preserves URLs and line breaks). */
 export function fixSlashSpacing(text: string): string {
-  // Remove spaces around / but not in URLs (avoid //)
-  return text.replace(/(?<![/:])\s*\/\s*(?!\/)/g, "/");
+  // Remove horizontal whitespace around / but not in URLs (avoid //).
+  // [ \t] only — matching \n here would merge adjacent lines (e.g. a heading
+  // with a following line that starts with an absolute path).
+  return text.replace(/(?<![/:])[ \t]*\/[ \t]*(?!\/)/g, "/");
 }
 
 /** Collapse multiple spaces to single space (preserves indentation). */

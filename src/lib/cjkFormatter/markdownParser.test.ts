@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  findProtectedRegions,
-  extractFormattableSegments,
-  reconstructText,
-} from "./markdownParser";
+import { findProtectedRegions } from "./markdownParser";
 
 describe("findProtectedRegions", () => {
   describe("fenced code blocks", () => {
@@ -219,27 +215,6 @@ describe("findProtectedRegions", () => {
   });
 });
 
-describe("extractFormattableSegments", () => {
-  it("extracts non-protected regions", () => {
-    const text = "before `code` after";
-    const regions = findProtectedRegions(text);
-    const segments = extractFormattableSegments(text, regions);
-
-    expect(segments.length).toBe(2);
-    expect(segments[0].text).toBe("before ");
-    expect(segments[1].text).toBe(" after");
-  });
-
-  it("returns full text if no protected regions", () => {
-    const text = "plain text without any special syntax";
-    const regions = findProtectedRegions(text);
-    const segments = extractFormattableSegments(text, regions);
-
-    expect(segments.length).toBe(1);
-    expect(segments[0].text).toBe(text);
-  });
-});
-
 describe("patterns inside already-protected regions are skipped", () => {
   it("skips image syntax inside inline code (line 107)", () => {
     const text = "text `![alt](url)` more";
@@ -277,23 +252,6 @@ describe("patterns inside already-protected regions are skipped", () => {
     const text = "text\n```\n$$x^2$$\n```\nmore";
     const regions = findProtectedRegions(text);
     expect(regions.filter((r) => r.type === "math_block")).toHaveLength(0);
-  });
-});
-
-describe("reconstructText", () => {
-  it("reconstructs text with formatted segments", () => {
-    const original = "text `code` more";
-    const regions = findProtectedRegions(original);
-    const segments = extractFormattableSegments(original, regions);
-
-    // Simulate formatting by uppercasing formattable segments
-    const formattedSegments = segments.map((s) => ({
-      ...s,
-      text: s.text.toUpperCase(),
-    }));
-
-    const result = reconstructText(original, formattedSegments, regions);
-    expect(result).toBe("TEXT `code` MORE");
   });
 });
 
@@ -368,5 +326,36 @@ describe("findProtectedRegions — inline math inside another region", () => {
     const regions = findProtectedRegions(text);
     const mathRegions = regions.filter((r) => r.type === "math_inline");
     expect(mathRegions).toHaveLength(0);
+  });
+});
+
+describe("findProtectedRegions — overlapping regions are coalesced (F1 regression)", () => {
+  function expectNonOverlapping(
+    regions: { start: number; end: number }[]
+  ): void {
+    for (let i = 1; i < regions.length; i++) {
+      expect(regions[i].start).toBeGreaterThanOrEqual(regions[i - 1].end);
+    }
+  }
+
+  it("returns non-overlapping regions when indented code contains a link", () => {
+    const text =
+      "Intro 文字\n\n    See [docs](https://example.com) for info\n\nMore 文字";
+    expectNonOverlapping(findProtectedRegions(text));
+  });
+
+  it("returns non-overlapping regions when a reference section contains a link", () => {
+    const text =
+      "正文\n\n## References\n\n引用 [链接](https://example.com) 内容\n";
+    expectNonOverlapping(
+      findProtectedRegions(text, { skipReferenceSections: true })
+    );
+  });
+
+  it("returns non-overlapping regions when a reference section contains inline code", () => {
+    const text = "正文\n\n## References\n\n引用 `code` 内容\n";
+    expectNonOverlapping(
+      findProtectedRegions(text, { skipReferenceSections: true })
+    );
   });
 });

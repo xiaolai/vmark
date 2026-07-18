@@ -9,10 +9,16 @@
  * e.g., ". . ." → "..."
  */
 export function normalizeEllipsis(text: string): string {
-  // Replace spaced dots with standard ellipsis
-  text = text.replace(/\s*\.\s+\.\s+\.(?:\s+\.)*/g, "...");
-  // Ensure exactly one space after ellipsis when followed by non-whitespace
-  text = text.replace(/\.\.\.\s*(?=\S)/g, "... ");
+  // Replace spaced dots with standard ellipsis. Horizontal whitespace only —
+  // dots on separate lines are sentence-ending periods, not a spaced
+  // ellipsis, and collapsing them would join those lines.
+  text = text.replace(/[ \t]*\.[ \t]+\.[ \t]+\.(?:[ \t]+\.)*/g, "...");
+  // Ensure exactly one space after a same-line ellipsis when followed by
+  // non-whitespace. Horizontal whitespace only — an ellipsis at end of line
+  // must not be joined with the next line (or across a paragraph break).
+  // The (?!\.) guard anchors to the END of a dot run so 4+ dots are never
+  // split in the middle (e.g. "wait.... ok" stays intact).
+  text = text.replace(/\.\.\.(?!\.)[ \t]*(?=\S)/g, "... ");
   return text;
 }
 

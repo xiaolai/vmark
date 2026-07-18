@@ -157,10 +157,25 @@ export function normalizeFullwidthParentheses(text: string): string {
   );
 }
 
-/** Convert half-width brackets to full-width when content is CJK. */
+/**
+ * Convert half-width brackets to full-width when content is CJK.
+ *
+ * Skips bracket pairs that are markdown link/image/reference syntax:
+ *   - closing bracket followed by `(`, `[`, or `:` — inline links
+ *     `[中文](url)`, reference links `[中文][ref]`, definitions `[中文]: url`
+ *   - opening bracket preceded by `!` or `]` — image alt text `![中文]` and
+ *     reference labels `[text][中文标签]`
+ *
+ * Backslash-escaped brackets inside a label (`[中文\]文](url)`) are label
+ * content, not delimiters: the content pattern consumes `\x` pairs whole, so
+ * an escaped `]` can never close the label and defeat the link lookarounds.
+ */
 export function normalizeFullwidthBrackets(text: string): string {
   return text.replace(
-    new RegExp(`\\[([${CJK_NO_KOREAN}][^\\[\\]]*)\\]`, "g"),
+    new RegExp(
+      `(?<![\\]!])\\[([${CJK_NO_KOREAN}](?:\\\\.|[^\\[\\]\\\\])*)\\](?![([:])`,
+      "g"
+    ),
     "【$1】"
   );
 }

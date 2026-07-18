@@ -114,6 +114,14 @@ describe("collapseNewlines", () => {
   it("removes standalone br tags", () => {
     expect(collapseNewlines("text\n\n<br />\n\nmore")).toBe("text\n\nmore");
   });
+
+  it("removes a br whose leading blank line was consumed by an earlier br match", () => {
+    // Regression pin: the second <br /> replacement in collapseNewlines is
+    // NOT redundant. The grouped regex consumes "A\n\n<br />\n\n" and cannot
+    // re-match the second <br /> (only one \n precedes it in the original
+    // string); the follow-up single-shot replacement catches it.
+    expect(collapseNewlines("A\n\n<br />\n\n\n<br />\n\nB")).toBe("A\n\nB");
+  });
 });
 
 describe("normalizeFullwidthAlphanumeric", () => {
@@ -1711,5 +1719,147 @@ describe("normalizeFullwidthPunctuation — surrogate pair neighbors (lines 84-8
     const result = normalizeFullwidthPunctuation(`hello,${extBChar}`);
     // extBChar is CJK → comma should become fullwidth
     expect(result).toBe(`hello，${extBChar}`);
+  });
+});
+
+describe("normalizeEllipsis — line-break preservation (F2 regression)", () => {
+  it("does not join a line ending in ... with the next line", () => {
+    expect(normalizeEllipsis("word...\nNext line")).toBe("word...\nNext line");
+  });
+
+  it("does not destroy a paragraph break after ...", () => {
+    expect(normalizeEllipsis("word...\n\nNext paragraph")).toBe(
+      "word...\n\nNext paragraph"
+    );
+  });
+
+  it("does not split runs of 4+ dots", () => {
+    expect(normalizeEllipsis("wait.... ok")).toBe("wait.... ok");
+    expect(normalizeEllipsis("wait....ok")).toBe("wait.... ok");
+  });
+
+  it("still normalizes same-line spacing after ellipsis", () => {
+    expect(normalizeEllipsis("等等...然后")).toBe("等等... 然后");
+    expect(normalizeEllipsis("wait...\tok")).toBe("wait... ok");
+  });
+});
+
+describe("normalizeEllipsis — cross-line spaced dots stay put", () => {
+  it("does not collapse spaced dots separated by single newlines", () => {
+    expect(normalizeEllipsis("word.\n.\n.Next")).toBe("word.\n.\n.Next");
+  });
+
+  it("does not collapse spaced dots separated by blank lines", () => {
+    expect(normalizeEllipsis("word.\n\n.\n\n.Next")).toBe(
+      "word.\n\n.\n\n.Next"
+    );
+  });
+
+  it("does not pull same-line spaced dots onto the previous line", () => {
+    expect(normalizeEllipsis("word\n. . . next")).toBe("word\n... next");
+  });
+});
+
+describe("fixSlashSpacing — line-break preservation (F3 regression)", () => {
+  it("does not merge a heading with a following line starting with /", () => {
+    expect(fixSlashSpacing("## 标题\n\n/usr/local/bin 是路径")).toBe(
+      "## 标题\n\n/usr/local/bin 是路径"
+    );
+  });
+
+  it("preserves a newline after a slash", () => {
+    expect(fixSlashSpacing("path/\nnext")).toBe("path/\nnext");
+  });
+
+  it("preserves a newline before a slash", () => {
+    expect(fixSlashSpacing("行末\n/开头")).toBe("行末\n/开头");
+  });
+
+  it("still removes intra-line spaces around slashes", () => {
+    expect(fixSlashSpacing("and / or")).toBe("and/or");
+    expect(fixSlashSpacing("是 / 否")).toBe("是/否");
+  });
+});
+
+describe("convertDashes — line-break preservation (F4 regression)", () => {
+  it("preserves a setext H2 underline after a CJK heading line", () => {
+    expect(convertDashes("标题文字\n--\n下文")).toBe("标题文字\n--\n下文");
+  });
+
+  it("does not join lines when dashes sit at a line end", () => {
+    expect(convertDashes("你好--\n世界")).toBe("你好--\n世界");
+  });
+
+  it("does not join lines when dashes sit at a line start", () => {
+    expect(convertDashes("你好\n--世界")).toBe("你好\n--世界");
+  });
+
+  it("still converts intra-line dashes, including with horizontal spaces", () => {
+    expect(convertDashes("你好--世界")).toBe("你好 —— 世界");
+    expect(convertDashes("你好 -- 世界")).toBe("你好 —— 世界");
+  });
+});
+
+describe("fixEmdashSpacing — line-break preservation (F4 regression)", () => {
+  it("does not join a line ending with —— to the next line", () => {
+    expect(fixEmdashSpacing("行末——\n行首")).toBe("行末——\n行首");
+  });
+
+  it("does not join a line starting with ——", () => {
+    expect(fixEmdashSpacing("行末\n——行首")).toBe("行末\n——行首");
+  });
+
+  it("still fixes intra-line em-dash spacing", () => {
+    expect(fixEmdashSpacing("text——more")).toBe("text —— more");
+    expect(fixEmdashSpacing("中文  ——  内容")).toBe("中文 —— 内容");
+  });
+});
+
+describe("normalizeFullwidthBrackets — markdown link awareness (F5 regression)", () => {
+  it("preserves inline links with a CJK label", () => {
+    expect(normalizeFullwidthBrackets("请看[中文文档](https://example.com)哦")).toBe(
+      "请看[中文文档](https://example.com)哦"
+    );
+  });
+
+  it("preserves reference-style links", () => {
+    expect(normalizeFullwidthBrackets("[中文][ref]")).toBe("[中文][ref]");
+    expect(normalizeFullwidthBrackets("[文字][中文标签]")).toBe("[文字][中文标签]");
+  });
+
+  it("preserves reference definitions", () => {
+    expect(normalizeFullwidthBrackets("[中文]: https://example.com")).toBe(
+      "[中文]: https://example.com"
+    );
+  });
+
+  it("preserves image syntax with CJK alt text", () => {
+    expect(normalizeFullwidthBrackets("![中文]")).toBe("![中文]");
+    expect(normalizeFullwidthBrackets("![中文图](img.png)")).toBe("![中文图](img.png)");
+  });
+
+  it("still converts plain CJK brackets", () => {
+    expect(normalizeFullwidthBrackets("[注释]文字")).toBe("【注释】文字");
+    expect(normalizeFullwidthBrackets("前文[备注]")).toBe("前文【备注】");
+  });
+});
+
+describe("normalizeFullwidthBrackets — escaped brackets in link labels", () => {
+  it("preserves an inline link whose CJK label contains an escaped ]", () => {
+    expect(normalizeFullwidthBrackets("[中文\\]文](https://example.com)")).toBe(
+      "[中文\\]文](https://example.com)"
+    );
+  });
+
+  it("preserves an inline link whose CJK label contains an escaped [", () => {
+    expect(normalizeFullwidthBrackets("[中文\\[文](https://example.com)")).toBe(
+      "[中文\\[文](https://example.com)"
+    );
+  });
+
+  it("still converts plain CJK brackets alongside an escaped-label link", () => {
+    expect(
+      normalizeFullwidthBrackets("[注释]文字[中文\\]文](https://example.com)")
+    ).toBe("【注释】文字[中文\\]文](https://example.com)");
   });
 });
