@@ -47,8 +47,9 @@ vi.mock("@/stores/settingsStore", () => ({
   },
 }));
 
+const mockGetCodeFenceInfo = vi.fn((): unknown => null);
 vi.mock("@/plugins/sourceContextDetection/codeFenceDetection", () => ({
-  getCodeFenceInfo: vi.fn(() => null),
+  getCodeFenceInfo: (...args: unknown[]) => mockGetCodeFenceInfo(...args),
 }));
 
 import { EditorState } from "@codemirror/state";
@@ -126,6 +127,7 @@ describe("createSmartPastePlugin", () => {
     mockTryImagePaste.mockReturnValue(false);
     mockCleanPastedMarkdown.mockImplementation((t: string) => t);
     mockIsValidUrl.mockImplementation((text: string) => /^https?:\/\//.test(text));
+    mockGetCodeFenceInfo.mockReturnValue(null);
   });
 
   describe("export", () => {
@@ -236,6 +238,32 @@ describe("createSmartPastePlugin", () => {
 
       // Should use cleaned text, not create a link
       expect(view.state.doc.toString()).toBe("cleaned URL text world");
+    });
+  });
+
+  describe("markdown cleanup — code fence guard", () => {
+    // Inside a fenced code block "AI-clipboard artifacts" are real code
+    // (e.g. the escaped pipe in `s/foo\|bar/x/`) — the cleanup branch must
+    // fall through to default paste instead of rewriting the text.
+
+    it("does not rewrite pasted text when cursor is inside a code fence", () => {
+      mockGetCodeFenceInfo.mockReturnValue({ language: "sh" });
+      mockCleanPastedMarkdown.mockReturnValue("CLEANED");
+      const view = createView("hello", 5, 5);
+      dispatchPaste(view, "s/foo\\|bar/x/");
+
+      // Handler must not insert the cleaned text — default paste applies
+      expect(view.state.doc.toString()).not.toContain("CLEANED");
+      expect(mockGetCodeFenceInfo).toHaveBeenCalled();
+    });
+
+    it("still cleans pasted markdown outside a code fence", () => {
+      mockGetCodeFenceInfo.mockReturnValue(null);
+      mockCleanPastedMarkdown.mockReturnValue("CLEANED");
+      const view = createView("hello", 5, 5);
+      dispatchPaste(view, "s/foo\\|bar/x/");
+
+      expect(view.state.doc.toString()).toBe("helloCLEANED");
     });
   });
 

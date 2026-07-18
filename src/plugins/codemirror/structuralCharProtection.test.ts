@@ -1002,4 +1002,81 @@ describe("Structural Character Protection", () => {
       expect(doc).toBe("| cell |\nhello");
     });
   });
+
+  describe("code fence guard", () => {
+    // Inside fenced code blocks "- ", "|", and "> " are raw code, not
+    // markdown markers — the structural protections must NOT fire; the
+    // handlers return false so default backspace/delete applies.
+
+    it("backspace after '- ' in a yaml fence is not intercepted", () => {
+      const view = createView("```yaml\n- ^item\n```");
+      expect(smartBackspace(view)).toBe(false);
+    });
+
+    it("backspace after '- ' in a tilde (~~~) fence is not intercepted", () => {
+      const view = createView("~~~yaml\n- ^item\n~~~");
+      expect(smartBackspace(view)).toBe(false);
+    });
+
+    it("backspace after '- ' in an unclosed fence is not intercepted", () => {
+      const view = createView("```yaml\n- ^item");
+      expect(smartBackspace(view)).toBe(false);
+    });
+
+    it("backspace after '> ' in a fence is not intercepted", () => {
+      const view = createView("```sh\n> ^redirect\n```");
+      expect(smartBackspace(view)).toBe(false);
+    });
+
+    it("backspace right after a leading pipe in a sh fence is not intercepted", () => {
+      const view = createView("```sh\n|^ grep foo\n```");
+      expect(smartBackspace(view)).toBe(false);
+    });
+
+    it("forward-delete before a leading pipe in a sh fence is not intercepted", () => {
+      const view = createView("```sh\n^| grep foo\n```");
+      expect(smartDelete(view)).toBe(false);
+    });
+
+    it("forward-delete at end of a fence line does not skip next-line markers", () => {
+      const view = createView("```yaml\nfoo^\n- item\n```");
+      expect(smartDelete(view)).toBe(false);
+    });
+
+    it("still protects '- ' outside the fence in a doc containing a fence", () => {
+      const view = createView("- ^item\n```yaml\n- data\n```");
+      const handled = smartBackspace(view);
+      expect(handled).toBe(true);
+      expect(view.state.doc.toString()).toBe("item\n```yaml\n- data\n```");
+    });
+
+    it("still protects pipes outside the fence in a doc containing a fence", () => {
+      const view = createView("| ^cell |\n```sh\n| data\n```");
+      const handled = smartBackspace(view);
+      expect(handled).toBe(true);
+      expect(view.state.selection.main.head).toBe(0); // moved before pipe
+      expect(view.state.doc.toString()).toBe("| cell |\n```sh\n| data\n```");
+    });
+
+    it("multi-cursor: fence cursor gets plain backspace while outside cursor keeps protection", () => {
+      const content = "- item\n```yaml\n- item\n```";
+      const state = EditorState.create({
+        doc: content,
+        extensions: [EditorState.allowMultipleSelections.of(true)],
+        selection: EditorSelection.create([
+          EditorSelection.cursor(2),  // after "- " outside the fence
+          EditorSelection.cursor(17), // after "- " inside the fence
+        ], 0),
+      });
+      const container = document.createElement("div");
+      document.body.appendChild(container);
+      const view = new EditorView({ state, parent: container });
+      views.push(view);
+
+      const handled = smartBackspace(view);
+      expect(handled).toBe(true);
+      // Outside cursor: marker removed. Fence cursor: one char (the space) deleted.
+      expect(view.state.doc.toString()).toBe("item\n```yaml\n-item\n```");
+    });
+  });
 });

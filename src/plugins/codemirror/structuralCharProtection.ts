@@ -8,8 +8,15 @@
  *   - Backspace at a table pipe skips over it (moves cursor) instead of deleting
  *   - Backspace at a list marker removes the entire marker (semantic operation)
  *   - Blockquote markers (>) are protected at the start of lines
- *   - Pattern constants are exported for reuse by other plugins (e.g., listSmartIndent)
+ *   - Protection is disabled inside fenced code blocks — fence content is raw
+ *     code, so "- ", "|", and "> " are data, not markers. The fence check is
+ *     per cursor position (multi-cursor safe) and runs only after a structural
+ *     match, so plain-text keystrokes never pay the fence scan.
+ *   - Detection patterns/probes live in structuralCharDetection.ts and are
+ *     re-exported here for existing importers (e.g. listSmartIndent)
  *
+ * @coordinates-with structuralCharDetection.ts — patterns and position probes
+ * @coordinates-with sourceContextDetection/codeFenceDetection.ts — fence guard
  * @coordinates-with listSmartIndent.ts — reuses LIST_ITEM_PATTERN, TASK_ITEM_PATTERN
  * @coordinates-with tableTabNav.ts — both operate on table structure
  * @module plugins/codemirror/structuralCharProtection
@@ -19,187 +26,31 @@ import { type KeyBinding, type EditorView } from "@codemirror/view";
 import { EditorState, EditorSelection, findClusterBreak, type ChangeSpec, type SelectionRange } from "@codemirror/state";
 import { guardCodeMirrorKeyBinding } from "@/utils/imeGuard";
 import { isPipeInCodeSpan } from "@/utils/tableParser";
+import { getCodeFenceInfoAt } from "@/plugins/sourceContextDetection/codeFenceDetection";
+import {
+  TABLE_ROW_PATTERN,
+  LIST_ITEM_PATTERN,
+  TASK_ITEM_PATTERN,
+  BLOCKQUOTE_PATTERN,
+  isPipeEscaped,
+  getCellStartPipePosAt,
+  getListMarkerRangeAt,
+  getTaskMarkerRangeAt,
+  getBlockquoteMarkerInfoAt,
+} from "./structuralCharDetection";
 
-/**
- * Patterns for detecting structural characters at cursor position.
- * Exported for testing.
- */
-
-// Table row: starts with optional whitespace, then pipe
-export const TABLE_ROW_PATTERN = /^\s*\|/;
-
-// List item: starts with optional whitespace, then marker
-export const LIST_ITEM_PATTERN = /^(\s*)(-|\*|\+|\d+\.)\s/;
-
-// Task list item: starts with optional whitespace, then marker + checkbox
-export const TASK_ITEM_PATTERN = /^(\s*)([-*+])\s\[([ xX])\]\s/;
-
-// Blockquote: starts with optional whitespace, then >
-export const BLOCKQUOTE_PATTERN = /^(\s*)(>+)\s?/;
-
-/**
- * Check if a pipe is escaped — preceded by an odd number of backslashes.
- * `\|` is escaped (cell content); `\\|` is a literal backslash + delimiter.
- */
-function isPipeEscaped(text: string, pipeIndex: number): boolean {
-  let n = 0;
-  let i = pipeIndex - 1;
-  while (i >= 0 && text[i] === "\\") {
-    n++;
-    i--;
-  }
-  return n % 2 === 1;
-}
-
-/**
- * Check if a position is right after a table pipe at cell start.
- * Returns the pipe position if true, or -1 if not.
- */
-function getCellStartPipePosAt(state: EditorState, head: number): number {
-  const line = state.doc.lineAt(head);
-
-  // Not in a table row
-  if (!TABLE_ROW_PATTERN.test(line.text)) return -1;
-
-  // Find pipes in the line
-  const offsetInLine = head - line.from;
-  const textBefore = line.text.slice(0, offsetInLine);
-
-  // Walk back through trailing whitespace, find nearest `|`, and check that
-  // it's a real delimiter — not an escaped pipe (`\|`) and not a pipe inside
-  // an inline code span (`` `a|b` ``).
-  let i = textBefore.length - 1;
-  while (i >= 0 && /\s/.test(textBefore[i])) i--;
-  if (
-    i >= 0 &&
-    textBefore[i] === "|" &&
-    !isPipeEscaped(textBefore, i) &&
-    !isPipeInCodeSpan(textBefore, i)
-  ) {
-    return line.from + i;
-  }
-
-  return -1;
-}
-
-/**
- * Check if cursor is right after a table pipe at cell start.
- * Returns the pipe position if true, or -1 if not.
- * Exported for testing.
- */
-export function getCellStartPipePos(view: EditorView): number {
-  return getCellStartPipePosAt(view.state, view.state.selection.main.head);
-}
-
-/**
- * Check if a position is right after a list marker.
- * Returns the marker range if true, or null if not.
- */
-function getListMarkerRangeAt(
-  state: EditorState, head: number
-): { from: number; to: number; indent: number } | null {
-  const line = state.doc.lineAt(head);
-  const offsetInLine = head - line.from;
-
-  const match = line.text.match(LIST_ITEM_PATTERN);
-  if (!match) return null;
-
-  const markerEnd = match[0].length;
-  const indent = match[1].length;
-
-  // Cursor must be right after the marker (including space)
-  if (offsetInLine <= markerEnd && offsetInLine > indent) {
-    return {
-      from: line.from + indent,
-      to: line.from + markerEnd,
-      indent,
-    };
-  }
-
-  return null;
-}
-
-/**
- * Check if cursor is right after a list marker.
- * Exported for testing.
- */
-export function getListMarkerRange(
-  view: EditorView
-): { from: number; to: number; indent: number } | null {
-  return getListMarkerRangeAt(view.state, view.state.selection.main.head);
-}
-
-/**
- * Check if a position is right after a task list marker.
- * Returns the marker range and indent if true, or null if not.
- */
-function getTaskMarkerRangeAt(
-  state: EditorState, head: number
-): { from: number; to: number; indent: number } | null {
-  const line = state.doc.lineAt(head);
-  const offsetInLine = head - line.from;
-
-  const match = line.text.match(TASK_ITEM_PATTERN);
-  if (!match) return null;
-
-  const markerEnd = match[0].length;
-  const indent = match[1].length;
-
-  // Cursor must be right after the marker (including space after checkbox)
-  if (offsetInLine <= markerEnd && offsetInLine > indent) {
-    return {
-      from: line.from + indent,
-      to: line.from + markerEnd,
-      indent,
-    };
-  }
-
-  return null;
-}
-
-/**
- * Check if cursor is right after a task list marker.
- * Exported for testing.
- */
-export function getTaskMarkerRange(
-  view: EditorView
-): { from: number; to: number; indent: number } | null {
-  return getTaskMarkerRangeAt(view.state, view.state.selection.main.head);
-}
-
-/**
- * Check if a position is right after a blockquote marker.
- * Returns the marker position info if true, or null if not.
- */
-function getBlockquoteMarkerInfoAt(
-  state: EditorState, head: number
-): { markerEnd: number; depth: number } | null {
-  const line = state.doc.lineAt(head);
-  const offsetInLine = head - line.from;
-
-  const match = line.text.match(BLOCKQUOTE_PATTERN);
-  if (!match) return null;
-
-  const markerEnd = match[0].length;
-
-  // Cursor must be within or right after the marker area
-  if (offsetInLine <= markerEnd && offsetInLine > match[1].length) {
-    return {
-      markerEnd: line.from + markerEnd,
-      depth: match[2].length, // Number of > characters
-    };
-  }
-
-  return null;
-}
-
-/**
- * Check if cursor is right after a blockquote marker.
- * Exported for testing.
- */
-export function getBlockquoteMarkerInfo(view: EditorView): { markerEnd: number; depth: number } | null {
-  return getBlockquoteMarkerInfoAt(view.state, view.state.selection.main.head);
-}
+// Re-export from the historical home of these symbols so existing import
+// paths (listSmartIndent, tests) stay stable after the file split.
+export {
+  TABLE_ROW_PATTERN,
+  LIST_ITEM_PATTERN,
+  TASK_ITEM_PATTERN,
+  BLOCKQUOTE_PATTERN,
+  getCellStartPipePos,
+  getListMarkerRange,
+  getTaskMarkerRange,
+  getBlockquoteMarkerInfo,
+} from "./structuralCharDetection";
 
 /**
  * Compute backspace change for a list/task marker: outdent if indented, remove at level 0.
@@ -253,10 +104,26 @@ function backspaceBlockquoteSpec(
 }
 
 /**
+ * Fence guard: nullify a structural spec when the cursor sits inside a
+ * fenced code block — there "- ", "|", and "> " are raw code, and protection
+ * would corrupt it (e.g. backspace after "- " in a ```yaml fence must delete
+ * one char, not the whole marker). Evaluated per cursor position so mixed
+ * fence/non-fence multi-cursors behave independently.
+ */
+function guardCodeFence(
+  spec: { changes: ChangeSpec; range: SelectionRange } | null,
+  state: EditorState,
+  head: number
+): { changes: ChangeSpec; range: SelectionRange } | null {
+  if (spec && getCodeFenceInfoAt(state, head) !== null) return null;
+  return spec;
+}
+
+/**
  * Compute the backspace change spec for a single cursor position.
  * Returns null if the position is not at a structural character.
  */
-function backspaceSpecForCursor(
+function structuralBackspaceSpec(
   state: EditorState, head: number
 ): { changes: ChangeSpec; range: SelectionRange } | null {
   const pipePos = getCellStartPipePosAt(state, head);
@@ -274,6 +141,13 @@ function backspaceSpecForCursor(
   if (bqInfo) return backspaceBlockquoteSpec(state, head, bqInfo);
 
   return null;
+}
+
+/** Fence-guarded backspace spec for a single cursor position. */
+function backspaceSpecForCursor(
+  state: EditorState, head: number
+): { changes: ChangeSpec; range: SelectionRange } | null {
+  return guardCodeFence(structuralBackspaceSpec(state, head), state, head);
 }
 
 /**
@@ -324,7 +198,7 @@ export function smartBackspace(view: EditorView): boolean {
  * Compute the delete change spec for a single cursor position.
  * Returns null if the position is not at a structural character.
  */
-function deleteSpecForCursor(
+function structuralDeleteSpec(
   state: EditorState, head: number
 ): { changes: ChangeSpec; range: SelectionRange } | null {
   if (head >= state.doc.length) return null;
@@ -371,6 +245,13 @@ function deleteSpecForCursor(
   }
 
   return null;
+}
+
+/** Fence-guarded delete spec for a single cursor position. */
+function deleteSpecForCursor(
+  state: EditorState, head: number
+): { changes: ChangeSpec; range: SelectionRange } | null {
+  return guardCodeFence(structuralDeleteSpec(state, head), state, head);
 }
 
 /**

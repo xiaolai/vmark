@@ -9,17 +9,23 @@
  *     before deciding between single pair (e.g., *italic*) and double pair (e.g., **bold**)
  *   - `=` always pairs as double (==highlight==) since single = has no markdown meaning
  *   - Triple backtick inserts a full code fence with newlines
- *   - Backspace deletes both halves of a pair when cursor is between them
+ *   - Backspace between pair halves deletes both — see markdownPairBackspace.ts
  *   - IME composition is fully guarded to avoid corrupting CJK input
- *   - All pairing is disabled inside fenced code blocks (via getCodeFenceInfo guard)
+ *   - All pairing — insertion here, pair backspace in markdownPairBackspace.ts —
+ *     is disabled inside fenced code blocks (via getCodeFenceInfo guard)
  *
  * @coordinates-with autoPair/tiptap.ts — WYSIWYG counterpart (handles ASCII/CJK bracket pairs)
+ * @coordinates-with markdownPairBackspace.ts — deletes the pairs this inserts
  * @module plugins/codemirror/markdownAutoPair
  */
 
-import { EditorView, ViewPlugin, ViewUpdate, KeyBinding } from "@codemirror/view";
-import { guardCodeMirrorKeyBinding, isCodeMirrorComposing } from "@/utils/imeGuard";
+import { EditorView, ViewPlugin, ViewUpdate } from "@codemirror/view";
+import { isCodeMirrorComposing } from "@/utils/imeGuard";
 import { getCodeFenceInfo } from "@/plugins/sourceContextDetection/codeFenceDetection";
+
+// Re-export from the historical home of this keybinding so existing import
+// paths (index.ts, tests) stay stable after the file split.
+export { markdownPairBackspace } from "./markdownPairBackspace";
 
 // Characters that support delay-based single/double judgment
 const DELAY_CHARS = new Set(["~", "*", "_"]);
@@ -29,16 +35,6 @@ const ALWAYS_DOUBLE_CHARS = new Set(["="]);
 
 // Delay in ms to wait for second character
 const PAIR_DELAY = 150;
-
-// Pairs for backspace deletion (char -> same char for symmetric pairs)
-const SYMMETRIC_PAIRS: Record<string, string> = {
-  "~": "~",
-  "*": "*",
-  "_": "_",
-  "=": "=",
-  "^": "^",
-  "`": "`",
-};
 
 interface PendingPair {
   char: string;
@@ -70,56 +66,6 @@ function safeDispatch(
     return false;
   }
 }
-
-/**
- * Backspace handler: delete both halves of symmetric pairs.
- * Works for both single (e.g., *|*) and double (e.g., ~~|~~) pairs.
- */
-export const markdownPairBackspace: KeyBinding = guardCodeMirrorKeyBinding({
-  key: "Backspace",
-  run: (view) => {
-    const { state } = view;
-    const { from, to } = state.selection.main;
-
-    // Only handle when no selection
-    if (from !== to) return false;
-    if (from === 0) return false;
-
-    const charBefore = state.doc.sliceString(from - 1, from);
-    const charAfter = state.doc.sliceString(from, from + 1);
-
-    // Check for double-char pairs first (~~, **, __, ==)
-    if (from >= 2) {
-      const twoBefore = state.doc.sliceString(from - 2, from);
-      const twoAfter = state.doc.sliceString(from, from + 2);
-
-      // Check if we're between double pairs like ~~|~~
-      if (
-        twoBefore.length === 2 &&
-        twoBefore[0] === twoBefore[1] &&
-        twoAfter === twoBefore &&
-        SYMMETRIC_PAIRS[twoBefore[0]]
-      ) {
-        view.dispatch({
-          changes: { from: from - 2, to: from + 2 },
-          selection: { anchor: from - 2 },
-        });
-        return true;
-      }
-    }
-
-    // Check for single-char pairs like *|*
-    if (SYMMETRIC_PAIRS[charBefore] && charAfter === charBefore) {
-      view.dispatch({
-        changes: { from: from - 1, to: from + 1 },
-        selection: { anchor: from - 1 },
-      });
-      return true;
-    }
-
-    return false; // Let default backspace handle it
-  },
-});
 
 /**
  * Creates the markdown auto-pair plugin with delay-based judgment.

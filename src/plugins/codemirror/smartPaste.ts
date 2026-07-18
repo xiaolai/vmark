@@ -12,6 +12,8 @@
  *   - Supports multi-image paste (multiple paths from Finder)
  *   - Uses the image paste toast for user confirmation on ambiguous pastes
  *   - Markdown content from other apps is cleaned before insertion
+ *   - HTML conversion and markdown cleanup are both skipped inside fenced
+ *     code blocks — pasted text lands verbatim (it is code, not markdown)
  *   - URL detection uses clipboard metadata, not just text heuristics
  *
  * @coordinates-with smartPaste/tiptap.ts — WYSIWYG counterpart
@@ -95,6 +97,9 @@ export function createSmartPastePlugin() {
       // Clean AI-clipboard artifacts (escaped pipes, <br> in tables) from pasted markdown
       const cleaned = cleanPastedMarkdown(pastedText);
       if (cleaned !== pastedText) {
+        // Inside a fenced code block the "artifacts" are real code (e.g. the
+        // escaped pipe in `s/foo\|bar/x/`) — never rewrite; default paste.
+        if (getCodeFenceInfo(view) !== null) return false;
         event.preventDefault();
         view.dispatch({
           changes: { from, to, insert: cleaned },

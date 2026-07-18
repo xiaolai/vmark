@@ -1,153 +1,187 @@
 /**
  * Code Fence Detection
  *
- * Detects if cursor is inside a code fence (``` ... ```)
- * and provides information for modifying the language.
+ * Purpose: Detects if a position is inside a fenced code block (``` or ~~~)
+ * and provides information for modifying the language. Shared guard for
+ * smartPaste, structuralCharProtection, markdownAutoPair,
+ * markdownPairBackspace, and listContinuation.
+ *
+ * Key decisions (CommonMark-aligned):
+ *   - Both backtick (```) and tilde (~~~) fences are recognized; a closer
+ *     must use the SAME character as its opener with a run at least as long,
+ *     and carry no info string.
+ *   - Backtick-fence info strings may not contain backticks (such a line is
+ *     not an opener at all); tilde-fence info strings may contain anything.
+ *   - An unterminated opening fence extends to the end of the document.
+ *     Positions after the opener line are "inside"; the opener line itself
+ *     stays "outside" so consumers like markdownAutoPair's fence
+ *     auto-completion are not suppressed by the fence being typed. Closed
+ *     fences keep the historical behavior: opener and closer lines count
+ *     as inside.
+ *   - The language is the full first whitespace-delimited info-string token
+ *     (so `c++`, `c#`, `objective-c` are captured whole).
+ *
+ * Known limitations:
+ *   - Fence indentation is permissive (any leading whitespace), deviating
+ *     from CommonMark's 3-space cap: fences nested in list items carry 4+
+ *     raw spaces of indent, and a line-based detector cannot see list
+ *     context. A 4-space-indented run outside a list is an indented code
+ *     block anyway — still code — so guard semantics hold either way.
+ *   - Each call scans lines from the document start to the position; a
+ *     single-pass/syntax-tree rewrite is deferred (out of scope).
  */
 
+import type { EditorState } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
 
 export interface CodeFenceInfo {
   /** Current language (empty string if none) */
   language: string;
-  /** Line number of opening ``` (1-indexed) */
+  /** Line number of the opening fence (1-indexed) */
   startLine: number;
-  /** Line number of closing ``` (1-indexed) */
+  /**
+   * Line number of the closing fence (1-indexed), or the last document line
+   * if the fence is unterminated.
+   */
   endLine: number;
-  /** Document position of the opening ``` */
+  /** Document position of the opening fence characters */
   fenceStartPos: number;
-  /** Document position right after ``` where language starts */
+  /** Document position where the language token starts */
   languageStartPos: number;
-  /** Document position at end of language (or same as languageStartPos if no language) */
+  /** Document position at end of language (same as languageStartPos if no language) */
   languageEndPos: number;
 }
 
 /**
- * Pattern to match opening code fence with optional language.
- * Captures: [1] fence chars (``` or more), [2] language (optional)
+ * Opening backtick fence: 3+ backticks after optional indent; the info
+ * string may not contain backticks (CommonMark), hence the end anchor.
  */
-const FENCE_OPEN_PATTERN = /^(\s*)(```+)(\w*)?/;
+const BACKTICK_OPEN_PATTERN = /^(\s*)(`{3,})([^`]*)$/;
+
+/** Opening tilde fence: 3+ tildes after optional indent; any info string. */
+const TILDE_OPEN_PATTERN = /^(\s*)(~{3,})(.*)$/;
+
+/** First info-string token: [1] leading whitespace, [2] language token. */
+const INFO_LANGUAGE_PATTERN = /^(\s*)(\S*)/;
+
+interface FenceOpener {
+  char: "`" | "~";
+  indent: string;
+  runLength: number;
+  info: string;
+}
+
+/** Parse a line as an opening fence, or null if it is not one. */
+function parseFenceOpener(text: string): FenceOpener | null {
+  const backtick = text.match(BACKTICK_OPEN_PATTERN);
+  if (backtick) {
+    return { char: "`", indent: backtick[1], runLength: backtick[2].length, info: backtick[3] };
+  }
+  const tilde = text.match(TILDE_OPEN_PATTERN);
+  if (tilde) {
+    return { char: "~", indent: tilde[1], runLength: tilde[2].length, info: tilde[3] };
+  }
+  return null;
+}
 
 /**
- * Get code fence info if cursor is inside a code fence.
- * Returns null if cursor is not in a code fence.
+ * Whether a line closes the given fence: a run of the opener's character at
+ * least as long as the opener's run, with nothing else but whitespace.
  */
-export function getCodeFenceInfo(view: EditorView): CodeFenceInfo | null {
-  const { from } = view.state.selection.main;
-  const doc = view.state.doc;
-
-  // Find the line containing cursor
-  const cursorLine = doc.lineAt(from);
-  const cursorLineNum = cursorLine.number;
-
-  // Search backwards for opening fence
-  let openingLine: { number: number; text: string; from: number } | null = null;
-  let fenceLength = 0;
-  let indent = "";
-
-  for (let lineNum = cursorLineNum; lineNum >= 1; lineNum--) {
-    const line = doc.line(lineNum);
-    const match = line.text.match(FENCE_OPEN_PATTERN);
-
-    if (match && match[2]) {
-      // Found a potential opening fence
-      const potentialIndent = match[1];
-      const potentialFenceChars = match[2];
-
-      // Check if this is actually an opening (not a closing) by looking for its pair
-      const isOpening = isOpeningFence(doc, lineNum);
-
-      if (isOpening) {
-        openingLine = { number: lineNum, text: line.text, from: line.from };
-        fenceLength = potentialFenceChars.length;
-        indent = potentialIndent;
-        break;
-      }
-    }
+function isFenceCloser(text: string, opener: FenceOpener): boolean {
+  const trimmed = text.trim();
+  if (trimmed.length < opener.runLength) return false;
+  for (let i = 0; i < trimmed.length; i++) {
+    if (trimmed[i] !== opener.char) return false;
   }
+  return true;
+}
 
-  if (!openingLine) {
-    return null; // No opening fence found above cursor
-  }
+/** Build the public info record for a resolved fence. */
+function buildInfo(
+  opener: FenceOpener,
+  startLine: number,
+  openerLineFrom: number,
+  endLine: number
+): CodeFenceInfo {
+  const infoMatch = opener.info.match(INFO_LANGUAGE_PATTERN);
+  /* v8 ignore next 2 -- @preserve reason: pattern has no mandatory chars, always matches */
+  const leadingWhitespace = infoMatch ? infoMatch[1] : "";
+  const language = infoMatch ? infoMatch[2] : "";
 
-  // Search forwards for closing fence
-  let closingLine: { number: number; text: string } | null = null;
-  const totalLines = doc.lines;
-
-  for (let lineNum = openingLine.number + 1; lineNum <= totalLines; lineNum++) {
-    const line = doc.line(lineNum);
-    const trimmed = line.text.trim();
-
-    // Closing fence must have at least as many backticks as opening
-    if (trimmed.match(new RegExp(`^\`{${fenceLength},}$`))) {
-      closingLine = { number: lineNum, text: line.text };
-      break;
-    }
-  }
-
-  if (!closingLine) {
-    return null; // No closing fence found
-  }
-
-  // Check if cursor is between opening and closing (inclusive of opening line)
-  if (cursorLineNum < openingLine.number || cursorLineNum > closingLine.number) {
-    return null;
-  }
-
-  // Parse the opening line for language
-  const openMatch = openingLine.text.match(FENCE_OPEN_PATTERN);
-  /* v8 ignore next -- @preserve reason: openingLine was found via same pattern, re-match always succeeds */
-  if (!openMatch) return null;
-
-  const indentLength = indent.length;
-  const fenceChars = openMatch[2];
-  const language = openMatch[3] || "";
-
-  // Calculate positions
-  const fenceStartPos = openingLine.from + indentLength;
-  const languageStartPos = fenceStartPos + fenceChars.length;
-  const languageEndPos = languageStartPos + language.length;
+  const fenceStartPos = openerLineFrom + opener.indent.length;
+  const languageStartPos = fenceStartPos + opener.runLength + leadingWhitespace.length;
 
   return {
     language,
-    startLine: openingLine.number,
-    endLine: closingLine.number,
+    startLine,
+    endLine,
     fenceStartPos,
     languageStartPos,
-    languageEndPos,
+    languageEndPos: languageStartPos + language.length,
   };
 }
 
 /**
- * Check if a fence at given line is an opening fence (not closing).
- * Uses fence counting: fences alternate between opening and closing.
- * Even count before = opening, odd count before = closing.
+ * Get code fence info if the main-selection cursor is inside a code fence.
+ * Returns null if cursor is not in a code fence.
  */
-function isOpeningFence(
-  doc: { line: (n: number) => { text: string }; lines: number },
-  lineNum: number
-): boolean {
-  const line = doc.line(lineNum);
-  const match = line.text.match(FENCE_OPEN_PATTERN);
+export function getCodeFenceInfo(view: EditorView): CodeFenceInfo | null {
+  return getCodeFenceInfoAt(view.state, view.state.selection.main.from);
+}
 
-  /* v8 ignore next -- @preserve reason: called only after pattern confirmed present */
-  if (!match) return false;
+/**
+ * Position-aware variant: get code fence info for an explicit document
+ * position. Use this for per-cursor checks (multi-cursor correctness).
+ */
+export function getCodeFenceInfoAt(state: EditorState, pos: number): CodeFenceInfo | null {
+  const doc = state.doc;
+  const cursorLineNum = doc.lineAt(pos).number;
 
-  // If line has language identifier, it's definitely an opening
-  if (match[3]) return true;
+  // Top-down scan to the cursor line, tracking the open fence (if any).
+  // CommonMark: while a fence is open, lines are content until a matching
+  // closer — other fence-looking lines do not open nested fences.
+  let opener: FenceOpener | null = null;
+  let openerLineNum = 0;
+  let openerLineFrom = 0;
 
-  // For fence without language, count fences from start to determine parity.
-  // Fences pair up: 1st=open, 2nd=close, 3rd=open, 4th=close, etc.
-  // So if even count (0, 2, 4...) before this line, this fence is opening.
-  // If odd count (1, 3, 5...) before this line, this fence is closing.
-  let fenceCount = 0;
-  for (let i = 1; i < lineNum; i++) {
-    const checkLine = doc.line(i);
-    if (FENCE_OPEN_PATTERN.test(checkLine.text)) {
-      fenceCount++;
+  for (let lineNum = 1; lineNum <= cursorLineNum; lineNum++) {
+    const line = doc.line(lineNum);
+    if (opener) {
+      if (isFenceCloser(line.text, opener)) {
+        if (lineNum === cursorLineNum) {
+          // Cursor sits on the closing fence line — counts as inside.
+          return buildInfo(opener, openerLineNum, openerLineFrom, lineNum);
+        }
+        opener = null;
+      }
+    } else {
+      const candidate = parseFenceOpener(line.text);
+      if (candidate) {
+        opener = candidate;
+        openerLineNum = lineNum;
+        openerLineFrom = line.from;
+      }
     }
   }
 
-  // Even count before means this is an opening fence
-  return fenceCount % 2 === 0;
+  if (!opener) {
+    return null; // No fence open at the cursor line
+  }
+
+  // A fence is open at the cursor line: find its closer below the cursor.
+  // (Lines between the opener and the cursor were already ruled out above.)
+  for (let lineNum = cursorLineNum + 1; lineNum <= doc.lines; lineNum++) {
+    if (isFenceCloser(doc.line(lineNum).text, opener)) {
+      return buildInfo(opener, openerLineNum, openerLineFrom, lineNum);
+    }
+  }
+
+  // Unterminated fence: extends to the end of the document. The opener line
+  // itself stays "outside" (see header) so typing the opener — e.g. the
+  // third backtick of ``` — is not treated as being inside its own fence.
+  if (cursorLineNum === openerLineNum) {
+    return null;
+  }
+  return buildInfo(opener, openerLineNum, openerLineFrom, doc.lines);
 }
