@@ -8,7 +8,8 @@
   "actions": {
     "acceptNewer": "최신 버전 수용",
     "revise": "수정",
-    "waive": "면제"
+    "waive": "면제",
+    "check": "검사"
   },
   "waiveReasonPlaceholder": "사유 (필수)",
   "waiveConfirm": "면제 확정",
@@ -30,5 +31,18 @@
     "inferredShort": "추정",
     "unknown": "출처 불명 — 이 변경은 VMark 외부에서 관찰되었습니다",
     "unknownShort": "불명"
+  },
+  "priorWaived": "이전에 면제됨 ×{{count}}",
+  "waiveExpiryPlaceholder": "만료일 (선택 사항, YYYY-MM-DD)",
+  "checkUnavailable": "의미 검사를 실행하려면 AI 공급자를 구성하세요",
+  "contexts": {
+    "label": "컨텍스트",
+    "newPlaceholder": "새 컨텍스트 이름",
+    "create": "컨텍스트 만들기",
+    "enforce": "강제 적용",
+    "unenforce": "온실로 되돌리기",
+    "enforceConfirm": "이 컨텍스트를 강제 적용하면 이를 투영하는 모든 사용자에게 모순이 카논 위반으로 표시됩니다. 확립된 설정이 제약으로 작동하기 시작합니다. 활성화하시겠습니까?",
+    "enforceTitle": "컨텍스트 강제 적용",
+    "error": "컨텍스트 오류: {{error}}"
   }
 }

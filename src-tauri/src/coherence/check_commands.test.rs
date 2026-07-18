@@ -201,3 +201,30 @@ fn prepare_on_unknown_edge_fails_loud() {
     let err = prepare_check(&mut kernel, &Uuid::now_v7(), 0).unwrap_err();
     assert!(err.contains("no such edge"), "{err}");
 }
+
+#[test]
+fn check_recorded_in_default_is_not_live_in_a_named_context() {
+    let (_td, mut kernel) = workspace();
+    let (txf, input) = stale_fixture(&mut kernel);
+    let prepared = prepare_check(&mut kernel, &txf, input).unwrap();
+    let parsed = parse_check_response(
+        r#"{"verdict":"no-contradiction","confidence":0.95,"evidence":[]}"#,
+        DEFAULT_TAU,
+    );
+    record_check(&mut kernel, &prepared, &parsed, "test-model").unwrap();
+    // Default context: the check is live.
+    assert_eq!(
+        crate::coherence::commands::perform_breakdown_in(&mut kernel, None).unwrap()[0].state,
+        EdgeState::StaleValid
+    );
+    // A named context: same claims (none), but a different context id —
+    // the result is not live there (D5.6 context binding).
+    let ctx =
+        crate::coherence::context_commands::perform_context_create(&mut kernel, "night-arc", None)
+            .unwrap();
+    assert_eq!(
+        crate::coherence::commands::perform_breakdown_in(&mut kernel, Some(ctx.id)).unwrap()[0]
+            .state,
+        EdgeState::VersionStale
+    );
+}

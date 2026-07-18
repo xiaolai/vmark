@@ -8,7 +8,8 @@
   "actions": {
     "acceptNewer": "接受新版",
     "revise": "修订",
-    "waive": "豁免"
+    "waive": "豁免",
+    "check": "检查"
   },
   "waiveReasonPlaceholder": "理由（必填）",
   "waiveConfirm": "确认豁免",
@@ -30,5 +31,18 @@
     "inferredShort": "推断",
     "unknown": "来源未知 — 此更改是在 VMark 之外被观测到的",
     "unknownShort": "未知"
+  },
+  "priorWaived": "此前已豁免 ×{{count}}",
+  "waiveExpiryPlaceholder": "到期时间（可选，YYYY-MM-DD）",
+  "checkUnavailable": "请配置 AI 提供商以运行语义检查",
+  "contexts": {
+    "label": "上下文",
+    "newPlaceholder": "新上下文名称",
+    "create": "创建上下文",
+    "enforce": "强制执行",
+    "unenforce": "回到温室",
+    "enforceConfirm": "强制执行该上下文后，对所有投影它的人来说，矛盾都会被标记为违反正典。已确立的设定将开始起约束作用。要启用吗？",
+    "enforceTitle": "强制执行上下文",
+    "error": "上下文错误：{{error}}"
   }
 }

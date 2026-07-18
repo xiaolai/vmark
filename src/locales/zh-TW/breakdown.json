@@ -8,7 +8,8 @@
   "actions": {
     "acceptNewer": "接受新版",
     "revise": "修訂",
-    "waive": "豁免"
+    "waive": "豁免",
+    "check": "檢查"
   },
   "waiveReasonPlaceholder": "理由（必填）",
   "waiveConfirm": "確認豁免",
@@ -30,5 +31,18 @@
     "inferredShort": "推斷",
     "unknown": "來源未知 — 此變更是在 VMark 之外被觀測到的",
     "unknownShort": "未知"
+  },
+  "priorWaived": "先前已豁免 ×{{count}}",
+  "waiveExpiryPlaceholder": "到期時間（選填，YYYY-MM-DD）",
+  "checkUnavailable": "請設定 AI 提供者以執行語意檢查",
+  "contexts": {
+    "label": "情境",
+    "newPlaceholder": "新情境名稱",
+    "create": "建立情境",
+    "enforce": "強制執行",
+    "unenforce": "回到溫室",
+    "enforceConfirm": "強制執行此情境後，對所有投影它的人而言，矛盾都會被標記為違反正典。已確立的設定將開始發揮約束作用。要啟用嗎？",
+    "enforceTitle": "強制執行情境",
+    "error": "情境錯誤：{{error}}"
   }
 }

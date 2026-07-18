@@ -10,7 +10,7 @@
  *
  * @module components/BreakdownPanel/BreakdownPanel
  */
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { RefreshCw, X } from "lucide-react";
 import {
@@ -21,12 +21,20 @@ import {
   selectRowsGroupedByArtifact,
 } from "@/stores/breakdownStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
-import { refreshBreakdown } from "@/services/breakdown/breakdownService";
+import {
+  createContext,
+  refreshBreakdown,
+  refreshContexts,
+  setContextEnforcement,
+} from "@/services/breakdown/breakdownService";
+import { ask } from "@tauri-apps/plugin-dialog";
 import { BreakdownRow } from "./BreakdownRow";
 import "./breakdown-panel.css";
 
 /** Hard cap on listed edges — the count line reports the full total. */
 export const RESULT_CAP = 200;
+
+const DEFAULT_CONTEXT = "00000000-0000-0000-0000-000000000000";
 
 export function BreakdownPanel() {
   const { t } = useTranslation("breakdown");
@@ -36,9 +44,49 @@ export function BreakdownPanel() {
   const loading = useBreakdownStore(selectLoading);
   const error = useBreakdownStore(selectError);
 
+  const contexts = useBreakdownStore((s) => s.contexts);
+  const selectedContext = useBreakdownStore((s) => s.selectedContext);
+  const [newContextName, setNewContextName] = useState("");
+
   useEffect(() => {
-    if (rootPath) void refreshBreakdown(rootPath);
+    if (rootPath) {
+      void refreshContexts(rootPath);
+      void refreshBreakdown(rootPath);
+    }
   }, [rootPath]);
+
+  const selectContext = (id: string) => {
+    // The default context's fixed nil id maps to null (= default).
+    const normalized = id === DEFAULT_CONTEXT ? null : id;
+    useBreakdownStore.getState().setSelectedContext(normalized);
+    const root = useWorkspaceStore.getState().rootPath;
+    if (root) void refreshBreakdown(root);
+  };
+
+  const addContext = () => {
+    const name = newContextName.trim();
+    const root = useWorkspaceStore.getState().rootPath;
+    if (!root || name === "") return;
+    setNewContextName("");
+    void createContext(root, name);
+  };
+
+  const current = contexts.find((c) => c.id === (selectedContext ?? DEFAULT_CONTEXT));
+
+  const toggleEnforce = async () => {
+    const root = useWorkspaceStore.getState().rootPath;
+    if (!root || !current) return;
+    const enforcing = current.enforcement !== "enforcing";
+    if (enforcing) {
+      // D4.3: enabling enforcement requires an explicit confirmation.
+      const confirmed = await ask(t("contexts.enforceConfirm"), {
+        title: t("contexts.enforceTitle"),
+        kind: "warning",
+      });
+      if (!confirmed) return;
+    }
+    await setContextEnforcement(root, current.id, enforcing);
+  };
 
   const refresh = () => {
     const root = useWorkspaceStore.getState().rootPath;
@@ -80,6 +128,51 @@ export function BreakdownPanel() {
           </button>
         </div>
       </header>
+
+      <div className="breakdown-context-bar">
+        <label className="breakdown-context-bar__label">
+          {t("contexts.label")}
+          <select
+            className="breakdown-context-bar__select"
+            value={selectedContext ?? DEFAULT_CONTEXT}
+            onChange={(e) => selectContext(e.target.value)}
+          >
+            {contexts.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+                {c.enforcement === "enforcing" ? " ⚑" : ""}
+              </option>
+            ))}
+          </select>
+        </label>
+        {current && current.id !== DEFAULT_CONTEXT && (
+          <button
+            type="button"
+            className="breakdown-row__action"
+            onClick={() => void toggleEnforce()}
+          >
+            {current.enforcement === "enforcing"
+              ? t("contexts.unenforce")
+              : t("contexts.enforce")}
+          </button>
+        )}
+        <input
+          type="text"
+          className="breakdown-context-bar__input"
+          value={newContextName}
+          onChange={(e) => setNewContextName(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") addContext();
+          }}
+          placeholder={t("contexts.newPlaceholder")}
+          aria-label={t("contexts.newPlaceholder")}
+        />
+        {current?.errors.map((err) => (
+          <div key={err} className="breakdown-context-bar__error" role="alert">
+            {t("contexts.error", { error: err })}
+          </div>
+        ))}
+      </div>
 
       {error !== null && (
         <p className="breakdown-panel__error" role="alert">

@@ -292,3 +292,51 @@
   border-color: var(--warning-color);
   color: var(--warning-color);
 }
+
+/* WI-2b.7: context bar — picker, create, enforcement (D1/D4.3). */
+.breakdown-context-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  flex-wrap: wrap;
+  padding: var(--spacing-1) var(--spacing-3);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.breakdown-context-bar__label {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-1);
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.breakdown-context-bar__select {
+  background: transparent;
+  color: var(--text-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  padding: 0 var(--spacing-1);
+}
+
+.breakdown-context-bar__input {
+  flex: 1;
+  min-width: 90px;
+  border: none;
+  border-bottom: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-color);
+  outline: none;
+  font-size: var(--font-size-sm);
+}
+
+.breakdown-context-bar__input:focus {
+  border-bottom-color: var(--primary-color);
+}
+
+.breakdown-context-bar__error {
+  width: 100%;
+  color: var(--error-color);
+  font-size: var(--font-size-xs);
+}

@@ -44,9 +44,23 @@ export interface EdgeRow {
   prior_waivers: number;
 }
 
+/** Mirror of the Rust `ContextRow` (camelCase — serde rename_all). */
+export interface ContextRow {
+  id: string;
+  name: string;
+  parent: string | null;
+  enforcement: "enforcing" | "greenhouse";
+  visibleClaims: number;
+  errors: string[];
+}
+
 interface BreakdownState {
   /** Rust-owned live rows — refreshed on demand, never persisted. */
   rows: EdgeRow[];
+  /** Known contexts (WI-2b.7); the implicit default is always present. */
+  contexts: ContextRow[];
+  /** The context the breakdown projects; null = the implicit default. */
+  selectedContext: string | null;
   /** Whether the Breakdown panel is open in THIS window. */
   panelOpen: boolean;
   /** A refresh is in flight. */
@@ -54,6 +68,8 @@ interface BreakdownState {
   /** Last refresh/resolve failure, or null. */
   error: string | null;
   setRows: (rows: EdgeRow[]) => void;
+  setContexts: (contexts: ContextRow[]) => void;
+  setSelectedContext: (id: string | null) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
   togglePanel: () => void;
@@ -67,15 +83,27 @@ interface BreakdownState {
 // resurrecting on reload.
 export const useBreakdownStore = create<BreakdownState>()((set) => ({
   rows: [],
+  contexts: [],
+  selectedContext: null,
   panelOpen: false,
   loading: false,
   error: null,
   setRows: (rows) => set({ rows }),
+  setContexts: (contexts) => set({ contexts }),
+  setSelectedContext: (selectedContext) => set({ selectedContext }),
   setLoading: (loading) => set({ loading }),
   setError: (error) => set({ error }),
   togglePanel: () => set((s) => ({ panelOpen: !s.panelOpen })),
   setPanelOpen: (panelOpen) => set({ panelOpen }),
-  reset: () => set({ rows: [], panelOpen: false, loading: false, error: null }),
+  reset: () =>
+    set({
+      rows: [],
+      contexts: [],
+      selectedContext: null,
+      panelOpen: false,
+      loading: false,
+      error: null,
+    }),
 }));
 
 /* Selectors — components MUST use these (no store destructuring). */

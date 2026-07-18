@@ -8,7 +8,8 @@
   "actions": {
     "acceptNewer": "Accepter la plus récente",
     "revise": "Réviser",
-    "waive": "Exempter"
+    "waive": "Exempter",
+    "check": "Vérifier"
   },
   "waiveReasonPlaceholder": "Motif (obligatoire)",
   "waiveConfirm": "Confirmer l'exemption",
@@ -30,5 +31,18 @@
     "inferredShort": "inférée",
     "unknown": "Provenance inconnue — cette modification a été observée hors de VMark",
     "unknownShort": "inconnue"
+  },
+  "priorWaived": "exemptée précédemment ×{{count}}",
+  "waiveExpiryPlaceholder": "Expire (facultatif, YYYY-MM-DD)",
+  "checkUnavailable": "Configurez un fournisseur d'IA pour exécuter des vérifications sémantiques",
+  "contexts": {
+    "label": "Contexte",
+    "newPlaceholder": "Nom du nouveau contexte",
+    "create": "Créer le contexte",
+    "enforce": "Appliquer",
+    "unenforce": "Retour à la serre",
+    "enforceConfirm": "Appliquer ce contexte marque les contradictions comme des violations du canon pour tous ceux qui le projettent. Les affirmations établies commencent à contraindre. Activer ?",
+    "enforceTitle": "Appliquer le contexte",
+    "error": "Erreur de contexte : {{error}}"
   }
 }

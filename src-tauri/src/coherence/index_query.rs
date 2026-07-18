@@ -8,9 +8,7 @@ use uuid::Uuid;
 
 use super::dag::{ContextView, RevisionDag};
 use super::index::CoherenceIndex;
-use super::project::{
-    project_edge, CheckVerdict, EdgeCheck, EdgeResolution, EdgeState, OriginEdge, ResolutionKind,
-};
+use super::project::{project_edge, EdgeResolution, EdgeState, OriginEdge, ResolutionKind};
 use super::types::{InputRole, ObjectId, RevisionId};
 
 pub use super::index_row::{state_label, EdgeRow, RegistryState};
@@ -137,58 +135,6 @@ impl CoherenceIndex {
             "00000000-0000-0000-0000-000000000000",
             "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         )
-    }
-
-    /// Live check-results for one edge under (context, fingerprint) —
-    /// D5.6: both fields must be present AND match; results without them
-    /// are pre-revision-1 history and never project.
-    fn live_checks(
-        &self,
-        txf: &Uuid,
-        input: u32,
-        context: &str,
-        fingerprint: &str,
-    ) -> Result<Vec<EdgeCheck>, String> {
-        let mut stmt = self
-            .conn
-            .prepare(
-                "SELECT entry_id, pinned, checked_against, verdict, time
-                 FROM check_results
-                 WHERE txf = ?1 AND input_idx = ?2 AND context = ?3
-                   AND claims_fingerprint = ?4",
-            )
-            .map_err(|e| e.to_string())?;
-        let rows = stmt
-            .query_map(
-                rusqlite::params![txf.to_string(), input as i64, context, fingerprint],
-                |r| {
-                    Ok((
-                        r.get::<_, String>(0)?,
-                        r.get::<_, String>(1)?,
-                        r.get::<_, String>(2)?,
-                        r.get::<_, String>(3)?,
-                        r.get::<_, String>(4)?,
-                    ))
-                },
-            )
-            .map_err(|e| e.to_string())?;
-        let mut out = Vec::new();
-        for row in rows {
-            let (id, pinned, against, verdict, time) = row.map_err(|e| e.to_string())?;
-            let verdict = match verdict.as_str() {
-                "no-contradiction" => CheckVerdict::NoContradiction,
-                "contradiction" => CheckVerdict::Contradiction,
-                _ => CheckVerdict::Unknown,
-            };
-            out.push(EdgeCheck {
-                pinned: RevisionId::parse(&pinned)?,
-                checked_against: RevisionId::parse(&against)?,
-                verdict,
-                time,
-                id: Uuid::parse_str(&id).map_err(|e| e.to_string())?,
-            });
-        }
-        Ok(out)
     }
 
     pub fn breakdown_checked(

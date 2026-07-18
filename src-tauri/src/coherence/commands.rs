@@ -127,20 +127,27 @@ pub fn perform_resolve(
 
 /// Pull-based breakdown (R15): reconcile, then project.
 pub fn perform_breakdown(kernel: &mut WorkspaceKernel) -> Result<Vec<EdgeRow>, String> {
+    perform_breakdown_in(kernel, None)
+}
+
+/// Context-aware breakdown (WI-2b.7): project the given context (None =
+/// the implicit default). Check liveness binds to THAT context's current
+/// claim snapshot (D5.6).
+pub fn perform_breakdown_in(
+    kernel: &mut WorkspaceKernel,
+    context: Option<uuid::Uuid>,
+) -> Result<Vec<EdgeRow>, String> {
     scan_workspace(kernel)?;
-    // D5.6: the v1 UI projects the implicit default context — check
-    // liveness binds to its current claim snapshot.
+    let context = context.unwrap_or(super::contexts::DEFAULT_CONTEXT_ID);
     let read = kernel.ledger().read_all()?;
     let store = super::claims::ClaimStore::from_entries(&read.entries);
     let contexts =
         super::contexts::ContextSet::load(&kernel.root().join(".vmark").join("contexts"));
-    let visible = contexts.effective_claims(super::contexts::DEFAULT_CONTEXT_ID);
+    let visible = contexts.effective_claims(context);
     let fingerprint = store.claims_fingerprint(&visible);
-    kernel.index().breakdown_checked(
-        &now_rfc3339(),
-        &super::contexts::DEFAULT_CONTEXT_ID.to_string(),
-        &fingerprint,
-    )
+    kernel
+        .index()
+        .breakdown_checked(&now_rfc3339(), &context.to_string(), &fingerprint)
 }
 
 pub fn perform_status(kernel: &mut WorkspaceKernel) -> Result<CoherenceStatus, String> {
@@ -189,12 +196,13 @@ pub async fn coherence_resolve(
 pub async fn coherence_breakdown(
     state: tauri::State<'_, CoherenceState>,
     workspace_root: String,
+    context: Option<uuid::Uuid>,
 ) -> Result<Vec<EdgeRow>, String> {
     let kernel = state
         .registry
         .kernel_for(std::path::Path::new(&workspace_root), state.writer)?;
     let mut kernel = kernel.lock().map_err(|_| "kernel poisoned".to_string())?;
-    perform_breakdown(&mut kernel)
+    perform_breakdown_in(&mut kernel, context)
 }
 
 #[tauri::command]
