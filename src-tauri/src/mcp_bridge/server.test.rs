@@ -1,6 +1,8 @@
 //! Tests for `server.rs` (moved from the inline `#[cfg(test)]` module;
 //! included via `#[path]`).
 
+// Used only by the MockRuntime tests below, which are gated off Windows.
+#[cfg(not(target_os = "windows"))]
 use super::super::state::MAX_PENDING_REQUESTS;
 use super::super::types::McpResponsePayload;
 use super::*;
@@ -42,7 +44,9 @@ fn global_state_test_lock() -> &'static tokio::sync::Mutex<()> {
 }
 
 /// Register a fake connected client in the global bridge state and return
-/// the receiving end of its outbound channel.
+/// the receiving end of its outbound channel. Only the Windows-gated
+/// MockRuntime tests use this.
+#[cfg(not(target_os = "windows"))]
 async fn register_test_client(client_id: u64) -> mpsc::Receiver<String> {
     let (tx, rx) = mpsc::channel::<String>(8);
     let state = get_bridge_state();
@@ -58,6 +62,7 @@ async fn register_test_client(client_id: u64) -> mpsc::Receiver<String> {
     rx
 }
 
+#[cfg(not(target_os = "windows"))]
 async fn remove_test_client(client_id: u64) {
     let state = get_bridge_state();
     let mut guard = state.lock().await;
