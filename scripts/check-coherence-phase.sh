@@ -315,8 +315,24 @@ phase_2() {
     fail "SKIP_TESTS=1 set — WI-2b.3 suite not run"
   fi
 
+  echo "— WI-2b.4: checker service (pull-only, verdict discipline) —"
+  assert_file src-tauri/src/coherence/checker.rs "pure checker core"
+  assert_file src-tauri/src/coherence/check_commands.rs "check service"
+  assert_grep "REQUIRES at least one verbatim evidence" src-tauri/src/coherence/checker.rs "S4 evidence rule in prompt"
+  assert_grep "claims_fingerprint" src-tauri/src/coherence/check_commands.rs "D5.6-complete results recorded"
+  assert_grep "coherence_check" src-tauri/src/command_registry.rs "check command registered"
+  if [[ "${SKIP_TESTS:-}" != "1" ]]; then
+    if cargo test --manifest-path src-tauri/Cargo.toml --lib coherence::check --quiet >/dev/null 2>&1; then
+      ok "WI-2b.4 checker suites green"
+    else
+      fail "WI-2b.4 checker suites red"
+    fi
+  else
+    fail "SKIP_TESTS=1 set — WI-2b.4 suites not run"
+  fi
+
   # Later WIs append their assertions (and suite runs) here as they land.
-  local PENDING=(2b.4 2b.5 2b.6 2b.7 2b.8 2b.9 2b.10)
+  local PENDING=(2b.5 2b.6 2b.7 2b.8 2b.9 2b.10)
   echo "— pending WIs (fail-closed until implemented) —"
   for wi in "${PENDING[@]}"; do
     fail "WI-$wi assertions not yet defined (fail-closed)"
