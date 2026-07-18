@@ -1,7 +1,3 @@
----
-vmark:
-  id: 019f7725-fb54-7e70-9595-41723f342c7b
----
 # Phase 1 E2E — Breakdown View via Tauri MCP
 
 > Status: **PASS** — full capture → stale → accept-newer → reopen → waive loop verified in the running debug app

@@ -10,6 +10,7 @@
 //! - Actual port written to Tauri's app data directory (platform-specific)
 //! - MCP sidecar uses platform-specific path to find the app data directory
 
+mod coherence_answers;
 pub mod commands;
 mod delivery;
 mod routing;
