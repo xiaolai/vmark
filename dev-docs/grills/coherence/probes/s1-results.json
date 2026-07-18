@@ -1,0 +1,114 @@
+{
+  "probe": "s1-ledger-merge",
+  "generatedAt": "2026-07-18T06:59:11.064Z",
+  "platform": "darwin 25.5.0",
+  "git": "git version 2.50.1 (Apple Git-155)",
+  "summary": {
+    "total": 7,
+    "pass": 7,
+    "fail": 0
+  },
+  "rows": [
+    {
+      "scenario": "A0-control-no-union-attr-conflicts",
+      "expected": "acceptable-for-reader-rules",
+      "observed": "acceptable",
+      "pass": true,
+      "details": {
+        "mergeConflicted": true,
+        "conflictMarkersPresent": true,
+        "note": "Without merge=union the same-segment EOF race is a real conflict — the attribute is load-bearing."
+      }
+    },
+    {
+      "scenario": "A-same-segment-union-merge",
+      "expected": "acceptable-for-reader-rules",
+      "observed": "acceptable",
+      "pass": true,
+      "details": {
+        "mergeExitZero": true,
+        "conflictMarkers": false,
+        "validJsonl": true,
+        "physicalLines": 5,
+        "allEntriesPresent": true,
+        "fileOrderAfterMerge": [
+          "base entry",
+          "a1",
+          "a2",
+          "b1",
+          "b2"
+        ]
+      }
+    },
+    {
+      "scenario": "B-per-writer-segments",
+      "expected": "acceptable-for-reader-rules",
+      "observed": "acceptable",
+      "pass": true,
+      "details": {
+        "mergeExitZero": true,
+        "seg1Lines": 2,
+        "seg2Lines": 2,
+        "logicalEntries": 4
+      }
+    },
+    {
+      "scenario": "C-duplicate-idem-dedupe",
+      "expected": "acceptable-for-reader-rules",
+      "observed": "acceptable",
+      "pass": true,
+      "details": {
+        "mergeExitZero": true,
+        "physicalLines": 3,
+        "physicalDupCopies": 2,
+        "logicalDupCopies": 1,
+        "winnerIsSmallestTimeId": true
+      }
+    },
+    {
+      "scenario": "D-non-chronological-order-independence",
+      "expected": "acceptable-for-reader-rules",
+      "observed": "acceptable",
+      "pass": true,
+      "details": {
+        "mergeExitZero": true,
+        "fileOrderChronological": false,
+        "fileOrderLabels": [
+          "base",
+          "t1",
+          "t3",
+          "t2",
+          "t4"
+        ],
+        "readerDeterministicUnderReadOrder": true,
+        "readerOutputSorted": true
+      }
+    },
+    {
+      "scenario": "E-identical-line-both-branches",
+      "expected": "acceptable-for-reader-rules",
+      "observed": "acceptable",
+      "pass": true,
+      "details": {
+        "mergeExitZero": true,
+        "physicalCopiesAfterMerge": 1,
+        "logicalCopies": 1,
+        "note": "Whether union keeps 1 or 2 physical copies, idem-dedupe must yield exactly 1 logical entry."
+      }
+    },
+    {
+      "scenario": "F-add-add-new-segment-both-branches",
+      "expected": "acceptable-for-reader-rules",
+      "observed": "acceptable",
+      "pass": true,
+      "details": {
+        "mergeExitZero": true,
+        "mergeErr": null,
+        "conflictMarkers": false,
+        "validJsonl": true,
+        "bothEntriesPresent": true,
+        "physicalLines": 2
+      }
+    }
+  ]
+}
