@@ -300,8 +300,23 @@ phase_2() {
     fail "SKIP_TESTS=1 set — WI-2b.2 suites not run"
   fi
 
+  echo "— WI-2b.3: check-result indexing + context-aware projection —"
+  assert_grep "check_results" src-tauri/src/coherence/index.rs "check_results table indexed"
+  assert_grep "breakdown_checked" src-tauri/src/coherence/index_query.rs "context-aware breakdown query"
+  assert_grep "claims_fingerprint = ?4" src-tauri/src/coherence/index_query.rs "D5.6 liveness filter in SQL"
+  assert_grep "breakdown_checked" src-tauri/src/coherence/commands.rs "perform_breakdown binds default-context snapshot"
+  if [[ "${SKIP_TESTS:-}" != "1" ]]; then
+    if cargo test --manifest-path src-tauri/Cargo.toml --lib coherence::index --quiet >/dev/null 2>&1; then
+      ok "WI-2b.3 index suite green"
+    else
+      fail "WI-2b.3 index suite red"
+    fi
+  else
+    fail "SKIP_TESTS=1 set — WI-2b.3 suite not run"
+  fi
+
   # Later WIs append their assertions (and suite runs) here as they land.
-  local PENDING=(2b.3 2b.4 2b.5 2b.6 2b.7 2b.8 2b.9 2b.10)
+  local PENDING=(2b.4 2b.5 2b.6 2b.7 2b.8 2b.9 2b.10)
   echo "— pending WIs (fail-closed until implemented) —"
   for wi in "${PENDING[@]}"; do
     fail "WI-$wi assertions not yet defined (fail-closed)"
