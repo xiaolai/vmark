@@ -90,3 +90,32 @@ fn masking_is_idempotent() {
     let once = mask_identity(doc);
     assert_eq!(mask_identity(&once), once);
 }
+
+#[test]
+fn insert_identity_roundtrips_with_masking() {
+    const ID: &str = "018f3c7a-9f2e-7cc1-b302-5e9d4a6b21c7";
+    for original in [
+        "# Bare document\nno frontmatter\n",
+        "---\ntitle: Scene\n---\nbody\n",
+        "---\ntitle: Scene\nvmark:\n  id: xyz\nno closing fence\n",
+    ] {
+        let inserted = insert_identity(original, ID, Some("scene"));
+        assert!(inserted.contains(&format!("  id: {ID}")));
+        assert!(inserted.contains("  schema: scene"));
+        assert_eq!(mask_identity(&inserted), *original, "mask(insert(x)) == x for {original:?}");
+    }
+}
+
+#[test]
+fn insert_identity_without_schema_omits_the_line() {
+    let inserted = insert_identity("body\n", "018f3c7a-9f2e-7cc1-b302-5e9d4a6b21c7", None);
+    assert!(!inserted.contains("schema:"));
+    assert!(inserted.starts_with("---\nvmark:\n"));
+}
+
+#[test]
+fn insert_identity_preserves_author_frontmatter_bytes() {
+    let original = "---\ntitle: \"Weird:  spacing\"\ntags:\n  - a\n---\nbody\n";
+    let inserted = insert_identity(original, "018f3c7a-9f2e-7cc1-b302-5e9d4a6b21c7", None);
+    assert!(inserted.contains("title: \"Weird:  spacing\"\ntags:\n  - a\n"));
+}

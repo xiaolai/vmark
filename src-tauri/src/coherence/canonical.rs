@@ -100,6 +100,29 @@ pub fn binary_content_hash(bytes: &[u8]) -> ContentHash {
     ContentHash::from_digest(&digest)
 }
 
+/// Inverse of `mask_identity` for materialization (spec §4.2) and first
+/// capture (spec §2.1): insert the reserved `vmark:` block, preserving
+/// author frontmatter byte-for-byte. Appended at the end of an existing
+/// frontmatter block, or a new block is prepended. Malformed frontmatter
+/// (unterminated fence) is content — a fresh block is prepended above it.
+pub fn insert_identity(text: &str, id: &str, schema: Option<&str>) -> String {
+    let vmark_block = match schema {
+        Some(s) => format!("vmark:\n  id: {id}\n  schema: {s}"),
+        None => format!("vmark:\n  id: {id}"),
+    };
+    if let Some(after) = text.strip_prefix("---\n") {
+        if let Some(pos) = after.find("\n---\n") {
+            let fm = &after[..pos];
+            let rest = &after[pos + 5..];
+            return format!("---\n{fm}\n{vmark_block}\n---\n{rest}");
+        }
+        if let Some(fm) = after.strip_suffix("\n---") {
+            return format!("---\n{fm}\n{vmark_block}\n---\n");
+        }
+    }
+    format!("---\n{vmark_block}\n---\n{text}")
+}
+
 /// Spec §3.1/§3.4: invalid UTF-8 means the file is treated as binary.
 pub fn is_probably_binary(bytes: &[u8]) -> bool {
     std::str::from_utf8(bytes).is_err()
