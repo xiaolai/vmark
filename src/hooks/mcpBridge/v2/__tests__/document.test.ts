@@ -450,6 +450,7 @@ describe("vmark.document.write — save-on-write (UX fix for buffered writes)", 
   });
 
   it("registers and clears pending save around writeTextFile to suppress the external-change dialog", async () => {
+    vi.useFakeTimers();
     seedTab("t-pending", "before", "/tmp/notes.md");
     await handleDocumentWrite("req-pending", {
       tabId: "t-pending",
@@ -457,16 +458,19 @@ describe("vmark.document.write — save-on-write (UX fix for buffered writes)", 
     });
 
     expect(registerPendingSaveMock).toHaveBeenCalledWith("/tmp/notes.md", "after");
+    // Audit T9: the clear is DELAYED (same 1000ms window as saveToPath)
+    // so late FSEvents still match this save.
+    expect(clearPendingSaveMock).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1100);
+    vi.useRealTimers();
     expect(clearPendingSaveMock).toHaveBeenCalledWith("/tmp/notes.md", 1);
-    // Ordering: register before write, clear after write.
     const registerOrder = registerPendingSaveMock.mock.invocationCallOrder[0];
     const writeOrder = writeTextFileMock.mock.invocationCallOrder[0];
-    const clearOrder = clearPendingSaveMock.mock.invocationCallOrder[0];
     expect(registerOrder).toBeLessThan(writeOrder);
-    expect(writeOrder).toBeLessThan(clearOrder);
   });
 
   it("clears pending save even when writeTextFile rejects", async () => {
+    vi.useFakeTimers();
     seedTab("t-pending-fail", "before", "/readonly/notes.md");
     writeTextFileMock.mockRejectedValueOnce(new Error("EACCES"));
 
@@ -476,6 +480,8 @@ describe("vmark.document.write — save-on-write (UX fix for buffered writes)", 
     });
 
     expect(registerPendingSaveMock).toHaveBeenCalledWith("/readonly/notes.md", "after");
+    await vi.advanceTimersByTimeAsync(1100);
+    vi.useRealTimers();
     expect(clearPendingSaveMock).toHaveBeenCalledWith("/readonly/notes.md", 1);
   });
 

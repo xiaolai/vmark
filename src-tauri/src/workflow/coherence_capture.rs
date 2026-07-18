@@ -122,6 +122,7 @@ pub fn capture_save_file(
             },
             confidence: Confidence::Exact,
             rewrite_identity: true,
+            idem: None,
         },
     )
     .map(|_| ())

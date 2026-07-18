@@ -65,7 +65,17 @@ impl SnapshotStore {
     fn put_raw(&self, hash: &ContentHash, bytes: &[u8]) -> Result<(), String> {
         let target = self.path_for(hash);
         if target.exists() {
-            return Ok(()); // identical hash = identical content, never rewrite
+            // Verify before trusting (audit R20): a corrupt pre-existing
+            // snapshot must not let capture succeed with a dangling
+            // reference — repair it in place via the same tmp+rename.
+            use sha2::{Digest, Sha256};
+            if let Ok(existing) = fs::read(&target) {
+                let digest: [u8; 32] = Sha256::digest(&existing).into();
+                if &ContentHash::from_digest(&digest) == hash {
+                    return Ok(()); // identical hash = identical content
+                }
+            }
+            // fall through: rewrite the corrupt/unreadable snapshot
         }
         // mkdir -p before EVERY write — git prunes empty dirs (S1 finding).
         let tmp_dir = self.root.join("tmp");

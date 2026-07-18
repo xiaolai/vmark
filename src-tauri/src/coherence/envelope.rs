@@ -66,10 +66,37 @@ impl Envelope {
             "waiver" => TypedBody::Waiver(parse(b)?),
             "object-registered" => TypedBody::ObjectRegistered(parse(b)?),
             "diagnostic" => TypedBody::Diagnostic(parse(b)?),
-            "check-result" | "claim" => TypedBody::Preserved {
-                kind: self.kind.clone(),
-                body: b.clone(),
-            },
+            // Known Phase-2b kinds: preserved, but schema-VALIDATED now so
+            // malformed records quarantine instead of festering (§5.6).
+            "check-result" => {
+                for key in ["edge", "pinned", "checked_against", "verdict"] {
+                    if b.get(key).is_none() {
+                        return Err(format!("check-result missing {key}"));
+                    }
+                }
+                let verdict = b
+                    .get("verdict")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or_default();
+                if !["no-contradiction", "contradiction", "unknown"].contains(&verdict) {
+                    return Err(format!("check-result verdict invalid: {verdict:?}"));
+                }
+                TypedBody::Preserved {
+                    kind: self.kind.clone(),
+                    body: b.clone(),
+                }
+            }
+            "claim" => {
+                for key in ["claim", "statement"] {
+                    if b.get(key).is_none() {
+                        return Err(format!("claim missing {key}"));
+                    }
+                }
+                TypedBody::Preserved {
+                    kind: self.kind.clone(),
+                    body: b.clone(),
+                }
+            }
             _ => TypedBody::Unknown {
                 kind: self.kind.clone(),
                 body: b.clone(),

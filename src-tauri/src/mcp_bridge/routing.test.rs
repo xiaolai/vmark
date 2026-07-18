@@ -155,10 +155,18 @@ fn handle_rust_side_answers_coherence_status() {
 
     let response = handle_rust_side(&request, app.handle()).expect("answered in Rust");
 
-    assert!(response.success, "error: {:?}", response.error);
-    assert_eq!(
-        response.data.expect("status payload")["initialized"],
-        serde_json::json!(false)
+    // Audit C1: arbitrary roots are refused — only workspaces this
+    // installation has opened (config marker present) are queryable. The
+    // success path is covered by the direct answer_coherence tests.
+    assert!(!response.success);
+    assert!(
+        response
+            .error
+            .as_deref()
+            .unwrap_or_default()
+            .contains("not a workspace"),
+        "error: {:?}",
+        response.error
     );
 }
 
@@ -174,8 +182,7 @@ fn handle_rust_side_answers_coherence_edges() {
 
     let response = handle_rust_side(&request, app.handle()).expect("answered in Rust");
 
-    assert!(response.success, "error: {:?}", response.error);
-    assert_eq!(response.data, Some(serde_json::json!([])));
+    assert!(!response.success, "unknown roots are refused (audit C1)");
 }
 
 #[cfg(not(target_os = "windows"))]

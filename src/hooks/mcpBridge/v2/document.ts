@@ -218,9 +218,6 @@ export async function handleDocumentRead(
       return;
     }
     const revision = useRevisionStore.getState().getRevision(resolved.tabId);
-    // Coherence (WI-1.6): reads served to the external agent become the
-    // inferred input set of its next write (spec §7 example 2).
-    if (resolved.filePath) recordMcpRead(resolved.filePath);
     await respond({
       id,
       success: true,
@@ -232,6 +229,9 @@ export async function handleDocumentRead(
         dirty: resolved.dirty,
       },
     });
+    // Coherence (WI-1.6): only a read the client actually RECEIVED joins
+    // the inferred input set of its next write (audit T6).
+    if (resolved.filePath) recordMcpRead(resolved.filePath);
   });
 }
 
@@ -349,7 +349,10 @@ export async function handleDocumentWrite(
             toolName: "document.write",
           }).catch(() => {});
         } finally {
-          clearPendingSave(resolved.filePath, saveToken);
+          // Delayed clear (audit T9): late FSEvents can still match this
+          // save — same 1000ms window as saveToPath.
+          const filePath = resolved.filePath;
+          setTimeout(() => clearPendingSave(filePath, saveToken), 1000);
         }
       } catch (err) {
         saveError = errorMessage(err);

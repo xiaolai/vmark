@@ -38,6 +38,7 @@ fn save(kernel: &mut WorkspaceKernel, rel: &str, content: &str) -> CaptureReceip
             },
             confidence: Confidence::Exact,
             rewrite_identity: true,
+            idem: None,
         },
     )
     .unwrap()
@@ -70,6 +71,7 @@ fn stale_edge(root: &std::path::Path, kernel: &mut WorkspaceKernel) -> (Uuid, u3
             },
             confidence: Confidence::Exact,
             rewrite_identity: true,
+            idem: None,
         },
     )
     .unwrap();
@@ -343,6 +345,7 @@ fn synthetic_dogfood_session_m1() {
                 },
                 confidence: Confidence::Exact,
                 rewrite_identity: true,
+                idem: None,
             },
         )
         .unwrap();
@@ -376,6 +379,7 @@ fn synthetic_dogfood_session_m1() {
             },
             confidence: Confidence::Inferred,
             rewrite_identity: true,
+            idem: None,
         },
     )
     .unwrap();

@@ -4,7 +4,7 @@
 //! and request routing to the frontend.
 
 use super::delivery::{deliver_response, enqueue_client_msg, send_error_response};
-use super::routing::{handle_rust_side, resolve_target_window, wake_webview};
+use super::routing::{answer_rust_side, resolve_target_window, wake_webview};
 use super::state::{
     generate_auth_token, get_bridge_state, get_shutdown_holder, get_write_lock,
     is_read_only_operation, is_webview_alive, remove_port_file, set_webview_alive,
@@ -475,9 +475,9 @@ async fn handle_message<R: tauri::Runtime>(
         );
     }
 
-    // Handle requests that Rust can answer directly (no webview needed).
-    // This prevents timeouts when the webview is suspended by macOS App Nap.
-    if let Some(response) = handle_rust_side(&request, app) {
+    // Handle requests that Rust can answer directly (no webview needed) —
+    // incl. coherence, which runs off-loop with the write lock (WI-1.10).
+    if let Some(response) = answer_rust_side(&request, app).await {
         deliver_response(
             client_id,
             &client_tx,

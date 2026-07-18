@@ -25,6 +25,7 @@ macro_rules! all_commands {
             coherence::commands::coherence_breakdown,
             coherence::commands::coherence_status,
             coherence::commands::coherence_scan,
+            coherence::commands::coherence_head,
             file_open::get_pending_file_opens,
             asset_access::grant_asset_access,
             external_editor::open_in_external_editor,

@@ -12,9 +12,6 @@
  * @module stores/breakdownStore
  */
 import { create } from "zustand";
-import { persist, createJSONStorage } from "zustand/middleware";
-
-import { createSafeStorage } from "@/services/persistence/safeStorage";
 
 /**
  * Serialized edge states the breakdown lists (Rust `state_label`). The
@@ -60,30 +57,22 @@ interface BreakdownState {
   reset: () => void;
 }
 
-export const useBreakdownStore = create<BreakdownState>()(
-  persist(
-    (set) => ({
-      rows: [],
-      panelOpen: false,
-      loading: false,
-      error: null,
-      setRows: (rows) => set({ rows }),
-      setLoading: (loading) => set({ loading }),
-      setError: (error) => set({ error }),
-      togglePanel: () => set((s) => ({ panelOpen: !s.panelOpen })),
-      setPanelOpen: (panelOpen) => set({ panelOpen }),
-      reset: () => set({ rows: [], panelOpen: false, loading: false, error: null }),
-    }),
-    {
-      name: "vmark-breakdown",
-      storage: createJSONStorage(() => createSafeStorage()),
-      // Persist ONLY the panel preference. `rows` is Rust-owned live data
-      // re-fetched on every panel open — persisting it would resurrect a
-      // stale snapshot on reload; loading/error are transient by nature.
-      partialize: (s) => ({ panelOpen: s.panelOpen }),
-    },
-  ),
-);
+// No persistence (audit T17): `rows` is Rust-owned live data; `panelOpen`
+// is per-window ephemeral UI state — a shared storage key would leak
+// open-state across windows, and a pull-based panel has nothing worth
+// resurrecting on reload.
+export const useBreakdownStore = create<BreakdownState>()((set) => ({
+  rows: [],
+  panelOpen: false,
+  loading: false,
+  error: null,
+  setRows: (rows) => set({ rows }),
+  setLoading: (loading) => set({ loading }),
+  setError: (error) => set({ error }),
+  togglePanel: () => set((s) => ({ panelOpen: !s.panelOpen })),
+  setPanelOpen: (panelOpen) => set({ panelOpen }),
+  reset: () => set({ rows: [], panelOpen: false, loading: false, error: null }),
+}));
 
 /* Selectors — components MUST use these (no store destructuring). */
 export const selectRows = (s: BreakdownState): EdgeRow[] => s.rows;

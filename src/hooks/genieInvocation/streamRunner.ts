@@ -146,15 +146,15 @@ function applyDirectly(ctx: RunContext, content: string): void {
   editor.view.dispatch(tr);
   useGeniePickerStore.getState().closePicker();
   useAiInvocationStore.getState().finish();
-  // Fire-and-forget after the store sync settles (dispatch -> onUpdate).
-  setTimeout(() => {
-    void captureAiEdit({
-      tabId: ctx.tabId,
-      intentKind: "genie",
-      summary: "genie auto-apply",
-      bufferWasDirty,
-    }).catch(() => {});
-  }, 0);
+  // Synchronous after dispatch (audit T3): onUpdate has synced the store
+  // and captureAiEdit snapshots at entry — no timer race with a second
+  // apply or tab switch.
+  void captureAiEdit({
+    tabId: ctx.tabId,
+    intentKind: "genie",
+    summary: "genie auto-apply",
+    bufferWasDirty,
+  }).catch(() => {});
 }
 
 /** Terminal done-frame: apply, suggest, or error depending on state. */

@@ -56,7 +56,7 @@ fn head_on_previously_known_sha_is_navigation() {
     let b = obs("main", "s2", &["s1", "s2"], false);
     let a = obs("HEAD", "s1", &["s1", "s2"], false);
     match classify(Some(&b), Some(&a)) {
-        GitClass::Navigation { from, to } => {
+        GitClass::Navigation { op: _, from, to } => {
             assert_eq!(from, "s2");
             assert_eq!(to, "s1");
         }

@@ -44,6 +44,10 @@ pub struct CaptureRequest {
     /// identity reaches the disk with the next real save. Defaults true.
     #[serde(default = "default_rewrite")]
     pub rewrite_identity: bool,
+    /// Spec §5.1: minted once per logical operation by the CALLER and
+    /// carried through retries; absent ⇒ the kernel mints one.
+    #[serde(default)]
+    pub idem: Option<uuid::Uuid>,
 }
 
 fn default_rewrite() -> bool {
@@ -70,7 +74,16 @@ pub fn capture(
     if req.confidence == Confidence::Unknown {
         return Err("confidence=unknown is scan-only (spec §8)".into());
     }
+    // IPC boundary guard (audit R1): reject traversal before any effect.
+    super::paths::resolve_workspace_rel(kernel.root(), &req.path)?;
     kernel.ensure_initialized()?;
+    // Canonical form up front (spec §3.1; audit R14): CRLF content from
+    // external clients parses and hashes identically to LF, and any
+    // identity rewrite writes canonical bytes.
+    let req = CaptureRequest {
+        content: super::canonical::canonicalize_text(&req.content),
+        ..req
+    };
 
     // Identity: read from the content; for identity-less content REUSE the
     // object registered at this path (editor buffers do not carry the
@@ -113,7 +126,7 @@ pub fn capture(
                 None => assign_identity(&req.content, None),
             };
             if req.rewrite_identity {
-                let abs = kernel.root().join(&req.path);
+                let abs = super::paths::resolve_workspace_rel(kernel.root(), &req.path)?;
                 let parent = abs
                     .parent()
                     .ok_or_else(|| format!("output path has no parent: {}", req.path))?
@@ -127,13 +140,22 @@ pub fn capture(
         }
     };
 
+    // Duplicate-ID capture hold (spec §2.1, audit R6): a held object is
+    // read-only for capture until the human resolves the duplicate set.
+    if kernel.index().is_held(&identity.id)? {
+        return Err(format!(
+            "object {} is capture-held: duplicate vmark.id detected — resolve the duplicate files first",
+            identity.id.0
+        ));
+    }
     register_if_needed(kernel, identity.id, &req.path, identity.schema.as_deref())?;
 
     let content_hash = text_content_hash(&content);
     let parents = kernel.index().heads(&identity.id)?;
-    // No-op: identical content at a single current head — never mint
-    // an identical-content child on autosave replays.
-    if let [only] = parents.as_slice() {
+    // No-op: identical content at a single current head AND no inputs —
+    // autosave replays. A capture WITH inputs is a distinct provenance
+    // event even when the content converges (audit R3): its edges matter.
+    if let ([only], true) = (parents.as_slice(), req.inputs.is_empty()) {
         if kernel.index().content_hash_of(&identity.id, only)? == Some(content_hash.clone()) {
             return Ok(CaptureReceipt {
                 object: identity.id,
@@ -163,14 +185,32 @@ pub fn capture(
         intent: req.intent,
         confidence: req.confidence,
     };
-    let env = Envelope::create(
+    let mut env = Envelope::create(
         "transformation",
         kernel.writer(),
         serde_json::to_value(&t).map_err(|e| e.to_string())?,
     );
+    if let Some(idem) = req.idem {
+        env.idem = idem; // caller-minted, stable across retries (spec §5.1)
+    }
     let entry_id = env.id;
     kernel.append_and_apply(&env)?;
     kernel.index_mut().set_absent(&identity.id, false)?;
+    // Buffer-lag bookkeeping (spec §2.3 vs. the live-buffer design): with
+    // rewrite_identity=false the DISK legitimately still holds the parent
+    // content; record those hashes so scan skips exactly that state and
+    // nothing else (A → B → A external edits still mint).
+    if req.rewrite_identity {
+        kernel.index_mut().clear_disk_lag(&identity.id)?;
+    } else {
+        let mut lag = Vec::new();
+        for parent in &t.outputs[0].parents {
+            if let Some(h) = kernel.index().content_hash_of(&identity.id, parent)? {
+                lag.push(h);
+            }
+        }
+        kernel.index_mut().set_disk_lag(&identity.id, &lag)?;
+    }
     Ok(CaptureReceipt {
         object: identity.id,
         revision,

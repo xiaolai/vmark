@@ -67,19 +67,10 @@ describe("breakdownStore", () => {
     expect(selectPanelOpen(s)).toBe(false);
   });
 
-  it("persists panelOpen ONLY — rows/loading/error are session-live data", () => {
-    useBreakdownStore.getState().setRows([row({ txf: "t1" })]);
-    useBreakdownStore.getState().setLoading(true);
-    useBreakdownStore.getState().setError("boom");
+  it("persists nothing — rows are Rust-owned and panelOpen is per-window (audit T17)", () => {
     useBreakdownStore.getState().setPanelOpen(true);
-
-    const raw = localStorage.getItem("vmark-breakdown");
-    expect(raw).toBeTruthy();
-    const parsed = JSON.parse(raw as string);
-    expect(parsed.state).toEqual({ panelOpen: true });
-    expect(parsed.state.rows).toBeUndefined();
-    expect(parsed.state.loading).toBeUndefined();
-    expect(parsed.state.error).toBeUndefined();
+    useBreakdownStore.getState().setRows([]);
+    expect(localStorage.getItem("vmark-breakdown")).toBeNull();
   });
 });
 

@@ -21,11 +21,12 @@ pub fn adopt_from_disk(
     rel_path: &str,
 ) -> Result<(ObjectId, RevisionId), String> {
     kernel.ensure_initialized()?;
-    let abs = kernel.root().join(rel_path);
+    let abs = super::paths::resolve_workspace_rel(kernel.root(), rel_path)?;
     let bytes =
         std::fs::read(&abs).map_err(|e| format!("input file unreadable ({rel_path}): {e}"))?;
     let text = String::from_utf8(bytes)
         .map_err(|_| format!("input file is not UTF-8 text ({rel_path})"))?;
+    let text = super::canonical::canonicalize_text(&text);
     let (content, identity) = match read_identity(&text) {
         Some(fi) => (text, fi),
         None => {
@@ -112,4 +113,39 @@ pub fn register_if_needed(
         json!({ "object": object, "path": path, "schema": schema }),
     );
     kernel.append_and_apply(&env)
+}
+
+/// Git-attributed mutation entry (revert/merge minted new content —
+/// spec §9.4). Lives beside the other entry builders.
+pub(super) fn git_mutation_entry(
+    kernel: &WorkspaceKernel,
+    object: ObjectId,
+    revision: &RevisionId,
+    content_hash: &super::types::ContentHash,
+    parents: Vec<RevisionId>,
+) -> Envelope {
+    let t = Transformation {
+        inputs: vec![],
+        outputs: vec![OutputRef {
+            object,
+            revision: revision.clone(),
+            content_hash: content_hash.clone(),
+            parents,
+        }],
+        agent: Agent {
+            kind: AgentType::Git,
+            id: Some("merge-or-revert".into()),
+        },
+        intent: Intent {
+            kind: "git-mutation".into(),
+            summary: "content minted by a git operation".into(),
+            prompt_hash: None,
+        },
+        confidence: Confidence::Unknown,
+    };
+    Envelope::create(
+        "transformation",
+        kernel.writer(),
+        serde_json::to_value(&t).expect("serializable"),
+    )
 }

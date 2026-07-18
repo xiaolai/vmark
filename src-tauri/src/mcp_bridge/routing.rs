@@ -139,6 +139,21 @@ pub(super) fn handle_rust_side<R: Runtime>(
                     error: Some("coherence state unavailable".to_string()),
                 });
             };
+            // External agents may not point the kernel at arbitrary
+            // filesystem roots (audit C1): only workspaces this
+            // installation has actually opened are queryable.
+            if let Some(root) = request.args.get("workspace_root").and_then(|v| v.as_str()) {
+                if !is_known_workspace(app, root) {
+                    return Some(McpResponse {
+                        success: false,
+                        data: None,
+                        error: Some(
+                            "workspace_root is not a workspace this VMark installation has opened"
+                                .to_string(),
+                        ),
+                    });
+                }
+            }
             Some(answer_coherence(
                 &state,
                 &request.request_type,
@@ -147,6 +162,64 @@ pub(super) fn handle_rust_side<R: Runtime>(
         }
         _ => None,
     }
+}
+
+/// Whether `root` is a workspace this installation has opened (its config
+/// marker exists) — the coherence tool's root allow-list (audit C1).
+fn is_known_workspace<R: Runtime>(app: &tauri::AppHandle<R>, root: &str) -> bool {
+    use tauri::Manager;
+    let Ok(ws_dir) = app.path().app_data_dir().map(|d| d.join("workspaces")) else {
+        return false;
+    };
+    ws_dir
+        .join(format!("{}.json", crate::workspace::hash_root_path(root)))
+        .exists()
+        || ws_dir
+            .join(format!(
+                "{}.json",
+                crate::workspace::legacy_hash_root_path(root)
+            ))
+            .exists()
+}
+
+/// Async dispatch for coherence requests (audit C2/C3/C5): `edges` runs
+/// scan reconciliation, so it takes the bridge WRITE lock (serializing
+/// with document writes) and both actions run on a blocking thread so
+/// the WebSocket receive loop keeps serving other clients.
+/// The server's single Rust-terminal entry: coherence requests take the
+/// off-loop path (write lock for `edges`); everything else stays the
+/// synchronous `handle_rust_side` dispatch.
+pub(super) async fn answer_rust_side<R: Runtime>(
+    request: &McpRequest,
+    app: &tauri::AppHandle<R>,
+) -> Option<McpResponse> {
+    if request.request_type.starts_with("vmark.coherence.") {
+        return Some(answer_coherence_async(request, app).await);
+    }
+    handle_rust_side(request, app)
+}
+
+async fn answer_coherence_async<R: Runtime>(
+    request: &McpRequest,
+    app: &tauri::AppHandle<R>,
+) -> McpResponse {
+    let write_lock = super::state::get_write_lock();
+    let _write_guard = if request.request_type == "vmark.coherence.edges" {
+        Some(write_lock.lock().await)
+    } else {
+        None
+    };
+    let app_clone = app.clone();
+    let request_clone = request.clone();
+    tauri::async_runtime::spawn_blocking(move || handle_rust_side(&request_clone, &app_clone))
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or_else(|| McpResponse {
+            success: false,
+            data: None,
+            error: Some("coherence request failed to execute".to_string()),
+        })
 }
 
 /// Answer a `vmark.coherence.*` read request from the managed kernel state.
@@ -183,6 +256,12 @@ fn answer_coherence_inner(
         "workspace_root (string) is required — the absolute path of the workspace to query",
     )?;
     let root = std::path::Path::new(root);
+    if !root.is_absolute() {
+        return Err(format!(
+            "workspace_root must be an absolute path, got: {}",
+            root.display()
+        ));
+    }
     if !root.is_dir() {
         return Err(format!(
             "workspace_root is not an accessible directory: {}",

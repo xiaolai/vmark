@@ -156,12 +156,34 @@ fn envelope_rejects_future_format_number() {
 
 #[test]
 fn check_result_and_claim_are_preserved_not_parsed() {
-    // Phase 2b kinds: schema fixed in spec, Phase 1 readers preserve them.
-    let env = Envelope::new_test("check-result", json!({ "verdict": "unknown" }));
+    // Phase 2b kinds: schema-validated now (spec §5.6), preserved untouched.
+    let env = Envelope::new_test(
+        "check-result",
+        json!({
+            "edge": { "txf": "018f3c7a-a001-7def-8a3c-1b2c3d4e5f60", "input": 0 },
+            "pinned": REV_ROOT,
+            "checked_against": REV_CHILD,
+            "verdict": "unknown"
+        }),
+    );
     match env.typed().unwrap() {
         TypedBody::Preserved { kind, .. } => assert_eq!(kind, "check-result"),
         other => panic!("expected preserved, got {other:?}"),
     }
+    // Malformed known kinds quarantine instead of festering.
+    assert!(
+        Envelope::new_test("check-result", json!({ "verdict": "maybe" }))
+            .typed()
+            .is_err()
+    );
+    assert!(Envelope::new_test("claim", json!({ "statement": "no id" }))
+        .typed()
+        .is_err());
+    let ok_claim = Envelope::new_test(
+        "claim",
+        json!({ "claim": "018f3c7a-a001-7def-8a3c-1b2c3d4e5f61", "statement": "Elena is Marcus's daughter" }),
+    );
+    assert!(ok_claim.typed().is_ok());
 }
 
 #[test]

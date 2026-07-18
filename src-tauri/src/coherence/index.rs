@@ -14,7 +14,7 @@ use std::path::Path;
 
 use rusqlite::Connection;
 
-use super::types::{Envelope, InputRole, ObjectId, RevisionId, TypedBody};
+use super::types::{Envelope, InputRole, ObjectId, TypedBody};
 
 const SCHEMA_VERSION: i32 = 1;
 
@@ -25,6 +25,12 @@ CREATE TABLE IF NOT EXISTS revisions (
   PRIMARY KEY (object, revision)
 ) WITHOUT ROWID;
 CREATE TABLE IF NOT EXISTS absent (object TEXT PRIMARY KEY) WITHOUT ROWID;
+CREATE TABLE IF NOT EXISTS held (object TEXT PRIMARY KEY) WITHOUT ROWID;
+CREATE TABLE IF NOT EXISTS disk_lag (
+  object TEXT NOT NULL, content_hash TEXT NOT NULL,
+  PRIMARY KEY (object, content_hash)
+) WITHOUT ROWID;
+CREATE INDEX IF NOT EXISTS revisions_by_content ON revisions (object, content_hash);
 CREATE TABLE IF NOT EXISTS edges (
   txf TEXT NOT NULL, input_idx INTEGER NOT NULL,
   upstream TEXT NOT NULL, pinned TEXT NOT NULL,
@@ -178,8 +184,13 @@ impl CoherenceIndex {
         tx.commit().map_err(|e| e.to_string())
     }
 
-    /// Full rebuild from a ledger read (R16 path).
+    /// Full rebuild from a ledger read (R16 path). Crash-safe: the schema
+    /// version is zeroed for the duration, so an interrupted rebuild
+    /// reopens as needs_rebuild instead of masquerading as complete.
     pub fn rebuild_from(&mut self, entries: &[Envelope]) -> Result<(), String> {
+        self.conn
+            .pragma_update(None, "user_version", 0)
+            .map_err(|e| e.to_string())?;
         for table in [
             "revisions",
             "edges",
@@ -195,43 +206,23 @@ impl CoherenceIndex {
         for e in entries {
             self.apply_entry(e)?;
         }
+        self.conn
+            .pragma_update(None, "user_version", SCHEMA_VERSION)
+            .map_err(|e| e.to_string())?;
         Ok(())
     }
 
-    /// Mark/unmark an object absent (file deleted; spec §9.4). Scan-owned
-    /// derived state — no ledger entry, history stays intact.
-    pub fn set_absent(&mut self, object: &ObjectId, absent: bool) -> Result<(), String> {
-        let sql = if absent {
-            "INSERT OR IGNORE INTO absent (object) VALUES (?1)"
+    /// Capture hold for duplicate-ID sets (spec §2.1). Scan-owned.
+    pub fn set_held(&mut self, object: &ObjectId, held: bool) -> Result<(), String> {
+        let sql = if held {
+            "INSERT OR IGNORE INTO held (object) VALUES (?1)"
         } else {
-            "DELETE FROM absent WHERE object = ?1"
+            "DELETE FROM held WHERE object = ?1"
         };
         self.conn
             .execute(sql, [object.0.to_string()])
             .map_err(|e| e.to_string())?;
         Ok(())
-    }
-
-    /// Content hash of a specific revision (scan compares disk vs head).
-    pub fn content_hash_of(
-        &self,
-        object: &ObjectId,
-        revision: &RevisionId,
-    ) -> Result<Option<super::types::ContentHash>, String> {
-        let hash: Option<String> = self
-            .conn
-            .query_row(
-                "SELECT content_hash FROM revisions WHERE object = ?1 AND revision = ?2",
-                rusqlite::params![object.0.to_string(), revision.as_str()],
-                |r| r.get(0),
-            )
-            .map(Some)
-            .or_else(|e| match e {
-                rusqlite::Error::QueryReturnedNoRows => Ok(None),
-                other => Err(other.to_string()),
-            })?;
-        hash.map(|h| super::types::ContentHash::parse(&h))
-            .transpose()
     }
 }
 

@@ -8,7 +8,8 @@
 use super::*;
 use crate::coherence::capture::{capture, CaptureRequest};
 use crate::coherence::state::WorkspaceKernel;
-use crate::coherence::types::{Confidence, Intent, WriterId};
+use crate::coherence::types::{Agent, AgentType, Confidence, Intent, WriterId};
+use std::path::Path;
 
 fn workspace() -> (tempfile::TempDir, WorkspaceKernel) {
     let dir = tempfile::tempdir().unwrap();
@@ -41,6 +42,7 @@ fn captured_doc(kernel: &mut WorkspaceKernel, root: &Path, rel: &str, body: &str
             },
             confidence: Confidence::Exact,
             rewrite_identity: true,
+            idem: None,
         },
     )
     .unwrap();
@@ -124,6 +126,7 @@ fn delete_marks_absent_and_restore_revives() {
             },
             confidence: Confidence::Exact,
             rewrite_identity: true,
+            idem: None,
         },
     )
     .unwrap();
@@ -288,6 +291,7 @@ fn git_navigation_never_mints_revisions() {
             },
             confidence: Confidence::Exact,
             rewrite_identity: true,
+            idem: None,
         },
     )
     .unwrap();
@@ -340,6 +344,7 @@ fn git_revert_is_captured_as_git_mutation() {
             },
             confidence: Confidence::Exact,
             rewrite_identity: true,
+            idem: None,
         },
     )
     .unwrap();
@@ -349,9 +354,137 @@ fn git_revert_is_captured_as_git_mutation() {
 
     run_git(root, &["revert", "--no-edit", "HEAD"]);
     let report = scan_workspace(&mut kernel).unwrap();
-    // Revert restores v1 content — which IS a known revision, so content
-    // matching applies and nothing is minted; the git mutation class only
-    // mints when the revert produces genuinely new content. Verify no
-    // false external edit either way:
+    // Spec §9.4 (audit R5/A22): a revert is a MUTATION — even when it
+    // restores historical content, a NEW git-attributed revision is
+    // minted with the current head as parent (A → B → A ≠ A).
     assert_eq!(report.external_edits, 0);
+    assert_eq!(report.git_mutations, 1);
+}
+
+#[test]
+fn external_a_b_a_edit_mints_a_new_revision() {
+    // Spec §2.3 / audit R5: recreating old content by hand is NEW history
+    // (same content hash, different parents) — never silently absorbed.
+    let (dir, mut kernel) = workspace();
+    let v1 = captured_doc(&mut kernel, dir.path(), "a.md", "alpha\n");
+    let v2 = v1.replace("alpha", "beta");
+    write_file(dir.path(), "a.md", &v2);
+    scan_workspace(&mut kernel).unwrap();
+    // vim-style revert back to the exact v1 content:
+    write_file(dir.path(), "a.md", &v1);
+    let report = scan_workspace(&mut kernel).unwrap();
+    assert_eq!(report.external_edits, 1, "A->B->A mints, not absorbs");
+    // The object now has a LINEAR 3-revision history (v1, v2, v1-again).
+    let registry = kernel.index().registry_state().unwrap();
+    let object = *registry.object_at.get("a.md").unwrap();
+    assert_eq!(kernel.index().heads(&object).unwrap().len(), 1, "no fork");
+}
+
+#[test]
+fn duplicate_ids_capture_hold_and_release() {
+    // Spec §2.1: duplicates hold capture; resolving the set releases it.
+    let (dir, mut kernel) = workspace();
+    let with_id = captured_doc(&mut kernel, dir.path(), "a.md", "original\n");
+    write_file(dir.path(), "z-copy.md", &with_id);
+    scan_workspace(&mut kernel).unwrap();
+    let registry = kernel.index().registry_state().unwrap();
+    let object = *registry.object_at.get("a.md").unwrap();
+    assert!(
+        kernel.index().is_held(&object).unwrap(),
+        "held while duplicated"
+    );
+    let err = capture(
+        &mut kernel,
+        CaptureRequest {
+            path: "a.md".into(),
+            content: with_id.replace("original", "edited"),
+            inputs: vec![],
+            agent: Agent {
+                kind: AgentType::Human,
+                id: None,
+            },
+            intent: Intent {
+                kind: "editor-save".into(),
+                summary: "save".into(),
+                prompt_hash: None,
+            },
+            confidence: Confidence::Exact,
+            rewrite_identity: true,
+            idem: None,
+        },
+    )
+    .unwrap_err();
+    assert!(err.contains("capture-held"), "{err}");
+    // Resolve the duplicate: delete the copy; the next scan releases.
+    std::fs::remove_file(dir.path().join("z-copy.md")).unwrap();
+    scan_workspace(&mut kernel).unwrap();
+    assert!(
+        !kernel.index().is_held(&object).unwrap(),
+        "released after resolution"
+    );
+}
+
+#[test]
+fn capture_rejects_traversal_paths() {
+    // Audit R1: the IPC boundary guard.
+    let (_dir, mut kernel) = workspace();
+    for bad in ["../outside.md", "/etc/passwd", "a\\b.md"] {
+        let err = capture(
+            &mut kernel,
+            CaptureRequest {
+                path: (*bad).into(),
+                content: "x\n".into(),
+                inputs: vec![],
+                agent: Agent {
+                    kind: AgentType::Human,
+                    id: None,
+                },
+                intent: Intent {
+                    kind: "editor-save".into(),
+                    summary: "save".into(),
+                    prompt_hash: None,
+                },
+                confidence: Confidence::Exact,
+                rewrite_identity: true,
+                idem: None,
+            },
+        );
+        assert!(err.is_err(), "{bad:?} must be rejected");
+    }
+}
+
+#[test]
+fn crlf_content_parses_and_hashes_like_lf() {
+    // Audit R14c: CRLF from external clients must not duplicate identity
+    // blocks or fork hashes.
+    let (dir, mut kernel) = workspace();
+    let lf = captured_doc(&mut kernel, dir.path(), "a.md", "line one\nline two\n");
+    // Re-save the identity-bearing content with CRLF endings:
+    let crlf = lf.replace('\n', "\r\n");
+    write_file(dir.path(), "a.md", &crlf);
+    let receipt = capture(
+        &mut kernel,
+        CaptureRequest {
+            path: "a.md".into(),
+            content: crlf,
+            inputs: vec![],
+            agent: Agent {
+                kind: AgentType::Human,
+                id: None,
+            },
+            intent: Intent {
+                kind: "editor-save".into(),
+                summary: "save".into(),
+                prompt_hash: None,
+            },
+            confidence: Confidence::Exact,
+            rewrite_identity: true,
+            idem: None,
+        },
+    )
+    .unwrap();
+    assert!(
+        receipt.entry_id.is_none(),
+        "same canonical content = no-op, no fork"
+    );
 }

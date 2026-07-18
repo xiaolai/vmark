@@ -106,19 +106,36 @@ pub fn binary_content_hash(bytes: &[u8]) -> ContentHash {
 /// frontmatter block, or a new block is prepended. Malformed frontmatter
 /// (unterminated fence) is content — a fresh block is prepended above it.
 pub fn insert_identity(text: &str, id: &str, schema: Option<&str>) -> String {
-    let vmark_block = match schema {
-        Some(s) => format!("vmark:\n  id: {id}\n  schema: {s}"),
-        None => format!("vmark:\n  id: {id}"),
+    let reserved = match schema {
+        Some(s) => format!("  id: {id}\n  schema: {s}"),
+        None => format!("  id: {id}"),
     };
+    let vmark_block = format!("vmark:\n{reserved}");
     if let Some(after) = text.strip_prefix("---\n") {
-        if let Some(pos) = after.find("\n---\n") {
-            let fm = &after[..pos];
-            let rest = &after[pos + 5..];
-            return format!("---\n{fm}\n{vmark_block}\n---\n{rest}");
+        let (fm, rest) = if let Some(pos) = after.find("\n---\n") {
+            (&after[..pos], &after[pos + 5..])
+        } else if let Some(fm) = after.strip_suffix("\n---") {
+            (fm, "")
+        } else {
+            // Unterminated fence: content — prepend a fresh block above.
+            return format!("---\n{vmark_block}\n---\n{text}");
+        };
+        // Merge into an EXISTING vmark mapping (it may carry unknown
+        // children masking preserved) — a second mapping would shadow the
+        // identity from read_identity (audit R14).
+        if let Some(existing_pos) = fm.split('\n').position(|line| line.trim_end() == "vmark:") {
+            let lines: Vec<&str> = fm.split('\n').collect();
+            let mut rebuilt: Vec<String> = Vec::with_capacity(lines.len() + 2);
+            for (i, line) in lines.iter().enumerate() {
+                rebuilt.push((*line).to_string());
+                if i == existing_pos {
+                    rebuilt.push(reserved.clone());
+                }
+            }
+            let fm2 = rebuilt.join("\n");
+            return format!("---\n{fm2}\n---\n{rest}");
         }
-        if let Some(fm) = after.strip_suffix("\n---") {
-            return format!("---\n{fm}\n{vmark_block}\n---\n");
-        }
+        return format!("---\n{fm}\n{vmark_block}\n---\n{rest}");
     }
     format!("---\n{vmark_block}\n---\n{text}")
 }
