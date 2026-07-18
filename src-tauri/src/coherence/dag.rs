@@ -19,16 +19,27 @@ pub struct RevisionDag {
 impl RevisionDag {
     /// Record one output revision. Idempotent — replaying the same ledger
     /// entry changes nothing (spec §5.1 replays are harmless).
-    pub fn record_output(&mut self, object: ObjectId, revision: RevisionId, parents: Vec<RevisionId>) {
+    pub fn record_output(
+        &mut self,
+        object: ObjectId,
+        revision: RevisionId,
+        parents: Vec<RevisionId>,
+    ) {
         let nh = self.non_heads.entry(object).or_default();
         for p in &parents {
             nh.insert(p.clone());
         }
-        self.parents.entry(object).or_default().entry(revision).or_insert(parents);
+        self.parents
+            .entry(object)
+            .or_default()
+            .entry(revision)
+            .or_insert(parents);
     }
 
     pub fn contains(&self, object: &ObjectId, revision: &RevisionId) -> bool {
-        self.parents.get(object).is_some_and(|m| m.contains_key(revision))
+        self.parents
+            .get(object)
+            .is_some_and(|m| m.contains_key(revision))
     }
 
     pub fn revision_count(&self, object: &ObjectId) -> usize {
@@ -43,8 +54,11 @@ impl RevisionDag {
         };
         let empty = HashSet::new();
         let non_heads = self.non_heads.get(object).unwrap_or(&empty);
-        let mut heads: Vec<RevisionId> =
-            revs.keys().filter(|r| !non_heads.contains(*r)).cloned().collect();
+        let mut heads: Vec<RevisionId> = revs
+            .keys()
+            .filter(|r| !non_heads.contains(*r))
+            .cloned()
+            .collect();
         heads.sort();
         heads
     }
@@ -52,7 +66,12 @@ impl RevisionDag {
     /// Strict ancestry: BFS from `descendant` along parent links. A
     /// revision is not its own ancestor. Bounded by the object's revision
     /// count (spec §9.3).
-    pub fn is_ancestor(&self, object: &ObjectId, ancestor: &RevisionId, descendant: &RevisionId) -> bool {
+    pub fn is_ancestor(
+        &self,
+        object: &ObjectId,
+        ancestor: &RevisionId,
+        descendant: &RevisionId,
+    ) -> bool {
         if ancestor == descendant {
             return false;
         }

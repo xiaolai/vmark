@@ -32,12 +32,17 @@ struct World {
 fn world() -> World {
     let mut dag = RevisionDag::default();
     let up0 = rev(0, &[]);
-    let up1 = rev(1, &[up0.clone()]);
+    let up1 = rev(1, std::slice::from_ref(&up0));
     dag.record_output(oid(UP), up0.clone(), vec![]);
     dag.record_output(oid(UP), up1.clone(), vec![up0.clone()]);
     let down0 = rev(10, &[]);
     dag.record_output(oid(DOWN), down0.clone(), vec![]);
-    World { dag, up0, up1, down0 }
+    World {
+        dag,
+        up0,
+        up1,
+        down0,
+    }
 }
 
 fn edge(w: &World, pinned: &RevisionId) -> OriginEdge {
@@ -78,7 +83,7 @@ fn project(
 fn superseded_downstream_edge_is_not_live() {
     let mut w = world();
     // Downstream advances: the old edge retires (revise resolves this way).
-    let down1 = rev(11, &[w.down0.clone()]);
+    let down1 = rev(11, std::slice::from_ref(&w.down0));
     w.dag.record_output(oid(DOWN), down1, vec![w.down0.clone()]);
     let e = edge(&w, &w.up0);
     assert_eq!(project(&w, &e, &ContextView::all_live(), &[], &[]), None);
@@ -98,7 +103,10 @@ fn pin_equal_to_selection_is_fresh() {
     let e = edge(&w, &w.up1); // pinned at current head
     assert_eq!(
         project(&w, &e, &ContextView::all_live(), &[], &[]),
-        Some(EdgeState::Fresh { ratified: false, ahead: false })
+        Some(EdgeState::Fresh {
+            ratified: false,
+            ahead: false
+        })
     );
 }
 
@@ -106,17 +114,28 @@ fn pin_equal_to_selection_is_fresh() {
 fn upstream_advance_makes_version_stale() {
     let w = world();
     let e = edge(&w, &w.up0); // world moved to up1
-    assert_eq!(project(&w, &e, &ContextView::all_live(), &[], &[]), Some(EdgeState::VersionStale));
+    assert_eq!(
+        project(&w, &e, &ContextView::all_live(), &[], &[]),
+        Some(EdgeState::VersionStale)
+    );
 }
 
 #[test]
 fn ratification_against_selection_is_fresh_ratified() {
     let w = world();
     let e = edge(&w, &w.up0);
-    let r = resolution(ResolutionKind::Ratification, &w.up1, "2026-07-18T10:00:00Z", 1);
+    let r = resolution(
+        ResolutionKind::Ratification,
+        &w.up1,
+        "2026-07-18T10:00:00Z",
+        1,
+    );
     assert_eq!(
         project(&w, &e, &ContextView::all_live(), &[r], &[]),
-        Some(EdgeState::Fresh { ratified: true, ahead: false })
+        Some(EdgeState::Fresh {
+            ratified: true,
+            ahead: false
+        })
     );
 }
 
@@ -124,9 +143,17 @@ fn ratification_against_selection_is_fresh_ratified() {
 fn latest_resolution_wins_waiver_supersedes_ratification() {
     let w = world();
     let e = edge(&w, &w.up0);
-    let older = resolution(ResolutionKind::Ratification, &w.up1, "2026-07-18T10:00:00Z", 1);
+    let older = resolution(
+        ResolutionKind::Ratification,
+        &w.up1,
+        "2026-07-18T10:00:00Z",
+        1,
+    );
     let newer = resolution(ResolutionKind::Waiver, &w.up1, "2026-07-18T11:00:00Z", 2);
-    assert_eq!(project(&w, &e, &ContextView::all_live(), &[older, newer], &[]), Some(EdgeState::Waived));
+    assert_eq!(
+        project(&w, &e, &ContextView::all_live(), &[older, newer], &[]),
+        Some(EdgeState::Waived)
+    );
 }
 
 #[test]
@@ -135,7 +162,10 @@ fn expired_waiver_reverts_to_version_stale() {
     let e = edge(&w, &w.up0);
     let mut waiver = resolution(ResolutionKind::Waiver, &w.up1, "2026-07-18T10:00:00Z", 1);
     waiver.expires = Some("2026-07-18T11:00:00Z".to_string()); // before NOW
-    assert_eq!(project(&w, &e, &ContextView::all_live(), &[waiver], &[]), Some(EdgeState::VersionStale));
+    assert_eq!(
+        project(&w, &e, &ContextView::all_live(), &[waiver], &[]),
+        Some(EdgeState::VersionStale)
+    );
 }
 
 #[test]
@@ -143,29 +173,41 @@ fn upstream_advance_past_resolution_reopens_the_edge() {
     let mut w = world();
     let e = edge(&w, &w.up0);
     // Ratified against up1, then upstream advances to up2.
-    let r = resolution(ResolutionKind::Ratification, &w.up1, "2026-07-18T10:00:00Z", 1);
-    let up2 = rev(2, &[w.up1.clone()]);
+    let r = resolution(
+        ResolutionKind::Ratification,
+        &w.up1,
+        "2026-07-18T10:00:00Z",
+        1,
+    );
+    let up2 = rev(2, std::slice::from_ref(&w.up1));
     w.dag.record_output(oid(UP), up2, vec![w.up1.clone()]);
-    assert_eq!(project(&w, &e, &ContextView::all_live(), &[r], &[]), Some(EdgeState::VersionStale));
+    assert_eq!(
+        project(&w, &e, &ContextView::all_live(), &[r], &[]),
+        Some(EdgeState::VersionStale)
+    );
 }
 
 #[test]
 fn incomparable_pin_and_selection_is_diverged_single() {
     let mut w = world();
     // Fork the upstream from up0: fork is incomparable with up1.
-    let fork = rev(9, &[w.up0.clone()]);
-    w.dag.record_output(oid(UP), fork.clone(), vec![w.up0.clone()]);
+    let fork = rev(9, std::slice::from_ref(&w.up0));
+    w.dag
+        .record_output(oid(UP), fork.clone(), vec![w.up0.clone()]);
     // Pin the CONTEXT to up1 so selection is defined while the edge pinned the fork.
     let mut ctx = ContextView::all_live();
     ctx.pin(oid(UP), w.up1.clone());
     let e = edge(&w, &fork);
-    assert_eq!(project(&w, &e, &ctx, &[], &[]), Some(EdgeState::Diverged { multi_head: false }));
+    assert_eq!(
+        project(&w, &e, &ctx, &[], &[]),
+        Some(EdgeState::Diverged { multi_head: false })
+    );
 }
 
 #[test]
 fn multi_head_live_upstream_is_diverged_multi_head() {
     let mut w = world();
-    let fork = rev(9, &[w.up0.clone()]);
+    let fork = rev(9, std::slice::from_ref(&w.up0));
     w.dag.record_output(oid(UP), fork, vec![w.up0.clone()]);
     let e = edge(&w, &w.up0);
     assert_eq!(
@@ -182,7 +224,10 @@ fn pin_newer_than_selection_is_fresh_ahead() {
     let e = edge(&w, &w.up1); // edge was built against the newer revision
     assert_eq!(
         project(&w, &e, &ctx, &[], &[]),
-        Some(EdgeState::Fresh { ratified: false, ahead: true })
+        Some(EdgeState::Fresh {
+            ratified: false,
+            ahead: true
+        })
     );
 }
 
@@ -203,7 +248,10 @@ fn check_verdicts_map_to_axis_two_states() {
         (CheckVerdict::Unknown, EdgeState::StaleUnknown),
     ] {
         let c = mk(verdict, "2026-07-18T10:00:00Z", 1);
-        assert_eq!(project(&w, &e, &ContextView::all_live(), &[], &[c]), Some(expected));
+        assert_eq!(
+            project(&w, &e, &ContextView::all_live(), &[], &[c]),
+            Some(expected)
+        );
     }
     // Expired check (endpoints moved): checked_against no longer the selection.
     let stale_check = EdgeCheck {
@@ -213,7 +261,10 @@ fn check_verdicts_map_to_axis_two_states() {
         time: "2026-07-18T10:00:00Z".to_string(),
         id: uuid::Uuid::from_u128(9),
     };
-    assert_eq!(project(&w, &e, &ContextView::all_live(), &[], &[stale_check]), Some(EdgeState::VersionStale));
+    assert_eq!(
+        project(&w, &e, &ContextView::all_live(), &[], &[stale_check]),
+        Some(EdgeState::VersionStale)
+    );
 }
 
 #[test]
@@ -234,6 +285,9 @@ fn edge_on_one_of_multiple_downstream_heads_stays_live() {
     let e = edge(&w, &w.up1);
     assert_eq!(
         project(&w, &e, &ContextView::all_live(), &[], &[]),
-        Some(EdgeState::Fresh { ratified: false, ahead: false })
+        Some(EdgeState::Fresh {
+            ratified: false,
+            ahead: false
+        })
     );
 }

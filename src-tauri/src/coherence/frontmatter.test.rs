@@ -49,7 +49,10 @@ fn assign_identity_inserts_and_roundtrips() {
     assert_eq!(read.schema.as_deref(), Some("scene"));
     // Assignment must not move the content hash (spec §3.3).
     use crate::coherence::canonical::text_content_hash;
-    assert_eq!(text_content_hash(&content), text_content_hash("# Fresh\nbody\n"));
+    assert_eq!(
+        text_content_hash(&content),
+        text_content_hash("# Fresh\nbody\n")
+    );
 }
 
 #[test]

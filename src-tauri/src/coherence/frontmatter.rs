@@ -22,10 +22,8 @@ pub fn read_identity(text: &str) -> Option<FileIdentity> {
     let after = text.strip_prefix("---\n")?;
     let fm = if let Some(pos) = after.find("\n---\n") {
         &after[..pos]
-    } else if let Some(stripped) = after.strip_suffix("\n---") {
-        stripped
     } else {
-        return None;
+        after.strip_suffix("\n---")?
     };
     let lines: Vec<&str> = fm.split('\n').collect();
     let mut i = 0;
@@ -46,7 +44,10 @@ pub fn read_identity(text: &str) -> Option<FileIdentity> {
                 }
                 j += 1;
             }
-            return id.map(|id| FileIdentity { id: ObjectId(id), schema });
+            return id.map(|id| FileIdentity {
+                id: ObjectId(id),
+                schema,
+            });
         }
         i += 1;
     }
@@ -59,7 +60,13 @@ pub fn read_identity(text: &str) -> Option<FileIdentity> {
 pub fn assign_identity(text: &str, schema: Option<&str>) -> (String, FileIdentity) {
     let id = Uuid::now_v7();
     let content = insert_identity(text, &id.to_string(), schema);
-    (content, FileIdentity { id: ObjectId(id), schema: schema.map(str::to_string) })
+    (
+        content,
+        FileIdentity {
+            id: ObjectId(id),
+            schema: schema.map(str::to_string),
+        },
+    )
 }
 
 #[cfg(test)]

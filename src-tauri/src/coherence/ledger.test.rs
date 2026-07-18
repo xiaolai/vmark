@@ -48,9 +48,13 @@ fn append_recreates_pruned_directory() {
     let dir = tmp();
     let ledger_dir = dir.path().join("ledger");
     let ledger = Ledger::new(ledger_dir.clone(), writer(1));
-    ledger.append(&Envelope::create("diagnostic", writer(1), diag("a"))).unwrap();
+    ledger
+        .append(&Envelope::create("diagnostic", writer(1), diag("a")))
+        .unwrap();
     std::fs::remove_dir_all(&ledger_dir).unwrap();
-    ledger.append(&Envelope::create("diagnostic", writer(1), diag("b"))).unwrap();
+    ledger
+        .append(&Envelope::create("diagnostic", writer(1), diag("b")))
+        .unwrap();
     assert_eq!(ledger.read_all().unwrap().entries.len(), 1); // first was deleted with the dir
 }
 
@@ -58,7 +62,9 @@ fn append_recreates_pruned_directory() {
 fn torn_tail_is_terminated_then_quarantined_and_next_append_is_clean() {
     let dir = tmp();
     let ledger = Ledger::new(dir.path().join("ledger"), writer(1));
-    ledger.append(&Envelope::create("diagnostic", writer(1), diag("a"))).unwrap();
+    ledger
+        .append(&Envelope::create("diagnostic", writer(1), diag("a")))
+        .unwrap();
     // Simulate a crash mid-append: torn fragment, no trailing newline.
     let seg = ledger.active_segment_path_for_test();
     use std::io::Write;
@@ -66,7 +72,9 @@ fn torn_tail_is_terminated_then_quarantined_and_next_append_is_clean() {
     f.write_all(b"{\"format\":0,\"id\":\"torn").unwrap();
     drop(f);
     // Writer terminates the tail before its next append (G1 finding).
-    ledger.append(&Envelope::create("diagnostic", writer(1), diag("b"))).unwrap();
+    ledger
+        .append(&Envelope::create("diagnostic", writer(1), diag("b")))
+        .unwrap();
     let read = ledger.read_all().unwrap();
     assert_eq!(read.entries.len(), 2, "both real entries survive");
     assert_eq!(read.quarantined.len(), 1, "torn fragment quarantined");
@@ -99,8 +107,12 @@ fn distinct_idems_with_identical_bodies_are_two_events() {
     // events (Codex D1#2) — distinct idem, no collapse.
     let dir = tmp();
     let ledger = Ledger::new(dir.path().join("ledger"), writer(1));
-    ledger.append(&entry(writer(1), "2026-07-18T10:00:00Z", "same")).unwrap();
-    ledger.append(&entry(writer(1), "2026-07-18T10:00:01Z", "same")).unwrap();
+    ledger
+        .append(&entry(writer(1), "2026-07-18T10:00:00Z", "same"))
+        .unwrap();
+    ledger
+        .append(&entry(writer(1), "2026-07-18T10:00:01Z", "same"))
+        .unwrap();
     assert_eq!(ledger.read_all().unwrap().entries.len(), 2);
 }
 
@@ -111,18 +123,30 @@ fn segments_merge_order_independently() {
     let a = Ledger::new(ledger_dir.clone(), writer(1));
     let b = Ledger::new(ledger_dir.clone(), writer(2));
     // Writer B's entry is chronologically FIRST but appended after A's.
-    a.append(&entry(writer(1), "2026-07-18T11:00:00Z", "second")).unwrap();
-    b.append(&entry(writer(2), "2026-07-18T10:00:00Z", "first")).unwrap();
+    a.append(&entry(writer(1), "2026-07-18T11:00:00Z", "second"))
+        .unwrap();
+    b.append(&entry(writer(2), "2026-07-18T10:00:00Z", "first"))
+        .unwrap();
     let read = a.read_all().unwrap();
     assert_eq!(read.entries.len(), 2);
-    assert_eq!(read.entries[0].writer, writer(2), "sorted by (time,id), not file order");
+    assert_eq!(
+        read.entries[0].writer,
+        writer(2),
+        "sorted by (time,id), not file order"
+    );
 }
 
 #[test]
 fn unknown_kind_is_preserved_not_quarantined() {
     let dir = tmp();
     let ledger = Ledger::new(dir.path().join("ledger"), writer(1));
-    ledger.append(&Envelope::create("hologram-sync", writer(1), json!({ "x": 1 }))).unwrap();
+    ledger
+        .append(&Envelope::create(
+            "hologram-sync",
+            writer(1),
+            json!({ "x": 1 }),
+        ))
+        .unwrap();
     let read = ledger.read_all().unwrap();
     assert_eq!(read.entries.len(), 1);
     assert!(read.quarantined.is_empty());
@@ -133,7 +157,13 @@ fn malformed_known_kind_and_garbage_json_are_quarantined() {
     let dir = tmp();
     let ledger = Ledger::new(dir.path().join("ledger"), writer(1));
     // transformation with no outputs = malformed known kind
-    ledger.append(&Envelope::create("transformation", writer(1), json!({ "inputs": [] }))).unwrap();
+    ledger
+        .append(&Envelope::create(
+            "transformation",
+            writer(1),
+            json!({ "inputs": [] }),
+        ))
+        .unwrap();
     // raw garbage line injected directly
     let seg = ledger.active_segment_path_for_test();
     use std::io::Write;
@@ -155,9 +185,16 @@ fn quarantine_copy_is_not_duplicated_across_reads() {
     std::fs::write(&seg, b"garbage line\n").unwrap();
     ledger.read_all().unwrap();
     ledger.read_all().unwrap();
-    let bad = seg_dir.join("quarantine").join(format!("{}.bad", seg.file_name().unwrap().to_string_lossy()));
+    let bad = seg_dir.join("quarantine").join(format!(
+        "{}.bad",
+        seg.file_name().unwrap().to_string_lossy()
+    ));
     let content = std::fs::read_to_string(&bad).unwrap();
-    assert_eq!(content.matches("garbage line").count(), 1, "one copy despite two reads");
+    assert_eq!(
+        content.matches("garbage line").count(),
+        1,
+        "one copy despite two reads"
+    );
 }
 
 #[test]
@@ -171,7 +208,10 @@ fn future_format_entries_are_skipped_not_quarantined() {
     ledger.append(&e).unwrap();
     let read = ledger.read_all().unwrap();
     assert!(read.entries.is_empty());
-    assert!(read.quarantined.is_empty(), "future entries are not corruption");
+    assert!(
+        read.quarantined.is_empty(),
+        "future entries are not corruption"
+    );
     assert_eq!(read.future_format, 1);
 }
 
@@ -180,14 +220,23 @@ fn rotation_starts_new_segment_and_reader_merges_all() {
     let dir = tmp();
     let ledger = Ledger::with_max_segment_bytes(dir.path().join("ledger"), writer(1), 256);
     for i in 0..10 {
-        ledger.append(&entry(writer(1), &format!("2026-07-18T10:00:{i:02}Z", ), &format!("e{i}"))).unwrap();
+        ledger
+            .append(&entry(
+                writer(1),
+                &format!("2026-07-18T10:00:{i:02}Z",),
+                &format!("e{i}"),
+            ))
+            .unwrap();
     }
     let segments: Vec<_> = std::fs::read_dir(dir.path().join("ledger"))
         .unwrap()
         .filter_map(|e| e.ok())
         .filter(|e| e.path().extension().is_some_and(|x| x == "jsonl"))
         .collect();
-    assert!(segments.len() > 1, "rotation must have produced multiple segments");
+    assert!(
+        segments.len() > 1,
+        "rotation must have produced multiple segments"
+    );
     assert_eq!(ledger.read_all().unwrap().entries.len(), 10);
 }
 
@@ -197,7 +246,11 @@ fn unavailable_quarantine_does_not_fail_the_read() {
     let ledger_dir = dir.path().join("ledger");
     let ledger = Ledger::new(ledger_dir.clone(), writer(1));
     std::fs::create_dir_all(&ledger_dir).unwrap();
-    std::fs::write(ledger_dir.join(format!("{}.jsonl", writer_file_stem(&writer(1)))), b"garbage\n").unwrap();
+    std::fs::write(
+        ledger_dir.join(format!("{}.jsonl", writer_file_stem(&writer(1)))),
+        b"garbage\n",
+    )
+    .unwrap();
     // Block the quarantine DIRECTORY by occupying its name with a file.
     std::fs::write(ledger_dir.join("quarantine"), b"occupied").unwrap();
     let read = ledger.read_all().unwrap();
@@ -209,6 +262,15 @@ fn append_only_api_surface() {
     // I5: history is append-only. The ledger's public API must expose no
     // rewrite/delete operation — this test names every public method so a
     // future addition breaks it loudly and gets reviewed against I5.
-    let allowed = ["new", "with_max_segment_bytes", "append", "read_all", "active_segment_path_for_test"];
-    assert_eq!(PUBLIC_API, allowed, "new public ledger method: verify it cannot mutate history (I5)");
+    let allowed = [
+        "new",
+        "with_max_segment_bytes",
+        "append",
+        "read_all",
+        "active_segment_path_for_test",
+    ];
+    assert_eq!(
+        PUBLIC_API, allowed,
+        "new public ledger method: verify it cannot mutate history (I5)"
+    );
 }

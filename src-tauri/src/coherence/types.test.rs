@@ -41,7 +41,7 @@ fn revision_id_parse_accepts_valid_and_rejects_invalid() {
 fn revision_id_compute_matches_golden_vectors() {
     let root = RevisionId::compute(&ch(), &[]);
     assert_eq!(root.as_str(), REV_ROOT);
-    let child = RevisionId::compute(&ch(), &[root.clone()]);
+    let child = RevisionId::compute(&ch(), std::slice::from_ref(&root));
     assert_eq!(child.as_str(), REV_CHILD);
     let merge = RevisionId::compute(&ch(), &[child.clone(), root.clone()]);
     assert_eq!(merge.as_str(), REV_MERGE);
@@ -62,7 +62,7 @@ fn revision_id_distinguishes_content_parents_and_recreation() {
     let root = RevisionId::compute(&ch(), &[]);
     assert_ne!(RevisionId::compute(&other, &[]), root, "content matters");
     // A -> B -> A: same content as root, different parent => distinct revision
-    let child = RevisionId::compute(&ch(), &[root.clone()]);
+    let child = RevisionId::compute(&ch(), std::slice::from_ref(&root));
     let re_created = RevisionId::compute(&ch(), &[child]);
     assert_ne!(re_created, root, "recreated content is a new revision");
 }
@@ -93,8 +93,14 @@ fn transformation_round_trips_spec_wire_format() {
 
 #[test]
 fn agent_without_id_omits_the_field() {
-    let a = Agent { kind: AgentType::Human, id: None };
-    assert_eq!(serde_json::to_value(&a).unwrap(), json!({ "type": "human" }));
+    let a = Agent {
+        kind: AgentType::Human,
+        id: None,
+    };
+    assert_eq!(
+        serde_json::to_value(&a).unwrap(),
+        json!({ "type": "human" })
+    );
 }
 
 #[test]
@@ -137,9 +143,15 @@ fn envelope_typing_rejects_malformed_known_kind() {
 
 #[test]
 fn envelope_rejects_future_format_number() {
-    let mut env = Envelope::new_test("navigation", json!({ "git": { "op": "checkout", "from": "a", "to": "b" } }));
+    let mut env = Envelope::new_test(
+        "navigation",
+        json!({ "git": { "op": "checkout", "from": "a", "to": "b" } }),
+    );
     env.format = 1;
-    assert!(env.typed().is_err(), "readers must reject newer formats (spec §header)");
+    assert!(
+        env.typed().is_err(),
+        "readers must reject newer formats (spec §header)"
+    );
 }
 
 #[test]
