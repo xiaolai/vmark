@@ -21,6 +21,7 @@ mod app_setup;
 mod asset_access;
 mod atomic_replace;
 mod browser; // WI-1.2 embedded-browser surface (pure lifecycle/identity core landed)
+pub mod coherence;
 mod content_search;
 mod content_server;
 mod external_editor;
