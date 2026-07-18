@@ -81,6 +81,10 @@ export const ptBR = {
             },
             { text: "AI Genies", link: "/pt-BR/guide/ai-genies" },
             {
+              text: "Coerência e visão de detalhamento",
+              link: "/pt-BR/guide/coherence",
+            },
+            {
               text: "Genies de Workflow",
               link: "/pt-BR/guide/workflow-genies",
             },

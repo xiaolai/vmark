@@ -1,6 +1,6 @@
 # MCP ツールリファレンス
 
-VMark は AI アシスタントに **4 つの複合 MCP ツール** を公開します：`session`、`workspace`、`document`、`workflow`。これらは合計 **14 アクション** をカバーし、読み書きのバックボーンに加えて、ファイル／ウィンドウのライフサイクルと GitHub Actions YAML 用の CST セーフな編集を提供します。
+VMark は AI アシスタントに **7 つの複合 MCP ツール** を公開します：`session`、`workspace`、`document`、`workflow`、`selection`、`browser`、`coherence`。これらは合わせて、エディタの読み書きのバックボーン、ファイル／ウィンドウのライフサイクル、CST セーフなワークフロー編集、選択範囲を対象とするピンポイント編集、制限付きのブラウザナビゲーション、そしてワークスペース整合性レイヤーの読み取り専用ビューをカバーします。
 
 以前の 12 ツール／76 アクションのサーフェスは整理されました — ドキュメント内のフォーマットツール（太字、見出し、テーブルなど）は、AI エージェントがすでに Markdown のラウンドトリップで簡単にこなせる作業を重複していたためです。完全な根拠は [MCP プルーニングプラン](https://github.com/xiaolai/vmark/blob/main/dev-docs/plans/20260504-mcp-pruning.md) を参照してください。
 
@@ -236,6 +236,78 @@ GitHub Actions ワークフロー YAML 用の `actionlint` 検証と **CST セ�
 | `tabId` | string | いいえ |
 
 `{ok, diagnostics, binaryAvailable}` を返します。各診断は `{line, col, message, severity}` を持ちます。`binaryAvailable: false` は `actionlint` がローカルにインストールされていないことを意味します；Homebrew または上流のリリースからインストールしてください。
+
+---
+
+## `coherence`
+
+ワークスペース整合性レイヤーの**読み取り専用**ビュー — どの派生ドキュメントが、その生成元となった上流に対して古くなっているかを示します。どちらのアクションもドキュメント、台帳、エディタ状態を一切変更しません；両方とも Rust バックエンドがワークスペースごとのカーネルから直接応答するため、エディタウィンドウが前面になくても動作します。
+
+どちらのアクションも `workspace_root`（照会するワークスペースの絶対パス）が必要です。`session.get_state`（開いているタブの `filePath`）または workspace ツールから取得できます。パスが欠落している、絶対パスでない、またはディレクトリでない場合は、平文の文字列エラーで拒否されます。
+
+### `status`
+
+1 つのワークスペースのカーネル状態カウンター。
+
+| パラメーター | タイプ | 必須 | 説明 |
+|-----------|------|------|-----|
+| `workspace_root` | string | はい | 照会するワークスペースの絶対パス |
+
+**返り値：**
+
+```json
+{
+  "initialized": true,
+  "objects": 12,
+  "open_items": 2,
+  "quarantined": 0,
+  "writer": "0198c0de-0000-7000-8000-000000000001"
+}
+```
+
+| フィールド | 意味 |
+|---|---|
+| `initialized` | ワークスペースにまだ整合性台帳がない（`.vmark/` ディレクトリがない）場合は `false`。その場合、`objects` 以外のカウンターはすべて 0 です。 |
+| `objects` | 追跡中のオブジェクト（整合性 ID を持つファイル）。 |
+| `open_items` | 現存する非フレッシュなエッジ — 現在の内訳の件数。 |
+| `quarantined` | 直近の読み取りで隔離された不正な台帳行。 |
+| `writer` | このインストールのライター ID（UUID）。 |
+
+### `edges`
+
+内訳そのもの：上流が動いたすべての現存依存エッジ。先にスキャンと照合を実行するため、結果は呼び出し時点のディスク上のファイルを反映します。
+
+| パラメーター | タイプ | 必須 | 説明 |
+|-----------|------|------|-----|
+| `workspace_root` | string | はい | 照会するワークスペースの絶対パス |
+
+**返り値**は配列 — すべて整合している場合は空です：
+
+```json
+[
+  {
+    "txf": "0198c0de-0000-7000-8000-00000000000a",
+    "input": 0,
+    "upstream": "0198c0de-0000-7000-8000-00000000000b",
+    "upstream_path": "characters/elena.md",
+    "pinned": "rev-a1b2c3",
+    "downstream": "0198c0de-0000-7000-8000-00000000000c",
+    "downstream_path": "scenes/chapter-3.md",
+    "downstream_rev": "rev-d4e5f6",
+    "state": "version-stale"
+  }
+]
+```
+
+| フィールド | 意味 |
+|---|---|
+| `txf` ／ `input` | このエッジを識別する変換エントリと入力スロット（アプリ内の解決アクションに渡します）。 |
+| `upstream` ／ `upstream_path` | 下流が依存するオブジェクトと、その最後に確認されたパス。 |
+| `pinned` | 下流の生成元となった上流のリビジョン。 |
+| `downstream` ／ `downstream_path` ／ `downstream_rev` | 派生オブジェクト、そのパス、および現在のリビジョン。 |
+| `state` | `"version-stale"`、`"stale-valid"`、`"stale-contradicted"`、`"stale-unknown"`、`"waived"`、`"diverged"`、`"diverged-multi-head"`、または `"unpinnable"`。 |
+
+エッジの解決（新しい版の受け入れ／免除）は、VMark の内訳ビューで人間が行う操作です — 意図的に MCP には公開されていません。
 
 ---
 

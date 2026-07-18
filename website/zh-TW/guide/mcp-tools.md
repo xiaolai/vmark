@@ -1,6 +1,6 @@
 # MCP 工具參考
 
-VMark 對 AI 助理開放**四個複合 MCP 工具**：`session`、`workspace`、`document` 與 `workflow`。這四個工具合計提供 **14 個操作** —— 涵蓋讀寫主軸、檔案與視窗生命週期，以及針對 GitHub Actions YAML 的 CST 安全編輯。
+VMark 對 AI 助理開放**七個複合 MCP 工具**：`session`、`workspace`、`document`、`workflow`、`selection`、`browser` 與 `coherence`。這些工具合計涵蓋編輯器讀寫主軸、檔案與視窗生命週期、針對 GitHub Actions YAML 的 CST 安全編輯、針對選取範圍的精準編輯、受限的瀏覽器導覽，以及工作區一致性層的唯讀視圖。
 
 先前的 12 工具 / 76 操作介面已被精簡，原因是文件內的格式化工具(粗體、標題、表格等)與 AI 代理透過 Markdown 來回轉換就能輕鬆完成的工作高度重複。完整的取捨理由請參閱 [MCP 精簡計畫](https://github.com/xiaolai/vmark/blob/main/dev-docs/plans/20260504-mcp-pruning.md)。
 
@@ -236,6 +236,78 @@ VMark 對 AI 助理開放**四個複合 MCP 工具**：`session`、`workspace`�
 | `tabId` | string | 否 |
 
 回傳 `{ok, diagnostics, binaryAvailable}`。每筆診斷帶有 `{line, col, message, severity}`。`binaryAvailable: false` 代表本機沒有安裝 `actionlint`；可透過 Homebrew 或上游 Releases 安裝。
+
+---
+
+## `coherence`
+
+工作區一致性層的**唯讀**視圖 —— 顯示哪些衍生文件相對於其生成時所依據的上游已經過期。兩個操作都不會修改文件、帳本或任何編輯器狀態；它們完全由 Rust 後端從各工作區的核心直接回應，因此即使沒有任何編輯器視窗在前景也能運作。
+
+兩個操作都需要 `workspace_root`：要查詢的工作區的絕對路徑。可從 `session.get_state`(已開啟分頁的 `filePath`)或 workspace 工具取得。路徑缺失、不是絕對路徑或不是目錄時，會以純字串錯誤拒絕。
+
+### `status`
+
+單一工作區的核心狀態計數。
+
+| 參數 | 型別 | 必填 | 說明 |
+|------|------|------|------|
+| `workspace_root` | string | 是 | 要查詢的工作區的絕對路徑 |
+
+**回傳：**
+
+```json
+{
+  "initialized": true,
+  "objects": 12,
+  "open_items": 2,
+  "quarantined": 0,
+  "writer": "0198c0de-0000-7000-8000-000000000001"
+}
+```
+
+| 欄位 | 含義 |
+|---|---|
+| `initialized` | 工作區尚無一致性帳本(沒有 `.vmark/` 目錄)時為 `false`。此時除 `objects` 外的所有計數皆為 0。 |
+| `objects` | 被追蹤的物件(具有一致性身份的檔案)。 |
+| `open_items` | 現存的非新鮮依賴邊 —— 即目前明細的筆數。 |
+| `quarantined` | 上次讀取時被隔離的格式錯誤帳本行。 |
+| `writer` | 此安裝的 writer id(UUID)。 |
+
+### `edges`
+
+明細本身：上游已變動的每一條現存依賴邊。會先執行一次掃描對帳，因此結果反映呼叫當下磁碟上的檔案。
+
+| 參數 | 型別 | 必填 | 說明 |
+|------|------|------|------|
+| `workspace_root` | string | 是 | 要查詢的工作區的絕對路徑 |
+
+**回傳**一個陣列 —— 全部一致時為空：
+
+```json
+[
+  {
+    "txf": "0198c0de-0000-7000-8000-00000000000a",
+    "input": 0,
+    "upstream": "0198c0de-0000-7000-8000-00000000000b",
+    "upstream_path": "characters/elena.md",
+    "pinned": "rev-a1b2c3",
+    "downstream": "0198c0de-0000-7000-8000-00000000000c",
+    "downstream_path": "scenes/chapter-3.md",
+    "downstream_rev": "rev-d4e5f6",
+    "state": "version-stale"
+  }
+]
+```
+
+| 欄位 | 含義 |
+|---|---|
+| `txf` / `input` | 識別這條邊的轉換條目與輸入槽位(請將它們傳給應用程式內的裁決操作)。 |
+| `upstream` / `upstream_path` | 下游所依賴的物件及其最後已知的路徑。 |
+| `pinned` | 下游生成時所依據的上游版本。 |
+| `downstream` / `downstream_path` / `downstream_rev` | 衍生物件、其路徑及其目前版本。 |
+| `state` | `"version-stale"`、`"stale-valid"`、`"stale-contradicted"`、`"stale-unknown"`、`"waived"`、`"diverged"`、`"diverged-multi-head"` 或 `"unpinnable"`。 |
+
+裁決一條邊(接受新版 / 豁免)是在 VMark 的一致性明細檢視中由人執行的操作 —— 刻意不透過 MCP 開放。
 
 ---
 

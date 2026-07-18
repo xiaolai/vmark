@@ -1,6 +1,6 @@
 # MCP 도구 참조
 
-VMark는 AI 어시스턴트에게 **네 가지 복합 MCP 도구** 를 노출합니다: `session`, `workspace`, `document`, `workflow`. 이들은 함께 **14개 액션** 을 다룹니다 — 읽기/쓰기 척추 + 파일/창 라이프사이클 + GitHub Actions YAML을 위한 CST 안전 편집.
+VMark는 AI 어시스턴트에게 **일곱 가지 복합 MCP 도구** 를 노출합니다: `session`, `workspace`, `document`, `workflow`, `selection`, `browser`, `coherence`. 이들은 함께 편집기 척추, 파일/창 라이프사이클, CST 안전 워크플로우 편집, 선택 영역 대상 편집, 제한된 브라우저 탐색, 그리고 워크스페이스 정합성 레이어의 읽기 전용 뷰를 다룹니다.
 
 이전 12-도구 / 76-액션 표면은 정리되었습니다. 문서 내 서식 도구 (굵게, 제목, 테이블 등)는 AI 에이전트가 마크다운 왕복을 통해 이미 쉽게 수행하는 작업과 중복되기 때문입니다. 전체 근거는 [MCP 정리 계획](https://github.com/xiaolai/vmark/blob/main/dev-docs/plans/20260504-mcp-pruning.md)을 참조하세요.
 
@@ -236,6 +236,78 @@ GitHub Actions 워크플로우 YAML을 위한 `actionlint` 검증과 **CST 안�
 | `tabId` | string | 아니오 |
 
 `{ok, diagnostics, binaryAvailable}`을 반환합니다. 각 진단에는 `{line, col, message, severity}`가 포함됩니다. `binaryAvailable: false`는 `actionlint`가 로컬에 설치되어 있지 않음을 의미합니다; Homebrew 또는 업스트림 릴리스를 통해 설치하세요.
+
+---
+
+## `coherence`
+
+워크스페이스 정합성 레이어의 **읽기 전용** 뷰 — 어떤 파생 문서가 자신을 생성한 업스트림에 비해 오래되었는지 보여줍니다. 두 액션 모두 문서, 원장, 편집기 상태를 수정하지 않습니다. 둘 다 워크스페이스별 커널에서 Rust 백엔드가 전적으로 응답하므로, 편집기 창이 앞에 없어도 작동합니다.
+
+두 액션 모두 `workspace_root`가 필요합니다: 조회할 워크스페이스의 절대 경로입니다. `session.get_state` (열린 탭의 `filePath`) 또는 workspace 도구에서 알아내세요. 누락되었거나, 절대 경로가 아니거나, 디렉터리가 아닌 경로는 일반 문자열 오류로 거부됩니다.
+
+### `status`
+
+한 워크스페이스의 커널 상태 카운터.
+
+| 매개변수 | 타입 | 필수 | 설명 |
+|---------|------|------|------|
+| `workspace_root` | string | 예 | 조회할 워크스페이스의 절대 경로 |
+
+**반환:**
+
+```json
+{
+  "initialized": true,
+  "objects": 12,
+  "open_items": 2,
+  "quarantined": 0,
+  "writer": "0198c0de-0000-7000-8000-000000000001"
+}
+```
+
+| 필드 | 의미 |
+|------|------|
+| `initialized` | 워크스페이스에 아직 정합성 원장이 없으면 (`.vmark/` 디렉터리 없음) `false`. 이 경우 `objects`를 제외한 모든 카운터는 0입니다. |
+| `objects` | 추적 중인 객체 (정합성 식별자가 있는 파일). |
+| `open_items` | 살아 있는 비최신 엣지 — 현재 내역의 크기. |
+| `quarantined` | 마지막 읽기에서 격리된 잘못된 형식의 원장 라인. |
+| `writer` | 이 설치본의 writer id (UUID). |
+
+### `edges`
+
+내역: 업스트림이 움직인 모든 살아 있는 의존성 엣지. 먼저 스캔-조정을 실행하므로 응답은 호출 시점의 디스크 파일을 반영합니다.
+
+| 매개변수 | 타입 | 필수 | 설명 |
+|---------|------|------|------|
+| `workspace_root` | string | 예 | 조회할 워크스페이스의 절대 경로 |
+
+**반환** — 배열이며, 모든 것이 정합하면 비어 있습니다:
+
+```json
+[
+  {
+    "txf": "0198c0de-0000-7000-8000-00000000000a",
+    "input": 0,
+    "upstream": "0198c0de-0000-7000-8000-00000000000b",
+    "upstream_path": "characters/elena.md",
+    "pinned": "rev-a1b2c3",
+    "downstream": "0198c0de-0000-7000-8000-00000000000c",
+    "downstream_path": "scenes/chapter-3.md",
+    "downstream_rev": "rev-d4e5f6",
+    "state": "version-stale"
+  }
+]
+```
+
+| 필드 | 의미 |
+|------|------|
+| `txf` / `input` | 이 엣지를 식별하는 변환 항목과 입력 슬롯 (앱 내 해결 액션에 전달). |
+| `upstream` / `upstream_path` | 다운스트림이 의존하는 객체와 마지막으로 알려진 경로. |
+| `pinned` | 다운스트림이 생성될 때 기반이 된 업스트림 리비전. |
+| `downstream` / `downstream_path` / `downstream_rev` | 파생 객체, 그 경로, 현재 리비전. |
+| `state` | `"version-stale"`, `"stale-valid"`, `"stale-contradicted"`, `"stale-unknown"`, `"waived"`, `"diverged"`, `"diverged-multi-head"`, 또는 `"unpinnable"`. |
+
+엣지 해결 (최신 버전 수용 / 면제)은 VMark의 내역 뷰에서 수행하는 사람의 액션입니다 — 의도적으로 MCP에 노출되지 않습니다.
 
 ---
 
