@@ -45,6 +45,12 @@ pub struct ContextManifest {
     pub enforcement: Enforcement,
     #[serde(default)]
     pub visible_claims: Vec<Uuid>,
+    /// Round-trip guarantee (design-3.md, spec rev 2): fields this build
+    /// does not understand survive a rewrite instead of being dropped —
+    /// manifests are mutable-in-place, so a lossy writer would destroy a
+    /// newer build's additive fields (e.g. `git_branch`).
+    #[serde(flatten)]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
