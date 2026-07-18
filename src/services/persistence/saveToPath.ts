@@ -21,6 +21,7 @@
  * @coordinates-with linebreaks.ts — line ending and hard break normalization
  * @coordinates-with documentStore.ts — markSaved/markAutoSaved state updates
  * @coordinates-with useHistoryOperations.ts — creates version history snapshots
+ * @coordinates-with services/coherence/captureFunnel.ts — fire-and-forget provenance capture (WI-1.6)
  * @module utils/saveToPath
  */
 import { invoke } from "@tauri-apps/api/core";

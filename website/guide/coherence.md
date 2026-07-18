@@ -1,0 +1,90 @@
+# Coherence & the Breakdown View
+
+VMark's coherence layer keeps recursively developed writing projects
+honest: it records **which documents each AI generation actually read**,
+notices when those upstream documents change afterwards, and shows you —
+on demand — exactly which downstream artifacts might now be out of date.
+Nothing is ever auto-updated; you stay the editor-in-chief.
+
+## How it works (30 seconds)
+
+- Every save, genie apply, accepted AI suggestion, MCP write, and workflow
+  `save-file` step is recorded as a **transformation** in a plain-text
+  ledger inside your workspace (`.vmark/` — git-friendly, human-readable
+  JSONL; deleting the derived `index.db` loses nothing).
+- When an AI writes a document while reading others, those reads become
+  **dependency edges**, pinned to the exact revision that was read.
+- When an upstream document advances past a pinned revision, the edge
+  becomes **stale**. If two revisions evolved in parallel (e.g. on git
+  branches), the edge is **diverged** — surfaced, never guessed at.
+- Files edited outside VMark (terminal, other editors) are reconciled on
+  scan as *observed external edits* — history stays gap-free, honestly
+  marked as unknown-provenance.
+
+## The Breakdown view
+
+Open it from **Window → Breakdown** (or the command palette:
+"Breakdown View"). It is strictly **pull-based**: it refreshes when you
+open it or press refresh — it never nags in the background.
+
+Items are grouped by artifact (the downstream document) and show the
+upstream document, the pinned revision, and the current state:
+
+| State | Meaning |
+|---|---|
+| `version-stale` | The upstream advanced past what this artifact was built from |
+| `diverged` | The pinned and current revisions are parallel — no line of descent |
+| `diverged-multi-head` | The upstream itself has parallel current versions |
+| `waived` | You accepted the divergence, with a recorded reason |
+| `unpinnable` | The upstream can't be resolved (e.g. an invalid pin) |
+
+### Actions
+
+Each item offers three honest actions — none of them rewrites history:
+
+- **Accept newer** — records that the artifact is still compatible with
+  the newer upstream (a *ratification*). The item leaves the list; if the
+  upstream changes again, it comes back.
+- **Revise** — opens the artifact so you can update it. Saving a new
+  version retires the old edge.
+- **Waive** — records an intentional divergence with a **required
+  reason** (unreliable narrators exist). Waived items stay visible,
+  marked distinctly, and reopen if the upstream moves again.
+
+Accept-newer and waive are disabled when the upstream has multiple
+current versions — there is no single revision to resolve against;
+revise (or reconcile the versions) first.
+
+## Frontmatter identity
+
+The first time a file is captured, VMark adds a small identity block to
+its frontmatter:
+
+```yaml
+vmark:
+  id: 018f3c7a-9f2e-7cc1-b302-5e9d4a6b21c7
+```
+
+This ID is how a document keeps its history across renames and moves. It
+never affects content hashing (adding it doesn't create a "change"), and
+everything else in your frontmatter is left untouched. If you copy a
+file, the duplicate ID is detected and surfaced for you to resolve —
+never auto-fixed.
+
+## Git interoperability
+
+- `.vmark/` ledger files are git-tracked and merge cleanly across
+  branches (append-only, `merge=union`).
+- Checkouts, branch switches, and resets are recognized as **navigation**
+  — they never create phantom revisions.
+- `git revert` and merges that mint new content are captured as
+  git-attributed transformations.
+- The derived index (`index.db`) is gitignored and rebuilt from the
+  plain-text ledger whenever needed.
+
+## For AI agents (MCP)
+
+External agents can query coherence state through the read-only
+[`coherence` MCP tool](/guide/mcp-tools#coherence) (`status` and `edges`
+actions). Resolution (ratify/waive) is deliberately *not* exposed over
+MCP in this version — decisions stay with the human in the app.
