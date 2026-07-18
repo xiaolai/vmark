@@ -230,6 +230,130 @@ describe("useSourceEditorSearch", () => {
     expect(mockFindPrevious).toHaveBeenCalledWith(mockView);
   });
 
+  describe("wrap-aware find direction", () => {
+    // The store WRAPS on navigation (last → 0 on next, 0 → last on previous),
+    // so a raw index comparison inverts at every wrap. These tests pin the
+    // wrap-aware inference: forward iff new index is the successor of the old
+    // one modulo matchCount.
+
+    function setupMatches(matchCount: number, currentIndex: number) {
+      const mockView = createMockView("hello hello hello");
+      viewRef.current = mockView;
+      mockCountMatches.mockReturnValue(matchCount);
+
+      renderHook(() => useSourceEditorSearch(viewRef as never));
+
+      act(() => {
+        useUIStore.setState((s) => ({
+          search: { ...s.search, isOpen: true, query: "hello", matchCount, currentIndex },
+        }));
+      });
+
+      mockFindNext.mockClear();
+      mockFindPrevious.mockClear();
+      return mockView;
+    }
+
+    it("dispatches findNext when wrapping forward (last → 0)", () => {
+      const mockView = setupMatches(3, 2);
+
+      act(() => {
+        useUIStore.getState().searchFindNext(); // 2 → 0 (wrap)
+      });
+
+      expect(useUIStore.getState().search.currentIndex).toBe(0);
+      expect(mockFindNext).toHaveBeenCalledWith(mockView);
+      expect(mockFindPrevious).not.toHaveBeenCalled();
+    });
+
+    it("dispatches findPrevious when wrapping backward (0 → last)", () => {
+      const mockView = setupMatches(3, 0);
+
+      act(() => {
+        useUIStore.getState().searchFindPrevious(); // 0 → 2 (wrap)
+      });
+
+      expect(useUIStore.getState().search.currentIndex).toBe(2);
+      expect(mockFindPrevious).toHaveBeenCalledWith(mockView);
+      expect(mockFindNext).not.toHaveBeenCalled();
+    });
+
+    it("keeps the counter in sync across repeated wraps (next past the end twice)", () => {
+      setupMatches(3, 1);
+
+      act(() => {
+        useUIStore.getState().searchFindNext(); // 1 → 2
+      });
+      act(() => {
+        useUIStore.getState().searchFindNext(); // 2 → 0 (wrap)
+      });
+      act(() => {
+        useUIStore.getState().searchFindNext(); // 0 → 1
+      });
+
+      expect(useUIStore.getState().search.currentIndex).toBe(1);
+      expect(mockFindNext).toHaveBeenCalledTimes(3);
+      expect(mockFindPrevious).not.toHaveBeenCalled();
+    });
+
+    it("N=1: navigation does not change the index and dispatches nothing", () => {
+      setupMatches(1, 0);
+
+      act(() => {
+        useUIStore.getState().searchFindNext(); // 0 → 0 (no change)
+        useUIStore.getState().searchFindPrevious(); // 0 → 0 (no change)
+      });
+
+      expect(useUIStore.getState().search.currentIndex).toBe(0);
+      expect(mockFindNext).not.toHaveBeenCalled();
+      expect(mockFindPrevious).not.toHaveBeenCalled();
+    });
+
+    it("N=1: first navigation from no-current-match (-1 → 0) dispatches findNext", () => {
+      const mockView = setupMatches(1, 0);
+
+      // Drop the current match WITHOUT touching the query — a query change
+      // would trigger recompute, which immediately re-selects index 0.
+      act(() => {
+        useUIStore.setState((s) => ({ search: { ...s.search, currentIndex: -1 } }));
+      });
+      mockFindNext.mockClear();
+      mockFindPrevious.mockClear();
+
+      act(() => {
+        useUIStore.getState().searchFindNext(); // -1 → 0
+      });
+
+      expect(mockFindNext).toHaveBeenCalledWith(mockView);
+      expect(mockFindPrevious).not.toHaveBeenCalled();
+    });
+
+    it("N=2: wrapping forward (1 → 0) dispatches findNext", () => {
+      const mockView = setupMatches(2, 1);
+
+      act(() => {
+        useUIStore.getState().searchFindNext(); // 1 → 0 (wrap)
+      });
+
+      expect(mockFindNext).toHaveBeenCalledWith(mockView);
+      expect(mockFindPrevious).not.toHaveBeenCalled();
+    });
+
+    it("N=2: backward wrap (0 → 1) dispatches a navigation that reaches the other match", () => {
+      // With exactly two matches, successor and predecessor coincide modulo 2,
+      // so the inference resolves to findNext — which lands on the same (only
+      // other) match findPrevious would. Behaviorally equivalent by design.
+      setupMatches(2, 0);
+
+      act(() => {
+        useUIStore.getState().searchFindPrevious(); // 0 → 1 (wrap)
+      });
+
+      expect(useUIStore.getState().search.currentIndex).toBe(1);
+      expect(mockFindNext.mock.calls.length + mockFindPrevious.mock.calls.length).toBe(1);
+    });
+  });
+
   it("updates query when replaceText changes while search is open", () => {
     const mockView = createMockView("hello world");
     viewRef.current = mockView;

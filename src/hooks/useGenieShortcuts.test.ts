@@ -8,7 +8,9 @@
  * `detectScope`.
  *
  * Scope: per the issue, only the two pure helpers — useEffect blocks,
- * keydown handler, and `loadAndSyncMenu` are out of scope.
+ * keydown handler, and `loadAndSyncMenu` are out of scope here. The
+ * menu:invoke-genie effect is covered in
+ * useGenieShortcuts.invokeGenie.test.ts.
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";

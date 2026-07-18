@@ -582,6 +582,162 @@ describe("geniesStore", () => {
     });
   });
 
+  // ── Multi-window merge (shared localStorage) ─────────────────────────
+  // Every window shares the "vmark-genies" key but holds its own store
+  // instance; a blind write from window A must not erase recents/favorites
+  // window B persisted since A hydrated (SH-3).
+
+  describe("multi-window merge", () => {
+    const KEY = "vmark-genies";
+
+    /** Simulate another window rewriting a persisted list behind this window's back. */
+    function otherWindowSets(
+      field: "recentGenieNames" | "favoriteGenieNames",
+      updater: (list: string[]) => string[],
+    ) {
+      const raw = JSON.parse(
+        localStorage.getItem(KEY) ?? '{"state":{},"version":0}',
+      ) as { state: Record<string, string[]> };
+      raw.state[field] = updater(raw.state[field] ?? []);
+      localStorage.setItem(KEY, JSON.stringify(raw));
+    }
+
+    beforeEach(() => {
+      localStorage.clear();
+      useGeniesStore.setState({ recentGenieNames: [], favoriteGenieNames: [] });
+    });
+
+    it("loadGenies prune merges the persisted lists before writing (verify C7)", async () => {
+      // This window knows Beta (setState persists it); ANOTHER window then
+      // persists Alpha behind our back. The prune write must keep both (and
+      // still drop names absent from the fresh genie list).
+      useGeniesStore.setState({
+        recentGenieNames: ["Beta"],
+        favoriteGenieNames: ["Beta"],
+      });
+      otherWindowSets("recentGenieNames", (list) => ["Alpha", "Ghost", ...list]);
+      otherWindowSets("favoriteGenieNames", (list) => ["Alpha", ...list]);
+      vi.mocked(invoke).mockImplementation(async (cmd: string, args?: Record<string, unknown>) => {
+        if (cmd === "list_genies") {
+          return [
+            { path: "/genies/Alpha.md", category: null },
+            { path: "/genies/Beta.md", category: null },
+          ];
+        }
+        if (cmd === "read_genie") {
+          const path = (args as { path: string }).path;
+          const name = path.includes("Alpha") ? "Alpha" : "Beta";
+          return { metadata: { name, description: "d", scope: "selection" }, template: "t" };
+        }
+        return null;
+      });
+
+      await useGeniesStore.getState().loadGenies();
+
+      const state = useGeniesStore.getState();
+      // Both windows' entries survive; "Ghost" is pruned (not a genie).
+      expect([...state.recentGenieNames].sort()).toEqual(["Alpha", "Beta"]);
+      expect([...state.favoriteGenieNames].sort()).toEqual(["Alpha", "Beta"]);
+    });
+
+    it("loadGenies prune caps AFTER filtering so stale names cannot evict a valid cross-window entry (RV3)", async () => {
+      // Memory holds MAX_RECENTS (10) stale names; another window persisted
+      // the only valid genie. Cap-before-filter would evict it; the fix
+      // filters first.
+      useGeniesStore.setState({
+        recentGenieNames: Array.from({ length: 10 }, (_, i) => `Ghost${i}`),
+        favoriteGenieNames: [],
+      });
+      otherWindowSets("recentGenieNames", (list) => [...list, "Alpha"]);
+      vi.mocked(invoke).mockImplementation(async (cmd: string) => {
+        if (cmd === "list_genies") return [{ path: "/genies/Alpha.md", category: null }];
+        if (cmd === "read_genie") {
+          return { metadata: { name: "Alpha", description: "d", scope: "selection" }, template: "t" };
+        }
+        return null;
+      });
+
+      await useGeniesStore.getState().loadGenies();
+
+      expect(useGeniesStore.getState().recentGenieNames).toEqual(["Alpha"]);
+    });
+
+    it("addRecent keeps recents another window persisted (A adds X, B adds Y, A adds Z)", () => {
+      useGeniesStore.getState().addRecent("X");
+      otherWindowSets("recentGenieNames", (l) => ["Y", ...l]);
+      useGeniesStore.getState().addRecent("Z");
+
+      const recents = useGeniesStore.getState().recentGenieNames;
+      expect(recents[0]).toBe("Z");
+      expect(recents).toContain("X");
+      expect(recents).toContain("Y");
+    });
+
+    it("addRecent caps the merged list at 10", () => {
+      otherWindowSets("recentGenieNames", () =>
+        Array.from({ length: 10 }, (_, i) => `g${i}`),
+      );
+      useGeniesStore.getState().addRecent("mine");
+
+      const recents = useGeniesStore.getState().recentGenieNames;
+      expect(recents).toHaveLength(10);
+      expect(recents[0]).toBe("mine");
+    });
+
+    it("toggleFavorite(on) keeps favorites another window persisted", () => {
+      useGeniesStore.getState().toggleFavorite("F1");
+      otherWindowSets("favoriteGenieNames", (l) => [...l, "F2"]);
+      useGeniesStore.getState().toggleFavorite("F3");
+
+      const favs = useGeniesStore.getState().favoriteGenieNames;
+      expect(favs).toContain("F1");
+      expect(favs).toContain("F2");
+      expect(favs).toContain("F3");
+    });
+
+    it("toggleFavorite(off) removes the name even when another window still holds it, without dropping other additions", () => {
+      useGeniesStore.getState().toggleFavorite("F1");
+      // Window B still holds F1 and adds F2.
+      otherWindowSets("favoriteGenieNames", (l) => [...l, "F2"]);
+      useGeniesStore.getState().toggleFavorite("F1"); // off
+
+      const favs = useGeniesStore.getState().favoriteGenieNames;
+      expect(favs).not.toContain("F1");
+      expect(favs).toContain("F2");
+    });
+
+    it("a loadGenies set() in a stale window does not clobber lists another window persisted", async () => {
+      // persist serializes on EVERY set() — including loading:true and the
+      // genie-list load, which don't touch the preference lists. Those
+      // writes must not push this window's stale (empty) lists over what
+      // window A persisted since this window hydrated.
+      otherWindowSets("recentGenieNames", () => ["X"]);
+      otherWindowSets("favoriteGenieNames", () => ["F"]);
+
+      vi.mocked(invoke).mockImplementation(async (cmd: string) =>
+        cmd === "list_genies" ? [] : null,
+      );
+      await useGeniesStore.getState().loadGenies();
+
+      const raw = JSON.parse(localStorage.getItem(KEY)!) as {
+        state: Record<string, string[]>;
+      };
+      expect(raw.state.recentGenieNames).toContain("X");
+      expect(raw.state.favoriteGenieNames).toContain("F");
+    });
+
+    it("a preference mutation after unrelated set()s still persists (write gate only skips no-op writes)", () => {
+      otherWindowSets("recentGenieNames", () => ["X"]);
+      useGeniesStore.getState().addRecent("Z");
+
+      const raw = JSON.parse(localStorage.getItem(KEY)!) as {
+        state: Record<string, string[]>;
+      };
+      expect(raw.state.recentGenieNames).toContain("Z");
+      expect(raw.state.recentGenieNames).toContain("X");
+    });
+  });
+
   // ── SSR guard ───────────────────────────────────────────────────────
 
   it("store is functional (SSR guard does not break initialization)", () => {

@@ -29,6 +29,7 @@ interface SearchState {
   caseSensitive: boolean;
   wholeWord: boolean;
   useRegex: boolean;
+  matchCount: number;
   currentIndex: number;
 }
 
@@ -165,10 +166,17 @@ export function useSourceEditorSearch(
         }
       }
 
-      // Handle find next/previous
+      // Handle find next/previous. The store WRAPS on navigation (last → 0 on
+      // next, 0 → last on previous), so a raw index comparison inverts at
+      // every wrap: forward iff the new index is the successor of the old one
+      // modulo matchCount. At matchCount 2 successor and predecessor coincide,
+      // so either user action resolves to findNext — which lands on the same
+      // (only other) match findPrevious would.
       if (state.currentIndex !== prevState.currentIndex && state.currentIndex >= 0) {
-        const direction = state.currentIndex > prevState.currentIndex ? 1 : -1;
-        if (direction > 0) {
+        const forward =
+          state.matchCount > 0 &&
+          state.currentIndex === (prevState.currentIndex + 1) % state.matchCount;
+        if (forward) {
           runOrQueueCodeMirrorAction(view, () => findNext(view));
         } else {
           runOrQueueCodeMirrorAction(view, () => findPrevious(view));
