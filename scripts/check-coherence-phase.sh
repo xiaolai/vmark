@@ -129,10 +129,12 @@ phase_1() {
 
   local K="src-tauri/src/coherence"
 
-  # WI-1.1 — kernel scaffold + core types.
+  # WI-1.1 — kernel scaffold + core types (ADR-C4 module boundaries).
   assert_file "$K/mod.rs"          "WI-1.1 kernel module"
   assert_file "$K/types.rs"        "WI-1.1 core types"
   assert_file "$K/types.test.rs"   "WI-1.1 core-types tests"
+  assert_file "$K/project.rs"      "WI-1.1 projection (pure kernel, ADR-C4)"
+  assert_file "$K/commands.rs"     "WI-1.1 Tauri command surface (ADR-C4)"
 
   # WI-1.2 — ledger.
   assert_file "$K/ledger.rs"       "WI-1.2 ledger"
@@ -157,10 +159,12 @@ phase_1() {
   assert_grep "rusqlite" "src-tauri/Cargo.toml" "WI-1.5 rusqlite dependency"
   assert_grep "delete_index_rescan_identical\|delete.*rebuild.*identical" "$K/index.test.rs" "WI-1.5 R16 delete-and-rebuild test"
 
-  # WI-1.6 — capture instrumentation.
+  # WI-1.6 — capture instrumentation (vertical slice + adapters + scan).
   assert_file "$K/capture.rs"      "WI-1.6 capture API"
   assert_file "$K/capture.test.rs" "WI-1.6 capture tests"
-  assert_grep "observed" "$K/capture.rs" "WI-1.6 observed-external synthesis"
+  assert_file "$K/scan.rs"         "WI-1.6 scan reconciliation"
+  assert_file "$K/scan.test.rs"    "WI-1.6 scan tests (spec §9.4 table)"
+  assert_grep "coherence_capture" "src/services/persistence/saveToPath.ts" "WI-1.6 editor-save funnel instrumented"
 
   # WI-1.7 — git reconciliation.
   assert_file "$K/gitops.rs"       "WI-1.7 git reconciliation"
@@ -178,11 +182,18 @@ phase_1() {
     fail "I5 append-only property test not found in $K/*.test.rs"
   fi
 
-  # WI-1.9 — breakdown view.
-  assert_file "src/stores/breakdownStore.ts"       "WI-1.9 breakdown store"
-  assert_file "src/stores/breakdownStore.test.ts"  "WI-1.9 store tests"
-  assert_file "src/components/BreakdownPanel/BreakdownPanel.tsx" "WI-1.9 panel"
-  assert_file "src/components/BreakdownPanel/BreakdownPanel.test.tsx" "WI-1.9 panel tests"
+  # WI-1.12 — lifecycle.
+  assert_file "$K/state.rs"        "WI-1.12 per-workspace kernel state"
+  assert_file "$K/state.test.rs"   "WI-1.12 lifecycle tests"
+
+  # WI-1.9a — resolution write API.
+  assert_grep "coherence_resolve" "$K/commands.rs" "WI-1.9a resolution command"
+
+  # WI-1.9b — breakdown view.
+  assert_file "src/stores/breakdownStore.ts"       "WI-1.9b breakdown store"
+  assert_file "src/stores/breakdownStore.test.ts"  "WI-1.9b store tests"
+  assert_file "src/components/BreakdownPanel/BreakdownPanel.tsx" "WI-1.9b panel"
+  assert_file "src/components/BreakdownPanel/BreakdownPanel.test.tsx" "WI-1.9b panel tests"
 
   # WI-1.10 — read-only MCP tools.
   assert_file "vmark-mcp-server/src/tools/coherence.ts" "WI-1.10 sidecar tool"
@@ -198,7 +209,24 @@ phase_1() {
   assert_file "$GRILLS/dogfood-log.md"              "dogfood log with M1 entry"
   assert_grep "M1" "$GRILLS/dogfood-log.md"         "M1 recorded in dogfood log"
 
-  echo "  ⓘ remember: 'cargo test' (src-tauri) and 'pnpm check:all' must pass before phase tick"
+  # Fail closed: RUN the coherence test suites (Codex review D2#5) instead
+  # of reminding. Scoped runs keep this fast enough for a gate.
+  if [[ "${SKIP_TESTS:-}" == "1" ]]; then
+    echo "  ⓘ SKIP_TESTS=1 — file assertions only (NOT a valid phase tick)"
+  else
+    if cargo test --manifest-path src-tauri/Cargo.toml --lib coherence -- --quiet >/dev/null 2>&1; then
+      ok "cargo test coherence suite green"
+    else
+      fail "cargo test coherence suite RED (run: cargo test --manifest-path src-tauri/Cargo.toml --lib coherence)"
+    fi
+    if pnpm vitest run src/stores/breakdownStore.test.ts src/components/BreakdownPanel >/dev/null 2>&1; then
+      ok "breakdown-view vitest suites green"
+    else
+      fail "breakdown-view vitest suites RED (run: pnpm vitest run src/stores/breakdownStore.test.ts src/components/BreakdownPanel)"
+    fi
+  fi
+
+  echo "  ⓘ full gate: 'pnpm check:all' must also pass before phase tick"
   echo "  ⓘ WI linkage: bash scripts/check-wi-linkage.sh $PLAN --phase=1"
 }
 
