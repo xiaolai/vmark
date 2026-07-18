@@ -477,7 +477,18 @@ async fn handle_message<R: tauri::Runtime>(
 
     // Handle requests that Rust can answer directly (no webview needed) —
     // incl. coherence, which runs off-loop with the write lock (WI-1.10).
-    if let Some(response) = answer_rust_side(&request, app).await {
+    // WI-3.5 (D2.3): the AUTHENTICATED identity of this client is the
+    // only principal delegated authority can bind to.
+    let principal = {
+        let state = get_bridge_state();
+        let guard = state.lock().await;
+        guard
+            .clients
+            .get(&client_id)
+            .and_then(|c| c.identity.as_ref())
+            .map(|i| i.name.clone())
+    };
+    if let Some(response) = answer_rust_side(&request, app, principal).await {
         deliver_response(
             client_id,
             &client_tx,

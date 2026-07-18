@@ -106,13 +106,29 @@ describe('coherence tool — status/edges via server.callTool', () => {
     }));
 
     const result = await server.callTool('coherence', {
-      action: 'resolve',
+      action: 'explode',
       workspace_root: ROOT,
     });
 
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toContain('Invalid action');
     expect(bridge.requests).toHaveLength(0);
+  });
+
+  it('forwards resolve to the bridge as vmark.coherence.resolve', async () => {
+    const { server, bridge } = harness('vmark.coherence.resolve', () => ({
+      success: true,
+      data: { entryId: 'e', kind: 'ratification' },
+    }));
+    const result = await server.callTool('coherence', {
+      action: 'resolve',
+      workspace_root: ROOT,
+      txf: '019f0000-0000-7000-8000-000000000000',
+      input: 0,
+      resolution: 'accept-newer',
+    });
+    expect(result.isError).toBeUndefined();
+    expect(bridge.getRequestsOfType('vmark.coherence.resolve')).toHaveLength(1);
   });
 
   it('rejects a missing or empty workspace_root without touching the bridge', async () => {

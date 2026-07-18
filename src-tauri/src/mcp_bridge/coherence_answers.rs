@@ -4,8 +4,11 @@
 
 use super::types::McpResponse;
 use crate::coherence::claim_commands::perform_claims_list;
-use crate::coherence::commands::{perform_breakdown, perform_status, CoherenceState};
+use crate::coherence::commands::{
+    perform_breakdown, perform_resolve_as, perform_status, CoherenceState, ResolveRequest,
+};
 use crate::coherence::context_commands::perform_contexts_list;
+use crate::coherence::delegation::DelegationStore;
 
 /// Answer a `vmark.coherence.*` read request from the managed kernel state.
 ///
@@ -17,8 +20,9 @@ pub(super) fn answer_coherence(
     state: &CoherenceState,
     request_type: &str,
     args: &serde_json::Value,
+    principal: Option<&str>,
 ) -> McpResponse {
-    match answer_coherence_inner(state, request_type, args) {
+    match answer_coherence_inner(state, request_type, args, principal) {
         Ok(data) => McpResponse {
             success: true,
             data: Some(data),
@@ -36,6 +40,7 @@ fn answer_coherence_inner(
     state: &CoherenceState,
     request_type: &str,
     args: &serde_json::Value,
+    principal: Option<&str>,
 ) -> Result<serde_json::Value, String> {
     let root = args.get("workspace_root").and_then(|v| v.as_str()).ok_or(
         "workspace_root (string) is required — the absolute path of the workspace to query",
@@ -73,6 +78,59 @@ fn answer_coherence_inner(
         "vmark.coherence.contexts" => {
             let rows = perform_contexts_list(&mut kernel)?;
             serde_json::to_value(rows).map_err(|e| format!("serialize contexts: {e}"))
+        }
+        // WI-3.5 (D2.4): the ONE mutating action — authorized by a live
+        // delegation bound to the AUTHENTICATED bridge principal, never
+        // a caller-supplied identity. Fail closed on everything.
+        "vmark.coherence.resolve" => {
+            let principal =
+                principal.ok_or("unidentified client — identify to the bridge before resolving")?;
+            let txf = args
+                .get("txf")
+                .and_then(|v| v.as_str())
+                .and_then(|s| uuid::Uuid::parse_str(s).ok())
+                .ok_or("txf (uuid) is required")?;
+            let input = args
+                .get("input")
+                .and_then(|v| v.as_u64())
+                .ok_or("input (number) is required")? as u32;
+            let resolution = args
+                .get("resolution")
+                .and_then(|v| v.as_str())
+                .ok_or("resolution is required: accept-newer | waive")?;
+            let scope = format!("resolve.{resolution}");
+            let reason = args
+                .get("reason")
+                .and_then(|v| v.as_str())
+                .map(str::to_string);
+            let now = chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
+            let read = kernel.ledger().read_all()?;
+            let store = DelegationStore::from_entries(&read.entries);
+            let grant = store
+                .live_delegation_for(principal, &scope, &now)
+                .ok_or_else(|| format!("no live delegation authorizes {principal:?} for {scope}"))?
+                .entry_id;
+            // D2.4: only LIVE edges are resolvable — the current
+            // breakdown is the definition of live.
+            let live = perform_breakdown(&mut kernel)?
+                .iter()
+                .any(|r| r.txf == txf && r.input == input);
+            if !live {
+                return Err("edge is not live (historical, fresh, or suppressed)".into());
+            }
+            let receipt = perform_resolve_as(
+                &mut kernel,
+                &ResolveRequest {
+                    action: resolution.to_string(),
+                    txf,
+                    input,
+                    reason,
+                    expires: None,
+                },
+                &serde_json::json!({ "type": "agent", "id": principal }),
+                Some(grant),
+            )?;
+            serde_json::to_value(receipt).map_err(|e| format!("serialize receipt: {e}"))
         }
         other => Err(format!("unknown coherence request type: {other}")),
     }
