@@ -262,6 +262,11 @@ pub async fn run_workflow_sequential(
     // Topologically sort steps by needs: dependencies
     let sorted_steps = topological_sort(workflow.steps)?;
     let step_count = sorted_steps.len();
+    // Coherence (WI-1.6): raw dataflow snapshot for save-file input tracing.
+    let dataflow: Vec<crate::workflow::coherence_capture::StepSlice> = sorted_steps
+        .iter()
+        .map(|rs| (rs.id.clone(), rs.step.uses.clone(), rs.step.with.clone()))
+        .collect();
     let mut failed = false;
     let mut failed_step = String::new();
     let mut completed_steps: HashSet<String> = HashSet::new();
@@ -513,6 +518,23 @@ pub async fn run_workflow_sequential(
 
         match result {
             Ok(step_outputs) => {
+                // Coherence (WI-1.6): a successful save-file write is a
+                // model transformation; trace its read-file inputs through
+                // the template graph. Fire-and-forget, never fails the step.
+                if step.uses == "action/save-file" {
+                    if let (Some(rel), Some(content)) =
+                        (resolved_params.get("path"), resolved_params.get("input"))
+                    {
+                        crate::workflow::coherence_capture::capture_save_file_detached(
+                            app,
+                            workspace_root,
+                            dataflow.clone(),
+                            step_id.clone(),
+                            rel.clone(),
+                            content.clone(),
+                        );
+                    }
+                }
                 // Store full structured output for downstream step consumption.
                 // Action steps + text genies have a single "text" entry; JSON
                 // genies populate one entry per top-level field.

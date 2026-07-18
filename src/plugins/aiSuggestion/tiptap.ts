@@ -28,7 +28,9 @@ import { Plugin, PluginKey, type EditorState, type Transaction } from "@tiptap/p
 import type { Mapping } from "@tiptap/pm/transform";
 import { Decoration, DecorationSet, type EditorView } from "@tiptap/pm/view";
 import { useAiSuggestionStore } from "@/stores/aiStore";
+import { useDocumentStore } from "@/stores/documentStore";
 import { useEditorStore } from "@/stores/editorStore";
+import { captureAiEdit } from "@/services/coherence/captureFunnel";
 import { runOrQueueProseMirrorAction } from "@/utils/imeGuard";
 import { createMarkdownPasteSlice } from "@/plugins/markdownPaste/tiptap";
 import { cleanMarkdownForClipboard } from "@/plugins/markdownCopy/tiptap";
@@ -123,14 +125,34 @@ export function applySuggestionToTr(
   return tr;
 }
 
+
+/**
+ * Coherence capture (WI-1.6): report an accepted suggestion to the kernel
+ * after the buffer settles. Dirty state is read BEFORE the apply — it
+ * decides exact vs. inferred provenance (spec §8). Fire-and-forget.
+ */
+function captureAcceptedSuggestion(tabId: string, bufferWasDirty: boolean): void {
+  setTimeout(() => {
+    void captureAiEdit({
+      tabId,
+      intentKind: "ai-suggestion",
+      summary: "suggestion accepted",
+      bufferWasDirty,
+    }).catch(() => {});
+  }, 0);
+}
+
 /**
  * Apply a suggestion directly on the editor view.
  * Uses runOrQueueProseMirrorAction for IME safety.
  */
 function applySuggestion(view: EditorView, suggestion: AiSuggestion): void {
   runOrQueueProseMirrorAction(view, () => {
+    const bufferWasDirty =
+      useDocumentStore.getState().getDocument(suggestion.tabId)?.isDirty ?? false;
     const { state } = view;
     view.dispatch(applySuggestionToTr(state, state.tr, suggestion));
+    captureAcceptedSuggestion(suggestion.tabId, bufferWasDirty);
   });
 }
 
@@ -484,8 +506,11 @@ export const aiSuggestionExtension = Extension.create({
             };
 
             runOrQueueProseMirrorAction(editorView, () => {
+              const bufferWasDirty =
+                useDocumentStore.getState().getDocument(suggestion.tabId)?.isDirty ?? false;
               const { state } = editorView;
               editorView.dispatch(applySuggestionToTr(state, state.tr, suggestion));
+              captureAcceptedSuggestion(suggestion.tabId, bufferWasDirty);
             });
           };
 
@@ -508,6 +533,9 @@ export const aiSuggestionExtension = Extension.create({
             if (suggestions.length === 0) return;
 
             runOrQueueProseMirrorAction(editorView, () => {
+              const tabId = suggestions[0].tabId;
+              const bufferWasDirty =
+                useDocumentStore.getState().getDocument(tabId)?.isDirty ?? false;
               const { state } = editorView;
               let { tr } = state;
 
@@ -518,6 +546,7 @@ export const aiSuggestionExtension = Extension.create({
               }
 
               editorView.dispatch(tr);
+              captureAcceptedSuggestion(tabId, bufferWasDirty);
             });
           };
 

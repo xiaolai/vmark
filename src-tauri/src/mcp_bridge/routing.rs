@@ -5,6 +5,7 @@
 //! Rust can handle natively without involving the webview.
 
 use super::types::{McpRequest, McpResponse};
+use crate::coherence::commands::{perform_breakdown, perform_status, CoherenceState};
 use tauri::AppHandle;
 use tauri::Manager;
 use tauri::Runtime;
@@ -127,6 +128,82 @@ pub(super) fn handle_rust_side<R: Runtime>(
                 error: None,
             })
         }
+        // Coherence layer (WI-1.10): READ-ONLY status/edges answered entirely
+        // in Rust from the managed kernel — no webview hop, so they work even
+        // when the webview is suspended and need no per-window routing.
+        "vmark.coherence.status" | "vmark.coherence.edges" => {
+            let Some(state) = app.try_state::<CoherenceState>() else {
+                return Some(McpResponse {
+                    success: false,
+                    data: None,
+                    error: Some("coherence state unavailable".to_string()),
+                });
+            };
+            Some(answer_coherence(
+                &state,
+                &request.request_type,
+                &request.args,
+            ))
+        }
         _ => None,
     }
 }
+
+/// Answer a `vmark.coherence.*` read request from the managed kernel state.
+///
+/// Factored out of `handle_rust_side` so it can be tested without a mock
+/// Tauri app. Never panics: every failure (missing/invalid workspace_root,
+/// kernel open failure, poisoned lock) becomes `success: false` with the
+/// error string.
+pub(super) fn answer_coherence(
+    state: &CoherenceState,
+    request_type: &str,
+    args: &serde_json::Value,
+) -> McpResponse {
+    match answer_coherence_inner(state, request_type, args) {
+        Ok(data) => McpResponse {
+            success: true,
+            data: Some(data),
+            error: None,
+        },
+        Err(e) => McpResponse {
+            success: false,
+            data: None,
+            error: Some(e),
+        },
+    }
+}
+
+fn answer_coherence_inner(
+    state: &CoherenceState,
+    request_type: &str,
+    args: &serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    let root = args.get("workspace_root").and_then(|v| v.as_str()).ok_or(
+        "workspace_root (string) is required — the absolute path of the workspace to query",
+    )?;
+    let root = std::path::Path::new(root);
+    if !root.is_dir() {
+        return Err(format!(
+            "workspace_root is not an accessible directory: {}",
+            root.display()
+        ));
+    }
+    let kernel = state.registry.kernel_for(root, state.writer)?;
+    let mut kernel = kernel.lock().map_err(|_| "kernel poisoned".to_string())?;
+    match request_type {
+        "vmark.coherence.status" => {
+            let status = perform_status(&mut kernel)?;
+            serde_json::to_value(status).map_err(|e| format!("serialize status: {e}"))
+        }
+        "vmark.coherence.edges" => {
+            let rows = perform_breakdown(&mut kernel)?;
+            serde_json::to_value(rows).map_err(|e| format!("serialize edges: {e}"))
+        }
+        other => Err(format!("unknown coherence request type: {other}")),
+    }
+}
+
+#[cfg(test)]
+#[path = "routing.test.rs"]
+mod tests;

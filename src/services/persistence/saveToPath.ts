@@ -43,6 +43,7 @@ import {
   normalizeLineEndings,
 } from "@/utils/linebreaks";
 import { registerPendingSave, clearPendingSave } from "@/utils/pendingSaves";
+import { captureWrite } from "@/services/coherence/captureFunnel";
 import { historyWarn, saveError } from "@/utils/debug";
 import { errorMessage } from "@/utils/errorMessage";
 
@@ -238,6 +239,16 @@ export async function saveToPath(
 
   applyPostSaveState(tabId, path, normalized, saveToken, saveType);
   await recordHistorySnapshot(path, normalized.output, saveType);
+
+  // Coherence capture (WI-1.6, human funnel): fire-and-forget — a failed
+  // capture never fails the save; scan reconciliation heals gaps. The
+  // trailing catch guards the contract even if captureWrite ever throws.
+  void captureWrite({
+    absolutePath: path,
+    content: normalized.output,
+    agent: { type: "human" },
+    intent: { kind: "editor-save", summary: saveType === "auto" ? "auto save" : "manual save" },
+  }).catch(() => {});
 
   return true;
 }

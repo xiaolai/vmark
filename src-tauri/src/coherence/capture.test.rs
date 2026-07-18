@@ -37,6 +37,7 @@ fn human_save(path: &str, content: &str) -> CaptureRequest {
             prompt_hash: None,
         },
         confidence: Confidence::Exact,
+        rewrite_identity: true,
     }
 }
 
@@ -134,6 +135,7 @@ fn ai_generation_with_input_paths_adopts_and_records_edges() {
             prompt_hash: None,
         },
         confidence: Confidence::Exact,
+        rewrite_identity: true,
     };
     let receipt = capture(&mut kernel, req).unwrap();
     assert!(receipt.entry_id.is_some());
@@ -203,4 +205,68 @@ fn rename_appends_registry_entry_not_revision() {
         registry.path_of.get(&r1.object).map(String::as_str),
         Some("new.md")
     );
+}
+
+#[test]
+fn identityless_resave_at_known_path_reuses_the_object() {
+    // The editor buffer does not carry the identity block in-session:
+    // every save arrives identity-less. The kernel must reuse the object
+    // registered at that path — never mint a second identity (§2.1/I3).
+    let (dir, mut kernel) = workspace();
+    write_file(dir.path(), "scene.md", "v1\n");
+    let r1 = capture(&mut kernel, human_save("scene.md", "v1\n")).unwrap();
+    // Editor saves v2 WITHOUT the identity block:
+    write_file(dir.path(), "scene.md", "v2\n");
+    let r2 = capture(&mut kernel, human_save("scene.md", "v2\n")).unwrap();
+    assert_eq!(r1.object, r2.object, "same path, same object");
+    assert!(r2.content_with_identity.is_some(), "identity re-inserted");
+    assert!(
+        r2.content_with_identity
+            .unwrap()
+            .contains(&r1.object.0.to_string()),
+        "the ORIGINAL id, not a fresh one"
+    );
+    assert_eq!(kernel.index().heads(&r1.object).unwrap(), vec![r2.revision]);
+    // And the ledger has exactly one registration for the path.
+    let regs = kernel
+        .ledger()
+        .read_all()
+        .unwrap()
+        .entries
+        .iter()
+        .filter(|e| e.kind == "object-registered")
+        .count();
+    assert_eq!(regs, 1);
+}
+
+#[test]
+fn buffer_capture_without_rewrite_leaves_disk_untouched() {
+    // AI applies land in the editor buffer before any save. Capturing the
+    // buffer must not flush it to disk (rewrite_identity=false): the
+    // ledger gets the revision, the disk keeps lagging until a real save,
+    // and masking makes the identity-less disk content hash-equal so scan
+    // stays quiet.
+    let (dir, mut kernel) = workspace();
+    write_file(dir.path(), "scene.md", "pre-apply\n");
+    let r1 = capture(&mut kernel, human_save("scene.md", "pre-apply\n")).unwrap();
+
+    let mut req = human_save("scene.md", "post-apply (buffer only)\n");
+    req.agent = Agent {
+        kind: AgentType::Model,
+        id: Some("genie-model".into()),
+    };
+    req.rewrite_identity = false;
+    let r2 = capture(&mut kernel, req).unwrap();
+
+    assert_eq!(r1.object, r2.object, "registry reuse still applies");
+    assert!(
+        r2.content_with_identity.is_none(),
+        "no rewrite, no buffer refresh"
+    );
+    let disk = std::fs::read_to_string(dir.path().join("scene.md")).unwrap();
+    assert!(disk.contains("pre-apply"), "disk untouched: {disk:?}");
+    // The buffer revision is the new head; the lagging disk content is the
+    // parent revision, so a scan finds known content and mints nothing.
+    let report = crate::coherence::scan::scan_workspace(&mut kernel).unwrap();
+    assert_eq!(report.external_edits, 0);
 }

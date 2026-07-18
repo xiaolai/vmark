@@ -31,6 +31,7 @@ import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useRevisionStore } from "@/stores/documentStore";
 import { registerPendingSave, clearPendingSave } from "@/utils/pendingSaves";
+import { captureMcpWrite } from "@/services/coherence/captureFunnel";
 import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import { checkBridgePath } from "@/services/mcpBridge/bridgePathGuard";
 import { respond } from "../utils";
@@ -194,6 +195,12 @@ export async function handleWorkspaceSave(
       useDocumentStore
         .getState()
         .markSaved(resolved.tabId, resolved.content);
+      // Coherence (WI-1.6): inferred capture, session-read inputs.
+      void captureMcpWrite({
+        absolutePath: resolved.filePath,
+        content: resolved.content,
+        toolName: "workspace.save",
+      }).catch(() => {});
     } finally {
       clearPendingSave(resolved.filePath, saveToken);
     }

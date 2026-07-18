@@ -39,6 +39,7 @@
 
 import { writeTextFile } from "@tauri-apps/plugin-fs";
 import { registerPendingSave, clearPendingSave } from "@/utils/pendingSaves";
+import { captureMcpWrite, recordMcpRead } from "@/services/coherence/captureFunnel";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useRevisionStore } from "@/stores/documentStore";
@@ -223,6 +224,9 @@ export async function handleDocumentRead(
       return;
     }
     const revision = useRevisionStore.getState().getRevision(resolved.tabId);
+    // Coherence (WI-1.6): reads served to the external agent become the
+    // inferred input set of its next write (spec §7 example 2).
+    if (resolved.filePath) recordMcpRead(resolved.filePath);
     await respond({
       id,
       success: true,
@@ -343,6 +347,13 @@ export async function handleDocumentWrite(
           await writeTextFile(resolved.filePath, args.content);
           useDocumentStore.getState().markSaved(resolved.tabId, args.content);
           saved = true;
+          // Coherence (WI-1.6): inferred capture with the session-read
+          // input set (G1 finding 2). Fire-and-forget.
+          void captureMcpWrite({
+            absolutePath: resolved.filePath,
+            content: args.content,
+            toolName: "document.write",
+          }).catch(() => {});
         } finally {
           clearPendingSave(resolved.filePath, saveToken);
         }

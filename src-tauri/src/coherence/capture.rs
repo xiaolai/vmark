@@ -40,6 +40,15 @@ pub struct CaptureRequest {
     pub agent: Agent,
     pub intent: Intent,
     pub confidence: Confidence,
+    /// False for live-buffer captures (AI applies before any save): the
+    /// ledger records the revision but the file on disk is left alone;
+    /// identity reaches the disk with the next real save. Defaults true.
+    #[serde(default = "default_rewrite")]
+    pub rewrite_identity: bool,
+}
+
+fn default_rewrite() -> bool {
+    true
 }
 
 #[derive(Debug, Clone, serde::Serialize)]
@@ -64,19 +73,45 @@ pub fn capture(
     }
     kernel.ensure_initialized()?;
 
-    // Identity: read, or assign + rewrite the file atomically (§2.1).
+    // Identity: read from the content; for identity-less content REUSE the
+    // object registered at this path (editor buffers do not carry the
+    // identity block in-session — minting a fresh id per save would churn
+    // identity, §2.1/I3); only a genuinely unknown path mints a new id.
+    // Either way the file is rewritten atomically with the identity block.
     let (content, identity, rewritten) = match read_identity(&req.content) {
         Some(fi) => (req.content.clone(), fi, None),
         None => {
-            let (content, fi) = assign_identity(&req.content, None);
-            let abs = kernel.root().join(&req.path);
-            let parent = abs
-                .parent()
-                .ok_or_else(|| format!("output path has no parent: {}", req.path))?
-                .to_path_buf();
-            atomic_replace(&abs, &parent, content.as_bytes())
-                .map_err(|e| format!("identity rewrite failed: {e:?}"))?;
-            (content.clone(), fi, Some(content))
+            let registry = kernel.index().registry_state()?;
+            let (content, fi) = match registry.object_at.get(&req.path) {
+                Some(existing) => {
+                    let schema = registry.schema_of.get(existing).cloned().flatten();
+                    let content = super::canonical::insert_identity(
+                        &req.content,
+                        &existing.0.to_string(),
+                        schema.as_deref(),
+                    );
+                    (
+                        content,
+                        super::frontmatter::FileIdentity {
+                            id: *existing,
+                            schema,
+                        },
+                    )
+                }
+                None => assign_identity(&req.content, None),
+            };
+            if req.rewrite_identity {
+                let abs = kernel.root().join(&req.path);
+                let parent = abs
+                    .parent()
+                    .ok_or_else(|| format!("output path has no parent: {}", req.path))?
+                    .to_path_buf();
+                atomic_replace(&abs, &parent, content.as_bytes())
+                    .map_err(|e| format!("identity rewrite failed: {e:?}"))?;
+                (content.clone(), fi, Some(content))
+            } else {
+                (content, fi, None)
+            }
         }
     };
 

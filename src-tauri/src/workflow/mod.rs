@@ -4,6 +4,7 @@
 //! event emission to the frontend, and built-in action support.
 
 pub mod approval;
+pub mod coherence_capture;
 pub mod commands;
 pub mod condition;
 mod condition_lexer;
