@@ -376,8 +376,22 @@ phase_2() {
     fail "SKIP_TESTS=1 set — WI-2b.7 suites not run"
   fi
 
+  echo "— WI-2b.8: read-only MCP claims/contexts (R23 intact) —"
+  assert_grep "vmark.coherence.claims" src-tauri/src/mcp_bridge/routing.rs "claims answered Rust-side"
+  assert_grep "vmark.coherence.contexts" src-tauri/src/mcp_bridge/routing.rs "contexts answered Rust-side"
+  assert_grep "'claims', 'contexts'" vmark-mcp-server/src/tools/coherence.ts "sidecar actions extended"
+  if [[ "${SKIP_TESTS:-}" != "1" ]]; then
+    if cargo test --manifest-path src-tauri/Cargo.toml --lib mcp_bridge::routing --quiet >/dev/null 2>&1; then
+      ok "WI-2b.8 routing suite green"
+    else
+      fail "WI-2b.8 routing suite red"
+    fi
+  else
+    fail "SKIP_TESTS=1 set — WI-2b.8 suite not run"
+  fi
+
   # Later WIs append their assertions (and suite runs) here as they land.
-  local PENDING=(2b.8 2b.9 2b.10)
+  local PENDING=(2b.9 2b.10)
   echo "— pending WIs (fail-closed until implemented) —"
   for wi in "${PENDING[@]}"; do
     fail "WI-$wi assertions not yet defined (fail-closed)"

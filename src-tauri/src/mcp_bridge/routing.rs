@@ -5,7 +5,9 @@
 //! Rust can handle natively without involving the webview.
 
 use super::types::{McpRequest, McpResponse};
+use crate::coherence::claim_commands::perform_claims_list;
 use crate::coherence::commands::{perform_breakdown, perform_status, CoherenceState};
+use crate::coherence::context_commands::perform_contexts_list;
 use tauri::AppHandle;
 use tauri::Manager;
 use tauri::Runtime;
@@ -131,7 +133,10 @@ pub(super) fn handle_rust_side<R: Runtime>(
         // Coherence layer (WI-1.10): READ-ONLY status/edges answered entirely
         // in Rust from the managed kernel — no webview hop, so they work even
         // when the webview is suspended and need no per-window routing.
-        "vmark.coherence.status" | "vmark.coherence.edges" => {
+        "vmark.coherence.status"
+        | "vmark.coherence.edges"
+        | "vmark.coherence.claims"
+        | "vmark.coherence.contexts" => {
             let Some(state) = app.try_state::<CoherenceState>() else {
                 return Some(McpResponse {
                     success: false,
@@ -278,6 +283,16 @@ fn answer_coherence_inner(
         "vmark.coherence.edges" => {
             let rows = perform_breakdown(&mut kernel)?;
             serde_json::to_value(rows).map_err(|e| format!("serialize edges: {e}"))
+        }
+        // WI-2b.8: read-only semantic-layer views (R23 intact — no
+        // mutation reaches MCP before Phase 3's delegation model).
+        "vmark.coherence.claims" => {
+            let rows = perform_claims_list(&mut kernel)?;
+            serde_json::to_value(rows).map_err(|e| format!("serialize claims: {e}"))
+        }
+        "vmark.coherence.contexts" => {
+            let rows = perform_contexts_list(&mut kernel)?;
+            serde_json::to_value(rows).map_err(|e| format!("serialize contexts: {e}"))
         }
         other => Err(format!("unknown coherence request type: {other}")),
     }

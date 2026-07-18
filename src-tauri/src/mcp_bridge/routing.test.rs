@@ -219,3 +219,24 @@ fn handle_rust_side_falls_through_for_unrelated_types() {
 
     assert!(handle_rust_side(&request, app.handle()).is_none());
 }
+
+// WI-2b.8 — the read-only semantic-layer views over MCP.
+#[test]
+fn claims_and_contexts_answer_read_only() {
+    let td = tempfile::tempdir().unwrap();
+    let state = coherence_state();
+    let root = td.path().to_string_lossy().into_owned();
+    let args = serde_json::json!({ "workspace_root": root });
+
+    let claims = answer_coherence(&state, "vmark.coherence.claims", &args);
+    assert!(claims.success, "{:?}", claims.error);
+    assert_eq!(claims.data.unwrap(), serde_json::json!([]));
+
+    let contexts = answer_coherence(&state, "vmark.coherence.contexts", &args);
+    assert!(contexts.success, "{:?}", contexts.error);
+    let rows = contexts.data.unwrap();
+    let rows = rows.as_array().unwrap();
+    assert_eq!(rows.len(), 1, "implicit default always present");
+    assert_eq!(rows[0]["name"], "default");
+    assert_eq!(rows[0]["enforcement"], "greenhouse");
+}
