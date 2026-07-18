@@ -26,10 +26,12 @@ impl CoherenceIndex {
     }
 
     /// Latest registered (object → path) map and its reverse, plus schema.
+    /// Ordered by PARSED time (audit R21: lexical TEXT ordering breaks on
+    /// mixed precision or offsets), entry id as the tiebreak.
     pub fn registry_state(&self) -> Result<RegistryState, String> {
         let mut stmt = self
             .conn
-            .prepare("SELECT object, path, schema FROM registry ORDER BY time ASC, entry_id ASC")
+            .prepare("SELECT object, path, schema, time, entry_id FROM registry")
             .map_err(|e| e.to_string())?;
         let rows = stmt
             .query_map([], |r| {
@@ -37,19 +39,27 @@ impl CoherenceIndex {
                     r.get::<_, String>(0)?,
                     r.get::<_, String>(1)?,
                     r.get::<_, Option<String>>(2)?,
+                    r.get::<_, String>(3)?,
+                    r.get::<_, String>(4)?,
                 ))
             })
             .map_err(|e| e.to_string())?;
-        let mut state = RegistryState::default();
+        let mut collected = Vec::new();
         for row in rows {
-            let (obj, path, schema) = row.map_err(|e| e.to_string())?;
+            let (obj, path, schema, time, entry_id) = row.map_err(|e| e.to_string())?;
+            let parsed = chrono::DateTime::parse_from_rfc3339(&time).ok();
+            collected.push((parsed, time, entry_id, obj, path, schema));
+        }
+        collected.sort_by(|a, b| (a.0, &a.1, &a.2).cmp(&(b.0, &b.1, &b.2)));
+        let mut state = RegistryState::default();
+        for (_, _, _, obj, path, schema) in collected {
             let object = ObjectId(Uuid::parse_str(&obj).map_err(|e| e.to_string())?);
             state.upsert(object, path, schema); // ordered ⇒ last wins
         }
         Ok(state)
     }
 
-    fn load_dag(&self) -> Result<RevisionDag, String> {
+    pub(super) fn load_dag(&self) -> Result<RevisionDag, String> {
         let mut dag = RevisionDag::default();
         let mut stmt = self
             .conn
@@ -146,6 +156,7 @@ impl CoherenceIndex {
             })
             .map_err(|e| e.to_string())?;
 
+        let all_resolutions = self.all_resolutions()?;
         let mut out = Vec::new();
         for row in edge_rows {
             let (txf, idx, up, pinned, down, down_rev, role) = row.map_err(|e| e.to_string())?;
@@ -165,7 +176,10 @@ impl CoherenceIndex {
                     InputRole::Contextual
                 },
             };
-            let resolutions = self.resolutions_for(&edge.txf, edge.input)?;
+            let resolutions = all_resolutions
+                .get(&(edge.txf, edge.input))
+                .cloned()
+                .unwrap_or_default();
             let Some(state) = project_edge(&edge, &ctx, &dag, &resolutions, &[], now) else {
                 continue;
             };
@@ -190,76 +204,38 @@ impl CoherenceIndex {
         Ok(out)
     }
 
-    /// Look up one origin edge by its ledger coordinates (WI-1.9a).
-    pub fn edge_by(&self, txf: &Uuid, input: u32) -> Result<Option<OriginEdge>, String> {
-        let row = self
-            .conn
-            .query_row(
-                "SELECT upstream, pinned, downstream, downstream_rev, role FROM edges WHERE txf = ?1 AND input_idx = ?2",
-                rusqlite::params![txf.to_string(), input as i64],
-                |r| {
-                    Ok((
-                        r.get::<_, String>(0)?,
-                        r.get::<_, String>(1)?,
-                        r.get::<_, String>(2)?,
-                        r.get::<_, String>(3)?,
-                        r.get::<_, String>(4)?,
-                    ))
-                },
-            )
-            .map(Some)
-            .or_else(|e| match e {
-                rusqlite::Error::QueryReturnedNoRows => Ok(None),
-                other => Err(other.to_string()),
-            })?;
-        let Some((up, pinned, down, down_rev, role)) = row else {
-            return Ok(None);
-        };
-        Ok(Some(OriginEdge {
-            txf: *txf,
-            input,
-            upstream: ObjectId(Uuid::parse_str(&up).map_err(|e| e.to_string())?),
-            pinned: RevisionId::parse(&pinned)?,
-            downstream: ObjectId(Uuid::parse_str(&down).map_err(|e| e.to_string())?),
-            downstream_rev: RevisionId::parse(&down_rev)?,
-            role: if role == "direct" {
-                InputRole::Direct
-            } else {
-                InputRole::Contextual
-            },
-        }))
-    }
-
-    /// Kernel-side selection resolution for one object in the all-live
-    /// default context (WI-1.9a needs a single `resolved_against`).
-    pub fn resolve_live(&self, object: &ObjectId) -> Result<super::dag::Resolved, String> {
-        Ok(super::dag::resolve(
-            &ContextView::all_live(),
-            &self.load_dag()?,
-            object,
-        ))
-    }
-
-    fn resolutions_for(&self, txf: &Uuid, input: u32) -> Result<Vec<EdgeResolution>, String> {
+    /// One query for every resolution, grouped by edge (audit R17: a
+    /// per-edge query is O(edges) round-trips at §10 scale).
+    fn all_resolutions(
+        &self,
+    ) -> Result<std::collections::HashMap<(Uuid, u32), Vec<EdgeResolution>>, String> {
         let mut stmt = self
             .conn
-            .prepare("SELECT entry_id, kind, resolved_against, time, expires FROM resolutions WHERE txf = ?1 AND input_idx = ?2")
+            .prepare("SELECT txf, input_idx, entry_id, kind, resolved_against, time, expires FROM resolutions")
             .map_err(|e| e.to_string())?;
         let rows = stmt
-            .query_map(rusqlite::params![txf.to_string(), input as i64], |r| {
+            .query_map([], |r| {
                 Ok((
                     r.get::<_, String>(0)?,
-                    r.get::<_, String>(1)?,
+                    r.get::<_, i64>(1)?,
                     r.get::<_, String>(2)?,
                     r.get::<_, String>(3)?,
-                    r.get::<_, Option<String>>(4)?,
+                    r.get::<_, String>(4)?,
+                    r.get::<_, String>(5)?,
+                    r.get::<_, Option<String>>(6)?,
                 ))
             })
             .map_err(|e| e.to_string())?;
-        let mut out = Vec::new();
+        let mut map: std::collections::HashMap<(Uuid, u32), Vec<EdgeResolution>> =
+            std::collections::HashMap::new();
         for row in rows {
-            let (id, kind, against, time, expires) = row.map_err(|e| e.to_string())?;
-            out.push(EdgeResolution {
+            let (txf, input, id, kind, against, time, expires) = row.map_err(|e| e.to_string())?;
+            map.entry((
+                Uuid::parse_str(&txf).map_err(|e| e.to_string())?,
+                input as u32,
+            ))
+            .or_default()
+            .push(EdgeResolution {
                 kind: if kind == "ratification" {
                     ResolutionKind::Ratification
                 } else {
@@ -271,6 +247,6 @@ impl CoherenceIndex {
                 expires,
             });
         }
-        Ok(out)
+        Ok(map)
     }
 }

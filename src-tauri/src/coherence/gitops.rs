@@ -28,7 +28,9 @@ pub enum GitClass {
     NotGit,
     NoOp,
     /// HEAD moved to previously known content — record, never mint (R18).
+    /// `op` preserves the detected operation type (spec §5.4.2).
     Navigation {
+        op: String,
         from: String,
         to: String,
     },
@@ -100,7 +102,18 @@ pub fn classify(before: Option<&GitObservation>, after: Option<&GitObservation>)
         if same_position {
             return GitClass::NoOp;
         }
+        // Operation fidelity (spec §5.4.2): detached HEAD, branch switch,
+        // or a same-ref jump (checkout/reset — indistinguishable from
+        // scan-time observables, recorded as checkout).
+        let op = if a.head_ref == "HEAD" {
+            "detach"
+        } else if a.head_ref != b.head_ref {
+            "branch-switch"
+        } else {
+            "checkout"
+        };
         return GitClass::Navigation {
+            op: op.to_string(),
             from: b.head_sha.clone().unwrap_or_default(),
             to: head.clone(),
         };

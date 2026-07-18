@@ -39,6 +39,7 @@ fn human_save(path: &str, content: &str) -> CaptureRequest {
         },
         confidence: Confidence::Exact,
         rewrite_identity: true,
+        idem: None,
     }
 }
 
@@ -137,6 +138,7 @@ fn ai_generation_with_input_paths_adopts_and_records_edges() {
         },
         confidence: Confidence::Exact,
         rewrite_identity: true,
+        idem: None,
     };
     let receipt = capture(&mut kernel, req).unwrap();
     assert!(receipt.entry_id.is_some());

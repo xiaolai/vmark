@@ -82,14 +82,15 @@ import { applySuggestionToTr, computeSuggestionRemap, isValidPosition } from "./
  * decides exact vs. inferred provenance (spec §8). Fire-and-forget.
  */
 function captureAcceptedSuggestion(tabId: string, bufferWasDirty: boolean): void {
-  setTimeout(() => {
-    void captureAiEdit({
-      tabId,
-      intentKind: "ai-suggestion",
-      summary: "suggestion accepted",
-      bufferWasDirty,
-    }).catch(() => {});
-  }, 0);
+  // Called synchronously after dispatch: tiptap's onUpdate has already
+  // synced the store, and captureAiEdit snapshots at entry (audit T3) —
+  // a rapid second apply cannot change what this capture records.
+  void captureAiEdit({
+    tabId,
+    intentKind: "ai-suggestion",
+    summary: "suggestion accepted",
+    bufferWasDirty,
+  }).catch(() => {});
 }
 
 /**

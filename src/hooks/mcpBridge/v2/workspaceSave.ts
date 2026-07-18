@@ -106,7 +106,9 @@ export async function handleWorkspaceSave(
         toolName: "workspace.save",
       }).catch(() => {});
     } finally {
-      clearPendingSave(resolved.filePath, saveToken);
+      // Delayed clear (audit T9): same watcher window as saveToPath.
+      const filePath = resolved.filePath;
+      setTimeout(() => clearPendingSave(filePath, saveToken), 1000);
     }
     const revision = useRevisionStore.getState().getRevision(resolved.tabId);
     await respond({

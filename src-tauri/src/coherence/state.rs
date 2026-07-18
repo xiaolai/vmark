@@ -74,15 +74,8 @@ impl WorkspaceKernel {
         let vmark = self.root.join(".vmark");
         fs::create_dir_all(vmark.join("ledger")).map_err(|e| format!("init ledger dir: {e}"))?;
         fs::create_dir_all(vmark.join("snapshots")).map_err(|e| format!("init snapshots: {e}"))?;
-        let gitignore = vmark.join(".gitignore");
-        if !gitignore.exists() {
-            fs::write(&gitignore, "index.db*\n").map_err(|e| format!("init .gitignore: {e}"))?;
-        }
-        let gitattributes = vmark.join(".gitattributes");
-        if !gitattributes.exists() {
-            fs::write(&gitattributes, "ledger/*.jsonl merge=union\n")
-                .map_err(|e| format!("init .gitattributes: {e}"))?;
-        }
+        ensure_line(&vmark.join(".gitignore"), "index.db*")?;
+        ensure_line(&vmark.join(".gitattributes"), "ledger/*.jsonl merge=union")?;
         // Swap the in-memory index for the file-backed one.
         let (mut index, _) = CoherenceIndex::open(&vmark.join("index.db"))?;
         let read = self.ledger.read_all()?;
@@ -94,10 +87,20 @@ impl WorkspaceKernel {
     }
 
     /// The single write path: durable ledger append, then index apply
-    /// (I1/I2 — appends only).
+    /// (I1/I2 — appends only). An index-apply failure never leaves a
+    /// silently stale index: the ledger is truth, so we rebuild from it
+    /// and only error if recovery itself fails (audit R7).
     pub fn append_and_apply(&mut self, env: &Envelope) -> Result<(), String> {
         self.ledger.append(env)?;
-        self.index.apply_entry(env)
+        if let Err(apply_err) = self.index.apply_entry(env) {
+            let read = self.ledger.read_all()?;
+            self.index
+                .rebuild_from(&read.entries)
+                .map_err(|rebuild_err| {
+                    format!("index apply failed ({apply_err}) and rebuild failed ({rebuild_err}) — coherence unavailable until reopen")
+                })?;
+        }
+        Ok(())
     }
 
     pub fn root(&self) -> &Path {
@@ -179,6 +182,22 @@ impl KernelRegistry {
     }
 }
 
+/// Append `line` to `path` when absent, preserving existing content
+/// (audit R22 — a pre-existing file must still gain the required rules).
+fn ensure_line(path: &Path, line: &str) -> Result<(), String> {
+    let existing = fs::read_to_string(path).unwrap_or_default();
+    if existing.lines().any(|l| l.trim() == line) {
+        return Ok(());
+    }
+    let mut content = existing;
+    if !content.is_empty() && !content.ends_with('\n') {
+        content.push('\n');
+    }
+    content.push_str(line);
+    content.push('\n');
+    fs::write(path, content).map_err(|e| format!("init {}: {e}", path.display()))
+}
+
 /// Per-installation writer identity (spec §2.2) — stored in app data,
 /// never inside a (git-shared) workspace.
 pub fn load_or_create_writer_id(app_data_dir: &Path) -> Result<WriterId, String> {
@@ -190,8 +209,34 @@ pub fn load_or_create_writer_id(app_data_dir: &Path) -> Result<WriterId, String>
     }
     let id = Uuid::now_v7();
     fs::create_dir_all(app_data_dir).map_err(|e| format!("writer-id dir: {e}"))?;
-    fs::write(&path, id.to_string()).map_err(|e| format!("writer-id write: {e}"))?;
-    Ok(WriterId(id))
+    // create_new: if another process wins the race, adopt ITS id instead
+    // of overwriting (audit R12 — two writers must never share segments).
+    match fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&path)
+    {
+        Ok(mut f) => {
+            use std::io::Write;
+            f.write_all(id.to_string().as_bytes())
+                .map_err(|e| format!("writer-id write: {e}"))?;
+            Ok(WriterId(id))
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {
+            let existing = fs::read_to_string(&path).map_err(|e| format!("writer-id read: {e}"))?;
+            match Uuid::parse_str(existing.trim()) {
+                Ok(other) => Ok(WriterId(other)), // lost the race — adopt theirs
+                Err(_) => {
+                    // Corrupt file, not a race: replace it (no healthy
+                    // writer can be relying on unparseable identity).
+                    fs::write(&path, id.to_string())
+                        .map_err(|e| format!("writer-id rewrite: {e}"))?;
+                    Ok(WriterId(id))
+                }
+            }
+        }
+        Err(e) => Err(format!("writer-id create: {e}")),
+    }
 }
 
 #[cfg(test)]

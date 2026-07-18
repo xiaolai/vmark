@@ -192,6 +192,31 @@ pub async fn coherence_status(
     perform_status(&mut kernel)
 }
 
+/// Read-time head lookup (audit T5): MCP reads pin the revision that was
+/// actually served, so a later upstream edit cannot be misattributed as
+/// the write's input. Null when the path is not a known single-headed
+/// object.
+#[tauri::command]
+pub async fn coherence_head(
+    state: tauri::State<'_, CoherenceState>,
+    workspace_root: String,
+    path: String,
+) -> Result<Option<serde_json::Value>, String> {
+    let kernel = state
+        .registry
+        .kernel_for(std::path::Path::new(&workspace_root), state.writer)?;
+    let kernel = kernel.lock().map_err(|_| "kernel poisoned".to_string())?;
+    let registry = kernel.index().registry_state()?;
+    let Some(object) = registry.object_at.get(&path) else {
+        return Ok(None);
+    };
+    let heads = kernel.index().heads(object)?;
+    match heads.as_slice() {
+        [only] => Ok(Some(json!({ "object": object, "revision": only }))),
+        _ => Ok(None),
+    }
+}
+
 #[tauri::command]
 pub async fn coherence_scan(
     state: tauri::State<'_, CoherenceState>,

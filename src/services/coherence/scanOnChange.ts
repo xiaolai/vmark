@@ -33,12 +33,19 @@ export function startCoherenceScanOnChange(
 ): () => void {
   let timer: ReturnType<typeof setTimeout> | null = null;
   let scanning = false;
+  let rerunAfter = false;
   let disposed = false;
   let unlisten: (() => void) | null = null;
 
   const runScan = async () => {
     const root = useWorkspaceStore.getState().rootPath;
-    if (!root || scanning || disposed) return;
+    if (!root || disposed) return;
+    if (scanning) {
+      // An event landed mid-scan: run once more afterwards so nothing is
+      // permanently lost (audit T10).
+      rerunAfter = true;
+      return;
+    }
     scanning = true;
     try {
       await deps.invoke("coherence_scan", { workspaceRoot: root });
@@ -46,11 +53,20 @@ export function startCoherenceScanOnChange(
       coherenceLog("scan-on-change failed (next pull retries):", error);
     } finally {
       scanning = false;
+      if (rerunAfter && !disposed) {
+        rerunAfter = false;
+        void runScan();
+      }
     }
   };
 
-  const schedule = () => {
+  const schedule = (event: unknown) => {
     if (disposed) return;
+    // Only this window's workspace triggers a scan (audit T11): the raw
+    // fs:changed event is app-global and carries its root.
+    const root = useWorkspaceStore.getState().rootPath;
+    const eventRoot = (event as { payload?: { rootPath?: string } })?.payload?.rootPath;
+    if (!root || (typeof eventRoot === "string" && eventRoot !== root)) return;
     if (timer) clearTimeout(timer);
     timer = setTimeout(() => {
       timer = null;

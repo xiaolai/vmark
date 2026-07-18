@@ -331,6 +331,7 @@ describe("vmark.workspace.save / save_as", () => {
   });
 
   it("save registers and clears pending save around writeTextFile to suppress the external-change dialog", async () => {
+    vi.useFakeTimers();
     useTabStore.setState({
       tabs: {
         main: [
@@ -352,15 +353,18 @@ describe("vmark.workspace.save / save_as", () => {
     await handleWorkspaceSave("req-ps", {});
 
     expect(registerPendingSaveMock).toHaveBeenCalledWith("/tmp/notes.md", "updated");
+    // Audit T9: delayed clear — the same 1000ms window as saveToPath.
+    expect(clearPendingSaveMock).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1100);
+    vi.useRealTimers();
     expect(clearPendingSaveMock).toHaveBeenCalledWith("/tmp/notes.md", 1);
     const registerOrder = registerPendingSaveMock.mock.invocationCallOrder[0];
     const writeOrder = writeMock.mock.invocationCallOrder[0];
-    const clearOrder = clearPendingSaveMock.mock.invocationCallOrder[0];
     expect(registerOrder).toBeLessThan(writeOrder);
-    expect(writeOrder).toBeLessThan(clearOrder);
   });
 
   it("save clears pending save even when writeTextFile rejects", async () => {
+    vi.useFakeTimers();
     useTabStore.setState({
       tabs: {
         main: [
@@ -382,6 +386,8 @@ describe("vmark.workspace.save / save_as", () => {
     await handleWorkspaceSave("req-ps-fail", {});
 
     expect(registerPendingSaveMock).toHaveBeenCalledWith("/readonly/notes.md", "x");
+    await vi.advanceTimersByTimeAsync(1100);
+    vi.useRealTimers();
     expect(clearPendingSaveMock).toHaveBeenCalledWith("/readonly/notes.md", 1);
   });
 

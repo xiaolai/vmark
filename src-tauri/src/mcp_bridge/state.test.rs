@@ -110,11 +110,11 @@ fn read_only_browser_operations() {
 
 #[test]
 fn read_only_coherence_operations() {
-    // WI-1.10 — coherence status/edges are answered Rust-side before the
-    // write lock is ever consulted, but they are pure reads and must be
-    // classified as such if the routing ever changes.
+    // WI-1.10 / audit C4-C5 — status is a pure projection (read); edges
+    // runs scan reconciliation, which APPENDS provenance records, so it
+    // must be classified as a write and serialize with document writes.
     assert!(is_read_only_operation("vmark.coherence.status"));
-    assert!(is_read_only_operation("vmark.coherence.edges"));
+    assert!(!is_read_only_operation("vmark.coherence.edges"));
 }
 
 #[test]

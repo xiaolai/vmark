@@ -84,7 +84,10 @@ never auto-fixed.
 
 ## For AI agents (MCP)
 
-External agents can query coherence state through the read-only
+External agents can query coherence state through the
 [`coherence` MCP tool](/guide/mcp-tools#coherence) (`status` and `edges`
-actions). Resolution (ratify/waive) is deliberately *not* exposed over
-MCP in this version — decisions stay with the human in the app.
+actions), for workspaces you have opened in VMark. `status` is a pure
+read; `edges` reconciles first — it may append provenance records to the
+workspace's own ledger, but never touches your documents. Resolution
+(ratify/waive) is deliberately *not* exposed over MCP in this version —
+decisions stay with the human in the app.

@@ -110,7 +110,9 @@ fn latest_check<'a>(
 
 fn waiver_active(r: &EdgeResolution, now: &str) -> bool {
     match (&r.expires, parse_time(now)) {
-        (Some(exp), Some(now_t)) => parse_time(exp).is_none_or(|e| e > now_t),
+        // A malformed expiry deactivates the waiver (fail-visible: the
+        // edge reopens rather than staying silently waived — audit R16).
+        (Some(exp), Some(now_t)) => parse_time(exp).is_some_and(|e| e > now_t),
         (Some(_), None) => false,
         (None, _) => true,
     }

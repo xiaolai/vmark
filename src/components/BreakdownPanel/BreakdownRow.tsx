@@ -33,6 +33,9 @@ export function BreakdownRow({ row, workspaceRoot }: BreakdownRowProps) {
   const { t } = useTranslation("breakdown");
   const [waiving, setWaiving] = useState(false);
   const [reason, setReason] = useState("");
+  // Audit T14: actions disable while a resolution is in flight — rapid
+  // clicks must not append duplicate ratifications/waivers.
+  const [resolving, setResolving] = useState(false);
 
   const locked = RESOLUTION_LOCKED.has(row.state);
   const lockedTitle =
@@ -40,12 +43,13 @@ export function BreakdownRow({ row, workspaceRoot }: BreakdownRowProps) {
   const upstreamLabel = row.upstream_path ?? row.upstream;
 
   const acceptNewer = () => {
-    if (!workspaceRoot) return;
+    if (!workspaceRoot || resolving) return;
+    setResolving(true);
     void resolveEdge(workspaceRoot, {
       action: "accept-newer",
       txf: row.txf,
       input: row.input,
-    });
+    }).finally(() => setResolving(false));
   };
 
   const revise = () => {
@@ -56,14 +60,16 @@ export function BreakdownRow({ row, workspaceRoot }: BreakdownRowProps) {
   const confirmWaive = () => {
     const trimmed = reason.trim();
     if (!workspaceRoot || trimmed === "") return;
+    if (resolving) return;
     setWaiving(false);
     setReason("");
+    setResolving(true);
     void resolveEdge(workspaceRoot, {
       action: "waive",
       txf: row.txf,
       input: row.input,
       reason: trimmed,
-    });
+    }).finally(() => setResolving(false));
   };
 
   return (
@@ -81,7 +87,7 @@ export function BreakdownRow({ row, workspaceRoot }: BreakdownRowProps) {
           type="button"
           className="breakdown-row__action"
           onClick={acceptNewer}
-          disabled={locked || !workspaceRoot}
+          disabled={locked || resolving || !workspaceRoot}
           title={locked ? lockedTitle : t("actions.acceptNewer")}
         >
           {t("actions.acceptNewer")}
@@ -99,7 +105,7 @@ export function BreakdownRow({ row, workspaceRoot }: BreakdownRowProps) {
           type="button"
           className="breakdown-row__action"
           onClick={() => setWaiving((w) => !w)}
-          disabled={locked || !workspaceRoot}
+          disabled={locked || resolving || !workspaceRoot}
           title={locked ? lockedTitle : t("actions.waive")}
           aria-expanded={waiving}
         >

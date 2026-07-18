@@ -69,17 +69,31 @@ impl Ledger {
         }
     }
 
-    /// The segment the next append lands in: highest existing suffix for
-    /// this writer, advancing when the size threshold is crossed.
+    /// The segment the next append lands in: the HIGHEST existing suffix
+    /// (never an earlier gap — a branch merge can leave holes, and
+    /// reusing one would interleave old and new history in odd file
+    /// order; audit R18), advancing once the size threshold is crossed.
     fn active_segment(&self) -> PathBuf {
         let stem = writer_file_stem(&self.writer);
-        let mut n = 0u32;
-        loop {
-            let path = self.segment_path(&stem, n);
-            match fs::metadata(&path) {
-                Ok(meta) if meta.len() >= self.max_segment_bytes => n += 1,
-                _ => return path,
+        let mut highest = 0u32;
+        let mut probe = 0u32;
+        let mut misses = 0u32;
+        // Bounded forward probe tolerating suffix gaps.
+        while misses < 8 {
+            if self.segment_path(&stem, probe).exists() {
+                highest = probe;
+                misses = 0;
+            } else {
+                misses += 1;
             }
+            probe += 1;
+        }
+        let path = self.segment_path(&stem, highest);
+        match fs::metadata(&path) {
+            Ok(meta) if meta.len() >= self.max_segment_bytes => {
+                self.segment_path(&stem, highest + 1)
+            }
+            _ => path,
         }
     }
 
@@ -128,8 +142,13 @@ impl Ledger {
     /// Merge every segment in the ledger directory (spec §5.1/§5.6).
     pub fn read_all(&self) -> Result<LedgerRead, String> {
         let mut read = LedgerRead::default();
-        let Ok(dir_entries) = fs::read_dir(&self.dir) else {
-            return Ok(read); // no ledger yet = empty history
+        let dir_entries = match fs::read_dir(&self.dir) {
+            Ok(entries) => entries,
+            // Only a MISSING ledger dir is an empty history; permission
+            // or IO failures must surface, or a rebuild could wipe the
+            // derived index of visible history (audit R8).
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(read),
+            Err(e) => return Err(format!("ledger dir unreadable: {e}")),
         };
         let mut raw: Vec<Envelope> = Vec::new();
         let mut segments: Vec<PathBuf> = dir_entries
@@ -179,7 +198,9 @@ impl Ledger {
         let bad = qdir.join(format!("{segment}.bad"));
         let line_str = String::from_utf8_lossy(line);
         if let Ok(existing) = fs::read_to_string(&bad) {
-            if existing.contains(line_str.as_ref()) {
+            // Exact-line match (audit R24): substring containment could
+            // conflate a line with a superset line.
+            if existing.lines().any(|l| l == line_str.as_ref()) {
                 return;
             }
         }

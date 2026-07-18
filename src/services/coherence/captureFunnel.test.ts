@@ -80,6 +80,9 @@ describe("captureWrite", () => {
         intent: { kind: "editor-save", summary: "manual save" },
         confidence: "exact",
         rewrite_identity: true,
+        // Spec §5.1: minted once per logical operation, carried through
+        // retries.
+        idem: expect.stringMatching(/^[0-9a-f-]{36}$/),
       },
     });
   });
@@ -175,6 +178,7 @@ describe("captureAiEdit", () => {
         intent: { kind: "genie", summary: "Rewrite scene" },
         confidence: "exact",
         rewrite_identity: false,
+        idem: expect.stringMatching(/^[0-9a-f-]{36}$/),
       },
     });
   });
@@ -206,6 +210,10 @@ describe("captureAiEdit", () => {
 
 describe("MCP session reads and writes", () => {
   it("consumed reads become inferred direct inputs, excluding the target", async () => {
+    // recordMcpRead also fires a best-effort coherence_head pin per read.
+    mockInvoke.mockImplementation(async (cmd: unknown) =>
+      cmd === "coherence_head" ? null : receipt
+    );
     recordMcpRead("/ws/story/elena.md");
     recordMcpRead("/ws/story/timeline.md");
     recordMcpRead("/elsewhere/outside.md"); // outside workspace: dropped
@@ -215,7 +223,8 @@ describe("MCP session reads and writes", () => {
       content: "chapter",
       toolName: "document.write",
     });
-    const [, args] = mockInvoke.mock.calls[0] as [string, { request: Record<string, unknown> }];
+    const captureCall = mockInvoke.mock.calls.find((c) => c[0] === "coherence_capture");
+    const args = captureCall?.[1] as { request: Record<string, unknown> };
     expect(args.request.confidence).toBe("inferred");
     expect(args.request.agent).toEqual({ type: "model", id: "mcp-client" });
     const inputs = args.request.inputs as { path: string; role: string }[];

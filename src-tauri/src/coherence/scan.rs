@@ -1,11 +1,12 @@
 //! Scan reconciliation (WI-1.6, ADR-C4 services tier). Spec §9.4: compare
 //! disk state against the index for known objects, synthesize honest
 //! history for what happened outside VMark (R9), classify git operations
-//! first (R18 — navigation NEVER mints revisions), surface duplicates and
-//! unreadables as diagnostics, and mark deleted objects absent.
+//! first (R18 — navigation NEVER mints revisions), surface duplicates as
+//! diagnostics + capture holds, and mark deleted objects absent —
+//! but only when the walk was complete (an incomplete walk must never
+//! reconcile deletions it could not verify).
 
 use std::collections::{HashMap, HashSet};
-use std::path::{Path, PathBuf};
 
 use serde_json::json;
 
@@ -14,13 +15,10 @@ use super::capture::{adopt_from_disk, observed_external_entry, register_if_neede
 use super::frontmatter::read_identity;
 use super::gitops::{classify, observe, GitClass};
 use super::state::WorkspaceKernel;
-use super::types::{
-    Agent, AgentType, Confidence, Envelope, Intent, ObjectId, OutputRef, RevisionId,
-    Transformation, TypedBody,
-};
+use super::types::{Envelope, ObjectId, RevisionId, TypedBody};
 
 /// Directory names never scanned (mirrors the watcher's ignore list).
-const IGNORED_DIRS: [&str; 8] = [
+pub(super) const IGNORED_DIRS: [&str; 8] = [
     ".vmark",
     ".git",
     ".obsidian",
@@ -31,6 +29,12 @@ const IGNORED_DIRS: [&str; 8] = [
     ".Trash",
 ];
 
+/// DoS guards for kernels opened on arbitrary roots (MCP surface): a walk
+/// that trips either cap is INCOMPLETE — reported, and deletion
+/// reconciliation is skipped.
+pub(super) const MAX_SCAN_FILES: usize = 20_000;
+pub(super) const MAX_SCAN_FILE_BYTES: u64 = 10 * 1024 * 1024;
+
 #[derive(Debug, Default, PartialEq, serde::Serialize)]
 pub struct ScanReport {
     pub navigations: usize,
@@ -40,12 +44,29 @@ pub struct ScanReport {
     pub absent_marked: usize,
     pub diagnostics: usize,
     pub merge_deferred: bool,
+    /// False when the walk was truncated or a directory was unreadable —
+    /// deletion reconciliation was skipped for safety.
+    pub complete: bool,
 }
 
 /// One reconciliation pass (spec §9.4). Serialized with captures through
 /// the per-workspace kernel instance.
 pub fn scan_workspace(kernel: &mut WorkspaceKernel) -> Result<ScanReport, String> {
-    let mut report = ScanReport::default();
+    let mut report = ScanReport {
+        complete: true,
+        ..Default::default()
+    };
+
+    // Multi-writer sync (audit R11): segments written by other writers
+    // (git pull, second installation) land mid-session; fold any
+    // un-applied entries into the index before reconciling. Cheap count
+    // guard; apply_entry is idempotent by entry id.
+    let ledger_read = kernel.ledger().read_all()?;
+    if ledger_read.entries.len() != kernel.index().applied_count()? {
+        for entry in &ledger_read.entries {
+            kernel.index_mut().apply_entry(entry)?;
+        }
+    }
 
     // Git first (R18): classify before touching content.
     let current_git = observe(kernel.root());
@@ -56,12 +77,12 @@ pub fn scan_workspace(kernel: &mut WorkspaceKernel) -> Result<ScanReport, String
         report.merge_deferred = true;
         return Ok(report);
     }
-    if let GitClass::Navigation { from, to } = &class {
+    if let GitClass::Navigation { op, from, to } = &class {
         if kernel.is_initialized() {
             let env = Envelope::create(
                 "navigation",
                 kernel.writer(),
-                json!({ "git": { "op": "checkout", "from": from, "to": to } }),
+                json!({ "git": { "op": op, "from": from, "to": to } }),
             );
             kernel.append_and_apply(&env)?;
             report.navigations += 1;
@@ -69,72 +90,150 @@ pub fn scan_workspace(kernel: &mut WorkspaceKernel) -> Result<ScanReport, String
     }
 
     let registry = kernel.index().registry_state()?;
-    let existing_diagnostics = existing_diagnostic_keys(kernel)?;
-    let root = kernel.root().to_path_buf();
-    let files = walk_markdown(&root, &mut report, kernel, &existing_diagnostics)?;
+    let mut existing_diagnostics = existing_diagnostic_keys(&ledger_read.entries);
 
-    let mut seen_objects: HashSet<ObjectId> = HashSet::new();
+    // Durable quarantine diagnostics (spec §5.6, audit R10), deduped by
+    // segment:line so repeated scans never spam history.
+    for q in &ledger_read.quarantined {
+        let key_path = format!("{}:{}", q.segment, q.line);
+        emit_diagnostic(
+            kernel,
+            &mut existing_diagnostics,
+            &mut report,
+            "quarantined-entry",
+            &format!("malformed ledger line quarantined: {}", q.reason),
+            &key_path,
+        )?;
+    }
+
+    let root = kernel.root().to_path_buf();
+    let files = walk_markdown(&root, &mut report, kernel, &mut existing_diagnostics)?;
+
+    // Path -> present-on-disk map for absence checks: a registered path
+    // that still exists is never absent, even when its identity block is
+    // missing or unreadable (audit R2).
+    let present_paths: HashSet<&str> = files.iter().map(|(rel, _)| rel.as_str()).collect();
+
     let mut seen_at: HashMap<ObjectId, String> = HashMap::new();
+    let mut duplicates: HashSet<ObjectId> = HashSet::new();
     for (rel_path, text) in &files {
-        let Some(identity) = read_identity(text) else {
+        // Identity: from frontmatter, else fall back to the registry by
+        // path (a known file whose frontmatter went missing/malformed is
+        // still that object — audit A21).
+        let identity = match read_identity(text) {
+            Some(fi) => Some((fi.id, fi.schema)),
+            None => registry
+                .object_at
+                .get(rel_path)
+                .map(|id| (*id, registry.schema_of.get(id).cloned().flatten())),
+        };
+        let Some((object, schema)) = identity else {
             continue; // not yet an object (spec §9.4)
         };
-        if let Some(first_path) = seen_at.get(&identity.id) {
-            // Duplicate ID: surfaced, never auto-resolved (I3).
+        if read_identity(text).is_none() && registry.contains(&object) {
             emit_diagnostic(
                 kernel,
-                &existing_diagnostics,
+                &mut existing_diagnostics,
+                &mut report,
+                "identity-unreadable",
+                "known object's frontmatter identity is missing or malformed",
+                rel_path,
+            )?;
+        }
+        if let Some(first_path) = seen_at.get(&object) {
+            // Duplicate ID: surfaced + capture-held, never auto-resolved (I3).
+            emit_diagnostic(
+                kernel,
+                &mut existing_diagnostics,
                 &mut report,
                 "duplicate-id",
                 &format!(
                     "objects at {first_path} and {rel_path} share vmark.id {}",
-                    identity.id.0
+                    object.0
                 ),
                 rel_path,
             )?;
+            duplicates.insert(object);
             continue;
         }
-        seen_at.insert(identity.id, rel_path.clone());
-        seen_objects.insert(identity.id);
+        seen_at.insert(object, rel_path.clone());
 
-        if !registry.contains(&identity.id) {
+        if !registry.contains(&object) {
             // Moved in from elsewhere: adopt (spec §9.4).
             adopt_from_disk(kernel, rel_path)?;
             report.adopted += 1;
             continue;
         }
-        kernel.index_mut().set_absent(&identity.id, false)?;
-        if registry.path_of.get(&identity.id).map(String::as_str) != Some(rel_path.as_str()) {
-            register_if_needed(kernel, identity.id, rel_path, identity.schema.as_deref())?;
+        kernel.index_mut().set_absent(&object, false)?;
+        if registry.path_of.get(&object).map(String::as_str) != Some(rel_path.as_str()) {
+            register_if_needed(kernel, object, rel_path, schema.as_deref())?;
         }
 
         let disk_hash = text_content_hash(text);
-        if kernel
-            .index()
-            .revision_by_content(&identity.id, &disk_hash)?
-            .is_some()
-        {
-            continue; // known content: unchanged, or git navigation (no minting)
+        let heads = kernel.index().heads(&object)?;
+        let at_head = {
+            let mut found = false;
+            for h in &heads {
+                if kernel.index().content_hash_of(&object, h)? == Some(disk_hash.clone()) {
+                    found = true;
+                    break;
+                }
+            }
+            found
+        };
+        if at_head {
+            kernel.index_mut().clear_disk_lag(&object)?;
+            continue; // unchanged
         }
-        // New content: attribute it (spec §9.4 rows).
-        let parents = kernel.index().heads(&identity.id)?;
-        let revision = RevisionId::compute(&disk_hash, &parents);
+        // Live-buffer lag: the disk holds exactly the pre-apply content of
+        // a buffer capture — expected, not an external edit.
+        if kernel.index().disk_lag_contains(&object, &disk_hash)? {
+            continue;
+        }
+        // Git navigation restores KNOWN revisions without minting (R18);
+        // everything else — including content matching an OLD revision
+        // (A → B → A) — mints a new revision with the current heads as
+        // parents (spec §2.3; audit R5).
+        if matches!(class, GitClass::Navigation { .. })
+            && kernel
+                .index()
+                .revision_by_content(&object, &disk_hash)?
+                .is_some()
+        {
+            continue;
+        }
+        kernel.index_mut().clear_disk_lag(&object)?;
+        let revision = RevisionId::compute(&disk_hash, &heads);
         kernel.snapshots().put_text(text)?;
         let env = if matches!(class, GitClass::Mutation { .. }) {
             report.git_mutations += 1;
-            git_mutation_entry(kernel, identity.id, &revision, &disk_hash, parents)
+            super::adopt::git_mutation_entry(kernel, object, &revision, &disk_hash, heads)
         } else {
             report.external_edits += 1;
-            observed_external_entry(kernel, identity.id, &revision, &disk_hash, parents)
+            observed_external_entry(kernel, object, &revision, &disk_hash, heads)
         };
         kernel.append_and_apply(&env)?;
     }
 
-    // Deletions: registered objects whose files are gone (spec §9.4).
+    // Capture holds track the CURRENT duplicate state (spec §2.1): held
+    // while duplicated, released once the duplicate set is resolved.
+    for object in &duplicates {
+        kernel.index_mut().set_held(object, true)?;
+    }
     for object in registry.path_of.keys() {
-        if !seen_objects.contains(object) {
-            kernel.index_mut().set_absent(object, true)?;
-            report.absent_marked += 1;
+        if !duplicates.contains(object) {
+            kernel.index_mut().set_held(object, false)?;
+        }
+    }
+
+    // Deletions: registered objects whose paths are gone — only when the
+    // walk saw everything (audit R9).
+    if report.complete {
+        for (object, path) in registry.path_of.iter() {
+            if !present_paths.contains(path.as_str()) && !seen_at.contains_key(object) {
+                kernel.index_mut().set_absent(object, true)?;
+                report.absent_marked += 1;
+            }
         }
     }
 
@@ -142,61 +241,28 @@ pub fn scan_workspace(kernel: &mut WorkspaceKernel) -> Result<ScanReport, String
     Ok(report)
 }
 
-fn git_mutation_entry(
-    kernel: &WorkspaceKernel,
-    object: ObjectId,
-    revision: &RevisionId,
-    content_hash: &super::types::ContentHash,
-    parents: Vec<RevisionId>,
-) -> Envelope {
-    let t = Transformation {
-        inputs: vec![],
-        outputs: vec![OutputRef {
-            object,
-            revision: revision.clone(),
-            content_hash: content_hash.clone(),
-            parents,
-        }],
-        agent: Agent {
-            kind: AgentType::Git,
-            id: Some("merge-or-revert".into()),
-        },
-        intent: Intent {
-            kind: "git-mutation".into(),
-            summary: "content minted by a git operation".into(),
-            prompt_hash: None,
-        },
-        confidence: Confidence::Unknown,
-    };
-    Envelope::create(
-        "transformation",
-        kernel.writer(),
-        serde_json::to_value(&t).expect("serializable"),
-    )
-}
-
 /// Diagnostics are deduped against the ledger by (code, path) so repeated
 /// scans do not spam append-only history (spec §5.6).
-fn existing_diagnostic_keys(kernel: &WorkspaceKernel) -> Result<HashSet<(String, String)>, String> {
+fn existing_diagnostic_keys(entries: &[Envelope]) -> HashSet<(String, String)> {
     let mut keys = HashSet::new();
-    for entry in kernel.ledger().read_all()?.entries {
+    for entry in entries {
         if let Ok(TypedBody::Diagnostic(d)) = entry.typed() {
             keys.insert((d.code, d.path.unwrap_or_default()));
         }
     }
-    Ok(keys)
+    keys
 }
 
-fn emit_diagnostic(
+pub(super) fn emit_diagnostic(
     kernel: &mut WorkspaceKernel,
-    existing: &HashSet<(String, String)>,
+    existing: &mut HashSet<(String, String)>,
     report: &mut ScanReport,
     code: &str,
     message: &str,
     path: &str,
 ) -> Result<(), String> {
     report.diagnostics += 1;
-    if existing.contains(&(code.to_string(), path.to_string())) || !kernel.is_initialized() {
+    if !existing.insert((code.to_string(), path.to_string())) || !kernel.is_initialized() {
         return Ok(());
     }
     let env = Envelope::create(
@@ -207,77 +273,7 @@ fn emit_diagnostic(
     kernel.append_and_apply(&env)
 }
 
-/// Recursive markdown walk: skip ignored dirs, never follow symlinks
-/// (diagnostic), surface unreadable/non-UTF-8 files (diagnostic).
-fn walk_markdown(
-    root: &Path,
-    report: &mut ScanReport,
-    kernel: &mut WorkspaceKernel,
-    existing: &HashSet<(String, String)>,
-) -> Result<Vec<(String, String)>, String> {
-    let mut out = Vec::new();
-    let mut stack: Vec<PathBuf> = vec![root.to_path_buf()];
-    while let Some(dir) = stack.pop() {
-        let Ok(entries) = std::fs::read_dir(&dir) else {
-            continue;
-        };
-        for entry in entries.flatten() {
-            let path = entry.path();
-            let name = entry.file_name().to_string_lossy().into_owned();
-            let rel = path
-                .strip_prefix(root)
-                .unwrap_or(&path)
-                .to_string_lossy()
-                .into_owned();
-            let Ok(meta) = std::fs::symlink_metadata(&path) else {
-                continue;
-            };
-            if meta.file_type().is_symlink() {
-                emit_diagnostic(
-                    kernel,
-                    existing,
-                    report,
-                    "symlink-skipped",
-                    "symlinks are never followed",
-                    &rel,
-                )?;
-                continue;
-            }
-            if meta.is_dir() {
-                if !IGNORED_DIRS.contains(&name.as_str()) {
-                    stack.push(path);
-                }
-                continue;
-            }
-            if path.extension().is_none_or(|e| e != "md") {
-                continue;
-            }
-            match std::fs::read(&path) {
-                Ok(bytes) => match String::from_utf8(bytes) {
-                    Ok(text) => out.push((rel, text)),
-                    Err(_) => emit_diagnostic(
-                        kernel,
-                        existing,
-                        report,
-                        "invalid-utf8",
-                        "expected UTF-8 text",
-                        &rel,
-                    )?,
-                },
-                Err(e) => emit_diagnostic(
-                    kernel,
-                    existing,
-                    report,
-                    "unreadable",
-                    &format!("read failed: {e}"),
-                    &rel,
-                )?,
-            }
-        }
-    }
-    out.sort();
-    Ok(out)
-}
+pub(super) use super::scan_walk::walk_markdown;
 
 #[cfg(test)]
 #[path = "scan.test.rs"]

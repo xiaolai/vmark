@@ -9,6 +9,7 @@ import { useTranslation } from "react-i18next";
 import { RotateCcw, Trash2 } from "lucide-react";
 import { ask } from "@tauri-apps/plugin-dialog";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
+import { registerPendingSave, clearPendingSave } from "@/utils/pendingSaves";
 import { useSettingsStore } from "@/stores/settingsStore";
 import {
   useDocumentFilePath,
@@ -120,6 +121,8 @@ export function HistoryView() {
 
       if (restoredContent !== null) {
         // Write to file
+        const saveToken = registerPendingSave(filePath, restoredContent);
+        setTimeout(() => clearPendingSave(filePath, saveToken), 1000);
         await writeTextFile(filePath, restoredContent);
         // Coherence (WI-1.6): a snapshot restore is a human transformation.
         void captureWrite({

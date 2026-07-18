@@ -95,13 +95,13 @@ fn hash_root_path_bytes(root_path: &str, n: usize) -> String {
 
 /// Current filename hash: 16 bytes (128 bits) → 2^64 collision space at the
 /// birthday bound, vastly more than a user will ever accumulate.
-fn hash_root_path(root_path: &str) -> String {
+pub(crate) fn hash_root_path(root_path: &str) -> String {
     hash_root_path_bytes(root_path, 16)
 }
 
 /// Legacy 8-byte hash used in releases <= 0.7.22 (2^32 birthday bound). Read-only:
 /// `migrate_legacy_hash_filename` renames such a file to the 16-byte name on load.
-fn legacy_hash_root_path(root_path: &str) -> String {
+pub(crate) fn legacy_hash_root_path(root_path: &str) -> String {
     hash_root_path_bytes(root_path, 8)
 }
 

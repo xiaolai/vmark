@@ -266,12 +266,11 @@ pub(crate) fn is_read_only_operation(request_type: &str) -> bool {
             | "vmark.browser.wait_for"
             | "vmark.browser.query"
             | "vmark.browser.screenshot"
-            // Coherence read surface (WI-1.10) — answered entirely in Rust
-            // (routing.rs::handle_rust_side), so the write lock is never
-            // reached for these; listed here for consistency and so a future
-            // routing change can't silently reclassify them as writes.
+            // Coherence status (WI-1.10) is a pure projection. `edges` is
+            // deliberately NOT here: it runs scan reconciliation, which
+            // appends provenance records — server.rs takes the write lock
+            // for it (audit C4/C5).
             | "vmark.coherence.status"
-            | "vmark.coherence.edges"
     )
 }
 
