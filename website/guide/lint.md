@@ -32,7 +32,7 @@ For style enforcement, use a separate tool like `prettier --check` outside VMark
 | **E02** | Error | Table row has wrong column count (mismatch with header row) |
 | **E03** | Error | Reversed link — looks like `(text)[url]` instead of `[text](url)` |
 | **E04** | Error | ATX heading missing space after `#` (e.g., `##Heading` should be `## Heading`) |
-| **E05** | Error | Space inside emphasis markers — `* word *` won't render as italic |
+| **E05** | Error | Space inside emphasis markers — `* word *` won't render as italic (arithmetic-shaped expressions such as `3 * 4 * 5` or `x * y * z` — short operands surrounding both stars — are treated as multiplication and not flagged) |
 | **E06** | Error | Unclosed fenced code block — file ends with an open ```` ``` ```` fence |
 | **E07** | Error | Duplicate link reference definition (same `[label]:` appears twice) |
 | **E08** | Error | Empty link `href` — `[text]()` |
