@@ -259,7 +259,7 @@ Every line is one JSON object:
   "kind": "transformation",
   "time": "2026-07-18T09:30:12.415Z",
   "writer": "018f3c7a-0000-7abc-9def-000000000001",
-  "idem": "sha256:…",
+  "idem": "018f3c7a-a000-7c11-9e22-334455667788",
   "body": { }
 }
 ```
@@ -344,7 +344,12 @@ Resolution records about an **origin edge**, identified by the pair
   requires a recorded delegation (R29 — mutating surface is Phase 3; v0
   records only human actors). In v1 the human actor identity is taken from
   `git config user.name` when available, else the OS username; it is
-  recorded verbatim and never blank.
+  recorded verbatim and never blank. **v1 authority model:** the only
+  mutating surface is the in-app breakdown UI — authorization *is* the
+  human's explicit in-app action in their own OS session; the recorded
+  identity is display identity, not a credential. R29's authenticated
+  delegation model applies when agent-performed or MCP-exposed mutation
+  arrives (Phase 3), not before.
 
 #### 5.4.4 `check-result` (R25)
 
@@ -396,13 +401,23 @@ never by deletion. `maturity` ∈ { `draft`, `established` } (R33).
 
 #### 5.4.6 `object-registered`
 
-Introduces an object that cannot carry frontmatter (binaries, R20) or
-records identity lineage on split/merge (R8):
+Appended at **every object's first capture** (text and binary alike), on
+an observed schema change, and on split/merge to record identity lineage
+(R8):
 
 ```json
 { "object": "<uuid>", "path": "art/elena-ref.png", "schema": "image",
   "derived_from": ["<uuid>"] }
 ```
+
+This chain is the ledger-side identity registry: the authoritative source
+for an object's `schema` (latest entry wins, where "latest" is the
+largest (`time`, `id`) pair — the same deterministic order readers use
+everywhere, robust to out-of-order segments) and the source §4.2
+materialization reads when re-inserting the `vmark:` block. `schema` is masked from content hashing (§3.2), so schema edits
+never mint revisions; the registry is how schema survives outside
+revision history. For binaries it is additionally the *only* identity
+carrier (no frontmatter).
 
 #### 5.4.7 `diagnostic`
 
@@ -653,7 +668,7 @@ Recorded per dogfood session against these Phase 1 exit thresholds
 
 | ID | Metric | Baseline source | Phase 1 exit threshold | Failure signal |
 |---|---|---|---|---|
-| M1 | Capture coverage | 100% by construction on instrumented paths | 100% of AI generations through instrumented paths carry complete (`exact`) input sets; 0 manual metadata entries | Any manual entry (R4 violation) |
+| M1 | Capture coverage | 100% by construction on instrumented paths | 100% of AI generations through instrumented paths carry complete input sets **at the path's designed confidence** (§8: `exact` for in-app AI paths, `inferred` for external-agent MCP writes); 0 manual metadata entries | Any manual entry (R4 violation) |
 | M2 | Staleness precision | First dogfood session measurement | ≥ 60% of flagged edges judged relevant | < 60% ⇒ escalate O9 (section-level) |
 | M3 | Semantic-check precision | Spike S4 seeded-corpus result (WI-0.7 report) | Phase 2b gate, not Phase 1; S4 baseline must be ≥ 70% before Phase 2b starts | False contradictions erode trust |
 | M4 | Ratification burden | First dogfood session measurement | ≤ 10 demanded resolutions per session | Tool feels like homework |

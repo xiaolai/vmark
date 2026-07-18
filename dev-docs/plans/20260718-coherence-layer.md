@@ -149,7 +149,9 @@ coherence_capture(workspace_root, CaptureRequest) -> Result<CaptureReceipt, Stri
 
 CaptureRequest {
   path: String,                    // workspace-relative output file
-  content_written: bool,           // content is already on disk (capture runs after the write)
+  content: String,                 // the EXACT content the caller wrote — the kernel
+                                   // hashes/snapshots THIS, never a disk re-read, so a
+                                   // concurrent writer cannot be mis-attributed (D3#1)
   inputs: Vec<{ path | object_id, revision?: String, role: "direct"|"contextual" }>,
   agent: { type: "human"|"model"|"external", id?: String },
   intent: { kind: String, summary: String },
@@ -164,8 +166,23 @@ as external edits, no special case. Callers: `saveToPath.ts` (human, after
 `atomic_write_file`), genie `streamRunner.ts` (model, at apply), MCP
 `document.ts`/`workspace.ts` handlers (model, `inferred`, session-read
 input set), workflow `runner.rs` `action/save-file` (model, in-process
-call, not IPC). Input revisions are resolved by the kernel from paths at
-capture time (callers never compute revision IDs).
+call, not IPC). **Input revision resolution order (D4#1):** (a) a
+caller-provided `revision` wins (MCP read handlers attach the revision
+that `document.read` returned at read time) — the kernel **validates**
+that the revision exists and belongs to the referenced object, rejecting
+the capture with an error on mismatch (no silent fallback); (b) otherwise
+the kernel resolves path → current head at capture time. Capture runs
+synchronously inside the same user action as the write and all in-app
+writes serialize through the per-workspace kernel instance (spec §5.1),
+so (b) is exact for in-app flows; races with external mid-action edits
+fall to scan reconciliation like any external write. Callers never
+compute revision IDs.
+
+**Binary scope (v1):** every G1 write path emits text; `coherence_capture`
+therefore carries `content: String` and captures text/markdown only.
+Binary support in WI-1.3 is kernel-level (raw-byte hashing + CAS storage
++ §5.4.6 registration) so the format is ready; a binary *capture path*
+arrives with the first media vertical (Phase 4), not in Phase 1.
 
 ### Build order (vertical slice first — Codex D5#2)
 
@@ -256,5 +273,9 @@ paper §12 ("recurse without fear").
 - Codex review of this plan: **done** — thread
   `019f7404-223a-7512-93d8-56de0b340829`, verdict MAJOR GAPS on the
   pre-amendment plan, all findings dispositioned in the table above and
-  amendments applied before any Phase 1 commit (rule 60 §6).
+  amendments applied before any Phase 1 commit (rule 60 §6). Two
+  confirmation rounds followed (NEEDS REVISION → four residuals fixed:
+  fail-closed gate incl. `pnpm check:all` run, v1 binary-capture scoping,
+  caller-revision validation, deterministic registry ordering); **final
+  verdict on the amended plan: READY TO BUILD.**
 - New-dependency review per rule 60 §4 (ADR-C5).
