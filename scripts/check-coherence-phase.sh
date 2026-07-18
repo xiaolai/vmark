@@ -459,7 +459,22 @@ phase_3() {
     fail "SKIP_TESTS=1 set — WI-3.0 suite not run"
   fi
 
-  local PENDING=(3.1 3.2 3.3 3.4 3.5 3.6 3.7 3.8 3.9)
+  echo "— WI-3.1: proposal/confirmation kernel —"
+  assert_file src-tauri/src/coherence/provenance.rs "provenance module"
+  assert_grep "stale confirmation" src-tauri/src/coherence/provenance.rs "changed-head guard"
+  assert_grep "provenance-confirmation" src-tauri/src/coherence/provenance.rs "normative intent kind"
+  assert_grep "parents_of" src-tauri/src/coherence/dag.rs "ancestry accessor"
+  if [[ "${SKIP_TESTS:-}" != "1" ]]; then
+    if cargo test --manifest-path src-tauri/Cargo.toml --lib coherence::provenance --quiet >/dev/null 2>&1; then
+      ok "WI-3.1 provenance suite green"
+    else
+      fail "WI-3.1 provenance suite red"
+    fi
+  else
+    fail "SKIP_TESTS=1 set — WI-3.1 suite not run"
+  fi
+
+  local PENDING=(3.2 3.3 3.4 3.5 3.6 3.7 3.8 3.9)
   echo "— pending WIs (fail-closed until implemented) —"
   for wi in "${PENDING[@]}"; do
     fail "WI-$wi assertions not yet defined (fail-closed)"

@@ -48,6 +48,12 @@ impl RevisionDag {
 
     /// Head set: revisions no other revision lists as a parent. Sorted for
     /// deterministic output. Empty ⇔ object unknown.
+    /// Parent links of one revision (WI-3.1 ancestry walk). `None` for
+    /// unknown revisions; a root revision returns an empty vector.
+    pub fn parents_of(&self, object: &ObjectId, revision: &RevisionId) -> Option<Vec<RevisionId>> {
+        self.parents.get(object)?.get(revision).cloned()
+    }
+
     pub fn heads(&self, object: &ObjectId) -> Vec<RevisionId> {
         let Some(revs) = self.parents.get(object) else {
             return Vec::new();
