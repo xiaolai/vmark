@@ -38,11 +38,12 @@ if (process.argv.includes('--health-check')) {
 }
 
 async function runHealthCheck(): Promise<void> {
+  // Note: no import self-test here. The server module is statically imported
+  // below (hoisted, evaluated before any of this runs), so an import failure
+  // crashes the process before runHealthCheck — a dynamic re-import could
+  // only ever return the already-cached module and can't catch anything.
   try {
-    // 1. Can we import the server module?
-    const { createVMarkMcpServer } = await import('./index.js');
-
-    // 2. Create a mock bridge that doesn't connect (implements Bridge interface)
+    // 1. Create a mock bridge that doesn't connect (implements Bridge interface)
     const mockBridge = {
       send: async (): Promise<never> => {
         throw new Error('Health check mode - no VMark connection');
@@ -53,12 +54,12 @@ async function runHealthCheck(): Promise<void> {
       onConnectionChange: (): (() => void) => () => {},
     };
 
-    // 3. Can we instantiate the server and list tools?
-    const server = createVMarkMcpServer(mockBridge);
+    // 2. Can we instantiate the server and list tools?
+    const server = createVMarkMcpServer(mockBridge, { version: VERSION });
     const allTools = server.listTools();
     const resources = server.listResources();
 
-    // 4. Validate we have the expected number of tools
+    // 3. Validate we have the expected number of tools
     if (allTools.length === 0) {
       throw new Error('No tools registered');
     }
@@ -69,7 +70,7 @@ async function runHealthCheck(): Promise<void> {
       );
     }
 
-    // 5. Validate tool schemas are valid
+    // 4. Validate tool schemas are valid
     for (const tool of allTools) {
       if (!tool.name || !tool.inputSchema) {
         throw new Error(`Invalid tool definition: ${tool.name}`);
@@ -103,128 +104,20 @@ import { createVMarkMcpServer, EXPECTED_TOOL_COUNT } from './index.js';
 import { WebSocketBridge, ClientIdentity } from './bridge/websocket.js';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { z, ZodTypeAny } from 'zod';
-import { readFileSync } from 'fs';
 import { getParentProcessName } from './utils/parentProcess.js';
 import { createToolHandler, createResourceHandler } from './utils/mcpAdapters.js';
-import { join } from 'path';
-import { homedir, platform } from 'os';
-
-/**
- * Tauri app identifier for path resolution.
- * Must match the identifier in tauri.conf.json.
- */
-const APP_IDENTIFIER = process.env.VMARK_APP_IDENTIFIER || 'app.vmark';
-
-/** Cached home directory to avoid repeated syscalls. */
-const HOME_DIR = homedir();
-
-/**
- * Check if an error is ENOENT (file not found).
- */
-function isNotFoundError(err: unknown): boolean {
-  return (
-    err !== null &&
-    typeof err === 'object' &&
-    'code' in err &&
-    err.code === 'ENOENT'
-  );
-}
-
-/**
- * Get the app data directory path (platform-specific).
- *
- * Uses the same path convention as Tauri's app_data_dir():
- * - macOS: ~/Library/Application Support/<identifier>
- * - Linux: $XDG_DATA_HOME/<identifier> (default: ~/.local/share)
- * - Windows: %APPDATA%/<identifier>
- */
-function getAppDataDir(): string {
-  const xdgDataHome = process.env.XDG_DATA_HOME || join(HOME_DIR, '.local', 'share');
-  const appDataRoaming = process.env.APPDATA || join(HOME_DIR, 'AppData', 'Roaming');
-
-  switch (platform()) {
-    case 'darwin':
-      return join(HOME_DIR, 'Library', 'Application Support', APP_IDENTIFIER);
-    case 'linux':
-      return join(xdgDataHome, APP_IDENTIFIER);
-    case 'win32':
-      return join(appDataRoaming, APP_IDENTIFIER);
-    default:
-      // Unknown platform — best guess
-      return join(HOME_DIR, '.local', 'share', APP_IDENTIFIER);
-  }
-}
-
-/**
- * Get the path to the port file in the app data directory.
- */
-function getPortFilePath(): string {
-  return join(getAppDataDir(), 'mcp-port');
-}
-
-/** Result of reading the port file — port and token returned atomically. */
-interface PortFileResult {
-  port: number;
-  token?: string;
-}
-
-/** Cached result from the last port file read. */
-let _lastPortFileResult: PortFileResult | undefined;
-
-/**
- * Read port and auth token from the port file written by VMark.
- * Port file format: `{port}:{token}` (authenticated) or `{port}` (legacy).
- * Returns { port, token } or undefined. Result is also cached for getAuthToken().
- */
-function readPortFromFile(): number | undefined {
-  const portFilePath = getPortFilePath();
-
-  try {
-    const content = readFileSync(portFilePath, 'utf8').trim();
-
-    // Parse format: "{port}:{token}" or "{port}" (legacy)
-    const colonIndex = content.indexOf(':');
-    let portStr: string;
-    let token: string | undefined;
-
-    if (colonIndex > 0) {
-      portStr = content.substring(0, colonIndex);
-      token = content.substring(colonIndex + 1);
-    } else {
-      portStr = content;
-    }
-
-    const port = parseInt(portStr, 10);
-    if (!isNaN(port) && port > 0 && port < 65536) {
-      _lastPortFileResult = { port, token };
-      return port;
-    }
-  } catch (err) {
-    if (!isNotFoundError(err)) {
-      // Real error (permission denied, etc.) - log for debugging
-      if (process.env.VMARK_DEBUG) {
-        console.error('[VMark MCP] Failed to read port file:', err);
-      }
-    }
-    // ENOENT is expected if VMark hasn't started yet
-  }
-
-  _lastPortFileResult = undefined;
-  return undefined;
-}
-
-/** Get the auth token from the last port file read. */
-function getAuthToken(): string | undefined {
-  return _lastPortFileResult?.token;
-}
+import { readPortFromFile, createAuthTokenResolver, parsePort } from './utils/portFile.js';
+import { createShutdownHandler, registerShutdownTriggers } from './utils/shutdown.js';
+import { jsonSchemaToZod, JsonSchemaInput } from './utils/jsonSchemaToZod.js';
 
 /**
  * Parse command line arguments.
- * Port resolution order:
- * 1. --port CLI argument (manual override)
- * 2. Port file in app data directory (mcp-port) — auto-discovery
- * 3. Default to undefined (will retry reading port file on connect)
+ *
+ * Returns only the explicit --port override (undefined otherwise). Port-file
+ * discovery is deliberately NOT folded in here: the bridge re-reads the port
+ * file on every connection attempt via its portResolver, so a VMark restart
+ * (new OS-assigned port + new auth token) is picked up automatically. A
+ * port-file value passed as static config would shadow that resolver forever.
  */
 function parseArgs(): { port: number | undefined } {
   const args = process.argv.slice(2);
@@ -232,18 +125,17 @@ function parseArgs(): { port: number | undefined } {
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--port' && args[i + 1]) {
-      const parsed = parseInt(args[i + 1], 10);
-      if (!isNaN(parsed) && parsed > 0 && parsed < 65536) {
+      // Same strict parser as the port-file reader: full-string digits,
+      // 1-65535. "4123junk" is rejected, not truncated to 4123.
+      const parsed = parsePort(args[i + 1]);
+      if (parsed !== undefined) {
         cliPort = parsed;
       }
       i++;
     }
   }
 
-  // CLI port takes precedence, then port file, then undefined (will retry)
-  const port = cliPort ?? readPortFromFile();
-
-  return { port };
+  return { port: cliPort };
 }
 
 /**
@@ -316,141 +208,19 @@ const logger = {
 };
 
 /**
- * JSON Schema property definition.
- */
-interface JsonSchemaProperty {
-  type?: string;
-  description?: string;
-  enum?: string[];
-  default?: unknown;
-  // For oneOf (union types)
-  oneOf?: JsonSchemaProperty[];
-  // For arrays with typed items
-  items?: JsonSchemaProperty;
-  // For nested objects
-  properties?: Record<string, JsonSchemaProperty>;
-  required?: string[];
-}
-
-/**
- * JSON Schema input schema definition.
- */
-interface JsonSchemaInput {
-  type: string;
-  properties?: Record<string, JsonSchemaProperty>;
-  required?: string[];
-}
-
-/**
- * Convert a JSON Schema property to a Zod schema.
- * Handles: enum, oneOf, nested objects, arrays with typed items, integer vs number.
- */
-function jsonSchemaPropertyToZod(prop: JsonSchemaProperty): ZodTypeAny {
-  let schema: ZodTypeAny;
-
-  // Handle enum first (takes precedence)
-  if (prop.enum && prop.enum.length > 0) {
-    schema = z.enum(prop.enum as [string, ...string[]]);
-  }
-  // Handle oneOf (union type)
-  else if (prop.oneOf && prop.oneOf.length > 0) {
-    const variants = prop.oneOf.map((variant) => jsonSchemaPropertyToZod(variant as JsonSchemaProperty));
-    if (variants.length === 1) {
-      schema = variants[0];
-    } else {
-      schema = z.union(variants as [ZodTypeAny, ZodTypeAny, ...ZodTypeAny[]]);
-    }
-  }
-  // Handle by type
-  else {
-    switch (prop.type) {
-      case 'string':
-        schema = z.string();
-        break;
-      case 'number':
-        schema = z.number();
-        break;
-      case 'integer':
-        schema = z.number().int();
-        break;
-      case 'boolean':
-        schema = z.boolean();
-        break;
-      case 'array':
-        // Use typed items if available
-        if (prop.items) {
-          schema = z.array(jsonSchemaPropertyToZod(prop.items as JsonSchemaProperty));
-        } else {
-          schema = z.array(z.unknown());
-        }
-        break;
-      case 'object':
-        // Use nested properties if available
-        if (prop.properties) {
-          const shape: Record<string, ZodTypeAny> = {};
-          const required = new Set(prop.required ?? []);
-          for (const [key, subProp] of Object.entries(prop.properties)) {
-            let zodProp = jsonSchemaPropertyToZod(subProp);
-            if (!required.has(key)) {
-              zodProp = zodProp.optional();
-            }
-            shape[key] = zodProp;
-          }
-          schema = z.object(shape);
-        } else {
-          schema = z.record(z.string(), z.unknown());
-        }
-        break;
-      default:
-        schema = z.unknown();
-    }
-  }
-
-  // Add description if present
-  if (prop.description) {
-    schema = schema.describe(prop.description);
-  }
-
-  return schema;
-}
-
-/**
- * Convert a JSON Schema to a Zod object schema.
- * This preserves the schema structure so Claude can understand what parameters are expected.
- */
-function jsonSchemaToZod(inputSchema: JsonSchemaInput): z.ZodObject<Record<string, ZodTypeAny>> {
-  const shape: Record<string, ZodTypeAny> = {};
-  const required = new Set(inputSchema.required ?? []);
-
-  if (inputSchema.properties) {
-    for (const [key, prop] of Object.entries(inputSchema.properties)) {
-      let zodProp = jsonSchemaPropertyToZod(prop);
-
-      // Make optional if not required
-      if (!required.has(key)) {
-        zodProp = zodProp.optional();
-      }
-
-      shape[key] = zodProp;
-    }
-  }
-
-  return z.object(shape);
-}
-
-/**
  * Main entry point.
  */
 async function main(): Promise<void> {
   const { port } = parseArgs();
   const clientIdentity = detectClientIdentity();
 
-  // Create WebSocket bridge to connect to VMark
-  // Uses port resolver for dynamic port discovery on each connection attempt
+  // Create WebSocket bridge to connect to VMark.
+  // Port and auth token are re-resolved from the port file on each connection
+  // attempt; `port` is only set by an explicit --port override.
   const bridge = new WebSocketBridge({
-    port, // May be undefined - will use portResolver
+    port, // Static override from --port only — undefined means resolver discovery
     portResolver: readPortFromFile, // Re-read port file on each connection attempt
-    authTokenResolver: getAuthToken, // Auth token parsed from port file alongside port
+    authTokenResolver: createAuthTokenResolver(port, logger.warn), // Auth token from port file
     autoReconnect: true,
     maxReconnectAttempts: 30, // Reasonable limit to avoid infinite reconnection storms
     reconnectDelay: 2000, // Start with 2 second delay
@@ -459,15 +229,29 @@ async function main(): Promise<void> {
     clientIdentity,
   });
 
+  // Handle graceful shutdown — signals AND stdio transport closure. stdin
+  // EOF/close means the parent AI client exited; an orphaned sidecar must
+  // exit instead of running forever on reconnect timers. Registered BEFORE
+  // any await so an EOF arriving during the startup window (bridge connect,
+  // MCP transport setup) cannot be missed; registerShutdownTriggers also
+  // handles stdin that already ended. Double-invocation safe via
+  // createShutdownHandler.
+  const shutdown = createShutdownHandler(
+    () => bridge.disconnect(),
+    (code) => process.exit(code),
+  );
+  registerShutdownTriggers(process, shutdown);
+
   // Create the VMark MCP server with all tools
-  const vmarkServer = createVMarkMcpServer(bridge);
+  const vmarkServer = createVMarkMcpServer(bridge, { version: VERSION });
   const allTools = vmarkServer.listTools();
 
-  // Create high-level MCP server
+  // Create high-level MCP server. Metadata version is the real sidecar
+  // VERSION — clients previously saw a stale hardcoded '0.1.0'.
   const mcpServer = new McpServer(
     {
       name: 'vmark-mcp-server',
-      version: '0.1.0',
+      version: VERSION,
     },
     {
       capabilities: {
@@ -515,21 +299,6 @@ async function main(): Promise<void> {
   // Start the MCP server with stdio transport
   const transport = new StdioServerTransport();
   await mcpServer.connect(transport);
-
-  // Handle graceful shutdown (guard against double-signal)
-  let shuttingDown = false;
-  const shutdown = async () => {
-    if (shuttingDown) return;
-    shuttingDown = true;
-    try {
-      await bridge.disconnect();
-    } catch {
-      // Ignore errors during shutdown
-    }
-    process.exit(0);
-  };
-  process.on('SIGINT', shutdown);
-  process.on('SIGTERM', shutdown);
 }
 
 // Catch unhandled async rejections (e.g., reconnection timers, MCP transport) (#279)

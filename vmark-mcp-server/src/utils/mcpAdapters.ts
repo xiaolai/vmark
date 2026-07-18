@@ -9,18 +9,29 @@
 
 /**
  * Content item from VMark server tool results.
+ * Mirrors ToolCallResult['content'][number] in src/types.ts — keep in sync.
  */
 interface VMarkContentItem {
   type: string;
   text?: string;
+  data?: string;
+  mimeType?: string;
+  resource?: {
+    uri?: string;
+    text?: string;
+    blob?: string;
+    mimeType?: string;
+  };
 }
 
 /**
  * Resource content item from VMark server resource results.
+ * Mirrors ResourceReadResult['contents'][number] in src/types.ts — keep in sync.
  */
 interface VMarkResourceItem {
   uri: string;
   text?: string;
+  blob?: string;
   mimeType?: string;
 }
 
@@ -33,15 +44,36 @@ interface McpTextContent {
 }
 
 /**
- * MCP SDK resource content format.
+ * MCP SDK image content format (base64 payload, e.g. browser.screenshot).
+ */
+interface McpImageContent {
+  type: 'image';
+  data: string;
+  mimeType: string;
+}
+
+/**
+ * MCP SDK embedded resource content format (MCP spec: text OR base64 blob).
+ */
+interface McpEmbeddedResource {
+  type: 'resource';
+  resource:
+    | { uri: string; text: string; mimeType?: string }
+    | { uri: string; blob: string; mimeType?: string };
+}
+
+/**
+ * Union of MCP SDK content blocks the sidecar forwards.
+ */
+type McpContentItem = McpTextContent | McpImageContent | McpEmbeddedResource;
+
+/**
+ * MCP SDK resource content format (text or base64 blob variant).
  * Index signature required for compatibility with MCP SDK's ReadResourceCallback.
  */
-interface McpResourceContent {
-  [key: string]: unknown;
-  uri: string;
-  text: string;
-  mimeType?: string;
-}
+type McpResourceContent =
+  | { [key: string]: unknown; uri: string; text: string; mimeType?: string }
+  | { [key: string]: unknown; uri: string; blob: string; mimeType?: string };
 
 /**
  * MCP SDK tool call result.
@@ -49,7 +81,7 @@ interface McpResourceContent {
  */
 interface McpToolResult {
   [key: string]: unknown;
-  content: McpTextContent[];
+  content: McpContentItem[];
   isError?: boolean;
 }
 
@@ -79,30 +111,55 @@ type ReadResourceFn = (
 
 /**
  * Convert VMark content items to MCP SDK content format.
- * Filters to text-only items with valid text values.
+ * Passes through text, image, and embedded resource blocks (all supported
+ * natively by the MCP SDK); drops malformed items and unknown types.
  */
 export function toMcpContent(
   items: VMarkContentItem[]
-): McpTextContent[] {
-  return items
-    .filter((item) => item.type === 'text' && typeof item.text === 'string')
-    .map((item) => ({ type: 'text' as const, text: item.text! }));
+): McpContentItem[] {
+  const result: McpContentItem[] = [];
+  for (const item of items) {
+    if (item.type === 'text' && typeof item.text === 'string') {
+      result.push({ type: 'text', text: item.text });
+    } else if (
+      item.type === 'image' &&
+      typeof item.data === 'string' &&
+      typeof item.mimeType === 'string'
+    ) {
+      result.push({ type: 'image', data: item.data, mimeType: item.mimeType });
+    } else if (item.type === 'resource' && item.resource) {
+      const { uri, text, blob, mimeType } = item.resource;
+      if (typeof uri !== 'string') {
+        continue; // Malformed: an embedded resource without a URI
+      }
+      if (typeof text === 'string') {
+        result.push({ type: 'resource', resource: { uri, text, mimeType } });
+      } else if (typeof blob === 'string') {
+        result.push({ type: 'resource', resource: { uri, blob, mimeType } });
+      }
+      // Neither text nor blob: malformed, dropped
+    }
+  }
+  return result;
 }
 
 /**
  * Convert VMark resource contents to MCP SDK format.
- * Filters to items with valid text values.
+ * Keeps text items and blob items (base64 binary contents per the MCP spec);
+ * drops items carrying neither.
  */
 export function toMcpContents(
   items: VMarkResourceItem[]
 ): McpResourceContent[] {
-  return items
-    .filter((item) => typeof item.text === 'string')
-    .map((item) => ({
-      uri: item.uri,
-      text: item.text!,
-      mimeType: item.mimeType,
-    }));
+  const result: McpResourceContent[] = [];
+  for (const item of items) {
+    if (typeof item.text === 'string') {
+      result.push({ uri: item.uri, text: item.text, mimeType: item.mimeType });
+    } else if (typeof item.blob === 'string') {
+      result.push({ uri: item.uri, blob: item.blob, mimeType: item.mimeType });
+    }
+  }
+  return result;
 }
 
 /**
@@ -152,7 +209,8 @@ export function createResourceHandler(
       return { contents: toMcpContents(result.contents) };
     } catch (error) {
       throw new Error(
-        `Resource read failed: ${error instanceof Error ? error.message : String(error)}`
+        `Resource read failed: ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error }
       );
     }
   };

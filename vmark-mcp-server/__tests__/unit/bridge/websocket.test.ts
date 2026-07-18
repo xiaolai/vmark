@@ -429,6 +429,262 @@ describe('WebSocketBridge', () => {
     });
   });
 
+  describe('port resolution (MCP-1)', () => {
+    it('uses the static port and never consults the resolver (explicit --port override semantics)', async () => {
+      const resolver = vi.fn(() => 19998); // dead port — must not be dialed
+      const staticBridge = new WebSocketBridge({
+        port: TEST_PORT,
+        portResolver: resolver,
+        autoReconnect: false,
+      });
+
+      await staticBridge.connect();
+
+      expect(staticBridge.isConnected()).toBe(true);
+      expect(resolver).not.toHaveBeenCalled();
+
+      await staticBridge.disconnect();
+    });
+
+    it('re-resolves the port via portResolver on every attempt, picking up a changed port', async () => {
+      // Simulates a VMark restart: the first read of the port file yields a
+      // port nobody listens on any more; the retry re-reads the file and gets
+      // the live port. A static port would shadow the resolver forever.
+      let call = 0;
+      const resolver = vi.fn(() => (call++ === 0 ? 19993 : TEST_PORT));
+      const resolverBridge = new WebSocketBridge({
+        portResolver: resolver,
+        autoReconnect: true,
+        reconnectDelay: 20,
+        maxReconnectAttempts: 5,
+        timeout: 1000,
+      });
+
+      const connected = new Promise<void>((resolve) => {
+        resolverBridge.onConnectionChange((c) => {
+          if (c) resolve();
+        });
+      });
+
+      // First attempt dials the dead port and fails.
+      await resolverBridge.connect().catch(() => {});
+
+      // The retry must call the resolver again and reach the live port.
+      await connected;
+      expect(resolver.mock.calls.length).toBeGreaterThanOrEqual(2);
+      expect(resolverBridge.isConnected()).toBe(true);
+
+      await resolverBridge.disconnect();
+    });
+  });
+
+  describe('reconnect revival after exhaustion (MCP-4)', () => {
+    /** Drive a bridge into the dead state: attempts exhausted, loop idle. */
+    async function exhaustReconnects(target: WebSocketBridge): Promise<void> {
+      const internal = target as unknown as {
+        reconnectAttempts: number;
+        reconnectTimer: unknown;
+        connecting: boolean;
+      };
+      // Stop listening and drop the live connection so the single allowed
+      // reconnect attempt fails with ECONNREFUSED. Note: server.close()'s
+      // callback only fires after all client sockets are gone, so terminate
+      // the connection before awaiting it.
+      const serverClosed = new Promise<void>((resolve) => server.close(() => resolve()));
+      serverConnections.forEach((ws) => ws.terminate());
+      await serverClosed;
+
+      await vi.waitFor(() => {
+        expect(target.isConnected()).toBe(false);
+        expect(internal.reconnectAttempts).toBe(1);
+        expect(internal.reconnectTimer).toBeNull();
+        expect(internal.connecting).toBe(false);
+      });
+    }
+
+    /** Restart the test server with a success responder for all connections. */
+    function restartServer(): void {
+      server = new WebSocketServer({ port: TEST_PORT });
+      server.on('connection', (ws) => {
+        serverConnections.push(ws);
+        ws.on('message', (data) => {
+          const message = JSON.parse(data.toString()) as WsMessage;
+          const response: WsMessage = {
+            id: message.id,
+            type: 'response',
+            payload: { success: true, data: 'revived' },
+          };
+          ws.send(JSON.stringify(response));
+        });
+      });
+    }
+
+    it('send() while the reconnect loop is dead resets the budget and revives the connection', async () => {
+      const revivalBridge = new WebSocketBridge({
+        port: TEST_PORT,
+        autoReconnect: true,
+        reconnectDelay: 20,
+        maxReconnectAttempts: 1,
+        timeout: 1000,
+      });
+      const internal = revivalBridge as unknown as { reconnectAttempts: number };
+
+      await revivalBridge.connect();
+      await exhaustReconnects(revivalBridge);
+
+      // VMark comes back.
+      restartServer();
+
+      // The send itself still fails (no queueing) but must kick a fresh
+      // connect() instead of leaving the bridge dead forever.
+      await expect(
+        revivalBridge.send({ type: 'document.getContent' })
+      ).rejects.toThrow('Not connected');
+      expect(internal.reconnectAttempts).toBe(0);
+
+      await vi.waitFor(() => {
+        expect(revivalBridge.isConnected()).toBe(true);
+      });
+
+      const result = await revivalBridge.send<string>({ type: 'document.getContent' });
+      expect(result.success).toBe(true);
+      expect(result.data).toBe('revived');
+
+      await revivalBridge.disconnect();
+    });
+
+    it('send() with queueing enabled after exhaustion queues and resolves once revived', async () => {
+      const queueRevivalBridge = new WebSocketBridge({
+        port: TEST_PORT,
+        autoReconnect: true,
+        reconnectDelay: 20,
+        maxReconnectAttempts: 1,
+        queueWhileDisconnected: true,
+        timeout: 1000,
+      });
+
+      await queueRevivalBridge.connect();
+      await exhaustReconnects(queueRevivalBridge);
+
+      restartServer();
+
+      const result = await queueRevivalBridge.send<string>({ type: 'document.getContent' });
+      expect(result.success).toBe(true);
+      expect(result.data).toBe('revived');
+
+      await queueRevivalBridge.disconnect();
+    });
+  });
+
+  describe('disconnect during CONNECTING (MCP-6)', () => {
+    it('detaches listeners so a late open cannot crash the process (auth token path)', async () => {
+      const authBridge = new WebSocketBridge({
+        port: TEST_PORT,
+        timeout: 150,
+        autoReconnect: false,
+        authTokenResolver: () => 'test-token',
+      });
+
+      // Start connecting but disconnect before the handshake completes —
+      // the socket is still CONNECTING when disconnect() runs.
+      const connectPromise = authBridge.connect();
+      await authBridge.disconnect();
+
+      // The orphaned connect() promise must settle via rejection, not hang
+      // (pre-fix, the stale 'open' handler cleared the connection timeout and
+      // then crashed on `this.ws!.send` with ws === null).
+      await expect(connectPromise).rejects.toThrow();
+
+      // Give the server-side handshake time to complete; the stale 'open'
+      // must not fire into the bridge.
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      expect(authBridge.isConnected()).toBe(false);
+      expect((authBridge as unknown as { connected: boolean }).connected).toBe(false);
+    });
+
+    it('does not mark the bridge connected via a stale open (legacy tokenless path)', async () => {
+      const plainBridge = new WebSocketBridge({
+        port: TEST_PORT,
+        timeout: 150,
+        autoReconnect: false,
+      });
+
+      const connectPromise = plainBridge.connect();
+      await plainBridge.disconnect();
+
+      await expect(connectPromise).rejects.toThrow();
+
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      expect(plainBridge.isConnected()).toBe(false);
+      expect((plainBridge as unknown as { connected: boolean }).connected).toBe(false);
+    });
+  });
+
+  describe('stale connection timeout must not kill a newer socket', () => {
+    it('leaves the new connection attempt untouched when a superseded attempt times out', async () => {
+      // Scenario: connect #1 arms its connection timer, disconnect() supersedes
+      // it, connect #2 starts and is still mid-auth-handshake when timer #1
+      // fires. Pre-fix, timer #1 closed `this.ws` — the CURRENT socket, i.e.
+      // attempt #2's socket — so attempt #2 died with "Connection closed
+      // during authentication" long before its own timeout.
+      // Timing: timer #1 fires at t=CONNECT_TIMEOUT. Attempt #2 sends auth at
+      // t≈RECONNECT_AT and gets auth_result at t≈RECONNECT_AT+AUTH_REPLY_DELAY
+      // (~200ms AFTER timer #1 — mid-handshake), while its own auth timeout
+      // would only fire at t≈RECONNECT_AT+CONNECT_TIMEOUT (~200ms margin).
+      const CONNECT_TIMEOUT = 1000;
+      const RECONNECT_AT = 400;
+      const AUTH_REPLY_DELAY = 800;
+
+      // Server: complete the auth handshake only after a delay, so attempt #2
+      // is still connecting (connected === false) when timer #1 fires.
+      server.on('connection', (ws) => {
+        ws.on('message', (data) => {
+          const message = JSON.parse(data.toString()) as { type?: string };
+          if (message.type === 'auth') {
+            setTimeout(() => {
+              ws.send(
+                JSON.stringify({
+                  id: 'auth',
+                  type: 'auth_result',
+                  payload: { success: true },
+                })
+              );
+            }, AUTH_REPLY_DELAY);
+          }
+        });
+      });
+
+      const staleBridge = new WebSocketBridge({
+        port: TEST_PORT,
+        timeout: CONNECT_TIMEOUT,
+        autoReconnect: false,
+        authTokenResolver: () => 'test-token',
+      });
+
+      // Attempt #1: timer armed at t=0 (fires at t=600). Supersede immediately.
+      const attempt1 = staleBridge.connect();
+      attempt1.catch(() => {}); // settles later — must not be unhandled
+      await staleBridge.disconnect();
+
+      // Attempt #2 starts at t≈200; auth_result arrives at t≈800; its own
+      // auth timer would fire at t≈800+... — timer #1 fires at t=600, in the
+      // middle of attempt #2's handshake.
+      await new Promise((resolve) => setTimeout(resolve, RECONNECT_AT));
+      const attempt2 = staleBridge.connect();
+
+      // Attempt #2 must survive timer #1 and complete.
+      await expect(attempt2).resolves.toBeUndefined();
+      expect(staleBridge.isConnected()).toBe(true);
+
+      // The superseded attempt's promise must settle (reject), not hang.
+      await expect(attempt1).rejects.toThrow();
+
+      await staleBridge.disconnect();
+    }, 10000);
+  });
+
   describe('auth handshake', () => {
     it('should reject connect() if WebSocket closes during auth handshake', async () => {
       const authBridge = new WebSocketBridge({
