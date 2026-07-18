@@ -63,6 +63,7 @@
   "form.step.with.removeRow": "Remove",
   "form.step.with.keyPlaceholder": "key",
   "form.step.with.valuePlaceholder": "value",
+  "form.step.with.duplicateKey": "键重复 — 已在其他行中设置",
   "form.step.uses.label": "Uses",
   "form.trigger.kind": "Triggers",
   "form.trigger.empty": "No triggers configured",

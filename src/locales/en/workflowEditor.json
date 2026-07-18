@@ -78,6 +78,7 @@
   "form.step.with.removeRow": "Remove",
   "form.step.with.keyPlaceholder": "key",
   "form.step.with.valuePlaceholder": "value",
+  "form.step.with.duplicateKey": "Duplicate key — already set in another row",
   "form.step.with.missingRequired": "Required inputs not set:",
   "form.step.uses.label": "Uses",
   "form.trigger.kind": "Triggers",

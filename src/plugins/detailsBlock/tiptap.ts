@@ -8,10 +8,12 @@
  *   - Two node types: detailsBlock (wrapper) and detailsSummary (clickable header)
  *   - Input rule triggers on `<details>` or `:::details` at line start
  *   - Click on summary toggles the open/closed state via node attribute
- *   - Default summary text is "Click to expand" for new blocks
+ *   - Default summary text for new blocks comes from the
+ *     "editor:plugin.detailsDefaultSummary" locale key ("Click to expand" in English)
  *
  * @coordinates-with codemirror/sourceDetailsDecoration.ts — Source mode visual markers
  * @coordinates-with shared/sourceLineAttr.ts — source line tracking for cursor sync
+ * @coordinates-with shared/blockInsertPos.ts — depth-aware insert position
  * @module plugins/detailsBlock/tiptap
  */
 
@@ -19,6 +21,8 @@ import { InputRule, Node } from "@tiptap/core";
 import type { EditorState } from "@tiptap/pm/state";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { TextSelection } from "@tiptap/pm/state";
+import i18n from "@/i18n";
+import { blockInsertPos } from "../shared/blockInsertPos";
 import { sourceLineAttr } from "../shared/sourceLineAttr";
 import "./details-block.css";
 
@@ -39,7 +43,10 @@ function createDetailsBlockNode(state: EditorState, open: boolean) {
   const paragraphType = state.schema.nodes.paragraph;
   if (!detailsType || !summaryType || !paragraphType) return null;
 
-  const summaryNode = summaryType.create(null, state.schema.text("Click to expand"));
+  const summaryNode = summaryType.create(
+    null,
+    state.schema.text(i18n.t("editor:plugin.detailsDefaultSummary")),
+  );
   const contentNode = paragraphType.create();
   return detailsType.create({ open }, [summaryNode, contentNode]);
 }
@@ -100,8 +107,7 @@ export const detailsBlockExtension = Node.create({
           const detailsNode = createDetailsBlockNode(state, true);
           if (!detailsNode) return false;
 
-          const { $from } = state.selection;
-          const insertPos = $from.end($from.depth) + 1;
+          const insertPos = blockInsertPos(state.selection);
 
           if (!dispatch) return true;
 

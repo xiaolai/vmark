@@ -30,7 +30,7 @@ import type { Node as PMNode, NodeType, Slice } from "@tiptap/pm/model";
 import type { EditorView } from "@tiptap/pm/view";
 import { useFootnotePopupStore } from "@/stores/footnotePopupStore";
 import { FootnotePopupView } from "./FootnotePopupView";
-import { collectFootnoteNodes, createCleanupAndRenumberTransaction, createRenumberTransaction } from "./tiptapCleanup";
+import { collectFootnoteNodes, createCleanupAndRenumberTransaction, createRenumberTransaction, hasRefCountDropped } from "./tiptapCleanup";
 import { findFootnoteDefinition, findFootnoteReference, getFootnoteDefFromTarget, getFootnoteRefFromTarget, scrollToPosition } from "./tiptapDomUtils";
 import "./footnote-popup.css";
 
@@ -370,18 +370,12 @@ export const footnotePopupExtension = Extension.create({
           const newRefLabels = newCollected.refLabels;
 
           if (!wasDeferred) {
-            // Normal path: check if any ref was deleted in this transaction
+            // Normal path: check if any ref was deleted in this transaction.
+            // Per-label COUNTS, not label sets — deleting one of two
+            // duplicate refs ([1,2,1] → [2,1]) leaves the set unchanged but
+            // still requires renumbering.
             const oldCollected = collectFootnoteNodes(oldState.doc);
-            const oldRefLabels = oldCollected.refLabels;
-
-            let refDeleted = false;
-            for (const label of oldRefLabels) {
-              if (!newRefLabels.has(label)) {
-                refDeleted = true;
-                break;
-              }
-            }
-            if (!refDeleted) return null;
+            if (!hasRefCountDropped(oldCollected.refs, newCollected.refs)) return null;
           }
           // Deferred path: skip refDeleted check — cleanup needed regardless
 

@@ -6,6 +6,10 @@
  *
  * Key decisions:
  *   - Renumbering scans all references in document order and assigns sequential labels
+ *   - Labels are numbered by DISTINCT label in first-seen order (duplicate references
+ *     to the same footnote share one number), matching the distinct-label order used
+ *     to recreate definitions — index-based numbering would desync refs from defs and
+ *     let the appendTransaction orphan filter delete definition content
  *   - Orphan cleanup runs after deletion to remove definitions with no matching reference
  *   - Both operations are combined into a single transaction for atomicity
  *   - collectFootnoteNodes does a single doc traversal returning both refs and defs,
@@ -46,6 +50,31 @@ export function getReferenceLabels(doc: PMNode): Set<string> {
   return collectFootnoteNodes(doc).refLabels;
 }
 
+/**
+ * True when any label has FEWER references in `newRefs` than in `oldRefs`.
+ *
+ * Deletion detection must compare per-label counts, not label sets: deleting
+ * one of two duplicate refs ([1,2,1] → [2,1]) leaves the label set unchanged
+ * but still requires renumbering (Codex audit finding).
+ */
+export function hasRefCountDropped(
+  oldRefs: Array<{ label: string }>,
+  newRefs: Array<{ label: string }>,
+): boolean {
+  const newCounts = new Map<string, number>();
+  for (const ref of newRefs) {
+    newCounts.set(ref.label, (newCounts.get(ref.label) ?? 0) + 1);
+  }
+  const oldCounts = new Map<string, number>();
+  for (const ref of oldRefs) {
+    oldCounts.set(ref.label, (oldCounts.get(ref.label) ?? 0) + 1);
+  }
+  for (const [label, count] of oldCounts) {
+    if ((newCounts.get(label) ?? 0) < count) return true;
+  }
+  return false;
+}
+
 export function getDefinitionInfo(doc: PMNode): Array<{ label: string; pos: number; size: number }> {
   return collectFootnoteNodes(doc).defs;
 }
@@ -62,13 +91,15 @@ export function createRenumberTransaction(
 
   if (refs.length === 0) return null;
 
+  // Number by distinct label in first-seen order so refs and the recreated
+  // definitions (orderedLabels below) always share one numbering, even when
+  // the same footnote is referenced more than once.
   const labelMap = new Map<string, string>();
-  refs.forEach((ref, index) => {
-    const newLabel = String(index + 1);
+  for (const ref of refs) {
     if (!labelMap.has(ref.label)) {
-      labelMap.set(ref.label, newLabel);
+      labelMap.set(ref.label, String(labelMap.size + 1));
     }
-  });
+  }
 
   let needsRenumber = false;
   for (const [oldLabel, newLabel] of labelMap) {
@@ -110,12 +141,10 @@ export function createRenumberTransaction(
   const orderedLabels: string[] = [];
   const seenLabels = new Set<string>();
   for (const ref of refs) {
-    /* v8 ignore start -- @preserve else branch: duplicate ref labels not exercised in tests */
     if (!seenLabels.has(ref.label)) {
       seenLabels.add(ref.label);
       orderedLabels.push(ref.label);
     }
-    /* v8 ignore stop */
   }
 
   let insertPos = tr.doc.content.size;
@@ -147,13 +176,14 @@ export function createCleanupAndRenumberTransaction(
 
   const { refs, defs: allDefs } = preCollected ?? collectFootnoteNodes(doc);
 
+  // Distinct-label first-seen numbering — must match orderedLabels below
+  // (see createRenumberTransaction for rationale).
   const labelMap = new Map<string, string>();
-  refs.forEach((ref, index) => {
-    const newLabel = String(index + 1);
+  for (const ref of refs) {
     if (!labelMap.has(ref.label)) {
-      labelMap.set(ref.label, newLabel);
+      labelMap.set(ref.label, String(labelMap.size + 1));
     }
-  });
+  }
 
   const defContentByLabel = new Map<string, PMNode>();
   for (const def of allDefs) {

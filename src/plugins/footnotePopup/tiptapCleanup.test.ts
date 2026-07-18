@@ -9,10 +9,12 @@ import { describe, it, expect } from "vitest";
 import { Schema } from "@tiptap/pm/model";
 import { EditorState } from "@tiptap/pm/state";
 import {
+  collectFootnoteNodes,
   getReferenceLabels,
   getDefinitionInfo,
   createRenumberTransaction,
   createCleanupAndRenumberTransaction,
+  hasRefCountDropped,
 } from "./tiptapCleanup";
 
 // Minimal schema with footnote nodes
@@ -311,6 +313,113 @@ describe("createRenumberTransaction — additional branch coverage", () => {
   });
 });
 
+describe("duplicate references — refs and defs share one numbering (PL-1)", () => {
+  const refType = schema.nodes.footnote_reference;
+  const defType = schema.nodes.footnote_definition;
+
+  /** Assert the fixpoint invariant: every ref has a def and every def has a ref. */
+  function expectNoDanglingOrOrphaned(doc: ReturnType<typeof createDoc>) {
+    const { refLabels, defs } = collectFootnoteNodes(doc);
+    const defLabels = new Set(defs.map((d) => d.label));
+    for (const label of refLabels) {
+      expect(defLabels.has(label)).toBe(true);
+    }
+    for (const label of defLabels) {
+      expect(refLabels.has(label)).toBe(true);
+    }
+  }
+
+  it("returns null for [^1][^1][^2] with defs 1,2 — already consistently numbered", () => {
+    const state = stateFrom(
+      createDoc([
+        pWithRef("A", "1"),
+        pWithRef("B", "1"),
+        pWithRef("C", "2"),
+        fnDef("1", "Def one"),
+        fnDef("2", "Def two"),
+      ])
+    );
+    expect(createRenumberTransaction(state, refType, defType)).toBeNull();
+  });
+
+  it("renumbers duplicate refs by distinct-label order so refs and defs agree", () => {
+    const state = stateFrom(
+      createDoc([
+        pWithRef("A", "2"),
+        pWithRef("B", "2"),
+        pWithRef("C", "5"),
+        fnDef("2", "Def two"),
+        fnDef("5", "Def five"),
+      ])
+    );
+    const tr = createRenumberTransaction(state, refType, defType);
+    expect(tr).not.toBeNull();
+
+    const newDoc = tr!.doc;
+    const { refs, defs } = collectFootnoteNodes(newDoc);
+    expect(refs.map((r) => r.label)).toEqual(["1", "1", "2"]);
+    expect(defs.map((d) => d.label)).toEqual(["1", "2"]);
+    expectNoDanglingOrOrphaned(newDoc);
+
+    // Definition content preserved
+    expect(newDoc.nodeAt(defs[0].pos)?.textContent).toBe("Def two");
+    expect(newDoc.nodeAt(defs[1].pos)?.textContent).toBe("Def five");
+  });
+
+  it("cleanup path keeps duplicate refs and defs aligned after a deletion", () => {
+    // Ref "1" was deleted; remaining refs are [^2][^2][^5], defs 1 (orphan), 2, 5
+    const state = stateFrom(
+      createDoc([
+        pWithRef("A", "2"),
+        pWithRef("B", "2"),
+        pWithRef("C", "5"),
+        fnDef("1", "Orphan"),
+        fnDef("2", "Def two"),
+        fnDef("5", "Def five"),
+      ])
+    );
+    const tr = createCleanupAndRenumberTransaction(
+      state,
+      new Set(["2", "5"]),
+      refType,
+      defType
+    );
+    expect(tr).not.toBeNull();
+
+    const newDoc = tr!.doc;
+    const { refs, defs } = collectFootnoteNodes(newDoc);
+    expect(refs.map((r) => r.label)).toEqual(["1", "1", "2"]);
+    expect(defs.map((d) => d.label)).toEqual(["1", "2"]);
+    expectNoDanglingOrOrphaned(newDoc);
+
+    // Kept definitions preserve content; the orphan is gone
+    expect(newDoc.nodeAt(defs[0].pos)?.textContent).toBe("Def two");
+    expect(newDoc.nodeAt(defs[1].pos)?.textContent).toBe("Def five");
+    expect(newDoc.textContent).not.toContain("Orphan");
+  });
+
+  it("renumber result is a fixpoint — a second pass finds nothing to change", () => {
+    const state = stateFrom(
+      createDoc([
+        pWithRef("A", "3"),
+        pWithRef("B", "3"),
+        pWithRef("C", "7"),
+        fnDef("3", "Def three"),
+        fnDef("7", "Def seven"),
+      ])
+    );
+    const tr = createRenumberTransaction(state, refType, defType);
+    expect(tr).not.toBeNull();
+
+    // Re-run on the resulting doc: nothing should need renumbering, and the
+    // orphan filter (appendTransaction in tiptap.ts) must find no orphans —
+    // otherwise the next pass would delete definition content.
+    const nextState = stateFrom(tr!.doc as ReturnType<typeof createDoc>);
+    expect(createRenumberTransaction(nextState, refType, defType)).toBeNull();
+    expectNoDanglingOrOrphaned(nextState.doc);
+  });
+});
+
 describe("createCleanupAndRenumberTransaction", () => {
   const refType = schema.nodes.footnote_reference;
   const defType = schema.nodes.footnote_definition;
@@ -484,5 +593,23 @@ describe("createCleanupAndRenumberTransaction", () => {
     const newDefs = getDefinitionInfo(newDoc);
     // No refs means no definitions should be re-created
     expect(newDefs).toHaveLength(0);
+  });
+});
+
+describe("hasRefCountDropped", () => {
+  const refs = (labels: string[]) => labels.map((label) => ({ label }));
+
+  it.each([
+    { old: ["1", "2"], next: ["1"], expected: true, name: "a label disappears entirely" },
+    { old: ["1", "2", "1"], next: ["2", "1"], expected: true, name: "one of two duplicate refs is deleted" },
+    { old: ["1", "2"], next: ["1", "2"], expected: false, name: "nothing changes" },
+    { old: ["1", "2"], next: ["1", "2", "1"], expected: false, name: "a duplicate ref is added" },
+    { old: [], next: [], expected: false, name: "both empty" },
+    { old: [], next: ["1"], expected: false, name: "ref added to empty doc" },
+    { old: ["1"], next: [], expected: true, name: "last ref deleted" },
+    { old: ["1", "1", "1"], next: ["1", "1"], expected: true, name: "one of three duplicates deleted" },
+    { old: ["1", "2"], next: ["2", "1"], expected: false, name: "refs reordered only" },
+  ])("returns $expected when $name", ({ old, next, expected }) => {
+    expect(hasRefCountDropped(refs(old), refs(next))).toBe(expected);
   });
 });

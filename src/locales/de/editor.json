@@ -376,5 +376,6 @@
   "terminal.restarting": "Shell wird neu gestartet …",
   "media.cannotPreview": "Dieses Format kann nicht in der Vorschau angezeigt werden",
   "media.openExternally": "Mit Standard-App öffnen",
-  "media.revealInFinder": "Im Finder anzeigen"
+  "media.revealInFinder": "Im Finder anzeigen",
+  "plugin.detailsDefaultSummary": "Zum Aufklappen klicken"
 }

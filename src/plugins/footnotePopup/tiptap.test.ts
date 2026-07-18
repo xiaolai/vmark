@@ -790,6 +790,71 @@ describe("footnotePopup plugin handler integration", () => {
       expect(result).not.toBeNull();
     });
 
+    it("renumbers when ONE of two duplicate refs is deleted (refs [1,2,1] → [2,1])", () => {
+      // Codex audit finding 4: set-based deletion detection sees the same
+      // label SET before and after ({1,2}) and never runs renumbering.
+      const doc = schema.node("doc", null, [
+        pWithRef("A", "1"),
+        pWithRef("B", "2"),
+        pWithRef("C", "1"), // duplicate ref to footnote 1
+        fnDef("1", "First"),
+        fnDef("2", "Second"),
+      ]);
+      const state = createState(doc);
+
+      // Delete the FIRST "1" ref by replacing paragraph A with plain text.
+      const tr = state.tr.replaceWith(
+        0,
+        state.doc.child(0).nodeSize,
+        p("A was here"),
+      );
+      const newState = state.apply(tr);
+
+      const result = plugin.spec.appendTransaction!([tr], state, newState);
+      expect(result).not.toBeNull();
+
+      // Remaining refs in doc order were [2, 1] — renumbered to [1, 2].
+      const refs: string[] = [];
+      result!.doc.descendants((node) => {
+        if (node.type.name === "footnote_reference") refs.push(String(node.attrs.label));
+        return true;
+      });
+      expect(refs).toEqual(["1", "2"]);
+
+      // Defs renumbered consistently with NO content loss: old def "2"
+      // ("Second") is now def 1, old def "1" ("First") is now def 2.
+      const defContents: Record<string, string> = {};
+      result!.doc.descendants((node) => {
+        if (node.type.name === "footnote_definition") {
+          defContents[String(node.attrs.label)] = node.textContent;
+        }
+        return true;
+      });
+      expect(Object.keys(defContents).sort()).toEqual(["1", "2"]);
+      expect(defContents["1"]).toBe("Second");
+      expect(defContents["2"]).toBe("First");
+    });
+
+    it("still skips when a duplicate ref is ADDED (no deletion)", () => {
+      const doc = schema.node("doc", null, [
+        pWithRef("A", "1"),
+        pWithRef("B", "2"),
+        fnDef("1"),
+        fnDef("2"),
+      ]);
+      const state = createState(doc);
+
+      // Append another paragraph referencing footnote 1 — counts only grow.
+      const tr = state.tr.insert(
+        state.doc.child(0).nodeSize + state.doc.child(1).nodeSize,
+        pWithRef("C", "1"),
+      );
+      const newState = state.apply(tr);
+
+      const result = plugin.spec.appendTransaction!([tr], state, newState);
+      expect(result).toBeNull();
+    });
+
     it("deletes all definitions when all refs are removed", () => {
       const doc = schema.node("doc", null, [
         pWithRef("A", "1"),

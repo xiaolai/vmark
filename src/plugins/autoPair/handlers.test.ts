@@ -7,7 +7,7 @@
 
 import { describe, it, expect, vi } from "vitest";
 import { Schema } from "@tiptap/pm/model";
-import { EditorState, TextSelection } from "@tiptap/pm/state";
+import { AllSelection, EditorState, NodeSelection, TextSelection } from "@tiptap/pm/state";
 import { EditorView } from "@tiptap/pm/view";
 import {
   handleTextInput,
@@ -234,6 +234,138 @@ describe("handleTextInput", () => {
       handleTextInput(view, 1, 6, '"', CURLY_ON);
 
       expect(getText(view.state)).toBe("\u201Chello\u201D");
+    });
+  });
+
+  describe("wrapping selection preserves content (PL-3)", () => {
+    // Richer schema: a mark and an inline atom, like the real editor schema
+    // (bold marks, inline math, footnote refs, hard breaks).
+    const richSchema = new Schema({
+      nodes: {
+        doc: { content: "paragraph+" },
+        paragraph: { content: "inline*", group: "block" },
+        text: { inline: true, group: "inline" },
+        atom: { inline: true, group: "inline", atom: true },
+      },
+      marks: { bold: {} },
+    });
+
+    function selectAndWrap(doc: ReturnType<typeof richSchema.node>, from: number, to: number) {
+      let state = EditorState.create({ doc });
+      state = state.apply(
+        state.tr.setSelection(TextSelection.create(state.doc, from, to)),
+      );
+      const { view } = createMockView(state);
+      const handled = handleTextInput(view, from, to, "(", CURLY_ON);
+      return { handled, view };
+    }
+
+    it("keeps marks on wrapped content", () => {
+      const bold = richSchema.marks.bold.create();
+      const doc = richSchema.node("doc", null, [
+        richSchema.node("paragraph", null, [
+          richSchema.text("he"),
+          richSchema.text("ll", [bold]),
+          richSchema.text("o"),
+        ]),
+      ]);
+
+      const { handled, view } = selectAndWrap(doc, 1, 6);
+
+      expect(handled).toBe(true);
+      expect(view.state.doc.firstChild!.textContent).toBe("(hello)");
+      // Bold mark survives (originally on "ll" at 3..5, shifted to 4..6)
+      const boldRanges: Array<[number, number]> = [];
+      view.state.doc.descendants((node, pos) => {
+        if (node.isText && richSchema.marks.bold.isInSet(node.marks)) {
+          boldRanges.push([pos, pos + node.nodeSize]);
+        }
+      });
+      expect(boldRanges).toEqual([[4, 6]]);
+      // Cursor sits after the wrapped content, before the closing char
+      expect(view.state.selection.from).toBe(7);
+    });
+
+    it("keeps inline atoms inside the wrapped selection", () => {
+      const doc = richSchema.node("doc", null, [
+        richSchema.node("paragraph", null, [
+          richSchema.text("a"),
+          richSchema.node("atom"),
+          richSchema.text("b"),
+        ]),
+      ]);
+
+      // Selection spans "a", the atom, and "b" (positions 1..4)
+      const { handled, view } = selectAndWrap(doc, 1, 4);
+
+      expect(handled).toBe(true);
+      let atomCount = 0;
+      view.state.doc.descendants((node) => {
+        if (node.type.name === "atom") atomCount++;
+      });
+      expect(atomCount).toBe(1);
+      expect(view.state.doc.firstChild!.textContent).toBe("(ab)");
+      expect(view.state.selection.from).toBe(5);
+    });
+
+    it("wraps a cross-paragraph selection without destroying structure", () => {
+      const doc = richSchema.node("doc", null, [
+        richSchema.node("paragraph", null, [richSchema.text("ab")]),
+        richSchema.node("paragraph", null, [richSchema.text("cd")]),
+      ]);
+
+      // From before "b" (pos 2) to before "d" (pos 6)
+      const { handled, view } = selectAndWrap(doc, 2, 6);
+
+      expect(handled).toBe(true);
+      // Both paragraphs survive: opening char at the selection start,
+      // closing char at the selection end.
+      expect(view.state.doc.childCount).toBe(2);
+      expect(view.state.doc.child(0).textContent).toBe("a(b");
+      expect(view.state.doc.child(1).textContent).toBe("c)d");
+    });
+  });
+
+  describe("non-textblock selection endpoints (Codex audit finding 3)", () => {
+    it("AllSelection (Cmd+A) falls through: no wrap, no stray paragraphs", () => {
+      const state = createState("hello");
+      const allSel = new AllSelection(state.doc);
+      const selState = state.apply(state.tr.setSelection(allSel));
+      const { view } = createMockView(selState);
+
+      const handled = handleTextInput(view, allSel.from, allSel.to, "(", CURLY_ON);
+
+      expect(handled).toBe(false);
+      expect(view.dispatch).not.toHaveBeenCalled();
+      expect(view.state.doc.childCount).toBe(1);
+      expect(getText(view.state)).toBe("hello");
+    });
+
+    it("NodeSelection on a top-level block falls through", () => {
+      const state = createState("hello");
+      const nodeSel = NodeSelection.create(state.doc, 0);
+      const selState = state.apply(state.tr.setSelection(nodeSel));
+      const { view } = createMockView(selState);
+
+      const handled = handleTextInput(view, nodeSel.from, nodeSel.to, "[", CURLY_ON);
+
+      expect(handled).toBe(false);
+      expect(view.dispatch).not.toHaveBeenCalled();
+      expect(view.state.doc.childCount).toBe(1);
+      expect(getText(view.state)).toBe("hello");
+    });
+
+    it("normal text selection wrap is unchanged", () => {
+      const state = createState("hello");
+      const selState = state.apply(
+        state.tr.setSelection(TextSelection.create(state.doc, 1, 6)),
+      );
+      const { view } = createMockView(selState);
+
+      const handled = handleTextInput(view, 1, 6, "(", CURLY_ON);
+
+      expect(handled).toBe(true);
+      expect(getText(view.state)).toBe("(hello)");
     });
   });
 

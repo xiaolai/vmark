@@ -113,17 +113,26 @@ export function handleTextInput(
   const { dispatch } = view;
 
   if (from !== to) {
-    // Wrap selection with the pair
-    const selectedText = state.doc.textBetween(from, to);
-    const tr = state.tr.replaceWith(
-      from,
-      to,
-      state.schema.text(inputChar + selectedText + closing)
-    );
-    // Place cursor after the selected text (before closing)
-    tr.setSelection(
-      TextSelection.create(tr.doc, from + 1 + selectedText.length)
-    );
+    // Wrap only when both endpoints sit inside textblocks. Depth-0
+    // selections (AllSelection from Cmd+A, NodeSelection on a top-level
+    // node) would insert the pair chars at the document level, creating
+    // stray paragraphs containing just "(" and ")" — fall through to the
+    // default input behavior instead.
+    const $from = state.doc.resolve(from);
+    const $to = state.doc.resolve(to);
+    if (!$from.parent.isTextblock || !$to.parent.isTextblock) return false;
+
+    // Wrap selection with the pair. Insert the closing char first (at `to`)
+    // and then the opening char (at `from`) so earlier positions stay valid.
+    // Inserting AROUND the existing slice preserves marks, inline atoms, and
+    // block structure — serializing via textBetween + replaceWith destroyed
+    // them (stripped marks, deleted atoms, flattened cross-block selections).
+    const tr = state.tr;
+    tr.insertText(closing, to, to);
+    tr.insertText(inputChar, from, from);
+    // Place cursor after the wrapped content (before closing): the original
+    // `to` shifted by the one-char opening insert.
+    tr.setSelection(TextSelection.create(tr.doc, to + 1));
     dispatch(tr);
   } else {
     // Insert pair with cursor between

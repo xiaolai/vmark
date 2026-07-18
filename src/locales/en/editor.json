@@ -232,6 +232,7 @@
   "lint.imageNotFound": "Image file not found: {{path}}",
   "lint.yamlParseError": "YAML: {{message}}",
   "lint.yamlParseWarning": "YAML: {{message}}",
+  "plugin.detailsDefaultSummary": "Click to expand",
   "plugin.exportPng": "Export as PNG",
   "plugin.zoomOut": "Zoom out",
   "plugin.zoomIn": "Zoom in",

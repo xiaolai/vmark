@@ -11,12 +11,14 @@
  *
  * @coordinates-with codemirror/sourceAlertDecoration.ts — Source mode alert rendering
  * @coordinates-with shared/sourceLineAttr.ts — source line tracking for cursor sync
+ * @coordinates-with shared/blockInsertPos.ts — depth-aware insert position
  * @module plugins/alertBlock/tiptap
  */
 
 import { Node } from "@tiptap/core";
 import type { EditorState } from "@tiptap/pm/state";
 import { TextSelection } from "@tiptap/pm/state";
+import { blockInsertPos } from "../shared/blockInsertPos";
 import { sourceLineAttr } from "../shared/sourceLineAttr";
 import "./alert-block.css";
 
@@ -100,8 +102,7 @@ export const alertBlockExtension = Node.create({
           const alertNode = createAlertBlockNode(state, alertType);
           if (!alertNode) return false;
 
-          const { $from } = state.selection;
-          const insertPos = $from.end($from.depth) + 1;
+          const insertPos = blockInsertPos(state.selection);
 
           if (!dispatch) return true;
 

@@ -784,6 +784,45 @@ describe("search plugin integration", () => {
     expect(decorations.length).toBe(2);
   });
 
+  it("clears decorations when the FindBar closes with query unchanged (isOpen-only transition)", () => {
+    // Codex audit finding 6: searchClose() only flips isOpen — the query
+    // stays in the store, so the old rebuild condition (queryChanged only)
+    // left highlights behind after closing.
+    const plugin = getPlugin();
+    const doc = createDoc(["hello hello"]);
+
+    mockSearchState.isOpen = true;
+    mockSearchState.query = "hello";
+    const state = EditorState.create({ doc, schema, plugins: [plugin] });
+    const state2 = state.apply(state.tr);
+    expect(plugin.getState(state2).decorationSet.find().length).toBe(2);
+
+    // Close WITHOUT touching query or options (exactly what searchClose does).
+    mockSearchState.isOpen = false;
+    const state3 = state2.apply(state2.tr);
+    expect(plugin.getState(state3).decorationSet.find().length).toBe(0);
+  });
+
+  it("restores decorations when the FindBar reopens with the same query", () => {
+    const plugin = getPlugin();
+    const doc = createDoc(["hello hello"]);
+
+    mockSearchState.isOpen = true;
+    mockSearchState.query = "hello";
+    const state = EditorState.create({ doc, schema, plugins: [plugin] });
+    const state2 = state.apply(state.tr);
+    expect(plugin.getState(state2).decorationSet.find().length).toBe(2);
+
+    // Close, then reopen — nothing else changes.
+    mockSearchState.isOpen = false;
+    const state3 = state2.apply(state2.tr);
+    expect(plugin.getState(state3).decorationSet.find().length).toBe(0);
+
+    mockSearchState.isOpen = true;
+    const state4 = state3.apply(state3.tr);
+    expect(plugin.getState(state4).decorationSet.find().length).toBe(2);
+  });
+
   it("clears decorations when search is closed but query still set (needsRebuild with isOpen=false)", () => {
     const plugin = getPlugin();
     const doc = createDoc(["hello hello"]);
@@ -841,6 +880,144 @@ describe("search plugin integration", () => {
     expect(mockSearchState.setMatches).toHaveBeenCalled();
     const matchCount = mockSearchState.setMatches.mock.calls[0][0];
     expect(matchCount).toBeGreaterThan(0);
+  });
+});
+
+describe("cross-mark-boundary matching (PL-8)", () => {
+  function getPlugin() {
+    const extensionContext = {
+      name: searchExtension.name,
+      options: searchExtension.options,
+      storage: searchExtension.storage,
+      editor: {} as never,
+      type: null,
+      parent: undefined,
+    };
+    const plugins = searchExtension.config.addProseMirrorPlugins?.call(extensionContext) ?? [];
+    return plugins[0];
+  }
+
+  // Schema with a mark and an inline atom, mirroring the real editor
+  // (bold marks, inline math/footnote-ref atoms).
+  const markSchema = new Schema({
+    nodes: {
+      doc: { content: "block+" },
+      paragraph: { group: "block", content: "inline*" },
+      text: { inline: true, group: "inline" },
+      atom: { inline: true, group: "inline", atom: true },
+    },
+    marks: { bold: {} },
+  });
+
+  function boldBoundaryDoc() {
+    // "foo **bar**" — "foo " plain at 1..5, "bar" bold at 5..8
+    const bold = markSchema.marks.bold.create();
+    return markSchema.node("doc", null, [
+      markSchema.node("paragraph", null, [
+        markSchema.text("foo "),
+        markSchema.text("bar", [bold]),
+      ]),
+    ]);
+  }
+
+  beforeEach(() => {
+    mockSearchState.isOpen = false;
+    mockSearchState.query = "";
+    mockSearchState.replaceText = "";
+    mockSearchState.caseSensitive = false;
+    mockSearchState.wholeWord = false;
+    mockSearchState.useRegex = false;
+    mockSearchState.matchCount = 0;
+    mockSearchState.currentIndex = -1;
+    mockSearchState.setMatches.mockClear();
+    mockSearchState.findNext.mockClear();
+    mockSearchSubscribers.length = 0;
+  });
+
+  it("finds a query spanning a bold boundary with exact positions", async () => {
+    const plugin = getPlugin();
+    const doc = boldBoundaryDoc();
+
+    mockSearchState.isOpen = true;
+    mockSearchState.query = "foo bar";
+
+    const state = EditorState.create({ doc, schema: markSchema, plugins: [plugin] });
+    const nextState = state.apply(state.tr);
+    const pluginState = plugin.getState(nextState);
+
+    await flushMicrotasks();
+    expect(mockSearchState.setMatches).toHaveBeenCalledWith(1, 0);
+    expect(pluginState.matches).toEqual([{ from: 1, to: 8 }]);
+    expect(pluginState.decorationSet.find()).toHaveLength(1);
+  });
+
+  it("replace across the bold boundary produces the correct text", async () => {
+    const plugin = getPlugin();
+    const doc = boldBoundaryDoc();
+
+    mockSearchState.isOpen = true;
+    mockSearchState.query = "foo bar";
+    mockSearchState.replaceText = "baz";
+    mockSearchState.currentIndex = 0;
+
+    const state = EditorState.create({ doc, schema: markSchema, plugins: [plugin] });
+    const state2 = state.apply(state.tr);
+    await flushMicrotasks();
+
+    const mockView: Record<string, unknown> = {
+      state: state2,
+      dom: document.createElement("div"),
+      dispatch: vi.fn((tr: unknown) => {
+        mockView.state = (mockView.state as { apply: (t: unknown) => EditorState }).apply(tr);
+      }),
+    };
+
+    const viewResult = plugin.spec.view!(mockView as never);
+    window.dispatchEvent(new Event("search:replace-current"));
+
+    expect((mockView.state as EditorState).doc.textContent).toBe("baz");
+    viewResult.destroy!();
+  });
+
+  it("does not match across an inline atom (no fabricated text)", async () => {
+    const plugin = getPlugin();
+    const doc = markSchema.node("doc", null, [
+      markSchema.node("paragraph", null, [
+        markSchema.text("foo "),
+        markSchema.node("atom"),
+        markSchema.text("bar"),
+      ]),
+    ]);
+
+    mockSearchState.isOpen = true;
+    mockSearchState.query = "foo bar";
+
+    const state = EditorState.create({ doc, schema: markSchema, plugins: [plugin] });
+    state.apply(state.tr);
+
+    await flushMicrotasks();
+    expect(mockSearchState.setMatches).toHaveBeenCalledWith(0, -1);
+  });
+
+  it("still finds text after an inline atom with exact positions", async () => {
+    const plugin = getPlugin();
+    const doc = markSchema.node("doc", null, [
+      markSchema.node("paragraph", null, [
+        markSchema.text("foo "),
+        markSchema.node("atom"), // pos 5..6
+        markSchema.text("bar"), // pos 6..9
+      ]),
+    ]);
+
+    mockSearchState.isOpen = true;
+    mockSearchState.query = "bar";
+
+    const state = EditorState.create({ doc, schema: markSchema, plugins: [plugin] });
+    const nextState = state.apply(state.tr);
+    const pluginState = plugin.getState(nextState);
+
+    await flushMicrotasks();
+    expect(pluginState.matches).toEqual([{ from: 6, to: 9 }]);
   });
 });
 

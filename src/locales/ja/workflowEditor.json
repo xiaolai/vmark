@@ -63,6 +63,7 @@
   "form.step.with.removeRow": "Remove",
   "form.step.with.keyPlaceholder": "key",
   "form.step.with.valuePlaceholder": "value",
+  "form.step.with.duplicateKey": "キーが重複しています — 別の行で既に設定されています",
   "form.step.uses.label": "Uses",
   "form.trigger.kind": "Triggers",
   "form.trigger.empty": "No triggers configured",

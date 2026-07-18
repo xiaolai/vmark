@@ -6,7 +6,7 @@
 import { describe, it, expect } from "vitest";
 import { getSchema } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
-import { EditorState, TextSelection } from "@tiptap/pm/state";
+import { AllSelection, EditorState, NodeSelection, TextSelection } from "@tiptap/pm/state";
 import { DOMSerializer, DOMParser as ProseMirrorDOMParser } from "@tiptap/pm/model";
 import {
   alertBlockExtension,
@@ -260,6 +260,65 @@ describe("insertAlertBlock command", () => {
 
     insertCmd()({ state, dispatch, tr: state.tr, chain: () => ({}) as never, can: () => ({}) as never, commands: {} as never, editor: {} as never, view: {} as never } as never);
     expect(resultTr).not.toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// insertAlertBlock with depth-0 selections (PL-2)
+// ---------------------------------------------------------------------------
+
+describe("insertAlertBlock with depth-0 selections (PL-2)", () => {
+  function runInsert(state: EditorState) {
+    const commandFn = alertBlockExtension.config.addCommands!.call({ name: "alertBlock", options: {}, storage: {}, editor: {} } as never);
+    const insertCmd = commandFn.insertAlertBlock;
+
+    let result = state;
+    const dispatch = (tr: unknown) => {
+      result = state.apply(tr as Parameters<EditorState["apply"]>[0]);
+    };
+    const returned = insertCmd("NOTE")({ state, dispatch, tr: state.tr, chain: () => ({}) as never, can: () => ({}) as never, commands: {} as never, editor: {} as never, view: {} as never } as never);
+    return { returned, result };
+  }
+
+  it("AllSelection (Cmd+A): does not throw and appends the block at doc end", () => {
+    const { doc } = createDocWithParagraph("Hello");
+    const state = EditorState.create({ doc, selection: new AllSelection(doc) });
+
+    const { returned, result } = runInsert(state);
+
+    expect(returned).toBe(true);
+    expect(result.doc.lastChild?.type.name).toBe("alertBlock");
+    // Existing content is untouched
+    expect(result.doc.textContent).toContain("Hello");
+  });
+
+  it("NodeSelection on a top-level hr: does not throw and inserts after the hr", () => {
+    const schema = createSchema();
+    const paragraph = schema.nodes.paragraph.create(null, [schema.text("Hello")]);
+    const hr = schema.nodes.horizontalRule.create();
+    const doc = schema.nodes.doc.create(null, [paragraph, hr]);
+    const hrPos = paragraph.nodeSize;
+    const state = EditorState.create({ doc, selection: NodeSelection.create(doc, hrPos) });
+
+    const { returned, result } = runInsert(state);
+
+    expect(returned).toBe(true);
+    expect(result.doc.childCount).toBe(3);
+    expect(result.doc.child(0).type.name).toBe("paragraph");
+    expect(result.doc.child(1).type.name).toBe("horizontalRule");
+    expect(result.doc.child(2).type.name).toBe("alertBlock");
+  });
+
+  it("TextSelection behavior unchanged: inserts after the current block", () => {
+    const { doc } = createDocWithParagraph("Hello");
+    const state = EditorState.create({ doc, selection: TextSelection.create(doc, 3) });
+
+    const { returned, result } = runInsert(state);
+
+    expect(returned).toBe(true);
+    expect(result.doc.childCount).toBe(2);
+    expect(result.doc.child(0).type.name).toBe("paragraph");
+    expect(result.doc.child(1).type.name).toBe("alertBlock");
   });
 });
 

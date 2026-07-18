@@ -367,5 +367,6 @@
   "terminal.restarting": "Reiniciando o shell...",
   "media.cannotPreview": "Não é possível pré-visualizar este formato",
   "media.openExternally": "Abrir com o aplicativo padrão",
-  "media.revealInFinder": "Mostrar no Finder"
+  "media.revealInFinder": "Mostrar no Finder",
+  "plugin.detailsDefaultSummary": "Clique para expandir"
 }

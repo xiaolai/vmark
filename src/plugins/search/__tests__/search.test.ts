@@ -1,9 +1,9 @@
 /**
- * Tests for search plugin — escapeRegExp and findMatchesInDoc helpers.
+ * Tests for search plugin — escapeRegExp contract and findMatchesInDoc.
  *
- * We import the module and test the pure functions that are accessible.
- * Since findMatchesInDoc and escapeRegExp are module-scoped, we test them
- * indirectly via a minimal ProseMirror doc, or extract and test the regex logic.
+ * findMatchesInDoc is imported from findMatches.ts (the real implementation).
+ * escapeRegExp stays module-private, so its escaping contract is asserted on
+ * a replica of the one-line regex.
  */
 
 import { describe, it, expect, vi } from "vitest";
@@ -62,8 +62,10 @@ describe("escapeRegExp", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Test findMatchesInDoc logic via schema + doc
+// Test findMatchesInDoc (real implementation) via schema + doc
 // ---------------------------------------------------------------------------
+
+import { findMatchesInDoc } from "../findMatches";
 
 const schema = new Schema({
   nodes: {
@@ -78,66 +80,6 @@ function createDoc(texts: string[]) {
     t ? schema.node("paragraph", null, [schema.text(t)]) : schema.node("paragraph")
   );
   return schema.node("doc", null, paragraphs);
-}
-
-/**
- * Replicated findMatchesInDoc for testing since it's module-private.
- * This ensures our test validates the same algorithm.
- */
-function findMatchesInDoc(
-  doc: ReturnType<typeof createDoc>,
-  query: string,
-  caseSensitive: boolean,
-  wholeWord: boolean,
-  useRegex: boolean
-): Array<{ from: number; to: number }> {
-  if (!query) return [];
-
-  const matches: Array<{ from: number; to: number }> = [];
-  const flags = caseSensitive ? "g" : "gi";
-
-  let pattern: string;
-  if (useRegex) {
-    pattern = query;
-  } else {
-    pattern = escapeRegExp(query);
-    if (wholeWord) {
-      pattern = `\\b${pattern}\\b`;
-    }
-  }
-
-  let regex: RegExp;
-  try {
-    regex = new RegExp(pattern, flags);
-  } catch {
-    return [];
-  }
-
-  let textOffset = 0;
-  const posMap: number[] = [];
-
-  doc.descendants((node, pos) => {
-    if (node.isText && node.text) {
-      for (let i = 0; i < node.text.length; i++) {
-        posMap[textOffset + i] = pos + i;
-      }
-      textOffset += node.text.length;
-    }
-  });
-
-  const text = doc.textContent;
-  let match: RegExpExecArray | null;
-
-  while ((match = regex.exec(text)) !== null) {
-    const from = posMap[match.index];
-    const to = posMap[match.index + match[0].length - 1];
-    if (from !== undefined && to !== undefined) {
-      matches.push({ from, to: to + 1 });
-    }
-    if (match[0].length === 0) regex.lastIndex++;
-  }
-
-  return matches;
 }
 
 describe("findMatchesInDoc", () => {
