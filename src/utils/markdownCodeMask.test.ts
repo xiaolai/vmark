@@ -161,13 +161,46 @@ describe("buildCodeMask", () => {
     expect(maskToString(mask)).toBe("0011100");
   });
 
-  it("marks inline code content correctly when unclosed at EOF", () => {
-    // Inline code that is never closed
+  it("treats an unpaired backtick as literal text, not an open code span", () => {
+    // A single backtick with no matching closing run is literal text in
+    // CommonMark — it must NOT mask the rest of the string as code.
     const md = "`abc";
     const mask = buildCodeMask(md);
     //           `  a  b  c
-    //           0  1  1  1
-    expect(maskToString(mask)).toBe("0111");
+    //           0  0  0  0
+    expect(maskToString(mask)).toBe("0000");
+  });
+
+  it("does not mask trailing text after a stray backtick in prose", () => {
+    // Regression: an unpaired backtick used to open a span that never closed,
+    // masking everything after it (see markdownCodeMask issue). The `\*` after
+    // the stray backtick must stay unmasked so escape-stripping still applies.
+    const md = "Price is 5` and here \\* keep";
+    const mask = buildCodeMask(md);
+    expect(maskToString(mask)).toBe("0".repeat(md.length));
+  });
+
+  it("still opens a span when a matching closing run exists later", () => {
+    // Two single backticks on the same run of text form a valid span; the
+    // look-ahead must not break the normal paired case.
+    const md = "a `b` `c";
+    const mask = buildCodeMask(md);
+    //           a     `  b  `     `  c
+    //           0  0  0  1  0  0  0  0
+    // First pair masks "b"; the trailing lone ` has no close → literal.
+    expect(maskToString(mask)).toBe("00010000");
+  });
+
+  it("processes a fenced block that follows a stray backtick", () => {
+    // The stray backtick no longer swallows the document, so the later fenced
+    // block is still detected.
+    const md = "lone ` here\n```\ncode\n```";
+    const mask = buildCodeMask(md);
+    const codeIdx = md.indexOf("code");
+    // "code" is inside the fenced block → masked.
+    expect(mask[codeIdx]).toBe(1);
+    // The stray backtick region stays unmasked.
+    expect(mask[md.indexOf("`")]).toBe(0);
   });
 
   it("handles inline code with double backtick containing single backtick", () => {
