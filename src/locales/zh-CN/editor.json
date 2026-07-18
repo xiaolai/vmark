@@ -361,5 +361,6 @@
   "terminal.restarting": "正在重新启动 shell……",
   "media.cannotPreview": "无法预览此格式",
   "media.openExternally": "使用默认应用打开",
-  "media.revealInFinder": "在 Finder 中显示"
+  "media.revealInFinder": "在 Finder 中显示",
+  "plugin.detailsDefaultSummary": "点击展开"
 }

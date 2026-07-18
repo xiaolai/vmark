@@ -63,6 +63,7 @@
   "form.step.with.removeRow": "Remove",
   "form.step.with.keyPlaceholder": "key",
   "form.step.with.valuePlaceholder": "value",
+  "form.step.with.duplicateKey": "Clé en double — déjà définie dans une autre ligne",
   "form.step.uses.label": "Uses",
   "form.trigger.kind": "Triggers",
   "form.trigger.empty": "No triggers configured",

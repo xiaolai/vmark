@@ -26,6 +26,7 @@ import { useLintStore } from "@/stores/documentStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import type { LintDiagnostic } from "@/lib/lintEngine/types";
 import { LintExtension } from "./tiptap";
+import { bumpLintDocEpoch, markLintRunStart } from "./docEpoch";
 
 /** Flip the markdown.lintEnabled setting in the real settings store. */
 function setLintEnabled(enabled: boolean) {
@@ -186,6 +187,22 @@ describe("LintExtension", () => {
       expect(decos).toHaveLength(1);
     });
 
+    it("returns empty decorations when the recorded lint run is stale (verify P7)", () => {
+      // A remount (mode switch) must not repaint diagnostics computed
+      // before the last doc change: run recorded, then the doc changed.
+      const tabId = "tab-init-stale";
+      useLintStore.setState({
+        diagnosticsByTab: { [tabId]: [makeDiagnostic({ line: 1 })] },
+      });
+      markLintRunStart(tabId);
+      bumpLintDocEpoch(tabId);
+
+      const doc = makeDoc(makePara("hello"));
+      const plugin = getPlugins(tabId)[0];
+      const decoSet = plugin.spec.state!.init!({} as never, { doc } as never);
+      expect(decoSet).toBe(DecorationSet.empty);
+    });
+
     it("uses empty array fallback when tab has no entry in store", () => {
       useLintStore.setState({
         diagnosticsByTab: { "tab-other": [makeDiagnostic()] },
@@ -227,10 +244,11 @@ describe("LintExtension", () => {
       const doc = makeDoc(makePara("hello"), makePara("world"));
       const state = createEditorState(doc, "tab-1");
 
-      // Set diagnostics
+      // Set diagnostics — serialized source is "hello\n\nworld\n", so the
+      // second paragraph is on line 3 (line 2 is the blank separator).
       useLintStore.setState({
         diagnosticsByTab: {
-          "tab-1": [makeDiagnostic({ line: 2, severity: "warning" })],
+          "tab-1": [makeDiagnostic({ line: 3, severity: "warning" })],
         },
       });
 
@@ -284,6 +302,113 @@ describe("LintExtension", () => {
         state
       );
       expect(newDecos).toBe(DecorationSet.empty);
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // Doc-epoch guard — stale async completions (Codex audit finding 5)
+  // -----------------------------------------------------------------------
+  describe("doc-epoch guard for stale async lint completions", () => {
+    // NOTE: each test uses a UNIQUE tabId — the epoch registry is
+    // module-level, so sharing "tab-1" would leak guard state into the
+    // unrelated tests above.
+
+    it("drops a diagnosticsChanged rebuild when the doc changed after the lint run started", () => {
+      const tabId = "epoch-tab-stale";
+      const doc = makeDoc(makePara("hello"));
+      const plugins = getPlugins(tabId);
+      const state = EditorState.create({ doc, schema, plugins });
+
+      // Lint run captures its content NOW …
+      markLintRunStart(tabId);
+
+      // … then the user edits before the async link check completes.
+      // Applying through the state runs the plugin's apply(), which must
+      // bump the tab's doc epoch.
+      const edited = state.apply(state.tr.insertText("x", 1));
+
+      // The stale completion arrives and triggers a rebuild.
+      useLintStore.setState({
+        diagnosticsByTab: { [tabId]: [makeDiagnostic({ line: 1 })] },
+      });
+      const pluginKey = state.plugins[0].spec.key!;
+      const tr = edited.tr.setMeta(pluginKey, "diagnosticsChanged");
+      const decos = state.plugins[0].spec.state!.apply!(
+        tr,
+        DecorationSet.empty,
+        edited,
+        edited
+      );
+      // Stale lines must NOT be mapped onto the edited doc.
+      expect(decos).toBe(DecorationSet.empty);
+    });
+
+    it("rebuilds normally when the doc has not changed since the run started", () => {
+      const tabId = "epoch-tab-fresh";
+      const doc = makeDoc(makePara("hello"));
+      const plugins = getPlugins(tabId);
+      const state = EditorState.create({ doc, schema, plugins });
+
+      markLintRunStart(tabId);
+      useLintStore.setState({
+        diagnosticsByTab: { [tabId]: [makeDiagnostic({ line: 1 })] },
+      });
+      const pluginKey = state.plugins[0].spec.key!;
+      const tr = state.tr.setMeta(pluginKey, "diagnosticsChanged");
+      const decos = state.plugins[0].spec.state!.apply!(
+        tr,
+        DecorationSet.empty,
+        state,
+        state
+      );
+      expect(decos.find()).toHaveLength(1);
+    });
+
+    it("rebuilds after an edit when a NEW run started post-edit (re-run picks up fresh content)", () => {
+      const tabId = "epoch-tab-rerun";
+      const doc = makeDoc(makePara("hello"));
+      const plugins = getPlugins(tabId);
+      const state = EditorState.create({ doc, schema, plugins });
+
+      markLintRunStart(tabId);
+      const edited = state.apply(state.tr.insertText("x", 1));
+      // User re-runs lint after the edit — new snapshot, fresh content.
+      markLintRunStart(tabId);
+
+      useLintStore.setState({
+        diagnosticsByTab: { [tabId]: [makeDiagnostic({ line: 1 })] },
+      });
+      const pluginKey = state.plugins[0].spec.key!;
+      const tr = edited.tr.setMeta(pluginKey, "diagnosticsChanged");
+      const decos = state.plugins[0].spec.state!.apply!(
+        tr,
+        DecorationSet.empty,
+        edited,
+        edited
+      );
+      expect(decos.find()).toHaveLength(1);
+    });
+
+    it("rebuilds when no run start was ever recorded for the tab (foreign callers)", () => {
+      const tabId = "epoch-tab-foreign";
+      const doc = makeDoc(makePara("hello"));
+      const plugins = getPlugins(tabId);
+      const state = EditorState.create({ doc, schema, plugins });
+
+      // Edit bumps the epoch, but no run start was recorded — guard stays open.
+      const edited = state.apply(state.tr.insertText("x", 1));
+      useLintStore.setState({
+        diagnosticsByTab: { [tabId]: [makeDiagnostic({ line: 1 })] },
+      });
+      const pluginKey = state.plugins[0].spec.key!;
+      const tr = edited.tr.setMeta(pluginKey, "diagnosticsChanged");
+      const decos = state.plugins[0].spec.state!.apply!(
+        tr,
+        DecorationSet.empty,
+        edited,
+        edited
+      );
+      expect(decos.find()).toHaveLength(1);
     });
   });
 
@@ -738,24 +863,29 @@ describe("LintExtension", () => {
         makePara("paragraph one"),
         makePara("paragraph two")
       );
+      // Serialized source: "# Title\n\nparagraph one\n\nparagraph two\n"
+      // → true source lines are 1, 3, and 5 (2 and 4 are blank separators).
       const result = getDecorations(doc, [
-        makeDiagnostic({ line: 2, severity: "warning" }),
-        makeDiagnostic({ line: 3, severity: "error", id: "E02-3-1" }),
+        makeDiagnostic({ line: 3, severity: "warning" }),
+        makeDiagnostic({ line: 5, severity: "error", id: "E02-5-1" }),
       ]);
       const decos = result.find();
       expect(decos).toHaveLength(2);
+      expect(decos[0].from).toBe(doc.child(0).nodeSize);
+      expect(decos[1].from).toBe(doc.child(0).nodeSize + doc.child(1).nodeSize);
     });
 
     it("handles mixed diagnostics (valid, sourceOnly, out-of-range)", () => {
       const doc = makeDoc(makePara("hello"), makePara("world"));
+      // Serialized source: "hello\n\nworld\n" → blocks on lines 1 and 3.
       const result = getDecorations(doc, [
         makeDiagnostic({ line: 1, severity: "warning" }),
         makeDiagnostic({ line: 1, uiHint: "sourceOnly", id: "E08-1-1" }),
         makeDiagnostic({ line: 99, id: "W01-99-1" }),
-        makeDiagnostic({ line: 2, severity: "error", id: "E02-2-1" }),
+        makeDiagnostic({ line: 3, severity: "error", id: "E02-3-1" }),
       ]);
       const decos = result.find();
-      // Only line 1 warning and line 2 error should produce decorations
+      // Only line 1 warning and line 3 error should produce decorations
       expect(decos).toHaveLength(2);
     });
 
@@ -792,10 +922,11 @@ describe("LintExtension", () => {
       expect(decos[0].from).toBe(0);
     });
 
-    it("maps line 2 to second block", () => {
+    it("maps the second block via its true source line (after the blank separator)", () => {
       const doc = makeDoc(makePara("first"), makePara("second"));
+      // Serialized source: "first\n\nsecond\n" → second paragraph is line 3.
       const result = getDecorations(doc, [
-        makeDiagnostic({ line: 2 }),
+        makeDiagnostic({ line: 3 }),
       ]);
       const decos = result.find();
       expect(decos).toHaveLength(1);
@@ -804,23 +935,53 @@ describe("LintExtension", () => {
       expect(decos[0].from).toBe(firstBlockSize);
     });
 
-    it("handles code block with multi-line content", () => {
-      // A code block with "line1\nline2\nline3" is still one block,
-      // but the line-to-block mapping counts newlines within it
+    it("does not decorate a blank separator line", () => {
+      const doc = makeDoc(makePara("first"), makePara("second"));
+      // Line 2 is the blank line between the paragraphs — no block owns it.
+      const result = getDecorations(doc, [
+        makeDiagnostic({ line: 2 }),
+      ]);
+      expect(result).toBe(DecorationSet.empty);
+    });
+
+    it("handles code block with multi-line content (fence lines included)", () => {
+      // Serialized source:
+      //   1: intro
+      //   2: (blank)
+      //   3: ```
+      //   4: line1
+      //   5: line2
+      //   6: line3
+      //   7: ```
       const doc = makeDoc(
         makePara("intro"),
         makeCode("line1\nline2\nline3")
       );
-      // Line 1 = first block (intro para)
-      // Lines 2-4 span the code block (3 lines within it)
+      const firstBlockSize = doc.child(0).nodeSize;
+      for (const line of [3, 4, 5, 6, 7]) {
+        const result = getDecorations(doc, [
+          makeDiagnostic({ line }),
+        ]);
+        const decos = result.find();
+        expect(decos).toHaveLength(1);
+        expect(decos[0].from).toBe(firstBlockSize);
+      }
+    });
+
+    it("offsets blocks after a code fence by the fence's real line count", () => {
+      // Serialized source: intro(1), blank(2), ```(3), a(4), b(5), ```(6),
+      // blank(7), after(8).
+      const doc = makeDoc(
+        makePara("intro"),
+        makeCode("a\nb"),
+        makePara("after")
+      );
       const result = getDecorations(doc, [
-        makeDiagnostic({ line: 3 }),
+        makeDiagnostic({ line: 8 }),
       ]);
       const decos = result.find();
       expect(decos).toHaveLength(1);
-      // Should map to the code block
-      const firstBlockSize = doc.child(0).nodeSize;
-      expect(decos[0].from).toBe(firstBlockSize);
+      expect(decos[0].from).toBe(doc.child(0).nodeSize + doc.child(1).nodeSize);
     });
 
     it("returns no decoration for line 0 (invalid)", () => {

@@ -16,6 +16,7 @@ import { useLintStore } from "@/stores/documentStore";
 import { getActiveDocument, getActiveTabId } from "@/services/navigation/activeDocument";
 import { serializeMarkdown } from "@/utils/markdownPipeline";
 import { triggerLintRefresh } from "@/plugins/codemirror/sourceLint";
+import { markLintRunStart } from "@/plugins/lint/docEpoch";
 import { isYamlFileName } from "@/utils/dropPaths";
 import { imeToast as toast } from "@/services/ime/imeToast";
 import { fileOpsError } from "@/utils/debug";
@@ -57,6 +58,11 @@ export function runActiveLint(windowLabel: string): void {
 
   const content = resolveActiveContent(windowLabel);
   if (content === undefined) return;
+
+  // Snapshot the tab's doc epoch at the moment the content is captured, so
+  // the WYSIWYG lint plugin can drop async completions (link check) that
+  // finish after the user edits again.
+  markLintRunStart(tabId);
 
   const filePath = getActiveDocument(windowLabel)?.filePath ?? null;
   const isYaml = filePath

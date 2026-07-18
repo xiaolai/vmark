@@ -9,15 +9,19 @@
  *           navigate via next/prev/replace dispatched from FindBar
  *
  * Key decisions:
- *   - Decorations are rebuilt on doc/query change, not on every transaction
+ *   - Decorations are rebuilt on doc/query/isOpen change, not on every
+ *     transaction (closing the FindBar clears highlights; reopening restores)
  *   - setMatches() is deferred via queueMicrotask to avoid side-effects in apply()
  *   - Store subscription uses field-by-field equality (not JSON.stringify)
- *   - Replace operations use imeGuard to avoid conflicts with IME composition
+ *   - Replace operations live in replaceActions.ts: transactions are built
+ *     inside the imeGuard callback and re-validated against a fresh scan
  *   - Regex mode catches invalid patterns gracefully (shows 0 matches, no error)
  *   - Doc-change rebuilds are debounced by SEARCH_DOC_CHANGE_DEBOUNCE_MS (200ms) to
  *     avoid rescanning the entire document on every keystroke; query/option changes
  *     still trigger immediate rebuilds for responsive search-box feedback
  *
+ * @coordinates-with findMatches.ts — regex construction and match scanning (exact positions)
+ * @coordinates-with replaceActions.ts — Replace Current / Replace All handlers
  * @coordinates-with searchStore.ts — query, options, match navigation state
  * @coordinates-with FindBar.tsx — UI for find/replace controls
  * @coordinates-with sourceEditorSearch.ts — equivalent search for Source mode (CodeMirror)
@@ -26,10 +30,11 @@
 import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
-import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { useUIStore } from "@/stores/uiStore";
 import { runOrQueueProseMirrorAction } from "@/utils/imeGuard";
+import { findMatchesInDoc, type Match } from "./findMatches";
 import { createQueryDebounce } from "./queryDebounce";
+import { createReplaceHandlers } from "./replaceActions";
 import "./search.css";
 
 const searchPluginKey = new PluginKey("search");
@@ -52,69 +57,6 @@ export const SEARCH_DOC_CHANGE_DEBOUNCE_MS = 200;
  */
 export const SEARCH_QUERY_CHANGE_DEBOUNCE_MS = 150;
 
-interface Match {
-  from: number;
-  to: number;
-}
-
-function escapeRegExp(str: string): string {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function buildRegex(
-  query: string,
-  caseSensitive: boolean,
-  wholeWord: boolean,
-  useRegex: boolean
-): RegExp | null {
-  if (!query) return null;
-
-  const flags = caseSensitive ? "g" : "gi";
-  let pattern: string;
-
-  if (useRegex) {
-    pattern = query;
-  } else {
-    pattern = escapeRegExp(query);
-    if (wholeWord) {
-      pattern = `\\b${pattern}\\b`;
-    }
-  }
-
-  try {
-    return new RegExp(pattern, flags);
-  } catch {
-    return null;
-  }
-}
-
-function findMatchesInDoc(
-  doc: ProseMirrorNode,
-  query: string,
-  caseSensitive: boolean,
-  wholeWord: boolean,
-  useRegex: boolean
-): Match[] {
-  const regex = buildRegex(query, caseSensitive, wholeWord, useRegex);
-  if (!regex) return [];
-
-  const matches: Match[] = [];
-
-  doc.descendants((node, pos) => {
-    if (!node.isText || !node.text) return;
-
-    regex.lastIndex = 0;
-    let m: RegExpExecArray | null;
-
-    while ((m = regex.exec(node.text)) !== null) {
-      matches.push({ from: pos + m.index, to: pos + m.index + m[0].length });
-      if (m[0].length === 0) regex.lastIndex++;
-    }
-  });
-
-  return matches;
-}
-
 /** Tiptap extension that provides find/replace highlighting and navigation. */
 export const searchExtension = Extension.create({
   name: "search",
@@ -123,6 +65,7 @@ export const searchExtension = Extension.create({
     let lastCaseSensitive = false;
     let lastWholeWord = false;
     let lastUseRegex = false;
+    let lastIsOpen = false;
     let matches: Match[] = [];
 
     // Debounce state: pending timeout ID and a weak reference to the view
@@ -145,6 +88,12 @@ export const searchExtension = Extension.create({
               state.caseSensitive !== lastCaseSensitive ||
               state.wholeWord !== lastWholeWord ||
               state.useRegex !== lastUseRegex;
+            // isOpen transitions must also trigger a rebuild: searchClose()
+            // keeps the query in the store, so closing with an unchanged
+            // query would otherwise leave highlights behind (and reopening
+            // would not restore them).
+            const isOpenChanged = state.isOpen !== lastIsOpen;
+            lastIsOpen = state.isOpen;
 
             // Helper: build and return a new state after a full match re-scan.
             const fullRebuild = () => {
@@ -187,8 +136,9 @@ export const searchExtension = Extension.create({
               return fullRebuild();
             }
 
-            // Path 2 — Query/options changed: immediate rebuild (user expects instant feedback).
-            if (queryChanged && (state.isOpen || state.query)) {
+            // Path 2 — Query/options changed or the FindBar opened/closed:
+            // immediate rebuild (close clears highlights, reopen restores them).
+            if ((queryChanged || isOpenChanged) && (state.isOpen || state.query)) {
               // Cancel any pending debounced rebuild since we're doing a full one now
               if (debounceTimer !== null) {
                 clearTimeout(debounceTimer);
@@ -292,48 +242,13 @@ export const searchExtension = Extension.create({
             }
           };
 
-          const handleReplaceCurrent = () => {
-            if (editorView.editable === false) return;
-            const state = useUIStore.getState().search;
-            if (!state.isOpen || state.currentIndex < 0) return;
-
-            const pluginState = searchPluginKey.getState(editorView.state);
-            if (!pluginState || !pluginState.matches[state.currentIndex]) return;
-
-            const match = pluginState.matches[state.currentIndex];
-            const tr = editorView.state.tr.replaceWith(
-              match.from,
-              match.to,
-              state.replaceText ? editorView.state.schema.text(state.replaceText) : []
+          // Transactions are built INSIDE the IME-guard callback and targets
+          // are re-validated at execution time — see replaceActions.ts.
+          const { replaceCurrent: handleReplaceCurrent, replaceAll: handleReplaceAll } =
+            createReplaceHandlers(
+              editorView,
+              () => searchPluginKey.getState(editorView.state)?.matches,
             );
-            runOrQueueProseMirrorAction(editorView, () => editorView.dispatch(tr));
-
-            requestAnimationFrame(() => {
-              useUIStore.getState().searchFindNext();
-            });
-          };
-
-          const handleReplaceAll = () => {
-            if (editorView.editable === false) return;
-            const state = useUIStore.getState().search;
-            if (!state.isOpen || !state.query) return;
-
-            const pluginState = searchPluginKey.getState(editorView.state);
-            if (!pluginState || pluginState.matches.length === 0) return;
-
-            const sortedMatches = [...pluginState.matches].sort((a, b) => b.from - a.from);
-            let tr = editorView.state.tr;
-
-            for (const match of sortedMatches) {
-              tr = tr.replaceWith(
-                match.from,
-                match.to,
-                state.replaceText ? editorView.state.schema.text(state.replaceText) : []
-              );
-            }
-
-            runOrQueueProseMirrorAction(editorView, () => editorView.dispatch(tr));
-          };
 
           let prevState = {
             query: useUIStore.getState().search.query,
