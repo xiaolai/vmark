@@ -1,6 +1,8 @@
 /**
- * BreakdownRow (WI-1.9b) — one stale/diverged edge: upstream + state badge
- * plus the per-edge actions. Accept-newer and Waive are disabled for
+ * BreakdownRow (WI-1.9b, extended WI-2b.5) — one stale/diverged edge:
+ * upstream + state badge, the axis-2 Check action (pull-only, D5.1),
+ * an optional waiver expiry (D3.2), and the "previously waived ×N"
+ * info badge (D3.4), plus the per-edge actions. Accept-newer and Waive are disabled for
  * `diverged-multi-head` and `unpinnable` (spec §9.2 — no single upstream
  * revision exists to resolve against); Revise stays available because
  * revising is the way out. Waive requires a reason (spec §5.4.3), collected
@@ -11,7 +13,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { EdgeRow, EdgeStateLabel } from "@/stores/breakdownStore";
-import { resolveEdge, reviseEdge } from "@/services/breakdown/breakdownService";
+import { checkEdge, resolveEdge, reviseEdge } from "@/services/breakdown/breakdownService";
 
 /** States with no single live upstream head — resolution is impossible (spec §9.2). */
 const RESOLUTION_LOCKED: ReadonlySet<EdgeStateLabel> = new Set([
@@ -33,6 +35,7 @@ export function BreakdownRow({ row, workspaceRoot }: BreakdownRowProps) {
   const { t } = useTranslation("breakdown");
   const [waiving, setWaiving] = useState(false);
   const [reason, setReason] = useState("");
+  const [expiry, setExpiry] = useState("");
   // Audit T14: actions disable while a resolution is in flight — rapid
   // clicks must not append duplicate ratifications/waivers.
   const [resolving, setResolving] = useState(false);
@@ -61,15 +64,33 @@ export function BreakdownRow({ row, workspaceRoot }: BreakdownRowProps) {
     const trimmed = reason.trim();
     if (!workspaceRoot || trimmed === "") return;
     if (resolving) return;
+    const expiresTrimmed = expiry.trim();
+    // A date-only expiry means "end of that day, UTC" (D3.2 UI rule).
+    const expires =
+      expiresTrimmed === ""
+        ? undefined
+        : /^\d{4}-\d{2}-\d{2}$/.test(expiresTrimmed)
+          ? `${expiresTrimmed}T23:59:59Z`
+          : expiresTrimmed;
     setWaiving(false);
     setReason("");
+    setExpiry("");
     setResolving(true);
     void resolveEdge(workspaceRoot, {
       action: "waive",
       txf: row.txf,
       input: row.input,
       reason: trimmed,
+      ...(expires === undefined ? {} : { expires }),
     }).finally(() => setResolving(false));
+  };
+
+  const check = () => {
+    if (!workspaceRoot || resolving) return;
+    setResolving(true);
+    void checkEdge(workspaceRoot, row.txf, row.input).finally(() =>
+      setResolving(false),
+    );
   };
 
   return (
@@ -89,8 +110,22 @@ export function BreakdownRow({ row, workspaceRoot }: BreakdownRowProps) {
             {t(`confidence.${row.confidence}Short`)}
           </span>
         )}
+        {row.prior_waivers > 0 && (
+          <span className="breakdown-prior-waived" title={t("priorWaived", { count: row.prior_waivers })}>
+            {t("priorWaived", { count: row.prior_waivers })}
+          </span>
+        )}
       </div>
       <div className="breakdown-row__actions">
+        <button
+          type="button"
+          className="breakdown-row__action"
+          onClick={check}
+          disabled={locked || resolving || !workspaceRoot}
+          title={locked ? lockedTitle : t("actions.check")}
+        >
+          {t("actions.check")}
+        </button>
         <button
           type="button"
           className="breakdown-row__action"
@@ -132,6 +167,17 @@ export function BreakdownRow({ row, workspaceRoot }: BreakdownRowProps) {
             }}
             placeholder={t("waiveReasonPlaceholder")}
             aria-label={t("waiveReasonPlaceholder")}
+          />
+          <input
+            type="text"
+            className="breakdown-row__waive-input breakdown-row__waive-expiry"
+            value={expiry}
+            onChange={(e) => setExpiry(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") confirmWaive();
+            }}
+            placeholder={t("waiveExpiryPlaceholder")}
+            aria-label={t("waiveExpiryPlaceholder")}
           />
           <button
             type="button"

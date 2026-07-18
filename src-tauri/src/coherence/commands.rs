@@ -27,6 +27,10 @@ pub struct ResolveRequest {
     pub input: u32,
     #[serde(default)]
     pub reason: Option<String>,
+    /// D3.2: optional waiver expiry (RFC 3339); projection treats an
+    /// expired waiver as absent, the record stays in history.
+    #[serde(default)]
+    pub expires: Option<String>,
 }
 
 #[derive(Debug, Clone, serde::Serialize)]
@@ -109,6 +113,7 @@ pub fn perform_resolve(
         "resolved_against": resolved_against,
         "actor": { "type": "human", "id": actor },
         "reason": req.reason,
+        "expires": req.expires,
     });
     let env = super::types::Envelope::create(kind, kernel.writer(), body);
     let entry_id = env.id;

@@ -424,3 +424,32 @@ fn endpoint_advance_expires_check() {
     let rows = idx.breakdown(NOW).unwrap();
     assert!(matches!(rows[0].state, EdgeState::VersionStale));
 }
+
+#[test]
+fn prior_waiver_count_appears_on_rows() {
+    let f = fixture();
+    let mut entries = f.entries.clone();
+    // Two historical waivers on the edge (the second re-waives after the
+    // upstream advanced past the first — D3.4's "previously waived ×N").
+    for against in [&f.e0, &f.e1] {
+        let mut w = Envelope::create(
+            "waiver",
+            writer(),
+            json!({
+                "edge": { "txf": f.txf_id.to_string(), "input": 0 },
+                "upstream_object": oid(1).0.to_string(),
+                "pinned": f.e0.as_str(),
+                "resolved_against": against.as_str(),
+                "actor": { "type": "human", "id": "t" },
+                "reason": "expired era",
+                "expires": "2026-07-17T00:00:00Z",
+            }),
+        );
+        w.time = "2026-07-18T09:00:06Z".into();
+        entries.push(w);
+    }
+    let idx = mem_index_with(&entries);
+    let rows = idx.breakdown(NOW).unwrap();
+    assert_eq!(rows.len(), 1, "expired waivers leave the edge stale");
+    assert_eq!(rows[0].prior_waivers, 2);
+}
