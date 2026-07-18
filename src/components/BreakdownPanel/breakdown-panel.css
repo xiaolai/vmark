@@ -271,6 +271,13 @@
 }
 
 /* Degraded-provenance badge (R28): rendered distinctly from state. */
+/* D3.4: informational "previously waived ×N" — visible, never nagging. */
+.breakdown-prior-waived {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
 .breakdown-confidence-badge {
   font-size: var(--font-size-2xs);
   padding: 0 var(--spacing-1);

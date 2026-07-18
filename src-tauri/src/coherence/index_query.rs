@@ -246,6 +246,10 @@ impl CoherenceIndex {
                 .get(&(edge.txf, edge.input))
                 .cloned()
                 .unwrap_or_default();
+            let prior_waivers = resolutions
+                .iter()
+                .filter(|r| r.kind == ResolutionKind::Waiver)
+                .count();
             let checks = self.live_checks(&edge.txf, edge.input, context, fingerprint)?;
             let Some(state) = project_edge(&edge, &ctx, &dag, &resolutions, &checks, now) else {
                 continue;
@@ -256,6 +260,7 @@ impl CoherenceIndex {
             out.push(EdgeRow {
                 txf: edge.txf,
                 input: edge.input,
+                prior_waivers,
                 upstream_path: paths.get(&up).cloned(),
                 upstream: edge.upstream,
                 pinned: edge.pinned,

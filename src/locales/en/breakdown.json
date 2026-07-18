@@ -8,7 +8,8 @@
   "actions": {
     "acceptNewer": "Accept newer",
     "revise": "Revise",
-    "waive": "Waive"
+    "waive": "Waive",
+    "check": "Check"
   },
   "waiveReasonPlaceholder": "Reason (required)",
   "waiveConfirm": "Confirm waiver",
@@ -30,5 +31,8 @@
     "inferredShort": "inferred",
     "unknown": "Provenance unknown — this change was observed outside VMark",
     "unknownShort": "unknown"
-  }
+  },
+  "priorWaived": "previously waived ×{{count}}",
+  "waiveExpiryPlaceholder": "Expires (optional, YYYY-MM-DD)",
+  "checkUnavailable": "Configure an AI provider to run semantic checks"
 }

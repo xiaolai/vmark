@@ -96,6 +96,7 @@ fn accept_newer_ratifies_and_clears_breakdown() {
             txf,
             input,
             reason: None,
+            expires: None,
         },
         "xiaolai",
     )
@@ -119,6 +120,7 @@ fn waive_requires_reason_and_shows_distinctly() {
             txf,
             input,
             reason: None,
+            expires: None,
         },
         "xiaolai",
     );
@@ -131,6 +133,7 @@ fn waive_requires_reason_and_shows_distinctly() {
             txf,
             input,
             reason: Some("unreliable narrator".into()),
+            expires: None,
         },
         "xiaolai",
     )
@@ -154,6 +157,7 @@ fn resolve_after_further_advance_reopens() {
             txf,
             input,
             reason: None,
+            expires: None,
         },
         "xiaolai",
     )
@@ -223,6 +227,7 @@ fn multi_head_upstream_rejects_both_actions() {
                 txf,
                 input,
                 reason: Some("r".into()),
+                expires: None,
             },
             "xiaolai",
         )
@@ -241,6 +246,7 @@ fn unknown_edge_and_unknown_action_are_rejected() {
             txf: Uuid::from_u128(9),
             input: 0,
             reason: None,
+            expires: None,
         },
         "x",
     );
@@ -252,6 +258,7 @@ fn unknown_edge_and_unknown_action_are_rejected() {
             txf: Uuid::from_u128(9),
             input: 0,
             reason: None,
+            expires: None,
         },
         "x",
     );
@@ -417,6 +424,7 @@ fn synthetic_dogfood_session_m1() {
             txf: r0.txf,
             input: r0.input,
             reason: None,
+            expires: None,
         },
         "dogfood",
     )
@@ -430,6 +438,7 @@ fn synthetic_dogfood_session_m1() {
             txf: rows[0].txf,
             input: rows[0].input,
             reason: Some("her eyes changed with the tide — intentional".into()),
+            expires: None,
         },
         "dogfood",
     )
@@ -437,4 +446,32 @@ fn synthetic_dogfood_session_m1() {
     let rows = perform_breakdown(&mut kernel).unwrap();
     assert_eq!(rows.len(), 1, "waived stays visible, distinctly");
     assert!(matches!(rows[0].state, EdgeState::Waived));
+}
+
+// WI-2b.5 — D3.2: waiver expiry through the command surface.
+#[test]
+fn waiver_expiry_is_recorded_and_honored() {
+    let (dir, mut kernel) = workspace();
+    let (txf, input) = stale_edge(dir.path(), &mut kernel);
+
+    perform_resolve(
+        &mut kernel,
+        &ResolveRequest {
+            action: "waive".into(),
+            txf,
+            input,
+            reason: Some("era-bound waiver".into()),
+            expires: Some("2020-01-01T00:00:00Z".into()),
+        },
+        "xiaolai",
+    )
+    .unwrap();
+    // Already past its expiry: projection ignores it, the edge is stale.
+    let rows = perform_breakdown(&mut kernel).unwrap();
+    assert_eq!(rows.len(), 1, "expired waiver leaves the edge stale");
+    assert_eq!(rows[0].prior_waivers, 1);
+    // The record carries the expiry verbatim.
+    let entries = kernel.ledger().read_all().unwrap().entries;
+    let w = entries.iter().find(|e| e.kind == "waiver").unwrap();
+    assert_eq!(w.body["expires"], "2020-01-01T00:00:00Z");
 }

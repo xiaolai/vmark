@@ -8,11 +8,13 @@ vi.mock("@/services/navigation/openFileEvent", () => ({
 }));
 
 import {
+  checkEdge,
   refreshBreakdown,
   resolveEdge,
   reviseEdge,
   resolveWorkspacePath,
 } from "./breakdownService";
+import { useAiProviderStore } from "@/stores/aiStore";
 import { useBreakdownStore, type EdgeRow } from "@/stores/breakdownStore";
 
 const mockInvoke = vi.mocked(invoke);
@@ -27,6 +29,7 @@ function row(p: Partial<EdgeRow> & { txf: string }): EdgeRow {
     downstream_path: "essays/derived.md",
     downstream_rev: "rev1:" + "b".repeat(64),
     state: "version-stale",
+    prior_waivers: 0,
     ...p,
   };
 }
@@ -150,5 +153,51 @@ describe("resolveWorkspacePath", () => {
     { root: "/ws", rel: "文档/说明.md", expected: "/ws/文档/说明.md" },
   ])("joins $root + $rel → $expected", ({ root, rel, expected }) => {
     expect(resolveWorkspacePath(root, rel)).toBe(expected);
+  });
+});
+
+describe("checkEdge (WI-2b.5)", () => {
+  it("surfaces a store error when no provider is active", async () => {
+    useAiProviderStore.setState({ activeProvider: null });
+    await checkEdge("/ws", "t1", 0);
+    expect(useBreakdownStore.getState().error).toBe("no-active-provider");
+    expect(mockInvoke).not.toHaveBeenCalled();
+  });
+
+  it("invokes coherence_check with the active provider then refreshes", async () => {
+    useAiProviderStore.setState({
+      activeProvider: "claude",
+      restProviders: [],
+      cliProviders: [{ type: "claude", path: "/usr/local/bin/claude" }],
+    } as never);
+    mockInvoke.mockResolvedValue([] as never);
+    await checkEdge("/ws", "t1", 2);
+    expect(mockInvoke).toHaveBeenCalledWith("coherence_check", {
+      workspaceRoot: "/ws",
+      txf: "t1",
+      input: 2,
+      provider: {
+        provider: "claude",
+        apiKey: null,
+        endpoint: null,
+        cliPath: "/usr/local/bin/claude",
+      },
+      model: null,
+    });
+    // The follow-up refresh pulled the breakdown again.
+    expect(mockInvoke).toHaveBeenCalledWith("coherence_breakdown", {
+      workspaceRoot: "/ws",
+    });
+  });
+
+  it("a failing check lands in the store error, never throws", async () => {
+    useAiProviderStore.setState({
+      activeProvider: "claude",
+      restProviders: [],
+      cliProviders: [],
+    } as never);
+    mockInvoke.mockRejectedValueOnce(new Error("provider exploded"));
+    await checkEdge("/ws", "t1", 0);
+    expect(useBreakdownStore.getState().error).toContain("provider exploded");
   });
 });

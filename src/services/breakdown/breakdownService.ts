@@ -16,6 +16,7 @@
  * @module services/breakdown/breakdownService
  */
 import { invoke } from "@tauri-apps/api/core";
+import { useAiProviderStore } from "@/stores/aiStore";
 
 import { useBreakdownStore, type EdgeRow } from "@/stores/breakdownStore";
 import { emitOpenFileInCurrentWindow } from "@/services/navigation/openFileEvent";
@@ -26,6 +27,8 @@ export interface ResolveEdgeRequest {
   txf: string;
   input: number;
   reason?: string;
+  /** D3.2: optional waiver expiry (RFC 3339). */
+  expires?: string;
 }
 
 function messageOf(error: unknown): string {
@@ -115,4 +118,42 @@ export async function reviseEdge(
   } catch (error) {
     useBreakdownStore.getState().setError(messageOf(error));
   }
+}
+
+/**
+ * Run a pull-only semantic check on one edge (WI-2b.4/2b.5, D5.1) with
+ * the active AI provider, then refresh so the axis-2 badge appears.
+ * No active provider is a surfaced store error, not a throw.
+ */
+export async function checkEdge(
+  workspaceRoot: string,
+  txf: string,
+  input: number,
+): Promise<void> {
+  const ai = useAiProviderStore.getState();
+  const active = ai.activeProvider;
+  if (!active) {
+    useBreakdownStore.getState().setError("no-active-provider");
+    return;
+  }
+  const rest = ai.restProviders.find((p) => p.type === active);
+  const cli = ai.cliProviders.find((p) => p.type === active);
+  try {
+    await invoke("coherence_check", {
+      workspaceRoot,
+      txf,
+      input,
+      provider: {
+        provider: active,
+        apiKey: rest?.apiKey || null,
+        endpoint: rest?.endpoint || null,
+        cliPath: cli?.path || null,
+      },
+      model: null,
+    });
+  } catch (error) {
+    useBreakdownStore.getState().setError(messageOf(error));
+    return;
+  }
+  await refreshBreakdown(workspaceRoot);
 }

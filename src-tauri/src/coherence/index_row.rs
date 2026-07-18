@@ -23,6 +23,9 @@ pub struct EdgeRow {
     pub confidence: String,
     #[serde(serialize_with = "serialize_state")]
     pub state: EdgeState,
+    /// D3.4: historical waiver count on this edge — repeat divergence is
+    /// visible without nagging ("previously waived ×N").
+    pub prior_waivers: usize,
 }
 
 fn serialize_state<S: serde::Serializer>(state: &EdgeState, s: S) -> Result<S::Ok, S::Error> {

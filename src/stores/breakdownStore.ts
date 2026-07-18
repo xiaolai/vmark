@@ -40,6 +40,8 @@ export interface EdgeRow {
   /** Provenance confidence of the recording transformation (R28). */
   confidence: "exact" | "inferred" | "unknown";
   state: EdgeStateLabel;
+  /** D3.4: historical waiver count on this edge ("previously waived xN"). */
+  prior_waivers: number;
 }
 
 interface BreakdownState {
