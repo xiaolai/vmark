@@ -28,6 +28,11 @@ Shared instructions for all AI agents (Claude, Codex, etc.).
     established conventions, and proven solutions (web search, official docs, prior art in  
     popular open-source projects). Don't invent when a well-tested pattern exists.
 
+  - **Archive finished deep researches**: When a deep-research run finishes, write its full  
+    cited report (verdict, findings, refuted claims, caveats, sources) to  
+    `dev-docs/deep-researches/YYYYMMDD-topic.md` and link it from `dev-docs/README.md`.  
+    Don't leave finished research only in chat transcripts or task output files.
+
   - **Edge cases are not optional**: Brainstorm as many edge cases as possible — empty input,  
     null/undefined, max values, concurrent access, Unicode/CJK, RTL text, rapid repeated  
     actions, network failures, permission denials. Write tests for every one.
