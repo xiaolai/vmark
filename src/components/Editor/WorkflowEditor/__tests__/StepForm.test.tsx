@@ -212,6 +212,71 @@ describe("StepForm — emits patches", () => {
     expect(useWorkflowStore.getState().edit.pendingPatches).toEqual([]);
   });
 
+  it("removing a committed new row cancels its queued with.set (deleted key must not reach Save)", () => {
+    render(<StepForm jobId="build" stepIndex={0} step={makeStep()} />);
+    fireEvent.click(screen.getByRole("button", { name: /add input/i }));
+    const keyInputs = screen.getAllByPlaceholderText("key");
+    const valueInputs = screen.getAllByPlaceholderText("value");
+    fireEvent.change(keyInputs[keyInputs.length - 1], {
+      target: { value: "registry-url" },
+    });
+    fireEvent.change(valueInputs[valueInputs.length - 1], {
+      target: { value: "https://npm.example.com" },
+    });
+    fireEvent.blur(valueInputs[valueInputs.length - 1]);
+    // Sanity: the blur committed a with.set for the new row.
+    expect(useWorkflowStore.getState().edit.pendingPatches).toHaveLength(1);
+    const removeBtns = screen.getAllByRole("button", { name: /remove/i });
+    fireEvent.click(removeBtns[removeBtns.length - 1]);
+    expect(useWorkflowStore.getState().edit.pendingPatches).toEqual([]);
+  });
+
+  it("saving after removing a committed new row emits YAML without the key", () => {
+    render(<StepForm jobId="build" stepIndex={0} step={makeStep()} />);
+    fireEvent.click(screen.getByRole("button", { name: /add input/i }));
+    const keyInputs = screen.getAllByPlaceholderText("key");
+    const valueInputs = screen.getAllByPlaceholderText("value");
+    fireEvent.change(keyInputs[keyInputs.length - 1], {
+      target: { value: "registry-url" },
+    });
+    fireEvent.change(valueInputs[valueInputs.length - 1], {
+      target: { value: "https://npm.example.com" },
+    });
+    fireEvent.blur(valueInputs[valueInputs.length - 1]);
+    const removeBtns = screen.getAllByRole("button", { name: /remove/i });
+    fireEvent.click(removeBtns[removeBtns.length - 1]);
+    const original = [
+      "on: push",
+      "jobs:",
+      "  build:",
+      "    runs-on: ubuntu-latest",
+      "    steps:",
+      "      - uses: actions/checkout@v4",
+      "",
+    ].join("\n");
+    const out = useWorkflowStore.getState().applyAndSerialize(original);
+    expect(out).not.toContain("registry-url");
+  });
+
+  it("removing a renamed row cancels the set for the new key but keeps the remove of the original", () => {
+    render(
+      <StepForm
+        jobId="build"
+        stepIndex={0}
+        step={makeStep({ with: { "node-version": "20" } })}
+      />,
+    );
+    const keyInput = screen.getByDisplayValue("node-version") as HTMLInputElement;
+    fireEvent.change(keyInput, { target: { value: "nv2" } });
+    fireEvent.blur(keyInput);
+    // Sanity: rename queued remove(node-version) + set(nv2).
+    expect(useWorkflowStore.getState().edit.pendingPatches).toHaveLength(2);
+    fireEvent.click(screen.getByRole("button", { name: /remove/i }));
+    expect(useWorkflowStore.getState().edit.pendingPatches).toEqual([
+      { kind: "with.remove", jobId: "build", stepIndex: 0, key: "node-version" },
+    ]);
+  });
+
   it("adds a new with-row + queues with.set when the user fills it in", () => {
     render(<StepForm jobId="build" stepIndex={0} step={makeStep()} />);
     const addBtn = screen.getByRole("button", { name: /add input/i });
@@ -234,6 +299,143 @@ describe("StepForm — emits patches", () => {
         key: "registry-url",
         value: "https://npm.example.com",
       },
+    ]);
+  });
+});
+
+describe("StepForm — rename chains and duplicate keys", () => {
+  it("rename chain a→b→c leaves only remove(a)+set(c) queued (no intermediate set(b))", () => {
+    render(
+      <StepForm
+        jobId="build"
+        stepIndex={0}
+        step={makeStep({ with: { a: "1" } })}
+      />,
+    );
+    const keyInput = screen.getByDisplayValue("a") as HTMLInputElement;
+    fireEvent.change(keyInput, { target: { value: "b" } });
+    fireEvent.blur(keyInput);
+    fireEvent.change(keyInput, { target: { value: "c" } });
+    fireEvent.blur(keyInput);
+    expect(useWorkflowStore.getState().edit.pendingPatches).toEqual([
+      { kind: "with.remove", jobId: "build", stepIndex: 0, key: "a" },
+      { kind: "with.set", jobId: "build", stepIndex: 0, key: "c", value: "1" },
+    ]);
+  });
+
+  it("saving after a rename chain emits YAML with only the final key", () => {
+    render(
+      <StepForm
+        jobId="build"
+        stepIndex={0}
+        step={makeStep({ with: { a: "1" } })}
+      />,
+    );
+    const keyInput = screen.getByDisplayValue("a") as HTMLInputElement;
+    fireEvent.change(keyInput, { target: { value: "b" } });
+    fireEvent.blur(keyInput);
+    fireEvent.change(keyInput, { target: { value: "c" } });
+    fireEvent.blur(keyInput);
+    const original = [
+      "on: push",
+      "jobs:",
+      "  build:",
+      "    runs-on: ubuntu-latest",
+      "    steps:",
+      "      - uses: actions/checkout@v4",
+      "        with:",
+      "          a: '1'",
+      "",
+    ].join("\n");
+    const out = useWorkflowStore.getState().applyAndSerialize(original);
+    expect(out).toContain("c: ");
+    expect(out).not.toMatch(/\bb:/);
+    expect(out).not.toMatch(/\ba:/);
+  });
+
+  it("removing a chain-renamed pre-existing row leaves only remove(a)", () => {
+    render(
+      <StepForm
+        jobId="build"
+        stepIndex={0}
+        step={makeStep({ with: { a: "1" } })}
+      />,
+    );
+    const keyInput = screen.getByDisplayValue("a") as HTMLInputElement;
+    fireEvent.change(keyInput, { target: { value: "b" } });
+    fireEvent.blur(keyInput);
+    fireEvent.change(keyInput, { target: { value: "c" } });
+    fireEvent.blur(keyInput);
+    fireEvent.click(screen.getByRole("button", { name: /remove/i }));
+    expect(useWorkflowStore.getState().edit.pendingPatches).toEqual([
+      { kind: "with.remove", jobId: "build", stepIndex: 0, key: "a" },
+    ]);
+  });
+
+  it("new-row rename chain queues only the final set; removing the row clears the queue", () => {
+    render(<StepForm jobId="build" stepIndex={0} step={makeStep()} />);
+    fireEvent.click(screen.getByRole("button", { name: /add input/i }));
+    const keyInput = screen.getByPlaceholderText("key") as HTMLInputElement;
+    const valueInput = screen.getByPlaceholderText("value") as HTMLInputElement;
+    fireEvent.change(valueInput, { target: { value: "1" } });
+    fireEvent.change(keyInput, { target: { value: "a" } });
+    fireEvent.blur(keyInput);
+    fireEvent.change(keyInput, { target: { value: "b" } });
+    fireEvent.blur(keyInput);
+    fireEvent.change(keyInput, { target: { value: "c" } });
+    fireEvent.blur(keyInput);
+    expect(useWorkflowStore.getState().edit.pendingPatches).toEqual([
+      { kind: "with.set", jobId: "build", stepIndex: 0, key: "c", value: "1" },
+    ]);
+    fireEvent.click(screen.getByRole("button", { name: /remove/i }));
+    expect(useWorkflowStore.getState().edit.pendingPatches).toEqual([]);
+  });
+
+  it("committing a row whose key duplicates another row queues nothing and shows an inline error", () => {
+    render(
+      <StepForm
+        jobId="build"
+        stepIndex={0}
+        step={makeStep({ with: { cache: "pnpm" } })}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /add input/i }));
+    const keyInputs = screen.getAllByPlaceholderText("key");
+    const valueInputs = screen.getAllByPlaceholderText("value");
+    const newKey = keyInputs[keyInputs.length - 1];
+    fireEvent.change(valueInputs[valueInputs.length - 1], {
+      target: { value: "npm" },
+    });
+    fireEvent.change(newKey, { target: { value: "cache" } });
+    fireEvent.blur(newKey);
+    expect(useWorkflowStore.getState().edit.pendingPatches).toEqual([]);
+    expect(screen.getByRole("alert")).toBeTruthy();
+    expect(newKey.getAttribute("aria-invalid")).toBe("true");
+  });
+
+  it("resolving the duplicate by renaming commits normally and clears the error", () => {
+    render(
+      <StepForm
+        jobId="build"
+        stepIndex={0}
+        step={makeStep({ with: { cache: "pnpm" } })}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /add input/i }));
+    const keyInputs = screen.getAllByPlaceholderText("key");
+    const valueInputs = screen.getAllByPlaceholderText("value");
+    const newKey = keyInputs[keyInputs.length - 1];
+    fireEvent.change(valueInputs[valueInputs.length - 1], {
+      target: { value: "npm" },
+    });
+    fireEvent.change(newKey, { target: { value: "cache" } });
+    fireEvent.blur(newKey);
+    expect(screen.getByRole("alert")).toBeTruthy();
+    fireEvent.change(newKey, { target: { value: "cache-mode" } });
+    fireEvent.blur(newKey);
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(useWorkflowStore.getState().edit.pendingPatches).toEqual([
+      { kind: "with.set", jobId: "build", stepIndex: 0, key: "cache-mode", value: "npm" },
     ]);
   });
 });

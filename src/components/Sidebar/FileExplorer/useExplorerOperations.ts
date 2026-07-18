@@ -22,14 +22,14 @@
 import { useCallback, useRef } from "react";
 import {
   writeTextFile,
-  readTextFile,
+  copyFile,
   mkdir,
   rename,
   remove,
   exists,
 } from "@tauri-apps/plugin-fs";
 import { ask } from "@tauri-apps/plugin-dialog";
-import { join, basename } from "@tauri-apps/api/path";
+import { join, basename, dirname } from "@tauri-apps/api/path";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { imeToast as toast } from "@/services/ime/imeToast";
@@ -40,7 +40,7 @@ import { applyPathReconciliation } from "@/services/persistence/applyPathReconci
 import { showError, FileErrors } from "@/services/dialogs/errorDialog";
 import { emitOpenFileInCurrentWindow } from "@/services/navigation/openFileEvent";
 import { fileExplorerError } from "@/utils/debug";
-import { renameFile } from "@/services/persistence/renameFile";
+import { fileExtensionOf, renameFile } from "@/services/persistence/renameFile";
 
 // Re-entry guards
 const isCreatingRef = { current: false };
@@ -109,7 +109,7 @@ export function useExplorerOperations() {
       isRenamingRef.current = true;
 
       try {
-        // Shared rename core (handles .md preservation + open-tab reconciliation).
+        // Shared rename core (preserves the original extension + reconciles open tabs).
         const outcome = await renameFile(oldPath, newName);
         switch (outcome.status) {
           case "renamed":
@@ -247,13 +247,14 @@ export function useExplorerOperations() {
     async (path: string): Promise<string | null> => {
       const name = await basename(path);
       try {
-        const parentPath = path.slice(0, -name.length - 1);
-        const nameWithoutExt = name.replace(/\.md$/, "");
-
+        const parentPath = await dirname(path); // not slicing — root-safe
+        // Preserve the real extension: "notes.txt" → "notes copy.txt".
+        const ext = fileExtensionOf(name);
+        const base = ext ? name.slice(0, -ext.length) : name;
         // Find a unique name (with reasonable upper bound to prevent infinite loops)
         const MAX_COPIES = 1000;
         let counter = 1;
-        let newName = `${nameWithoutExt} copy.md`;
+        let newName = `${base} copy${ext}`;
         let newPath = await join(parentPath, newName);
 
         while (await exists(newPath)) {
@@ -263,13 +264,12 @@ export function useExplorerOperations() {
             await showError(FileErrors.tooManyCopies(name));
             return null;
           }
-          newName = `${nameWithoutExt} copy ${counter}.md`;
+          newName = `${base} copy ${counter}${ext}`;
           newPath = await join(parentPath, newName);
         }
 
-        // Copy content
-        const content = await readTextFile(path);
-        await writeTextFile(newPath, content);
+        // Binary-safe copy — media must not round-trip through UTF-8 text.
+        await copyFile(path, newPath);
 
         return newPath;
       } catch (error) {

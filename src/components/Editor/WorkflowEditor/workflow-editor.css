@@ -386,6 +386,12 @@
   font-style: italic;
 }
 
+.workflow-form__with-error {
+  font-size: var(--font-size-xs);
+  color: var(--error-color);
+  padding-left: var(--space-2);
+}
+
 .workflow-form__metadata-desc {
   font-size: var(--font-size-xs);
   color: var(--text-secondary);
