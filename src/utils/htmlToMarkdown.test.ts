@@ -104,6 +104,13 @@ describe("isSubstantialHtml", () => {
   it("returns true for multiple paragraphs", () => {
     expect(isSubstantialHtml("<p>Para 1</p><p>Para 2</p>")).toBe(true);
   });
+
+  it("treats sup/sub-only content as substantial (converter supports them)", () => {
+    // Guard (Codex audit finding re-verified false): <sup>/<sub> already
+    // match the inline-tag pattern via the `s` alternative + [^>]*.
+    expect(isSubstantialHtml("x<sup>2</sup>")).toBe(true);
+    expect(isSubstantialHtml("H<sub>2</sub>O")).toBe(true);
+  });
 });
 
 describe("htmlToMarkdown - extended conversions", () => {
@@ -184,6 +191,18 @@ describe("htmlToMarkdown - extended conversions", () => {
     const result = htmlToMarkdown(html);
     expect(result).toContain("Classed text");
     expect(result).not.toContain("some-class");
+  });
+
+  it("keeps MsoNormal paragraph content while stripping Word junk tags", () => {
+    // Word paste marks every content paragraph MsoNormal. The class/style
+    // strip neutralizes the Word markup; the paragraphs themselves (and
+    // their content) must survive. Only genuine junk tags (<o:p>, meta,
+    // xml) are removed.
+    const html =
+      '<p class="MsoNormal" style="mso-line-height-rule:exactly">Hello <b>world</b></p>' +
+      "<o:p></o:p>";
+    const result = htmlToMarkdown(html);
+    expect(result).toContain("Hello **world**");
   });
 
   it("handles empty divs and paragraphs", () => {
@@ -477,6 +496,43 @@ describe("htmlToMarkdown - empty content branches", () => {
     const htmlNoDivs = "plain text with no tags at all";
     // No meaningful tags → no paragraphs → no divs → hits || [] fallback → returns false
     expect(isSubstantialHtml(htmlNoDivs)).toBe(false);
+  });
+});
+
+describe("htmlToMarkdown - line-start escape preservation", () => {
+  // Turndown escapes block-trigger characters at line start (\#, \-, \+, \>,
+  // 1\.) precisely so pasted paragraph text does not turn into headings,
+  // lists, or blockquotes. The unescape pass must keep those.
+  it("keeps \\# escaped at line start (paragraph must not become a heading)", () => {
+    const result = htmlToMarkdown("<p># not a heading</p>");
+    expect(result).toContain("\\# not a heading");
+  });
+
+  it("keeps \\- escaped at line start (paragraph must not become a list)", () => {
+    const result = htmlToMarkdown("<p>- not a list</p>");
+    expect(result).toContain("\\- not a list");
+  });
+
+  it("keeps \\+ escaped at line start", () => {
+    const result = htmlToMarkdown("<p>+ not a list</p>");
+    expect(result).toContain("\\+ not a list");
+  });
+
+  it("keeps \\> escaped at line start (paragraph must not become a blockquote)", () => {
+    const result = htmlToMarkdown("<p>&gt; not a quote</p>");
+    expect(result).toContain("\\> not a quote");
+  });
+
+  it("keeps ordered-list escape (1\\.) at line start", () => {
+    const result = htmlToMarkdown("<p>1. not a list</p>");
+    expect(result).toContain("1\\. not a list");
+  });
+
+  it("still unescapes mid-line block-trigger characters", () => {
+    const result = htmlToMarkdown("<p>a * b and c # d</p>");
+    expect(result).toContain("a * b");
+    expect(result).not.toContain("\\*");
+    expect(result).not.toContain("\\#");
   });
 });
 

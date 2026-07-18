@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { cleanPastedMarkdown } from "./cleanPastedMarkdown";
+import { createMarkdownProcessor } from "./markdownPipeline/parser";
 
 describe("cleanPastedMarkdown — escape stripping", () => {
   it("strips escaped pipes mid-line", () => {
@@ -90,10 +91,32 @@ describe("cleanPastedMarkdown — escape stripping", () => {
     expect(cleanPastedMarkdown(table)).toBe(table);
   });
 
-  it("cleans escaped pipes inside GFM table cells", () => {
+  it("preserves \\| inside GFM table cells (unescaping would change the column count)", () => {
+    // "A \| B" is ONE cell holding a literal pipe. Stripping the escape
+    // would turn the 2-column header into 3 columns and break the table.
     const input = "| A \\| B | C |\n|---|---|\n| 1 | 2 |";
-    const expected = "| A | B | C |\n|---|---|\n| 1 | 2 |";
-    expect(cleanPastedMarkdown(input)).toBe(expected);
+    expect(cleanPastedMarkdown(input)).toBe(input);
+  });
+
+  it("still strips \\| on lines without any unescaped pipe", () => {
+    // No live pipe on the line → not a table row → the escape is noise.
+    expect(cleanPastedMarkdown("a \\| b and c \\| d")).toBe("a | b and c | d");
+  });
+
+  it("strips \\| when the line's only other pipe is inside inline code", () => {
+    // The pipe inside `|` is code (masked) — the line is not a table row.
+    expect(cleanPastedMarkdown("a `|` b \\| c")).toBe("a `|` b | c");
+  });
+
+  it("round-trips a table with an escaped pipe: cell keeps its literal pipe", () => {
+    const input = "| A \\| B | C |\n| --- | --- |\n| 1 | 2 |";
+    const cleaned = cleanPastedMarkdown(input);
+    expect(cleaned).toBe(input);
+    const tree = createMarkdownProcessor().parse(cleaned);
+    const json = JSON.stringify(tree);
+    expect(json).toContain('"type":"table"');
+    // The first cell still parses to the literal text "A | B".
+    expect(json).toContain("A | B");
   });
 
   it("returns empty string unchanged", () => {
@@ -109,45 +132,54 @@ describe("cleanPastedMarkdown — escape stripping", () => {
   });
 });
 
-describe("cleanPastedMarkdown — <br> tag cleanup", () => {
-  it("converts <br> to newline in table rows", () => {
+describe("cleanPastedMarkdown — <br> tags in tables (kept: valid GFM)", () => {
+  // GFM table cells cannot contain literal newlines — <br> is the only
+  // valid way to represent a line break inside a cell. Converting it to
+  // "\n" would structurally break the table, so <br> is left untouched.
+  it("leaves <br> untouched in table rows", () => {
     const input = "| A | Line 1<br>Line 2 |\n|---|---|";
-    const expected = "| A | Line 1\nLine 2 |\n|---|---|";
-    expect(cleanPastedMarkdown(input)).toBe(expected);
+    expect(cleanPastedMarkdown(input)).toBe(input);
   });
 
-  it("converts <br/> to newline in table rows", () => {
+  it("leaves <br/> untouched in table rows", () => {
     const input = "| A | Line 1<br/>Line 2 |\n|---|---|";
-    const expected = "| A | Line 1\nLine 2 |\n|---|---|";
-    expect(cleanPastedMarkdown(input)).toBe(expected);
+    expect(cleanPastedMarkdown(input)).toBe(input);
   });
 
-  it("converts <br /> to newline in table rows", () => {
+  it("leaves <br /> untouched in table rows", () => {
     const input = "| A | Line 1<br />Line 2 |\n|---|---|";
-    const expected = "| A | Line 1\nLine 2 |\n|---|---|";
-    expect(cleanPastedMarkdown(input)).toBe(expected);
+    expect(cleanPastedMarkdown(input)).toBe(input);
   });
 
-  it("does not convert <br> outside table rows", () => {
+  it("leaves <br> untouched outside table rows", () => {
     const input = "Hello<br>World";
     expect(cleanPastedMarkdown(input)).toBe("Hello<br>World");
   });
 
-  it("handles multiple <br> in one table row", () => {
+  it("leaves multiple <br> in one table row untouched", () => {
     const input = "| A | L1<br>L2<br>L3 |\n|---|---|";
-    const expected = "| A | L1\nL2\nL3 |\n|---|---|";
-    expect(cleanPastedMarkdown(input)).toBe(expected);
+    expect(cleanPastedMarkdown(input)).toBe(input);
   });
 
-  it("preserves <br> inside inline code in table row", () => {
+  it("leaves <br> inside inline code in table row untouched", () => {
     const input = "| A | `x<br>y` |\n|---|---|";
-    expect(cleanPastedMarkdown(input)).toBe("| A | `x<br>y` |\n|---|---|");
+    expect(cleanPastedMarkdown(input)).toBe(input);
   });
 
-  it("replaces <br> outside code but preserves inside on same table row", () => {
-    const input = "| `a<br>b` | L1<br>L2 |\n|---|---|";
-    const expected = "| `a<br>b` | L1\nL2 |\n|---|---|";
-    expect(cleanPastedMarkdown(input)).toBe(expected);
+  it("round-trips a table with <br> cells unchanged and it still parses as a table", () => {
+    const input = "| A | B |\n|---|---|\n| L1<br>L2 | x |";
+    const cleaned = cleanPastedMarkdown(input);
+    expect(cleaned).toBe(input);
+    // Every row must remain a single `|`-delimited line — no injected
+    // newlines that would split a row and break the table structure.
+    const rows = cleaned.split("\n");
+    expect(rows).toHaveLength(3);
+    for (const row of rows) {
+      expect(row).toMatch(/^\|.*\|$/);
+    }
+    // And remark-gfm must still recognize it as a table.
+    const tree = createMarkdownProcessor().parse(cleaned);
+    expect(JSON.stringify(tree)).toContain('"type":"table"');
   });
 });
 

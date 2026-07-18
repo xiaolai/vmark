@@ -62,6 +62,23 @@ describe("Case Transformations", () => {
     it("handles empty string", () => {
       expect(toTitleCase("")).toBe("");
     });
+
+    it("treats apostrophes as word-internal (contractions)", () => {
+      expect(toTitleCase("don't stop")).toBe("Don't Stop");
+      expect(toTitleCase("it's fine")).toBe("It's Fine");
+    });
+
+    it("treats typographic apostrophes (U+2019) as word-internal", () => {
+      expect(toTitleCase("don’t stop")).toBe("Don’t Stop");
+    });
+
+    it("capitalizes accented letters (Unicode-aware)", () => {
+      expect(toTitleCase("état de l'art")).toBe("État De L'art");
+    });
+
+    it("leaves CJK text unchanged", () => {
+      expect(toTitleCase("中文 文本")).toBe("中文 文本");
+    });
   });
 
   describe("toggleCase", () => {
@@ -263,17 +280,16 @@ describe("Line Operations", () => {
       expect(result.lines).toEqual(["line1"]);
     });
 
-    it("handles 'to' at newline boundary for two-line text", () => {
-      // Two lines: "ab\ncd". lines=["ab","cd"]. "ab".length=2, lineEnd=2, lineEnd+1=3.
-      // to=3 triggers: to(3) === lineEnd(2)+1(3) AND i(0) < lines.length-1(1) => endLine=0.
-      // Fallback: to(3) > fullEnd(2) => endLine overwritten to 1.
-      // The newline branch at lines 138-141 IS executed (coverage hit).
+    it("excludes the trailing line when a selection ends exactly at its start", () => {
+      // "ab\ncd": selection [0,3) is "ab\n" — it ends at the start of "cd",
+      // so only "ab" is a selected line (CodeMirror line-block semantics:
+      // `to` is exclusive for non-empty selections).
       const text = "ab\ncd";
       const result = getLinesInRange(text, 0, 3);
-      // Fallback overrides, so endLine=1 and fullEnd=text.length
       expect(result.startLine).toBe(0);
-      expect(result.endLine).toBe(1);
-      expect(result.fullEnd).toBe(text.length);
+      expect(result.endLine).toBe(0);
+      expect(result.lines).toEqual(["ab"]);
+      expect(result.fullEnd).toBe(2);
     });
 
     it("handles 'to' beyond all lines", () => {
@@ -282,6 +298,74 @@ describe("Line Operations", () => {
       const result = getLinesInRange(text, 0, 100);
       expect(result.endLine).toBe(1);
       expect(result.fullEnd).toBe(text.length);
+    });
+  });
+
+  describe("getLinesInRange - collapsed cursor boundaries", () => {
+    // "line1\nline2\nline3" — line starts at 0, 6, 12; length 17.
+    const text = "line1\nline2\nline3";
+
+    it("collapsed cursor at document start selects only the first line", () => {
+      const result = getLinesInRange(text, 0, 0);
+      expect(result.startLine).toBe(0);
+      expect(result.endLine).toBe(0);
+      expect(result.lines).toEqual(["line1"]);
+    });
+
+    it("collapsed cursor at the exact start of a middle line selects only that line", () => {
+      // Regression (Codex audit): this used to leave startLine=0 and expand
+      // endLine to the last line, making a line operation hit the whole doc.
+      const result = getLinesInRange(text, 6, 6);
+      expect(result.startLine).toBe(1);
+      expect(result.endLine).toBe(1);
+      expect(result.lines).toEqual(["line2"]);
+      expect(result.fullStart).toBe(6);
+      expect(result.fullEnd).toBe(11);
+    });
+
+    it("collapsed cursor at the exact start of the last line selects only that line", () => {
+      const result = getLinesInRange(text, 12, 12);
+      expect(result.startLine).toBe(2);
+      expect(result.endLine).toBe(2);
+      expect(result.lines).toEqual(["line3"]);
+    });
+
+    it("collapsed cursor on a newline position belongs to the line it terminates", () => {
+      const result = getLinesInRange(text, 5, 5);
+      expect(result.startLine).toBe(0);
+      expect(result.endLine).toBe(0);
+      expect(result.lines).toEqual(["line1"]);
+    });
+
+    it("collapsed cursor at end of document selects the last line", () => {
+      const result = getLinesInRange(text, 17, 17);
+      expect(result.startLine).toBe(2);
+      expect(result.endLine).toBe(2);
+    });
+
+    it("collapsed cursor beyond the document clamps to the last line", () => {
+      const result = getLinesInRange(text, 100, 100);
+      expect(result.startLine).toBe(2);
+      expect(result.endLine).toBe(2);
+      expect(result.lines).toEqual(["line3"]);
+    });
+
+    it("non-empty selection ending at the start of a line excludes that line", () => {
+      // Selection "line1\n" ends at the start of line2 — line2 not included.
+      const result = getLinesInRange(text, 0, 6);
+      expect(result.startLine).toBe(0);
+      expect(result.endLine).toBe(0);
+      expect(result.lines).toEqual(["line1"]);
+    });
+
+    it("deleteLines with cursor at start of a middle line deletes only that line", () => {
+      const result = deleteLines(text, 6, 6);
+      expect(result.newText).toBe("line1\nline3");
+    });
+
+    it("duplicateLines with cursor at start of a middle line duplicates only that line", () => {
+      const result = duplicateLines(text, 6, 6);
+      expect(result.newText).toBe("line1\nline2\nline2\nline3");
     });
   });
 

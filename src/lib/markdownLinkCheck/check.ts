@@ -2,8 +2,9 @@
  * Purpose: Async checker that validates local link and image targets
  *   in a markdown document exist on disk. Fragment-only links
  *   (`#anchor`) are handled by the existing `linkFragments` rule;
- *   external URLs (`http://`, `https://`, `mailto:`, `tel:`,
- *   `ftp:`) are skipped.
+ *   external URLs — any RFC-3986 scheme (`https:`, `mailto:`,
+ *   `obsidian:`, …) or protocol-relative `//host/…` — are skipped.
+ *   Windows drive-letter paths (`C:\…`, `C:/…`) are still checked.
  *
  *   This is a CORRECTNESS check, not style. A broken local link is
  *   a bug — the published doc points at a file that won't load.
@@ -21,13 +22,30 @@ import { exists } from "@tauri-apps/plugin-fs";
 import { visit } from "unist-util-visit";
 import type { Root, Link, Image } from "mdast";
 import { createMarkdownProcessor } from "@/utils/markdownPipeline/parser";
+import { decodeMarkdownUrl } from "@/utils/markdownUrl";
 import {
   createDiagnostic,
   type LintDiagnostic,
 } from "@/lib/lintEngine/types";
 
-const SCHEME_RE = /^(https?|ftp|mailto|tel|data|file):/i;
+// Any RFC-3986 scheme (`obsidian:`, `vscode:`, `zotero:`, …) marks an
+// external URI — a fixed allowlist produced false M001/M002 on app
+// protocols. Windows drive letters ("C:\…", "C:/…") also match the
+// scheme shape, so they are carved out explicitly below.
+const SCHEME_RE = /^[a-zA-Z][a-zA-Z0-9+.-]*:/;
+const WINDOWS_DRIVE_RE = /^[a-zA-Z]:[\\/]/;
 const processor = createMarkdownProcessor();
+
+/**
+ * True for URLs the filesystem check must skip: any scheme'd URI or a
+ * protocol-relative (`//host/…`) URL. Windows drive-letter paths return
+ * false — they are local paths, not URIs.
+ */
+export function isExternalUrl(url: string): boolean {
+  if (url.startsWith("//")) return true;
+  if (WINDOWS_DRIVE_RE.test(url)) return false;
+  return SCHEME_RE.test(url);
+}
 
 interface ExtractedRef {
   url: string;
@@ -44,7 +62,7 @@ function extractLocalRefs(mdast: Root): ExtractedRef[] {
   visit(mdast, "link", (node: Link) => {
     if (!node.position) return;
     const url = node.url ?? "";
-    if (!url || url.startsWith("#") || SCHEME_RE.test(url)) return;
+    if (!url || url.startsWith("#") || isExternalUrl(url)) return;
     out.push({
       url,
       line: node.position.start.line,
@@ -57,7 +75,7 @@ function extractLocalRefs(mdast: Root): ExtractedRef[] {
   visit(mdast, "image", (node: Image) => {
     if (!node.position) return;
     const url = node.url ?? "";
-    if (!url || url.startsWith("#") || SCHEME_RE.test(url)) return;
+    if (!url || url.startsWith("#") || isExternalUrl(url)) return;
     out.push({
       url,
       line: node.position.start.line,
@@ -73,15 +91,23 @@ function extractLocalRefs(mdast: Root): ExtractedRef[] {
 /**
  * Resolve a markdown URL against the source file's directory.
  * Handles `./`, `../`, and `/`-rooted paths. Returns POSIX absolute
- * path. Strips any `#fragment` suffix before resolution.
+ * path. Strips any `#fragment` suffix before resolution, then
+ * percent-decodes the path part (so `photo%20one.png` resolves to
+ * the same file the media renderer loads — see
+ * `services/media/resolveMediaSrc.ts`); malformed `%` sequences fall
+ * back to the raw path.
  */
 export function resolveMarkdownUrl(
   url: string,
   sourcePath: string,
 ): string {
-  // Strip fragment.
+  // Strip fragment, then decode the path part. Decoding after the
+  // fragment split keeps an encoded `%23` inside the path from being
+  // mistaken for a fragment delimiter.
   const hashIdx = url.indexOf("#");
-  const pathPart = hashIdx >= 0 ? url.slice(0, hashIdx) : url;
+  const pathPart = decodeMarkdownUrl(
+    hashIdx >= 0 ? url.slice(0, hashIdx) : url,
+  );
   if (!pathPart) return "";
 
   const sourceNorm = sourcePath.replace(/\\/g, "/");

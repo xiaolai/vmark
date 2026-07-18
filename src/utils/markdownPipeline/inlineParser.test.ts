@@ -136,12 +136,18 @@ describe("parseInlineMarkdown", () => {
   });
 
   describe("custom inline marks", () => {
-    it("returns plain text for ==text== (= not in fast-path regex)", () => {
-      // The fast-path regex /[*_`~[\]]/ does not include =, so == is
-      // returned as plain text without going through remark
+    it("parses highlight ==text==", () => {
+      // = is in the fast-path regex so ==highlight== reaches remark and
+      // the customInline transform.
       const result = parseInlineMarkdown("==highlighted==");
-      expect(result).toHaveLength(1);
-      expect(result[0].type).toBe("text");
+      const hasHighlight = result.some((n) => n.type === "highlight");
+      expect(hasHighlight).toBe(true);
+    });
+
+    it("parses underline ++text++", () => {
+      const result = parseInlineMarkdown("++underlined++");
+      const hasUnderline = result.some((n) => n.type === "underline");
+      expect(hasUnderline).toBe(true);
     });
 
     it("parses subscript ~text~", () => {
@@ -151,14 +157,18 @@ describe("parseInlineMarkdown", () => {
     });
 
     it("parses superscript ^text^", () => {
-      // ^ is not in the fast-path regex, but [ and ] are handled
-      // The text contains no markdown chars from the fast-path check
-      // unless there's a bracket or other special char
+      // ^ is in the fast-path regex so x^2^ reaches remark and the
+      // customInline transform.
       const result = parseInlineMarkdown("x^2^");
-      // Without any markdown chars from the regex check, this goes fast path
-      // The caret is not in /[*_`~[\]]/ so it returns as plain text
+      const hasSuperscript = result.some((n) => n.type === "superscript");
+      expect(hasSuperscript).toBe(true);
+    });
+
+    it("still takes the fast path for plain text without any marker chars", () => {
+      const result = parseInlineMarkdown("no markers here");
       expect(result).toHaveLength(1);
       expect(result[0].type).toBe("text");
+      expect((result[0] as Text).value).toBe("no markers here");
     });
   });
 
@@ -200,15 +210,44 @@ describe("parseInlineMarkdown", () => {
       expect(result.length).toBeGreaterThanOrEqual(1);
     });
 
-    it("returns children array for non-paragraph first child (line 70)", () => {
-      // "---" does not contain markdown chars from the fast-path regex [*_`~[\]]
-      // So we need text that has markdown chars but doesn't parse to a paragraph.
-      // "***" parses to thematicBreak via remark since it contains *
+    it("falls back to plain text when input parses to a block node ('***')", () => {
+      // "***" parses as a thematicBreak (block node). Returning it as
+      // "inline" content would violate inline-only schemas (details
+      // <summary>) and throw on insertion — fall back to literal text.
       const result = parseInlineMarkdown("***");
-      expect(result.length).toBeGreaterThanOrEqual(1);
-      // Should be thematicBreak, not a paragraph's children
-      const hasThematicBreak = result.some((n) => n.type === "thematicBreak");
-      expect(hasThematicBreak).toBe(true);
+      expect(result).toHaveLength(1);
+      expect(result[0].type).toBe("text");
+      expect((result[0] as Text).value).toBe("***");
+    });
+
+    it("falls back to plain text for multi-block input", () => {
+      // Two paragraphs cannot be flattened into one inline run — the
+      // strict single-paragraph guard falls back to literal text.
+      const result = parseInlineMarkdown("first *a*\n\nsecond");
+      expect(result).toHaveLength(1);
+      expect(result[0].type).toBe("text");
+      expect((result[0] as Text).value).toBe("first *a*\n\nsecond");
+    });
+
+    it("returns only phrasing content for details-summary-shaped inputs", () => {
+      // A details <summary> node accepts inline content only — whatever
+      // comes back must never contain block node types.
+      const blockTypes = new Set([
+        "thematicBreak",
+        "heading",
+        "paragraph",
+        "list",
+        "blockquote",
+        "code",
+        "table",
+        "html",
+      ]);
+      const inputs = ["***", "___", "Summary **bold** `code`", "a *x*\n\nb"];
+      for (const input of inputs) {
+        for (const node of parseInlineMarkdown(input)) {
+          expect(blockTypes.has(node.type)).toBe(false);
+        }
+      }
     });
 
     it("returns text fallback when remark returns empty children (line 60)", () => {

@@ -1,59 +1,32 @@
 /**
  * Text Transformations
  *
- * Purpose: Pure functions for text case transformations and line operations,
- * shared between WYSIWYG (Tiptap) and Source (CodeMirror) editors.
+ * Purpose: Pure functions for text line operations, shared between
+ * WYSIWYG (Tiptap) and Source (CodeMirror) editors. Case transformations
+ * live in caseTransformations.ts and are re-exported here so consumers
+ * keep a single import site.
  *
  * Key decisions:
- *   - Title Case uses Unicode-aware word boundary detection
  *   - All functions are pure — no editor state dependency
  *   - Designed for both single-line and multi-line text (line operations
  *     handle newline splitting internally)
  *
+ * @coordinates-with utils/caseTransformations.ts — case transforms (re-exported)
  * @coordinates-with toolbarActions/tiptapSelectionActions.ts — WYSIWYG case transforms
  * @coordinates-with sourceContextDetection/formatActions.ts — source mode case transforms
  * @module utils/textTransformations
  */
 
 // ============================================================================
-// Case Transformations
+// Case Transformations (see caseTransformations.ts)
 // ============================================================================
 
-/**
- * Convert text to UPPERCASE.
- */
-export function toUpperCase(text: string): string {
-  return text.toUpperCase();
-}
-
-/**
- * Convert text to lowercase.
- */
-export function toLowerCase(text: string): string {
-  return text.toLowerCase();
-}
-
-/**
- * Convert text to Title Case.
- * Capitalizes the first letter of each word.
- */
-export function toTitleCase(text: string): string {
-  return text.replace(/\b\w/g, (char) => char.toUpperCase());
-}
-
-/**
- * Toggle case: if mostly uppercase, convert to lowercase; otherwise, convert to uppercase.
- */
-export function toggleCase(text: string): string {
-  const upperCount = (text.match(/[A-Z]/g) || []).length;
-  const lowerCount = (text.match(/[a-z]/g) || []).length;
-
-  // If more than half are uppercase (or equal), convert to lowercase
-  if (upperCount >= lowerCount) {
-    return text.toLowerCase();
-  }
-  return text.toUpperCase();
-}
+export {
+  toUpperCase,
+  toLowerCase,
+  toTitleCase,
+  toggleCase,
+} from "./caseTransformations";
 
 /**
  * Remove blank lines from text.
@@ -73,6 +46,13 @@ export function removeBlankLines(text: string): string {
 /**
  * Get all lines in a range, expanding to full lines.
  * Returns { startLine, endLine, lines, fullStart, fullEnd }.
+ *
+ * Boundary semantics (CodeMirror line-block convention):
+ *   - Offsets are clamped into the document.
+ *   - A collapsed cursor belongs to the line it sits on — a cursor at the
+ *     exact start of a line selects that line, not the previous one.
+ *   - A NON-EMPTY selection ending exactly at the start of a line does not
+ *     include that line (`to` is exclusive for non-empty selections).
  */
 export function getLinesInRange(
   text: string,
@@ -86,43 +66,40 @@ export function getLinesInRange(
   fullEnd: number;
 } {
   const lines = text.split("\n");
-  let currentPos = 0;
+  const len = text.length;
+
+  // Clamp both offsets into the document and keep them ordered.
+  const clampedFrom = Math.min(Math.max(from, 0), len);
+  let clampedTo = Math.min(Math.max(to, clampedFrom), len);
+
+  // Non-empty selection ending just past a newline merely touches the
+  // next line's start — pull `to` back so that line is excluded.
+  if (clampedTo > clampedFrom && text[clampedTo - 1] === "\n") {
+    clampedTo -= 1;
+  }
+
   let startLine = 0;
   let endLine = 0;
   let fullStart = 0;
-  let fullEnd = text.length;
+  let fullEnd = len;
+  let lineStart = 0;
 
   for (let i = 0; i < lines.length; i++) {
-    const lineStart = currentPos;
-    const lineEnd = currentPos + lines[i].length;
+    const lineEnd = lineStart + lines[i].length;
 
-    // Check if 'from' is within this line
-    if (from >= lineStart && from <= lineEnd) {
+    // Position lineEnd (the newline slot) belongs to line i; lineEnd + 1
+    // is the next line's start, so line ranges never overlap.
+    if (clampedFrom >= lineStart && clampedFrom <= lineEnd) {
       startLine = i;
       fullStart = lineStart;
     }
-
-    // Check if 'to' is within this line
-    if (to >= lineStart && to <= lineEnd) {
+    if (clampedTo >= lineStart && clampedTo <= lineEnd) {
       endLine = i;
       fullEnd = lineEnd;
       break;
     }
 
-    // Also handle case where 'to' is at the newline position
-    if (to === lineEnd + 1 && i < lines.length - 1) {
-      endLine = i;
-      fullEnd = lineEnd;
-      break;
-    }
-
-    currentPos = lineEnd + 1; // +1 for newline
-  }
-
-  // If we didn't find endLine, use the last line
-  if (to > fullEnd) {
-    endLine = lines.length - 1;
-    fullEnd = text.length;
+    lineStart = lineEnd + 1; // +1 for the newline
   }
 
   return {
@@ -306,6 +283,34 @@ export function joinLines(
 }
 
 /**
+ * Shared implementation for line sorting — ascending/descending only
+ * differ in comparator direction.
+ */
+function sortLines(
+  text: string,
+  from: number,
+  to: number,
+  direction: "asc" | "desc"
+): { newText: string; newFrom: number; newTo: number } {
+  const { fullStart, fullEnd, lines } = getLinesInRange(text, from, to);
+
+  if (lines.length < 2) {
+    return { newText: text, newFrom: from, newTo: to };
+  }
+
+  const sorted = [...lines].sort((a, b) =>
+    direction === "asc" ? a.localeCompare(b) : b.localeCompare(a)
+  );
+  const sortedText = sorted.join("\n");
+
+  return {
+    newText: text.slice(0, fullStart) + sortedText + text.slice(fullEnd),
+    newFrom: fullStart,
+    newTo: fullStart + sortedText.length,
+  };
+}
+
+/**
  * Sort lines ascending.
  * Returns { newText, newFrom, newTo }.
  */
@@ -314,23 +319,7 @@ export function sortLinesAscending(
   from: number,
   to: number
 ): { newText: string; newFrom: number; newTo: number } {
-  const { fullStart, fullEnd, lines } = getLinesInRange(text, from, to);
-
-  if (lines.length < 2) {
-    return { newText: text, newFrom: from, newTo: to };
-  }
-
-  const sorted = [...lines].sort((a, b) => a.localeCompare(b));
-  const sortedText = sorted.join("\n");
-
-  const before = text.slice(0, fullStart);
-  const after = text.slice(fullEnd);
-
-  return {
-    newText: before + sortedText + after,
-    newFrom: fullStart,
-    newTo: fullStart + sortedText.length,
-  };
+  return sortLines(text, from, to, "asc");
 }
 
 /**
@@ -342,21 +331,5 @@ export function sortLinesDescending(
   from: number,
   to: number
 ): { newText: string; newFrom: number; newTo: number } {
-  const { fullStart, fullEnd, lines } = getLinesInRange(text, from, to);
-
-  if (lines.length < 2) {
-    return { newText: text, newFrom: from, newTo: to };
-  }
-
-  const sorted = [...lines].sort((a, b) => b.localeCompare(a));
-  const sortedText = sorted.join("\n");
-
-  const before = text.slice(0, fullStart);
-  const after = text.slice(fullEnd);
-
-  return {
-    newText: before + sortedText + after,
-    newFrom: fullStart,
-    newTo: fullStart + sortedText.length,
-  };
+  return sortLines(text, from, to, "desc");
 }

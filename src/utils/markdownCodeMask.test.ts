@@ -179,21 +179,91 @@ describe("buildCodeMask", () => {
     expect(maskToString(mask)).toBe("0011100");
   });
 
-  it("marks content inside fenced block when not at line start (safety net, lines 84-87)", () => {
-    // This exercises the safety-net branch at line 84:
-    // `if (inFencedCodeBlock) { mask[i] = 1; i += 1; continue; }`
-    // Normally the line-based loop advances by full lines, but if we have
-    // a document where the fenced block state carries over and the cursor
-    // is not at a line start, this branch kicks in.
-    // We can trigger this indirectly by checking the overall mask is correct
-    // for content that starts mid-line after a fence opener with no newline at end.
+  it("does not let an unclosed backtick mask the next paragraph", () => {
+    // CommonMark: inline code spans never cross a blank line, so a lone
+    // backtick in paragraph 1 must not mask paragraph 2 as code.
+    const md = "a ` b\n\nsecond para";
+    const mask = buildCodeMask(md);
+    const start = md.indexOf("second");
+    for (let i = start; i < md.length; i++) {
+      expect(mask[i]).toBe(0);
+    }
+  });
+
+  it("still masks real inline code spans after a paragraph-boundary reset", () => {
+    const md = "lone ` tick\n\nuse `code` here";
+    const mask = buildCodeMask(md);
+    const codeStart = md.indexOf("code");
+    for (let i = codeStart; i < codeStart + 4; i++) {
+      expect(mask[i]).toBe(1);
+    }
+    // Text after the span stays unmasked.
+    const hereStart = md.indexOf("here");
+    expect(mask[hereStart]).toBe(0);
+  });
+
+  it("detects fences after a lone-backtick paragraph", () => {
+    const md = "oops ` here\n\n```\ncode\n```";
+    const mask = buildCodeMask(md);
+    const codeStart = md.indexOf("code");
+    for (let i = codeStart; i < codeStart + 4; i++) {
+      expect(mask[i]).toBe(1);
+    }
+    // The closing fence itself stays unmasked (delimiters are 0).
+    expect(mask[md.length - 1]).toBe(0);
+  });
+
+  it("keeps inline code spanning a single newline within a paragraph masked", () => {
+    // A soft line break inside a paragraph does NOT terminate an inline
+    // code span — only a blank line (paragraph boundary) does.
+    const md = "a `code\nspan` b";
+    const mask = buildCodeMask(md);
+    const codeStart = md.indexOf("code");
+    const spanEnd = md.indexOf("span") + 4;
+    for (let i = codeStart; i < spanEnd; i++) {
+      expect(mask[i]).toBe(1);
+    }
+  });
+
+  it("masks unterminated fenced content at EOF (no trailing newline)", () => {
+    // Fence state only ever advances whole lines — `i` is always at a line
+    // start while inside a fenced block (see the invariant note in
+    // buildCodeMask) — including when the last line has no trailing newline.
     const md = "```\nabc";
     const mask = buildCodeMask(md);
-    // Already tested above — abc is marked as code
     expect(maskToString(mask)).toBe("0000111");
-    // Every position in "abc" should be 1
     expect(mask[4]).toBe(1);
     expect(mask[5]).toBe(1);
     expect(mask[6]).toBe(1);
+  });
+
+  it("does not open an inline-code span at an escaped backtick", () => {
+    // \` is a literal backtick (CommonMark backslash escape), not a span
+    // delimiter — nothing on this line is code.
+    const md = "a \\` b \\` c";
+    const mask = buildCodeMask(md);
+    expect(maskToString(mask)).toBe("0".repeat(md.length));
+  });
+
+  it("still masks a real span appearing after an escaped backtick", () => {
+    const md = "\\` x `code` y";
+    const mask = buildCodeMask(md);
+    const codeStart = md.indexOf("code");
+    for (let i = codeStart; i < codeStart + 4; i++) {
+      expect(mask[i]).toBe(1);
+    }
+    expect(mask[md.indexOf("x")]).toBe(0);
+    expect(mask[md.indexOf("y")]).toBe(0);
+  });
+
+  it("treats a backtick after an escaped backslash as a real opener (parity)", () => {
+    // `\\` is an escaped backslash, so the backtick that follows is a
+    // live delimiter — parity check, not just "preceded by a backslash".
+    const md = "a \\\\`code` b";
+    const mask = buildCodeMask(md);
+    const codeStart = md.indexOf("code");
+    for (let i = codeStart; i < codeStart + 4; i++) {
+      expect(mask[i]).toBe(1);
+    }
   });
 });

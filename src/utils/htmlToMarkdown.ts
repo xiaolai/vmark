@@ -8,6 +8,7 @@
 import TurndownService from "turndown";
 import { tables } from "@joplin/turndown-plugin-gfm";
 import { buildCodeMask } from "./markdownCodeMask";
+import { isBlockTriggerEscape } from "./cleanPastedMarkdown";
 
 /** Register inline formatting rules (strikethrough, underline, super/subscript, highlight). */
 function registerInlineRules(turndown: TurndownService): void {
@@ -136,6 +137,14 @@ function preprocessHtml(html: string): string {
   const container = document.createElement("div");
   container.innerHTML = html;
 
+  // Remove Word-specific junk tags (no visible content). Note: content
+  // elements Word marks with class="Mso…" / style="mso-…" (every Word
+  // paragraph is MsoNormal) must NOT be removed — deleting them would
+  // delete the pasted text. The attribute stripping below neutralizes
+  // the Word markup and the elements convert as ordinary p/span.
+  const wordElements = container.querySelectorAll("meta, link, xml, o\\:p");
+  wordElements.forEach((el) => el.remove());
+
   // Remove all style attributes (common in Word paste)
   const elementsWithStyle = container.querySelectorAll("[style]");
   elementsWithStyle.forEach((el) => el.removeAttribute("style"));
@@ -143,14 +152,6 @@ function preprocessHtml(html: string): string {
   // Remove all class attributes
   const elementsWithClass = container.querySelectorAll("[class]");
   elementsWithClass.forEach((el) => el.removeAttribute("class"));
-
-  // Remove Word-specific elements
-  const wordElements = container.querySelectorAll(
-    'meta, link, xml, o\\:p, [class^="Mso"], [style*="mso-"]'
-  );
-  /* v8 ignore start -- @preserve reason: forEach callback only fires when Word-specific elements exist in HTML; not present in test fixtures */
-  wordElements.forEach((el) => el.remove());
-  /* v8 ignore stop */
 
   // Remove empty paragraphs and divs (but keep them if they have semantic meaning like <br>)
   const emptyBlocks = container.querySelectorAll("p:empty, div:empty");
@@ -201,6 +202,9 @@ function postprocessMarkdown(markdown: string): string {
 
   // Fix common turndown artifacts
   // Remove backslashes before characters that don't need escaping in most contexts.
+  // Line-start block triggers (\#, \-, \*, \>, \+, 1\.) stay escaped —
+  // turndown escaped them precisely so paragraph text does not become a
+  // heading/list/blockquote (shared guard with cleanPastedMarkdown).
   // Pipe (|) is stripped only outside GFM table rows, where \| is needed to
   // represent literal pipes inside cells.
   // Escapes inside code blocks/spans are preserved (code mask).
@@ -208,6 +212,9 @@ function postprocessMarkdown(markdown: string): string {
   result = result.replace(/\\([#\-*_`|[\]()>+.!])/g, (match, char, offset) => {
     // Never strip escapes inside code
     if (mask[offset]) return match;
+
+    // Keep escapes whose removal would create block-level syntax
+    if (isBlockTriggerEscape(result, offset, char)) return match;
 
     // Keep \| inside GFM table rows (lines starting with |)
     /* v8 ignore next -- @preserve v8 cannot instrument branches inside replace() callbacks reliably; char !== "|" branch exercised at runtime by \[, \*, \- etc. */
