@@ -276,3 +276,27 @@ fn scope_materializes_default_manifest_and_toggles_visibility() {
     let s = store(&kernel);
     assert!(s.current(created.claim).is_some(), "claim still live");
 }
+
+#[test]
+fn listing_carries_default_context_visibility() {
+    let (td, mut kernel) = workspace();
+    seed_doc(&mut kernel, td.path(), "elena.md");
+    let created = perform_claim(
+        &mut kernel,
+        &ClaimRequest {
+            action: "create".into(),
+            claim: None,
+            statement: Some("s".into()),
+            valid_at: None,
+            invalid_at: None,
+            source_path: Some("elena.md".into()),
+        },
+        "t",
+    )
+    .unwrap();
+    let rows = perform_claims_list(&mut kernel).unwrap();
+    assert!(rows[0].visible, "created claims are scoped in (D2.2)");
+    perform_claim_scope(&mut kernel, DEFAULT_CONTEXT_ID, created.claim, false).unwrap();
+    let rows = perform_claims_list(&mut kernel).unwrap();
+    assert!(!rows[0].visible, "scope-out reflects in the listing");
+}

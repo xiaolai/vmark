@@ -222,11 +222,15 @@ pub struct ClaimRow {
     pub statement: String,
     pub maturity: String,
     pub invalid_at: Option<String>,
+    /// Visible in the default context (D2.4 — the v1 UI surface).
+    pub visible: bool,
 }
 
 pub fn perform_claims_list(kernel: &mut WorkspaceKernel) -> Result<Vec<ClaimRow>, String> {
     let read = kernel.ledger().read_all()?;
     let store = ClaimStore::from_entries(&read.entries);
+    let contexts = ContextSet::load(&kernel.root().join(".vmark").join("contexts"));
+    let visible_set = contexts.effective_claims(DEFAULT_CONTEXT_ID);
     Ok(store
         .all_current()
         .into_iter()
@@ -236,6 +240,7 @@ pub fn perform_claims_list(kernel: &mut WorkspaceKernel) -> Result<Vec<ClaimRow>
             statement: e.statement.clone(),
             maturity: maturity_str(e).to_string(),
             invalid_at: e.invalid_at.clone(),
+            visible: visible_set.contains(&e.claim),
         })
         .collect())
 }

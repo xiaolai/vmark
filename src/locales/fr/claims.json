@@ -1,0 +1,31 @@
+{
+  "title": "Affirmations canoniques",
+  "refresh": "Actualiser",
+  "close": "Fermer",
+  "loading": "Chargement…",
+  "error": "Impossible de charger les affirmations",
+  "empty": "Aucune affirmation pour l'instant — sélectionnez du texte dans un document et utilisez « Extraire l'affirmation »",
+  "maturity": {
+    "draft": "Brouillon",
+    "established": "Établie"
+  },
+  "ended": "Terminée",
+  "hidden": "Masquée dans ce contexte",
+  "actions": {
+    "promote": "Établir",
+    "correct": "Corriger",
+    "retire": "Clore",
+    "hide": "Masquer",
+    "show": "Afficher"
+  },
+  "promoteTitle": "Promouvoir en établie — seules les affirmations établies peuvent contraindre (D4)",
+  "correctPlaceholder": "Affirmation corrigée",
+  "correctConfirm": "Confirmer la correction",
+  "create": {
+    "heading": "Nouvelle affirmation depuis la sélection",
+    "source": "Source : {{path}}",
+    "statementPlaceholder": "Énoncé de l'affirmation",
+    "confirm": "Créer un brouillon d'affirmation",
+    "cancel": "Annuler"
+  }
+}

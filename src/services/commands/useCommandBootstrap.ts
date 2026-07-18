@@ -23,6 +23,7 @@ import { registerExportCommands, registerPandocFormatCommands } from "./exportCo
 import { registerMiscCommands } from "./miscCommands";
 import { registerRecentFilesCommands } from "./recentFilesCommands";
 import { registerRecentWorkspacesCommands } from "./recentWorkspacesCommands";
+import { registerClaimCommands } from "./claimCommands";
 import { registerViewCommands } from "./viewCommands";
 import { registerWorkspaceCommands } from "./workspaceCommands";
 import { registerFormatCommands } from "./formatCommands";
@@ -103,6 +104,7 @@ export function useCommandBootstrap(): void {
     registerRecentFilesCommands();
     registerRecentWorkspacesCommands();
     registerViewCommands();
+    registerClaimCommands();
     registerFormatCommands();
     registerBrowserCommands();
 

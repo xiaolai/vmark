@@ -60,7 +60,8 @@
     "zoomOut": "Verkleinern",
     "toggleShowInvisibles": "Unsichtbare Zeichen umschalten",
     "toggleWindowStatus": "Fensterstatus",
-    "toggleBreakdown": "Kohärenz-Aufschlüsselung"
+    "toggleBreakdown": "Kohärenz-Aufschlüsselung",
+    "toggleClaims": "Kanon-Aussagen"
   },
   "lint": {
     "check": "Markdown prüfen",
@@ -85,5 +86,8 @@
   },
   "browser": {
     "newTab": "Neuer Browser-Tab"
+  },
+  "claims": {
+    "extractFromSelection": "Aussage aus Auswahl extrahieren"
   }
 }

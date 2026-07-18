@@ -1,0 +1,31 @@
+{
+  "title": "캐논 설정",
+  "refresh": "새로 고침",
+  "close": "닫기",
+  "loading": "불러오는 중…",
+  "error": "설정을 불러오지 못했습니다",
+  "empty": "아직 설정이 없습니다 — 문서에서 텍스트를 선택하고 “설정 추출”을 사용하세요",
+  "maturity": {
+    "draft": "초안",
+    "established": "확립됨"
+  },
+  "ended": "종료됨",
+  "hidden": "이 컨텍스트에서 숨겨짐",
+  "actions": {
+    "promote": "확립",
+    "correct": "정정",
+    "retire": "종료",
+    "hide": "숨기기",
+    "show": "표시"
+  },
+  "promoteTitle": "확립됨으로 승격 — 확립된 설정만 제약이 될 수 있습니다 (D4)",
+  "correctPlaceholder": "정정된 문장",
+  "correctConfirm": "정정 확정",
+  "create": {
+    "heading": "선택 영역에서 새 설정",
+    "source": "출처: {{path}}",
+    "statementPlaceholder": "설정 문장",
+    "confirm": "초안 설정 만들기",
+    "cancel": "취소"
+  }
+}
