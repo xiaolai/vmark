@@ -20,7 +20,8 @@ import { themes, type ThemeId } from "./themes";
 /**
  * Build a complete xterm.js ITheme for a specific theme ID.
  *
- * Callers read `appearance.theme` themselves and pass the ID — this
+ * Callers resolve the effective theme id themselves (via
+ * `getEffectiveThemeId`) and pass it in — this
  * function deliberately does not import the settings store, to keep
  * @/theme free of a back-edge into stores (avoids a dep-cruiser cycle:
  * settingsStore → @/theme → buildXtermTheme → settingsStore).

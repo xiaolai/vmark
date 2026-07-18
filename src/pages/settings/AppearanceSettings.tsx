@@ -1,7 +1,9 @@
 /**
  * Appearance Settings Section
  *
- * Theme and window configuration.
+ * Theme and window configuration. The theme group offers manual selection,
+ * or — with follow-system-appearance on (#1125) — a paired light/dark theme
+ * that auto-switches with the OS.
  */
 
 import { useTranslation } from "react-i18next";
@@ -13,46 +15,94 @@ import {
 } from "@/stores/settingsStore";
 import { SettingRow, SettingsGroup, Toggle, Select } from "./components";
 
+/** One row of theme swatches. `selected` gets the ring indicator. */
+function ThemeSwatchRow({
+  selected,
+  onSelect,
+}: {
+  selected: ThemeId;
+  onSelect: (id: ThemeId) => void;
+}) {
+  const { t } = useTranslation("settings");
+  return (
+    <div className="flex items-center gap-4 pb-3">
+      {(Object.keys(themes) as ThemeId[]).map((id) => (
+        <button
+          key={id}
+          type="button"
+          onClick={() => onSelect(id)}
+          className="flex flex-col items-center gap-1.5"
+        >
+          <div
+            className={`w-6 h-6 rounded-full transition-all ${
+              selected === id
+                ? "ring-1 ring-offset-2 ring-gray-400 dark:ring-gray-500"
+                : "hover:scale-110"
+            }`}
+            style={{
+              backgroundColor: themes[id].background,
+              border: `1px solid ${themes[id].border}`,
+            }}
+          />
+          <span
+            className={`text-xs ${
+              selected === id
+                ? "text-[var(--text-color)]"
+                : "text-[var(--text-tertiary)]"
+            }`}
+          >
+            {t(`appearance.theme.${id}`, id)}
+          </span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function AppearanceSettings() {
   const { t } = useTranslation("settings");
   const appearance = useSettingsStore((state) => state.appearance);
   const updateSetting = useSettingsStore(
     (state) => state.updateAppearanceSetting
   );
+  const followSystem = appearance.followSystemAppearance ?? false;
 
   return (
     <div>
       {/* Theme selector */}
       <SettingsGroup title={t("appearance.group.theme")}>
-        <div className="flex items-center gap-4 pb-3">
-          {(Object.keys(themes) as ThemeId[]).map((id) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => updateSetting("theme", id)}
-              className="flex flex-col items-center gap-1.5"
-            >
-              <div
-                className={`w-6 h-6 rounded-full transition-all ${
-                  appearance.theme === id
-                    ? "ring-1 ring-offset-2 ring-gray-400 dark:ring-gray-500"
-                    : "hover:scale-110"
-                }`}
-                style={{
-                  backgroundColor: themes[id].background,
-                  border: `1px solid ${themes[id].border}`,
-                }}
-              />
-              <span className={`text-xs ${
-                appearance.theme === id
-                  ? "text-[var(--text-color)]"
-                  : "text-[var(--text-tertiary)]"
-              }`}>
-                {t(`appearance.theme.${id}`, id)}
-              </span>
-            </button>
-          ))}
-        </div>
+        {followSystem ? (
+          <>
+            <div className="text-xs font-medium text-[var(--text-secondary)] pb-1.5">
+              {t("appearance.systemLightTheme.label")}
+            </div>
+            <ThemeSwatchRow
+              selected={appearance.systemLightTheme}
+              onSelect={(id) => updateSetting("systemLightTheme", id)}
+            />
+            <div className="text-xs font-medium text-[var(--text-secondary)] pb-1.5">
+              {t("appearance.systemDarkTheme.label")}
+            </div>
+            <ThemeSwatchRow
+              selected={appearance.systemDarkTheme}
+              onSelect={(id) => updateSetting("systemDarkTheme", id)}
+            />
+          </>
+        ) : (
+          <ThemeSwatchRow
+            selected={appearance.theme}
+            onSelect={(id) => updateSetting("theme", id)}
+          />
+        )}
+        <SettingRow
+          label={t("appearance.followSystem.label")}
+          description={t("appearance.followSystem.description")}
+        >
+          <Toggle
+            checked={followSystem}
+            onChange={(v) => updateSetting("followSystemAppearance", v)}
+          />
+        </SettingRow>
       </SettingsGroup>
 
       {/* Window */}

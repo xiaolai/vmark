@@ -39,6 +39,9 @@ export type FocusModeDim = "standard" | "strong" | "stronger";
 /** Visual appearance preferences — theme, fonts, spacing, and editor width. */
 export interface AppearanceSettings {
   theme: ThemeId;
+  followSystemAppearance: boolean; // Auto-switch with the OS light/dark preference (#1125)
+  systemLightTheme: ThemeId; // Theme used when the OS prefers light (follow-system on)
+  systemDarkTheme: ThemeId; // Theme used when the OS prefers dark (follow-system on)
   latinFont: string;
   cjkFont: string;
   monoFont: string;
