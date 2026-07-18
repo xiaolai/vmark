@@ -2,9 +2,9 @@
 /**
  * VMark MCP Server — pruned tool surface (5 editor tools + browser).
  *
- * Exposes VMark to AI assistants via the MCP protocol with six
+ * Exposes VMark to AI assistants via the MCP protocol with seven
  * composite tools: `session`, `workspace`, `document`, `workflow`,
- * `selection`, and `browser`. The legacy 12-tool surface (format/structure/media/table/etc.)
+ * `selection`, `browser`, and `coherence`. The legacy 12-tool surface (format/structure/media/table/etc.)
  * was removed in WI-1.5; `selection.{get,set}` was re-added per ADR-7
  * after the round-trip cost on large documents proved a real burden.
  * See dev-docs/plans/20260504-mcp-pruning.md for the full rationale.
@@ -42,6 +42,7 @@ export { registerDocumentTool } from './tools/document.js';
 export { registerWorkflowTool } from './tools/workflow.js';
 export { registerSelectionTool } from './tools/selection.js';
 export { registerBrowserTool } from './tools/browser.js';
+export { registerCoherenceTool } from './tools/coherence.js';
 
 export type {
   Bridge,
@@ -67,6 +68,7 @@ import { registerDocumentTool } from './tools/document.js';
 import { registerWorkflowTool } from './tools/workflow.js';
 import { registerSelectionTool } from './tools/selection.js';
 import { registerBrowserTool } from './tools/browser.js';
+import { registerCoherenceTool } from './tools/coherence.js';
 import type { Bridge } from './bridge/types.js';
 
 /**
@@ -88,6 +90,7 @@ export function createVMarkMcpServer(
   registerWorkflowTool(server);  // workflow (2 actions)
   registerSelectionTool(server); // selection (2 actions)
   registerBrowserTool(server);   // browser (5 actions: read, act, open, navigate, wait)
+  registerCoherenceTool(server); // coherence (2 read-only actions: status, edges)
 
   return server;
 }
@@ -131,6 +134,12 @@ export const TOOL_CATEGORIES = [
     description:
       'Read, act, open, navigate, and wait on the embedded browser tab; actions are approval-gated (5 actions)',
     tools: ['browser'],
+  },
+  {
+    name: 'Coherence',
+    description:
+      'Read-only workspace coherence view: kernel status counters and the stale/diverged edge breakdown (2 actions)',
+    tools: ['coherence'],
   },
 ] as const;
 

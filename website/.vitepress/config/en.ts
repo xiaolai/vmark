@@ -54,6 +54,7 @@ export const en = {
             { text: "Workspace Management", link: "/guide/workspace-management" },
             { text: "CJK Formatting", link: "/guide/cjk-formatting" },
             { text: "AI Genies", link: "/guide/ai-genies" },
+            { text: "Coherence & Breakdown View", link: "/guide/coherence" },
             { text: "Genie Workflows", link: "/guide/workflows" },
             { text: "AI Providers", link: "/guide/ai-providers" },
             { text: "MCP Setup", link: "/guide/mcp-setup" },

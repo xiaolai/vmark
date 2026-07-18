@@ -1,6 +1,6 @@
 # MCP Tools Reference
 
-VMark exposes **six composite MCP tools** to AI assistants: `session`, `workspace`, `document`, `workflow`, `selection`, and `browser`. Together they cover the editor spine, file/window lifecycle, CST-safe workflow edits, targeted selection edits, and bounded browser navigation.
+VMark exposes **seven composite MCP tools** to AI assistants: `session`, `workspace`, `document`, `workflow`, `selection`, `browser`, and `coherence`. Together they cover the editor spine, file/window lifecycle, CST-safe workflow edits, targeted selection edits, bounded browser navigation, and a read-only view of the workspace coherence layer.
 
 The previous 12-tool / 76-action surface was pruned because in-document formatting tools (bold, headings, tables, etc.) duplicate work that AI agents already do trivially via Markdown round-trip. `selection` was kept (per ADR-7 of the pruning plan) because the full-doc round-trip is uneconomical on large files — every edit pays the whole document in input tokens, the whole document in output tokens (~5× input price), and a longer write window that widens the stale-revision retry loop. See [the MCP pruning plan](https://github.com/xiaolai/vmark/blob/main/dev-docs/plans/20260504-mcp-pruning.md) for the full rationale.
 
@@ -403,6 +403,78 @@ layout and rendered state the ARIA snapshot cannot describe. It is captured nati
 Shared posture asks for destination approval for every new origin unless a matching
 `navigate` grant exists. A human-created tab requires an ephemeral attachment approval
 before AI read/act. Sandbox tabs use a separate non-persistent AI cookie store.
+
+---
+
+## `coherence`
+
+A **read-only** view of the workspace coherence layer — which derived documents are stale against the upstreams they were generated from. Neither action modifies documents, the ledger, or any editor state; both are answered entirely by the Rust backend from the per-workspace kernel, so they work even when no editor window is in the foreground.
+
+Both actions require `workspace_root`: the absolute path of the workspace to query. Learn it from `session.get_state` (open tabs' `filePath`) or the workspace tool. A path that is missing, not absolute, or not a directory is refused with a plain-string error.
+
+### `status`
+
+Kernel status counters for one workspace.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `workspace_root` | string | Yes | Absolute path of the workspace to query |
+
+**Returns:**
+
+```json
+{
+  "initialized": true,
+  "objects": 12,
+  "open_items": 2,
+  "quarantined": 0,
+  "writer": "0198c0de-0000-7000-8000-000000000001"
+}
+```
+
+| Field | Meaning |
+|---|---|
+| `initialized` | `false` when the workspace has no coherence ledger yet (no `.vmark/` directory). All counters except `objects` are 0 in that case. |
+| `objects` | Tracked objects (files with a coherence identity). |
+| `open_items` | Live, non-fresh edges — the current breakdown size. |
+| `quarantined` | Malformed ledger lines quarantined on the last read. |
+| `writer` | This installation's writer id (UUID). |
+
+### `edges`
+
+The breakdown: every live dependency edge whose upstream has moved. Runs a scan-reconcile first, so the answer reflects the files on disk at call time.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `workspace_root` | string | Yes | Absolute path of the workspace to query |
+
+**Returns** an array — empty when everything is coherent:
+
+```json
+[
+  {
+    "txf": "0198c0de-0000-7000-8000-00000000000a",
+    "input": 0,
+    "upstream": "0198c0de-0000-7000-8000-00000000000b",
+    "upstream_path": "characters/elena.md",
+    "pinned": "rev-a1b2c3",
+    "downstream": "0198c0de-0000-7000-8000-00000000000c",
+    "downstream_path": "scenes/chapter-3.md",
+    "downstream_rev": "rev-d4e5f6",
+    "state": "version-stale"
+  }
+]
+```
+
+| Field | Meaning |
+|---|---|
+| `txf` / `input` | The transformation entry and input slot identifying this edge (pass these to the in-app resolution actions). |
+| `upstream` / `upstream_path` | The object the downstream depends on, and its last-known path. |
+| `pinned` | The upstream revision the downstream was generated from. |
+| `downstream` / `downstream_path` / `downstream_rev` | The derived object, its path, and its current revision. |
+| `state` | `"version-stale"`, `"stale-valid"`, `"stale-contradicted"`, `"stale-unknown"`, `"waived"`, `"diverged"`, `"diverged-multi-head"`, or `"unpinnable"`. |
+
+Resolving an edge (accept-newer / waive) is a human action performed in VMark's breakdown view — it is deliberately not exposed over MCP.
 
 ---
 
