@@ -32,6 +32,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { startGrantSync } from "@/services/browser/grantSync";
 import { startCoherenceScanOnChange } from "@/services/coherence/scanOnChange";
+import { startWindowWorkspaceSync } from "@/services/mcpBridge/windowWorkspaceSync";
 import { startBrowserAiPolicySync } from "@/services/browser/browserAiPolicySync";
 
 const EXPORT_BINDINGS: MenuCommandBinding[] = [
@@ -113,6 +114,7 @@ export function useCommandBootstrap(): void {
     // default-deny — safe, but the user's approvals would never take effect.
     const stopGrantSync = startGrantSync();
     const stopCoherenceScan = startCoherenceScanOnChange();
+    const stopWindowWorkspaceSync = startWindowWorkspaceSync();
     const stopBrowserAiPolicySync = startBrowserAiPolicySync();
 
     // Keep the native "New Browser Tab" menu item in step with the setting (WI-S0.5).
@@ -179,6 +181,7 @@ export function useCommandBootstrap(): void {
       if (unlisten) unlisten();
       stopGrantSync();
       stopCoherenceScan();
+      stopWindowWorkspaceSync();
       stopBrowserAiPolicySync();
       stopBrowserMenuSync();
     };

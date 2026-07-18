@@ -477,7 +477,7 @@ phase_3() {
   echo "— WI-3.2: provenance recovery UI (kernel candidates + confirm flow) —"
   assert_grep "perform_provenance_candidates" src-tauri/src/coherence/provenance.rs "candidates query"
   assert_file src/components/BreakdownPanel/ProvenanceGroup.tsx "provenance group component"
-  assert_grep "confirmInputs" src/services/breakdown/breakdownService.ts "confirm service (idem minted client-side)"
+  assert_grep "confirmInputs" src/services/breakdown/semanticActs.ts "confirm service (idem minted client-side)"
   if [[ "${SKIP_TESTS:-}" != "1" ]]; then
     if pnpm vitest run src/components/BreakdownPanel/BreakdownPanel.test.tsx --silent >/dev/null 2>&1; then
       ok "WI-3.2 breakdown suite green"
@@ -533,7 +533,7 @@ phase_3() {
   echo "— WI-3.5 (resolve): delegated MCP resolution —"
   assert_grep "vmark.coherence.resolve" src-tauri/src/mcp_bridge/coherence_answers.rs "resolve arm, principal-bound"
   assert_grep "perform_resolve_as" src-tauri/src/coherence/commands.rs "actor-generic resolve with audit ref"
-  assert_grep "let principal = {" src-tauri/src/mcp_bridge/server.rs "authenticated principal plumbed from the bridge"
+  assert_grep "authenticated_principal" src-tauri/src/mcp_bridge/server.rs "authenticated principal plumbed from the bridge"
   if [[ "${SKIP_TESTS:-}" != "1" ]]; then
     if cargo test --manifest-path src-tauri/Cargo.toml --lib mcp_bridge::routing --quiet >/dev/null 2>&1; then
       ok "WI-3.5 delegated-resolve suite green"
@@ -544,7 +544,24 @@ phase_3() {
     fail "SKIP_TESTS=1 set — WI-3.5 suite not run"
   fi
 
-  local PENDING=(3.5-f5f6 3.6-ui 3.7 3.8 3.9)
+  echo "— WI-3.5 F5/F6: bridge routing + disconnect safety —"
+  assert_file src-tauri/src/mcp_bridge/window_routing.rs "workspace-aware routing (pure)"
+  assert_grep "pick_target_window" src-tauri/src/mcp_bridge/routing.rs "router consults the workspace map"
+  assert_grep "mcp_bridge_set_window_workspace" src-tauri/src/command_registry.rs "window→workspace registration command"
+  assert_file src/services/mcpBridge/windowWorkspaceSync.ts "frontend registers this window's workspace"
+  assert_grep "disconnect_preserves_window_workspaces" src-tauri/src/mcp_bridge/server.test.rs "F6 guarantee locked"
+  if [[ "${SKIP_TESTS:-}" != "1" ]]; then
+    if cargo test --manifest-path src-tauri/Cargo.toml --lib mcp_bridge --quiet >/dev/null 2>&1 \
+       && pnpm vitest run src/services/mcpBridge/windowWorkspaceSync.test.ts --silent >/dev/null 2>&1; then
+      ok "WI-3.5 F5/F6 suites green"
+    else
+      fail "WI-3.5 F5/F6 suites red"
+    fi
+  else
+    fail "SKIP_TESTS=1 set — WI-3.5 F5/F6 suites not run"
+  fi
+
+  local PENDING=(3.6-ui 3.7 3.8 3.9)
   echo "— pending WIs (fail-closed until implemented) —"
   for wi in "${PENDING[@]}"; do
     fail "WI-$wi assertions not yet defined (fail-closed)"

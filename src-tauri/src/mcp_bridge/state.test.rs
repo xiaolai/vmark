@@ -323,6 +323,7 @@ fn local_state() -> BridgeState {
         clients: HashMap::new(),
         pending: HashMap::new(),
         next_client_id: 1,
+        window_workspaces: HashMap::new(),
     }
 }
 

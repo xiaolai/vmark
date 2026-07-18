@@ -319,6 +319,47 @@ async fn unknown_target_window_answers_client_with_error() {
     assert!(!response.success);
     assert_eq!(
         response.error.as_deref(),
-        Some("Target window 'doc-nonexistent' not found")
+        // F5 (WI-3.5): an explicit unknown window now fails loud at
+        // routing, before the emit stage, with a clearer message.
+        Some("requested window 'doc-nonexistent' is not open")
     );
+}
+
+// WI-3.5 F6 — disconnect cleanup is ownership-and-workspace-safe. The
+// bridge removes only the client record on disconnect; it never closes
+// tabs and never drops a window's workspace registration. Session 3's F6
+// symptom was manual localStorage manipulation, not bridge behavior —
+// this locks the guarantee so no future change silently regresses it.
+#[cfg(not(target_os = "windows"))]
+#[tokio::test]
+async fn disconnect_preserves_window_workspaces() {
+    let _lock = global_state_test_lock().lock().await;
+    let _rx = register_test_client(9101).await;
+    {
+        let state = get_bridge_state();
+        let mut guard = state.lock().await;
+        guard
+            .window_workspaces
+            .insert("doc-0".into(), "/repo".into());
+    }
+
+    // Simulate the disconnect cleanup: remove the client record only.
+    remove_test_client(9101).await;
+
+    let state = get_bridge_state();
+    let guard = state.lock().await;
+    assert_eq!(
+        guard.window_workspaces.get("doc-0").map(String::as_str),
+        Some("/repo"),
+        "a client disconnect must never drop a window's workspace"
+    );
+    assert!(
+        !guard.clients.contains_key(&9101),
+        "the client record is gone, but only the client record"
+    );
+    drop(guard);
+    // Clean up the shared map so other tests start clean.
+    let state = get_bridge_state();
+    let mut guard = state.lock().await;
+    guard.window_workspaces.remove("doc-0");
 }

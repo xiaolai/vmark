@@ -17,6 +17,7 @@ mod routing;
 mod server;
 mod state;
 mod types;
+mod window_routing;
 
 // Re-export public API used by other modules (mcp_server.rs, lib.rs)
 pub use commands::{client_count, connected_clients};
