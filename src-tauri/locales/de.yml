@@ -188,6 +188,7 @@ menu:
   window: "Fenster"
   window.bringAllToFront: "Alle nach vorne bringen"
   window.status: "Fensterstatus"
+  window.breakdown: "Kohärenz-Aufschlüsselung"
 
   # === Help menu ===
   help: "Hilfe"

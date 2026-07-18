@@ -1,0 +1,28 @@
+{
+  "title": "Détail de cohérence",
+  "refresh": "Actualiser",
+  "loading": "Chargement…",
+  "error": "Impossible de charger le détail",
+  "empty": "Tout est cohérent",
+  "capNotice": "{{shown}} arêtes affichées sur {{total}}",
+  "actions": {
+    "acceptNewer": "Accepter la plus récente",
+    "revise": "Réviser",
+    "waive": "Exempter"
+  },
+  "waiveReasonPlaceholder": "Motif (obligatoire)",
+  "waiveConfirm": "Confirmer l'exemption",
+  "disabledMultiHead": "La source a plusieurs versions actives — révisez ou épinglez une version d'abord",
+  "disabledUnpinnable": "La source n'est pas résoluble dans ce contexte",
+  "reviseUnavailable": "Aucun chemin de fichier connu pour cet artefact",
+  "states": {
+    "versionStale": "Version obsolète",
+    "staleValid": "Obsolète — vérifiée valide",
+    "staleContradicted": "Obsolète — contredite",
+    "staleUnknown": "Obsolète — non vérifiée",
+    "waived": "Exemptée",
+    "diverged": "Divergente",
+    "divergedMultiHead": "Divergente (plusieurs versions)",
+    "unpinnable": "Non épinglable"
+  }
+}

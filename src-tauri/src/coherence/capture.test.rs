@@ -1,11 +1,12 @@
-// WI-1.6 — capture: the editor-save vertical slice (save → identity →
-// snapshot → ledger → index → restart → identical), input resolution
+// WI-1.6 (WI-1.6a vertical slice; WI-1.6b adapters) — capture: the
+// editor-save vertical slice (save → identity → snapshot → ledger →
+// index → restart → identical), input resolution
 // with validation and on-the-fly adoption, no-op saves, and the
 // append-only property over the full flow.
 
 use super::*;
 use crate::coherence::state::WorkspaceKernel;
-use crate::coherence::types::WriterId;
+use crate::coherence::types::{AgentType, WriterId};
 use std::path::Path;
 
 const NOW: &str = "2026-07-18T12:00:00Z";

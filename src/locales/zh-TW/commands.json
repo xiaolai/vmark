@@ -59,7 +59,8 @@
     "zoomIn": "放大",
     "zoomOut": "縮小",
     "toggleShowInvisibles": "切換顯示隱形字元",
-    "toggleWindowStatus": "視窗狀態"
+    "toggleWindowStatus": "視窗狀態",
+    "toggleBreakdown": "一致性明細"
   },
   "lint": {
     "check": "檢查 Markdown",

@@ -1,0 +1,28 @@
+{
+  "title": "Detalhamento de coerência",
+  "refresh": "Atualizar",
+  "loading": "Carregando…",
+  "error": "Não foi possível carregar o detalhamento",
+  "empty": "Tudo coerente",
+  "capNotice": "Mostrando {{shown}} de {{total}} arestas",
+  "actions": {
+    "acceptNewer": "Aceitar mais recente",
+    "revise": "Revisar",
+    "waive": "Isentar"
+  },
+  "waiveReasonPlaceholder": "Motivo (obrigatório)",
+  "waiveConfirm": "Confirmar isenção",
+  "disabledMultiHead": "A origem tem várias versões ativas — revise ou fixe uma versão primeiro",
+  "disabledUnpinnable": "A origem não pode ser resolvida neste contexto",
+  "reviseUnavailable": "Nenhum caminho de arquivo conhecido para este artefato",
+  "states": {
+    "versionStale": "Versão desatualizada",
+    "staleValid": "Desatualizado — verificado válido",
+    "staleContradicted": "Desatualizado — contradito",
+    "staleUnknown": "Desatualizado — não verificado",
+    "waived": "Isento",
+    "diverged": "Divergente",
+    "divergedMultiHead": "Divergente (várias versões)",
+    "unpinnable": "Não fixável"
+  }
+}

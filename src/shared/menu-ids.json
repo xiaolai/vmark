@@ -102,6 +102,7 @@
     "audio",
     "bold",
     "bookmark",
+    "breakdown",
     "bring-all-to-front",
     "check-markdown",
     "cleanup-images",
@@ -241,5 +242,5 @@
     "zoom-in",
     "zoom-out"
   ],
-  "generatedAt": "2026-07-14T05:47:21.697Z"
+  "generatedAt": "2026-07-18T08:37:00.317Z"
 }

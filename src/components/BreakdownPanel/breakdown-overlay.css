@@ -1,0 +1,7 @@
+/* Breakdown panel mount (WI-1.9b) — floating, top-right, above content. */
+.breakdown-overlay {
+  position: fixed;
+  top: var(--space-10);
+  right: var(--space-3);
+  z-index: var(--z-popup);
+}

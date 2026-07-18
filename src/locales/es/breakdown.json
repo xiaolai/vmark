@@ -1,0 +1,28 @@
+{
+  "title": "Desglose de coherencia",
+  "refresh": "Actualizar",
+  "loading": "Cargando…",
+  "error": "No se pudo cargar el desglose",
+  "empty": "Todo coherente",
+  "capNotice": "Mostrando {{shown}} de {{total}} aristas",
+  "actions": {
+    "acceptNewer": "Aceptar más reciente",
+    "revise": "Revisar",
+    "waive": "Eximir"
+  },
+  "waiveReasonPlaceholder": "Motivo (obligatorio)",
+  "waiveConfirm": "Confirmar exención",
+  "disabledMultiHead": "La fuente tiene varias versiones activas — revísala o fija una versión primero",
+  "disabledUnpinnable": "La fuente no se puede resolver en este contexto",
+  "reviseUnavailable": "No se conoce la ruta de archivo de este artefacto",
+  "states": {
+    "versionStale": "Versión obsoleta",
+    "staleValid": "Obsoleta — verificada válida",
+    "staleContradicted": "Obsoleta — contradicha",
+    "staleUnknown": "Obsoleta — sin verificar",
+    "waived": "Eximida",
+    "diverged": "Divergente",
+    "divergedMultiHead": "Divergente (varias versiones)",
+    "unpinnable": "No fijable"
+  }
+}

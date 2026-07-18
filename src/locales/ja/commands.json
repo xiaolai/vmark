@@ -59,7 +59,8 @@
     "zoomIn": "拡大",
     "zoomOut": "縮小",
     "toggleShowInvisibles": "不可視文字を切り替え",
-    "toggleWindowStatus": "ウィンドウの状態"
+    "toggleWindowStatus": "ウィンドウの状態",
+    "toggleBreakdown": "整合性の内訳"
   },
   "lint": {
     "check": "Markdown をチェック",

@@ -12,15 +12,18 @@
 //! append-only records (I5). No module exposes a mutating API over
 //! recorded history — the only writes are appends.
 
+pub mod adopt;
 pub mod canonical;
 pub mod capture;
 pub mod cas;
 pub mod commands;
 pub mod dag;
+pub mod envelope;
 pub mod frontmatter;
 pub mod gitops;
 pub mod index;
 pub mod index_query;
+pub mod index_row;
 pub mod ledger;
 pub mod project;
 pub mod scan;

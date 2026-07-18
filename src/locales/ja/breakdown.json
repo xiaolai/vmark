@@ -1,0 +1,28 @@
+{
+  "title": "整合性の内訳",
+  "refresh": "更新",
+  "loading": "読み込み中…",
+  "error": "内訳を読み込めませんでした",
+  "empty": "すべて整合しています",
+  "capNotice": "{{total}} 件中 {{shown}} 件を表示",
+  "actions": {
+    "acceptNewer": "新しい版を受け入れる",
+    "revise": "改訂",
+    "waive": "免除"
+  },
+  "waiveReasonPlaceholder": "理由（必須）",
+  "waiveConfirm": "免除を確定",
+  "disabledMultiHead": "上流に複数の現行版があります — まず改訂するか、いずれかの版を固定してください",
+  "disabledUnpinnable": "上流はこのコンテキストで解決できません",
+  "reviseUnavailable": "このアーティファクトのファイルパスが不明です",
+  "states": {
+    "versionStale": "版が古い",
+    "staleValid": "古い — 検証済みで有効",
+    "staleContradicted": "古い — 矛盾あり",
+    "staleUnknown": "古い — 未検証",
+    "waived": "免除済み",
+    "diverged": "分岐",
+    "divergedMultiHead": "分岐（複数の現行版）",
+    "unpinnable": "固定不可"
+  }
+}

@@ -113,6 +113,7 @@ function globSyncish(name: string): string[] {
     QuickLookOverlay: "src/components/QuickLook/QuickLookOverlay.tsx",
     KnowledgeBaseOverlay: "src/components/KnowledgeBasePanel/KnowledgeBaseOverlay.tsx",
     WindowStatusOverlay: "src/components/WindowStatusPanel/WindowStatusOverlay.tsx",
+    BreakdownOverlay: "src/components/BreakdownPanel/BreakdownOverlay.tsx",
     ApprovalDialog: "src/components/WorkflowApproval/ApprovalDialog.tsx",
     TabContextMenu: "src/components/Tabs/TabContextMenu.tsx",
     WordCountPopover: "src/components/StatusBar/WordCountPopover.tsx",

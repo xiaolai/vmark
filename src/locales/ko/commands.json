@@ -59,7 +59,8 @@
     "zoomIn": "확대",
     "zoomOut": "축소",
     "toggleShowInvisibles": "숨은 문자 전환",
-    "toggleWindowStatus": "창 상태"
+    "toggleWindowStatus": "창 상태",
+    "toggleBreakdown": "정합성 내역"
   },
   "lint": {
     "check": "Markdown 검사",

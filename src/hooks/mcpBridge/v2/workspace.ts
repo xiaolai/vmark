@@ -26,12 +26,9 @@
  * @module hooks/mcpBridge/v2/workspace
  */
 
-import { readTextFile, writeTextFile } from "@tauri-apps/plugin-fs";
+import { readTextFile } from "@tauri-apps/plugin-fs";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
-import { useRevisionStore } from "@/stores/documentStore";
-import { registerPendingSave, clearPendingSave } from "@/utils/pendingSaves";
-import { captureMcpWrite } from "@/services/coherence/captureFunnel";
 import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import { checkBridgePath } from "@/services/mcpBridge/bridgePathGuard";
 import { respond } from "../utils";
@@ -119,99 +116,7 @@ export async function handleWorkspaceOpen(
     await respond({ id, success: true, data: { tabId } });
   });
 }
-
-interface SaveResolution {
-  tabId: string;
-  filePath: string;
-  content: string;
-}
-
-function resolveTabForSave(
-  tabIdArg: string | undefined,
-): SaveResolution | V2Error {
-  const tabState = useTabStore.getState();
-  const docState = useDocumentStore.getState();
-
-  let tabId: string;
-  if (tabIdArg) {
-    if (
-      !Object.values(tabState.tabs).some((list) =>
-        list.some((t) => t.id === tabIdArg),
-      )
-    ) {
-      return { error: "INVALID_TAB", message: "Unknown tabId" };
-    }
-    tabId = tabIdArg;
-  } else {
-    const focused = getCurrentWindowLabel();
-    const active = tabState.activeTabId[focused];
-    if (!active) {
-      return { error: "INVALID_TAB", message: "No focused tab" };
-    }
-    tabId = active;
-  }
-  const doc = docState.documents[tabId];
-  if (!doc) {
-    return { error: "INVALID_TAB", message: "No document for tab" };
-  }
-  if (!doc.filePath) {
-    return {
-      error: "INVALID_PATH",
-      message: "Tab has no filePath; use save_as instead",
-    };
-  }
-  return { tabId, filePath: doc.filePath, content: doc.content };
-}
-
-/**
- * Handle `vmark.workspace.save`. Args: `{tabId?: string}`.
- */
-export async function handleWorkspaceSave(
-  id: string,
-  args: Record<string, unknown>,
-): Promise<void> {
-  return wrapHandler(id, async () => {
-    const tabIdArg =
-      typeof args.tabId === "string" ? args.tabId : undefined;
-    const resolved = resolveTabForSave(tabIdArg);
-    if ("error" in resolved) {
-      await structuredError(id, resolved);
-      return;
-    }
-    // Defense in depth: a tab's own path is always within an allowed root,
-    // but guard the write anyway so every bridge disk write goes through the
-    // same scope check.
-    const saveDecision = await checkBridgePath(resolved.filePath);
-    if (!saveDecision.allowed) {
-      await structuredError(id, {
-        error: "INVALID_PATH",
-        message: saveDecision.reason,
-      });
-      return;
-    }
-    const saveToken = registerPendingSave(resolved.filePath, resolved.content);
-    try {
-      await writeTextFile(resolved.filePath, resolved.content);
-      useDocumentStore
-        .getState()
-        .markSaved(resolved.tabId, resolved.content);
-      // Coherence (WI-1.6): inferred capture, session-read inputs.
-      void captureMcpWrite({
-        absolutePath: resolved.filePath,
-        content: resolved.content,
-        toolName: "workspace.save",
-      }).catch(() => {});
-    } finally {
-      clearPendingSave(resolved.filePath, saveToken);
-    }
-    const revision = useRevisionStore.getState().getRevision(resolved.tabId);
-    await respond({
-      id,
-      success: true,
-      data: { filePath: resolved.filePath, revision },
-    });
-  });
-}
+export { handleWorkspaceSave } from "./workspaceSave";
 
 /**
  * Handle `vmark.workspace.close`.

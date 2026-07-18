@@ -1,0 +1,28 @@
+{
+  "title": "Coherence Breakdown",
+  "refresh": "Refresh",
+  "loading": "Loading…",
+  "error": "Couldn't load the breakdown",
+  "empty": "Everything coherent",
+  "capNotice": "Showing {{shown}} of {{total}} edges",
+  "actions": {
+    "acceptNewer": "Accept newer",
+    "revise": "Revise",
+    "waive": "Waive"
+  },
+  "waiveReasonPlaceholder": "Reason (required)",
+  "waiveConfirm": "Confirm waiver",
+  "disabledMultiHead": "Upstream has multiple live heads — revise or pin a head first",
+  "disabledUnpinnable": "Upstream is not resolvable in this context",
+  "reviseUnavailable": "No file path known for this artifact",
+  "states": {
+    "versionStale": "Version stale",
+    "staleValid": "Stale — checked valid",
+    "staleContradicted": "Stale — contradicted",
+    "staleUnknown": "Stale — unchecked",
+    "waived": "Waived",
+    "diverged": "Diverged",
+    "divergedMultiHead": "Diverged (multiple heads)",
+    "unpinnable": "Unpinnable"
+  }
+}

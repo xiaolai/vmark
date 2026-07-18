@@ -22,11 +22,9 @@ vi.stubGlobal("__VMARK_VERSION__", "0.0.0-test");
 // genuinely need ResizeObserver (xyflow in WorkflowCanvas) provide their own
 // local, callback-firing shim. matchMedia is likewise shimmed per-test.
 
-// ---------------------------------------------------------------------------
 // react-i18next global mock
 // Makes t(key, opts) return the English translation string with interpolations
 // applied, so component tests can assert against real English text.
-// ---------------------------------------------------------------------------
 import commonEn from "../locales/en/common.json";
 import menuEn from "../locales/en/menu.json";
 import statusbarEn from "../locales/en/statusbar.json";
@@ -37,6 +35,7 @@ import editorEn from "../locales/en/editor.json";
 import dialogEn from "../locales/en/dialog.json";
 import exportEn from "../locales/en/export.json";
 import workflowEditorEn from "../locales/en/workflowEditor.json";
+import breakdownEn from "../locales/en/breakdown.json";
 
 const localeMap: Record<string, Record<string, unknown>> = {
   common: commonEn as Record<string, unknown>,
@@ -49,6 +48,7 @@ const localeMap: Record<string, Record<string, unknown>> = {
   dialog: dialogEn as Record<string, unknown>,
   export: exportEn as Record<string, unknown>,
   workflowEditor: workflowEditorEn as Record<string, unknown>,
+  breakdown: breakdownEn as Record<string, unknown>,
 };
 
 function applyInterpolation(template: string, opts?: Record<string, unknown>): string {
