@@ -21,7 +21,7 @@
  *
  * @coordinates-with stores/tabStore.ts — createTab, closeTab, setActiveTab
  * @coordinates-with stores/documentStore.ts — initDocument, markSaved
- * @coordinates-with utils/saveToPath.ts — disk write with revision tracking
+ * @coordinates-with workspaceSave.ts — the extracted `save` handler (re-exported here)
  * @coordinates-with services/persistence/workspaceStorage.ts — getCurrentWindowLabel
  * @module hooks/mcpBridge/v2/workspace
  */

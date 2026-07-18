@@ -51,6 +51,9 @@ export interface CaptureWriteArgs {
   intent: { kind: string; summary: string };
   /** Defaults to "exact" (in-app paths); MCP writes pass "inferred". */
   confidence?: "exact" | "inferred";
+  /** False = record the revision without rewriting the file's identity
+   *  block on disk (empty explorer-created files; live buffers). */
+  rewriteIdentity?: boolean;
 }
 
 export interface CoherenceCaptureReceipt {
@@ -89,6 +92,7 @@ export async function captureWrite(
         agent: args.agent,
         intent: args.intent,
         confidence: args.confidence ?? "exact",
+        rewrite_identity: args.rewriteIdentity ?? true,
       },
     });
     if (receipt.content_with_identity) {

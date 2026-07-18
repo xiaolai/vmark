@@ -41,6 +41,7 @@ import { showError, FileErrors } from "@/services/dialogs/errorDialog";
 import { emitOpenFileInCurrentWindow } from "@/services/navigation/openFileEvent";
 import { fileExplorerError } from "@/utils/debug";
 import { fileExtensionOf, renameFile } from "@/services/persistence/renameFile";
+import { captureWrite } from "@/services/coherence/captureFunnel";
 
 // Re-entry guards
 const isCreatingRef = { current: false };
@@ -65,6 +66,15 @@ export function useExplorerOperations() {
         }
 
         await writeTextFile(filePath, "");
+        // Coherence (WI-1.6): register the object from birth without
+        // rewriting the fresh empty file (identity lands on first save).
+        void captureWrite({
+          absolutePath: filePath,
+          content: "",
+          agent: { type: "human" },
+          intent: { kind: "explorer-new-file", summary: "new file" },
+          rewriteIdentity: false,
+        }).catch(() => {});
         return filePath;
       } catch (error) {
         fileExplorerError(" Failed to create file:", error);

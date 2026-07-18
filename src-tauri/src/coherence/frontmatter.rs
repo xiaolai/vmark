@@ -54,6 +54,15 @@ pub fn read_identity(text: &str) -> Option<FileIdentity> {
     None
 }
 
+/// Spec §2.1: an opening fence with no closing fence is malformed
+/// frontmatter — content, not identity; capture surfaces a diagnostic.
+pub fn has_malformed_frontmatter(text: &str) -> bool {
+    match text.strip_prefix("---\n") {
+        Some(after) => !(after.contains("\n---\n") || after.ends_with("\n---")),
+        None => false,
+    }
+}
+
 /// Mint a fresh UUIDv7 identity and insert it (spec §2.1). Returns the
 /// rewritten content and the identity. By §3.3 the rewrite never changes
 /// the content hash — tested against `text_content_hash`.

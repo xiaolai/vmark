@@ -79,6 +79,7 @@ describe("captureWrite", () => {
         agent: { type: "human" },
         intent: { kind: "editor-save", summary: "manual save" },
         confidence: "exact",
+        rewrite_identity: true,
       },
     });
   });

@@ -81,6 +81,19 @@ pub fn capture(
         Some(fi) => (req.content.clone(), fi, None),
         None => {
             let registry = kernel.index().registry_state()?;
+            let newly_adopted = !registry.object_at.contains_key(&req.path);
+            if newly_adopted && super::frontmatter::has_malformed_frontmatter(&req.content) {
+                let env = Envelope::create(
+                    "diagnostic",
+                    kernel.writer(),
+                    serde_json::json!({
+                        "code": "malformed-frontmatter",
+                        "message": "unterminated frontmatter fence — treated as content, identity block added above it (spec §2.1)",
+                        "path": req.path,
+                    }),
+                );
+                kernel.append_and_apply(&env)?;
+            }
             let (content, fi) = match registry.object_at.get(&req.path) {
                 Some(existing) => {
                     let schema = registry.schema_of.get(existing).cloned().flatten();

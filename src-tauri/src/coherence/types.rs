@@ -1,8 +1,9 @@
 //! Core kernel types (pure — ADR-C4). Wire formats per spec §2 and §5.
 //!
-//! Purpose: identity newtypes with validated constructors, the ledger
-//! entry envelope, and typed entry bodies. History immutability (I2/I5)
-//! is enforced at the ledger API layer; these are immutable value types.
+//! Purpose: identity newtypes with validated constructors and the spec §5
+//! body types (the entry envelope + typed dispatch live in `envelope.rs`,
+//! re-exported here). History immutability (I2/I5) is enforced at the
+//! ledger API layer; these are immutable value types.
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};

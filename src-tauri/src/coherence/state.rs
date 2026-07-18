@@ -121,6 +121,34 @@ impl WorkspaceKernel {
     pub fn ledger(&self) -> &Ledger {
         &self.ledger
     }
+
+    /// Read + verify a snapshot (spec §4.3): Missing/Corrupt append a
+    /// durable diagnostic and return an explicit error — never silently
+    /// empty content.
+    pub fn read_snapshot(&mut self, hash: &super::types::ContentHash) -> Result<Vec<u8>, String> {
+        use super::cas::CasError;
+        match self.snapshots.get(hash) {
+            Ok(bytes) => Ok(bytes),
+            Err(err) => {
+                let code = match err {
+                    CasError::Missing => "snapshot-missing",
+                    CasError::Corrupt => "snapshot-corrupt",
+                    CasError::Io(_) => "snapshot-io",
+                };
+                let env = super::types::Envelope::create(
+                    "diagnostic",
+                    self.writer,
+                    serde_json::json!({
+                        "code": code,
+                        "message": format!("snapshot {}: {err}", hash.as_str()),
+                        "path": null,
+                    }),
+                );
+                let _ = self.append_and_apply(&env); // best-effort, never masks the read error
+                Err(format!("snapshot read failed ({code}): {err}"))
+            }
+        }
+    }
 }
 
 /// One kernel per workspace root, lazily created, shared across windows.
