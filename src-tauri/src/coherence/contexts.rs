@@ -115,7 +115,9 @@ impl ContextSet {
     /// The child→parent chain for `id`, or a structural error (unknown
     /// id, cycle, overflow). The default context has an empty chain.
     fn chain(&self, id: Uuid) -> Result<Vec<&ContextManifest>, ContextError> {
-        if id == DEFAULT_CONTEXT_ID {
+        // The implicit default exists without a manifest; a materialized
+        // `default.json` (spec §6) joins the walk like any other context.
+        if id == DEFAULT_CONTEXT_ID && !self.manifests.contains_key(&id) {
             return Ok(Vec::new());
         }
         let mut chain = Vec::new();
