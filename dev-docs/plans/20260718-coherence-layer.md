@@ -1,9 +1,11 @@
 # Plan: Coherence Layer — Kernel + Breakdown View (Phases 0–1, later phases outlined)
 
-- **Status:** Phase 0 in progress (spec + G1/G2 + S1 done; S2–S4 running).
-  **Codex cross-model review completed and dispositioned — see "Cross-model
-  review" section** (rule 60 §6). Phase 1 may start once Phase 0's DoD is
-  green (`bash scripts/check-coherence-phase.sh 0`).
+- **Status:** **Phase 0 complete** (`check-coherence-phase.sh 0` → 42/42,
+  2026-07-18): spec written, G1/G2 PASS, S1–S4 PASS (M3 baseline 88.9%),
+  evidence gaps closed, M1–M5 baselines set. Codex cross-model review
+  completed, dispositioned, final verdict READY TO BUILD (rule 60 §6).
+  **Phase 1 in progress** — kernel storage/pure tiers landed (WI-1.1
+  through WI-1.5 committed with tests).
 - **Date:** 2026-07-18 (amended same day after Codex review)
 - **Contract:** `dev-docs/coherence-layer-paper.md` **v1.1** (Codex-reviewed,
   Appendix A). All WIs trace to the paper's R1–R33, I1–I5, O1–O9, M1–M5, and

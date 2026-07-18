@@ -1,0 +1,854 @@
+{
+  "summary": {
+    "spike": "S3",
+    "date": "2026-07-18T07:06:08.286Z",
+    "model": "claude-fable-5",
+    "scenes_total": 10,
+    "scenes_parsed": 10,
+    "scenes_malformed": 0,
+    "per_role": {
+      "direct": {
+        "tp": 16,
+        "fp": 2,
+        "fn": 0,
+        "precision": 0.8889,
+        "recall": 1
+      },
+      "contextual": {
+        "tp": 10,
+        "fp": 9,
+        "fn": 0,
+        "precision": 0.5263,
+        "recall": 1
+      },
+      "unrelated": {
+        "tp": 23,
+        "fp": 0,
+        "fn": 11,
+        "precision": 1,
+        "recall": 0.6765
+      }
+    },
+    "false_direct_edges": [
+      {
+        "scene": "scene-05",
+        "doc": "world-rules.md",
+        "truth": "unrelated"
+      },
+      {
+        "scene": "scene-10",
+        "doc": "elena.md",
+        "truth": "unrelated"
+      }
+    ],
+    "missed_direct_edges": [],
+    "trap_outcomes": [
+      {
+        "scene": "scene-04",
+        "trap_doc": "marcus.md",
+        "trap_kind": "mention-without-dependency",
+        "predicted": "contextual",
+        "fooled": false
+      },
+      {
+        "scene": "scene-07",
+        "trap_doc": "guild-law.md",
+        "trap_kind": "mention-without-dependency",
+        "predicted": "contextual",
+        "fooled": false
+      },
+      {
+        "scene": "scene-10",
+        "trap_doc": "elena.md",
+        "trap_kind": "epithet-echo-without-dependency",
+        "predicted": "direct",
+        "fooled": true
+      }
+    ],
+    "total_cost_usd": 5.8527
+  },
+  "results": [
+    {
+      "scene": "scene-01",
+      "ground_truth": {
+        "direct": [
+          "elena.md",
+          "timeline.md"
+        ],
+        "contextual": [
+          "style.md"
+        ],
+        "unrelated": [
+          "marcus.md",
+          "world-rules.md",
+          "guild-law.md"
+        ]
+      },
+      "difficulty": "easy",
+      "trap": null,
+      "model_raw": "{\"direct\": [\"elena.md\", \"timeline.md\"], \"contextual\": [\"style.md\"], \"unrelated\": [\"marcus.md\", \"world-rules.md\", \"guild-law.md\"]}",
+      "call_error": null,
+      "model": "claude-fable-5",
+      "duration_ms": 20222,
+      "cost_usd": 0.5799350000000001,
+      "verdict": "parsed",
+      "answer": {
+        "direct": [
+          "elena.md",
+          "timeline.md"
+        ],
+        "contextual": [
+          "style.md"
+        ],
+        "unrelated": [
+          "marcus.md",
+          "world-rules.md",
+          "guild-law.md"
+        ]
+      },
+      "per_doc": [
+        {
+          "doc": "elena.md",
+          "truth": "direct",
+          "predicted": "direct",
+          "match": true
+        },
+        {
+          "doc": "marcus.md",
+          "truth": "unrelated",
+          "predicted": "unrelated",
+          "match": true
+        },
+        {
+          "doc": "world-rules.md",
+          "truth": "unrelated",
+          "predicted": "unrelated",
+          "match": true
+        },
+        {
+          "doc": "guild-law.md",
+          "truth": "unrelated",
+          "predicted": "unrelated",
+          "match": true
+        },
+        {
+          "doc": "timeline.md",
+          "truth": "direct",
+          "predicted": "direct",
+          "match": true
+        },
+        {
+          "doc": "style.md",
+          "truth": "contextual",
+          "predicted": "contextual",
+          "match": true
+        }
+      ]
+    },
+    {
+      "scene": "scene-02",
+      "ground_truth": {
+        "direct": [
+          "marcus.md"
+        ],
+        "contextual": [
+          "style.md"
+        ],
+        "unrelated": [
+          "elena.md",
+          "world-rules.md",
+          "guild-law.md",
+          "timeline.md"
+        ]
+      },
+      "difficulty": "easy",
+      "trap": null,
+      "model_raw": "{\"direct\": [\"marcus.md\"], \"contextual\": [\"style.md\", \"timeline.md\"], \"unrelated\": [\"elena.md\", \"world-rules.md\", \"guild-law.md\"]}",
+      "call_error": null,
+      "model": "claude-fable-5",
+      "duration_ms": 38297,
+      "cost_usd": 0.578543,
+      "verdict": "parsed",
+      "answer": {
+        "direct": [
+          "marcus.md"
+        ],
+        "contextual": [
+          "style.md",
+          "timeline.md"
+        ],
+        "unrelated": [
+          "elena.md",
+          "world-rules.md",
+          "guild-law.md"
+        ]
+      },
+      "per_doc": [
+        {
+          "doc": "elena.md",
+          "truth": "unrelated",
+          "predicted": "unrelated",
+          "match": true
+        },
+        {
+          "doc": "marcus.md",
+          "truth": "direct",
+          "predicted": "direct",
+          "match": true
+        },
+        {
+          "doc": "world-rules.md",
+          "truth": "unrelated",
+          "predicted": "unrelated",
+          "match": true
+        },
+        {
+          "doc": "guild-law.md",
+          "truth": "unrelated",
+          "predicted": "unrelated",
+          "match": true
+        },
+        {
+          "doc": "timeline.md",
+          "truth": "unrelated",
+          "predicted": "contextual",
+          "match": false
+        },
+        {
+          "doc": "style.md",
+          "truth": "contextual",
+          "predicted": "contextual",
+          "match": true
+        }
+      ]
+    },
+    {
+      "scene": "scene-03",
+      "ground_truth": {
+        "direct": [
+          "world-rules.md"
+        ],
+        "contextual": [
+          "style.md"
+        ],
+        "unrelated": [
+          "elena.md",
+          "marcus.md",
+          "guild-law.md",
+          "timeline.md"
+        ]
+      },
+      "difficulty": "hard",
+      "trap": null,
+      "model_raw": "{\"direct\": [\"world-rules.md\"], \"contextual\": [\"style.md\", \"guild-law.md\"], \"unrelated\": [\"elena.md\", \"marcus.md\", \"timeline.md\"]}",
+      "call_error": null,
+      "model": "claude-fable-5",
+      "duration_ms": 30172,
+      "cost_usd": 0.554053,
+      "verdict": "parsed",
+      "answer": {
+        "direct": [
+          "world-rules.md"
+        ],
+        "contextual": [
+          "style.md",
+          "guild-law.md"
+        ],
+        "unrelated": [
+          "elena.md",
+          "marcus.md",
+          "timeline.md"
+        ]
+      },
+      "per_doc": [
+        {
+          "doc": "elena.md",
+          "truth": "unrelated",
+          "predicted": "unrelated",
+          "match": true
+        },
+        {
+          "doc": "marcus.md",
+          "truth": "unrelated",
+          "predicted": "unrelated",
+          "match": true
+        },
+        {
+          "doc": "world-rules.md",
+          "truth": "direct",
+          "predicted": "direct",
+          "match": true
+        },
+        {
+          "doc": "guild-law.md",
+          "truth": "unrelated",
+          "predicted": "contextual",
+          "match": false
+        },
+        {
+          "doc": "timeline.md",
+          "truth": "unrelated",
+          "predicted": "unrelated",
+          "match": true
+        },
+        {
+          "doc": "style.md",
+          "truth": "contextual",
+          "predicted": "contextual",
+          "match": true
+        }
+      ]
+    },
+    {
+      "scene": "scene-04",
+      "ground_truth": {
+        "direct": [
+          "elena.md"
+        ],
+        "contextual": [
+          "style.md"
+        ],
+        "unrelated": [
+          "marcus.md",
+          "world-rules.md",
+          "guild-law.md",
+          "timeline.md"
+        ]
+      },
+      "difficulty": "trap",
+      "trap": {
+        "doc": "marcus.md",
+        "kind": "mention-without-dependency",
+        "detail": "'old Marcus' waves across the quay; no marcus.md fact is used."
+      },
+      "model_raw": "{\"direct\": [\"elena.md\"], \"contextual\": [\"marcus.md\", \"style.md\"], \"unrelated\": [\"world-rules.md\", \"guild-law.md\", \"timeline.md\"]}",
+      "call_error": null,
+      "model": "claude-fable-5",
+      "duration_ms": 41156,
+      "cost_usd": 0.607823,
+      "verdict": "parsed",
+      "answer": {
+        "direct": [
+          "elena.md"
+        ],
+        "contextual": [
+          "marcus.md",
+          "style.md"
+        ],
+        "unrelated": [
+          "world-rules.md",
+          "guild-law.md",
+          "timeline.md"
+        ]
+      },
+      "per_doc": [
+        {
+          "doc": "elena.md",
+          "truth": "direct",
+          "predicted": "direct",
+          "match": true
+        },
+        {
+          "doc": "marcus.md",
+          "truth": "unrelated",
+          "predicted": "contextual",
+          "match": false
+        },
+        {
+          "doc": "world-rules.md",
+          "truth": "unrelated",
+          "predicted": "unrelated",
+          "match": true
+        },
+        {
+          "doc": "guild-law.md",
+          "truth": "unrelated",
+          "predicted": "unrelated",
+          "match": true
+        },
+        {
+          "doc": "timeline.md",
+          "truth": "unrelated",
+          "predicted": "unrelated",
+          "match": true
+        },
+        {
+          "doc": "style.md",
+          "truth": "contextual",
+          "predicted": "contextual",
+          "match": true
+        }
+      ]
+    },
+    {
+      "scene": "scene-05",
+      "ground_truth": {
+        "direct": [
+          "elena.md",
+          "guild-law.md"
+        ],
+        "contextual": [
+          "style.md"
+        ],
+        "unrelated": [
+          "marcus.md",
+          "world-rules.md",
+          "timeline.md"
+        ]
+      },
+      "difficulty": "medium",
+      "trap": null,
+      "model_raw": "{\"direct\": [\"elena.md\", \"world-rules.md\", \"guild-law.md\"], \"contextual\": [\"timeline.md\", \"style.md\"], \"unrelated\": [\"marcus.md\"]}",
+      "call_error": null,
+      "model": "claude-fable-5",
+      "duration_ms": 47448,
+      "cost_usd": 0.6326430000000001,
+      "verdict": "parsed",
+      "answer": {
+        "direct": [
+          "elena.md",
+          "world-rules.md",
+          "guild-law.md"
+        ],
+        "contextual": [
+          "timeline.md",
+          "style.md"
+        ],
+        "unrelated": [
+          "marcus.md"
+        ]
+      },
+      "per_doc": [
+        {
+          "doc": "elena.md",
+          "truth": "direct",
+          "predicted": "direct",
+          "match": true
+        },
+        {
+          "doc": "marcus.md",
+          "truth": "unrelated",
+          "predicted": "unrelated",
+          "match": true
+        },
+        {
+          "doc": "world-rules.md",
+          "truth": "unrelated",
+          "predicted": "direct",
+          "match": false
+        },
+        {
+          "doc": "guild-law.md",
+          "truth": "direct",
+          "predicted": "direct",
+          "match": true
+        },
+        {
+          "doc": "timeline.md",
+          "truth": "unrelated",
+          "predicted": "contextual",
+          "match": false
+        },
+        {
+          "doc": "style.md",
+          "truth": "contextual",
+          "predicted": "contextual",
+          "match": true
+        }
+      ]
+    },
+    {
+      "scene": "scene-06",
+      "ground_truth": {
+        "direct": [
+          "marcus.md",
+          "timeline.md"
+        ],
+        "contextual": [
+          "style.md"
+        ],
+        "unrelated": [
+          "elena.md",
+          "world-rules.md",
+          "guild-law.md"
+        ]
+      },
+      "difficulty": "hard",
+      "trap": null,
+      "model_raw": "{\"direct\": [\"marcus.md\", \"timeline.md\"], \"contextual\": [\"style.md\"], \"unrelated\": [\"elena.md\", \"world-rules.md\", \"guild-law.md\"]}",
+      "call_error": null,
+      "model": "claude-fable-5",
+      "duration_ms": 26561,
+      "cost_usd": 0.536743,
+      "verdict": "parsed",
+      "answer": {
+        "direct": [
+          "marcus.md",
+          "timeline.md"
+        ],
+        "contextual": [
+          "style.md"
+        ],
+        "unrelated": [
+          "elena.md",
+          "world-rules.md",
+          "guild-law.md"
+        ]
+      },
+      "per_doc": [
+        {
+          "doc": "elena.md",
+          "truth": "unrelated",
+          "predicted": "unrelated",
+          "match": true
+        },
+        {
+          "doc": "marcus.md",
+          "truth": "direct",
+          "predicted": "direct",
+          "match": true
+        },
+        {
+          "doc": "world-rules.md",
+          "truth": "unrelated",
+          "predicted": "unrelated",
+          "match": true
+        },
+        {
+          "doc": "guild-law.md",
+          "truth": "unrelated",
+          "predicted": "unrelated",
+          "match": true
+        },
+        {
+          "doc": "timeline.md",
+          "truth": "direct",
+          "predicted": "direct",
+          "match": true
+        },
+        {
+          "doc": "style.md",
+          "truth": "contextual",
+          "predicted": "contextual",
+          "match": true
+        }
+      ]
+    },
+    {
+      "scene": "scene-07",
+      "ground_truth": {
+        "direct": [
+          "elena.md",
+          "world-rules.md"
+        ],
+        "contextual": [
+          "style.md"
+        ],
+        "unrelated": [
+          "marcus.md",
+          "guild-law.md",
+          "timeline.md"
+        ]
+      },
+      "difficulty": "trap",
+      "trap": {
+        "doc": "guild-law.md",
+        "kind": "mention-without-dependency",
+        "detail": "Lantern Guild banners are pure scenery; no charter-law fact is used."
+      },
+      "model_raw": "{\"direct\": [\"elena.md\", \"world-rules.md\"], \"contextual\": [\"guild-law.md\", \"style.md\"], \"unrelated\": [\"marcus.md\", \"timeline.md\"]}",
+      "call_error": null,
+      "model": "claude-fable-5",
+      "duration_ms": 19610,
+      "cost_usd": 0.522603,
+      "verdict": "parsed",
+      "answer": {
+        "direct": [
+          "elena.md",
+          "world-rules.md"
+        ],
+        "contextual": [
+          "guild-law.md",
+          "style.md"
+        ],
+        "unrelated": [
+          "marcus.md",
+          "timeline.md"
+        ]
+      },
+      "per_doc": [
+        {
+          "doc": "elena.md",
+          "truth": "direct",
+          "predicted": "direct",
+          "match": true
+        },
+        {
+          "doc": "marcus.md",
+          "truth": "unrelated",
+          "predicted": "unrelated",
+          "match": true
+        },
+        {
+          "doc": "world-rules.md",
+          "truth": "direct",
+          "predicted": "direct",
+          "match": true
+        },
+        {
+          "doc": "guild-law.md",
+          "truth": "unrelated",
+          "predicted": "contextual",
+          "match": false
+        },
+        {
+          "doc": "timeline.md",
+          "truth": "unrelated",
+          "predicted": "unrelated",
+          "match": true
+        },
+        {
+          "doc": "style.md",
+          "truth": "contextual",
+          "predicted": "contextual",
+          "match": true
+        }
+      ]
+    },
+    {
+      "scene": "scene-08",
+      "ground_truth": {
+        "direct": [
+          "elena.md",
+          "marcus.md",
+          "world-rules.md"
+        ],
+        "contextual": [
+          "style.md"
+        ],
+        "unrelated": [
+          "guild-law.md",
+          "timeline.md"
+        ]
+      },
+      "difficulty": "medium",
+      "trap": null,
+      "model_raw": "{\"direct\": [\"elena.md\", \"marcus.md\", \"world-rules.md\"], \"contextual\": [\"guild-law.md\", \"style.md\"], \"unrelated\": [\"timeline.md\"]}",
+      "call_error": null,
+      "model": "claude-fable-5",
+      "duration_ms": 52161,
+      "cost_usd": 0.650953,
+      "verdict": "parsed",
+      "answer": {
+        "direct": [
+          "elena.md",
+          "marcus.md",
+          "world-rules.md"
+        ],
+        "contextual": [
+          "guild-law.md",
+          "style.md"
+        ],
+        "unrelated": [
+          "timeline.md"
+        ]
+      },
+      "per_doc": [
+        {
+          "doc": "elena.md",
+          "truth": "direct",
+          "predicted": "direct",
+          "match": true
+        },
+        {
+          "doc": "marcus.md",
+          "truth": "direct",
+          "predicted": "direct",
+          "match": true
+        },
+        {
+          "doc": "world-rules.md",
+          "truth": "direct",
+          "predicted": "direct",
+          "match": true
+        },
+        {
+          "doc": "guild-law.md",
+          "truth": "unrelated",
+          "predicted": "contextual",
+          "match": false
+        },
+        {
+          "doc": "timeline.md",
+          "truth": "unrelated",
+          "predicted": "unrelated",
+          "match": true
+        },
+        {
+          "doc": "style.md",
+          "truth": "contextual",
+          "predicted": "contextual",
+          "match": true
+        }
+      ]
+    },
+    {
+      "scene": "scene-09",
+      "ground_truth": {
+        "direct": [
+          "guild-law.md"
+        ],
+        "contextual": [
+          "style.md"
+        ],
+        "unrelated": [
+          "elena.md",
+          "marcus.md",
+          "world-rules.md",
+          "timeline.md"
+        ]
+      },
+      "difficulty": "hard",
+      "trap": null,
+      "model_raw": "{\"direct\": [\"guild-law.md\"], \"contextual\": [\"elena.md\", \"world-rules.md\", \"style.md\"], \"unrelated\": [\"marcus.md\", \"timeline.md\"]}",
+      "call_error": null,
+      "model": "claude-fable-5",
+      "duration_ms": 41858,
+      "cost_usd": 0.5926929999999999,
+      "verdict": "parsed",
+      "answer": {
+        "direct": [
+          "guild-law.md"
+        ],
+        "contextual": [
+          "elena.md",
+          "world-rules.md",
+          "style.md"
+        ],
+        "unrelated": [
+          "marcus.md",
+          "timeline.md"
+        ]
+      },
+      "per_doc": [
+        {
+          "doc": "elena.md",
+          "truth": "unrelated",
+          "predicted": "contextual",
+          "match": false
+        },
+        {
+          "doc": "marcus.md",
+          "truth": "unrelated",
+          "predicted": "unrelated",
+          "match": true
+        },
+        {
+          "doc": "world-rules.md",
+          "truth": "unrelated",
+          "predicted": "contextual",
+          "match": false
+        },
+        {
+          "doc": "guild-law.md",
+          "truth": "direct",
+          "predicted": "direct",
+          "match": true
+        },
+        {
+          "doc": "timeline.md",
+          "truth": "unrelated",
+          "predicted": "unrelated",
+          "match": true
+        },
+        {
+          "doc": "style.md",
+          "truth": "contextual",
+          "predicted": "contextual",
+          "match": true
+        }
+      ]
+    },
+    {
+      "scene": "scene-10",
+      "ground_truth": {
+        "direct": [
+          "timeline.md"
+        ],
+        "contextual": [
+          "style.md"
+        ],
+        "unrelated": [
+          "elena.md",
+          "marcus.md",
+          "world-rules.md",
+          "guild-law.md"
+        ]
+      },
+      "difficulty": "trap",
+      "trap": {
+        "doc": "elena.md",
+        "kind": "epithet-echo-without-dependency",
+        "detail": "'the glassblower's daughter' appears as crowd scenery; no elena.md fact is used."
+      },
+      "model_raw": "{\"direct\": [\"elena.md\", \"timeline.md\"], \"contextual\": [\"guild-law.md\", \"style.md\"], \"unrelated\": [\"marcus.md\", \"world-rules.md\"]}",
+      "call_error": null,
+      "model": "claude-fable-5",
+      "duration_ms": 37019,
+      "cost_usd": 0.5967530000000001,
+      "verdict": "parsed",
+      "answer": {
+        "direct": [
+          "elena.md",
+          "timeline.md"
+        ],
+        "contextual": [
+          "guild-law.md",
+          "style.md"
+        ],
+        "unrelated": [
+          "marcus.md",
+          "world-rules.md"
+        ]
+      },
+      "per_doc": [
+        {
+          "doc": "elena.md",
+          "truth": "unrelated",
+          "predicted": "direct",
+          "match": false
+        },
+        {
+          "doc": "marcus.md",
+          "truth": "unrelated",
+          "predicted": "unrelated",
+          "match": true
+        },
+        {
+          "doc": "world-rules.md",
+          "truth": "unrelated",
+          "predicted": "unrelated",
+          "match": true
+        },
+        {
+          "doc": "guild-law.md",
+          "truth": "unrelated",
+          "predicted": "contextual",
+          "match": false
+        },
+        {
+          "doc": "timeline.md",
+          "truth": "direct",
+          "predicted": "direct",
+          "match": true
+        },
+        {
+          "doc": "style.md",
+          "truth": "contextual",
+          "predicted": "contextual",
+          "match": true
+        }
+      ]
+    }
+  ]
+}

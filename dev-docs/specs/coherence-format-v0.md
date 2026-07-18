@@ -631,6 +631,7 @@ not objects — v1 adopts a file on first capture, never on scan.
 | File unreadable / invalid UTF-8 where text expected | `diagnostic`; skipped |
 | Symlink | Skipped + `diagnostic` (never followed — escape hazard) |
 | New file without identity | Ignored (not yet an object) |
+| New file carrying a `vmark.id` unknown to this ledger (moved in from elsewhere) | Adopted: `object-registered` + observed-external root transformation (content from disk, no parents, `confidence = "unknown"`) — history stays gap-free for imported objects |
 
 Mid-scan writes are serialized against capture through the per-workspace
 kernel instance (§5.1); a scan never races its own writer's appends.
@@ -670,7 +671,7 @@ Recorded per dogfood session against these Phase 1 exit thresholds
 |---|---|---|---|---|
 | M1 | Capture coverage | 100% by construction on instrumented paths | 100% of AI generations through instrumented paths carry complete input sets **at the path's designed confidence** (§8: `exact` for in-app AI paths, `inferred` for external-agent MCP writes); 0 manual metadata entries | Any manual entry (R4 violation) |
 | M2 | Staleness precision | First dogfood session measurement | ≥ 60% of flagged edges judged relevant | < 60% ⇒ escalate O9 (section-level) |
-| M3 | Semantic-check precision | Spike S4 seeded-corpus result (WI-0.7 report) | Phase 2b gate, not Phase 1; S4 baseline must be ≥ 70% before Phase 2b starts | False contradictions erode trust |
+| M3 | Semantic-check precision | Spike S4 result: **88.9%** contradiction precision, 100% recall (`dev-docs/grills/coherence/spike-s4.md`) | Phase 2b gate, not Phase 1; the ≥ 70% Phase 2b entry threshold is met with margin | False contradictions erode trust |
 | M4 | Ratification burden | First dogfood session measurement | ≤ 10 demanded resolutions per session | Tool feels like homework |
 | M5 | Time-to-confidence | First dogfood session measurement (baseline = pre-tool estimate, recorded once) | Post-change blast radius known in ≤ 5 min | The founding pain unfixed |
 

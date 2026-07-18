@@ -1,0 +1,313 @@
+{
+  "comment": "Spike S4 (WI-0.7) seeded-contradiction corpus. Reuses the S3 story world (../s3-corpus/). Each case = upstream doc OLD revision (the s3-corpus file), a seeded edit producing the NEW revision (op=replace requires the exact substring to exist; op=append adds a line), a downstream scene written against OLD, and ground truth by construction. 8 contradiction, 12 no-contradiction, 4 ambiguous.",
+  "cases": [
+    {
+      "id": "c01",
+      "ground_truth": "contradiction",
+      "upstream": "elena.md",
+      "scene": "scene-01.md",
+      "seeded_edit": "eye colour grey -> brown",
+      "rationale": "Scene: 'until her grey eyes stung'. NEW sheet gives her brown eyes.",
+      "edit": {
+        "op": "replace",
+        "old": "- Grey eyes; dark hair kept in a sailor's braid. Left-handed.",
+        "new": "- Brown eyes; dark hair kept in a sailor's braid. Left-handed."
+      }
+    },
+    {
+      "id": "c02",
+      "ground_truth": "contradiction",
+      "upstream": "timeline.md",
+      "scene": "scene-01.md",
+      "seeded_edit": "Drowning of Corvel Bay moved 701 -> 695",
+      "rationale": "Scene (present 723) twice says 'twenty-two years'; under NEW the Drowning is 28 years past.",
+      "edit": {
+        "op": "replace",
+        "old": "- Year 701 — the Drowning of Corvel Bay: the old harbour quarter is lost\n  to the sea in a single night.",
+        "new": "- Year 695 — the Drowning of Corvel Bay: the old harbour quarter is lost\n  to the sea in a single night."
+      }
+    },
+    {
+      "id": "c03",
+      "ground_truth": "contradiction",
+      "upstream": "marcus.md",
+      "scene": "scene-02.md",
+      "seeded_edit": "raven Pitch removed (flew off two winters back)",
+      "rationale": "Scene has Pitch present on the gallery rail; NEW sheet says he keeps no animals since Pitch flew off.",
+      "edit": {
+        "op": "replace",
+        "old": "- Keeps a tame raven named Pitch and talks to it like an old comrade.",
+        "new": "- Keeps no animals since his raven Pitch flew off two winters back; he\n  still leaves the gallery rail clear out of habit."
+      }
+    },
+    {
+      "id": "c04",
+      "ground_truth": "contradiction",
+      "upstream": "world-rules.md",
+      "scene": "scene-03.md",
+      "seeded_edit": "iron blocks a binding -> iron strengthens a binding",
+      "rationale": "Scene hinges on the iron nail killing the working; NEW rule says iron steadies and strengthens it.",
+      "edit": {
+        "op": "replace",
+        "old": "3. Cold iron blocks a binding. Iron touching the binder's skin, or placed\n   between binder and target, stops the working outright.",
+        "new": "3. Cold iron steadies a binding. Iron touching the binder's skin, or\n   placed between binder and target, strengthens the working and doubles\n   its reach."
+      }
+    },
+    {
+      "id": "c05",
+      "ground_truth": "contradiction",
+      "upstream": "guild-law.md",
+      "scene": "scene-05.md",
+      "seeded_edit": "branding + exile replaced by fines; branding abolished Year 715",
+      "rationale": "Scene (present 723): inspector threatens a hot stamp and 'second time, exile'. NEW law: fines only, no wave-mark set since 715.",
+      "edit": {
+        "op": "replace",
+        "old": "- Unlicensed working is punished by branding on the inside of the left\n  wrist — the wave-mark. A second offence means exile.",
+        "new": "- Unlicensed working is punished by a fine of one hundred crowns;\n  branding was abolished under the Reform of Year 715 and no wave-mark\n  has been set since. A second offence doubles the fine."
+      }
+    },
+    {
+      "id": "c06",
+      "ground_truth": "contradiction",
+      "upstream": "marcus.md",
+      "scene": "scene-02.md",
+      "seeded_edit": "limp side right -> left",
+      "rationale": "Scene: 'letting the right leg have its say on every step'. NEW sheet: favours his left leg.",
+      "edit": {
+        "op": "replace",
+        "old": "he favours his right leg",
+        "new": "he favours his left leg"
+      }
+    },
+    {
+      "id": "c07",
+      "ground_truth": "contradiction",
+      "upstream": "timeline.md",
+      "scene": "scene-06.md",
+      "seeded_edit": "Marcus takes the lighthouse post 721 -> 716",
+      "rationale": "Scene (present 723): 'Two years he had kept the light' and he watched the 719 fire from a troop ship. NEW: post since 716 (seven years, and he'd have been keeping the light in 719).",
+      "edit": {
+        "op": "replace",
+        "old": "- Year 721 — Marcus Hale takes the Gullpoint lighthouse post.",
+        "new": "- Year 716 — Marcus Hale takes the Gullpoint lighthouse post."
+      }
+    },
+    {
+      "id": "c08",
+      "ground_truth": "contradiction",
+      "upstream": "world-rules.md",
+      "scene": "scene-07.md",
+      "seeded_edit": "price of a working: sleep -> memories",
+      "rationale": "Scene is built on the sleep-debt collecting the following night; NEW rule prices workings in fading memories, by morning.",
+      "edit": {
+        "op": "replace",
+        "old": "2. Every working is paid for in sleep: hours of dreamless sleep in\n   proportion to the working's size, collected the following night whether\n   the binder wills it or not.",
+        "new": "2. Every working is paid for in memory: small recollections fade in\n   proportion to the working's size, gone by the following morning whether\n   the binder wills it or not."
+      }
+    },
+    {
+      "id": "c09",
+      "ground_truth": "no-contradiction",
+      "upstream": "elena.md",
+      "scene": "scene-01.md",
+      "seeded_edit": "compass bullet reworded, same facts",
+      "rationale": "Pure rewording: same compass, same worn lid.",
+      "edit": {
+        "op": "replace",
+        "old": "- Carries her late mother's brass compass everywhere; its lid is worn\n  smooth by her thumb.",
+        "new": "- Her dead mother's brass compass never leaves her pocket; years of her\n  thumb have polished the lid smooth."
+      }
+    },
+    {
+      "id": "c10",
+      "ground_truth": "no-contradiction",
+      "upstream": "elena.md",
+      "scene": "scene-01.md",
+      "seeded_edit": "unrelated detail added (candied plums)",
+      "rationale": "Additive detail the scene never touches.",
+      "edit": {
+        "op": "append",
+        "new": "- Sweet tooth: candied plums when she can afford them, which is rarely."
+      }
+    },
+    {
+      "id": "c11",
+      "ground_truth": "no-contradiction",
+      "upstream": "marcus.md",
+      "scene": "scene-02.md",
+      "seeded_edit": "war-background bullet reworded, same facts",
+      "rationale": "Same campaign, same retirement, different words.",
+      "edit": {
+        "op": "replace",
+        "old": "- Late fifties. A retired soldier of the Ashfleet campaign.",
+        "new": "- In his late fifties; he soldiered through the Ashfleet campaign before\n  they pensioned him off."
+      }
+    },
+    {
+      "id": "c12",
+      "ground_truth": "no-contradiction",
+      "upstream": "marcus.md",
+      "scene": "scene-02.md",
+      "seeded_edit": "unrelated detail added (hums marching songs)",
+      "rationale": "Additive detail; the scene's silence while working is not a denial of humming elsewhere — nothing in the scene depends on it.",
+      "edit": {
+        "op": "append",
+        "new": "- Hums old marching songs while trimming the wick, badly."
+      }
+    },
+    {
+      "id": "c13",
+      "ground_truth": "no-contradiction",
+      "upstream": "world-rules.md",
+      "scene": "scene-03.md",
+      "seeded_edit": "unrelated rule 6 added (two binders cancel)",
+      "rationale": "Scene has a single binder; the new rule is never engaged.",
+      "edit": {
+        "op": "append",
+        "new": "6. Two binders cannot work the same target at once; the two workings\n   cancel each other."
+      }
+    },
+    {
+      "id": "c14",
+      "ground_truth": "no-contradiction",
+      "upstream": "world-rules.md",
+      "scene": "scene-03.md",
+      "seeded_edit": "rule 4 reworded, same meaning",
+      "rationale": "Same smell, same audience, same duration — different sentence shape.",
+      "edit": {
+        "op": "replace",
+        "old": "4. A completed working leaves a distinct smell of ozone and hot salt,\n   noticeable to anyone nearby for a few minutes.",
+        "new": "4. For a few minutes after a working completes, anyone nearby can smell\n   it: ozone and hot salt, unmistakable."
+      }
+    },
+    {
+      "id": "c15",
+      "ground_truth": "no-contradiction",
+      "upstream": "guild-law.md",
+      "scene": "scene-05.md",
+      "seeded_edit": "unrelated detail added (inspector salaries)",
+      "rationale": "Funding detail the scene never touches.",
+      "edit": {
+        "op": "append",
+        "new": "- Inspectors are salaried from the harbour tax."
+      }
+    },
+    {
+      "id": "c16",
+      "ground_truth": "no-contradiction",
+      "upstream": "timeline.md",
+      "scene": "scene-01.md",
+      "seeded_edit": "unrelated event added (twin comets, Year 715)",
+      "rationale": "New event between existing ones; the scene's arithmetic is untouched.",
+      "edit": {
+        "op": "replace",
+        "old": "- Year 718 — the Long Fog descends in autumn.",
+        "new": "- Year 715 — the twin comets stand over the bay for a month.\n- Year 718 — the Long Fog descends in autumn."
+      }
+    },
+    {
+      "id": "c17",
+      "ground_truth": "no-contradiction",
+      "upstream": "timeline.md",
+      "scene": "scene-10.md",
+      "seeded_edit": "Ashfleet fire entry reworded, same year (adds 'forty hulls lost')",
+      "rationale": "Same year, richer wording; the scene's forty paper ships remain consistent.",
+      "edit": {
+        "op": "replace",
+        "old": "- Year 719 — the Long Fog lifts in spring. That summer, the Ashfleet\n  burns at anchor.",
+        "new": "- Year 719 — the Long Fog lifts in spring. That summer, fire takes the\n  Ashfleet at anchor; forty hulls lost."
+      }
+    },
+    {
+      "id": "c18",
+      "ground_truth": "no-contradiction",
+      "upstream": "guild-law.md",
+      "scene": "scene-05.md",
+      "seeded_edit": "apprentice curfew ninth bell -> tenth bell",
+      "rationale": "A real semantic change, but the scene never touches the curfew.",
+      "edit": {
+        "op": "replace",
+        "old": "- Guild apprentices are under curfew from the ninth bell.",
+        "new": "- Guild apprentices are under curfew from the tenth bell."
+      }
+    },
+    {
+      "id": "c19",
+      "ground_truth": "no-contradiction",
+      "upstream": "elena.md",
+      "scene": "scene-01.md",
+      "seeded_edit": "fear of deep water given an origin (ferry capsize at six)",
+      "rationale": "Adds an origin story to the same fear; scene states the fear without an origin.",
+      "edit": {
+        "op": "replace",
+        "old": "- Afraid of deep water since childhood; never learned to swim.",
+        "new": "- Afraid of deep water since the ferry capsize when she was six; never\n  learned to swim."
+      }
+    },
+    {
+      "id": "c20",
+      "ground_truth": "no-contradiction",
+      "upstream": "style.md",
+      "scene": "scene-02.md",
+      "seeded_edit": "sentence-length preference 25 -> 15 words",
+      "rationale": "A style-guide drift is divergence, not a factual contradiction; the checker should not report contradiction.",
+      "edit": {
+        "op": "replace",
+        "old": "- Prefer sentences under twenty-five words; vary the rhythm.",
+        "new": "- Prefer sentences under fifteen words; vary the rhythm."
+      }
+    },
+    {
+      "id": "c21",
+      "ground_truth": "ambiguous",
+      "upstream": "guild-law.md",
+      "scene": "scene-09.md",
+      "seeded_edit": "branding abolished Year 722; existing marks remain; exile retained",
+      "rationale": "Arguable both ways: her old mark (set before 722) and second-offence exile stay consistent, but the scene frames the inspector as a present threat to 'a wrist', which no longer holds under NEW.",
+      "edit": {
+        "op": "replace",
+        "old": "- Unlicensed working is punished by branding on the inside of the left\n  wrist — the wave-mark. A second offence means exile.",
+        "new": "- Branding was abolished by decree in Year 722; wave-marks already set\n  remain on the Guild register. Unlicensed working is punished by seizure\n  of goods; a second offence still means exile."
+      }
+    },
+    {
+      "id": "c22",
+      "ground_truth": "ambiguous",
+      "upstream": "marcus.md",
+      "scene": "scene-08.md",
+      "seeded_edit": "distrusts the Guild, loud about it -> lately an uneasy peace",
+      "rationale": "Arguable: a man at an uneasy peace can still say he has no love for the Guild — or the scene's vocal hostility contradicts the truce.",
+      "edit": {
+        "op": "replace",
+        "old": "- Distrusts the Lantern Guild and is loud about it.",
+        "new": "- Has lately come to an uneasy peace with the Lantern Guild, though he\n  will not say why."
+      }
+    },
+    {
+      "id": "c23",
+      "ground_truth": "ambiguous",
+      "upstream": "elena.md",
+      "scene": "scene-04.md",
+      "seeded_edit": "slow to anger / patient bargainer -> quick-tempered; patience costs visible effort",
+      "rationale": "Arguable: the scene shows effortless, habitual patience at the market ('the pause did her haggling for her'), which sits badly with patience costing visible effort — but one calm scene does not prove a temperament.",
+      "edit": {
+        "op": "replace",
+        "old": "- Temperament: slow to anger, a patient bargainer; goes quiet when hurt.\n  Dry humour, precise speech.",
+        "new": "- Temperament: quick-tempered since the Ashfleet year; patience costs her\n  visible effort. Goes quiet when hurt. Dry humour, precise speech."
+      }
+    },
+    {
+      "id": "c24",
+      "ground_truth": "ambiguous",
+      "upstream": "world-rules.md",
+      "scene": "scene-07.md",
+      "seeded_edit": "working smell noticeable to anyone -> detectable only by other tidebinders",
+      "rationale": "Arguable: the baker's boy wrinkling his nose reads as a non-binder smelling the working — but the scene only says 'she supposed', and the boy could have reacted to anything (or be a binder, one in four hundred).",
+      "edit": {
+        "op": "replace",
+        "old": "4. A completed working leaves a distinct smell of ozone and hot salt,\n   noticeable to anyone nearby for a few minutes.",
+        "new": "4. A completed working leaves a faint smell of ozone and hot salt that\n   only other tidebinders can detect."
+      }
+    }
+  ]
+}
