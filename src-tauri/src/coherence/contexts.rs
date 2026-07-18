@@ -45,6 +45,11 @@ pub struct ContextManifest {
     pub enforcement: Enforcement,
     #[serde(default)]
     pub visible_claims: Vec<Uuid>,
+    /// D3.1 (spec §6 rev 2): opt-in exact-match branch mapping. Never
+    /// selects a context automatically — it only surfaces a pull-only
+    /// candidate in the UI.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub git_branch: Option<String>,
     /// Round-trip guarantee (design-3.md, spec rev 2): fields this build
     /// does not understand survive a rewrite instead of being dropped —
     /// manifests are mutable-in-place, so a lossy writer would destroy a

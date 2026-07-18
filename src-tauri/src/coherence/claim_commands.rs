@@ -200,6 +200,7 @@ pub fn perform_claim_scope(
             selections: Default::default(),
             enforcement: Default::default(),
             visible_claims: Vec::new(),
+            git_branch: None,
             extra: Default::default(),
         },
         None => return Err(format!("unknown context: {context}")),

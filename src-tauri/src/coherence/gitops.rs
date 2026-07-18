@@ -57,6 +57,16 @@ fn git_output(root: &Path, args: &[&str]) -> Option<String> {
 /// Observe the git state of a workspace. `None` = not a git repo (or git
 /// unavailable) — callers then treat every change as an ordinary external
 /// edit, which is the safe fallback.
+/// D3.1 (spec §6 rev 2): the exact current branch name, or None for
+/// detached HEAD / not a git repository. No globs, no normalization.
+pub fn current_branch(root: &Path) -> Option<String> {
+    let name = git_output(root, &["rev-parse", "--abbrev-ref", "HEAD"])?;
+    if name == "HEAD" {
+        return None; // detached
+    }
+    Some(name)
+}
+
 pub fn observe(root: &Path) -> Option<GitObservation> {
     if !root.join(".git").exists() {
         return None; // covers dirs and worktree .git files alike
