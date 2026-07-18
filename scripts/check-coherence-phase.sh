@@ -19,6 +19,12 @@ set -uo pipefail
 
 cd "$(dirname "$0")/.."
 
+# pnpm may be absent from non-login shells (mise-managed node); fall back
+# to the mise shim so the gate itself never fails on PATH.
+if ! command -v pnpm >/dev/null 2>&1 && [ -x "$HOME/.local/share/mise/shims/pnpm" ]; then
+  PATH="$HOME/.local/share/mise/shims:$PATH"
+fi
+
 PHASE="${1:-}"
 if [[ -z "$PHASE" ]]; then
   echo "Usage: $0 <phase-number>"
@@ -164,7 +170,10 @@ phase_1() {
   assert_file "$K/capture.test.rs" "WI-1.6 capture tests"
   assert_file "$K/scan.rs"         "WI-1.6 scan reconciliation"
   assert_file "$K/scan.test.rs"    "WI-1.6 scan tests (spec §9.4 table)"
-  assert_grep "coherence_capture" "src/services/persistence/saveToPath.ts" "WI-1.6 editor-save funnel instrumented"
+  # The save funnel routes through the captureFunnel service (ADR-013),
+  # which is what invokes coherence_capture.
+  assert_grep "captureWrite" "src/services/persistence/saveToPath.ts" "WI-1.6 editor-save funnel instrumented"
+  assert_grep "coherence_capture" "src/services/coherence/captureFunnel.ts" "WI-1.6 funnel invokes coherence_capture"
 
   # WI-1.7 — git reconciliation.
   assert_file "$K/gitops.rs"       "WI-1.7 git reconciliation"
@@ -173,7 +182,9 @@ phase_1() {
   # WI-1.8 — frontmatter IDs.
   assert_file "$K/frontmatter.rs"      "WI-1.8 frontmatter IDs"
   assert_file "$K/frontmatter.test.rs" "WI-1.8 frontmatter tests"
-  assert_grep "duplicate" "$K/frontmatter.rs" "WI-1.8 duplicate-ID detection"
+  # Duplicate detection is scan-level by design (frontmatter.rs owns
+  # parse + assign only — see its module doc).
+  assert_grep "duplicate-id" "$K/scan.rs" "WI-1.8 duplicate-ID detection"
 
   # I5 append-only property test (plan-level success criterion 2).
   if grep -rq "append_only\|append-only" "$K"/*.test.rs 2>/dev/null; then
@@ -197,8 +208,11 @@ phase_1() {
 
   # WI-1.10 — read-only MCP tools.
   assert_file "vmark-mcp-server/src/tools/coherence.ts" "WI-1.10 sidecar tool"
-  assert_grep "coherence_status" "vmark-mcp-server/src/tools/coherence.ts" "WI-1.10 coherence_status"
-  assert_grep "coherence_edges"  "vmark-mcp-server/src/tools/coherence.ts" "WI-1.10 coherence_edges"
+  # The sidecar follows the repo's composite-tool convention: one
+  # `coherence` tool with status/edges actions emitting
+  # vmark.coherence.status / vmark.coherence.edges bridge requests.
+  assert_grep "vmark.coherence.status" "vmark-mcp-server/src/tools/coherence.ts" "WI-1.10 status action"
+  assert_grep "vmark.coherence.edges"  "vmark-mcp-server/src/tools/coherence.ts" "WI-1.10 edges action"
 
   # WI-1.11 — docs.
   assert_file "website/guide/coherence.md"          "WI-1.11 website guide page"
