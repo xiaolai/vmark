@@ -212,7 +212,9 @@ phase_1() {
   # Fail closed: RUN the coherence test suites (Codex review D2#5) instead
   # of reminding. Scoped runs keep this fast enough for a gate.
   if [[ "${SKIP_TESTS:-}" == "1" ]]; then
-    echo "  ⓘ SKIP_TESTS=1 — file assertions only (NOT a valid phase tick)"
+    # Progress-report mode: file assertions still print, but the run can
+    # NEVER tick a phase — count it as a hard failure by construction.
+    fail "SKIP_TESTS=1 set — test suites not run; this run cannot tick Phase 1"
   else
     if cargo test --manifest-path src-tauri/Cargo.toml --lib coherence -- --quiet >/dev/null 2>&1; then
       ok "cargo test coherence suite green"
@@ -224,9 +226,15 @@ phase_1() {
     else
       fail "breakdown-view vitest suites RED (run: pnpm vitest run src/stores/breakdownStore.test.ts src/components/BreakdownPanel)"
     fi
+    # Full repo gate — part of the DoD, run for real (fail closed; slow but
+    # a phase tick is rare). No reminder-only escape.
+    if pnpm check:all >/dev/null 2>&1; then
+      ok "pnpm check:all green"
+    else
+      fail "pnpm check:all RED"
+    fi
   fi
 
-  echo "  ⓘ full gate: 'pnpm check:all' must also pass before phase tick"
   echo "  ⓘ WI linkage: bash scripts/check-wi-linkage.sh $PLAN --phase=1"
 }
 
