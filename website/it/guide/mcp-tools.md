@@ -243,7 +243,12 @@ Restituisce `{ok, diagnostics, binaryAvailable}`. Ogni diagnostica trasporta `{l
 
 Una vista in **sola lettura** del livello di coerenza del workspace — quali documenti derivati sono obsoleti rispetto alle sorgenti da cui sono stati generati. Nessuna delle due azioni modifica documenti, il registro (ledger) o alcuno stato dell'editor; entrambe sono servite interamente dal backend Rust a partire dal kernel per workspace, quindi funzionano anche quando nessuna finestra dell'editor è in primo piano.
 
-Entrambe le azioni richiedono `workspace_root`: il percorso assoluto del workspace da interrogare. Ricavalo da `session.get_state` (il `filePath` delle schede aperte) o dallo strumento workspace. Un percorso mancante, non assoluto o che non è una directory viene rifiutato con un errore in forma di stringa semplice.
+Due ulteriori azioni in sola lettura espongono il livello semantico:
+
+- `claims` — le affermazioni canoniche correnti: `{claim, entryId, statement, maturity, invalidAt, visible}`. Solo le affermazioni `established` vincolano le verifiche semantiche; `visible` riflette il contesto default.
+- `contexts` — l'insieme dei contesti (il `default` implicito è sempre presente): `{id, name, parent, enforcement, visibleClaims, errors}`.
+
+Tutte le azioni richiedono `workspace_root`: il percorso assoluto del workspace da interrogare. Ricavalo da `session.get_state` (il `filePath` delle schede aperte) o dallo strumento workspace. Un percorso mancante, non assoluto o che non è una directory viene rifiutato con un errore in forma di stringa semplice.
 
 ### `status`
 

@@ -63,6 +63,44 @@ Accepter la plus récente et Exempter sont désactivés quand l'amont a
 plusieurs versions actuelles — il n'y a pas de révision unique contre
 laquelle résoudre&nbsp;; révisez (ou réconciliez les versions) d'abord.
 
+## Vérification sémantique, affirmations et contextes
+
+L'obsolescence de version dit qu'un amont a *bougé*&nbsp;; la
+vérification sémantique dit si ce mouvement *contredit* réellement le
+document dérivé. Les vérifications sont strictement en **mode
+pull**&nbsp;: appuyez sur **Vérifier** sur une arête obsolète et VMark
+demande à votre fournisseur d'IA configuré de comparer la révision
+amont épinglée, la révision actuelle et le texte dérivé. Le verdict
+arrive sous forme de badge — *vérifiée valide*, *contredite* (toujours
+avec une citation textuelle comme preuve) ou *non vérifiée* quand le
+modèle a hésité, dépassé le délai ou répondu sous le seuil de
+confiance. L'inconnu est honnête, jamais caché. Une vérification expire
+dès que l'un des deux documents bouge à nouveau — ou que l'ensemble des
+affirmations change.
+
+Les **affirmations canoniques** sont des faits que vous avez rendus
+explicites (« Elena est gauchère »). Sélectionnez du texte dans un
+document et lancez *Extraire une affirmation de la sélection*&nbsp;:
+l'affirmation naît en **brouillon**, avec sa provenance (quel document,
+quelle révision). Promouvez-la en **établie** quand elle devient
+canon — seules les affirmations établies alimentent les vérifications
+sémantiques. Corriger ou clore une affirmation ajoute de
+l'historique&nbsp;; rien n'est jamais supprimé. Masquer une affirmation
+dans un contexte est une visibilité réversible, pas une clôture.
+
+Les **contextes** sont des vues nommées de l'espace de travail (le
+contexte *default* est toujours là). Chaque contexte choisit ce que
+« actuel » signifie et quelles affirmations s'appliquent&nbsp;; un
+contexte enfant hérite additivement des affirmations de son parent. Les
+contextes sont en mode **serre** par défaut — les verdicts de
+vérification se lisent comme une tension consultative. En basculer un
+en **appliqué** (un acte explicite et confirmé) marque les
+contradictions comme des violations du canon. Le sélecteur de contexte
+de la vue Détail choisit à travers quel contexte vous regardez&nbsp;;
+les résultats de vérification sont liés au contexte et à l'instantané
+d'affirmations exacts qui les ont produits et ne fuient jamais de l'un
+à l'autre.
+
 ## Identité dans le frontmatter
 
 La première fois qu'un fichier est capturé, VMark ajoute un petit bloc

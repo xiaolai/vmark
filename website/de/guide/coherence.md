@@ -68,6 +68,43 @@ mehrere aktuelle Versionen hat — es gibt keine einzelne Revision, gegen
 die aufgelöst werden könnte; überarbeiten Sie zuerst (oder führen Sie die
 Versionen zusammen).
 
+## Semantische Prüfung, Aussagen und Kontexte
+
+Versions-Veraltung sagt nur, dass sich ein Upstream *bewegt* hat; die
+semantische Prüfung sagt, ob diese Bewegung dem abgeleiteten Dokument
+tatsächlich *widerspricht*. Prüfungen sind strikt **pull-basiert**:
+Drücken Sie **Prüfen** auf einer veralteten Kante, und VMark bittet
+Ihren konfigurierten KI-Anbieter, die fixierte Upstream-Revision, die
+aktuelle und den abgeleiteten Text zu vergleichen. Das Urteil erscheint
+als Abzeichen — *geprüft gültig*, *widersprochen* (immer mit einem
+wörtlichen Belegzitat) oder *ungeprüft*, wenn das Modell unsicher war,
+in einen Timeout lief oder unterhalb der Konfidenzschwelle antwortete.
+Unbekannt ist ehrlich, nie versteckt. Eine Prüfung verfällt in dem
+Moment, in dem sich eines der beiden Dokumente erneut bewegt — oder
+sich der Aussagenbestand ändert.
+
+**Kanon-Aussagen** sind Fakten, die Sie explizit gemacht haben („Elena
+ist Linkshänderin“). Wählen Sie Text in einem Dokument aus und führen
+Sie *Aussage aus Auswahl extrahieren* aus: Die Aussage wird als
+**Entwurf** geboren, mit Provenienz (welches Dokument, welche
+Revision). Stufen Sie sie zu **etabliert** hoch, wenn sie Kanon wird —
+nur etablierte Aussagen fließen in semantische Prüfungen ein. Das
+Korrigieren oder Beenden einer Aussage hängt Historie an; nichts wird
+je gelöscht. Eine Aussage in einem Kontext auszublenden ist umkehrbare
+Sichtbarkeit, kein Beenden.
+
+**Kontexte** sind benannte Sichten auf den Arbeitsbereich (der
+*default*-Kontext ist immer da). Jeder Kontext legt fest, was „aktuell“
+bedeutet und welche Aussagen gelten; ein Kind-Kontext erbt die Aussagen
+seines Eltern-Kontexts additiv. Kontexte sind standardmäßig im
+**Gewächshaus**-Modus — Prüfurteile lesen sich als beratende Spannung.
+Wird einer auf **durchgesetzt** umgestellt (ein expliziter, bestätigter
+Akt), werden Widersprüche als Kanon-Verstöße markiert. Der
+Kontext-Wähler der Aufschlüsselung bestimmt, durch welchen Kontext Sie
+blicken; Prüfergebnisse sind an genau den Kontext und den
+Aussagen-Schnappschuss gebunden, die sie erzeugt haben — sie sickern
+nie in andere Kontexte durch.
+
 ## Frontmatter-Identität
 
 Beim ersten Erfassen einer Datei fügt VMark ihrem Frontmatter einen

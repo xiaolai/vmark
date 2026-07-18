@@ -243,7 +243,12 @@ Retorna `{ok, diagnostics, binaryAvailable}`. Cada diagnóstico carrega `{line, 
 
 Uma visão **somente leitura** da camada de coerência do workspace — quais documentos derivados estão desatualizados em relação às origens a partir das quais foram gerados. Nenhuma das duas ações modifica documentos, o registro (ledger) ou qualquer estado do editor; ambas são respondidas inteiramente pelo backend em Rust a partir do kernel por workspace, então funcionam mesmo quando nenhuma janela do editor está em primeiro plano.
 
-Ambas as ações exigem `workspace_root`: o caminho absoluto do workspace a consultar. Descubra-o via `session.get_state` (o `filePath` das abas abertas) ou pela ferramenta workspace. Um caminho ausente, não absoluto ou que não seja um diretório é recusado com um erro de string simples.
+Duas ações adicionais somente leitura expõem a camada semântica:
+
+- `claims` — as afirmações canônicas atuais: `{claim, entryId, statement, maturity, invalidAt, visible}`. Apenas afirmações `established` restringem as verificações semânticas; `visible` reflete o contexto default.
+- `contexts` — o conjunto de contextos (o `default` implícito está sempre presente): `{id, name, parent, enforcement, visibleClaims, errors}`.
+
+Todas as ações exigem `workspace_root`: o caminho absoluto do workspace a consultar. Descubra-o via `session.get_state` (o `filePath` das abas abertas) ou pela ferramenta workspace. Um caminho ausente, não absoluto ou que não seja um diretório é recusado com um erro de string simples.
 
 ### `status`
 

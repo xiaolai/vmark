@@ -414,7 +414,12 @@ before AI read/act. Sandbox tabs use a separate non-persistent AI cookie store.
 
 A **read-only** view of the workspace coherence layer — which derived documents are stale against the upstreams they were generated from. Neither action modifies documents or editor state. `status` is read-only; `edges` reconciles first and may append provenance records to the workspace ledger, but never changes document content. Both are answered entirely by the Rust backend from the per-workspace kernel, so they work even when no editor window is in the foreground.
 
-Both actions require `workspace_root`: the absolute path of the workspace to query. Learn it from `session.get_state` (open tabs' `filePath`) or the workspace tool. A path that is missing, not absolute, or not a directory is refused with a plain-string error.
+Two further read-only actions expose the semantic layer:
+
+- `claims` — the current canon claims: `{claim, entryId, statement, maturity, invalidAt, visible}`. Only `established` claims constrain semantic checks; `visible` reflects the default context.
+- `contexts` — the context set (the implicit `default` is always present): `{id, name, parent, enforcement, visibleClaims, errors}`.
+
+All actions require `workspace_root`: the absolute path of the workspace to query. Learn it from `session.get_state` (open tabs' `filePath`) or the workspace tool. A path that is missing, not absolute, or not a directory is refused with a plain-string error.
 
 ### `status`
 

@@ -243,7 +243,12 @@ Retourne `{ok, diagnostics, binaryAvailable}`. Chaque diagnostic porte `{line, c
 
 Une vue **en lecture seule** de la couche de cohérence de l'espace de travail — quels documents dérivés sont obsolètes par rapport aux amonts dont ils ont été générés. Aucune des deux actions ne modifie les documents, le registre ni aucun état de l'éditeur&nbsp;; les deux sont entièrement traitées par le backend Rust à partir du noyau propre à chaque espace de travail, elles fonctionnent donc même quand aucune fenêtre d'éditeur n'est au premier plan.
 
-Les deux actions exigent `workspace_root`&nbsp;: le chemin absolu de l'espace de travail à interroger. Obtenez-le via `session.get_state` (le `filePath` des onglets ouverts) ou l'outil workspace. Un chemin manquant, non absolu ou qui n'est pas un répertoire est refusé avec une erreur en chaîne simple.
+Deux actions supplémentaires en lecture seule exposent la couche sémantique&nbsp;:
+
+- `claims` — les affirmations canoniques actuelles&nbsp;: `{claim, entryId, statement, maturity, invalidAt, visible}`. Seules les affirmations `established` contraignent les vérifications sémantiques&nbsp;; `visible` reflète le contexte default.
+- `contexts` — l'ensemble des contextes (le `default` implicite est toujours présent)&nbsp;: `{id, name, parent, enforcement, visibleClaims, errors}`.
+
+Toutes les actions exigent `workspace_root`&nbsp;: le chemin absolu de l'espace de travail à interroger. Obtenez-le via `session.get_state` (le `filePath` des onglets ouverts) ou l'outil workspace. Un chemin manquant, non absolu ou qui n'est pas un répertoire est refusé avec une erreur en chaîne simple.
 
 ### `status`
 

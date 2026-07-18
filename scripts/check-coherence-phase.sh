@@ -390,8 +390,27 @@ phase_2() {
     fail "SKIP_TESTS=1 set — WI-2b.8 suite not run"
   fi
 
+  echo "— WI-2b.9: i18n ×10 + website guides —"
+  assert_file src/locales/ja/claims.json "app claim strings translated (spot: ja)"
+  assert_file src/locales/zh-CN/claims.json "app claim strings translated (spot: zh-CN)"
+  assert_grep "Semantic checking, claims, and contexts" website/guide/coherence.md "EN guide covers the semantic layer"
+  if grep -q "claims" website/zh-CN/guide/mcp-tools.md && grep -q "contexts" website/ja/guide/mcp-tools.md; then
+    ok "localized mcp-tools guides cover claims/contexts (spot: zh-CN, ja)"
+  else
+    fail "localized mcp-tools guides missing claims/contexts sections"
+  fi
+  if [[ "${SKIP_TESTS:-}" != "1" ]]; then
+    if pnpm lint:i18n >/dev/null 2>&1; then
+      ok "WI-2b.9 i18n completeness green"
+    else
+      fail "WI-2b.9 i18n completeness red"
+    fi
+  else
+    fail "SKIP_TESTS=1 set — WI-2b.9 i18n check not run"
+  fi
+
   # Later WIs append their assertions (and suite runs) here as they land.
-  local PENDING=(2b.9 2b.10)
+  local PENDING=(2b.10)
   echo "— pending WIs (fail-closed until implemented) —"
   for wi in "${PENDING[@]}"; do
     fail "WI-$wi assertions not yet defined (fail-closed)"
