@@ -68,6 +68,14 @@ Rules:
 - A file with no frontmatter gets a frontmatter block prepended at first
   capture. A file with frontmatter but no `vmark` key gets the key added.
   Identity assignment does **not** create a new revision (§3.3).
+- **Parsing strategy (fixed here so implementations agree):** the reserved
+  block is handled line-based on the raw frontmatter text — match a
+  top-level `vmark:` mapping line and its indented `id:` / `schema:`
+  children; everything else in the frontmatter is preserved byte-for-byte
+  (no YAML round-trip, no reformatting of author content). A file whose
+  frontmatter is malformed (unterminated `---` fence, invalid UTF-8) is
+  treated as having no identity; the first capture attempt surfaces a
+  `diagnostic` instead of guessing.
 - Binary files cannot carry frontmatter; a binary promoted to canon (R20)
   gets its identity in the ledger only (`object-registered` entry, §5.4.6).
 
@@ -163,19 +171,28 @@ directory level names the algorithm).
 
 ### 4.2 Contents
 
-- **Text:** the canonical bytes (§3.1) of the full file **including** its
-  frontmatter identity block. Masking (§3.2) applies to hashing only, never
-  to stored bytes. Two byte-sequences that differ only in identity keys
-  share one hash; first write wins — the ledger, not the snapshot, is
-  authoritative for which object a revision belongs to.
-- **Binary:** the raw bytes.
+- **Text:** the **identity-masked canonical bytes** (§3.2) — exactly the
+  bytes that were hashed, so every snapshot is self-verifying:
+  `SHA-256(stored bytes) == key`. Storing identity-bearing bytes here was
+  rejected (Codex review D1#3): two objects with identical author content
+  but different `vmark.id` values share one key, and first-write-wins
+  would then return the wrong identity block. Materializing a revision
+  back to disk re-inserts the target object's `vmark:` identity block
+  (id and schema come from the ledger, which is authoritative for
+  identity), formatted per §2.1.
+- **Binary:** the raw bytes (also self-verifying — §3.4 hashes raw bytes).
 
 ### 4.3 Write protocol
 
 Write to `.vmark/snapshots/tmp/<uuid>`, fsync, rename into place, then
 (best-effort) fsync the parent directory. A snapshot that already exists
 is never rewritten (identical hash = identical content). Snapshots are
-**never deleted** in v0 — retention/GC is O3, out of scope.
+**never deleted** in v0 — retention/GC is O3, out of scope. Writers
+`mkdir -p` the target directory **before every write**, never only at
+init — git prunes empty directories on branch switch (Spike S1 finding),
+so the directory's existence can never be assumed. A read that finds a
+missing or hash-mismatched snapshot surfaces a `diagnostic` and returns
+an explicit content-unavailable error — never silently empty content.
 
 ### 4.4 Git tracking default
 
@@ -199,10 +216,14 @@ Git blobs remain opportunistic, never load-bearing (R19).
   its own UUIDv7 `id`, RFC 3339 UTC `time`, `writer`, and causal references
   by ID. File order and cross-segment interleaving are meaningless; readers
   merge all segments and may sort by (`time`, `id`) for display only.
-- **Idempotency:** each entry carries an `idem` key — a deterministic
-  digest of the logical operation (§5.4 defines the recipe per kind).
-  Readers de-duplicate by `idem`, keeping the entry with the smallest
-  (`time`, `id`). Replays after crash recovery are therefore harmless.
+- **Idempotency:** each entry carries an `idem` key — a UUIDv7 **minted
+  once when the logical operation is created** and carried unchanged
+  through any retry or replay of that same operation. Readers de-duplicate
+  by `idem`, keeping the entry with the smallest (`time`, `id`). Distinct
+  operations always get distinct `idem` values even when their outputs
+  coincide — two generations converging on identical content are two
+  provenance events, never collapsed (Codex review D1#2: a
+  derived-from-outputs digest would silently merge them).
 - **Rotation:** when a segment exceeds 8 MiB, the writer starts
   `<writer-id>-<NNN>.jsonl` (NNN = next integer, zero-padded to 3). All
   segments of a writer remain part of the ledger forever.
@@ -275,7 +296,6 @@ are preserved and ignored by readers (forward compatibility).
   self-contained enough to rebuild the DAG without any other source (R16).
 - History is append-only: no entry kind updates or deletes a
   transformation (I2, I5).
-- `idem` recipe: `SHA-256("txf\n" + sorted output (object, revision) pairs)`.
 
 #### 5.4.2 `navigation` (R18)
 
@@ -286,9 +306,13 @@ Records a git state-jump. **Never mints revisions.**
 ```
 
 `op` ∈ { `checkout`, `branch-switch`, `reset`, `detach`, `worktree-switch` }.
-`idem` recipe: `SHA-256("nav\n" + from + "\n" + to + "\n" + coarse-time)`
-where coarse-time is `time` truncated to the second (dedupes double events
-from the watcher).
+One `idem` per detected operation (§5.1); duplicate detections of the same
+git operation produce duplicate navigation entries, which are harmless by
+construction — navigation never mints revisions. Classification order
+matters (Gate G2): check `MERGE_HEAD` first (a mid-conflict merge is
+invisible to sha/reflog observables), then new-sha detection for
+mutations, then HEAD comparison for navigation; never assume the known-sha
+set only grows (`reset --hard` shrinks it).
 
 #### 5.4.3 `ratification` and `waiver` (R13, R15, I5)
 
@@ -318,9 +342,9 @@ Resolution records about an **origin edge**, identified by the pair
   the same edge; records are never edited or deleted (I5).
 - `actor` requires an identity; agent-performed resolution additionally
   requires a recorded delegation (R29 — mutating surface is Phase 3; v0
-  records only human actors).
-- `idem` recipe: `SHA-256(kind + "\n" + txf + "\n" + input + "\n" +
-  resolved_against + "\n" + actor.id)`.
+  records only human actors). In v1 the human actor identity is taken from
+  `git config user.name` when available, else the OS username; it is
+  recorded verbatim and never blank.
 
 #### 5.4.4 `check-result` (R25)
 
@@ -406,7 +430,10 @@ envelope, or fails schema validation for a **known** kind:
 
 A torn final line (crash mid-append, §5.2) is the expected common case.
 Quarantine files are never auto-deleted. Unknown `kind` values are **not**
-malformed (§5.3).
+malformed (§5.3). If the quarantine append itself fails (permissions,
+disk full), the read still succeeds — the diagnostic is held in the index
+only and re-attempted on the next scan; a reader never fails because
+quarantine is unavailable.
 
 ## 6. Contexts — pin manifests
 
@@ -534,6 +561,12 @@ project(E, C):
 
 Decisions fixed here:
 
+- **Edge liveness:** an edge is projected (and listed in the breakdown)
+  **iff its downstream revision equals `resolve(C, D)`** for its
+  downstream object D. Edges of superseded downstream revisions are
+  historical and never listed. This is how the *revise* action resolves:
+  the human's new revision of D supersedes D@w, retiring the old edge —
+  no record ever mutates it (Codex review D1#4).
 - **Ancestor check direction:** an edge whose pin is *newer* than the
   context's selection (possible under pinned contexts) is Fresh-ahead, not
   stale — staleness means "the world moved past what this artifact was
@@ -541,12 +574,22 @@ Decisions fixed here:
   badge.
 - **Diverged** (incomparable pin and selection, or a multi-head live
   upstream) is first-class and surfaced; the kernel never picks a side.
+  Two diverged sub-cases differ in available actions (Codex review D4#2):
+  with a *defined* selection that is merely incomparable to the pin,
+  **accept newer** ratifies against that selection and **waive** records
+  divergence normally; with an *undefined* selection (multi-head live
+  upstream, `DIVERGED_HEADS`), there is no single `resolved_against`, so
+  accept-newer and waive are disabled and only *revise* (or pinning a head
+  in the context) is offered.
 - Resolution records bind to a specific `resolved_against` revision; any
   further upstream advance re-opens the edge (v0 waiver scope, §5.4.3).
 - All states are **projections** over (origin edges, resolution records,
   C) — nothing is stored as mutable edge state (I5). The SQLite staleness
   cache is invalidated per-object on any new revision, resolution, or
-  context-selection change touching that object.
+  context-selection change touching that object. The index stores
+  **per-object head sets**, never a global "latest" — resolution is
+  always context-relative (R10), and no index API may expose a
+  context-free latest revision.
 
 ### 9.3 Ancestor computation
 
@@ -554,6 +597,28 @@ Decisions fixed here:
 `parents` links (from ledger `outputs[].parents`), bounded by the object's
 revision count. The SQLite index materializes the closure for objects with
 > 64 revisions (§10 targets make the naive walk acceptable below that).
+
+### 9.4 Scan reconciliation state machine (R9)
+
+Scan compares disk state against the index for **known objects** (files
+carrying a `vmark.id` or registered via §5.4.6). Files never captured are
+not objects — v1 adopts a file on first capture, never on scan.
+
+| Condition on scan | Behavior |
+|---|---|
+| Known object, content hash unchanged | Nothing |
+| Known object, content changed, git classifier says NAVIGATION | `navigation` entry only; **no revision minted** (R18) |
+| Known object, content changed, git classifier says MUTATION (revert/merge) | Transformation with `agent.type = "git"`, parents = last known revision(s) |
+| Known object, content changed, otherwise | Observed-external transformation: `agent.type = "external"`, empty inputs, `confidence = "unknown"`, parent = last known revision |
+| Known object's file deleted | No ledger entry; object marked **absent** in the index (history intact; breakdown hides absent objects). Deletion-as-transformation is deferred to O3/retention design |
+| Known object's file moved/renamed (same `vmark.id` found at new path) | Index path updated; no revision minted (content unchanged ⇒ same hash) |
+| Two files carry the same `vmark.id` | `diagnostic` (duplicate-ID, §2.1); capture-hold on the duplicate set |
+| File unreadable / invalid UTF-8 where text expected | `diagnostic`; skipped |
+| Symlink | Skipped + `diagnostic` (never followed — escape hazard) |
+| New file without identity | Ignored (not yet an object) |
+
+Mid-scan writes are serialized against capture through the per-workspace
+kernel instance (§5.1); a scan never races its own writer's appends.
 
 ## 10. Performance targets (O6)
 
