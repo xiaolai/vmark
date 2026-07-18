@@ -1,11 +1,16 @@
 # Plan: Coherence Layer — Kernel + Breakdown View (Phases 0–1, later phases outlined)
 
-- **Status:** **Phase 0 complete** (`check-coherence-phase.sh 0` → 42/42,
-  2026-07-18): spec written, G1/G2 PASS, S1–S4 PASS (M3 baseline 88.9%),
-  evidence gaps closed, M1–M5 baselines set. Codex cross-model review
-  completed, dispositioned, final verdict READY TO BUILD (rule 60 §6).
-  **Phase 1 in progress** — kernel storage/pure tiers landed (WI-1.1
-  through WI-1.5 committed with tests).
+- **Status:** **Phases 0 and 1 complete** (2026-07-18).
+  Phase 0: `check-coherence-phase.sh 0` → 42/42 (spec, G1/G2 PASS, S1–S4
+  PASS with M3 baseline 88.9%, evidence gaps closed, M1–M5 baselines).
+  Phase 1: `check-coherence-phase.sh 1` → 50/50 — the gate *runs* the
+  coherence cargo suite, the breakdown vitest suites, and `pnpm
+  check:all`, all green; R16 delete-and-rebuild and I5 append-only tests
+  green; breakdown-view E2E via Tauri MCP recorded
+  (`dev-docs/grills/coherence/phase1-e2e.md`, PASS); M1 4/4 at designed
+  confidence in the synthetic dogfood session. Codex cross-model review:
+  READY TO BUILD (rule 60 §6). **Next: Phase 2a design session** (O1/O5/
+  O8/R33) — no code until its plan amendment.
 - **Date:** 2026-07-18 (amended same day after Codex review)
 - **Contract:** `dev-docs/coherence-layer-paper.md` **v1.1** (Codex-reviewed,
   Appendix A). All WIs trace to the paper's R1–R33, I1–I5, O1–O9, M1–M5, and
