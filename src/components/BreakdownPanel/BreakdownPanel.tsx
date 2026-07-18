@@ -25,9 +25,13 @@ import {
   createContext,
   refreshBreakdown,
   refreshContexts,
-  refreshProvenance,
   setContextEnforcement,
 } from "@/services/breakdown/breakdownService";
+import {
+  refreshDelegations,
+  refreshProvenance,
+} from "@/services/breakdown/semanticActs";
+import { DelegationsSection } from "./DelegationsSection";
 import { ProvenanceGroup } from "./ProvenanceGroup";
 import { ask } from "@tauri-apps/plugin-dialog";
 import { BreakdownRow } from "./BreakdownRow";
@@ -55,6 +59,7 @@ export function BreakdownPanel() {
       void refreshContexts(rootPath);
       void refreshBreakdown(rootPath);
       void refreshProvenance(rootPath);
+      void refreshDelegations(rootPath);
     }
   }, [rootPath]);
 
@@ -215,6 +220,7 @@ export function BreakdownPanel() {
         </p>
       )}
       <ProvenanceGroup workspaceRoot={rootPath} />
+      <DelegationsSection workspaceRoot={rootPath} />
     </div>
   );
 }

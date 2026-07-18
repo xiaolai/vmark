@@ -52,5 +52,18 @@
     "confirm": "Conferma provenienza",
     "empty": "Nessun input selezionato",
     "stale": "Il documento è cambiato — suggerimenti aggiornati"
+  },
+  "delegations": {
+    "heading": "Deleghe agli agenti",
+    "empty": "Nessuna delega attiva",
+    "grant": "Concedi",
+    "revoke": "Revoca",
+    "principalPlaceholder": "Principal dell'agente (es. codex-cli)",
+    "days": "Giorni",
+    "scopeAcceptNewer": "Accetta più recente",
+    "scopeWaive": "Esenta",
+    "expiresOn": "fino al {{date}}",
+    "grantConfirm": "Consentire a \"{{principal}}\" di risolvere archi in questo spazio di lavoro ({{scope}}) fino al {{date}}? Ogni risoluzione delegata viene registrata nel log di audit a fronte di questa concessione.",
+    "grantTitle": "Concedi delega"
   }
 }

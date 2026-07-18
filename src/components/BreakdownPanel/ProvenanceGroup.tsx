@@ -16,7 +16,7 @@ import {
 import {
   confirmInputs,
   proposeInputs,
-} from "@/services/breakdown/breakdownService";
+} from "@/services/breakdown/semanticActs";
 
 function CandidateRow({
   candidate,
@@ -111,7 +111,7 @@ export function ProvenanceGroup({ workspaceRoot }: { workspaceRoot: string | nul
   if (candidates.length === 0 || !workspaceRoot) return null;
   return (
     <section className="provenance-group">
-      <h3 className="provenance-group__heading">{t("provenance.heading")}</h3>
+      <h4 className="provenance-group__heading">{t("provenance.heading")}</h4>
       <ul className="provenance-group__list">
         {candidates.map((c) => (
           <CandidateRow key={c.path} candidate={c} workspaceRoot={workspaceRoot} />

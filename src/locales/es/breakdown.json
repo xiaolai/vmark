@@ -52,5 +52,18 @@
     "confirm": "Confirmar procedencia",
     "empty": "Ninguna entrada seleccionada",
     "stale": "El documento cambió — sugerencias actualizadas"
+  },
+  "delegations": {
+    "heading": "Delegaciones de agentes",
+    "empty": "Sin delegaciones activas",
+    "grant": "Otorgar",
+    "revoke": "Revocar",
+    "principalPlaceholder": "Principal del agente (p. ej., codex-cli)",
+    "days": "Días",
+    "scopeAcceptNewer": "Aceptar más reciente",
+    "scopeWaive": "Eximir",
+    "expiresOn": "hasta {{date}}",
+    "grantConfirm": "¿Permitir que \"{{principal}}\" resuelva aristas en este espacio de trabajo ({{scope}}) hasta {{date}}? Cada resolución delegada queda registrada en el registro de auditoría vinculada a este otorgamiento.",
+    "grantTitle": "Otorgar delegación"
   }
 }

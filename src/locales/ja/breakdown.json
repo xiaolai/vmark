@@ -52,5 +52,18 @@
     "confirm": "来歴を確定",
     "empty": "入力が選択されていません",
     "stale": "ドキュメントが変更されました — 提案を更新しました"
+  },
+  "delegations": {
+    "heading": "エージェントへの委任",
+    "empty": "有効な委任はありません",
+    "grant": "付与",
+    "revoke": "取り消し",
+    "principalPlaceholder": "エージェントのプリンシパル（例：codex-cli）",
+    "days": "日数",
+    "scopeAcceptNewer": "新しい版を受け入れる",
+    "scopeWaive": "免除",
+    "expiresOn": "{{date}} まで",
+    "grantConfirm": "「{{principal}}」にこのワークスペースのエッジの解決（{{scope}}）を {{date}} まで許可しますか？委任による解決はすべて、この付与に紐づけて監査ログに記録されます。",
+    "grantTitle": "委任を付与"
   }
 }

@@ -52,5 +52,18 @@
     "confirm": "Confirm provenance",
     "empty": "No inputs selected",
     "stale": "The document changed — suggestions refreshed"
+  },
+  "delegations": {
+    "heading": "Agent delegations",
+    "empty": "No active delegations",
+    "grant": "Grant",
+    "revoke": "Revoke",
+    "principalPlaceholder": "Agent principal (e.g. codex-cli)",
+    "days": "Days",
+    "scopeAcceptNewer": "Accept newer",
+    "scopeWaive": "Waive",
+    "expiresOn": "until {{date}}",
+    "grantConfirm": "Allow \"{{principal}}\" to resolve edges in this workspace ({{scope}}) until {{date}}? Every delegated resolution is audit-logged against this grant.",
+    "grantTitle": "Grant delegation"
   }
 }
