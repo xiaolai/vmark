@@ -20,14 +20,16 @@ export function registerCoherenceTool(server: VMarkMcpServer): void {
         'READ-ONLY view of the workspace coherence layer — which derived documents are stale against their upstreams. Never modifies anything.\n\n' +
         'Actions:\n' +
         '- status: Kernel status counters. Returns {initialized, objects, open_items, quarantined, writer}. `initialized: false` means the workspace has no coherence ledger yet (no `.vmark/` directory).\n' +
-        '- edges: The breakdown — every live, non-fresh dependency edge. Returns an array of {txf, input, upstream, upstream_path, pinned, downstream, downstream_path, downstream_rev, state} where `state` is e.g. "version-stale", "diverged", "waived". Empty array means everything is coherent.\n\n' +
-        'Both actions require `workspace_root`: the absolute path of the workspace to query (learn it from the workspace/session tools).',
+        '- edges: The breakdown — every live, non-fresh dependency edge. Returns an array of {txf, input, upstream, upstream_path, pinned, downstream, downstream_path, downstream_rev, state} where `state` is e.g. "version-stale", "stale-contradicted", "diverged", "waived". Empty array means everything is coherent.\n' +
+        '- claims: Current canon claims. Returns an array of {claim, entryId, statement, maturity, invalidAt, visible} — maturity is "draft"|"established"; only established claims constrain checks. Read-only.\n' +
+        '- contexts: The context set (the implicit default is always present). Returns an array of {id, name, parent, enforcement, visibleClaims, errors}. Read-only.\n\n' +
+        'All actions require `workspace_root`: the absolute path of the workspace to query (learn it from the workspace/session tools).',
       inputSchema: {
         type: 'object',
         properties: {
           action: {
             type: 'string',
-            enum: ['status', 'edges'],
+            enum: ['status', 'edges', 'claims', 'contexts'],
             description: 'The action to perform',
           },
           workspace_root: {
@@ -41,9 +43,12 @@ export function registerCoherenceTool(server: VMarkMcpServer): void {
     },
     async (args) => {
       const action = args.action;
-      if (action !== 'status' && action !== 'edges') {
+      if (
+        typeof action !== 'string' ||
+        !['status', 'edges', 'claims', 'contexts'].includes(action)
+      ) {
         return VMarkMcpServer.errorResult(
-          `Invalid action: ${String(action)}. Expected: status, edges`,
+          `Invalid action: ${String(action)}. Expected: status, edges, claims, contexts`,
         );
       }
       if (
