@@ -1,7 +1,3 @@
----
-vmark:
-  id: 019f758b-af1f-7821-bd64-8c5e584cf25a
----
 # Semantic Version Control for Recursively Developed Creative Work
 ## The VMark Coherence Layer — Design Paper
 
@@ -462,11 +458,6 @@ stateDiagram-v2
   displayed distinctly from unresolved staleness. Scope semantics (per-edge /
   per-object / per-claim; behavior when the upstream advances again) are O8,
   resolved in the semantic-model design phase.
-
-- For Phase 2a, the preferred waiver baseline is narrow — per origin edge and
-  per upstream revision, with a required reason. When the upstream advances
-  further, the edge reopens for a new resolution prompt rather than inheriting
-  the waiver.
 - A pin is not a waiver (the VFX lesson): pins freeze resolution; waivers
   record a *decision about divergence* with authorship and rationale.
 

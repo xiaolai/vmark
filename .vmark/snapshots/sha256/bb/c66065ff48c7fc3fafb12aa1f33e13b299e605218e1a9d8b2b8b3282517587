@@ -1,7 +1,3 @@
----
-vmark:
-  id: 019f758c-54ef-7043-93c8-921bc58c4c18
----
 # Coherence & the Breakdown View
 
 VMark's coherence layer keeps recursively developed writing projects
@@ -54,7 +50,7 @@ Each item offers three honest actions — none of them rewrites history:
 - **Revise** — opens the artifact so you can update it. Saving a new
   version retires the old edge.
 - **Waive** — records an intentional divergence with a **required
-  reason** (unreliable narrators exist). In v0, a waiver is intentionally narrow: it applies only to this edge and the specific upstream revision it resolves against. Waived items stay visible,
+  reason** (unreliable narrators exist). Waived items stay visible,
   marked distinctly, and reopen if the upstream moves again.
 
 Accept-newer and waive are disabled when the upstream has multiple

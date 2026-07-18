@@ -1,7 +1,3 @@
----
-vmark:
-  id: 019f758c-54bc-74a0-95ce-4e70da185ef4
----
 # Coherence Layer — Implementation Architecture (Phase 1)
 
 - **Contract:** `dev-docs/specs/coherence-format-v0.md` (on-disk format —

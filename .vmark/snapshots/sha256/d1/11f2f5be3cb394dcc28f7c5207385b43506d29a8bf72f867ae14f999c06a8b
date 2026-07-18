@@ -1,7 +1,3 @@
----
-vmark:
-  id: 019f758c-550e-7582-b14e-1de8b3ec45a5
----
 # MCP Tools Reference
 
 VMark exposes **seven composite MCP tools** to AI assistants: `session`, `workspace`, `document`, `workflow`, `selection`, `browser`, and `coherence`. Together they cover the editor spine, file/window lifecycle, CST-safe workflow edits, targeted selection edits, bounded browser navigation, and a read-only view of the workspace coherence layer.

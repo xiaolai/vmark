@@ -1,7 +1,3 @@
----
-vmark:
-  id: 019f758c-5536-79f0-9301-a463477869de
----
 # Coherence Dogfood Log
 
 Per-session metric record against the spec §11 baselines
@@ -62,11 +58,6 @@ without fear") can only be evaluated on the real project.
 - **F2 (open):** the workspace scan walks build-artifact trees
   (`src-tauri/target`), dominating M5's 12.4 s. Owner requires this fixed
   before wider dogfooding.
-- **F4 (fixed):** the kernel never wrote `.vmark/.gitignore` /
-  `.vmark/.gitattributes` on first init (spec §2 layout table) — only a
-  real git-repo workspace could expose this. Files hand-written for the
-  session commit; kernel fix with failing test first in the same change
-  set as F2.
 - **F3 (operational):** editing Rust sources mid-session restarts the
   tauri dev app and drops session windows — schedule kernel fixes outside
   live sessions.
