@@ -2,9 +2,10 @@
 
 - **Date:** 2026-07-18
 - **Status:** Direction document — synthesis of a strategy discussion plus three
-  verified deep-research passes. **Not a plan and not a commitment.** If the
-  direction is adopted, the next artifact is a phased plan in
-  `dev-docs/plans/` per rule 60.
+  verified deep-research passes. **Formalized into the design paper
+  `dev-docs/coherence-layer-paper.md` (single source of truth); this document
+  remains the discussion record.** The implementation plan in
+  `dev-docs/plans/` follows the paper, per rule 60.
 - **Inputs:**
   - Strategy discussion (VMark → "Creative IDE" / "Artifact Workspace" /
     Movie-vertical question, incl. a cross-model Codex conversation)
@@ -336,3 +337,77 @@ authoritative for tree-level content history and collaboration transport; the
 kernel is authoritative for identity, edges, and meaning. Every surface above
 is a point where the authorities touch; every resolution is a demarcation.
 Precedent: DVC's coexistence with git (lockfiles in git, cache outside).
+
+### 7.9 Delivery shape: module inside VMark, format as the public contract — not a separate engine
+
+Question: build a standalone "semantic git" engine first, then integrate?
+**Answer: no. Extractable module inside VMark; the on-disk plain-text format
+(not a library API) is the public contract.** Standard approach
+(module-first, extract-when-proven); the deciding reasons are specific:
+
+1. **Semantic capture cannot be separated from the creation surface.** Git
+   worked standalone because content capture is trivial (files on disk).
+   Transformations with recorded input sets exist only if the writer reports
+   them — the editor/agent-runtime/MCP bridge *is* the sensor (§6, refinement
+   3). A standalone engine without its editor is the condemned "edge tool over
+   externally edited files" — manual-metadata death.
+2. **Premature platformization** — the same trap rejected for "Artifact
+   Studio" (generalize from N ≥ 2 consumers; there are 0). Cautionary
+   precedent: Automerge — excellent engine, years without product adoption,
+   until Ink & Switch built Patchwork themselves to drive it. Supporting
+   precedent: git's on-disk format was the standard from day one; libgit2 was
+   extracted years later from a proven design.
+3. **Cost/feedback calibration:** engine-first = months of infrastructure with
+   zero user feedback and the adoption laws untested; module-first = breakdown
+   view shippable in weeks inside the existing product.
+
+Three moves that preserve every benefit of "an engine":
+
+1. **Format spec first** — ledger JSONL schema, pin-manifest format,
+   frontmatter ID convention, snapshot-store layout, written and versioned
+   before implementation. The format is the engine interface (how git, LSP,
+   and ComfyUI's workflow JSON each became standards).
+2. **Kernel as a pure, extraction-ready module** — revision DAG, ledger,
+   staleness computation kept dependency-light and side-effect-free; capture
+   sensors and LLM calls outside it at the service layer (matches the
+   three-tier source layout, ADR-013). Extracting a crate later, if a second
+   consumer materializes, is cheap — and happens with a proven design.
+3. **MCP as the programmatic surface** — query staleness / list edges /
+   ratify / waive exposed as MCP tools on VMark's existing server, giving
+   external agents (Claude Code, Codex, CI) access without a separate engine
+   binary existing.
+
+Engine extraction is a post-adoption decision, made after the breakdown view
+has real users — never before.
+
+### 7.10 Extensibility: schemas + MCP + formats now; sandboxed code plugins later, maybe
+
+Fact (code-verified 2026-07-18): VMark has **no third-party plugin system** —
+`src/plugins/` is ~50 internal compiled-in Tiptap/ProseMirror extensions; the
+format adapter registry is compiled-in; nothing loads external code.
+
+Decision: **do not build an Obsidian-style code-plugin API now.** Reasons:
+(1) worst timing — a plugin API freezes internals exactly when the kernel is
+about to change them most (Obsidian shipped its API after core PMF, not while
+rebuilding foundations); (2) blast radius — VMark runs a terminal, AI agents,
+and MCP; unsandboxed third-party code there is a supply-chain and
+prompt-injection amplifier (Obsidian's unsandboxed model is already
+criticized *without* those surfaces); (3) the §7.9 rule — an API for external
+developers with zero external developers is generalizing from N=0; (4) cost —
+marketplace/review/docs/compat-forever rivals the coherence layer itself.
+
+The extensibility ladder (safest → most powerful), mostly already built:
+
+| Tier | Mechanism | Status |
+|---|---|---|
+| 1 | Schemas — declarative object/claim/view definitions | Kernel already makes schemas userland (§7.1); a vertical ships as a schema pack — data, not code |
+| 2 | MCP servers — process-isolated tools | Shipped, both directions (VMark is MCP host and server); the AI-era extension mechanism |
+| 3 | Formats as contract — ledger JSONL, pin manifests, frontmatter IDs | §7.9; third parties build against the format, no API needed |
+| 4 | Format adapters — new file types, custom views | Registry exists; community contributions land as ordinary PRs, no runtime loading |
+| 5 | Runtime code plugins (the Obsidian tier) | **Deferred**: post-1.0, post-kernel-stability, demonstrated external demand — and then sandboxed (WASM / isolated webview with capability grants), never unsandboxed |
+
+Reframe: VMark doesn't need to *adopt* a plugin system — tiers 1–4 *are* its
+plugin system; declare them as such. The AI era moved the extension point from
+"code running inside the editor" to "schemas + protocols + formats around the
+editor" — safer, and producible en masse by agents rather than only by human
+plugin developers.
