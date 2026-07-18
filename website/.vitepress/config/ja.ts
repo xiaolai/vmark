@@ -74,6 +74,7 @@ export const ja = {
               link: "/ja/guide/cjk-formatting",
             },
             { text: "AI ジーニー", link: "/ja/guide/ai-genies" },
+            { text: "整合性と内訳ビュー", link: "/ja/guide/coherence" },
             { text: "ワークフロージーニー", link: "/ja/guide/workflow-genies" },
             {
               text: "AI プロバイダー",

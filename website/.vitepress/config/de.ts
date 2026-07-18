@@ -78,6 +78,10 @@ export const de = {
             },
             { text: "AI Genies", link: "/de/guide/ai-genies" },
             {
+              text: "Kohärenz & Aufschlüsselungsansicht",
+              link: "/de/guide/coherence",
+            },
+            {
               text: "Workflow-Genies",
               link: "/de/guide/workflow-genies",
             },
