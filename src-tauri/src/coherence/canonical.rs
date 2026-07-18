@@ -127,11 +127,25 @@ pub fn insert_identity(text: &str, id: &str, schema: Option<&str>) -> String {
         };
         // Merge into an EXISTING vmark mapping (it may carry unknown
         // children masking preserved) — a second mapping would shadow the
-        // identity from read_identity (audit R14).
+        // identity from read_identity (audit R14). Existing `id:`/`schema:`
+        // children are REPLACED, not kept: they are kernel-namespace lines
+        // (mask_identity strips them, so dropping them never moves the
+        // content hash), and keeping one would leave a duplicate key —
+        // invalid YAML (dogfood session 2 finding).
         if let Some(existing_pos) = fm.split('\n').position(|line| line.trim_end() == "vmark:") {
             let lines: Vec<&str> = fm.split('\n').collect();
             let mut rebuilt: Vec<String> = Vec::with_capacity(lines.len() + 2);
             for (i, line) in lines.iter().enumerate() {
+                let in_vmark_children = i > existing_pos
+                    && lines[existing_pos + 1..=i]
+                        .iter()
+                        .all(|l| l.starts_with([' ', '\t']));
+                if in_vmark_children {
+                    let t = line.trim_start();
+                    if t.starts_with("id:") || t.starts_with("schema:") {
+                        continue;
+                    }
+                }
                 rebuilt.push((*line).to_string());
                 if i == existing_pos {
                     rebuilt.push(reserved.clone());

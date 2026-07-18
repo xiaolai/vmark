@@ -124,3 +124,21 @@ fn insert_identity_preserves_author_frontmatter_bytes() {
     let inserted = insert_identity(original, "018f3c7a-9f2e-7cc1-b302-5e9d4a6b21c7", None);
     assert!(inserted.contains("title: \"Weird:  spacing\"\ntags:\n  - a\n"));
 }
+
+#[test]
+fn insert_identity_replaces_stale_id_and_schema_children() {
+    const ID: &str = "018f3c7a-9f2e-7cc1-b302-5e9d4a6b21c7";
+    let original =
+        "---\ntitle: Scene\nvmark:\n  id: stale-id\n  schema: old\n  custom: kept\n---\nbody\n";
+    let inserted = insert_identity(original, ID, Some("scene"));
+    // Kernel-owned children are replaced, never duplicated (dogfood session 2
+    // finding: a second `id:` key under `vmark:` is invalid YAML).
+    assert_eq!(inserted.matches("  id:").count(), 1);
+    assert_eq!(inserted.matches("  schema:").count(), 1);
+    assert!(inserted.contains(&format!("  id: {ID}")));
+    assert!(inserted.contains("  schema: scene"));
+    assert!(inserted.contains("  custom: kept"));
+    // Replacement is invisible to hashing: identity lines are masked out
+    // either way, so the masked bytes must not move.
+    assert_eq!(mask_identity(&inserted), mask_identity(original));
+}
