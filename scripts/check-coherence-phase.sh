@@ -270,8 +270,22 @@ phase_2() {
   assert_grep "Resolved (Phase 2a" dev-docs/coherence-layer-paper.md "paper §O bullets record resolutions"
   assert_grep "WI-2b.0" dev-docs/plans/20260718-coherence-layer.md "plan decomposes Phase 2b"
 
+  echo "— WI-2b.1: contexts as delta over Phase 1 projection —"
+  assert_file src-tauri/src/coherence/contexts.rs "contexts module"
+  assert_grep "ContextView::all_live" src-tauri/src/coherence/contexts.rs "materializes Phase 1 ContextView (delta, not reimplementation)"
+  assert_grep "DEFAULT_CONTEXT_ID" src-tauri/src/coherence/contexts.rs "fixed default-context id"
+  if [[ "${SKIP_TESTS:-}" != "1" ]]; then
+    if cargo test --manifest-path src-tauri/Cargo.toml --lib coherence::contexts --quiet >/dev/null 2>&1; then
+      ok "WI-2b.1 context suite green"
+    else
+      fail "WI-2b.1 context suite red"
+    fi
+  else
+    fail "SKIP_TESTS=1 set — WI-2b.1 suite not run"
+  fi
+
   # Later WIs append their assertions (and suite runs) here as they land.
-  local PENDING=(2b.1 2b.2 2b.3 2b.4 2b.5 2b.6 2b.7 2b.8 2b.9 2b.10)
+  local PENDING=(2b.2 2b.3 2b.4 2b.5 2b.6 2b.7 2b.8 2b.9 2b.10)
   echo "— pending WIs (fail-closed until implemented) —"
   for wi in "${PENDING[@]}"; do
     fail "WI-$wi assertions not yet defined (fail-closed)"

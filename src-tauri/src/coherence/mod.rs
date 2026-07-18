@@ -17,6 +17,7 @@ pub mod canonical;
 pub mod capture;
 pub mod cas;
 pub mod commands;
+pub mod contexts;
 pub mod dag;
 pub mod envelope;
 pub mod frontmatter;
