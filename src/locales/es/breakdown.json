@@ -44,5 +44,13 @@
     "enforceConfirm": "Al aplicar este contexto, las contradicciones se marcan como violaciones del canon para todos los que lo proyectan. Las afirmaciones establecidas empiezan a restringir. ¿Activar?",
     "enforceTitle": "Aplicar contexto",
     "error": "Error de contexto: {{error}}"
+  },
+  "provenance": {
+    "heading": "Procedencia desconocida",
+    "hint": "{{count}} entrada(s) anterior(es) recuperable(s)",
+    "suggest": "Sugerir entradas",
+    "confirm": "Confirmar procedencia",
+    "empty": "Ninguna entrada seleccionada",
+    "stale": "El documento cambió — sugerencias actualizadas"
   }
 }

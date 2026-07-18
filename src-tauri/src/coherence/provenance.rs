@@ -190,85 +190,38 @@ pub fn perform_confirm_inputs(
     Ok(ConfirmReceipt { entry_id })
 }
 
-#[tauri::command]
-pub async fn coherence_propose_inputs(
-    state: tauri::State<'_, super::commands::CoherenceState>,
-    workspace_root: String,
-    path: String,
-) -> Result<Proposal, String> {
-    let kernel = state
-        .registry
-        .kernel_for(std::path::Path::new(&workspace_root), state.writer)?;
-    let mut kernel = kernel.lock().map_err(|_| "kernel poisoned".to_string())?;
-    perform_propose_inputs(&mut kernel, &path)
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProvenanceCandidate {
+    pub path: String,
+    /// How many inputs the heuristic would propose (display hint).
+    pub proposed: usize,
 }
 
-#[tauri::command]
-pub async fn coherence_confirm_inputs(
-    state: tauri::State<'_, super::commands::CoherenceState>,
-    workspace_root: String,
-    request: ConfirmRequest,
-) -> Result<ConfirmReceipt, String> {
-    let root = std::path::PathBuf::from(&workspace_root);
-    let kernel = state.registry.kernel_for(&root, state.writer)?;
-    let mut kernel = kernel.lock().map_err(|_| "kernel poisoned".to_string())?;
-    let actor = super::commands::actor_identity(&root);
-    perform_confirm_inputs(&mut kernel, &request, &actor)
-}
-
-impl super::index::CoherenceIndex {
-    /// Any edges recorded at exactly this (object, revision)? D1 gates
-    /// proposals on the head having none.
-    pub(super) fn has_live_edges(
-        &self,
-        object: &ObjectId,
-        rev: &RevisionId,
-    ) -> Result<bool, String> {
-        self.conn
-            .query_row(
-                "SELECT 1 FROM edges WHERE downstream = ?1 AND downstream_rev = ?2 LIMIT 1",
-                rusqlite::params![object.0.to_string(), rev.as_str()],
-                |_| Ok(()),
-            )
-            .map(|_| true)
-            .or_else(|e| match e {
-                rusqlite::Error::QueryReturnedNoRows => Ok(false),
-                other => Err(other.to_string()),
-            })
-    }
-
-    /// The input set recorded at (object, revision) by its most recent
-    /// transformation (UUIDv7 txf ids are time-ordered), roles intact.
-    pub(super) fn inputs_recorded_at(
-        &self,
-        object: &ObjectId,
-        rev: &RevisionId,
-    ) -> Result<Vec<(ObjectId, String)>, String> {
-        let mut stmt = self
-            .conn
-            .prepare(
-                "SELECT upstream, role FROM edges
-                 WHERE downstream = ?1 AND downstream_rev = ?2
-                   AND txf = (SELECT MAX(txf) FROM edges
-                              WHERE downstream = ?1 AND downstream_rev = ?2)
-                 ORDER BY input_idx",
-            )
-            .map_err(|e| e.to_string())?;
-        let rows = stmt
-            .query_map(rusqlite::params![object.0.to_string(), rev.as_str()], |r| {
-                Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
-            })
-            .map_err(|e| e.to_string())?;
-        let mut out = Vec::new();
-        for row in rows {
-            let (obj, role) = row.map_err(|e| e.to_string())?;
-            out.push((
-                ObjectId(Uuid::parse_str(&obj).map_err(|e| e.to_string())?),
-                role,
-            ));
+/// D1.5: the breakdown's "provenance unknown" group — every tracked
+/// object whose head is orphaned but recoverable. Pull-only; objects
+/// that never had inputs are not candidates (nothing to recover, no
+/// nagging — R4).
+pub fn perform_provenance_candidates(
+    kernel: &mut WorkspaceKernel,
+) -> Result<Vec<ProvenanceCandidate>, String> {
+    let registry = kernel.index().registry_state()?;
+    let mut paths: Vec<(ObjectId, String)> = registry
+        .path_of
+        .iter()
+        .map(|(o, p)| (*o, p.clone()))
+        .collect();
+    paths.sort_by(|a, b| a.1.cmp(&b.1));
+    let mut out = Vec::new();
+    for (_object, path) in paths {
+        if let Ok(proposal) = perform_propose_inputs(kernel, &path) {
+            out.push(ProvenanceCandidate {
+                path,
+                proposed: proposal.inputs.len(),
+            });
         }
-        Ok(out)
     }
+    Ok(out)
 }
 
 #[cfg(test)]

@@ -10,6 +10,17 @@ const mockCheck = vi.fn(() => Promise.resolve());
 const mockRefreshContexts = vi.fn(() => Promise.resolve());
 const mockCreateContext = vi.fn(() => Promise.resolve());
 const mockSetEnforcement = vi.fn(() => Promise.resolve());
+const mockRefreshProvenance = vi.fn(() => Promise.resolve());
+const mockPropose = vi.fn(() =>
+  Promise.resolve({
+    head: "rev1:" + "c".repeat(64),
+    inputs: [
+      { path: "notes/elena.md", role: "direct" },
+      { path: "notes/style.md", role: "contextual" },
+    ],
+  }),
+);
+const mockConfirm = vi.fn(() => Promise.resolve());
 vi.mock("@/services/breakdown/breakdownService", () => ({
   refreshBreakdown: (...a: unknown[]) => mockRefresh(...a),
   resolveEdge: (...a: unknown[]) => mockResolve(...a),
@@ -18,6 +29,9 @@ vi.mock("@/services/breakdown/breakdownService", () => ({
   refreshContexts: (...a: unknown[]) => mockRefreshContexts(...a),
   createContext: (...a: unknown[]) => mockCreateContext(...a),
   setContextEnforcement: (...a: unknown[]) => mockSetEnforcement(...a),
+  refreshProvenance: (...a: unknown[]) => mockRefreshProvenance(...a),
+  proposeInputs: (...a: unknown[]) => mockPropose(...a),
+  confirmInputs: (...a: unknown[]) => mockConfirm(...a),
 }));
 const mockAsk = vi.fn(() => Promise.resolve(true));
 vi.mock("@tauri-apps/plugin-dialog", () => ({
@@ -52,6 +66,9 @@ beforeEach(() => {
   mockCreateContext.mockClear();
   mockSetEnforcement.mockClear();
   mockAsk.mockClear().mockResolvedValue(true);
+  mockRefreshProvenance.mockClear();
+  mockPropose.mockClear();
+  mockConfirm.mockClear();
   localStorage.clear();
   useBreakdownStore.getState().reset();
   useBreakdownStore.getState().setPanelOpen(true);
@@ -385,5 +402,50 @@ describe("BreakdownPanel — WI-2b.7 context bar", () => {
     useBreakdownStore.getState().setContexts([ctx({ id: DEFAULT_ID, name: "default" })]);
     render(<BreakdownPanel />);
     expect(screen.queryByRole("button", { name: /^enforce$/i })).not.toBeInTheDocument();
+  });
+});
+
+describe("BreakdownPanel — WI-3.2 provenance recovery", () => {
+  it("renders candidates and the suggest→confirm flow", async () => {
+    const user = userEvent.setup();
+    useBreakdownStore.getState().setProvenance([
+      { path: "essays/derived.md", proposed: 2 },
+    ]);
+    render(<BreakdownPanel />);
+    expect(mockRefreshProvenance).toHaveBeenCalledWith("/ws");
+    expect(screen.getByText(/provenance unknown/i)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /suggest inputs/i }));
+    expect(mockPropose).toHaveBeenCalledWith("/ws", "essays/derived.md");
+    // Both proposed inputs pre-checked; uncheck the contextual one.
+    const checkboxes = screen.getAllByRole("checkbox");
+    expect(checkboxes).toHaveLength(2);
+    await user.click(checkboxes[1]);
+    await user.click(screen.getByRole("button", { name: /confirm provenance/i }));
+    expect(mockConfirm).toHaveBeenCalledWith(
+      "/ws",
+      "essays/derived.md",
+      "rev1:" + "c".repeat(64),
+      [{ path: "notes/elena.md", role: "direct" }],
+    );
+  });
+
+  it("confirm is disabled when nothing is checked", async () => {
+    const user = userEvent.setup();
+    useBreakdownStore.getState().setProvenance([
+      { path: "essays/derived.md", proposed: 2 },
+    ]);
+    render(<BreakdownPanel />);
+    await user.click(screen.getByRole("button", { name: /suggest inputs/i }));
+    for (const box of screen.getAllByRole("checkbox")) {
+      if ((box as HTMLInputElement).checked) await user.click(box);
+    }
+    expect(
+      screen.getByRole("button", { name: /confirm provenance/i }),
+    ).toBeDisabled();
+  });
+
+  it("no group renders without candidates", () => {
+    render(<BreakdownPanel />);
+    expect(screen.queryByText(/provenance unknown/i)).not.toBeInTheDocument();
   });
 });

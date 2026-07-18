@@ -210,3 +210,15 @@ fn confirmation_carries_no_prior_resolutions() {
     // Fresh edges start unresolved — plain version-stale, nothing waived.
     assert_eq!(rows.len(), 1);
 }
+
+#[test]
+fn candidates_lists_only_recoverable_orphans() {
+    let (_td, mut kernel) = workspace();
+    orphaned_scene(&mut kernel); // scene: orphaned, recoverable
+    cap(&mut kernel, "notes.md", "no ancestry inputs\n", vec![]); // never had inputs
+    cap(&mut kernel, "elena.md", "still fine\n", vec![]); // upstream, no edges of its own
+    let c = perform_provenance_candidates(&mut kernel).unwrap();
+    assert_eq!(c.len(), 1, "{c:?}");
+    assert_eq!(c[0].path, "scene.md");
+    assert_eq!(c[0].proposed, 2, "both prior inputs proposed");
+}

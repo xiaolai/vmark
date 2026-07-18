@@ -44,5 +44,13 @@
     "enforceConfirm": "Wird dieser Kontext durchgesetzt, werden Widersprüche für alle, die ihn projizieren, als Kanon-Verstöße markiert. Etablierte Aussagen beginnen einzuschränken. Aktivieren?",
     "enforceTitle": "Kontext durchsetzen",
     "error": "Kontext-Fehler: {{error}}"
+  },
+  "provenance": {
+    "heading": "Provenienz unbekannt",
+    "hint": "{{count}} frühere Eingabe(n) wiederherstellbar",
+    "suggest": "Eingaben vorschlagen",
+    "confirm": "Provenienz bestätigen",
+    "empty": "Keine Eingaben ausgewählt",
+    "stale": "Das Dokument hat sich geändert — Vorschläge aktualisiert"
   }
 }

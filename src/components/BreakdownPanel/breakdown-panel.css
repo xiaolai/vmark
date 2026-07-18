@@ -340,3 +340,72 @@
   color: var(--error-color);
   font-size: var(--font-size-xs);
 }
+
+/* WI-3.2: provenance-unknown group — lazy suggest → confirm (D1.5). */
+.provenance-group {
+  border-top: 1px solid var(--border-color);
+  padding: var(--spacing-2) var(--spacing-3);
+}
+
+.provenance-group__heading {
+  margin: 0 0 var(--spacing-1);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.provenance-group__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.provenance-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-1);
+  padding: var(--spacing-1) 0;
+}
+
+.provenance-row__main {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  min-width: 0;
+}
+
+.provenance-row__path {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  color: var(--text-color);
+}
+
+.provenance-row__hint {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+.provenance-row__confirm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-1);
+  padding-left: var(--spacing-2);
+}
+
+.provenance-row__input {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-1);
+  font-size: var(--font-size-sm);
+  color: var(--text-color);
+}
+
+.provenance-row__role {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}

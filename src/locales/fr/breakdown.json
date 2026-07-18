@@ -44,5 +44,13 @@
     "enforceConfirm": "Appliquer ce contexte marque les contradictions comme des violations du canon pour tous ceux qui le projettent. Les affirmations établies commencent à contraindre. Activer ?",
     "enforceTitle": "Appliquer le contexte",
     "error": "Erreur de contexte : {{error}}"
+  },
+  "provenance": {
+    "heading": "Provenance inconnue",
+    "hint": "{{count}} entrée(s) antérieure(s) récupérable(s)",
+    "suggest": "Suggérer des entrées",
+    "confirm": "Confirmer la provenance",
+    "empty": "Aucune entrée sélectionnée",
+    "stale": "Le document a changé — suggestions actualisées"
   }
 }

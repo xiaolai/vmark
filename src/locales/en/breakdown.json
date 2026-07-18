@@ -44,5 +44,13 @@
     "enforceConfirm": "Enforcing this context labels contradictions as canon violations for everyone projecting it. Established claims start constraining. Enable?",
     "enforceTitle": "Enforce context",
     "error": "Context error: {{error}}"
+  },
+  "provenance": {
+    "heading": "Provenance unknown",
+    "hint": "{{count}} prior input(s) recoverable",
+    "suggest": "Suggest inputs",
+    "confirm": "Confirm provenance",
+    "empty": "No inputs selected",
+    "stale": "The document changed — suggestions refreshed"
   }
 }

@@ -37,6 +37,7 @@ pub mod ledger;
 pub mod paths;
 pub mod project;
 pub mod provenance;
+pub mod provenance_commands;
 pub mod scan;
 pub(crate) mod scan_walk;
 pub mod state;

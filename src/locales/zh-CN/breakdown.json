@@ -44,5 +44,13 @@
     "enforceConfirm": "强制执行该上下文后，对所有投影它的人来说，矛盾都会被标记为违反正典。已确立的设定将开始起约束作用。要启用吗？",
     "enforceTitle": "强制执行上下文",
     "error": "上下文错误：{{error}}"
+  },
+  "provenance": {
+    "heading": "来源未知",
+    "hint": "有 {{count}} 个此前的输入可恢复",
+    "suggest": "建议输入",
+    "confirm": "确认来源",
+    "empty": "未选择任何输入",
+    "stale": "文档已更改 — 建议已刷新"
   }
 }
