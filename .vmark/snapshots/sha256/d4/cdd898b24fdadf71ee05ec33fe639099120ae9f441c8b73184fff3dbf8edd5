@@ -1,7 +1,3 @@
----
-vmark:
-  id: 019f758c-5482-78e1-a042-d384f28175c9
----
 # Coherence Layer On-Disk Format — v0
 
 - **Status:** Draft v0 — the public contract for Phase 1 implementation
@@ -344,8 +340,6 @@ Resolution records about an **origin edge**, identified by the pair
   v0 waiver scope is strictly **per-edge, per-upstream-revision**: when the
   upstream advances past `resolved_against`, the edge re-enters
   VersionStale and the waiver stays in history, inert (O8 refines later).
-
-- This v0 rule is the format-level expression of the paper's Phase-2a narrow-waiver preference.
 - A waiver is **revoked** by appending a ratification or a newer waiver for
   the same edge; records are never edited or deleted (I5).
 - `actor` requires an identity; agent-performed resolution additionally

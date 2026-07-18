@@ -1,7 +1,3 @@
----
-vmark:
-  id: 019f758b-af03-7e53-a6f9-bf1e9468d93e
----
 # Plan: Coherence Layer — Kernel + Breakdown View (Phases 0–1, later phases outlined)
 
 - **Status:** **Phases 0 and 1 complete** (2026-07-18).
@@ -12,11 +8,7 @@ vmark:
   check:all`, all green; R16 delete-and-rebuild and I5 append-only tests
   green; breakdown-view E2E via Tauri MCP recorded
   (`dev-docs/grills/coherence/phase1-e2e.md`, PASS); M1 4/4 at designed
-  confidence in the synthetic dogfood session. Dogfood session 2
-  (self-hosted on this repo's coherence corpus, codex-as-human): M1
-  10/10 exact, M2 5/5, M4 5 of ≤5, M5 12.4 s — **PASS WITH
-  RESERVATIONS** (fix F2 scan latency, then re-run through MCP
-  funnels; see the dogfood log). Codex cross-model review:
+  confidence in the synthetic dogfood session. Codex cross-model review:
   READY TO BUILD (rule 60 §6). **Next: Phase 2a design session** (O1/O5/
   O8/R33) — no code until its plan amendment.
 - **Date:** 2026-07-18 (amended same day after Codex review)
