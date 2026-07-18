@@ -28,6 +28,8 @@ macro_rules! all_commands {
             coherence::context_commands::coherence_contexts,
             coherence::context_commands::coherence_context_create,
             coherence::context_commands::coherence_context_enforce,
+            coherence::provenance::coherence_propose_inputs,
+            coherence::provenance::coherence_confirm_inputs,
             coherence::commands::coherence_resolve,
             coherence::commands::coherence_breakdown,
             coherence::commands::coherence_status,

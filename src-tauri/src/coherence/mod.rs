@@ -35,6 +35,7 @@ pub(crate) mod index_state;
 pub mod ledger;
 pub mod paths;
 pub mod project;
+pub mod provenance;
 pub mod scan;
 pub(crate) mod scan_walk;
 pub mod state;
