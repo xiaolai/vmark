@@ -62,9 +62,47 @@ impl Envelope {
                 TypedBody::Transformation(t)
             }
             "navigation" => TypedBody::Navigation(parse(b)?),
-            "ratification" => TypedBody::Ratification(parse(b)?),
-            "waiver" => TypedBody::Waiver(parse(b)?),
+            "ratification" | "waiver" => {
+                let r: Resolution = parse(b)?;
+                // Spec §5.4.3 rev 2 (D2.4): a non-human resolution MUST
+                // reference the grant that authorized it.
+                let is_human = b
+                    .get("actor")
+                    .and_then(|a| a.get("type"))
+                    .and_then(|v| v.as_str())
+                    == Some("human");
+                if !is_human && b.get("delegation").and_then(|v| v.as_str()).is_none() {
+                    return Err("non-human resolution without a delegation reference".into());
+                }
+                if self.kind == "ratification" {
+                    TypedBody::Ratification(r)
+                } else {
+                    TypedBody::Waiver(r)
+                }
+            }
             "object-registered" => TypedBody::ObjectRegistered(parse(b)?),
+            // Spec §5.4.7 rev 2: delegation is a known, validated kind.
+            "delegation" => {
+                for key in ["delegation", "expires"] {
+                    if b.get(key).and_then(|v| v.as_str()).is_none() {
+                        return Err(format!("delegation missing {key}"));
+                    }
+                }
+                if b.get("delegate")
+                    .and_then(|d| d.get("id"))
+                    .and_then(|v| v.as_str())
+                    .is_none()
+                {
+                    return Err("delegation missing delegate.id".into());
+                }
+                if !b.get("scope").map(|s| s.is_array()).unwrap_or(false) {
+                    return Err("delegation scope must be an array".into());
+                }
+                TypedBody::Preserved {
+                    kind: self.kind.clone(),
+                    body: b.clone(),
+                }
+            }
             "diagnostic" => TypedBody::Diagnostic(parse(b)?),
             // Known Phase-2b kinds: preserved, but schema-VALIDATED now so
             // malformed records quarantine instead of festering (§5.6).
