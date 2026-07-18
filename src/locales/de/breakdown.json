@@ -8,7 +8,8 @@
   "actions": {
     "acceptNewer": "Neuere übernehmen",
     "revise": "Überarbeiten",
-    "waive": "Aussetzen"
+    "waive": "Aussetzen",
+    "check": "Prüfen"
   },
   "waiveReasonPlaceholder": "Begründung (erforderlich)",
   "waiveConfirm": "Ausnahme bestätigen",
@@ -30,5 +31,18 @@
     "inferredShort": "abgeleitet",
     "unknown": "Provenienz unbekannt — diese Änderung wurde außerhalb von VMark beobachtet",
     "unknownShort": "unbekannt"
+  },
+  "priorWaived": "zuvor ausgesetzt ×{{count}}",
+  "waiveExpiryPlaceholder": "Läuft ab (optional, YYYY-MM-DD)",
+  "checkUnavailable": "KI-Anbieter konfigurieren, um semantische Prüfungen auszuführen",
+  "contexts": {
+    "label": "Kontext",
+    "newPlaceholder": "Name des neuen Kontexts",
+    "create": "Kontext erstellen",
+    "enforce": "Durchsetzen",
+    "unenforce": "Zurück zum Gewächshaus",
+    "enforceConfirm": "Wird dieser Kontext durchgesetzt, werden Widersprüche für alle, die ihn projizieren, als Kanon-Verstöße markiert. Etablierte Aussagen beginnen einzuschränken. Aktivieren?",
+    "enforceTitle": "Kontext durchsetzen",
+    "error": "Kontext-Fehler: {{error}}"
   }
 }

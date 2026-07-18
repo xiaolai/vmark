@@ -8,7 +8,8 @@
   "actions": {
     "acceptNewer": "新しい版を受け入れる",
     "revise": "改訂",
-    "waive": "免除"
+    "waive": "免除",
+    "check": "チェック"
   },
   "waiveReasonPlaceholder": "理由（必須）",
   "waiveConfirm": "免除を確定",
@@ -30,5 +31,18 @@
     "inferredShort": "推定",
     "unknown": "来歴は不明 — この変更は VMark の外部で観測されました",
     "unknownShort": "不明"
+  },
+  "priorWaived": "以前に免除 ×{{count}}",
+  "waiveExpiryPlaceholder": "有効期限（任意、YYYY-MM-DD）",
+  "checkUnavailable": "セマンティックチェックを実行するには AI プロバイダーを設定してください",
+  "contexts": {
+    "label": "コンテキスト",
+    "newPlaceholder": "新しいコンテキスト名",
+    "create": "コンテキストを作成",
+    "enforce": "強制",
+    "unenforce": "温室に戻す",
+    "enforceConfirm": "このコンテキストを強制すると、これを投影するすべての利用者に対して矛盾がカノン違反として表示されます。確立済みの設定が制約として働き始めます。有効にしますか？",
+    "enforceTitle": "コンテキストを強制",
+    "error": "コンテキストエラー：{{error}}"
   }
 }

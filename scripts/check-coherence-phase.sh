@@ -347,8 +347,37 @@ phase_2() {
     fail "SKIP_TESTS=1 set — WI-2b.5 suite not run"
   fi
 
+  echo "— WI-2b.6: claim UI (extraction-driven create, explicit acts) —"
+  assert_file src/components/ClaimPanel/ClaimPanel.tsx "claim panel"
+  assert_grep "claims.extractFromSelection" src/services/commands/claimCommands.ts "extraction is the only create entry"
+  assert_grep "visible" src-tauri/src/coherence/claim_commands.rs "listing carries context visibility"
+  if [[ "${SKIP_TESTS:-}" != "1" ]]; then
+    if pnpm vitest run src/components/ClaimPanel/ClaimPanel.test.tsx src/services/claims/claimService.test.ts src/services/commands/claimCommands.test.ts --silent >/dev/null 2>&1; then
+      ok "WI-2b.6 claim UI suites green"
+    else
+      fail "WI-2b.6 claim UI suites red"
+    fi
+  else
+    fail "SKIP_TESTS=1 set — WI-2b.6 suites not run"
+  fi
+
+  echo "— WI-2b.7: context UI (picker, create, confirmed enforcement) —"
+  assert_file src-tauri/src/coherence/context_commands.rs "context commands"
+  assert_grep "perform_breakdown_in" src-tauri/src/coherence/commands.rs "context-parameterized breakdown"
+  assert_grep "contexts.enforceConfirm" src/components/BreakdownPanel/BreakdownPanel.tsx "explicit enforcement confirmation (D4.3)"
+  assert_grep "create a named context to enforce" src-tauri/src/coherence/context_commands.rs "default stays greenhouse"
+  if [[ "${SKIP_TESTS:-}" != "1" ]]; then
+    if cargo test --manifest-path src-tauri/Cargo.toml --lib coherence::context --quiet >/dev/null 2>&1; then
+      ok "WI-2b.7 context suites green"
+    else
+      fail "WI-2b.7 context suites red"
+    fi
+  else
+    fail "SKIP_TESTS=1 set — WI-2b.7 suites not run"
+  fi
+
   # Later WIs append their assertions (and suite runs) here as they land.
-  local PENDING=(2b.6 2b.7 2b.8 2b.9 2b.10)
+  local PENDING=(2b.8 2b.9 2b.10)
   echo "— pending WIs (fail-closed until implemented) —"
   for wi in "${PENDING[@]}"; do
     fail "WI-$wi assertions not yet defined (fail-closed)"

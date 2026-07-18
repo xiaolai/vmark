@@ -7,11 +7,21 @@ const mockRefresh = vi.fn(() => Promise.resolve());
 const mockResolve = vi.fn(() => Promise.resolve());
 const mockRevise = vi.fn(() => Promise.resolve());
 const mockCheck = vi.fn(() => Promise.resolve());
+const mockRefreshContexts = vi.fn(() => Promise.resolve());
+const mockCreateContext = vi.fn(() => Promise.resolve());
+const mockSetEnforcement = vi.fn(() => Promise.resolve());
 vi.mock("@/services/breakdown/breakdownService", () => ({
   refreshBreakdown: (...a: unknown[]) => mockRefresh(...a),
   resolveEdge: (...a: unknown[]) => mockResolve(...a),
   reviseEdge: (...a: unknown[]) => mockRevise(...a),
   checkEdge: (...a: unknown[]) => mockCheck(...a),
+  refreshContexts: (...a: unknown[]) => mockRefreshContexts(...a),
+  createContext: (...a: unknown[]) => mockCreateContext(...a),
+  setContextEnforcement: (...a: unknown[]) => mockSetEnforcement(...a),
+}));
+const mockAsk = vi.fn(() => Promise.resolve(true));
+vi.mock("@tauri-apps/plugin-dialog", () => ({
+  ask: (...a: unknown[]) => mockAsk(...a),
 }));
 
 import { BreakdownPanel, RESULT_CAP } from "./BreakdownPanel";
@@ -38,6 +48,10 @@ beforeEach(() => {
   mockResolve.mockClear();
   mockRevise.mockClear();
   mockCheck.mockClear();
+  mockRefreshContexts.mockClear();
+  mockCreateContext.mockClear();
+  mockSetEnforcement.mockClear();
+  mockAsk.mockClear().mockResolvedValue(true);
   localStorage.clear();
   useBreakdownStore.getState().reset();
   useBreakdownStore.getState().setPanelOpen(true);
@@ -304,5 +318,72 @@ describe("BreakdownRow — WI-2b.5 semantic-layer surface", () => {
     expect(screen.getByText("Stale — contradicted")).toBeInTheDocument();
     expect(screen.getByText("Stale — checked valid")).toBeInTheDocument();
     expect(screen.getByText("Stale — unchecked")).toBeInTheDocument();
+  });
+});
+
+describe("BreakdownPanel — WI-2b.7 context bar", () => {
+  const DEFAULT_ID = "00000000-0000-0000-0000-000000000000";
+  const ctx = (p: Partial<import("@/stores/breakdownStore").ContextRow> & { id: string; name: string }) => ({
+    parent: null,
+    enforcement: "greenhouse" as const,
+    visibleClaims: 0,
+    errors: [],
+    ...p,
+  });
+
+  it("loads contexts on mount and lists them in the picker", () => {
+    useBreakdownStore.getState().setContexts([
+      ctx({ id: DEFAULT_ID, name: "default" }),
+      ctx({ id: "c-1", name: "night-arc" }),
+    ]);
+    render(<BreakdownPanel />);
+    expect(mockRefreshContexts).toHaveBeenCalledWith("/ws");
+    expect(screen.getByRole("option", { name: /night-arc/i })).toBeInTheDocument();
+  });
+
+  it("switching context re-pulls the breakdown", async () => {
+    const user = userEvent.setup();
+    useBreakdownStore.getState().setContexts([
+      ctx({ id: DEFAULT_ID, name: "default" }),
+      ctx({ id: "c-1", name: "night-arc" }),
+    ]);
+    render(<BreakdownPanel />);
+    mockRefresh.mockClear();
+    await user.selectOptions(screen.getByRole("combobox"), "c-1");
+    expect(useBreakdownStore.getState().selectedContext).toBe("c-1");
+    expect(mockRefresh).toHaveBeenCalledWith("/ws");
+  });
+
+  it("creating a context calls the service with the trimmed name", async () => {
+    const user = userEvent.setup();
+    useBreakdownStore.getState().setContexts([ctx({ id: DEFAULT_ID, name: "default" })]);
+    render(<BreakdownPanel />);
+    await user.type(screen.getByLabelText(/new context name/i), "  canon  {Enter}");
+    expect(mockCreateContext).toHaveBeenCalledWith("/ws", "canon");
+  });
+
+  it("enforcing asks for explicit confirmation first (D4.3)", async () => {
+    const user = userEvent.setup();
+    useBreakdownStore.getState().setContexts([
+      ctx({ id: DEFAULT_ID, name: "default" }),
+      ctx({ id: "c-1", name: "canon" }),
+    ]);
+    useBreakdownStore.getState().setSelectedContext("c-1");
+    render(<BreakdownPanel />);
+    await user.click(screen.getByRole("button", { name: /^enforce$/i }));
+    expect(mockAsk).toHaveBeenCalled();
+    expect(mockSetEnforcement).toHaveBeenCalledWith("/ws", "c-1", true);
+
+    // Declining the dialog must not record anything.
+    mockSetEnforcement.mockClear();
+    mockAsk.mockResolvedValueOnce(false);
+    await user.click(screen.getByRole("button", { name: /^enforce$/i }));
+    expect(mockSetEnforcement).not.toHaveBeenCalled();
+  });
+
+  it("no enforce button on the implicit default", () => {
+    useBreakdownStore.getState().setContexts([ctx({ id: DEFAULT_ID, name: "default" })]);
+    render(<BreakdownPanel />);
+    expect(screen.queryByRole("button", { name: /^enforce$/i })).not.toBeInTheDocument();
   });
 });

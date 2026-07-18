@@ -34,5 +34,15 @@
   },
   "priorWaived": "previously waived ×{{count}}",
   "waiveExpiryPlaceholder": "Expires (optional, YYYY-MM-DD)",
-  "checkUnavailable": "Configure an AI provider to run semantic checks"
+  "checkUnavailable": "Configure an AI provider to run semantic checks",
+  "contexts": {
+    "label": "Context",
+    "newPlaceholder": "New context name",
+    "create": "Create context",
+    "enforce": "Enforce",
+    "unenforce": "Back to greenhouse",
+    "enforceConfirm": "Enforcing this context labels contradictions as canon violations for everyone projecting it. Established claims start constraining. Enable?",
+    "enforceTitle": "Enforce context",
+    "error": "Context error: {{error}}"
+  }
 }

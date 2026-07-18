@@ -18,7 +18,11 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useAiProviderStore } from "@/stores/aiStore";
 
-import { useBreakdownStore, type EdgeRow } from "@/stores/breakdownStore";
+import {
+  useBreakdownStore,
+  type ContextRow,
+  type EdgeRow,
+} from "@/stores/breakdownStore";
 import { emitOpenFileInCurrentWindow } from "@/services/navigation/openFileEvent";
 
 /** Mirror of the Rust `ResolveRequest` (WI-1.9a). */
@@ -66,7 +70,11 @@ export async function refreshBreakdown(workspaceRoot: string): Promise<void> {
   store.setLoading(true);
   store.setError(null);
   try {
-    const rows = await invoke<EdgeRow[]>("coherence_breakdown", { workspaceRoot });
+    const context = useBreakdownStore.getState().selectedContext;
+    const rows = await invoke<EdgeRow[]>("coherence_breakdown", {
+      workspaceRoot,
+      context,
+    });
     if (generation !== refreshGeneration) return; // superseded (audit T12)
     useBreakdownStore.getState().setRows(rows);
   } catch (error) {
@@ -156,4 +164,56 @@ export async function checkEdge(
     return;
   }
   await refreshBreakdown(workspaceRoot);
+}
+
+/** WI-2b.7: load the context set (implicit default always present). */
+export async function refreshContexts(workspaceRoot: string): Promise<void> {
+  try {
+    const contexts = await invoke<ContextRow[]>("coherence_contexts", {
+      workspaceRoot,
+    });
+    useBreakdownStore.getState().setContexts(contexts);
+  } catch (error) {
+    useBreakdownStore.getState().setError(messageOf(error));
+  }
+}
+
+/** Create a named greenhouse context (D1.4 — enforcement is opt-in later). */
+export async function createContext(
+  workspaceRoot: string,
+  name: string,
+): Promise<void> {
+  try {
+    await invoke("coherence_context_create", {
+      workspaceRoot,
+      name,
+      parent: null,
+    });
+  } catch (error) {
+    useBreakdownStore.getState().setError(messageOf(error));
+    return;
+  }
+  await refreshContexts(workspaceRoot);
+}
+
+/**
+ * Flip enforcement. The EXPLICIT human confirmation (D4.3) must happen
+ * at the call site before this runs — this seam only records it.
+ */
+export async function setContextEnforcement(
+  workspaceRoot: string,
+  context: string,
+  enforcing: boolean,
+): Promise<void> {
+  try {
+    await invoke("coherence_context_enforce", {
+      workspaceRoot,
+      context,
+      enforcing,
+    });
+  } catch (error) {
+    useBreakdownStore.getState().setError(messageOf(error));
+    return;
+  }
+  await refreshContexts(workspaceRoot);
 }

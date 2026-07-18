@@ -47,6 +47,7 @@ describe("refreshBreakdown", () => {
     await refreshBreakdown("/ws");
     expect(mockInvoke).toHaveBeenCalledWith("coherence_breakdown", {
       workspaceRoot: "/ws",
+      context: null,
     });
     const s = useBreakdownStore.getState();
     expect(s.rows).toEqual(rows);
@@ -102,6 +103,7 @@ describe("resolveEdge", () => {
     });
     expect(mockInvoke).toHaveBeenNthCalledWith(2, "coherence_breakdown", {
       workspaceRoot: "/ws",
+      context: null,
     });
   });
 
@@ -187,6 +189,7 @@ describe("checkEdge (WI-2b.5)", () => {
     // The follow-up refresh pulled the breakdown again.
     expect(mockInvoke).toHaveBeenCalledWith("coherence_breakdown", {
       workspaceRoot: "/ws",
+      context: null,
     });
   });
 
