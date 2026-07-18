@@ -16,6 +16,7 @@ pub mod adopt;
 pub mod canonical;
 pub mod capture;
 pub mod cas;
+pub mod claims;
 pub mod commands;
 pub mod contexts;
 pub mod dag;
