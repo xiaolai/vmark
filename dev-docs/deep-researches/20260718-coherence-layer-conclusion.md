@@ -308,3 +308,31 @@ with unknown inputs so history stays gap-free. Revision content is *not*
 derivable once a file moves on, so the `.vmark/` snapshot store is canonical
 for historical text — lean on git blobs when the workspace is a repo, but the
 kernel must not require git.
+
+### 7.8 Git interop: conflict surfaces and the division of authority
+
+Can the system conflict with git? Yes — at four surfaces, each with a design
+resolution. Two resolutions are **hard kernel requirements** discovered by this
+analysis.
+
+| Conflict surface | Failure without design | Resolution |
+|---|---|---|
+| Git state-jumps (`checkout`, `reset`, `revert`, branch switch) change files without any edit | Scan-reconciliation mints spurious "external edit" revisions from old content — ledger pollution on every history navigation | Kernel distinguishes *navigation* from *mutation*: watch `.git/HEAD`/index; record navigation events (a git branch maps naturally to a Context); **never mint revisions from navigation**. Must be day-one; a polluted ledger can't be cleaned |
+| Parallel branches mint colliding revisions | Sequential revision numbers (`elena@v4`) collide on merge — identity corruption inside the kernel | **HARD REQUIREMENT: revision identity = content hash + parent links (a DAG, like git commits), never a counter.** "v4" labels are derived display names |
+| Concurrent appends to the ledger | Both branches append to the same JSONL tail → git conflict markers inside the provenance store | **HARD REQUIREMENT: ledger entries are self-identified and order-independent** (own ID, timestamps, causal refs; file order meaningless) + per-writer segment files; `merge=union` gitattribute for residue |
+| History rewriting + git GC | Kernel references to git blobs dangle after rebase/GC | Snapshot store self-contained; git blobs opportunistic, never load-bearing |
+
+Minor: duplicate stable IDs after copy-then-merge → detected on scan, surfaced
+to the human (invariant 3). SQLite (gitignored, disposable) and the CAS
+(identical hash = identical content) conflict with nothing by construction.
+
+The inverse case is the product working, not a bug: git produces **clean merges
+that are semantically contradictory** (no textual overlap, meaning violated).
+A post-merge scan feeding the semantic layer makes VMark the semantic merge
+auditor git never had.
+
+**Division of authority (the rule that prevents this conflict class):** git is
+authoritative for tree-level content history and collaboration transport; the
+kernel is authoritative for identity, edges, and meaning. Every surface above
+is a point where the authorities touch; every resolution is a demarcation.
+Precedent: DVC's coexistence with git (lockfiles in git, cache outside).
