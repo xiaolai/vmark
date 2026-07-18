@@ -102,6 +102,62 @@ describe("markdownPairBackspace", () => {
   });
 });
 
+describe("markdownPairBackspace — code fence guard", () => {
+  // Inside fenced code blocks pair chars are literal code — Backspace must
+  // fall through (return false) so default backspace deletes ONE char, not
+  // both halves of the "pair".
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockIsCodeMirrorComposing.mockReturnValue(false);
+  });
+
+  it("does not delete both asterisks of *|* inside a fence", () => {
+    const doc = "```python\na ** b\n```";
+    const view = createView(doc, 13); // between the two asterisks
+    const result = markdownPairBackspace.run!(view, "Backspace" as never);
+    expect(result).toBe(false);
+    expect(view.state.doc.toString()).toBe(doc); // untouched by the handler
+    view.destroy();
+  });
+
+  it("does not delete both underscores of _|_ in __init__ inside a fence", () => {
+    const doc = "```python\n__init__\n```";
+    const view = createView(doc, 17); // between the trailing underscores
+    const result = markdownPairBackspace.run!(view, "Backspace" as never);
+    expect(result).toBe(false);
+    expect(view.state.doc.toString()).toBe(doc);
+    view.destroy();
+  });
+
+  it("does not delete both backticks of `|` inside a fence", () => {
+    const doc = "```sh\necho ``\n```";
+    const view = createView(doc, 12); // between the two backticks
+    const result = markdownPairBackspace.run!(view, "Backspace" as never);
+    expect(result).toBe(false);
+    expect(view.state.doc.toString()).toBe(doc);
+    view.destroy();
+  });
+
+  it("does not delete double pair ~~|~~ inside a fence", () => {
+    const doc = "```\n~~~~\n```";
+    const view = createView(doc, 6); // between ~~|~~
+    const result = markdownPairBackspace.run!(view, "Backspace" as never);
+    expect(result).toBe(false);
+    expect(view.state.doc.toString()).toBe(doc);
+    view.destroy();
+  });
+
+  it("still deletes the pair outside a fence in a doc containing a fence", () => {
+    const doc = "**\n```python\na ** b\n```";
+    const view = createView(doc, 1); // between *|* on the first line
+    const result = markdownPairBackspace.run!(view, "Backspace" as never);
+    expect(result).toBe(true);
+    expect(view.state.doc.toString()).toBe("\n```python\na ** b\n```");
+    view.destroy();
+  });
+});
+
 describe("createMarkdownAutoPairPlugin", () => {
   it("creates a ViewPlugin", () => {
     const plugin = createMarkdownAutoPairPlugin();
@@ -449,6 +505,24 @@ describe("createMarkdownAutoPairPlugin — code fence guard", () => {
     await Promise.resolve();
     // No closing backtick inserted
     expect(view.state.doc.toString()).toBe("text\n```\ncode `here\n```");
+  });
+
+  it("does NOT pair * inside a tilde (~~~) fenced code block", async () => {
+    // Same layout as CODE_FENCE_DOC but with tilde fences
+    view = createPluginView("text\n~~~\ncode here\n~~~");
+    typeChar(view, "*", 14); // inside "code here"
+    vi.advanceTimersByTime(200);
+    await Promise.resolve();
+    expect(view.state.doc.toString()).toBe("text\n~~~\ncode *here\n~~~");
+  });
+
+  it("does NOT pair * inside an unclosed fenced code block", async () => {
+    // Opening fence with no closer — fence extends to end of document
+    view = createPluginView("text\n```\ncode here");
+    typeChar(view, "*", 14); // inside "code here"
+    vi.advanceTimersByTime(200);
+    await Promise.resolve();
+    expect(view.state.doc.toString()).toBe("text\n```\ncode *here");
   });
 
   it("still pairs * outside code block (regression guard)", async () => {
