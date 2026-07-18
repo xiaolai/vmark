@@ -24,5 +24,11 @@
     "diverged": "分岐",
     "divergedMultiHead": "分岐（複数の現行版）",
     "unpinnable": "固定不可"
+  },
+  "confidence": {
+    "inferred": "来歴は推定 — 記録された入力セットはエージェントが実際に参照した内容を過小に見積もっています",
+    "inferredShort": "推定",
+    "unknown": "来歴は不明 — この変更は VMark の外部で観測されました",
+    "unknownShort": "不明"
   }
 }

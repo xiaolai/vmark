@@ -24,5 +24,11 @@
     "diverged": "분기됨",
     "divergedMultiHead": "분기됨(여러 현행 버전)",
     "unpinnable": "고정 불가"
+  },
+  "confidence": {
+    "inferred": "출처 추정 — 기록된 입력 집합은 에이전트가 실제로 참조한 내용보다 적을 수 있습니다",
+    "inferredShort": "추정",
+    "unknown": "출처 불명 — 이 변경은 VMark 외부에서 관찰되었습니다",
+    "unknownShort": "불명"
   }
 }

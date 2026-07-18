@@ -37,6 +37,8 @@ export interface EdgeRow {
   downstream: string;
   downstream_path: string | null;
   downstream_rev: string;
+  /** Provenance confidence of the recording transformation (R28). */
+  confidence: "exact" | "inferred" | "unknown";
   state: EdgeStateLabel;
 }
 

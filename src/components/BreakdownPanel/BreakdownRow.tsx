@@ -81,6 +81,14 @@ export function BreakdownRow({ row, workspaceRoot }: BreakdownRowProps) {
         <span className={`breakdown-state-badge breakdown-state-badge--${row.state}`}>
           {t(`states.${stateKeyOf(row.state)}`)}
         </span>
+        {row.confidence !== "exact" && (
+          <span
+            className={`breakdown-confidence-badge breakdown-confidence-badge--${row.confidence}`}
+            title={t(`confidence.${row.confidence}`)}
+          >
+            {t(`confidence.${row.confidence}Short`)}
+          </span>
+        )}
       </div>
       <div className="breakdown-row__actions">
         <button

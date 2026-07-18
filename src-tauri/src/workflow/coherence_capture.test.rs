@@ -64,17 +64,23 @@ fn diamond_dataflow_dedupes_and_cycles_terminate() {
         slice(
             "g1",
             "genie/x",
-            &[("c", "steps.read.text"), ("loop", "steps.g2.text")],
+            &[
+                ("c", "${{ steps.read.text }}"),
+                ("loop", "${{ steps.g2.text }}"),
+            ],
         ),
         slice(
             "g2",
             "genie/y",
-            &[("c", "steps.read.text"), ("loop", "steps.g1.text")],
+            &[
+                ("c", "${{ steps.read.text }}"),
+                ("loop", "${{ steps.g1.text }}"),
+            ],
         ),
         slice(
             "save",
             "action/save-file",
-            &[("input", "steps.g1.text steps.g2.text")],
+            &[("input", "${{ steps.g1.text }} ${{ steps.g2.text }}")],
         ),
     ];
     assert_eq!(direct_input_paths(&steps, "save"), vec!["a.md".to_string()]);
@@ -152,4 +158,19 @@ fn self_referential_save_target_is_not_its_own_input() {
             assert!(t.inputs.is_empty(), "no self-edge");
         }
     }
+}
+
+#[test]
+fn literal_paths_containing_steps_are_not_dependencies() {
+    // Audit A-M11: `steps.` inside a plain (non-template) param value is
+    // literal content, never a dataflow reference.
+    let steps = vec![
+        slice("steps", "action/read-file", &[("path", "a.md")]),
+        slice(
+            "save",
+            "action/save-file",
+            &[("path", "notes/steps.foo.md"), ("input", "static text")],
+        ),
+    ];
+    assert!(direct_input_paths(&steps, "save").is_empty());
 }

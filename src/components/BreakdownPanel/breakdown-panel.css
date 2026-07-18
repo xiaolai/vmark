@@ -269,3 +269,19 @@
   color: var(--alert-important-dark);
   background: color-mix(in srgb, var(--alert-important-dark) 10%, transparent);
 }
+
+/* Degraded-provenance badge (R28): rendered distinctly from state. */
+.breakdown-confidence-badge {
+  font-size: var(--font-size-2xs);
+  padding: 0 var(--spacing-1);
+  border-radius: var(--radius-pill);
+  border: var(--border-thin) dashed var(--text-tertiary);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-tight);
+}
+
+.breakdown-confidence-badge--unknown {
+  border-color: var(--warning-color);
+  color: var(--warning-color);
+}

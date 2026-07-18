@@ -24,5 +24,11 @@
     "diverged": "Diverged",
     "divergedMultiHead": "Diverged (multiple heads)",
     "unpinnable": "Unpinnable"
+  },
+  "confidence": {
+    "inferred": "Provenance inferred — the recorded input set under-approximates what the agent actually consulted",
+    "inferredShort": "inferred",
+    "unknown": "Provenance unknown — this change was observed outside VMark",
+    "unknownShort": "unknown"
   }
 }

@@ -40,10 +40,13 @@ pub fn mask_identity(text: &str) -> String {
     let Some(after) = text.strip_prefix("---\n") else {
         return text.to_string();
     };
-    let (fm, rest) = if let Some(pos) = after.find("\n---\n") {
-        (&after[..pos], &after[pos + 5..])
+    // `fence_nl` preserves whether the closing fence carried a trailing
+    // newline (audit A-M1): masking must never invent one — the final
+    // newline is content (§3.1).
+    let (fm, rest, fence_nl) = if let Some(pos) = after.find("\n---\n") {
+        (&after[..pos], &after[pos + 5..], true)
     } else if let Some(stripped) = after.strip_suffix("\n---") {
-        (stripped, "")
+        (stripped, "", false)
     } else {
         return text.to_string();
     };
@@ -76,8 +79,10 @@ pub fn mask_identity(text: &str) -> String {
     let masked_fm = out.join("\n");
     if masked_fm.trim().is_empty() {
         rest.to_string()
-    } else {
+    } else if fence_nl {
         format!("---\n{masked_fm}\n---\n{rest}")
+    } else {
+        format!("---\n{masked_fm}\n---")
     }
 }
 

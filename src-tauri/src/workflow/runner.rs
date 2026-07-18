@@ -522,14 +522,15 @@ pub async fn run_workflow_sequential(
                     if let (Some(rel), Some(content)) =
                         (resolved_params.get("path"), resolved_params.get("input"))
                     {
-                        crate::workflow::coherence_capture::capture_save_file_detached(
+                        crate::workflow::coherence_capture::capture_save_file_ordered(
                             app,
                             workspace_root,
                             dataflow.clone(),
                             step_id.clone(),
                             rel.clone(),
                             content.clone(),
-                        );
+                        )
+                        .await;
                     }
                 }
                 // Store full structured output for downstream step consumption.

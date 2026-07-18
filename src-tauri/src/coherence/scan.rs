@@ -107,12 +107,21 @@ pub fn scan_workspace(kernel: &mut WorkspaceKernel) -> Result<ScanReport, String
     }
 
     let root = kernel.root().to_path_buf();
-    let files = walk_markdown(&root, &mut report, kernel, &mut existing_diagnostics)?;
+    let mut skipped_md: Vec<String> = Vec::new();
+    let files = walk_markdown(
+        &root,
+        &mut report,
+        kernel,
+        &mut existing_diagnostics,
+        &mut skipped_md,
+    )?;
 
     // Path -> present-on-disk map for absence checks: a registered path
     // that still exists is never absent, even when its identity block is
-    // missing or unreadable (audit R2).
-    let present_paths: HashSet<&str> = files.iter().map(|(rel, _)| rel.as_str()).collect();
+    // missing, unreadable, oversized, or non-UTF-8 (audit R2/A14 — a
+    // diagnosed skip is still PRESENT).
+    let mut present_paths: HashSet<&str> = files.iter().map(|(rel, _)| rel.as_str()).collect();
+    present_paths.extend(skipped_md.iter().map(String::as_str));
 
     let mut seen_at: HashMap<ObjectId, String> = HashMap::new();
     let mut duplicates: HashSet<ObjectId> = HashSet::new();

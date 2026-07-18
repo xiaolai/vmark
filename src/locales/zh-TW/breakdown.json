@@ -24,5 +24,11 @@
     "diverged": "已分岔",
     "divergedMultiHead": "已分岔（多個現行版本）",
     "unpinnable": "無法固定"
+  },
+  "confidence": {
+    "inferred": "來源為推斷 — 記錄的輸入集可能少於智慧代理實際參考的內容",
+    "inferredShort": "推斷",
+    "unknown": "來源未知 — 此變更是在 VMark 之外被觀測到的",
+    "unknownShort": "未知"
   }
 }

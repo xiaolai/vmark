@@ -24,5 +24,11 @@
     "diverged": "Divergente",
     "divergedMultiHead": "Divergente (varias versiones)",
     "unpinnable": "No fijable"
+  },
+  "confidence": {
+    "inferred": "Procedencia inferida — el conjunto de entradas registrado subestima lo que el agente consultó realmente",
+    "inferredShort": "inferida",
+    "unknown": "Procedencia desconocida — este cambio se observó fuera de VMark",
+    "unknownShort": "desconocida"
   }
 }

@@ -24,5 +24,11 @@
     "diverged": "已分叉",
     "divergedMultiHead": "已分叉（多个现行版本）",
     "unpinnable": "无法固定"
+  },
+  "confidence": {
+    "inferred": "来源为推断 — 记录的输入集可能少于智能体实际参考的内容",
+    "inferredShort": "推断",
+    "unknown": "来源未知 — 此更改是在 VMark 之外被观测到的",
+    "unknownShort": "未知"
   }
 }
