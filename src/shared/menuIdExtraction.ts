@@ -106,6 +106,7 @@ export const EXCLUDED_MENU_IDS: ReadonlySet<string> = new Set([
   "markdown-split",
   "knowledge-base",
   "window-status",
+  "breakdown",
   "focus-mode",
   "typewriter-mode",
   "word-wrap",

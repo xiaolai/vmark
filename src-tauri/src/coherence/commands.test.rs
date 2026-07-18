@@ -301,9 +301,21 @@ fn synthetic_dogfood_session_m1() {
 
     // Three in-app AI generations (genie-style, exact) with input sets.
     for (out, body, inputs) in [
-        ("scene-01.md", "Elena at the shore.\n", vec!["elena.md", "world.md"]),
-        ("scene-02.md", "Marcus among the hives.\n", vec!["marcus.md"]),
-        ("scene-03.md", "Father and daughter argue.\n", vec!["elena.md", "marcus.md"]),
+        (
+            "scene-01.md",
+            "Elena at the shore.\n",
+            vec!["elena.md", "world.md"],
+        ),
+        (
+            "scene-02.md",
+            "Marcus among the hives.\n",
+            vec!["marcus.md"],
+        ),
+        (
+            "scene-03.md",
+            "Father and daughter argue.\n",
+            vec!["elena.md", "marcus.md"],
+        ),
     ] {
         write_file(root, out, body);
         let receipt = capture(
@@ -320,8 +332,15 @@ fn synthetic_dogfood_session_m1() {
                         role: InputRole::Direct,
                     })
                     .collect(),
-                agent: Agent { kind: AgentType::Model, id: Some("genie".into()) },
-                intent: Intent { kind: "genie".into(), summary: "scene".into(), prompt_hash: None },
+                agent: Agent {
+                    kind: AgentType::Model,
+                    id: Some("genie".into()),
+                },
+                intent: Intent {
+                    kind: "genie".into(),
+                    summary: "scene".into(),
+                    prompt_hash: None,
+                },
                 confidence: Confidence::Exact,
                 rewrite_identity: true,
             },
@@ -346,8 +365,15 @@ fn synthetic_dogfood_session_m1() {
                 revision: None,
                 role: InputRole::Direct,
             }],
-            agent: Agent { kind: AgentType::Model, id: Some("mcp-client".into()) },
-            intent: Intent { kind: "mcp-document-write".into(), summary: "document.write".into(), prompt_hash: None },
+            agent: Agent {
+                kind: AgentType::Model,
+                id: Some("mcp-client".into()),
+            },
+            intent: Intent {
+                kind: "mcp-document-write".into(),
+                summary: "document.write".into(),
+                prompt_hash: None,
+            },
             confidence: Confidence::Inferred,
             rewrite_identity: true,
         },
@@ -368,15 +394,26 @@ fn synthetic_dogfood_session_m1() {
     write_file(root, "elena.md", &elena_v2);
     save(&mut kernel, "elena.md", &elena_v2);
     let rows = perform_breakdown(&mut kernel).unwrap();
-    let stale_downstreams: Vec<_> =
-        rows.iter().filter_map(|r| r.downstream_path.as_deref()).collect();
-    assert_eq!(stale_downstreams, vec!["scene-01.md", "scene-03.md"], "M5: exact blast radius, instantly");
+    let stale_downstreams: Vec<_> = rows
+        .iter()
+        .filter_map(|r| r.downstream_path.as_deref())
+        .collect();
+    assert_eq!(
+        stale_downstreams,
+        vec!["scene-01.md", "scene-03.md"],
+        "M5: exact blast radius, instantly"
+    );
 
     // Resolve one (M4 workload sample): ratify scene-01, waive scene-03.
     let r0 = &rows[0];
     perform_resolve(
         &mut kernel,
-        &ResolveRequest { action: "accept-newer".into(), txf: r0.txf, input: r0.input, reason: None },
+        &ResolveRequest {
+            action: "accept-newer".into(),
+            txf: r0.txf,
+            input: r0.input,
+            reason: None,
+        },
         "dogfood",
     )
     .unwrap();

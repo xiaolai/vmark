@@ -59,7 +59,8 @@
     "zoomIn": "Zoom In",
     "zoomOut": "Zoom Out",
     "toggleShowInvisibles": "Toggle Invisibles",
-    "toggleWindowStatus": "Window Status"
+    "toggleWindowStatus": "Window Status",
+    "toggleBreakdown": "Coherence Breakdown"
   },
   "lint": {
     "check": "Check Markdown",

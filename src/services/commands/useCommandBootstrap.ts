@@ -73,6 +73,7 @@ const VIEW_BINDINGS: MenuCommandBinding[] = [
   { menuEvent: "menu:view-history", commandId: "view.toggleHistory" },
   { menuEvent: "menu:knowledge-base", commandId: "view.toggleKnowledgeBase" },
   { menuEvent: "menu:window-status", commandId: "view.toggleWindowStatus" },
+  { menuEvent: "menu:breakdown", commandId: "view.toggleBreakdown" },
   { menuEvent: "menu:word-wrap", commandId: "view.toggleWordWrap" },
   { menuEvent: "menu:line-numbers", commandId: "view.toggleLineNumbers" },
   { menuEvent: "menu:diagram-preview", commandId: "view.toggleDiagramPreview" },

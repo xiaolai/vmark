@@ -1,0 +1,271 @@
+/* Breakdown panel (WI-1.9b). Tokens only — see .claude/rules/31-design-tokens.md */
+.breakdown-panel {
+  width: 380px;
+  max-height: 70vh;
+  overflow-y: auto;
+  background: var(--bg-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--popup-shadow);
+  display: flex;
+  flex-direction: column;
+  animation: popup-fade-in 0.1s ease-out;
+}
+
+.dark-theme .breakdown-panel {
+  box-shadow: var(--popup-shadow-dark);
+}
+
+.breakdown-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-2) var(--spacing-3);
+  border-bottom: 1px solid var(--border-color);
+  position: sticky;
+  top: 0;
+  background: var(--bg-color);
+}
+
+.breakdown-panel__title {
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.breakdown-panel__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-half);
+}
+
+.breakdown-panel__icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--icon-size-sm);
+  height: var(--icon-size-sm);
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.breakdown-panel__icon-btn:hover:not(:disabled) {
+  background: var(--hover-bg);
+  color: var(--text-color);
+}
+
+.breakdown-panel__icon-btn:disabled {
+  opacity: var(--opacity-disabled);
+  cursor: not-allowed;
+}
+
+.breakdown-panel__icon-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent-bg);
+}
+
+.breakdown-panel__loading,
+.breakdown-panel__empty,
+.breakdown-panel__cap {
+  padding: var(--spacing-3);
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.breakdown-panel__error {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-1);
+  padding: var(--spacing-2) var(--spacing-3);
+  margin: 0;
+  color: var(--error-color);
+  background: var(--error-bg);
+  font-size: var(--font-size-sm);
+}
+
+.breakdown-panel__error-detail {
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  overflow-wrap: anywhere;
+}
+
+.breakdown-panel__groups {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+  padding: var(--spacing-2);
+}
+
+.breakdown-group__artifact {
+  margin: 0 0 var(--spacing-1);
+  padding: 0 var(--spacing-1);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--text-color);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.breakdown-group__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-half);
+}
+
+.breakdown-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-1);
+  padding: var(--spacing-2);
+  border-radius: var(--radius-sm);
+  background: var(--subtle-bg);
+}
+
+.breakdown-row__main {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+}
+
+.breakdown-row__upstream {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-size-sm);
+  color: var(--text-color);
+}
+
+.breakdown-row__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-1);
+}
+
+.breakdown-row__action {
+  padding: 0 var(--spacing-1);
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  position: relative;
+}
+
+.breakdown-row__action:hover:not(:disabled) {
+  background: var(--hover-bg);
+  color: var(--text-color);
+}
+
+.breakdown-row__action:disabled {
+  opacity: var(--opacity-disabled);
+  cursor: not-allowed;
+}
+
+/* Focus: U-shaped underline (rule 33 — toolbar/popup buttons). */
+.breakdown-row__action:focus-visible {
+  outline: none;
+}
+
+.breakdown-row__action:focus-visible::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: var(--space-1);
+  right: var(--space-1);
+  height: var(--border-thick);
+  border-bottom: var(--border-medium) solid var(--accent-primary);
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+}
+
+.breakdown-row__waive {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-1);
+}
+
+/* Dialog-input pattern (rule 33): bottom border, highlighted on focus. */
+.breakdown-row__waive-input {
+  flex: 1;
+  border: none;
+  border-bottom: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-color);
+  outline: none;
+  font-size: var(--font-size-sm);
+  font-family: var(--font-sans);
+  padding: var(--space-half) 0;
+}
+
+.breakdown-row__waive-input:focus {
+  border-bottom-color: var(--accent-primary);
+}
+
+.breakdown-row__waive-input::placeholder {
+  color: var(--text-secondary);
+  opacity: var(--opacity-muted);
+}
+
+/* State badges — token-mapped per state (rule 31; dark parity per rule 34). */
+.breakdown-state-badge {
+  flex-shrink: 0;
+  padding: 0 var(--spacing-1);
+  border-radius: var(--radius-pill);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-relaxed);
+  white-space: nowrap;
+}
+
+.breakdown-state-badge--version-stale {
+  color: var(--warning-color);
+  background: var(--warning-bg);
+}
+
+.breakdown-state-badge--stale-valid {
+  color: var(--success-color);
+  background: color-mix(in srgb, var(--success-color) 10%, transparent);
+}
+
+.breakdown-state-badge--stale-contradicted,
+.breakdown-state-badge--unpinnable {
+  color: var(--error-color);
+  background: var(--error-bg);
+}
+
+.breakdown-state-badge--stale-unknown {
+  color: var(--text-secondary);
+  background: var(--hover-bg);
+}
+
+.breakdown-state-badge--waived {
+  color: var(--text-tertiary);
+  background: var(--subtle-bg);
+}
+
+.breakdown-state-badge--diverged,
+.breakdown-state-badge--diverged-multi-head {
+  color: var(--alert-important);
+  background: color-mix(in srgb, var(--alert-important) 10%, transparent);
+}
+
+.dark-theme .breakdown-state-badge--stale-valid {
+  color: var(--success-color-dark);
+  background: color-mix(in srgb, var(--success-color-dark) 10%, transparent);
+}
+
+.dark-theme .breakdown-state-badge--diverged,
+.dark-theme .breakdown-state-badge--diverged-multi-head {
+  color: var(--alert-important-dark);
+  background: color-mix(in srgb, var(--alert-important-dark) 10%, transparent);
+}

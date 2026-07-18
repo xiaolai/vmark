@@ -1,4 +1,5 @@
-// WI-1.6 — scan reconciliation, table-driven over the spec §9.4 state
+// WI-1.6 (WI-1.6b observed-external adapter) — scan reconciliation,
+// table-driven over the spec §9.4 state
 // machine: unchanged / external modify / rename / delete+restore /
 // unknown-id adoption / duplicate IDs / invalid UTF-8 / symlinks /
 // no-identity files, plus real-git navigation (no minting) and revert

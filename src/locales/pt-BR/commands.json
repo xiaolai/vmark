@@ -59,7 +59,8 @@
     "zoomIn": "Aumentar zoom",
     "zoomOut": "Diminuir zoom",
     "toggleShowInvisibles": "Alternar caracteres invisíveis",
-    "toggleWindowStatus": "Status das janelas"
+    "toggleWindowStatus": "Status das janelas",
+    "toggleBreakdown": "Detalhamento de coerência"
   },
   "lint": {
     "check": "Verificar Markdown",

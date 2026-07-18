@@ -59,7 +59,8 @@
     "zoomIn": "Vergrößern",
     "zoomOut": "Verkleinern",
     "toggleShowInvisibles": "Unsichtbare Zeichen umschalten",
-    "toggleWindowStatus": "Fensterstatus"
+    "toggleWindowStatus": "Fensterstatus",
+    "toggleBreakdown": "Kohärenz-Aufschlüsselung"
   },
   "lint": {
     "check": "Markdown prüfen",

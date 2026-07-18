@@ -188,6 +188,7 @@ menu:
   window: "窗口"
   window.bringAllToFront: "将全部窗口置于前方"
   window.status: "窗口状态"
+  window.breakdown: "一致性明细"
 
   # === 帮助菜单 ===
   help: "帮助"

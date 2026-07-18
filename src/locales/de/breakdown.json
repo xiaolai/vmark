@@ -1,0 +1,28 @@
+{
+  "title": "Kohärenz-Aufschlüsselung",
+  "refresh": "Aktualisieren",
+  "loading": "Wird geladen…",
+  "error": "Aufschlüsselung konnte nicht geladen werden",
+  "empty": "Alles kohärent",
+  "capNotice": "{{shown}} von {{total}} Kanten angezeigt",
+  "actions": {
+    "acceptNewer": "Neuere übernehmen",
+    "revise": "Überarbeiten",
+    "waive": "Aussetzen"
+  },
+  "waiveReasonPlaceholder": "Begründung (erforderlich)",
+  "waiveConfirm": "Ausnahme bestätigen",
+  "disabledMultiHead": "Upstream hat mehrere aktive Versionen — zuerst überarbeiten oder eine Version festlegen",
+  "disabledUnpinnable": "Upstream ist in diesem Kontext nicht auflösbar",
+  "reviseUnavailable": "Kein Dateipfad für dieses Artefakt bekannt",
+  "states": {
+    "versionStale": "Version veraltet",
+    "staleValid": "Veraltet — geprüft gültig",
+    "staleContradicted": "Veraltet — widersprochen",
+    "staleUnknown": "Veraltet — ungeprüft",
+    "waived": "Ausgenommen",
+    "diverged": "Divergiert",
+    "divergedMultiHead": "Divergiert (mehrere Versionen)",
+    "unpinnable": "Nicht fixierbar"
+  }
+}

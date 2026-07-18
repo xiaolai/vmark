@@ -1,0 +1,28 @@
+{
+  "title": "一致性明细",
+  "refresh": "刷新",
+  "loading": "加载中…",
+  "error": "无法加载明细",
+  "empty": "全部一致",
+  "capNotice": "显示 {{shown}} / {{total}} 条依赖边",
+  "actions": {
+    "acceptNewer": "接受新版",
+    "revise": "修订",
+    "waive": "豁免"
+  },
+  "waiveReasonPlaceholder": "理由（必填）",
+  "waiveConfirm": "确认豁免",
+  "disabledMultiHead": "上游存在多个现行版本 — 请先修订或固定一个版本",
+  "disabledUnpinnable": "上游在当前上下文中无法解析",
+  "reviseUnavailable": "该产物没有已知的文件路径",
+  "states": {
+    "versionStale": "版本过期",
+    "staleValid": "过期 — 已验证有效",
+    "staleContradicted": "过期 — 相互矛盾",
+    "staleUnknown": "过期 — 未验证",
+    "waived": "已豁免",
+    "diverged": "已分叉",
+    "divergedMultiHead": "已分叉（多个现行版本）",
+    "unpinnable": "无法固定"
+  }
+}

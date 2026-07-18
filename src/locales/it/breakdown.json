@@ -1,0 +1,28 @@
+{
+  "title": "Dettaglio coerenza",
+  "refresh": "Aggiorna",
+  "loading": "Caricamento…",
+  "error": "Impossibile caricare il dettaglio",
+  "empty": "Tutto coerente",
+  "capNotice": "Mostrati {{shown}} di {{total}} archi",
+  "actions": {
+    "acceptNewer": "Accetta più recente",
+    "revise": "Rivedi",
+    "waive": "Esenta"
+  },
+  "waiveReasonPlaceholder": "Motivo (obbligatorio)",
+  "waiveConfirm": "Conferma esenzione",
+  "disabledMultiHead": "La sorgente ha più versioni attive — rivedi o fissa prima una versione",
+  "disabledUnpinnable": "La sorgente non è risolvibile in questo contesto",
+  "reviseUnavailable": "Nessun percorso file noto per questo artefatto",
+  "states": {
+    "versionStale": "Versione obsoleta",
+    "staleValid": "Obsoleto — verificato valido",
+    "staleContradicted": "Obsoleto — contraddetto",
+    "staleUnknown": "Obsoleto — non verificato",
+    "waived": "Esentato",
+    "diverged": "Divergente",
+    "divergedMultiHead": "Divergente (più versioni)",
+    "unpinnable": "Non fissabile"
+  }
+}

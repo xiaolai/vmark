@@ -22,6 +22,7 @@ import { ContentSearch } from "@/components/ContentSearch/ContentSearch";
 import { QuickLookOverlay } from "@/components/QuickLook/QuickLookOverlay";
 import { KnowledgeBaseOverlay } from "@/components/KnowledgeBasePanel/KnowledgeBaseOverlay";
 import { WindowStatusOverlay } from "@/components/WindowStatusPanel/WindowStatusOverlay";
+import { BreakdownOverlay } from "@/components/BreakdownPanel/BreakdownOverlay";
 import { useWindowStatus } from "@/hooks/useWindowStatus";
 import { CommandPalette } from "@/components/CommandPalette";
 import { WindowProvider, useIsDocumentWindow, useWindowLabel } from "@/contexts/WindowContext";
@@ -232,12 +233,12 @@ function MainLayout() {
           <QuickLookOverlay />
           <KnowledgeBaseOverlay />
           <WindowStatusOverlay />
+          <BreakdownOverlay />
           <GeniePickerOverlay />
           <EditorContextMenu />
           <ApprovalDialog />
-          {/* The AI-action consent prompt (WI-S0.8). It freezes the browser tab it
-              belongs to, so the page cannot paint over the dialog asking whether it
-              may be acted upon. */}
+          {/* The AI-action consent prompt (WI-S0.8). It freezes the browser tab it belongs
+              to, so the page cannot paint over the dialog asking whether it may be acted upon. */}
           <BrowserApprovalDialog />
           <CommandPalette />
         </>

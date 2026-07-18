@@ -1,0 +1,28 @@
+{
+  "title": "一致性明細",
+  "refresh": "重新整理",
+  "loading": "載入中…",
+  "error": "無法載入明細",
+  "empty": "全部一致",
+  "capNotice": "顯示 {{shown}} / {{total}} 條依賴邊",
+  "actions": {
+    "acceptNewer": "接受新版",
+    "revise": "修訂",
+    "waive": "豁免"
+  },
+  "waiveReasonPlaceholder": "理由（必填）",
+  "waiveConfirm": "確認豁免",
+  "disabledMultiHead": "上游有多個現行版本 — 請先修訂或固定一個版本",
+  "disabledUnpinnable": "上游在目前情境中無法解析",
+  "reviseUnavailable": "此產物沒有已知的檔案路徑",
+  "states": {
+    "versionStale": "版本過期",
+    "staleValid": "過期 — 已驗證有效",
+    "staleContradicted": "過期 — 相互矛盾",
+    "staleUnknown": "過期 — 未驗證",
+    "waived": "已豁免",
+    "diverged": "已分岔",
+    "divergedMultiHead": "已分岔（多個現行版本）",
+    "unpinnable": "無法固定"
+  }
+}

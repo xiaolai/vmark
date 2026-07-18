@@ -59,7 +59,8 @@
     "zoomIn": "Ingrandisci",
     "zoomOut": "Riduci",
     "toggleShowInvisibles": "Attiva/disattiva caratteri invisibili",
-    "toggleWindowStatus": "Stato finestre"
+    "toggleWindowStatus": "Stato finestre",
+    "toggleBreakdown": "Dettaglio coerenza"
   },
   "lint": {
     "check": "Controlla Markdown",

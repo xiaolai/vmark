@@ -188,6 +188,7 @@ menu:
   window: "ウィンドウ"
   window.bringAllToFront: "すべてのウィンドウを前面へ"
   window.status: "ウィンドウの状態"
+  window.breakdown: "整合性の内訳"
 
   # === ヘルプメニュー ===
   help: "ヘルプ"

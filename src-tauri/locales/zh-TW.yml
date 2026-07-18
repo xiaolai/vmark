@@ -188,6 +188,7 @@ menu:
   window: "視窗"
   window.bringAllToFront: "將全部移至最前"
   window.status: "視窗狀態"
+  window.breakdown: "一致性明細"
 
   # === 輔助說明選單 ===
   help: "輔助說明"
