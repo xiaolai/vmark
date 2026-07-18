@@ -194,3 +194,18 @@ export async function captureMcpWrite(args: {
     return null;
   }
 }
+
+/**
+ * One-line funnel for explorer-created files (WI-1.6): registers the
+ * object from birth without rewriting the fresh empty file — identity
+ * lands with the first real save. Fire-and-forget.
+ */
+export function captureExplorerNewFile(absolutePath: string): void {
+  void captureWrite({
+    absolutePath,
+    content: "",
+    agent: { type: "human" },
+    intent: { kind: "explorer-new-file", summary: "new file" },
+    rewriteIdentity: false,
+  }).catch(() => {});
+}

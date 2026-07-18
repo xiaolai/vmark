@@ -1,8 +1,7 @@
 /**
  * useExplorerOperations
  *
- * Purpose: Provides file system CRUD operations for the file explorer — create, rename,
- * delete, move, duplicate, copy path, and reveal in file manager.
+ * Purpose: File system CRUD for the explorer — create, rename, delete, move, duplicate, copy path, reveal.
  *
  * Key decisions:
  *   - Re-entry guards (isCreatingRef, isDeletingRef, isRenamingRef) prevent duplicate
@@ -41,10 +40,9 @@ import { showError, FileErrors } from "@/services/dialogs/errorDialog";
 import { emitOpenFileInCurrentWindow } from "@/services/navigation/openFileEvent";
 import { fileExplorerError } from "@/utils/debug";
 import { fileExtensionOf, renameFile } from "@/services/persistence/renameFile";
-import { captureWrite } from "@/services/coherence/captureFunnel";
+import { captureExplorerNewFile } from "@/services/coherence/captureFunnel";
 
-// Re-entry guards
-const isCreatingRef = { current: false };
+const isCreatingRef = { current: false }; // re-entry guards
 const isDeletingRef = { current: false };
 
 /** Hook providing file system CRUD operations (create, rename, delete, move, duplicate) for the file explorer. */
@@ -66,15 +64,7 @@ export function useExplorerOperations() {
         }
 
         await writeTextFile(filePath, "");
-        // Coherence (WI-1.6): register the object from birth without
-        // rewriting the fresh empty file (identity lands on first save).
-        void captureWrite({
-          absolutePath: filePath,
-          content: "",
-          agent: { type: "human" },
-          intent: { kind: "explorer-new-file", summary: "new file" },
-          rewriteIdentity: false,
-        }).catch(() => {});
+        captureExplorerNewFile(filePath); // coherence WI-1.6
         return filePath;
       } catch (error) {
         fileExplorerError(" Failed to create file:", error);
