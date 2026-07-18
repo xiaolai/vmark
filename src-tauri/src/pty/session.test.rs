@@ -29,8 +29,16 @@ fn create_session_rejects_relative_shell_path() {
 
 #[test]
 fn create_session_rejects_missing_shell() {
+    // Platform-absolute: a Unix-style "/nonexistent/…" is NOT absolute on
+    // Windows and would fail the absolute-path check before the existence
+    // check this test targets.
+    let missing = if cfg!(windows) {
+        r"C:\nonexistent\vmark-test-shell"
+    } else {
+        "/nonexistent/vmark-test-shell"
+    };
     let err = expect_create_err(create_session(
-        "/nonexistent/vmark-test-shell".into(),
+        missing.into(),
         vec![],
         80,
         24,
