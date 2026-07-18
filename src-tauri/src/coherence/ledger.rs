@@ -75,18 +75,27 @@ impl Ledger {
     /// order; audit R18), advancing once the size threshold is crossed.
     fn active_segment(&self) -> PathBuf {
         let stem = writer_file_stem(&self.writer);
+        // True max-suffix discovery by LISTING (audit A-M8): gaps of any
+        // width (branch-pruned segments) can never cause suffix reuse.
         let mut highest = 0u32;
-        let mut probe = 0u32;
-        let mut misses = 0u32;
-        // Bounded forward probe tolerating suffix gaps.
-        while misses < 8 {
-            if self.segment_path(&stem, probe).exists() {
-                highest = probe;
-                misses = 0;
-            } else {
-                misses += 1;
+        if let Ok(entries) = fs::read_dir(&self.dir) {
+            for entry in entries.flatten() {
+                let name = entry.file_name().to_string_lossy().into_owned();
+                let Some(rest) = name.strip_prefix(&stem) else {
+                    continue;
+                };
+                let n = match rest
+                    .strip_prefix('-')
+                    .and_then(|r| r.strip_suffix(".jsonl"))
+                {
+                    Some(num) => num.parse::<u32>().ok(),
+                    None if rest == ".jsonl" => Some(0),
+                    None => None,
+                };
+                if let Some(n) = n {
+                    highest = highest.max(n);
+                }
             }
-            probe += 1;
         }
         let path = self.segment_path(&stem, highest);
         match fs::metadata(&path) {
