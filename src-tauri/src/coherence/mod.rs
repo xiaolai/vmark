@@ -24,6 +24,7 @@ pub mod commands;
 pub mod context_commands;
 pub mod contexts;
 pub mod dag;
+pub mod delegation;
 pub mod envelope;
 pub mod frontmatter;
 pub mod gitops;

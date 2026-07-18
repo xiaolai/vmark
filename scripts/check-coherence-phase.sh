@@ -474,7 +474,35 @@ phase_3() {
     fail "SKIP_TESTS=1 set — WI-3.1 suite not run"
   fi
 
-  local PENDING=(3.2 3.3 3.4 3.5 3.6 3.7 3.8 3.9)
+  echo "— WI-3.2: provenance recovery UI (kernel candidates + confirm flow) —"
+  assert_grep "perform_provenance_candidates" src-tauri/src/coherence/provenance.rs "candidates query"
+  assert_file src/components/BreakdownPanel/ProvenanceGroup.tsx "provenance group component"
+  assert_grep "confirmInputs" src/services/breakdown/breakdownService.ts "confirm service (idem minted client-side)"
+  if [[ "${SKIP_TESTS:-}" != "1" ]]; then
+    if pnpm vitest run src/components/BreakdownPanel/BreakdownPanel.test.tsx --silent >/dev/null 2>&1; then
+      ok "WI-3.2 breakdown suite green"
+    else
+      fail "WI-3.2 breakdown suite red"
+    fi
+  else
+    fail "SKIP_TESTS=1 set — WI-3.2 suite not run"
+  fi
+
+  echo "— WI-3.3: delegation kernel (principal-bound, expiring) —"
+  assert_file src-tauri/src/coherence/delegation.rs "delegation module"
+  assert_grep "live_delegation_for" src-tauri/src/coherence/delegation.rs "the single authorization gate"
+  assert_grep "non-human resolution without a delegation reference" src-tauri/src/coherence/envelope.rs "D2.4 typed pairing validation"
+  if [[ "${SKIP_TESTS:-}" != "1" ]]; then
+    if cargo test --manifest-path src-tauri/Cargo.toml --lib coherence::delegation --quiet >/dev/null 2>&1; then
+      ok "WI-3.3 delegation suite green"
+    else
+      fail "WI-3.3 delegation suite red"
+    fi
+  else
+    fail "SKIP_TESTS=1 set — WI-3.3 suite not run"
+  fi
+
+  local PENDING=(3.4 3.5 3.6 3.7 3.8 3.9)
   echo "— pending WIs (fail-closed until implemented) —"
   for wi in "${PENDING[@]}"; do
     fail "WI-$wi assertions not yet defined (fail-closed)"
