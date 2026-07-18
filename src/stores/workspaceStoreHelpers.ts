@@ -11,7 +11,7 @@
  * the last enqueued list is the last one to reach Rust. An idle channel still
  * issues its command synchronously — the sync-on-mount hooks depend on that.
  *
- * @coordinates-with workspaceStore.ts — sole caller
+ * @coordinates-with recentsStore.ts — sole caller
  * @module stores/workspaceStoreHelpers
  */
 

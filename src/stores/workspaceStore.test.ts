@@ -1,5 +1,19 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
-import { useWorkspaceStore, DEFAULT_EXCLUDED_FOLDERS } from "./workspaceStore";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import {
+  useWorkspaceStore,
+  useRecentFilesStore,
+  useRecentWorkspacesStore,
+  DEFAULT_EXCLUDED_FOLDERS,
+} from "./workspaceStore";
+import { syncRecentFilesMenu, syncRecentWorkspacesMenu } from "@/stores/workspaceStoreHelpers";
+
+// Mock the native-menu IPC helpers so recents tests can assert what reaches
+// the native menu without going through the serialized invoke channel.
+vi.mock("@/stores/workspaceStoreHelpers", () => ({
+  syncRecentFilesMenu: vi.fn(),
+  syncRecentWorkspacesMenu: vi.fn(),
+  registerDockRecent: vi.fn(),
+}));
 
 // Mock workspaceIdentity
 vi.mock("@/utils/workspaceIdentity", () => ({
@@ -235,6 +249,40 @@ describe("workspaceStore", () => {
       expect(state.config?.showHiddenFiles).toBe(true);
       expect(state.config?.lastOpenTabs).toEqual(["/file.md"]);
     });
+
+    it("clones caller arrays — later mutation does not change store state", () => {
+      // Regression (Codex audit): caller-owned arrays were stored by
+      // reference, so external mutation bypassed set().
+      const store = useWorkspaceStore.getState();
+      store.openWorkspace("/path");
+
+      const folders = ["dist"];
+      const tabs = ["/a.md"];
+      store.updateConfig({ excludeFolders: folders, lastOpenTabs: tabs });
+
+      folders.push("build");
+      tabs.push("/b.md");
+
+      const state = useWorkspaceStore.getState();
+      expect(state.config?.excludeFolders).toEqual(["dist"]);
+      expect(state.config?.lastOpenTabs).toEqual(["/a.md"]);
+    });
+
+    it("clones sessionTabs.tabs — later mutation does not change store state", () => {
+      const store = useWorkspaceStore.getState();
+      store.openWorkspace("/path");
+
+      const sessionTabs = {
+        version: 1 as const,
+        tabs: [{ kind: "document" as const, path: "/a.md" }],
+      };
+      store.updateConfig({ sessionTabs });
+
+      sessionTabs.tabs.push({ kind: "document", path: "/b.md" });
+
+      const state = useWorkspaceStore.getState();
+      expect(state.config?.sessionTabs?.tabs).toHaveLength(1);
+    });
   });
 
   describe("addExcludedFolder", () => {
@@ -321,6 +369,18 @@ describe("workspaceStore", () => {
 
       const state = useWorkspaceStore.getState();
       expect(state.config?.lastOpenTabs).toEqual(["/new.md"]);
+    });
+
+    it("clones the tabs array — later mutation does not change store state", () => {
+      const store = useWorkspaceStore.getState();
+      store.openWorkspace("/path");
+
+      const tabs = ["/a.md"];
+      store.setLastOpenTabs(tabs);
+      tabs.push("/b.md");
+
+      const state = useWorkspaceStore.getState();
+      expect(state.config?.lastOpenTabs).toEqual(["/a.md"]);
     });
   });
 
@@ -480,6 +540,122 @@ describe("workspaceStore", () => {
       }));
 
       expect(store.getWorkspaceId()).toBeNull();
+    });
+  });
+
+  // Every window shares ONE localStorage key for recents but holds its own
+  // store instance. A blind write from window A must not erase what window B
+  // persisted since A hydrated (SH-3 — bookmarkStore read-merge-write pattern).
+  describe("recent files/workspaces multi-window merge (shared localStorage)", () => {
+    const FILES_KEY = "vmark-recent-files";
+    const WORKSPACES_KEY = "vmark-recent-workspaces";
+
+    let now: number;
+    let nowSpy: ReturnType<typeof vi.spyOn>;
+
+    function persistedPaths(key: string, field: string): string[] {
+      const raw = JSON.parse(localStorage.getItem(key) ?? "{}") as {
+        state?: Record<string, { path: string }[]>;
+      };
+      return (raw.state?.[field] ?? []).map((e) => e.path);
+    }
+
+    /** Simulate another window persisting an entry behind this window's back. */
+    function otherWindowAdds(key: string, field: string, path: string) {
+      const raw = JSON.parse(
+        localStorage.getItem(key) ?? '{"state":{},"version":0}',
+      ) as { state: Record<string, unknown[]> };
+      raw.state[field] = [
+        { path, name: path.split("/").pop(), timestamp: ++now },
+        ...(raw.state[field] ?? []),
+      ];
+      localStorage.setItem(key, JSON.stringify(raw));
+    }
+
+    beforeEach(() => {
+      localStorage.clear();
+      useRecentFilesStore.setState({ files: [] });
+      useRecentWorkspacesStore.setState({ workspaces: [] });
+      now = 1_000_000;
+      nowSpy = vi.spyOn(Date, "now").mockImplementation(() => ++now);
+    });
+
+    afterEach(() => {
+      nowSpy.mockRestore();
+    });
+
+    it("addFile merges entries another window persisted since hydration (A adds X, B adds Y, A adds Z)", () => {
+      useRecentFilesStore.getState().addFile("/a/x.md");
+      otherWindowAdds(FILES_KEY, "files", "/b/y.md");
+      useRecentFilesStore.getState().addFile("/a/z.md");
+
+      const expected = ["/a/z.md", "/b/y.md", "/a/x.md"];
+      // Persisted list contains all three, newest-first.
+      expect(persistedPaths(FILES_KEY, "files")).toEqual(expected);
+      // In-memory state matches what was persisted.
+      expect(useRecentFilesStore.getState().files.map((f) => f.path)).toEqual(expected);
+      // Native menu sync gets the merged list, not the stale one.
+      expect(vi.mocked(syncRecentFilesMenu)).toHaveBeenLastCalledWith(expected);
+    });
+
+    it("addFile still caps the merged list at maxFiles", () => {
+      for (let i = 0; i < 10; i++) {
+        otherWindowAdds(FILES_KEY, "files", `/b/f${i}.md`);
+      }
+      useRecentFilesStore.getState().addFile("/a/new.md");
+
+      const files = useRecentFilesStore.getState().files;
+      expect(files).toHaveLength(10);
+      expect(files[0].path).toBe("/a/new.md");
+    });
+
+    it("removeFile does not erase another window's additions", () => {
+      useRecentFilesStore.getState().addFile("/a/x.md");
+      otherWindowAdds(FILES_KEY, "files", "/b/y.md");
+      useRecentFilesStore.getState().removeFile("/a/x.md");
+
+      expect(persistedPaths(FILES_KEY, "files")).toEqual(["/b/y.md"]);
+      expect(vi.mocked(syncRecentFilesMenu)).toHaveBeenLastCalledWith(["/b/y.md"]);
+    });
+
+    it("re-adding a path both windows hold keeps a single entry", () => {
+      useRecentFilesStore.getState().addFile("/a/x.md");
+      otherWindowAdds(FILES_KEY, "files", "/a/x.md");
+      useRecentFilesStore.getState().addFile("/a/x.md");
+
+      const files = useRecentFilesStore.getState().files;
+      expect(files).toHaveLength(1);
+      expect(files[0].path).toBe("/a/x.md");
+    });
+
+    it("addWorkspace merges another window's additions (A adds X, B adds Y, A adds Z)", () => {
+      useRecentWorkspacesStore.getState().addWorkspace("/w/x");
+      otherWindowAdds(WORKSPACES_KEY, "workspaces", "/w/y");
+      useRecentWorkspacesStore.getState().addWorkspace("/w/z");
+
+      const expected = ["/w/z", "/w/y", "/w/x"];
+      expect(persistedPaths(WORKSPACES_KEY, "workspaces")).toEqual(expected);
+      expect(
+        useRecentWorkspacesStore.getState().workspaces.map((w) => w.path),
+      ).toEqual(expected);
+      expect(vi.mocked(syncRecentWorkspacesMenu)).toHaveBeenLastCalledWith(expected);
+    });
+
+    it("removeWorkspace does not erase another window's additions", () => {
+      useRecentWorkspacesStore.getState().addWorkspace("/w/x");
+      otherWindowAdds(WORKSPACES_KEY, "workspaces", "/w/y");
+      useRecentWorkspacesStore.getState().removeWorkspace("/w/x");
+
+      expect(persistedPaths(WORKSPACES_KEY, "workspaces")).toEqual(["/w/y"]);
+    });
+
+    it("clearAll wipes the list outright (deliberate blind write)", () => {
+      useRecentFilesStore.getState().addFile("/a/x.md");
+      otherWindowAdds(FILES_KEY, "files", "/b/y.md");
+      useRecentFilesStore.getState().clearAll();
+
+      expect(useRecentFilesStore.getState().files).toEqual([]);
+      expect(vi.mocked(syncRecentFilesMenu)).toHaveBeenLastCalledWith([]);
     });
   });
 

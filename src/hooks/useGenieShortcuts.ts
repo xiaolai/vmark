@@ -115,6 +115,12 @@ export function useGenieShortcuts() {
             template: result.template,
             filePath: geniePath,
             source: "global",
+            // Derive the kind discriminator from the file extension — the
+            // same rule the Rust scanner uses for GenieEntry.kind. Without
+            // it, a workflow genie (.yml/.yaml — read_genie returns raw YAML
+            // as `template`) would take the PROMPT path in useGenieInvocation
+            // and send the YAML to the AI as a whole-document replacement.
+            kind: /\.ya?ml$/i.test(geniePath) ? "workflow" : "markdown",
           };
           void invokeGenie(genie).catch((invokeErr: unknown) => {
             genieError("Failed to invoke genie:", invokeErr);

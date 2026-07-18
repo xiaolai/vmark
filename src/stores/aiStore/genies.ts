@@ -5,6 +5,16 @@
  * the genie definitions themselves are re-loaded from disk via `list_genies`
  * on each app start to pick up file changes.
  *
+ * Multi-window reconciliation: every window shares that key but has its own
+ * store instance, so addRecent/toggleFavorite re-read the persisted lists and
+ * merge before persisting (see persistedListMerge.ts). Because persist
+ * serializes on EVERY set(), unrelated sets (loading flags, genie loads)
+ * would still push a stale snapshot over another window's write — the
+ * storage is wrapped in createFieldChangeGatedStorage so a physical write
+ * only happens when the preference lists actually changed in this window.
+ * An unfavorite in one window may be resurrected by a later merge in
+ * another window that still holds the name — acceptable, no tombstones.
+ *
  * @module stores/aiStore/genies
  */
 
@@ -12,6 +22,11 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { invoke } from "@tauri-apps/api/core";
 import { createSafeStorage } from "@/services/persistence/safeStorage";
+import {
+  createFieldChangeGatedStorage,
+  mergeMruList,
+  readPersistedList,
+} from "@/stores/persistedListMerge";
 import { geniesWarn, geniesLog } from "@/utils/debug";
 import type { GenieDefinition, GenieMetadata, GenieScope } from "@/types/aiGenies";
 
@@ -47,6 +62,7 @@ interface GeniesActions {
 }
 
 const MAX_RECENTS = 10;
+const STORAGE_KEY = "vmark-genies";
 
 // Race guard counter for loadGenies — prevents stale results from overwriting
 let _loadId = 0;
@@ -91,11 +107,26 @@ export const useGeniesStore = create<GeniesState & GeniesActions>()(
 
           if (thisLoadId !== _loadId) return;
 
-          // Prune stale recents/favorites
+          // Prune stale recents/favorites. Merge with the persisted lists
+          // FIRST: this set() legitimately changes the guarded fields, so the
+          // gated storage will write — an unmerged prune would erase entries
+          // another window persisted since this one hydrated. Names absent
+          // from the fresh genie list are pruned from both sources alike.
           const genieNames = new Set(genies.map((g) => g.metadata.name));
           const { recentGenieNames, favoriteGenieNames } = get();
-          const prunedRecents = recentGenieNames.filter((n) => genieNames.has(n));
-          const prunedFavorites = favoriteGenieNames.filter((n) => genieNames.has(n));
+          // Merge UNCAPPED, filter, then cap: capping first would let stale
+          // names occupy slots and push a valid cross-window entry off the
+          // list before the filter could save it.
+          const prunedRecents = mergeMruList(
+            recentGenieNames,
+            readPersistedList<string>(STORAGE_KEY, "recentGenieNames"),
+          )
+            .filter((n) => genieNames.has(n))
+            .slice(0, MAX_RECENTS);
+          const prunedFavorites = mergeMruList(
+            favoriteGenieNames,
+            readPersistedList<string>(STORAGE_KEY, "favoriteGenieNames"),
+          ).filter((n) => genieNames.has(n));
 
           set({
             genies,
@@ -140,20 +171,28 @@ export const useGeniesStore = create<GeniesState & GeniesActions>()(
 
       addRecent: (name) => {
         set((state) => {
-          const filtered = state.recentGenieNames.filter((n) => n !== name);
+          const mine = [name, ...state.recentGenieNames.filter((n) => n !== name)];
+          // Merge with whatever another window persisted since this one hydrated.
           return {
-            recentGenieNames: [name, ...filtered].slice(0, MAX_RECENTS),
+            recentGenieNames: mergeMruList(
+              mine,
+              readPersistedList<string>(STORAGE_KEY, "recentGenieNames"),
+              MAX_RECENTS,
+            ),
           };
         });
       },
 
       toggleFavorite: (name) => {
         set((state) => {
+          const theirs = readPersistedList<string>(STORAGE_KEY, "favoriteGenieNames");
           const isFav = state.favoriteGenieNames.includes(name);
+          // Merge first so this write doesn't erase another window's
+          // additions; on removal the filter then wins over the merge.
           return {
             favoriteGenieNames: isFav
-              ? state.favoriteGenieNames.filter((n) => n !== name)
-              : [...state.favoriteGenieNames, name],
+              ? mergeMruList(state.favoriteGenieNames, theirs).filter((n) => n !== name)
+              : mergeMruList([...state.favoriteGenieNames, name], theirs),
           };
         });
       },
@@ -170,8 +209,13 @@ export const useGeniesStore = create<GeniesState & GeniesActions>()(
       },
     }),
     {
-      name: "vmark-genies",
-      storage: createJSONStorage(() => createSafeStorage()),
+      name: STORAGE_KEY,
+      storage: createJSONStorage(() =>
+        createFieldChangeGatedStorage(createSafeStorage(), [
+          "recentGenieNames",
+          "favoriteGenieNames",
+        ]),
+      ),
       partialize: (state) => ({
         recentGenieNames: state.recentGenieNames,
         favoriteGenieNames: state.favoriteGenieNames,

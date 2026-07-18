@@ -106,6 +106,63 @@ describe("promptHistoryStore", () => {
     expect(result).toEqual(["translate to English"]);
   });
 
+  // ── Multi-window merge (shared localStorage) ────────────────────────
+  // Every window shares the "vmark-prompt-history" key but holds its own
+  // store instance; a blind write from window A must not erase entries
+  // window B persisted since A hydrated (SH-3).
+
+  describe("multi-window merge", () => {
+    const KEY = "vmark-prompt-history";
+
+    /** Simulate another window persisting an entry behind this window's back. */
+    function otherWindowAdds(entry: string) {
+      const raw = JSON.parse(
+        localStorage.getItem(KEY) ?? '{"state":{"entries":[]},"version":0}',
+      ) as { state: { entries: string[] } };
+      raw.state.entries = [entry, ...(raw.state.entries ?? [])];
+      localStorage.setItem(KEY, JSON.stringify(raw));
+    }
+
+    beforeEach(() => {
+      localStorage.clear();
+      usePromptHistoryStore.setState({ entries: [] });
+    });
+
+    it("does not erase entries another window persisted (A adds X, B adds Y, A adds Z)", () => {
+      usePromptHistoryStore.getState().addEntry("X");
+      otherWindowAdds("Y");
+      usePromptHistoryStore.getState().addEntry("Z");
+
+      const entries = usePromptHistoryStore.getState().entries;
+      expect(entries[0]).toBe("Z"); // this window's newest write stays first
+      expect(entries).toContain("X");
+      expect(entries).toContain("Y");
+
+      const persisted = JSON.parse(localStorage.getItem(KEY)!) as {
+        state: { entries: string[] };
+      };
+      expect(persisted.state.entries).toEqual(entries);
+    });
+
+    it("caps the merged list at 100", () => {
+      for (let i = 0; i < 100; i++) otherWindowAdds(`other-${i}`);
+      usePromptHistoryStore.getState().addEntry("mine");
+
+      const entries = usePromptHistoryStore.getState().entries;
+      expect(entries).toHaveLength(100);
+      expect(entries[0]).toBe("mine");
+    });
+
+    it("does not duplicate an entry both windows added", () => {
+      usePromptHistoryStore.getState().addEntry("same");
+      otherWindowAdds("same");
+      usePromptHistoryStore.getState().addEntry("new");
+
+      const entries = usePromptHistoryStore.getState().entries;
+      expect(entries.filter((e) => e === "same")).toHaveLength(1);
+    });
+  });
+
   // ── SSR guard ───────────────────────────────────────────────────────
 
   it("storage factory returns a no-op storage when window is undefined", () => {

@@ -22,7 +22,7 @@
  *
  * @coordinates-with tabStore.ts — lastOpenTabs drives session restore
  * @coordinates-with useWorkspaceBootstrap.ts — loads config from Tauri on startup
- * @coordinates-with workspaceStoreHelpers.ts — serialized native-menu/dock IPC
+ * @coordinates-with recentsStore.ts — recent files/workspaces (re-exported here)
  * @module stores/workspaceStore
  */
 
@@ -37,10 +37,7 @@ import {
   type WorkspaceIdentity,
 } from "@/utils/workspaceIdentity";
 import { windowScopedStorage } from "@/services/persistence/workspaceStorage";
-import { createSafeStorage } from "@/services/persistence/safeStorage";
-import { getFileName } from "@/utils/pathUtils";
 import type { SessionTabsV1 } from "@/services/persistence/sessionTabs";
-import { registerDockRecent, syncRecentFilesMenu, syncRecentWorkspacesMenu } from "@/stores/workspaceStoreHelpers";
 
 /** Workspace configuration — excluded folders, session restore tabs, file visibility, and trust identity. */
 export interface WorkspaceConfig {
@@ -151,9 +148,24 @@ export const useWorkspaceStore = create<WorkspaceState & WorkspaceActions>()(
         const { config } = get();
         if (!config) return;
 
-        set({
-          config: { ...config, ...updates },
-        });
+        // Clone caller-owned mutable fields — a caller that keeps
+        // mutating its array after the call must not be able to change
+        // store state behind set()'s back.
+        const next: WorkspaceConfig = { ...config, ...updates };
+        if (updates.excludeFolders) {
+          next.excludeFolders = [...updates.excludeFolders];
+        }
+        if (updates.lastOpenTabs) {
+          next.lastOpenTabs = [...updates.lastOpenTabs];
+        }
+        if (updates.sessionTabs) {
+          next.sessionTabs = {
+            ...updates.sessionTabs,
+            tabs: updates.sessionTabs.tabs.map((tab) => ({ ...tab })),
+          };
+        }
+
+        set({ config: next });
       },
 
       addExcludedFolder: (folder) => {
@@ -189,7 +201,8 @@ export const useWorkspaceStore = create<WorkspaceState & WorkspaceActions>()(
         set({
           config: {
             ...config,
-            lastOpenTabs: tabs,
+            // Clone — the caller may keep mutating its array afterwards.
+            lastOpenTabs: [...tabs],
           },
         });
       },
@@ -260,122 +273,15 @@ export const useWorkspaceStore = create<WorkspaceState & WorkspaceActions>()(
 export { DEFAULT_EXCLUDED_FOLDERS };
 
 // ============================================================================
-// Recent Files (T09 — formerly recentFilesStore.ts)
+// Recent Files / Recent Workspaces — live in recentsStore.ts (split for the
+// SH-3 multi-window merge work; formerly T09's inlined recentFilesStore.ts /
+// recentWorkspacesStore.ts). Re-exported so existing
+// "@/stores/workspaceStore" imports keep working.
 // ============================================================================
 
-export interface RecentFile {
-  path: string;
-  name: string;
-  timestamp: number;
-}
-
-interface RecentFilesState {
-  files: RecentFile[];
-  maxFiles: number;
-  addFile: (path: string) => void;
-  removeFile: (path: string) => void;
-  clearAll: () => void;
-  syncToNativeMenu: () => void;
-}
-
-function updateRecentFilesNativeMenu(files: RecentFile[]) {
-  syncRecentFilesMenu(files.map((f) => f.path));
-}
-
-/** Manages recently opened files (max 10) with persistence and native menu sync. */
-export const useRecentFilesStore = create<RecentFilesState>()(
-  persist(
-    (set, get) => ({
-      files: [],
-      maxFiles: 10,
-      addFile: (path: string) => {
-        const { files, maxFiles } = get();
-        const name = getFileName(path) || path;
-        const filtered = files.filter((f) => f.path !== path);
-        const newFiles = [
-          { path, name, timestamp: Date.now() },
-          ...filtered,
-        ].slice(0, maxFiles);
-        set({ files: newFiles });
-        updateRecentFilesNativeMenu(newFiles);
-        registerDockRecent(path);
-      },
-      removeFile: (path: string) => {
-        const newFiles = get().files.filter((f) => f.path !== path);
-        set({ files: newFiles });
-        updateRecentFilesNativeMenu(newFiles);
-      },
-      clearAll: () => {
-        set({ files: [] });
-        updateRecentFilesNativeMenu([]);
-      },
-      syncToNativeMenu: () => {
-        updateRecentFilesNativeMenu(get().files);
-      },
-    }),
-    {
-      name: "vmark-recent-files",
-      storage: createJSONStorage(() => createSafeStorage()),
-    },
-  ),
-);
-
-// ============================================================================
-// Recent Workspaces (T09 — formerly recentWorkspacesStore.ts)
-// ============================================================================
-
-export interface RecentWorkspace {
-  path: string;
-  name: string;
-  timestamp: number;
-}
-
-interface RecentWorkspacesState {
-  workspaces: RecentWorkspace[];
-  maxWorkspaces: number;
-  addWorkspace: (path: string) => void;
-  removeWorkspace: (path: string) => void;
-  clearAll: () => void;
-  syncToNativeMenu: () => void;
-}
-
-function updateRecentWorkspacesNativeMenu(workspaces: RecentWorkspace[]) {
-  syncRecentWorkspacesMenu(workspaces.map((w) => w.path));
-}
-
-/** Manages recently opened workspaces (max 10) with persistence and native menu sync. */
-export const useRecentWorkspacesStore = create<RecentWorkspacesState>()(
-  persist(
-    (set, get) => ({
-      workspaces: [],
-      maxWorkspaces: 10,
-      addWorkspace: (path: string) => {
-        const { workspaces, maxWorkspaces } = get();
-        const name = getFileName(path) || path;
-        const filtered = workspaces.filter((w) => w.path !== path);
-        const newWorkspaces = [
-          { path, name, timestamp: Date.now() },
-          ...filtered,
-        ].slice(0, maxWorkspaces);
-        set({ workspaces: newWorkspaces });
-        updateRecentWorkspacesNativeMenu(newWorkspaces);
-      },
-      removeWorkspace: (path: string) => {
-        const newWorkspaces = get().workspaces.filter((w) => w.path !== path);
-        set({ workspaces: newWorkspaces });
-        updateRecentWorkspacesNativeMenu(newWorkspaces);
-      },
-      clearAll: () => {
-        set({ workspaces: [] });
-        updateRecentWorkspacesNativeMenu([]);
-      },
-      syncToNativeMenu: () => {
-        updateRecentWorkspacesNativeMenu(get().workspaces);
-      },
-    }),
-    {
-      name: "vmark-recent-workspaces",
-      storage: createJSONStorage(() => createSafeStorage()),
-    },
-  ),
-);
+export {
+  useRecentFilesStore,
+  useRecentWorkspacesStore,
+  type RecentFile,
+  type RecentWorkspace,
+} from "@/stores/recentsStore";
