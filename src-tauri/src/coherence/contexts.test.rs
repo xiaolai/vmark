@@ -194,6 +194,19 @@ fn write_manifest_is_atomic_and_roundtrips() {
 }
 
 #[test]
+fn materialized_default_manifest_is_consulted() {
+    let (_td, dir) = ctx_dir();
+    let claim = Uuid::now_v7();
+    let mut m = manifest(DEFAULT_CONTEXT_ID, "default", None);
+    m.visible_claims = vec![claim];
+    write_manifest(&dir, &m).unwrap();
+    let set = ContextSet::load(&dir);
+    let (_, errs) = set.effective_view(DEFAULT_CONTEXT_ID);
+    assert!(errs.is_empty(), "{errs:?}");
+    assert!(set.effective_claims(DEFAULT_CONTEXT_ID).contains(&claim));
+}
+
+#[test]
 fn malformed_manifest_file_is_error_not_panic() {
     let (_td, dir) = ctx_dir();
     std::fs::write(dir.join("broken.json"), "{ not json").unwrap();
