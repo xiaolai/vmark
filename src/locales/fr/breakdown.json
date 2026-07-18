@@ -52,5 +52,18 @@
     "confirm": "Confirmer la provenance",
     "empty": "Aucune entrée sélectionnée",
     "stale": "Le document a changé — suggestions actualisées"
+  },
+  "delegations": {
+    "heading": "Délégations d'agents",
+    "empty": "Aucune délégation active",
+    "grant": "Accorder",
+    "revoke": "Révoquer",
+    "principalPlaceholder": "Principal de l'agent (p. ex. codex-cli)",
+    "days": "Jours",
+    "scopeAcceptNewer": "Accepter la plus récente",
+    "scopeWaive": "Exempter",
+    "expiresOn": "jusqu'au {{date}}",
+    "grantConfirm": "Autoriser « {{principal}} » à résoudre des arêtes dans cet espace de travail ({{scope}}) jusqu'au {{date}} ? Chaque résolution déléguée est consignée dans le journal d'audit au titre de cette délégation.",
+    "grantTitle": "Accorder une délégation"
   }
 }

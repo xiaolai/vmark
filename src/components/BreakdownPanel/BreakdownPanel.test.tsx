@@ -1,6 +1,6 @@
 // WI-1.9b — Breakdown panel: pull-based stale/diverged edge list with actions.
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const mockRefresh = vi.fn(() => Promise.resolve());
@@ -21,6 +21,8 @@ const mockPropose = vi.fn(() =>
   }),
 );
 const mockConfirm = vi.fn(() => Promise.resolve());
+const mockRefreshDelegations = vi.fn(() => Promise.resolve());
+const mockDelegate = vi.fn(() => Promise.resolve());
 vi.mock("@/services/breakdown/breakdownService", () => ({
   refreshBreakdown: (...a: unknown[]) => mockRefresh(...a),
   resolveEdge: (...a: unknown[]) => mockResolve(...a),
@@ -29,9 +31,13 @@ vi.mock("@/services/breakdown/breakdownService", () => ({
   refreshContexts: (...a: unknown[]) => mockRefreshContexts(...a),
   createContext: (...a: unknown[]) => mockCreateContext(...a),
   setContextEnforcement: (...a: unknown[]) => mockSetEnforcement(...a),
+}));
+vi.mock("@/services/breakdown/semanticActs", () => ({
   refreshProvenance: (...a: unknown[]) => mockRefreshProvenance(...a),
   proposeInputs: (...a: unknown[]) => mockPropose(...a),
   confirmInputs: (...a: unknown[]) => mockConfirm(...a),
+  refreshDelegations: (...a: unknown[]) => mockRefreshDelegations(...a),
+  delegate: (...a: unknown[]) => mockDelegate(...a),
 }));
 const mockAsk = vi.fn(() => Promise.resolve(true));
 vi.mock("@tauri-apps/plugin-dialog", () => ({
@@ -69,6 +75,8 @@ beforeEach(() => {
   mockRefreshProvenance.mockClear();
   mockPropose.mockClear();
   mockConfirm.mockClear();
+  mockRefreshDelegations.mockClear();
+  mockDelegate.mockClear();
   localStorage.clear();
   useBreakdownStore.getState().reset();
   useBreakdownStore.getState().setPanelOpen(true);
@@ -417,7 +425,8 @@ describe("BreakdownPanel — WI-3.2 provenance recovery", () => {
     await user.click(screen.getByRole("button", { name: /suggest inputs/i }));
     expect(mockPropose).toHaveBeenCalledWith("/ws", "essays/derived.md");
     // Both proposed inputs pre-checked; uncheck the contextual one.
-    const checkboxes = screen.getAllByRole("checkbox");
+    const group = screen.getByText(/provenance unknown/i).closest("section");
+    const checkboxes = within(group as HTMLElement).getAllByRole("checkbox");
     expect(checkboxes).toHaveLength(2);
     await user.click(checkboxes[1]);
     await user.click(screen.getByRole("button", { name: /confirm provenance/i }));
@@ -436,7 +445,8 @@ describe("BreakdownPanel — WI-3.2 provenance recovery", () => {
     ]);
     render(<BreakdownPanel />);
     await user.click(screen.getByRole("button", { name: /suggest inputs/i }));
-    for (const box of screen.getAllByRole("checkbox")) {
+    const group2 = screen.getByText(/provenance unknown/i).closest("section");
+    for (const box of within(group2 as HTMLElement).getAllByRole("checkbox")) {
       if ((box as HTMLInputElement).checked) await user.click(box);
     }
     expect(
@@ -447,5 +457,57 @@ describe("BreakdownPanel — WI-3.2 provenance recovery", () => {
   it("no group renders without candidates", () => {
     render(<BreakdownPanel />);
     expect(screen.queryByText(/provenance unknown/i)).not.toBeInTheDocument();
+  });
+});
+
+describe("BreakdownPanel — WI-3.4 delegations", () => {
+  it("granting asks for explicit confirmation naming the terms", async () => {
+    const user = userEvent.setup();
+    render(<BreakdownPanel />);
+    expect(mockRefreshDelegations).toHaveBeenCalledWith("/ws");
+    await user.type(screen.getByLabelText(/agent principal/i), "codex-cli");
+    await user.click(screen.getByRole("button", { name: /^grant$/i }));
+    expect(mockAsk).toHaveBeenCalled();
+    expect(mockDelegate).toHaveBeenCalledWith(
+      "/ws",
+      expect.objectContaining({
+        delegate: "codex-cli",
+        scope: ["resolve.accept-newer"],
+      }),
+    );
+
+    // Declining records nothing.
+    mockDelegate.mockClear();
+    mockAsk.mockResolvedValueOnce(false);
+    await user.type(screen.getByLabelText(/agent principal/i), "another");
+    await user.click(screen.getByRole("button", { name: /^grant$/i }));
+    expect(mockDelegate).not.toHaveBeenCalled();
+  });
+
+  it("revoke targets the grant id", async () => {
+    const user = userEvent.setup();
+    useBreakdownStore.getState().setDelegations([
+      {
+        grant: "g-1",
+        delegate: "codex-cli",
+        scope: ["resolve.waive"],
+        expires: "2026-07-26T00:00:00Z",
+      },
+    ]);
+    render(<BreakdownPanel />);
+    await user.click(screen.getByRole("button", { name: /^revoke$/i }));
+    expect(mockDelegate).toHaveBeenCalledWith(
+      "/ws",
+      expect.objectContaining({ revoke: "g-1", scope: [] }),
+    );
+  });
+
+  it("grant is disabled without a principal or scope", async () => {
+    const user = userEvent.setup();
+    render(<BreakdownPanel />);
+    expect(screen.getByRole("button", { name: /^grant$/i })).toBeDisabled();
+    await user.type(screen.getByLabelText(/agent principal/i), "codex-cli");
+    await user.click(screen.getByRole("checkbox", { name: /accept newer/i }));
+    expect(screen.getByRole("button", { name: /^grant$/i })).toBeDisabled();
   });
 });

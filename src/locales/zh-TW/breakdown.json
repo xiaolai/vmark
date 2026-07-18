@@ -52,5 +52,18 @@
     "confirm": "確認來源",
     "empty": "未選取任何輸入",
     "stale": "文件已變更 — 建議已重新整理"
+  },
+  "delegations": {
+    "heading": "智慧代理委任",
+    "empty": "沒有生效中的委任",
+    "grant": "授予",
+    "revoke": "撤銷",
+    "principalPlaceholder": "智慧代理主體（例如 codex-cli）",
+    "days": "天數",
+    "scopeAcceptNewer": "接受新版",
+    "scopeWaive": "豁免",
+    "expiresOn": "至 {{date}}",
+    "grantConfirm": "允許「{{principal}}」在 {{date}} 之前解決此工作區中的依賴邊（{{scope}}）嗎？每次受委任的解決作業都會記入稽核紀錄，並關聯至此次授予。",
+    "grantTitle": "授予委任"
   }
 }

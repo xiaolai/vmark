@@ -409,3 +409,95 @@
   font-size: var(--font-size-xs);
   color: var(--text-tertiary);
 }
+
+/* WI-3.4: agent delegations — explicit grant/revoke (D2.2). */
+.delegations-section {
+  border-top: 1px solid var(--border-color);
+  padding: var(--spacing-2) var(--spacing-3);
+}
+
+.delegations-section__heading {
+  margin: 0 0 var(--spacing-1);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.delegations-section__empty {
+  font-size: var(--font-size-sm);
+  color: var(--text-tertiary);
+}
+
+.delegations-section__list {
+  list-style: none;
+  margin: 0 0 var(--spacing-1);
+  padding: 0;
+}
+
+.delegations-section__row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  padding: var(--spacing-1) 0;
+  min-width: 0;
+}
+
+.delegations-section__principal {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  color: var(--text-color);
+}
+
+.delegations-section__scope,
+.delegations-section__expires {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+.delegations-section__form {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  flex-wrap: wrap;
+}
+
+.delegations-section__input {
+  flex: 1;
+  min-width: 140px;
+  border: none;
+  border-bottom: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-color);
+  outline: none;
+  font-size: var(--font-size-sm);
+  font-family: var(--font-mono);
+}
+
+.delegations-section__input:focus {
+  border-bottom-color: var(--primary-color);
+}
+
+.delegations-section__scope-box,
+.delegations-section__days-label {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-1);
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+.delegations-section__days {
+  width: 34px;
+  border: none;
+  border-bottom: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-color);
+  outline: none;
+  font-size: var(--font-size-sm);
+  text-align: center;
+}
+
+.delegations-section__days:focus {
+  border-bottom-color: var(--primary-color);
+}

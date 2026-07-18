@@ -52,5 +52,18 @@
     "confirm": "Confirmar proveniência",
     "empty": "Nenhuma entrada selecionada",
     "stale": "O documento mudou — sugestões atualizadas"
+  },
+  "delegations": {
+    "heading": "Delegações de agentes",
+    "empty": "Nenhuma delegação ativa",
+    "grant": "Conceder",
+    "revoke": "Revogar",
+    "principalPlaceholder": "Principal do agente (ex.: codex-cli)",
+    "days": "Dias",
+    "scopeAcceptNewer": "Aceitar mais recente",
+    "scopeWaive": "Isentar",
+    "expiresOn": "até {{date}}",
+    "grantConfirm": "Permitir que \"{{principal}}\" resolva arestas neste espaço de trabalho ({{scope}}) até {{date}}? Toda resolução delegada é registrada no log de auditoria e vinculada a esta concessão.",
+    "grantTitle": "Conceder delegação"
   }
 }

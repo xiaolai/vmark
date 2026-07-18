@@ -52,5 +52,18 @@
     "confirm": "출처 확정",
     "empty": "선택된 입력이 없습니다",
     "stale": "문서가 변경되었습니다 — 제안을 새로 고쳤습니다"
+  },
+  "delegations": {
+    "heading": "에이전트 위임",
+    "empty": "활성 위임 없음",
+    "grant": "부여",
+    "revoke": "철회",
+    "principalPlaceholder": "에이전트 프린시펄 (예: codex-cli)",
+    "days": "일수",
+    "scopeAcceptNewer": "최신 버전 수용",
+    "scopeWaive": "면제",
+    "expiresOn": "{{date}}까지",
+    "grantConfirm": "\"{{principal}}\"이(가) 이 워크스페이스의 엣지를 해소({{scope}})하도록 {{date}}까지 허용하시겠습니까? 위임된 모든 해소 작업은 이 부여에 연결되어 감사 로그에 기록됩니다.",
+    "grantTitle": "위임 부여"
   }
 }

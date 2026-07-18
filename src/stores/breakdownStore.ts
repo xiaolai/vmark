@@ -56,6 +56,14 @@ export interface ProposedInput {
   role: "direct" | "contextual";
 }
 
+/** Mirror of the Rust `DelegationRow` (WI-3.4). */
+export interface DelegationRow {
+  grant: string;
+  delegate: string;
+  scope: string[];
+  expires: string;
+}
+
 /** Mirror of the Rust `ContextRow` (camelCase — serde rename_all). */
 export interface ContextRow {
   id: string;
@@ -75,6 +83,8 @@ interface BreakdownState {
   selectedContext: string | null;
   /** Orphaned-but-recoverable artifacts (WI-3.2, pull-only). */
   provenance: ProvenanceCandidate[];
+  /** Live agent delegations (WI-3.4). */
+  delegations: DelegationRow[];
   /** Whether the Breakdown panel is open in THIS window. */
   panelOpen: boolean;
   /** A refresh is in flight. */
@@ -84,6 +94,7 @@ interface BreakdownState {
   setRows: (rows: EdgeRow[]) => void;
   setContexts: (contexts: ContextRow[]) => void;
   setProvenance: (candidates: ProvenanceCandidate[]) => void;
+  setDelegations: (rows: DelegationRow[]) => void;
   setSelectedContext: (id: string | null) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
@@ -101,12 +112,14 @@ export const useBreakdownStore = create<BreakdownState>()((set) => ({
   contexts: [],
   selectedContext: null,
   provenance: [],
+  delegations: [],
   panelOpen: false,
   loading: false,
   error: null,
   setRows: (rows) => set({ rows }),
   setContexts: (contexts) => set({ contexts }),
   setProvenance: (provenance) => set({ provenance }),
+  setDelegations: (delegations) => set({ delegations }),
   setSelectedContext: (selectedContext) => set({ selectedContext }),
   setLoading: (loading) => set({ loading }),
   setError: (error) => set({ error }),
@@ -118,6 +131,7 @@ export const useBreakdownStore = create<BreakdownState>()((set) => ({
       contexts: [],
       selectedContext: null,
       provenance: [],
+      delegations: [],
       panelOpen: false,
       loading: false,
       error: null,

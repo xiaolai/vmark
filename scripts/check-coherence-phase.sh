@@ -502,7 +502,35 @@ phase_3() {
     fail "SKIP_TESTS=1 set — WI-3.3 suite not run"
   fi
 
-  local PENDING=(3.4 3.5 3.6 3.7 3.8 3.9)
+  echo "— WI-3.4: delegation grant/revoke UI (explicit, 7-day default) —"
+  assert_file src/components/BreakdownPanel/DelegationsSection.tsx "delegations section"
+  assert_grep "grantConfirm" src/components/BreakdownPanel/DelegationsSection.tsx "confirmation names the terms"
+  assert_grep "coherence_delegations" src-tauri/src/command_registry.rs "delegation commands registered"
+  if [[ "${SKIP_TESTS:-}" != "1" ]]; then
+    if pnpm vitest run src/components/BreakdownPanel/BreakdownPanel.test.tsx --silent >/dev/null 2>&1; then
+      ok "WI-3.4 delegations suite green"
+    else
+      fail "WI-3.4 delegations suite red"
+    fi
+  else
+    fail "SKIP_TESTS=1 set — WI-3.4 suite not run"
+  fi
+
+  echo "— WI-3.6 (kernel): branch-mapped contexts —"
+  assert_grep "git_branch" src-tauri/src/coherence/contexts.rs "typed mapping field"
+  assert_grep "perform_branch_candidate" src-tauri/src/coherence/context_commands.rs "pull-only candidate"
+  assert_grep "current_branch" src-tauri/src/coherence/gitops.rs "exact branch detection"
+  if [[ "${SKIP_TESTS:-}" != "1" ]]; then
+    if cargo test --manifest-path src-tauri/Cargo.toml --lib coherence::context_commands --quiet >/dev/null 2>&1; then
+      ok "WI-3.6 kernel suite green"
+    else
+      fail "WI-3.6 kernel suite red"
+    fi
+  else
+    fail "SKIP_TESTS=1 set — WI-3.6 suite not run"
+  fi
+
+  local PENDING=(3.5 3.6-ui 3.7 3.8 3.9)
   echo "— pending WIs (fail-closed until implemented) —"
   for wi in "${PENDING[@]}"; do
     fail "WI-$wi assertions not yet defined (fail-closed)"

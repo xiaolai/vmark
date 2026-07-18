@@ -52,5 +52,18 @@
     "confirm": "Provenienz bestätigen",
     "empty": "Keine Eingaben ausgewählt",
     "stale": "Das Dokument hat sich geändert — Vorschläge aktualisiert"
+  },
+  "delegations": {
+    "heading": "Agenten-Delegationen",
+    "empty": "Keine aktiven Delegationen",
+    "grant": "Erteilen",
+    "revoke": "Widerrufen",
+    "principalPlaceholder": "Agenten-Principal (z. B. codex-cli)",
+    "days": "Tage",
+    "scopeAcceptNewer": "Neuere übernehmen",
+    "scopeWaive": "Aussetzen",
+    "expiresOn": "bis {{date}}",
+    "grantConfirm": "„{{principal}}“ erlauben, bis {{date}} Kanten in diesem Arbeitsbereich aufzulösen ({{scope}})? Jede delegierte Auflösung wird im Audit-Log dieser Erteilung zugeordnet.",
+    "grantTitle": "Delegation erteilen"
   }
 }
