@@ -23,6 +23,14 @@ Choose one of six color themes. The active theme is indicated by a ring around i
 | Night | `#23262B` | Dark mode |
 | Solarized | `#002B36` | Dark, Solarized Dark palette |
 
+#### Follow system appearance
+
+| Setting | Description | Default |
+|---------|-------------|---------|
+| Follow system appearance | Switch between your light and dark themes automatically with the system | Off |
+
+When enabled, the single theme row is replaced by two rows — **Light theme** (used while the system is in light mode, default Paper) and **Dark theme** (used in dark mode, default Night). VMark switches between them the moment the system appearance changes; your manual theme choice is kept and restored when you turn the option off.
+
 ### Language
 
 | Setting | Description | Default | Options |

@@ -37,17 +37,14 @@
 import { useRef, useEffect, useCallback } from "react";
 import type { IPty } from "@/lib/pty";
 import { useSettingsStore } from "@/stores/settingsStore";
+import { getEffectiveThemeId } from "@/hooks/useEffectiveTheme";
 import { useUIStore } from "@/stores/uiStore";
 import { createTerminalInstance } from "./createTerminalInstance";
 import { resolveBellAction, playTerminalBell } from "./terminalBell";
 import { maybeNotifyTerminalBell, flagWindowAttentionOnBell } from "@/services/terminalAttention";
 import { useUIStoreSync } from "./terminalSessionStoreSync";
 import { useTerminalShellLifecycle } from "./useTerminalShellLifecycle";
-import {
-  removeSessionEntry,
-  switchVisibility,
-  disposeAllSessions,
-} from "./terminalSessionRegistry";
+import { removeSessionEntry, switchVisibility, disposeAllSessions } from "./terminalSessionRegistry";
 import { wireSessionInput } from "./terminalSessionInputWiring";
 import type { SearchAddon } from "@xterm/addon-search";
 import type { SessionEntry } from "./terminalSessionTypes";
@@ -149,7 +146,7 @@ export function useTerminalSessions(
       const screenReaderMode = termSettings?.screenReaderMode ?? false;
       const minimumContrastRatio = termSettings?.minimumContrastRatio ?? 4.5;
       const scrollback = termSettings?.scrollback ?? 5000;
-      const themeId = useSettingsStore.getState().appearance.theme;
+      const themeId = getEffectiveThemeId();
 
       // Create a shared ptyRef that we'll update as the pty changes
       const ptyRefForKeys: React.RefObject<IPty | null> = { current: null };

@@ -44,6 +44,82 @@ describe("AppearanceSettings — focus mode dim (WI-10)", () => {
   });
 });
 
+describe("AppearanceSettings — follow system appearance (#1125)", () => {
+  beforeEach(() => {
+    useSettingsStore.setState({
+      appearance: {
+        ...useSettingsStore.getState().appearance,
+        theme: "paper",
+        followSystemAppearance: false,
+        systemLightTheme: "paper",
+        systemDarkTheme: "night",
+      },
+    });
+  });
+
+  it("renders the follow-system toggle, off by default", () => {
+    render(<AppearanceSettings />);
+    const toggle = screen.getByRole("switch", {
+      name: /follow system appearance/i,
+    });
+    expect(toggle).toHaveAttribute("aria-checked", "false");
+  });
+
+  it("shows a single theme row when not following the system", () => {
+    render(<AppearanceSettings />);
+    expect(screen.queryByText("Light theme")).not.toBeInTheDocument();
+    expect(screen.queryByText("Dark theme")).not.toBeInTheDocument();
+    // One swatch per theme
+    expect(screen.getAllByText("Paper")).toHaveLength(1);
+  });
+
+  it("enabling the toggle stores the flag and reveals light/dark rows", () => {
+    render(<AppearanceSettings />);
+    fireEvent.click(
+      screen.getByRole("switch", { name: /follow system appearance/i })
+    );
+    expect(
+      useSettingsStore.getState().appearance.followSystemAppearance
+    ).toBe(true);
+    expect(screen.getByText("Light theme")).toBeInTheDocument();
+    expect(screen.getByText("Dark theme")).toBeInTheDocument();
+    // Both rows render a full swatch set
+    expect(screen.getAllByText("Paper")).toHaveLength(2);
+  });
+
+  it("swatch clicks in the light/dark rows update the paired themes", () => {
+    useSettingsStore.setState({
+      appearance: {
+        ...useSettingsStore.getState().appearance,
+        followSystemAppearance: true,
+      },
+    });
+    render(<AppearanceSettings />);
+    const [lightSepia, darkSepia] = screen.getAllByRole("button", {
+      name: /sepia/i,
+    });
+    fireEvent.click(lightSepia);
+    expect(useSettingsStore.getState().appearance.systemLightTheme).toBe(
+      "sepia"
+    );
+    expect(useSettingsStore.getState().appearance.systemDarkTheme).toBe(
+      "night"
+    );
+    fireEvent.click(darkSepia);
+    expect(useSettingsStore.getState().appearance.systemDarkTheme).toBe(
+      "sepia"
+    );
+    // Manual theme untouched by paired-row clicks
+    expect(useSettingsStore.getState().appearance.theme).toBe("paper");
+  });
+
+  it("swatch clicks in manual mode keep updating appearance.theme", () => {
+    render(<AppearanceSettings />);
+    fireEvent.click(screen.getByRole("button", { name: /night/i }));
+    expect(useSettingsStore.getState().appearance.theme).toBe("night");
+  });
+});
+
 describe("FOCUS_DIM_OPACITY map", () => {
   it("keeps the standard level at full opacity (current behavior)", () => {
     expect(FOCUS_DIM_OPACITY.standard).toBe("1");

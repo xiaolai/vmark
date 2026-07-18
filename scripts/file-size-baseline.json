@@ -58,7 +58,6 @@
     "src/hooks/useFinderFileOpen.ts": 402,
     "src/hooks/useHistoryOperations.ts": 369,
     "src/hooks/useTabDragOut.ts": 356,
-    "src/hooks/useTheme.ts": 351,
     "src/hooks/useUnifiedHistory.ts": 307,
     "src/hooks/useUnifiedMenuCommands.ts": 468,
     "src/hooks/useUpdateChecker.ts": 407,
