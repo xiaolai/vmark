@@ -1,1 +1,108 @@
-//! Placeholder — implemented by its Phase 1 WI (see coherence/mod.rs).
+//! Git reconciliation (ADR-C4 services tier). R18 / Gate G2: scan-time
+//! before/after classification — the file watcher ignores `.git`, so
+//! this is deliberately observation-based, not event-based. Order
+//! matters (G2 findings): MERGE_HEAD first (mid-conflict merges are
+//! invisible to sha observables), then new-sha mutation detection, then
+//! known-sha navigation; the sha set is not monotonic (`reset --hard`
+//! shrinks it). Navigation NEVER mints revisions; mutations are captured
+//! as git-attributed transformations by `scan.rs`.
+
+use std::collections::HashSet;
+use std::path::Path;
+
+use crate::ai_provider::build_command;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GitObservation {
+    /// `rev-parse --abbrev-ref HEAD` — "HEAD" when detached.
+    pub head_ref: String,
+    pub head_sha: Option<String>,
+    /// `rev-list --all` — every commit currently reachable from any ref.
+    pub known_shas: HashSet<String>,
+    /// MERGE_HEAD present — a merge is mid-flight.
+    pub merge_in_progress: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum GitClass {
+    NotGit,
+    NoOp,
+    /// HEAD moved to previously known content — record, never mint (R18).
+    Navigation { from: String, to: String },
+    /// New commits minted with HEAD on one (revert, merge commit): real
+    /// new content, captured as git-attributed transformations.
+    Mutation { new_shas: Vec<String> },
+    /// Mid-conflict merge: defer reconciliation until it concludes.
+    MergeInProgress,
+    /// Observation gap (repo appeared/disappeared, unreadable HEAD):
+    /// fall back to observed-external handling — honest, never guessed.
+    ExternalUnknown,
+}
+
+fn git_output(root: &Path, args: &[&str]) -> Option<String> {
+    let out = build_command("git", args).current_dir(root).output().ok()?;
+    if !out.status.success() {
+        return None;
+    }
+    Some(String::from_utf8_lossy(&out.stdout).trim().to_string())
+}
+
+/// Observe the git state of a workspace. `None` = not a git repo (or git
+/// unavailable) — callers then treat every change as an ordinary external
+/// edit, which is the safe fallback.
+pub fn observe(root: &Path) -> Option<GitObservation> {
+    if !root.join(".git").exists() {
+        return None; // covers dirs and worktree .git files alike
+    }
+    let head_ref = git_output(root, &["rev-parse", "--abbrev-ref", "HEAD"])?;
+    let head_sha = git_output(root, &["rev-parse", "HEAD"]);
+    let known_shas: HashSet<String> = git_output(root, &["rev-list", "--all"])
+        .map(|s| s.lines().map(str::to_string).collect())
+        .unwrap_or_default();
+    let merge_in_progress =
+        git_output(root, &["rev-parse", "-q", "--verify", "MERGE_HEAD"]).is_some();
+    Some(GitObservation { head_ref, head_sha, known_shas, merge_in_progress })
+}
+
+/// Classify what happened between two observations (G2 matrix).
+pub fn classify(before: Option<&GitObservation>, after: Option<&GitObservation>) -> GitClass {
+    let (b, a) = match (before, after) {
+        (None, None) => return GitClass::NotGit,
+        (Some(_), None) | (None, Some(_)) => return GitClass::ExternalUnknown,
+        (Some(b), Some(a)) => (b, a),
+    };
+    if a.merge_in_progress {
+        return GitClass::MergeInProgress;
+    }
+    let Some(head) = &a.head_sha else {
+        return GitClass::ExternalUnknown;
+    };
+    let new_shas: Vec<String> = {
+        let mut v: Vec<String> =
+            a.known_shas.difference(&b.known_shas).cloned().collect();
+        v.sort();
+        v
+    };
+    if new_shas.contains(head) {
+        return GitClass::Mutation { new_shas };
+    }
+    if b.known_shas.contains(head) {
+        let same_position = b.head_sha.as_deref() == Some(head) && b.head_ref == a.head_ref;
+        if same_position {
+            return GitClass::NoOp;
+        }
+        return GitClass::Navigation {
+            from: b.head_sha.clone().unwrap_or_default(),
+            to: head.clone(),
+        };
+    }
+    if b.head_sha.as_deref() == Some(head) && b.head_ref == a.head_ref {
+        // Head untouched; shas may have appeared elsewhere (fetch).
+        return GitClass::NoOp;
+    }
+    GitClass::ExternalUnknown
+}
+
+#[cfg(test)]
+#[path = "gitops.test.rs"]
+mod tests;
