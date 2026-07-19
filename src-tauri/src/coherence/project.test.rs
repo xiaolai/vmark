@@ -128,6 +128,30 @@ fn inert_kind_over_advanced_upstream_is_never_stale() {
 }
 
 #[test]
+fn conformance_edge_composes_like_a_dependency() {
+    // SP-canon: a conformance edge (conformer → canon carrier) carries
+    // version-staleness (it is a version-propagating kind), so canon→conformer
+    // staleness flows through the EXISTING projection with zero kernel change —
+    // the old SP2 claim, now valid under the Phase-2 registry. Advancing the
+    // canon carrier (the "upstream") restales the conformer exactly as a
+    // dependency would.
+    use crate::coherence::edge_kind::OriginEdgeKind;
+    let w = world();
+    let dep = edge_of_kind(&w, &w.up0, OriginEdgeKind::Dependency);
+    let conf = edge_of_kind(&w, &w.up0, OriginEdgeKind::Conformance);
+    let ctx = ContextView::all_live();
+    assert_eq!(
+        project(&w, &dep, &ctx, &[], &[]),
+        project(&w, &conf, &ctx, &[], &[]),
+        "conformance and dependency project identically (both version-propagating)",
+    );
+    assert_eq!(
+        project(&w, &conf, &ctx, &[], &[]),
+        Some(EdgeState::VersionStale)
+    );
+}
+
+#[test]
 fn inert_kind_still_surfaces_a_diverged_upstream() {
     use crate::coherence::edge_kind::OriginEdgeKind;
     let mut w = world();
