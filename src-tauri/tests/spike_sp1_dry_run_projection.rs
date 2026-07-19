@@ -10,17 +10,16 @@
 //! is retired: the ledger is append-only, so there is no rollback. The faithful
 //! property is *observational multiset equality over a disposable clone*.
 //!
-//! Two independent code paths reach the projected graph:
-//!   - PREVIEW: `base_dag.clone()` + `record_output(candidate)`.
-//!   - COMMIT:  a fresh `RevisionDag` replayed from base outputs + candidate,
-//!              in ledger order, exactly as `rebuild_from` would.
-//! Equality of their projections over the affected set is the load-bearing
-//! claim. Three fixtures exercise it: linear restale, downstream retirement
-//! (`Some → None` liveness change, D2), and a divergence-creating candidate.
+//! Two independent code paths reach the projected graph. PREVIEW clones the
+//! base DAG and calls `record_output(candidate)`; COMMIT replays a fresh
+//! `RevisionDag` from base outputs plus the candidate in ledger order, exactly
+//! as `rebuild_from` would. Equality of their projections over the affected set
+//! is the load-bearing claim. Fixtures: linear restale, downstream retirement
+//! (`Some → None` liveness change, D2), a divergence-creating candidate, and a
+//! comparison against a real committed `CoherenceIndex.breakdown`.
 //!
-//! Run:
-//!   cargo test --manifest-path src-tauri/Cargo.toml \
-//!     --test spike_sp1_dry_run_projection -- --nocapture
+//! Run: `cargo test --manifest-path src-tauri/Cargo.toml --test
+//! spike_sp1_dry_run_projection -- --nocapture`
 
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -288,7 +287,7 @@ fn linear_restale_preview_equals_commit() {
     let d = ObjectId(uuid::Uuid::now_v7());
     let (u1, u1h) = rev(&store, "upstream v1", &[]);
     let (d1, d1h) = rev(&store, "downstream v1", &[]);
-    let (u2, u2h) = rev(&store, "upstream v2", &[u1.clone()]);
+    let (u2, u2h) = rev(&store, "upstream v2", std::slice::from_ref(&u1));
 
     let base = vec![
         Txf {
@@ -332,7 +331,7 @@ fn downstream_retirement_preview_equals_commit() {
     let d = ObjectId(uuid::Uuid::now_v7());
     let (u1, u1h) = rev(&store, "upstream v1", &[]);
     let (d1, d1h) = rev(&store, "downstream v1", &[]);
-    let (d2, d2h) = rev(&store, "downstream v2", &[d1.clone()]);
+    let (d2, d2h) = rev(&store, "downstream v2", std::slice::from_ref(&d1));
 
     let base = vec![
         Txf {
@@ -376,8 +375,8 @@ fn divergence_creating_candidate_preview_equals_commit() {
     let d = ObjectId(uuid::Uuid::now_v7());
     let (u1, u1h) = rev(&store, "upstream v1", &[]);
     let (d1, d1h) = rev(&store, "downstream v1", &[]);
-    let (u2a, u2ah) = rev(&store, "upstream v2a", &[u1.clone()]);
-    let (u2b, u2bh) = rev(&store, "upstream v2b", &[u1.clone()]);
+    let (u2a, u2ah) = rev(&store, "upstream v2a", std::slice::from_ref(&u1));
+    let (u2b, u2bh) = rev(&store, "upstream v2b", std::slice::from_ref(&u1));
 
     let base = vec![
         Txf {
@@ -435,7 +434,7 @@ fn overlay_matches_real_committed_index() {
     let d = ObjectId(uuid::Uuid::now_v7());
     let (u1, u1h) = rev(&store, "upstream v1", &[]);
     let (d1, d1h) = rev(&store, "downstream v1", &[]);
-    let (u2, u2h) = rev(&store, "upstream v2", &[u1.clone()]);
+    let (u2, u2h) = rev(&store, "upstream v2", std::slice::from_ref(&u1));
 
     let base = vec![
         Txf {

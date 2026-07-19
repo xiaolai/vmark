@@ -1,16 +1,17 @@
 # Plan: Coherence Runtime Layer — Verify-at-Volume, Classifier, Forward Operators, Canon-Hub, Merge Auditor
 
-- **Status: READY FOR G-B ROUND 3 — v4 + round-2 fixes applied (2026-07-20).**
-  Round 2 (`019f7b48…`) returned **MAJOR GAPS, partially discharged**: the
-  re-decomposition fixed rollback/scope/local-staleness/human-only-accept but
-  left plan-text inconsistencies (contradiction-as-kind, object-flag canon),
-  under-specified accept BLOCKERs, and a structural SP0 error. All are now
-  answered by **`design-runtime.md` v4** (idem preimage, reproject-under-lock,
-  bounded ReadView, blast-radius split, candidate lifecycle, edge_kind slot) and
-  the plan edits keyed `G-B …` / `v4.*` below. Governance sequence: G-B **round
-  3** clears (rule 60 §6) → Phase 0 (SP1 green + SP3) → **Phase 3.0 primitives →
-  SP0 PASS** (rule 60 §7) → phases commit in dependency order. Round-2
-  disposition table follows the round-1 one.
+- **Status: PHASE 0 CLEAR — G-B round 4 NEEDS REVISION, its residual fixed
+  (2026-07-20).** Four G-B rounds drove convergence: round 2 MAJOR GAPS
+  (partially discharged) → round 3 MAJOR GAPS (5 precise defects) → **round 4
+  NEEDS REVISION** with *no residual Phase-0/Phase-1 blocker* except the
+  WI-0.3 two-prototype gap — now fixed (SP3 6/6, schema-pack side refuted). The
+  V4.1–V4.3 accept defects round 4 found are Phase-3.0 correctness and are
+  specified/corrected in `design-runtime.md` v4. **Phase 0 gate is green
+  (`check-coherence-runtime-phase.sh 0`, 13/13); SP1 4/4 + SP3 6/6.** A
+  confirmatory G-B round 5 is advisable before Phase-1 commits, but Phase 0 is
+  complete. Governance sequence: → Phase 1 (verify at volume) → **Phase 3.0
+  primitives → SP0 PASS** (rule 60 §7) → phases in dependency order.
+  Rounds 3–4 disposition table precedes the round-2 one.
 
 - **History — G-B round 1 (`019f796a-7e30-7173-8222-24be7b11368d`, MAJOR GAPS,
   2026-07-19):** found this plan decomposed to WIs *before* the runtime layer's
@@ -27,7 +28,7 @@
 
 - **Date:** 2026-07-19 (re-decomposed 2026-07-20)
 - **Contract:** `dev-docs/coherence-layer-paper.md` **v2.0** and
-  `dev-docs/specs/coherence-format-v0.md` (rev 2). All WIs trace to the paper's
+  `dev-docs/specs/coherence-format-v0.md` (rev 3 — §13 runtime addenda). All WIs trace to the paper's
   R/I/O/M IDs and §5/§8/§14. Where this plan and the paper/spec disagree, the
   paper/spec wins and this plan is amended.
 - **Design inputs:** `grills/coherence/forward-operators-proposal.md`
@@ -187,6 +188,27 @@ increment design pass (SP-canon) before it decomposes to committable WIs — it 
 
 ---
 
+## Cross-model review rounds 3–4 (G-B) — record and disposition
+
+- **Round 3** (`019f7b59…`, MAJOR GAPS partially discharged): 8/15 round-2 items
+  fully addressed; found 5 new precise defects. **Round 4** (`019f7b68…`, **NEEDS
+  REVISION** — up from MAJOR GAPS): confirmed C/High-C/High-D/#4/#5/#7/#9/#15/E
+  fixed; found the residual defects below. All accepted and fixed:
+
+| Round-3/4 finding | Sev | Disposition |
+|---|---|---|
+| v4.3 compared *raw* `EdgeState` → a concurrent semantic check could block accept | Critical | **v4.3:** compare a **check-independent structural class** (only the verdict erased). |
+| v4.3 used an *unkeyed* class bag → a compensating edge-class swap escapes | Critical (r4) | **v4.3:** the comparison is a **map keyed by `SemanticEdgeKey`**, not a bag; property test added (WI-3.0e). |
+| v4.2 index-only idem lookup missed the append-before-apply torn window; heal-on-open doesn't fire for a valid index; clock-rollback breaks "smallest time = first" | Critical | **v4.2 rewritten:** the idem lookup is **ledger-authoritative, lookup-before-append, under the lock** — at most one entry per idem ever exists, so no survivor/rollback question arises. |
+| v4.1 delimiter ambiguity for free-text fields | High | **v4.1/spec §13.3:** length-prefixed **injective** encoding. |
+| v4.1 omitted `intent.prompt_hash`; aliased `agent.id` None vs `Some("")` | High (r4) | **v4.1:** added `prompt_hash`; `opt()` presence-byte disambiguates None from `Some("")`. |
+| SP1 proved only manual DAG overlay, not the real store path | High | **SP1:** `overlay_matches_real_committed_index` rebuilds a real `CoherenceIndex` and compares `breakdown()` (4/4). |
+| WI-0.3 required prototyping *both* placements; SP3 prototyped only the kernel | Medium (r4) | **SP3:** added a Tier-1 schema-pack *declaration sketch* whose absent `propagation` field refutes side (b) by construction (6/6); WI-0.3 wording aligned. |
+| Minor drift: spec "rev 2"; SP1 "3/3" | Low (r4) | Fixed (rev 3; 4/4). |
+
+Per round 4, **no residual Phase-0/Phase-1 blocker remains**; the V4.1–V4.3
+defects were Phase-3.0 correctness and are fixed above.
+
 ## Cross-model review round 2 (G-B) — record and disposition
 
 - **Thread:** `019f7b48-9532-7732-b024-163e1a14f94d` (Codex, read-only, high
@@ -235,8 +257,8 @@ merged, and the checker script itself exists. No production-source WIs
 
 | WI | Work item | Traces to |
 |---|---|---|
-| WI-0.1 | **Spike SP1 — dry-run projection over a disposable clone (reformulated per Theme A / design D2).** ✅ **DONE — 3/3 green** (`src-tauri/tests/spike_sp1_dry_run_projection.rs`). Proves multiset `(SemanticEdgeKey, Option<EdgeState>)` equality between a clone-overlay preview and an independent commit-rebuild across linear/retirement/divergence fixtures, with an on-disk byte-unchanged assertion. Retires the ill-formed `commit → project → rollback` formulation. Prerequisite for ADR-P1 and SP0. | ADR-C6 step 2, paper §6.2/§9; design D2 |
-| WI-0.3 | **Spike SP3 — relationship-classifier placement.** Prototype both (a) a kernel-level typed `OriginEdgeKind` registry and (b) a Tier-1 schema-pack declaration, each reproducing the **version** axis as a registry entry (the semantic/contradiction axis is NOT a kind — v4.7, G-B consistency #2). Decide kernel vs schema-pack (resolves ADR-P2) with a recorded rationale + the minimal working prototype of the chosen side. | §3 classifier, Tier-1 |
+| WI-0.1 | **Spike SP1 — dry-run projection over a disposable clone (reformulated per Theme A / design D2).** ✅ **DONE — 4/4 green** (`src-tauri/tests/spike_sp1_dry_run_projection.rs`). Proves `(SemanticEdgeKey, Option<EdgeState>)` equality between a clone-overlay preview and an independent commit across linear/retirement/divergence fixtures + a comparison against a **real committed `CoherenceIndex.breakdown`**, with an on-disk byte-unchanged assertion. Retires the ill-formed `commit → project → rollback` formulation. Prerequisite for ADR-P1 and SP0. | ADR-C6 step 2, paper §6.2/§9; design D2 |
+| WI-0.3 | **Spike SP3 — relationship-classifier placement.** ✅ **DONE** (`spike_sp3_edge_kind_registry.rs`, 6/6). Prototype the **kernel** side (typed `OriginEdgeKind` + `(origin, shape, propagation)`) reproducing the **version** axis as a registry entry (the semantic/contradiction axis is NOT a kind — v4.7, G-B consistency #2), **and** a minimal Tier-1 schema-pack *declaration sketch* that demonstrates by construction why it is **refuted**: a Tier-1 declaration can carry origin/shape metadata but has **no home for the propagation *behavior*** (executable = Tier 5, deferred — same reason design D5 keeps operators built-in Rust). Decision recorded: **kernel registry**. | §3 classifier, Tier-1 |
 | WI-0.4 | **Entry-gate spec addendum — rev 3 (format stays 0):** candidate payload schema (content-addressed id, in-memory only, never ledger — v4.6), operator-intent taxonomy (`intent.kind = "operator:<name>"`), the additive `edge_kind` slot (v4.7), and the accept idem preimage (v4.1). No implementation WI in any later phase starts before this lands (contract-first, R21). | R21, R24, spec §5/§7/§8; design v4.1/v4.6/v4.7 |
 | WI-0.5 | Create `scripts/check-coherence-runtime-phase.sh` (template: `check-coherence-phase.sh`) with Phase 0–5 assertions; set the Phase 1 **distinct live-edge coverage** threshold + error-rate/p95/cost/resume fields and drift-gauge baseline fields. | M1–M5 |
 
@@ -309,7 +331,7 @@ The production seams SP0 exercises. TDD, real source, each independently useful:
 | WI-3.0b | **Idem→receipt lookup:** `applied.entry_id` column + `entry_id_by_idem`; accept returns the *original* receipt on replay instead of dropping it. Migration = schema bump→rebuild backfill. | design v4.2 (BLOCKER 1) |
 | WI-3.0c | **Full canonical accept idem** (v4.1 preimage: format, operator, output object/hash/rev/sorted-parents, each input, agent, intent, confidence) — replaces D4's three-field formula. | design v4.1 (BLOCKER 2) |
 | WI-3.0d | **Transient candidate-check** (D3 contract, decomposed): a `build_candidate_check_prompt` distinct from the stale-edge prompt; result held in memory only; out-of-lock drift marks the verdict stale-and-discarded; timeout/error/cancel/malformed → `unknown`; never appended. RED/GREEN per D3 bullet. | design D3, G-B completeness #4 |
-| WI-3.0e | **Reproject-under-lock accept precondition** (v4.3): recompute the affected-set **structural-class** multiset (check-independent — `VersionStale`/`StaleValid`/`StaleContradicted`/`StaleUnknown` collapse to one `Stale` token, so a concurrent semantic verdict **never** blocks accept) under the kernel lock; reject on any difference vs the previewed `S_preview` (incl. base-head revalidation); else append. Property test: a concurrent check landing between preview and accept does **not** cause rejection. | design v4.3 (BLOCKER 3) |
+| WI-3.0e | **Reproject-under-lock accept precondition** (v4.3): recompute the affected-set structural-class **map keyed by `SemanticEdgeKey`** (check-independent — only the check verdict is erased, so a concurrent semantic verdict **never** blocks accept; keyed so a compensating edge-class swap is still caught) under the kernel lock; reject on any per-key difference vs the previewed `S_preview` (incl. base-head revalidation); else append. Property tests: (1) a concurrent check between preview and accept does **not** reject; (2) a compensating swap of two edges' classes **does** reject. | design v4.3 (BLOCKER 3) |
 
 **Gated by G-A + SP1 PASS + WI-0.4 merged.** Scope is single-object/single-output.
 

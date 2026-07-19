@@ -877,6 +877,7 @@ logical entry. The preimage is **length-prefixed** so free-text fields
 
 ```
 field(s) = u32_be(bytelen(s)) ‖ s
+opt(x)   = byte(0)  if None  |  byte(1) ‖ field(x)  if Some(x)   // None ≠ Some("")
 list(xs) = u32_be(count(xs)) ‖ concat(field(x) for x in xs)
 
 idem = uuid_from_sha256(
@@ -885,13 +886,16 @@ idem = uuid_from_sha256(
   ‖ field(output.object) ‖ field(output.content_hash) ‖ field(output.revision)
   ‖ list(sorted(output.parents))
   ‖ list(for each input in declared order: field(object) ‖ field(revision) ‖ field(role))
-  ‖ field(agent.kind) ‖ field(agent.id or "")
-  ‖ field(intent.kind) ‖ field(intent.summary) ‖ field(confidence)
+  ‖ field(agent.kind) ‖ opt(agent.id)
+  ‖ field(intent.kind) ‖ field(intent.summary) ‖ opt(intent.prompt_hash)
+  ‖ field(confidence)
 )
 ```
 
 The length-prefix makes the encoding **injective**: distinct payloads never share
-a preimage. The `…-v1` domain tag versions the schema. Retry semantics: the
+a preimage. `opt` (a presence byte) covers every optional field — `agent.id` and
+`intent.prompt_hash` — so `None` is never aliased with `Some("")`. The `…-v1`
+domain tag versions the schema. Retry semantics: the
 accept looks the idem up (ledger-authoritative, healing the append-before-index
 torn window — V4.2) and returns the **original** receipt rather than appending
 again.
@@ -910,12 +914,15 @@ a moved base is caught independently by base-head revalidation.
 ### 13.5 Reproject-under-lock is check-independent
 
 The accept precondition compares a **structural class** of each affected edge's
-projection, not the raw `EdgeState`: `VersionStale`, `StaleValid`,
-`StaleContradicted`, `StaleUnknown` all collapse to one `Stale` token. A semantic
-check landing between preview and accept therefore **cannot** cause a rejection —
-accept is never blocked by a semantic verdict (I3/§14). Base-head moves,
-retirements, waivers, and context repins remain visible to the class and do
-reject.
+projection, not the raw `EdgeState`: only the check verdict is erased —
+`VersionStale`, `StaleValid`, `StaleContradicted`, `StaleUnknown` all collapse to
+one `Stale` token, while `Fresh{ratified, ahead}` and the rest are kept. A
+semantic check landing between preview and accept therefore **cannot** cause a
+rejection — accept is never blocked by a semantic verdict (I3/§14). The
+comparison is a **map keyed by edge** (`SemanticEdgeKey → class`), not an unkeyed
+count, so a compensating swap of two edges' classes is still caught. Base-head
+moves, retirements, ratifications, waivers, and context repins remain visible and
+do reject.
 
 ### 13.6 Additive `edge_kind` (optional input field)
 
