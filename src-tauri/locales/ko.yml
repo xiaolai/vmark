@@ -188,6 +188,7 @@ menu:
   window: "창"
   window.bringAllToFront: "모든 창 앞으로 가져오기"
   window.status: "창 상태"
+  window.breakdown: "정합성 내역"
 
   # === 도움말 메뉴 ===
   help: "도움말"

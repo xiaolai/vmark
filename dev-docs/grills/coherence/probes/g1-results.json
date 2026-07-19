@@ -1,0 +1,93 @@
+{
+  "paths": [
+    {
+      "pathClass": "editor-save (human)",
+      "insertionPoint": "src/services/persistence/saveToPath.ts:234",
+      "availableFields": [
+        "tabId",
+        "path",
+        "content",
+        "saveType",
+        "prior buffer content"
+      ],
+      "entryId": "584b4c41-12f5-4f53-b126-b927ea74a601",
+      "schemaErrors": [],
+      "complete": true
+    },
+    {
+      "pathClass": "genie/ai-suggestion apply (model)",
+      "insertionPoint": "src/hooks/genieInvocation/streamRunner.ts:126-178",
+      "availableFields": [
+        "genie name",
+        "genie.metadata.model",
+        "ExtractionResult (scope, wholeDoc, context)",
+        "target doc + prior revision",
+        "referenced docs loaded into prompt"
+      ],
+      "entryId": "005954cd-f0f6-4cca-80a7-b0315260529c",
+      "schemaErrors": [],
+      "complete": true
+    },
+    {
+      "pathClass": "mcp document.write (external agent)",
+      "insertionPoint": "src/hooks/mcpBridge/v2/document.ts:341-347",
+      "availableFields": [
+        "tabId/filePath",
+        "content",
+        "MCP checkpoint (tool, contentBefore, revisions)",
+        "session-observed document.read set"
+      ],
+      "entryId": "0061a328-2405-4c8b-937f-6a412cce2630",
+      "schemaErrors": [],
+      "complete": true
+    },
+    {
+      "pathClass": "workflow save-file (model)",
+      "insertionPoint": "src-tauri/src/workflow/runner.rs:869",
+      "availableFields": [
+        "step id",
+        "action/read-file + read-folder targets",
+        "genie step model + params",
+        "output path + content"
+      ],
+      "entryId": "3728018e-df9f-4e78-9213-2fb26b9928ed",
+      "schemaErrors": [],
+      "complete": true
+    },
+    {
+      "pathClass": "terminal/external edit (observed)",
+      "insertionPoint": "src-tauri/src/watcher.rs fs:changed -> scan reconciliation",
+      "availableFields": [
+        "path",
+        "new content (from disk)",
+        "last known revision (from index)"
+      ],
+      "entryId": "11309295-525b-4c66-b447-46be207566e2",
+      "schemaErrors": [],
+      "complete": true
+    }
+  ],
+  "protocol": {
+    "tornLine": {
+      "quarantinedLines": 1,
+      "quarantineFileExists": true,
+      "survivingEntries": 5,
+      "pass": true
+    },
+    "appendAfterTear": {
+      "survivingEntries": 6,
+      "pass": true
+    },
+    "idempotentReplay": {
+      "rawEntries": 7,
+      "logicalEntries": 6,
+      "pass": true
+    },
+    "identityMasking": {
+      "fmPreserved": true,
+      "fmSynthesized": true,
+      "pass": true
+    }
+  },
+  "pass": true
+}

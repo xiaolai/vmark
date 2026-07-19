@@ -59,7 +59,9 @@
     "zoomIn": "放大",
     "zoomOut": "縮小",
     "toggleShowInvisibles": "切換顯示隱形字元",
-    "toggleWindowStatus": "視窗狀態"
+    "toggleWindowStatus": "視窗狀態",
+    "toggleBreakdown": "一致性明細",
+    "toggleClaims": "正典設定"
   },
   "lint": {
     "check": "檢查 Markdown",
@@ -84,5 +86,8 @@
   },
   "browser": {
     "newTab": "新增瀏覽器分頁"
+  },
+  "claims": {
+    "extractFromSelection": "從選取內容擷取設定"
   }
 }

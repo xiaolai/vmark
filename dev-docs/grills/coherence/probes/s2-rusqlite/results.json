@@ -1,0 +1,118 @@
+{
+  "breakdown_all_edges": {
+    "median_us": 84500,
+    "rows": 407484,
+    "states": {
+      "diverged": 313044,
+      "fresh": 2222,
+      "version_stale": 92218,
+      "waived": 0
+    },
+    "warm_runs_us": [
+      82957,
+      84925,
+      84151,
+      84500,
+      84623
+    ]
+  },
+  "breakdown_current_heads": {
+    "median_us": 6353,
+    "rows": 15199,
+    "states": {
+      "diverged": 9899,
+      "fresh": 511,
+      "version_stale": 4789,
+      "waived": 0
+    },
+    "warm_runs_us": [
+      6157,
+      6208,
+      6353,
+      6363,
+      6532
+    ]
+  },
+  "budgets": {
+    "breakdown_all_le_100ms": {
+      "measured_us": 84500,
+      "pass": true
+    },
+    "breakdown_current_le_100ms": {
+      "measured_us": 6353,
+      "pass": true
+    },
+    "projection_le_1ms": {
+      "measured_p95_us": 60,
+      "pass": true
+    },
+    "rebuild_le_10s": {
+      "measured_ms": 1337,
+      "pass": true
+    }
+  },
+  "build": "cargo run --release",
+  "date": "2026-07-18",
+  "environment": {
+    "arch": "aarch64",
+    "os": "macos",
+    "sqlite_linkage": "bundled (rusqlite `bundled` feature)",
+    "sqlite_version": "3.53.2"
+  },
+  "equivalence_check": {
+    "digest_all": "9f54cb31e2c8b5663715c7307c92f17b3c26cf0d259baf6fd9073c045d4d288b",
+    "digest_current": "30dcf58d70902815b73c05fe4faaf6c292ec27a84339521332ffe988acc7938f",
+    "identical": true
+  },
+  "generation": {
+    "ms": 1061,
+    "note": "not part of any budget"
+  },
+  "rebuild_1": {
+    "dangling_pins": 0,
+    "db_bytes": 111632384,
+    "derive_ms": 113,
+    "entries_parsed": 200000,
+    "idem_deduped": 0,
+    "index_ms": 237,
+    "quarantined": 0,
+    "rows": {
+      "edges": 498729,
+      "head_anc": 231342,
+      "heads": 7251,
+      "parents": 195307,
+      "resolved": 350,
+      "revisions": 199200
+    },
+    "scan_insert_ms": 984,
+    "total_ms": 1337
+  },
+  "rebuild_2": {
+    "total_ms": 1123
+  },
+  "scale": {
+    "input_references_direct": 407484,
+    "input_references_total": 498729,
+    "ledger_bytes": 215429105,
+    "ledger_entries": 200000,
+    "multi_head_objects": 1052,
+    "objects": 5000,
+    "revisions_per_object": {
+      "max": 500,
+      "p50": 10,
+      "p95": 199
+    },
+    "segments": 28,
+    "transformations": 199200,
+    "writers": 4
+  },
+  "single_edge_projection": {
+    "max_us": 207,
+    "mean_us": 13.486210418794688,
+    "mismatches_vs_breakdown": 0,
+    "p50_us": 6,
+    "p95_us": 60,
+    "samples": 979
+  },
+  "spike": "S2 rusqlite (bundled) — coherence index rebuild + breakdown budgets"
+}

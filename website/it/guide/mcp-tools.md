@@ -1,6 +1,6 @@
 # Riferimento Strumenti MCP
 
-VMark espone **quattro strumenti MCP compositi** agli assistenti IA: `session`, `workspace`, `document` e `workflow`. Insieme coprono **14 azioni** — la spina dorsale lettura/scrittura più il ciclo di vita di file/finestre più le modifiche CST-safe per lo YAML di GitHub Actions.
+VMark espone **sette strumenti MCP compositi** agli assistenti IA: `session`, `workspace`, `document`, `workflow`, `selection`, `browser` e `coherence`. Insieme coprono la spina dorsale dell'editor, il ciclo di vita di file/finestre, le modifiche CST-safe ai workflow, le modifiche mirate alla selezione, la navigazione delimitata del browser e una vista in sola lettura del livello di coerenza del workspace.
 
 La precedente superficie di 12 strumenti / 76 azioni è stata ridotta perché gli strumenti di formattazione interni al documento (grassetto, intestazioni, tabelle, ecc.) duplicano un lavoro che gli agenti IA fanno già banalmente tramite il round-trip Markdown. Vedi [il piano di riduzione MCP](https://github.com/xiaolai/vmark/blob/main/dev-docs/plans/20260504-mcp-pruning.md) per la motivazione completa.
 
@@ -236,6 +236,87 @@ Esegui `actionlint` sullo YAML del workflow.
 | `tabId` | stringa | No |
 
 Restituisce `{ok, diagnostics, binaryAvailable}`. Ogni diagnostica trasporta `{line, col, message, severity}`. `binaryAvailable: false` significa che `actionlint` non è installato localmente; installa tramite Homebrew o le release upstream.
+
+---
+
+## `coherence`
+
+Una vista in **sola lettura** del livello di coerenza del workspace — quali documenti derivati sono obsoleti rispetto alle sorgenti da cui sono stati generati. Nessuna delle due azioni modifica documenti, il registro (ledger) o alcuno stato dell'editor; entrambe sono servite interamente dal backend Rust a partire dal kernel per workspace, quindi funzionano anche quando nessuna finestra dell'editor è in primo piano.
+
+Due ulteriori azioni in sola lettura espongono il livello semantico:
+
+- `claims` — le affermazioni canoniche correnti: `{claim, entryId, statement, maturity, invalidAt, visible}`. Solo le affermazioni `established` vincolano le verifiche semantiche; `visible` riflette il contesto default.
+- `contexts` — l'insieme dei contesti (il `default` implicito è sempre presente): `{id, name, parent, enforcement, visibleClaims, errors}`.
+
+Un'azione di modifica, regolata dalla delega:
+
+- `resolve` — risolve un arco obsoleto attivo come agente esplicitamente delegato: `{workspace_root, txf, input, resolution: "accept-newer" | "waive", reason? (required for waive)}`. L'autorizzazione è fail-closed: il proprietario del workspace deve aver concesso alla **tua identità di bridge autenticata** una delega attiva e non scaduta che copra il tipo di risoluzione (concessa nell'app, dalla vista di dettaglio), e l'arco deve essere attivo. Ogni risoluzione delegata viene registrata nel log di audit a fronte della concessione. La mutazione di affermazioni e contesti non è mai esposta — il canone resta sotto controllo umano.
+
+Tutte le azioni richiedono `workspace_root`: il percorso assoluto del workspace da interrogare. Ricavalo da `session.get_state` (il `filePath` delle schede aperte) o dallo strumento workspace. Un percorso mancante, non assoluto o che non è una directory viene rifiutato con un errore in forma di stringa semplice.
+
+### `status`
+
+Contatori di stato del kernel per un workspace.
+
+| Parametro | Tipo | Richiesto | Descrizione |
+|-----------|------|-----------|-------------|
+| `workspace_root` | stringa | Sì | Percorso assoluto del workspace da interrogare |
+
+**Restituisce:**
+
+```json
+{
+  "initialized": true,
+  "objects": 12,
+  "open_items": 2,
+  "quarantined": 0,
+  "writer": "0198c0de-0000-7000-8000-000000000001"
+}
+```
+
+| Campo | Significato |
+|---|---|
+| `initialized` | `false` quando il workspace non ha ancora un registro di coerenza (nessuna directory `.vmark/`). In quel caso tutti i contatori tranne `objects` sono 0. |
+| `objects` | Oggetti tracciati (file con un'identità di coerenza). |
+| `open_items` | Archi vivi non freschi — la dimensione corrente del dettaglio. |
+| `quarantined` | Righe malformate del registro messe in quarantena all'ultima lettura. |
+| `writer` | L'ID writer (UUID) di questa installazione. |
+
+### `edges`
+
+Il dettaglio: ogni arco di dipendenza vivo la cui sorgente si è mossa. Esegue prima una riconciliazione con scansione, quindi la risposta riflette i file su disco al momento della chiamata.
+
+| Parametro | Tipo | Richiesto | Descrizione |
+|-----------|------|-----------|-------------|
+| `workspace_root` | stringa | Sì | Percorso assoluto del workspace da interrogare |
+
+**Restituisce** un array — vuoto quando tutto è coerente:
+
+```json
+[
+  {
+    "txf": "0198c0de-0000-7000-8000-00000000000a",
+    "input": 0,
+    "upstream": "0198c0de-0000-7000-8000-00000000000b",
+    "upstream_path": "characters/elena.md",
+    "pinned": "rev-a1b2c3",
+    "downstream": "0198c0de-0000-7000-8000-00000000000c",
+    "downstream_path": "scenes/chapter-3.md",
+    "downstream_rev": "rev-d4e5f6",
+    "state": "version-stale"
+  }
+]
+```
+
+| Campo | Significato |
+|---|---|
+| `txf` / `input` | La voce di trasformazione e lo slot di input che identificano questo arco (passali alle azioni di risoluzione nell'app). |
+| `upstream` / `upstream_path` | L'oggetto da cui dipende il derivato, e il suo ultimo percorso noto. |
+| `pinned` | La revisione della sorgente da cui è stato generato il derivato. |
+| `downstream` / `downstream_path` / `downstream_rev` | L'oggetto derivato, il suo percorso e la sua revisione corrente. |
+| `state` | `"version-stale"`, `"stale-valid"`, `"stale-contradicted"`, `"stale-unknown"`, `"waived"`, `"diverged"`, `"diverged-multi-head"` o `"unpinnable"`. |
+
+Risolvere un arco (accept-newer / waive) è un'azione umana eseguita nella vista di dettaglio di VMark — deliberatamente non è esposta via MCP.
 
 ---
 

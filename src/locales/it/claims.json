@@ -1,0 +1,31 @@
+{
+  "title": "Affermazioni canoniche",
+  "refresh": "Aggiorna",
+  "close": "Chiudi",
+  "loading": "Caricamento…",
+  "error": "Impossibile caricare le affermazioni",
+  "empty": "Nessuna affermazione — seleziona del testo in un documento e usa «Estrai affermazione»",
+  "maturity": {
+    "draft": "Bozza",
+    "established": "Stabilita"
+  },
+  "ended": "Terminata",
+  "hidden": "Nascosta in questo contesto",
+  "actions": {
+    "promote": "Stabilisci",
+    "correct": "Correggi",
+    "retire": "Ritira",
+    "hide": "Nascondi",
+    "show": "Mostra"
+  },
+  "promoteTitle": "Promuovi a stabilita — solo le affermazioni stabilite possono vincolare (D4)",
+  "correctPlaceholder": "Affermazione corretta",
+  "correctConfirm": "Conferma correzione",
+  "create": {
+    "heading": "Nuova affermazione dalla selezione",
+    "source": "Origine: {{path}}",
+    "statementPlaceholder": "Enunciato dell'affermazione",
+    "confirm": "Crea bozza di affermazione",
+    "cancel": "Annulla"
+  }
+}

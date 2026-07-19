@@ -69,6 +69,10 @@ export const zhTW = {
             },
             { text: "AI 精靈", link: "/zh-TW/guide/ai-genies" },
             {
+              text: "一致性與明細檢視",
+              link: "/zh-TW/guide/coherence",
+            },
+            {
               text: "工作流程精靈",
               link: "/zh-TW/guide/workflow-genies",
             },

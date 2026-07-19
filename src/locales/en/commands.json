@@ -59,7 +59,9 @@
     "zoomIn": "Zoom In",
     "zoomOut": "Zoom Out",
     "toggleShowInvisibles": "Toggle Invisibles",
-    "toggleWindowStatus": "Window Status"
+    "toggleWindowStatus": "Window Status",
+    "toggleBreakdown": "Coherence Breakdown",
+    "toggleClaims": "Canon Claims"
   },
   "lint": {
     "check": "Check Markdown",
@@ -84,5 +86,8 @@
   },
   "browser": {
     "newTab": "New Browser Tab"
+  },
+  "claims": {
+    "extractFromSelection": "Extract Claim from Selection"
   }
 }

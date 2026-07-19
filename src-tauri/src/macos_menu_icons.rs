@@ -181,6 +181,7 @@ pub(crate) const MENU_ICONS: &[(&str, &str)] = &[
     ("toggle-terminal", "terminal"),
     // ── Window menu ──
     ("window-status", "rectangle.stack"),
+    ("breakdown", "point.3.connected.trianglepath.dotted"),
     ("bring-all-to-front", "macwindow.on.rectangle"),
     // ── Help menu ──
     ("vmark-help", "questionmark.circle"),

@@ -1,0 +1,151 @@
+# Cohérence et la vue Détail
+
+La couche de cohérence de VMark garde honnêtes les projets d'écriture
+développés récursivement&nbsp;: elle enregistre **quels documents chaque
+génération IA a réellement lus**, remarque quand ces documents amont
+changent par la suite, et vous montre — à la demande — exactement quels
+artefacts aval pourraient désormais être obsolètes. Rien n'est jamais mis
+à jour automatiquement&nbsp;; vous restez le rédacteur en chef.
+
+## Comment ça marche (30 secondes)
+
+- Chaque enregistrement, application de genie, suggestion IA acceptée,
+  écriture MCP et étape `save-file` de workflow est consigné comme une
+  **transformation** dans un registre en texte brut au sein de votre
+  espace de travail (`.vmark/` — JSONL lisible par l'humain et compatible
+  git&nbsp;; supprimer l'`index.db` dérivé ne perd rien).
+- Quand une IA écrit un document en en lisant d'autres, ces lectures
+  deviennent des **arêtes de dépendance**, épinglées à la révision exacte
+  qui a été lue.
+- Quand un document amont avance au-delà d'une révision épinglée, l'arête
+  devient **obsolète**. Si deux révisions ont évolué en parallèle (par ex.
+  sur des branches git), l'arête est **divergente** — signalée, jamais
+  devinée.
+- Les fichiers modifiés hors de VMark (terminal, autres éditeurs) sont
+  rapprochés lors de l'analyse comme *modifications externes observées* —
+  l'historique reste sans lacune, honnêtement marqué comme de provenance
+  inconnue.
+
+## La vue Détail
+
+Ouvrez-la depuis **Fenêtre → Détail de cohérence** (ou la palette de
+commandes&nbsp;: « Breakdown View »). Elle est strictement en **mode
+pull**&nbsp;: elle se rafraîchit quand vous l'ouvrez ou appuyez sur
+Actualiser — elle ne vous harcèle jamais en arrière-plan.
+
+Les éléments sont groupés par artefact (le document aval) et montrent le
+document amont, la révision épinglée et l'état actuel&nbsp;:
+
+| État | Signification |
+|---|---|
+| `version-stale` | L'amont a avancé au-delà de ce dont cet artefact a été produit |
+| `diverged` | Les révisions épinglée et actuelle sont parallèles — aucune ligne de descendance |
+| `diverged-multi-head` | L'amont lui-même a des versions actuelles parallèles |
+| `waived` | Vous avez accepté la divergence, avec un motif consigné |
+| `unpinnable` | L'amont ne peut pas être résolu (par ex. un épinglage invalide) |
+
+### Actions
+
+Chaque élément offre trois actions honnêtes — aucune ne réécrit
+l'historique&nbsp;:
+
+- **Accepter la plus récente** — consigne que l'artefact est toujours
+  compatible avec l'amont plus récent (une *ratification*). L'élément
+  quitte la liste&nbsp;; si l'amont change à nouveau, il revient.
+- **Réviser** — ouvre l'artefact pour que vous puissiez le mettre à jour.
+  Enregistrer une nouvelle version retire l'ancienne arête.
+- **Exempter** — consigne une divergence intentionnelle avec un **motif
+  obligatoire** (les narrateurs peu fiables existent). Les éléments
+  exemptés restent visibles, marqués distinctement, et se rouvrent si
+  l'amont bouge à nouveau.
+
+Accepter la plus récente et Exempter sont désactivés quand l'amont a
+plusieurs versions actuelles — il n'y a pas de révision unique contre
+laquelle résoudre&nbsp;; révisez (ou réconciliez les versions) d'abord.
+
+## Vérification sémantique, affirmations et contextes
+
+L'obsolescence de version dit qu'un amont a *bougé*&nbsp;; la
+vérification sémantique dit si ce mouvement *contredit* réellement le
+document dérivé. Les vérifications sont strictement en **mode
+pull**&nbsp;: appuyez sur **Vérifier** sur une arête obsolète et VMark
+demande à votre fournisseur d'IA configuré de comparer la révision
+amont épinglée, la révision actuelle et le texte dérivé. Le verdict
+arrive sous forme de badge — *vérifiée valide*, *contredite* (toujours
+avec une citation textuelle comme preuve) ou *non vérifiée* quand le
+modèle a hésité, dépassé le délai ou répondu sous le seuil de
+confiance. L'inconnu est honnête, jamais caché. Une vérification expire
+dès que l'un des deux documents bouge à nouveau — ou que l'ensemble des
+affirmations change.
+
+Les **affirmations canoniques** sont des faits que vous avez rendus
+explicites (« Elena est gauchère »). Sélectionnez du texte dans un
+document et lancez *Extraire une affirmation de la sélection*&nbsp;:
+l'affirmation naît en **brouillon**, avec sa provenance (quel document,
+quelle révision). Promouvez-la en **établie** quand elle devient
+canon — seules les affirmations établies alimentent les vérifications
+sémantiques. Corriger ou clore une affirmation ajoute de
+l'historique&nbsp;; rien n'est jamais supprimé. Masquer une affirmation
+dans un contexte est une visibilité réversible, pas une clôture.
+
+Les **contextes** sont des vues nommées de l'espace de travail (le
+contexte *default* est toujours là). Chaque contexte choisit ce que
+« actuel » signifie et quelles affirmations s'appliquent&nbsp;; un
+contexte enfant hérite additivement des affirmations de son parent. Les
+contextes sont en mode **serre** par défaut — les verdicts de
+vérification se lisent comme une tension consultative. En basculer un
+en **appliqué** (un acte explicite et confirmé) marque les
+contradictions comme des violations du canon. Le sélecteur de contexte
+de la vue Détail choisit à travers quel contexte vous regardez&nbsp;;
+les résultats de vérification sont liés au contexte et à l'instantané
+d'affirmations exacts qui les ont produits et ne fuient jamais de l'un
+à l'autre.
+
+## Provenance, délégation et branches
+
+Trois choses gardent la couche de cohérence honnête à mesure qu'un projet évolue réellement — aucune ne vous harcèle, toutes sont strictement en mode pull.
+
+**Récupération de la provenance.** Quand vous modifiez un document dérivé à la main (dans VMark ou un éditeur externe), la modification perd à juste titre ses entrées enregistrées — les anciennes arêtes de dépendance ne décrivent plus le nouveau texte. Le groupe *Provenance inconnue* du Détail propose de les restaurer&nbsp;: appuyez sur **Suggérer des entrées** et VMark propose le jeu d'entrées antérieur le plus récent du document (rôles préservés), pré-coché et modifiable. **Confirmer la provenance** rattache les arêtes à la version actuelle sans créer de nouvelle révision, de sorte que les documents en aval du document ne voient jamais de changement fallacieux. Les documents qui n'ont jamais eu d'entrées ne sont jamais listés — il n'y a rien à récupérer et rien pour vous harceler.
+
+**Délégation d'agent.** Par défaut, vous seul pouvez résoudre les arêtes obsolètes. Si vous voulez qu'un agent IA accepte la plus récente ou exempte en votre nom (via la surface MCP « lecture seule plus `resolve` »), accordez-lui depuis le Détail une **délégation à durée limitée**&nbsp;: nommez l'agent, choisissez la portée (accepter la plus récente et/ou exempter) et fixez une expiration (7 jours par défaut, jamais « pour toujours »). Chaque résolution déléguée est consignée au titre de la délégation, si bien que la piste d'audit montre toujours qui a agi sous l'autorité de qui. Révoquez n'importe quelle délégation d'un clic. Les affirmations canoniques et les contextes restent exclusivement humains — un agent ne peut jamais promouvoir une affirmation ni appliquer un contexte.
+
+**Contextes de branche.** Un contexte peut être associé à une branche git. Quand vous basculez sur une branche associée, le Détail affiche une **puce candidate** proposant de changer — il ne change jamais de lui-même. Si la branche n'a pas encore de contexte, la puce propose d'en créer un à son nom. Quand une vraie fusion (non fast-forward) aboutit, une bannière que vous pouvez ignorer vous invite à examiner le Détail&nbsp;; la divergence et l'obsolescence qu'elle expose sont les états normaux du Détail — rien de nouveau ne s'exécute donc, vous êtes simplement guidé vers l'examen.
+
+## Identité dans le frontmatter
+
+La première fois qu'un fichier est capturé, VMark ajoute un petit bloc
+d'identité à son frontmatter&nbsp;:
+
+```yaml
+vmark:
+  id: 018f3c7a-9f2e-7cc1-b302-5e9d4a6b21c7
+```
+
+Cet ID est ce qui permet à un document de conserver son historique à
+travers les renommages et déplacements. Il n'affecte jamais le hachage du
+contenu (l'ajouter ne crée pas de « changement »), et tout le reste de
+votre frontmatter est laissé intact. Si vous copiez un fichier, l'ID
+dupliqué est détecté et vous est signalé pour résolution — jamais corrigé
+automatiquement.
+
+## Interopérabilité git
+
+- Les fichiers de registre `.vmark/` sont suivis par git et fusionnent
+  proprement entre branches (append-only, `merge=union`).
+- Les checkouts, changements de branche et resets sont reconnus comme de
+  la **navigation** — ils ne créent jamais de révisions fantômes.
+- `git revert` et les fusions qui produisent du nouveau contenu sont
+  capturés comme des transformations attribuées à git.
+- L'index dérivé (`index.db`) est dans le gitignore et se reconstruit à
+  partir du registre en texte brut chaque fois que nécessaire.
+
+## Pour les agents IA (MCP)
+
+Les agents externes peuvent interroger l'état de cohérence via
+[l'outil MCP `coherence`](/fr/guide/mcp-tools#coherence) (actions `status`
+et `edges`), pour les espaces de travail que vous avez ouverts dans VMark.
+`status` est une lecture pure&nbsp;; `edges` rapproche d'abord — il peut
+ajouter des enregistrements de provenance au registre propre de l'espace
+de travail, mais ne touche jamais vos documents. La résolution
+(ratifier/exempter) n'est délibérément *pas* exposée via MCP dans cette
+version — les décisions restent à l'humain, dans l'application.

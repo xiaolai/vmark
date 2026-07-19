@@ -66,8 +66,9 @@ const bridge = new WebSocketBridge({
 
 ## Available Tools
 
-The server exposes a pruned 5-tool surface — `session`, `workspace`, `document`,
-`workflow`, `selection`. Each tool has an `action` discriminator that routes to
+The server exposes the pruned editor surface — `session`, `workspace`, `document`,
+`workflow`, `selection` — plus the embedded `browser` tool and the read-only
+`coherence` tool. Each tool has an `action` discriminator that routes to
 its sub-operations. See `dev-docs/plans/20260504-mcp-pruning.md` for the
 rationale behind the prune and ADR-7 for why `selection` was re-added.
 
@@ -116,6 +117,18 @@ full-doc round-trip required by `document.read`/`document.write` — input
 tokens for the whole doc, output tokens for the whole doc, a long write
 window that widens the stale-revision retry loop, and a faithfulness risk
 on the bytes the AI didn't change.
+
+### `coherence` — read-only workspace coherence view (2 actions)
+
+| Action | Purpose |
+|---|---|
+| `status` | Kernel status counters for a workspace: `{initialized, objects, open_items, quarantined, writer}`. `initialized: false` means no coherence ledger exists yet. |
+| `edges` | The breakdown — every live, non-fresh dependency edge as `{txf, input, upstream, upstream_path, pinned, downstream, downstream_path, downstream_rev, state}`. Empty array means everything is coherent. |
+
+Both actions require `workspace_root` (absolute path of the workspace to
+query) and are answered entirely by the Rust backend — no webview hop.
+Neither modifies anything; resolving an edge is a human action in VMark's
+breakdown view and is deliberately not exposed over MCP.
 
 ## Available Resources
 

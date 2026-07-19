@@ -80,6 +80,10 @@ export const it = {
               link: "/it/guide/cjk-formatting",
             },
             { text: "AI Genies", link: "/it/guide/ai-genies" },
+            {
+              text: "Coerenza e vista di dettaglio",
+              link: "/it/guide/coherence",
+            },
             { text: "Genie del workflow", link: "/it/guide/workflow-genies" },
             {
               text: "Provider di IA",

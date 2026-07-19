@@ -55,6 +55,11 @@ pub(crate) struct BridgeState {
     pub pending: HashMap<String, PendingRequest>,
     /// Counter for generating unique client IDs.
     pub next_client_id: u64,
+    /// F5 (WI-3.5): window label → canonical open-workspace root. The
+    /// frontend registers this on workspace open/close so the router can
+    /// send workspace-scoped requests to the owning window, not just the
+    /// focused one.
+    pub window_workspaces: HashMap<String, String>,
 }
 
 /// Maximum number of pending requests allowed at once.
@@ -123,6 +128,19 @@ static SHUTDOWN_TX: std::sync::OnceLock<Arc<RwLock<Option<oneshot::Sender<()>>>>
 /// All clients can read simultaneously, but writes are serialized.
 static WRITE_LOCK: std::sync::OnceLock<Arc<tokio::sync::Mutex<()>>> = std::sync::OnceLock::new();
 
+/// WI-3.5 (D2.3): the authenticated identity name of a connected client,
+/// or None if unidentified. The only principal delegated authority binds
+/// to — never a caller-supplied argument.
+pub(crate) async fn authenticated_principal(client_id: u64) -> Option<String> {
+    let state = get_bridge_state();
+    let guard = state.lock().await;
+    guard
+        .clients
+        .get(&client_id)
+        .and_then(|c| c.identity.as_ref())
+        .map(|i| i.name.clone())
+}
+
 pub(crate) fn get_bridge_state() -> Arc<Mutex<BridgeState>> {
     BRIDGE_STATE
         .get_or_init(|| {
@@ -130,6 +148,7 @@ pub(crate) fn get_bridge_state() -> Arc<Mutex<BridgeState>> {
                 clients: HashMap::new(),
                 pending: HashMap::new(),
                 next_client_id: 1,
+                window_workspaces: HashMap::new(),
             }))
         })
         .clone()
@@ -266,6 +285,11 @@ pub(crate) fn is_read_only_operation(request_type: &str) -> bool {
             | "vmark.browser.wait_for"
             | "vmark.browser.query"
             | "vmark.browser.screenshot"
+            // Coherence status (WI-1.10) is a pure projection. `edges` is
+            // deliberately NOT here: it runs scan reconciliation, which
+            // appends provenance records — server.rs takes the write lock
+            // for it (audit C4/C5).
+            | "vmark.coherence.status"
     )
 }
 
