@@ -170,10 +170,7 @@ fn structural(state: Option<&EdgeState>) -> &'static str {
 
 /// Overlay projection as a **non-fresh** structural multiset — the shape a real
 /// committed-index `breakdown` returns (it filters Fresh and retired edges).
-fn overlay_structural_nonfresh(
-    edges: &[OriginEdge],
-    dag: &RevisionDag,
-) -> BTreeMap<String, usize> {
+fn overlay_structural_nonfresh(edges: &[OriginEdge], dag: &RevisionDag) -> BTreeMap<String, usize> {
     let ctx = ContextView::all_live();
     let mut ms = BTreeMap::new();
     for e in edges {
@@ -182,7 +179,8 @@ fn overlay_structural_nonfresh(
         if class == "Fresh" || class == "Retired" {
             continue; // breakdown() omits both
         }
-        *ms.entry(format!("{}=>{class}", semantic_key(e))).or_insert(0) += 1;
+        *ms.entry(format!("{}=>{class}", semantic_key(e)))
+            .or_insert(0) += 1;
     }
     ms
 }
@@ -236,8 +234,7 @@ fn assert_observational_equality(label: &str, base: &[Txf], candidate: &Txf) {
     // "Mints nothing" — a real on-disk assertion. Persist the base corpus to a
     // real ledger, snapshot the file bytes, run the whole preview again, and
     // assert the ledger file is byte-identical afterwards.
-    let base_dir =
-        std::env::temp_dir().join(format!("vmark-sp1-{}-{}", label, std::process::id()));
+    let base_dir = std::env::temp_dir().join(format!("vmark-sp1-{}-{}", label, std::process::id()));
     let _ = std::fs::remove_dir_all(&base_dir);
     let writer = WriterId(uuid::Uuid::now_v7());
     let ledger = Ledger::new(base_dir.join("ledger"), writer);
@@ -251,7 +248,10 @@ fn assert_observational_equality(label: &str, base: &[Txf], candidate: &Txf) {
     record(&mut preview_dag2, candidate);
     let _ = project_multiset(&affected, &preview_dag2);
     let after = dir_bytes(&ledger_dir);
-    assert_eq!(before, after, "[{label}] preview mutated the ledger on disk");
+    assert_eq!(
+        before, after,
+        "[{label}] preview mutated the ledger on disk"
+    );
     let _ = std::fs::remove_dir_all(&base_dir);
 }
 
@@ -293,16 +293,31 @@ fn linear_restale_preview_equals_commit() {
     let base = vec![
         Txf {
             inputs: vec![],
-            out: Out { object: u, revision: u1.clone(), content_hash: u1h, parents: vec![] },
+            out: Out {
+                object: u,
+                revision: u1.clone(),
+                content_hash: u1h,
+                parents: vec![],
+            },
         },
         Txf {
             inputs: vec![(u, u1.clone())],
-            out: Out { object: d, revision: d1, content_hash: d1h, parents: vec![] },
+            out: Out {
+                object: d,
+                revision: d1,
+                content_hash: d1h,
+                parents: vec![],
+            },
         },
     ];
     let candidate = Txf {
         inputs: vec![],
-        out: Out { object: u, revision: u2, content_hash: u2h, parents: vec![u1] },
+        out: Out {
+            object: u,
+            revision: u2,
+            content_hash: u2h,
+            parents: vec![u1],
+        },
     };
     assert_observational_equality("linear", &base, &candidate);
 }
@@ -322,16 +337,31 @@ fn downstream_retirement_preview_equals_commit() {
     let base = vec![
         Txf {
             inputs: vec![],
-            out: Out { object: u, revision: u1.clone(), content_hash: u1h, parents: vec![] },
+            out: Out {
+                object: u,
+                revision: u1.clone(),
+                content_hash: u1h,
+                parents: vec![],
+            },
         },
         Txf {
             inputs: vec![(u, u1)],
-            out: Out { object: d, revision: d1.clone(), content_hash: d1h, parents: vec![] },
+            out: Out {
+                object: d,
+                revision: d1.clone(),
+                content_hash: d1h,
+                parents: vec![],
+            },
         },
     ];
     let candidate = Txf {
         inputs: vec![],
-        out: Out { object: d, revision: d2, content_hash: d2h, parents: vec![d1] },
+        out: Out {
+            object: d,
+            revision: d2,
+            content_hash: d2h,
+            parents: vec![d1],
+        },
     };
     assert_observational_equality("retire", &base, &candidate);
 }
@@ -352,20 +382,40 @@ fn divergence_creating_candidate_preview_equals_commit() {
     let base = vec![
         Txf {
             inputs: vec![],
-            out: Out { object: u, revision: u1.clone(), content_hash: u1h, parents: vec![] },
+            out: Out {
+                object: u,
+                revision: u1.clone(),
+                content_hash: u1h,
+                parents: vec![],
+            },
         },
         Txf {
             inputs: vec![(u, u1.clone())],
-            out: Out { object: d, revision: d1, content_hash: d1h, parents: vec![] },
+            out: Out {
+                object: d,
+                revision: d1,
+                content_hash: d1h,
+                parents: vec![],
+            },
         },
         Txf {
             inputs: vec![],
-            out: Out { object: u, revision: u2a, content_hash: u2ah, parents: vec![u1.clone()] },
+            out: Out {
+                object: u,
+                revision: u2a,
+                content_hash: u2ah,
+                parents: vec![u1.clone()],
+            },
         },
     ];
     let candidate = Txf {
         inputs: vec![],
-        out: Out { object: u, revision: u2b, content_hash: u2bh, parents: vec![u1] },
+        out: Out {
+            object: u,
+            revision: u2b,
+            content_hash: u2bh,
+            parents: vec![u1],
+        },
     };
     assert_observational_equality("diverge", &base, &candidate);
 }
@@ -390,16 +440,31 @@ fn overlay_matches_real_committed_index() {
     let base = vec![
         Txf {
             inputs: vec![],
-            out: Out { object: u, revision: u1.clone(), content_hash: u1h, parents: vec![] },
+            out: Out {
+                object: u,
+                revision: u1.clone(),
+                content_hash: u1h,
+                parents: vec![],
+            },
         },
         Txf {
             inputs: vec![(u, u1.clone())],
-            out: Out { object: d, revision: d1, content_hash: d1h, parents: vec![] },
+            out: Out {
+                object: d,
+                revision: d1,
+                content_hash: d1h,
+                parents: vec![],
+            },
         },
     ];
     let candidate = Txf {
         inputs: vec![],
-        out: Out { object: u, revision: u2, content_hash: u2h, parents: vec![u1] },
+        out: Out {
+            object: u,
+            revision: u2,
+            content_hash: u2h,
+            parents: vec![u1],
+        },
     };
 
     // Affected non-fresh set over the clone-overlay (PREVIEW).
@@ -444,6 +509,10 @@ fn overlay_matches_real_committed_index() {
         "clone-overlay preview must equal the real committed index's breakdown"
     );
     // And the real index projects exactly the one restaled edge.
-    assert_eq!(rows.len(), 1, "expected one version-stale edge after commit");
+    assert_eq!(
+        rows.len(),
+        1,
+        "expected one version-stale edge after commit"
+    );
     assert_eq!(structural(Some(&rows[0].state)), "Stale");
 }
