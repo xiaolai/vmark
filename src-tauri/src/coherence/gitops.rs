@@ -89,7 +89,10 @@ pub fn observe(root: &Path) -> Option<GitObservation> {
     }
     let head_ref = git_output(root, &["rev-parse", "--abbrev-ref", "HEAD"])?;
     let head_sha = git_output(root, &["rev-parse", "HEAD"]);
-    let known_shas: HashSet<String> = git_output(root, &["rev-list", "--all"])
+    // Include HEAD explicitly: a detached HEAD on an unreachable commit
+    // (checked out from a dropped branch) is not in `--all`, and omitting
+    // it makes git navigation look like an external revision (audit C7).
+    let known_shas: HashSet<String> = git_output(root, &["rev-list", "--all", "HEAD"])
         .map(|s| s.lines().map(str::to_string).collect())
         .unwrap_or_default();
     let merge_in_progress =
@@ -104,14 +107,17 @@ pub fn observe(root: &Path) -> Option<GitObservation> {
 
 /// Classify what happened between two observations (G2 matrix).
 pub fn classify(before: Option<&GitObservation>, after: Option<&GitObservation>) -> GitClass {
+    // A merge in progress must defer regardless of whether we have a
+    // prior observation — the FIRST scan of a workspace already mid-merge
+    // must not reconcile conflict-state files (audit C5).
+    if after.is_some_and(|a| a.merge_in_progress) {
+        return GitClass::MergeInProgress;
+    }
     let (b, a) = match (before, after) {
         (None, None) => return GitClass::NotGit,
         (Some(_), None) | (None, Some(_)) => return GitClass::ExternalUnknown,
         (Some(b), Some(a)) => (b, a),
     };
-    if a.merge_in_progress {
-        return GitClass::MergeInProgress;
-    }
     let Some(head) = &a.head_sha else {
         return GitClass::ExternalUnknown;
     };

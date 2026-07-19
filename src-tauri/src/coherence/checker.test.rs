@@ -107,6 +107,63 @@ fn prompt_contains_fenced_texts_and_claims() {
 }
 
 #[test]
+fn empty_or_whitespace_quote_is_not_evidence() {
+    // Audit C2: an empty or whitespace-only quote must not satisfy the
+    // contradiction-needs-a-quote discipline — the verdict downgrades.
+    for quote in ["", "   ", "\t\n"] {
+        let raw = format!(
+            r#"{{"verdict":"contradiction","confidence":0.99,"evidence":[{{"quote":"{quote}","loc":"L1"}}]}}"#
+        );
+        let p = parse(&raw);
+        assert_eq!(
+            p.verdict,
+            CheckVerdict::Unknown,
+            "blank quote {quote:?} must not count as evidence"
+        );
+        assert!(p.evidence.is_empty(), "blank quote {quote:?} filtered out");
+    }
+}
+
+#[test]
+fn out_of_range_or_nonfinite_confidence_is_unknown() {
+    // Audit C3: a confidence outside [0,1] or non-finite is no signal —
+    // it must never earn a determinate verdict, even with valid evidence.
+    for conf in ["2.0", "-0.5", "1.0e400"] {
+        let raw = format!(r#"{{"verdict":"no-contradiction","confidence":{conf},"evidence":[]}}"#);
+        let p = parse(&raw);
+        assert_eq!(
+            p.verdict,
+            CheckVerdict::Unknown,
+            "confidence {conf} rejected"
+        );
+        assert_eq!(p.confidence, 0.0, "no-signal confidence resets to 0.0");
+    }
+}
+
+#[test]
+fn claims_are_capped_in_prompt() {
+    // Audit C1: an unbounded claim list must not bloat the prompt — only
+    // the first MAX_CLAIMS are interpolated.
+    let claims: Vec<String> = (0..MAX_CLAIMS + 20)
+        .map(|i| format!("claim-number-{i}"))
+        .collect();
+    let prompt = build_check_prompt(&CheckPromptInput {
+        upstream_path: "a.md",
+        pinned_text: "x",
+        current_text: "y",
+        downstream_path: "b.md",
+        downstream_text: "z",
+        claims: &claims,
+        nonce: "n",
+    });
+    assert!(prompt.contains(&format!("claim-number-{}", MAX_CLAIMS - 1)));
+    assert!(
+        !prompt.contains(&format!("claim-number-{MAX_CLAIMS}")),
+        "claims past the cap must be dropped"
+    );
+}
+
+#[test]
 fn oversized_texts_are_truncated_with_marker() {
     let big = "y".repeat(MAX_TEXT_CHARS + 500);
     let prompt = build_check_prompt(&CheckPromptInput {

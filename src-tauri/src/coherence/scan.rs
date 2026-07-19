@@ -15,7 +15,7 @@ use super::capture::{adopt_from_disk, observed_external_entry, register_if_neede
 use super::frontmatter::read_identity;
 use super::gitops::{classify, observe, GitClass};
 use super::state::WorkspaceKernel;
-use super::types::{Envelope, ObjectId, RevisionId, TypedBody};
+use super::types::{Envelope, ObjectId, RevisionId};
 
 /// Directory names never scanned (mirrors the watcher's ignore list).
 pub(super) const IGNORED_DIRS: [&str; 8] = [
@@ -242,9 +242,14 @@ pub fn scan_workspace(kernel: &mut WorkspaceKernel) -> Result<ScanReport, String
     }
 
     // Deletions: registered objects whose paths are gone — only when the
-    // walk saw everything (audit R9).
+    // walk saw everything (audit R9). A path under an ignored directory
+    // (node_modules, .Trash, …) is never walked, so its absence from
+    // `present_paths` is not evidence of deletion — skip it (audit C8).
     if report.complete {
         for (object, path) in registry.path_of.iter() {
+            if path_under_ignored_dir(path) {
+                continue;
+            }
             if !present_paths.contains(path.as_str()) && !seen_at.contains_key(object) {
                 kernel.index_mut().set_absent(object, true)?;
                 report.absent_marked += 1;
@@ -256,38 +261,9 @@ pub fn scan_workspace(kernel: &mut WorkspaceKernel) -> Result<ScanReport, String
     Ok(report)
 }
 
-/// Diagnostics are deduped against the ledger by (code, path) so repeated
-/// scans do not spam append-only history (spec §5.6).
-fn existing_diagnostic_keys(entries: &[Envelope]) -> HashSet<(String, String)> {
-    let mut keys = HashSet::new();
-    for entry in entries {
-        if let Ok(TypedBody::Diagnostic(d)) = entry.typed() {
-            keys.insert((d.code, d.path.unwrap_or_default()));
-        }
-    }
-    keys
-}
-
-pub(super) fn emit_diagnostic(
-    kernel: &mut WorkspaceKernel,
-    existing: &mut HashSet<(String, String)>,
-    report: &mut ScanReport,
-    code: &str,
-    message: &str,
-    path: &str,
-) -> Result<(), String> {
-    report.diagnostics += 1;
-    if !existing.insert((code.to_string(), path.to_string())) || !kernel.is_initialized() {
-        return Ok(());
-    }
-    let env = Envelope::create(
-        "diagnostic",
-        kernel.writer(),
-        json!({ "code": code, "message": message, "path": path }),
-    );
-    kernel.append_and_apply(&env)
-}
-
+pub(super) use super::scan_diagnostics::{
+    emit_diagnostic, existing_diagnostic_keys, path_under_ignored_dir,
+};
 pub(super) use super::scan_walk::walk_markdown;
 
 #[cfg(test)]
