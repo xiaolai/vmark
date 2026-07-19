@@ -29,9 +29,15 @@ export function DelegationsSection({ workspaceRoot }: { workspaceRoot: string | 
       ...(acceptNewer ? ["resolve.accept-newer"] : []),
       ...(waive ? ["resolve.waive"] : []),
     ];
-    const parsedDays = Number.parseInt(days, 10);
+    // Strict decimal integer, bounded to a sane maximum — "7days" must
+    // not parse as 7, and a huge value must not make toISOString() throw
+    // an unhandled rejection (audit D11).
+    const MAX_DAYS = 365;
     if (!workspaceRoot || busy || trimmed === "" || scope.length === 0) return;
-    if (!Number.isFinite(parsedDays) || parsedDays < 1) return;
+    if (!/^\d+$/.test(days.trim())) return;
+    const parsedDays = Number.parseInt(days, 10);
+    if (!Number.isInteger(parsedDays) || parsedDays < 1 || parsedDays > MAX_DAYS)
+      return;
     const expires = new Date(
       Date.now() + parsedDays * 24 * 60 * 60 * 1000,
     ).toISOString();

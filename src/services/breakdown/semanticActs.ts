@@ -15,7 +15,12 @@ import {
   type ProposedInput,
   type ProvenanceCandidate,
 } from "@/stores/breakdownStore";
-import { refreshBreakdown } from "./breakdownService";
+import {
+  isActiveWorkspace,
+  isLatestRefresh,
+  refreshBreakdown,
+  takeRefreshTicket,
+} from "./breakdownService";
 
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -23,13 +28,19 @@ function messageOf(error: unknown): string {
 
 /** WI-3.2: refresh the orphaned-but-recoverable candidates (pull-only). */
 export async function refreshProvenance(workspaceRoot: string): Promise<void> {
+  if (!isActiveWorkspace(workspaceRoot)) return; // audit #4/#5: no ticket for a left workspace
+  const ticket = takeRefreshTicket("provenance");
   try {
     const candidates = await invoke<ProvenanceCandidate[]>(
       "coherence_provenance_candidates",
       { workspaceRoot },
     );
+    if (!isLatestRefresh("provenance", ticket) || !isActiveWorkspace(workspaceRoot))
+      return;
     useBreakdownStore.getState().setProvenance(candidates);
   } catch (error) {
+    if (!isLatestRefresh("provenance", ticket) || !isActiveWorkspace(workspaceRoot))
+      return; // D1–D5: no stale/superseded error
     useBreakdownStore.getState().setError(messageOf(error));
   }
 }
@@ -75,12 +86,18 @@ export async function confirmInputs(
 
 /** WI-3.4: live agent delegations. */
 export async function refreshDelegations(workspaceRoot: string): Promise<void> {
+  if (!isActiveWorkspace(workspaceRoot)) return; // audit #4/#5: no ticket for a left workspace
+  const ticket = takeRefreshTicket("delegations");
   try {
     const rows = await invoke<DelegationRow[]>("coherence_delegations", {
       workspaceRoot,
     });
+    if (!isLatestRefresh("delegations", ticket) || !isActiveWorkspace(workspaceRoot))
+      return;
     useBreakdownStore.getState().setDelegations(rows);
   } catch (error) {
+    if (!isLatestRefresh("delegations", ticket) || !isActiveWorkspace(workspaceRoot))
+      return; // D1–D5: no stale/superseded error
     useBreakdownStore.getState().setError(messageOf(error));
   }
 }
