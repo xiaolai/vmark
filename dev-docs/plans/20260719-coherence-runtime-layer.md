@@ -62,11 +62,17 @@ clean (coherence lib **303 passed**, spikes 4+7, inventory 11):
 | WI-3.0c accept idem | ✅ **done** | `operator_accept.rs` — injective length-prefixed preimage, 6 tests |
 | WI-3.0d transient candidate check | ✅ **done** | `build_candidate_check_prompt` (checker.rs), proposal-vs-inputs/canon, 4 tests |
 | WI-3.0e reproject precondition | ✅ **done** | `accept_precondition.rs` — check-independent, physical-keyed, 8 tests |
-| SP0 integration gate | ⬜ **remaining** | all 5 primitives done; needs the operator runtime + accept command wiring them (ledger-authoritative lookup-before-append) + a real perf/fault harness (20 ms / 16 MiB) |
-| Phase 3 operators + UI + MCP | ⬜ **remaining** | WI-3.1–3.7; UI + i18n×10 need frontend + visual QA |
-| Phase 4 (canon) | ⬜ **gated** | needs the **SP-canon** design pass first |
-| Phase 5 (merge auditor) | ⬜ **gated** | needs the **SP4** merge-mapping spike first |
-| Phase 6 (projection framework) | ⬜ **gated** | needs its own design pass |
+| WI-3.2 operator runtime | ✅ **done** | `operator.rs` — `Candidate` + `tidy_revise` (content-addressed, base-as-parent), 9 tests |
+| WI-3.1 dry-run projection | ✅ **done** | `preview.rs` `project_candidates` — overlay + delta, mints nothing, 3 tests |
+| WI-3.4 commit-on-accept | ✅ **done** | `accept.rs` `accept_candidate` — full protocol vs a real kernel, 4 tests |
+| **SP0** integration gate | ✅ **functional/fault/perf-mechanism PASS** | `spike-sp0-operator-slice.md`; only the absolute 500k-scale 20 ms/16 MiB benchmark (a `criterion` harness) remains |
+| Phase 3 surface (UI + MCP) | ⬜ **remaining** | WI-3.3 verify wiring, WI-3.5 preview UI, WI-3.6 MCP commands, WI-3.7 docs — UI + i18n×10 need frontend + visual QA |
+| **SP-canon** (Phase 4 gate) | ✅ **design resolved + proven** | `spike-sp-canon.md` — canon carrier grounds claim-based canon in the version axis; conformance composes with zero kernel change (test) |
+| Phase 4 (canon) | ⬜ **gated on multi-object accept** | `Extract-Canon` is multi-object (carrier + N edges) → needs the group-commit increment, not Increment-1 |
+| **SP4** (Phase 5 gate) | ✅ **object→edge half proven** | `spike-sp4-merge-mapping.md` — `edges_affected_by` (deterministic, deduped); git→file half is a named API pending a git fixture |
+| Phase 5 (merge auditor) | ⬜ **remaining** | WI-5.1 git+registry wiring (git fixture); WI-5.2 reuses `check_sweep`; WI-5.3 breakdown surface |
+| **Phase 6** design pass | ✅ **done** | `design-projection-framework.md` — `Projection` + `CoherenceRow` shared read-model, validated against the 4 built surfaces |
+| Phase 6 impl | ⬜ **remaining** | WI-6.1/6.2 backend refactor (committable); WI-6.3 unified frontend consumer (visual QA) |
 
 ## Scope discipline
 
