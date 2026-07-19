@@ -5,38 +5,39 @@
 //! members, and a retry completes the rest (each member is idempotent by its own
 //! v4.1 idem). Correctness argument (mirrors the single accept, per-member):
 //!
-//! - **Idempotent retry** — if every member's idem is already in the ledger, the
-//!   group returns the original receipts without appending.
-//! - **Partial-crash recovery** — if *some* members are present, the group was
-//!   already validated at its first accept; recovery just commits the missing
-//!   members (no re-preview — completing a validated group).
+//! - **Whole-group preflight** — every not-present member's base-head is
+//!   validated BEFORE any append (`preflight_member`), so a stale member fails
+//!   the whole group with no partial commit.
 //! - **Fresh commit** — if *no* member is present, the group reprojects the
 //!   **base** (must be unchanged since the group preview, v4.3) then commits all.
-//!   Members are over distinct objects, so their per-member base-head checks are
-//!   independent and they never reject each other.
+//!   Members are over distinct objects, so their base-head checks are independent.
+//! - **Partial-crash recovery** — if *some* members are present (found by the
+//!   **group-folded idem**, so they provably belong to THIS group), the group was
+//!   validated at its first accept; recovery commits exactly the missing members
+//!   and skips the now-stale base reproject.
+//! - **Idempotent full retry** — if every member is present, the group returns
+//!   the original receipts without appending.
 //!
-//! STATUS: **PROTOTYPE — NOT SHIP-READY.** The G-B cross-model review
-//! (`019f7c17…`) returned **MAJOR GAPS**. This is committed behind tests as a
-//! working prototype, but must NOT ship until a redesign closes the review's
-//! must-fix list:
-//!   1. **Durable group identity + member manifest.** `present > 0` does not
-//!      prove *this* group was validated — members carry no group id, so a
-//!      "full retry" or an unrelated set of prior accepts is misread as a
-//!      validated group. Needs a group envelope (or prepare/commit records).
-//!   2. **Whole-group preflight before the first append.** FRESH validates
-//!      base/parent arity member-by-member *after* earlier members commit, so a
-//!      stale later member or occupied carrier leaves an unrecoverable partial
-//!      with no crash. Preflight every member first.
-//!   3. **Defined partial-recovery.** Skipping the reproject on recovery can
-//!      commit edge/resolution changes never reviewed; a missing member's base
-//!      may advance and permanently reject completion. Needs a real logical
-//!      commit boundary with deferred atomic visibility.
-//!   7. **Cross-process concurrency.** The idem lookup→append is a TOCTOU across
-//!      processes. Either constrain to one process (documented) or add a
-//!      conditional/locked append.
+//! STATUS: **redesigned per `design-accept-consistency.md`; pending G-B
+//! re-review.** The G-B review (`019f7c17…`) returned MAJOR GAPS; the redesign
+//! closes them:
+//!   1. **Durable group identity** — `group_id` (hash of the members' sorted
+//!      revisions) folds into each member idem, so the O(1) idem-presence lookup
+//!      answers "committed AS PART OF THIS GROUP"; a coincidental standalone
+//!      commit (different idem) is never misread as group membership.
+//!   2. **Whole-group preflight** (`preflight_member`) — see above.
+//!   3. **Defined partial-recovery** — present-by-group-idem proves prior
+//!      validation; complete the missing members, skip the stale reproject.
+//!   7. **Cross-process concurrency** — the idem lookup→append is a TOCTOU only
+//!      across processes; within a process the per-root `KernelRegistry` mutex
+//!      serializes accepts. A cross-process double-append of the same member idem
+//!      is collapsed by the ledger's idem-dedupe-on-read, so it is already
+//!      convergent for the single-user-desktop scope (documented, not locked).
 //!
-//! The single-object accept (`accept.rs`) shipped the #6 (idem includes
-//! `InputRef.kind`) and #4 (torn-window heal) fixes from the same review.
+//! Still open before ship: #5 (the group *preview* must overlay the members' NEW
+//! edges — `preview::project_group`) and the G-B re-review itself. The
+//! single-object accept (`accept.rs`) carries the #6 (idem includes
+//! `InputRef.kind`), #4 (torn window, now heal-on-open), and O(1)-lookup fixes.
 
 use sha2::{Digest, Sha256};
 
@@ -49,12 +50,49 @@ use super::preview::GroupPreview;
 use super::state::WorkspaceKernel;
 use super::types::{Agent, AgentType, ContentHash, Envelope, RevisionId, FORMAT_VERSION};
 
-fn member_idem(candidate: &Candidate) -> Result<uuid::Uuid, String> {
+/// Content-addressed group identity (design-accept-consistency #1): the hash of
+/// the members' **sorted revisions**. Revisions are content-addressed (pre-idem),
+/// so this can be folded INTO each member idem without circularity. The result:
+/// a member committed as part of this group has an idem that encodes the group,
+/// so the O(1) idem-presence check answers "committed AS PART OF THIS GROUP" —
+/// a coincidental standalone commit of the same candidate has a different idem
+/// and is never misread as group membership.
+fn group_id(candidates: &[Candidate]) -> String {
+    let mut revs: Vec<&str> = candidates.iter().map(|c| c.revision.as_str()).collect();
+    revs.sort_unstable();
+    let mut buf = Vec::new();
+    buf.extend_from_slice(b"vmark-group-v1");
+    for r in revs {
+        buf.extend_from_slice(&(r.len() as u32).to_be_bytes());
+        buf.extend_from_slice(r.as_bytes());
+    }
+    let digest: [u8; 32] = Sha256::digest(&buf).into();
+    digest.iter().map(|b| format!("{b:02x}")).collect()
+}
+
+fn member_idem(candidate: &Candidate, group: &str) -> Result<uuid::Uuid, String> {
     let txf = candidate.to_transformation(Agent {
         kind: AgentType::Human,
         id: None,
     });
-    operator_accept_idem(&candidate.operator, FORMAT_VERSION, &txf)
+    operator_accept_idem(&candidate.operator, FORMAT_VERSION, &txf, Some(group))
+}
+
+/// Preflight one not-yet-present member (design-accept-consistency #2): its base
+/// must still be the single live head, or — for a brand-new object (a carrier) —
+/// the object must be genuinely absent. This runs for EVERY not-present member
+/// BEFORE any member is appended, so a stale member can never leave a partial
+/// commit. `commit_member` re-checks at append time (defense-in-depth); under
+/// the kernel's serialized single-writer path the two always agree.
+fn preflight_member(kernel: &WorkspaceKernel, candidate: &Candidate) -> Result<(), String> {
+    match (
+        candidate.parents.first(),
+        kernel.index().resolve_live(&candidate.object)?,
+    ) {
+        (Some(base), Resolved::Single(head)) if &head == base => Ok(()),
+        (None, Resolved::Absent) => Ok(()),
+        _ => Err("stale base — re-preview required".into()),
+    }
 }
 
 /// Tamper check: recompute the content-addressed identity from the payload.
@@ -131,7 +169,7 @@ pub fn accept_group(
     if candidates.is_empty() {
         return Err("empty changeset".into());
     }
-    // Distinct objects — a changeset touches each object at most once.
+    // Distinct objects + tamper check — a changeset touches each object once.
     let mut objects = std::collections::HashSet::new();
     for c in candidates {
         verify_untampered(c)?;
@@ -140,20 +178,35 @@ pub fn accept_group(
         }
     }
 
-    // Per-member idems + which are already committed (ledger-authoritative).
-    let read = kernel.ledger().read_all()?;
+    // Per-member GROUP-FOLDED idems + presence via the O(1) index lookup. A hit
+    // means the member was committed AS PART OF THIS GROUP (its idem encodes the
+    // group id, design-accept-consistency #1) — never a coincidental standalone
+    // commit. The index is authoritative here (heal-on-open, Fix A).
+    let group = group_id(candidates);
     let mut idems = Vec::with_capacity(candidates.len());
     let mut existing = Vec::with_capacity(candidates.len());
     for c in candidates {
-        let idem = member_idem(c)?;
-        let hit = read.entries.iter().find(|e| e.idem == idem).map(|e| e.id);
+        let idem = member_idem(c, &group)?;
+        existing.push(kernel.index().entry_id_by_idem(&idem)?);
         idems.push(idem);
-        existing.push(hit);
     }
     let present = existing.iter().filter(|e| e.is_some()).count();
 
-    // FRESH group (none present): reproject the base and require it unchanged
-    // since the preview. (Partial/complete groups skip this — already validated.)
+    // Preflight EVERY not-yet-present member BEFORE any append (#2): a stale
+    // member fails the whole group here, never after some members committed.
+    // (Present members were validated at the group's first accept.)
+    for (i, c) in candidates.iter().enumerate() {
+        if existing[i].is_none() {
+            preflight_member(kernel, c)?;
+        }
+    }
+
+    // FRESH group (none present): this group has never committed, so run the
+    // base reproject (optimistic concurrency vs the preview). A group with SOME
+    // members present is a crash-recovery of an already-validated group — the
+    // present members carry this group's id, proving the first accept validated
+    // it — so completion skips the reproject (the base has since advanced past
+    // the preview by the group's own committed members; #1/#3).
     if present == 0 {
         let live: ClassMap = kernel.index().project_group(candidates, now)?.base_classes;
         if !precondition_holds(&preview.base_classes, &live) {

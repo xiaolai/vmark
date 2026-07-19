@@ -114,18 +114,86 @@ fn a_partial_group_is_completed_on_recovery() {
     let cands = group(u, v, &u1, &v1);
     let preview = kernel.index().project_group(&cands, NOW).unwrap();
 
-    // Crash after committing only member 0 (a single-member group of [c0]).
-    let just_first = vec![cands[0].clone()];
-    let p1 = kernel.index().project_group(&just_first, NOW).unwrap();
-    let r1 = accept_group(&mut kernel, &just_first, &p1, NOW).unwrap();
-    assert!(r1[0].committed);
+    // Simulate a crash after committing ONLY member 0 of THIS group: append its
+    // transformation with the GROUP-FOLDED idem (exactly what commit_member
+    // writes), as a real partial crash would leave it. (A single-member group
+    // would have a different group id — that is the point of #1.)
+    let grp = group_id(&cands);
+    let idem0 = member_idem(&cands[0], &grp).unwrap();
+    let txf0 = cands[0].to_transformation(Agent {
+        kind: AgentType::Human,
+        id: None,
+    });
+    let mut env0 = Envelope::create(
+        "transformation",
+        kernel.writer(),
+        serde_json::to_value(&txf0).unwrap(),
+    );
+    env0.idem = idem0;
+    let e0_id = env0.id;
+    kernel.append_and_apply(&env0).unwrap();
+    assert_eq!(
+        kernel.index().resolve_live(&u).unwrap(),
+        Resolved::Single(cands[0].revision.clone())
+    );
 
-    // Recovery: accept the full group. Member 0 is present (original receipt),
-    // member 1 is committed now.
+    // Recovery: accept the full group. Member 0 is found present via its
+    // group-folded idem (returns the ORIGINAL); member 1 completes now.
     let recovered = accept_group(&mut kernel, &cands, &preview, NOW).unwrap();
-    assert!(!recovered[0].committed, "member 0 already present");
-    assert_eq!(recovered[0].entry_id, r1[0].entry_id);
+    assert!(
+        !recovered[0].committed,
+        "member 0 already present (this group's idem)"
+    );
+    assert_eq!(recovered[0].entry_id, e0_id);
     assert!(recovered[1].committed, "member 1 completed on recovery");
+    assert_eq!(
+        kernel.index().resolve_live(&v).unwrap(),
+        Resolved::Single(cands[1].revision.clone())
+    );
+}
+
+#[test]
+fn a_stale_member_rejects_the_whole_group_before_any_commit() {
+    // Whole-group preflight (#2): if any member's base is stale, the group is
+    // rejected BEFORE any member is appended — never a partial commit.
+    let (_dir, mut kernel, u, v, u1, v1) = seeded();
+    let cands = group(u, v, &u1, &v1);
+    let preview = kernel.index().project_group(&cands, NOW).unwrap();
+
+    // A concurrent write advances V past v1 — member 1's base is now stale.
+    let v_new = Envelope::create(
+        "transformation",
+        kernel.writer(),
+        serde_json::to_value(Transformation {
+            inputs: vec![],
+            outputs: vec![OutputRef {
+                object: v,
+                revision: RevisionId::compute(&hash(9), std::slice::from_ref(&v1)),
+                content_hash: hash(9),
+                parents: vec![v1.clone()],
+            }],
+            agent: Agent {
+                kind: AgentType::Human,
+                id: None,
+            },
+            intent: Intent {
+                kind: "test".into(),
+                summary: "advance".into(),
+                prompt_hash: None,
+            },
+            confidence: Confidence::Exact,
+        })
+        .unwrap(),
+    );
+    kernel.append_and_apply(&v_new).unwrap();
+
+    let err = accept_group(&mut kernel, &cands, &preview, NOW).unwrap_err();
+    assert!(err.contains("stale"), "got: {err}");
+    // No partial commit: U (member 0) stays at its base.
+    assert_eq!(
+        kernel.index().resolve_live(&u).unwrap(),
+        Resolved::Single(u1.clone()),
+    );
 }
 
 #[test]

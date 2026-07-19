@@ -47,7 +47,7 @@ fn base() -> Transformation {
 }
 
 fn idem(t: &Transformation) -> uuid::Uuid {
-    operator_accept_idem("revise", 0, t).expect("single output")
+    operator_accept_idem("revise", 0, t, None).expect("single output")
 }
 
 #[test]
@@ -59,11 +59,11 @@ fn deterministic_same_payload_same_idem() {
 fn multi_output_is_rejected() {
     let mut t = base();
     t.outputs.push(t.outputs[0].clone());
-    assert!(operator_accept_idem("revise", 0, &t).is_err());
+    assert!(operator_accept_idem("revise", 0, &t, None).is_err());
     // Zero outputs is also rejected.
     let mut empty = base();
     empty.outputs.clear();
-    assert!(operator_accept_idem("revise", 0, &empty).is_err());
+    assert!(operator_accept_idem("revise", 0, &empty, None).is_err());
 }
 
 #[test]
@@ -149,12 +149,37 @@ fn injective_over_every_field() {
     }
     // The operator name and format are part of the tag/preimage too.
     assert_ne!(
-        operator_accept_idem("split", 0, &base()).unwrap(),
+        operator_accept_idem("split", 0, &base(), None).unwrap(),
         base_idem
     );
     assert_ne!(
-        operator_accept_idem("revise", 1, &base()).unwrap(),
+        operator_accept_idem("revise", 1, &base(), None).unwrap(),
         base_idem
+    );
+}
+
+/// The group identity is a terminal, optional field (design-accept-consistency
+/// #1): a member idem folds in the group, and it never aliases the same
+/// candidate's standalone (`None`) idem — so a coincidental prior standalone
+/// commit is never misread as group membership, and two distinct groups give
+/// distinct member idems.
+#[test]
+fn group_identity_is_part_of_a_member_idem() {
+    let standalone = operator_accept_idem("revise", 0, &base(), None).unwrap();
+    let in_group_a = operator_accept_idem("revise", 0, &base(), Some("group-a")).unwrap();
+    let in_group_b = operator_accept_idem("revise", 0, &base(), Some("group-b")).unwrap();
+    assert_ne!(
+        standalone, in_group_a,
+        "a group member must not alias the standalone idem"
+    );
+    assert_ne!(
+        in_group_a, in_group_b,
+        "distinct groups → distinct member idems"
+    );
+    // Determinism within a group.
+    assert_eq!(
+        in_group_a,
+        operator_accept_idem("revise", 0, &base(), Some("group-a")).unwrap()
     );
 }
 
