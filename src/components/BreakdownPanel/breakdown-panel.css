@@ -1,8 +1,10 @@
 /* Breakdown panel (WI-1.9b). Tokens only — see .claude/rules/31-design-tokens.md */
 .breakdown-panel {
-  width: 380px;
+  width: 460px;
+  max-width: 100%;
   max-height: 70vh;
   overflow-y: auto;
+  overflow-x: hidden;
   background: var(--bg-color);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
@@ -135,6 +137,9 @@
   display: flex;
   align-items: center;
   gap: var(--spacing-2);
+  /* Let the upstream path ellipsis instead of shoving the badges/actions
+     past the panel edge. */
+  min-width: 0;
 }
 
 .breakdown-row__upstream {
@@ -149,18 +154,23 @@
 .breakdown-row__actions {
   display: flex;
   align-items: center;
-  gap: var(--spacing-1);
+  gap: var(--spacing-2);
+  /* Wrap rather than clip when the row is dense. */
+  flex-wrap: wrap;
 }
 
+/* Discrete bordered chips. As borderless text at this size the actions ran
+   together into one unreadable string ("CheckAccept newerReviseWaive"). */
 .breakdown-row__action {
-  padding: 0 var(--spacing-1);
-  border: none;
+  padding: var(--space-half) var(--spacing-2);
+  border: var(--border-thin) solid var(--border-color);
   background: transparent;
   color: var(--text-secondary);
   font-size: var(--font-size-xs);
   border-radius: var(--radius-sm);
   cursor: pointer;
   position: relative;
+  white-space: nowrap;
 }
 
 .breakdown-row__action:hover:not(:disabled) {
@@ -462,8 +472,16 @@
   flex-wrap: wrap;
 }
 
+/* Grant is the form's primary action: park it at the trailing edge of the
+   second row so it can never be clipped off-panel by the scope toggles. */
+.delegations-section__form > button {
+  margin-left: auto;
+}
+
 .delegations-section__input {
-  flex: 1;
+  /* Own full-width row; the scope toggles, days and Grant wrap beneath it
+     instead of all cramming into one clipped strip. */
+  flex: 1 0 100%;
   min-width: 140px;
   border: none;
   border-bottom: 1px solid var(--border-color);
