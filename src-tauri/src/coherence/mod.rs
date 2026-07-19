@@ -45,6 +45,7 @@ pub mod merge_audit;
 pub mod merge_surface;
 pub mod operator;
 pub mod operator_accept;
+pub mod operator_commands;
 pub mod paths;
 pub mod preview;
 pub mod project;

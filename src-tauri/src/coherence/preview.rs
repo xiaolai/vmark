@@ -21,7 +21,7 @@ const DEFAULT_CTX: &str = "00000000-0000-0000-0000-000000000000";
 const EMPTY_FP: &str = "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 
 /// One affected edge whose projected structural class changes under the candidate.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct PreviewDelta {
     pub edge: PhysicalEdgeId,
     pub before: StructuralClass,
