@@ -85,6 +85,46 @@ impl CoherenceIndex {
         Ok(dag)
     }
 
+    /// Load ONLY the revisions of the given objects — the bounded sub-dag a
+    /// preview needs (WI-3.4 perf, design-accept-consistency Blocker 2). A
+    /// preview projects a candidate's incident edges, each resolving its own
+    /// upstream+downstream objects; those objects' full revision histories are
+    /// all `resolve`/`project_edge` touch, so a whole-corpus `load_dag` (+ clone)
+    /// is O(corpus) memory for no reason. This is O(revisions of `objects`).
+    /// Deduplicates the id list; returns an empty dag for an empty input.
+    pub(super) fn load_sub_dag(&self, objects: &[ObjectId]) -> Result<RevisionDag, String> {
+        let mut dag = RevisionDag::default();
+        let unique: std::collections::HashSet<String> =
+            objects.iter().map(|o| o.0.to_string()).collect();
+        if unique.is_empty() {
+            return Ok(dag);
+        }
+        let ids: Vec<String> = unique.into_iter().collect();
+        let placeholders = vec!["?"; ids.len()].join(",");
+        let sql = format!(
+            "SELECT object, revision, parents FROM revisions WHERE object IN ({placeholders})"
+        );
+        let mut stmt = self.conn.prepare(&sql).map_err(|e| e.to_string())?;
+        let rows = stmt
+            .query_map(rusqlite::params_from_iter(ids.iter()), |r| {
+                Ok((
+                    r.get::<_, String>(0)?,
+                    r.get::<_, String>(1)?,
+                    r.get::<_, String>(2)?,
+                ))
+            })
+            .map_err(|e| e.to_string())?;
+        for row in rows {
+            let (obj, rev, parents_json) = row.map_err(|e| e.to_string())?;
+            let object = ObjectId(Uuid::parse_str(&obj).map_err(|e| e.to_string())?);
+            let revision = RevisionId::parse(&rev)?;
+            let parents: Vec<RevisionId> =
+                serde_json::from_str(&parents_json).map_err(|e| e.to_string())?;
+            dag.record_output(object, revision, parents);
+        }
+        Ok(dag)
+    }
+
     /// Current head set of an object (never a global latest — R10).
     pub fn heads(&self, object: &ObjectId) -> Result<Vec<RevisionId>, String> {
         Ok(self.load_dag()?.heads(object))
