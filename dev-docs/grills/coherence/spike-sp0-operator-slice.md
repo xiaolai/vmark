@@ -52,6 +52,27 @@ functional, fault, and perf-*mechanism* gates; only the absolute 500k-scale
 benchmark is outstanding**, and it is what the design governance treats as the
 final bar before Phase-3 *surface* work.
 
+### Known blocker the benchmark must not paper over — accept idem lookup is O(n)
+
+`accept::accept_candidate` step 2 does `kernel.ledger().read_all()?` then a linear
+`.iter().find()` for the idem (same in `accept_group`). That is a **full ledger
+read + deserialize per accept** — O(entries), and it holds the whole ledger in
+memory, so at 500k it will blow **both** the 20 ms and the 16 MiB budgets. The
+O(1) fast path exists (`index_state::entry_id_by_idem`, WI-3.0b) but the hot path
+does not use it, deliberately: the ledger is authoritative and the index can be
+torn (the #4 append-before-apply window), so an index-only lookup could miss a
+torn entry and wrongly re-append.
+
+The real fix is **heal-on-open, not heal-on-lookup**: replay the un-applied ledger
+tail into the index at `WorkspaceKernel::open` (bounded startup recovery, e.g. via
+a persisted last-applied offset), which makes the index authoritative for idem
+lookups — so per-accept becomes an O(1) index query and the per-accept ledger scan
+disappears. The current per-lookup heal (accept.rs #4) is a correctness band-aid,
+not the perf answer. This is the same ledger/index-consistency boundary the
+group-commit redesign has to settle (see `accept_group.rs`), so the two should be
+designed together. **Writing the 500k benchmark before this lands would only
+measure the O(n) path failing — the optimization is the actual WI-3.4 work.**
+
 ## Scope and honest limits
 
 - The transient verify (`build_candidate_check_prompt`) is built and unit-tested
