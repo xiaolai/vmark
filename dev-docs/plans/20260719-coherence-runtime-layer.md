@@ -69,7 +69,8 @@ clean (coherence lib **303 passed**, spikes 4+7, inventory 11):
 | **SP0** integration gate | ✅ **functional/fault/perf-mechanism PASS** | `spike-sp0-operator-slice.md`; only the absolute 500k-scale 20 ms/16 MiB benchmark (a `criterion` harness) remains |
 | WI-3.6 operator MCP commands | ✅ **done** | `operator_commands.rs` — propose/preview/accept (read-only + human-only), 4 DTO round-trip tests, registered |
 | WI-3.7 docs | ✅ **done** | `website/guide/coherence.md` operators + merge-audit sections |
-| Phase 3 surface (UI) | ⬜ **remaining** | WI-3.3 verify wiring (needs provider), WI-3.5 preview UI + i18n×10 (frontend + visual QA), the absolute-scale benchmark |
+| WI-3.5/3.6 operator frontend service | ✅ **done** | `operatorService.ts` — propose/preview/accept invoke wrappers, 5 tests, knip-clean |
+| Phase 3 surface (UI component) | ⬜ **remaining** | the preview **React panel** + i18n×10 (visual QA); WI-3.3 verify **call** (provider); the absolute-scale benchmark |
 | **SP-canon** (Phase 4 gate) | ✅ **design resolved + proven** | `spike-sp-canon.md` — canon carrier grounds claim-based canon in the version axis; conformance composes with zero kernel change (test) |
 | Multi-object group-commit | ✅ **done** | `accept_group.rs` — fresh/retry/partial-recovery/distinct-object, 5 tests (needs a G-B review before release) |
 | WI-4.1/4.2/4.3 Extract-Canon | ✅ **done** | `extract_canon.rs` — carrier + conformance candidates; conformance capture (`InputRef.kind` → `edges.edge_kind`); commits + records conformance edges, 2 tests |
@@ -77,7 +78,8 @@ clean (coherence lib **303 passed**, spikes 4+7, inventory 11):
 | **SP4** (Phase 5 gate) | ✅ **object→edge half proven** | `spike-sp4-merge-mapping.md` — `edges_affected_by` (deterministic, deduped); git→file half is a named API pending a git fixture |
 | WI-5.1 merge-affected edge set | ✅ **done** | `merge_audit.rs` + `gitops::merge_changed_files` — end-to-end vs a **real git merge** (2 tests + gitops 16/16) |
 | WI-5.2 auditor surface | ✅ **done (read-only)** | `coherence_merge_audit` command; the auto-check loop reuses `check_sweep` (needs provider) |
-| Phase 5 (WI-5.3 breakdown surface) | ⬜ **remaining** | frontend grouping of merge-origin contradictions |
+| WI-5.3 merge-audit frontend service | ✅ **done** | `mergeAuditService.ts` — `fetchMergeAffectedEdges`, 3 tests, knip-clean |
+| Phase 5 (WI-5.3 UI component) | ⬜ **remaining** | the merge-origin grouping **React panel** (visual QA) |
 | **Phase 6** design pass | ✅ **done** | `design-projection-framework.md` — `Projection` + `CoherenceRow` shared read-model, validated against the 4 built surfaces |
 | WI-6.1 read-model contract | ✅ **done** | `read_model.rs` — `Projection` trait + `CoherenceRow` + `BreakdownProjection` reference impl (wraps breakdown), 3 tests |
 | Phase 6 (WI-6.2/6.3) | ⬜ **remaining** | WI-6.2 port preview/merge/incident onto the trait (additive backend); WI-6.3 unified frontend consumer (visual QA) |
