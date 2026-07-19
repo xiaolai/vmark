@@ -83,6 +83,26 @@ pub fn merge_commit_sha(root: &Path) -> Option<String> {
     }
 }
 
+/// The files a completed merge changed relative to **both** parents — the union
+/// of `git diff --name-only <sha>^1 <sha>` and `<sha>^2 <sha>`, so a change from
+/// either side is caught (Phase 5, SP4/WI-5.1). For a rename git reports the new
+/// path; for a delete, the removed path. Empty for a non-merge, a bad SHA, or a
+/// non-git dir. Deterministic (sorted, deduped) so the audit mapping is total.
+pub fn merge_changed_files(root: &Path, sha: &str) -> Vec<String> {
+    let mut set = std::collections::BTreeSet::new();
+    for parent in [format!("{sha}^1"), format!("{sha}^2")] {
+        if let Some(out) = git_output(root, &["diff", "--name-only", &parent, sha]) {
+            for line in out.lines() {
+                let trimmed = line.trim();
+                if !trimmed.is_empty() {
+                    set.insert(trimmed.to_string());
+                }
+            }
+        }
+    }
+    set.into_iter().collect()
+}
+
 pub fn observe(root: &Path) -> Option<GitObservation> {
     if !root.join(".git").exists() {
         return None; // covers dirs and worktree .git files alike
