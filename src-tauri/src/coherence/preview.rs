@@ -15,7 +15,7 @@ use super::dag::ContextView;
 use super::index::CoherenceIndex;
 use super::operator::Candidate;
 use super::project::{project_edge, OriginEdge};
-use super::types::RevisionId;
+use super::types::{ObjectId, RevisionId};
 
 /// A deterministic preview-only edge id for a not-yet-committed candidate edge
 /// (re-review #8 / MINOR). Derived from the member revision + input index and
@@ -68,7 +68,15 @@ impl CoherenceIndex {
     /// index state + the transient overlay.
     pub fn project_candidates(&self, candidate: &Candidate, now: &str) -> Result<Preview, String> {
         let affected = self.edges_incident_to(&candidate.object)?;
-        let base_dag = self.load_dag()?;
+        // Bounded sub-dag (WI-3.4 perf): only the candidate's object and each
+        // affected edge's upstream+downstream — the objects `project_edge`
+        // actually resolves — never the whole corpus.
+        let mut objects = vec![candidate.object];
+        for e in &affected.edges {
+            objects.push(e.upstream);
+            objects.push(e.downstream);
+        }
+        let base_dag = self.load_sub_dag(&objects)?;
         let mut overlay = base_dag.clone();
         overlay.record_output(
             candidate.object,
@@ -152,12 +160,8 @@ impl CoherenceIndex {
         now: &str,
     ) -> Result<GroupPreview, String> {
         let ctx = ContextView::all_live();
-        let base_dag = self.load_dag()?;
-        let mut overlay = base_dag.clone();
-        for c in candidates {
-            overlay.record_output(c.object, c.revision.clone(), c.parents.clone());
-        }
         // Union of every changed object's incident edges (deduped by physical id).
+        // Computed FIRST (index query, no dag) so we can bound the sub-dag load.
         let mut seen = std::collections::HashSet::new();
         let mut affected = Vec::new();
         let mut truncated = false;
@@ -170,6 +174,24 @@ impl CoherenceIndex {
                     affected.push(e);
                 }
             }
+        }
+        // Bounded sub-dag (WI-3.4 perf): the members' objects, each affected
+        // edge's upstream+downstream, and each member's input objects (the new
+        // edges' upstreams) — the objects the projections resolve, not the corpus.
+        let mut objects: Vec<ObjectId> = candidates.iter().map(|c| c.object).collect();
+        for e in &affected {
+            objects.push(e.upstream);
+            objects.push(e.downstream);
+        }
+        for c in candidates {
+            for i in &c.inputs {
+                objects.push(i.object);
+            }
+        }
+        let base_dag = self.load_sub_dag(&objects)?;
+        let mut overlay = base_dag.clone();
+        for c in candidates {
+            overlay.record_output(c.object, c.revision.clone(), c.parents.clone());
         }
         let all_res = self.all_resolutions()?;
         let mut base_classes = ClassMap::new();
