@@ -287,7 +287,7 @@ fn executable_requires_all_three_cas_texts_present_and_utf8() {
     let up_v1_hash = store.put_text("upstream v1").expect("put up v1");
     let up_v1 = RevisionId::compute(&up_v1_hash, &[]);
     let up_v2_hash = store.put_text("upstream v2").expect("put up v2");
-    let up_v2 = RevisionId::compute(&up_v2_hash, &[up_v1.clone()]);
+    let up_v2 = RevisionId::compute(&up_v2_hash, std::slice::from_ref(&up_v1));
     let down_hash = store.put_text("downstream").expect("put down");
     let down_rev = RevisionId::compute(&down_hash, &[]);
     // Deliberately not valid UTF-8.
@@ -327,6 +327,7 @@ fn executable_requires_all_three_cas_texts_present_and_utf8() {
             object: up,
             revision: up_v1.clone(),
             role: InputRole::Direct,
+            kind: vmark_lib::coherence::edge_kind::OriginEdgeKind::Dependency,
         }],
         vec![OutputRef {
             object: down_text,
@@ -340,6 +341,7 @@ fn executable_requires_all_three_cas_texts_present_and_utf8() {
             object: up,
             revision: up_v1.clone(),
             role: InputRole::Direct,
+            kind: vmark_lib::coherence::edge_kind::OriginEdgeKind::Dependency,
         }],
         vec![OutputRef {
             object: down_binary,

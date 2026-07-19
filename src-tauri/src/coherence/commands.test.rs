@@ -59,6 +59,7 @@ fn stale_edge(root: &std::path::Path, kernel: &mut WorkspaceKernel) -> (Uuid, u3
                 object_id: Some(elena.object),
                 revision: None,
                 role: InputRole::Direct,
+                kind: crate::coherence::edge_kind::OriginEdgeKind::Dependency,
             }],
             agent: Agent {
                 kind: AgentType::Model,
@@ -339,6 +340,7 @@ fn synthetic_dogfood_session_m1() {
                         object_id: None,
                         revision: None,
                         role: InputRole::Direct,
+                        kind: crate::coherence::edge_kind::OriginEdgeKind::Dependency,
                     })
                     .collect(),
                 agent: Agent {
@@ -374,6 +376,7 @@ fn synthetic_dogfood_session_m1() {
                 object_id: None,
                 revision: None,
                 role: InputRole::Direct,
+                kind: crate::coherence::edge_kind::OriginEdgeKind::Dependency,
             }],
             agent: Agent {
                 kind: AgentType::Model,

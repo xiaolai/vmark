@@ -25,6 +25,7 @@ fn base() -> Transformation {
             object: oid(1),
             revision: rev(1),
             role: InputRole::Direct,
+            kind: crate::coherence::edge_kind::OriginEdgeKind::Dependency,
         }],
         outputs: vec![OutputRef {
             object: oid(2),
@@ -109,6 +110,7 @@ fn injective_over_every_field() {
         object: oid(5),
         revision: rev(5),
         role: InputRole::Direct,
+        kind: crate::coherence::edge_kind::OriginEdgeKind::Dependency,
     });
     cases.push(("extra input", t));
 

@@ -6,8 +6,8 @@ use crate::coherence::dag::Resolved;
 use crate::coherence::operator::Candidate;
 use crate::coherence::state::WorkspaceKernel;
 use crate::coherence::types::{
-    Agent, AgentType, Confidence, ContentHash, InputRef, InputRole, Intent, ObjectId, OutputRef,
-    RevisionId, Transformation, WriterId,
+    Agent, AgentType, Confidence, ContentHash, InputRef, Intent, ObjectId, OutputRef, RevisionId,
+    Transformation, WriterId,
 };
 
 const NOW: &str = "2026-07-20T00:00:00Z";

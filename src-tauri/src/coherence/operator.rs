@@ -56,6 +56,31 @@ impl Candidate {
         }
     }
 
+    /// A candidate for a **brand-new object** — a root revision (no parents).
+    /// Used by `Extract-Canon` to create a canon carrier. Its accept requires the
+    /// object to be genuinely absent (no base-head to revalidate).
+    pub fn new_root(
+        object: ObjectId,
+        content: String,
+        inputs: Vec<InputRef>,
+        operator: &str,
+        summary: &str,
+    ) -> Self {
+        let digest: [u8; 32] = Sha256::digest(content.as_bytes()).into();
+        let content_hash = ContentHash::from_digest(&digest);
+        let revision = RevisionId::compute(&content_hash, &[]);
+        Self {
+            object,
+            content,
+            content_hash,
+            revision,
+            parents: Vec::new(),
+            inputs,
+            operator: operator.to_string(),
+            summary: summary.to_string(),
+        }
+    }
+
     /// The single output this candidate produces on accept.
     pub fn to_output(&self) -> OutputRef {
         OutputRef {

@@ -50,6 +50,7 @@ fn txf(writer: WriterId, object: ObjectId, n: u8, inputs: Vec<(ObjectId, Revisio
                     object,
                     revision,
                     role: InputRole::Direct,
+                    kind: crate::coherence::edge_kind::OriginEdgeKind::Dependency,
                 })
                 .collect(),
             outputs: vec![OutputRef {

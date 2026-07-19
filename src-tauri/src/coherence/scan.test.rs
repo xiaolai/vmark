@@ -114,6 +114,7 @@ fn delete_marks_absent_and_restore_revives() {
                 object_id: None,
                 revision: None,
                 role: crate::coherence::types::InputRole::Direct,
+                kind: crate::coherence::edge_kind::OriginEdgeKind::Dependency,
             }],
             agent: Agent {
                 kind: AgentType::Model,
