@@ -4,6 +4,14 @@ vmark:
 ---
 # Coherence Layer On-Disk Format — v0
 
+> **Spec revision 3 of format 0** (2026-07-20): adds the **runtime-layer
+> addenda** (§13) for the forward-operator plan — the reserved
+> `operator:<name>` intent taxonomy, the in-memory-only candidate payload
+> schema, the **length-prefixed accept idem preimage** (unambiguous), the
+> preview→accept binding, and the additive optional `kind` field on
+> transformation inputs (`edge_kind`, default `dependency`). All additive or
+> runtime-only; `format` stays `0`. Contract: `design-runtime.md` v4 (V4.1/V4.6/V4.7).
+>
 > **Spec revision 2 of format 0** (2026-07-19): adds the Phase 3
 > contract — the `delegation` entry kind (§5.4.7), the conditional
 > `delegation` reference on resolutions (§5.4.3), the
@@ -823,3 +831,104 @@ instrumented metric capture is deliberately out of scope for Phase 1.
 - The SQLite schema is **not** part of the public contract (R16 — the
   index is disposable); its version lives in `PRAGMA user_version` and any
   mismatch triggers a silent rebuild from scan.
+
+## 13. Runtime-layer addenda (rev 3, WI-0.4)
+
+The forward-operator plan (`dev-docs/plans/20260719-coherence-runtime-layer.md`)
+adds the following. All are additive or runtime-only; **`format` stays `0`**.
+Normative source: `dev-docs/grills/coherence/design-runtime.md` v4.
+
+### 13.1 Operator-intent taxonomy (no format change)
+
+An operator-committed transformation uses the **existing** `Transformation.intent.kind`
+field with a reserved value `"operator:<name>"` (e.g. `"operator:revise"`). No
+new field; v0 readers already preserve `intent`. `<name>` is `[a-z][a-z0-9-]*`.
+This is the only durable ledger trace an operator leaves — everything else about
+an operator run (candidates, preview, checks) is transient (§13.2).
+
+### 13.2 Candidate payload (in-memory only — never a ledger entry)
+
+A **candidate** is a proposed output that has not been accepted. It is **never
+serialized to the ledger or CAS** until accept (§13.3). Shape:
+
+```
+Candidate = {
+  object:        ObjectId,
+  content:       bytes,               // hashed on submit → content_hash
+  parents:       [RevisionId],        // the base is a PARENT, never an input (D1)
+  inputs:        [InputRef],          // declared inputs (may be empty)
+  operator:      "<name>",
+  intent:        { kind: "operator:<name>", summary },
+}
+```
+
+The candidate's **identity for display and preview** is its revision id,
+`RevisionId::compute(content_hash, sorted(parents))` (§2.3) — content-addressed
+over content+parents **only**. The revision id is therefore *not* full
+tamper-evidence: tamper on `inputs`/`operator`/`intent` is caught by the accept
+idem (§13.3), which covers the whole payload.
+
+### 13.3 Accept idem preimage — length-prefixed, unambiguous (V4.1)
+
+Accepting a candidate mints **one** transformation via one append. Its envelope
+`idem` (spec §5.3) is **deterministic** so a lost-response retry collapses to one
+logical entry. The preimage is **length-prefixed** so free-text fields
+(`agent.id`, `intent.summary`) cannot forge a field boundary:
+
+```
+field(s) = u32_be(bytelen(s)) ‖ s
+list(xs) = u32_be(count(xs)) ‖ concat(field(x) for x in xs)
+
+idem = uuid_from_sha256(
+  field("vmark-operator-accept-v1")
+  ‖ field(format) ‖ field(operator)
+  ‖ field(output.object) ‖ field(output.content_hash) ‖ field(output.revision)
+  ‖ list(sorted(output.parents))
+  ‖ list(for each input in declared order: field(object) ‖ field(revision) ‖ field(role))
+  ‖ field(agent.kind) ‖ field(agent.id or "")
+  ‖ field(intent.kind) ‖ field(intent.summary) ‖ field(confidence)
+)
+```
+
+The length-prefix makes the encoding **injective**: distinct payloads never share
+a preimage. The `…-v1` domain tag versions the schema. Retry semantics: the
+accept looks the idem up (ledger-authoritative, healing the append-before-index
+torn window — V4.2) and returns the **original** receipt rather than appending
+again.
+
+### 13.4 Preview → accept binding
+
+Preview and accept are **stateless** IPC calls (no server-side candidate
+session). Accept resubmits the full candidate payload **plus** the structural-class
+multiset the preview produced (`structural_classes`, V4.3/§13.5). The server:
+recomputes the revision id (rejects a content/parent mismatch), recomputes the
+§13.3 idem, and runs the reproject-under-lock precondition. A stale
+`structural_classes` can only *add* a rejection — it can never force an unsafe
+accept, because the appended entry is exactly the content-addressed candidate and
+a moved base is caught independently by base-head revalidation.
+
+### 13.5 Reproject-under-lock is check-independent
+
+The accept precondition compares a **structural class** of each affected edge's
+projection, not the raw `EdgeState`: `VersionStale`, `StaleValid`,
+`StaleContradicted`, `StaleUnknown` all collapse to one `Stale` token. A semantic
+check landing between preview and accept therefore **cannot** cause a rejection —
+accept is never blocked by a semantic verdict (I3/§14). Base-head moves,
+retirements, waivers, and context repins remain visible to the class and do
+reject.
+
+### 13.6 Additive `edge_kind` (optional input field)
+
+To persist a non-dependency origin-edge kind (conformance, supersession,
+part-of, mention — Phase 2), `InputRef` (§7) gains an **optional** `kind` field:
+
+```
+InputRef = { object, revision, role, kind?: "dependency" }   // default "dependency"
+```
+
+Absent `kind` reads as `dependency`, so every existing ledger entry is unchanged
+and format stays `0`. `kind` is **orthogonal to `role`**: `role`
+(direct/contextual) is provenance liveness; `kind` is the propagation class. The
+derived `edges` index table carries `edge_kind TEXT NOT NULL DEFAULT 'dependency'`
+(not public contract, R16). Contradiction is **never** a kind — it is a
+`check-result` assessment (§5.4.4).

@@ -1,10 +1,12 @@
 # Spike SP1 — dry-run projection over a disposable clone
 
-> **Status: PASS (2026-07-20).** 3/3 fixtures green
+> **Status: PASS (2026-07-20).** 4/4 fixtures green
 > (`src-tauri/tests/spike_sp1_dry_run_projection.rs`). Proves ADR-P1 /
 > `design-runtime.md` D2: a candidate preview computed by overlaying the
 > candidate on a **clone** of the revision DAG yields the same projection as an
-> independent commit-rebuild, and mints nothing.
+> independent commit — including a comparison against a **real committed
+> `CoherenceIndex.breakdown`**, not just a hand-built DAG (G-B round-3 High #D) —
+> and mints nothing.
 
 ## What it proves
 
@@ -47,6 +49,7 @@ Three assertions per fixture:
 | `linear_restale` | new upstream revision `u2` (child of `u1`) | version-stale edge reads `VersionStale` identically in preview and commit |
 | `downstream_retirement` | new **downstream** revision `d2` | `resolve(D)` moves to `d2 ≠ d1`, so the edge retires (`Some → None`) — the D2 downstream-incident liveness change is caught by preview |
 | `divergence_creating_candidate` | sibling upstream `u2b` while committed head is `u2a` | `resolve(U)` becomes `DivergedHeads`; the edge reads `Diverged{multi_head}` identically |
+| `overlay_matches_real_committed_index` | new upstream `u2` | the clone-overlay preview equals a **real in-memory `CoherenceIndex` rebuilt from the actual envelopes**, compared via `breakdown` as check-independent structural classes (v4.3) — closes the "manual DAG vs real store" gap |
 
 ## Scope and honest limits
 
