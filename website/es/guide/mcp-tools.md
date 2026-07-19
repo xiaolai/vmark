@@ -248,6 +248,10 @@ Dos acciones más de solo lectura exponen la capa semántica:
 - `claims` — las afirmaciones canónicas actuales: `{claim, entryId, statement, maturity, invalidAt, visible}`. Solo las afirmaciones `established` restringen las verificaciones semánticas; `visible` refleja el contexto default.
 - `contexts` — el conjunto de contextos (el `default` implícito siempre está presente): `{id, name, parent, enforcement, visibleClaims, errors}`.
 
+Una acción de escritura, restringida por delegación:
+
+- `resolve` — resuelve una arista obsoleta activa como agente explícitamente delegado: `{workspace_root, txf, input, resolution: "accept-newer" | "waive", reason? (required for waive)}`. La autorización es de tipo fail-closed: el propietario del espacio de trabajo debe haber otorgado a **tu identidad de puente autenticada** una delegación activa y no caducada que cubra el tipo de resolución (otorgada en la app, desde el desglose), y la arista debe estar activa. Cada resolución delegada se registra en el log de auditoría vinculada al otorgamiento. La mutación de afirmaciones y contextos nunca se expone — el canon permanece bajo control humano.
+
 Todas las acciones requieren `workspace_root`: la ruta absoluta del espacio de trabajo a consultar. Obtenla de `session.get_state` (el `filePath` de las pestañas abiertas) o de la herramienta workspace. Una ruta ausente, no absoluta o que no sea un directorio se rechaza con un error de cadena simple.
 
 ### `status`

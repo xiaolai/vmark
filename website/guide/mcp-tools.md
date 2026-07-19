@@ -419,6 +419,10 @@ Two further read-only actions expose the semantic layer:
 - `claims` — the current canon claims: `{claim, entryId, statement, maturity, invalidAt, visible}`. Only `established` claims constrain semantic checks; `visible` reflects the default context.
 - `contexts` — the context set (the implicit `default` is always present): `{id, name, parent, enforcement, visibleClaims, errors}`.
 
+One mutating action, gated by delegation:
+
+- `resolve` — resolve a live stale edge as an explicitly delegated agent: `{workspace_root, txf, input, resolution: "accept-newer" | "waive", reason? (required for waive)}`. Authorization is fail-closed: the workspace owner must have granted **your authenticated bridge identity** a live, unexpired delegation covering the resolution kind (granted in-app, from the Breakdown), and the edge must be live. Every delegated resolution is audit-logged against the grant. Claim and context mutation are never exposed — canon stays human-controlled.
+
 All actions require `workspace_root`: the absolute path of the workspace to query. Learn it from `session.get_state` (open tabs' `filePath`) or the workspace tool. A path that is missing, not absolute, or not a directory is refused with a plain-string error.
 
 ### `status`

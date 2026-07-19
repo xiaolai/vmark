@@ -41,6 +41,16 @@ Le **affermazioni canoniche** sono fatti che hai reso espliciti («Elena è manc
 
 I **contesti** sono viste con nome del workspace (il contesto *default* c'è sempre). Ogni contesto stabilisce cosa significa «corrente» e quali affermazioni si applicano; un contesto figlio eredita in modo additivo le affermazioni del genitore. I contesti sono **serra** per impostazione predefinita — i verdetti delle verifiche si leggono come tensione consultiva. Passarne uno ad **applicato** (un atto esplicito e confermato) contrassegna le contraddizioni come violazioni del canone. Il selettore di contesto della vista di dettaglio sceglie attraverso quale contesto stai guardando; i risultati delle verifiche sono legati esattamente al contesto e allo snapshot di affermazioni che li hanno prodotti e non trapelano mai dall'uno all'altro.
 
+## Provenienza, delega e branch
+
+Tre cose mantengono onesto il livello di coerenza mentre un progetto evolve davvero — nessuna di esse ti assilla, tutte sono esclusivamente in modalità pull.
+
+**Recupero della provenienza.** Quando modifichi a mano un documento derivato (in VMark o in un editor esterno), la modifica perde giustamente i suoi input registrati — i vecchi archi di dipendenza non descrivono più il nuovo testo. Il gruppo *Provenienza sconosciuta* della vista di dettaglio propone di ripristinarli: premi **Suggerisci input** e VMark propone l'insieme di input precedente più recente del documento (ruoli preservati), preselezionato e modificabile. **Conferma provenienza** riaggancia gli archi alla versione corrente senza creare una nuova revisione, così i documenti a valle dello stesso documento non vedono mai una modifica spuria. I documenti che non hanno mai avuto input non vengono mai elencati — non c'è nulla da recuperare e nulla con cui assillare.
+
+**Delega agli agenti.** Per impostazione predefinita solo tu puoi risolvere gli archi obsoleti. Se vuoi che un agente IA accetti la più recente o esenti per tuo conto (tramite la superficie MCP «sola lettura più `resolve`»), concedigli dalla vista di dettaglio una **delega a tempo**: assegna un nome all'agente, scegli l'ambito (accettare la più recente e/o esentare) e imposta una scadenza (7 giorni per impostazione predefinita, mai «per sempre»). Ogni risoluzione delegata viene registrata a fronte della concessione, così la traccia di audit mostra sempre chi ha agito sotto l'autorità di chi. Revoca qualsiasi concessione con un clic. Le affermazioni canoniche e i contesti restano esclusivamente umani — un agente non può mai promuovere un'affermazione né applicare un contesto.
+
+**Contesti di branch.** Un contesto può essere mappato a un branch git. Quando fai il checkout di un branch mappato, la vista di dettaglio mostra un **chip candidato** che propone di cambiare — non cambia mai da solo. Se il branch non ha ancora un contesto, il chip propone di crearne uno con il suo nome. Quando arriva un merge reale (non fast-forward), un banner ignorabile ti invita a rivedere il dettaglio; la divergenza e l'obsolescenza che mostra sono i normali stati della vista di dettaglio — non viene quindi eseguito nulla di nuovo, vieni solo accompagnato alla revisione.
+
 ## Identità nel frontmatter
 
 La prima volta che un file viene acquisito, VMark aggiunge un piccolo blocco di identità al suo frontmatter:

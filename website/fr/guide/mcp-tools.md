@@ -248,6 +248,10 @@ Deux actions supplémentaires en lecture seule exposent la couche sémantique&nb
 - `claims` — les affirmations canoniques actuelles&nbsp;: `{claim, entryId, statement, maturity, invalidAt, visible}`. Seules les affirmations `established` contraignent les vérifications sémantiques&nbsp;; `visible` reflète le contexte default.
 - `contexts` — l'ensemble des contextes (le `default` implicite est toujours présent)&nbsp;: `{id, name, parent, enforcement, visibleClaims, errors}`.
 
+Une action de modification, encadrée par délégation&nbsp;:
+
+- `resolve` — résoudre une arête obsolète active en tant qu'agent explicitement délégué&nbsp;: `{workspace_root, txf, input, resolution: "accept-newer" | "waive", reason? (required for waive)}`. L'autorisation est fail-closed&nbsp;: le propriétaire de l'espace de travail doit avoir accordé à **votre identité de pont authentifiée** une délégation active et non expirée couvrant le type de résolution (accordée dans l'app, depuis le Détail), et l'arête doit être active. Chaque résolution déléguée est journalisée au titre de la délégation. La mutation des affirmations et des contextes n'est jamais exposée — le canon reste sous contrôle humain.
+
 Toutes les actions exigent `workspace_root`&nbsp;: le chemin absolu de l'espace de travail à interroger. Obtenez-le via `session.get_state` (le `filePath` des onglets ouverts) ou l'outil workspace. Un chemin manquant, non absolu ou qui n'est pas un répertoire est refusé avec une erreur en chaîne simple.
 
 ### `status`

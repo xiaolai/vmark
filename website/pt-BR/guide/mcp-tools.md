@@ -248,6 +248,10 @@ Duas ações adicionais somente leitura expõem a camada semântica:
 - `claims` — as afirmações canônicas atuais: `{claim, entryId, statement, maturity, invalidAt, visible}`. Apenas afirmações `established` restringem as verificações semânticas; `visible` reflete o contexto default.
 - `contexts` — o conjunto de contextos (o `default` implícito está sempre presente): `{id, name, parent, enforcement, visibleClaims, errors}`.
 
+Uma ação de escrita, condicionada a delegação:
+
+- `resolve` — resolve uma aresta desatualizada ativa como agente explicitamente delegado: `{workspace_root, txf, input, resolution: "accept-newer" | "waive", reason? (required for waive)}`. A autorização é fail-closed: o proprietário do workspace precisa ter concedido à **sua identidade de ponte autenticada** uma delegação ativa e não expirada que cubra o tipo de resolução (concedida no app, a partir do detalhamento), e a aresta precisa estar ativa. Toda resolução delegada é registrada no log de auditoria e vinculada à concessão. A mutação de afirmações e contextos nunca é exposta — o cânone permanece sob controle humano.
+
 Todas as ações exigem `workspace_root`: o caminho absoluto do workspace a consultar. Descubra-o via `session.get_state` (o `filePath` das abas abertas) ou pela ferramenta workspace. Um caminho ausente, não absoluto ou que não seja um diretório é recusado com um erro de string simples.
 
 ### `status`

@@ -248,6 +248,10 @@ GitHub Actions 워크플로우 YAML을 위한 `actionlint` 검증과 **CST 안�
 - `claims` — 현재의 캐논 설정: `{claim, entryId, statement, maturity, invalidAt, visible}`. 의미 검사를 제약하는 것은 `established` 설정뿐입니다. `visible`은 default 컨텍스트를 반영합니다.
 - `contexts` — 컨텍스트 집합 (암묵적인 `default`는 항상 존재합니다): `{id, name, parent, enforcement, visibleClaims, errors}`.
 
+위임으로 제한되는 변경 액션이 하나 있습니다:
+
+- `resolve` — 명시적으로 위임받은 에이전트로서 살아 있는 오래된 엣지를 해소합니다: `{workspace_root, txf, input, resolution: "accept-newer" | "waive", reason? (required for waive)}`. 인가는 fail-closed입니다: 워크스페이스 소유자가 **당신의 인증된 브리지 신원** 에 해당 해소 종류를 포괄하는, 유효하고 만료되지 않은 위임을 (앱 안에서, 내역으로부터) 부여했어야 하며, 엣지가 살아 있어야 합니다. 위임된 모든 해소는 그 부여에 연결되어 감사 로그에 기록됩니다. 설정과 컨텍스트의 변경은 결코 노출되지 않습니다 — 캐논은 사람이 통제하는 상태로 남습니다.
+
 모든 액션에는 `workspace_root`가 필요합니다: 조회할 워크스페이스의 절대 경로입니다. `session.get_state` (열린 탭의 `filePath`) 또는 workspace 도구에서 알아내세요. 누락되었거나, 절대 경로가 아니거나, 디렉터리가 아닌 경로는 일반 문자열 오류로 거부됩니다.
 
 ### `status`

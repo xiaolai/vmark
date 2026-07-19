@@ -248,6 +248,10 @@ VMark 對 AI 助理開放**七個複合 MCP 工具**：`session`、`workspace`�
 - `claims` —— 目前的正典設定：`{claim, entryId, statement, maturity, invalidAt, visible}`。只有 `established` 狀態的設定才會約束語意檢查；`visible` 反映的是 default 情境。
 - `contexts` —— 情境集合（隱含的 `default` 始終存在）：`{id, name, parent, enforcement, visibleClaims, errors}`。
 
+一個受委任限制的寫入操作：
+
+- `resolve` —— 以取得明確委任的智慧代理身分，解決一條活躍的過期邊：`{workspace_root, txf, input, resolution: "accept-newer" | "waive", reason? (required for waive)}`。授權採用 fail-closed 策略：工作區擁有者必須已向**你通過身分驗證的橋接身分**授予一份涵蓋該解決類型的、有效且未過期的委任（在應用程式內、從明細授予），且該邊必須處於活躍狀態。每一次受委任的解決都會記入稽核紀錄，並關聯至該授予。設定與情境的變更從不對外揭露 —— 正典始終由人類掌控。
+
 所有操作都需要 `workspace_root`：要查詢的工作區的絕對路徑。可從 `session.get_state`(已開啟分頁的 `filePath`)或 workspace 工具取得。路徑缺失、不是絕對路徑或不是目錄時，會以純字串錯誤拒絕。
 
 ### `status`
