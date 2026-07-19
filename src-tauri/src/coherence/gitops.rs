@@ -67,6 +67,22 @@ pub fn current_branch(root: &Path) -> Option<String> {
     Some(name)
 }
 
+/// D3.3 (WI-3.7): the current HEAD commit's SHA iff it is a completed
+/// merge (two or more parents). `None` for a linear head, detached HEAD,
+/// or a non-git dir. Mid-conflict merges are handled upstream (the scan
+/// defers on MERGE_HEAD), so reaching here means the merge concluded.
+pub fn merge_commit_sha(root: &Path) -> Option<String> {
+    let line = git_output(root, &["rev-list", "--parents", "-n", "1", "HEAD"])?;
+    // "<commit> <parent1> <parent2> ..." — 3+ tokens ⇒ a merge.
+    let mut tokens = line.split_whitespace();
+    let sha = tokens.next()?.to_string();
+    if tokens.count() >= 2 {
+        Some(sha)
+    } else {
+        None
+    }
+}
+
 pub fn observe(root: &Path) -> Option<GitObservation> {
     if !root.join(".git").exists() {
         return None; // covers dirs and worktree .git files alike

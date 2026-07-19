@@ -516,3 +516,56 @@ fn crlf_content_parses_and_hashes_like_lf() {
         "same canonical content = no-op, no fork"
     );
 }
+
+// WI-3.7 — completed-merge diagnostic: appended once per merge SHA,
+// idempotent across repeated scans; mid-conflict merges defer (D3.3).
+#[test]
+fn completed_merge_emits_one_deduped_diagnostic() {
+    let (dir, mut kernel) = workspace();
+    let root = dir.path();
+    run_git(root, &["init", "-q", "-b", "main"]);
+    captured_doc(&mut kernel, root, "a.md", "base\n");
+    run_git(root, &["add", "."]);
+    run_git(root, &["commit", "-q", "-m", "base"]);
+    // A feature branch with its own commit.
+    run_git(root, &["checkout", "-q", "-b", "feature"]);
+    write_file(root, "b.md", "feature work\n");
+    run_git(root, &["add", "."]);
+    run_git(root, &["commit", "-q", "-m", "feature"]);
+    // Back to main, make it diverge, then a real (non-fast-forward) merge.
+    run_git(root, &["checkout", "-q", "main"]);
+    write_file(root, "c.md", "main work\n");
+    run_git(root, &["add", "."]);
+    run_git(root, &["commit", "-q", "-m", "main-work"]);
+    run_git(
+        root,
+        &["merge", "-q", "--no-ff", "-m", "merge feature", "feature"],
+    );
+
+    // Baseline scan already ran inside captured_doc? Run explicitly.
+    let r1 = scan_workspace(&mut kernel).unwrap();
+    assert_eq!(r1.merges, 1, "the completed merge is recorded once");
+    // A second scan of the same merge is a no-op (idempotent).
+    let r2 = scan_workspace(&mut kernel).unwrap();
+    assert_eq!(r2.merges, 0, "repeated scan does not re-record");
+
+    // The diagnostic is in the ledger, surfaced pull-only.
+    let entries = kernel.ledger().read_all().unwrap().entries;
+    let merge_diags = entries
+        .iter()
+        .filter(|e| e.kind == "diagnostic" && e.body["code"] == "merge-completed")
+        .count();
+    assert_eq!(merge_diags, 1);
+}
+
+#[test]
+fn linear_head_emits_no_merge_diagnostic() {
+    let (dir, mut kernel) = workspace();
+    let root = dir.path();
+    run_git(root, &["init", "-q", "-b", "main"]);
+    captured_doc(&mut kernel, root, "a.md", "base\n");
+    run_git(root, &["add", "."]);
+    run_git(root, &["commit", "-q", "-m", "base"]);
+    let r = scan_workspace(&mut kernel).unwrap();
+    assert_eq!(r.merges, 0);
+}
