@@ -371,3 +371,35 @@ fn delegated_waive_still_requires_a_reason() {
     let r = answer_coherence(&state, "vmark.coherence.resolve", &args, Some("codex-cli"));
     assert!(!r.success, "waiver without reason must be refused");
 }
+
+// WI-3.9 (dogfood-caught regression): the resolve action must be in
+// handle_rust_side's DISPATCH arm, not only reachable via a direct
+// answer_coherence call. This test goes through the real dispatch so a
+// dropped arm entry fails loudly. (The live session-4 resolve returned
+// "coherence request failed to execute" because resolve was missing here.)
+#[cfg(not(target_os = "windows"))]
+#[test]
+fn resolve_is_reachable_through_handle_rust_side_dispatch() {
+    let app = tauri::test::mock_builder()
+        .build(tauri::test::mock_context(tauri::test::noop_assets()))
+        .expect("mock app");
+    app.manage(coherence_state());
+    // An unknown workspace root: the dispatch must reach the coherence arm
+    // and return the allow-list refusal — NOT fall through to `_ => None`
+    // (which surfaces to the client as "failed to execute").
+    let req = McpRequest {
+        request_type: "vmark.coherence.resolve".to_string(),
+        args: serde_json::json!({
+            "workspace_root": "/no/such/workspace",
+            "txf": uuid::Uuid::now_v7().to_string(),
+            "input": 0,
+            "resolution": "accept-newer",
+        }),
+    };
+    let response = handle_rust_side(&req, app.handle(), Some("codex-cli".into()));
+    assert!(
+        response.is_some(),
+        "resolve must be dispatched, not fall through to None"
+    );
+    assert!(!response.unwrap().success, "unknown workspace is refused");
+}

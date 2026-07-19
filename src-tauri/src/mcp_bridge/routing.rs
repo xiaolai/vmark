@@ -196,13 +196,15 @@ pub(super) fn handle_rust_side<R: Runtime>(
                 error: None,
             })
         }
-        // Coherence layer (WI-1.10): READ-ONLY status/edges answered entirely
-        // in Rust from the managed kernel — no webview hop, so they work even
-        // when the webview is suspended and need no per-window routing.
+        // Coherence layer: read-only views (WI-1.10/2b.8) plus the one
+        // delegated mutating action (WI-3.5 `resolve`), answered entirely
+        // in Rust from the managed kernel — no webview hop, so they work
+        // even when the webview is suspended and need no per-window routing.
         "vmark.coherence.status"
         | "vmark.coherence.edges"
         | "vmark.coherence.claims"
-        | "vmark.coherence.contexts" => {
+        | "vmark.coherence.contexts"
+        | "vmark.coherence.resolve" => {
             let Some(state) = app.try_state::<CoherenceState>() else {
                 return Some(McpResponse {
                     success: false,
