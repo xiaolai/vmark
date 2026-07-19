@@ -94,6 +94,90 @@ impl CoherenceIndex {
     }
 }
 
+/// A multi-object group preview (Phase 4 / the multi-object increment). Overlays
+/// ALL the group's candidate revisions at once and projects the union affected
+/// set — so interactions between the members are visible. Captures both the
+/// base and the group class maps: the group accept checks the **base** is
+/// unchanged since preview, then applies all members (they are the intended
+/// change and do not reject each other).
+#[derive(Debug, Clone, PartialEq)]
+pub struct GroupPreview {
+    pub local_delta: Vec<PreviewDelta>,
+    /// Affected edges' classes **before** the group (base) — the accept
+    /// precondition compares the live base against this.
+    pub base_classes: ClassMap,
+    /// Affected edges' classes **after** overlaying the whole group.
+    pub group_classes: ClassMap,
+    pub truncated: bool,
+}
+
+impl CoherenceIndex {
+    /// Project a group of candidates (distinct objects) without committing.
+    pub fn project_group(
+        &self,
+        candidates: &[Candidate],
+        now: &str,
+    ) -> Result<GroupPreview, String> {
+        let ctx = ContextView::all_live();
+        let base_dag = self.load_dag()?;
+        let mut overlay = base_dag.clone();
+        for c in candidates {
+            overlay.record_output(c.object, c.revision.clone(), c.parents.clone());
+        }
+        // Union of every changed object's incident edges (deduped by physical id).
+        let mut seen = std::collections::HashSet::new();
+        let mut affected = Vec::new();
+        let mut truncated = false;
+        for c in candidates {
+            let inc = self.edges_incident_to(&c.object)?;
+            truncated |= inc.truncated;
+            for e in inc.edges {
+                let key = (e.txf, e.input, e.downstream, e.downstream_rev.clone());
+                if seen.insert(key) {
+                    affected.push(e);
+                }
+            }
+        }
+        let all_res = self.all_resolutions()?;
+        let mut base_classes = ClassMap::new();
+        let mut group_classes = ClassMap::new();
+        let mut local_delta = Vec::new();
+        for edge in &affected {
+            let res = all_res
+                .get(&(edge.txf, edge.input))
+                .cloned()
+                .unwrap_or_default();
+            let checks = self.live_checks(&edge.txf, edge.input, DEFAULT_CTX, EMPTY_FP)?;
+            let before =
+                structural_class(project_edge(edge, &ctx, &base_dag, &res, &checks, now).as_ref());
+            let after =
+                structural_class(project_edge(edge, &ctx, &overlay, &res, &checks, now).as_ref());
+            let pid = PhysicalEdgeId {
+                txf: edge.txf,
+                input: edge.input,
+                downstream: edge.downstream,
+                downstream_rev: edge.downstream_rev.clone(),
+            };
+            base_classes.insert(pid.clone(), before.clone());
+            group_classes.insert(pid.clone(), after.clone());
+            if before != after {
+                local_delta.push(PreviewDelta {
+                    edge: pid,
+                    before,
+                    after,
+                });
+            }
+        }
+        local_delta.sort_by_key(|d| (d.edge.txf, d.edge.input));
+        Ok(GroupPreview {
+            local_delta,
+            base_classes,
+            group_classes,
+            truncated,
+        })
+    }
+}
+
 #[cfg(test)]
 #[path = "preview.test.rs"]
 mod tests;
