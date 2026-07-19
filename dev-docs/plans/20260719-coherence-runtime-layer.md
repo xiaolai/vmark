@@ -1,0 +1,288 @@
+# Plan: Coherence Runtime Layer — Verify-at-Volume, Classifier, Forward Operators, Canon-Hub, Merge Auditor
+
+- **Status: NEEDS REVISION — G-B (Codex) returned MAJOR GAPS (2026-07-19).**
+  **G-A ✓** (owner, 2026-07-19): ADR-C6 + ADR-C7 approved. **G-B ✗:** the Codex
+  cross-model review (thread `019f796a-7e30-7173-8222-24be7b11368d`, verdict
+  **MAJOR GAPS**) found this plan decomposed to WIs *before* the runtime layer's
+  design decisions were made — colliding with the shipped kernel (the checker
+  requires a *committed* `(txf,input)`; append-only history has no rollback;
+  edge identity `(txf,input)` omits output) and the normative ontology
+  (contradiction is a `check-result` **assessment**, not an edge kind; canon is
+  **claim-based** in the paper, not an object flag; staleness is strictly
+  **local**, not transitive — which my own design notes also affirm). Full
+  disposition below. **Resolution: this plan reverts to *input* for a
+  runtime-layer design session** — resolve the ontology + candidate-model forks
+  (Themes A–B) as an APPROVED design record (the `design-2a.md` / `design-3.md`
+  pattern), then re-decompose incorporating Themes C–E. No implementation
+  proceeds under this plan as written.
+
+- **Date:** 2026-07-19
+- **Contract:** `dev-docs/coherence-layer-paper.md` **v1.1** and
+  `dev-docs/specs/coherence-format-v0.md` (rev 2). All WIs trace to the paper's
+  R/I/O/M IDs and §5/§8/§14. Where this plan and the paper/spec disagree, the
+  paper/spec wins and this plan is amended.
+- **Design inputs:** `grills/coherence/forward-operators-proposal.md`
+  (ADR-C6/C7), `grills/coherence/state-and-staleness-notes.md` (state ontology,
+  edge taxonomy, waiver semantics, canon-hub), `dev-docs/vision.md` (the arc
+  this serves), `grills/coherence/design-2a.md` + `design-3.md` (approved
+  semantic + delegation model).
+- **Prior work this builds on (already shipped — Phases 1–3 of
+  `20260718-coherence-layer.md`, ~12k LOC Rust):** the three-atom kernel, both
+  staleness axes (version via `dag.rs`/`project.rs`; semantic via
+  `checker.rs`/`claims.rs`), capture funnels, scan reconciliation, git
+  classification (`gitops.rs`/`merge_surface.rs`), waivers-as-ledger-entries with
+  endpoint-advance expiry, the breakdown view, and read-only + delegated MCP.
+  **This plan builds the runtime layer on top; it adds no kernel atom.**
+
+## Scope discipline
+
+- Phases 0–5 are decomposed into WIs here. **Phase 6 (projection framework) is
+  outlined only** — decomposed by a plan amendment after its own design pass.
+- **Verticals as schema packs** (vision stage 5) are explicitly *out of scope*:
+  they belong to `20260718-coherence-layer.md` Phase 4. This plan is the
+  runtime layer that a vertical later composes in.
+- **No new external dependencies** (ADR-P5). Every phase composes existing
+  atoms and crates. If any WI appears to need a new crate, stop and amend
+  (rule 60 §4).
+
+## Verifiable success criteria (plan level)
+
+1. **Phase 0 exit:** SP1/SP2/SP3 spike reports written with a recorded PASS/
+   decision; entry-gate spec addendum (rev 3, format stays 0) merged;
+   `bash scripts/check-coherence-runtime-phase.sh 0` exits 0.
+2. **Phase 1 exit (the gate):** the semantic checker has run at volume on the
+   dogfood corpus, appending ≥ the WI-1.1 threshold of check-results; the drift
+   gauge reads a recorded baseline; M1–M5 re-measured at volume;
+   `check-coherence-runtime-phase.sh 1` exits 0.
+3. **Every phase:** `check-coherence-runtime-phase.sh <N>` exits 0 — it *runs*
+   the coherence cargo suites + the relevant vitest suites (fail-closed, not
+   reminder-only) and asserts the phase's guardrail property tests are green.
+4. **Guardrail invariants** (property tests, every phase that can violate them):
+   an operator **never auto-selects** among candidates and **never auto-commits**
+   (I3); checks are **advisory, never blocking** (I3, §14); the auditor **never
+   auto-merges objects** (§14). A red guardrail test fails the phase.
+5. **No WI is "complete" without linkage** — commit `(WI-N.M)` or test-file
+   header (rule 60 §2); `scripts/check-wi-linkage.sh <this-plan> --phase=N`.
+
+## ADRs (implementation-level; architectural ADR-C6/C7 live in the proposal)
+
+- **ADR-P1 — Dry-run projection is a pure candidate-overlay, mints nothing.**
+  The one genuinely new kernel entry point. It overlays candidate revisions on
+  the DAG and computes staleness/blast-radius *without appending to the ledger*.
+  It reuses `dag::resolve`/`project_edge`; it must be provably equal to
+  `commit → project → rollback`. **Gated by SP1** (rule 60 §7). Traces: ADR-C6
+  step 2, §6.2/§9.2.
+- **ADR-P2 — Relationship-classifier placement resolved by SP3.** The two
+  hardcoded axes (dependency/version, contradiction/semantic) become entries in
+  a typed **edge-kind registry** — each kind carries `(origin:
+  captured|discovered, shape: directional|symmetric, propagation:
+  version|semantic|none)`. SP3 decides kernel-level registry vs Tier-1
+  schema-pack declaration; the decision is recorded before Phase 2 commits.
+- **ADR-P3 — Canon = a flagged semantic object + a conformance edge kind. No
+  new atom.** A canon is an ordinary object (schema/frontmatter flag:
+  authoritative-for-concept-in-context); conformance is a registered edge kind
+  (directional, carries version-staleness). Context-relative by construction
+  (an alternate context may hold a `Diverged` canon). Traces: paper §5,
+  Deep-dive B.
+- **ADR-P4 — The auditor is composition, never a new algorithm, never an
+  auto-merger.** ADR-C7 = run the existing checker over the edges a completed
+  git merge touched (`merge_surface.rs` × `checker.rs`), surface contradictions
+  for human resolution. No semantic object-merge is built (§14). Traces: R18,
+  R11/R25, ADR-C7.
+- **ADR-P5 — No new external dependencies.** Scope guard against rule 60 §4;
+  any apparent need triggers a plan amendment + crate review, not a silent add.
+
+## Pre-Phase-1 gates (must pass before any commit under this plan)
+
+| Gate | Requirement | Rule |
+|---|---|---|
+| G-A | **✓ met (owner, 2026-07-19)** — ADR-C6 + ADR-C7 approved; proposal flipped to APPROVED. | 60 §1 |
+| G-B | Codex cross-model review of this plan → disposition table appended before Phase 1 commits. | 60 §6 |
+| G-C | SP1/SP2/SP3 PASS before their dependent phases (SP1→P3/P4, SP2→P4, SP3→P2). | 60 §7 |
+
+---
+
+## Cross-model review (G-B, rule 60 §6) — record and disposition
+
+- **Thread:** `019f796a-7e30-7173-8222-24be7b11368d` (Codex, read-only sandbox,
+  high reasoning effort; plan + paper + spec + proposal + notes + prior plan +
+  rule 60 read; it also read the shipped kernel source).
+- **Verdict: MAJOR GAPS.** 4 Critical + multiple High findings across all five
+  dimensions. **Disposition: accepted in full** — no finding refuted. The
+  findings cluster into five themes; Themes A–B are design-level (they resolve
+  in the design session, not by patching WIs); Themes C–E fold into the
+  re-decomposition.
+
+| Theme | Codex findings | Disposition |
+|---|---|---|
+| **A — Candidate/uncommitted model is deeper than planned** | SP1 "byte-identical to commit→project→rollback" is ill-formed (append-only ⇒ no rollback; a commit mints UUID/time/idem); the shipped checker can only verify a *committed* edge; multi-object changesets need output-bearing edge identity (`(txf,input)` omits output); candidate lifecycle (base binding, concurrency, atomicity, recovery) undefined; no preview performance envelope vs 500k edges; "blast radius" undefined | **Accepted → design session.** SP1 reformulated to *observational equality over a disposable clone* (compare normalized projection rows, exclude envelope IDs/times, assert original ledger/CAS/index unchanged); add a transient checker-prep API over candidate bytes; decide output identity in the rev-3 contract; **Phase 0 becomes an end-to-end disposable operator slice** (two candidates → preview → transient check → reject one → atomic accept → restart/replay), not just a DAG overlay |
+| **B — Ontology conflicts with the normative contract** | contradiction modeled as an edge kind (it is a `check-result` assessment); canon redefined as an object flag (paper derives canon from claim-objects in an enforcing Context); WI-4.5 transitive canon-of-canon staleness contradicts the local projection *and* the design notes | **Accepted → design session.** Separate `OriginEdgeKind` (dependency, conformance) from `AssessmentKind` (contradiction stays a check-result). **Canon ontology is an owner decision** (align to claim-based canon vs formally amend the paper). Replace "transitive staleness" with: local current-staleness (unchanged) **+** a separate forward blast-radius closure used *only* for preview |
+| **C — "Mostly composition" claims too optimistic** | operators-as-"Tier-1 schema-pack functions" have no execution model (Tier 1 is declarative; executable = deferred Tier 5); operator accept can't reuse the `resolve` delegation path; the merge auditor isn't "mostly wiring" (`merge_surface` stores only a merge SHA; git-attributed txns have empty inputs) | **Accepted.** v1 operators are **built-in Rust** (no DSL/Tier-5); add an `operator.accept` delegation scope + dedicated atomic accept command; add a **merge-diff→object mapping spike** before the auditor phase |
+| **D — Gate & measurement rigor** | Phase 1 entry-count gate is inflatable and doesn't establish precision/coverage/cost; M2/M4/M5 need human judgment (not auto); "re-coherence tax" is not a defined M-metric/wire field; drift gauge lives in the sibling `epcho-ai` repo (not vendored); no per-provider cost accounting | **Accepted.** Phase 1 gates on distinct *live-edge* coverage + error-rate + p95 latency + total cost + resume correctness + owner-judged M3; M2/M4/M5 stay owner-judged; define the drift-gauge formulas + required ledger/session fields contractually; locate/version the external gauge |
+| **E — Plan hygiene** | gate wording self-conflicts (G-C "before any commit" vs dependent-phase; stale "before G-A"); trace refs unqualified/wrong (`§9.2`/`§3`/`§4` are not paper sections; WI-4.4 cites R31 though R31 *fixes* file-level granularity); thin per-WI acceptance; missing explicit per-phase prerequisites; projection framework deferred while bespoke panels accrue | **Accepted.** One phase dependency matrix; qualify every `§` by document; drop the backwards R31 citation; per-WI acceptance/edge-case columns; explicit prerequisites enforced by the phase script; a minimal shared read-model interface defined before the operator/canon UIs |
+
+**Owner decision that unblocks the design session:** the canon ontology
+(Theme B) — align to the paper's **claim-based** canon (recommended; no paper
+amendment) vs redefine canon as **objects** (requires a formal paper amendment).
+
+---
+
+## Phase 0 — Spikes + entry gate (de-risk before commit)
+
+**DoD:** `bash scripts/check-coherence-runtime-phase.sh 0` exits 0 — asserts the
+three spike reports exist under `grills/coherence/` with a recorded verdict, the
+entry-gate spec addendum is merged, and the checker script itself exists. No
+production-source WIs except spike-class probes (grills, not shipped).
+
+| WI | Work item | Traces to |
+|---|---|---|
+| WI-0.1 | **Spike SP1 — dry-run blast-radius projection over *uncommitted* candidates.** Runnable probe: overlay N candidate revisions on the DAG, compute the staleness projection against a viewing context **without minting ledger entries**, and prove equality to `commit → project → rollback`. PASS = projection is pure over `(origin edges, resolution records, context, transient overlay)` and byte-identical to the committed-then-rolled-back baseline across linear/branched/multi-head fixtures. This is the hard prerequisite for ADR-P1. | ADR-C6 step 2, §6.2/§9.2 |
+| WI-0.2 | **Spike SP2 — conformance-edge composition.** Probe: model a canon node (flagged object) with K conformance edges; verify staleness propagates canon→conformers through the *existing* `dag`/`project` with **zero kernel change**, and that the edge count is linear (N, not N(N−1)/2) versus a modeled pairwise mesh baseline. PASS = conformance edges are ordinary directional edges the current projection already handles. | Deep-dive B, R10, R31 |
+| WI-0.3 | **Spike SP3 — relationship-classifier placement.** Prototype both (a) a kernel-level typed edge-kind registry and (b) a Tier-1 schema-pack declaration, each reproducing the two existing axes as registry entries. Decide kernel vs schema-pack (resolves ADR-P2) with a recorded rationale + the minimal working prototype of the chosen side. | §3 classifier, Tier-1 |
+| WI-0.4 | **Entry-gate spec addendum — rev 3 (format stays 0):** candidate-changeset schema (in-memory only, never ledger), operator-intent taxonomy (`intent.kind = "operator:<name>"`), conformance-edge role in the input-set taxonomy, and the edge-kind registry schema (if kernel per SP3). No implementation WI in any later phase starts before this lands (contract-first, R21). | R21, R24, spec §5/§7/§8 |
+| WI-0.5 | Create `scripts/check-coherence-runtime-phase.sh` (template: `check-coherence-phase.sh`) with Phase 0–5 assertions; set the Phase 1 check-result volume threshold and drift-gauge baseline fields. | M1–M5 |
+
+## Phase 1 — Verify at volume + drift baseline (the gate; bucket A)
+
+The load-bearing phase: the semantic checker is built but has run only at tiny
+scale (~3 check-results). Everything downstream — forward-operator verify, the
+auditor, the drift answer — needs verification producing signal at volume. This
+phase is measurement + light hardening, not new surface. **May proceed before
+G-A** (implements no proposed ADR).
+
+**DoD:** `check-coherence-runtime-phase.sh 1` exits 0 — asserts the ledger holds
+≥ the WI-0.5 threshold of check-results on the dogfood corpus, a drift-gauge
+baseline report is committed, M1–M5 are re-recorded in the dogfood log, and the
+checker's volume-failure-path tests are green.
+
+| WI | Work item | Traces to |
+|---|---|---|
+| WI-1.1 | **Volume run harness.** Deterministic, replayable harness that exercises the checker over the dogfood corpus at volume (repo coherence corpus + the S3/S4 probe corpora), appending check-results to the ledger. Not ad-hoc — a committed, re-runnable script with a recorded seed/manifest. | M3, R25 |
+| WI-1.2 | **Drift-gauge integration.** Wire `epcho-ai/instruments/drift_metrics.py` to read this workspace's ledger; produce and commit a **baseline** report (contradiction-rate, re-coherence-tax trend). This is the instrument the whole vision is validated by. | M2, M4, M5 |
+| WI-1.3 | **M-metric re-measurement at volume** (dogfood session): M1 capture completeness, M2 staleness relevance, M3 semantic-check precision, M4 resolution burden, M5 time-to-confidence — all on the volume corpus, logged per the dogfood protocol. | M1–M5 |
+| WI-1.4 | **Checker robustness at volume** (hardening the existing `checker.rs`): batching, provider rate-limit/backoff, `timeout→unknown` at scale, a **cost ceiling** with graceful stop, and resumability after interruption. Tests for the failure paths that only appear at volume (partial batch, mid-run abort, budget exhaustion). | R25 |
+
+## Phase 2 — Relationship classifier (foundational refactor)
+
+Generalizes the two hardcoded axes into the edge-kind registry (ADR-P2), so
+conformance (Phase 4) and the long tail become registrations, not new hardcoded
+branches. Behavior-preserving refactor first. **Gated by SP3.** May proceed
+before G-A (implements no proposed ADR).
+
+**DoD:** `check-coherence-runtime-phase.sh 2` exits 0 — the two existing axes are
+registry entries with identical observable behavior (characterization tests
+green), a third kind registers and propagates per its rule, and inert kinds are
+captured/visible but never stale.
+
+| WI | Work item | Traces to |
+|---|---|---|
+| WI-2.1 | **Edge-kind registry** (placement per SP3): typed kinds each with `(origin, shape, propagation)`. Refactor the dependency (version) and contradiction (semantic) axes into registry entries — **characterization tests written first** to freeze current behavior, then refactor under them. | §3, R10, R11, R25 |
+| WI-2.2 | **Propagation dispatch:** staleness projection consults the registry's per-kind propagation rule instead of hardcoded axis logic. Table-driven tests over each kind × linear/branched/multi-head fixtures. | R31, `project.rs` |
+| WI-2.3 | **Long-tail readiness:** register `supersession` (carries version-staleness) and `part-of`/`mention` (inert — captured, visible, never stale) as proof the registry generalizes. Inert kinds must appear in read models but never in the stale set. | §3 long tail |
+| WI-2.4 | **Read-model exposure:** `coherence_edges` reports the edge kind (read-only, R23 intact); breakdown view groups/labels by kind; i18n ×10. | R23 |
+
+## Phase 3 — Forward operators (ADR-C6)
+
+**Gated by G-A (ADR-C6 approval) + SP1 PASS.**
+
+**DoD:** `check-coherence-runtime-phase.sh 3` exits 0 — an operator produces
+candidates; preview shows blast radius with **zero ledger writes**; verify runs
+the checker advisory (non-blocking); commit-on-accept mints **exactly one**
+transformation with `intent.kind=operator:<name>`; guardrail property tests
+(never auto-select, never auto-commit, checks non-blocking) green.
+
+| WI | Work item | Traces to |
+|---|---|---|
+| WI-3.0 | **Entry gate:** confirm G-A recorded + SP1 PASS + WI-0.4 spec addendum merged. No Phase-3 implementation before this. | R21, 60 §7 |
+| WI-3.1 | **Dry-run projection primitive** (ADR-P1): pure `project_candidates` + a `coherence_preview` command that overlays candidate revisions and returns staleness/blast-radius, minting nothing. Property test: `preview ≡ (commit → project → rollback)` across the SP1 fixtures. | ADR-C6 step 2, §6.2/§9.2 |
+| WI-3.2 | **Operator runtime** (Tier-1 schema-pack function — data, not runtime code): operator-definition schema, in-memory candidate-changeset production, N-candidate handling. No candidate touches the ledger. | ADR-C6 step 1, §5, Tier-1 |
+| WI-3.3 | **Verify step:** advisory checker over each candidate, surfaced in preview, **never blocking** (I3, §14). A failing check annotates a candidate; it never removes or auto-ranks it. | ADR-C6 step 3, R11, R25, I3 |
+| WI-3.4 | **Commit-on-accept:** human selects one candidate → ordinary `coherence_capture` transformation with `intent.kind=operator:<name>`, confidence per capture path (§8), input roles per R24. **Property tests: never auto-selects among N; never auto-commits.** | ADR-C6 step 4, R1, R24, R33, I3 |
+| WI-3.5 | **Preview UI:** operator picker; candidate list with per-candidate blast radius; advisory check badges; explicit human accept. Zero store destructuring (selectors only); loading/empty/error states; i18n ×10. | R15, §14 |
+| WI-3.6 | **MCP surface:** propose + preview through read-only MCP; accept remains human/delegated (reuse Phase-3 delegation grants, `design-3.md` D2). R23 intact for read; the mutating accept rides the existing delegated `resolve` path. | R23 |
+| WI-3.7 | Docs (`website/guide/coherence.md` operators section + dev-docs note), i18n ×10, dogfood session (M2/M4 on operator-driven changes). | — |
+
+## Phase 4 — Canon-hub + `Extract-Canon` (ADR-C6 instance; the re-coherence-tax lever)
+
+**Gated by G-A + SP2 PASS + Phase 2 (classifier) + Phase 3 (operators).**
+
+**DoD:** `check-coherence-runtime-phase.sh 4` exits 0 — a canon object + N
+conformance edges reduce a modeled mesh to a star (edge count linear, verified
+against the SP2 baseline); `Extract-Canon` proposes extraction with preview;
+changing a canon flags exactly its conformers (facet-scoped); guardrail tests
+green.
+
+| WI | Work item | Traces to |
+|---|---|---|
+| WI-4.1 | **Canon object convention** (ADR-P3): schema/frontmatter flag marking an object authoritative-for-concept-in-context; no new atom; context-relative (`Diverged` canon allowed per context). | paper §5, Deep-dive B |
+| WI-4.2 | **Conformance edge kind** (registered via Phase 2): directional, carries version-staleness, captured when an object references/uses a canon (edge inference, not homework). | §3, Deep-dive B |
+| WI-4.3 | **`Extract-Canon` forward operator** (Phase 3 surface): detect a concept referenced by ≥k objects with pairwise-drift risk → propose a canon object + conformance edges as a candidate changeset → preview blast radius → human accepts. The first named, high-value operator. | ADR-C6, Deep-dive B |
+| WI-4.4 | **Canon granularity:** facet-level canons (`canon(X.facet)`) + a split-canon operation so a facet change does not stale conformers that depend only on other facets. This is the false-positive-staleness knob (§4 granularity lever) applied at the hub. | §4 granularity, R31 |
+| WI-4.5 | **Canon-of-canon layering:** canon→canon conformance; staleness flows down the canon DAG then out to leaves. Table-driven tests over multi-layer fixtures. | Deep-dive B |
+| WI-4.6 | Breakdown UI canon view + `coherence_edges` canon exposure (read-only) + i18n ×10 + dogfood measuring the **re-coherence-tax delta** the drift gauge reports before/after canon (does canon reduce the tax? — the whole justification). | M2, M4, drift gauge |
+
+## Phase 5 — Semantic-merge auditor (ADR-C7)
+
+**Gated by G-A (ADR-C7 approval).** Depends only on Phase 1 (checker at volume)
++ existing `merge_surface.rs`; independent of Phases 2–4. Mostly composition
+(ADR-P4).
+
+**DoD:** `check-coherence-runtime-phase.sh 5` exits 0 — after a completed git
+merge, affected edges are re-checked and contradictions surface for human
+resolution; **no auto-merge of objects**; guardrail test green.
+
+| WI | Work item | Traces to |
+|---|---|---|
+| WI-5.1 | **Merge-affected edge set:** from `merge_surface.rs`, compute the edges a completed merge touched (per-merge-hash, deduped as in `design-3.md` D3). | R18, §8 |
+| WI-5.2 | **Auditor wiring** (ADR-P4): run the Phase-2b checker over those edges; emit results as advisory check-results. No new algorithm. | R11, R25, ADR-C7 |
+| WI-5.3 | **Breakdown surface:** merge-origin contradictions grouped; human resolves accept-newer / revise / waive (R15); **never auto-reconciles** (§14 property test). | R12, I3, R15, §14 |
+| WI-5.4 | Docs + i18n ×10 + dogfood (M2 on merge-origin flags). | — |
+
+## Phase 6 — Projection framework (outlined, not decomposed)
+
+Vision stage 4: one abstraction for "many synchronized views of one state,"
+unifying the format registry and the bespoke coherence panels (breakdown, canon,
+operator preview) that Phases 1–5 accreted. **Decomposed by a plan amendment
+after its own design pass** — decomposing now would guess at decisions not yet
+made. Verticals-as-schema-packs (vision stage 5) remain in
+`20260718-coherence-layer.md` Phase 4, not here.
+
+## Risks
+
+1. **SP1 fails** — dry-run projection does not compose over an uncommitted
+   overlay → forward operators need a different mechanism; Phases 3–4 blocked.
+   *Mitigation: Phase 0 gate; this is exactly why SP1 precedes any commit.*
+2. **Checker cost/latency at volume** (Phase 1) — LLM calls at scale.
+   *Mitigation: WI-1.4 batching + cost ceiling + sampling; the volume threshold
+   is a budget, not "check everything."*
+3. **`Extract-Canon` proposes poor canons** — the operator never auto-commits
+   (I3); the human rejects; M2 tracks proposal noise, O9 escalates if it misses
+   baseline.
+4. **Scope creep toward auto-propagation / auto-merge** — §14 is binding; the
+   guardrail property tests (criterion 4) are hard gates, not advisory.
+5. **Registry over-generalization** — the classifier becomes a framework that
+   does nothing. *Mitigation: only register kinds with a concrete propagation
+   consequence; inert kinds must earn their place with a real read-model use.*
+
+## Open questions (owner input)
+
+1. **G-A:** approve ADR-C6 + ADR-C7? (The gate for Phases 3–5.)
+2. **Phase 1 dogfood corpus:** the repo coherence corpus (self-host) vs a real
+   creative project — the still-open dogfood choice from
+   `20260718-coherence-layer.md`.
+3. **Canon granularity default** (WI-4.4): facet-level vs concept-level — the
+   false-positive-staleness knob.
+4. **Classifier placement** (SP3/ADR-P2): kernel registry vs schema-pack — owner
+   preference, if any, ahead of the spike.
+
+## Governance
+
+- WI linkage enforced (`scripts/check-wi-linkage.sh <this-plan> --phase=N`).
+- Phase status header ticks only when `check-coherence-runtime-phase.sh <N>`
+  passes (rule 60 §3).
+- **Codex review of this plan (G-B) is mandatory before Phase 1 commits**
+  (rule 60 §6); disposition table appended here on completion.
+- No new dependencies (ADR-P5); if that changes, crate review per rule 60 §4.
+- ADR-C6/C7 owner approval (G-A) recorded in
+  `grills/coherence/forward-operators-proposal.md` (status flips
+  PROPOSED → APPROVED) before Phases 3–5.
