@@ -22,6 +22,7 @@ macro_rules! all_commands {
             window_status::focus_window,
             coherence::commands::coherence_capture,
             coherence::check_commands::coherence_check,
+            coherence::check_sweep_command::coherence_check_sweep,
             coherence::claim_commands::coherence_claim,
             coherence::claim_commands::coherence_claim_scope,
             coherence::claim_commands::coherence_claims,

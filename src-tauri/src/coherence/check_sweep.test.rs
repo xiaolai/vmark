@@ -136,10 +136,12 @@ fn error_rate_is_over_attempted_calls() {
     for _ in 0..8 {
         m.record_checked(0.1, 50);
     }
-    m.record_errored(50);
-    m.record_errored(50);
+    m.record_errored(0.1, 50);
+    m.record_errored(0.1, 50);
     // 2 errors / 10 attempted = 0.2 (NOT 2/100 — skips don't count as attempts).
     assert!((m.error_rate() - 0.2).abs() < 1e-9);
+    // Errored calls still add their (estimated) cost: 8×0.1 + 2×0.1 = 1.0.
+    assert!((m.estimated_cost_usd - 1.0).abs() < 1e-9);
 }
 
 #[test]
