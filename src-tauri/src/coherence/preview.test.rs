@@ -141,13 +141,18 @@ fn group_preview_surfaces_new_conformance_edges() {
 
     let preview = index.project_group(&group, NOW).unwrap();
 
-    // The new conformance edge appears: synthetic nil txf, downstream = conformer.
+    // The new conformance edge appears in the delta (downstream = conformer),
+    // before Retired, after Fresh.
     let d = preview
         .local_delta
         .iter()
         .find(|d| d.edge.downstream == conf)
         .expect("the new conformance edge must be in the preview delta");
-    assert_eq!(d.edge.txf, uuid::Uuid::nil(), "synthetic display txf");
+    assert_ne!(
+        d.edge.txf,
+        uuid::Uuid::nil(),
+        "deterministic preview id, not nil"
+    );
     assert_eq!(
         d.before,
         StructuralClass::Retired,
@@ -160,13 +165,16 @@ fn group_preview_surfaces_new_conformance_edges() {
             ahead: false
         }
     );
-    // Display-only: synthetic edges must NOT gate the accept precondition.
+    // #8: the new edge's after-class IS captured for the accept precondition...
     assert!(
-        !preview
-            .base_classes
-            .keys()
-            .any(|k| k.txf == uuid::Uuid::nil()),
-        "synthetic edges must stay out of base_classes"
+        preview.new_edge_classes.contains_key(&d.edge),
+        "the new edge must be in new_edge_classes for the accept re-check",
+    );
+    // ...but NOT in base_classes (committed edges only), so the base check is
+    // unaffected.
+    assert!(
+        !preview.base_classes.contains_key(&d.edge),
+        "synthetic edges must stay out of base_classes",
     );
 }
 

@@ -17,12 +17,11 @@ use super::types::{Envelope, WriterId, FORMAT_VERSION};
 const MAX_SEGMENT_BYTES: u64 = 8 * 1024 * 1024;
 
 /// I5 tripwire — every public method, mirrored by the test suite.
-pub const PUBLIC_API: [&str; 6] = [
+pub const PUBLIC_API: [&str; 5] = [
     "new",
     "with_max_segment_bytes",
     "append",
     "read_all",
-    "raw_entry_count",
     "active_segment_path_for_test",
 ];
 
@@ -147,34 +146,6 @@ impl Ledger {
         f.sync_all()
             .map_err(|e| format!("ledger fsync failed: {e}"))?;
         Ok(())
-    }
-
-    /// Cheap upper-bound entry count: non-empty newline-terminated lines across
-    /// all segments, WITHOUT JSON parse / dedupe / sort. `raw_entry_count() >=`
-    /// the index's applied idem count always holds (dupes, quarantine,
-    /// future-format, and un-applied torn tails only *add* lines), so equality
-    /// with `applied_count()` proves the index is caught up — the heal-on-open
-    /// fast path (design-accept-consistency Fix A). Read-only (I5): counts
-    /// bytes, never mutates history.
-    pub fn raw_entry_count(&self) -> Result<usize, String> {
-        let dir_entries = match fs::read_dir(&self.dir) {
-            Ok(entries) => entries,
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(0),
-            Err(e) => return Err(format!("ledger dir unreadable: {e}")),
-        };
-        let mut count = 0usize;
-        for entry in dir_entries {
-            let entry = entry.map_err(|e| format!("ledger dir entry unreadable: {e}"))?;
-            let path = entry.path();
-            if path.extension().is_some_and(|x| x == "jsonl") {
-                let bytes = fs::read(&path).map_err(|e| format!("segment read failed: {e}"))?;
-                count += bytes
-                    .split(|b| *b == b'\n')
-                    .filter(|l| !l.is_empty())
-                    .count();
-            }
-        }
-        Ok(count)
     }
 
     /// Merge every segment in the ledger directory (spec §5.1/§5.6).

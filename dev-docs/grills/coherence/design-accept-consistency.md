@@ -25,11 +25,23 @@ The re-review was correct on all counts (verified against the code). Triage:
 | 8 | **New-edge preview state excluded from the precondition.** A member's new input edge pinned to external `X@x1` shows Fresh in preview; X advances to x2 before accept; base-head unchanged so the precondition (committed edges only) passes, and B commits an edge different from what was reviewed. "No pre-image" ≠ "stable after-state". | VALID (correctness) | **Fix now:** compare a stable map of the new edges' projected after-classes at accept (deterministic preview-only ids), recomputed on fresh accept + recovery. |
 | — | **MINOR: nil synthetic id can read persisted state.** The parser accepts a nil envelope id, so a merged/external real edge could be `txf=nil`; synthetic edges then read persisted `all_res`/`live_checks` for `(nil, idx)`. `before=Retired` also conflates absent vs retired. | VALID (minor) | **Fix now:** pass empty res/checks for synthetic edges; add an `Absent` preview state; don't reserve a parser-accepted UUID. |
 
-**Fix-now set:** #1, #2, #3, #4, #8, MINOR — all correctness bugs fixable without
-the deeper architecture. **Deferred set:** #5, #6, #7 — a durable prepare/manifest
-+ cross-process lock + recovery-revalidation, which is its own design pass and a
-third review. Until BOTH sets land and a re-review is clean, the group-commit
-(and Extract-Canon on top of it) is **not ship-ready**.
+**Fix-now set — ✅ FIXED + tested (2026-07-20):** #1/#2 (heal-on-open now
+reconciles on the canonical `(idem→winner)` map, not counts — `state.rs` +
+`index_state::applied_map`; regression test `open_reconciles_when_the_ledger_is_replaced_at_equal_count`),
+#3 (ambiguous append/apply failure poisons the kernel + reconciles;
+`ensure_available` guards accepts — test
+`an_append_failure_reconciles_and_asks_for_retry_without_losing_state`), #4
+(`group_id` hashes sorted *ungrouped member idems* — full identity — test
+`group_id_binds_full_member_identity_not_just_revisions`), #8 + MINOR (new-edge
+after-classes gate the accept precondition via `new_edge_classes`; deterministic
+preview-only ids, empty res/checks — test
+`a_new_edge_going_stale_between_preview_and_accept_is_rejected`).
+
+**Deferred set — STILL OPEN (own design pass + a THIRD review before ship):**
+#5 durable prepare/manifest, #6 recovery-revalidation against intervening writes,
+#7 cross-process workspace lock. These are a real protocol design task, not
+patches. Until they land AND a third review is clean, the group-commit (and
+Extract-Canon on top of it) is **not ship-ready** — Phase 4 stays red.
 
 ---
 
