@@ -11,7 +11,7 @@
 //!   cargo test --manifest-path src-tauri/Cargo.toml \
 //!     --test verify_at_volume_inventory -- --ignored --nocapture
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
 
 use vmark_lib::coherence::index_row::state_label;
@@ -88,6 +88,39 @@ fn inventory_checkable_stale_edges() {
     );
     for p in absent.iter().take(20) {
         println!("    absent: {p}  (its edges are hidden, spec §9.4)");
+    }
+
+    // Rank objects by how many input-edges they are UPSTREAM of — editing a
+    // high-count object stales the most dependents. Heuristic: counts input
+    // appearances across all transformations (historical, not just live).
+    let read = kernel.ledger().read_all().expect("read ledger");
+    let mut dep_edges: HashMap<String, usize> = HashMap::new();
+    for env in &read.entries {
+        if env.kind != "transformation" {
+            continue;
+        }
+        if let Some(inputs) = env.body.get("inputs").and_then(|v| v.as_array()) {
+            for inp in inputs {
+                if let Some(obj) = inp.get("object").and_then(|v| v.as_str()) {
+                    *dep_edges.entry(obj.to_string()).or_default() += 1;
+                }
+            }
+        }
+    }
+    let mut objs: Vec<(usize, String)> = registry
+        .path_of
+        .iter()
+        .map(|(oid, path)| {
+            (
+                *dep_edges.get(&oid.0.to_string()).unwrap_or(&0),
+                path.clone(),
+            )
+        })
+        .collect();
+    objs.sort_by(|a, b| b.0.cmp(&a.0).then(a.1.cmp(&b.1)));
+    println!("\nevolve targets (dep-edges = # input appearances; edit high ones to stale the most):");
+    for (deps, path) in &objs {
+        println!("  {deps:>3} dep-edges   {path}");
     }
 
     // Verdict (gate: >= 10 distinct checkable edges reaches volume in one sweep).
