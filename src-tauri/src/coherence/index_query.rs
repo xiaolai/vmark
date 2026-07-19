@@ -216,6 +216,7 @@ impl CoherenceIndex {
                 downstream: edge.downstream,
                 downstream_rev: edge.downstream_rev,
                 confidence,
+                kind: edge.kind.as_str().into(),
                 state,
             });
         }
