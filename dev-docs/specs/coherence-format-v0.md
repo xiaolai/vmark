@@ -889,8 +889,22 @@ idem = uuid_from_sha256(
   ‖ field(agent.kind) ‖ opt(agent.id)
   ‖ field(intent.kind) ‖ field(intent.summary) ‖ opt(intent.prompt_hash)
   ‖ field(confidence)
+  ‖ [ field(group_id) ]   // terminal, present ONLY for a group member (§13.7)
 )
+
+group_id = hex(sha256("vmark-group-v1" ‖ list(sorted(member.revision))))
 ```
+
+**Group-member idem (§13.7, design-accept-consistency #1).** A multi-object
+group-commit folds a **content-addressed group identity** into each member's
+idem: `group_id` is the hash of the members' sorted (content-addressed)
+revisions, so it is known before any idem and folds in without circularity. It
+is the **terminal, optional** field — a single (non-group) accept omits it
+entirely, so its idem is byte-identical to the pre-group preimage; a group
+member appends its length-prefixed `group_id`. Consequence: the O(1)
+idem-presence lookup answers "committed **as part of this group**", so a partial
+group is recovered exactly and a coincidental standalone commit of the same
+candidate (different idem) is never misread as group membership.
 
 The length-prefix makes the encoding **injective**: distinct payloads never share
 a preimage. `opt` (a presence byte) covers every optional field — `agent.id` and

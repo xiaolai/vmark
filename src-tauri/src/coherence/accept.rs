@@ -59,7 +59,7 @@ pub fn accept_candidate(
         kind: AgentType::Human,
         id: None,
     });
-    let idem = operator_accept_idem(&candidate.operator, FORMAT_VERSION, &txf)?;
+    let idem = operator_accept_idem(&candidate.operator, FORMAT_VERSION, &txf, None)?;
 
     // 2. Idem lookup (v4.2), O(1) via the index. The index is authoritative for
     // idem here: heal-on-open reconciles any torn crash tail
