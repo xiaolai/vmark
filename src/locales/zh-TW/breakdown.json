@@ -65,5 +65,14 @@
     "expiresOn": "至 {{date}}",
     "grantConfirm": "允許「{{principal}}」在 {{date}} 之前解決此工作區中的依賴邊（{{scope}}）嗎？每次受委任的解決作業都會記入稽核紀錄，並關聯至此次授予。",
     "grantTitle": "授予委任"
+  },
+  "branch": {
+    "available": "有可用的分支情境：{{name}} — 切換",
+    "ambiguous": "多個情境對應到分支「{{branch}}」 — 請先解決再切換",
+    "create": "為分支「{{branch}}」建立情境"
+  },
+  "merge": {
+    "banner": "合併已完成 — 請查看明細",
+    "dismiss": "忽略"
   }
 }

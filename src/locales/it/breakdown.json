@@ -65,5 +65,14 @@
     "expiresOn": "fino al {{date}}",
     "grantConfirm": "Consentire a \"{{principal}}\" di risolvere archi in questo spazio di lavoro ({{scope}}) fino al {{date}}? Ogni risoluzione delegata viene registrata nel log di audit a fronte di questa concessione.",
     "grantTitle": "Concedi delega"
+  },
+  "branch": {
+    "available": "Contesto del branch disponibile: {{name}} — cambia",
+    "ambiguous": "Più contesti mappano il branch \"{{branch}}\" — risolvi prima di cambiare",
+    "create": "Crea contesto per il branch \"{{branch}}\""
+  },
+  "merge": {
+    "banner": "Merge completato — rivedi il dettaglio",
+    "dismiss": "Ignora"
   }
 }

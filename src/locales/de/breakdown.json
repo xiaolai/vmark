@@ -65,5 +65,14 @@
     "expiresOn": "bis {{date}}",
     "grantConfirm": "„{{principal}}“ erlauben, bis {{date}} Kanten in diesem Arbeitsbereich aufzulösen ({{scope}})? Jede delegierte Auflösung wird im Audit-Log dieser Erteilung zugeordnet.",
     "grantTitle": "Delegation erteilen"
+  },
+  "branch": {
+    "available": "Branch-Kontext verfügbar: {{name}} — wechseln",
+    "ambiguous": "Mehrere Kontexte sind dem Branch „{{branch}}“ zugeordnet — vor dem Wechseln auflösen",
+    "create": "Kontext für Branch „{{branch}}“ erstellen"
+  },
+  "merge": {
+    "banner": "Ein Merge wurde abgeschlossen — Aufschlüsselung prüfen",
+    "dismiss": "Schließen"
   }
 }

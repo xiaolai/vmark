@@ -65,5 +65,14 @@
     "expiresOn": "hasta {{date}}",
     "grantConfirm": "¿Permitir que \"{{principal}}\" resuelva aristas en este espacio de trabajo ({{scope}}) hasta {{date}}? Cada resolución delegada queda registrada en el registro de auditoría vinculada a este otorgamiento.",
     "grantTitle": "Otorgar delegación"
+  },
+  "branch": {
+    "available": "Contexto de rama disponible: {{name}} — cambiar",
+    "ambiguous": "Varios contextos están asignados a la rama \"{{branch}}\" — resuélvelo antes de cambiar",
+    "create": "Crear contexto para la rama \"{{branch}}\""
+  },
+  "merge": {
+    "banner": "Se completó una fusión — revisa el desglose",
+    "dismiss": "Descartar"
   }
 }

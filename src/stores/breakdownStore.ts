@@ -64,6 +64,20 @@ export interface DelegationRow {
   expires: string;
 }
 
+/** Mirror of the Rust `MergeNotice` (WI-3.7). */
+export interface MergeNotice {
+  sha: string;
+  time: string;
+}
+
+/** Mirror of the Rust `BranchCandidate` (WI-3.6). */
+export interface BranchCandidate {
+  branch: string;
+  context: string | null;
+  contextName: string | null;
+  ambiguous: boolean;
+}
+
 /** Mirror of the Rust `ContextRow` (camelCase — serde rename_all). */
 export interface ContextRow {
   id: string;
@@ -85,6 +99,10 @@ interface BreakdownState {
   provenance: ProvenanceCandidate[];
   /** Live agent delegations (WI-3.4). */
   delegations: DelegationRow[];
+  /** Pull-only branch-context candidate for THIS branch (WI-3.6), or null. */
+  branchCandidate: BranchCandidate | null;
+  /** Latest completed-merge notice for the dismissible banner (WI-3.7). */
+  mergeNotice: MergeNotice | null;
   /** Whether the Breakdown panel is open in THIS window. */
   panelOpen: boolean;
   /** A refresh is in flight. */
@@ -95,6 +113,8 @@ interface BreakdownState {
   setContexts: (contexts: ContextRow[]) => void;
   setProvenance: (candidates: ProvenanceCandidate[]) => void;
   setDelegations: (rows: DelegationRow[]) => void;
+  setBranchCandidate: (c: BranchCandidate | null) => void;
+  setMergeNotice: (m: MergeNotice | null) => void;
   setSelectedContext: (id: string | null) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
@@ -113,6 +133,8 @@ export const useBreakdownStore = create<BreakdownState>()((set) => ({
   selectedContext: null,
   provenance: [],
   delegations: [],
+  branchCandidate: null,
+  mergeNotice: null,
   panelOpen: false,
   loading: false,
   error: null,
@@ -120,6 +142,8 @@ export const useBreakdownStore = create<BreakdownState>()((set) => ({
   setContexts: (contexts) => set({ contexts }),
   setProvenance: (provenance) => set({ provenance }),
   setDelegations: (delegations) => set({ delegations }),
+  setBranchCandidate: (branchCandidate) => set({ branchCandidate }),
+  setMergeNotice: (mergeNotice) => set({ mergeNotice }),
   setSelectedContext: (selectedContext) => set({ selectedContext }),
   setLoading: (loading) => set({ loading }),
   setError: (error) => set({ error }),
@@ -132,6 +156,8 @@ export const useBreakdownStore = create<BreakdownState>()((set) => ({
       selectedContext: null,
       provenance: [],
       delegations: [],
+      branchCandidate: null,
+      mergeNotice: null,
       panelOpen: false,
       loading: false,
       error: null,

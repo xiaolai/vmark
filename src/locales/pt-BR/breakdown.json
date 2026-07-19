@@ -65,5 +65,14 @@
     "expiresOn": "até {{date}}",
     "grantConfirm": "Permitir que \"{{principal}}\" resolva arestas neste espaço de trabalho ({{scope}}) até {{date}}? Toda resolução delegada é registrada no log de auditoria e vinculada a esta concessão.",
     "grantTitle": "Conceder delegação"
+  },
+  "branch": {
+    "available": "Contexto de branch disponível: {{name}} — trocar",
+    "ambiguous": "Vários contextos mapeiam o branch \"{{branch}}\" — resolva antes de trocar",
+    "create": "Criar contexto para o branch \"{{branch}}\""
+  },
+  "merge": {
+    "banner": "Um merge foi concluído — revise o detalhamento",
+    "dismiss": "Dispensar"
   }
 }

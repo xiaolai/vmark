@@ -561,7 +561,27 @@ phase_3() {
     fail "SKIP_TESTS=1 set — WI-3.5 F5/F6 suites not run"
   fi
 
-  local PENDING=(3.6-ui 3.7 3.8 3.9)
+  echo "— WI-3.6-ui: branch-context chip (pull-only, no auto-select) —"
+  assert_grep "coherence_branch_candidate" src-tauri/src/command_registry.rs "branch candidate command"
+  assert_grep "breakdown-branch-chip" src/components/BreakdownPanel/BreakdownPanel.tsx "chip rendered"
+  assert_grep "refreshBranchCandidate" src/services/breakdown/breakdownService.ts "candidate service"
+  echo "— WI-3.7: completed-merge classifier + banner —"
+  assert_grep "merge_commit_sha" src-tauri/src/coherence/gitops.rs "completed-merge classifier"
+  assert_grep "merge-completed" src-tauri/src/coherence/scan.rs "deduped merge diagnostic"
+  assert_file src/components/BreakdownPanel/MergeBanner.tsx "dismissible merge banner"
+  assert_grep "coherence_recent_merge" src-tauri/src/command_registry.rs "merge-surface command"
+  if [[ "${SKIP_TESTS:-}" != "1" ]]; then
+    if cargo test --manifest-path src-tauri/Cargo.toml --lib coherence::scan coherence::merge_surface --quiet >/dev/null 2>&1 \
+       && pnpm vitest run src/components/BreakdownPanel/MergeBanner.test.tsx src/components/BreakdownPanel/BreakdownPanel.test.tsx --silent >/dev/null 2>&1; then
+      ok "WI-3.6-ui + WI-3.7 suites green"
+    else
+      fail "WI-3.6-ui + WI-3.7 suites red"
+    fi
+  else
+    fail "SKIP_TESTS=1 set — WI-3.6-ui/3.7 suites not run"
+  fi
+
+  local PENDING=(3.8 3.9)
   echo "— pending WIs (fail-closed until implemented) —"
   for wi in "${PENDING[@]}"; do
     fail "WI-$wi assertions not yet defined (fail-closed)"

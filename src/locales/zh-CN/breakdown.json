@@ -65,5 +65,14 @@
     "expiresOn": "至 {{date}}",
     "grantConfirm": "允许“{{principal}}”在 {{date}} 之前解决此工作区中的依赖边（{{scope}}）吗？每次受委托的解决操作都会记入审计日志，并关联到此次授予。",
     "grantTitle": "授予委托"
+  },
+  "branch": {
+    "available": "有可用的分支上下文：{{name}} — 切换",
+    "ambiguous": "多个上下文映射到分支“{{branch}}” — 请先解决再切换",
+    "create": "为分支“{{branch}}”创建上下文"
+  },
+  "merge": {
+    "banner": "合并已完成 — 请查看明细",
+    "dismiss": "忽略"
   }
 }

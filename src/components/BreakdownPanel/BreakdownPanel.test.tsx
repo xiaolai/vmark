@@ -10,6 +10,9 @@ const mockCheck = vi.fn(() => Promise.resolve());
 const mockRefreshContexts = vi.fn(() => Promise.resolve());
 const mockCreateContext = vi.fn(() => Promise.resolve());
 const mockSetEnforcement = vi.fn(() => Promise.resolve());
+const mockRefreshBranch = vi.fn(() => Promise.resolve());
+const mockCreateFromBranch = vi.fn(() => Promise.resolve());
+const mockRefreshMerge = vi.fn(() => Promise.resolve());
 const mockRefreshProvenance = vi.fn(() => Promise.resolve());
 const mockPropose = vi.fn(() =>
   Promise.resolve({
@@ -31,6 +34,9 @@ vi.mock("@/services/breakdown/breakdownService", () => ({
   refreshContexts: (...a: unknown[]) => mockRefreshContexts(...a),
   createContext: (...a: unknown[]) => mockCreateContext(...a),
   setContextEnforcement: (...a: unknown[]) => mockSetEnforcement(...a),
+  refreshBranchCandidate: (...a: unknown[]) => mockRefreshBranch(...a),
+  createContextFromBranch: (...a: unknown[]) => mockCreateFromBranch(...a),
+  refreshMergeNotice: (...a: unknown[]) => mockRefreshMerge(...a),
 }));
 vi.mock("@/services/breakdown/semanticActs", () => ({
   refreshProvenance: (...a: unknown[]) => mockRefreshProvenance(...a),
@@ -72,6 +78,9 @@ beforeEach(() => {
   mockCreateContext.mockClear();
   mockSetEnforcement.mockClear();
   mockAsk.mockClear().mockResolvedValue(true);
+  mockRefreshBranch.mockClear();
+  mockCreateFromBranch.mockClear();
+  mockRefreshMerge.mockClear();
   mockRefreshProvenance.mockClear();
   mockPropose.mockClear();
   mockConfirm.mockClear();
@@ -509,5 +518,72 @@ describe("BreakdownPanel — WI-3.4 delegations", () => {
     await user.type(screen.getByLabelText(/agent principal/i), "codex-cli");
     await user.click(screen.getByRole("checkbox", { name: /accept newer/i }));
     expect(screen.getByRole("button", { name: /^grant$/i })).toBeDisabled();
+  });
+});
+
+describe("BreakdownPanel — WI-3.6 branch-context chip (pull-only)", () => {
+  const DEFAULT_ID = "00000000-0000-0000-0000-000000000000";
+  const ctx = (p: Partial<import("@/stores/breakdownStore").ContextRow> & { id: string; name: string }) => ({
+    parent: null,
+    enforcement: "greenhouse" as const,
+    visibleClaims: 0,
+    errors: [],
+    ...p,
+  });
+
+  it("loads the candidate on mount", () => {
+    render(<BreakdownPanel />);
+    expect(mockRefreshBranch).toHaveBeenCalledWith("/ws");
+  });
+
+  it("offers switch (never auto-selects) for a mapped, unselected context", async () => {
+    const user = userEvent.setup();
+    useBreakdownStore.getState().setContexts([
+      ctx({ id: DEFAULT_ID, name: "default" }),
+      ctx({ id: "c-1", name: "night-arc" }),
+    ]);
+    useBreakdownStore.getState().setBranchCandidate({
+      branch: "night-arc",
+      context: "c-1",
+      contextName: "night-arc",
+      ambiguous: false,
+    });
+    render(<BreakdownPanel />);
+    // Not auto-selected — still on the default.
+    expect(useBreakdownStore.getState().selectedContext).toBeNull();
+    mockRefresh.mockClear();
+    await user.click(screen.getByRole("button", { name: /branch context available/i }));
+    expect(useBreakdownStore.getState().selectedContext).toBe("c-1");
+    expect(mockRefresh).toHaveBeenCalledWith("/ws");
+  });
+
+  it("offers create when the branch has no mapped context", async () => {
+    const user = userEvent.setup();
+    useBreakdownStore.getState().setBranchCandidate({
+      branch: "night-arc",
+      context: null,
+      contextName: null,
+      ambiguous: false,
+    });
+    render(<BreakdownPanel />);
+    await user.click(screen.getByRole("button", { name: /create context for branch/i }));
+    expect(mockCreateFromBranch).toHaveBeenCalledWith("/ws");
+  });
+
+  it("shows an ambiguity notice, no switch button", () => {
+    useBreakdownStore.getState().setBranchCandidate({
+      branch: "night-arc",
+      context: null,
+      contextName: null,
+      ambiguous: true,
+    });
+    render(<BreakdownPanel />);
+    expect(screen.getByText(/multiple contexts map branch/i)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /branch context available/i })).not.toBeInTheDocument();
+  });
+
+  it("no chip when there is no candidate", () => {
+    render(<BreakdownPanel />);
+    expect(screen.queryByText(/branch context/i)).not.toBeInTheDocument();
   });
 });

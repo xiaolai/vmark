@@ -65,5 +65,14 @@
     "expiresOn": "jusqu'au {{date}}",
     "grantConfirm": "Autoriser « {{principal}} » à résoudre des arêtes dans cet espace de travail ({{scope}}) jusqu'au {{date}} ? Chaque résolution déléguée est consignée dans le journal d'audit au titre de cette délégation.",
     "grantTitle": "Accorder une délégation"
+  },
+  "branch": {
+    "available": "Contexte de branche disponible : {{name}} — changer",
+    "ambiguous": "Plusieurs contextes sont associés à la branche « {{branch}} » — résolvez avant de changer",
+    "create": "Créer un contexte pour la branche « {{branch}} »"
+  },
+  "merge": {
+    "banner": "Une fusion a été effectuée — vérifiez le détail",
+    "dismiss": "Ignorer"
   }
 }
