@@ -29,6 +29,7 @@ pub mod contexts;
 pub mod dag;
 pub mod delegation;
 pub mod delegation_commands;
+pub mod edge_kind;
 pub mod envelope;
 pub mod frontmatter;
 pub mod gitops;

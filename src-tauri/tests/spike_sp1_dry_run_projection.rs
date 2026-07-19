@@ -110,6 +110,7 @@ fn edges_of(txf: &Txf) -> Vec<OriginEdge> {
             downstream: txf.out.object,
             downstream_rev: txf.out.revision.clone(),
             role: InputRole::Direct,
+            kind: vmark_lib::coherence::edge_kind::OriginEdgeKind::Dependency,
         })
         .collect()
 }

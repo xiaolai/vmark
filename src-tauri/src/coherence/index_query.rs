@@ -150,7 +150,7 @@ impl CoherenceIndex {
 
         let mut stmt = self
             .conn
-            .prepare("SELECT txf, input_idx, upstream, pinned, downstream, downstream_rev, role, confidence FROM edges")
+            .prepare("SELECT txf, input_idx, upstream, pinned, downstream, downstream_rev, role, confidence, edge_kind FROM edges")
             .map_err(|e| e.to_string())?;
         let edge_rows = stmt
             .query_map([], |r| {
@@ -163,6 +163,7 @@ impl CoherenceIndex {
                     r.get::<_, String>(5)?,
                     r.get::<_, String>(6)?,
                     r.get::<_, String>(7)?,
+                    r.get::<_, String>(8)?,
                 ))
             })
             .map_err(|e| e.to_string())?;
@@ -170,7 +171,7 @@ impl CoherenceIndex {
         let all_resolutions = self.all_resolutions()?;
         let mut out = Vec::new();
         for row in edge_rows {
-            let (txf, idx, up, pinned, down, down_rev, role, confidence) =
+            let (txf, idx, up, pinned, down, down_rev, role, confidence, kind) =
                 row.map_err(|e| e.to_string())?;
             if absent.contains(&up) || absent.contains(&down) {
                 continue;
@@ -187,6 +188,7 @@ impl CoherenceIndex {
                 } else {
                     InputRole::Contextual
                 },
+                kind: super::edge_kind::OriginEdgeKind::parse(&kind),
             };
             let resolutions = all_resolutions
                 .get(&(edge.txf, edge.input))
