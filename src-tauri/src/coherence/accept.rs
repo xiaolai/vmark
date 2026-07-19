@@ -64,8 +64,17 @@ pub fn accept_candidate(
     // still finds the original and never double-appends.
     let read = kernel.ledger().read_all()?;
     if let Some(existing) = read.entries.iter().find(|e| e.idem == idem) {
+        let entry_id = existing.id;
+        // Heal the append-before-apply torn window (G-B group-commit review #4):
+        // the ledger has this entry but a crash may have skipped the index apply,
+        // and a *valid* index is not rebuilt on open — so the index could lack it
+        // forever. Re-apply before returning (apply_entry is idempotent by idem).
+        if kernel.index().entry_id_by_idem(&idem)?.is_none() {
+            let env = existing.clone();
+            kernel.index_mut().apply_entry(&env)?;
+        }
         return Ok(AcceptReceipt {
-            entry_id: existing.id,
+            entry_id,
             revision: candidate.revision.as_str().to_string(),
             committed: false,
         });

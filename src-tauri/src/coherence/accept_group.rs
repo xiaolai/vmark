@@ -15,8 +15,28 @@
 //!   Members are over distinct objects, so their per-member base-head checks are
 //!   independent and they never reject each other.
 //!
-//! NOTE: like the single accept before it, this protocol should get a cross-model
-//! (G-B) review before it ships in a release — it is committed here behind tests.
+//! STATUS: **PROTOTYPE — NOT SHIP-READY.** The G-B cross-model review
+//! (`019f7c17…`) returned **MAJOR GAPS**. This is committed behind tests as a
+//! working prototype, but must NOT ship until a redesign closes the review's
+//! must-fix list:
+//!   1. **Durable group identity + member manifest.** `present > 0` does not
+//!      prove *this* group was validated — members carry no group id, so a
+//!      "full retry" or an unrelated set of prior accepts is misread as a
+//!      validated group. Needs a group envelope (or prepare/commit records).
+//!   2. **Whole-group preflight before the first append.** FRESH validates
+//!      base/parent arity member-by-member *after* earlier members commit, so a
+//!      stale later member or occupied carrier leaves an unrecoverable partial
+//!      with no crash. Preflight every member first.
+//!   3. **Defined partial-recovery.** Skipping the reproject on recovery can
+//!      commit edge/resolution changes never reviewed; a missing member's base
+//!      may advance and permanently reject completion. Needs a real logical
+//!      commit boundary with deferred atomic visibility.
+//!   7. **Cross-process concurrency.** The idem lookup→append is a TOCTOU across
+//!      processes. Either constrain to one process (documented) or add a
+//!      conditional/locked append.
+//!
+//! The single-object accept (`accept.rs`) shipped the #6 (idem includes
+//! `InputRef.kind`) and #4 (torn-window heal) fixes from the same review.
 
 use sha2::{Digest, Sha256};
 

@@ -84,7 +84,7 @@ pub fn operator_accept_idem(
     let out = &txf.outputs[0];
     let mut buf = Vec::with_capacity(256);
 
-    field(&mut buf, b"vmark-operator-accept-v1"); // versioned domain tag
+    field(&mut buf, b"vmark-operator-accept-v2"); // versioned domain tag (v2: +input.kind)
     field(&mut buf, format.to_string().as_bytes());
     field(&mut buf, operator.as_bytes());
 
@@ -100,12 +100,16 @@ pub fn operator_accept_idem(
         field(&mut buf, p.as_bytes());
     }
 
-    // list(inputs in DECLARED order) — object, revision, role each.
+    // list(inputs in DECLARED order) — object, revision, role, KIND each. The
+    // edge kind is part of the identity (G-B group-commit review #6): a
+    // Dependency and a Conformance input over the same object/revision are
+    // distinct commits and must not collide.
     buf.extend_from_slice(&(txf.inputs.len() as u32).to_be_bytes());
     for i in &txf.inputs {
         field(&mut buf, i.object.0.to_string().as_bytes());
         field(&mut buf, i.revision.as_str().as_bytes());
         field(&mut buf, role_str(i.role).as_bytes());
+        field(&mut buf, i.kind.as_str().as_bytes());
     }
 
     field(&mut buf, agent_str(txf.agent.kind).as_bytes());

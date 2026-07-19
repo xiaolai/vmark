@@ -96,10 +96,15 @@ impl CoherenceIndex {
 
 /// A multi-object group preview (Phase 4 / the multi-object increment). Overlays
 /// ALL the group's candidate revisions at once and projects the union affected
-/// set — so interactions between the members are visible. Captures both the
-/// base and the group class maps: the group accept checks the **base** is
-/// unchanged since preview, then applies all members (they are the intended
-/// change and do not reject each other).
+/// set — so interactions between the members through *existing* edges are
+/// visible. Captures both the base and the group class maps.
+///
+/// KNOWN GAP (G-B group-commit review #5): this overlays only the candidates'
+/// output DAG nodes and projects the *persisted* incident edges — it does NOT
+/// yet include the *new* edges the members create (e.g. Extract-Canon's
+/// conformance edges), so those are absent from `group_classes`/`local_delta`.
+/// Part of the group-commit redesign (see `accept_group.rs`); the accept
+/// precondition still compares only committed edges, which is correct.
 #[derive(Debug, Clone, PartialEq)]
 pub struct GroupPreview {
     pub local_delta: Vec<PreviewDelta>,
