@@ -52,26 +52,31 @@ functional, fault, and perf-*mechanism* gates; only the absolute 500k-scale
 benchmark is outstanding**, and it is what the design governance treats as the
 final bar before Phase-3 *surface* work.
 
-### Known blocker the benchmark must not paper over — accept idem lookup is O(n)
+### Blocker 1 — accept idem lookup was O(n) → FIXED (2026-07-20)
 
-`accept::accept_candidate` step 2 does `kernel.ledger().read_all()?` then a linear
-`.iter().find()` for the idem (same in `accept_group`). That is a **full ledger
-read + deserialize per accept** — O(entries), and it holds the whole ledger in
-memory, so at 500k it will blow **both** the 20 ms and the 16 MiB budgets. The
-O(1) fast path exists (`index_state::entry_id_by_idem`, WI-3.0b) but the hot path
-does not use it, deliberately: the ledger is authoritative and the index can be
-torn (the #4 append-before-apply window), so an index-only lookup could miss a
-torn entry and wrongly re-append.
+`accept` step 2 used `read_all()` + a linear idem `.find()` — O(entries) in time
+and memory. This is **resolved** by `design-accept-consistency.md` Fix A+B:
+heal-on-open makes the index authoritative (now via a canonical winner-map
+reconcile, re-review #1/#2), so the per-accept lookup is the O(1)
+`entry_id_by_idem`. The per-accept ledger scan is gone.
 
-The real fix is **heal-on-open, not heal-on-lookup**: replay the un-applied ledger
-tail into the index at `WorkspaceKernel::open` (bounded startup recovery, e.g. via
-a persisted last-applied offset), which makes the index authoritative for idem
-lookups — so per-accept becomes an O(1) index query and the per-accept ledger scan
-disappears. The current per-lookup heal (accept.rs #4) is a correctness band-aid,
-not the perf answer. This is the same ledger/index-consistency boundary the
-group-commit redesign has to settle (see `accept_group.rs`), so the two should be
-designed together. **Writing the 500k benchmark before this lands would only
-measure the O(n) path failing — the optimization is the actual WI-3.4 work.**
+### Blocker 2 — preview loads + clones the WHOLE dag → OPEN (characterized)
+
+Separately, `preview::project_candidates` / `project_group` call
+`index_query::load_dag()` (a `SELECT … FROM revisions` over **all** revisions)
+and then **`.clone()`** it for the candidate overlay. That is **O(corpus) memory
+per preview**, NOT bounded by the read-view's `PREVIEW_MAX_EDGES` cap — at 500k
+revisions the dag + its clone is easily >100 MB transient, which blows the 16 MiB
+RSS budget *regardless* of Blocker 1. The bounded read-view caps the affected
+*edge* set; it does not cap the *dag* load.
+
+**The real WI-3.4 work is to bound the preview's dag materialization**: project
+over a `load_sub_dag(affected_objects)` (the candidate object + each affected /
+new edge's upstream+downstream — a bounded set) instead of the whole corpus. Only
+then does the 16 MiB budget hold, and only then is the 500k benchmark worth
+writing (it would otherwise just measure the full-dag clone blowing the budget).
+This is a self-contained, headlessly-buildable optimization + a correctness test
+(sub-dag preview == full-dag preview) — the remaining Phase-3 perf task.
 
 ## Scope and honest limits
 
