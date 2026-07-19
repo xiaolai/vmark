@@ -36,6 +36,11 @@
   gap: var(--space-half);
 }
 
+.window-status-panel__pin-wrap {
+  position: relative;
+  display: flex;
+}
+
 .window-status-panel__pin,
 .window-status-panel__close {
   display: flex;
@@ -63,10 +68,71 @@
   box-shadow: 0 0 0 2px var(--accent-bg);
 }
 
-/* Pinned: accent color + subtle fill so the active state reads at a glance. */
-.window-status-panel__pin[aria-pressed="true"] {
+/* Pinned (this window or globally): accent color + subtle fill so the active
+   state reads at a glance. */
+.window-status-panel__pin[data-pinned] {
   color: var(--accent-primary);
   background: var(--accent-bg);
+}
+
+/* Pin scope dropdown (#1135) — "Pin this window" / "Pin all windows". */
+.window-status-panel__pin-menu {
+  position: absolute;
+  top: calc(100% + var(--space-1));
+  right: 0;
+  z-index: var(--z-popup);
+  min-width: 180px;
+  padding: var(--space-1);
+  background: var(--bg-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--popup-shadow);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-half);
+  animation: popup-fade-in 0.1s ease-out;
+}
+
+.dark-theme .window-status-panel__pin-menu {
+  box-shadow: var(--popup-shadow-dark);
+}
+
+.window-status-panel__pin-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  width: 100%;
+  padding: var(--space-1-5) var(--spacing-2);
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  text-align: left;
+  color: var(--text-color);
+  font-size: var(--font-size-md);
+}
+
+.window-status-panel__pin-item:hover {
+  background: var(--hover-bg);
+}
+
+.window-status-panel__pin-item:focus-visible {
+  outline: none;
+  background: var(--accent-bg);
+}
+
+.window-status-panel__pin-item[aria-checked="true"] {
+  color: var(--accent-primary);
+}
+
+.window-status-panel__pin-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  color: var(--accent-primary);
 }
 
 .window-status-panel__empty {

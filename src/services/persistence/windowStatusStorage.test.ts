@@ -4,6 +4,8 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
   getWindowStatusStorageKey,
   windowStatusScopedStorage,
+  getGlobalPinPref,
+  setGlobalPinPref,
 } from "./windowStatusStorage";
 import {
   setCurrentWindowLabel,
@@ -57,5 +59,30 @@ describe("windowStatusScopedStorage", () => {
     windowStatusScopedStorage.setItem("ignored", "data");
     windowStatusScopedStorage.removeItem("ignored");
     expect(windowStatusScopedStorage.getItem("ignored")).toBeNull();
+  });
+});
+
+describe("global pin preference (#1135)", () => {
+  it("defaults to false and round-trips true/false", () => {
+    expect(getGlobalPinPref()).toBe(false);
+    setGlobalPinPref(true);
+    expect(getGlobalPinPref()).toBe(true);
+    setGlobalPinPref(false);
+    expect(getGlobalPinPref()).toBe(false);
+  });
+
+  it("is app-global — the same value regardless of the current window", () => {
+    setGlobalPinPref(true);
+    // A different window label must NOT change the global flag (contrast with
+    // the window-scoped panel prefs, which follow the label).
+    setCurrentWindowLabel("doc-7");
+    expect(getGlobalPinPref()).toBe(true);
+  });
+
+  it("stores under its own key, clear of any per-window key", () => {
+    setGlobalPinPref(true);
+    expect(localStorage.getItem("vmark-window-status:__global-pin")).toBe("1");
+    // It must never collide with a real window's prefs key.
+    expect(localStorage.getItem(getWindowStatusStorageKey("main"))).toBeNull();
   });
 });

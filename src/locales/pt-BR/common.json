@@ -120,6 +120,8 @@
   "windowStatus.status.attention": "Requer atenção",
   "windowStatus.pin": "Fixar — manter o painel aberto ao trocar de janela",
   "windowStatus.unpin": "Desafixar painel",
+  "windowStatus.pinThisWindow": "Fixar esta janela",
+  "windowStatus.pinAllWindows": "Fixar todas as janelas",
   "format.media": "Mídia",
   "quickLook.close": "Fechar visualização",
   "browser.reload": "Recarregar",
