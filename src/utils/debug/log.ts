@@ -18,6 +18,11 @@ export const historyLog = isDev
   ? (...args: unknown[]) => console.log("[History]", ...args)
   : () => {};
 
+/** Debug logger for coherence-layer capture/scan operations. */
+export const coherenceLog = isDev
+  ? (...args: unknown[]) => console.log("[Coherence]", ...args)
+  : () => {};
+
 /** Debug logger for AutoSave operations. */
 export const autoSaveLog = isDev
   ? (...args: unknown[]) => console.log("[AutoSave]", ...args)

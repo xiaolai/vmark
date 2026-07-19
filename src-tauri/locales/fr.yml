@@ -188,6 +188,7 @@ menu:
   window: "Fenêtre"
   window.bringAllToFront: "Tout mettre au premier plan"
   window.status: "État des fenêtres"
+  window.breakdown: "Détail de cohérence"
 
   # === Help menu ===
   help: "Aide"

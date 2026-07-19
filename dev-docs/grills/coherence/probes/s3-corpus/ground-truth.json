@@ -1,0 +1,78 @@
+{
+  "comment": "Ground truth by construction (spec coherence-format-v0.md §7). Each scene was written against exactly the docs listed as direct; style.md governed the prose of every scene (contextual); everything else was ignored while writing (unrelated). Traps = docs mentioned or echoed in the scene without any semantic dependency.",
+  "docs": ["elena.md", "marcus.md", "world-rules.md", "guild-law.md", "timeline.md", "style.md"],
+  "scenes": {
+    "scene-01": {
+      "direct": ["elena.md", "timeline.md"],
+      "contextual": ["style.md"],
+      "unrelated": ["marcus.md", "world-rules.md", "guild-law.md"],
+      "difficulty": "easy",
+      "notes": "Named character with sheet facts (grey eyes, compass, fear of deep water, glassblower father); dated event via arithmetic (Drowning 701, present 723, 'twenty-two years')."
+    },
+    "scene-02": {
+      "direct": ["marcus.md"],
+      "contextual": ["style.md"],
+      "unrelated": ["elena.md", "world-rules.md", "guild-law.md", "timeline.md"],
+      "difficulty": "easy",
+      "notes": "Named character with sheet facts (right-leg limp, raven Pitch, kelp tea, no alcohol, soldier past)."
+    },
+    "scene-03": {
+      "direct": ["world-rules.md"],
+      "contextual": ["style.md"],
+      "unrelated": ["elena.md", "marcus.md", "guild-law.md", "timeline.md"],
+      "difficulty": "hard",
+      "notes": "Depends on world rules 1-4 without stating any rule or naming any sheet character. Unnamed boy."
+    },
+    "scene-04": {
+      "direct": ["elena.md"],
+      "contextual": ["style.md"],
+      "unrelated": ["marcus.md", "world-rules.md", "guild-law.md", "timeline.md"],
+      "difficulty": "trap",
+      "trap": { "doc": "marcus.md", "kind": "mention-without-dependency", "detail": "'old Marcus' waves across the quay; no marcus.md fact is used." }
+    },
+    "scene-05": {
+      "direct": ["elena.md", "guild-law.md"],
+      "contextual": ["style.md"],
+      "unrelated": ["marcus.md", "world-rules.md", "timeline.md"],
+      "difficulty": "medium",
+      "notes": "Guild-law facts (grey sash, iron rod as costume, wave-mark on inner left wrist, exile on second offence, forty crowns, city walls) plus Elena facts (unlicensed binder, dry humour)."
+    },
+    "scene-06": {
+      "direct": ["marcus.md", "timeline.md"],
+      "contextual": ["style.md"],
+      "unrelated": ["elena.md", "world-rules.md", "guild-law.md"],
+      "difficulty": "hard",
+      "notes": "Timeline dependency is implicit arithmetic only: 'two years he had kept the light' (721), 'four springs since the fog lifted' (719), fleet burned same summer (719), drowned quarter 'twenty-two years gone' (701). No year numbers appear."
+    },
+    "scene-07": {
+      "direct": ["elena.md", "world-rules.md"],
+      "contextual": ["style.md"],
+      "unrelated": ["marcus.md", "guild-law.md", "timeline.md"],
+      "difficulty": "trap",
+      "trap": { "doc": "guild-law.md", "kind": "mention-without-dependency", "detail": "Lantern Guild banners are pure scenery; no charter-law fact is used." },
+      "notes": "World rules 2 and 4 (sleep price collected the following night; ozone-and-salt smell noticeable to bystanders)."
+    },
+    "scene-08": {
+      "direct": ["elena.md", "marcus.md", "world-rules.md"],
+      "contextual": ["style.md"],
+      "unrelated": ["guild-law.md", "timeline.md"],
+      "difficulty": "medium",
+      "notes": "Multi-direct. Marcus's Guild grumbling comes from marcus.md (distrusts the Guild), not guild-law.md — no charter-law fact is used."
+    },
+    "scene-09": {
+      "direct": ["guild-law.md"],
+      "contextual": ["style.md"],
+      "unrelated": ["elena.md", "marcus.md", "world-rules.md", "timeline.md"],
+      "difficulty": "hard",
+      "notes": "All guild-law facts (wave-mark on inner left wrist, exile on second offence, grey sash + iron rod, ninth-bell curfew, forty-crown licence) used without stating any as law. Unnamed dockhand girl, deliberately not Elena."
+    },
+    "scene-10": {
+      "direct": ["timeline.md"],
+      "contextual": ["style.md"],
+      "unrelated": ["elena.md", "marcus.md", "world-rules.md", "guild-law.md"],
+      "difficulty": "trap",
+      "trap": { "doc": "elena.md", "kind": "epithet-echo-without-dependency", "detail": "'the glassblower's daughter' appears as crowd scenery; no elena.md fact is used." },
+      "notes": "Timeline via arithmetic: fire 'four years now' (719), Charter 'eleven years since the signing' (712), the Drowning recalled by an elder (701)."
+    }
+  }
+}

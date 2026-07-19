@@ -28,7 +28,9 @@ tauri-plugin-log = "2"
 log = "0.4"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-uuid = { version = "1", features = ["v4"] }
+# v7 feature added for the coherence layer (time-ordered ledger/object IDs,
+# spec §2) — same pinned crate, no new package (ADR-C5).
+uuid = { version = "1", features = ["v4", "v7"] }
 regex = "1"
 urlencoding = "2"
 # WHATWG-spec URL parser — the same spec the browser's `URL` implements, so the
@@ -60,6 +62,12 @@ rust-i18n = "4"
 # buildable everywhere and the `mock` store is available for tests.
 keyring = { version = "3", default-features = false }
 serde_yaml_ng = "0.10"
+# Coherence layer (ADR-C5, reviewed in dev-docs/grills/coherence/
+# dependency-review.md): bundled SQLite pins 3.5x everywhere (macOS system
+# sqlite is an Apple build, Windows has none — S2 spike decision); NFC
+# canonicalization per spec §3.1 needs the real Unicode tables.
+rusqlite = { version = "0.40", features = ["bundled"] }
+unicode-normalization = "0.1"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"

@@ -1,0 +1,289 @@
+/**
+ * Coherence capture funnel (WI-1.6)
+ *
+ * Purpose: the single frontend seam into the Rust coherence kernel —
+ * write capture (`captureWrite`), live-buffer AI-edit capture
+ * (`captureAiEdit`, no disk rewrite), MCP write capture with the
+ * session-observed read set (`captureMcpWrite` + `recordMcpRead`, reads
+ * pinned to read-time revisions via `coherence_head`), and the explorer
+ * new-file helper. Fire-and-forget by design: a failed capture logs and
+ * returns null — it never fails the write it describes (the scan
+ * reconciler heals any gap, spec §9.4).
+ *
+ * Key decisions:
+ *   - All captures from one webview run strictly in submission order
+ *     (module-level promise queue) so an older buffer can never become
+ *     the newest revision.
+ *   - Only files inside the open workspace are captured (traversal
+ *     segments rejected here AND in the Rust path guard); the kernel
+ *     owns coherence state per workspace root.
+ *   - When the kernel rewrites the file to (re)insert the identity block,
+ *     a pending save is registered with the rewritten content so the file
+ *     watcher swallows the kernel's own write instead of prompting.
+ *   - MCP session reads are bounded (256, FIFO) and consumed per write;
+ *     in-flight revision pins are awaited (bounded 500 ms) first.
+ *
+ * @coordinates-with src-tauri/src/coherence/commands.rs — coherence_capture / coherence_head
+ * @coordinates-with pendingSaves.ts — watcher echo suppression
+ * @module services/coherence/captureFunnel
+ */
+import { invoke } from "@tauri-apps/api/core";
+import { useDocumentStore } from "@/stores/documentStore";
+import { useWorkspaceStore } from "@/stores/workspaceStore";
+import { registerPendingSave, clearPendingSave } from "@/utils/pendingSaves";
+import { coherenceLog } from "@/utils/debug";
+
+export interface CoherenceCaptureInput {
+  path?: string;
+  object_id?: string;
+  revision?: string;
+  role: "direct" | "contextual";
+}
+
+export interface CaptureAiEditArgs {
+  tabId: string;
+  modelId?: string;
+  intentKind: string;
+  summary: string;
+  /** Buffer had uncaptured human edits when the AI ran (read BEFORE the
+   *  apply) — the true input state is then no ledger revision (spec §8). */
+  bufferWasDirty: boolean;
+}
+
+export interface CaptureWriteArgs {
+  /** Absolute path of the file that was written. */
+  absolutePath: string;
+  /** The exact content written (plan contract — no disk re-read). */
+  content: string;
+  inputs?: CoherenceCaptureInput[];
+  agent: { type: "human" | "model" | "external"; id?: string };
+  intent: { kind: string; summary: string };
+  /** Defaults to "exact" (in-app paths); MCP writes pass "inferred". */
+  confidence?: "exact" | "inferred";
+  /** False = record the revision without rewriting the file's identity
+   *  block on disk (empty explorer-created files; live buffers). */
+  rewriteIdentity?: boolean;
+}
+
+export interface CoherenceCaptureReceipt {
+  object: string;
+  revision: string;
+  entry_id: string | null;
+  content_with_identity: string | null;
+}
+
+// All captures from this webview run strictly in submission order (audit
+// T2): overlapping saves/applies must not reach the kernel out of order,
+// or an older buffer could become the newest revision.
+let captureQueue: Promise<unknown> = Promise.resolve();
+
+function enqueue<T>(op: () => Promise<T>): Promise<T> {
+  const next = captureQueue.then(op, op);
+  captureQueue = next.catch(() => {});
+  return next;
+}
+
+/**
+ * Workspace-relative path with prefix-boundary safety: `/ws/storyboard`
+ * is not inside `/ws/story`. Returns null for files outside the root.
+ */
+export function workspaceRelativePath(root: string, absolutePath: string): string | null {
+  const normalizedRoot = root.endsWith("/") ? root.slice(0, -1) : root;
+  if (!absolutePath.startsWith(normalizedRoot + "/")) return null;
+  const rel = absolutePath.slice(normalizedRoot.length + 1);
+  if (rel.length === 0 || rel.includes("\\")) return null;
+  // Traversal segments never survive to the IPC boundary (the Rust guard
+  // rejects them too — this is defense in depth, audit T1).
+  const segments = rel.split("/");
+  if (segments.some((s) => s === "" || s === "." || s === "..")) return null;
+  return rel;
+}
+
+/** Capture one successful write. Never throws; null = not captured.
+ *  Serialized per webview (audit T2); a caller-minted idem survives
+ *  retries (spec §5.1). */
+export async function captureWrite(
+  args: CaptureWriteArgs
+): Promise<CoherenceCaptureReceipt | null> {
+  try {
+    const root = useWorkspaceStore.getState().rootPath;
+    if (!root) return null;
+    const rel = workspaceRelativePath(root, args.absolutePath);
+    if (!rel) return null;
+    const idem = crypto.randomUUID();
+    return await enqueue(async () => {
+      const receipt = await invoke<CoherenceCaptureReceipt>("coherence_capture", {
+        workspaceRoot: root,
+        request: {
+          path: rel,
+          content: args.content,
+          inputs: args.inputs ?? [],
+          agent: args.agent,
+          intent: args.intent,
+          confidence: args.confidence ?? "exact",
+          rewrite_identity: args.rewriteIdentity ?? true,
+          idem,
+        },
+      });
+      if (receipt.content_with_identity) {
+        // The kernel rewrote the file on disk; let the watcher match it.
+        const token = registerPendingSave(args.absolutePath, receipt.content_with_identity);
+        setTimeout(() => clearPendingSave(args.absolutePath, token), 1000);
+      }
+      return receipt;
+    });
+  } catch (error) {
+    coherenceLog("capture failed (write unaffected):", error);
+    return null;
+  }
+}
+
+/**
+ * Capture an AI edit applied to a live editor buffer (genie auto-apply or
+ * suggestion accept). The kernel records the buffer revision WITHOUT
+ * touching the file on disk (`rewrite_identity: false`); the next real
+ * save is then a no-op capture unless the human edited further.
+ */
+export async function captureAiEdit(
+  args: CaptureAiEditArgs
+): Promise<CoherenceCaptureReceipt | null> {
+  try {
+    // Snapshot NOW (audit T3): the store is read synchronously at the
+    // apply site's call, so a rapid second apply or tab switch cannot
+    // change what this capture records.
+    const doc = useDocumentStore.getState().getDocument(args.tabId);
+    if (!doc?.filePath) return null; // untitled — adopted at first save
+    const root = useWorkspaceStore.getState().rootPath;
+    if (!root) return null;
+    const rel = workspaceRelativePath(root, doc.filePath);
+    if (!rel) return null;
+    const content = doc.content;
+    const filePath = doc.filePath;
+    const idem = crypto.randomUUID();
+    void filePath;
+    return await enqueue(() =>
+      invoke<CoherenceCaptureReceipt>("coherence_capture", {
+        workspaceRoot: root,
+        request: {
+          path: rel,
+          content,
+          inputs: [{ path: rel, role: "direct" }],
+          agent: { type: "model", id: args.modelId },
+          intent: { kind: args.intentKind, summary: args.summary },
+          confidence: args.bufferWasDirty ? "inferred" : "exact",
+          rewrite_identity: false,
+          idem,
+        },
+      })
+    );
+  } catch (error) {
+    coherenceLog("AI-edit capture failed (edit unaffected):", error);
+    return null;
+  }
+}
+
+// ── MCP session-read tracking (WI-1.6, spec §7 example 2) ───────────────
+// Documents an external MCP client read since its last write become the
+// (inferred) input set of that write. Module-level state is correct here:
+// one webview = one bridge session. Bounded (audit T7): a read-only
+// client cannot grow this without limit.
+const MAX_SESSION_READS = 256;
+const sessionReads = new Map<string, string | undefined>();
+// In-flight revision pins (audit B5): a write consuming the read set
+// awaits these (bounded) so read-time revisions actually arrive.
+const pendingPins = new Set<Promise<void>>();
+
+/** Record a document read served to the MCP client (absolute path).
+ *  Pins the coherence revision served at READ time (audit T5) so a later
+ *  upstream edit is never misattributed as this write's input. */
+export function recordMcpRead(absolutePath: string): void {
+  if (sessionReads.size >= MAX_SESSION_READS && !sessionReads.has(absolutePath)) {
+    const oldest = sessionReads.keys().next().value;
+    if (oldest !== undefined) sessionReads.delete(oldest);
+  }
+  sessionReads.set(absolutePath, undefined);
+  const root = useWorkspaceStore.getState().rootPath;
+  if (!root) return;
+  const rel = workspaceRelativePath(root, absolutePath);
+  if (!rel) return;
+  const pin = invoke<{ object: string; revision: string } | null>("coherence_head", {
+    workspaceRoot: root,
+    path: rel,
+  })
+    .then((head) => {
+      if (head && sessionReads.has(absolutePath)) {
+        sessionReads.set(absolutePath, head.revision);
+      }
+    })
+    .catch(() => {}); // pinning is best-effort; unpinned reads still count
+  pendingPins.add(pin);
+  void pin.finally(() => pendingPins.delete(pin));
+}
+
+/** Wait (bounded) for in-flight read pins — audit B5. */
+async function awaitPendingPins(): Promise<void> {
+  if (pendingPins.size === 0) return;
+  await Promise.race([
+    Promise.allSettled([...pendingPins]),
+    new Promise((resolve) => setTimeout(resolve, 500)),
+  ]);
+}
+
+/** Consume the session-read set as capture inputs for an MCP write. */
+export function takeMcpReadInputs(root: string): CoherenceCaptureInput[] {
+  const inputs: CoherenceCaptureInput[] = [];
+  for (const [abs, revision] of sessionReads) {
+    const rel = workspaceRelativePath(root, abs);
+    if (rel) inputs.push({ path: rel, revision, role: "direct" });
+  }
+  sessionReads.clear();
+  return inputs;
+}
+
+/**
+ * Capture an MCP bridge write (document.write / workspace.save). Always
+ * `inferred` — the external agent's true context is unobservable (G1
+ * finding 2); the session-observed read set is an honest under-
+ * approximation.
+ */
+export async function captureMcpWrite(args: {
+  absolutePath: string;
+  content: string;
+  toolName: string;
+}): Promise<CoherenceCaptureReceipt | null> {
+  try {
+    const root = useWorkspaceStore.getState().rootPath;
+    if (!root) return null;
+    await awaitPendingPins();
+    const inputs = takeMcpReadInputs(root).filter((i) => {
+      // The written doc itself is the transformation target, not an input.
+      return i.path !== workspaceRelativePath(root, args.absolutePath);
+    });
+    return await captureWrite({
+      absolutePath: args.absolutePath,
+      content: args.content,
+      inputs,
+      agent: { type: "model", id: "mcp-client" },
+      intent: { kind: "mcp-document-write", summary: args.toolName },
+      confidence: "inferred",
+    });
+  } catch (error) {
+    coherenceLog("MCP capture failed (write unaffected):", error);
+    return null;
+  }
+}
+
+/**
+ * One-line funnel for explorer-created files (WI-1.6): registers the
+ * object from birth without rewriting the fresh empty file — identity
+ * lands with the first real save. Fire-and-forget.
+ */
+export function captureExplorerNewFile(absolutePath: string): void {
+  void captureWrite({
+    absolutePath,
+    content: "",
+    agent: { type: "human" },
+    intent: { kind: "explorer-new-file", summary: "new file" },
+    rewriteIdentity: false,
+  }).catch(() => {});
+}

@@ -1,0 +1,31 @@
+{
+  "title": "Afirmaciones canónicas",
+  "refresh": "Actualizar",
+  "close": "Cerrar",
+  "loading": "Cargando…",
+  "error": "No se pudieron cargar las afirmaciones",
+  "empty": "Aún no hay afirmaciones — selecciona texto en un documento y usa «Extraer afirmación»",
+  "maturity": {
+    "draft": "Borrador",
+    "established": "Establecida"
+  },
+  "ended": "Finalizada",
+  "hidden": "Oculta en este contexto",
+  "actions": {
+    "promote": "Establecer",
+    "correct": "Corregir",
+    "retire": "Retirar",
+    "hide": "Ocultar",
+    "show": "Mostrar"
+  },
+  "promoteTitle": "Pasar a establecida — solo las afirmaciones establecidas pueden restringir (D4)",
+  "correctPlaceholder": "Afirmación corregida",
+  "correctConfirm": "Confirmar corrección",
+  "create": {
+    "heading": "Nueva afirmación a partir de la selección",
+    "source": "Fuente: {{path}}",
+    "statementPlaceholder": "Enunciado de la afirmación",
+    "confirm": "Crear afirmación en borrador",
+    "cancel": "Cancelar"
+  }
+}

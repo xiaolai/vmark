@@ -59,7 +59,9 @@
     "zoomIn": "Ingrandisci",
     "zoomOut": "Riduci",
     "toggleShowInvisibles": "Attiva/disattiva caratteri invisibili",
-    "toggleWindowStatus": "Stato finestre"
+    "toggleWindowStatus": "Stato finestre",
+    "toggleBreakdown": "Dettaglio coerenza",
+    "toggleClaims": "Affermazioni canoniche"
   },
   "lint": {
     "check": "Controlla Markdown",
@@ -84,5 +86,8 @@
   },
   "browser": {
     "newTab": "Nuova scheda del browser"
+  },
+  "claims": {
+    "extractFromSelection": "Estrai affermazione dalla selezione"
   }
 }

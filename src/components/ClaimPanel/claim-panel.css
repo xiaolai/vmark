@@ -1,0 +1,247 @@
+/* ClaimPanel (WI-2b.6) — mirrors the breakdown panel surface (rule 32:
+   popup surface tokens; rule 33: focus stays visible via the shared
+   button/input patterns). */
+.claim-overlay {
+  position: fixed;
+  top: var(--space-10);
+  left: var(--space-3);
+  z-index: var(--z-popup);
+}
+
+.claim-panel {
+  width: 380px;
+  max-height: 70vh;
+  overflow-y: auto;
+  background: var(--bg-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--popup-shadow);
+  display: flex;
+  flex-direction: column;
+  animation: popup-fade-in 0.1s ease-out;
+}
+
+.dark-theme .claim-panel {
+  box-shadow: var(--popup-shadow-dark);
+}
+
+.claim-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-2) var(--spacing-3);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.claim-panel__title {
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.claim-panel__actions {
+  display: flex;
+  gap: var(--spacing-1);
+}
+
+.claim-panel__icon-btn {
+  width: var(--size-btn-sm);
+  height: var(--size-btn-sm);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  position: relative;
+}
+
+.claim-panel__icon-btn:hover {
+  background: var(--hover-bg);
+  color: var(--text-color);
+}
+
+.claim-panel__icon-btn:focus-visible {
+  outline: none;
+}
+
+.claim-panel__icon-btn:focus-visible::after {
+  content: "";
+  position: absolute;
+  bottom: 2px;
+  left: 4px;
+  right: 4px;
+  height: 2px;
+  background: var(--primary-color);
+  border-radius: 1px;
+}
+
+.claim-panel__error {
+  padding: var(--spacing-2) var(--spacing-3);
+  color: var(--error-color);
+  font-size: var(--font-size-sm);
+}
+
+.claim-panel__loading,
+.claim-panel__empty {
+  padding: var(--spacing-3);
+  color: var(--text-secondary);
+  font-size: var(--font-size-base);
+}
+
+.claim-panel__create {
+  padding: var(--spacing-2) var(--spacing-3);
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-1);
+}
+
+.claim-panel__create-heading {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.claim-panel__create-source {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+}
+
+.claim-panel__create-input {
+  border: none;
+  border-bottom: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-color);
+  outline: none;
+  font-size: var(--font-size-base);
+  padding: var(--spacing-1) 0;
+}
+
+.claim-panel__create-input:focus {
+  border-bottom-color: var(--primary-color);
+}
+
+.claim-panel__create-actions {
+  display: flex;
+  gap: var(--spacing-2);
+}
+
+.claim-panel__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.claim-row {
+  padding: var(--spacing-2) var(--spacing-3);
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-1);
+}
+
+.claim-row:last-child {
+  border-bottom: none;
+}
+
+.claim-row__main {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  min-width: 0;
+}
+
+.claim-row__statement {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-size-base);
+  color: var(--text-color);
+}
+
+.claim-maturity-badge {
+  font-size: var(--font-size-xs);
+  padding: 0 var(--spacing-1);
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+}
+
+.claim-maturity-badge--draft {
+  color: var(--text-secondary);
+  background: var(--subtle-bg);
+}
+
+.claim-maturity-badge--established {
+  color: var(--accent-primary);
+  background: var(--accent-bg);
+}
+
+.claim-ended-badge,
+.claim-hidden-badge {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+.claim-row__actions {
+  display: flex;
+  gap: var(--spacing-1);
+  flex-wrap: wrap;
+}
+
+.claim-row__action {
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  padding: var(--spacing-1) var(--spacing-2);
+  cursor: pointer;
+  position: relative;
+}
+
+.claim-row__action:hover:not(:disabled) {
+  background: var(--hover-bg);
+  color: var(--text-color);
+}
+
+.claim-row__action:disabled {
+  opacity: var(--opacity-disabled);
+  cursor: not-allowed;
+}
+
+.claim-row__action:focus-visible {
+  outline: none;
+}
+
+.claim-row__action:focus-visible::after {
+  content: "";
+  position: absolute;
+  bottom: 2px;
+  left: 4px;
+  right: 4px;
+  height: 2px;
+  background: var(--primary-color);
+  border-radius: 1px;
+}
+
+.claim-row__correct {
+  display: flex;
+  gap: var(--spacing-2);
+}
+
+.claim-row__correct-input {
+  flex: 1;
+  border: none;
+  border-bottom: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-color);
+  outline: none;
+  font-size: var(--font-size-sm);
+}
+
+.claim-row__correct-input:focus {
+  border-bottom-color: var(--primary-color);
+}

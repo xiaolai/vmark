@@ -47,6 +47,7 @@ export const OVERLAY_POLICIES: Record<string, OcclusionPolicy> = {
   ContentSearch: { kind: "freeze" },
   KnowledgeBaseOverlay: { kind: "freeze" },
   WindowStatusOverlay: { kind: "freeze" },
+  BreakdownOverlay: { kind: "freeze" },
   QuickLookOverlay: { kind: "freeze" },
   DropOverlay: { kind: "freeze" },
   ApprovalDialog: { kind: "freeze" },

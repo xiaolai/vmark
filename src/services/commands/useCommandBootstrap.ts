@@ -23,6 +23,7 @@ import { registerExportCommands, registerPandocFormatCommands } from "./exportCo
 import { registerMiscCommands } from "./miscCommands";
 import { registerRecentFilesCommands } from "./recentFilesCommands";
 import { registerRecentWorkspacesCommands } from "./recentWorkspacesCommands";
+import { registerClaimCommands } from "./claimCommands";
 import { registerViewCommands } from "./viewCommands";
 import { registerWorkspaceCommands } from "./workspaceCommands";
 import { registerFormatCommands } from "./formatCommands";
@@ -30,6 +31,8 @@ import { registerBrowserCommands } from "./browserCommands";
 import { invoke } from "@tauri-apps/api/core";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { startGrantSync } from "@/services/browser/grantSync";
+import { startCoherenceScanOnChange } from "@/services/coherence/scanOnChange";
+import { startWindowWorkspaceSync } from "@/services/mcpBridge/windowWorkspaceSync";
 import { startBrowserAiPolicySync } from "@/services/browser/browserAiPolicySync";
 
 const EXPORT_BINDINGS: MenuCommandBinding[] = [
@@ -73,6 +76,7 @@ const VIEW_BINDINGS: MenuCommandBinding[] = [
   { menuEvent: "menu:view-history", commandId: "view.toggleHistory" },
   { menuEvent: "menu:knowledge-base", commandId: "view.toggleKnowledgeBase" },
   { menuEvent: "menu:window-status", commandId: "view.toggleWindowStatus" },
+  { menuEvent: "menu:breakdown", commandId: "view.toggleBreakdown" },
   { menuEvent: "menu:word-wrap", commandId: "view.toggleWordWrap" },
   { menuEvent: "menu:line-numbers", commandId: "view.toggleLineNumbers" },
   { menuEvent: "menu:diagram-preview", commandId: "view.toggleDiagramPreview" },
@@ -101,6 +105,7 @@ export function useCommandBootstrap(): void {
     registerRecentFilesCommands();
     registerRecentWorkspacesCommands();
     registerViewCommands();
+    registerClaimCommands();
     registerFormatCommands();
     registerBrowserCommands();
 
@@ -108,6 +113,8 @@ export function useCommandBootstrap(): void {
     // authoritative gate for R4/R5/R7a (WI-2.1). Without this the driver stays
     // default-deny — safe, but the user's approvals would never take effect.
     const stopGrantSync = startGrantSync();
+    const stopCoherenceScan = startCoherenceScanOnChange();
+    const stopWindowWorkspaceSync = startWindowWorkspaceSync();
     const stopBrowserAiPolicySync = startBrowserAiPolicySync();
 
     // Keep the native "New Browser Tab" menu item in step with the setting (WI-S0.5).
@@ -173,6 +180,8 @@ export function useCommandBootstrap(): void {
       cancelled = true;
       if (unlisten) unlisten();
       stopGrantSync();
+      stopCoherenceScan();
+      stopWindowWorkspaceSync();
       stopBrowserAiPolicySync();
       stopBrowserMenuSync();
     };

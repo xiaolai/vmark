@@ -4,10 +4,12 @@
 //! and request routing to the frontend.
 
 use super::delivery::{deliver_response, enqueue_client_msg, send_error_response};
-use super::routing::{handle_rust_side, resolve_target_window, wake_webview};
+use super::routing::{
+    answer_rust_side, emit_to_window_or_reply, route_target_or_reply, wake_webview,
+};
 use super::state::{
-    generate_auth_token, get_bridge_state, get_shutdown_holder, get_write_lock,
-    is_read_only_operation, is_webview_alive, remove_port_file, set_webview_alive,
+    authenticated_principal, generate_auth_token, get_bridge_state, get_shutdown_holder,
+    get_write_lock, is_read_only_operation, is_webview_alive, remove_port_file, set_webview_alive,
     try_register_pending, write_port_file, ClientConnection, PendingRequest, CLIENT_TX_CAPACITY,
 };
 use super::types::{ClientIdentity, McpRequest, McpRequestEvent, McpResponse, WsMessage};
@@ -338,7 +340,8 @@ async fn handle_connection(
         }
     }
 
-    // Cleanup
+    // Cleanup. F6 (WI-3.5, D4.2): disconnect removes ONLY the client record
+    // — never tabs, never a window's workspace (disconnect_preserves_* test).
     let had_identity = {
         let state = get_bridge_state();
         let mut guard = state.lock().await;
@@ -475,9 +478,11 @@ async fn handle_message<R: tauri::Runtime>(
         );
     }
 
-    // Handle requests that Rust can answer directly (no webview needed).
-    // This prevents timeouts when the webview is suspended by macOS App Nap.
-    if let Some(response) = handle_rust_side(&request, app) {
+    // Handle requests Rust answers directly (no webview) — incl. coherence
+    // off-loop with the write lock (WI-1.10). WI-3.5 (D2.3): delegated
+    // authority binds only to the client's AUTHENTICATED identity.
+    let principal = authenticated_principal(client_id).await;
+    if let Some(response) = answer_rust_side(&request, app, principal).await {
         deliver_response(
             client_id,
             &client_tx,
@@ -542,38 +547,27 @@ async fn handle_message<R: tauri::Runtime>(
         args_json,
     };
 
-    let target_label = resolve_target_window(&request.args, app);
-    let emit_result = if let Some(window) = app.get_webview_window(&target_label) {
-        log::debug!(
-            "[MCP Bridge] Emitting mcp-bridge:request to window '{}' for {} (id: {})",
-            target_label,
-            request.request_type,
-            request_id
-        );
-        window.emit("mcp-bridge:request", &event)
-    } else {
-        // Window not found — clean up, answer the client, and stop. Without
-        // the error response the client would hang until its own timeout.
-        let state = get_bridge_state();
-        let mut guard = state.lock().await;
-        guard.pending.remove(&request_id);
-        drop(guard);
-        let err = format!("Target window '{}' not found", target_label);
-        log::warn!("[MCP Bridge] Client {} request failed: {}", client_id, err);
-        send_error_response(client_id, &client_tx, &msg.id, &err).await;
+    // F5 (WI-3.5): route by owning workspace, fail loud on ambiguity /
+    // conflict / missing window (helper replies + cleans up on refusal).
+    let Some(target_label) =
+        route_target_or_reply(&request, app, &request_id, client_id, &client_tx, &msg.id).await
+    else {
         return Ok(());
     };
-
-    if let Err(e) = emit_result {
-        // Emit failed — clean up, answer the client, and stop. Without the
-        // error response the client would hang until its own timeout.
-        let state = get_bridge_state();
-        let mut guard = state.lock().await;
-        guard.pending.remove(&request_id);
-        drop(guard);
-        let err = format!("Failed to emit event: {}", e);
-        log::warn!("[MCP Bridge] Client {} request failed: {}", client_id, err);
-        send_error_response(client_id, &client_tx, &msg.id, &err).await;
+    // Emit to the target window; helper replies + cleans up if the window
+    // vanished (TOCTOU) or the emit failed, returning false to stop here.
+    if !emit_to_window_or_reply(
+        app,
+        &target_label,
+        &event,
+        &request.request_type,
+        &request_id,
+        client_id,
+        &client_tx,
+        &msg.id,
+    )
+    .await
+    {
         return Ok(());
     }
 

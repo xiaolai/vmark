@@ -1,0 +1,31 @@
+{
+  "title": "Kanon-Aussagen",
+  "refresh": "Aktualisieren",
+  "close": "Schließen",
+  "loading": "Wird geladen…",
+  "error": "Aussagen konnten nicht geladen werden",
+  "empty": "Noch keine Aussagen — Text in einem Dokument auswählen und „Aussage extrahieren“ verwenden",
+  "maturity": {
+    "draft": "Entwurf",
+    "established": "Etabliert"
+  },
+  "ended": "Beendet",
+  "hidden": "In diesem Kontext ausgeblendet",
+  "actions": {
+    "promote": "Etablieren",
+    "correct": "Korrigieren",
+    "retire": "Beenden",
+    "hide": "Ausblenden",
+    "show": "Einblenden"
+  },
+  "promoteTitle": "Als etabliert hochstufen — nur etablierte Aussagen können einschränken (D4)",
+  "correctPlaceholder": "Korrigierte Aussage",
+  "correctConfirm": "Korrektur bestätigen",
+  "create": {
+    "heading": "Neue Aussage aus Auswahl",
+    "source": "Quelle: {{path}}",
+    "statementPlaceholder": "Aussagetext",
+    "confirm": "Aussage als Entwurf erstellen",
+    "cancel": "Abbrechen"
+  }
+}

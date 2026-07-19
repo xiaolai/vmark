@@ -1,6 +1,6 @@
 # Referencia de herramientas MCP
 
-VMark expone **cuatro herramientas MCP compuestas** a los asistentes de IA: `session`, `workspace`, `document` y `workflow`. En conjunto cubren **14 acciones** — la columna de lectura/escritura, además del ciclo de vida de archivos y ventanas, más las ediciones seguras a nivel de CST para YAML de GitHub Actions.
+VMark expone **siete herramientas MCP compuestas** a los asistentes de IA: `session`, `workspace`, `document`, `workflow`, `selection`, `browser` y `coherence`. En conjunto cubren la columna vertebral del editor, el ciclo de vida de archivos y ventanas, las ediciones seguras a nivel de CST para flujos de trabajo, las ediciones dirigidas sobre la selección, la navegación acotada del navegador y una vista de solo lectura de la capa de coherencia del espacio de trabajo.
 
 La superficie anterior de 12 herramientas / 76 acciones se podó porque las herramientas de formato dentro del documento (negrita, encabezados, tablas, etc.) duplican un trabajo que los agentes de IA ya hacen trivialmente mediante el viaje de ida y vuelta de Markdown. Consulta [el plan de poda de MCP](https://github.com/xiaolai/vmark/blob/main/dev-docs/plans/20260504-mcp-pruning.md) para la justificación completa.
 
@@ -236,6 +236,87 @@ Ejecuta `actionlint` sobre el YAML del flujo de trabajo.
 | `tabId` | string | No |
 
 Devuelve `{ok, diagnostics, binaryAvailable}`. Cada diagnóstico contiene `{line, col, message, severity}`. `binaryAvailable: false` indica que `actionlint` no está instalado localmente; instálalo mediante Homebrew o las versiones oficiales.
+
+---
+
+## `coherence`
+
+Una vista de **solo lectura** de la capa de coherencia del espacio de trabajo — qué documentos derivados están obsoletos respecto a las fuentes a partir de las cuales se generaron. Ninguna de las dos acciones modifica documentos, el registro (ledger) ni ningún estado del editor; ambas se responden por completo desde el backend en Rust a partir del kernel por espacio de trabajo, por lo que funcionan incluso cuando ninguna ventana del editor está en primer plano.
+
+Dos acciones más de solo lectura exponen la capa semántica:
+
+- `claims` — las afirmaciones canónicas actuales: `{claim, entryId, statement, maturity, invalidAt, visible}`. Solo las afirmaciones `established` restringen las verificaciones semánticas; `visible` refleja el contexto default.
+- `contexts` — el conjunto de contextos (el `default` implícito siempre está presente): `{id, name, parent, enforcement, visibleClaims, errors}`.
+
+Una acción de escritura, restringida por delegación:
+
+- `resolve` — resuelve una arista obsoleta activa como agente explícitamente delegado: `{workspace_root, txf, input, resolution: "accept-newer" | "waive", reason? (required for waive)}`. La autorización es de tipo fail-closed: el propietario del espacio de trabajo debe haber otorgado a **tu identidad de puente autenticada** una delegación activa y no caducada que cubra el tipo de resolución (otorgada en la app, desde el desglose), y la arista debe estar activa. Cada resolución delegada se registra en el log de auditoría vinculada al otorgamiento. La mutación de afirmaciones y contextos nunca se expone — el canon permanece bajo control humano.
+
+Todas las acciones requieren `workspace_root`: la ruta absoluta del espacio de trabajo a consultar. Obtenla de `session.get_state` (el `filePath` de las pestañas abiertas) o de la herramienta workspace. Una ruta ausente, no absoluta o que no sea un directorio se rechaza con un error de cadena simple.
+
+### `status`
+
+Contadores de estado del kernel para un espacio de trabajo.
+
+| Parámetro | Tipo | Requerido | Descripción |
+|-----------|------|-----------|-------------|
+| `workspace_root` | string | Sí | Ruta absoluta del espacio de trabajo a consultar |
+
+**Devuelve:**
+
+```json
+{
+  "initialized": true,
+  "objects": 12,
+  "open_items": 2,
+  "quarantined": 0,
+  "writer": "0198c0de-0000-7000-8000-000000000001"
+}
+```
+
+| Campo | Significado |
+|---|---|
+| `initialized` | `false` cuando el espacio de trabajo aún no tiene un registro de coherencia (sin directorio `.vmark/`). En ese caso, todos los contadores excepto `objects` son 0. |
+| `objects` | Objetos rastreados (archivos con identidad de coherencia). |
+| `open_items` | Aristas vivas no frescas — el tamaño actual del desglose. |
+| `quarantined` | Líneas mal formadas del registro puestas en cuarentena en la última lectura. |
+| `writer` | El ID de escritor (UUID) de esta instalación. |
+
+### `edges`
+
+El desglose: cada arista de dependencia viva cuya fuente se ha movido. Ejecuta primero una reconciliación con escaneo, de modo que la respuesta refleja los archivos en disco en el momento de la llamada.
+
+| Parámetro | Tipo | Requerido | Descripción |
+|-----------|------|-----------|-------------|
+| `workspace_root` | string | Sí | Ruta absoluta del espacio de trabajo a consultar |
+
+**Devuelve** un array — vacío cuando todo es coherente:
+
+```json
+[
+  {
+    "txf": "0198c0de-0000-7000-8000-00000000000a",
+    "input": 0,
+    "upstream": "0198c0de-0000-7000-8000-00000000000b",
+    "upstream_path": "characters/elena.md",
+    "pinned": "rev-a1b2c3",
+    "downstream": "0198c0de-0000-7000-8000-00000000000c",
+    "downstream_path": "scenes/chapter-3.md",
+    "downstream_rev": "rev-d4e5f6",
+    "state": "version-stale"
+  }
+]
+```
+
+| Campo | Significado |
+|---|---|
+| `txf` / `input` | La entrada de transformación y la ranura de entrada que identifican esta arista (pásalas a las acciones de resolución dentro de la aplicación). |
+| `upstream` / `upstream_path` | El objeto del que depende el derivado, y su última ruta conocida. |
+| `pinned` | La revisión de la fuente a partir de la cual se generó el derivado. |
+| `downstream` / `downstream_path` / `downstream_rev` | El objeto derivado, su ruta y su revisión actual. |
+| `state` | `"version-stale"`, `"stale-valid"`, `"stale-contradicted"`, `"stale-unknown"`, `"waived"`, `"diverged"`, `"diverged-multi-head"` o `"unpinnable"`. |
+
+Resolver una arista (accept-newer / waive) es una acción humana que se realiza en la vista de desglose de VMark — deliberadamente no se expone por MCP.
 
 ---
 

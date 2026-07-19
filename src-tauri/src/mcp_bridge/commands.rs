@@ -66,3 +66,24 @@ pub async fn connected_clients() -> Vec<ConnectedClientInfo> {
         })
         .collect()
 }
+
+/// F5 (WI-3.5): register (or clear) a window's open-workspace root so the
+/// router can send workspace-scoped requests to the owning window. The
+/// frontend calls this on workspace open (Some) and close (None).
+#[tauri::command]
+pub async fn mcp_bridge_set_window_workspace(
+    window_label: String,
+    workspace_root: Option<String>,
+) -> Result<(), String> {
+    let state = get_bridge_state();
+    let mut guard = state.lock().await;
+    match workspace_root {
+        Some(root) => {
+            guard.window_workspaces.insert(window_label, root);
+        }
+        None => {
+            guard.window_workspaces.remove(&window_label);
+        }
+    }
+    Ok(())
+}

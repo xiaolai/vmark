@@ -1,0 +1,78 @@
+{
+  "title": "Kohärenz-Aufschlüsselung",
+  "refresh": "Aktualisieren",
+  "loading": "Wird geladen…",
+  "error": "Aufschlüsselung konnte nicht geladen werden",
+  "empty": "Alles kohärent",
+  "capNotice": "{{shown}} von {{total}} Kanten angezeigt",
+  "actions": {
+    "acceptNewer": "Neuere übernehmen",
+    "revise": "Überarbeiten",
+    "waive": "Aussetzen",
+    "check": "Prüfen"
+  },
+  "waiveReasonPlaceholder": "Begründung (erforderlich)",
+  "waiveConfirm": "Ausnahme bestätigen",
+  "disabledMultiHead": "Upstream hat mehrere aktive Versionen — zuerst überarbeiten oder eine Version festlegen",
+  "disabledUnpinnable": "Upstream ist in diesem Kontext nicht auflösbar",
+  "reviseUnavailable": "Kein Dateipfad für dieses Artefakt bekannt",
+  "states": {
+    "versionStale": "Version veraltet",
+    "staleValid": "Veraltet — geprüft gültig",
+    "staleContradicted": "Veraltet — widersprochen",
+    "staleUnknown": "Veraltet — ungeprüft",
+    "waived": "Ausgenommen",
+    "diverged": "Divergiert",
+    "divergedMultiHead": "Divergiert (mehrere Versionen)",
+    "unpinnable": "Nicht fixierbar"
+  },
+  "confidence": {
+    "inferred": "Provenienz abgeleitet — die erfasste Eingabemenge unterschätzt, was der Agent tatsächlich herangezogen hat",
+    "inferredShort": "abgeleitet",
+    "unknown": "Provenienz unbekannt — diese Änderung wurde außerhalb von VMark beobachtet",
+    "unknownShort": "unbekannt"
+  },
+  "priorWaived": "zuvor ausgesetzt ×{{count}}",
+  "waiveExpiryPlaceholder": "Läuft ab (optional, YYYY-MM-DD)",
+  "checkUnavailable": "KI-Anbieter konfigurieren, um semantische Prüfungen auszuführen",
+  "contexts": {
+    "label": "Kontext",
+    "newPlaceholder": "Name des neuen Kontexts",
+    "create": "Kontext erstellen",
+    "enforce": "Durchsetzen",
+    "unenforce": "Zurück zum Gewächshaus",
+    "enforceConfirm": "Wird dieser Kontext durchgesetzt, werden Widersprüche für alle, die ihn projizieren, als Kanon-Verstöße markiert. Etablierte Aussagen beginnen einzuschränken. Aktivieren?",
+    "enforceTitle": "Kontext durchsetzen",
+    "error": "Kontext-Fehler: {{error}}"
+  },
+  "provenance": {
+    "heading": "Provenienz unbekannt",
+    "hint": "{{count}} frühere Eingabe(n) wiederherstellbar",
+    "suggest": "Eingaben vorschlagen",
+    "confirm": "Provenienz bestätigen",
+    "empty": "Keine Eingaben ausgewählt",
+    "stale": "Das Dokument hat sich geändert — Vorschläge aktualisiert"
+  },
+  "delegations": {
+    "heading": "Agenten-Delegationen",
+    "empty": "Keine aktiven Delegationen",
+    "grant": "Erteilen",
+    "revoke": "Widerrufen",
+    "principalPlaceholder": "Agenten-Principal (z. B. codex-cli)",
+    "days": "Tage",
+    "scopeAcceptNewer": "Neuere übernehmen",
+    "scopeWaive": "Aussetzen",
+    "expiresOn": "bis {{date}}",
+    "grantConfirm": "„{{principal}}“ erlauben, bis {{date}} Kanten in diesem Arbeitsbereich aufzulösen ({{scope}})? Jede delegierte Auflösung wird im Audit-Log dieser Erteilung zugeordnet.",
+    "grantTitle": "Delegation erteilen"
+  },
+  "branch": {
+    "available": "Branch-Kontext verfügbar: {{name}} — wechseln",
+    "ambiguous": "Mehrere Kontexte sind dem Branch „{{branch}}“ zugeordnet — vor dem Wechseln auflösen",
+    "create": "Kontext für Branch „{{branch}}“ erstellen"
+  },
+  "merge": {
+    "banner": "Ein Merge wurde abgeschlossen — Aufschlüsselung prüfen",
+    "dismiss": "Schließen"
+  }
+}

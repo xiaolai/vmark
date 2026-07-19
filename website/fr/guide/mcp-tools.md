@@ -1,6 +1,6 @@
 # Référence des outils MCP
 
-VMark expose **quatre outils MCP composites** aux assistants IA&nbsp;: `session`, `workspace`, `document` et `workflow`. Ensemble, ils couvrent **14 actions** — la colonne vertébrale lecture/écriture plus le cycle de vie fichier/fenêtre plus les modifications sûres au CST pour le YAML GitHub Actions.
+VMark expose **sept outils MCP composites** aux assistants IA&nbsp;: `session`, `workspace`, `document`, `workflow`, `selection`, `browser` et `coherence`. Ensemble, ils couvrent la colonne vertébrale de l'éditeur, le cycle de vie fichier/fenêtre, les modifications de workflow sûres au CST, les modifications ciblées sur la sélection, la navigation web bornée et une vue en lecture seule de la couche de cohérence de l'espace de travail.
 
 La précédente surface de 12 outils / 76 actions a été élaguée parce que les outils de mise en forme intra-document (gras, titres, tableaux, etc.) dupliquent un travail que les agents IA effectuent déjà trivialement via un aller-retour Markdown. Voir [le plan d'élagage MCP](https://github.com/xiaolai/vmark/blob/main/dev-docs/plans/20260504-mcp-pruning.md) pour la justification complète.
 
@@ -236,6 +236,87 @@ Exécuter `actionlint` sur le YAML du workflow.
 | `tabId` | string | Non |
 
 Retourne `{ok, diagnostics, binaryAvailable}`. Chaque diagnostic porte `{line, col, message, severity}`. `binaryAvailable: false` signifie qu'`actionlint` n'est pas installé localement&nbsp;; installez via Homebrew ou les versions amont.
+
+---
+
+## `coherence`
+
+Une vue **en lecture seule** de la couche de cohérence de l'espace de travail — quels documents dérivés sont obsolètes par rapport aux amonts dont ils ont été générés. Aucune des deux actions ne modifie les documents, le registre ni aucun état de l'éditeur&nbsp;; les deux sont entièrement traitées par le backend Rust à partir du noyau propre à chaque espace de travail, elles fonctionnent donc même quand aucune fenêtre d'éditeur n'est au premier plan.
+
+Deux actions supplémentaires en lecture seule exposent la couche sémantique&nbsp;:
+
+- `claims` — les affirmations canoniques actuelles&nbsp;: `{claim, entryId, statement, maturity, invalidAt, visible}`. Seules les affirmations `established` contraignent les vérifications sémantiques&nbsp;; `visible` reflète le contexte default.
+- `contexts` — l'ensemble des contextes (le `default` implicite est toujours présent)&nbsp;: `{id, name, parent, enforcement, visibleClaims, errors}`.
+
+Une action de modification, encadrée par délégation&nbsp;:
+
+- `resolve` — résoudre une arête obsolète active en tant qu'agent explicitement délégué&nbsp;: `{workspace_root, txf, input, resolution: "accept-newer" | "waive", reason? (required for waive)}`. L'autorisation est fail-closed&nbsp;: le propriétaire de l'espace de travail doit avoir accordé à **votre identité de pont authentifiée** une délégation active et non expirée couvrant le type de résolution (accordée dans l'app, depuis le Détail), et l'arête doit être active. Chaque résolution déléguée est journalisée au titre de la délégation. La mutation des affirmations et des contextes n'est jamais exposée — le canon reste sous contrôle humain.
+
+Toutes les actions exigent `workspace_root`&nbsp;: le chemin absolu de l'espace de travail à interroger. Obtenez-le via `session.get_state` (le `filePath` des onglets ouverts) ou l'outil workspace. Un chemin manquant, non absolu ou qui n'est pas un répertoire est refusé avec une erreur en chaîne simple.
+
+### `status`
+
+Compteurs d'état du noyau pour un espace de travail.
+
+| Paramètre | Type | Requis | Description |
+|-----------|------|--------|-------------|
+| `workspace_root` | string | Oui | Chemin absolu de l'espace de travail à interroger |
+
+**Retourne&nbsp;:**
+
+```json
+{
+  "initialized": true,
+  "objects": 12,
+  "open_items": 2,
+  "quarantined": 0,
+  "writer": "0198c0de-0000-7000-8000-000000000001"
+}
+```
+
+| Champ | Signification |
+|---|---|
+| `initialized` | `false` quand l'espace de travail n'a pas encore de registre de cohérence (pas de répertoire `.vmark/`). Tous les compteurs sauf `objects` valent alors 0. |
+| `objects` | Objets suivis (fichiers dotés d'une identité de cohérence). |
+| `open_items` | Arêtes vivantes non à jour — la taille actuelle du détail. |
+| `quarantined` | Lignes de registre malformées mises en quarantaine lors de la dernière lecture. |
+| `writer` | L'identifiant writer (UUID) de cette installation. |
+
+### `edges`
+
+Le détail&nbsp;: chaque arête de dépendance vivante dont l'amont a bougé. Exécute d'abord une analyse-rapprochement, la réponse reflète donc les fichiers sur disque au moment de l'appel.
+
+| Paramètre | Type | Requis | Description |
+|-----------|------|--------|-------------|
+| `workspace_root` | string | Oui | Chemin absolu de l'espace de travail à interroger |
+
+**Retourne** un tableau — vide quand tout est cohérent&nbsp;:
+
+```json
+[
+  {
+    "txf": "0198c0de-0000-7000-8000-00000000000a",
+    "input": 0,
+    "upstream": "0198c0de-0000-7000-8000-00000000000b",
+    "upstream_path": "characters/elena.md",
+    "pinned": "rev-a1b2c3",
+    "downstream": "0198c0de-0000-7000-8000-00000000000c",
+    "downstream_path": "scenes/chapter-3.md",
+    "downstream_rev": "rev-d4e5f6",
+    "state": "version-stale"
+  }
+]
+```
+
+| Champ | Signification |
+|---|---|
+| `txf` / `input` | L'entrée de transformation et l'emplacement d'entrée qui identifient cette arête (à passer aux actions de résolution dans l'application). |
+| `upstream` / `upstream_path` | L'objet dont dépend l'aval, et son dernier chemin connu. |
+| `pinned` | La révision amont dont l'aval a été généré. |
+| `downstream` / `downstream_path` / `downstream_rev` | L'objet dérivé, son chemin et sa révision actuelle. |
+| `state` | `"version-stale"`, `"stale-valid"`, `"stale-contradicted"`, `"stale-unknown"`, `"waived"`, `"diverged"`, `"diverged-multi-head"` ou `"unpinnable"`. |
+
+Résoudre une arête (accepter la plus récente / exempter) est une action humaine effectuée dans la vue Détail de VMark — elle n'est délibérément pas exposée via MCP.
 
 ---
 

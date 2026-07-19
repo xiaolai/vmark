@@ -1,19 +1,21 @@
 /**
  * View commands — ADR-012 migration of useViewMenuEvents.
  *
- * 20 commands covering source/focus/typewriter modes, sidebar views,
- * word wrap, line numbers, diagram preview, fit tables, read-only,
- * terminal toggle, zoom, lint check/navigation, and split-document panes.
+ * 28 commands covering source/focus/typewriter modes, sidebar views and
+ * panels (knowledge base, window status, breakdown), word wrap, line
+ * numbers, diagram preview, fit tables, read-only, terminal toggle, zoom,
+ * and lint check/navigation. The split-document pane commands live in
+ * paneCommands.ts (registered from here).
  */
 
 import { hasCommand, registerCommand } from "./CommandBus";
+import { registerPaneCommands, __resetPaneCommandsRegistration } from "./paneCommands";
 import { useUIStore } from "@/stores/uiStore";
 import { useContentServerStore } from "@/stores/contentServerStore";
 import { useWindowStatusStore } from "@/stores/windowStatusStore";
+import { useBreakdownStore } from "@/stores/breakdownStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useLintStore } from "@/stores/documentStore";
-import { usePaneStore } from "@/stores/paneStore";
-import { toggleSplitDocuments } from "@/services/navigation/toggleSplitDocuments";
 import { requestToggleTerminal } from "@/components/Terminal/terminalGate";
 import { cleanupBeforeModeSwitch } from "@/services/assembly/modeSwitchCleanup";
 import { toggleSourceModeWithCheckpoint } from "@/hooks/useUnifiedHistory";
@@ -93,6 +95,13 @@ export function registerViewCommands(): void {
     title: () => i18n.t("commands:view.toggleWindowStatus"),
     category: "view",
     run: () => useWindowStatusStore.getState().togglePanel(),
+  });
+
+  registerCommand({
+    id: "view.toggleBreakdown",
+    title: () => i18n.t("commands:view.toggleBreakdown"),
+    category: "view",
+    run: () => useBreakdownStore.getState().togglePanel(),
   });
 
   registerCommand({
@@ -246,55 +255,13 @@ export function registerViewCommands(): void {
     },
   });
 
-  // Two-documents-side-by-side toggle (#1081). Opening seeds the secondary
-  // pane with the current document; the user then picks a different file there.
-  registerCommand({
-    id: "view.toggleSplitDocuments",
-    title: () => i18n.t("commands:view.toggleSplitDocuments"),
-    category: "view",
-    run: (_args, ctx: Ctx) => toggleSplitDocuments(ctx.windowLabel ?? "main"),
-  });
-
-  // Synchronize scrolling between the two panes (great for bilingual reading).
-  registerCommand({
-    id: "view.toggleSyncScroll",
-    title: () => i18n.t("commands:view.toggleSyncScroll"),
-    category: "view",
-    run: (_args, ctx: Ctx) =>
-      usePaneStore.getState().toggleSyncScroll(ctx.windowLabel ?? "main"),
-  });
-
-  registerCommand({
-    id: "view.closePane",
-    title: () => i18n.t("commands:view.closePane"),
-    category: "view",
-    run: (_args, ctx: Ctx) => {
-      const windowLabel = ctx.windowLabel ?? "main";
-      if (usePaneStore.getState().byWindow[windowLabel]?.enabled) {
-        usePaneStore.getState().closeSplit(windowLabel);
-      }
-    },
-  });
-
-  registerCommand({
-    id: "view.focusOtherPane",
-    title: () => i18n.t("commands:view.focusOtherPane"),
-    category: "view",
-    run: (_args, ctx: Ctx) => {
-      const windowLabel = ctx.windowLabel ?? "main";
-      const pane = usePaneStore.getState();
-      const split = pane.byWindow[windowLabel];
-      if (split?.enabled) {
-        const next = split.focusedPane === "primary" ? "secondary" : "primary";
-        pane.setFocusedPane(windowLabel, next);
-      }
-    },
-  });
+  registerPaneCommands();
 
   registered = true;
 }
 
-/** Test-only: reset the module registration guard so a fresh CommandBus can be repopulated. */
+/** Test-only: reset the module registration guards so a fresh CommandBus can be repopulated. */
 export function __resetViewCommandsRegistration(): void {
   registered = false;
+  __resetPaneCommandsRegistration();
 }

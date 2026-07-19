@@ -1,0 +1,78 @@
+{
+  "title": "Desglose de coherencia",
+  "refresh": "Actualizar",
+  "loading": "Cargando…",
+  "error": "No se pudo cargar el desglose",
+  "empty": "Todo coherente",
+  "capNotice": "Mostrando {{shown}} de {{total}} aristas",
+  "actions": {
+    "acceptNewer": "Aceptar más reciente",
+    "revise": "Revisar",
+    "waive": "Eximir",
+    "check": "Verificar"
+  },
+  "waiveReasonPlaceholder": "Motivo (obligatorio)",
+  "waiveConfirm": "Confirmar exención",
+  "disabledMultiHead": "La fuente tiene varias versiones activas — revísala o fija una versión primero",
+  "disabledUnpinnable": "La fuente no se puede resolver en este contexto",
+  "reviseUnavailable": "No se conoce la ruta de archivo de este artefacto",
+  "states": {
+    "versionStale": "Versión obsoleta",
+    "staleValid": "Obsoleta — verificada válida",
+    "staleContradicted": "Obsoleta — contradicha",
+    "staleUnknown": "Obsoleta — sin verificar",
+    "waived": "Eximida",
+    "diverged": "Divergente",
+    "divergedMultiHead": "Divergente (varias versiones)",
+    "unpinnable": "No fijable"
+  },
+  "confidence": {
+    "inferred": "Procedencia inferida — el conjunto de entradas registrado subestima lo que el agente consultó realmente",
+    "inferredShort": "inferida",
+    "unknown": "Procedencia desconocida — este cambio se observó fuera de VMark",
+    "unknownShort": "desconocida"
+  },
+  "priorWaived": "eximida anteriormente ×{{count}}",
+  "waiveExpiryPlaceholder": "Vence (opcional, YYYY-MM-DD)",
+  "checkUnavailable": "Configura un proveedor de IA para ejecutar verificaciones semánticas",
+  "contexts": {
+    "label": "Contexto",
+    "newPlaceholder": "Nombre del nuevo contexto",
+    "create": "Crear contexto",
+    "enforce": "Aplicar",
+    "unenforce": "Volver al invernadero",
+    "enforceConfirm": "Al aplicar este contexto, las contradicciones se marcan como violaciones del canon para todos los que lo proyectan. Las afirmaciones establecidas empiezan a restringir. ¿Activar?",
+    "enforceTitle": "Aplicar contexto",
+    "error": "Error de contexto: {{error}}"
+  },
+  "provenance": {
+    "heading": "Procedencia desconocida",
+    "hint": "{{count}} entrada(s) anterior(es) recuperable(s)",
+    "suggest": "Sugerir entradas",
+    "confirm": "Confirmar procedencia",
+    "empty": "Ninguna entrada seleccionada",
+    "stale": "El documento cambió — sugerencias actualizadas"
+  },
+  "delegations": {
+    "heading": "Delegaciones de agentes",
+    "empty": "Sin delegaciones activas",
+    "grant": "Otorgar",
+    "revoke": "Revocar",
+    "principalPlaceholder": "Principal del agente (p. ej., codex-cli)",
+    "days": "Días",
+    "scopeAcceptNewer": "Aceptar más reciente",
+    "scopeWaive": "Eximir",
+    "expiresOn": "hasta {{date}}",
+    "grantConfirm": "¿Permitir que \"{{principal}}\" resuelva aristas en este espacio de trabajo ({{scope}}) hasta {{date}}? Cada resolución delegada queda registrada en el registro de auditoría vinculada a este otorgamiento.",
+    "grantTitle": "Otorgar delegación"
+  },
+  "branch": {
+    "available": "Contexto de rama disponible: {{name}} — cambiar",
+    "ambiguous": "Varios contextos están asignados a la rama \"{{branch}}\" — resuélvelo antes de cambiar",
+    "create": "Crear contexto para la rama \"{{branch}}\""
+  },
+  "merge": {
+    "banner": "Se completó una fusión — revisa el desglose",
+    "dismiss": "Descartar"
+  }
+}

@@ -30,7 +30,7 @@
  *     exclusive so AI clients can branch without parsing free-form text.
  *
  * @coordinates-with stores/revisionStore.ts — current revision + isCurrentRevision
- * @coordinates-with lib/cjkFormatter — formatMarkdown for transform
+ * @coordinates-with documentTransform.ts — CJK transform helpers (extracted)
  * @coordinates-with utils/markdownPipeline.ts — parseMarkdown / serializeMarkdown
  * @coordinates-with stores/documentStore.ts — content + dirty state
  * @coordinates-with stores/tabStore.ts — tab → window resolution
@@ -39,10 +39,10 @@
 
 import { writeTextFile } from "@tauri-apps/plugin-fs";
 import { registerPendingSave, clearPendingSave } from "@/utils/pendingSaves";
+import { captureMcpWrite, recordMcpRead } from "@/services/coherence/captureFunnel";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useRevisionStore } from "@/stores/documentStore";
-import { useSettingsStore } from "@/stores/settingsStore";
 import { useEditorStore } from "@/stores/editorStore";
 import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import { checkBridgePath } from "@/services/mcpBridge/bridgePathGuard";
@@ -50,17 +50,12 @@ import {
   isWorkflowYaml,
   looksLikeWorkflowPath,
 } from "@/lib/ghaWorkflow/detection";
-import { formatMarkdown } from "@/lib/cjkFormatter";
 import { parseMarkdown } from "@/utils/markdownPipeline";
-import {
-  getSerializeOptions,
-  shouldPreserveTwoSpaceBreaks,
-} from "@/plugins/toolbarActions/wysiwygAdapterUtils";
+import { getSerializeOptions } from "@/plugins/toolbarActions/wysiwygAdapterUtils";
 import { respond } from "../utils";
 import { wrapHandler } from "./wrapHandler";
 import { v2ErrorString } from "./types";
 import type { DocumentKind, V2Error } from "./types";
-import { HALF_TO_FULL } from "./cjkMaps";
 import { useMcpStore } from "@/stores/mcpStore";
 import { appendCheckpoint } from "@/stores/mcpCheckpointPersistence";
 import type { CheckpointTool } from "@/stores/mcpStore";
@@ -234,6 +229,9 @@ export async function handleDocumentRead(
         dirty: resolved.dirty,
       },
     });
+    // Coherence (WI-1.6): only a read the client actually RECEIVED joins
+    // the inferred input set of its next write (audit T6).
+    if (resolved.filePath) recordMcpRead(resolved.filePath);
   });
 }
 
@@ -343,8 +341,18 @@ export async function handleDocumentWrite(
           await writeTextFile(resolved.filePath, args.content);
           useDocumentStore.getState().markSaved(resolved.tabId, args.content);
           saved = true;
+          // Coherence (WI-1.6): inferred capture with the session-read
+          // input set (G1 finding 2). Fire-and-forget.
+          void captureMcpWrite({
+            absolutePath: resolved.filePath,
+            content: args.content,
+            toolName: "document.write",
+          }).catch(() => {});
         } finally {
-          clearPendingSave(resolved.filePath, saveToken);
+          // Delayed clear (audit T9): late FSEvents can still match this
+          // save — same 1000ms window as saveToPath.
+          const filePath = resolved.filePath;
+          setTimeout(() => clearPendingSave(filePath, saveToken), 1000);
         }
       } catch (err) {
         saveError = errorMessage(err);
@@ -374,50 +382,7 @@ function describeWrite(after: string, before: string): string {
   return `Wrote document (${sign}${magnitude} chars, was ${beforeBytes}, now ${afterBytes})`;
 }
 
-const TRANSFORM_KINDS = [
-  "cjk-format",
-  "cjk-spacing",
-  "cjk-punctuation",
-] as const;
-type TransformKind = (typeof TRANSFORM_KINDS)[number];
-
-function isTransformKind(value: unknown): value is TransformKind {
-  return (
-    typeof value === "string" &&
-    (TRANSFORM_KINDS as readonly string[]).includes(value)
-  );
-}
-
-const CJK_RE = "[一-鿿぀-ゟ゠-ヿ가-힯]";
-
-function applyTransform(kind: TransformKind, content: string): string {
-  switch (kind) {
-    case "cjk-format": {
-      const config = useSettingsStore.getState().cjkFormatting;
-      const preserveTwoSpaceHardBreaks = shouldPreserveTwoSpaceBreaks();
-      return formatMarkdown(content, config, { preserveTwoSpaceHardBreaks });
-    }
-    case "cjk-spacing": {
-      // Add spacing between CJK and Latin/digits in both directions.
-      // Idempotent — only adds a single space; never doubles.
-      return content
-        .replace(new RegExp(`(${CJK_RE})([A-Za-z0-9])`, "g"), "$1 $2")
-        .replace(new RegExp(`([A-Za-z0-9])(${CJK_RE})`, "g"), "$1 $2");
-    }
-    case "cjk-punctuation": {
-      // Convert ASCII punctuation adjacent to CJK characters to its
-      // full-width form. Pure ASCII contexts are left alone.
-      let result = content;
-      for (const [half, full] of Object.entries(HALF_TO_FULL)) {
-        const escaped = half.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-        result = result
-          .replace(new RegExp(`(${CJK_RE})${escaped}`, "g"), `$1${full}`)
-          .replace(new RegExp(`${escaped}(${CJK_RE})`, "g"), `${full}$1`);
-      }
-      return result;
-    }
-  }
-}
+import { applyTransform, isTransformKind, TRANSFORM_KINDS } from "./documentTransform";
 
 /**
  * Handle `vmark.document.transform`.

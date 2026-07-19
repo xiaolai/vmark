@@ -189,6 +189,7 @@ menu:
   window: "Window"
   window.bringAllToFront: "Bring All to Front"
   window.status: "Window Status"
+  window.breakdown: "Coherence Breakdown"
 
   # === Help menu ===
   help: "Help"

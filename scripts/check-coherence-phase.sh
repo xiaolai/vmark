@@ -1,0 +1,639 @@
+#!/usr/bin/env bash
+#
+# DoD checker for the Coherence Layer plan.
+# Plan: dev-docs/plans/20260718-coherence-layer.md
+# Spec: dev-docs/specs/coherence-format-v0.md
+#
+# Usage: bash scripts/check-coherence-phase.sh <phase-number>
+#
+# Each phase block runs assertions for that phase's Definition of Done.
+# Exit 0 iff all assertions pass. Run before ticking the plan's Status
+# header (rule 60 §3). Template: scripts/check-gha-phase.sh.
+#
+# Phase 0: format spec + kernel decisions, gates G1/G2 PASS, spikes S1-S4
+#          reported, M1-M5 baselines set, paper §3.4 gaps closed.
+# Phase 1: Rust kernel + breakdown view + read-only MCP tools + docs.
+# Phases 2a/2b/3/4: stubs — decomposed by plan amendment after Phase 2a.
+
+set -uo pipefail
+
+cd "$(dirname "$0")/.."
+
+# pnpm may be absent from non-login shells (mise-managed node); fall back
+# to the mise shim so the gate itself never fails on PATH.
+if ! command -v pnpm >/dev/null 2>&1 && [ -x "$HOME/.local/share/mise/shims/pnpm" ]; then
+  PATH="$HOME/.local/share/mise/shims:$PATH"
+fi
+
+PHASE="${1:-}"
+if [[ -z "$PHASE" ]]; then
+  echo "Usage: $0 <phase-number>"
+  echo "  0   Format spec, gates, spikes"
+  echo "  1   Kernel + breakdown view + read-only MCP"
+  echo "  2a  Semantic-model design session (stub)"
+  echo "  2b  Semantic layer (stub)"
+  echo "  3   Human-edit inference + git contexts (stub)"
+  echo "  4   Verticals (stub)"
+  exit 64
+fi
+
+PASS=0
+FAIL=0
+FAIL_DETAIL=()
+
+ok()   { echo "  ✓ $1"; PASS=$((PASS+1)); }
+fail() { echo "  ✗ $1"; FAIL=$((FAIL+1)); FAIL_DETAIL+=("$1"); }
+
+assert_file() {
+  local path="$1"; local label="${2:-$1}"
+  if [[ -f "$path" ]]; then ok "$label exists"; else fail "$label missing: $path"; fi
+}
+
+assert_grep() {
+  local pattern="$1"; local file="$2"; local label="$3"
+  if grep -q -- "$pattern" "$file" 2>/dev/null; then ok "$label"; else fail "$label (pattern '$pattern' not in $file)"; fi
+}
+
+assert_status_pass() {
+  local file="$1"; local label="$2"
+  if [[ -f "$file" ]] && grep -E -q "^> Status: \*\*PASS" "$file"; then
+    ok "$label marked PASS"
+  else
+    fail "$label not marked PASS in status header ($file)"
+  fi
+}
+
+SPEC="dev-docs/specs/coherence-format-v0.md"
+PLAN="dev-docs/plans/20260718-coherence-layer.md"
+PAPER="dev-docs/coherence-layer-paper.md"
+GRILLS="dev-docs/grills/coherence"
+
+# ─── Phase 0 ─────────────────────────────────────────────────────────────
+phase_0() {
+  echo "Phase 0 — Format spec, kernel decisions, gates, spikes"
+
+  # WI-0.1 / WI-0.2 — the spec and its required sections.
+  assert_file "$SPEC" "WI-0.1 format spec"
+  assert_grep "## 5. Ledger (R17)"                 "$SPEC" "WI-0.1 ledger schema section"
+  assert_grep "## 6. Contexts"                     "$SPEC" "WI-0.1 pin-manifest section"
+  assert_grep "## 7. Input-set taxonomy (R24)"     "$SPEC" "WI-0.1 input-set taxonomy"
+  assert_grep "## 3. Canonicalization and hashing" "$SPEC" "WI-0.1 hashing canonicalization"
+  assert_grep "## 8. Provenance confidence (R28)"  "$SPEC" "WI-0.1 provenance-confidence states"
+  assert_grep "5.4.4 \`check-result\` (R25)"       "$SPEC" "WI-0.1 semantic-check result schema"
+  assert_grep "5.4.5 \`claim\` (R32)"              "$SPEC" "WI-0.1 bi-temporal claim schema"
+  assert_grep "5.4.3 \`ratification\` and \`waiver\`" "$SPEC" "WI-0.1 waiver/ratification schema"
+  assert_grep "## 9. Staleness computation"        "$SPEC" "WI-0.2 staleness algorithm"
+  assert_grep "file-level"                         "$SPEC" "WI-0.2 granularity decision (R31)"
+  assert_grep "multi-writer protocol"              "$SPEC" "WI-0.2 multi-writer protocol (O7)"
+  assert_grep "## 10. Performance targets (O6)"    "$SPEC" "WI-0.2 performance targets"
+
+  # WI-0.3 — Gate G1.
+  assert_file "$GRILLS/gate-g1.md"                    "WI-0.3 G1 report"
+  assert_status_pass "$GRILLS/gate-g1.md"             "WI-0.3 G1"
+  assert_file "$GRILLS/probes/g1-capture.mjs"         "WI-0.3 G1 probe"
+  assert_file "$GRILLS/probes/g1-results.json"        "WI-0.3 G1 results"
+  assert_grep "Write-path inventory" "$GRILLS/gate-g1.md" "WI-0.3 inventory table present"
+
+  # WI-0.4 — Gate G2.
+  assert_file "$GRILLS/gate-g2.md"                    "WI-0.4 G2 report"
+  assert_status_pass "$GRILLS/gate-g2.md"             "WI-0.4 G2"
+  assert_file "$GRILLS/probes/g2-gitops.mjs"          "WI-0.4 G2 probe"
+  assert_file "$GRILLS/probes/g2-results.json"        "WI-0.4 G2 results"
+
+  # WI-0.5 — Spike S1.
+  assert_file "$GRILLS/spike-s1.md"                   "WI-0.5 S1 report"
+  assert_status_pass "$GRILLS/spike-s1.md"            "WI-0.5 S1"
+  assert_file "$GRILLS/probes/s1-results.json"        "WI-0.5 S1 results"
+
+  # WI-0.6 — Spike S2.
+  assert_file "$GRILLS/spike-s2.md"                   "WI-0.6 S2 report"
+  assert_status_pass "$GRILLS/spike-s2.md"            "WI-0.6 S2"
+  assert_file "$GRILLS/probes/s2-rusqlite/results.json" "WI-0.6 S2 results"
+  assert_grep "bundled" "$GRILLS/spike-s2.md"         "WI-0.6 ADR-C1 decision recorded"
+
+  # WI-0.7 — Spikes S3 + S4.
+  assert_file "$GRILLS/spike-s3.md"                   "WI-0.7 S3 report"
+  assert_status_pass "$GRILLS/spike-s3.md"            "WI-0.7 S3"
+  assert_file "$GRILLS/spike-s4.md"                   "WI-0.7 S4 report"
+  assert_status_pass "$GRILLS/spike-s4.md"            "WI-0.7 S4"
+  assert_grep "M3 baseline" "$GRILLS/spike-s4.md"     "WI-0.7 M3 baseline recorded"
+
+  # WI-0.8 — evidence gaps closed in the paper.
+  assert_grep "Known evidence gaps — resolved" "$PAPER" "WI-0.8 paper §3.4 updated"
+  assert_grep "Jacquard" "$PAPER"                      "WI-0.8 Jacquard finding rowed"
+
+  # WI-0.9 — M1-M5 baselines/exit thresholds in the spec.
+  assert_grep "## 11. Metric baselines and exit thresholds" "$SPEC" "WI-0.9 M1-M5 section"
+  for m in M1 M2 M3 M4 M5; do
+    assert_grep "| $m |" "$SPEC" "WI-0.9 $m row"
+  done
+}
+
+# ─── Phase 1 ─────────────────────────────────────────────────────────────
+phase_1() {
+  echo "Phase 1 — Rust kernel + breakdown view + read-only MCP"
+
+  local K="src-tauri/src/coherence"
+
+  # WI-1.1 — kernel scaffold + core types (ADR-C4 module boundaries).
+  assert_file "$K/mod.rs"          "WI-1.1 kernel module"
+  assert_file "$K/types.rs"        "WI-1.1 core types"
+  assert_file "$K/types.test.rs"   "WI-1.1 core-types tests"
+  assert_file "$K/project.rs"      "WI-1.1 projection (pure kernel, ADR-C4)"
+  assert_file "$K/commands.rs"     "WI-1.1 Tauri command surface (ADR-C4)"
+
+  # WI-1.2 — ledger.
+  assert_file "$K/ledger.rs"       "WI-1.2 ledger"
+  assert_file "$K/ledger.test.rs"  "WI-1.2 ledger tests"
+  assert_grep "quarantine" "$K/ledger.rs" "WI-1.2 malformed-entry quarantine"
+
+  # WI-1.3 — snapshot CAS + hashing.
+  assert_file "$K/canonical.rs"      "WI-1.3 canonicalization"
+  assert_file "$K/canonical.test.rs" "WI-1.3 canonicalization tests"
+  assert_file "$K/cas.rs"            "WI-1.3 snapshot CAS"
+  assert_file "$K/cas.test.rs"       "WI-1.3 CAS tests"
+  assert_grep "identity" "$K/canonical.test.rs" "WI-1.3 identity-field exclusion test"
+
+  # WI-1.4 — revision DAG + staleness.
+  assert_file "$K/dag.rs"          "WI-1.4 revision DAG"
+  assert_file "$K/dag.test.rs"     "WI-1.4 DAG tests"
+  assert_grep "Diverged" "$K/dag.rs" "WI-1.4 diverged state first-class"
+
+  # WI-1.5 — SQLite index; R16 delete-and-rebuild test.
+  assert_file "$K/index.rs"        "WI-1.5 SQLite index"
+  assert_file "$K/index.test.rs"   "WI-1.5 index tests"
+  assert_grep "rusqlite" "src-tauri/Cargo.toml" "WI-1.5 rusqlite dependency"
+  assert_grep "delete_index_rescan_identical\|delete.*rebuild.*identical" "$K/index.test.rs" "WI-1.5 R16 delete-and-rebuild test"
+
+  # WI-1.6 — capture instrumentation (vertical slice + adapters + scan).
+  assert_file "$K/capture.rs"      "WI-1.6 capture API"
+  assert_file "$K/capture.test.rs" "WI-1.6 capture tests"
+  assert_file "$K/scan.rs"         "WI-1.6 scan reconciliation"
+  assert_file "$K/scan.test.rs"    "WI-1.6 scan tests (spec §9.4 table)"
+  # The save funnel routes through the captureFunnel service (ADR-013),
+  # which is what invokes coherence_capture.
+  assert_grep "captureWrite" "src/services/persistence/saveToPath.ts" "WI-1.6 editor-save funnel instrumented"
+  assert_grep "coherence_capture" "src/services/coherence/captureFunnel.ts" "WI-1.6 funnel invokes coherence_capture"
+
+  # WI-1.7 — git reconciliation.
+  assert_file "$K/gitops.rs"       "WI-1.7 git reconciliation"
+  assert_file "$K/gitops.test.rs"  "WI-1.7 git tests"
+
+  # WI-1.8 — frontmatter IDs.
+  assert_file "$K/frontmatter.rs"      "WI-1.8 frontmatter IDs"
+  assert_file "$K/frontmatter.test.rs" "WI-1.8 frontmatter tests"
+  # Duplicate detection is scan-level by design (frontmatter.rs owns
+  # parse + assign only — see its module doc).
+  assert_grep "duplicate-id" "$K/scan.rs" "WI-1.8 duplicate-ID detection"
+
+  # I5 append-only property test (plan-level success criterion 2).
+  if grep -rq "append_only\|append-only" "$K"/*.test.rs 2>/dev/null; then
+    ok "I5 append-only property test present"
+  else
+    fail "I5 append-only property test not found in $K/*.test.rs"
+  fi
+
+  # WI-1.12 — lifecycle.
+  assert_file "$K/state.rs"        "WI-1.12 per-workspace kernel state"
+  assert_file "$K/state.test.rs"   "WI-1.12 lifecycle tests"
+
+  # WI-1.9a — resolution write API.
+  assert_grep "coherence_resolve" "$K/commands.rs" "WI-1.9a resolution command"
+
+  # WI-1.9b — breakdown view.
+  assert_file "src/stores/breakdownStore.ts"       "WI-1.9b breakdown store"
+  assert_file "src/stores/breakdownStore.test.ts"  "WI-1.9b store tests"
+  assert_file "src/components/BreakdownPanel/BreakdownPanel.tsx" "WI-1.9b panel"
+  assert_file "src/components/BreakdownPanel/BreakdownPanel.test.tsx" "WI-1.9b panel tests"
+
+  # WI-1.10 — read-only MCP tools.
+  assert_file "vmark-mcp-server/src/tools/coherence.ts" "WI-1.10 sidecar tool"
+  # The sidecar follows the repo's composite-tool convention: one
+  # `coherence` tool with status/edges actions emitting
+  # vmark.coherence.status / vmark.coherence.edges bridge requests.
+  assert_grep "vmark.coherence.status" "vmark-mcp-server/src/tools/coherence.ts" "WI-1.10 status action"
+  assert_grep "vmark.coherence.edges"  "vmark-mcp-server/src/tools/coherence.ts" "WI-1.10 edges action"
+
+  # WI-1.11 — docs.
+  assert_file "website/guide/coherence.md"          "WI-1.11 website guide page"
+  assert_grep "coherence" "dev-docs/README.md"      "WI-1.11 dev-docs README index"
+
+  # Phase-1 DoD extras from the plan.
+  assert_file "$GRILLS/phase1-e2e.md"               "breakdown-view E2E record (Tauri MCP)"
+  assert_file "$GRILLS/dogfood-log.md"              "dogfood log with M1 entry"
+  assert_grep "M1" "$GRILLS/dogfood-log.md"         "M1 recorded in dogfood log"
+
+  # Fail closed: RUN the coherence test suites (Codex review D2#5) instead
+  # of reminding. Scoped runs keep this fast enough for a gate.
+  if [[ "${SKIP_TESTS:-}" == "1" ]]; then
+    # Progress-report mode: file assertions still print, but the run can
+    # NEVER tick a phase — count it as a hard failure by construction.
+    fail "SKIP_TESTS=1 set — test suites not run; this run cannot tick Phase 1"
+  else
+    if cargo test --manifest-path src-tauri/Cargo.toml --lib coherence -- --quiet >/dev/null 2>&1; then
+      ok "cargo test coherence suite green"
+    else
+      fail "cargo test coherence suite RED (run: cargo test --manifest-path src-tauri/Cargo.toml --lib coherence)"
+    fi
+    if pnpm vitest run src/stores/breakdownStore.test.ts src/components/BreakdownPanel >/dev/null 2>&1; then
+      ok "breakdown-view vitest suites green"
+    else
+      fail "breakdown-view vitest suites RED (run: pnpm vitest run src/stores/breakdownStore.test.ts src/components/BreakdownPanel)"
+    fi
+    # Full repo gate — part of the DoD, run for real (fail closed; slow but
+    # a phase tick is rare). No reminder-only escape.
+    if pnpm check:all >/dev/null 2>&1; then
+      ok "pnpm check:all green"
+    else
+      fail "pnpm check:all RED"
+    fi
+  fi
+
+  echo "  ⓘ WI linkage: bash scripts/check-wi-linkage.sh $PLAN --phase=1"
+}
+
+# ─── Phase 2 (2b semantic layer; grows per-WI, rule 60 §3) ───────────────
+phase_2() {
+  echo "Phase 2 — semantic layer (WI-2b.0..10; design-2a.md is the contract)"
+
+  echo "— WI-2b.0: contract first (R21) —"
+  local DESIGN=dev-docs/grills/coherence/design-2a.md
+  assert_file "$DESIGN" "Phase 2a design record"
+  assert_grep "Status: \*\*APPROVED\*\*" "$DESIGN" "design record APPROVED by owner review"
+  assert_grep "Owner decision record" "$DESIGN" "owner decision record quoted"
+  assert_grep "claims_fingerprint" "$DESIGN" "D5.6 additive wire fields designed"
+  local SPEC=dev-docs/specs/coherence-format-v0.md
+  assert_grep "Spec revision 1 of format 0" "$SPEC" "spec advanced to revision 1"
+  assert_grep "claims_fingerprint" "$SPEC" "check-result carries claims_fingerprint"
+  assert_grep "stable claim-object id" "$SPEC" "claim id vs entry id separated (D2.1)"
+  assert_grep "additively only" "$SPEC" "additive-only claim inheritance (D1.3)"
+  assert_grep "Resolved (Phase 2a" dev-docs/coherence-layer-paper.md "paper §O bullets record resolutions"
+  assert_grep "WI-2b.0" dev-docs/plans/20260718-coherence-layer.md "plan decomposes Phase 2b"
+
+  echo "— WI-2b.1: contexts as delta over Phase 1 projection —"
+  assert_file src-tauri/src/coherence/contexts.rs "contexts module"
+  assert_grep "ContextView::all_live" src-tauri/src/coherence/contexts.rs "materializes Phase 1 ContextView (delta, not reimplementation)"
+  assert_grep "DEFAULT_CONTEXT_ID" src-tauri/src/coherence/contexts.rs "fixed default-context id"
+  if [[ "${SKIP_TESTS:-}" != "1" ]]; then
+    if cargo test --manifest-path src-tauri/Cargo.toml --lib coherence::contexts --quiet >/dev/null 2>&1; then
+      ok "WI-2b.1 context suite green"
+    else
+      fail "WI-2b.1 context suite red"
+    fi
+  else
+    fail "SKIP_TESTS=1 set — WI-2b.1 suite not run"
+  fi
+
+  echo "— WI-2b.2: claim lifecycle (stable id, feed matrix, commands) —"
+  assert_file src-tauri/src/coherence/claims.rs "claim store"
+  assert_file src-tauri/src/coherence/claim_commands.rs "claim lifecycle commands"
+  assert_grep "claims_fingerprint" src-tauri/src/coherence/claims.rs "D5.6 fingerprint implemented"
+  assert_grep "only a draft claim can be promoted" src-tauri/src/coherence/claim_commands.rs "D2.3 promotion guard"
+  assert_grep "coherence_claim" src-tauri/src/command_registry.rs "claim commands registered"
+  if [[ "${SKIP_TESTS:-}" != "1" ]]; then
+    if cargo test --manifest-path src-tauri/Cargo.toml --lib coherence::claim --quiet >/dev/null 2>&1; then
+      ok "WI-2b.2 claim suites green"
+    else
+      fail "WI-2b.2 claim suites red"
+    fi
+  else
+    fail "SKIP_TESTS=1 set — WI-2b.2 suites not run"
+  fi
+
+  echo "— WI-2b.3: check-result indexing + context-aware projection —"
+  assert_grep "check_results" src-tauri/src/coherence/index.rs "check_results table indexed"
+  assert_grep "breakdown_checked" src-tauri/src/coherence/index_query.rs "context-aware breakdown query"
+  assert_grep "claims_fingerprint = ?4" src-tauri/src/coherence/index_checks.rs "D5.6 liveness filter in SQL"
+  assert_grep "breakdown_checked" src-tauri/src/coherence/commands.rs "perform_breakdown binds default-context snapshot"
+  if [[ "${SKIP_TESTS:-}" != "1" ]]; then
+    if cargo test --manifest-path src-tauri/Cargo.toml --lib coherence::index --quiet >/dev/null 2>&1; then
+      ok "WI-2b.3 index suite green"
+    else
+      fail "WI-2b.3 index suite red"
+    fi
+  else
+    fail "SKIP_TESTS=1 set — WI-2b.3 suite not run"
+  fi
+
+  echo "— WI-2b.4: checker service (pull-only, verdict discipline) —"
+  assert_file src-tauri/src/coherence/checker.rs "pure checker core"
+  assert_file src-tauri/src/coherence/check_commands.rs "check service"
+  assert_grep "REQUIRES at least one verbatim evidence" src-tauri/src/coherence/checker.rs "S4 evidence rule in prompt"
+  assert_grep "claims_fingerprint" src-tauri/src/coherence/check_commands.rs "D5.6-complete results recorded"
+  assert_grep "coherence_check" src-tauri/src/command_registry.rs "check command registered"
+  if [[ "${SKIP_TESTS:-}" != "1" ]]; then
+    if cargo test --manifest-path src-tauri/Cargo.toml --lib coherence::check --quiet >/dev/null 2>&1; then
+      ok "WI-2b.4 checker suites green"
+    else
+      fail "WI-2b.4 checker suites red"
+    fi
+  else
+    fail "SKIP_TESTS=1 set — WI-2b.4 suites not run"
+  fi
+
+  echo "— WI-2b.5: breakdown UI (axis-2 badges, Check, expiry, ×N) —"
+  assert_grep "checkEdge" src/components/BreakdownPanel/BreakdownRow.tsx "Check action wired"
+  assert_grep "prior_waivers" src/components/BreakdownPanel/BreakdownRow.tsx "previously-waived badge"
+  assert_grep "waiveExpiryPlaceholder" src/components/BreakdownPanel/BreakdownRow.tsx "waiver expiry input"
+  assert_grep "coherence_check" src/services/breakdown/breakdownService.ts "check service invoke"
+  assert_grep "priorWaived" src/locales/en/breakdown.json "EN strings present"
+  if [[ "${SKIP_TESTS:-}" != "1" ]]; then
+    if pnpm vitest run src/components/BreakdownPanel/BreakdownPanel.test.tsx --silent >/dev/null 2>&1; then
+      ok "WI-2b.5 breakdown component suite green"
+    else
+      fail "WI-2b.5 breakdown component suite red"
+    fi
+  else
+    fail "SKIP_TESTS=1 set — WI-2b.5 suite not run"
+  fi
+
+  echo "— WI-2b.6: claim UI (extraction-driven create, explicit acts) —"
+  assert_file src/components/ClaimPanel/ClaimPanel.tsx "claim panel"
+  assert_grep "claims.extractFromSelection" src/services/commands/claimCommands.ts "extraction is the only create entry"
+  assert_grep "visible" src-tauri/src/coherence/claim_commands.rs "listing carries context visibility"
+  if [[ "${SKIP_TESTS:-}" != "1" ]]; then
+    if pnpm vitest run src/components/ClaimPanel/ClaimPanel.test.tsx src/services/claims/claimService.test.ts src/services/commands/claimCommands.test.ts --silent >/dev/null 2>&1; then
+      ok "WI-2b.6 claim UI suites green"
+    else
+      fail "WI-2b.6 claim UI suites red"
+    fi
+  else
+    fail "SKIP_TESTS=1 set — WI-2b.6 suites not run"
+  fi
+
+  echo "— WI-2b.7: context UI (picker, create, confirmed enforcement) —"
+  assert_file src-tauri/src/coherence/context_commands.rs "context commands"
+  assert_grep "perform_breakdown_in" src-tauri/src/coherence/commands.rs "context-parameterized breakdown"
+  assert_grep "contexts.enforceConfirm" src/components/BreakdownPanel/BreakdownPanel.tsx "explicit enforcement confirmation (D4.3)"
+  assert_grep "create a named context to enforce" src-tauri/src/coherence/context_commands.rs "default stays greenhouse"
+  if [[ "${SKIP_TESTS:-}" != "1" ]]; then
+    if cargo test --manifest-path src-tauri/Cargo.toml --lib coherence::context --quiet >/dev/null 2>&1; then
+      ok "WI-2b.7 context suites green"
+    else
+      fail "WI-2b.7 context suites red"
+    fi
+  else
+    fail "SKIP_TESTS=1 set — WI-2b.7 suites not run"
+  fi
+
+  echo "— WI-2b.8: read-only MCP claims/contexts (R23 intact) —"
+  assert_grep "vmark.coherence.claims" src-tauri/src/mcp_bridge/routing.rs "claims answered Rust-side"
+  assert_grep "vmark.coherence.contexts" src-tauri/src/mcp_bridge/routing.rs "contexts answered Rust-side"
+  assert_grep "'claims', 'contexts'" vmark-mcp-server/src/tools/coherence.ts "sidecar actions extended"
+  if [[ "${SKIP_TESTS:-}" != "1" ]]; then
+    if cargo test --manifest-path src-tauri/Cargo.toml --lib mcp_bridge::routing --quiet >/dev/null 2>&1; then
+      ok "WI-2b.8 routing suite green"
+    else
+      fail "WI-2b.8 routing suite red"
+    fi
+  else
+    fail "SKIP_TESTS=1 set — WI-2b.8 suite not run"
+  fi
+
+  echo "— WI-2b.9: i18n ×10 + website guides —"
+  assert_file src/locales/ja/claims.json "app claim strings translated (spot: ja)"
+  assert_file src/locales/zh-CN/claims.json "app claim strings translated (spot: zh-CN)"
+  assert_grep "Semantic checking, claims, and contexts" website/guide/coherence.md "EN guide covers the semantic layer"
+  if grep -q "claims" website/zh-CN/guide/mcp-tools.md && grep -q "contexts" website/ja/guide/mcp-tools.md; then
+    ok "localized mcp-tools guides cover claims/contexts (spot: zh-CN, ja)"
+  else
+    fail "localized mcp-tools guides missing claims/contexts sections"
+  fi
+  if [[ "${SKIP_TESTS:-}" != "1" ]]; then
+    if pnpm lint:i18n >/dev/null 2>&1; then
+      ok "WI-2b.9 i18n completeness green"
+    else
+      fail "WI-2b.9 i18n completeness red"
+    fi
+  else
+    fail "SKIP_TESTS=1 set — WI-2b.9 i18n check not run"
+  fi
+
+  echo "— WI-2b.10: dogfood session 3 (M3 + reservation closure) —"
+  local DLOG=dev-docs/grills/coherence/dogfood-log.md
+  assert_grep "Session 3 — 2026-07-19" "$DLOG" "session 3 recorded"
+  assert_grep "M3 semantic-check precision | \*\*2/2\*\*" "$DLOG" "M3 at/above the 70% bar"
+  assert_grep "through the shipping MCP funnel" "$DLOG" "ninth edge via the MCP funnel"
+  assert_grep "PASS" "$DLOG" "owner verdict recorded"
+  assert_grep "Phase 2b complete" dev-docs/plans/20260718-coherence-layer.md "plan status ticked"
+  if [[ "${SKIP_TESTS:-}" != "1" ]]; then
+    if cargo test --manifest-path src-tauri/Cargo.toml --lib coherence --quiet >/dev/null 2>&1; then
+      ok "WI-2b.10 full coherence suite green"
+    else
+      fail "WI-2b.10 full coherence suite red"
+    fi
+  else
+    fail "SKIP_TESTS=1 set — WI-2b.10 suite not run"
+  fi
+  echo "— pending WIs (fail-closed until implemented) —"
+  for wi in "${PENDING[@]}"; do
+    fail "WI-$wi assertions not yet defined (fail-closed)"
+  done
+}
+
+# ─── Phase 3 (grows per-WI, rule 60 §3; design-3.md is the contract) ─────
+phase_3() {
+  echo "Phase 3 — human-edit inference, delegation, branch contexts (WI-3.0..3.9)"
+
+  echo "— WI-3.0: contract first (R21) —"
+  local DESIGN=dev-docs/grills/coherence/design-3.md
+  assert_file "$DESIGN" "Phase 3 design record"
+  assert_grep "Status: \*\*APPROVED\*\*" "$DESIGN" "design record APPROVED by owner review"
+  assert_grep "Owner decision record" "$DESIGN" "owner decision record quoted"
+  local SPEC=dev-docs/specs/coherence-format-v0.md
+  assert_grep "Spec revision 2 of format 0" "$SPEC" "spec advanced to revision 2"
+  assert_grep "provenance-confirmation" "$SPEC" "re-emission rules normative"
+  assert_grep "5.4.7" "$SPEC" "delegation entry kind specified"
+  assert_grep "Round-trip guarantee" "$SPEC" "manifest round-trip guarantee"
+  assert_grep "authenticated bridge principal" "$SPEC" "principal-bound delegation"
+  assert_grep "Resolved (Phase 3 design" dev-docs/coherence-layer-paper.md "paper O2 resolution recorded"
+  assert_grep "WI-3.0" dev-docs/plans/20260718-coherence-layer.md "plan decomposes Phase 3"
+  assert_grep "extra: serde_json::Map" src-tauri/src/coherence/contexts.rs "manifest unknown-field preservation implemented"
+  if [[ "${SKIP_TESTS:-}" != "1" ]]; then
+    if cargo test --manifest-path src-tauri/Cargo.toml --lib coherence::contexts --quiet >/dev/null 2>&1; then
+      ok "WI-3.0 round-trip suite green"
+    else
+      fail "WI-3.0 round-trip suite red"
+    fi
+  else
+    fail "SKIP_TESTS=1 set — WI-3.0 suite not run"
+  fi
+
+  echo "— WI-3.1: proposal/confirmation kernel —"
+  assert_file src-tauri/src/coherence/provenance.rs "provenance module"
+  assert_grep "stale confirmation" src-tauri/src/coherence/provenance.rs "changed-head guard"
+  assert_grep "provenance-confirmation" src-tauri/src/coherence/provenance.rs "normative intent kind"
+  assert_grep "parents_of" src-tauri/src/coherence/dag.rs "ancestry accessor"
+  if [[ "${SKIP_TESTS:-}" != "1" ]]; then
+    if cargo test --manifest-path src-tauri/Cargo.toml --lib coherence::provenance --quiet >/dev/null 2>&1; then
+      ok "WI-3.1 provenance suite green"
+    else
+      fail "WI-3.1 provenance suite red"
+    fi
+  else
+    fail "SKIP_TESTS=1 set — WI-3.1 suite not run"
+  fi
+
+  echo "— WI-3.2: provenance recovery UI (kernel candidates + confirm flow) —"
+  assert_grep "perform_provenance_candidates" src-tauri/src/coherence/provenance.rs "candidates query"
+  assert_file src/components/BreakdownPanel/ProvenanceGroup.tsx "provenance group component"
+  assert_grep "confirmInputs" src/services/breakdown/semanticActs.ts "confirm service (idem minted client-side)"
+  if [[ "${SKIP_TESTS:-}" != "1" ]]; then
+    if pnpm vitest run src/components/BreakdownPanel/BreakdownPanel.test.tsx --silent >/dev/null 2>&1; then
+      ok "WI-3.2 breakdown suite green"
+    else
+      fail "WI-3.2 breakdown suite red"
+    fi
+  else
+    fail "SKIP_TESTS=1 set — WI-3.2 suite not run"
+  fi
+
+  echo "— WI-3.3: delegation kernel (principal-bound, expiring) —"
+  assert_file src-tauri/src/coherence/delegation.rs "delegation module"
+  assert_grep "live_delegation_for" src-tauri/src/coherence/delegation.rs "the single authorization gate"
+  assert_grep "non-human resolution without a delegation reference" src-tauri/src/coherence/envelope.rs "D2.4 typed pairing validation"
+  if [[ "${SKIP_TESTS:-}" != "1" ]]; then
+    if cargo test --manifest-path src-tauri/Cargo.toml --lib coherence::delegation --quiet >/dev/null 2>&1; then
+      ok "WI-3.3 delegation suite green"
+    else
+      fail "WI-3.3 delegation suite red"
+    fi
+  else
+    fail "SKIP_TESTS=1 set — WI-3.3 suite not run"
+  fi
+
+  echo "— WI-3.4: delegation grant/revoke UI (explicit, 7-day default) —"
+  assert_file src/components/BreakdownPanel/DelegationsSection.tsx "delegations section"
+  assert_grep "grantConfirm" src/components/BreakdownPanel/DelegationsSection.tsx "confirmation names the terms"
+  assert_grep "coherence_delegations" src-tauri/src/command_registry.rs "delegation commands registered"
+  if [[ "${SKIP_TESTS:-}" != "1" ]]; then
+    if pnpm vitest run src/components/BreakdownPanel/BreakdownPanel.test.tsx --silent >/dev/null 2>&1; then
+      ok "WI-3.4 delegations suite green"
+    else
+      fail "WI-3.4 delegations suite red"
+    fi
+  else
+    fail "SKIP_TESTS=1 set — WI-3.4 suite not run"
+  fi
+
+  echo "— WI-3.6 (kernel): branch-mapped contexts —"
+  assert_grep "git_branch" src-tauri/src/coherence/contexts.rs "typed mapping field"
+  assert_grep "perform_branch_candidate" src-tauri/src/coherence/context_commands.rs "pull-only candidate"
+  assert_grep "current_branch" src-tauri/src/coherence/gitops.rs "exact branch detection"
+  if [[ "${SKIP_TESTS:-}" != "1" ]]; then
+    if cargo test --manifest-path src-tauri/Cargo.toml --lib coherence::context_commands --quiet >/dev/null 2>&1; then
+      ok "WI-3.6 kernel suite green"
+    else
+      fail "WI-3.6 kernel suite red"
+    fi
+  else
+    fail "SKIP_TESTS=1 set — WI-3.6 suite not run"
+  fi
+
+  echo "— WI-3.5 (resolve): delegated MCP resolution —"
+  assert_grep "vmark.coherence.resolve" src-tauri/src/mcp_bridge/coherence_answers.rs "resolve arm, principal-bound"
+  assert_grep "perform_resolve_as" src-tauri/src/coherence/commands.rs "actor-generic resolve with audit ref"
+  assert_grep "authenticated_principal" src-tauri/src/mcp_bridge/server.rs "authenticated principal plumbed from the bridge"
+  if [[ "${SKIP_TESTS:-}" != "1" ]]; then
+    if cargo test --manifest-path src-tauri/Cargo.toml --lib mcp_bridge::routing --quiet >/dev/null 2>&1; then
+      ok "WI-3.5 delegated-resolve suite green"
+    else
+      fail "WI-3.5 delegated-resolve suite red"
+    fi
+  else
+    fail "SKIP_TESTS=1 set — WI-3.5 suite not run"
+  fi
+
+  echo "— WI-3.5 F5/F6: bridge routing + disconnect safety —"
+  assert_file src-tauri/src/mcp_bridge/window_routing.rs "workspace-aware routing (pure)"
+  assert_grep "pick_target_window" src-tauri/src/mcp_bridge/routing.rs "router consults the workspace map"
+  assert_grep "mcp_bridge_set_window_workspace" src-tauri/src/command_registry.rs "window→workspace registration command"
+  assert_file src/services/mcpBridge/windowWorkspaceSync.ts "frontend registers this window's workspace"
+  assert_grep "disconnect_preserves_window_workspaces" src-tauri/src/mcp_bridge/server.test.rs "F6 guarantee locked"
+  if [[ "${SKIP_TESTS:-}" != "1" ]]; then
+    if cargo test --manifest-path src-tauri/Cargo.toml --lib mcp_bridge --quiet >/dev/null 2>&1 \
+       && pnpm vitest run src/services/mcpBridge/windowWorkspaceSync.test.ts --silent >/dev/null 2>&1; then
+      ok "WI-3.5 F5/F6 suites green"
+    else
+      fail "WI-3.5 F5/F6 suites red"
+    fi
+  else
+    fail "SKIP_TESTS=1 set — WI-3.5 F5/F6 suites not run"
+  fi
+
+  echo "— WI-3.6-ui: branch-context chip (pull-only, no auto-select) —"
+  assert_grep "coherence_branch_candidate" src-tauri/src/command_registry.rs "branch candidate command"
+  assert_grep "breakdown-branch-chip" src/components/BreakdownPanel/BreakdownPanel.tsx "chip rendered"
+  assert_grep "refreshBranchCandidate" src/services/breakdown/breakdownService.ts "candidate service"
+  echo "— WI-3.7: completed-merge classifier + banner —"
+  assert_grep "merge_commit_sha" src-tauri/src/coherence/gitops.rs "completed-merge classifier"
+  assert_grep "merge-completed" src-tauri/src/coherence/merge_surface.rs "deduped merge diagnostic"
+  assert_file src/components/BreakdownPanel/MergeBanner.tsx "dismissible merge banner"
+  assert_grep "coherence_recent_merge" src-tauri/src/command_registry.rs "merge-surface command"
+  if [[ "${SKIP_TESTS:-}" != "1" ]]; then
+    if cargo test --manifest-path src-tauri/Cargo.toml --lib coherence::scan --quiet >/dev/null 2>&1 \
+       && cargo test --manifest-path src-tauri/Cargo.toml --lib coherence::merge_surface --quiet >/dev/null 2>&1 \
+       && pnpm vitest run src/components/BreakdownPanel/MergeBanner.test.tsx src/components/BreakdownPanel/BreakdownPanel.test.tsx --silent >/dev/null 2>&1; then
+      ok "WI-3.6-ui + WI-3.7 suites green"
+    else
+      fail "WI-3.6-ui + WI-3.7 suites red"
+    fi
+  else
+    fail "SKIP_TESTS=1 set — WI-3.6-ui/3.7 suites not run"
+  fi
+
+  echo "— WI-3.8: Phase 3 guides x10 —"
+  assert_grep "Provenance, delegation, and branches" website/guide/coherence.md "EN guide covers Phase 3"
+  if grep -q "resolve" website/ja/guide/mcp-tools.md && grep -q "resolve" website/zh-CN/guide/mcp-tools.md; then
+    ok "localized mcp-tools guides cover the resolve action (spot: ja, zh-CN)"
+  else
+    fail "localized mcp-tools guides missing the resolve action"
+  fi
+  echo "— WI-3.9: dogfood session 4 (O2 + reservation closure) —"
+  local DLOG=dev-docs/grills/coherence/dogfood-log.md
+  assert_grep "Session 4 — 2026-07-19" "$DLOG" "session 4 recorded"
+  assert_grep "precision 8/8" "$DLOG" "O2 precision recorded"
+  assert_grep "delegated MCP resolve (verified live" "$DLOG" "delegated resolve verified live"
+  assert_grep "Finding F7" "$DLOG" "F7 dogfood catch recorded"
+  assert_grep "resolve_is_reachable_through_handle_rust_side_dispatch" src-tauri/src/mcp_bridge/routing.test.rs "F7 regression test present"
+  assert_grep "Phase 3 features in the guides\|COMPLETE" dev-docs/plans/20260718-coherence-layer.md "plan Phase-3 status ticked"
+  if [[ "${SKIP_TESTS:-}" != "1" ]]; then
+    if cargo test --manifest-path src-tauri/Cargo.toml --lib coherence --quiet >/dev/null 2>&1 && cargo test --manifest-path src-tauri/Cargo.toml --lib mcp_bridge --quiet >/dev/null 2>&1; then
+      ok "WI-3.9 full coherence + bridge suites green"
+    else
+      fail "WI-3.9 suites red"
+    fi
+  else
+    fail "SKIP_TESTS=1 set — WI-3.9 suites not run"
+  fi
+  echo "— pending WIs (fail-closed until implemented) —"
+  for wi in "${PENDING[@]}"; do
+    fail "WI-$wi assertions not yet defined (fail-closed)"
+  done
+}
+
+# ─── Stubs ───────────────────────────────────────────────────────────────
+phase_stub() {
+  echo "Phase $1 — stub (decomposed by plan amendment after Phase 2a; rule 60 §3)"
+  fail "Phase $1 DoD assertions not yet defined"
+}
+
+case "$PHASE" in
+  0) phase_0 ;;
+  1) phase_1 ;;
+  2) phase_2 ;;
+  3) phase_3 ;;
+  2a|2b|4) phase_stub "$PHASE" ;;
+  *) echo "unknown phase: $PHASE"; exit 64 ;;
+esac
+
+echo
+echo "─────────────────────────────────────────────"
+echo "Phase $PHASE: $PASS passed, $FAIL failed"
+if (( FAIL > 0 )); then
+  echo
+  echo "Failed assertions:"
+  for d in "${FAIL_DETAIL[@]}"; do echo "  • $d"; done
+  exit 1
+fi
+exit 0

@@ -1,0 +1,78 @@
+{
+  "title": "Coherence Breakdown",
+  "refresh": "Refresh",
+  "loading": "Loading…",
+  "error": "Couldn't load the breakdown",
+  "empty": "Everything coherent",
+  "capNotice": "Showing {{shown}} of {{total}} edges",
+  "actions": {
+    "acceptNewer": "Accept newer",
+    "revise": "Revise",
+    "waive": "Waive",
+    "check": "Check"
+  },
+  "waiveReasonPlaceholder": "Reason (required)",
+  "waiveConfirm": "Confirm waiver",
+  "disabledMultiHead": "Upstream has multiple live heads — revise or pin a head first",
+  "disabledUnpinnable": "Upstream is not resolvable in this context",
+  "reviseUnavailable": "No file path known for this artifact",
+  "states": {
+    "versionStale": "Version stale",
+    "staleValid": "Stale — checked valid",
+    "staleContradicted": "Stale — contradicted",
+    "staleUnknown": "Stale — unchecked",
+    "waived": "Waived",
+    "diverged": "Diverged",
+    "divergedMultiHead": "Diverged (multiple heads)",
+    "unpinnable": "Unpinnable"
+  },
+  "confidence": {
+    "inferred": "Provenance inferred — the recorded input set under-approximates what the agent actually consulted",
+    "inferredShort": "inferred",
+    "unknown": "Provenance unknown — this change was observed outside VMark",
+    "unknownShort": "unknown"
+  },
+  "priorWaived": "previously waived ×{{count}}",
+  "waiveExpiryPlaceholder": "Expires (optional, YYYY-MM-DD)",
+  "checkUnavailable": "Configure an AI provider to run semantic checks",
+  "contexts": {
+    "label": "Context",
+    "newPlaceholder": "New context name",
+    "create": "Create context",
+    "enforce": "Enforce",
+    "unenforce": "Back to greenhouse",
+    "enforceConfirm": "Enforcing this context labels contradictions as canon violations for everyone projecting it. Established claims start constraining. Enable?",
+    "enforceTitle": "Enforce context",
+    "error": "Context error: {{error}}"
+  },
+  "provenance": {
+    "heading": "Provenance unknown",
+    "hint": "{{count}} prior input(s) recoverable",
+    "suggest": "Suggest inputs",
+    "confirm": "Confirm provenance",
+    "empty": "No inputs selected",
+    "stale": "The document changed — suggestions refreshed"
+  },
+  "delegations": {
+    "heading": "Agent delegations",
+    "empty": "No active delegations",
+    "grant": "Grant",
+    "revoke": "Revoke",
+    "principalPlaceholder": "Agent principal (e.g. codex-cli)",
+    "days": "Days",
+    "scopeAcceptNewer": "Accept newer",
+    "scopeWaive": "Waive",
+    "expiresOn": "until {{date}}",
+    "grantConfirm": "Allow \"{{principal}}\" to resolve edges in this workspace ({{scope}}) until {{date}}? Every delegated resolution is audit-logged against this grant.",
+    "grantTitle": "Grant delegation"
+  },
+  "branch": {
+    "available": "Branch context available: {{name}} — switch",
+    "ambiguous": "Multiple contexts map branch \"{{branch}}\" — resolve before switching",
+    "create": "Create context for branch \"{{branch}}\""
+  },
+  "merge": {
+    "banner": "A merge landed — review the breakdown",
+    "dismiss": "Dismiss"
+  }
+}

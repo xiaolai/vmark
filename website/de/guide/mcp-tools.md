@@ -1,6 +1,6 @@
 # MCP-Tools-Referenz
 
-VMark stellt KI-Assistenten **vier zusammengesetzte MCP-Tools** zur Verfügung: `session`, `workspace`, `document` und `workflow`. Zusammen decken sie **14 Aktionen** ab — das Lese-/Schreibgerüst, den Datei- und Fenster-Lebenszyklus sowie CST-sichere Bearbeitungen für GitHub Actions YAML.
+VMark stellt KI-Assistenten **sieben zusammengesetzte MCP-Tools** zur Verfügung: `session`, `workspace`, `document`, `workflow`, `selection`, `browser` und `coherence`. Zusammen decken sie das Editor-Rückgrat, den Datei- und Fenster-Lebenszyklus, CST-sichere Workflow-Bearbeitungen, gezielte Bearbeitungen der Auswahl, begrenzte Browser-Navigation und eine schreibgeschützte Sicht auf die Kohärenzschicht des Arbeitsbereichs ab.
 
 Die frühere Oberfläche mit 12 Tools und 76 Aktionen wurde reduziert, weil dokumentinterne Formatierungs-Tools (Fettdruck, Überschriften, Tabellen usw.) Arbeit duplizieren, die KI-Agenten ohnehin trivial über einen Markdown-Roundtrip erledigen. Die vollständige Begründung steht im [MCP-Pruning-Plan](https://github.com/xiaolai/vmark/blob/main/dev-docs/plans/20260504-mcp-pruning.md).
 
@@ -236,6 +236,87 @@ Gibt bei Erfolg `{revision}` zurück oder eine strukturierte Fehlerhülle `STALE
 | `tabId` | string | Nein |
 
 Gibt `{ok, diagnostics, binaryAvailable}` zurück. Jede Diagnose trägt `{line, col, message, severity}`. `binaryAvailable: false` bedeutet, dass `actionlint` lokal nicht installiert ist; Installation über Homebrew oder die Upstream-Releases.
+
+---
+
+## `coherence`
+
+Eine **schreibgeschützte** Sicht auf die Kohärenzschicht des Arbeitsbereichs — welche abgeleiteten Dokumente gegenüber den Upstreams, aus denen sie erzeugt wurden, veraltet sind. Keine der beiden Aktionen verändert Dokumente, das Ledger oder irgendeinen Editor-Zustand; beide werden vollständig vom Rust-Backend aus dem Kernel des jeweiligen Arbeitsbereichs beantwortet und funktionieren daher auch, wenn kein Editor-Fenster im Vordergrund ist.
+
+Zwei weitere schreibgeschützte Aktionen legen die semantische Schicht offen:
+
+- `claims` — die aktuellen Kanon-Aussagen: `{claim, entryId, statement, maturity, invalidAt, visible}`. Nur `established`-Aussagen schränken semantische Prüfungen ein; `visible` spiegelt den Default-Kontext wider.
+- `contexts` — die Kontextmenge (der implizite `default` ist immer vorhanden): `{id, name, parent, enforcement, visibleClaims, errors}`.
+
+Eine verändernde Aktion, durch Delegation abgesichert:
+
+- `resolve` — eine aktive veraltete Kante als ausdrücklich delegierter Agent auflösen: `{workspace_root, txf, input, resolution: "accept-newer" | "waive", reason? (required for waive)}`. Die Autorisierung ist fail-closed: Der Eigentümer des Arbeitsbereichs muss **Ihrer authentifizierten Bridge-Identität** eine aktive, nicht abgelaufene Delegation erteilt haben, die die Art der Auflösung abdeckt (in der App erteilt, aus der Aufschlüsselung), und die Kante muss aktiv sein. Jede delegierte Auflösung wird im Audit-Log der Erteilung zugeordnet. Aussagen- und Kontextmutationen werden nie offengelegt — der Kanon bleibt menschengesteuert.
+
+Alle Aktionen erfordern `workspace_root`: den absoluten Pfad des abzufragenden Arbeitsbereichs. Sie erfahren ihn über `session.get_state` (das `filePath` der offenen Tabs) oder das workspace-Tool. Ein Pfad, der fehlt, nicht absolut ist oder kein Verzeichnis ist, wird mit einem einfachen String-Fehler abgelehnt.
+
+### `status`
+
+Kernel-Statuszähler für einen Arbeitsbereich.
+
+| Parameter | Typ | Erforderlich | Beschreibung |
+|-----------|-----|--------------|--------------|
+| `workspace_root` | string | Ja | Absoluter Pfad des abzufragenden Arbeitsbereichs |
+
+**Rückgabe:**
+
+```json
+{
+  "initialized": true,
+  "objects": 12,
+  "open_items": 2,
+  "quarantined": 0,
+  "writer": "0198c0de-0000-7000-8000-000000000001"
+}
+```
+
+| Feld | Bedeutung |
+|---|---|
+| `initialized` | `false`, wenn der Arbeitsbereich noch kein Kohärenz-Ledger hat (kein `.vmark/`-Verzeichnis). Alle Zähler außer `objects` sind dann 0. |
+| `objects` | Verfolgte Objekte (Dateien mit einer Kohärenz-Identität). |
+| `open_items` | Aktive, nicht mehr frische Kanten — die aktuelle Größe der Aufschlüsselung. |
+| `quarantined` | Beim letzten Lesen unter Quarantäne gestellte fehlerhafte Ledger-Zeilen. |
+| `writer` | Die Writer-ID (UUID) dieser Installation. |
+
+### `edges`
+
+Die Aufschlüsselung: jede aktive Abhängigkeitskante, deren Upstream sich bewegt hat. Führt zuerst einen Scan-Abgleich aus, sodass die Antwort die Dateien auf der Festplatte zum Aufrufzeitpunkt widerspiegelt.
+
+| Parameter | Typ | Erforderlich | Beschreibung |
+|-----------|-----|--------------|--------------|
+| `workspace_root` | string | Ja | Absoluter Pfad des abzufragenden Arbeitsbereichs |
+
+**Rückgabe** — ein Array, leer, wenn alles kohärent ist:
+
+```json
+[
+  {
+    "txf": "0198c0de-0000-7000-8000-00000000000a",
+    "input": 0,
+    "upstream": "0198c0de-0000-7000-8000-00000000000b",
+    "upstream_path": "characters/elena.md",
+    "pinned": "rev-a1b2c3",
+    "downstream": "0198c0de-0000-7000-8000-00000000000c",
+    "downstream_path": "scenes/chapter-3.md",
+    "downstream_rev": "rev-d4e5f6",
+    "state": "version-stale"
+  }
+]
+```
+
+| Feld | Bedeutung |
+|---|---|
+| `txf` / `input` | Der Transformationseintrag und der Eingabe-Slot, die diese Kante identifizieren (an die Auflösungsaktionen in der App übergeben). |
+| `upstream` / `upstream_path` | Das Objekt, von dem der Downstream abhängt, und sein zuletzt bekannter Pfad. |
+| `pinned` | Die Upstream-Revision, aus der der Downstream erzeugt wurde. |
+| `downstream` / `downstream_path` / `downstream_rev` | Das abgeleitete Objekt, sein Pfad und seine aktuelle Revision. |
+| `state` | `"version-stale"`, `"stale-valid"`, `"stale-contradicted"`, `"stale-unknown"`, `"waived"`, `"diverged"`, `"diverged-multi-head"` oder `"unpinnable"`. |
+
+Das Auflösen einer Kante (Neuere übernehmen / Aussetzen) ist eine menschliche Aktion in VMarks Aufschlüsselungsansicht — sie ist bewusst nicht über MCP verfügbar.
 
 ---
 

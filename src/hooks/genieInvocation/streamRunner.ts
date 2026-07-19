@@ -29,7 +29,9 @@ import type { GenieAction, AiResponseChunk } from "@/types/aiGenies";
 import { useAiSuggestionStore, useAiProviderStore, useAiInvocationStore, REST_TYPES, KEY_OPTIONAL_REST } from "@/stores/aiStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useTabStore } from "@/stores/tabStore";
+import { useDocumentStore } from "@/stores/documentStore";
 import { useEditorStore } from "@/stores/editorStore";
+import { captureAiEdit } from "@/services/coherence/captureFunnel";
 import { useGeniePickerStore } from "@/stores/geniePickerStore";
 import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import { createMarkdownPasteSlice } from "@/plugins/markdownPaste/tiptap";
@@ -129,6 +131,10 @@ function applyDirectly(ctx: RunContext, content: string): void {
     failInvocation(i18n.t("dialog:toast.genieEditorUnavailable"));
     return;
   }
+  // Coherence (WI-1.6): dirty state must be read BEFORE the apply — it
+  // decides whether the capture's input revision is exact or inferred.
+  const bufferWasDirty =
+    useDocumentStore.getState().getDocument(ctx.tabId)?.isDirty ?? false;
   const isInsert = ctx.action === "insert";
   const from = isInsert ? ctx.extraction.to : ctx.extraction.from;
   const to = ctx.extraction.to;
@@ -140,6 +146,15 @@ function applyDirectly(ctx: RunContext, content: string): void {
   editor.view.dispatch(tr);
   useGeniePickerStore.getState().closePicker();
   useAiInvocationStore.getState().finish();
+  // Synchronous after dispatch (audit T3): onUpdate has synced the store
+  // and captureAiEdit snapshots at entry — no timer race with a second
+  // apply or tab switch.
+  void captureAiEdit({
+    tabId: ctx.tabId,
+    intentKind: "genie",
+    summary: "genie auto-apply",
+    bufferWasDirty,
+  }).catch(() => {});
 }
 
 /** Terminal done-frame: apply, suggest, or error depending on state. */

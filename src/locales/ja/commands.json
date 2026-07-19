@@ -59,7 +59,9 @@
     "zoomIn": "拡大",
     "zoomOut": "縮小",
     "toggleShowInvisibles": "不可視文字を切り替え",
-    "toggleWindowStatus": "ウィンドウの状態"
+    "toggleWindowStatus": "ウィンドウの状態",
+    "toggleBreakdown": "整合性の内訳",
+    "toggleClaims": "カノン設定"
   },
   "lint": {
     "check": "Markdown をチェック",
@@ -84,5 +86,8 @@
   },
   "browser": {
     "newTab": "新しいブラウザタブ"
+  },
+  "claims": {
+    "extractFromSelection": "選択範囲から設定を抽出"
   }
 }

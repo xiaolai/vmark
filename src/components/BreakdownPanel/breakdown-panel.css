@@ -1,0 +1,552 @@
+/* Breakdown panel (WI-1.9b). Tokens only — see .claude/rules/31-design-tokens.md */
+.breakdown-panel {
+  width: 380px;
+  max-height: 70vh;
+  overflow-y: auto;
+  background: var(--bg-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--popup-shadow);
+  display: flex;
+  flex-direction: column;
+  animation: popup-fade-in 0.1s ease-out;
+}
+
+.dark-theme .breakdown-panel {
+  box-shadow: var(--popup-shadow-dark);
+}
+
+.breakdown-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-2) var(--spacing-3);
+  border-bottom: 1px solid var(--border-color);
+  position: sticky;
+  top: 0;
+  background: var(--bg-color);
+}
+
+.breakdown-panel__title {
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.breakdown-panel__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-half);
+}
+
+.breakdown-panel__icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--icon-size-sm);
+  height: var(--icon-size-sm);
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.breakdown-panel__icon-btn:hover:not(:disabled) {
+  background: var(--hover-bg);
+  color: var(--text-color);
+}
+
+.breakdown-panel__icon-btn:disabled {
+  opacity: var(--opacity-disabled);
+  cursor: not-allowed;
+}
+
+.breakdown-panel__icon-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent-bg);
+}
+
+.breakdown-panel__loading,
+.breakdown-panel__empty,
+.breakdown-panel__cap {
+  padding: var(--spacing-3);
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.breakdown-panel__error {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-1);
+  padding: var(--spacing-2) var(--spacing-3);
+  margin: 0;
+  color: var(--error-color);
+  background: var(--error-bg);
+  font-size: var(--font-size-sm);
+}
+
+.breakdown-panel__error-detail {
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  overflow-wrap: anywhere;
+}
+
+.breakdown-panel__groups {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+  padding: var(--spacing-2);
+}
+
+.breakdown-group__artifact {
+  margin: 0 0 var(--spacing-1);
+  padding: 0 var(--spacing-1);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--text-color);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.breakdown-group__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-half);
+}
+
+.breakdown-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-1);
+  padding: var(--spacing-2);
+  border-radius: var(--radius-sm);
+  background: var(--subtle-bg);
+}
+
+.breakdown-row__main {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+}
+
+.breakdown-row__upstream {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-size-sm);
+  color: var(--text-color);
+}
+
+.breakdown-row__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-1);
+}
+
+.breakdown-row__action {
+  padding: 0 var(--spacing-1);
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  position: relative;
+}
+
+.breakdown-row__action:hover:not(:disabled) {
+  background: var(--hover-bg);
+  color: var(--text-color);
+}
+
+.breakdown-row__action:disabled {
+  opacity: var(--opacity-disabled);
+  cursor: not-allowed;
+}
+
+/* Focus: U-shaped underline (rule 33 — toolbar/popup buttons). */
+.breakdown-row__action:focus-visible {
+  outline: none;
+}
+
+.breakdown-row__action:focus-visible::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: var(--space-1);
+  right: var(--space-1);
+  height: var(--border-thick);
+  border-bottom: var(--border-medium) solid var(--accent-primary);
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+}
+
+.breakdown-row__waive {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-1);
+}
+
+/* Dialog-input pattern (rule 33): bottom border, highlighted on focus. */
+.breakdown-row__waive-input {
+  flex: 1;
+  border: none;
+  border-bottom: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-color);
+  outline: none;
+  font-size: var(--font-size-sm);
+  font-family: var(--font-sans);
+  padding: var(--space-half) 0;
+}
+
+.breakdown-row__waive-input:focus {
+  border-bottom-color: var(--accent-primary);
+}
+
+.breakdown-row__waive-input::placeholder {
+  color: var(--text-secondary);
+  opacity: var(--opacity-muted);
+}
+
+/* State badges — token-mapped per state (rule 31; dark parity per rule 34). */
+.breakdown-state-badge {
+  flex-shrink: 0;
+  padding: 0 var(--spacing-1);
+  border-radius: var(--radius-pill);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-relaxed);
+  white-space: nowrap;
+}
+
+.breakdown-state-badge--version-stale {
+  color: var(--warning-color);
+  background: var(--warning-bg);
+}
+
+.breakdown-state-badge--stale-valid {
+  color: var(--success-color);
+  background: color-mix(in srgb, var(--success-color) 10%, transparent);
+}
+
+.breakdown-state-badge--stale-contradicted,
+.breakdown-state-badge--unpinnable {
+  color: var(--error-color);
+  background: var(--error-bg);
+}
+
+.breakdown-state-badge--stale-unknown {
+  color: var(--text-secondary);
+  background: var(--hover-bg);
+}
+
+.breakdown-state-badge--waived {
+  color: var(--text-tertiary);
+  background: var(--subtle-bg);
+}
+
+.breakdown-state-badge--diverged,
+.breakdown-state-badge--diverged-multi-head {
+  color: var(--alert-important);
+  background: color-mix(in srgb, var(--alert-important) 10%, transparent);
+}
+
+.dark-theme .breakdown-state-badge--stale-valid {
+  color: var(--success-color-dark);
+  background: color-mix(in srgb, var(--success-color-dark) 10%, transparent);
+}
+
+.dark-theme .breakdown-state-badge--diverged,
+.dark-theme .breakdown-state-badge--diverged-multi-head {
+  color: var(--alert-important-dark);
+  background: color-mix(in srgb, var(--alert-important-dark) 10%, transparent);
+}
+
+/* Degraded-provenance badge (R28): rendered distinctly from state. */
+/* D3.4: informational "previously waived ×N" — visible, never nagging. */
+.breakdown-prior-waived {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+.breakdown-confidence-badge {
+  font-size: var(--font-size-2xs);
+  padding: 0 var(--spacing-1);
+  border-radius: var(--radius-pill);
+  border: var(--border-thin) dashed var(--text-tertiary);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-tight);
+}
+
+.breakdown-confidence-badge--unknown {
+  border-color: var(--warning-color);
+  color: var(--warning-color);
+}
+
+/* WI-2b.7: context bar — picker, create, enforcement (D1/D4.3). */
+.breakdown-context-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  flex-wrap: wrap;
+  padding: var(--spacing-1) var(--spacing-3);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.breakdown-context-bar__label {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-1);
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.breakdown-context-bar__select {
+  background: transparent;
+  color: var(--text-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  padding: 0 var(--spacing-1);
+}
+
+.breakdown-context-bar__input {
+  flex: 1;
+  min-width: 90px;
+  border: none;
+  border-bottom: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-color);
+  outline: none;
+  font-size: var(--font-size-sm);
+}
+
+.breakdown-context-bar__input:focus {
+  border-bottom-color: var(--primary-color);
+}
+
+.breakdown-context-bar__error {
+  width: 100%;
+  color: var(--error-color);
+  font-size: var(--font-size-xs);
+}
+
+/* WI-3.2: provenance-unknown group — lazy suggest → confirm (D1.5). */
+.provenance-group {
+  border-top: 1px solid var(--border-color);
+  padding: var(--spacing-2) var(--spacing-3);
+}
+
+.provenance-group__heading {
+  margin: 0 0 var(--spacing-1);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.provenance-group__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.provenance-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-1);
+  padding: var(--spacing-1) 0;
+}
+
+.provenance-row__main {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  min-width: 0;
+}
+
+.provenance-row__path {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  color: var(--text-color);
+}
+
+.provenance-row__hint {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+.provenance-row__confirm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-1);
+  padding-left: var(--spacing-2);
+}
+
+.provenance-row__input {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-1);
+  font-size: var(--font-size-sm);
+  color: var(--text-color);
+}
+
+.provenance-row__role {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+
+/* WI-3.4: agent delegations — explicit grant/revoke (D2.2). */
+.delegations-section {
+  border-top: 1px solid var(--border-color);
+  padding: var(--spacing-2) var(--spacing-3);
+}
+
+.delegations-section__heading {
+  margin: 0 0 var(--spacing-1);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.delegations-section__empty {
+  font-size: var(--font-size-sm);
+  color: var(--text-tertiary);
+}
+
+.delegations-section__list {
+  list-style: none;
+  margin: 0 0 var(--spacing-1);
+  padding: 0;
+}
+
+.delegations-section__row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  padding: var(--spacing-1) 0;
+  min-width: 0;
+}
+
+.delegations-section__principal {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  color: var(--text-color);
+}
+
+.delegations-section__scope,
+.delegations-section__expires {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+.delegations-section__form {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  flex-wrap: wrap;
+}
+
+.delegations-section__input {
+  flex: 1;
+  min-width: 140px;
+  border: none;
+  border-bottom: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-color);
+  outline: none;
+  font-size: var(--font-size-sm);
+  font-family: var(--font-mono);
+}
+
+.delegations-section__input:focus {
+  border-bottom-color: var(--primary-color);
+}
+
+.delegations-section__scope-box,
+.delegations-section__days-label {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-1);
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+.delegations-section__days {
+  width: 34px;
+  border: none;
+  border-bottom: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-color);
+  outline: none;
+  font-size: var(--font-size-sm);
+  text-align: center;
+}
+
+.delegations-section__days:focus {
+  border-bottom-color: var(--primary-color);
+}
+
+/* WI-3.6: pull-only branch-context chip — never auto-selects (D3.2). */
+.breakdown-branch-chip {
+  padding: var(--spacing-1) var(--spacing-3);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.breakdown-branch-chip__switch,
+.breakdown-branch-chip__create {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-pill);
+  background: var(--accent-bg);
+  color: var(--accent-primary);
+  font-size: var(--font-size-xs);
+  padding: var(--space-half) var(--spacing-2);
+  cursor: pointer;
+}
+
+.breakdown-branch-chip__switch:hover,
+.breakdown-branch-chip__create:hover {
+  background: var(--hover-bg-strong);
+}
+
+.breakdown-branch-chip__ambiguous {
+  font-size: var(--font-size-xs);
+  color: var(--warning-color);
+}
+
+/* WI-3.7: dismissible, pull-only merge banner (D3.3). */
+.breakdown-merge-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-2);
+  padding: var(--spacing-1) var(--spacing-3);
+  background: var(--warning-bg);
+  border-bottom: 1px solid var(--warning-border);
+  font-size: var(--font-size-sm);
+  color: var(--warning-color);
+}
+
+.breakdown-merge-banner__dismiss {
+  border: none;
+  background: transparent;
+  color: var(--warning-color);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  text-decoration: underline;
+}

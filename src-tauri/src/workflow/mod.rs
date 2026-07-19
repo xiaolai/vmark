@@ -3,7 +3,9 @@
 //! Parses and executes YAML workflow files with step-by-step execution,
 //! event emission to the frontend, and built-in action support.
 
+pub(crate) mod actions;
 pub mod approval;
+pub mod coherence_capture;
 pub mod commands;
 pub mod condition;
 mod condition_lexer;

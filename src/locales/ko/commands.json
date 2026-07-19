@@ -59,7 +59,9 @@
     "zoomIn": "확대",
     "zoomOut": "축소",
     "toggleShowInvisibles": "숨은 문자 전환",
-    "toggleWindowStatus": "창 상태"
+    "toggleWindowStatus": "창 상태",
+    "toggleBreakdown": "정합성 내역",
+    "toggleClaims": "캐논 설정"
   },
   "lint": {
     "check": "Markdown 검사",
@@ -84,5 +86,8 @@
   },
   "browser": {
     "newTab": "새 브라우저 탭"
+  },
+  "claims": {
+    "extractFromSelection": "선택 영역에서 설정 추출"
   }
 }
