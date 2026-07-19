@@ -960,3 +960,38 @@ and format stays `0`. `kind` is **orthogonal to `role`**: `role`
 derived `edges` index table carries `edge_kind TEXT NOT NULL DEFAULT 'dependency'`
 (not public contract, R16). Contradiction is **never** a kind — it is a
 `check-result` assessment (§5.4.4).
+### 13.8 Group-commit lifecycle records (`group-prepare`, `group-abort`)
+
+A multi-object group-commit is made crash- and concurrency-safe by two durable,
+**preserved** ledger kinds (design-accept-consistency #5/#6/#7). Both are keyed by
+`group_id` (§13.7) and ordered by `(time, id)` — the latest wins.
+
+```
+group-prepare = {
+  group_id,
+  members: [ { object, revision } ],          // the manifest — enumerate + reconstruct
+  snapshot: {
+    heads: [ [object, [revision, …]] ],        // affected objects' head sets at prepare
+    affected_edges: [ [txf, input] ],          // the prepare-time committed edges the digest covers
+    resolution_digest                          // hash of resolution ids on affected_edges
+  }
+}
+group-abort = { group_id }
+```
+
+- A FRESH group appends `group-prepare` **before** committing any member, so
+  `member present ⇒ prepare present` — recovery can always reconstruct the group.
+- The prepare's idem folds the snapshot digest, so a fresh context (a new preview)
+  is a **new attempt** (new prepare) while an idempotent re-prepare dedupes.
+- RECOVERY revalidates the snapshot against the current workspace: each affected
+  object's head must equal its prepared set, EXCEPT a committed member's object
+  (its head is that member's revision — the one group-caused move); resolutions on
+  `affected_edges` must be unchanged. Match → complete the missing members; drift →
+  append `group-abort` and require a re-preview.
+- The snapshot is **concrete state** (heads + resolution ids), not projected
+  structural classes — this avoids the representation shift where a member's new
+  edge moves from a synthetic preview class to a persisted one once it commits.
+
+Both kinds validate a string `group_id` (and `group-prepare` an array `members`)
+at parse and are otherwise **preserved untouched** (not projected into edge
+state); a malformed record quarantines per §5.6.
