@@ -54,7 +54,8 @@ clean (coherence lib **303 passed**, spikes 4+7, inventory 11):
 | Phase 0 (all) | ✅ **complete** | 6 G-B rounds → READY TO BUILD; SP1 4/4, SP3 7/7; gate `check-coherence-runtime-phase.sh 0` = 13/13; design v4; spec rev 3 §13 |
 | WI-1.4 checker robustness | ✅ **done** | `check_sweep.rs` — 16 tests (cost/budget/backoff/resume/manifest) |
 | WI-1.1 volume harness | ✅ **done (code)** | `check_sweep_run.rs` + `coherence_check_sweep` command, 6 tests + resume cursor |
-| WI-1.2 drift baseline, WI-1.3 M-metrics | ⏳ **needs a live dogfood run** | require the running app + AI provider — cannot be produced from code |
+| WI-1.2 drift baseline | ✅ **done — real run** | `drift-baseline-20260720.md`, gauge run on the repo ledger, content-hash-pinned; **M3 gap closed** (12 checks, 25% contradiction) |
+| WI-1.3 M-metrics | ⏳ **partial** | M1/M3/M4 readings are in the baseline; a *fresh* volume sweep (more checks) + owner-judged M2/M5 need the live app+provider |
 | WI-2.1 edge-kind registry | ✅ **done** | `edge_kind.rs` (7 tests) + `OriginEdge.kind` + `project_edge` gating + schema v4 col; characterization-tested, behaviour-preserving |
 | WI-2.4 read-model (backend) | ✅ **done** | `EdgeRow.kind`; frontend grouping + i18n×10 remain |
 | WI-3.0a bounded ReadView | ✅ **done** | `read_view.rs` — `edges_by_downstream` + `edges_incident_to` cap, 4 tests |
@@ -66,11 +67,15 @@ clean (coherence lib **303 passed**, spikes 4+7, inventory 11):
 | WI-3.1 dry-run projection | ✅ **done** | `preview.rs` `project_candidates` — overlay + delta, mints nothing, 3 tests |
 | WI-3.4 commit-on-accept | ✅ **done** | `accept.rs` `accept_candidate` — full protocol vs a real kernel, 4 tests |
 | **SP0** integration gate | ✅ **functional/fault/perf-mechanism PASS** | `spike-sp0-operator-slice.md`; only the absolute 500k-scale 20 ms/16 MiB benchmark (a `criterion` harness) remains |
-| Phase 3 surface (UI + MCP) | ⬜ **remaining** | WI-3.3 verify wiring, WI-3.5 preview UI, WI-3.6 MCP commands, WI-3.7 docs — UI + i18n×10 need frontend + visual QA |
+| WI-3.6 operator MCP commands | ✅ **done** | `operator_commands.rs` — propose/preview/accept (read-only + human-only), 4 DTO round-trip tests, registered |
+| WI-3.7 docs | ✅ **done** | `website/guide/coherence.md` operators + merge-audit sections |
+| Phase 3 surface (UI) | ⬜ **remaining** | WI-3.3 verify wiring (needs provider), WI-3.5 preview UI + i18n×10 (frontend + visual QA), the absolute-scale benchmark |
 | **SP-canon** (Phase 4 gate) | ✅ **design resolved + proven** | `spike-sp-canon.md` — canon carrier grounds claim-based canon in the version axis; conformance composes with zero kernel change (test) |
 | Phase 4 (canon) | ⬜ **gated on multi-object accept** | `Extract-Canon` is multi-object (carrier + N edges) → needs the group-commit increment, not Increment-1 |
 | **SP4** (Phase 5 gate) | ✅ **object→edge half proven** | `spike-sp4-merge-mapping.md` — `edges_affected_by` (deterministic, deduped); git→file half is a named API pending a git fixture |
-| Phase 5 (merge auditor) | ⬜ **remaining** | WI-5.1 git+registry wiring (git fixture); WI-5.2 reuses `check_sweep`; WI-5.3 breakdown surface |
+| WI-5.1 merge-affected edge set | ✅ **done** | `merge_audit.rs` + `gitops::merge_changed_files` — end-to-end vs a **real git merge** (2 tests + gitops 16/16) |
+| WI-5.2 auditor surface | ✅ **done (read-only)** | `coherence_merge_audit` command; the auto-check loop reuses `check_sweep` (needs provider) |
+| Phase 5 (WI-5.3 breakdown surface) | ⬜ **remaining** | frontend grouping of merge-origin contradictions |
 | **Phase 6** design pass | ✅ **done** | `design-projection-framework.md` — `Projection` + `CoherenceRow` shared read-model, validated against the 4 built surfaces |
 | Phase 6 impl | ⬜ **remaining** | WI-6.1/6.2 backend refactor (committable); WI-6.3 unified frontend consumer (visual QA) |
 
