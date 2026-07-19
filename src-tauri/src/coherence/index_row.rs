@@ -26,6 +26,10 @@ pub struct EdgeRow {
     /// D3.4: historical waiver count on this edge — repeat divergence is
     /// visible without nagging ("previously waived ×N").
     pub prior_waivers: usize,
+    /// Origin-edge kind (Phase 2, WI-2.4) — the read model reports it so the
+    /// breakdown can group/label by kind. Serialized as the wire tag
+    /// (`dependency`, `conformance`, …). Read-only (R23 intact).
+    pub kind: String,
 }
 
 fn serialize_state<S: serde::Serializer>(state: &EdgeState, s: S) -> Result<S::Ok, S::Error> {
