@@ -26,6 +26,15 @@ import {
   type EdgeRow,
 } from "@/stores/breakdownStore";
 import { emitOpenFileInCurrentWindow } from "@/services/navigation/openFileEvent";
+import {
+  isActiveWorkspace,
+  isLatestRefresh,
+  takeRefreshTicket,
+} from "./refreshGuards";
+
+// Re-exported so existing consumers (semanticActs, claimService) keep
+// importing the guards from this module.
+export { isActiveWorkspace, isLatestRefresh, takeRefreshTicket };
 
 /** Mirror of the Rust `ResolveRequest` (WI-1.9a). */
 export interface ResolveEdgeRequest {
@@ -67,6 +76,10 @@ export function resolveWorkspacePath(workspaceRoot: string, relative: string): s
  * a failure writes `error` and keeps the previous rows.
  */
 export async function refreshBreakdown(workspaceRoot: string): Promise<void> {
+  // Never refresh a workspace the user has already left: a stale caller
+  // (e.g. a mutation completing after a switch) must not consume a ticket
+  // and thereby starve the active workspace's refresh (audit #4/#5).
+  if (!isActiveWorkspace(workspaceRoot)) return;
   const generation = ++refreshGeneration;
   const store = useBreakdownStore.getState();
   store.setLoading(true);
@@ -77,10 +90,12 @@ export async function refreshBreakdown(workspaceRoot: string): Promise<void> {
       workspaceRoot,
       context,
     });
-    if (generation !== refreshGeneration) return; // superseded (audit T12)
+    if (generation !== refreshGeneration || !isActiveWorkspace(workspaceRoot))
+      return; // superseded (audit T12) or workspace changed (D1)
     useBreakdownStore.getState().setRows(rows);
   } catch (error) {
-    if (generation !== refreshGeneration) return;
+    if (generation !== refreshGeneration || !isActiveWorkspace(workspaceRoot))
+      return; // stale error must not surface on the new workspace (D1–D5)
     useBreakdownStore.getState().setError(messageOf(error));
   } finally {
     if (generation === refreshGeneration) {
@@ -170,12 +185,18 @@ export async function checkEdge(
 
 /** WI-2b.7: load the context set (implicit default always present). */
 export async function refreshContexts(workspaceRoot: string): Promise<void> {
+  if (!isActiveWorkspace(workspaceRoot)) return; // audit #4/#5: no ticket for a left workspace
+  const ticket = takeRefreshTicket("contexts");
   try {
     const contexts = await invoke<ContextRow[]>("coherence_contexts", {
       workspaceRoot,
     });
+    if (!isLatestRefresh("contexts", ticket) || !isActiveWorkspace(workspaceRoot))
+      return;
     useBreakdownStore.getState().setContexts(contexts);
   } catch (error) {
+    if (!isLatestRefresh("contexts", ticket) || !isActiveWorkspace(workspaceRoot))
+      return; // D1–D5: no stale/superseded error
     useBreakdownStore.getState().setError(messageOf(error));
   }
 }
@@ -222,13 +243,19 @@ export async function setContextEnforcement(
 
 /** WI-3.6: the pull-only branch-context candidate for the current branch. */
 export async function refreshBranchCandidate(workspaceRoot: string): Promise<void> {
+  if (!isActiveWorkspace(workspaceRoot)) return; // audit #4/#5: no ticket for a left workspace
+  const ticket = takeRefreshTicket("branch");
   try {
     const candidate = await invoke<BranchCandidate | null>(
       "coherence_branch_candidate",
       { workspaceRoot },
     );
+    if (!isLatestRefresh("branch", ticket) || !isActiveWorkspace(workspaceRoot))
+      return;
     useBreakdownStore.getState().setBranchCandidate(candidate);
   } catch (error) {
+    if (!isLatestRefresh("branch", ticket) || !isActiveWorkspace(workspaceRoot))
+      return; // D1–D5: no stale/superseded error
     useBreakdownStore.getState().setError(messageOf(error));
   }
 }
@@ -247,12 +274,18 @@ export async function createContextFromBranch(workspaceRoot: string): Promise<vo
 
 /** WI-3.7: the latest completed-merge notice for the dismissible banner. */
 export async function refreshMergeNotice(workspaceRoot: string): Promise<void> {
+  if (!isActiveWorkspace(workspaceRoot)) return; // audit #4/#5: no ticket for a left workspace
+  const ticket = takeRefreshTicket("merge");
   try {
     const notice = await invoke<MergeNotice | null>("coherence_recent_merge", {
       workspaceRoot,
     });
+    if (!isLatestRefresh("merge", ticket) || !isActiveWorkspace(workspaceRoot))
+      return;
     useBreakdownStore.getState().setMergeNotice(notice);
   } catch (error) {
+    if (!isLatestRefresh("merge", ticket) || !isActiveWorkspace(workspaceRoot))
+      return; // D1–D5: no stale/superseded error
     useBreakdownStore.getState().setError(messageOf(error));
   }
 }

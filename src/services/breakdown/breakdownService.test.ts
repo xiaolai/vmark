@@ -9,13 +9,17 @@ vi.mock("@/services/navigation/openFileEvent", () => ({
 
 import {
   checkEdge,
+  refreshBranchCandidate,
   refreshBreakdown,
+  refreshContexts,
+  refreshMergeNotice,
   resolveEdge,
   reviseEdge,
   resolveWorkspacePath,
 } from "./breakdownService";
 import { useAiProviderStore } from "@/stores/aiStore";
 import { useBreakdownStore, type EdgeRow } from "@/stores/breakdownStore";
+import { useWorkspaceStore } from "@/stores/workspaceStore";
 
 const mockInvoke = vi.mocked(invoke);
 
@@ -38,6 +42,9 @@ beforeEach(() => {
   mockInvoke.mockReset().mockResolvedValue(undefined);
   mockEmitOpenFile.mockClear();
   useBreakdownStore.getState().reset();
+  // The stale-response guard writes only for the active workspace (D1–D5);
+  // tests refresh "/ws", so "/ws" must be the open workspace.
+  useWorkspaceStore.setState({ rootPath: "/ws" });
 });
 
 describe("refreshBreakdown", () => {
@@ -89,6 +96,33 @@ describe("refreshBreakdown", () => {
     mockInvoke.mockRejectedValueOnce("no such workspace");
     await refreshBreakdown("/ws");
     expect(useBreakdownStore.getState().error).toBe("no such workspace");
+  });
+
+  it("drops a late response after the workspace changed (audit D1–D5)", async () => {
+    let release: (rows: EdgeRow[]) => void = () => {};
+    mockInvoke.mockImplementationOnce(
+      () => new Promise((resolve) => (release = resolve as never)),
+    );
+    const pending = refreshBreakdown("/ws");
+    // User switches workspaces while the invoke is in flight.
+    useWorkspaceStore.setState({ rootPath: "/other" });
+    release([row({ txf: "late" })]);
+    await pending;
+    // The stale "/ws" response must NOT overwrite the new workspace's mirror.
+    expect(useBreakdownStore.getState().rows).toEqual([]);
+  });
+
+  it("drops a late ERROR after the workspace changed (audit D1–D5)", async () => {
+    let reject: (e: unknown) => void = () => {};
+    mockInvoke.mockImplementationOnce(
+      () => new Promise((_resolve, rej) => (reject = rej)),
+    );
+    const pending = refreshBreakdown("/ws");
+    useWorkspaceStore.setState({ rootPath: "/other" });
+    reject("kernel poisoned");
+    await pending;
+    // A stale failure must not surface an error on the new workspace.
+    expect(useBreakdownStore.getState().error).toBeNull();
   });
 });
 
@@ -202,5 +236,77 @@ describe("checkEdge (WI-2b.5)", () => {
     mockInvoke.mockRejectedValueOnce(new Error("provider exploded"));
     await checkEdge("/ws", "t1", 0);
     expect(useBreakdownStore.getState().error).toContain("provider exploded");
+  });
+});
+
+describe("secondary refreshes (contexts/branch/merge) — guards", () => {
+  it("refreshContexts writes rows, surfaces errors, and no-ops when inactive", async () => {
+    const rows = [
+      {
+        id: "c-1",
+        name: "night-arc",
+        parent: null,
+        enforcement: "greenhouse" as const,
+        visibleClaims: 0,
+        errors: [],
+      },
+    ];
+    mockInvoke.mockResolvedValueOnce(rows);
+    await refreshContexts("/ws");
+    expect(useBreakdownStore.getState().contexts).toEqual(rows);
+
+    mockInvoke.mockRejectedValueOnce("kernel poisoned");
+    await refreshContexts("/ws");
+    expect(useBreakdownStore.getState().error).toBe("kernel poisoned");
+
+    // Inactive workspace → complete no-op (no invoke, audit #4/#5).
+    useWorkspaceStore.setState({ rootPath: "/other" });
+    mockInvoke.mockClear();
+    await refreshContexts("/ws");
+    expect(mockInvoke).not.toHaveBeenCalled();
+  });
+
+  it("refreshBranchCandidate writes, surfaces errors, and no-ops when inactive", async () => {
+    const candidate = {
+      branch: "night-arc",
+      context: "c-1",
+      contextName: "night-arc",
+      ambiguous: false,
+    };
+    mockInvoke.mockResolvedValueOnce(candidate);
+    await refreshBranchCandidate("/ws");
+    expect(useBreakdownStore.getState().branchCandidate).toEqual(candidate);
+
+    mockInvoke.mockRejectedValueOnce("no repo");
+    await refreshBranchCandidate("/ws");
+    expect(useBreakdownStore.getState().error).toBe("no repo");
+
+    useWorkspaceStore.setState({ rootPath: "/other" });
+    mockInvoke.mockClear();
+    await refreshBranchCandidate("/ws");
+    expect(mockInvoke).not.toHaveBeenCalled();
+  });
+
+  it("refreshMergeNotice writes, surfaces errors, and no-ops when inactive", async () => {
+    const notice = { sha: "abc123", time: "2026-07-19T00:00:00Z" };
+    mockInvoke.mockResolvedValueOnce(notice);
+    await refreshMergeNotice("/ws");
+    expect(useBreakdownStore.getState().mergeNotice).toEqual(notice);
+
+    mockInvoke.mockRejectedValueOnce("no repo");
+    await refreshMergeNotice("/ws");
+    expect(useBreakdownStore.getState().error).toBe("no repo");
+
+    useWorkspaceStore.setState({ rootPath: "/other" });
+    mockInvoke.mockClear();
+    await refreshMergeNotice("/ws");
+    expect(mockInvoke).not.toHaveBeenCalled();
+  });
+
+  it("refreshBreakdown no-ops for an inactive workspace (audit #4/#5)", async () => {
+    useWorkspaceStore.setState({ rootPath: "/other" });
+    mockInvoke.mockClear();
+    await refreshBreakdown("/ws");
+    expect(mockInvoke).not.toHaveBeenCalled();
   });
 });

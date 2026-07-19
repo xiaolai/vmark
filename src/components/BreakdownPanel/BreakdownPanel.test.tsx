@@ -519,6 +519,37 @@ describe("BreakdownPanel — WI-3.4 delegations", () => {
     await user.click(screen.getByRole("checkbox", { name: /accept newer/i }));
     expect(screen.getByRole("button", { name: /^grant$/i })).toBeDisabled();
   });
+
+  it.each(["abc", "7days", "0", "-3", "999999", "1.5", ""])(
+    "invalid days %j records nothing (audit D11)",
+    async (bad) => {
+      const user = userEvent.setup();
+      render(<BreakdownPanel />);
+      await user.type(screen.getByLabelText(/agent principal/i), "codex-cli");
+      const daysInput = screen.getByLabelText(/^days$/i);
+      await user.clear(daysInput);
+      if (bad !== "") await user.type(daysInput, bad);
+      await user.click(screen.getByRole("button", { name: /^grant$/i }));
+      expect(mockDelegate).not.toHaveBeenCalled();
+    },
+  );
+
+  it("a valid days value grants with the computed expiry (audit D11)", async () => {
+    const user = userEvent.setup();
+    render(<BreakdownPanel />);
+    await user.type(screen.getByLabelText(/agent principal/i), "codex-cli");
+    const daysInput = screen.getByLabelText(/^days$/i);
+    await user.clear(daysInput);
+    await user.type(daysInput, "30");
+    await user.click(screen.getByRole("button", { name: /^grant$/i }));
+    expect(mockDelegate).toHaveBeenCalledWith(
+      "/ws",
+      expect.objectContaining({
+        delegate: "codex-cli",
+        expires: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/),
+      }),
+    );
+  });
 });
 
 describe("BreakdownPanel — WI-3.6 branch-context chip (pull-only)", () => {

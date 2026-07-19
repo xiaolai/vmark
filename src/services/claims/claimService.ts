@@ -11,6 +11,11 @@
  */
 import { invoke } from "@tauri-apps/api/core";
 import { useClaimStore, type ClaimRow } from "@/stores/claimStore";
+import {
+  isActiveWorkspace,
+  isLatestRefresh,
+  takeRefreshTicket,
+} from "@/services/breakdown/breakdownService";
 
 /** The implicit default context's fixed id (spec §5.4.4 revision 1). */
 export const DEFAULT_CONTEXT_ID = "00000000-0000-0000-0000-000000000000";
@@ -20,16 +25,30 @@ function messageOf(error: unknown): string {
 }
 
 export async function refreshClaims(workspaceRoot: string): Promise<void> {
+  // Never refresh a workspace the user has already left: the synchronous
+  // loading/error writes below would land on the store the new workspace
+  // shows, and taking a ticket here would starve the active refresh
+  // (audit #4/#5).
+  if (!isActiveWorkspace(workspaceRoot)) return;
+  const ticket = takeRefreshTicket("claims");
   const store = useClaimStore.getState();
   store.setLoading(true);
   store.setError(null);
   try {
     const rows = await invoke<ClaimRow[]>("coherence_claims", { workspaceRoot });
+    if (!isLatestRefresh("claims", ticket) || !isActiveWorkspace(workspaceRoot))
+      return;
     useClaimStore.getState().setRows(rows);
   } catch (error) {
+    if (!isLatestRefresh("claims", ticket) || !isActiveWorkspace(workspaceRoot))
+      return; // D1–D5: no stale/superseded error
     useClaimStore.getState().setError(messageOf(error));
   } finally {
-    useClaimStore.getState().setLoading(false);
+    // Runs even on the stale `return`; only the newest ticket owns loading,
+    // so a superseded or left-workspace refresh never clears it prematurely.
+    if (isLatestRefresh("claims", ticket)) {
+      useClaimStore.getState().setLoading(false);
+    }
   }
 }
 
