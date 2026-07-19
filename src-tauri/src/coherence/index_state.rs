@@ -124,7 +124,7 @@ impl CoherenceIndex {
         let row = self
             .conn
             .query_row(
-                "SELECT upstream, pinned, downstream, downstream_rev, role FROM edges WHERE txf = ?1 AND input_idx = ?2",
+                "SELECT upstream, pinned, downstream, downstream_rev, role, edge_kind FROM edges WHERE txf = ?1 AND input_idx = ?2",
                 rusqlite::params![txf.to_string(), input as i64],
                 |r| {
                     Ok((
@@ -133,6 +133,7 @@ impl CoherenceIndex {
                         r.get::<_, String>(2)?,
                         r.get::<_, String>(3)?,
                         r.get::<_, String>(4)?,
+                        r.get::<_, String>(5)?,
                     ))
                 },
             )
@@ -141,7 +142,7 @@ impl CoherenceIndex {
                 rusqlite::Error::QueryReturnedNoRows => Ok(None),
                 other => Err(other.to_string()),
             })?;
-        let Some((up, pinned, down, down_rev, role)) = row else {
+        let Some((up, pinned, down, down_rev, role, kind)) = row else {
             return Ok(None);
         };
         Ok(Some(OriginEdge {
@@ -156,6 +157,7 @@ impl CoherenceIndex {
             } else {
                 InputRole::Contextual
             },
+            kind: super::edge_kind::OriginEdgeKind::parse(&kind),
         }))
     }
 

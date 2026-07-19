@@ -54,6 +54,19 @@ fn edge(w: &World, pinned: &RevisionId) -> OriginEdge {
         downstream: oid(DOWN),
         downstream_rev: w.down0.clone(),
         role: InputRole::Direct,
+        kind: crate::coherence::edge_kind::OriginEdgeKind::Dependency,
+    }
+}
+
+/// Same as `edge` but with an arbitrary kind — for the inert-kind characterization.
+fn edge_of_kind(
+    w: &World,
+    pinned: &RevisionId,
+    kind: crate::coherence::edge_kind::OriginEdgeKind,
+) -> OriginEdge {
+    OriginEdge {
+        kind,
+        ..edge(w, pinned)
     }
 }
 
@@ -77,6 +90,56 @@ fn project(
     checks: &[EdgeCheck],
 ) -> Option<EdgeState> {
     project_edge(e, ctx, &w.dag, res, checks, NOW)
+}
+
+// WI-2.1 characterization: the edge kind gates the version axis. A dependency
+// over an advanced upstream is VersionStale (today's behaviour, frozen); the same
+// edge as an inert kind (part-of/mention) is never stale — Fresh in the
+// projection. This is the only observable behaviour change of the Phase-2
+// registry, and it is opt-in (nothing captures a non-dependency kind yet).
+#[test]
+fn dependency_over_advanced_upstream_is_version_stale() {
+    use crate::coherence::edge_kind::OriginEdgeKind;
+    let w = world();
+    // pinned at up0, current head up1 (advanced) → version-stale, no verdict.
+    let e = edge_of_kind(&w, &w.up0, OriginEdgeKind::Dependency);
+    assert_eq!(
+        project(&w, &e, &ContextView::all_live(), &[], &[]),
+        Some(EdgeState::VersionStale)
+    );
+}
+
+#[test]
+fn inert_kind_over_advanced_upstream_is_never_stale() {
+    use crate::coherence::edge_kind::OriginEdgeKind;
+    let w = world();
+    for kind in [OriginEdgeKind::PartOf, OriginEdgeKind::Mention] {
+        let e = edge_of_kind(&w, &w.up0, kind);
+        // Same advanced upstream, but an inert kind never enters the stale set.
+        assert_eq!(
+            project(&w, &e, &ContextView::all_live(), &[], &[]),
+            Some(EdgeState::Fresh {
+                ratified: false,
+                ahead: false
+            }),
+            "{kind:?} must never be version-stale",
+        );
+    }
+}
+
+#[test]
+fn inert_kind_still_surfaces_a_diverged_upstream() {
+    use crate::coherence::edge_kind::OriginEdgeKind;
+    let mut w = world();
+    // Give the upstream a second head (up1b, sibling of up1 over up0).
+    let up1b = rev(9, std::slice::from_ref(&w.up0));
+    w.dag.record_output(oid(UP), up1b, vec![w.up0.clone()]);
+    let e = edge_of_kind(&w, &w.up0, OriginEdgeKind::PartOf);
+    // Divergence is structural, independent of kind — it still surfaces.
+    assert_eq!(
+        project(&w, &e, &ContextView::all_live(), &[], &[]),
+        Some(EdgeState::Diverged { multi_head: true })
+    );
 }
 
 #[test]

@@ -18,8 +18,10 @@ use super::types::{Envelope, InputRole, ObjectId, TypedBody};
 
 // v2: applied keyed by idem; edges.confidence; held/disk_lag tables.
 // v3: check_results table (WI-2b.3 — D5.6 context-snapshot liveness).
+// v4: edges.edge_kind (Phase 2, ADR-P2 — additive, default 'dependency', so
+//     every legacy edge reads as a dependency; format stays 0, spec §13.6).
 // Any older index wipes + rebuilds (derived, R16).
-const SCHEMA_VERSION: i32 = 3;
+const SCHEMA_VERSION: i32 = 4;
 
 const SCHEMA: &str = "
 CREATE TABLE IF NOT EXISTS revisions (
@@ -39,6 +41,7 @@ CREATE TABLE IF NOT EXISTS edges (
   upstream TEXT NOT NULL, pinned TEXT NOT NULL,
   downstream TEXT NOT NULL, downstream_rev TEXT NOT NULL,
   role TEXT NOT NULL, confidence TEXT NOT NULL DEFAULT 'exact',
+  edge_kind TEXT NOT NULL DEFAULT 'dependency',
   PRIMARY KEY (txf, input_idx, downstream, downstream_rev)
 ) WITHOUT ROWID;
 CREATE INDEX IF NOT EXISTS edges_by_upstream ON edges (upstream);
