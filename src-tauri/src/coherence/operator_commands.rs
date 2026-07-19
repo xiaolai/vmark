@@ -33,7 +33,7 @@ pub struct OperatorCandidate {
 }
 
 impl OperatorCandidate {
-    fn to_candidate(&self) -> Candidate {
+    pub(super) fn to_candidate(&self) -> Candidate {
         Candidate::new(
             self.object,
             self.content.clone(),

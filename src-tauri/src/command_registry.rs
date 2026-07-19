@@ -26,6 +26,7 @@ macro_rules! all_commands {
             coherence::operator_commands::coherence_operator_propose,
             coherence::operator_commands::coherence_operator_preview,
             coherence::operator_commands::coherence_operator_accept,
+            coherence::operator_verify::coherence_operator_verify,
             coherence::claim_commands::coherence_claim,
             coherence::claim_commands::coherence_claim_scope,
             coherence::claim_commands::coherence_claims,
