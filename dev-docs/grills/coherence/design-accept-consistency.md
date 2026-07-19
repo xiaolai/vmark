@@ -1,16 +1,18 @@
 # Design — accept-consistency + group-commit redesign
 
-> **Status: NOT SHIP-READY — fix-now set FIXED, deferred set OPEN (2026-07-20;
-> re-review thread `019f7c7e…` returned DO-NOT-SHIP, 8 MAJOR).** The re-review
-> was correct on all counts. The **6 fix-now correctness bugs are FIXED + tested**
-> (#1/#2 winner-map heal-on-open, #3 append-error poison, #4 full-identity
-> group_id, #8+MINOR new-edge precondition — 349 coherence tests green). The **3
-> deferred architectural items (#5 durable manifest, #6 recovery revalidation,
-> #7 cross-process serialization)** are a genuine protocol design pass — the
-> "Deferred-set design notes" at the end record the three conflicting-constraint
-> tensions an attempt uncovered — and need a THIRD review before ship. **Phase 4
-> stays red;** the accept-consistency work (Fix A/B) that also unblocked **Phase 3
-> is now GREEN** (8/8, perf benchmark PASS).
+> **Status: NOT SHIP-READY — THREE reviews, THREE DO-NOT-SHIP (2026-07-20).**
+> Round 2 (`019f7c7e…`, 8 MAJOR): the **6 fix-now correctness bugs are FIXED +
+> tested** (#1/#2 winner-map heal-on-open, #3 append-error poison, #4
+> full-identity group_id, #8+MINOR new-edge precondition — these also unblocked
+> **Phase 3, now GREEN** 8/8 perf PASS). The deferred set (#5/#6/#7) was then
+> **implemented** as a durable prepare/commit/abort state machine — and round 3
+> (`019f7cbd…`, 7 MAJOR, "Third review" section below) returned DO-NOT-SHIP again,
+> finding *deeper* real issues (no cross-process fence, wall-clock ordering
+> deadlock, time-blind snapshot, old-attempt reuse, manifest incompleteness). The
+> malformed-prepare poison (#7-of-round-3) is fixed; the rest is a **dedicated
+> design project** (cross-process lock + causal attempt_id + time-aware recovery +
+> CAS-backed manifest). **Phase 4 stays red** — the evidence (3 DO-NOT-SHIP) is
+> decisive that this is not a session-tail finish.
 
 ## Re-review disposition (thread `019f7c7e…`, DO-NOT-SHIP, 8 MAJOR + 1 MINOR)
 
@@ -244,3 +246,57 @@ attempt) over the append-only ledger, plus a base-head/resolution snapshot for
 external-change detection, plus the cross-process serialization (#7) that the
 abort path makes a *defined* outcome rather than a stuck partial. It wants its
 own design doc + a review of the state machine BEFORE implementation.
+
+---
+
+## Third review — DO-NOT-SHIP (thread `019f7cbd…`, 7 MAJOR + 1 MINOR)
+
+The durable prepare/commit/abort implementation was re-reviewed and returned a
+THIRD DO-NOT-SHIP. All findings verified correct. This is decisive: the
+group-commit is a genuine distributed-systems design project, not session-tail
+patching — three independent reviews, three DO-NOT-SHIP, each finding *deeper*
+real issues after the prior round's were fixed.
+
+Findings:
+1. **MAJOR — no cross-process fence.** P1 revalidates a partial and pauses; P2
+   aborts; P1 resumes and commits (no lifecycle recheck between revalidate and
+   the commit loop), and a later retry returns DONE without consulting the abort.
+   The O(1) presence index is also stale vs another live process. Needs a
+   workspace-wide cross-process lock held from lifecycle lookup through the final
+   append, + reconcile-after-acquire.
+2. **MAJOR — wall-clock lifecycle ordering can deadlock.** `find_latest` sorts by
+   `(time,id)`; a clock-skewed abort can sort BEFORE its prepare, so it is ignored
+   and every retry recomputes the same (deduped) abort → the group aborts forever.
+   Needs a real `attempt_id` + a causal `supersedes` relation, not "latest wins".
+3. **MAJOR — snapshot misses edges created after prepare.** A commits + creates a
+   new edge; an external waiver on that edge (excluded from the frozen digest) is
+   invisible → B commits against unreviewed state. Also a new external incident
+   edge that doesn't advance its object is missed. Needs to revalidate the current
+   incident-edge set, allowing only committed members' own new edges.
+4. **MAJOR — resolution EXPIRY is time-blind.** A Waived edge with expiry T;
+   recovery after T is Waived→Stale but no head/resolution-id changed → revalidate
+   wrongly passes. Needs the earliest time-dependent transition persisted (abort
+   past it) or a reproject at recovery `now`.
+5. **MAJOR — old-attempt member reuse.** Attempt 1 commits A then aborts; an
+   external writer advances A→A2; the client re-previews the same A+B; the fresh
+   path skips A's preflight (its group-only idem is present) and returns A's stale
+   receipt though A's revision is no longer a head. Member idem must fold an
+   `attempt_id`, or adoption must require the member's current head == its revision.
+6. **MAJOR — prepare is not a recoverable manifest.** `PreparedMember` stores only
+   `{object, revision}` — not the full transformation/idem/content — and content
+   isn't staged in CAS until `commit_member`. So the ledger alone still cannot
+   reconstruct a missing member; recovery needs the client to resubmit. #5 is only
+   partially fixed. Needs full canonical member transformations + CAS-staged
+   content fsync'd before the prepare append.
+7. **MAJOR — malformed `group-prepare` permanently poisons the group.** A body
+   without `snapshot` passes `Envelope::typed()` (validation only checks
+   `group_id` + `members`), then EVERY `find_latest` hard-errors on deserialize —
+   even if a valid later record exists. Needs full body validation at typing
+   (quarantine on malformed) + a resilient `find_latest`. **← the one fix-now item
+   (robustness, independent of the protocol architecture).**
+8. **MINOR — synthetic new edges still show `Retired`, not `Absent`.**
+
+Fix-now: #7 (a real availability bug). Everything else (#1/#2/#3/#4/#5/#6) is the
+**dedicated design project**: cross-process lock + causal `attempt_id` +
+time-aware recovery + CAS-backed manifest + current-incident-edge revalidation.
+Phase 4 stays RED. Do not flip the ship-ready marker.
