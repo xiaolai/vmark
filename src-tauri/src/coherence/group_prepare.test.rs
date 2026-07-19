@@ -80,6 +80,38 @@ fn prepare_round_trips_through_the_ledger_and_find_latest() {
 }
 
 #[test]
+fn a_malformed_prepare_is_quarantined_and_does_not_poison_find_latest() {
+    // Re-review #7: a group-prepare body without a well-formed snapshot must be
+    // QUARANTINED at read (never applied), so it cannot break find_latest for a
+    // group that also has a valid record.
+    let (_dir, mut kernel, u, u1) = seeded();
+    let cand = Candidate::new(u, "revised".into(), u1, vec![], "op", "s");
+    let snapshot = compute_snapshot(kernel.index(), std::slice::from_ref(&cand)).unwrap();
+    let prepare = GroupPrepare {
+        group_id: "g".into(),
+        members: vec![],
+        snapshot,
+    };
+    append_prepare(&mut kernel, &prepare).unwrap();
+
+    // A malformed group-prepare (no snapshot) — append_and_apply quarantines it
+    // internally and still returns Ok.
+    let mut bad = Envelope::create(
+        "group-prepare",
+        kernel.writer(),
+        serde_json::json!({ "group_id": "g", "members": [] }),
+    );
+    bad.idem = uuid::Uuid::now_v7();
+    kernel.append_and_apply(&bad).unwrap();
+
+    // find_latest still returns the valid prepare — not poisoned.
+    assert!(matches!(
+        find_latest(&kernel, "g").unwrap(),
+        Lifecycle::Prepared(_)
+    ));
+}
+
+#[test]
 fn abort_supersedes_a_prepare_as_the_latest_record() {
     let (_dir, mut kernel, u, u1) = seeded();
     let cand = Candidate::new(u, "revised".into(), u1, vec![], "op", "s");

@@ -18,9 +18,14 @@
 //! - **Idempotent full retry** — if every member is present, the group returns
 //!   the original receipts without appending.
 //!
-//! STATUS: full G-B re-review (`019f7c7e…`) disposition implemented; **pending a
-//! THIRD review** before ship. Full disposition: `design-accept-consistency.md`.
-//! Correctness properties now HELD (all 8 re-review findings addressed + tested):
+//! STATUS: **NOT SHIP-READY — a THIRD review (`019f7cbd…`) returned DO-NOT-SHIP
+//! (7 MAJOR).** Three independent reviews, three DO-NOT-SHIP: the group-commit is
+//! a genuine distributed-systems design project (a cross-process lock + a causal
+//! `attempt_id` + time-aware recovery + a CAS-backed manifest + current-incident-
+//! edge revalidation), NOT session-tail patching. The malformed-prepare poison
+//! (#7) is fixed; everything else is the dedicated project. See
+//! `design-accept-consistency.md` "Third review". The properties below hold, but
+//! do NOT constitute ship-readiness:
 //!   - **Group identity binds the WHOLE group** (#4) — `group_id` hashes the
 //!     members' sorted *ungrouped* accept idems and folds into each grouped idem,
 //!     so the O(1) presence lookup answers "committed AS PART OF THIS EXACT GROUP".

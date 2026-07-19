@@ -142,10 +142,15 @@ pub fn find_latest(kernel: &WorkspaceKernel, group_id: &str) -> Result<Lifecycle
             continue;
         }
         match e.kind.as_str() {
+            // Resilient (re-review #7): a body that fails to deserialize is
+            // SKIPPED, never propagated — one malformed record must not poison
+            // `find_latest` for a group that also has valid records. (Envelope
+            // typing already quarantines malformed prepares at read; this is
+            // defense-in-depth against any that slip through.)
             "group-prepare" => {
-                let p: GroupPrepare =
-                    serde_json::from_value(e.body.clone()).map_err(|err| err.to_string())?;
-                latest = Lifecycle::Prepared(Box::new(p));
+                if let Ok(p) = serde_json::from_value::<GroupPrepare>(e.body.clone()) {
+                    latest = Lifecycle::Prepared(Box::new(p));
+                }
             }
             "group-abort" => latest = Lifecycle::Aborted,
             _ => {}

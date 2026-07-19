@@ -155,6 +155,20 @@ impl Envelope {
                 if !b.get("members").map(|m| m.is_array()).unwrap_or(false) {
                     return Err("group-prepare members must be an array".into());
                 }
+                // Validate the snapshot shape too (re-review #7): a body without a
+                // well-formed snapshot must QUARANTINE at read, never reach the
+                // lifecycle lookup where it would fail every deserialize forever.
+                let snap = b.get("snapshot");
+                let ok = snap.is_some_and(|s| {
+                    s.get("heads").is_some_and(|h| h.is_array())
+                        && s.get("affected_edges").is_some_and(|a| a.is_array())
+                        && s.get("resolution_digest")
+                            .and_then(|v| v.as_str())
+                            .is_some()
+                });
+                if !ok {
+                    return Err("group-prepare missing/malformed snapshot".into());
+                }
                 TypedBody::Preserved {
                     kind: self.kind.clone(),
                     body: b.clone(),
