@@ -17,6 +17,7 @@ pub mod canonical;
 pub mod capture;
 pub mod cas;
 pub mod check_commands;
+pub mod check_sweep;
 pub mod checker;
 pub mod claim_commands;
 pub mod claims;
