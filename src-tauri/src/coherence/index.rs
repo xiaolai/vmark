@@ -45,6 +45,9 @@ CREATE TABLE IF NOT EXISTS edges (
   PRIMARY KEY (txf, input_idx, downstream, downstream_rev)
 ) WITHOUT ROWID;
 CREATE INDEX IF NOT EXISTS edges_by_upstream ON edges (upstream);
+-- Phase 3.0 (design v4.4): bounded preview reads the edges INCIDENT to a
+-- changed object (upstream ∪ downstream), so downstream needs its own index.
+CREATE INDEX IF NOT EXISTS edges_by_downstream ON edges (downstream);
 CREATE TABLE IF NOT EXISTS resolutions (
   entry_id TEXT PRIMARY KEY, txf TEXT NOT NULL, input_idx INTEGER NOT NULL,
   kind TEXT NOT NULL, resolved_against TEXT NOT NULL,
