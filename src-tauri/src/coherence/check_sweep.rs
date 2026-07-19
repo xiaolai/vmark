@@ -151,8 +151,12 @@ impl RunManifest {
     pub fn record_skipped(&mut self) {
         self.skipped_resume += 1;
     }
-    pub fn record_errored(&mut self, latency_ms: u64) {
+    /// A provider timeout/error. It still costs (a partial/estimated charge) and
+    /// still records a check-result (an `unknown` verdict, so a resume skips it),
+    /// but counts toward the error rate, not clean coverage.
+    pub fn record_errored(&mut self, cost_usd: f64, latency_ms: u64) {
         self.errored += 1;
+        self.estimated_cost_usd += cost_usd;
         self.latencies_ms.push(latency_ms);
     }
     pub fn mark_budget_stop(&mut self) {

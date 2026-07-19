@@ -18,6 +18,7 @@ pub mod capture;
 pub mod cas;
 pub mod check_commands;
 pub mod check_sweep;
+pub mod check_sweep_command;
 pub mod check_sweep_run;
 pub mod checker;
 pub mod claim_commands;
