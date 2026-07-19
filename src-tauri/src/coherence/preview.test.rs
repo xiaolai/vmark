@@ -105,6 +105,72 @@ fn preview_mints_nothing() {
 }
 
 #[test]
+fn group_preview_surfaces_new_conformance_edges() {
+    // #5 (design-accept-consistency): an Extract-Canon-style group (a carrier +
+    // a conformer that declares a conformance input to the carrier) must surface
+    // the NEW conformance edge in the preview delta — not just persisted edges.
+    let (mut index, _u, _d, _u1) = indexed();
+    let writer = WriterId(uuid::Uuid::now_v7());
+    let conf = ObjectId(uuid::Uuid::now_v7());
+    let conf1 = RevisionId::compute(&hash(7), &[]);
+    index.apply_entry(&txf(writer, conf, 7, vec![])).unwrap();
+
+    let carrier_obj = ObjectId(uuid::Uuid::now_v7());
+    let carrier = Candidate::new_root(
+        carrier_obj,
+        "canon".into(),
+        vec![],
+        "extract-canon",
+        "canon",
+    );
+    let conformance = InputRef {
+        object: carrier_obj,
+        revision: carrier.revision.clone(),
+        role: InputRole::Direct,
+        kind: crate::coherence::edge_kind::OriginEdgeKind::Conformance,
+    };
+    let conformer = Candidate::new(
+        conf,
+        "conform".into(),
+        conf1,
+        vec![conformance],
+        "extract-canon",
+        "conform",
+    );
+    let group = vec![carrier, conformer];
+
+    let preview = index.project_group(&group, NOW).unwrap();
+
+    // The new conformance edge appears: synthetic nil txf, downstream = conformer.
+    let d = preview
+        .local_delta
+        .iter()
+        .find(|d| d.edge.downstream == conf)
+        .expect("the new conformance edge must be in the preview delta");
+    assert_eq!(d.edge.txf, uuid::Uuid::nil(), "synthetic display txf");
+    assert_eq!(
+        d.before,
+        StructuralClass::Retired,
+        "a brand-new edge did not exist before"
+    );
+    assert_eq!(
+        d.after,
+        StructuralClass::Fresh {
+            ratified: false,
+            ahead: false
+        }
+    );
+    // Display-only: synthetic edges must NOT gate the accept precondition.
+    assert!(
+        !preview
+            .base_classes
+            .keys()
+            .any(|k| k.txf == uuid::Uuid::nil()),
+        "synthetic edges must stay out of base_classes"
+    );
+}
+
+#[test]
 fn candidate_on_an_object_with_no_edges_has_an_empty_delta() {
     let (index, _u, _d, _u1) = indexed();
     let lonely = ObjectId(uuid::Uuid::now_v7());

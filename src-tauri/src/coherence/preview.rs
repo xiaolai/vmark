@@ -12,7 +12,7 @@ use super::accept_precondition::{structural_class, ClassMap, PhysicalEdgeId, Str
 use super::dag::ContextView;
 use super::index::CoherenceIndex;
 use super::operator::Candidate;
-use super::project::project_edge;
+use super::project::{project_edge, OriginEdge};
 use super::types::RevisionId;
 
 /// The default all-live context + empty claim feed the v1 preview projects under
@@ -99,12 +99,13 @@ impl CoherenceIndex {
 /// set — so interactions between the members through *existing* edges are
 /// visible. Captures both the base and the group class maps.
 ///
-/// KNOWN GAP (G-B group-commit review #5): this overlays only the candidates'
-/// output DAG nodes and projects the *persisted* incident edges — it does NOT
-/// yet include the *new* edges the members create (e.g. Extract-Canon's
-/// conformance edges), so those are absent from `group_classes`/`local_delta`.
-/// Part of the group-commit redesign (see `accept_group.rs`); the accept
-/// precondition still compares only committed edges, which is correct.
+/// It also overlays the **new** edges the members create from their own inputs
+/// (e.g. Extract-Canon's conformance edges), so the preview `local_delta` shows
+/// them (design-accept-consistency #5). These are display-only: they carry a
+/// synthetic nil txf (real edge txfs are v7 ids, never nil) and are added to
+/// `local_delta` only — NOT to `base_classes`, so the accept precondition still
+/// compares committed edges alone (a brand-new edge has no pre-image to be
+/// unstable against), which stays correct.
 #[derive(Debug, Clone, PartialEq)]
 pub struct GroupPreview {
     pub local_delta: Vec<PreviewDelta>,
@@ -173,7 +174,48 @@ impl CoherenceIndex {
                 });
             }
         }
-        local_delta.sort_by_key(|d| (d.edge.txf, d.edge.input));
+
+        // #5: overlay the NEW edges each member creates from its own inputs
+        // (e.g. Extract-Canon's conformance edges). Display-only — a synthetic
+        // nil txf keeps them distinct from every committed edge, and they land in
+        // `local_delta` only (never `base_classes`), so the precondition is
+        // untouched. A brand-new edge's "before" is `Retired` (it did not exist).
+        let synth_txf = uuid::Uuid::nil();
+        for c in candidates {
+            for (i, input) in c.inputs.iter().enumerate() {
+                let idx = i as u32;
+                let edge = OriginEdge {
+                    txf: synth_txf,
+                    input: idx,
+                    upstream: input.object,
+                    pinned: input.revision.clone(),
+                    downstream: c.object,
+                    downstream_rev: c.revision.clone(),
+                    role: input.role,
+                    kind: input.kind,
+                };
+                // A brand-new edge has no resolutions or checks yet.
+                let res = all_res.get(&(synth_txf, idx)).cloned().unwrap_or_default();
+                let checks = self.live_checks(&synth_txf, idx, DEFAULT_CTX, EMPTY_FP)?;
+                let after = structural_class(
+                    project_edge(&edge, &ctx, &overlay, &res, &checks, now).as_ref(),
+                );
+                if after != StructuralClass::Retired {
+                    local_delta.push(PreviewDelta {
+                        edge: PhysicalEdgeId {
+                            txf: synth_txf,
+                            input: idx,
+                            downstream: c.object,
+                            downstream_rev: c.revision.clone(),
+                        },
+                        before: StructuralClass::Retired,
+                        after,
+                    });
+                }
+            }
+        }
+
+        local_delta.sort_by_key(|d| (d.edge.txf, d.edge.input, d.edge.downstream.0));
         Ok(GroupPreview {
             local_delta,
             base_classes,
