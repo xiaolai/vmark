@@ -40,11 +40,18 @@ after-classes gate the accept precondition via `new_edge_classes`; deterministic
 preview-only ids, empty res/checks — test
 `a_new_edge_going_stale_between_preview_and_accept_is_rejected`).
 
-**Deferred set — STILL OPEN (own design pass + a THIRD review before ship):**
-#5 durable prepare/manifest, #6 recovery-revalidation against intervening writes,
-#7 cross-process workspace lock. These are a real protocol design task, not
-patches. Until they land AND a third review is clean, the group-commit (and
-Extract-Canon on top of it) is **not ship-ready** — Phase 4 stays red.
+**Deferred set — ✅ IMPLEMENTED (2026-07-20); pending a THIRD review.** Built as a
+durable prepare→commit | abort state machine (`group_prepare.rs` + the
+`group-prepare`/`group-abort` envelope kinds), resolving the three tensions in the
+notes below: #5 a fresh group appends a durable prepare (manifest + base-head/
+resolution snapshot) before committing; #6 recovery revalidates the snapshot
+against the current workspace (a committed member's own head move is expected,
+any other drift is external) and completes only if unchanged; #7 external drift
+appends a durable abort and rejects (a fresh re-preview supersedes it — never a
+stuck deadlock). The prepare idem folds the snapshot so a fresh context is a new
+attempt. **Full cross-process serialization under simultaneous instances remains
+a documented follow-up** (the abort makes the outcome defined, not corrupt). Until
+the third review is clean, Phase 4 stays red.
 
 ---
 
