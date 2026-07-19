@@ -42,7 +42,7 @@ pub struct CheckReceipt {
     pub confidence: f64,
 }
 
-fn snapshot_text(
+pub(super) fn snapshot_text(
     kernel: &mut WorkspaceKernel,
     object: &super::types::ObjectId,
     revision: &RevisionId,
