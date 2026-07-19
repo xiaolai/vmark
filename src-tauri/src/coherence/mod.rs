@@ -44,6 +44,7 @@ pub mod merge_surface;
 pub mod operator;
 pub mod operator_accept;
 pub mod paths;
+pub mod preview;
 pub mod project;
 pub mod provenance;
 pub mod provenance_commands;

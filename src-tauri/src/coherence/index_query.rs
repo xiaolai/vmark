@@ -227,8 +227,9 @@ impl CoherenceIndex {
     }
 
     /// One query for every resolution, grouped by edge (audit R17: a
-    /// per-edge query is O(edges) round-trips at §10 scale).
-    fn all_resolutions(
+    /// per-edge query is O(edges) round-trips at §10 scale). `pub(super)` so the
+    /// candidate preview (`preview.rs`) can project the affected edges' states.
+    pub(super) fn all_resolutions(
         &self,
     ) -> Result<std::collections::HashMap<(Uuid, u32), Vec<EdgeResolution>>, String> {
         let mut stmt = self
