@@ -41,6 +41,7 @@ pub mod index_row;
 pub(crate) mod index_state;
 pub mod ledger;
 pub mod merge_surface;
+pub mod operator;
 pub mod operator_accept;
 pub mod paths;
 pub mod project;
