@@ -1,6 +1,8 @@
 /* Breakdown panel (WI-1.9b). Tokens only — see .claude/rules/31-design-tokens.md */
 .breakdown-panel {
-  width: 460px;
+  /* Component-internal one-off dimension — local var per rule 31. */
+  --breakdown-panel-width: 460px;
+  width: var(--breakdown-panel-width);
   max-width: 100%;
   max-height: 70vh;
   overflow-y: auto;

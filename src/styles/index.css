@@ -175,6 +175,16 @@
   --media-vimeo-dark: #4ac3f0;
   --media-bilibili-dark: #fc9cb5;
 
+  /* Semantic spacing — the names rule 31 tells authors to use for padding,
+     margin and gap; they alias the --space-* primitives declared below (custom
+     properties resolve independently of declaration order). Documented in
+     31-design-tokens.md and consumed 123 times across 11 stylesheets, but never
+     actually defined — so every var(--spacing-*) silently collapsed to zero
+     padding and zero gap (the cramped Breakdown/Claim/Browser panels). */
+  --spacing-1: var(--space-1);
+  --spacing-2: var(--space-2);
+  --spacing-3: var(--space-3);
+
   /* ========================================
      PRIMITIVES LAYER
      Use semantic tokens above when they cover the case (--popup-padding,
@@ -198,16 +208,6 @@
   --space-8: 32px;
   --space-10: 40px;
   --space-15: 60px;
-
-  /* Semantic spacing — the names rule 31 tells authors to use for padding,
-     margin and gap (the --space-* scale above is the primitive fallback).
-     These were documented in 31-design-tokens.md, referenced by the comment
-     above, and consumed 123 times across 11 stylesheets — but never actually
-     defined, so every var(--spacing-*) silently collapsed to zero padding
-     and zero gap (visible as the cramped Breakdown/Claim/Browser panels). */
-  --spacing-1: var(--space-1);
-  --spacing-2: var(--space-2);
-  --spacing-3: var(--space-3);
 
   /* Border widths */
   --border-hairline: 0.5px;
