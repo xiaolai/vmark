@@ -18,9 +18,15 @@
 //! - **Idempotent full retry** — if every member is present, the group returns
 //!   the original receipts without appending.
 //!
-//! STATUS: **redesigned per `design-accept-consistency.md`; pending G-B
-//! re-review.** The G-B review (`019f7c17…`) returned MAJOR GAPS; the redesign
-//! closes them:
+//! STATUS: **NOT SHIP-READY — G-B re-review returned DO-NOT-SHIP (8 MAJOR,
+//! thread `019f7c7e…`).** This redesign closes the *first* review's gaps (below)
+//! but the re-review found further defects: `group_id` under-identifies the group
+//! (must hash full member identity, not just revisions — #4), no durable manifest
+//! (#5), recovery can commit against intervening structural changes (#6), and
+//! cross-process races can strand a partial (#7). Fixes #4 + the heal/append
+//! bugs are landing; #5/#6/#7 need a further design pass + a third review. See
+//! `design-accept-consistency.md` for the full disposition. First-review gaps
+//! the redesign DID close:
 //!   1. **Durable group identity** — `group_id` (hash of the members' sorted
 //!      revisions) folds into each member idem, so the O(1) idem-presence lookup
 //!      answers "committed AS PART OF THIS GROUP"; a coincidental standalone
