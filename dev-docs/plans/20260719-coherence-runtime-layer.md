@@ -70,10 +70,11 @@ clean (coherence lib **303 passed**, spikes 4+7, inventory 11):
 | WI-3.6 operator MCP commands | ✅ **done** | `operator_commands.rs` — propose/preview/accept (read-only + human-only), 4 DTO round-trip tests, registered |
 | WI-3.7 docs | ✅ **done** | `website/guide/coherence.md` operators + merge-audit sections |
 | WI-3.5/3.6 operator frontend service | ✅ **done** | `operatorService.ts` — propose/preview/accept invoke wrappers, 5 tests, knip-clean |
-| Phase 3 surface (UI component) | ⬜ **remaining** | the preview **React panel** + i18n×10 (visual QA); WI-3.3 verify **call** (provider); the absolute-scale benchmark |
+| WI-3.3 verify command scaffold | ✅ **done (scaffold)** | `operator_verify.rs` — `build_candidate_prompt` + transient non-blocking `coherence_operator_verify`, 2 tests; the live **provider call** it wraps needs app+provider |
+| Phase 3 surface (UI component) | ⬜ **remaining** | the preview **React panel** + i18n×10 (visual QA); the WI-3.3 live provider call; the absolute-scale benchmark |
 | **SP-canon** (Phase 4 gate) | ✅ **design resolved + proven** | `spike-sp-canon.md` — canon carrier grounds claim-based canon in the version axis; conformance composes with zero kernel change (test) |
-| Multi-object group-commit | ✅ **done** | `accept_group.rs` — fresh/retry/partial-recovery/distinct-object, 5 tests (needs a G-B review before release) |
-| WI-4.1/4.2/4.3 Extract-Canon | ✅ **done** | `extract_canon.rs` — carrier + conformance candidates; conformance capture (`InputRef.kind` → `edges.edge_kind`); commits + records conformance edges, 2 tests |
+| Multi-object group-commit | 🟡 **prototype — NOT ship-ready** | `accept_group.rs`, 5 tests. **G-B review returned MAJOR GAPS** (`019f7c17…`): needs durable group identity + manifest (#1), whole-group preflight (#2), defined partial-recovery (#3), cross-process safety (#7) — a group-boundary redesign + re-review before ship. The single-accept fixes it shared (#6 idem-includes-kind, #4 torn-window heal) ARE landed in `accept.rs`. |
+| WI-4.1/4.2/4.3 Extract-Canon | 🟡 **prototype — NOT ship-ready** | `extract_canon.rs` — carrier + conformance candidates; conformance capture (`InputRef.kind` → `edges.edge_kind`); 2 tests. Inherits the group-commit's MAJOR-GAPS status (commits through `accept_group`); plus the group **preview** does not yet surface the new conformance edges (G-B #5, `preview::project_group`). |
 | Phase 4 (WI-4.4/4.6) | ⬜ **remaining** | facet-level carriers (backend); canon breakdown view (frontend) |
 | **SP4** (Phase 5 gate) | ✅ **object→edge half proven** | `spike-sp4-merge-mapping.md` — `edges_affected_by` (deterministic, deduped); git→file half is a named API pending a git fixture |
 | WI-5.1 merge-affected edge set | ✅ **done** | `merge_audit.rs` + `gitops::merge_changed_files` — end-to-end vs a **real git merge** (2 tests + gitops 16/16) |

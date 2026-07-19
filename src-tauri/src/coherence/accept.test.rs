@@ -118,6 +118,55 @@ fn a_retry_returns_the_original_receipt_and_does_not_double_append() {
 }
 
 #[test]
+fn a_torn_ledger_entry_is_healed_into_the_index_on_lookup() {
+    use crate::coherence::accept_precondition::ClassMap;
+    use crate::coherence::operator_accept::operator_accept_idem;
+    use crate::coherence::types::FORMAT_VERSION;
+
+    let (_dir, mut kernel, u, _d, u1) = seeded();
+    let candidate = Candidate::new(u, "U revised".into(), u1, vec![], "tidy", "s");
+
+    // Simulate a crash BETWEEN the ledger append and the index apply: write the
+    // accept transformation (with the deterministic idem) to the LEDGER ONLY.
+    let txf = candidate.to_transformation(Agent {
+        kind: AgentType::Human,
+        id: None,
+    });
+    let idem = operator_accept_idem("tidy", FORMAT_VERSION, &txf).unwrap();
+    let mut env = Envelope::create(
+        "transformation",
+        kernel.writer(),
+        serde_json::to_value(&txf).unwrap(),
+    );
+    env.idem = idem;
+    let torn_id = env.id;
+    kernel.ledger().append(&env).unwrap(); // ledger only — index NOT applied
+    assert!(
+        kernel.index().entry_id_by_idem(&idem).unwrap().is_none(),
+        "the index does not have the torn entry yet",
+    );
+
+    // Accept finds the ledger entry (idem match) and HEALS the index before
+    // returning — the reproject/append are skipped (it's already committed).
+    let receipt = accept_candidate(&mut kernel, &candidate, &ClassMap::new(), NOW).unwrap();
+    assert!(
+        !receipt.committed,
+        "returns the torn entry, does not re-append"
+    );
+    assert_eq!(receipt.entry_id, torn_id);
+
+    // The index is now healed: it knows the entry, and U resolves to the candidate.
+    assert_eq!(
+        kernel.index().entry_id_by_idem(&idem).unwrap(),
+        Some(torn_id),
+    );
+    assert_eq!(
+        kernel.index().resolve_live(&u).unwrap(),
+        Resolved::Single(candidate.revision.clone())
+    );
+}
+
+#[test]
 fn a_tampered_candidate_is_rejected() {
     let (_dir, mut kernel, u, _d, u1) = seeded();
     let mut candidate = Candidate::new(u, "U revised".into(), u1, vec![], "tidy", "s");

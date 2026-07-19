@@ -105,6 +105,12 @@ fn injective_over_every_field() {
     t.inputs[0].role = InputRole::Contextual;
     cases.push(("input role", t));
 
+    // G-B group-commit review #6: the input's edge KIND is part of the identity —
+    // a Dependency vs Conformance input over the same object/revision must differ.
+    let mut t = base();
+    t.inputs[0].kind = crate::coherence::edge_kind::OriginEdgeKind::Conformance;
+    cases.push(("input kind", t));
+
     let mut t = base();
     t.inputs.push(InputRef {
         object: oid(5),

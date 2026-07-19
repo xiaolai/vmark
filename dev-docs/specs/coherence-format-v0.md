@@ -881,11 +881,11 @@ opt(x)   = byte(0)  if None  |  byte(1) ‖ field(x)  if Some(x)   // None ≠ S
 list(xs) = u32_be(count(xs)) ‖ concat(field(x) for x in xs)
 
 idem = uuid_from_sha256(
-  field("vmark-operator-accept-v1")
+  field("vmark-operator-accept-v2")   // v2: input.kind added (§13.6)
   ‖ field(format) ‖ field(operator)
   ‖ field(output.object) ‖ field(output.content_hash) ‖ field(output.revision)
   ‖ list(sorted(output.parents))
-  ‖ list(for each input in declared order: field(object) ‖ field(revision) ‖ field(role))
+  ‖ list(for each input in declared order: field(object) ‖ field(revision) ‖ field(role) ‖ field(kind))
   ‖ field(agent.kind) ‖ opt(agent.id)
   ‖ field(intent.kind) ‖ field(intent.summary) ‖ opt(intent.prompt_hash)
   ‖ field(confidence)

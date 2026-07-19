@@ -8,6 +8,13 @@
 //! carrier object is the *version anchor* — advancing the carrier (editing its
 //! canonical content) restales every conformer through the existing projection
 //! (conformance is a version-propagating `OriginEdgeKind`).
+//!
+//! STATUS: **PROTOTYPE — NOT SHIP-READY.** It commits through the group-commit
+//! (`accept_group`), which the G-B review returned **MAJOR GAPS** on; it inherits
+//! that status until the group-commit redesign lands. Separately, the group
+//! *preview* does not yet surface the *new* conformance edges this operator
+//! creates (G-B #5, `preview::project_group`), so a user previews the carrier's
+//! blast radius but not the conformance edges themselves.
 
 use super::edge_kind::OriginEdgeKind;
 use super::operator::Candidate;
