@@ -1,11 +1,13 @@
 # Design — accept-consistency + group-commit redesign
 
-> **Status: DESIGN (2026-07-20).** Settles the shared ledger/index-consistency
-> boundary that blocks **both** Phase 3's perf gate (WI-3.4: the O(n) accept
-> idem scan) **and** Phase 4's group-commit MAJOR GAPS (G-B review `019f7c17…`).
-> Supersedes the band-aids in `accept.rs` (#4 heal-on-lookup) and the
-> prototype notes in `accept_group.rs`. To be built with TDD, then G-B
-> re-reviewed (rule 60 §6) before either phase ticks to complete.
+> **Status: IMPLEMENTED (2026-07-20); pending G-B re-review.** Settles the
+> shared ledger/index-consistency boundary that blocks **both** Phase 3's perf
+> gate (WI-3.4: the O(n) accept idem scan) **and** Phase 4's group-commit MAJOR
+> GAPS (G-B review `019f7c17…`). Supersedes the band-aids in `accept.rs` (#4
+> heal-on-lookup) and the prototype notes in `accept_group.rs`. All five fixes
+> below are built with TDD and green (344 coherence tests). The mandatory G-B
+> re-review (rule 60 §6) is the last gate before Phase 3/4 tick to complete;
+> Fix B also unblocks the WI-3.4 perf benchmark (the O(n) hot path is gone).
 
 ## The one root cause
 
