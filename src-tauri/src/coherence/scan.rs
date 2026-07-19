@@ -44,6 +44,9 @@ pub struct ScanReport {
     pub absent_marked: usize,
     pub diagnostics: usize,
     pub merge_deferred: bool,
+    /// D3.3: completed-merge diagnostics appended this scan (deduped by
+    /// merge commit SHA across repeated scans).
+    pub merges: usize,
     /// False when the walk was truncated or a directory was unreadable —
     /// deletion reconciliation was skipped for safety.
     pub complete: bool,
@@ -91,6 +94,9 @@ pub fn scan_workspace(kernel: &mut WorkspaceKernel) -> Result<ScanReport, String
 
     let registry = kernel.index().registry_state()?;
     let mut existing_diagnostics = existing_diagnostic_keys(&ledger_read.entries);
+
+    // D3.3 (WI-3.7): record a completed-merge diagnostic (deduped, pull-only).
+    super::merge_surface::record_completed_merge(kernel, &mut existing_diagnostics, &mut report)?;
 
     // Durable quarantine diagnostics (spec §5.6, audit R10), deduped by
     // segment:line so repeated scans never spam history.

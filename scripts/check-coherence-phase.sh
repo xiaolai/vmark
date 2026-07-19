@@ -567,11 +567,12 @@ phase_3() {
   assert_grep "refreshBranchCandidate" src/services/breakdown/breakdownService.ts "candidate service"
   echo "— WI-3.7: completed-merge classifier + banner —"
   assert_grep "merge_commit_sha" src-tauri/src/coherence/gitops.rs "completed-merge classifier"
-  assert_grep "merge-completed" src-tauri/src/coherence/scan.rs "deduped merge diagnostic"
+  assert_grep "merge-completed" src-tauri/src/coherence/merge_surface.rs "deduped merge diagnostic"
   assert_file src/components/BreakdownPanel/MergeBanner.tsx "dismissible merge banner"
   assert_grep "coherence_recent_merge" src-tauri/src/command_registry.rs "merge-surface command"
   if [[ "${SKIP_TESTS:-}" != "1" ]]; then
-    if cargo test --manifest-path src-tauri/Cargo.toml --lib coherence::scan coherence::merge_surface --quiet >/dev/null 2>&1 \
+    if cargo test --manifest-path src-tauri/Cargo.toml --lib coherence::scan --quiet >/dev/null 2>&1 \
+       && cargo test --manifest-path src-tauri/Cargo.toml --lib coherence::merge_surface --quiet >/dev/null 2>&1 \
        && pnpm vitest run src/components/BreakdownPanel/MergeBanner.test.tsx src/components/BreakdownPanel/BreakdownPanel.test.tsx --silent >/dev/null 2>&1; then
       ok "WI-3.6-ui + WI-3.7 suites green"
     else

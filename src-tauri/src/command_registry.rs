@@ -25,6 +25,7 @@ macro_rules! all_commands {
             coherence::claim_commands::coherence_claim,
             coherence::claim_commands::coherence_claim_scope,
             coherence::claim_commands::coherence_claims,
+            coherence::merge_surface::coherence_recent_merge,
             coherence::context_commands::coherence_branch_candidate,
             coherence::context_commands::coherence_context_from_branch,
             coherence::context_commands::coherence_contexts,
