@@ -97,3 +97,50 @@ fn edge_kind_defaults_to_dependency_in_the_read_view() {
     let inc = index.edges_incident_to(&u).expect("query");
     assert_eq!(inc.edges[0].kind, OriginEdgeKind::Dependency);
 }
+
+// SP0 perf-gate MECHANISM: the read-view is bounded by the changed object's
+// DEGREE, not the corpus size. This is what keeps the preview O(affected set),
+// not O(all edges) — the property the 20 ms / 16 MiB envelope rests on. (The
+// absolute figure at §10's 500k-edge scale is a separate benchmark harness.)
+#[test]
+fn incident_query_is_bounded_by_degree_not_corpus_size() {
+    let (mut index, _) = CoherenceIndex::open_in_memory().expect("index");
+    let writer = WriterId(uuid::Uuid::now_v7());
+
+    // 200 UNRELATED edges: each a distinct downstream deriving from a distinct
+    // upstream, none touching our target object.
+    let mut entries = Vec::new();
+    for i in 0..200u8 {
+        let up = oid();
+        let down = oid();
+        let (up_e, up_rev) = txf_envelope(writer, up, 100u8.wrapping_add(i), vec![]);
+        let (down_e, _) = txf_envelope(writer, down, 50u8.wrapping_add(i), vec![(up, up_rev)]);
+        entries.push(up_e);
+        entries.push(down_e);
+    }
+    // The target X with exactly TWO incident edges.
+    let x = oid();
+    let a = oid();
+    let (x_e, x_rev) = txf_envelope(writer, x, 1, vec![]);
+    let (a_e, _) = txf_envelope(writer, a, 2, vec![(x, x_rev.clone())]); // X upstream
+    let b = oid();
+    let (b_e, b_rev) = txf_envelope(writer, b, 3, vec![]);
+    let (x2_e, _) = txf_envelope(writer, x, 4, vec![(b, b_rev)]); // X downstream (new rev)
+    entries.extend([x_e, a_e, b_e, x2_e]);
+    index.rebuild_from(&entries).expect("rebuild");
+
+    // 400+ edges in the corpus, but X is incident to only its own.
+    let inc = index.edges_incident_to(&x).expect("query");
+    assert!(!inc.truncated);
+    assert_eq!(
+        inc.edges.len(),
+        2,
+        "the read-view returns only X's incident edges, independent of the 200 unrelated ones",
+    );
+    for e in &inc.edges {
+        assert!(
+            e.upstream == x || e.downstream == x,
+            "every returned edge is incident to X",
+        );
+    }
+}
