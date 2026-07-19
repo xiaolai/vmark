@@ -21,7 +21,7 @@ use super::project::EdgeState;
 use super::types::{ObjectId, RevisionId};
 
 /// The check-independent structural class of a projected edge state (v4.3).
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum StructuralClass {
     /// Edge retired (`project_edge` returned `None`).
     Retired,
@@ -62,7 +62,7 @@ pub fn structural_class(state: Option<&EdgeState>) -> StructuralClass {
 
 /// Unique physical edge identity — the edges-table PK (`index.rs:42`). This is
 /// the precondition map key; `SemanticEdgeKey` must NOT be used (it is a bag).
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct PhysicalEdgeId {
     pub txf: Uuid,
     pub input: u32,
