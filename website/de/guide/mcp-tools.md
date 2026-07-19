@@ -248,6 +248,10 @@ Zwei weitere schreibgeschützte Aktionen legen die semantische Schicht offen:
 - `claims` — die aktuellen Kanon-Aussagen: `{claim, entryId, statement, maturity, invalidAt, visible}`. Nur `established`-Aussagen schränken semantische Prüfungen ein; `visible` spiegelt den Default-Kontext wider.
 - `contexts` — die Kontextmenge (der implizite `default` ist immer vorhanden): `{id, name, parent, enforcement, visibleClaims, errors}`.
 
+Eine verändernde Aktion, durch Delegation abgesichert:
+
+- `resolve` — eine aktive veraltete Kante als ausdrücklich delegierter Agent auflösen: `{workspace_root, txf, input, resolution: "accept-newer" | "waive", reason? (required for waive)}`. Die Autorisierung ist fail-closed: Der Eigentümer des Arbeitsbereichs muss **Ihrer authentifizierten Bridge-Identität** eine aktive, nicht abgelaufene Delegation erteilt haben, die die Art der Auflösung abdeckt (in der App erteilt, aus der Aufschlüsselung), und die Kante muss aktiv sein. Jede delegierte Auflösung wird im Audit-Log der Erteilung zugeordnet. Aussagen- und Kontextmutationen werden nie offengelegt — der Kanon bleibt menschengesteuert.
+
 Alle Aktionen erfordern `workspace_root`: den absoluten Pfad des abzufragenden Arbeitsbereichs. Sie erfahren ihn über `session.get_state` (das `filePath` der offenen Tabs) oder das workspace-Tool. Ein Pfad, der fehlt, nicht absolut ist oder kein Verzeichnis ist, wird mit einem einfachen String-Fehler abgelehnt.
 
 ### `status`

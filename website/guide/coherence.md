@@ -90,6 +90,41 @@ contradictions as canon violations. The Breakdown's context picker chooses
 which context you are looking through; check results are bound to the
 exact context and claim snapshot that produced them and never leak across.
 
+## Provenance, delegation, and branches
+
+Three things keep the coherence layer honest as a project actually
+evolves — none of them nag, all of them are pull-only.
+
+**Provenance recovery.** When you edit a derived document by hand (in
+VMark or an external editor), the edit correctly loses its recorded
+inputs — the old dependency edges no longer describe the new text. The
+Breakdown's *Provenance unknown* group offers to restore them: press
+**Suggest inputs** and VMark proposes the document's most recent prior
+input set (roles preserved), pre-checked and editable. **Confirm
+provenance** re-attaches the edges to the current version without
+creating a new revision, so the document's own downstreams never see a
+spurious change. Documents that never had inputs are never listed —
+there is nothing to recover and nothing to nag about.
+
+**Agent delegation.** By default only you can resolve stale edges. If
+you want an AI agent to accept-newer or waive on your behalf (through
+the read-only-plus-`resolve` MCP surface), grant it a **time-limited
+delegation** from the Breakdown: name the agent, choose the scope
+(accept-newer and/or waive), set an expiry (7 days by default, never
+"forever"). Every delegated resolution is recorded against the grant, so
+the audit trail always shows who acted under whose authority. Revoke any
+grant with one click. Canon claims and contexts stay human-only — an
+agent can never promote a claim or enforce a context.
+
+**Branch contexts.** A context can be mapped to a git branch. When you
+check out a mapped branch, the Breakdown shows a **candidate chip**
+offering to switch — it never switches on its own. If the branch has no
+context yet, the chip offers to create one named after it. When a real
+(non-fast-forward) merge lands, a dismissible banner nudges you to
+review the Breakdown; the divergence and staleness it surfaces are the
+normal Breakdown states, so nothing new runs — you just get walked to
+the review.
+
 ## Frontmatter identity
 
 The first time a file is captured, VMark adds a small identity block to

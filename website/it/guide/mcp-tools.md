@@ -248,6 +248,10 @@ Due ulteriori azioni in sola lettura espongono il livello semantico:
 - `claims` — le affermazioni canoniche correnti: `{claim, entryId, statement, maturity, invalidAt, visible}`. Solo le affermazioni `established` vincolano le verifiche semantiche; `visible` riflette il contesto default.
 - `contexts` — l'insieme dei contesti (il `default` implicito è sempre presente): `{id, name, parent, enforcement, visibleClaims, errors}`.
 
+Un'azione di modifica, regolata dalla delega:
+
+- `resolve` — risolve un arco obsoleto attivo come agente esplicitamente delegato: `{workspace_root, txf, input, resolution: "accept-newer" | "waive", reason? (required for waive)}`. L'autorizzazione è fail-closed: il proprietario del workspace deve aver concesso alla **tua identità di bridge autenticata** una delega attiva e non scaduta che copra il tipo di risoluzione (concessa nell'app, dalla vista di dettaglio), e l'arco deve essere attivo. Ogni risoluzione delegata viene registrata nel log di audit a fronte della concessione. La mutazione di affermazioni e contesti non è mai esposta — il canone resta sotto controllo umano.
+
 Tutte le azioni richiedono `workspace_root`: il percorso assoluto del workspace da interrogare. Ricavalo da `session.get_state` (il `filePath` delle schede aperte) o dallo strumento workspace. Un percorso mancante, non assoluto o che non è una directory viene rifiutato con un errore in forma di stringa semplice.
 
 ### `status`

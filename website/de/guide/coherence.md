@@ -105,6 +105,49 @@ blicken; Prüfergebnisse sind an genau den Kontext und den
 Aussagen-Schnappschuss gebunden, die sie erzeugt haben — sie sickern
 nie in andere Kontexte durch.
 
+## Provenienz, Delegation und Branches
+
+Drei Dinge halten die Kohärenzschicht ehrlich, während ein Projekt sich
+tatsächlich weiterentwickelt — keines davon nervt, alle sind rein
+pull-basiert.
+
+**Provenienz-Wiederherstellung.** Wenn Sie ein abgeleitetes Dokument von
+Hand bearbeiten (in VMark oder einem externen Editor), verliert die
+Bearbeitung korrekterweise ihre aufgezeichneten Eingaben — die alten
+Abhängigkeitskanten beschreiben den neuen Text nicht mehr. Die Gruppe
+*Provenienz unbekannt* der Aufschlüsselung bietet an, sie
+wiederherzustellen: Drücken Sie **Eingaben vorschlagen**, und VMark
+schlägt den jüngsten früheren Eingabesatz des Dokuments vor (Rollen
+bleiben erhalten), vorausgewählt und bearbeitbar. **Provenienz
+bestätigen** heftet die Kanten wieder an die aktuelle Version, ohne eine
+neue Revision zu erzeugen, sodass die eigenen Downstreams des Dokuments
+nie eine scheinbare Änderung sehen. Dokumente, die nie Eingaben hatten,
+werden nie aufgeführt — es gibt nichts wiederherzustellen und nichts,
+womit man nerven könnte.
+
+**Agenten-Delegation.** Standardmäßig können nur Sie veraltete Kanten
+auflösen. Wenn Sie möchten, dass ein KI-Agent in Ihrem Namen die neuere
+Version übernimmt oder aussetzt (über die MCP-Oberfläche
+„schreibgeschützt plus `resolve`"), erteilen Sie ihm aus der
+Aufschlüsselung eine **zeitlich begrenzte Delegation**: Benennen Sie den
+Agenten, wählen Sie den Geltungsbereich (Neuere übernehmen und/oder
+Aussetzen) und setzen Sie ein Ablaufdatum (standardmäßig 7 Tage, nie
+„für immer"). Jede delegierte Auflösung wird der Erteilung zugeordnet,
+sodass der Audit-Verlauf immer zeigt, wer unter wessen Befugnis
+gehandelt hat. Widerrufen Sie jede Erteilung mit einem Klick.
+Kanon-Aussagen und Kontexte bleiben rein menschlich — ein Agent kann
+eine Aussage nie hochstufen oder einen Kontext durchsetzen.
+
+**Branch-Kontexte.** Ein Kontext kann einem Git-Branch zugeordnet
+werden. Wenn Sie einen zugeordneten Branch auschecken, zeigt die
+Aufschlüsselung einen **Kandidaten-Chip**, der das Wechseln anbietet —
+sie wechselt nie von selbst. Hat der Branch noch keinen Kontext, bietet
+der Chip an, einen nach ihm benannten zu erstellen. Wenn ein echter
+Merge (kein Fast-Forward) landet, weist ein schließbares Banner Sie
+darauf hin, die Aufschlüsselung zu prüfen; die Divergenz und Veraltung,
+die es zeigt, sind die normalen Zustände der Aufschlüsselung — es läuft
+also nichts Neues, Sie werden nur zur Prüfung geführt.
+
 ## Frontmatter-Identität
 
 Beim ersten Erfassen einer Datei fügt VMark ihrem Frontmatter einen

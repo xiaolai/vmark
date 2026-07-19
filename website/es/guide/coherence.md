@@ -41,6 +41,16 @@ Las **afirmaciones canónicas** son hechos que has hecho explícitos («Elena es
 
 Los **contextos** son vistas con nombre del espacio de trabajo (el contexto *default* siempre está ahí). Cada contexto decide qué significa «actual» y qué afirmaciones aplican; un contexto hijo hereda las afirmaciones de su padre de forma aditiva. Los contextos son **invernadero** por defecto — los veredictos de verificación se leen como tensión consultiva. Cambiar uno a **aplicado** (un acto explícito y confirmado) marca las contradicciones como violaciones del canon. El selector de contexto del desglose elige a través de qué contexto estás mirando; los resultados de verificación quedan ligados exactamente al contexto y a la instantánea de afirmaciones que los produjeron y nunca se filtran de uno a otro.
 
+## Procedencia, delegación y ramas
+
+Tres cosas mantienen honesta la capa de coherencia a medida que un proyecto realmente evoluciona — ninguna de ellas da la lata, todas son solo bajo demanda (pull).
+
+**Recuperación de procedencia.** Cuando editas a mano un documento derivado (en VMark o en un editor externo), la edición pierde correctamente sus entradas registradas — las viejas aristas de dependencia ya no describen el nuevo texto. El grupo *Procedencia desconocida* del desglose se ofrece a restaurarlas: pulsa **Sugerir entradas** y VMark propone el conjunto de entradas previo más reciente del documento (con los roles preservados), premarcado y editable. **Confirmar procedencia** vuelve a adjuntar las aristas a la versión actual sin crear una nueva revisión, de modo que los propios documentos aguas abajo nunca ven un cambio espurio. Los documentos que nunca tuvieron entradas no se listan jamás — no hay nada que recuperar ni nada con lo que dar la lata.
+
+**Delegación en agentes.** Por defecto, solo tú puedes resolver aristas obsoletas. Si quieres que un agente de IA acepte la más reciente o exima en tu nombre (a través de la superficie MCP «solo lectura más `resolve`»), otórgale desde el desglose una **delegación con límite de tiempo**: nombra al agente, elige el alcance (aceptar más reciente o eximir, o ambos) y fija una caducidad (7 días por defecto, nunca «para siempre»). Cada resolución delegada queda registrada en el otorgamiento, así que el rastro de auditoría siempre muestra quién actuó bajo la autoridad de quién. Revoca cualquier otorgamiento con un clic. Las afirmaciones canónicas y los contextos siguen siendo exclusivamente humanos — un agente nunca puede promover una afirmación ni aplicar un contexto.
+
+**Contextos de rama.** Un contexto puede asignarse a una rama de git. Cuando haces checkout de una rama asignada, el desglose muestra un **chip candidato** que ofrece cambiar — nunca cambia por su cuenta. Si la rama aún no tiene contexto, el chip ofrece crear uno con su nombre. Cuando aterriza una fusión real (no fast-forward), un banner descartable te sugiere revisar el desglose; la divergencia y la obsolescencia que muestra son los estados normales del desglose — así que no se ejecuta nada nuevo, solo se te acompaña a la revisión.
+
 ## Identidad en el frontmatter
 
 La primera vez que se captura un archivo, VMark añade un pequeño bloque de identidad a su frontmatter:

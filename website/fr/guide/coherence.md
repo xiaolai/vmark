@@ -101,6 +101,16 @@ les résultats de vérification sont liés au contexte et à l'instantané
 d'affirmations exacts qui les ont produits et ne fuient jamais de l'un
 à l'autre.
 
+## Provenance, délégation et branches
+
+Trois choses gardent la couche de cohérence honnête à mesure qu'un projet évolue réellement — aucune ne vous harcèle, toutes sont strictement en mode pull.
+
+**Récupération de la provenance.** Quand vous modifiez un document dérivé à la main (dans VMark ou un éditeur externe), la modification perd à juste titre ses entrées enregistrées — les anciennes arêtes de dépendance ne décrivent plus le nouveau texte. Le groupe *Provenance inconnue* du Détail propose de les restaurer&nbsp;: appuyez sur **Suggérer des entrées** et VMark propose le jeu d'entrées antérieur le plus récent du document (rôles préservés), pré-coché et modifiable. **Confirmer la provenance** rattache les arêtes à la version actuelle sans créer de nouvelle révision, de sorte que les documents en aval du document ne voient jamais de changement fallacieux. Les documents qui n'ont jamais eu d'entrées ne sont jamais listés — il n'y a rien à récupérer et rien pour vous harceler.
+
+**Délégation d'agent.** Par défaut, vous seul pouvez résoudre les arêtes obsolètes. Si vous voulez qu'un agent IA accepte la plus récente ou exempte en votre nom (via la surface MCP « lecture seule plus `resolve` »), accordez-lui depuis le Détail une **délégation à durée limitée**&nbsp;: nommez l'agent, choisissez la portée (accepter la plus récente et/ou exempter) et fixez une expiration (7 jours par défaut, jamais « pour toujours »). Chaque résolution déléguée est consignée au titre de la délégation, si bien que la piste d'audit montre toujours qui a agi sous l'autorité de qui. Révoquez n'importe quelle délégation d'un clic. Les affirmations canoniques et les contextes restent exclusivement humains — un agent ne peut jamais promouvoir une affirmation ni appliquer un contexte.
+
+**Contextes de branche.** Un contexte peut être associé à une branche git. Quand vous basculez sur une branche associée, le Détail affiche une **puce candidate** proposant de changer — il ne change jamais de lui-même. Si la branche n'a pas encore de contexte, la puce propose d'en créer un à son nom. Quand une vraie fusion (non fast-forward) aboutit, une bannière que vous pouvez ignorer vous invite à examiner le Détail&nbsp;; la divergence et l'obsolescence qu'elle expose sont les états normaux du Détail — rien de nouveau ne s'exécute donc, vous êtes simplement guidé vers l'examen.
+
 ## Identité dans le frontmatter
 
 La première fois qu'un fichier est capturé, VMark ajoute un petit bloc

@@ -248,6 +248,10 @@ GitHub Actions ワークフロー YAML 用の `actionlint` 検証と **CST セ�
 - `claims` — 現在のカノン設定：`{claim, entryId, statement, maturity, invalidAt, visible}`。セマンティックチェックの制約になるのは `established` の設定だけです。`visible` はデフォルトコンテキストを反映します。
 - `contexts` — コンテキストの集合（暗黙の `default` は常に存在します）：`{id, name, parent, enforcement, visibleClaims, errors}`。
 
+変更を伴うアクションが 1 つ、委任によってゲートされます：
+
+- `resolve` — 明示的に委任されたエージェントとして、活きている古くなったエッジを解決します：`{workspace_root, txf, input, resolution: "accept-newer" | "waive", reason? (required for waive)}`。認可は fail-closed です：ワークスペースの所有者が **認証済みのブリッジ ID** に対して、その解決の種類をカバーする有効で失効していない委任を（アプリ内で、内訳から）付与している必要があり、かつエッジが活きていなければなりません。委任による解決はすべて、その付与に紐づけて監査ログに記録されます。設定とコンテキストの変更が公開されることは決してありません — カノンは人間の管理下にとどまります。
+
 すべてのアクションで `workspace_root`（照会するワークスペースの絶対パス）が必要です。`session.get_state`（開いているタブの `filePath`）または workspace ツールから取得できます。パスが欠落している、絶対パスでない、またはディレクトリでない場合は、平文の文字列エラーで拒否されます。
 
 ### `status`

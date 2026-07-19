@@ -41,6 +41,16 @@ As **afirmações canônicas** são fatos que você tornou explícitos ("Elena �
 
 Os **contextos** são visões nomeadas do workspace (o contexto *default* está sempre lá). Cada contexto decide o que "atual" significa e quais afirmações se aplicam; um contexto filho herda as afirmações do pai de forma aditiva. Os contextos são **estufa** por padrão — os veredictos de verificação se leem como tensão consultiva. Mudar um deles para **aplicado** (um ato explícito e confirmado) marca as contradições como violações do cânone. O seletor de contexto do detalhamento escolhe através de qual contexto você está olhando; os resultados de verificação ficam vinculados exatamente ao contexto e ao instantâneo de afirmações que os produziram e nunca vazam de um para outro.
 
+## Proveniência, delegação e branches
+
+Três coisas mantêm a camada de coerência honesta à medida que um projeto realmente evolui — nenhuma delas fica no seu pé, todas são somente sob demanda (pull).
+
+**Recuperação de proveniência.** Quando você edita um documento derivado à mão (no VMark ou em um editor externo), a edição perde corretamente suas entradas registradas — as antigas arestas de dependência já não descrevem o novo texto. O grupo *Proveniência desconhecida* do detalhamento se oferece para restaurá-las: pressione **Sugerir entradas** e o VMark propõe o conjunto de entradas anterior mais recente do documento (com os papéis preservados), pré-marcado e editável. **Confirmar proveniência** reanexa as arestas à versão atual sem criar uma nova revisão, de modo que os próprios documentos a jusante nunca veem uma mudança espúria. Documentos que nunca tiveram entradas nunca são listados — não há nada a recuperar e nada para ficar no seu pé.
+
+**Delegação a agentes.** Por padrão, só você pode resolver arestas desatualizadas. Se você quer que um agente de IA aceite a mais recente ou isente em seu nome (pela superfície MCP "somente leitura mais `resolve`"), conceda a ele, a partir do detalhamento, uma **delegação com prazo**: dê um nome ao agente, escolha o escopo (aceitar a mais recente e/ou isentar) e defina uma expiração (7 dias por padrão, nunca "para sempre"). Cada resolução delegada fica registrada na concessão, então a trilha de auditoria sempre mostra quem agiu sob a autoridade de quem. Revogue qualquer concessão com um clique. As afirmações canônicas e os contextos permanecem exclusivamente humanos — um agente nunca pode promover uma afirmação nem aplicar um contexto.
+
+**Contextos de branch.** Um contexto pode ser mapeado para um branch do git. Quando você faz checkout de um branch mapeado, o detalhamento mostra um **chip candidato** que oferece trocar — ele nunca troca sozinho. Se o branch ainda não tem contexto, o chip oferece criar um com o nome dele. Quando um merge de verdade (não fast-forward) chega, um banner dispensável sugere que você revise o detalhamento; a divergência e a desatualização que ele mostra são os estados normais do detalhamento — então nada de novo é executado, você só é conduzido à revisão.
+
 ## Identidade no frontmatter
 
 Na primeira vez que um arquivo é capturado, o VMark adiciona um pequeno bloco de identidade ao seu frontmatter:

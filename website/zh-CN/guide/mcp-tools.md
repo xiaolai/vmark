@@ -248,6 +248,10 @@ VMark 向 AI 助手暴露 **七个复合 MCP 工具**：`session`、`workspace`�
 - `claims` —— 当前的正典设定：`{claim, entryId, statement, maturity, invalidAt, visible}`。只有 `established` 状态的设定才会约束语义检查；`visible` 反映的是 default 上下文。
 - `contexts` —— 上下文集合（隐式的 `default` 始终存在）：`{id, name, parent, enforcement, visibleClaims, errors}`。
 
+一个受委托限制的写操作：
+
+- `resolve` —— 以获得明确委托的智能体身份，解决一条活跃的过期边：`{workspace_root, txf, input, resolution: "accept-newer" | "waive", reason? (required for waive)}`。授权采用 fail-closed 策略：工作区所有者必须已向**你经过身份验证的桥接身份**授予一份涵盖该解决类型的、有效且未过期的委托（在应用内、从明细授予），并且该边必须处于活跃状态。每一次受委托的解决都会记入审计日志，并关联到该授予。设定与上下文的变更从不对外暴露 —— 正典始终由人类掌控。
+
 所有操作都需要 `workspace_root`：要查询的工作区的绝对路径。可以从 `session.get_state`（已打开标签页的 `filePath`）或 workspace 工具获知。路径缺失、不是绝对路径或不是目录时，会以纯字符串错误拒绝。
 
 ### `status`
