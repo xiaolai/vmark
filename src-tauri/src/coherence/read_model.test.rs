@@ -114,6 +114,56 @@ fn breakdown_projection_matches_the_breakdown_rows() {
 }
 
 #[test]
+fn incident_projection_emits_rows_for_incident_edges() {
+    // Build U -> D with U advanced (stale), and project via IncidentProjection{U}.
+    let (mut index, _) = CoherenceIndex::open_in_memory().unwrap();
+    let writer = WriterId(uuid::Uuid::now_v7());
+    let u = ObjectId(uuid::Uuid::now_v7());
+    let d = ObjectId(uuid::Uuid::now_v7());
+    let u1 = RevisionId::compute(&hash(1), &[]);
+    let u2 = RevisionId::compute(&hash(3), std::slice::from_ref(&u1));
+    index
+        .rebuild_from(&[
+            txf(writer, u, 1, vec![]),
+            txf(writer, d, 2, vec![(u, u1.clone())]),
+            Envelope::create(
+                "transformation",
+                writer,
+                serde_json::to_value(Transformation {
+                    inputs: vec![],
+                    outputs: vec![OutputRef {
+                        object: u,
+                        revision: u2,
+                        content_hash: hash(3),
+                        parents: vec![u1],
+                    }],
+                    agent: Agent {
+                        kind: AgentType::Human,
+                        id: None,
+                    },
+                    intent: Intent {
+                        kind: "t".into(),
+                        summary: "adv".into(),
+                        prompt_hash: None,
+                    },
+                    confidence: Confidence::Exact,
+                })
+                .unwrap(),
+            ),
+        ])
+        .unwrap();
+
+    let rows = IncidentProjection { object: u }.rows(&index, NOW).unwrap();
+    assert_eq!(rows.len(), 1, "the U->D edge is incident to U");
+    assert_eq!(rows[0].downstream, d);
+    assert_eq!(rows[0].state, "version-stale");
+    // Same trait, same row shape as BreakdownProjection.
+    let bd = BreakdownProjection.rows(&index, NOW).unwrap();
+    assert_eq!(rows[0].txf, bd[0].txf);
+    assert_eq!(rows[0].state, bd[0].state);
+}
+
+#[test]
 fn row_from_assembles_the_shared_shape() {
     let up = ObjectId(uuid::Uuid::from_u128(1));
     let down = ObjectId(uuid::Uuid::from_u128(2));
