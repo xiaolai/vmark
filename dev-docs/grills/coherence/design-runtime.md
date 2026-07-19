@@ -111,7 +111,7 @@ drift check. Contract:
 `parse_check_response` + provider wrapper reusable; `claims.rs:145`
 (`claims_fingerprint`).
 
-### D4 — Accept = capture-equivalent single-entry commit with a deterministic idem (SP-A PROVEN)
+### D4 — Accept = capture-equivalent single-entry commit with a deterministic idem (SP-A INCOMPLETE)
 Accept mints **one** transformation (one output) via **one** `append_and_apply`
 (`state.rs:93`), `intent.kind = "operator:<name>"`. Crash semantics **equal
 shipped capture's**: a crash before the ledger append heals as `observed-external`
@@ -121,8 +121,13 @@ atomic, capture-equivalent** (tested: `scan.test.rs:66`; torn append
 idem `= uuid(sha256(object ‖ base_rev ‖ content_hash))` (not the random
 `Envelope::create` idem, `envelope.rs:171`), so a retry after a lost response
 collapses via the existing dedup (`ledger.rs:199-202`, tested
-`ledger.test.rs:89`). **SP-A confirms** this needs no new commit protocol.
-**Grounding:** `spike-accept-primitive.md` (4 tests green); `state.rs:93`;
+`ledger.test.rs:89`). **SP-A did *not* establish** that this needs no new commit
+protocol — it graded the recovery *ingredients* in isolation, and review 4 found
+accept **is** an idempotency + optimistic-concurrency protocol (the three
+BLOCKERs in the status header). Treat D4 as the *shape* of the commit, not as a
+discharged proof.
+**Grounding:** `spike-accept-primitive.md` (4 *ingredient* tests green; the
+composed-accept verdict is retracted); `state.rs:93`;
 `envelope.rs:161-171`; `ledger.rs:199-202`.
 
 ### D5 — v1 operators built-in Rust; first = a simple single-object revision op
@@ -213,7 +218,7 @@ in v2 history; all items closed or folded below.)*
 **Review 3** (`019f79ad…`, MAJOR GAPS) — dispositions:
 | Finding | Disposition in v3 |
 |---|---|
-| #1 accept not atomic; scan can't recover intent | **SP-A PROVEN** — accept = capture-equivalent; deterministic idem; no new protocol (D4). "Atomic" corrected. |
+| #1 accept not atomic; scan can't recover intent | **SUPERSEDED by review 4** — this cell originally read "SP-A PROVEN"; that PASS is retracted (ingredient tests only). Accept is a real idempotency + optimistic-concurrency protocol; "atomic" corrected (D4). |
 | D2 `LogicalEdgeKey` not unique | **Multiset** over `(…, input_ordinal)` (D2). |
 | D3 contract unspecified | **Specified** (D3). |
 | N1/N4 accept binds only to base head | **Preview-fingerprint precondition + revalidate** (D6). |
