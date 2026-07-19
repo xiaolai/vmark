@@ -582,7 +582,30 @@ phase_3() {
     fail "SKIP_TESTS=1 set — WI-3.6-ui/3.7 suites not run"
   fi
 
-  local PENDING=(3.8 3.9)
+  echo "— WI-3.8: Phase 3 guides x10 —"
+  assert_grep "Provenance, delegation, and branches" website/guide/coherence.md "EN guide covers Phase 3"
+  if grep -q "resolve" website/ja/guide/mcp-tools.md && grep -q "resolve" website/zh-CN/guide/mcp-tools.md; then
+    ok "localized mcp-tools guides cover the resolve action (spot: ja, zh-CN)"
+  else
+    fail "localized mcp-tools guides missing the resolve action"
+  fi
+  echo "— WI-3.9: dogfood session 4 (O2 + reservation closure) —"
+  local DLOG=dev-docs/grills/coherence/dogfood-log.md
+  assert_grep "Session 4 — 2026-07-19" "$DLOG" "session 4 recorded"
+  assert_grep "precision 8/8" "$DLOG" "O2 precision recorded"
+  assert_grep "delegated MCP resolve (verified live" "$DLOG" "delegated resolve verified live"
+  assert_grep "Finding F7" "$DLOG" "F7 dogfood catch recorded"
+  assert_grep "resolve_is_reachable_through_handle_rust_side_dispatch" src-tauri/src/mcp_bridge/routing.test.rs "F7 regression test present"
+  assert_grep "Phase 3 features in the guides\|COMPLETE" dev-docs/plans/20260718-coherence-layer.md "plan Phase-3 status ticked"
+  if [[ "${SKIP_TESTS:-}" != "1" ]]; then
+    if cargo test --manifest-path src-tauri/Cargo.toml --lib coherence --quiet >/dev/null 2>&1 && cargo test --manifest-path src-tauri/Cargo.toml --lib mcp_bridge --quiet >/dev/null 2>&1; then
+      ok "WI-3.9 full coherence + bridge suites green"
+    else
+      fail "WI-3.9 suites red"
+    fi
+  else
+    fail "SKIP_TESTS=1 set — WI-3.9 suites not run"
+  fi
   echo "— pending WIs (fail-closed until implemented) —"
   for wi in "${PENDING[@]}"; do
     fail "WI-$wi assertions not yet defined (fail-closed)"

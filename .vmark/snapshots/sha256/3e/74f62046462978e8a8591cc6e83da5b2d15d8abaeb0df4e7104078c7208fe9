@@ -1,7 +1,3 @@
----
-vmark:
-  id: 019f758c-5536-79f0-9301-a463477869de
----
 # Coherence Dogfood Log
 
 Per-session metric record against the spec §11 baselines
@@ -124,47 +120,3 @@ behavior. The guarantee is now locked by a regression test
 
 **Owner verdict (codex-as-human): PASS.** Next step: Phase 3 plan
 amendment, starting with lazy-confirmation inference for human edits.
-
-## Session 4 — 2026-07-19 (self-hosted, Phase 3)
-
-- **Workspace:** the VMark repository (continuing the corpus).
-- **D1 provenance recovery:** 5 derived docs orphaned by genuine hand
-  edits were recovered live through the breakdown's propose→confirm flow
-  — **0 revisions minted** (the re-emission property, confirmed live).
-- **O2 measurement (the headline metric):** denominator 5,
-  accepted-unchanged 4, accepted-after-edit 1, rejected 0, accepted-edge
-  **precision 8/8**, **missed edges 1**. The one miss was deliberate: an
-  edit introduced a genuine new dependency (`design-3.md`) that the
-  prior-input-set heuristic cannot see, so human review added it. Owner:
-  good enough to ship as the Phase-3 default *with human review*; LLM
-  inference stays deferred pending a larger longitudinal measurement.
-- **D2 delegated MCP resolve (verified live end-to-end):** a `codex-cli`
-  grant was correctly **refused** for the authenticated `claude-code`
-  principal (fail-closed); a matching `claude-code` grant then succeeded,
-  appending a ratification with `actor {type: agent, id: claude-code}`
-  **and** the delegation reference to the grant — the full R29 audit
-  chain. Both test grants revoked; the shipped ledger carries no live
-  delegation.
-- **D3 branch context:** create-from-branch produced a `coherence-layer`
-  context; the candidate chip then offered a switch (never auto-selected).
-  The merge banner is test-verified (2 scan + 4 component tests) — a live
-  merge would conflict with the uncommitted dogfood edits, so not forced.
-
-| Metric | Value | Verdict |
-|---|---|---|
-| M1 capture | all Phase-3 acts at designed confidence (5 provenance-confirmations `inferred`, delegated resolve as agent-ratification); 0 manual | ✅ |
-| M5 scan / breakdown | **159 ms / 129 ms** full-repo (F2 fix holds at scale) | ✅ |
-| O2 precision | **8/8** proposed inputs correct; 1 newly-introduced dependency missed (by design) | ✅ with reservation |
-
-**Finding F7 (fixed):** `vmark.coherence.resolve` was missing from
-`handle_rust_side`'s live dispatch arm, so the real MCP path returned
-"coherence request failed to execute". The 13 resolve tests passed only
-because they call `answer_coherence` directly, bypassing the dispatch.
-Fixed same-session (commit 86b43140) with a regression test that routes
-**through** `handle_rust_side`. The canonical dogfood catch — an
-integration gap invisible to unit tests.
-
-**Owner verdict (codex-as-human): PASS WITH RESERVATIONS** for session 4
-and for Phase 3 overall. Next step: a larger longitudinal O2 measurement
-focused on newly-introduced dependencies before reducing human review or
-enabling LLM inference.
