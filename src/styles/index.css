@@ -199,6 +199,16 @@
   --space-10: 40px;
   --space-15: 60px;
 
+  /* Semantic spacing — the names rule 31 tells authors to use for padding,
+     margin and gap (the --space-* scale above is the primitive fallback).
+     These were documented in 31-design-tokens.md, referenced by the comment
+     above, and consumed 123 times across 11 stylesheets — but never actually
+     defined, so every var(--spacing-*) silently collapsed to zero padding
+     and zero gap (visible as the cramped Breakdown/Claim/Browser panels). */
+  --spacing-1: var(--space-1);
+  --spacing-2: var(--space-2);
+  --spacing-3: var(--space-3);
+
   /* Border widths */
   --border-hairline: 0.5px;
   --border-thin: 1px;
