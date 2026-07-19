@@ -80,7 +80,16 @@ fn missing_workspace_root_is_clean_error() {
 #[test]
 fn nonexistent_workspace_root_is_clean_error() {
     let state = coherence_state();
-    let args = serde_json::json!({ "workspace_root": "/nonexistent/path/that/does/not/exist" });
+    // Absolute on every platform but guaranteed missing: a bare
+    // "/nonexistent" is NOT absolute on Windows (needs a drive letter), so it
+    // would trip the absolute-path check first and never reach the
+    // directory-accessibility check this test asserts on. Anchoring on
+    // `temp_dir()` yields an absolute path on Windows and Unix alike.
+    let missing = std::env::temp_dir()
+        .join("vmark-does-not-exist-6f2a1c9e4b")
+        .to_string_lossy()
+        .into_owned();
+    let args = serde_json::json!({ "workspace_root": missing });
 
     let response = answer_coherence(&state, "vmark.coherence.edges", &args, None);
 
