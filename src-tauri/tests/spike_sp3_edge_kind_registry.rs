@@ -17,16 +17,14 @@
 //! single-source, and characterization-testable. Revisit if/when Tier 5 lands.
 //!
 //! This probe prototypes the **chosen (kernel) side** and proves it reproduces
-//! the two existing behaviors as registry entries:
-//!   - `Dependency` → propagation `Version` (today's hardcoded version axis).
-//!   - inert kinds (`PartOf`, `Mention`) → propagation `None` (captured and
-//!     visible, but never stale).
-//! Contradiction is deliberately **absent** from the registry — it is an
+//! the two existing behaviors as registry entries: `Dependency` gets
+//! propagation `Version` (today's hardcoded version axis), while inert kinds
+//! (`PartOf`, `Mention`) get propagation `None` (captured and visible, but never
+//! stale). Contradiction is deliberately **absent** from the registry — it is an
 //! `EdgeCheck` assessment, not an origin-edge kind (G-B consistency #2).
 //!
-//! Run:
-//!   cargo test --manifest-path src-tauri/Cargo.toml \
-//!     --test spike_sp3_edge_kind_registry -- --nocapture
+//! Run: `cargo test --manifest-path src-tauri/Cargo.toml --test
+//! spike_sp3_edge_kind_registry -- --nocapture`
 
 // ---- the prototyped kernel registry (would live beside project.rs) ----------
 
@@ -182,4 +180,47 @@ fn contradiction_is_not_representable_as_a_kind() {
         let p = meta(kind).propagation;
         assert!(matches!(p, Propagation::Version | Propagation::None));
     }
+}
+
+// ---- the REFUTED side (b): a Tier-1 schema-pack declaration ------------------
+//
+// WI-0.3 asks to prototype BOTH placements. This is the minimal schema-pack
+// declaration — a *data* record with no executable behavior, as Tier 1 requires
+// (paper §10). It demonstrates by construction why schema-pack placement is
+// refuted: the declaration can carry `origin`/`shape` metadata, but a kind's
+// *propagation rule* is behavior that a declarative record cannot express — it
+// would need Tier 5 (executable schema packs, deferred). So a schema-pack kind
+// still requires kernel code for propagation, splitting each kind's definition
+// across two tiers. The kernel registry (side a) keeps it whole.
+
+/// A Tier-1 declaration carries only *nameable data* — never a rule/closure.
+struct SchemaPackKindDecl {
+    name: &'static str,
+    origin: &'static str, // "captured" | "discovered"  (data)
+    shape: &'static str,  // "directional" | "symmetric" (data)
+                          // NOTE: there is deliberately NO `propagation: fn(...) -> ...` field here.
+                          // Executable behavior is Tier 5; a Tier-1 record cannot hold it. That
+                          // absence IS the refutation.
+}
+
+#[test]
+fn schema_pack_declaration_cannot_carry_propagation_behavior() {
+    // A schema pack CAN declare the metadata...
+    let decl = SchemaPackKindDecl {
+        name: "conformance",
+        origin: "captured",
+        shape: "directional",
+    };
+    assert_eq!(decl.name, "conformance");
+    assert_eq!(decl.origin, "captured");
+    assert_eq!(decl.shape, "directional");
+
+    // ...but the propagation RULE for "conformance" — "a version-stale canon
+    // restales its conformers" — is not derivable from this record; it must be
+    // supplied by kernel code (the `meta`/`propagates_version` functions above).
+    // The declaration alone cannot answer the one question projection needs:
+    assert!(propagates_version(OriginEdgeKind::Conformance));
+    // ^ that answer came from the KERNEL registry, not from `decl`. A pure Tier-1
+    // pack would have to defer this to kernel behavior anyway — so the kernel is
+    // where the kind belongs. Decision: kernel registry (recorded in the report).
 }

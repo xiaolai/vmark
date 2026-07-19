@@ -253,7 +253,9 @@ idem is domain-separated over the **complete canonical commit payload**, with
 `:` in a summary must not alias a different structure):
 
 ```
-fn field(s: bytes) = u32_be(len(s)) ‖ s          // length-prefixed, unambiguous
+fn field(s: bytes) = u32_be(len(s)) ‖ s              // length-prefixed, unambiguous
+fn opt(x)          = byte(0) if None                 // presence byte disambiguates
+                     byte(1) ‖ field(x) if Some(x)   // None ≠ Some("")
 fn list(xs)        = u32_be(count(xs)) ‖ concat(field(x) for x in xs)
 
 idem = uuidv8_from_sha256(
@@ -263,16 +265,18 @@ idem = uuidv8_from_sha256(
   ‖ field(output.object) ‖ field(output.content_hash) ‖ field(output.revision)
   ‖ list(sorted(output.parents))
   ‖ list( for each input in declared order: field(input.object) ‖ field(input.revision) ‖ field(role) )
-  ‖ field(agent.kind) ‖ field(agent.id.unwrap_or(""))
-  ‖ field(intent.kind) ‖ field(intent.summary)
+  ‖ field(agent.kind) ‖ opt(agent.id)               // opt: None distinct from Some("")
+  ‖ field(intent.kind) ‖ field(intent.summary) ‖ opt(intent.prompt_hash)
   ‖ field(confidence)
 )
 ```
 
-Length-prefixing makes the encoding injective: two distinct payloads can never
-share a preimage regardless of their bytes. Parents are lexicographically sorted
-(matching `RevisionId::compute`); no map iteration. The tag `…-v1` versions the
-schema; a future field addition bumps it to `…-v2`. **Grounding:**
+Length-prefixing makes the encoding injective; the `opt` presence byte covers
+**every** optional payload field — `agent.id` (`types.rs:136`) and
+`intent.prompt_hash` (`types.rs:174`), which round-3's preimage omitted/aliased
+(G-B round-4 PARTIAL #14). Parents are lexicographically sorted (matching
+`RevisionId::compute`); no map iteration. The tag `…-v1` versions the schema; a
+future field addition bumps it to `…-v2`. **Grounding:**
 `RevisionId::compute` (`types.rs:87`) is the sorting/hashing precedent;
 `Envelope.idem` is a plain `Uuid` field (`envelope.rs:21`) so a computed idem is
 a field assignment, not a new constructor.
@@ -288,29 +292,38 @@ lost). Accept flow, **holding the kernel lock**: compute V4.1 idem →
 (entry id + resulting revision) **without appending**; if `None`, `append_and_apply`
 then return.
 
-**The torn-window correctness argument (G-B round-3 Critical #B).**
-`append_and_apply` (`state.rs:93`) writes the *ledger first*, then the index; the
-ledger's `append` never dedups (`ledger.rs:123` always writes), and dedup happens
-only in `read_all` (smallest `(time,id)` wins, `ledger.rs:199-202`). So a crash
-**between** the ledger append and the index apply leaves an entry the `applied`
-table doesn't yet know — an index-only lookup would miss it and double-append.
-This is closed by two facts, not a new protocol:
+**The torn-window correctness argument (G-B round-3 Critical #B, corrected in
+round 4).** `append_and_apply` (`state.rs:93`) writes the *ledger first*, then the
+index; the ledger's `append` never dedups (`ledger.rs:123` always writes), and
+dedup happens only in `read_all` (`ledger.rs:199-202`). So a crash **between** the
+ledger append and the index apply leaves an entry the `applied` table never
+learns — and `WorkspaceKernel::open` only rebuilds when `needs_rebuild ||
+!initialized` (`state.rs:44-53`), so a *valid* index does **not** heal that entry
+on the next open. **An index-only idem lookup is therefore unsound.** Round-3's
+"heals on open" claim was wrong.
 
-1. **In-process**, accept holds the single per-workspace kernel mutex
-   (`state.rs:160`), so append+apply are sequential with no observable torn
-   state; a same-process retry sees the applied idem.
-2. **Across a crash**, the next `WorkspaceKernel::open` rebuilds the index from
-   the ledger (`state.rs:50-53`), and `read_all`'s dedup is **deterministic**
-   (smallest `(time,id)` wins). So a torn double-append converges to the
-   *original* entry, and the rebuilt `applied.entry_id` points at it. The
-   retry-after-restart lookup therefore returns the original receipt, never the
-   duplicate's. The worst case is a lost response (the caller retries); it never
-   yields a wrong surviving receipt.
+**Correct rule: the idem lookup is ledger-authoritative, lookup-before-append,
+under the lock.** Accept, holding the kernel mutex (`state.rs:160`):
 
-`applied.entry_id` must store the entry id that dedup keeps (the smallest
-`(time,id)`), so `rebuild_from` populates it from the deduped entry set it
-already iterates. Migration: `applied` gains `entry_id TEXT`; schema bump →
-rebuild (R16).
+1. computes the V4.1 idem;
+2. **scans the ledger** for an existing entry with that idem — authoritative
+   because the ledger is the source of truth and is always fully readable
+   regardless of index state (the `applied` table is only a same-process fast
+   path, consulted first, but a miss falls through to the ledger scan, it is
+   never trusted as a *negative*);
+3. if found, returns that entry's receipt **without appending**;
+4. else appends, then applies.
+
+Because the lookup reads the ledger *before* appending, a retry after a crash in
+the torn window **finds the first entry** and never writes a second — so no
+duplicate is ever created, and "which entry is the survivor / whether the clock
+rolled back" never arises (there is at most one entry per idem). Two accepts
+cannot interleave (the mutex serializes them), and a crash between lookup and
+append is harmless because the retry re-runs the lookup and finds the committed
+entry. Cost: an accept is a rare human action, so an O(ledger) scan (or an
+in-memory idem→entry_id map kept alongside the index) is acceptable;
+`applied.entry_id` (new column, schema bump → rebuild, R16) serves the
+same-process fast path.
 
 ### V4.3 — Accept precondition = reproject-under-lock (supersedes D6 "preview fingerprint")
 
@@ -329,26 +342,37 @@ the precondition compares `structural_class(Option<EdgeState>)`, which collapses
 the four check-dependent states into one `Stale` token:
 
 ```
-None                              -> Retired
-Fresh{..}                         -> Fresh
+None                                 -> Retired
+Fresh{ratified, ahead}               -> Fresh(ratified, ahead)   // kept: not check-derived
 VersionStale | StaleValid
-  | StaleContradicted | StaleUnknown -> Stale        // check verdict erased
-Waived                            -> Waived
-Diverged{multi_head}              -> Diverged(multi_head)
-Unpinnable                        -> Unpinnable
+  | StaleContradicted | StaleUnknown -> Stale                    // ONLY the check verdict erased
+Waived                               -> Waived
+Diverged{multi_head}                 -> Diverged(multi_head)
+Unpinnable                           -> Unpinnable
 ```
 
-The precondition: preview captured the structural-class multiset `S_preview`;
-accept, holding the single per-workspace kernel mutex (`state.rs:160`), recomputes
-`S_now` over the same affected set against the *current* DAG / resolutions /
-context (checks are irrelevant to the class); if `S_now != S_preview`, **reject →
-re-preview**; else append. This catches every *structural* concurrency hazard —
-base-head moves (`Fresh↔Stale↔Diverged`), retirements (`Some↔None`), waivers,
-context repins — while a pure semantic-check arrival is **invisible** to it, so
-accept is never blocked by a verdict. Base-head revalidation (D6: `resolve_live`
-== candidate `base_rev`) runs inside the same lock. Cross-process external
-`git`/scan advances are caught because `S_now` is computed from the freshly
-loaded DAG.
+`structural_class` erases **only** the check verdict — it keeps every other
+distinction (`Fresh{ratified, ahead}` stays split, so a ratification or an
+"ahead" head move is still visible). It is **not** the coarser display helper in
+the SP1 test.
+
+**The comparison is a keyed map, not an unkeyed bag (G-B round-4 Critical #A).**
+`S_preview` and `S_now` are `Map<SemanticEdgeKey → structural_class>` over the
+affected set — **not** a multiset of classes. An unkeyed bag would miss a
+*compensating swap* (edge A `Fresh→Stale` while edge B `Stale→Fresh` leaves the
+bag `{Fresh:1, Stale:1}` unchanged); a keyed map catches it because A's and B's
+keys each changed value. The precondition: preview captured
+`S_preview: Map<key → class>`; accept, holding the single per-workspace kernel
+mutex (`state.rs:160`), recomputes `S_now` over the same affected keys against the
+*current* DAG / resolutions / context; if `S_now != S_preview` **for any key**,
+**reject → re-preview**; else append. This catches every *structural* concurrency
+hazard per-edge — base-head moves (`Fresh↔Stale↔Diverged↔Unpinnable`, incl.
+`ahead`), retirements (`Some↔None`), ratifications (`Fresh↔Fresh{ratified}`),
+waivers, context repins — while a pure semantic-check arrival is **invisible** to
+it, so accept is never blocked by a verdict. Base-head revalidation (D6:
+`resolve_live` == candidate `base_rev`) runs inside the same lock. Cross-process
+external `git`/scan advances are caught because `S_now` is computed from the
+freshly loaded DAG.
 
 ### V4.4 — Bounded `ReadView` (completes D7)
 

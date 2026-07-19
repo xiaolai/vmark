@@ -1,8 +1,10 @@
 # Spike SP3 — relationship-classifier placement (ADR-P2)
 
-> **Status: PASS / DECISION RECORDED (2026-07-20).** 5/5 green
+> **Status: PASS / DECISION RECORDED (2026-07-20).** 6/6 green
 > (`src-tauri/tests/spike_sp3_edge_kind_registry.rs`). **Decision: kernel-level
-> typed `OriginEdgeKind` registry**, not a Tier-1 schema-pack declaration.
+> typed `OriginEdgeKind` registry**, not a Tier-1 schema-pack declaration. Both
+> placements are prototyped (kernel = side a; a schema-pack *declaration sketch*
+> = side b, which the test shows cannot carry propagation behavior).
 
 ## The question
 
@@ -60,6 +62,19 @@ tripwire against re-introducing it.
   not-stale read-model row (never in the stale set).
 - `edge_kind` is **orthogonal to `InputRole`**: role (Direct/Contextual) is
   provenance liveness; kind is the propagation class.
+
+## Side (b), refuted by construction
+
+WI-0.3 asks to prototype *both* placements. The **schema-pack declaration** side
+is prototyped as `SchemaPackKindDecl` — a Tier-1 *data* record with `name`,
+`origin`, `shape` and, deliberately, **no `propagation` field**. The test
+`schema_pack_declaration_cannot_carry_propagation_behavior` shows the gap: the
+record can declare a kind's metadata, but the question projection actually asks —
+"does a version-stale upstream restale this edge?" — is answered by the **kernel**
+`propagates_version`, not by the declaration. A Tier-1 pack would still have to
+defer propagation to kernel behavior (Tier 5 is deferred), so the kind's
+definition would straddle two tiers. The kernel registry keeps it whole. That
+absent field *is* the refutation — recorded, not hand-waved.
 
 ## Scope and limits
 
