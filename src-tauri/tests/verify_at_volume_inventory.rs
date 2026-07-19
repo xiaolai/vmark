@@ -262,6 +262,149 @@ fn probe_reports_absent_for_a_missing_relative_path() {
     assert_eq!(probe(root, "Cargo.toml"), PathState::Present);
 }
 
+/// Exercises the SWEEP over-promise guard on a synthetic corpus: a candidate
+/// only counts as executable when all three texts `prepare_check` needs are in
+/// the CAS *and* are UTF-8. Without this the harness can promise a sweep of
+/// candidates that cannot actually be checked.
+#[test]
+fn executable_requires_all_three_cas_texts_present_and_utf8() {
+    use vmark_lib::coherence::project::EdgeState;
+    use vmark_lib::coherence::types::{
+        Agent, AgentType, Confidence, Envelope, InputRef, InputRole, Intent, ObjectId, OutputRef,
+        RevisionId, Transformation,
+    };
+
+    let base = std::env::temp_dir().join(format!("vmark-cas-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&base);
+    let store = SnapshotStore::new(base.join("snapshots"));
+    let empty_store = SnapshotStore::new(base.join("empty"));
+
+    let writer = WriterId(uuid::Uuid::nil());
+    let up = ObjectId(uuid::Uuid::now_v7());
+    let down_text = ObjectId(uuid::Uuid::now_v7());
+    let down_binary = ObjectId(uuid::Uuid::now_v7());
+
+    let up_v1_hash = store.put_text("upstream v1").expect("put up v1");
+    let up_v1 = RevisionId::compute(&up_v1_hash, &[]);
+    let up_v2_hash = store.put_text("upstream v2").expect("put up v2");
+    let up_v2 = RevisionId::compute(&up_v2_hash, &[up_v1.clone()]);
+    let down_hash = store.put_text("downstream").expect("put down");
+    let down_rev = RevisionId::compute(&down_hash, &[]);
+    // Deliberately not valid UTF-8.
+    let bin_hash = store.put_binary(&[0xff, 0xfe, 0x00]).expect("put binary");
+    let bin_rev = RevisionId::compute(&bin_hash, &[]);
+
+    let make = |inputs: Vec<InputRef>, outputs: Vec<OutputRef>| {
+        let body = serde_json::to_value(Transformation {
+            inputs,
+            outputs,
+            agent: Agent {
+                kind: AgentType::Human,
+                id: None,
+            },
+            intent: Intent {
+                kind: "test".into(),
+                summary: "fixture".into(),
+                prompt_hash: None,
+            },
+            confidence: Confidence::Exact,
+        })
+        .expect("serialize transformation");
+        Envelope::create("transformation", writer, body)
+    };
+
+    let t_up_v1 = make(
+        vec![],
+        vec![OutputRef {
+            object: up,
+            revision: up_v1.clone(),
+            content_hash: up_v1_hash,
+            parents: vec![],
+        }],
+    );
+    let t_down = make(
+        vec![InputRef {
+            object: up,
+            revision: up_v1.clone(),
+            role: InputRole::Direct,
+        }],
+        vec![OutputRef {
+            object: down_text,
+            revision: down_rev.clone(),
+            content_hash: down_hash,
+            parents: vec![],
+        }],
+    );
+    let t_down_bin = make(
+        vec![InputRef {
+            object: up,
+            revision: up_v1.clone(),
+            role: InputRole::Direct,
+        }],
+        vec![OutputRef {
+            object: down_binary,
+            revision: bin_rev.clone(),
+            content_hash: bin_hash,
+            parents: vec![],
+        }],
+    );
+    // Advance the upstream so the edges are version-stale.
+    let t_up_v2 = make(
+        vec![],
+        vec![OutputRef {
+            object: up,
+            revision: up_v2,
+            content_hash: up_v2_hash,
+            parents: vec![up_v1.clone()],
+        }],
+    );
+
+    let (mut index, _) = CoherenceIndex::open_in_memory().expect("in-memory index");
+    index
+        .rebuild_from(&[
+            t_up_v1,
+            t_down.clone(),
+            t_down_bin.clone(),
+            t_up_v2,
+        ])
+        .expect("rebuild");
+
+    let row = |txf_id, downstream, downstream_rev| EdgeRow {
+        txf: txf_id,
+        input: 0,
+        upstream: up,
+        upstream_path: None,
+        pinned: up_v1.clone(),
+        downstream,
+        downstream_path: None,
+        downstream_rev,
+        confidence: "exact".into(),
+        state: EdgeState::VersionStale,
+        prior_waivers: 0,
+    };
+
+    let text_row = row(t_down.id, down_text, down_rev);
+    let binary_row = row(t_down_bin.id, down_binary, bin_rev);
+
+    // All three texts present and UTF-8.
+    assert!(
+        is_executable(&index, &store, &text_row),
+        "all CAS texts present and UTF-8 => executable"
+    );
+    // Same edge, but the CAS has none of the content.
+    assert!(
+        !is_executable(&index, &empty_store, &text_row),
+        "missing CAS snapshots must not count toward SWEEP"
+    );
+    // Present in CAS, but the downstream is not UTF-8.
+    assert!(
+        !is_executable(&index, &store, &binary_row),
+        "non-UTF-8 downstream must not count toward SWEEP"
+    );
+
+    let _ = std::fs::remove_dir_all(&base);
+}
+
 // ------------------------------------------------- real-repo smoke inventory
 
 #[test]
