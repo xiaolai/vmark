@@ -49,6 +49,45 @@ pub fn merge_affected_edges(
     index.edges_affected_by(&objects)
 }
 
+/// One merge-affected edge, on the wire (read-only display).
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MergeAffectedEdge {
+    pub txf: String,
+    pub input: u32,
+    pub upstream: ObjectId,
+    pub downstream: ObjectId,
+    pub kind: String,
+}
+
+/// The merge-affected edge set for the workspace's current HEAD (read-only,
+/// MCP-safe — R23). Empty when HEAD is not a completed merge. WI-5.2's actual
+/// re-check runs the existing checker over these edges (reusing the Phase-1
+/// `check_sweep` governance); this command surfaces *which* edges a merge
+/// touched, for the human/checker to act on — it never auto-reconciles (§14).
+#[tauri::command]
+pub async fn coherence_merge_audit(
+    state: tauri::State<'_, super::commands::CoherenceState>,
+    workspace_root: String,
+) -> Result<Vec<MergeAffectedEdge>, String> {
+    let root = std::path::PathBuf::from(&workspace_root);
+    let kernel_arc = state.registry.kernel_for(&root, state.writer)?;
+    let kernel = kernel_arc
+        .lock()
+        .map_err(|_| "kernel poisoned".to_string())?;
+    let edges = merge_affected_edges(kernel.index(), kernel.root())?;
+    Ok(edges
+        .into_iter()
+        .map(|e| MergeAffectedEdge {
+            txf: e.txf.to_string(),
+            input: e.input,
+            upstream: e.upstream,
+            downstream: e.downstream,
+            kind: e.kind.as_str().to_string(),
+        })
+        .collect())
+}
+
 #[cfg(test)]
 #[path = "merge_audit.test.rs"]
 mod tests;
