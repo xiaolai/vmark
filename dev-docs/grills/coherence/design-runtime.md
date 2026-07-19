@@ -247,58 +247,108 @@ fingerprint").
 
 D4's three-field preimage false-collapses distinct candidates (two operators
 producing the same bytes over the same base would share an idem). The accept
-idem is domain-separated over the **complete canonical commit payload**:
+idem is domain-separated over the **complete canonical commit payload**, with
+**every field length-prefixed** so free-text values (`agent.id`,
+`intent.summary`) cannot forge a field boundary (G-B round-3 High #C — a `\n` or
+`:` in a summary must not alias a different structure):
 
 ```
+fn field(s: bytes) = u32_be(len(s)) ‖ s          // length-prefixed, unambiguous
+fn list(xs)        = u32_be(count(xs)) ‖ concat(field(x) for x in xs)
+
 idem = uuidv8_from_sha256(
-  "vmark-operator-accept\n" ‖ format_version ‖ "\n" ‖
-  operator_name ‖ "\n" ‖
-  output.object ‖ "\n" ‖ output.content_hash ‖ "\n" ‖ output.revision ‖ "\n" ‖
-  sorted(output.parents) each ‖ "\n" ‖
-  for each input in declared order: input.object ‖ ":" ‖ input.revision ‖ ":" ‖ role ‖ "\n" ‖
-  agent.kind ‖ ":" ‖ agent.id.unwrap_or("") ‖ "\n" ‖
-  intent.kind ‖ "\n" ‖ intent.summary ‖ "\n" ‖
-  confidence
+  field("vmark-operator-accept-v1")        // versioned domain tag
+  ‖ field(format_version)
+  ‖ field(operator_name)
+  ‖ field(output.object) ‖ field(output.content_hash) ‖ field(output.revision)
+  ‖ list(sorted(output.parents))
+  ‖ list( for each input in declared order: field(input.object) ‖ field(input.revision) ‖ field(role) )
+  ‖ field(agent.kind) ‖ field(agent.id.unwrap_or(""))
+  ‖ field(intent.kind) ‖ field(intent.summary)
+  ‖ field(confidence)
 )
 ```
 
-Canonical serialization = this fixed field order, `\n`-separated, parents
-lexicographically sorted (matching `RevisionId::compute`), no map iteration. The
-preimage is versioned by the leading domain tag; a future field addition bumps
-the tag (`vmark-operator-accept-v2`). **Grounding:** `RevisionId::compute`
-(`types.rs:87`) is the sorting/hashing precedent; `Envelope.idem` is a plain
-`Uuid` field (`envelope.rs:21`) so a computed idem is a field assignment, not a
-new constructor.
+Length-prefixing makes the encoding injective: two distinct payloads can never
+share a preimage regardless of their bytes. Parents are lexicographically sorted
+(matching `RevisionId::compute`); no map iteration. The tag `…-v1` versions the
+schema; a future field addition bumps it to `…-v2`. **Grounding:**
+`RevisionId::compute` (`types.rs:87`) is the sorting/hashing precedent;
+`Envelope.idem` is a plain `Uuid` field (`envelope.rs:21`) so a computed idem is
+a field assignment, not a new constructor.
 
 ### V4.2 — Idem→receipt lookup returns the original receipt (BLOCKER 1)
 
 Storage dedup (`applied` keyed by idem, `index.rs:55`) silently *drops* a replay;
 an idempotent **API** must return the *original* receipt. New committable
 primitive: `entry_id_by_idem(idem) -> Result<Option<Uuid>>` over a new
-`applied.entry_id` column (today `applied` stores only the idem — the entry id
-is lost). Accept flow: compute V4.1 idem → `entry_id_by_idem` → if `Some(id)`,
-load that entry and return its `CheckReceipt`-shaped accept receipt (entry id +
-resulting revision) **without appending**; if `None`, append then return. This
-closes the lost-response-retry hole D6's precondition would otherwise reject as a
-stale base. Migration: `applied` gains `entry_id TEXT`; schema bump → rebuild
-(R16); `rebuild_from` already replays every entry so it can backfill.
+`applied.entry_id` column (today `applied` stores only the idem — the entry id is
+lost). Accept flow, **holding the kernel lock**: compute V4.1 idem →
+`entry_id_by_idem` → if `Some(id)`, load that entry and return its receipt
+(entry id + resulting revision) **without appending**; if `None`, `append_and_apply`
+then return.
+
+**The torn-window correctness argument (G-B round-3 Critical #B).**
+`append_and_apply` (`state.rs:93`) writes the *ledger first*, then the index; the
+ledger's `append` never dedups (`ledger.rs:123` always writes), and dedup happens
+only in `read_all` (smallest `(time,id)` wins, `ledger.rs:199-202`). So a crash
+**between** the ledger append and the index apply leaves an entry the `applied`
+table doesn't yet know — an index-only lookup would miss it and double-append.
+This is closed by two facts, not a new protocol:
+
+1. **In-process**, accept holds the single per-workspace kernel mutex
+   (`state.rs:160`), so append+apply are sequential with no observable torn
+   state; a same-process retry sees the applied idem.
+2. **Across a crash**, the next `WorkspaceKernel::open` rebuilds the index from
+   the ledger (`state.rs:50-53`), and `read_all`'s dedup is **deterministic**
+   (smallest `(time,id)` wins). So a torn double-append converges to the
+   *original* entry, and the rebuilt `applied.entry_id` points at it. The
+   retry-after-restart lookup therefore returns the original receipt, never the
+   duplicate's. The worst case is a lost response (the caller retries); it never
+   yields a wrong surviving receipt.
+
+`applied.entry_id` must store the entry id that dedup keeps (the smallest
+`(time,id)`), so `rebuild_from` populates it from the deduped entry set it
+already iterates. Migration: `applied` gains `entry_id TEXT`; schema bump →
+rebuild (R16).
 
 ### V4.3 — Accept precondition = reproject-under-lock (supersedes D6 "preview fingerprint")
 
 Rather than enumerate a read-set digest (fragile — any missed field is a
-correctness hole, per G-B completeness #2), the precondition **re-projects the
-affected set under the commit lock** and compares to the previewed projection
-multiset (the D2 `(SemanticEdgeKey, Option<EdgeState>)` bag). The kernel is a
-single serialized per-workspace `Mutex<WorkspaceKernel>` (`state.rs:160`), so
-"the lock" is that mutex: preview captured a multiset `M_preview`; accept, holding
-the kernel lock, recomputes `M_now` over the same affected set and the *current*
-committed DAG/resolutions/checks/context; if `M_now != M_preview`, **reject →
-require re-preview**; else append. This is complete by construction — it compares
-the *actual projection*, not a proxy for it — and needs no new digest field to
-keep in sync. Cross-process: the kernel mutex serializes only in-process writes;
-a concurrent external `git`/scan advance is caught because `M_now` is computed
-from the freshly-loaded DAG, and the base-head revalidation (D6: `resolve_live`
-== candidate `base_rev`) runs inside the same lock.
+correctness hole, per G-B round-2 completeness #2), the precondition
+**re-projects the affected set under the commit lock** and compares a
+**check-independent structural class** of each edge's projection.
+
+**Why not the raw `EdgeState` multiset (G-B round-3 Critical #A).** `EdgeState`
+folds in the semantic verdict — `VersionStale`, `StaleValid`,
+`StaleContradicted`, `StaleUnknown` differ *only* by which check result applies
+(`project.rs:170-178`). Comparing raw states would let a semantic check landing
+between preview and accept flip `VersionStale → StaleContradicted` and **reject
+the accept** — i.e. a semantic verdict would block accept, violating I3/§14. So
+the precondition compares `structural_class(Option<EdgeState>)`, which collapses
+the four check-dependent states into one `Stale` token:
+
+```
+None                              -> Retired
+Fresh{..}                         -> Fresh
+VersionStale | StaleValid
+  | StaleContradicted | StaleUnknown -> Stale        // check verdict erased
+Waived                            -> Waived
+Diverged{multi_head}              -> Diverged(multi_head)
+Unpinnable                        -> Unpinnable
+```
+
+The precondition: preview captured the structural-class multiset `S_preview`;
+accept, holding the single per-workspace kernel mutex (`state.rs:160`), recomputes
+`S_now` over the same affected set against the *current* DAG / resolutions /
+context (checks are irrelevant to the class); if `S_now != S_preview`, **reject →
+re-preview**; else append. This catches every *structural* concurrency hazard —
+base-head moves (`Fresh↔Stale↔Diverged`), retirements (`Some↔None`), waivers,
+context repins — while a pure semantic-check arrival is **invisible** to it, so
+accept is never blocked by a verdict. Base-head revalidation (D6: `resolve_live`
+== candidate `base_rev`) runs inside the same lock. Cross-process external
+`git`/scan advances are caught because `S_now` is computed from the freshly
+loaded DAG.
 
 ### V4.4 — Bounded `ReadView` (completes D7)
 
@@ -344,18 +394,31 @@ context. Retired (`Some → None`) edges appear in the delta, labeled "retired."
 
 ### V4.6 — Content-addressed candidate lifecycle across IPC
 
-Candidate id = its **revision id** `RevisionId::compute(content_hash, parents)`
-(D1) — content-addressed, stable, tamper-evident. Accept **resubmits the full
-candidate** (object, content bytes → re-hashed, parents, inputs, operator name,
-intent), *not* a server-memory handle: the server recomputes the revision id and
-**rejects a mismatch** (SP0 gate 7 candidate-tamper). Consequences: no
-server-side candidate session to survive a restart (the candidate is fully
-specified by its payload); no expiry needed (statelessness + V4.3 reproject
-catch all drift); preview and accept are separate stateless IPC calls binding the
-same content-addressed id. Preview/accept request schemas: `{ context_id,
-operator, selection }` → `{ candidates: [{ revision_id, local_projection_delta,
-forward_closure, advisory_check }] }`; accept `{ context_id, candidate_payload }`
-→ `{ entry_id, revision_id }`.
+Candidate **revision id** = `RevisionId::compute(content_hash, parents)` (D1) —
+content-addressed over content+parents **only** (`types.rs:87`; the object id and
+inputs are deliberately *not* in the revision id). So the revision id alone is
+**not** full tamper-evidence (G-B round-3 PARTIAL #14): tamper on the *inputs*,
+*operator*, or *intent* is caught not by the revision id but by the **V4.1 idem**,
+which the server recomputes from the resubmitted payload — a tampered input
+changes the idem and, more directly, changes the transformation body that gets
+appended. The two together bind the whole payload: revision id pins
+content+parents, V4.1 idem pins everything else.
+
+Accept **resubmits the full candidate** (object, content bytes → re-hashed,
+parents, inputs, operator name, intent) **plus the preview's structural-class
+multiset `S_preview`** (V4.3), *not* a server-memory handle. The server:
+recomputes the revision id (rejects a content/parent mismatch — SP0 gate 7),
+recomputes the V4.1 idem for the receipt lookup, and runs the V4.3
+reproject-under-lock against `S_preview`. **Trust model:** a client that echoes a
+stale `S_preview` cannot corrupt anything — the appended entry is exactly the
+content-addressed candidate, and an actually-moved base is caught independently
+by base-head revalidation (`resolve_live == base_rev`); `S_preview` only ever
+*adds* a rejection, never forces an unsafe accept. Consequences: no server-side
+candidate session to survive a restart; no expiry needed. Schemas: preview
+`{ context_id, operator, selection }` → `{ candidates: [{ revision_id,
+local_projection_delta, forward_closure, advisory_check, structural_classes }] }`;
+accept `{ context_id, candidate_payload, structural_classes }` →
+`{ entry_id, revision_id }`.
 
 ### V4.7 — Additive `edge_kind` slot (Phase 2 wire format)
 
@@ -392,9 +455,12 @@ Sequencing: **SP1 → Phase 3.0 → SP0 → Phase 3**; **Phase 1 → Phase 3**.
 
 ## Governance
 
-Decompose/commit only after the runtime plan's **G-B round 3** clears (rule 60
-§6) — round 2 was MAJOR-GAPS-partially-discharged and v4 answers its design
-findings. Phase-3 commits additionally require **SP0 PASS** over the Phase-3.0
-primitives (rule 60 §7). SP1 is green (`spike_sp1_dry_run_projection.rs`).
-Verify-at-volume (`verify-at-volume-baseline.md`) proceeds independently as the
-measurement track.
+**Commit order (resolves the SP0 circularity — G-B round-3 PARTIAL #7).** The
+runtime plan's **G-B review** must clear (rule 60 §6) before Phase-1 commits. The
+**Phase-3.0 primitives** (V4.2/V4.3/V4.4 + D3) are ordinary committable WIs under
+TDD — they commit **before** SP0, which is the *integration acceptance test built
+on top of them*. So the order is: G-B clears → Phase 0 (SP1 green + SP3) → **Phase
+3.0 primitives commit** → **SP0 PASS** (rule 60 §7) → Phase-3 surface/UI commits.
+SP0 gates Phase-3 *surface* work, not its own prerequisites — it is not circular.
+SP1 is green (`spike_sp1_dry_run_projection.rs`). Verify-at-volume
+(`verify-at-volume-baseline.md`) proceeds independently as the measurement track.

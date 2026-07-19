@@ -34,9 +34,9 @@
   (ADR-C6/C7), `grills/coherence/state-and-staleness-notes.md` (state ontology,
   edge taxonomy, waiver semantics, canon-hub), `dev-docs/vision.md` (the arc
   this serves), `grills/coherence/design-2a.md` + `design-3.md` (approved
-  semantic + delegation model), **`grills/coherence/design-runtime.md` v3
-  (BANKED — the runtime-layer ontology + candidate/accept model D1–D8 + SP0 gate
-  this plan re-decomposes against)**.
+  semantic + delegation model), **`grills/coherence/design-runtime.md` v4
+  (un-banked for the funded build — the runtime-layer ontology, candidate/accept
+  model D1–D8, and the V4.1–V4.9 protocol specs this plan decomposes against)**.
 - **Prior work this builds on (already shipped — Phases 1–3 of
   `20260718-coherence-layer.md`, ~12k LOC Rust):** the three-atom kernel, both
   staleness axes (version via `dag.rs`/`project.rs`; semantic via
@@ -62,10 +62,17 @@
    PASS/decision; entry-gate spec addendum (rev 3, format stays 0) merged;
    `bash scripts/check-coherence-runtime-phase.sh 0` exits 0. (SP0 → Phase 3.0;
    SP2 → SP-canon — design v4.9.)
-2. **Phase 1 exit (the gate):** the semantic checker has run at volume on the
-   dogfood corpus, appending ≥ the WI-1.1 threshold of check-results; the drift
-   gauge reads a recorded baseline; M1–M5 re-measured at volume;
-   `check-coherence-runtime-phase.sh 1` exits 0.
+2. **Phase 1 exit (the gate):** from the committed run manifest — **distinct
+   live-edge coverage ≥ 90%** of the current live stale-edge set (denominator =
+   distinct live stale edges, not a raw check-result count; G-B round-3 PARTIAL
+   #9), **checker error-rate ≤ 5%**, **p95 provider latency ≤ 30 s**, **estimated
+   cost recorded and under the run's ceiling** (v4.8), and a **resume run that
+   adds zero duplicate check-results** (idempotent by `(edge, checked_against,
+   claims_fingerprint)`); the drift gauge reads a recorded content-hash-pinned
+   baseline; owner-judged M1–M5 re-measured at volume;
+   `check-coherence-runtime-phase.sh 1` exits 0. (Thresholds are the initial
+   budget; WI-0.5 records them in the phase script so they are enforced, not
+   prose.)
 3. **Every phase:** `check-coherence-runtime-phase.sh <N>` exits 0 — it *runs*
    the coherence cargo suites + the relevant vitest suites (fail-closed, not
    reminder-only) and asserts the phase's guardrail property tests are green.
@@ -155,18 +162,18 @@ flag.
 
 ## Re-decomposition (2026-07-20) — how `design-runtime.md` + Themes A–E fold in
 
-The first G-B verdict is discharged not by patching WIs but by the BANKED
-design record. The amendments below are **normative over the phase tables that
-follow** where they conflict (contract-first, R21):
+The first G-B verdict is discharged not by patching WIs but by the design record
+(now `design-runtime.md` **v4**, un-banked). The amendments below are **normative
+over the phase tables that follow** where they conflict (contract-first, R21):
 
 | Source | Amendment to this plan |
 |---|---|
 | **Theme A / design D1–D2** | SP1's "byte-identical to `commit → project → rollback`" is **ill-formed** (append-only ⇒ no rollback). **Reformulated (WI-0.1):** *observational equality over a disposable clone* — run the operator's preview on a throwaway copy of the ledger/CAS/index, commit-then-read on a second copy, and assert the two **multisets** of `(SemanticEdgeKey, Option<EdgeState>)` are equal (envelope id/time/idem excluded), **and** the original store is byte-unchanged after preview. `SemanticEdgeKey` is a *bag* key incl. `input_ordinal` (physical identity `(txf,input)`, `index.rs:37`). |
 | **Theme A / design D7 → v4.4** | Preview must project only the **affected set** (upstream ∪ downstream incident to the changed object), which is **not shipped** — `breakdown_checked` loads the full DAG, paths, absent set, all resolutions, and per-edge checks. The bounded `ReadView` (v4.4) adds `edges_by_downstream` + targeted `resolutions_for`/`checks_for`/`revisions_of` + a `PREVIEW_MAX_EDGES` cap. Built in **Phase 3.0** (WI-3.0a), gated by SP0's perf envelope (≤20 ms p95 / ≤16 MiB added). |
-| **Theme A / design D4+D6, review-4 BLOCKERs** | Accept is **not** a capture wrapper — it is an idempotency + optimistic-concurrency protocol. Three BLOCKER sub-items become explicit WI-3.4 acceptance criteria: (1) lost-response retry **looks up the idem and returns the original receipt** (not just storage dedup); (2) the deterministic idem is domain-separated over the **complete canonical commit payload** (inputs/roles/operator/intent), not output bytes; (3) the accept precondition binds the **complete projection read-set** (or reprojects under the commit lock), not a partial fingerprint. |
+| **Theme A / design D4+D6 → v4.1/v4.2/v4.3** | Accept is **not** a capture wrapper — it is an idempotency + optimistic-concurrency protocol, now fully specified: (1) lost-response retry **looks up the idem and returns the original receipt**, ledger-authoritative so it survives the append-before-apply torn window (v4.2); (2) the deterministic idem is **length-prefixed** over the *complete* canonical payload — output object/hash/rev/parents, every input, agent, intent, confidence (v4.1); (3) the accept precondition **reprojects a check-independent structural class** under the commit lock (v4.3) — a concurrent semantic verdict is invisible to it, so it never blocks accept. |
 | **Theme B / design D-table** | **Contradiction stays a `check-result` assessment, never an edge kind** — the Phase-2 registry types only `OriginEdgeKind` (dependency, conformance, supersession, part-of/mention); the semantic axis is *not* a registry entry. WI-2.1 corrected: refactor the **version** axis into the registry; the semantic axis remains a projection input (`EdgeCheck`), not a kind. Canon is **claim-hinged** (Phase 4 ADR-P3 re-cast). "Transitive canon-of-canon staleness" (old WI-4.5) is replaced by **local** current-staleness + a separate forward blast-radius closure used *only* for preview. |
 | **Theme C** | v1 operators are **built-in Rust** (`fn(selection, read-view) -> Vec<Candidate>`, design D5) — **not** Tier-1 schema-pack functions (Tier 1 is declarative; executable = Tier 5, deferred). WI-3.2 corrected. Operator accept does **not** reuse the `resolve` delegation path; delegated `operator.accept` is **deferred** (v1 accept is human-only, D6). The merge auditor is **not** "mostly wiring": Phase 5 gets a **merge-diff→object mapping spike** (SP4) before it commits (`merge_surface` stores only a SHA; git txns have empty inputs). |
-| **Theme D** | Phase 1 gates on distinct **live-edge** coverage + error-rate + p95 latency + total cost + resume correctness + owner-judged M3 — not a raw check-result count. M2/M4/M5 stay owner-judged. The drift-gauge formulas + required ledger/session fields are defined contractually (WI-1.2); the external gauge (`../epcho-ai/instruments/drift_metrics.py`, **present**) is version-pinned by commit hash in the baseline report. |
+| **Theme D** | Phase 1 gates on distinct **live-edge** coverage + error-rate + p95 latency + total cost + resume correctness + owner-judged M3 — not a raw check-result count. M2/M4/M5 stay owner-judged. The drift-gauge formulas + required ledger/session fields are defined contractually (WI-1.2); the external gauge (`../epcho-ai/instruments/drift_metrics.py`, **present but not a git repo**) is version-pinned by **content hash** of the script in the baseline report (a commit hash is impossible — G-B round-3 PARTIAL #15). |
 | **Theme E** | Gate wording de-conflicted (G-C is per-dependent-phase, not "before any commit"); the projection framework (Phase 6) defines a **minimal shared read-model interface** before the operator/canon UIs accrue bespoke panels. |
 
 **Scope narrowing (design Increment-1, owner-confirmed):** Phase 3 ships
@@ -302,7 +309,7 @@ The production seams SP0 exercises. TDD, real source, each independently useful:
 | WI-3.0b | **Idem→receipt lookup:** `applied.entry_id` column + `entry_id_by_idem`; accept returns the *original* receipt on replay instead of dropping it. Migration = schema bump→rebuild backfill. | design v4.2 (BLOCKER 1) |
 | WI-3.0c | **Full canonical accept idem** (v4.1 preimage: format, operator, output object/hash/rev/sorted-parents, each input, agent, intent, confidence) — replaces D4's three-field formula. | design v4.1 (BLOCKER 2) |
 | WI-3.0d | **Transient candidate-check** (D3 contract, decomposed): a `build_candidate_check_prompt` distinct from the stale-edge prompt; result held in memory only; out-of-lock drift marks the verdict stale-and-discarded; timeout/error/cancel/malformed → `unknown`; never appended. RED/GREEN per D3 bullet. | design D3, G-B completeness #4 |
-| WI-3.0e | **Reproject-under-lock accept precondition** (v4.3): recompute the affected-set multiset under the kernel lock; reject on any difference vs the previewed multiset (incl. base-head revalidation); else append. | design v4.3 (BLOCKER 3) |
+| WI-3.0e | **Reproject-under-lock accept precondition** (v4.3): recompute the affected-set **structural-class** multiset (check-independent — `VersionStale`/`StaleValid`/`StaleContradicted`/`StaleUnknown` collapse to one `Stale` token, so a concurrent semantic verdict **never** blocks accept) under the kernel lock; reject on any difference vs the previewed `S_preview` (incl. base-head revalidation); else append. Property test: a concurrent check landing between preview and accept does **not** cause rejection. | design v4.3 (BLOCKER 3) |
 
 **Gated by G-A + SP1 PASS + WI-0.4 merged.** Scope is single-object/single-output.
 

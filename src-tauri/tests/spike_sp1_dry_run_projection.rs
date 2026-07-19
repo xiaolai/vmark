@@ -27,6 +27,7 @@ use std::path::Path;
 
 use vmark_lib::coherence::cas::SnapshotStore;
 use vmark_lib::coherence::dag::{ContextView, RevisionDag};
+use vmark_lib::coherence::index::CoherenceIndex;
 use vmark_lib::coherence::ledger::Ledger;
 use vmark_lib::coherence::project::{project_edge, EdgeState, OriginEdge};
 use vmark_lib::coherence::types::{
@@ -138,6 +139,50 @@ fn project_multiset(edges: &[OriginEdge], dag: &RevisionDag) -> BTreeMap<String,
         let state = project_edge(e, &ctx, dag, &[], &[], NOW);
         let key = format!("{}=>{:?}", semantic_key(e), state);
         *ms.entry(key).or_insert(0) += 1;
+    }
+    ms
+}
+
+/// Check-independent structural class of a projected state (design v4.3): the
+/// four version-stale-with-a-verdict states collapse to one `Stale` token so a
+/// semantic check can never change the class. Used to compare an overlay
+/// projection against a real committed-index `breakdown` — which drops Fresh
+/// edges and carries whatever check verdict happens to apply.
+fn structural(state: Option<&EdgeState>) -> &'static str {
+    match state {
+        None => "Retired",
+        Some(EdgeState::Fresh { .. }) => "Fresh",
+        Some(EdgeState::VersionStale)
+        | Some(EdgeState::StaleValid)
+        | Some(EdgeState::StaleContradicted)
+        | Some(EdgeState::StaleUnknown) => "Stale",
+        Some(EdgeState::Waived) => "Waived",
+        Some(EdgeState::Diverged { multi_head }) => {
+            if *multi_head {
+                "Diverged(multi)"
+            } else {
+                "Diverged"
+            }
+        }
+        Some(EdgeState::Unpinnable) => "Unpinnable",
+    }
+}
+
+/// Overlay projection as a **non-fresh** structural multiset — the shape a real
+/// committed-index `breakdown` returns (it filters Fresh and retired edges).
+fn overlay_structural_nonfresh(
+    edges: &[OriginEdge],
+    dag: &RevisionDag,
+) -> BTreeMap<String, usize> {
+    let ctx = ContextView::all_live();
+    let mut ms = BTreeMap::new();
+    for e in edges {
+        let state = project_edge(e, &ctx, dag, &[], &[], NOW);
+        let class = structural(state.as_ref());
+        if class == "Fresh" || class == "Retired" {
+            continue; // breakdown() omits both
+        }
+        *ms.entry(format!("{}=>{class}", semantic_key(e))).or_insert(0) += 1;
     }
     ms
 }
@@ -323,4 +368,82 @@ fn divergence_creating_candidate_preview_equals_commit() {
         out: Out { object: u, revision: u2b, content_hash: u2bh, parents: vec![u1] },
     };
     assert_observational_equality("diverge", &base, &candidate);
+}
+
+/// Strengthened claim (G-B round-3 High #D): the clone-overlay preview matches
+/// what a **real committed `CoherenceIndex`** produces via `breakdown`, not just
+/// a hand-built DAG. COMMIT side = an in-memory index rebuilt from the actual
+/// transformation envelopes (base + candidate) → `breakdown` (the shipped
+/// projection code path). PREVIEW side = a base DAG cloned and overlaid with the
+/// candidate, projected. Compared as non-fresh structural-class multisets
+/// (v4.3), so a check verdict cannot perturb the comparison.
+#[test]
+fn overlay_matches_real_committed_index() {
+    let store = store_for("real-index");
+    let writer = WriterId(uuid::Uuid::now_v7());
+    let u = ObjectId(uuid::Uuid::now_v7());
+    let d = ObjectId(uuid::Uuid::now_v7());
+    let (u1, u1h) = rev(&store, "upstream v1", &[]);
+    let (d1, d1h) = rev(&store, "downstream v1", &[]);
+    let (u2, u2h) = rev(&store, "upstream v2", &[u1.clone()]);
+
+    let base = vec![
+        Txf {
+            inputs: vec![],
+            out: Out { object: u, revision: u1.clone(), content_hash: u1h, parents: vec![] },
+        },
+        Txf {
+            inputs: vec![(u, u1.clone())],
+            out: Out { object: d, revision: d1, content_hash: d1h, parents: vec![] },
+        },
+    ];
+    let candidate = Txf {
+        inputs: vec![],
+        out: Out { object: u, revision: u2, content_hash: u2h, parents: vec![u1] },
+    };
+
+    // Affected non-fresh set over the clone-overlay (PREVIEW).
+    let mut affected: Vec<OriginEdge> = base
+        .iter()
+        .flat_map(edges_of)
+        .filter(|e| e.upstream == u || e.downstream == u)
+        .collect();
+    affected.extend(edges_of(&candidate));
+    let mut base_dag = RevisionDag::default();
+    for t in &base {
+        record(&mut base_dag, t);
+    }
+    let mut preview_dag = base_dag.clone();
+    record(&mut preview_dag, &candidate);
+    let preview = overlay_structural_nonfresh(&affected, &preview_dag);
+
+    // COMMIT side: a REAL in-memory index rebuilt from the actual envelopes.
+    let mut entries: Vec<_> = base.iter().map(|t| envelope(writer, t)).collect();
+    entries.push(envelope(writer, &candidate));
+    let (mut index, _) = CoherenceIndex::open_in_memory().expect("index");
+    index.rebuild_from(&entries).expect("rebuild");
+    let rows = index.breakdown(NOW).expect("breakdown");
+
+    let mut committed: BTreeMap<String, usize> = BTreeMap::new();
+    for r in &rows {
+        // breakdown returns only live non-fresh direct edges (role Direct).
+        let key = format!(
+            "{}|{}|{}|{}|Direct|{}=>{}",
+            r.upstream.0,
+            r.pinned.as_str(),
+            r.downstream.0,
+            r.downstream_rev.as_str(),
+            r.input,
+            structural(Some(&r.state)),
+        );
+        *committed.entry(key).or_insert(0) += 1;
+    }
+
+    assert_eq!(
+        preview, committed,
+        "clone-overlay preview must equal the real committed index's breakdown"
+    );
+    // And the real index projects exactly the one restaled edge.
+    assert_eq!(rows.len(), 1, "expected one version-stale edge after commit");
+    assert_eq!(structural(Some(&rows[0].state)), "Stale");
 }
