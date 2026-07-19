@@ -90,6 +90,40 @@ contradictions as canon violations. The Breakdown's context picker chooses
 which context you are looking through; check results are bound to the
 exact context and claim snapshot that produced them and never leak across.
 
+## Operators — proposed forward edits
+
+An **operator** proposes a change instead of making one. It runs over a
+document and returns one or more **candidates** — fully-specified revisions
+that have not been committed. Nothing is written until you accept: a candidate
+lives only in memory, content-addressed by its own revision id.
+
+The flow is **propose → preview → accept**:
+
+- **Propose** runs the operator over the current text and lists its candidates
+  (e.g. the built-in *tidy* operator offers "trim trailing whitespace" and
+  "…and collapse blank lines").
+- **Preview** projects a candidate without committing it — it shows the **blast
+  radius**: exactly which edges would change state (for instance, a derived
+  document going *fresh → stale*), and it mints nothing.
+- **Accept** is a deliberate, human-only act. It commits the candidate as one
+  ordinary transformation. Accept re-checks, under a lock, that nothing shifted
+  since the preview — the base revision is still current and the affected edges
+  still project the same way — and rejects if the ground moved (you re-preview).
+  A semantic check that lands in between never blocks the accept; accept is
+  about structural safety, not verdicts.
+
+Accepting the same candidate twice (a lost connection, a double-click) is safe:
+the second accept returns the original result instead of committing a duplicate.
+
+## Merge audit
+
+After you complete a git merge, VMark can tell you **which coherence edges the
+merge touched** — the edges whose upstream or downstream objects changed on
+either side of the merge. These are the edges worth re-checking, because a merge
+can introduce a contradiction without changing any single document's version.
+The merge audit only *surfaces* the affected edges; it never reconciles anything
+for you — resolving them (accept-newer, revise, or waive) stays a human act.
+
 ## Provenance, delegation, and branches
 
 Three things keep the coherence layer honest as a project actually
@@ -161,3 +195,9 @@ read; `edges` reconciles first — it may append provenance records to the
 workspace's own ledger, but never touches your documents. Resolution
 (ratify/waive) is deliberately *not* exposed over MCP in this version —
 decisions stay with the human in the app.
+
+**Operators and the merge audit are read-only over MCP too.** An agent can
+*propose* candidates and *preview* their blast radius — both pure reads — but
+**accepting** a candidate (like resolving an edge) is a human-only act in the
+app. Likewise the merge audit only reports which edges a merge touched. The
+principle is constant: agents may compute and propose; only a human commits.
