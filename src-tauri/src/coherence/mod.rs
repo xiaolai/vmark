@@ -37,6 +37,7 @@ pub mod envelope;
 pub mod extract_canon;
 pub mod frontmatter;
 pub mod gitops;
+pub mod group_prepare;
 pub mod index;
 pub mod index_checks;
 pub mod index_query;

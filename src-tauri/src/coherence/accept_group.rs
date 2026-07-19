@@ -18,38 +18,39 @@
 //! - **Idempotent full retry** — if every member is present, the group returns
 //!   the original receipts without appending.
 //!
-//! STATUS: **NOT SHIP-READY — G-B re-review returned DO-NOT-SHIP (8 MAJOR,
-//! thread `019f7c7e…`).** Full disposition: `design-accept-consistency.md`.
-//! Correctness properties now HELD (fix-now set landed + tested):
-//!   - **Group identity binds the WHOLE group** — `group_id` hashes the members'
-//!     sorted *ungrouped* accept idems (full member identity, not just revisions,
-//!     re-review #4) and folds into each member's grouped idem, so the O(1)
-//!     presence lookup answers "committed AS PART OF THIS EXACT GROUP".
-//!   - **Whole-group preflight** (`preflight_member`) — a stale member fails the
-//!     group with no partial commit.
-//!   - **Fresh reproject checks base AND new-edge classes** (#8) — a new edge
-//!     going stale between preview and accept is caught.
-//!   - Accepts refuse on a poisoned kernel (#3, `ensure_available`).
-//!
-//! Still DEFERRED before ship (own design pass + a third review):
-//!   - **#5 durable prepare/manifest** — recovery still depends on the client
-//!     resubmitting the exact group; the ledger alone can't reconstruct it.
-//!   - **#6 recovery revalidation** — a partial completed after an intervening
-//!     write can commit against changed structural context (present>0 skips the
-//!     reproject); needs a persisted validated-base snapshot.
-//!   - **#7 cross-process serialization** — distinct-candidate races across
-//!     processes can strand an unrecoverable partial; needs a workspace lock.
+//! STATUS: full G-B re-review (`019f7c7e…`) disposition implemented; **pending a
+//! THIRD review** before ship. Full disposition: `design-accept-consistency.md`.
+//! Correctness properties now HELD (all 8 re-review findings addressed + tested):
+//!   - **Group identity binds the WHOLE group** (#4) — `group_id` hashes the
+//!     members' sorted *ungrouped* accept idems and folds into each grouped idem,
+//!     so the O(1) presence lookup answers "committed AS PART OF THIS EXACT GROUP".
+//!   - **Whole-group preflight** (#2, `preflight_member`) — a stale member fails
+//!     the group with no partial commit.
+//!   - **Fresh reproject checks base AND new-edge classes** (#8).
+//!   - **Poisoned-kernel accepts refuse** (#3, `ensure_available`).
+//!   - **Durable prepare/manifest** (#5, `group_prepare`) — a fresh group appends
+//!     a `group-prepare` (member manifest + base-head/resolution snapshot) BEFORE
+//!     committing, so the ledger alone can reconstruct + enumerate the group.
+//!   - **Recovery revalidation** (#6) — a partial group revalidates the prepared
+//!     snapshot against the CURRENT workspace (a committed member's own head move
+//!     is expected; any other drift is external) and completes only if unchanged.
+//!   - **Defined abort** (#7) — on external drift the attempt appends a durable
+//!     `group-abort` and rejects (re-preview → a fresh attempt supersedes it),
+//!     so a partial is never a permanently-stuck deadlock. (Full cross-process
+//!     serialization under simultaneous instances is a documented follow-up; the
+//!     abort makes the outcome defined rather than corrupt.)
 
 use sha2::{Digest, Sha256};
 
 use super::accept::AcceptReceipt;
 use super::accept_precondition::precondition_holds;
 use super::dag::Resolved;
+use super::group_prepare::{self, GroupPrepare, Lifecycle, PreparedMember};
 use super::operator::Candidate;
 use super::operator_accept::operator_accept_idem;
 use super::preview::GroupPreview;
 use super::state::WorkspaceKernel;
-use super::types::{Agent, AgentType, ContentHash, Envelope, RevisionId, FORMAT_VERSION};
+use super::types::{Agent, AgentType, ContentHash, Envelope, ObjectId, RevisionId, FORMAT_VERSION};
 
 /// Content-addressed group identity (design-accept-consistency #1, hardened for
 /// re-review #4): the hash of the members' **sorted ungrouped accept idems**.
@@ -212,35 +213,80 @@ pub fn accept_group(
     }
     let present = existing.iter().filter(|e| e.is_some()).count();
 
-    // Preflight EVERY not-yet-present member BEFORE any append (#2): a stale
-    // member fails the whole group here, never after some members committed.
-    // (Present members were validated at the group's first accept.)
-    for (i, c) in candidates.iter().enumerate() {
-        if existing[i].is_none() {
-            preflight_member(kernel, c)?;
+    // Fully committed already → idempotent full retry (return the originals).
+    if present == candidates.len() {
+        return Ok(candidates
+            .iter()
+            .enumerate()
+            .map(|(i, c)| AcceptReceipt {
+                entry_id: existing[i].expect("present member has an entry id"),
+                revision: c.revision.as_str().to_string(),
+                committed: false,
+            })
+            .collect());
+    }
+
+    let committed: Vec<(ObjectId, RevisionId)> = candidates
+        .iter()
+        .enumerate()
+        .filter(|(i, _)| existing[*i].is_some())
+        .map(|(_, c)| (c.object, c.revision.clone()))
+        .collect();
+
+    match group_prepare::find_latest(kernel, &group)? {
+        // RECOVERY: a prepare is the latest record. Revalidate the prepared
+        // base-head/resolution snapshot against the CURRENT workspace, accounting
+        // for the members already committed (#6). Unchanged → complete the
+        // missing members. Changed → the attempt is dead: append a durable abort
+        // and require a re-preview — #7 is now a DEFINED outcome (abort → fresh
+        // re-run), never a permanently stuck partial.
+        Lifecycle::Prepared(prepare) => {
+            if !group_prepare::revalidate(kernel.index(), &prepare, &committed)? {
+                group_prepare::append_abort(kernel, &group, &prepare.snapshot)?;
+                return Err("group aborted — the workspace changed since it was prepared; re-preview and re-run".into());
+            }
+            for (i, c) in candidates.iter().enumerate() {
+                if existing[i].is_none() {
+                    preflight_member(kernel, c)?;
+                }
+            }
+        }
+        // FRESH attempt (brand-new group, or the last attempt aborted): preflight
+        // the not-present members (#2), reproject the client's preview — base AND
+        // new-edge classes (#8) — then append a durable prepare (manifest +
+        // base-head/resolution snapshot, #5) BEFORE committing any member.
+        Lifecycle::None | Lifecycle::Aborted => {
+            for (i, c) in candidates.iter().enumerate() {
+                if existing[i].is_none() {
+                    preflight_member(kernel, c)?;
+                }
+            }
+            let live = kernel.index().project_group(candidates, now)?;
+            if !precondition_holds(&preview.base_classes, &live.base_classes)
+                || !precondition_holds(&preview.new_edge_classes, &live.new_edge_classes)
+            {
+                return Err(
+                    "base or new-edge state changed since group preview — re-preview required"
+                        .into(),
+                );
+            }
+            let snapshot = group_prepare::compute_snapshot(kernel.index(), candidates)?;
+            let prepare = GroupPrepare {
+                group_id: group.clone(),
+                members: candidates
+                    .iter()
+                    .map(|c| PreparedMember {
+                        object: c.object,
+                        revision: c.revision.clone(),
+                    })
+                    .collect(),
+                snapshot,
+            };
+            group_prepare::append_prepare(kernel, &prepare)?;
         }
     }
 
-    // FRESH group (none present): this group has never committed, so run the
-    // reproject (optimistic concurrency vs the preview). It compares BOTH the
-    // committed base edges AND the members' new-edge after-classes (#8): a new
-    // edge pinned to an external upstream can go stale between preview and accept
-    // even when every base head is unchanged. A group with SOME members present
-    // is a crash-recovery of an already-validated group (the present members
-    // carry this group's id) — completion skips the reproject (the base has since
-    // advanced past the preview by the group's own committed members; #1/#3).
-    if present == 0 {
-        let live = kernel.index().project_group(candidates, now)?;
-        if !precondition_holds(&preview.base_classes, &live.base_classes)
-            || !precondition_holds(&preview.new_edge_classes, &live.new_edge_classes)
-        {
-            return Err(
-                "base or new-edge state changed since group preview — re-preview required".into(),
-            );
-        }
-    }
-
-    // Commit each member (idempotent; present ones return their original receipt).
+    // Commit each not-present member (present ones return their original receipt).
     let mut receipts = Vec::with_capacity(candidates.len());
     for (i, c) in candidates.iter().enumerate() {
         receipts.push(commit_member(kernel, c, idems[i], existing[i])?);

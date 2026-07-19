@@ -254,6 +254,97 @@ fn a_new_edge_going_stale_between_preview_and_accept_is_rejected() {
 }
 
 #[test]
+fn a_fresh_group_commit_writes_a_durable_prepare() {
+    // #5: a fresh group commit records a durable group-prepare so recovery can
+    // reconstruct the group from the ledger alone.
+    let (_dir, mut kernel, u, v, u1, v1) = seeded();
+    let cands = group(u, v, &u1, &v1);
+    let preview = kernel.index().project_group(&cands, NOW).unwrap();
+    accept_group(&mut kernel, &cands, &preview, NOW).unwrap();
+    let grp = group_id(&cands).unwrap();
+    assert!(
+        matches!(
+            crate::coherence::group_prepare::find_latest(&kernel, &grp).unwrap(),
+            crate::coherence::group_prepare::Lifecycle::Prepared(_)
+        ),
+        "a durable prepare must be recorded",
+    );
+}
+
+#[test]
+fn recovery_aborts_when_an_affected_object_drifted_externally() {
+    // #6/#7: a prepared, partially-committed group whose affected context drifted
+    // externally must ABORT — never commit against the changed context, never
+    // stay stuck. The abort is durable (the latest lifecycle becomes Aborted).
+    use crate::coherence::group_prepare;
+    let (_dir, mut kernel, u, v, u1, v1) = seeded();
+    let cands = group(u, v, &u1, &v1);
+    let grp = group_id(&cands).unwrap();
+
+    // Prepare the group, then commit ONLY member 0 (U) — a real partial.
+    let snapshot = group_prepare::compute_snapshot(kernel.index(), &cands).unwrap();
+    let prepare = group_prepare::GroupPrepare {
+        group_id: grp.clone(),
+        members: cands
+            .iter()
+            .map(|c| group_prepare::PreparedMember {
+                object: c.object,
+                revision: c.revision.clone(),
+            })
+            .collect(),
+        snapshot,
+    };
+    group_prepare::append_prepare(&mut kernel, &prepare).unwrap();
+    let idem0 = member_idem(&cands[0], &grp).unwrap();
+    let mut e0 = Envelope::create(
+        "transformation",
+        kernel.writer(),
+        serde_json::to_value(cands[0].to_transformation(Agent {
+            kind: AgentType::Human,
+            id: None,
+        }))
+        .unwrap(),
+    );
+    e0.idem = idem0;
+    kernel.append_and_apply(&e0).unwrap();
+
+    // EXTERNAL change: advance V (member 1's object) past v1.
+    let v_new = Envelope::create(
+        "transformation",
+        kernel.writer(),
+        serde_json::to_value(Transformation {
+            inputs: vec![],
+            outputs: vec![OutputRef {
+                object: v,
+                revision: RevisionId::compute(&hash(9), std::slice::from_ref(&v1)),
+                content_hash: hash(9),
+                parents: vec![v1.clone()],
+            }],
+            agent: Agent {
+                kind: AgentType::Human,
+                id: None,
+            },
+            intent: Intent {
+                kind: "test".into(),
+                summary: "external".into(),
+                prompt_hash: None,
+            },
+            confidence: Confidence::Exact,
+        })
+        .unwrap(),
+    );
+    kernel.append_and_apply(&v_new).unwrap();
+
+    let preview = kernel.index().project_group(&cands, NOW).unwrap();
+    let err = accept_group(&mut kernel, &cands, &preview, NOW).unwrap_err();
+    assert!(err.contains("aborted"), "got: {err}");
+    assert!(matches!(
+        group_prepare::find_latest(&kernel, &grp).unwrap(),
+        group_prepare::Lifecycle::Aborted
+    ));
+}
+
+#[test]
 fn a_group_with_a_duplicate_object_is_rejected() {
     let (_dir, mut kernel, u, _v, u1, _v1) = seeded();
     let dup = vec![

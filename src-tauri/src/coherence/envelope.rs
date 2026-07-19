@@ -143,6 +143,32 @@ impl Envelope {
                     body: b.clone(),
                 }
             }
+            // Durable group-commit lifecycle records (design-accept-consistency
+            // #5/#6/#7). `group-prepare` marks a validated group whose commit
+            // started (carries its member manifest + a base-head/resolution
+            // snapshot for recovery revalidation); `group-abort` marks an attempt
+            // abandoned because its context changed. Both are keyed by `group_id`.
+            "group-prepare" => {
+                if b.get("group_id").and_then(|v| v.as_str()).is_none() {
+                    return Err("group-prepare missing group_id".into());
+                }
+                if !b.get("members").map(|m| m.is_array()).unwrap_or(false) {
+                    return Err("group-prepare members must be an array".into());
+                }
+                TypedBody::Preserved {
+                    kind: self.kind.clone(),
+                    body: b.clone(),
+                }
+            }
+            "group-abort" => {
+                if b.get("group_id").and_then(|v| v.as_str()).is_none() {
+                    return Err("group-abort missing group_id".into());
+                }
+                TypedBody::Preserved {
+                    kind: self.kind.clone(),
+                    body: b.clone(),
+                }
+            }
             _ => TypedBody::Unknown {
                 kind: self.kind.clone(),
                 body: b.clone(),
