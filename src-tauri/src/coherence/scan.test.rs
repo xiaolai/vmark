@@ -8,7 +8,7 @@
 use super::*;
 use crate::coherence::capture::{capture, CaptureRequest};
 use crate::coherence::state::WorkspaceKernel;
-use crate::coherence::types::{Agent, AgentType, Confidence, Intent, WriterId};
+use crate::coherence::types::{Agent, AgentType, Confidence, Intent, TypedBody, WriterId};
 use std::path::Path;
 
 fn workspace() -> (tempfile::TempDir, WorkspaceKernel) {
@@ -568,4 +568,33 @@ fn linear_head_emits_no_merge_diagnostic() {
     run_git(root, &["commit", "-q", "-m", "base"]);
     let r = scan_workspace(&mut kernel).unwrap();
     assert_eq!(r.merges, 0);
+}
+
+#[test]
+fn path_under_ignored_dir_edge_cases() {
+    // Under an ignored dir (both separators) — true.
+    assert!(path_under_ignored_dir("node_modules/lib.md"));
+    assert!(path_under_ignored_dir("node_modules\\lib.md")); // audit #3: Windows
+    assert!(path_under_ignored_dir("a/.git/config.md"));
+    // Not under an ignored dir.
+    assert!(!path_under_ignored_dir("notes/lib.md"));
+    assert!(!path_under_ignored_dir("node_modules")); // audit #3: leaf, a real file
+    assert!(!path_under_ignored_dir("notes/node_modules.md")); // not the segment
+    assert!(!path_under_ignored_dir("lib.md"));
+}
+
+#[test]
+fn registered_path_under_ignored_dir_is_never_marked_absent() {
+    // Audit C8: an object registered at a path the walk never descends
+    // into (node_modules, .Trash, …) must not be reconciled as deleted —
+    // its absence from the walk is not evidence the file is gone.
+    let (dir, mut kernel) = workspace();
+    captured_doc(&mut kernel, dir.path(), "node_modules/lib.md", "keep\n");
+    // The file still exists on disk; the walk simply never visits it.
+    let report = scan_workspace(&mut kernel).unwrap();
+    assert!(report.complete, "tiny tree walks completely");
+    assert_eq!(
+        report.absent_marked, 0,
+        "an ignored-dir path must never be marked absent"
+    );
 }

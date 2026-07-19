@@ -358,6 +358,89 @@ fn delegated_resolve_requires_principal_grant_and_live_edge() {
 }
 
 #[test]
+fn resolve_input_must_be_a_u32_number() {
+    // Audit A6: `input` is a u32 revision index. A string, a negative, or
+    // an out-of-range number must be a clean typed error — never a silent
+    // 0 or a panic — BEFORE any delegation/ledger work.
+    let td = tempfile::tempdir().unwrap();
+    let state = coherence_state();
+    let (txf, _input) = stale_workspace(&td, &state);
+    grant_for(&td, &state, "codex-cli", "resolve.accept-newer");
+    let root = td.path().to_string_lossy().into_owned();
+    for bad in [
+        serde_json::json!("3"),
+        serde_json::json!(-1),
+        serde_json::json!(4_294_967_296u64),
+        serde_json::json!(1.5),
+    ] {
+        let args = serde_json::json!({
+            "workspace_root": root, "txf": txf.to_string(),
+            "input": bad, "resolution": "accept-newer",
+        });
+        let r = answer_coherence(&state, "vmark.coherence.resolve", &args, Some("codex-cli"));
+        assert!(!r.success, "input {bad} must be refused");
+        assert!(
+            r.error.unwrap().contains("input must be a number"),
+            "input {bad} gets the typed error"
+        );
+    }
+}
+
+#[test]
+fn resolve_audit_reference_is_the_stable_grant_id() {
+    // Audit A7: the ratification's `delegation` reference must be the
+    // STABLE grant id, not the delegation envelope's entry id — so the
+    // reference survives the grant's supersession chain.
+    use crate::coherence::delegation::{perform_delegate, DelegateRequest};
+    let td = tempfile::tempdir().unwrap();
+    let state = coherence_state();
+    let (txf, input) = stale_workspace(&td, &state);
+    let (grant_id, delegation_entry_id) = {
+        let kernel = state.registry.kernel_for(td.path(), state.writer).unwrap();
+        let mut kernel = kernel.lock().unwrap();
+        let receipt = perform_delegate(
+            &mut kernel,
+            &DelegateRequest {
+                delegate: "codex-cli".into(),
+                scope: vec!["resolve.accept-newer".into()],
+                expires: "2099-01-01T00:00:00Z".into(),
+                revoke: None,
+            },
+            "xiaolai",
+            "2026-07-19T00:00:00Z",
+        )
+        .unwrap();
+        (receipt.grant, receipt.entry_id)
+    };
+    // A fresh grant already has grant != entry_id, so the two are
+    // distinguishable without needing a supersession.
+    assert_ne!(grant_id, delegation_entry_id);
+
+    let root = td.path().to_string_lossy().into_owned();
+    let args = serde_json::json!({
+        "workspace_root": root, "txf": txf.to_string(), "input": input,
+        "resolution": "accept-newer",
+    });
+    let r = answer_coherence(&state, "vmark.coherence.resolve", &args, Some("codex-cli"));
+    assert!(r.success, "{:?}", r.error);
+
+    let kernel = state.registry.kernel_for(td.path(), state.writer).unwrap();
+    let kernel = kernel.lock().unwrap();
+    let entries = kernel.ledger().read_all().unwrap().entries;
+    let res = entries.iter().find(|e| e.kind == "ratification").unwrap();
+    assert_eq!(
+        res.body["delegation"].as_str().unwrap(),
+        grant_id.to_string(),
+        "audit reference is the stable grant id"
+    );
+    assert_ne!(
+        res.body["delegation"].as_str().unwrap(),
+        delegation_entry_id.to_string(),
+        "audit reference is NOT the delegation envelope entry id"
+    );
+}
+
+#[test]
 fn delegated_waive_still_requires_a_reason() {
     let td = tempfile::tempdir().unwrap();
     let state = coherence_state();

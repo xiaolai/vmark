@@ -221,6 +221,80 @@ fn malformed_manifest_file_is_error_not_panic() {
     );
 }
 
+// Audit B8 — a child whose parent is the implicit default (nil id, no
+// materialized default.json) must resolve, not error as an unknown parent.
+#[test]
+fn child_of_implicit_default_resolves_without_error() {
+    let (_td, dir) = ctx_dir();
+    let cid = Uuid::now_v7();
+    let o = Uuid::now_v7();
+    let mut child = manifest(cid, "child", Some(DEFAULT_CONTEXT_ID));
+    child.selections.insert(o, format!("rev1:{}", hex(7)));
+    write_manifest(&dir, &child).unwrap();
+    let set = ContextSet::load(&dir);
+    let (view, errs) = set.effective_view(cid);
+    assert!(
+        errs.is_empty(),
+        "nil parent must not be 'unknown': {errs:?}"
+    );
+    assert_eq!(view.selection(&ObjectId(o)), &Selection::Pinned(rev(7)));
+}
+
+// Audit B10 — a hand-crafted manifest whose name is a traversal string
+// must be refused at write time, never joined into a path under `.vmark`.
+#[test]
+fn manifest_with_traversal_name_is_refused() {
+    let (_td, dir) = ctx_dir();
+    for bad in ["../evil", "..", ".", "a/b", "", "with space", "semi;colon"] {
+        let m = manifest(Uuid::now_v7(), bad, None);
+        assert!(
+            write_manifest(&dir, &m).is_err(),
+            "unsafe manifest name {bad:?} must be refused"
+        );
+    }
+    // A normal name still writes.
+    assert!(write_manifest(&dir, &manifest(Uuid::now_v7(), "ok-name_1.2", None)).is_ok());
+}
+
+// Audit #2 — a CJK (Unicode alphanumeric) name passes create-time
+// validation, so it must ALSO round-trip through write_manifest; the
+// ASCII-only stem check used to reject it.
+#[test]
+fn manifest_with_cjk_name_round_trips() {
+    let (_td, dir) = ctx_dir();
+    let id = Uuid::now_v7();
+    write_manifest(&dir, &manifest(id, "角色", None)).unwrap();
+    // No temp litter from the O_EXCL unique-temp write.
+    let leftovers: Vec<_> = std::fs::read_dir(&dir)
+        .unwrap()
+        .filter_map(|e| e.ok())
+        .filter(|e| e.file_name().to_string_lossy().contains("tmp"))
+        .collect();
+    assert!(leftovers.is_empty(), "unique temp is renamed away");
+    let set = ContextSet::load(&dir);
+    assert_eq!(set.manifests.get(&id).unwrap().name, "角色");
+}
+
+// Audit R3 #1 — a write that fails after the temp is created must not
+// leave an orphan `.tmp` behind. A directory sitting where the manifest
+// file should go makes the final rename fail deterministically.
+#[test]
+fn failed_manifest_write_cleans_up_its_temp() {
+    let (_td, dir) = ctx_dir();
+    std::fs::create_dir(dir.join("blocked.json")).unwrap();
+    let m = manifest(Uuid::now_v7(), "blocked", None);
+    assert!(
+        write_manifest(&dir, &m).is_err(),
+        "rename over a directory must fail"
+    );
+    let temps: Vec<_> = std::fs::read_dir(&dir)
+        .unwrap()
+        .filter_map(|e| e.ok())
+        .filter(|e| e.file_name().to_string_lossy().contains(".tmp"))
+        .collect();
+    assert!(temps.is_empty(), "a failed write leaves no orphan temp");
+}
+
 // Helper so Selection comparisons read naturally above.
 trait IntoObject {
     fn into_object(self) -> ObjectId;

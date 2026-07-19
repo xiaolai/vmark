@@ -112,7 +112,8 @@ fn answer_coherence_inner(
             let input = args
                 .get("input")
                 .and_then(|v| v.as_u64())
-                .ok_or("input (number) is required")? as u32;
+                .and_then(|n| u32::try_from(n).ok())
+                .ok_or("input must be a number in the u32 range")?;
             let resolution = args
                 .get("resolution")
                 .and_then(|v| v.as_str())
@@ -125,10 +126,13 @@ fn answer_coherence_inner(
             let now = chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
             let read = kernel.ledger().read_all()?;
             let store = DelegationStore::from_entries(&read.entries);
+            // The audit reference is the STABLE grant id, not the current
+            // entry id — so "which resolutions did grant G authorize?"
+            // resolves across G's whole supersession chain (audit A7).
             let grant = store
                 .live_delegation_for(principal, &scope, &now)
                 .ok_or_else(|| format!("no live delegation authorizes {principal:?} for {scope}"))?
-                .entry_id;
+                .grant;
             // D2.4: only LIVE edges are resolvable — the current
             // breakdown is the definition of live.
             let live = perform_breakdown(&mut kernel)?

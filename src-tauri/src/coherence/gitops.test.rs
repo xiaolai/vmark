@@ -40,6 +40,15 @@ fn merge_in_progress_wins_over_everything() {
 }
 
 #[test]
+fn first_scan_already_mid_merge_defers() {
+    // Audit C5: a workspace whose very FIRST observation is mid-merge has
+    // no `before` — the merge-in-progress check must still fire, not fall
+    // through to ExternalUnknown.
+    let a = obs("main", "s1", &["s1"], true);
+    assert_eq!(classify(None, Some(&a)), GitClass::MergeInProgress);
+}
+
+#[test]
 fn new_head_sha_is_mutation() {
     // revert / merge commit: HEAD lands on a newly minted sha.
     let b = obs("main", "s1", &["s1"], false);
@@ -183,4 +192,29 @@ fn observe_and_classify_checkout_and_revert_in_real_repo() {
         classify(Some(&before_revert), Some(&after_revert)),
         GitClass::Mutation { .. }
     ));
+}
+
+#[test]
+fn observe_includes_unreachable_detached_head_sha() {
+    // Audit C7: a commit reachable ONLY through a detached HEAD (no branch
+    // points at it) is absent from `rev-list --all`; it must still land in
+    // `known_shas`, else re-observing it looks like an external edit.
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path();
+    run_git(root, &["init", "-q", "-b", "main"]);
+    std::fs::write(root.join("a.md"), "one\n").unwrap();
+    run_git(root, &["add", "."]);
+    run_git(root, &["commit", "-q", "-m", "c1"]);
+    // Detach, then commit c2 while detached — no ref points at c2.
+    run_git(root, &["checkout", "-q", "--detach"]);
+    std::fs::write(root.join("a.md"), "two\n").unwrap();
+    run_git(root, &["add", "."]);
+    run_git(root, &["commit", "-q", "-m", "c2-detached"]);
+
+    let o = observe(root).expect("observed");
+    let head = o.head_sha.clone().expect("detached head sha");
+    assert!(
+        o.known_shas.contains(&head),
+        "unreachable detached HEAD {head} must be in known_shas"
+    );
 }
