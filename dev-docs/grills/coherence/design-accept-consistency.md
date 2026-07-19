@@ -1,13 +1,16 @@
 # Design — accept-consistency + group-commit redesign
 
-> **Status: IMPLEMENTED but NOT SHIP-READY — G-B re-review returned
-> DO-NOT-SHIP (8 MAJOR, 2026-07-20; thread `019f7c7e…`).** The redesign closes
-> the *first* review's gaps and is a real improvement (344 coherence tests
-> green), but the re-review found eight further correctness defects — several in
-> this very redesign. **Phase 3/4 stay red.** Disposition below; the tractable
-> correctness bugs are being fixed, the deep architectural items (durable group
-> manifest, cross-process serialization, recovery revalidation) need a further
-> design pass + a THIRD review before ship.
+> **Status: NOT SHIP-READY — fix-now set FIXED, deferred set OPEN (2026-07-20;
+> re-review thread `019f7c7e…` returned DO-NOT-SHIP, 8 MAJOR).** The re-review
+> was correct on all counts. The **6 fix-now correctness bugs are FIXED + tested**
+> (#1/#2 winner-map heal-on-open, #3 append-error poison, #4 full-identity
+> group_id, #8+MINOR new-edge precondition — 349 coherence tests green). The **3
+> deferred architectural items (#5 durable manifest, #6 recovery revalidation,
+> #7 cross-process serialization)** are a genuine protocol design pass — the
+> "Deferred-set design notes" at the end record the three conflicting-constraint
+> tensions an attempt uncovered — and need a THIRD review before ship. **Phase 4
+> stays red;** the accept-consistency work (Fix A/B) that also unblocked **Phase 3
+> is now GREEN** (8/8, perf benchmark PASS).
 
 ## Re-review disposition (thread `019f7c7e…`, DO-NOT-SHIP, 8 MAJOR + 1 MINOR)
 
@@ -190,3 +193,47 @@ single-user-desktop scope; we document it rather than add cross-process locking
 - G-B re-review returns **no MAJOR/CRITICAL** findings.
 - Then, and only then: the perf benchmark (WI-3.4) is written against the O(1)
   path, and the plan's Phase 3 + Phase 4 markers flip to ship-ready.
+
+---
+
+## Deferred-set design notes (#5/#6/#7) — tensions uncovered (2026-07-20)
+
+An attempt to build the durable prepare/manifest surfaced three genuine design
+tensions that make this a design pass, not a patch. Recorded so the pass starts
+de-risked:
+
+1. **Recovery representation shift.** A member's *new* input edges live in
+   `new_edge_classes` (synthetic, preview-only) at prepare time, but once that
+   member commits they become *persisted* and reappear in `group_classes`
+   (committed). So a recovery that naively compares the current `group_classes`
+   to a prepared `group_classes` snapshot **false-aborts** — the difference is
+   the group's own progress, not an external change. The revalidation must
+   compare against a representation that is invariant across members committing
+   — e.g. snapshot the affected objects' **base heads + the resolution/check set
+   on affected edges** (which only an *external* write changes), and on recovery
+   accept a head that is either its prepared value OR a group member's own
+   revision, everything else unchanged.
+
+2. **Abort-vs-retry `group_id` conflict.** `group_id` must be **stable** for the
+   same candidate set (so an idempotent retry finds the committed members and
+   never double-commits). But if a partial group is **aborted** (its context
+   changed, #6), a fresh re-preview of the *same* candidates must be treated as a
+   NEW attempt — yet it hashes to the *same* `group_id`, so it would re-enter
+   recovery against the stale prepare and abort forever. Resolution: separate a
+   stable **group identity** (the member set) from a per-attempt **attempt id**
+   (folds in the preview/base snapshot); the prepare and any abort record are
+   keyed by attempt id, and a fresh re-preview is a new attempt that supersedes
+   the aborted one.
+
+3. **Append-only abort.** On an append-only ledger an abort cannot delete the
+   prepare; it must append a durable `group-abort` (keyed by attempt id) that
+   recovery honours — a prepared-then-aborted attempt is dead, and only a newer
+   attempt id can commit its members. This interacts with member idems: a member
+   idem currently folds `group_id`; it likely needs to fold the **attempt id**
+   so an aborted attempt's members can never be mistaken for a fresh attempt's.
+
+Net: the deferred set is a small state machine (prepare → commit | abort → fresh
+attempt) over the append-only ledger, plus a base-head/resolution snapshot for
+external-change detection, plus the cross-process serialization (#7) that the
+abort path makes a *defined* outcome rather than a stuck partial. It wants its
+own design doc + a review of the state machine BEFORE implementation.
