@@ -71,13 +71,16 @@ clean (coherence lib **303 passed**, spikes 4+7, inventory 11):
 | WI-3.7 docs | ✅ **done** | `website/guide/coherence.md` operators + merge-audit sections |
 | Phase 3 surface (UI) | ⬜ **remaining** | WI-3.3 verify wiring (needs provider), WI-3.5 preview UI + i18n×10 (frontend + visual QA), the absolute-scale benchmark |
 | **SP-canon** (Phase 4 gate) | ✅ **design resolved + proven** | `spike-sp-canon.md` — canon carrier grounds claim-based canon in the version axis; conformance composes with zero kernel change (test) |
-| Phase 4 (canon) | ⬜ **gated on multi-object accept** | `Extract-Canon` is multi-object (carrier + N edges) → needs the group-commit increment, not Increment-1 |
+| Multi-object group-commit | ✅ **done** | `accept_group.rs` — fresh/retry/partial-recovery/distinct-object, 5 tests (needs a G-B review before release) |
+| WI-4.1/4.2/4.3 Extract-Canon | ✅ **done** | `extract_canon.rs` — carrier + conformance candidates; conformance capture (`InputRef.kind` → `edges.edge_kind`); commits + records conformance edges, 2 tests |
+| Phase 4 (WI-4.4/4.6) | ⬜ **remaining** | facet-level carriers (backend); canon breakdown view (frontend) |
 | **SP4** (Phase 5 gate) | ✅ **object→edge half proven** | `spike-sp4-merge-mapping.md` — `edges_affected_by` (deterministic, deduped); git→file half is a named API pending a git fixture |
 | WI-5.1 merge-affected edge set | ✅ **done** | `merge_audit.rs` + `gitops::merge_changed_files` — end-to-end vs a **real git merge** (2 tests + gitops 16/16) |
 | WI-5.2 auditor surface | ✅ **done (read-only)** | `coherence_merge_audit` command; the auto-check loop reuses `check_sweep` (needs provider) |
 | Phase 5 (WI-5.3 breakdown surface) | ⬜ **remaining** | frontend grouping of merge-origin contradictions |
 | **Phase 6** design pass | ✅ **done** | `design-projection-framework.md` — `Projection` + `CoherenceRow` shared read-model, validated against the 4 built surfaces |
-| Phase 6 impl | ⬜ **remaining** | WI-6.1/6.2 backend refactor (committable); WI-6.3 unified frontend consumer (visual QA) |
+| WI-6.1 read-model contract | ✅ **done** | `read_model.rs` — `Projection` trait + `CoherenceRow` + `BreakdownProjection` reference impl (wraps breakdown), 3 tests |
+| Phase 6 (WI-6.2/6.3) | ⬜ **remaining** | WI-6.2 port preview/merge/incident onto the trait (additive backend); WI-6.3 unified frontend consumer (visual QA) |
 
 ## Scope discipline
 
