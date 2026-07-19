@@ -93,7 +93,6 @@ keyring = { version = "3", features = ["sync-secret-service"] }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["test-util", "macros", "rt-multi-thread"] }
-uuid = { version = "1" }
 
 # Tauri's `test` feature enables mock_app / mock_builder for command-wiring
 # tests (fs scope extension, path validation, etc.). It is scoped to non-
