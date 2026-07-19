@@ -919,10 +919,12 @@ projection, not the raw `EdgeState`: only the check verdict is erased —
 one `Stale` token, while `Fresh{ratified, ahead}` and the rest are kept. A
 semantic check landing between preview and accept therefore **cannot** cause a
 rejection — accept is never blocked by a semantic verdict (I3/§14). The
-comparison is a **map keyed by edge** (`SemanticEdgeKey → class`), not an unkeyed
-count, so a compensating swap of two edges' classes is still caught. Base-head
-moves, retirements, ratifications, waivers, and context repins remain visible and
-do reject.
+comparison is a **map keyed by *physical* edge identity** (`(txf, input_idx,
+downstream, downstream_rev)` for committed edges; `(candidate_rev, ordinal)` for
+the candidate's own), **not** by the non-unique `SemanticEdgeKey`, so coincident
+edges never collide and a compensating swap of two edges' classes is still
+caught. Base-head moves, retirements, ratifications, waivers, and context repins
+remain visible and do reject.
 
 ### 13.6 Additive `edge_kind` (optional input field)
 

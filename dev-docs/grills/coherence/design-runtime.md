@@ -303,7 +303,7 @@ on the next open. **An index-only idem lookup is therefore unsound.** Round-3's
 "heals on open" claim was wrong.
 
 **Correct rule: the idem lookup is ledger-authoritative, lookup-before-append,
-under the lock.** Accept, holding the kernel mutex (`state.rs:160`):
+under the lock.** Accept, holding the kernel mutex (`state.rs:179`):
 
 1. computes the V4.1 idem;
 2. **scans the ledger** for an existing entry with that idem — authoritative
@@ -356,23 +356,32 @@ distinction (`Fresh{ratified, ahead}` stays split, so a ratification or an
 "ahead" head move is still visible). It is **not** the coarser display helper in
 the SP1 test.
 
-**The comparison is a keyed map, not an unkeyed bag (G-B round-4 Critical #A).**
-`S_preview` and `S_now` are `Map<SemanticEdgeKey → structural_class>` over the
-affected set — **not** a multiset of classes. An unkeyed bag would miss a
-*compensating swap* (edge A `Fresh→Stale` while edge B `Stale→Fresh` leaves the
-bag `{Fresh:1, Stale:1}` unchanged); a keyed map catches it because A's and B's
-keys each changed value. The precondition: preview captured
-`S_preview: Map<key → class>`; accept, holding the single per-workspace kernel
-mutex (`state.rs:160`), recomputes `S_now` over the same affected keys against the
-*current* DAG / resolutions / context; if `S_now != S_preview` **for any key**,
-**reject → re-preview**; else append. This catches every *structural* concurrency
-hazard per-edge — base-head moves (`Fresh↔Stale↔Diverged↔Unpinnable`, incl.
-`ahead`), retirements (`Some↔None`), ratifications (`Fresh↔Fresh{ratified}`),
-waivers, context repins — while a pure semantic-check arrival is **invisible** to
-it, so accept is never blocked by a verdict. Base-head revalidation (D6:
-`resolve_live` == candidate `base_rev`) runs inside the same lock. Cross-process
-external `git`/scan advances are caught because `S_now` is computed from the
-freshly loaded DAG.
+**The comparison is a map keyed by *physical edge identity*, not by
+`SemanticEdgeKey` (G-B round-4 Critical #A, round-5 refinement).**
+`SemanticEdgeKey` is deliberately a **bag** key — coincident edges can share it
+(D2), so `Map<SemanticEdgeKey → class>` would overwrite collisions and miss a
+per-physical-edge change (one of two coincident edges getting waived/ratified).
+The precondition instead keys by the **unique physical edge identity**: for a
+committed edge, the edges-table PK `(txf, input_idx, downstream, downstream_rev)`
+(`index.rs:42`); for one of the candidate's own new edges,
+`(candidate_revision_id, input_ordinal)` (stable and unique, since the candidate
+is content-addressed and fixed across preview→accept). So `S_preview` and `S_now`
+are `Map<PhysicalEdgeId → structural_class>`.
+
+An unkeyed bag would miss a *compensating swap* (edge A `Fresh→Stale` while edge B
+`Stale→Fresh` leaves the bag `{Fresh:1, Stale:1}` unchanged); a physically-keyed
+map catches it because A's and B's entries each change value. The precondition:
+preview captured `S_preview`; accept, holding the single per-workspace kernel
+mutex (`state.rs:179`), recomputes `S_now` over the same affected physical edges
+against the *current* DAG / resolutions / context; if `S_now != S_preview` **for
+any key**, **reject → re-preview**; else append. This catches every *structural*
+concurrency hazard per physical edge — base-head moves
+(`Fresh↔Stale↔Diverged↔Unpinnable`, incl. `ahead`), retirements (`Some↔None`),
+ratifications (`Fresh↔Fresh{ratified}`), waivers, context repins — while a pure
+semantic-check arrival is **invisible** to it, so accept is never blocked by a
+verdict. Base-head revalidation (D6: `resolve_live` == candidate `base_rev`) runs
+inside the same lock. Cross-process external `git`/scan advances are caught
+because `S_now` is computed from the freshly loaded DAG.
 
 ### V4.4 — Bounded `ReadView` (completes D7)
 

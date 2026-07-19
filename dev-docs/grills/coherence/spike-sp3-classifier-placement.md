@@ -1,10 +1,12 @@
 # Spike SP3 — relationship-classifier placement (ADR-P2)
 
-> **Status: PASS / DECISION RECORDED (2026-07-20).** 6/6 green
+> **Status: PASS / DECISION RECORDED (2026-07-20).** 7/7 green
 > (`src-tauri/tests/spike_sp3_edge_kind_registry.rs`). **Decision: kernel-level
-> typed `OriginEdgeKind` registry**, not a Tier-1 schema-pack declaration. Both
-> placements are prototyped (kernel = side a; a schema-pack *declaration sketch*
-> = side b, which the test shows cannot carry propagation behavior).
+> typed `OriginEdgeKind` registry.** Both placements are **fairly** prototyped —
+> a kernel `match` (side a) and a schema-pack data table + generic interpreter
+> (side b) that genuinely reproduces the version axis. The decision rests on
+> type-safety/totality/single-source, not on the (wrong) claim that propagation
+> can't be data.
 
 ## The question
 
@@ -17,24 +19,31 @@ at runtime.
 
 ## Decision: kernel-level typed registry
 
-**Propagation is executable behavior, not data.** "A version-stale upstream
-restales this edge" is a rule the projection *runs*, not a value it *reads*. In
-the tier model (paper §10), declarative metadata is Tier 1 but executable
-behavior is **Tier 5 (deferred)**. A Tier-1 schema-pack could declare a kind's
-metadata (origin, shape) but its *propagation rule* would still need kernel code
-— so a schema-pack placement would buy an extensibility the runtime can't yet
-honor, and split each kind's definition across two tiers.
+**Both placements can express v1 propagation as data.** Propagation for v1 is a
+small enum (`version | none`), not a closure — so a schema-pack data table
+*can* carry it, read by a generic kernel interpreter. The earlier rationale
+("propagation is behavior, not data") was **wrong** (G-B round-5 #4): a genuinely
+new propagation *behavior* would need kernel code in **both** placements, so that
+is not what separates them.
 
-This is the same argument `design-runtime.md` D5 used to keep operators built-in
-Rust rather than Tier-1 functions. Consistency: edge-kind propagation and
-operators are both behavior, so both are kernel-Rust in v1.
+**The real trade — type-safety/single-source vs runtime data-extensibility:**
 
-**Trade accepted:** adding a kind is a code change. That is correct — kinds are
-few, semantically load-bearing, and each carries a propagation consequence that
-must be characterization-tested anyway. The kernel registry is type-safe,
-single-source (no runtime table to drift), and totality-checked by the compiler
-(a non-wildcard `match` fails to compile until a new variant is registered).
-Revisit only if/when Tier 5 (executable schema packs) ships.
+| | Kernel `match` (side a) | Schema-pack table + interpreter (side b) |
+|---|---|---|
+| Add a known-tag kind | code change | **data change** (runtime-extensible) |
+| Totality | compile-time (no-wildcard `match` won't build until registered) | runtime (unknown/typo'd tag → `None` at interpret time) |
+| External data | none to parse/trust | table must be parsed, validated, trusted |
+| Source of truth | one | split (table + interpreter) |
+| New propagation *class* | extend kernel | extend interpreter (kernel) either way |
+
+For v1 the kind set is small and semantically load-bearing — each kind's
+propagation is a deliberate design decision, not user-supplied data — so the
+kernel's **compile-time totality**, type-safety, and single-source win over a
+runtime extensibility the runtime does not need. Revisit if/when kinds become
+user-authored (schema packs, Tier 5). The spike's
+`schema_pack_fails_at_runtime_where_the_kernel_fails_at_compile_time` test makes
+the decisive difference concrete: a mistyped propagation tag compiles under (b)
+and only fails when interpreted, whereas (a) would not build.
 
 ## Prototype (the chosen side), proven
 
@@ -63,18 +72,21 @@ tripwire against re-introducing it.
 - `edge_kind` is **orthogonal to `InputRole`**: role (Direct/Contextual) is
   provenance liveness; kind is the propagation class.
 
-## Side (b), refuted by construction
+## Side (b), fairly prototyped and then out-competed
 
-WI-0.3 asks to prototype *both* placements. The **schema-pack declaration** side
-is prototyped as `SchemaPackKindDecl` — a Tier-1 *data* record with `name`,
-`origin`, `shape` and, deliberately, **no `propagation` field**. The test
-`schema_pack_declaration_cannot_carry_propagation_behavior` shows the gap: the
-record can declare a kind's metadata, but the question projection actually asks —
-"does a version-stale upstream restale this edge?" — is answered by the **kernel**
-`propagates_version`, not by the declaration. A Tier-1 pack would still have to
-defer propagation to kernel behavior (Tier 5 is deferred), so the kind's
-definition would straddle two tiers. The kernel registry keeps it whole. That
-absent field *is* the refutation — recorded, not hand-waved.
+WI-0.3 asks to prototype *both* placements. Side (b) is a real schema-pack:
+`SCHEMA_PACK` is a `const` data table of `KindDecl { name, origin, shape,
+propagation }` rows, and `interpret_propagation` is a generic kernel interpreter
+that reads the `propagation` tag → a `Propagation`. The test
+`schema_pack_reproduces_the_version_axis` proves it answers the same question the
+kernel does and agrees with `meta` for every shared kind — so it is *not* a straw
+man; it genuinely works and is runtime-extensible for known tags.
+
+It loses on the trade above, not on capability. `schema_pack_fails_at_runtime_...`
+shows the decisive weakness: a typo'd/unknown propagation tag compiles and fails
+only at interpret time, whereas the kernel's no-wildcard `match` would not build.
+For a small, load-bearing, non-user-authored kind set, compile-time totality +
+single-source beat runtime extensibility.
 
 ## Scope and limits
 
