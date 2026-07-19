@@ -12,6 +12,7 @@
 //! append-only records (I5). No module exposes a mutating API over
 //! recorded history — the only writes are appends.
 
+pub mod accept_precondition;
 pub mod adopt;
 pub mod canonical;
 pub mod capture;
