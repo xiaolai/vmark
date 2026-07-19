@@ -98,6 +98,7 @@ fn fixture() -> Fixture {
             object: oid(1),
             revision: e0.clone(),
             role: InputRole::Direct,
+            kind: crate::coherence::edge_kind::OriginEdgeKind::Dependency,
         }],
         vec![OutputRef {
             object: oid(2),

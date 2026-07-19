@@ -27,6 +27,11 @@ pub struct CaptureInputSpec {
     #[serde(default)]
     pub revision: Option<RevisionId>,
     pub role: InputRole,
+    /// Origin-edge kind (Phase 2/4, spec §13.6). Optional — defaults to
+    /// `dependency` (the only kind ordinary capture records; conformance edges
+    /// are minted by the Extract-Canon operator).
+    #[serde(default)]
+    pub kind: super::edge_kind::OriginEdgeKind,
 }
 
 #[derive(Debug, Clone, serde::Deserialize)]
@@ -263,6 +268,9 @@ fn resolve_input(
         object,
         revision,
         role: spec.role,
+        // Carry the spec's kind (defaults to dependency); Extract-Canon is the
+        // only path that sets conformance today (Phase 4).
+        kind: spec.kind,
     })
 }
 

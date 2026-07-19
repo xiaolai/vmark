@@ -65,14 +65,15 @@ fn commit_member(
             committed: false,
         });
     }
-    // Base-head revalidation for THIS object.
-    let base = candidate
-        .parents
-        .first()
-        .ok_or("candidate has no base parent")?;
-    match kernel.index().resolve_live(&candidate.object)? {
-        Resolved::Single(head) if &head == base => {}
-        Resolved::Absent => {} // a brand-new object (e.g. a canon carrier) has no head
+    // Base-head revalidation for THIS object. A revision over a base requires
+    // the base to still be the single head; a brand-new object (a carrier, no
+    // parents) requires the object to be genuinely absent.
+    match (
+        candidate.parents.first(),
+        kernel.index().resolve_live(&candidate.object)?,
+    ) {
+        (Some(base), Resolved::Single(head)) if &head == base => {}
+        (None, Resolved::Absent) => {}
         _ => return Err("stale base — re-preview required".into()),
     }
     kernel.ensure_initialized()?;

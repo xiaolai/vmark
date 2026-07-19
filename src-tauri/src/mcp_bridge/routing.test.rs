@@ -284,6 +284,7 @@ fn stale_workspace(td: &tempfile::TempDir, state: &CoherenceState) -> (uuid::Uui
             object_id: None,
             revision: None,
             role: InputRole::Direct,
+            kind: crate::coherence::edge_kind::OriginEdgeKind::Dependency,
         }],
     );
     cap("elena.md", "brown\n", vec![]);

@@ -65,6 +65,7 @@ fn candidate_may_carry_declared_inputs() {
         object: ObjectId(uuid::Uuid::from_u128(9)),
         revision: base_rev(),
         role: InputRole::Direct,
+        kind: crate::coherence::edge_kind::OriginEdgeKind::Dependency,
     };
     let c = Candidate::new(
         oid(),

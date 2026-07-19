@@ -111,6 +111,7 @@ pub fn capture_save_file(
             object_id: None,
             revision: None,
             role: InputRole::Direct,
+            kind: crate::coherence::edge_kind::OriginEdgeKind::Dependency,
         })
         .collect();
     capture(

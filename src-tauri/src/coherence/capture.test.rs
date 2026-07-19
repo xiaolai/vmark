@@ -126,6 +126,7 @@ fn ai_generation_with_input_paths_adopts_and_records_edges() {
             object_id: None,
             revision: None,
             role: InputRole::Direct,
+            kind: crate::coherence::edge_kind::OriginEdgeKind::Dependency,
         }],
         agent: Agent {
             kind: AgentType::Model,
@@ -173,6 +174,7 @@ fn caller_supplied_revision_is_validated() {
         object_id: Some(elena.object),
         revision: Some(RevisionId::parse(&format!("rev1:{}", "0".repeat(64))).unwrap()),
         role: InputRole::Direct,
+        kind: crate::coherence::edge_kind::OriginEdgeKind::Dependency,
     }];
     let err = capture(&mut kernel, req).unwrap_err();
     assert!(err.contains("does not belong"), "no silent fallback: {err}");
@@ -188,6 +190,7 @@ fn input_without_path_or_object_is_rejected() {
         object_id: None,
         revision: None,
         role: InputRole::Direct,
+        kind: crate::coherence::edge_kind::OriginEdgeKind::Dependency,
     }];
     assert!(capture(&mut kernel, req).is_err());
 }

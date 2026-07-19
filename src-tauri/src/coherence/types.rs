@@ -157,6 +157,14 @@ pub struct InputRef {
     pub object: ObjectId,
     pub revision: RevisionId,
     pub role: InputRole,
+    /// Origin-edge kind (Phase 2/4, spec §13.6). Optional + additive: absent on
+    /// every legacy entry, defaulting to `dependency`, so format stays 0.
+    #[serde(default, skip_serializing_if = "is_dependency")]
+    pub kind: super::edge_kind::OriginEdgeKind,
+}
+
+fn is_dependency(k: &super::edge_kind::OriginEdgeKind) -> bool {
+    matches!(k, super::edge_kind::OriginEdgeKind::Dependency)
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

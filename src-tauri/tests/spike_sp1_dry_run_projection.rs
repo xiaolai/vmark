@@ -65,6 +65,7 @@ fn envelope(writer: WriterId, txf: &Txf) -> Envelope {
                 object: *object,
                 revision: revision.clone(),
                 role: InputRole::Direct,
+                kind: vmark_lib::coherence::edge_kind::OriginEdgeKind::Dependency,
             })
             .collect(),
         outputs: vec![OutputRef {

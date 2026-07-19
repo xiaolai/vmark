@@ -31,6 +31,7 @@ fn txf_env(
                 object,
                 revision,
                 role: InputRole::Direct,
+                kind: crate::coherence::edge_kind::OriginEdgeKind::Dependency,
             })
             .collect(),
         outputs: vec![OutputRef {

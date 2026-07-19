@@ -34,6 +34,7 @@ pub mod delegation;
 pub mod delegation_commands;
 pub mod edge_kind;
 pub mod envelope;
+pub mod extract_canon;
 pub mod frontmatter;
 pub mod gitops;
 pub mod index;

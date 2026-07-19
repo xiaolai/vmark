@@ -161,8 +161,8 @@ impl CoherenceIndex {
                     .map_err(|e| e.to_string())?;
                     for (i, input) in t.inputs.iter().enumerate() {
                         tx.execute(
-                            "INSERT OR IGNORE INTO edges (txf, input_idx, upstream, pinned, downstream, downstream_rev, role, confidence)
-                             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                            "INSERT OR IGNORE INTO edges (txf, input_idx, upstream, pinned, downstream, downstream_rev, role, confidence, edge_kind)
+                             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
                             rusqlite::params![
                                 env.id.to_string(),
                                 i as i64,
@@ -178,7 +178,10 @@ impl CoherenceIndex {
                                     super::types::Confidence::Exact => "exact",
                                     super::types::Confidence::Inferred => "inferred",
                                     super::types::Confidence::Unknown => "unknown",
-                                }
+                                },
+                                // Phase 4: persist the input's origin-edge kind
+                                // (conformance from Extract-Canon; else dependency).
+                                input.kind.as_str(),
                             ],
                         )
                         .map_err(|e| e.to_string())?;

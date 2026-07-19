@@ -35,7 +35,7 @@ fn cost_scales_with_tokens_and_rate() {
 
 #[test]
 fn unknown_model_default_rate_is_never_free() {
-    assert!(DEFAULT_RATE.usd_per_1k_tokens > 0.0);
+    // A non-zero default rate ⇒ an unknown model's cost is never estimated as free.
     assert!(estimate_cost_usd(1000, DEFAULT_RATE) > 0.0);
 }
 
