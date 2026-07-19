@@ -23,8 +23,9 @@ Phase 3's four concerns are one posture: **provenance for edits no
 model mediated (D1), authority for actions no human performed directly
 (D2), contexts that follow how creators actually branch (D3), and an
 MCP surface honest enough to carry both (D4).** Only explicit human
-acts may select a context, confirm provenance, grant authority, or
-resolve an edge.
+acts may select a context, confirm provenance, or grant authority; an
+edge is resolved only by a human — or by a human-delegated agent acting
+under an explicit, audited grant (D2; paper R12/R29).
 
 ## D1 (R3/O2) — Human-edit input inference, lazily confirmed
 
