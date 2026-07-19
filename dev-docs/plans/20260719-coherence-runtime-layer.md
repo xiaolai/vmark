@@ -1,17 +1,15 @@
 # Plan: Coherence Runtime Layer — Verify-at-Volume, Classifier, Forward Operators, Canon-Hub, Merge Auditor
 
-- **Status: PHASE 0 CLEAR — G-B round 4 NEEDS REVISION, its residual fixed
-  (2026-07-20).** Four G-B rounds drove convergence: round 2 MAJOR GAPS
-  (partially discharged) → round 3 MAJOR GAPS (5 precise defects) → **round 4
-  NEEDS REVISION** with *no residual Phase-0/Phase-1 blocker* except the
-  WI-0.3 two-prototype gap — now fixed (SP3 6/6, schema-pack side refuted). The
-  V4.1–V4.3 accept defects round 4 found are Phase-3.0 correctness and are
-  specified/corrected in `design-runtime.md` v4. **Phase 0 gate is green
-  (`check-coherence-runtime-phase.sh 0`, 13/13); SP1 4/4 + SP3 6/6.** A
-  confirmatory G-B round 5 is advisable before Phase-1 commits, but Phase 0 is
-  complete. Governance sequence: → Phase 1 (verify at volume) → **Phase 3.0
-  primitives → SP0 PASS** (rule 60 §7) → phases in dependency order.
-  Rounds 3–4 disposition table precedes the round-2 one.
+- **Status: READY TO BUILD — G-B cleared after 6 rounds (2026-07-20).** The
+  cross-model gate converged: round 2 MAJOR GAPS → round 3 MAJOR GAPS → round 4
+  NEEDS REVISION → round 5 NEEDS REVISION (2 residual) → **round 6 READY TO
+  BUILD, no Phase-0/Phase-1 blocker.** `design-runtime.md` v4 (V4.1–V4.9) is the
+  verified accept-protocol contract. **Phase 0 complete:** gate green
+  (`check-coherence-runtime-phase.sh 0`, 13/13); SP1 4/4, SP3 7/7; spec rev 3
+  §13 merged. Governance sequence now: **Phase 1 (verify at volume) → Phase 2
+  (classifier) in parallel → Phase 3.0 primitives → SP0 PASS** (rule 60 §7) →
+  Phases 3–5 → Phase 6 design. Rounds 3–6 disposition table precedes the
+  round-2 one.
 
 - **History — G-B round 1 (`019f796a-7e30-7173-8222-24be7b11368d`, MAJOR GAPS,
   2026-07-19):** found this plan decomposed to WIs *before* the runtime layer's
@@ -216,8 +214,13 @@ window) and v4.1 (preimage) **CORRECT**; found 2 residual defects, both fixed:
 | `state.rs:160` citation | Minor | Corrected to `state.rs:179`. |
 
 After round 5's fixes, **no residual Phase-0/Phase-1 blocker remains**; the
-V4.1–V4.3 defects were Phase-3.0 correctness and are all fixed. A confirmatory
-round 6 may run before Phase-3.0 commits.
+V4.1–V4.3 defects were Phase-3.0 correctness and are all fixed.
+
+**Round 6** (`019f7b88…`, final confirmatory): both round-5 fixes **CORRECT** —
+physical-edge key matches the edges-table PK and preserves per-edge changes while
+collapsing semantic verdicts; SP3 fairly prototypes both placements with an
+honest rationale. **Verdict: READY TO BUILD. Phase-0/Phase-1 blocker: none.**
+G-B is cleared (rule 60 §6) after six rounds.
 
 ## Cross-model review round 2 (G-B) — record and disposition
 
