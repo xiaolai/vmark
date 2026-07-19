@@ -19,9 +19,12 @@ use super::types::{Envelope, InputRole, ObjectId, TypedBody};
 // v2: applied keyed by idem; edges.confidence; held/disk_lag tables.
 // v3: check_results table (WI-2b.3 — D5.6 context-snapshot liveness).
 // v4: edges.edge_kind (Phase 2, ADR-P2 — additive, default 'dependency', so
-//     every legacy edge reads as a dependency; format stays 0, spec §13.6).
+//     every legacy edge reads as a dependency; format stays 0, spec §13.6);
+//     edges_by_downstream index (Phase 3.0 bounded read-view, v4.4).
+// v5: applied.entry_id (Phase 3.0 idem→receipt lookup, design v4.2 — the accept
+//     retry returns the original entry, not just a dropped replay).
 // Any older index wipes + rebuilds (derived, R16).
-const SCHEMA_VERSION: i32 = 4;
+const SCHEMA_VERSION: i32 = 5;
 
 const SCHEMA: &str = "
 CREATE TABLE IF NOT EXISTS revisions (
@@ -58,7 +61,7 @@ CREATE TABLE IF NOT EXISTS registry (
   entry_id TEXT PRIMARY KEY, object TEXT NOT NULL, path TEXT NOT NULL,
   schema TEXT, time TEXT NOT NULL
 );
-CREATE TABLE IF NOT EXISTS applied (idem TEXT PRIMARY KEY);
+CREATE TABLE IF NOT EXISTS applied (idem TEXT PRIMARY KEY, entry_id TEXT);
 CREATE TABLE IF NOT EXISTS check_results (
   entry_id TEXT PRIMARY KEY, txf TEXT NOT NULL, input_idx INTEGER NOT NULL,
   pinned TEXT NOT NULL, checked_against TEXT NOT NULL, verdict TEXT NOT NULL,
@@ -125,10 +128,13 @@ impl CoherenceIndex {
         let tx = self.conn.transaction().map_err(|e| e.to_string())?;
         // Keyed by IDEM, not entry id (audit A4): a crash-recovery replay
         // carries the same idem with a fresh id and must not re-apply.
+        // Store the entry id alongside the idem (design v4.2): the FIRST entry
+        // for an idem wins (INSERT OR IGNORE), so a later replay does not
+        // overwrite it — `entry_id_by_idem` then returns the original receipt.
         let inserted = tx
             .execute(
-                "INSERT OR IGNORE INTO applied (idem) VALUES (?1)",
-                [env.idem.to_string()],
+                "INSERT OR IGNORE INTO applied (idem, entry_id) VALUES (?1, ?2)",
+                [env.idem.to_string(), env.id.to_string()],
             )
             .map_err(|e| e.to_string())?;
         if inserted == 0 {

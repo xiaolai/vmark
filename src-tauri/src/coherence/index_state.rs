@@ -98,6 +98,28 @@ impl CoherenceIndex {
         Ok(())
     }
 
+    /// The entry id an idem first committed as — the accept idem→receipt lookup
+    /// (Phase 3.0, design v4.2). `None` means no entry with that idem has been
+    /// applied. This is the index fast-path; the kernel additionally consults the
+    /// ledger before appending so the append-before-apply torn window is closed.
+    pub fn entry_id_by_idem(&self, idem: &Uuid) -> Result<Option<Uuid>, String> {
+        let found: Option<String> = self
+            .conn
+            .query_row(
+                "SELECT entry_id FROM applied WHERE idem = ?1",
+                [idem.to_string()],
+                |r| r.get(0),
+            )
+            .map(Some)
+            .or_else(|e| match e {
+                rusqlite::Error::QueryReturnedNoRows => Ok(None),
+                other => Err(other.to_string()),
+            })?;
+        found
+            .map(|s| Uuid::parse_str(&s).map_err(|e| e.to_string()))
+            .transpose()
+    }
+
     /// Content hash of a specific revision (scan compares disk vs head).
     pub fn content_hash_of(
         &self,
