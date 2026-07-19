@@ -102,6 +102,43 @@ fn edge_kind_defaults_to_dependency_in_the_read_view() {
 // DEGREE, not the corpus size. This is what keeps the preview O(affected set),
 // not O(all edges) — the property the 20 ms / 16 MiB envelope rests on. (The
 // absolute figure at §10's 500k-edge scale is a separate benchmark harness.)
+// SP4 / WI-5.1 — the object→edge half of the merge-audit mapping: the union of
+// changed objects' incident edges, deduplicated and deterministic.
+#[test]
+fn edges_affected_by_unions_and_dedups() {
+    // U -> A and U -> B (two edges), plus an unrelated C -> D.
+    let (mut index, _) = CoherenceIndex::open_in_memory().expect("index");
+    let writer = WriterId(uuid::Uuid::now_v7());
+    let u = oid();
+    let a = oid();
+    let b = oid();
+    let (u_e, u_rev) = txf_envelope(writer, u, 1, vec![]);
+    let (a_e, _) = txf_envelope(writer, a, 2, vec![(u, u_rev.clone())]);
+    let (b_e, _) = txf_envelope(writer, b, 3, vec![(u, u_rev)]);
+    let c = oid();
+    let d = oid();
+    let (c_e, c_rev) = txf_envelope(writer, c, 4, vec![]);
+    let (d_e, _) = txf_envelope(writer, d, 5, vec![(c, c_rev)]);
+    index
+        .rebuild_from(&[u_e, a_e, b_e, c_e, d_e])
+        .expect("rebuild");
+
+    // Changed objects {U, A}: U is incident to both U→A and U→B; A only to U→A.
+    // The union dedups U→A (incident to both U and A) → 2 distinct edges.
+    let affected = index.edges_affected_by(&[u, a]).expect("affected");
+    assert_eq!(affected.len(), 2, "U→A and U→B, U→A not double-counted");
+
+    // A changed object with no edges contributes nothing; C→D is untouched.
+    let none = index.edges_affected_by(&[oid()]).expect("affected");
+    assert!(none.is_empty());
+    // Deterministic: same input → same order.
+    assert_eq!(
+        index.edges_affected_by(&[u, a]).unwrap(),
+        index.edges_affected_by(&[a, u]).unwrap(),
+        "order of the changed-object set does not affect the result",
+    );
+}
+
 #[test]
 fn incident_query_is_bounded_by_degree_not_corpus_size() {
     let (mut index, _) = CoherenceIndex::open_in_memory().expect("index");

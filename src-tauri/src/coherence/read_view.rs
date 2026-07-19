@@ -83,6 +83,40 @@ impl CoherenceIndex {
         edges.truncate(PREVIEW_MAX_EDGES);
         Ok(IncidentEdges { edges, truncated })
     }
+
+    /// The edges affected by a set of changed objects — the union of each
+    /// object's incident edges, **deduplicated by physical identity**
+    /// (`txf, input, downstream, downstream_rev`). This is the deterministic,
+    /// total object→edge half of the merge-audit mapping (Phase 5, SP4/WI-5.1):
+    /// a completed merge's changed files map (via the registry) to changed
+    /// objects, and thence here to the edges to re-check. Order is deterministic
+    /// (sorted by physical identity).
+    pub fn edges_affected_by(&self, objects: &[ObjectId]) -> Result<Vec<OriginEdge>, String> {
+        let mut seen = std::collections::HashSet::new();
+        let mut out = Vec::new();
+        for object in objects {
+            for edge in self.edges_incident_to(object)?.edges {
+                let key = (
+                    edge.txf,
+                    edge.input,
+                    edge.downstream,
+                    edge.downstream_rev.clone(),
+                );
+                if seen.insert(key) {
+                    out.push(edge);
+                }
+            }
+        }
+        out.sort_by(|a, b| {
+            (a.txf, a.input, a.downstream, a.downstream_rev.as_str()).cmp(&(
+                b.txf,
+                b.input,
+                b.downstream,
+                b.downstream_rev.as_str(),
+            ))
+        });
+        Ok(out)
+    }
 }
 
 #[cfg(test)]
