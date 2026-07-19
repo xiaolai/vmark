@@ -177,10 +177,7 @@ fn sweep_only_at_or_above_threshold() {
 
 #[test]
 fn sweep_wins_even_with_unreadable_paths() {
-    assert_eq!(
-        classify(12, 5, 0, 3, 8),
-        Verdict::Sweep { checkable: 12 }
-    );
+    assert_eq!(classify(12, 5, 0, 3, 8), Verdict::Sweep { checkable: 12 });
 }
 
 #[test]
@@ -205,7 +202,10 @@ fn all_absent_is_a_moved_corpus() {
 
 #[test]
 fn present_and_nothing_stale_is_coherent() {
-    assert_eq!(classify(0, 10, 0, 0, 10), Verdict::EvolveCoherent { present: 10 });
+    assert_eq!(
+        classify(0, 10, 0, 0, 10),
+        Verdict::EvolveCoherent { present: 10 }
+    );
 }
 
 #[test]
@@ -361,12 +361,7 @@ fn executable_requires_all_three_cas_texts_present_and_utf8() {
 
     let (mut index, _) = CoherenceIndex::open_in_memory().expect("in-memory index");
     index
-        .rebuild_from(&[
-            t_up_v1,
-            t_down.clone(),
-            t_down_bin.clone(),
-            t_up_v2,
-        ])
+        .rebuild_from(&[t_up_v1, t_down.clone(), t_down_bin.clone(), t_up_v2])
         .expect("rebuild");
 
     let row = |txf_id, downstream, downstream_rev| EdgeRow {
