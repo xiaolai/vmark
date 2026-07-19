@@ -267,7 +267,6 @@ fn append_only_api_surface() {
         "with_max_segment_bytes",
         "append",
         "read_all",
-        "raw_entry_count",
         "active_segment_path_for_test",
     ];
     assert_eq!(

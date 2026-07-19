@@ -84,6 +84,31 @@ impl CoherenceIndex {
             .map_err(|e| e.to_string())
     }
 
+    /// The index's canonical `idem → winning entry_id` map. Compared against the
+    /// ledger's deduped winners on open (heal-on-open, design-accept-consistency
+    /// #1/#2): a git branch switch can REPLACE the tracked ledger with a
+    /// same-cardinality-but-different history, and a cross-process double-append
+    /// can leave the index on a non-canonical winner — cardinality can't see
+    /// either, so `open` reconciles on this exact identity map, never on counts.
+    pub fn applied_map(&self) -> Result<std::collections::HashMap<Uuid, Uuid>, String> {
+        let mut stmt = self
+            .conn
+            .prepare("SELECT idem, entry_id FROM applied")
+            .map_err(|e| e.to_string())?;
+        let rows = stmt
+            .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))
+            .map_err(|e| e.to_string())?;
+        let mut map = std::collections::HashMap::new();
+        for row in rows {
+            let (idem, entry_id) = row.map_err(|e| e.to_string())?;
+            map.insert(
+                Uuid::parse_str(&idem).map_err(|e| e.to_string())?,
+                Uuid::parse_str(&entry_id).map_err(|e| e.to_string())?,
+            );
+        }
+        Ok(map)
+    }
+
     /// Mark/unmark an object absent (file deleted; spec §9.4). Scan-owned
     /// derived state — no ledger entry, history stays intact.
     pub fn set_absent(&mut self, object: &ObjectId, absent: bool) -> Result<(), String> {

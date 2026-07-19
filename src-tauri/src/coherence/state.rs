@@ -27,6 +27,11 @@ pub struct WorkspaceKernel {
     snapshots: SnapshotStore,
     index: CoherenceIndex,
     initialized: bool,
+    /// Set when an ambiguous append/apply failure may have left the ledger and
+    /// index inconsistent (re-review #3): the durable ledger line may exist while
+    /// the index lacks it, so the O(1) idem lookup can no longer be trusted. All
+    /// writes and accepts refuse until reopen re-reconciles from the ledger.
+    unavailable: Option<String>,
     /// Last git observation for scan classification (WI-1.7).
     pub last_git: Option<GitObservation>,
     /// Quarantined-line count from the last ledger read (status surface).
@@ -46,25 +51,28 @@ impl WorkspaceKernel {
         } else {
             CoherenceIndex::open_in_memory()?
         };
-        let mut quarantined = 0;
+        let quarantined;
         if needs_rebuild || !initialized {
             let read = ledger.read_all()?;
             quarantined = read.quarantined.len();
             index.rebuild_from(&read.entries)?;
         } else {
-            // Heal-on-open (design-accept-consistency Fix A). A schema-valid
-            // index is loaded, not rebuilt — so a crash between a ledger append
-            // (durable) and its index apply would stay torn across opens. Cheap
-            // probe: the ledger's raw line count equals the index's applied idem
-            // count iff caught up. On mismatch, reconcile precisely and rebuild
-            // only if the deduped entry count actually exceeds what's applied
-            // (a raw>applied gap can be mere dupes/quarantine, not a torn tail).
-            if ledger.raw_entry_count()? != index.applied_count()? {
-                let read = ledger.read_all()?;
-                quarantined = read.quarantined.len();
-                if read.entries.len() != index.applied_count()? {
-                    index.rebuild_from(&read.entries)?;
-                }
+            // Heal-on-open (design-accept-consistency Fix A, hardened for
+            // re-review #1/#2). A schema-valid index is loaded, not rebuilt, so
+            // it must be reconciled against the ledger — but on EXACT identity,
+            // never cardinality: the ledger is git-*tracked*, so a branch switch
+            // can REPLACE it with a same-count-but-different history while the
+            // gitignored index.db persists, and a cross-process double-append can
+            // leave the index on a non-canonical winner. Both are invisible to a
+            // count compare. Build the ledger's canonical idem→winner map
+            // (read_all already dedupes to the smallest (time,id) winner) and
+            // rebuild if the index's applied map differs in ANY entry.
+            let read = ledger.read_all()?;
+            quarantined = read.quarantined.len();
+            let ledger_winners: HashMap<Uuid, Uuid> =
+                read.entries.iter().map(|e| (e.idem, e.id)).collect();
+            if index.applied_map()? != ledger_winners {
+                index.rebuild_from(&read.entries)?;
             }
         }
         Ok(Self {
@@ -74,6 +82,7 @@ impl WorkspaceKernel {
             snapshots,
             index,
             initialized,
+            unavailable: None,
             last_git: None,
             quarantined,
         })
@@ -102,20 +111,56 @@ impl WorkspaceKernel {
     }
 
     /// The single write path: durable ledger append, then index apply
-    /// (I1/I2 — appends only). An index-apply failure never leaves a
-    /// silently stale index: the ledger is truth, so we rebuild from it
-    /// and only error if recovery itself fails (audit R7).
+    /// (I1/I2 — appends only). Two ambiguous-failure classes are handled so the
+    /// O(1) idem lookup can never miss a durable entry (re-review #3):
+    /// - **append error** — `write_all` may have landed the line before a later
+    ///   step (fsync) failed, so the ledger MAY hold the entry while the index
+    ///   does not. Reconcile from the ledger and return an error asking the
+    ///   caller to retry (a deterministic-idem accept then finds it, no double
+    ///   append); poison the kernel if the reconcile itself fails.
+    /// - **apply error** — the ledger is truth, so rebuild from it; poison on
+    ///   rebuild failure (audit R7).
     pub fn append_and_apply(&mut self, env: &Envelope) -> Result<(), String> {
-        self.ledger.append(env)?;
+        self.ensure_available()?;
+        if let Err(append_err) = self.ledger.append(env) {
+            return match self.reconcile_index_from_ledger() {
+                Ok(()) => Err(format!(
+                    "ledger append failed ({append_err}); index reconciled — retry the operation"
+                )),
+                Err(rec_err) => Err(self.poison(format!(
+                    "ledger append failed ({append_err}) and reconcile failed ({rec_err})"
+                ))),
+            };
+        }
         if let Err(apply_err) = self.index.apply_entry(env) {
-            let read = self.ledger.read_all()?;
-            self.index
-                .rebuild_from(&read.entries)
-                .map_err(|rebuild_err| {
-                    format!("index apply failed ({apply_err}) and rebuild failed ({rebuild_err}) — coherence unavailable until reopen")
-                })?;
+            if let Err(rec_err) = self.reconcile_index_from_ledger() {
+                return Err(self.poison(format!(
+                    "index apply failed ({apply_err}) and rebuild failed ({rec_err})"
+                )));
+            }
         }
         Ok(())
+    }
+
+    /// Refuse writes/accepts once an ambiguous failure has poisoned the kernel
+    /// (re-review #3) — the caller must reopen to re-reconcile from the ledger.
+    pub fn ensure_available(&self) -> Result<(), String> {
+        match &self.unavailable {
+            None => Ok(()),
+            Some(reason) => Err(format!("coherence unavailable until reopen: {reason}")),
+        }
+    }
+
+    fn poison(&mut self, reason: String) -> String {
+        self.unavailable = Some(reason.clone());
+        format!("{reason} — coherence unavailable until reopen")
+    }
+
+    /// Rebuild the index from the ledger's current entries — the recovery the
+    /// ambiguous-failure paths share (the ledger is always truth).
+    fn reconcile_index_from_ledger(&mut self) -> Result<(), String> {
+        let read = self.ledger.read_all()?;
+        self.index.rebuild_from(&read.entries)
     }
 
     pub fn root(&self) -> &Path {

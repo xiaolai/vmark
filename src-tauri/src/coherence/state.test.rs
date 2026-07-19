@@ -115,10 +115,9 @@ fn open_heals_a_torn_ledger_entry_into_a_loaded_index() {
 }
 
 #[test]
-fn open_skips_reconcile_when_the_index_is_caught_up() {
-    // The cheap probe: a caught-up single-writer index (raw line count ==
-    // applied count) needs no reconcile. We can't observe timing here, but we
-    // assert the outcome is stable — reopening a caught-up workspace is a no-op.
+fn open_reconcile_is_a_noop_when_caught_up() {
+    // A caught-up index reopens unchanged — the winner-map reconcile finds the
+    // index already equals the ledger, so it does not rebuild-away the entry.
     let dir = tmp();
     let idem;
     {
@@ -135,6 +134,102 @@ fn open_skips_reconcile_when_the_index_is_caught_up() {
     let kernel = WorkspaceKernel::open(dir.path(), writer(1)).unwrap();
     assert!(kernel.index().entry_id_by_idem(&idem).unwrap().is_some());
     assert_eq!(kernel.ledger().read_all().unwrap().entries.len(), 1);
+}
+
+#[test]
+fn open_reconciles_when_the_ledger_is_replaced_at_equal_count() {
+    // Re-review #1/#2: reconcile on IDENTITY, not cardinality. A git branch
+    // switch REPLACES the tracked ledger with a same-count-but-different history
+    // while the gitignored index.db persists. Heal-on-open must swap the index
+    // to the ledger's actual entry, even though both have exactly one entry.
+    let dir = tmp();
+    let a_idem;
+    let seg_path;
+    {
+        let mut kernel = WorkspaceKernel::open(dir.path(), writer(1)).unwrap();
+        kernel.ensure_initialized().unwrap();
+        let a = Envelope::create(
+            "diagnostic",
+            writer(1),
+            json!({ "code": "a", "message": "branch-A", "path": null }),
+        );
+        a_idem = a.idem;
+        kernel.append_and_apply(&a).unwrap();
+        seg_path = kernel.ledger().active_segment_path_for_test();
+    }
+    // Replace the single-entry ledger with a DIFFERENT single entry B.
+    let b = Envelope::create(
+        "diagnostic",
+        writer(1),
+        json!({ "code": "b", "message": "branch-B", "path": null }),
+    );
+    let b_idem = b.idem;
+    let mut line = serde_json::to_string(&b).unwrap();
+    line.push('\n');
+    std::fs::write(&seg_path, line).unwrap();
+
+    let kernel = WorkspaceKernel::open(dir.path(), writer(1)).unwrap();
+    assert!(
+        kernel.index().entry_id_by_idem(&b_idem).unwrap().is_some(),
+        "heal-on-open reconciled to the ledger's actual entry B",
+    );
+    assert!(
+        kernel.index().entry_id_by_idem(&a_idem).unwrap().is_none(),
+        "the stale index entry A (absent from the new ledger) is gone",
+    );
+}
+
+#[test]
+fn an_append_failure_reconciles_and_asks_for_retry_without_losing_state() {
+    // Re-review #3: an ambiguous append failure must not leave the index behind
+    // the ledger. Force `ledger.append` to fail (read-only ledger dir), and
+    // assert the kernel reconciles + reports a retryable error, with the earlier
+    // committed entry still intact (not lost, not double-counted).
+    use std::os::unix::fs::PermissionsExt;
+    let dir = tmp();
+    let mut kernel = WorkspaceKernel::open(dir.path(), writer(1)).unwrap();
+    kernel.ensure_initialized().unwrap();
+    let first = Envelope::create(
+        "diagnostic",
+        writer(1),
+        json!({ "code": "a", "message": "kept", "path": null }),
+    );
+    let first_idem = first.idem;
+    kernel.append_and_apply(&first).unwrap();
+
+    // Make the active segment FILE read-only so the next append cannot write it
+    // (a read-only dir would still allow appending an existing file).
+    let seg = kernel.ledger().active_segment_path_for_test();
+    let mut perms = std::fs::metadata(&seg).unwrap().permissions();
+    perms.set_mode(0o444);
+    std::fs::set_permissions(&seg, perms).unwrap();
+
+    let second = Envelope::create(
+        "diagnostic",
+        writer(1),
+        json!({ "code": "b", "message": "lost", "path": null }),
+    );
+    let err = kernel.append_and_apply(&second).unwrap_err();
+    assert!(
+        err.contains("retry") || err.contains("unavailable"),
+        "got: {err}"
+    );
+
+    // Restore permissions so the tempdir can be cleaned up, and assert the first
+    // entry survived and the failed second one did not land in the index.
+    let mut perms = std::fs::metadata(&seg).unwrap().permissions();
+    perms.set_mode(0o644);
+    std::fs::set_permissions(&seg, perms).unwrap();
+    assert!(kernel
+        .index()
+        .entry_id_by_idem(&first_idem)
+        .unwrap()
+        .is_some());
+    assert!(kernel
+        .index()
+        .entry_id_by_idem(&second.idem)
+        .unwrap()
+        .is_none());
 }
 
 #[test]

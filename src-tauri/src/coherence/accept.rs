@@ -45,6 +45,10 @@ pub fn accept_candidate(
     preview_classes: &ClassMap,
     now: &str,
 ) -> Result<AcceptReceipt, String> {
+    // A poisoned kernel's index is untrustworthy — the O(1) idem lookup below
+    // could miss a durable ledger entry (re-review #3). Refuse until reopen.
+    kernel.ensure_available()?;
+
     // 1. Tamper check — recompute the content-addressed identity.
     let digest: [u8; 32] = Sha256::digest(candidate.content.as_bytes()).into();
     if ContentHash::from_digest(&digest) != candidate.content_hash {

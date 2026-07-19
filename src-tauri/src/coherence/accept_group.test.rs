@@ -118,7 +118,7 @@ fn a_partial_group_is_completed_on_recovery() {
     // transformation with the GROUP-FOLDED idem (exactly what commit_member
     // writes), as a real partial crash would leave it. (A single-member group
     // would have a different group id — that is the point of #1.)
-    let grp = group_id(&cands);
+    let grp = group_id(&cands).unwrap();
     let idem0 = member_idem(&cands[0], &grp).unwrap();
     let txf0 = cands[0].to_transformation(Agent {
         kind: AgentType::Human,
@@ -197,6 +197,63 @@ fn a_stale_member_rejects_the_whole_group_before_any_commit() {
 }
 
 #[test]
+fn a_new_edge_going_stale_between_preview_and_accept_is_rejected() {
+    // Re-review #8: a member's NEW input edge pinned to an external upstream can
+    // go stale even when the member's own base head is unchanged. Here U has no
+    // committed incident edges (base_classes stays empty), so ONLY the new-edge
+    // re-check can catch V advancing — proving #8.
+    let (_dir, mut kernel, u, v, u1, v1) = seeded();
+    let dep = InputRef {
+        object: v,
+        revision: v1.clone(),
+        role: crate::coherence::types::InputRole::Direct,
+        kind: crate::coherence::edge_kind::OriginEdgeKind::Dependency,
+    };
+    let candidate = Candidate::new(u, "U revised".into(), u1.clone(), vec![dep], "op", "s");
+    let grp = vec![candidate];
+    let preview = kernel.index().project_group(&grp, NOW).unwrap();
+
+    // Advance V past v1 AFTER the preview — the new edge U→V@v1 is now stale,
+    // but U's base head (u1) is unchanged.
+    let v2 = Envelope::create(
+        "transformation",
+        kernel.writer(),
+        serde_json::to_value(Transformation {
+            inputs: vec![],
+            outputs: vec![OutputRef {
+                object: v,
+                revision: RevisionId::compute(&hash(9), std::slice::from_ref(&v1)),
+                content_hash: hash(9),
+                parents: vec![v1.clone()],
+            }],
+            agent: Agent {
+                kind: AgentType::Human,
+                id: None,
+            },
+            intent: Intent {
+                kind: "test".into(),
+                summary: "advance".into(),
+                prompt_hash: None,
+            },
+            confidence: Confidence::Exact,
+        })
+        .unwrap(),
+    );
+    kernel.append_and_apply(&v2).unwrap();
+
+    let err = accept_group(&mut kernel, &grp, &preview, NOW).unwrap_err();
+    assert!(
+        err.contains("new-edge") || err.contains("re-preview"),
+        "got: {err}"
+    );
+    // U was NOT committed.
+    assert_eq!(
+        kernel.index().resolve_live(&u).unwrap(),
+        Resolved::Single(u1.clone()),
+    );
+}
+
+#[test]
 fn a_group_with_a_duplicate_object_is_rejected() {
     let (_dir, mut kernel, u, _v, u1, _v1) = seeded();
     let dup = vec![
@@ -206,6 +263,28 @@ fn a_group_with_a_duplicate_object_is_rejected() {
     let preview = kernel.index().project_group(&dup, NOW).unwrap();
     let err = accept_group(&mut kernel, &dup, &preview, NOW).unwrap_err();
     assert!(err.contains("same object"), "got: {err}");
+}
+
+#[test]
+fn group_id_binds_full_member_identity_not_just_revisions() {
+    // Re-review #4: `revision` is content+parents only, so two candidates can
+    // share a revision yet be different transformations (different inputs). The
+    // group id must bind the FULL member identity, so they get distinct ids.
+    let (_dir, _kernel, u, v, u1, v1) = seeded();
+    let a = Candidate::new(u, "same".into(), u1.clone(), vec![], "op", "s");
+    let extra = InputRef {
+        object: v,
+        revision: v1.clone(),
+        role: crate::coherence::types::InputRole::Direct,
+        kind: crate::coherence::edge_kind::OriginEdgeKind::Conformance,
+    };
+    let b = Candidate::new(u, "same".into(), u1.clone(), vec![extra], "op", "s");
+    assert_eq!(a.revision, b.revision, "same content+base → same revision");
+    assert_ne!(
+        group_id(std::slice::from_ref(&a)).unwrap(),
+        group_id(std::slice::from_ref(&b)).unwrap(),
+        "different inputs must change the group id (#4)",
+    );
 }
 
 #[test]
