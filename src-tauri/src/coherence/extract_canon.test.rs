@@ -135,3 +135,75 @@ fn extract_canon_commits_carrier_and_conformance_edges() {
         conformance.iter().map(|e| e.downstream).collect();
     assert!(downstreams.contains(&s1) && downstreams.contains(&s2));
 }
+
+// WI-4.4 — facet-level granularity: two facet carriers, each with its own
+// conformer; editing ONE facet carrier stales only that facet's conformer, not
+// the other's. This is the false-positive-staleness knob (§4 granularity lever).
+#[test]
+fn a_facet_carrier_change_stales_only_its_own_conformers() {
+    const NOW_LATE: &str = "2026-07-21T00:00:00Z";
+    let dir = tempfile::tempdir().unwrap();
+    let writer = WriterId(uuid::Uuid::now_v7());
+    let mut kernel = WorkspaceKernel::open(dir.path(), writer).unwrap();
+
+    // Two conformers, one per facet.
+    let combat_scene = ObjectId(uuid::Uuid::now_v7());
+    let lore_scene = ObjectId(uuid::Uuid::now_v7());
+    kernel
+        .append_and_apply(&seed(writer, combat_scene, 1))
+        .unwrap();
+    kernel
+        .append_and_apply(&seed(writer, lore_scene, 2))
+        .unwrap();
+
+    // Two SEPARATE facet carriers, each folding its own conformer.
+    let combat_canon = ObjectId(uuid::Uuid::now_v7());
+    let lore_canon = ObjectId(uuid::Uuid::now_v7());
+    let combat_cs = extract_canon(
+        combat_canon,
+        "combat rules".into(),
+        "magic.combat",
+        &[Conformer {
+            object: combat_scene,
+            content: "a duel".into(),
+            base: RevisionId::compute(&hash(1), &[]),
+        }],
+    );
+    let lore_cs = extract_canon(
+        lore_canon,
+        "lore".into(),
+        "magic.lore",
+        &[Conformer {
+            object: lore_scene,
+            content: "a legend".into(),
+            base: RevisionId::compute(&hash(2), &[]),
+        }],
+    );
+    for cs in [&combat_cs, &lore_cs] {
+        let p = kernel.index().project_group(cs, NOW).unwrap();
+        accept_group(&mut kernel, cs, &p, NOW).unwrap();
+    }
+
+    // No stale edges yet (fresh conformance).
+    assert!(kernel.index().breakdown(NOW).unwrap().is_empty());
+
+    // Edit ONLY the combat facet carrier (a new carrier revision).
+    let combat_base = combat_cs[0].revision.clone();
+    let revise = crate::coherence::operator::Candidate::new(
+        combat_canon,
+        "combat rules v2".into(),
+        combat_base,
+        vec![],
+        "tidy",
+        "revise combat canon",
+    );
+    let p = kernel.index().project_candidates(&revise, NOW).unwrap();
+    crate::coherence::accept::accept_candidate(&mut kernel, &revise, &p.structural_classes, NOW)
+        .unwrap();
+
+    // Only the combat conformer restales; the lore conformer stays fresh.
+    let stale = kernel.index().breakdown(NOW_LATE).unwrap();
+    assert_eq!(stale.len(), 1, "only the combat facet's conformer restales");
+    assert_eq!(stale[0].downstream, combat_scene);
+    assert_ne!(stale[0].downstream, lore_scene);
+}
