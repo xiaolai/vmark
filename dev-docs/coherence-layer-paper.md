@@ -3,13 +3,14 @@ vmark:
   id: 019f758b-af1f-7821-bd64-8c5e584cf25a
 ---
 # Semantic Version Control for Recursively Developed Creative Work
-## The VMark Coherence Layer — Design Paper
+## The VMark Coherence Layer — Design Paper · kernel of a semantic-state runtime, proven first on creative work
 
-- **Version:** 1.1 (revised after cross-model review — see Appendix A)
+- **Version:** 2.0 (scope-framing broadened to name the semantic-state-runtime arc — see Appendix A.2; deliverable, requirements, and kernel unchanged)
 - **Date:** 2026-07-18
 - **Review:** Codex architecture review (thread `019f73e8-fb4b-7212-b4cf-5941a49de095`),
-  verdict on v1.0: MAJOR GAPS. All blockers addressed in this revision;
-  disposition table in Appendix A.
+  verdict on v1.0: MAJOR GAPS. All blockers addressed in v1.1;
+  disposition table in Appendix A. **v2.0 scope-framing re-review: pending
+  (rule 60 §6) — see Appendix A.2.**
 - **Status:** This paper **guides the implementation plan**, which is written
   after and traces to it (`dev-docs/plans/`, per `.claude/rules/60-ai-governance.md`).
   Requirements carry stable IDs (R1–R23), invariants I1–I4, open problems
@@ -48,6 +49,18 @@ Truth lives in plain text; a per-workspace database is a disposable index; git
 remains authoritative for content transport while the kernel is authoritative
 for identity, edges, and meaning.
 
+This paper's *deliverable* is recursively developed **creative** work, but the
+coherence layer it specifies is a **domain-neutral candidate kernel**: it
+maintains the **state of a network of co-constraining semantic objects** — a
+structure that recurs in many materially different forms of knowledge work (a
+research program's hypotheses and results, a codebase's modules and specs, a
+curriculum's concepts). Creative work is the first vertical, proven deeply;
+whether the *same* kernel earns other domains — via schema packs (§10), each
+with its own evidence — is a **hypothesis this paper does not prove**.
+**Generality is earned, not declared**; this paper delivers the vertical and
+names the larger arc (`dev-docs/vision.md`) it is *intended* to be the kernel
+of.
+
 ---
 
 ## 1. Introduction and Motivation
@@ -59,6 +72,24 @@ the other. Add engines — characters, world rules, storyboards, generated
 media — and cross-constraints grow roughly quadratically. LLMs amplify the
 problem: generation became cheap, so the binding constraint moved from
 *producing* artifacts to *keeping them coherent*.
+
+**Why this needs a *system*, and why it may generalize.** The state that decides
+coherence — *which object was developed against which version of which other
+object* — is a network that human memory does not maintain: memory has no
+staleness propagation, so revise an upstream object and the downstream work
+written against its prior version rots silently, with nothing to surface it.
+Existing tools do not close this for *meaning* — §3.1 shows VFX and asset
+pipelines maintain version and staleness networks, but none combine semantic
+identity, version-pinned dependencies, context-relative staleness, semantic
+checking, and human resolution over natural-language artifacts. This structure
+recurs in many materially different forms of knowledge work (hypotheses and
+results, modules and specs, concepts and their dependents). The coherence layer
+exists to **maintain that network's state as first-class** — capturing
+dependency edges as work happens and surfacing, per context, exactly what went
+stale — turning recursion from invisible, accumulating debt into a visible work
+queue. This paper proves the mechanism on creative work; whether the *same*
+kernel earns other domains as schema packs (§10) is a hypothesis to be tested,
+not a proven property (`dev-docs/vision.md`).
 
 Why current tools fail:
 
@@ -452,6 +483,16 @@ stateDiagram-v2
   check) — never as a background nag (I4, R14). **Unknown** (provider down,
   timeout, malformed output, low confidence) is a first-class result, never
   collapsed into valid or contradicted (R25).
+- The Axis-2 checker is **fallible advice, never an oracle.** 2026 evidence
+  (`dev-docs/deep-researches/20260719-coherence-viability-architecture.md`) shows
+  LLM-as-judge over natural language is foolable by content-free inputs *even
+  reference-anchored*, and that judge *reliability ≠ validity* (human agreement
+  only κ ≈ 0.38–0.51). So the advisory stance (I3) is necessary but **not
+  sufficient**: the check must be wrapped in deterministic/structural guardrails —
+  the version axis gates *what* is worth checking, adversarial/degenerate-input
+  filtering rejects content-free passes, and low-confidence verdicts route to the
+  human rather than resolving. The exact guardrail set is an open follow-up (see
+  that report's open questions).
 - Breakdown-view actions are honest about what they create (R15): **accept
   newer** appends a ratification record; **revise** opens the artifact so a
   *new transformation* updates it; **waive** appends a waiver. No action
@@ -707,8 +748,13 @@ purity (R22, R27) is what makes it cheaply testable.
   a separate, later concern).
 - No automatic semantic propagation (unsolved in the literature; the human is
   the scheduler by design, not by limitation).
-- No standalone engine project, no runtime code-plugin API, no rebrand of
-  VMark's identity.
+- No standalone engine project, no runtime code-plugin API (Tier 5, deferred),
+  no rebrand of VMark's identity — **unconditionally**, not merely for this
+  release. R22 kernel extraction-readiness is a *module boundary*, not a
+  trajectory toward a separate product: the semantic-state-runtime arc
+  (Abstract / `vision.md`) is **VMark becoming the runtime in-product**, and any
+  cross-domain generality is **earned via schema packs (§10) with per-domain
+  evidence, never declared** — never a standalone engine.
 - No cloud/collaboration layer; git remains the transport.
 - No attempt to make LLM checking a blocking gate — it is advisory to a human,
   always (I3).
@@ -786,3 +832,29 @@ policy; canon lifecycle detail (Phase 2a); multi-writer protocol detail
 Rejected: none. The review found no findings we assess as incorrect; two
 were already partially covered (O7 multi-writer, O9 granularity) and were
 promoted rather than newly added.
+
+## Appendix A.2 — v1.1 → v2.0 scope-framing broadening
+
+**What changed (framing only):** the subtitle, Abstract, and §1 now name the
+larger arc — the coherence layer as a **domain-neutral candidate kernel** for
+recursively developed knowledge work, with creative work as the first,
+deeply-proven vertical. Later domains are *expected* to arrive as schema packs
+(§10) **subject to their own evidence**; "earned generality" means a genuinely
+non-creative second vertical working *without* kernel specialization — which this
+paper does not claim to have achieved. §14's prohibitions (no standalone engine,
+no rebrand) remain **unconditional**; R22 extraction-readiness is a module
+boundary, not a separate-product trajectory.
+
+**What did NOT change:** requirements R1–R33, invariants I1–I5, the kernel model
+(§5), the two-axis-staleness contribution (§6), storage/git/architecture
+(§7–§9), open problems (§11), and the creative-work evaluation (§12).
+
+**Re-review — ACCEPT WITH CHANGES (thread `019f7a2e…`), all applied.** Codex
+found v2.0's first draft *declared* generality as an achieved property
+(present-tense "domain-general", "serves any domain") and added a temporal
+loophole to §14. Corrected: generality is now framed as a hypothesis/destination
+(domain-neutral *candidate* kernel; "may generalize"; "hypothesis to be
+tested"); §14's boundary restored to unconditional; §1's prior-art claim
+narrowed to the exact unsatisfied capability combination (§3.1). A companion
+inconsistency in `vision.md` — "verification gates every change" vs. the
+advisory-check + post-hoc-capture model — was reconciled there.
