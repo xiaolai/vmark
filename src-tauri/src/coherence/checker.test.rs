@@ -178,3 +178,61 @@ fn oversized_texts_are_truncated_with_marker() {
     assert!(prompt.contains("[truncated]"));
     assert!(prompt.len() < big.len() + 4000);
 }
+
+// WI-3.0d — transient candidate-check prompt (design D3). Proposal-vs-inputs/
+// canon consistency, distinct from the stale-edge drift prompt.
+
+#[test]
+fn candidate_prompt_fences_proposal_inputs_and_claims() {
+    let prompt = build_candidate_check_prompt(&CandidateCheckInput {
+        proposal_path: "scene-12.md",
+        proposal_text: "Elena has green eyes.",
+        inputs: &[("elena.md", "Elena has brown eyes.")],
+        claims: &["Elena is the protagonist.".to_string()],
+        nonce: "abc",
+    });
+    // Everything untrusted is fenced as data with the nonce (H13).
+    assert!(prompt.contains("<data-abc label=\"proposal\">"));
+    assert!(prompt.contains("<data-abc label=\"input\">"));
+    assert!(prompt.contains("<data-abc label=\"established-claims\">"));
+    // It judges the PROPOSAL (not a pinned-vs-current drift).
+    assert!(prompt.contains("PROPOSED"));
+    assert!(prompt.contains("scene-12.md"));
+}
+
+#[test]
+fn candidate_prompt_handles_no_inputs_and_no_claims() {
+    let prompt = build_candidate_check_prompt(&CandidateCheckInput {
+        proposal_path: "p.md",
+        proposal_text: "text",
+        inputs: &[],
+        claims: &[],
+        nonce: "n",
+    });
+    assert!(prompt.contains("Declared inputs:\nNone."));
+    assert!(prompt.contains("Established claims in force:\nNone."));
+}
+
+#[test]
+fn candidate_prompt_caps_claims() {
+    let claims: Vec<String> = (0..(MAX_CLAIMS + 20))
+        .map(|i| format!("claim {i}"))
+        .collect();
+    let prompt = build_candidate_check_prompt(&CandidateCheckInput {
+        proposal_path: "p.md",
+        proposal_text: "t",
+        inputs: &[],
+        claims: &claims,
+        nonce: "n",
+    });
+    // The (MAX_CLAIMS)-th is present; the one past the cap is not.
+    assert!(prompt.contains(&format!("claim {}", MAX_CLAIMS - 1)));
+    assert!(!prompt.contains(&format!("claim {}", MAX_CLAIMS + 5)));
+}
+
+#[test]
+fn candidate_response_parses_with_the_same_discipline() {
+    // Reuses parse_check_response: a contradiction still needs evidence.
+    let p = parse(r#"{"verdict":"contradiction","confidence":0.99,"evidence":[]}"#);
+    assert_eq!(p.verdict, CheckVerdict::Unknown);
+}
