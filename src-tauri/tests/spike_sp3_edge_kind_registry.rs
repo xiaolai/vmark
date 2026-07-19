@@ -6,21 +6,33 @@
 //!
 //! ## Recorded decision: KERNEL-LEVEL TYPED REGISTRY
 //!
-//! Propagation is *executable behavior*, not data: "a version-stale upstream
-//! restales this edge" is a rule the projection runs, not a value it reads. In
-//! the tier model (paper §10) declarative metadata is Tier 1, but executable
-//! behavior is **Tier 5 (deferred)** — the same reason `design-runtime.md` D5
-//! keeps operators built-in Rust rather than Tier-1 schema-pack functions. A
-//! Tier-1 declaration could carry a kind's *metadata* (origin/shape) but its
-//! *propagation* would still need kernel code, so a schema-pack placement buys
-//! extensibility the runtime can't yet honor. The kernel registry is type-safe,
-//! single-source, and characterization-testable. Revisit if/when Tier 5 lands.
+//! Both placements can express the *current* propagation classes as **data** —
+//! propagation for v1 is a small enum (`version | none`), not a closure. (The
+//! earlier "propagation is behavior, not data" rationale was wrong, per G-B
+//! round-5 #4; a genuinely *new* propagation behavior would need kernel code in
+//! BOTH placements, so that is not what separates them.) The real trade is
+//! **type-safety and single-source vs runtime data-extensibility**:
 //!
-//! This probe prototypes the **chosen (kernel) side** and proves it reproduces
-//! the two existing behaviors as registry entries: `Dependency` gets
-//! propagation `Version` (today's hardcoded version axis), while inert kinds
-//! (`PartOf`, `Mention`) get propagation `None` (captured and visible, but never
-//! stale). Contradiction is deliberately **absent** from the registry — it is an
+//! - **Kernel (a):** the `kind -> (origin, shape, propagation)` mapping is a Rust
+//!   `match` with no wildcard, so adding a variant **fails to compile until it is
+//!   registered** — compile-time totality. No external data to parse, trust, or
+//!   validate. One source of truth.
+//! - **Schema-pack (b):** a data table `[{name, origin, shape, propagation}]`
+//!   plus a generic kernel **interpreter** that reads the `propagation` tag.
+//!   Adding a kind whose tag the interpreter already knows is a *data* change —
+//!   genuine runtime extensibility. But a typo'd or unknown tag compiles and
+//!   fails at **runtime**; the table must be parsed, validated, and trusted; and
+//!   a new propagation class still needs the interpreter (kernel) extended.
+//!
+//! For v1 the kind set is small and semantically load-bearing — each kind's
+//! propagation is a deliberate design decision, not user-supplied data — so the
+//! kernel's compile-time totality and type-safety outweigh a runtime
+//! extensibility the runtime does not need. **Decision: kernel registry.**
+//! Revisit if/when kinds become user-authored (schema packs, Tier 5).
+//!
+//! This probe prototypes **both** sides and proves each reproduces the version
+//! axis, then demonstrates the trade (the interpreter's runtime-failure mode).
+//! Contradiction is deliberately **absent** from either registry — it is an
 //! `EdgeCheck` assessment, not an origin-edge kind (G-B consistency #2).
 //!
 //! Run: `cargo test --manifest-path src-tauri/Cargo.toml --test
@@ -182,45 +194,115 @@ fn contradiction_is_not_representable_as_a_kind() {
     }
 }
 
-// ---- the REFUTED side (b): a Tier-1 schema-pack declaration ------------------
+// ---- side (b), FAIRLY prototyped: a schema-pack table + kernel interpreter ---
 //
-// WI-0.3 asks to prototype BOTH placements. This is the minimal schema-pack
-// declaration — a *data* record with no executable behavior, as Tier 1 requires
-// (paper §10). It demonstrates by construction why schema-pack placement is
-// refuted: the declaration can carry `origin`/`shape` metadata, but a kind's
-// *propagation rule* is behavior that a declarative record cannot express — it
-// would need Tier 5 (executable schema packs, deferred). So a schema-pack kind
-// still requires kernel code for propagation, splitting each kind's definition
-// across two tiers. The kernel registry (side a) keeps it whole.
+// The honest schema-pack placement (G-B round-5 #4): kinds are DATA rows that
+// carry a `propagation` *tag*, and a generic kernel INTERPRETER reads the tag.
+// This genuinely reproduces the version axis — adding a kind whose tag the
+// interpreter knows is a data change, not a code change. It is a real
+// alternative, not a straw man.
 
-/// A Tier-1 declaration carries only *nameable data* — never a rule/closure.
-struct SchemaPackKindDecl {
+/// One kind declared as pure data (what a schema pack would ship).
+struct KindDecl {
     name: &'static str,
-    origin: &'static str, // "captured" | "discovered"  (data)
-    shape: &'static str,  // "directional" | "symmetric" (data)
-                          // NOTE: there is deliberately NO `propagation: fn(...) -> ...` field here.
-                          // Executable behavior is Tier 5; a Tier-1 record cannot hold it. That
-                          // absence IS the refutation.
+    origin: &'static str,      // "captured" | "discovered"
+    shape: &'static str,       // "directional" | "symmetric"
+    propagation: &'static str, // "version" | "none"  ← the decision-bearing datum
 }
 
-#[test]
-fn schema_pack_declaration_cannot_carry_propagation_behavior() {
-    // A schema pack CAN declare the metadata...
-    let decl = SchemaPackKindDecl {
+/// A schema pack: a table of declarations, parsed/trusted at load.
+const SCHEMA_PACK: &[KindDecl] = &[
+    KindDecl {
+        name: "dependency",
+        origin: "captured",
+        shape: "directional",
+        propagation: "version",
+    },
+    KindDecl {
         name: "conformance",
         origin: "captured",
         shape: "directional",
-    };
-    assert_eq!(decl.name, "conformance");
-    assert_eq!(decl.origin, "captured");
-    assert_eq!(decl.shape, "directional");
+        propagation: "version",
+    },
+    KindDecl {
+        name: "supersession",
+        origin: "captured",
+        shape: "directional",
+        propagation: "version",
+    },
+    KindDecl {
+        name: "part-of",
+        origin: "captured",
+        shape: "directional",
+        propagation: "none",
+    },
+    KindDecl {
+        name: "mention",
+        origin: "discovered",
+        shape: "directional",
+        propagation: "none",
+    },
+];
 
-    // ...but the propagation RULE for "conformance" — "a version-stale canon
-    // restales its conformers" — is not derivable from this record; it must be
-    // supplied by kernel code (the `meta`/`propagates_version` functions above).
-    // The declaration alone cannot answer the one question projection needs:
-    assert!(propagates_version(OriginEdgeKind::Conformance));
-    // ^ that answer came from the KERNEL registry, not from `decl`. A pure Tier-1
-    // pack would have to defer this to kernel behavior anyway — so the kernel is
-    // where the kind belongs. Decision: kernel registry (recorded in the report).
+/// The generic kernel interpreter: reads a declaration's tag → a Propagation.
+/// `None` means the tag is unknown — a **runtime** failure the kernel `match`
+/// (side a) makes impossible at compile time.
+fn interpret_propagation(tag: &str) -> Option<Propagation> {
+    match tag {
+        "version" => Some(Propagation::Version),
+        "none" => Some(Propagation::None),
+        _ => None, // unknown propagation class — needs the interpreter extended
+    }
+}
+
+fn schema_pack_lookup(name: &str) -> Option<&'static KindDecl> {
+    SCHEMA_PACK.iter().find(|d| d.name == name)
+}
+
+#[test]
+fn schema_pack_reproduces_the_version_axis() {
+    // Side (b) answers the same question side (a) does, via data + interpreter.
+    let dep = schema_pack_lookup("dependency").expect("declared");
+    assert_eq!(
+        interpret_propagation(dep.propagation),
+        Some(Propagation::Version)
+    );
+    let part = schema_pack_lookup("part-of").expect("declared");
+    assert_eq!(
+        interpret_propagation(part.propagation),
+        Some(Propagation::None)
+    );
+
+    // ...and it agrees with the kernel registry for every shared kind.
+    assert_eq!(
+        interpret_propagation(schema_pack_lookup("conformance").unwrap().propagation),
+        Some(meta(OriginEdgeKind::Conformance).propagation)
+    );
+
+    // The declaration also carries origin/shape as data — the full metadata a
+    // schema pack would ship, matching the kernel `meta` for the shared kind.
+    assert_eq!(dep.origin, "captured");
+    assert_eq!(dep.shape, "directional");
+    assert_eq!(schema_pack_lookup("mention").unwrap().origin, "discovered");
+}
+
+#[test]
+fn schema_pack_fails_at_runtime_where_the_kernel_fails_at_compile_time() {
+    // The decision-bearing difference: a schema-pack kind with a mistyped or
+    // not-yet-supported propagation tag COMPILES and only fails when interpreted.
+    let typo = KindDecl {
+        name: "citation",
+        origin: "captured",
+        shape: "directional",
+        propagation: "verison", // typo — nothing catches this at build time
+    };
+    assert_eq!(
+        interpret_propagation(typo.propagation),
+        None,
+        "an unknown tag is a runtime failure; the kernel `match` would not compile"
+    );
+    // Side (a): `meta` has no wildcard, so a new/typo'd variant fails the BUILD —
+    // `every_kind_has_exactly_one_registry_entry` documents that totality. That
+    // compile-time safety, plus single-source and no external-data trust, is why
+    // the decision is the kernel registry for v1 (see the module header).
 }

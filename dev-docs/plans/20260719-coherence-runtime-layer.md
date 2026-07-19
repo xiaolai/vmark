@@ -188,7 +188,7 @@ increment design pass (SP-canon) before it decomposes to committable WIs — it 
 
 ---
 
-## Cross-model review rounds 3–4 (G-B) — record and disposition
+## Cross-model review rounds 3–5 (G-B) — record and disposition
 
 - **Round 3** (`019f7b59…`, MAJOR GAPS partially discharged): 8/15 round-2 items
   fully addressed; found 5 new precise defects. **Round 4** (`019f7b68…`, **NEEDS
@@ -206,8 +206,18 @@ increment design pass (SP-canon) before it decomposes to committable WIs — it 
 | WI-0.3 required prototyping *both* placements; SP3 prototyped only the kernel | Medium (r4) | **SP3:** added a Tier-1 schema-pack *declaration sketch* whose absent `propagation` field refutes side (b) by construction (6/6); WI-0.3 wording aligned. |
 | Minor drift: spec "rev 2"; SP1 "3/3" | Low (r4) | Fixed (rev 3; 4/4). |
 
-Per round 4, **no residual Phase-0/Phase-1 blocker remains**; the V4.1–V4.3
-defects were Phase-3.0 correctness and are fixed above.
+**Round 5** (`019f7b7e…`, confirmatory, NEEDS REVISION): confirmed v4.2 (torn
+window) and v4.1 (preimage) **CORRECT**; found 2 residual defects, both fixed:
+
+| Round-5 finding | Sev | Disposition |
+|---|---|---|
+| v4.3 keyed by the **non-unique** `SemanticEdgeKey` → coincident edges collide, a per-physical-edge waiver/ratification is missed | Blocker | **v4.3:** key by **physical edge identity** `(txf, input_idx, downstream, downstream_rev)` (candidate edges: `(candidate_rev, ordinal)`) — unique. WI-3.0e + spec §13.5 updated. |
+| SP3's schema-pack "refutation" was rigged (deleted the propagation datum, then called the kernel), and the kernel registry itself models propagation as enum **data** — refuting the "behavior not data" rationale | Blocker (Phase-0) | **SP3 rewritten (7/7):** a real schema-pack data table + interpreter that reproduces the version axis; decision re-grounded on **type-safety/totality/single-source**, not the false claim. Both placements fairly prototyped. |
+| `state.rs:160` citation | Minor | Corrected to `state.rs:179`. |
+
+After round 5's fixes, **no residual Phase-0/Phase-1 blocker remains**; the
+V4.1–V4.3 defects were Phase-3.0 correctness and are all fixed. A confirmatory
+round 6 may run before Phase-3.0 commits.
 
 ## Cross-model review round 2 (G-B) — record and disposition
 
@@ -331,7 +341,7 @@ The production seams SP0 exercises. TDD, real source, each independently useful:
 | WI-3.0b | **Idem→receipt lookup:** `applied.entry_id` column + `entry_id_by_idem`; accept returns the *original* receipt on replay instead of dropping it. Migration = schema bump→rebuild backfill. | design v4.2 (BLOCKER 1) |
 | WI-3.0c | **Full canonical accept idem** (v4.1 preimage: format, operator, output object/hash/rev/sorted-parents, each input, agent, intent, confidence) — replaces D4's three-field formula. | design v4.1 (BLOCKER 2) |
 | WI-3.0d | **Transient candidate-check** (D3 contract, decomposed): a `build_candidate_check_prompt` distinct from the stale-edge prompt; result held in memory only; out-of-lock drift marks the verdict stale-and-discarded; timeout/error/cancel/malformed → `unknown`; never appended. RED/GREEN per D3 bullet. | design D3, G-B completeness #4 |
-| WI-3.0e | **Reproject-under-lock accept precondition** (v4.3): recompute the affected-set structural-class **map keyed by `SemanticEdgeKey`** (check-independent — only the check verdict is erased, so a concurrent semantic verdict **never** blocks accept; keyed so a compensating edge-class swap is still caught) under the kernel lock; reject on any per-key difference vs the previewed `S_preview` (incl. base-head revalidation); else append. Property tests: (1) a concurrent check between preview and accept does **not** reject; (2) a compensating swap of two edges' classes **does** reject. | design v4.3 (BLOCKER 3) |
+| WI-3.0e | **Reproject-under-lock accept precondition** (v4.3): recompute the affected-set structural-class map **keyed by physical edge identity** `(txf, input_idx, downstream, downstream_rev)` — *not* the non-unique `SemanticEdgeKey` — (check-independent: only the check verdict is erased, so a concurrent semantic verdict **never** blocks accept; physically keyed so coincident edges don't collide and a compensating swap is still caught) under the kernel lock; reject on any per-key difference vs the previewed `S_preview` (incl. base-head revalidation); else append. Property tests: (1) a concurrent check does **not** reject; (2) a compensating swap of two edges' classes **does** reject; (3) two coincident edges (shared `SemanticEdgeKey`) are tracked separately. | design v4.3 (BLOCKER 3) |
 
 **Gated by G-A + SP1 PASS + WI-0.4 merged.** Scope is single-object/single-output.
 
