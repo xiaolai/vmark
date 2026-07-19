@@ -1,7 +1,3 @@
----
-vmark:
-  id: 019f758c-5536-79f0-9301-a463477869de
----
 # Coherence Dogfood Log
 
 Per-session metric record against the spec §11 baselines
