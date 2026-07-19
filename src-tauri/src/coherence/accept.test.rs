@@ -118,12 +118,19 @@ fn a_retry_returns_the_original_receipt_and_does_not_double_append() {
 }
 
 #[test]
-fn a_torn_ledger_entry_is_healed_into_the_index_on_lookup() {
+fn a_torn_accept_entry_is_recovered_after_reopen() {
+    // Fix A (heal-on-open) + Fix B (O(1) idem lookup) together: an accept whose
+    // ledger append survived a crash but whose index apply did not is recovered
+    // on the next open, and a retry then returns the ORIGINAL receipt without
+    // re-appending — the real torn-window path (the per-lookup heal is gone).
     use crate::coherence::accept_precondition::ClassMap;
     use crate::coherence::operator_accept::operator_accept_idem;
     use crate::coherence::types::FORMAT_VERSION;
 
-    let (_dir, mut kernel, u, _d, u1) = seeded();
+    let (dir, mut kernel, u, _d, u1) = seeded();
+    // Persist the index so a reopen LOADS it (needs_rebuild = false) — the path
+    // where heal-on-open matters.
+    kernel.ensure_initialized().unwrap();
     let candidate = Candidate::new(u, "U revised".into(), u1, vec![], "tidy", "s");
 
     // Simulate a crash BETWEEN the ledger append and the index apply: write the
@@ -143,23 +150,27 @@ fn a_torn_ledger_entry_is_healed_into_the_index_on_lookup() {
     kernel.ledger().append(&env).unwrap(); // ledger only — index NOT applied
     assert!(
         kernel.index().entry_id_by_idem(&idem).unwrap().is_none(),
-        "the index does not have the torn entry yet",
+        "precondition: the live index has not applied the torn entry",
     );
 
-    // Accept finds the ledger entry (idem match) and HEALS the index before
-    // returning — the reproject/append are skipped (it's already committed).
+    // Reopen: heal-on-open reconciles the torn entry into the loaded index.
+    let writer = kernel.writer();
+    drop(kernel);
+    let mut kernel = WorkspaceKernel::open(dir.path(), writer).unwrap();
+    assert_eq!(
+        kernel.index().entry_id_by_idem(&idem).unwrap(),
+        Some(torn_id),
+        "heal-on-open recovered the torn entry into the index",
+    );
+
+    // Accept now finds it via the O(1) index lookup and returns the ORIGINAL —
+    // no reproject, no second append.
     let receipt = accept_candidate(&mut kernel, &candidate, &ClassMap::new(), NOW).unwrap();
     assert!(
         !receipt.committed,
         "returns the torn entry, does not re-append"
     );
     assert_eq!(receipt.entry_id, torn_id);
-
-    // The index is now healed: it knows the entry, and U resolves to the candidate.
-    assert_eq!(
-        kernel.index().entry_id_by_idem(&idem).unwrap(),
-        Some(torn_id),
-    );
     assert_eq!(
         kernel.index().resolve_live(&u).unwrap(),
         Resolved::Single(candidate.revision.clone())

@@ -67,6 +67,77 @@ fn append_and_apply_then_reopen_rebuilds_from_ledger() {
 }
 
 #[test]
+fn open_heals_a_torn_ledger_entry_into_a_loaded_index() {
+    // Simulate a hard crash between the ledger append (durable, fsync'd) and the
+    // index apply (SQLite): the entry lives in the ledger but never reached the
+    // persisted index. On the next open a schema-valid index.db is LOADED, not
+    // rebuilt — heal-on-open must reconcile it so the torn entry is not lost.
+    let dir = tmp();
+    let torn_idem;
+    {
+        let mut kernel = WorkspaceKernel::open(dir.path(), writer(1)).unwrap();
+        kernel.ensure_initialized().unwrap();
+        // One normally-applied entry, so index.db is persisted + non-empty.
+        let e1 = Envelope::create(
+            "diagnostic",
+            writer(1),
+            json!({ "code": "a", "message": "applied", "path": null }),
+        );
+        kernel.append_and_apply(&e1).unwrap();
+        // A second entry that reaches the LEDGER ONLY (the torn-crash window).
+        let e2 = Envelope::create(
+            "diagnostic",
+            writer(1),
+            json!({ "code": "b", "message": "torn", "path": null }),
+        );
+        torn_idem = e2.idem;
+        kernel.ledger().append(&e2).unwrap();
+        assert!(
+            kernel
+                .index()
+                .entry_id_by_idem(&torn_idem)
+                .unwrap()
+                .is_none(),
+            "precondition: the live index has not applied the torn entry",
+        );
+    }
+    // Reopen: index.db is schema-valid → loaded, not rebuilt. Heal-on-open must
+    // catch it up against the ledger.
+    let kernel = WorkspaceKernel::open(dir.path(), writer(1)).unwrap();
+    assert!(
+        kernel
+            .index()
+            .entry_id_by_idem(&torn_idem)
+            .unwrap()
+            .is_some(),
+        "heal-on-open must reconcile the torn ledger entry into the loaded index",
+    );
+}
+
+#[test]
+fn open_skips_reconcile_when_the_index_is_caught_up() {
+    // The cheap probe: a caught-up single-writer index (raw line count ==
+    // applied count) needs no reconcile. We can't observe timing here, but we
+    // assert the outcome is stable — reopening a caught-up workspace is a no-op.
+    let dir = tmp();
+    let idem;
+    {
+        let mut kernel = WorkspaceKernel::open(dir.path(), writer(1)).unwrap();
+        kernel.ensure_initialized().unwrap();
+        let e = Envelope::create(
+            "diagnostic",
+            writer(1),
+            json!({ "code": "a", "message": "applied", "path": null }),
+        );
+        idem = e.idem;
+        kernel.append_and_apply(&e).unwrap();
+    }
+    let kernel = WorkspaceKernel::open(dir.path(), writer(1)).unwrap();
+    assert!(kernel.index().entry_id_by_idem(&idem).unwrap().is_some());
+    assert_eq!(kernel.ledger().read_all().unwrap().entries.len(), 1);
+}
+
+#[test]
 fn registry_shares_one_kernel_per_root() {
     let dir = tmp();
     let registry = KernelRegistry::default();

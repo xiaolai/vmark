@@ -51,6 +51,21 @@ impl WorkspaceKernel {
             let read = ledger.read_all()?;
             quarantined = read.quarantined.len();
             index.rebuild_from(&read.entries)?;
+        } else {
+            // Heal-on-open (design-accept-consistency Fix A). A schema-valid
+            // index is loaded, not rebuilt — so a crash between a ledger append
+            // (durable) and its index apply would stay torn across opens. Cheap
+            // probe: the ledger's raw line count equals the index's applied idem
+            // count iff caught up. On mismatch, reconcile precisely and rebuild
+            // only if the deduped entry count actually exceeds what's applied
+            // (a raw>applied gap can be mere dupes/quarantine, not a torn tail).
+            if ledger.raw_entry_count()? != index.applied_count()? {
+                let read = ledger.read_all()?;
+                quarantined = read.quarantined.len();
+                if read.entries.len() != index.applied_count()? {
+                    index.rebuild_from(&read.entries)?;
+                }
+            }
         }
         Ok(Self {
             root: root.to_path_buf(),

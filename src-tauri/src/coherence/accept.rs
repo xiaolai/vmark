@@ -5,9 +5,11 @@
 //!
 //! 1. **tamper check** (v4.6): recompute the content hash + revision id from the
 //!    resubmitted payload; reject a mismatch.
-//! 2. **ledger-authoritative idem lookup** (v4.2): if this idem already
-//!    committed, return the ORIGINAL receipt without appending — closes the
-//!    lost-response-retry hole across the append-before-apply torn window.
+//! 2. **idem lookup** (v4.2): if this idem already committed, return the
+//!    ORIGINAL receipt without appending — closes the lost-response-retry hole.
+//!    O(1) via the index; heal-on-open (design-accept-consistency Fix A) keeps
+//!    the index authoritative across the append-before-apply torn window, so
+//!    this no longer scans the whole ledger per accept.
 //! 3. **base-head revalidation** (D6): the candidate's base must still be the
 //!    single live head.
 //! 4. **reproject-under-lock precondition** (v4.3): the affected set's structural
@@ -59,20 +61,13 @@ pub fn accept_candidate(
     });
     let idem = operator_accept_idem(&candidate.operator, FORMAT_VERSION, &txf)?;
 
-    // 2. Ledger-authoritative idem lookup (v4.2): the ledger is the source of
-    // truth, readable regardless of index state, so a retry after a torn crash
-    // still finds the original and never double-appends.
-    let read = kernel.ledger().read_all()?;
-    if let Some(existing) = read.entries.iter().find(|e| e.idem == idem) {
-        let entry_id = existing.id;
-        // Heal the append-before-apply torn window (G-B group-commit review #4):
-        // the ledger has this entry but a crash may have skipped the index apply,
-        // and a *valid* index is not rebuilt on open — so the index could lack it
-        // forever. Re-apply before returning (apply_entry is idempotent by idem).
-        if kernel.index().entry_id_by_idem(&idem)?.is_none() {
-            let env = existing.clone();
-            kernel.index_mut().apply_entry(&env)?;
-        }
+    // 2. Idem lookup (v4.2), O(1) via the index. The index is authoritative for
+    // idem here: heal-on-open reconciles any torn crash tail
+    // (design-accept-consistency Fix A), and append_and_apply rebuilds on an
+    // apply failure — so a committed idem is always visible without a per-accept
+    // ledger scan. A retry (same session or across a crash+reopen) returns the
+    // ORIGINAL receipt and never double-appends.
+    if let Some(entry_id) = kernel.index().entry_id_by_idem(&idem)? {
         return Ok(AcceptReceipt {
             entry_id,
             revision: candidate.revision.as_str().to_string(),
