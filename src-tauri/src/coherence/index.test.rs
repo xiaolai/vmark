@@ -453,3 +453,39 @@ fn prior_waiver_count_appears_on_rows() {
     assert_eq!(rows.len(), 1, "expired waivers leave the edge stale");
     assert_eq!(rows[0].prior_waivers, 2);
 }
+
+// WI-3.0b — idem→receipt lookup (design v4.2). The accept retry must return the
+// ORIGINAL entry, not silently drop the replay.
+#[test]
+fn entry_id_by_idem_returns_the_original_on_replay() {
+    let e = txf_entry(
+        "2026-07-18T09:00:02Z",
+        vec![],
+        vec![OutputRef {
+            object: oid(1),
+            revision: rev(0, &[]),
+            content_hash: hash(0),
+            parents: vec![],
+        }],
+    );
+    let idem = e.idem;
+    let original_id = e.id;
+
+    // A crash-recovery replay: SAME idem, a fresh entry id.
+    let mut replay = e.clone();
+    replay.id = uuid::Uuid::from_u128(0xdead);
+    assert_ne!(replay.id, original_id);
+
+    let idx = mem_index_with(&[e, replay]);
+    assert_eq!(
+        idx.entry_id_by_idem(&idem).unwrap(),
+        Some(original_id),
+        "the replay must not overwrite the original receipt",
+    );
+    // An idem never applied → None (the append path, not a dedup).
+    assert_eq!(
+        idx.entry_id_by_idem(&uuid::Uuid::from_u128(0xbeef))
+            .unwrap(),
+        None,
+    );
+}
