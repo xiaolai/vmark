@@ -53,6 +53,7 @@ pub mod preview;
 pub mod project;
 pub mod provenance;
 pub mod provenance_commands;
+pub mod read_model;
 pub mod read_view;
 pub mod scan;
 pub(crate) mod scan_diagnostics;
