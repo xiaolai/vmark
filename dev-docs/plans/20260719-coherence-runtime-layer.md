@@ -58,10 +58,11 @@ clean (coherence lib **303 passed**, spikes 4+7, inventory 11):
 | WI-2.1 edge-kind registry | ✅ **done** | `edge_kind.rs` (7 tests) + `OriginEdge.kind` + `project_edge` gating + schema v4 col; characterization-tested, behaviour-preserving |
 | WI-2.4 read-model (backend) | ✅ **done** | `EdgeRow.kind`; frontend grouping + i18n×10 remain |
 | WI-3.0a bounded ReadView | ✅ **done** | `read_view.rs` — `edges_by_downstream` + `edges_incident_to` cap, 4 tests |
+| WI-3.0b idem-receipt lookup | ✅ **done** | `applied.entry_id` (schema v5) + `entry_id_by_idem`; index fast-path, original-on-replay test |
 | WI-3.0c accept idem | ✅ **done** | `operator_accept.rs` — injective length-prefixed preimage, 6 tests |
+| WI-3.0d transient candidate check | ✅ **done** | `build_candidate_check_prompt` (checker.rs), proposal-vs-inputs/canon, 4 tests |
 | WI-3.0e reproject precondition | ✅ **done** | `accept_precondition.rs` — check-independent, physical-keyed, 8 tests |
-| WI-3.0b idem-receipt, WI-3.0d transient check | ⬜ **remaining (backend)** | `applied.entry_id` migration + ledger-scan lookup; transient candidate-check prompt |
-| SP0 integration gate | ⬜ **remaining** | needs all 3.0 primitives + operator runtime + a real perf/fault harness (20 ms / 16 MiB) |
+| SP0 integration gate | ⬜ **remaining** | all 5 primitives done; needs the operator runtime + accept command wiring them (ledger-authoritative lookup-before-append) + a real perf/fault harness (20 ms / 16 MiB) |
 | Phase 3 operators + UI + MCP | ⬜ **remaining** | WI-3.1–3.7; UI + i18n×10 need frontend + visual QA |
 | Phase 4 (canon) | ⬜ **gated** | needs the **SP-canon** design pass first |
 | Phase 5 (merge auditor) | ⬜ **gated** | needs the **SP4** merge-mapping spike first |
