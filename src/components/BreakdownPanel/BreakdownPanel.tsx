@@ -23,8 +23,11 @@ import {
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import {
   createContext,
+  createContextFromBranch,
+  refreshBranchCandidate,
   refreshBreakdown,
   refreshContexts,
+  refreshMergeNotice,
   setContextEnforcement,
 } from "@/services/breakdown/breakdownService";
 import {
@@ -32,6 +35,7 @@ import {
   refreshProvenance,
 } from "@/services/breakdown/semanticActs";
 import { DelegationsSection } from "./DelegationsSection";
+import { MergeBanner } from "./MergeBanner";
 import { ProvenanceGroup } from "./ProvenanceGroup";
 import { ask } from "@tauri-apps/plugin-dialog";
 import { BreakdownRow } from "./BreakdownRow";
@@ -53,6 +57,7 @@ export function BreakdownPanel() {
   const contexts = useBreakdownStore((s) => s.contexts);
   const selectedContext = useBreakdownStore((s) => s.selectedContext);
   const [newContextName, setNewContextName] = useState("");
+  const branchCandidate = useBreakdownStore((s) => s.branchCandidate);
 
   useEffect(() => {
     if (rootPath) {
@@ -60,6 +65,8 @@ export function BreakdownPanel() {
       void refreshBreakdown(rootPath);
       void refreshProvenance(rootPath);
       void refreshDelegations(rootPath);
+      void refreshBranchCandidate(rootPath);
+      void refreshMergeNotice(rootPath);
     }
   }, [rootPath]);
 
@@ -80,6 +87,15 @@ export function BreakdownPanel() {
   };
 
   const current = contexts.find((c) => c.id === (selectedContext ?? DEFAULT_CONTEXT));
+
+  const switchToBranchContext = () => {
+    if (!branchCandidate?.context) return;
+    selectContext(branchCandidate.context);
+  };
+  const makeBranchContext = () => {
+    const root = useWorkspaceStore.getState().rootPath;
+    if (root) void createContextFromBranch(root);
+  };
 
   const toggleEnforce = async () => {
     const root = useWorkspaceStore.getState().rootPath;
@@ -137,6 +153,8 @@ export function BreakdownPanel() {
         </div>
       </header>
 
+      <MergeBanner />
+
       <div className="breakdown-context-bar">
         <label className="breakdown-context-bar__label">
           {t("contexts.label")}
@@ -181,6 +199,33 @@ export function BreakdownPanel() {
           </div>
         ))}
       </div>
+
+      {branchCandidate && (
+        <div className="breakdown-branch-chip">
+          {branchCandidate.ambiguous ? (
+            <span className="breakdown-branch-chip__ambiguous" role="alert">
+              {t("branch.ambiguous", { branch: branchCandidate.branch })}
+            </span>
+          ) : branchCandidate.context &&
+            branchCandidate.context !== (selectedContext ?? DEFAULT_CONTEXT) ? (
+            <button
+              type="button"
+              className="breakdown-branch-chip__switch"
+              onClick={switchToBranchContext}
+            >
+              {t("branch.available", { name: branchCandidate.contextName })}
+            </button>
+          ) : branchCandidate.context === null ? (
+            <button
+              type="button"
+              className="breakdown-branch-chip__create"
+              onClick={makeBranchContext}
+            >
+              {t("branch.create", { branch: branchCandidate.branch })}
+            </button>
+          ) : null}
+        </div>
+      )}
 
       {error !== null && (
         <p className="breakdown-panel__error" role="alert">

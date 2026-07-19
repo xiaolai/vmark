@@ -20,7 +20,9 @@ import { useAiProviderStore } from "@/stores/aiStore";
 
 import {
   useBreakdownStore,
+  type BranchCandidate,
   type ContextRow,
+  type MergeNotice,
   type EdgeRow,
 } from "@/stores/breakdownStore";
 import { emitOpenFileInCurrentWindow } from "@/services/navigation/openFileEvent";
@@ -216,4 +218,41 @@ export async function setContextEnforcement(
     return;
   }
   await refreshContexts(workspaceRoot);
+}
+
+/** WI-3.6: the pull-only branch-context candidate for the current branch. */
+export async function refreshBranchCandidate(workspaceRoot: string): Promise<void> {
+  try {
+    const candidate = await invoke<BranchCandidate | null>(
+      "coherence_branch_candidate",
+      { workspaceRoot },
+    );
+    useBreakdownStore.getState().setBranchCandidate(candidate);
+  } catch (error) {
+    useBreakdownStore.getState().setError(messageOf(error));
+  }
+}
+
+/** WI-3.6: create a context mapped to the current branch (explicit act). */
+export async function createContextFromBranch(workspaceRoot: string): Promise<void> {
+  try {
+    await invoke("coherence_context_from_branch", { workspaceRoot });
+  } catch (error) {
+    useBreakdownStore.getState().setError(messageOf(error));
+    return;
+  }
+  await refreshContexts(workspaceRoot);
+  await refreshBranchCandidate(workspaceRoot);
+}
+
+/** WI-3.7: the latest completed-merge notice for the dismissible banner. */
+export async function refreshMergeNotice(workspaceRoot: string): Promise<void> {
+  try {
+    const notice = await invoke<MergeNotice | null>("coherence_recent_merge", {
+      workspaceRoot,
+    });
+    useBreakdownStore.getState().setMergeNotice(notice);
+  } catch (error) {
+    useBreakdownStore.getState().setError(messageOf(error));
+  }
 }

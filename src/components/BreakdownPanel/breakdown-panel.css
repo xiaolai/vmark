@@ -501,3 +501,52 @@
 .delegations-section__days:focus {
   border-bottom-color: var(--primary-color);
 }
+
+/* WI-3.6: pull-only branch-context chip — never auto-selects (D3.2). */
+.breakdown-branch-chip {
+  padding: var(--spacing-1) var(--spacing-3);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.breakdown-branch-chip__switch,
+.breakdown-branch-chip__create {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-pill);
+  background: var(--accent-bg);
+  color: var(--accent-primary);
+  font-size: var(--font-size-xs);
+  padding: var(--space-half) var(--spacing-2);
+  cursor: pointer;
+}
+
+.breakdown-branch-chip__switch:hover,
+.breakdown-branch-chip__create:hover {
+  background: var(--hover-bg-strong);
+}
+
+.breakdown-branch-chip__ambiguous {
+  font-size: var(--font-size-xs);
+  color: var(--warning-color);
+}
+
+/* WI-3.7: dismissible, pull-only merge banner (D3.3). */
+.breakdown-merge-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-2);
+  padding: var(--spacing-1) var(--spacing-3);
+  background: var(--warning-bg);
+  border-bottom: 1px solid var(--warning-border);
+  font-size: var(--font-size-sm);
+  color: var(--warning-color);
+}
+
+.breakdown-merge-banner__dismiss {
+  border: none;
+  background: transparent;
+  color: var(--warning-color);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  text-decoration: underline;
+}

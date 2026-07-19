@@ -65,5 +65,14 @@
     "expiresOn": "{{date}}까지",
     "grantConfirm": "\"{{principal}}\"이(가) 이 워크스페이스의 엣지를 해소({{scope}})하도록 {{date}}까지 허용하시겠습니까? 위임된 모든 해소 작업은 이 부여에 연결되어 감사 로그에 기록됩니다.",
     "grantTitle": "위임 부여"
+  },
+  "branch": {
+    "available": "브랜치 컨텍스트 사용 가능: {{name}} — 전환",
+    "ambiguous": "여러 컨텍스트가 브랜치 \"{{branch}}\"에 매핑됨 — 전환하기 전에 해결하세요",
+    "create": "브랜치 \"{{branch}}\"에 대한 컨텍스트 만들기"
+  },
+  "merge": {
+    "banner": "병합이 완료되었습니다 — 내역을 검토하세요",
+    "dismiss": "닫기"
   }
 }

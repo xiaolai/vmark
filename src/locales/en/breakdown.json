@@ -65,5 +65,14 @@
     "expiresOn": "until {{date}}",
     "grantConfirm": "Allow \"{{principal}}\" to resolve edges in this workspace ({{scope}}) until {{date}}? Every delegated resolution is audit-logged against this grant.",
     "grantTitle": "Grant delegation"
+  },
+  "branch": {
+    "available": "Branch context available: {{name}} — switch",
+    "ambiguous": "Multiple contexts map branch \"{{branch}}\" — resolve before switching",
+    "create": "Create context for branch \"{{branch}}\""
+  },
+  "merge": {
+    "banner": "A merge landed — review the breakdown",
+    "dismiss": "Dismiss"
   }
 }
