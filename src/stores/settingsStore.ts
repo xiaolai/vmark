@@ -40,16 +40,13 @@
 
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
-import { deepMerge } from "@/utils/deepMerge";
 import { createSafeStorage } from "@/services/persistence/safeStorage";
+import { createSectionMergingStorage } from "./persistedSectionMerge";
 import { migrateWorkspaceRailModeToGeneral } from "./settingsStore/migrations";
 import { initialState, type ObjectSections } from "./settingsStore/defaults";
-import { clampMergedSettings, clampSettingValue } from "./settingsStore/clamp";
-import {
-  isPlainObject,
-  normalizeBrowserSettings,
-  sanitizePersistedSettings,
-} from "./settingsStore/persistGuards";
+import { clampSettingValue } from "./settingsStore/clamp";
+import { reconcileSettings } from "./settingsStore/reconcile";
+import { isPlainObject } from "./settingsStore/persistGuards";
 import type { SettingsState, SettingsActions } from "./settingsTypes";
 
 // Re-exported for tests + existing callers that import from "@/stores/settingsStore".
@@ -146,8 +143,16 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
         }
         return persistedState as SettingsState;
       },
-      // Guard localStorage access for SSR/non-browser environments
-      storage: createJSONStorage(() => createSafeStorage()),
+      // Guard localStorage access for SSR/non-browser environments, and wrap it
+      // so a write carries only the sections THIS window changed. persist
+      // serializes the whole state on every set(), so without this any write —
+      // a view toggle, or the background update-check timestamp — pushes this
+      // window's snapshot over sections another window changed since we last
+      // read. Reproduced in the running app: a terminal font size set in the
+      // Settings window was reverted by an unrelated document-window write.
+      storage: createJSONStorage(() =>
+        createSectionMergingStorage(createSafeStorage()),
+      ),
       // Deep merge to preserve new default properties when loading old localStorage
       merge: (persistedState, currentState) => {
         const rawPersisted = (persistedState ?? {}) as Record<string, unknown>;
@@ -166,34 +171,28 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
           delete appearance.paragraphSpacing;
         }
         migrateWorkspaceRailModeToGeneral(rawPersisted);
-        // T4: validate the persisted shape before deep-merging into live state
-        // (zero-trust at the persist boundary). deepMerge overwrites — rather
-        // than recurses — when a persisted group is a non-object, so a corrupt
-        // localStorage blob (`appearance: "evil"`) would otherwise replace a
-        // settings-group object with a primitive and crash consumers.
-        const persisted = sanitizePersistedSettings(
-          rawPersisted,
-          currentState as unknown as Record<string, unknown>
-        );
-        const merged = deepMerge(
+        // T4/D4: the shared trust boundary — shape-sanitize, deep-merge, clamp
+        // bounded numerics, normalize browser posture. The cross-window
+        // storage-event path in useSettingsSync runs this exact function, so
+        // the two routes cannot drift apart again (see reconcile.ts).
+        const merged = reconcileSettings(
           currentState as unknown as Record<string, unknown>,
-          persisted
+          rawPersisted
         ) as unknown as typeof currentState;
         // Union array-typed defaults so new entries (e.g., link protocols) reach
-        // existing users. The persist guards validate that the value IS an array,
-        // not what is in it — drop non-string entries here, or they reach the
-        // link-scheme allowlist and the settings UI as `42` / `null` / `{}`.
+        // existing users. Hydration-only: it exists so a NEW build's defaults
+        // reach an OLD persisted blob, which cannot arise cross-window (both
+        // windows run the same build). reconcileSettings validated that the
+        // value IS an array, not what is in it — drop non-string entries here,
+        // or they reach the link-scheme allowlist and the settings UI as
+        // `42` / `null` / `{}`.
         const defaultProtocols = currentState.advanced.customLinkProtocols;
-        const persistedAdvanced = persisted.advanced as Record<string, unknown> | undefined;
+        const persistedAdvanced = rawPersisted.advanced as Record<string, unknown> | undefined;
         const persistedProtocols = persistedAdvanced?.customLinkProtocols;
         if (Array.isArray(persistedProtocols)) {
           const strings = persistedProtocols.filter((p): p is string => typeof p === "string");
           merged.advanced.customLinkProtocols = [...new Set([...defaultProtocols, ...strings])];
         }
-        // D4: clamp bounded numeric fields so a corrupt persisted value
-        // (e.g. `appearance.fontSize: 999`) can't render the editor broken.
-        clampMergedSettings(merged as unknown as Record<string, unknown>);
-        normalizeBrowserSettings(merged.browser as unknown as Record<string, unknown>);
         return merged;
       },
     }

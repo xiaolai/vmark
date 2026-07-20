@@ -90,9 +90,15 @@ export function installFormatSettingsSubscription(): () => void {
     const nextAssociations = state.formats.associations;
 
     const togglesChanged = !togglesEqual(lastToggles, nextToggles);
-    // Reference comparison is sufficient: updateFormatsSetting replaces the
-    // whole object, so a real change always yields a new reference.
-    const associationsChanged = lastAssociations !== nextAssociations;
+    // Compare by VALUE, not reference. Reference comparison held only for the
+    // same-window path (updateFormatsSetting replaces the object). The
+    // cross-window path parses JSON, so every storage event hands this
+    // subscriber a fresh-but-identical `associations` object — making any
+    // unrelated `formats` change (even the internal `upgradeNudgeShown` flag)
+    // trigger a full recomputeAllFormatIds() across every open tab.
+    const associationsChanged =
+      lastAssociations !== nextAssociations &&
+      JSON.stringify(lastAssociations) !== JSON.stringify(nextAssociations);
     if (!togglesChanged && !associationsChanged) return;
 
     lastToggles = nextToggles;

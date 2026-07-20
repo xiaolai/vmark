@@ -159,6 +159,12 @@ export const menuSyncWarn = createWarnLogger("[MenuSync]");
 /** Warn logger for Update Sync (cross-window state). */
 export const updateSyncWarn = createWarnLogger("[UpdateSync]");
 
+/** Warn logger for Settings Sync (cross-window settings). */
+export const settingsSyncWarn = createWarnLogger("[SettingsSync]");
+
+/** Warn logger for Shortcuts Sync (cross-window shortcut rebinds). */
+export const shortcutsSyncWarn = createWarnLogger("[ShortcutsSync]");
+
 /** Warn logger for Table of Contents. */
 export const tocWarn = createWarnLogger("[TOC]");
 
