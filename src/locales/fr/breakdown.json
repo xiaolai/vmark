@@ -84,5 +84,14 @@
   "anchorStates": {
     "anchor-changed": "section ancrée modifiée",
     "anchor-lost": "ancre perdue"
+  },
+  "lifecycle": {
+    "finish": "Marquer comme terminé",
+    "finishHint": "Ne plus poser de questions sur ce document — c'est un enregistrement terminé.",
+    "reopen": "Rouvrir",
+    "reopenHint": "Reposer des questions sur ce document.",
+    "confirmScope": "Cela met en sourdine toutes les dépendances vers {{document}}, y compris celles non listées ici. Le marquer comme terminé ?",
+    "confirm": "Marquer comme terminé",
+    "cancel": "Annuler"
   }
 }

@@ -84,5 +84,14 @@
   "anchorStates": {
     "anchor-changed": "锚定的章节已改动",
     "anchor-lost": "锚点已丢失"
+  },
+  "lifecycle": {
+    "finish": "标记为已完成",
+    "finishHint": "不再询问这份文档 — 它是已完成的记录。",
+    "reopen": "重新开启",
+    "reopenHint": "重新开始询问这份文档。",
+    "confirmScope": "这会静音指向 {{document}} 的所有依赖，包括未在此列出的。确定标记为已完成？",
+    "confirm": "标记为已完成",
+    "cancel": "取消"
   }
 }

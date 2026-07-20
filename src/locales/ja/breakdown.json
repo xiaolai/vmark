@@ -84,5 +84,14 @@
   "anchorStates": {
     "anchor-changed": "アンカー先セクションが変更されました",
     "anchor-lost": "アンカーが失われました"
+  },
+  "lifecycle": {
+    "finish": "完了としてマーク",
+    "finishHint": "この文書について確認しない — 完了した記録です。",
+    "reopen": "再開",
+    "reopenHint": "この文書について再び確認する。",
+    "confirmScope": "{{document}} への依存関係がすべて — ここに表示されていないものも含めて — 通知されなくなります。完了としてマークしますか？",
+    "confirm": "完了としてマーク",
+    "cancel": "キャンセル"
   }
 }
