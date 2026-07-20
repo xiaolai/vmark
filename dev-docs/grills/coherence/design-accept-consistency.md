@@ -389,3 +389,32 @@ that drift is caught by the prepare's revalidation, which appends a durable
 `group-abort` (outcome defined, never corrupt) and requires a re-preview.
 
 **Marker stays RED until the 7th review is clean.**
+
+## Seventh review — DO-NOT-SHIP (thread `019f7d4f…`)
+
+Seven reviews, seven DO-NOT-SHIP. The 7th verified R1 is **correct where applied**
+(two wrapped Unix processes serialize on `LOCK_EX`; the loser reconciles before
+its base-head check — no residual TOCTOU) and CLOSED CAS durability (6R-2) + the
+flock-leak (6R-5). But it made R1's *cost* concrete, and it is large:
+
+| # | Severity | Disposition | Substance |
+|---|---|---|---|
+| full lock scope | **CRITICAL** | OPEN | R1 wrapped only the accept paths. `capture`/`adopt`/`scan`/`claim`/`check`/resolutions read heads + BUILD a transformation, THEN `append_and_apply` (which now locks+reconciles but does NOT rebuild the already-built txf) → same stale-sibling fork. R1 must wrap EVERY mutator's whole read-build-append. |
+| **O(N) accept / quadratic scan** | **MAJOR (new)** | OPEN | `with_write_lock` reconciles (`read_all`+`rebuild_from`) on EVERY acquire — O(ledger). This **breaks the O(1) accept Phase 3 shipped** (rebuild ≈1.34s at 500k vs a 20ms accept budget); a scan appending N events is ~quadratic. Preserving O(1) under R1 needs incremental / change-gated reconcile — new machinery. |
+| manifest/read bounds | MAJOR | OPEN | `validate_bounds` runs only on local WRITE; `find_latest` deserializes an existing (merged/legacy) prepare without it, and an empty-members prepare enters client-assisted recovery, revalidates a trivially-true empty snapshot, and commits client candidates while SKIPPING the fresh preview-class check — the reviewed precondition is bypassed. |
+| half-initialization | MAJOR | OPEN | `.gitattributes` trusted by existence, not content; `ensure_line` is non-atomic `fs::write` → a crash mid-write (or a checkout leaving it present-but-empty) reads as initialized with `merge=union` permanently absent. Also `ensure_initialized` runs BEFORE the flock (two kernels rebuild the shared index concurrently), and a rejected accept now fully initializes a pristine `.vmark` before tamper/base validation. |
+| reader cap drops valid writes | MAJOR (new) | OPEN | `MAX_LINE_BYTES` is reader-only; `Ledger::append` has no matching cap. A valid 17 MiB `claim.statement` is written + returns success, then the next `read_all` quarantines it → the committed claim reads as nonexistent. Reader cap must sit ABOVE an enforced writer cap. |
+| partial index on reconcile failure | MAJOR (new) | OPEN | `rebuild_from` is not one transaction; a mid-rebuild failure at acquire releases the flock but does NOT poison the kernel → a later read consumes a partially-empty index. |
+| non-RAII reentrancy flag | MINOR (new) | OPEN | a directly-owned kernel whose panic is caught keeps `in_write_txn=true` and later bypasses locking (production is safe — the `Mutex` poisons). |
+
+**The decisive new finding is O(N) accept (6R-5): R1's reconcile-on-acquire
+collides head-on with the O(1) accept contract Phase 3 already shipped and
+machine-checks.** Doing R1 correctly is now a multi-round distributed-systems
+build: change-gated incremental reconcile + wrap-every-mutator + transactional
+rebuild + writer caps + atomic marker + recovery bounds. The convergent
+alternative (R2 — no cross-process write lock; the per-process `Arc<Mutex>`
+serializes single-instance, concurrent cross-process writes FORK and resolve via
+the existing two-axis-staleness + human machinery) dissolves the three
+architectural findings (scope, O(N), partial-rebuild) outright. Marker stays RED;
+the R1-vs-R2 cost has materially changed since the owner's choice — re-surfaced
+to the owner.
