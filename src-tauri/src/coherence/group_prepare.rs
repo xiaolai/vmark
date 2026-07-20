@@ -44,18 +44,45 @@ pub struct PreparedMember {
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct GroupPrepare {
     pub group_id: String,
+    /// The attempt's CAUSAL identity — `hash(group_id ‖ snapshot ‖ supersedes)`.
+    /// Members' accept idems fold THIS (not the bare group_id), so a superseded
+    /// attempt's members are never reused by a later attempt (re-review #5), and
+    /// lifecycle ordering follows the `supersedes` chain, never wall-clock time
+    /// (re-review #2 — a clock-skewed abort can't be sorted before its prepare).
+    pub attempt_id: String,
+    /// The attempt this one replaces (the aborted tip), or `None` for the first.
+    pub supersedes: Option<String>,
     pub members: Vec<PreparedMember>,
     pub snapshot: GroupSnapshot,
 }
 
-/// The latest lifecycle record for a `group_id`.
+/// The current lifecycle for a `group_id`, resolved by the causal `supersedes`
+/// chain (NOT by timestamp).
 pub enum Lifecycle {
-    /// No prepare/abort record — a brand-new group.
+    /// No prepare record — a brand-new group.
     None,
-    /// The latest record is a prepare — a commit is in progress / recoverable.
+    /// The current (non-superseded) attempt's prepare, still live/recoverable.
     Prepared(Box<GroupPrepare>),
-    /// The latest record is an abort — the last attempt was abandoned.
-    Aborted,
+    /// The current attempt's prepare, but its attempt was aborted — a fresh
+    /// attempt must `supersede` it.
+    Aborted(Box<GroupPrepare>),
+}
+
+/// The causal attempt identity. Folds the group id, the reviewed snapshot, and
+/// the superseded attempt — so a fresh attempt after an abort is always distinct,
+/// even if the workspace context reverts to an earlier snapshot.
+pub fn attempt_id_for(
+    group_id: &str,
+    snapshot: &GroupSnapshot,
+    supersedes: Option<&str>,
+) -> String {
+    let payload = format!(
+        "{group_id}\u{1f}{}\u{1f}{}",
+        snapshot_digest(snapshot),
+        supersedes.unwrap_or("")
+    );
+    let d: [u8; 32] = Sha256::digest(payload.as_bytes()).into();
+    d.iter().map(|b| format!("{b:02x}")).collect()
 }
 
 fn digest_uuid(domain: &str, payload: &str) -> Uuid {
@@ -132,44 +159,59 @@ fn resolution_digest(all_res: &ResMap, affected: &[(Uuid, u32)]) -> String {
     d.iter().map(|b| format!("{b:02x}")).collect()
 }
 
-/// The latest `group-prepare`/`group-abort` for a group_id (ledger-authoritative,
-/// ordered by `(time, id)` — the last matching entry wins).
+/// The current lifecycle for a group, resolved by the causal `supersedes` chain
+/// (re-review #2 — NOT by wall-clock time). The tip is the prepare no other
+/// prepare supersedes; it is `Aborted` iff its attempt_id has a `group-abort`.
+/// Resilient (re-review #7): a record that fails to deserialize is skipped.
 pub fn find_latest(kernel: &WorkspaceKernel, group_id: &str) -> Result<Lifecycle, String> {
     let read = kernel.ledger().read_all()?;
-    let mut latest = Lifecycle::None;
+    let mut prepares: std::collections::HashMap<String, GroupPrepare> =
+        std::collections::HashMap::new();
+    let mut aborted: std::collections::HashSet<String> = std::collections::HashSet::new();
     for e in &read.entries {
         if e.body.get("group_id").and_then(|v| v.as_str()) != Some(group_id) {
             continue;
         }
         match e.kind.as_str() {
-            // Resilient (re-review #7): a body that fails to deserialize is
-            // SKIPPED, never propagated — one malformed record must not poison
-            // `find_latest` for a group that also has valid records. (Envelope
-            // typing already quarantines malformed prepares at read; this is
-            // defense-in-depth against any that slip through.)
             "group-prepare" => {
                 if let Ok(p) = serde_json::from_value::<GroupPrepare>(e.body.clone()) {
-                    latest = Lifecycle::Prepared(Box::new(p));
+                    prepares.insert(p.attempt_id.clone(), p);
                 }
             }
-            "group-abort" => latest = Lifecycle::Aborted,
+            "group-abort" => {
+                if let Some(aid) = e.body.get("attempt_id").and_then(|v| v.as_str()) {
+                    aborted.insert(aid.to_string());
+                }
+            }
             _ => {}
         }
     }
-    Ok(latest)
+    if prepares.is_empty() {
+        return Ok(Lifecycle::None);
+    }
+    // The tip: a prepare no other prepare supersedes. If more than one (a
+    // cross-process race — #1's territory, fenced by the workspace lock), pick
+    // deterministically by attempt_id so every reader agrees.
+    let superseded: std::collections::HashSet<&str> = prepares
+        .values()
+        .filter_map(|p| p.supersedes.as_deref())
+        .collect();
+    let tip = prepares
+        .values()
+        .filter(|p| !superseded.contains(p.attempt_id.as_str()))
+        .max_by(|a, b| a.attempt_id.cmp(&b.attempt_id))
+        .cloned();
+    Ok(match tip {
+        None => Lifecycle::None, // a superseded cycle (corruption) — treat as none
+        Some(tip) if aborted.contains(&tip.attempt_id) => Lifecycle::Aborted(Box::new(tip)),
+        Some(tip) => Lifecycle::Prepared(Box::new(tip)),
+    })
 }
 
-/// Append the durable prepare record (idem folds the snapshot, so a fresh
-/// context is a new record while an idempotent re-prepare dedupes).
+/// Append the durable prepare record — idem folds the attempt_id, so each attempt
+/// is a distinct record while an idempotent re-prepare of the same attempt dedupes.
 pub fn append_prepare(kernel: &mut WorkspaceKernel, prepare: &GroupPrepare) -> Result<(), String> {
-    let idem = digest_uuid(
-        "vmark-group-prepare-v1",
-        &format!(
-            "{}:{}",
-            prepare.group_id,
-            snapshot_digest(&prepare.snapshot)
-        ),
-    );
+    let idem = digest_uuid("vmark-group-prepare-v2", &prepare.attempt_id);
     let mut env = Envelope::create(
         "group-prepare",
         kernel.writer(),
@@ -179,20 +221,18 @@ pub fn append_prepare(kernel: &mut WorkspaceKernel, prepare: &GroupPrepare) -> R
     kernel.append_and_apply(&env)
 }
 
-/// Append a durable abort for the group's current prepared snapshot.
+/// Append a durable abort naming the exact attempt (re-review #2/#7): the abort
+/// dominates its prepare by the `supersedes` chain, independent of timestamps.
 pub fn append_abort(
     kernel: &mut WorkspaceKernel,
     group_id: &str,
-    snapshot: &GroupSnapshot,
+    attempt_id: &str,
 ) -> Result<(), String> {
-    let idem = digest_uuid(
-        "vmark-group-abort-v1",
-        &format!("{group_id}:{}", snapshot_digest(snapshot)),
-    );
+    let idem = digest_uuid("vmark-group-abort-v2", attempt_id);
     let mut env = Envelope::create(
         "group-abort",
         kernel.writer(),
-        serde_json::json!({ "group_id": group_id }),
+        serde_json::json!({ "group_id": group_id, "attempt_id": attempt_id }),
     );
     env.idem = idem;
     kernel.append_and_apply(&env)

@@ -114,12 +114,29 @@ fn a_partial_group_is_completed_on_recovery() {
     let cands = group(u, v, &u1, &v1);
     let preview = kernel.index().project_group(&cands, NOW).unwrap();
 
-    // Simulate a crash after committing ONLY member 0 of THIS group: append its
-    // transformation with the GROUP-FOLDED idem (exactly what commit_member
-    // writes), as a real partial crash would leave it. (A single-member group
-    // would have a different group id — that is the point of #1.)
+    // Simulate a crash after preparing THIS group's first attempt and committing
+    // ONLY member 0: append the durable prepare, then commit c0 with its
+    // ATTEMPT-folded idem (exactly what accept_group writes), as a real partial
+    // crash would leave it.
     let grp = group_id(&cands).unwrap();
-    let idem0 = member_idem(&cands[0], &grp).unwrap();
+    let snapshot =
+        crate::coherence::group_prepare::compute_snapshot(kernel.index(), &cands).unwrap();
+    let attempt_id = crate::coherence::group_prepare::attempt_id_for(&grp, &snapshot, None);
+    let prepare = crate::coherence::group_prepare::GroupPrepare {
+        group_id: grp.clone(),
+        attempt_id: attempt_id.clone(),
+        supersedes: None,
+        members: cands
+            .iter()
+            .map(|c| crate::coherence::group_prepare::PreparedMember {
+                object: c.object,
+                revision: c.revision.clone(),
+            })
+            .collect(),
+        snapshot,
+    };
+    crate::coherence::group_prepare::append_prepare(&mut kernel, &prepare).unwrap();
+    let idem0 = member_idem(&cands[0], &attempt_id).unwrap();
     let txf0 = cands[0].to_transformation(Agent {
         kind: AgentType::Human,
         id: None,
@@ -137,8 +154,8 @@ fn a_partial_group_is_completed_on_recovery() {
         Resolved::Single(cands[0].revision.clone())
     );
 
-    // Recovery: accept the full group. Member 0 is found present via its
-    // group-folded idem (returns the ORIGINAL); member 1 completes now.
+    // Recovery: accept the full group. Member 0 is found present via the tip
+    // attempt's idem (returns the ORIGINAL); member 1 completes now.
     let recovered = accept_group(&mut kernel, &cands, &preview, NOW).unwrap();
     assert!(
         !recovered[0].committed,
@@ -281,10 +298,14 @@ fn recovery_aborts_when_an_affected_object_drifted_externally() {
     let cands = group(u, v, &u1, &v1);
     let grp = group_id(&cands).unwrap();
 
-    // Prepare the group, then commit ONLY member 0 (U) — a real partial.
+    // Prepare the group (first attempt), then commit ONLY member 0 (U) with its
+    // ATTEMPT-folded idem — a real partial of that attempt.
     let snapshot = group_prepare::compute_snapshot(kernel.index(), &cands).unwrap();
+    let attempt_id = group_prepare::attempt_id_for(&grp, &snapshot, None);
     let prepare = group_prepare::GroupPrepare {
         group_id: grp.clone(),
+        attempt_id: attempt_id.clone(),
+        supersedes: None,
         members: cands
             .iter()
             .map(|c| group_prepare::PreparedMember {
@@ -295,7 +316,7 @@ fn recovery_aborts_when_an_affected_object_drifted_externally() {
         snapshot,
     };
     group_prepare::append_prepare(&mut kernel, &prepare).unwrap();
-    let idem0 = member_idem(&cands[0], &grp).unwrap();
+    let idem0 = member_idem(&cands[0], &attempt_id).unwrap();
     let mut e0 = Envelope::create(
         "transformation",
         kernel.writer(),
@@ -340,8 +361,50 @@ fn recovery_aborts_when_an_affected_object_drifted_externally() {
     assert!(err.contains("aborted"), "got: {err}");
     assert!(matches!(
         group_prepare::find_latest(&kernel, &grp).unwrap(),
-        group_prepare::Lifecycle::Aborted
+        group_prepare::Lifecycle::Aborted(_)
     ));
+}
+
+#[test]
+fn a_fresh_rerun_after_abort_supersedes_the_aborted_attempt_and_completes() {
+    // #2/#5: after an attempt aborts, a fresh re-run is a NEW attempt that
+    // SUPERSEDES the aborted one via the causal chain (not wall-clock) and
+    // completes. The aborted attempt's members are not reused (attempt-folded).
+    use crate::coherence::group_prepare;
+    let (_dir, mut kernel, u, v, u1, v1) = seeded();
+    let cands = group(u, v, &u1, &v1);
+    let grp = group_id(&cands).unwrap();
+
+    // Attempt 1: prepare, then abort it (as a drift-recovery would).
+    let snap = group_prepare::compute_snapshot(kernel.index(), &cands).unwrap();
+    let a1 = group_prepare::attempt_id_for(&grp, &snap, None);
+    group_prepare::append_prepare(
+        &mut kernel,
+        &group_prepare::GroupPrepare {
+            group_id: grp.clone(),
+            attempt_id: a1.clone(),
+            supersedes: None,
+            members: vec![],
+            snapshot: snap,
+        },
+    )
+    .unwrap();
+    group_prepare::append_abort(&mut kernel, &grp, &a1).unwrap();
+    assert!(matches!(
+        group_prepare::find_latest(&kernel, &grp).unwrap(),
+        group_prepare::Lifecycle::Aborted(_)
+    ));
+
+    // A fresh re-run supersedes a1 and commits all members.
+    let preview = kernel.index().project_group(&cands, NOW).unwrap();
+    let receipts = accept_group(&mut kernel, &cands, &preview, NOW).unwrap();
+    assert!(receipts.iter().all(|r| r.committed));
+    match group_prepare::find_latest(&kernel, &grp).unwrap() {
+        group_prepare::Lifecycle::Prepared(p) => {
+            assert_eq!(p.supersedes, Some(a1), "the fresh attempt supersedes a1")
+        }
+        _ => panic!("expected the fresh attempt to be the live tip"),
+    }
 }
 
 #[test]

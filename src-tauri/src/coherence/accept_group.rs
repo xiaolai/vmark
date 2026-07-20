@@ -18,14 +18,16 @@
 //! - **Idempotent full retry** — if every member is present, the group returns
 //!   the original receipts without appending.
 //!
-//! STATUS: **NOT SHIP-READY — a THIRD review (`019f7cbd…`) returned DO-NOT-SHIP
-//! (7 MAJOR).** Three independent reviews, three DO-NOT-SHIP: the group-commit is
-//! a genuine distributed-systems design project (a cross-process lock + a causal
-//! `attempt_id` + time-aware recovery + a CAS-backed manifest + current-incident-
-//! edge revalidation), NOT session-tail patching. The malformed-prepare poison
-//! (#7) is fixed; everything else is the dedicated project. See
+//! STATUS: **NOT SHIP-READY — closing the THIRD review (`019f7cbd…`, 7 MAJOR).**
+//! Landed since that review: #7 (malformed-prepare poison), and the causal
+//! **`attempt_id`** that fixes #2 (lifecycle ordering by the `supersedes` chain,
+//! not wall-clock — no clock-skew deadlock) and #5 (member idems fold the
+//! attempt, so a superseded attempt's members are never reused). Still OPEN:
+//! **#3** (revalidation must cover edges created after prepare), **#4** (resolution
+//! EXPIRY is time-blind), **#6** (a CAS-backed full-transformation manifest for
+//! client-less recovery), **#1** (cross-process workspace lock). See
 //! `design-accept-consistency.md` "Third review". The properties below hold, but
-//! do NOT constitute ship-readiness:
+//! do NOT yet constitute ship-readiness:
 //!   - **Group identity binds the WHOLE group** (#4) — `group_id` hashes the
 //!     members' sorted *ungrouped* accept idems and folds into each grouped idem,
 //!     so the O(1) presence lookup answers "committed AS PART OF THIS EXACT GROUP".
@@ -204,15 +206,42 @@ pub fn accept_group(
         }
     }
 
-    // Per-member GROUP-FOLDED idems + presence via the O(1) index lookup. A hit
-    // means the member was committed AS PART OF THIS GROUP (its idem encodes the
-    // group id, design-accept-consistency #1) — never a coincidental standalone
-    // commit. The index is authoritative here (heal-on-open, Fix A).
+    // Resolve the group's CURRENT attempt by the causal supersedes chain (#2 —
+    // never wall-clock). A fresh attempt snapshots the current context now (it
+    // drives both the attempt id and the durable prepare); recovery reuses the
+    // tip's stored snapshot.
     let group = group_id(candidates)?;
+    let lifecycle = group_prepare::find_latest(kernel, &group)?;
+    let fresh_snapshot = match &lifecycle {
+        Lifecycle::Prepared(_) => None,
+        _ => Some(group_prepare::compute_snapshot(kernel.index(), candidates)?),
+    };
+    let (attempt_id, recovery_prepare, supersedes) = match lifecycle {
+        Lifecycle::Prepared(p) => (p.attempt_id.clone(), Some(*p), None),
+        Lifecycle::None => (
+            group_prepare::attempt_id_for(&group, fresh_snapshot.as_ref().unwrap(), None),
+            None,
+            None,
+        ),
+        Lifecycle::Aborted(p) => (
+            group_prepare::attempt_id_for(
+                &group,
+                fresh_snapshot.as_ref().unwrap(),
+                Some(&p.attempt_id),
+            ),
+            None,
+            Some(p.attempt_id),
+        ),
+    };
+
+    // Per-member ATTEMPT-FOLDED idems + presence via the O(1) index lookup.
+    // Folding the ATTEMPT id (not the bare group id) means a superseded attempt's
+    // members are never reused by a later attempt (#5). The index is authoritative
+    // here (heal-on-open, Fix A).
     let mut idems = Vec::with_capacity(candidates.len());
     let mut existing = Vec::with_capacity(candidates.len());
     for c in candidates {
-        let idem = member_idem(c, &group)?;
+        let idem = member_idem(c, &attempt_id)?;
         existing.push(kernel.index().entry_id_by_idem(&idem)?);
         idems.push(idem);
     }
@@ -238,16 +267,14 @@ pub fn accept_group(
         .map(|(_, c)| (c.object, c.revision.clone()))
         .collect();
 
-    match group_prepare::find_latest(kernel, &group)? {
-        // RECOVERY: a prepare is the latest record. Revalidate the prepared
-        // base-head/resolution snapshot against the CURRENT workspace, accounting
-        // for the members already committed (#6). Unchanged → complete the
-        // missing members. Changed → the attempt is dead: append a durable abort
-        // and require a re-preview — #7 is now a DEFINED outcome (abort → fresh
-        // re-run), never a permanently stuck partial.
-        Lifecycle::Prepared(prepare) => {
+    match recovery_prepare {
+        // RECOVERY: revalidate the tip's snapshot against the CURRENT workspace,
+        // accounting for committed members (#6). Unchanged → complete the missing
+        // members. Drift → abort THIS attempt (naming its id, #2/#7) and require a
+        // re-preview; a fresh re-run supersedes it.
+        Some(prepare) => {
             if !group_prepare::revalidate(kernel.index(), &prepare, &committed)? {
-                group_prepare::append_abort(kernel, &group, &prepare.snapshot)?;
+                group_prepare::append_abort(kernel, &group, &attempt_id)?;
                 return Err("group aborted — the workspace changed since it was prepared; re-preview and re-run".into());
             }
             for (i, c) in candidates.iter().enumerate() {
@@ -256,11 +283,11 @@ pub fn accept_group(
                 }
             }
         }
-        // FRESH attempt (brand-new group, or the last attempt aborted): preflight
-        // the not-present members (#2), reproject the client's preview — base AND
+        // FRESH attempt (brand-new group, or the tip aborted): preflight the
+        // not-present members (#2), reproject the client's preview — base AND
         // new-edge classes (#8) — then append a durable prepare (manifest +
-        // base-head/resolution snapshot, #5) BEFORE committing any member.
-        Lifecycle::None | Lifecycle::Aborted => {
+        // base-head/resolution snapshot, #5) for THIS attempt BEFORE committing.
+        None => {
             for (i, c) in candidates.iter().enumerate() {
                 if existing[i].is_none() {
                     preflight_member(kernel, c)?;
@@ -275,9 +302,10 @@ pub fn accept_group(
                         .into(),
                 );
             }
-            let snapshot = group_prepare::compute_snapshot(kernel.index(), candidates)?;
             let prepare = GroupPrepare {
                 group_id: group.clone(),
+                attempt_id: attempt_id.clone(),
+                supersedes,
                 members: candidates
                     .iter()
                     .map(|c| PreparedMember {
@@ -285,7 +313,7 @@ pub fn accept_group(
                         revision: c.revision.clone(),
                     })
                     .collect(),
-                snapshot,
+                snapshot: fresh_snapshot.expect("a fresh attempt has a snapshot"),
             };
             group_prepare::append_prepare(kernel, &prepare)?;
         }
