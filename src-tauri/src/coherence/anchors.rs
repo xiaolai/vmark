@@ -359,6 +359,42 @@ pub fn evaluate(anchor: &Anchor, current_upstream_text: &str) -> AnchorStatus {
 /// anchor that is already `NotFound`/`Ambiguous` would create an edge that can
 /// only ever report `anchor-lost`. Path bounds are enforced by `resolve_anchor`,
 /// which returns `Invalid` for an oversized or over-deep path.
+/// Every heading path in `text` that can actually be anchored to.
+///
+/// Feeds the anchor picker. Two rules make it safe to send a returned path
+/// straight back to `set_anchor`:
+///
+/// - Paths are full root-to-leaf, so each one resolves on its own rather than
+///   depending on what the picker happened to display around it.
+/// - A path that does not resolve UNAMBIGUOUSLY is dropped. Two same-text
+///   siblings make `resolve_anchor` return `Ambiguous`, so offering either
+///   would guarantee a rejection at set time — the picker must not show
+///   options the setter refuses.
+///
+/// Over-deep paths are dropped for the same reason: `set_anchor` bounds them.
+pub fn heading_paths(text: &str) -> Vec<Vec<String>> {
+    let mut stack: Vec<Heading> = Vec::new();
+    let mut out: Vec<Vec<String>> = Vec::new();
+    for h in headings(text) {
+        while stack.last().is_some_and(|t| t.level >= h.level) {
+            stack.pop();
+        }
+        let path: Vec<String> = stack
+            .iter()
+            .map(|t| t.text.clone())
+            .chain(std::iter::once(h.text.clone()))
+            .collect();
+        stack.push(h);
+        if path.len() > MAX_PATH_SEGMENTS || path.iter().any(|s| s.len() > MAX_SEGMENT_BYTES) {
+            continue;
+        }
+        if matches!(resolve_anchor(text, &path), AnchorResolution::Found(_)) {
+            out.push(path);
+        }
+    }
+    out
+}
+
 pub fn set_anchor(
     kernel: &mut super::state::WorkspaceKernel,
     txf: &uuid::Uuid,

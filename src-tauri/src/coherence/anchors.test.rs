@@ -412,3 +412,61 @@ fn anchors_are_scoped_per_edge_input() {
     assert!(set.get(&t, 0).is_some());
     assert!(set.get(&t, 1).is_none(), "input 1 is a different edge");
 }
+
+// ---- heading paths offered to the anchor picker ----
+
+#[test]
+fn heading_paths_are_full_root_to_leaf_paths() {
+    // The picker sends back exactly what it displayed, so each offered path
+    // must be one `resolve_anchor` can resolve on its own.
+    let text = "# Paper\n\n## 5. Resolution\n\n### 5.2 Waivers\n\n## 6. Merge\n";
+    let paths = heading_paths(text);
+    assert!(paths.contains(&vec!["Paper".to_string()]));
+    assert!(paths.contains(&vec!["Paper".to_string(), "5. Resolution".to_string()]));
+    assert!(paths.contains(&vec![
+        "Paper".to_string(),
+        "5. Resolution".to_string(),
+        "5.2 Waivers".to_string()
+    ]));
+    assert!(paths.contains(&vec!["Paper".to_string(), "6. Merge".to_string()]));
+}
+
+#[test]
+fn every_offered_path_actually_resolves() {
+    // The failure this guards: offering a path the setter then rejects. Any
+    // path the picker shows must survive resolve_anchor unambiguously.
+    let text = "# A\n\ntext\n\n## B\n\nmore\n\n### C\n\nleaf\n\n## D\n\nend\n";
+    for p in heading_paths(text) {
+        assert!(
+            matches!(resolve_anchor(text, &p), AnchorResolution::Found(_)),
+            "offered path {p:?} does not resolve"
+        );
+    }
+}
+
+#[test]
+fn ambiguous_headings_are_not_offered() {
+    // Two same-text siblings make resolve_anchor return Ambiguous, so offering
+    // either would guarantee a rejection at set time.
+    let text = "# A\n\n## Dup\n\nx\n\n## Dup\n\ny\n";
+    for p in heading_paths(text) {
+        assert!(
+            matches!(resolve_anchor(text, &p), AnchorResolution::Found(_)),
+            "ambiguous path {p:?} must not be offered"
+        );
+    }
+}
+
+#[test]
+fn code_fences_contribute_no_paths() {
+    // A `# comment` inside a fence is code, not structure; anchoring to it
+    // would silently suppress on an unrelated edit.
+    let text = "# Real\n\n```sh\n# Fake heading\n```\n";
+    let paths = heading_paths(text);
+    assert_eq!(paths, vec![vec!["Real".to_string()]]);
+}
+
+#[test]
+fn a_document_without_headings_offers_nothing() {
+    assert!(heading_paths("just prose\n\nmore prose\n").is_empty());
+}

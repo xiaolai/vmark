@@ -108,5 +108,12 @@
     "reopened": "{{count}} lien(s) résolus plus d'une fois",
     "resolutions": "résolu {{count}} fois",
     "downgraded": "le modèle a répondu {{verdict}} à {{confidence}}, sous le seuil"
+  },
+  "anchor": {
+    "set": "Ancrer à une section",
+    "change": "Changer l'ancre",
+    "clear": "Fichier entier",
+    "hint": "Ne surveiller que la section dont cela dépend, plutôt que tout le fichier.",
+    "empty": "Aucune section à ancrer."
   }
 }

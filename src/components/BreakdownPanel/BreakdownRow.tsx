@@ -16,6 +16,7 @@ import type { EdgeRow, EdgeStateLabel } from "@/stores/breakdownStore";
 import { checkEdge, resolveEdge, reviseEdge } from "@/services/breakdown/breakdownService";
 import { LifecycleAction } from "./LifecycleAction";
 import { FlagJudgmentAction } from "./FlagJudgmentAction";
+import { AnchorAction } from "./AnchorAction";
 
 /** States with no single live upstream head — resolution is impossible (spec §9.2). */
 const RESOLUTION_LOCKED: ReadonlySet<EdgeStateLabel> = new Set([
@@ -125,6 +126,7 @@ export function BreakdownRow({ row, workspaceRoot }: BreakdownRowProps) {
         {row.actionable !== false && (
           <FlagJudgmentAction row={row} workspaceRoot={workspaceRoot} />
         )}
+        <AnchorAction row={row} workspaceRoot={workspaceRoot} />
         <LifecycleAction row={row} workspaceRoot={workspaceRoot} />
         <button
           type="button"

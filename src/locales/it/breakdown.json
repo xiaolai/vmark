@@ -108,5 +108,12 @@
     "reopened": "{{count}} collegamento/i risolti più di una volta",
     "resolutions": "risolto {{count}} volte",
     "downgraded": "il modello ha detto {{verdict}} a {{confidence}}, sotto la soglia"
+  },
+  "anchor": {
+    "set": "Ancora a una sezione",
+    "change": "Cambia ancora",
+    "clear": "Intero file",
+    "hint": "Controlla solo la sezione da cui dipende, invece dell'intero file.",
+    "empty": "Nessuna sezione a cui ancorare."
   }
 }

@@ -108,5 +108,12 @@
     "reopened": "{{count}}개 엣지가 두 번 이상 해결됨",
     "resolutions": "{{count}}회 해결",
     "downgraded": "모델 답변 {{verdict}} (신뢰도 {{confidence}}), 임계값 미만"
+  },
+  "anchor": {
+    "set": "섹션에 고정",
+    "change": "고정 위치 변경",
+    "clear": "파일 전체",
+    "hint": "파일 전체가 아니라 의존하는 섹션만 확인합니다.",
+    "empty": "고정할 섹션이 없습니다."
   }
 }
