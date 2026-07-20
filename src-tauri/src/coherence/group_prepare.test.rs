@@ -122,6 +122,41 @@ fn a_malformed_prepare_is_quarantined_and_does_not_poison_find_latest() {
 }
 
 #[test]
+fn find_latest_fails_closed_on_a_forked_lifecycle() {
+    // Re-review #2: two branches both supersede the same attempt (a git merge of
+    // two clones that each group-committed) → two maximal tips. `find_latest`
+    // must fail closed, never pick one by hash order.
+    let (_dir, mut kernel, u, u1) = seeded();
+    let cand = Candidate::new(u, "revised".into(), u1, vec![], "op", "s");
+    let snap = compute_snapshot(kernel.index(), std::slice::from_ref(&cand)).unwrap();
+    let a1 = attempt_id_for("g", &snap, None);
+    // Two branches, each re-previewed to a slightly different snapshot, both
+    // superseding a1 → two honest, distinct attempts (a git-merge fork).
+    let mut snap_c = snap.clone();
+    snap_c.earliest_expiry = Some("2027-01-01T00:00:00Z".into());
+    let b = GroupPrepare {
+        group_id: "g".into(),
+        attempt_id: attempt_id_for("g", &snap, Some(&a1)),
+        supersedes: Some(a1.clone()),
+        members: vec![],
+        snapshot: snap,
+    };
+    let c = GroupPrepare {
+        group_id: "g".into(),
+        attempt_id: attempt_id_for("g", &snap_c, Some(&a1)),
+        supersedes: Some(a1),
+        members: vec![],
+        snapshot: snap_c,
+    };
+    append_prepare(&mut kernel, &b).unwrap();
+    append_prepare(&mut kernel, &c).unwrap();
+    assert!(
+        find_latest(&kernel, "g").is_err(),
+        "a forked lifecycle must fail closed, not hash-pick a tip",
+    );
+}
+
+#[test]
 fn revalidate_rejects_an_external_new_incident_edge() {
     // Re-review #3b: an external transformation creates a NEW edge incident to an
     // affected object (a new downstream depending on it) without advancing that
@@ -149,8 +184,9 @@ fn revalidate_rejects_an_external_new_incident_edge() {
         .unwrap(),
     );
     e.idem = uuid::Uuid::now_v7();
+    let member_entry = e.id;
     kernel.append_and_apply(&e).unwrap();
-    let committed = vec![(cand.object, cand.revision.clone())];
+    let committed = vec![(cand.object, cand.revision.clone(), member_entry)];
     assert!(revalidate(kernel.index(), &prepare, &committed, NOW).unwrap());
 
     // EXTERNAL: a new object W depends on U@cand.revision → a new edge incident
@@ -264,22 +300,19 @@ fn revalidate_accepts_a_committed_members_own_head_move_but_rejects_external_dri
 
     // Commit U as its member. Revalidation must ACCEPT (U's head move is the
     // group's own; V is unchanged).
-    kernel
-        .append_and_apply(&{
-            let mut e = Envelope::create(
-                "transformation",
-                kernel.writer(),
-                serde_json::to_value(cand.to_transformation(Agent {
-                    kind: AgentType::Human,
-                    id: None,
-                }))
-                .unwrap(),
-            );
-            e.idem = uuid::Uuid::now_v7();
-            e
-        })
-        .unwrap();
-    let committed = vec![(cand.object, cand.revision.clone())];
+    let mut e = Envelope::create(
+        "transformation",
+        kernel.writer(),
+        serde_json::to_value(cand.to_transformation(Agent {
+            kind: AgentType::Human,
+            id: None,
+        }))
+        .unwrap(),
+    );
+    e.idem = uuid::Uuid::now_v7();
+    let member_entry = e.id;
+    kernel.append_and_apply(&e).unwrap();
+    let committed = vec![(cand.object, cand.revision.clone(), member_entry)];
     assert!(
         revalidate(kernel.index(), &prepare, &committed, NOW).unwrap(),
         "a committed member's own head move must pass",
