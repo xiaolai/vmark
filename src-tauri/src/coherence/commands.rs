@@ -240,25 +240,23 @@ pub fn perform_breakdown_in(
             rows[i].anchor_status = Some(status);
         }
     }
+    // Decide actionability ONCE, here, so no consumer has to re-derive it.
+    for row in &mut rows {
+        row.actionable =
+            !row.frozen_downstream && row.anchor_status.as_deref() != Some("anchor-unchanged");
+    }
     Ok(rows)
 }
 
 pub fn perform_status(kernel: &mut WorkspaceKernel) -> Result<CoherenceStatus, String> {
     kernel.ensure_available()?; // 8R-5: never serve a half-rebuilt index
     let objects = kernel.index().registry_state()?.path_of.len();
-    // `open_items` must agree with what the breakdown actually asks the owner
-    // about, so it excludes frozen downstreams too. Counting them here would put
-    // "5 open" on the badge while the list shows nothing to do — the same
-    // status-disagrees-with-edges inconsistency the lifecycle work already had to
-    // fix once.
+    // Both the badge and the list read the SAME `actionable` flag, so they
+    // cannot disagree — the inconsistency this feature produced twice.
     let open_items = if kernel.is_initialized() {
-        // Count what the breakdown would actually ask about, so the badge can
-        // never disagree with the list.
         perform_breakdown_in(kernel, None)?
             .iter()
-            .filter(|r| {
-                !r.frozen_downstream && r.anchor_status.as_deref() != Some("anchor-unchanged")
-            })
+            .filter(|r| r.actionable)
             .count()
     } else {
         0

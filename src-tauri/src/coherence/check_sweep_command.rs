@@ -50,20 +50,24 @@ pub async fn coherence_check_sweep(
 
     let root = std::path::PathBuf::from(&workspace_root);
     let kernel_arc = state.registry.kernel_for(&root, state.writer)?;
-    let now = chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
     let model_name = model.clone().unwrap_or_else(|| provider.provider.clone());
 
     // Snapshot the checkable edge set + resume cursor under one lock, then drop it
     // so the provider calls never hold the kernel.
     let (checkable, cursor): (Vec<(Uuid, u32)>, Vec<CheckedKey>) = {
-        let kernel = kernel_arc
+        let mut kernel = kernel_arc
             .lock()
             .map_err(|_| "kernel poisoned".to_string())?;
         kernel.ensure_available()?; // 9R-4: never serve a poisoned index
-        let rows = kernel.index().breakdown(&now)?;
+                                    // Go through the ENRICHED breakdown, not the raw index projection: the
+                                    // raw one has no lifecycle or anchor knowledge, so the sweep was paying
+                                    // for real LLM calls on frozen downstreams and on edges whose anchored
+                                    // section had not moved — work `perform_status` already considered
+                                    // non-actionable. `anchor-changed` and `anchor-lost` stay in scope.
+        let rows = super::commands::perform_breakdown_in(&mut kernel, None)?;
         let checkable = rows
             .iter()
-            .filter(|r| is_checkable(&r.state))
+            .filter(|r| r.actionable && is_checkable(&r.state))
             .map(|r| (r.txf, r.input))
             .collect();
         let cursor = cursor_from_index(kernel.index().checked_cursor()?);
