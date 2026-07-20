@@ -20,7 +20,7 @@ use uuid::Uuid;
 use super::index::CoherenceIndex;
 use super::operator::Candidate;
 use super::state::WorkspaceKernel;
-use super::types::{Envelope, ObjectId, RevisionId};
+use super::types::{Agent, AgentType, Envelope, ObjectId, RevisionId, Transformation};
 
 /// The base-head + resolution snapshot a group commits against.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -46,6 +46,68 @@ pub struct GroupSnapshot {
 pub struct PreparedMember {
     pub object: ObjectId,
     pub revision: RevisionId,
+    /// The full canonical member transformation (re-review #6). With the member's
+    /// content staged in CAS BEFORE the prepare (`stage_member_content`), the
+    /// ledger + CAS alone can reconstruct and commit this member — no client
+    /// resubmission needed. `content` (the CAS text) reconstitutes the Candidate.
+    pub transformation: Transformation,
+    /// The member content's text, for CAS staging + reconstruction (its hash is
+    /// `transformation.outputs[0].content_hash`).
+    pub content: String,
+}
+
+impl PreparedMember {
+    /// The manifest entry for a candidate (its canonical human-agent txf + text).
+    pub fn of(candidate: &Candidate) -> Self {
+        Self {
+            object: candidate.object,
+            revision: candidate.revision.clone(),
+            transformation: candidate.to_transformation(Agent {
+                kind: AgentType::Human,
+                id: None,
+            }),
+            content: candidate.content.clone(),
+        }
+    }
+
+    /// Reconstruct the Candidate from the manifest (client-less recovery, #6).
+    /// Verifies the content hashes to the transformation's declared output hash.
+    pub fn to_candidate(&self) -> Result<Candidate, String> {
+        let out = self
+            .transformation
+            .outputs
+            .first()
+            .ok_or("prepared member has no output")?;
+        let operator = self
+            .transformation
+            .intent
+            .kind
+            .strip_prefix("operator:")
+            .unwrap_or(&self.transformation.intent.kind)
+            .to_string();
+        let candidate = if out.parents.is_empty() {
+            Candidate::new_root(
+                out.object,
+                self.content.clone(),
+                self.transformation.inputs.clone(),
+                &operator,
+                &self.transformation.intent.summary,
+            )
+        } else {
+            Candidate::new(
+                out.object,
+                self.content.clone(),
+                out.parents[0].clone(),
+                self.transformation.inputs.clone(),
+                &operator,
+                &self.transformation.intent.summary,
+            )
+        };
+        if candidate.revision != out.revision || candidate.content_hash != out.content_hash {
+            return Err("prepared member content does not match its declared hash (tamper)".into());
+        }
+        Ok(candidate)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
