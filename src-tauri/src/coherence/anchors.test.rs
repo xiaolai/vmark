@@ -184,6 +184,108 @@ fn the_last_section_runs_to_end_of_document() {
     assert_ne!(a, resolve_anchor(&edited, &p(&["6. Canon"])));
 }
 
+// ---- Audit-driven parser hardening (audit 019f7e91) ----
+
+#[test]
+fn a_fence_with_trailing_text_does_not_close_the_block() {
+    // CommonMark allows only whitespace after a closing fence. Treating
+    // ```not-a-close as a close would expose a fake heading inside code and
+    // could later suppress a real staleness flag.
+    let doc = "# Real\n\n```\n```not-a-close\n# Fake\n```\n\ntail\n";
+    assert_eq!(
+        resolve_anchor(doc, &p(&["Fake"])),
+        AnchorResolution::NotFound
+    );
+}
+
+#[test]
+fn a_shorter_run_does_not_close_a_longer_fence() {
+    let doc = "# Real\n\n````\n```\n# Fake\n````\n\ntail\n";
+    assert_eq!(
+        resolve_anchor(doc, &p(&["Fake"])),
+        AnchorResolution::NotFound
+    );
+}
+
+#[test]
+fn indented_code_is_not_a_heading() {
+    // Four leading spaces is an indented code block, not markup.
+    let doc = "# Real\n\n    # Fake heading\n\ntail\n";
+    assert_eq!(
+        resolve_anchor(doc, &p(&["Fake heading"])),
+        AnchorResolution::NotFound
+    );
+}
+
+#[test]
+fn up_to_three_spaces_is_still_a_heading() {
+    let doc = "# Real\n\n   ## Indented Three\n\nbody\n";
+    assert!(matches!(
+        resolve_anchor(doc, &p(&["Indented Three"])),
+        AnchorResolution::Found(_)
+    ));
+}
+
+#[test]
+fn a_tab_after_the_marker_is_a_heading() {
+    let doc = "#\tTabbed\n\nbody\n";
+    assert!(matches!(
+        resolve_anchor(doc, &p(&["Tabbed"])),
+        AnchorResolution::Found(_)
+    ));
+}
+
+#[test]
+fn duplicate_names_at_different_levels_are_ambiguous() {
+    // "Shallowest wins" would silently ignore edits to the identically-named
+    // deeper section.
+    let doc = "# A\n\n## Dup\n\nfirst\n\n### Dup\n\nsecond\n";
+    assert_eq!(
+        resolve_anchor(doc, &p(&["Dup"])),
+        AnchorResolution::Ambiguous
+    );
+}
+
+#[test]
+fn an_omitted_intermediate_ancestor_does_not_match() {
+    // ["Root","Target"] must NOT reach a Target nested under an unnamed "A":
+    // otherwise moving an identical Target block between siblings reads as
+    // unchanged.
+    let doc = "# Root\n\n## A\n\n### Target\n\nbody\n";
+    assert_eq!(
+        resolve_anchor(doc, &p(&["Root", "Target"])),
+        AnchorResolution::NotFound
+    );
+    // The full path still resolves.
+    assert!(matches!(
+        resolve_anchor(doc, &p(&["Root", "A", "Target"])),
+        AnchorResolution::Found(_)
+    ));
+}
+
+#[test]
+fn a_final_newline_is_part_of_the_section() {
+    // Joining lines dropped the terminating newline, so "# H\nbody" and
+    // "# H\nbody\n" hashed identically even though the canonical format treats
+    // a final newline as content — a silent-suppression path.
+    let a = resolve_anchor("# H\nbody", &p(&["H"]));
+    let b = resolve_anchor("# H\nbody\n", &p(&["H"]));
+    assert!(matches!(a, AnchorResolution::Found(_)));
+    assert_ne!(a, b, "final-newline presence must change the hash");
+}
+
+#[test]
+fn an_oversized_path_is_refused() {
+    // Untrusted input: an anchor can arrive over IPC or via a git-merged ledger,
+    // and resolution cost scales with path size.
+    let deep: Vec<String> = (0..MAX_PATH_SEGMENTS + 1)
+        .map(|i| format!("h{i}"))
+        .collect();
+    assert_eq!(resolve_anchor(DOC, &deep), AnchorResolution::Invalid);
+    let wide = vec!["x".repeat(MAX_SEGMENT_BYTES + 1)];
+    assert_eq!(resolve_anchor(DOC, &wide), AnchorResolution::Invalid);
+}
+
 // ---- AnchorSet projection + evaluation ----
 
 use crate::coherence::types::{Envelope, WriterId};
