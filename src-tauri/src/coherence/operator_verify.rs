@@ -128,6 +128,7 @@ pub async fn coherence_operator_verify(
             verdict: CheckVerdict::Unknown,
             confidence: 0.0,
             evidence: Vec::new(),
+            downgrade: None,
         },
     };
     Ok(AdvisoryVerdict {

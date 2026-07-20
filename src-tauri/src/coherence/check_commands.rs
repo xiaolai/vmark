@@ -17,7 +17,23 @@ use super::state::WorkspaceKernel;
 use super::types::{Envelope, RevisionId};
 
 /// D5.3: τ default per spike S4 — tunable policy, recorded per result.
+///
+/// Dogfooding (2026-07-20) showed why it must be TUNABLE, not just "tunable in
+/// principle": on 21 real checks the confidences split perfectly at this value —
+/// determinate 0.90–0.99, unknown 0.82–0.86, nothing between. All 5 `unknown`
+/// results were τ downgrades of answers the model had actually reached. A τ the
+/// owner cannot adjust turns a calibration choice into a silent ~24% discard rate.
 pub const DEFAULT_TAU: f64 = 0.9;
+
+/// Clamp a caller-supplied τ into the usable range; `None` keeps the default.
+/// A τ outside [0,1] is not a threshold — fall back rather than silently making
+/// every verdict determinate (τ≤0) or every verdict unknown (τ>1).
+pub fn resolve_tau(requested: Option<f64>) -> f64 {
+    match requested {
+        Some(t) if t.is_finite() && (0.0..=1.0).contains(&t) => t,
+        _ => DEFAULT_TAU,
+    }
+}
 
 /// Provider timeout: past this the verdict is `unknown` (D5.3), never
 /// an error — a slow provider must not read as a failed check.
@@ -168,6 +184,18 @@ fn record_check_locked(
         "confidence": parsed.confidence,
         "context": prepared.context.to_string(),
         "claims_fingerprint": prepared.claims_fingerprint,
+        // Preserve a τ-downgraded determinate verdict (dogfood 2026-07-20). Without
+        // this the ledger records `unknown` and throws away a verdict already paid
+        // for, so retuning τ later cannot recover it — you must re-run and re-pay.
+        // Recording it keeps the τ decision auditable AND retunable offline.
+        "downgraded": parsed.downgrade.as_ref().map(|d| json!({
+            "verdict": verdict_str(d.verdict),
+            "reason": d.reason,
+            "tau": d.tau,
+            "evidence": d.evidence.iter().map(|e| json!({
+                "quote": e.quote, "loc": e.loc,
+            })).collect::<Vec<_>>(),
+        })),
     });
     let env = Envelope::create("check-result", kernel.writer(), body);
     let entry_id = env.id;
@@ -187,7 +215,9 @@ pub async fn coherence_check(
     input: u32,
     provider: crate::workflow::genie_step::ProviderConfig,
     model: Option<String>,
+    tau: Option<f64>,
 ) -> Result<CheckReceipt, String> {
+    let tau = resolve_tau(tau);
     let root = std::path::PathBuf::from(&workspace_root);
     let kernel_arc = state.registry.kernel_for(&root, state.writer)?;
     let prepared = {
@@ -215,11 +245,12 @@ pub async fn coherence_check(
     .await;
     // D5.3: timeout or provider error → unknown, recorded as such.
     let parsed = match response {
-        Ok(Ok(raw)) => super::checker::parse_check_response(&raw, DEFAULT_TAU),
+        Ok(Ok(raw)) => super::checker::parse_check_response(&raw, tau),
         Ok(Err(_)) | Err(_) => ParsedCheck {
             verdict: CheckVerdict::Unknown,
             confidence: 0.0,
             evidence: Vec::new(),
+            downgrade: None,
         },
     };
     let model_name = model.as_deref().unwrap_or(provider.provider.as_str());

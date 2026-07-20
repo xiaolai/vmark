@@ -9,7 +9,7 @@ use std::time::{Duration, Instant};
 
 use uuid::Uuid;
 
-use super::check_commands::{prepare_check, record_check, CHECK_TIMEOUT_SECS, DEFAULT_TAU};
+use super::check_commands::{prepare_check, record_check, CHECK_TIMEOUT_SECS};
 use super::check_sweep::CheckedKey;
 use super::check_sweep_run::{
     cost_model_for, cursor_from_index, estimate_check_cost, is_checkable, SweepConfig, SweepReport,
@@ -26,7 +26,9 @@ pub async fn coherence_check_sweep(
     provider: crate::workflow::genie_step::ProviderConfig,
     model: Option<String>,
     ceiling_usd: f64,
+    tau: Option<f64>,
 ) -> Result<SweepReport, String> {
+    let tau = super::check_commands::resolve_tau(tau);
     // Refuse a CONCURRENT sweep (dogfood finding, 2026-07-20). The sweep drops the
     // kernel lock across every provider call, so two invocations both snapshot
     // "not yet checked" and both pay for the SAME edges — observed live as 9
@@ -131,12 +133,13 @@ pub async fn coherence_check_sweep(
         // Timeout/provider error → unknown verdict (checker discipline), but it
         // counts toward the error rate for the Phase-1 gate.
         let (parsed, errored) = match response {
-            Ok(Ok(raw)) => (parse_check_response(&raw, DEFAULT_TAU), false),
+            Ok(Ok(raw)) => (parse_check_response(&raw, tau), false),
             Ok(Err(_)) | Err(_) => (
                 ParsedCheck {
                     verdict: CheckVerdict::Unknown,
                     confidence: 0.0,
                     evidence: Vec::new(),
+                    downgrade: None,
                 },
                 true,
             ),
