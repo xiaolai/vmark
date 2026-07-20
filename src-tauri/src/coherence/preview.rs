@@ -230,7 +230,8 @@ impl CoherenceIndex {
         // persisted resolution/check state (empty slices — re-review MINOR). The
         // projected after-class goes in `new_edge_classes` (so accept re-checks
         // it, #8) and, when non-trivial, in `local_delta` for display. A
-        // brand-new edge's display "before" is `Retired` (it did not exist).
+        // brand-new edge's display "before" is `Absent` (it never existed — #8,
+        // distinct from `Retired` which means existed-then-superseded).
         let mut new_edge_classes = ClassMap::new();
         for c in candidates {
             for (i, input) in c.inputs.iter().enumerate() {
@@ -258,7 +259,7 @@ impl CoherenceIndex {
                 if after != StructuralClass::Retired {
                     local_delta.push(PreviewDelta {
                         edge: pid,
-                        before: StructuralClass::Retired,
+                        before: StructuralClass::Absent,
                         after,
                     });
                 }

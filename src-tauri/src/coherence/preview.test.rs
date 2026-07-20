@@ -155,8 +155,8 @@ fn group_preview_surfaces_new_conformance_edges() {
     );
     assert_eq!(
         d.before,
-        StructuralClass::Retired,
-        "a brand-new edge did not exist before"
+        StructuralClass::Absent,
+        "a brand-new edge is Absent (never existed), not Retired"
     );
     assert_eq!(
         d.after,
