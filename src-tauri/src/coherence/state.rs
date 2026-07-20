@@ -298,12 +298,25 @@ impl WorkspaceKernel {
         // without any flock. The panic is re-raised unchanged afterwards.
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| f(self)));
         self.in_write_txn = false;
-        // Refresh to include our own appends (the flock blocked everyone else, so
-        // nothing else changed). A read failure just forces a reconcile next time.
-        self.reflected_fp = self.ledger.fingerprint().ok();
         match result {
-            Ok(r) => r,
-            Err(payload) => std::panic::resume_unwind(payload),
+            Ok(r) => {
+                // Refresh to include our own appends (the flock blocked everyone
+                // else, so nothing else changed). A read failure forces a reconcile.
+                self.reflected_fp = self.ledger.fingerprint().ok();
+                r
+            }
+            Err(payload) => {
+                // NEVER certify the post-panic fingerprint (9th-review 9R-2). `f`
+                // may have durably appended and panicked before applying, leaving
+                // the index BEHIND the ledger; recording the fingerprint would tell
+                // the next acquire that the index is current and skip the
+                // reconciliation that would heal it. Poison and clear instead, so a
+                // kernel surviving an outer `catch_unwind` refuses until reopen.
+                self.reflected_fp = None;
+                self.unavailable =
+                    Some("a panic escaped a locked operation; state may be torn".into());
+                std::panic::resume_unwind(payload)
+            }
         }
     }
 
@@ -444,8 +457,33 @@ fn is_fully_initialized(vmark: &Path) -> bool {
 /// truncated `.gitattributes` that a later `open` would trust as initialized, so
 /// the new content is staged in a temp file, fsync'd, then renamed into place.
 fn ensure_line(path: &Path, line: &str) -> Result<(), String> {
-    let existing = fs::read_to_string(path).unwrap_or_default();
+    // Read errors must NEVER become "empty" (9th-review 9R-5). `unwrap_or_default`
+    // turned a temporarily-unreadable or non-UTF-8 `.gitignore` into an empty
+    // string, and the rename below then replaced the user's real file with one
+    // containing only VMark's rule — destroying every rule they had written. The
+    // stricter init gate made that previously-dormant path reachable for an
+    // otherwise healthy workspace. Only a genuinely ABSENT file is empty; anything
+    // else fails closed and leaves the file untouched.
+    let existing = match fs::read_to_string(path) {
+        Ok(s) => s,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => String::new(),
+        Err(e) => {
+            return Err(format!(
+                "init {}: unreadable ({e}) — refusing to overwrite it",
+                path.display()
+            ))
+        }
+    };
     if existing.lines().any(|l| l.trim() == line) {
+        // The rule is present, but a PREVIOUS call may have returned after a
+        // successful rename whose directory fsync failed (9R-5 retry hole). Re-sync
+        // the directory so a retry actually completes the durability it skipped.
+        if let Some(dir) = path.parent() {
+            if let Ok(d) = fs::File::open(dir) {
+                d.sync_all()
+                    .map_err(|e| format!("init {}: dir fsync: {e}", path.display()))?;
+            }
+        }
         return Ok(());
     }
     let mut content = existing;
