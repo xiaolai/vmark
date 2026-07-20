@@ -197,6 +197,11 @@ pub fn accept_group(
     }
     // A poisoned kernel's O(1) presence lookup is untrustworthy (re-review #3).
     kernel.ensure_available()?;
+    // Cross-process fence (re-review #1): hold an exclusive workspace lock across
+    // the WHOLE lifecycle lookup → prepare/abort → member appends, and reconcile
+    // the index from the ledger after acquiring it, so two instances on the same
+    // workspace cannot interleave revalidate/commit/abort. Released on return.
+    let _lock = kernel.lock_group_commit()?;
     // Distinct objects + tamper check — a changeset touches each object once.
     let mut objects = std::collections::HashSet::new();
     for c in candidates {

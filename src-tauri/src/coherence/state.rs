@@ -38,6 +38,12 @@ pub struct WorkspaceKernel {
     pub quarantined: usize,
 }
 
+/// RAII guard for the cross-process group-commit lock (`lock_group_commit`). The
+/// exclusive `flock` is released when this drops (the fd closes).
+pub struct GroupCommitLock {
+    _file: fs::File,
+}
+
 impl WorkspaceKernel {
     /// Open a workspace. Creates nothing on disk when `.vmark/` is absent
     /// (in-memory index until first capture).
@@ -161,6 +167,39 @@ impl WorkspaceKernel {
     fn reconcile_index_from_ledger(&mut self) -> Result<(), String> {
         let read = self.ledger.read_all()?;
         self.index.rebuild_from(&read.entries)
+    }
+
+    /// Acquire an exclusive **cross-process** workspace lock for a group-commit
+    /// (re-review #1), then reconcile the index from the ledger (another process
+    /// may have appended while we blocked on the lock). The lock is held until the
+    /// returned guard drops — hold it across the WHOLE group lifecycle
+    /// lookup → prepare/abort → member appends so two instances on the same
+    /// workspace cannot interleave. On non-Unix the OS lock is skipped
+    /// (best-effort; macOS/Linux are the gated platforms).
+    pub fn lock_group_commit(&mut self) -> Result<GroupCommitLock, String> {
+        self.ensure_initialized()?;
+        let path = self.root.join(".vmark").join("group.lock");
+        let file = fs::OpenOptions::new()
+            .create(true)
+            .truncate(false)
+            .write(true)
+            .open(&path)
+            .map_err(|e| format!("group lock open failed: {e}"))?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::io::AsRawFd;
+            // SAFETY: `file` owns the fd for the flock's lifetime; the lock is
+            // released when the fd closes (guard drop).
+            let rc = unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX) };
+            if rc != 0 {
+                return Err(format!(
+                    "group lock failed: {}",
+                    std::io::Error::last_os_error()
+                ));
+            }
+        }
+        self.reconcile_index_from_ledger()?;
+        Ok(GroupCommitLock { _file: file })
     }
 
     pub fn root(&self) -> &Path {
