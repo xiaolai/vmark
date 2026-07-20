@@ -688,5 +688,16 @@
       "label": "Embedded browser",
       "description": "Enable the experimental in-app web browser. Adds “New Browser Tab” to the command palette."
     }
+  },
+  "coherence": {
+    "group": "Coherence",
+    "checkTau": {
+      "label": "Semantic check confidence",
+      "description": "How sure a check must be before its answer is recorded as a verdict. Below this, the answer is kept but marked unknown.",
+      "option07": "0.7 — more verdicts, less certain",
+      "option08": "0.8 — balanced",
+      "option09": "0.9 — cautious (default)",
+      "option095": "0.95 — only near-certain answers"
+    }
   }
 }
