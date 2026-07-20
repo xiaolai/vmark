@@ -302,15 +302,18 @@ fn accept_group_locked(
             // dangerously one with `members: []`, whose empty snapshot revalidates
             // trivially — lets a client commit an unreviewed set through recovery,
             // skipping the fresh preview-class precondition entirely.
-            let prepared: std::collections::HashSet<(ObjectId, String)> = prepare
-                .members
-                .iter()
-                .map(|m| (m.object, m.revision.as_str().to_string()))
-                .collect();
-            let submitted: std::collections::HashSet<(ObjectId, String)> = candidates
-                .iter()
-                .map(|c| (c.object, c.revision.as_str().to_string()))
-                .collect();
+            // 8R-4: bind on FULL member identity — object, revision AND the
+            // canonical transformation (inputs, operator, agent, intent, content
+            // hash). Comparing only (object, revision) let a crafted prepare carry
+            // the right pairs with empty or different transformations, so an
+            // upstream input that went stale after preview could be committed
+            // through recovery — which skips the fresh preview-class check.
+            let mut prepared = prepare.members.clone();
+            let mut submitted: Vec<PreparedMember> =
+                candidates.iter().map(PreparedMember::of).collect();
+            let keyf = |m: &PreparedMember| (m.object.0, m.revision.as_str().to_string());
+            prepared.sort_by(|a, b| keyf(a).cmp(&keyf(b)));
+            submitted.sort_by(|a, b| keyf(a).cmp(&keyf(b)));
             if prepared != submitted {
                 return Err(
                     "group prepare does not match the submitted changeset — re-preview and re-run"
