@@ -297,19 +297,37 @@ fn a_reconcile_failure_during_lock_acquire_does_not_leak_the_workspace_lock() {
         .unwrap_err();
     assert!(!err.is_empty(), "the acquire-time reconcile must fail");
 
-    // Restore and confirm the kernel is NOT stuck: a normal write now succeeds,
-    // proving the lock was released and no state leaked.
+    // The kernel is POISONED, by contract: a reconcile that failed part-way may
+    // have left a half-rebuilt index, and serving one is the worst outcome
+    // available. It must refuse until reopen rather than carry on.
     let mut p = std::fs::metadata(&ledger_dir).unwrap().permissions();
     p.set_mode(0o755);
     std::fs::set_permissions(&ledger_dir, p).unwrap();
-    kernel
+    let still = kernel
         .append_and_apply(&Envelope::create(
             "diagnostic",
             writer(1),
-            json!({ "code": "b", "message": "recovered", "path": null }),
+            json!({ "code": "b", "message": "after", "path": null }),
         ))
-        .expect("lock was released — the kernel is usable again");
-    assert_eq!(kernel.ledger().read_all().unwrap().entries.len(), 1);
+        .unwrap_err();
+    assert!(
+        still.contains("unavailable until reopen"),
+        "a poisoned kernel must keep refusing, got: {still}"
+    );
+
+    // But the FLOCK was not leaked — that is what this test exists to prove.
+    // A fresh kernel on the same workspace acquires it and writes; a leaked
+    // flock would block here forever instead.
+    drop(kernel);
+    let mut reopened = WorkspaceKernel::open(dir.path(), writer(1)).unwrap();
+    reopened
+        .append_and_apply(&Envelope::create(
+            "diagnostic",
+            writer(1),
+            json!({ "code": "c", "message": "recovered", "path": null }),
+        ))
+        .expect("the lock was released, so reopening heals and writes succeed");
+    assert_eq!(reopened.ledger().read_all().unwrap().entries.len(), 1);
 }
 
 #[test]
