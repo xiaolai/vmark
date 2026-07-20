@@ -478,3 +478,58 @@ fn waiver_expiry_is_recorded_and_honored() {
     let w = entries.iter().find(|e| e.kind == "waiver").unwrap();
     assert_eq!(w.body["expires"], "2020-01-01T00:00:00Z");
 }
+
+// R3 (audit-fix) — actionability is the one field the badge, the panel, and the
+// sweep all read; before this it was untested, yet it hides owner work and gates
+// paid LLM calls. Every lifecycle/anchor combination, asserted directly.
+#[test]
+fn is_actionable_covers_every_lifecycle_and_anchor_combination() {
+    let cases: &[(bool, Option<&str>, bool, &str)] = &[
+        (false, None, true, "unanchored live edge asks"),
+        (
+            false,
+            Some("anchor-unchanged"),
+            false,
+            "unchanged anchor is suppressed",
+        ),
+        (
+            false,
+            Some("anchor-changed"),
+            true,
+            "changed anchor still asks",
+        ),
+        (
+            false,
+            Some("anchor-lost"),
+            true,
+            "lost anchor asks — the dependency broke",
+        ),
+        (true, None, false, "frozen downstream is suppressed"),
+        (
+            true,
+            Some("anchor-changed"),
+            false,
+            "frozen wins over a changed anchor",
+        ),
+        (
+            true,
+            Some("anchor-unchanged"),
+            false,
+            "frozen and unchanged: doubly suppressed",
+        ),
+    ];
+    for &(frozen, anchor, expected, why) in cases {
+        assert_eq!(is_actionable(frozen, anchor), expected, "{why}");
+    }
+}
+
+// The label the suppression check compares against must match what enrichment
+// actually writes — a drift here would silently make unchanged anchors
+// actionable (nagging) or the reverse.
+#[test]
+fn unchanged_is_the_only_suppressing_anchor_label() {
+    use crate::coherence::anchors::AnchorStatus;
+    assert!(!is_actionable(false, Some(AnchorStatus::Unchanged.label())));
+    assert!(is_actionable(false, Some(AnchorStatus::Changed.label())));
+    assert!(is_actionable(false, Some(AnchorStatus::Lost.label())));
+}

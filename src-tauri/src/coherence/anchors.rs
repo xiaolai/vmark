@@ -38,6 +38,7 @@ pub enum AnchorResolution {
 }
 
 /// One parsed ATX heading.
+#[derive(Clone)]
 struct Heading {
     level: usize,
     text: String,
@@ -143,6 +144,14 @@ pub const MAX_SEGMENT_BYTES: usize = 512;
 ///   parent is a change, not a match;
 /// - case and punctuation are significant: renaming a heading IS a change.
 pub fn resolve_anchor(text: &str, path: &[String]) -> AnchorResolution {
+    resolve_in(&headings(text), text, path)
+}
+
+/// `resolve_anchor` against an ALREADY-parsed heading list. Extracted so a
+/// caller resolving many paths against the same document (the anchor picker)
+/// parses the text once instead of once per path — the difference between
+/// O(headings) and O(headings²) reparses.
+fn resolve_in(hs: &[Heading], text: &str, path: &[String]) -> AnchorResolution {
     if path.is_empty()
         || path.len() > MAX_PATH_SEGMENTS
         || path.iter().any(|s| s.len() > MAX_SEGMENT_BYTES)
@@ -153,7 +162,6 @@ pub fn resolve_anchor(text: &str, path: &[String]) -> AnchorResolution {
     if wanted.iter().any(|s| s.is_empty()) {
         return AnchorResolution::Invalid;
     }
-    let hs = headings(text);
 
     // Walk the path, requiring a DIRECT parent-child step each time.
     let mut lo = 0usize; // first heading index in the current window
@@ -351,14 +359,6 @@ pub fn evaluate(anchor: &Anchor, current_upstream_text: &str) -> AnchorStatus {
     }
 }
 
-/// Anchor an edge to a heading path, or clear it with an EMPTY path.
-///
-/// The baseline hash is computed from the upstream's CURRENT text at the moment
-/// of anchoring — anchoring says "I depend on this section as it stands now".
-/// Refuses a path that does not resolve to exactly one section: storing an
-/// anchor that is already `NotFound`/`Ambiguous` would create an edge that can
-/// only ever report `anchor-lost`. Path bounds are enforced by `resolve_anchor`,
-/// which returns `Invalid` for an oversized or over-deep path.
 /// Every heading path in `text` that can actually be anchored to.
 ///
 /// Feeds the anchor picker. Two rules make it safe to send a returned path
@@ -373,9 +373,11 @@ pub fn evaluate(anchor: &Anchor, current_upstream_text: &str) -> AnchorStatus {
 ///
 /// Over-deep paths are dropped for the same reason: `set_anchor` bounds them.
 pub fn heading_paths(text: &str) -> Vec<Vec<String>> {
+    // Parse ONCE; `resolve_in` reuses it for every candidate path.
+    let hs = headings(text);
     let mut stack: Vec<Heading> = Vec::new();
     let mut out: Vec<Vec<String>> = Vec::new();
-    for h in headings(text) {
+    for h in &hs {
         while stack.last().is_some_and(|t| t.level >= h.level) {
             stack.pop();
         }
@@ -384,17 +386,25 @@ pub fn heading_paths(text: &str) -> Vec<Vec<String>> {
             .map(|t| t.text.clone())
             .chain(std::iter::once(h.text.clone()))
             .collect();
-        stack.push(h);
+        stack.push(h.clone());
         if path.len() > MAX_PATH_SEGMENTS || path.iter().any(|s| s.len() > MAX_SEGMENT_BYTES) {
             continue;
         }
-        if matches!(resolve_anchor(text, &path), AnchorResolution::Found(_)) {
+        if matches!(resolve_in(&hs, text, &path), AnchorResolution::Found(_)) {
             out.push(path);
         }
     }
     out
 }
 
+/// Anchor an edge to a heading path, or clear it with an EMPTY path.
+///
+/// The baseline hash is computed from the upstream's CURRENT text at the moment
+/// of anchoring — anchoring says "I depend on this section as it stands now".
+/// Refuses a path that does not resolve to exactly one section: storing an
+/// anchor that is already `NotFound`/`Ambiguous` would create an edge that can
+/// only ever report `anchor-lost`. Path bounds are enforced by `resolve_anchor`,
+/// which returns `Invalid` for an oversized or over-deep path.
 pub fn set_anchor(
     kernel: &mut super::state::WorkspaceKernel,
     txf: &uuid::Uuid,

@@ -242,10 +242,22 @@ pub fn perform_breakdown_in(
     }
     // Decide actionability ONCE, here, so no consumer has to re-derive it.
     for row in &mut rows {
-        row.actionable =
-            !row.frozen_downstream && row.anchor_status.as_deref() != Some("anchor-unchanged");
+        row.actionable = is_actionable(row.frozen_downstream, row.anchor_status.as_deref());
     }
     Ok(rows)
+}
+
+/// Does this edge actually ASK for something? The single definition of
+/// actionability, shared by the badge (`perform_status`), the panel, and the
+/// check sweep so none of them can re-derive it and disagree.
+///
+/// Suppressed when the downstream is frozen history, or when the edge is
+/// anchored to a section that has NOT changed. Compares against the typed
+/// `AnchorStatus` label rather than a bare literal, so adding another
+/// suppressing status is a compile-time concern here rather than a silent
+/// behaviour change.
+pub(crate) fn is_actionable(frozen_downstream: bool, anchor_status: Option<&str>) -> bool {
+    !frozen_downstream && anchor_status != Some(super::anchors::AnchorStatus::Unchanged.label())
 }
 
 pub fn perform_status(kernel: &mut WorkspaceKernel) -> Result<CoherenceStatus, String> {
