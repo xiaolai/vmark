@@ -48,6 +48,22 @@ pub struct EdgeRow {
     /// design-lifecycle-and-anchors.md §B.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub anchor_status: Option<String>,
+    /// Does this edge actually ASK the owner for something?
+    ///
+    /// The one field every consumer must use. Suppression was previously left to
+    /// each caller to re-derive from `frozen_downstream` + `anchor_status`, and
+    /// they promptly diverged: `perform_status` filtered while the panel rendered
+    /// everything, so the badge read 0 while the list still interrupted. Deciding
+    /// it once, here, makes that class of drift unrepresentable.
+    ///
+    /// False for a frozen downstream (a finished record upstream edits cannot
+    /// invalidate) and for `anchor-unchanged` (the depended-on section did not
+    /// move). `anchor-changed` and `anchor-lost` remain actionable — a broken
+    /// anchor is evidence the dependency genuinely broke.
+    /// (`EdgeRow` is serialize-only in Rust; the TypeScript mirror supplies its
+    /// own default, which is `true` — degrade toward interrupting, never toward
+    /// silence.)
+    pub actionable: bool,
 }
 
 fn serialize_state<S: serde::Serializer>(state: &EdgeState, s: S) -> Result<S::Ok, S::Error> {

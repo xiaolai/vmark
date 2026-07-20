@@ -262,6 +262,7 @@ impl CoherenceIndex {
                 // the index itself has no lifecycle knowledge.
                 frozen_downstream: false,
                 anchor_status: None,
+                actionable: true,
             });
         }
         out.sort_by(|a, b| {
