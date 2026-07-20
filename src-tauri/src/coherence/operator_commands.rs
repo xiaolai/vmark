@@ -138,12 +138,13 @@ pub async fn coherence_operator_accept(
         .lock()
         .map_err(|_| "kernel poisoned".to_string())?;
     let preview_classes = structural_classes.into_iter().collect();
-    accept_candidate(
-        &mut kernel,
-        &candidate.to_candidate(),
-        &preview_classes,
-        &now_rfc3339(),
-    )
+    let candidate = candidate.to_candidate();
+    let now = now_rfc3339();
+    // #1 (R1): hold the workspace lock across the WHOLE accept — idem lookup,
+    // base-head revalidation, reproject, and append are one atomic critical
+    // section, so a concurrent group-commit can't move the head between our
+    // validation and our append (which would fork the object with a stale sibling).
+    kernel.with_write_lock(|k| accept_candidate(k, &candidate, &preview_classes, &now))
 }
 
 #[cfg(test)]

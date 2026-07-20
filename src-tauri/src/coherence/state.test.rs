@@ -233,6 +233,86 @@ fn an_append_failure_reconciles_and_asks_for_retry_without_losing_state() {
 }
 
 #[test]
+fn a_bare_lock_file_is_not_mistaken_for_an_initialized_workspace() {
+    // Re-review #4: a failed op can create `.vmark/group.lock` (via
+    // `acquire_lock_file`) without the full structure. Init detection is
+    // marker-based (`.gitattributes`, written LAST), so `open` treats that bare
+    // `.vmark` as UNINITIALIZED and the next write completes it — `merge=union`
+    // (the git-merge semantics the ledger relies on) is never silently lost.
+    let dir = tmp();
+    let vmark = dir.path().join(".vmark");
+    std::fs::create_dir_all(&vmark).unwrap();
+    std::fs::write(vmark.join("group.lock"), b"").unwrap();
+
+    let mut kernel = WorkspaceKernel::open(dir.path(), writer(1)).unwrap();
+    assert!(
+        !kernel.is_initialized(),
+        "a bare .vmark/group.lock must not read as initialized",
+    );
+    assert!(
+        !vmark.join(".gitattributes").is_file(),
+        "precondition: no completion marker yet",
+    );
+
+    kernel
+        .append_and_apply(&Envelope::create(
+            "diagnostic",
+            writer(1),
+            json!({ "code": "x", "message": "first write", "path": null }),
+        ))
+        .unwrap();
+    assert!(kernel.is_initialized());
+    assert_eq!(
+        std::fs::read_to_string(vmark.join(".gitattributes")).unwrap(),
+        "ledger/*.jsonl merge=union\n",
+        "the completion marker is written, so a git commit keeps merge=union",
+    );
+}
+
+#[test]
+fn a_reconcile_failure_during_lock_acquire_does_not_leak_the_workspace_lock() {
+    // Re-review #5: the flock lives in a stack local and `in_write_txn` is set
+    // only AFTER a successful reconcile, so a reconcile error during lock acquire
+    // releases the lock and leaves the kernel usable — no stuck "lock already
+    // held" / permanently-held flock (the old `begin_group_lock` leak, where the
+    // handle was stored before the reconcile that then failed).
+    use std::os::unix::fs::PermissionsExt;
+    let dir = tmp();
+    let mut kernel = WorkspaceKernel::open(dir.path(), writer(1)).unwrap();
+    kernel.ensure_initialized().unwrap();
+    let ledger_dir = dir.path().join(".vmark").join("ledger");
+
+    // Make the ledger dir unreadable so the reconcile (read_all) fails with a
+    // permission error — NOT the empty-history NotFound.
+    let mut p = std::fs::metadata(&ledger_dir).unwrap().permissions();
+    p.set_mode(0o000);
+    std::fs::set_permissions(&ledger_dir, p).unwrap();
+
+    let err = kernel
+        .append_and_apply(&Envelope::create(
+            "diagnostic",
+            writer(1),
+            json!({ "code": "a", "message": "blocked", "path": null }),
+        ))
+        .unwrap_err();
+    assert!(!err.is_empty(), "the acquire-time reconcile must fail");
+
+    // Restore and confirm the kernel is NOT stuck: a normal write now succeeds,
+    // proving the lock was released and no state leaked.
+    let mut p = std::fs::metadata(&ledger_dir).unwrap().permissions();
+    p.set_mode(0o755);
+    std::fs::set_permissions(&ledger_dir, p).unwrap();
+    kernel
+        .append_and_apply(&Envelope::create(
+            "diagnostic",
+            writer(1),
+            json!({ "code": "b", "message": "recovered", "path": null }),
+        ))
+        .expect("lock was released — the kernel is usable again");
+    assert_eq!(kernel.ledger().read_all().unwrap().entries.len(), 1);
+}
+
+#[test]
 fn registry_shares_one_kernel_per_root() {
     let dir = tmp();
     let registry = KernelRegistry::default();

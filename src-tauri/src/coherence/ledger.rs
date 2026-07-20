@@ -8,13 +8,20 @@
 //! test lock that surface.
 
 use std::fs;
-use std::io::Write;
+use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 
 use super::types::{Envelope, WriterId, FORMAT_VERSION};
 
 /// Spec §5.1 rotation threshold.
 const MAX_SEGMENT_BYTES: u64 = 8 * 1024 * 1024;
+
+/// Per-line read cap (re-review #3): `read_all` streams each segment line with
+/// this bound, so a single pathological or hostile line (a group-prepare grown
+/// past every field cap, or an externally-corrupted ledger) is quarantined
+/// instead of read whole into memory. Above the largest legal line (a
+/// `MAX_PREPARE_BYTES` 4 MiB prepare plus envelope overhead), with margin.
+const MAX_LINE_BYTES: usize = 16 * 1024 * 1024;
 
 /// I5 tripwire — every public method, mirrored by the test suite.
 pub const PUBLIC_API: [&str; 5] = [
@@ -176,22 +183,47 @@ impl Ledger {
                 .file_name()
                 .map(|n| n.to_string_lossy().into_owned())
                 .unwrap_or_default();
-            let bytes =
-                fs::read(&seg).map_err(|e| format!("segment read failed ({seg_name}): {e}"))?;
-            for (i, line) in bytes.split(|b| *b == b'\n').enumerate() {
-                if line.is_empty() {
-                    continue;
-                }
-                match parse_line(line) {
-                    LineOutcome::Entry(env) => raw.push(env),
-                    LineOutcome::FutureFormat => read.future_format += 1,
-                    LineOutcome::Malformed(reason) => {
-                        self.quarantine(&seg_name, i + 1, line, &reason);
+            // Stream the segment line-by-line with a per-line memory cap (#3), so
+            // no single line — however large or hostile — is read whole into RAM.
+            let file = match fs::File::open(&seg) {
+                Ok(f) => f,
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => continue,
+                Err(e) => return Err(format!("segment read failed ({seg_name}): {e}")),
+            };
+            let mut reader = BufReader::new(file);
+            let mut buf = Vec::new();
+            let mut line_no = 0usize;
+            loop {
+                line_no += 1;
+                match read_capped_line(&mut reader, &mut buf, MAX_LINE_BYTES)
+                    .map_err(|e| format!("segment read failed ({seg_name}): {e}"))?
+                {
+                    CappedLine::Eof => break,
+                    CappedLine::Oversized => {
+                        let reason = format!("line exceeds the {MAX_LINE_BYTES}-byte cap");
+                        self.quarantine(&seg_name, line_no, b"<oversized line elided>", &reason);
                         read.quarantined.push(QuarantineRecord {
                             segment: seg_name.clone(),
-                            line: i + 1,
+                            line: line_no,
                             reason,
                         });
+                    }
+                    CappedLine::Line => {
+                        if buf.is_empty() {
+                            continue;
+                        }
+                        match parse_line(&buf) {
+                            LineOutcome::Entry(env) => raw.push(env),
+                            LineOutcome::FutureFormat => read.future_format += 1,
+                            LineOutcome::Malformed(reason) => {
+                                self.quarantine(&seg_name, line_no, &buf, &reason);
+                                read.quarantined.push(QuarantineRecord {
+                                    segment: seg_name.clone(),
+                                    line: line_no,
+                                    reason,
+                                });
+                            }
+                        }
                     }
                 }
             }
@@ -226,6 +258,72 @@ impl Ledger {
             .and_then(|mut f| {
                 f.write_all(format!("# line {line_no}, {reason}\n{line_str}\n").as_bytes())
             });
+    }
+}
+
+/// Outcome of one bounded line read.
+enum CappedLine {
+    /// A within-cap line (may be empty); its bytes are in `buf` (no trailing `\n`).
+    Line,
+    /// A line exceeded the cap — it was drained to the next boundary, not buffered.
+    Oversized,
+    /// Clean end of file.
+    Eof,
+}
+
+/// Read one newline-terminated line from `reader` into `buf`, bounding memory to
+/// `max` bytes (re-review #3). A line with no early newline is drained to its
+/// boundary WITHOUT being buffered once it passes `max`, so a single huge or
+/// hostile line can never OOM the reader. Consumes the BufReader's own buffer via
+/// `fill_buf`/`consume`, so at most one fill's worth (plus the capped `buf`) is
+/// resident at a time.
+fn read_capped_line<R: BufRead>(
+    reader: &mut R,
+    buf: &mut Vec<u8>,
+    max: usize,
+) -> Result<CappedLine, String> {
+    buf.clear();
+    let mut oversized = false;
+    loop {
+        let available = reader.fill_buf().map_err(|e| format!("read failed: {e}"))?;
+        if available.is_empty() {
+            if !buf.is_empty() {
+                return Ok(CappedLine::Line); // final line, no trailing newline
+            }
+            return Ok(if oversized {
+                CappedLine::Oversized
+            } else {
+                CappedLine::Eof
+            });
+        }
+        match available.iter().position(|&b| b == b'\n') {
+            Some(pos) => {
+                if !oversized && buf.len() + pos > max {
+                    oversized = true;
+                    buf.clear();
+                }
+                if !oversized {
+                    buf.extend_from_slice(&available[..pos]);
+                }
+                reader.consume(pos + 1);
+                return Ok(if oversized {
+                    CappedLine::Oversized
+                } else {
+                    CappedLine::Line
+                });
+            }
+            None => {
+                let n = available.len();
+                if !oversized && buf.len() + n > max {
+                    oversized = true;
+                    buf.clear();
+                }
+                if !oversized {
+                    buf.extend_from_slice(available);
+                }
+                reader.consume(n);
+            }
+        }
     }
 }
 

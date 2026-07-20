@@ -18,17 +18,28 @@
 //! - **Idempotent full retry** — if every member is present, the group returns
 //!   the original receipts without appending.
 //!
-//! STATUS: **all 5th-review findings (`019f7d08…`) addressed; pending a SIXTH
-//! review** before ship. The group-commit has been through five DO-NOT-SHIP
-//! reviews, each closing findings and narrowing the next; the 5th CLOSED
-//! #2/#3a/#3b/#3c/#5/#8 and its 4 remaining (workspace-wide lock #1, manifest
-//! validation #2, chronological earliest_expiry #4, CAS-only bounded manifest #6)
-//! are now fixed: EVERY ledger writer takes the exclusive workspace `flock`
-//! (`state::begin_group_lock`/`append_and_apply`); `recover_group` reads content
-//! from CAS + fully validates each member + recomputes `group_id`; expiry is
-//! selected by instant; the manifest stores only the transformation. See
-//! `design-accept-consistency.md`. Ship-relevant properties (do NOT flip the
-//! marker until the 6th review is clean):
+//! STATUS: **six DO-NOT-SHIP reviews; R1 (full pessimistic lock) implemented,
+//! pending a SEVENTH review (`019f7d1d…` was the 6th).** The owner chose R1, so
+//! EVERY mutating operation now holds the exclusive workspace lock across its
+//! WHOLE read-validate-append span via `state::with_write_lock`: the 6th review's
+//! CRITICAL (single accept validating its base-head *below* the lock) is closed —
+//! `operator_commands` wraps the single accept, `accept_group`/`recover_group`
+//! wrap the group, and a nested per-member `append_and_apply` reuses the held
+//! lock. The lock also reconciles the index from the ledger on acquire, so a
+//! concurrent commit that moved a head is caught as a stale-base rejection, never
+//! a silent fork. The two `flock` regressions are fixed: init detection is now
+//! marker-based (`.gitattributes` written last — no half-init `.vmark`, #4) and
+//! the lock lives in a stack local set-after-reconcile (no reconcile-error/panic
+//! leak, #5). Durability + bounds are hardened: `sync_dir_of` fatally fsyncs the
+//! staged blob's dir AND its new ancestors before the prepare (#2); every prepare
+//! is bound-checked (`group_prepare::validate_bounds`) before staging and at the
+//! `append_prepare` choke point, and `read_all` streams each segment with a
+//! per-line cap (#3). SCOPE NOTE (spec should adopt): the lock fences *cooperating
+//! VMark writers* on Unix; it does NOT fence a raw `git` checkout mutating the
+//! tracked ledger, and Windows has only the in-process mutex — both are documented
+//! limitations, with the abort keeping any partial defined rather than corrupt. Do
+//! NOT flip the Phase 4 marker until the 7th review is clean. Ship-relevant
+//! properties of the prepare/commit/abort machinery:
 //!   - **Group identity binds the WHOLE group** (#4) — `group_id` hashes the
 //!     members' sorted *ungrouped* accept idems and folds into each grouped idem,
 //!     so the O(1) presence lookup answers "committed AS PART OF THIS EXACT GROUP".
@@ -42,11 +53,11 @@
 //!   - **Recovery revalidation** (#6) — a partial group revalidates the prepared
 //!     snapshot against the CURRENT workspace (a committed member's own head move
 //!     is expected; any other drift is external) and completes only if unchanged.
-//!   - **Defined abort** (#7) — on external drift the attempt appends a durable
-//!     `group-abort` and rejects (re-preview → a fresh attempt supersedes it),
-//!     so a partial is never a permanently-stuck deadlock. (Full cross-process
-//!     serialization under simultaneous instances is a documented follow-up; the
-//!     abort makes the outcome defined rather than corrupt.)
+//!   - **Defined abort** (#7) — on external drift (e.g. a raw `git` checkout the
+//!     lock cannot fence) the attempt appends a durable `group-abort` and rejects
+//!     (re-preview → a fresh attempt supersedes it), so a partial is never a
+//!     permanently-stuck deadlock — the abort keeps the outcome defined, not
+//!     corrupt, even where the lock's reach ends.
 
 use sha2::{Digest, Sha256};
 
@@ -200,10 +211,9 @@ pub fn accept_group(
     }
     // A poisoned kernel's O(1) presence lookup is untrustworthy (re-review #3).
     kernel.ensure_available()?;
-    kernel.begin_group_lock()?; // #1: fence every writer for the whole op
-    let result = accept_group_locked(kernel, candidates, preview, now);
-    kernel.end_group_lock();
-    result
+    // #1 (R1): hold the exclusive workspace lock across the WHOLE lifecycle
+    // lookup → preflight → prepare → member appends, atomic against every writer.
+    kernel.with_write_lock(|k| accept_group_locked(k, candidates, preview, now))
 }
 
 fn accept_group_locked(
@@ -321,6 +331,18 @@ fn accept_group_locked(
                         .into(),
                 );
             }
+            // Build + BOUND-CHECK the prepare BEFORE any CAS write (#3): an
+            // oversized changeset is rejected before staging, so a rejected group
+            // never orphans content and a too-large prepare line is never appended
+            // (which would OOM the client-less recovery that reads it back).
+            let prepare = GroupPrepare {
+                group_id: group.clone(),
+                attempt_id: attempt_id.clone(),
+                supersedes,
+                members: candidates.iter().map(PreparedMember::of).collect(),
+                snapshot: fresh_snapshot.expect("a fresh attempt has a snapshot"),
+            };
+            group_prepare::validate_bounds(&prepare)?;
             // Stage every member's content in CAS BEFORE the prepare (#6), so a
             // crash right after the prepare still has the content the ledger-only
             // recovery driver needs to reconstruct + commit the member.
@@ -330,17 +352,10 @@ fn accept_group_locked(
                 if stored != c.content_hash {
                     return Err("CAS stored a different hash than a candidate declares".into());
                 }
-                // Fatally fsync the blob's directory so it is durable BEFORE the
-                // prepare that references it (#6) — no orphaned staged content.
+                // Fatally fsync the blob's directory (+ ancestors) so it is durable
+                // BEFORE the prepare that references it (#2/#6) — no orphaned content.
                 kernel.snapshots().sync_dir_of(&stored)?;
             }
-            let prepare = GroupPrepare {
-                group_id: group.clone(),
-                attempt_id: attempt_id.clone(),
-                supersedes,
-                members: candidates.iter().map(PreparedMember::of).collect(),
-                snapshot: fresh_snapshot.expect("a fresh attempt has a snapshot"),
-            };
             group_prepare::append_prepare(kernel, &prepare)?;
         }
     }
@@ -364,10 +379,7 @@ pub fn recover_group(
     now: &str,
 ) -> Result<Vec<AcceptReceipt>, String> {
     kernel.ensure_available()?;
-    kernel.begin_group_lock()?;
-    let result = recover_group_locked(kernel, group, now);
-    kernel.end_group_lock();
-    result
+    kernel.with_write_lock(|k| recover_group_locked(k, group, now))
 }
 
 fn recover_group_locked(

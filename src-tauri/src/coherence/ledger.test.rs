@@ -274,3 +274,39 @@ fn append_only_api_surface() {
         "new public ledger method: verify it cannot mutate history (I5)"
     );
 }
+
+#[test]
+fn read_all_quarantines_an_oversized_line_and_keeps_its_neighbours() {
+    // Re-review #3: read_all streams each segment with a per-line memory cap, so a
+    // single line larger than MAX_LINE_BYTES is quarantined (never read whole into
+    // RAM) while the valid entries around it still parse.
+    use std::io::Write;
+    let dir = tmp();
+    let ledger = Ledger::new(dir.path().join("ledger"), writer(1));
+    ledger
+        .append(&Envelope::create("diagnostic", writer(1), diag("before")))
+        .unwrap();
+    // A pathological > 16 MiB line, appended directly to the segment.
+    let seg = ledger.active_segment_path_for_test();
+    {
+        let mut f = std::fs::OpenOptions::new().append(true).open(&seg).unwrap();
+        f.write_all(&vec![b'x'; 17 * 1024 * 1024]).unwrap();
+        f.write_all(b"\n").unwrap();
+    }
+    ledger
+        .append(&Envelope::create("diagnostic", writer(1), diag("after")))
+        .unwrap();
+
+    let read = ledger.read_all().unwrap();
+    assert_eq!(read.entries.len(), 2, "both valid entries survive");
+    assert_eq!(
+        read.quarantined.len(),
+        1,
+        "the oversized line is quarantined"
+    );
+    assert!(
+        read.quarantined[0].reason.contains("cap"),
+        "got: {}",
+        read.quarantined[0].reason
+    );
+}

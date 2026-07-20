@@ -1,17 +1,19 @@
 # Design — accept-consistency + group-commit redesign
 
-> **Status: FOUR reviews (all DO-NOT-SHIP), every finding now ADDRESSED; a FIFTH
-> review is the gate (2026-07-20).** Round 2 (`019f7c7e…`, 8 MAJOR): 6 fix-now
-> correctness bugs fixed — these unblocked **Phase 3, now GREEN** 8/8 perf PASS.
-> The deferred set was implemented as a durable prepare/commit/abort state
-> machine; rounds 3 (`019f7cbd…`) and 4 (`019f7ceb…`) each returned DO-NOT-SHIP
-> with deeper issues, ALL now fixed + tested (360 coherence tests): cross-process
-> `flock` (#1), DAG/fork-aware causal `attempt_id` (#2/#5), entry-id edge
-> ownership + member-only scan + truncation refusal (#3), chronological expiry
-> (#4), CAS-staged manifest + `recover_group` client-less driver (#6), full
-> lifecycle-body validation (#7), `StructuralClass::Absent` (#8). **Phase 4 stays
-> red until the fifth review is clean** — four DO-NOT-SHIP rounds mean the marker
-> is not flipped on a hope; it is flipped only on a passing review.
+> **Status: SIX reviews, all DO-NOT-SHIP (2026-07-20).** Round 2 (`019f7c7e…`,
+> 8 MAJOR): 6 fix-now correctness bugs fixed — these unblocked **Phase 3, now
+> GREEN** 8/8 perf PASS. The deferred multi-object group-commit was implemented as
+> a durable prepare/commit/abort state machine; rounds 3–6 each returned
+> DO-NOT-SHIP, each closing findings and uncovering the next layer. The 6th
+> (`019f7d1d…`) CLOSED manifest validation + chronological expiry but left a
+> **CRITICAL** lock-scope defect OPEN and surfaced **two regressions** from the
+> `flock` attempt (half-init `.vmark`, lock leak). Root finding, evidence-backed
+> across six reviews: cross-process serialization can't fence every threat (raw
+> git checkouts, Windows) — but the owner chose **R1 (full pessimistic lock)** for
+> cooperating VMark writers, and it is now **implemented + tested** (all 5 findings
+> closed; 377 coherence tests green; fmt + clippy clean), **pending a SEVENTH
+> review**. See "Owner decision + R1 implementation" at the bottom. **Phase 4 stays
+> RED; the marker is never flipped on a hope — only on a passing review.**
 
 ## Re-review disposition (thread `019f7c7e…`, DO-NOT-SHIP, 8 MAJOR + 1 MINOR)
 
@@ -326,3 +328,64 @@ substantial; #3a/#3b/#3c/#4/#7 are tractable but keep uncovering the next layer.
 This CANNOT be responsibly closed by session-tail iteration. The clearest small
 correctness bugs it found (#4 chronological compare, #3c truncation rejection)
 are fixed next; the marker stays RED and the rest is the project.
+
+## Fifth review — DO-NOT-SHIP (thread `019f7d08…`)
+
+The redesign landed (`attempt_id`, DAG lifecycle, CAS-staged manifest, `Absent`
+before-state, sub-DAG bounds). The 5th CLOSED #2/#3a/#3b/#3c/#5/#8 and left four:
+#1 (workspace-wide lock), #2 (manifest validation), #4 (chronological
+`earliest_expiry`), #6 (CAS-only bounded manifest). All four were then addressed:
+every ledger writer takes the exclusive workspace `flock`; `recover_group` reads
+from CAS + fully validates + recomputes `group_id`; expiry selected by instant;
+the manifest stores only the transformation. A `sync_dir_of` (fatal dir fsync)
+was added for the group-staging path.
+
+## Sixth review — DO-NOT-SHIP (thread `019f7d1d…`)
+
+Six reviews, six DO-NOT-SHIP. The 6th CLOSED #2 (manifest validation — verified
+correct) and #4 (chronological `earliest_expiry` — verified correct), and left
+the group-commit still not shippable:
+
+| # | Severity | Status | Defect |
+|---|---|---|---|
+| #1 lock scope | **CRITICAL** | OPEN | The `flock` is acquired *inside* `append_and_apply`, **below** the accept's validation boundary. `accept_candidate` does idem lookup + base-head revalidation + reprojection (accept.rs:74/87/94) *outside* any lock; only the final append locks. Two-process trace: P2 validates `B(parent=b0)` unlocked → P1 locks + commits group `{A1,B1(parent=b0)}` + unlocks → P2 appends stale `B2` → `B` forks `{B1,B2}` while the group returned as an isolated success. The lock guards the write, not the read-validate-write span. |
+| #2 CAS durability | MAJOR | OPEN | `put_raw`'s destination-dir fsync is best-effort + error-discarded (cas.rs:94); newly-created `sha256/<aa>` ancestor dirs unsynced. A staged member's rename can be lost on power-loss after the prepare is durable → client-less recovery impossible. |
+| #3 manifest bounds | MAJOR | OPEN | `GroupPrepare.members` is an unbounded `Vec`; each member embeds an unbounded transformation (inputs/intent). A single `group-prepare` line can exceed `MAX_SEGMENT_BYTES` (only a pre-append rotation threshold); recovery `fs::read`s whole segments → memory-exhaustion prevents recovery. |
+| #4 half-init `.vmark` | MAJOR | **NEW regression** | `acquire_lock_file` creates `.vmark` directly; `open` treats mere existence as initialized; a group accept that errors before `ensure_initialized` leaves `.vmark` with only `group.lock` → on reopen, `.gitignore`/`.gitattributes`/`merge=union` never written. |
+| #5 lock leak | MAJOR | **NEW regression** | `begin_group_lock` stores the file in `self.lock` *before* `reconcile_index_from_ledger`; a reconcile error returns via `?` before `end_group_lock` → the `flock` is held until the kernel is dropped. A panic in a locked inner fn similarly skips the manual `end`. |
+
+**Reviewer's own scope note (decisive):** the `flock` is `#[cfg(unix)]` (Windows
+has only the in-process mutex — no fence) and **git does not honor `group.lock`**
+(a live checkout can mutate the tracked ledger mid-operation). The reviewer
+recommends the spec say **"cooperating VMark writers"** rather than imply every
+writer is fenced.
+
+**Conclusion (evidence-backed, six reviews).** This confirms the round-4
+conclusion. #1 is exclusively a *multi-process* race — within one process the
+per-workspace `Arc<Mutex<WorkspaceKernel>>` already serializes single **and**
+group accepts for their whole span. The `flock` was an attempt to extend that
+cross-process; it can't fence the real threats (git checkouts, Windows,
+non-cooperating writers), it created **false safety** (#1 CRITICAL) and **two
+regressions** (#4, #5). The honest fork in the road is a scope decision (below),
+not another patch. Marker stays RED.
+
+## Owner decision + R1 implementation (post-6th-review, 2026-07-20)
+
+Presented the 6th-review scope fork; the owner chose **R1 — full pessimistic
+cross-process lock**. Implemented, with a regression test per finding:
+
+| Finding (6th review) | Fix | Test |
+|---|---|---|
+| **#1 CRITICAL** lock below the validation boundary | `state::with_write_lock` — EVERY mutating op (single accept via `operator_commands`, group accept/recover, lone `append_and_apply`) holds the exclusive `flock` across its WHOLE read-validate-append span, reconciling the index from the ledger on acquire. A nested per-member append reuses the held lock. | `accept::…::wrapped_accept_reconciles_a_concurrent_commit_and_rejects_the_stale_base` |
+| **#4** half-init `.vmark` | Init detection is marker-based: `.gitattributes` (the merge=union rule) is written LAST by `ensure_initialized` and is what `open` trusts — a bare `.vmark/group.lock` never reads as initialized. | `state::…::a_bare_lock_file_is_not_mistaken_for_an_initialized_workspace` |
+| **#5** reconcile-error lock leak | The `flock` lives in a stack local (releases on every exit incl. panic-unwind); `in_write_txn` is set only AFTER a successful acquire+reconcile and cleared on normal return. `begin/end_group_lock` are gone. | `state::…::a_reconcile_failure_during_lock_acquire_does_not_leak_the_workspace_lock` |
+| **#2** CAS staging durability | `SnapshotStore::sync_dir_of` fatally fsyncs the staged blob's dir AND every new ancestor up to the store root, before the prepare references it. | `cas::…::sync_dir_of_is_fatal_and_walks_ancestors` |
+| **#3** unbounded manifest | `group_prepare::validate_bounds` caps members / inputs-per-member / intent bytes / snapshot heads+edges / total serialized bytes — enforced before staging AND at the `append_prepare` choke point. `ledger::read_all` streams each segment with a per-line `MAX_LINE_BYTES` cap (quarantine, not OOM). | `group_prepare::…::an_oversized_group_prepare_is_rejected_before_it_is_written`, `ledger::…::read_all_quarantines_an_oversized_line_and_keeps_its_neighbours` |
+
+**Documented scope limits (the spec should adopt "cooperating VMark writers"):**
+the lock is `#[cfg(unix)]` (Windows keeps only the in-process `Arc<Mutex>` fence),
+and it does NOT fence a raw `git` checkout mutating the tracked ledger mid-op —
+that drift is caught by the prepare's revalidation, which appends a durable
+`group-abort` (outcome defined, never corrupt) and requires a re-preview.
+
+**Marker stays RED until the 7th review is clean.**

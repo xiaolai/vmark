@@ -331,3 +331,29 @@ fn revalidate_accepts_a_committed_members_own_head_move_but_rejects_external_dri
         "an external head move on an affected object must fail revalidation",
     );
 }
+
+#[test]
+fn an_oversized_group_prepare_is_rejected_before_it_is_written() {
+    // Re-review #3: a group with more than MAX_GROUP_MEMBERS members is rejected
+    // by validate_bounds, and the append_prepare choke point refuses it too, so an
+    // unbounded prepare line is never appended to the ledger.
+    let (_dir, mut kernel, u, u1) = seeded();
+    let cand = Candidate::new(u, "revised".into(), u1, vec![], "op", "s");
+    let snapshot = compute_snapshot(kernel.index(), std::slice::from_ref(&cand)).unwrap();
+    let members: Vec<PreparedMember> = (0..257).map(|_| PreparedMember::of(&cand)).collect();
+    let prepare = prep("g", members, snapshot);
+    assert!(
+        validate_bounds(&prepare).is_err(),
+        "an over-limit group is rejected",
+    );
+    assert!(
+        append_prepare(&mut kernel, &prepare).is_err(),
+        "the write choke point refuses it too",
+    );
+    // Nothing was written: no group-prepare entry landed in the ledger.
+    let read = kernel.ledger().read_all().unwrap();
+    assert!(
+        read.entries.iter().all(|e| e.kind != "group-prepare"),
+        "the oversized prepare never reached the ledger",
+    );
+}
