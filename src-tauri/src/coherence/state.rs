@@ -70,15 +70,16 @@ impl WorkspaceKernel {
             CoherenceIndex::open_in_memory()?
         };
         // Heal-on-open MUTATES the shared `index.db`, so it must be serialized
-        // against cooperating writers (9th-review). Unlocked, this sequence loses
-        // data silently: a writer holds the flock, appends E, applies it to the
-        // shared index and caches the fingerprint that INCLUDES E; an opener that
-        // read the ledger before E landed then rebuilds the shared index without E.
-        // The ledger fingerprint is unchanged, so the writer's next acquire skips
-        // reconciliation and serves an index missing its own committed entry.
-        // Taking the lock makes the opener's read+rebuild atomic w.r.t. appends, so
-        // it can only ever rebuild to the CURRENT ledger — which is exactly what
-        // every cached fingerprint already describes.
+        // against cooperating writers (9th-review). Two processes rebuilding the
+        // same SQLite file concurrently is a raw file race, and an opener that read
+        // the ledger before a writer's entry landed would rebuild the shared index
+        // without it. Taking the lock makes the opener's read+rebuild atomic w.r.t.
+        // appends, so it can only ever rebuild to the CURRENT ledger.
+        //
+        // The reconcile is now unconditional (see `with_write_lock`), so a stale
+        // rebuild no longer SURVIVES — the next acquiring writer rebuilds again
+        // regardless. The lock is still required: it prevents the concurrent
+        // mutation itself, which no later reconcile can undo.
         //
         // Only lock an EXISTING `.vmark`: mere open must never create it (spec §1),
         // and with no `.vmark` there is no shared index or ledger to race over.
@@ -249,14 +250,18 @@ impl WorkspaceKernel {
     /// read → build → append through here, so it is atomic against every other
     /// cooperating writer (7th-review 6R-1).
     ///
-    /// Performance (7th-review 6R-5): the index is reconciled from the ledger only
-    /// when the ledger's fingerprint differs from what the index last reflected.
-    /// Because the flock is held, no other writer can append while `f` runs, so a
-    /// single-process accept's only ledger change is its own just-applied append —
-    /// its next acquire finds the fingerprint unchanged and skips the O(ledger)
-    /// rebuild. The base-head a caller re-derives inside `f` is therefore checked
-    /// against a current index, so a concurrent commit that moved a head is caught
-    /// as a stale-base rejection, not a silent fork.
+    /// Cost: the index is reconciled from the ledger on EVERY acquire — O(ledger)
+    /// per mutating operation. The change-gated version this replaced (7th-review
+    /// 6R-5) tried to skip the rebuild when a ledger fingerprint was unchanged;
+    /// four consecutive audits each found a fresh way for the index to diverge
+    /// while that fingerprint stayed put, because the fingerprint answers "did the
+    /// ledger change?" while the invariant that matters is "does the index still
+    /// reflect the ledger?". Those are not the same question, so the gate was
+    /// removed rather than patched a fifth time.
+    ///
+    /// The reconcile guarantees the base-head a caller re-derives inside `f` is
+    /// checked against a current index, so a concurrent commit that moved a head is
+    /// caught as a stale-base rejection, not a silent fork.
     ///
     /// Durability + panic safety:
     /// - `.vmark` is initialized lazily at the actual write (`append_and_apply_inner`),
