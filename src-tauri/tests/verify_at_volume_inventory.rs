@@ -380,6 +380,7 @@ fn executable_requires_all_three_cas_texts_present_and_utf8() {
         prior_waivers: 0,
         kind: "dependency".into(),
         frozen_downstream: false,
+        anchor_status: None,
     };
 
     let text_row = row(t_down.id, down_text, down_rev);

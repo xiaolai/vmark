@@ -261,6 +261,7 @@ impl CoherenceIndex {
                 // Set by the breakdown surface from the lifecycle projection;
                 // the index itself has no lifecycle knowledge.
                 frozen_downstream: false,
+                anchor_status: None,
             });
         }
         out.sort_by(|a, b| {

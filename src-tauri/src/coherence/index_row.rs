@@ -42,6 +42,12 @@ pub struct EdgeRow {
     /// finished. The UI collapses rows where this is true; nothing is dropped.
     #[serde(default)]
     pub frozen_downstream: bool,
+    /// How this edge's section anchor stands against the CURRENT upstream text
+    /// — `anchor-unchanged` | `anchor-changed` | `anchor-lost`, or `None` when
+    /// the edge is unanchored (whole-file behaviour, the default).
+    /// design-lifecycle-and-anchors.md §B.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub anchor_status: Option<String>,
 }
 
 fn serialize_state<S: serde::Serializer>(state: &EdgeState, s: S) -> Result<S::Ok, S::Error> {
