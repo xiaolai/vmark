@@ -18,16 +18,15 @@
 //! - **Idempotent full retry** — if every member is present, the group returns
 //!   the original receipts without appending.
 //!
-//! STATUS: **NOT SHIP-READY — closing the THIRD review (`019f7cbd…`, 7 MAJOR).**
-//! Landed since that review: #7 (malformed-prepare poison), and the causal
-//! **`attempt_id`** that fixes #2 (lifecycle ordering by the `supersedes` chain,
-//! not wall-clock — no clock-skew deadlock) and #5 (member idems fold the
-//! attempt, so a superseded attempt's members are never reused). Still OPEN:
-//! **#3** (revalidation must cover edges created after prepare), **#4** (resolution
-//! EXPIRY is time-blind), **#6** (a CAS-backed full-transformation manifest for
-//! client-less recovery), **#1** (cross-process workspace lock). See
-//! `design-accept-consistency.md` "Third review". The properties below hold, but
-//! do NOT yet constitute ship-readiness:
+//! STATUS: **all 4th-review findings (`019f7ceb…`) addressed; pending a FIFTH
+//! review** before ship. Landed: **#1** cross-process `flock` + reconcile
+//! (`state::lock_group_commit`); **#2** DAG/fork-aware `find_latest` (fail closed
+//! on multiple tips / cycles; verify `attempt_id`); causal **`attempt_id`** (#2/#5);
+//! **#3a/#3b** entry-id edge ownership + member-only scan; **#3c** truncation
+//! refusal; **#4** chronological expiry; **#6** CAS-staged full-transformation
+//! manifest + `recover_group` client-less driver; **#7** full lifecycle-body
+//! validation; **#8** `StructuralClass::Absent`. See `design-accept-consistency.md`.
+//! Ship-relevant properties (do NOT flip the marker until the 5th review is clean):
 //!   - **Group identity binds the WHOLE group** (#4) — `group_id` hashes the
 //!     members' sorted *ungrouped* accept idems and folds into each grouped idem,
 //!     so the O(1) presence lookup answers "committed AS PART OF THIS EXACT GROUP".
