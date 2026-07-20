@@ -312,8 +312,8 @@ fn accept_group_locked(
             let mut submitted: Vec<PreparedMember> =
                 candidates.iter().map(PreparedMember::of).collect();
             let keyf = |m: &PreparedMember| (m.object.0, m.revision.as_str().to_string());
-            prepared.sort_by(|a, b| keyf(a).cmp(&keyf(b)));
-            submitted.sort_by(|a, b| keyf(a).cmp(&keyf(b)));
+            prepared.sort_by_key(keyf);
+            submitted.sort_by_key(keyf);
             if prepared != submitted {
                 return Err(
                     "group prepare does not match the submitted changeset — re-preview and re-run"
