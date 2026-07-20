@@ -38,6 +38,7 @@ pub async fn coherence_check_sweep(
         let kernel = kernel_arc
             .lock()
             .map_err(|_| "kernel poisoned".to_string())?;
+        kernel.ensure_available()?; // 9R-4: never serve a poisoned index
         let rows = kernel.index().breakdown(&now)?;
         let checkable = rows
             .iter()

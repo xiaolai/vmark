@@ -89,6 +89,7 @@ pub async fn coherence_operator_propose(
     let kernel = kernel_arc
         .lock()
         .map_err(|_| "kernel poisoned".to_string())?;
+    kernel.ensure_available()?; // 9R-4: never serve a poisoned, half-rebuilt index
     let base = match kernel.index().resolve_live(&object)? {
         Resolved::Single(rev) => rev,
         _ => return Err("object has no single live head to revise".into()),
@@ -112,6 +113,7 @@ pub async fn coherence_operator_preview(
     let kernel = kernel_arc
         .lock()
         .map_err(|_| "kernel poisoned".to_string())?;
+    kernel.ensure_available()?; // 9R-4: never serve a poisoned, half-rebuilt index
     let preview = kernel
         .index()
         .project_candidates(&candidate.to_candidate(), &now_rfc3339())?;

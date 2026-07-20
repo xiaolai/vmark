@@ -75,6 +75,7 @@ pub async fn coherence_merge_audit(
     let kernel = kernel_arc
         .lock()
         .map_err(|_| "kernel poisoned".to_string())?;
+    kernel.ensure_available()?; // 9R-4: never serve a poisoned, half-rebuilt index
     let edges = merge_affected_edges(kernel.index(), kernel.root())?;
     Ok(edges
         .into_iter()
