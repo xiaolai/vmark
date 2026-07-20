@@ -116,6 +116,16 @@ fn capture_locked(
             "capture intent is {intent_bytes} bytes, over the {MAX_CAPTURE_INTENT_BYTES} cap"
         ));
     }
+    // 9th-review 8R-9: `agent.id` was uncapped, so a huge one still reached the
+    // ledger append after the side effects. Bound it, and bound the TOTAL
+    // serialized transformation as the catch-all — no field can now push the line
+    // past what the ledger will accept, so the failure is always preflight.
+    let agent_bytes = req.agent.id.as_deref().map_or(0, str::len);
+    if agent_bytes > MAX_CAPTURE_INTENT_BYTES {
+        return Err(format!(
+            "capture agent id is {agent_bytes} bytes, over the {MAX_CAPTURE_INTENT_BYTES} cap"
+        ));
+    }
     // IPC boundary guard (audit R1): reject traversal before any effect.
     super::paths::resolve_workspace_rel(kernel.root(), &req.path)?;
     kernel.ensure_initialized()?;

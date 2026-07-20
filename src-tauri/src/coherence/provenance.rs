@@ -214,6 +214,7 @@ pub struct ProvenanceCandidate {
 pub fn perform_provenance_candidates(
     kernel: &mut WorkspaceKernel,
 ) -> Result<Vec<ProvenanceCandidate>, String> {
+    kernel.ensure_available()?; // 9R-4: never serve a poisoned, half-rebuilt index
     let registry = kernel.index().registry_state()?;
     let mut paths: Vec<(ObjectId, String)> = registry
         .path_of

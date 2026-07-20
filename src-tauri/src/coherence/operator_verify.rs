@@ -35,6 +35,7 @@ pub(super) fn build_candidate_prompt(
     candidate: &Candidate,
     nonce: &str,
 ) -> Result<String, String> {
+    kernel.ensure_available()?; // 9R-4: never serve a poisoned, half-rebuilt index
     let registry = kernel.index().registry_state()?;
     let path_of = |o: &super::types::ObjectId| {
         registry
