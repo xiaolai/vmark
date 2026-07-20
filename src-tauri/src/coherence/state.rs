@@ -72,6 +72,24 @@ impl WorkspaceKernel {
         } else {
             CoherenceIndex::open_in_memory()?
         };
+        // Heal-on-open MUTATES the shared `index.db`, so it must be serialized
+        // against cooperating writers (9th-review). Unlocked, this sequence loses
+        // data silently: a writer holds the flock, appends E, applies it to the
+        // shared index and caches the fingerprint that INCLUDES E; an opener that
+        // read the ledger before E landed then rebuilds the shared index without E.
+        // The ledger fingerprint is unchanged, so the writer's next acquire skips
+        // reconciliation and serves an index missing its own committed entry.
+        // Taking the lock makes the opener's read+rebuild atomic w.r.t. appends, so
+        // it can only ever rebuild to the CURRENT ledger — which is exactly what
+        // every cached fingerprint already describes.
+        //
+        // Only lock an EXISTING `.vmark`: mere open must never create it (spec §1),
+        // and with no `.vmark` there is no shared index or ledger to race over.
+        let _open_lock = if vmark.is_dir() {
+            Some(flock_exclusive(&vmark)?)
+        } else {
+            None
+        };
         let quarantined;
         if needs_rebuild || !initialized {
             let read = ledger.read_all()?;
@@ -220,26 +238,7 @@ impl WorkspaceKernel {
     fn acquire_lock_file(&self) -> Result<fs::File, String> {
         let vmark = self.root.join(".vmark");
         fs::create_dir_all(&vmark).map_err(|e| format!("group lock dir: {e}"))?;
-        let file = fs::OpenOptions::new()
-            .create(true)
-            .truncate(false)
-            .write(true)
-            .open(vmark.join("group.lock"))
-            .map_err(|e| format!("group lock open failed: {e}"))?;
-        #[cfg(unix)]
-        {
-            use std::os::unix::io::AsRawFd;
-            // SAFETY: `file` owns the fd for the flock's lifetime; the lock is
-            // released when the fd closes.
-            let rc = unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX) };
-            if rc != 0 {
-                return Err(format!(
-                    "group lock failed: {}",
-                    std::io::Error::last_os_error()
-                ));
-            }
-        }
-        Ok(file)
+        flock_exclusive(&vmark)
     }
 
     /// Run `f` holding the exclusive cross-process workspace lock across its WHOLE
@@ -385,6 +384,34 @@ impl KernelRegistry {
         map.insert(canonical, Arc::clone(&kernel));
         Ok(kernel)
     }
+}
+
+/// Take the exclusive workspace `flock` on an EXISTING `.vmark` (the caller
+/// decides whether creating it is allowed — `open` must not, per spec §1). The
+/// lock is held for the returned File's lifetime, released on fd close. The lock
+/// path is a permanently-ignored runtime file, so a checkout can't swap its inode
+/// while held. Non-Unix skips the OS lock (macOS/Linux are the gated platforms).
+fn flock_exclusive(vmark: &Path) -> Result<fs::File, String> {
+    let file = fs::OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .write(true)
+        .open(vmark.join("group.lock"))
+        .map_err(|e| format!("group lock open failed: {e}"))?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::io::AsRawFd;
+        // SAFETY: `file` owns the fd for the flock's lifetime; the lock is
+        // released when the fd closes.
+        let rc = unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX) };
+        if rc != 0 {
+            return Err(format!(
+                "group lock failed: {}",
+                std::io::Error::last_os_error()
+            ));
+        }
+    }
+    Ok(file)
 }
 
 /// The rule the git-transported ledger depends on, and the initialization
