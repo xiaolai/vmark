@@ -421,6 +421,11 @@ fn recover_group_completes_a_partial_from_the_manifest_without_the_client() {
             .collect(),
         snapshot,
     };
+    // Stage every member's content in CAS (as accept_group's fresh path does) —
+    // recover_group reads the content back from CAS, not from the ledger.
+    for c in &cands {
+        kernel.snapshots().put_text(&c.content).unwrap();
+    }
     group_prepare::append_prepare(&mut kernel, &prepare).unwrap();
     // Commit ONLY member 0 (U).
     let idem0 = member_idem(&cands[0], &attempt_id).unwrap();

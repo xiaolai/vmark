@@ -46,18 +46,16 @@ pub struct GroupSnapshot {
 pub struct PreparedMember {
     pub object: ObjectId,
     pub revision: RevisionId,
-    /// The full canonical member transformation (re-review #6). With the member's
-    /// content staged in CAS BEFORE the prepare (`stage_member_content`), the
-    /// ledger + CAS alone can reconstruct and commit this member — no client
-    /// resubmission needed. `content` (the CAS text) reconstitutes the Candidate.
+    /// The full canonical member transformation (re-review #6). The member's
+    /// content is staged in CAS BEFORE the prepare (`accept_group`), so recovery
+    /// reads it back from CAS by `transformation.outputs[0].content_hash` — the
+    /// content is NOT embedded here (an embedded copy would make the ledger record
+    /// unbounded).
     pub transformation: Transformation,
-    /// The member content's text, for CAS staging + reconstruction (its hash is
-    /// `transformation.outputs[0].content_hash`).
-    pub content: String,
 }
 
 impl PreparedMember {
-    /// The manifest entry for a candidate (its canonical human-agent txf + text).
+    /// The manifest entry for a candidate (its canonical human-agent txf).
     pub fn of(candidate: &Candidate) -> Self {
         Self {
             object: candidate.object,
@@ -66,29 +64,47 @@ impl PreparedMember {
                 kind: AgentType::Human,
                 id: None,
             }),
-            content: candidate.content.clone(),
         }
     }
 
-    /// Reconstruct the Candidate from the manifest (client-less recovery, #6).
-    /// Verifies the content hashes to the transformation's declared output hash.
-    pub fn to_candidate(&self) -> Result<Candidate, String> {
-        let out = self
+    /// The CAS content hash whose text reconstitutes this member.
+    pub fn content_hash(&self) -> Result<&super::types::ContentHash, String> {
+        Ok(&self
             .transformation
             .outputs
             .first()
-            .ok_or("prepared member has no output")?;
+            .ok_or("prepared member has no output")?
+            .content_hash)
+    }
+
+    /// Reconstruct + FULLY validate the Candidate from the manifest + its CAS
+    /// `content` (re-review #2/#6): exactly one output, at most one parent,
+    /// member/output object+revision agree, the content hashes to the declared
+    /// output hash, and regenerating the transformation from the candidate
+    /// reproduces EXACTLY the embedded one (so no forged agent/confidence/extra
+    /// field slips through).
+    pub fn to_candidate(&self, content: String) -> Result<Candidate, String> {
+        if self.transformation.outputs.len() != 1 {
+            return Err("prepared member must have exactly one output".into());
+        }
+        let out = &self.transformation.outputs[0];
+        if out.object != self.object || out.revision != self.revision {
+            return Err("prepared member object/revision disagrees with its transformation".into());
+        }
+        if out.parents.len() > 1 {
+            return Err("prepared member has more than one parent".into());
+        }
         let operator = self
             .transformation
             .intent
             .kind
             .strip_prefix("operator:")
-            .unwrap_or(&self.transformation.intent.kind)
+            .ok_or("prepared member intent.kind lacks the operator: prefix")?
             .to_string();
         let candidate = if out.parents.is_empty() {
             Candidate::new_root(
                 out.object,
-                self.content.clone(),
+                content,
                 self.transformation.inputs.clone(),
                 &operator,
                 &self.transformation.intent.summary,
@@ -96,7 +112,7 @@ impl PreparedMember {
         } else {
             Candidate::new(
                 out.object,
-                self.content.clone(),
+                content,
                 out.parents[0].clone(),
                 self.transformation.inputs.clone(),
                 &operator,
@@ -105,6 +121,15 @@ impl PreparedMember {
         };
         if candidate.revision != out.revision || candidate.content_hash != out.content_hash {
             return Err("prepared member content does not match its declared hash (tamper)".into());
+        }
+        if candidate.to_transformation(Agent {
+            kind: AgentType::Human,
+            id: None,
+        }) != self.transformation
+        {
+            return Err(
+                "prepared member transformation is not the canonical one for its candidate".into(),
+            );
         }
         Ok(candidate)
     }
@@ -211,7 +236,7 @@ pub fn compute_snapshot(
     affected.sort();
     let all_res = index.all_resolutions()?;
     let resolution_digest = resolution_digest(&all_res, &affected);
-    let earliest_expiry = earliest_expiry(&all_res, &affected);
+    let earliest_expiry = earliest_expiry(&all_res, &affected)?;
     Ok(GroupSnapshot {
         heads,
         affected_edges: affected.iter().map(|(t, i)| (t.to_string(), *i)).collect(),
@@ -220,14 +245,22 @@ pub fn compute_snapshot(
     })
 }
 
-/// The earliest `expires` across the resolutions on the affected edges.
-fn earliest_expiry(all_res: &ResMap, affected: &[(Uuid, u32)]) -> Option<String> {
-    affected
-        .iter()
-        .filter_map(|key| all_res.get(key))
-        .flatten()
-        .filter_map(|r| r.expires.clone())
-        .min()
+/// The earliest `expires` across the resolutions on the affected edges — selected
+/// by INSTANT (re-review #4: lexical `.min()` picks the wrong one under mixed
+/// offsets), returned normalized to UTC. Fails closed on an unparseable expiry.
+fn earliest_expiry(all_res: &ResMap, affected: &[(Uuid, u32)]) -> Result<Option<String>, String> {
+    let mut earliest: Option<chrono::DateTime<chrono::Utc>> = None;
+    for key in affected {
+        let Some(rs) = all_res.get(key) else { continue };
+        for r in rs {
+            let Some(exp) = &r.expires else { continue };
+            let dt = chrono::DateTime::parse_from_rfc3339(exp)
+                .map_err(|e| format!("resolution expiry is not rfc3339: {e}"))?
+                .with_timezone(&chrono::Utc);
+            earliest = Some(earliest.map_or(dt, |cur| cur.min(dt)));
+        }
+    }
+    Ok(earliest.map(|dt| dt.to_rfc3339()))
 }
 
 type ResMap = std::collections::HashMap<(Uuid, u32), Vec<super::project::EdgeResolution>>;
