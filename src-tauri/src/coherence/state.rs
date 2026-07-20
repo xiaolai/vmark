@@ -32,16 +32,14 @@ pub struct WorkspaceKernel {
     /// the index lacks it, so the O(1) idem lookup can no longer be trusted. All
     /// writes and accepts refuse until reopen re-reconciles from the ledger.
     unavailable: Option<String>,
+    /// The held exclusive workspace `flock` (re-review #1). `Some` while a group
+    /// op holds it across many appends; then nested `append_and_apply` calls skip
+    /// re-locking (flock is not re-entrant across fds even in one process).
+    lock: Option<fs::File>,
     /// Last git observation for scan classification (WI-1.7).
     pub last_git: Option<GitObservation>,
     /// Quarantined-line count from the last ledger read (status surface).
     pub quarantined: usize,
-}
-
-/// RAII guard for the cross-process group-commit lock (`lock_group_commit`). The
-/// exclusive `flock` is released when this drops (the fd closes).
-pub struct GroupCommitLock {
-    _file: fs::File,
 }
 
 impl WorkspaceKernel {
@@ -89,6 +87,7 @@ impl WorkspaceKernel {
             index,
             initialized,
             unavailable: None,
+            lock: None,
             last_git: None,
             quarantined,
         })
@@ -105,6 +104,7 @@ impl WorkspaceKernel {
         fs::create_dir_all(vmark.join("ledger")).map_err(|e| format!("init ledger dir: {e}"))?;
         fs::create_dir_all(vmark.join("snapshots")).map_err(|e| format!("init snapshots: {e}"))?;
         ensure_line(&vmark.join(".gitignore"), "index.db*")?;
+        ensure_line(&vmark.join(".gitignore"), "group.lock")?;
         ensure_line(&vmark.join(".gitattributes"), "ledger/*.jsonl merge=union")?;
         // Swap the in-memory index for the file-backed one.
         let (mut index, _) = CoherenceIndex::open(&vmark.join("index.db"))?;
@@ -128,6 +128,19 @@ impl WorkspaceKernel {
     ///   rebuild failure (audit R7).
     pub fn append_and_apply(&mut self, env: &Envelope) -> Result<(), String> {
         self.ensure_available()?;
+        // Serialize the write CROSS-PROCESS (re-review #1): every ledger writer
+        // takes the exclusive workspace lock, so an ordinary single-object accept
+        // can't interleave with a group-commit. A group op holds the lock across
+        // many appends (`self.lock` is set) — don't re-acquire (flock is not
+        // re-entrant across fds even within one process).
+        if self.lock.is_some() {
+            return self.append_and_apply_inner(env);
+        }
+        let _guard = self.acquire_lock_file()?;
+        self.append_and_apply_inner(env)
+    }
+
+    fn append_and_apply_inner(&mut self, env: &Envelope) -> Result<(), String> {
         if let Err(append_err) = self.ledger.append(env) {
             return match self.reconcile_index_from_ledger() {
                 Ok(()) => Err(format!(
@@ -169,27 +182,25 @@ impl WorkspaceKernel {
         self.index.rebuild_from(&read.entries)
     }
 
-    /// Acquire an exclusive **cross-process** workspace lock for a group-commit
-    /// (re-review #1), then reconcile the index from the ledger (another process
-    /// may have appended while we blocked on the lock). The lock is held until the
-    /// returned guard drops — hold it across the WHOLE group lifecycle
-    /// lookup → prepare/abort → member appends so two instances on the same
-    /// workspace cannot interleave. On non-Unix the OS lock is skipped
+    /// Open + exclusively `flock` the workspace lock file (re-review #1). The
+    /// lock is held for the returned File's lifetime (released on fd close). The
+    /// lock path is a permanently-ignored runtime file (never git-tracked, so a
+    /// checkout can't swap its inode while held). Non-Unix skips the OS lock
     /// (best-effort; macOS/Linux are the gated platforms).
-    pub fn lock_group_commit(&mut self) -> Result<GroupCommitLock, String> {
-        self.ensure_initialized()?;
-        let path = self.root.join(".vmark").join("group.lock");
+    fn acquire_lock_file(&self) -> Result<fs::File, String> {
+        let vmark = self.root.join(".vmark");
+        fs::create_dir_all(&vmark).map_err(|e| format!("group lock dir: {e}"))?;
         let file = fs::OpenOptions::new()
             .create(true)
             .truncate(false)
             .write(true)
-            .open(&path)
+            .open(vmark.join("group.lock"))
             .map_err(|e| format!("group lock open failed: {e}"))?;
         #[cfg(unix)]
         {
             use std::os::unix::io::AsRawFd;
             // SAFETY: `file` owns the fd for the flock's lifetime; the lock is
-            // released when the fd closes (guard drop).
+            // released when the fd closes.
             let rc = unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX) };
             if rc != 0 {
                 return Err(format!(
@@ -198,8 +209,26 @@ impl WorkspaceKernel {
                 ));
             }
         }
-        self.reconcile_index_from_ledger()?;
-        Ok(GroupCommitLock { _file: file })
+        Ok(file)
+    }
+
+    /// Begin a group-commit's HELD workspace lock (re-review #1): take the
+    /// exclusive lock once and reconcile from the ledger (another process may have
+    /// appended while we blocked), then hold it so the WHOLE group lifecycle
+    /// lookup → prepare/abort → member appends is atomic against every other
+    /// writer. `end_group_lock` releases it. Errors if a lock is already held.
+    pub fn begin_group_lock(&mut self) -> Result<(), String> {
+        if self.lock.is_some() {
+            return Err("workspace lock already held".into());
+        }
+        let file = self.acquire_lock_file()?;
+        self.lock = Some(file);
+        self.reconcile_index_from_ledger()
+    }
+
+    /// Release the held workspace lock (drops the fd → releases the `flock`).
+    pub fn end_group_lock(&mut self) {
+        self.lock = None;
     }
 
     pub fn root(&self) -> &Path {
