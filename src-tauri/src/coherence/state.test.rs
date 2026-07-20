@@ -406,3 +406,37 @@ fn a_gitattributes_without_the_merge_rule_is_not_initialized() {
         "the write completed the marker, got: {content:?}",
     );
 }
+
+#[test]
+fn ensure_line_refuses_to_overwrite_an_unreadable_gitignore() {
+    // 9th-review 9R-5 (data loss): `unwrap_or_default` turned a temporarily
+    // unreadable .gitignore into an EMPTY string, and the rename then replaced the
+    // user's real file with one holding only VMark's rule — destroying every rule
+    // they had written. The stricter init gate made that path reachable for an
+    // otherwise healthy workspace. A read error must fail closed, untouched.
+    use std::os::unix::fs::PermissionsExt;
+    let dir = tmp();
+    let vmark = dir.path().join(".vmark");
+    std::fs::create_dir_all(&vmark).unwrap();
+    let gitignore = vmark.join(".gitignore");
+    let user_rules = "# my rules\nsecrets/\n*.local\nindex.db*\ngroup.lock\n";
+    std::fs::write(&gitignore, user_rules).unwrap();
+
+    let mut p = std::fs::metadata(&gitignore).unwrap().permissions();
+    p.set_mode(0o000); // unreadable
+    std::fs::set_permissions(&gitignore, p).unwrap();
+
+    let mut kernel = WorkspaceKernel::open(dir.path(), writer(1)).unwrap();
+    let err = kernel.ensure_initialized().unwrap_err();
+    assert!(err.contains("refusing to overwrite"), "got: {err}");
+
+    // Restore and prove the user's rules are intact.
+    let mut p = std::fs::metadata(&gitignore).unwrap().permissions();
+    p.set_mode(0o644);
+    std::fs::set_permissions(&gitignore, p).unwrap();
+    assert_eq!(
+        std::fs::read_to_string(&gitignore).unwrap(),
+        user_rules,
+        "the user's .gitignore must be untouched"
+    );
+}
