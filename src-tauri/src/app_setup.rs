@@ -56,6 +56,7 @@ pub(crate) fn setup_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::
     app.manage(crate::coherence::commands::CoherenceState {
         registry: crate::coherence::state::KernelRegistry::default(),
         writer,
+        sweep_in_flight: std::sync::atomic::AtomicBool::new(false),
     });
     let menu = menu::localized::create_localized_menu(app.handle(), None)?;
     app.set_menu(menu)?;

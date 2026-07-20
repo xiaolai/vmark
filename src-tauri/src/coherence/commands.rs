@@ -17,6 +17,15 @@ use crate::ai_provider::build_command;
 pub struct CoherenceState {
     pub registry: KernelRegistry,
     pub writer: WriterId,
+    /// Guards against a CONCURRENT check sweep (found by dogfooding, 2026-07-20).
+    /// The sweep deliberately drops the kernel lock across its provider calls, so
+    /// two invocations both snapshot "not yet checked" and both spend on the SAME
+    /// edges — observed as 9 check-results for 5 distinct edges, two runs offset
+    /// by ~0.5s. That also fails the Phase-1 gate's "resumes without
+    /// double-checking" metric. In-process only: two app instances are still a
+    /// cross-process concern (the sweep cannot hold the workspace flock while an
+    /// LLM call is outstanding).
+    pub sweep_in_flight: std::sync::atomic::AtomicBool,
 }
 
 #[derive(Debug, Clone, serde::Deserialize)]

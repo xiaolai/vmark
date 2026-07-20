@@ -13,6 +13,7 @@ fn coherence_state() -> CoherenceState {
     CoherenceState {
         registry: crate::coherence::state::KernelRegistry::default(),
         writer: WriterId(uuid::Uuid::from_u128(7)),
+        sweep_in_flight: std::sync::atomic::AtomicBool::new(false),
     }
 }
 
