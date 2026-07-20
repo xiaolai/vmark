@@ -14,6 +14,18 @@ fn hash(n: u8) -> ContentHash {
     ContentHash::parse(&format!("sha256:{}", format!("{n:02x}").repeat(32))).unwrap()
 }
 
+/// Build a first-attempt prepare (attempt_id derived from the snapshot).
+fn prep(group_id: &str, members: Vec<PreparedMember>, snapshot: GroupSnapshot) -> GroupPrepare {
+    let attempt_id = attempt_id_for(group_id, &snapshot, None);
+    GroupPrepare {
+        group_id: group_id.into(),
+        attempt_id,
+        supersedes: None,
+        members,
+        snapshot,
+    }
+}
+
 fn seed_txf(writer: WriterId, object: ObjectId, n: u8) -> Envelope {
     let revision = RevisionId::compute(&hash(n), &[]);
     Envelope::create(
@@ -58,14 +70,14 @@ fn prepare_round_trips_through_the_ledger_and_find_latest() {
     let (_dir, mut kernel, u, u1) = seeded();
     let cand = Candidate::new(u, "revised".into(), u1, vec![], "op", "s");
     let snapshot = compute_snapshot(kernel.index(), std::slice::from_ref(&cand)).unwrap();
-    let prepare = GroupPrepare {
-        group_id: "g1".into(),
-        members: vec![PreparedMember {
+    let prepare = prep(
+        "g1",
+        vec![PreparedMember {
             object: cand.object,
             revision: cand.revision.clone(),
         }],
         snapshot,
-    };
+    );
     append_prepare(&mut kernel, &prepare).unwrap();
 
     match find_latest(&kernel, "g1").unwrap() {
@@ -87,11 +99,7 @@ fn a_malformed_prepare_is_quarantined_and_does_not_poison_find_latest() {
     let (_dir, mut kernel, u, u1) = seeded();
     let cand = Candidate::new(u, "revised".into(), u1, vec![], "op", "s");
     let snapshot = compute_snapshot(kernel.index(), std::slice::from_ref(&cand)).unwrap();
-    let prepare = GroupPrepare {
-        group_id: "g".into(),
-        members: vec![],
-        snapshot,
-    };
+    let prepare = prep("g", vec![], snapshot);
     append_prepare(&mut kernel, &prepare).unwrap();
 
     // A malformed group-prepare (no snapshot) — append_and_apply quarantines it
@@ -116,16 +124,12 @@ fn abort_supersedes_a_prepare_as_the_latest_record() {
     let (_dir, mut kernel, u, u1) = seeded();
     let cand = Candidate::new(u, "revised".into(), u1, vec![], "op", "s");
     let snapshot = compute_snapshot(kernel.index(), std::slice::from_ref(&cand)).unwrap();
-    let prepare = GroupPrepare {
-        group_id: "g1".into(),
-        members: vec![],
-        snapshot: snapshot.clone(),
-    };
+    let prepare = prep("g1", vec![], snapshot);
     append_prepare(&mut kernel, &prepare).unwrap();
-    append_abort(&mut kernel, "g1", &snapshot).unwrap();
+    append_abort(&mut kernel, "g1", &prepare.attempt_id).unwrap();
     assert!(matches!(
         find_latest(&kernel, "g1").unwrap(),
-        Lifecycle::Aborted
+        Lifecycle::Aborted(_)
     ));
 }
 
@@ -149,14 +153,14 @@ fn revalidate_accepts_a_committed_members_own_head_move_but_rejects_external_dri
     };
     let cand = Candidate::new(u, "revised".into(), u1, vec![dep], "op", "s");
     let snapshot = compute_snapshot(kernel.index(), std::slice::from_ref(&cand)).unwrap();
-    let prepare = GroupPrepare {
-        group_id: "g1".into(),
-        members: vec![PreparedMember {
+    let prepare = prep(
+        "g1",
+        vec![PreparedMember {
             object: cand.object,
             revision: cand.revision.clone(),
         }],
         snapshot,
-    };
+    );
 
     // Commit U as its member. Revalidation must ACCEPT (U's head move is the
     // group's own; V is unchanged).
