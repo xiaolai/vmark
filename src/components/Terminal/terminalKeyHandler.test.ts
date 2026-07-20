@@ -14,6 +14,20 @@ vi.mock("@/stores/uiStore", () => ({
   },
 }));
 
+const { mockTerminalFontSize, mockUpdateTerminalSetting } = vi.hoisted(() => ({
+  mockTerminalFontSize: { value: 13 },
+  mockUpdateTerminalSetting: vi.fn(),
+}));
+
+vi.mock("@/stores/settingsStore", () => ({
+  useSettingsStore: {
+    getState: () => ({
+      terminal: { fontSize: mockTerminalFontSize.value },
+      updateTerminalSetting: mockUpdateTerminalSetting,
+    }),
+  },
+}));
+
 import { createTerminalKeyHandler, type KeyHandlerCallbacks } from "./terminalKeyHandler";
 import { readText, writeText } from "@tauri-apps/plugin-clipboard-manager";
 import type { Terminal } from "@xterm/xterm";
@@ -61,6 +75,7 @@ describe("createTerminalKeyHandler", () => {
     callbacks = { onSearch: vi.fn(), isComposing: mockIsComposing };
     mockPty = { write: vi.fn() };
     ptyRef = { current: mockPty as unknown as IPty };
+    mockTerminalFontSize.value = 13;
   });
 
   it("passes Ctrl-only keys through to the shell on macOS (readline) (audit-fix)", () => {
@@ -157,13 +172,106 @@ describe("createTerminalKeyHandler", () => {
     expect(term.clear).toHaveBeenCalled();
   });
 
-  it("triggers search callback on Cmd+F", () => {
+  it("triggers search callback on Cmd+F and consumes the event", () => {
+    // preventDefault is load-bearing: Cmd+F is also the native Edit-menu
+    // "Find" accelerator, which otherwise ALSO fires and opens the editor
+    // FindBar — making the terminal search look "not wired". Suppressing the
+    // native accelerator here is what makes terminal search the sole result.
     const term = makeTerm();
     const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
-    const result = handler(makeEvent("f"));
+    const event = makeEvent("f");
+    const result = handler(event);
 
     expect(result).toBe(false);
     expect(callbacks.onSearch).toHaveBeenCalled();
+    expect(event.preventDefault).toHaveBeenCalled();
+  });
+
+  describe("Cmd+Left/Right — line start/end (3a)", () => {
+    it("writes readline ^A on Cmd+Left and consumes the event", () => {
+      vi.stubGlobal("navigator", { platform: "MacIntel" });
+      const term = makeTerm();
+      const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
+      const event = makeEvent("ArrowLeft");
+      const result = handler(event);
+
+      expect(result).toBe(false);
+      expect(mockPty.write).toHaveBeenCalledWith("\x01");
+      expect(event.preventDefault).toHaveBeenCalled();
+      vi.unstubAllGlobals();
+    });
+
+    it("writes readline ^E on Cmd+Right and consumes the event", () => {
+      vi.stubGlobal("navigator", { platform: "MacIntel" });
+      const term = makeTerm();
+      const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
+      const event = makeEvent("ArrowRight");
+
+      expect(handler(event)).toBe(false);
+      expect(mockPty.write).toHaveBeenCalledWith("\x05");
+      expect(event.preventDefault).toHaveBeenCalled();
+      vi.unstubAllGlobals();
+    });
+
+    it("passes Cmd+Shift+Left through (selection, not cursor move)", () => {
+      vi.stubGlobal("navigator", { platform: "MacIntel" });
+      const term = makeTerm();
+      const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
+      expect(handler(makeEvent("ArrowLeft", true, { shiftKey: true }))).toBe(true);
+      expect(mockPty.write).not.toHaveBeenCalled();
+      vi.unstubAllGlobals();
+    });
+
+    it("passes Option+Left through (word nav, handled by the shell)", () => {
+      vi.stubGlobal("navigator", { platform: "MacIntel" });
+      const term = makeTerm();
+      const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
+      // Alt(Option)+Left has no metaKey → not our line-nav path.
+      expect(handler(makeEvent("ArrowLeft", false, { altKey: true }))).toBe(true);
+      vi.unstubAllGlobals();
+    });
+  });
+
+  describe("Cmd+=/-/0 — terminal font zoom (3b)", () => {
+    it("zooms the terminal font in on Cmd+= without touching the editor", () => {
+      const term = makeTerm();
+      const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
+      const event = makeEvent("=");
+      const result = handler(event);
+
+      expect(result).toBe(false);
+      expect(mockUpdateTerminalSetting).toHaveBeenCalledWith("fontSize", 15); // 13 + 2
+      expect(event.preventDefault).toHaveBeenCalled();
+    });
+
+    it("zooms the terminal font out on Cmd+-", () => {
+      const term = makeTerm();
+      const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
+      const event = makeEvent("-");
+
+      expect(handler(event)).toBe(false);
+      expect(mockUpdateTerminalSetting).toHaveBeenCalledWith("fontSize", 11); // 13 - 2
+      expect(event.preventDefault).toHaveBeenCalled();
+    });
+
+    it("resets the terminal font to the default on Cmd+0", () => {
+      mockTerminalFontSize.value = 20;
+      const term = makeTerm();
+      const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
+      const event = makeEvent("0");
+
+      expect(handler(event)).toBe(false);
+      expect(mockUpdateTerminalSetting).toHaveBeenCalledWith("fontSize", 13); // default
+      expect(event.preventDefault).toHaveBeenCalled();
+    });
+
+    it("does not zoom during the IME grace window", () => {
+      mockIsComposing.mockReturnValue(true);
+      const term = makeTerm();
+      const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
+      expect(handler(makeEvent("=", true, { isComposing: false }))).toBe(true);
+      expect(mockUpdateTerminalSetting).not.toHaveBeenCalled();
+    });
   });
 
   it("selects the terminal buffer on Cmd+A and consumes the event", () => {
