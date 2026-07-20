@@ -963,35 +963,56 @@ derived `edges` index table carries `edge_kind TEXT NOT NULL DEFAULT 'dependency
 ### 13.8 Group-commit lifecycle records (`group-prepare`, `group-abort`)
 
 A multi-object group-commit is made crash- and concurrency-safe by two durable,
-**preserved** ledger kinds (design-accept-consistency #5/#6/#7). Both are keyed by
-`group_id` (§13.7) and ordered by `(time, id)` — the latest wins.
+**preserved** ledger kinds (design-accept-consistency #5/#6/#7 + rounds 3–5).
+Both are keyed by `group_id` (§13.7). Lifecycle order is the causal `supersedes`
+DAG, **not** `(time, id)` — a clock-skewed abort must never sort before its
+prepare.
 
 ```
+attempt_id = hex(sha256(group_id ‖ snapshot_digest ‖ supersedes_or_empty))
+
 group-prepare = {
   group_id,
-  members: [ { object, revision } ],          // the manifest — enumerate + reconstruct
+  attempt_id,                                  // causal attempt identity
+  supersedes: attempt_id | null,               // the aborted attempt this replaces
+  members: [ {                                 // the CAS-backed manifest (#6):
+    object, revision,                          //   reconstruct WITHOUT the client
+    transformation,                            //   full canonical member txf
+    content                                    //   text (hash = txf.outputs[0].content_hash)
+  } ],
   snapshot: {
     heads: [ [object, [revision, …]] ],        // affected objects' head sets at prepare
     affected_edges: [ [txf, input] ],          // the prepare-time committed edges the digest covers
-    resolution_digest                          // hash of resolution ids on affected_edges
+    resolution_digest,                         // hash of resolution ids on affected_edges
+    earliest_expiry: rfc3339 | null            // earliest resolution expiry (#4)
   }
 }
-group-abort = { group_id }
+group-abort = { group_id, attempt_id }         // names the exact aborted attempt
 ```
 
-- A FRESH group appends `group-prepare` **before** committing any member, so
-  `member present ⇒ prepare present` — recovery can always reconstruct the group.
-- The prepare's idem folds the snapshot digest, so a fresh context (a new preview)
-  is a **new attempt** (new prepare) while an idempotent re-prepare dedupes.
-- RECOVERY revalidates the snapshot against the current workspace: each affected
-  object's head must equal its prepared set, EXCEPT a committed member's object
-  (its head is that member's revision — the one group-caused move); resolutions on
-  `affected_edges` must be unchanged. Match → complete the missing members; drift →
-  append `group-abort` and require a re-preview.
-- The snapshot is **concrete state** (heads + resolution ids), not projected
-  structural classes — this avoids the representation shift where a member's new
-  edge moves from a synthetic preview class to a persisted one once it commits.
+- Members' accept idems fold `attempt_id` (not the bare `group_id`), so a
+  superseded attempt's members are never reused by a later attempt.
+- `find_latest` resolves the tip as the prepare no other prepare supersedes;
+  **multiple tips (a fork) or a cycle FAIL CLOSED** ("resolve manually"). A
+  prepare whose `attempt_id` ≠ its recomputed hash is rejected.
+- A FRESH group stages every member's content in CAS and appends `group-prepare`
+  **before** committing any member, so the ledger + CAS alone can reconstruct and
+  complete the group (`recover_group`, #6) without the client.
+- RECOVERY revalidates the snapshot at `now`: each affected object's head must
+  equal its prepared set EXCEPT a committed member's object (its head is that
+  member's revision — the one group-caused move); the resolution set on
+  `affected_edges` must be unchanged; `now` must not have passed `earliest_expiry`
+  (#4, chronological); and no NEW edge incident to a **member** object may exist
+  whose `txf` is not a committed member's entry-id (#3a/#3b). A truncated
+  affected set is refused (#3c). Match → complete missing; drift → `group-abort`.
+- The snapshot is **concrete state** (heads + resolution ids + earliest expiry),
+  not projected structural classes — avoiding the representation shift where a
+  member's new edge moves from a synthetic preview class to a persisted one once
+  it commits.
+- The whole lifecycle lookup → prepare/abort → member appends runs under an
+  exclusive cross-process workspace lock (#1).
 
-Both kinds validate a string `group_id` (and `group-prepare` an array `members`)
-at parse and are otherwise **preserved untouched** (not projected into edge
-state); a malformed record quarantines per §5.6.
+Envelope typing FULLY validates both bodies (non-empty `group_id`/`attempt_id`,
+well-formed `snapshot.heads`/`resolution_digest`, every `affected_edge` a
+`[uuid, number]` pair; `group-abort` must carry `attempt_id`); a malformed record
+quarantines per §5.6 and is otherwise **preserved untouched**.
