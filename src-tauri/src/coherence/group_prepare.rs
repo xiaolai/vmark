@@ -121,6 +121,12 @@ pub fn compute_snapshot(
     let mut seen = std::collections::HashSet::new();
     for c in candidates {
         let inc = index.edges_incident_to(&c.object)?;
+        // #3c: a super-hub whose incident set is truncated cannot be snapshotted
+        // (or committed) on a complete precondition — refuse rather than commit
+        // against the first PREVIEW_MAX_EDGES only.
+        if inc.truncated {
+            return Err("group member is incident to too many edges to commit safely".into());
+        }
         for e in &inc.edges {
             objects.push(e.upstream);
             objects.push(e.downstream);
@@ -270,10 +276,17 @@ pub fn revalidate(
     committed: &[(ObjectId, RevisionId)],
     now: &str,
 ) -> Result<bool, String> {
-    // Time-dependent transition (#4): a snapshotted waiver has expired.
+    // Time-dependent transition (#4): a snapshotted waiver has expired. Compare
+    // as instants (RFC3339 with any offset), not lexicographically — an offset
+    // like `+02:00` makes string order disagree with chronological order. An
+    // unparseable timestamp fails closed (abort).
     if let Some(exp) = &prepare.snapshot.earliest_expiry {
-        if now >= exp.as_str() {
-            return Ok(false);
+        match (
+            chrono::DateTime::parse_from_rfc3339(now),
+            chrono::DateTime::parse_from_rfc3339(exp),
+        ) {
+            (Ok(n), Ok(e)) if n < e => {} // not yet expired
+            _ => return Ok(false),        // expired, or an unparseable timestamp
         }
     }
     let objects: Vec<ObjectId> = prepare.snapshot.heads.iter().map(|(o, _)| *o).collect();

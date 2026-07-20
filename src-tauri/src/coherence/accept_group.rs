@@ -294,6 +294,11 @@ pub fn accept_group(
                 }
             }
             let live = kernel.index().project_group(candidates, now)?;
+            // #3c: a truncated affected set means the precondition covers only the
+            // first PREVIEW_MAX_EDGES — refuse to commit on an incomplete picture.
+            if preview.truncated || live.truncated {
+                return Err("group affected set is too large to commit safely (truncated)".into());
+            }
             if !precondition_holds(&preview.base_classes, &live.base_classes)
                 || !precondition_holds(&preview.new_edge_classes, &live.new_edge_classes)
             {

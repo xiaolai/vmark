@@ -300,3 +300,30 @@ Fix-now: #7 (a real availability bug). Everything else (#1/#2/#3/#4/#5/#6) is th
 **dedicated design project**: cross-process lock + causal `attempt_id` +
 time-aware recovery + CAS-backed manifest + current-incident-edge revalidation.
 Phase 4 stays RED. Do not flip the ship-ready marker.
+
+---
+
+## Fourth review — DO-NOT-SHIP (thread `019f7ceb…`)
+
+Four reviews, four DO-NOT-SHIP. The 4th CLOSED #5 (attempt-folded idems + fresh
+preflight — verified correct) and confirmed my #2/#3/#4/#7 fixes were partial:
+
+| # | Status after round 4 | Remaining defect |
+|---|---|---|
+| #1 cross-process fence | OPEN | no OS lock / reconcile-after-acquire |
+| #2 lifecycle ordering | OPEN (narrower) | clock-skew fixed, but **multi-writer FORKS** (two offline branches both superseding the same abort → two maximal tips; `max_by(attempt_id)` can pick the stale fork → deadlock). A workspace lock does NOT fix git-branch forks. Cycles → `None` also unsafe. Needs a DAG-aware lifecycle (validate acyclicity; on multiple tips fail-closed or a join attempt over a sorted parent list). |
+| #3 post-prepare edges | OPEN (3 sub-bugs) | **3a** ownership by `(downstream,revision)` collides — an external txf producing the same `A@R` masquerades as member-owned; needs ownership by committed **entry-id**. **3b** over-broad scan — `affected_edges` is only candidates' edges, but recovery scans ALL `snapshot.heads` incl. neighbours → a neighbour's pre-existing edge is falsely "new" → false abort. **3c** truncation — `compute_snapshot` + `accept_group` ignore `inc.truncated`/`preview.truncated`, so a >2000-edge hub commits on an incomplete precondition. |
+| #4 expiry | OPEN | lexicographic RFC3339 compare is wrong for mixed offsets; needs chrono instant compare. |
+| #5 old-attempt reuse | **CLOSED** | verified correct. |
+| #6 recoverable manifest | OPEN | `PreparedMember` still object+revision only; content not CAS-staged pre-prepare. |
+| #7 malformed prepare | OPEN (narrower) | missing-snapshot fixed, but a prepare with a non-UUID `affected_edge`, an unverified `attempt_id`, or a manifest inconsistent with the group still deserializes → poisons/bypasses recovery. Needs full lifecycle-body validation at typing. |
+| #8 | OPEN (MINOR) | synthetic edge still `Retired` not `Absent`. |
+
+**Conclusion (evidence-backed, four reviews).** The group-commit is a dedicated
+distributed-systems design project. Its hard core — multi-writer fork resolution
+in a git-synced append-only ledger (#2) — is essentially a **consensus/merge**
+problem, not a patch; #1 (cross-process lock) and #6 (CAS-staged manifest) are
+substantial; #3a/#3b/#3c/#4/#7 are tractable but keep uncovering the next layer.
+This CANNOT be responsibly closed by session-tail iteration. The clearest small
+correctness bugs it found (#4 chronological compare, #3c truncation rejection)
+are fixed next; the marker stays RED and the rest is the project.
