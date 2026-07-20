@@ -205,9 +205,12 @@ module.exports = [
     // Bumped 97 → 99 kB: vite 8 (rolldown) emits ~2 kB more module-wrapper
     // overhead on this chunk than rollup did for identical source inputs
     // (95.35 → 97.5 kB across the bundler swap alone); +1.5 kB headroom.
+    // Bumped 99 → 100 kB: the coherence τ Select in CoherenceSettingsGroup
+    // (semantic-check confidence threshold) pushed this ~219 B over the old
+    // 99 kB ceiling.
     name: "LAZY: Settings page",
     path: "dist/assets/Settings-*.js",
-    limit: "99 kB",
+    limit: "100 kB",
     brotli: false,
   },
   {
