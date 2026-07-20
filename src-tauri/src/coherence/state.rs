@@ -17,7 +17,7 @@ use uuid::Uuid;
 use super::cas::SnapshotStore;
 use super::gitops::GitObservation;
 use super::index::CoherenceIndex;
-use super::ledger::{Ledger, LedgerFingerprint};
+use super::ledger::Ledger;
 use super::types::{Envelope, WriterId};
 
 pub struct WorkspaceKernel {
@@ -39,12 +39,6 @@ pub struct WorkspaceKernel {
     /// `append_and_apply` calls that the lock is already held, so they reuse it
     /// instead of re-locking (flock is not re-entrant across fds).
     in_write_txn: bool,
-    /// The ledger fingerprint the in-memory index currently reflects (7th-review
-    /// 6R-5). `with_write_lock` reconciles ONLY when the live fingerprint differs
-    /// from this — so a single-process accept, whose only ledger change is its own
-    /// just-applied append, never pays an O(ledger) rebuild. `None` forces a
-    /// reconcile on the next acquire (fail-safe when a fingerprint read fails).
-    reflected_fp: Option<LedgerFingerprint>,
     /// True until the `.gitignore` runtime rules have been verified/augmented once
     /// for this kernel (see `ignore_rules_complete`).
     ignore_rules_unchecked: bool,
@@ -117,14 +111,6 @@ impl WorkspaceKernel {
                 index.rebuild_from(&read.entries)?;
             }
         }
-        // Deliberately NO baseline fingerprint here (8th-review 8R-1). Capturing
-        // one at open would be read OUTSIDE the flock: another process can durably
-        // append between the reconcile above and the fingerprint read, and we would
-        // then record the NEW fingerprint against the OLD index and skip healing on
-        // the first acquire. Starting at `None` forces exactly one reconcile on the
-        // first `with_write_lock` — paid once per session, under the lock, where it
-        // is sound. Every later acquire is still gated.
-        let reflected_fp = None;
         let ignore_rules_unchecked = !ignore_rules_complete(&vmark);
         Ok(Self {
             root: root.to_path_buf(),
@@ -135,7 +121,6 @@ impl WorkspaceKernel {
             initialized,
             unavailable: None,
             in_write_txn: false,
-            reflected_fp,
             ignore_rules_unchecked,
             last_git: None,
             quarantined,
@@ -296,15 +281,25 @@ impl WorkspaceKernel {
             return f(self);
         }
         let _flock = self.acquire_lock_file()?;
-        // Gated reconcile: rebuild only if the ledger actually changed since the
-        // index last reflected it (6R-5). A rebuild failure poisons — a partially
-        // rebuilt index must not be served (6R-6).
-        let fp = self.ledger.fingerprint()?;
-        if self.reflected_fp.as_ref() != Some(&fp) {
-            if let Err(e) = self.reconcile_index_from_ledger() {
-                return Err(self.poison(format!("acquire-time reconcile failed: {e}")));
-            }
-            self.reflected_fp = Some(fp);
+        // Reconcile UNCONDITIONALLY. The previous change-gated version compared a
+        // cheap `(name, len, mtime, inode)` ledger fingerprint and rebuilt only on
+        // a difference — but four independent audits each found a fresh way for
+        // that oracle to return a FALSE NEGATIVE and serve a stale index: a
+        // same-length in-place rewrite under a coarse or restored mtime keeps the
+        // inode; a delete/recreate can reuse one; non-Unix has no inode at all;
+        // and, decisively, the fingerprint watches the LEDGER while another
+        // process can rebuild the shared `index.db` underneath it — the invariant
+        // that actually matters is "the index still reflects the ledger", which
+        // no ledger-only metadata can witness.
+        //
+        // The optimisation is also no longer buying what it was introduced for:
+        // `perform_status` now goes through `perform_breakdown_in`, which runs a
+        // scan AND `read_all`, so the ledger is already read on that path.
+        // Correctness that four audits could not falsify beats a saving that has
+        // already been given away.
+        if let Err(e) = self.reconcile_index_from_ledger() {
+            // A partially rebuilt index must never be served (6R-6).
+            return Err(self.poison(format!("acquire-time reconcile failed: {e}")));
         }
         self.in_write_txn = true;
         // Run `f` inside catch_unwind so the flag is reset even on a panic
@@ -315,20 +310,11 @@ impl WorkspaceKernel {
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| f(self)));
         self.in_write_txn = false;
         match result {
-            Ok(r) => {
-                // Refresh to include our own appends (the flock blocked everyone
-                // else, so nothing else changed). A read failure forces a reconcile.
-                self.reflected_fp = self.ledger.fingerprint().ok();
-                r
-            }
+            Ok(r) => r,
             Err(payload) => {
-                // NEVER certify the post-panic fingerprint (9th-review 9R-2). `f`
-                // may have durably appended and panicked before applying, leaving
-                // the index BEHIND the ledger; recording the fingerprint would tell
-                // the next acquire that the index is current and skip the
-                // reconciliation that would heal it. Poison and clear instead, so a
-                // kernel surviving an outer `catch_unwind` refuses until reopen.
-                self.reflected_fp = None;
+                // A panic may have left the ledger ahead of the index (appended
+                // but not applied). Poison so a kernel surviving an outer
+                // `catch_unwind` refuses until reopen (9th-review 9R-2).
                 self.unavailable =
                     Some("a panic escaped a locked operation; state may be torn".into());
                 std::panic::resume_unwind(payload)

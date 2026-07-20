@@ -23,16 +23,12 @@ const MAX_SEGMENT_BYTES: u64 = 8 * 1024 * 1024;
 /// `MAX_PREPARE_BYTES` 4 MiB prepare plus envelope overhead), with margin.
 const MAX_LINE_BYTES: usize = 16 * 1024 * 1024;
 
-/// A ledger's on-disk identity: sorted `(segment, byte-len, mtime-nanos, inode)`.
-pub type LedgerFingerprint = Vec<(String, u64, u128, u64)>;
-
 /// I5 tripwire — every public method, mirrored by the test suite.
-pub const PUBLIC_API: [&str; 6] = [
+pub const PUBLIC_API: [&str; 5] = [
     "new",
     "with_max_segment_bytes",
     "append",
     "read_all",
-    "fingerprint",
     "active_segment_path_for_test",
 ];
 
@@ -167,61 +163,6 @@ impl Ledger {
         f.sync_all()
             .map_err(|e| format!("ledger fsync failed: {e}"))?;
         Ok(())
-    }
-
-    /// A cheap identity of the ledger's on-disk state (R1 O(1) reconcile): the
-    /// sorted `(segment, byte-len, mtime-nanos, inode)` of every segment.
-    /// `with_write_lock` compares it to what the index last reflected and rebuilds
-    /// ONLY on a change (7th-review 6R-5). A missing dir is the empty fingerprint.
-    ///
-    /// COST, stated honestly (8th-review 8R-2): this is **O(segments)** — a
-    /// directory scan, a stat per segment, and a sort — NOT O(1). The win is that
-    /// it is independent of the number of ENTRIES: an accept no longer parses and
-    /// replays the whole ledger (seconds at 500k) on every acquire. Segment count
-    /// stays small in practice (one per writer, plus rotations), but an
-    /// accumulated-history workspace does pay O(S log S) per acquire.
-    ///
-    /// A FALSE NEGATIVE here would silently serve a stale index, so the oracle has
-    /// to be conservative. `len` catches every append (the ledger is append-only,
-    /// so writes always grow a segment). `inode` is what catches a *same-length
-    /// replacement*: ledger lines carry fixed-width UUIDs and RFC3339 timestamps,
-    /// so two branches' segments can differ in content at IDENTICAL byte length,
-    /// and a `git checkout` swaps them via rename — a new inode — even when mtime
-    /// granularity is too coarse (1s on HFS+/some network mounts) to notice a
-    /// same-second swap. mtime alone would miss exactly that case.
-    pub fn fingerprint(&self) -> Result<LedgerFingerprint, String> {
-        let mut fp: LedgerFingerprint = Vec::new();
-        let entries = match fs::read_dir(&self.dir) {
-            Ok(e) => e,
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(fp),
-            Err(e) => return Err(format!("ledger dir unreadable: {e}")),
-        };
-        for entry in entries {
-            let entry = entry.map_err(|e| format!("ledger dir entry unreadable: {e}"))?;
-            let path = entry.path();
-            if path.extension().is_some_and(|x| x == "jsonl") {
-                let meta = entry
-                    .metadata()
-                    .map_err(|e| format!("segment stat failed: {e}"))?;
-                let mtime = meta
-                    .modified()
-                    .ok()
-                    .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
-                    .map(|d| d.as_nanos())
-                    .unwrap_or(0);
-                #[cfg(unix)]
-                let ino = {
-                    use std::os::unix::fs::MetadataExt;
-                    meta.ino()
-                };
-                #[cfg(not(unix))]
-                let ino = 0u64;
-                let name = entry.file_name().to_string_lossy().into_owned();
-                fp.push((name, meta.len(), mtime, ino));
-            }
-        }
-        fp.sort();
-        Ok(fp)
     }
 
     /// Merge every segment in the ledger directory (spec §5.1/§5.6).
