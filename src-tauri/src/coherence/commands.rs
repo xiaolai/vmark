@@ -212,8 +212,20 @@ pub fn perform_breakdown_in(
 pub fn perform_status(kernel: &mut WorkspaceKernel) -> Result<CoherenceStatus, String> {
     kernel.ensure_available()?; // 8R-5: never serve a half-rebuilt index
     let objects = kernel.index().registry_state()?.path_of.len();
+    // `open_items` must agree with what the breakdown actually asks the owner
+    // about, so it excludes frozen downstreams too. Counting them here would put
+    // "5 open" on the badge while the list shows nothing to do — the same
+    // status-disagrees-with-edges inconsistency the lifecycle work already had to
+    // fix once.
     let open_items = if kernel.is_initialized() {
-        kernel.index().breakdown(&now_rfc3339())?.len()
+        let read = kernel.ledger().read_all()?;
+        let lifecycle = super::lifecycle::LifecycleSet::from_entries(&read.entries);
+        kernel
+            .index()
+            .breakdown(&now_rfc3339())?
+            .iter()
+            .filter(|r| !lifecycle.is_frozen(&r.downstream))
+            .count()
     } else {
         0
     };
