@@ -23,12 +23,16 @@ const MAX_SEGMENT_BYTES: u64 = 8 * 1024 * 1024;
 /// `MAX_PREPARE_BYTES` 4 MiB prepare plus envelope overhead), with margin.
 const MAX_LINE_BYTES: usize = 16 * 1024 * 1024;
 
+/// A ledger's on-disk identity: sorted `(segment, byte-len, mtime-nanos)`.
+pub type LedgerFingerprint = Vec<(String, u64, u128)>;
+
 /// I5 tripwire — every public method, mirrored by the test suite.
-pub const PUBLIC_API: [&str; 5] = [
+pub const PUBLIC_API: [&str; 6] = [
     "new",
     "with_max_segment_bytes",
     "append",
     "read_all",
+    "fingerprint",
     "active_segment_path_for_test",
 ];
 
@@ -153,6 +157,41 @@ impl Ledger {
         f.sync_all()
             .map_err(|e| format!("ledger fsync failed: {e}"))?;
         Ok(())
+    }
+
+    /// A cheap identity of the ledger's on-disk state (R1 O(1) reconcile): the
+    /// sorted `(segment, byte-len, mtime-nanos)` of every segment. It changes on
+    /// any append (len grows), rotation/new writer (new name), or a git checkout
+    /// that swaps history (mtime moves — git never preserves mtime). `with_write_lock`
+    /// compares it to what the index last reflected and rebuilds ONLY on a change,
+    /// so a single-process accept stays O(1) instead of rebuilding the whole index
+    /// on every acquire (7th-review 6R-5). A missing dir is the empty fingerprint.
+    pub fn fingerprint(&self) -> Result<LedgerFingerprint, String> {
+        let mut fp: LedgerFingerprint = Vec::new();
+        let entries = match fs::read_dir(&self.dir) {
+            Ok(e) => e,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(fp),
+            Err(e) => return Err(format!("ledger dir unreadable: {e}")),
+        };
+        for entry in entries {
+            let entry = entry.map_err(|e| format!("ledger dir entry unreadable: {e}"))?;
+            let path = entry.path();
+            if path.extension().is_some_and(|x| x == "jsonl") {
+                let meta = entry
+                    .metadata()
+                    .map_err(|e| format!("segment stat failed: {e}"))?;
+                let mtime = meta
+                    .modified()
+                    .ok()
+                    .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                    .map(|d| d.as_nanos())
+                    .unwrap_or(0);
+                let name = entry.file_name().to_string_lossy().into_owned();
+                fp.push((name, meta.len(), mtime));
+            }
+        }
+        fp.sort();
+        Ok(fp)
     }
 
     /// Merge every segment in the ledger directory (spec §5.1/§5.6).

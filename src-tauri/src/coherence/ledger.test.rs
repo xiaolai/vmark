@@ -267,6 +267,7 @@ fn append_only_api_surface() {
         "with_max_segment_bytes",
         "append",
         "read_all",
+        "fingerprint",
         "active_segment_path_for_test",
     ];
     assert_eq!(
@@ -309,4 +310,47 @@ fn read_all_quarantines_an_oversized_line_and_keeps_its_neighbours() {
         "got: {}",
         read.quarantined[0].reason
     );
+}
+
+#[test]
+fn read_all_quarantines_an_oversized_final_line_without_a_trailing_newline() {
+    // read_capped_line EOF branch: an oversized line that ends at EOF with no
+    // trailing newline must still be quarantined (not returned as a giant Line).
+    use std::io::Write;
+    let dir = tmp();
+    let ledger = Ledger::new(dir.path().join("ledger"), writer(1));
+    ledger
+        .append(&Envelope::create("diagnostic", writer(1), diag("kept")))
+        .unwrap();
+    let seg = ledger.active_segment_path_for_test();
+    {
+        let mut f = std::fs::OpenOptions::new().append(true).open(&seg).unwrap();
+        f.write_all(&vec![b'y'; 17 * 1024 * 1024]).unwrap(); // > cap, NO trailing '\n'
+    }
+    let read = ledger.read_all().unwrap();
+    assert_eq!(read.entries.len(), 1, "the valid entry survives");
+    assert_eq!(
+        read.quarantined.len(),
+        1,
+        "the oversized unterminated final line is quarantined, not read whole"
+    );
+}
+
+#[test]
+fn read_all_parses_a_valid_final_line_without_a_trailing_newline() {
+    // read_capped_line EOF branch: a complete valid line that ends at EOF with no
+    // trailing newline must parse (parity with the old split() behaviour).
+    let dir = tmp();
+    let ledger = Ledger::new(dir.path().join("ledger"), writer(1));
+    std::fs::create_dir_all(dir.path().join("ledger")).unwrap();
+    let seg = ledger.active_segment_path_for_test();
+    let e = Envelope::create("diagnostic", writer(1), diag("unterminated"));
+    std::fs::write(&seg, serde_json::to_string(&e).unwrap()).unwrap(); // no '\n'
+    let read = ledger.read_all().unwrap();
+    assert_eq!(
+        read.entries.len(),
+        1,
+        "a complete final line without a newline parses"
+    );
+    assert_eq!(read.entries[0].idem, e.idem);
 }

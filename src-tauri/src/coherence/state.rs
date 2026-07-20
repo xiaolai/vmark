@@ -17,7 +17,7 @@ use uuid::Uuid;
 use super::cas::SnapshotStore;
 use super::gitops::GitObservation;
 use super::index::CoherenceIndex;
-use super::ledger::Ledger;
+use super::ledger::{Ledger, LedgerFingerprint};
 use super::types::{Envelope, WriterId};
 
 pub struct WorkspaceKernel {
@@ -39,6 +39,12 @@ pub struct WorkspaceKernel {
     /// `append_and_apply` calls that the lock is already held, so they reuse it
     /// instead of re-locking (flock is not re-entrant across fds).
     in_write_txn: bool,
+    /// The ledger fingerprint the in-memory index currently reflects (7th-review
+    /// 6R-5). `with_write_lock` reconciles ONLY when the live fingerprint differs
+    /// from this — so a single-process accept, whose only ledger change is its own
+    /// just-applied append, never pays an O(ledger) rebuild. `None` forces a
+    /// reconcile on the next acquire (fail-safe when a fingerprint read fails).
+    reflected_fp: Option<LedgerFingerprint>,
     /// Last git observation for scan classification (WI-1.7).
     pub last_git: Option<GitObservation>,
     /// Quarantined-line count from the last ledger read (status surface).
@@ -88,6 +94,10 @@ impl WorkspaceKernel {
                 index.rebuild_from(&read.entries)?;
             }
         }
+        // The index now reflects the ledger (rebuilt or healed above), so record
+        // its fingerprint — the gated reconcile in `with_write_lock` starts from a
+        // truthful baseline and skips a redundant first rebuild (6R-5).
+        let reflected_fp = ledger.fingerprint().ok();
         Ok(Self {
             root: root.to_path_buf(),
             writer,
@@ -97,6 +107,7 @@ impl WorkspaceKernel {
             initialized,
             unavailable: None,
             in_write_txn: false,
+            reflected_fp,
             last_git: None,
             quarantined,
         })
@@ -150,6 +161,10 @@ impl WorkspaceKernel {
     }
 
     fn append_and_apply_inner(&mut self, env: &Envelope) -> Result<(), String> {
+        // Initialize lazily at the actual write, NOT on every lock acquire
+        // (7th-review 6R-4): a rejected accept (tamper/stale) errors before it
+        // reaches here, so it can no longer fully initialize a pristine `.vmark`.
+        self.ensure_initialized()?;
         if let Err(append_err) = self.ledger.append(env) {
             return match self.reconcile_index_from_ledger() {
                 Ok(()) => Err(format!(
@@ -222,26 +237,32 @@ impl WorkspaceKernel {
     }
 
     /// Run `f` holding the exclusive cross-process workspace lock across its WHOLE
-    /// span (re-review #1, R1 — full pessimistic lock). EVERY mutating operation —
-    /// a single accept, a group accept/recover, or a lone `append_and_apply` —
-    /// routes through here, so its read → validate → append is atomic against
-    /// every other cooperating writer (and against a git checkout that would
-    /// otherwise land between our validation and our append). On acquire we
-    /// reconcile the index from the ledger, so `f` validates against current
-    /// state: a base-head the caller checked pre-lock is re-derived here and a
-    /// concurrent commit that moved it is caught as a stale-base rejection instead
-    /// of a silent sibling fork.
+    /// span (R1 — full pessimistic lock). EVERY mutating operation — a single
+    /// accept, a group accept/recover, or any command that reads state and then
+    /// appends (capture, adoption, scan, claim, resolution) — routes its whole
+    /// read → build → append through here, so it is atomic against every other
+    /// cooperating writer (7th-review 6R-1).
+    ///
+    /// Performance (7th-review 6R-5): the index is reconciled from the ledger only
+    /// when the ledger's fingerprint differs from what the index last reflected.
+    /// Because the flock is held, no other writer can append while `f` runs, so a
+    /// single-process accept's only ledger change is its own just-applied append —
+    /// its next acquire finds the fingerprint unchanged and skips the O(ledger)
+    /// rebuild. The base-head a caller re-derives inside `f` is therefore checked
+    /// against a current index, so a concurrent commit that moved a head is caught
+    /// as a stale-base rejection, not a silent fork.
     ///
     /// Durability + panic safety:
-    /// - `ensure_initialized` runs first, so the ONLY creator of `.vmark` is the
-    ///   full-structure initializer — a failed op can never leave a bare
-    ///   `.vmark/group.lock` that later reads as "initialized" (re-review #4).
+    /// - `.vmark` is initialized lazily at the actual write (`append_and_apply_inner`),
+    ///   never here, so a rejected op cannot fully initialize a pristine workspace
+    ///   (6R-4). `acquire_lock_file` creates only a bare `.vmark/group.lock`, which
+    ///   is not the `.gitattributes` completion marker `open` trusts.
     /// - The `flock` lives in the `_flock` stack local, so it releases on EVERY
-    ///   exit path — normal return, `?`, or panic-unwind (re-review #5).
-    /// - `in_write_txn` is set only AFTER a successful acquire+reconcile (a
-    ///   reconcile error leaks no held-lock state) and cleared on normal return.
-    ///   On an unwind the std `Mutex<WorkspaceKernel>` poisons, so a stale `true`
-    ///   can never gate a future write — the kernel is unreachable after a panic.
+    ///   exit path — normal return, `?`, or panic-unwind (6R-5 flock leak, CLOSED).
+    /// - An acquire-time reconcile failure POISONS the kernel (6R-6): a half-applied
+    ///   rebuild must never be used; the kernel refuses until reopen, which re-heals.
+    /// - On an unwind the std `Mutex<WorkspaceKernel>` poisons, so the stale
+    ///   `in_write_txn` can never gate a future write (the kernel is unreachable).
     ///
     /// Re-entrant: a nested call (a group's per-member `append_and_apply`) sees
     /// the flag set and runs `f` directly on the already-held lock.
@@ -253,12 +274,23 @@ impl WorkspaceKernel {
         if self.in_write_txn {
             return f(self);
         }
-        self.ensure_initialized()?;
         let _flock = self.acquire_lock_file()?;
-        self.reconcile_index_from_ledger()?;
+        // Gated reconcile: rebuild only if the ledger actually changed since the
+        // index last reflected it (6R-5). A rebuild failure poisons — a partially
+        // rebuilt index must not be served (6R-6).
+        let fp = self.ledger.fingerprint()?;
+        if self.reflected_fp.as_ref() != Some(&fp) {
+            if let Err(e) = self.reconcile_index_from_ledger() {
+                return Err(self.poison(format!("acquire-time reconcile failed: {e}")));
+            }
+            self.reflected_fp = Some(fp);
+        }
         self.in_write_txn = true;
         let result = f(self);
         self.in_write_txn = false;
+        // Refresh to include our own appends (the flock blocked everyone else, so
+        // nothing else changed). A read failure just forces a reconcile next time.
+        self.reflected_fp = self.ledger.fingerprint().ok();
         result
     }
 
