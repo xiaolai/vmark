@@ -86,3 +86,79 @@ creative project (the still-open dogfood decision from the 20260718 plan);
 **State:** baseline ✅ done; the sweep is ⏳ **owner/app/provider-gated** — hand
 me any of Step 0's stale count, a budget, and a live app session and I drive the
 rest.
+
+## Live sweep + M-metric session (2026-07-20)
+
+Ran against **this repo's own ledger** (owner's corpus choice), Claude-CLI
+provider, in the live debug app. Budget: minimum-to-pass.
+
+### Gate metrics
+
+| Metric | Reading |
+|---|---|
+| Distinct live-edge coverage | **11** (was 8) — clears the ≥10 bar |
+| M3 signal | **exists now**: 21 checks → 13 no-contradiction, 3 contradiction, 5 unknown (baseline said INSUFFICIENT DATA at 3 checks) |
+| p95 check latency | ~8–11 s per check (Claude CLI) |
+| Total cost | subscription (CLI provider); no API spend |
+| Resume correctness | **failed, then fixed + verified.** One sweep produced 9 check-results over 5 distinct edges — two concurrent runs ~0.5 s apart. Guard added; re-run now reports `checked: 0` (cursor correctly skips) and a second concurrent sweep is refused. |
+
+### M3 — the "unknown" rate was OUR bug, not the checker's
+
+5 of 21 checks returned `unknown`. Investigation: confidences split **perfectly**
+at τ=0.9 — determinate 0.90–0.99 (n=16), unknown 0.82–0.86 (n=5), nothing
+between. Every `unknown` was a τ downgrade of a verdict the model had reached,
+and the old parser discarded the verdict *and its evidence*, making the τ choice
+irreversible. Now preserved (`downgraded` in the check-result) and τ is a
+per-call parameter, so τ is retunable **offline against existing data**.
+
+### M2 — owner-judged: 0 relevant / 5 noise
+
+Codex prepared a labeled slice (thread `019f7de7…`) reading each edge's actual
+document pair; the **owner** supplied the fact that decided every row: all four
+downstream documents are **frozen history**. Applying that to Codex's own
+"what would change my label" column flips or holds all five to `noise` —
+including the two it had drafted `relevant`, which it had qualified with "if the
+plan is now immutable completion history… repeated interruption becomes noise."
+
+Recorded as five `flag-judgment` entries. Logbook reading: **relevant 0, noise 5,
+unsure 0, unjudged 23.**
+
+**The finding is stronger than the ratio: the coherence layer has no
+document-lifecycle model.** It flags an edge into a finished plan exactly as
+loudly as an edge into a living spec. Three of these five flags would never have
+fired if it knew the downstream was done.
+
+### M4 — burden is CHURN, and it is spent on frozen documents
+
+Logbook: **11 of 28 edges reopened**, several 4×. This independently reproduces
+the drift gauge's "24 distinct edges resolved, 11 re-opened (some 4×)" — two
+separate measurements agreeing. Combined with M2: the 13/17/11-per-session
+burden was largely **re-ratifying edges into documents that will never change
+again**. Owner response to the ≤10 threshold: "configurable in settings?" —
+recorded as a request, not as an accept/reject verdict on the burden.
+
+Codex's churn proposal (concrete, matches the plan's own R31 note that file-level
+granularity is too coarse): anchor edges to **sections** — R27; O1/O5/O8/R33;
+D1–D4 + the WI decomposition — and reopen only when that anchor's normalised
+hash changes, rather than on any file edit.
+
+### M5 — insufficient data
+
+Owner: "don't know." Time-to-confidence is inherently longitudinal; one session
+cannot produce it. Recorded as insufficient-data, the same honest outcome the
+baseline recorded for M3 at n=3.
+
+### Corpus caveat (do not over-read the 0% relevance)
+
+This repo's dev-docs are overwhelmingly **finished** plans and design records, so
+"all frozen" is a property of the corpus as much as of the tool. A live creative
+project — the actual target use case — would exercise M2 very differently. What
+DOES generalise is the missing lifecycle model and the section-anchoring
+proposal; both would matter in any corpus.
+
+### Defects found by running it (five; nine code reviews found none of them)
+
+`2af24fe5` status reported a healthy 119-entry workspace as uninitialized ·
+`d6fd88ee` concurrent sweeps double-spent · `62d7555f` τ discarded paid-for
+verdicts irreversibly · `8901839f` + `d021d87c` logbook (the M2/M4 instrument
+that did not exist).
