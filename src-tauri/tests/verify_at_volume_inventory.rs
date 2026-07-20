@@ -379,6 +379,7 @@ fn executable_requires_all_three_cas_texts_present_and_utf8() {
         state: EdgeState::VersionStale,
         prior_waivers: 0,
         kind: "dependency".into(),
+        frozen_downstream: false,
     };
 
     let text_row = row(t_down.id, down_text, down_rev);

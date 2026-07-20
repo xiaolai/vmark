@@ -30,6 +30,18 @@ pub struct EdgeRow {
     /// breakdown can group/label by kind. Serialized as the wire tag
     /// (`dependency`, `conformance`, …). Read-only (R23 intact).
     pub kind: String,
+    /// The DOWNSTREAM is a frozen (finished) document, so upstream movement
+    /// cannot invalidate it — design-lifecycle-and-anchors.md §A.
+    ///
+    /// Deliberately ORTHOGONAL to `state` rather than a state variant. `state`
+    /// stays truthful: a frozen document's edge is still whatever it actually
+    /// is, and collapsing that into a "frozen" state would both destroy that
+    /// information and force `structural_class` to invent a class for a display
+    /// concern — the accept precondition asks "did the affected set change
+    /// structurally?", which must not shift because someone marked a document
+    /// finished. The UI collapses rows where this is true; nothing is dropped.
+    #[serde(default)]
+    pub frozen_downstream: bool,
 }
 
 fn serialize_state<S: serde::Serializer>(state: &EdgeState, s: S) -> Result<S::Ok, S::Error> {

@@ -44,6 +44,7 @@ pub mod index_query;
 pub mod index_row;
 pub(crate) mod index_state;
 pub mod ledger;
+pub mod lifecycle;
 pub mod logbook;
 pub mod logbook_commands;
 pub mod merge_audit;

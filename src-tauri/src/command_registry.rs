@@ -47,6 +47,7 @@ macro_rules! all_commands {
             coherence::commands::coherence_status,
             coherence::logbook_commands::coherence_logbook,
             coherence::logbook_commands::coherence_flag_judgment,
+            coherence::logbook_commands::coherence_set_lifecycle,
             coherence::commands::coherence_scan,
             coherence::commands::coherence_head,
             file_open::get_pending_file_opens,
