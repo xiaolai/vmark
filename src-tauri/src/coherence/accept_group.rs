@@ -297,6 +297,26 @@ fn accept_group_locked(
         // members. Drift → abort THIS attempt (naming its id, #2/#7) and require a
         // re-preview; a fresh re-run supersedes it.
         Some(prepare) => {
+            // 6R-3: BIND the prepare's manifest to the submitted changeset. Without
+            // this, a ledger prepare that merely names the same `group_id` — most
+            // dangerously one with `members: []`, whose empty snapshot revalidates
+            // trivially — lets a client commit an unreviewed set through recovery,
+            // skipping the fresh preview-class precondition entirely.
+            let prepared: std::collections::HashSet<(ObjectId, String)> = prepare
+                .members
+                .iter()
+                .map(|m| (m.object, m.revision.as_str().to_string()))
+                .collect();
+            let submitted: std::collections::HashSet<(ObjectId, String)> = candidates
+                .iter()
+                .map(|c| (c.object, c.revision.as_str().to_string()))
+                .collect();
+            if prepared != submitted {
+                return Err(
+                    "group prepare does not match the submitted changeset — re-preview and re-run"
+                        .into(),
+                );
+            }
             if !group_prepare::revalidate(kernel.index(), &prepare, &committed, now)? {
                 group_prepare::append_abort(kernel, &group, &attempt_id)?;
                 return Err("group aborted — the workspace changed since it was prepared; re-preview and re-run".into());

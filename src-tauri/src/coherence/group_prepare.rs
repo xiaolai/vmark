@@ -296,9 +296,13 @@ pub fn find_latest(kernel: &WorkspaceKernel, group_id: &str) -> Result<Lifecycle
             "group-prepare" => {
                 if let Ok(p) = serde_json::from_value::<GroupPrepare>(e.body.clone()) {
                     // Verify the attempt_id is the honest hash of its inputs —
-                    // reject a forged/inconsistent one (re-review #7).
+                    // reject a forged/inconsistent one (re-review #7) — AND enforce
+                    // the size bounds on the way IN (7th-review 6R-3): a merged or
+                    // legacy prepare that exceeds the caps was never validated by
+                    // our writer, so it must not become live and enter recovery.
                     if p.attempt_id
                         == attempt_id_for(&p.group_id, &p.snapshot, p.supersedes.as_deref())
+                        && validate_bounds(&p).is_ok()
                     {
                         prepares.insert(p.attempt_id.clone(), p);
                     }

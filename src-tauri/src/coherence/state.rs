@@ -56,13 +56,15 @@ impl WorkspaceKernel {
     /// (in-memory index until first capture).
     pub fn open(root: &Path, writer: WriterId) -> Result<Self, String> {
         let vmark = root.join(".vmark");
-        // Marker-based init detection (re-review #4): a workspace is "initialized"
-        // only once `.gitattributes` (the merge=union rule) exists — it is written
-        // LAST by `ensure_initialized`. Testing the marker, not `.vmark`'s mere
-        // existence, means a bare `.vmark/group.lock` left by a failed op (or a
-        // crash mid-init) is NOT mistaken for complete: the next write re-runs
-        // `ensure_initialized` and finishes the structure.
-        let initialized = vmark.join(".gitattributes").is_file();
+        // Marker-based init detection, on CONTENT not existence (7th-review 6R-4):
+        // a workspace is "initialized" only once `.gitattributes` actually carries
+        // the merge=union rule — the rule the git-transported ledger depends on.
+        // Testing content (not `is_file()`, and not `.vmark`'s mere existence)
+        // means none of these read as complete: a bare `.vmark/group.lock` from a
+        // failed op, a truncated marker from a crash mid-write, or a branch
+        // checkout that left `.gitattributes` present but without the rule. Each
+        // re-runs `ensure_initialized`, which rewrites the marker ATOMICALLY.
+        let initialized = has_merge_union_rule(&vmark);
         let ledger = Ledger::new(vmark.join("ledger"), writer);
         let snapshots = SnapshotStore::new(vmark.join("snapshots"));
         let (mut index, needs_rebuild) = if initialized {
@@ -135,7 +137,7 @@ impl WorkspaceKernel {
         // (re-review #4): its presence is exactly what `open` trusts to mean
         // "fully initialized", so a crash before this leaves the workspace
         // re-initializable rather than falsely "done".
-        ensure_line(&vmark.join(".gitattributes"), "ledger/*.jsonl merge=union")?;
+        ensure_line(&vmark.join(".gitattributes"), MERGE_UNION_RULE)?;
         self.initialized = true;
         Ok(())
     }
@@ -373,8 +375,23 @@ impl KernelRegistry {
     }
 }
 
+/// The rule the git-transported ledger depends on, and the initialization
+/// completion marker (7th-review 6R-4).
+const MERGE_UNION_RULE: &str = "ledger/*.jsonl merge=union";
+
+/// Is `.vmark` fully initialized? True only when `.gitattributes` actually
+/// CARRIES the merge=union rule — existence alone is not a completion protocol.
+fn has_merge_union_rule(vmark: &Path) -> bool {
+    fs::read_to_string(vmark.join(".gitattributes"))
+        .map(|s| s.lines().any(|l| l.trim() == MERGE_UNION_RULE))
+        .unwrap_or(false)
+}
+
 /// Append `line` to `path` when absent, preserving existing content
 /// (audit R22 — a pre-existing file must still gain the required rules).
+/// The write is ATOMIC (7th-review 6R-4): a crash mid-write must never leave a
+/// truncated `.gitattributes` that a later `open` would trust as initialized, so
+/// the new content is staged in a temp file, fsync'd, then renamed into place.
 fn ensure_line(path: &Path, line: &str) -> Result<(), String> {
     let existing = fs::read_to_string(path).unwrap_or_default();
     if existing.lines().any(|l| l.trim() == line) {
@@ -386,7 +403,24 @@ fn ensure_line(path: &Path, line: &str) -> Result<(), String> {
     }
     content.push_str(line);
     content.push('\n');
-    fs::write(path, content).map_err(|e| format!("init {}: {e}", path.display()))
+    let dir = path
+        .parent()
+        .ok_or_else(|| format!("init {}: no parent dir", path.display()))?;
+    let name = path
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_else(|| "marker".to_string());
+    let tmp = dir.join(format!(".{name}.tmp"));
+    {
+        use std::io::Write as _;
+        let mut f = fs::File::create(&tmp)
+            .map_err(|e| format!("init {}: tmp create: {e}", path.display()))?;
+        f.write_all(content.as_bytes())
+            .map_err(|e| format!("init {}: tmp write: {e}", path.display()))?;
+        f.sync_all()
+            .map_err(|e| format!("init {}: tmp fsync: {e}", path.display()))?;
+    }
+    fs::rename(&tmp, path).map_err(|e| format!("init {}: rename: {e}", path.display()))
 }
 
 /// Per-installation writer identity (spec §2.2) — stored in app data,

@@ -97,6 +97,17 @@ pub fn perform_resolve_as(
     actor: &serde_json::Value,
     delegation: Option<uuid::Uuid>,
 ) -> Result<ResolveReceipt, String> {
+    // R1 (7th-review 6R-1): read the edge's current resolution state → build the
+    // resolution → append, atomic under the workspace lock.
+    kernel.with_write_lock(|kernel| perform_resolve_as_locked(kernel, req, actor, delegation))
+}
+
+fn perform_resolve_as_locked(
+    kernel: &mut WorkspaceKernel,
+    req: &ResolveRequest,
+    actor: &serde_json::Value,
+    delegation: Option<uuid::Uuid>,
+) -> Result<ResolveReceipt, String> {
     let kind = match req.action.as_str() {
         "accept-newer" => "ratification",
         "waive" => "waiver",

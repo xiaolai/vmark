@@ -354,3 +354,23 @@ fn read_all_parses_a_valid_final_line_without_a_trailing_newline() {
     );
     assert_eq!(read.entries[0].idem, e.idem);
 }
+
+#[test]
+fn append_refuses_an_entry_larger_than_the_read_cap() {
+    // 7th-review: the reader quarantines lines over MAX_LINE_BYTES, so writing one
+    // would silently lose an entry the caller was told had succeeded. The writer
+    // cap matches the reader cap and fails LOUDLY instead.
+    let dir = tmp();
+    let ledger = Ledger::new(dir.path().join("ledger"), writer(1));
+    let huge = "x".repeat(17 * 1024 * 1024);
+    let e = Envelope::create("diagnostic", writer(1), diag(&huge));
+    let err = ledger.append(&e).unwrap_err();
+    assert!(err.contains("line cap"), "got: {err}");
+    // Nothing was written, so nothing is silently quarantined on the next read.
+    let read = ledger.read_all().unwrap();
+    assert!(
+        read.entries.is_empty(),
+        "the oversized entry was not written"
+    );
+    assert!(read.quarantined.is_empty(), "and nothing to quarantine");
+}

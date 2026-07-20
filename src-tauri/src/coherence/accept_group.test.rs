@@ -493,3 +493,39 @@ fn an_empty_group_is_rejected() {
     let preview = kernel.index().project_group(&empty, NOW).unwrap();
     assert!(accept_group(&mut kernel, &empty, &preview, NOW).is_err());
 }
+
+#[test]
+fn a_prepare_that_does_not_match_the_submitted_changeset_is_rejected() {
+    // 7th-review 6R-3: a ledger prepare that merely names the same group_id — most
+    // dangerously one with `members: []`, whose empty snapshot revalidates
+    // trivially — must NOT let a client commit an unreviewed set through the
+    // RECOVERY path, which skips the fresh preview-class precondition entirely.
+    let (_dir, mut kernel, u, v, u1, v1) = seeded();
+    let candidates = vec![
+        Candidate::new(u, "U revised".into(), u1, vec![], "op", "s"),
+        Candidate::new(v, "V revised".into(), v1, vec![], "op", "s"),
+    ];
+    // A prepare naming THIS group id, but carrying an empty manifest.
+    let gid = group_id(&candidates).unwrap();
+    let snapshot = group_prepare::GroupSnapshot {
+        heads: vec![],
+        affected_edges: vec![],
+        resolution_digest: String::new(),
+        earliest_expiry: None,
+    };
+    let prepare = GroupPrepare {
+        group_id: gid.clone(),
+        attempt_id: group_prepare::attempt_id_for(&gid, &snapshot, None),
+        supersedes: None,
+        members: vec![],
+        snapshot,
+    };
+    group_prepare::append_prepare(&mut kernel, &prepare).unwrap();
+
+    let preview = kernel.index().project_group(&candidates, NOW).unwrap();
+    let err = accept_group(&mut kernel, &candidates, &preview, NOW).unwrap_err();
+    assert!(
+        err.contains("does not match the submitted changeset"),
+        "the unmatched prepare must not commit an unreviewed set, got: {err}"
+    );
+}

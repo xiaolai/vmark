@@ -46,6 +46,15 @@ pub fn perform_claim(
     req: &ClaimRequest,
     actor: &str,
 ) -> Result<ClaimReceipt, String> {
+    // R1 (7th-review 6R-1): resolve source head → build claim → append atomic.
+    kernel.with_write_lock(|kernel| perform_claim_locked(kernel, req, actor))
+}
+
+fn perform_claim_locked(
+    kernel: &mut WorkspaceKernel,
+    req: &ClaimRequest,
+    actor: &str,
+) -> Result<ClaimReceipt, String> {
     let body = match req.action.as_str() {
         "create" => {
             let statement = req
@@ -182,6 +191,17 @@ fn entry_body(
 /// D2.4: reversible visibility. Materializes `contexts/default.json`
 /// for the implicit default context; any other context must exist.
 pub fn perform_claim_scope(
+    kernel: &mut WorkspaceKernel,
+    context: Uuid,
+    claim: Uuid,
+    visible: bool,
+) -> Result<(), String> {
+    // R1 (7th-review 6R-1): the context-manifest read-modify-write runs under the
+    // workspace lock so two processes can't lose each other's scope update.
+    kernel.with_write_lock(|kernel| perform_claim_scope_locked(kernel, context, claim, visible))
+}
+
+fn perform_claim_scope_locked(
     kernel: &mut WorkspaceKernel,
     context: Uuid,
     claim: Uuid,
