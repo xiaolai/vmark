@@ -19,7 +19,7 @@
 //! A vanished or ambiguous heading is strong evidence the dependency genuinely
 //! broke, and silently falling back would hide exactly the signal worth having.
 
-use super::canonical::{canonicalize_text, text_content_hash};
+use super::canonical::text_content_hash;
 use super::types::ContentHash;
 
 /// What happened when an anchor was resolved against a document.
@@ -44,24 +44,48 @@ struct Heading {
     line: usize,
 }
 
+/// One fenced-code-block state: which marker char, and how long the opener was.
+struct Fence {
+    ch: char,
+    len: usize,
+}
+
+/// Leading spaces beyond this make a line indented CODE, not markup (CommonMark).
+const MAX_INDENT: usize = 3;
+
 /// Parse ATX headings (`#`…`######`), skipping fenced code blocks.
 ///
 /// Fence tracking is not optional: a fenced block containing `# comment` (shell,
 /// Python, a nested markdown sample) would otherwise register as a heading and
-/// could capture an anchor pointing at code.
+/// could capture an anchor pointing at code — a silent-suppression path.
+///
+/// Follows CommonMark closely enough that code cannot masquerade as structure:
+/// - a closing fence must use the SAME character, be at least as long as the
+///   opener, and have nothing but whitespace after it (so ```` ```not-a-close ````
+///   does NOT close a block);
+/// - 4+ leading spaces is indented code, so `    # Fake` is not a heading;
+/// - the marker may be followed by any whitespace (space or tab), not only a
+///   space.
 fn headings(text: &str) -> Vec<Heading> {
     let mut out = Vec::new();
-    let mut fence: Option<String> = None;
+    let mut fence: Option<Fence> = None;
     for (i, raw) in text.lines().enumerate() {
-        let line = raw.trim_end();
-        let trimmed = line.trim_start();
-        // ``` or ~~~ fences, of any length ≥3; a fence closes only on the same
-        // marker character, so ``` inside a ~~~ block does not end it.
-        if let Some(marker) = fence_marker(trimmed) {
+        let indent = raw.len() - raw.trim_start_matches(' ').len();
+        let trimmed = raw.trim_start_matches(' ').trim_end();
+        if indent > MAX_INDENT {
+            continue; // indented code: never markup
+        }
+        if let Some((ch, len)) = fence_run(trimmed) {
             match &fence {
-                Some(open) if marker.starts_with(open.as_str()) => fence = None,
+                // A closing fence: same char, at least as long, nothing but
+                // whitespace after it.
+                Some(open)
+                    if open.ch == ch && len >= open.len && trimmed[len..].trim().is_empty() =>
+                {
+                    fence = None
+                }
                 Some(_) => {}
-                None => fence = Some(marker),
+                None => fence = Some(Fence { ch, len }),
             }
             continue;
         }
@@ -73,8 +97,9 @@ fn headings(text: &str) -> Vec<Heading> {
             continue;
         }
         let rest = &trimmed[hashes..];
-        // `#hashtag` is not a heading — ATX requires a space after the hashes.
-        if !rest.starts_with(' ') && !rest.is_empty() {
+        // ATX requires whitespace after the marker — `#hashtag` is prose. An
+        // empty remainder is a bare `#`, which is a valid (empty) heading.
+        if !rest.is_empty() && !rest.starts_with([' ', '\t']) {
             continue;
         }
         out.push(Heading {
@@ -87,128 +112,124 @@ fn headings(text: &str) -> Vec<Heading> {
     out
 }
 
-fn fence_marker(trimmed: &str) -> Option<String> {
+/// The leading run of `\`` or `~` if it is at least 3 long.
+fn fence_run(trimmed: &str) -> Option<(char, usize)> {
     for ch in ['`', '~'] {
         let n = trimmed.chars().take_while(|c| *c == ch).count();
         if n >= 3 {
-            return Some(std::iter::repeat_n(ch, n).collect());
+            return Some((ch, n));
         }
     }
     None
 }
 
+/// Bounds on an anchor path — an anchor arriving over IPC or via a git-merged
+/// ledger is untrusted input, and resolution cost scales with both.
+pub const MAX_PATH_SEGMENTS: usize = 16;
+pub const MAX_SEGMENT_BYTES: usize = 512;
+
 /// Resolve a heading path to that section's normalised content hash.
 ///
 /// The section is the heading line plus its body up to the next heading of the
-/// SAME OR HIGHER level (i.e. subsections are included — depending on "§5" means
-/// depending on all of §5). Content is canonicalised with the same rules capture
-/// uses (CRLF, trailing whitespace, CJK spacing) so cosmetic edits do not
-/// register as changes.
+/// SAME OR HIGHER level (subsections included — depending on "§5" means
+/// depending on all of §5), hashed with the same canonicalisation capture uses.
 ///
-/// Matching is exact on trimmed heading text. Case and punctuation are
-/// significant: renaming "5.2 Waivers" to "5.2 waivers" IS a change worth
-/// surfacing, and quietly matching it would defeat the point.
+/// Matching is EXACT and STRUCTURAL:
+/// - each segment must match exactly one heading (any two matches, at any
+///   levels, are `Ambiguous` — "shallowest wins" would silently ignore edits to
+///   an identically-named sibling section);
+/// - each segment must be a DIRECT child of the previous one (no omitted
+///   ancestors), so moving an otherwise-identical block under a different
+///   parent is a change, not a match;
+/// - case and punctuation are significant: renaming a heading IS a change.
 pub fn resolve_anchor(text: &str, path: &[String]) -> AnchorResolution {
-    let wanted: Vec<&str> = path
-        .iter()
-        .map(|s| s.trim())
-        .filter(|s| !s.is_empty())
-        .collect();
-    if wanted.is_empty() || wanted.len() != path.len() {
+    if path.is_empty()
+        || path.len() > MAX_PATH_SEGMENTS
+        || path.iter().any(|s| s.len() > MAX_SEGMENT_BYTES)
+    {
+        return AnchorResolution::Invalid;
+    }
+    let wanted: Vec<&str> = path.iter().map(|s| s.trim()).collect();
+    if wanted.iter().any(|s| s.is_empty()) {
         return AnchorResolution::Invalid;
     }
     let hs = headings(text);
-    let lines: Vec<&str> = text.lines().collect();
 
-    // Walk the path, narrowing the search window at each step.
-    let mut lo = 0usize;
-    let mut hi = lines.len();
-    let mut level = 0usize;
-    let mut chosen: Option<usize> = None;
+    // Walk the path, requiring a DIRECT parent-child step each time.
+    let mut lo = 0usize; // first heading index in the current window
+    let mut hi = hs.len(); // one past the last
+    let mut parent_level: Option<usize> = None;
+    let mut chosen: Option<usize> = None; // index into `hs`
 
     for segment in &wanted {
-        let matches: Vec<&Heading> = hs
-            .iter()
-            .filter(|h| h.line >= lo && h.line < hi && h.level > level && h.text == *segment)
-            .collect();
-        // Only consider the SHALLOWEST level that matches, so a path segment
-        // naming a top-level section is not confused by a same-named subsection.
-        let Some(min_level) = matches.iter().map(|h| h.level).min() else {
-            return AnchorResolution::NotFound;
+        // Every same-named heading in the window counts toward ambiguity,
+        // whatever its level: "shallowest wins" would silently ignore edits to
+        // an identically-named sibling section.
+        let same_text: Vec<usize> = (lo..hi).filter(|&i| hs[i].text == *segment).collect();
+        let candidates: Vec<usize> = match parent_level {
+            // The FIRST segment may name a heading at any depth — a path need
+            // not start at the document root.
+            None => same_text.clone(),
+            // A later segment must be a DIRECT child of the one just chosen:
+            // the shallowest level inside its section. Allowing any deeper level
+            // would let an omitted intermediate ancestor match, so an otherwise
+            // identical block moved under a different parent would read as
+            // unchanged.
+            Some(pl) => {
+                let Some(child_level) = (lo..hi).map(|i| hs[i].level).filter(|l| *l > pl).min()
+                else {
+                    return AnchorResolution::NotFound;
+                };
+                same_text
+                    .iter()
+                    .copied()
+                    .filter(|&i| hs[i].level == child_level)
+                    .collect()
+            }
         };
-        let at: Vec<&&Heading> = matches.iter().filter(|h| h.level == min_level).collect();
-        if at.len() > 1 {
-            return AnchorResolution::Ambiguous;
+        match (candidates.len(), same_text.len()) {
+            (0, _) => return AnchorResolution::NotFound,
+            (1, 1) => {}
+            _ => return AnchorResolution::Ambiguous,
         }
-        let h = at[0];
-        level = h.level;
-        lo = h.line;
-        hi = hs
-            .iter()
-            .find(|o| o.line > h.line && o.level <= h.level)
-            .map(|o| o.line)
-            .unwrap_or(lines.len());
-        chosen = Some(h.line);
+        let idx = candidates[0];
+        parent_level = Some(hs[idx].level);
+        chosen = Some(idx);
+        lo = idx + 1;
+        hi = (idx + 1..hs.len())
+            .find(|&j| hs[j].level <= hs[idx].level)
+            .unwrap_or(hs.len());
     }
 
-    let Some(start) = chosen else {
+    let Some(idx) = chosen else {
         return AnchorResolution::Invalid;
     };
-    let body = lines[start..hi].join("\n");
-    AnchorResolution::Found(text_content_hash(&canonicalize_text(&body)))
+    // Slice by BYTE RANGE, not by re-joining lines: joining loses the section's
+    // terminating newline, so "# H\nbody" and "# H\nbody\n" would hash
+    // identically even though the canonical format treats a final newline as
+    // content — a silent-suppression path.
+    let start_byte = line_start_byte(text, hs[idx].line);
+    let end_byte = match hs.get(hi) {
+        Some(next) => line_start_byte(text, next.line),
+        None => text.len(),
+    };
+    let body = &text[start_byte..end_byte];
+    AnchorResolution::Found(text_content_hash(body))
 }
 
-/// Anchor an edge to a heading path, or clear it with an EMPTY path.
-///
-/// The baseline hash is computed from the upstream's CURRENT text at the moment
-/// of anchoring — anchoring says "I depend on this section as it stands now".
-/// Refuses a path that does not resolve to exactly one section: storing an
-/// anchor that is already `NotFound`/`Ambiguous` would create an edge that can
-/// only ever report `anchor-lost`.
-pub fn set_anchor(
-    kernel: &mut super::state::WorkspaceKernel,
-    txf: &uuid::Uuid,
-    input: u32,
-    headings: &[String],
-) -> Result<uuid::Uuid, String> {
-    kernel.with_write_lock(|kernel| {
-        let edge = kernel
-            .index()
-            .edge_by(txf, input)?
-            .ok_or_else(|| format!("no such edge: {txf}#{input}"))?;
-        let mut body = serde_json::json!({
-            "edge": { "txf": txf.to_string(), "input": input },
-            "headings": headings,
-        });
-        if !headings.is_empty() {
-            let current = match kernel.index().resolve_live(&edge.upstream)? {
-                super::dag::Resolved::Single(rev) => rev,
-                _ => return Err("upstream has no single live revision to anchor against".into()),
-            };
-            let text = super::check_commands::snapshot_text(kernel, &edge.upstream, &current)?;
-            match resolve_anchor(&text, headings) {
-                AnchorResolution::Found(h) => {
-                    body["anchored_hash"] = serde_json::json!(h.as_str());
-                }
-                AnchorResolution::NotFound => {
-                    return Err("that heading path does not exist in the upstream".into())
-                }
-                AnchorResolution::Ambiguous => {
-                    return Err("that heading path matches more than one section".into())
-                }
-                AnchorResolution::Invalid => return Err("invalid heading path".into()),
-            }
+/// Byte offset where a 0-based line begins.
+fn line_start_byte(text: &str, line: usize) -> usize {
+    let mut seen = 0usize;
+    for (i, b) in text.bytes().enumerate() {
+        if seen == line {
+            return i;
         }
-        let env = super::types::Envelope::create("edge-anchor", kernel.writer(), body);
-        let id = env.id;
-        kernel.append_and_apply(&env)?;
-        Ok(id)
-    })
+        if b == b'\n' {
+            seen += 1;
+        }
+    }
+    text.len()
 }
-
-#[cfg(test)]
-#[path = "anchors.test.rs"]
-mod tests;
 
 /// One edge's anchor: the heading path it depends on, plus that section's hash
 /// at the moment it was anchored (the baseline staleness compares against).
@@ -329,3 +350,63 @@ pub fn evaluate(anchor: &Anchor, current_upstream_text: &str) -> AnchorStatus {
         _ => AnchorStatus::Lost,
     }
 }
+
+/// Anchor an edge to a heading path, or clear it with an EMPTY path.
+///
+/// The baseline hash is computed from the upstream's CURRENT text at the moment
+/// of anchoring — anchoring says "I depend on this section as it stands now".
+/// Refuses a path that does not resolve to exactly one section: storing an
+/// anchor that is already `NotFound`/`Ambiguous` would create an edge that can
+/// only ever report `anchor-lost`. Path bounds are enforced by `resolve_anchor`,
+/// which returns `Invalid` for an oversized or over-deep path.
+pub fn set_anchor(
+    kernel: &mut super::state::WorkspaceKernel,
+    txf: &uuid::Uuid,
+    input: u32,
+    headings: &[String],
+) -> Result<uuid::Uuid, String> {
+    // Bound the path even on the CLEAR path, so an oversized array cannot be
+    // appended at all (the ledger cap is far too generous to be the only guard).
+    if headings.len() > MAX_PATH_SEGMENTS || headings.iter().any(|h| h.len() > MAX_SEGMENT_BYTES) {
+        return Err(format!(
+            "anchor path too large (max {MAX_PATH_SEGMENTS} segments, {MAX_SEGMENT_BYTES} bytes each)"
+        ));
+    }
+    kernel.with_write_lock(|kernel| {
+        let edge = kernel
+            .index()
+            .edge_by(txf, input)?
+            .ok_or_else(|| format!("no such edge: {txf}#{input}"))?;
+        let mut body = serde_json::json!({
+            "edge": { "txf": txf.to_string(), "input": input },
+            "headings": headings,
+        });
+        if !headings.is_empty() {
+            let current = match kernel.index().resolve_live(&edge.upstream)? {
+                super::dag::Resolved::Single(rev) => rev,
+                _ => return Err("upstream has no single live revision to anchor against".into()),
+            };
+            let text = super::check_commands::snapshot_text(kernel, &edge.upstream, &current)?;
+            match resolve_anchor(&text, headings) {
+                AnchorResolution::Found(h) => {
+                    body["anchored_hash"] = serde_json::json!(h.as_str());
+                }
+                AnchorResolution::NotFound => {
+                    return Err("that heading path does not exist in the upstream".into())
+                }
+                AnchorResolution::Ambiguous => {
+                    return Err("that heading path matches more than one section".into())
+                }
+                AnchorResolution::Invalid => return Err("invalid heading path".into()),
+            }
+        }
+        let env = super::types::Envelope::create("edge-anchor", kernel.writer(), body);
+        let id = env.id;
+        kernel.append_and_apply(&env)?;
+        Ok(id)
+    })
+}
+
+#[cfg(test)]
+#[path = "anchors.test.rs"]
+mod tests;
