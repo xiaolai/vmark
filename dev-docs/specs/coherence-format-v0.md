@@ -518,6 +518,43 @@ never mint revisions; the registry is how schema survives outside
 revision history. For binaries it is additionally the *only* identity
 carrier (no frontmatter).
 
+#### 5.4.9 `object-lifecycle`
+
+Declares whether an object is a **live** document or **frozen** history:
+
+```json
+{ "object": "<uuid>", "state": "frozen",
+  "reason": "Phase 1 plan — completed 2026-07-20" }
+```
+
+- `state` ∈ { `live`, `frozen` }. `live` is the default and is **never
+  implied by absence** — an object with no `object-lifecycle` entry is live.
+- **Latest wins**, by the same (`time`, `id`) order used everywhere. Freezing
+  is therefore **reversible**: appending `live` revives the object, and both
+  transitions remain in history.
+- A **frozen** object asserts *"this is a finished record — a statement about
+  what was true then"*. Projections MUST NOT raise staleness against a frozen
+  **downstream**: later upstream edits cannot invalidate a completed record.
+  The edge, its provenance and its resolution history are still recorded; only
+  the *interruption* is suppressed (edges-are-inference, not-homework).
+- A frozen object that is nevertheless **edited** is an anomaly worth
+  surfacing, not silence.
+- Readers that do not know this kind preserve it unchanged (§1 forward
+  compatibility), and therefore keep flagging frozen downstreams — a
+  conservative degradation: an unexpected interruption, never a silent
+  suppression.
+
+Lifecycle lives in the **ledger, not frontmatter**. Frontmatter carries
+identity because a file must carry its own identity across copies; lifecycle
+has no such requirement, and writing it to frontmatter would make each freeze a
+content edit that mints a revision and re-stales every dependent — freezing a
+document to stop churn would itself cause churn.
+
+Lifecycle is **human-declared and never inferred**. A projection MAY suggest a
+freeze (e.g. a plan whose status reads "complete"); it MUST NOT apply one.
+Inferring it would let the layer autonomously decide what to stop telling the
+owner, which the human-as-scheduler stance forbids.
+
 #### 5.4.7 `diagnostic`
 
 Workspace-level findings that must survive restarts (duplicate IDs §2.1,
