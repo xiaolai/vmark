@@ -74,5 +74,15 @@
   "merge": {
     "banner": "Um merge foi concluído — revise o detalhamento",
     "dismiss": "Dispensar"
+  },
+  "suppressed": {
+    "title": "Sem perguntas sobre estes ({{count}})",
+    "hint": "Ainda registrados — apenas sem interromper você.",
+    "frozen": "documento concluído",
+    "anchorUnchanged": "seção da qual depende sem alterações"
+  },
+  "anchorStates": {
+    "anchor-changed": "seção ancorada alterada",
+    "anchor-lost": "âncora perdida"
   }
 }

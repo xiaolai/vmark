@@ -74,5 +74,15 @@
   "merge": {
     "banner": "병합이 완료되었습니다 — 내역을 검토하세요",
     "dismiss": "닫기"
+  },
+  "suppressed": {
+    "title": "묻지 않는 항목 ({{count}})",
+    "hint": "계속 추적 중입니다 — 알리지 않을 뿐입니다.",
+    "frozen": "완료된 문서",
+    "anchorUnchanged": "의존하는 섹션이 변경되지 않음"
+  },
+  "anchorStates": {
+    "anchor-changed": "고정된 섹션이 변경됨",
+    "anchor-lost": "고정 위치를 잃음"
   }
 }

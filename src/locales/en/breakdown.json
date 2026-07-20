@@ -74,5 +74,15 @@
   "merge": {
     "banner": "A merge landed — review the breakdown",
     "dismiss": "Dismiss"
+  },
+  "suppressed": {
+    "title": "Not asking about these ({{count}})",
+    "hint": "Still tracked — just not interrupting you.",
+    "frozen": "finished document",
+    "anchorUnchanged": "depended-on section unchanged"
+  },
+  "anchorStates": {
+    "anchor-changed": "anchored section changed",
+    "anchor-lost": "anchor lost"
   }
 }

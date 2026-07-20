@@ -53,6 +53,14 @@ export interface EdgeRow {
    * Absent when the edge is unanchored (whole-file behaviour, the default).
    */
   anchor_status?: "anchor-unchanged" | "anchor-changed" | "anchor-lost";
+  /**
+   * Does this edge actually ASK for something? Computed once in Rust so the
+   * badge and the list cannot disagree — they did, twice, when each consumer
+   * re-derived suppression from `frozen_downstream` + `anchor_status`.
+   * Absent on a legacy row, which is treated as actionable: degrade toward
+   * interrupting, never toward silence.
+   */
+  actionable?: boolean;
 }
 
 /** Mirror of the Rust `LogCheck` (coherence logbook). */

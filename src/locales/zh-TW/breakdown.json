@@ -74,5 +74,15 @@
   "merge": {
     "banner": "合併已完成 — 請查看明細",
     "dismiss": "忽略"
+  },
+  "suppressed": {
+    "title": "不再詢問這些 ({{count}})",
+    "hint": "仍在追蹤 — 只是不再打擾你。",
+    "frozen": "已完成的文件",
+    "anchorUnchanged": "所依賴的章節未更動"
+  },
+  "anchorStates": {
+    "anchor-changed": "錨定的章節已更動",
+    "anchor-lost": "錨點已遺失"
   }
 }
