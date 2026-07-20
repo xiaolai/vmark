@@ -701,3 +701,17 @@
   color: var(--text-tertiary);
   padding-left: var(--spacing-2);
 }
+
+/* Anchor picker — options come from the upstream, so the list can be long. */
+.breakdown-anchor {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-1);
+  flex-wrap: wrap;
+  max-width: 100%;
+}
+
+.breakdown-anchor__hint {
+  color: var(--text-tertiary);
+  font-size: var(--font-size-xs);
+}

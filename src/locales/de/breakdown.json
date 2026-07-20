@@ -108,5 +108,12 @@
     "reopened": "{{count}} Kante(n) mehrfach aufgelöst",
     "resolutions": "{{count}}x aufgelöst",
     "downgraded": "Modell sagte {{verdict}} bei {{confidence}}, unter dem Schwellenwert"
+  },
+  "anchor": {
+    "set": "An Abschnitt verankern",
+    "change": "Anker ändern",
+    "clear": "Ganze Datei",
+    "hint": "Nur den Abschnitt prüfen, von dem dies abhängt, statt der ganzen Datei.",
+    "empty": "Keine Abschnitte zum Verankern."
   }
 }

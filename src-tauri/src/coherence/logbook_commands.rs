@@ -114,6 +114,38 @@ pub async fn coherence_set_anchor(
     Ok(id.to_string())
 }
 
+/// The heading paths this edge's upstream can be anchored to.
+///
+/// Reads the SAME text `set_anchor` validates against — the upstream's current
+/// live revision. Sourcing the picker anywhere else (the working file, the
+/// pinned revision) would let it offer paths the setter then rejects.
+#[tauri::command]
+pub async fn coherence_edge_headings(
+    state: tauri::State<'_, super::commands::CoherenceState>,
+    workspace_root: String,
+    txf: Uuid,
+    input: u32,
+) -> Result<Vec<Vec<String>>, String> {
+    let root = std::path::PathBuf::from(&workspace_root);
+    let kernel_arc = state.registry.kernel_for(&root, state.writer)?;
+    let mut kernel = kernel_arc
+        .lock()
+        .map_err(|_| "kernel poisoned".to_string())?;
+    let edge = kernel
+        .index()
+        .edge_by(&txf, input)?
+        .ok_or_else(|| format!("no such edge: {txf}#{input}"))?;
+    let current = match kernel.index().resolve_live(&edge.upstream)? {
+        super::dag::Resolved::Single(rev) => rev,
+        // Same refusal as set_anchor: with no single live revision there is
+        // nothing coherent to anchor against, so offer nothing rather than
+        // guess a revision.
+        _ => return Ok(Vec::new()),
+    };
+    let text = super::check_commands::snapshot_text(&mut kernel, &edge.upstream, &current)?;
+    Ok(super::anchors::heading_paths(&text))
+}
+
 #[cfg(test)]
 #[path = "logbook_commands.test.rs"]
 mod tests;

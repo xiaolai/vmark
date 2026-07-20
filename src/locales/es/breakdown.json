@@ -108,5 +108,12 @@
     "reopened": "{{count}} vínculo(s) resueltos más de una vez",
     "resolutions": "resuelto {{count}} veces",
     "downgraded": "el modelo dijo {{verdict}} con {{confidence}}, por debajo del umbral"
+  },
+  "anchor": {
+    "set": "Anclar a una sección",
+    "change": "Cambiar ancla",
+    "clear": "Archivo completo",
+    "hint": "Preguntar solo por la sección de la que depende, en vez del archivo entero.",
+    "empty": "No hay secciones para anclar."
   }
 }

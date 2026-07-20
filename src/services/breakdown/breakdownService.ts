@@ -329,6 +329,30 @@ export async function setDocumentLifecycle(
  * restore whole-file behaviour. An anchored edge asks "did the part I depend on
  * change?" instead of "did the file change?".
  */
+/**
+ * The heading paths this edge's upstream can be anchored to.
+ *
+ * Backed by the same text `setEdgeAnchor` validates against, so a path this
+ * returns is one the setter will accept — the picker never offers an option
+ * that would be rejected.
+ */
+export async function fetchEdgeHeadings(
+  workspaceRoot: string,
+  txf: string,
+  input: number,
+): Promise<string[][]> {
+  try {
+    return await invoke<string[][]>("coherence_edge_headings", {
+      workspaceRoot,
+      txf,
+      input,
+    });
+  } catch (error) {
+    useBreakdownStore.getState().setError(messageOf(error));
+    return [];
+  }
+}
+
 export async function setEdgeAnchor(
   workspaceRoot: string,
   txf: string,

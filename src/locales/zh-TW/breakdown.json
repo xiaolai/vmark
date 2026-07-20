@@ -108,5 +108,12 @@
     "reopened": "{{count}} 條依賴被多次解決",
     "resolutions": "已解決 {{count}} 次",
     "downgraded": "模型答覆 {{verdict}}（信心度 {{confidence}}），低於閾值"
+  },
+  "anchor": {
+    "set": "錨定到章節",
+    "change": "變更錨點",
+    "clear": "整個檔案",
+    "hint": "只關注所依賴的章節，而不是整個檔案。",
+    "empty": "沒有可錨定的章節。"
   }
 }
