@@ -80,6 +80,29 @@ impl Envelope {
                     TypedBody::Waiver(r)
                 }
             }
+            // The owner's M2 relevance judgment for a flagged edge (logbook).
+            // Validated at the boundary so a mis-typed judgment can never reach
+            // the metric: an unrecognised value would silently skew M2.
+            "flag-judgment" => {
+                let edge_ok = b
+                    .get("edge")
+                    .map(|e| {
+                        e.get("txf").and_then(|v| v.as_str()).is_some()
+                            && e.get("input").and_then(|v| v.as_u64()).is_some()
+                    })
+                    .unwrap_or(false);
+                if !edge_ok {
+                    return Err("flag-judgment without a well-formed edge".into());
+                }
+                match b.get("judgment").and_then(|v| v.as_str()) {
+                    Some(j) if super::logbook::JUDGMENTS.contains(&j) => {}
+                    _ => return Err("flag-judgment with an unknown judgment value".into()),
+                }
+                TypedBody::Preserved {
+                    kind: self.kind.clone(),
+                    body: b.clone(),
+                }
+            }
             "object-registered" => TypedBody::ObjectRegistered(parse(b)?),
             // Spec §5.4.7 rev 2: delegation is a known, validated kind.
             "delegation" => {
