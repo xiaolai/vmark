@@ -292,12 +292,20 @@ impl WorkspaceKernel {
             self.reflected_fp = Some(fp);
         }
         self.in_write_txn = true;
-        let result = f(self);
+        // Run `f` inside catch_unwind so the flag is reset even on a panic
+        // (8th-review 8R-10). Relying on the registry `Mutex` poisoning was not
+        // enough: a DIRECTLY owned kernel whose panic is caught kept the flag set
+        // and the next `with_write_lock` took the re-entrant branch, running
+        // without any flock. The panic is re-raised unchanged afterwards.
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| f(self)));
         self.in_write_txn = false;
         // Refresh to include our own appends (the flock blocked everyone else, so
         // nothing else changed). A read failure just forces a reconcile next time.
         self.reflected_fp = self.ledger.fingerprint().ok();
-        result
+        match result {
+            Ok(r) => r,
+            Err(payload) => std::panic::resume_unwind(payload),
+        }
     }
 
     pub fn root(&self) -> &Path {
