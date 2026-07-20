@@ -374,3 +374,45 @@ fn append_refuses_an_entry_larger_than_the_read_cap() {
     );
     assert!(read.quarantined.is_empty(), "and nothing to quarantine");
 }
+
+#[test]
+fn fingerprint_detects_a_same_length_replacement() {
+    // The fingerprint is the "did the ledger change" oracle behind the O(1) gated
+    // reconcile — a FALSE NEGATIVE would silently serve a stale index. Byte-length
+    // alone cannot see a same-length history swap (fixed-width UUIDs + RFC3339
+    // timestamps make two branches' segments equal length), and mtime can be too
+    // coarse (1s granularity) to notice a same-second checkout. The inode moves
+    // whenever the file is replaced by rename — which is how a checkout swaps it.
+    let dir = tmp();
+    let ledger = Ledger::new(dir.path().join("ledger"), writer(1));
+    ledger
+        .append(&Envelope::create("diagnostic", writer(1), diag("a")))
+        .unwrap();
+    let before = ledger.fingerprint().unwrap();
+    let seg = ledger.active_segment_path_for_test();
+    let original = std::fs::read(&seg).unwrap();
+
+    // Replace with DIFFERENT content of the SAME length, via rename (as git does).
+    let mut swapped = original.clone();
+    let mid = swapped.len() / 2;
+    swapped[mid] = if swapped[mid] == b'a' { b'b' } else { b'a' };
+    let staging = seg.parent().unwrap().join("swap.tmp");
+    std::fs::write(&staging, &swapped).unwrap();
+    std::fs::rename(&staging, &seg).unwrap();
+
+    let after = ledger.fingerprint().unwrap();
+    assert_eq!(before.len(), 1);
+    assert_eq!(after.len(), 1, "still exactly one segment");
+    assert_eq!(
+        before[0].1, after[0].1,
+        "precondition: the replacement is the SAME byte length"
+    );
+    assert_ne!(
+        before[0].3, after[0].3,
+        "the inode moved, so the swap is detectable even if mtime were too coarse"
+    );
+    assert_ne!(
+        before, after,
+        "a same-length replacement must change the fingerprint"
+    );
+}
