@@ -32,10 +32,13 @@ pub struct WorkspaceKernel {
     /// the index lacks it, so the O(1) idem lookup can no longer be trusted. All
     /// writes and accepts refuse until reopen re-reconciles from the ledger.
     unavailable: Option<String>,
-    /// The held exclusive workspace `flock` (re-review #1). `Some` while a group
-    /// op holds it across many appends; then nested `append_and_apply` calls skip
-    /// re-locking (flock is not re-entrant across fds even in one process).
-    lock: Option<fs::File>,
+    /// True while a `with_write_lock` scope holds the exclusive workspace `flock`
+    /// across its whole read-validate-append span (re-review #1, R1). The `flock`
+    /// itself lives in a stack local in `with_write_lock` (so it releases on every
+    /// exit incl. panic-unwind — #5); this flag only tells nested
+    /// `append_and_apply` calls that the lock is already held, so they reuse it
+    /// instead of re-locking (flock is not re-entrant across fds).
+    in_write_txn: bool,
     /// Last git observation for scan classification (WI-1.7).
     pub last_git: Option<GitObservation>,
     /// Quarantined-line count from the last ledger read (status surface).
@@ -47,7 +50,13 @@ impl WorkspaceKernel {
     /// (in-memory index until first capture).
     pub fn open(root: &Path, writer: WriterId) -> Result<Self, String> {
         let vmark = root.join(".vmark");
-        let initialized = vmark.is_dir();
+        // Marker-based init detection (re-review #4): a workspace is "initialized"
+        // only once `.gitattributes` (the merge=union rule) exists — it is written
+        // LAST by `ensure_initialized`. Testing the marker, not `.vmark`'s mere
+        // existence, means a bare `.vmark/group.lock` left by a failed op (or a
+        // crash mid-init) is NOT mistaken for complete: the next write re-runs
+        // `ensure_initialized` and finishes the structure.
+        let initialized = vmark.join(".gitattributes").is_file();
         let ledger = Ledger::new(vmark.join("ledger"), writer);
         let snapshots = SnapshotStore::new(vmark.join("snapshots"));
         let (mut index, needs_rebuild) = if initialized {
@@ -87,7 +96,7 @@ impl WorkspaceKernel {
             index,
             initialized,
             unavailable: None,
-            lock: None,
+            in_write_txn: false,
             last_git: None,
             quarantined,
         })
@@ -105,13 +114,17 @@ impl WorkspaceKernel {
         fs::create_dir_all(vmark.join("snapshots")).map_err(|e| format!("init snapshots: {e}"))?;
         ensure_line(&vmark.join(".gitignore"), "index.db*")?;
         ensure_line(&vmark.join(".gitignore"), "group.lock")?;
-        ensure_line(&vmark.join(".gitattributes"), "ledger/*.jsonl merge=union")?;
         // Swap the in-memory index for the file-backed one.
         let (mut index, _) = CoherenceIndex::open(&vmark.join("index.db"))?;
         let read = self.ledger.read_all()?;
         self.quarantined = read.quarantined.len();
         index.rebuild_from(&read.entries)?;
         self.index = index;
+        // The merge=union rule is written LAST as the completion marker
+        // (re-review #4): its presence is exactly what `open` trusts to mean
+        // "fully initialized", so a crash before this leaves the workspace
+        // re-initializable rather than falsely "done".
+        ensure_line(&vmark.join(".gitattributes"), "ledger/*.jsonl merge=union")?;
         self.initialized = true;
         Ok(())
     }
@@ -127,17 +140,13 @@ impl WorkspaceKernel {
     /// - **apply error** — the ledger is truth, so rebuild from it; poison on
     ///   rebuild failure (audit R7).
     pub fn append_and_apply(&mut self, env: &Envelope) -> Result<(), String> {
-        self.ensure_available()?;
-        // Serialize the write CROSS-PROCESS (re-review #1): every ledger writer
-        // takes the exclusive workspace lock, so an ordinary single-object accept
-        // can't interleave with a group-commit. A group op holds the lock across
-        // many appends (`self.lock` is set) — don't re-acquire (flock is not
-        // re-entrant across fds even within one process).
-        if self.lock.is_some() {
+        // A lone append is itself a mutating operation: take the workspace lock
+        // for its whole span (re-review #1). When already inside a held
+        // `with_write_lock` scope (a group's per-member appends), reuse it.
+        if self.in_write_txn {
             return self.append_and_apply_inner(env);
         }
-        let _guard = self.acquire_lock_file()?;
-        self.append_and_apply_inner(env)
+        self.with_write_lock(|k| k.append_and_apply_inner(env))
     }
 
     fn append_and_apply_inner(&mut self, env: &Envelope) -> Result<(), String> {
@@ -212,23 +221,45 @@ impl WorkspaceKernel {
         Ok(file)
     }
 
-    /// Begin a group-commit's HELD workspace lock (re-review #1): take the
-    /// exclusive lock once and reconcile from the ledger (another process may have
-    /// appended while we blocked), then hold it so the WHOLE group lifecycle
-    /// lookup → prepare/abort → member appends is atomic against every other
-    /// writer. `end_group_lock` releases it. Errors if a lock is already held.
-    pub fn begin_group_lock(&mut self) -> Result<(), String> {
-        if self.lock.is_some() {
-            return Err("workspace lock already held".into());
+    /// Run `f` holding the exclusive cross-process workspace lock across its WHOLE
+    /// span (re-review #1, R1 — full pessimistic lock). EVERY mutating operation —
+    /// a single accept, a group accept/recover, or a lone `append_and_apply` —
+    /// routes through here, so its read → validate → append is atomic against
+    /// every other cooperating writer (and against a git checkout that would
+    /// otherwise land between our validation and our append). On acquire we
+    /// reconcile the index from the ledger, so `f` validates against current
+    /// state: a base-head the caller checked pre-lock is re-derived here and a
+    /// concurrent commit that moved it is caught as a stale-base rejection instead
+    /// of a silent sibling fork.
+    ///
+    /// Durability + panic safety:
+    /// - `ensure_initialized` runs first, so the ONLY creator of `.vmark` is the
+    ///   full-structure initializer — a failed op can never leave a bare
+    ///   `.vmark/group.lock` that later reads as "initialized" (re-review #4).
+    /// - The `flock` lives in the `_flock` stack local, so it releases on EVERY
+    ///   exit path — normal return, `?`, or panic-unwind (re-review #5).
+    /// - `in_write_txn` is set only AFTER a successful acquire+reconcile (a
+    ///   reconcile error leaks no held-lock state) and cleared on normal return.
+    ///   On an unwind the std `Mutex<WorkspaceKernel>` poisons, so a stale `true`
+    ///   can never gate a future write — the kernel is unreachable after a panic.
+    ///
+    /// Re-entrant: a nested call (a group's per-member `append_and_apply`) sees
+    /// the flag set and runs `f` directly on the already-held lock.
+    pub fn with_write_lock<R>(
+        &mut self,
+        f: impl FnOnce(&mut Self) -> Result<R, String>,
+    ) -> Result<R, String> {
+        self.ensure_available()?;
+        if self.in_write_txn {
+            return f(self);
         }
-        let file = self.acquire_lock_file()?;
-        self.lock = Some(file);
-        self.reconcile_index_from_ledger()
-    }
-
-    /// Release the held workspace lock (drops the fd → releases the `flock`).
-    pub fn end_group_lock(&mut self) {
-        self.lock = None;
+        self.ensure_initialized()?;
+        let _flock = self.acquire_lock_file()?;
+        self.reconcile_index_from_ledger()?;
+        self.in_write_txn = true;
+        let result = f(self);
+        self.in_write_txn = false;
+        result
     }
 
     pub fn root(&self) -> &Path {

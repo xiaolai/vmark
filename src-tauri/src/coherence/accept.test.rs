@@ -227,3 +227,63 @@ fn a_stale_base_is_rejected() {
         accept_candidate(&mut kernel, &candidate, &preview.structural_classes, NOW).unwrap_err();
     assert!(err.contains("stale base"), "got: {err}");
 }
+
+#[test]
+fn wrapped_accept_reconciles_a_concurrent_commit_and_rejects_the_stale_base() {
+    // Re-review #1 (R1): the workspace lock wraps the WHOLE accept, and on acquire
+    // reconciles the index from the ledger. So a sibling revision another
+    // cooperating writer appended to the shared ledger — which THIS kernel's index
+    // has NOT yet applied (the cross-process race window) — is seen before the
+    // base-head check, and the stale accept is rejected rather than forking U with
+    // a lost-update sibling. The existing `a_stale_base_is_rejected` advances via
+    // `append_and_apply` (index already current); this one proves the reconcile is
+    // what closes the window the flock previously left open below the validation.
+    let (_dir, mut kernel, u, _d, u1) = seeded();
+    let candidate = Candidate::new(u, "U revised".into(), u1.clone(), vec![], "tidy", "s");
+    let preview = kernel.index().project_candidates(&candidate, NOW).unwrap();
+
+    // Another writer advances U past u1 and appends to the LEDGER ONLY.
+    let advanced = RevisionId::compute(&hash(5), std::slice::from_ref(&u1));
+    let body = serde_json::to_value(Transformation {
+        inputs: vec![],
+        outputs: vec![OutputRef {
+            object: u,
+            revision: advanced.clone(),
+            content_hash: hash(5),
+            parents: vec![u1.clone()],
+        }],
+        agent: Agent {
+            kind: AgentType::Human,
+            id: None,
+        },
+        intent: Intent {
+            kind: "test".into(),
+            summary: "concurrent advance".into(),
+            prompt_hash: None,
+        },
+        confidence: Confidence::Exact,
+    })
+    .unwrap();
+    let external = Envelope::create("transformation", kernel.writer(), body);
+    kernel.ledger().append(&external).unwrap(); // ledger only — index NOT applied
+
+    // Precondition: the in-process index still sees u1 as the live head — exactly
+    // the window where an accept validating below the lock would fork U.
+    assert_eq!(
+        kernel.index().resolve_live(&u).unwrap(),
+        Resolved::Single(u1.clone()),
+        "precondition: index has not yet applied the concurrent commit",
+    );
+
+    // The WRAPPED accept reconciles on lock acquire, so the moved head is caught.
+    let err = kernel
+        .with_write_lock(|k| accept_candidate(k, &candidate, &preview.structural_classes, NOW))
+        .unwrap_err();
+    assert!(err.contains("stale base"), "got: {err}");
+
+    // And the reconcile left the index on the ledger's truth: U advanced.
+    assert_eq!(
+        kernel.index().resolve_live(&u).unwrap(),
+        Resolved::Single(advanced),
+    );
+}
