@@ -40,8 +40,18 @@
  *   - `lastCommittedText` / `lastCommitTime` are exposed for the caller
  *     to dedup against late onData chunks that arrive after the grace
  *     period ends (#525).
+ *   - Plain-insertText commit path: WeChat (and similar) commit Shift
+ *     full-width punctuation (？ ！ ～ ： 《 》 （ ） …) as a bare `input`
+ *     event (inputType "insertText", isComposing false) with NO composition
+ *     cycle. xterm's double-input guard skips it (assuming it came via
+ *     keydown, as ASCII "?" does), so the char is dropped. A capture-phase
+ *     `input` listener forwards such non-ASCII inserts via onCompositionCommit
+ *     and clears the textarea so xterm can't double-write. Non-shift
+ *     punctuation (，。；) arrives via keydown and is untouched. Scoped to
+ *     inputType==="insertText" so paste/drop/composition inputs are excluded.
  *
  * @coordinates-with createTerminalInstance.ts — sole caller
+ * @coordinates-with terminalSessionInputWiring.ts — onCompositionCommit → PTY, onData dedup
  * @module components/Terminal/setupImeComposition
  */
 import { terminalLog } from "@/utils/debug";
@@ -250,9 +260,51 @@ export function setupImeComposition({ container }: SetupOptions): ImeComposition
     }, IME_COMPOSITION_GRACE_MS);
   };
 
+  const onInput = (e: Event) => {
+    // WeChat (and some other IMEs) commit Shift full-width punctuation — ？ ！
+    // ～ ： 《 》 （ ） … — as a PLAIN `input` event: inputType "insertText",
+    // isComposing false, and NO composition cycle around it (verified from a
+    // real WeChat trace). xterm's double-input guard assumes such a char
+    // already arrived via keydown (as ASCII "?" does) and skips the input, so
+    // the character lands in the helper textarea and is never forwarded — lost.
+    // Non-shift punctuation (，。；) comes via keydown and is unaffected.
+    //
+    // Forward it ourselves and clear the textarea, in capture phase (before
+    // xterm's own bubble-phase input listener), so xterm can't double-process.
+    // Record it as the last commit so terminalSessionInputWiring's dedup
+    // suppresses any late onData echo. Scoped narrowly:
+    //   - not during our own composition/grace (that path handles CJK words);
+    //   - not an event the browser marks isComposing;
+    //   - inputType EXACTLY "insertText" — this excludes composition commits
+    //     (insertFromComposition/insertCompositionText) AND paste/drop
+    //     (insertFromPaste/insertFromDrop), which have their own handling;
+    //   - non-ASCII only — ASCII travels the keydown path xterm handles.
+    if (composing || inGracePeriod) return;
+    const ie = e as InputEvent;
+    if (ie.isComposing) return;
+    if (ie.inputType !== "insertText") return;
+    const data = ie.data;
+    if (!data || !NON_ASCII_RE.test(data)) return;
+
+    if (textarea) textarea.value = "";
+    lastCommittedText = data;
+    lastCommitTime = Date.now();
+    terminalLog("plain-input commit", data);
+    if (onCompositionCommit) {
+      try {
+        onCompositionCommit(data);
+      } catch {
+        // best-effort: PTY may already be closing
+      }
+    }
+  };
+
   if (textarea) {
     textarea.addEventListener("compositionstart", onCompositionStart);
     textarea.addEventListener("compositionend", onCompositionEnd);
+    // Capture phase: run before xterm's own input handler so clearing the
+    // textarea prevents a double write for the dropped-punctuation case.
+    textarea.addEventListener("input", onInput, true);
   } else {
     terminalLog("xterm-helper-textarea not found — IME composition tracking disabled");
   }
@@ -266,6 +318,7 @@ export function setupImeComposition({ container }: SetupOptions): ImeComposition
     if (textarea) {
       textarea.removeEventListener("compositionstart", onCompositionStart);
       textarea.removeEventListener("compositionend", onCompositionEnd);
+      textarea.removeEventListener("input", onInput, true);
     }
   };
 
