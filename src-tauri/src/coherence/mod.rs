@@ -45,6 +45,7 @@ pub mod index_row;
 pub(crate) mod index_state;
 pub mod ledger;
 pub mod logbook;
+pub mod logbook_commands;
 pub mod merge_audit;
 pub mod merge_surface;
 pub mod operator;
