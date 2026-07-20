@@ -158,6 +158,174 @@ pub fn resolve_anchor(text: &str, path: &[String]) -> AnchorResolution {
     AnchorResolution::Found(text_content_hash(&canonicalize_text(&body)))
 }
 
+/// Anchor an edge to a heading path, or clear it with an EMPTY path.
+///
+/// The baseline hash is computed from the upstream's CURRENT text at the moment
+/// of anchoring — anchoring says "I depend on this section as it stands now".
+/// Refuses a path that does not resolve to exactly one section: storing an
+/// anchor that is already `NotFound`/`Ambiguous` would create an edge that can
+/// only ever report `anchor-lost`.
+pub fn set_anchor(
+    kernel: &mut super::state::WorkspaceKernel,
+    txf: &uuid::Uuid,
+    input: u32,
+    headings: &[String],
+) -> Result<uuid::Uuid, String> {
+    kernel.with_write_lock(|kernel| {
+        let edge = kernel
+            .index()
+            .edge_by(txf, input)?
+            .ok_or_else(|| format!("no such edge: {txf}#{input}"))?;
+        let mut body = serde_json::json!({
+            "edge": { "txf": txf.to_string(), "input": input },
+            "headings": headings,
+        });
+        if !headings.is_empty() {
+            let current = match kernel.index().resolve_live(&edge.upstream)? {
+                super::dag::Resolved::Single(rev) => rev,
+                _ => return Err("upstream has no single live revision to anchor against".into()),
+            };
+            let text = super::check_commands::snapshot_text(kernel, &edge.upstream, &current)?;
+            match resolve_anchor(&text, headings) {
+                AnchorResolution::Found(h) => {
+                    body["anchored_hash"] = serde_json::json!(h.as_str());
+                }
+                AnchorResolution::NotFound => {
+                    return Err("that heading path does not exist in the upstream".into())
+                }
+                AnchorResolution::Ambiguous => {
+                    return Err("that heading path matches more than one section".into())
+                }
+                AnchorResolution::Invalid => return Err("invalid heading path".into()),
+            }
+        }
+        let env = super::types::Envelope::create("edge-anchor", kernel.writer(), body);
+        let id = env.id;
+        kernel.append_and_apply(&env)?;
+        Ok(id)
+    })
+}
+
 #[cfg(test)]
 #[path = "anchors.test.rs"]
 mod tests;
+
+/// One edge's anchor: the heading path it depends on, plus that section's hash
+/// at the moment it was anchored (the baseline staleness compares against).
+#[derive(Debug, Clone, PartialEq)]
+pub struct Anchor {
+    pub headings: Vec<String>,
+    pub anchored_hash: ContentHash,
+}
+
+/// Current anchor per edge, projected from the ledger. Latest wins; an entry
+/// with an EMPTY heading path clears the anchor, returning that edge to
+/// whole-file behaviour. Both remain in history — this is append-only.
+#[derive(Debug, Default, Clone)]
+pub struct AnchorSet {
+    by_edge: std::collections::HashMap<(uuid::Uuid, u32), Anchor>,
+}
+
+impl AnchorSet {
+    pub fn from_entries(entries: &[super::types::Envelope]) -> Self {
+        let mut by_edge = std::collections::HashMap::new();
+        for e in entries {
+            if e.kind != "edge-anchor" {
+                continue;
+            }
+            let Some(edge) = e.body.get("edge") else {
+                continue;
+            };
+            let Some(txf) = edge
+                .get("txf")
+                .and_then(|v| v.as_str())
+                .and_then(|s| uuid::Uuid::parse_str(s).ok())
+            else {
+                continue;
+            };
+            let Some(input) = edge
+                .get("input")
+                .and_then(|v| v.as_u64())
+                .and_then(|n| u32::try_from(n).ok())
+            else {
+                continue;
+            };
+            let headings: Vec<String> = e
+                .body
+                .get("headings")
+                .and_then(|v| v.as_array())
+                .map(|a| {
+                    a.iter()
+                        .filter_map(|h| h.as_str().map(str::to_string))
+                        .collect()
+                })
+                .unwrap_or_default();
+            if headings.is_empty() {
+                by_edge.remove(&(txf, input)); // explicit clear
+                continue;
+            }
+            let Some(hash) = e
+                .body
+                .get("anchored_hash")
+                .and_then(|v| v.as_str())
+                .and_then(|s| ContentHash::parse(s).ok())
+            else {
+                continue;
+            };
+            by_edge.insert(
+                (txf, input),
+                Anchor {
+                    headings,
+                    anchored_hash: hash,
+                },
+            );
+        }
+        Self { by_edge }
+    }
+
+    pub fn get(&self, txf: &uuid::Uuid, input: u32) -> Option<&Anchor> {
+        self.by_edge.get(&(*txf, input))
+    }
+
+    pub fn len(&self) -> usize {
+        self.by_edge.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.by_edge.is_empty()
+    }
+}
+
+/// How an anchored edge stands against the CURRENT upstream content.
+#[derive(Debug, Clone, PartialEq)]
+pub enum AnchorStatus {
+    /// The depended-on section is byte-identical — the upstream moved, but not
+    /// in a way that touches this dependency. No interruption.
+    Unchanged,
+    /// The section changed — this edge is genuinely stale.
+    Changed,
+    /// The heading vanished, was renamed, or became ambiguous. LOUD: this is
+    /// evidence the dependency broke, and is never a silent fallback.
+    Lost,
+}
+
+impl AnchorStatus {
+    pub fn label(&self) -> &'static str {
+        match self {
+            AnchorStatus::Unchanged => "anchor-unchanged",
+            AnchorStatus::Changed => "anchor-changed",
+            AnchorStatus::Lost => "anchor-lost",
+        }
+    }
+}
+
+/// Evaluate an anchor against the upstream's current text.
+pub fn evaluate(anchor: &Anchor, current_upstream_text: &str) -> AnchorStatus {
+    match resolve_anchor(current_upstream_text, &anchor.headings) {
+        AnchorResolution::Found(h) if h == anchor.anchored_hash => AnchorStatus::Unchanged,
+        AnchorResolution::Found(_) => AnchorStatus::Changed,
+        // NotFound / Ambiguous / Invalid all mean "this anchor no longer
+        // identifies exactly one section" — surfaced, never downgraded.
+        _ => AnchorStatus::Lost,
+    }
+}

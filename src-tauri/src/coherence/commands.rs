@@ -206,6 +206,40 @@ pub fn perform_breakdown_in(
     for row in &mut rows {
         row.frozen_downstream = lifecycle.is_frozen(&row.downstream);
     }
+    // Section anchors (design-lifecycle-and-anchors.md §B): an anchored edge asks
+    // "did the part I depend on change?" instead of "did the file change?". Only
+    // ANCHORED edges cost a CAS read here, and anchoring is opt-in, so the common
+    // path is untouched.
+    let anchors = super::anchors::AnchorSet::from_entries(&read.entries);
+    if !anchors.is_empty() {
+        // Two passes so the row borrow and the kernel borrow never overlap:
+        // compute every status first, then apply.
+        let mut computed: Vec<(usize, String)> = Vec::new();
+        for (i, row) in rows.iter().enumerate() {
+            let Some(anchor) = anchors.get(&row.txf, row.input).cloned() else {
+                continue;
+            };
+            // Compare against the upstream's CURRENT text — that is what the
+            // staleness question is really about.
+            let current = match kernel.index().resolve_live(&row.upstream)? {
+                Resolved::Single(rev) => rev,
+                // No single current revision: the anchor cannot be evaluated, and
+                // guessing would be worse than leaving the edge as projected.
+                _ => continue,
+            };
+            let upstream = row.upstream;
+            let status = match super::check_commands::snapshot_text(kernel, &upstream, &current) {
+                Ok(text) => super::anchors::evaluate(&anchor, &text),
+                // An unreadable snapshot must never read as "unchanged" — that
+                // would silently suppress a real change.
+                Err(_) => super::anchors::AnchorStatus::Lost,
+            };
+            computed.push((i, status.label().to_string()));
+        }
+        for (i, status) in computed {
+            rows[i].anchor_status = Some(status);
+        }
+    }
     Ok(rows)
 }
 
@@ -218,13 +252,13 @@ pub fn perform_status(kernel: &mut WorkspaceKernel) -> Result<CoherenceStatus, S
     // status-disagrees-with-edges inconsistency the lifecycle work already had to
     // fix once.
     let open_items = if kernel.is_initialized() {
-        let read = kernel.ledger().read_all()?;
-        let lifecycle = super::lifecycle::LifecycleSet::from_entries(&read.entries);
-        kernel
-            .index()
-            .breakdown(&now_rfc3339())?
+        // Count what the breakdown would actually ask about, so the badge can
+        // never disagree with the list.
+        perform_breakdown_in(kernel, None)?
             .iter()
-            .filter(|r| !lifecycle.is_frozen(&r.downstream))
+            .filter(|r| {
+                !r.frozen_downstream && r.anchor_status.as_deref() != Some("anchor-unchanged")
+            })
             .count()
     } else {
         0

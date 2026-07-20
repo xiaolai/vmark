@@ -555,6 +555,41 @@ freeze (e.g. a plan whose status reads "complete"); it MUST NOT apply one.
 Inferring it would let the layer autonomously decide what to stop telling the
 owner, which the human-as-scheduler stance forbids.
 
+#### 5.4.10 `edge-anchor`
+
+Narrows one edge's staleness question from *"did the upstream file change?"* to
+*"did the part I depend on change?"*:
+
+```json
+{ "edge": { "txf": "<uuid>", "input": 0 },
+  "headings": ["5. Resolution", "5.2 Waivers"],
+  "anchored_hash": "sha256:…" }
+```
+
+- `headings` is a **heading path** (ATX headings, outermost first). Heading paths
+  survive edits above them; line ranges do not survive ordinary editing.
+- `anchored_hash` is the section's canonicalised hash **at the moment of
+  anchoring** — the baseline later states compare against. The section is the
+  heading plus its body up to the next same-or-higher heading, so subsections are
+  included: depending on "§5" means depending on all of §5.
+- **Latest wins.** An entry with an **empty** `headings` array **clears** the
+  anchor, returning that edge to whole-file behaviour. Both remain in history.
+- Projection compares the anchor against the upstream's CURRENT text:
+  `anchor-unchanged` (no interruption), `anchor-changed` (genuinely stale), or
+  `anchor-lost`.
+- **`anchor-lost` is loud and never degrades to whole-file.** A renamed, removed
+  or newly-ambiguous heading is evidence the dependency genuinely broke; silently
+  falling back would hide exactly the signal worth having. An unreadable upstream
+  snapshot is also `anchor-lost`, never `unchanged`.
+- Readers that do not know this kind preserve it and keep flagging the whole
+  file — a conservative degradation, in the same direction as §5.4.9.
+
+Anchors are a **separate entry, not an `inputs[]` field**, because the workflow
+that motivates them is reactive: an edge earns an anchor *after* it proves
+expensive, and the transformation that recorded it is already appended and
+immutable. Anchoring is **opt-in**; whole-file remains the default, so anchors
+never become mandatory capture homework.
+
 #### 5.4.7 `diagnostic`
 
 Workspace-level findings that must survive restarts (duplicate IDs §2.1,

@@ -183,3 +183,130 @@ fn the_last_section_runs_to_end_of_document() {
     let edited = format!("{DOC}\ntrailing addition\n");
     assert_ne!(a, resolve_anchor(&edited, &p(&["6. Canon"])));
 }
+
+// ---- AnchorSet projection + evaluation ----
+
+use crate::coherence::types::{Envelope, WriterId};
+use serde_json::json;
+
+fn w() -> WriterId {
+    WriterId(uuid::Uuid::from_u128(1))
+}
+
+fn anchor_entry(
+    txf: uuid::Uuid,
+    input: u32,
+    headings: &[&str],
+    hash: &str,
+    time: &str,
+) -> Envelope {
+    let mut e = Envelope::create(
+        "edge-anchor",
+        w(),
+        json!({ "edge": { "txf": txf.to_string(), "input": input },
+                "headings": headings, "anchored_hash": hash }),
+    );
+    e.time = time.to_string();
+    e
+}
+
+fn hash_of(text: &str, path: &[&str]) -> String {
+    match resolve_anchor(text, &p(path)) {
+        AnchorResolution::Found(h) => h.as_str().to_string(),
+        other => panic!("expected Found, got {other:?}"),
+    }
+}
+
+#[test]
+fn an_unchanged_section_suppresses_the_flag() {
+    // THE POINT: the upstream moved (§6 rewritten) but §5 did not, so an edge
+    // anchored to §5 must NOT interrupt.
+    let anchored = hash_of(DOC, &["5. Resolution"]);
+    let a = Anchor {
+        headings: p(&["5. Resolution"]),
+        anchored_hash: crate::coherence::types::ContentHash::parse(&anchored).unwrap(),
+    };
+    let edited = DOC.replace("Body of six.", "Body of six, rewritten.");
+    assert_eq!(evaluate(&a, &edited), AnchorStatus::Unchanged);
+}
+
+#[test]
+fn a_changed_section_still_flags() {
+    let anchored = hash_of(DOC, &["5. Resolution"]);
+    let a = Anchor {
+        headings: p(&["5. Resolution"]),
+        anchored_hash: crate::coherence::types::ContentHash::parse(&anchored).unwrap(),
+    };
+    let edited = DOC.replace("Body of five.", "Body of five, amended.");
+    assert_eq!(evaluate(&a, &edited), AnchorStatus::Changed);
+}
+
+#[test]
+fn a_vanished_heading_is_lost_not_silently_unchanged() {
+    let anchored = hash_of(DOC, &["5. Resolution"]);
+    let a = Anchor {
+        headings: p(&["5. Resolution"]),
+        anchored_hash: crate::coherence::types::ContentHash::parse(&anchored).unwrap(),
+    };
+    let edited = DOC.replace("## 5. Resolution", "## 5. Renamed");
+    assert_eq!(
+        evaluate(&a, &edited),
+        AnchorStatus::Lost,
+        "a broken anchor must surface, never fall back to whole-file"
+    );
+}
+
+#[test]
+fn the_latest_anchor_entry_wins() {
+    let t = uuid::Uuid::from_u128(7);
+    let h = hash_of(DOC, &["5. Resolution"]);
+    let set = AnchorSet::from_entries(&[
+        anchor_entry(t, 0, &["5. Resolution"], &h, "2026-07-20T10:00:00Z"),
+        anchor_entry(t, 0, &["6. Canon"], &h, "2026-07-20T12:00:00Z"),
+    ]);
+    assert_eq!(set.get(&t, 0).unwrap().headings, p(&["6. Canon"]));
+}
+
+#[test]
+fn an_empty_heading_path_clears_the_anchor() {
+    // Clearing returns the edge to whole-file behaviour; both entries stay in
+    // history, so the decision is auditable.
+    let t = uuid::Uuid::from_u128(7);
+    let h = hash_of(DOC, &["5. Resolution"]);
+    let set = AnchorSet::from_entries(&[
+        anchor_entry(t, 0, &["5. Resolution"], &h, "2026-07-20T10:00:00Z"),
+        anchor_entry(t, 0, &[], "", "2026-07-20T12:00:00Z"),
+    ]);
+    assert!(set.get(&t, 0).is_none());
+    assert!(set.is_empty());
+}
+
+#[test]
+fn a_malformed_anchor_entry_is_skipped_not_trusted() {
+    // A bad hash must not become an anchor: a wrong baseline would silently
+    // suppress a real change.
+    let t = uuid::Uuid::from_u128(7);
+    let set = AnchorSet::from_entries(&[anchor_entry(
+        t,
+        0,
+        &["5. Resolution"],
+        "not-a-hash",
+        "2026-07-20T10:00:00Z",
+    )]);
+    assert!(set.get(&t, 0).is_none());
+}
+
+#[test]
+fn anchors_are_scoped_per_edge_input() {
+    let t = uuid::Uuid::from_u128(7);
+    let h = hash_of(DOC, &["5. Resolution"]);
+    let set = AnchorSet::from_entries(&[anchor_entry(
+        t,
+        0,
+        &["5. Resolution"],
+        &h,
+        "2026-07-20T10:00:00Z",
+    )]);
+    assert!(set.get(&t, 0).is_some());
+    assert!(set.get(&t, 1).is_none(), "input 1 is a different edge");
+}

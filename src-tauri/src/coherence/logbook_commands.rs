@@ -95,6 +95,25 @@ pub async fn coherence_set_lifecycle(
     Ok(id.to_string())
 }
 
+/// Anchor an edge to a heading path (empty clears it, restoring whole-file
+/// behaviour). design-lifecycle-and-anchors.md §B.
+#[tauri::command]
+pub async fn coherence_set_anchor(
+    state: tauri::State<'_, super::commands::CoherenceState>,
+    workspace_root: String,
+    txf: Uuid,
+    input: u32,
+    headings: Vec<String>,
+) -> Result<String, String> {
+    let root = std::path::PathBuf::from(&workspace_root);
+    let kernel_arc = state.registry.kernel_for(&root, state.writer)?;
+    let mut kernel = kernel_arc
+        .lock()
+        .map_err(|_| "kernel poisoned".to_string())?;
+    let id = super::anchors::set_anchor(&mut kernel, &txf, input, &headings)?;
+    Ok(id.to_string())
+}
+
 #[cfg(test)]
 #[path = "logbook_commands.test.rs"]
 mod tests;
