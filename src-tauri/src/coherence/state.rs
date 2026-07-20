@@ -64,7 +64,7 @@ impl WorkspaceKernel {
         // failed op, a truncated marker from a crash mid-write, or a branch
         // checkout that left `.gitattributes` present but without the rule. Each
         // re-runs `ensure_initialized`, which rewrites the marker ATOMICALLY.
-        let initialized = has_merge_union_rule(&vmark);
+        let initialized = is_fully_initialized(&vmark);
         let ledger = Ledger::new(vmark.join("ledger"), writer);
         let snapshots = SnapshotStore::new(vmark.join("snapshots"));
         let (mut index, needs_rebuild) = if initialized {
@@ -96,10 +96,14 @@ impl WorkspaceKernel {
                 index.rebuild_from(&read.entries)?;
             }
         }
-        // The index now reflects the ledger (rebuilt or healed above), so record
-        // its fingerprint — the gated reconcile in `with_write_lock` starts from a
-        // truthful baseline and skips a redundant first rebuild (6R-5).
-        let reflected_fp = ledger.fingerprint().ok();
+        // Deliberately NO baseline fingerprint here (8th-review 8R-1). Capturing
+        // one at open would be read OUTSIDE the flock: another process can durably
+        // append between the reconcile above and the fingerprint read, and we would
+        // then record the NEW fingerprint against the OLD index and skip healing on
+        // the first acquire. Starting at `None` forces exactly one reconcile on the
+        // first `with_write_lock` — paid once per session, under the lock, where it
+        // is sound. Every later acquire is still gated.
+        let reflected_fp = None;
         Ok(Self {
             root: root.to_path_buf(),
             writer,
@@ -379,12 +383,24 @@ impl KernelRegistry {
 /// completion marker (7th-review 6R-4).
 const MERGE_UNION_RULE: &str = "ledger/*.jsonl merge=union";
 
-/// Is `.vmark` fully initialized? True only when `.gitattributes` actually
-/// CARRIES the merge=union rule — existence alone is not a completion protocol.
-fn has_merge_union_rule(vmark: &Path) -> bool {
+/// Is `.vmark` fully initialized? The marker rule alone is NOT a completion
+/// protocol (8th-review 8R-6): a checkout or hand-made workspace can carry
+/// `.gitattributes` while `.gitignore` and the ledger/snapshot dirs are missing,
+/// and `ensure_initialized` would then be skipped forever — leaving `index.db`
+/// and `group.lock` committable. Require EVERY structural piece, so any partial
+/// state re-initializes.
+fn is_fully_initialized(vmark: &Path) -> bool {
     fs::read_to_string(vmark.join(".gitattributes"))
         .map(|s| s.lines().any(|l| l.trim() == MERGE_UNION_RULE))
         .unwrap_or(false)
+        && vmark.join("ledger").is_dir()
+        && vmark.join("snapshots").is_dir()
+        && fs::read_to_string(vmark.join(".gitignore"))
+            .map(|s| {
+                let has = |rule: &str| s.lines().any(|l| l.trim() == rule);
+                has("index.db*") && has("group.lock")
+            })
+            .unwrap_or(false)
 }
 
 /// Append `line` to `path` when absent, preserving existing content
@@ -410,17 +426,35 @@ fn ensure_line(path: &Path, line: &str) -> Result<(), String> {
         .file_name()
         .map(|n| n.to_string_lossy().into_owned())
         .unwrap_or_else(|| "marker".to_string());
-    let tmp = dir.join(format!(".{name}.tmp"));
-    {
+    // UNIQUE temp name + `create_new` (8th-review 8R-7), matching the
+    // context-manifest writer. A fixed `.<name>.tmp` is predictable: a planted
+    // symlink at that path would be FOLLOWED by `File::create`, truncating an
+    // attacker-chosen file outside the workspace. `create_new` refuses to open an
+    // existing path (symlink included), and the UUID removes collisions between
+    // concurrent initializers.
+    let tmp = dir.join(format!(".{name}.{}.tmp", Uuid::now_v7()));
+    let write = (|| -> std::io::Result<()> {
         use std::io::Write as _;
-        let mut f = fs::File::create(&tmp)
-            .map_err(|e| format!("init {}: tmp create: {e}", path.display()))?;
-        f.write_all(content.as_bytes())
-            .map_err(|e| format!("init {}: tmp write: {e}", path.display()))?;
+        let mut f = fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&tmp)?;
+        f.write_all(content.as_bytes())?;
         f.sync_all()
-            .map_err(|e| format!("init {}: tmp fsync: {e}", path.display()))?;
+    })();
+    if let Err(e) = write {
+        let _ = fs::remove_file(&tmp); // never leave a stray temp behind
+        return Err(format!("init {}: staging: {e}", path.display()));
     }
-    fs::rename(&tmp, path).map_err(|e| format!("init {}: rename: {e}", path.display()))
+    if let Err(e) = fs::rename(&tmp, path) {
+        let _ = fs::remove_file(&tmp);
+        return Err(format!("init {}: rename: {e}", path.display()));
+    }
+    // fsync the DIRECTORY so the rename itself is durable (8R-6): without this the
+    // marker can be lost after power loss while the structure it certifies survives.
+    let d = fs::File::open(dir).map_err(|e| format!("init {}: dir open: {e}", path.display()))?;
+    d.sync_all()
+        .map_err(|e| format!("init {}: dir fsync: {e}", path.display()))
 }
 
 /// Per-installation writer identity (spec §2.2) — stored in app data,
