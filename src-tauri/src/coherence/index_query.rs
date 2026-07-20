@@ -258,6 +258,9 @@ impl CoherenceIndex {
                 confidence,
                 kind: edge.kind.as_str().into(),
                 state,
+                // Set by the breakdown surface from the lifecycle projection;
+                // the index itself has no lifecycle knowledge.
+                frozen_downstream: false,
             });
         }
         out.sort_by(|a, b| {

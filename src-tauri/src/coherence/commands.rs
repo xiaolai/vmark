@@ -189,9 +189,24 @@ pub fn perform_breakdown_in(
         super::contexts::ContextSet::load(&kernel.root().join(".vmark").join("contexts"));
     let visible = contexts.effective_claims(context);
     let fingerprint = store.claims_fingerprint(&visible);
-    kernel
-        .index()
-        .breakdown_checked(&now_rfc3339(), &context.to_string(), &fingerprint)
+    let lifecycle = super::lifecycle::LifecycleSet::from_entries(&read.entries);
+    let mut rows =
+        kernel
+            .index()
+            .breakdown_checked(&now_rfc3339(), &context.to_string(), &fingerprint)?;
+    // Document lifecycle (design-lifecycle-and-anchors.md §A): a FROZEN
+    // downstream is a finished record, so upstream movement cannot invalidate
+    // it. Flag it rather than drop it — the edge stays visible in a collapsed
+    // group, so the layer never silently ignores a dependency the owner might
+    // revive, and `state` stays truthful about what the edge actually is.
+    // Applied HERE, at the user-facing breakdown, and deliberately NOT inside
+    // `project_edge`: that path also feeds the accept precondition, which asks
+    // "did the affected set change structurally?" — a different question that
+    // must not shift because someone marked a document finished.
+    for row in &mut rows {
+        row.frozen_downstream = lifecycle.is_frozen(&row.downstream);
+    }
+    Ok(rows)
 }
 
 pub fn perform_status(kernel: &mut WorkspaceKernel) -> Result<CoherenceStatus, String> {

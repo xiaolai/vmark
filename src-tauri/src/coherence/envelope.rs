@@ -103,6 +103,27 @@ impl Envelope {
                     body: b.clone(),
                 }
             }
+            // Document lifecycle transition. Validated at the boundary: an
+            // unrecognised state must never be coerced, because coercing toward
+            // `frozen` would SILENTLY SUPPRESS staleness flags — the most
+            // damaging failure this feature can have.
+            "object-lifecycle" => {
+                if b.get("object")
+                    .and_then(|v| v.as_str())
+                    .and_then(|s| Uuid::parse_str(s).ok())
+                    .is_none()
+                {
+                    return Err("object-lifecycle without a valid object id".into());
+                }
+                match b.get("state").and_then(|v| v.as_str()) {
+                    Some(st) if super::lifecycle::STATES.contains(&st) => {}
+                    _ => return Err("object-lifecycle with an unknown state".into()),
+                }
+                TypedBody::Preserved {
+                    kind: self.kind.clone(),
+                    body: b.clone(),
+                }
+            }
             "object-registered" => TypedBody::ObjectRegistered(parse(b)?),
             // Spec §5.4.7 rev 2: delegation is a known, validated kind.
             "delegation" => {

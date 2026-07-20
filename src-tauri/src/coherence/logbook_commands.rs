@@ -8,7 +8,9 @@
 use serde::Serialize;
 use uuid::Uuid;
 
+use super::lifecycle::set_lifecycle;
 use super::logbook::{append_flag_judgment, m2_summary, project_logbook, LogEntry, M2Summary};
+use super::types::ObjectId;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -65,6 +67,30 @@ pub async fn coherence_flag_judgment(
         input,
         &judgment,
         note.as_deref().unwrap_or_default(),
+    )?;
+    Ok(id.to_string())
+}
+
+/// Mark a document `frozen` (a finished record) or back to `live`.
+/// design-lifecycle-and-anchors.md §A — human-set, never inferred.
+#[tauri::command]
+pub async fn coherence_set_lifecycle(
+    state: tauri::State<'_, super::commands::CoherenceState>,
+    workspace_root: String,
+    object: Uuid,
+    lifecycle: String,
+    reason: Option<String>,
+) -> Result<String, String> {
+    let root = std::path::PathBuf::from(&workspace_root);
+    let kernel_arc = state.registry.kernel_for(&root, state.writer)?;
+    let mut kernel = kernel_arc
+        .lock()
+        .map_err(|_| "kernel poisoned".to_string())?;
+    let id = set_lifecycle(
+        &mut kernel,
+        &ObjectId(object),
+        &lifecycle,
+        reason.as_deref().unwrap_or_default(),
     )?;
     Ok(id.to_string())
 }
