@@ -143,20 +143,31 @@ are overwhelmingly finished, so 0/5 partly reflects the corpus. A live writing
 project is required before claiming either design improved relevance rather than
 merely suppressed flags.
 
-## Open questions
+## Open questions — RESOLVED (owner: "ledger" + "use the right option")
 
-1. **Suppress or downgrade?** Frozen-downstream edges could be hidden entirely or
-   shown in a collapsed "not asking about these" group. Hiding risks the layer
-   silently ignoring something the owner later revives; a collapsed group keeps it
-   visible at zero interruption cost. Leaning collapsed-group.
-2. **Freeze granularity.** Per-object only, or per-edge ("I don't care about *this*
-   dependency, but keep watching the others")? Per-edge is finer but multiplies
-   state; per-object matches how the owner actually described it ("frozen
-   history").
-3. **Does `frozen` belong in the spec's object model** (§2) or stay a
-   projection-layer concept? It changes what a `check` means for that object.
-4. **Anchor extraction.** Human-declared, or proposed by the model at capture
-   time from the quoted passage? The latter is more usable and more fallible.
+1. **Suppress or downgrade? → COLLAPSED GROUP, not hidden.** `EdgeRow` carries
+   `frozen_downstream` and the row stays in the breakdown. Hiding would let the
+   layer silently ignore a dependency the owner later revives; flagging costs
+   nothing and keeps it inspectable. Implemented.
+2. **Freeze granularity → PER-OBJECT.** The owner described the concept as
+   "frozen history" — a property of the *document*, not of individual
+   dependencies. Per-edge freezing would multiply state and force reasoning about
+   dependencies rather than documents. Where finer granularity is genuinely
+   needed, **section anchors (§B) are the better instrument** than per-edge
+   freezing: they answer "which part does this depend on?" instead of "mute this
+   pair". Implemented per-object.
+3. **Spec object model or projection-layer? → SPEC.** It is a durable ledger fact
+   that changes what the layer asserts about an object, so it is specified as
+   `object-lifecycle` in **coherence-format-v0.md §5.4.9**, including the
+   forward-compatibility posture: a reader that does not know the kind preserves
+   it and keeps flagging — an unexpected interruption, never a silent
+   suppression. That asymmetry is deliberate; the dangerous failure is silence.
+4. **Anchor extraction → MODEL-PROPOSED, HUMAN-CONFIRMED.** Never auto-applied.
+   This matches the layer's existing stance everywhere else (the AI proposes, the
+   human ratifies) and pairs naturally with the reactive workflow: the logbook
+   already knows which edges are expensive (`resolutions > 1`), so the prompt is
+   "this reopened 4× — anchor it to §X?" with the model suggesting §X. Applies to
+   §B, not yet built.
 
 ## Not doing
 
