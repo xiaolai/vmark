@@ -10,6 +10,8 @@ use crate::coherence::types::{
     Transformation, WriterId,
 };
 
+const NOW: &str = "2026-07-20T00:00:00Z";
+
 fn hash(n: u8) -> ContentHash {
     ContentHash::parse(&format!("sha256:{}", format!("{n:02x}").repeat(32))).unwrap()
 }
@@ -120,6 +122,22 @@ fn a_malformed_prepare_is_quarantined_and_does_not_poison_find_latest() {
 }
 
 #[test]
+fn revalidate_aborts_once_a_snapshotted_resolution_expiry_passes() {
+    // Re-review #4: a waiver expiring is a time-only transition (no head or
+    // resolution-id changes), so recovery must abort once `now` reaches the
+    // earliest snapshotted expiry.
+    let (_dir, kernel, u, u1) = seeded();
+    let cand = Candidate::new(u, "revised".into(), u1, vec![], "op", "s");
+    let mut snapshot = compute_snapshot(kernel.index(), std::slice::from_ref(&cand)).unwrap();
+    snapshot.earliest_expiry = Some("2026-07-20T00:00:00Z".into());
+    let prepare = prep("g", vec![], snapshot);
+    // Before the expiry → passes (no other drift, no committed members).
+    assert!(revalidate(kernel.index(), &prepare, &[], "2026-07-19T23:59:59Z").unwrap());
+    // At/after the expiry → aborts.
+    assert!(!revalidate(kernel.index(), &prepare, &[], "2026-07-20T00:00:00Z").unwrap());
+}
+
+#[test]
 fn abort_supersedes_a_prepare_as_the_latest_record() {
     let (_dir, mut kernel, u, u1) = seeded();
     let cand = Candidate::new(u, "revised".into(), u1, vec![], "op", "s");
@@ -181,7 +199,7 @@ fn revalidate_accepts_a_committed_members_own_head_move_but_rejects_external_dri
         .unwrap();
     let committed = vec![(cand.object, cand.revision.clone())];
     assert!(
-        revalidate(kernel.index(), &prepare, &committed).unwrap(),
+        revalidate(kernel.index(), &prepare, &committed, NOW).unwrap(),
         "a committed member's own head move must pass",
     );
 
@@ -215,7 +233,7 @@ fn revalidate_accepts_a_committed_members_own_head_move_but_rejects_external_dri
     };
     kernel.append_and_apply(&v2).unwrap();
     assert!(
-        !revalidate(kernel.index(), &prepare, &committed).unwrap(),
+        !revalidate(kernel.index(), &prepare, &committed, NOW).unwrap(),
         "an external head move on an affected object must fail revalidation",
     );
 }

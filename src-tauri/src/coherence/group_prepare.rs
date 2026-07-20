@@ -33,6 +33,13 @@ pub struct GroupSnapshot {
     pub affected_edges: Vec<(String, u32)>,
     /// Digest of the resolution ids on `affected_edges` at prepare time.
     pub resolution_digest: String,
+    /// The earliest resolution `expires` across the affected edges (re-review #4).
+    /// A waiver expiring is a time-dependent structural transition that changes
+    /// nothing in the heads or resolution-id set, so recovery must ABORT once
+    /// `now` reaches it — otherwise it would complete against a snapshot whose
+    /// Waived edge has silently become Stale.
+    #[serde(default)]
+    pub earliest_expiry: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -136,11 +143,23 @@ pub fn compute_snapshot(
     affected.sort();
     let all_res = index.all_resolutions()?;
     let resolution_digest = resolution_digest(&all_res, &affected);
+    let earliest_expiry = earliest_expiry(&all_res, &affected);
     Ok(GroupSnapshot {
         heads,
         affected_edges: affected.iter().map(|(t, i)| (t.to_string(), *i)).collect(),
         resolution_digest,
+        earliest_expiry,
     })
+}
+
+/// The earliest `expires` across the resolutions on the affected edges.
+fn earliest_expiry(all_res: &ResMap, affected: &[(Uuid, u32)]) -> Option<String> {
+    affected
+        .iter()
+        .filter_map(|key| all_res.get(key))
+        .flatten()
+        .filter_map(|r| r.expires.clone())
+        .min()
 }
 
 type ResMap = std::collections::HashMap<(Uuid, u32), Vec<super::project::EdgeResolution>>;
@@ -238,17 +257,25 @@ pub fn append_abort(
     kernel.append_and_apply(&env)
 }
 
-/// Revalidate a prepared group against the CURRENT workspace, accounting for the
-/// members already committed (#6): each affected object's current head must be
-/// its prepared head set, EXCEPT a committed member's object, whose head must be
-/// exactly that member's revision (the one group-caused move). The resolution
-/// set on the prepare-time affected edges must be unchanged. Any other drift is
-/// an external change → the group must abort.
+/// Revalidate a prepared group against the CURRENT workspace at `now`, accounting
+/// for the members already committed (#6): each affected object's current head
+/// must be its prepared head set, EXCEPT a committed member's object, whose head
+/// must be exactly that member's revision (the one group-caused move); the
+/// resolution set on the prepare-time affected edges must be unchanged; and `now`
+/// must not have passed the earliest resolution expiry (#4 — a waiver expiring is
+/// a time-only transition invisible to heads/ids). Any drift → the group aborts.
 pub fn revalidate(
     index: &CoherenceIndex,
     prepare: &GroupPrepare,
     committed: &[(ObjectId, RevisionId)],
+    now: &str,
 ) -> Result<bool, String> {
+    // Time-dependent transition (#4): a snapshotted waiver has expired.
+    if let Some(exp) = &prepare.snapshot.earliest_expiry {
+        if now >= exp.as_str() {
+            return Ok(false);
+        }
+    }
     let objects: Vec<ObjectId> = prepare.snapshot.heads.iter().map(|(o, _)| *o).collect();
     let dag = index.load_sub_dag(&objects)?;
     let committed: std::collections::HashMap<ObjectId, &RevisionId> =
