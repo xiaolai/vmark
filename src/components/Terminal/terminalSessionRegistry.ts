@@ -9,6 +9,7 @@
  * @module components/Terminal/terminalSessionRegistry
  */
 import type { SessionEntry, SessionsRef } from "./terminalSessionTypes";
+import { fitAndResizePty } from "./fitAndResizePty";
 
 /** Remove a session — cancel pending rAF, kill PTY, and dispose instance. */
 export function removeSessionEntry(
@@ -62,8 +63,14 @@ export function switchVisibility(
   }
   entry.pendingRafId = requestAnimationFrame(() => {
     entry.pendingRafId = null;
+    // Fit AND resize: a hidden session that missed geometry changes while it
+    // was display:none (a font-size change applies term.options to every
+    // session, but fit() no-ops on a zero-size container) would otherwise come
+    // back with its PTY still on the pre-change dimensions. For a session whose
+    // shell hasn't started yet this is harmless — spawnPty reads term.cols
+    // after the fit, and the debounced resize is skipped via the null pty.
+    fitAndResizePty(entry, () => sessionsRef.current.get(activeId) !== entry);
     try {
-      entry.instance.fitAddon.fit();
       entry.instance.term.focus();
     } catch {
       /* ignore */
@@ -88,6 +95,8 @@ export function disposeAllSessions(sessions: Map<string, SessionEntry>): void {
       cancelAnimationFrame(entry.pendingRafId);
       entry.pendingRafId = null;
     }
+    clearTimeout(entry.ptyResizeTimer);
+    entry.ptyResizeTimer = undefined;
     if (entry.pty) {
       try {
         entry.pty.kill();
