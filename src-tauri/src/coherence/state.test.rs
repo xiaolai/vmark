@@ -440,3 +440,41 @@ fn ensure_line_refuses_to_overwrite_an_unreadable_gitignore() {
         "the user's .gitignore must be untouched"
     );
 }
+
+#[test]
+fn an_older_workspace_with_incomplete_ignore_rules_is_still_initialized() {
+    // Found by DOGFOODING (2026-07-20), not by review: this repo's own 119-entry
+    // workspace had a `.gitignore` written before the `group.lock` rule existed.
+    // Folding that rule into the initialized test made the whole workspace report
+    // `initialized: false`, so `perform_status` skipped the breakdown and showed
+    // `open_items: 0` while `edges` correctly returned 5 stale edges — the status
+    // surface lying about a healthy workspace. A missing ignore rule must mean
+    // "augment on next write", never "this isn't a coherence workspace".
+    let dir = tmp();
+    let vmark = dir.path().join(".vmark");
+    std::fs::create_dir_all(vmark.join("ledger")).unwrap();
+    std::fs::create_dir_all(vmark.join("snapshots")).unwrap();
+    std::fs::write(vmark.join(".gitattributes"), "ledger/*.jsonl merge=union\n").unwrap();
+    std::fs::write(vmark.join(".gitignore"), "index.db*\n").unwrap(); // pre-group.lock
+
+    let mut kernel = WorkspaceKernel::open(dir.path(), writer(1)).unwrap();
+    assert!(
+        kernel.is_initialized(),
+        "an older-but-real coherence workspace must still read as initialized",
+    );
+
+    // The next write augments the missing rule rather than re-initializing.
+    kernel
+        .append_and_apply(&Envelope::create(
+            "diagnostic",
+            writer(1),
+            json!({ "code": "x", "message": "write", "path": null }),
+        ))
+        .unwrap();
+    let ignore = std::fs::read_to_string(vmark.join(".gitignore")).unwrap();
+    assert!(
+        ignore.lines().any(|l| l.trim() == "index.db*")
+            && ignore.lines().any(|l| l.trim() == "group.lock"),
+        "both runtime rules present after the write, got: {ignore:?}"
+    );
+}

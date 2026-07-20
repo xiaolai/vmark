@@ -45,6 +45,9 @@ pub struct WorkspaceKernel {
     /// just-applied append, never pays an O(ledger) rebuild. `None` forces a
     /// reconcile on the next acquire (fail-safe when a fingerprint read fails).
     reflected_fp: Option<LedgerFingerprint>,
+    /// True until the `.gitignore` runtime rules have been verified/augmented once
+    /// for this kernel (see `ignore_rules_complete`).
+    ignore_rules_unchecked: bool,
     /// Last git observation for scan classification (WI-1.7).
     pub last_git: Option<GitObservation>,
     /// Quarantined-line count from the last ledger read (status surface).
@@ -122,6 +125,7 @@ impl WorkspaceKernel {
         // first `with_write_lock` — paid once per session, under the lock, where it
         // is sound. Every later acquire is still gated.
         let reflected_fp = None;
+        let ignore_rules_unchecked = !ignore_rules_complete(&vmark);
         Ok(Self {
             root: root.to_path_buf(),
             writer,
@@ -132,6 +136,7 @@ impl WorkspaceKernel {
             unavailable: None,
             in_write_txn: false,
             reflected_fp,
+            ignore_rules_unchecked,
             last_git: None,
             quarantined,
         })
@@ -142,6 +147,17 @@ impl WorkspaceKernel {
     /// `.gitattributes` (merge=union). Idempotent.
     pub fn ensure_initialized(&mut self) -> Result<(), String> {
         if self.initialized {
+            // Already a real coherence workspace — but its ignore rules may predate
+            // a newer runtime file (dogfood: this repo's `.vmark/.gitignore` had
+            // only `index.db*`, written before `group.lock` existed). Augment them
+            // ONCE per kernel so those files stop being committable, without paying
+            // two file reads on every append.
+            if self.ignore_rules_unchecked {
+                let vmark = self.root.join(".vmark");
+                ensure_line(&vmark.join(".gitignore"), "index.db*")?;
+                ensure_line(&vmark.join(".gitignore"), "group.lock")?;
+                self.ignore_rules_unchecked = false;
+            }
             return Ok(());
         }
         let vmark = self.root.join(".vmark");
@@ -443,12 +459,23 @@ fn is_fully_initialized(vmark: &Path) -> bool {
         .unwrap_or(false)
         && vmark.join("ledger").is_dir()
         && vmark.join("snapshots").is_dir()
-        && fs::read_to_string(vmark.join(".gitignore"))
-            .map(|s| {
-                let has = |rule: &str| s.lines().any(|l| l.trim() == rule);
-                has("index.db*") && has("group.lock")
-            })
-            .unwrap_or(false)
+}
+
+/// Are `.vmark/.gitignore`'s runtime-file rules complete? Separate from
+/// `is_fully_initialized` ON PURPOSE (found by dogfooding, 2026-07-20): folding
+/// this into the initialized test made a real 119-entry workspace — whose
+/// `.gitignore` predated the `group.lock` rule — report `initialized: false`, so
+/// `perform_status` skipped the breakdown and showed `open_items: 0` while
+/// `edges` correctly returned 5 stale edges. A missing ignore rule means
+/// "augment on next write" (`ensure_initialized`), NOT "this isn't a coherence
+/// workspace".
+fn ignore_rules_complete(vmark: &Path) -> bool {
+    fs::read_to_string(vmark.join(".gitignore"))
+        .map(|s| {
+            let has = |rule: &str| s.lines().any(|l| l.trim() == rule);
+            has("index.db*") && has("group.lock")
+        })
+        .unwrap_or(false)
 }
 
 /// Append `line` to `path` when absent, preserving existing content
