@@ -27,6 +27,25 @@ pub async fn coherence_check_sweep(
     model: Option<String>,
     ceiling_usd: f64,
 ) -> Result<SweepReport, String> {
+    // Refuse a CONCURRENT sweep (dogfood finding, 2026-07-20). The sweep drops the
+    // kernel lock across every provider call, so two invocations both snapshot
+    // "not yet checked" and both pay for the SAME edges — observed live as 9
+    // check-results over 5 distinct edges, two runs interleaved ~0.5s apart. That
+    // is real money and it fails the Phase-1 gate's "resumes without
+    // double-checking" metric. The guard is RAII so it clears on every exit path,
+    // including an early `?` return or a panic.
+    use std::sync::atomic::Ordering;
+    if state.sweep_in_flight.swap(true, Ordering::SeqCst) {
+        return Err("a coherence check sweep is already running — wait for it to finish".into());
+    }
+    struct SweepGuard<'a>(&'a std::sync::atomic::AtomicBool);
+    impl Drop for SweepGuard<'_> {
+        fn drop(&mut self) {
+            self.0.store(false, Ordering::SeqCst);
+        }
+    }
+    let _sweep_guard = SweepGuard(&state.sweep_in_flight);
+
     let root = std::path::PathBuf::from(&workspace_root);
     let kernel_arc = state.registry.kernel_for(&root, state.writer)?;
     let now = chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
