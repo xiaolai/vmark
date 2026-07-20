@@ -260,11 +260,10 @@ pub fn accept_group(
             .collect());
     }
 
-    let committed: Vec<(ObjectId, RevisionId)> = candidates
+    let committed: Vec<(ObjectId, RevisionId, uuid::Uuid)> = candidates
         .iter()
         .enumerate()
-        .filter(|(i, _)| existing[*i].is_some())
-        .map(|(_, c)| (c.object, c.revision.clone()))
+        .filter_map(|(i, c)| existing[i].map(|id| (c.object, c.revision.clone(), id)))
         .collect();
 
     match recovery_prepare {

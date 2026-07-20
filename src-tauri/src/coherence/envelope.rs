@@ -149,25 +149,49 @@ impl Envelope {
             // snapshot for recovery revalidation); `group-abort` marks an attempt
             // abandoned because its context changed. Both are keyed by `group_id`.
             "group-prepare" => {
-                if b.get("group_id").and_then(|v| v.as_str()).is_none() {
-                    return Err("group-prepare missing group_id".into());
+                // Full structural validation (re-review #7): a body that would
+                // later panic/parse-fail in recovery must QUARANTINE at read, never
+                // reach the lifecycle lookup and poison it forever.
+                for k in ["group_id", "attempt_id"] {
+                    if b.get(k).and_then(|v| v.as_str()).is_none_or(str::is_empty) {
+                        return Err(format!("group-prepare missing/empty {k}"));
+                    }
                 }
                 if !b.get("members").map(|m| m.is_array()).unwrap_or(false) {
                     return Err("group-prepare members must be an array".into());
                 }
-                // Validate the snapshot shape too (re-review #7): a body without a
-                // well-formed snapshot must QUARANTINE at read, never reach the
-                // lifecycle lookup where it would fail every deserialize forever.
-                let snap = b.get("snapshot");
-                let ok = snap.is_some_and(|s| {
-                    s.get("heads").is_some_and(|h| h.is_array())
-                        && s.get("affected_edges").is_some_and(|a| a.is_array())
-                        && s.get("resolution_digest")
-                            .and_then(|v| v.as_str())
-                            .is_some()
-                });
-                if !ok {
-                    return Err("group-prepare missing/malformed snapshot".into());
+                let snap = b.get("snapshot").filter(|s| s.is_object());
+                let snap = snap.ok_or("group-prepare missing snapshot")?;
+                if !snap.get("heads").map(|h| h.is_array()).unwrap_or(false) {
+                    return Err("group-prepare snapshot.heads must be an array".into());
+                }
+                if snap
+                    .get("resolution_digest")
+                    .and_then(|v| v.as_str())
+                    .is_none()
+                {
+                    return Err("group-prepare snapshot.resolution_digest must be a string".into());
+                }
+                // Every affected_edge must be a [uuid-string, number] pair — a
+                // non-UUID txf would abort recovery before an abort could be written.
+                let edges = snap
+                    .get("affected_edges")
+                    .and_then(|v| v.as_array())
+                    .ok_or("group-prepare snapshot.affected_edges must be an array")?;
+                for edge in edges {
+                    let pair = edge
+                        .as_array()
+                        .ok_or("affected_edge must be a [txf, input] pair")?;
+                    let txf = pair
+                        .first()
+                        .and_then(|v| v.as_str())
+                        .ok_or("affected_edge txf must be a string")?;
+                    if uuid::Uuid::parse_str(txf).is_err() {
+                        return Err("affected_edge txf is not a valid uuid".into());
+                    }
+                    if pair.get(1).and_then(|v| v.as_u64()).is_none() {
+                        return Err("affected_edge input must be a number".into());
+                    }
                 }
                 TypedBody::Preserved {
                     kind: self.kind.clone(),
@@ -175,8 +199,12 @@ impl Envelope {
                 }
             }
             "group-abort" => {
-                if b.get("group_id").and_then(|v| v.as_str()).is_none() {
-                    return Err("group-abort missing group_id".into());
+                // #7: an abort MUST name its attempt, or find_latest silently
+                // ignores it and the aborted attempt looks live.
+                for k in ["group_id", "attempt_id"] {
+                    if b.get(k).and_then(|v| v.as_str()).is_none_or(str::is_empty) {
+                        return Err(format!("group-abort missing/empty {k}"));
+                    }
                 }
                 TypedBody::Preserved {
                     kind: self.kind.clone(),

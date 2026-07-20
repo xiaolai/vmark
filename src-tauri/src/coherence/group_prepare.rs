@@ -200,7 +200,13 @@ pub fn find_latest(kernel: &WorkspaceKernel, group_id: &str) -> Result<Lifecycle
         match e.kind.as_str() {
             "group-prepare" => {
                 if let Ok(p) = serde_json::from_value::<GroupPrepare>(e.body.clone()) {
-                    prepares.insert(p.attempt_id.clone(), p);
+                    // Verify the attempt_id is the honest hash of its inputs —
+                    // reject a forged/inconsistent one (re-review #7).
+                    if p.attempt_id
+                        == attempt_id_for(&p.group_id, &p.snapshot, p.supersedes.as_deref())
+                    {
+                        prepares.insert(p.attempt_id.clone(), p);
+                    }
                 }
             }
             "group-abort" => {
@@ -214,23 +220,40 @@ pub fn find_latest(kernel: &WorkspaceKernel, group_id: &str) -> Result<Lifecycle
     if prepares.is_empty() {
         return Ok(Lifecycle::None);
     }
-    // The tip: a prepare no other prepare supersedes. If more than one (a
-    // cross-process race — #1's territory, fenced by the workspace lock), pick
-    // deterministically by attempt_id so every reader agrees.
+    // Treat the lifecycle as a DAG over `supersedes` (re-review #2). The tips are
+    // the prepares no other prepare supersedes. Hash order is NOT a semantic
+    // winner: on a FORK (two offline branches each superseding the same attempt —
+    // e.g. a git merge of two clones that both group-committed) there are multiple
+    // maximal tips, and picking one by hash could select the stale branch and
+    // deadlock. So fail CLOSED, so the caller surfaces "resolve manually" rather
+    // than committing against a stale fork. Zero tips with prepares present is a
+    // cycle (corruption) — also fail closed, never a silent `None`.
     let superseded: std::collections::HashSet<&str> = prepares
         .values()
         .filter_map(|p| p.supersedes.as_deref())
         .collect();
-    let tip = prepares
+    let tips: Vec<&GroupPrepare> = prepares
         .values()
         .filter(|p| !superseded.contains(p.attempt_id.as_str()))
-        .max_by(|a, b| a.attempt_id.cmp(&b.attempt_id))
-        .cloned();
-    Ok(match tip {
-        None => Lifecycle::None, // a superseded cycle (corruption) — treat as none
-        Some(tip) if aborted.contains(&tip.attempt_id) => Lifecycle::Aborted(Box::new(tip)),
-        Some(tip) => Lifecycle::Prepared(Box::new(tip)),
-    })
+        .collect();
+    match tips.as_slice() {
+        [] => Err(
+            "group lifecycle is cyclic — every prepare is superseded (corrupt); resolve manually"
+                .into(),
+        ),
+        [tip] => {
+            let tip = (*tip).clone();
+            Ok(if aborted.contains(&tip.attempt_id) {
+                Lifecycle::Aborted(Box::new(tip))
+            } else {
+                Lifecycle::Prepared(Box::new(tip))
+            })
+        }
+        _ => Err(
+            "group lifecycle has forked across branches (multiple live attempts) — resolve manually"
+                .into(),
+        ),
+    }
 }
 
 /// Append the durable prepare record — idem folds the attempt_id, so each attempt
@@ -273,7 +296,11 @@ pub fn append_abort(
 pub fn revalidate(
     index: &CoherenceIndex,
     prepare: &GroupPrepare,
-    committed: &[(ObjectId, RevisionId)],
+    // (object, revision, ledger entry-id) of each already-committed member. The
+    // entry-id is the member's transformation id — new edges it creates carry it
+    // as their `txf`, which is how recovery tells a member's OWN new edge from an
+    // external one (re-review #3a — `(downstream, revision)` alone can collide).
+    committed: &[(ObjectId, RevisionId, Uuid)],
     now: &str,
 ) -> Result<bool, String> {
     // Time-dependent transition (#4): a snapshotted waiver has expired. Compare
@@ -291,8 +318,10 @@ pub fn revalidate(
     }
     let objects: Vec<ObjectId> = prepare.snapshot.heads.iter().map(|(o, _)| *o).collect();
     let dag = index.load_sub_dag(&objects)?;
+    let committed_txfs: std::collections::HashSet<Uuid> =
+        committed.iter().map(|(_, _, id)| *id).collect();
     let committed: std::collections::HashMap<ObjectId, &RevisionId> =
-        committed.iter().map(|(o, r)| (*o, r)).collect();
+        committed.iter().map(|(o, r, _)| (*o, r)).collect();
     for (obj, prep_heads) in &prepare.snapshot.heads {
         let current: std::collections::BTreeSet<String> = dag
             .heads(obj)
@@ -323,13 +352,16 @@ pub fn revalidate(
         return Ok(false); // external resolution on a prepare-time edge
     }
 
-    // #3: NO external edge may have appeared incident to an affected object since
-    // prepare. The only new edges allowed are the committed members' OWN edges
-    // (downstream == that member's revision), and even those must carry no
-    // resolution (they were fresh at commit, so any resolution is external).
+    // #3: NO external edge may have appeared incident to a MEMBER object since
+    // prepare. We scan only the members' objects (re-review #3b — scanning the
+    // affected neighbours would falsely flag their pre-existing edges, which are
+    // not in `affected_edges`). A new edge is allowed ONLY if its `txf` is a
+    // committed member's own transformation entry-id (re-review #3a — ownership by
+    // entry-id, not `(downstream, revision)` which an external txf can collide),
+    // and even then it must carry no resolution (fresh at commit → any is external).
     let prepare_keys: std::collections::HashSet<(Uuid, u32)> = affected.iter().cloned().collect();
-    for (obj, _) in &prepare.snapshot.heads {
-        let inc = index.edges_incident_to(obj)?;
+    for member in &prepare.members {
+        let inc = index.edges_incident_to(&member.object)?;
         if inc.truncated {
             return Ok(false); // a super-hub — cannot safely bound the revalidation
         }
@@ -338,14 +370,11 @@ pub fn revalidate(
             if prepare_keys.contains(&key) {
                 continue; // pre-existing edge — covered by the digest above
             }
-            let is_member_edge = committed
-                .get(&e.downstream)
-                .is_some_and(|rev| **rev == e.downstream_rev);
-            if !is_member_edge {
-                return Ok(false); // an EXTERNAL new incident edge (#3b)
+            if !committed_txfs.contains(&e.txf) {
+                return Ok(false); // an external new incident edge (#3a/#3b)
             }
             if all_res.get(&key).is_some_and(|rs| !rs.is_empty()) {
-                return Ok(false); // external resolution on a member's new edge (#3a)
+                return Ok(false); // external resolution on a member's new edge
             }
         }
     }
