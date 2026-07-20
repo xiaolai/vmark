@@ -24,6 +24,17 @@ export const initialState: SettingsState = {
     historyMergeWindow: 30,
     historyMaxFileSize: 512,
     tabSize: 2,
+    /**
+     * Coherence semantic-check confidence threshold (tau). A verdict below this
+     * is recorded as `unknown`.
+     *
+     * Configurable because the default proved consequential in practice: on 21
+     * real checks the confidences split exactly at 0.9 — determinate 0.90-0.99,
+     * unknown 0.82-0.86 — so every `unknown` was a threshold downgrade, not a
+     * checker failure. A tau the owner cannot adjust turns a calibration choice
+     * into a silent ~24% discard rate.
+     */
+    coherenceCheckTau: 0.9,
     lineEndingsOnSave: "preserve",
     confirmQuit: true,
     // fix(#946) — opt-in: open existing files in a new tab (off keeps the legacy "reuse untitled tab" behavior).

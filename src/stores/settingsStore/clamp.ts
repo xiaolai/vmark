@@ -44,6 +44,9 @@ export const CLAMP_RANGES: Partial<Record<ObjectSections, Record<string, [number
     historyMergeWindow: [0, 3600],
     historyMaxFileSize: [0, 1_048_576],
     tabSize: [1, 8],
+    // A tau outside (0,1] is not a threshold: <=0 makes every verdict
+    // determinate, >1 makes every verdict unknown. Both are silently wrong.
+    coherenceCheckTau: [0.5, 1],
   },
 };
 

@@ -102,6 +102,12 @@ export interface GeneralSettings {
   historyMaxFileSize: number; // KB, 0 = unlimited (skip snapshot for files larger than this)
   // Editor
   tabSize: number; // Number of spaces for Tab key (2 or 4)
+  /**
+   * Coherence semantic-check confidence threshold (tau, 0.5-1). A model verdict
+   * below this is recorded as `unknown` — but the verdict it reached is now
+   * preserved alongside, so tau can be retuned against existing data.
+   */
+  coherenceCheckTau: number;
   lineEndingsOnSave: LineEndingOnSave; // Preserve or normalize line endings
   // Quit behavior
   confirmQuit: boolean; // Require double Cmd+Q to quit (default: true)

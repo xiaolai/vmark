@@ -219,6 +219,9 @@ describe("checkEdge (WI-2b.5)", () => {
         cliPath: "/usr/local/bin/claude",
       },
       model: null,
+      // The owner-configurable confidence threshold must actually reach the
+      // checker; omitting it would silently fall back to the 0.9 default.
+      tau: 0.9,
     });
     // The follow-up refresh pulled the breakdown again.
     expect(mockInvoke).toHaveBeenCalledWith("coherence_breakdown", {
@@ -308,5 +311,85 @@ describe("secondary refreshes (contexts/branch/merge) — guards", () => {
     mockInvoke.mockClear();
     await refreshBreakdown("/ws");
     expect(mockInvoke).not.toHaveBeenCalled();
+  });
+});
+
+// --- Lifecycle, anchors, logbook (design-lifecycle-and-anchors.md) ---
+
+describe("document lifecycle", () => {
+  it("freezes a document and refreshes, so the noise disappears immediately", async () => {
+    const { setDocumentLifecycle } = await import("./breakdownService");
+    mockInvoke.mockResolvedValue(undefined);
+    await setDocumentLifecycle("/ws", "obj-1", "frozen", "finished plan");
+    expect(mockInvoke).toHaveBeenCalledWith("coherence_set_lifecycle", {
+      workspaceRoot: "/ws",
+      object: "obj-1",
+      lifecycle: "frozen",
+      reason: "finished plan",
+    });
+    // The list must refresh — otherwise the user freezes and still sees the flag.
+    expect(mockInvoke).toHaveBeenCalledWith("coherence_breakdown", {
+      workspaceRoot: "/ws",
+      context: null,
+    });
+  });
+
+  it("surfaces a failure through the store instead of throwing", async () => {
+    const { setDocumentLifecycle } = await import("./breakdownService");
+    mockInvoke.mockRejectedValueOnce(new Error("not a tracked object"));
+    await setDocumentLifecycle("/ws", "obj-1", "frozen");
+    expect(useBreakdownStore.getState().error).toContain("not a tracked object");
+  });
+});
+
+describe("edge anchors", () => {
+  it("anchors an edge to a heading path", async () => {
+    const { setEdgeAnchor } = await import("./breakdownService");
+    mockInvoke.mockResolvedValue(undefined);
+    await setEdgeAnchor("/ws", "txf-1", 0, ["5. Resolution", "5.2 Waivers"]);
+    expect(mockInvoke).toHaveBeenCalledWith("coherence_set_anchor", {
+      workspaceRoot: "/ws",
+      txf: "txf-1",
+      input: 0,
+      headings: ["5. Resolution", "5.2 Waivers"],
+    });
+  });
+
+  it("clears an anchor with an empty path", async () => {
+    const { setEdgeAnchor } = await import("./breakdownService");
+    mockInvoke.mockResolvedValue(undefined);
+    await setEdgeAnchor("/ws", "txf-1", 0, []);
+    expect(mockInvoke).toHaveBeenCalledWith(
+      "coherence_set_anchor",
+      expect.objectContaining({ headings: [] }),
+    );
+  });
+});
+
+describe("flag judgment + logbook", () => {
+  it("records a judgment without forcing a breakdown refresh", async () => {
+    // Judging is an annotation, not a state change — refreshing would yank the
+    // list out from under someone working through several rows.
+    const { judgeFlag } = await import("./breakdownService");
+    mockInvoke.mockResolvedValue(undefined);
+    await judgeFlag("/ws", "txf-1", 0, "noise", "downstream is finished");
+    expect(mockInvoke).toHaveBeenCalledWith("coherence_flag_judgment", {
+      workspaceRoot: "/ws",
+      txf: "txf-1",
+      input: 0,
+      judgment: "noise",
+      note: "downstream is finished",
+    });
+    expect(mockInvoke).not.toHaveBeenCalledWith(
+      "coherence_breakdown",
+      expect.anything(),
+    );
+  });
+
+  it("returns null and reports the error when the logbook cannot be read", async () => {
+    const { fetchLogbook } = await import("./breakdownService");
+    mockInvoke.mockRejectedValueOnce(new Error("coherence unavailable"));
+    expect(await fetchLogbook("/ws")).toBeNull();
+    expect(useBreakdownStore.getState().error).toContain("coherence unavailable");
   });
 });
