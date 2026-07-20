@@ -18,15 +18,17 @@
 //! - **Idempotent full retry** — if every member is present, the group returns
 //!   the original receipts without appending.
 //!
-//! STATUS: **all 4th-review findings (`019f7ceb…`) addressed; pending a FIFTH
-//! review** before ship. Landed: **#1** cross-process `flock` + reconcile
-//! (`state::lock_group_commit`); **#2** DAG/fork-aware `find_latest` (fail closed
-//! on multiple tips / cycles; verify `attempt_id`); causal **`attempt_id`** (#2/#5);
-//! **#3a/#3b** entry-id edge ownership + member-only scan; **#3c** truncation
-//! refusal; **#4** chronological expiry; **#6** CAS-staged full-transformation
-//! manifest + `recover_group` client-less driver; **#7** full lifecycle-body
-//! validation; **#8** `StructuralClass::Absent`. See `design-accept-consistency.md`.
-//! Ship-relevant properties (do NOT flip the marker until the 5th review is clean):
+//! STATUS: **all 5th-review findings (`019f7d08…`) addressed; pending a SIXTH
+//! review** before ship. The group-commit has been through five DO-NOT-SHIP
+//! reviews, each closing findings and narrowing the next; the 5th CLOSED
+//! #2/#3a/#3b/#3c/#5/#8 and its 4 remaining (workspace-wide lock #1, manifest
+//! validation #2, chronological earliest_expiry #4, CAS-only bounded manifest #6)
+//! are now fixed: EVERY ledger writer takes the exclusive workspace `flock`
+//! (`state::begin_group_lock`/`append_and_apply`); `recover_group` reads content
+//! from CAS + fully validates each member + recomputes `group_id`; expiry is
+//! selected by instant; the manifest stores only the transformation. See
+//! `design-accept-consistency.md`. Ship-relevant properties (do NOT flip the
+//! marker until the 6th review is clean):
 //!   - **Group identity binds the WHOLE group** (#4) — `group_id` hashes the
 //!     members' sorted *ungrouped* accept idems and folds into each grouped idem,
 //!     so the O(1) presence lookup answers "committed AS PART OF THIS EXACT GROUP".
