@@ -15,6 +15,7 @@ import { useTranslation } from "react-i18next";
 import type { EdgeRow, EdgeStateLabel } from "@/stores/breakdownStore";
 import { checkEdge, resolveEdge, reviseEdge } from "@/services/breakdown/breakdownService";
 import { LifecycleAction } from "./LifecycleAction";
+import { FlagJudgmentAction } from "./FlagJudgmentAction";
 
 /** States with no single live upstream head — resolution is impossible (spec §9.2). */
 const RESOLUTION_LOCKED: ReadonlySet<EdgeStateLabel> = new Set([
@@ -118,6 +119,12 @@ export function BreakdownRow({ row, workspaceRoot }: BreakdownRowProps) {
         )}
       </div>
       <div className="breakdown-row__actions">
+        {/* "Was this worth flagging?" only makes sense where the layer actually
+            interrupted. Asking it under the suppressed group would collect M2
+            answers about flags that were never shown. */}
+        {row.actionable !== false && (
+          <FlagJudgmentAction row={row} workspaceRoot={workspaceRoot} />
+        )}
         <LifecycleAction row={row} workspaceRoot={workspaceRoot} />
         <button
           type="button"

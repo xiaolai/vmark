@@ -93,5 +93,13 @@
     "confirmScope": "This silences every dependency into {{document}}, including ones not listed here. Mark it finished?",
     "confirm": "Mark finished",
     "cancel": "Cancel"
+  },
+  "judge": {
+    "open": "Worth flagging?",
+    "hint": "Record whether this flag was worth surfacing (feeds the relevance metric).",
+    "prompt": "Was this worth flagging?",
+    "relevant": "Yes",
+    "noise": "No",
+    "unsure": "Unsure"
   }
 }
