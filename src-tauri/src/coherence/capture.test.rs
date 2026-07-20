@@ -316,3 +316,36 @@ fn malformed_frontmatter_surfaces_a_diagnostic_on_first_capture() {
         .count();
     assert_eq!(diag_count, 1);
 }
+
+#[test]
+fn an_oversized_capture_is_rejected_before_any_side_effect() {
+    // 8th-review 8R-9: the size preflight must fire BEFORE the identity rewrite,
+    // the registration append and CAS staging. Previously an oversized payload got
+    // through all three and only then failed the ledger line cap, reporting a
+    // RETRYABLE error that could never succeed while those effects were durable.
+    let (dir, mut kernel) = workspace();
+    let original = "# doc\n";
+    write_file(dir.path(), "a.md", original);
+
+    let mut req = human_save("a.md", original);
+    req.intent.summary = "x".repeat(9 * 1024); // over the 8 KiB intent cap
+    let err = capture(&mut kernel, req).unwrap_err();
+    assert!(err.contains("intent"), "got: {err}");
+
+    // Nothing happened: the file was not rewritten with an identity block, and no
+    // object was registered.
+    assert_eq!(
+        std::fs::read_to_string(dir.path().join("a.md")).unwrap(),
+        original,
+        "the file must not be rewritten by a rejected capture"
+    );
+    assert!(
+        !kernel
+            .index()
+            .registry_state()
+            .unwrap()
+            .object_at
+            .contains_key("a.md"),
+        "a rejected capture must not register the object"
+    );
+}

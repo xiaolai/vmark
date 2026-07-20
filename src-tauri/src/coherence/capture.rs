@@ -59,6 +59,14 @@ fn default_rewrite() -> bool {
     true
 }
 
+/// Caps on the request fields that drive the ledger line's serialized size
+/// (8th-review 8R-9). Checked before any side effect, so a capture that could
+/// never be appended fails cleanly instead of leaving a rewritten file, a
+/// registration entry and staged CAS content behind. A real capture is far under
+/// both; these are fail-closed backstops, not working limits.
+const MAX_CAPTURE_INPUTS: usize = 512;
+const MAX_CAPTURE_INTENT_BYTES: usize = 8 * 1024;
+
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct CaptureReceipt {
     pub object: ObjectId,
@@ -88,6 +96,25 @@ fn capture_locked(
 ) -> Result<CaptureReceipt, String> {
     if req.confidence == Confidence::Unknown {
         return Err("confidence=unknown is scan-only (spec §8)".into());
+    }
+    // Size preflight BEFORE any side effect (8th-review 8R-9). The document
+    // content lives in the CAS, so what drives the ledger line's size is the input
+    // set and the intent strings. Unchecked, an oversized payload got as far as
+    // rewriting the file, appending a registration and staging CAS content, and
+    // only then failed the 16 MiB line cap — reporting a retryable error that
+    // could never succeed, with those side effects already durable. Reject up
+    // front instead, mirroring the group-prepare bounds.
+    if req.inputs.len() > MAX_CAPTURE_INPUTS {
+        return Err(format!(
+            "capture has {} inputs, over the {MAX_CAPTURE_INPUTS} cap",
+            req.inputs.len()
+        ));
+    }
+    let intent_bytes = req.intent.kind.len() + req.intent.summary.len();
+    if intent_bytes > MAX_CAPTURE_INTENT_BYTES {
+        return Err(format!(
+            "capture intent is {intent_bytes} bytes, over the {MAX_CAPTURE_INTENT_BYTES} cap"
+        ));
     }
     // IPC boundary guard (audit R1): reject traversal before any effect.
     super::paths::resolve_workspace_rel(kernel.root(), &req.path)?;
