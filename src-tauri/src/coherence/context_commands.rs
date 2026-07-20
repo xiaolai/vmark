@@ -86,6 +86,16 @@ pub fn perform_context_create(
     name: &str,
     parent: Option<Uuid>,
 ) -> Result<ContextReceipt, String> {
+    // R1 (8th-review 8R-8): the manifest read-modify-write runs under the
+    // workspace lock, so a concurrent locked mutator can't lose this update.
+    kernel.with_write_lock(|kernel| perform_context_create_locked(kernel, name, parent))
+}
+
+fn perform_context_create_locked(
+    kernel: &mut WorkspaceKernel,
+    name: &str,
+    parent: Option<Uuid>,
+) -> Result<ContextReceipt, String> {
     let name = name.trim();
     if name.is_empty() {
         return Err("a context needs a non-empty name".into());
@@ -123,6 +133,16 @@ pub fn perform_context_create(
 }
 
 pub fn perform_context_enforce(
+    kernel: &mut WorkspaceKernel,
+    context: Uuid,
+    enforcing: bool,
+) -> Result<(), String> {
+    // R1 (8th-review 8R-8): an unlocked read-modify-write here silently dropped a
+    // concurrent locked `perform_claim_scope` visibility update.
+    kernel.with_write_lock(|kernel| perform_context_enforce_locked(kernel, context, enforcing))
+}
+
+fn perform_context_enforce_locked(
     kernel: &mut WorkspaceKernel,
     context: Uuid,
     enforcing: bool,
@@ -193,6 +213,13 @@ pub fn perform_branch_candidate(
 /// D3.1: one explicit act — a greenhouse context named after the
 /// current branch with the mapping set. Fails loud without a branch.
 pub fn perform_context_create_from_branch(
+    kernel: &mut WorkspaceKernel,
+) -> Result<ContextReceipt, String> {
+    // R1 (8th-review 8R-8): same manifest read-modify-write, same lock.
+    kernel.with_write_lock(perform_context_create_from_branch_locked)
+}
+
+fn perform_context_create_from_branch_locked(
     kernel: &mut WorkspaceKernel,
 ) -> Result<ContextReceipt, String> {
     let Some(branch) = super::gitops::current_branch(kernel.root()) else {

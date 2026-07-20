@@ -159,6 +159,9 @@ fn perform_resolve_as_locked(
 
 /// Pull-based breakdown (R15): reconcile, then project.
 pub fn perform_breakdown(kernel: &mut WorkspaceKernel) -> Result<Vec<EdgeRow>, String> {
+    // 8R-5: a poisoned kernel's index may be half-rebuilt — refuse to SERVE it,
+    // not just to write to it.
+    kernel.ensure_available()?;
     perform_breakdown_in(kernel, None)
 }
 
@@ -183,6 +186,7 @@ pub fn perform_breakdown_in(
 }
 
 pub fn perform_status(kernel: &mut WorkspaceKernel) -> Result<CoherenceStatus, String> {
+    kernel.ensure_available()?; // 8R-5: never serve a half-rebuilt index
     let objects = kernel.index().registry_state()?.path_of.len();
     let open_items = if kernel.is_initialized() {
         kernel.index().breakdown(&now_rfc3339())?.len()
@@ -263,6 +267,7 @@ pub async fn coherence_head(
         .registry
         .kernel_for(std::path::Path::new(&workspace_root), state.writer)?;
     let kernel = kernel.lock().map_err(|_| "kernel poisoned".to_string())?;
+    kernel.ensure_available()?; // 8R-5: never serve a half-rebuilt index
     let registry = kernel.index().registry_state()?;
     let Some(object) = registry.object_at.get(&path) else {
         return Ok(None);
