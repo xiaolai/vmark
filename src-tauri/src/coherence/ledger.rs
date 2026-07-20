@@ -23,8 +23,8 @@ const MAX_SEGMENT_BYTES: u64 = 8 * 1024 * 1024;
 /// `MAX_PREPARE_BYTES` 4 MiB prepare plus envelope overhead), with margin.
 const MAX_LINE_BYTES: usize = 16 * 1024 * 1024;
 
-/// A ledger's on-disk identity: sorted `(segment, byte-len, mtime-nanos)`.
-pub type LedgerFingerprint = Vec<(String, u64, u128)>;
+/// A ledger's on-disk identity: sorted `(segment, byte-len, mtime-nanos, inode)`.
+pub type LedgerFingerprint = Vec<(String, u64, u128, u64)>;
 
 /// I5 tripwire — every public method, mirrored by the test suite.
 pub const PUBLIC_API: [&str; 6] = [
@@ -170,12 +170,20 @@ impl Ledger {
     }
 
     /// A cheap identity of the ledger's on-disk state (R1 O(1) reconcile): the
-    /// sorted `(segment, byte-len, mtime-nanos)` of every segment. It changes on
-    /// any append (len grows), rotation/new writer (new name), or a git checkout
-    /// that swaps history (mtime moves — git never preserves mtime). `with_write_lock`
-    /// compares it to what the index last reflected and rebuilds ONLY on a change,
-    /// so a single-process accept stays O(1) instead of rebuilding the whole index
-    /// on every acquire (7th-review 6R-5). A missing dir is the empty fingerprint.
+    /// sorted `(segment, byte-len, mtime-nanos, inode)` of every segment.
+    /// `with_write_lock` compares it to what the index last reflected and rebuilds
+    /// ONLY on a change, so a single-process accept stays O(1) instead of
+    /// rebuilding the whole index on every acquire (7th-review 6R-5). A missing dir
+    /// is the empty fingerprint.
+    ///
+    /// A FALSE NEGATIVE here would silently serve a stale index, so the oracle has
+    /// to be conservative. `len` catches every append (the ledger is append-only,
+    /// so writes always grow a segment). `inode` is what catches a *same-length
+    /// replacement*: ledger lines carry fixed-width UUIDs and RFC3339 timestamps,
+    /// so two branches' segments can differ in content at IDENTICAL byte length,
+    /// and a `git checkout` swaps them via rename — a new inode — even when mtime
+    /// granularity is too coarse (1s on HFS+/some network mounts) to notice a
+    /// same-second swap. mtime alone would miss exactly that case.
     pub fn fingerprint(&self) -> Result<LedgerFingerprint, String> {
         let mut fp: LedgerFingerprint = Vec::new();
         let entries = match fs::read_dir(&self.dir) {
@@ -196,8 +204,15 @@ impl Ledger {
                     .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
                     .map(|d| d.as_nanos())
                     .unwrap_or(0);
+                #[cfg(unix)]
+                let ino = {
+                    use std::os::unix::fs::MetadataExt;
+                    meta.ino()
+                };
+                #[cfg(not(unix))]
+                let ino = 0u64;
                 let name = entry.file_name().to_string_lossy().into_owned();
-                fp.push((name, meta.len(), mtime));
+                fp.push((name, meta.len(), mtime, ino));
             }
         }
         fp.sort();

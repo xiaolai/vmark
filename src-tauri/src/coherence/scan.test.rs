@@ -381,13 +381,40 @@ fn git_revert_is_captured_as_git_mutation() {
     run_git(root, &["commit", "-q", "-m", "c2"]);
     scan_workspace(&mut kernel).unwrap(); // baseline
 
+    // The ledger is git-TRACKED (git-as-transport), so `git add .` above committed
+    // it and this revert takes the capture entry WITH the content — verified here,
+    // not assumed: the entry count drops.
+    let entries_before = kernel.ledger().read_all().unwrap().entries.len();
     run_git(root, &["revert", "--no-edit", "HEAD"]);
+    let entries_after = kernel.ledger().read_all().unwrap().entries.len();
+    assert_eq!(
+        (entries_before, entries_after),
+        (3, 2),
+        "the revert reverted history too, not just content"
+    );
+
     let report = scan_workspace(&mut kernel).unwrap();
-    // Spec §9.4 (audit R5/A22): a revert is a MUTATION — even when it
-    // restores historical content, a NEW git-attributed revision is
-    // minted with the current head as parent (A → B → A ≠ A).
+    // Spec §9.4 (audit R5/A22) says a revert is a MUTATION: restoring historical
+    // content mints a NEW git-attributed revision parented on the current head
+    // (A → B → A ≠ A). That holds only while the HISTORY survives the revert.
+    // Here it does not: reverting a ledger-bearing commit rolls the head back to
+    // the v1 revision, and the disk content is v1 — they agree, so there is
+    // genuinely nothing to mint, and minting would parent on a revision the ledger
+    // no longer contains (a dangling parent).
+    //
+    // This assertion was `git_mutations == 1` until scan was brought under the
+    // workspace lock (7th-review 6R-1). It passed only because scan compared
+    // against a STALE index that still held the reverted-away head — an artifact
+    // of the very TOCTOU that fix closed, not evidence of correct behaviour.
+    // The A → B → A ≠ A principle itself remains covered by
+    // `external_a_b_a_edit_mints_a_new_revision` below, where history is intact.
+    // NOTE FOR THE OWNER: spec §9.4 is worth clarifying to say "when history
+    // survives the revert" — flagged rather than silently reinterpreted.
     assert_eq!(report.external_edits, 0);
-    assert_eq!(report.git_mutations, 1);
+    assert_eq!(
+        report.git_mutations, 0,
+        "history was reverted with the content, so head == disk and nothing is minted"
+    );
 }
 
 #[test]

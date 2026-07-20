@@ -54,17 +54,16 @@ pub struct ScanReport {
 
 /// One reconciliation pass (spec §9.4). Serialized with captures through
 /// the per-workspace kernel instance.
-/// NOT YET WRAPPED in `with_write_lock` — 7th-review 6R-1 stays OPEN for scan
-/// alone, pending an owner/spec decision. Wrapping it makes the lock-acquire
-/// reconcile the index from the ledger; but the ledger is git-TRACKED, so a
-/// `git revert` of a commit that carried ledger entries reverts that history too.
-/// The reconcile then erases the very head a revert must be parented on, and
-/// `git_revert_is_captured_as_git_mutation` (spec §9.4, audit R5/A22) sees nothing
-/// to mint. Deciding whether "reconcile to the reverted ledger, nothing to mint"
-/// or "compare against the pre-revert view" is correct is a SPEC question, not a
-/// lock question — so scan keeps its current (unwrapped) behaviour rather than
-/// silently changing a spec-encoded expectation. Every other mutator IS wrapped.
 pub fn scan_workspace(kernel: &mut WorkspaceKernel) -> Result<ScanReport, String> {
+    // R1 (7th-review 6R-1, completed): a scan reconciles git observations against
+    // the index and appends observed-external revisions + diagnostics. It read and
+    // BUILT those transformations from an unlocked index while each append locked
+    // only afterwards — the same stale-sibling TOCTOU as capture. The whole span
+    // now runs under the workspace lock.
+    kernel.with_write_lock(scan_workspace_locked)
+}
+
+fn scan_workspace_locked(kernel: &mut WorkspaceKernel) -> Result<ScanReport, String> {
     let mut report = ScanReport {
         complete: true,
         ..Default::default()
