@@ -346,21 +346,38 @@ pub fn accept_group(
 /// members, or aborts if the context drifted. Holds the cross-process lock (#1).
 pub fn recover_group(
     kernel: &mut WorkspaceKernel,
-    group_id: &str,
+    group: &str,
     now: &str,
 ) -> Result<Vec<AcceptReceipt>, String> {
     kernel.ensure_available()?;
     let _lock = kernel.lock_group_commit()?;
-    let prepare = match group_prepare::find_latest(kernel, group_id)? {
+    let prepare = match group_prepare::find_latest(kernel, group)? {
         Lifecycle::Prepared(p) => *p,
         _ => return Err("no recoverable prepared group for that id".into()),
     };
-    // Reconstruct the candidates from the manifest (CAS-backed content).
-    let candidates: Vec<Candidate> = prepare
-        .members
-        .iter()
-        .map(|m| m.to_candidate())
-        .collect::<Result<_, _>>()?;
+    // Reconstruct the candidates from the manifest — content read back from CAS
+    // (#6), each member fully validated (#2). Then verify the reconstructed set
+    // hashes to the record's group_id, so a forged/inconsistent manifest cannot
+    // make recovery commit the wrong group.
+    let mut candidates: Vec<Candidate> = Vec::with_capacity(prepare.members.len());
+    for m in &prepare.members {
+        let bytes = kernel.read_snapshot(m.content_hash()?)?;
+        let content =
+            String::from_utf8(bytes).map_err(|e| format!("member content not utf-8: {e}"))?;
+        candidates.push(m.to_candidate(content)?);
+    }
+    if candidates.is_empty() {
+        return Err("prepared group has no members".into());
+    }
+    let mut objects = std::collections::HashSet::new();
+    for c in &candidates {
+        if !objects.insert(c.object) {
+            return Err("prepared group has two members for the same object".into());
+        }
+    }
+    if group_id(&candidates)? != prepare.group_id {
+        return Err("prepared manifest does not hash to its group_id (inconsistent)".into());
+    }
 
     let mut idems = Vec::with_capacity(candidates.len());
     let mut existing = Vec::with_capacity(candidates.len());
@@ -386,7 +403,7 @@ pub fn recover_group(
         .filter_map(|(i, c)| existing[i].map(|id| (c.object, c.revision.clone(), id)))
         .collect();
     if !group_prepare::revalidate(kernel.index(), &prepare, &committed, now)? {
-        group_prepare::append_abort(kernel, group_id, &prepare.attempt_id)?;
+        group_prepare::append_abort(kernel, group, &prepare.attempt_id)?;
         return Err("group aborted — the workspace changed since it was prepared".into());
     }
     for (i, c) in candidates.iter().enumerate() {
