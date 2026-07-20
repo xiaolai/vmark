@@ -74,5 +74,15 @@
   "merge": {
     "banner": "マージが完了しました — 内訳を確認してください",
     "dismiss": "閉じる"
+  },
+  "suppressed": {
+    "title": "確認しない項目 ({{count}})",
+    "hint": "記録は続いています — 通知しないだけです。",
+    "frozen": "完了した文書",
+    "anchorUnchanged": "依存先セクションに変更なし"
+  },
+  "anchorStates": {
+    "anchor-changed": "アンカー先セクションが変更されました",
+    "anchor-lost": "アンカーが失われました"
   }
 }

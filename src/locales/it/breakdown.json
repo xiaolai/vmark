@@ -74,5 +74,15 @@
   "merge": {
     "banner": "Merge completato — rivedi il dettaglio",
     "dismiss": "Ignora"
+  },
+  "suppressed": {
+    "title": "Nessuna domanda su questi ({{count}})",
+    "hint": "Ancora tracciati — semplicemente non ti interrompono.",
+    "frozen": "documento concluso",
+    "anchorUnchanged": "sezione di riferimento invariata"
+  },
+  "anchorStates": {
+    "anchor-changed": "sezione ancorata modificata",
+    "anchor-lost": "ancora persa"
   }
 }

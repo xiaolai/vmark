@@ -570,3 +570,46 @@
   cursor: pointer;
   text-decoration: underline;
 }
+
+/* Suppressed group — collapsed, de-emphasised, but never hidden. */
+.breakdown-suppressed {
+  margin-top: var(--spacing-3);
+  border-top: 1px solid var(--border-color);
+  padding-top: var(--spacing-2);
+}
+
+.breakdown-suppressed__summary {
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  padding: var(--spacing-1) 0;
+}
+
+.breakdown-suppressed__summary:focus-visible {
+  outline: none;
+  color: var(--accent-primary);
+  text-decoration: underline;
+  text-underline-offset: var(--space-1);
+}
+
+.breakdown-suppressed__hint {
+  color: var(--text-tertiary);
+  font-size: var(--font-size-xs);
+  margin: var(--spacing-1) 0 var(--spacing-2);
+}
+
+.breakdown-suppressed__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.breakdown-suppressed__item {
+  opacity: var(--opacity-half-faded);
+}
+
+.breakdown-suppressed__reason {
+  display: block;
+  color: var(--text-tertiary);
+  font-size: var(--font-size-xs);
+}

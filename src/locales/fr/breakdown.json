@@ -74,5 +74,15 @@
   "merge": {
     "banner": "Une fusion a été effectuée — vérifiez le détail",
     "dismiss": "Ignorer"
+  },
+  "suppressed": {
+    "title": "Aucune question à ce sujet ({{count}})",
+    "hint": "Toujours suivis — simplement sans vous interrompre.",
+    "frozen": "document terminé",
+    "anchorUnchanged": "section dont dépend l'élément inchangée"
+  },
+  "anchorStates": {
+    "anchor-changed": "section ancrée modifiée",
+    "anchor-lost": "ancre perdue"
   }
 }

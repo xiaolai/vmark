@@ -74,5 +74,15 @@
   "merge": {
     "banner": "Ein Merge wurde abgeschlossen — Aufschlüsselung prüfen",
     "dismiss": "Schließen"
+  },
+  "suppressed": {
+    "title": "Hierzu keine Rückfragen ({{count}})",
+    "hint": "Weiterhin erfasst — nur ohne Unterbrechung.",
+    "frozen": "abgeschlossenes Dokument",
+    "anchorUnchanged": "referenzierter Abschnitt unverändert"
+  },
+  "anchorStates": {
+    "anchor-changed": "verankerter Abschnitt geändert",
+    "anchor-lost": "Anker verloren"
   }
 }
