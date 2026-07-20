@@ -62,6 +62,23 @@ impl SnapshotStore {
         Ok(hash)
     }
 
+    /// FATALLY fsync the directory holding a blob, so a prior `put_*` rename is
+    /// durable before a caller records a reference to it (re-review #6): a
+    /// group-commit stages content, then appends a durable prepare that points at
+    /// it — a crash between them could otherwise lose the un-synced directory
+    /// entry and orphan the staged content, breaking client-less recovery.
+    /// `put_raw`'s dir fsync is best-effort; this is the fatal form group staging
+    /// needs before the prepare append.
+    pub fn sync_dir_of(&self, hash: &ContentHash) -> Result<(), String> {
+        let dir = self
+            .path_for(hash)
+            .parent()
+            .expect("cas path has parent")
+            .to_path_buf();
+        let d = fs::File::open(&dir).map_err(|e| format!("cas dir open failed: {e}"))?;
+        d.sync_all().map_err(|e| format!("cas dir fsync failed: {e}"))
+    }
+
     fn put_raw(&self, hash: &ContentHash, bytes: &[u8]) -> Result<(), String> {
         let target = self.path_for(hash);
         if target.exists() {
