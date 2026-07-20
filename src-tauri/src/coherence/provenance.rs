@@ -132,6 +132,15 @@ pub fn perform_confirm_inputs(
     req: &ConfirmRequest,
     actor: &str,
 ) -> Result<ConfirmReceipt, String> {
+    // R1 (7th-review 6R-1): head validation + build + append atomic under the lock.
+    kernel.with_write_lock(|kernel| perform_confirm_inputs_locked(kernel, req, actor))
+}
+
+fn perform_confirm_inputs_locked(
+    kernel: &mut WorkspaceKernel,
+    req: &ConfirmRequest,
+    actor: &str,
+) -> Result<ConfirmReceipt, String> {
     let object = object_by_path(kernel, &req.path)?;
     let head = single_head(kernel, &object)?;
     if head.as_str() != req.head {

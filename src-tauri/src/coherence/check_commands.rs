@@ -143,6 +143,17 @@ pub fn record_check(
     parsed: &ParsedCheck,
     model: &str,
 ) -> Result<CheckReceipt, String> {
+    // R1 (7th-review 6R-1): resolve current head + registry → build check → append
+    // under the workspace lock.
+    kernel.with_write_lock(|kernel| record_check_locked(kernel, prepared, parsed, model))
+}
+
+fn record_check_locked(
+    kernel: &mut WorkspaceKernel,
+    prepared: &PreparedCheck,
+    parsed: &ParsedCheck,
+    model: &str,
+) -> Result<CheckReceipt, String> {
     kernel.ensure_initialized()?;
     let body = json!({
         "edge": { "txf": prepared.txf.to_string(), "input": prepared.input },

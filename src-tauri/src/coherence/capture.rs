@@ -76,6 +76,16 @@ pub fn capture(
     kernel: &mut WorkspaceKernel,
     req: CaptureRequest,
 ) -> Result<CaptureReceipt, String> {
+    // R1 (7th-review 6R-1): the whole read-heads → build-transformation → append
+    // runs under the workspace lock, so a concurrent commit that moved this
+    // object's head can't leave us appending a stale-parent sibling.
+    kernel.with_write_lock(|kernel| capture_locked(kernel, req))
+}
+
+fn capture_locked(
+    kernel: &mut WorkspaceKernel,
+    req: CaptureRequest,
+) -> Result<CaptureReceipt, String> {
     if req.confidence == Confidence::Unknown {
         return Err("confidence=unknown is scan-only (spec §8)".into());
     }

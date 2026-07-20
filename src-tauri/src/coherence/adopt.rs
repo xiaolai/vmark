@@ -20,6 +20,14 @@ pub fn adopt_from_disk(
     kernel: &mut WorkspaceKernel,
     rel_path: &str,
 ) -> Result<(ObjectId, RevisionId), String> {
+    // R1 (7th-review 6R-1): read-heads → build → append atomic under the lock.
+    kernel.with_write_lock(|kernel| adopt_from_disk_locked(kernel, rel_path))
+}
+
+fn adopt_from_disk_locked(
+    kernel: &mut WorkspaceKernel,
+    rel_path: &str,
+) -> Result<(ObjectId, RevisionId), String> {
     kernel.ensure_initialized()?;
     let abs = super::paths::resolve_workspace_rel(kernel.root(), rel_path)?;
     let bytes =
@@ -94,6 +102,17 @@ pub fn observed_external_entry(
 /// Append an `object-registered` entry when the object is new, moved, or
 /// its schema changed (spec §5.4.6).
 pub fn register_if_needed(
+    kernel: &mut WorkspaceKernel,
+    object: ObjectId,
+    path: &str,
+    schema: Option<&str>,
+) -> Result<(), String> {
+    // R1 (7th-review 6R-1): registry read + append atomic. Nested inside a wrapped
+    // capture/adopt this is a no-op re-entry (the lock is already held).
+    kernel.with_write_lock(|kernel| register_if_needed_locked(kernel, object, path, schema))
+}
+
+fn register_if_needed_locked(
     kernel: &mut WorkspaceKernel,
     object: ObjectId,
     path: &str,

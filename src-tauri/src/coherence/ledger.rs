@@ -147,6 +147,16 @@ impl Ledger {
         let mut line =
             serde_json::to_string(entry).map_err(|e| format!("serialize failed: {e}"))?;
         line.push('\n');
+        // Writer cap matched to the reader cap (7th-review): `read_all` quarantines
+        // any line over MAX_LINE_BYTES, so writing one would silently lose an entry
+        // the caller was told succeeded. Refuse loudly instead. The reader accepts
+        // exactly-MAX (it compares with `>`), so nothing writable is unreadable.
+        if line.len() > MAX_LINE_BYTES {
+            return Err(format!(
+                "entry is {} bytes, over the {MAX_LINE_BYTES}-byte ledger line cap — refusing to write an entry the reader would quarantine",
+                line.len()
+            ));
+        }
         let mut f = fs::OpenOptions::new()
             .create(true)
             .append(true)

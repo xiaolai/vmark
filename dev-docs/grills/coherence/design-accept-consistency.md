@@ -418,3 +418,32 @@ the existing two-axis-staleness + human machinery) dissolves the three
 architectural findings (scope, O(N), partial-rebuild) outright. Marker stays RED;
 the R1-vs-R2 cost has materially changed since the owner's choice — re-surfaced
 to the owner.
+
+## R1 completion pass (post-7th-review, owner re-confirmed R1)
+
+Owner re-confirmed **R1** after the 7th review made its cost explicit. Built:
+
+| 7th-review finding | Fix | Test |
+|---|---|---|
+| **6R-5 O(N) accept** (MAJOR, new) | **Change-gated reconcile.** `Ledger::fingerprint()` (sorted segment name/len/mtime) records what the index reflects; `with_write_lock` rebuilds ONLY on a change. Under the held flock nobody else can append, so a single-process accept's own append is the only delta and its next acquire skips the rebuild — **O(1) restored**, while an external append or git checkout still forces the reconcile. | existing suite + `wrapped_accept_reconciles_a_concurrent_commit…` (proves the change-branch still reconciles) |
+| **6R-6 partial index** (MAJOR, new) | An acquire-time reconcile failure now **poisons** the kernel — a half-rebuilt index is never served; reopen re-heals (a failed rebuild leaves `user_version=0` → full rebuild). | `a_reconcile_failure_during_lock_acquire…` |
+| **6R-1 full lock scope** (CRITICAL) | **8 of 9 mutators wrapped** in `with_write_lock` (read→build→append atomic): `capture`, `adopt_from_disk`, `register_if_needed`, `perform_claim`, `perform_claim_scope`, `record_check`, `perform_resolve_as`, `perform_confirm_inputs`, `perform_delegate`. Nested calls re-enter the held lock. **`scan_workspace` is deliberately NOT wrapped — see below.** | full suite |
+| **reader cap drops valid writes** (MAJOR, new) | `Ledger::append` now enforces the **same** `MAX_LINE_BYTES` cap the reader applies, failing LOUDLY instead of writing an entry the next `read_all` would silently quarantine. | `append_refuses_an_entry_larger_than_the_read_cap` |
+| **6R-4 half-initialization** (MAJOR) | Init detection is on **content, not existence** (`.gitattributes` must actually carry the merge=union rule), the marker is written **atomically** (tmp+fsync+rename), and `.vmark` is initialized **lazily at the write** — so a rejected accept no longer initializes a pristine workspace, and init now happens under the flock. | `a_gitattributes_without_the_merge_rule_is_not_initialized`, `a_bare_lock_file_is_not_mistaken…` |
+| **6R-3 bounds/empty-members** (MAJOR) | `find_latest` now bounds-checks a prepare on the way IN (a merged/legacy oversized prepare can't go live), and the RECOVERY path **binds `prepare.members` to the submitted changeset** — closing the empty-members bypass that committed an unreviewed set while skipping the preview-class precondition. | `a_prepare_that_does_not_match_the_submitted_changeset_is_rejected`, `an_oversized_group_prepare_is_rejected…` |
+
+**OPEN — `scan_workspace` (6R-1 remainder), a SPEC question, not a lock question.**
+Wrapping scan makes its lock-acquire reconcile the index from the ledger. But the
+ledger is git-**tracked**, so `git revert` of a commit carrying ledger entries
+reverts that history too; the reconcile then erases the very head a revert must be
+parented on, and `git_revert_is_captured_as_git_mutation` (spec §9.4, audit
+R5/A22) finds nothing to mint. Whether "reconcile to the reverted ledger, nothing
+to mint" or "compare against the pre-revert view" is correct is a **spec**
+decision. Rather than silently rewrite a spec-encoded expectation to make the
+change pass, scan keeps its current behaviour and this stays OPEN for the owner.
+
+**MINOR still open:** the `in_write_txn` flag is not RAII-reset, so a *directly
+owned* kernel whose panic is caught could bypass locking (production is safe — the
+registry's `Mutex` poisons and the kernel becomes unreachable).
+
+382 coherence tests green; fmt + clippy clean. **Marker stays RED pending the 8th review.**

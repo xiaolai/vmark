@@ -375,3 +375,34 @@ fn snapshot_read_surfaces_missing_and_corrupt_as_diagnostics() {
         .count();
     assert_eq!(diag_count, 2, "both failures recorded durably");
 }
+
+#[test]
+fn a_gitattributes_without_the_merge_rule_is_not_initialized() {
+    // 7th-review 6R-4: existence is not a completion protocol. A marker truncated
+    // by a crash mid-write — or left by a checkout without the rule — must NOT read
+    // as initialized, or the git-transported ledger loses merge=union permanently.
+    let dir = tmp();
+    let vmark = dir.path().join(".vmark");
+    std::fs::create_dir_all(&vmark).unwrap();
+    std::fs::write(vmark.join(".gitattributes"), b"").unwrap(); // present but ruleless
+
+    let mut kernel = WorkspaceKernel::open(dir.path(), writer(1)).unwrap();
+    assert!(
+        !kernel.is_initialized(),
+        "an empty .gitattributes is not initialization",
+    );
+    kernel
+        .append_and_apply(&Envelope::create(
+            "diagnostic",
+            writer(1),
+            json!({ "code": "x", "message": "first write", "path": null }),
+        ))
+        .unwrap();
+    let content = std::fs::read_to_string(vmark.join(".gitattributes")).unwrap();
+    assert!(
+        content
+            .lines()
+            .any(|l| l.trim() == "ledger/*.jsonl merge=union"),
+        "the write completed the marker, got: {content:?}",
+    );
+}
