@@ -207,6 +207,16 @@ fn revalidate_aborts_once_a_snapshotted_resolution_expiry_passes() {
     assert!(revalidate(kernel.index(), &prepare, &[], "2026-07-19T23:59:59Z").unwrap());
     // At/after the expiry → aborts.
     assert!(!revalidate(kernel.index(), &prepare, &[], "2026-07-20T00:00:00Z").unwrap());
+
+    // Mixed-offset: expiry 01:00+02:00 == 23:00Z; now 00:30Z is AFTER it, though
+    // lexicographically "00" < "01" would wrongly pass. Instant compare aborts.
+    let mut off = compute_snapshot(kernel.index(), std::slice::from_ref(&cand)).unwrap();
+    off.earliest_expiry = Some("2026-07-20T01:00:00+02:00".into());
+    let prep_off = prep("g", vec![], off);
+    assert!(
+        !revalidate(kernel.index(), &prep_off, &[], "2026-07-20T00:30:00Z").unwrap(),
+        "a +02:00 expiry already past in UTC must abort (chronological, not lexical)",
+    );
 }
 
 #[test]
