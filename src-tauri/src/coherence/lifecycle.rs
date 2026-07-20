@@ -83,8 +83,10 @@ impl LifecycleSet {
     }
 }
 
-/// Max reason length — a short human note, bounded well under the ledger line cap.
-const MAX_REASON_BYTES: usize = 2 * 1024;
+/// Max reason length — a short human note, bounded well under the ledger line
+/// cap. Also enforced at the envelope boundary, because a git-merged entry never
+/// passed through this setter.
+pub const MAX_REASON_BYTES: usize = 2 * 1024;
 
 /// Record a lifecycle transition for an object. Append-only and reversible:
 /// setting `live` again un-freezes, and both entries stay in history.

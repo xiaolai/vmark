@@ -162,8 +162,9 @@ pub fn project_logbook(entries: &[Envelope]) -> Vec<LogEntry> {
 pub const JUDGMENTS: [&str; 3] = ["relevant", "noise", "unsure"];
 
 /// Max note length. Generous for a human remark, bounded so a judgment can never
-/// approach the ledger's line cap.
-const MAX_NOTE_BYTES: usize = 4 * 1024;
+/// approach the ledger's line cap. Also enforced at the envelope boundary — a
+/// git-merged judgment never passed through this function.
+pub const MAX_NOTE_BYTES: usize = 4 * 1024;
 
 /// Append the owner's relevance judgment for one flagged edge (the M2 datum).
 /// Append-only and revisable: a later judgment supersedes an earlier one, and
