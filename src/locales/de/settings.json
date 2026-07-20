@@ -801,5 +801,16 @@
   "files.autoResize.800": "800px",
   "files.autoResize.1200": "1200px",
   "files.autoResize.1920": "1920px (Full HD)",
-  "files.autoResize.2560": "2560px (2K)"
+  "files.autoResize.2560": "2560px (2K)",
+  "coherence": {
+    "group": "Kohärenz",
+    "checkTau": {
+      "label": "Konfidenz der semantischen Prüfung",
+      "description": "Wie sicher eine Prüfung sein muss, damit ihre Antwort als Urteil gilt. Darunter wird die Antwort behalten, aber als unbekannt markiert.",
+      "option07": "0,7 — mehr Urteile, weniger sicher",
+      "option08": "0,8 — ausgewogen",
+      "option09": "0,9 — vorsichtig (Standard)",
+      "option095": "0,95 — nur nahezu sichere Antworten"
+    }
+  }
 }

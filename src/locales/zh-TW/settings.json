@@ -748,5 +748,16 @@
   "files.autoResize.800": "800px",
   "files.autoResize.1200": "1200px",
   "files.autoResize.1920": "1920px (Full HD)",
-  "files.autoResize.2560": "2560px (2K)"
+  "files.autoResize.2560": "2560px (2K)",
+  "coherence": {
+    "group": "一致性",
+    "checkTau": {
+      "label": "語意檢查信心度",
+      "description": "檢查結果需要多確定才會記錄為判定。低於此值時答案仍會保留，但標記為未知。",
+      "option07": "0.7 — 判定更多，確定性更低",
+      "option08": "0.8 — 平衡",
+      "option09": "0.9 — 謹慎（預設）",
+      "option095": "0.95 — 僅接受幾乎確定的答案"
+    }
+  }
 }

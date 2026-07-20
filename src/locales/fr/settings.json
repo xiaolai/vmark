@@ -790,5 +790,16 @@
   "files.autoResize.800": "800px",
   "files.autoResize.1200": "1200px",
   "files.autoResize.1920": "1920px (Full HD)",
-  "files.autoResize.2560": "2560px (2K)"
+  "files.autoResize.2560": "2560px (2K)",
+  "coherence": {
+    "group": "Cohérence",
+    "checkTau": {
+      "label": "Confiance de la vérification sémantique",
+      "description": "Degré de certitude requis pour qu'une vérification soit enregistrée comme verdict. En dessous, la réponse est conservée mais marquée inconnue.",
+      "option07": "0,7 — plus de verdicts, moins de certitude",
+      "option08": "0,8 — équilibré",
+      "option09": "0,9 — prudent (par défaut)",
+      "option095": "0,95 — uniquement les réponses quasi certaines"
+    }
+  }
 }

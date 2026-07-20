@@ -768,5 +768,16 @@
   "files.autoResize.800": "800px",
   "files.autoResize.1200": "1200px",
   "files.autoResize.1920": "1920px (Full HD)",
-  "files.autoResize.2560": "2560px (2K)"
+  "files.autoResize.2560": "2560px (2K)",
+  "coherence": {
+    "group": "Coherencia",
+    "checkTau": {
+      "label": "Confianza de la comprobación semántica",
+      "description": "Cuánta seguridad necesita una comprobación para que su respuesta cuente como veredicto. Por debajo, la respuesta se guarda pero se marca como desconocida.",
+      "option07": "0,7 — más veredictos, menos certeza",
+      "option08": "0,8 — equilibrado",
+      "option09": "0,9 — prudente (predeterminado)",
+      "option095": "0,95 — solo respuestas casi seguras"
+    }
+  }
 }

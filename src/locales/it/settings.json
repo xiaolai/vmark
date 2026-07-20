@@ -769,5 +769,16 @@
   "files.autoResize.800": "800px",
   "files.autoResize.1200": "1200px",
   "files.autoResize.1920": "1920px (Full HD)",
-  "files.autoResize.2560": "2560px (2K)"
+  "files.autoResize.2560": "2560px (2K)",
+  "coherence": {
+    "group": "Coerenza",
+    "checkTau": {
+      "label": "Confidenza del controllo semantico",
+      "description": "Quanto deve essere sicuro un controllo perché la sua risposta valga come verdetto. Sotto questa soglia la risposta viene conservata ma segnata come sconosciuta.",
+      "option07": "0,7 — più verdetti, meno certezza",
+      "option08": "0,8 — equilibrato",
+      "option09": "0,9 — prudente (predefinito)",
+      "option095": "0,95 — solo risposte quasi certe"
+    }
+  }
 }

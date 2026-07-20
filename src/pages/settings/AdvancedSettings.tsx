@@ -8,6 +8,7 @@ import { useTranslation } from "react-i18next";
 import { SettingRow, SettingsGroup, Toggle, TagInput, Select } from "./components";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { HotExitDevTools } from "./HotExitDevTools";
+import { CoherenceSettingsGroup } from "./CoherenceSettingsGroup";
 import { isMacPlatform } from "@/utils/shortcutMatch";
 
 export function AdvancedSettings() {
@@ -75,6 +76,8 @@ export function AdvancedSettings() {
           />
         </SettingRow>
       </SettingsGroup>
+
+      <CoherenceSettingsGroup />
 
       {/* Workflow-file viewing/editing — these are the two toggles the
           website documents (audit 20260612 H28); not devtools-gated because

@@ -743,5 +743,16 @@
   "files.autoResize.800": "800px",
   "files.autoResize.1200": "1200px",
   "files.autoResize.1920": "1920px (Full HD)",
-  "files.autoResize.2560": "2560px (2K)"
+  "files.autoResize.2560": "2560px (2K)",
+  "coherence": {
+    "group": "整合性",
+    "checkTau": {
+      "label": "意味チェックの確信度",
+      "description": "チェックの回答を判定として記録するために必要な確信度。これを下回る回答は保持されますが不明として扱われます。",
+      "option07": "0.7 — 判定は増えるが確実性は低い",
+      "option08": "0.8 — バランス重視",
+      "option09": "0.9 — 慎重（既定）",
+      "option095": "0.95 — ほぼ確実な回答のみ"
+    }
+  }
 }
