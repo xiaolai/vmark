@@ -172,9 +172,14 @@ impl Ledger {
     /// A cheap identity of the ledger's on-disk state (R1 O(1) reconcile): the
     /// sorted `(segment, byte-len, mtime-nanos, inode)` of every segment.
     /// `with_write_lock` compares it to what the index last reflected and rebuilds
-    /// ONLY on a change, so a single-process accept stays O(1) instead of
-    /// rebuilding the whole index on every acquire (7th-review 6R-5). A missing dir
-    /// is the empty fingerprint.
+    /// ONLY on a change (7th-review 6R-5). A missing dir is the empty fingerprint.
+    ///
+    /// COST, stated honestly (8th-review 8R-2): this is **O(segments)** — a
+    /// directory scan, a stat per segment, and a sort — NOT O(1). The win is that
+    /// it is independent of the number of ENTRIES: an accept no longer parses and
+    /// replays the whole ledger (seconds at 500k) on every acquire. Segment count
+    /// stays small in practice (one per writer, plus rotations), but an
+    /// accumulated-history workspace does pay O(S log S) per acquire.
     ///
     /// A FALSE NEGATIVE here would silently serve a stale index, so the oracle has
     /// to be conservative. `len` catches every append (the ledger is append-only,
