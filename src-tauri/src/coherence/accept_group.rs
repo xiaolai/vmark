@@ -330,6 +330,9 @@ fn accept_group_locked(
                 if stored != c.content_hash {
                     return Err("CAS stored a different hash than a candidate declares".into());
                 }
+                // Fatally fsync the blob's directory so it is durable BEFORE the
+                // prepare that references it (#6) — no orphaned staged content.
+                kernel.snapshots().sync_dir_of(&stored)?;
             }
             let prepare = GroupPrepare {
                 group_id: group.clone(),
