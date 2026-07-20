@@ -101,5 +101,12 @@
     "relevant": "Oui",
     "noise": "Non",
     "unsure": "Incertain"
+  },
+  "logbook": {
+    "title": "Journal de cohérence",
+    "m2": "Jugés : pertinent {{relevant}} · bruit {{noise}} · incertain {{unsure}} · non jugé {{unjudged}}",
+    "reopened": "{{count}} lien(s) résolus plus d'une fois",
+    "resolutions": "résolu {{count}} fois",
+    "downgraded": "le modèle a répondu {{verdict}} à {{confidence}}, sous le seuil"
   }
 }

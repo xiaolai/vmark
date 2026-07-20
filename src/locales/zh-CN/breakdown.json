@@ -101,5 +101,12 @@
     "relevant": "值得",
     "noise": "不值得",
     "unsure": "不确定"
+  },
+  "logbook": {
+    "title": "一致性日志",
+    "m2": "已判定：值得 {{relevant}} · 噪音 {{noise}} · 不确定 {{unsure}} · 未判定 {{unjudged}}",
+    "reopened": "{{count}} 条依赖被多次解决",
+    "resolutions": "已解决 {{count}} 次",
+    "downgraded": "模型答复 {{verdict}}（置信度 {{confidence}}），低于阈值"
   }
 }
