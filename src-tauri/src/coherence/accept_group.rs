@@ -185,6 +185,8 @@ fn commit_member(
 
 /// Accept a group of candidates over distinct objects. `preview` is the group
 /// preview the client holds (v4.3/v4.6); its `base_classes` gate the fresh path.
+/// Holds the exclusive workspace lock across the whole op (re-review #1) — every
+/// ledger writer takes it, so nothing can interleave — released on any exit.
 pub fn accept_group(
     kernel: &mut WorkspaceKernel,
     candidates: &[Candidate],
@@ -196,11 +198,18 @@ pub fn accept_group(
     }
     // A poisoned kernel's O(1) presence lookup is untrustworthy (re-review #3).
     kernel.ensure_available()?;
-    // Cross-process fence (re-review #1): hold an exclusive workspace lock across
-    // the WHOLE lifecycle lookup → prepare/abort → member appends, and reconcile
-    // the index from the ledger after acquiring it, so two instances on the same
-    // workspace cannot interleave revalidate/commit/abort. Released on return.
-    let _lock = kernel.lock_group_commit()?;
+    kernel.begin_group_lock()?; // #1: fence every writer for the whole op
+    let result = accept_group_locked(kernel, candidates, preview, now);
+    kernel.end_group_lock();
+    result
+}
+
+fn accept_group_locked(
+    kernel: &mut WorkspaceKernel,
+    candidates: &[Candidate],
+    preview: &GroupPreview,
+    now: &str,
+) -> Result<Vec<AcceptReceipt>, String> {
     // Distinct objects + tamper check — a changeset touches each object once.
     let mut objects = std::collections::HashSet::new();
     for c in candidates {
@@ -350,7 +359,17 @@ pub fn recover_group(
     now: &str,
 ) -> Result<Vec<AcceptReceipt>, String> {
     kernel.ensure_available()?;
-    let _lock = kernel.lock_group_commit()?;
+    kernel.begin_group_lock()?;
+    let result = recover_group_locked(kernel, group, now);
+    kernel.end_group_lock();
+    result
+}
+
+fn recover_group_locked(
+    kernel: &mut WorkspaceKernel,
+    group: &str,
+    now: &str,
+) -> Result<Vec<AcceptReceipt>, String> {
     let prepare = match group_prepare::find_latest(kernel, group)? {
         Lifecycle::Prepared(p) => *p,
         _ => return Err("no recoverable prepared group for that id".into()),

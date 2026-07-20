@@ -35,7 +35,7 @@ fn ensure_initialized_creates_structure_and_git_files() {
     assert!(vmark.join("snapshots").is_dir());
     assert_eq!(
         std::fs::read_to_string(vmark.join(".gitignore")).unwrap(),
-        "index.db*\n"
+        "index.db*\ngroup.lock\n"
     );
     assert_eq!(
         std::fs::read_to_string(vmark.join(".gitattributes")).unwrap(),
