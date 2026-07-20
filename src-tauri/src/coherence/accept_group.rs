@@ -273,7 +273,7 @@ pub fn accept_group(
         // members. Drift → abort THIS attempt (naming its id, #2/#7) and require a
         // re-preview; a fresh re-run supersedes it.
         Some(prepare) => {
-            if !group_prepare::revalidate(kernel.index(), &prepare, &committed)? {
+            if !group_prepare::revalidate(kernel.index(), &prepare, &committed, now)? {
                 group_prepare::append_abort(kernel, &group, &attempt_id)?;
                 return Err("group aborted — the workspace changed since it was prepared; re-preview and re-run".into());
             }
