@@ -128,10 +128,7 @@ fn a_partial_group_is_completed_on_recovery() {
         supersedes: None,
         members: cands
             .iter()
-            .map(|c| crate::coherence::group_prepare::PreparedMember {
-                object: c.object,
-                revision: c.revision.clone(),
-            })
+            .map(crate::coherence::group_prepare::PreparedMember::of)
             .collect(),
         snapshot,
     };
@@ -308,10 +305,7 @@ fn recovery_aborts_when_an_affected_object_drifted_externally() {
         supersedes: None,
         members: cands
             .iter()
-            .map(|c| group_prepare::PreparedMember {
-                object: c.object,
-                revision: c.revision.clone(),
-            })
+            .map(group_prepare::PreparedMember::of)
             .collect(),
         snapshot,
     };
@@ -405,6 +399,52 @@ fn a_fresh_rerun_after_abort_supersedes_the_aborted_attempt_and_completes() {
         }
         _ => panic!("expected the fresh attempt to be the live tip"),
     }
+}
+
+#[test]
+fn recover_group_completes_a_partial_from_the_manifest_without_the_client() {
+    // #6: a partial group is completed by recover_group from the durable manifest
+    // + CAS ALONE — no client candidate list resubmitted.
+    use crate::coherence::group_prepare;
+    let (_dir, mut kernel, u, v, u1, v1) = seeded();
+    let cands = group(u, v, &u1, &v1);
+    let grp = group_id(&cands).unwrap();
+    let snapshot = group_prepare::compute_snapshot(kernel.index(), &cands).unwrap();
+    let attempt_id = group_prepare::attempt_id_for(&grp, &snapshot, None);
+    let prepare = group_prepare::GroupPrepare {
+        group_id: grp.clone(),
+        attempt_id: attempt_id.clone(),
+        supersedes: None,
+        members: cands
+            .iter()
+            .map(group_prepare::PreparedMember::of)
+            .collect(),
+        snapshot,
+    };
+    group_prepare::append_prepare(&mut kernel, &prepare).unwrap();
+    // Commit ONLY member 0 (U).
+    let idem0 = member_idem(&cands[0], &attempt_id).unwrap();
+    let mut e0 = Envelope::create(
+        "transformation",
+        kernel.writer(),
+        serde_json::to_value(cands[0].to_transformation(Agent {
+            kind: AgentType::Human,
+            id: None,
+        }))
+        .unwrap(),
+    );
+    e0.idem = idem0;
+    kernel.append_and_apply(&e0).unwrap();
+
+    // recover_group takes NO candidate list — it reconstructs from the manifest.
+    let receipts = recover_group(&mut kernel, &grp, NOW).unwrap();
+    assert_eq!(receipts.len(), 2);
+    assert!(!receipts[0].committed, "member 0 already present");
+    assert!(receipts[1].committed, "member 1 completed client-lessly");
+    assert_eq!(
+        kernel.index().resolve_live(&v).unwrap(),
+        Resolved::Single(cands[1].revision.clone()),
+    );
 }
 
 #[test]

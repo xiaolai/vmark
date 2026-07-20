@@ -311,17 +311,21 @@ pub fn accept_group(
                         .into(),
                 );
             }
+            // Stage every member's content in CAS BEFORE the prepare (#6), so a
+            // crash right after the prepare still has the content the ledger-only
+            // recovery driver needs to reconstruct + commit the member.
+            kernel.ensure_initialized()?;
+            for c in candidates {
+                let stored = kernel.snapshots().put_text(&c.content)?;
+                if stored != c.content_hash {
+                    return Err("CAS stored a different hash than a candidate declares".into());
+                }
+            }
             let prepare = GroupPrepare {
                 group_id: group.clone(),
                 attempt_id: attempt_id.clone(),
                 supersedes,
-                members: candidates
-                    .iter()
-                    .map(|c| PreparedMember {
-                        object: c.object,
-                        revision: c.revision.clone(),
-                    })
-                    .collect(),
+                members: candidates.iter().map(PreparedMember::of).collect(),
                 snapshot: fresh_snapshot.expect("a fresh attempt has a snapshot"),
             };
             group_prepare::append_prepare(kernel, &prepare)?;
@@ -329,6 +333,68 @@ pub fn accept_group(
     }
 
     // Commit each not-present member (present ones return their original receipt).
+    let mut receipts = Vec::with_capacity(candidates.len());
+    for (i, c) in candidates.iter().enumerate() {
+        receipts.push(commit_member(kernel, c, idems[i], existing[i])?);
+    }
+    Ok(receipts)
+}
+
+/// Client-less recovery (re-review #6): complete an incomplete prepared group
+/// from the ledger + CAS ALONE — no client candidate list. Reconstructs each
+/// member from the durable manifest (content out of CAS), revalidates the
+/// prepared snapshot against the current workspace, and commits the missing
+/// members, or aborts if the context drifted. Holds the cross-process lock (#1).
+pub fn recover_group(
+    kernel: &mut WorkspaceKernel,
+    group_id: &str,
+    now: &str,
+) -> Result<Vec<AcceptReceipt>, String> {
+    kernel.ensure_available()?;
+    let _lock = kernel.lock_group_commit()?;
+    let prepare = match group_prepare::find_latest(kernel, group_id)? {
+        Lifecycle::Prepared(p) => *p,
+        _ => return Err("no recoverable prepared group for that id".into()),
+    };
+    // Reconstruct the candidates from the manifest (CAS-backed content).
+    let candidates: Vec<Candidate> = prepare
+        .members
+        .iter()
+        .map(|m| m.to_candidate())
+        .collect::<Result<_, _>>()?;
+
+    let mut idems = Vec::with_capacity(candidates.len());
+    let mut existing = Vec::with_capacity(candidates.len());
+    for c in &candidates {
+        let idem = member_idem(c, &prepare.attempt_id)?;
+        existing.push(kernel.index().entry_id_by_idem(&idem)?);
+        idems.push(idem);
+    }
+    if existing.iter().all(Option::is_some) {
+        return Ok(candidates
+            .iter()
+            .enumerate()
+            .map(|(i, c)| AcceptReceipt {
+                entry_id: existing[i].expect("present member has an entry id"),
+                revision: c.revision.as_str().to_string(),
+                committed: false,
+            })
+            .collect());
+    }
+    let committed: Vec<(ObjectId, RevisionId, uuid::Uuid)> = candidates
+        .iter()
+        .enumerate()
+        .filter_map(|(i, c)| existing[i].map(|id| (c.object, c.revision.clone(), id)))
+        .collect();
+    if !group_prepare::revalidate(kernel.index(), &prepare, &committed, now)? {
+        group_prepare::append_abort(kernel, group_id, &prepare.attempt_id)?;
+        return Err("group aborted — the workspace changed since it was prepared".into());
+    }
+    for (i, c) in candidates.iter().enumerate() {
+        if existing[i].is_none() {
+            preflight_member(kernel, c)?;
+        }
+    }
     let mut receipts = Vec::with_capacity(candidates.len());
     for (i, c) in candidates.iter().enumerate() {
         receipts.push(commit_member(kernel, c, idems[i], existing[i])?);

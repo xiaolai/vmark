@@ -72,14 +72,7 @@ fn prepare_round_trips_through_the_ledger_and_find_latest() {
     let (_dir, mut kernel, u, u1) = seeded();
     let cand = Candidate::new(u, "revised".into(), u1, vec![], "op", "s");
     let snapshot = compute_snapshot(kernel.index(), std::slice::from_ref(&cand)).unwrap();
-    let prepare = prep(
-        "g1",
-        vec![PreparedMember {
-            object: cand.object,
-            revision: cand.revision.clone(),
-        }],
-        snapshot,
-    );
+    let prepare = prep("g1", vec![PreparedMember::of(&cand)], snapshot);
     append_prepare(&mut kernel, &prepare).unwrap();
 
     match find_latest(&kernel, "g1").unwrap() {
@@ -165,14 +158,7 @@ fn revalidate_rejects_an_external_new_incident_edge() {
     let (_dir, mut kernel, u, u1) = seeded();
     let cand = Candidate::new(u, "revised".into(), u1, vec![], "op", "s");
     let snapshot = compute_snapshot(kernel.index(), std::slice::from_ref(&cand)).unwrap();
-    let prepare = prep(
-        "g",
-        vec![PreparedMember {
-            object: cand.object,
-            revision: cand.revision.clone(),
-        }],
-        snapshot,
-    );
+    let prepare = prep("g", vec![PreparedMember::of(&cand)], snapshot);
     // Commit U as its member.
     let mut e = Envelope::create(
         "transformation",
@@ -289,14 +275,7 @@ fn revalidate_accepts_a_committed_members_own_head_move_but_rejects_external_dri
     };
     let cand = Candidate::new(u, "revised".into(), u1, vec![dep], "op", "s");
     let snapshot = compute_snapshot(kernel.index(), std::slice::from_ref(&cand)).unwrap();
-    let prepare = prep(
-        "g1",
-        vec![PreparedMember {
-            object: cand.object,
-            revision: cand.revision.clone(),
-        }],
-        snapshot,
-    );
+    let prepare = prep("g1", vec![PreparedMember::of(&cand)], snapshot);
 
     // Commit U as its member. Revalidation must ACCEPT (U's head move is the
     // group's own; V is unchanged).
