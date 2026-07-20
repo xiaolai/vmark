@@ -17,6 +17,7 @@
  */
 import { invoke } from "@tauri-apps/api/core";
 import { useAiProviderStore } from "@/stores/aiStore";
+import { useSettingsStore } from "@/stores/settingsStore";
 
 import {
   useBreakdownStore,
@@ -24,6 +25,7 @@ import {
   type ContextRow,
   type MergeNotice,
   type EdgeRow,
+  type LogbookView,
 } from "@/stores/breakdownStore";
 import { emitOpenFileInCurrentWindow } from "@/services/navigation/openFileEvent";
 import {
@@ -175,6 +177,9 @@ export async function checkEdge(
         cliPath: cli?.path || null,
       },
       model: null,
+      // Owner-configurable confidence threshold. Sent explicitly so the setting
+      // actually reaches the checker; omitting it silently falls back to 0.9.
+      tau: useSettingsStore.getState().general.coherenceCheckTau ?? null,
     });
   } catch (error) {
     useBreakdownStore.getState().setError(messageOf(error));
@@ -287,5 +292,91 @@ export async function refreshMergeNotice(workspaceRoot: string): Promise<void> {
     if (!isLatestRefresh("merge", ticket) || !isActiveWorkspace(workspaceRoot))
       return; // D1–D5: no stale/superseded error
     useBreakdownStore.getState().setError(messageOf(error));
+  }
+}
+
+/**
+ * Mark a document FROZEN (finished history) or back to LIVE.
+ *
+ * Measured motivation (2026-07-20): M2 read 0 relevant / 5 noise, and every
+ * flag had the same cause — the downstream was already finished. Freezing stops
+ * the interruption; the edge and its provenance stay recorded.
+ *
+ * Human-only by design: the layer may SUGGEST a freeze, never apply one.
+ */
+export async function setDocumentLifecycle(
+  workspaceRoot: string,
+  object: string,
+  lifecycle: "live" | "frozen",
+  reason?: string,
+): Promise<void> {
+  try {
+    await invoke("coherence_set_lifecycle", {
+      workspaceRoot,
+      object,
+      lifecycle,
+      reason: reason ?? null,
+    });
+  } catch (error) {
+    useBreakdownStore.getState().setError(messageOf(error));
+    return;
+  }
+  await refreshBreakdown(workspaceRoot);
+}
+
+/**
+ * Anchor an edge to a heading path — pass an EMPTY array to clear it and
+ * restore whole-file behaviour. An anchored edge asks "did the part I depend on
+ * change?" instead of "did the file change?".
+ */
+export async function setEdgeAnchor(
+  workspaceRoot: string,
+  txf: string,
+  input: number,
+  headings: string[],
+): Promise<void> {
+  try {
+    await invoke("coherence_set_anchor", { workspaceRoot, txf, input, headings });
+  } catch (error) {
+    useBreakdownStore.getState().setError(messageOf(error));
+    return;
+  }
+  await refreshBreakdown(workspaceRoot);
+}
+
+/**
+ * Record whether surfacing this flag was worth the interruption (the M2 datum).
+ * Revisable: a later judgment supersedes, and both stay in history.
+ */
+export async function judgeFlag(
+  workspaceRoot: string,
+  txf: string,
+  input: number,
+  judgment: "relevant" | "noise" | "unsure",
+  note?: string,
+): Promise<void> {
+  try {
+    await invoke("coherence_flag_judgment", {
+      workspaceRoot,
+      txf,
+      input,
+      judgment,
+      note: note ?? null,
+    });
+  } catch (error) {
+    useBreakdownStore.getState().setError(messageOf(error));
+  }
+}
+
+/**
+ * Read the coherence logbook — a projection over the ledger, so it works
+ * retroactively on history recorded before the logbook existed. Read-only.
+ */
+export async function fetchLogbook(workspaceRoot: string): Promise<LogbookView | null> {
+  try {
+    return await invoke<LogbookView>("coherence_logbook", { workspaceRoot });
+  } catch (error) {
+    useBreakdownStore.getState().setError(messageOf(error));
+    return null;
   }
 }
