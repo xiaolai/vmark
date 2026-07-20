@@ -101,5 +101,12 @@
     "relevant": "はい",
     "noise": "いいえ",
     "unsure": "わからない"
+  },
+  "logbook": {
+    "title": "整合性ログ",
+    "m2": "判定: 妥当 {{relevant}} · ノイズ {{noise}} · 不明 {{unsure}} · 未判定 {{unjudged}}",
+    "reopened": "{{count}} 件のエッジが複数回解決されました",
+    "resolutions": "{{count}} 回解決",
+    "downgraded": "モデルの回答は {{verdict}}（確信度 {{confidence}}）、しきい値未満"
   }
 }

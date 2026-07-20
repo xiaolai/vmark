@@ -35,6 +35,7 @@ import {
   refreshProvenance,
 } from "@/services/breakdown/semanticActs";
 import { SuppressedGroup } from "./SuppressedGroup";
+import { LogbookSection } from "./LogbookSection";
 import { DelegationsSection } from "./DelegationsSection";
 import { MergeBanner } from "./MergeBanner";
 import { ProvenanceGroup } from "./ProvenanceGroup";
@@ -277,6 +278,7 @@ export function BreakdownPanel() {
         </p>
       )}
       <SuppressedGroup rows={suppressed} workspaceRoot={rootPath} />
+      <LogbookSection workspaceRoot={rootPath} />
       <ProvenanceGroup workspaceRoot={rootPath} />
       <DelegationsSection workspaceRoot={rootPath} />
     </div>

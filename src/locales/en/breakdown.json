@@ -101,5 +101,12 @@
     "relevant": "Yes",
     "noise": "No",
     "unsure": "Unsure"
+  },
+  "logbook": {
+    "title": "Coherence log",
+    "m2": "Judged relevant {{relevant}} · noise {{noise}} · unsure {{unsure}} · unjudged {{unjudged}}",
+    "reopened": "{{count}} edge(s) resolved more than once",
+    "resolutions": "resolved {{count}}x",
+    "downgraded": "model said {{verdict}} at {{confidence}}, below threshold"
   }
 }

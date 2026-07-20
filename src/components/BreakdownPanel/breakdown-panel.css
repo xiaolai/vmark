@@ -639,3 +639,65 @@
   color: var(--text-secondary);
   font-size: var(--font-size-xs);
 }
+
+/* Coherence log — collapsed by default; expanding is what reads the ledger. */
+.breakdown-logbook {
+  margin-top: var(--spacing-3);
+  border-top: 1px solid var(--border-color);
+  padding-top: var(--spacing-2);
+}
+
+.breakdown-logbook__toggle {
+  background: transparent;
+  border: none;
+  padding: var(--spacing-1) 0;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+
+.breakdown-logbook__toggle:focus-visible {
+  outline: none;
+  color: var(--accent-primary);
+  text-decoration: underline;
+  text-underline-offset: var(--space-1);
+}
+
+.breakdown-logbook__m2,
+.breakdown-logbook__churn,
+.breakdown-logbook__hint {
+  color: var(--text-tertiary);
+  font-size: var(--font-size-xs);
+  margin: var(--spacing-1) 0;
+}
+
+.breakdown-logbook__list,
+.breakdown-logbook__checks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.breakdown-logbook__row {
+  padding: var(--spacing-1) 0;
+  border-top: 1px solid var(--border-color);
+}
+
+.breakdown-logbook__edge {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+.breakdown-logbook__resolutions,
+.breakdown-logbook__judgment {
+  margin-left: var(--spacing-2);
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+
+.breakdown-logbook__check {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  padding-left: var(--spacing-2);
+}

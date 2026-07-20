@@ -101,5 +101,12 @@
     "relevant": "Ja",
     "noise": "Nein",
     "unsure": "Unklar"
+  },
+  "logbook": {
+    "title": "Kohärenz-Protokoll",
+    "m2": "Bewertet: relevant {{relevant}} · Rauschen {{noise}} · unklar {{unsure}} · offen {{unjudged}}",
+    "reopened": "{{count}} Kante(n) mehrfach aufgelöst",
+    "resolutions": "{{count}}x aufgelöst",
+    "downgraded": "Modell sagte {{verdict}} bei {{confidence}}, unter dem Schwellenwert"
   }
 }

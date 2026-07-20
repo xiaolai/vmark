@@ -101,5 +101,12 @@
     "relevant": "예",
     "noise": "아니오",
     "unsure": "모르겠음"
+  },
+  "logbook": {
+    "title": "일관성 로그",
+    "m2": "판정: 관련 {{relevant}} · 노이즈 {{noise}} · 불확실 {{unsure}} · 미판정 {{unjudged}}",
+    "reopened": "{{count}}개 엣지가 두 번 이상 해결됨",
+    "resolutions": "{{count}}회 해결",
+    "downgraded": "모델 답변 {{verdict}} (신뢰도 {{confidence}}), 임계값 미만"
   }
 }

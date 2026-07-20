@@ -101,5 +101,12 @@
     "relevant": "Sí",
     "noise": "No",
     "unsure": "No sé"
+  },
+  "logbook": {
+    "title": "Registro de coherencia",
+    "m2": "Evaluados: relevante {{relevant}} · ruido {{noise}} · dudoso {{unsure}} · sin evaluar {{unjudged}}",
+    "reopened": "{{count}} vínculo(s) resueltos más de una vez",
+    "resolutions": "resuelto {{count}} veces",
+    "downgraded": "el modelo dijo {{verdict}} con {{confidence}}, por debajo del umbral"
   }
 }
