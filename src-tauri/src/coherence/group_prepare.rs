@@ -306,7 +306,37 @@ pub fn revalidate(
         })
         .collect::<Result<_, String>>()?;
     let all_res = index.all_resolutions()?;
-    Ok(resolution_digest(&all_res, &affected) == prepare.snapshot.resolution_digest)
+    if resolution_digest(&all_res, &affected) != prepare.snapshot.resolution_digest {
+        return Ok(false); // external resolution on a prepare-time edge
+    }
+
+    // #3: NO external edge may have appeared incident to an affected object since
+    // prepare. The only new edges allowed are the committed members' OWN edges
+    // (downstream == that member's revision), and even those must carry no
+    // resolution (they were fresh at commit, so any resolution is external).
+    let prepare_keys: std::collections::HashSet<(Uuid, u32)> = affected.iter().cloned().collect();
+    for (obj, _) in &prepare.snapshot.heads {
+        let inc = index.edges_incident_to(obj)?;
+        if inc.truncated {
+            return Ok(false); // a super-hub — cannot safely bound the revalidation
+        }
+        for e in &inc.edges {
+            let key = (e.txf, e.input);
+            if prepare_keys.contains(&key) {
+                continue; // pre-existing edge — covered by the digest above
+            }
+            let is_member_edge = committed
+                .get(&e.downstream)
+                .is_some_and(|rev| **rev == e.downstream_rev);
+            if !is_member_edge {
+                return Ok(false); // an EXTERNAL new incident edge (#3b)
+            }
+            if all_res.get(&key).is_some_and(|rs| !rs.is_empty()) {
+                return Ok(false); // external resolution on a member's new edge (#3a)
+            }
+        }
+    }
+    Ok(true)
 }
 
 #[cfg(test)]
