@@ -93,5 +93,13 @@
     "confirmScope": "Esto silencia todas las dependencias hacia {{document}}, incluidas las que no aparecen aquí. ¿Marcarlo como terminado?",
     "confirm": "Marcar como terminado",
     "cancel": "Cancelar"
+  },
+  "judge": {
+    "open": "¿Valía la pena?",
+    "hint": "Registra si valió la pena mostrar este aviso (alimenta la métrica de relevancia).",
+    "prompt": "¿Valía la pena avisar de esto?",
+    "relevant": "Sí",
+    "noise": "No",
+    "unsure": "No sé"
   }
 }

@@ -93,5 +93,13 @@
     "confirmScope": "Cela met en sourdine toutes les dépendances vers {{document}}, y compris celles non listées ici. Le marquer comme terminé ?",
     "confirm": "Marquer comme terminé",
     "cancel": "Annuler"
+  },
+  "judge": {
+    "open": "Signalement utile ?",
+    "hint": "Indiquer si ce signalement était utile (alimente la métrique de pertinence).",
+    "prompt": "Ce signalement était-il utile ?",
+    "relevant": "Oui",
+    "noise": "Non",
+    "unsure": "Incertain"
   }
 }

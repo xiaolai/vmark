@@ -93,5 +93,13 @@
     "confirmScope": "Damit werden alle Abhängigkeiten zu {{document}} stummgeschaltet, auch nicht aufgeführte. Als abgeschlossen markieren?",
     "confirm": "Als abgeschlossen markieren",
     "cancel": "Abbrechen"
+  },
+  "judge": {
+    "open": "Meldung sinnvoll?",
+    "hint": "Festhalten, ob diese Meldung sinnvoll war (fließt in die Relevanzmetrik ein).",
+    "prompt": "War diese Meldung sinnvoll?",
+    "relevant": "Ja",
+    "noise": "Nein",
+    "unsure": "Unklar"
   }
 }

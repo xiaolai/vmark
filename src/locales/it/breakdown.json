@@ -93,5 +93,13 @@
     "confirmScope": "Questo silenzia ogni dipendenza verso {{document}}, comprese quelle non elencate qui. Segnarlo come concluso?",
     "confirm": "Segna come concluso",
     "cancel": "Annulla"
+  },
+  "judge": {
+    "open": "Segnalazione utile?",
+    "hint": "Registra se valeva la pena segnalarlo (alimenta la metrica di rilevanza).",
+    "prompt": "Valeva la pena segnalarlo?",
+    "relevant": "Sì",
+    "noise": "No",
+    "unsure": "Incerto"
   }
 }

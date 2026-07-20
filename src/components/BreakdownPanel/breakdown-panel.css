@@ -626,3 +626,16 @@
   color: var(--warning-color);
   font-size: var(--font-size-xs);
 }
+
+/* Flag-judgment prompt — no default answer is rendered as selected. */
+.breakdown-judge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-1);
+  flex-wrap: wrap;
+}
+
+.breakdown-judge__prompt {
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+}
