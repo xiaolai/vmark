@@ -19,6 +19,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { EdgeRow } from "@/stores/breakdownStore";
 import { setDocumentLifecycle } from "@/services/breakdown/breakdownService";
+import { useInFlightAction } from "./useInFlightAction";
 
 interface LifecycleActionProps {
   row: EdgeRow;
@@ -28,18 +29,17 @@ interface LifecycleActionProps {
 export function LifecycleAction({ row, workspaceRoot }: LifecycleActionProps) {
   const { t } = useTranslation("breakdown");
   const [confirming, setConfirming] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const [run, busy] = useInFlightAction();
 
   const frozen = row.frozen_downstream === true;
   const label = row.downstream_path ?? row.downstream;
 
   const apply = (lifecycle: "live" | "frozen") => {
     if (!workspaceRoot || busy) return;
-    setBusy(true);
     setConfirming(false);
-    void setDocumentLifecycle(workspaceRoot, row.downstream, lifecycle, undefined).finally(
-      () => setBusy(false),
-    );
+    // Ref-guarded: freezing appends to the ledger, and two fast clicks must
+    // not append twice (useInFlightAction).
+    run(() => setDocumentLifecycle(workspaceRoot, row.downstream, lifecycle, undefined));
   };
 
   if (confirming) {

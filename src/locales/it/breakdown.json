@@ -107,13 +107,19 @@
     "m2": "Giudicati: rilevante {{relevant}} · rumore {{noise}} · incerto {{unsure}} · non giudicati {{unjudged}}",
     "reopened": "{{count}} collegamento/i risolti più di una volta",
     "resolutions": "risolto {{count}} volte",
-    "downgraded": "il modello ha detto {{verdict}} a {{confidence}}, sotto la soglia"
+    "downgraded": "il modello ha detto {{verdict}} a {{confidence}}, sotto la soglia",
+    "verdict": {
+      "unknown": "Nessun segnale",
+      "noContradiction": "Nessuna contraddizione",
+      "contradiction": "Contraddizione"
+    }
   },
   "anchor": {
     "set": "Ancora a una sezione",
     "change": "Cambia ancora",
     "clear": "Intero file",
     "hint": "Controlla solo la sezione da cui dipende, invece dell'intero file.",
-    "empty": "Nessuna sezione a cui ancorare."
+    "empty": "Nessuna sezione a cui ancorare.",
+    "error": "Impossibile caricare le sezioni."
   }
 }

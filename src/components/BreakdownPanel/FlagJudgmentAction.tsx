@@ -19,6 +19,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { EdgeRow } from "@/stores/breakdownStore";
 import { judgeFlag } from "@/services/breakdown/breakdownService";
+import { useInFlightAction } from "./useInFlightAction";
 
 const ANSWERS = ["relevant", "noise", "unsure"] as const;
 
@@ -30,15 +31,13 @@ interface FlagJudgmentActionProps {
 export function FlagJudgmentAction({ row, workspaceRoot }: FlagJudgmentActionProps) {
   const { t } = useTranslation("breakdown");
   const [open, setOpen] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const [run, busy] = useInFlightAction();
 
   const answer = (judgment: (typeof ANSWERS)[number]) => {
     if (!workspaceRoot || busy) return;
-    setBusy(true);
     setOpen(false);
-    void judgeFlag(workspaceRoot, row.txf, row.input, judgment, undefined).finally(() =>
-      setBusy(false),
-    );
+    // Ref-guarded so a double-click cannot append two judgments for one flag.
+    run(() => judgeFlag(workspaceRoot, row.txf, row.input, judgment, undefined));
   };
 
   if (!open) {

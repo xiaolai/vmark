@@ -107,13 +107,19 @@
     "m2": "已判定：值得 {{relevant}} · 噪音 {{noise}} · 不确定 {{unsure}} · 未判定 {{unjudged}}",
     "reopened": "{{count}} 条依赖被多次解决",
     "resolutions": "已解决 {{count}} 次",
-    "downgraded": "模型答复 {{verdict}}（置信度 {{confidence}}），低于阈值"
+    "downgraded": "模型答复 {{verdict}}（置信度 {{confidence}}），低于阈值",
+    "verdict": {
+      "unknown": "无信号",
+      "noContradiction": "无矛盾",
+      "contradiction": "存在矛盾"
+    }
   },
   "anchor": {
     "set": "锚定到章节",
     "change": "更改锚点",
     "clear": "整个文件",
     "hint": "只关注所依赖的章节，而不是整个文件。",
-    "empty": "没有可锚定的章节。"
+    "empty": "没有可锚定的章节。",
+    "error": "无法加载章节。"
   }
 }

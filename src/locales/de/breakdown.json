@@ -107,13 +107,19 @@
     "m2": "Bewertet: relevant {{relevant}} · Rauschen {{noise}} · unklar {{unsure}} · offen {{unjudged}}",
     "reopened": "{{count}} Kante(n) mehrfach aufgelöst",
     "resolutions": "{{count}}x aufgelöst",
-    "downgraded": "Modell sagte {{verdict}} bei {{confidence}}, unter dem Schwellenwert"
+    "downgraded": "Modell sagte {{verdict}} bei {{confidence}}, unter dem Schwellenwert",
+    "verdict": {
+      "unknown": "Kein Signal",
+      "noContradiction": "Kein Widerspruch",
+      "contradiction": "Widerspruch"
+    }
   },
   "anchor": {
     "set": "An Abschnitt verankern",
     "change": "Anker ändern",
     "clear": "Ganze Datei",
     "hint": "Nur den Abschnitt prüfen, von dem dies abhängt, statt der ganzen Datei.",
-    "empty": "Keine Abschnitte zum Verankern."
+    "empty": "Keine Abschnitte zum Verankern.",
+    "error": "Abschnitte konnten nicht geladen werden."
   }
 }

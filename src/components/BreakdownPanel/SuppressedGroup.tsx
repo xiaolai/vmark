@@ -43,14 +43,19 @@ export function SuppressedGroup({ rows, workspaceRoot }: SuppressedGroupProps) {
       <p className="breakdown-suppressed__hint">{t("suppressed.hint")}</p>
       <ul className="breakdown-suppressed__list">
         {rows.map((row) => (
-          <li key={`${row.txf}#${row.input}`} className="breakdown-suppressed__item">
-            <span className="breakdown-suppressed__reason">
-              {row.frozen_downstream
+          // BreakdownRow is itself the <li>; the reason rides along as its
+          // annotation. Wrapping it in another <li> was invalid nested-list
+          // markup.
+          <BreakdownRow
+            key={`${row.txf}#${row.input}`}
+            row={row}
+            workspaceRoot={workspaceRoot}
+            annotation={
+              row.frozen_downstream
                 ? t("suppressed.frozen")
-                : t("suppressed.anchorUnchanged")}
-            </span>
-            <BreakdownRow row={row} workspaceRoot={workspaceRoot} />
-          </li>
+                : t("suppressed.anchorUnchanged")
+            }
+          />
         ))}
       </ul>
     </details>

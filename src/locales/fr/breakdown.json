@@ -107,13 +107,19 @@
     "m2": "Jugés : pertinent {{relevant}} · bruit {{noise}} · incertain {{unsure}} · non jugé {{unjudged}}",
     "reopened": "{{count}} lien(s) résolus plus d'une fois",
     "resolutions": "résolu {{count}} fois",
-    "downgraded": "le modèle a répondu {{verdict}} à {{confidence}}, sous le seuil"
+    "downgraded": "le modèle a répondu {{verdict}} à {{confidence}}, sous le seuil",
+    "verdict": {
+      "unknown": "Aucun signal",
+      "noContradiction": "Aucune contradiction",
+      "contradiction": "Contradiction"
+    }
   },
   "anchor": {
     "set": "Ancrer à une section",
     "change": "Changer l'ancre",
     "clear": "Fichier entier",
     "hint": "Ne surveiller que la section dont cela dépend, plutôt que tout le fichier.",
-    "empty": "Aucune section à ancrer."
+    "empty": "Aucune section à ancrer.",
+    "error": "Impossible de charger les sections."
   }
 }

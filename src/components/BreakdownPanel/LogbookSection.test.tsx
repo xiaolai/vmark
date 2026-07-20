@@ -85,11 +85,13 @@ describe("LogbookSection", () => {
     await screen.findByTestId("logbook-m2");
     // The first check was answered and overruled by tau; the second had no
     // signal. Only the first may show the preserved verdict.
+    // Verdicts render translated; the downgraded row (0-0) carries the
+    // preserved "No contradiction" label, the real non-answer (0-1) does not.
     expect(screen.getByTestId("logbook-check-0-0")).toHaveTextContent(
-      /no-contradiction/,
+      /contradiction/i,
     );
     expect(screen.getByTestId("logbook-check-0-1")).not.toHaveTextContent(
-      /no-contradiction/,
+      /contradiction/i,
     );
   });
 
