@@ -84,5 +84,14 @@
   "anchorStates": {
     "anchor-changed": "verankerter Abschnitt geändert",
     "anchor-lost": "Anker verloren"
+  },
+  "lifecycle": {
+    "finish": "Als abgeschlossen markieren",
+    "finishHint": "Keine Rückfragen mehr zu diesem Dokument — es ist ein abgeschlossener Datensatz.",
+    "reopen": "Wieder öffnen",
+    "reopenHint": "Wieder Rückfragen zu diesem Dokument stellen.",
+    "confirmScope": "Damit werden alle Abhängigkeiten zu {{document}} stummgeschaltet, auch nicht aufgeführte. Als abgeschlossen markieren?",
+    "confirm": "Als abgeschlossen markieren",
+    "cancel": "Abbrechen"
   }
 }

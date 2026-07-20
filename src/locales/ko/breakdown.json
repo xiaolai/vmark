@@ -84,5 +84,14 @@
   "anchorStates": {
     "anchor-changed": "고정된 섹션이 변경됨",
     "anchor-lost": "고정 위치를 잃음"
+  },
+  "lifecycle": {
+    "finish": "완료로 표시",
+    "finishHint": "이 문서에 대해 더 이상 묻지 않습니다 — 완료된 기록입니다.",
+    "reopen": "다시 열기",
+    "reopenHint": "이 문서에 대해 다시 묻습니다.",
+    "confirmScope": "{{document}}(으)로 향하는 모든 의존성이 — 여기에 표시되지 않은 것까지 — 알림에서 제외됩니다. 완료로 표시할까요?",
+    "confirm": "완료로 표시",
+    "cancel": "취소"
   }
 }

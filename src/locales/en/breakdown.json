@@ -84,5 +84,14 @@
   "anchorStates": {
     "anchor-changed": "anchored section changed",
     "anchor-lost": "anchor lost"
+  },
+  "lifecycle": {
+    "finish": "Mark finished",
+    "finishHint": "Stop asking about this document — it is a finished record.",
+    "reopen": "Reopen",
+    "reopenHint": "Start asking about this document again.",
+    "confirmScope": "This silences every dependency into {{document}}, including ones not listed here. Mark it finished?",
+    "confirm": "Mark finished",
+    "cancel": "Cancel"
   }
 }

@@ -84,5 +84,14 @@
   "anchorStates": {
     "anchor-changed": "sezione ancorata modificata",
     "anchor-lost": "ancora persa"
+  },
+  "lifecycle": {
+    "finish": "Segna come concluso",
+    "finishHint": "Smetti di chiedere di questo documento — è un record concluso.",
+    "reopen": "Riapri",
+    "reopenHint": "Torna a chiedere di questo documento.",
+    "confirmScope": "Questo silenzia ogni dipendenza verso {{document}}, comprese quelle non elencate qui. Segnarlo come concluso?",
+    "confirm": "Segna come concluso",
+    "cancel": "Annulla"
   }
 }

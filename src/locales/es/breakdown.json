@@ -84,5 +84,14 @@
   "anchorStates": {
     "anchor-changed": "sección anclada modificada",
     "anchor-lost": "ancla perdida"
+  },
+  "lifecycle": {
+    "finish": "Marcar como terminado",
+    "finishHint": "Dejar de preguntar por este documento — es un registro terminado.",
+    "reopen": "Reabrir",
+    "reopenHint": "Volver a preguntar por este documento.",
+    "confirmScope": "Esto silencia todas las dependencias hacia {{document}}, incluidas las que no aparecen aquí. ¿Marcarlo como terminado?",
+    "confirm": "Marcar como terminado",
+    "cancel": "Cancelar"
   }
 }

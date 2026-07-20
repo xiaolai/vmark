@@ -14,6 +14,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { EdgeRow, EdgeStateLabel } from "@/stores/breakdownStore";
 import { checkEdge, resolveEdge, reviseEdge } from "@/services/breakdown/breakdownService";
+import { LifecycleAction } from "./LifecycleAction";
 
 /** States with no single live upstream head — resolution is impossible (spec §9.2). */
 const RESOLUTION_LOCKED: ReadonlySet<EdgeStateLabel> = new Set([
@@ -117,6 +118,7 @@ export function BreakdownRow({ row, workspaceRoot }: BreakdownRowProps) {
         )}
       </div>
       <div className="breakdown-row__actions">
+        <LifecycleAction row={row} workspaceRoot={workspaceRoot} />
         <button
           type="button"
           className="breakdown-row__action"

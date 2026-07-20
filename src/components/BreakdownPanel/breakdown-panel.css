@@ -613,3 +613,16 @@
   color: var(--text-tertiary);
   font-size: var(--font-size-xs);
 }
+
+/* Lifecycle confirm — the freeze blast radius stated inline, before it applies. */
+.breakdown-lifecycle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-1);
+  flex-wrap: wrap;
+}
+
+.breakdown-lifecycle__warning {
+  color: var(--warning-color);
+  font-size: var(--font-size-xs);
+}
