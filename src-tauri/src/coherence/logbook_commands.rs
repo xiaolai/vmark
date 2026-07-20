@@ -131,16 +131,20 @@ pub async fn coherence_edge_headings(
     let mut kernel = kernel_arc
         .lock()
         .map_err(|_| "kernel poisoned".to_string())?;
+    kernel.ensure_available()?; // 9R-4: never serve headings from a poisoned index
     let edge = kernel
         .index()
         .edge_by(&txf, input)?
         .ok_or_else(|| format!("no such edge: {txf}#{input}"))?;
     let current = match kernel.index().resolve_live(&edge.upstream)? {
         super::dag::Resolved::Single(rev) => rev,
-        // Same refusal as set_anchor: with no single live revision there is
-        // nothing coherent to anchor against, so offer nothing rather than
-        // guess a revision.
-        _ => return Ok(Vec::new()),
+        // A genuinely single upstream with no headings is the legitimate empty
+        // case (Ok([]) below). A NON-single upstream is different: there is no
+        // coherent revision to anchor against, and returning Ok([]) here would
+        // render as "no sections to anchor to" — indistinguishable from a real
+        // heading-less document. Surface the actual condition, with the same
+        // wording set_anchor uses when it refuses for the same reason.
+        _ => return Err("upstream has no single live revision to anchor against".into()),
     };
     let text = super::check_commands::snapshot_text(&mut kernel, &edge.upstream, &current)?;
     Ok(super::anchors::heading_paths(&text))

@@ -15,7 +15,21 @@ use super::check_sweep_run::{
     cost_model_for, cursor_from_index, estimate_check_cost, is_checkable, SweepConfig, SweepReport,
 };
 use super::checker::{parse_check_response, ParsedCheck};
+use super::index_row::EdgeRow;
 use super::project::CheckVerdict;
+
+/// The edges a sweep will spend money checking: version-stale AND actionable.
+///
+/// Extracted from the sweep body so the money-gating predicate is testable
+/// without a live provider. `actionable` excludes frozen downstreams and
+/// unchanged anchors — work `perform_status` already hides — so the sweep does
+/// not pay an LLM to re-check a dependency the owner is not being asked about.
+fn select_checkable(rows: &[EdgeRow]) -> Vec<(Uuid, u32)> {
+    rows.iter()
+        .filter(|r| r.actionable && is_checkable(&r.state))
+        .map(|r| (r.txf, r.input))
+        .collect()
+}
 
 /// Sweep the live stale edges under a cost ceiling, seeded by the resume cursor.
 /// Returns the run manifest (WI-1.1). Cost is *estimated* (v4.8).
@@ -65,11 +79,7 @@ pub async fn coherence_check_sweep(
                                     // section had not moved — work `perform_status` already considered
                                     // non-actionable. `anchor-changed` and `anchor-lost` stay in scope.
         let rows = super::commands::perform_breakdown_in(&mut kernel, None)?;
-        let checkable = rows
-            .iter()
-            .filter(|r| r.actionable && is_checkable(&r.state))
-            .map(|r| (r.txf, r.input))
-            .collect();
+        let checkable = select_checkable(&rows);
         let cursor = cursor_from_index(kernel.index().checked_cursor()?);
         (checkable, cursor)
     };
@@ -166,3 +176,7 @@ pub async fn coherence_check_sweep(
 
     Ok(SweepReport::from_manifest(&manifest))
 }
+
+#[cfg(test)]
+#[path = "check_sweep_command.test.rs"]
+mod tests;
