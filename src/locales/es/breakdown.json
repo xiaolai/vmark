@@ -107,13 +107,19 @@
     "m2": "Evaluados: relevante {{relevant}} · ruido {{noise}} · dudoso {{unsure}} · sin evaluar {{unjudged}}",
     "reopened": "{{count}} vínculo(s) resueltos más de una vez",
     "resolutions": "resuelto {{count}} veces",
-    "downgraded": "el modelo dijo {{verdict}} con {{confidence}}, por debajo del umbral"
+    "downgraded": "el modelo dijo {{verdict}} con {{confidence}}, por debajo del umbral",
+    "verdict": {
+      "unknown": "Sin señal",
+      "noContradiction": "Sin contradicción",
+      "contradiction": "Contradicción"
+    }
   },
   "anchor": {
     "set": "Anclar a una sección",
     "change": "Cambiar ancla",
     "clear": "Archivo completo",
     "hint": "Preguntar solo por la sección de la que depende, en vez del archivo entero.",
-    "empty": "No hay secciones para anclar."
+    "empty": "No hay secciones para anclar.",
+    "error": "No se pudieron cargar las secciones."
   }
 }

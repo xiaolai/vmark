@@ -32,9 +32,16 @@ function stateKeyOf(state: EdgeStateLabel): string {
 interface BreakdownRowProps {
   row: EdgeRow;
   workspaceRoot: string | null;
+  /**
+   * Optional caption rendered INSIDE the row's own `<li>` (e.g. the suppression
+   * reason). It lives here rather than in a wrapping element because the row IS
+   * the list item — wrapping it in another `<li>` produced invalid nested-list
+   * markup and broke list semantics.
+   */
+  annotation?: string;
 }
 
-export function BreakdownRow({ row, workspaceRoot }: BreakdownRowProps) {
+export function BreakdownRow({ row, workspaceRoot, annotation }: BreakdownRowProps) {
   const { t } = useTranslation("breakdown");
   const [waiving, setWaiving] = useState(false);
   const [reason, setReason] = useState("");
@@ -98,6 +105,9 @@ export function BreakdownRow({ row, workspaceRoot }: BreakdownRowProps) {
 
   return (
     <li className="breakdown-row">
+      {annotation !== undefined && (
+        <span className="breakdown-row__annotation">{annotation}</span>
+      )}
       <div className="breakdown-row__main">
         <span className="breakdown-row__upstream" title={upstreamLabel}>
           {upstreamLabel}

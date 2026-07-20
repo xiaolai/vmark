@@ -2,28 +2,44 @@
  * LogbookSection — the coherence log: every edge's history, the M2 tally, and
  * the churn count behind M4.
  *
- * Loaded lazily. `project_logbook` reads the ENTIRE ledger, so fetching it with
- * the panel would tax every open to serve a view most opens don't want. The
- * section is therefore collapsed by default and fetches on first expand.
+ * Loaded lazily through `useLazyResource`. `project_logbook` reads the ENTIRE
+ * ledger, so fetching with the panel would tax every open to serve a view most
+ * opens don't want. Keying on the workspace also fixes two bugs the earlier
+ * hand-rolled cache had: switching workspace kept showing the previous one's
+ * log, and the lifetime cache never refreshed after a mutation. Each expand now
+ * reloads, so the M2/churn figures reflect the latest ledger.
  *
  * The one thing this view exists to make visible is what a flat entry list
- * hides. Two facts, both found by dogfooding:
+ * hides, both found by dogfooding:
  *
  * - **Churn.** The same edges were ratified 3x each, so M4's burden is
  *   REPETITION, not breadth. `resolutions` is shown per edge and totalled as
- *   `reopenedEdges`, because "few edges, many times" and "many edges, once"
- *   cost the same in a raw count and mean opposite things.
- * - **Downgraded verdicts.** A tau-downgraded check and a genuine non-answer
- *   are both recorded `unknown`. Conflating them made the dogfood run's "24%
- *   unknown" uninterpretable: a model that answered and was overruled is a
- *   threshold problem, one that had no signal is not.
+ *   `reopenedEdges`.
+ * - **Downgraded verdicts.** A tau-downgraded check and a genuine non-answer are
+ *   both recorded `unknown`. Only the former shows its preserved verdict, so a
+ *   "no signal" row is distinguishable from "the model answered, below tau".
  *
  * @module components/BreakdownPanel/LogbookSection
  */
-import { useState } from "react";
+import { useCallback } from "react";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import type { LogbookView } from "@/stores/breakdownStore";
 import { fetchLogbook } from "@/services/breakdown/breakdownService";
+import { useLazyResource } from "./useLazyResource";
+
+// Backend verdict wire values → i18n keys. Unmapped (future) verdicts fall back
+// to the raw value rather than rendering a missing-key placeholder.
+const VERDICT_KEY: Record<string, string> = {
+  unknown: "unknown",
+  "no-contradiction": "noContradiction",
+  contradiction: "contradiction",
+};
+
+function verdictLabel(t: TFunction, verdict: string): string {
+  const key = VERDICT_KEY[verdict];
+  return key ? t(`logbook.verdict.${key}`) : verdict;
+}
 
 interface LogbookSectionProps {
   workspaceRoot: string | null;
@@ -31,19 +47,14 @@ interface LogbookSectionProps {
 
 export function LogbookSection({ workspaceRoot }: LogbookSectionProps) {
   const { t } = useTranslation("breakdown");
-  const [open, setOpen] = useState(false);
-  const [view, setView] = useState<LogbookView | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  const toggle = () => {
-    const next = !open;
-    setOpen(next);
-    if (!next || !workspaceRoot || view !== null || loading) return;
-    setLoading(true);
-    void fetchLogbook(workspaceRoot)
-      .then((v) => setView(v))
-      .finally(() => setLoading(false));
-  };
+  const fetcher = useCallback(
+    () => fetchLogbook(workspaceRoot as string),
+    [workspaceRoot],
+  );
+  const { open, toggle, data: view, loading } = useLazyResource<LogbookView>(
+    workspaceRoot,
+    fetcher,
+  );
 
   return (
     <section className="breakdown-logbook">
@@ -97,13 +108,13 @@ export function LogbookSection({ workspaceRoot }: LogbookSectionProps) {
                       className="breakdown-logbook__check"
                       data-testid={`logbook-check-${i}-${j}`}
                     >
-                      {c.verdict}
+                      {verdictLabel(t, c.verdict)}
                       {/* Only a check the model actually answered carries a
                           preserved verdict; a real non-answer must not look
                           like one that was overruled. */}
                       {c.downgradedVerdict
                         ? ` — ${t("logbook.downgraded", {
-                            verdict: c.downgradedVerdict,
+                            verdict: verdictLabel(t, c.downgradedVerdict),
                             confidence: c.confidence.toFixed(2),
                           })}`
                         : ""}

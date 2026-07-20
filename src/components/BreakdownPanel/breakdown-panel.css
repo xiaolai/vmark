@@ -604,11 +604,13 @@
   padding: 0;
 }
 
-.breakdown-suppressed__item {
+/* The suppression reason rides inside BreakdownRow's own <li> (no nested list).
+   The whole suppressed group is already de-emphasised via reduced opacity. */
+.breakdown-suppressed__list {
   opacity: var(--opacity-half-faded);
 }
 
-.breakdown-suppressed__reason {
+.breakdown-row__annotation {
   display: block;
   color: var(--text-tertiary);
   font-size: var(--font-size-xs);

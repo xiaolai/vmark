@@ -107,13 +107,19 @@
     "m2": "Judged relevant {{relevant}} · noise {{noise}} · unsure {{unsure}} · unjudged {{unjudged}}",
     "reopened": "{{count}} edge(s) resolved more than once",
     "resolutions": "resolved {{count}}x",
-    "downgraded": "model said {{verdict}} at {{confidence}}, below threshold"
+    "downgraded": "model said {{verdict}} at {{confidence}}, below threshold",
+    "verdict": {
+      "unknown": "No signal",
+      "noContradiction": "No contradiction",
+      "contradiction": "Contradiction"
+    }
   },
   "anchor": {
     "set": "Anchor to a section",
     "change": "Change anchor",
     "clear": "Whole file",
     "hint": "Ask only about the section this depends on, instead of the whole file.",
-    "empty": "No sections to anchor to."
+    "empty": "No sections to anchor to.",
+    "error": "Couldn't load sections."
   }
 }

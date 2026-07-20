@@ -107,13 +107,19 @@
     "m2": "Julgados: relevante {{relevant}} · ruído {{noise}} · incerto {{unsure}} · não julgados {{unjudged}}",
     "reopened": "{{count}} vínculo(s) resolvidos mais de uma vez",
     "resolutions": "resolvido {{count}}x",
-    "downgraded": "o modelo disse {{verdict}} com {{confidence}}, abaixo do limiar"
+    "downgraded": "o modelo disse {{verdict}} com {{confidence}}, abaixo do limiar",
+    "verdict": {
+      "unknown": "Sem sinal",
+      "noContradiction": "Sem contradição",
+      "contradiction": "Contradição"
+    }
   },
   "anchor": {
     "set": "Ancorar a uma seção",
     "change": "Alterar âncora",
     "clear": "Arquivo inteiro",
     "hint": "Perguntar apenas sobre a seção da qual isto depende, em vez do arquivo inteiro.",
-    "empty": "Nenhuma seção para ancorar."
+    "empty": "Nenhuma seção para ancorar.",
+    "error": "Não foi possível carregar as seções."
   }
 }

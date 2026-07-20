@@ -17,11 +17,32 @@
  *
  * @module pages/settings/CoherenceSettingsGroup
  */
+import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { SettingRow, SettingsGroup, Select } from "./components";
 
 const TAU_OPTIONS = ["0.7", "0.8", "0.9", "0.95"] as const;
+
+/**
+ * The τ choices, plus the current value if it is not one of them. `clamp.ts`
+ * accepts any value in [0.5, 1] (an MCP client or an older config can set, say,
+ * 0.85), and a `<Select>` whose `value` matches no option renders as an empty
+ * box that silently rewrites the setting on the next change — so a stray value
+ * is surfaced as its own option rather than hidden.
+ */
+function tauOptions(tau: number, t: TFunction): { value: string; label: string }[] {
+  const opts: { value: string; label: string }[] = TAU_OPTIONS.map((v) => ({
+    value: v,
+    label: t(`coherence.checkTau.option${v.replace(".", "")}`),
+  }));
+  const current = String(tau);
+  if (!opts.some((o) => o.value === current)) {
+    opts.push({ value: current, label: current });
+    opts.sort((a, b) => Number(a.value) - Number(b.value));
+  }
+  return opts;
+}
 
 export function CoherenceSettingsGroup() {
   const { t } = useTranslation("settings");
@@ -36,10 +57,7 @@ export function CoherenceSettingsGroup() {
       >
         <Select
           value={String(tau)}
-          options={TAU_OPTIONS.map((v) => ({
-            value: v,
-            label: t(`coherence.checkTau.option${v.replace(".", "")}`),
-          }))}
+          options={tauOptions(tau, t)}
           onChange={(v) => updateGeneralSetting("coherenceCheckTau", Number(v))}
         />
       </SettingRow>

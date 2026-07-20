@@ -53,3 +53,20 @@ describe("CoherenceSettingsGroup", () => {
     expect(useSettingsStore.getState().general.coherenceCheckTau).toBe(0.7);
   });
 });
+
+describe("CoherenceSettingsGroup — out-of-list stored value (W1)", () => {
+  it("surfaces a stored value that is not one of the presets", () => {
+    // clamp.ts permits any [0.5,1]; 0.85 can arrive via MCP or an old config.
+    useSettingsStore.getState().updateGeneralSetting("coherenceCheckTau", 0.85);
+    render(<CoherenceSettingsGroup />);
+    const select = screen.getByRole("combobox");
+    expect(select).toHaveValue("0.85");
+    const values = Array.from(select.querySelectorAll("option")).map(
+      (o) => (o as HTMLOptionElement).value,
+    );
+    expect(values).toContain("0.85");
+    // Still sorted and still inside the clamp range.
+    const nums = values.map(Number);
+    expect([...nums]).toEqual([...nums].sort((a, b) => a - b));
+  });
+});

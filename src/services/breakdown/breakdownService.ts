@@ -340,7 +340,7 @@ export async function fetchEdgeHeadings(
   workspaceRoot: string,
   txf: string,
   input: number,
-): Promise<string[][]> {
+): Promise<string[][] | null> {
   try {
     return await invoke<string[][]>("coherence_edge_headings", {
       workspaceRoot,
@@ -348,8 +348,12 @@ export async function fetchEdgeHeadings(
       input,
     });
   } catch (error) {
+    // `null` on failure, NOT `[]`: an empty array is the legitimate "this
+    // upstream has no anchorable sections" answer, and collapsing an error into
+    // it would render a false "No sections to anchor to" for a diverged upstream
+    // or a real IO failure.
     useBreakdownStore.getState().setError(messageOf(error));
-    return [];
+    return null;
   }
 }
 

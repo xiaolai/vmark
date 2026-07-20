@@ -107,13 +107,19 @@
     "m2": "判定: 妥当 {{relevant}} · ノイズ {{noise}} · 不明 {{unsure}} · 未判定 {{unjudged}}",
     "reopened": "{{count}} 件のエッジが複数回解決されました",
     "resolutions": "{{count}} 回解決",
-    "downgraded": "モデルの回答は {{verdict}}（確信度 {{confidence}}）、しきい値未満"
+    "downgraded": "モデルの回答は {{verdict}}（確信度 {{confidence}}）、しきい値未満",
+    "verdict": {
+      "unknown": "信号なし",
+      "noContradiction": "矛盾なし",
+      "contradiction": "矛盾あり"
+    }
   },
   "anchor": {
     "set": "セクションに固定",
     "change": "固定先を変更",
     "clear": "ファイル全体",
     "hint": "ファイル全体ではなく、依存しているセクションのみを対象にします。",
-    "empty": "固定できるセクションがありません。"
+    "empty": "固定できるセクションがありません。",
+    "error": "セクションを読み込めませんでした。"
   }
 }
