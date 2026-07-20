@@ -837,7 +837,8 @@ not objects — v1 adopts a file on first capture, never on scan.
 |---|---|
 | Known object, content hash unchanged | Nothing |
 | Known object, content changed, git classifier says NAVIGATION | `navigation` entry only; **no revision minted** (R18) |
-| Known object, content changed, git classifier says MUTATION (revert/merge) | Transformation with `agent.type = "git"`, parents = last known revision(s) |
+| Git classifier says MUTATION and the current ledger omits valid envelopes present in the mutation commit's parent ledger(s) | Append deduplicated `ledger-history-rewound` diagnostic and fail closed until the removed idems are restored; do not reconcile content against the rewound history (§9.4.1) |
+| Known object, content changed, git classifier says MUTATION, and the ledger-monotonicity check passed | Transformation with `agent.type = "git"`, parents = last known revision(s) |
 | Known object, content changed, otherwise | Observed-external transformation: `agent.type = "external"`, empty inputs, `confidence = "unknown"`, parent = last known revision |
 | Known object's file deleted | No ledger entry; object marked **absent** in the index (history intact; breakdown hides absent objects). Deletion-as-transformation is deferred to O3/retention design |
 | Known object's file moved/renamed (same `vmark.id` found at new path) | Index path updated; no revision minted (content unchanged ⇒ same hash) |
@@ -849,6 +850,40 @@ not objects — v1 adopts a file on first capture, never on scan.
 
 Mid-scan writes are serialized against capture through the per-workspace
 kernel instance (§5.1); a scan never races its own writer's appends.
+
+### 9.4.1 Ledger-bearing Git mutations (owner ruling, 2026-07-21)
+
+Ledger monotonicity is checked **before** the content conditions in the scan
+table above.
+
+For a Git operation classified as `MUTATION`, scan MUST compare the current
+ledger with the ledger trees of the mutation commit's parent or parents. If the
+current ledger omits any valid envelope present in a parent ledger, the
+operation is a **ledger-bearing history rewind**. This rule is based on envelope
+identity and idem, not line count, file size, or path metadata.
+
+A ledger-bearing history rewind MUST NOT be interpreted as "the reverted ledger
+is now the complete history." It also MUST NOT mint a transformation parented on
+the rewound head: that would encode A → A and lose the intervening B revision.
+
+The v0 required behavior is fail-closed diagnosis:
+
+1. Append one deduplicated `diagnostic` with code `ledger-history-rewound`. It
+   MUST identify the Git commit, its parent or parents, and the removed envelope
+   IDs and idems.
+2. Refuse every subsequent coherence mutation except re-emission of that
+   deduplicated diagnostic until every removed idem is again present in the
+   current ledger.
+3. Surface recovery instructions to restore the removed ledger envelopes from
+   the relevant Git parent. Reads may continue only where they cannot mistake
+   the rewound index for complete history.
+4. After restoration, reconcile the index and rescan the working files. A
+   reverted file is then captured as a new git-attributed transformation
+   parented on the restored pre-revert head — B → A in an A → B → A sequence.
+
+Automatic repair may later validate and idempotently reappend the removed
+envelopes before reconciliation. That automation does not change the semantics
+above; it replaces manual recovery, not the fail-closed rule.
 
 ## 10. Performance targets (O6)
 

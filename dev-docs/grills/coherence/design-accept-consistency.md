@@ -497,3 +497,81 @@ three. 9R-3 needs a spec ruling on whether a `git revert` of a ledger-bearing
 commit should mint a git-attributed mutation (it currently cannot — the parent it
 would need was reverted away) or whether coherence history should survive such a
 revert by some other durable observation mechanism.
+
+## Owner ruling — R1 consistency model (2026-07-21)
+
+Decision delegated to a cross-model (Codex) proxy acting with owner authority,
+after a two-round design dialogue (thread `019f8057`). Resolves the "stop
+recommendation" above: the loop stops, Option 2 is ratified as an interim safe
+mode, and the group-commit re-review may proceed against this ratified design.
+
+**RATIFIED — INTERIM SAFE MODE: Option 2.**
+
+`WorkspaceKernel::with_write_lock` MUST reconcile the derived SQLite index
+unconditionally from the complete ledger on every outermost write-lock acquire.
+This is the ratified correctness model for the current implementation: it has no
+ledger-fingerprint false-negative class and permits the Phase 4 group-commit
+review to close once its remaining correctness findings and gates pass.
+
+This ratification is explicitly temporary. O(ledger) reconciliation is a safe
+recovery mode, not the durable performance architecture.
+
+The implementation MUST record, per outermost acquisition:
+
+- deduplicated ledger-entry count;
+- ledger read duration;
+- index rebuild duration;
+- total reconcile duration; and
+- a rolling p95 over the latest 100 acquisitions.
+
+A non-ledger, once-per-workspace warning MUST surface when either:
+
+- rolling reconcile p95 reaches 50 ms; or
+- the ledger reaches 7,500 deduplicated entries.
+
+The durable store redesign becomes release-blocking before either:
+
+- rolling reconcile p95 reaches 100 ms; or
+- the ledger reaches 20,000 deduplicated entries.
+
+Crossing a threshold does not make the current algorithm incorrect and MUST NOT
+make an existing workspace unavailable. It means a subsequent release may not
+add further coherence-layer scope without landing the durable redesign.
+
+### Durable successor constraints
+
+The durable successor MUST preserve these non-negotiable properties:
+
+1. Human-readable plain-text JSONL remains canonical truth.
+2. The ledger remains git-tracked, diffable, and usable without VMark or SQLite.
+3. SQLite projection state remains disposable and fully rebuildable from the
+   plain-text ledger.
+4. Normal local mutation is O(delta), while a non-monotonic external ledger
+   change may legitimately require a full rebuild.
+5. No inode/mtime/size fingerprint may certify ledger/index equivalence.
+
+The preferred design shape is bounded immutable JSONL chunks plus one bounded
+active per-writer JSONL tail:
+
+- sealed chunks are immutable and content-addressed;
+- the active tail has a fixed maximum size and is rotated into a sealed chunk;
+- SQLite durably records the applied sealed-chunk identities and the active
+  tail's applied byte offset and prefix hash;
+- importing a new sealed chunk validates its content hash and applies all of its
+  entries in one SQLite transaction;
+- acquiring the write lock rehashes the bounded active tail, then replays only
+  complete entries after the stored offset;
+- a removed chunk, a changed sealed chunk, an invalid tail prefix, or a
+  non-monotonic chunk-set transition fails closed into a full rebuild.
+
+A stored hash of an unbounded monolithic segment is not the durable solution.
+It is sound only if the complete applied prefix is rehashed on acquire, which is
+still O(ledger). It may be benchmarked as a constant-factor interim
+optimisation, but it does not satisfy the O(delta) successor requirement.
+
+### 9R-3 — ledger-bearing Git mutations
+
+Ruled: fail-closed diagnosis now, automatic repair later. Recorded in the spec
+as §9.4.1 (`ledger-history-rewound`). Diagnose-now / auto-repair-later is
+acceptable because fail-closed sacrifices availability, not correctness; auto
+repair is not a Phase 4 blocker.
