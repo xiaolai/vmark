@@ -162,3 +162,23 @@ proposal; both would matter in any corpus.
 `d6fd88ee` concurrent sweeps double-spent · `62d7555f` τ discarded paid-for
 verdicts irreversibly · `8901839f` + `d021d87c` logbook (the M2/M4 instrument
 that did not exist).
+
+### WI-1.3 status — owner sign-off (2026-07-20)
+
+**live sweep: ✅ done** — owner-signed-off on the readings below. Recorded with
+their qualifications intact so "done" is never mistaken for "all green":
+
+| Metric | Signed off as |
+|---|---|
+| Live sweep | Real run: 5 stale edges swept, distinct live-edge coverage **11** (≥10 bar), p95 ~8–11 s, subscription cost, resume-correctness failure found → fixed → re-verified (`checked: 0` on re-run, concurrent sweep refused). |
+| **M2** staleness relevance | **Genuinely judged: 0 relevant / 5 noise.** Owner supplied the deciding fact (all four downstream docs are frozen history). Finding: no document-lifecycle model. |
+| **M3** semantic-check precision | Signal exists (21 checks: 13/3/5). The 5 `unknown` were OUR τ data loss, now fixed and retunable offline. |
+| **M4** resolution burden | **Signed off as recorded**, not as an accept/reject of the burden: 11 of 28 edges reopened (several 4×), 13/17/11 per session vs the ≤10 bar, and now characterised — the burden is *churn on frozen documents*, not breadth. Owner asked for the threshold to be configurable; that remains open work. |
+| **M5** time-to-confidence | **Signed off as recorded: insufficient data.** Inherently longitudinal; one session cannot produce it. Same honest outcome the baseline recorded for M3 at n=3. |
+
+**What this sign-off does NOT claim:** that the coherence layer is useful as-is.
+M2 read 0/5 on this corpus. The actionable output of Phase 1 is the two design
+findings — a missing document-lifecycle model, and section-anchored edges
+instead of file-level granularity (matching the plan's own R31 note) — plus the
+five defects the session found. Those, not a green marker, are the result worth
+carrying into the next phase.
