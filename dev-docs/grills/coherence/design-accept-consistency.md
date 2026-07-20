@@ -1,19 +1,18 @@
 # Design — accept-consistency + group-commit redesign
 
-> **Status: SIX reviews, all DO-NOT-SHIP (2026-07-20).** Round 2 (`019f7c7e…`,
-> 8 MAJOR): 6 fix-now correctness bugs fixed — these unblocked **Phase 3, now
-> GREEN** 8/8 perf PASS. The deferred multi-object group-commit was implemented as
-> a durable prepare/commit/abort state machine; rounds 3–6 each returned
-> DO-NOT-SHIP, each closing findings and uncovering the next layer. The 6th
-> (`019f7d1d…`) CLOSED manifest validation + chronological expiry but left a
-> **CRITICAL** lock-scope defect OPEN and surfaced **two regressions** from the
-> `flock` attempt (half-init `.vmark`, lock leak). Root finding, evidence-backed
-> across six reviews: cross-process serialization can't fence every threat (raw
-> git checkouts, Windows) — but the owner chose **R1 (full pessimistic lock)** for
-> cooperating VMark writers, and it is now **implemented + tested** (all 5 findings
-> closed; 377 coherence tests green; fmt + clippy clean), **pending a SEVENTH
-> review**. See "Owner decision + R1 implementation" at the bottom. **Phase 4 stays
-> RED; the marker is never flipped on a hope — only on a passing review.**
+> **Status: NINE reviews, all DO-NOT-SHIP (2026-07-20). RECOMMENDATION: STOP the
+> review loop; this component needs a dedicated design pass, not a round 10.**
+> Rounds 2-6 closed the original defect set. Rounds 7-9 were spent on R1 (the
+> owner-chosen full pessimistic cross-process lock) — and in each of those three
+> rounds the MAJORITY of new findings were defects introduced by the PREVIOUS
+> round's fix, including a reachable **data-loss** bug (9R-5: a temporarily
+> unreadable `.gitignore` was overwritten, destroying user rules) and a
+> **torn-state certification** (9R-2). The root cause is structural: R1's
+> correctness needs a sound answer to "does the index still reflect the ledger?",
+> and every cheap oracle for that question has proven to have another false
+> negative, while the sound answer (unconditional reconcile) is O(ledger) and
+> reinstates exactly the cost that made R1 expensive in round 7. See "Round 9 +
+> stop recommendation" at the bottom. **Phase 4 stays RED.**
 
 ## Re-review disposition (thread `019f7c7e…`, DO-NOT-SHIP, 8 MAJOR + 1 MINOR)
 
@@ -425,7 +424,7 @@ Owner re-confirmed **R1** after the 7th review made its cost explicit. Built:
 
 | 7th-review finding | Fix | Test |
 |---|---|---|
-| **6R-5 O(N) accept** (MAJOR, new) | **Change-gated reconcile.** `Ledger::fingerprint()` (sorted segment name/len/mtime) records what the index reflects; `with_write_lock` rebuilds ONLY on a change. Under the held flock nobody else can append, so a single-process accept's own append is the only delta and its next acquire skips the rebuild — **O(1) restored**, while an external append or git checkout still forces the reconcile. | existing suite + `wrapped_accept_reconciles_a_concurrent_commit…` (proves the change-branch still reconciles) |
+| **6R-5 O(N) accept** (MAJOR, new) | **Change-gated reconcile.** `Ledger::fingerprint()` (sorted segment name/len/mtime) records what the index reflects; `with_write_lock` rebuilds ONLY on a change. Under the held flock nobody else can append, so a single-process accept's own append is the only delta and its next acquire skips the rebuild — **O(entries) rebuild removed** (the acquire is O(segments), NOT O(1) — see 8R-2), while an external append or git checkout still forces the reconcile. | existing suite + `wrapped_accept_reconciles_a_concurrent_commit…` (proves the change-branch still reconciles) |
 | **6R-6 partial index** (MAJOR, new) | An acquire-time reconcile failure now **poisons** the kernel — a half-rebuilt index is never served; reopen re-heals (a failed rebuild leaves `user_version=0` → full rebuild). | `a_reconcile_failure_during_lock_acquire…` |
 | **6R-1 full lock scope** (CRITICAL) | **8 of 9 mutators wrapped** in `with_write_lock` (read→build→append atomic): `capture`, `adopt_from_disk`, `register_if_needed`, `perform_claim`, `perform_claim_scope`, `record_check`, `perform_resolve_as`, `perform_confirm_inputs`, `perform_delegate`. Nested calls re-enter the held lock. **`scan_workspace` is deliberately NOT wrapped — see below.** | full suite |
 | **reader cap drops valid writes** (MAJOR, new) | `Ledger::append` now enforces the **same** `MAX_LINE_BYTES` cap the reader applies, failing LOUDLY instead of writing an entry the next `read_all` would silently quarantine. | `append_refuses_an_entry_larger_than_the_read_cap` |
@@ -447,3 +446,54 @@ owned* kernel whose panic is caught could bypass locking (production is safe —
 registry's `Mutex` poisons and the kernel becomes unreachable).
 
 382 coherence tests green; fmt + clippy clean. **Marker stays RED pending the 8th review.**
+
+## Round 9 + stop recommendation (2026-07-20)
+
+**VERDICT: DO-NOT-SHIP.** CLOSED: 8R-4 (full recovery identity — verified,
+including that honest retries are not rejected), 8R-7 (uuid + `create_new`
+staging), 8R-8 (context mutators). The fingerprint's *narrow* oracle was also
+confirmed sound: "serialized appends grow `len`, and inode catches same-length
+replacement."
+
+| Finding | Severity | State |
+|---|---|---|
+| 9R-1 unlocked heal-on-open invalidates another writer's baseline | CRITICAL | **fixed in `8c14b004`**, which landed after this review began reading HEAD `fee28839` |
+| 9R-2 panic certified the post-panic fingerprint instead of poisoning | MAJOR | **fixed in `82fc864f`** (self-inflicted in round 8) |
+| 9R-5 unreadable `.gitignore` overwritten → **user rule loss**; dir-fsync retry hole | MAJOR | **fixed in `82fc864f`** (self-inflicted in round 8) |
+| 9R-3 wrapped scan silently loses the git-reverted mutation §9.4 requires; the changed test removed the only positive real-Git `git_mutations` case | MAJOR | **OPEN — spec decision** |
+| 9R-4 more readers still serve a poisoned index (operator propose/preview, provenance candidates, merge audit, check sweep, operator verify) | MAJOR | **OPEN — mechanical** |
+| 8R-9 capture caps inputs/intent but not `agent.id` or total serialized size | MINOR | **OPEN — mechanical** |
+
+### Why this should stop rather than continue
+
+Rounds 7, 8 and 9 each had the same shape: fix the prior round's findings,
+introduce new ones. In round 9 **four of six** findings were regressions from
+round 8's fixes — one of them (9R-5) a live data-loss path in a workspace that
+was otherwise perfectly healthy. That is not a converging process.
+
+The structural reason is specific and worth stating: **R1's correctness rests on
+answering "does the in-memory index still reflect the ledger?", and that question
+has no cheap sound answer in this architecture.** The ledger fingerprint answers
+a *different* question (did the ledger change), which is why every round found a
+new way for the two to diverge — a same-length checkout (fixed with inode), an
+unlocked opener rebuilding the shared index (fixed by locking open), a panic
+between append and apply (fixed by poisoning). Each fix was correct; the supply
+of such paths is the problem. The sound alternative — reconcile unconditionally —
+is O(ledger) and reinstates precisely the cost that made R1 look expensive in
+round 7.
+
+**Recommended instead of a round 10** — an owner decision, not a patch:
+1. **Make the index non-derived**, or make ledger+index a single transactional
+   store, so "index reflects ledger" is an invariant of the store rather than
+   something a heuristic must re-establish on every acquire; or
+2. **Reconcile unconditionally** and accept O(ledger) per mutating op, retiring
+   the gated-reconcile optimization and its whole class of false negatives; or
+3. **R2 (convergent)** — drop cross-process write serialization, let concurrent
+   writers fork, and resolve forks through the two-axis staleness machinery that
+   already exists.
+
+The two remaining mechanical items (9R-4, 8R-9) are worth doing under any of the
+three. 9R-3 needs a spec ruling on whether a `git revert` of a ledger-bearing
+commit should mint a git-attributed mutation (it currently cannot — the parent it
+would need was reverted away) or whether coherence history should survive such a
+revert by some other durable observation mechanism.
