@@ -122,6 +122,78 @@ fn a_malformed_prepare_is_quarantined_and_does_not_poison_find_latest() {
 }
 
 #[test]
+fn revalidate_rejects_an_external_new_incident_edge() {
+    // Re-review #3b: an external transformation creates a NEW edge incident to an
+    // affected object (a new downstream depending on it) without advancing that
+    // object's head — the frozen prepare-time edge list misses it, so revalidate
+    // must reject the current-incident-edge set.
+    let (_dir, mut kernel, u, u1) = seeded();
+    let cand = Candidate::new(u, "revised".into(), u1, vec![], "op", "s");
+    let snapshot = compute_snapshot(kernel.index(), std::slice::from_ref(&cand)).unwrap();
+    let prepare = prep(
+        "g",
+        vec![PreparedMember {
+            object: cand.object,
+            revision: cand.revision.clone(),
+        }],
+        snapshot,
+    );
+    // Commit U as its member.
+    let mut e = Envelope::create(
+        "transformation",
+        kernel.writer(),
+        serde_json::to_value(cand.to_transformation(Agent {
+            kind: AgentType::Human,
+            id: None,
+        }))
+        .unwrap(),
+    );
+    e.idem = uuid::Uuid::now_v7();
+    kernel.append_and_apply(&e).unwrap();
+    let committed = vec![(cand.object, cand.revision.clone())];
+    assert!(revalidate(kernel.index(), &prepare, &committed, NOW).unwrap());
+
+    // EXTERNAL: a new object W depends on U@cand.revision → a new edge incident
+    // to the affected object U (downstream W is not a committed member).
+    let w = ObjectId(uuid::Uuid::now_v7());
+    let w_txf = Transformation {
+        inputs: vec![InputRef {
+            object: cand.object,
+            revision: cand.revision.clone(),
+            role: crate::coherence::types::InputRole::Direct,
+            kind: crate::coherence::edge_kind::OriginEdgeKind::Dependency,
+        }],
+        outputs: vec![OutputRef {
+            object: w,
+            revision: RevisionId::compute(&hash(8), &[]),
+            content_hash: hash(8),
+            parents: vec![],
+        }],
+        agent: Agent {
+            kind: AgentType::Human,
+            id: None,
+        },
+        intent: Intent {
+            kind: "test".into(),
+            summary: "external downstream".into(),
+            prompt_hash: None,
+        },
+        confidence: Confidence::Exact,
+    };
+    kernel
+        .append_and_apply(&Envelope::create(
+            "transformation",
+            kernel.writer(),
+            serde_json::to_value(&w_txf).unwrap(),
+        ))
+        .unwrap();
+    assert!(
+        !revalidate(kernel.index(), &prepare, &committed, NOW).unwrap(),
+        "an external new incident edge on an affected object must abort",
+    );
+}
+
+#[test]
 fn revalidate_aborts_once_a_snapshotted_resolution_expiry_passes() {
     // Re-review #4: a waiver expiring is a time-only transition (no head or
     // resolution-id changes), so recovery must abort once `now` reaches the
