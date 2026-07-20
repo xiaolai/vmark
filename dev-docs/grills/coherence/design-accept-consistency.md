@@ -1,18 +1,17 @@
 # Design — accept-consistency + group-commit redesign
 
-> **Status: NOT SHIP-READY — THREE reviews, THREE DO-NOT-SHIP (2026-07-20).**
-> Round 2 (`019f7c7e…`, 8 MAJOR): the **6 fix-now correctness bugs are FIXED +
-> tested** (#1/#2 winner-map heal-on-open, #3 append-error poison, #4
-> full-identity group_id, #8+MINOR new-edge precondition — these also unblocked
-> **Phase 3, now GREEN** 8/8 perf PASS). The deferred set (#5/#6/#7) was then
-> **implemented** as a durable prepare/commit/abort state machine — and round 3
-> (`019f7cbd…`, 7 MAJOR, "Third review" section below) returned DO-NOT-SHIP again,
-> finding *deeper* real issues (no cross-process fence, wall-clock ordering
-> deadlock, time-blind snapshot, old-attempt reuse, manifest incompleteness). The
-> malformed-prepare poison (#7-of-round-3) is fixed; the rest is a **dedicated
-> design project** (cross-process lock + causal attempt_id + time-aware recovery +
-> CAS-backed manifest). **Phase 4 stays red** — the evidence (3 DO-NOT-SHIP) is
-> decisive that this is not a session-tail finish.
+> **Status: FOUR reviews (all DO-NOT-SHIP), every finding now ADDRESSED; a FIFTH
+> review is the gate (2026-07-20).** Round 2 (`019f7c7e…`, 8 MAJOR): 6 fix-now
+> correctness bugs fixed — these unblocked **Phase 3, now GREEN** 8/8 perf PASS.
+> The deferred set was implemented as a durable prepare/commit/abort state
+> machine; rounds 3 (`019f7cbd…`) and 4 (`019f7ceb…`) each returned DO-NOT-SHIP
+> with deeper issues, ALL now fixed + tested (360 coherence tests): cross-process
+> `flock` (#1), DAG/fork-aware causal `attempt_id` (#2/#5), entry-id edge
+> ownership + member-only scan + truncation refusal (#3), chronological expiry
+> (#4), CAS-staged manifest + `recover_group` client-less driver (#6), full
+> lifecycle-body validation (#7), `StructuralClass::Absent` (#8). **Phase 4 stays
+> red until the fifth review is clean** — four DO-NOT-SHIP rounds mean the marker
+> is not flipped on a hope; it is flipped only on a passing review.
 
 ## Re-review disposition (thread `019f7c7e…`, DO-NOT-SHIP, 8 MAJOR + 1 MINOR)
 
