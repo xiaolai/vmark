@@ -20,6 +20,7 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { invoke } from "@tauri-apps/api/core";
 import { createSafeStorage } from "@/services/persistence/safeStorage";
+import { createSectionMergingStorage } from "@/stores/persistedSectionMerge";
 import { isMacPlatform } from "@/utils/shortcutMatch";
 import { shortcutsWarn } from "@/utils/debug";
 import { errorMessage } from "@/utils/errorMessage";
@@ -191,7 +192,12 @@ export const useShortcutsStore = create<ShortcutsState & ShortcutsActions>()(
     }),
     {
       name: "vmark-shortcuts",
-      storage: createJSONStorage(() => createSafeStorage()),
+      // Section-merged for the same reason settingsStore is: every window
+      // writes this one key with its whole state, so a blind write would push a
+      // stale customBindings map over another window's rebind.
+      storage: createJSONStorage(() =>
+        createSectionMergingStorage(createSafeStorage()),
+      ),
     }
   )
 );

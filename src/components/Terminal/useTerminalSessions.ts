@@ -48,8 +48,7 @@ import { removeSessionEntry, switchVisibility, disposeAllSessions } from "./term
 import { wireSessionInput } from "./terminalSessionInputWiring";
 import type { SearchAddon } from "@xterm/addon-search";
 import type { SessionEntry } from "./terminalSessionTypes";
-
-const PTY_RESIZE_DEBOUNCE_MS = 100;
+import { fitAndResizePty } from "./fitAndResizePty";
 
 /** Callbacks passed to the terminal sessions hook for panel-level actions. */
 export interface UseTerminalSessionsCallbacks {
@@ -72,34 +71,16 @@ export function useTerminalSessions(
     callbacksRef.current = callbacks;
   });
 
-  // Debounce PTY resize to avoid excessive resize calls during drag
-  const resizeTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-
-  // Fit the active terminal
+  // Fit the active terminal (and propagate the new dimensions to its PTY)
   const fit = useCallback(() => {
     const activeId = useUIStore.getState().terminal.activeSessionId;
     if (!activeId) return;
     const entry = sessionsRef.current.get(activeId);
     if (!entry) return;
 
-    try {
-      entry.instance.fitAddon.fit();
-      // Debounce PTY resize — visual fit is instant, but PTY resize is deferred
-      clearTimeout(resizeTimerRef.current);
-      resizeTimerRef.current = setTimeout(() => {
-        if (entry.disposed || sessionsRef.current.get(activeId) !== entry) return;
-        const { term } = entry.instance;
-        if (entry.pty && term.cols > 0 && term.rows > 0) {
-          try {
-            entry.pty.resize(term.cols, term.rows);
-          } catch {
-            // PTY may have exited/disposed between debounce ticks
-          }
-        }
-      }, PTY_RESIZE_DEBOUNCE_MS);
-    } catch {
-      // Container may not be visible
-    }
+    // Debounce lives on the entry, so fitting one session can no longer cancel
+    // another session's pending PTY resize.
+    fitAndResizePty(entry, () => sessionsRef.current.get(activeId) !== entry);
   }, []);
 
   /** Get search addon of active session. */
@@ -276,8 +257,7 @@ export function useTerminalSessions(
     const sessions = sessionsRef.current;
     return () => {
       unsubscribe();
-      clearTimeout(resizeTimerRef.current);
-      resizeTimerRef.current = undefined;
+      // Per-entry PTY resize timers are cleared by disposeAllSessions.
       disposeAllSessions(sessions);
       initializedRef.current = false;
     };

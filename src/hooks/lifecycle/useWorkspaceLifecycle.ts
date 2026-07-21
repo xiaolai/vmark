@@ -8,7 +8,7 @@
  * persisted workspace config from disk so downstream stores see the
  * correct initial state).
  *
- *   useWorkspaceBootstrap → useSettingsSync → useConfirmQuitSync
+ *   useWorkspaceBootstrap → useSettingsSync → useShortcutsSync → useConfirmQuitSync
  *   → useRecentFilesSync → useRecentWorkspacesSync
  *   → useFormatSettingsBridge
  *
@@ -21,6 +21,8 @@
 import { useWorkspaceBootstrap } from "@/hooks/useWorkspaceBootstrap";
 import { useWorkspaceRailSeed } from "@/hooks/useWorkspaceRailSeed";
 import { useSettingsSync } from "@/hooks/useSettingsSync";
+import { useShortcutsSync } from "@/hooks/useShortcutsSync";
+import { useAiProviderSync } from "@/hooks/useAiProviderSync";
 import { useConfirmQuitSync } from "@/hooks/useConfirmQuitSync";
 import { useRecentFilesSync } from "@/hooks/useRecentFilesSync";
 import { useRecentWorkspacesSync } from "@/hooks/useRecentWorkspacesSync";
@@ -30,6 +32,8 @@ export function useWorkspaceLifecycle(): void {
   useWorkspaceBootstrap();
   useWorkspaceRailSeed();
   useSettingsSync();
+  useShortcutsSync();
+  useAiProviderSync();
   useConfirmQuitSync();
   useRecentFilesSync();
   useRecentWorkspacesSync();
