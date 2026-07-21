@@ -123,6 +123,15 @@ fn member_idem(candidate: &Candidate, group: &str) -> Result<uuid::Uuid, String>
 /// commit. `commit_member` re-checks at append time (defense-in-depth); under
 /// the kernel's serialized single-writer path the two always agree.
 fn preflight_member(kernel: &WorkspaceKernel, candidate: &Candidate) -> Result<(), String> {
+    // Arity gate (G-B re-review 03 H2): a group member must have AT MOST one
+    // parent. Recovery reconstructs each member from its manifest and refuses a
+    // multi-parent transformation (`group_prepare::to_candidate`), so admitting
+    // one here would let a crash strand a prepared group its own recovery path
+    // can never complete. A forward-operator member is 0 parents (a brand-new
+    // carrier) or 1 (its base); a merge is never a group member.
+    if candidate.parents.len() > 1 {
+        return Err("a group member cannot have multiple parents".into());
+    }
     match (
         candidate.parents.first(),
         kernel.index().resolve_live(&candidate.object)?,

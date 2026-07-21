@@ -529,3 +529,20 @@ fn a_prepare_that_does_not_match_the_submitted_changeset_is_rejected() {
         "the unmatched prepare must not commit an unreviewed set, got: {err}"
     );
 }
+
+#[test]
+fn a_multi_parent_member_is_rejected_before_it_can_enter_a_group() {
+    // H2 (G-B re-review 03): recovery's `to_candidate` refuses a member whose
+    // transformation has >1 parent, so admitting one at fresh-accept would let a
+    // crash strand a prepared group its own recovery path can never reconstruct.
+    // Preflight must reject it up front — arity is checked before the live-head
+    // resolve, so a fresh kernel suffices.
+    let (_dir, kernel, u, _v, u1, _v1) = seeded();
+    let mut c = Candidate::new(u, "U revised".into(), u1.clone(), vec![], "tidy", "s");
+    c.parents.push(u1.clone()); // forge a second parent
+    let err = preflight_member(&kernel, &c).unwrap_err();
+    assert!(
+        err.contains("multiple parents"),
+        "expected arity rejection, got: {err}"
+    );
+}
