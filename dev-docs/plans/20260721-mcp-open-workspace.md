@@ -1,8 +1,8 @@
 # Plan: `open_workspace` MCP tool with approval gate
 
-**Status:** DRAFT — not started. Codex cross-model review (rule 60 §6) required
-before Phase 1 because it introduces a new capability that **expands the AI
-agent's filesystem reach**.
+**Status:** DRAFT — Codex-reviewed (NEEDS AMENDMENT → amended below; disposition
+table records every finding). The amended ADR-2 changes the approval model
+fundamentally; re-read before Phase 1.
 
 **Owner:** TBD · **Branch:** TBD (`feat/mcp-open-workspace`)
 
@@ -13,135 +13,159 @@ approval prompt**.
 
 ---
 
-## Problem statement (verified)
+## Problem statement (verified — Codex F-01)
 
-The VMark MCP surface (`vmark-mcp-server/src/index.ts:87-93`) exposes a
-`workspace` tool with actions `new | open | save | save_as | close |
-switch_tab | focus_window` (`tools/workspace.ts:33-41`). `open` reads one file
-into a tab (`hooks/mcpBridge/v2/workspace.ts:74-118`). **No action opens a
-directory as the active workspace.**
+The `workspace` tool (`vmark-mcp-server/src/tools/workspace.ts:33`) exposes
+`new | open | save | save_as | close | switch_tab | focus_window`. `open` emits
+`vmark.workspace.open` with `filePath` (`:77`) and the frontend reads that file
+into a tab (`hooks/mcpBridge/v2/workspace.ts:74`). Dispatch has no folder-open
+action (`dispatch.ts:84`). **No action opens a directory as a workspace.**
 
-The non-MCP path already exists and is reusable:
-`services/commands/workspaceCommands.ts:37-77` (`workspace.openFolder`) opens a
-folder dialog, then calls `openWorkspaceWithConfig(path)`
-(`hooks/openWorkspaceWithConfig.ts:68-94` → `workspaceStore.openWorkspace`,
-`workspaceStore.ts:121-127`), followed by sidebar reveal, recents add, tab
-restore, split-layout restore. **No Rust command is required** —
-`read_workspace_config` (`workspace.rs:317`) already exists; opening a workspace
-is a frontend/store operation. Only the folder-*picker* is bypassed by MCP
-(the agent supplies the path).
+The non-MCP path is reusable (Codex F-02, signatures confirmed):
+`workspace.openFolder` (`services/commands/workspaceCommands.ts:53`) →
+`openWorkspaceWithConfig(rootPath, opts): Promise<WorkspaceConfig|null>`
+(`openWorkspaceWithConfig.ts:68`) + `restoreWorkspaceTabs(windowLabel, paths)`
+(`restoreWorkspaceTabs.ts:30`) + `restoreSplitLayout(windowLabel, rootPath)`
+(`:63`). **No Rust command is required to open** — but validation and routing
+are NOT what the first draft assumed (see amended ADRs).
 
-## The real design problem (not wiring): consent
+## The core problem: consent AND transport reality
 
-`open`'s file path is confined by `checkBridgePath`
-(`hooks/mcpBridge/v2/workspace.ts:90`) to `collectAllowedRoots()` — the current
-workspace root ∪ parents of open documents (`services/mcpBridge/bridgePathGuard.ts:46-63`).
-An **open-workspace target is, by definition, a NEW root OUTSIDE those allowed
-roots**. Opening a workspace **grants the agent a whole new file tree**, so it
-**cannot reuse `checkBridgePath`** — it is a boundary-*expanding* operation,
-fundamentally unlike opening a file inside an already-consented tree. It
-therefore needs its own consent model. User chose an approval prompt.
+Opening a folder **grants the agent a new file tree**, so it can't be authorized
+by `checkBridgePath` (which only allows paths within already-allowed roots —
+Codex F-11). It needs an explicit approval. **But** the Codex review found the
+first draft's approval model was incompatible with the actual bridge transport.
 
-## Verifiable success criteria (plan level)
+## Verifiable success criteria (amended)
 
-1. `vmark.workspace.open_workspace { folderPath }` opens that folder as the
-   active workspace in the target window — sidebar files view, recents,
-   restored tabs, restored split layout — identical to the menu "Open Folder".
-2. The call is **gated by a user approval prompt** before any workspace opens;
-   deny → no change, tool returns a denied result.
-3. After approval, the newly opened root becomes an allowed root for subsequent
-   file operations (so follow-up `document.read` etc. work).
-4. Invalid input (non-existent path, a file not a directory) returns a clear
-   error without a prompt.
-5. The sidecar tool count contract and `website/guide/mcp-tools.md` are updated;
-   `pnpm check:all` green.
+1. A new `open_workspace` action opens `folderPath` as the active workspace in
+   the correctly-routed window — files sidebar, recents, restored tabs, split
+   layout — identical to menu "Open Folder".
+2. The action is **approval-gated** via the existing **fail-now → approve →
+   AI-retry** one-shot model (NOT a blocking wait — see ADR-2). Denial clears the
+   pending prompt and the retry fails closed.
+3. After approval + open, follow-up **path-guarded** operations
+   (`workspace.open`/`save_as`) targeting the new tree succeed — verified after
+   the async Rust window→workspace registration barrier (Codex F-09).
+4. Invalid input (missing path, not a directory, symlink to outside) is rejected
+   with a canonicalized error; the prompt shows the **resolved canonical** path.
+5. `EXPECTED_TOOL_COUNT` stays **7** (categories, not actions — Codex F-12); the
+   `workspace` tool exposes **8 actions**; sidecar tests cover schema + approval
+   flow.
 
 ---
 
-## ADRs
+## ADRs (amended per Codex review)
 
-### ADR-1 — Reuse the open path via an extracted shared helper (chosen)
+### ADR-2 — Approval = fail-now → approve → AI-retry one-shot (rewritten; Codex F-03/F-04)
 
-Extract the post-dialog body of `workspace.openFolder`
-(`workspaceCommands.ts:53-71`: `openWorkspaceWithConfig` + `showSidebarWithView`
-+ `addWorkspace` + `restoreWorkspaceTabs` + `restoreSplitLayout`) into a shared
-`openWorkspaceByPath(path, { windowLabel })` helper. Both the menu command and
-the MCP handler call it. **Rejected — reimplement in the handler:** risks a
-half-opened workspace (store set but tabs/rail/split not restored).
+The browser flow does **not** wait-and-resolve. It queues a prompt and
+**immediately** responds `success:false / APPROVAL_REQUIRED`
+(`browserNavigation.ts:34`); the sidecar tells the AI to ask, wait, retry
+(`tools/browser.ts:30`); "once" mints a token (`browserApprovalStore.ts:207`)
+consumed by the **retried** handler (`browserAct.ts:101`). Holding the original
+MCP call is impossible: a write-class request holds the global write lock and
+times out at 10s/20s (`mcp_bridge/server.rs:497,574,663` — Codex F-04).
 
-### ADR-2 — Consent model: per-call approval, no standing grant in v1 (chosen)
+**Therefore:** `open_workspace` returns `APPROVAL_REQUIRED` immediately, minting a
+one-shot bound to (canonical folder path, resolved window, **authenticated
+client** — Codex F-10). The UI resolves store state; the AI **re-issues** the
+call, which consumes the token and opens. **Denial** clears the pending item and
+produces no later response — the retry fails closed. No handler ever awaits a
+human.
 
-Model on the browser approval flow (`browserApprovalStore.ts` `requestApproval`
-→ handler responds `{ needsApproval: true, ... }` non-blocking → UI prompt →
-approve/deny; `browserNavigation.ts:34` `requestNavigationApproval` is the
-reference). Because open-workspace is boundary-expanding and high-impact:
+### ADR-3 — Canonical directory validation (rewritten; Codex F-06)
 
-- v1 is **one-shot approval per call** — NO "remember this folder" standing
-  grant (a remembered grant to open *any* folder would defeat the point).
-- The prompt shows the exact `folderPath` and that it grants the agent access to
-  that tree.
-- **Rejected — unrestricted (no prompt):** the user explicitly chose approval,
-  and silent fs-scope expansion by an untrusted client is unacceptable.
-- **Rejected — allowlist file:** heavier; revisit only if users ask for
-  unattended automation.
+`read_workspace_config` does **not** verify existence/dir-ness and can return
+`None` (`workspace.rs:317`); `openWorkspaceWithConfig` opens with defaults even
+on invoke failure (`openWorkspaceWithConfig.ts:90`). A real canonicalize+is-dir
+validator exists but is private to window management
+(`window_manager/path_validation.rs:34`). **WI-1.1a exposes a reusable
+validation IPC** (or promotes that validator). Validate **before** prompting and
+**again** immediately before consuming the token; the prompt and the token bind
+to the **canonical** path so a symlink can't conceal the granted tree.
 
-### ADR-3 — Path validation replaces `checkBridgePath`
+### ADR-4 — Window routing via `windowId`, not `windowLabel` (new; Codex F-05)
 
-The handler must NOT call `checkBridgePath` (it would reject every new root).
-Instead: validate the path exists and is a directory (Rust `read_workspace_config`
-already probes; add an explicit is-dir check if needed), reject otherwise
-(SC4). On approval + open, the new root enters `collectAllowedRoots()` naturally
-because it becomes the workspace root — verify this in a test (SC3).
+Rust routing recognizes `windowId` (`routing.rs:117`) and path fields
+`workspace_root`/`filePath`, **not** `folderPath` (`window_routing.rs:21`). The
+first draft's `{folderPath, windowLabel?}` would route to the focused/`main`
+window regardless. WI resolves the target window via the router's `windowId`
+contract, validates it, and binds approval + open to that **resolved** window
+(sidebar reveal is webview-local — `workspaceCommands.ts:61`). Resolves OQ-1.
+
+### ADR-1 — Shared helper **owns the transition guard** (amended; Codex F-08)
+
+Extract `openWorkspaceByPath(path, { windowLabel })` from `workspaceCommands.ts`,
+and make it **own (or require) the per-window `WORKSPACE_TRANSITION_GUARD`** — the
+existing guard wraps picker + post-dialog work (`:43`); extracting only the
+post-dialog lines would let an MCP call race menu open/close. Reuse the helper
+from the non-dirty `workspace.openRecent` path too (duplicate sequence at
+`recentWorkspacesCommands.ts:113`).
 
 ---
 
-## Phase 1 — Shared helper + tool + handler + dispatch (approval-gated)
+## Phase 1 — Validation IPC + wire contract + shared helper + tool (approval-gated, RED→GREEN)
 
-DoD: `scripts/check-mcp-openworkspace-phase.sh 1` — asserts the tool action
-exists in the enum, the handler + dispatch case exist, the shared helper is used
-by both call sites, and the handler tests pass.
-
-| WI | Description | Traceability |
-|---|---|---|
-| WI-1.1 | Extract `openWorkspaceByPath(path, { windowLabel })` shared helper from `workspaceCommands.ts`; refactor `workspace.openFolder` to call it (behavior-preserving; existing tests green). | ADR-1 |
-| WI-1.2 | Add `open_workspace` to the `workspace` tool: enum (`tools/workspace.ts:33-41`), `folderPath` input property + schema, `case` emitting `{ type: 'vmark.workspace.open_workspace', folderPath, windowLabel? }`, description text (18-27). Bump the sidecar tool/action count contract. | SC1, SC5 |
-| WI-1.3 | Frontend handler `handleWorkspaceOpenWorkspace(id, args)` in `hooks/mcpBridge/v2/workspace.ts`: validate dir (ADR-3), request approval (ADR-2), on approve call `openWorkspaceByPath`, respond success/denied/error. TDD: handler tests for approve, deny, invalid-path, non-dir. | SC1, SC2, SC4 |
-| WI-1.4 | Dispatch case in `hooks/mcpBridge/v2/dispatch.ts` (near 84-104); `SUPPORTED_TOOL_PREFIXES` already covers `vmark.workspace.*`. Routing test. | SC1 |
-| WI-1.5 | Test: after approval+open, `collectAllowedRoots()` includes the new root so a follow-up file op is allowed. | SC3 |
-
-## Phase 2 — Approval UI
+Merged with prior Phase 2 approval store (Codex F-13: approve/deny tests can't
+precede the store). DoD: `scripts/check-mcp-openworkspace-phase.sh 1`.
 
 | WI | Description | Traceability |
 |---|---|---|
-| WI-2.1 | Approval prompt for the open-workspace operation: reuse the browser approval UI surface if it generalizes, else a focused prompt component. Shows `folderPath` + the "grants access to this tree" warning. No standing-grant option (ADR-2). i18n keys, all locales. | SC2, ADR-2 |
-| WI-2.2 | Store/pending-approval wiring (reuse `browserApprovalStore` pattern or a dedicated store): queue cap + dedup like `MAX_PENDING_APPROVALS`, since the AI client is untrusted. Selectors only, no destructuring. Tests. | SC2 |
+| WI-1.1a | Reusable canonical dir-validation IPC (promote `path_validation.rs`); returns canonical path or a typed error. Rust tests: missing, file-not-dir, symlink-resolves-outside, permission-denied, `..`/relative/NUL. | ADR-3, F-06 |
+| WI-1.1b | `openWorkspaceByPath(path,{windowLabel})` helper owning the transition guard; refactor `workspace.openFolder` **and** `openRecent` to use it (behavior-preserving; existing tests green). | ADR-1, F-08 |
+| WI-1.2 | Wire contract (Codex F-07): add the `open_workspace` variant to `BridgeRequest` (`core-types.ts:35`); a **workspace approval envelope/guard** (the only typed one is browser-specific — `:149`); a `toErrorResult`-equivalent so `sendBridgeRequest` failures become actionable (`server.ts:122,157`). Sidecar tests: schema, exact request, missing/invalid args, `APPROVAL_REQUIRED`, denial, ordinary error. | F-07 |
+| WI-1.3 | Approval store + one-shot (Codex F-10): reuse/extend the browser approval store; bind the token to (canonical path, resolved `windowId`, **authenticated client identity** — extend the frontend event which today lacks a principal, `mcp_bridge/types.rs:58`); queue cap + dedup (`MAX_PENDING_APPROVALS`). Two-client race test. | ADR-2, F-10 |
+| WI-1.4 | Tool: add `open_workspace` to the enum + `folderPath` schema + description (`tools/workspace.ts`); **do NOT bump `EXPECTED_TOOL_COUNT`** (categories — `index.ts:147`); update the workspace **action-count** text (`index.ts:109`); test 8 actions. | SC5, F-12 |
+| WI-1.5 | Handler + dispatch (RED→GREEN): resolve+validate window (ADR-4) and path (ADR-3), return `APPROVAL_REQUIRED` first; on retry consume the token, re-validate, call the helper, respond success/denied/error. Dispatch case (`dispatch.ts`). Tests: approval-required, retry-approve, deny, invalid-path, non-dir, stale-window, path-substitution-after-approval, rapid repeat. | ADR-2, ADR-3, ADR-4, SC1, SC2, SC4 |
+| WI-1.6 | Post-open routing barrier (Codex F-09): the frontend allowed-roots update is sync (`bridgePathGuard.ts:46`) but Rust's window→workspace map syncs fire-and-forget (`windowWorkspaceSync.ts:50`). Add an awaitable registration barrier (or an explicit-window follow-up contract) so a follow-up guarded op reaches the new workspace. Test with a real guarded op (`workspace.open`/`save_as`), incl. rapid multi-window follow-up. | SC3, F-09 |
 
-## Phase 3 — Sidecar, docs, gate
+## Phase 2 — Approval UI + docs + gate
 
 | WI | Description | Traceability |
 |---|---|---|
-| WI-3.1 | Rebuild the sidecar (`pnpm --dir vmark-mcp-server build:sidecar`); verify `--health-check` tool count matches the bumped contract. | SC5 |
-| WI-3.2 | Docs: `website/guide/mcp-tools.md` (new action + approval behavior) and `website/guide/mcp-setup.md` if approval UX needs a note; `dev-docs/README.md` link. | rule 21, SC5 |
-| WI-3.3 | `pnpm check:all` green (incl. `check-new-deps.sh` if any dep added — none expected). | SC5 |
+| WI-2.1 | Approval prompt in the **resolved** window (ADR-4): shows the **canonical** path + "grants access to this tree"; **no standing-grant** option (ADR-2). i18n all locales; selectors only. Tests incl. focused/settings/explicit/missing-window/retry-after-focus-change. | ADR-2, ADR-4, SC2, SC4 |
+| WI-2.2 | Docs: `website/guide/mcp-tools.md` (new action + approval + **fix the stale `0.2.0`→`0.3.0` protocol note**, Codex F-15) and `mcp-setup.md` if approval UX needs a note. README entry already present. | rule 21, F-15 |
+| WI-2.3 | Rebuild sidecar (`pnpm --dir vmark-mcp-server build:sidecar`); `--health-check` still reports **7 tools**. Create + wire `scripts/check-mcp-openworkspace-phase.sh` (it does not exist — Codex F-13); `pnpm check:all` green (`check-new-deps.sh` if any dep — none expected). | SC5, F-12, F-13 |
 
-## Open questions
+## Open questions (resolved / remaining)
 
-- **OQ-1:** Should `open_workspace` open in the CURRENT window (like the menu) or
-  support a new window? v1: current window (`windowLabel`), matching
-  `workspace.openFolder`. Revisit if requested.
-- **OQ-2:** Dirty tabs in the target window — the menu path preserves them
-  (opening a workspace doesn't close tabs, `workspaceCommands.ts:57-60`). Confirm
-  the MCP path inherits this (via the shared helper) — no data loss.
-- **OQ-3:** Does the approval prompt need to appear in the *document* window even
-  when the call originates while the Settings window is focused? Confirm target
-  window routing in WI-2.1.
+- **OQ-1 (resolved):** target window via `windowId` (ADR-4), current window default.
+- **OQ-2 (now an acceptance test — Codex F-14):** dirty tabs survive; `openFolder`
+  leaves tabs open (`workspaceCommands.ts:57`) and restore skips already-open
+  paths (`restoreWorkspaceTabs.ts:36`). Test, don't leave open.
+- **OQ-3:** approval prompt must appear in the resolved document window even when
+  the call originates while Settings is focused (WI-2.1).
+
+## Cross-model review (rule 60 §6) — Codex disposition
+
+Reviewer: `gpt-5.6-sol` (high effort, read-only, verified against the codebase).
+Verdict: **NEEDS AMENDMENT** → amended above.
+
+| Codex | Sev | Disposition |
+|---|---|---|
+| F-01 | CONFIRM | Kept — gap statement verified. |
+| F-02 | CONFIRM | Kept — helper reuse sound; amended concurrency/error contracts (ADR-1). |
+| F-03 | MAJOR | Accepted — ADR-2 rewritten to fail-now→approve→AI-retry one-shot. |
+| F-04 | MAJOR | Accepted — ADR-2 forbids awaiting a human in-handler (write-lock/timeout). |
+| F-05 | MAJOR | Accepted — ADR-4: route via `windowId`; `folderPath` not a routing field. |
+| F-06 | MAJOR | Accepted — ADR-3 canonical dir-validation IPC (WI-1.1a), revalidate at consume. |
+| F-07 | MAJOR | Accepted — WI-1.2 adds `BridgeRequest` variant + approval envelope + error translation + sidecar tests. |
+| F-08 | MAJOR | Accepted — ADR-1: helper owns the transition guard; reuse in `openRecent`. |
+| F-09 | MAJOR | Accepted — WI-1.6 routing-registration barrier + real guarded-op test. |
+| F-10 | MAJOR | Accepted — WI-1.3 binds the one-shot to authenticated client identity; two-client race test. |
+| F-11 | MINOR | Accepted — boundary wording fixed: `checkBridgePath` can't *authorize* boundary expansion (not "rejects every root"). |
+| F-12 | MINOR | Accepted — SC5/WI-1.4/2.3 corrected: 7 tools, 8 workspace actions. |
+| F-13 | MAJOR | Accepted — Phases reordered (store before handler); phase script WI-2.3; security/concurrency test WIs. |
+| F-14 | CONFIRM | Accepted — dirty-tab safety becomes an acceptance test (OQ-2). |
+| F-15 | MINOR | Accepted — drop the done README task; fix stale `0.2.0` protocol doc (WI-2.2). |
 
 ## Risks
 
-- **R1 (med):** Security — a boundary-expanding tool. Mitigated by mandatory
-  approval (ADR-2), no standing grant, explicit path in the prompt, and the
-  Codex review gate.
-- **R2 (low):** Sidecar tool-count contract drift breaking `check:all`. WI-3.1
-  verifies the health-check count.
-- **R3 (low):** Half-opened workspace if the helper isn't reused. ADR-1 + WI-1.1
-  make the menu and MCP share one code path.
+- **R1 (high — Codex):** Approval-completion semantics — the transport supports
+  fail→approve→retry, not wait-resolve. ADR-2 aligns to it.
+- **R2 (high — Codex):** Window correctness — `windowLabel` doesn't route
+  (ADR-4). Wrong-window state is a real hazard without it.
+- **R3 (high — Codex):** Filesystem identity — canonicalize + bind + revalidate
+  (ADR-3); a raw path display is insufficient for symlinks/substitution.
+- **R4 (med — Codex):** Post-open routing race (WI-1.6).
