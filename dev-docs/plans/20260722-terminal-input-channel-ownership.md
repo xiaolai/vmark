@@ -11,17 +11,25 @@ dod_checker: "scripts/check-terminal-input-phase.sh"
 
 | Phase | Name | State | DoD gate |
 |---|---|---|---|
-| 0 | Trace harness + measurement | NOT STARTED | `bash scripts/check-terminal-input-phase.sh 0` |
-| 1 | Safe structural fixes (no arbitration change) | NOT STARTED | `… 1` |
-| 2 | Channel Ownership behind a flag | NOT STARTED | `… 2` |
-| 3 | Collapse to a single writer | NOT STARTED | `… 3` |
-| 4 | Delete the proxy guards + flip default | NOT STARTED | `… 4` |
-| 5 | Test-estate repair + mutation gate | NOT STARTED | `… 5` |
+| 0 | Trace harness + measurement | **PARTIAL** — Q1/Q3 measured; recorder built; replay harness + fixtures blocked on browser tier / human | `bash scripts/check-terminal-input-phase.sh 0` |
+| 1 | Safe structural fixes (no arbitration change) | **DONE** (2026-07-22, gate 7/7, `check:all` green) | `… 1` |
+| 2 | Channel Ownership behind a flag | **PARTIAL** — WI-2.1 flag done; gate path (T1/T2/T3) blocked on browser tier | `… 2` |
+| 3 | Collapse to a single writer | NOT STARTED (blocked on browser tier) | `… 3` |
+| 4 | Delete the proxy guards + flip default | NOT STARTED (blocked on human IME matrix) | `… 4` |
+| 5 | Test-estate repair + mutation gate | NOT STARTED (blocked on browser tier) | `… 5` |
 
 **Phase Status ticks to the next row only after its DoD gate exits 0 AND `pnpm check:all` is green.**
 Per `.claude/rules/60-ai-governance.md` §6, this plan spans >3 phases and deletes load-bearing
-code — a cross-model (Codex) review via `/cc-suite:review-plan` is **mandatory before Phase 1
-commits**.
+code — a cross-model (Codex) review via `/cc-suite:review-plan` is **mandatory before the
+gate-path phases (2–4) begin**. Phase 1 shipped as pure, independently-revertible structural
+fixes with no arbitration change, so it did not gate on that review; the risky deletions do.
+
+**Progress note (2026-07-22, overnight autonomous run):** Phase 1 complete on branch
+`feat/terminal-input-channel-ownership` (commits after `a5291010`). The Phase 0 probes
+(deleted after recording) resolved Q1=NO and Q3=NO — jsdom cannot verify the gate path, and
+`@xterm/xterm` is globally mocked in tests — so everything downstream of Phase 1 was left
+unbuilt rather than shipped with tests that cannot fail. The next decision point (stand up the
+`@vitest/browser` + Playwright WebKit tier) is a human infra call.
 
 ---
 
