@@ -47,7 +47,18 @@ export type CopyFormat = "default" | "markdown";
 
 /** Markdown editing behavior — line breaks, paste handling, auto-pair, and copy format. */
 export interface MarkdownSettings {
-  preserveLineBreaks: boolean; // Don't collapse blank lines
+  /**
+   * Convert single (soft) newlines inside a paragraph to hard breaks on parse.
+   * NOTE: despite the historical "don't collapse blank lines" comment, this
+   * does NOT affect blank lines between blocks — see preserveBlankLines.
+   */
+  preserveLineBreaks: boolean;
+  /**
+   * Preserve runs of more than one blank line between blocks across the WYSIWYG
+   * round trip (default off). v1 preserves runs present in the loaded document;
+   * see dev-docs/plans/20260721-blank-line-preservation.md.
+   */
+  preserveBlankLines: boolean;
   showBrTags: boolean; // Display <br> tags visibly
   // Render invisible chars (spaces, tabs, breaks); Source only; off by default.
   showInvisibles: boolean;

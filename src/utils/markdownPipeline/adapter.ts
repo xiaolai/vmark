@@ -87,7 +87,9 @@ export function serializeMarkdown(
   options: MarkdownPipelineOptions = {}
 ): string {
   try {
-    const mdast = proseMirrorToMdast(schema, doc);
+    const mdast = proseMirrorToMdast(schema, doc, {
+      preserveBlankLines: options.preserveBlankLines,
+    });
     return serializeMdastToMarkdown(mdast, options);
   } catch (error) {
     const nodeCount = doc.content.childCount;

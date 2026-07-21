@@ -747,5 +747,7 @@
   "files.autoResize.800": "800px",
   "files.autoResize.1200": "1200px",
   "files.autoResize.1920": "1920px (Full HD)",
-  "files.autoResize.2560": "2560px (2K)"
+  "files.autoResize.2560": "2560px (2K)",
+  "editor.preserveBlankLines.label": "Preserve blank lines",
+  "editor.preserveBlankLines.description": "Keep runs of more than one blank line between blocks instead of collapsing them (applies to blank lines already in the file)"
 }

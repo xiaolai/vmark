@@ -21,27 +21,22 @@
  *     writes.
  *   - Orphaned grace timers from rapid compositionend pairs are cleared
  *     before scheduling new ones.
- *   - Empty-data compositionend (macOS Pinyin for full-width punctuation
- *     like "？" sometimes fires e.data="") ends composition synchronously
- *     with no grace period and no commit — xterm's helper textarea
- *     carries the real character, and our grace window would otherwise
- *     block xterm's late onData and lose the input. Symptom: typing "？"
- *     once shows nothing, only the second press appears to work as the
- *     next IME cycle finally lines up.
- *   - Textarea-vs-event mismatch (macOS Pinyin punctuation conversion: "?"
- *     → "？", "," → "，", "(" → "（", "--" → "——", etc.). The IME fires
- *     compositionend with e.data set to the *original ASCII key* but the
- *     helper textarea receives the *converted CJK character*. Detect this
- *     by snapshotting textarea length on compositionstart and comparing
- *     the diff on compositionend: when the textarea added non-ASCII
- *     content but e.data is empty/ASCII, commit the textarea diff
- *     directly instead of trusting e.data — the wrong character (the
- *     ASCII key) would otherwise be written.
- *   - `lastCommittedText` / `lastCommitTime` are exposed for the caller
- *     to dedup against late onData chunks that arrive after the grace
- *     period ends (#525).
+ *   - Empty-data compositionend (macOS Pinyin for full-width punctuation like
+ *     "？" sometimes fires e.data="") ends composition synchronously with no
+ *     commit — the textarea carries the real char and our grace window would
+ *     block xterm's late onData. Symptom: "？" appears only on the 2nd press.
+ *   - Textarea-vs-event mismatch (macOS Pinyin: "?"→"？", "("→"（", etc.):
+ *     compositionend's e.data is the ASCII key but the textarea has the CJK
+ *     char. Detected by diffing textarea length since compositionstart; when
+ *     the diff is non-ASCII and e.data empty/ASCII, commit the textarea diff.
+ *   - `lastCommittedText` / `lastCommitTime` dedup against late onData (#525).
+ *   - Plain-insertText commit path: WeChat commits Shift full-width punctuation
+ *     (？！～：《》（）…) as a bare insertText `input` with NO composition cycle;
+ *     xterm's double-input guard drops it. A capture-phase `input` listener
+ *     forwards such non-ASCII inserts and clears the textarea (see onInput).
  *
  * @coordinates-with createTerminalInstance.ts — sole caller
+ * @coordinates-with terminalSessionInputWiring.ts — onCompositionCommit → PTY, onData dedup
  * @module components/Terminal/setupImeComposition
  */
 import { terminalLog } from "@/utils/debug";
@@ -132,8 +127,7 @@ export function setupImeComposition({ container }: SetupOptions): ImeComposition
     composing = true;
     inGracePeriod = false;
     // Snapshot textarea length so onCompositionEnd can read what the IME
-    // actually inserted (needed when e.data lies — see textarea-vs-event
-    // mismatch handling in onCompositionEnd).
+    // inserted when e.data lies (textarea-vs-event mismatch below).
     textareaStartLen = textarea?.value.length ?? 0;
     terminalLog("compositionstart");
   };
@@ -142,15 +136,10 @@ export function setupImeComposition({ container }: SetupOptions): ImeComposition
     const committedText = e.data;
     terminalLog("compositionend", committedText);
 
-    // compositionend without a preceding compositionstart has two known
-    // shapes:
-    //   - macOS: after a real composition ends, the IME occasionally
-    //     re-fires compositionend with the same data (#659). Drop it.
-    //   - Linux + WebKitGTK + fcitx5/rime: compositionstart NEVER fires
-    //     for committed text; compositionend is the only signal. Treat
-    //     it as the authoritative commit (#948).
-    // Discriminate by the dedup buffer: a re-fire of recently-committed
-    // text is a duplicate; new text is a fresh commit.
+    // compositionend with no preceding compositionstart: either a macOS re-fire
+    // of recently-committed text (#659, drop it) or a fcitx5/rime commit where
+    // compositionstart never fired (#948, authoritative). Discriminate via the
+    // dedup buffer: a recent same-text re-fire is a duplicate, new text is fresh.
     if (!composing && !inGracePeriod) {
       if (!committedText) return;
       const isRecentDup =
@@ -186,20 +175,12 @@ export function setupImeComposition({ container }: SetupOptions): ImeComposition
       return;
     }
 
-    // Textarea-vs-event mismatch: macOS Pinyin's full-width-punctuation
-    // conversion fires compositionend with e.data set to the *original ASCII
-    // key* (",", "?", "(", "--", "~", "!"), but the helper textarea actually
-    // contains the *converted CJK character* ("，", "？", "（", "——", "～",
-    // "！"). The single-non-ASCII branch above missed it (data is ASCII)
-    // and the multi-char grace path below would commit the wrong (ASCII)
-    // character while blocking xterm's late onData with the real one. Trust
-    // the textarea diff instead — it's what the user actually typed.
-    //
-    // Trigger condition: e.data is empty OR pure-ASCII AND the textarea
-    // diff since compositionstart contains non-ASCII content.
-    const textareaDiff = textarea
-      ? textarea.value.slice(textareaStartLen)
-      : "";
+    // Textarea-vs-event mismatch (macOS Pinyin punctuation: e.data is the ASCII
+    // key ",?(~!" but the textarea holds the converted CJK "，？（～！"). The
+    // single-non-ASCII branch missed it (data is ASCII) and the grace path
+    // would commit the wrong char while blocking xterm's real one. When e.data
+    // is empty/pure-ASCII AND the textarea diff is non-ASCII, trust the diff.
+    const textareaDiff = textarea ? textarea.value.slice(textareaStartLen) : "";
     const eDataLooksUntrustworthy =
       !committedText || ALL_ASCII_RE.test(committedText);
     if (eDataLooksUntrustworthy && textareaDiff && NON_ASCII_RE.test(textareaDiff)) {
@@ -250,9 +231,42 @@ export function setupImeComposition({ container }: SetupOptions): ImeComposition
     }, IME_COMPOSITION_GRACE_MS);
   };
 
+  const onInput = (e: Event) => {
+    // WeChat commits Shift full-width punctuation (？！～：《》（）…) as a PLAIN
+    // insertText `input` with NO composition cycle (verified trace); xterm's
+    // double-input guard skips it (assuming it came via keydown, as ASCII does)
+    // so it lands in the textarea, unforwarded. Forward it here and clear the
+    // textarea in capture phase (before xterm's bubble listener) so xterm can't
+    // double-process; record it for the onData dedup. Scope: not during our
+    // composition/grace, not isComposing, inputType EXACTLY "insertText" (so
+    // paste/drop/composition commits are excluded), non-ASCII only (ASCII goes
+    // via keydown). See module header + the plain-insertText commit test.
+    if (composing || inGracePeriod) return;
+    const ie = e as InputEvent;
+    if (ie.isComposing) return;
+    if (ie.inputType !== "insertText") return;
+    const data = ie.data;
+    if (!data || !NON_ASCII_RE.test(data)) return;
+
+    if (textarea) textarea.value = "";
+    lastCommittedText = data;
+    lastCommitTime = Date.now();
+    terminalLog("plain-input commit", data);
+    if (onCompositionCommit) {
+      try {
+        onCompositionCommit(data);
+      } catch {
+        // best-effort: PTY may already be closing
+      }
+    }
+  };
+
   if (textarea) {
     textarea.addEventListener("compositionstart", onCompositionStart);
     textarea.addEventListener("compositionend", onCompositionEnd);
+    // Capture phase: run before xterm's own input handler so clearing the
+    // textarea prevents a double write for the dropped-punctuation case.
+    textarea.addEventListener("input", onInput, true);
   } else {
     terminalLog("xterm-helper-textarea not found — IME composition tracking disabled");
   }
@@ -266,6 +280,7 @@ export function setupImeComposition({ container }: SetupOptions): ImeComposition
     if (textarea) {
       textarea.removeEventListener("compositionstart", onCompositionStart);
       textarea.removeEventListener("compositionend", onCompositionEnd);
+      textarea.removeEventListener("input", onInput, true);
     }
   };
 

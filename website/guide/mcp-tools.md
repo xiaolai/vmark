@@ -93,7 +93,7 @@ Returns `{tabId}`.
 
 ### `open`
 
-Open a file from disk.
+Open a **file** from disk into a tab.
 
 | Parameter | Type | Required |
 |-----------|------|----------|
@@ -101,6 +101,24 @@ Open a file from disk.
 | `windowLabel` | string | No |
 
 Returns `{tabId}`.
+
+### `open_workspace`
+
+Open a **folder** as the active workspace. Unlike `open` (a single file inside an
+already-consented tree), this grants the assistant access to a whole new file
+tree, so it is **gated by a one-time user approval** and is not covered by the
+path scope above.
+
+| Parameter | Type | Required |
+|-----------|------|----------|
+| `folderPath` | string | Yes |
+| `windowLabel` | string | No |
+
+**Approval flow.** The first call returns `{needsApproval: true}` and raises a
+consent dialog naming the *canonical* folder path (symlinks resolved). The
+assistant should ask the user, then **retry the same call**; once the user
+approves, the retry opens the folder. A denied request keeps failing until it is
+re-approved. There is no "remember" option — each open is approved individually.
 
 ### `save`
 

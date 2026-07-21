@@ -13,6 +13,9 @@
  *   - 150ms post-commit dedup window with a consumed-prefix pointer so
  *     chunked re-emissions ("你好" + "世界") match against the remainder
  *     of the committed text, not the full string.
+ *   - Cross-path echo dedup: a full-width punctuation char can arrive as BOTH
+ *     an xterm onData AND our plain-input forward in one keydown, onData first.
+ *     onData records the char; the forward consumes and skips the duplicate.
  *   - Press-any-key-to-restart is implemented here: after a shell exits,
  *     either an onData chunk OR an IME commit triggers respawn.
  *
@@ -49,10 +52,27 @@ interface WireOptions {
  * underlying xterm subscriptions are owned by the terminal instance and
  * cleaned up via term.dispose(); no separate cleanup is returned.
  */
+/** Non-ASCII detector for the onData↔commit echo dedup (see below). */
+// eslint-disable-next-line no-control-regex
+const NON_ASCII_ECHO_RE = /[^\x00-\x7f]/;
+
 export function wireSessionInput({ sessionId, getEntry, startShell }: WireOptions): void {
   const entry = getEntry(sessionId);
   if (!entry) return;
   const { instance } = entry;
+
+  // Cross-path echo dedup: a full-width punctuation char (e.g. macOS Pinyin
+  // "！") can arrive as BOTH an xterm onData AND our plain-input forward within
+  // the same keydown, with onData firing FIRST (verified via live trace). The
+  // post-commit dedup below only catches the reverse order (onData after the
+  // commit sets lastCommittedText), so onData writes the char and then the
+  // forward writes it again → doubled. onData records the char it just wrote and
+  // the forward consumes + skips the duplicate. The token is tied to the CURRENT
+  // event dispatch via queueMicrotask (NOT a time window): a paired forward
+  // fires synchronously in the same keydown and consumes it, but a later
+  // independent keystroke — or a typed char right after PASTING the same char —
+  // sees a cleared token and is written (Codex audit).
+  let xtermEchoText: string | null = null;
 
   // IME composition commit: write clean committed text directly to PTY,
   // bypassing xterm's onData (which may inject spaces between segments).
@@ -60,6 +80,11 @@ export function wireSessionInput({ sessionId, getEntry, startShell }: WireOption
     const e = getEntry(sessionId);
     if (!e) return;
     if (e.pty) {
+      // xterm's onData already delivered this exact char this keydown — skip.
+      if (text === xtermEchoText) {
+        xtermEchoText = null; // consume
+        return;
+      }
       e.pty.write(text);
       return;
     }
@@ -120,6 +145,15 @@ export function wireSessionInput({ sessionId, getEntry, startShell }: WireOption
       return;
     }
     if (e.pty) {
+      // Record a single non-ASCII char so a plain-input forward for the SAME
+      // char later in THIS dispatch is deduped in onCompositionCommit above.
+      // Clear it once the dispatch drains so it can't match a later keystroke.
+      if (NON_ASCII_ECHO_RE.test(data)) {
+        xtermEchoText = data;
+        queueMicrotask(() => {
+          xtermEchoText = null;
+        });
+      }
       e.pty.write(data);
     }
   });

@@ -32,9 +32,13 @@ These shortcuts work when the terminal panel is focused:
 | Paste | `Mod + V` |
 | Clear | `Mod + K` |
 | Search | `Mod + F` |
+| Line start / end | `Cmd + ←` / `Cmd + →` (macOS) |
+| Zoom terminal font | `Mod + =` / `Mod + -` / `Mod + 0` |
 | Toggle Terminal | `` Ctrl + ` `` |
 | Previous command prompt | `Mod + ↑` |
 | Next command prompt | `Mod + ↓` |
+
+When the terminal is focused, `Mod + =` / `-` / `0` zoom the **terminal** font (set separately in Terminal settings), not the editor font, and `Mod + F` opens the **terminal** search rather than the editor's find bar.
 
 Prompt navigation (`Mod + ↑` / `Mod + ↓`) requires shell integration — see [Shell integration](#shell-integration) below.
 

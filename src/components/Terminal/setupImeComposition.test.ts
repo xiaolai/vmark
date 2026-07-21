@@ -169,3 +169,110 @@ describe("setupImeComposition — Linux fcitx5/WebKitGTK fresh commit path (#948
     expect(handle.lastCommitTime).toBeGreaterThan(0);
   });
 });
+
+describe("setupImeComposition — plain insertText commit (WeChat Shift punctuation)", () => {
+  // Real captured WeChat trace for typing 「？」 (Shift+/): NO compositionstart/
+  // compositionend fires at all. The char arrives as a plain `input` event with
+  // inputType "insertText", isComposing false, landing in the helper textarea —
+  // then a trailing keydown with no data. xterm's double-input guard assumes the
+  // char already came via keydown (as ASCII "?" does) and SKIPS the input, so
+  // the character is dropped and the textarea is never cleared. Non-shift
+  // punctuation (，。；) comes via keydown and is unaffected. Every prior fix
+  // targeted the composition branches, which never run for this input.
+  beforeEach(() => {
+    document.body.innerHTML = "";
+  });
+
+  function fireInput(
+    textarea: HTMLTextAreaElement,
+    data: string,
+    inputType = "insertText",
+  ): void {
+    textarea.value = data; // the browser has already inserted it
+    textarea.dispatchEvent(
+      new InputEvent("input", { data, inputType, isComposing: false, bubbles: true }),
+    );
+  }
+
+  it("forwards a dropped non-ASCII insertText input to the PTY", () => {
+    const { container, textarea } = makeContainer();
+    const handle = setupImeComposition({ container });
+    const onCommit = vi.fn();
+    handle.onCompositionCommit = onCommit;
+
+    fireInput(textarea, "？");
+
+    expect(onCommit).toHaveBeenCalledTimes(1);
+    expect(onCommit).toHaveBeenCalledWith("？");
+  });
+
+  it("clears the helper textarea so xterm cannot re-process (no accumulation)", () => {
+    const { container, textarea } = makeContainer();
+    const handle = setupImeComposition({ container });
+    handle.onCompositionCommit = vi.fn();
+
+    fireInput(textarea, "？");
+
+    expect(textarea.value).toBe("");
+  });
+
+  it("records the dedup anchor so a late xterm onData echo is suppressed", () => {
+    const { container, textarea } = makeContainer();
+    const handle = setupImeComposition({ container });
+    handle.onCompositionCommit = vi.fn();
+
+    fireInput(textarea, "！");
+
+    expect(handle.lastCommittedText).toBe("！");
+    expect(handle.lastCommitTime).toBeGreaterThan(0);
+  });
+
+  it("ignores plain ASCII insertText (that path works via keydown → xterm)", () => {
+    const { container, textarea } = makeContainer();
+    const handle = setupImeComposition({ container });
+    const onCommit = vi.fn();
+    handle.onCompositionCommit = onCommit;
+
+    fireInput(textarea, "?");
+
+    expect(onCommit).not.toHaveBeenCalled();
+  });
+
+  it("ignores composition-commit inputs (insertFromComposition / insertCompositionText)", () => {
+    const { container, textarea } = makeContainer();
+    const handle = setupImeComposition({ container });
+    const onCommit = vi.fn();
+    handle.onCompositionCommit = onCommit;
+
+    // A real composition commit is handled by the compositionend branches, not
+    // here — the inputType carries "Composition".
+    fireInput(textarea, "你好", "insertFromComposition");
+
+    expect(onCommit).not.toHaveBeenCalled();
+  });
+
+  it("ignores non-insertText inputs like paste (bracketed paste handles those)", () => {
+    const { container, textarea } = makeContainer();
+    const handle = setupImeComposition({ container });
+    const onCommit = vi.fn();
+    handle.onCompositionCommit = onCommit;
+
+    // A non-ASCII paste must NOT be hijacked into a raw PTY write — it would
+    // bypass bracketed-paste wrapping. Only inputType "insertText" is ours.
+    fireInput(textarea, "你好世界", "insertFromPaste");
+
+    expect(onCommit).not.toHaveBeenCalled();
+  });
+
+  it("ignores an insertText input while a composition is active", () => {
+    const { container, textarea } = makeContainer();
+    const handle = setupImeComposition({ container });
+    const onCommit = vi.fn();
+    handle.onCompositionCommit = onCommit;
+
+    fireComposition(textarea, "compositionstart", "");
+    fireInput(textarea, "？"); // mid-composition insertText belongs to the IME
+
+    expect(onCommit).not.toHaveBeenCalled();
+  });
+});

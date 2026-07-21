@@ -68,6 +68,7 @@ macro_rules! all_commands {
             file_ops::get_file_size_bytes,
             workspace::read_workspace_config,
             workspace::write_workspace_config,
+            workspace_validation::validate_workspace_dir,
             quarantine::strip_workspace_quarantine_cmd,
             mcp_server::mcp_bridge_start,
             mcp_server::mcp_bridge_stop,
