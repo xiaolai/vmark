@@ -23,11 +23,13 @@
  *   - Auto-creates a session when the panel becomes visible with none
  *     existing (e.g., user closed all tabs then re-opened the panel).
  *   - Fit is called on show, resize, and position change to keep xterm
- *     dimensions in sync.
+ *     dimensions in sync, and again from a ResizeObserver on the container so
+ *     transition frames and cross-axis window resizes are not missed.
  *   - Adds .terminal-resizing class during drag to suppress CSS transitions.
  *
  * @coordinates-with useTerminalSessions.ts — manages xterm + PTY lifecycle
  * @coordinates-with useTerminalResize.ts — vertical/horizontal drag handle
+ * @coordinates-with useTerminalAutoFit.ts — container-box observer that refits xterm
  * @coordinates-with useTerminalPosition.ts — auto-repositioning algorithm
  * @coordinates-with TerminalTabBar.tsx — session switching and management
  * @coordinates-with TerminalSearchBar.tsx — inline search within terminal output
@@ -39,6 +41,7 @@ import { useTranslation } from "react-i18next";
 import { useUIStore } from "@/stores/uiStore";
 import { useTerminalSessions } from "./useTerminalSessions";
 import { useTerminalResize } from "./useTerminalResize";
+import { useTerminalAutoFit } from "./useTerminalAutoFit";
 import { isHorizontalTerminalAxis } from "./useTerminalPosition";
 import { TerminalTabBar } from "./TerminalTabBar";
 import { TerminalContextMenu } from "./TerminalContextMenu";
@@ -89,6 +92,12 @@ export function TerminalPanel() {
     if (!visible) return;
     requestAnimationFrame(() => fit());
   }, [visible, height, width, position, fit]);
+
+  // …and whenever the container's box actually changes. The effect above fires
+  // on the state change, one frame *before* the CSS width/height transition has
+  // played out, and it never sees a cross-axis change (a right panel's width is
+  // untouched by a window height resize). The observer covers both.
+  useTerminalAutoFit(containerRef, fit, activated);
 
   // Track resizing state to suppress CSS transitions during drag
   const [isResizing, setIsResizing] = useState(false);
