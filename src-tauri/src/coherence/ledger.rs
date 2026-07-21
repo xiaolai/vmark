@@ -128,8 +128,17 @@ impl Ledger {
     /// Append one entry: mkdir -p, terminate a torn tail, single write of
     /// one line, fsync (spec §5.2).
     pub fn append(&self, entry: &Envelope) -> Result<(), String> {
+        // Durability of the DIRECTORY ENTRY, not just the file bytes (G-B
+        // re-review 03 C1): fsyncing the segment file persists its contents, but
+        // a brand-new or rotated segment's *link* in its directory — and a
+        // freshly (re)created ledger dir's link in its parent — is not durable
+        // until the directory itself is fsynced. Without this, a power loss can
+        // lose an acknowledged append into a new segment, and a `group-prepare`
+        // manifest (the first write of a group) is exactly such an append.
+        let dir_is_new = !self.dir.exists();
         fs::create_dir_all(&self.dir).map_err(|e| format!("ledger mkdir failed: {e}"))?;
         let path = self.active_segment();
+        let seg_is_new = !path.exists();
         if let Ok(meta) = fs::metadata(&path) {
             if meta.len() > 0 && !file_ends_with_newline(&path)? {
                 let mut f = fs::OpenOptions::new()
@@ -162,6 +171,18 @@ impl Ledger {
             .map_err(|e| format!("ledger append failed: {e}"))?;
         f.sync_all()
             .map_err(|e| format!("ledger fsync failed: {e}"))?;
+        // fsync the directory holding a NEWLY created segment so its dir entry is
+        // durable; and the parent of a newly created ledger dir. Only on creation
+        // — an existing file's link is already durable, so the steady-state append
+        // pays no extra fsync (§10 append budget).
+        if seg_is_new {
+            fsync_dir(&self.dir)?;
+        }
+        if dir_is_new {
+            if let Some(parent) = self.dir.parent() {
+                fsync_dir(parent)?;
+            }
+        }
         Ok(())
     }
 
@@ -360,6 +381,25 @@ fn parse_line(line: &[u8]) -> LineOutcome {
     match env.typed() {
         Ok(_) => LineOutcome::Entry(env),
         Err(e) => LineOutcome::Malformed(e),
+    }
+}
+
+/// fsync a directory so a create/rename within it is durable (matches the
+/// `state.rs` 8R-6/9R-5 idiom). A directory `File` opened read-only and
+/// `sync_all()`'d persists its entries; not observable in a unit test, so it is
+/// durability hardening rather than tested behaviour (as with the state.rs
+/// dir-fsyncs). A missing directory is not an error here — the caller only
+/// fsyncs a dir it just created or wrote into.
+fn fsync_dir(dir: &Path) -> Result<(), String> {
+    match fs::File::open(dir) {
+        Ok(d) => d
+            .sync_all()
+            .map_err(|e| format!("ledger dir fsync failed ({}): {e}", dir.display())),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(e) => Err(format!(
+            "ledger dir open for fsync failed ({}): {e}",
+            dir.display()
+        )),
     }
 }
 
