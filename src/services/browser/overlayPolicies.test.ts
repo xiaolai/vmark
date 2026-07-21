@@ -115,6 +115,7 @@ function globSyncish(name: string): string[] {
     WindowStatusOverlay: "src/components/WindowStatusPanel/WindowStatusOverlay.tsx",
     BreakdownOverlay: "src/components/BreakdownPanel/BreakdownOverlay.tsx",
     ApprovalDialog: "src/components/WorkflowApproval/ApprovalDialog.tsx",
+    WorkspaceApprovalDialog: "src/components/Workspace/WorkspaceApprovalDialog.tsx",
     TabContextMenu: "src/components/Tabs/TabContextMenu.tsx",
     WordCountPopover: "src/components/StatusBar/WordCountPopover.tsx",
   };

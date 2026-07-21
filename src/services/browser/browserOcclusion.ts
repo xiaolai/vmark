@@ -45,6 +45,8 @@ export const OCCLUDER = {
   dialog: "page-dialog",
   /** The AI-action approval prompt (WI-S0.8). */
   approval: "approval-dialog",
+  /** The open_workspace consent prompt. */
+  workspaceApproval: "workspace-approval-dialog",
   /** A load/create failure overlay. The native view paints over DOM, so an error message
    *  drawn under a live page is a message nobody can read (audit finding). */
   error: "error-overlay",

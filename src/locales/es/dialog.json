@@ -248,5 +248,9 @@
   },
   "openWorkspaceFolder": {
     "title": "Abrir carpeta del espacio de trabajo"
-  }
+  },
+  "openWorkspace.approval.title": "Open folder as workspace?",
+  "openWorkspace.approval.body": "The AI assistant is asking to open this folder as a workspace, which grants it access to the folder's file tree:",
+  "openWorkspace.approval.approve": "Open workspace",
+  "openWorkspace.approval.deny": "Deny"
 }
