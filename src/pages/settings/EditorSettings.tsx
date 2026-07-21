@@ -289,6 +289,15 @@ export function EditorSettings() {
           />
         </SettingRow>
         <SettingRow
+          label={t("editor.preserveBlankLines.label")}
+          description={t("editor.preserveBlankLines.description")}
+        >
+          <Toggle
+            checked={markdown.preserveBlankLines}
+            onChange={(v) => updateMarkdownSetting("preserveBlankLines", v)}
+          />
+        </SettingRow>
+        <SettingRow
           label={t("editor.hardBreakStyle.label")}
           description={t("editor.hardBreakStyle.description")}
         >

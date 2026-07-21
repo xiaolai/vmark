@@ -29,6 +29,7 @@ import { serializeMarkdown } from "@/utils/markdownPipeline";
 import { resolveHardBreakStyle } from "@/utils/linebreaks";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
+import { useSettingsStore } from "@/stores/settingsStore";
 import { getAdaptiveDebounceDelay } from "./tiptapEditorHelpers";
 
 interface TiptapFlushOptions {
@@ -76,6 +77,9 @@ export function useTiptapFlush(options: TiptapFlushOptions): TiptapFlushHandle {
 
       const markdown = serializeMarkdown(editor.schema, editor.state.doc, {
         preserveLineBreaks: preserveLineBreaksRef.current,
+        // Read directly from the store (no new ref threaded through the editor
+        // chain); capture is unconditional, so toggling needs no reparse.
+        preserveBlankLines: useSettingsStore.getState().markdown.preserveBlankLines,
         hardBreakStyle: (() => {
           const tabId = activeTabId ?? useTabStore.getState().activeTabId[windowLabel];
           /* v8 ignore next -- @preserve reason: no active tabId only if tab store is uninitialized; always set during normal editor lifecycle */

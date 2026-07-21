@@ -84,6 +84,7 @@ export const initialState: SettingsState = {
   },
   markdown: {
     preserveLineBreaks: false,
+    preserveBlankLines: false,
     showBrTags: false,
     showInvisibles: false,
     codeBlockLineNumbers: false,
