@@ -11,7 +11,8 @@
 import type { SessionEntry, SessionsRef } from "./terminalSessionTypes";
 import { fitAndResizePty } from "./fitAndResizePty";
 
-/** Remove a session — cancel pending rAF, kill PTY, and dispose instance. */
+/** Remove a session — cancel pending rAF, dispose the instance, then kill the
+ *  PTY (dispose-before-kill so a dispose-time IME flush reaches a live PTY). */
 export function removeSessionEntry(
   sessionsRef: SessionsRef,
   sessionId: string,
