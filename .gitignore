@@ -160,5 +160,6 @@ e2e/artifacts/
 .stryker-tmp/
 reports/mutation/
 
-# Vitest browser-tier (WebKit) failure screenshots (run with `pnpm test:browser`)
+# Vitest browser-tier (WebKit) artifacts (run with `pnpm test:browser`)
 src/**/__screenshots__/
+.vitest-attachments/
