@@ -120,6 +120,8 @@
   "windowStatus.status.attention": "Benötigt Aufmerksamkeit",
   "windowStatus.pin": "Anheften — Bereich beim Fensterwechsel geöffnet lassen",
   "windowStatus.unpin": "Anheften aufheben",
+  "windowStatus.pinThisWindow": "Dieses Fenster anheften",
+  "windowStatus.pinAllWindows": "Alle Fenster anheften",
   "format.media": "Medien",
   "quickLook.close": "Vorschau schließen",
   "browser.reload": "Neu laden",
