@@ -7,6 +7,21 @@
 //! surface, and canonicalizes so the granted tree and the approval one-shot
 //! bind to the REAL target rather than a symlink name (Codex F-06).
 
+/// Strip a Windows extended-length (`\\?\` / `\\?\UNC\`) prefix from a
+/// canonical path string, returning `None` when there is nothing to strip.
+/// `canonicalize()` yields these verbatim paths on Windows, but the frontend's
+/// absolute-path / containment checks don't recognize the prefix, so an
+/// approved `C:\repo` would fail its guarded follow-up operations. Always
+/// compiled (a no-op on Unix, whose paths never carry the prefix) so it can be
+/// unit-tested on any platform.
+fn strip_verbatim_prefix(s: &str) -> Option<String> {
+    if let Some(rest) = s.strip_prefix(r"\\?\UNC\") {
+        Some(format!(r"\\{rest}"))
+    } else {
+        s.strip_prefix(r"\\?\").map(str::to_owned)
+    }
+}
+
 /// Canonicalize `path` (resolving symlinks) and require it be a directory,
 /// returning the canonical path for the approval one-shot binding.
 #[tauri::command]
@@ -17,7 +32,14 @@ pub fn validate_workspace_dir(path: &str) -> Result<String, String> {
     if !canonical.is_dir() {
         return Err(format!("'{path}' is not a directory"));
     }
-    Ok(canonical.to_string_lossy().into_owned())
+    // Reject non-UTF-8 canonical paths rather than lossily mangling them:
+    // to_string_lossy() would replace bytes with U+FFFD, so the frontend would
+    // open — and the approval one-shot would bind to — a DIFFERENT path than the
+    // one validated (Codex M1).
+    let canonical = canonical
+        .to_str()
+        .ok_or_else(|| format!("workspace folder '{path}' has a non-UTF-8 path"))?;
+    Ok(strip_verbatim_prefix(canonical).unwrap_or_else(|| canonical.to_owned()))
 }
 
 #[cfg(test)]
@@ -41,5 +63,21 @@ mod tests {
         std::fs::write(&file, b"x").unwrap();
         assert!(validate_workspace_dir(file.to_string_lossy().as_ref()).is_err());
         let _ = std::fs::remove_file(&file);
+    }
+
+    #[test]
+    fn strips_windows_verbatim_prefixes() {
+        // A drive path and a UNC path lose their extended-length prefix; a
+        // normal path is left untouched (None ⇒ caller keeps the original).
+        assert_eq!(
+            strip_verbatim_prefix(r"\\?\C:\repo").as_deref(),
+            Some(r"C:\repo")
+        );
+        assert_eq!(
+            strip_verbatim_prefix(r"\\?\UNC\server\share").as_deref(),
+            Some(r"\\server\share"),
+        );
+        assert_eq!(strip_verbatim_prefix(r"C:\repo"), None);
+        assert_eq!(strip_verbatim_prefix("/Users/x/proj"), None);
     }
 }

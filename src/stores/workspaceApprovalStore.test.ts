@@ -7,6 +7,8 @@ import { describe, it, expect, beforeEach } from "vitest";
 import {
   useWorkspaceApprovalStore,
   MAX_PENDING_WORKSPACE_APPROVALS,
+  MAX_WORKSPACE_ONE_SHOTS,
+  WORKSPACE_ONE_SHOT_TTL_MS,
 } from "./workspaceApprovalStore";
 
 function reset() {
@@ -79,5 +81,85 @@ describe("workspaceApprovalStore", () => {
     const s = useWorkspaceApprovalStore.getState();
     s.resolveApproval("nope", "approve");
     expect(useWorkspaceApprovalStore.getState().oneShots).toHaveLength(0);
+  });
+
+  it("requestApproval reports queued / existing / overloaded", () => {
+    const s = useWorkspaceApprovalStore.getState();
+    expect(s.requestApproval("id1", KEY.canonicalPath, KEY.windowLabel, KEY.clientId)).toBe("queued");
+    // Same semantic key, fresh id → deduped, no second dialog (M10).
+    expect(s.requestApproval("id2", KEY.canonicalPath, KEY.windowLabel, KEY.clientId)).toBe("existing");
+    expect(useWorkspaceApprovalStore.getState().pending).toHaveLength(1);
+    // Fill the queue with distinct paths, then the next distinct one overflows.
+    for (let i = 0; i < MAX_PENDING_WORKSPACE_APPROVALS - 1; i++) {
+      s.requestApproval(`p${i}`, `/p${i}`, "main", "c1");
+    }
+    expect(s.requestApproval("overflow", "/overflow", "main", "c1")).toBe("overloaded");
+  });
+
+  it("hasOneShot peeks without consuming", () => {
+    const s = useWorkspaceApprovalStore.getState();
+    s.requestApproval("id1", KEY.canonicalPath, KEY.windowLabel, KEY.clientId);
+    s.resolveApproval("id1", "approve");
+    expect(s.hasOneShot(KEY.canonicalPath, KEY.windowLabel, KEY.clientId)).toBe(true);
+    // Peeking twice does not spend it.
+    expect(s.hasOneShot(KEY.canonicalPath, KEY.windowLabel, KEY.clientId)).toBe(true);
+    expect(useWorkspaceApprovalStore.getState().oneShots).toHaveLength(1);
+  });
+
+  it("does not spend an expired one-shot (TTL)", () => {
+    // Seed a one-shot minted just over the TTL ago.
+    useWorkspaceApprovalStore.setState({
+      pending: [],
+      oneShots: [
+        {
+          ...KEY,
+          createdAt: Date.now() - WORKSPACE_ONE_SHOT_TTL_MS - 1000,
+        },
+      ],
+    });
+    const s = useWorkspaceApprovalStore.getState();
+    expect(s.hasOneShot(KEY.canonicalPath, KEY.windowLabel, KEY.clientId)).toBe(false);
+    expect(s.consumeOneShot(KEY.canonicalPath, KEY.windowLabel, KEY.clientId)).toBe(false);
+    // The expired grant is pruned, not left lingering.
+    expect(useWorkspaceApprovalStore.getState().oneShots).toHaveLength(0);
+  });
+
+  it("physically prunes expired one-shots on every action (not only consume/approve)", () => {
+    const stale = () => ({
+      ...KEY,
+      createdAt: Date.now() - WORKSPACE_ONE_SHOT_TTL_MS - 1000,
+    });
+    const s = useWorkspaceApprovalStore.getState();
+
+    // hasOneShot prunes.
+    useWorkspaceApprovalStore.setState({ pending: [], oneShots: [stale()] });
+    s.hasOneShot("/other", "main", "c1");
+    expect(useWorkspaceApprovalStore.getState().oneShots).toHaveLength(0);
+
+    // requestApproval prunes.
+    useWorkspaceApprovalStore.setState({ pending: [], oneShots: [stale()] });
+    s.requestApproval("r1", "/new", "main", "c1");
+    expect(useWorkspaceApprovalStore.getState().oneShots).toHaveLength(0);
+
+    // deny-resolution prunes.
+    useWorkspaceApprovalStore.setState({
+      pending: [{ id: "d1", canonicalPath: "/p", windowLabel: "main", clientId: "c1" }],
+      oneShots: [stale()],
+    });
+    s.resolveApproval("d1", "deny");
+    expect(useWorkspaceApprovalStore.getState().oneShots).toHaveLength(0);
+  });
+
+  it("caps minted one-shots to MAX_WORKSPACE_ONE_SHOTS (drops oldest)", () => {
+    const s = useWorkspaceApprovalStore.getState();
+    for (let i = 0; i < MAX_WORKSPACE_ONE_SHOTS + 3; i++) {
+      s.requestApproval(`id${i}`, `/proj${i}`, "main", "c1");
+      s.resolveApproval(`id${i}`, "approve");
+    }
+    const { oneShots } = useWorkspaceApprovalStore.getState();
+    expect(oneShots).toHaveLength(MAX_WORKSPACE_ONE_SHOTS);
+    // The earliest grants were evicted; the newest survive.
+    expect(s.consumeOneShot("/proj0", "main", "c1")).toBe(false);
+    expect(s.consumeOneShot(`/proj${MAX_WORKSPACE_ONE_SHOTS + 2}`, "main", "c1")).toBe(true);
   });
 });

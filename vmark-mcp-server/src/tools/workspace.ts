@@ -11,6 +11,21 @@
 
 import { VMarkMcpServer } from '../server.js';
 
+/** The `open_workspace` approval envelope, attached to a bridge failure's
+ *  `data`. Distinct from the browser envelope (no operation/url): opening a
+ *  folder needs a one-shot human approval, surfaced so the AI asks and retries. */
+export interface WorkspaceApprovalNeeded {
+  needsApproval: true;
+  folderPath: string;
+}
+
+/** Is `data` the open_workspace approval envelope? */
+export function isWorkspaceApprovalNeeded(data: unknown): data is WorkspaceApprovalNeeded {
+  if (typeof data !== 'object' || data === null) return false;
+  const d = data as { needsApproval?: unknown; folderPath?: unknown };
+  return d.needsApproval === true && typeof d.folderPath === 'string' && d.folderPath.length > 0;
+}
+
 export function registerWorkspaceTool(server: VMarkMcpServer): void {
   server.registerTool(
     {
@@ -95,12 +110,30 @@ export function registerWorkspaceTool(server: VMarkMcpServer): void {
           if (typeof args.folderPath !== 'string') {
             return VMarkMcpServer.errorResult('folderPath (string) is required');
           }
-          const data = await server.sendBridgeRequest({
-            type: 'vmark.workspace.open_workspace',
-            folderPath: args.folderPath,
-            windowLabel,
-          });
-          return VMarkMcpServer.successJsonResult(data);
+          try {
+            const data = await server.sendBridgeRequest({
+              type: 'vmark.workspace.open_workspace',
+              folderPath: args.folderPath,
+              windowLabel,
+            });
+            return VMarkMcpServer.successJsonResult(data);
+          } catch (error) {
+            // A refusal is a request for consent, not an ordinary error: the
+            // approval envelope rides on error.data. Render it so the AI asks
+            // the user and retries the SAME call, instead of surfacing a bare
+            // error it cannot act on (Codex M11).
+            const data = (error as { data?: unknown })?.data;
+            if (isWorkspaceApprovalNeeded(data)) {
+              return VMarkMcpServer.errorResult(
+                `approval required to open workspace '${data.folderPath}'. ` +
+                  'Ask the user to approve opening this folder in VMark, then retry the SAME call. ' +
+                  'Do not retry until they have approved — a retry only re-raises the same request.',
+              );
+            }
+            return VMarkMcpServer.errorResult(
+              error instanceof Error ? error.message : String(error),
+            );
+          }
         }
         case 'save': {
           const data = await server.sendBridgeRequest({

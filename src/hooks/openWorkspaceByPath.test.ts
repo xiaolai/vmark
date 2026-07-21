@@ -59,8 +59,12 @@ describe("openWorkspaceByPath", () => {
     expect(restoreSplitLayout).toHaveBeenCalledWith("main", "/f");
   });
 
-  it("swallows an open failure without throwing (does not break the caller)", async () => {
+  it("returns true when the sequence completes", async () => {
+    await expect(openWorkspaceByPath("/f")).resolves.toBe(true);
+  });
+
+  it("returns false on an open failure without throwing (does not break the caller)", async () => {
     openWorkspaceWithConfig.mockRejectedValueOnce(new Error("boom"));
-    await expect(openWorkspaceByPath("/f")).resolves.toBeUndefined();
+    await expect(openWorkspaceByPath("/f")).resolves.toBe(false);
   });
 });

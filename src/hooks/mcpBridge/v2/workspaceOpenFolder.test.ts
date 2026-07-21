@@ -4,8 +4,9 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 const responses: Array<Record<string, unknown>> = [];
 // Rust validate_workspace_dir returns the canonical path (or rejects).
 const invokeMock = vi.fn(async (_cmd: string, args: { path: string }) => args.path);
-const openWorkspaceByPath = vi.fn(async () => {});
-const withReentryGuard = vi.fn(async (_l: string, _k: string, fn: () => Promise<void>) => fn());
+// openWorkspaceByPath resolves to whether the sequence completed (M8).
+const openWorkspaceByPath = vi.fn(async () => true);
+const withReentryGuard = vi.fn(async <T>(_l: string, _k: string, fn: () => Promise<T>) => fn());
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: (...a: unknown[]) => invokeMock(...(a as [string, { path: string }])) }));
 vi.mock("../utils", () => ({
@@ -89,5 +90,47 @@ describe("handleWorkspaceOpenWorkspace", () => {
     await handleWorkspaceOpenWorkspace("id2", { folderPath: "/proj", clientId: "c1" });
     expect(openWorkspaceByPath).not.toHaveBeenCalled();
     expect(responses[0].success).toBe(false);
+  });
+
+  it("a busy transition guard fails BUSY and does NOT consume the grant (M4)", async () => {
+    await handleWorkspaceOpenWorkspace("id1", { folderPath: "/proj", clientId: "c1" });
+    useWorkspaceApprovalStore.getState().resolveApproval("id1", "approve");
+    responses.length = 0;
+    // The guard is held by a concurrent menu transition → callback skipped.
+    withReentryGuard.mockImplementationOnce(async () => undefined);
+
+    await handleWorkspaceOpenWorkspace("id2", { folderPath: "/proj", clientId: "c1" });
+
+    expect(openWorkspaceByPath).not.toHaveBeenCalled();
+    expect(responses[0].success).toBe(false);
+    expect(String(responses[0].error)).toContain("BUSY");
+    // The one-shot survives so a later retry can still open.
+    expect(useWorkspaceApprovalStore.getState().oneShots).toHaveLength(1);
+  });
+
+  it("an internal open failure fails closed (no false success) (M8)", async () => {
+    await handleWorkspaceOpenWorkspace("id1", { folderPath: "/proj", clientId: "c1" });
+    useWorkspaceApprovalStore.getState().resolveApproval("id1", "approve");
+    responses.length = 0;
+    openWorkspaceByPath.mockResolvedValueOnce(false);
+
+    await handleWorkspaceOpenWorkspace("id2", { folderPath: "/proj", clientId: "c1" });
+
+    expect(responses[0].success).toBe(false);
+    expect(String(responses[0].error)).toContain("INTERNAL");
+    // Grant is spent (it authorized one attempt); a fresh approval is required.
+    expect(useWorkspaceApprovalStore.getState().oneShots).toHaveLength(0);
+  });
+
+  it("responds RESOURCE_EXHAUSTED when the approval queue is full (M7)", async () => {
+    // Saturate the pending queue with distinct requests.
+    const store = useWorkspaceApprovalStore.getState();
+    for (let i = 0; i < 32; i++) store.requestApproval(`p${i}`, `/full${i}`, "main", "c1");
+    responses.length = 0;
+
+    await handleWorkspaceOpenWorkspace("overflow", { folderPath: "/new", clientId: "c1" });
+
+    expect(responses[0].success).toBe(false);
+    expect(String(responses[0].error)).toContain("RESOURCE_EXHAUSTED");
   });
 });

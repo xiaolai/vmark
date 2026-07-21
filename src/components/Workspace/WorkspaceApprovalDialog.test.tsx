@@ -60,4 +60,15 @@ describe("WorkspaceApprovalDialog", () => {
     expect(useWorkspaceApprovalStore.getState().pending).toHaveLength(0);
     expect(useWorkspaceApprovalStore.getState().oneShots).toHaveLength(0);
   });
+
+  it("fails closed: a backdrop click denies (no one-shot)", async () => {
+    const user = userEvent.setup();
+    queue();
+    render(<WorkspaceApprovalDialog />);
+    // Clicking the overlay backdrop (the dialog role element itself) dismisses.
+    await user.click(screen.getByRole("dialog"));
+
+    expect(useWorkspaceApprovalStore.getState().pending).toHaveLength(0);
+    expect(useWorkspaceApprovalStore.getState().oneShots).toHaveLength(0);
+  });
 });

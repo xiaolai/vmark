@@ -76,6 +76,12 @@ export type V2ErrorCode =
   // must approve the edit. The agent should ask the user to enable approval
   // or confirm the destination, then retry.
   | "APPROVAL_REQUIRED"
+  // A window-transition is already in progress (open_workspace racing a menu
+  // "Open Folder"). Transient — the agent should retry shortly.
+  | "BUSY"
+  // Too many pending approvals queued (untrusted-client flooding). The agent
+  // should wait for the user to resolve them before retrying.
+  | "RESOURCE_EXHAUSTED"
   | "INTERNAL";
 
 export interface V2Error {

@@ -37,12 +37,15 @@ export const WORKSPACE_TRANSITION_GUARD = "workspace-transition";
  * Run the full open-workspace sequence (config → sidebar → recents → tab
  * restore → split restore) for `path` in the given window (default "main").
  * Never throws — failures are logged, so a caller is not broken by a bad path.
- * The caller MUST hold WORKSPACE_TRANSITION_GUARD (see module header).
+ * Returns whether the sequence completed: menu callers ignore it (best-effort),
+ * but the MCP handler MUST fail closed on `false` rather than report a success
+ * that did not happen. The caller MUST hold WORKSPACE_TRANSITION_GUARD (see
+ * module header).
  */
 export async function openWorkspaceByPath(
   path: string,
   options: { windowLabel?: string } = {},
-): Promise<void> {
+): Promise<boolean> {
   const windowLabel = options.windowLabel ?? "main";
   try {
     const existing = await openWorkspaceWithConfig(path, { windowLabel });
@@ -53,7 +56,9 @@ export async function openWorkspaceByPath(
       existing ? documentPathsForRestore(existing) : undefined,
     );
     restoreSplitLayout(windowLabel, path);
+    return true;
   } catch (error) {
     workspaceError("Failed to open workspace:", error);
+    return false;
   }
 }

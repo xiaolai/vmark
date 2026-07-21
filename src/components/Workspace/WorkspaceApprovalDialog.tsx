@@ -49,6 +49,13 @@ export function WorkspaceApprovalDialog() {
       onKeyDown={(e) => {
         if (e.key === "Escape") deny();
       }}
+      onClick={(e) => {
+        // Backdrop dismissal = deny (fail-closed): a click outside the dialog
+        // must not leave the prompt lingering and later approvable. Clicks on
+        // the dialog body/buttons have e.target !== the overlay, so they don't
+        // deny (the buttons' own handlers run).
+        if (e.target === e.currentTarget) deny();
+      }}
     >
       <div className="workspace-approval-dialog">
         <h2 id="workspace-approval-title" className="workspace-approval-title">
