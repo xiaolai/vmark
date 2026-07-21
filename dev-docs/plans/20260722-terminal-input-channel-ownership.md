@@ -135,16 +135,39 @@ commits**.
 - **Q1 — Does jsdom reproduce the microtask checkpoint between two listeners on one node?**
   - Why it matters: if not, ordering assertions are worthless in jsdom and the fixture tier must
     run in a real engine (`@vitest/browser` + Playwright WebKit).
-  - Who decides: measured in Phase 0, WI-0.2. Default if unresolved: assume NO → browser tier.
+  - **ANSWERED 2026-07-22 (probe): NO.** jsdom drains microtasks as `[L1, L2, microtask]`; a real
+    browser gives `[L1, microtask, L2]`. **jsdom cannot model the listener/microtask boundary at
+    all** — the exact mechanism the original bug rode. Consequence: the trace-replay tier and every
+    gate-path ordering assertion MUST run in the browser tier. Gate-path unit tests in jsdom would
+    reproduce the false-green defect.
 - **Q2 — WeChat Shift-punctuation keydown order: does its keydown carry keyCode 229, and does it
   precede or follow `input`?**
   - Why it matters: it decides whether the DEL-hazard (audit table, last row) is live or
     theoretical, i.e. whether Phase 2 must ship T2 before T3 or can relax.
-  - Who decides: measured in Phase 0, WI-0.3. Default if unresolved: assume live → T2-before-T3.
+  - Who decides: measured in Phase 0, WI-0.3 (**human — WeChat on real hardware**). Default if
+    unresolved: assume live → T2-before-T3.
 - **Q3 — Is a real `Terminal` instantiable under jsdom at all, or does it need canvas/measurement
   the browser tier must provide?**
   - Why it matters: sets whether the trace tier can gate `check:all` or needs a separate CI job.
-  - Who decides: WI-0.1. Default: separate browser CI job (the costlier assumption).
+  - **ANSWERED 2026-07-22 (probe): NO — and worse.** `@xterm/xterm` is **globally mocked** in
+    `src/test/setup.ts:217`, so no test in the repo ever touches the real class. WI-5.1's
+    real-Terminal rewrite and the whole trace-replay tier are **impossible in jsdom** and require
+    the browser tier (`@vitest/browser` + Playwright WebKit, ~200 MB, new CI job) — **deferred to
+    a human**, not made unilaterally overnight.
+
+### Phase 0 measurement outcome (2026-07-22) — SCOPE-CHANGING
+
+Both probes resolved decisively against jsdom, re-scoping what was implementable overnight:
+
+- **Verifiable in jsdom (built on `feat/terminal-input-channel-ownership`):** Phase 1 in full
+  (structural, not timing-dependent), WI-2.1 flag plumbing (pure state), and the WI-0.1
+  **recorder** (a dev tool the user runs against the real app to capture real traces).
+- **Blocked until the browser test tier exists (human infra decision):** WI-0.1 replay harness,
+  all gate-path WIs (2.2/2.3/2.4, 3.1/3.2), WI-5.1's real-Terminal rewrite.
+- **Blocked until the human IME matrix exists:** WI-0.3 traces, WI-4.1 flip.
+
+The measurement did its job: it stopped ~two-thirds of the plan from being built with tests that
+cannot fail — the precise pathology under repair.
 
 ## API / Contract Changes
 

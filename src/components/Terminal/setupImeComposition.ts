@@ -5,41 +5,32 @@
  * Suppresses xterm's garbled `onData` re-emission during CJK input and
  * delivers clean committed text to the PTY via an explicit callback.
  *
- * Key decisions (preserved from the original inline implementation):
- *   - 80ms grace period after compositionend during which `composing`
- *     stays true so xterm's onData re-emission is blocked (#59, #454,
- *     #525, #608, #619). After the timer, the clean committed text is
- *     fired via `onCompositionCommit`, bypassing xterm's onData entirely.
- *   - Rapid back-to-back compositions flush the previous pending text
- *     immediately on compositionstart, preventing input loss when typing
- *     fast in pinyin/zhuyin.
- *   - Single non-ASCII chars (CJK punctuation/brackets) flush
- *     immediately without a grace period — they don't trigger xterm's
- *     space injection, so the dedup mechanism isn't needed (#525).
- *   - Spurious compositionend events without a preceding compositionstart
- *     (fcitx5+rime on Linux: #659) are dropped to prevent duplicate PTY
- *     writes.
- *   - Orphaned grace timers from rapid compositionend pairs are cleared
- *     before scheduling new ones.
- *   - Empty-data compositionend (macOS Pinyin for full-width punctuation like
- *     "？" sometimes fires e.data="") ends composition synchronously with no
- *     commit — the textarea carries the real char and our grace window would
- *     block xterm's late onData. Symptom: "？" appears only on the 2nd press.
- *   - Textarea-vs-event mismatch (macOS Pinyin: "?"→"？", "("→"（", etc.):
- *     compositionend's e.data is the ASCII key but the textarea has the CJK
- *     char. Detected by diffing textarea length since compositionstart; when
- *     the diff is non-ASCII and e.data empty/ASCII, commit the textarea diff.
- *   - `lastCommittedText` / `lastCommitTime` dedup against late onData (#525).
- *   - Plain-insertText commit path: WeChat commits Shift full-width punctuation
- *     (？！～：《》（）…) as a bare insertText `input` with NO composition cycle;
- *     xterm's double-input guard drops it. A capture-phase `input` listener
- *     forwards such non-ASCII inserts and clears the textarea (see onInput).
+ * Key decisions (each branch is commented at its site below):
+ *   - 80ms grace after compositionend keeps `composing` true so xterm's onData
+ *     re-emission is blocked (#59, #454, #525, #608, #619); the clean text is
+ *     then fired via `onCompositionCommit`, bypassing onData.
+ *   - Rapid back-to-back compositions flush the previous pending text on the
+ *     next compositionstart (no input loss in fast pinyin/zhuyin).
+ *   - Single non-ASCII chars (CJK punctuation) flush immediately — no space
+ *     injection, so no dedup needed (#525).
+ *   - compositionend with no compositionstart: drop a recent re-fire (#659) but
+ *     commit fresh text (fcitx5+rime, #948).
+ *   - Empty-data compositionend ends synchronously with no commit — the real
+ *     char is in the textarea and the grace window would block xterm's late
+ *     onData ("？" appearing only on the 2nd press).
+ *   - Textarea-vs-event mismatch (macOS Pinyin "?"→"？", "("→"（"): e.data is the
+ *     ASCII key, the textarea has the CJK char — trust the textarea diff.
+ *   - Plain-insertText path: WeChat commits Shift punctuation as a bare
+ *     insertText with NO composition cycle; a capture `input` listener forwards
+ *     it and clears the textarea (see onInput).
+ *   - `flushPending()` commits any pending text now (panel-hide, WI-1.4).
  *
  * @coordinates-with createTerminalInstance.ts — sole caller
  * @coordinates-with terminalSessionInputWiring.ts — onCompositionCommit → PTY, onData dedup
  * @module components/Terminal/setupImeComposition
  */
 import { terminalLog } from "@/utils/debug";
+import { NON_ASCII_RE, ALL_ASCII_RE, isSingleNonAscii } from "./imeCharClass";
 
 /** Milliseconds to keep composing=true after compositionend to block xterm's onData re-emission. */
 export const IME_COMPOSITION_GRACE_MS = 80;
@@ -62,18 +53,35 @@ export interface ImeCompositionHandle {
   readonly lastCommitTime: number;
   /** Tear down listeners and flush any pending committed text. Idempotent. */
   cleanup: () => void;
+  /**
+   * Flush any pending post-`compositionend` commit NOW (before the grace timer)
+   * and end the grace window, WITHOUT tearing down listeners. Used on panel-hide
+   * so committed text lands in the still-visible terminal, not a hidden shell
+   * (WI-1.4).
+   */
+  flushPending: () => void;
 }
 
 interface SetupOptions {
+  /**
+   * The terminal's helper textarea, resolved by the caller via the PUBLIC
+   * `term.textarea` getter (not the internal helper-textarea CSS class). The
+   * caller fail-loud-guards it, so here it is always a live element — an
+   * internal-class lookup that silently returned null used to disable the whole
+   * IME layer with no signal (audit: medium finding).
+   */
+  textarea: HTMLTextAreaElement;
+  /** Terminal container — unused by the legacy path; retained for the gate-path
+   *  container-level `input` listener (plan WI-2.2). */
   container: HTMLElement;
 }
 
 /**
- * Attach IME composition listeners to xterm's helper textarea inside the
- * given container. If the textarea isn't present yet (e.g. xterm not opened),
- * a debug log is emitted and the returned handle is a no-op.
+ * Attach IME composition listeners to the terminal's helper textarea. The
+ * textarea is supplied by the caller (via the public `term.textarea` getter),
+ * so this function no longer performs a DOM lookup and never silently no-ops.
  */
-export function setupImeComposition({ container }: SetupOptions): ImeCompositionHandle {
+export function setupImeComposition({ textarea }: SetupOptions): ImeCompositionHandle {
   let composing = false;
   let inGracePeriod = false;
   let graceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -89,19 +97,6 @@ export function setupImeComposition({ container }: SetupOptions): ImeComposition
    */
    
   let textareaStartLen = 0;
-
-  const textarea = container.querySelector<HTMLTextAreaElement>(".xterm-helper-textarea");
-
-  /** Non-ASCII detector — any code unit above 0x7F (covers BMP CJK, punctuation, etc.).
-   *  Written with `\x00-\x7f` escape syntax instead of a literal U+0080–U+FFFF
-   *  range. The literal form is correct but the leading U+0080 (a C1 control
-   *  character) renders invisibly in browsers, terminals, and review tools,
-   *  making the regex look like `/[-￿]/` and triggering false "this matches
-   *  only `-` and `￿`" bug reports (issue #910). */
-  // eslint-disable-next-line no-control-regex
-  const NON_ASCII_RE = /[^\x00-\x7f]/;
-  // eslint-disable-next-line no-control-regex
-  const ALL_ASCII_RE = /^[\x00-\x7f]+$/;
 
   const flushPendingCommit = () => {
     if (pendingCommitText && onCompositionCommit) {
@@ -158,8 +153,7 @@ export function setupImeComposition({ container }: SetupOptions): ImeComposition
 
     // Single non-ASCII char (CJK punctuation/bracket) — flush immediately.
     // These don't trigger xterm's garbled space injection (#525).
-    // eslint-disable-next-line no-control-regex
-    if (committedText && committedText.length === 1 && !/^[\x00-\x7F]$/.test(committedText)) {
+    if (committedText && isSingleNonAscii(committedText)) {
       composing = false;
       inGracePeriod = false;
       if (graceTimer) {
@@ -261,15 +255,15 @@ export function setupImeComposition({ container }: SetupOptions): ImeComposition
     }
   };
 
-  if (textarea) {
-    textarea.addEventListener("compositionstart", onCompositionStart);
-    textarea.addEventListener("compositionend", onCompositionEnd);
-    // Capture phase: run before xterm's own input handler so clearing the
-    // textarea prevents a double write for the dropped-punctuation case.
-    textarea.addEventListener("input", onInput, true);
-  } else {
-    terminalLog("xterm-helper-textarea not found — IME composition tracking disabled");
-  }
+  textarea.addEventListener("compositionstart", onCompositionStart);
+  textarea.addEventListener("compositionend", onCompositionEnd);
+  // Capture-phase `input` listener. It does NOT get to see the event first:
+  // xterm binds its own listeners during term.open(), which precedes this setup,
+  // and capture phase does not reorder two listeners registered on the same
+  // node. The ordering guarantee this code once claimed is therefore false. The
+  // gate path (plan WI-2.2) is what actually takes the text channel, by stopping
+  // the event on the CONTAINER before it can reach this textarea.
+  textarea.addEventListener("input", onInput, true);
 
   const cleanup = () => {
     if (graceTimer) {
@@ -277,11 +271,19 @@ export function setupImeComposition({ container }: SetupOptions): ImeComposition
       graceTimer = null;
       flushPendingCommit();
     }
-    if (textarea) {
-      textarea.removeEventListener("compositionstart", onCompositionStart);
-      textarea.removeEventListener("compositionend", onCompositionEnd);
-      textarea.removeEventListener("input", onInput, true);
+    textarea.removeEventListener("compositionstart", onCompositionStart);
+    textarea.removeEventListener("compositionend", onCompositionEnd);
+    textarea.removeEventListener("input", onInput, true);
+  };
+
+  const flushPending = () => {
+    if (graceTimer) {
+      clearTimeout(graceTimer);
+      graceTimer = null;
     }
+    composing = false;
+    inGracePeriod = false;
+    flushPendingCommit();
   };
 
   return {
@@ -292,5 +294,6 @@ export function setupImeComposition({ container }: SetupOptions): ImeComposition
     get lastCommittedText() { return lastCommittedText; },
     get lastCommitTime() { return lastCommitTime; },
     cleanup,
+    flushPending,
   };
 }

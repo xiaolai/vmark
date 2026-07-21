@@ -23,6 +23,10 @@ export function removeSessionEntry(
     cancelAnimationFrame(entry.pendingRafId);
     entry.pendingRafId = null;
   }
+  // Dispose BEFORE kill (WI-1.3): instance.dispose() flushes a pending IME
+  // commit through the PTY, so the session must still be live. Killing first
+  // sent that flush to a dead session (the pty.write is a no-op post-kill).
+  entry.instance.dispose();
   if (entry.pty) {
     try {
       entry.pty.kill();
@@ -30,7 +34,6 @@ export function removeSessionEntry(
       /* ignore */
     }
   }
-  entry.instance.dispose();
   sessionsRef.current.delete(sessionId);
 }
 
@@ -97,6 +100,8 @@ export function disposeAllSessions(sessions: Map<string, SessionEntry>): void {
     }
     clearTimeout(entry.ptyResizeTimer);
     entry.ptyResizeTimer = undefined;
+    // Dispose BEFORE kill (WI-1.3) — see removeSessionEntry.
+    entry.instance.dispose();
     if (entry.pty) {
       try {
         entry.pty.kill();
@@ -104,7 +109,6 @@ export function disposeAllSessions(sessions: Map<string, SessionEntry>): void {
         /* ignore */
       }
     }
-    entry.instance.dispose();
   }
   sessions.clear();
 }

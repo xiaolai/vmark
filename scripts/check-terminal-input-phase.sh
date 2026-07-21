@@ -55,20 +55,25 @@ case "$PHASE" in
     ;;
   1)
     assert_absent ".xterm-helper-textarea" "$SIC"  "WI-1.1 internal-class lookup removed"
-    assert_grep "term.textarea"          "$CTI"    "WI-1.1 public textarea getter used"
-    assert_grep "container.contains"     "$CTI"    "WI-1.2 container-anchor invariant asserted"
+    # Resolution + validation live in resolveHelperTextarea.ts (extracted to keep
+    # createTerminalInstance under the 300-line limit); the caller invokes it.
+    assert_grep "term.textarea"          "$TDIR/resolveHelperTextarea.ts" "WI-1.1 public textarea getter used"
+    assert_grep "resolveHelperTextarea"  "$CTI"    "WI-1.1 caller uses the resolver"
+    assert_grep "container.contains"     "$TDIR/resolveHelperTextarea.ts" "WI-1.2 container-anchor invariant asserted"
     assert_absent "run before xterm's own input handler" "$SIC" "WI-1.2 false ordering comment removed"
     # WI-1.3: the destroy-guard must be inside write() specifically. `_destroyed`
     # already appears in kill/resize/close, so require the write-guard test name.
-    assert_grep "write after destroy" "src/lib/pty.test.ts" "WI-1.3 write-after-destroy test present"
-    # WI-1.4: require the new grace-bubble regression test by name, not a bare
+    assert_grep "no-op after destroy" "src/lib/pty.test.ts" "WI-1.3 write-after-destroy test present"
+    # WI-1.4: require the new grace-window regression test by name, not a bare
     # stopPropagation (which already exists for Ctrl+C).
-    assert_grep "during IME grace"    "$TDIR/terminalKeyHandler.test.ts" "WI-1.4 toggle-during-grace regression test present"
+    assert_grep "during the grace window" "$TDIR/terminalKeyHandler.test.ts" "WI-1.4 toggle-during-grace regression test present"
     ;;
   2)
     assert_grep "inputGate"              "$SYS"    "WI-2.1 inputGate in TerminalSettings"
     assert_grep "inputGate"              "src/stores/settingsStore/defaults.ts" "WI-2.1 inputGate default set"
-    assert_grep "inputGate"              "src/stores/settingsStore/clamp.ts"    "WI-2.1 inputGate clamped"
+    # inputGate is a string enum, not a numeric range — validated by the
+    # consumer's `=== \"gate\"` fail-safe, not clamp.ts. Assert the store test.
+    assert_grep "inputGate"              "src/stores/__tests__/settingsStore.test.ts" "WI-2.1 inputGate store test present"
     assert_grep "stopPropagation"        "$SIC"    "WI-2.2 T1 container input stopPropagation"
     # T2: an IME-keydown gate branch returning false. Structural presence only.
     assert_grep "inputGate"              "$TKH"    "WI-2.3 T2 gate branch present in key handler"

@@ -204,6 +204,11 @@ class VMarkPty implements IPty {
   }
 
   write(data: string): void {
+    // Destroy-guard (WI-1.3): once killed, drop writes. Without this, a
+    // dispose-time IME flush (or any late write) resolves `_ready` and calls
+    // pty_write on a freed session — the failure was previously swallowed by
+    // ptyWarn. This matches the guard `_setup` already applies at line ~168.
+    if (this._destroyed) return;
     this._ready
       .then(() => invoke("pty_write", { pid: this._pid, data }))
       .catch((err) => {

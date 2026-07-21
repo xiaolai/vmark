@@ -46,6 +46,8 @@ import { setupWebLinks } from "./setupWebLinks";
 import { setupFileLinks } from "./setupFileLinks";
 import { setupCopyOnSelect } from "./setupCopyOnSelect";
 import { setupOsc7, setupOsc133, scrollToAdjacentCommand, type CommandMark } from "./setupOsc";
+import { resolveHelperTextarea } from "./resolveHelperTextarea";
+import { maybeInstallDevInputTrace } from "./terminalInputTrace";
 
 import "@xterm/xterm/css/xterm.css";
 
@@ -199,8 +201,19 @@ export function createTerminalInstance(options: CreateOptions): TerminalInstance
   // (IME textarea, WebGL canvases).
   term.open(container);
 
+  // Resolve + validate the helper textarea via the public getter, failing loud
+  // (WI-1.1/1.2). `textarea!` is non-null in dev (resolveHelperTextarea throws);
+  // in prod the error is logged and we proceed best-effort.
+  const textarea = resolveHelperTextarea(term, container);
+
   // Lifecycle helpers (each returns its own cleanup or exposes a cleanup()).
-  const ime = setupImeComposition({ container });
+  const ime = setupImeComposition({ container, textarea: textarea! });
+
+  // Dev-only input-trace recorder (no-op in prod / unless the localStorage flag
+  // is set). Lets a human capture real IME traces by typing — plan WI-0.1.
+  const detachInputTrace = textarea
+    ? maybeInstallDevInputTrace(textarea)
+    : () => {};
 
   // Unicode 11 must be loaded before any heavy text rendering.
   const unicode11 = new Unicode11Addon();
@@ -233,6 +246,10 @@ export function createTerminalInstance(options: CreateOptions): TerminalInstance
       // composition. Without this, Shift+Enter / Cmd+C / etc. fired
       // immediately after a CJK commit would leak past the IME guard.
       isComposing: () => ime.composing,
+      // Flush a pending IME commit into the still-visible terminal before the
+      // panel toggles closed, so grace-window text never lands in a hidden
+      // shell (WI-1.4).
+      flushImeCommit: () => ime.flushPending(),
     }),
   );
 
@@ -242,6 +259,7 @@ export function createTerminalInstance(options: CreateOptions): TerminalInstance
   });
 
   const dispose = () => {
+    detachInputTrace();
     cleanupCopyOnSelect();
     ime.cleanup();
     webgl.cleanup();

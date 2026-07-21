@@ -16,7 +16,9 @@ const { mockOpenUrl, mockTerminalLog, MockWebLinksAddon, mockWriteText, mockClip
     appearance: { theme: "default" },
     terminal: { copyOnSelect: false },
   })),
-  terminalFlags: { createsTextarea: false },
+  // Default true — a real xterm always creates the helper textarea in open().
+  // The `false` case is used only by the deliberate fail-loud test.
+  terminalFlags: { createsTextarea: true },
 }));
 
 // --- Module mocks ---
@@ -46,11 +48,15 @@ vi.mock("@xterm/xterm", () => ({
       this._constructorOptions = options;
     }
     loadAddon = vi.fn();
+    // Public getter mirror of xterm's `get textarea()`. Real xterm always
+    // creates it during open(); `createsTextarea:false` models the fail-loud case.
+    textarea: HTMLTextAreaElement | undefined = undefined;
     open = vi.fn((container: HTMLElement) => {
       if (terminalFlags.createsTextarea) {
         const textarea = document.createElement("textarea");
         textarea.className = "xterm-helper-textarea";
         container.appendChild(textarea);
+        this.textarea = textarea;
       }
     });
     dispose = vi.fn();
@@ -496,11 +502,18 @@ describe("createTerminalInstance — copy-on-select", () => {
 });
 
 describe("createTerminalInstance — IME textarea not found", () => {
-  it("logs warning when xterm-helper-textarea is not found", () => {
-    // The default mock terminal doesn't create a real .xterm-helper-textarea
-    // in the container, so the code path for textarea === null is exercised
-    makeInstance();
-    expect(mockTerminalLog).toHaveBeenCalledWith(
+  // WI-1.1 replaced the old silent `terminalLog` no-op with a fail-loud throw
+  // (dev) / persistent error (prod). The deliberate-absent throw is asserted in
+  // the "fail-loud on missing helper textarea" suite below; here we just lock in
+  // that the old silent-log path is gone.
+  afterEach(() => {
+    terminalFlags.createsTextarea = true;
+  });
+
+  it("does not silently log the old 'not found' message", () => {
+    terminalFlags.createsTextarea = false;
+    expect(() => makeInstance()).toThrow(/textarea/i);
+    expect(mockTerminalLog).not.toHaveBeenCalledWith(
       expect.stringContaining("xterm-helper-textarea not found"),
     );
   });
@@ -576,7 +589,7 @@ describe("createTerminalInstance — IME composition with textarea", () => {
   });
 
   afterEach(() => {
-    terminalFlags.createsTextarea = false;
+    terminalFlags.createsTextarea = true;
   });
 
   function makeInstanceWithTextarea() {
@@ -1009,6 +1022,41 @@ describe("createTerminalInstance — IME composition with textarea", () => {
   });
 });
 
+// WI-1.1 — fail loud when the public term.textarea getter resolves to nothing,
+// instead of the old silent no-op that disabled the entire IME layer.
+describe("createTerminalInstance — fail-loud on missing helper textarea", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    terminalFlags.createsTextarea = false; // open() creates no textarea
+    mockSettingsGetState.mockReturnValue({
+      appearance: { theme: "default" },
+      terminal: {},
+    });
+  });
+  afterEach(() => {
+    terminalFlags.createsTextarea = true;
+  });
+
+  it("throws in dev when term.textarea is absent after open()", () => {
+    const parentEl = document.createElement("div");
+    expect(() =>
+      createTerminalInstance({
+        parentEl,
+        settings: {
+          fontSize: 14,
+          lineHeight: 1.2,
+          cursorStyle: "block",
+          cursorBlink: true,
+          useWebGL: false,
+          macOptionIsMeta: true,
+        },
+        ptyRef: { current: null },
+        onSearch: vi.fn(),
+      }),
+    ).toThrow(/textarea/i);
+  });
+});
+
 describe("createTerminalInstance — copy-on-select with copyOnSelect enabled", () => {
   let selectionHandler: () => void;
   let termInst: ReturnType<typeof createTerminalInstance>;
@@ -1016,7 +1064,7 @@ describe("createTerminalInstance — copy-on-select with copyOnSelect enabled", 
   beforeEach(() => {
     vi.useFakeTimers();
     vi.clearAllMocks();
-    terminalFlags.createsTextarea = false;
+    terminalFlags.createsTextarea = true;
     mockSettingsGetState.mockReturnValue({
       appearance: { theme: "default" },
       terminal: { copyOnSelect: true },
