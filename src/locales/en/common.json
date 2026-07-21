@@ -117,6 +117,8 @@
   "windowStatus.status.attention": "Needs attention",
   "windowStatus.pin": "Pin — keep open after switching windows",
   "windowStatus.unpin": "Unpin panel",
+  "windowStatus.pinThisWindow": "Pin this window",
+  "windowStatus.pinAllWindows": "Pin all windows",
   "quickLook.close": "Close preview",
   "browser.reload": "Reload",
   "browser.stop": "Stop",

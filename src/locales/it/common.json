@@ -120,6 +120,8 @@
   "windowStatus.status.attention": "Richiede attenzione",
   "windowStatus.pin": "Fissa — mantieni il pannello aperto al cambio di finestra",
   "windowStatus.unpin": "Annulla fissaggio del pannello",
+  "windowStatus.pinThisWindow": "Fissa questa finestra",
+  "windowStatus.pinAllWindows": "Fissa tutte le finestre",
   "format.media": "Media",
   "quickLook.close": "Chiudi anteprima",
   "browser.reload": "Ricarica",

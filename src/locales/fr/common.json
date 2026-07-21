@@ -120,6 +120,8 @@
   "windowStatus.status.attention": "Nécessite votre attention",
   "windowStatus.pin": "Épingler — garder le panneau ouvert après changement de fenêtre",
   "windowStatus.unpin": "Désépingler le panneau",
+  "windowStatus.pinThisWindow": "Épingler cette fenêtre",
+  "windowStatus.pinAllWindows": "Épingler toutes les fenêtres",
   "format.media": "Média",
   "quickLook.close": "Fermer l'aperçu",
   "browser.reload": "Recharger",

@@ -120,6 +120,8 @@
   "windowStatus.status.attention": "需要关注",
   "windowStatus.pin": "固定（切换窗口后仍保持面板打开）",
   "windowStatus.unpin": "取消固定面板",
+  "windowStatus.pinThisWindow": "固定此窗口",
+  "windowStatus.pinAllWindows": "固定所有窗口",
   "format.media": "媒体",
   "quickLook.close": "关闭预览",
   "browser.reload": "重新加载",

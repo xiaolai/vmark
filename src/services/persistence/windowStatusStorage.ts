@@ -12,6 +12,12 @@
  * booleans, so no quota-warning machinery is needed (unlike the workspace
  * adapter).
  *
+ * Also exposes the app-global "pin all windows" flag (#1135) via
+ * `getGlobalPinPref` / `setGlobalPinPref`. That one is deliberately NOT
+ * label-scoped — it lives under a reserved key so every window reads the same
+ * value (localStorage is per-origin), which is what lets a newly opened window
+ * honor the global pin before it renders.
+ *
  * @coordinates-with stores/windowStatusStore.ts — consumed via persist()
  * @coordinates-with services/persistence/workspaceStorage.ts — shares the
  *   current-window-label source of truth (getCurrentWindowLabel)
@@ -23,9 +29,36 @@ import { getCurrentWindowLabel } from "./workspaceStorage";
 
 const KEY_PREFIX = "vmark-window-status";
 
+/**
+ * App-global key for the "pin all windows" flag (#1135). Unlike the per-window
+ * prefs, this is shared across every window (localStorage is per-origin, so all
+ * windows read the same value), so it is NOT label-scoped. The `__` prefix
+ * keeps it clear of any real window label passed to `getWindowStatusStorageKey`.
+ */
+const GLOBAL_PIN_KEY = `${KEY_PREFIX}:__global-pin`;
+
 /** Storage key for a window's panel preferences: `vmark-window-status:{label}`. */
 export function getWindowStatusStorageKey(label: string): string {
   return `${KEY_PREFIX}:${label}`;
+}
+
+/** Read the persisted app-global "pin all windows" flag (#1135). */
+export function getGlobalPinPref(): boolean {
+  return localStorage.getItem(GLOBAL_PIN_KEY) === "1";
+}
+
+/**
+ * Persist the app-global "pin all windows" flag (#1135). Best-effort — a
+ * full/blocked localStorage just means the flag won't survive this session,
+ * which must never crash the app.
+ */
+export function setGlobalPinPref(enabled: boolean): void {
+  try {
+    if (enabled) localStorage.setItem(GLOBAL_PIN_KEY, "1");
+    else localStorage.removeItem(GLOBAL_PIN_KEY);
+  } catch {
+    // Panel prefs are non-critical.
+  }
 }
 
 export const windowStatusScopedStorage: StateStorage = {
