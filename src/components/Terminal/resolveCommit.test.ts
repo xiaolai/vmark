@@ -26,8 +26,17 @@ describe("resolveCommit", () => {
     expect(resolveCommit({ eventData: null, textareaDiff: "" })).toBeNull();
   });
 
-  it("prefers real non-ASCII eventData over the diff", () => {
-    // If e.data already carries the CJK char, use it (diff is corroborating).
-    expect(resolveCommit({ eventData: "你", textareaDiff: "你" })).toBe("你");
+  it("prefers real non-ASCII eventData over a DIFFERING diff (branch is load-bearing)", () => {
+    // eventData is trustworthy (non-ASCII) → use it, NOT the textarea diff. The
+    // diff differs here so the "trust eventData" branch is distinguishable from
+    // the "trust diff" branch (kills the `if (!dataUntrustworthy)` mutants).
+    expect(resolveCommit({ eventData: "你好", textareaDiff: "XX" })).toBe("你好");
+    expect(resolveCommit({ eventData: "。", textareaDiff: "" })).toBe("。");
+  });
+
+  it("falls through to the diff only when eventData is untrustworthy (ASCII/empty)", () => {
+    // Complements the above: ASCII eventData must NOT be returned; the CJK diff
+    // wins. Distinguishes the branches in the other direction.
+    expect(resolveCommit({ eventData: "n", textareaDiff: "你" })).toBe("你");
   });
 });
