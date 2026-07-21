@@ -48,6 +48,7 @@ import { inlineNodeEditingExtension } from "@/plugins/inlineNodeEditing/tiptap";
 import { searchExtension } from "@/plugins/search/tiptap";
 import { autoPairExtension } from "@/plugins/autoPair/tiptap";
 import { compositionGuardExtension } from "@/plugins/compositionGuard/tiptap";
+import { blankLinesGuardExtension } from "@/plugins/blankLinesGuard/tiptap";
 import { focusModeExtension } from "@/plugins/focusMode/tiptap";
 import { typewriterModeExtension } from "@/plugins/typewriterMode/tiptap";
 import { imageViewExtension } from "@/plugins/imageView/tiptap";
@@ -205,6 +206,7 @@ export function createTiptapExtensions(config: TiptapExtensionConfig = {}): Exte
     autoPairExtension,
     focusModeExtension,
     typewriterModeExtension,
+    blankLinesGuardExtension,
     imageHandlerExtension,
     mediaHandlerExtension,
     mediaPopupExtension,
