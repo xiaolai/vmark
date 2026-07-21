@@ -71,3 +71,25 @@ describe("VMarkPty.kill() — #974 session leak", () => {
     expect(invokeMock).not.toHaveBeenCalledWith("pty_start", { pid: PID });
   });
 });
+
+describe("VMarkPty.write() — no-op after destroy (WI-1.3)", () => {
+  it("does not invoke pty_write once the session has been killed", async () => {
+    const pty = spawn("bash", []);
+    await vi.waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("pty_start", expect.objectContaining({ pid: PID }));
+    });
+
+    pty.kill();
+    invokeMock.mockClear();
+
+    pty.write("should-not-reach-pty");
+    // Give the _ready microtask chain a chance to (wrongly) fire.
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(invokeMock).not.toHaveBeenCalledWith(
+      "pty_write",
+      expect.objectContaining({ data: "should-not-reach-pty" }),
+    );
+  });
+});

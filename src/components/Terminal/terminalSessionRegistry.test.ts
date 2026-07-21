@@ -70,6 +70,24 @@ describe("removeSessionEntry", () => {
     cancelSpy.mockRestore();
   });
 
+  it("disposes the instance BEFORE killing the pty (WI-1.3)", () => {
+    // instance.dispose() flushes a pending IME commit to the PTY; killing first
+    // would send that flush to a dead session.
+    const order: string[] = [];
+    const entry = makeEntry();
+    (entry.instance.dispose as ReturnType<typeof vi.fn>).mockImplementation(() =>
+      order.push("dispose"),
+    );
+    (entry.pty!.kill as ReturnType<typeof vi.fn>).mockImplementation(() =>
+      order.push("kill"),
+    );
+    const ref = makeRef({ a: entry });
+
+    removeSessionEntry(ref, "a");
+
+    expect(order).toEqual(["dispose", "kill"]);
+  });
+
   it("swallows a pty.kill() failure and still disposes", () => {
     const entry = makeEntry();
     (entry.pty!.kill as ReturnType<typeof vi.fn>).mockImplementation(() => {
@@ -205,5 +223,21 @@ describe("disposeAllSessions", () => {
     expect(() => disposeAllSessions(sessions)).not.toThrow();
     expect(a.instance.dispose).toHaveBeenCalledOnce();
     expect(sessions.size).toBe(0);
+  });
+
+  it("disposes each instance BEFORE killing its pty (WI-1.3)", () => {
+    const order: string[] = [];
+    const a = makeEntry();
+    (a.instance.dispose as ReturnType<typeof vi.fn>).mockImplementation(() =>
+      order.push("dispose"),
+    );
+    (a.pty!.kill as ReturnType<typeof vi.fn>).mockImplementation(() =>
+      order.push("kill"),
+    );
+    const sessions = new Map<string, SessionEntry>([["a", a]]);
+
+    disposeAllSessions(sessions);
+
+    expect(order).toEqual(["dispose", "kill"]);
   });
 });

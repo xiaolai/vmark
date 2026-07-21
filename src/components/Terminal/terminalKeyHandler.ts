@@ -15,16 +15,8 @@
  *   - Cmd+F → toggle search bar in the terminal panel (preventDefault so the
  *     native Find accelerator doesn't ALSO open the editor FindBar).
  *   - Cmd+1-5 → switch between terminal sessions (up to 5).
- *   - Cmd+Left/Right (macOS) → line start/end via readline ^A / ^E, since
- *     xterm has no meta+arrow → PTY mapping.
- *   - Cmd+Backspace (macOS) → delete the line via readline ^U (zsh
- *     kill-whole-line, bash unix-line-discard). xterm ignores the Cmd modifier
- *     and would send a bare DEL, deleting a single character. Option+Backspace
- *     is deliberately NOT intercepted — zsh binds \e^? to backward-kill-word.
- *   - Option+Left/Right (macOS) → word nav via readline Alt-b / Alt-f
- *     ("\x1bb" / "\x1bf"), which the default emacs keymap binds — xterm's
- *     macOptionIsMeta emits "\x1b[1;3D/C" that zsh/bash don't bind (prints
- *     ";3D"). Scoped to bare Option+arrow so Option+letter dead keys are intact.
+ *   - macOS cursor/line-editing chords (Cmd+Left/Right, Cmd+Backspace,
+ *     Option+Left/Right) → readline control bytes. See terminalReadlineKeys.ts.
  *   - Cmd +/-/0 → zoom the terminal font (terminal.fontSize), preventDefault so
  *     the native zoom accelerator doesn't zoom the editor font instead.
  *   - Cmd/Ctrl+Up/Down → jump to previous/next command prompt (WI-3.3, requires
@@ -62,6 +54,7 @@ import { isMacPlatform, matchesShortcutEvent } from "@/utils/shortcutMatch";
 import { clipboardWarn } from "@/utils/debug";
 import { errorMessage } from "@/utils/errorMessage";
 import { requestToggleTerminal } from "./terminalGate";
+import { handleReadlineNavKey } from "./terminalReadlineKeys";
 
 /** Terminal font-zoom step and reset value. `terminal.fontSize` default is 13
  *  (settingsStore/defaults.ts); the store clamps to the terminal range [8,32]. */
@@ -86,6 +79,13 @@ export interface KeyHandlerCallbacks {
   isComposing: () => boolean;
   /** Jump to the previous/next command prompt (WI-3.3, shell integration). */
   onPromptNav?: (direction: "prev" | "next") => void;
+  /**
+   * Flush a pending post-`compositionend` IME commit NOW. Called when the toggle
+   * chord fires during the grace window so committed text reaches the terminal
+   * before the panel hides, instead of the grace timer writing it into a hidden
+   * shell (WI-1.4). Optional so non-terminal callers/tests can omit it.
+   */
+  flushImeCommit?: () => void;
 }
 
 /**
@@ -103,19 +103,25 @@ export function createTerminalKeyHandler(
     if (event.type !== "keydown") return true;
 
     // Toggle-Terminal: own the CONFIGURED binding here and FULLY consume the
-    // event, so a CJK IME's remapped "·" never reaches the shell and the window
-    // handler doesn't double-toggle. matchesShortcutEvent resolves the physical
-    // key (Backquote) even when the IME remaps it, and honours a custom binding.
-    // Skip during a real composition or its grace window — only the keyCode-229
-    // false positive should toggle, else pending IME text would commit into a
-    // now-hidden shell (Codex audit).
+    // event — matchesShortcutEvent resolves the physical Backquote even when a
+    // CJK IME remaps it to "·", and honours a custom binding.
+    //
+    // WI-1.4: ALWAYS stopPropagation on a match, even during composition/grace.
+    // Previously this branch abstained during grace (returned true below), but
+    // xterm's keyCode-229 keydown does not cancel the event, so it bubbled to
+    // the WINDOW handler, which toggled the panel anyway — while a pending IME
+    // commit was armed, stranding text in the now-hidden shell (audit: high).
+    // Owning the event here makes the toggle fire exactly once. During the grace
+    // window we flush the pending commit into the still-visible terminal first;
+    // during a REAL active composition (event.isComposing) the Backquote is IME
+    // input, so we swallow it without toggling.
     if (
-      !event.isComposing
-      && !callbacks.isComposing()
-      && matchesShortcutEvent(event, useShortcutsStore.getState().getShortcut("toggleTerminal"))
+      matchesShortcutEvent(event, useShortcutsStore.getState().getShortcut("toggleTerminal"))
     ) {
       event.preventDefault();
       event.stopPropagation();
+      if (event.isComposing) return false; // real composition — swallow, no toggle
+      if (callbacks.isComposing()) callbacks.flushImeCommit?.();
       requestToggleTerminal();
       return false;
     }
@@ -140,21 +146,11 @@ export function createTerminalKeyHandler(
       return false;
     }
 
-    // Option + Left/Right → word nav via readline Alt-b / Alt-f (see header).
-    // xterm's macOptionIsMeta emits "\x1b[1;3D/C" that zsh/bash don't bind.
-    // Scoped to bare Option+arrow; Option+letter dead keys fall through.
-    if (
-      isMacPlatform()
-      && event.altKey
-      && !event.metaKey
-      && !event.ctrlKey
-      && !event.shiftKey
-      && (event.key === "ArrowLeft" || event.key === "ArrowRight")
-    ) {
-      event.preventDefault();
-      ptyRef.current?.write(event.key === "ArrowLeft" ? "\x1bb" : "\x1bf");
-      return false;
-    }
+    // macOS cursor/line-editing chords → readline control bytes (Option+arrow,
+    // Cmd+arrow, Cmd+Backspace). Conditions are mutually exclusive and each
+    // requires a specific modifier, so this is safe before the generic gate
+    // below. See terminalReadlineKeys.ts.
+    if (handleReadlineNavKey(event, ptyRef)) return false;
 
     // On macOS, Ctrl is a shell/readline modifier (Ctrl+A line-start, Ctrl+K
     // kill-line, Ctrl+R, Ctrl+W, …) — only Cmd triggers VMark host shortcuts.
@@ -176,39 +172,6 @@ export function createTerminalKeyHandler(
     ) {
       event.preventDefault();
       callbacks.onPromptNav(event.key === "ArrowUp" ? "prev" : "next");
-      return false;
-    }
-
-    // Cmd + Left/Right → jump to line start/end (macOS convention). xterm has
-    // no meta+arrow → PTY mapping, so without this the shell cursor never
-    // moves. Emit readline ^A (start) / ^E (end), which bash/zsh honor
-    // regardless of the user's keymap. Shift (select) and Option (word nav)
-    // are left to the shell; Windows/Linux keep Ctrl+arrow as word nav.
-    if (
-      isMacPlatform()
-      && event.metaKey
-      && !event.shiftKey
-      && (event.key === "ArrowLeft" || event.key === "ArrowRight")
-    ) {
-      event.preventDefault();
-      ptyRef.current?.write(event.key === "ArrowLeft" ? "\x01" : "\x05");
-      return false;
-    }
-
-    // Cmd + Backspace → delete the line (macOS convention). xterm ignores the
-    // Cmd modifier here and sends a bare DEL, so without this the chord just
-    // deletes ONE character. Emit readline ^U, which zsh binds to
-    // kill-whole-line and bash to unix-line-discard. Option+Backspace is left
-    // alone — zsh already binds \e^? to backward-kill-word.
-    if (
-      isMacPlatform()
-      && event.metaKey
-      && !event.altKey
-      && !event.shiftKey
-      && event.key === "Backspace"
-    ) {
-      event.preventDefault();
-      ptyRef.current?.write("\x15");
       return false;
     }
 

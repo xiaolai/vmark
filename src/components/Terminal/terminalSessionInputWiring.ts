@@ -26,6 +26,7 @@
  */
 import type { IPty } from "@/lib/pty";
 import { IME_DEDUP_WINDOW_MS, type TerminalInstance } from "./createTerminalInstance";
+import { NON_ASCII_RE } from "./imeCharClass";
 
 /**
  * Per-session input state needed by the wiring. Mirrors the relevant
@@ -54,9 +55,6 @@ interface WireOptions {
  * underlying xterm subscriptions are owned by the terminal instance and
  * cleaned up via term.dispose(); no separate cleanup is returned.
  */
-/** Non-ASCII detector for the onData↔commit echo dedup (see below). */
-// eslint-disable-next-line no-control-regex
-const NON_ASCII_ECHO_RE = /[^\x00-\x7f]/;
 
 export function wireSessionInput({ sessionId, getEntry, startShell }: WireOptions): void {
   const entry = getEntry(sessionId);
@@ -159,7 +157,7 @@ export function wireSessionInput({ sessionId, getEntry, startShell }: WireOption
       // between event listeners — a queueMicrotask token is already null by
       // then. A later keystroke is a separate task, so the timer has fired and
       // its token is clear. See the microtask-checkpoint test.
-      if (NON_ASCII_ECHO_RE.test(data)) {
+      if (NON_ASCII_RE.test(data)) {
         xtermEchoText = data;
         setTimeout(() => {
           xtermEchoText = null;

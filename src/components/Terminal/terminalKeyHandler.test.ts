@@ -81,13 +81,15 @@ function makeEvent(
 describe("createTerminalKeyHandler", () => {
   let callbacks: KeyHandlerCallbacks;
   let mockIsComposing: ReturnType<typeof vi.fn<() => boolean>>;
+  let mockFlushImeCommit: ReturnType<typeof vi.fn>;
   let ptyRef: React.RefObject<IPty | null>;
   let mockPty: { write: ReturnType<typeof vi.fn> };
 
   beforeEach(() => {
     vi.clearAllMocks();
     mockIsComposing = vi.fn<() => boolean>(() => false);
-    callbacks = { onSearch: vi.fn(), isComposing: mockIsComposing };
+    mockFlushImeCommit = vi.fn();
+    callbacks = { onSearch: vi.fn(), isComposing: mockIsComposing, flushImeCommit: mockFlushImeCommit };
     mockPty = { write: vi.fn() };
     ptyRef = { current: mockPty as unknown as IPty };
     mockTerminalFontSize.value = 13;
@@ -250,15 +252,31 @@ describe("createTerminalKeyHandler", () => {
       expect(mockRequestToggleTerminal).not.toHaveBeenCalled();
     });
 
-    it("does NOT toggle during a real composition — pending IME text isn't stranded", () => {
+    it("swallows the chord during a REAL active composition — no toggle, no bubble (WI-1.4)", () => {
       const term = makeTerm();
       const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
-      // event.isComposing true → skip
-      handler(makeEvent("·", false, { ctrlKey: true, code: "Backquote", isComposing: true }));
-      // callbacks.isComposing() true (post-commit grace) → skip
-      mockIsComposing.mockReturnValue(true);
-      handler(makeEvent("·", false, { ctrlKey: true, code: "Backquote", keyCode: 229 }));
-      expect(mockRequestToggleTerminal).not.toHaveBeenCalled();
+      const event = makeEvent("·", false, { ctrlKey: true, code: "Backquote", isComposing: true });
+
+      expect(handler(event)).toBe(false); // consumed, not abstained
+      expect(event.stopPropagation).toHaveBeenCalled(); // cannot bubble to window handler
+      expect(mockRequestToggleTerminal).not.toHaveBeenCalled(); // Backquote is IME input here
+      expect(mockFlushImeCommit).not.toHaveBeenCalled();
+    });
+
+    it("toggles exactly once during the grace window and flushes pending IME text first (WI-1.4)", () => {
+      // Audit: abstaining during grace let the WINDOW handler toggle anyway,
+      // stranding the pending commit in a hidden shell. Now the terminal handler
+      // owns it: stopPropagation blocks the double-toggle, and the flush lands
+      // committed text in the still-visible terminal before it hides.
+      mockIsComposing.mockReturnValue(true); // post-compositionend grace window
+      const term = makeTerm();
+      const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
+      const event = makeEvent("·", false, { ctrlKey: true, code: "Backquote", keyCode: 229 });
+
+      expect(handler(event)).toBe(false);
+      expect(event.stopPropagation).toHaveBeenCalled();
+      expect(mockFlushImeCommit).toHaveBeenCalledTimes(1);
+      expect(mockRequestToggleTerminal).toHaveBeenCalledTimes(1);
     });
 
     it("honours a custom Toggle-Terminal binding (Ctrl+` no longer claims it)", () => {

@@ -49,7 +49,7 @@ describe("setupImeComposition — macOS Pinyin punctuation conversion", () => {
     "commits textarea diff (%s) when e.data lies with ASCII (%s)",
     (ascii, cjk) => {
       const { container, textarea } = makeContainer();
-      const handle = setupImeComposition({ container });
+      const handle = setupImeComposition({ container, textarea });
       const onCommit = vi.fn();
       handle.onCompositionCommit = onCommit;
 
@@ -67,7 +67,7 @@ describe("setupImeComposition — macOS Pinyin punctuation conversion", () => {
 
   it("does NOT trigger textarea-diff fallback when e.data is genuinely non-ASCII", () => {
     const { container, textarea } = makeContainer();
-    const handle = setupImeComposition({ container });
+    const handle = setupImeComposition({ container, textarea });
     const onCommit = vi.fn();
     handle.onCompositionCommit = onCommit;
 
@@ -83,7 +83,7 @@ describe("setupImeComposition — macOS Pinyin punctuation conversion", () => {
 
   it("does NOT trigger textarea-diff fallback when textarea diff is empty", () => {
     const { container, textarea } = makeContainer();
-    const handle = setupImeComposition({ container });
+    const handle = setupImeComposition({ container, textarea });
     const onCommit = vi.fn();
     handle.onCompositionCommit = onCommit;
 
@@ -104,7 +104,7 @@ describe("setupImeComposition — Linux fcitx5/WebKitGTK fresh commit path (#948
 
   it("commits multi-char text when compositionstart never fired (fcitx5 path)", () => {
     const { container, textarea } = makeContainer();
-    const handle = setupImeComposition({ container });
+    const handle = setupImeComposition({ container, textarea });
     const onCommit = vi.fn();
     handle.onCompositionCommit = onCommit;
 
@@ -119,7 +119,7 @@ describe("setupImeComposition — Linux fcitx5/WebKitGTK fresh commit path (#948
 
   it("drops a re-fired compositionend that re-states the most recent commit (macOS #659 path)", () => {
     const { container, textarea } = makeContainer();
-    const handle = setupImeComposition({ container });
+    const handle = setupImeComposition({ container, textarea });
     const onCommit = vi.fn();
     handle.onCompositionCommit = onCommit;
 
@@ -135,7 +135,7 @@ describe("setupImeComposition — Linux fcitx5/WebKitGTK fresh commit path (#948
 
   it("treats a different compositionend text as a fresh commit even with no compositionstart", () => {
     const { container, textarea } = makeContainer();
-    const handle = setupImeComposition({ container });
+    const handle = setupImeComposition({ container, textarea });
     const onCommit = vi.fn();
     handle.onCompositionCommit = onCommit;
 
@@ -149,7 +149,7 @@ describe("setupImeComposition — Linux fcitx5/WebKitGTK fresh commit path (#948
 
   it("ignores empty-data compositionend that has no preceding composition", () => {
     const { container, textarea } = makeContainer();
-    const handle = setupImeComposition({ container });
+    const handle = setupImeComposition({ container, textarea });
     const onCommit = vi.fn();
     handle.onCompositionCommit = onCommit;
 
@@ -160,7 +160,7 @@ describe("setupImeComposition — Linux fcitx5/WebKitGTK fresh commit path (#948
 
   it("still records the dedup anchor on a fresh commit even when onCompositionCommit is not set", () => {
     const { container, textarea } = makeContainer();
-    const handle = setupImeComposition({ container });
+    const handle = setupImeComposition({ container, textarea });
     // No onCompositionCommit assigned.
 
     fireComposition(textarea, "compositionend", "你好");
@@ -196,7 +196,7 @@ describe("setupImeComposition — plain insertText commit (WeChat Shift punctuat
 
   it("forwards a dropped non-ASCII insertText input to the PTY", () => {
     const { container, textarea } = makeContainer();
-    const handle = setupImeComposition({ container });
+    const handle = setupImeComposition({ container, textarea });
     const onCommit = vi.fn();
     handle.onCompositionCommit = onCommit;
 
@@ -208,7 +208,7 @@ describe("setupImeComposition — plain insertText commit (WeChat Shift punctuat
 
   it("clears the helper textarea so xterm cannot re-process (no accumulation)", () => {
     const { container, textarea } = makeContainer();
-    const handle = setupImeComposition({ container });
+    const handle = setupImeComposition({ container, textarea });
     handle.onCompositionCommit = vi.fn();
 
     fireInput(textarea, "？");
@@ -218,7 +218,7 @@ describe("setupImeComposition — plain insertText commit (WeChat Shift punctuat
 
   it("records the dedup anchor so a late xterm onData echo is suppressed", () => {
     const { container, textarea } = makeContainer();
-    const handle = setupImeComposition({ container });
+    const handle = setupImeComposition({ container, textarea });
     handle.onCompositionCommit = vi.fn();
 
     fireInput(textarea, "！");
@@ -229,7 +229,7 @@ describe("setupImeComposition — plain insertText commit (WeChat Shift punctuat
 
   it("ignores plain ASCII insertText (that path works via keydown → xterm)", () => {
     const { container, textarea } = makeContainer();
-    const handle = setupImeComposition({ container });
+    const handle = setupImeComposition({ container, textarea });
     const onCommit = vi.fn();
     handle.onCompositionCommit = onCommit;
 
@@ -240,7 +240,7 @@ describe("setupImeComposition — plain insertText commit (WeChat Shift punctuat
 
   it("ignores composition-commit inputs (insertFromComposition / insertCompositionText)", () => {
     const { container, textarea } = makeContainer();
-    const handle = setupImeComposition({ container });
+    const handle = setupImeComposition({ container, textarea });
     const onCommit = vi.fn();
     handle.onCompositionCommit = onCommit;
 
@@ -253,7 +253,7 @@ describe("setupImeComposition — plain insertText commit (WeChat Shift punctuat
 
   it("ignores non-insertText inputs like paste (bracketed paste handles those)", () => {
     const { container, textarea } = makeContainer();
-    const handle = setupImeComposition({ container });
+    const handle = setupImeComposition({ container, textarea });
     const onCommit = vi.fn();
     handle.onCompositionCommit = onCommit;
 
@@ -266,7 +266,7 @@ describe("setupImeComposition — plain insertText commit (WeChat Shift punctuat
 
   it("ignores an insertText input while a composition is active", () => {
     const { container, textarea } = makeContainer();
-    const handle = setupImeComposition({ container });
+    const handle = setupImeComposition({ container, textarea });
     const onCommit = vi.fn();
     handle.onCompositionCommit = onCommit;
 
