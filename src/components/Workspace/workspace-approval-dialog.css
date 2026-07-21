@@ -1,0 +1,80 @@
+.workspace-approval-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-popup);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.workspace-approval-dialog {
+  max-width: 30em;
+  padding: var(--space-5);
+  background: var(--bg-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--popup-shadow);
+}
+
+.dark-theme .workspace-approval-dialog {
+  box-shadow: var(--popup-shadow-dark);
+}
+
+.workspace-approval-title {
+  margin: 0 0 var(--spacing-2);
+  font-size: var(--font-size-lg);
+  color: var(--text-color);
+}
+
+.workspace-approval-body {
+  margin: 0 0 var(--spacing-3);
+  color: var(--text-secondary);
+  line-height: var(--line-height-normal);
+}
+
+.workspace-approval-path {
+  display: block;
+  padding: var(--spacing-2);
+  margin-bottom: var(--spacing-3);
+  background: var(--code-bg-color);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  color: var(--text-color);
+  word-break: break-all;
+}
+
+.workspace-approval-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--spacing-2);
+}
+
+.workspace-approval-deny,
+.workspace-approval-approve {
+  padding: var(--spacing-1) var(--spacing-3);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+}
+
+.workspace-approval-deny {
+  background: var(--bg-secondary);
+  color: var(--text-color);
+}
+
+.workspace-approval-approve {
+  background: var(--primary-color);
+  color: var(--contrast-text);
+  border-color: var(--primary-color);
+}
+
+.workspace-approval-deny:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
+.workspace-approval-approve:focus-visible {
+  outline: 2px solid var(--text-color);
+  outline-offset: 2px;
+}

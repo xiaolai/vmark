@@ -82,6 +82,7 @@ import {
 } from "./mdastBlockConverters";
 import { generateSlug, makeUniqueSlug } from "@/utils/headingSlug";
 import { mdPipelineWarn } from "@/utils/debug";
+import { convertTopLevelWithBlankLines } from "./blankLineCapture";
 
 /**
  * Convert MDAST root to ProseMirror document.
@@ -126,16 +127,15 @@ class MdastToPMConverter {
     return uniqueSlug;
   }
 
-  /**
-   * Convert root node to ProseMirror doc.
-   */
+  /** Convert root to a PM doc; top-level conversion also captures inter-block
+   *  blank-line runs into blankLinesBefore (see blankLineCapture.ts). */
   convertRoot(root: Root): PMNode {
     perfStart("convertRoot:convertChildren");
-    const children = this.convertChildren(root.children, [], "block");
-    perfEnd("convertRoot:convertChildren", { childCount: children.length });
+    const topChildren = convertTopLevelWithBlankLines(root, (c) => this.convertNode(c, [], "block"));
+    perfEnd("convertRoot:convertChildren", { childCount: topChildren.length });
 
     perfStart("convertRoot:createDoc");
-    const doc = this.schema.topNodeType.create(null, children);
+    const doc = this.schema.topNodeType.create(null, topChildren);
     perfEnd("convertRoot:createDoc", { docSize: doc.content.size });
     return doc;
   }

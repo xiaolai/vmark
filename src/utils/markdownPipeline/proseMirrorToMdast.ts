@@ -70,8 +70,12 @@ import { mdPipelineWarn } from "@/utils/debug";
  * const mdast = proseMirrorToMdast(schema, doc);
  * const markdown = serializeMdastToMarkdown(mdast);
  */
-export function proseMirrorToMdast(schema: Schema, doc: PMNode): Root {
-  const converter = new PMToMdastConverter(schema);
+export function proseMirrorToMdast(
+  schema: Schema,
+  doc: PMNode,
+  options: { preserveBlankLines?: boolean } = {},
+): Root {
+  const converter = new PMToMdastConverter(schema, options.preserveBlankLines ?? false);
   return converter.convertDoc(doc);
 }
 
@@ -82,7 +86,10 @@ export function proseMirrorToMdast(schema: Schema, doc: PMNode): Root {
 class PMToMdastConverter {
   private context: PmToMdastContext;
 
-  constructor(_schema: Schema) {
+  constructor(
+    _schema: Schema,
+    private preserveBlankLines: boolean = false,
+  ) {
     this.context = {
       convertNode: this.convertNode.bind(this),
       convertInlineContent: this.convertInlineContent.bind(this),
@@ -91,6 +98,11 @@ class PMToMdastConverter {
 
   /**
    * Convert ProseMirror doc to MDAST root.
+   *
+   * When preserveBlankLines is on, a top-level block's captured
+   * `blankLinesBefore` attribute is stamped onto the first resulting MDAST
+   * node's `data`, where the serializer's custom `join` reads it (ADR-1a: the
+   * enablement lives in the DATA, not in the statically-cached serializer).
    */
   convertDoc(doc: PMNode): Root {
     const children: Content[] = [];
@@ -102,13 +114,15 @@ class PMToMdastConverter {
 
     doc.forEach((child) => {
       const converted = this.convertNode(child);
-      if (converted) {
-        if (Array.isArray(converted)) {
-          converted.forEach((node) => pushRootContent(node));
-        } else {
-          pushRootContent(converted);
+      const nodes = converted ? (Array.isArray(converted) ? converted : [converted]) : [];
+      if (this.preserveBlankLines && nodes.length > 0) {
+        const n = (child.attrs as { blankLinesBefore?: unknown }).blankLinesBefore;
+        if (typeof n === "number") {
+          const first = nodes[0] as { data?: Record<string, unknown> };
+          first.data = { ...first.data, blankLinesBefore: n };
         }
       }
+      nodes.forEach((node) => pushRootContent(node));
     });
 
     return { type: "root", children };

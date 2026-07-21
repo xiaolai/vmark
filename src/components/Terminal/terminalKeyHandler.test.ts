@@ -14,12 +14,37 @@ vi.mock("@/stores/uiStore", () => ({
   },
 }));
 
+const { mockTerminalFontSize, mockUpdateTerminalSetting, mockToggleBinding } = vi.hoisted(() => ({
+  mockTerminalFontSize: { value: 13 },
+  mockUpdateTerminalSetting: vi.fn(),
+  mockToggleBinding: { value: "Ctrl-`" },
+}));
+
+vi.mock("@/stores/settingsStore", () => ({
+  useSettingsStore: {
+    getState: () => ({
+      terminal: { fontSize: mockTerminalFontSize.value },
+      updateTerminalSetting: mockUpdateTerminalSetting,
+    }),
+  },
+  useShortcutsStore: {
+    getState: () => ({
+      getShortcut: (id: string) => (id === "toggleTerminal" ? mockToggleBinding.value : ""),
+    }),
+  },
+}));
+
 import { createTerminalKeyHandler, type KeyHandlerCallbacks } from "./terminalKeyHandler";
 import { readText, writeText } from "@tauri-apps/plugin-clipboard-manager";
 import type { Terminal } from "@xterm/xterm";
 import type { IPty } from "@/lib/pty";
 
 vi.mock("@/lib/pty", () => ({ spawn: vi.fn() }));
+
+const mockRequestToggleTerminal = vi.fn();
+vi.mock("./terminalGate", () => ({
+  requestToggleTerminal: () => mockRequestToggleTerminal(),
+}));
 
 function makeTerm(overrides: Partial<Terminal> = {}): Terminal {
   return {
@@ -40,11 +65,15 @@ function makeEvent(
   return {
     type: "keydown",
     key,
+    code: "",
     metaKey: meta,
     ctrlKey: false,
+    altKey: false,
+    shiftKey: false,
     isComposing: false,
     keyCode: 0,
     preventDefault: vi.fn(),
+    stopPropagation: vi.fn(),
     ...overrides,
   } as unknown as KeyboardEvent;
 }
@@ -61,6 +90,8 @@ describe("createTerminalKeyHandler", () => {
     callbacks = { onSearch: vi.fn(), isComposing: mockIsComposing };
     mockPty = { write: vi.fn() };
     ptyRef = { current: mockPty as unknown as IPty };
+    mockTerminalFontSize.value = 13;
+    mockToggleBinding.value = "Ctrl-`";
   });
 
   it("passes Ctrl-only keys through to the shell on macOS (readline) (audit-fix)", () => {
@@ -157,13 +188,226 @@ describe("createTerminalKeyHandler", () => {
     expect(term.clear).toHaveBeenCalled();
   });
 
-  it("triggers search callback on Cmd+F", () => {
+  it("triggers search callback on Cmd+F and consumes the event", () => {
+    // preventDefault is load-bearing: Cmd+F is also the native Edit-menu
+    // "Find" accelerator, which otherwise ALSO fires and opens the editor
+    // FindBar — making the terminal search look "not wired". Suppressing the
+    // native accelerator here is what makes terminal search the sole result.
     const term = makeTerm();
     const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
-    const result = handler(makeEvent("f"));
+    const event = makeEvent("f");
+    const result = handler(event);
 
     expect(result).toBe(false);
     expect(callbacks.onSearch).toHaveBeenCalled();
+    expect(event.preventDefault).toHaveBeenCalled();
+  });
+
+  it("Cmd+Shift+F falls through (Format CJK accelerator, not terminal search)", () => {
+    // Terminal search is plain Cmd+F. Cmd+Shift+F is the "Format CJK Selection"
+    // menu accelerator — the "f" case must NOT claim it, and must NOT
+    // preventDefault, so the native accelerator can fire.
+    const term = makeTerm();
+    const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
+    const event = makeEvent("f", true, { shiftKey: true });
+
+    expect(handler(event)).toBe(true);
+    expect(callbacks.onSearch).not.toHaveBeenCalled();
+    expect(event.preventDefault).not.toHaveBeenCalled();
+  });
+
+  it("Alt+Cmd+F falls through (not terminal search)", () => {
+    const term = makeTerm();
+    const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
+    const event = makeEvent("f", true, { altKey: true });
+
+    expect(handler(event)).toBe(true);
+    expect(callbacks.onSearch).not.toHaveBeenCalled();
+    expect(event.preventDefault).not.toHaveBeenCalled();
+  });
+
+  describe("Ctrl+` — Toggle-Terminal from within the terminal", () => {
+    it("toggles the terminal and fully consumes the event (no '·' to the shell)", () => {
+      // A CJK IME reports Ctrl+` as keyCode 229 / key "·"; without owning it
+      // here, xterm writes "·" to the PTY. Consume it: toggle, preventDefault,
+      // stopPropagation (so the window handler doesn't double-toggle), return false.
+      const term = makeTerm();
+      const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
+      const event = makeEvent("·", false, { ctrlKey: true, code: "Backquote", keyCode: 229 });
+
+      expect(handler(event)).toBe(false);
+      expect(mockRequestToggleTerminal).toHaveBeenCalledTimes(1);
+      expect(event.preventDefault).toHaveBeenCalled();
+      expect(event.stopPropagation).toHaveBeenCalled();
+      expect(mockPty.write).not.toHaveBeenCalled();
+    });
+
+    it("does not treat Cmd+` or Ctrl+Shift+` as the terminal toggle", () => {
+      const term = makeTerm();
+      const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
+      handler(makeEvent("`", true, { code: "Backquote" })); // Cmd+`
+      handler(makeEvent("`", false, { ctrlKey: true, shiftKey: true, code: "Backquote" }));
+      expect(mockRequestToggleTerminal).not.toHaveBeenCalled();
+    });
+
+    it("does NOT toggle during a real composition — pending IME text isn't stranded", () => {
+      const term = makeTerm();
+      const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
+      // event.isComposing true → skip
+      handler(makeEvent("·", false, { ctrlKey: true, code: "Backquote", isComposing: true }));
+      // callbacks.isComposing() true (post-commit grace) → skip
+      mockIsComposing.mockReturnValue(true);
+      handler(makeEvent("·", false, { ctrlKey: true, code: "Backquote", keyCode: 229 }));
+      expect(mockRequestToggleTerminal).not.toHaveBeenCalled();
+    });
+
+    it("honours a custom Toggle-Terminal binding (Ctrl+` no longer claims it)", () => {
+      mockToggleBinding.value = "Ctrl-Shift-t"; // user remapped the toggle
+      const term = makeTerm();
+      const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
+      const event = makeEvent("·", false, { ctrlKey: true, code: "Backquote", keyCode: 229 });
+      // Ctrl+` no longer matches the (remapped) toggle, so it isn't consumed here
+      // and IME/other handling proceeds — it does not toggle.
+      handler(event);
+      expect(mockRequestToggleTerminal).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("Cmd+Left/Right — line start/end (3a)", () => {
+    it("writes readline ^A on Cmd+Left and consumes the event", () => {
+      vi.stubGlobal("navigator", { platform: "MacIntel" });
+      const term = makeTerm();
+      const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
+      const event = makeEvent("ArrowLeft");
+      const result = handler(event);
+
+      expect(result).toBe(false);
+      expect(mockPty.write).toHaveBeenCalledWith("\x01");
+      expect(event.preventDefault).toHaveBeenCalled();
+      vi.unstubAllGlobals();
+    });
+
+    it("writes readline ^E on Cmd+Right and consumes the event", () => {
+      vi.stubGlobal("navigator", { platform: "MacIntel" });
+      const term = makeTerm();
+      const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
+      const event = makeEvent("ArrowRight");
+
+      expect(handler(event)).toBe(false);
+      expect(mockPty.write).toHaveBeenCalledWith("\x05");
+      expect(event.preventDefault).toHaveBeenCalled();
+      vi.unstubAllGlobals();
+    });
+
+    it("passes Cmd+Shift+Left through (selection, not cursor move)", () => {
+      vi.stubGlobal("navigator", { platform: "MacIntel" });
+      const term = makeTerm();
+      const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
+      expect(handler(makeEvent("ArrowLeft", true, { shiftKey: true }))).toBe(true);
+      expect(mockPty.write).not.toHaveBeenCalled();
+      vi.unstubAllGlobals();
+    });
+
+    it("writes readline Alt-b on Option+Left (word nav) and consumes the event", () => {
+      // With macOptionIsMeta, xterm would emit "\x1b[1;3D" which zsh doesn't
+      // bind (prints ";3D"); we emit Alt-b, bound by the default emacs keymap.
+      vi.stubGlobal("navigator", { platform: "MacIntel" });
+      const term = makeTerm();
+      const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
+      const event = makeEvent("ArrowLeft", false, { altKey: true });
+
+      expect(handler(event)).toBe(false);
+      expect(mockPty.write).toHaveBeenCalledWith("\x1bb");
+      expect(event.preventDefault).toHaveBeenCalled();
+      vi.unstubAllGlobals();
+    });
+
+    it("writes readline Alt-f on Option+Right (word nav)", () => {
+      vi.stubGlobal("navigator", { platform: "MacIntel" });
+      const term = makeTerm();
+      const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
+      const event = makeEvent("ArrowRight", false, { altKey: true });
+
+      expect(handler(event)).toBe(false);
+      expect(mockPty.write).toHaveBeenCalledWith("\x1bf");
+      vi.unstubAllGlobals();
+    });
+
+    it("passes Option+Shift+Left through (selection, not word nav)", () => {
+      vi.stubGlobal("navigator", { platform: "MacIntel" });
+      const term = makeTerm();
+      const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
+      // Shift held → not our word-nav path; let the shell/xterm decide.
+      expect(handler(makeEvent("ArrowLeft", false, { altKey: true, shiftKey: true }))).toBe(true);
+      expect(mockPty.write).not.toHaveBeenCalledWith("\x1bb");
+      vi.unstubAllGlobals();
+    });
+  });
+
+  describe("Cmd+=/-/0 — terminal font zoom (3b)", () => {
+    it("zooms the terminal font in on Cmd+= without touching the editor", () => {
+      const term = makeTerm();
+      const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
+      const event = makeEvent("=");
+      const result = handler(event);
+
+      expect(result).toBe(false);
+      expect(mockUpdateTerminalSetting).toHaveBeenCalledWith("fontSize", 15); // 13 + 2
+      expect(event.preventDefault).toHaveBeenCalled();
+    });
+
+    it("zooms the terminal font out on Cmd+-", () => {
+      const term = makeTerm();
+      const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
+      const event = makeEvent("-");
+
+      expect(handler(event)).toBe(false);
+      expect(mockUpdateTerminalSetting).toHaveBeenCalledWith("fontSize", 11); // 13 - 2
+      expect(event.preventDefault).toHaveBeenCalled();
+    });
+
+    it("resets the terminal font to the default on Cmd+0", () => {
+      mockTerminalFontSize.value = 20;
+      const term = makeTerm();
+      const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
+      const event = makeEvent("0");
+
+      expect(handler(event)).toBe(false);
+      expect(mockUpdateTerminalSetting).toHaveBeenCalledWith("fontSize", 13); // default
+      expect(event.preventDefault).toHaveBeenCalled();
+    });
+
+    it("does not zoom during the IME grace window", () => {
+      mockIsComposing.mockReturnValue(true);
+      const term = makeTerm();
+      const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
+      expect(handler(makeEvent("=", true, { isComposing: false }))).toBe(true);
+      expect(mockUpdateTerminalSetting).not.toHaveBeenCalled();
+    });
+
+    it("Alt+Cmd+= falls through (subscript accelerator, not terminal zoom)", () => {
+      // Alt+CmdOrCtrl+= is the "subscript" menu accelerator. The zoom branch
+      // must reject Alt so the accelerator fires instead of zooming the font.
+      const term = makeTerm();
+      const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
+      const event = makeEvent("=", true, { altKey: true });
+
+      expect(handler(event)).toBe(true);
+      expect(mockUpdateTerminalSetting).not.toHaveBeenCalled();
+      expect(event.preventDefault).not.toHaveBeenCalled();
+    });
+
+    it("Alt+Cmd+- falls through (horizontal-line accelerator, not terminal zoom)", () => {
+      // Alt+CmdOrCtrl+- is the "horizontal-line" accelerator — must not be
+      // eaten as terminal zoom-out.
+      const term = makeTerm();
+      const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
+      const event = makeEvent("-", true, { altKey: true });
+
+      expect(handler(event)).toBe(true);
+      expect(mockUpdateTerminalSetting).not.toHaveBeenCalled();
+      expect(event.preventDefault).not.toHaveBeenCalled();
+    });
   });
 
   it("selects the terminal buffer on Cmd+A and consumes the event", () => {

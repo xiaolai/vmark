@@ -49,14 +49,19 @@ export function getActiveFilePath(): string | null {
  * Get serialization options (line break preservation and hard break style)
  * based on current document and settings.
  */
-export function getSerializeOptions(): { preserveLineBreaks: boolean; hardBreakStyle: "twoSpaces" | "backslash" } {
+export function getSerializeOptions(): {
+  preserveLineBreaks: boolean;
+  preserveBlankLines: boolean;
+  hardBreakStyle: "twoSpaces" | "backslash";
+} {
   const windowLabel = getWindowLabel();
   const tabId = useTabStore.getState().activeTabId[windowLabel] ?? null;
   const doc = tabId ? useDocumentStore.getState().getDocument(tabId) : null;
   const preserveLineBreaks = useSettingsStore.getState().markdown.preserveLineBreaks;
+  const preserveBlankLines = useSettingsStore.getState().markdown.preserveBlankLines;
   const hardBreakStyleOnSave = useSettingsStore.getState().markdown.hardBreakStyleOnSave;
   const hardBreakStyle = resolveHardBreakStyle(doc?.hardBreakStyle ?? "unknown", hardBreakStyleOnSave);
-  return { preserveLineBreaks, hardBreakStyle };
+  return { preserveLineBreaks, preserveBlankLines, hardBreakStyle };
 }
 
 /**

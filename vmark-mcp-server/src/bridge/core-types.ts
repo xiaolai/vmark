@@ -36,6 +36,7 @@ export type BridgeRequest =
   | { type: 'vmark.session.get_state'; clientProtocol?: string }
   | { type: 'vmark.workspace.new'; kind?: string; windowLabel?: string }
   | { type: 'vmark.workspace.open'; filePath: string; windowLabel?: string }
+  | { type: 'vmark.workspace.open_workspace'; folderPath: string; windowLabel?: string }
   | { type: 'vmark.workspace.save'; tabId?: string }
   | { type: 'vmark.workspace.save_as'; tabId?: string; filePath: string }
   | { type: 'vmark.workspace.close'; tabId: string; force?: boolean }

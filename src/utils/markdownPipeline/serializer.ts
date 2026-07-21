@@ -14,11 +14,10 @@
  *   - A verified cosmetic pass converts serializer-emitted &#x20; entities
  *     back to spaces and strips defensive backslash escapes ($, [, ], *, _,
  *     `, !, (, ), :, @) — but only when re-parsing the cleaned output yields the
- *     exact same mdast as the conservative output. This guarantees the
- *     cosmetic pass can never change document meaning (audit H6/H7: the old
- *     unverified pass corrupted literal &#x20; in code blocks and turned
- *     escaped text like \_bar\_ into real emphasis on round trip).
+ *     exact same mdast as the conservative output, so it can never change
+ *     document meaning (audit H6/H7).
  *   - hardBreakStyle option converts `\` breaks to two-space breaks
+ *   - join re-emits captured blank-line runs (blankLinesJoin, ADR-1a)
  *
  * @coordinates-with parser.ts — plugins must match between parser and serializer
  * @coordinates-with adapter.ts — wraps this with error handling
@@ -33,7 +32,7 @@ import remarkMath from "remark-math";
 import remarkFrontmatter from "remark-frontmatter";
 import type { Root } from "mdast";
 import { remarkCustomInline, remarkDetailsBlock, remarkWikiLinks, tocToMarkdown } from "./plugins";
-import { handleImage, handleLink } from "./serializerHandlers";
+import { handleImage, handleLink, blankLinesJoin } from "./serializerHandlers";
 import { parseMarkdownToMdast } from "./parser";
 import type { MarkdownPipelineOptions } from "./types";
 
@@ -52,9 +51,10 @@ import type { MarkdownPipelineOptions } from "./types";
  * serialize call.
  */
 function buildSerializer() {
+  // Cast inline: `join` is forwarded to mdast-util-to-markdown at runtime but
+  // absent from remark-stringify's published Options type.
   return unified()
     .use(remarkStringify, {
-      // Serialization options for consistent output
       bullet: "-", // Use - for unordered lists
       bulletOther: "*", // Fallback bullet
       bulletOrdered: ".", // Use . for ordered lists
@@ -64,13 +64,13 @@ function buildSerializer() {
       fences: true, // Use fenced code blocks
       rule: "-", // Use --- for thematic breaks
       listItemIndent: "one", // Use one space indent for list items
-      // Custom handlers for angle-bracket URL syntax and custom node types
       handlers: {
         image: handleImage,
         link: handleLink,
         ...tocToMarkdown.handlers,
       } as Record<string, unknown>,
-    })
+      join: [blankLinesJoin], // re-emit captured blank-line runs (ADR-1a)
+    } as Parameters<typeof remarkStringify>[0])
     .use(remarkGfm, {
       singleTilde: false, // Match parser config
     })

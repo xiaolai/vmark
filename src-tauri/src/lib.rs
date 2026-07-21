@@ -55,6 +55,7 @@ mod window_manager;
 pub mod workflow;
 mod workspace;
 mod workspace_transfer;
+mod workspace_validation;
 
 #[cfg(target_os = "macos")]
 mod app_nap;
