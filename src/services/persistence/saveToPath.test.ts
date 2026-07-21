@@ -169,8 +169,11 @@ describe("saveToPath", () => {
     });
   });
 
-  it("reports the write to the coherence capture funnel (WI-1.6, fire-and-forget)", async () => {
+  it("reports the write to the coherence capture funnel when capture is ENABLED (WI-1.6)", async () => {
     vi.mocked(invoke).mockResolvedValue(undefined);
+    vi.mocked(useSettingsStore.getState).mockReturnValue(
+      makeSettings({ general: { coherenceCaptureOnSave: true } }),
+    );
 
     await saveToPath("tab-1", "/tmp/doc.md", "Hello", "manual");
 
@@ -182,8 +185,32 @@ describe("saveToPath", () => {
     });
   });
 
+  // Capture is OPT-IN (v0.9.6): saving must not rewrite the user's file to
+  // inject a `vmark:` frontmatter id unless they asked for provenance tracking.
+  // Default-on stamping modified users' markdown silently, on autosave.
+  it("does NOT capture on save by default — no silent frontmatter stamping", async () => {
+    vi.mocked(invoke).mockResolvedValue(undefined);
+
+    await saveToPath("tab-1", "/tmp/doc.md", "Hello", "manual");
+
+    expect(mockCaptureWrite).not.toHaveBeenCalled();
+  });
+
+  it("does NOT capture on AUTOSAVE either when disabled", async () => {
+    // Autosave is on by default at 30s, so a default-on capture stamped files
+    // without the user ever pressing save.
+    vi.mocked(invoke).mockResolvedValue(undefined);
+
+    await saveToPath("tab-1", "/tmp/doc.md", "Hello", "auto");
+
+    expect(mockCaptureWrite).not.toHaveBeenCalled();
+  });
+
   it("save succeeds even when the coherence funnel rejects", async () => {
     vi.mocked(invoke).mockResolvedValue(undefined);
+    vi.mocked(useSettingsStore.getState).mockReturnValue(
+      makeSettings({ general: { coherenceCaptureOnSave: true } }),
+    );
     mockCaptureWrite.mockRejectedValueOnce(new Error("kernel down"));
 
     const result = await saveToPath("tab-1", "/tmp/doc.md", "Hello", "manual");

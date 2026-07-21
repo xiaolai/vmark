@@ -656,6 +656,10 @@
       "512kb": "512 KB",
       "1mb": "1 MB",
       "5mb": "5 MB"
+    },
+    "coherenceCapture": {
+      "label": "Rastrear la procedencia del documento",
+      "description": "Registrar cómo cambian los documentos con el tiempo (capa de coherencia). Al activarlo, VMark añade un bloque de id `vmark:` al frontmatter del archivo la primera vez que lo rastrea y crea una carpeta .vmark en el espacio de trabajo."
     }
   },
   "integrations": {

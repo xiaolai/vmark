@@ -640,6 +640,10 @@
       "512kb": "512 KB",
       "1mb": "1 MB",
       "5mb": "5 MB"
+    },
+    "coherenceCapture": {
+      "label": "문서 출처 추적",
+      "description": "문서가 시간에 따라 어떻게 바뀌는지 기록합니다(일관성 레이어). 켜면 처음 추적할 때 VMark가 파일 프런트매터에 `vmark:` ID 블록을 추가하고 작업 공간에 .vmark 폴더를 만듭니다."
     }
   },
   "integrations": {
