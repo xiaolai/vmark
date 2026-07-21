@@ -575,3 +575,33 @@ Ruled: fail-closed diagnosis now, automatic repair later. Recorded in the spec
 as §9.4.1 (`ledger-history-rewound`). Diagnose-now / auto-repair-later is
 acceptable because fail-closed sacrifices availability, not correctness; auto
 repair is not a Phase 4 blocker.
+
+## Owner decision — Option A: O(ledger) reconcile is PERMANENT (2026-07-21)
+
+The owner chose **A** after G-B review 02 proved the durable successor
+impossible as specified: {raw-JSONL-working-tree = truth} + {O(delta)} +
+{soundness vs arbitrary external mutation} cannot all hold — git working-tree
+operations (`git restore --worktree`, stash, manual edit) change the on-disk
+ledger without moving HEAD, so no cheap skip oracle is sound.
+
+Decision: the unconditional O(ledger) reconcile in `with_write_lock` is now the
+**permanent** design, not an interim safe mode. Rationale (first principles): the
+O(delta) it trades against removes ~130 ms at 20k entries / ~1.34 s at the 200k
+ceiling, on save-points that occur a few times an hour — a hypothetical cost at
+single-user-desktop scale — while every alternative sacrifices either the
+soundness nine reviews established (B) or the human-readable ledger as canonical
+truth (C). Not worth it.
+
+**Supersedes the "INTERIM SAFE MODE" framing above:**
+- The durable-successor constraints and the release-blocking p95/entry-count
+  triggers are **withdrawn** — there is no successor to trigger.
+- The durable-ledger-store plan (`dev-docs/plans/20260721-…`) is SUPERSEDED /
+  WON'T-BUILD, retained only as the record of why O(delta) was investigated and
+  rejected.
+- Reconcile-latency telemetry is **optional observability**, not a gate: worth a
+  cheap counter so an unexpected slowdown is visible, but nothing blocks on it and
+  no threshold forces a rearchitecture.
+
+Revisit only if the ledger's realistic scale moves far past the single-user
+dogfood envelope (multi-writer teams, machine-generated history at volume) — then
+Option B (O(delta) for commit-borne changes) becomes worth reopening.
