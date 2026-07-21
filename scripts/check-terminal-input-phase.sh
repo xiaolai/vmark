@@ -101,8 +101,12 @@ case "$PHASE" in
     assert_grep '"gate"'                   "src/stores/settingsStore/defaults.ts" "WI-4.1 default flipped to gate"
     ;;
   5)
-    # WI-5.1 false-model tests already fixed (fake timers, not await Promise.resolve).
-    assert_absent "await Promise.resolve()" "$TDIR/terminalSessionInputWiring.test.ts" "WI-5.1 false-model microtask sim removed"
+    # WI-5.1: the two "later keystroke" false-model tests were converted to fake
+    # timers (macrotask boundary) in cb954392. The remaining microtask-tick test
+    # is honestly labelled a WEAK proxy — the faithful [L1,mt,L2] reproduction is
+    # in the webkit tier (userEvent). Assert that honesty is documented.
+    assert_grep "WEAK proxy"               "$TDIR/terminalSessionInputWiring.test.ts" "WI-5.1 microtask-sim labelled a weak proxy"
+    assert_grep "vi.advanceTimersByTime"   "$TDIR/terminalSessionInputWiring.test.ts" "WI-5.1 later-keystroke tests use fake timers"
     # WI-5.2: pure terminal modules in mutation scope. resolveCommit is at 100%.
     assert_grep "resolveCommit.ts"         "stryker.config.json" "WI-5.2 resolveCommit in mutation scope"
     assert_grep "terminalReadlineKeys.ts"  "stryker.config.json" "WI-5.2 readline keys in mutation scope"
