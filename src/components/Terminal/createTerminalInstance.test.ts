@@ -620,6 +620,38 @@ describe("createTerminalInstance — IME composition with textarea", () => {
     inst.dispose();
   });
 
+  it("gate mode selects the Channel-Ownership handler (composition tracked via container)", () => {
+    // inputGate:"gate" branches to setupImeCompositionGate, which listens on the
+    // CONTAINER (capture) and has no grace window (inGracePeriod always false).
+    const parentEl = document.createElement("div");
+    const inst = createTerminalInstance({
+      parentEl,
+      settings: {
+        fontSize: 14,
+        lineHeight: 1.2,
+        cursorStyle: "block",
+        cursorBlink: true,
+        useWebGL: false,
+        macOptionIsMeta: true,
+        inputGate: "gate",
+      },
+      ptyRef: { current: null },
+      onSearch: vi.fn(),
+    });
+    const textarea = inst.container.querySelector(".xterm-helper-textarea")!;
+
+    expect(inst.composing).toBe(false);
+    // Bubbling compositionstart reaches the container's capture listener.
+    textarea.dispatchEvent(new CompositionEvent("compositionstart", { bubbles: true }));
+    expect(inst.composing).toBe(true);
+    textarea.dispatchEvent(new CompositionEvent("compositionend", { data: "你好", bubbles: true }));
+    // Gate mode commits synchronously — no grace window.
+    expect(inst.composing).toBe(false);
+    expect(inst.inGracePeriod).toBe(false);
+
+    inst.dispose();
+  });
+
   it("clears grace timer on compositionstart if one is active", () => {
     vi.useFakeTimers();
     const inst = makeInstanceWithTextarea();

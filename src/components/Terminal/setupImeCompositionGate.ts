@@ -1,0 +1,123 @@
+/**
+ * setupImeCompositionGate — Channel Ownership (plan WI-2.2/2.4/3.x)
+ *
+ * The gate-mode IME handler. VMark takes the text channel; xterm keeps keys.
+ * There is exactly ONE writer, so this has NONE of the legacy dedup machinery
+ * (grace window, 80/150 ms timers, echo token, Path A/B) — the entire reason
+ * those existed was the dual-writer race this design removes.
+ *
+ * Mechanism:
+ *   - T1: a CAPTURE-phase `input` listener on the CONTAINER (a strict ancestor
+ *     of the textarea). xterm's own `input` listener is capture-phase on the
+ *     textarea, and capture descends container → textarea, so this fires first
+ *     and `stopPropagation()` prevents xterm's `_inputEvent` from ever running.
+ *     Plain ASCII is unaffected — xterm writes that via its KEYDOWN path, which
+ *     T1 does not touch; the redundant `input` event is simply stopped.
+ *   - Composition: compositionstart snapshots the textarea length; compositionend
+ *     asks the pure resolveCommit() what to commit, fires onCompositionCommit,
+ *     then (T3) clears textarea.value synchronously so xterm's setTimeout(0)
+ *     finalizer reads "" and emits nothing.
+ *   - The plain-insertText path (WeChat Shift punctuation: no composition cycle)
+ *     is the same container `input` listener — resolveCommit handles it.
+ *
+ * Commits are delivered via onCompositionCommit, which the wiring writes DIRECTLY
+ * to the PTY (bypassing xterm's onData), so the single-writer guarantee holds end
+ * to end. Exposes the same ImeCompositionHandle surface as the legacy module so
+ * createTerminalInstance can select either by the `inputGate` flag.
+ *
+ * @coordinates-with createTerminalInstance.ts — sole caller (gate branch)
+ * @coordinates-with terminalKeyHandler.ts — T2 (IME keydown returns false)
+ * @module components/Terminal/setupImeCompositionGate
+ */
+import { terminalLog } from "@/utils/debug";
+import { NON_ASCII_RE } from "./imeCharClass";
+import { resolveCommit } from "./resolveCommit";
+import type { ImeCompositionHandle } from "./setupImeComposition";
+
+interface GateOptions {
+  container: HTMLElement;
+  textarea: HTMLTextAreaElement;
+}
+
+export function setupImeCompositionGate({ container, textarea }: GateOptions): ImeCompositionHandle {
+  let composing = false;
+  let onCompositionCommit: ((text: string) => void) | null = null;
+  let lastCommittedText: string | null = null;
+  let lastCommitTime = 0;
+  let textareaStartLen = 0;
+
+  const commit = (text: string) => {
+    lastCommittedText = text;
+    lastCommitTime = Date.now();
+    try {
+      onCompositionCommit?.(text);
+    } catch {
+      // best-effort: PTY may already be closing
+    }
+  };
+
+  const onCompositionStart = () => {
+    composing = true;
+    textareaStartLen = textarea.value.length;
+    terminalLog("gate compositionstart");
+  };
+
+  const onCompositionEnd = (e: CompositionEvent) => {
+    composing = false;
+    const textareaDiff = textarea.value.slice(textareaStartLen);
+    const text = resolveCommit({ eventData: e.data, textareaDiff });
+    terminalLog("gate compositionend", e.data, "->", text);
+    // T3: clear the textarea synchronously so xterm's setTimeout(0)
+    // _finalizeComposition reads "" and emits nothing.
+    textarea.value = "";
+    if (text) commit(text);
+  };
+
+  // T1: container capture listener. Forwards an IME-origin non-ASCII insert and
+  // ALWAYS stops the event so xterm's textarea `_inputEvent` never fires.
+  const onInput = (e: Event) => {
+    const ie = e as InputEvent;
+    // Only the input events xterm would route through `_inputEvent`: a plain
+    // insertText. Composition-phase inserts are handled by the composition cycle.
+    if (ie.inputType !== "insertText" || ie.isComposing || composing) {
+      // Still sever xterm's path for insertText-family events during composition;
+      // let unrelated events (deletes, paste inputType) fall through untouched.
+      return;
+    }
+    // Sever xterm's _inputEvent for this insert.
+    e.stopPropagation();
+    const data = ie.data;
+    if (!data || !NON_ASCII_RE.test(data)) {
+      // Plain ASCII already went to the PTY via xterm's keydown path; just drop
+      // the redundant (now-stopped) input event and clear the textarea.
+      textarea.value = "";
+      return;
+    }
+    // Non-ASCII insert with no composition cycle (WeChat Shift punctuation).
+    textarea.value = "";
+    commit(data);
+  };
+
+  container.addEventListener("compositionstart", onCompositionStart, true);
+  container.addEventListener("compositionend", onCompositionEnd, true);
+  container.addEventListener("input", onInput, true);
+
+  const cleanup = () => {
+    container.removeEventListener("compositionstart", onCompositionStart, true);
+    container.removeEventListener("compositionend", onCompositionEnd, true);
+    container.removeEventListener("input", onInput, true);
+  };
+
+  return {
+    get composing() { return composing; },
+    // Gate mode has no grace window — inGracePeriod is always false.
+    get inGracePeriod() { return false; },
+    get onCompositionCommit() { return onCompositionCommit; },
+    set onCompositionCommit(cb: ((text: string) => void) | null) { onCompositionCommit = cb; },
+    get lastCommittedText() { return lastCommittedText; },
+    get lastCommitTime() { return lastCommitTime; },
+    cleanup,
+    // No pending grace state, so flushPending is a no-op (satisfies the handle).
+    flushPending: () => {},
+  };
+}
