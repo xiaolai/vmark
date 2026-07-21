@@ -16,6 +16,11 @@ export default defineConfig({
       // so nothing here is imported into the in-process coverage graph.
       ".claude/hooks/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}",
     ],
+    // `*.webkit.test.ts` runs in the real-WebKit tier (vitest.browser.config.ts),
+    // not jsdom — it needs real xterm + real keyboard input. See `pnpm test:browser`.
+    // (`*.browser.test.ts` is NOT excluded — that suffix means the embedded-browser
+    // feature and those are ordinary jsdom tests.)
+    exclude: ["**/node_modules/**", "**/dist/**", "src/**/*.webkit.test.{ts,tsx}"],
     server: {
       deps: {
         // The @actions/* packages ship JSON imports without
