@@ -55,13 +55,15 @@ describe("shouldSkipKeyEvent", () => {
     expect(shouldSkipKeyEvent(event)).toBe(false);
   });
 
-  it("does NOT skip a command chord even when IME-flagged (Cmd + isComposing)", () => {
+  it("STILL skips a command chord during a REAL composition (isComposing true)", () => {
+    // Only the keyCode-229 false positive (isComposing false) is exempt; a real
+    // composition keeps the guard so Ctrl+Shift+0 can't toggle mid-commit.
     const event = {
       isComposing: true,
       metaKey: true,
       target: document.createElement("div"),
     } as unknown as KeyboardEvent;
-    expect(shouldSkipKeyEvent(event)).toBe(false);
+    expect(shouldSkipKeyEvent(event)).toBe(true);
   });
 
   it("STILL skips a plain IME event without a command modifier", () => {

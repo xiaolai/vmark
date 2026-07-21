@@ -220,13 +220,27 @@ describe("wireSessionInput — dedup paths", () => {
       expect(writeMock).toHaveBeenNthCalledWith(2, "！");
     });
 
-    it("does not suppress once the dedup window has elapsed", () => {
+    it("clears the echo after the dispatch — a later same-char forward is written", async () => {
       const { entry, writeMock, fireOnData } = makeEntry(null, 0);
       wireSessionInput({ sessionId: "s1", getEntry: () => entry, startShell: () => {} });
 
-      fireOnData("！"); // write #1, records echo at t0
-      vi.advanceTimersByTime(1000); // window (150ms) elapses
-      entry.instance.onCompositionCommit!("！"); // stale echo → written
+      fireOnData("！"); // write #1, records echo (microtask clear queued)
+      await Promise.resolve(); // dispatch drains → token cleared
+      entry.instance.onCompositionCommit!("！"); // no live echo → written
+
+      expect(writeMock).toHaveBeenCalledTimes(2);
+    });
+
+    it("does NOT suppress a char typed right after pasting the same char (Codex audit)", async () => {
+      // Paste "！" arrives via onData; typing "！" a moment later must not be
+      // eaten. The echo token is scoped to the paste's dispatch, not a 150ms
+      // window, so the later keystroke sees a cleared token.
+      const { entry, writeMock, fireOnData } = makeEntry(null, 0);
+      wireSessionInput({ sessionId: "s1", getEntry: () => entry, startShell: () => {} });
+
+      fireOnData("！"); // paste → write #1, records echo
+      await Promise.resolve(); // paste dispatch drains → token cleared
+      entry.instance.onCompositionCommit!("！"); // typed later → written (#2)
 
       expect(writeMock).toHaveBeenCalledTimes(2);
     });

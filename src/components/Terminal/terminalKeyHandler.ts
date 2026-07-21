@@ -9,9 +9,9 @@
  *     for SIGINT (Ctrl+C), maintaining standard terminal behavior.
  *   - Cmd+V → paste from clipboard directly into PTY (not xterm buffer).
  *   - Cmd+K → clear terminal scrollback and viewport.
- *   - Ctrl+` (default Toggle-Terminal binding) → toggle the terminal and fully
+ *   - The configured Toggle-Terminal binding (default Ctrl+`) → toggle and fully
  *     consume the event, so a CJK IME's remapped "·" never reaches the shell and
- *     the window-level handler doesn't double-toggle.
+ *     the window handler doesn't double-toggle. Skipped during composition/grace.
  *   - Cmd+F → toggle search bar in the terminal panel (preventDefault so the
  *     native Find accelerator doesn't ALSO open the editor FindBar).
  *   - Cmd+1-5 → switch between terminal sessions (up to 5).
@@ -52,9 +52,9 @@ import type { IPty } from "@/lib/pty";
 import { readText, writeText } from "@tauri-apps/plugin-clipboard-manager";
 import type { Terminal } from "@xterm/xterm";
 import { useUIStore } from "@/stores/uiStore";
-import { useSettingsStore } from "@/stores/settingsStore";
+import { useSettingsStore, useShortcutsStore } from "@/stores/settingsStore";
 import { isImeKeyEvent } from "@/utils/imeGuard";
-import { isMacPlatform } from "@/utils/shortcutMatch";
+import { isMacPlatform, matchesShortcutEvent } from "@/utils/shortcutMatch";
 import { clipboardWarn } from "@/utils/debug";
 import { errorMessage } from "@/utils/errorMessage";
 import { requestToggleTerminal } from "./terminalGate";
@@ -98,15 +98,17 @@ export function createTerminalKeyHandler(
   return (event: KeyboardEvent): boolean => {
     if (event.type !== "keydown") return true;
 
-    // Toggle-Terminal (default Ctrl+`): own it here and FULLY consume the event
-    // so a CJK IME's remapped "·" never reaches the shell and the window handler
-    // doesn't double-toggle (see header). A custom binding falls to that handler.
+    // Toggle-Terminal: own the CONFIGURED binding here and FULLY consume the
+    // event, so a CJK IME's remapped "·" never reaches the shell and the window
+    // handler doesn't double-toggle. matchesShortcutEvent resolves the physical
+    // key (Backquote) even when the IME remaps it, and honours a custom binding.
+    // Skip during a real composition or its grace window — only the keyCode-229
+    // false positive should toggle, else pending IME text would commit into a
+    // now-hidden shell (Codex audit).
     if (
-      event.code === "Backquote"
-      && event.ctrlKey
-      && !event.metaKey
-      && !event.altKey
-      && !event.shiftKey
+      !event.isComposing
+      && !callbacks.isComposing()
+      && matchesShortcutEvent(event, useShortcutsStore.getState().getShortcut("toggleTerminal"))
     ) {
       event.preventDefault();
       event.stopPropagation();

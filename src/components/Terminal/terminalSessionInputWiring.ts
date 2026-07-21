@@ -66,12 +66,13 @@ export function wireSessionInput({ sessionId, getEntry, startShell }: WireOption
   // the same keydown, with onData firing FIRST (verified via live trace). The
   // post-commit dedup below only catches the reverse order (onData after the
   // commit sets lastCommittedText), so onData writes the char and then the
-  // forward writes it again → doubled. Record the char xterm's onData just
-  // wrote; the forward consumes and skips the duplicate. Consuming on match
-  // (not a bare time check) prevents a later same-char forward from being
-  // wrongly suppressed.
+  // forward writes it again → doubled. onData records the char it just wrote and
+  // the forward consumes + skips the duplicate. The token is tied to the CURRENT
+  // event dispatch via queueMicrotask (NOT a time window): a paired forward
+  // fires synchronously in the same keydown and consumes it, but a later
+  // independent keystroke — or a typed char right after PASTING the same char —
+  // sees a cleared token and is written (Codex audit).
   let xtermEchoText: string | null = null;
-  let xtermEchoTime = 0;
 
   // IME composition commit: write clean committed text directly to PTY,
   // bypassing xterm's onData (which may inject spaces between segments).
@@ -80,10 +81,7 @@ export function wireSessionInput({ sessionId, getEntry, startShell }: WireOption
     if (!e) return;
     if (e.pty) {
       // xterm's onData already delivered this exact char this keydown — skip.
-      if (
-        text === xtermEchoText &&
-        Date.now() - xtermEchoTime < IME_DEDUP_WINDOW_MS
-      ) {
+      if (text === xtermEchoText) {
         xtermEchoText = null; // consume
         return;
       }
@@ -147,11 +145,14 @@ export function wireSessionInput({ sessionId, getEntry, startShell }: WireOption
       return;
     }
     if (e.pty) {
-      // Record a single non-ASCII char so a following plain-input forward for
-      // the SAME char (same keydown) is deduped in onCompositionCommit above.
+      // Record a single non-ASCII char so a plain-input forward for the SAME
+      // char later in THIS dispatch is deduped in onCompositionCommit above.
+      // Clear it once the dispatch drains so it can't match a later keystroke.
       if (NON_ASCII_ECHO_RE.test(data)) {
         xtermEchoText = data;
-        xtermEchoTime = Date.now();
+        queueMicrotask(() => {
+          xtermEchoText = null;
+        });
       }
       e.pty.write(data);
     }

@@ -14,9 +14,10 @@ vi.mock("@/stores/uiStore", () => ({
   },
 }));
 
-const { mockTerminalFontSize, mockUpdateTerminalSetting } = vi.hoisted(() => ({
+const { mockTerminalFontSize, mockUpdateTerminalSetting, mockToggleBinding } = vi.hoisted(() => ({
   mockTerminalFontSize: { value: 13 },
   mockUpdateTerminalSetting: vi.fn(),
+  mockToggleBinding: { value: "Ctrl-`" },
 }));
 
 vi.mock("@/stores/settingsStore", () => ({
@@ -24,6 +25,11 @@ vi.mock("@/stores/settingsStore", () => ({
     getState: () => ({
       terminal: { fontSize: mockTerminalFontSize.value },
       updateTerminalSetting: mockUpdateTerminalSetting,
+    }),
+  },
+  useShortcutsStore: {
+    getState: () => ({
+      getShortcut: (id: string) => (id === "toggleTerminal" ? mockToggleBinding.value : ""),
     }),
   },
 }));
@@ -59,8 +65,11 @@ function makeEvent(
   return {
     type: "keydown",
     key,
+    code: "",
     metaKey: meta,
     ctrlKey: false,
+    altKey: false,
+    shiftKey: false,
     isComposing: false,
     keyCode: 0,
     preventDefault: vi.fn(),
@@ -82,6 +91,7 @@ describe("createTerminalKeyHandler", () => {
     mockPty = { write: vi.fn() };
     ptyRef = { current: mockPty as unknown as IPty };
     mockTerminalFontSize.value = 13;
+    mockToggleBinding.value = "Ctrl-`";
   });
 
   it("passes Ctrl-only keys through to the shell on macOS (readline) (audit-fix)", () => {
@@ -237,6 +247,28 @@ describe("createTerminalKeyHandler", () => {
       const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
       handler(makeEvent("`", true, { code: "Backquote" })); // Cmd+`
       handler(makeEvent("`", false, { ctrlKey: true, shiftKey: true, code: "Backquote" }));
+      expect(mockRequestToggleTerminal).not.toHaveBeenCalled();
+    });
+
+    it("does NOT toggle during a real composition — pending IME text isn't stranded", () => {
+      const term = makeTerm();
+      const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
+      // event.isComposing true → skip
+      handler(makeEvent("·", false, { ctrlKey: true, code: "Backquote", isComposing: true }));
+      // callbacks.isComposing() true (post-commit grace) → skip
+      mockIsComposing.mockReturnValue(true);
+      handler(makeEvent("·", false, { ctrlKey: true, code: "Backquote", keyCode: 229 }));
+      expect(mockRequestToggleTerminal).not.toHaveBeenCalled();
+    });
+
+    it("honours a custom Toggle-Terminal binding (Ctrl+` no longer claims it)", () => {
+      mockToggleBinding.value = "Ctrl-Shift-t"; // user remapped the toggle
+      const term = makeTerm();
+      const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
+      const event = makeEvent("·", false, { ctrlKey: true, code: "Backquote", keyCode: 229 });
+      // Ctrl+` no longer matches the (remapped) toggle, so it isn't consumed here
+      // and IME/other handling proceeds — it does not toggle.
+      handler(event);
       expect(mockRequestToggleTerminal).not.toHaveBeenCalled();
     });
   });

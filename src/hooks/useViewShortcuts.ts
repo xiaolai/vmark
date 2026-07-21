@@ -48,13 +48,14 @@ import { applySplitPaneViewShortcut } from "@/hooks/splitPaneViewShortcut";
 
 /** Return true if the event should be skipped entirely (IME composition).
  *
- * A command chord (Ctrl or Cmd held) is NEVER text composition, so it is
- * exempt: a CJK IME reports Ctrl+` as an IME keydown (keyCode 229, key "·"),
- * which would otherwise swallow the Toggle-Terminal shortcut and let the editor
- * insert "·" instead. Plain keys (Enter/Space confirming a candidate) stay
- * guarded. */
+ * A command chord (Ctrl or Cmd held) is exempt ONLY for the keyCode-229 FALSE
+ * POSITIVE — i.e. `isComposing` is false: a CJK IME reports Ctrl+` as an IME
+ * keydown (keyCode 229, key "·"), which would otherwise swallow Toggle-Terminal
+ * and insert "·". During a REAL composition (`isComposing` true) the guard
+ * stays, so a chord like Ctrl+Shift+0 can't toggle the sidebar mid-commit
+ * (Codex audit). Plain keys (Enter/Space confirming a candidate) stay guarded. */
 export function shouldSkipKeyEvent(event: KeyboardEvent): boolean {
-  if (event.ctrlKey || event.metaKey) return false;
+  if ((event.ctrlKey || event.metaKey) && !event.isComposing) return false;
   return isImeKeyEvent(event);
 }
 
