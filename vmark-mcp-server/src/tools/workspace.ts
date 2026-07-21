@@ -19,7 +19,8 @@ export function registerWorkspaceTool(server: VMarkMcpServer): void {
         'File and window lifecycle. Use these for everything that is not in-document mutation: creating, opening, saving, closing files; switching tabs; focusing windows.\n\n' +
         'Actions:\n' +
         '- new: Create a new untitled tab. Args: {kind?, windowLabel?}. Returns {tabId}.\n' +
-        '- open: Open a file from disk. Args: {filePath, windowLabel?}. Returns {tabId}.\n' +
+        '- open: Open a FILE from disk into a tab. Args: {filePath, windowLabel?}. Returns {tabId}.\n' +
+        '- open_workspace: Open a FOLDER as the active workspace (grants access to its file tree). Args: {folderPath, windowLabel?}. REQUIRES USER APPROVAL: the first call returns {needsApproval: true}; ask the user, then retry the SAME call to proceed. A denied request keeps failing until re-approved.\n' +
         '- save: Save a tab to its existing path. Args: {tabId?}. Returns {filePath, revision}.\n' +
         '- save_as: Save a tab to a new path. Args: {tabId?, filePath}. Returns {revision}.\n' +
         '- close: Close a tab. Args: {tabId, force?}. Refuses to close a dirty tab unless `force: true`; returns {closed: false, reason: "DIRTY"} in that case.\n' +
@@ -33,6 +34,7 @@ export function registerWorkspaceTool(server: VMarkMcpServer): void {
             enum: [
               'new',
               'open',
+              'open_workspace',
               'save',
               'save_as',
               'close',
@@ -43,6 +45,10 @@ export function registerWorkspaceTool(server: VMarkMcpServer): void {
           },
           tabId: { type: 'string' },
           filePath: { type: 'string' },
+          folderPath: {
+            type: 'string',
+            description: '`open_workspace` only — the folder to open as a workspace.',
+          },
           windowLabel: { type: 'string' },
           kind: {
             type: 'string',
@@ -81,6 +87,17 @@ export function registerWorkspaceTool(server: VMarkMcpServer): void {
           const data = await server.sendBridgeRequest({
             type: 'vmark.workspace.open',
             filePath: args.filePath,
+            windowLabel,
+          });
+          return VMarkMcpServer.successJsonResult(data);
+        }
+        case 'open_workspace': {
+          if (typeof args.folderPath !== 'string') {
+            return VMarkMcpServer.errorResult('folderPath (string) is required');
+          }
+          const data = await server.sendBridgeRequest({
+            type: 'vmark.workspace.open_workspace',
+            folderPath: args.folderPath,
             windowLabel,
           });
           return VMarkMcpServer.successJsonResult(data);
