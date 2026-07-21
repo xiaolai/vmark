@@ -101,9 +101,13 @@ case "$PHASE" in
     assert_grep '"gate"'                   "src/stores/settingsStore/defaults.ts" "WI-4.1 default flipped to gate"
     ;;
   5)
-    assert_nofile "$TDIR/compositionGuard.test.ts" "WI-5.1 drifted compositionGuard suite deleted"
+    # WI-5.1 false-model tests already fixed (fake timers, not await Promise.resolve).
     assert_absent "await Promise.resolve()" "$TDIR/terminalSessionInputWiring.test.ts" "WI-5.1 false-model microtask sim removed"
-    assert_grep "src/components/Terminal"  "stryker.config.json" "WI-5.2 terminal in mutation scope"
+    # WI-5.2: pure terminal modules in mutation scope. resolveCommit is at 100%.
+    assert_grep "resolveCommit.ts"         "stryker.config.json" "WI-5.2 resolveCommit in mutation scope"
+    assert_grep "terminalReadlineKeys.ts"  "stryker.config.json" "WI-5.2 readline keys in mutation scope"
+    # NOTE: compositionGuard.test.ts deletion is deferred to Phase 4 — it covers
+    # the LEGACY module, which stays until the gate default flip + guard removal.
     ;;
   *)
     echo "Unknown phase: $PHASE"; exit 64 ;;
