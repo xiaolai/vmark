@@ -640,6 +640,10 @@
       "512kb": "512 KB",
       "1mb": "1 MB",
       "5mb": "5 MB"
+    },
+    "coherenceCapture": {
+      "label": "跟踪文档来源",
+      "description": "记录文档随时间的变化（一致性层）。开启后，VMark 会在首次跟踪某个文件时，向其 frontmatter 添加 `vmark:` id 块，并在工作区创建 .vmark 文件夹。"
     }
   },
   "integrations": {

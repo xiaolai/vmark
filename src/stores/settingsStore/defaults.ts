@@ -18,6 +18,8 @@ export const initialState: SettingsState = {
   general: {
     autoSaveEnabled: true,
     autoSaveInterval: 30,
+    // Opt-in: capture rewrites the file to insert a `vmark:` identity block.
+    coherenceCaptureOnSave: false,
     historyEnabled: true,
     historyMaxSnapshots: 50,
     historyMaxAgeDays: 7,

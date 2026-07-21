@@ -96,6 +96,19 @@ export function FilesImagesSettings() {
             onChange={(v) => updateGeneralSetting("autoSaveEnabled", v)}
           />
         </SettingRow>
+        {/* Provenance tracking is opt-in because turning it on lets VMark
+            REWRITE the document to insert a `vmark:` identity block. It sits
+            here, next to autosave, because autosave is what made the rewrite
+            invisible. */}
+        <SettingRow
+          label={t("files.coherenceCapture.label")}
+          description={t("files.coherenceCapture.description")}
+        >
+          <Toggle
+            checked={general.coherenceCaptureOnSave}
+            onChange={(v) => updateGeneralSetting("coherenceCaptureOnSave", v)}
+          />
+        </SettingRow>
         <SettingRow
           label={t("files.saveInterval.label")}
           description={t("files.saveInterval.description")}

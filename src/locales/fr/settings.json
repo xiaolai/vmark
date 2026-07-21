@@ -670,6 +670,10 @@
     },
     "group": {
       "images": "Images"
+    },
+    "coherenceCapture": {
+      "label": "Suivre la provenance des documents",
+      "description": "Enregistrer l'évolution des documents (couche de cohérence). Une fois activé, VMark ajoute un bloc d'id `vmark:` au frontmatter du fichier lors du premier suivi et crée un dossier .vmark dans l'espace de travail."
     }
   },
   "integrations": {

@@ -688,5 +688,11 @@
       "label": "Embedded browser",
       "description": "Enable the experimental in-app web browser. Adds “New Browser Tab” to the command palette."
     }
+  },
+  "files": {
+    "coherenceCapture": {
+      "label": "Track document provenance",
+      "description": "Record how documents change over time (the coherence layer). Turning this on lets VMark add a `vmark:` id block to a file's frontmatter when it is first tracked, and create a .vmark folder in the workspace."
+    }
   }
 }

@@ -12,7 +12,11 @@ Nothing is ever auto-updated; you stay the editor-in-chief.
 
 ## How it works (30 seconds)
 
-- Every save, genie apply, accepted AI suggestion, MCP write, and workflow
+- **Provenance tracking is opt-in.** Turn on *Settings → Files & Images →
+  Saving → Track document provenance* first. Until you do, VMark never
+  writes to your files or creates `.vmark/`.
+- Once enabled, every save, genie apply, accepted AI suggestion, MCP write,
+  and workflow
   `save-file` step is recorded as a **transformation** in a plain-text
   ledger inside your workspace (`.vmark/` — git-friendly, human-readable
   JSONL; deleting the derived `index.db` loses nothing).
@@ -127,8 +131,8 @@ the review.
 
 ## Frontmatter identity
 
-The first time a file is captured, VMark adds a small identity block to
-its frontmatter:
+Once provenance tracking is enabled, the first time a file is captured
+VMark adds a small identity block to its frontmatter:
 
 ```yaml
 vmark:
@@ -140,6 +144,9 @@ never affects content hashing (adding it doesn't create a "change"), and
 everything else in your frontmatter is left untouched. If you copy a
 file, the duplicate ID is detected and surfaced for you to resolve —
 never auto-fixed.
+
+If you would rather VMark never touch your files, leave *Track document
+provenance* off — that is the default.
 
 ## Git interoperability
 
