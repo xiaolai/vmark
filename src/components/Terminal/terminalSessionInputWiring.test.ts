@@ -189,19 +189,20 @@ describe("wireSessionInput — dedup paths", () => {
       expect(writeMock).toHaveBeenCalledWith("！");
     });
 
-    it("suppresses the forward across the microtask checkpoint between listeners", async () => {
-      // Live WKWebView trace for macOS Pinyin 「。」 (no composition at all):
-      //   input(data="。", insertText) → xterm's _inputEvent emits → onData → write #1
-      //                                → our onInput forwards      → write #2  ← doubled
-      // Both are capture listeners on the SAME `input` event, and the browser
-      // runs a microtask checkpoint BETWEEN event listeners. A queueMicrotask
-      // token is therefore already cleared when the forward arrives, so the
-      // echo dedup never fires. The token must survive to the end of the task.
+    it("echo token survives a microtask tick (WEAK proxy — real proof is the webkit tier)", async () => {
+      // The 「。」 double is: xterm onData writes it, then our onInput forwards it,
+      // both capture listeners on one `input` event with a microtask checkpoint
+      // between them, so a queueMicrotask token was already cleared → the macrotask
+      // fix (cb954392). CAVEAT proven by the Phase 0 spike: jsdom does NOT drain a
+      // microtask between listeners ([L1,L2,mt]), so `await Promise.resolve()` here
+      // does NOT reproduce the real WKWebView boundary — it only checks the token
+      // survives one microtask tick. The FAITHFUL reproduction (real [L1,mt,L2] via
+      // userEvent) lives in the browser tier; this stays as a cheap regression guard.
       const { entry, writeMock, fireOnData } = makeEntry(null, 0);
       wireSessionInput({ sessionId: "s1", getEntry: () => entry, startShell: () => {} });
 
       fireOnData("。"); // xterm's listener → write #1, records echo
-      await Promise.resolve(); // microtask checkpoint between the two listeners
+      await Promise.resolve(); // microtask tick — NOT a faithful between-listeners drain
       entry.instance.onCompositionCommit!("。"); // our listener → must be skipped
 
       expect(writeMock).toHaveBeenCalledTimes(1);
