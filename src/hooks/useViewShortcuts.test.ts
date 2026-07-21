@@ -12,6 +12,7 @@ import { renderHook } from "@testing-library/react";
 import { shouldSkipKeyEvent, resolveViewAction, useViewShortcuts } from "./useViewShortcuts";
 import { useUIStore } from "@/stores/uiStore";
 import { useShortcutsStore } from "@/stores/settingsStore";
+import { useWorkspaceStore } from "@/stores/workspaceStore";
 
 // ---------------------------------------------------------------------------
 // shouldSkipKeyEvent
@@ -39,6 +40,39 @@ describe("shouldSkipKeyEvent", () => {
     const div = document.createElement("div");
     const event = { isComposing: false, keyCode: 0, target: div } as unknown as KeyboardEvent;
     expect(shouldSkipKeyEvent(event)).toBe(false);
+  });
+
+  it("does NOT skip a command chord even when IME-flagged (Ctrl + keyCode 229)", () => {
+    // A CJK IME reports Ctrl+` as keyCode 229 with key "·". A Ctrl/Cmd chord is a
+    // command, never text composition — it must reach the shortcut matcher, or
+    // Toggle-Terminal never fires and the editor inserts "·" instead.
+    const event = {
+      isComposing: false,
+      keyCode: 229,
+      ctrlKey: true,
+      target: document.createElement("div"),
+    } as unknown as KeyboardEvent;
+    expect(shouldSkipKeyEvent(event)).toBe(false);
+  });
+
+  it("does NOT skip a command chord even when IME-flagged (Cmd + isComposing)", () => {
+    const event = {
+      isComposing: true,
+      metaKey: true,
+      target: document.createElement("div"),
+    } as unknown as KeyboardEvent;
+    expect(shouldSkipKeyEvent(event)).toBe(false);
+  });
+
+  it("STILL skips a plain IME event without a command modifier", () => {
+    const event = {
+      isComposing: false,
+      keyCode: 229,
+      ctrlKey: false,
+      metaKey: false,
+      target: document.createElement("div"),
+    } as unknown as KeyboardEvent;
+    expect(shouldSkipKeyEvent(event)).toBe(true);
   });
 });
 
@@ -217,5 +251,32 @@ describe("useViewShortcuts — sidebar toggle integration", () => {
       new KeyboardEvent("keydown", { key: ")", code: "Digit0", ctrlKey: true, shiftKey: true, bubbles: true }),
     );
     expect(useUIStore.getState().sidebarVisible).toBe(before);
+  });
+});
+
+describe("useViewShortcuts — Toggle-Terminal via CJK-remapped Ctrl+` (keyCode 229)", () => {
+  beforeEach(() => {
+    useShortcutsStore.setState({ customBindings: {} }); // default toggleTerminal = Ctrl-`
+    useWorkspaceStore.setState({ isWorkspaceMode: true }); // canOpenTerminal() → true
+    useUIStore.setState({ terminalVisible: false });
+  });
+  afterEach(() => {
+    useUIStore.setState({ terminalVisible: false });
+    useWorkspaceStore.setState({ isWorkspaceMode: false });
+  });
+
+  it("toggles the terminal when a CJK IME reports Ctrl+` as keyCode 229 / key '·'", () => {
+    const { unmount } = renderHook(() => useViewShortcuts());
+    const ev = new KeyboardEvent("keydown", {
+      key: "·", // IME remap of the backtick key
+      code: "Backquote",
+      ctrlKey: true,
+      bubbles: true,
+    });
+    Object.defineProperty(ev, "keyCode", { value: 229 }); // IME-processed keydown
+    window.dispatchEvent(ev);
+
+    expect(useUIStore.getState().terminalVisible).toBe(true);
+    unmount();
   });
 });

@@ -8,7 +8,10 @@
  * Key decisions:
  *   - Listens directly on keydown because menu accelerators aren't always
  *     reliable (e.g., when editor has focus and intercepts keys)
- *   - IME events filtered out via isImeKeyEvent to avoid false triggers
+ *   - IME events filtered out via shouldSkipKeyEvent to avoid false triggers,
+ *     EXCEPT command chords (Ctrl/Cmd held) — those are commands, not
+ *     composition, so Ctrl+` toggles the terminal even when a CJK IME reports
+ *     it as an IME keydown (key "·")
  *   - Uses matchesShortcutEvent for configurable shortcut matching
  *   - Source mode toggle creates a history checkpoint for undo across modes
  *
@@ -43,8 +46,15 @@ import { applySplitPaneViewShortcut } from "@/hooks/splitPaneViewShortcut";
 // Pure functions — exported for testing, no DOM or store access
 // ---------------------------------------------------------------------------
 
-/** Return true if the event should be skipped entirely (IME composition). */
+/** Return true if the event should be skipped entirely (IME composition).
+ *
+ * A command chord (Ctrl or Cmd held) is NEVER text composition, so it is
+ * exempt: a CJK IME reports Ctrl+` as an IME keydown (keyCode 229, key "·"),
+ * which would otherwise swallow the Toggle-Terminal shortcut and let the editor
+ * insert "·" instead. Plain keys (Enter/Space confirming a candidate) stay
+ * guarded. */
 export function shouldSkipKeyEvent(event: KeyboardEvent): boolean {
+  if (event.ctrlKey || event.metaKey) return false;
   return isImeKeyEvent(event);
 }
 
@@ -225,7 +235,7 @@ export const VIEW_ACTION_EXECUTORS: Record<ViewAction, () => void> = {
 export function useViewShortcuts() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (isImeKeyEvent(e)) return;
+      if (shouldSkipKeyEvent(e)) return;
 
       // Single source of truth: resolveViewAction owns the matching rules
       // (terminal-first, input/textarea suppression, ordered fall-through).

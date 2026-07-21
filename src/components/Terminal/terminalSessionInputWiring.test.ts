@@ -175,6 +175,63 @@ describe("wireSessionInput — dedup paths", () => {
     void fireOnData;
   });
 
+  describe("cross-path echo dedup (onData + plain-input forward, same keydown)", () => {
+    it("skips the forward when onData just wrote the SAME non-ASCII char (no double)", () => {
+      // macOS Pinyin "！": xterm's onData fires first and writes it, then our
+      // plain-input forward fires for the same char — which must be suppressed.
+      const { entry, writeMock, fireOnData } = makeEntry(null, 0);
+      wireSessionInput({ sessionId: "s1", getEntry: () => entry, startShell: () => {} });
+
+      fireOnData("！"); // xterm onData → write #1
+      entry.instance.onCompositionCommit!("！"); // forward for same char → skipped
+
+      expect(writeMock).toHaveBeenCalledTimes(1);
+      expect(writeMock).toHaveBeenCalledWith("！");
+    });
+
+    it("writes a forward that has no preceding onData (e.g. \"？\")", () => {
+      const { entry, writeMock } = makeEntry(null, 0);
+      wireSessionInput({ sessionId: "s1", getEntry: () => entry, startShell: () => {} });
+
+      entry.instance.onCompositionCommit!("？");
+
+      expect(writeMock).toHaveBeenCalledWith("？");
+    });
+
+    it("consumes the echo so a LATER same-char forward is NOT suppressed", () => {
+      const { entry, writeMock, fireOnData } = makeEntry(null, 0);
+      wireSessionInput({ sessionId: "s1", getEntry: () => entry, startShell: () => {} });
+
+      fireOnData("！"); // write #1, records echo
+      entry.instance.onCompositionCommit!("！"); // skipped, consumes echo
+      entry.instance.onCompositionCommit!("！"); // no fresh onData → write #2
+
+      expect(writeMock).toHaveBeenCalledTimes(2);
+    });
+
+    it("an ASCII keystroke does not suppress a later IME forward", () => {
+      const { entry, writeMock, fireOnData } = makeEntry(null, 0);
+      wireSessionInput({ sessionId: "s1", getEntry: () => entry, startShell: () => {} });
+
+      fireOnData("c"); // ASCII → not recorded as an echo
+      entry.instance.onCompositionCommit!("！"); // written (no matching echo)
+
+      expect(writeMock).toHaveBeenNthCalledWith(1, "c");
+      expect(writeMock).toHaveBeenNthCalledWith(2, "！");
+    });
+
+    it("does not suppress once the dedup window has elapsed", () => {
+      const { entry, writeMock, fireOnData } = makeEntry(null, 0);
+      wireSessionInput({ sessionId: "s1", getEntry: () => entry, startShell: () => {} });
+
+      fireOnData("！"); // write #1, records echo at t0
+      vi.advanceTimersByTime(1000); // window (150ms) elapses
+      entry.instance.onCompositionCommit!("！"); // stale echo → written
+
+      expect(writeMock).toHaveBeenCalledTimes(2);
+    });
+  });
+
   it("passes regular keystrokes through to the PTY when no commit is pending", () => {
     const { entry, writeMock, fireOnData } = makeEntry(null, 0);
     wireSessionInput({

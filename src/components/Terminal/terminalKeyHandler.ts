@@ -9,11 +9,18 @@
  *     for SIGINT (Ctrl+C), maintaining standard terminal behavior.
  *   - Cmd+V → paste from clipboard directly into PTY (not xterm buffer).
  *   - Cmd+K → clear terminal scrollback and viewport.
+ *   - Ctrl+` (default Toggle-Terminal binding) → toggle the terminal and fully
+ *     consume the event, so a CJK IME's remapped "·" never reaches the shell and
+ *     the window-level handler doesn't double-toggle.
  *   - Cmd+F → toggle search bar in the terminal panel (preventDefault so the
  *     native Find accelerator doesn't ALSO open the editor FindBar).
  *   - Cmd+1-5 → switch between terminal sessions (up to 5).
  *   - Cmd+Left/Right (macOS) → line start/end via readline ^A / ^E, since
  *     xterm has no meta+arrow → PTY mapping.
+ *   - Option+Left/Right (macOS) → word nav via readline Alt-b / Alt-f
+ *     ("\x1bb" / "\x1bf"), which the default emacs keymap binds — xterm's
+ *     macOptionIsMeta emits "\x1b[1;3D/C" that zsh/bash don't bind (prints
+ *     ";3D"). Scoped to bare Option+arrow so Option+letter dead keys are intact.
  *   - Cmd +/-/0 → zoom the terminal font (terminal.fontSize), preventDefault so
  *     the native zoom accelerator doesn't zoom the editor font instead.
  *   - Cmd/Ctrl+Up/Down → jump to previous/next command prompt (WI-3.3, requires
@@ -50,6 +57,7 @@ import { isImeKeyEvent } from "@/utils/imeGuard";
 import { isMacPlatform } from "@/utils/shortcutMatch";
 import { clipboardWarn } from "@/utils/debug";
 import { errorMessage } from "@/utils/errorMessage";
+import { requestToggleTerminal } from "./terminalGate";
 
 /** Terminal font-zoom step and reset value. `terminal.fontSize` default is 13
  *  (settingsStore/defaults.ts); the store clamps to the terminal range [8,32]. */
@@ -89,6 +97,23 @@ export function createTerminalKeyHandler(
 ): (event: KeyboardEvent) => boolean {
   return (event: KeyboardEvent): boolean => {
     if (event.type !== "keydown") return true;
+
+    // Toggle-Terminal (default Ctrl+`): own it here and FULLY consume the event
+    // so a CJK IME's remapped "·" never reaches the shell and the window handler
+    // doesn't double-toggle (see header). A custom binding falls to that handler.
+    if (
+      event.code === "Backquote"
+      && event.ctrlKey
+      && !event.metaKey
+      && !event.altKey
+      && !event.shiftKey
+    ) {
+      event.preventDefault();
+      event.stopPropagation();
+      requestToggleTerminal();
+      return false;
+    }
+
     // Never interfere during IME composition (CJK input, etc.).
     // Two-layer guard — see module header for rationale.
     if (isImeKeyEvent(event)) return true;
@@ -106,6 +131,22 @@ export function createTerminalKeyHandler(
     ) {
       event.preventDefault();
       ptyRef.current?.write("\x1b[13;2u");
+      return false;
+    }
+
+    // Option + Left/Right → word nav via readline Alt-b / Alt-f (see header).
+    // xterm's macOptionIsMeta emits "\x1b[1;3D/C" that zsh/bash don't bind.
+    // Scoped to bare Option+arrow; Option+letter dead keys fall through.
+    if (
+      isMacPlatform()
+      && event.altKey
+      && !event.metaKey
+      && !event.ctrlKey
+      && !event.shiftKey
+      && (event.key === "ArrowLeft" || event.key === "ArrowRight")
+    ) {
+      event.preventDefault();
+      ptyRef.current?.write(event.key === "ArrowLeft" ? "\x1bb" : "\x1bf");
       return false;
     }
 
@@ -187,6 +228,11 @@ export function createTerminalKeyHandler(
         return false;
       }
       case "f": {
+        // Terminal search is plain Cmd/Ctrl+F only. Cmd/Ctrl+Shift+F is the
+        // "Format CJK Selection" accelerator and Alt variants belong to other
+        // menu commands — let those fall through (return true, no preventDefault)
+        // so their native accelerators fire instead of opening terminal search.
+        if (event.shiftKey || event.altKey) return true;
         // preventDefault suppresses the native Edit-menu "Find" accelerator
         // (CmdOrCtrl+F). Without it, the accelerator ALSO fires and opens the
         // editor FindBar, so the terminal search appeared "not wired".
@@ -198,19 +244,25 @@ export function createTerminalKeyHandler(
       // menu accelerators (view_menu.rs) that otherwise mutate the editor's
       // appearance.fontSize regardless of focus; preventDefault suppresses the
       // accelerator while the terminal owns focus and drives terminal.fontSize
-      // instead (live-applied by terminalSessionStoreSync).
+      // instead (live-applied by terminalSessionStoreSync). Reject Alt: the
+      // Alt+CmdOrCtrl+= (subscript) and Alt+CmdOrCtrl+- (horizontal-line)
+      // accelerators must fall through, not be eaten as terminal zoom. Shift is
+      // fine — Shift+= produces "+", a legitimate zoom-in chord.
       case "=":
       case "+": {
+        if (event.altKey) return true;
         event.preventDefault();
         adjustTerminalFontSize(TERMINAL_FONT_SIZE_STEP);
         return false;
       }
       case "-": {
+        if (event.altKey) return true;
         event.preventDefault();
         adjustTerminalFontSize(-TERMINAL_FONT_SIZE_STEP);
         return false;
       }
       case "0": {
+        if (event.altKey) return true;
         event.preventDefault();
         useSettingsStore
           .getState()

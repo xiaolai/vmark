@@ -35,6 +35,11 @@ import type { IPty } from "@/lib/pty";
 
 vi.mock("@/lib/pty", () => ({ spawn: vi.fn() }));
 
+const mockRequestToggleTerminal = vi.fn();
+vi.mock("./terminalGate", () => ({
+  requestToggleTerminal: () => mockRequestToggleTerminal(),
+}));
+
 function makeTerm(overrides: Partial<Terminal> = {}): Terminal {
   return {
     hasSelection: vi.fn(() => false),
@@ -59,6 +64,7 @@ function makeEvent(
     isComposing: false,
     keyCode: 0,
     preventDefault: vi.fn(),
+    stopPropagation: vi.fn(),
     ...overrides,
   } as unknown as KeyboardEvent;
 }
@@ -187,6 +193,54 @@ describe("createTerminalKeyHandler", () => {
     expect(event.preventDefault).toHaveBeenCalled();
   });
 
+  it("Cmd+Shift+F falls through (Format CJK accelerator, not terminal search)", () => {
+    // Terminal search is plain Cmd+F. Cmd+Shift+F is the "Format CJK Selection"
+    // menu accelerator — the "f" case must NOT claim it, and must NOT
+    // preventDefault, so the native accelerator can fire.
+    const term = makeTerm();
+    const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
+    const event = makeEvent("f", true, { shiftKey: true });
+
+    expect(handler(event)).toBe(true);
+    expect(callbacks.onSearch).not.toHaveBeenCalled();
+    expect(event.preventDefault).not.toHaveBeenCalled();
+  });
+
+  it("Alt+Cmd+F falls through (not terminal search)", () => {
+    const term = makeTerm();
+    const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
+    const event = makeEvent("f", true, { altKey: true });
+
+    expect(handler(event)).toBe(true);
+    expect(callbacks.onSearch).not.toHaveBeenCalled();
+    expect(event.preventDefault).not.toHaveBeenCalled();
+  });
+
+  describe("Ctrl+` — Toggle-Terminal from within the terminal", () => {
+    it("toggles the terminal and fully consumes the event (no '·' to the shell)", () => {
+      // A CJK IME reports Ctrl+` as keyCode 229 / key "·"; without owning it
+      // here, xterm writes "·" to the PTY. Consume it: toggle, preventDefault,
+      // stopPropagation (so the window handler doesn't double-toggle), return false.
+      const term = makeTerm();
+      const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
+      const event = makeEvent("·", false, { ctrlKey: true, code: "Backquote", keyCode: 229 });
+
+      expect(handler(event)).toBe(false);
+      expect(mockRequestToggleTerminal).toHaveBeenCalledTimes(1);
+      expect(event.preventDefault).toHaveBeenCalled();
+      expect(event.stopPropagation).toHaveBeenCalled();
+      expect(mockPty.write).not.toHaveBeenCalled();
+    });
+
+    it("does not treat Cmd+` or Ctrl+Shift+` as the terminal toggle", () => {
+      const term = makeTerm();
+      const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
+      handler(makeEvent("`", true, { code: "Backquote" })); // Cmd+`
+      handler(makeEvent("`", false, { ctrlKey: true, shiftKey: true, code: "Backquote" }));
+      expect(mockRequestToggleTerminal).not.toHaveBeenCalled();
+    });
+  });
+
   describe("Cmd+Left/Right — line start/end (3a)", () => {
     it("writes readline ^A on Cmd+Left and consumes the event", () => {
       vi.stubGlobal("navigator", { platform: "MacIntel" });
@@ -222,12 +276,38 @@ describe("createTerminalKeyHandler", () => {
       vi.unstubAllGlobals();
     });
 
-    it("passes Option+Left through (word nav, handled by the shell)", () => {
+    it("writes readline Alt-b on Option+Left (word nav) and consumes the event", () => {
+      // With macOptionIsMeta, xterm would emit "\x1b[1;3D" which zsh doesn't
+      // bind (prints ";3D"); we emit Alt-b, bound by the default emacs keymap.
       vi.stubGlobal("navigator", { platform: "MacIntel" });
       const term = makeTerm();
       const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
-      // Alt(Option)+Left has no metaKey → not our line-nav path.
-      expect(handler(makeEvent("ArrowLeft", false, { altKey: true }))).toBe(true);
+      const event = makeEvent("ArrowLeft", false, { altKey: true });
+
+      expect(handler(event)).toBe(false);
+      expect(mockPty.write).toHaveBeenCalledWith("\x1bb");
+      expect(event.preventDefault).toHaveBeenCalled();
+      vi.unstubAllGlobals();
+    });
+
+    it("writes readline Alt-f on Option+Right (word nav)", () => {
+      vi.stubGlobal("navigator", { platform: "MacIntel" });
+      const term = makeTerm();
+      const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
+      const event = makeEvent("ArrowRight", false, { altKey: true });
+
+      expect(handler(event)).toBe(false);
+      expect(mockPty.write).toHaveBeenCalledWith("\x1bf");
+      vi.unstubAllGlobals();
+    });
+
+    it("passes Option+Shift+Left through (selection, not word nav)", () => {
+      vi.stubGlobal("navigator", { platform: "MacIntel" });
+      const term = makeTerm();
+      const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
+      // Shift held → not our word-nav path; let the shell/xterm decide.
+      expect(handler(makeEvent("ArrowLeft", false, { altKey: true, shiftKey: true }))).toBe(true);
+      expect(mockPty.write).not.toHaveBeenCalledWith("\x1bb");
       vi.unstubAllGlobals();
     });
   });
@@ -271,6 +351,30 @@ describe("createTerminalKeyHandler", () => {
       const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
       expect(handler(makeEvent("=", true, { isComposing: false }))).toBe(true);
       expect(mockUpdateTerminalSetting).not.toHaveBeenCalled();
+    });
+
+    it("Alt+Cmd+= falls through (subscript accelerator, not terminal zoom)", () => {
+      // Alt+CmdOrCtrl+= is the "subscript" menu accelerator. The zoom branch
+      // must reject Alt so the accelerator fires instead of zooming the font.
+      const term = makeTerm();
+      const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
+      const event = makeEvent("=", true, { altKey: true });
+
+      expect(handler(event)).toBe(true);
+      expect(mockUpdateTerminalSetting).not.toHaveBeenCalled();
+      expect(event.preventDefault).not.toHaveBeenCalled();
+    });
+
+    it("Alt+Cmd+- falls through (horizontal-line accelerator, not terminal zoom)", () => {
+      // Alt+CmdOrCtrl+- is the "horizontal-line" accelerator — must not be
+      // eaten as terminal zoom-out.
+      const term = makeTerm();
+      const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
+      const event = makeEvent("-", true, { altKey: true });
+
+      expect(handler(event)).toBe(true);
+      expect(mockUpdateTerminalSetting).not.toHaveBeenCalled();
+      expect(event.preventDefault).not.toHaveBeenCalled();
     });
   });
 
