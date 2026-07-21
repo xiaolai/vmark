@@ -30,6 +30,7 @@ import {
   handleWorkspaceSwitchTab,
   handleWorkspaceFocusWindow,
 } from "./workspace";
+import { handleWorkspaceOpenWorkspace } from "./workspaceOpenFolder";
 import {
   handleWorkflowApplyPatch,
   handleWorkflowValidate,
@@ -86,6 +87,9 @@ export async function dispatchV2(event: McpRequestEvent): Promise<boolean> {
       return true;
     case "vmark.workspace.open":
       await handleWorkspaceOpen(id, args);
+      return true;
+    case "vmark.workspace.open_workspace":
+      await handleWorkspaceOpenWorkspace(id, args);
       return true;
     case "vmark.workspace.save":
       await handleWorkspaceSave(id, args);
