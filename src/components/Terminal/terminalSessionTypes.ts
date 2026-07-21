@@ -26,6 +26,12 @@ export interface SessionEntry {
   spawnGen: number;
   pendingRafId: number | null;
   /**
+   * Debounce handle for the PTY resize that follows a fit. Owned by
+   * fitAndResizePty; per-entry so one session's fit cannot cancel another's
+   * pending resize.
+   */
+  ptyResizeTimer?: ReturnType<typeof setTimeout>;
+  /**
    * Workspace root that arrived while the shell was busy and so was deferred;
    * flushed on the next idle (see terminalSessionStoreSync).
    */

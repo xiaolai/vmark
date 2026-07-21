@@ -23,6 +23,9 @@ import {
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { useSettingsStore } from "@/stores/settingsStore";
+import { useSettingsSync } from "@/hooks/useSettingsSync";
+import { useShortcutsSync } from "@/hooks/useShortcutsSync";
+import { useAiProviderSync } from "@/hooks/useAiProviderSync";
 import { useTheme } from "@/hooks/useTheme";
 import { useUpdateBroadcast, useUpdateListener } from "@/hooks/useUpdateSync";
 import { isImeKeyEvent } from "@/utils/imeGuard";
@@ -141,6 +144,17 @@ export function SettingsPage() {
 
   // Apply theme to this window
   useTheme();
+  // Adopt settings changed in a document window. Without this the sync is
+  // one-directional (document windows listen, Settings does not), so Settings
+  // holds a snapshot from the moment it opened and its next write persists
+  // that stale copy — e.g. zooming with Cmd+= in a document window is silently
+  // reverted the next time any Settings control is touched.
+  useSettingsSync();
+  // Same for shortcut rebinds made in a document window's own UI.
+  useShortcutsSync();
+  // Providers are edited here but consumed in document windows; the store
+  // persists to a JSON file, so a Tauri event is the only possible path.
+  useAiProviderSync();
   // Handle Cmd+W to close settings
   useSettingsClose();
   // Handle Cmd+Shift+D to toggle dev section

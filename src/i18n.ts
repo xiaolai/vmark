@@ -23,6 +23,7 @@ import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
 import resourcesToBackend from "i18next-resources-to-backend";
 import { useSettingsStore } from "@/stores/settingsStore";
+import { i18nWarn } from "@/utils/debug";
 import { setSafeStorageMessageResolver } from "@/services/persistence/safeStorage";
 import { setWorkspaceStorageMessageResolver } from "@/services/persistence/workspaceStorage";
 
@@ -90,12 +91,28 @@ i18n.on("languageChanged", (lng) => {
 // update this window's i18n instance to match.
 /* v8 ignore start -- @preserve reason: cross-window sync subscription only fires in multi-window runtime */
 let lastLang = i18n.language;
+// Monotonic id of the most recently requested switch. changeLanguage is async,
+// so two rapid switches can resolve out of order; only the newest request may
+// commit the baseline. Without this, a superseded switch resolving last would
+// record its stale language, and re-selecting the language actually showing
+// would then be skipped as a no-op (audit Medium-12).
+let langRequestId = 0;
 useSettingsStore.subscribe((state) => {
   const lang = state.general.language;
-  if (lang && lang !== lastLang) {
-    lastLang = lang;
-    i18n.changeLanguage(lang);
-  }
+  if (!lang || lang === lastLang) return;
+  const requestId = ++langRequestId;
+  // Commit the baseline only once the switch actually succeeds AND it is still
+  // the newest request. Committing first meant a rejected changeLanguage
+  // (missing bundle) left the baseline claiming success, so the subscriber
+  // never retried — with an unhandled rejection to boot.
+  i18n
+    .changeLanguage(lang)
+    .then(() => {
+      if (requestId === langRequestId) lastLang = lang;
+    })
+    .catch((error: unknown) => {
+      i18nWarn("changeLanguage failed; keeping previous locale", error);
+    });
 });
 /* v8 ignore stop */
 
