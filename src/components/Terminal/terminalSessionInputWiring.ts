@@ -16,6 +16,8 @@
  *   - Cross-path echo dedup: a full-width punctuation char can arrive as BOTH
  *     an xterm onData AND our plain-input forward in one keydown, onData first.
  *     onData records the char; the forward consumes and skips the duplicate.
+ *     The token is cleared on a macrotask — microtasks drain BETWEEN the two
+ *     event listeners, which is what made "。" double.
  *   - Press-any-key-to-restart is implemented here: after a shell exits,
  *     either an onData chunk OR an IME commit triggers respawn.
  *
@@ -62,16 +64,21 @@ export function wireSessionInput({ sessionId, getEntry, startShell }: WireOption
   const { instance } = entry;
 
   // Cross-path echo dedup: a full-width punctuation char (e.g. macOS Pinyin
-  // "！") can arrive as BOTH an xterm onData AND our plain-input forward within
+  // "。") can arrive as BOTH an xterm onData AND our plain-input forward within
   // the same keydown, with onData firing FIRST (verified via live trace). The
   // post-commit dedup below only catches the reverse order (onData after the
   // commit sets lastCommittedText), so onData writes the char and then the
   // forward writes it again → doubled. onData records the char it just wrote and
-  // the forward consumes + skips the duplicate. The token is tied to the CURRENT
-  // event dispatch via queueMicrotask (NOT a time window): a paired forward
-  // fires synchronously in the same keydown and consumes it, but a later
-  // independent keystroke — or a typed char right after PASTING the same char —
-  // sees a cleared token and is written (Codex audit).
+  // the forward consumes + skips the duplicate.
+  //
+  // The token is tied to the CURRENT TASK via setTimeout (NOT a time window and
+  // NOT a microtask). Both writers are capture listeners on the same `input`
+  // event — xterm's _inputEvent, then our onInput — and the browser runs a
+  // microtask checkpoint BETWEEN event listeners, so a queueMicrotask token is
+  // already cleared when the forward arrives (that is the 「。」 double-input
+  // bug). A later independent keystroke — or a typed char right after PASTING
+  // the same char — is a separate task whose timer has already fired, so it
+  // still sees a cleared token and is written (Codex audit).
   let xtermEchoText: string | null = null;
 
   // IME composition commit: write clean committed text directly to PTY,
@@ -147,12 +154,16 @@ export function wireSessionInput({ sessionId, getEntry, startShell }: WireOption
     if (e.pty) {
       // Record a single non-ASCII char so a plain-input forward for the SAME
       // char later in THIS dispatch is deduped in onCompositionCommit above.
-      // Clear it once the dispatch drains so it can't match a later keystroke.
+      // Cleared on a macrotask, NOT a microtask: the paired forward runs in a
+      // LATER LISTENER of the same event, and the browser drains microtasks
+      // between event listeners — a queueMicrotask token is already null by
+      // then. A later keystroke is a separate task, so the timer has fired and
+      // its token is clear. See the microtask-checkpoint test.
       if (NON_ASCII_ECHO_RE.test(data)) {
         xtermEchoText = data;
-        queueMicrotask(() => {
+        setTimeout(() => {
           xtermEchoText = null;
-        });
+        }, 0);
       }
       e.pty.write(data);
     }

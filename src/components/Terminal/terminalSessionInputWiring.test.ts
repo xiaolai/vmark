@@ -189,6 +189,25 @@ describe("wireSessionInput — dedup paths", () => {
       expect(writeMock).toHaveBeenCalledWith("！");
     });
 
+    it("suppresses the forward across the microtask checkpoint between listeners", async () => {
+      // Live WKWebView trace for macOS Pinyin 「。」 (no composition at all):
+      //   input(data="。", insertText) → xterm's _inputEvent emits → onData → write #1
+      //                                → our onInput forwards      → write #2  ← doubled
+      // Both are capture listeners on the SAME `input` event, and the browser
+      // runs a microtask checkpoint BETWEEN event listeners. A queueMicrotask
+      // token is therefore already cleared when the forward arrives, so the
+      // echo dedup never fires. The token must survive to the end of the task.
+      const { entry, writeMock, fireOnData } = makeEntry(null, 0);
+      wireSessionInput({ sessionId: "s1", getEntry: () => entry, startShell: () => {} });
+
+      fireOnData("。"); // xterm's listener → write #1, records echo
+      await Promise.resolve(); // microtask checkpoint between the two listeners
+      entry.instance.onCompositionCommit!("。"); // our listener → must be skipped
+
+      expect(writeMock).toHaveBeenCalledTimes(1);
+      expect(writeMock).toHaveBeenCalledWith("。");
+    });
+
     it("writes a forward that has no preceding onData (e.g. \"？\")", () => {
       const { entry, writeMock } = makeEntry(null, 0);
       wireSessionInput({ sessionId: "s1", getEntry: () => entry, startShell: () => {} });
@@ -220,26 +239,26 @@ describe("wireSessionInput — dedup paths", () => {
       expect(writeMock).toHaveBeenNthCalledWith(2, "！");
     });
 
-    it("clears the echo after the dispatch — a later same-char forward is written", async () => {
+    it("clears the echo after the task — a later same-char forward is written", () => {
       const { entry, writeMock, fireOnData } = makeEntry(null, 0);
       wireSessionInput({ sessionId: "s1", getEntry: () => entry, startShell: () => {} });
 
-      fireOnData("！"); // write #1, records echo (microtask clear queued)
-      await Promise.resolve(); // dispatch drains → token cleared
+      fireOnData("！"); // write #1, records echo (macrotask clear queued)
+      vi.advanceTimersByTime(1); // the keystroke's task ends → token cleared
       entry.instance.onCompositionCommit!("！"); // no live echo → written
 
       expect(writeMock).toHaveBeenCalledTimes(2);
     });
 
-    it("does NOT suppress a char typed right after pasting the same char (Codex audit)", async () => {
+    it("does NOT suppress a char typed right after pasting the same char (Codex audit)", () => {
       // Paste "！" arrives via onData; typing "！" a moment later must not be
-      // eaten. The echo token is scoped to the paste's dispatch, not a 150ms
+      // eaten. The echo token is scoped to the paste's TASK, not a 150ms
       // window, so the later keystroke sees a cleared token.
       const { entry, writeMock, fireOnData } = makeEntry(null, 0);
       wireSessionInput({ sessionId: "s1", getEntry: () => entry, startShell: () => {} });
 
       fireOnData("！"); // paste → write #1, records echo
-      await Promise.resolve(); // paste dispatch drains → token cleared
+      vi.advanceTimersByTime(1); // paste's task ends → token cleared
       entry.instance.onCompositionCommit!("！"); // typed later → written (#2)
 
       expect(writeMock).toHaveBeenCalledTimes(2);
