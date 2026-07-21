@@ -2,11 +2,12 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
 const responses: Array<Record<string, unknown>> = [];
-const statMock = vi.fn(async () => ({ isDirectory: true }));
+// Rust validate_workspace_dir returns the canonical path (or rejects).
+const invokeMock = vi.fn(async (_cmd: string, args: { path: string }) => args.path);
 const openWorkspaceByPath = vi.fn(async () => {});
 const withReentryGuard = vi.fn(async (_l: string, _k: string, fn: () => Promise<void>) => fn());
 
-vi.mock("@tauri-apps/plugin-fs", () => ({ stat: (...a: unknown[]) => statMock(...(a as [])) }));
+vi.mock("@tauri-apps/api/core", () => ({ invoke: (...a: unknown[]) => invokeMock(...(a as [string, { path: string }])) }));
 vi.mock("../utils", () => ({
   respond: async (r: Record<string, unknown>) => { responses.push(r); },
 }));
@@ -30,7 +31,7 @@ import { useWorkspaceApprovalStore } from "@/stores/workspaceApprovalStore";
 beforeEach(() => {
   responses.length = 0;
   vi.clearAllMocks();
-  statMock.mockResolvedValue({ isDirectory: true });
+  invokeMock.mockImplementation(async (_cmd: string, args: { path: string }) => args.path);
   useWorkspaceApprovalStore.setState({ pending: [], oneShots: [] });
 });
 
@@ -42,8 +43,8 @@ describe("handleWorkspaceOpenWorkspace", () => {
     expect(openWorkspaceByPath).not.toHaveBeenCalled();
   });
 
-  it("rejects a path that is not a directory", async () => {
-    statMock.mockResolvedValueOnce({ isDirectory: false });
+  it("rejects a path that Rust validation rejects (not a directory)", async () => {
+    invokeMock.mockRejectedValueOnce(new Error("'/a/file.md' is not a directory"));
     await handleWorkspaceOpenWorkspace("id1", { folderPath: "/a/file.md" });
     expect(responses[0].success).toBe(false);
     expect(String(responses[0].error)).toContain("INVALID_PATH");

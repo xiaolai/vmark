@@ -11,19 +11,22 @@
  *      the folder is opened via the shared openWorkspaceByPath, under the
  *      per-window transition guard.
  *
- * Security seams still owed to Rust (scoped in the plan, marked below):
- *   - WI-1.1a: canonicalize + is-dir via a Rust IPC. The JS `stat` check here is
- *     interim; it does not resolve symlinks, so the prompt/binding path is not
- *     yet guaranteed canonical (Codex F-06).
- *   - Codex F-10: the authenticated client id must come from the bridge event.
- *     Until it does, `clientIdFor` falls back to a single session id, so the
- *     one-shot is bound per-session rather than per-authenticated-client.
+ * Validation goes through the Rust `validate_workspace_dir` command, NOT a
+ * webview `stat` — this is a boundary-EXPANDING operation that can't use the
+ * bridge path guard (Codex F-11), and Rust canonicalizes (resolving symlinks)
+ * so the granted tree and the one-shot binding are the REAL target (Codex F-06).
+ * Keeping raw fs out of the bridge surface also satisfies the fs-guard invariant.
+ *
+ * Security seam still owed (scoped in the plan): Codex F-10 — the authenticated
+ * client id must come from the bridge event; until it does, `clientIdFor` falls
+ * back to a single session id, so the one-shot binds per-session.
  *
  * @coordinates-with stores/workspaceApprovalStore.ts — the one-shot store
  * @coordinates-with hooks/openWorkspaceByPath.ts — the shared open sequence
+ * @coordinates-with src-tauri/src/workspace.rs — validate_workspace_dir command
  * @module hooks/mcpBridge/v2/workspaceOpenFolder
  */
-import { stat } from "@tauri-apps/plugin-fs";
+import { invoke } from "@tauri-apps/api/core";
 import {
   openWorkspaceByPath,
   WORKSPACE_TRANSITION_GUARD,
@@ -49,19 +52,16 @@ function clientIdFor(args: Record<string, unknown>): string {
     : "mcp-session";
 }
 
-/** Validate the target is an existing directory. Interim (Codex F-06): a Rust
- *  canonicalize+is-dir IPC should replace this and return the canonical path. */
+/** Canonicalize + is-dir validate via Rust (resolves symlinks, returns the
+ *  canonical path). Never touches the webview fs surface. */
 async function validateWorkspaceDir(
   folderPath: string,
 ): Promise<{ ok: true; canonicalPath: string } | { ok: false; message: string }> {
   try {
-    const info = await stat(folderPath);
-    if (!info.isDirectory) {
-      return { ok: false, message: `${folderPath} is not a directory` };
-    }
-    return { ok: true, canonicalPath: folderPath };
+    const canonicalPath = await invoke<string>("validate_workspace_dir", { path: folderPath });
+    return { ok: true, canonicalPath };
   } catch (e) {
-    return { ok: false, message: `Cannot access ${folderPath}: ${errorMessage(e)}` };
+    return { ok: false, message: `Invalid workspace folder: ${errorMessage(e)}` };
   }
 }
 
