@@ -299,6 +299,42 @@ describe("createTerminalKeyHandler", () => {
       vi.unstubAllGlobals();
     });
 
+    it("writes readline ^U on Cmd+Backspace and consumes the event", () => {
+      // macOS convention: Cmd+Backspace deletes the line. Without this the
+      // event falls through to xterm, which ignores the Cmd modifier and sends
+      // a bare DEL — deleting a single character instead.
+      vi.stubGlobal("navigator", { platform: "MacIntel" });
+      const term = makeTerm();
+      const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
+      const event = makeEvent("Backspace");
+
+      expect(handler(event)).toBe(false);
+      expect(mockPty.write).toHaveBeenCalledWith("\x15");
+      expect(event.preventDefault).toHaveBeenCalled();
+      vi.unstubAllGlobals();
+    });
+
+    it("passes Option+Backspace through (shell's own backward-kill-word)", () => {
+      // zsh binds \e^? to backward-kill-word already — don't intercept it.
+      vi.stubGlobal("navigator", { platform: "MacIntel" });
+      const term = makeTerm();
+      const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
+
+      expect(handler(makeEvent("Backspace", false, { altKey: true }))).toBe(true);
+      expect(mockPty.write).not.toHaveBeenCalled();
+      vi.unstubAllGlobals();
+    });
+
+    it("passes plain Backspace through (deletes one character)", () => {
+      vi.stubGlobal("navigator", { platform: "MacIntel" });
+      const term = makeTerm();
+      const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
+
+      expect(handler(makeEvent("Backspace", false))).toBe(true);
+      expect(mockPty.write).not.toHaveBeenCalled();
+      vi.unstubAllGlobals();
+    });
+
     it("passes Cmd+Shift+Left through (selection, not cursor move)", () => {
       vi.stubGlobal("navigator", { platform: "MacIntel" });
       const term = makeTerm();

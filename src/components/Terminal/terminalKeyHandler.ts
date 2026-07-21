@@ -17,6 +17,10 @@
  *   - Cmd+1-5 → switch between terminal sessions (up to 5).
  *   - Cmd+Left/Right (macOS) → line start/end via readline ^A / ^E, since
  *     xterm has no meta+arrow → PTY mapping.
+ *   - Cmd+Backspace (macOS) → delete the line via readline ^U (zsh
+ *     kill-whole-line, bash unix-line-discard). xterm ignores the Cmd modifier
+ *     and would send a bare DEL, deleting a single character. Option+Backspace
+ *     is deliberately NOT intercepted — zsh binds \e^? to backward-kill-word.
  *   - Option+Left/Right (macOS) → word nav via readline Alt-b / Alt-f
  *     ("\x1bb" / "\x1bf"), which the default emacs keymap binds — xterm's
  *     macOptionIsMeta emits "\x1b[1;3D/C" that zsh/bash don't bind (prints
@@ -188,6 +192,23 @@ export function createTerminalKeyHandler(
     ) {
       event.preventDefault();
       ptyRef.current?.write(event.key === "ArrowLeft" ? "\x01" : "\x05");
+      return false;
+    }
+
+    // Cmd + Backspace → delete the line (macOS convention). xterm ignores the
+    // Cmd modifier here and sends a bare DEL, so without this the chord just
+    // deletes ONE character. Emit readline ^U, which zsh binds to
+    // kill-whole-line and bash to unix-line-discard. Option+Backspace is left
+    // alone — zsh already binds \e^? to backward-kill-word.
+    if (
+      isMacPlatform()
+      && event.metaKey
+      && !event.altKey
+      && !event.shiftKey
+      && event.key === "Backspace"
+    ) {
+      event.preventDefault();
+      ptyRef.current?.write("\x15");
       return false;
     }
 

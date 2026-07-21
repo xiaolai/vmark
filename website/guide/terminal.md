@@ -33,6 +33,7 @@ These shortcuts work when the terminal panel is focused:
 | Clear | `Mod + K` |
 | Search | `Mod + F` |
 | Line start / end | `Cmd + ←` / `Cmd + →` (macOS) |
+| Delete line | `Cmd + ⌫` (macOS) |
 | Zoom terminal font | `Mod + =` / `Mod + -` / `Mod + 0` |
 | Toggle Terminal | `` Ctrl + ` `` |
 | Previous command prompt | `Mod + ↑` |
