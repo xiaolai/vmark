@@ -26,6 +26,15 @@ export type TerminalCursorStyle = "block" | "underline" | "bar";
  *  indicator, or an audible beep. */
 export type TerminalBellMode = "off" | "visual" | "audible";
 
+/**
+ * Terminal input arbitration mode (plan 20260722-terminal-input-channel-ownership).
+ * - "legacy": the historical path — xterm and VMark both write, reconciled by
+ *   timing/payload proxies. Byte-for-byte the shipping behavior.
+ * - "gate": Channel Ownership — VMark takes the text channel, one writer, no
+ *   timing proxies. Off by default until the gate path is verified on real IMEs.
+ */
+export type TerminalInputGate = "legacy" | "gate";
+
 /** Terminal emulator preferences — shell, font, cursor, renderer, and panel layout. */
 export interface TerminalSettings {
   shell: string;       // Default: "" (empty = system default via getpwuid → $SHELL → /bin/sh)
@@ -44,6 +53,7 @@ export interface TerminalSettings {
   scrollback: number; // Default: 5000 — number of scrollback lines retained per session (G7/WI-4.2)
   position: TerminalPosition; // Default: "auto" — auto-reposition based on window aspect ratio
   panelRatio: number;  // Default: 0.4 — fraction of available space (0.1–0.8), persisted on drag end
+  inputGate: TerminalInputGate; // Default: "legacy" — input arbitration mode (see TerminalInputGate)
 }
 
 // ---------------------------------------------------------------------------
