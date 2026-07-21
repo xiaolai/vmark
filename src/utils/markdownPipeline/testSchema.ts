@@ -1,25 +1,31 @@
 import { Schema } from "@tiptap/pm/model";
 
+// Mirror of the production `blankLinesBefore` attribute (see
+// plugins/shared/blankLinesAttr.ts). Declared on every block node so the
+// pipeline tests can observe capture; production nodes get it via
+// withBlankLinesBefore in the extension assembly.
+const bl = { blankLinesBefore: { default: null as number | null } };
+
 export const testSchema = new Schema({
   nodes: {
     doc: { content: "block+" },
-    paragraph: { content: "inline*", group: "block" },
+    paragraph: { attrs: { ...bl }, content: "inline*", group: "block" },
     heading: {
-      attrs: { level: { default: 1 } },
+      attrs: { level: { default: 1 }, ...bl },
       content: "inline*",
       group: "block",
     },
     codeBlock: {
-      attrs: { language: { default: null } },
+      attrs: { language: { default: null }, ...bl },
       content: "text*",
       marks: "",
       group: "block",
       code: true,
     },
-    blockquote: { content: "block+", group: "block" },
-    bulletList: { content: "listItem+", group: "block" },
+    blockquote: { attrs: { ...bl }, content: "block+", group: "block" },
+    bulletList: { attrs: { ...bl }, content: "listItem+", group: "block" },
     orderedList: {
-      attrs: { start: { default: 1 } },
+      attrs: { start: { default: 1 }, ...bl },
       content: "listItem+",
       group: "block",
     },

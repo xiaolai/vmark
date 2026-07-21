@@ -94,6 +94,34 @@ import { mdPipelineWarn } from "@/utils/debug";
  * const mdast = parseMarkdownToMdast("# Hello");
  * const doc = mdastToProseMirror(schema, mdast);
  */
+/** Maximum captured blank-line run (ADR-6) — guards against a pathological file. */
+export const MAX_BLANK_LINES = 10;
+
+/**
+ * Number of blank lines to capture before a block, or null to inherit the
+ * serializer's default. Returns null for a missing position, and for runs of
+ * 0 or 1 (the ordinary single-separator case the serializer already produces),
+ * so only "extra" runs are recorded. Clamped to MAX_BLANK_LINES.
+ */
+function captureBlankLinesBefore(
+  prevEndLine: number | null,
+  startLine: number | undefined,
+): number | null {
+  if (prevEndLine === null || typeof startLine !== "number") return null;
+  const gap = startLine - prevEndLine - 1;
+  if (gap <= 1) return null;
+  return Math.min(gap, MAX_BLANK_LINES);
+}
+
+/**
+ * Return a copy of `node` carrying the blankLinesBefore attribute. Silently a
+ * no-op on nodes whose schema doesn't declare the attr (PM's computeAttrs
+ * ignores undeclared keys), so it's safe to call on any block type.
+ */
+function withBlankLinesBefore(node: PMNode, n: number): PMNode {
+  return node.type.create({ ...node.attrs, blankLinesBefore: n }, node.content, node.marks);
+}
+
 export function mdastToProseMirror(schema: Schema, mdast: Root): PMNode {
   const converter = new MdastToPMConverter(schema);
   return converter.convertRoot(mdast);
@@ -128,14 +156,40 @@ class MdastToPMConverter {
 
   /**
    * Convert root node to ProseMirror doc.
+   *
+   * Captures inter-block blank-line runs (>1) into a `blankLinesBefore`
+   * attribute on the following top-level block (WI-1.2). Capture is
+   * UNCONDITIONAL (ADR-4) — whether it is re-emitted is decided at serialize
+   * time by the preserveBlankLines option — so toggling the setting needs no
+   * reparse. Runs of 0/1 blank lines are left null (the serializer's default),
+   * and long runs clamp to MAX_BLANK_LINES (ADR-6). Blocks come straight from
+   * the parser here (list normalization is a parser-side remark plugin), so the
+   * positions reflect the normalized source; the >1 threshold keeps ordinary
+   * separators untouched. Per-child iteration (not batch convertChildren)
+   * preserves behavior — block context does no inline normalization — while
+   * giving each mdast child's position for the gap.
    */
   convertRoot(root: Root): PMNode {
     perfStart("convertRoot:convertChildren");
-    const children = this.convertChildren(root.children, [], "block");
-    perfEnd("convertRoot:convertChildren", { childCount: children.length });
+    const topChildren: PMNode[] = [];
+    let prevEndLine: number | null = null;
+    for (const child of root.children) {
+      const converted = this.convertNode(child, [], "block");
+      const nodes = converted ? (Array.isArray(converted) ? converted : [converted]) : [];
+      if (nodes.length > 0) {
+        const captured = captureBlankLinesBefore(prevEndLine, child.position?.start?.line);
+        if (captured !== null) {
+          nodes[0] = withBlankLinesBefore(nodes[0], captured);
+        }
+      }
+      const endLine = child.position?.end?.line;
+      if (typeof endLine === "number") prevEndLine = endLine;
+      topChildren.push(...nodes);
+    }
+    perfEnd("convertRoot:convertChildren", { childCount: topChildren.length });
 
     perfStart("convertRoot:createDoc");
-    const doc = this.schema.topNodeType.create(null, children);
+    const doc = this.schema.topNodeType.create(null, topChildren);
     perfEnd("convertRoot:createDoc", { docSize: doc.content.size });
     return doc;
   }

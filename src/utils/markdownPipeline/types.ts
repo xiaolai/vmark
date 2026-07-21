@@ -9,6 +9,13 @@
 export interface MarkdownPipelineOptions {
   preserveLineBreaks?: boolean;
   hardBreakStyle?: "backslash" | "twoSpaces";
+  /**
+   * When true, re-emit captured inter-block blank-line runs (the
+   * `blankLinesBefore` PM attribute) instead of collapsing them to a single
+   * blank line. Default false = legacy output. See
+   * dev-docs/plans/20260721-blank-line-preservation.md.
+   */
+  preserveBlankLines?: boolean;
 }
 
 // Re-export standard MDAST types

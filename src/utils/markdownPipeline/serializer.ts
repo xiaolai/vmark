@@ -51,26 +51,51 @@ import type { MarkdownPipelineOptions } from "./types";
  * branches — so getSerializer() builds it once and reuses it across every
  * serialize call.
  */
+/**
+ * Custom mdast-util-to-markdown join: when the right sibling carries a captured
+ * `data.blankLinesBefore` count, emit that many blank lines between the two
+ * blocks; otherwise return undefined to inherit the default join (0 for tight
+ * list children, 1 for normal siblings — so tight lists stay tight, SC5).
+ */
+function blankLinesJoin(
+  _left: unknown,
+  right: { data?: { blankLinesBefore?: unknown } },
+): number | undefined {
+  const n = right?.data?.blankLinesBefore;
+  return typeof n === "number" ? n : undefined;
+}
+
 function buildSerializer() {
+  // `join` is an mdast-util-to-markdown option remark-stringify forwards at
+  // runtime but does not surface in its published Options type, so the object
+  // is assembled and cast (same spirit as the `handlers` cast).
+  const stringifyOptions = {
+    // Serialization options for consistent output
+    bullet: "-", // Use - for unordered lists
+    bulletOther: "*", // Fallback bullet
+    bulletOrdered: ".", // Use . for ordered lists
+    emphasis: "*", // Use * for emphasis (single: *italic*)
+    strong: "*", // Use * for strong (double: **bold**)
+    fence: "`", // Use ` for code fences
+    fences: true, // Use fenced code blocks
+    rule: "-", // Use --- for thematic breaks
+    listItemIndent: "one", // Use one space indent for list items
+    // Custom handlers for angle-bracket URL syntax and custom node types
+    handlers: {
+      image: handleImage,
+      link: handleLink,
+      ...tocToMarkdown.handlers,
+    } as Record<string, unknown>,
+    // Emit a captured inter-block blank-line run when the node carries
+    // `data.blankLinesBefore` (stamped by proseMirrorToMdast only when
+    // preserveBlankLines is on). Returning undefined inherits the default
+    // join, so this is inert for ordinary content and when the feature is
+    // off — no per-call serializer variants (ADR-1a). mdast-util-to-markdown
+    // treats the number as blank lines between the two flow siblings.
+    join: [blankLinesJoin],
+  };
   return unified()
-    .use(remarkStringify, {
-      // Serialization options for consistent output
-      bullet: "-", // Use - for unordered lists
-      bulletOther: "*", // Fallback bullet
-      bulletOrdered: ".", // Use . for ordered lists
-      emphasis: "*", // Use * for emphasis (single: *italic*)
-      strong: "*", // Use * for strong (double: **bold**)
-      fence: "`", // Use ` for code fences
-      fences: true, // Use fenced code blocks
-      rule: "-", // Use --- for thematic breaks
-      listItemIndent: "one", // Use one space indent for list items
-      // Custom handlers for angle-bracket URL syntax and custom node types
-      handlers: {
-        image: handleImage,
-        link: handleLink,
-        ...tocToMarkdown.handlers,
-      } as Record<string, unknown>,
-    })
+    .use(remarkStringify, stringifyOptions as Parameters<typeof remarkStringify>[0])
     .use(remarkGfm, {
       singleTilde: false, // Match parser config
     })
