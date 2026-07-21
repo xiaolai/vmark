@@ -1,8 +1,14 @@
 # Plan: Preserve blank-line runs through the WYSIWYG round trip
 
-**Status:** DRAFT — Codex-reviewed (NEEDS AMENDMENT → amended below; disposition
-table records every finding). Still needs a re-read of the amended Phase 0 spike
-results before Phase 1 commits.
+**Status:** IMPLEMENTED (core) — `pnpm check:all` green. Delivered: nullable
+`blankLinesBefore` capture (unconditional) + metadata-driven `join` emit (gated
+on `markdown.preserveBlankLines`, default off) + edit-propagation guard + the
+setting/UI with the `preserveLineBreaks` mislabel corrected. Common blocks
+(paragraph, heading, list, blockquote, code) preserve runs across the round trip.
+REMAINING: custom-block coverage (alert/details/math/media don't yet carry the
+attribute — the WI-0.4 mapping matrix); the full pipeline-caller integration
+tests (WI-2.2); and website docs (WI-2.3). Codex-reviewed (NEEDS AMENDMENT →
+amended below; disposition table records every finding).
 
 **Owner:** TBD · **Branch:** TBD (`feat/blank-line-preservation`)
 

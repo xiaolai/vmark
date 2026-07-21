@@ -1,8 +1,19 @@
 # Plan: `open_workspace` MCP tool with approval gate
 
-**Status:** DRAFT — Codex-reviewed (NEEDS AMENDMENT → amended below; disposition
-table records every finding). The amended ADR-2 changes the approval model
-fundamentally; re-read before Phase 1.
+**Status:** IMPLEMENTED (functional) — `pnpm check:all` + `cargo check` green.
+Delivered end to end: sidecar `open_workspace` action + `BridgeRequest` variant
+(WI-1.2/1.4), shared `openWorkspaceByPath` helper (WI-1.1b), one-shot approval
+store bound to canonical path + window + client (WI-1.3), handler + dispatch with
+the fail-now→approve→AI-retry model (WI-1.5), the Rust `validate_workspace_dir`
+canonicalizing IPC (WI-1.1a — which also resolved the fs-guard invariant that
+correctly rejected a webview `stat`), and the fail-closed, occlusion-safe
+approval dialog (WI-2.1). The flow works: AI call → needsApproval → dialog →
+approve → retry → open. REMAINING (hardening/deploy): real client identity from
+the bridge event (Codex F-10 — currently a session id); the post-open
+routing-registration barrier (WI-1.6); the sidecar rebuild so the action ships
+in the running server; and the `check-mcp-openworkspace-phase.sh` gate. Codex-
+reviewed (NEEDS AMENDMENT → amended below; disposition table records every
+finding).
 
 **Owner:** TBD · **Branch:** TBD (`feat/mcp-open-workspace`)
 
