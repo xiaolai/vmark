@@ -14,11 +14,10 @@
  *   - A verified cosmetic pass converts serializer-emitted &#x20; entities
  *     back to spaces and strips defensive backslash escapes ($, [, ], *, _,
  *     `, !, (, ), :, @) — but only when re-parsing the cleaned output yields the
- *     exact same mdast as the conservative output. This guarantees the
- *     cosmetic pass can never change document meaning (audit H6/H7: the old
- *     unverified pass corrupted literal &#x20; in code blocks and turned
- *     escaped text like \_bar\_ into real emphasis on round trip).
+ *     exact same mdast as the conservative output, so it can never change
+ *     document meaning (audit H6/H7).
  *   - hardBreakStyle option converts `\` breaks to two-space breaks
+ *   - join re-emits captured blank-line runs (blankLinesJoin, ADR-1a)
  *
  * @coordinates-with parser.ts — plugins must match between parser and serializer
  * @coordinates-with adapter.ts — wraps this with error handling
@@ -33,7 +32,7 @@ import remarkMath from "remark-math";
 import remarkFrontmatter from "remark-frontmatter";
 import type { Root } from "mdast";
 import { remarkCustomInline, remarkDetailsBlock, remarkWikiLinks, tocToMarkdown } from "./plugins";
-import { handleImage, handleLink } from "./serializerHandlers";
+import { handleImage, handleLink, blankLinesJoin } from "./serializerHandlers";
 import { parseMarkdownToMdast } from "./parser";
 import type { MarkdownPipelineOptions } from "./types";
 
@@ -51,51 +50,27 @@ import type { MarkdownPipelineOptions } from "./types";
  * branches — so getSerializer() builds it once and reuses it across every
  * serialize call.
  */
-/**
- * Custom mdast-util-to-markdown join: when the right sibling carries a captured
- * `data.blankLinesBefore` count, emit that many blank lines between the two
- * blocks; otherwise return undefined to inherit the default join (0 for tight
- * list children, 1 for normal siblings — so tight lists stay tight, SC5).
- */
-function blankLinesJoin(
-  _left: unknown,
-  right: { data?: { blankLinesBefore?: unknown } },
-): number | undefined {
-  const n = right?.data?.blankLinesBefore;
-  return typeof n === "number" ? n : undefined;
-}
-
 function buildSerializer() {
-  // `join` is an mdast-util-to-markdown option remark-stringify forwards at
-  // runtime but does not surface in its published Options type, so the object
-  // is assembled and cast (same spirit as the `handlers` cast).
-  const stringifyOptions = {
-    // Serialization options for consistent output
-    bullet: "-", // Use - for unordered lists
-    bulletOther: "*", // Fallback bullet
-    bulletOrdered: ".", // Use . for ordered lists
-    emphasis: "*", // Use * for emphasis (single: *italic*)
-    strong: "*", // Use * for strong (double: **bold**)
-    fence: "`", // Use ` for code fences
-    fences: true, // Use fenced code blocks
-    rule: "-", // Use --- for thematic breaks
-    listItemIndent: "one", // Use one space indent for list items
-    // Custom handlers for angle-bracket URL syntax and custom node types
-    handlers: {
-      image: handleImage,
-      link: handleLink,
-      ...tocToMarkdown.handlers,
-    } as Record<string, unknown>,
-    // Emit a captured inter-block blank-line run when the node carries
-    // `data.blankLinesBefore` (stamped by proseMirrorToMdast only when
-    // preserveBlankLines is on). Returning undefined inherits the default
-    // join, so this is inert for ordinary content and when the feature is
-    // off — no per-call serializer variants (ADR-1a). mdast-util-to-markdown
-    // treats the number as blank lines between the two flow siblings.
-    join: [blankLinesJoin],
-  };
+  // Cast inline: `join` is forwarded to mdast-util-to-markdown at runtime but
+  // absent from remark-stringify's published Options type.
   return unified()
-    .use(remarkStringify, stringifyOptions as Parameters<typeof remarkStringify>[0])
+    .use(remarkStringify, {
+      bullet: "-", // Use - for unordered lists
+      bulletOther: "*", // Fallback bullet
+      bulletOrdered: ".", // Use . for ordered lists
+      emphasis: "*", // Use * for emphasis (single: *italic*)
+      strong: "*", // Use * for strong (double: **bold**)
+      fence: "`", // Use ` for code fences
+      fences: true, // Use fenced code blocks
+      rule: "-", // Use --- for thematic breaks
+      listItemIndent: "one", // Use one space indent for list items
+      handlers: {
+        image: handleImage,
+        link: handleLink,
+        ...tocToMarkdown.handlers,
+      } as Record<string, unknown>,
+      join: [blankLinesJoin], // re-emit captured blank-line runs (ADR-1a)
+    } as Parameters<typeof remarkStringify>[0])
     .use(remarkGfm, {
       singleTilde: false, // Match parser config
     })

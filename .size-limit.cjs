@@ -205,9 +205,13 @@ module.exports = [
     // Bumped 97 → 99 kB: vite 8 (rolldown) emits ~2 kB more module-wrapper
     // overhead on this chunk than rollup did for identical source inputs
     // (95.35 → 97.5 kB across the bundler swap alone); +1.5 kB headroom.
+    // Bumped 99 → 101 kB: the "Preserve blank lines" toggle in EditorSettings
+    // plus the WhitespaceSettings extraction (a new module boundary, added to
+    // keep EditorSettings.tsx under its file-size baseline) pushed this ~98 B
+    // over the old 99 kB ceiling; +2 kB restores headroom.
     name: "LAZY: Settings page",
     path: "dist/assets/Settings-*.js",
-    limit: "99 kB",
+    limit: "101 kB",
     brotli: false,
   },
   {

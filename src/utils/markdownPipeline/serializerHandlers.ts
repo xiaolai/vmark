@@ -177,3 +177,19 @@ export const handleImage = Object.assign(imageHandler, {
 export const handleLink = Object.assign(linkHandler, {
   peek: (node: Link) => (autolinkValue(node) !== null ? "<" : "["),
 });
+
+/**
+ * Custom mdast-util-to-markdown join: when the right sibling carries a captured
+ * `data.blankLinesBefore` count (stamped by proseMirrorToMdast only when
+ * preserveBlankLines is on), emit that many blank lines between the two blocks;
+ * otherwise return undefined to inherit the default join (0 for tight list
+ * children, 1 for normal siblings — so tight lists stay tight, SC5). Placed here
+ * so serializer.ts stays under its file-size baseline.
+ */
+export function blankLinesJoin(
+  _left: unknown,
+  right: { data?: { blankLinesBefore?: unknown } },
+): number | undefined {
+  const n = right?.data?.blankLinesBefore;
+  return typeof n === "number" ? n : undefined;
+}
