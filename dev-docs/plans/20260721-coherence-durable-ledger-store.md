@@ -1,6 +1,15 @@
 # Durable ledger store + git-revert auto-repair (Option 1)
 
-> **Status: DESIGN v2 — BLOCKED on an owner values decision (G-B review 02).**
+> **Status: SUPERSEDED / WON'T-BUILD — owner chose Option A (2026-07-21).**
+> The owner ratified O(ledger) reconcile as permanent; this durable-successor
+> design is NOT being built. Retained as the record of why O(delta) was
+> investigated and rejected (G-B review 02 proved it impossible without
+> sacrificing soundness or the readable-ledger-as-truth invariant). See
+> `dev-docs/grills/coherence/design-accept-consistency.md` §"Owner decision —
+> Option A".
+>
+> --- original v2 status (historical) ---
+> **DESIGN v2 — BLOCKED on an owner values decision (G-B review 02).**
 > Review 02 falsified the load-bearing skip oracle (git HEAD certifies the
 > COMMITTED tree, not the working-tree bytes reconcile reads) and proved
 > {raw-JSONL-truth + O(delta) + soundness} cannot all hold. Choosing which
