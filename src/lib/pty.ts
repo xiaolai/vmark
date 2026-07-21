@@ -20,7 +20,8 @@
  *   - `pause()` and `resume()` are real Tauri commands (not stubs), enabling
  *     the watermark-based flow control in spawnPty.ts.
  *   - `kill()` eagerly cleans up event listeners and guards against mid-setup
- *     races via a `_destroyed` flag.
+ *     races via a `_destroyed` flag; `write()` honours the same flag so a
+ *     dispose-time flush after kill is dropped, not sent to a freed session.
  *   - `pty_close` frees the Rust-side session (FDs/channels/child handle). It
  *     runs from the exit handler on natural exit; but because `kill()` (and the
  *     mid-setup guard) tear down the exit listener first, those paths call
