@@ -681,13 +681,27 @@ describe("createTerminalKeyHandler", () => {
     vi.unstubAllGlobals();
   });
 
-  it("passes through IME keyCode 229 events", () => {
+  it("passes through IME keyCode 229 events in LEGACY mode (xterm handles them)", () => {
     const term = makeTerm();
     const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
     const result = handler(makeEvent("v", true, { keyCode: 229 }));
     expect(result).toBe(true);
     // Should not trigger paste
     expect(readText).not.toHaveBeenCalled();
+  });
+
+  it("CONSUMES IME keyCode 229 events in GATE mode (T2 — no xterm DEL hazard)", () => {
+    const term = makeTerm();
+    const handler = createTerminalKeyHandler(term, ptyRef, {
+      ...callbacks,
+      gateMode: true,
+    });
+    // Returning false stops xterm's _keyDown (and its _handleAnyTextareaChanges);
+    // it does NOT preventDefault, so the gate's container input listener still
+    // delivers the character.
+    const event = makeEvent("。", false, { keyCode: 229, code: "Period" });
+    expect(handler(event)).toBe(false);
+    expect(event.preventDefault).not.toHaveBeenCalled();
   });
 
   it("passes through non-keydown events (keyup, keypress)", () => {

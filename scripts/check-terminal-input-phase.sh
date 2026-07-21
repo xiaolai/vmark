@@ -69,19 +69,30 @@ case "$PHASE" in
     assert_grep "during the grace window" "$TDIR/terminalKeyHandler.test.ts" "WI-1.4 toggle-during-grace regression test present"
     ;;
   2)
+    GATE="$TDIR/setupImeCompositionGate.ts"
     assert_grep "inputGate"              "$SYS"    "WI-2.1 inputGate in TerminalSettings"
     assert_grep "inputGate"              "src/stores/settingsStore/defaults.ts" "WI-2.1 inputGate default set"
     # inputGate is a string enum, not a numeric range — validated by the
     # consumer's `=== \"gate\"` fail-safe, not clamp.ts. Assert the store test.
     assert_grep "inputGate"              "src/stores/__tests__/settingsStore.test.ts" "WI-2.1 inputGate store test present"
-    assert_grep "stopPropagation"        "$SIC"    "WI-2.2 T1 container input stopPropagation"
-    # T2: an IME-keydown gate branch returning false. Structural presence only.
-    assert_grep "inputGate"              "$TKH"    "WI-2.3 T2 gate branch present in key handler"
+    assert_grep "inputGate"              "$TDIR/useTerminalSessions.ts" "WI-2.1 flag flows from store to instance"
+    assert_file "$GATE"                            "WI-2.2 gate module present"
+    assert_grep "stopPropagation"        "$GATE"   "WI-2.2 T1 container input stopPropagation"
+    assert_grep "gateMode"               "$TKH"    "WI-2.3 T2 gate branch in key handler"
+    assert_grep 'textarea.value = ""'    "$GATE"   "WI-2.4 T3 synchronous textarea clear on compositionend"
+    # Verified in the real-WebKit tier (jsdom cannot — plan Q1/Q3).
+    assert_file "$TDIR/setupImeCompositionGate.webkit.test.ts" "WI-2.x gate webkit tests present"
+    assert_file "$TDIR/browserTier.smoke.webkit.test.ts"       "browser tier smoke present"
     ;;
   3)
-    assert_grep "term.input("           "$SIC"    "WI-3.1 commit routed via public term.input"
+    # Single writer per keystroke: gate mode routes IME commits straight to the
+    # PTY (one writer, since T1 severs xterm's input path) — not term.input,
+    # which would re-enter the onData composing-guard. resolveCommit is the pure
+    # decision replacing the five legacy early-returns.
+    assert_grep "onCompositionCommit"    "$TDIR/setupImeCompositionGate.ts" "WI-3.1 gate commit path present"
     assert_file "$TDIR/resolveCommit.ts"          "WI-3.2 pure resolveCommit module present"
     assert_file "$TDIR/resolveCommit.test.ts"     "WI-3.2 resolveCommit table tests present"
+    assert_grep "resolveCommit"          "$TDIR/setupImeCompositionGate.ts" "WI-3.2 gate uses resolveCommit"
     ;;
   4)
     assert_absent "IME_COMPOSITION_GRACE_MS" "$SIC" "WI-4.1 grace constant deleted"

@@ -42,6 +42,7 @@ import { createTerminalKeyHandler } from "./terminalKeyHandler";
 import { buildXtermThemeForId } from "@/theme";
 import { setupWebglRenderer } from "./setupWebglRenderer";
 import { setupImeComposition, IME_COMPOSITION_GRACE_MS } from "./setupImeComposition";
+import { setupImeCompositionGate } from "./setupImeCompositionGate";
 import { setupWebLinks } from "./setupWebLinks";
 import { setupFileLinks } from "./setupFileLinks";
 import { setupCopyOnSelect } from "./setupCopyOnSelect";
@@ -127,6 +128,8 @@ interface TerminalInstanceSettings {
   minimumContrastRatio: number;
   /** Number of scrollback lines retained (G7/WI-4.2). */
   scrollback: number;
+  /** Input arbitration: "gate" = Channel Ownership; else legacy (plan 20260722). */
+  inputGate?: "legacy" | "gate";
   /** Active app theme — used to compose the xterm ITheme. The factory
    *  no longer reads settingsStore directly to keep the @/theme module
    *  free of a back-edge into stores (avoids a dep-cruiser cycle). */
@@ -207,7 +210,11 @@ export function createTerminalInstance(options: CreateOptions): TerminalInstance
   const textarea = resolveHelperTextarea(term, container);
 
   // Lifecycle helpers (each returns its own cleanup or exposes a cleanup()).
-  const ime = setupImeComposition({ container, textarea: textarea! });
+  // Input arbitration: gate mode (Channel Ownership, one writer) or legacy.
+  const gateMode = settings.inputGate === "gate";
+  const ime = gateMode
+    ? setupImeCompositionGate({ container, textarea: textarea! })
+    : setupImeComposition({ container, textarea: textarea! });
 
   // Dev-only input-trace recorder (no-op in prod / unless the localStorage flag
   // is set). Lets a human capture real IME traces by typing — plan WI-0.1.
@@ -250,6 +257,7 @@ export function createTerminalInstance(options: CreateOptions): TerminalInstance
       // panel toggles closed, so grace-window text never lands in a hidden
       // shell (WI-1.4).
       flushImeCommit: () => ime.flushPending(),
+      gateMode, // T2: consume keyCode-229 IME keydowns (no xterm DEL hazard)
     }),
   );
 

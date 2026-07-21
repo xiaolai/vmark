@@ -86,6 +86,13 @@ export interface KeyHandlerCallbacks {
    * shell (WI-1.4). Optional so non-terminal callers/tests can omit it.
    */
   flushImeCommit?: () => void;
+  /**
+   * True when the terminal runs in Channel-Ownership (gate) mode. Turns on T2:
+   * IME (keyCode-229) keydowns are CONSUMED so xterm's DEL hazard never fires;
+   * the gate's container listener delivers the character. Undefined/false =
+   * legacy behavior (xterm handles IME keys).
+   */
+  gateMode?: boolean;
 }
 
 /**
@@ -128,7 +135,13 @@ export function createTerminalKeyHandler(
 
     // Never interfere during IME composition (CJK input, etc.).
     // Two-layer guard — see module header for rationale.
-    if (isImeKeyEvent(event)) return true;
+    // T2 (gate mode): CONSUME keyCode-229 IME keydowns (return false) so xterm's
+    // _keyDown never reaches _handleAnyTextareaChanges — that snapshot-and-DEL is
+    // the gate design's one remaining hazard. The character still reaches the PTY
+    // via the gate's container `input`/composition path (T1); returning false
+    // does not preventDefault, so the DOM input event still fires. In LEGACY mode
+    // we return true (let xterm handle) exactly as before.
+    if (isImeKeyEvent(event)) return callbacks.gateMode ? false : true;
     if (callbacks.isComposing()) return true;
 
     // Shift+Enter — emit the CSI-u sequence so the WezTerm impersonation
