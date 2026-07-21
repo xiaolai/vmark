@@ -29,6 +29,7 @@
 
 import type { Image, Link, Parents } from "mdast";
 import { urlNeedsBrackets } from "@/utils/markdownUrl";
+import { MAX_BLANK_LINES } from "./blankLineCapture";
 
 /** mdast-util-to-markdown state (simplified for our handlers). */
 export interface ToMarkdownState {
@@ -183,13 +184,21 @@ export const handleLink = Object.assign(linkHandler, {
  * `data.blankLinesBefore` count (stamped by proseMirrorToMdast only when
  * preserveBlankLines is on), emit that many blank lines between the two blocks;
  * otherwise return undefined to inherit the default join (0 for tight list
- * children, 1 for normal siblings — so tight lists stay tight, SC5). Placed here
- * so serializer.ts stays under its file-size baseline.
+ * children, 1 for normal siblings — so tight lists stay tight, SC5). Only a
+ * finite integer in [0, MAX_BLANK_LINES] counts; any other value inherits the
+ * default. Placed here so serializer.ts stays under its file-size baseline.
  */
 export function blankLinesJoin(
   _left: unknown,
   right: { data?: { blankLinesBefore?: unknown } },
 ): number | undefined {
   const n = right?.data?.blankLinesBefore;
-  return typeof n === "number" ? n : undefined;
+  // Only a finite integer in the captured range is a valid separator count;
+  // anything else (NaN, fraction, negative, over-cap) inherits the default.
+  // A negative would concatenate adjacent blocks; NaN would remove the
+  // separator; a huge value would emit a pathological run.
+  if (typeof n !== "number" || !Number.isInteger(n) || n < 0 || n > MAX_BLANK_LINES) {
+    return undefined;
+  }
+  return n;
 }

@@ -25,15 +25,18 @@ export const MAX_BLANK_LINES = 10;
 
 /**
  * Number of blank lines to capture before a block, or null to inherit the
- * serializer's default. Null for a missing position and for runs of 0/1;
- * clamped to MAX_BLANK_LINES.
+ * serializer's default. Null for a missing OR malformed (NaN/fractional)
+ * position and for runs of 0/1; clamped to MAX_BLANK_LINES.
  */
 function captureBlankLinesBefore(
   prevEndLine: number | null,
   startLine: number | undefined,
 ): number | null {
-  if (prevEndLine === null || typeof startLine !== "number") return null;
-  const gap = startLine - prevEndLine - 1;
+  // Reject null/missing AND malformed (NaN, fractional) positions: a bad
+  // position must inherit the default (null), never produce a NaN attribute
+  // that would later collapse the separator between the next two blocks.
+  if (!Number.isInteger(prevEndLine) || !Number.isInteger(startLine)) return null;
+  const gap = (startLine as number) - (prevEndLine as number) - 1;
   if (gap <= 1) return null;
   return Math.min(gap, MAX_BLANK_LINES);
 }
@@ -68,8 +71,12 @@ export function convertTopLevelWithBlankLines(
         nodes[0] = withBlankLinesBefore(nodes[0], captured);
       }
     }
+    // Reset to null when a child lacks a valid end line (e.g. a synthetic,
+    // positionless node from a remark transform): keeping the previous block's
+    // end would make the NEXT block's gap span this whole node and emit a
+    // spurious run.
     const endLine = child.position?.end?.line;
-    if (typeof endLine === "number") prevEndLine = endLine;
+    prevEndLine = Number.isInteger(endLine) ? (endLine as number) : null;
     topChildren.push(...nodes);
   }
   return topChildren;

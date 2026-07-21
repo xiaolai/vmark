@@ -81,4 +81,39 @@ describe("blankLinesGuard", () => {
     const next = state.apply(tr);
     expect(blanksOf(next)).toEqual([3]);
   });
+
+  it("keeps blankLinesBefore on a block AFTER the split point (predicate bound)", () => {
+    // [A(3), B(2)]; split A → [A1(3), A2(null), B(2)]. The over-broad
+    // `pos > r.from` predicate (no upper bound) also nulled B, which sits
+    // after the split's changed range — B must keep its parse-captured 2.
+    const s = stateFor(docWith({ text: "Hello", blank: 3 }, { text: "World", blank: 2 }));
+    const splitPos = 1 + 2; // inside "Hello", after "He"
+    const tr = s.tr.setSelection(TextSelection.create(s.doc, splitPos)).split(splitPos);
+    const next = s.apply(tr);
+    expect(blanksOf(next)).toEqual([3, null, 2]);
+  });
+
+  it("keeps blankLinesBefore on blocks after an in-place edit in an earlier block", () => {
+    // Typing in A must not touch B's preserved gap.
+    const s = stateFor(docWith({ text: "Hello" }, { text: "World", blank: 4 }));
+    const tr = s.tr.insertText("!", 1 + 5); // end of "Hello"
+    const next = s.apply(tr);
+    expect(blanksOf(next)).toEqual([null, 4]);
+  });
+
+  it("keeps parse-captured blankLinesBefore on a hydration (preventUpdate) load", () => {
+    // A programmatic content load (initial parse / external sync) replaces the
+    // whole doc via setContentWithoutHistory, which marks the transaction
+    // preventUpdate. Those attrs are parse-authoritative and must survive — the
+    // geometric test must NOT read a full-doc replace as an insertion and wipe
+    // them, which broke preservation for the primary open→save path.
+    const empty = stateFor(schema.node("doc", null, [schema.node("paragraph")]));
+    const loaded = docWith({ text: "A" }, { text: "B", blank: 4 });
+    const tr = empty.tr
+      .replaceWith(0, empty.doc.content.size, loaded.content)
+      .setMeta("addToHistory", false)
+      .setMeta("preventUpdate", true);
+    const next = empty.apply(tr);
+    expect(blanksOf(next)).toEqual([null, 4]);
+  });
 });

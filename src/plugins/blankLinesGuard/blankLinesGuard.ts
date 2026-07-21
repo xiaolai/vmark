@@ -17,6 +17,12 @@
  * not fully contained, so it keeps its value; typing inside a block changes an
  * inline range that neither starts a block nor contains one.
  *
+ * Programmatic content loads (initial parse, external sync via
+ * setContentWithoutHistory) are skipped entirely — they replace the whole doc
+ * with freshly parse-captured, authoritative values but would read as a
+ * full-document insertion here. They are marked `preventUpdate`; user edits are
+ * not.
+ *
  * @coordinates-with plugins/shared/sourceLineAttr.ts — blankLinesBefore attr
  * @coordinates-with utils/markdownPipeline/mdastToProseMirror.ts — capture
  * @module plugins/blankLinesGuard
@@ -64,6 +70,15 @@ export function blankLinesGuard(): Plugin {
   return new Plugin({
     key: blankLinesGuardKey,
     appendTransaction(transactions, _oldState, newState) {
+      // A programmatic content load (initial parse, external sync) replaces the
+      // whole doc and carries freshly parse-captured blankLinesBefore that are
+      // authoritative and must be KEPT — but a full-doc replace looks like an
+      // insertion to the geometric test below, so without this it would clear
+      // every value and break preservation on the primary open→save path.
+      // setContentWithoutHistory marks these `preventUpdate`; genuine user
+      // edits (split, paste) never set it.
+      if (transactions.some((t) => t.getMeta("preventUpdate"))) return null;
+
       const ranges = changedRanges(transactions);
       if (ranges.length === 0) return null;
 
@@ -72,8 +87,13 @@ export function blankLinesGuard(): Plugin {
         if (!node.isBlock || !hasBlankLinesAttr(node)) return;
         if (node.attrs.blankLinesBefore == null) return;
         const end = pos + node.nodeSize;
+        // "Newly created" = start strictly inside a changed range (a split's
+        // second half) OR whole span contained in one (an inserted/pasted
+        // block). The first disjunct MUST be upper-bounded by `pos < r.to`:
+        // without it, `pos > r.from` matches every block positioned after any
+        // edit, clearing preserved gaps throughout the document on each keystroke.
         const newlyCreated = ranges.some(
-          (r) => pos > r.from || (pos >= r.from && end <= r.to),
+          (r) => (pos > r.from && pos < r.to) || (pos >= r.from && end <= r.to),
         );
         if (newlyCreated) {
           tr ??= newState.tr;
