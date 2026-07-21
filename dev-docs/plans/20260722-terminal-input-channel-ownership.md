@@ -11,25 +11,36 @@ dod_checker: "scripts/check-terminal-input-phase.sh"
 
 | Phase | Name | State | DoD gate |
 |---|---|---|---|
-| 0 | Trace harness + measurement | **PARTIAL** — Q1/Q3 measured; recorder built; replay harness + fixtures blocked on browser tier / human | `bash scripts/check-terminal-input-phase.sh 0` |
-| 1 | Safe structural fixes (no arbitration change) | **DONE** (2026-07-22, gate 7/7, `check:all` green) | `… 1` |
-| 2 | Channel Ownership behind a flag | **PARTIAL** — WI-2.1 flag done; gate path (T1/T2/T3) blocked on browser tier | `… 2` |
-| 3 | Collapse to a single writer | NOT STARTED (blocked on browser tier) | `… 3` |
-| 4 | Delete the proxy guards + flip default | NOT STARTED (blocked on human IME matrix) | `… 4` |
-| 5 | Test-estate repair + mutation gate | NOT STARTED (blocked on browser tier) | `… 5` |
+| 0 | Trace harness + measurement | **DONE for automatable parts** — Q1/Q3 measured, recorder built, browser tier stood up + smoke; real IME trace *capture* is human (WI-0.3) | `bash scripts/check-terminal-input-phase.sh 0` |
+| 1 | Safe structural fixes (no arbitration change) | **DONE** (gate 7/7, `check:all` green) | `… 1` |
+| 2 | Channel Ownership behind a flag | **DONE** (gate 10/10; T1/T2/T3 verified in real WebKit) | `… 2` |
+| 3 | Collapse to a single writer | **DONE** (gate 4/4; resolveCommit 100% mutation) | `… 3` |
+| 4 | Delete the proxy guards + flip default | **BLOCKED — human only** (needs the real-IME matrix; irreversible) | `… 4` |
+| 5 | Test-estate repair + mutation gate | **DONE for now** (gate 4/4; compositionGuard deletion deferred to Phase 4) | `… 5` |
 
 **Phase Status ticks to the next row only after its DoD gate exits 0 AND `pnpm check:all` is green.**
 Per `.claude/rules/60-ai-governance.md` §6, this plan spans >3 phases and deletes load-bearing
-code — a cross-model (Codex) review via `/cc-suite:review-plan` is **mandatory before the
-gate-path phases (2–4) begin**. Phase 1 shipped as pure, independently-revertible structural
-fixes with no arbitration change, so it did not gate on that review; the risky deletions do.
+code — a cross-model (Codex) review via `/cc-suite:review-plan` is **mandatory before Phase 4**
+(the irreversible guard deletion + default flip). Phases 1–3/5 shipped behind a default-off
+flag with no change to anyone's behavior, so they did not gate on that review; Phase 4 does.
 
-**Progress note (2026-07-22, overnight autonomous run):** Phase 1 complete on branch
-`feat/terminal-input-channel-ownership` (commits after `a5291010`). The Phase 0 probes
-(deleted after recording) resolved Q1=NO and Q3=NO — jsdom cannot verify the gate path, and
-`@xterm/xterm` is globally mocked in tests — so everything downstream of Phase 1 was left
-unbuilt rather than shipped with tests that cannot fail. The next decision point (stand up the
-`@vitest/browser` + Playwright WebKit tier) is a human infra call.
+**Progress note (2026-07-22, overnight autonomous run) — branch `feat/terminal-input-channel-ownership`:**
+Built and verified everything that is verifiable without a human typing:
+- Phase 0 probes resolved Q1=NO / Q3=NO (jsdom can't model the boundary; xterm is globally
+  mocked). A follow-up spike found the sharper truth: **synthetic `dispatchEvent` in real WebKit
+  ALSO can't reproduce it** — only Playwright's real keyboard (`userEvent`) gives `[L1,mt,L2]`.
+- Stood up the real-WebKit browser tier (`pnpm test:browser`, `*.webkit.test.ts`) and proved
+  the gate path's single-writer guarantee there for ASCII + direct non-ASCII input.
+- Built the gate path (T1/T2/T3, `resolveCommit`, single writer) behind `terminal.inputGate`,
+  default `legacy`. Everything reversible; macOS untouched at the default.
+
+**The one thing left is Phase 4, and it is human-only by nature:** flipping the default and
+deleting the legacy guards is irreversible and can only be justified after a human types with
+each real IME (macOS Pinyin/Zhuyin/Japanese/Korean, WeChat, Linux fcitx5+rime, Windows MS-IME) —
+Playwright cannot drive an OS IME composition cycle. **To test gate mode now:** in DevTools,
+`useSettingsStore.getState().updateTerminalSetting("inputGate","gate")`, then open a new
+terminal. Revert with `"legacy"`. To capture traces for the record:
+`localStorage.setItem("vmark:trace-input","1")`, reload, type, `window.__vmarkInputTrace.download()`.
 
 ---
 
