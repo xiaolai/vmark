@@ -7,7 +7,7 @@
 | 0A safety net | ✅ **COMPLETE** — production-schema harness, corpus 12 → 22, 4 pre-existing defects found |
 | 0B security | ⚠️ **1 of 4** — WI-0B.2 done; the other three are re-scoped onto the capability broker (see below), because the plan's remedies would break custom shells, Save As, and stored keys |
 | 1 architecture contract | ✅ **COMPLETE** — descriptor, resolver, claim protocol, Node-safe gate, scope inventory, perf baseline, budget ratchet, doc corrections |
-| 2 serialization inversion | 🟡 **Tier 1 started** — registry 2 built; 9 node types migrated differentially, switch still authoritative |
+| 2 serialization inversion | 🟡 **Tier 1 live** — registry 2 wired into the real pipeline; 9 node types resolve through it, zero corpus drift; switch handles the rest |
 | 3 composition migration | ⬜ not started — adoption gate pins 2 bypassing roots |
 | 4A/4B host + markdown | ⬜ not started |
 | 5 extension points | ⬜ not started; gated on the command-registry fork, the ADR-007 slot seam, and a package/security contract — all listed out of scope |

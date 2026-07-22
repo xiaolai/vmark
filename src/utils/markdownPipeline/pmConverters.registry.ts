@@ -30,6 +30,7 @@
  * @module utils/markdownPipeline/pmConverters.registry
  */
 import type { Node as PMNode } from "@tiptap/pm/model";
+import { mdPipelineWarn } from "@/utils/debug";
 import { PmConverterRegistry } from "@/lib/extensions/pmConverterRegistry";
 import * as inlineConverters from "./pmInlineConverters";
 import {
@@ -122,4 +123,28 @@ export function createTier1Registry(): PmTier1Registry {
   ]);
 
   return registry;
+}
+
+/**
+ * Consult registry 2 for one node.
+ *
+ * Returns `{ handled: false }` when the type has not been migrated yet, so the
+ * caller falls through to its remaining switch. An ambiguous match is reported
+ * and treated as handled-with-nothing: ordering must not break the tie.
+ */
+export function tryRegistry(
+  registry: PmTier1Registry,
+  typeName: string,
+  node: PMNode,
+  context: PmToMdastContext,
+): { handled: true; result: PmToMdastResult } | { handled: false } {
+  const lookup = registry.resolve(typeName, node);
+  if (lookup.ok) {
+    return { handled: true, result: lookup.converter.convert(node, context) };
+  }
+  if (lookup.failure.code === "ambiguous-match") {
+    mdPipelineWarn(`[PMToMdast] ${lookup.failure.message}`);
+    return { handled: true, result: null };
+  }
+  return { handled: false };
 }
