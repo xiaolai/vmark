@@ -69,16 +69,12 @@ case "$PHASE" in
     assert_grep "during the grace window" "$TDIR/terminalKeyHandler.test.ts" "WI-1.4 toggle-during-grace regression test present"
     ;;
   2)
+    # Channel Ownership is now the ONLY path (the inputGate flag was removed in
+    # WI-4b), so this asserts the mechanism, not the flag.
     GATE="$TDIR/setupImeCompositionGate.ts"
-    assert_grep "inputGate"              "$SYS"    "WI-2.1 inputGate in TerminalSettings"
-    assert_grep "inputGate"              "src/stores/settingsStore/defaults.ts" "WI-2.1 inputGate default set"
-    # inputGate is a string enum, not a numeric range — validated by the
-    # consumer's `=== \"gate\"` fail-safe, not clamp.ts. Assert the store test.
-    assert_grep "inputGate"              "src/stores/__tests__/settingsStore.test.ts" "WI-2.1 inputGate store test present"
-    assert_grep "inputGate"              "$TDIR/useTerminalSessions.ts" "WI-2.1 flag flows from store to instance"
     assert_file "$GATE"                            "WI-2.2 gate module present"
     assert_grep "stopPropagation"        "$GATE"   "WI-2.2 T1 container input stopPropagation"
-    assert_grep "gateMode"               "$TKH"    "WI-2.3 T2 gate branch in key handler"
+    assert_grep "isImeKeyEvent(event)) return false" "$TKH" "WI-2.3 T2 consumes IME keydowns (unconditional)"
     assert_grep 'textarea.value = ""'    "$GATE"   "WI-2.4 T3 synchronous textarea clear on compositionend"
     # Verified in the real-WebKit tier (jsdom cannot — plan Q1/Q3).
     assert_file "$TDIR/setupImeCompositionGate.webkit.test.ts" "WI-2.x gate webkit tests present"
@@ -95,28 +91,23 @@ case "$PHASE" in
     assert_grep "resolveCommit"          "$TDIR/setupImeCompositionGate.ts" "WI-3.2 gate uses resolveCommit"
     ;;
   4)
-    # WI-4a — flip default to gate, legacy kept intact (reversible).
-    assert_grep 'inputGate: "gate"'        "src/stores/settingsStore/defaults.ts" "WI-4a default flipped to gate"
-    assert_grep "migrateInputGateDefaultFlip" "src/stores/settingsStore/migrations.ts" "WI-4a persisted-value migration present"
-    assert_grep "terminal.inputGate.label" "src/pages/settings/TerminalSettings.tsx" "WI-4a Settings rollback toggle present"
-    # WI-4a keeps legacy INTACT — the guards must still be here (deleted only in 4b).
-    assert_grep "IME_COMPOSITION_GRACE_MS" "$SIC"   "WI-4a legacy grace guard retained (delete in 4b)"
-    # WI-4b — deletion, only AFTER a baked default-on release. These flip to
-    # assert_absent when 4b runs; today they must still be PRESENT.
-    assert_grep "IME_DEDUP_WINDOW_MS"      "$CTI"   "WI-4b pending: dedup window still present (correct pre-4b)"
+    # WI-4b — legacy path + flag + guards DELETED; gate is the only path.
+    assert_nofile "$SIC"                           "WI-4b legacy setupImeComposition.ts deleted"
+    assert_absent "IME_COMPOSITION_GRACE_MS"  "$CTI" "WI-4b grace constant gone from factory"
+    assert_absent "IME_DEDUP_WINDOW_MS"       "$CTI" "WI-4b dedup window constant deleted"
+    assert_absent "inputGate"                 "src/stores/settingsStore/defaults.ts" "WI-4b flag removed from defaults"
+    assert_absent "TerminalInputGate"         "$SYS" "WI-4b flag type removed"
+    assert_absent "inputGate"                 "$TDIR/useTerminalSessions.ts" "WI-4b flag no longer read"
+    assert_grep "setupImeCompositionGate"     "$CTI" "WI-4b gate is the sole IME path"
     ;;
   5)
-    # WI-5.1: the two "later keystroke" false-model tests were converted to fake
-    # timers (macrotask boundary) in cb954392. The remaining microtask-tick test
-    # is honestly labelled a WEAK proxy — the faithful [L1,mt,L2] reproduction is
-    # in the webkit tier (userEvent). Assert that honesty is documented.
-    assert_grep "WEAK proxy"               "$TDIR/terminalSessionInputWiring.test.ts" "WI-5.1 microtask-sim labelled a weak proxy"
-    assert_grep "vi.advanceTimersByTime"   "$TDIR/terminalSessionInputWiring.test.ts" "WI-5.1 later-keystroke tests use fake timers"
+    # WI-5.1: the drifted 726-line compositionGuard reimplementation is deleted
+    # (with the legacy module it mirrored); gate has its own production-bound tests.
+    assert_nofile "$TDIR/compositionGuard.test.ts" "WI-5.1 drifted compositionGuard suite deleted"
+    assert_file "$TDIR/setupImeCompositionGate.test.ts" "WI-5.1 gate has production-bound jsdom tests"
     # WI-5.2: pure terminal modules in mutation scope. resolveCommit is at 100%.
     assert_grep "resolveCommit.ts"         "stryker.config.json" "WI-5.2 resolveCommit in mutation scope"
     assert_grep "terminalReadlineKeys.ts"  "stryker.config.json" "WI-5.2 readline keys in mutation scope"
-    # NOTE: compositionGuard.test.ts deletion is deferred to Phase 4 — it covers
-    # the LEGACY module, which stays until the gate default flip + guard removal.
     ;;
   *)
     echo "Unknown phase: $PHASE"; exit 64 ;;

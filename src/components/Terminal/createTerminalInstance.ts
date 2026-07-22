@@ -19,8 +19,7 @@
  *     runtime theme changes are handled by useTerminalSessions.
  *   - Lifecycle concerns are split into focused helpers, each returning a
  *     cleanup hook the factory calls in dispose():
- *       * setupImeComposition  — IME compositionstart/end handling (#59,
- *         #454, #525, #608, #619, #659)
+ *       * setupImeCompositionGate — Channel Ownership IME handling (one writer)
  *       * setupWebglRenderer   — WebGL addon, atlas bounding (#856),
  *         dual-layer context-loss recovery, MutationObserver, resetDisplay
  *       * setupWebLinks        — sandboxed web-link click handler
@@ -41,7 +40,6 @@ import { SearchAddon } from "@xterm/addon-search";
 import { createTerminalKeyHandler } from "./terminalKeyHandler";
 import { buildXtermThemeForId } from "@/theme";
 import { setupWebglRenderer } from "./setupWebglRenderer";
-import { setupImeComposition, IME_COMPOSITION_GRACE_MS } from "./setupImeComposition";
 import { setupImeCompositionGate, createNoopImeHandle } from "./setupImeCompositionGate";
 import { setupWebLinks } from "./setupWebLinks";
 import { setupFileLinks } from "./setupFileLinks";
@@ -54,9 +52,6 @@ import "@xterm/xterm/css/xterm.css";
 
 // Re-exports kept for compatibility with existing imports/tests.
 export { ATLAS_PAGE_LIMIT } from "./setupWebglRenderer";
-export { IME_COMPOSITION_GRACE_MS } from "./setupImeComposition";
-/** Milliseconds after onCompositionCommit during which duplicate onData is suppressed. */
-export const IME_DEDUP_WINDOW_MS = 150;
 
 /** Resolve the --font-mono CSS variable to actual font family names, used at
  *  terminal creation (the var is already applied by then). Live mono-font
@@ -128,8 +123,6 @@ interface TerminalInstanceSettings {
   minimumContrastRatio: number;
   /** Number of scrollback lines retained (G7/WI-4.2). */
   scrollback: number;
-  /** Input arbitration: "gate" = Channel Ownership; else legacy (plan 20260722). */
-  inputGate?: "legacy" | "gate";
   /** Active app theme — used to compose the xterm ITheme. The factory
    *  no longer reads settingsStore directly to keep the @/theme module
    *  free of a back-edge into stores (avoids a dep-cruiser cycle). */
@@ -145,10 +138,6 @@ interface CreateOptions {
    *  activity indicator (WI-4.3). */
   onBell?: () => void;
 }
-
-// Suppress the "unused" lint when nothing in this file references the
-// re-exported constant directly — consumers import it from this module path.
-void IME_COMPOSITION_GRACE_MS;
 
 /**
  * Create a terminal instance with all addons loaded.
@@ -209,12 +198,11 @@ export function createTerminalInstance(options: CreateOptions): TerminalInstance
   // returns undefined, in which case we install a no-op IME handle so the
   // terminal still works (the old `textarea!` path crashed on addEventListener).
   const textarea = resolveHelperTextarea(term, container);
-  const gateMode = settings.inputGate === "gate";
-  const ime = !textarea
-    ? createNoopImeHandle()
-    : gateMode
-      ? setupImeCompositionGate({ container, textarea })
-      : setupImeComposition({ container, textarea });
+  // Channel Ownership is the only input path (WI-4b removed the legacy dual-writer
+  // path). A missing textarea (prod fail-loud) → inert no-op handle.
+  const ime = textarea
+    ? setupImeCompositionGate({ container, textarea })
+    : createNoopImeHandle();
 
   // Dev-only input-trace recorder (no-op in prod / unless the localStorage flag
   // is set). Lets a human capture real IME traces by typing — plan WI-0.1.
@@ -248,16 +236,11 @@ export function createTerminalInstance(options: CreateOptions): TerminalInstance
     createTerminalKeyHandler(term, ptyRef, {
       onSearch,
       onPromptNav: (dir) => scrollToAdjacentCommand(term, osc133.getCommands(), dir),
-      // Closes over `ime.composing` (live getter) so the key handler
-      // sees the post-`compositionend` grace window, not just active
-      // composition. Without this, Shift+Enter / Cmd+C / etc. fired
-      // immediately after a CJK commit would leak past the IME guard.
+      // Live getter so the key handler sees the composition state; without it,
+      // Shift+Enter / Cmd+C / etc. right after a CJK commit would leak past T2.
       isComposing: () => ime.composing,
-      // Flush a pending IME commit into the still-visible terminal before the
-      // panel toggles closed, so grace-window text never lands in a hidden
-      // shell (WI-1.4).
+      // Flush a pending IME commit before the panel toggles closed (WI-1.4).
       flushImeCommit: () => ime.flushPending(),
-      gateMode, // T2: consume keyCode-229 IME keydowns (no xterm DEL hazard)
     }),
   );
 

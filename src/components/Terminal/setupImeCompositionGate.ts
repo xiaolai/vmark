@@ -32,7 +32,30 @@
 import { terminalLog } from "@/utils/debug";
 import { NON_ASCII_RE } from "./imeCharClass";
 import { resolveCommit } from "./resolveCommit";
-import type { ImeCompositionHandle } from "./setupImeComposition";
+
+/**
+ * Public surface of the terminal IME handle (gate is the sole implementation
+ * since WI-4b; legacy was deleted). `inGracePeriod`, `lastCommittedText`, and
+ * `lastCommitTime` are vestigial from the shared legacy contract — gate keeps
+ * them at their inert values so callers (terminalKeyHandler) need no change.
+ */
+export interface ImeCompositionHandle {
+  /** True while a composition is active. */
+  readonly composing: boolean;
+  /** Always false in gate mode (no grace window) — kept for the shared contract. */
+  readonly inGracePeriod: boolean;
+  /** Caller-supplied callback invoked with the clean committed text; the caller
+   *  writes it straight to the PTY (single writer). */
+  onCompositionCommit: ((text: string) => void) | null;
+  /** Last committed text (gate uses it for its same-task echo dedup). */
+  readonly lastCommittedText: string | null;
+  /** Timestamp of the last commit (Date.now()). */
+  readonly lastCommitTime: number;
+  /** Tear down listeners. Idempotent. */
+  cleanup: () => void;
+  /** No-op in gate mode (no pending grace state); retained for the contract. */
+  flushPending: () => void;
+}
 
 interface GateOptions {
   container: HTMLElement;

@@ -133,7 +133,6 @@ export const initialState: SettingsState = {
     scrollback: 5000,
     position: "auto",
     panelRatio: 0.4,
-    inputGate: "gate",
   },
   advanced: {
     mcpServer: {

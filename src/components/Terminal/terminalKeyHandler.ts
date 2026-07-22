@@ -29,19 +29,13 @@
  *     breaking the "newline in input" affordance these tools advertise as
  *     "natively supported in WezTerm."
  *   - Returns false to consume the event, true to let xterm handle it.
- *   - Never interferes during IME composition. Uses TWO checks:
- *       1) `isImeKeyEvent(event)` — covers active composition keystrokes
- *          (event.isComposing === true, or keyCode 229).
- *       2) `callbacks.isComposing()` — covers the post-`compositionend`
- *          grace window where browsers fire a follow-up keydown for the
- *          confirming key with `isComposing === false` but the IME is
- *          still settling. The terminal-wide handle in setupImeComposition
- *          keeps `composing=true` through that window (default 80 ms).
- *     Without (2), Shift+Enter / Cmd+C / Cmd+V immediately after a CJK
- *     commit would leak past the guard and write to the PTY.
+ *   - Never interferes during IME composition. T2 consumes keyCode-229 IME
+ *     keydowns (isImeKeyEvent), and `callbacks.isComposing()` covers the
+ *     follow-up keydown after a commit, so Shift+Enter / Cmd+C / Cmd+V right
+ *     after a CJK commit don't leak past the guard.
  *
  * @coordinates-with createTerminalInstance.ts — attached via term.attachCustomKeyEventHandler
- * @coordinates-with setupImeComposition.ts — provides the `isComposing` callback (covers grace window)
+ * @coordinates-with setupImeCompositionGate.ts — provides the `isComposing` callback
  * @module components/Terminal/terminalKeyHandler
  */
 import type { IPty } from "@/lib/pty";
@@ -71,28 +65,19 @@ function adjustTerminalFontSize(delta: number): void {
 export interface KeyHandlerCallbacks {
   onSearch: () => void;
   /**
-   * Returns true while a composition is active OR within the post-end grace
-   * period. Sourced from setupImeComposition's `ImeCompositionHandle.composing`
-   * getter. Without this, the post-`compositionend` keystroke window would
-   * leak past the IME guard and fire shortcuts during CJK commit.
+   * Returns true while a composition is active. Sourced from the gate handle's
+   * `composing` getter. Without this, the follow-up keydown after a CJK commit
+   * would leak past the IME guard and fire shortcuts.
    */
   isComposing: () => boolean;
   /** Jump to the previous/next command prompt (WI-3.3, shell integration). */
   onPromptNav?: (direction: "prev" | "next") => void;
   /**
-   * Flush a pending post-`compositionend` IME commit NOW. Called when the toggle
-   * chord fires during the grace window so committed text reaches the terminal
-   * before the panel hides, instead of the grace timer writing it into a hidden
-   * shell (WI-1.4). Optional so non-terminal callers/tests can omit it.
+   * Flush a pending IME commit NOW. Called when the toggle chord fires mid-commit
+   * so committed text reaches the terminal before the panel hides (WI-1.4).
+   * Optional so non-terminal callers/tests can omit it.
    */
   flushImeCommit?: () => void;
-  /**
-   * True when the terminal runs in Channel-Ownership (gate) mode. Turns on T2:
-   * IME (keyCode-229) keydowns are CONSUMED so xterm's DEL hazard never fires;
-   * the gate's container listener delivers the character. Undefined/false =
-   * legacy behavior (xterm handles IME keys).
-   */
-  gateMode?: boolean;
 }
 
 /**
@@ -133,15 +118,12 @@ export function createTerminalKeyHandler(
       return false;
     }
 
-    // Never interfere during IME composition (CJK input, etc.).
-    // Two-layer guard — see module header for rationale.
-    // T2 (gate mode): CONSUME keyCode-229 IME keydowns (return false) so xterm's
-    // _keyDown never reaches _handleAnyTextareaChanges — that snapshot-and-DEL is
-    // the gate design's one remaining hazard. The character still reaches the PTY
-    // via the gate's container `input`/composition path (T1); returning false
-    // does not preventDefault, so the DOM input event still fires. In LEGACY mode
-    // we return true (let xterm handle) exactly as before.
-    if (isImeKeyEvent(event)) return callbacks.gateMode ? false : true;
+    // T2 (Channel Ownership): CONSUME keyCode-229 IME keydowns (return false) so
+    // xterm's _keyDown never reaches _handleAnyTextareaChanges — that snapshot-
+    // and-DEL is the gate design's one remaining hazard. The character still
+    // reaches the PTY via the gate's container `input`/composition path (T1);
+    // returning false does not preventDefault, so the DOM input event still fires.
+    if (isImeKeyEvent(event)) return false;
     if (callbacks.isComposing()) return true;
 
     // Shift+Enter — emit the CSI-u sequence so the WezTerm impersonation

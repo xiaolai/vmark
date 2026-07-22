@@ -568,7 +568,8 @@ describe("createTerminalKeyHandler", () => {
 
     it("Shift+Enter during IME composition does not emit the sequence", () => {
       // CJK input must take precedence — emitting CSI-u during composition
-      // could break the input method's commit flow.
+      // could break the input method's commit flow. T2 consumes the IME keydown
+      // (returns false), which also means the CSI-u sequence is never written.
       const term = makeTerm();
       const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
       const event = makeEvent("Enter", false, {
@@ -578,7 +579,7 @@ describe("createTerminalKeyHandler", () => {
 
       const result = handler(event);
 
-      expect(result).toBe(true);
+      expect(result).toBe(false); // T2 consumes; no preventDefault so the IME still commits
       expect(mockPty.write).not.toHaveBeenCalled();
     });
 
@@ -646,12 +647,12 @@ describe("createTerminalKeyHandler", () => {
     });
   });
 
-  it("passes through IME composition events (isComposing)", () => {
+  it("consumes IME composition events without side effects (isComposing)", () => {
     const term = makeTerm();
     const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
-    // Cmd+V during IME composition should NOT trigger paste
+    // Cmd+V during IME composition: T2 consumes it (false), so it does NOT paste.
     const result = handler(makeEvent("v", true, { isComposing: true }));
-    expect(result).toBe(true);
+    expect(result).toBe(false);
     expect(readText).not.toHaveBeenCalled();
   });
 
@@ -681,27 +682,18 @@ describe("createTerminalKeyHandler", () => {
     vi.unstubAllGlobals();
   });
 
-  it("passes through IME keyCode 229 events in LEGACY mode (xterm handles them)", () => {
+  it("CONSUMES IME keyCode 229 keydowns (T2 — no xterm DEL hazard)", () => {
     const term = makeTerm();
     const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
-    const result = handler(makeEvent("v", true, { keyCode: 229 }));
-    expect(result).toBe(true);
-    // Should not trigger paste
-    expect(readText).not.toHaveBeenCalled();
-  });
-
-  it("CONSUMES IME keyCode 229 events in GATE mode (T2 — no xterm DEL hazard)", () => {
-    const term = makeTerm();
-    const handler = createTerminalKeyHandler(term, ptyRef, {
-      ...callbacks,
-      gateMode: true,
-    });
     // Returning false stops xterm's _keyDown (and its _handleAnyTextareaChanges);
     // it does NOT preventDefault, so the gate's container input listener still
     // delivers the character.
     const event = makeEvent("。", false, { keyCode: 229, code: "Period" });
     expect(handler(event)).toBe(false);
     expect(event.preventDefault).not.toHaveBeenCalled();
+    // A Cmd+V reported as keyCode 229 must NOT paste (consumed as IME first).
+    expect(handler(makeEvent("v", true, { keyCode: 229 }))).toBe(false);
+    expect(readText).not.toHaveBeenCalled();
   });
 
   it("passes through non-keydown events (keyup, keypress)", () => {
