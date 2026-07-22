@@ -111,7 +111,7 @@ Both move here.
 | WI-1.3 | **Claim protocol + normalization** (ADR-015 D2b) — semantic mdast normalization, `exact`/`semantic`/`fallback` strengths, two winning-strength claims = error, diagnostics + dev trace API |
 | WI-1.4 | **Node-safe entrypoint rule** — `feature/markdown.ts` / `feature/prosemirror.ts` / `feature/index.ts`; dep-cruiser **import-graph gate** so registry 1 can never transitively reach editor code. `nodeSafe.ts:16`'s invariant becomes a lint rule, not a comment |
 | WI-1.5 | **Performance baseline** — benchmark serialization at 10 KB / 100 KB / 1 MB and set a p95 + allocation budget *before* any registry indirection lands |
-| WI-1.6 | **Document-scoped inventory** — replace the withdrawn "~700 lines" premise with a reproducible file/range/category/line-count table, distinguishing genuinely document-scoped state from ordered tree transforms, whole-string preprocessing, and shared algorithms a contributed handler can still call |
+| WI-1.6 | ✅ **DONE** — `scripts/pipeline-scope-inventory.mjs`. Result below, and materially better than the withdrawn premise |
 | WI-1.7 | ✅ **DONE** — `plugin-isolation` promoted `warn` → `error`; residual violations frozen via dependency-cruiser's own `--ignore-known` mechanism (the `.dependency-cruiser-known-violations.json` file existed but `lint:deps` never passed the flag, so it was dead) |
 | WI-1.8 | ✅ **DONE** — `scripts/check-extension-budget.mjs` + `scripts/extension-budget.json` wired into `check:all` as `lint:extension-budget`. Ratchets down only, mirroring the file-size gate |
 | WI-1.9 | Correct `dev-docs/architecture.md`'s false "enforced via dep-cruiser" claim |
@@ -138,6 +138,23 @@ measurement command is recorded in `scripts/extension-budget.json`.
 - Import-graph gate fails if registry 1 reaches editor code
 - Performance budget recorded, with a regression gate
 - `plugin-isolation` is `error`; budget only decreases
+
+### WI-1.6 result — the irreducible core is far smaller than assumed
+
+`node scripts/pipeline-scope-inventory.mjs` (re-runnable; fails if a named symbol
+is renamed, so it cannot rot like the numbers it replaces):
+
+| Category | Lines | Meaning |
+|---|---|---|
+| `preprocess` | 319 | Whole-**string** passes before/after any tree exists (`escapeMarkers.ts` 175, `listNormalization.ts` 144). Not per-node — but **relocatable**: remark already models this shape, so they can become registry-1 contributions rather than staying central |
+| `algorithm` | 197 | Genuine whole-document/sibling context: `blankLineCapture.ts` 84, `mergeInlineHtmlTags` 62, `groupInlineItems` 31, `applyCosmeticPass` 20. Stays central — but contributed handlers may still **call** it |
+| `state` | 9 | `usedSlugs` heading uniqueness. Needs a context object, which is a parameter, not a barrier |
+| **Total** | **525 / 5,024 (10.4%)** | vs the withdrawn claim of ~700/2,600 (27%) |
+
+**The genuinely irreducible part is 197 lines — about 4% of the pipeline.** The
+first draft overstated the barrier roughly sevenfold and, worse, lumped together
+four situations with different remedies. The inversion is substantially more
+tractable than the plan originally claimed.
 
 ### Unresolved sub-dependency — the command registry fork
 
