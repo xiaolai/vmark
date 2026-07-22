@@ -754,5 +754,8 @@
   "files.autoResize.1920": "1920px (Full HD)",
   "files.autoResize.2560": "2560px (2K)",
   "editor.preserveBlankLines.label": "Preserve blank lines",
-  "editor.preserveBlankLines.description": "Keep runs of more than one blank line between blocks instead of collapsing them (applies to blank lines already in the file)"
+  "editor.preserveBlankLines.description": "Keep runs of more than one blank line between blocks instead of collapsing them (applies to blank lines already in the file)",
+  "terminal.group.advanced": "進階",
+  "terminal.inputGate.label": "Modern input engine",
+  "terminal.inputGate.description": "Handle keyboard and IME input with the new single-writer engine (recommended). Turn off to fall back to the legacy engine if a specific input method misbehaves. Applies to new terminals."
 }

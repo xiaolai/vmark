@@ -127,7 +127,7 @@ export function useTerminalSessions(
       const screenReaderMode = termSettings?.screenReaderMode ?? false;
       const minimumContrastRatio = termSettings?.minimumContrastRatio ?? 4.5;
       const scrollback = termSettings?.scrollback ?? 5000;
-      const inputGate = termSettings?.inputGate ?? "legacy";
+      const inputGate = termSettings?.inputGate ?? "gate";
       const themeId = getEffectiveThemeId();
 
       // Create a shared ptyRef that we'll update as the pty changes

@@ -76,6 +76,19 @@ describe("TerminalSettings accessibility controls (WI-11)", () => {
     expect(useSettingsStore.getState().terminal.minimumContrastRatio).toBe(7);
   });
 
+  it("input-engine toggle maps ON→gate and OFF→legacy (WI-4a rollback)", () => {
+    render(<TerminalSettings />);
+    const toggle = screen.getByRole("switch", { name: "Modern input engine" });
+    // Default is gate → toggle is ON. Click OFF → legacy (rollback).
+    expect(useSettingsStore.getState().terminal.inputGate).toBe("gate");
+    expect(toggle).toHaveAttribute("aria-checked", "true");
+    fireEvent.click(toggle);
+    expect(useSettingsStore.getState().terminal.inputGate).toBe("legacy");
+    // Click back ON → gate.
+    fireEvent.click(toggle);
+    expect(useSettingsStore.getState().terminal.inputGate).toBe("gate");
+  });
+
   it("exercises every toggle and select without throwing", () => {
     setPlatform("MacIntel");
     render(<TerminalSettings />);

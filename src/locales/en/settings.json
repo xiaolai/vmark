@@ -696,5 +696,8 @@
       "label": "Track document provenance",
       "description": "Record how documents change over time (the coherence layer). Turning this on lets VMark add a `vmark:` id block to a file's frontmatter when it is first tracked, and create a .vmark folder in the workspace."
     }
-  }
+  },
+  "terminal.group.advanced": "Advanced",
+  "terminal.inputGate.label": "Modern input engine",
+  "terminal.inputGate.description": "Handle keyboard and IME input with the new single-writer engine (recommended). Turn off to fall back to the legacy engine if a specific input method misbehaves. Applies to new terminals."
 }
