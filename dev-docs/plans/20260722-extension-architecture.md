@@ -108,7 +108,7 @@ Both move here.
 |---|---|
 | WI-1.1 | ✅ **DONE** — `src/lib/extensions/types.ts`. `Contribution` deliberately excludes commands (registry fork) and panels (ADR-007 seam absent) |
 | WI-1.2 | ✅ **DONE** — `src/lib/extensions/resolve.ts` + 24 tests. Stable topological sort: constraints hard, bucket-then-registration-order as tie-break; dangling refs are errors; cycles report the full path; **empty ordering on any error** so a partial composition can never look plausible. Duplicate Tiptap *name* detection (post-factory) is deferred to Phase 3, where factories actually run |
-| WI-1.3 | **Claim protocol + normalization** (ADR-015 D2b) — semantic mdast normalization, `exact`/`semantic`/`fallback` strengths, two winning-strength claims = error, diagnostics + dev trace API |
+| WI-1.3 | ✅ **DONE (protocol)** — `src/lib/extensions/claim.ts` + 15 tests: strength ranking, conflict-as-error, full bid trace, throwing recognizers degrade to declining. The **semantic mdast normalization** half (blockquote→alert, paragraph/image→video\|audio\|blockImage, html→video\|audio\|videoEmbed) lands in Phase 2 with the nodes it normalizes |
 | WI-1.4 | **Node-safe entrypoint rule** — `feature/markdown.ts` / `feature/prosemirror.ts` / `feature/index.ts`; dep-cruiser **import-graph gate** so registry 1 can never transitively reach editor code. `nodeSafe.ts:16`'s invariant becomes a lint rule, not a comment |
 | WI-1.5 | ✅ **DONE** — `src/bench/pipelinePerf.bench.ts` on the **production** schema (the existing `markdown.bench.ts` uses `getSchema([StarterKit])`, so it measures a pipeline the app never runs). Baseline below |
 | WI-1.6 | ✅ **DONE** — `scripts/pipeline-scope-inventory.mjs`. Result below, and materially better than the withdrawn premise |
