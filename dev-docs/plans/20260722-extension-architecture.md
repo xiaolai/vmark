@@ -1,9 +1,19 @@
 # Extension Architecture — Phased Plan
 
-**Status:** Phase 0A **COMPLETE** (2026-07-23) — harness now runs the production
-schema projection; corpus 12 → 22 fixtures; 4 pre-existing round-trip defects
-found. Phase 0B next. Codex review (RETHINK, 3 BLOCKER / 8 MAJOR) dispositioned
-below.
+**Status (2026-07-23)**
+
+| Phase | State |
+|---|---|
+| 0A safety net | ✅ **COMPLETE** — production-schema harness, corpus 12 → 22, 4 pre-existing defects found |
+| 0B security | ⚠️ **1 of 4** — WI-0B.2 done; the other three are re-scoped onto the capability broker (see below), because the plan's remedies would break custom shells, Save As, and stored keys |
+| 1 architecture contract | ✅ **COMPLETE** — descriptor, resolver, claim protocol, Node-safe gate, scope inventory, perf baseline, budget ratchet, doc corrections |
+| 2 serialization inversion | ⬜ not started |
+| 3 composition migration | ⬜ not started — adoption gate pins 2 bypassing roots |
+| 4A/4B host + markdown | ⬜ not started |
+| 5 extension points | ⬜ not started; gated on the command-registry fork, the ADR-007 slot seam, and a package/security contract — all listed out of scope |
+
+Codex review (RETHINK, 3 BLOCKER / 8 MAJOR) dispositioned below; all three
+BLOCKERs are resolved in Phase 1.
 **Branch:** `refactor/vmark-core`
 **ADR:** `dev-docs/decisions/ADR-015-extension-model.md`
 **Evidence:** `dev-docs/deep-researches/20260721-extension-architecture-investigation.md`,
@@ -86,14 +96,39 @@ tracked separately from Phase 2's byte-preserving requirement.
 Pulled out of Phase 5: these are live holes today and have nothing to do with
 plugins. Any in-webview code already inherits them.
 
-| WI | Change |
-|---|---|
-| WI-0B.1 | Broker `pty::pty_spawn` (arbitrary exe + args + env + cwd, ungated) as deny-by-default one-shot |
-| WI-0B.2 | Validate `ai_provider::run_ai_prompt`'s `cli_path` (`cli_path="/bin/sh"` → RCE) |
-| WI-0B.3 | Confine `file_write::atomic_write_file` through `mcp_bridge_path_guard` (today rejects only `..`) |
-| WI-0B.4 | Namespace the keychain per caller (`secure_store::get_secret` is a flat keyspace) |
+| WI | Change | Status |
+|---|---|---|
+| WI-0B.2 | Validate `run_ai_prompt`'s `cli_path` | ✅ **DONE** — 13 tests; full Rust suite 1437 green |
+| WI-0B.1 | Broker `pty::pty_spawn` | ⛔ **BLOCKED — needs a decision** |
+| WI-0B.3 | Confine `file_write::atomic_write_file` | ⛔ **BLOCKED — the plan's remedy is wrong** |
+| WI-0B.4 | Namespace the keychain per caller | ⛔ **BLOCKED — needs a migration** |
 
-**DoD:** each command deny-by-default with an explicit allow path; regression test per hole.
+WI-0B.2 was safely mechanical because `cli_path`'s legitimate use is a custom
+*install location* for the same binary, so the basename must still match. The
+other three are not, and implementing them as written would ship regressions:
+
+- **WI-0B.1 `pty_spawn`.** The terminal spawns a *user-configured* shell —
+  `spawnPty.ts:188` reads `settings.terminal.shell`. An allowlist would break
+  every custom shell. The real threat is in-webview code spawning arbitrary
+  executables, which needs a caller-identity capability check, not a binary
+  allowlist.
+- **WI-0B.3 `atomic_write_file`.** It already rejects `..`, requires an absolute
+  path, and checks the parent exists. Routing it through
+  `mcp_bridge_path_guard` requires *allowed roots*, but save paths come from the
+  native dialog (`hooks/saveDialog.ts:14`) — a user may legitimately save
+  anywhere. A root allowlist would break Save As. The correct model ties a write
+  to a path the user actually granted, which is the capability broker's job.
+- **WI-0B.4 keychain.** Re-namespacing `apikey.*` per caller strands every key
+  users have already stored. Needs a read-old/write-new migration, and a
+  decision about what happens to keys whose original caller is unknown.
+
+All three converge on the same thing: they need the **capability broker**
+(ADR-015 D5), where authority is bound to a caller principal rather than a path
+or binary allowlist. That is Phase 5's WI-5.3, and pulling it forward is the
+honest sequencing — not shipping three allowlists that break real usage.
+
+**DoD:** WI-0B.2 met. The remaining three are re-scoped onto the capability
+broker and no longer belong in a "mechanical hardening" phase.
 
 ## Phase 1 — Architecture contract (BLOCKER-driven rewrite)
 
