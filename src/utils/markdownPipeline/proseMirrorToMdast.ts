@@ -57,6 +57,11 @@ import {
   type PmToMdastNode,
 } from "./pmBlockConverters";
 import { mdPipelineWarn } from "@/utils/debug";
+import {
+  createTier1Registry,
+  tryRegistry,
+  type PmTier1Registry,
+} from "./pmConverters.registry";
 
 /**
  * Convert ProseMirror document to MDAST root.
@@ -85,6 +90,9 @@ export function proseMirrorToMdast(
  */
 class PMToMdastConverter {
   private context: PmToMdastContext;
+
+  /** Registry 2 (ADR-015 D2). Migrated types resolve here; the rest fall through. */
+  private readonly registry: PmTier1Registry = createTier1Registry();
 
   constructor(
     _schema: Schema,
@@ -133,6 +141,9 @@ class PMToMdastConverter {
    */
   private convertNode(node: PMNode): PmToMdastNode | PmToMdastNode[] | null {
     const typeName = node.type.name;
+
+    const viaRegistry = tryRegistry(this.registry, typeName, node, this.context);
+    if (viaRegistry.handled) return viaRegistry.result;
 
     switch (typeName) {
       // Block nodes
