@@ -112,14 +112,25 @@ Both move here.
 | WI-1.4 | **Node-safe entrypoint rule** — `feature/markdown.ts` / `feature/prosemirror.ts` / `feature/index.ts`; dep-cruiser **import-graph gate** so registry 1 can never transitively reach editor code. `nodeSafe.ts:16`'s invariant becomes a lint rule, not a comment |
 | WI-1.5 | **Performance baseline** — benchmark serialization at 10 KB / 100 KB / 1 MB and set a p95 + allocation budget *before* any registry indirection lands |
 | WI-1.6 | **Document-scoped inventory** — replace the withdrawn "~700 lines" premise with a reproducible file/range/category/line-count table, distinguishing genuinely document-scoped state from ordered tree transforms, whole-string preprocessing, and shared algorithms a contributed handler can still call |
-| WI-1.7 | Promote `plugin-isolation` `warn` → `error`, freezing today's 201 violations in a ratcheting budget (`scripts/file-size-baseline.json` is the pattern) |
-| WI-1.8 | `scripts/check-extension-budget.mjs` in `check:all` — exemption count may only decrease |
+| WI-1.7 | ✅ **DONE** — `plugin-isolation` promoted `warn` → `error`; residual violations frozen via dependency-cruiser's own `--ignore-known` mechanism (the `.dependency-cruiser-known-violations.json` file existed but `lint:deps` never passed the flag, so it was dead) |
+| WI-1.8 | ✅ **DONE** — `scripts/check-extension-budget.mjs` + `scripts/extension-budget.json` wired into `check:all` as `lint:extension-budget`. Ratchets down only, mirroring the file-size gate |
 | WI-1.9 | Correct `dev-docs/architecture.md`'s false "enforced via dep-cruiser" claim |
 
 **Gates must be structural, not textual** (ADR-015 D6). ADR-012's grep gate
 reports green while an 88-entry router dispatches through a variable event id
 (`useUnifiedMenuCommands.ts:350`). Use dep-cruiser rules or call-site counts of
 the sanctioned entry point.
+
+**Progress 2026-07-23:** WI-1.7 and WI-1.8 complete and verified by experiment —
+injecting a cross-plugin import into `plugins/underline/tiptap.ts` turns
+`lint:deps` red (`1 errors`, exit 1); removing it returns green. The constraint
+can now fail, which is the entire point of D6.
+
+Note the scope: the baseline holds **7** violations, not 201. The other ~194 stay
+masked by the 22 `pathNot` entries in the `plugin-isolation` rule, which encode
+reviewed design intent (coordination plugins are cross-cutting *by design*)
+mixed with accepted debt. Separating those two is Phase 3 work; the reproducible
+measurement command is recorded in `scripts/extension-budget.json`.
 
 **DoD**
 - Resolver exists **and** an adoption count is asserted in CI — existence proves nothing (four ADRs died of exactly that)

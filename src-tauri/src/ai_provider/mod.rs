@@ -16,6 +16,7 @@
 //! - `rest_providers` -- REST provider prompt execution
 //! - `dispatch`       -- `ProviderRequest` + provider dispatch shared by both entry points
 
+mod cli_path_guard;
 mod cli;
 mod detection;
 mod dispatch;
@@ -88,6 +89,11 @@ pub async fn run_ai_prompt(
     endpoint: Option<String>,
     cli_path: Option<String>,
 ) -> Result<(), String> {
+    // WI-0B.2: `cli_path` is untrusted webview input and previously overrode the
+    // spawned binary outright (`cli_path="/bin/sh"` → RCE). Validate at the
+    // boundary; internal callers stay injectable.
+    cli_path_guard::validate_cli_path(&provider, cli_path.as_deref())?;
+
     let sink: Arc<dyn AiSink> = Arc::new(WindowSink::new(window, request_id));
     // The streaming editor path doesn't currently expose a per-request cancel
     // token; the legacy `aiInvocationStore.cancel` flow drops the listener
