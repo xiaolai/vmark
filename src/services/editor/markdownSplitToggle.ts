@@ -6,7 +6,7 @@
  *
  * @coordinates-with stores/uiStore — markdownSplitView toggle
  * @coordinates-with stores/documentStore — unified history checkpoint
- * @module hooks/markdownSplitToggle
+ * @module services/editor/markdownSplitToggle
  */
 import { useUIStore } from "@/stores/uiStore";
 import { useTabStore } from "@/stores/tabStore";

@@ -11,7 +11,7 @@ const addWorkspace = vi.fn(() => calls.push("recents"));
 const restoreWorkspaceTabs = vi.fn(async () => calls.push("restoreTabs"));
 const restoreSplitLayout = vi.fn(() => calls.push("restoreSplit"));
 
-vi.mock("@/hooks/openWorkspaceWithConfig", () => ({
+vi.mock("@/services/workspaces/openWorkspaceWithConfig", () => ({
   openWorkspaceWithConfig: (...a: unknown[]) => {
     calls.push("openWorkspaceWithConfig");
     return openWorkspaceWithConfig(...(a as []));

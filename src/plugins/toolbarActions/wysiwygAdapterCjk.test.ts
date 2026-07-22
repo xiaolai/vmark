@@ -5,7 +5,7 @@ vi.mock("@/utils/debug", () => ({
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Mock all external dependencies
-vi.mock("@/hooks/useWindowFocus", () => ({
+vi.mock("@/services/navigation/windowFocus", () => ({
   getWindowLabel: vi.fn(() => "main"),
 }));
 

@@ -49,7 +49,7 @@ vi.mock("@/stores/mediaPopupStore", () => ({
   },
 }));
 
-vi.mock("@/hooks/useWindowFocus", () => ({
+vi.mock("@/services/navigation/windowFocus", () => ({
   getWindowLabel: vi.fn(() => "main"),
 }));
 

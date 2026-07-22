@@ -10,7 +10,7 @@
  *   - findExistingTabForPath checks if a file is already open (prevents duplicates)
  *
  * @coordinates-with useFileOperations.ts — uses getReplaceableTab on file open
- * @module hooks/useReplaceableTab
+ * @module services/tabs/replaceableTab
  */
 import { useTabStore, tabFilePath } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";

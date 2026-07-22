@@ -21,7 +21,7 @@ import { EditorView, keymap, drawSelection, dropCursor, lineNumbers } from "@cod
 import { defaultKeymap, history } from "@codemirror/commands";
 import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import { workflowWarn } from "@/utils/debug";
-import { performUnifiedUndo, performUnifiedRedo } from "@/hooks/useUnifiedHistory";
+import { performUnifiedUndo, performUnifiedRedo } from "@/services/history/unifiedHistory";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { yaml } from "@codemirror/lang-yaml";
 import { languages } from "@codemirror/language-data";

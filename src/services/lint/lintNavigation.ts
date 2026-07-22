@@ -8,7 +8,7 @@
  * @coordinates-with lintStore.ts — reads diagnosticsByTab, selectedIndexByTab
  * @coordinates-with activeEditorStore.ts — reads activeSourceView
  * @coordinates-with editorStore.ts — reads sourceMode
- * @module utils/lintNavigation
+ * @module services/lint/lintNavigation
  */
 
 import { useLintStore } from "@/stores/documentStore";
@@ -17,7 +17,7 @@ import { useUIStore } from "@/stores/uiStore";
 import { EditorView as CMEditorView } from "@codemirror/view";
 import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import { cleanupBeforeModeSwitch } from "@/services/assembly/modeSwitchCleanup";
-import { toggleSourceModeWithCheckpoint } from "@/hooks/useUnifiedHistory";
+import { toggleSourceModeWithCheckpoint } from "@/services/history/unifiedHistory";
 
 /**
  * Scroll the active Source mode editor to the currently selected lint diagnostic.

@@ -33,7 +33,7 @@ import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useRecentFilesStore } from "@/stores/workspaceStore";
 import { useSettingsStore } from "@/stores/settingsStore";
-import { createSnapshot } from "@/hooks/useHistoryOperations";
+import { createSnapshot } from "@/services/history/historyOperations";
 import { buildHistorySettings } from "@/utils/historyTypes";
 import {
   resolveWritableFileOwnership,

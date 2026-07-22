@@ -10,7 +10,7 @@
  *
  * @coordinates-with useHistoryOperations.ts — creates/manages active history
  * @coordinates-with historyTypes.ts — shared types and folder constants
- * @module hooks/useHistoryRecovery
+ * @module services/history/historyRecovery
  */
 
 import {
@@ -29,7 +29,7 @@ import {
   parseHistoryIndex,
 } from "@/utils/historyTypes";
 import { normalizePath, isWithinRoot } from "@/utils/paths/paths";
-import { getHistoryBaseDir } from "@/hooks/useHistoryOperations";
+import { getHistoryBaseDir } from "@/services/history/historyOperations";
 
 /**
  * Permanently delete history for a document.

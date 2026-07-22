@@ -24,7 +24,7 @@ import {
   resolvePostSaveWorkspaceAction,
   resolveMissingFileSaveAction,
 } from "@/utils/openPolicy";
-import { openWorkspaceWithConfig } from "@/hooks/openWorkspaceWithConfig";
+import { openWorkspaceWithConfig } from "@/services/workspaces/openWorkspaceWithConfig";
 import { isWithinRoot, getParentDir } from "@/utils/paths";
 import {
   buildDefaultSavePath,

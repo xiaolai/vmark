@@ -54,7 +54,7 @@ import {
   pruneSnapshots,
 
   deleteSnapshot,
-} from "./useHistoryOperations";
+} from "./historyOperations";
 
 const defaultSettings = {
   maxSnapshots: 50,

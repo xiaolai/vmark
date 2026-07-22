@@ -8,7 +8,7 @@
  * @coordinates-with workspaceStore.ts — reads rootPath and config
  * @coordinates-with useWindowClose.ts — calls persistWorkspaceSession before close
  * @coordinates-with services/persistence/splitLayoutPersistence.ts — saves split layout
- * @module hooks/workspaceSession
+ * @module services/workspaces/workspaceSession
  */
 import { invoke } from "@tauri-apps/api/core";
 import { workspaceError } from "@/utils/debug";

@@ -44,7 +44,7 @@ vi.mock("@/plugins/sourcePeekInline", () => ({
 vi.mock("@/plugins/formatToolbar/nodeActions.tiptap", () => ({
   handleRemoveBlockquote: vi.fn(),
 }));
-vi.mock("@/hooks/useUnifiedHistory", () => ({
+vi.mock("@/services/history/unifiedHistory", () => ({
   performUnifiedUndo: vi.fn(() => true),
   performUnifiedRedo: vi.fn(() => true),
 }));

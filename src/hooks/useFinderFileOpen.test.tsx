@@ -42,12 +42,12 @@ vi.mock("@/contexts/WindowContext", () => ({
   useWindowLabel: () => "main",
 }));
 
-vi.mock("@/hooks/useReplaceableTab", () => ({
+vi.mock("@/services/tabs/replaceableTab", () => ({
   getReplaceableTab: () => null,
   findExistingTabForPath: () => null,
 }));
 
-vi.mock("@/hooks/openWorkspaceWithConfig", () => ({
+vi.mock("@/services/workspaces/openWorkspaceWithConfig", () => ({
   openWorkspaceWithConfig: vi.fn(),
 }));
 

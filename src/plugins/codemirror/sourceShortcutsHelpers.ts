@@ -34,7 +34,7 @@ import { useEditorStore } from "@/stores/editorStore";
 import { getSourceMultiSelectionContext } from "@/plugins/toolbarActions/multiSelectionContext";
 import { formatMarkdown, formatSelection } from "@/lib/cjkFormatter";
 import { resolveHardBreakStyle } from "@/utils/linebreaks";
-import { getWindowLabel } from "@/hooks/useWindowFocus";
+import { getWindowLabel } from "@/services/navigation/windowFocus";
 import { exportError } from "@/utils/debug";
 import { setHeadingLevel, convertToHeading } from "@/plugins/sourceContextDetection/headingDetection";
 import { getHeadingInfo } from "@/plugins/sourceContextDetection/headingDetection";

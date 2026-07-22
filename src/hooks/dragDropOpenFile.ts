@@ -1,6 +1,6 @@
 import { useTabStore } from "@/stores/tabStore";
-import { findExistingTabForPath } from "@/hooks/useReplaceableTab";
-import { openFileInNewTabCore } from "@/hooks/useFileOpen";
+import { findExistingTabForPath } from "@/services/tabs/replaceableTab";
+import { openFileInNewTabCore } from "@/services/navigation/fileOpen";
 
 /**
  * Open a drag-dropped file in a new tab.

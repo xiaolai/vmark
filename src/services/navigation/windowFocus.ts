@@ -3,7 +3,7 @@
  *
  * Purpose: Thin wrapper around Tauri window label API.
  *
- * @module hooks/useWindowFocus
+ * @module services/navigation/windowFocus
  */
 
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";

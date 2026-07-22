@@ -77,7 +77,7 @@ import {
   revertToSnapshot,
   pruneSnapshots,
 
-} from "../useHistoryOperations";
+} from "../historyOperations";
 
 const DOC_PATH = "/docs/test.md";
 

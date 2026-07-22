@@ -37,7 +37,7 @@ vi.mock("@/services/persistence/hotExit/hotExitCoordination", () => ({
 }));
 
 const mockFindExistingTabForPath = vi.fn();
-vi.mock("@/hooks/useReplaceableTab", () => ({
+vi.mock("@/services/tabs/replaceableTab", () => ({
   findExistingTabForPath: (...args: unknown[]) =>
     mockFindExistingTabForPath(...args),
 }));

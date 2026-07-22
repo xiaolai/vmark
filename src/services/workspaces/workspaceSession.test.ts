@@ -4,7 +4,7 @@ import { useWorkspaceStore, type WorkspaceConfig } from "@/stores/workspaceStore
 import { useTabStore } from "@/stores/tabStore";
 import { usePaneStore } from "@/stores/paneStore";
 import { loadSplitLayout } from "@/services/persistence/splitLayoutPersistence";
-import { persistWorkspaceSession } from "@/hooks/workspaceSession";
+import { persistWorkspaceSession } from "@/services/workspaces/workspaceSession";
 
 const WINDOW_LABEL = "main";
 

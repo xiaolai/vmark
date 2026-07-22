@@ -12,7 +12,7 @@ import type { EditorView } from "@codemirror/view";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useSettingsStore, type CJKFormattingSettings } from "@/stores/settingsStore";
 import { useTabStore } from "@/stores/tabStore";
-import { getWindowLabel } from "@/hooks/useWindowFocus";
+import { getWindowLabel } from "@/services/navigation/windowFocus";
 import { collapseNewlines, formatMarkdown, formatSelection, removeTrailingSpaces } from "@/lib/cjkFormatter";
 import { normalizeLineEndings, resolveHardBreakStyle } from "@/utils/linebreaks";
 import { getSourceBlockRange } from "@/utils/sourceSelection";

@@ -82,7 +82,7 @@ vi.mock("@/services/persistence/workspaceStorage", () => ({
 
 // HtmlNodeView routes mode toggles through the checkpoint-aware helper
 // from useUnifiedHistory (per ADR-009 mirror invariants).
-vi.mock("@/hooks/useUnifiedHistory", () => ({
+vi.mock("@/services/history/unifiedHistory", () => ({
   toggleSourceModeWithCheckpoint: (...args: unknown[]) =>
     mockToggleSourceModeWithCheckpoint(...args),
 }));

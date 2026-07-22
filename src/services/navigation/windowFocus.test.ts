@@ -1,7 +1,7 @@
 /**
  * Tests for useWindowFocus — window label retrieval
  *
- * @module hooks/useWindowFocus.test
+ * @module services/navigation/windowFocus.test
  */
 import { describe, it, expect, vi } from "vitest";
 
@@ -11,7 +11,7 @@ vi.mock("@tauri-apps/api/webviewWindow", () => ({
   })),
 }));
 
-import { getWindowLabel } from "./useWindowFocus";
+import { getWindowLabel } from "./windowFocus";
 
 describe("getWindowLabel", () => {
   it("returns the current window label", () => {

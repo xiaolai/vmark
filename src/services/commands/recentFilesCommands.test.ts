@@ -20,7 +20,7 @@ const mockOpenWorkspaceWithConfig = vi.fn();
 vi.mock("@tauri-apps/plugin-fs", () => ({ exists: (...a: unknown[]) => mockExists(...a) }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ ask: (...a: unknown[]) => mockAsk(...a) }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: (...a: unknown[]) => mockInvoke(...a) }));
-vi.mock("@/hooks/useFileOpen", () => ({
+vi.mock("@/services/navigation/fileOpen", () => ({
   openFileInNewTabCore: (...a: unknown[]) => mockOpenFileInNewTabCore(...a),
   replaceTabWithFile: (...a: unknown[]) => mockReplaceTabWithFile(...a),
 }));
@@ -28,8 +28,8 @@ vi.mock("@/utils/openPolicy", () => ({
   resolveOpenAction: (...a: unknown[]) => mockResolveOpenAction(...a),
 }));
 vi.mock("@/services/ime/imeToast", () => ({ imeToast: { error: (...a: unknown[]) => mockToastError(...a) } }));
-vi.mock("@/hooks/useReplaceableTab", () => ({ getReplaceableTab: () => null }));
-vi.mock("@/hooks/openWorkspaceWithConfig", () => ({
+vi.mock("@/services/tabs/replaceableTab", () => ({ getReplaceableTab: () => null }));
+vi.mock("@/services/workspaces/openWorkspaceWithConfig", () => ({
   openWorkspaceWithConfig: (...a: unknown[]) => mockOpenWorkspaceWithConfig(...a),
 }));
 

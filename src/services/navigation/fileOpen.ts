@@ -12,8 +12,8 @@ import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { withReentryGuard } from "@/utils/reentryGuard";
 import { resolveOpenAction } from "@/utils/openPolicy";
-import { openWorkspaceWithConfig } from "@/hooks/openWorkspaceWithConfig";
-import { getReplaceableTab, findExistingTabForPath } from "@/hooks/useReplaceableTab";
+import { openWorkspaceWithConfig } from "@/services/workspaces/openWorkspaceWithConfig";
+import { getReplaceableTab, findExistingTabForPath } from "@/services/tabs/replaceableTab";
 import { createUntitledTab } from "@/services/navigation/newFile";
 import { detectLinebreaks } from "@/utils/linebreakDetection";
 import { getFileName } from "@/utils/pathUtils";
@@ -25,7 +25,7 @@ import { tryOpenMediaFile } from "./openMediaFile";
 import { shouldShowProgressIndicator } from "@/utils/fileSizeThresholds";
 import { errorMessage } from "@/utils/errorMessage";
 // Shared replace flow (also used by "Open Recent File"); re-exported so existing
-// `from "@/hooks/useFileOpen"` import sites stay stable.
+// `from "@/services/navigation/fileOpen"` import sites stay stable.
 import { replaceTabWithFile } from "./replaceTabWithFile";
 export { replaceTabWithFile, type ReplaceTabResult } from "./replaceTabWithFile";
 

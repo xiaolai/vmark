@@ -57,7 +57,7 @@ vi.mock("@/services/assembly/modeSwitchCleanup", () => ({
 }));
 
 const mockToggleSourceModeWithCheckpoint = vi.fn();
-vi.mock("@/hooks/useUnifiedHistory", () => ({
+vi.mock("@/services/history/unifiedHistory", () => ({
   toggleSourceModeWithCheckpoint: (label: string) =>
     mockToggleSourceModeWithCheckpoint(label),
 }));

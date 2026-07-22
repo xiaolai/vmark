@@ -39,7 +39,7 @@ import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 
 // Mock getWindowLabel
-vi.mock("@/hooks/useWindowFocus", () => ({
+vi.mock("@/services/navigation/windowFocus", () => ({
   getWindowLabel: vi.fn(() => "main"),
 }));
 
@@ -278,7 +278,7 @@ describe("resolveMediaSrc", () => {
 describe("getActiveTabIdForCurrentWindow error handling", () => {
   it("returns null when getWindowLabel throws (line 51-52)", async () => {
     // Mock getWindowLabel to throw
-    const { getWindowLabel } = await import("@/hooks/useWindowFocus");
+    const { getWindowLabel } = await import("@/services/navigation/windowFocus");
     const mockGetWindowLabel = getWindowLabel as ReturnType<typeof vi.fn>;
     mockGetWindowLabel.mockImplementationOnce(() => {
       throw new Error("No window");

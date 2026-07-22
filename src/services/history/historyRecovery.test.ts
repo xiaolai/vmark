@@ -32,7 +32,7 @@ vi.mock("@/utils/debug", () => ({
 }));
 
 const mockGetHistoryBaseDir = vi.fn(() => Promise.resolve("/appdata/history"));
-vi.mock("@/hooks/useHistoryOperations", () => ({
+vi.mock("@/services/history/historyOperations", () => ({
   getHistoryBaseDir: () => mockGetHistoryBaseDir(),
 }));
 
@@ -59,7 +59,7 @@ import {
   clearAllHistory,
   deleteDocumentHistory,
   clearWorkspaceHistory,
-} from "./useHistoryRecovery";
+} from "./historyRecovery";
 
 describe("deleteHistory", () => {
   beforeEach(() => {

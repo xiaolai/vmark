@@ -54,13 +54,13 @@ vi.mock("@/utils/openPolicy", () => ({
 }));
 
 const mockOpenWorkspaceWithConfig = vi.fn();
-vi.mock("@/hooks/openWorkspaceWithConfig", () => ({
+vi.mock("@/services/workspaces/openWorkspaceWithConfig", () => ({
   openWorkspaceWithConfig: (...args: unknown[]) => mockOpenWorkspaceWithConfig(...args),
 }));
 
 const mockGetReplaceableTab = vi.fn(() => null);
 const mockFindExistingTabForPath = vi.fn(() => null);
-vi.mock("@/hooks/useReplaceableTab", () => ({
+vi.mock("@/services/tabs/replaceableTab", () => ({
   getReplaceableTab: (...args: unknown[]) => mockGetReplaceableTab(...args),
   findExistingTabForPath: (...args: unknown[]) => mockFindExistingTabForPath(...args),
 }));
@@ -76,7 +76,7 @@ import {
   handleOpenFile,
   handleNew,
   replaceTabWithFile,
-} from "./useFileOpen";
+} from "./fileOpen";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useRecentFilesStore } from "@/stores/workspaceStore";
@@ -428,7 +428,7 @@ describe("handleOpen — dialog and routing", () => {
   it("does nothing when dialog is cancelled (no path selected)", async () => {
     mockOpen.mockResolvedValue(null);
 
-    const { handleOpen } = await import("./useFileOpen");
+    const { handleOpen } = await import("./fileOpen");
     await handleOpen(WINDOW);
 
     expect(mockResolveOpenAction).not.toHaveBeenCalled();
@@ -440,7 +440,7 @@ describe("handleOpen — dialog and routing", () => {
     mockResolveOpenAction.mockReturnValue({ action: "activate_tab", tabId: "tab-42" });
     const setActiveSpy = vi.spyOn(useTabStore.getState(), "setActiveTab");
 
-    const { handleOpen } = await import("./useFileOpen");
+    const { handleOpen } = await import("./fileOpen");
     await handleOpen(WINDOW);
 
     expect(setActiveSpy).toHaveBeenCalledWith(WINDOW, "tab-42");
@@ -452,7 +452,7 @@ describe("handleOpen — dialog and routing", () => {
     mockResolveOpenAction.mockReturnValue({ action: "create_tab" });
     mockReadTextFile.mockResolvedValue("# New Content");
 
-    const { handleOpen } = await import("./useFileOpen");
+    const { handleOpen } = await import("./fileOpen");
     await handleOpen(WINDOW);
 
     expect(mockReadTextFile).toHaveBeenCalledWith("/docs/new.md");
@@ -468,7 +468,7 @@ describe("handleOpen — dialog and routing", () => {
     const { useSettingsStore } = await import("@/stores/settingsStore");
     useSettingsStore.getState().updateGeneralSetting("openInNewTab", true);
 
-    const { handleOpen } = await import("./useFileOpen");
+    const { handleOpen } = await import("./fileOpen");
     await handleOpen(WINDOW);
 
     expect(mockResolveOpenAction).toHaveBeenCalledWith(
@@ -491,7 +491,7 @@ describe("handleOpen — dialog and routing", () => {
     });
     mockReadTextFile.mockResolvedValue("# Replaced");
 
-    const { handleOpen } = await import("./useFileOpen");
+    const { handleOpen } = await import("./fileOpen");
     await handleOpen(WINDOW);
 
     expect(mockReadTextFile).toHaveBeenCalledWith("/docs/replace.md");
@@ -511,7 +511,7 @@ describe("handleOpen — dialog and routing", () => {
     mockReadTextFile.mockRejectedValue(new Error("read fail"));
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
-    const { handleOpen } = await import("./useFileOpen");
+    const { handleOpen } = await import("./fileOpen");
     await handleOpen(WINDOW);
 
     expect(errorSpy).toHaveBeenCalled();
@@ -531,7 +531,7 @@ describe("handleOpen — dialog and routing", () => {
       return Promise.resolve();
     });
 
-    const { handleOpen } = await import("./useFileOpen");
+    const { handleOpen } = await import("./fileOpen");
     await handleOpen(WINDOW);
 
     expect(mockReadTextFile).not.toHaveBeenCalled();
@@ -556,7 +556,7 @@ describe("handleOpen — dialog and routing", () => {
     const { useFileLoadStore } = await import("@/stores/documentStore");
     useFileLoadStore.getState().endLoad();
 
-    const { handleOpen } = await import("./useFileOpen");
+    const { handleOpen } = await import("./fileOpen");
     await handleOpen(WINDOW);
 
     // No editor mount in the unit test, so the indicator stays active
@@ -581,7 +581,7 @@ describe("handleOpen — dialog and routing", () => {
     useFileLoadStore.getState().endLoad();
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
-    const { handleOpen } = await import("./useFileOpen");
+    const { handleOpen } = await import("./fileOpen");
     await handleOpen(WINDOW);
 
     // The indicator was set at the start of replace_tab, and the error path
@@ -609,7 +609,7 @@ describe("handleOpen — dialog and routing", () => {
     );
     useLargeFileSessionStore.setState({ forcedSourceTabs: {} });
 
-    const { handleOpen } = await import("./useFileOpen");
+    const { handleOpen } = await import("./fileOpen");
     await handleOpen(WINDOW);
 
     expect(mockReadTextFile).toHaveBeenCalledWith("/docs/large.md");
@@ -626,7 +626,7 @@ describe("handleOpen — dialog and routing", () => {
       filePath: "/other/file.md",
     });
 
-    const { handleOpen } = await import("./useFileOpen");
+    const { handleOpen } = await import("./fileOpen");
     await handleOpen(WINDOW);
 
     expect(mockInvoke).toHaveBeenCalledWith("open_workspace_in_new_window", {
@@ -645,7 +645,7 @@ describe("handleOpen — dialog and routing", () => {
     mockInvoke.mockRejectedValue(new Error("invoke fail"));
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
-    const { handleOpen } = await import("./useFileOpen");
+    const { handleOpen } = await import("./fileOpen");
     await handleOpen(WINDOW);
 
     expect(errorSpy).toHaveBeenCalled();
@@ -656,7 +656,7 @@ describe("handleOpen — dialog and routing", () => {
     mockOpen.mockResolvedValue("/docs/noop.md");
     mockResolveOpenAction.mockReturnValue({ action: "no_op" });
 
-    const { handleOpen } = await import("./useFileOpen");
+    const { handleOpen } = await import("./fileOpen");
     await handleOpen(WINDOW);
 
     expect(mockReadTextFile).not.toHaveBeenCalled();

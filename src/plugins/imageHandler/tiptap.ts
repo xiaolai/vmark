@@ -29,7 +29,7 @@ import type { EditorView } from "@tiptap/pm/view";
 import { message } from "@tauri-apps/plugin-dialog";
 import i18n from "@/i18n";
 import { saveImageToAssets, insertBlockImageNode } from "@/hooks/useImageOperations";
-import { getWindowLabel } from "@/hooks/useWindowFocus";
+import { getWindowLabel } from "@/services/navigation/windowFocus";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { detectMultipleImagePaths } from "@/utils/imagePathDetection";
 import { parseMultiplePaths } from "@/utils/multiImageParsing";

@@ -21,11 +21,11 @@ const {
   runActiveLint: vi.fn(),
 }));
 
-vi.mock("@/hooks/useUnifiedHistory", () => ({ toggleSourceModeWithCheckpoint }));
+vi.mock("@/services/history/unifiedHistory", () => ({ toggleSourceModeWithCheckpoint }));
 vi.mock("@/services/assembly/modeSwitchCleanup", () => ({ cleanupBeforeModeSwitch }));
-vi.mock("@/components/Terminal/terminalGate", () => ({ requestToggleTerminal }));
+vi.mock("@/services/terminal/terminalGate", () => ({ requestToggleTerminal }));
 vi.mock("@/services/workspaces/fileOwnership", () => ({ toggleDocumentReadOnlyWithOwnership }));
-vi.mock("@/hooks/lintNavigation", () => ({ scrollToSelectedDiagnostic }));
+vi.mock("@/services/lint/lintNavigation", () => ({ scrollToSelectedDiagnostic }));
 vi.mock("@/services/lint/runActiveLint", () => ({ runActiveLint }));
 
 import {

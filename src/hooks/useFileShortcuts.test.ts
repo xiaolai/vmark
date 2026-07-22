@@ -71,7 +71,7 @@ vi.mock("./useFileSave", () => ({
   handleSaveAllQuit: mockHandleSaveAllQuit,
 }));
 
-vi.mock("./useFileOpen", () => ({
+vi.mock("@/services/navigation/fileOpen", () => ({
   handleOpen: mockHandleOpen,
   handleOpenFile: mockHandleOpenFile,
   handleNew: mockHandleNew,

@@ -11,7 +11,7 @@
  * @coordinates-with cjkFormatter — formatting logic
  * @module plugins/toolbarActions/wysiwygAdapterCjk
  */
-import { getWindowLabel } from "@/hooks/useWindowFocus";
+import { getWindowLabel } from "@/services/navigation/windowFocus";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useTabStore } from "@/stores/tabStore";

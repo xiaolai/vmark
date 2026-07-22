@@ -83,7 +83,7 @@ vi.mock("@/services/persistence/workspaceStorage", () => ({
   getCurrentWindowLabel: () => "main",
 }));
 
-vi.mock("@/hooks/useUnifiedHistory", () => ({
+vi.mock("@/services/history/unifiedHistory", () => ({
   performUnifiedUndo: vi.fn(),
   performUnifiedRedo: vi.fn(),
 }));
@@ -185,7 +185,7 @@ import {
 import { keymap } from "@codemirror/view";
 // selectNextOccurrenceSource and selectAllOccurrencesSource are hoisted mocks above
 
-import { performUnifiedUndo, performUnifiedRedo } from "@/hooks/useUnifiedHistory";
+import { performUnifiedUndo, performUnifiedRedo } from "@/services/history/unifiedHistory";
 import { toggleTaskList } from "@/plugins/sourceContextDetection/taskListActions";
 import { isMacPlatform } from "@/utils/shortcutMatch";
 

@@ -21,7 +21,7 @@
 import { listen } from "@tauri-apps/api/event";
 import { readTextFile, stat } from "@tauri-apps/plugin-fs";
 
-import { isBinaryMediaPath } from "@/hooks/openMediaFile";
+import { isBinaryMediaPath } from "@/services/navigation/openMediaFile";
 import {
   attachFsSource,
   createContentHashCache,

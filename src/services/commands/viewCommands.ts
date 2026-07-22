@@ -16,13 +16,13 @@ import { useWindowStatusStore } from "@/stores/windowStatusStore";
 import { useBreakdownStore } from "@/stores/breakdownStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useLintStore } from "@/stores/documentStore";
-import { requestToggleTerminal } from "@/components/Terminal/terminalGate";
+import { requestToggleTerminal } from "@/services/terminal/terminalGate";
 import { cleanupBeforeModeSwitch } from "@/services/assembly/modeSwitchCleanup";
-import { toggleSourceModeWithCheckpoint } from "@/hooks/useUnifiedHistory";
-import { toggleMarkdownSplitWithCheckpoint } from "@/hooks/markdownSplitToggle";
+import { toggleSourceModeWithCheckpoint } from "@/services/history/unifiedHistory";
+import { toggleMarkdownSplitWithCheckpoint } from "@/services/editor/markdownSplitToggle";
 import { getActiveTabId } from "@/services/navigation/activeDocument";
 import { toggleDocumentReadOnlyWithOwnership } from "@/services/workspaces/fileOwnership";
-import { scrollToSelectedDiagnostic } from "@/hooks/lintNavigation";
+import { scrollToSelectedDiagnostic } from "@/services/lint/lintNavigation";
 import { runActiveLint } from "@/services/lint/runActiveLint";
 import i18n from "@/i18n";
 

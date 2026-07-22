@@ -44,7 +44,7 @@ vi.mock("@/utils/reentryGuard", () => ({
   withReentryGuard: mocks.withReentryGuard,
 }));
 
-vi.mock("@/hooks/useWindowFocus", () => ({
+vi.mock("@/services/navigation/windowFocus", () => ({
   getWindowLabel: mocks.getWindowLabel,
 }));
 

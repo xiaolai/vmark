@@ -6,7 +6,7 @@ import { readTextFile } from "@tauri-apps/plugin-fs";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useSettingsStore } from "@/stores/settingsStore";
-import { openFileInNewTabCore } from "../useFileOpen";
+import { openFileInNewTabCore } from "../fileOpen";
 
 const WINDOW = "main";
 

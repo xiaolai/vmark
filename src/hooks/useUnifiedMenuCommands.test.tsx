@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { useUnifiedMenuCommands } from "./useUnifiedMenuCommands";
 import { performWysiwygToolbarAction } from "@/plugins/toolbarActions/wysiwygAdapter";
 import { performSourceToolbarAction } from "@/plugins/toolbarActions/sourceAdapter";
-import { performUnifiedUndo, performUnifiedRedo } from "@/hooks/useUnifiedHistory";
+import { performUnifiedUndo, performUnifiedRedo } from "@/services/history/unifiedHistory";
 import { useTabStore } from "@/stores/tabStore";
 import {
   __resetRegistry,
@@ -87,7 +87,7 @@ vi.mock("@/plugins/toolbarActions/sourceAdapter", () => ({
   setSourceHeadingLevel: vi.fn(() => true),
 }));
 
-vi.mock("@/hooks/useUnifiedHistory", () => ({
+vi.mock("@/services/history/unifiedHistory", () => ({
   performUnifiedUndo: vi.fn(() => true),
   performUnifiedRedo: vi.fn(() => true),
 }));

@@ -99,15 +99,6 @@ module.exports = {
         pathNot: [
           // Tests may import hooks/components to mock them
           "\\.test\\.(ts|tsx)$",
-          // Frozen H4 backlog — services importing business logic from hooks
-          "^src/services/assembly/sourceEditorExtensions\\.ts$",
-          "^src/services/commands/miscCommands\\.ts$",
-          "^src/services/commands/recentFilesCommands\\.ts$",
-          "^src/services/commands/recentWorkspacesCommands\\.ts$",
-          "^src/services/commands/viewCommands\\.ts$",
-          "^src/services/commands/workspaceCommands\\.ts$",
-          "^src/services/media/resolveMediaSrc\\.ts$",
-          "^src/services/persistence/saveToPath\\.ts$",
           // Frozen H4 backlog — React adapters co-located in services
           "^src/services/commands/useCommandBootstrap\\.ts$",
           "^src/services/formats/formatSettingsBridge\\.ts$",

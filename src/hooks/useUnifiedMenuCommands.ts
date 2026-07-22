@@ -63,7 +63,7 @@ import {
   getSourceMultiSelectionContext,
   getWysiwygMultiSelectionContext,
 } from "@/plugins/toolbarActions/multiSelectionContext";
-import { performUnifiedUndo, performUnifiedRedo } from "@/hooks/useUnifiedHistory";
+import { performUnifiedUndo, performUnifiedRedo } from "@/services/history/unifiedHistory";
 import { shouldBlockMenuAction } from "@/utils/focusGuard";
 import {
   runOrQueueCodeMirrorAction,

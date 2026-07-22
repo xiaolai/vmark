@@ -18,7 +18,7 @@ vi.mock("./wrapHandler", () => ({
 vi.mock("@/services/persistence/workspaceStorage", () => ({
   getCurrentWindowLabel: () => "main",
 }));
-vi.mock("@/hooks/openWorkspaceByPath", () => ({
+vi.mock("@/services/workspaces/openWorkspaceByPath", () => ({
   openWorkspaceByPath: (...a: unknown[]) => openWorkspaceByPath(...(a as [])),
   WORKSPACE_TRANSITION_GUARD: "workspace-transition",
 }));

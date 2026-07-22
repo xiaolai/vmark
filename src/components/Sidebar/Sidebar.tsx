@@ -8,7 +8,7 @@ import { useRef, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { FolderTree, TableOfContents, History, FilePlus, FolderPlus, PanelLeftClose, Trash2, ChevronsDownUp, ChevronsUpDown } from "lucide-react";
 import { ask } from "@tauri-apps/plugin-dialog";
-import { deleteDocumentHistory } from "@/hooks/useHistoryRecovery";
+import { deleteDocumentHistory } from "@/services/history/historyRecovery";
 import { emitHistoryCleared } from "@/utils/historyTypes";
 import { useUIStore, type SidebarViewMode } from "@/stores/uiStore";
 import { useShortcutsStore, formatKeyForDisplay } from "@/stores/settingsStore";
