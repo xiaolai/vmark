@@ -123,7 +123,7 @@ module.exports = {
     // into other plugins' internals.
     {
       name: "plugin-isolation",
-      severity: "warn",
+      severity: "error",
       comment:
         "Plugins should be self-contained. Cross-plugin imports are allowed only through shared/, sourcePopup/, or coordination plugins.",
       from: {
