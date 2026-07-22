@@ -2,8 +2,9 @@
 title: "Terminal input — Channel Ownership migration"
 created_at: "2026-07-22 00:17 local"
 mode: "full-plan"
-status: "DRAFT — not started"
+status: "IN PROGRESS — Phases 1-3/5 code-complete behind default-off flag; Phase 4 blocked (human IME matrix). Codex-reviewed 2026-07-22 (MAJOR GAPS on Phase 4 → split into 4a/4b)."
 audit: "dev-docs/deep-researches/20260721-terminal-input-architecture-audit.md"
+plan_review: "Codex gpt-5.6-terra, thread 019f8744, 2026-07-22 — MAJOR GAPS for Phase 4; findings folded into WI-4a/4b"
 dod_checker: "scripts/check-terminal-input-phase.sh"
 ---
 
@@ -15,7 +16,8 @@ dod_checker: "scripts/check-terminal-input-phase.sh"
 | 1 | Safe structural fixes (no arbitration change) | **DONE** (gate 7/7, `check:all` green) | `… 1` |
 | 2 | Channel Ownership behind a flag | **CODE DONE, default-off** (gate 10/10; T1/T2/T3 verified in real WebKit for ASCII + direct non-ASCII **only** — real IME composition cycles are NOT machine-verifiable and remain pending human, WI-0.3) | `… 2` |
 | 3 | Collapse to a single writer | **CODE DONE, default-off** (gate 4/4; resolveCommit 100% mutation). Achieved via direct-to-PTY commit, NOT `term.input` — see WI-3.1. **Real IME cycles still pending human (WI-0.3), same as Phase 2.** | `… 3` |
-| 4 | Delete the proxy guards + flip default | **BLOCKED — human only** (needs the real-IME matrix; irreversible) | `… 4` |
+| 4a | Flip default to `gate` (legacy kept intact) | **BLOCKED — human only** (needs the real-IME matrix + migration + Settings opt-in; Codex review split this out of the old WI-4.1) | `… 4` |
+| 4b | Delete legacy + guards (after baked release) | **BLOCKED — follows 4a's shipped release** (irreversible; NOT the same release as the flip — Codex D1.1/D5.1) | `… 4` |
 | 5 | Test-estate repair + mutation gate | **DONE for now** (gate 4/4; compositionGuard deletion deferred to Phase 4) | `… 5` |
 
 **Phase Status ticks to the next row only after its DoD gate exits 0 AND `pnpm check:all` is green.**
@@ -105,8 +107,12 @@ terminal. Revert with `"legacy"`. To capture traces for the record:
   design writes IME commits straight to the PTY and keeps ASCII on xterm's `onData`; they never
   write the same keystroke. The `term.input` funnel was rejected — see WI-3.1 for the precise
   reasons. The invariant that survives is "exactly one writer per physical keystroke."
-- **R3 — No timing proxies.** Once R1+R2 hold, `IME_COMPOSITION_GRACE_MS`, `IME_DEDUP_WINDOW_MS`,
-  the echo token, and Path A/B are dead and MUST be deleted — a dead guard is a latent bug.
+- **R3 — Minimise timing proxies (softened 2026-07-22, Codex D1.3).** The LEGACY proxies
+  (`IME_COMPOSITION_GRACE_MS`, `IME_DEDUP_WINDOW_MS`, Path A/B, the wiring echo token) die in WI-4b.
+  Honesty note: gate mode is NOT fully proxy-free — it keeps a same-task macrotask `echoText` guard
+  (F1/F2/re-fire dedup) because a purely structural discriminator for post-commit echoes needs real
+  IME traces we don't yet have. This is a much smaller, single, same-task proxy, not the legacy
+  timing-window maze — but it IS a residual proxy and must be characterised against real traces.
 - **R4 — Pure commit resolution.** The five sequential early-returns in `onCompositionEnd`
   (`setupImeComposition.ts:143, 162, 186, 205, 220`) become one **synchronous** pure function
   `resolveCommit(candidates) → string | null` with total case coverage. Keep it synchronous —
@@ -401,22 +407,59 @@ cannot fail — the precise pathology under repair.
 - **Rollback:** revert.
 - **Estimate:** M.
 
-### WI-4.1: Delete the proxy guards (R3) + flip default to `gate`
-- **Goal:** With gate mode proven on real IMEs, delete the legacy guards and make `gate` the default.
-- **Acceptance:** Deleted: `IME_COMPOSITION_GRACE_MS`, `IME_DEDUP_WINDOW_MS`,
-  `terminalSessionInputWiring.ts:115` (blanket), Path A/B (`:117-146`), the echo token
-  (`:75, 82-94, 151-156`), `lastCommittedText`/`lastCommitTime`. `defaults.ts` sets
-  `inputGate: "gate"`. `legacy` branch retained for exactly one release, then a follow-up WI
-  removes it and the flag.
-- **Tests (first):** whole `traceReplay` suite green in gate mode; grep-DoD asserts the constants
-  and Path A/B are gone.
-- **Touched areas:** `setupImeComposition.ts`, `createTerminalInstance.ts`,
-  `terminalSessionInputWiring.ts`, `defaults.ts`.
-- **Dependencies:** WI-3.1, WI-3.2, and **WI-0.3 human sign-off on all IME fixtures**.
-- **Risks:** highest-judgment step (five guards at once) → gated behind a full release of baking
-  in gate mode + the human matrix.
-- **Rollback:** flip default to `legacy` (kill switch); the branch still exists this release.
-- **Estimate:** M — but **gated by real-world bake time**.
+### Phase 4 — SPLIT into 4a (flip) and 4b (delete) — Codex review 2026-07-22, verdict MAJOR GAPS
+
+**Why split (Codex D1.1/D5.1, Critical):** the original single WI-4.1 both *deleted the legacy
+guards* and *retained `legacy` as a one-release rollback*. Those guards ARE the legacy behavior —
+you cannot delete them and still have a working fallback. The one-release "kill switch" was
+therefore illusory. Flip and delete MUST be different releases.
+
+### WI-4a: Flip the default to `gate` — legacy kept fully intact
+- **Goal:** Make `gate` the default while the COMPLETE, tested legacy implementation (all guards,
+  `compositionGuard`-covered scenarios via production-bound tests) remains as a real, operable
+  rollback.
+- **Preconditions (ALL required, human-produced — Codex "minimum evidence"):**
+  1. A checked-in, versioned IME matrix: macOS Pinyin/Zhuyin/Japanese/Korean, WeChat, Linux
+     fcitx5+rime, Windows MS-IME — each with OS, IME version/layout, device, tester, date, app build.
+  2. Ordered traces from the real debug app per case, capturing DOM events **plus** instrumented
+     `term.onData`, the gate commit, the PTY write, and the raw PTY echo (see WI-0.1 addendum —
+     the recorder must be extended to the output boundary; today it captures DOM only).
+  3. Per case: exact PTY bytes + write count; **zero** xterm-originated IME bytes; textarea state;
+     no spurious DEL; cursor/scroll behavior; device-query (DA1/CPR) reply forwarding.
+  4. Coverage of: normal + multi-syllable commits, converted punctuation, direct insertion, Shift
+     punctuation, candidate cancel/replace, **ASCII-result composition** (the D3.1 path), orphan/
+     re-fired/accumulated `compositionend`, rapid repeated identical commits, paste/drop, session
+     switch/dispose, shell exit, toggle-terminal during grace.
+- **Migration (Codex D4.1, Critical):** `inputGate` is persisted and deep-merged over defaults, so
+  existing users keep their stored `"legacy"` and would NOT get gate on flip. Since there is no UI
+  toggle, a stored `"legacy"` is NOT an intentional opt-out — add a one-shot migration that clears
+  a stored `inputGate` when it equals the OLD default so flipped users actually move to gate.
+- **Rollout (Codex D5.2):** default-off + DevTools-only is not a real bake. Before flip, add a
+  discoverable opt-in (Settings row) so gate gets representative usage; keep legacy as the operable
+  rollback.
+- **DoD:** grep is NOT sufficient (Codex D4.4). Require the checked-in matrix + trace artifacts +
+  green production-bound tests + explicit human sign-off recorded in the plan.
+- **Rollback:** set `inputGate: "legacy"` — legacy is FULLY present this phase.
+- **Estimate:** gated by real-world bake time; human matrix is days of clock-time, not agent-time.
+
+### WI-4b: Delete the legacy path + proxy guards — only AFTER a baked default-on release
+- **Goal:** Once a full release has shipped default-on with clean evidence, remove the dead legacy
+  code and its now-unused guards.
+- **Acceptance:** Delete `setupImeComposition.ts` legacy dedup (`IME_COMPOSITION_GRACE_MS`, the
+  grace machinery), `terminalSessionInputWiring.ts` `IME_DEDUP_WINDOW_MS` / Path A/B / echo token /
+  `lastCommittedText`/`lastCommitTime`, and split the shared `ImeCompositionHandle` into gate-only
+  vs legacy contracts BEFORE deleting fields (Codex D1.3/D4.2 — the GATE still uses its own
+  `echoText`/`lastCommitted*`; the deletion list must not touch those). Delete `compositionGuard.test.ts`
+  only after each legitimate scenario it covers has a production-bound replacement (Codex D2.4).
+- **Dependencies:** a shipped, baked WI-4a release with clean evidence.
+- **Rollback:** revert the deletion commit (legacy is in git history, but no longer a live fallback —
+  which is why 4b waits for the bake).
+- **Estimate:** M, mechanical — but strictly gated on 4a's release evidence.
+
+**Residual gate-mode correctness still to prove before WI-4a (Codex D3.x, not yet closed):**
+whether any supported IME still lets xterm originate a write during composition (composition-phase
+`insertText` passes through today), and whether the gate `echoText` — a same-task macrotask proxy,
+NOT proxy-free — mishandles a cross-task echo or a genuine same-task repeat. Both need real traces.
 
 ### WI-5.1: Repair the test estate (the reason the bug class shipped green)
 - **Goal:** Replace tests that model the author's belief with tests that observe the contract.

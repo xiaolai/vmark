@@ -105,9 +105,16 @@ export function setupImeCompositionGate({ container, textarea }: GateOptions): I
     composing = false;
     // Only trust the textarea diff when a real compositionstart set the snapshot
     // (F2). Orphan compositionend → diff "", so resolveCommit uses only e.data.
-    const textareaDiff = started ? textarea.value.slice(textareaStartLen) : "";
+    const wasStarted = started;
+    const textareaDiff = wasStarted ? textarea.value.slice(textareaStartLen) : "";
     started = false;
-    const text = resolveCommit({ eventData: e.data, textareaDiff });
+    let text = resolveCommit({ eventData: e.data, textareaDiff });
+    // A REAL composition result must be committed even if it is ASCII: T2
+    // (keyCode-229) blocked xterm's keydown path during composition, so nothing
+    // else delivers it. resolveCommit returns null for ASCII (correct for the
+    // no-composition onInput path — xterm keydown owns that), so fall back to the
+    // composition's own text here (audit D3.1). Orphan ends are NOT eligible.
+    if (!text && wasStarted) text = e.data || textareaDiff || null;
     terminalLog("gate compositionend", e.data, "->", text);
     // T3: clear the textarea synchronously so xterm's setTimeout(0)
     // _finalizeComposition reads "" and emits nothing.
@@ -115,15 +122,16 @@ export function setupImeCompositionGate({ container, textarea }: GateOptions): I
     if (text && !isEcho(text)) commit(text); // drop a re-fired duplicate (F2)
   };
 
-  // T1: container capture listener. Forwards an IME-origin non-ASCII insert and
-  // ALWAYS stops the event so xterm's textarea `_inputEvent` never fires.
+  // T1: container capture listener. For a plain `insertText` outside composition
+  // it forwards an IME-origin non-ASCII insert and stops the event so xterm's
+  // `_inputEvent` never fires. NOTE: it does NOT stop every input — composition-
+  // phase inserts (insertCompositionText, isComposing, or while `composing`) and
+  // non-insertText inputs (deletes, paste) are left for xterm/the composition
+  // cycle. Whether xterm can still originate a write from those during a real IME
+  // cycle is exactly what the human matrix must confirm before Phase 4 (audit D1.4/D3.2).
   const onInput = (e: Event) => {
     const ie = e as InputEvent;
-    // Only the input events xterm would route through `_inputEvent`: a plain
-    // insertText. Composition-phase inserts are handled by the composition cycle.
     if (ie.inputType !== "insertText" || ie.isComposing || composing) {
-      // Still sever xterm's path for insertText-family events during composition;
-      // let unrelated events (deletes, paste inputType) fall through untouched.
       return;
     }
     // Sever xterm's _inputEvent for this insert.
