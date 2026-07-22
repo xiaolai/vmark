@@ -1,6 +1,8 @@
 # Extension Architecture — Phased Plan
 
-**Status:** Phase 0 — not started
+**Status:** NEEDS AMENDMENT → amended 2026-07-22. Codex cross-model review
+returned RETHINK (3 BLOCKER, 8 MAJOR); all findings dispositioned below.
+Phase 0A not started.
 **Branch:** `refactor/vmark-core`
 **ADR:** `dev-docs/decisions/ADR-015-extension-model.md`
 **Evidence:** `dev-docs/deep-researches/20260721-extension-architecture-investigation.md`,
@@ -12,10 +14,28 @@ eventually. ADR-015 holds the decisions; this file holds the sequence.
 ## Guiding constraint
 
 Phases are ordered so that **each one makes the next one safe**, not by how
-visible the result is. Phase 0 exists because the safety net currently approves
-data loss, and every later phase leans on it.
+visible the result is.
 
-## Phase 0 — Repair the safety net (blocking)
+## Codex review disposition (2026-07-22)
+
+Verdict **RETHINK**. Three factual claims in the first draft were checked and
+**all three were wrong** — corrected in ADR-015 and here:
+
+| First draft said | Reality |
+|---|---|
+| "~700 of ~2,600 non-test pipeline lines are document-scoped" | The pipeline is **4,994** non-test lines (30 files). The 700 figure was never independently derived. **Premise withdrawn** — WI-1.6 now produces a real inventory |
+| "100% of markdown-conversion knowledge lives in the pipeline" | False. `vmark-content-server/src/render/remarkAlerts.ts:72` owns an independent alert transform; the pipeline imports `videoProviderRegistry`. The true claim is narrower: *no Tiptap extension owns its adapter* |
+| "the goldens approve the deletion" | False. The corpus has **no** `[TOC]`/video/audio/iframe fixture, so these are never tested. The hazard is prospective — which is exactly what Phase 0A's new fixtures would trigger |
+
+Accepted structural changes: claim protocol moves to Phase 1 (BLOCKER — overlap
+is not confined to the hard families, so "mechanical" work would bake in an
+accidental protocol); a resolver + stable-ID contract becomes Phase 1 before
+serialization (BLOCKER — the old WI-1.1 contract test depended on a registry that
+Phase 3 had not yet built); security hardening moves to Phase 0B; Phase 4 splits
+into host normalization then markdown extraction; performance and undo/redo
+become explicit gates.
+
+## Phase 0A — Repair the safety net (blocking)
 
 The corpus characterization harness runs against `testSchema.ts`, not the
 production schema. That schema omits `toc`, `block_video`, `block_audio`, and
@@ -28,32 +48,74 @@ Until this is fixed, no serialization refactor can be trusted — arms 13/14/15/
 
 | WI | Change |
 |---|---|
-| WI-0.1 | Run the characterization harness against the **production** schema (or extend `testSchema` to cover all node types), and re-approve goldens under review |
+| WI-0.1 | Derive the harness schema as a **schema-only projection from the same resolved production descriptors**, with UI-only plugins excluded by an explicit capability filter. Do *not* hand-extend `testSchema` (recreates the drift) and do *not* instantiate the full editor (pulls React/DOM/stores into Node) |
 | WI-0.2 | Add corpus fixtures for every uncovered custom syntax: `[TOC]`, `<video>`/`<audio>`/`![x](y.mp4)`/`<source>` fallback, provider `<iframe>` embeds, `++underline++`, escaped markers `\== \++ \^ \~`, nested `<details>`, bare list markers, multi-block footnote definitions, alerts containing lists/code, table cells with hard breaks |
 | WI-0.3 | Add fixtures for the non-default option paths: `preserveBlankLines`, `hardBreakStyle: "twoSpaces"`, `preserveLineBreaks` |
 | WI-0.4 | Assert the harness fails when a node type is missing from the schema, rather than silently dropping it |
 
+| WI-0.5 | Build a **compatibility corpus** captured from released VMark versions; require fixed-point stability against it. Any intentional canonicalization change is documented as a format migration — never an automatic rewrite of unopened files |
+
 **DoD**
 - Harness exercises all 24 PM→mdast and 31 mdast→PM arms; a coverage assertion names any arm with no fixture
 - Deliberately deleting one switch arm turns the suite red (verified by experiment, not assumed)
+- Released-version compatibility corpus round-trips to a fixed point
 - `pnpm check:all` green
 
-## Phase 1 — Make constraints able to fail
+## Phase 0B — Security hardening (independent, do regardless)
 
-ADR-015 D6. Nothing here changes behaviour; it makes drift detectable before the
-large refactors begin.
+Pulled out of Phase 5: these are live holes today and have nothing to do with
+plugins. Any in-webview code already inherits them.
 
 | WI | Change |
 |---|---|
-| WI-1.1 | Contract test: `set(registryEntries) === set(composedExtensions)` — red on drift |
-| WI-1.2 | Promote `plugin-isolation` from `warn` to `error`, freezing the current 201 violations in a ratcheting exemption budget (see `scripts/file-size-baseline.json` for the pattern) |
-| WI-1.3 | Add `scripts/check-extension-budget.mjs` to `check:all` — the exemption count may only decrease |
-| WI-1.4 | Correct `dev-docs/architecture.md`, which claims the services-tier rule is "enforced via dep-cruiser" |
+| WI-0B.1 | Broker `pty::pty_spawn` (arbitrary exe + args + env + cwd, ungated) as deny-by-default one-shot |
+| WI-0B.2 | Validate `ai_provider::run_ai_prompt`'s `cli_path` (`cli_path="/bin/sh"` → RCE) |
+| WI-0B.3 | Confine `file_write::atomic_write_file` through `mcp_bridge_path_guard` (today rejects only `..`) |
+| WI-0B.4 | Namespace the keychain per caller (`secure_store::get_secret` is a flat keyspace) |
+
+**DoD:** each command deny-by-default with an explicit allow path; regression test per hole.
+
+## Phase 1 — Architecture contract (BLOCKER-driven rewrite)
+
+The first draft made this "make constraints fail" and deferred both the resolver
+and the claim protocol. Codex showed that cannot work: WI-1.1's
+`set(registry) === set(composed)` test compared a manifest registry against a
+hand-built array, with no honest definition of equality, and the deferred claim
+protocol would have been silently pre-decided by the "mechanical" tier of Phase 2.
+Both move here.
+
+| WI | Change |
+|---|---|
+| WI-1.1 | **Stable extension descriptor** (ADR-015 D1) — `id`, `version`, `requires`, `ordering`, `contributions`. Not value identity: composition builds values inline (`tiptapExtensions.ts:114,142`), so factory calls yield fresh objects |
+| WI-1.2 | **Resolver** — flatten groups, reject duplicate IDs, validate `requires`/ordering references, topological sort with deterministic tie-breaks, report full cycle paths, detect duplicate Tiptap extension names after factories run |
+| WI-1.3 | **Claim protocol + normalization** (ADR-015 D2b) — semantic mdast normalization, `exact`/`semantic`/`fallback` strengths, two winning-strength claims = error, diagnostics + dev trace API |
+| WI-1.4 | **Node-safe entrypoint rule** — `feature/markdown.ts` / `feature/prosemirror.ts` / `feature/index.ts`; dep-cruiser **import-graph gate** so registry 1 can never transitively reach editor code. `nodeSafe.ts:16`'s invariant becomes a lint rule, not a comment |
+| WI-1.5 | **Performance baseline** — benchmark serialization at 10 KB / 100 KB / 1 MB and set a p95 + allocation budget *before* any registry indirection lands |
+| WI-1.6 | **Document-scoped inventory** — replace the withdrawn "~700 lines" premise with a reproducible file/range/category/line-count table, distinguishing genuinely document-scoped state from ordered tree transforms, whole-string preprocessing, and shared algorithms a contributed handler can still call |
+| WI-1.7 | Promote `plugin-isolation` `warn` → `error`, freezing today's 201 violations in a ratcheting budget (`scripts/file-size-baseline.json` is the pattern) |
+| WI-1.8 | `scripts/check-extension-budget.mjs` in `check:all` — exemption count may only decrease |
+| WI-1.9 | Correct `dev-docs/architecture.md`'s false "enforced via dep-cruiser" claim |
+
+**Gates must be structural, not textual** (ADR-015 D6). ADR-012's grep gate
+reports green while an 88-entry router dispatches through a variable event id
+(`useUnifiedMenuCommands.ts:350`). Use dep-cruiser rules or call-site counts of
+the sanctioned entry point.
 
 **DoD**
-- `pnpm check:all` fails if the registry and composition disagree
-- `plugin-isolation` severity is `error`; budget script rejects any increase
-- No architectural claim in docs is unbacked by a gate
+- Resolver exists **and** an adoption count is asserted in CI — existence proves nothing (four ADRs died of exactly that)
+- Claim protocol has a test proving two same-strength claims fail loudly
+- Import-graph gate fails if registry 1 reaches editor code
+- Performance budget recorded, with a regression gate
+- `plugin-isolation` is `error`; budget only decreases
+
+### Unresolved sub-dependency — the command registry fork
+
+`src/services/commands/` has 49 `registerCommand()` sites; `src/plugins/actions/types.ts`
+has 83 `ActionId`s; **there is no bridge**, and the editing surface (bold, tables,
+headings, undo) lives entirely in the second — the Command Palette cannot find
+"bold". Until this is resolved, `Contribution` **must not** include commands.
+Resolving it is a prerequisite for any "extensions declare commands" capability
+and is not scoped here.
 
 ## Phase 2 — Serialization inversion (ADR-015 D2)
 
@@ -112,9 +174,30 @@ tree in `components/Editor/alignedTableNodes.ts`; `paragraph`/`heading`/
    through. Combined with `mergeInlineHtmlTags` (a document-level pre-pass over
    sibling arrays), this arm cannot become a pure per-node function under any design.
 
-**Deliverable before WI-2.5 code:** a written claim protocol — how competing
-extensions bid for an mdast node, how ties resolve, and how the resolution is
-tested. This is the one genuinely novel design in the plan.
+**The claim protocol is now WI-1.3, not a Phase 2 deliverable.** Overlap is not
+confined to these four: `codeBlock` is ambiguous via the `MATH_BLOCK_LANGUAGE`
+sentinel (`pmBlockConverters.ts:80`), and `paragraph`/`html` each fan out to four
+or five outcomes (`mdastMediaConverters.ts:38,72`). Migrating them "mechanically"
+first would bake in an accidental protocol.
+
+### Migration method — differential, not big-bang
+
+Add registries **alongside** the switches; migrate by semantic family; run old and
+new serializers in **differential mode** over the corpus during migration; move
+ambiguous families only after normalization exists; delete the switches last.
+
+### Undo/redo compatibility (Codex MAJOR — was missing entirely)
+
+Mode switches checkpoint serialized markdown and restore by reparsing
+(`markdownSplitToggle.ts:17`), and hot-exit persists checkpoints across restarts.
+A serializer behaviour change can make an old checkpoint parse differently from a
+current document. Required tests per tier:
+
+- undo/redo across WYSIWYG ↔ source ↔ split transitions
+- restore a checkpoint produced *before* the migration
+- extension enabled → edit custom node → extension disabled → undo/redo
+- unknown contribution during restore preserves source text or fails visibly — **never deletes**
+- pending debounced flush followed immediately by undo, mode switch, close, or crash recovery
 
 ### What stays central, by design
 
@@ -157,7 +240,22 @@ rather than reasoning from array position.
 - Composition array is alphabetical; no ordering test depends on position
 - No `addFeature`-style side channel exists
 
-## Phase 4 — Markdown becomes an extension
+## Phase 4A — Host normalization (prerequisite, was buried in Phase 4)
+
+Proving markdown is ordinary requires one format-neutral host first. Today there
+are two CodeMirror hosts: `sourceEditorExtensions.ts:25-28` hard-wires
+`lang-markdown` plus an `isYamlFileName` branch, while
+`SplitPaneEditor/sourcePaneExtensions.ts` already does registry-driven lazy
+language loading correctly.
+
+| WI | Change |
+|---|---|
+| WI-4A.1 | Reconcile the two CodeMirror hosts onto the registry-driven one |
+| WI-4A.2 | Unify format dispatch; retire the second path |
+
+**DoD:** one CodeMirror host; no format-specific branch in host code.
+
+## Phase 4B — Markdown becomes an extension
 
 Only now is this expressible. Markdown stops being privileged:
 
@@ -170,7 +268,6 @@ Only now is this expressible. Markdown stops being privileged:
 | WI-4.5 | Invert the failure-open default: `MARKDOWN_FALLBACK_ID`, `dispatchEditor(null)`, and `Editor.tsx:118`'s `?? MarkdownEditorSurface` all mean "no format" silently becomes markdown |
 | WI-4.6 | Unify the two extension axes — reconcile `plugins/registry.ts`'s closed `FormatId` union (6 ids, cannot name `txt`/`svg`/`mermaid`/`media`/`code-*`) with `lib/formats`' open registry |
 | WI-4.7 | Retire the duplicated hosts: mermaid's staleness-token/error-UI/mount lifecycle is written **three** times (React, PM decoration, imperative DOM) over one shared engine; svg carries a second independent validator |
-| WI-4.8 | Reconcile the two CodeMirror hosts — `sourceEditorExtensions.ts` hard-wires `lang-markdown` + an `isYamlFileName` branch, while `SplitPaneEditor/sourcePaneExtensions.ts` already does registry-driven lazy language loading correctly |
 
 **DoD**
 - A format adapter can contribute parser, serializer, commands, and lint rules
@@ -178,13 +275,22 @@ Only now is this expressible. Markdown stops being privileged:
 - Default format is `txt`; markdown is selected, never assumed
 - One CodeMirror host, one registry, one mermaid host
 
-## Phase 5 — Extension points and trust tiers (third-party)
+## Phase 5 — Extension points, then executable trust tiers
+
+**Scope correction (Codex MAJOR).** The first draft promised "signed declarative
+manifests" while listing signing infrastructure, SDK versioning, and compatibility
+policy as out of scope — a contradiction. Tier A cannot be *signed* without key
+ownership and rotation, revocation, package identity, update policy, compatibility
+ranges, downgrade behaviour, tamper detection, and a local-development exception.
+
+Phase 5 therefore delivers **first-party extension points** first; executable
+third-party tiers are gated on a package/security contract that does not yet
+exist and is not designed here.
 
 | WI | Change |
 |---|---|
-| WI-5.0 | **Security pre-req, do regardless:** broker `pty_spawn` and `run_ai_prompt`'s `cli_path` as deny-by-default one-shots; confine `atomic_write_file` through `mcp_bridge_path_guard`; namespace the keychain per caller |
 | WI-5.1 | Markdown declares a keyed fence-language extension point (ADR-015 D3); mermaid/graphviz/markmap/svg/sli.dev register as **peers**. These need no pipeline work at all — they are `codeBlock` + language string |
-| WI-5.2 | Tier A: signed declarative manifests (themes, snippets, keybindings) |
+| WI-5.2 | Tier A declarative contributions (themes, snippets, keybindings) — **unsigned, first-party**; signing deferred to the package contract |
 | WI-5.3 | Generalize the existing browser capability broker (`origin_guard`/`one_shot`/`operation`) from `(origin × operation)` to `(plugin-principal × capability-scope)` |
 | WI-5.4 | Tier C: dynamic tool registration + prefix routing on the MCP bridge, replacing the 3 closed switches; arbitrate namespaces on the already-captured `ClientIdentity` |
 | WI-5.5 | Tier B: worker/WASM host + the safe editor subset (decorations, fence renderers, declarative input rules) |
@@ -195,10 +301,31 @@ Only now is this expressible. Markdown stops being privileged:
 - No third-party path executes with document-window identity
 - Broker mediates every capability; default-deny
 
+## Cross-cutting requirements (Codex — were missing)
+
+- **i18n.** Registry internals need no strings, but extension-resolution errors,
+  disabled-extension notices, conflict dialogs, and unknown-node recovery are
+  user-facing and must route through `t()`. IDs and machine diagnostics stay
+  stable English-like tokens; rendered messages are translated.
+- **Document migration is mostly the wrong framing.** Markdown is the persisted
+  source, so a byte-preserving Phase 2 needs no file migration. The real
+  compatibility risks are old hot-exit checkpoints, documents using syntax whose
+  extension is not installed, changed canonical output after golden
+  re-approval, and IDs renamed when manifests are deleted. Never auto-rewrite
+  unopened files.
+- **Rust scope stays bounded.** Redesigning all 157 Tauri commands is *not*
+  required for first-party extension composition. Only Phase 0B hardening now;
+  per-caller namespacing only where commands become plugin-callable.
+
 ## Out of scope
 
 - Marketplace, signing infrastructure, SDK versioning policy, contract-freeze
-  governance — named in the 2026-07-21 investigation, not designed here
+  governance — named in the 2026-07-21 investigation, not designed here. Phase 5
+  is scoped to first-party extension points precisely because of this gap
+- **Resolving the command-registry fork** (49 `registerCommand` vs 83 `ActionId`,
+  no bridge). Blocks `Contribution.commands`; needs its own plan
+- **Building the ADR-007 shell slot seam** — `SlotDescriptor` has no host, no
+  `PanelHost`/`OverlayHost`, and 15 hardcoded overlays. Blocks contributed panels
 - Tier D third-party schema nodes — unlocked by Phase 2 but gated on Phase 5
 - The 109 remaining file-size baseline entries
 - H4 Phase 2/3 leftovers (6 exemptions) — see
