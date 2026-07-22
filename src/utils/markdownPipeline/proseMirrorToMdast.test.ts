@@ -50,7 +50,13 @@ vi.mock("@/utils/debug", () => ({
   mdPipelineWarn: vi.fn(),
 }));
 
-vi.mock("./pmBlockConverters", () => mockConverters);
+// Spread the real module first: convertFootnoteDefinition and convertToc were
+// extracted into it for registry 2, and some tests exercise the REAL
+// implementation while mocking only its collaborators.
+vi.mock("./pmBlockConverters", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./pmBlockConverters")>()),
+  ...mockConverters,
+}));
 vi.mock("./pmInlineConverters", () => mockInlineConverters);
 
 import { proseMirrorToMdast } from "./proseMirrorToMdast";

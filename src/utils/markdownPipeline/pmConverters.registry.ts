@@ -14,8 +14,6 @@
  * relocation rather than a redesign.
  *
  * Not here, and deliberately:
- *   - `footnote_definition` — a private method on PMToMdastConverter rather than
- *     an extracted function, so it cannot be registered yet. The last arm.
  *   - Marks — `groupInlineItems` factors mark runs across ALL marks at once and
  *     cannot decompose per mark; that stays central by design (WI-1.6).
  *   - The mdast → PM direction — 31 arms, and the one that genuinely needs the
@@ -51,6 +49,7 @@ import {
   type PmToMdastContext,
   type PmToMdastNode,
 } from "./pmBlockConverters";
+import { convertFootnoteDefinition } from "./pmFootnoteConverters";
 
 export type PmToMdastResult = PmToMdastNode | PmToMdastNode[] | null;
 
@@ -108,6 +107,7 @@ export const STRUCTURAL_NODE_NAMES = [
   "block_video",
   "block_audio",
   "video_embed",
+  "footnote_definition",
 ] as const;
 
 /** Build the Tier-1 registry. Fresh instance per call; no module-level state. */
@@ -231,6 +231,11 @@ export function createTier1Registry(): PmTier1Registry {
       extensionId: "vmark.videoEmbed",
       nodeName: "video_embed",
       convert: (node) => convertVideoEmbed(node),
+    },
+    {
+      extensionId: "vmark.footnotePopup.definition",
+      nodeName: "footnote_definition",
+      convert: (node, ctx) => convertFootnoteDefinition(ctx, node),
     },
   ]);
 

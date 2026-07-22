@@ -14,9 +14,8 @@
  *   - PM → MDAST needs no claim protocol: the ProseMirror node type is
  *     definitive. Attribute-level competition exists only in the reverse
  *     direction (mdast → PM), which registry 1 owns.
- *   - footnote_definition is the one node still handled here, because it is a
- *     private method rather than an extracted function. Extracting it makes
- *     convertNode pure dispatch.
+ *   - convertNode is now PURE DISPATCH: every node type resolves through
+ *     registry 2, with no special cases.
  *   - Schema parameter is accepted but currently unused — reserved for future
  *     custom node detection (e.g., schema-aware type checking)
  *   - ListItem nodes at root level are filtered out (they should only appear
@@ -36,10 +35,9 @@ import type {
   Root,
   Content,
   PhrasingContent,
-  BlockContent,
   Html,
 } from "mdast";
-import type { FootnoteDefinition, WikiLink } from "./types";
+import type { WikiLink } from "./types";
 import * as inlineConverters from "./pmInlineConverters";
 import type { InlineItem } from "./pmInlineConverters";
 import type { PmToMdastContext, PmToMdastNode } from "./pmBlockConverters";
@@ -132,13 +130,6 @@ class PMToMdastConverter {
     const viaRegistry = tryRegistry(this.registry, typeName, node, this.context);
     if (viaRegistry.handled) return viaRegistry.result;
 
-    // Only footnote_definition remains: it is a private method on this class
-    // rather than an extracted function, so it cannot be registered yet. Every
-    // other arm now lives in registry 2 (pmConverters.registry.ts).
-    if (typeName === "footnote_definition") {
-      return this.convertFootnoteDefinition(node);
-    }
-
     mdPipelineWarn(`[PMToMdast] Unknown node type: ${typeName}`);
     return null;
   }
@@ -189,27 +180,6 @@ class PMToMdastConverter {
 
   // Custom node converters
 
-  private convertFootnoteDefinition(node: PMNode): FootnoteDefinition {
-    const children: BlockContent[] = [];
-    node.forEach((child) => {
-      const converted = this.convertNode(child);
-      /* v8 ignore next -- @preserve convertNode returns null for unrecognized node types */
-      if (converted) {
-        if (Array.isArray(converted)) {
-          children.push(...(converted as BlockContent[]));
-        } else {
-          children.push(converted as BlockContent);
-        }
-      }
-    });
-
-    return {
-      type: "footnoteDefinition",
-      identifier: String(node.attrs.label ?? "1"),
-      label: String(node.attrs.label ?? "1"),
-      children,
-    };
-  }
 
   private convertWikiLink(node: PMNode): WikiLink {
     // Extract text content as alias
