@@ -52,7 +52,6 @@ import type { DocumentTab } from "@/stores/tabStoreTypes";
 import { BrowserWorkspaceSurface } from "@/components/Browser/BrowserWorkspaceSurface";
 import { dispatchEditor, getFormatById } from "@/lib/formats/registry";
 import type { FormatConfig } from "@/lib/formats/types";
-import { MarkdownEditorSurface } from "@/lib/formats/adapters/markdown";
 import { WelcomeScreen } from "@/components/Welcome/WelcomeScreen";
 import { MediaViewer } from "./MediaViewer/MediaViewer";
 import { SplitPaneEditor } from "./SplitPaneEditor/SplitPaneEditor";
@@ -114,8 +113,17 @@ export function Editor() {
   const key = `${tabId}-${formatConfig.id}`;
 
   if (formatConfig.kind === "wysiwyg") {
-    /* v8 ignore next -- @preserve markdown surface dispatch — the only kind="wysiwyg" today */
-    const Surface = formatConfig.wysiwygComponent ?? MarkdownEditorSurface;
+    // No `?? MarkdownEditorSurface` fallback: registerFormat guarantees a
+    // wysiwyg format declares its own surface, so a missing one is a
+    // registration error rather than a silent render-as-markdown (WI-4.5).
+    const Surface = formatConfig.wysiwygComponent;
+    if (!Surface) {
+      // registerFormat rejects this at registration; this guard exists so the
+      // invariant is visible to the type system and to a reader here.
+      throw new Error(
+        `[Editor] format "${formatConfig.id}" is kind=wysiwyg but declares no wysiwygComponent`,
+      );
+    }
     return <Surface key={key} tabId={tabId} />;
   }
   // Media (image/audio/video) renders in a dedicated read-only surface —
