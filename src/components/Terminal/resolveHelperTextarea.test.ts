@@ -37,11 +37,14 @@ describe("resolveHelperTextarea", () => {
     expect(() => resolveHelperTextarea(makeTerm(ta), container, true)).toThrow(/not inside/i);
   });
 
-  it("logs but still returns the textarea in prod when outside the container", () => {
+  it("logs AND returns undefined in prod when outside the container (gate-safe)", () => {
+    // The container-anchor invariant is broken; returning undefined makes the
+    // caller install a no-op IME handle instead of a container listener that
+    // can never see the textarea's events.
     mockTerminalError.mockClear();
     const container = document.createElement("div");
     const ta = document.createElement("textarea");
-    expect(resolveHelperTextarea(makeTerm(ta), container, false)).toBe(ta);
+    expect(resolveHelperTextarea(makeTerm(ta), container, false)).toBeUndefined();
     expect(mockTerminalError).toHaveBeenCalledWith(expect.stringContaining("not inside"));
   });
 });

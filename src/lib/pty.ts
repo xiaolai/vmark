@@ -210,8 +210,9 @@ class VMarkPty implements IPty {
     // pty_write on a freed session — the failure was previously swallowed by
     // ptyWarn. This matches the guard `_setup` already applies at line ~168.
     if (this._destroyed) return;
+    // Recheck _destroyed in the .then — kill() may set it while _ready pends (TOCTOU).
     this._ready
-      .then(() => invoke("pty_write", { pid: this._pid, data }))
+      .then(() => (this._destroyed ? undefined : invoke("pty_write", { pid: this._pid, data })))
       .catch((err) => {
         ptyWarn("pty_write failed:", errorMessage(err));
       });
