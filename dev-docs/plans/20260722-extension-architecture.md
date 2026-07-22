@@ -10,7 +10,7 @@
 | 2 serialization inversion | ✅ **COMPLETE** — both switches deleted (24 + 34 arms); both `convertNode`s pure dispatch; `convertParagraph`'s media fan-out now claim-driven with ordering-independence proven by test. `convertHtml`'s internal fan-out and mark-run factoring remain central **by design** (WI-1.6) |
 | 3 composition migration | ✅ **COMPLETE** — both roots resolve through `resolveExtensions`; **adoption gate 2 → 0**; ADR-011's registry and all 77 stub manifests deleted (80 files). WI-3.4 (alphabetical sort) stays open by design: it is only safe once ordering constraints are explicit |
 | 4A host normalization | ✅ **RESOLVED via option 2** — `FormatConfig.language` gives bundled packs a synchronous path, so the source host is registry-driven with no flash on the primary path |
-| 4B markdown as extension | 🟡 **WI-4.1/4.2 done** — `FormatConfig` gained a sync `language`; the markdown-named `closeSavePolicy` enum is now behaviour-named. WI-4.3-4.7 remain |
+| 4B markdown as extension | 🟡 **3 of 7** — WI-4.1 (partial), 4.2 and 4.6 done. Remaining: lint via `validator` (4.3), outline/word-count contribution (4.4), the markdown failure-open default (4.5), mermaid host dedup (4.7) |
 | 5 extension points | 🟡 **WI-5.1 DONE** — markdown declares a fence-language extension point; mermaid/graphviz/markmap/svg/latex/workflow register as **peers**. Zero renderer names remain in the markdown dispatch. Executable third-party tiers (5.3-5.5) still need the capability broker + package contract |
 
 Codex review (RETHINK, 3 BLOCKER / 8 MAJOR) dispositioned below; all three
@@ -416,7 +416,7 @@ Only now is this expressible. Markdown stops being privileged:
 | WI-4.3 | Route lint through `FormatConfig.validator`; `stores/documentStore/lint.ts` currently hard-codes `lintMarkdown`/`lintYaml` and rule ids `M001`/`M002` |
 | WI-4.4 | Make outline and word-count format-contributed. `outlineUtils.extractHeadings` (markdown ATX scanner, duplicated in `useSourceOutlineSync`) and `statusTextMetrics.stripMarkdown` (13 regexes) run for **every** format today |
 | WI-4.5 | Invert the failure-open default: `MARKDOWN_FALLBACK_ID`, `dispatchEditor(null)`, and `Editor.tsx:118`'s `?? MarkdownEditorSurface` all mean "no format" silently becomes markdown |
-| WI-4.6 | Unify the two extension axes — reconcile `plugins/registry.ts`'s closed `FormatId` union (6 ids, cannot name `txt`/`svg`/`mermaid`/`media`/`code-*`) with `lib/formats`' open registry |
+| WI-4.6 | ✅ **DONE (by WI-3.3)** — the closed `FormatId` union lived in `plugins/registry.ts`, which was deleted with the dead registry. One axis remains: `lib/formats/registry.ts` with open string ids, and `tabStore` already carries `formatId: string` |
 | WI-4.7 | Retire the duplicated hosts: mermaid's staleness-token/error-UI/mount lifecycle is written **three** times (React, PM decoration, imperative DOM) over one shared engine; svg carries a second independent validator |
 
 **DoD**
