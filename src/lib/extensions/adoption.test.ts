@@ -40,8 +40,12 @@ const BYPASSING_COMPOSITION_ROOTS = [
   "src/services/assembly/sourceEditorExtensions.ts",
 ] as const;
 
-/** Ratchets DOWN only. Phase 3 drives this to 0. */
-const UNMIGRATED_COMPOSITION_ROOTS = 1;
+/**
+ * Ratchets DOWN only. **Now 0** — every known composition root resolves through
+ * the resolver, so the D1 contract holds: the registry IS the composition.
+ * If this ever rises, a hand-wired path was reintroduced.
+ */
+const UNMIGRATED_COMPOSITION_ROOTS = 0;
 
 describe("resolver adoption (ADR-015 D6 — count adoption, not existence)", () => {
   it("pins how many composition roots still bypass the resolver", () => {
