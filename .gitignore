@@ -163,3 +163,6 @@ reports/mutation/
 # Vitest browser-tier (WebKit) artifacts (run with `pnpm test:browser`)
 src/**/__screenshots__/
 .vitest-attachments/
+
+# jscpd duplication reports (run with `pnpm dup`)
+reports/duplication/
