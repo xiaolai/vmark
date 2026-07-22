@@ -20,6 +20,8 @@ import { MarkdownSplitView } from "@/components/Editor/MarkdownSplitView";
 import { HeadingPicker } from "@/components/Editor/HeadingPicker";
 import { DropZoneIndicator } from "@/components/Editor/DropZoneIndicator";
 import { GhaWorkflowSidePanel } from "@/plugins/ghaWorkflowPreview/GhaWorkflowSidePanel";
+import { markdown } from "@codemirror/lang-markdown";
+import { languages } from "@codemirror/language-data";
 import { registerFormat } from "../registry";
 import type { FormatConfig } from "../types";
 
@@ -128,6 +130,9 @@ export const markdownFormat: FormatConfig = {
   nameI18nKey: "format.markdown",
   extensions: ["md", "markdown", "mdown", "mkd", "mdx"],
   kind: "wysiwyg",
+  // Bundled regardless — the WYSIWYG surface imports it — so expose it
+  // synchronously and keep the primary format's source mode flash-free.
+  language: () => markdown({ codeLanguages: languages }),
   wysiwygComponent: MarkdownEditorSurface,
   adapters: {
     saveDialogFilters: [

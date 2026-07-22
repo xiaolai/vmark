@@ -9,7 +9,7 @@
 | 1 architecture contract | ✅ **COMPLETE** — descriptor, resolver, claim protocol, Node-safe gate, scope inventory, perf baseline, budget ratchet, doc corrections |
 | 2 serialization inversion | ✅ **COMPLETE** — both switches deleted (24 + 34 arms); both `convertNode`s pure dispatch; `convertParagraph`'s media fan-out now claim-driven with ordering-independence proven by test. `convertHtml`'s internal fan-out and mark-run factoring remain central **by design** (WI-1.6) |
 | 3 composition migration | ✅ **COMPLETE** — both roots resolve through `resolveExtensions`; **adoption gate 2 → 0**; ADR-011's registry and all 77 stub manifests deleted (80 files). WI-3.4 (alphabetical sort) stays open by design: it is only safe once ordering constraints are explicit |
-| 4A host normalization | ⛔ **BLOCKED — needs a decision.** See below |
+| 4A host normalization | ✅ **RESOLVED via option 2** — `FormatConfig.language` gives bundled packs a synchronous path, so the source host is registry-driven with no flash on the primary path |
 | 4B markdown as extension | ⬜ blocked on 4A |
 | 5 extension points | ⬜ not started; gated on the command-registry fork, the ADR-007 slot seam, and a package/security contract — all listed out of scope |
 
@@ -348,9 +348,22 @@ rather than reasoning from array position.
 - Composition array is alphabetical; no ordering test depends on position
 - No `addFeature`-style side channel exists
 
-## Phase 4A — Host normalization ⛔ needs a decision
+## Phase 4A — Host normalization ✅ resolved
 
-**The blocker, found 2026-07-23.** The two hosts do not merely differ in
+**Resolved by option 2 on 2026-07-23.** `FormatConfig` gained an optional
+synchronous `language?: () => Extension`. Formats the app bundles regardless
+(markdown, yaml) expose their pack there; everything else keeps the async
+`loadLanguage` path. Hosts prefer `language` when present, so one host serves
+every format and the common case does not pay for the general one.
+
+`sourceEditorExtensions` no longer branches on `isYamlFileName` for language
+selection — it asks the registry. It falls back to the markdown pack when the
+registry is unavailable, because `dispatchEditor` throws if nothing is
+registered: a source editor with the wrong highlighting is recoverable, one that
+throws on construction is not. (Unit tests that build extensions without
+bootstrapping found this immediately.)
+
+**Original analysis, kept for the record.** The two hosts do not merely differ in
 structure — they differ in *timing*. `sourceEditorExtensions.ts` resolves its
 language synchronously from statically imported packs
 (`isYaml ? yaml() : markdown(...)`), while `SplitPaneEditor/sourcePaneExtensions.ts`
