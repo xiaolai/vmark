@@ -2,21 +2,29 @@
  * ProseMirror to MDAST Conversion — Orchestrator
  *
  * Purpose: Converts a complete ProseMirror document (including media nodes) to an
- * MDAST tree by dispatching each PM node type to the appropriate converter.
+ * MDAST tree by resolving each PM node through registry 2.
  *
  * Pipeline: PM doc → PMToMdastConverter.convertDoc() → MDAST root
  *
  * Key decisions:
+ *   - Node dispatch lives in registry 2 (pmConverters.registry.ts), NOT in a
+ *     switch here (ADR-015 D2). The 24-arm switch this file used to carry was
+ *     deleted in Phase 2; a node type cannot be added without registering a
+ *     converter, so the switch cannot grow back.
+ *   - PM → MDAST needs no claim protocol: the ProseMirror node type is
+ *     definitive. Attribute-level competition exists only in the reverse
+ *     direction (mdast → PM), which registry 1 owns.
+ *   - footnote_definition is the one node still handled here, because it is a
+ *     private method rather than an extracted function. Extracting it makes
+ *     convertNode pure dispatch.
  *   - Schema parameter is accepted but currently unused — reserved for future
  *     custom node detection (e.g., schema-aware type checking)
  *   - ListItem nodes at root level are filtered out (they should only appear
  *     as children of list nodes)
  *   - Wiki link alias is only serialized if it differs from the target value
- *   - Media nodes (block_video, block_audio, video_embed) dispatch to
- *     dedicated converters in pmBlockConverters.ts
- *   - TOC nodes dispatch to convertToc for serialization to `toc` MDAST type
  *
  * @coordinates-with mdastToProseMirror.ts — reverse direction (MDAST → PM)
+ * @coordinates-with pmConverters.registry.ts — registry 2, which owns dispatch
  * @coordinates-with pmBlockConverters.ts — block node conversion functions
  * @coordinates-with pmInlineConverters.ts — inline node/mark conversion functions
  * @coordinates-with serializer.ts — next step: MDAST → markdown string
