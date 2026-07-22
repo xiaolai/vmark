@@ -11,7 +11,7 @@
 | 3 composition migration | ✅ **COMPLETE** — both roots resolve through `resolveExtensions`; **adoption gate 2 → 0**; ADR-011's registry and all 77 stub manifests deleted (80 files). WI-3.4 (alphabetical sort) stays open by design: it is only safe once ordering constraints are explicit |
 | 4A host normalization | ✅ **RESOLVED via option 2** — `FormatConfig.language` gives bundled packs a synchronous path, so the source host is registry-driven with no flash on the primary path |
 | 4B markdown as extension | ⬜ blocked on 4A |
-| 5 extension points | ⬜ not started; gated on the command-registry fork, the ADR-007 slot seam, and a package/security contract — all listed out of scope |
+| 5 extension points | 🟡 **WI-5.1 DONE** — markdown declares a fence-language extension point; mermaid/graphviz/markmap/svg/latex/workflow register as **peers**. Zero renderer names remain in the markdown dispatch. Executable third-party tiers (5.3-5.5) still need the capability broker + package contract |
 
 Codex review (RETHINK, 3 BLOCKER / 8 MAJOR) dispositioned below; all three
 BLOCKERs are resolved in Phase 1.
@@ -439,7 +439,7 @@ exist and is not designed here.
 
 | WI | Change |
 |---|---|
-| WI-5.1 | Markdown declares a keyed fence-language extension point (ADR-015 D3); mermaid/graphviz/markmap/svg/sli.dev register as **peers**. These need no pipeline work at all — they are `codeBlock` + language string |
+| WI-5.1 | ✅ **DONE** — `plugins/codePreview/fenceRegistry.ts` is the host-owned point; `builtinFenceRenderers.ts` registers the six first-party renderers through the same API a third party would use. Dispatch, empty-state labels and copy-support all resolve through it; `grep -c 'mermaid\|graphviz\|markmap\|svg'` in `previewDecorations.ts` → **0**. A sli.dev renderer is now a registration, not a patch |
 | WI-5.2 | Tier A declarative contributions (themes, snippets, keybindings) — **unsigned, first-party**; signing deferred to the package contract |
 | WI-5.3 | Generalize the existing browser capability broker (`origin_guard`/`one_shot`/`operation`) from `(origin × operation)` to `(plugin-principal × capability-scope)` |
 | WI-5.4 | Tier C: dynamic tool registration + prefix routing on the MCP bridge, replacing the 3 closed switches; arbitrate namespaces on the already-captured `ClientIdentity` |
