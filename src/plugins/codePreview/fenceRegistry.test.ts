@@ -114,6 +114,46 @@ describe("fence extension point", () => {
     });
   });
 
+  describe("lifecycle-bound registration (WI-5.6)", () => {
+    it("returns an unregister function that removes the claim", () => {
+      const dispose = registerFenceRenderer(
+        renderer("vmark.mermaid", { languages: ["mermaid"] }),
+      );
+      expect(resolveFenceRenderer("mermaid")).not.toBeNull();
+      dispose();
+      expect(resolveFenceRenderer("mermaid")).toBeNull();
+    });
+
+    it("frees the language so another renderer may claim it", () => {
+      const dispose = registerFenceRenderer(
+        renderer("vmark.a", { languages: ["mermaid"] }),
+      );
+      dispose();
+      // Would throw on a stale claim; must not.
+      registerFenceRenderer(renderer("vmark.b", { languages: ["mermaid"] }));
+      expect(resolveFenceRenderer("mermaid")?.extensionId).toBe("vmark.b");
+    });
+
+    it("is idempotent — a second call cannot remove someone else's claim", () => {
+      const dispose = registerFenceRenderer(
+        renderer("vmark.a", { languages: ["mermaid"] }),
+      );
+      dispose();
+      registerFenceRenderer(renderer("vmark.b", { languages: ["mermaid"] }));
+      dispose();
+      expect(resolveFenceRenderer("mermaid")?.extensionId).toBe("vmark.b");
+    });
+
+    it("unregisters a predicate family too", () => {
+      const dispose = registerFenceRenderer(
+        renderer("vmark.graphviz", { matches: (l) => l === "dot" }),
+      );
+      expect(resolveFenceRenderer("dot")).not.toBeNull();
+      dispose();
+      expect(resolveFenceRenderer("dot")).toBeNull();
+    });
+  });
+
   describe("peer contribution — the D3 property", () => {
     it("lets a renderer be registered without markdown knowing its name", () => {
       // The host declares the point; the contributor supplies everything about

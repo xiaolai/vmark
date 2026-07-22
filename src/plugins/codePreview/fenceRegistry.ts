@@ -63,8 +63,19 @@ export class FenceRegistrationError extends Error {}
 
 const renderers: FenceRenderer[] = [];
 
-/** Register a fence renderer. Throws if it collides with an existing claim. */
-export function registerFenceRenderer(renderer: FenceRenderer): void {
+/** Undo a registration. Idempotent. */
+export type Unregister = () => void;
+
+/**
+ * Register a fence renderer. Throws if it collides with an existing claim.
+ *
+ * Returns an unregister function (WI-5.6). Obsidian's `Component` ties every
+ * `register*` call to plugin unload, and the lesson from that API is that
+ * teardown has to exist BEFORE third parties arrive — retrofitting it means
+ * every existing extension leaks. A first-party renderer never unregisters
+ * today, but the contract is the same one a plugin will use.
+ */
+export function registerFenceRenderer(renderer: FenceRenderer): Unregister {
   for (const language of renderer.languages ?? []) {
     const existing = renderers.find((r) => r.languages?.includes(language));
     if (existing !== undefined) {
@@ -75,6 +86,14 @@ export function registerFenceRenderer(renderer: FenceRenderer): void {
     }
   }
   renderers.push(renderer);
+
+  let done = false;
+  return () => {
+    if (done) return;
+    done = true;
+    const at = renderers.indexOf(renderer);
+    if (at !== -1) renderers.splice(at, 1);
+  };
 }
 
 /**
