@@ -1,20 +1,27 @@
 /**
  * MDAST to ProseMirror Conversion — Orchestrator
  *
- * Purpose: Converts a complete MDAST tree to a ProseMirror document by dispatching
- * each node type to the appropriate converter (block or inline).
+ * Purpose: Converts a complete MDAST tree to a ProseMirror document by resolving
+ * each node through registry 2.
  *
  * Pipeline: MDAST root → MdastToPMConverter.convertRoot() → PM doc node
  *
  * Key decisions:
+ *   - Node dispatch lives in registry 2 (mdastConverters.registry.ts), NOT in a
+ *     switch here (ADR-015 D2). The 34-arm switch was deleted in Phase 2.
+ *   - Attribute-level competition (a `paragraph` becoming block_image /
+ *     block_video / block_audio, an `html` becoming any of four things) is NOT
+ *     in the dispatch — it lives inside convertParagraph and convertHtml in
+ *     mdastMediaConverters.ts. That is where the claim protocol
+ *     (lib/extensions/claim.ts) applies, not here.
  *   - Uses a class (MdastToPMConverter) to hold per-document state like usedSlugs
  *     for heading ID uniqueness, but converter functions are pure/stateless
  *   - Inline HTML tags are merged (mergeInlineHtmlTags) so that paired open/close
  *     tags like `<kbd>...</kbd>` become a single html_inline node — but only when
  *     inner content has no formatting marks (otherwise marks would be lost)
  *   - Schema is passed in (not imported) to keep this layer framework-free
- *   - TOC nodes (`toc` type) are dispatched to convertToc from mdastBlockConverters
  *
+ * @coordinates-with mdastConverters.registry.ts — registry 2, which owns dispatch
  * @coordinates-with mdastBlockConverters.ts — block node conversion functions
  * @coordinates-with mdastInlineConverters.ts — inline node conversion functions
  * @coordinates-with proseMirrorToMdast.ts — reverse direction
