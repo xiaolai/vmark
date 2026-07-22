@@ -25,63 +25,22 @@ import type { Schema, Node as PMNode, Mark } from "@tiptap/pm/model";
 import type {
   Root,
   Content,
-  Paragraph,
-  Heading,
-  Code,
-  Definition,
-  Blockquote,
-  List,
-  ListItem,
-  Table,
-  ThematicBreak,
   Html,
   Text,
-  Strong,
-  Emphasis,
-  Delete,
-  InlineCode,
-  Link,
-  Image,
-  FootnoteReference,
-  FootnoteDefinition,
 } from "mdast";
 import { perfStart, perfEnd } from "@/utils/perfLog";
-import type { InlineMath, Math } from "mdast-util-math";
-import type {
-  Alert,
-  Details,
-  Subscript,
-  Superscript,
-  Highlight,
-  Underline,
-  WikiLink,
-  Yaml,
-} from "./types";
-import * as inlineConverters from "./mdastInlineConverters";
 import { escapeHtml } from "@/utils/sanitize";
 import {
-  convertAlert,
-  convertBlockquote,
-  convertCode,
-  convertDefinition,
-  convertDetails,
-  convertFootnoteDefinition,
-  convertFrontmatter,
-  convertHeading,
-  convertHtml,
-  convertList,
-  convertListItem,
-  convertMathBlock,
-  convertParagraph,
-  convertTable,
-  convertThematicBreak,
-  convertToc,
-  convertWikiLink,
   type ContentContext,
   type MdastToPmContext,
 } from "./mdastBlockConverters";
 import { generateSlug, makeUniqueSlug } from "@/utils/headingSlug";
 import { mdPipelineWarn } from "@/utils/debug";
+import {
+  createMdastRegistry,
+  tryMdastRegistry,
+  type MdastRegistry,
+} from "./mdastConverters.registry";
 import { convertTopLevelWithBlankLines } from "./blankLineCapture";
 
 /**
@@ -106,6 +65,9 @@ export function mdastToProseMirror(schema: Schema, mdast: Root): PMNode {
 class MdastToPMConverter {
   private context: MdastToPmContext;
   private usedSlugs = new Set<string>();
+
+  /** Registry 2, mdast → PM direction (ADR-015 D2). Owns all node dispatch. */
+  private readonly registry: MdastRegistry = createMdastRegistry();
 
   constructor(private schema: Schema) {
     this.context = {
@@ -177,83 +139,18 @@ class MdastToPMConverter {
     const convertInlineChildren = (children: readonly Content[], nextMarks: Mark[]) =>
       this.convertChildren(children, nextMarks, "inline");
 
-    switch (nodeType) {
-      // Block nodes
-      case "paragraph":
-        return convertParagraph(this.context, node as Paragraph, marks);
-      case "heading":
-        return convertHeading(this.context, node as Heading, marks);
-      case "code":
-        return convertCode(this.context, node as Code);
-      case "blockquote":
-        return convertBlockquote(this.context, node as Blockquote, marks);
-      case "list":
-        return convertList(this.context, node as List, marks);
-      case "listItem":
-        return convertListItem(this.context, node as ListItem, marks);
-      case "thematicBreak":
-        return convertThematicBreak(this.context, node as ThematicBreak);
-      case "table":
-        return convertTable(this.context, node as Table, marks);
-      case "math":
-        return convertMathBlock(this.context, node as Math);
-      case "definition":
-        return convertDefinition(this.context, node as Definition);
-      case "toc":
-        return convertToc(this.context, node as unknown as import("./types").Toc);
-      case "details":
-        return convertDetails(this.context, node as Details, marks);
+    const viaRegistry = tryMdastRegistry(this.registry, nodeType, {
+      node,
+      marks,
+      position: context,
+      schema: this.schema,
+      ctx: this.context,
+      convertInlineChildren,
+    });
+    if (viaRegistry.handled) return viaRegistry.result;
 
-      // Inline nodes - delegated to inline converters
-      case "text":
-        return inlineConverters.convertText(this.schema, node as Text, marks);
-      case "strong":
-        return inlineConverters.convertStrong(this.schema, node as Strong, marks, convertInlineChildren);
-      case "emphasis":
-        return inlineConverters.convertEmphasis(this.schema, node as Emphasis, marks, convertInlineChildren);
-      case "delete":
-        return inlineConverters.convertDelete(this.schema, node as Delete, marks, convertInlineChildren);
-      case "inlineCode":
-        return inlineConverters.convertInlineCode(this.schema, node as InlineCode, marks);
-      case "link":
-        return inlineConverters.convertLink(this.schema, node as Link, marks, convertInlineChildren);
-      case "image":
-        return inlineConverters.convertImage(this.schema, node as Image);
-      case "break":
-        return inlineConverters.convertBreak(this.schema);
-
-      // Custom inline marks
-      case "subscript":
-        return inlineConverters.convertSubscript(this.schema, node as unknown as Subscript, marks, convertInlineChildren);
-      case "superscript":
-        return inlineConverters.convertSuperscript(this.schema, node as unknown as Superscript, marks, convertInlineChildren);
-      case "highlight":
-        return inlineConverters.convertHighlight(this.schema, node as unknown as Highlight, marks, convertInlineChildren);
-      case "underline":
-        return inlineConverters.convertUnderline(this.schema, node as unknown as Underline, marks, convertInlineChildren);
-
-      // Custom nodes
-      case "inlineMath":
-        return inlineConverters.convertInlineMath(this.schema, node as unknown as InlineMath);
-      case "footnoteReference":
-        return inlineConverters.convertFootnoteReference(this.schema, node as unknown as FootnoteReference);
-      case "footnoteDefinition":
-        return convertFootnoteDefinition(this.context, node as unknown as FootnoteDefinition, marks);
-      case "wikiLink":
-        return convertWikiLink(this.context, node as unknown as WikiLink);
-      case "alert":
-        return convertAlert(this.context, node as Alert, marks);
-      case "html":
-        return convertHtml(this.context, node as Html, context === "inline");
-
-      case "yaml":
-        return convertFrontmatter(this.context, node as Yaml);
-
-      default:
-        // Unknown node type - skip with warning in dev
-        mdPipelineWarn(`[MdastToPM] Unknown node type: ${nodeType}`);
-        return null;
-    }
+    mdPipelineWarn(`[MdastToPM] Unknown node type: ${nodeType}`);
+    return null;
   }
 }
 
