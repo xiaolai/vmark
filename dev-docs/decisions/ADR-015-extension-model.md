@@ -1,8 +1,9 @@
-# ADR-015: Extension Model — Flat Peers, Host-Owned Extension Points, Schema-Owned Serialization
+# ADR-015: Extension Model — Flat Peers, Host-Owned Extension Points, Extension-Owned Conversion
 
 > Status: **Proposed** | Date: 2026-07-22
 > Supersedes: ADR-011 (plugin manifest contract)
-> Depends on: ADR-001 (markdown as source of truth), ADR-013 (service tier)
+> Depends on: ADR-001 (markdown as source of truth), ADR-003 (Tiptap over
+> Milkdown), ADR-013 (service tier)
 > Evidence: `dev-docs/deep-researches/20260721-extension-architecture-investigation.md`,
 > `dev-docs/deep-researches/20260722-extension-architecture-prior-art.md`
 
@@ -61,22 +62,58 @@ VSCode's model (viable only if the manifest is the sole producer of a
 user-visible surface, which would require rendering menus/palette from it —
 a larger change for a weaker guarantee).
 
-### D2 — Markdown conversion lives on the node spec
+### D2 — Conversion ownership splits along the existing Node boundary
 
-Following Milkdown, each node and mark carries its own converters in both
-directions:
+Each extension owns its own conversion, but **not as one blob on the node spec**.
+VMark has five conversion boundaries, and they do not all belong to the editor.
+An extension contributes to two independent registries:
 
 ```ts
-interface MarkdownConversion {
-  toMdast:   { match: (node: PMNode) => boolean; runner: (state, node) => void }
-  fromMdast: { match: (node: MdastNode) => boolean; runner: (state, node, type) => void }
+interface VMarkMarkdownContribution {
+  // Registry 1 — markdown layer. Engine-independent, Node-safe.
+  micromark?:    SyntaxExtension          // syntax → tokens
+  fromMarkdown?: FromMarkdownExtension    // tokens → mdast
+  toMarkdown?:   ToMarkdownOptions        // mdast → text (handlers + unsafe + join)
+
+  // Registry 2 — editor adapter layer. ProseMirror-coupled by nature.
+  toPm?:   { match: (n: MdastNode) => boolean; runner: (state, node, type) => void }
+  fromPm?: { match: (n: PMNode)    => boolean; runner: (state, node) => void }
 }
 ```
 
-Schema membership and serializer ownership become the same act — the switch
-cannot grow back, because there is nowhere to add an arm. `match` is a
-**predicate**, not a name key, so an extension can claim by attribute
-(`node.attrs.language === "mermaid"`), which name-keying cannot express.
+**Why the split is load-bearing, not cosmetic.** ADR-003 left Milkdown partly to
+escape a second abstraction layer, and recorded the resulting
+framework-independent remark pipeline as a benefit; ADR-001 depends on it
+("swapping Tiptap for another WYSIWYG editor only requires a new Markdown ↔
+editor adapter"). Putting markdown serialization on Tiptap node specs would
+re-couple the markdown layer to the editor and quietly undo both.
+
+It would also break a live invariant. `src/utils/markdownPipeline/nodeSafe.ts`
+re-exports the remark plugins to `vmark-content-server` under a documented
+contract — no `@/` aliases, no DOM globals, **no ProseMirror imports** — guarded
+by a Node-only smoke test. Registry 1 must stay where the remark plugins live
+today.
+
+Registry 2 is ProseMirror-shaped, and that is fine: it *is* the "Markdown ↔
+editor adapter" ADR-001 already designates as the swappable piece. An engine swap
+replaces registry 2 and leaves registry 1 untouched — strictly better than
+today, where both are fused into one pipeline.
+
+This mirrors Milkdown's own structure, which keeps `$remark` and `$nodeSchema` as
+separate composables for exactly this reason. The pattern being borrowed is
+**per-extension conversion ownership**, not Milkdown the framework, and not its
+packaging of both layers behind one schema call. Tiptap carries registry 2
+natively (v3 extension fields, or `addStorage()` as `tiptap-markdown` does), so
+no Milkdown runtime is reintroduced — ADR-003 stands.
+
+`match` is a **predicate**, not a name key, so an extension can claim by
+attribute (`node.attrs.language === "mermaid"`), which name-keying cannot express.
+
+**The ownership guarantee survives the split.** It moves from the node spec to
+the extension value (D1): an extension contributing a ProseMirror node must also
+contribute its registry-2 converters, enforced at the type level, with
+`strict: true` and the WI-1.1 contract test as runtime backstops. Neither switch
+can grow back, because there is no switch to add an arm to.
 
 Dispatch indexes by node name first and falls back to predicate scan only for
 specs declaring a non-trivial `match` — Milkdown's unconditional
@@ -161,6 +198,12 @@ budget that ratchets down, never up — the pattern established by
 - Mermaid, graphviz, markmap, and svg need **zero** pipeline work — they are
   `codeBlock` nodes with a language string, so they are pure D3 extension-point
   contributions.
+- **ADR-003 is preserved, not reopened.** Milkdown the framework stays rejected;
+  only its per-extension conversion *pattern* is adopted, carried on Tiptap's own
+  extension fields. D2's split keeps the markdown layer framework-independent —
+  the property ADR-003 recorded as a benefit of the move — while ADR-001's
+  engine-agnosticism actually improves, because the swappable adapter becomes a
+  discrete registry instead of being fused into the pipeline.
 
 **Bad / accepted costs**
 - ADR-011 is superseded; 77 manifests are deleted or converted to values.
@@ -195,4 +238,6 @@ budget that ratchets down, never up — the pattern established by
 - Corpus characterization runs on the production schema, with fixtures covering
   every custom syntax enumerated in the plan
 - `plugin-isolation` severity is `error`; exemption count only decreases
+- `nodeSafe.ts` invariant intact: registry 1 imports no ProseMirror, no DOM
+  globals, no `@/` aliases; the `vmark-content-server` Node smoke test passes
 - `pnpm check:all` green throughout

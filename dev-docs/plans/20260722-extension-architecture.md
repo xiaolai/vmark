@@ -60,6 +60,21 @@ large refactors begin.
 The core work. Difficulty ranking is from the internal feasibility audit; order
 follows it strictly so that the mechanical tiers de-risk the design-heavy ones.
 
+**Two registries, not one.** Per ADR-015 D2 each extension contributes a
+markdown-layer half (`micromark`/`fromMarkdown`/`toMarkdown` — engine-independent,
+Node-safe, staying where the remark plugins live today) and an editor-adapter
+half (`toPm`/`fromPm` — ProseMirror-coupled). Do **not** collapse them onto a
+Tiptap node spec: that would re-couple markdown to the editor, undoing the
+framework-independence ADR-003 recorded as a benefit of leaving Milkdown, and
+would break the `nodeSafe.ts` invariant that `vmark-content-server` depends on
+(no `@/` aliases, no DOM globals, no ProseMirror imports; guarded by a Node
+smoke test).
+
+Practical consequence for every WI below: each node's inversion is **two commits
+or one commit touching two registries** — never a single blob. The
+`vmark-content-server` Node smoke test is part of each WI's DoD, not just the
+phase DoD.
+
 **Precondition:** WI-2.0 — resolve node-ownership gaps. `text`, `hardBreak`,
 `strike`, and `code` are StarterKit-owned with no VMark plugin to hang a
 converter on; the `link` mark is configured inline in `tiptapExtensions.ts:142`
