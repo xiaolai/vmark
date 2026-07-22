@@ -1,0 +1,35 @@
+{
+  "$schema": "https://raw.githubusercontent.com/kucherenko/jscpd/master/packages/jscpd/schema.json",
+  "_comment": "Copy-paste (clone) detection for the refactor. Advisory discovery tool, NOT a gate — the twin of stryker.config.json / mutants.toml in philosophy: it produces a signal, it does not block. dependency-cruiser maps *structure*; jscpd finds *duplication* to consolidate. Run: pnpm dup (console + reports/duplication/{html,json,md}). Scope: the four hand-written source trees; tests/fixtures/goldens/locales/generated are excluded because near-identical test setup and translated strings are expected duplication, not a refactor target. Tighten minTokens once the obvious clones are gone.",
+  "path": [
+    "src",
+    "src-tauri/src",
+    "vmark-mcp-server/src",
+    "vmark-content-server/src"
+  ],
+  "format": ["typescript", "tsx", "jsx", "javascript", "rust", "css"],
+  "ignore": [
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/target/**",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/*.test.rs",
+    "**/*.spec.ts",
+    "**/*.spec.tsx",
+    "**/*.bench.ts",
+    "**/__tests__/**",
+    "**/__golden__/**",
+    "**/__snapshots__/**",
+    "**/*.d.ts",
+    "**/fixtures/**",
+    "src/locales/**",
+    "src/assets/**"
+  ],
+  "reporters": ["console", "html", "json", "markdown"],
+  "output": "reports/duplication",
+  "minTokens": 50,
+  "minLines": 5,
+  "gitignore": true,
+  "absolute": false
+}
