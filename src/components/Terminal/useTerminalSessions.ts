@@ -127,7 +127,6 @@ export function useTerminalSessions(
       const screenReaderMode = termSettings?.screenReaderMode ?? false;
       const minimumContrastRatio = termSettings?.minimumContrastRatio ?? 4.5;
       const scrollback = termSettings?.scrollback ?? 5000;
-      const inputGate = termSettings?.inputGate ?? "gate";
       const themeId = getEffectiveThemeId();
 
       // Create a shared ptyRef that we'll update as the pty changes
@@ -135,7 +134,7 @@ export function useTerminalSessions(
 
       const instance = createTerminalInstance({
         parentEl: parent,
-        settings: { fontSize, lineHeight, cursorStyle, cursorBlink, useWebGL, macOptionIsMeta, screenReaderMode, minimumContrastRatio, scrollback, inputGate, themeId },
+        settings: { fontSize, lineHeight, cursorStyle, cursorBlink, useWebGL, macOptionIsMeta, screenReaderMode, minimumContrastRatio, scrollback, themeId },
         ptyRef: ptyRefForKeys,
         onSearch: () => callbacksRef.current?.onSearch?.(),
         onBell: () => {
@@ -169,8 +168,6 @@ export function useTerminalSessions(
         disposed: false,
         spawnGen: 0,
         pendingRafId: null,
-        lastSeenCommitTime: 0,
-        lastCommittedConsumed: 0,
       };
       sessionsRef.current.set(sessionId, entry);
 

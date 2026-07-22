@@ -94,28 +94,6 @@ describe("settingsStore — terminal.screenReaderMode (G3/WI-3.1)", () => {
   });
 });
 
-describe("settingsStore — terminal.inputGate (WI-2.1, Channel Ownership)", () => {
-  beforeEach(() => {
-    useSettingsStore.getState().resetSettings();
-  });
-
-  it("defaults to 'gate' (Channel Ownership — WI-4a, human-verified across IMEs)", () => {
-    expect(useSettingsStore.getState().terminal.inputGate).toBe("gate");
-  });
-
-  it("updateTerminalSetting can set inputGate back to 'legacy' (rollback) without touching other keys", () => {
-    const beforeShell = useSettingsStore.getState().terminal.shell;
-    useSettingsStore.getState().updateTerminalSetting("inputGate", "legacy");
-    expect(useSettingsStore.getState().terminal.inputGate).toBe("legacy");
-    expect(useSettingsStore.getState().terminal.shell).toBe(beforeShell);
-  });
-
-  it("resetSettings restores inputGate to the 'gate' default", () => {
-    useSettingsStore.getState().updateTerminalSetting("inputGate", "legacy");
-    useSettingsStore.getState().resetSettings();
-    expect(useSettingsStore.getState().terminal.inputGate).toBe("gate");
-  });
-});
 
 describe("settingsStore — terminal.scrollback (G7/WI-4.2)", () => {
   beforeEach(() => {

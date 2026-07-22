@@ -2,7 +2,7 @@
 title: "Terminal input — Channel Ownership migration"
 created_at: "2026-07-22 00:17 local"
 mode: "full-plan"
-status: "IN PROGRESS — Phases 1-3/5 code-complete behind default-off flag; Phase 4 blocked (human IME matrix). Codex-reviewed 2026-07-22 (MAJOR GAPS on Phase 4 → split into 4a/4b)."
+status: "COMPLETE (2026-07-22) — all phases done; gate is the sole terminal input path, legacy + flag deleted. Codex-reviewed. See Phase 4b for the owner-override caveat (deleted ahead of a baked release; recovery is git-revert)."
 audit: "dev-docs/deep-researches/20260721-terminal-input-architecture-audit.md"
 plan_review: "Codex gpt-5.6-terra, thread 019f8744, 2026-07-22 — MAJOR GAPS for Phase 4; findings folded into WI-4a/4b"
 dod_checker: "scripts/check-terminal-input-phase.sh"
@@ -16,8 +16,8 @@ dod_checker: "scripts/check-terminal-input-phase.sh"
 | 1 | Safe structural fixes (no arbitration change) | **DONE** (gate 7/7, `check:all` green) | `… 1` |
 | 2 | Channel Ownership behind a flag | **CODE DONE, default-off** (gate 10/10; T1/T2/T3 verified in real WebKit for ASCII + direct non-ASCII **only** — real IME composition cycles are NOT machine-verifiable and remain pending human, WI-0.3) | `… 2` |
 | 3 | Collapse to a single writer | **CODE DONE, default-off** (gate 4/4; resolveCommit 100% mutation). Achieved via direct-to-PTY commit, NOT `term.input` — see WI-3.1. **Real IME cycles still pending human (WI-0.3), same as Phase 2.** | `… 3` |
-| 4a | Flip default to `gate` (legacy kept intact) | **DONE** (2026-07-22, gate 5/5) — human confirmed gate works across macOS Pinyin/Zhuyin + WeChat, Linux fcitx5/rime, Windows MS-IME; default flipped, persisted-value migration added, Settings rollback toggle shipped, legacy fully retained. **NOTE:** verification was a developer smoke test, not the checked-in forensic matrix; that matrix is still owed before 4b. | `… 4` |
-| 4b | Delete legacy + guards (after baked release) | **BLOCKED — follows a baked 4a release** (irreversible; NOT the same release as the flip — Codex D1.1/D5.1). Held deliberately even though the owner requested immediate deletion: no bake, no fallback if a gate edge case surfaces in the wild. | `… 4` |
+| 4a | Flip default to `gate` (legacy kept intact) | **DONE** (2026-07-22) then SUPERSEDED by 4b — the flip shipped with a migration + rollback toggle; both were removed by 4b below. | `… 4` |
+| 4b | Delete legacy + flag + guards | **DONE** (2026-07-22, gate 7/7, `check:all` green, coverage rose to 93.8%). Gate is the ONLY input path: `setupImeComposition.ts`, the wiring dedup (`IME_DEDUP_WINDOW_MS`, Path A/B, echo token), the `inputGate` flag + Settings toggle + i18n + migration, and `compositionGuard.test.ts` are all deleted. **Owner override on record:** done at the owner's explicit request on a gate-confirmed cross-platform smoke test, NOT after a baked shipped release (the Codex-recommended bar). The runtime rollback toggle is gone; recovery from a future gate bug is now `git revert` of the deletion commit + patch release. The forensic byte-level IME matrix was never captured — a residual risk the owner accepted. | `… 4` |
 | 5 | Test-estate repair + mutation gate | **DONE for now** (gate 4/4; compositionGuard deletion deferred to Phase 4) | `… 5` |
 
 **Phase Status ticks to the next row only after its DoD gate exits 0 AND `pnpm check:all` is green.**

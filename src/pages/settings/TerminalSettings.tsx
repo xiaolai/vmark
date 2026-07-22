@@ -243,18 +243,6 @@ export function TerminalSettings() {
           />
         </SettingRow>
       </SettingsGroup>
-
-      <SettingsGroup title={t("terminal.group.advanced")}>
-        {/* Input arbitration rollback (plan WI-4a). ON = the new Channel-Ownership
-            path (default); OFF = the legacy path, kept as an operable rollback if a
-            specific IME misbehaves. Takes effect on the next new terminal. */}
-        <SettingRow label={t("terminal.inputGate.label")} description={t("terminal.inputGate.description")}>
-          <Toggle
-            checked={terminal.inputGate !== "legacy"}
-            onChange={(v) => updateTerminalSetting("inputGate", v ? "gate" : "legacy")}
-          />
-        </SettingRow>
-      </SettingsGroup>
     </div>
   );
 }
