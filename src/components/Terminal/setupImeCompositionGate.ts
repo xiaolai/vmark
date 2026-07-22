@@ -34,26 +34,16 @@ import { resolveCommit } from "./resolveCommit";
 
 /**
  * Public surface of the terminal IME handle (gate is the sole implementation
- * since WI-4b; legacy was deleted). `inGracePeriod`, `lastCommittedText`, and
- * `lastCommitTime` are vestigial from the shared legacy contract — gate keeps
- * them at their inert values so callers (terminalKeyHandler) need no change.
+ * since WI-4b; legacy was deleted).
  */
 export interface ImeCompositionHandle {
   /** True while a composition is active. */
   readonly composing: boolean;
-  /** Always false in gate mode (no grace window) — kept for the shared contract. */
-  readonly inGracePeriod: boolean;
   /** Caller-supplied callback invoked with the clean committed text; the caller
    *  writes it straight to the PTY (single writer). */
   onCompositionCommit: ((text: string) => void) | null;
-  /** Last committed text (gate uses it for its same-task echo dedup). */
-  readonly lastCommittedText: string | null;
-  /** Timestamp of the last commit (Date.now()). */
-  readonly lastCommitTime: number;
   /** Tear down listeners. Idempotent. */
   cleanup: () => void;
-  /** No-op in gate mode (no pending grace state); retained for the contract. */
-  flushPending: () => void;
 }
 
 interface GateOptions {
@@ -70,21 +60,15 @@ interface GateOptions {
 export function createNoopImeHandle(): ImeCompositionHandle {
   return {
     get composing() { return false; },
-    get inGracePeriod() { return false; },
     get onCompositionCommit() { return null; },
     set onCompositionCommit(_cb: ((text: string) => void) | null) { /* no IME */ },
-    get lastCommittedText() { return null; },
-    get lastCommitTime() { return 0; },
     cleanup: () => {},
-    flushPending: () => {},
   };
 }
 
 export function setupImeCompositionGate({ container, textarea }: GateOptions): ImeCompositionHandle {
   let composing = false;
   let onCompositionCommit: ((text: string) => void) | null = null;
-  let lastCommittedText: string | null = null;
-  let lastCommitTime = 0;
   let textareaStartLen = 0;
   /** True between a real compositionstart and its compositionend. Guards against
    *  an orphan compositionend (fcitx5/rime #659/#948) trusting a stale textarea
@@ -103,8 +87,6 @@ export function setupImeCompositionGate({ container, textarea }: GateOptions): I
   const isEcho = (text: string) => text === echoText;
 
   const commit = (text: string) => {
-    lastCommittedText = text;
-    lastCommitTime = Date.now();
     echoText = text;
     setTimeout(() => {
       echoText = null;
@@ -183,14 +165,8 @@ export function setupImeCompositionGate({ container, textarea }: GateOptions): I
 
   return {
     get composing() { return composing; },
-    // Gate mode has no grace window — inGracePeriod is always false.
-    get inGracePeriod() { return false; },
     get onCompositionCommit() { return onCompositionCommit; },
     set onCompositionCommit(cb: ((text: string) => void) | null) { onCompositionCommit = cb; },
-    get lastCommittedText() { return lastCommittedText; },
-    get lastCommitTime() { return lastCommitTime; },
     cleanup,
-    // No pending grace state, so flushPending is a no-op (satisfies the handle).
-    flushPending: () => {},
   };
 }

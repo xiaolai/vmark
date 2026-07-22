@@ -290,16 +290,6 @@ describe("createTerminalInstance composing property", () => {
     inst.onCompositionCommit = cb;
     expect(inst.onCompositionCommit).toBe(cb);
   });
-
-  it("lastCommittedText starts as null", () => {
-    const inst = makeInstance();
-    expect(inst.lastCommittedText).toBeNull();
-  });
-
-  it("lastCommitTime starts at 0", () => {
-    const inst = makeInstance();
-    expect(inst.lastCommitTime).toBe(0);
-  });
 });
 
 describe("createTerminalInstance with WebGL", () => {
@@ -612,11 +602,10 @@ describe("createTerminalInstance — IME wiring (Channel Ownership)", () => {
   // and setupImeCompositionGate.webkit.test.ts (real WebKit). Here we only verify
   // createTerminalInstance WIRES the gate handle correctly.
 
-  it("tracks composition via the container listener (gate), with no grace window", () => {
+  it("tracks composition via the container listener (gate)", () => {
     const inst = makeInstanceWithTextarea();
     const textarea = inst.container.querySelector(".xterm-helper-textarea")!;
     expect(inst.composing).toBe(false);
-    expect(inst.inGracePeriod).toBe(false);
 
     // Gate listens on the CONTAINER (capture) — a bubbling compositionstart reaches it.
     textarea.dispatchEvent(new CompositionEvent("compositionstart", { bubbles: true }));
@@ -626,7 +615,6 @@ describe("createTerminalInstance — IME wiring (Channel Ownership)", () => {
     textarea.value = "你好";
     textarea.dispatchEvent(new CompositionEvent("compositionend", { data: "你好", bubbles: true }));
     expect(inst.composing).toBe(false);
-    expect(inst.inGracePeriod).toBe(false);
     inst.dispose();
   });
 

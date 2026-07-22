@@ -70,20 +70,13 @@ export interface TerminalInstance {
   fitAddon: FitAddon;
   searchAddon: SearchAddon;
   container: HTMLDivElement;
-  /** Whether an IME composition is active or in post-composition grace period. */
+  /** True while an IME composition is active. */
   composing: boolean;
-  /** Whether we are specifically in the post-composition grace period (not actively composing). */
-  inGracePeriod: boolean;
   /**
    * Callback invoked with the clean committed text after IME composition ends.
-   * Set by useTerminalSessions to write directly to PTY, bypassing xterm's
-   * onData which may inject spaces (macOS Chinese IME: "claude" → "cl au de").
+   * Set by useTerminalSessions to write directly to PTY (single writer).
    */
   onCompositionCommit: ((text: string) => void) | null;
-  /** Last text committed via onCompositionCommit — used for dedup against late onData (#525). */
-  lastCommittedText: string | null;
-  /** Timestamp (Date.now()) of the last onCompositionCommit — dedup window check (#525). */
-  lastCommitTime: number;
   /**
    * User-triggered "redraw the terminal" action (#856). Clears the WebGL
    * texture atlas (if WebGL is active) and re-paints the viewport. Safe to
@@ -239,8 +232,6 @@ export function createTerminalInstance(options: CreateOptions): TerminalInstance
       // Live getter so the key handler sees the composition state; without it,
       // Shift+Enter / Cmd+C / etc. right after a CJK commit would leak past T2.
       isComposing: () => ime.composing,
-      // Flush a pending IME commit before the panel toggles closed (WI-1.4).
-      flushImeCommit: () => ime.flushPending(),
     }),
   );
 
@@ -272,12 +263,9 @@ export function createTerminalInstance(options: CreateOptions): TerminalInstance
     isShellBusy: osc133.isRunning,
     setOnShellIdle: osc133.setOnIdle,
     get composing() { return ime.composing; },
-    get inGracePeriod() { return ime.inGracePeriod; },
     get onCompositionCommit() { return ime.onCompositionCommit; },
     set onCompositionCommit(cb: ((text: string) => void) | null) {
       ime.onCompositionCommit = cb;
     },
-    get lastCommittedText() { return ime.lastCommittedText; },
-    get lastCommitTime() { return ime.lastCommitTime; },
   };
 }

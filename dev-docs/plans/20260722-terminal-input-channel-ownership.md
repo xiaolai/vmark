@@ -456,10 +456,21 @@ therefore illusory. Flip and delete MUST be different releases.
   which is why 4b waits for the bake).
 - **Estimate:** M, mechanical — but strictly gated on 4a's release evidence.
 
-**Residual gate-mode correctness still to prove before WI-4a (Codex D3.x, not yet closed):**
-whether any supported IME still lets xterm originate a write during composition (composition-phase
-`insertText` passes through today), and whether the gate `echoText` — a same-task macrotask proxy,
-NOT proxy-free — mishandles a cross-task echo or a genuine same-task repeat. Both need real traces.
+**Residual gate-mode correctness still to prove (Codex, not closed by code — need real hardware traces):**
+- whether any supported IME still lets xterm originate a write during composition (composition-phase
+  `insertText` passes through today);
+- whether the gate `echoText` — a same-task macrotask proxy, NOT proxy-free — mishandles a
+  cross-task echo or a genuine same-task repeat;
+- **T3 synchronous-read timing (2nd audit, A1):** `onCompositionEnd` reads and clears
+  `textarea.value` synchronously, but some browsers apply the final composition value *after* the
+  event (xterm defers its read for exactly this reason). If so, the `textareaDiff` punctuation-lie
+  path (`e.data` is the ASCII key, textarea holds the CJK char) could read stale/empty and lose the
+  conversion. The D3.1 fallback now prefers `e.data` for composition results, which reduces exposure,
+  but the punctuation-conversion case still depends on synchronous availability. Not fixed blind —
+  a deferred settle reintroduces async and needs trace evidence to get right;
+- **no real-composition e2e test (2nd audit, A2):** the WebKit tier can't drive an OS IME cycle and
+  the jsdom tests hand-set textarea values, so multi-syllable/punctuation/cancel/orphan paths are
+  unverified by machine. Manual per-IME acceptance is the only current proof.
 
 ### WI-5.1: Repair the test estate (the reason the bug class shipped green)
 - **Goal:** Replace tests that model the author's belief with tests that observe the contract.

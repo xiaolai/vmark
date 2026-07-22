@@ -64,9 +64,9 @@ case "$PHASE" in
     # WI-1.3: the destroy-guard must be inside write() specifically. `_destroyed`
     # already appears in kill/resize/close, so require the write-guard test name.
     assert_grep "no-op after destroy" "src/lib/pty.test.ts" "WI-1.3 write-after-destroy test present"
-    # WI-1.4: require the new grace-window regression test by name, not a bare
-    # stopPropagation (which already exists for Ctrl+C).
-    assert_grep "during the grace window" "$TDIR/terminalKeyHandler.test.ts" "WI-1.4 toggle-during-grace regression test present"
+    # WI-1.4: the toggle chord must stopPropagation so it can't bubble to the
+    # window handler and double-toggle (grace window removed in WI-4b).
+    assert_grep "stopPropagation blocks the window double-toggle" "$TDIR/terminalKeyHandler.test.ts" "WI-1.4 toggle double-toggle regression test present"
     ;;
   2)
     # Channel Ownership is now the ONLY path (the inputGate flag was removed in

@@ -21,9 +21,4 @@ export const NON_ASCII_RE = /[^\x00-\x7f]/;
 /** True if the string is entirely ASCII (one or more chars). */
 export const ALL_ASCII_RE = /^[\x00-\x7f]+$/;
 
-/** True for a single non-ASCII character (CJK punctuation/bracket). */
-export function isSingleNonAscii(s: string): boolean {
-  return s.length === 1 && !/^[\x00-\x7f]$/.test(s);
-}
-
 /* eslint-enable no-control-regex */

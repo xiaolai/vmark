@@ -81,15 +81,13 @@ function makeEvent(
 describe("createTerminalKeyHandler", () => {
   let callbacks: KeyHandlerCallbacks;
   let mockIsComposing: ReturnType<typeof vi.fn<() => boolean>>;
-  let mockFlushImeCommit: ReturnType<typeof vi.fn>;
   let ptyRef: React.RefObject<IPty | null>;
   let mockPty: { write: ReturnType<typeof vi.fn> };
 
   beforeEach(() => {
     vi.clearAllMocks();
     mockIsComposing = vi.fn<() => boolean>(() => false);
-    mockFlushImeCommit = vi.fn();
-    callbacks = { onSearch: vi.fn(), isComposing: mockIsComposing, flushImeCommit: mockFlushImeCommit };
+    callbacks = { onSearch: vi.fn(), isComposing: mockIsComposing };
     mockPty = { write: vi.fn() };
     ptyRef = { current: mockPty as unknown as IPty };
     mockTerminalFontSize.value = 13;
@@ -260,22 +258,19 @@ describe("createTerminalKeyHandler", () => {
       expect(handler(event)).toBe(false); // consumed, not abstained
       expect(event.stopPropagation).toHaveBeenCalled(); // cannot bubble to window handler
       expect(mockRequestToggleTerminal).not.toHaveBeenCalled(); // Backquote is IME input here
-      expect(mockFlushImeCommit).not.toHaveBeenCalled();
     });
 
-    it("toggles exactly once during the grace window and flushes pending IME text first (WI-1.4)", () => {
-      // Audit: abstaining during grace let the WINDOW handler toggle anyway,
-      // stranding the pending commit in a hidden shell. Now the terminal handler
-      // owns it: stopPropagation blocks the double-toggle, and the flush lands
-      // committed text in the still-visible terminal before it hides.
-      mockIsComposing.mockReturnValue(true); // post-compositionend grace window
+    it("toggles exactly once for a keyCode-229 chord (stopPropagation blocks the window double-toggle)", () => {
+      // Audit: abstaining during the (now-removed) grace window let the WINDOW
+      // handler toggle anyway. The terminal handler owns it: stopPropagation
+      // blocks the double-toggle. Gate mode commits synchronously at
+      // compositionend, so there is no pending-commit state to flush first.
       const term = makeTerm();
       const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
       const event = makeEvent("·", false, { ctrlKey: true, code: "Backquote", keyCode: 229 });
 
       expect(handler(event)).toBe(false);
       expect(event.stopPropagation).toHaveBeenCalled();
-      expect(mockFlushImeCommit).toHaveBeenCalledTimes(1);
       expect(mockRequestToggleTerminal).toHaveBeenCalledTimes(1);
     });
 

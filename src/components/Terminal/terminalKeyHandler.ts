@@ -72,12 +72,6 @@ export interface KeyHandlerCallbacks {
   isComposing: () => boolean;
   /** Jump to the previous/next command prompt (WI-3.3, shell integration). */
   onPromptNav?: (direction: "prev" | "next") => void;
-  /**
-   * Flush a pending IME commit NOW. Called when the toggle chord fires mid-commit
-   * so committed text reaches the terminal before the panel hides (WI-1.4).
-   * Optional so non-terminal callers/tests can omit it.
-   */
-  flushImeCommit?: () => void;
 }
 
 /**
@@ -98,22 +92,19 @@ export function createTerminalKeyHandler(
     // event — matchesShortcutEvent resolves the physical Backquote even when a
     // CJK IME remaps it to "·", and honours a custom binding.
     //
-    // WI-1.4: ALWAYS stopPropagation on a match, even during composition/grace.
-    // Previously this branch abstained during grace (returned true below), but
-    // xterm's keyCode-229 keydown does not cancel the event, so it bubbled to
-    // the WINDOW handler, which toggled the panel anyway — while a pending IME
-    // commit was armed, stranding text in the now-hidden shell (audit: high).
-    // Owning the event here makes the toggle fire exactly once. During the grace
-    // window we flush the pending commit into the still-visible terminal first;
-    // during a REAL active composition (event.isComposing) the Backquote is IME
-    // input, so we swallow it without toggling.
+    // WI-1.4: ALWAYS stopPropagation on a match, even during composition. Without
+    // it, xterm's keyCode-229 keydown doesn't cancel the event, so it bubbles to
+    // the WINDOW handler, which toggles the panel anyway (audit: high). Owning it
+    // here makes the toggle fire exactly once. During a REAL active composition
+    // (event.isComposing) the Backquote is IME input, so we swallow without
+    // toggling. Gate mode commits synchronously at compositionend, so there is no
+    // pending-commit state to flush before the panel hides.
     if (
       matchesShortcutEvent(event, useShortcutsStore.getState().getShortcut("toggleTerminal"))
     ) {
       event.preventDefault();
       event.stopPropagation();
       if (event.isComposing) return false; // real composition — swallow, no toggle
-      if (callbacks.isComposing()) callbacks.flushImeCommit?.();
       requestToggleTerminal();
       return false;
     }
