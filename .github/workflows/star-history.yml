@@ -1,0 +1,47 @@
+name: Refresh Star History chart
+
+# Regenerates .github/star-history.svg from the live stargazer data so the
+# self-hosted chart in README.md stays current. The chart is self-hosted because
+# api.star-history.com/chart server-renders the SVG and times out for this repo
+# (see scripts/gen-star-history.mjs).
+
+on:
+  schedule:
+    # Weekly, Monday 06:10 UTC. Star growth is gradual — change to "10 6 * * *"
+    # for daily if you want finer granularity.
+    - cron: "10 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: star-history
+  cancel-in-progress: true
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      # gh is pre-installed on the runner; GH_TOKEN authenticates its API calls.
+      # The generator needs no npm deps — it only shells out to `gh` and Node stdlib.
+      - name: Regenerate the chart
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/gen-star-history.mjs
+
+      - name: Commit if the chart changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/star-history.svg
+          git diff --cached --quiet && echo "No star-history changes" && exit 0
+          # [skip ci] — a chart-only update needn't run the full frontend/rust gate.
+          git commit -m "chore: refresh star-history chart [skip ci]"
+          git push
