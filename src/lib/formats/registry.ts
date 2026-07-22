@@ -111,10 +111,10 @@ export function registerFormat(config: FormatConfig): void {
   if (
     config.kind !== "media" &&
     config.adapters.readOnlyDefault === true &&
-    config.adapters.closeSavePolicy !== "markdown-default"
+    config.adapters.closeSavePolicy !== "prompt-on-close"
   ) {
     throw new Error(
-      `[formats] "${config.id}" readOnlyDefault=true requires closeSavePolicy="markdown-default" — editingEnabled=true makes it dirty-capable, save flow must exist`,
+      `[formats] "${config.id}" readOnlyDefault=true requires closeSavePolicy="prompt-on-close" — editingEnabled=true makes it dirty-capable, save flow must exist`,
     );
   }
   if (

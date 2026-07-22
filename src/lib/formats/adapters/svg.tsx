@@ -172,7 +172,7 @@ export const svgFormat: FormatConfig = {
       insertBlockActions: false,
       paragraphFormatting: false,
     },
-    closeSavePolicy: "markdown-default",
+    closeSavePolicy: "prompt-on-close",
   },
 };
 

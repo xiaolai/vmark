@@ -981,7 +981,7 @@ describe("useUnifiedMenuCommands", () => {
           saveDialogFilters: [{ name: "Plain", extensions: ["txt"] }],
           untitledExtension: "txt",
           readOnlyDefault: false,
-          closeSavePolicy: "markdown-default",
+          closeSavePolicy: "prompt-on-close",
           menuPolicy: {
             sourceWysiwygToggle: false,
             cjkFormatActions: false,
@@ -1197,7 +1197,7 @@ describe("useUnifiedMenuCommands", () => {
           saveDialogFilters: [{ name: f.formatId, extensions: [ext] }],
           untitledExtension: ext,
           readOnlyDefault: f.kind === "viewer",
-          closeSavePolicy: "markdown-default",
+          closeSavePolicy: "prompt-on-close",
           menuPolicy: f.menuPolicy,
         },
       });

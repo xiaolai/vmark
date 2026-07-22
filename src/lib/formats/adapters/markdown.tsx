@@ -150,7 +150,7 @@ export const markdownFormat: FormatConfig = {
       insertBlockActions: true,
       paragraphFormatting: true,
     },
-    closeSavePolicy: "markdown-default",
+    closeSavePolicy: "prompt-on-close",
   },
 };
 
