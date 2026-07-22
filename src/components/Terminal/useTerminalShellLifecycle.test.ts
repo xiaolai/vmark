@@ -26,10 +26,7 @@ function makeEntry(): { entry: SessionEntry; writeMock: ReturnType<typeof vi.fn>
   const instance = {
     term: { write: writeMock, clear: vi.fn() },
     composing: false,
-    inGracePeriod: false,
     onCompositionCommit: null,
-    lastCommittedText: null,
-    lastCommitTime: 0,
     fitAddon: {},
     searchAddon: {},
     container: {},
@@ -50,8 +47,6 @@ function makeEntry(): { entry: SessionEntry; writeMock: ReturnType<typeof vi.fn>
     disposed: false,
     spawnGen: 0,
     pendingRafId: null,
-    lastSeenCommitTime: 0,
-    lastCommittedConsumed: 0,
   };
   return { entry, writeMock };
 }

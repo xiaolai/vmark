@@ -94,6 +94,7 @@ describe("settingsStore — terminal.screenReaderMode (G3/WI-3.1)", () => {
   });
 });
 
+
 describe("settingsStore — terminal.scrollback (G7/WI-4.2)", () => {
   beforeEach(() => {
     useSettingsStore.getState().resetSettings();

@@ -12,64 +12,13 @@ import { useSettingsStore, type TerminalPosition, type TerminalCursorStyle, type
 import { SettingRow, SettingsGroup, Select, Toggle } from "./components";
 import { terminalSettingsWarn } from "@/utils/debug";
 import { isMacPlatform, isWindowsPlatform } from "@/utils/platform";
-
-const panelSizeOptions = [
-  { value: "0.1", label: "10%" },
-  { value: "0.15", label: "15%" },
-  { value: "0.2", label: "20%" },
-  { value: "0.25", label: "25%" },
-  { value: "0.3", label: "30%" },
-  { value: "0.35", label: "35%" },
-  { value: "0.4", label: "40%" },
-  { value: "0.45", label: "45%" },
-  { value: "0.5", label: "50%" },
-  { value: "0.6", label: "60%" },
-  { value: "0.7", label: "70%" },
-  { value: "0.8", label: "80%" },
-];
-
-// scrollbackOptions are raw numeric labels — no translation needed (G7/WI-4.2)
-const scrollbackOptions = [
-  { value: "1000", label: "1,000" },
-  { value: "5000", label: "5,000" },
-  { value: "10000", label: "10,000" },
-  { value: "50000", label: "50,000" },
-];
-
-// fontSizeOptions are raw numeric labels — no translation needed
-const fontSizeOptions = [
-  { value: "10", label: "10px" },
-  { value: "11", label: "11px" },
-  { value: "12", label: "12px" },
-  { value: "13", label: "13px" },
-  { value: "14", label: "14px" },
-  { value: "16", label: "16px" },
-  { value: "18", label: "18px" },
-  { value: "20", label: "20px" },
-  { value: "24", label: "24px" },
-];
-
-
-/** Extract shell name from absolute path (e.g. "/bin/zsh" → "zsh", "C:\\Windows\\cmd.exe" → "cmd.exe"). */
-function shellLabel(path: string): string {
-  const name = path.split(/[/\\]/).pop() ?? path;
-  return name || path;
-}
-
-/** Snap a ratio to the nearest dropdown option value. */
-function snapToOption(ratio: number): string {
-  const values = panelSizeOptions.map((o) => Number(o.value));
-  let closest = values[0];
-  let minDiff = Math.abs(ratio - closest);
-  for (const v of values) {
-    const diff = Math.abs(ratio - v);
-    if (diff < minDiff) {
-      minDiff = diff;
-      closest = v;
-    }
-  }
-  return String(closest);
-}
+import {
+  panelSizeOptions,
+  scrollbackOptions,
+  fontSizeOptions,
+  shellLabel,
+  snapToOption,
+} from "./terminalSettingsHelpers";
 
 export function TerminalSettings() {
   const { t } = useTranslation("settings");
