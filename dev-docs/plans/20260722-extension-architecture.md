@@ -110,7 +110,7 @@ Both move here.
 | WI-1.2 | ✅ **DONE** — `src/lib/extensions/resolve.ts` + 24 tests. Stable topological sort: constraints hard, bucket-then-registration-order as tie-break; dangling refs are errors; cycles report the full path; **empty ordering on any error** so a partial composition can never look plausible. Duplicate Tiptap *name* detection (post-factory) is deferred to Phase 3, where factories actually run |
 | WI-1.3 | **Claim protocol + normalization** (ADR-015 D2b) — semantic mdast normalization, `exact`/`semantic`/`fallback` strengths, two winning-strength claims = error, diagnostics + dev trace API |
 | WI-1.4 | **Node-safe entrypoint rule** — `feature/markdown.ts` / `feature/prosemirror.ts` / `feature/index.ts`; dep-cruiser **import-graph gate** so registry 1 can never transitively reach editor code. `nodeSafe.ts:16`'s invariant becomes a lint rule, not a comment |
-| WI-1.5 | **Performance baseline** — benchmark serialization at 10 KB / 100 KB / 1 MB and set a p95 + allocation budget *before* any registry indirection lands |
+| WI-1.5 | ✅ **DONE** — `src/bench/pipelinePerf.bench.ts` on the **production** schema (the existing `markdown.bench.ts` uses `getSchema([StarterKit])`, so it measures a pipeline the app never runs). Baseline below |
 | WI-1.6 | ✅ **DONE** — `scripts/pipeline-scope-inventory.mjs`. Result below, and materially better than the withdrawn premise |
 | WI-1.7 | ✅ **DONE** — `plugin-isolation` promoted `warn` → `error`; residual violations frozen via dependency-cruiser's own `--ignore-known` mechanism (the `.dependency-cruiser-known-violations.json` file existed but `lint:deps` never passed the flag, so it was dead) |
 | WI-1.8 | ✅ **DONE** — `scripts/check-extension-budget.mjs` + `scripts/extension-budget.json` wired into `check:all` as `lint:extension-budget`. Ratchets down only, mirroring the file-size gate |
@@ -162,6 +162,23 @@ is renamed, so it cannot rot like the numbers it replaces):
 first draft overstated the barrier roughly sevenfold and, worse, lumped together
 four situations with different remedies. The inversion is substantially more
 tractable than the plan originally claimed.
+
+### WI-1.5 baseline (2026-07-23, production schema, no coverage)
+
+| Size | serialize mean | serialize p99 | parse mean |
+|---|---|---|---|
+| 10 KB | 3.4 ms | 4.4 ms | 16.5 ms |
+| 100 KB | 33.8 ms | 34.6 ms | 237 ms |
+| 1 MB | 344 ms | 349 ms | — |
+
+Roughly linear at ~0.34 ms/KB for serialize. **Parse is ~4-5x more expensive
+than serialize** — worth knowing before optimising the wrong half.
+
+Budget for Phase 2: no tier may regress the median by more than 3x at any size.
+Deliberately **not** wired into `check:all` — wall-clock assertions under v8
+coverage instrumentation are flaky, and a gate that fails randomly gets
+disabled, which is how gates die in this repo. Run before and after each tier:
+`pnpm exec vitest bench src/bench/pipelinePerf.bench.ts`.
 
 ### Unresolved sub-dependency — the command registry fork
 
