@@ -1,9 +1,9 @@
 /**
  * imeCharClass
  *
- * Purpose: the ASCII / non-ASCII detectors shared by the terminal IME layer.
- * Consolidated here so setupImeComposition and terminalSessionInputWiring use
- * ONE definition instead of three near-identical copies.
+ * Purpose: the ASCII / non-ASCII detectors shared by the terminal IME layer
+ * (setupImeCompositionGate, terminalSessionInputWiring), consolidated into ONE
+ * definition instead of near-identical copies.
  *
  * Written with `\x00-\x7f` escape syntax, NOT a literal U+0080–U+FFFF range: the
  * literal form is correct but its leading U+0080 (a C1 control character) renders
