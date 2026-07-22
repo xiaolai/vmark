@@ -10,6 +10,7 @@
  */
 import type { SessionEntry, SessionsRef } from "./terminalSessionTypes";
 import { fitAndResizePty } from "./fitAndResizePty";
+import { terminalLog } from "@/utils/debug";
 
 /** Remove a session — cancel pending rAF, dispose the instance, then kill the
  *  PTY (dispose-before-kill so a dispose-time IME flush reaches a live PTY). */
@@ -25,9 +26,14 @@ export function removeSessionEntry(
     entry.pendingRafId = null;
   }
   // Dispose BEFORE kill (WI-1.3): instance.dispose() flushes a pending IME
-  // commit through the PTY, so the session must still be live. Killing first
-  // sent that flush to a dead session (the pty.write is a no-op post-kill).
-  entry.instance.dispose();
+  // commit through the PTY, so the session must still be live. Catch (not just
+  // finally) so a throwing dispose never propagates — the PTY is still killed
+  // and the entry removed, instead of leaking the PTY and orphaning the entry.
+  try {
+    entry.instance.dispose();
+  } catch (e) {
+    terminalLog("session dispose threw:", e);
+  }
   if (entry.pty) {
     try {
       entry.pty.kill();
@@ -101,8 +107,13 @@ export function disposeAllSessions(sessions: Map<string, SessionEntry>): void {
     }
     clearTimeout(entry.ptyResizeTimer);
     entry.ptyResizeTimer = undefined;
-    // Dispose BEFORE kill (WI-1.3) — see removeSessionEntry.
-    entry.instance.dispose();
+    // Dispose BEFORE kill (WI-1.3) — see removeSessionEntry. Catch per entry so
+    // one throwing dispose never blocks cleanup of the remaining sessions.
+    try {
+      entry.instance.dispose();
+    } catch (e) {
+      terminalLog("session dispose threw:", e);
+    }
     if (entry.pty) {
       try {
         entry.pty.kill();

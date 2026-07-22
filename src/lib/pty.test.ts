@@ -92,4 +92,23 @@ describe("VMarkPty.write() — no-op after destroy (WI-1.3)", () => {
       expect.objectContaining({ data: "should-not-reach-pty" }),
     );
   });
+
+  it("does not write when kill() races setup (write queued before _ready, killed before it resolves)", async () => {
+    const pty = spawn("bash", []);
+    // write + kill BEFORE _ready resolves — the synchronous _destroyed guard
+    // passes at write() time, so only the in-continuation recheck can catch it.
+    pty.write("raced-write");
+    pty.kill();
+
+    await vi.waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("pty_kill", { pid: PID });
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(invokeMock).not.toHaveBeenCalledWith(
+      "pty_write",
+      expect.objectContaining({ data: "raced-write" }),
+    );
+  });
 });

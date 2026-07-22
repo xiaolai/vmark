@@ -70,6 +70,18 @@ describe("removeSessionEntry", () => {
     cancelSpy.mockRestore();
   });
 
+  it("still kills the pty and removes the entry when dispose() throws (F5)", () => {
+    const entry = makeEntry();
+    (entry.instance.dispose as ReturnType<typeof vi.fn>).mockImplementation(() => {
+      throw new Error("dispose failed");
+    });
+    const ref = makeRef({ a: entry });
+
+    expect(() => removeSessionEntry(ref, "a")).not.toThrow();
+    expect(entry.pty?.kill).toHaveBeenCalledOnce();
+    expect(ref.current.has("a")).toBe(false);
+  });
+
   it("disposes the instance BEFORE killing the pty (WI-1.3)", () => {
     // instance.dispose() flushes a pending IME commit to the PTY; killing first
     // would send that flush to a dead session.
@@ -222,6 +234,24 @@ describe("disposeAllSessions", () => {
 
     expect(() => disposeAllSessions(sessions)).not.toThrow();
     expect(a.instance.dispose).toHaveBeenCalledOnce();
+    expect(sessions.size).toBe(0);
+  });
+
+  it("a throwing dispose does not block cleanup of the remaining sessions (F5)", () => {
+    const a = makeEntry();
+    (a.instance.dispose as ReturnType<typeof vi.fn>).mockImplementation(() => {
+      throw new Error("dispose failed");
+    });
+    const b = makeEntry();
+    const sessions = new Map<string, SessionEntry>([
+      ["a", a],
+      ["b", b],
+    ]);
+
+    expect(() => disposeAllSessions(sessions)).not.toThrow();
+    expect(a.pty?.kill).toHaveBeenCalledOnce();
+    expect(b.instance.dispose).toHaveBeenCalledOnce();
+    expect(b.pty?.kill).toHaveBeenCalledOnce();
     expect(sessions.size).toBe(0);
   });
 

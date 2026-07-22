@@ -42,7 +42,7 @@ import { createTerminalKeyHandler } from "./terminalKeyHandler";
 import { buildXtermThemeForId } from "@/theme";
 import { setupWebglRenderer } from "./setupWebglRenderer";
 import { setupImeComposition, IME_COMPOSITION_GRACE_MS } from "./setupImeComposition";
-import { setupImeCompositionGate } from "./setupImeCompositionGate";
+import { setupImeCompositionGate, createNoopImeHandle } from "./setupImeCompositionGate";
 import { setupWebLinks } from "./setupWebLinks";
 import { setupFileLinks } from "./setupFileLinks";
 import { setupCopyOnSelect } from "./setupCopyOnSelect";
@@ -205,16 +205,16 @@ export function createTerminalInstance(options: CreateOptions): TerminalInstance
   term.open(container);
 
   // Resolve + validate the helper textarea via the public getter, failing loud
-  // (WI-1.1/1.2). `textarea!` is non-null in dev (resolveHelperTextarea throws);
-  // in prod the error is logged and we proceed best-effort.
+  // (WI-1.1/1.2). Dev throws on a missing/misplaced textarea; prod logs and
+  // returns undefined, in which case we install a no-op IME handle so the
+  // terminal still works (the old `textarea!` path crashed on addEventListener).
   const textarea = resolveHelperTextarea(term, container);
-
-  // Lifecycle helpers (each returns its own cleanup or exposes a cleanup()).
-  // Input arbitration: gate mode (Channel Ownership, one writer) or legacy.
   const gateMode = settings.inputGate === "gate";
-  const ime = gateMode
-    ? setupImeCompositionGate({ container, textarea: textarea! })
-    : setupImeComposition({ container, textarea: textarea! });
+  const ime = !textarea
+    ? createNoopImeHandle()
+    : gateMode
+      ? setupImeCompositionGate({ container, textarea })
+      : setupImeComposition({ container, textarea });
 
   // Dev-only input-trace recorder (no-op in prod / unless the localStorage flag
   // is set). Lets a human capture real IME traces by typing — plan WI-0.1.

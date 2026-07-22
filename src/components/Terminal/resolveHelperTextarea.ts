@@ -33,7 +33,11 @@ export function resolveHelperTextarea(
   if (!container.contains(textarea)) {
     const msg = "term.textarea is not inside the terminal container";
     if (isDev) throw new Error(msg);
+    // Prod: the container-anchor invariant the gate path relies on is broken.
+    // Return undefined so the caller installs a no-op IME handle rather than
+    // wiring a container listener that can never see the textarea's events.
     terminalError(msg);
+    return undefined;
   }
   return textarea;
 }

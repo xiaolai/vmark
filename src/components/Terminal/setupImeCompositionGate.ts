@@ -39,16 +39,54 @@ interface GateOptions {
   textarea: HTMLTextAreaElement;
 }
 
+/**
+ * Inert IME handle for when the helper textarea is unavailable (prod, after a
+ * fail-loud log in resolveHelperTextarea). The terminal still works minus IME;
+ * this replaces the old path that crashed on `textarea!.addEventListener`.
+ * A fresh object per call — onCompositionCommit is per-session mutable state.
+ */
+export function createNoopImeHandle(): ImeCompositionHandle {
+  return {
+    get composing() { return false; },
+    get inGracePeriod() { return false; },
+    get onCompositionCommit() { return null; },
+    set onCompositionCommit(_cb: ((text: string) => void) | null) { /* no IME */ },
+    get lastCommittedText() { return null; },
+    get lastCommitTime() { return 0; },
+    cleanup: () => {},
+    flushPending: () => {},
+  };
+}
+
 export function setupImeCompositionGate({ container, textarea }: GateOptions): ImeCompositionHandle {
   let composing = false;
   let onCompositionCommit: ((text: string) => void) | null = null;
   let lastCommittedText: string | null = null;
   let lastCommitTime = 0;
   let textareaStartLen = 0;
+  /** True between a real compositionstart and its compositionend. Guards against
+   *  an orphan compositionend (fcitx5/rime #659/#948) trusting a stale textarea
+   *  snapshot: with no start, textareaStartLen is meaningless, so we ignore the
+   *  diff and accept only trustworthy non-ASCII e.data. */
+  let started = false;
+  /** Post-commit echo token: the text just committed, cleared on the next
+   *  macrotask. A trailing insertText (or a re-fired compositionend) that
+   *  restates it within the same task is the IME echoing the commit, not a fresh
+   *  keystroke, so it is dropped. Same proven shape as the legacy cb954392 fix.
+   *  NOTE: this catches only SAME-TASK echoes; a cross-task IME echo would need a
+   *  recorded real trace to characterise (gate mode still needs human-IME
+   *  verification before its default flip — see the plan). */
+  let echoText: string | null = null;
+
+  const isEcho = (text: string) => text === echoText;
 
   const commit = (text: string) => {
     lastCommittedText = text;
     lastCommitTime = Date.now();
+    echoText = text;
+    setTimeout(() => {
+      echoText = null;
+    }, 0);
     try {
       onCompositionCommit?.(text);
     } catch {
@@ -58,19 +96,23 @@ export function setupImeCompositionGate({ container, textarea }: GateOptions): I
 
   const onCompositionStart = () => {
     composing = true;
+    started = true;
     textareaStartLen = textarea.value.length;
     terminalLog("gate compositionstart");
   };
 
   const onCompositionEnd = (e: CompositionEvent) => {
     composing = false;
-    const textareaDiff = textarea.value.slice(textareaStartLen);
+    // Only trust the textarea diff when a real compositionstart set the snapshot
+    // (F2). Orphan compositionend → diff "", so resolveCommit uses only e.data.
+    const textareaDiff = started ? textarea.value.slice(textareaStartLen) : "";
+    started = false;
     const text = resolveCommit({ eventData: e.data, textareaDiff });
     terminalLog("gate compositionend", e.data, "->", text);
     // T3: clear the textarea synchronously so xterm's setTimeout(0)
     // _finalizeComposition reads "" and emits nothing.
     textarea.value = "";
-    if (text) commit(text);
+    if (text && !isEcho(text)) commit(text); // drop a re-fired duplicate (F2)
   };
 
   // T1: container capture listener. Forwards an IME-origin non-ASCII insert and
@@ -93,9 +135,10 @@ export function setupImeCompositionGate({ container, textarea }: GateOptions): I
       textarea.value = "";
       return;
     }
-    // Non-ASCII insert with no composition cycle (WeChat Shift punctuation).
+    // Non-ASCII insert. Either a no-composition WeChat commit (forward it) or the
+    // post-commit echo of a composition that just ended (drop it — F1).
     textarea.value = "";
-    commit(data);
+    if (!isEcho(data)) commit(data);
   };
 
   container.addEventListener("compositionstart", onCompositionStart, true);

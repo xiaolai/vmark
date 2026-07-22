@@ -1,11 +1,16 @@
 /**
  * terminalInputTrace
  *
- * Purpose: dev-only recorder for the terminal input seam. Captures the full
- * DOM-event → textarea → onData → pty.write sequence for a single physical
- * keystroke, so real IME traces can be recorded by a human typing (plan
- * WI-0.1/WI-0.3) instead of synthesised from reading code — synthesised
- * fixtures reproduce the exact defect the audit found.
+ * Purpose: dev-only recorder for the DOM input side of the terminal seam.
+ * `attachInputTrace` captures the keydown/input/composition sequence and the
+ * helper textarea's value at each step — the part that reveals the input
+ * ARBITRATION decision — so real IME traces can be recorded by a human typing
+ * (plan WI-0.1/WI-0.3) instead of synthesised from reading code (synthesised
+ * fixtures reproduce the exact defect the audit found).
+ *
+ * Scope note: it does NOT observe `term.onData` or `pty.write` — those are the
+ * OUTPUT side and must be tapped separately (the record type keeps "onData" /
+ * "pty.write" kinds so a caller CAN push them, but the DOM tap here does not).
  *
  * This is a RECORDER, not a replay harness. Replay against a real xterm needs a
  * browser test tier (jsdom cannot model the listener/microtask boundary — plan
