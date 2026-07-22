@@ -7,7 +7,7 @@
 | 0A safety net | ✅ **COMPLETE** — production-schema harness, corpus 12 → 22, 4 pre-existing defects found |
 | 0B security | ⚠️ **1 of 4** — WI-0B.2 done; the other three are re-scoped onto the capability broker (see below), because the plan's remedies would break custom shells, Save As, and stored keys |
 | 1 architecture contract | ✅ **COMPLETE** — descriptor, resolver, claim protocol, Node-safe gate, scope inventory, perf baseline, budget ratchet, doc corrections |
-| 2 serialization inversion | ⬜ not started |
+| 2 serialization inversion | 🟡 **Tier 1 started** — registry 2 built; 9 node types migrated differentially, switch still authoritative |
 | 3 composition migration | ⬜ not started — adoption gate pins 2 bypassing roots |
 | 4A/4B host + markdown | ⬜ not started |
 | 5 extension points | ⬜ not started; gated on the command-registry fork, the ADR-007 slot seam, and a package/security contract — all listed out of scope |
@@ -254,7 +254,7 @@ tree in `components/Editor/alignedTableNodes.ts`; `paragraph`/`heading`/
 
 | WI | Tier | Scope |
 |---|---|---|
-| WI-2.1 | 1 — mechanical | 12 node types, ≤10 lines each, pure attribute↔field mapping: `horizontalRule`, `frontmatter`, `html_block`, `html_inline`, `toc`, `hardBreak`, `image`, `math_inline`, `link_definition`, `footnote_reference`, `text`, `codeBlock` (after factoring out the `MATH_BLOCK_LANGUAGE` sentinel duplicated across two files) |
+| WI-2.1 | 1 — mechanical | 🟡 **9 of 12 migrated** — `horizontalRule`, `frontmatter`, `link_definition`, `html_block`, `toc`, `hardBreak`, `image`, `math_inline`, `footnote_reference` are in `pmConverters.registry.ts`, each proven byte-identical to its switch arm. **Excluded:** `codeBlock` (ambiguous via the `MATH_BLOCK_LANGUAGE` sentinel — needs claim wiring, so it is not Tier 1 in practice), and `html_inline`/`text`, which are reached through the inline if-chain rather than the switch and move with Tier 2 |
 | WI-2.2 | 2 — marks | 9 marks. `bold`/`italic`/`strike`/`sub`/`super`/`highlight`/`underline` are 13-line clones; `link` adds `isSafeUrl` + nested-link replacement; `code` is the leaf, not a wrapper. **`groupInlineItems` mark-run factoring stays central** — it optimizes across all marks at once and cannot decompose |
 | WI-2.3 | 3 — local logic | `heading` (needs document-scoped `usedSlugs`), `paragraph` (minus media promotion), `blockquote`, lists (`bulletList`/`orderedList`/`listItem` invert together — spread heuristics couple parent and child), `footnote_definition` (currently an un-extracted private method) |
 | WI-2.4 | 4 — containers | `table` (whole-table: alignment lives on row-0 cells; cells cannot own serialization — assign the arm to one owner), `detailsBlock` (**unify** `src/plugins/detailsBlock/` with `markdownPipeline/plugins/detailsBlock.ts`, crossing the `nodeSafe.ts` Node boundary), `wikiLink` (4-place coupling + a lazy-load trigger that must move with it) |
