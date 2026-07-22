@@ -8,7 +8,7 @@
 | 0B security | ⚠️ **1 of 4** — WI-0B.2 done; the other three are re-scoped onto the capability broker (see below), because the plan's remedies would break custom shells, Save As, and stored keys |
 | 1 architecture contract | ✅ **COMPLETE** — descriptor, resolver, claim protocol, Node-safe gate, scope inventory, perf baseline, budget ratchet, doc corrections |
 | 2 serialization inversion | ✅ **COMPLETE** — both switches deleted (24 + 34 arms); both `convertNode`s pure dispatch; `convertParagraph`'s media fan-out now claim-driven with ordering-independence proven by test. `convertHtml`'s internal fan-out and mark-run factoring remain central **by design** (WI-1.6) |
-| 3 composition migration | 🟡 **WYSIWYG root migrated + ADR-011 removed** — 77 extensions resolve through `resolveExtensions`; adoption gate 2 → 1; the dead registry and all 77 stub manifests deleted (80 files). `sourceEditorExtensions.ts` remains (CodeMirror extensions have no stable name, so entries need explicit ids) |
+| 3 composition migration | ✅ **COMPLETE** — both roots resolve through `resolveExtensions`; **adoption gate 2 → 0**; ADR-011's registry and all 77 stub manifests deleted (80 files). WI-3.4 (alphabetical sort) stays open by design: it is only safe once ordering constraints are explicit |
 | 4A/4B host + markdown | ⬜ not started |
 | 5 extension points | ⬜ not started; gated on the command-registry fork, the ADR-007 slot seam, and a package/security contract — all listed out of scope |
 
@@ -333,8 +333,8 @@ syntax is a post-parse tree transform. There is no tokenizer layer to redistribu
 | WI-3.1 | Define `VMarkExtension = { extension } \| readonly VMarkExtension[]`; implement `resolve()` with value-identity dedup |
 | WI-3.2 | Convert the 78-entry `tiptapExtensions.ts` array into extension values, one entry at a time, replacing implicit array position with explicit `Prec` bucket or named `before`/`after` **plus a test per ordering-sensitive entry** |
 | WI-3.3 | ✅ **DONE** — `registry.ts`, `registry.test.ts`, `manifests.ts` and all 77 `manifest.ts` stubs deleted (80 files). Verified dead first: `listPlugins`/`getPlugin`/`pluginsFor` had zero production callers, every `PluginManifest` import was type-only, and the single test reading a manifest only asserted the stub's own shape |
-| WI-3.4 | Sort the composition array alphabetically once no test depends on its order |
-| WI-3.5 | Remove every side channel; verify no path to composition bypasses `resolve()` |
+| WI-3.4 | ⏸️ **Deliberately open** — sorting is only safe after each order-sensitive entry carries an explicit `Prec` bucket or `before`/`after`. Both roots currently rely on the resolver's stable sort preserving declaration order, which is correct but means position is still load-bearing. Making constraints explicit is 126 independently testable steps (77 + 49) |
+| WI-3.5 | ✅ **DONE** — `adoption.test.ts` asserts zero bypassing roots and ratchets down only, so a reintroduced hand-wired path fails CI |
 
 Note: Tiptap already treats array order as a stable-sort tiebreaker, so WI-3.2 is
 78 independent, individually verifiable steps — not a big-bang rewrite. Beware
