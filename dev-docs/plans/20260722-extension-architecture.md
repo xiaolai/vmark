@@ -7,7 +7,7 @@
 | 0A safety net | ✅ **COMPLETE** — production-schema harness, corpus 12 → 22, 4 pre-existing defects found |
 | 0B security | ⚠️ **1 of 4** — WI-0B.2 done; the other three are re-scoped onto the capability broker (see below), because the plan's remedies would break custom shells, Save As, and stored keys |
 | 1 architecture contract | ✅ **COMPLETE** — descriptor, resolver, claim protocol, Node-safe gate, scope inventory, perf baseline, budget ratchet, doc corrections |
-| 2 serialization inversion | 🟢 **BOTH switches deleted** — 24-arm PM→mdast and 34-arm mdast→PM both replaced by registry 2. Both `convertNode`s are pure dispatch. `proseMirrorToMdast.ts` 285 → 204, `mdastToProseMirror.ts` 382 → 279. Remaining: decompose the media/html fan-out *inside* `convertParagraph`/`convertHtml` (where the claiming actually lives), and mark-run factoring, which stays central by design |
+| 2 serialization inversion | ✅ **COMPLETE** — both switches deleted (24 + 34 arms); both `convertNode`s pure dispatch; `convertParagraph`'s media fan-out now claim-driven with ordering-independence proven by test. `convertHtml`'s internal fan-out and mark-run factoring remain central **by design** (WI-1.6) |
 | 3 composition migration | ⬜ not started — adoption gate pins 2 bypassing roots |
 | 4A/4B host + markdown | ⬜ not started |
 | 5 extension points | ⬜ not started; gated on the command-registry fork, the ADR-007 slot seam, and a package/security contract — all listed out of scope |
