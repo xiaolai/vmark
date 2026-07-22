@@ -34,28 +34,7 @@ import type {
 import type { FootnoteDefinition, WikiLink } from "./types";
 import * as inlineConverters from "./pmInlineConverters";
 import type { InlineItem } from "./pmInlineConverters";
-import {
-  convertAlertBlock,
-  convertBlockImage,
-  convertBlockVideo,
-  convertBlockAudio,
-  convertVideoEmbed,
-  convertBlockquote,
-  convertCodeBlock,
-  convertDefinition,
-  convertDetailsBlock,
-  convertFrontmatter,
-  convertHeading,
-  convertHorizontalRule,
-  convertHtmlBlock,
-  convertList,
-  convertListItem,
-  convertParagraph,
-  convertTable,
-  convertToc,
-  type PmToMdastContext,
-  type PmToMdastNode,
-} from "./pmBlockConverters";
+import type { PmToMdastContext, PmToMdastNode } from "./pmBlockConverters";
 import { mdPipelineWarn } from "@/utils/debug";
 import {
   createTier1Registry,
@@ -145,64 +124,15 @@ class PMToMdastConverter {
     const viaRegistry = tryRegistry(this.registry, typeName, node, this.context);
     if (viaRegistry.handled) return viaRegistry.result;
 
-    switch (typeName) {
-      // Block nodes
-      case "paragraph":
-        return convertParagraph(this.context, node);
-      case "heading":
-        return convertHeading(this.context, node);
-      case "codeBlock":
-        return convertCodeBlock(node);
-      case "blockquote":
-        return convertBlockquote(this.context, node);
-      case "alertBlock":
-        return convertAlertBlock(this.context, node);
-      case "detailsBlock":
-        return convertDetailsBlock(this.context, node);
-      case "bulletList":
-        return convertList(this.context, node, false);
-      case "orderedList":
-        return convertList(this.context, node, true);
-      case "listItem":
-        return convertListItem(this.context, node);
-      case "horizontalRule":
-        return convertHorizontalRule();
-      case "table":
-        return convertTable(this.context, node);
-      case "block_image":
-        return convertBlockImage(node);
-      case "block_video":
-        return convertBlockVideo(node);
-      case "block_audio":
-        return convertBlockAudio(node);
-      case "video_embed":
-        return convertVideoEmbed(node);
-      case "frontmatter":
-        return convertFrontmatter(node);
-      case "link_definition":
-        return convertDefinition(node);
-      case "html_block":
-        return convertHtmlBlock(node);
-      case "toc":
-        return convertToc();
-      case "hardBreak":
-        return inlineConverters.convertHardBreak();
-      case "image":
-        return inlineConverters.convertImage(node);
-
-      // Custom nodes
-      case "math_inline":
-        return inlineConverters.convertMathInline(node);
-      case "footnote_reference":
-        return inlineConverters.convertFootnoteReference(node);
-      case "footnote_definition":
-        return this.convertFootnoteDefinition(node);
-
-      default:
-        // Unknown node type - skip with warning in dev
-        mdPipelineWarn(`[PMToMdast] Unknown node type: ${typeName}`);
-        return null;
+    // Only footnote_definition remains: it is a private method on this class
+    // rather than an extracted function, so it cannot be registered yet. Every
+    // other arm now lives in registry 2 (pmConverters.registry.ts).
+    if (typeName === "footnote_definition") {
+      return this.convertFootnoteDefinition(node);
     }
+
+    mdPipelineWarn(`[PMToMdast] Unknown node type: ${typeName}`);
+    return null;
   }
 
   // Inline content conversion

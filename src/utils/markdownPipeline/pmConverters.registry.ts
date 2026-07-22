@@ -34,11 +34,24 @@ import { mdPipelineWarn } from "@/utils/debug";
 import { PmConverterRegistry } from "@/lib/extensions/pmConverterRegistry";
 import * as inlineConverters from "./pmInlineConverters";
 import {
+  convertAlertBlock,
+  convertBlockAudio,
+  convertBlockImage,
+  convertBlockVideo,
+  convertBlockquote,
+  convertCodeBlock,
   convertDefinition,
+  convertDetailsBlock,
   convertFrontmatter,
+  convertHeading,
   convertHorizontalRule,
   convertHtmlBlock,
+  convertList,
+  convertListItem,
+  convertParagraph,
+  convertTable,
   convertToc,
+  convertVideoEmbed,
   type PmToMdastContext,
   type PmToMdastNode,
 } from "./pmBlockConverters";
@@ -68,6 +81,37 @@ export const TIER_1_NODE_NAMES = [
   "image",
   "math_inline",
   "footnote_reference",
+] as const;
+
+/**
+ * Structural node types, migrated alongside Tier 1.
+ *
+ * These take the shared conversion context (for child/inline recursion) but are
+ * otherwise self-contained in this direction. Crucially, **PM → mdast has no
+ * ambiguity**: the ProseMirror node type is definitive, so none of these needs
+ * the claim protocol. The claiming problem the plan describes — media, alerts,
+ * embeds competing for one mdast type — exists only in the mdast → PM
+ * direction, which registry 1 owns.
+ *
+ * `codeBlock` is included: it decodes the `MATH_BLOCK_LANGUAGE` sentinel inside
+ * `convertCodeBlock` (pmBlockConverters.ts:82), so in this direction it is
+ * self-contained too.
+ */
+export const STRUCTURAL_NODE_NAMES = [
+  "paragraph",
+  "heading",
+  "codeBlock",
+  "blockquote",
+  "alertBlock",
+  "detailsBlock",
+  "bulletList",
+  "orderedList",
+  "listItem",
+  "table",
+  "block_image",
+  "block_video",
+  "block_audio",
+  "video_embed",
 ] as const;
 
 /** Build the Tier-1 registry. Fresh instance per call; no module-level state. */
@@ -119,6 +163,78 @@ export function createTier1Registry(): PmTier1Registry {
       extensionId: "vmark.footnotePopup.reference",
       nodeName: "footnote_reference",
       convert: (node) => inlineConverters.convertFootnoteReference(node),
+    },
+
+    // ---- structural ----
+    {
+      extensionId: "vmark.paragraph",
+      nodeName: "paragraph",
+      convert: (node, ctx) => convertParagraph(ctx, node),
+    },
+    {
+      extensionId: "vmark.heading",
+      nodeName: "heading",
+      convert: (node, ctx) => convertHeading(ctx, node),
+    },
+    {
+      extensionId: "vmark.codeBlock",
+      nodeName: "codeBlock",
+      convert: (node) => convertCodeBlock(node),
+    },
+    {
+      extensionId: "vmark.blockquote",
+      nodeName: "blockquote",
+      convert: (node, ctx) => convertBlockquote(ctx, node),
+    },
+    {
+      extensionId: "vmark.alertBlock",
+      nodeName: "alertBlock",
+      convert: (node, ctx) => convertAlertBlock(ctx, node),
+    },
+    {
+      extensionId: "vmark.detailsBlock",
+      nodeName: "detailsBlock",
+      convert: (node, ctx) => convertDetailsBlock(ctx, node),
+    },
+    {
+      extensionId: "vmark.bulletList",
+      nodeName: "bulletList",
+      convert: (node, ctx) => convertList(ctx, node, false),
+    },
+    {
+      extensionId: "vmark.orderedList",
+      nodeName: "orderedList",
+      convert: (node, ctx) => convertList(ctx, node, true),
+    },
+    {
+      extensionId: "vmark.listItem",
+      nodeName: "listItem",
+      convert: (node, ctx) => convertListItem(ctx, node),
+    },
+    {
+      extensionId: "vmark.tableUI",
+      nodeName: "table",
+      convert: (node, ctx) => convertTable(ctx, node),
+    },
+    {
+      extensionId: "vmark.blockImage",
+      nodeName: "block_image",
+      convert: (node) => convertBlockImage(node),
+    },
+    {
+      extensionId: "vmark.blockVideo",
+      nodeName: "block_video",
+      convert: (node) => convertBlockVideo(node),
+    },
+    {
+      extensionId: "vmark.blockAudio",
+      nodeName: "block_audio",
+      convert: (node) => convertBlockAudio(node),
+    },
+    {
+      extensionId: "vmark.videoEmbed",
+      nodeName: "video_embed",
+      convert: (node) => convertVideoEmbed(node),
     },
   ]);
 
