@@ -95,10 +95,15 @@ case "$PHASE" in
     assert_grep "resolveCommit"          "$TDIR/setupImeCompositionGate.ts" "WI-3.2 gate uses resolveCommit"
     ;;
   4)
-    assert_absent "IME_COMPOSITION_GRACE_MS" "$SIC" "WI-4.1 grace constant deleted"
-    assert_absent "IME_DEDUP_WINDOW_MS"    "$CTI"   "WI-4.1 dedup window constant deleted"
-    assert_absent "lastCommittedConsumed"  "$TSW"   "WI-4.1 Path A consumed-prefix deleted"
-    assert_grep '"gate"'                   "src/stores/settingsStore/defaults.ts" "WI-4.1 default flipped to gate"
+    # WI-4a — flip default to gate, legacy kept intact (reversible).
+    assert_grep 'inputGate: "gate"'        "src/stores/settingsStore/defaults.ts" "WI-4a default flipped to gate"
+    assert_grep "migrateInputGateDefaultFlip" "src/stores/settingsStore/migrations.ts" "WI-4a persisted-value migration present"
+    assert_grep "terminal.inputGate.label" "src/pages/settings/TerminalSettings.tsx" "WI-4a Settings rollback toggle present"
+    # WI-4a keeps legacy INTACT — the guards must still be here (deleted only in 4b).
+    assert_grep "IME_COMPOSITION_GRACE_MS" "$SIC"   "WI-4a legacy grace guard retained (delete in 4b)"
+    # WI-4b — deletion, only AFTER a baked default-on release. These flip to
+    # assert_absent when 4b runs; today they must still be PRESENT.
+    assert_grep "IME_DEDUP_WINDOW_MS"      "$CTI"   "WI-4b pending: dedup window still present (correct pre-4b)"
     ;;
   5)
     # WI-5.1: the two "later keystroke" false-model tests were converted to fake

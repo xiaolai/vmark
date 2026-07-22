@@ -129,6 +129,19 @@ Open **Settings → Terminal** to configure:
 | Scrollback | 1,000 / 5,000 / 10,000 / 50,000 lines | 5,000 | All |
 | Screen Reader Mode | On / Off | Off | All |
 
+### Advanced
+
+| Setting | Options | Default |
+|---------|---------|---------|
+| Modern input engine | On / Off | On |
+
+**Modern input engine** handles keyboard and IME (Chinese/Japanese/Korean input
+method) text with a rewritten single-writer engine that fixes long-standing
+duplicated- and dropped-character bugs during composition. It is on by default.
+If a specific input method misbehaves, turn it off to fall back to the previous
+engine and [let us know](https://github.com/xiaolai/vmark/issues). The change
+applies to newly opened terminals.
+
 ### Accessibility
 
 | Setting | Options | Default |

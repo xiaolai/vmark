@@ -16,8 +16,8 @@ dod_checker: "scripts/check-terminal-input-phase.sh"
 | 1 | Safe structural fixes (no arbitration change) | **DONE** (gate 7/7, `check:all` green) | `… 1` |
 | 2 | Channel Ownership behind a flag | **CODE DONE, default-off** (gate 10/10; T1/T2/T3 verified in real WebKit for ASCII + direct non-ASCII **only** — real IME composition cycles are NOT machine-verifiable and remain pending human, WI-0.3) | `… 2` |
 | 3 | Collapse to a single writer | **CODE DONE, default-off** (gate 4/4; resolveCommit 100% mutation). Achieved via direct-to-PTY commit, NOT `term.input` — see WI-3.1. **Real IME cycles still pending human (WI-0.3), same as Phase 2.** | `… 3` |
-| 4a | Flip default to `gate` (legacy kept intact) | **BLOCKED — human only** (needs the real-IME matrix + migration + Settings opt-in; Codex review split this out of the old WI-4.1) | `… 4` |
-| 4b | Delete legacy + guards (after baked release) | **BLOCKED — follows 4a's shipped release** (irreversible; NOT the same release as the flip — Codex D1.1/D5.1) | `… 4` |
+| 4a | Flip default to `gate` (legacy kept intact) | **DONE** (2026-07-22, gate 5/5) — human confirmed gate works across macOS Pinyin/Zhuyin + WeChat, Linux fcitx5/rime, Windows MS-IME; default flipped, persisted-value migration added, Settings rollback toggle shipped, legacy fully retained. **NOTE:** verification was a developer smoke test, not the checked-in forensic matrix; that matrix is still owed before 4b. | `… 4` |
+| 4b | Delete legacy + guards (after baked release) | **BLOCKED — follows a baked 4a release** (irreversible; NOT the same release as the flip — Codex D1.1/D5.1). Held deliberately even though the owner requested immediate deletion: no bake, no fallback if a gate edge case surfaces in the wild. | `… 4` |
 | 5 | Test-estate repair + mutation gate | **DONE for now** (gate 4/4; compositionGuard deletion deferred to Phase 4) | `… 5` |
 
 **Phase Status ticks to the next row only after its DoD gate exits 0 AND `pnpm check:all` is green.**

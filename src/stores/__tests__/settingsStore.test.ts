@@ -99,21 +99,21 @@ describe("settingsStore — terminal.inputGate (WI-2.1, Channel Ownership)", () 
     useSettingsStore.getState().resetSettings();
   });
 
-  it("defaults to 'legacy' (gate path off until verified on real IMEs)", () => {
-    expect(useSettingsStore.getState().terminal.inputGate).toBe("legacy");
+  it("defaults to 'gate' (Channel Ownership — WI-4a, human-verified across IMEs)", () => {
+    expect(useSettingsStore.getState().terminal.inputGate).toBe("gate");
   });
 
-  it("updateTerminalSetting can flip inputGate to 'gate' without touching other keys", () => {
+  it("updateTerminalSetting can set inputGate back to 'legacy' (rollback) without touching other keys", () => {
     const beforeShell = useSettingsStore.getState().terminal.shell;
-    useSettingsStore.getState().updateTerminalSetting("inputGate", "gate");
-    expect(useSettingsStore.getState().terminal.inputGate).toBe("gate");
+    useSettingsStore.getState().updateTerminalSetting("inputGate", "legacy");
+    expect(useSettingsStore.getState().terminal.inputGate).toBe("legacy");
     expect(useSettingsStore.getState().terminal.shell).toBe(beforeShell);
   });
 
-  it("resetSettings restores inputGate to 'legacy'", () => {
-    useSettingsStore.getState().updateTerminalSetting("inputGate", "gate");
+  it("resetSettings restores inputGate to the 'gate' default", () => {
+    useSettingsStore.getState().updateTerminalSetting("inputGate", "legacy");
     useSettingsStore.getState().resetSettings();
-    expect(useSettingsStore.getState().terminal.inputGate).toBe("legacy");
+    expect(useSettingsStore.getState().terminal.inputGate).toBe("gate");
   });
 });
 

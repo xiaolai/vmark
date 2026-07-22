@@ -28,10 +28,11 @@ export type TerminalBellMode = "off" | "visual" | "audible";
 
 /**
  * Terminal input arbitration mode (plan 20260722-terminal-input-channel-ownership).
- * - "legacy": the historical path — xterm and VMark both write, reconciled by
- *   timing/payload proxies. Byte-for-byte the shipping behavior.
- * - "gate": Channel Ownership — VMark takes the text channel, one writer, no
- *   timing proxies. Off by default until the gate path is verified on real IMEs.
+ * - "gate": Channel Ownership — VMark takes the text channel, one writer. THE
+ *   DEFAULT since WI-4a (human-verified across macOS/Linux/Windows IMEs).
+ * - "legacy": the historical dual-writer path reconciled by timing/payload
+ *   proxies. Retained as the operable rollback until WI-4b removes it after a
+ *   baked default-on release.
  */
 export type TerminalInputGate = "legacy" | "gate";
 
