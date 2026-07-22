@@ -89,6 +89,20 @@ export interface FormatConfig {
   extensions: string[];
   kind: FormatKind;
   wysiwygComponent?: ComponentType<{ tabId: string }>;
+  /**
+   * Synchronous CodeMirror language, for packs the app bundles anyway.
+   *
+   * `loadLanguage` is the general path and is async, which means a host must
+   * mount with no language and reconfigure a Compartment when the promise
+   * resolves. For markdown — the primary format, opened constantly — that would
+   * put a frame of unhighlighted text on the most-used path.
+   *
+   * A format that is statically imported regardless (markdown, yaml) may expose
+   * it synchronously here instead. Hosts prefer `language` when present and fall
+   * back to `loadLanguage`, so one host serves every format without the common
+   * case paying for the general one. ADR-015 Phase 4A, option 2.
+   */
+  language?: () => Extension;
   loadLanguage?: () => Promise<Extension>;
   loadExtraExtensions?: () => Promise<Extension[]>;
   validator?: Validator;

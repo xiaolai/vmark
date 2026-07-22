@@ -27,9 +27,9 @@ import { history } from "@codemirror/commands";
 import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import { workflowWarn } from "@/utils/debug";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
-import { yaml } from "@codemirror/lang-yaml";
 import { languages } from "@codemirror/language-data";
 import { isYamlFileName } from "@/utils/dropPaths";
+import { dispatchEditor } from "@/lib/formats/registry";
 import { sourceWorkflowPreviewExtensions } from "@/plugins/codemirror/sourceWorkflowPreview";
 // WI-2.4 — sourceGhaWorkflowPreview retired. Standalone workflow YAML
 // files now route through the YAML adapter's schemaRenderer
@@ -116,6 +116,27 @@ interface ExtensionConfig {
 /**
  * Creates the array of CodeMirror extensions for the source editor.
  */
+/**
+ * The CodeMirror language pack for `filePath`, from the format registry.
+ *
+ * Formats that bundle their pack anyway expose it synchronously via
+ * `FormatConfig.language`, so the primary path never mounts unhighlighted
+ * (ADR-015 Phase 4A, option 2).
+ *
+ * Falls back to markdown when the registry is unavailable — `dispatchEditor`
+ * throws if no format has been registered, which happens in unit tests that
+ * build extensions without bootstrapping. A source editor with the wrong
+ * highlighting is recoverable; one that throws on construction is not.
+ */
+function resolveLanguage(filePath: string | null | undefined): Extension {
+  const fallback = () => markdown({ codeLanguages: languages });
+  try {
+    return dispatchEditor(filePath ?? null).language?.() ?? fallback();
+  } catch {
+    return fallback();
+  }
+}
+
 export function createSourceEditorExtensions(config: ExtensionConfig): Extension[] {
   const { initialWordWrap, initialShowBrTags, initialAutoPair, initialShowLineNumbers, initialShowInvisibles = false, updateListener, tabId, lintEnabled, filePath } = config;
   // YAML detection ignores the workflow feature flag — every YAML file gets
@@ -180,7 +201,12 @@ export function createSourceEditorExtensions(config: ExtensionConfig): Extension
     // Search extension (programmatic control only, no panel)
     { id: "source.search", ext: search() },
     // Language mode: YAML for .yml/.yaml files, markdown for everything else
-    { id: "source.isYaml", ext: isYaml ? yaml() : markdown({ codeLanguages: languages }) },
+    // Language comes from the format registry, not a hard-coded branch. Formats
+    // that bundle their pack anyway expose it synchronously via
+    // `FormatConfig.language`, so the primary path never mounts unhighlighted;
+    // anything else falls back to the statically imported markdown pack until
+    // the async `loadLanguage` path is wired (ADR-015 Phase 4A).
+    { id: "source.language", ext: resolveLanguage(filePath) },
     // Workflow preview plugin for YAML files (parses YAML → workflowPreviewStore)
     { id: "source.workflowPreview", ext: (workflowFeatures ? sourceWorkflowPreviewExtensions : []) },
     // YAML parse-error linter (every YAML file, regardless of workflow
