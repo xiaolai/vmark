@@ -106,8 +106,8 @@ Both move here.
 
 | WI | Change |
 |---|---|
-| WI-1.1 | **Stable extension descriptor** (ADR-015 D1) — `id`, `version`, `requires`, `ordering`, `contributions`. Not value identity: composition builds values inline (`tiptapExtensions.ts:114,142`), so factory calls yield fresh objects |
-| WI-1.2 | **Resolver** — flatten groups, reject duplicate IDs, validate `requires`/ordering references, topological sort with deterministic tie-breaks, report full cycle paths, detect duplicate Tiptap extension names after factories run |
+| WI-1.1 | ✅ **DONE** — `src/lib/extensions/types.ts`. `Contribution` deliberately excludes commands (registry fork) and panels (ADR-007 seam absent) |
+| WI-1.2 | ✅ **DONE** — `src/lib/extensions/resolve.ts` + 24 tests. Stable topological sort: constraints hard, bucket-then-registration-order as tie-break; dangling refs are errors; cycles report the full path; **empty ordering on any error** so a partial composition can never look plausible. Duplicate Tiptap *name* detection (post-factory) is deferred to Phase 3, where factories actually run |
 | WI-1.3 | **Claim protocol + normalization** (ADR-015 D2b) — semantic mdast normalization, `exact`/`semantic`/`fallback` strengths, two winning-strength claims = error, diagnostics + dev trace API |
 | WI-1.4 | **Node-safe entrypoint rule** — `feature/markdown.ts` / `feature/prosemirror.ts` / `feature/index.ts`; dep-cruiser **import-graph gate** so registry 1 can never transitively reach editor code. `nodeSafe.ts:16`'s invariant becomes a lint rule, not a comment |
 | WI-1.5 | **Performance baseline** — benchmark serialization at 10 KB / 100 KB / 1 MB and set a p95 + allocation budget *before* any registry indirection lands |
@@ -120,6 +120,13 @@ Both move here.
 reports green while an 88-entry router dispatches through a variable event id
 (`useUnifiedMenuCommands.ts:350`). Use dep-cruiser rules or call-site counts of
 the sanctioned entry point.
+
+**Adoption, not existence.** `src/lib/extensions/adoption.test.ts` pins how many
+composition roots still bypass the resolver (currently **2**:
+`tiptapExtensions.ts`, `sourceEditorExtensions.ts`) and ratchets down only. The
+resolver is the fifth foundation this project has built; the previous four all
+became dead code. Phase 3 drives the count to 0 — until then the gate makes the
+non-adoption visible instead of silent.
 
 **Progress 2026-07-23:** WI-1.7 and WI-1.8 complete and verified by experiment —
 injecting a cross-plugin import into `plugins/underline/tiptap.ts` turns
