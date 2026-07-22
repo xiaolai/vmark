@@ -2,6 +2,11 @@
  * CodeMirror Extensions Configuration
  *
  * Purpose: Assembles the CodeMirror extension stack for VMark's source editor —
+ *
+ * Composition goes through `resolveExtensions` (ADR-015 D1): each entry carries
+ * an explicit id, and the resolver — not array position — produces the final
+ * order. The result is flattened one level so entries that were `...spread`
+ * before keep their original shape. The keymap lives in sourceEditorKeymap.ts.
  * markdown language support, custom keymaps, themes, decorations (media tags), and plugins.
  *
  * Key decisions:
