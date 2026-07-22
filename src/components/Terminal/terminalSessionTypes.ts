@@ -36,16 +36,6 @@ export interface SessionEntry {
    * flushed on the next idle (see terminalSessionStoreSync).
    */
   pendingRoot?: string | null;
-  /**
-   * Last observed `instance.lastCommitTime`. When it changes, a new IME
-   * commit has occurred and `lastCommittedConsumed` must reset to 0.
-   */
-  lastSeenCommitTime: number;
-  /**
-   * Number of chars from `instance.lastCommittedText` already deduped via
-   * onData. Enables suffix-chunk matching for split CJK commits.
-   */
-  lastCommittedConsumed: number;
 }
 
 /** A ref to the live session map keyed by session id. */

@@ -13,9 +13,8 @@
  *   - A clean shell exit (code 0) closes the session's tab (#1103). After a
  *     non-zero exit, pressing any key respawns the shell — the "dead session"
  *     state is visually indicated in the tab bar.
- *   - IME forwarding (composition commit + onData → PTY with grace-period
- *     block and chunked re-emission dedup) is implemented in
- *     terminalSessionInputWiring.ts (#59, #454, #525, #608, #619).
+ *   - IME forwarding (single writer per keystroke: composition commit + onData
+ *     → PTY) is implemented in terminalSessionInputWiring.ts (Channel Ownership).
  *   - Theme / workspace-root / terminal-settings sync is implemented in
  *     terminalSessionStoreSync.ts. Theme uses buildXtermThemeForId();
  *     workspace-root change auto-cd's running sessions via buildCdCommand()
@@ -168,14 +167,11 @@ export function useTerminalSessions(
         disposed: false,
         spawnGen: 0,
         pendingRafId: null,
-        lastSeenCommitTime: 0,
-        lastCommittedConsumed: 0,
       };
       sessionsRef.current.set(sessionId, entry);
 
-      // Wire IME composition commit + onData → PTY forwarding (with the
-      // composition-grace block and chunked-re-emission dedup). See
-      // terminalSessionInputWiring.ts for the design notes.
+      // Wire IME composition commit + onData → PTY forwarding (single writer per
+      // keystroke). See terminalSessionInputWiring.ts for the design notes.
       // Shell is spawned lazily by switchVisibility after the container
       // is visible and fitAddon has measured the real dimensions.
       wireSessionInput({

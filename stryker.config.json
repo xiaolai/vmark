@@ -11,6 +11,9 @@
     "src/lib/cjkFormatter/quotePairing.ts",
     "src/lib/lintEngine/rules/**/*.ts",
     "src/lib/lintEngine/linter.ts",
+    "src/components/Terminal/resolveCommit.ts",
+    "src/components/Terminal/terminalReadlineKeys.ts",
+    "src/components/Terminal/imeCharClass.ts",
     "!**/*.test.ts",
     "!**/__tests__/**"
   ],

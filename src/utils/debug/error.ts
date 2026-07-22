@@ -233,4 +233,11 @@ export const workflowError = isDev
   ? (...args: unknown[]) => console.error("[Workflow]", ...args)
   : (...args: unknown[]) => prodError("[Workflow]", ...args);
 
+/** Error logger for the integrated Terminal — production-persistent so a
+ *  silently-disabled IME layer (missing helper textarea) leaves a trace in the
+ *  user's attachable log instead of the current production no-op. */
+export const terminalError = isDev
+  ? (...args: unknown[]) => console.error("[Terminal]", ...args)
+  : (...args: unknown[]) => prodError("[Terminal]", ...args);
+
 /* v8 ignore stop */

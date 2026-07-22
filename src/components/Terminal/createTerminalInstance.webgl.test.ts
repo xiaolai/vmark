@@ -59,7 +59,14 @@ vi.mock("@xterm/xterm", () => ({
       this._constructorOptions = options;
     }
     loadAddon = vi.fn();
+    // Public getter mirror of xterm's `get textarea()` (WI-1.1 fail-loud).
+    textarea: HTMLTextAreaElement | undefined = undefined;
     open = vi.fn((container: HTMLElement) => {
+      // Real xterm always creates the helper textarea in open().
+      const ta = document.createElement("textarea");
+      ta.className = "xterm-helper-textarea";
+      container.appendChild(ta);
+      this.textarea = ta;
       // Simulate the WebGL addon appending its render canvases.
       // The real WebGL renderer adds 2 canvases inside the .xterm-screen.
       const screen = document.createElement("div");

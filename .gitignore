@@ -159,3 +159,7 @@ e2e/artifacts/
 # Stryker mutation testing (run with `pnpm mutation:ts`)
 .stryker-tmp/
 reports/mutation/
+
+# Vitest browser-tier (WebKit) artifacts (run with `pnpm test:browser`)
+src/**/__screenshots__/
+.vitest-attachments/

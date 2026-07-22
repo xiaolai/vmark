@@ -250,15 +250,28 @@ describe("createTerminalKeyHandler", () => {
       expect(mockRequestToggleTerminal).not.toHaveBeenCalled();
     });
 
-    it("does NOT toggle during a real composition — pending IME text isn't stranded", () => {
+    it("swallows the chord during a REAL active composition — no toggle, no bubble (WI-1.4)", () => {
       const term = makeTerm();
       const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
-      // event.isComposing true → skip
-      handler(makeEvent("·", false, { ctrlKey: true, code: "Backquote", isComposing: true }));
-      // callbacks.isComposing() true (post-commit grace) → skip
-      mockIsComposing.mockReturnValue(true);
-      handler(makeEvent("·", false, { ctrlKey: true, code: "Backquote", keyCode: 229 }));
-      expect(mockRequestToggleTerminal).not.toHaveBeenCalled();
+      const event = makeEvent("·", false, { ctrlKey: true, code: "Backquote", isComposing: true });
+
+      expect(handler(event)).toBe(false); // consumed, not abstained
+      expect(event.stopPropagation).toHaveBeenCalled(); // cannot bubble to window handler
+      expect(mockRequestToggleTerminal).not.toHaveBeenCalled(); // Backquote is IME input here
+    });
+
+    it("toggles exactly once for a keyCode-229 chord (stopPropagation blocks the window double-toggle)", () => {
+      // Audit: abstaining during the (now-removed) grace window let the WINDOW
+      // handler toggle anyway. The terminal handler owns it: stopPropagation
+      // blocks the double-toggle. Gate mode commits synchronously at
+      // compositionend, so there is no pending-commit state to flush first.
+      const term = makeTerm();
+      const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
+      const event = makeEvent("·", false, { ctrlKey: true, code: "Backquote", keyCode: 229 });
+
+      expect(handler(event)).toBe(false);
+      expect(event.stopPropagation).toHaveBeenCalled();
+      expect(mockRequestToggleTerminal).toHaveBeenCalledTimes(1);
     });
 
     it("honours a custom Toggle-Terminal binding (Ctrl+` no longer claims it)", () => {
@@ -413,7 +426,7 @@ describe("createTerminalKeyHandler", () => {
       expect(event.preventDefault).toHaveBeenCalled();
     });
 
-    it("does not zoom during the IME grace window", () => {
+    it("does not zoom while a composition is active (callbacks.isComposing)", () => {
       mockIsComposing.mockReturnValue(true);
       const term = makeTerm();
       const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
@@ -550,7 +563,8 @@ describe("createTerminalKeyHandler", () => {
 
     it("Shift+Enter during IME composition does not emit the sequence", () => {
       // CJK input must take precedence — emitting CSI-u during composition
-      // could break the input method's commit flow.
+      // could break the input method's commit flow. T2 consumes the IME keydown
+      // (returns false), which also means the CSI-u sequence is never written.
       const term = makeTerm();
       const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
       const event = makeEvent("Enter", false, {
@@ -560,22 +574,21 @@ describe("createTerminalKeyHandler", () => {
 
       const result = handler(event);
 
-      expect(result).toBe(true);
+      expect(result).toBe(false); // T2 consumes; no preventDefault so the IME still commits
       expect(mockPty.write).not.toHaveBeenCalled();
     });
 
-    it("Shift+Enter inside the post-compositionend grace window also defers", () => {
-      // Browsers fire a follow-up keydown for the confirming key with
-      // event.isComposing === false, but setupImeComposition keeps the
-      // handle's `composing` flag true through the 80ms grace window.
-      // Without callbacks.isComposing(), this Shift+Enter would leak past
-      // the IME guard and write to the PTY mid-CJK-commit.
+    it("Shift+Enter defers while a composition is active (callbacks.isComposing)", () => {
+      // The `callbacks.isComposing()` guard defers non-IME shortcuts whenever the
+      // gate handle reports an active composition, independent of the browser's
+      // per-event isComposing flag. Without it, Shift+Enter could leak past and
+      // write to the PTY mid-CJK-commit.
       mockIsComposing.mockReturnValue(true);
       const term = makeTerm();
       const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
       const event = makeEvent("Enter", false, {
         shiftKey: true,
-        isComposing: false, // post-compositionend; browser flag has cleared
+        isComposing: false, // event flag alone would miss it; the guard catches it
       });
 
       const result = handler(event);
@@ -585,13 +598,11 @@ describe("createTerminalKeyHandler", () => {
     });
   });
 
-  describe("IME grace-window protection (post-compositionend)", () => {
-    // Same vulnerability affected the pre-existing branches before this
-    // fix — Cmd+C / Cmd+V / Cmd+K / Cmd+F could fire during a CJK commit
-    // because their guard was only event.isComposing, which clears as
-    // soon as compositionend fires. The handle's composing getter stays
-    // true for ~80ms after compositionend so we cover that window.
-    it("Cmd+V during grace window does not paste", () => {
+  describe("IME composition guard (callbacks.isComposing)", () => {
+    // Cmd+C / Cmd+V / Cmd+K / Cmd+F must not fire while a composition is active.
+    // The `callbacks.isComposing()` guard (the gate handle's `composing` getter)
+    // covers keys whose own event.isComposing flag doesn't catch them.
+    it("Cmd+V while composing does not paste", () => {
       mockIsComposing.mockReturnValue(true);
       const term = makeTerm();
       const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
@@ -602,7 +613,7 @@ describe("createTerminalKeyHandler", () => {
       expect(readText).not.toHaveBeenCalled();
     });
 
-    it("Cmd+C during grace window does not copy", () => {
+    it("Cmd+C while composing does not copy", () => {
       mockIsComposing.mockReturnValue(true);
       const term = makeTerm({
         hasSelection: vi.fn(() => true),
@@ -616,7 +627,7 @@ describe("createTerminalKeyHandler", () => {
       expect(writeText).not.toHaveBeenCalled();
     });
 
-    it("Cmd+K during grace window does not clear", () => {
+    it("Cmd+K while composing does not clear", () => {
       mockIsComposing.mockReturnValue(true);
       const term = makeTerm();
       const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
@@ -628,12 +639,12 @@ describe("createTerminalKeyHandler", () => {
     });
   });
 
-  it("passes through IME composition events (isComposing)", () => {
+  it("consumes IME composition events without side effects (isComposing)", () => {
     const term = makeTerm();
     const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
-    // Cmd+V during IME composition should NOT trigger paste
+    // Cmd+V during IME composition: T2 consumes it (false), so it does NOT paste.
     const result = handler(makeEvent("v", true, { isComposing: true }));
-    expect(result).toBe(true);
+    expect(result).toBe(false);
     expect(readText).not.toHaveBeenCalled();
   });
 
@@ -663,12 +674,17 @@ describe("createTerminalKeyHandler", () => {
     vi.unstubAllGlobals();
   });
 
-  it("passes through IME keyCode 229 events", () => {
+  it("CONSUMES IME keyCode 229 keydowns (T2 — no xterm DEL hazard)", () => {
     const term = makeTerm();
     const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
-    const result = handler(makeEvent("v", true, { keyCode: 229 }));
-    expect(result).toBe(true);
-    // Should not trigger paste
+    // Returning false stops xterm's _keyDown (and its _handleAnyTextareaChanges);
+    // it does NOT preventDefault, so the gate's container input listener still
+    // delivers the character.
+    const event = makeEvent("。", false, { keyCode: 229, code: "Period" });
+    expect(handler(event)).toBe(false);
+    expect(event.preventDefault).not.toHaveBeenCalled();
+    // A Cmd+V reported as keyCode 229 must NOT paste (consumed as IME first).
+    expect(handler(makeEvent("v", true, { keyCode: 229 }))).toBe(false);
     expect(readText).not.toHaveBeenCalled();
   });
 

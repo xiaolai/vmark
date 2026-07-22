@@ -19,8 +19,7 @@
  *     runtime theme changes are handled by useTerminalSessions.
  *   - Lifecycle concerns are split into focused helpers, each returning a
  *     cleanup hook the factory calls in dispose():
- *       * setupImeComposition  — IME compositionstart/end handling (#59,
- *         #454, #525, #608, #619, #659)
+ *       * setupImeCompositionGate — Channel Ownership IME handling (one writer)
  *       * setupWebglRenderer   — WebGL addon, atlas bounding (#856),
  *         dual-layer context-loss recovery, MutationObserver, resetDisplay
  *       * setupWebLinks        — sandboxed web-link click handler
@@ -41,19 +40,18 @@ import { SearchAddon } from "@xterm/addon-search";
 import { createTerminalKeyHandler } from "./terminalKeyHandler";
 import { buildXtermThemeForId } from "@/theme";
 import { setupWebglRenderer } from "./setupWebglRenderer";
-import { setupImeComposition, IME_COMPOSITION_GRACE_MS } from "./setupImeComposition";
+import { setupImeCompositionGate, createNoopImeHandle } from "./setupImeCompositionGate";
 import { setupWebLinks } from "./setupWebLinks";
 import { setupFileLinks } from "./setupFileLinks";
 import { setupCopyOnSelect } from "./setupCopyOnSelect";
 import { setupOsc7, setupOsc133, scrollToAdjacentCommand, type CommandMark } from "./setupOsc";
+import { resolveHelperTextarea } from "./resolveHelperTextarea";
+import { maybeInstallDevInputTrace } from "./terminalInputTrace";
 
 import "@xterm/xterm/css/xterm.css";
 
 // Re-exports kept for compatibility with existing imports/tests.
 export { ATLAS_PAGE_LIMIT } from "./setupWebglRenderer";
-export { IME_COMPOSITION_GRACE_MS } from "./setupImeComposition";
-/** Milliseconds after onCompositionCommit during which duplicate onData is suppressed. */
-export const IME_DEDUP_WINDOW_MS = 150;
 
 /** Resolve the --font-mono CSS variable to actual font family names, used at
  *  terminal creation (the var is already applied by then). Live mono-font
@@ -72,20 +70,13 @@ export interface TerminalInstance {
   fitAddon: FitAddon;
   searchAddon: SearchAddon;
   container: HTMLDivElement;
-  /** Whether an IME composition is active or in post-composition grace period. */
+  /** True while an IME composition is active. */
   composing: boolean;
-  /** Whether we are specifically in the post-composition grace period (not actively composing). */
-  inGracePeriod: boolean;
   /**
    * Callback invoked with the clean committed text after IME composition ends.
-   * Set by useTerminalSessions to write directly to PTY, bypassing xterm's
-   * onData which may inject spaces (macOS Chinese IME: "claude" → "cl au de").
+   * Set by useTerminalSessions to write directly to PTY (single writer).
    */
   onCompositionCommit: ((text: string) => void) | null;
-  /** Last text committed via onCompositionCommit — used for dedup against late onData (#525). */
-  lastCommittedText: string | null;
-  /** Timestamp (Date.now()) of the last onCompositionCommit — dedup window check (#525). */
-  lastCommitTime: number;
   /**
    * User-triggered "redraw the terminal" action (#856). Clears the WebGL
    * texture atlas (if WebGL is active) and re-paints the viewport. Safe to
@@ -141,10 +132,6 @@ interface CreateOptions {
   onBell?: () => void;
 }
 
-// Suppress the "unused" lint when nothing in this file references the
-// re-exported constant directly — consumers import it from this module path.
-void IME_COMPOSITION_GRACE_MS;
-
 /**
  * Create a terminal instance with all addons loaded.
  * Appends a child div to parentEl and opens xterm in it.
@@ -199,8 +186,22 @@ export function createTerminalInstance(options: CreateOptions): TerminalInstance
   // (IME textarea, WebGL canvases).
   term.open(container);
 
-  // Lifecycle helpers (each returns its own cleanup or exposes a cleanup()).
-  const ime = setupImeComposition({ container });
+  // Resolve + validate the helper textarea via the public getter, failing loud
+  // (WI-1.1/1.2). Dev throws on a missing/misplaced textarea; prod logs and
+  // returns undefined, in which case we install a no-op IME handle so the
+  // terminal still works (the old `textarea!` path crashed on addEventListener).
+  const textarea = resolveHelperTextarea(term, container);
+  // Channel Ownership is the only input path (WI-4b removed the legacy dual-writer
+  // path). A missing textarea (prod fail-loud) → inert no-op handle.
+  const ime = textarea
+    ? setupImeCompositionGate({ container, textarea })
+    : createNoopImeHandle();
+
+  // Dev-only input-trace recorder (no-op in prod / unless the localStorage flag
+  // is set). Lets a human capture real IME traces by typing — plan WI-0.1.
+  const detachInputTrace = textarea
+    ? maybeInstallDevInputTrace(textarea)
+    : () => {};
 
   // Unicode 11 must be loaded before any heavy text rendering.
   const unicode11 = new Unicode11Addon();
@@ -228,10 +229,8 @@ export function createTerminalInstance(options: CreateOptions): TerminalInstance
     createTerminalKeyHandler(term, ptyRef, {
       onSearch,
       onPromptNav: (dir) => scrollToAdjacentCommand(term, osc133.getCommands(), dir),
-      // Closes over `ime.composing` (live getter) so the key handler
-      // sees the post-`compositionend` grace window, not just active
-      // composition. Without this, Shift+Enter / Cmd+C / etc. fired
-      // immediately after a CJK commit would leak past the IME guard.
+      // Live getter so the key handler sees the composition state; without it,
+      // Shift+Enter / Cmd+C / etc. right after a CJK commit would leak past T2.
       isComposing: () => ime.composing,
     }),
   );
@@ -242,6 +241,7 @@ export function createTerminalInstance(options: CreateOptions): TerminalInstance
   });
 
   const dispose = () => {
+    detachInputTrace();
     cleanupCopyOnSelect();
     ime.cleanup();
     webgl.cleanup();
@@ -263,12 +263,9 @@ export function createTerminalInstance(options: CreateOptions): TerminalInstance
     isShellBusy: osc133.isRunning,
     setOnShellIdle: osc133.setOnIdle,
     get composing() { return ime.composing; },
-    get inGracePeriod() { return ime.inGracePeriod; },
     get onCompositionCommit() { return ime.onCompositionCommit; },
     set onCompositionCommit(cb: ((text: string) => void) | null) {
       ime.onCompositionCommit = cb;
     },
-    get lastCommittedText() { return ime.lastCommittedText; },
-    get lastCommitTime() { return ime.lastCommitTime; },
   };
 }

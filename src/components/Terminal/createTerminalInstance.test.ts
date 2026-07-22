@@ -16,7 +16,9 @@ const { mockOpenUrl, mockTerminalLog, MockWebLinksAddon, mockWriteText, mockClip
     appearance: { theme: "default" },
     terminal: { copyOnSelect: false },
   })),
-  terminalFlags: { createsTextarea: false },
+  // Default true — a real xterm always creates the helper textarea in open().
+  // The `false` case is used only by the deliberate fail-loud test.
+  terminalFlags: { createsTextarea: true },
 }));
 
 // --- Module mocks ---
@@ -46,11 +48,15 @@ vi.mock("@xterm/xterm", () => ({
       this._constructorOptions = options;
     }
     loadAddon = vi.fn();
+    // Public getter mirror of xterm's `get textarea()`. Real xterm always
+    // creates it during open(); `createsTextarea:false` models the fail-loud case.
+    textarea: HTMLTextAreaElement | undefined = undefined;
     open = vi.fn((container: HTMLElement) => {
       if (terminalFlags.createsTextarea) {
         const textarea = document.createElement("textarea");
         textarea.className = "xterm-helper-textarea";
         container.appendChild(textarea);
+        this.textarea = textarea;
       }
     });
     dispose = vi.fn();
@@ -284,16 +290,6 @@ describe("createTerminalInstance composing property", () => {
     inst.onCompositionCommit = cb;
     expect(inst.onCompositionCommit).toBe(cb);
   });
-
-  it("lastCommittedText starts as null", () => {
-    const inst = makeInstance();
-    expect(inst.lastCommittedText).toBeNull();
-  });
-
-  it("lastCommitTime starts at 0", () => {
-    const inst = makeInstance();
-    expect(inst.lastCommitTime).toBe(0);
-  });
 });
 
 describe("createTerminalInstance with WebGL", () => {
@@ -496,11 +492,18 @@ describe("createTerminalInstance — copy-on-select", () => {
 });
 
 describe("createTerminalInstance — IME textarea not found", () => {
-  it("logs warning when xterm-helper-textarea is not found", () => {
-    // The default mock terminal doesn't create a real .xterm-helper-textarea
-    // in the container, so the code path for textarea === null is exercised
-    makeInstance();
-    expect(mockTerminalLog).toHaveBeenCalledWith(
+  // WI-1.1 replaced the old silent `terminalLog` no-op with a fail-loud throw
+  // (dev) / persistent error (prod). The deliberate-absent throw is asserted in
+  // the "fail-loud on missing helper textarea" suite below; here we just lock in
+  // that the old silent-log path is gone.
+  afterEach(() => {
+    terminalFlags.createsTextarea = true;
+  });
+
+  it("does not silently log the old 'not found' message", () => {
+    terminalFlags.createsTextarea = false;
+    expect(() => makeInstance()).toThrow(/textarea/i);
+    expect(mockTerminalLog).not.toHaveBeenCalledWith(
       expect.stringContaining("xterm-helper-textarea not found"),
     );
   });
@@ -569,14 +572,13 @@ describe("createTerminalInstance — dispose edge cases", () => {
 // Additional coverage tests
 // ==========================================
 
-describe("createTerminalInstance — IME composition with textarea", () => {
+describe("createTerminalInstance — IME wiring (Channel Ownership)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     terminalFlags.createsTextarea = true;
   });
-
   afterEach(() => {
-    terminalFlags.createsTextarea = false;
+    terminalFlags.createsTextarea = true;
   });
 
   function makeInstanceWithTextarea() {
@@ -596,416 +598,81 @@ describe("createTerminalInstance — IME composition with textarea", () => {
     });
   }
 
-  it("sets composing=true on compositionstart", () => {
+  // Detailed IME commit behavior lives in setupImeCompositionGate.test.ts (jsdom)
+  // and setupImeCompositionGate.webkit.test.ts (real WebKit). Here we only verify
+  // createTerminalInstance WIRES the gate handle correctly.
+
+  it("tracks composition via the container listener (gate)", () => {
     const inst = makeInstanceWithTextarea();
     const textarea = inst.container.querySelector(".xterm-helper-textarea")!;
     expect(inst.composing).toBe(false);
 
-    textarea.dispatchEvent(new Event("compositionstart"));
+    // Gate listens on the CONTAINER (capture) — a bubbling compositionstart reaches it.
+    textarea.dispatchEvent(new CompositionEvent("compositionstart", { bubbles: true }));
     expect(inst.composing).toBe(true);
 
-    inst.dispose();
-  });
-
-  it("clears grace timer on compositionstart if one is active", () => {
-    vi.useFakeTimers();
-    const inst = makeInstanceWithTextarea();
-    const textarea = inst.container.querySelector(".xterm-helper-textarea")!;
-
-    // Trigger compositionend to start grace timer
-    const compEnd = new Event("compositionend") as CompositionEvent;
-    Object.defineProperty(compEnd, "data", { value: "hello" });
-    textarea.dispatchEvent(compEnd);
-
-    // Now trigger compositionstart before grace period ends
-    textarea.dispatchEvent(new Event("compositionstart"));
-    expect(inst.composing).toBe(true);
-
-    // Advance past grace period — composing should still be true (timer was cleared)
-    vi.advanceTimersByTime(100);
-    expect(inst.composing).toBe(true);
-
-    inst.dispose();
-    vi.useRealTimers();
-  });
-
-  it("flushes pending committed text via onCompositionCommit on rapid back-to-back composition", () => {
-    vi.useFakeTimers();
-    const inst = makeInstanceWithTextarea();
-    const textarea = inst.container.querySelector(".xterm-helper-textarea")!;
-    const commitCb = vi.fn();
-    inst.onCompositionCommit = commitCb;
-
-    // First composition: start → end with data
-    textarea.dispatchEvent(new Event("compositionstart"));
-    const compEnd = new Event("compositionend") as CompositionEvent;
-    Object.defineProperty(compEnd, "data", { value: "你好" });
-    textarea.dispatchEvent(compEnd);
-
-    // Immediately start another composition before grace period expires
-    textarea.dispatchEvent(new Event("compositionstart"));
-
-    // The pending text from the first composition should have been flushed
-    expect(commitCb).toHaveBeenCalledWith("你好");
-
-    inst.dispose();
-    vi.useRealTimers();
-  });
-
-  it("fires onCompositionCommit after grace period with committed text", () => {
-    vi.useFakeTimers();
-    const inst = makeInstanceWithTextarea();
-    const textarea = inst.container.querySelector(".xterm-helper-textarea")!;
-    const commitCb = vi.fn();
-    inst.onCompositionCommit = commitCb;
-
-    // Trigger compositionstart
-    textarea.dispatchEvent(new Event("compositionstart"));
-    expect(inst.composing).toBe(true);
-
-    // Trigger compositionend with data
-    const compEnd = new Event("compositionend") as CompositionEvent;
-    Object.defineProperty(compEnd, "data", { value: "claude" });
-    textarea.dispatchEvent(compEnd);
-
-    // Still composing during grace period
-    expect(inst.composing).toBe(true);
-
-    // Advance past grace period
-    vi.advanceTimersByTime(80);
-    expect(inst.composing).toBe(false);
-    expect(commitCb).toHaveBeenCalledWith("claude");
-
-    inst.dispose();
-    vi.useRealTimers();
-  });
-
-  it("does not fire onCompositionCommit if committedText is empty", () => {
-    vi.useFakeTimers();
-    const inst = makeInstanceWithTextarea();
-    const textarea = inst.container.querySelector(".xterm-helper-textarea")!;
-    const commitCb = vi.fn();
-    inst.onCompositionCommit = commitCb;
-
-    textarea.dispatchEvent(new Event("compositionstart"));
-
-    const compEnd = new Event("compositionend") as CompositionEvent;
-    Object.defineProperty(compEnd, "data", { value: "" });
-    textarea.dispatchEvent(compEnd);
-
-    vi.advanceTimersByTime(80);
-    expect(commitCb).not.toHaveBeenCalled();
-
-    inst.dispose();
-    vi.useRealTimers();
-  });
-
-  it("does not fire onCompositionCommit if callback is null", () => {
-    vi.useFakeTimers();
-    const inst = makeInstanceWithTextarea();
-    const textarea = inst.container.querySelector(".xterm-helper-textarea")!;
-    // onCompositionCommit stays null
-
-    textarea.dispatchEvent(new Event("compositionstart"));
-
-    const compEnd = new Event("compositionend") as CompositionEvent;
-    Object.defineProperty(compEnd, "data", { value: "test" });
-    textarea.dispatchEvent(compEnd);
-
-    vi.advanceTimersByTime(80);
-    expect(inst.composing).toBe(false);
-
-    inst.dispose();
-    vi.useRealTimers();
-  });
-
-  it("removes composition listeners on dispose", () => {
-    const inst = makeInstanceWithTextarea();
-    const textarea = inst.container.querySelector(".xterm-helper-textarea")!;
-    const removeSpy = vi.spyOn(textarea, "removeEventListener");
-
-    inst.dispose();
-
-    expect(removeSpy).toHaveBeenCalledWith("compositionstart", expect.any(Function));
-    expect(removeSpy).toHaveBeenCalledWith("compositionend", expect.any(Function));
-  });
-
-  it("clears grace timer on dispose", () => {
-    vi.useFakeTimers();
-    const inst = makeInstanceWithTextarea();
-    const textarea = inst.container.querySelector(".xterm-helper-textarea")!;
-
-    // Trigger compositionend to start grace timer
-    textarea.dispatchEvent(new Event("compositionstart"));
-    const compEnd = new Event("compositionend") as CompositionEvent;
-    Object.defineProperty(compEnd, "data", { value: "x" });
-    textarea.dispatchEvent(compEnd);
-
-    // Dispose before grace period ends
-    inst.dispose();
-
-    // Advance timer — should not throw or set composing
-    vi.advanceTimersByTime(100);
-
-    vi.useRealTimers();
-  });
-
-  it("flushes pending committed text on dispose before grace period ends", () => {
-    vi.useFakeTimers();
-    const inst = makeInstanceWithTextarea();
-    const textarea = inst.container.querySelector(".xterm-helper-textarea")!;
-    const commitCb = vi.fn();
-    inst.onCompositionCommit = commitCb;
-
-    // Start composition and end it to queue pendingCommitText
-    textarea.dispatchEvent(new Event("compositionstart"));
-    const compEnd = new Event("compositionend") as CompositionEvent;
-    Object.defineProperty(compEnd, "data", { value: "你好世界" });
-    textarea.dispatchEvent(compEnd);
-
-    // Not yet fired — still in grace period
-    expect(commitCb).not.toHaveBeenCalled();
-
-    // Dispose inside the grace window — should flush pending text
-    inst.dispose();
-    expect(commitCb).toHaveBeenCalledTimes(1);
-    expect(commitCb).toHaveBeenCalledWith("你好世界");
-
-    // Timer firing after dispose must not re-invoke the callback
-    vi.advanceTimersByTime(100);
-    expect(commitCb).toHaveBeenCalledTimes(1);
-
-    vi.useRealTimers();
-  });
-
-  it("swallows onCompositionCommit errors during dispose flush", () => {
-    vi.useFakeTimers();
-    const inst = makeInstanceWithTextarea();
-    const textarea = inst.container.querySelector(".xterm-helper-textarea")!;
-    inst.onCompositionCommit = () => {
-      throw new Error("PTY closed");
-    };
-
-    textarea.dispatchEvent(new Event("compositionstart"));
-    const compEnd = new Event("compositionend") as CompositionEvent;
-    Object.defineProperty(compEnd, "data", { value: "abc" });
-    textarea.dispatchEvent(compEnd);
-
-    // Should not throw even though callback raises
-    expect(() => inst.dispose()).not.toThrow();
-
-    vi.useRealTimers();
-  });
-
-  it("does not log textarea-not-found when textarea exists", () => {
-    makeInstanceWithTextarea();
-    expect(mockTerminalLog).not.toHaveBeenCalledWith(
-      expect.stringContaining("xterm-helper-textarea not found"),
-    );
-  });
-
-  it("flushes single CJK bracket immediately without grace period (#525)", () => {
-    vi.useFakeTimers();
-    const inst = makeInstanceWithTextarea();
-    const textarea = inst.container.querySelector(".xterm-helper-textarea")!;
-    const commitCb = vi.fn();
-    inst.onCompositionCommit = commitCb;
-
-    textarea.dispatchEvent(new Event("compositionstart"));
-
-    const compEnd = new Event("compositionend") as CompositionEvent;
-    Object.defineProperty(compEnd, "data", { value: "（" });
-    textarea.dispatchEvent(compEnd);
-
-    // Should fire immediately — no grace period
-    expect(commitCb).toHaveBeenCalledTimes(1);
-    expect(commitCb).toHaveBeenCalledWith("（");
-    expect(inst.composing).toBe(false);
-    expect(inst.inGracePeriod).toBe(false);
-
-    inst.dispose();
-    vi.useRealTimers();
-  });
-
-  it("sets lastCommittedText on immediate single-char flush (#525)", () => {
-    vi.useFakeTimers();
-    const inst = makeInstanceWithTextarea();
-    const textarea = inst.container.querySelector(".xterm-helper-textarea")!;
-    const commitCb = vi.fn();
-    inst.onCompositionCommit = commitCb;
-
-    textarea.dispatchEvent(new Event("compositionstart"));
-
-    const compEnd = new Event("compositionend") as CompositionEvent;
-    Object.defineProperty(compEnd, "data", { value: "】" });
-    textarea.dispatchEvent(compEnd);
-
-    expect(inst.lastCommittedText).toBe("】");
-    expect(inst.lastCommitTime).toBeGreaterThan(0);
-
-    inst.dispose();
-    vi.useRealTimers();
-  });
-
-  it("sets lastCommittedText after grace period commit (#525)", () => {
-    vi.useFakeTimers();
-    const inst = makeInstanceWithTextarea();
-    const textarea = inst.container.querySelector(".xterm-helper-textarea")!;
-    const commitCb = vi.fn();
-    inst.onCompositionCommit = commitCb;
-
-    textarea.dispatchEvent(new Event("compositionstart"));
-
-    const compEnd = new Event("compositionend") as CompositionEvent;
-    Object.defineProperty(compEnd, "data", { value: "你好" });
-    textarea.dispatchEvent(compEnd);
-
-    vi.advanceTimersByTime(80);
-    expect(inst.lastCommittedText).toBe("你好");
-    expect(inst.lastCommitTime).toBeGreaterThan(0);
-
-    inst.dispose();
-    vi.useRealTimers();
-  });
-
-  it("uses grace period for multi-char CJK input (not immediate)", () => {
-    vi.useFakeTimers();
-    const inst = makeInstanceWithTextarea();
-    const textarea = inst.container.querySelector(".xterm-helper-textarea")!;
-    const commitCb = vi.fn();
-    inst.onCompositionCommit = commitCb;
-
-    textarea.dispatchEvent(new Event("compositionstart"));
-
-    const compEnd = new Event("compositionend") as CompositionEvent;
-    Object.defineProperty(compEnd, "data", { value: "你好" });
-    textarea.dispatchEvent(compEnd);
-
-    // Not fired immediately for multi-char
-    expect(commitCb).not.toHaveBeenCalled();
-    expect(inst.composing).toBe(true);
-
-    vi.advanceTimersByTime(80);
-    expect(commitCb).toHaveBeenCalledWith("你好");
-
-    inst.dispose();
-    vi.useRealTimers();
-  });
-
-  // Regression for the "？ needs two presses" bug: macOS Pinyin and similar
-  // IMEs sometimes fire compositionend with empty `e.data` while the helper
-  // textarea actually carries the converted character. The setupImeComposition
-  // empty-data branch must end composition synchronously (no grace period)
-  // so xterm's late onData with the real character isn't blocked.
-  // This is the REAL-implementation counterpart of the inline test in
-  // compositionGuard.test.ts.
-  it("ends composition immediately on empty-data compositionend (no grace, no commit fired)", () => {
-    vi.useFakeTimers();
-    const inst = makeInstanceWithTextarea();
-    const textarea = inst.container.querySelector(".xterm-helper-textarea")!;
-    const commitCb = vi.fn();
-    inst.onCompositionCommit = commitCb;
-
-    textarea.dispatchEvent(new Event("compositionstart"));
-    expect(inst.composing).toBe(true);
-
-    const compEnd = new Event("compositionend") as CompositionEvent;
-    Object.defineProperty(compEnd, "data", { value: "" });
-    textarea.dispatchEvent(compEnd);
-
-    // composing must clear synchronously — NOT after the 80 ms grace —
-    // so the next onData is allowed through.
-    expect(inst.composing).toBe(false);
-    expect(inst.inGracePeriod).toBe(false);
-    // No spurious commit for empty data (Escape-cancel semantics preserved).
-    expect(commitCb).not.toHaveBeenCalled();
-
-    // Confirm grace timer wasn't scheduled — advancing time changes nothing.
-    vi.advanceTimersByTime(200);
-    expect(commitCb).not.toHaveBeenCalled();
-    expect(inst.composing).toBe(false);
-
-    inst.dispose();
-    vi.useRealTimers();
-  });
-
-  // Regression for "every CJK punctuation needs two presses" bug:
-  // macOS Pinyin punctuation conversion ("?" → "？", "," → "，", "(" → "（",
-  // "--" → "——", "~" → "～", "!" → "！") fires compositionend with e.data set
-  // to the *original ASCII key*, while the helper textarea actually contains
-  // the *converted CJK character*. Trusting e.data would commit the ASCII key
-  // (wrong); the textarea diff is the source of truth.
-  //
-  // Verifies: the converted character (read from textarea) is committed via
-  // onCompositionCommit, composing clears synchronously, and lastCommittedText
-  // gets the actual character so xterm's late onData dedup works.
-  it("commits textarea diff (not ASCII e.data) when IME converts punctuation", () => {
-    const inst = makeInstanceWithTextarea();
-    const textarea = inst.container.querySelector(".xterm-helper-textarea") as HTMLTextAreaElement;
-    const commitCb = vi.fn();
-    inst.onCompositionCommit = commitCb;
-
-    // Snapshot length on compositionstart while textarea is empty.
-    textarea.dispatchEvent(new Event("compositionstart"));
-
-    // IME inserts the converted character into the textarea before firing
-    // compositionend. macOS Pinyin sets e.data to the original ASCII key.
-    textarea.value = "？";
-    const compEnd = new Event("compositionend") as CompositionEvent;
-    Object.defineProperty(compEnd, "data", { value: "?" });
-    textarea.dispatchEvent(compEnd);
-
-    expect(commitCb).toHaveBeenCalledTimes(1);
-    expect(commitCb).toHaveBeenCalledWith("？"); // textarea diff, NOT e.data
-    expect(inst.composing).toBe(false);
-    expect(inst.inGracePeriod).toBe(false);
-    expect(inst.lastCommittedText).toBe("？");
-
-    inst.dispose();
-  });
-
-  // Same pattern, multi-char ASCII e.data ("--" → "——").
-  it("commits multi-char textarea diff when ASCII e.data is multiple keys", () => {
-    const inst = makeInstanceWithTextarea();
-    const textarea = inst.container.querySelector(".xterm-helper-textarea") as HTMLTextAreaElement;
-    const commitCb = vi.fn();
-    inst.onCompositionCommit = commitCb;
-
-    textarea.dispatchEvent(new Event("compositionstart"));
-
-    textarea.value = "——";
-    const compEnd = new Event("compositionend") as CompositionEvent;
-    Object.defineProperty(compEnd, "data", { value: "--" });
-    textarea.dispatchEvent(compEnd);
-
-    expect(commitCb).toHaveBeenCalledWith("——");
-    expect(inst.composing).toBe(false);
-  });
-
-  // Snapshot logic: when prior compositions left content in the textarea
-  // (xterm doesn't auto-clear it), only the *new* diff should be committed,
-  // not the cumulative content.
-  it("only commits the diff added during this composition, not previous content", () => {
-    const inst = makeInstanceWithTextarea();
-    const textarea = inst.container.querySelector(".xterm-helper-textarea") as HTMLTextAreaElement;
-    const commitCb = vi.fn();
-    inst.onCompositionCommit = commitCb;
-
-    // Pre-existing content from a previous composition.
+    // compositionend commits synchronously (no grace) and clears composing.
     textarea.value = "你好";
-
-    // Now a new composition starts — snapshot the length at "你好".length === 2.
-    textarea.dispatchEvent(new Event("compositionstart"));
-
-    // IME appends the new converted char.
-    textarea.value = "你好？";
-    const compEnd = new Event("compositionend") as CompositionEvent;
-    Object.defineProperty(compEnd, "data", { value: "?" });
-    textarea.dispatchEvent(compEnd);
-
-    expect(commitCb).toHaveBeenCalledWith("？"); // ONLY the diff
-    expect(commitCb).not.toHaveBeenCalledWith("你好？");
+    textarea.dispatchEvent(new CompositionEvent("compositionend", { data: "你好", bubbles: true }));
+    expect(inst.composing).toBe(false);
     inst.dispose();
+  });
+
+  it("delivers the committed text via onCompositionCommit", () => {
+    const inst = makeInstanceWithTextarea();
+    const textarea = inst.container.querySelector(".xterm-helper-textarea")!;
+    const commitCb = vi.fn();
+    inst.onCompositionCommit = commitCb;
+
+    textarea.dispatchEvent(new CompositionEvent("compositionstart", { bubbles: true }));
+    textarea.value = "你好";
+    textarea.dispatchEvent(new CompositionEvent("compositionend", { data: "你好", bubbles: true }));
+
+    expect(commitCb).toHaveBeenCalledExactlyOnceWith("你好");
+    inst.dispose();
+  });
+
+  it("stops tracking composition after dispose", () => {
+    const inst = makeInstanceWithTextarea();
+    const textarea = inst.container.querySelector(".xterm-helper-textarea")!;
+    inst.dispose();
+    textarea.dispatchEvent(new CompositionEvent("compositionstart", { bubbles: true }));
+    expect(inst.composing).toBe(false);
+  });
+});
+
+// WI-1.1 — fail loud when the public term.textarea getter resolves to nothing,
+// instead of the old silent no-op that disabled the entire IME layer.
+describe("createTerminalInstance — fail-loud on missing helper textarea", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    terminalFlags.createsTextarea = false; // open() creates no textarea
+    mockSettingsGetState.mockReturnValue({
+      appearance: { theme: "default" },
+      terminal: {},
+    });
+  });
+  afterEach(() => {
+    terminalFlags.createsTextarea = true;
+  });
+
+  it("throws in dev when term.textarea is absent after open()", () => {
+    const parentEl = document.createElement("div");
+    expect(() =>
+      createTerminalInstance({
+        parentEl,
+        settings: {
+          fontSize: 14,
+          lineHeight: 1.2,
+          cursorStyle: "block",
+          cursorBlink: true,
+          useWebGL: false,
+          macOptionIsMeta: true,
+        },
+        ptyRef: { current: null },
+        onSearch: vi.fn(),
+      }),
+    ).toThrow(/textarea/i);
   });
 });
 
@@ -1016,7 +683,7 @@ describe("createTerminalInstance — copy-on-select with copyOnSelect enabled", 
   beforeEach(() => {
     vi.useFakeTimers();
     vi.clearAllMocks();
-    terminalFlags.createsTextarea = false;
+    terminalFlags.createsTextarea = true;
     mockSettingsGetState.mockReturnValue({
       appearance: { theme: "default" },
       terminal: { copyOnSelect: true },

@@ -15,16 +15,8 @@
  *   - Cmd+F → toggle search bar in the terminal panel (preventDefault so the
  *     native Find accelerator doesn't ALSO open the editor FindBar).
  *   - Cmd+1-5 → switch between terminal sessions (up to 5).
- *   - Cmd+Left/Right (macOS) → line start/end via readline ^A / ^E, since
- *     xterm has no meta+arrow → PTY mapping.
- *   - Cmd+Backspace (macOS) → delete the line via readline ^U (zsh
- *     kill-whole-line, bash unix-line-discard). xterm ignores the Cmd modifier
- *     and would send a bare DEL, deleting a single character. Option+Backspace
- *     is deliberately NOT intercepted — zsh binds \e^? to backward-kill-word.
- *   - Option+Left/Right (macOS) → word nav via readline Alt-b / Alt-f
- *     ("\x1bb" / "\x1bf"), which the default emacs keymap binds — xterm's
- *     macOptionIsMeta emits "\x1b[1;3D/C" that zsh/bash don't bind (prints
- *     ";3D"). Scoped to bare Option+arrow so Option+letter dead keys are intact.
+ *   - macOS cursor/line-editing chords (Cmd+Left/Right, Cmd+Backspace,
+ *     Option+Left/Right) → readline control bytes. See terminalReadlineKeys.ts.
  *   - Cmd +/-/0 → zoom the terminal font (terminal.fontSize), preventDefault so
  *     the native zoom accelerator doesn't zoom the editor font instead.
  *   - Cmd/Ctrl+Up/Down → jump to previous/next command prompt (WI-3.3, requires
@@ -37,19 +29,13 @@
  *     breaking the "newline in input" affordance these tools advertise as
  *     "natively supported in WezTerm."
  *   - Returns false to consume the event, true to let xterm handle it.
- *   - Never interferes during IME composition. Uses TWO checks:
- *       1) `isImeKeyEvent(event)` — covers active composition keystrokes
- *          (event.isComposing === true, or keyCode 229).
- *       2) `callbacks.isComposing()` — covers the post-`compositionend`
- *          grace window where browsers fire a follow-up keydown for the
- *          confirming key with `isComposing === false` but the IME is
- *          still settling. The terminal-wide handle in setupImeComposition
- *          keeps `composing=true` through that window (default 80 ms).
- *     Without (2), Shift+Enter / Cmd+C / Cmd+V immediately after a CJK
- *     commit would leak past the guard and write to the PTY.
+ *   - Never interferes during IME composition. T2 consumes keyCode-229 IME
+ *     keydowns (isImeKeyEvent), and `callbacks.isComposing()` covers the
+ *     follow-up keydown after a commit, so Shift+Enter / Cmd+C / Cmd+V right
+ *     after a CJK commit don't leak past the guard.
  *
  * @coordinates-with createTerminalInstance.ts — attached via term.attachCustomKeyEventHandler
- * @coordinates-with setupImeComposition.ts — provides the `isComposing` callback (covers grace window)
+ * @coordinates-with setupImeCompositionGate.ts — provides the `isComposing` callback
  * @module components/Terminal/terminalKeyHandler
  */
 import type { IPty } from "@/lib/pty";
@@ -62,6 +48,7 @@ import { isMacPlatform, matchesShortcutEvent } from "@/utils/shortcutMatch";
 import { clipboardWarn } from "@/utils/debug";
 import { errorMessage } from "@/utils/errorMessage";
 import { requestToggleTerminal } from "./terminalGate";
+import { handleReadlineNavKey } from "./terminalReadlineKeys";
 
 /** Terminal font-zoom step and reset value. `terminal.fontSize` default is 13
  *  (settingsStore/defaults.ts); the store clamps to the terminal range [8,32]. */
@@ -78,10 +65,9 @@ function adjustTerminalFontSize(delta: number): void {
 export interface KeyHandlerCallbacks {
   onSearch: () => void;
   /**
-   * Returns true while a composition is active OR within the post-end grace
-   * period. Sourced from setupImeComposition's `ImeCompositionHandle.composing`
-   * getter. Without this, the post-`compositionend` keystroke window would
-   * leak past the IME guard and fire shortcuts during CJK commit.
+   * Returns true while a composition is active. Sourced from the gate handle's
+   * `composing` getter. Without this, the follow-up keydown after a CJK commit
+   * would leak past the IME guard and fire shortcuts.
    */
   isComposing: () => boolean;
   /** Jump to the previous/next command prompt (WI-3.3, shell integration). */
@@ -103,26 +89,32 @@ export function createTerminalKeyHandler(
     if (event.type !== "keydown") return true;
 
     // Toggle-Terminal: own the CONFIGURED binding here and FULLY consume the
-    // event, so a CJK IME's remapped "·" never reaches the shell and the window
-    // handler doesn't double-toggle. matchesShortcutEvent resolves the physical
-    // key (Backquote) even when the IME remaps it, and honours a custom binding.
-    // Skip during a real composition or its grace window — only the keyCode-229
-    // false positive should toggle, else pending IME text would commit into a
-    // now-hidden shell (Codex audit).
+    // event — matchesShortcutEvent resolves the physical Backquote even when a
+    // CJK IME remaps it to "·", and honours a custom binding.
+    //
+    // WI-1.4: ALWAYS stopPropagation on a match, even during composition. Without
+    // it, xterm's keyCode-229 keydown doesn't cancel the event, so it bubbles to
+    // the WINDOW handler, which toggles the panel anyway (audit: high). Owning it
+    // here makes the toggle fire exactly once. During a REAL active composition
+    // (event.isComposing) the Backquote is IME input, so we swallow without
+    // toggling. Gate mode commits synchronously at compositionend, so there is no
+    // pending-commit state to flush before the panel hides.
     if (
-      !event.isComposing
-      && !callbacks.isComposing()
-      && matchesShortcutEvent(event, useShortcutsStore.getState().getShortcut("toggleTerminal"))
+      matchesShortcutEvent(event, useShortcutsStore.getState().getShortcut("toggleTerminal"))
     ) {
       event.preventDefault();
       event.stopPropagation();
+      if (event.isComposing) return false; // real composition — swallow, no toggle
       requestToggleTerminal();
       return false;
     }
 
-    // Never interfere during IME composition (CJK input, etc.).
-    // Two-layer guard — see module header for rationale.
-    if (isImeKeyEvent(event)) return true;
+    // T2 (Channel Ownership): CONSUME keyCode-229 IME keydowns (return false) so
+    // xterm's _keyDown never reaches _handleAnyTextareaChanges — that snapshot-
+    // and-DEL is the gate design's one remaining hazard. The character still
+    // reaches the PTY via the gate's container `input`/composition path (T1);
+    // returning false does not preventDefault, so the DOM input event still fires.
+    if (isImeKeyEvent(event)) return false;
     if (callbacks.isComposing()) return true;
 
     // Shift+Enter — emit the CSI-u sequence so the WezTerm impersonation
@@ -140,21 +132,11 @@ export function createTerminalKeyHandler(
       return false;
     }
 
-    // Option + Left/Right → word nav via readline Alt-b / Alt-f (see header).
-    // xterm's macOptionIsMeta emits "\x1b[1;3D/C" that zsh/bash don't bind.
-    // Scoped to bare Option+arrow; Option+letter dead keys fall through.
-    if (
-      isMacPlatform()
-      && event.altKey
-      && !event.metaKey
-      && !event.ctrlKey
-      && !event.shiftKey
-      && (event.key === "ArrowLeft" || event.key === "ArrowRight")
-    ) {
-      event.preventDefault();
-      ptyRef.current?.write(event.key === "ArrowLeft" ? "\x1bb" : "\x1bf");
-      return false;
-    }
+    // macOS cursor/line-editing chords → readline control bytes (Option+arrow,
+    // Cmd+arrow, Cmd+Backspace). Conditions are mutually exclusive and each
+    // requires a specific modifier, so this is safe before the generic gate
+    // below. See terminalReadlineKeys.ts.
+    if (handleReadlineNavKey(event, ptyRef)) return false;
 
     // On macOS, Ctrl is a shell/readline modifier (Ctrl+A line-start, Ctrl+K
     // kill-line, Ctrl+R, Ctrl+W, …) — only Cmd triggers VMark host shortcuts.
@@ -176,39 +158,6 @@ export function createTerminalKeyHandler(
     ) {
       event.preventDefault();
       callbacks.onPromptNav(event.key === "ArrowUp" ? "prev" : "next");
-      return false;
-    }
-
-    // Cmd + Left/Right → jump to line start/end (macOS convention). xterm has
-    // no meta+arrow → PTY mapping, so without this the shell cursor never
-    // moves. Emit readline ^A (start) / ^E (end), which bash/zsh honor
-    // regardless of the user's keymap. Shift (select) and Option (word nav)
-    // are left to the shell; Windows/Linux keep Ctrl+arrow as word nav.
-    if (
-      isMacPlatform()
-      && event.metaKey
-      && !event.shiftKey
-      && (event.key === "ArrowLeft" || event.key === "ArrowRight")
-    ) {
-      event.preventDefault();
-      ptyRef.current?.write(event.key === "ArrowLeft" ? "\x01" : "\x05");
-      return false;
-    }
-
-    // Cmd + Backspace → delete the line (macOS convention). xterm ignores the
-    // Cmd modifier here and sends a bare DEL, so without this the chord just
-    // deletes ONE character. Emit readline ^U, which zsh binds to
-    // kill-whole-line and bash to unix-line-discard. Option+Backspace is left
-    // alone — zsh already binds \e^? to backward-kill-word.
-    if (
-      isMacPlatform()
-      && event.metaKey
-      && !event.altKey
-      && !event.shiftKey
-      && event.key === "Backspace"
-    ) {
-      event.preventDefault();
-      ptyRef.current?.write("\x15");
       return false;
     }
 
