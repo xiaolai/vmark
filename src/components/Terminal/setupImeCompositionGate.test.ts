@@ -115,9 +115,8 @@ describe("createNoopImeHandle", () => {
   it("is inert — composing false, commit setter ignored, no throw", () => {
     const h = createNoopImeHandle();
     expect(h.composing).toBe(false);
-    expect(h.inGracePeriod).toBe(false);
     h.onCompositionCommit = () => { throw new Error("should never be called"); };
     expect(h.onCompositionCommit).toBeNull();
-    expect(() => { h.cleanup(); h.flushPending(); }).not.toThrow();
+    expect(() => h.cleanup()).not.toThrow();
   });
 });
