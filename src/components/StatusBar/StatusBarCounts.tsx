@@ -35,11 +35,12 @@
 
 import { memo, useCallback, useDeferredValue, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useDocumentContent, useDocumentSelectedText } from "@/hooks/useDocumentState";
+import { useDocumentContent, useDocumentFilePath, useDocumentSelectedText } from "@/hooks/useDocumentState";
 import { useDismissOnOutsideOrEscape } from "@/hooks/useDismissOnOutsideOrEscape";
 import { createMetricsCache } from "./incrementalTextMetrics";
 import { WordCountPopover } from "./WordCountPopover";
 import "./status-bar-counts.css";
+import { dispatchEditor } from "@/lib/formats/registry";
 
 /** Isolated component displaying word/char counts; switches to "selected / total" when text is selected. */
 export const StatusBarCounts = memo(function StatusBarCounts() {
@@ -47,6 +48,7 @@ export const StatusBarCounts = memo(function StatusBarCounts() {
   const content = useDocumentContent();
   const selectedText = useDocumentSelectedText();
   const deferredContent = useDeferredValue(content);
+  const filePath = useDocumentFilePath();
   const deferredSelected = useDeferredValue(selectedText);
 
   // Compute the full metric breakdown ONCE for totals and selection. Both the
@@ -57,12 +59,28 @@ export const StatusBarCounts = memo(function StatusBarCounts() {
   // maps during render; that is safe under discarded/replayed concurrent
   // renders because a stale generation only costs a redundant recompute — it
   // can never produce wrong numbers.
+  // WI-4.4: counts use the FORMAT's plain-text projection. stripMarkdown runs
+  // 13 markdown regexes and previously ran for every format, so a .json tab
+  // paid markdown's cost and had its braces treated as syntax. Rebuilt when the
+  // file (and therefore the format) changes.
+  const toPlainText = useMemo(() => {
+    try {
+      return dispatchEditor(filePath ?? null).toPlainText;
+    } catch {
+      return undefined;
+    }
+  }, [filePath]);
+
   const totalsCacheRef = useRef<ReturnType<typeof createMetricsCache> | null>(null);
-  totalsCacheRef.current ??= createMetricsCache();
-  const computeTotals = totalsCacheRef.current;
   const selectedCacheRef = useRef<ReturnType<typeof createMetricsCache> | null>(null);
-  selectedCacheRef.current ??= createMetricsCache();
-  const computeSelected = selectedCacheRef.current;
+  const projectionRef = useRef<typeof toPlainText>(undefined);
+  if (projectionRef.current !== toPlainText || totalsCacheRef.current === null) {
+    projectionRef.current = toPlainText;
+    totalsCacheRef.current = createMetricsCache({ toPlainText });
+    selectedCacheRef.current = createMetricsCache({ toPlainText });
+  }
+  const computeTotals = totalsCacheRef.current!;
+  const computeSelected = selectedCacheRef.current!;
   const totals = useMemo(
     () => computeTotals(deferredContent),
     [computeTotals, deferredContent]
