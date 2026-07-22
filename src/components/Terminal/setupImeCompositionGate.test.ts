@@ -72,6 +72,24 @@ describe("setupImeCompositionGate — commit decisions", () => {
     expect(commits).toEqual(["你好"]);
   });
 
+  it("commits an ASCII composition RESULT — T2 blocked xterm's keydown (audit D3.1)", () => {
+    // A real composition (Japanese/Korean can commit half-width alphanumerics)
+    // that resolves to ASCII must still reach the PTY: nothing else delivers it.
+    const { textarea, commits } = makeHarness();
+    fireComposition(textarea, "compositionstart");
+    textarea.value = "abc";
+    fireComposition(textarea, "compositionend", "abc");
+    expect(commits).toEqual(["abc"]);
+  });
+
+  it("still ignores ASCII from an ORPHAN compositionend (no real composition)", () => {
+    // The D3.1 fallback is gated on a real compositionstart; an orphan ASCII end
+    // must NOT commit (would inject stale/garbage — F2).
+    const { textarea, commits } = makeHarness();
+    fireComposition(textarea, "compositionend", "abc"); // no start
+    expect(commits).toEqual([]);
+  });
+
   it("the SAME char typed in a LATER task commits again (echo token is task-scoped)", () => {
     const { textarea, commits } = makeHarness();
     fireInput(textarea, "。"); // WeChat-style commit #1
