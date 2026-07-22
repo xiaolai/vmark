@@ -23,6 +23,8 @@ import { GhaWorkflowSidePanel } from "@/plugins/ghaWorkflowPreview/GhaWorkflowSi
 import { markdown } from "@codemirror/lang-markdown";
 import { languages } from "@codemirror/language-data";
 import { lintMarkdown } from "@/lib/lintEngine";
+import { extractHeadings } from "@/components/Sidebar/outlineUtils";
+import { stripMarkdown } from "@/components/StatusBar/statusTextMetrics";
 import { registerFormat } from "../registry";
 import type { FormatConfig } from "../types";
 
@@ -132,6 +134,8 @@ export const markdownFormat: FormatConfig = {
   extensions: ["md", "markdown", "mdown", "mkd", "mdx"],
   kind: "wysiwyg",
   lint: (source: string) => lintMarkdown(source),
+  outline: (content: string) => extractHeadings(content),
+  toPlainText: (content: string) => stripMarkdown(content),
   // Bundled regardless — the WYSIWYG surface imports it — so expose it
   // synchronously and keep the primary format's source mode flash-free.
   language: () => markdown({ codeLanguages: languages }),

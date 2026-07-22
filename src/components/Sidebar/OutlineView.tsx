@@ -10,7 +10,7 @@ import { ChevronRight, ChevronDown, Search, X } from "lucide-react";
 import { emitTo } from "@tauri-apps/api/event";
 import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import { useUIStore } from "@/stores/uiStore";
-import { useDocumentContent } from "@/hooks/useDocumentState";
+import { useDocumentContent, useDocumentFilePath } from "@/hooks/useDocumentState";
 import { perfStart, perfEnd } from "@/utils/perfLog";
 import {
   extractHeadings,
@@ -19,6 +19,7 @@ import {
   getHeadingLinesKey,
   type HeadingNode,
 } from "./outlineUtils";
+import { dispatchEditor } from "@/lib/formats/registry";
 
 // Memoized so a cursor move (active-heading change) reconciles only the items
 // whose active state actually flips, not the whole tree (O5 / WI-2.4). Each
@@ -103,6 +104,7 @@ const MAX_HEADING_COUNT = 1000; // Safety cap for heading count
 export function OutlineView() {
   const { t } = useTranslation("sidebar");
   const content = useDocumentContent();
+  const filePath = useDocumentFilePath();
   const deferredContent = useDeferredValue(content);
   // NOTE: active-heading state is intentionally NOT subscribed here — each
   // OutlineItem self-subscribes, so a cursor move doesn't re-render the whole
@@ -126,12 +128,22 @@ export function OutlineView() {
   const headings = useMemo(() => {
     if (isTooLarge) return [];
     perfStart("OutlineView:extractHeadings");
-    const extracted = extractHeadings(deferredContent);
+    // WI-4.4: the FORMAT supplies its outline. Previously a markdown ATX
+    // scanner ran for every format, so a YAML or JSON tab was searched for
+    // `#` headings. A format without an outline yields none.
+    const outline = (() => {
+      try {
+        return dispatchEditor(filePath ?? null).outline;
+      } catch {
+        return extractHeadings;
+      }
+    })();
+    const extracted = outline?.(deferredContent) ?? [];
     const newHeadings = extracted.length > MAX_HEADING_COUNT ? extracted.slice(0, MAX_HEADING_COUNT) : extracted;
     perfEnd("OutlineView:extractHeadings", { count: newHeadings.length });
     return newHeadings;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [headingLinesKey, isTooLarge]);
+  }, [headingLinesKey, isTooLarge, filePath]);
 
   const tree = useMemo(() => {
     if (isTooLarge) return [];

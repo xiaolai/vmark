@@ -14,6 +14,7 @@ const AXE_OPTS = { rules: { "color-contrast": { enabled: false } } };
 // Empty document → no headings → the simplest complementary-landmark branch.
 vi.mock("@/hooks/useDocumentState", () => ({
   useDocumentContent: () => "",
+  useDocumentFilePath: () => null,
 }));
 
 import { OutlineView } from "./OutlineView";
