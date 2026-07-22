@@ -52,6 +52,13 @@ export type Validator = (
   path?: string,
 ) => ValidationDiagnostic[];
 
+/** One heading in a document outline. `line` is 0-based. */
+export interface OutlineHeading {
+  level: number;
+  text: string;
+  line: number;
+}
+
 export type SchemaDetector = (path: string, content: string) => string | null;
 
 export interface PreviewRendererProps {
@@ -127,6 +134,25 @@ export interface FormatConfig {
    * panel and source-mode annotations consume.
    */
   lint?: (source: string) => LintDiagnostic[];
+  /**
+   * Document outline, contributed by the format (WI-4.4).
+   *
+   * `extractHeadings` is a markdown ATX scanner with fence handling, and it ran
+   * for EVERY format — a YAML or JSON tab was scanned for `#` headings. A format
+   * that has no outline simply omits this and gets an empty one.
+   */
+  outline?: (content: string) => OutlineHeading[];
+
+  /**
+   * Plain-text projection for status-bar word/character counts (WI-4.4).
+   *
+   * `stripMarkdown` runs 13 markdown regexes and ran for every format, so a
+   * `.json` tab paid markdown's cost and had its braces treated as syntax.
+   * Omitting this means the raw content is counted, which is correct for
+   * plain-text-ish formats.
+   */
+  toPlainText?: (content: string) => string;
+
   validator?: Validator;
   genericPreview?: PreviewRenderer;
   schemaDetector?: SchemaDetector;
