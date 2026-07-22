@@ -99,6 +99,8 @@ import { textDragDropExtension } from "@/plugins/textDragDrop/tiptap";
 import { tocExtension } from "@/plugins/tableOfContents/tiptap";
 import { LintExtension } from "@/plugins/lint/tiptap";
 import { inactiveSelectionExtension } from "@/plugins/inactiveSelection/tiptap";
+import { resolveExtensions } from "@/lib/extensions/resolve";
+import type { VMarkExtension } from "@/lib/extensions/types";
 
 export interface TiptapExtensionConfig {
   /** Tab ID for lint diagnostics (lint extension is registered when present) */
@@ -106,10 +108,17 @@ export interface TiptapExtensionConfig {
 }
 
 /**
- * Creates the array of Tiptap extensions for the WYSIWYG editor.
- * This is a pure factory function with no React dependencies.
+ * The hand-ordered extension list.
+ *
+ * Phase 3 note: this is no longer the composition path — `createTiptapExtensions`
+ * routes it through the resolver (ADR-015 D1). It remains hand-ordered for now,
+ * and the resolver's stable sort preserves that order exactly, so the migration
+ * is behaviour-neutral. Ordering constraints become explicit `Prec` buckets and
+ * named `before`/`after` declarations one entry at a time, each with its own
+ * test; when no test depends on array position, this list gets sorted
+ * alphabetically and the ordering problem is gone.
  */
-export function createTiptapExtensions(config: TiptapExtensionConfig = {}): Extensions {
+function buildExtensionList(config: TiptapExtensionConfig = {}): Extensions {
   const { tabId } = config;
   return [
     StarterKit.configure({
@@ -234,4 +243,45 @@ export function createTiptapExtensions(config: TiptapExtensionConfig = {}): Exte
     // editor remount (mount-time gating left WYSIWYG stale until remount).
     ...(tabId ? [LintExtension.configure({ tabId })] : []),
   ];
+}
+
+/**
+ * Creates the array of Tiptap extensions for the WYSIWYG editor.
+ *
+ * Composition goes through `resolveExtensions` (ADR-015 D1): the registry IS
+ * the composition, so there is no second representation that can drift from it.
+ * That is the property four previous VMark foundations lacked — `useWorkspace()`,
+ * `pluginsFor()`, `EditorHost` and ADR-007's slot seam each shipped as an API
+ * surface, were marked Accepted, and were never adopted.
+ *
+ * Each Tiptap extension becomes a descriptor keyed by its own `name` (verified
+ * unique across all 77). Every descriptor currently sits in the default
+ * precedence bucket, so the resolver's stable sort reproduces the hand-ordered
+ * list byte for byte.
+ *
+ * Resolution errors throw rather than silently dropping an extension: a missing
+ * editor extension is a broken editor, and this is composition time, not a hot
+ * path.
+ */
+export function createTiptapExtensions(config: TiptapExtensionConfig = {}): Extensions {
+  const list = buildExtensionList(config);
+
+  const descriptors: VMarkExtension[] = list.map((extension, index) => ({
+    id: extension.name || `anonymous-${index}`,
+    contributions: [{ kind: "tiptap", factory: () => extension }],
+  }));
+
+  const { ordered, errors } = resolveExtensions(descriptors);
+  if (errors.length > 0) {
+    throw new Error(
+      `Editor extension composition failed:\n${errors
+        .map((error) => `  - [${error.code}] ${error.message}`)
+        .join("\n")}`,
+    );
+  }
+
+  return ordered.map(
+    (descriptor) =>
+      (descriptor.contributions[0] as { factory: () => Extensions[number] }).factory(),
+  );
 }

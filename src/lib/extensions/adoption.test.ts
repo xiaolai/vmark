@@ -41,7 +41,7 @@ const BYPASSING_COMPOSITION_ROOTS = [
 ] as const;
 
 /** Ratchets DOWN only. Phase 3 drives this to 0. */
-const UNMIGRATED_COMPOSITION_ROOTS = 2;
+const UNMIGRATED_COMPOSITION_ROOTS = 1;
 
 describe("resolver adoption (ADR-015 D6 — count adoption, not existence)", () => {
   it("pins how many composition roots still bypass the resolver", () => {

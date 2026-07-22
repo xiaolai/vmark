@@ -5,6 +5,10 @@
  * promotion of media content to native block nodes. Split from mdastBlockConverters.ts
  * for size.
  *
+ * Paragraph ownership is decided by the claim protocol (ADR-015 D2b), not by
+ * `if`-order: see mdastParagraphClaims.ts. Strengths encode why each claim is
+ * made, so reordering recognizers cannot change which converter wins.
+ *
  * Key decisions:
  *   - Paragraphs with a single image child are promoted to block_image nodes;
  *     video/audio extensions promote to block_video/block_audio instead
