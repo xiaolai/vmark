@@ -11,7 +11,7 @@
 | 3 composition migration | ✅ **COMPLETE** — both roots resolve through `resolveExtensions`; **adoption gate 2 → 0**; ADR-011's registry and all 77 stub manifests deleted (80 files). WI-3.4 (alphabetical sort) stays open by design: it is only safe once ordering constraints are explicit |
 | 4A host normalization | ✅ **RESOLVED via option 2** — `FormatConfig.language` gives bundled packs a synchronous path, so the source host is registry-driven with no flash on the primary path |
 | 4B markdown as extension | ✅ **COMPLETE** — 4.2-4.6 done; 4.1 partial by design (parser/serializer/command contribution belongs with the command-registry fork); 4.7 done for svg, mermaid's three hosts judged correct as-is |
-| 5 extension points | 🟡 **WI-5.1 DONE** — markdown declares a fence-language extension point; mermaid/graphviz/markmap/svg/latex/workflow register as **peers**. Zero renderer names remain in the markdown dispatch. Executable third-party tiers (5.3-5.5) still need the capability broker + package contract |
+| 5 extension points | 🟡 **WI-5.1 + 5.6 done** — markdown declares a fence extension point with six peer renderers and lifecycle-bound registration. **5.2-5.5 need the capability broker** (Rust, security-critical) plus a package/signing contract that is a product decision |
 
 Codex review (RETHINK, 3 BLOCKER / 8 MAJOR) dispositioned below; all three
 BLOCKERs are resolved in Phase 1.
@@ -444,7 +444,7 @@ exist and is not designed here.
 | WI-5.3 | Generalize the existing browser capability broker (`origin_guard`/`one_shot`/`operation`) from `(origin × operation)` to `(plugin-principal × capability-scope)` |
 | WI-5.4 | Tier C: dynamic tool registration + prefix routing on the MCP bridge, replacing the 3 closed switches; arbitrate namespaces on the already-captured `ClientIdentity` |
 | WI-5.5 | Tier B: worker/WASM host + the safe editor subset (decorations, fence renderers, declarative input rules) |
-| WI-5.6 | Lifecycle-bound registration — `register*` implies teardown (Obsidian `Component` pattern), designed in before the ecosystem exists |
+| WI-5.6 | ✅ **DONE** — `registerFenceRenderer` returns an idempotent unregister that frees the language for another claimant. Designed in now precisely because retrofitting teardown after an ecosystem exists means every existing extension leaks |
 
 **DoD**
 - A fence renderer registers without touching markdown's source
