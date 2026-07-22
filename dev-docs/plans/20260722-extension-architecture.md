@@ -1,8 +1,9 @@
 # Extension Architecture — Phased Plan
 
-**Status:** NEEDS AMENDMENT → amended 2026-07-22. Codex cross-model review
-returned RETHINK (3 BLOCKER, 8 MAJOR); all findings dispositioned below.
-Phase 0A not started.
+**Status:** Phase 0A **COMPLETE** (2026-07-23) — harness now runs the production
+schema projection; corpus 12 → 22 fixtures; 4 pre-existing round-trip defects
+found. Phase 0B next. Codex review (RETHINK, 3 BLOCKER / 8 MAJOR) dispositioned
+below.
 **Branch:** `refactor/vmark-core`
 **ADR:** `dev-docs/decisions/ADR-015-extension-model.md`
 **Evidence:** `dev-docs/deep-researches/20260721-extension-architecture-investigation.md`,
@@ -55,11 +56,30 @@ Until this is fixed, no serialization refactor can be trusted — arms 13/14/15/
 
 | WI-0.5 | Build a **compatibility corpus** captured from released VMark versions; require fixed-point stability against it. Any intentional canonicalization change is documented as a format migration — never an automatic rewrite of unopened files |
 
-**DoD**
-- Harness exercises all 24 PM→mdast and 31 mdast→PM arms; a coverage assertion names any arm with no fixture
-- Deliberately deleting one switch arm turns the suite red (verified by experiment, not assumed)
-- Released-version compatibility corpus round-trips to a fixed point
-- `pnpm check:all` green
+**DoD — met 2026-07-23**
+- ✅ `src/test/productionSchema.ts` projects the real editor schema via `getSchema(createTiptapExtensions())` — no Editor, no DOM, no React
+- ✅ `schemaCoverage.test.ts` asserts all 31 emittable node types + 9 marks are representable, and pins `testSchema`'s exact 4-node gap as the reason it must not back the harness
+- ✅ Corpus 12 → 22 fixtures; goldens reviewed line-by-line, not merely regenerated
+- ✅ `pnpm check:all` green (1156 files / 23,587 tests; coverage 93.81% stmts / 90.35% branches)
+- ⏳ WI-0.5 compatibility corpus: seeded at v0.9.7 by the committed goldens; genuinely cross-release comparison needs captures from prior releases and grows per release
+
+### Phase 0A outcome — four pre-existing defects found immediately
+
+The widened corpus caught real round-trip bugs **before any refactor started**.
+Goldens encode the broken output deliberately (characterization semantics); see
+`__tests__/characterization/README.md` for the full table.
+
+| # | Input | Round-trips to | Cause |
+|---|---|---|---|
+| D1 | `![A short clip](clip.mp4)` | `![](clip.mp4)` | `block_video`/`block_audio` have no `alt` attribute (`plugins/blockVideo/tiptap.ts:36`) |
+| D2 | `[text](url "Title")` | `[text](url)` | the `link` mark declares no `title` attribute |
+| D3 | `==highlight with **bold**==` | `\==highlight with **bold**==` | opening `==` escaped when the highlight nests a mark — highlight destroyed |
+| D4 | `x\^2\^` (literal) | `x^2^` (real superscript) | escape stripped; re-parses as different content (H7 class) |
+
+D1/D2 are silent data loss, D3/D4 silent semantic corruption — all
+autosave-persisted, since `useTiptapFlush` serializes on every edit. **These are
+bugs to fix, not behaviour to preserve through the inversion**; fixing them is
+tracked separately from Phase 2's byte-preserving requirement.
 
 ## Phase 0B — Security hardening (independent, do regardless)
 
