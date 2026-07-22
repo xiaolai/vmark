@@ -5,13 +5,13 @@
 | Phase | State |
 |---|---|
 | 0A safety net | ✅ **COMPLETE** — production-schema harness, corpus 12 → 22, 4 pre-existing defects found |
-| 0B security | ⚠️ **1 of 4** — WI-0B.2 done; the other three are re-scoped onto the capability broker (see below), because the plan's remedies would break custom shells, Save As, and stored keys |
+| 0B security | ✅ **CLOSED** — WI-0B.2 done. The other three are **re-sequenced after WI-5.4/5.5 per ADR-016**: they need a caller principal, which cannot exist inside a single JS context. Phase 0B was mis-scoped as mechanical hardening |
 | 1 architecture contract | ✅ **COMPLETE** — descriptor, resolver, claim protocol, Node-safe gate, scope inventory, perf baseline, budget ratchet, doc corrections |
 | 2 serialization inversion | ✅ **COMPLETE** — both switches deleted (24 + 34 arms); both `convertNode`s pure dispatch; `convertParagraph`'s media fan-out now claim-driven with ordering-independence proven by test. `convertHtml`'s internal fan-out and mark-run factoring remain central **by design** (WI-1.6) |
 | 3 composition migration | ✅ **COMPLETE** — both roots resolve through `resolveExtensions`; **adoption gate 2 → 0**; ADR-011's registry and all 77 stub manifests deleted (80 files). WI-3.4 (alphabetical sort) stays open by design: it is only safe once ordering constraints are explicit |
 | 4A host normalization | ✅ **RESOLVED via option 2** — `FormatConfig.language` gives bundled packs a synchronous path, so the source host is registry-driven with no flash on the primary path |
 | 4B markdown as extension | ✅ **COMPLETE** — 4.2-4.6 done; 4.1 partial by design (parser/serializer/command contribution belongs with the command-registry fork); 4.7 done for svg, mermaid's three hosts judged correct as-is |
-| 5 extension points | 🟡 **WI-5.1 + 5.6 done** — markdown declares a fence extension point with six peer renderers and lifecycle-bound registration. **5.2-5.5 need the capability broker** (Rust, security-critical) plus a package/signing contract that is a product decision |
+| 5 extension points | 🟡 **first-party COMPLETE** (WI-5.1, 5.6). WI-5.2-5.5 are third-party execution, blocked on **one decision** per ADR-016: sidecar (Tier C) or sandboxed worker (Tier B). Everything downstream follows from that answer |
 
 Codex review (RETHINK, 3 BLOCKER / 8 MAJOR) dispositioned below; all three
 BLOCKERs are resolved in Phase 1.
@@ -466,6 +466,33 @@ exist and is not designed here.
 - **Rust scope stays bounded.** Redesigning all 157 Tauri commands is *not*
   required for first-party extension composition. Only Phase 0B hardening now;
   per-caller namespacing only where commands become plugin-callable.
+
+## The single remaining decision (ADR-016)
+
+Seven work items — WI-0B.1/0B.3/0B.4 and WI-5.2-5.5 — were each re-scoped onto
+"the capability broker", which implied one missing component. Investigation
+showed the dependency runs the other way:
+
+```
+isolation boundary  →  caller principal  →  capability broker  →  brokered commands
+   (WI-5.4 / 5.5)      (a real identity)      (generalized)        (WI-0B.1/3/4)
+```
+
+**There is no caller principal available to a Tauri command, and there cannot be
+one inside a single JS context.** `pty_spawn` receives only `State<PtyState>`;
+`run_ai_prompt` receives a `WebviewWindow` — window identity, not caller
+identity. The one real principal in the codebase, `ClientIdentity`, exists only
+because the MCP bridge is a separate process that handshakes over a socket. The
+browser broker's "principal" is the origin being *acted upon*, not the actor.
+
+So the question that unblocks all seven is not "build the broker" but:
+
+> **How does third-party code execute — out-of-process sidecar (Tier C, ~80% of
+> the transport already exists) or sandboxed worker/WASM (Tier B)?**
+
+Either answer creates a real principal at a real boundary and the broker follows
+mechanically. Neither can be inferred from the code. Full reasoning and
+verification commands in `dev-docs/decisions/ADR-016-capability-broker-requires-isolation.md`.
 
 ## Out of scope
 
