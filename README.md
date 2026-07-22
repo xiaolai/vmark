@@ -90,12 +90,11 @@ pnpm check:all        # Lint + test + build
 
 ## Star History
 
+<!-- Self-hosted so the chart never depends on api.star-history.com's flaky
+     server-render (it times out for this repo). Regenerate with
+     `node scripts/gen-star-history.mjs`. Click through for the live version. -->
 <a href="https://www.star-history.com/?repos=xiaolai%2Fvmark&type=date&legend=top-left">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=xiaolai/vmark&type=date&theme=dark&legend=top-left" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=xiaolai/vmark&type=date&legend=top-left" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=xiaolai/vmark&type=date&legend=top-left" />
- </picture>
+  <img alt="Star History Chart" src="./.github/star-history.svg" width="800" />
 </a>
 
 ---

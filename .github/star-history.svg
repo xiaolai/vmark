@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="400" viewBox="0 0 800 400" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">
+  <defs>
+    <linearGradient id="fill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.28"/>
+      <stop offset="100%" stop-color="#3b82f6" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <text x="56" y="26" font-size="16" font-weight="600" fill="#888">xiaolai/vmark — Star History</text>
+  <text x="772.0" y="26" text-anchor="end" font-size="14" fill="#3b82f6" font-weight="600">★ 418</text>
+  <line x1="56" y1="356.0" x2="772.0" y2="356.0" stroke="#888" stroke-opacity="0.18"/>
+  <line x1="56" y1="293.6" x2="772.0" y2="293.6" stroke="#888" stroke-opacity="0.18"/>
+  <line x1="56" y1="231.2" x2="772.0" y2="231.2" stroke="#888" stroke-opacity="0.18"/>
+  <line x1="56" y1="168.8" x2="772.0" y2="168.8" stroke="#888" stroke-opacity="0.18"/>
+  <line x1="56" y1="106.4" x2="772.0" y2="106.4" stroke="#888" stroke-opacity="0.18"/>
+  <line x1="56" y1="44.0" x2="772.0" y2="44.0" stroke="#888" stroke-opacity="0.18"/>
+  <path d="M56.0,355.4 L67.1,351.0 L74.2,346.6 L81.6,342.3 L100.7,337.9 L129.5,333.5 L137.8,329.2 L139.8,324.8 L140.9,319.8 L144.8,315.4 L153.1,311.1 L160.1,306.7 L169.1,302.3 L179.3,298.0 L192.0,293.6 L202.8,289.2 L218.7,284.9 L227.5,280.5 L237.8,276.1 L247.9,271.8 L270.2,267.4 L282.4,263.0 L293.1,258.7 L305.3,253.7 L334.0,249.3 L349.8,244.9 L379.5,240.6 L380.1,236.2 L380.2,231.8 L380.5,227.5 L381.2,223.1 L382.8,218.7 L383.5,214.4 L385.2,210.0 L388.6,205.6 L390.9,201.2 L396.3,196.9 L404.7,191.9 L407.8,187.5 L423.9,183.2 L438.3,178.8 L446.5,174.4 L455.3,170.0 L471.2,165.7 L486.9,161.3 L499.9,156.9 L510.6,152.6 L521.2,148.2 L529.4,143.8 L549.0,139.5 L564.9,135.1 L580.3,130.7 L604.0,125.7 L626.8,121.4 L634.6,117.0 L653.8,112.6 L672.4,108.3 L693.3,103.9 L729.1,99.5 L772.0,95.2 L772.0,356.0 L56.0,356.0 Z" fill="url(#fill)"/>
+  <path d="M56.0,355.4 L67.1,351.0 L74.2,346.6 L81.6,342.3 L100.7,337.9 L129.5,333.5 L137.8,329.2 L139.8,324.8 L140.9,319.8 L144.8,315.4 L153.1,311.1 L160.1,306.7 L169.1,302.3 L179.3,298.0 L192.0,293.6 L202.8,289.2 L218.7,284.9 L227.5,280.5 L237.8,276.1 L247.9,271.8 L270.2,267.4 L282.4,263.0 L293.1,258.7 L305.3,253.7 L334.0,249.3 L349.8,244.9 L379.5,240.6 L380.1,236.2 L380.2,231.8 L380.5,227.5 L381.2,223.1 L382.8,218.7 L383.5,214.4 L385.2,210.0 L388.6,205.6 L390.9,201.2 L396.3,196.9 L404.7,191.9 L407.8,187.5 L423.9,183.2 L438.3,178.8 L446.5,174.4 L455.3,170.0 L471.2,165.7 L486.9,161.3 L499.9,156.9 L510.6,152.6 L521.2,148.2 L529.4,143.8 L549.0,139.5 L564.9,135.1 L580.3,130.7 L604.0,125.7 L626.8,121.4 L634.6,117.0 L653.8,112.6 L672.4,108.3 L693.3,103.9 L729.1,99.5 L772.0,95.2" fill="none" stroke="#3b82f6" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+  <text x="46" y="360.0" text-anchor="end" font-size="12" fill="#888">0</text>
+  <text x="46" y="297.6" text-anchor="end" font-size="12" fill="#888">100</text>
+  <text x="46" y="235.2" text-anchor="end" font-size="12" fill="#888">200</text>
+  <text x="46" y="172.8" text-anchor="end" font-size="12" fill="#888">300</text>
+  <text x="46" y="110.4" text-anchor="end" font-size="12" fill="#888">400</text>
+  <text x="46" y="48.0" text-anchor="end" font-size="12" fill="#888">500</text>
+  <text x="56.0" y="376.0" text-anchor="middle" font-size="12" fill="#888">Jan 26</text>
+  <text x="175.3" y="376.0" text-anchor="middle" font-size="12" fill="#888">Feb 26</text>
+  <text x="294.7" y="376.0" text-anchor="middle" font-size="12" fill="#888">Mar 26</text>
+  <text x="414.0" y="376.0" text-anchor="middle" font-size="12" fill="#888">Apr 26</text>
+  <text x="533.3" y="376.0" text-anchor="middle" font-size="12" fill="#888">May 26</text>
+  <text x="652.7" y="376.0" text-anchor="middle" font-size="12" fill="#888">Jun 26</text>
+  <text x="772.0" y="376.0" text-anchor="middle" font-size="12" fill="#888">Jul 26</text>
+</svg>
