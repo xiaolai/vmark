@@ -9,7 +9,8 @@
 | 1 architecture contract | ✅ **COMPLETE** — descriptor, resolver, claim protocol, Node-safe gate, scope inventory, perf baseline, budget ratchet, doc corrections |
 | 2 serialization inversion | ✅ **COMPLETE** — both switches deleted (24 + 34 arms); both `convertNode`s pure dispatch; `convertParagraph`'s media fan-out now claim-driven with ordering-independence proven by test. `convertHtml`'s internal fan-out and mark-run factoring remain central **by design** (WI-1.6) |
 | 3 composition migration | ✅ **COMPLETE** — both roots resolve through `resolveExtensions`; **adoption gate 2 → 0**; ADR-011's registry and all 77 stub manifests deleted (80 files). WI-3.4 (alphabetical sort) stays open by design: it is only safe once ordering constraints are explicit |
-| 4A/4B host + markdown | ⬜ not started |
+| 4A host normalization | ⛔ **BLOCKED — needs a decision.** See below |
+| 4B markdown as extension | ⬜ blocked on 4A |
 | 5 extension points | ⬜ not started; gated on the command-registry fork, the ADR-007 slot seam, and a package/security contract — all listed out of scope |
 
 Codex review (RETHINK, 3 BLOCKER / 8 MAJOR) dispositioned below; all three
@@ -347,7 +348,36 @@ rather than reasoning from array position.
 - Composition array is alphabetical; no ordering test depends on position
 - No `addFeature`-style side channel exists
 
-## Phase 4A — Host normalization (prerequisite, was buried in Phase 4)
+## Phase 4A — Host normalization ⛔ needs a decision
+
+**The blocker, found 2026-07-23.** The two hosts do not merely differ in
+structure — they differ in *timing*. `sourceEditorExtensions.ts` resolves its
+language synchronously from statically imported packs
+(`isYaml ? yaml() : markdown(...)`), while `SplitPaneEditor/sourcePaneExtensions.ts`
+starts with **no language** and reconfigures a Compartment when an async
+`loadLanguage()` promise resolves.
+
+Moving the markdown source editor onto the registry-driven host therefore makes
+its language load asynchronous, which risks a visible flash of unhighlighted
+text **on the primary editing path, on every source-mode open**. ADR-001 makes
+markdown the primary format; a regression there is not a fair trade for
+structural symmetry.
+
+Three options, and the choice is the maintainer's:
+
+1. **Accept the async load.** Simplest, one host, but a possible flash on the
+   most-used path. Needs measurement before acceptance.
+2. **Sync fast-path.** The registry keeps async `loadLanguage` for the long tail
+   but gains an optional synchronous pack for formats bundled anyway (markdown,
+   yaml). One host, no flash, slightly richer `FormatConfig`.
+3. **Leave both hosts.** Cheapest, and keeps markdown privileged — which is
+   exactly what Phase 4B exists to end.
+
+Swapping `isYamlFileName` for a `dispatchEditor` lookup was considered and
+rejected as cosmetic: the branch stays two-format and hard-coded either way, so
+it buys no real unification.
+
+## Phase 4A — original scope
 
 Proving markdown is ordinary requires one format-neutral host first. Today there
 are two CodeMirror hosts: `sourceEditorExtensions.ts:25-28` hard-wires
