@@ -80,7 +80,15 @@ interface FormatAdapters {
     insertBlockActions: boolean;
     paragraphFormatting: boolean;
   };
-  closeSavePolicy: "markdown-default" | "save-as-only";
+  /**
+   * What closing a dirty tab does.
+   *
+   * `prompt-on-close` was named `markdown-default` — a format's own name inside
+   * a format-neutral contract, which every adapter had to set including `txt`
+   * and the read-only code viewers. The value describes a BEHAVIOUR, not a
+   * format (ADR-015 Phase 4B, WI-4.2).
+   */
+  closeSavePolicy: "prompt-on-close" | "save-as-only";
 }
 
 export interface FormatConfig {

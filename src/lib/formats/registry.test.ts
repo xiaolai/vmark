@@ -15,7 +15,7 @@ const baseAdapters: FormatConfig["adapters"] = {
   saveDialogFilters: [{ name: "Plain", extensions: ["txt"] }],
   untitledExtension: "txt",
   readOnlyDefault: false,
-  closeSavePolicy: "markdown-default",
+  closeSavePolicy: "prompt-on-close",
   menuPolicy: {
     sourceWysiwygToggle: false,
     cjkFormatActions: false,
@@ -134,7 +134,7 @@ describe("format registry", () => {
       expect(() => registerFormat(txtConfig)).not.toThrow();
     });
 
-    it("rejects readOnlyDefault=true with non-markdown-default closeSavePolicy", () => {
+    it("rejects readOnlyDefault=true with non-prompt-on-close closeSavePolicy", () => {
       expect(() =>
         registerFormat({
           ...txtConfig,
@@ -144,7 +144,7 @@ describe("format registry", () => {
             closeSavePolicy: "save-as-only",
           },
         }),
-      ).toThrowError(/readOnlyDefault.*markdown-default/i);
+      ).toThrowError(/readOnlyDefault.*prompt-on-close/i);
     });
 
     it("rejects always-when-registered keep-alive outside the allow-list", () => {
