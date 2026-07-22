@@ -1,29 +1,25 @@
 /**
  * Tier-1 PM → mdast converters, expressed as registry entries — Phase 2 WI-2.1.
  *
- * Purpose: the first slice of the serialization inversion. These 10 node types
- * are pure attribute↔field mappings with no cross-node state, so they can move
- * to a contributed table with no behaviour change at all.
+ * Purpose: registry 2 for the PM → mdast direction. Owns dispatch for all 23
+ * migrated node types; the switch that used to do this is deleted.
  *
- * Method (Codex MAJOR — differential, not big-bang): the registry is built
- * ALONGSIDE the existing `switch` in `proseMirrorToMdast.ts`, and
- * `pmConverters.registry.test.ts` asserts the registry dispatches to the exact
- * same function the switch would, for every node type listed here. The switch
- * stays authoritative until every tier has moved; it is deleted last.
+ * Method (Codex MAJOR — differential, not big-bang): the registry was built
+ * ALONGSIDE the switch and proven byte-identical per node in
+ * `pmConverters.registry.test.ts`, with the 22-fixture corpus as the
+ * whole-document check. Only once both were green were the arms removed.
  *
  * `extensionId`s are the ids these converters will carry once the owning plugin
  * declares them (ADR-015 D1). Naming them now keeps the eventual move a
  * relocation rather than a redesign.
  *
- * Not yet here, and deliberately:
- *   - Tier 2 marks — `groupInlineItems` factors mark runs across ALL marks at
- *     once and cannot decompose per mark.
- *   - Tier 3+ — heading (document-scoped slug state), lists (parent/child spread
- *     heuristics), tables (whole-table alignment), and the four families that
- *     need the claim protocol.
- *   - `codeBlock` — it is Tier 1 in shape but ambiguous in practice: the math
- *     sentinel `MATH_BLOCK_LANGUAGE` means the math extension must claim it by
- *     attribute. It moves with the claim wiring, not here.
+ * Not here, and deliberately:
+ *   - `footnote_definition` — a private method on PMToMdastConverter rather than
+ *     an extracted function, so it cannot be registered yet. The last arm.
+ *   - Marks — `groupInlineItems` factors mark runs across ALL marks at once and
+ *     cannot decompose per mark; that stays central by design (WI-1.6).
+ *   - The mdast → PM direction — 31 arms, and the one that genuinely needs the
+ *     claim protocol, since several extensions compete for one mdast type there.
  *
  * @coordinates-with lib/extensions/pmConverterRegistry.ts — the dispatch table
  * @coordinates-with proseMirrorToMdast.ts — the switch this mirrors
