@@ -22,10 +22,9 @@
  *
  * Commits are delivered via onCompositionCommit, which the wiring writes DIRECTLY
  * to the PTY (bypassing xterm's onData), so the single-writer guarantee holds end
- * to end. Exposes the same ImeCompositionHandle surface as the legacy module so
- * createTerminalInstance can select either by the `inputGate` flag.
+ * to end. This is the SOLE terminal IME path (WI-4b deleted the legacy module).
  *
- * @coordinates-with createTerminalInstance.ts — sole caller (gate branch)
+ * @coordinates-with createTerminalInstance.ts — sole caller
  * @coordinates-with terminalKeyHandler.ts — T2 (IME keydown returns false)
  * @module components/Terminal/setupImeCompositionGate
  */
