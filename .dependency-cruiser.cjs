@@ -116,6 +116,39 @@ module.exports = {
       },
     },
 
+    // Rule 5: the Node-safe markdown seam stays Node-safe (ADR-015 D2, WI-1.4).
+    //
+    // `nodeSafe.ts` re-exports the remark plugins to `vmark-content-server`,
+    // which runs in plain Node. Its header states the invariant — no `@/`
+    // aliases, no DOM globals, no editor/ProseMirror imports — but until now
+    // only a smoke test guarded it, and only at runtime.
+    //
+    // ADR-015 splits conversion into an engine-independent markdown layer
+    // (registry 1, here) and a ProseMirror-coupled adapter layer (registry 2).
+    // The audit found ADR-003's "framework-independent pipeline" was never
+    // fully realized — 11 of 19 pipeline files import `@tiptap/pm/model` — so
+    // this boundary is being CREATED, not merely preserved. It needs a gate
+    // from day one, or it will drift like every seam before it.
+    {
+      name: "node-safe-markdown-seam",
+      severity: "error",
+      comment:
+        "src/utils/markdownPipeline/{plugins,nodeSafe,types} must stay importable " +
+        "from plain Node: no ProseMirror, no React, no @/ aliases, no editor code.",
+      from: {
+        path: "^src/utils/markdownPipeline/(plugins/|nodeSafe\\.ts|types\\.ts)",
+        pathNot: ["\\.test\\.(ts|tsx)$"],
+      },
+      to: {
+        path: [
+          "@tiptap",
+          "prosemirror",
+          "node_modules/react",
+          "^src/(components|plugins|stores|hooks|services)/",
+        ],
+      },
+    },
+
     // Rule 4: Cross-plugin imports only via shared/ or sourcePopup/
     //
     // Coordination plugins are exempted — they orchestrate multiple plugins
