@@ -5,6 +5,7 @@
 // dev-docs/plans/20260506-multi-format-rebrand.md § Format registry contract.
 
 import type { Extension } from "@codemirror/state";
+import type { LintDiagnostic } from "@/lib/lintEngine";
 import type { ComponentType } from "react";
 
 type FormatKind =
@@ -113,6 +114,19 @@ export interface FormatConfig {
   language?: () => Extension;
   loadLanguage?: () => Promise<Extension>;
   loadExtraExtensions?: () => Promise<Extension[]>;
+  /**
+   * The format's linter, contributed rather than hard-coded.
+   *
+   * `useLintStore` previously carried a two-format branch — a `runLint` action
+   * wired to `lintMarkdown` and a `runYamlLint` action wired to `lintYaml` —
+   * so adding a third linted format meant editing the store. A format now
+   * supplies its own (ADR-015 Phase 4B, WI-4.3).
+   *
+   * Distinct from `validator`: that produces `ValidationDiagnostic[]` for the
+   * split-pane gutter, this produces the richer `LintDiagnostic[]` the lint
+   * panel and source-mode annotations consume.
+   */
+  lint?: (source: string) => LintDiagnostic[];
   validator?: Validator;
   genericPreview?: PreviewRenderer;
   schemaDetector?: SchemaDetector;

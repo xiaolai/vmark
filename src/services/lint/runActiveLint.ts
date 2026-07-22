@@ -79,12 +79,18 @@ export function runActiveLint(windowLabel: string): void {
   };
 
   if (isYaml) {
-    const yamlDiags = useLintStore.getState().runYamlLint(tabId, content);
+    // Format-contributed linter (WI-4.3) — the store no longer needs a
+    // per-format action, and a third linted format is a registration.
+    const yamlDiags = useLintStore
+      .getState()
+      .runLintForFormat(tabId, content, filePath);
     finalize(yamlDiags.length);
     return;
   }
 
-  const syncDiagnostics = useLintStore.getState().runLint(tabId, content);
+  const syncDiagnostics = useLintStore
+    .getState()
+    .runLintForFormat(tabId, content, filePath);
   triggerLintRefresh();
   // Toast reflects the COMBINED (sync + async link-check) result.
   if (filePath) {
