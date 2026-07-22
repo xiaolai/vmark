@@ -86,15 +86,13 @@ describe("Tier-1 registry ≡ switch (differential)", () => {
     );
   });
 
-  it("has migrated every switch arm except the one needing extraction", () => {
-    // footnote_definition is still a private method on the converter class
-    // (proseMirrorToMdast.ts) rather than an extracted function, so it cannot
-    // be registered yet. It is the last arm standing.
+  it("has migrated EVERY switch arm — convertNode is pure dispatch", () => {
     const migrated = new Set(registry.knownNodeNames());
-    expect(migrated.has("footnote_definition")).toBe(false);
     for (const name of [...TIER_1_NODE_NAMES, ...STRUCTURAL_NODE_NAMES]) {
       expect(migrated.has(name), `${name} not registered`).toBe(true);
     }
+    // The switch is gone; nothing is handled inline any more.
+    expect(migrated.has("footnote_definition")).toBe(true);
   });
 
   it("has a differential case for every migrated node", () => {
@@ -122,14 +120,13 @@ describe("Tier-1 registry ≡ switch (differential)", () => {
     });
   }
 
-  it("reports an unmigrated node as unknown rather than dropping it", () => {
-    // footnote_definition is the last arm still in the switch.
-    const node = schema.nodes.footnote_definition.create(
-      { label: "1" },
-      schema.nodes.paragraph.create(),
-    );
-    const lookup = registry.resolve("footnote_definition", node);
+  it("reports a genuinely unknown node rather than dropping it", () => {
+    const paragraph = schema.nodes.paragraph.create();
+    const lookup = registry.resolve("acme_unregistered", paragraph);
     expect(lookup.ok).toBe(false);
-    if (!lookup.ok) expect(lookup.failure.code).toBe("unknown-node");
+    if (!lookup.ok) {
+      expect(lookup.failure.code).toBe("unknown-node");
+      expect(lookup.failure.message).toContain("silently drop");
+    }
   });
 });

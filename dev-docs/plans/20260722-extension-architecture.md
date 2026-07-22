@@ -7,7 +7,7 @@
 | 0A safety net | ✅ **COMPLETE** — production-schema harness, corpus 12 → 22, 4 pre-existing defects found |
 | 0B security | ⚠️ **1 of 4** — WI-0B.2 done; the other three are re-scoped onto the capability broker (see below), because the plan's remedies would break custom shells, Save As, and stored keys |
 | 1 architecture contract | ✅ **COMPLETE** — descriptor, resolver, claim protocol, Node-safe gate, scope inventory, perf baseline, budget ratchet, doc corrections |
-| 2 serialization inversion | 🟢 **PM→mdast direction DONE** — the 24-arm switch is deleted; 23 node types resolve through registry 2. ADR-015's gate `grep -cE 'case \"' proseMirrorToMdast.ts` → **0**. mdast→PM (31 arms) + marks (9) remain |
+| 2 serialization inversion | 🟢 **PM→mdast direction COMPLETE** — switch deleted, `convertNode` is pure dispatch, all 24 node types in registry 2. ADR-015's gate `grep -cE 'case \"' proseMirrorToMdast.ts` → **0**; file 285 → 204 lines. mdast→PM (31 arms) + marks (9) remain |
 | 3 composition migration | ⬜ not started — adoption gate pins 2 bypassing roots |
 | 4A/4B host + markdown | ⬜ not started |
 | 5 extension points | ⬜ not started; gated on the command-registry fork, the ADR-007 slot seam, and a package/security contract — all listed out of scope |
