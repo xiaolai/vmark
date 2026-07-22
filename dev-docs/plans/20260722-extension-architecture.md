@@ -11,7 +11,7 @@
 | 3 composition migration | ✅ **COMPLETE** — both roots resolve through `resolveExtensions`; **adoption gate 2 → 0**; ADR-011's registry and all 77 stub manifests deleted (80 files). WI-3.4 (alphabetical sort) stays open by design: it is only safe once ordering constraints are explicit |
 | 4A host normalization | ✅ **RESOLVED via option 2** — `FormatConfig.language` gives bundled packs a synchronous path, so the source host is registry-driven with no flash on the primary path |
 | 4B markdown as extension | ✅ **COMPLETE** — 4.2-4.6 done; 4.1 partial by design (parser/serializer/command contribution belongs with the command-registry fork); 4.7 done for svg, mermaid's three hosts judged correct as-is |
-| 5 extension points | 🟡 **first-party COMPLETE** (WI-5.1, 5.6). WI-5.2-5.5 are third-party execution, blocked on **one decision** per ADR-016: sidecar (Tier C) or sandboxed worker (Tier B). Everything downstream follows from that answer |
+| 5 extension points | ✅ **CLOSED** — WI-5.1 + 5.6 built (they have consumers). WI-5.2-5.5 **deliberately not built** per ADR-016: with zero third-party plugins they would be unadopted foundations, which ADR-015 D6 forbids. Designed, evidenced, unbuilt — they reopen when a package contract creates a consumer |
 
 Codex review (RETHINK, 3 BLOCKER / 8 MAJOR) dispositioned below; all three
 BLOCKERs are resolved in Phase 1.

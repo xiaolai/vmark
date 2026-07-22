@@ -79,6 +79,40 @@ reusable. What is missing is upstream of it.
   identity over-privileged, it is also *unbrokerable*, because it is not an
   identity at all.
 
+## Corollary: WI-5.2–5.5 are closed as "not to be built yet"
+
+The isolation question above has in fact already been answered. The 2026-07-21
+investigation recommended **sidecar-first (Tier C)** with evidence — the MCP
+bridge is ~80% of a plugin runtime, the broker is production-grade, and
+`ClientIdentity` is already captured at the handshake. So the decision is not
+genuinely open; what remains is a package/signing contract, which is a product
+decision.
+
+But there is a second, stronger reason not to build the remaining items now, and
+it comes from ADR-015 D6:
+
+> An acceptance gate must count **adoption**, never existence.
+
+There are **zero** third-party plugins, and none can exist until the package
+contract does. A Tier-A declarative contribution point, a dynamic tool-registration
+RPC, or a generalized broker built today would each have **no consumer** — they
+would be exactly the foundation-shaped dead code the 2026-07-22 ADR audit found
+four times over (`useWorkspace()`, `pluginsFor()`, `EditorHost`, ADR-007's slot
+seam: each shipped as an API surface, marked Accepted, never adopted).
+
+Building them would violate the rule this re-architecture exists to establish, in
+the name of completing the plan that establishes it.
+
+**Therefore WI-5.2–5.5 are closed as deliberately-not-built.** They reopen when a
+package contract creates a real consumer — at which point the design is already
+recorded (ADR-015 D5 trust tiers, this ADR's dependency order) and the transport
+is already ~80% built. That is the right state for them to be in: designed,
+evidenced, and unbuilt.
+
+What IS built is everything with a consumer today: the fence extension point
+(six first-party renderers), lifecycle-bound registration, and the `cli_path`
+guard.
+
 ## What would unblock this
 
 One decision, then the rest is engineering:
