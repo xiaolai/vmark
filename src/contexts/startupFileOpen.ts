@@ -17,7 +17,7 @@
 
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
-import { openFileInNewTabCore } from "@/hooks/useFileOpen";
+import { openFileInNewTabCore } from "@/services/navigation/fileOpen";
 
 /** Create a blank untitled tab so the window has a live document. */
 function ensureBlankTab(windowLabel: string): void {

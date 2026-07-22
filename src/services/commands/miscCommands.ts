@@ -15,7 +15,7 @@ import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
-import { clearAllHistory, clearWorkspaceHistory } from "@/hooks/useHistoryRecovery";
+import { clearAllHistory, clearWorkspaceHistory } from "@/services/history/historyRecovery";
 import { historyLog, historyError, menuError } from "@/utils/debug";
 import { emitHistoryCleared } from "@/utils/historyTypes";
 import { withReentryGuard } from "@/utils/reentryGuard";

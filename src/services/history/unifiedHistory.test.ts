@@ -34,7 +34,7 @@ import {
   clearDocumentHistory,
   performUnifiedUndo,
   performUnifiedRedo,
-} from "./useUnifiedHistory";
+} from "./unifiedHistory";
 
 describe("useUnifiedHistory", () => {
   beforeEach(() => {

@@ -42,7 +42,7 @@ vi.mock("@/hooks/closeSave", () => ({
 }));
 
 const mockPersistWorkspaceSession = vi.fn(() => Promise.resolve());
-vi.mock("@/hooks/workspaceSession", () => ({
+vi.mock("@/services/workspaces/workspaceSession", () => ({
   persistWorkspaceSession: (...args: unknown[]) =>
     mockPersistWorkspaceSession(...args),
 }));

@@ -90,7 +90,7 @@ vi.mock("@/utils/linebreakDetection", () => ({
   detectLinebreaks: vi.fn(() => ({ lineEnding: "lf", hasMixedLineEndings: false })),
 }));
 
-vi.mock("@/hooks/useReplaceableTab", () => ({
+vi.mock("@/services/tabs/replaceableTab", () => ({
   findExistingTabForPath: vi.fn(() => null),
 }));
 

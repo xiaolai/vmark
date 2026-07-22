@@ -16,11 +16,11 @@
  * @coordinates-with services/commands/workspaceCommands.ts — menu "Open Folder"
  * @coordinates-with services/commands/recentWorkspacesCommands.ts — "Open Recent"
  * @coordinates-with hooks/mcpBridge/v2/workspace.ts — open_workspace handler
- * @module hooks/openWorkspaceByPath
+ * @module services/workspaces/openWorkspaceByPath
  */
 import { useUIStore } from "@/stores/uiStore";
 import { useRecentWorkspacesStore } from "@/stores/workspaceStore";
-import { openWorkspaceWithConfig } from "@/hooks/openWorkspaceWithConfig";
+import { openWorkspaceWithConfig } from "@/services/workspaces/openWorkspaceWithConfig";
 import { restoreWorkspaceTabs, restoreSplitLayout } from "@/services/navigation/restoreWorkspaceTabs";
 import { documentPathsForRestore } from "@/services/persistence/sessionTabs";
 import { workspaceError } from "@/utils/debug";

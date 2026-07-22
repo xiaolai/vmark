@@ -47,7 +47,7 @@ import { isImeKeyEvent } from "@/utils/imeGuard";
 import { isMacPlatform, matchesShortcutEvent } from "@/utils/shortcutMatch";
 import { clipboardWarn } from "@/utils/debug";
 import { errorMessage } from "@/utils/errorMessage";
-import { requestToggleTerminal } from "./terminalGate";
+import { requestToggleTerminal } from "@/services/terminal/terminalGate";
 import { handleReadlineNavKey } from "./terminalReadlineKeys";
 
 /** Terminal font-zoom step and reset value. `terminal.fontSize` default is 13

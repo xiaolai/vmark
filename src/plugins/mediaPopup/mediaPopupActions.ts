@@ -24,7 +24,7 @@ import { useMediaPopupStore } from "@/stores/mediaPopupStore";
 import { copyImageToAssets } from "@/hooks/useImageOperations";
 import { copyMediaToAssets } from "@/hooks/useMediaOperations";
 import { withReentryGuard } from "@/utils/reentryGuard";
-import { getWindowLabel } from "@/hooks/useWindowFocus";
+import { getWindowLabel } from "@/services/navigation/windowFocus";
 import { mediaPopupError } from "@/utils/debug";
 import {
   IMAGE_EXTENSIONS,

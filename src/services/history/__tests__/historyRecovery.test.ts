@@ -89,7 +89,7 @@ vi.mock("@/utils/historyTypes", async (importOriginal) => {
 import {
   deleteDocumentHistory,
   clearWorkspaceHistory,
-} from "../useHistoryRecovery";
+} from "../historyRecovery";
 
 function seedHistory(
   hash: string,

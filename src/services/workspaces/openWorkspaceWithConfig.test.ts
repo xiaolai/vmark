@@ -1,7 +1,7 @@
 /**
  * Tests for openWorkspaceWithConfig — workspace opening with config loading
  *
- * @module hooks/openWorkspaceWithConfig.test
+ * @module services/workspaces/openWorkspaceWithConfig.test
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 

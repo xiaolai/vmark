@@ -1,7 +1,7 @@
 /**
  * Tests for useReplaceableTab — replaceable tab detection and existing tab lookup
  *
- * @module hooks/useReplaceableTab.test
+ * @module services/tabs/replaceableTab.test
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
@@ -46,7 +46,7 @@ vi.mock("@/utils/paths", () => ({
   }),
 }));
 
-import { getReplaceableTab, findExistingTabForPath } from "./useReplaceableTab";
+import { getReplaceableTab, findExistingTabForPath } from "./replaceableTab";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 

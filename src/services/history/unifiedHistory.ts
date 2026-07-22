@@ -17,7 +17,7 @@
  *
  * @coordinates-with unifiedHistoryStore.ts — stores checkpoint stack per tab
  * @coordinates-with useViewShortcuts.ts — calls toggleSourceModeWithCheckpoint
- * @module hooks/useUnifiedHistory
+ * @module services/history/unifiedHistory
  */
 
 import { undo, redo, undoDepth, redoDepth } from "@codemirror/commands";

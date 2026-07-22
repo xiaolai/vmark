@@ -14,7 +14,7 @@ const mockClearWorkspaceHistory = vi.fn();
 const mockEmitHistoryCleared = vi.fn();
 
 vi.mock("@tauri-apps/plugin-dialog", () => ({ ask: (...a: unknown[]) => mockAsk(...a) }));
-vi.mock("@/hooks/useHistoryRecovery", () => ({
+vi.mock("@/services/history/historyRecovery", () => ({
   clearAllHistory: (...a: unknown[]) => mockClearAllHistory(...a),
   clearWorkspaceHistory: (...a: unknown[]) => mockClearWorkspaceHistory(...a),
 }));

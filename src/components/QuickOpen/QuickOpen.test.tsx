@@ -17,7 +17,7 @@ vi.mock("@/components/Sidebar/FileExplorer/useFileTree", () => ({
 
 const mockOpenFileInNewTabCore = vi.fn();
 const mockHandleOpen = vi.fn();
-vi.mock("@/hooks/useFileOpen", () => ({
+vi.mock("@/services/navigation/fileOpen", () => ({
   openFileInNewTabCore: (...args: unknown[]) => mockOpenFileInNewTabCore(...args),
   handleOpen: (...args: unknown[]) => mockHandleOpen(...args),
 }));

@@ -23,7 +23,7 @@ import { useSettingsStore, type HtmlRenderingMode, type HtmlAllowlistLevel } fro
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
 import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
-import { toggleSourceModeWithCheckpoint } from "@/hooks/useUnifiedHistory";
+import { toggleSourceModeWithCheckpoint } from "@/services/history/unifiedHistory";
 import { sanitizeHtmlPreview } from "@/utils/sanitize";
 import { parseCustomTags } from "@/utils/htmlAllowlists";
 import type { CursorInfo } from "@/types/cursorSync";

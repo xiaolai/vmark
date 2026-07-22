@@ -8,12 +8,12 @@
 import { open } from "@tauri-apps/plugin-dialog";
 import { hasCommand, registerCommand } from "./CommandBus";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
-import { persistWorkspaceSession } from "@/hooks/workspaceSession";
+import { persistWorkspaceSession } from "@/services/workspaces/workspaceSession";
 import { withReentryGuard } from "@/utils/reentryGuard";
 import {
   openWorkspaceByPath,
   WORKSPACE_TRANSITION_GUARD,
-} from "@/hooks/openWorkspaceByPath";
+} from "@/services/workspaces/openWorkspaceByPath";
 import { workspaceError } from "@/utils/debug";
 import i18n from "@/i18n";
 

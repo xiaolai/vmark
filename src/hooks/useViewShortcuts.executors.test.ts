@@ -27,16 +27,16 @@ const mocks = vi.hoisted(() => ({
   selectPrev: vi.fn(),
 }));
 
-vi.mock("@/components/Terminal/terminalGate", () => ({
+vi.mock("@/services/terminal/terminalGate", () => ({
   requestToggleTerminal: mocks.requestToggleTerminal,
 }));
-vi.mock("@/hooks/useUnifiedHistory", () => ({
+vi.mock("@/services/history/unifiedHistory", () => ({
   toggleSourceModeWithCheckpoint: mocks.toggleSourceModeWithCheckpoint,
 }));
 vi.mock("@/services/assembly/modeSwitchCleanup", () => ({
   cleanupBeforeModeSwitch: mocks.cleanupBeforeModeSwitch,
 }));
-vi.mock("@/hooks/markdownSplitToggle", () => ({
+vi.mock("@/services/editor/markdownSplitToggle", () => ({
   toggleMarkdownSplitWithCheckpoint: mocks.toggleMarkdownSplitWithCheckpoint,
 }));
 vi.mock("@/services/navigation/toggleSplitDocuments", () => ({
@@ -46,7 +46,7 @@ vi.mock("@/services/workspaces/fileOwnership", () => ({
   toggleDocumentReadOnlyWithOwnership: mocks.toggleDocumentReadOnlyWithOwnership,
 }));
 vi.mock("@/services/lint/runActiveLint", () => ({ runActiveLint: mocks.runActiveLint }));
-vi.mock("@/hooks/lintNavigation", () => ({
+vi.mock("@/services/lint/lintNavigation", () => ({
   scrollToSelectedDiagnostic: mocks.scrollToSelectedDiagnostic,
 }));
 vi.mock("@/services/navigation/activeDocument", () => ({

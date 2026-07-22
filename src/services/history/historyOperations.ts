@@ -19,7 +19,7 @@
  *
  * @coordinates-with historyTypes.ts — shared types and constants
  * @coordinates-with useHistoryRecovery.ts — recovery of deleted document history
- * @module hooks/useHistoryOperations
+ * @module services/history/historyOperations
  */
 
 import {

@@ -5,14 +5,14 @@
  * ownership → recents → large-file marking. Used by `handleOpen` (Cmd+O) and
  * "Open Recent File" so the two replace paths can't drift.
  *
- * @module hooks/replaceTabWithFile
+ * @module services/navigation/replaceTabWithFile
  */
 
 import { readTextFile } from "@tauri-apps/plugin-fs";
 import { useDocumentStore, useFileLoadStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useRecentFilesStore } from "@/stores/workspaceStore";
-import { openWorkspaceWithConfig } from "@/hooks/openWorkspaceWithConfig";
+import { openWorkspaceWithConfig } from "@/services/workspaces/openWorkspaceWithConfig";
 import { detectLinebreaks } from "@/utils/linebreakDetection";
 import { getFileName } from "@/utils/pathUtils";
 import { routeOpenBySize } from "@/services/navigation/largeFileRouting";

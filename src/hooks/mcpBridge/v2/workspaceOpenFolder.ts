@@ -27,7 +27,7 @@
  * back to a single session id, so the one-shot binds per-session.
  *
  * @coordinates-with stores/workspaceApprovalStore.ts — the one-shot store
- * @coordinates-with hooks/openWorkspaceByPath.ts — the shared open sequence
+ * @coordinates-with services/workspaces/openWorkspaceByPath.ts — the shared open sequence
  * @coordinates-with src-tauri/src/workspace.rs — validate_workspace_dir command
  * @module hooks/mcpBridge/v2/workspaceOpenFolder
  */
@@ -35,7 +35,7 @@ import { invoke } from "@tauri-apps/api/core";
 import {
   openWorkspaceByPath,
   WORKSPACE_TRANSITION_GUARD,
-} from "@/hooks/openWorkspaceByPath";
+} from "@/services/workspaces/openWorkspaceByPath";
 import { useWorkspaceApprovalStore } from "@/stores/workspaceApprovalStore";
 import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import { withReentryGuard } from "@/utils/reentryGuard";

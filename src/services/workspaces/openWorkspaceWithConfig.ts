@@ -7,7 +7,7 @@
  *
  * @coordinates-with workspaceStore.ts — openWorkspace action
  * @coordinates-with utils/macQuarantineNotice.ts — clears quarantine on macOS
- * @module hooks/openWorkspaceWithConfig
+ * @module services/workspaces/openWorkspaceWithConfig
  */
 
 import { invoke } from "@tauri-apps/api/core";

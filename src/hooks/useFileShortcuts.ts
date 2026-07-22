@@ -7,7 +7,7 @@
  *   direct keyboard shortcuts for Save and Save As.
  *
  * @coordinates-with useFileSave.ts — save/saveAs/moveTo/saveAllQuit handlers
- * @coordinates-with useFileOpen.ts — open/openFile/new handlers
+ * @coordinates-with services/navigation/fileOpen.ts — open/openFile/new handlers
  * @coordinates-with useFileOperations.ts — main hook that calls this
  * @module hooks/useFileShortcuts
  */
@@ -21,7 +21,7 @@ import { isImeKeyEvent } from "@/utils/imeGuard";
 import { safeUnlistenAll } from "@/utils/safeUnlisten";
 
 import { handleSave, handleSaveAs, handleMoveTo, handleSaveAllQuit } from "./useFileSave";
-import { handleOpen, handleOpenFile, handleNew } from "./useFileOpen";
+import { handleOpen, handleOpenFile, handleNew } from "@/services/navigation/fileOpen";
 import { OPEN_FILE_EVENT, type OpenFileEventPayload } from "@/services/navigation/openFileEvent";
 import { fileOpsLog, fileOpsError } from "@/utils/debug";
 

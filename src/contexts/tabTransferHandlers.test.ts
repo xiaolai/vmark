@@ -51,7 +51,7 @@ vi.mock("@/utils/debug", () => ({
   windowCloseWarn: vi.fn(),
   windowContextError: vi.fn(),
 }));
-vi.mock("@/hooks/openWorkspaceWithConfig", () => ({
+vi.mock("@/services/workspaces/openWorkspaceWithConfig", () => ({
   openWorkspaceWithConfig: vi.fn(() => Promise.resolve(null)),
 }));
 vi.mock("@/utils/openPolicy", () => ({

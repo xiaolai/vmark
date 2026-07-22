@@ -25,7 +25,7 @@ import { useQuickOpenStore } from "./quickOpenStore";
 import { useGeniePickerStore } from "@/stores/geniePickerStore";
 import { useActiveWorkspaceScope } from "@/workspace";
 import { useFileTree } from "@/components/Sidebar/FileExplorer/useFileTree";
-import { openFileInNewTabCore, handleOpen } from "@/hooks/useFileOpen";
+import { openFileInNewTabCore, handleOpen } from "@/services/navigation/fileOpen";
 import {
   buildQuickOpenItems,
   filterAndRankItems,

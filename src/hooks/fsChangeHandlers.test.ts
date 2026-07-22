@@ -6,7 +6,7 @@ import {
   handleSemanticBatch,
   type FsChangeContext,
 } from "./fsChangeHandlers";
-import { isBinaryMediaPath } from "./openMediaFile";
+import { isBinaryMediaPath } from "@/services/navigation/openMediaFile";
 import type { SemanticWorkspaceEvent } from "@/services/workspaceEvents";
 
 function makeContext(over: Partial<FsChangeContext> = {}): FsChangeContext {
