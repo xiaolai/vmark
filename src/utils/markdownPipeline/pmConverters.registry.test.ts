@@ -25,6 +25,7 @@ import {
 } from "./pmBlockConverters";
 import {
   createTier1Registry,
+  STRUCTURAL_NODE_NAMES,
   TIER_1_NODE_NAMES,
   type PmToMdastResult,
 } from "./pmConverters.registry";
@@ -81,8 +82,19 @@ describe("Tier-1 registry ≡ switch (differential)", () => {
 
   it("covers every node name it claims to", () => {
     expect([...registry.knownNodeNames()].sort()).toEqual(
-      [...TIER_1_NODE_NAMES].sort(),
+      [...TIER_1_NODE_NAMES, ...STRUCTURAL_NODE_NAMES].sort(),
     );
+  });
+
+  it("has migrated every switch arm except the one needing extraction", () => {
+    // footnote_definition is still a private method on the converter class
+    // (proseMirrorToMdast.ts) rather than an extracted function, so it cannot
+    // be registered yet. It is the last arm standing.
+    const migrated = new Set(registry.knownNodeNames());
+    expect(migrated.has("footnote_definition")).toBe(false);
+    for (const name of [...TIER_1_NODE_NAMES, ...STRUCTURAL_NODE_NAMES]) {
+      expect(migrated.has(name), `${name} not registered`).toBe(true);
+    }
   });
 
   it("has a differential case for every migrated node", () => {
@@ -111,8 +123,12 @@ describe("Tier-1 registry ≡ switch (differential)", () => {
   }
 
   it("reports an unmigrated node as unknown rather than dropping it", () => {
-    const paragraph = schema.nodes.paragraph.create();
-    const lookup = registry.resolve("paragraph", paragraph);
+    // footnote_definition is the last arm still in the switch.
+    const node = schema.nodes.footnote_definition.create(
+      { label: "1" },
+      schema.nodes.paragraph.create(),
+    );
+    const lookup = registry.resolve("footnote_definition", node);
     expect(lookup.ok).toBe(false);
     if (!lookup.ok) expect(lookup.failure.code).toBe("unknown-node");
   });
