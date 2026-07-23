@@ -130,6 +130,11 @@ function flushCm() {
 
 const VIEW = {} as object;
 
+/** A minimal live document tab — the gate requires one for any action. */
+function docTab(id: string): Tab {
+  return { id, title: id, kind: "document", filePath: `/${id}.md`, formatId: "markdown" } as unknown as Tab;
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   ime.pmComposing = false;
@@ -141,7 +146,9 @@ beforeEach(() => {
   fmt.policy = { paragraphFormatting: true, insertBlockActions: true, cjkFormatActions: true };
   editors.wysiwyg = { view: VIEW };
   editors.source = VIEW;
-  useTabStore.setState({ activeTabId: { main: "tab-a" } });
+  // A live document tab is required for any action to be allowed — the gate now
+  // fails closed without one. (getFormatById is mocked to a permissive policy.)
+  useTabStore.setState({ tabs: { main: [docTab("tab-a")] }, activeTabId: { main: "tab-a" } });
 });
 
 afterEach(() => {
@@ -245,6 +252,24 @@ describe("runEditorAction — execution-time gates", () => {
     editors.wysiwyg = { view: null as unknown as object };
     runEditorAction("bold", { windowLabel: "main" });
     expect(performWysiwygToolbarAction).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when there is no active tab (all tabs closed)", () => {
+    useTabStore.setState({ tabs: { main: [] }, activeTabId: { main: null } });
+    runEditorAction("bold", { windowLabel: "main" });
+    expect(performWysiwygToolbarAction).not.toHaveBeenCalled();
+  });
+
+  it("fails closed on a dangling active tab id", () => {
+    useTabStore.setState({ tabs: { main: [] }, activeTabId: { main: "ghost" } });
+    runEditorAction("bold", { windowLabel: "main" });
+    expect(performWysiwygToolbarAction).not.toHaveBeenCalled();
+  });
+
+  it("does not route undo through unified history without a live document tab", () => {
+    useTabStore.setState({ tabs: { main: [] }, activeTabId: { main: null } });
+    runEditorAction("undo", { windowLabel: "main" });
+    expect(performUnifiedUndo).not.toHaveBeenCalled();
   });
 });
 
@@ -442,7 +467,10 @@ describe("runEditorAction — cross-window retry isolation", () => {
   it("disposing one window's retries does not stop another window's", () => {
     vi.useFakeTimers();
     editors.wysiwyg = null; // no editor yet → both windows schedule a retry
-    useTabStore.setState({ activeTabId: { main: "tab-a", win2: "tab-2" } });
+    useTabStore.setState({
+      tabs: { main: [docTab("tab-a")], win2: [docTab("tab-2")] },
+      activeTabId: { main: "tab-a", win2: "tab-2" },
+    });
     runEditorAction("bold", { windowLabel: "main" });
     runEditorAction("bold", { windowLabel: "win2" });
     editors.wysiwyg = { view: VIEW }; // editor mounts before the retries fire

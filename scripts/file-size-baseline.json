@@ -115,6 +115,6 @@
     "src/utils/textTransformations.ts": 335,
     "src/services/history/historyOperations.ts": 369,
     "src/services/navigation/fileOpen.ts": 309,
-    "src/services/history/unifiedHistory.ts": 307
+    "src/services/history/unifiedHistory.ts": 305
   }
 }
