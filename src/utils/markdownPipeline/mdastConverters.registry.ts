@@ -122,9 +122,11 @@ export function createMdastRegistry(): MdastRegistry {
  */
 export function tryMdastRegistry(
   registry: MdastRegistry,
-  nodeType: string,
   args: MdastConvertArgs,
 ): { handled: true; result: MdastToPmResult } | { handled: false } {
+  // The dispatch key is derived from the node itself, so a caller cannot route
+  // a node through a converter for a different type.
+  const nodeType = args.node.type;
   const lookup = registry.resolve(nodeType, args);
   if (lookup.ok) {
     return { handled: true, result: lookup.converter.convert(args, undefined) };

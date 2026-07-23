@@ -71,6 +71,17 @@ export function resolveExtensions(group: ExtensionGroup): Resolution {
   const order: VMarkExtension[] = [];
 
   for (const extension of flat) {
+    // The `never throws` contract must survive a malformed leaf. A well-typed
+    // caller cannot pass a non-descriptor, but a JS/third-party caller can, and
+    // `extension.id` on null would throw rather than report.
+    if (extension === null || typeof extension !== "object") {
+      errors.push({
+        code: "invalid-descriptor",
+        message: `Extension descriptor is not an object: ${String(extension)}.`,
+        ids: [],
+      });
+      continue;
+    }
     if (!extension.id) {
       errors.push({
         code: "empty-id",
@@ -103,7 +114,13 @@ export function resolveExtensions(group: ExtensionGroup): Resolution {
 
   for (const extension of order) {
     for (const required of extension.requires ?? []) {
-      if (!byId.has(required)) {
+      if (required === extension.id) {
+        errors.push({
+          code: "self-reference",
+          message: `\`${extension.id}\` requires itself; a self-dependency is unsatisfiable.`,
+          ids: [extension.id],
+        });
+      } else if (!byId.has(required)) {
         errors.push({
           code: "missing-requirement",
           message: `\`${extension.id}\` requires \`${required}\`, which is not registered.`,
@@ -115,7 +132,15 @@ export function resolveExtensions(group: ExtensionGroup): Resolution {
       ...(extension.ordering?.before ?? []),
       ...(extension.ordering?.after ?? []),
     ]) {
-      if (!byId.has(ref)) {
+      if (ref === extension.id) {
+        // `a before a` / `a after a` is a self-loop — an unsatisfiable
+        // constraint that the graph builder silently drops. Flag it instead.
+        errors.push({
+          code: "self-reference",
+          message: `\`${extension.id}\` orders itself against itself; remove the self-constraint.`,
+          ids: [extension.id],
+        });
+      } else if (!byId.has(ref)) {
         errors.push({
           code: "unknown-ordering-ref",
           message:
@@ -183,13 +208,17 @@ export function resolveExtensions(group: ExtensionGroup): Resolution {
   }
 
   if (sorted.length !== order.length) {
-    const stuck = order.filter((e) => !sorted.includes(e)).map((e) => e.id);
+    // The unsorted set is the cycle PLUS everything downstream of it. Extract
+    // one actual closed cycle so both `ids` and the message name real cycle
+    // members, not innocent nodes that merely depend on a cycle.
+    const stuck = new Set(order.filter((e) => !sorted.includes(e)).map((e) => e.id));
+    const cycle = findCycle(stuck, edges);
     errors.push({
       code: "ordering-cycle",
       message:
         "Ordering constraints form a cycle; no composition order exists. " +
-        `Involved: ${describeCycle(stuck, edges)}`,
-      ids: stuck,
+        `Involved: ${[...cycle, cycle[0]].join(" → ")}`,
+      ids: cycle,
     });
     return { ordered: [], errors };
   }
@@ -197,26 +226,30 @@ export function resolveExtensions(group: ExtensionGroup): Resolution {
   return { ordered: sorted, errors };
 }
 
-/** Render a readable `a → b → a` path through the stuck nodes. */
-function describeCycle(
-  stuck: readonly ExtensionId[],
+/**
+ * Extract one closed cycle from the stuck subgraph.
+ *
+ * Every node in `stuck` has an in-edge from within `stuck` (that is why Kahn's
+ * algorithm could not remove it), so following stuck-only edges from any member
+ * must eventually revisit a node — the segment from that revisit is a real
+ * cycle. Returns just the cycle members, in order.
+ */
+function findCycle(
+  stuck: ReadonlySet<ExtensionId>,
   edges: ReadonlyMap<ExtensionId, ReadonlySet<ExtensionId>>,
-): string {
-  const remaining = new Set(stuck);
-  const start = stuck[0];
-  if (start === undefined) return "(none)";
+): ExtensionId[] {
+  const start = [...stuck][0];
+  if (start === undefined) return [];
 
-  const path: ExtensionId[] = [start];
-  let current = start;
-  while (true) {
-    const next = [...(edges.get(current) ?? [])].find((id) => remaining.has(id));
-    if (next === undefined) break;
-    if (path.includes(next)) {
-      path.push(next);
-      break;
-    }
-    path.push(next);
-    current = next;
+  const path: ExtensionId[] = [];
+  const seen = new Set<ExtensionId>();
+  let current: ExtensionId | undefined = start;
+  while (current !== undefined && !seen.has(current)) {
+    seen.add(current);
+    path.push(current);
+    current = [...(edges.get(current) ?? [])].find((id) => stuck.has(id));
   }
-  return path.join(" → ");
+  // `current` is the first repeated node; the cycle is the path from it onward.
+  if (current === undefined) return path; // defensive; unreachable in a stuck set
+  return path.slice(path.indexOf(current));
 }

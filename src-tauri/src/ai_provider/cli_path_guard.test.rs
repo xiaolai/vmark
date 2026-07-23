@@ -23,16 +23,45 @@ fn accepts_bare_command_name() {
 }
 
 #[test]
-fn accepts_windows_shim_extensions() {
-    assert!(validate_cli_path("claude", Some(r"C:\tools\claude.cmd")).is_ok());
-    assert!(validate_cli_path("claude", Some(r"C:\tools\claude.exe")).is_ok());
-    assert!(validate_cli_path("codex", Some(r"C:\tools\codex.bat")).is_ok());
-    assert!(validate_cli_path("codex", Some(r"C:\tools\codex.ps1")).is_ok());
+fn windows_shim_extensions_are_windows_only() {
+    // Shim suffixes are a Windows concept. On POSIX a `claude.exe` is an
+    // unrelated file and must be rejected; on Windows it is the shim.
+    let shims = [
+        ("claude", r"C:\tools\claude.cmd"),
+        ("claude", r"C:\tools\claude.exe"),
+        ("codex", r"C:\tools\codex.bat"),
+    ];
+    for (cmd, path) in shims {
+        let result = validate_cli_path(cmd, Some(path));
+        if cfg!(windows) {
+            assert!(result.is_ok(), "{path} should be accepted on Windows");
+        } else {
+            assert!(result.is_err(), "{path} must be rejected on POSIX");
+        }
+    }
+}
+
+#[test]
+fn ps1_is_never_accepted() {
+    // build_command cannot spawn a PowerShell script, so a `.ps1` that passed
+    // the guard could never run — reject it on every platform.
+    assert!(validate_cli_path("codex", Some(r"C:\tools\codex.ps1")).is_err());
 }
 
 #[test]
 fn accepts_windows_backslash_paths() {
-    assert!(validate_cli_path("gemini", Some(r"C:\Program Files\gemini\gemini.exe")).is_ok());
+    let result = validate_cli_path("gemini", Some(r"C:\Program Files\gemini\gemini.exe"));
+    if cfg!(windows) {
+        assert!(result.is_ok());
+    } else {
+        assert!(result.is_err());
+    }
+}
+
+#[test]
+fn rejects_parent_directory_traversal() {
+    assert!(validate_cli_path("claude", Some("/usr/local/bin/../claude")).is_err());
+    assert!(validate_cli_path("claude", Some("../claude")).is_err());
 }
 
 // ===== Rejects the RCE shapes =============================================

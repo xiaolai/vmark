@@ -127,7 +127,7 @@ class PMToMdastConverter {
   private convertNode(node: PMNode): PmToMdastNode | PmToMdastNode[] | null {
     const typeName = node.type.name;
 
-    const viaRegistry = tryRegistry(this.registry, typeName, node, this.context);
+    const viaRegistry = tryRegistry(this.registry, node, this.context);
     if (viaRegistry.handled) return viaRegistry.result;
 
     mdPipelineWarn(`[PMToMdast] Unknown node type: ${typeName}`);

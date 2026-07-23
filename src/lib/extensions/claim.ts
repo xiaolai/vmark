@@ -40,6 +40,15 @@ export type ClaimStrength = "exact" | "semantic" | "fallback";
 
 const STRENGTH_ORDER: readonly ClaimStrength[] = ["exact", "semantic", "fallback"];
 
+/** A recognizer result is a usable claim only if it declares a known strength. */
+function isValidClaim<TOut>(value: unknown): value is Claim<TOut> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    STRENGTH_ORDER.includes((value as { strength?: ClaimStrength }).strength as ClaimStrength)
+  );
+}
+
 /** An assertion of ownership over one node. */
 export interface Claim<TOut> {
   strength: ClaimStrength;
@@ -120,9 +129,22 @@ export function resolveClaim<TIn, TOut>(
       });
       continue;
     }
-    if (claim !== null) {
-      bids.push({ extensionId: recognizer.extensionId, claim });
+    if (claim === null) continue;
+    // A declining recognizer returns null; anything else must be a well-formed
+    // claim. `undefined` or an unknown strength is a malformed recognizer, not a
+    // winner — record it as a failure so it cannot crash the reducer below or be
+    // selected by ranking past the end of STRENGTH_ORDER.
+    if (!isValidClaim<TOut>(claim)) {
+      failures.push({
+        extensionId: recognizer.extensionId,
+        nodeType,
+        error: `recognizer returned a malformed claim: ${String(
+          (claim as { strength?: unknown } | undefined)?.strength,
+        )}`,
+      });
+      continue;
     }
+    bids.push({ extensionId: recognizer.extensionId, claim });
   }
 
   if (bids.length === 0) {

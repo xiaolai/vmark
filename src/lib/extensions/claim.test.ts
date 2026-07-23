@@ -227,6 +227,39 @@ describe("resolveClaim", () => {
   });
 
   describe("recognizer robustness", () => {
+    it("records an undefined result as a failure rather than crashing", () => {
+      const result = resolveClaim(
+        [
+          recognizer("vmark.bad", "image", () => undefined as never),
+          recognizer("vmark.ok", "image", () => ({
+            strength: "semantic",
+            value: "block_video",
+            reason: "ok",
+          })),
+        ],
+        IMAGE,
+        "image",
+      );
+      expect(result.winner?.extensionId).toBe("vmark.ok");
+      expect(result.failures.map((f) => f.extensionId)).toContain("vmark.bad");
+    });
+
+    it("rejects a claim with an unknown strength", () => {
+      const result = resolveClaim(
+        [
+          recognizer(
+            "vmark.weird",
+            "image",
+            () => ({ strength: "sometimes", value: "x", reason: "?" }) as never,
+          ),
+        ],
+        IMAGE,
+        "image",
+      );
+      expect(result.winner).toBeNull();
+      expect(result.failures).toHaveLength(1);
+    });
+
     it("treats a throwing recognizer as a declining one and records it", () => {
       const result = resolveClaim(
         [

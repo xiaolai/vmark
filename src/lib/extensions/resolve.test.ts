@@ -38,6 +38,41 @@ describe("resolveExtensions", () => {
     });
   });
 
+  describe("malformed input never throws (contract)", () => {
+    it("reports a null leaf as invalid-descriptor instead of throwing", () => {
+      const result = resolveExtensions([null as unknown as VMarkExtension, ext("ok")]);
+      expect(result.errors.map((e) => e.code)).toContain("invalid-descriptor");
+      // the valid one is still rejected as a set (errors present → empty order)
+      expect(result.ordered).toEqual([]);
+    });
+
+    it("reports undefined and non-object leaves without throwing", () => {
+      expect(() =>
+        resolveExtensions([
+          undefined as unknown as VMarkExtension,
+          42 as unknown as VMarkExtension,
+        ]),
+      ).not.toThrow();
+    });
+  });
+
+  describe("self-references", () => {
+    it("rejects a self requirement", () => {
+      const result = resolveExtensions([ext("a", { requires: ["a"] })]);
+      expect(result.errors.map((e) => e.code)).toContain("self-reference");
+    });
+
+    it("rejects `a before a`", () => {
+      const result = resolveExtensions([ext("a", { ordering: { before: ["a"] } })]);
+      expect(result.errors.map((e) => e.code)).toContain("self-reference");
+    });
+
+    it("rejects `a after a`", () => {
+      const result = resolveExtensions([ext("a", { ordering: { after: ["a"] } })]);
+      expect(result.errors.map((e) => e.code)).toContain("self-reference");
+    });
+  });
+
   describe("duplicate ids", () => {
     it("allows the same descriptor object included twice (grouping overlap)", () => {
       const shared = ext("shared");
@@ -196,6 +231,20 @@ describe("resolveExtensions", () => {
         ext("b", { ordering: { after: ["a"] } }),
       ]);
       expect(result.ordered).toEqual([]);
+    });
+
+    it("names only the actual cycle members, not innocent downstream nodes", () => {
+      // a↔b is the cycle; d only depends on b, so it is stuck but not IN the
+      // cycle. The reported ids must be exactly {a, b}.
+      const result = resolveExtensions([
+        ext("a", { ordering: { after: ["b"] } }),
+        ext("b", { ordering: { after: ["a"] } }),
+        ext("d", { ordering: { after: ["b"] } }),
+      ]);
+      const error = result.errors.find((e) => e.code === "ordering-cycle");
+      expect(error).toBeDefined();
+      expect([...(error?.ids ?? [])].sort()).toEqual(["a", "b"]);
+      expect(error?.ids).not.toContain("d");
     });
   });
 
