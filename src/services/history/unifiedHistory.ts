@@ -11,7 +11,7 @@
  *
  * Key decisions:
  *   - Checkpoints store content only, never switch mode (view preference stays)
- *   - Both Tiptap (ProseMirror) and CodeMirror native undo are tried first
+ *   - Native undo/redo run first, but ONLY with an active document tab
  *   - Unified history only kicks in when native undoDepth reaches 0
  *   - clearDocumentHistory exported for tab-close cleanup
  *
@@ -227,15 +227,14 @@ export function clearDocumentHistory(tabId: string): void {
  * Returns true if any undo action was performed.
  */
 export function performUnifiedUndo(windowLabel: string): boolean {
-  // First, try native undo (single call avoids TOCTOU gap)
-  if (doNativeUndo()) {
-    return true;
-  }
-
   const historyStore = useUnifiedHistoryStore.getState();
   const tabStore = useTabStore.getState();
   const tabId = tabStore.activeTabId[windowLabel];
-  if (!tabId) return false;
+  const activeTab = tabId ? tabStore.findTabById(tabId) : null;
+  if (!tabId || activeTab?.kind !== "document") return false; // no live document
+  if (doNativeUndo()) {
+    return true;
+  }
 
   // Native undo exhausted, check for checkpoint
   if (!historyStore.canUndoCheckpoint(tabId)) {
@@ -270,15 +269,14 @@ export function performUnifiedUndo(windowLabel: string): boolean {
  * Returns true if any redo action was performed.
  */
 export function performUnifiedRedo(windowLabel: string): boolean {
-  // First, try native redo (single call avoids TOCTOU gap)
-  if (doNativeRedo()) {
-    return true;
-  }
-
   const historyStore = useUnifiedHistoryStore.getState();
   const tabStore = useTabStore.getState();
   const tabId = tabStore.activeTabId[windowLabel];
-  if (!tabId) return false;
+  const activeTab = tabId ? tabStore.findTabById(tabId) : null;
+  if (!tabId || activeTab?.kind !== "document") return false; // no live document
+  if (doNativeRedo()) {
+    return true;
+  }
 
   // Native redo exhausted, check for checkpoint
   if (!historyStore.canRedoCheckpoint(tabId)) {

@@ -25,12 +25,16 @@ import type { FormatConfig } from "@/lib/formats/types";
  * Map an ActionDefinition's category to the per-format menuPolicy field that
  * gates it. Returns true when the active tab permits the action.
  *
- * - non-document (browser) active tab: nothing is allowed. Every registry action
- *   is an editor action, and the editor store can still hold the editor of the
- *   tab the user came from — so failing OPEN would mutate a hidden document.
- * - edit / selection / lines: universal text-editor concerns; always allowed.
- * - any unknown / future category: allowed (failure-open lets new categories
- *   ship without a coordinated executor edit).
+ * The action REQUIRES a positively-identified document tab. No active tab (all
+ * tabs closed), a dangling id, a non-document (browser) tab, or a broken store
+ * lookup all fail CLOSED: the editor store can still hold the editor of a
+ * previously-active tab, so failing open would let an action — including
+ * undo/redo — mutate a hidden document the user is no longer looking at.
+ *
+ * The only failure-OPEN case is an explicitly-identified document tab whose
+ * format config is unknown (WI-1A.7: a new/non-markdown format ships without a
+ * coordinated edit here), plus universal edit/selection/lines categories and
+ * unrecognised future categories on such a tab.
  */
 export function isActionAllowedForActiveFormat(
   actionDef: ActionDefinition,
@@ -42,11 +46,12 @@ export function isActionAllowedForActiveFormat(
     tab = activeTabId ? useTabStore.getState().findTabById(activeTabId) : null;
     /* v8 ignore next 4 -- @preserve defensive lookup; tests with stub tabStore exercise the happy path */
   } catch {
-    // Store lookup broke — stay permissive (matches pre-WI-1A.7 behavior).
-    return true;
+    // Store lookup broke — no confirmed document → fail closed.
+    return false;
   }
-  // Positively-identified non-document tab → fail closed.
-  if (tab && tab.kind !== "document") return false;
+  // No live document tab (missing/dangling id or a non-document tab) → fail
+  // closed, so a retained editor is never mutated without an active document.
+  if (!tab || tab.kind !== "document") return false;
 
   if (
     actionDef.category === "edit" ||
@@ -55,10 +60,8 @@ export function isActionAllowedForActiveFormat(
   ) {
     return true;
   }
-  const formatConfig: FormatConfig | undefined = tab
-    ? getFormatById(tab.formatId)
-    : undefined;
-  /* v8 ignore next -- @preserve format unresolved → permissive (matches pre-WI-1A.7 behavior) */
+  const formatConfig: FormatConfig | undefined = getFormatById(tab.formatId);
+  /* v8 ignore next -- @preserve document tab, unknown format → permissive (WI-1A.7) */
   if (!formatConfig) return true;
   const policy = formatConfig.adapters.menuPolicy;
   switch (actionDef.category) {

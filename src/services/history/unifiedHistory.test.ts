@@ -24,6 +24,7 @@ import { useUnifiedHistoryStore } from "@/stores/documentStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
+import type { Tab } from "@/stores/tabStoreTypes";
 import { useEditorStore } from "@/stores/editorStore";
 import {
   toggleSourceModeWithCheckpoint,
@@ -41,7 +42,16 @@ describe("useUnifiedHistory", () => {
     // Reset all stores
     useUnifiedHistoryStore.getState().clearAll();
     useUIStore.setState({ sourceMode: false });
-    useTabStore.setState({ activeTabId: { main: "tab-1" } });
+    // A live document tab is required — undo/redo now refuse to touch native
+    // history without one (no undoing a hidden document).
+    useTabStore.setState({
+      tabs: {
+        main: [
+          { id: "tab-1", title: "doc", kind: "document", filePath: "/doc.md", formatId: "markdown" } as unknown as Tab,
+        ],
+      },
+      activeTabId: { main: "tab-1" },
+    });
 
     // Set up a document in the store
     useDocumentStore.setState({
@@ -361,6 +371,27 @@ describe("useUnifiedHistory", () => {
       } }));
 
       expect(performUnifiedUndo("main")).toBe(false);
+    });
+
+    it("refuses native undo when the active tab is not a document (browser)", () => {
+      // A retained, undoable editor must NOT be undone via the keymap path when
+      // the active tab is a browser (or a dangling id) — that would undo a
+      // hidden document the user is no longer editing.
+      useUIStore.setState({ sourceMode: false });
+      const undoSpy = vi.fn(() => true);
+      useEditorStore.setState((s) => ({ tiptap: { ...s.tiptap,
+        editor: {
+          can: () => ({ undo: () => true, redo: () => false }),
+          commands: { undo: undoSpy },
+        } as never,
+      } }));
+      useTabStore.setState({
+        tabs: { main: [{ id: "b", title: "browser", kind: "browser" } as unknown as Tab] },
+        activeTabId: { main: "b" },
+      });
+
+      expect(performUnifiedUndo("main")).toBe(false);
+      expect(undoSpy).not.toHaveBeenCalled();
     });
 
     it("returns false when no active tab", () => {

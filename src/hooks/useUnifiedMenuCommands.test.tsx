@@ -232,6 +232,13 @@ describe("useUnifiedMenuCommands", () => {
     sourceMode = false;
     activeWysiwygEditor = null;
     activeSourceView = null;
+    // The executor's gate fails closed without a live document tab, so every
+    // test starts with one active (sub-describes that need a different tab —
+    // browser, non-markdown, no-tab — override it).
+    useTabStore.setState({ tabs: {}, activeTabId: {}, untitledCounter: 0, closedTabs: {} });
+    __resetRegistry();
+    registerMarkdownFormat();
+    useTabStore.getState().createTab("main", "/doc.md");
     // Restore default listen implementation
     mockListenImpl.fn = (eventName: string, handler: MenuEventHandler) => {
       listeners.set(eventName, handler);
@@ -861,7 +868,7 @@ describe("useUnifiedMenuCommands", () => {
     it("drops a pending WYSIWYG retry when the active tab changes", async () => {
       sourceMode = false;
       activeWysiwygEditor = null; // forces the retry path
-      useTabStore.setState({ activeTabId: { main: "tab-a" } });
+      // The live document tab from beforeEach is the origin.
 
       render(<TestHarness />);
       await vi.waitFor(() => expect(listeners.has("menu:italic")).toBe(true));
@@ -869,9 +876,9 @@ describe("useUnifiedMenuCommands", () => {
       listeners.get("menu:italic")?.({ payload: "main" });
 
       // Editor mounts, but the user has switched to another tab meanwhile —
-      // the queued action belongs to tab-a and must not hit tab-b's editor.
+      // the queued action belongs to the origin tab, not the new one.
       activeWysiwygEditor = { view: {} };
-      useTabStore.setState({ activeTabId: { main: "tab-b" } });
+      useTabStore.setState({ activeTabId: { main: "other-tab" } });
       await vi.advanceTimersByTimeAsync(250);
 
       expect(performWysiwygToolbarAction).not.toHaveBeenCalled();
@@ -880,7 +887,7 @@ describe("useUnifiedMenuCommands", () => {
     it("drops a pending Source retry when the active tab changes", async () => {
       sourceMode = true;
       activeSourceView = null;
-      useTabStore.setState({ activeTabId: { main: "tab-a" } });
+      // The live document tab from beforeEach is the origin.
 
       render(<TestHarness />);
       await vi.waitFor(() => expect(listeners.has("menu:italic")).toBe(true));
@@ -888,7 +895,7 @@ describe("useUnifiedMenuCommands", () => {
       listeners.get("menu:italic")?.({ payload: "main" });
 
       activeSourceView = {};
-      useTabStore.setState({ activeTabId: { main: "tab-b" } });
+      useTabStore.setState({ activeTabId: { main: "other-tab" } });
       await vi.advanceTimersByTimeAsync(250);
 
       expect(performSourceToolbarAction).not.toHaveBeenCalled();
@@ -1053,11 +1060,12 @@ describe("useUnifiedMenuCommands", () => {
       expect(performUnifiedUndo).toHaveBeenCalledWith("main");
     });
 
-    it("permits actions when no active tab is set (failure-open behavior)", async () => {
+    it("fails closed when no active tab is set (no live document)", async () => {
       __resetRegistry();
       registerMarkdownFormat();
       registerNonMarkdownTxt();
-      // No active tab — useTabStore.activeTabId["main"] is undefined
+      // No active tab — a retained editor must not be mutated with no document.
+      useTabStore.setState({ tabs: {}, activeTabId: {} });
 
       sourceMode = false;
       activeWysiwygEditor = { view: {} };
@@ -1067,7 +1075,7 @@ describe("useUnifiedMenuCommands", () => {
 
       listeners.get("menu:italic")?.({ payload: "main" });
 
-      expect(performWysiwygToolbarAction).toHaveBeenCalled();
+      expect(performWysiwygToolbarAction).not.toHaveBeenCalled();
     });
 
     it("permits actions with unknown category (failure-open for forward-compat)", async () => {
