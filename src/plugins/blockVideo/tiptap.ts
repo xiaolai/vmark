@@ -37,6 +37,7 @@ export const blockVideoExtension = Node.create({
     return {
       ...sourceLineAttr,
       src: { default: "" },
+      alt: { default: "" },
       title: { default: "" },
       poster: { default: "" },
       controls: { default: true },

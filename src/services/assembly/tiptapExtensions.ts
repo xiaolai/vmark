@@ -150,6 +150,14 @@ function buildExtensionList(config: TiptapExtensionConfig = {}): Extensions {
     // Custom Link extension with excludes to prevent nested links and code inside links
     Link.extend({
       excludes: "link code",
+      // Markdown link titles (`[text](url "title")`) must survive a WYSIWYG
+      // round trip — the base Link mark has no title attribute, so add one.
+      addAttributes() {
+        return {
+          ...this.parent?.(),
+          title: { default: null },
+        };
+      },
     }).configure({
       openOnClick: false,
       // Don't add target="_blank" - it bypasses our click handling

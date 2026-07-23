@@ -275,6 +275,7 @@ export function convertBlockImage(node: PMNode): Paragraph {
  */
 function tryMediaImageSyntax(
   src: string,
+  alt: string,
   title: string,
   controls: boolean,
   preload: string,
@@ -284,7 +285,7 @@ function tryMediaImageSyntax(
   const image: Image = {
     type: "image",
     url: src,
-    alt: "",
+    alt,
     title: title || undefined,
   };
   return { type: "paragraph", children: [image] };
@@ -308,9 +309,9 @@ export function convertBlockVideo(node: PMNode): Paragraph | Html {
   const poster = String(node.attrs.poster ?? "");
   const controls = node.attrs.controls !== false;
   const preload = String(node.attrs.preload ?? "metadata");
-
-  // Use image syntax when all attrs are expressible (clean round-trip)
-  const imageResult = tryMediaImageSyntax(src, title, controls, preload, !poster);
+  const alt = String(node.attrs.alt ?? "");
+  // Prefer image syntax when every attribute is expressible (clean round-trip).
+  const imageResult = tryMediaImageSyntax(src, alt, title, controls, preload, !poster);
   if (imageResult) return imageResult;
 
   // Fallback: multi-line HTML (remark treats multi-line as block HTML type 7)
@@ -351,9 +352,8 @@ export function convertBlockAudio(node: PMNode): Paragraph | Html {
   const title = String(node.attrs.title ?? "");
   const controls = node.attrs.controls !== false;
   const preload = String(node.attrs.preload ?? "metadata");
-
-  // Use image syntax when all attrs are expressible (clean round-trip)
-  const imageResult = tryMediaImageSyntax(src, title, controls, preload, true);
+  const alt = String(node.attrs.alt ?? "");
+  const imageResult = tryMediaImageSyntax(src, alt, title, controls, preload, true);
   if (imageResult) return imageResult;
 
   // Fallback: multi-line HTML

@@ -68,8 +68,8 @@ diff rather than passing unnoticed.
 
 | # | Fixture | Input | Round-trips to | Cause |
 |---|---|---|---|---|
-| D1 | `14-media.md` | `![A short clip](clip.mp4)` | `![](clip.mp4)` | `block_video`/`block_audio` declare `src`/`title`/`poster`/`controls` but **no `alt`** (`plugins/blockVideo/tiptap.ts:36`), so alt text has nowhere to live |
-| D2 | `16-inline-marks.md` | `[link with title](url "Title")` | `[link with title](url)` | The `link` mark declares **no `title` attribute**, so the title cannot survive a WYSIWYG round-trip |
+| ~~D1~~ | `14-media.md` | `![A short clip](clip.mp4)` | ✅ **FIXED** | `alt` added to `block_video`/`block_audio`; carried through promote + `tryMediaImageSyntax`. Golden re-approved |
+| ~~D2~~ | `16-inline-marks.md` | `[link with title](url "Title")` | ✅ **FIXED** | `title` added to the `Link` mark; captured on parse, emitted on serialize. Golden re-approved |
 | D3 | `16-inline-marks.md` | `==highlight with **bold**==` | `\==highlight with **bold**==` | The opening `==` is escaped when the highlight contains a nested mark — the highlight is **destroyed**, not merely reformatted |
 | D4 | `17-escaped-markers.md` | `x\^2\^` (literal) | `x^2^` (real superscript) | The escape is stripped, changing meaning on the next parse — the H7 bug class from `dev-docs/audit/20260612-full-improvement-audit.md` |
 
