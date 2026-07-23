@@ -51,12 +51,10 @@ import {
   runOrQueueProseMirrorAction,
 } from "@/utils/imeGuard";
 import { menuDispatcherLog, menuDispatcherWarn } from "@/utils/debug";
-import {
-  isActionAllowedForActiveFormat,
-  isEffectiveSourceMode,
-  mapActionIdToAdapterAction,
-} from "./editorActionGates";
+import { isEffectiveSourceMode, mapActionIdToAdapterAction } from "./editorActionGates";
 import { getEditorActionOwner, type EditorActionOwner } from "./editorActionOwner";
+import { resolveCommandContext } from "@/services/commands/commandContext";
+import { isActionExecutable } from "@/services/commands/actionAvailability";
 
 /** Options for a single `runEditorAction` invocation. */
 export interface RunEditorActionOptions {
@@ -235,24 +233,18 @@ function dispatchWithRetry(
 export function runEditorAction(actionId: ActionId, options: RunEditorActionOptions): void {
   const { windowLabel, params } = options;
 
-  const actionDef = ACTION_DEFINITIONS[actionId];
-  if (!actionDef) {
+  if (!ACTION_DEFINITIONS[actionId]) {
     menuDispatcherWarn(`Unknown action: ${actionId}`);
     return;
   }
 
-  if (!isActionAllowedForActiveFormat(actionDef, windowLabel)) {
-    menuDispatcherLog(`Action ${actionId} disabled by active format menuPolicy`);
-    return;
-  }
-
-  const sourceMode = isEffectiveSourceMode(windowLabel);
-  if (sourceMode && !actionDef.supports.source) {
-    menuDispatcherLog(`Action ${actionId} not supported in source mode`);
-    return;
-  }
-  if (!sourceMode && !actionDef.supports.wysiwyg) {
-    menuDispatcherLog(`Action ${actionId} not supported in WYSIWYG mode`);
+  // Single shared gate (WI-2.3): resolve the context once, then apply the
+  // executor's correctness policy — live document + mode capability + format.
+  // (Node/selection are the palette's discoverability concern, not enforced
+  // here; the executor's retry handles a not-yet-mounted editor.)
+  const ctx = resolveCommandContext(windowLabel);
+  if (!isActionExecutable(actionId, ctx)) {
+    menuDispatcherLog(`Action ${actionId} not executable in the current context`);
     return;
   }
 
@@ -267,6 +259,7 @@ export function runEditorAction(actionId: ActionId, options: RunEditorActionOpti
     return;
   }
 
+  const sourceMode = ctx.mode === "source";
   const origin = captureOrigin(windowLabel, sourceMode);
   const owner = getEditorActionOwner(windowLabel);
   if (sourceMode) {

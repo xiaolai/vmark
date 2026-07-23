@@ -55,8 +55,8 @@ vi.mock("@/stores/editorStore", () => ({
 }));
 
 vi.mock("@/plugins/toolbarActions/multiSelectionContext", () => ({
-  getWysiwygMultiSelectionContext: () => null,
-  getSourceMultiSelectionContext: () => null,
+  getWysiwygMultiSelectionContext: () => ({ enabled: false }),
+  getSourceMultiSelectionContext: () => ({ enabled: false }),
 }));
 
 const { mockShouldBlockMenuAction } = vi.hoisted(() => ({

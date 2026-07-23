@@ -64,6 +64,7 @@ vi.mock("@/stores/editorStore", () => ({
   useEditorStore: {
     getState: () => ({
       active: { activeWysiwygEditor: editors.wysiwyg, activeSourceView: editors.source },
+      tiptap: { context: null },
       source: { context: null },
     }),
   },
@@ -91,8 +92,8 @@ vi.mock("@/plugins/toolbarActions/sourceAdapter", () => ({
   setSourceHeadingLevel: vi.fn(() => true),
 }));
 vi.mock("@/plugins/toolbarActions/multiSelectionContext", () => ({
-  getWysiwygMultiSelectionContext: () => null,
-  getSourceMultiSelectionContext: () => null,
+  getWysiwygMultiSelectionContext: () => ({ enabled: false }),
+  getSourceMultiSelectionContext: () => ({ enabled: false }),
 }));
 vi.mock("@/services/history/unifiedHistory", () => ({
   performUnifiedUndo: vi.fn(() => true),
