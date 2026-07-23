@@ -55,8 +55,8 @@ import {
 import { menuDispatcherLog, menuDispatcherWarn } from "@/utils/debug";
 import { isEffectiveSourceMode, mapActionIdToAdapterAction } from "./editorActionGates";
 import { getEditorActionOwner, type EditorActionOwner } from "./editorActionOwner";
-import { resolveCommandContext } from "@/services/commands/commandContext";
-import { isActionExecutable } from "@/services/commands/actionAvailability";
+import { resolveCommandContext, isWindowReadOnly } from "@/services/commands/commandContext";
+import { isActionExecutable, mutatesDocument } from "@/services/commands/actionAvailability";
 
 /** Options for a single `runEditorAction` invocation. */
 export interface RunEditorActionOptions {
@@ -126,7 +126,8 @@ function dispatchToWysiwyg(
     if (
       owner.isDisposed() ||
       !isOriginValid(origin) ||
-      useEditorStore.getState().active.activeWysiwygEditor !== editor
+      useEditorStore.getState().active.activeWysiwygEditor !== editor ||
+      (mutatesDocument(actionId) && isWindowReadOnly(origin.windowLabel))
     ) {
       menuDispatcherLog(`${actionId} dropped — origin no longer valid at deferred dispatch`);
       return;
@@ -169,7 +170,8 @@ function dispatchToSource(
     if (
       owner.isDisposed() ||
       !isOriginValid(origin) ||
-      useEditorStore.getState().active.activeSourceView !== view
+      useEditorStore.getState().active.activeSourceView !== view ||
+      (mutatesDocument(actionId) && isWindowReadOnly(origin.windowLabel))
     ) {
       menuDispatcherLog(`${actionId} dropped — origin no longer valid at deferred dispatch`);
       return;
