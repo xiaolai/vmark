@@ -6,7 +6,7 @@ its Tauri MCP automation bridge (`ws://127.0.0.1:9323`):
 | Harness | Command | Scope |
 |---------|---------|-------|
 | Smoke | `pnpm e2e:smoke` | Minimal happy path: connect → scratch tab → type → round-trip → screenshot → discard |
-| Journeys | `pnpm e2e:journeys` | 11 user journeys covering jsdom-unreachable flows: tabs, mode switches, formatting, undo/redo, find bar, outline, open-from-disk, save-to-disk, D1-D4 round-trip |
+| Journeys | `pnpm e2e:journeys` | 12 user journeys covering jsdom-unreachable flows: tabs, mode switches, formatting, undo/redo, find bar, outline, open-from-disk, save-to-disk, D1-D4 round-trip, non-markdown format dispatch |
 
 Shared bridge client: `e2e/lib/bridge.mjs`. App-level driving/observation
 helpers: `e2e/lib/vmark.mjs`. Disk fixtures: `e2e/lib/fixtures.mjs`.
@@ -42,6 +42,7 @@ node e2e/run-journeys.mjs --only save    # name-substring filter
 | `open-from-disk` | Fixture file → `app:open-file` (Finder-open pipeline) → new tab, correct content, loads clean |
 | `save-to-disk` | Open fixture → edit in live editor → `menu:save` → dirty clears → **Node reads the file from disk** and asserts the edit landed |
 | `d1-d4-roundtrip-preserved` | Media alt / link title / nested highlight / escaped `^` set in WYSIWYG → `menu:source-mode` serializes → all four D1-D4 fixes preserved in the live serializer (not just the jsdom unit/property tests) |
+| `nonmd-format-dispatch` | A `.json` fixture opened via the Finder-open pipeline mounts the CodeMirror **source** surface (no `.ProseMirror`) with its bytes — the format registry (WI-4A) routes non-markdown to the source host, not the markdown WYSIWYG editor |
 
 The runner appends a suite-level `state-restoration` check: the tab bar must
 be byte-identical to the pre-suite snapshot.
