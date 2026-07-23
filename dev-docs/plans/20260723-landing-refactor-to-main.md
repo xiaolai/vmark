@@ -1,10 +1,14 @@
 # Landing `refactor/vmark-core` to `main` — Phased Plan
 
-**Status:** DRAFT — **two Codex passes folded.** Pass 1 RETHINK (commit subjects ≠ diffs
-invalidated the manifest — see "Why the first draft was wrong"); Pass 2 NEEDS AMENDMENT
-(direction validated, 8/12 findings resolved; the 4 partials + 3 new precision findings —
-hunk-level manifest, directional rollback, D1–D4 verified-portable, footprint-driven
-behavioral gates — folded below). Ready for Phase 0.
+**Status:** **Phase 0 COMPLETE** (2026-07-23) — findings in `landing/phase-0-findings.md`,
+manifest in `landing/WI-0.1-manifest.md`, harness `scripts/landing-differential.sh`. Two
+Codex passes folded before Phase 0 (RETHINK → NEEDS AMENDMENT). **Headline result: the
+differential proves 19/22 corpus fixtures byte-identical v0.9.7↔branch; the only 3 changes
+are exactly the D1–D4 fixes** — the plan's core premise holds. **Correction from the Phase-0
+spike: "format-services" is NOT one independent slice** — its contract body is core-coupled
+(WI-0.5); only jscpd/harness/service-tier/perf/fence/svg/closeSave-dup are pre-nucleus
+independent. Phases 1–2 below carry the derived release sequence; **next: re-review the
+concretized Phases 1–2 (rule 60 §6) before executing Phase 1.**
 **Branch under landing:** `refactor/vmark-core` (51 commits, +8302/−2363 across 361
 files, rooted exactly at `v0.9.7` / `440ed317`).
 **Motivation:** `dev-docs/deep-researches/20260723-zed-architecture-lessons.md` §D. Zed's
@@ -41,10 +45,13 @@ label" failure mode. **Two principles follow.**
    composition, non-markdown formats, undo/autosave, Rust, or performance. Each needs its
    own gate.
 
-## Phase 0 — Manifest audit + separability spike + differential harness (NO merge)
+## Phase 0 — Manifest audit + separability spike + differential harness (NO merge) — ✅ COMPLETE
 
-The first draft assumed the manifest; this phase **produces** it, verified. Spike before
-commit (rule 60 §7).
+The first draft assumed the manifest; this phase **produced** it, verified. Spike before
+commit (rule 60 §7). **Deliverables:** `landing/WI-0.1-manifest.md` (54 commits by real
+diff), `scripts/landing-differential.sh` (WI-0.2 harness), `landing/phase-0-findings.md`
+(WI-0.2/0.3/0.4/0.5). Executed in a scratch `v0.9.7` worktree + `landing/recon-*` branch —
+no `main` commit. All five WIs below are done; see findings for evidence.
 
 | WI | Change |
 |---|---|
@@ -54,9 +61,20 @@ commit (rule 60 §7).
 | WI-0.4 | **Per-gate coupling classification** (not one blanket assertion). Verify at the intended tree which gates pass pre-core vs require post-core: `plugin-isolation→error`+baseline, `extension-budget` baseline, scope inventory, Node-safe seam gate are **pre-core-capable** (baselines were authored to pass then); the **deleted-name** rules are **post-core-only** (they forbid files `f64f99d5` deletes). Verify every baseline value at its target tree |
 | WI-0.5 | **Trial reconstruction + cumulative equivalence.** On a throwaway branch off `v0.9.7`, reconstruct each candidate unit from its verified hunks: security, service-tier, jscpd, **fence as the ordered pair** `870449b9`→`2a84e376`, **format-services as a DAG** (`dd1c6f01`/`3c04a99d` co-edit `formats/adapters/markdown.tsx`+`types.ts` and follow `a870a535`'s contract), docs, D1–D4. `range-diff` alone does **not** prove independence (it compares patch series, not runtime), so require **all** of: focused tree diffs, patch/hunk provenance, green `check:all`+Rust/cross gates on **each reconstructed intermediate tree**, a **final cumulative tree diff** of the whole reconstructed series against the branch tip, and explicit accounting for deliberately-omitted (doc) hunks. Independence is *proven*, not assumed |
 
-**DoD:** the verified manifest exists; the changed-fixture set is characterized; every
-non-markdown behavior has an assigned gate; each candidate slice's independence is
-range-diff-proven or explicitly reclassified as core-coupled. **No commit to `main`.**
+**DoD (met):** ✅ verified manifest exists; ✅ changed-fixture set characterized ({14,16,17}
+= D1–D4 exactly, 19/22 byte-identical); ✅ every footprint domain has an assigned gate (one
+honest manual-E2E gap); ✅ each candidate slice reconstruction-proven independent or
+reclassified core-coupled; ✅ per-gate coupling verified against real trees; ✅ no commit to
+`main`.
+
+### Derived release sequence (Phase 0 output — was the plan's biggest gap)
+1. **`v0.9.8`** (patch): final cli_path guard + D1–D4 + safety-net harness + pre-core gates
+   (Node-safe seam, scope inventory) + target-vs-shipped docs.
+2. **Independent slices**, lowest-risk-first, each its own patch: service-tier, fence, svg,
+   closeSave-dup, perf-bench, jscpd (+ plugin-isolation/budget gate, which rides with
+   service-tier per WI-0.4).
+3. **`v0.10.0`** (minor): nucleus + **format-contract body (now known core-coupled)** +
+   deleted-name gate; gate = byte-identical to the `v0.9.8` baseline.
 
 ## Phase 1 — Release 1: security + safety net + accurate docs (patch, `v0.9.8`)
 
@@ -78,13 +96,15 @@ tightening and the four data-loss fixes with before→after examples.
 
 ## Phase 2 — Release 2: the serialization/composition core (minor, `v0.10.0`)
 
-The **verified** interdependent nucleus only — serialization inversion (both switch
-deletions + registries), claim protocol, resolver-routed composition, dead-registry
-deletion, and the **post-core-only** deleted-name gate that enforces it. Genuinely
-independent pieces proven separable in WI-0.5 (service-tier `c41cb916`, jscpd `1ea49a30`,
-fence `870449b9`/`2a84e376`, format-services `dd1c6f01`/`3c04a99d`/`f8292c88`/`ebc86ca0`)
-land as their **own** slices/releases in whatever order WI-0.5's DAG permits — they are
-**not** folded into this nucleus.
+The **verified** interdependent nucleus — serialization inversion (both switch deletions +
+registries), claim protocol, resolver-routed composition, dead-registry deletion, the
+**post-core-only** deleted-name gate that enforces it — **plus the format-contract body**,
+which WI-0.5 **proved core-coupled** (`a870a535`, `43a60416`, `dd1c6f01`, `3c04a99d`,
+`f8292c88`, `ebc86ca0` conflict on resolver-shared files or need `FormatConfig.toPlainText`).
+The pieces WI-0.5 proved **genuinely independent** — service-tier `c41cb916`, jscpd
+`1ea49a30`, fence `870449b9`→`2a84e376`, svg `8edfe830`, closeSave-dup `da53f8c6`, perf-bench
+`4b8a658b` — land as their **own** pre-nucleus slices (§ Derived release sequence), **not**
+in this nucleus.
 
 **Completeness rule: every final-branch hunk gets an assigned landing unit or an explicit
 omission** — none falls through (WI-0.1). Beyond the nucleus and the independent slices
