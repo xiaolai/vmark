@@ -71,16 +71,6 @@ const MULTI_SELECTION_POLICY: Record<string, MultiSelectionPolicy> = {
   alignAllRight: "disallow",
 };
 
-/**
- * True only when an action is EXPLICITLY disallowed under multi-selection. Unlike
- * `getMultiSelectionPolicyForAction` (which defaults unknown actions to
- * "disallow"), this returns false for unknown actions so the palette does not
- * over-hide actions the policy never mentions.
- */
-export function isExplicitlyDisallowedInMultiSelection(action: string): boolean {
-  return MULTI_SELECTION_POLICY[action] === "disallow";
-}
-
 export function getMultiSelectionPolicyForAction(action: string): MultiSelectionPolicy {
   return MULTI_SELECTION_POLICY[action] ?? "disallow";
 }

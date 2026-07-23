@@ -146,11 +146,22 @@ describe("resolveCommandContext", () => {
     });
   });
 
-  it("all axes are false when the cursor context is null", () => {
+  it("all axes are false when the WYSIWYG cursor context is null", () => {
     ed.tiptapContext = null;
     const c = resolveCommandContext("main");
     expect(c.hasSelection).toBe(false);
     expect(c.inTable || c.inLink || c.inList || c.inBlockquote || c.inCodeBlock || c.inHeading).toBe(false);
+  });
+
+  it("Source-mode multiSelection is false when no source view is mounted", () => {
+    ui.sourceMode = true;
+    ms.enabled = true;
+    ed.source = null; // no mounted source view → helper not consulted
+    const c = resolveCommandContext("main");
+    expect(c.multiSelection).toBe(false);
+    expect(c.editorAvailable).toBe(false);
+    // A null Source context also flattens every axis to false.
+    expect(c.hasSelection || c.inTable || c.inList || c.inCodeBlock).toBe(false);
   });
 
   it("reports multiSelection from the helper, and false when no editor is mounted", () => {

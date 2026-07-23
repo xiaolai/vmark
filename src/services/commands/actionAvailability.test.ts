@@ -1,10 +1,11 @@
 /**
  * Availability policy tests — command-registry WI-2.2 (Phase 2).
  *
- * The per-axis matrix DoD: every ActionId, across {no-selection, in-table,
- * in-link, in-list, multi-selection, source-only, wysiwyg-only, no-editor,
- * no-document}, resolves to the expected availability. Plus the executor gate
- * (isActionExecutable), format policy, and mutatesDocument.
+ * Coverage: the no-document and no-editor axes are EXHAUSTIVE (every ActionId);
+ * the selection / node / link / multi-selection axes are targeted with explicit,
+ * independent expectations (not derived from the same registry data as
+ * production). Plus the executor gate (isActionExecutable), format-policy
+ * category branches + WI-1A.7, and mutatesDocument.
  *
  * @module services/commands/actionAvailability.test
  */
@@ -139,18 +140,33 @@ describe("actionAvailability — the palette gate", () => {
   });
 });
 
-describe("multi-selection policy (reuses MULTI_SELECTION_POLICY)", () => {
-  it("hides actions the multi-cursor policy explicitly disallows", () => {
-    // insertTable / insertImage / table mutations / link are policy-"disallow".
-    expect(actionAvailability("insertTable", ctx({ multiSelection: true }))).toBe(false);
-    expect(actionAvailability("insertImage", ctx({ multiSelection: true }))).toBe(false);
-    expect(actionAvailability("deleteTable", ctx({ multiSelection: true, inTable: true }))).toBe(false);
-    expect(actionAvailability("link", ctx({ multiSelection: true }))).toBe(false);
+describe("multi-selection (category-level disallow)", () => {
+  // EVERY insert / table / link / codeBlock action is hidden under multi-cursor —
+  // including the ones an explicit adapter-key lookup would have missed
+  // (wikiLink, bookmark, insertVideo, insertAudio).
+  it.each([
+    "insertTable",
+    "insertImage",
+    "insertVideo",
+    "insertAudio",
+    "insertFootnote",
+    "deleteTable",
+    "addRowBelow",
+    "link",
+    "wikiLink",
+    "bookmark",
+    "codeBlock",
+  ] as ActionId[])("%s is hidden under multi-selection", (id) => {
+    expect(actionAvailability(id, ctx({ multiSelection: true, inTable: true }))).toBe(false);
+    // ...but available with a single selection.
+    expect(actionAvailability(id, ctx({ inTable: true }))).toBe(true);
   });
 
-  it("keeps policy-'allow' mark actions available under multi-selection", () => {
+  it("keeps formatting/edit/selection actions available under multi-selection", () => {
     expect(actionAvailability("bold", ctx({ multiSelection: true }))).toBe(true);
     expect(actionAvailability("italic", ctx({ multiSelection: true }))).toBe(true);
+    expect(actionAvailability("undo", ctx({ multiSelection: true }))).toBe(true);
+    expect(actionAvailability("selectWord", ctx({ multiSelection: true }))).toBe(true);
   });
 
   it("clearFormatting is available under multi-selection even with a collapsed primary", () => {
