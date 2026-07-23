@@ -20,9 +20,15 @@ const mockSearchCommands = vi.fn(() => mockRanked);
 
 vi.mock("@/services/commands", () => ({
   executeCommand: (...args: unknown[]) => mockExecuteCommand(...args),
-  searchCommands: () => mockSearchCommands(),
+  searchCommands: (...args: unknown[]) => mockSearchCommands(...args),
   resolveLocalizedString: (v: unknown) =>
     typeof v === "function" ? (v as () => string)() : String(v),
+}));
+
+// A sentinel resolved context so we can prove the palette supplies it (WI-2.1).
+const SENTINEL_CTX = { windowLabel: "main", mode: "wysiwyg", isDocument: true } as const;
+vi.mock("@/services/commands/commandContext", () => ({
+  resolveCommandContext: () => SENTINEL_CTX,
 }));
 
 vi.mock("@/utils/imeGuard", () => ({
@@ -166,13 +172,11 @@ describe("CommandPalette", () => {
 
     // Context carries the invoking window (WI-S0.7): without it a window-scoped
     // command like `browser.newTab` falls back to "main" and acts on the wrong window.
-    // The palette now supplies the full resolved command context (WI-2.1); the
-    // window label still rides in it for window-scoped commands.
-    expect(mockExecuteCommand).toHaveBeenCalledWith(
-      "cmd.two",
-      null,
-      expect.objectContaining({ windowLabel: "main" }),
-    );
+    // The palette supplies the full resolved command context (WI-2.1) — the
+    // exact object from resolveCommandContext, not just { windowLabel }.
+    expect(mockExecuteCommand).toHaveBeenCalledWith("cmd.two", null, SENTINEL_CTX);
+    // And search was performed with that same resolved context.
+    expect(mockSearchCommands).toHaveBeenCalledWith(expect.any(String), SENTINEL_CTX);
     expect(useCommandPaletteStore.getState().isOpen).toBe(false);
   });
 });

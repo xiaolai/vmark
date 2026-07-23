@@ -58,6 +58,11 @@ export function CommandPalette() {
   const inputRef = useRef<HTMLInputElement>(null);
   const previousFocusRef = useRef<Element | null>(null);
 
+  // The context is resolved fresh per query/open. It does NOT yet re-resolve when
+  // the editor mounts or the cursor moves while the palette stays open — a latent
+  // staleness that only surfaces once editor commands are registered in the bus
+  // (Phase 3); their availability is by-mode/-node. Execution re-resolves fresh, so
+  // a stale-shown command would at worst no-op. Phase 3 wires reactive resolution.
   const ranked: RankedCommand[] = useMemo(
     () => (isOpen ? searchCommands(query, resolveCommandContext(windowLabel)) : []),
     [isOpen, query, windowLabel],

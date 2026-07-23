@@ -52,7 +52,7 @@ const SOURCE_SELECTION_REQUIRED_ACTIONS = new Set<string>([
 ]);
 
 // Actions that should be disabled when cursor is inside a link
-const LINK_DISABLED_ACTIONS = new Set<string>([
+export const LINK_DISABLED_ACTIONS = new Set<string>([
   "link",
   "link:bookmark",
   "link:wiki",

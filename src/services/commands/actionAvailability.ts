@@ -24,7 +24,9 @@
 
 import type { ActionId } from "@/plugins/actions/types";
 import { ACTION_DEFINITIONS } from "@/plugins/actions/actionRegistry";
-import { isCategoryAllowedByFormat } from "@/services/editor/editorActionGates";
+import { isCategoryAllowedByFormat, mapActionIdToAdapterAction } from "@/services/editor/editorActionGates";
+import { isExplicitlyDisallowedInMultiSelection } from "@/plugins/toolbarActions/multiSelectionPolicy";
+import { LINK_DISABLED_ACTIONS } from "@/plugins/toolbarActions/enableRules";
 import type { CommandContextResolved } from "./commandContext";
 
 type NodeAxis = "table" | "link" | "list" | "blockquote" | "codeBlock" | "heading";
@@ -61,7 +63,9 @@ const ACTION_AVAILABILITY: Partial<Record<ActionId, AvailabilityDescriptor>> = {
   nestBlockquote: { requiresNode: ["blockquote"] },
   unnestBlockquote: { requiresNode: ["blockquote"] },
   removeBlockquote: { requiresNode: ["blockquote"] },
-  // Removing list formatting requires being in a list (the toggles do not).
+  // List indent/outdent + removal require being in a list (toolbar enabledIn).
+  indent: { requiresNode: ["list"] },
+  outdent: { requiresNode: ["list"] },
   removeList: { requiresNode: ["list"] },
   // Clearing formatting needs a selection to act on.
   clearFormatting: { requiresSelection: true },
@@ -122,9 +126,18 @@ export function isActionExecutable(id: ActionId, ctx: CommandContextResolved): b
 export function actionAvailability(id: ActionId, ctx: CommandContextResolved): boolean {
   if (!isActionExecutable(id, ctx)) return false;
   if (!ctx.editorAvailable) return false;
+
+  // Reuse the established context policies (single source of truth), keyed by the
+  // adapter action name, so the palette matches the toolbar/keymap exactly.
+  const adapterAction = mapActionIdToAdapterAction(id);
+  if (ctx.inLink && LINK_DISABLED_ACTIONS.has(adapterAction)) return false;
+  if (ctx.multiSelection && isExplicitlyDisallowedInMultiSelection(adapterAction)) return false;
+
   const req = ACTION_AVAILABILITY[id];
   if (!req) return true;
-  if (req.requiresSelection && !ctx.hasSelection) return false;
+  // A selection requirement is met by the primary selection OR any multi-cursor
+  // range (multi-selection actions such as clearFormatting are policy-"allow").
+  if (req.requiresSelection && !ctx.hasSelection && !ctx.multiSelection) return false;
   if (req.requiresNode && !req.requiresNode.some((axis) => hasNode(ctx, axis))) return false;
   return true;
 }
