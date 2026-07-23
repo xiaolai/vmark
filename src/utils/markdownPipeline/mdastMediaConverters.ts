@@ -55,7 +55,13 @@ export function convertParagraph(
     onlyChild: onlyChild?.type === "image" || onlyChild?.type === "html" ? onlyChild : null,
     promoteMedia: () => {
       const img = onlyChild as import("mdast").Image;
-      return promoteImageToMediaNode(context, img.url ?? "", img.title ?? "", sourceLine);
+      return promoteImageToMediaNode(
+        context,
+        img.url ?? "",
+        img.alt ?? "",
+        img.title ?? "",
+        sourceLine,
+      );
     },
     promoteHtml: () =>
       tryPromoteMediaHtml(context, (onlyChild as import("mdast").Html).value ?? "", sourceLine),
@@ -120,6 +126,7 @@ export function convertHtml(
 function promoteImageToMediaNode(
   context: MdastToPmContext,
   src: string,
+  alt: string,
   title: string,
   sourceLine: number | null
 ): PMNode | null {
@@ -131,7 +138,7 @@ function promoteImageToMediaNode(
   if (!nodeName) return null;
   const type = context.schema.nodes[nodeName];
   if (!type) return null;
-  return type.create({ src, title, controls: true, preload: "metadata", sourceLine });
+  return type.create({ src, alt, title, controls: true, preload: "metadata", sourceLine });
 }
 
 /**

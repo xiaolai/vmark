@@ -2,11 +2,11 @@
 
 Video via image syntax:
 
-![](clip.mp4)
+![A short clip](clip.mp4)
 
 Audio via image syntax:
 
-![](recording.mp3)
+![A recording](recording.mp3)
 
 Ordinary image for contrast:
 
