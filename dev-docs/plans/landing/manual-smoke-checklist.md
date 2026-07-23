@@ -29,7 +29,7 @@ Scope is the subsystems the refactor actually touched (Phase 0 footprint), not t
 | 11 | Format services | Linter, outline panel, word count reflect the active format | format-body | ☐ |
 | 12 | Terminal | Open terminal, type, IME commit (CJK) — no duplication; `terminalGate` intact | service-tier | ☐ |
 | 13 | MCP workspace | `open_workspace`-style flow works against the built sidecar | service-tier (MCP bridge) | ☐ |
-| 14 | Non-markdown formats | Open a YAML/JSON/SVG/TOML/plain file — correct adapter, no crash | format dispatch | ☐ |
+| 14 | Non-markdown formats | **Partly automated** — `pnpm e2e:journeys` `nonmd-format-dispatch` proves `.json` routes to the source editor (not WYSIWYG). Manually spot-check YAML/SVG/TOML/plain render + no crash. | format dispatch | ☐ |
 | 15 | Round-trip spot-check | **Automated** — `pnpm e2e:journeys` includes `d1-d4-roundtrip-preserved` (media alt / link title / nested highlight / escaped `^` set in WYSIWYG → Source serializer → all four preserved in the live app). Run the journey suite against a debug build; only spot-check manually if it can't run. | D1–D4 | ☐ |
 
 **Release-specific:** a release only needs the rows its slice touches (the "Touched by"
