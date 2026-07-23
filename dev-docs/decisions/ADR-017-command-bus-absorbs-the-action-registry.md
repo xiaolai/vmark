@@ -19,9 +19,13 @@ Measured 2026-07-23:
 | **Action registry** (`plugins/actions/`) | The editing surface — 83 `ActionDefinition`s (bold, italic, headings, tables, lists, undo…). **Metadata only**, no `run` | 83 typed `ActionId`s | the native menu, via `useUnifiedMenuCommands` |
 
 `ActionDefinition` carries `{ id, label, category, supports }` — no executor.
-Execution is a *separate* function, `dispatchEditorAction(action, surface)`
-(`plugins/toolbarActions/dispatch.ts`), which the menu dispatcher reaches through
-`mapActionIdToAdapterAction` behind the IME guard.
+Execution is inline in the menu hook (`useUnifiedMenuCommands.ts`): a `menu:*`
+listener resolves effective mode, gates on format policy and capability, routes
+undo/redo through unified history, and dispatches to the editor adapters via
+`runOrQueueProseMirrorAction`/`runOrQueueCodeMirrorAction` behind the IME guard.
+(`dispatchEditorAction` is a *separate*, lower-level path used by the toolbar and
+context menu — see the Correction below; the earlier draft wrongly said the menu
+uses it.)
 
 So the palette's `searchCommands` reads only the CommandBus map, and the 83
 editing actions are not in it. There is **no bridge** — `grep` for
@@ -55,9 +59,10 @@ it before any code was written. The error and its consequence:
 > `runOrQueueProseMirrorAction`/`runOrQueueCodeMirrorAction` and adds semantics
 > `dispatchEditorAction` lacks: unified cross-mode undo/redo
 > (`performUnifiedUndo/Redo`), special `setHeading`/`paragraph` handling,
-> focus/format/read-only/forced-source gates, and an IME-safe captured context
-> with tab-bound retry. `dispatchEditorAction` is the **lower-level toolbar**
-> path.
+> focus / format-policy / mode-capability / forced-source gates, and an IME-safe
+> captured context with tab-bound retry. (The menu has no read-only gate — that
+> is a *new* concern for the palette.) `dispatchEditorAction` is the
+> **lower-level toolbar** path.
 
 So "the adapter reuses the existing menu path via `dispatchEditorAction`" was
 false. Routing the palette through `dispatchEditorAction` would break undo/redo
@@ -71,15 +76,25 @@ claim that there was "no async hazard" was also wrong.
 reach it through a shared high-level executor extracted from the menu — not
 through `dispatchEditorAction`.**
 
-The real prerequisite is to **extract the menu's high-level execution logic** out
-of the React hook `useUnifiedMenuCommands` into a plain, non-React module that
-owns:
+The real prerequisite is to **extract the menu's high-level *semantic* execution
+logic** out of the React hook `useUnifiedMenuCommands` into a plain, non-React
+module that owns:
 
 - effective-surface resolution (WYSIWYG / Source / **split** / forced-source for
   large-file tabs — not just `sourceMode`),
-- document/format/read-only/non-document-tab gates,
+- format-policy and mode-capability gates, and the non-document-tab guard,
 - unified cross-mode undo/redo, and the `setHeading`/`paragraph` special cases,
 - an IME-safe captured context with the tab-bound retry the menu already does.
+
+**The focus gate stays OUT of the shared executor** (Codex BLOCKER). The menu's
+`shouldBlockMenuAction()` rejects focus inside any modal — including the palette
+(`.quick-open`). It is a *menu-accelerator* concern ("don't fire a menu shortcut
+while a dialog owns input"), not a semantic one. The palette has already decided
+to run the command, so it must not be re-gated by focus. The focus check stays in
+the native-menu listener wrapper; the shared executor is invocation-source
+agnostic. **Read-only is likewise not extracted** — the menu has no read-only
+gate today, so adding one is *new behavior* for the palette's `when()`, tracked
+as its own test-first WI, not folded into the behaviour-neutral extraction.
 
 Then **both** the native menu and a CommandBus adapter call that shared executor.
 `dispatchEditorAction` remains the lower-level toolbar/context-menu path,
@@ -90,7 +105,7 @@ mapping (so `setHeading` expands to six from day one), each with:
 
 - `id` = `editor.<actionId>` (namespaced; **collisions are preflighted and
   tested, not assumed impossible** — the bus throws on duplicate id)
-- `title` = a real i18n **getter** (`() => t("commands.editor.<id>")`) — new
+- `title` = a real i18n **getter** (`() => t("commands:editor.<id>")`) — new
   keys, because `ActionDefinition.label` is a raw English string, not a key
 - `when(ctx)` = the action's **full** availability, resolved from a proper
   command context (mode is only one axis — selection, node context, editor
