@@ -119,6 +119,20 @@ restart the client, then reconnect.
   the sidecar still reads `app.vmark/mcp-port` and races.
 - **No port pointing.** Never configure a fixed VMark-bridge port. It's dynamic; discovery
   is the port file.
+- **Which build is the dev app running? Verify the CWD.** `pnpm tauri:dev` serves from
+  *its own* working directory. When testing a branch that lives in a **git worktree**,
+  launching `tauri:dev` from the **main** checkout runs the *wrong code* (e.g. `main` reset
+  to an old tag), and the app version alone won't reveal it. If a live result contradicts
+  the unit tests (a "regression" the branch tests say is fixed), your **first** check is the
+  build, not the DOM:
+  `lsof -a -p $(pgrep -f "pnpm tauri dev") -d cwd` — it must point at the branch/worktree.
+- **execCommand typing may not sync to the store under automation (RAF throttling).** The
+  small-doc editor→store flush uses `requestAnimationFrame` (`useTiptapFlush.ts`), and the OS
+  throttles RAF when the automated app window is **backgrounded**. So DOM `execCommand`
+  typing lands in the editor but never flushes — the tab never dirties and typing-dependent
+  checks time out. It is **not** an app bug (focused users flush fine). In the Tauri journey
+  harness, establish content via `setEditorContent` (fires the app's own `vmark.document.write`
+  handler over `mcp-bridge:request` — a synchronous, focus-independent flush), not by typing.
 
 ## Worked examples
 
