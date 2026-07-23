@@ -31,7 +31,8 @@ gate commits each append a different `scripts` entry). Everything else is file-c
 | **U6 service-tier** | `c41cb916` (137 files, precedes core) | indep | big; one conceptual unit |
 | **U7 perf-bench** | `4b8a658b` | indep | `src/bench` only |
 | **U8 fence** | `870449b9`→`2a84e376` + `a6ebf4e1`(`codePreview/**`) | indep | ordered pair + corrections |
-| **U9 format-services** | `a870a535`,`43a60416`,`dd1c6f01`,`3c04a99d`,`f8292c88`,`ebc86ca0`,`8edfe830`,`da53f8c6` | indep | DAG; `a870a535` gates the contract others build on; **independence vs nucleus to verify in WI-0.5** |
+| **U9a format-contract body** | `a870a535`,`43a60416`,`dd1c6f01`,`3c04a99d`,`f8292c88`,`ebc86ca0` | **2 (core-coupled)** | WI-0.5 proved: conflict on resolver-shared files / need `FormatConfig.toPlainText` |
+| **U9b svg + closeSave-dup** | `8edfe830`, `da53f8c6` | indep | the only parts of the old U9 that split out clean (WI-0.5) |
 | **U10 nucleus** | `67bf4be1`,`05b0457e`,`8d9bfbbe`,`1b532bf3`,`82a8f35c`,`b1f81f2a`,`fb5cf735`,`d6fb977d`,`e5295559`,`54048c6f`,`f64f99d5` + `a6ebf4e1`(core+registry files) + header syncs `2b0af5f3`,`f9e184e7`,`c86b76e6` | 2 | serialization/composition inversion — interdependent |
 | **U11 gates-pre-core** | `faec8620`(config), `cd5db8f4`, `9fcb7dd0` | 1 (with safety-net) | baselines authored to pass pre-core — WI-0.4 confirms |
 | **U12 gate-post-core** | `87c0e2ee`(`check-deleted-names.mjs`+`package.json`) | 2 (with nucleus) | forbids files `f64f99d5` deletes |

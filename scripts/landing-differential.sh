@@ -158,3 +158,14 @@ for f in "$OUT"/*.md; do
 done
 echo "SUMMARY: $identical identical, $changed changed, $errored errored"
 [ "$errored" -eq 0 ] || { echo "FATAL: $errored fixture(s) errored — harness result invalid" >&2; exit 1; }
+
+# GATE mode: set EXPECT_IDENTICAL=1 to turn this into a pass/fail gate that FAILS
+# on ANY changed fixture. Use it for the Phase-2 nucleus differential (baseline =
+# the pre-nucleus release; a behavior-preserving nucleus must produce ZERO changes).
+# Leave it unset for characterization (e.g. v0.9.7 vs the D1-D4-fixed line, where
+# {14,16,17} are EXPECTED to change).
+if [ "${EXPECT_IDENTICAL:-0}" = "1" ] && [ "$changed" -ne 0 ]; then
+  echo "GATE FAIL: EXPECT_IDENTICAL=1 but $changed fixture(s) changed — a byte-identical" >&2
+  echo "           baseline was required. Any change here is an undocumented regression." >&2
+  exit 1
+fi

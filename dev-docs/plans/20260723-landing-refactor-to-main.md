@@ -9,8 +9,12 @@ dependency-equality; other domains gated separately) — strong evidence the pla
 premise holds. **Correction from the Phase-0
 spike: "format-services" is NOT one independent slice** — its contract body is core-coupled
 (WI-0.5); only jscpd/harness/service-tier/perf/fence/svg/closeSave-dup are pre-nucleus
-independent. Phases 1–2 below carry the derived release sequence; **next: re-review the
-concretized Phases 1–2 (rule 60 §6) before executing Phase 1.**
+independent. **Codex re-review of the concretized Phases 1–2 done (NEEDS AMENDMENT → all 8
+folded:** versioned release train `v0.9.8`→`v0.9.9`→`v0.9.10`→`v0.10.0` with cumulative
+validation; harness `EXPECT_IDENTICAL` gate mode; harness-first WI ordering; concrete D3 +
+golden gate; manual-smoke checklist authored; `check-landing-phase.sh` as a real WI-1.5
+deliverable; stale Phase-2 language purged). **Ready to execute Phase 1** (start at WI-1.2,
+harness-first).
 **Branch under landing:** `refactor/vmark-core`, rooted exactly at `v0.9.7` / `440ed317`.
 **51 refactor commits** are the landing units — exactly `v0.9.7..cc89b450`: 51 commits,
 361 files, +8302/−2363 (verified). The branch tip beyond `cc89b450` carries this session's
@@ -73,14 +77,22 @@ honest manual-E2E gap); ✅ each candidate slice reconstruction-proven independe
 reclassified core-coupled; ✅ per-gate coupling verified against real trees; ✅ no commit to
 `main`.
 
-### Derived release sequence (Phase 0 output — was the plan's biggest gap)
-1. **`v0.9.8`** (patch): final cli_path guard + D1–D4 + safety-net harness + pre-core gates
-   (Node-safe seam, scope inventory) + target-vs-shipped docs.
-2. **Independent slices**, lowest-risk-first, each its own patch: service-tier, fence, svg,
-   closeSave-dup, perf-bench, jscpd (+ plugin-isolation/budget gate, which rides with
-   service-tier per WI-0.4).
-3. **`v0.10.0`** (minor): nucleus + **format-contract body (now known core-coupled)** +
-   deleted-name gate; gate = byte-identical to the `v0.9.8` baseline.
+### Derived release sequence (Phase 0 output — concrete versioned train)
+Each release is reconstructed on the **preceding release tag** (not raw `v0.9.7`) and
+validated **cumulatively** — "independent of the nucleus" is not "commutative in any order."
+
+| Ver | Contents | WIs | Differential gate |
+|---|---|---|---|
+| **`v0.9.8`** | final cli_path guard + D1–D4 + safety-net harness + pre-core gates (Node-safe seam `cd5db8f4`, scope inventory `9fcb7dd0`) + target-vs-shipped docs | Phase 1 (WI-1.*) | characterization vs `v0.9.7`: **exactly** {14,16,17} change |
+| **`v0.9.9`** | **service-tier `c41cb916` + jscpd `1ea49a30` + plugin-isolation/budget gate `faec8620`(config) — ONE unit** (the budget baseline was authored on the tree that already has service-tier + jscpd + harness, WI-0.4) | Phase 1b / WI-1b.1 | `EXPECT_IDENTICAL=1` vs `v0.9.8` (pure move; zero round-trip change) |
+| **`v0.9.10`** | fence `870449b9`→`2a84e376` (+ `a6ebf4e1` `codePreview/**` corrections) + svg `8edfe830` + closeSave-dup `da53f8c6` + perf-bench `4b8a658b` | Phase 1b / WI-1b.2 | `EXPECT_IDENTICAL=1` vs `v0.9.9` |
+| **`v0.10.0`** | nucleus + format-contract body (core-coupled) + deleted-name gate | Phase 2 (WI-2.*) | `EXPECT_IDENTICAL=1` vs `v0.9.10` (behavior-preserving core) |
+
+Every release runs the full release gate + its slice's rows of the manual-smoke checklist
+(`landing/manual-smoke-checklist.md`). The `v0.9.9`/`v0.9.10` groupings keep review small
+without a release-per-commit explosion; split further only if a slice fails its gate. Each
+Phase-1b WI = reconstruct on the prior tag → cumulative differential → full release gate →
+version-bump → release note → tag.
 
 ## Phase 1 — Release 1: security + safety net + accurate docs (patch, `v0.9.8`)
 
@@ -90,11 +102,12 @@ cherry-picked at all).
 
 | WI | Change |
 |---|---|
-| WI-1.1 | **Security fix, reconstructed to its FINAL state** — the guard's initial hunks in `faec8620` **plus the later audit corrections to the guard + tests in `a6ebf4e1`** (shipping only the initial extracted version would omit the audited final implementation), isolated from the plugin-isolation gate and the other four domains those commits bundle, applied to `v0.9.7`. Framed honestly: this **is** a behavior change — it rejects formerly-accepted `cli_path` inputs — a *desirable security* change, **not** "zero behavior change" |
-| WI-1.2 | **D1–D4 round-trip fixes, reconstructed semantically on `v0.9.7`** (verified portable: every production file `f8767c57`/`526e1434` touch exists at `v0.9.7`, and the fixes are **not** registry-dependent — add `alt` to audio/video nodes + preserve both directions, add a link-title attribute + preserve it, the D3 cross-node transform + D4 `^`-escaping are mdast/serializer-level). The historical *patch* may not apply textually (`pmBlockConverters.ts` changed during inversion), so **reconstruct against the `v0.9.7` functions; do not raw-cherry-pick.** The new goldens + `roundtripDefects.test.ts` don't exist at `v0.9.7` — land them in this same patch series. Failure of the focused D1–D4 fixtures is the blocker. Shipping in `v0.9.8` stops the data loss sooner **and** collapses the core's differential to a *single* baseline (Phase 2) |
-| WI-1.3 | **Safety-net harness** (corpus characterization + the Phase-0 differential harness) — lands before the code it guards |
+| WI-1.1 | **Security fix, reconstructed to its FINAL state** — the guard files at their `a6ebf4e1` version (137-line `cli_path_guard.rs` + `cli_path_guard.test.rs` + `mod.rs` wiring), which are **new files at `v0.9.7`** so they apply as a clean add; the only edit to an existing file is `run_ai_prompt`'s boundary call. Verified self-contained (Codex + git): `faec8620` introduces them, `a6ebf4e1` only refines them, the `ai_provider` tree at `faec8620^` == `v0.9.7`. This **is** a behavior change (rejects formerly-accepted `cli_path` inputs) — desirable security, **not** "zero behavior change". Verify with Rust tests + `check:cross` + fmt + clippy |
+| WI-1.2 | **Safety-net harness FIRST** (moved before the fix it guards — RED before GREEN). Land corpus characterization (`1eaf1db1` + `732ba97c` src) + `roundtripDefects.test.ts` + the audited `scripts/landing-differential.sh` (final hardened state, from the branch tip). The D1–D4 fixtures fail on `v0.9.7`'s pipeline (RED) before any fix |
+| WI-1.3 | **D1–D4 fixes, reconstructed against the `v0.9.7` functions** (verified portable; do NOT raw-cherry-pick — `pmBlockConverters.ts` diverged during inversion). Concrete change set: (a) `alt` attr on the audio/video Tiptap nodes; (b) mdast→PM media promotion passes `alt`; (c) PM→mdast media serialization emits `alt`; (d) Link extension adds `title` + both directions preserve it; (e) parse-side custom-marker transform extracted to `customInlineTransform.ts`, supporting marks spanning text/strong/etc. nodes (D3, ~288 lines); (f) serializer emits `\^` escaping outside superscript/title constructs (D4); (g) `roundtripDefects.test.ts` covers all four + control cases. **Golden gate:** re-render regenerates **exactly** `14-media.md`, `16-inline-marks.md`, `17-escaped-markers.md`; the other 19 stay byte-identical; a **4th** changed golden BLOCKS `v0.9.8` |
 | WI-1.4 | **Deliberately-written pre-landing doc snapshot.** Do NOT cherry-pick post-refactor status docs (which say phases "COMPLETE" and files "deleted") onto a tree where they aren't. Publish ADR-015/016/017 + landing/Zed research as **"accepted target architecture,"** clearly distinguished from **"currently shipped."** Commit the uncommitted research/amendments here |
-| WI-1.5 | Version-bump per rule 40 (5 files + `Cargo.lock`); tag `v0.9.8` only after CI is green on the exact SHA |
+| WI-1.5 | **Machine gates + manual gate as blocking deliverables:** `landing/manual-smoke-checklist.md` (authored in Phase 0) becomes a recorded release gate; **author `scripts/check-landing-phase.sh`** (template `check-gha-phase.sh`) asserting the differential result, per-gate classification, release gate, and version consistency — a real blocking script, **not** a hollow stub |
+| WI-1.6 | Version-bump per rule 40 (5 files + `Cargo.lock`); run the full release gate incl. the checklist; tag `v0.9.8` only after CI is green on the exact SHA |
 
 **DoD:** full release gate (below) green; security tests + D1–D4 fixtures in CI; harness
 present on `main`; docs labelled target-vs-shipped. Release note enumerates the cli_path
@@ -104,32 +117,27 @@ tightening and the four data-loss fixes with before→after examples.
 
 The **verified** interdependent nucleus — serialization inversion (both switch deletions +
 registries), claim protocol, resolver-routed composition, dead-registry deletion, the
-**post-core-only** deleted-name gate that enforces it — **plus the format-contract body**,
-which WI-0.5 **proved core-coupled** (`a870a535`, `43a60416`, `dd1c6f01`, `3c04a99d`,
-`f8292c88`, `ebc86ca0` conflict on resolver-shared files or need `FormatConfig.toPlainText`).
-The pieces WI-0.5 proved **genuinely independent** — service-tier `c41cb916`, jscpd
-`1ea49a30`, fence `870449b9`→`2a84e376`, svg `8edfe830`, closeSave-dup `da53f8c6`, perf-bench
-`4b8a658b` — land as their **own** pre-nucleus slices (§ Derived release sequence), **not**
-in this nucleus.
+**post-core-only** deleted-name gate that enforces it — **plus the format-contract body**
+WI-0.5 proved core-coupled (`a870a535`, `43a60416`, `dd1c6f01`, `3c04a99d`, `f8292c88`,
+`ebc86ca0`: conflict on resolver-shared files or need `FormatConfig.toPlainText`). The
+independent slices already shipped in `v0.9.9`/`v0.9.10` (§ Derived release sequence) are
+**not** in this nucleus.
 
-**Completeness rule: every final-branch hunk gets an assigned landing unit or an explicit
-omission** — none falls through (WI-0.1). Beyond the nucleus and the independent slices
-above, Phase 0 must also place these currently-unassigned commits: `a870a535` (close-save
-policy rename + format contract), `43a60416` (source-language fast path), `8edfe830` (SVG
-consolidation), `da53f8c6` (close/save dup extraction), `4b8a658b` (perf harness),
-`5483267c` (D3 header sync — rides with D1–D4 in Phase 1), and the multi-domain audit
-corrections `a6ebf4e1`/`77941c7a` (split by hunk across security, core, fence, and
-registries).
+**Every final-branch hunk is now assigned** (WI-0.1 + WI-0.5): the multi-domain audit commits
+`a6ebf4e1`/`77941c7a` split by file across security (`v0.9.8`), fence (`v0.9.10`,
+`codePreview/**`), and nucleus (here, `extensions/**` + pipeline registries); `5483267c` rides
+with D1–D4 (`v0.9.8`). None falls through.
 
-**Single baseline:** because D1–D4 shipped in `v0.9.8`, the core's differential is simply
-**"identical to the `v0.9.8` baseline"** — no awkward two-stage 2a/2b comparison against
-two semantic baselines. (If WI-0.5 forces D1–D4 into the core, revert to the two-stage gate
-and mark stage 1 an *internal integration checkpoint*, not a shipped slice.)
+**Differential gate — a machine gate, not characterization.** Because D1–D4 shipped in
+`v0.9.8` and the `v0.9.9`/`v0.9.10` slices are round-trip-neutral, the nucleus must be
+**byte-identical to its immediate predecessor `v0.9.10`**. Enforce with
+`EXPECT_IDENTICAL=1 scripts/landing-differential.sh v0.9.10 HEAD` — **any** changed fixture
+fails the gate.
 
-**DoD:** markdown-serialization differential == the `v0.9.8` baseline (no undocumented
-diff); every WI-0.3 behavioral gate green (composition snapshots, Source/WYSIWYG, non-md
-formats, undo/autosave, perf, E2E smoke); deleted-name + all enforcement gates green;
-version-bump; tag on green CI.
+**DoD:** the `EXPECT_IDENTICAL` differential vs `v0.9.10` passes (zero changes); every WI-0.3
+behavioral gate green (composition snapshots, Source/WYSIWYG, non-md formats, undo/autosave,
+perf); the **full** manual-smoke checklist recorded; deleted-name + all enforcement gates
+green; version-bump; tag on green CI.
 
 ## Rollback & forward-compatibility (format-touching releases)
 
@@ -157,7 +165,8 @@ necessarily reintroduces the loss. Use a **directional** compatibility contract:
 on the exact tagged SHA** · rule-40 version-bump verified across all 5 files + `Cargo.lock`
 + About dialog + MCP `--version` + MCP health, with a clean-worktree check after lockfile
 regen. (`10b62d64`'s own message notes rustfmt was unavailable at verification — do not
-assume the host toolchain ran the Rust gates.)
+assume the host toolchain ran the Rust gates.) · **manual-smoke checklist recorded**
+(`landing/manual-smoke-checklist.md` — the slice's rows; the **full** list for `v0.10.0`).
 
 ## Phase 3 — Post-landing: command-registry off the fresh `main`
 
@@ -167,10 +176,12 @@ post-`v0.10.0` `main`** — never stacked here. One refactor ships before the ne
 
 ## Machine-checkable DoD
 
-`scripts/check-landing-phase.sh <0|1|2>` (template `scripts/check-gha-phase.sh`, rule 60 §3)
-asserts: verified manifest present, differential clean vs the correct baseline, per-gate
-classification honored, full release gate green, version consistent + worktree clean +
-tag-points-at-checked-commit — before each release tag.
+`scripts/check-landing-phase.sh <0|1|1b|2>` (**authored in WI-1.5** from template
+`scripts/check-gha-phase.sh`, rule 60 §3) asserts per release: the differential result
+(characterization for `v0.9.8`; `EXPECT_IDENTICAL=1` for `v0.9.9`/`v0.9.10`/`v0.10.0`),
+per-gate classification honored, full release gate green, manual-smoke recorded, version
+consistent + worktree clean + tag-points-at-checked-commit — before each release tag. Phase 0
+is already discharged (`landing/phase-0-findings.md`); it needs no script re-check.
 
 ## Review
 
