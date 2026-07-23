@@ -1,8 +1,10 @@
 # Command Registry Unification — Phased Plan
 
-**Status:** RETHINK → revised 2026-07-23 after Codex review (verdict RETHINK,
-4 BLOCKER / 9 MAJOR; all dispositioned here). Phase 0 recon done, one finding
-corrected. Not started beyond recon.
+**Status:** Two Codex passes. Pass 1 RETHINK (mechanism was wrong — routed
+through `dispatchEditorAction`); rewritten around extracting the menu executor.
+Pass 2 **NEEDS AMENDMENT** (direction validated + feasible; 1 BLOCKER + 6 MAJOR
+refinements) — all dispositioned in the phases below. Phase 0 recon done (WI-0.3
+corrected). Not started beyond recon; ready to build after this revision.
 **Branch:** `refactor/vmark-core`
 **ADR:** `dev-docs/decisions/ADR-017-command-bus-absorbs-the-action-registry.md`
 **Unblocks:** ADR-015 `Contribution.commands` (WI-4.1 remainder)
@@ -48,30 +50,61 @@ tab-bound retry that `dispatchEditorAction` lacks. So the core work is
   split mode and forced-source large-file tabs (`useUnifiedMenuCommands.ts:380`),
   not just `uiStore.sourceMode`. The extracted executor must own this.
 
-## Phase 1 — Extract the shared executor (the core)
+## Phase 1 — Extract the shared *semantic* executor (the core)
 
 Pull the high-level execution logic out of the React hook into a plain module,
-e.g. `services/editor/runEditorAction.ts`.
+e.g. `services/editor/runEditorAction.ts`. Feasible because the logic is already
+module-level + store-driven (`dispatchToWysiwygImpl`, `dispatchToSourceImpl`,
+`dispatchWithRetry`, forced-source resolution) — the hook only wires `listen()`.
 
 | WI | Change |
 |---|---|
-| WI-1.1 | Extract effective-surface/target resolution (WYSIWYG/Source/split/forced-source), the document/format/read-only/non-document gates, unified undo/redo, `setHeading`/`paragraph` special cases, and the IME-safe captured context + tab-bound retry |
-| WI-1.2 | Re-wire `useUnifiedMenuCommands` to call the extracted executor — the hook becomes thin event→executor wiring |
-| WI-1.3 | `dispatchEditorAction` is untouched; it stays the toolbar/context-menu low-level path |
+| WI-1.1 | Extract the SEMANTIC executor: effective-surface/target resolution (WYSIWYG/Source/split/forced-source), format-policy + mode-capability gates, non-document guard, unified undo/redo, `setHeading`/`paragraph` special cases, IME-safe captured context + tab-bound retry |
+| WI-1.2 | **The focus gate does NOT move into the executor** (BLOCKER). `shouldBlockMenuAction()` rejects focus inside `.quick-open` — it would make the palette block its own commands. It stays in the native-menu listener; the executor is invocation-source agnostic |
+| WI-1.3 | **Per-window owner/disposer.** Retry timers are currently module-global, cancelled by the hook's `useEffect` cleanup. The executor needs an explicit per-window owner both the menu and the bus share, so one caller's disposal cannot cancel another's pending work |
+| WI-1.4 | Re-wire `useUnifiedMenuCommands` to call the executor behind its focus gate; the hook becomes thin listener→executor wiring |
+| WI-1.5 | `dispatchEditorAction` untouched — stays the toolbar/context-menu low-level path |
 
-**DoD:** the existing `useUnifiedMenuCommands` test suite passes unchanged (the
-extraction is behaviour-neutral for the menu); the executor is importable from a
-non-React context; `pnpm check:all` green.
+**DoD (RED-first this phase, not deferred):**
+- The existing `useUnifiedMenuCommands` suite passes unchanged (extraction is
+  menu-behaviour-neutral).
+- Executor **parity** tests: `undo` → unified history (not native), `setHeading`
+  level, `paragraph`, forced-source and split resolution.
+- **Focus-policy** test: a command runs from the focused palette (proves the
+  gate is not in the executor); a menu accelerator is still blocked with a modal
+  focused (proves it stays in the listener).
+- **Tab-ownership** test: the captured origin tab is validated against
+  `activeWysiwygTabId`/`activeSourceTabId` before immediate dispatch, on **every
+  retry**, and on **queued IME execution** — not only the "editor missing" path.
+- Retry-disposal test: disposing one window's executor does not cancel another's
+  timers.
+- `pnpm check:all` green.
 
-## Phase 2 — The command context resolver
+## Phase 2 — The command context + availability policy
 
 | WI | Change |
 |---|---|
-| WI-2.1 | A single resolver returning `{ mode, effectiveSurface, documentKind, formatId, readOnly, editorAvailable, selection/node context }` from stores synchronously — the axes `when()` needs |
-| WI-2.2 | An `actionAvailability(actionId, ctx)` combining `actionSupportsMode`, `enableRules`, read-only, non-document, and format policy |
+| WI-2.1 | A single resolver returning `{ mode, effectiveSurface, documentKind, formatId, editorAvailable, selection/node context, multiSelection }` from stores synchronously. Wire the **palette** to supply it — today `CommandPalette.tsx` passes only `{ windowLabel }`, so both `searchCommands` and `executeCommand` need the resolved context |
+| WI-2.2 | An **explicit `ActionId → availability descriptor`** (mode support, adapter-action alias, selection/node/multi-selection requirement, mutates-document flag). `enableRules` **cannot be reused directly** — it keys on `ToolbarActionItem.enabledIn` + `CursorContext`, not `ActionId`, and many registry actions have no toolbar item. The descriptor is the action-centric policy the palette needs |
+| WI-2.3 | Replace Phase 1's duplicated in-executor gates with this shared resolver, so there is one availability source before the bridge lands |
 
-**DoD:** `actionAvailability("deleteTable", ctx-without-table)` is false;
-`actionAvailability("bold", browser-tab-ctx)` is false; unit-tested per axis.
+**DoD:** a **per-axis matrix** test (not just table/browser examples) — every
+`ActionId` × {no-selection, in-table, in-link, in-list, multi-selection,
+source-only, wysiwyg-only, no-editor} asserts the expected availability;
+`deleteTable` outside a table is false; `bold` on a browser tab is false.
+
+## Phase 2b — Read-only (NEW behavior, separate WI)
+
+The menu has **no** read-only gate today, so this is not extraction — it is new
+behavior for the palette's `when()`, and must be test-first and precise.
+
+| WI | Change |
+|---|---|
+| WI-2b.1 | Add a `mutatesDocument` flag to each action's descriptor. Effective read-only is two-part: document read-only **plus** `readOnlyDefault && !editingEnabled` (`SourcePane.tsx:107`) |
+| WI-2b.2 | `when()` hides only **mutating** actions under read-only — a blanket block would wrongly hide non-mutating selection/navigation actions |
+
+**DoD:** under read-only, `bold` is hidden but a non-mutating action is not;
+tested both ways.
 
 ## Phase 3 — The bridge (ActionId → CommandSpec[])
 
@@ -79,30 +112,32 @@ non-React context; `pnpm check:all` green.
 |---|---|
 | WI-3.1 | An explicit `ActionId → CommandSpec[]` mapping. `setHeading` expands to `.1`…`.6` **from day one**; no un-runnable plain `editor.setHeading` ever registers |
 | WI-3.2 | Register each spec: `id: "editor.<id>[.<param>]"`, `title` lazy i18n getter, `category` carried from `ActionDefinition`, `when: ctx => actionAvailability(id, ctx)`, `run` → the Phase-1 executor |
-| WI-3.3 | HMR/test-safe registration: preflight ALL ids for collisions before registering any; use ownership-aware `hasCommand`/disposable set (not a module flag — the bus documents why, `CommandBus.ts:83`); survive `_resetCommandBus` |
+| WI-3.3 | HMR/test-safe registration needs a **real owner API** on the bus. `hasCommand(id)` only answers existence — it cannot distinguish an idempotent re-bootstrap from a foreign collision or a partial prior batch (`CommandBus.ts:60,89`). Add owner metadata (or an atomic batch-register with an owner token + disposer) so the bridge can replace-its-own on HMR, error on a foreign id, recover from a partial batch, and survive `_resetCommandBus`. Preflight ALL generated ids before registering any |
 | WI-3.4 | Bootstrap the bridge at the CommandBus bootstrap site with a real command context supplied by the palette (extend what `CommandPalette.tsx:37,58` passes) |
 
 **DoD:** searching "bold"/"insert table"/"heading 2" returns runnable commands;
-double bootstrap and reset+rebootstrap do not throw; no id collides with the 66
-existing bus ids (preflight test).
+double bootstrap, HMR replacement, reset+rebootstrap, a **foreign** id
+collision, and a **partial** prior batch each behave correctly (test each);
+no id collides with the 66 existing bus ids (preflight test).
 
 ## Phase 4 — Localization + palette UX (core, not deferred)
 
 | WI | Change |
 |---|---|
-| WI-4.1 | ~88 translation keys (`commands.editor.*`, heading variants) in `src/locales/en/*.json`, then `translate-docs` for the other 8 locales |
-| WI-4.2 | Palette renders categories (already supported) and groups the new editor commands; empty-search volume (~154) is scrolled/grouped so it stays usable |
-| WI-4.3 | Keyboard/screen-reader: the active descendant scrolls into view (`CommandPalette.tsx:102` currently does not) |
+| WI-4.1 | ~88 translation keys (`commands:editor.*`, heading variants) **plus localized category labels** in `src/locales/en/*.json`, then `translate-docs` for the other **9** locales (10 dirs total: de/en/es/fr/it/ja/ko/pt-BR/zh-CN/zh-TW). Land keys **with or before** the registering bridge so no phase ships raw ids |
+| WI-4.2 | Real category **grouping** — the palette currently renders the raw category id per row (`CommandPalette.tsx:173`), not grouped sections. Group the ~154 commands into labelled sections; empty-search volume stays usable |
+| WI-4.3 | Keyboard/screen-reader: the active descendant scrolls into view (`CommandPalette.tsx:102` currently does not), and groups are announced |
 
-**DoD:** `lint:i18n` passes with the new keys present in all locales; a11y test
-asserts the active row scrolls into view on arrow navigation.
+**DoD:** `lint:i18n` passes with new keys **and category labels** in all 10
+locales; a test asserts commands render in labelled groups (not raw ids); a11y
+test asserts the active row scrolls into view on arrow navigation.
 
 ## Phase 5 — Gates (ADR-015 D6)
 
 | WI | Change |
 |---|---|
 | WI-5.1 | Adoption: every `ActionId` maps to ≥1 uniquely-registered `editor.*` command (NOT raw id-subset — heading maps only to `.1`…`.6`) |
-| WI-5.2 | Differential through the shared executor: `editor.undo` == unified undo (not native); `editor.setHeading.2` == `menu:` H2; `editor.paragraph` works |
+| WI-5.2 | End-to-end **bus** differential: running `editor.undo` / `editor.setHeading.2` / `editor.paragraph` *through the CommandBus* matches the `menu:` path. (Executor-level parity for these already went RED in Phase 1; this is the full palette→bus→executor path.) |
 | WI-5.3 | Inapplicability: browser/non-document tab, Source mode, and read-only each hide/refuse the right actions |
 
 **DoD:** all three green; the adoption assertion fails if a new action ships
@@ -110,12 +145,26 @@ without reaching the bus.
 
 ## Codex disposition summary
 
-BLOCKERs 1–4 (menu ≠ dispatchEditorAction; no `ctx.mode`; dropped gates; IME
-timing) → Phases 1–2 (extract executor + real context). MAJORs: action
-population/expansion → WI-3.1; multi-axis availability → Phase 2; inert `scope`
-→ `when`-based (WI-3.2); parameterized/adoption contradiction → WI-3.1 + WI-5.1;
-localization → Phase 4; HMR/collision safety → WI-3.3; DoD rigor → Phase 5;
-obsolete legacy-hook cleanup → removed; palette volume/a11y → Phase 4.
+**Pass 1 (RETHINK):** menu ≠ `dispatchEditorAction`, no `ctx.mode`, dropped gates,
+IME timing → rebuilt around the extracted executor (Phases 1–2). Population/heading
+expansion → WI-3.1; inert `scope` → `when` (WI-3.2); parameterized/adoption
+contradiction → WI-3.1 + WI-5.1; localization → Phase 4; obsolete legacy-hook
+cleanup → removed.
+
+**Pass 2 (NEEDS AMENDMENT):**
+- BLOCKER — focus gate would reject the palette → stays in the menu listener,
+  out of the executor (WI-1.2) + RED focus-policy test.
+- `enableRules` can't take an `ActionId` → explicit availability descriptor
+  (WI-2.2).
+- read-only is new behavior, blanket block wrong → separate test-first Phase 2b
+  with `mutatesDocument`.
+- executor lifetime/tab ownership → per-window owner/disposer (WI-1.3) +
+  tab-validation on immediate/retry/IME (WI-1.4 DoD).
+- `hasCommand` has no owner → real owner API on the bus (WI-3.3).
+- DoD too late → parity/focus/retry/tab tests RED in Phase 1; per-axis matrix in
+  Phase 2.
+- palette shows raw category ids, 10 locales not 9 → grouping + 9 other locales
+  (Phase 4).
 
 ## Out of scope
 
@@ -125,5 +174,7 @@ obsolete legacy-hook cleanup → removed; palette volume/a11y → Phase 4.
 
 ## Review
 
-This revision should get a second Codex pass before Phase 1 commits, since the
-mechanism changed substantially from the reviewed draft.
+Two Codex passes done (RETHINK → NEEDS AMENDMENT, all dispositioned above).
+Direction validated and feasible; the amendments are folded into the phases.
+**Ready to build** — start at Phase 1 (extract `runEditorAction`), which the
+recon confirmed is mostly grouping already-module-level, store-driven functions.
