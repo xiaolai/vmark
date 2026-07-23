@@ -5,7 +5,8 @@
 > Depends on: ADR-001 (markdown as source of truth), ADR-003 (Tiptap over
 > Milkdown), ADR-013 (service tier)
 > Evidence: `dev-docs/deep-researches/20260721-extension-architecture-investigation.md`,
-> `dev-docs/deep-researches/20260722-extension-architecture-prior-art.md`
+> `dev-docs/deep-researches/20260722-extension-architecture-prior-art.md`,
+> `dev-docs/deep-researches/20260723-zed-architecture-lessons.md` (see Amendment)
 
 ## Context
 
@@ -421,6 +422,95 @@ resolved here.
   such a fixture without first fixing the schema would record the deletion as
   correct and stay green. That is still blocking, because Phase 0's whole job is
   adding those fixtures.
+
+## Amendment (2026-07-23): Zed cross-check
+
+Zed (v1.14.0) is a shipping editor with a third-party extension ecosystem — the
+end-state this ADR aims at — so its extension architecture was read as primary-source
+prior art (`dev-docs/deep-researches/20260723-zed-architecture-lessons.md`, every claim
+`file:line`-anchored in the Zed tree). It **confirms** the load-bearing decisions and
+**corrects three**. Honest boundary: Zed is native Rust/GPUI with a WASM-component
+sandbox; VMark is Tauri + React + Tiptap. The *architecture* transfers; the *machinery*
+does not. These are refinements, not reversals.
+
+**Confirmed.** D3's flat-peers + host-owned keyed extension points is exactly Zed's
+`ExtensionHostProxy` of per-kind slots feeding flat name-keyed registries
+(`extension_host_proxy.rs:26-35`, `theme/registry.rs:160-163`) — a second independent
+witness alongside CodeMirror/Obsidian/VSCode. D5's isolation → caller-principal → broker
+order is Zed's per-extension `CapabilityGranter` bound to the sandbox store, principal
+read as `self` on every privileged call (`wasm_host.rs:667-670`).
+
+**Correction 1 — the value/declarative split should be explicit in D1.** Zed is
+*manifest-first*: all static contributions (themes, languages, grammars, snippets) are
+pure declarative TOML needing **zero code**, and only genuinely dynamic hooks ship as
+WASM (`extension_manifest.rs:83-123`; host registers from the manifest without executing
+extension code, `extension_host.rs:1305-1575`). D1's "an extension is a value, not a
+manifest" is right for the *first-party composition registry* (its target — kill the
+metadata-that-drifts), but it must not be read as "all contributions are code." The
+payoff of a declarative static tier is that the host can **list, validate, cache, and
+garbage-collect contributions without executing extension code** — precisely what a
+third-party ecosystem needs, and what D5's **Tier A (declarative signed JSON, no code)**
+already anticipates. Action: the `Contribution` type should distinguish a
+**declarative-data tier** (host-validatable offline; the Tier-A surface) from an
+**imperative tier** (converters, dynamic hooks; behind isolation for third parties).
+This is additive to D1, not a reversal of it.
+
+**Correction 2 — a durable third-party contract needs a versioned wire artifact with
+defined compatibility; copy the *properties*, not Zed's mechanism.** D1 carries
+`version?: string` on the extension — but that is the **extension package version**; there
+is no host-*contract* version, and the two must be **named distinctly** to prevent later
+conflation. VMark's `nodeSafe.ts` is a *compile-time* boundary only — sufficient for
+first-party (compiled together), insufficient for a third-party ecosystem. Zed's
+*mechanism* (freeze every historical interface, link all versions at once, stamp the
+version into each binary — `extension_api/wit/since_v0.0.1 … since_v0.8.0`,
+`extension_api.rs:350-353`) is *one* way, and VMark need **not** copy it — in particular it
+need not load all historical interfaces simultaneously (Codex review). What VMark must have
+is the **set of properties**: a serialized contract schema independent of host
+implementation types, a **contract-version** field (distinct from package version),
+declared compatibility ranges, deterministic validation, migration/adapters for supported
+older versions, and explicit rejection of unsupported ones. Action: the package/security
+contract (deferred to ADR-016's "not yet") must carry these — realizable as frozen JSON
+Schema, a protocol definition, generated validators, or an independently-versioned
+package — not rely on the TypeScript interface. Recorded now so it is not rediscovered
+late.
+
+**Correction 3 — collision policy must be defined *per extension point*, not one global
+rule.** D2b's claim protocol resolves *peer* competition (two claims at the winning
+strength = error). It does not state whether a contribution may **override a
+host-owned/first-party key** at all. Zed shows the question matters — but its evidence is
+*narrow*: a security-/process-sensitive **LSP adapter** cannot replace a builtin
+(`language_registry.rs:302-311`). Generalizing that to a blanket "third-party never shadows
+any host-owned key" is too coarse (Codex review): fence renderers are ordinary extension
+points where a user-chosen replacement may be *desirable*; core schema node names may need
+*absolute* reservation for document compatibility; LSP-like process-sensitive identities
+are a third category. Action: the host declares a **collision policy per extension point** —
+e.g. `reserved` (core schema identities, never replaceable), `exclusive` (duplicate =
+error), `builtin-preferred` (builtin wins unless explicitly disabled), `replaceable`
+(user-selected provider wins), `multi-contributor` (ordered / claim-resolved coexistence).
+Do **not** pre-decide one global policy from Zed's LSP-specific case, and do **not**
+conflate trust with precedence — a signature establishes *publisher identity*, not that two
+contributions may safely compete for one key. D5's trust tiers are an orthogonal axis.
+
+**Sandbox defenses beyond the broker are tier-specific** (Codex review; tracked in
+ADR-016). A capability broker is *policy*, not *containment* — it alone does not stop
+**path traversal** (Zed preopens only the work dir and rejects `..`/symlink escapes,
+`wasm_host.rs:729-804`) or a **runaway/hung extension** (epoch interruption forces yields,
+`wasm_host.rs:578-585`). But the concrete defenses do **not** apply uniformly across trust
+tiers:
+
+- **Tier B (sandboxed worker/WASM):** the Zed-style defenses translate directly — no
+  ambient `fetch`/filesystem, capability-preopened paths only, an execution-deadline /
+  worker-termination.
+- **Tier C (sidecar process):** these do **not** come for free — a subprocess normally
+  inherits ambient filesystem and network; an RPC deadline stops *waiting* but does not
+  *contain or kill* the process; safe per-request termination needs per-request processes
+  or a cooperative cancel protocol. Real Tier-C containment needs OS-level sandboxing / a
+  constrained runtime, or Tier C is accepted as a **higher-trust** tier — which the
+  2026-07-21 investigation's sidecar-first recommendation already implies.
+
+Caveat: Zed's *shipped default* capability policy is wide-open wildcards
+(`default.json:2149-2153`) — **not** evidence for deny-by-default; VMark should choose
+stricter (see ADR-016 amendment).
 
 ## Verification gates
 

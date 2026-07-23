@@ -180,6 +180,80 @@ from a React hook where nothing else can reach it.
   registration; HMR/test re-bootstrap does not throw (ownership-aware, not a
   module flag).
 
+## Amendment (2026-07-23): Zed cross-check
+
+Zed (v1.14.0) solved a version of this problem — a mature editor whose command palette,
+keymap, and menus all reach every editing action — so its system was read as prior art
+(`dev-docs/deep-researches/20260723-zed-architecture-lessons.md`, `file:line`-anchored).
+It **supports this ADR's invariant** and offers three refinements (two of which Codex's
+cross-model review then narrowed — see the trailing notes). Boundary: Zed is native
+Rust/GPUI; its link-time action registration (`inventory`), `TypeId` identity, and
+per-frame native dispatch tree do **not** transfer to React/DOM — VMark keeps a single
+string id per action and derives context on demand from Tiptap state. The transferable
+part is narrow and architecture-level: *enumeration and execution should share one
+authoritative source, and palette/menu/keymap should converge on common invocation
+semantics* — not Zed's specific dispatch-tree machinery.
+
+**Confirmed — the single execution path is real and load-bearing.** In Zed, a keybinding,
+the palette, and a native menu all funnel through one function
+(`Window::dispatch_action_on_node`, `window.rs:5321`); the palette's confirm re-focuses
+the prior element and calls the *same* `dispatch_action` a keystroke uses
+(`command_palette.rs:620-622`). There is **no separate palette executor**. This supports
+this ADR's guiding constraint — palette and menu must run an action identically through
+one executor. And Zed's palette enumerates from the *same* dispatch tree it executes
+through (`window.available_actions` → `key_dispatch.rs:363`), never a second list — the
+property VMark's plan restores (VMark will enumerate static bus registrations + derived
+context rather than walk a focus tree; same *property*, different mechanism). Adopt the
+extracted-executor plan.
+
+**Refinement 1 — one action *operation*, six palette specs; not six actions.** Zed models
+`setHeading(level)`-style actions as **one typed action carrying data**
+(`SelectNext { replace_newest: bool }`, `editor/src/actions.rs:9-15`), built from serialized
+params. Terminology (sharpened by Codex): the `ActionId` is the *string* `"setHeading"`;
+the level is an **invocation parameter**, not part of the id — so "the `ActionId` is
+parameterized" is imprecise. VMark's `setHeading` already takes a level (`types.ts:147`);
+the executor entry point stays `runEditorAction("setHeading", { level })`. The plan's WI-3.1
+expansion to `editor.setHeading.1…6` is legitimate **for the palette** (six searchable
+rows) — six `CommandSpec`s that all call the one executor operation, not six actions. The
+adoption gate (WI-5.1) must be **structural** — every `ActionId` has ≥1 projected spec,
+`setHeading` projects to exactly levels 1–6, every spec invokes
+`runEditorAction("setHeading", { level:N })`, no plain `editor.setHeading` registers — not
+"reaches the executor" (too dynamic for a gate; WI-5.2's runtime differential covers
+execution) and not "six independent actions." The plan's mechanics already point this way.
+
+**Refinement 2 — a filter seam is NOT warranted at VMark's scale (rejected on Codex
+review).** Zed has a global `CommandPaletteFilter` in a **standalone crate**
+(`command_palette_hooks.rs:19-93`) that subsystems push into by context (vim, agent UI).
+My first pass proposed borrowing it as a Phase-2 `WI-2.4`. Codex correctly rejected this:
+Zed needs a *separate crate* only because independently-compiled crates (vim, agent) cannot
+depend cyclically on the palette — a **cross-crate cycle that does not exist in a single
+React app**. Worse, the examples I gave ("hide table actions unless in a table", "hide
+mutating actions under read-only") are **already** first-class axes of the WI-2.2
+availability descriptor and WI-2b's `mutatesDocument` — so a filter would create *two
+authorities* for the same visibility decision, which the per-axis matrix could not
+adjudicate. **WI-2.4 is cut.** Availability stays in the single `when(ctx)` descriptor. A
+filter seam reopens only if a genuinely independently-owned subsystem ever needs bulk
+suppression the action descriptor cannot express — table context and read-only do not meet
+that bar.
+
+**Refinement 3 — a closed structured descriptor over `ctx`, evaluated by one typed
+function — NOT a predicate DSL (narrowed on Codex review).** Zed expresses availability as
+a small predicate *language* over a named context stack (`Editor && mode == full && !menu`,
+`keymap/context.rs:171-324`). Its parser earns its keep only because Zed **serializes**
+conditions into keymap/extension files; VMark's actions are first-party compiled TS, so a
+data DSL (parser, operator semantics, AST, its own validation) would be a second
+mini-language with **no current consumer** and a drift risk against the TS types.
+`Editor::key_context_internal` (`editor.rs:2641-2764`) is still a good spec for what VMark's
+`ctx` should carry (mode, menu-open, selection boundaries, node/file type, editability).
+So WI-2.2's descriptor should be a **closed structured record** over the typed `ctx`,
+evaluated by one typed function (`when: ctx => actionAvailability(id, ctx)`) — a compiled
+closure that *reads* the record, which is what makes the Phase-2 per-axis matrix cheap.
+"Not a free-form closure" means "not bespoke per-action logic," not "no closure." Build a
+serialized predicate only if external keymaps or third-party declarative commands ever
+need it. Zed splits "is a handler present?" from "does the predicate match?"; for VMark's
+single editor surface these collapse acceptably into one `when(ctx)` — keep it **pure and
+cheap** (it runs on every palette keystroke).
+
 ## Out of scope
 
 - MCP-bridge command exposure — a later consumer. **Until it and shortcuts route
