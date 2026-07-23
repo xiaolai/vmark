@@ -147,6 +147,21 @@ module-level + store-driven (`dispatchToWysiwygImpl`, `dispatchToSourceImpl`,
 
 ## Phase 2 — The command context + availability policy
 
+**Status: ✅ COMPLETE (2026-07-24)** — `pnpm check:all` green. WI-2.1:
+`services/commands/commandContext.ts` (`resolveCommandContext`) resolves the
+synchronous context (mode / isDocument / formatId / editorAvailable / selection /
+node axes / multiSelection), normalising both `CursorContext` shapes; the palette
+now supplies it to `searchCommands`/`executeCommand`. WI-2.2:
+`services/commands/actionAvailability.ts` — a closed typed record + evaluator (no
+DSL): `isActionExecutable` (executor gate) and `actionAvailability` (palette gate
+= executable + editor + node/selection), plus `mutatesDocument` for Phase 2b.
+WI-2.3: the executor's inline document/format/mode/capability gates collapsed onto
+`resolveCommandContext` + `isActionExecutable` (format-policy extracted to
+`editorActionGates.isCategoryAllowedByFormat`; `isActionAllowedForActiveFormat`
+removed). Behaviour-neutral (101 executor+hook tests green); per-axis matrix in
+`actionAvailability.test.ts` (every ActionId × axes). Node/selection are the
+palette's discoverability concern, deliberately NOT enforced by the executor.
+
 | WI | Change |
 |---|---|
 | WI-2.1 | A single resolver returning `{ mode, effectiveSurface, documentKind, formatId, editorAvailable, selection/node context, multiSelection }` from stores synchronously. Wire the **palette** to supply it — today `CommandPalette.tsx` passes only `{ windowLabel }`, so both `searchCommands` and `executeCommand` need the resolved context |

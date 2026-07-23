@@ -22,6 +22,7 @@ import { isImeKeyEvent } from "@/utils/imeGuard";
 import "./command-palette.css";
 import { useBrowserOccluder } from "@/hooks/useBrowserOccluder";
 import { useWindowLabel } from "@/contexts/WindowContext";
+import { resolveCommandContext } from "@/services/commands/commandContext";
 
 /**
  * Run a command without swallowing its errors. Awaits the result and
@@ -34,7 +35,10 @@ import { useWindowLabel } from "@/contexts/WindowContext";
  */
 async function runCommand(id: string, windowLabel: string): Promise<void> {
   try {
-    await executeCommand(id, null, { windowLabel });
+    // Supply the resolved command context (WI-2.1): editor commands' `when` /
+    // execution need mode, document, selection, node context — not just the
+    // window label. Existing window-scoped commands still read `ctx.windowLabel`.
+    await executeCommand(id, null, resolveCommandContext(windowLabel));
   } catch (err) {
     menuError(`Command ${id} threw:`, err);
   }
@@ -55,7 +59,7 @@ export function CommandPalette() {
   const previousFocusRef = useRef<Element | null>(null);
 
   const ranked: RankedCommand[] = useMemo(
-    () => (isOpen ? searchCommands(query, { windowLabel }) : []),
+    () => (isOpen ? searchCommands(query, resolveCommandContext(windowLabel)) : []),
     [isOpen, query, windowLabel],
   );
 
