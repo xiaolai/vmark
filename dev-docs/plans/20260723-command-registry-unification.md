@@ -188,6 +188,18 @@ source-only, wysiwyg-only, no-editor} asserts the expected availability;
 
 ## Phase 2b — Read-only (NEW behavior, separate WI)
 
+**Status: ✅ COMPLETE (2026-07-24)** — `pnpm check:all` green; audit-fixed (Codex).
+`resolveCommandContext` resolves two-part effective read-only (mirrors
+`SourcePane`: `document.readOnly` OR `format.readOnlyDefault && !tab.editingEnabled`).
+**Audit correction:** read-only is enforced in `isActionExecutable` (the EXECUTOR
+gate), not merely hidden in the palette — undo/redo bypass the editor via unified
+history and programmatic dispatch isn't reliably blocked by a read-only editor, so
+menu shortcuts must be refused too. The executor's deferred (IME/retry) boundary
+re-validates read-only (`isWindowReadOnly`) so a mutation can't land after the doc
+became read-only. Non-mutating selection/navigation actions stay executable. The
+WI-1A.14 cross-format matrix undo/redo assertions are now read-only-aware
+(blocked on `readOnlyDefault`/viewer formats — a correct behavior change).
+
 The menu has **no** read-only gate today, so this is not extraction — it is new
 behavior for the palette's `when()`, and must be test-first and precise.
 

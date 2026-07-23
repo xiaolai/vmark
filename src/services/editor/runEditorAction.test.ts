@@ -24,6 +24,7 @@ const ime = vi.hoisted(() => ({
 }));
 const ui = vi.hoisted(() => ({ sourceMode: false }));
 const lfs = vi.hoisted(() => ({ forced: new Set<string>() }));
+const docs = vi.hoisted(() => ({ readOnly: false }));
 const fmt = vi.hoisted(() => ({
   policy: { paragraphFormatting: true, insertBlockActions: true, cjkFormatActions: true },
 }));
@@ -54,6 +55,7 @@ vi.mock("@/stores/documentStore", () => ({
   useLargeFileSessionStore: {
     getState: () => ({ isForcedSource: (id: string) => lfs.forced.has(id) }),
   },
+  useDocumentStore: { getState: () => ({ documents: { "tab-a": { readOnly: docs.readOnly } } }) },
 }));
 
 vi.mock("@/lib/formats/registry", () => ({
@@ -79,6 +81,7 @@ vi.mock("@/plugins/actions/actionRegistry", () => ({
     paragraph: { id: "paragraph", label: "Paragraph", category: "formatting", supports: { wysiwyg: true, source: true } },
     wysiwygOnly: { id: "wysiwygOnly", label: "W", category: "formatting", supports: { wysiwyg: true, source: false } },
     sourceOnly: { id: "sourceOnly", label: "S", category: "formatting", supports: { wysiwyg: false, source: true } },
+    selectWord: { id: "selectWord", label: "Select Word", category: "selection", supports: { wysiwyg: true, source: true } },
   },
   getHeadingLevelFromParams: (params?: { level?: number }) => params?.level ?? 1,
 }));
@@ -144,6 +147,7 @@ beforeEach(() => {
   ime.cmQueue.length = 0;
   ui.sourceMode = false;
   lfs.forced.clear();
+  docs.readOnly = false;
   fmt.policy = { paragraphFormatting: true, insertBlockActions: true, cjkFormatActions: true };
   editors.wysiwyg = { view: VIEW };
   editors.source = VIEW;
@@ -294,6 +298,51 @@ describe("runEditorAction — source-mode parity", () => {
   it("does not dispatch when the source view is unavailable", () => {
     editors.source = null;
     runEditorAction("bold", { windowLabel: "main" });
+    expect(performSourceToolbarAction).not.toHaveBeenCalled();
+  });
+});
+
+describe("runEditorAction — read-only enforcement (Phase 2b)", () => {
+  it("refuses a mutating action on a read-only document (menu path)", () => {
+    docs.readOnly = true;
+    runEditorAction("bold", { windowLabel: "main" });
+    expect(performWysiwygToolbarAction).not.toHaveBeenCalled();
+  });
+
+  it("refuses undo on a read-only document (bypasses the editor via history)", () => {
+    docs.readOnly = true;
+    runEditorAction("undo", { windowLabel: "main" });
+    expect(performUnifiedUndo).not.toHaveBeenCalled();
+  });
+
+  it("still runs a non-mutating selection action on a read-only document", () => {
+    docs.readOnly = true;
+    runEditorAction("selectWord" as ActionId, { windowLabel: "main" });
+    expect(performWysiwygToolbarAction).toHaveBeenCalledWith("selectWord", expect.anything());
+  });
+
+  it("DROPS a queued mutating action if the document became read-only before flush", () => {
+    ime.pmComposing = true;
+    runEditorAction("bold", { windowLabel: "main" }); // editable at capture
+    docs.readOnly = true; // toggled read-only during composition
+    flushPm();
+    expect(performWysiwygToolbarAction).not.toHaveBeenCalled();
+  });
+
+  it("KEEPS a queued NON-mutating action even if the document became read-only", () => {
+    ime.pmComposing = true;
+    runEditorAction("selectWord" as ActionId, { windowLabel: "main" });
+    docs.readOnly = true; // read-only does not gate selection/navigation
+    flushPm();
+    expect(performWysiwygToolbarAction).toHaveBeenCalledWith("selectWord", expect.anything());
+  });
+
+  it("DROPS a queued Source mutating action if the document became read-only", () => {
+    ui.sourceMode = true;
+    ime.cmComposing = true;
+    runEditorAction("bold", { windowLabel: "main" });
+    docs.readOnly = true;
+    flushCm();
     expect(performSourceToolbarAction).not.toHaveBeenCalled();
   });
 });

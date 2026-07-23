@@ -16,6 +16,7 @@ const ed = vi.hoisted(() => ({
   sourceContext: null as Record<string, unknown> | null,
 }));
 const ms = vi.hoisted(() => ({ enabled: false }));
+const ro = vi.hoisted(() => ({ docReadOnly: false, formatReadOnlyDefault: false, docPresent: true }));
 
 vi.mock("@/stores/uiStore", () => {
   const useUIStore = (sel?: (s: { sourceMode: boolean }) => unknown) =>
@@ -25,6 +26,12 @@ vi.mock("@/stores/uiStore", () => {
 });
 vi.mock("@/stores/documentStore", () => ({
   useLargeFileSessionStore: { getState: () => ({ isForcedSource: (id: string) => lfs.forced.has(id) }) },
+  useDocumentStore: {
+    getState: () => ({ documents: ro.docPresent ? { t1: { readOnly: ro.docReadOnly } } : {} }),
+  },
+}));
+vi.mock("@/lib/formats/registry", () => ({
+  getFormatById: () => ({ adapters: { readOnlyDefault: ro.formatReadOnlyDefault } }),
 }));
 vi.mock("@/stores/editorStore", () => ({
   useEditorStore: {
@@ -56,7 +63,55 @@ beforeEach(() => {
   ed.tiptapContext = null;
   ed.sourceContext = null;
   ms.enabled = false;
+  ro.docReadOnly = false;
+  ro.formatReadOnlyDefault = false;
+  ro.docPresent = true;
   useTabStore.setState({ tabs: { main: [docTab("t1")] }, activeTabId: { main: "t1" } });
+});
+
+describe("resolveCommandContext — read-only (Phase 2b)", () => {
+  it("is not read-only by default", () => {
+    expect(resolveCommandContext("main").readOnly).toBe(false);
+  });
+
+  it("is read-only when the document itself is read-only", () => {
+    ro.docReadOnly = true;
+    expect(resolveCommandContext("main").readOnly).toBe(true);
+  });
+
+  it("is read-only when the format defaults read-only and editing is not enabled", () => {
+    ro.formatReadOnlyDefault = true;
+    expect(resolveCommandContext("main").readOnly).toBe(true);
+  });
+
+  it("is NOT read-only when the per-tab editingEnabled override is set", () => {
+    ro.formatReadOnlyDefault = true;
+    useTabStore.setState({
+      tabs: { main: [{ ...docTab("t1"), editingEnabled: true } as unknown as Tab] },
+      activeTabId: { main: "t1" },
+    });
+    expect(resolveCommandContext("main").readOnly).toBe(false);
+  });
+
+  it("document read-only WINS over editingEnabled (the OR's first term)", () => {
+    ro.docReadOnly = true;
+    ro.formatReadOnlyDefault = true;
+    useTabStore.setState({
+      tabs: { main: [{ ...docTab("t1"), editingEnabled: true } as unknown as Tab] },
+      activeTabId: { main: "t1" },
+    });
+    expect(resolveCommandContext("main").readOnly).toBe(true);
+  });
+
+  it("is not read-only when the document tab has no documents-store record", () => {
+    ro.docPresent = false; // active document tab, but documents[t1] absent
+    expect(resolveCommandContext("main").readOnly).toBe(false);
+  });
+
+  it("is not read-only when there is no document tab", () => {
+    useTabStore.setState({ tabs: { main: [] }, activeTabId: { main: null } });
+    expect(resolveCommandContext("main").readOnly).toBe(false);
+  });
 });
 
 describe("resolveCommandContext", () => {

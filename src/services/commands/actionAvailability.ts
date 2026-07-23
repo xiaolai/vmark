@@ -144,16 +144,22 @@ function hasNode(ctx: CommandContextResolved, axis: NodeAxis): boolean {
 }
 
 /**
- * The executor's correctness gate: live document + mode capability + format
- * policy. NO editor-mounted check (the retry handles that) and NO node/selection
- * check (the adapters no-op those). This is the single source the executor and
- * the palette availability both build on.
+ * The executor's correctness gate: live document + mode capability + read-only +
+ * format policy. NO editor-mounted check (the retry handles that) and NO
+ * node/selection check (the adapters no-op those). This is the single source the
+ * executor and the palette availability both build on.
+ *
+ * Read-only IS enforced here, not just hidden in the palette: mutating actions
+ * must be refused for the MENU path too, and undo/redo bypass the editor entirely
+ * (unified history), so the read-only editor is not a sufficient boundary for
+ * them (Phase 2b). Non-mutating selection/navigation actions stay executable.
  */
 export function isActionExecutable(id: ActionId, ctx: CommandContextResolved): boolean {
   if (!ctx.isDocument) return false;
   const def = ACTION_DEFINITIONS[id];
   if (!def) return false;
   if (ctx.mode === "source" ? !def.supports.source : !def.supports.wysiwyg) return false;
+  if (ctx.readOnly && mutatesDocument(id)) return false;
   return isCategoryAllowedByFormat(def.category, ctx.formatId);
 }
 
@@ -163,6 +169,7 @@ export function isActionExecutable(id: ActionId, ctx: CommandContextResolved): b
  * selection requirements.
  */
 export function actionAvailability(id: ActionId, ctx: CommandContextResolved): boolean {
+  // isActionExecutable already refuses mutating actions under read-only (Phase 2b).
   if (!isActionExecutable(id, ctx)) return false;
   if (!ctx.editorAvailable) return false;
 

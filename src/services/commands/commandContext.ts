@@ -8,8 +8,8 @@
  *   so one availability predicate can serve both the Command Palette (what to
  *   show + enable) and `runEditorAction` (what to allow at execution time).
  *
- * Read-only + `mutatesDocument` gating is intentionally NOT here — that is
- * Phase 2b. This resolver is the discoverability/context layer only.
+ * Two-part effective read-only (Phase 2b) is resolved here; the `mutatesDocument`
+ * gating that consumes it lives in `actionAvailability`.
  *
  * @coordinates-with actionAvailability.ts — the predicate over this context
  * @coordinates-with editor/editorActionGates.ts — effective-surface resolution
@@ -19,6 +19,8 @@
 import { useTabStore } from "@/stores/tabStore";
 import type { Tab } from "@/stores/tabStoreTypes";
 import { useEditorStore } from "@/stores/editorStore";
+import { useDocumentStore } from "@/stores/documentStore";
+import { getFormatById } from "@/lib/formats/registry";
 import { isEffectiveSourceMode } from "@/services/editor/editorActionGates";
 import {
   getSourceMultiSelectionContext,
@@ -42,6 +44,8 @@ export interface CommandContextResolved extends CommandContext {
   formatId: string | null;
   /** True when the editor for the effective surface is mounted. */
   editorAvailable: boolean;
+  /** True when the active document is read-only (mutating actions are hidden). */
+  readOnly: boolean;
   hasSelection: boolean;
   multiSelection: boolean;
   inTable: boolean;
@@ -64,6 +68,30 @@ type CursorAxes = {
 } | null;
 
 /**
+ * Two-part effective read-only, mirroring `SourcePane`: the document's own
+ * `readOnly` flag OR (the format's `readOnlyDefault` AND no per-tab
+ * `editingEnabled` override).
+ */
+function resolveReadOnly(tab: Tab, formatId: string | null): boolean {
+  if (tab.kind !== "document") return false;
+  if (useDocumentStore.getState().documents?.[tab.id]?.readOnly) return true;
+  const formatConfig = formatId ? getFormatById(formatId) : undefined;
+  return Boolean(formatConfig?.adapters.readOnlyDefault) && !tab.editingEnabled;
+}
+
+/**
+ * Whether the active document tab of a window is currently read-only. The
+ * executor re-checks this at its deferred (IME/retry) boundary so a mutation can
+ * never land after the document became read-only underneath it.
+ */
+export function isWindowReadOnly(windowLabel: string): boolean {
+  const tabStore = useTabStore.getState();
+  const tabId = tabStore.activeTabId[windowLabel] ?? null;
+  const tab = tabId ? tabStore.findTabById(tabId) : null;
+  return tab?.kind === "document" ? resolveReadOnly(tab, tab.formatId) : false;
+}
+
+/**
  * Resolve the current command context for a window. Pure read of stores; safe to
  * call on every palette keystroke.
  */
@@ -73,6 +101,7 @@ export function resolveCommandContext(windowLabel: string): CommandContextResolv
   const tab: Tab | null = activeTabId ? tabStore.findTabById(activeTabId) : null;
   const isDocument = tab?.kind === "document";
   const formatId = isDocument ? tab.formatId : null;
+  const readOnly = tab ? resolveReadOnly(tab, formatId) : false;
 
   const mode: EditingSurface = isEffectiveSourceMode(windowLabel) ? "source" : "wysiwyg";
   const editorState = useEditorStore.getState();
@@ -101,6 +130,7 @@ export function resolveCommandContext(windowLabel: string): CommandContextResolv
     isDocument,
     formatId,
     editorAvailable,
+    readOnly,
     hasSelection: cursor?.hasSelection ?? false,
     multiSelection,
     inTable: !!cursor?.inTable,
