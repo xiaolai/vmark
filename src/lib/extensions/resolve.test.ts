@@ -5,7 +5,7 @@
  */
 import { describe, it, expect } from "vitest";
 import { resolveExtensions } from "./resolve";
-import type { ExtensionGroup, VMarkExtension } from "./types";
+import type { ExtensionGroup, Prec, VMarkExtension } from "./types";
 
 function ext(
   id: string,
@@ -150,6 +150,64 @@ describe("resolveExtensions", () => {
           ext("second", { ordering: { bucket: "high" } }),
         ]),
       ).toEqual(["first", "second"]);
+    });
+
+    it("restores registration order when a dependency releases a lower-index node late", () => {
+      // `early` (registered first, index 0) is gated behind `gate`, so it only
+      // enters the ready set AFTER `late` (registered last, index 2, ungated)
+      // is already queued. The tie-break must actively re-sort the ready set by
+      // registration index — not ride the order nodes happened to be released
+      // in. Without an index-aware comparator the output would be
+      // ["gate", "late", "early"].
+      expect(
+        ids([
+          ext("early", { ordering: { after: ["gate"] } }),
+          ext("gate"),
+          ext("late"),
+        ]),
+      ).toEqual(["gate", "early", "late"]);
+    });
+
+    it("treats an unknown bucket name as default, not as rank -1", () => {
+      // A bucket outside PREC_ORDER must fall back to the `default` rank.
+      // Returning the raw `indexOf` result (-1) would sort it ahead of every
+      // real bucket, silently promoting a typo'd bucket to highest priority.
+      expect(
+        ids([
+          ext("hi", { ordering: { bucket: "high" } }),
+          ext("weird", { ordering: { bucket: "nonsense" as Prec } }),
+          ext("lo", { ordering: { bucket: "low" } }),
+        ]),
+      ).toEqual(["hi", "weird", "lo"]);
+    });
+  });
+
+  describe("edge construction", () => {
+    it("waits for every dependency before a node becomes ready", () => {
+      // `c` requires BOTH `a` and `b`; it must not be scheduled until both are
+      // done. Scheduling it as soon as the first dependency resolves would let
+      // `c` precede `b` in the output.
+      const result = resolveExtensions([
+        ext("c", { requires: ["a", "b"] }),
+        ext("a"),
+        ext("b"),
+      ]);
+      expect(result.errors).toEqual([]);
+      const order = result.ordered.map((e) => e.id);
+      expect(order.indexOf("c")).toBeGreaterThan(order.indexOf("a"));
+      expect(order.indexOf("c")).toBeGreaterThan(order.indexOf("b"));
+    });
+
+    it("deduplicates an edge declared twice (requires + after) without inflating indegree", () => {
+      // `b` declares the same a→b edge via BOTH `requires` and `after`. The
+      // dedup guard must count it once; otherwise b's indegree never reaches
+      // zero and b is falsely reported as an unresolved cycle.
+      const result = resolveExtensions([
+        ext("a"),
+        ext("b", { requires: ["a"], ordering: { after: ["a"] } }),
+      ]);
+      expect(result.errors).toEqual([]);
+      expect(result.ordered.map((e) => e.id)).toEqual(["a", "b"]);
     });
   });
 
