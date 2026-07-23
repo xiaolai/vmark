@@ -2,7 +2,9 @@
 
 ## Active Docs (tracked in git)
 
-- `dev-docs/architecture.md`: system architecture overview — C4 diagram, entry points, data flows, module map.
+- `dev-docs/architecture.md`: system architecture overview — C4 diagram, entry points, data flows, module map. **Hand-authored (drifts) — cross-check against the computed graph/metrics below.**
+- `dev-docs/architecture-graph.md`: **computed** `src/<top-level>` dependency graph (mermaid), generated from the real import graph by dependency-cruiser. Regenerate with `pnpm arch:graph`. Ground truth when it disagrees with the hand-drawn C4 map.
+- `dev-docs/architecture-metrics.md`: **computed** coupling/instability per folder + the top-30 most-coupled modules (the god-module watch list). Confirms ADR-013 tiers hold (`utils` I=1%, `stores` I=11% = stable core; `components`/`hooks`/`pages` = unstable leaves). Regenerate with `pnpm arch:metrics`.
 - `dev-docs/design-system.md`: design tokens, components, patterns (single source of truth).
 - `dev-docs/css-reference.md`: visual QA reference document for CSS changes.
 - `dev-docs/cjk-gotchas.md`: CJK formatter pitfalls — things that will bite you if you're not careful.
