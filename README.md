@@ -8,7 +8,7 @@ Free. Local-first. Format-aware.
   <img src="website/public/screenshots/ai-workflow.png" alt="VMark AI Integration - Claude Code, Claude Desktop, and VMark" width="800">
 </p>
 
-VMark is the plain-text workspace where humans and AI collaborate. Both parties read and write the same artifacts — markdown, YAML, JSON, TOML, Mermaid, SVG, HTML, code — directly, with no translation layer. When the file is a known artifact (GitHub Actions workflow, `Cargo.toml`, `package.json`, `pyproject.toml`), VMark renders the *right* view, not a generic JSON tree.
+VMark is the plain-text workspace where humans and AI collaborate. Both parties read and write the same artifacts — Markdown, YAML, JSON, TOML, Mermaid, SVG, HTML, code — directly, with no translation layer. When the file is a known artifact (GitHub Actions workflow, `Cargo.toml`, `package.json`, `pyproject.toml`), VMark renders the *right* view, not a generic JSON tree.
 
 **[Download](https://github.com/xiaolai/vmark/releases)** · **[Documentation](https://vmark.app/guide/)** · **[Formats](https://vmark.app/guide/formats)** · **[Features](https://vmark.app/guide/features)**
 
@@ -17,7 +17,7 @@ VMark is the plain-text workspace where humans and AI collaborate. Both parties 
 ## Highlights
 
 - **Multi-Format** — Markdown (WYSIWYG + source), JSON / JSONL, YAML, TOML, Mermaid, SVG, HTML (sandboxed), plain text. Code files (.ts, .py, .rs, .go, .css, …) open as syntax-highlighted viewers; toggle to edit in place or open in your `$EDITOR`.
-- **Schema-Aware Previews** — `.github/workflows/ci.yml` opens with a workflow-graph view. `Cargo.toml` and `package.json` and `pyproject.toml` open with a dependency-tree view. Generic JSON / YAML / TOML get a navigable tree.
+- **Schema-Aware Previews** — `.github/workflows/ci.yml` opens with a workflow-graph view. `Cargo.toml`, `package.json`, and `pyproject.toml` open with a dependency-tree view. Generic JSON / YAML / TOML get a navigable tree.
 - **AI-Native** — MCP integration for Claude Desktop, Claude Code, Codex CLI, Gemini CLI. AI Genies for inline writing assistance. Both you and the AI work on the same plain-text files.
 - **Three Markdown Modes** — WYSIWYG (Tiptap/ProseMirror), Source Peek (`F5`), Source Mode (`F6`, CodeMirror 6)
 - **Multi-Cursor** — `Mod + D` to select next match, `Alt + Click` to add cursors, `Mod + Alt + ↑↓` for vertical cursors
