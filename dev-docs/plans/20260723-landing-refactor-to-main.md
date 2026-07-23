@@ -1,5 +1,24 @@
 # Landing `refactor/vmark-core` to `main` — Phased Plan
 
+> **⛔ SUPERSEDED (2026-07-23) — no release train.** Decision: the refactoring is
+> developed **locally, with no releases**, and **parks on `refactor/vmark-core`**
+> indefinitely; `main` is not touched until a separate, explicit decision. The
+> versioned train (`v0.9.8`→`v0.10.0`), the reconstruct-into-releasable-slices
+> apparatus, per-phase version bumps, and `v*` tags below are all **cancelled**.
+>
+> The strategy is now **local sequential-branch integration** (see
+> [`landing/local-integration-strategy.md`](landing/local-integration-strategy.md)):
+> each refactoring unit is a short-lived branch off `refactor/vmark-core`, made
+> green under `pnpm check:all`, merged back `--no-ff`, then the next. The
+> extension re-architecture is code-complete and parked; the next development unit
+> is the **command-registry unification**
+> (`20260723-command-registry-unification.md`).
+>
+> What remains **useful** below (history-of-record): Phase 0's differential
+> harness (`scripts/landing-differential.sh`), the manifest, and the equivalence
+> findings — a reusable regression net, not a release procedure. Ignore every
+> version/tag/release-gate instruction.
+
 **Status:** **Phase 0 COMPLETE** (2026-07-23) — findings in `landing/phase-0-findings.md`,
 manifest in `landing/WI-0.1-manifest.md`, harness `scripts/landing-differential.sh`. Two
 Codex passes folded before Phase 0 (RETHINK → NEEDS AMENDMENT). **Headline result: the
