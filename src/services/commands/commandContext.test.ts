@@ -153,6 +153,16 @@ describe("resolveCommandContext", () => {
     expect(c.inTable || c.inLink || c.inList || c.inBlockquote || c.inCodeBlock || c.inHeading).toBe(false);
   });
 
+  it("flattens all axes to false for a mounted Source view with a null context", () => {
+    ui.sourceMode = true;
+    ed.source = VIEW; // mounted
+    ed.sourceContext = null;
+    const c = resolveCommandContext("main");
+    expect(c.editorAvailable).toBe(true);
+    expect(c.hasSelection).toBe(false);
+    expect(c.inTable || c.inLink || c.inList || c.inBlockquote || c.inCodeBlock || c.inHeading).toBe(false);
+  });
+
   it("Source-mode multiSelection is false when no source view is mounted", () => {
     ui.sourceMode = true;
     ms.enabled = true;
