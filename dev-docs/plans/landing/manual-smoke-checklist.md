@@ -6,6 +6,12 @@ completed run of this checklist before tagging.** Run against a debug build
 (`pnpm tauri:dev`); non-AI UI/plumbing uses the Tauri MCP (`mcp__tauri__*`, port 9323) per
 `dev-docs/e2e-testing.md`. Record: release, tester, date, pass/fail per row.
 
+> **Run `pnpm tauri:dev` from the branch checkout/worktree being tested** — launching it
+> from `main` (reset to `v0.9.7`) runs the *old* code, so the app under test is not the
+> branch. Verify with `lsof -a -p $(pgrep -f "pnpm tauri dev") -d cwd` if a result looks
+> impossibly wrong (e.g. D1-D4 "still broken"). Many rows below are covered automatically by
+> `pnpm e2e:journeys` — run that first.
+
 Scope is the subsystems the refactor actually touched (Phase 0 footprint), not the whole app.
 
 | # | Area | Check | Touched by | Pass |
@@ -24,7 +30,7 @@ Scope is the subsystems the refactor actually touched (Phase 0 footprint), not t
 | 12 | Terminal | Open terminal, type, IME commit (CJK) — no duplication; `terminalGate` intact | service-tier | ☐ |
 | 13 | MCP workspace | `open_workspace`-style flow works against the built sidecar | service-tier (MCP bridge) | ☐ |
 | 14 | Non-markdown formats | Open a YAML/JSON/SVG/TOML/plain file — correct adapter, no crash | format dispatch | ☐ |
-| 15 | Round-trip spot-check | Open a real D1–D4-affected doc (media alt, titled link, nested highlight, escaped `^`); save; reopen — no data loss | D1–D4 | ☐ |
+| 15 | Round-trip spot-check | **Automated** — `pnpm e2e:journeys` includes `d1-d4-roundtrip-preserved` (media alt / link title / nested highlight / escaped `^` set in WYSIWYG → Source serializer → all four preserved in the live app). Run the journey suite against a debug build; only spot-check manually if it can't run. | D1–D4 | ☐ |
 
 **Release-specific:** a release only needs the rows its slice touches (the "Touched by"
 column). The `v0.10.0` nucleus release runs the **full** list. Attach the completed table to
