@@ -229,27 +229,45 @@ export function resolveExtensions(group: ExtensionGroup): Resolution {
 /**
  * Extract one closed cycle from the stuck subgraph.
  *
- * Every node in `stuck` has an in-edge from within `stuck` (that is why Kahn's
- * algorithm could not remove it), so following stuck-only edges from any member
- * must eventually revisit a node — the segment from that revisit is a real
- * cycle. Returns just the cycle members, in order.
+ * A naive "walk until you revisit" can dead-end: a node that merely depends on a
+ * cycle is also stuck but has no outgoing stuck-edge, so walking from it returns
+ * a non-cycle tail. This uses DFS with a recursion stack instead — a cycle is
+ * found only at a back-edge into a node currently on the stack, so the returned
+ * path is always a genuine closed cycle regardless of where the search starts.
+ * Node counts are tiny, so recursion depth is not a concern.
  */
 function findCycle(
   stuck: ReadonlySet<ExtensionId>,
   edges: ReadonlyMap<ExtensionId, ReadonlySet<ExtensionId>>,
 ): ExtensionId[] {
-  const start = [...stuck][0];
-  if (start === undefined) return [];
+  const visited = new Set<ExtensionId>();
+  const onStack = new Set<ExtensionId>();
+  const stack: ExtensionId[] = [];
 
-  const path: ExtensionId[] = [];
-  const seen = new Set<ExtensionId>();
-  let current: ExtensionId | undefined = start;
-  while (current !== undefined && !seen.has(current)) {
-    seen.add(current);
-    path.push(current);
-    current = [...(edges.get(current) ?? [])].find((id) => stuck.has(id));
+  const dfs = (node: ExtensionId): ExtensionId[] | null => {
+    visited.add(node);
+    onStack.add(node);
+    stack.push(node);
+    for (const next of edges.get(node) ?? []) {
+      if (!stuck.has(next)) continue;
+      if (onStack.has(next)) {
+        return stack.slice(stack.indexOf(next)); // back-edge → real cycle
+      }
+      if (!visited.has(next)) {
+        const found = dfs(next);
+        if (found !== null) return found;
+      }
+    }
+    onStack.delete(node);
+    stack.pop();
+    return null;
+  };
+
+  for (const start of stuck) {
+    if (!visited.has(start)) {
+      const found = dfs(start);
+      if (found !== null) return found;
+    }
   }
-  // `current` is the first repeated node; the cycle is the path from it onward.
-  if (current === undefined) return path; // defensive; unreachable in a stuck set
-  return path.slice(path.indexOf(current));
+  return [...stuck]; // defensive; a stuck set always contains a cycle
 }

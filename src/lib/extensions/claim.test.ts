@@ -244,6 +244,32 @@ describe("resolveClaim", () => {
       expect(result.failures.map((f) => f.extensionId)).toContain("vmark.bad");
     });
 
+    it("rejects a claim missing its value", () => {
+      const result = resolveClaim(
+        [recognizer("vmark.novalue", "image", () => ({ strength: "exact", reason: "x" }) as never)],
+        IMAGE,
+        "image",
+      );
+      expect(result.winner).toBeNull();
+      expect(result.failures).toHaveLength(1);
+    });
+
+    it("rejects a claim with a non-string reason", () => {
+      const result = resolveClaim(
+        [
+          recognizer(
+            "vmark.badreason",
+            "image",
+            () => ({ strength: "exact", value: "x", reason: 42 }) as never,
+          ),
+        ],
+        IMAGE,
+        "image",
+      );
+      expect(result.winner).toBeNull();
+      expect(result.failures).toHaveLength(1);
+    });
+
     it("rejects a claim with an unknown strength", () => {
       const result = resolveClaim(
         [
