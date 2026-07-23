@@ -189,6 +189,7 @@
     "dependency-cruiser": "^18.1.0",
     "eslint": "^10.7.0",
     "eslint-plugin-react-hooks": "^7.1.1",
+    "fast-check": "^4.9.0",
     "globals": "^17.7.0",
     "jscpd": "^5.0.12",
     "jsdom": "^29.1.1",
