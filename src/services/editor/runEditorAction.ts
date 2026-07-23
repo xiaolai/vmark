@@ -18,9 +18,9 @@
  *   fired. The origin is captured BEFORE the first dispatch and re-validated at
  *   every deferred boundary — each retry AND the IME-queued callback (run later
  *   on `compositionend`). A deferred action is dropped if the tab changed, the
- *   effective surface flipped, the target editor/view remounted, or the window's
- *   owner was disposed — so it can never mutate a stale, hidden, or torn-down
- *   editor.
+ *   effective surface flipped, the target editor/view remounted, the window's
+ *   owner was disposed, or (for a mutating action) the document became read-only
+ *   — so it can never mutate a stale, hidden, torn-down, or read-only editor.
  *
  * @coordinates-with commands/commandContext.ts — the resolved gate context
  * @coordinates-with commands/actionAvailability.ts — isActionExecutable gate
