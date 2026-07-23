@@ -22,7 +22,9 @@
  *   owner was disposed — so it can never mutate a stale, hidden, or torn-down
  *   editor.
  *
- * @coordinates-with editorActionGates.ts — format/capability/mode resolution
+ * @coordinates-with commands/commandContext.ts — the resolved gate context
+ * @coordinates-with commands/actionAvailability.ts — isActionExecutable gate
+ * @coordinates-with editorActionGates.ts — effective-surface + adapter-name map
  * @coordinates-with editorActionOwner.ts — the per-window retry owner
  * @coordinates-with wysiwygAdapter.ts / sourceAdapter.ts — execute the action
  * @coordinates-with services/history/unifiedHistory.ts — cross-mode undo/redo
