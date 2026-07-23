@@ -102,27 +102,61 @@ describe("resolveCommandContext", () => {
     expect(resolveCommandContext("main").editorAvailable).toBe(false);
   });
 
-  it("normalises the WYSIWYG cursor context (optional-truthy shape) to booleans", () => {
-    ed.tiptapContext = { hasSelection: true, inTable: { row: 0 }, inLink: { href: "x" } };
+  it("normalises EVERY axis of the WYSIWYG cursor context (optional-truthy shape)", () => {
+    ed.tiptapContext = {
+      hasSelection: true,
+      inTable: { row: 0 },
+      inLink: { href: "x" },
+      inBlockquote: { depth: 1 },
+      inHeading: { level: 2 },
+      // inList, inCodeBlock intentionally absent → false
+    };
     const c = resolveCommandContext("main");
-    expect(c.hasSelection).toBe(true);
-    expect(c.inTable).toBe(true);
-    expect(c.inLink).toBe(true);
-    expect(c.inList).toBe(false);
+    expect(c).toMatchObject({
+      hasSelection: true,
+      inTable: true,
+      inLink: true,
+      inBlockquote: true,
+      inHeading: true,
+      inList: false,
+      inCodeBlock: false,
+    });
   });
 
-  it("normalises the Source cursor context (nullable shape) to booleans", () => {
+  it("normalises EVERY axis of the Source cursor context (nullable shape)", () => {
     ui.sourceMode = true;
-    ed.sourceContext = { hasSelection: false, inTable: { nodePos: 1 }, inLink: null, inList: { depth: 1 } };
+    ed.sourceContext = {
+      hasSelection: false,
+      inTable: { nodePos: 1 },
+      inLink: null,
+      inList: { depth: 1 },
+      inCodeBlock: { from: 0, to: 5 },
+      inBlockquote: null,
+      inHeading: null,
+    };
+    const c = resolveCommandContext("main");
+    expect(c).toMatchObject({
+      hasSelection: false,
+      inTable: true,
+      inLink: false,
+      inList: true,
+      inCodeBlock: true,
+      inBlockquote: false,
+      inHeading: false,
+    });
+  });
+
+  it("all axes are false when the cursor context is null", () => {
+    ed.tiptapContext = null;
     const c = resolveCommandContext("main");
     expect(c.hasSelection).toBe(false);
-    expect(c.inTable).toBe(true);
-    expect(c.inLink).toBe(false);
-    expect(c.inList).toBe(true);
+    expect(c.inTable || c.inLink || c.inList || c.inBlockquote || c.inCodeBlock || c.inHeading).toBe(false);
   });
 
-  it("reports multiSelection from the helper", () => {
+  it("reports multiSelection from the helper, and false when no editor is mounted", () => {
     ms.enabled = true;
     expect(resolveCommandContext("main").multiSelection).toBe(true);
+    ed.wysiwyg = null; // no mounted editor → the helper is not consulted
+    expect(resolveCommandContext("main").multiSelection).toBe(false);
   });
 });
