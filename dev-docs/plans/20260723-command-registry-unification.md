@@ -18,6 +18,55 @@ Goal: the Command Palette finds and correctly runs every editing action, and the
 editing actions reach the CommandBus through a **shared high-level executor
 extracted from the menu** — not through the lower-level `dispatchEditorAction`.
 
+## Decisions settled (cross-model, 2026-07-23)
+
+A third Codex pass (rule 60 §6) settled the two open scope questions; both models
+concur.
+
+- **Surface scope = palette-only (confirmed).** The extracted executor is
+  immediately adopted by BOTH the native menu and the palette, so it is not an
+  unadopted foundation (ADR-015 D6 satisfied). Routing keyboard shortcuts through
+  the bus is a **separate** migration (precedence, held keys, event suppression,
+  overlap across native-menu accelerators / React handlers / Tiptap + CodeMirror
+  keymaps) and becomes the **next consumer branch** with its own collision / held-
+  key / IME / modal-focus inventory. The ADR keeps saying "single **palette**
+  surface", not "single command surface".
+- **Localization = English-with-the-bridge; other 9 locales + grouping/a11y in a
+  mandatory fast-follow branch.** Because this branch is parked and unreleased,
+  users never see intermediate states, so the "no phase ships raw ids" rule does
+  not justify coupling ~800 translated strings + a palette-render redesign to the
+  semantic bridge. English keys prove the machinery. **Binding conditions:**
+  (a) English keys land no later than bridge registration; (b) non-English locales
+  fall back to **English, never to raw command ids**; (c) the follow-on is
+  **mandatory before this unit is declared complete** — not demoted to backlog;
+  (d) grouping + a11y acceptance gates live in that follow-on, not dropped.
+  Phase 4 below splits accordingly: 4.1-English is in-unit; 4.1-other-locales /
+  4.2 / 4.3 are the fast-follow.
+
+## Phase 1 hardening (cross-model, 2026-07-23) — fold into the WIs/DoD below
+
+1. **Capture ownership BEFORE the first dispatch, not after it fails.** Today
+   `dispatchWithRetry` captures `originTabId` only once the immediate attempt
+   fails, so that first attempt is unvalidated. Capture
+   `{ windowLabel, tabId, effectiveSurface, editor/view identity }` up front,
+   before undo/redo or editor dispatch (sharpens WI-1.1).
+2. **Revalidate ownership at the final mutation boundary** — inside the queued
+   ProseMirror/CodeMirror callback (IME runs it later), in addition to before
+   every immediate attempt and retry (sharpens the WI-1.4 tab-ownership DoD).
+3. **The per-window owner belongs to the window/editor-host lifecycle**, not to
+   "menu caller" vs "bus caller"; both surfaces obtain the same owner and only
+   that window's disposal cancels its work (sharpens WI-1.3). Test two windows,
+   disposal during retry, disposal during IME composition, rapid repeated actions.
+4. **The executor is the execution-time correctness defense, not `when()`.**
+   Availability (Phase 2) governs *discoverability*; palette context can go stale
+   between search and Enter, and menu calls do not arrive with that context. So
+   `runEditorAction` must synchronously **re-resolve and enforce**
+   document/format/capability/surface/ownership at execution time — `when()` is
+   never the sole safety boundary.
+5. **Focus gate stays strictly at the native-menu boundary** (WI-1.2) — test both
+   directions: a palette command succeeds while `.quick-open` holds focus; a menu
+   accelerator is blocked under the same focus condition.
+
 ## Guiding constraint
 
 The palette and the menu must run an editing action **identically** — same
