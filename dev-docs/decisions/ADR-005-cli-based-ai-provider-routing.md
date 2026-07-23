@@ -1,6 +1,14 @@
 # ADR-005: CLI-Based AI Provider Routing
 
-> Status: **Accepted** | Date: 2026-01-10
+> Status: **Reversed in practice** (2026-07-22 audit,
+> `dev-docs/audit/20260722-adr-reality-audit.md`) — the option this ADR
+> explicitly **rejected** (Option 1: direct REST APIs with managed API keys) is
+> now fully implemented and shipping (`ai_provider/rest_api.rs`,
+> `ai_provider/rest_providers.rs`, `secure_store.rs`), so the load-bearing
+> "zero API key management" premise is false. CLI routing (Option 2) also ships;
+> the two coexist. The ADR was never amended when the reversal landed — that
+> process gap is the finding, more than the drift itself.
+> Original status: **Accepted** | Date: 2026-01-10
 
 ## Context
 
@@ -23,12 +31,12 @@ already have CLI tools installed and authenticated on their machines.
 
 ## Decision
 
-Chosen: **CLI-based routing** (`src-tauri/src/ai_provider.rs`), because it
+Chosen: **CLI-based routing** (`src-tauri/src/ai_provider/`, a module directory), because it
 leverages existing user authentication and avoids key management.
 
 Architecture:
 
-- `ai_provider.rs` detects available providers by checking CLI tool presence
+- `ai_provider/detection.rs` detects available providers by checking CLI tool presence
   and login status (e.g., `codex login status` exit code).
 - Prompts are executed via shell commands (`codex -p`, `claude -p`) with
   streamed stdout piped back to the frontend as Tauri events.

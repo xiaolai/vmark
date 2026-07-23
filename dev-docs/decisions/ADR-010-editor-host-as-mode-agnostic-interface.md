@@ -1,6 +1,12 @@
 # ADR-010: Editor host as mode-agnostic interface
 
-> Status: **Accepted (revised — first operations.ts landed)** | Date: 2026-05-24 | Spike: 2026-05-24
+> Status: **FALSE in practice** (2026-07-22 audit) — no `EditorHost` type
+> exists (it appears only in two prose comments), and even the revised fallback
+> gate ("`source*Popup` directories empty") fails: 7 such directories remain.
+> Only one `operations.ts` was ever landed. The cross-engine host interface was
+> the right thing to drop (a lowest-common-denominator API), but the ADR still
+> reads as Accepted-and-built.
+> Original status: **Accepted (revised — first operations.ts landed)** | Date: 2026-05-24 | Spike: 2026-05-24
 
 ## Context
 
