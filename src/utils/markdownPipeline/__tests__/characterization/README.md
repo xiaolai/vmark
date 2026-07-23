@@ -70,8 +70,8 @@ diff rather than passing unnoticed.
 |---|---|---|---|---|
 | ~~D1~~ | `14-media.md` | `![A short clip](clip.mp4)` | ✅ **FIXED** | `alt` added to `block_video`/`block_audio`; carried through promote + `tryMediaImageSyntax`. Golden re-approved |
 | ~~D2~~ | `16-inline-marks.md` | `[link with title](url "Title")` | ✅ **FIXED** | `title` added to the `Link` mark; captured on parse, emitted on serialize. Golden re-approved |
-| D3 | `16-inline-marks.md` | `==highlight with **bold**==` | `\==highlight with **bold**==` | The opening `==` is escaped when the highlight contains a nested mark — the highlight is **destroyed**, not merely reformatted |
-| D4 | `17-escaped-markers.md` | `x\^2\^` (literal) | `x^2^` (real superscript) | The escape is stripped, changing meaning on the next parse — the H7 bug class from `dev-docs/audit/20260612-full-improvement-audit.md` |
+| ~~D3~~ | `16-inline-marks.md` | `==highlight with **bold**==` | ✅ **FIXED** | The pair was split across sibling nodes by remark parsing `**bold**` first; a cross-node marker pass in `customInline.ts` (`parseMarksAcrossChildren`) now wraps split spans. Golden re-approved |
+| ~~D4~~ | `17-escaped-markers.md` | `x\^2\^` (literal) | ✅ **FIXED** | The serializer had no `unsafe` rule to re-escape a literal `^` (single-char marker), unlike `~`/`=`/`+`. Added one mirroring the `~` rule. Golden re-approved |
 
 D1 and D2 are silent data loss. D3 and D4 are silent semantic corruption: the
 output re-parses to a *different document* than the input. All four are

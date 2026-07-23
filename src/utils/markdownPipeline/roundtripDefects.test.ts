@@ -52,7 +52,7 @@ describe("round-trip defects", () => {
     });
   });
 
-  describe.todo("D3 — highlight with a nested mark must survive", () => {
+  describe("D3 — highlight with a nested mark must survive", () => {
     it("keeps a highlight wrapping bold", () => {
       const out = roundTrip("==highlight with **bold**==");
       // Must re-parse to the SAME document — the opening `==` must not be
@@ -64,6 +64,25 @@ describe("round-trip defects", () => {
 
     it("keeps a plain highlight", () => {
       expect(roundTrip("==just highlight==")).toBe("==just highlight==");
+    });
+  });
+
+  describe("D4 — escaped custom markers must stay literal", () => {
+    it("keeps escaped superscript markers literal (does not become a superscript)", () => {
+      const out = roundTrip("x\\^2\\^");
+      // Re-parsing the output must yield the SAME document — no real superscript.
+      expect(roundTrip(out)).toBe(out);
+      expect(out).not.toBe("x^2^");
+    });
+
+    it("keeps escaped subscript markers literal", () => {
+      const out = roundTrip("x\\~2\\~");
+      expect(roundTrip(out)).toBe(out);
+      expect(out).not.toBe("x~2~");
+    });
+
+    it("still round-trips a real superscript", () => {
+      expect(roundTrip("x^2^")).toBe("x^2^");
     });
   });
 });

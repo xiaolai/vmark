@@ -19,18 +19,8 @@
  * @module utils/markdownPipeline/plugins/customInline
  */
 
-import type { Root, PhrasingContent, Text } from "mdast";
+import type { Root, PhrasingContent } from "mdast";
 import type { Plugin } from "unified";
-import type {
-  Subscript,
-  Superscript,
-  Highlight,
-  Underline,
-} from "../types";
-
-interface FromMarkdownExtension {
-  transforms?: Array<(tree: Root) => void>;
-}
 
 interface ToMarkdownExtension {
   handlers?: Record<string, MarkHandler>;
@@ -62,23 +52,10 @@ interface MarkHandlerState {
   ) => string;
 }
 
-interface MarkDefinition {
-  readonly name: "highlight" | "underline" | "superscript" | "subscript";
-  readonly marker: string;
-  readonly markerLen: number;
-  readonly skipDouble?: boolean;
-}
-
-const SKIP_NODE_TYPES = new Set(["inlineCode", "code", "math", "inlineMath", "html", "yaml"]);
-
-const MARKS: readonly MarkDefinition[] = [
-  { name: "highlight", marker: "==", markerLen: 2 },
-  { name: "underline", marker: "++", markerLen: 2 },
-  { name: "superscript", marker: "^", markerLen: 1 },
-  { name: "subscript", marker: "~", markerLen: 1, skipDouble: true },
-];
-
-type MarkName = "subscript" | "superscript" | "highlight" | "underline";
+import {
+  customInlineFromMarkdown,
+  type FromMarkdownExtension,
+} from "./customInlineTransform";
 
 export const remarkCustomInline: Plugin<[], Root> = function () {
   const data = this.data() as {
@@ -92,159 +69,6 @@ export const remarkCustomInline: Plugin<[], Root> = function () {
   data.fromMarkdownExtensions.push(customInlineFromMarkdown());
   data.toMarkdownExtensions.push(customInlineToMarkdown());
 };
-
-function customInlineFromMarkdown(): FromMarkdownExtension {
-  return {
-    // We use transforms instead of tokenizers
-    transforms: [transformCustomMarks],
-  };
-}
-
-function transformCustomMarks(tree: Root): void {
-  walkAndReplace(tree);
-}
-
-function walkAndReplace(node: Root | PhrasingContent | { children?: unknown[] }): void {
-  if (isSkippableNode(node)) return;
-  if (!("children" in node) || !Array.isArray(node.children)) return;
-
-  const newChildren: unknown[] = [];
-  let modified = false;
-
-  for (const child of node.children) {
-    if (isTextNode(child)) {
-      const replaced = parseMarksInText(child.value);
-      if (replaced.length === 1 && isTextNode(replaced[0]) && replaced[0].value === child.value) {
-        newChildren.push(child);
-      } else {
-        newChildren.push(...replaced);
-        modified = true;
-      }
-    } else {
-      walkAndReplace(child as { children?: unknown[] });
-      newChildren.push(child);
-    }
-  }
-
-  if (modified) {
-    (node as { children: unknown[] }).children = newChildren;
-  }
-}
-
-function isTextNode(node: unknown): node is Text {
-  return typeof node === "object" && node !== null && (node as { type?: string }).type === "text";
-}
-
-function isSkippableNode(node: unknown): boolean {
-  /* v8 ignore next -- @preserve defensive null/type guard; MDAST nodes are always objects */
-  if (!node || typeof node !== "object") return false;
-  const type = (node as { type?: string }).type;
-  return typeof type === "string" && SKIP_NODE_TYPES.has(type);
-}
-
-function findMarkPair(
-  text: string,
-  mark: MarkDefinition,
-  fromIndex: number
-): { start: number; end: number } | null {
-  let startIdx = fromIndex;
-
-  while (startIdx < text.length) {
-    const foundStart = text.indexOf(mark.marker, startIdx);
-    if (foundStart === -1) return null;
-
-    // Skip if this is a double marker when skipDouble is set
-    if (mark.skipDouble && mark.markerLen === 1 && text[foundStart + 1] === mark.marker) {
-      startIdx = foundStart + 2;
-      continue;
-    }
-
-    // Find closing marker
-    let searchPos = foundStart + mark.markerLen;
-    while (searchPos < text.length) {
-      const closeIdx = text.indexOf(mark.marker, searchPos);
-      if (closeIdx === -1) break;
-
-      // Skip double markers when configured
-      if (mark.skipDouble && mark.markerLen === 1 && text[closeIdx + 1] === mark.marker) {
-        searchPos = closeIdx + 2;
-        continue;
-      }
-
-      // Valid closing marker found
-      if (closeIdx > foundStart + mark.markerLen) {
-        return { start: foundStart, end: closeIdx };
-      }
-      break;
-    }
-
-    // No valid closing marker, try next occurrence
-    startIdx = foundStart + 1;
-  }
-
-  return null;
-}
-
-function parseMarksInText(text: string): PhrasingContent[] {
-  const result: PhrasingContent[] = [];
-  let position = 0;
-
-  while (position < text.length) {
-    // Find the earliest mark starting from current position
-    let earliestMark: MarkDefinition | null = null;
-    let earliestStart = -1;
-    let earliestEnd = -1;
-
-    for (const mark of MARKS) {
-      const pair = findMarkPair(text, mark, position);
-      if (pair && (earliestStart === -1 || pair.start < earliestStart)) {
-        earliestMark = mark;
-        earliestStart = pair.start;
-        earliestEnd = pair.end;
-      }
-    }
-
-    if (!earliestMark || earliestStart === -1) {
-      // No more marks found, add remaining as text
-      /* v8 ignore next -- @preserve while(position < text.length) guarantees this is always true */
-      if (position < text.length) {
-        result.push({ type: "text", value: text.slice(position) });
-      }
-      break;
-    }
-
-    // Add text before the mark
-    if (earliestStart > position) {
-      result.push({ type: "text", value: text.slice(position, earliestStart) });
-    }
-
-    // Add the mark node
-    const content = text.slice(earliestStart + earliestMark.markerLen, earliestEnd);
-    const markNode = createMarkNode(earliestMark.name as MarkName, content);
-    result.push(markNode);
-
-    // Continue from after the closing marker
-    position = earliestEnd + earliestMark.markerLen;
-  }
-
-  /* v8 ignore next -- @preserve fallback for empty string input; text nodes from parsers are rarely empty */
-  return result.length > 0 ? result : [{ type: "text", value: text }];
-}
-
-function createMarkNode(name: MarkName, content: string): Subscript | Superscript | Highlight | Underline {
-  const children: PhrasingContent[] = parseMarksInText(content);
-
-  switch (name) {
-    case "subscript":
-      return { type: "subscript", children } as Subscript;
-    case "superscript":
-      return { type: "superscript", children } as Superscript;
-    case "highlight":
-      return { type: "highlight", children } as Highlight;
-    case "underline":
-      return { type: "underline", children } as Underline;
-  }
-}
 
 function customInlineToMarkdown(): ToMarkdownExtension {
   return {
@@ -268,6 +92,25 @@ function customInlineToMarkdown(): ToMarkdownExtension {
           "titleQuote",
           "titleApostrophe",
           "subscript", // Add our construct
+        ],
+      },
+      // Escape a literal `^` in phrasing so it is never re-parsed as a
+      // superscript marker. Single-char markers cannot use the `==`/`++`
+      // "followed by same char" trick (there is no doubling to key on), so this
+      // mirrors the `~` rule above. Markers emitted BY the superscript handler
+      // are exempt via notInConstruct, so real superscripts stay `^…^`.
+      // Without this, `x\^2\^` (literal) round-trips to `x^2^` (real superscript).
+      {
+        character: "^",
+        inConstruct: "phrasing",
+        notInConstruct: [
+          "autolink",
+          "destinationLiteral",
+          "destinationRaw",
+          "reference",
+          "titleQuote",
+          "titleApostrophe",
+          "superscript",
         ],
       },
       // Escape marker sequences to prevent false parsing
@@ -295,3 +138,4 @@ function createMarkHandler(marker: string, constructName: string): MarkHandler {
     return value;
   };
 }
+
