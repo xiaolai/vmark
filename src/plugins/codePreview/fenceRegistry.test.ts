@@ -112,6 +112,15 @@ describe("fence extension point", () => {
       registerFenceRenderer(renderer("vmark.b", { matches: (l) => l.endsWith("t") }));
       expect(() => resolveFenceRenderer("dot")).toThrow(FenceRegistrationError);
     });
+
+    it("rejects a renderer that can never claim anything", () => {
+      expect(() => registerFenceRenderer(renderer("vmark.dead"))).toThrow(
+        FenceRegistrationError,
+      );
+      expect(() =>
+        registerFenceRenderer(renderer("vmark.empty", { languages: [] })),
+      ).toThrow(FenceRegistrationError);
+    });
   });
 
   describe("lifecycle-bound registration (WI-5.6)", () => {

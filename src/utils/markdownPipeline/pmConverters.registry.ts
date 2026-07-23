@@ -251,11 +251,12 @@ export function createTier1Registry(): PmTier1Registry {
  */
 export function tryRegistry(
   registry: PmTier1Registry,
-  typeName: string,
   node: PMNode,
   context: PmToMdastContext,
 ): { handled: true; result: PmToMdastResult } | { handled: false } {
-  const lookup = registry.resolve(typeName, node);
+  // The dispatch key is the node's own type — a caller cannot route a node
+  // through a converter registered for a different type.
+  const lookup = registry.resolve(node.type.name, node);
   if (lookup.ok) {
     return { handled: true, result: lookup.converter.convert(node, context) };
   }

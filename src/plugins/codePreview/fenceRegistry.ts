@@ -76,6 +76,14 @@ export type Unregister = () => void;
  * today, but the contract is the same one a plugin will use.
  */
 export function registerFenceRenderer(renderer: FenceRenderer): Unregister {
+  // A renderer with no claim at all can never be resolved — a silent dead
+  // registration. Reject it at the boundary rather than let it accumulate.
+  if (!renderer.languages?.length && renderer.matches === undefined) {
+    throw new FenceRegistrationError(
+      `\`${renderer.extensionId}\` declares neither \`languages\` nor \`matches\`, ` +
+        "so it can never claim a fence language.",
+    );
+  }
   for (const language of renderer.languages ?? []) {
     const existing = renderers.find((r) => r.languages?.includes(language));
     if (existing !== undefined) {

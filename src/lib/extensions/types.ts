@@ -104,7 +104,9 @@ export interface ResolutionError {
     | "missing-requirement"
     | "unknown-ordering-ref"
     | "ordering-cycle"
-    | "empty-id";
+    | "empty-id"
+    | "invalid-descriptor"
+    | "self-reference";
   message: string;
   /** Extensions involved; for `ordering-cycle` this is the full cycle path. */
   ids: readonly ExtensionId[];

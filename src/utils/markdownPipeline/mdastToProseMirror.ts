@@ -146,7 +146,7 @@ class MdastToPMConverter {
     const convertInlineChildren = (children: readonly Content[], nextMarks: Mark[]) =>
       this.convertChildren(children, nextMarks, "inline");
 
-    const viaRegistry = tryMdastRegistry(this.registry, nodeType, {
+    const viaRegistry = tryMdastRegistry(this.registry, {
       node,
       marks,
       position: context,
