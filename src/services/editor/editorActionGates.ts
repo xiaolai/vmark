@@ -1,14 +1,17 @@
 /**
  * Editor-action policy + resolution helpers
  *
- * Purpose: the pure, store-driven decisions the executor consults before it
- *   dispatches — is the action allowed for the active tab's format, what is the
- *   effective editing surface, and the adapter-action-name mapping. Split out of
- *   `runEditorAction.ts` to keep each module focused (and under the size gate);
- *   these are invocation-source agnostic, so the menu and the palette gate alike.
+ * Purpose: the pure, format-aware decisions the availability layer and the
+ *   executor share — whether the active format permits an action's category,
+ *   what the effective editing surface is, and the adapter-action-name mapping.
+ *   Invocation-source agnostic, so the menu and the palette gate alike.
+ *
+ * The document-tab gate (fail closed without a live document) now lives in
+ * `commandContext.resolveCommandContext` (`ctx.isDocument`); this module only
+ * answers the per-format category question.
  *
  * @coordinates-with lib/formats/registry.ts — menuPolicy gating
- * @coordinates-with runEditorAction.ts — the executor that consults these
+ * @coordinates-with commands/actionAvailability.ts — consumes these
  * @module services/editor/editorActionGates
  */
 
@@ -16,55 +19,34 @@ import { useUIStore } from "@/stores/uiStore";
 import { selectSourceEditing } from "@/stores/selectSourceEditing";
 import { useLargeFileSessionStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
-import type { Tab } from "@/stores/tabStoreTypes";
-import type { ActionDefinition, ActionId } from "@/plugins/actions/types";
+import type { ActionCategory, ActionId } from "@/plugins/actions/types";
 import { getFormatById } from "@/lib/formats/registry";
 import type { FormatConfig } from "@/lib/formats/types";
 
 /**
- * Map an ActionDefinition's category to the per-format menuPolicy field that
- * gates it. Returns true when the active tab permits the action.
+ * Whether the active format permits an action of the given category, via the
+ * per-format `menuPolicy`. Assumes a live document tab (the document gate is
+ * `ctx.isDocument`, checked separately).
  *
- * The action REQUIRES a positively-identified document tab. No active tab (all
- * tabs closed), a dangling id, a non-document (browser) tab, or a broken store
- * lookup all fail CLOSED: the editor store can still hold the editor of a
- * previously-active tab, so failing open would let an action — including
- * undo/redo — mutate a hidden document the user is no longer looking at.
- *
- * The only failure-OPEN case is an explicitly-identified document tab whose
- * format config is unknown (WI-1A.7: a new/non-markdown format ships without a
- * coordinated edit here), plus universal edit/selection/lines categories and
- * unrecognised future categories on such a tab.
+ * - edit / selection / lines: universal text-editor concerns; always allowed.
+ * - a document tab whose format config is unknown → allowed (WI-1A.7: a new /
+ *   non-markdown format ships without a coordinated edit here).
+ * - unrecognised future categories → allowed.
  */
-export function isActionAllowedForActiveFormat(
-  actionDef: ActionDefinition,
-  windowLabel: string,
+export function isCategoryAllowedByFormat(
+  category: ActionCategory,
+  formatId: string | null,
 ): boolean {
-  let tab: Tab | null;
-  try {
-    const activeTabId = useTabStore.getState().activeTabId[windowLabel] ?? null;
-    tab = activeTabId ? useTabStore.getState().findTabById(activeTabId) : null;
-    /* v8 ignore next 4 -- @preserve defensive lookup; tests with stub tabStore exercise the happy path */
-  } catch {
-    // Store lookup broke — no confirmed document → fail closed.
-    return false;
-  }
-  // No live document tab (missing/dangling id or a non-document tab) → fail
-  // closed, so a retained editor is never mutated without an active document.
-  if (!tab || tab.kind !== "document") return false;
-
-  if (
-    actionDef.category === "edit" ||
-    actionDef.category === "selection" ||
-    actionDef.category === "lines"
-  ) {
+  if (category === "edit" || category === "selection" || category === "lines") {
     return true;
   }
-  const formatConfig: FormatConfig | undefined = getFormatById(tab.formatId);
+  const formatConfig: FormatConfig | undefined = formatId
+    ? getFormatById(formatId)
+    : undefined;
   /* v8 ignore next -- @preserve document tab, unknown format → permissive (WI-1A.7) */
   if (!formatConfig) return true;
   const policy = formatConfig.adapters.menuPolicy;
-  switch (actionDef.category) {
+  switch (category) {
     case "formatting":
     case "headings":
     case "lists":

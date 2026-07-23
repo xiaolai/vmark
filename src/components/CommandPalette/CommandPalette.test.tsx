@@ -166,7 +166,13 @@ describe("CommandPalette", () => {
 
     // Context carries the invoking window (WI-S0.7): without it a window-scoped
     // command like `browser.newTab` falls back to "main" and acts on the wrong window.
-    expect(mockExecuteCommand).toHaveBeenCalledWith("cmd.two", null, { windowLabel: "main" });
+    // The palette now supplies the full resolved command context (WI-2.1); the
+    // window label still rides in it for window-scoped commands.
+    expect(mockExecuteCommand).toHaveBeenCalledWith(
+      "cmd.two",
+      null,
+      expect.objectContaining({ windowLabel: "main" }),
+    );
     expect(useCommandPaletteStore.getState().isOpen).toBe(false);
   });
 });
