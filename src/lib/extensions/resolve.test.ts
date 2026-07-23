@@ -246,6 +246,20 @@ describe("resolveExtensions", () => {
       expect([...(error?.ids ?? [])].sort()).toEqual(["a", "b"]);
       expect(error?.ids).not.toContain("d");
     });
+
+    it("finds the real cycle even when a dead-end node is searched first", () => {
+      // `d` (downstream of the cycle) is registered FIRST, so it heads the stuck
+      // set. A naive walk from `d` dead-ends and would report `d` as the cycle;
+      // DFS back-edge detection must skip it and return {a, b}.
+      const result = resolveExtensions([
+        ext("d", { ordering: { after: ["b"] } }),
+        ext("a", { ordering: { after: ["b"] } }),
+        ext("b", { ordering: { after: ["a"] } }),
+      ]);
+      const error = result.errors.find((e) => e.code === "ordering-cycle");
+      expect([...(error?.ids ?? [])].sort()).toEqual(["a", "b"]);
+      expect(error?.ids).not.toContain("d");
+    });
   });
 
   describe("determinism", () => {

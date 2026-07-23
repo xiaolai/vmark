@@ -40,12 +40,19 @@ export type ClaimStrength = "exact" | "semantic" | "fallback";
 
 const STRENGTH_ORDER: readonly ClaimStrength[] = ["exact", "semantic", "fallback"];
 
-/** A recognizer result is a usable claim only if it declares a known strength. */
+/**
+ * A recognizer result is a usable claim only if it is an object carrying a known
+ * `strength`, a `value` key, and a string `reason`. `value` is `TOut` and may
+ * legitimately be any value (including null/0/false), so only its PRESENCE is
+ * checked — but a claim missing it, or with a non-string reason, is malformed.
+ */
 function isValidClaim<TOut>(value: unknown): value is Claim<TOut> {
+  if (typeof value !== "object" || value === null) return false;
+  const candidate = value as { strength?: unknown; reason?: unknown };
   return (
-    typeof value === "object" &&
-    value !== null &&
-    STRENGTH_ORDER.includes((value as { strength?: ClaimStrength }).strength as ClaimStrength)
+    STRENGTH_ORDER.includes(candidate.strength as ClaimStrength) &&
+    "value" in value &&
+    typeof candidate.reason === "string"
   );
 }
 
