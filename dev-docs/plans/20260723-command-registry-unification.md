@@ -162,6 +162,19 @@ removed). Behaviour-neutral (101 executor+hook tests green); per-axis matrix in
 `actionAvailability.test.ts` (every ActionId × axes). Node/selection are the
 palette's discoverability concern, deliberately NOT enforced by the executor.
 
+**Audit-fix (3 Codex rounds, all check:all green):** multi-selection availability
+reuses the adapters' own `getMultiSelectionPolicyForAction` (default-disallow for
+unlisted) + a gate-BYPASS set {undo, redo, setHeading, paragraph}; link-in-link
+reuses `LINK_DISABLED_ACTIONS`; tests strengthened to real per-axis expectations.
+**Two residuals are consciously DEFERRED to Phase 3** (both need the full per-cursor
+multi-selection context / per-spec projection the flattened palette context lacks;
+neither is a correctness risk — the adapter is the final boundary): (a) the palette
+does not reproduce `canRunActionInMultiSelection`'s "all cursors share a structural
+context" conditional check, nor (b) its universal vetoes (any range in code/table/
+link/image/math/footnote disables every multi-selection action); and the palette
+context is resolved per-query, not yet reactive to cursor/editor changes while open
+(surfaces only once editor commands are registered).
+
 | WI | Change |
 |---|---|
 | WI-2.1 | A single resolver returning `{ mode, effectiveSurface, documentKind, formatId, editorAvailable, selection/node context, multiSelection }` from stores synchronously. Wire the **palette** to supply it — today `CommandPalette.tsx` passes only `{ windowLabel }`, so both `searchCommands` and `executeCommand` need the resolved context |

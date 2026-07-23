@@ -49,12 +49,19 @@ const MULTI_SELECT_GATE_BYPASS: ReadonlySet<ActionId> = new Set([
  * WYSIWYG and Source adapters apply — `getMultiSelectionPolicyForAction`, keyed
  * by the adapter action name, defaulting unlisted actions to "disallow" — so the
  * palette hides exactly what the adapters would reject, except:
- *  - the bypass actions above are never hidden;
- *  - "conditional" actions (lists, blockquote nesting) are SHOWN even though the
- *    adapter may still reject them based on whether all cursors share a
- *    structural context. That per-cursor structural check is the one thing the
- *    flattened palette context cannot reproduce; the adapter is the final
- *    boundary, so a shown-but-rejected conditional action is a harmless no-op.
+ *  - the bypass actions above are never hidden.
+ *
+ * Two residual approximations remain, both requiring the FULL per-cursor
+ * multi-selection context that the flattened palette context does not carry, and
+ * both deferred to Phase 3 (per-spec projection + reactive context). Neither is a
+ * correctness risk — the adapters' `canRunActionInMultiSelection` is the final
+ * boundary, so a shown-but-rejected action is a harmless no-op, never a wrong edit:
+ *  1. "conditional" actions (lists, blockquote nesting) are shown even though the
+ *     adapter rejects them unless all cursors share a structural context;
+ *  2. `canRunActionInMultiSelection` also vetoes EVERY multi-selection action
+ *     (including policy-"allow" marks) when any range is inside a code block,
+ *     table, link, image, inline math, or footnote — the palette does not
+ *     reproduce these universal context vetoes.
  */
 function isHiddenUnderMultiSelection(id: ActionId): boolean {
   if (MULTI_SELECT_GATE_BYPASS.has(id)) return false;
