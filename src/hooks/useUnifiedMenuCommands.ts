@@ -1,336 +1,54 @@
 /**
  * Unified Menu Commands
  *
- * Purpose: Single dispatcher for all format/insert menu events — routes each
- *   action to the appropriate editor adapter based on current mode
- *   (WYSIWYG via Tiptap or Source via CodeMirror) and the active tab's
- *   format-registry menuPolicy (WI-1A.7).
+ * Purpose: the native-menu listener. Subscribes to every `menu:{id}` event in
+ *   the action registry, applies the invocation-source policy that is unique to
+ *   the menu (window filtering + the focus gate), and hands the action to the
+ *   shared executor `runEditorAction`. All execution semantics — effective-mode
+ *   resolution, format/capability gates, unified undo/redo, IME-safe dispatch,
+ *   tab-bound retry — live in the executor so the menu and the Command Palette
+ *   run an action identically.
  *
- * Pipeline: Rust menu event → Tauri `listen("menu:{id}")` → MENU_TO_ACTION
- *   lookup → menuPolicy gate → mode capability check →
- *   performWysiwygToolbarAction() or performSourceToolbarAction()
+ * Pipeline: Rust menu event → Tauri `listen("menu:{id}")` → window filter →
+ *   focus gate → `runEditorAction(actionId, { windowLabel, params })`.
  *
  * Key decisions:
- *   - Must be mounted ONCE at EditorHost level, not per-editor
- *   - Uses actionRegistry to map menu IDs to canonical action IDs
- *   - Heading levels extracted from menu params (e.g., "heading-1" → level 1)
- *   - Per-format menuPolicy gating fails open (unknown category, missing
- *     format) so non-markdown formats can ship without coordinating
- *     edits to this dispatcher
- *   - Both surfaces dispatch behind the IME guard: a menu accelerator can fire
- *     mid-CJK-composition, and a transaction dispatched then corrupts it
- *   - Retries (editor not mounted yet) are bound to the tab that was active
- *     when the event fired and are cancelled on unmount, so a queued action can
- *     never land on another tab's document or run after disposal
+ *   - Mount ONCE at the EditorHost level, not per-editor.
+ *   - The focus gate (`shouldBlockMenuAction`) stays HERE, not in the executor:
+ *     it rejects focus inside the palette's own container, so moving it down
+ *     would make the palette block its own commands (ADR-017 WI-1.2).
+ *   - Retry timers belong to the window's per-window executor owner; the hook
+ *     disposes that owner on unmount so no queued action runs after teardown.
  *
- * @coordinates-with actionRegistry.ts — maps menu event IDs to action IDs
- * @coordinates-with wysiwygAdapter.ts — executes actions in WYSIWYG mode
- * @coordinates-with sourceAdapter.ts — executes actions in Source mode
- * @coordinates-with lib/formats/registry.ts — getFormatById() drives menuPolicy gating
+ * @coordinates-with services/editor/runEditorAction.ts — the shared executor
+ * @coordinates-with actionRegistry.ts — MENU_TO_ACTION maps menu IDs to actions
+ * @coordinates-with utils/focusGuard.ts — the menu-only focus gate
  * @module hooks/useUnifiedMenuCommands
  */
 
 import { useEffect, useRef } from "react";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { useUIStore } from "@/stores/uiStore";
-import { selectSourceEditing } from "@/stores/selectSourceEditing";
-import { useLargeFileSessionStore } from "@/stores/documentStore";
-import { useTabStore } from "@/stores/tabStore";
-import type { Tab } from "@/stores/tabStoreTypes";
-import { useEditorStore } from "@/stores/editorStore";
-import {
-  MENU_TO_ACTION,
-  ACTION_DEFINITIONS,
-  getHeadingLevelFromParams,
-} from "@/plugins/actions/actionRegistry";
-import type {
-  ActionDefinition,
-  MenuEventId,
-  ActionId,
-} from "@/plugins/actions/types";
-import { getFormatById } from "@/lib/formats/registry";
-import type { FormatConfig } from "@/lib/formats/types";
-import {
-  performSourceToolbarAction,
-  setSourceHeadingLevel,
-} from "@/plugins/toolbarActions/sourceAdapter";
-import {
-  performWysiwygToolbarAction,
-  setWysiwygHeadingLevel,
-} from "@/plugins/toolbarActions/wysiwygAdapter";
-import {
-  getSourceMultiSelectionContext,
-  getWysiwygMultiSelectionContext,
-} from "@/plugins/toolbarActions/multiSelectionContext";
-import { performUnifiedUndo, performUnifiedRedo } from "@/services/history/unifiedHistory";
+import { MENU_TO_ACTION } from "@/plugins/actions/actionRegistry";
+import type { MenuEventId } from "@/plugins/actions/types";
 import { shouldBlockMenuAction } from "@/utils/focusGuard";
-import {
-  runOrQueueCodeMirrorAction,
-  runOrQueueProseMirrorAction,
-} from "@/utils/imeGuard";
 import { safeUnlistenAll } from "@/utils/safeUnlisten";
-import { menuDispatcherLog, menuDispatcherWarn, menuError } from "@/utils/debug";
-
-/**
- * Map an ActionDefinition's category to the per-format menuPolicy field
- * that gates it. Returns true when the active tab permits the action.
- *
- * - non-document (browser) active tab: nothing is allowed. Every action in the
- *   registry is an editor action (clipboard/undo are native menu roles), and the
- *   editor store can still hold the editor of the tab the user came from — so
- *   failing OPEN would mutate a hidden document.
- * - edit / selection / lines: universal text-editor concerns; always allowed.
- * - formatting / headings / lists / blockquote: paragraphFormatting.
- * - codeBlock / tables / inserts / links: insertBlockActions.
- * - cjk / cleanup / transform: cjkFormatActions.
- * - any unknown / future category: allowed (failure-open keeps existing
- *   tests with mock categories such as "insert" / "table" green and lets
- *   new categories ship without a coordinated dispatcher edit).
- *
- * WI-1A.7 — markdown adapter sets every menuPolicy bit true; non-markdown
- * formats register false bits via their adapters and silently no-op the
- * markdown-only menu actions.
- */
-function isMenuActionAllowedForActiveFormat(
-  actionDef: ActionDefinition,
-  windowLabel: string,
-): boolean {
-  let tab: Tab | null;
-  try {
-    const activeTabId = useTabStore.getState().activeTabId[windowLabel] ?? null;
-    tab = activeTabId ? useTabStore.getState().findTabById(activeTabId) : null;
-    /* v8 ignore next 4 -- @preserve defensive lookup; tests with stub tabStore exercise the happy path */
-  } catch {
-    // Store lookup broke — stay permissive (matches pre-WI-1A.7 behavior).
-    return true;
-  }
-  // Positively-identified non-document tab → fail closed.
-  if (tab && tab.kind !== "document") return false;
-
-  if (
-    actionDef.category === "edit" ||
-    actionDef.category === "selection" ||
-    actionDef.category === "lines"
-  ) {
-    return true;
-  }
-  const formatConfig: FormatConfig | undefined = tab
-    ? getFormatById(tab.formatId)
-    : undefined;
-  /* v8 ignore next -- @preserve format unresolved → permissive (matches pre-WI-1A.7 behavior) */
-  if (!formatConfig) return true;
-  const policy = formatConfig.adapters.menuPolicy;
-  switch (actionDef.category) {
-    case "formatting":
-    case "headings":
-    case "lists":
-    case "blockquote":
-      return policy.paragraphFormatting;
-    case "codeBlock":
-    case "tables":
-    case "inserts":
-    case "links":
-      return policy.insertBlockActions;
-    case "cjk":
-    case "cleanup":
-    case "transform":
-      return policy.cjkFormatActions;
-    default:
-      return true;
-  }
-}
-
-/**
- * Map action IDs to the internal adapter action names.
- * Some action IDs differ from adapter action names.
- */
-function mapActionIdToAdapterAction(actionId: ActionId): string {
-  // Most action IDs match adapter action names directly
-  // Handle special cases where they differ
-  switch (actionId) {
-    case "codeBlock":
-      return "insertCodeBlock";
-    case "blockquote":
-      return "insertBlockquote";
-    case "horizontalLine":
-      return "insertDivider";
-    case "addRowBelow":
-      return "addRow";
-    case "addColRight":
-      return "addCol";
-    case "wikiLink":
-      return "link:wiki";
-    case "bookmark":
-      return "link:bookmark";
-    default:
-      return actionId;
-  }
-}
-
-/**
- * Maximum retries when editor is not yet available.
- * Each retry waits 50ms, so max wait is 150ms.
- */
-const MAX_EDITOR_RETRIES = 3;
-const RETRY_DELAY_MS = 50;
-
-/**
- * Dispatch action to the WYSIWYG editor.
- * Returns true if the editor was available and the action was run/queued.
- *
- * The action runs behind the ProseMirror IME guard: a menu accelerator can fire
- * in the middle of a CJK composition, and dispatching a transaction then
- * corrupts the composition. Context is captured before queuing (same policy as
- * the Source path) so a deferred action uses the selection the user saw.
- */
-function dispatchToWysiwygImpl(
-  actionId: ActionId,
-  params?: Record<string, unknown>
-): boolean {
-  const editor = useEditorStore.getState().active.activeWysiwygEditor;
-  if (!editor) {
-    return false;
-  }
-
-  const view = editor.view;
-  if (!view) {
-    menuDispatcherLog(`WYSIWYG editor view not available for ${actionId}`);
-    return false;
-  }
-
-  // Build context for multi-selection support (cursor context is null for menu actions)
-  const multiSelection = getWysiwygMultiSelectionContext(view, null);
-  const context = { surface: "wysiwyg", view, editor, context: null, multiSelection } as const;
-
-  runOrQueueProseMirrorAction(view, () => {
-    // Handle heading actions specially
-    if (actionId === "setHeading") {
-      setWysiwygHeadingLevel(context, getHeadingLevelFromParams(params));
-      return;
-    }
-
-    if (actionId === "paragraph") {
-      setWysiwygHeadingLevel(context, 0);
-      return;
-    }
-
-    // Map to adapter action and dispatch (increase/decreaseHeading included —
-    // the adapter inspects the current heading level itself).
-    performWysiwygToolbarAction(mapActionIdToAdapterAction(actionId), context);
-  });
-
-  return true;
-}
-
-/**
- * Dispatch action to Source editor implementation.
- * Returns true if the view was available and action was queued.
- */
-function dispatchToSourceImpl(
-  actionId: ActionId,
-  params?: Record<string, unknown>
-): boolean {
-  const view = useEditorStore.getState().active.activeSourceView;
-  if (!view) {
-    return false;
-  }
-
-  // Capture context before queuing to avoid stale state if selection changes
-  const cursorContext = useEditorStore.getState().source.context;
-  const multiSelection = getSourceMultiSelectionContext(view, cursorContext);
-  const context = { surface: "source", view, context: cursorContext, multiSelection } as const;
-
-  // Use IME guard for safe dispatching
-  runOrQueueCodeMirrorAction(view, () => {
-    // Handle heading actions specially
-    if (actionId === "setHeading") {
-      setSourceHeadingLevel(context, getHeadingLevelFromParams(params));
-      return;
-    }
-
-    if (actionId === "paragraph") {
-      setSourceHeadingLevel(context, 0);
-      return;
-    }
-
-    // Map to adapter action and dispatch
-    performSourceToolbarAction(mapActionIdToAdapterAction(actionId), context);
-  });
-
-  return true;
-}
-
-/** Pending retry timers, so the dispatcher can cancel them on unmount. */
-const pendingRetryTimers = new Set<ReturnType<typeof setTimeout>>();
-
-function scheduleRetry(retry: () => void): void {
-  const timer = setTimeout(() => {
-    pendingRetryTimers.delete(timer);
-    retry();
-  }, RETRY_DELAY_MS);
-  pendingRetryTimers.add(timer);
-}
-
-/** Cancel every pending retry. Called when the dispatcher unmounts. */
-function cancelPendingRetries(): void {
-  for (const timer of pendingRetryTimers) clearTimeout(timer);
-  pendingRetryTimers.clear();
-}
-
-/**
- * Run `dispatch` now; if the editor/view is not mounted yet (tab switch, first
- * mount), retry a few times with a short delay.
- *
- * A retry belongs to the tab that was active when the menu event fired: if the
- * user switches tabs inside the retry window the action is dropped rather than
- * applied to a different document. Pending retries are cancelled on unmount, so
- * no action can run after disposal.
- */
-function dispatchWithRetry(
-  label: string,
-  windowLabel: string,
-  dispatch: () => boolean,
-): void {
-  if (dispatch()) return;
-
-  const originTabId = useTabStore.getState().activeTabId[windowLabel] ?? null;
-  let retryCount = 0;
-
-  const retry = () => {
-    retryCount++;
-    const currentTabId = useTabStore.getState().activeTabId[windowLabel] ?? null;
-    if (currentTabId !== originTabId) {
-      menuDispatcherLog(`${label} dropped — active tab changed during retry`);
-      return;
-    }
-    if (dispatch()) {
-      menuDispatcherLog(`${label} succeeded after ${retryCount} retry(ies)`);
-      return;
-    }
-    if (retryCount < MAX_EDITOR_RETRIES) {
-      scheduleRetry(retry);
-    } else {
-      menuDispatcherLog(`${label} — editor not available after ${retryCount} retries`);
-    }
-  };
-
-  scheduleRetry(retry);
-}
+import { menuError } from "@/utils/debug";
+import { runEditorAction } from "@/services/editor/runEditorAction";
+import { disposeEditorActionOwner } from "@/services/editor/editorActionOwner";
 
 /**
  * Unified menu command dispatcher.
  *
- * Listens to ALL menu events defined in the action registry and routes them
- * to the appropriate editor adapter based on current mode.
- *
- * Mount this hook ONCE at the EditorHost level.
+ * Listens to ALL menu events defined in the action registry and routes them to
+ * the shared executor. Mount this hook ONCE at the EditorHost level.
  */
 export function useUnifiedMenuCommands(): void {
   const unlistenRefs = useRef<UnlistenFn[]>([]);
 
   useEffect(() => {
     let disposed = false;
+    const windowLabel = getCurrentWebviewWindow().label;
 
     const setupListeners = async () => {
       // Clean up any existing listeners
@@ -341,88 +59,24 @@ export function useUnifiedMenuCommands(): void {
       /* v8 ignore stop */
 
       const currentWindow = getCurrentWebviewWindow();
-      const windowLabel = currentWindow.label;
-
       const listenerPromises: Promise<UnlistenFn>[] = [];
 
       // Register handler for EVERY menu event in the registry
       for (const [menuEvent, mapping] of Object.entries(MENU_TO_ACTION)) {
         const promise = currentWindow.listen<string>(menuEvent as MenuEventId, (event) => {
-          // Window filtering - payload is target window label
+          // Window filtering — payload is the target window label
           if (typeof event.payload !== "string" || event.payload !== windowLabel) {
             return;
           }
 
-          // Broader focus guard (terminal, search inputs, settings, etc.)
+          // Menu-only focus guard (terminal, search inputs, settings, palette).
+          // Stays here, NOT in the executor — see the header note.
           if (shouldBlockMenuAction()) {
             return;
           }
 
           const { actionId, params } = mapping;
-
-          // Get action definition for capability check
-          const actionDef = ACTION_DEFINITIONS[actionId];
-          if (!actionDef) {
-            menuDispatcherWarn(`Unknown action: ${actionId}`);
-            return;
-          }
-
-          // WI-1A.7 — gate on the active format's menuPolicy. Markdown
-          // enables every bit; non-markdown formats no-op markdown-only
-          // categories (insert blocks, paragraph formatting, CJK).
-          if (!isMenuActionAllowedForActiveFormat(actionDef, windowLabel)) {
-            menuDispatcherLog(
-              `Action ${actionId} disabled by active format menuPolicy`,
-            );
-            return;
-          }
-
-          // Route to appropriate adapter based on mode. The effective mode is
-          // the window-global sourceMode OR-ed with the active tab's
-          // forced-source marker (large files opened in Source mode even when
-          // the window is otherwise in WYSIWYG).
-          const activeTabIdForMode =
-            useTabStore.getState().activeTabId[windowLabel] ?? null;
-          const forcedTabSource = activeTabIdForMode
-            ? useLargeFileSessionStore.getState().isForcedSource(activeTabIdForMode)
-            : false;
-          const isSourceMode = selectSourceEditing(useUIStore.getState()) || forcedTabSource;
-
-          // Capability check
-          if (isSourceMode && !actionDef.supports.source) {
-            menuDispatcherLog(
-              `Action ${actionId} not supported in source mode`
-            );
-            return;
-          }
-          if (!isSourceMode && !actionDef.supports.wysiwyg) {
-            menuDispatcherLog(
-              `Action ${actionId} not supported in WYSIWYG mode`
-            );
-            return;
-          }
-
-          // Undo/redo must go through the unified history system
-          // (not the per-editor native adapters) to support cross-mode undo
-          if (actionId === "undo") {
-            performUnifiedUndo(windowLabel);
-            return;
-          }
-          if (actionId === "redo") {
-            performUnifiedRedo(windowLabel);
-            return;
-          }
-
-          // Dispatch to appropriate adapter
-          if (isSourceMode) {
-            dispatchWithRetry(`${actionId} (source)`, windowLabel, () =>
-              dispatchToSourceImpl(actionId, params),
-            );
-          } else {
-            dispatchWithRetry(`${actionId} (wysiwyg)`, windowLabel, () =>
-              dispatchToWysiwygImpl(actionId, params),
-            );
-          }
+          runEditorAction(actionId, { windowLabel, params });
         });
 
         listenerPromises.push(promise);
@@ -461,7 +115,7 @@ export function useUnifiedMenuCommands(): void {
 
     return () => {
       disposed = true;
-      cancelPendingRetries();
+      disposeEditorActionOwner(windowLabel);
       unlistenRefs.current = safeUnlistenAll(unlistenRefs.current);
     };
   }, []);

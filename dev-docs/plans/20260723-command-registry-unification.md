@@ -106,6 +106,17 @@ tab-bound retry that `dispatchEditorAction` lacks. So the core work is
 
 ## Phase 1 — Extract the shared *semantic* executor (the core)
 
+**Status: ✅ COMPLETE (2026-07-23)** — `pnpm check:all` green. The executor is
+`services/editor/runEditorAction.ts` (split for the size gate into
+`runEditorAction.ts` = orchestration + dispatch, `editorActionGates.ts` =
+format/capability/mode resolution + adapter-name map, `editorActionOwner.ts` =
+per-window retry owner). The hook (`useUnifiedMenuCommands.ts`) is now a thin
+listener: window filter → focus gate → `runEditorAction`. All five cross-model
+hardenings landed (capture-before-dispatch, IME-deferred ownership revalidation,
+per-window owner, execution-time gate enforcement, focus gate at the boundary).
+65 existing hook tests stay green (behaviour-neutral extraction) + 24 new
+executor tests (parity, gates, IME/retry ownership, owner isolation).
+
 Pull the high-level execution logic out of the React hook into a plain module,
 e.g. `services/editor/runEditorAction.ts`. Feasible because the logic is already
 module-level + store-driven (`dispatchToWysiwygImpl`, `dispatchToSourceImpl`,
