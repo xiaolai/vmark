@@ -34,6 +34,8 @@
     "lint:design-tokens": "node scripts/check-design-tokens.mjs",
     "lint:emdash": "node scripts/check-emdash-spacing.mjs",
     "lint:deps": "depcruise src --config .dependency-cruiser.cjs --ignore-known",
+    "arch:graph": "node scripts/arch-graph.mjs",
+    "arch:metrics": "node scripts/arch-metrics.mjs",
     "lint:tauri-versions": "node scripts/check-tauri-versions.mjs",
     "lint:console": "bash scripts/lint-console.sh",
     "lint:i18n": "tsx scripts/check-i18n-keys.ts",
