@@ -22,31 +22,44 @@
  * @module services/commands/actionAvailability
  */
 
-import type { ActionCategory, ActionId } from "@/plugins/actions/types";
+import type { ActionId } from "@/plugins/actions/types";
 import { ACTION_DEFINITIONS } from "@/plugins/actions/actionRegistry";
 import { isCategoryAllowedByFormat, mapActionIdToAdapterAction } from "@/services/editor/editorActionGates";
 import { LINK_DISABLED_ACTIONS } from "@/plugins/toolbarActions/enableRules";
+import { getMultiSelectionPolicyForAction } from "@/plugins/toolbarActions/multiSelectionPolicy";
 import type { CommandContextResolved } from "./commandContext";
 
 /**
- * Categories whose actions are disallowed while multiple cursors are active —
- * every insert / table / link / code-block operation, mirroring the intent of
- * `MULTI_SELECTION_POLICY` (which "disallow"s them explicitly and defaults every
- * unlisted insert to "disallow"). Formatting marks are policy-"allow";
- * headings / lists / blockquote are "conditional" (shown; the adapter decides).
- *
- * This is a category-level APPROXIMATION of the runtime policy, not exact parity:
- * the palette cannot reproduce the per-`heading:N` conditional or the structural
- * "all cursors share a context" checks (and `setHeading`'s level is not in the
- * ActionId). The adapter's `canRunActionInMultiSelection` remains the final
- * boundary — a shown-but-rejected action is a harmless no-op, never a wrong edit.
+ * Actions that BYPASS the adapters' multi-selection gate, so multi-selection
+ * never disables them:
+ *  - undo/redo route through unified history in `runEditorAction`, before any
+ *    adapter dispatch;
+ *  - setHeading/paragraph are evaluated by the adapters as `heading:N`
+ *    ("conditional"), not by their ActionId (whose adapter name is unlisted).
  */
-const MULTI_SELECT_DISALLOWED_CATEGORIES: ReadonlySet<ActionCategory> = new Set([
-  "inserts",
-  "tables",
-  "links",
-  "codeBlock",
+const MULTI_SELECT_GATE_BYPASS: ReadonlySet<ActionId> = new Set([
+  "undo",
+  "redo",
+  "setHeading",
+  "paragraph",
 ]);
+
+/**
+ * True when multi-selection disables an action. Reuses the SAME predicate the
+ * WYSIWYG and Source adapters apply — `getMultiSelectionPolicyForAction`, keyed
+ * by the adapter action name, defaulting unlisted actions to "disallow" — so the
+ * palette hides exactly what the adapters would reject, except:
+ *  - the bypass actions above are never hidden;
+ *  - "conditional" actions (lists, blockquote nesting) are SHOWN even though the
+ *    adapter may still reject them based on whether all cursors share a
+ *    structural context. That per-cursor structural check is the one thing the
+ *    flattened palette context cannot reproduce; the adapter is the final
+ *    boundary, so a shown-but-rejected conditional action is a harmless no-op.
+ */
+function isHiddenUnderMultiSelection(id: ActionId): boolean {
+  if (MULTI_SELECT_GATE_BYPASS.has(id)) return false;
+  return getMultiSelectionPolicyForAction(mapActionIdToAdapterAction(id)) === "disallow";
+}
 
 type NodeAxis = "table" | "link" | "list" | "blockquote" | "codeBlock" | "heading";
 
@@ -150,11 +163,8 @@ export function actionAvailability(id: ActionId, ctx: CommandContextResolved): b
   // name) so the palette matches the toolbar/keymap for in-link actions.
   const adapterAction = mapActionIdToAdapterAction(id);
   if (ctx.inLink && LINK_DISABLED_ACTIONS.has(adapterAction)) return false;
-  // Multi-selection: hide the disallowed categories (approximate — see the
-  // MULTI_SELECT_DISALLOWED_CATEGORIES note; the adapter is the final boundary).
-  if (ctx.multiSelection && MULTI_SELECT_DISALLOWED_CATEGORIES.has(ACTION_DEFINITIONS[id].category)) {
-    return false;
-  }
+  // Multi-selection: hide what the adapters' own multi-selection gate rejects.
+  if (ctx.multiSelection && isHiddenUnderMultiSelection(id)) return false;
 
   const req = ACTION_AVAILABILITY[id];
   if (!req) return true;

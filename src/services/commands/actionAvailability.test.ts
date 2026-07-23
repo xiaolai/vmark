@@ -140,33 +140,45 @@ describe("actionAvailability — the palette gate", () => {
   });
 });
 
-describe("multi-selection (category-level disallow)", () => {
-  // EVERY insert / table / link / codeBlock action is hidden under multi-cursor —
-  // including the ones an explicit adapter-key lookup would have missed
-  // (wikiLink, bookmark, insertVideo, insertAudio).
+describe("multi-selection (reuses the adapters' getMultiSelectionPolicyForAction)", () => {
+  // Everything the adapters' multi-selection gate rejects (explicit "disallow"
+  // OR the unlisted default: inserts, tables, links, code, selection, cjk,
+  // cleanup, lines, transform, increase/decreaseHeading, blockquote toggle).
   it.each([
     "insertTable",
     "insertImage",
-    "insertVideo",
+    "insertVideo", // unlisted → default disallow (the earlier category-miss)
     "insertAudio",
-    "insertFootnote",
     "deleteTable",
     "addRowBelow",
     "link",
-    "wikiLink",
+    "wikiLink", // → link:wiki, unlisted → default disallow
     "bookmark",
-    "codeBlock",
+    "codeBlock", // → insertCodeBlock, disallow
+    "blockquote", // → insertBlockquote, disallow
+    "increaseHeading", // unlisted → default disallow (NOT the heading:N conditional)
+    "selectWord",
+    "moveLineUp",
+    "formatCJK",
+    "transformUppercase",
   ] as ActionId[])("%s is hidden under multi-selection", (id) => {
-    expect(actionAvailability(id, ctx({ multiSelection: true, inTable: true }))).toBe(false);
-    // ...but available with a single selection.
-    expect(actionAvailability(id, ctx({ inTable: true }))).toBe(true);
+    expect(actionAvailability(id, ctx({ multiSelection: true, inTable: true, inList: true }))).toBe(false);
   });
 
-  it("keeps formatting/edit/selection actions available under multi-selection", () => {
-    expect(actionAvailability("bold", ctx({ multiSelection: true }))).toBe(true);
-    expect(actionAvailability("italic", ctx({ multiSelection: true }))).toBe(true);
-    expect(actionAvailability("undo", ctx({ multiSelection: true }))).toBe(true);
-    expect(actionAvailability("selectWord", ctx({ multiSelection: true }))).toBe(true);
+  // Bypass actions (history / heading:N conditional), policy-"allow" marks, and
+  // "conditional" structural actions remain available.
+  it.each([
+    "undo", // routes through unified history, bypasses the gate
+    "redo",
+    "setHeading", // adapter evaluates as heading:N ("conditional")
+    "paragraph",
+    "bold", // policy "allow"
+    "italic",
+    "bulletList", // policy "conditional"
+    "indent",
+    "nestBlockquote",
+  ] as ActionId[])("%s remains available under multi-selection", (id) => {
+    expect(actionAvailability(id, ctx({ multiSelection: true, inList: true, inBlockquote: true }))).toBe(true);
   });
 
   it("clearFormatting is available under multi-selection even with a collapsed primary", () => {
