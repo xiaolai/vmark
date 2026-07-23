@@ -30,6 +30,33 @@ changes its shape.
 **DoD:** a short findings note in this file's Phase 0 section answering all
 three, with file:line evidence. No production change.
 
+### Phase 0 findings (2026-07-23)
+
+- **WI-0.1 — labels are raw English strings, not i18n keys.** `ActionDefinition.label`
+  is `"Bold"`, `"Undo"`, `"Inline Code"` (`actionDefinitionsCore.ts:18,32,44`),
+  and it is barely consumed — the menu renders Rust-side `en.yml` labels, not
+  `ActionDefinition.label`. **Consequence: the adapter must introduce NEW
+  translation keys** for palette titles (≈83 commands × 9 locales) rather than
+  reuse existing translated labels. This is real added scope — route it through
+  the `translate-docs` skill. Until keys exist, titles may register as
+  `LocalizedString` getters returning the English string, so the palette works
+  in English and translations land incrementally.
+- **WI-0.2 — `setHeading` is the ONLY parameterized action.** `ActionParams` has
+  exactly one key (`setHeading: { level: HeadingLevel }`, `types.ts:147-148`),
+  and it is the sole discriminated case in `MenuActionMapping` (`:204`). Phase 2
+  expands exactly one action into six commands. Bounded.
+- **WI-0.3 — `dispatchEditorAction` is the sole executor, and the current
+  surface/mode is synchronously readable.** Menu (`useUnifiedMenuCommands`),
+  toolbar (`UniversalToolbar.tsx:158`), and context menu (`runMenuAction.ts:113`)
+  all funnel through `dispatchEditorAction(action, surface)`. The menu chooses
+  the surface at dispatch time from `useEditorStore.getState().active.activeSourceView`
+  and `useUIStore.getState().sourceMode` — both synchronous. So the adapter's
+  `run()` reads the same state, builds the same context, and dispatches behind
+  the same IME guard, with no async hazard the menu does not already carry.
+  **The adapter is viable as specified.**
+
+Net: the plan holds; the one scope addition is WI-0.1's translation keys.
+
 ## Phase 1 — The adapter (the core)
 
 Build `services/commands/actionBridge.ts`: iterate the action registry, register
