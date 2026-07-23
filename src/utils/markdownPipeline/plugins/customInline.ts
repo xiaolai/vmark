@@ -1,21 +1,22 @@
 /**
- * Custom Inline Marks — Remark Plugin
+ * Custom Inline Marks — Remark Plugin (registration + serialize)
  *
- * Purpose: Adds support for VMark's custom inline syntax markers:
+ * Purpose: registers VMark's custom inline markers with remark, and holds the
+ * SERIALIZE side (mdast → markdown handlers + escaping rules) for:
  *   ==highlight==, ++underline++, ^superscript^, ~subscript~
+ * The PARSE side (the mdast tree transform) lives in `customInlineTransform.ts`.
  *
  * Key decisions:
- *   - Uses tree transform (post-parse) rather than tokenizer extension because
- *     remark's micromark tokenizer API is complex and fragile for paired markers
- *   - Subscript uses single `~` with skipDouble to avoid conflict with GFM's
- *     `~~strikethrough~~` (double tilde)
- *   - Marker parsing supports nesting: ==^bold superscript^== works
- *   - Code spans, math, HTML, and YAML nodes are skipped (markers are literal inside code)
- *   - Serialization uses unsafe rules to prevent remark-stringify from escaping markers
+ *   - Serialization uses `unsafe` rules to control escaping. Double markers
+ *     (`==`/`++`) escape via a "followed by same char" match; single markers
+ *     (`^`/`~`) use a broad phrasing rule exempting their own construct, so a
+ *     literal `x\^2\^` is never re-parsed as a real superscript (defect D4).
+ *   - Marker chars emitted by a handler are exempt from escaping via
+ *     `notInConstruct`, so real superscripts/highlights keep their markers.
  *
+ * @coordinates-with customInlineTransform.ts — the parse-side tree transform
  * @coordinates-with parser.ts — always loaded (lightweight, common syntax)
  * @coordinates-with serializer.ts — serialization handlers registered via toMarkdownExtensions
- * @coordinates-with types.ts — Subscript, Superscript, Highlight, Underline types
  * @module utils/markdownPipeline/plugins/customInline
  */
 
