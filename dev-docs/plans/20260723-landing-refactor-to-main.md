@@ -3,14 +3,20 @@
 **Status:** **Phase 0 COMPLETE** (2026-07-23) — findings in `landing/phase-0-findings.md`,
 manifest in `landing/WI-0.1-manifest.md`, harness `scripts/landing-differential.sh`. Two
 Codex passes folded before Phase 0 (RETHINK → NEEDS AMENDMENT). **Headline result: the
-differential proves 19/22 corpus fixtures byte-identical v0.9.7↔branch; the only 3 changes
-are exactly the D1–D4 fixes** — the plan's core premise holds. **Correction from the Phase-0
+differential shows 19/22 corpus fixtures byte-identical v0.9.7↔branch for markdown
+round-trip; the only 3 changes are exactly the D1–D4 fixes** (harness asserts target==HEAD +
+dependency-equality; other domains gated separately) — strong evidence the plan's core
+premise holds. **Correction from the Phase-0
 spike: "format-services" is NOT one independent slice** — its contract body is core-coupled
 (WI-0.5); only jscpd/harness/service-tier/perf/fence/svg/closeSave-dup are pre-nucleus
 independent. Phases 1–2 below carry the derived release sequence; **next: re-review the
 concretized Phases 1–2 (rule 60 §6) before executing Phase 1.**
-**Branch under landing:** `refactor/vmark-core` (51 commits, +8302/−2363 across 361
-files, rooted exactly at `v0.9.7` / `440ed317`).
+**Branch under landing:** `refactor/vmark-core`, rooted exactly at `v0.9.7` / `440ed317`.
+**51 refactor commits** are the landing units — exactly `v0.9.7..cc89b450`: 51 commits,
+361 files, +8302/−2363 (verified). The branch tip beyond `cc89b450` carries this session's
+**landing apparatus** — Zed research, ADR amendments, the landing plan, Phase 0 — which are
+meta, not units (so the raw `v0.9.7..HEAD` count is higher and grows as the plan is worked;
+e.g. `v0.9.7..6b7f1459` = 54 commits / 363 files / +9055).
 **Motivation:** `dev-docs/deep-researches/20260723-zed-architecture-lessons.md` §D. Zed's
 discipline is *build-alongside-then-swap on a shippable `main`*; a large refactor that
 diverges indefinitely, or a second refactor stacked on an unmerged first, is the failure

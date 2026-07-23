@@ -1,7 +1,9 @@
 # WI-0.1 — Verified landing manifest (hunk/file granularity)
 
 Built from **actual diffs** (`git diff-tree`), not commit subjects. Source data:
-`manifest-raw.tsv` (all 54 commits `v0.9.7..refactor/vmark-core`, footprint per commit).
+`manifest-raw.tsv` (the 54 commits in `v0.9.7..6b7f1459`: **51 refactor landing units**
+= `v0.9.7..cc89b450` + 3 session-apparatus doc commits — Zed research, ADR fold, landing
+plan; the still-later Phase-0 doc commit `2135bc79` is also apparatus, not a unit).
 
 ## Key finding: cross-unit commits split at FILE boundaries, not intra-file hunks
 
@@ -26,7 +28,7 @@ gate commits each append a different `scripts` entry). Everything else is file-c
 | **U3 d1-d4** | `f8767c57`, `526e1434`, `5483267c`(header sync) | 1 | semantic reconstruction on v0.9.7 (WI-0.5) |
 | **U4 docs** | all doc-only commits + doc hunks of cross-unit commits | 1 | rewritten as target-vs-shipped snapshot |
 | **U5 jscpd** | `1ea49a30` | indep | infra; `.jscpd.json`+`package.json`+lock |
-| **U6 service-tier** | `c41cb916` (166 files, precedes core) | indep | big; one conceptual unit |
+| **U6 service-tier** | `c41cb916` (137 files, precedes core) | indep | big; one conceptual unit |
 | **U7 perf-bench** | `4b8a658b` | indep | `src/bench` only |
 | **U8 fence** | `870449b9`→`2a84e376` + `a6ebf4e1`(`codePreview/**`) | indep | ordered pair + corrections |
 | **U9 format-services** | `a870a535`,`43a60416`,`dd1c6f01`,`3c04a99d`,`f8292c88`,`ebc86ca0`,`8edfe830`,`da53f8c6` | indep | DAG; `a870a535` gates the contract others build on; **independence vs nucleus to verify in WI-0.5** |
