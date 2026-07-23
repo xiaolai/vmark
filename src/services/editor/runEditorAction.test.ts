@@ -122,6 +122,12 @@ function flushPm() {
   q.forEach((fn) => fn());
 }
 
+function flushCm() {
+  const q = [...ime.cmQueue];
+  ime.cmQueue.length = 0;
+  q.forEach((fn) => fn());
+}
+
 const VIEW = {} as object;
 
 beforeEach(() => {
@@ -219,9 +225,12 @@ describe("runEditorAction — execution-time gates", () => {
     expect(performSourceToolbarAction).not.toHaveBeenCalled();
   });
 
-  it("has no focus gate — runs regardless of any menu focus policy", () => {
-    // The executor never imports shouldBlockMenuAction; a palette-invoked action
-    // must run even though the menu's focus guard would block it.
+  it("has no focus gate — runs unconditionally (the gate lives in the hook)", () => {
+    // This suite mocks NOTHING from @/utils/focusGuard because the executor does
+    // not import it — there is no focus dependency to stub. The executor running
+    // here proves it is invocation-source agnostic; the complementary proof (a
+    // menu accelerator IS blocked when focus is trapped) lives in the
+    // useUnifiedMenuCommands suite, which mocks shouldBlockMenuAction → true.
     runEditorAction("bold", { windowLabel: "main" });
     expect(performWysiwygToolbarAction).toHaveBeenCalled();
   });
@@ -279,6 +288,66 @@ describe("runEditorAction — IME-deferred ownership (hardening #2)", () => {
     flushPm(); // compositionend flushes the queued action
     expect(performWysiwygToolbarAction).not.toHaveBeenCalled();
   });
+
+  it("DROPS a queued action when the editor remounted for the same tab", () => {
+    ime.pmComposing = true;
+    runEditorAction("bold", { windowLabel: "main" }); // captures editor instance A
+    editors.wysiwyg = { view: {} as object }; // same tab, editor remounted (instance B)
+    flushPm();
+    expect(performWysiwygToolbarAction).not.toHaveBeenCalled();
+  });
+
+  it("DROPS a queued action when the window's owner was disposed (unmount)", () => {
+    ime.pmComposing = true;
+    runEditorAction("bold", { windowLabel: "main" });
+    disposeEditorActionOwner("main"); // editor host unmounted mid-composition
+    flushPm();
+    expect(performWysiwygToolbarAction).not.toHaveBeenCalled();
+  });
+
+  it("applies a queued Source action when the tab is unchanged, drops it when changed", () => {
+    ui.sourceMode = true;
+    ime.cmComposing = true;
+    runEditorAction("bold", { windowLabel: "main" });
+    expect(performSourceToolbarAction).not.toHaveBeenCalled(); // queued
+    useTabStore.setState({ activeTabId: { main: "tab-b" } });
+    flushCm();
+    expect(performSourceToolbarAction).not.toHaveBeenCalled(); // dropped on tab change
+
+    // A second, unchanged-tab composition still applies.
+    vi.clearAllMocks();
+    useTabStore.setState({ activeTabId: { main: "tab-a" } });
+    ime.cmComposing = true;
+    runEditorAction("bold", { windowLabel: "main" });
+    flushCm();
+    expect(performSourceToolbarAction).toHaveBeenCalledWith("bold", expect.anything());
+  });
+
+  it("DROPS a queued Source action when the view remounted for the same tab", () => {
+    ui.sourceMode = true;
+    ime.cmComposing = true;
+    runEditorAction("bold", { windowLabel: "main" }); // captures Source view A
+    editors.source = {} as object; // same tab, view remounted (instance B)
+    flushCm();
+    expect(performSourceToolbarAction).not.toHaveBeenCalled();
+  });
+
+  it("DROPS a queued Source action when the window's owner was disposed", () => {
+    ui.sourceMode = true;
+    ime.cmComposing = true;
+    runEditorAction("bold", { windowLabel: "main" });
+    disposeEditorActionOwner("main");
+    flushCm();
+    expect(performSourceToolbarAction).not.toHaveBeenCalled();
+  });
+
+  it("DROPS a queued action when the effective surface flipped before flush", () => {
+    ime.pmComposing = true;
+    runEditorAction("bold", { windowLabel: "main" }); // captured surface = wysiwyg
+    ui.sourceMode = true; // user toggled to source mode during composition
+    flushPm();
+    expect(performWysiwygToolbarAction).not.toHaveBeenCalled();
+  });
 });
 
 describe("runEditorAction — tab-bound retry (hardening #1)", () => {
@@ -299,6 +368,20 @@ describe("runEditorAction — tab-bound retry (hardening #1)", () => {
     runEditorAction("bold", { windowLabel: "main" }); // origin = tab-a
     editors.wysiwyg = { view: VIEW };
     useTabStore.setState({ activeTabId: { main: "tab-b" } });
+    vi.advanceTimersByTime(60);
+    expect(performWysiwygToolbarAction).not.toHaveBeenCalled();
+    vi.useRealTimers();
+  });
+
+  it("drops a retry when the effective surface flipped during the retry window", () => {
+    // Same tab, but the user toggled to source mode while the WYSIWYG editor was
+    // still mounting. The retry must NOT dispatch to the originally-captured
+    // WYSIWYG surface even though that editor becomes available.
+    vi.useFakeTimers();
+    editors.wysiwyg = null;
+    runEditorAction("bold", { windowLabel: "main" }); // captured surface = wysiwyg
+    ui.sourceMode = true; // mode toggled during the retry window
+    editors.wysiwyg = { view: VIEW }; // WYSIWYG editor becomes available
     vi.advanceTimersByTime(60);
     expect(performWysiwygToolbarAction).not.toHaveBeenCalled();
     vi.useRealTimers();
@@ -337,5 +420,37 @@ describe("per-window retry owner (hardening #3)", () => {
     expect(getEditorActionOwner("winA")).toBe(first);
     disposeEditorActionOwner("winA");
     expect(getEditorActionOwner("winA")).not.toBe(first);
+  });
+
+  it("re-disposing a replaced owner does not evict its replacement", () => {
+    vi.useFakeTimers();
+    const a = getEditorActionOwner("winA");
+    a.dispose(); // A evicts itself
+    const b = getEditorActionOwner("winA"); // fresh owner B for the same label
+    expect(b).not.toBe(a);
+    a.dispose(); // stale double-dispose of A must NOT evict B
+    expect(getEditorActionOwner("winA")).toBe(b);
+    const ran = vi.fn();
+    b.scheduleRetry(ran); // B is still live
+    vi.advanceTimersByTime(100);
+    expect(ran).toHaveBeenCalledTimes(1);
+    vi.useRealTimers();
+  });
+});
+
+describe("runEditorAction — cross-window retry isolation", () => {
+  it("disposing one window's retries does not stop another window's", () => {
+    vi.useFakeTimers();
+    editors.wysiwyg = null; // no editor yet → both windows schedule a retry
+    useTabStore.setState({ activeTabId: { main: "tab-a", win2: "tab-2" } });
+    runEditorAction("bold", { windowLabel: "main" });
+    runEditorAction("bold", { windowLabel: "win2" });
+    editors.wysiwyg = { view: VIEW }; // editor mounts before the retries fire
+    disposeEditorActionOwner("main"); // cancel only main's pending retry
+    vi.advanceTimersByTime(60);
+    // Only win2's retry survives → exactly one dispatch.
+    expect(performWysiwygToolbarAction).toHaveBeenCalledTimes(1);
+    disposeEditorActionOwner("win2");
+    vi.useRealTimers();
   });
 });
