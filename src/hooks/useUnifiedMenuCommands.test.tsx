@@ -1130,6 +1130,9 @@ describe("useUnifiedMenuCommands", () => {
       /** Whether formatting-category actions (bold, setHeading) should dispatch.
        *  These are gated by menuPolicy.paragraphFormatting. */
       expectFormattingDispatch: boolean;
+      /** readOnlyDefault format (Phase 2b): mutating actions — incl. undo/redo —
+       *  are refused by the executor's read-only gate. */
+      readOnly: boolean;
     };
 
     // One fixture per FormatKind. Add a row when a new FormatKind lands.
@@ -1159,6 +1162,7 @@ describe("useUnifiedMenuCommands", () => {
           paragraphFormatting: true,
         },
         expectFormattingDispatch: true,
+        readOnly: false,
       },
       {
         kind: "split-pane",
@@ -1171,6 +1175,7 @@ describe("useUnifiedMenuCommands", () => {
           paragraphFormatting: false,
         },
         expectFormattingDispatch: false,
+        readOnly: false,
       },
       {
         kind: "viewer",
@@ -1183,6 +1188,7 @@ describe("useUnifiedMenuCommands", () => {
           paragraphFormatting: false,
         },
         expectFormattingDispatch: false,
+        readOnly: true,
       },
     ];
 
@@ -1204,7 +1210,7 @@ describe("useUnifiedMenuCommands", () => {
         adapters: {
           saveDialogFilters: [{ name: f.formatId, extensions: [ext] }],
           untitledExtension: ext,
-          readOnlyDefault: f.kind === "viewer",
+          readOnlyDefault: f.readOnly,
           closeSavePolicy: "prompt-on-close",
           menuPolicy: f.menuPolicy,
         },
@@ -1213,7 +1219,7 @@ describe("useUnifiedMenuCommands", () => {
 
     describe.each(fixtures)(
       "FormatKind=$kind ($formatId)",
-      ({ formatId, filePath, expectFormattingDispatch }) => {
+      ({ formatId, filePath, expectFormattingDispatch, readOnly }) => {
         beforeEach(() => {
           __resetRegistry();
           // Markdown must be registered first so the registry has a default
@@ -1225,7 +1231,7 @@ describe("useUnifiedMenuCommands", () => {
           activeWysiwygEditor = { view: {} };
         });
 
-        it("undo dispatches regardless of menuPolicy (edit-category always allowed)", async () => {
+        it(`undo ${readOnly ? "is blocked (read-only)" : "dispatches"} — edit-category bypasses menuPolicy, not read-only`, async () => {
           const tabId = useTabStore.getState().createTab("main", filePath);
           expect(useTabStore.getState().findTabById(tabId)?.formatId).toBe(
             formatId,
@@ -1236,7 +1242,14 @@ describe("useUnifiedMenuCommands", () => {
 
           listeners.get("menu:undo")?.({ payload: "main" });
 
-          expect(performUnifiedUndo).toHaveBeenCalledWith("main");
+          // Undo is edit-category (bypasses the format menuPolicy gate) but still
+          // mutates the document, so the Phase 2b read-only gate refuses it on a
+          // readOnlyDefault (viewer) format.
+          if (readOnly) {
+            expect(performUnifiedUndo).not.toHaveBeenCalled();
+          } else {
+            expect(performUnifiedUndo).toHaveBeenCalledWith("main");
+          }
         });
 
         it(`formatting (italic) ${expectFormattingDispatch ? "dispatches" : "is blocked"}`, async () => {
@@ -1302,7 +1315,7 @@ describe("useUnifiedMenuCommands", () => {
           }
         });
 
-        it("redo dispatches regardless of menuPolicy (edit-category always allowed)", async () => {
+        it(`redo ${readOnly ? "is blocked (read-only)" : "dispatches"} — edit-category bypasses menuPolicy, not read-only`, async () => {
           useTabStore.getState().createTab("main", filePath);
 
           render(<TestHarness />);
@@ -1310,7 +1323,11 @@ describe("useUnifiedMenuCommands", () => {
 
           listeners.get("menu:redo")?.({ payload: "main" });
 
-          expect(performUnifiedRedo).toHaveBeenCalledWith("main");
+          if (readOnly) {
+            expect(performUnifiedRedo).not.toHaveBeenCalled();
+          } else {
+            expect(performUnifiedRedo).toHaveBeenCalledWith("main");
+          }
         });
       },
     );

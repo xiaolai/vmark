@@ -36,6 +36,7 @@ function ctx(overrides: Partial<CommandContextResolved> = {}): CommandContextRes
     isDocument: true,
     formatId: "markdown",
     editorAvailable: true,
+    readOnly: false,
     hasSelection: false,
     multiSelection: false,
     inTable: false,
@@ -226,6 +227,24 @@ describe("completeness — nothing is accidentally always-false", () => {
 
   it.each(ALL_IDS)("%s is unavailable with no editor mounted", (id) => {
     expect(actionAvailability(id, { ...rich, editorAvailable: false })).toBe(false);
+  });
+});
+
+describe("read-only (Phase 2b) — mutating actions hidden, others kept", () => {
+  it("hides mutating actions under read-only", () => {
+    expect(actionAvailability("bold", ctx({ readOnly: true }))).toBe(false);
+    expect(actionAvailability("insertTable", ctx({ readOnly: true }))).toBe(false);
+    expect(actionAvailability("undo", ctx({ readOnly: true }))).toBe(false); // undo mutates
+  });
+
+  it("keeps non-mutating selection/navigation actions under read-only", () => {
+    expect(actionAvailability("selectWord", ctx({ readOnly: true }))).toBe(true);
+    expect(actionAvailability("selectLine", ctx({ readOnly: true }))).toBe(true);
+    expect(actionAvailability("expandSelection", ctx({ readOnly: true }))).toBe(true);
+  });
+
+  it("mutating actions ARE available when not read-only", () => {
+    expect(actionAvailability("bold", ctx({ readOnly: false }))).toBe(true);
   });
 });
 
