@@ -4,7 +4,12 @@
 through `dispatchEditorAction`); rewritten around extracting the menu executor.
 Pass 2 **NEEDS AMENDMENT** (direction validated + feasible; 1 BLOCKER + 6 MAJOR
 refinements) — all dispositioned in the phases below. Phase 0 recon done (WI-0.3
-corrected). Not started beyond recon; ready to build after this revision.
+corrected). **Zed cross-check (2026-07-23)** folded in — Zed's shipping palette/
+keymap/menu run one dispatch path and enumerate from the same registry they
+execute through, confirming this plan's core; three refinements applied to WI-2.2,
+WI-3.1, WI-5.1 (see ADR-017 Amendment and
+`dev-docs/deep-researches/20260723-zed-architecture-lessons.md`). Not started
+beyond recon; ready to build after this revision.
 **Branch:** `refactor/vmark-core`
 **ADR:** `dev-docs/decisions/ADR-017-command-bus-absorbs-the-action-registry.md`
 **Unblocks:** ADR-015 `Contribution.commands` (WI-4.1 remainder)
@@ -85,7 +90,7 @@ module-level + store-driven (`dispatchToWysiwygImpl`, `dispatchToSourceImpl`,
 | WI | Change |
 |---|---|
 | WI-2.1 | A single resolver returning `{ mode, effectiveSurface, documentKind, formatId, editorAvailable, selection/node context, multiSelection }` from stores synchronously. Wire the **palette** to supply it — today `CommandPalette.tsx` passes only `{ windowLabel }`, so both `searchCommands` and `executeCommand` need the resolved context |
-| WI-2.2 | An **explicit `ActionId → availability descriptor`** (mode support, adapter-action alias, selection/node/multi-selection requirement, mutates-document flag). `enableRules` **cannot be reused directly** — it keys on `ToolbarActionItem.enabledIn` + `CursorContext`, not `ActionId`, and many registry actions have no toolbar item. The descriptor is the action-centric policy the palette needs |
+| WI-2.2 | An **explicit `ActionId → availability descriptor`** (mode support, adapter-action alias, selection/node/multi-selection requirement, mutates-document flag). `enableRules` **cannot be reused directly** — it keys on `ToolbarActionItem.enabledIn` + `CursorContext`, not `ActionId`, and many registry actions have no toolbar item. The descriptor is the action-centric policy the palette needs. **(Zed refinement, narrowed by Codex review)** Shape it as a **closed structured record over the typed `ctx`** (fields: mode / selection / node / multiSelection / readOnly / mutatesDocument), evaluated by **one typed function** — **not** a bespoke predicate mini-language. Zed's serialized predicate DSL (`keymap/context.rs:171-324`) earns its parser only because keymaps/extensions serialize conditions; VMark's actions are first-party compiled TS, so a data DSL would add a parser, operator semantics, and drift from the TS types for **no current consumer**. The structured record (not a free-form per-action closure) is what makes the Phase-2 per-axis matrix cheap; WI-3.2's `when: ctx => actionAvailability(id, ctx)` is the single compiled evaluator over it (a closure that *reads* the record — "not a free-form closure" ≠ "no closure"). Keep it pure and cheap (runs on every palette keystroke). Revisit a serialized predicate only if external keymaps / third-party declarative commands ever need it |
 | WI-2.3 | Replace Phase 1's duplicated in-executor gates with this shared resolver, so there is one availability source before the bridge lands |
 
 **DoD:** a **per-axis matrix** test (not just table/browser examples) — every
@@ -110,7 +115,7 @@ tested both ways.
 
 | WI | Change |
 |---|---|
-| WI-3.1 | An explicit `ActionId → CommandSpec[]` mapping. `setHeading` expands to `.1`…`.6` **from day one**; no un-runnable plain `editor.setHeading` ever registers |
+| WI-3.1 | An explicit `ActionId → CommandSpec[]` mapping. `setHeading` expands to `.1`…`.6` **from day one**; no un-runnable plain `editor.setHeading` ever registers. **(Zed framing, sharpened by Codex review)** The six specs are a **palette *projection* over one action *operation***, not six actions. Terminology: the `ActionId` is the string `"setHeading"`; the level is an **invocation parameter**, not part of the id. The executor entry point stays `runEditorAction("setHeading", { level })` (`types.ts:147`), and each `.N` spec's `run` calls it with its level. Zed models this as one typed action built from params (`editor/src/actions.rs:9-15`); the projection exists only because a palette needs six searchable rows. Do not let the six specs become the identity |
 | WI-3.2 | Register each spec: `id: "editor.<id>[.<param>]"`, `title` lazy i18n getter, `category` carried from `ActionDefinition`, `when: ctx => actionAvailability(id, ctx)`, `run` → the Phase-1 executor |
 | WI-3.3 | HMR/test-safe registration needs a **real owner API** on the bus. `hasCommand(id)` only answers existence — it cannot distinguish an idempotent re-bootstrap from a foreign collision or a partial prior batch (`CommandBus.ts:60,89`). Add owner metadata (or an atomic batch-register with an owner token + disposer) so the bridge can replace-its-own on HMR, error on a foreign id, recover from a partial batch, and survive `_resetCommandBus`. Preflight ALL generated ids before registering any |
 | WI-3.4 | Bootstrap the bridge at the CommandBus bootstrap site with a real command context supplied by the palette (extend what `CommandPalette.tsx:37,58` passes) |
@@ -136,7 +141,7 @@ test asserts the active row scrolls into view on arrow navigation.
 
 | WI | Change |
 |---|---|
-| WI-5.1 | Adoption: every `ActionId` maps to ≥1 uniquely-registered `editor.*` command (NOT raw id-subset — heading maps only to `.1`…`.6`) |
+| WI-5.1 | Adoption: every `ActionId` maps to ≥1 uniquely-registered `editor.*` command (NOT raw id-subset — heading maps only to `.1`…`.6`). **(Zed framing, sharpened by Codex review)** The gate is **structural**, not "reaches the executor" (too dynamic for a D6 gate — WI-5.2's runtime differential already covers heading-2 *execution*). Assert: (a) every `ActionId` has ≥1 projected `editor.*` spec; (b) `setHeading` projects to **exactly** levels 1–6, no gaps/dupes; (c) every projected spec's `run` invokes `runEditorAction("setHeading", { level: N })`; (d) no plain `editor.setHeading` registers. Keeps one identity without inverting into "six independent actions" |
 | WI-5.2 | End-to-end **bus** differential: running `editor.undo` / `editor.setHeading.2` / `editor.paragraph` *through the CommandBus* matches the `menu:` path. (Executor-level parity for these already went RED in Phase 1; this is the full palette→bus→executor path.) |
 | WI-5.3 | Inapplicability: browser/non-document tab, Source mode, and read-only each hide/refuse the right actions |
 

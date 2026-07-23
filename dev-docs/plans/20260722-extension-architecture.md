@@ -18,7 +18,18 @@ BLOCKERs are resolved in Phase 1.
 **Branch:** `refactor/vmark-core`
 **ADR:** `dev-docs/decisions/ADR-015-extension-model.md`
 **Evidence:** `dev-docs/deep-researches/20260721-extension-architecture-investigation.md`,
-`dev-docs/deep-researches/20260722-extension-architecture-prior-art.md`
+`dev-docs/deep-researches/20260722-extension-architecture-prior-art.md`,
+`dev-docs/deep-researches/20260723-zed-architecture-lessons.md`
+
+**Zed cross-check (2026-07-23):** Zed's shipping extension system confirms D3 (flat
+peers + host-owned keyed points) and D5 (isolation → principal → broker order). Three
+ADR-015 corrections (see its Amendment) all land on the **deferred third-party tiers**,
+not the completed Phase 0–5 pipeline work: (1) make D1's declarative-static vs
+imperative-dynamic split explicit in the `Contribution` type (aligns with Tier-A
+declarative, WI-5.2); (2) a versioned frozen contribution-contract artifact + per-extension
+version tag when the package contract is built; (3) a builtin-vs-third-party override
+policy for host-owned keys (D2b/D3). These reopen with WI-5.2–5.5 — recorded now so they
+are not rediscovered late; no completed phase changes.
 
 Goal: minimal core, everything else an extension, third-party ecosystem
 eventually. ADR-015 holds the decisions; this file holds the sequence.

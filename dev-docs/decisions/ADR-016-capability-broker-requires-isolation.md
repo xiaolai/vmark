@@ -123,6 +123,53 @@ One decision, then the rest is engineering:
 Either answer creates a real principal at a real boundary, and the broker follows
 from it. Neither answer can be inferred from the code.
 
+## Amendment (2026-07-23): Zed cross-check — the broker is two-sided
+
+Zed's shipping extension broker (read as prior art,
+`dev-docs/deep-researches/20260723-zed-architecture-lessons.md`) **confirms this ADR's
+central finding** — its `CapabilityGranter` is constructed *per extension*, embedded in
+that extension's sandbox store, and every privileged host call resolves the principal as
+`self` (`capability_granter.rs:7-84`, `wasm_host.rs:667-670`). Isolation boundary →
+principal → broker is exactly the order recorded here, now witnessed in a real product.
+
+It also **adds one dimension this ADR's model omits: the capability grant is two-sided.**
+This ADR describes the broker as default-deny over a closed vocabulary (the `origin_guard`
++ `one_shot` + `operation` machinery). Zed requires **both** sides to agree before a
+privileged call proceeds:
+
+1. **Author declares needs** in the extension's own manifest
+   (`capabilities.rs:11-20`; `allow_exec` checks the extension's own declaration and bails
+   if the capability isn't listed, `extension_manifest.rs:164-183`).
+2. **Operator grants** an allow-list (`extension_settings.rs:17`); the call succeeds only
+   if both the manifest declares it and the operator's list permits it
+   (`capability_granter.rs:28-46`).
+
+The author-declaration half is what this ADR's "package/security contract" (Consequences,
+bullet 2) is missing — but its role is **disclosure, not authorization** (Codex review). A
+malicious extension can declare every capability, so the declaration is **not** a second
+security *authority*; the **operator grant remains the only restricting policy**, and the
+declaration does not make an overbroad grant safe. What it buys is: pre-install
+**review/consent** ("this extension asks to exec `node` and reach `github.com`", readable
+*before* code runs), a stable **requested-scope identity**, and — the edge case worth
+naming now — **update-escalation detection**: if v1 requests network and v2 adds exec, the
+expanded declaration must **invalidate or re-prompt** the prior grant, never silently
+intersect with a standing wildcard. (Correcting a first-pass phrasing: the operator
+allow-list *already* tightens policy per-extension; the declaration lets the operator
+*understand and approve the requested subset*.) When the package contract is built, it must
+include this **author-declared capability manifest** alongside the runtime broker.
+
+**Deny-by-default is a live choice, and stricter than Zed ships.** Zed's *default* grant
+list is wide-open wildcards (`assets/settings/default.json:2149-2153`) — out of the box the
+broker restricts nothing; its real security comes from sandbox defenses (filesystem
+preopen, `..`/symlink rejection, epoch-interruption liveness — `wasm_host.rs:729-804`,
+`578-585`) plus the audit trail. VMark should ship **deny-by-default** and treat the
+sandbox defenses as non-negotiable companions to the broker — but **tier-specifically**:
+they map directly onto a Tier-B sandboxed worker, whereas a Tier-C sidecar inherits ambient
+filesystem/network and an RPC deadline does not kill the process, so Tier C needs OS-level
+containment or is accepted as a higher-trust tier (see ADR-015 amendment). Policy is not
+containment. None of this changes the sequencing decision — it sharpens the
+"package/security contract" that reopens WI-5.2–5.5.
+
 ## Verification
 
 - `grep -n "pub async fn pty_spawn" -A9 src-tauri/src/pty.rs` — no caller identity
