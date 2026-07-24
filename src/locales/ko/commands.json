@@ -65,7 +65,8 @@
     "toggleBreakdown": "정합성 내역",
     "toggleClaims": "캐논 설정",
     "contentSearch": "파일에서 찾기",
-    "toggleSidebar": "사이드바 전환"
+    "toggleSidebar": "사이드바 전환",
+    "toggleStatusBar": "상태 표시줄 전환"
   },
   "lint": {
     "check": "Markdown 검사",
@@ -217,5 +218,11 @@
   "explorer": {
     "toggleHiddenFiles": "숨김 파일 전환",
     "toggleAllFiles": "모든 파일 전환"
+  },
+  "tab": {
+    "new": "새 탭",
+    "next": "다음 탭",
+    "prev": "이전 탭",
+    "close": "탭 닫기"
   }
 }

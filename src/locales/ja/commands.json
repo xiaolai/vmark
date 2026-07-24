@@ -65,7 +65,8 @@
     "toggleBreakdown": "整合性の内訳",
     "toggleClaims": "カノン設定",
     "contentSearch": "ファイル内を検索",
-    "toggleSidebar": "サイドバーを切り替え"
+    "toggleSidebar": "サイドバーを切り替え",
+    "toggleStatusBar": "ステータスバーを切り替え"
   },
   "lint": {
     "check": "Markdown をチェック",
@@ -217,5 +218,11 @@
   "explorer": {
     "toggleHiddenFiles": "隠しファイルを切り替え",
     "toggleAllFiles": "すべてのファイルを切り替え"
+  },
+  "tab": {
+    "new": "新しいタブ",
+    "next": "次のタブ",
+    "prev": "前のタブ",
+    "close": "タブを閉じる"
   }
 }

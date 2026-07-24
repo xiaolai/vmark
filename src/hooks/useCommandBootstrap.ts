@@ -29,6 +29,7 @@ import { registerWorkspaceCommands } from "@/services/commands/workspaceCommands
 import { registerFormatCommands } from "@/services/commands/formatCommands";
 import { registerBrowserCommands } from "@/services/commands/browserCommands";
 import { registerEditorCommands } from "@/services/commands/editorCommandBridge";
+import { registerTabCommands } from "@/hooks/tabCommands";
 import { invoke } from "@tauri-apps/api/core";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { startGrantSync } from "@/services/browser/grantSync";
@@ -111,6 +112,7 @@ export function useCommandBootstrap(): void {
     registerClaimCommands();
     registerFormatCommands();
     registerBrowserCommands();
+    registerTabCommands();
     // Lift every editor ActionId into the bus so the palette can find them
     // (WI-3.4). Owner-based batch registration is HMR-safe (replace-own).
     const disposeEditorCommands = registerEditorCommands();
