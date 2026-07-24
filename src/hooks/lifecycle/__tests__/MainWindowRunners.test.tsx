@@ -37,8 +37,8 @@ vi.mock("@/hooks/useQuickOpenShortcuts", () => ({
 vi.mock("@/components/ContentSearch/useContentSearchShortcuts", () => ({
   useContentSearchShortcuts: () => calls.push("contentSearchShortcuts"),
 }));
-vi.mock("@/components/CommandPalette", () => ({
-  useCommandPaletteShortcut: () => calls.push("commandPaletteShortcut"),
+vi.mock("@/hooks/useKeybindingRouter", () => ({
+  useKeybindingRouter: () => calls.push("keybindingRouter"),
 }));
 
 import { MainWindowRunners } from "../MainWindowRunners";
@@ -62,7 +62,7 @@ describe("MainWindowRunners", () => {
         "genieShortcuts",
         "quickOpenShortcuts",
         "contentSearchShortcuts",
-        "commandPaletteShortcut",
+        "keybindingRouter",
       ].sort(),
     );
     // Exactly once each — no duplicate mounts.

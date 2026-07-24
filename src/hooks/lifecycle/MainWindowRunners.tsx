@@ -29,7 +29,7 @@ import { useFinderFileOpen } from "@/hooks/useFinderFileOpen";
 import { useGenieShortcuts } from "@/hooks/useGenieShortcuts";
 import { useQuickOpenShortcuts } from "@/hooks/useQuickOpenShortcuts";
 import { useContentSearchShortcuts } from "@/components/ContentSearch/useContentSearchShortcuts";
-import { useCommandPaletteShortcut } from "@/components/CommandPalette";
+import { useKeybindingRouter } from "@/hooks/useKeybindingRouter";
 
 function MainWindowLifecycle(): null {
   useMcpAutoStart();
@@ -62,7 +62,7 @@ function ContentSearchShortcutsRunner(): null {
 }
 
 function CommandPaletteShortcutRunner(): null {
-  useCommandPaletteShortcut();
+  useKeybindingRouter();
   return null;
 }
 

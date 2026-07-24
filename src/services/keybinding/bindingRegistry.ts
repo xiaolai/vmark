@@ -181,8 +181,8 @@ function safeWhen(b: Binding, ctx: BindingContext): boolean {
   }
 }
 
-/** Resolve the chord that keys a binding in the index. */
-export function chordOfBinding(
+/** Resolve the chord that keys a binding in the index (internal to buildIndex). */
+function chordOfBinding(
   b: Binding,
   resolveShortcut: (shortcutId: string) => CanonicalChord | null,
 ): CanonicalChord | null {

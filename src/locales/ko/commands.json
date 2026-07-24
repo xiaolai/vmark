@@ -1,6 +1,7 @@
 {
   "app": {
-    "preferences": "설정"
+    "preferences": "설정",
+    "commandPalette": "명령 팔레트"
   },
   "history": {
     "clearAll": "모든 기록 지우기",

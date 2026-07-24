@@ -1,6 +1,7 @@
 {
   "app": {
-    "preferences": "環境設定"
+    "preferences": "環境設定",
+    "commandPalette": "コマンドパレット"
   },
   "history": {
     "clearAll": "すべての履歴を消去",

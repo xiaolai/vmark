@@ -16,7 +16,7 @@ import {
   resolveLocalizedString,
   type RankedCommand,
 } from "@/services/commands";
-import { useCommandPaletteStore } from "./commandPaletteStore";
+import { useCommandPaletteStore } from "@/stores/commandPaletteStore";
 import { menuError } from "@/utils/debug";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import "./command-palette.css";

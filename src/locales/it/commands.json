@@ -1,6 +1,7 @@
 {
   "app": {
-    "preferences": "Preferenze"
+    "preferences": "Preferenze",
+    "commandPalette": "Palette dei comandi"
   },
   "history": {
     "clearAll": "Cancella tutta la cronologia",

@@ -1,6 +1,7 @@
 {
   "app": {
-    "preferences": "Preferencias"
+    "preferences": "Preferencias",
+    "commandPalette": "Paleta de comandos"
   },
   "history": {
     "clearAll": "Borrar todo el historial",
