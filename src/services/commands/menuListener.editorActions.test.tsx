@@ -47,11 +47,22 @@ let activeWysiwygEditor: { view: object } | null = null;
 let activeSourceView: object | null = null;
 vi.mock("@/stores/editorStore", () => ({
   useEditorStore: {
-    getState: () => ({
-      active: { activeWysiwygEditor, activeSourceView },
-      tiptap: { editor: null, editorView: null, context: null },
-      source: { context: null, editorView: null },
-    }),
+    getState: () => {
+      // The active editor belongs to the window's active tab — mirror that so the
+      // executor's tab-identity guard (audit-fix #1) sees a matching tab. Resolved
+      // lazily from the real tab store at call time.
+      const activeTab = useTabStore.getState().activeTabId["main"] ?? null;
+      return {
+        active: {
+          activeWysiwygEditor,
+          activeWysiwygTabId: activeWysiwygEditor ? activeTab : null,
+          activeSourceView,
+          activeSourceTabId: activeSourceView ? activeTab : null,
+        },
+        tiptap: { editor: null, editorView: null, context: null },
+        source: { context: null, editorView: null },
+      };
+    },
   },
 }));
 

@@ -91,12 +91,18 @@ export function buildMultiCursorKeymapBindings(): Record<string, Command> {
     // Guard against an empty/unbound chord — skip binding, like the WYSIWYG
     // keymap's bindIfKey does.
     if (!key) return;
-    bindings[toProseMirrorKey(key)] = command;
+    const pmKey = toProseMirrorKey(key);
+    // Never clobber a chord already bound above (the fixed occurrence-selector
+    // mechanics). If a user rebinds e.g. skipOccurrence onto Mod-d, the fixed
+    // "select next occurrence" wins and the rebind is inert on that chord —
+    // rather than silently destroying the fixed mechanic (audit-fix #1).
+    if (pmKey in bindings) return;
+    bindings[pmKey] = command;
   };
 
   // Fixed chords: no rebindable Settings row exists for these commands
   // (selectNextOccurrence / selectAllOccurrences are command names, not
-  // shortcut ids).
+  // shortcut ids). Bound FIRST so bindIfKey's collision guard preserves them.
   bindings["Mod-d"] = wrapCommand(selectNextOccurrence);
   bindings["Mod-Shift-l"] = wrapCommand(selectAllOccurrences);
   bindings.Escape = wrapCommand(collapseMultiSelection);
@@ -121,9 +127,6 @@ export function buildMultiCursorKeymapBindings(): Record<string, Command> {
  */
 export function multiCursorKeymap(): Plugin {
   let handler = keydownHandler(buildMultiCursorKeymapBindings());
-  const unsubscribe = useShortcutsStore.subscribe(() => {
-    handler = keydownHandler(buildMultiCursorKeymapBindings());
-  });
 
   return new Plugin({
     key: multiCursorKeymapPluginKey,
@@ -134,6 +137,14 @@ export function multiCursorKeymap(): Plugin {
     },
     /* v8 ignore start -- @preserve reason: ProseMirror Plugin view() lifecycle only runs inside a live Tiptap editor; not instantiated in unit tests */
     view() {
+      // Subscribe HERE (per mounted view), not at plugin creation: a plugin
+      // instantiated for a headless/state-only EditorState never runs view(), so
+      // it must not open a store subscription it can never close; and each mounted
+      // view owns its own unsubscribe, so destroying one view can't tear down
+      // another's live subscription (audit-fix #2).
+      const unsubscribe = useShortcutsStore.subscribe(() => {
+        handler = keydownHandler(buildMultiCursorKeymapBindings());
+      });
       return {
         destroy() {
           unsubscribe();
