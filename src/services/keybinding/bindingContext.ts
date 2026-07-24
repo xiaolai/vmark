@@ -10,7 +10,6 @@
  * @module services/keybinding/bindingContext
  */
 
-import { useUIStore } from "@/stores/uiStore";
 import type { BindingContext, Scope } from "./bindingRegistry";
 
 function isModalOpen(): boolean {
@@ -44,7 +43,12 @@ export function resolveBindingContext(windowLabel: string): BindingContext {
   if (isTerminalFocused(el)) {
     scopes.push("terminal");
   } else if (isEditorFocused(el)) {
-    scopes.push(useUIStore.getState().sourceMode ? "editor-source" : "editor-wysiwyg");
+    // Scope by the FOCUSED editor surface, not the global sourceMode flag: in a
+    // split view (markdown split / split documents) both editors are mounted at
+    // once, and focus — not the document's mode — decides which one's bindings
+    // apply. `.cm-editor` is Source (CodeMirror); otherwise it is the WYSIWYG
+    // ProseMirror surface that `isEditorFocused` matched.
+    scopes.push(el?.closest?.(".cm-editor") ? "editor-source" : "editor-wysiwyg");
   } else if (isTextInput(el)) {
     scopes.push("input");
   }
