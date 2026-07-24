@@ -26,48 +26,49 @@ import type { ActionId } from "@/plugins/actions/types";
 import { ACTION_DEFINITIONS } from "@/plugins/actions/actionRegistry";
 import { isCategoryAllowedByFormat, mapActionIdToAdapterAction } from "@/services/editor/editorActionGates";
 import { LINK_DISABLED_ACTIONS } from "@/plugins/toolbarActions/enableRules";
-import { getMultiSelectionPolicyForAction } from "@/plugins/toolbarActions/multiSelectionPolicy";
+import { canRunActionInMultiSelection } from "@/plugins/toolbarActions/multiSelectionPolicy";
+import type { MultiSelectionContext } from "@/plugins/toolbarActions/types";
 import type { CommandContextResolved } from "./commandContext";
 
 /**
- * Actions that BYPASS the adapters' multi-selection gate, so multi-selection
- * never disables them:
- *  - undo/redo route through unified history in `runEditorAction`, before any
- *    adapter dispatch;
- *  - setHeading/paragraph are evaluated by the adapters as `heading:N`
- *    ("conditional"), not by their ActionId (whose adapter name is unlisted).
+ * Actions that BYPASS the adapters' multi-selection gate entirely: undo/redo
+ * route through unified history in `runEditorAction` BEFORE any adapter dispatch,
+ * so multi-selection can never disable them (unlike every other action, whose
+ * verdict comes from `canRunActionInMultiSelection`).
  */
-const MULTI_SELECT_GATE_BYPASS: ReadonlySet<ActionId> = new Set([
-  "undo",
-  "redo",
-  "setHeading",
-  "paragraph",
-]);
+const MULTI_SELECT_GATE_BYPASS: ReadonlySet<ActionId> = new Set(["undo", "redo"]);
 
 /**
- * True when multi-selection disables an action. Reuses the SAME predicate the
- * WYSIWYG and Source adapters apply — `getMultiSelectionPolicyForAction`, keyed
- * by the adapter action name, defaulting unlisted actions to "disallow" — so the
- * palette hides exactly what the adapters would reject, except:
- *  - the bypass actions above are never hidden.
- *
- * Two residual approximations remain, both requiring the FULL per-cursor
- * multi-selection context that the flattened command context does not carry.
- * They are deferred to a later consumer unit (keybinding / MCP), NOT to the
- * already-shipped Phase 3 — the bridge landed without a per-cursor projection or
- * reactive context by design. Neither is a correctness risk — the adapters'
- * `canRunActionInMultiSelection` is the final boundary, so a shown-but-rejected
- * action is a harmless no-op, never a wrong edit:
- *  1. "conditional" actions (lists, blockquote nesting) are shown even though the
- *     adapter rejects them unless all cursors share a structural context;
- *  2. `canRunActionInMultiSelection` also vetoes EVERY multi-selection action
- *     (including policy-"allow" marks) when any range is inside a code block,
- *     table, link, image, inline math, or footnote — the palette does not
- *     reproduce these universal context vetoes.
+ * The adapter key that `canRunActionInMultiSelection` evaluates for a palette
+ * action. Most actions map 1:1 via `mapActionIdToAdapterAction`; the two
+ * parameterized heading actions carry no level at palette time, but every
+ * `heading:N` shares the "conditional" policy, so a representative level yields
+ * the correct yes/no verdict (`paragraph` == level 0, `setHeading` == a heading).
  */
-function isHiddenUnderMultiSelection(id: ActionId): boolean {
-  if (MULTI_SELECT_GATE_BYPASS.has(id)) return false;
-  return getMultiSelectionPolicyForAction(mapActionIdToAdapterAction(id)) === "disallow";
+function multiSelectionKeyFor(id: ActionId): string {
+  if (id === "setHeading") return "heading:1";
+  if (id === "paragraph") return "heading:0";
+  return mapActionIdToAdapterAction(id);
+}
+
+/**
+ * Whether an action survives the adapters' multi-selection gate for the given
+ * context. Delegates to the SAME `canRunActionInMultiSelection` the WYSIWYG and
+ * Source adapters call at execution time, so the palette offers exactly what the
+ * adapter would accept — including its two context-dependent rules that a static
+ * policy lookup cannot reproduce:
+ *  1. the "conditional" actions (headings, lists, blockquote nesting) are gated
+ *     on all cursors sharing a structural context (`sameBlockParent` +
+ *     `inTextblock`); and
+ *  2. the universal vetoes that disable EVERY multi-selection action (even
+ *     policy-"allow" marks) when any cursor is inside a code block, table, link,
+ *     image, inline math, or footnote.
+ * This is why the resolved context now carries the full `MultiSelectionContext`
+ * rather than a bare boolean (closes command-registry WI-2.2 residuals a/b).
+ */
+function isAvailableUnderMultiSelection(id: ActionId, multi: MultiSelectionContext): boolean {
+  if (MULTI_SELECT_GATE_BYPASS.has(id)) return true;
+  return canRunActionInMultiSelection(multiSelectionKeyFor(id), multi);
 }
 
 type NodeAxis = "table" | "link" | "list" | "blockquote" | "codeBlock" | "heading";
@@ -179,8 +180,9 @@ export function actionAvailability(id: ActionId, ctx: CommandContextResolved): b
   // name) so the palette matches the toolbar/keymap for in-link actions.
   const adapterAction = mapActionIdToAdapterAction(id);
   if (ctx.inLink && LINK_DISABLED_ACTIONS.has(adapterAction)) return false;
-  // Multi-selection: hide what the adapters' own multi-selection gate rejects.
-  if (ctx.multiSelection && isHiddenUnderMultiSelection(id)) return false;
+  // Multi-selection: hide exactly what the adapters' own multi-selection gate
+  // would reject for this cursor set (universal vetoes + shared-context rule).
+  if (ctx.multiSelection && !isAvailableUnderMultiSelection(id, ctx.multiSelection)) return false;
 
   const req = ACTION_AVAILABILITY[id];
   if (!req) return true;
