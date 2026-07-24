@@ -1,6 +1,7 @@
 {
   "app": {
-    "preferences": "Einstellungen"
+    "preferences": "Einstellungen",
+    "commandPalette": "Befehlspalette"
   },
   "history": {
     "clearAll": "Gesamten Verlauf löschen",

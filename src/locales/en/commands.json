@@ -1,6 +1,7 @@
 {
   "app": {
-    "preferences": "Preferences"
+    "preferences": "Preferences",
+    "commandPalette": "Command Palette"
   },
   "history": {
     "clearAll": "Clear All History",
