@@ -26,17 +26,23 @@ vi.mock("@/services/commands", () => ({
 }));
 
 // A sentinel resolved context so we can prove the palette supplies it (WI-2.1).
+// The resolver echoes the invoking window label so tests can drive a
+// context change (windowLabel is already "main", so this deep-equals SENTINEL_CTX
+// for the default case the WI-S0.7 test asserts on).
 const SENTINEL_CTX = { windowLabel: "main", mode: "wysiwyg", isDocument: true } as const;
 vi.mock("@/services/commands/commandContext", () => ({
-  resolveCommandContext: () => SENTINEL_CTX,
+  resolveCommandContext: (windowLabel: string) => ({ ...SENTINEL_CTX, windowLabel }),
 }));
 
 vi.mock("@/utils/imeGuard", () => ({
   isImeKeyEvent: vi.fn(() => false),
 }));
 
+// Mutable window label so a test can simulate the invoking window changing
+// (which recomputes the ranked results under an unchanged query).
+const windowLabelRef = vi.hoisted(() => ({ current: "main" }));
 vi.mock("@/contexts/WindowContext", () => ({
-  useWindowLabel: () => "main",
+  useWindowLabel: () => windowLabelRef.current,
   useIsDocumentWindow: () => true,
 }));
 
@@ -53,6 +59,8 @@ function makeCategorized(id: string, title: string, category: string): RankedCom
 
 beforeEach(() => {
   vi.clearAllMocks();
+  windowLabelRef.current = "main";
+  mockSearchCommands.mockImplementation(() => mockRanked);
   mockRanked = [
     makeCommand("cmd.one", "Command One"),
     makeCommand("cmd.two", "Command Two"),
@@ -227,6 +235,44 @@ describe("CommandPalette — grouping + a11y (Phase 4)", () => {
     fireEvent.change(input, { target: { value: "bo" } });
     expect(screen.queryAllByRole("group")).toHaveLength(0);
     expect(screen.getAllByRole("option")).toHaveLength(2);
+  });
+
+  it("clamps the caret when same-query results shrink under a context change (round 2)", async () => {
+    // 3 rows in window "main", 1 row in "w2" — the query stays empty throughout.
+    mockSearchCommands.mockImplementation(
+      (_q: string, ctx: { windowLabel: string }) =>
+        ctx.windowLabel === "main"
+          ? [
+              makeCommand("a", "Alpha"),
+              makeCommand("b", "Beta"),
+              makeCommand("c", "Gamma"),
+            ]
+          : [makeCommand("a", "Alpha")],
+    );
+    useCommandPaletteStore.setState({ isOpen: true });
+    const { rerender } = render(<CommandPalette />);
+    const input = screen.getByRole("combobox");
+
+    fireEvent.keyDown(input, { key: "ArrowDown" });
+    fireEvent.keyDown(input, { key: "ArrowDown" }); // caret → last of 3
+    expect(input).toHaveAttribute("aria-activedescendant", "command-palette-item-2");
+
+    // Invoking window changes → ranked recomputes to a single row, SAME query.
+    windowLabelRef.current = "w2";
+    rerender(<CommandPalette />);
+
+    expect(screen.getAllByRole("option")).toHaveLength(1);
+    // Caret clamped back into range; aria points at the surviving row, not a ghost.
+    expect(input).toHaveAttribute("aria-activedescendant", "command-palette-item-0");
+
+    // Enter runs the surviving command, not a stranded/undefined one.
+    fireEvent.keyDown(input, { key: "Enter" });
+    await Promise.resolve();
+    expect(mockExecuteCommand).toHaveBeenCalledWith(
+      "a",
+      null,
+      expect.objectContaining({ windowLabel: "w2" }),
+    );
   });
 
   it("scrolls the active row into view on ArrowDown (WI-4.3)", () => {

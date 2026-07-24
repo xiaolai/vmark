@@ -111,7 +111,8 @@ function renderSections(
 }
 
 export function CommandPalette() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const language = i18n.language;
   const windowLabel = useWindowLabel();
   const isOpen = useCommandPaletteStore((s) => s.isOpen);
   // The native browser view paints over all React DOM in its rect, so freeze every
@@ -132,9 +133,15 @@ export function CommandPalette() {
   // query (self-corrects on the next keystroke). Execution re-resolves fresh, so a
   // stale-shown command would at worst no-op. Full store-reactive resolution is a
   // deferred palette-UX item.
+  // `language` is a real (if invisible) dependency: command titles are lazy
+  // i18n getters, so scoring/membership are language-sensitive. Without it a
+  // language switch while the palette is open would re-render titles in the new
+  // language but keep the old-language ranking (stale matches shown/hidden).
+  // eslint can't see through the getters, so it reads `language` as unused here.
   const ranked: RankedCommand[] = useMemo(
     () => (isOpen ? searchCommands(query, resolveCommandContext(windowLabel)) : []),
-    [isOpen, query, windowLabel],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [isOpen, query, windowLabel, language],
   );
 
   // Localized category label, with the raw id as a defensive fallback so an
@@ -148,8 +155,8 @@ export function CommandPalette() {
   // (WI-4.2). The sections' items, flattened in order, are the on-screen order —
   // `flat` is what selection indexes into, so grouping never desyncs the caret.
   const sections = useMemo(
-    () => buildPaletteSections(ranked, query, categoryLabel),
-    [ranked, query, categoryLabel],
+    () => buildPaletteSections(ranked, query, categoryLabel, language),
+    [ranked, query, categoryLabel, language],
   );
   const flat: RankedCommand[] = useMemo(
     () => sections.flatMap((section) => section.items),
@@ -162,6 +169,12 @@ export function CommandPalette() {
   if (query !== prevQuery) {
     setPrevQuery(query);
     setSelectedIndex(0);
+  } else if (selectedIndex > 0 && selectedIndex >= flat.length) {
+    // Same query, but the result set shrank (a language/context change can drop
+    // rows). Clamp the caret back into range so aria-activedescendant, Enter,
+    // and ArrowUp don't strand on a row that no longer exists. Guarded to the
+    // out-of-range case so this render-phase adjustment can't loop. #1063
+    setSelectedIndex(Math.max(0, flat.length - 1));
   }
 
   // Reset and focus on open; restore previous focus on close (a11y). Legitimate
@@ -252,7 +265,9 @@ export function CommandPalette() {
           aria-expanded={flat.length > 0}
           aria-controls="command-palette-list"
           aria-activedescendant={
-            flat.length > 0 ? `command-palette-item-${selectedIndex}` : undefined
+            selectedIndex < flat.length
+              ? `command-palette-item-${selectedIndex}`
+              : undefined
           }
         />
         <ul

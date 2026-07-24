@@ -70,11 +70,15 @@ export const UNCATEGORIZED = "other";
  * @param labelFor resolves a category id to its localized label (the caller
  *   wires this through i18n with a raw-id `defaultValue`, so an unlabeled
  *   category degrades to its id rather than vanishing).
+ * @param locale BCP-47 tag for the alphabetical tie-break among categories
+ *   absent from the curated order — passed so accented/locale-specific
+ *   collation follows VMark's selected language, not the host's default.
  */
 export function buildPaletteSections(
   ranked: readonly RankedCommand[],
   query: string,
   labelFor: (categoryId: string) => string,
+  locale?: string,
 ): PaletteSection[] {
   if (query.trim() !== "") {
     return [{ id: null, label: null, items: [...ranked] }];
@@ -97,7 +101,7 @@ export function buildPaletteSections(
     .sort((a, b) => {
       const byOrder = orderOf(a) - orderOf(b);
       if (byOrder !== 0) return byOrder;
-      return labelFor(a).localeCompare(labelFor(b));
+      return labelFor(a).localeCompare(labelFor(b), locale);
     })
     .map((category) => ({
       id: category,

@@ -102,4 +102,26 @@ describe("buildPaletteSections", () => {
   it("empty input yields no sections", () => {
     expect(buildPaletteSections([], "", idLabel)).toEqual([]);
   });
+
+  it("threads a locale into the unknown-category tie-break (Swedish sorts ä after z)", () => {
+    // Both categories are absent from the curated order → alphabetical by label.
+    // 'ä' collates BEFORE 'z' in English but AFTER 'z' in Swedish; passing the
+    // locale must flip the order, proving VMark's language drives collation
+    // rather than the host default.
+    const ranked = [cmd("a.z", "zcat"), cmd("a.a", "ächen")];
+    const en = buildPaletteSections(
+      ranked,
+      "",
+      (c) => (c === "zcat" ? "Zebra" : "Ähnlich"),
+      "en", // explicit — otherwise a Swedish-configured host would also see sv order
+    );
+    const sv = buildPaletteSections(
+      ranked,
+      "",
+      (c) => (c === "zcat" ? "Zebra" : "Ähnlich"),
+      "sv",
+    );
+    expect(en.map((s) => s.id)).toEqual(["ächen", "zcat"]); // Ä ~ A < Z
+    expect(sv.map((s) => s.id)).toEqual(["zcat", "ächen"]); // Z < Ä (distinct letter)
+  });
 });
