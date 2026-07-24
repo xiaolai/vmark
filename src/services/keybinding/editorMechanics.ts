@@ -159,6 +159,61 @@ export const APPROVED_MECHANICS: readonly EditorMechanic[] = [
     keys: ["Escape"],
     rationale: "Collapses multiple selections back to a single cursor.",
   },
+  {
+    id: "wysiwyg.multiCursorSelectNext",
+    surface: "wysiwyg",
+    keys: ["Mod-d"],
+    rationale:
+      "multiCursor occurrence selector (selectNextOccurrence) — a command-named handler, not a rebindable Settings row.",
+  },
+  {
+    id: "wysiwyg.multiCursorSelectAll",
+    surface: "wysiwyg",
+    keys: ["Mod-Shift-l"],
+    rationale:
+      "multiCursor occurrence selector (selectAllOccurrences) — a command-named handler, not a rebindable Settings row.",
+  },
+  {
+    id: "wysiwyg.tableCellForward",
+    surface: "wysiwyg",
+    keys: ["Tab"],
+    rationale:
+      "goToNextCell table navigation; structural caret motion between cells, not a rebindable command.",
+  },
+  {
+    id: "wysiwyg.aiSuggestionRejectAll",
+    surface: "wysiwyg",
+    keys: ["Mod-Shift-Escape"],
+    rationale: "Rejects all pending inline AI suggestions when a batch is showing.",
+  },
+  // ── Source (CodeMirror) — occurrence / multi-cursor / word-wrap mechanics ──
+  {
+    id: "source.selectNextOccurrence",
+    surface: "source",
+    keys: ["Mod-d"],
+    rationale:
+      "CJK/fence-aware source occurrence selector (selectNextOccurrenceSource); command-named, not rebindable.",
+  },
+  {
+    id: "source.selectAllOccurrences",
+    surface: "source",
+    keys: ["Mod-Shift-l"],
+    rationale:
+      "CJK/fence-aware source occurrence selector (selectAllOccurrencesSource); command-named, not rebindable.",
+  },
+  {
+    id: "source.multiCursorEscape",
+    surface: "source",
+    keys: ["Escape"],
+    rationale: "Collapses source multiple cursors back to a single cursor.",
+  },
+  {
+    id: "source.wordWrapToggle",
+    surface: "source",
+    keys: ["Mod-Alt-w"],
+    rationale:
+      "Hardcoded source word-wrap toggle shadowing the rebindable `wordWrap` shortcut (Alt-z). LEGACY secondary binding — a consolidation follow-up should route it through getShortcut(\"wordWrap\") and drop this mechanic.",
+  },
 ] as const;
 
 /** The approved mechanic ids as a set (built once). */
