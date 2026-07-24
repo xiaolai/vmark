@@ -85,30 +85,163 @@ function unquote(rawBody) {
   return JSON.parse(`"${rawBody}"`);
 }
 
-/** Extract a `name: "value"` string field from an object-literal body, or undefined. */
+/**
+ * Unescape a single-quoted (or backtick) TS string body into its runtime value.
+ * JSON.parse only accepts double-quoted bodies, so this handles the escape
+ * sequences directly for the non-double-quoted case. `\\X` → the escaped char
+ * (with the standard `\\n`/`\\t`/… expansions); everything else is literal.
+ */
+function unescapeAltQuoted(raw) {
+  return raw.replace(/\\(u[0-9a-fA-F]{4}|x[0-9a-fA-F]{2}|.)/gs, (_, esc) => {
+    switch (esc[0]) {
+      case "n": return "\n";
+      case "t": return "\t";
+      case "r": return "\r";
+      case "b": return "\b";
+      case "f": return "\f";
+      case "v": return "\v";
+      case "0": return "\0";
+      case "u":
+      case "x": return String.fromCharCode(parseInt(esc.slice(1), 16));
+      default: return esc[0]; // \\ \" \' \` \/ … → the literal char
+    }
+  });
+}
+
+/** Unescape a captured string body given its opening quote char. */
+function unquoteAny(quote, raw) {
+  // Double-quoted: reuse the existing JSON.parse('"'+raw+'"') path.
+  if (quote === '"') return unquote(raw);
+  return unescapeAltQuoted(raw);
+}
+
+/**
+ * Extract a `name: "value"` (or `'value'`, or `"name"`/`'name'` key) string
+ * field from an object-literal body regardless of property order, or undefined.
+ * The key must sit at a property boundary (`{`, `,`, or whitespace) so a search
+ * for `id` never matches inside `menuId`.
+ */
 function stringField(body, name) {
-  const re = new RegExp(`\\b${name}:\\s*"((?:[^"\\\\]|\\\\.)*)"`);
+  const re = new RegExp(
+    `(?:^|[,{\\s])["']?${name}["']?\\s*:\\s*(["'])((?:\\\\.|(?!\\1)[^\\\\])*)\\1`,
+  );
   const m = re.exec(body);
-  return m ? unquote(m[1]) : undefined;
+  return m ? unquoteAny(m[1], m[2]) : undefined;
+}
+
+/**
+ * Split an array-body region into balanced top-level `{ … }` object literals by
+ * brace-counting (property ORDER does not matter). It is a small lexer: string
+ * contents (single, double, or backtick quoted, with escapes), `//` line
+ * comments, and `/* … *\/` block comments are all skipped, so a brace, quote, or
+ * apostrophe living inside a string value or a comment (e.g. `browser's`) never
+ * corrupts the depth count. Without comment/string awareness a stray quote char
+ * swallows every following entry — a silent fail-open.
+ */
+function splitObjectLiterals(region, rel, name) {
+  const literals = [];
+  let depth = 0;
+  let start = -1;
+  let quote = null; // active string quote char, or null
+  let escaped = false;
+  let lineComment = false;
+  let blockComment = false;
+  for (let i = 0; i < region.length; i++) {
+    const c = region[i];
+    const next = region[i + 1];
+    if (quote) {
+      if (escaped) escaped = false;
+      else if (c === "\\") escaped = true;
+      else if (c === quote) quote = null;
+      continue;
+    }
+    if (lineComment) {
+      if (c === "\n") lineComment = false;
+      continue;
+    }
+    if (blockComment) {
+      if (c === "*" && next === "/") {
+        blockComment = false;
+        i++;
+      }
+      continue;
+    }
+    if (c === "/" && next === "/") {
+      lineComment = true;
+      i++;
+    } else if (c === "/" && next === "*") {
+      blockComment = true;
+      i++;
+    } else if (c === '"' || c === "'" || c === "`") {
+      quote = c;
+    } else if (c === "{") {
+      if (depth === 0) start = i;
+      depth++;
+    } else if (c === "}") {
+      if (depth > 0) {
+        depth--;
+        if (depth === 0 && start !== -1) {
+          literals.push(region.slice(start, i + 1));
+          start = -1;
+        }
+      }
+    }
+  }
+  // Fail closed on a lexer that ran off the rails: an unterminated string or
+  // block comment, or an unbalanced brace, means we could have silently swallowed
+  // real entries — never trust a partial parse.
+  if (quote !== null) {
+    fail(`${rel}: ${name} — unterminated ${quote}-quoted string while splitting object literals`);
+  }
+  if (blockComment) {
+    fail(`${rel}: ${name} — unterminated block comment while splitting object literals`);
+  }
+  if (depth !== 0) {
+    fail(`${rel}: ${name} — unbalanced braces (depth ${depth}) while splitting object literals`);
+  }
+  return literals;
 }
 
 /**
  * Parse an array of `{ ... }` object literals from a TS source region.
- * `region` must already be narrowed to the array body.
+ * `region` must already be narrowed to the array body. Fails closed: every
+ * balanced literal must yield a string `id`, and the parsed-entry count must
+ * equal the literal count — an entry whose shape hides its `id` (id last,
+ * single-quoted, spread, shorthand, …) aborts the gate instead of being
+ * silently dropped.
  */
-function parseObjectLiterals(region) {
+function parseObjectLiterals(region, rel, name) {
+  const literals = splitObjectLiterals(region, rel, name);
   const out = [];
-  const objRe = /\{\s*id:\s*"([^"]+)"[^}]*\}/g;
-  let m;
-  while ((m = objRe.exec(region))) {
-    const body = m[0];
+  for (const body of literals) {
+    const id = stringField(body, "id");
+    if (id === undefined) {
+      const fragment = body.replace(/\s+/g, " ").trim().slice(0, 160);
+      const menuId = stringField(body, "menuId");
+      const hint = menuId
+        ? ` — this entry has menuId "${menuId}" but no extractable string \`id\``
+        : " — no extractable string `id`";
+      fail(
+        `${rel}: ${name} contains an object literal the drift gate cannot parse${hint}. ` +
+          `Fragment: ${fragment}\n  The gate fails closed: give the entry a plain ` +
+          `\`id: "…"\` property so its accelerator can be verified.`,
+      );
+    }
     out.push({
-      id: m[1],
+      id,
       defaultKey: stringField(body, "defaultKey"),
       defaultKeyMac: stringField(body, "defaultKeyMac"),
       defaultKeyOther: stringField(body, "defaultKeyOther"),
       menuId: stringField(body, "menuId"),
     });
+  }
+  // Belt-and-suspenders: one parsed entry per balanced literal (unreachable
+  // after the per-literal fail() above, but makes the invariant explicit).
+  if (out.length !== literals.length) {
+    fail(
+      `${rel}: ${name} parsed ${out.length} entries from ${literals.length} object ` +
+        `literals — the gate fails closed on any dropped entry`,
+    );
   }
   return out;
 }
@@ -126,12 +259,20 @@ function arrayBody(src, name, rel) {
 
 // --- Load manifest ---
 const manifestSrc = readOrDie(MANIFEST_PATH);
-const manifest = parseObjectLiterals(arrayBody(manifestSrc, "KEYBINDING_MANIFEST", MANIFEST_PATH));
+const manifest = parseObjectLiterals(
+  arrayBody(manifestSrc, "KEYBINDING_MANIFEST", MANIFEST_PATH),
+  MANIFEST_PATH,
+  "KEYBINDING_MANIFEST",
+);
 if (manifest.length === 0) fail(`${MANIFEST_PATH}: parsed zero manifest entries`);
 
 // --- Load frontend definitions ---
 const defsSrc = readOrDie(DEFS_PATH);
-const defs = parseObjectLiterals(arrayBody(defsSrc, "DEFAULT_SHORTCUTS", DEFS_PATH));
+const defs = parseObjectLiterals(
+  arrayBody(defsSrc, "DEFAULT_SHORTCUTS", DEFS_PATH),
+  DEFS_PATH,
+  "DEFAULT_SHORTCUTS",
+);
 if (defs.length === 0) fail(`${DEFS_PATH}: parsed zero shortcut definitions`);
 const defById = new Map(defs.map((d) => [d.id, d]));
 
