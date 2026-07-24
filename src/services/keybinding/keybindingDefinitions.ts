@@ -111,6 +111,21 @@ function globalBinding(shortcutId: string, commandId: string): Binding {
   };
 }
 
+/**
+ * Build a NATIVE-owned binding (WI-5.2). Identical to a global binding but with
+ * `captureOwner: "native-menu"`, so the window DOM router (which resolves only
+ * `captureOwner: "window"`) never executes it — the native menu accelerator is
+ * the sole owner. Used for chords that MUST be native: while the embedded
+ * WKWebView browser holds first responder, `window.keydown` never fires, so a
+ * DOM binding would be dead there; and AppKit dispatches the menu accelerator
+ * regardless of focus, so a DOM binding elsewhere would double-fire it. The
+ * binding still enters the index (referential integrity + conflict detection);
+ * it is simply not the window adapter's to execute.
+ */
+function nativeMenuBinding(shortcutId: string, commandId: string): Binding {
+  return { ...globalBinding(shortcutId, commandId), captureOwner: "native-menu" };
+}
+
 export const KEYBINDINGS: readonly Binding[] = [
   // Global overlays (migrated from useCommandPaletteShortcut / useContentSearch /
   // useQuickOpenShortcuts). The router now mounts per document window, so these
@@ -121,10 +136,12 @@ export const KEYBINDINGS: readonly Binding[] = [
   globalBinding("quickOpen", "app.quickOpen"),
   // Tabs + status bar (migrated from useTabShortcuts). closeFile is the Mod+W
   // "Close" shortcut (the only Mod-w definition) — now a real rebindable binding
-  // driving tab.close (WI-3.3). newBrowserTab drops out of the index automatically
-  // if unbound (referential integrity).
+  // driving tab.close (WI-3.3).
   globalBinding("newTab", "tab.new"),
-  globalBinding("newBrowserTab", "browser.newTab"),
+  // newBrowserTab is NATIVE-owned (WI-5.2): the native menu accelerator is the sole
+  // owner so the chord isn't double-delivered (DOM + native) in a document window,
+  // and still works while the WKWebView browser holds keyboard focus.
+  nativeMenuBinding("newBrowserTab", "browser.newTab"),
   globalBinding("nextTab", "tab.next"),
   globalBinding("prevTab", "tab.prev"),
   globalBinding("closeFile", "tab.close"),
