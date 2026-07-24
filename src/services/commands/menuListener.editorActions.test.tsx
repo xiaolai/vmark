@@ -1,6 +1,7 @@
-import { render, waitFor, cleanup } from "@testing-library/react";
+import { waitFor } from "@testing-library/react";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { useUnifiedMenuCommands } from "./useUnifiedMenuCommands";
+import { mountMenuCommands } from "./menuListener";
+import { MENU_TO_ACTION } from "@/plugins/actions/actionRegistry";
 import { performWysiwygToolbarAction } from "@/plugins/toolbarActions/wysiwygAdapter";
 import { performSourceToolbarAction } from "@/plugins/toolbarActions/sourceAdapter";
 import { performUnifiedUndo, performUnifiedRedo } from "@/services/history/unifiedHistory";
@@ -213,15 +214,23 @@ vi.mock("@/plugins/actions/actionRegistry", () => ({
   getHeadingLevelFromParams: (params?: Record<string, unknown>) => (params as { level?: number })?.level ?? 1,
 }));
 
-function TestHarness() {
-  useUnifiedMenuCommands();
-  return null;
+const EDITOR_ACTION_BINDINGS = Object.entries(MENU_TO_ACTION).map(
+  ([menuEvent, mapping]) => ({ kind: "editorAction" as const, menuEvent, mapping }),
+);
+
+let activeUnlisten: (() => void) | null = null;
+
+// Mounts the merged dispatcher's editor-action listeners against the mocked
+// Tauri `listen` (captured into `listeners`). Awaiting it guarantees
+// `activeUnlisten` is set before the test proceeds.
+async function mountEditorActions(): Promise<void> {
+  activeUnlisten = await mountMenuCommands(EDITOR_ACTION_BINDINGS as never);
 }
 
-describe("useUnifiedMenuCommands", () => {
+describe("mountMenuCommands — editor-action dispatch", () => {
   afterEach(() => {
-    // Force unmount before clearing state to prevent stale listener leaks
-    cleanup();
+    activeUnlisten?.();
+    activeUnlisten = null;
     vi.useRealTimers();
   });
 
@@ -250,7 +259,7 @@ describe("useUnifiedMenuCommands", () => {
     sourceMode = false;
     activeWysiwygEditor = { view: {} };
 
-    render(<TestHarness />);
+    await mountEditorActions();
     await waitFor(() => expect(listeners.has("menu:italic")).toBe(true));
 
     listeners.get("menu:italic")?.({ payload: "main" });
@@ -266,7 +275,7 @@ describe("useUnifiedMenuCommands", () => {
     sourceMode = true;
     activeSourceView = {};
 
-    render(<TestHarness />);
+    await mountEditorActions();
     await waitFor(() => expect(listeners.has("menu:italic")).toBe(true));
 
     listeners.get("menu:italic")?.({ payload: "main" });
@@ -282,7 +291,7 @@ describe("useUnifiedMenuCommands", () => {
     sourceMode = false;
     activeWysiwygEditor = { view: {} };
 
-    render(<TestHarness />);
+    await mountEditorActions();
     await waitFor(() => expect(listeners.has("menu:undo")).toBe(true));
 
     listeners.get("menu:undo")?.({ payload: "main" });
@@ -296,7 +305,7 @@ describe("useUnifiedMenuCommands", () => {
     sourceMode = true;
     activeSourceView = {};
 
-    render(<TestHarness />);
+    await mountEditorActions();
     await waitFor(() => expect(listeners.has("menu:redo")).toBe(true));
 
     listeners.get("menu:redo")?.({ payload: "main" });
@@ -310,7 +319,7 @@ describe("useUnifiedMenuCommands", () => {
     sourceMode = false;
     activeWysiwygEditor = { view: {} };
 
-    render(<TestHarness />);
+    await mountEditorActions();
     await waitFor(() => expect(listeners.has("menu:bold")).toBe(true));
 
     listeners.get("menu:bold")?.({ payload: "main" });
@@ -323,7 +332,7 @@ describe("useUnifiedMenuCommands", () => {
     sourceMode = false;
     activeWysiwygEditor = { view: {} };
 
-    render(<TestHarness />);
+    await mountEditorActions();
     await waitFor(() => expect(listeners.has("menu:italic")).toBe(true));
 
     // Payload is a different window label
@@ -337,7 +346,7 @@ describe("useUnifiedMenuCommands", () => {
     sourceMode = false;
     activeWysiwygEditor = { view: {} };
 
-    render(<TestHarness />);
+    await mountEditorActions();
     await waitFor(() => expect(listeners.has("menu:italic")).toBe(true));
 
     // Payload is not a string
@@ -347,7 +356,7 @@ describe("useUnifiedMenuCommands", () => {
   });
 
   it("registers listeners for all menu events in the registry", async () => {
-    render(<TestHarness />);
+    await mountEditorActions();
     await waitFor(() => expect(listeners.size).toBeGreaterThan(0));
 
     // Should have listeners for all events in our mock MENU_TO_ACTION
@@ -363,7 +372,7 @@ describe("useUnifiedMenuCommands", () => {
     sourceMode = false;
     activeWysiwygEditor = { view: {} };
 
-    render(<TestHarness />);
+    await mountEditorActions();
     await waitFor(() => expect(listeners.has("menu:heading-1")).toBe(true));
 
     listeners.get("menu:heading-1")?.({ payload: "main" });
@@ -377,7 +386,7 @@ describe("useUnifiedMenuCommands", () => {
     sourceMode = false;
     activeWysiwygEditor = { view: {} };
 
-    render(<TestHarness />);
+    await mountEditorActions();
     await waitFor(() => expect(listeners.has("menu:paragraph")).toBe(true));
 
     listeners.get("menu:paragraph")?.({ payload: "main" });
@@ -390,7 +399,7 @@ describe("useUnifiedMenuCommands", () => {
     sourceMode = false;
     activeWysiwygEditor = { view: {} };
 
-    render(<TestHarness />);
+    await mountEditorActions();
     await waitFor(() => expect(listeners.has("menu:increaseHeading")).toBe(true));
 
     listeners.get("menu:increaseHeading")?.({ payload: "main" });
@@ -405,7 +414,7 @@ describe("useUnifiedMenuCommands", () => {
     sourceMode = false;
     activeWysiwygEditor = { view: {} };
 
-    render(<TestHarness />);
+    await mountEditorActions();
     await waitFor(() => expect(listeners.has("menu:codeBlock")).toBe(true));
 
     listeners.get("menu:codeBlock")?.({ payload: "main" });
@@ -420,7 +429,7 @@ describe("useUnifiedMenuCommands", () => {
     sourceMode = false;
     activeWysiwygEditor = { view: {} };
 
-    render(<TestHarness />);
+    await mountEditorActions();
     await waitFor(() => expect(listeners.has("menu:blockquote")).toBe(true));
 
     listeners.get("menu:blockquote")?.({ payload: "main" });
@@ -435,7 +444,7 @@ describe("useUnifiedMenuCommands", () => {
     sourceMode = false;
     activeWysiwygEditor = { view: {} };
 
-    render(<TestHarness />);
+    await mountEditorActions();
     await waitFor(() => expect(listeners.has("menu:horizontalLine")).toBe(true));
 
     listeners.get("menu:horizontalLine")?.({ payload: "main" });
@@ -450,7 +459,7 @@ describe("useUnifiedMenuCommands", () => {
     sourceMode = false;
     activeWysiwygEditor = { view: {} };
 
-    render(<TestHarness />);
+    await mountEditorActions();
     await waitFor(() => expect(listeners.has("menu:wikiLink")).toBe(true));
 
     listeners.get("menu:wikiLink")?.({ payload: "main" });
@@ -465,7 +474,7 @@ describe("useUnifiedMenuCommands", () => {
     sourceMode = true;
     activeSourceView = {};
 
-    render(<TestHarness />);
+    await mountEditorActions();
     await waitFor(() => expect(listeners.has("menu:codeBlock")).toBe(true));
 
     listeners.get("menu:codeBlock")?.({ payload: "main" });
@@ -480,7 +489,7 @@ describe("useUnifiedMenuCommands", () => {
     sourceMode = true;
     activeSourceView = {};
 
-    render(<TestHarness />);
+    await mountEditorActions();
     await waitFor(() => expect(listeners.has("menu:heading-1")).toBe(true));
 
     listeners.get("menu:heading-1")?.({ payload: "main" });
@@ -493,7 +502,7 @@ describe("useUnifiedMenuCommands", () => {
     sourceMode = true;
     activeSourceView = {};
 
-    render(<TestHarness />);
+    await mountEditorActions();
     await waitFor(() => expect(listeners.has("menu:paragraph")).toBe(true));
 
     listeners.get("menu:paragraph")?.({ payload: "main" });
@@ -506,7 +515,7 @@ describe("useUnifiedMenuCommands", () => {
     sourceMode = false;
     activeWysiwygEditor = { view: {} };
 
-    render(<TestHarness />);
+    await mountEditorActions();
     await waitFor(() => expect(listeners.has("menu:unknown-action")).toBe(true));
 
     // Should not throw — action definition lookup fails gracefully
@@ -521,7 +530,7 @@ describe("useUnifiedMenuCommands", () => {
     sourceMode = false;
     activeWysiwygEditor = { view: {} };
 
-    render(<TestHarness />);
+    await mountEditorActions();
     await waitFor(() => expect(listeners.has("menu:addRowBelow")).toBe(true));
 
     listeners.get("menu:addRowBelow")?.({ payload: "main" });
@@ -536,7 +545,7 @@ describe("useUnifiedMenuCommands", () => {
     sourceMode = false;
     activeWysiwygEditor = { view: {} };
 
-    render(<TestHarness />);
+    await mountEditorActions();
     await waitFor(() => expect(listeners.has("menu:addColRight")).toBe(true));
 
     listeners.get("menu:addColRight")?.({ payload: "main" });
@@ -551,7 +560,7 @@ describe("useUnifiedMenuCommands", () => {
     sourceMode = false;
     activeWysiwygEditor = { view: {} };
 
-    render(<TestHarness />);
+    await mountEditorActions();
     await waitFor(() => expect(listeners.has("menu:bookmark")).toBe(true));
 
     listeners.get("menu:bookmark")?.({ payload: "main" });
@@ -566,7 +575,7 @@ describe("useUnifiedMenuCommands", () => {
     sourceMode = true;
     activeSourceView = {};
 
-    render(<TestHarness />);
+    await mountEditorActions();
     await waitFor(() => expect(listeners.has("menu:increaseHeading")).toBe(true));
 
     listeners.get("menu:increaseHeading")?.({ payload: "main" });
@@ -581,7 +590,7 @@ describe("useUnifiedMenuCommands", () => {
     sourceMode = false;
     activeWysiwygEditor = { view: null };
 
-    render(<TestHarness />);
+    await mountEditorActions();
     await waitFor(() => expect(listeners.has("menu:italic")).toBe(true));
 
     listeners.get("menu:italic")?.({ payload: "main" });
@@ -594,7 +603,7 @@ describe("useUnifiedMenuCommands", () => {
     sourceMode = true;
     activeSourceView = null;
 
-    render(<TestHarness />);
+    await mountEditorActions();
     await waitFor(() => expect(listeners.has("menu:italic")).toBe(true));
 
     listeners.get("menu:italic")?.({ payload: "main" });
@@ -608,7 +617,7 @@ describe("useUnifiedMenuCommands", () => {
     activeSourceView = {};
 
     // In our mock, bold: supports { wysiwyg: false, source: true }
-    render(<TestHarness />);
+    await mountEditorActions();
     await waitFor(() => expect(listeners.has("menu:bold")).toBe(true));
 
     listeners.get("menu:bold")?.({ payload: "main" });
@@ -627,7 +636,7 @@ describe("useUnifiedMenuCommands", () => {
 
     mockShouldBlockMenuAction.mockReturnValue(true);
 
-    render(<TestHarness />);
+    await mountEditorActions();
     await waitFor(() => expect(listeners.has("menu:italic")).toBe(true));
 
     listeners.get("menu:italic")?.({ payload: "main" });
@@ -643,7 +652,7 @@ describe("useUnifiedMenuCommands", () => {
     sourceMode = false;
     activeWysiwygEditor = null; // not available initially
 
-    render(<TestHarness />);
+    await mountEditorActions();
     await vi.waitFor(() => expect(listeners.has("menu:italic")).toBe(true));
 
     listeners.get("menu:italic")?.({ payload: "main" });
@@ -665,7 +674,7 @@ describe("useUnifiedMenuCommands", () => {
     sourceMode = false;
     activeWysiwygEditor = null; // never available
 
-    render(<TestHarness />);
+    await mountEditorActions();
     await vi.waitFor(() => expect(listeners.has("menu:italic")).toBe(true));
 
     listeners.get("menu:italic")?.({ payload: "main" });
@@ -681,7 +690,7 @@ describe("useUnifiedMenuCommands", () => {
     sourceMode = true;
     activeSourceView = null; // not available initially
 
-    render(<TestHarness />);
+    await mountEditorActions();
     await vi.waitFor(() => expect(listeners.has("menu:italic")).toBe(true));
 
     listeners.get("menu:italic")?.({ payload: "main" });
@@ -699,7 +708,7 @@ describe("useUnifiedMenuCommands", () => {
     sourceMode = true;
     activeSourceView = null; // never available
 
-    render(<TestHarness />);
+    await mountEditorActions();
     await vi.waitFor(() => expect(listeners.has("menu:italic")).toBe(true));
 
     listeners.get("menu:italic")?.({ payload: "main" });
@@ -715,7 +724,7 @@ describe("useUnifiedMenuCommands", () => {
     sourceMode = false;
     activeWysiwygEditor = { view: {} };
 
-    render(<TestHarness />);
+    await mountEditorActions();
     await waitFor(() => expect(listeners.has("menu:bold")).toBe(true));
 
     // Clear any stale calls from listener setup before asserting
@@ -730,7 +739,7 @@ describe("useUnifiedMenuCommands", () => {
     sourceMode = true;
     activeSourceView = {};
 
-    render(<TestHarness />);
+    await mountEditorActions();
     await waitFor(() => expect(listeners.has("menu:heading-1")).toBe(true));
 
     listeners.get("menu:heading-1")?.({ payload: "main" });
@@ -748,7 +757,7 @@ describe("useUnifiedMenuCommands", () => {
     sourceMode = false;
     activeWysiwygEditor = { view: {} };
 
-    render(<TestHarness />);
+    await mountEditorActions();
     await waitFor(() => expect(listeners.has("menu:source-only")).toBe(true));
 
     // Clear any stale calls from listener setup before asserting
@@ -767,7 +776,7 @@ describe("useUnifiedMenuCommands", () => {
     sourceMode = true;
     activeSourceView = {};
 
-    render(<TestHarness />);
+    await mountEditorActions();
     await waitFor(() => expect(listeners.has("menu:wysiwyg-only")).toBe(true));
 
     // Clear any stale calls from listener setup before asserting
@@ -780,57 +789,24 @@ describe("useUnifiedMenuCommands", () => {
     expect(performWysiwygToolbarAction).not.toHaveBeenCalled();
   });
 
-  it("cleans up fulfilled listeners when component unmounts during setup (L359-366 disposed path)", async () => {
-    // This tests the path where disposed=true by the time Promise.allSettled resolves
-    // We need to delay the listen() promises so unmount happens first
-    let resolveAll!: () => void;
-    const barrier = new Promise<void>((res) => { resolveAll = res; });
-
-    // Track how many times unlisten was called (fulfilled listeners are called to clean up)
-    const mockUnlisten = vi.fn();
-    mockListenImpl.fn = async () => {
-      await barrier;
-      return mockUnlisten;
-    };
-
-    const { unmount } = render(<TestHarness />);
-
-    // Unmount before the listen promises resolve — sets disposed=true
-    unmount();
-
-    // Now let the listen promises resolve — they should be cleaned up (unlisten called)
-    resolveAll();
-
-    await waitFor(() => {
-      expect(mockUnlisten).toHaveBeenCalled();
-    });
-  });
+  // (disposed-during-setup race moved to useCommandBootstrap; see its test)
 
   it("logs error when a listener registration fails (L375 rejected path)", async () => {
     const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
     mockListenImpl.fn = () => Promise.reject(new Error("registration failed"));
 
-    render(<TestHarness />);
+    await mountEditorActions();
 
     await waitFor(() => {
       expect(consoleSpy).toHaveBeenCalledWith(
         "[Menu]",
-        "Failed to register listener:",
-        expect.any(Error)
+        expect.stringContaining("Failed to mount listener for"),
+        expect.any(Error),
       );
     });
 
     consoleSpy.mockRestore();
-  });
-
-  it("early returns when disposed before window listeners are registered (L288)", async () => {
-    // disposed=true is set by cleanup before setupListeners awaits
-    // This is hard to test directly; we verify no crash and no listeners when unmounted instantly
-    const { unmount } = render(<TestHarness />);
-    unmount(); // disposed=true before any async work completes
-    // Just verify no error thrown
-    expect(true).toBe(true);
   });
 
   describe("retry lifecycle and IME safety", () => {
@@ -848,7 +824,7 @@ describe("useUnifiedMenuCommands", () => {
       const view = {};
       activeWysiwygEditor = { view };
 
-      render(<TestHarness />);
+      await mountEditorActions();
       await waitFor(() => expect(listeners.has("menu:italic")).toBe(true));
 
       listeners.get("menu:italic")?.({ payload: "main" });
@@ -870,7 +846,7 @@ describe("useUnifiedMenuCommands", () => {
       activeWysiwygEditor = null; // forces the retry path
       // The live document tab from beforeEach is the origin.
 
-      render(<TestHarness />);
+      await mountEditorActions();
       await vi.waitFor(() => expect(listeners.has("menu:italic")).toBe(true));
 
       listeners.get("menu:italic")?.({ payload: "main" });
@@ -889,7 +865,7 @@ describe("useUnifiedMenuCommands", () => {
       activeSourceView = null;
       // The live document tab from beforeEach is the origin.
 
-      render(<TestHarness />);
+      await mountEditorActions();
       await vi.waitFor(() => expect(listeners.has("menu:italic")).toBe(true));
 
       listeners.get("menu:italic")?.({ payload: "main" });
@@ -905,11 +881,11 @@ describe("useUnifiedMenuCommands", () => {
       sourceMode = false;
       activeWysiwygEditor = null;
 
-      const { unmount } = render(<TestHarness />);
+      await mountEditorActions();
       await vi.waitFor(() => expect(listeners.has("menu:italic")).toBe(true));
 
       listeners.get("menu:italic")?.({ payload: "main" });
-      unmount();
+      activeUnlisten?.();
 
       // Editor becomes available after disposal — the retry must not fire.
       activeWysiwygEditor = { view: {} };
@@ -939,7 +915,7 @@ describe("useUnifiedMenuCommands", () => {
       sourceMode = false;
       activeWysiwygEditor = { view: {} }; // stale editor from the previous tab
 
-      render(<TestHarness />);
+      await mountEditorActions();
       await waitFor(() => expect(listeners.has("menu:italic")).toBe(true));
 
       vi.mocked(performWysiwygToolbarAction).mockClear();
@@ -957,7 +933,7 @@ describe("useUnifiedMenuCommands", () => {
       sourceMode = false;
       activeWysiwygEditor = { view: {} };
 
-      render(<TestHarness />);
+      await mountEditorActions();
       await waitFor(() => expect(listeners.has("menu:undo")).toBe(true));
 
       listeners.get("menu:undo")?.({ payload: "main" });
@@ -1012,7 +988,7 @@ describe("useUnifiedMenuCommands", () => {
       sourceMode = false;
       activeWysiwygEditor = { view: {} };
 
-      render(<TestHarness />);
+      await mountEditorActions();
       await waitFor(() => expect(listeners.has("menu:italic")).toBe(true));
 
       listeners.get("menu:italic")?.({ payload: "main" });
@@ -1033,7 +1009,7 @@ describe("useUnifiedMenuCommands", () => {
       sourceMode = false;
       activeWysiwygEditor = { view: {} };
 
-      render(<TestHarness />);
+      await mountEditorActions();
       await waitFor(() => expect(listeners.has("menu:italic")).toBe(true));
 
       vi.mocked(performWysiwygToolbarAction).mockClear();
@@ -1052,7 +1028,7 @@ describe("useUnifiedMenuCommands", () => {
       sourceMode = false;
       activeWysiwygEditor = { view: {} };
 
-      render(<TestHarness />);
+      await mountEditorActions();
       await waitFor(() => expect(listeners.has("menu:undo")).toBe(true));
 
       listeners.get("menu:undo")?.({ payload: "main" });
@@ -1070,7 +1046,7 @@ describe("useUnifiedMenuCommands", () => {
       sourceMode = false;
       activeWysiwygEditor = { view: {} };
 
-      render(<TestHarness />);
+      await mountEditorActions();
       await waitFor(() => expect(listeners.has("menu:italic")).toBe(true));
 
       listeners.get("menu:italic")?.({ payload: "main" });
@@ -1089,7 +1065,7 @@ describe("useUnifiedMenuCommands", () => {
       sourceMode = false;
       activeWysiwygEditor = { view: {} };
 
-      render(<TestHarness />);
+      await mountEditorActions();
       await waitFor(() => expect(listeners.has("menu:wikiLink")).toBe(true));
 
       vi.mocked(performWysiwygToolbarAction).mockClear();
@@ -1237,7 +1213,7 @@ describe("useUnifiedMenuCommands", () => {
             formatId,
           );
 
-          render(<TestHarness />);
+          await mountEditorActions();
           await waitFor(() => expect(listeners.has("menu:undo")).toBe(true));
 
           listeners.get("menu:undo")?.({ payload: "main" });
@@ -1255,7 +1231,7 @@ describe("useUnifiedMenuCommands", () => {
         it(`formatting (italic) ${expectFormattingDispatch ? "dispatches" : "is blocked"}`, async () => {
           useTabStore.getState().createTab("main", filePath);
 
-          render(<TestHarness />);
+          await mountEditorActions();
           await waitFor(() => expect(listeners.has("menu:italic")).toBe(true));
 
           vi.mocked(performWysiwygToolbarAction).mockClear();
@@ -1277,7 +1253,7 @@ describe("useUnifiedMenuCommands", () => {
 
           useTabStore.getState().createTab("main", filePath);
 
-          render(<TestHarness />);
+          await mountEditorActions();
           await waitFor(() =>
             expect(listeners.has("menu:heading-1")).toBe(true),
           );
@@ -1300,7 +1276,7 @@ describe("useUnifiedMenuCommands", () => {
 
           useTabStore.getState().createTab("main", filePath);
 
-          render(<TestHarness />);
+          await mountEditorActions();
           await waitFor(() =>
             expect(listeners.has("menu:paragraph")).toBe(true),
           );
@@ -1318,7 +1294,7 @@ describe("useUnifiedMenuCommands", () => {
         it(`redo ${readOnly ? "is blocked (read-only)" : "dispatches"} — edit-category bypasses menuPolicy, not read-only`, async () => {
           useTabStore.getState().createTab("main", filePath);
 
-          render(<TestHarness />);
+          await mountEditorActions();
           await waitFor(() => expect(listeners.has("menu:redo")).toBe(true));
 
           listeners.get("menu:redo")?.({ payload: "main" });
