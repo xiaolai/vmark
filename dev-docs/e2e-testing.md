@@ -183,6 +183,70 @@ read_logs { source: "system", filter: "…" }
 not the rendered page. To read the embedded page's content, use the **VMark MCP** `browser`
 `read`/`screenshot` actions, not the Tauri screenshot.
 
+## CJK IME + native-accelerator E2E (AppleScript)
+
+Two things the webview MCP harnesses **cannot** do, because they inject events into the
+webview only: (1) drive the **real macOS IME** (compositionstart/end from actual pinyin
+input), and (2) send a key that AppKit dispatches to **both** the native menu accelerator
+**and** the webview (needed to prove native↔DOM exactly-once). Both are reachable with
+**AppleScript System Events** (`osascript`), which posts OS-level key events — so the real
+IME composes and AppKit routes menu accelerators normally. Verified working on macOS with
+`com.apple.inputmethod.SCIM.Shuangpin` (Simplified Chinese, double pinyin / 微软双拼).
+
+**Pattern — interleave AppleScript (OS keys) with the Tauri MCP (editor state + assertions):**
+drive/inspect the editor precisely over `mcp__tauri__webview_execute_js` (windowId e.g.
+`doc-0` — the main window may be gone; `manage_window list` shows the real label); send only
+the physical keystrokes via `osascript`.
+
+**Prerequisites / gotchas (all real, all hit during bring-up):**
+- The shell running `osascript` needs **Accessibility** permission (System Settings →
+  Privacy → Accessibility). Confirm with `osascript -e 'tell application "System Events" to
+  name of first application process whose frontmost is true'`.
+- **VMark must be frontmost** or keys go elsewhere:
+  `osascript -e 'tell application "System Events" to set frontmost of (first process whose unix id is <PID>) to true'`
+  (PID from `lsof -tiTCP:9323 -sTCP:LISTEN`). Then re-focus the editor via MCP — an open
+  **terminal panel steals focus** (`activeElement` = `xterm-helper-textarea`); blur it and
+  `pm.focus()`.
+- **Switching to the IME:** `Caps Lock` (`key code 57`) only toggles the EN/CN sub-mode
+  *within* an already-active Shuangpin source — from ABC it does nothing (a literal char is
+  typed, no composition). Use **`Ctrl+Space`** (`key code 49 using {control down}`) to select
+  the Chinese input source, and **restore ABC** with another `Ctrl+Space` afterwards (this is
+  a system-wide change — always restore). Verify the active source via
+  `defaults read ~/Library/Preferences/com.apple.HIToolbox.plist AppleSelectedInputSources`.
+- **Double pinyin (微软):** zh→`v`, ch→`i`, sh→`u`; one syllable = two keys (initial key +
+  final key); zero-initials use `o` as the initial. Simple syllables are two natural keys —
+  e.g. **你 = `ni`** (`n`+`i`). `keystroke "ni"` starts composition (compositionstart fires;
+  the preedit shows in the DOM); `key code 49` (space) commits the first candidate → `你`
+  (U+4F60). Number keys select other candidates; `Enter` commits the raw preedit.
+
+**Worked CJK-IME check** (proves composition + that keybinding IME guards don't corrupt input):
+```
+# MCP: clear + focus editor, instrument compositionstart/end on .ProseMirror
+osascript: key code 49 using {control down}   # ABC -> Shuangpin
+osascript: keystroke "ni"                       # compositionstart; preedit "ni"
+osascript: key code 49                          # space -> commit 你
+# MCP: assert editor text === "你" (U+4F60), window.__ime.compositions > 0
+osascript: key code 49 using {control down}     # restore ABC
+```
+
+**Worked native↔DOM exactly-once check (Phase-5 WI-5.2 DoD):** a chord with BOTH a native
+menu accelerator AND a DOM binding must fire ONCE. `Cmd+O` = `quick-open` menu accelerator +
+the `quickOpen → app.quickOpen` registry binding (a **toggle**). Fire it once and assert the
+overlay is **open**, not double-toggled shut:
+```
+# MCP: assert quick-open closed, editor focused
+osascript: key code 31 using {command down}     # Cmd+O
+# MCP: assert .quick-open-backdrop present (open) — if it were closed, both paths fired
+osascript: key code 53                          # Escape to close
+```
+Result on macOS: quick-open **opens** — AppKit delivers the accelerator to the native menu
+(which fires `menu:quick-open → app.quickOpen`) and does **not** propagate the key to the
+webview, so the DOM binding does not also fire. Exactly-once holds for menu-backed chords.
+
+These are **manual** E2Es (they change the system input source and steal focus); they are not
+CI-automatable (no GUI/IME/Accessibility on CI). Run them from a dev session against
+`pnpm tauri:dev`.
+
 ## Quick reference
 
 | What | Value |
