@@ -98,6 +98,19 @@ describe("keybindingRegistry service", () => {
     });
   });
 
+  it("a stale disposer does not tear down a newer installation (audit #3)", () => {
+    keyMap = { palette: "Mod-k" };
+    const disposeA = installBindings([cmd("palette", "palette.open")]);
+    const disposeB = installBindings([cmd("palette", "palette.open")]);
+    // The stale disposer A must be a no-op — installation B owns the state now.
+    disposeA();
+    expect(resolveEvent(evt("KeyK", { metaKey: true }), winCtx, "window")).not.toBeNull();
+    // B's own disposer still cleans up.
+    disposeB();
+    expect([..._getIndex().values()].flat()).toHaveLength(0);
+    dispose = () => {};
+  });
+
   it("resolveEvent returns null for a non-chord (modifier-only) event", () => {
     keyMap = { palette: "Mod-k" };
     dispose = installBindings([cmd("palette", "palette.open")]);
