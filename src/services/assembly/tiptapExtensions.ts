@@ -5,15 +5,14 @@
  * StarterKit overrides, custom marks/nodes, media extensions, and plugin registrations.
  *
  * Key decisions:
- *   - StarterKit is used as base but with several nodes overridden
- *     (heading, paragraph, codeBlock, etc.) to add sourceLine attributes
- *   - Extensions are loaded eagerly (not lazy) since WYSIWYG is the default mode
- *   - Link extension configured with openOnClick:false (we have custom popups)
- *   - Bold/Italic replaced with CJK-aware versions (lookbehind regexes)
- *   - Custom marks (highlight, underline, sub/superscript) registered here
- *   - Media extensions (block_video, block_audio, video_embed) with NodeViews
- *   - Media popup and handler extensions for editing and drag-drop
- *   - Table of contents (tocExtension) for [TOC] inline navigation
+ *   - StarterKit is the base, with several nodes overridden (heading, paragraph,
+ *     codeBlock, etc.) to add sourceLine attributes; loaded eagerly (WYSIWYG is
+ *     the default mode)
+ *   - Link uses openOnClick:false (custom popups); Bold/Italic replaced with
+ *     CJK-aware versions; custom marks (highlight, underline, sub/superscript)
+ *   - Media extensions (block_video, block_audio, video_embed) with NodeViews,
+ *     plus media popup/handler extensions; tocExtension for [TOC] navigation
+ *   - Composition order is pinned via WYSIWYG_COMPOSITION_ORDER (WI-3.4)
  *
  * @coordinates-with sourceEditorExtensions.ts — parallel config for CodeMirror source mode
  * @coordinates-with markdownPipeline/ — schema nodes must match pipeline converters
@@ -100,6 +99,8 @@ import { tocExtension } from "@/plugins/tableOfContents/tiptap";
 import { LintExtension } from "@/plugins/lint/tiptap";
 import { inactiveSelectionExtension } from "@/plugins/inactiveSelection/tiptap";
 import { resolveExtensions } from "@/lib/extensions/resolve";
+import { deriveAfterConstraints, assertCanonicalCoverage } from "./extensionOrdering";
+import { WYSIWYG_COMPOSITION_ORDER, WYSIWYG_OPTIONAL_IDS } from "./compositionOrder";
 import type { VMarkExtension } from "@/lib/extensions/types";
 
 export interface TiptapExtensionConfig {
@@ -108,15 +109,12 @@ export interface TiptapExtensionConfig {
 }
 
 /**
- * The hand-ordered extension list.
- *
- * Phase 3 note: this is no longer the composition path — `createTiptapExtensions`
- * routes it through the resolver (ADR-015 D1). It remains hand-ordered for now,
- * and the resolver's stable sort preserves that order exactly, so the migration
- * is behaviour-neutral. Ordering constraints become explicit `Prec` buckets and
- * named `before`/`after` declarations one entry at a time, each with its own
- * test; when no test depends on array position, this list gets sorted
- * alphabetically and the ordering problem is gone.
+ * The extension list. Not the composition path — `createTiptapExtensions` routes
+ * it through the resolver (ADR-015 D1). WI-3.4: array position is not load-bearing
+ * — order is declared once in `WYSIWYG_COMPOSITION_ORDER` and pinned via explicit
+ * `after` constraints, so this list is sorted alphabetically before composition
+ * yet resolves to the canonical order. Kept in logical/grouped order here for
+ * readability; the sort + constraints make its physical order cosmetic.
  */
 function buildExtensionList(config: TiptapExtensionConfig = {}): Extensions {
   const { tabId } = config;
@@ -254,30 +252,36 @@ function buildExtensionList(config: TiptapExtensionConfig = {}): Extensions {
 }
 
 /**
- * Creates the array of Tiptap extensions for the WYSIWYG editor.
+ * Creates the array of Tiptap extensions for the WYSIWYG editor. Composition
+ * goes through `resolveExtensions` (ADR-015 D1): the registry IS the composition,
+ * so no second representation can drift from it.
  *
- * Composition goes through `resolveExtensions` (ADR-015 D1): the registry IS
- * the composition, so there is no second representation that can drift from it.
- * That is the property four previous VMark foundations lacked — `useWorkspace()`,
- * `pluginsFor()`, `EditorHost` and ADR-007's slot seam each shipped as an API
- * surface, were marked Accepted, and were never adopted.
- *
- * Each Tiptap extension becomes a descriptor keyed by its own `name` (verified
- * unique across all 77). Every descriptor currently sits in the default
- * precedence bucket, so the resolver's stable sort reproduces the hand-ordered
- * list byte for byte.
- *
- * Resolution errors throw rather than silently dropping an extension: a missing
- * editor extension is a broken editor, and this is composition time, not a hot
- * path.
+ * Each Tiptap extension becomes a descriptor keyed by its own `name` (unique
+ * across all 78). Order is pinned by explicit `after` constraints derived from
+ * `WYSIWYG_COMPOSITION_ORDER` (WI-3.4), so the descriptors are sorted
+ * alphabetically before resolution and the resolver reproduces the canonical
+ * order regardless of array position. Resolution errors throw rather than
+ * silently dropping an extension — a missing editor extension is a broken editor.
  */
 export function createTiptapExtensions(config: TiptapExtensionConfig = {}): Extensions {
   const list = buildExtensionList(config);
+  const presentIds = list.map((extension, index) => extension.name || `anonymous-${index}`);
 
-  const descriptors: VMarkExtension[] = list.map((extension, index) => ({
-    id: extension.name || `anonymous-${index}`,
-    contributions: [{ kind: "tiptap", factory: () => extension }],
-  }));
+  // Fail loud if an extension was added/removed without updating the canonical
+  // order (WI-3.4), then pin each present entry after its canonical predecessor.
+  assertCanonicalCoverage("wysiwyg", WYSIWYG_COMPOSITION_ORDER, presentIds, WYSIWYG_OPTIONAL_IDS);
+  const after = deriveAfterConstraints(WYSIWYG_COMPOSITION_ORDER, presentIds);
+
+  const descriptors: VMarkExtension[] = list
+    .map((extension, index): VMarkExtension => {
+      const id = extension.name || `anonymous-${index}`;
+      return {
+        id,
+        contributions: [{ kind: "tiptap", factory: () => extension }],
+        ordering: after.has(id) ? { after: after.get(id) } : undefined,
+      };
+    })
+    .sort((a, b) => a.id.localeCompare(b.id));
 
   const { ordered, errors } = resolveExtensions(descriptors);
   if (errors.length > 0) {
