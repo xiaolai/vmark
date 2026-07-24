@@ -28,6 +28,8 @@ const registerRecentFiles = vi.fn();
 const registerRecentWorkspaces = vi.fn();
 const registerView = vi.fn();
 const registerFormat = vi.fn();
+const disposeEditor = vi.fn();
+const registerEditor = vi.fn(() => disposeEditor);
 
 vi.mock("./menuListener", () => ({
   mountMenuCommands: (...args: unknown[]) => mountMenuCommandsMock(...args),
@@ -50,6 +52,7 @@ vi.mock("./viewCommands", () => ({ registerViewCommands: () => registerView() })
 vi.mock("./formatCommands", () => ({
   registerFormatCommands: () => registerFormat(),
 }));
+vi.mock("./editorCommandBridge", () => ({ registerEditorCommands: () => registerEditor() }));
 vi.mock("@/utils/debug", () => ({ menuError: (...args: unknown[]) => menuErrorMock(...args) }));
 
 import { useCommandBootstrap } from "./useCommandBootstrap";
@@ -65,6 +68,8 @@ beforeEach(() => {
   registerRecentWorkspaces.mockReset();
   registerView.mockReset();
   registerFormat.mockReset();
+  registerEditor.mockClear();
+  disposeEditor.mockClear();
 
   // Default happy-path behaviors — individual tests override as needed.
   registerPandocMock.mockResolvedValue([]);
@@ -81,6 +86,14 @@ describe("useCommandBootstrap", () => {
     expect(registerRecentWorkspaces).toHaveBeenCalledTimes(1);
     expect(registerView).toHaveBeenCalledTimes(1);
     expect(registerFormat).toHaveBeenCalledTimes(1);
+    expect(registerEditor).toHaveBeenCalledTimes(1);
+  });
+
+  it("disposes the editor-command batch when the hook unmounts", () => {
+    const { unmount } = renderHook(() => useCommandBootstrap());
+    expect(disposeEditor).not.toHaveBeenCalled();
+    unmount();
+    expect(disposeEditor).toHaveBeenCalledTimes(1);
   });
 
   it("calls mountMenuCommands with the bundled bindings", async () => {

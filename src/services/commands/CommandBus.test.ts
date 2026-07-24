@@ -106,6 +106,45 @@ describe("CommandBus", () => {
       expect(hasCommand("editor.bold")).toBe(false);
     });
 
+    it("plain unregisterCommand clears the owner claim (no stale-owner desync)", () => {
+      registerCommands(OWNER, [cmd("editor.bold", "Bold")]);
+      unregisterCommand("editor.bold"); // removes from REGISTRY *and* OWNERS
+      registerCommand(cmd("editor.bold", "Bold (plain)")); // a different, unowned registrar
+      // The former owner must NOT be able to replace the plain registration.
+      expect(() => registerCommands(OWNER, [cmd("editor.bold", "Bold")])).toThrow(/already registered/);
+      expect(getCommand("editor.bold")?.title).toBe("Bold (plain)");
+    });
+
+    it("a stale disposer (from a superseded batch) does not remove the live batch", () => {
+      const disposeFirst = registerCommands(OWNER, [cmd("editor.bold", "Bold v1")]);
+      registerCommands(OWNER, [cmd("editor.bold", "Bold v2")]); // supersedes; bumps generation
+      disposeFirst(); // stale generation → must be a no-op
+      expect(hasCommand("editor.bold")).toBe(true);
+      expect(getCommand("editor.bold")?.title).toBe("Bold v2");
+    });
+
+    it("rejects a batch containing a DUPLICATE id, registering nothing", () => {
+      expect(() =>
+        registerCommands(OWNER, [cmd("editor.bold", "Bold"), cmd("editor.bold", "Bold again")]),
+      ).toThrow(/[Dd]uplicate/);
+      expect(hasCommand("editor.bold")).toBe(false);
+    });
+  });
+
+  describe("resilient when() evaluation", () => {
+    it("a throwing when() does not crash search — the command is treated as unavailable", () => {
+      registerCommand(cmd("ok", "OK"));
+      registerCommand(cmd("boom", "Boom", { when: () => { throw new Error("nope"); } }));
+      const results = searchCommands("", {});
+      expect(results.map((r) => r.command.id)).toContain("ok");
+      expect(results.map((r) => r.command.id)).not.toContain("boom");
+    });
+
+    it("a throwing when() makes executeCommand return false, not throw", async () => {
+      registerCommand(cmd("boom", "Boom", { when: () => { throw new Error("nope"); } }));
+      await expect(executeCommand("boom")).resolves.toBe(false);
+    });
+
     it("unregisterCommand removes the entry", () => {
       registerCommand(cmd("doc.save", "Save"));
       unregisterCommand("doc.save");

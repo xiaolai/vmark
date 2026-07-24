@@ -21,6 +21,7 @@ import { actionAvailability } from "./actionAvailability";
 import { ACTION_DEFINITIONS } from "@/plugins/actions/actionRegistry";
 import {
   searchCommands,
+  executeCommand,
   registerCommand,
   _resetCommandBus,
   type CommandDefinition,
@@ -107,6 +108,20 @@ describe("registerEditorCommands + palette search (DoD)", () => {
 
     expect(searchCommands("insert table", CTX).some((r) => r.command.id === "editor.insertTable")).toBe(true);
     expect(searchCommands("heading 2", CTX).some((r) => r.command.id === "editor.setHeading.2")).toBe(true);
+  });
+
+  it("executeCommand runs a registered editor command through the full bus path", async () => {
+    registerEditorCommands();
+    const ran = await executeCommand("editor.setHeading.2", null, CTX);
+    expect(ran).toBe(true);
+    expect(runEditorAction).toHaveBeenCalledWith("setHeading", { windowLabel: "main", params: { level: 2 } });
+  });
+
+  it("executeCommand refuses an unavailable editor command (when → actionAvailability)", async () => {
+    vi.mocked(actionAvailability).mockReturnValue(false);
+    registerEditorCommands();
+    expect(await executeCommand("editor.bold", null, CTX)).toBe(false);
+    expect(runEditorAction).not.toHaveBeenCalled();
   });
 
   it("hides unavailable actions from search (when → actionAvailability)", () => {
