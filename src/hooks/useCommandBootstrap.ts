@@ -19,6 +19,7 @@ import { useEffect } from "react";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import { menuError } from "@/utils/debug";
 import { mountMenuCommands, type MenuCommandBinding } from "@/services/commands/menuListener";
+import { MENU_TO_ACTION } from "@/plugins/actions/actionRegistry";
 import { registerExportCommands, registerPandocFormatCommands } from "@/services/commands/exportCommands";
 import { registerMiscCommands } from "@/services/commands/miscCommands";
 import { registerRecentFilesCommands } from "@/services/commands/recentFilesCommands";
@@ -110,6 +111,14 @@ const WORKSPACE_BINDINGS: MenuCommandBinding[] = [
   { menuEvent: "menu:close-workspace", commandId: "workspace.close" },
 ];
 
+// Editor formatting/CJK/line-op menu events (86) — dispatched through the editor
+// executor (runEditorAction), NOT executeCommand. Folded in from the former
+// useUnifiedMenuCommands hook so ONE dispatcher owns the whole menu:{id} space
+// with a single mount-time duplicate-rejection pass (Phase 2, WI-2.2).
+const EDITOR_ACTION_BINDINGS: MenuCommandBinding[] = Object.entries(MENU_TO_ACTION).map(
+  ([menuEvent, mapping]) => ({ kind: "editorAction", menuEvent, mapping }),
+);
+
 export function useCommandBootstrap(): void {
   useEffect(() => {
     registerMiscCommands();
@@ -164,6 +173,7 @@ export function useCommandBootstrap(): void {
         ...RECENT_FILES_BINDINGS,
         ...RECENT_WORKSPACES_BINDINGS,
         ...VIEW_BINDINGS,
+        ...EDITOR_ACTION_BINDINGS,
       ];
 
       try {
