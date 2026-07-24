@@ -31,14 +31,23 @@ registry owns resolution + precedence. Capture stays layered — ProseMirror,
 CodeMirror, the window, native menus, and WKWebView are *capture adapters* over
 one registry.** Unify *resolution and precedence*, not physical listeners.
 
-### The invariant
+### The invariant (AMENDED in Phase 4 — see build log v4)
 
-> Every user-visible command invocation enters through `executeCommand`; a
-> command's definition may delegate internally to `runEditorAction`.
+> There is a single command authority **per surface**:
+> - **window / global** bindings enter through `executeCommand`;
+> - **editor-surface** bindings (WYSIWYG + Source formatting/editing keys) enter
+>   through the shared editor executor `runEditorAction` — the same path the editor
+>   menu uses (`dispatchMenuAction` → `runEditorAction`).
 
-Calling `runEditorAction` (or a store action) directly from a keymap is a
-violation — "same executor" is not sufficient (it bypasses bus availability,
-instrumentation, ownership).
+The original "everything through `executeCommand`; direct `runEditorAction` from a
+keymap is a violation" was falsified in implementation: `executeCommand("editor.X")`
+applies the palette `actionAvailability` gate (needs `ctx.editorAvailable` + node/
+selection context), stricter than the executor's `isActionExecutable`, and **silently
+dropped keyboard formatting** (Cmd+B no-op while `menu:bold` worked — caught by live
+E2E). Editor keymaps call `runEditorAction` directly BY DESIGN so keyboard, menu, and
+toolbar share one editor-action authority. Non-editor keymaps still honor
+`executeCommand`; a window/global binding calling `runEditorAction` or a store action
+directly remains a violation.
 
 ### The identity contract (WI-0.1, implemented)
 

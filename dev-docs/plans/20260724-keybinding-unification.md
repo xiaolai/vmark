@@ -73,9 +73,22 @@ uses** (`shortcutMatch.ts`), so index and match never diverge.
 4. Select by **context specificity, then declared priority** (contract in WI-1.1).
 5. If no executable candidate handles it, apply the **containment fallback**.
 
-**The one invariant (Codex R1 #6):** *every user-visible command invocation enters
-through `executeCommand`; a command's definition may delegate internally to
-`runEditorAction`.* Calling `runEditorAction` directly from a keymap is a violation.
+**The invariant (Codex R1 #6) — AMENDED during Phase 4 (build log v4):** there is a
+single command authority *per surface*, not a single global entry point.
+- **Window / global bindings** enter through `executeCommand` (`useKeybindingRouter`).
+- **Editor-surface bindings** (WYSIWYG + Source formatting/editing keys) enter through
+  the shared **editor executor `runEditorAction`** — the SAME path the editor menu uses
+  (`dispatchMenuAction` → `runEditorAction`), so keyboard, menu, and toolbar share one
+  editor-action authority.
+
+The original text ("everything through `executeCommand`; direct `runEditorAction` from a
+keymap is a violation") was **falsified by implementation**: routing editor keys through
+`executeCommand("editor.X")` applies the palette `actionAvailability` gate (requires
+`ctx.editorAvailable` + node/selection context), which is stricter than the executor's
+`isActionExecutable` and **silently dropped keyboard formatting** (Cmd+B no-op while
+`menu:bold` worked — caught only by live E2E). Editor keymaps therefore call
+`runEditorAction` directly BY DESIGN. This is the reconciled invariant; ADR-018 should be
+read with this amendment.
 
 ## Decisions — settled with Codex (rule 60 §6)
 
@@ -434,6 +447,25 @@ that area (a shifted-symbol capture silently producing a dead binding, Codex rou
 already fixed: KeyCapture validates against the runtime canonicalizer and refuses to assign
 an unmappable chord (WI-6.1). No further change is warranted without an explicit product
 decision to switch to logical matching.
+
+## Gap audit v7 (2026-07-24) — plan-vs-implementation, findings + resolutions
+
+A rigorous plan-vs-code audit checked whether each WI/DoD was actually delivered. Seven
+findings; the machine-checkable ones are now closed or tracked.
+
+| # | Finding | Verdict | Resolution |
+|---|---|---|---|
+| 1 | **Mechanic gate does not EXTRACT keymap ids** — `editorMechanics.ts` validates a hand-maintained allowlist against command/shortcut ids (namespaced ids are disjoint by construction, so the collision check is near-vacuous); it never scans the real keymaps, so a new unclassified chord (e.g. `multiCursor/keymap.ts` hardcodes `Mod-d`/`Mod-Shift-l`/…) is invisible. | CONFIRMED (High) | Partly closed by the reverse-closure gate (below); full keymap-chord extraction recommended as follow-up. |
+| 2 | **Phase 8 does not GENERATE** — `check-keybinding-manifest.mjs` is drift-CHECK only (no Rust/TS/website emission); the website table is uncovered even by the check; the Rust side is checked against `localized.test.rs` (a test mirror), not `localized.rs`. | CONFIRMED (High vs plan, Medium practical) | **Recommended, not done:** a drift *check* delivers most of the safety value; full manifest→codegen + checking the real `localized.rs` + website table is a follow-up. |
+| 3 | **`executeCommand` invariant contradicted** — editor keymaps call `runEditorAction` directly (~40 sites), the opposite of the plan/ADR-018 "one invariant". | CONFIRMED deviation (deliberate, justified) | **FIXED (docs):** plan + ADR-018 invariant amended to the two-executor reality (window/global → `executeCommand`; editor → `runEditorAction`), with the palette-gate rationale. |
+| 4 | **No `consumer`/`captureOwner` on `shortcutDefinitions` entries** — WI-1.3 built a forward integrity gate only; entries carry no self-classification. | CONFIRMED (Medium) | Reverse-closure gate (below) enforces "every entry has a consumer" without adding fields; a discriminator field is an optional follow-up. |
+| 5 | **Dead rebind rows (real UX bug)** — `addCursorAbove`, `addCursorBelow`, `skipOccurrence`, `softUndoCursor` (and the occurrence selectors) appear rebindable in Settings but `multiCursor/keymap.ts` hardcodes their chords, so rebinding does nothing; no `~105` cleanup occurred (123 defs remain). | CONFIRMED (Medium) | **Tracked + regression-proofed** by the reverse-closure gate (documents the dead set, fails on any NEW dead entry). Actually wiring them through `getShortcut` vs removing them is a product decision (recommended: wire, since Settings advertises them). |
+| 6 | **No committed native/DOM double-execution E2E** — only `nativeOwnership.test.ts` (unit resolver) + a one-time manual Tauri-MCP check. | CONFIRMED (Low-Med) | **Recommended:** a Tauri-MCP journey firing a both-visible chord and asserting single execution. Harness cannot dispatch one physical key to AppKit + webview concurrently (documented limitation). |
+| 7 | **AltGraph unhandled** — `canonicalizeEvent` read only meta/ctrl/alt/shift, so an AltGr char-compose (reported as ctrl+alt) would spuriously fire a `Ctrl-Alt-X` binding. | CONFIRMED (Low-Med) | **FIXED:** `canonicalizeEvent` now returns null when `getModifierState("AltGraph")` is set; corpus test added (AltGr→null; real Ctrl+Alt still resolves). |
+
+**Root cause of 1/4/5:** the registry had a forward gate (`KEYBINDINGS → commands/shortcuts`)
+but no reverse check (`shortcutDefinitions → some consumer`) — added as
+`shortcutConsumerClosure.test.ts`.
 
 ## Out of scope
 

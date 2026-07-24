@@ -177,10 +177,18 @@ export function canonicalizeChordString(
  * state) but kept in the signature for symmetry/testability.
  */
 export function canonicalizeEvent(
-  event: Pick<KeyboardEvent, "code" | "metaKey" | "ctrlKey" | "altKey" | "shiftKey">,
+  event: Pick<KeyboardEvent, "code" | "metaKey" | "ctrlKey" | "altKey" | "shiftKey"> & {
+    getModifierState?: (key: string) => boolean;
+  },
 ): CanonicalChord | null {
   const code = event.code;
   if (!code || MODIFIER_CODES.has(code)) return null;
+  // AltGr (RightAlt on international/ISO layouts) is reported as ctrl+alt but is a
+  // TYPING modifier for composing special characters, never a shortcut chord. Left
+  // as-is it would spuriously fire any `Ctrl-Alt-X` binding while the user types
+  // (e.g. AltGr+E → `€`). Treat an AltGraph-composited event as non-matching so no
+  // binding resolves. `?.` keeps synthetic test events (no getModifierState) working.
+  if (event.getModifierState?.("AltGraph")) return null;
   const mods = new Set<string>();
   if (event.metaKey) mods.add("meta");
   if (event.ctrlKey) mods.add("ctrl");
