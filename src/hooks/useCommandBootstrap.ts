@@ -45,6 +45,7 @@ const EXPORT_BINDINGS: MenuCommandBinding[] = [
 ];
 
 const MISC_BINDINGS: MenuCommandBinding[] = [
+  { menuEvent: "menu:quick-open", commandId: "app.quickOpen" },
   { menuEvent: "menu:new-browser-tab", commandId: "browser.newTab" },
   { menuEvent: "menu:preferences", commandId: "app.preferences" },
   { menuEvent: "menu:clear-history", commandId: "history.clearAll" },
@@ -67,6 +68,7 @@ const RECENT_WORKSPACES_BINDINGS: MenuCommandBinding[] = [
 ];
 
 const VIEW_BINDINGS: MenuCommandBinding[] = [
+  { menuEvent: "menu:find-in-files", commandId: "view.contentSearch" },
   { menuEvent: "menu:wysiwyg-mode", commandId: "view.setWysiwygMode" },
   { menuEvent: "menu:source-mode", commandId: "view.toggleSourceMode" },
   { menuEvent: "menu:markdown-split", commandId: "view.toggleMarkdownSplit" },

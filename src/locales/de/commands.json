@@ -1,6 +1,8 @@
 {
   "app": {
-    "preferences": "Einstellungen"
+    "preferences": "Einstellungen",
+    "commandPalette": "Befehlspalette",
+    "quickOpen": "Schnellöffnen"
   },
   "history": {
     "clearAll": "Gesamten Verlauf löschen",
@@ -61,7 +63,8 @@
     "toggleShowInvisibles": "Unsichtbare Zeichen umschalten",
     "toggleWindowStatus": "Fensterstatus",
     "toggleBreakdown": "Kohärenz-Aufschlüsselung",
-    "toggleClaims": "Kanon-Aussagen"
+    "toggleClaims": "Kanon-Aussagen",
+    "contentSearch": "In Dateien suchen"
   },
   "lint": {
     "check": "Markdown prüfen",

@@ -1,6 +1,8 @@
 {
   "app": {
-    "preferences": "偏好设置"
+    "preferences": "偏好设置",
+    "commandPalette": "命令面板",
+    "quickOpen": "快速打开"
   },
   "history": {
     "clearAll": "清空所有历史记录",
@@ -61,7 +63,8 @@
     "toggleShowInvisibles": "切换不可见字符",
     "toggleWindowStatus": "窗口状态",
     "toggleBreakdown": "一致性明细",
-    "toggleClaims": "正典设定"
+    "toggleClaims": "正典设定",
+    "contentSearch": "在文件中查找"
   },
   "lint": {
     "check": "检查 Markdown",

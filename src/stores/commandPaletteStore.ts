@@ -4,7 +4,7 @@
  * Intentionally tiny: any caller (keyboard shortcut, status-bar button,
  * programmatic API) can call `useCommandPaletteStore.getState().open()`.
  *
- * @module components/CommandPalette/commandPaletteStore
+ * @module stores/commandPaletteStore
  */
 
 import { create } from "zustand";
