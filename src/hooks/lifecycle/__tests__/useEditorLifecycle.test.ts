@@ -14,8 +14,8 @@ vi.mock("@/hooks/useCommandBootstrap", () => ({
 vi.mock("@/hooks/useSearchCommands", () => ({
   useSearchCommands: () => calls.push("searchCommands"),
 }));
-vi.mock("@/hooks/useViewShortcuts", () => ({
-  useViewShortcuts: () => calls.push("viewShortcuts"),
+vi.mock("@/hooks/useKeybindingRouter", () => ({
+  useKeybindingRouter: () => calls.push("keybindingRouter"),
 }));
 vi.mock("@/hooks/useTabShortcuts", () => ({
   useTabShortcuts: () => calls.push("tabShortcuts"),
@@ -48,7 +48,7 @@ describe("useEditorLifecycle", () => {
     expect(calls).toEqual([
       "commandBootstrap",
       "searchCommands",
-      "viewShortcuts",
+      "keybindingRouter",
       "tabShortcuts",
       "fileExplorerShortcuts",
       "universalToolbar",
@@ -63,7 +63,7 @@ describe("useEditorLifecycle", () => {
     const bootstrapIdx = calls.indexOf("commandBootstrap");
     for (const shortcutHook of [
       "searchCommands",
-      "viewShortcuts",
+      "keybindingRouter",
       "tabShortcuts",
       "fileExplorerShortcuts",
     ]) {
