@@ -234,6 +234,32 @@ its TS/docs definition.
 browser-first-responder. 6. **multi-window sync integration** — Phase 7. No DoD claims a
 guarantee its category can't establish (no synthetic event proving native behavior).
 
+## Build log v2 (2026-07-24) — 24 bindings migrated, router per-window
+
+**Phase 3 migrations COMPLETE for 6 hooks (all green, banked to vmark-core):**
+command-palette, find-in-files, quick-open, all 18 `useViewShortcuts` actions,
+2 file-explorer toggles, and select-all containment (the `containment` binding
+kind + capture-phase adapter both now exercised in production). **24 bindings.**
+The router-mounting-scope decision was resolved: the router moved from
+main-window-only (`MainWindowRunners`) to per-document-window
+(`useEditorLifecycle`) — fixing a latent bug where the overlay shortcuts didn't
+work in secondary windows. Several misfiled modules relocated to their tiers
+along the way (`commandPaletteStore`, `quickOpenStore` → `stores/`;
+`workspaceConfig` → `services/workspaces/`).
+
+**Remaining Phase-3 hooks — each needs a data-loss-adjacent tier relocation:**
+- `useTabShortcuts`: new/next/prev/close/status commands don't exist; `tab.close`
+  needs `closeTabWithDirtyCheck` (unsaved-changes prompt) which lives in
+  `hooks/useTabOperations` (6 consumers) → relocate to `services/` first. Also
+  make the hardcoded `Mod+W` configurable (WI-3.3).
+- `useFileShortcuts`: menu-tangled (new/open/save/save-all-quit listeners); needs
+  `file.save`/`file.saveAs` commands + Phase-2 menu policy.
+- `useGenieShortcuts`: carries `menu:invoke-genie`/`search-genies`/`reload-genies`
+  listeners → needs the Phase-2 menu policy.
+
+These touch save / dirty-close logic (data-loss-adjacent), so they warrant a
+fresh, careful pass — not a fatigued rush.
+
 ## Build log — completed slices + discovered decisions (2026-07-24)
 
 **Landed on `refactor/vmark-core` (all green, behavior-neutral):**
