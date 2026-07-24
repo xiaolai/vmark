@@ -9,6 +9,7 @@ import { useTranslation } from "react-i18next";
 import { formatKeyForDisplay, type ShortcutDefinition } from "@/stores/settingsStore";
 import { getShortcutLabel } from "@/stores/settingsShortcutLabels";
 import { isImeKeyEvent } from "@/utils/imeGuard";
+import { canonicalizeChordString } from "@/utils/keybinding/canonicalChord";
 import { Button } from "./components";
 
 interface KeyCaptureProps {
@@ -63,8 +64,15 @@ export function KeyCapture({ shortcut, conflict, onCapture, onCancel }: KeyCaptu
     return () => window.removeEventListener("keydown", handleKeyDown, true);
   }, [handleKeyDown]);
 
+  // A captured chord that the runtime canonicalizer can't map (e.g. a shifted
+  // symbol like `Mod-Shift->`, whose `>` has no physical code token) would be
+  // stored but silently never fire — the binding drops from the resolver index
+  // (WI-6.1). Validate against the SAME canonicalizer the router uses and refuse
+  // to assign an unmappable chord instead of accepting a dead one.
+  const unsupported = capturedKey !== null && canonicalizeChordString(capturedKey) === null;
+
   const handleConfirm = () => {
-    if (capturedKey) {
+    if (capturedKey && !unsupported) {
       onCapture(capturedKey);
     }
   };
@@ -92,8 +100,16 @@ export function KeyCapture({ shortcut, conflict, onCapture, onCancel }: KeyCaptu
           )}
         </div>
 
+        {/* Unsupported-chord warning (won't canonicalize → would never fire) */}
+        {unsupported && (
+          <div className="bg-[var(--error-bg)] text-[var(--error-color)] border border-[var(--warning-border)]
+                          rounded-lg p-3 mb-4 text-sm">
+            {t("shortcuts.capture.unsupported")}
+          </div>
+        )}
+
         {/* Conflict warning */}
-        {conflict && (
+        {conflict && !unsupported && (
           <div className="bg-[var(--warning-bg)] text-[var(--warning-color)] border border-[var(--warning-border)]
                           rounded-lg p-3 mb-4 text-sm">
             <strong>{t("shortcuts.capture.conflict")}</strong>{" "}
@@ -110,7 +126,7 @@ export function KeyCapture({ shortcut, conflict, onCapture, onCancel }: KeyCaptu
           <Button
             variant="primary"
             onClick={handleConfirm}
-            disabled={!capturedKey}
+            disabled={!capturedKey || unsupported}
           >
             {conflict ? t("shortcuts.capture.assignAnyway") : t("shortcuts.capture.assign")}
           </Button>
