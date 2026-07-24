@@ -241,6 +241,32 @@ no id collides with the 66 existing bus ids (preflight test).
 
 ## Phase 4 — Localization + palette UX (core, not deferred)
 
+**Status: ✅ COMPLETE (2026-07-24)** — `pnpm check:all` green. WI-4.1: the 25
+palette categories now have localized `commands:category.*` labels in `en`, and
+all 9 non-English locales have their `editor.*` command labels (88 values each,
+incl. `setHeading.1..6`) and the new `category.*` block **fully translated** (was
+English placeholders since Phase 3) — `pnpm lint:i18n` confirms key parity across
+all 10 locales. WI-4.2: grouping moved into a pure `paletteGrouping.ts`
+(`buildPaletteSections`) — **browse mode (empty query) renders labelled
+`role="group"` sections** in a curated category order (unknown categories sort
+last, alphabetically by localized label, so a new category never drops);
+**search mode (non-empty query) stays a flat ranked list** so best matches lead
+(VS Code model — directly serves "empty-search volume stays usable"). The
+sections' items, flattened, are the on-screen order, so the selection index never
+desyncs from the caret. Per-row category chips now show the **localized** label,
+never the raw id. WI-4.3: the active row `scrollIntoView({ block: "nearest" })`
+on every selection/relayout change, and each browse section carries an
+`aria-label` so screen readers announce the group on entry. New tests: 8 pure
+grouping cases + 3 component cases (localized headers, flat-on-search,
+scroll-on-arrow).
+
+**Localization method:** 9 parallel per-locale subagents (one file each, no
+overlap), gated by a structural validator (JSON validity + exact `editor`/
+`category` key parity with `en` + proof no other section changed) before the
+gate ran. Two locales adopted their own established conventions over a literal
+acronym-keep (pt-BR `AI`→`IA`, matching the rest of that locale); `link`→"Link"
+in de/pt-BR is the correct native word, not an untranslated leak.
+
 | WI | Change |
 |---|---|
 | WI-4.1 | ~88 translation keys (`commands:editor.*`, heading variants) **plus localized category labels** in `src/locales/en/*.json`, then `translate-docs` for the other **9** locales (10 dirs total: de/en/es/fr/it/ja/ko/pt-BR/zh-CN/zh-TW). Land keys **with or before** the registering bridge so no phase ships raw ids |
