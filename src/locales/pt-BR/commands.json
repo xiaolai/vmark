@@ -64,7 +64,8 @@
     "toggleWindowStatus": "Status das janelas",
     "toggleBreakdown": "Detalhamento de coerência",
     "toggleClaims": "Afirmações canônicas",
-    "contentSearch": "Localizar em arquivos"
+    "contentSearch": "Localizar em arquivos",
+    "toggleSidebar": "Alternar barra lateral"
   },
   "lint": {
     "check": "Verificar Markdown",
