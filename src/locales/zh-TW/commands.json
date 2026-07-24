@@ -62,7 +62,8 @@
     "toggleShowInvisibles": "切換顯示隱形字元",
     "toggleWindowStatus": "視窗狀態",
     "toggleBreakdown": "一致性明細",
-    "toggleClaims": "正典設定"
+    "toggleClaims": "正典設定",
+    "contentSearch": "在檔案中尋找"
   },
   "lint": {
     "check": "檢查 Markdown",

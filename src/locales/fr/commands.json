@@ -62,7 +62,8 @@
     "toggleShowInvisibles": "Afficher/masquer les caractères invisibles",
     "toggleWindowStatus": "État des fenêtres",
     "toggleBreakdown": "Détail de cohérence",
-    "toggleClaims": "Affirmations canoniques"
+    "toggleClaims": "Affirmations canoniques",
+    "contentSearch": "Rechercher dans les fichiers"
   },
   "lint": {
     "check": "Vérifier le Markdown",

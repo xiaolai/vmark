@@ -62,7 +62,8 @@
     "toggleShowInvisibles": "不可視文字を切り替え",
     "toggleWindowStatus": "ウィンドウの状態",
     "toggleBreakdown": "整合性の内訳",
-    "toggleClaims": "カノン設定"
+    "toggleClaims": "カノン設定",
+    "contentSearch": "ファイル内を検索"
   },
   "lint": {
     "check": "Markdown をチェック",

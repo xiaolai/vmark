@@ -62,7 +62,8 @@
     "toggleShowInvisibles": "Toggle Invisibles",
     "toggleWindowStatus": "Window Status",
     "toggleBreakdown": "Coherence Breakdown",
-    "toggleClaims": "Canon Claims"
+    "toggleClaims": "Canon Claims",
+    "contentSearch": "Find in Files"
   },
   "lint": {
     "check": "Check Markdown",

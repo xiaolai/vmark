@@ -62,7 +62,8 @@
     "toggleShowInvisibles": "Unsichtbare Zeichen umschalten",
     "toggleWindowStatus": "Fensterstatus",
     "toggleBreakdown": "Kohärenz-Aufschlüsselung",
-    "toggleClaims": "Kanon-Aussagen"
+    "toggleClaims": "Kanon-Aussagen",
+    "contentSearch": "In Dateien suchen"
   },
   "lint": {
     "check": "Markdown prüfen",
