@@ -45,6 +45,7 @@ const EXPORT_BINDINGS: MenuCommandBinding[] = [
 ];
 
 const MISC_BINDINGS: MenuCommandBinding[] = [
+  { menuEvent: "menu:quick-open", commandId: "app.quickOpen" },
   { menuEvent: "menu:new-browser-tab", commandId: "browser.newTab" },
   { menuEvent: "menu:preferences", commandId: "app.preferences" },
   { menuEvent: "menu:clear-history", commandId: "history.clearAll" },

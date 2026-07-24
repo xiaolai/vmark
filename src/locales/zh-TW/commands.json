@@ -1,7 +1,8 @@
 {
   "app": {
     "preferences": "偏好設定",
-    "commandPalette": "命令選擇區"
+    "commandPalette": "命令選擇區",
+    "quickOpen": "快速開啟"
   },
   "history": {
     "clearAll": "清除所有歷史紀錄",

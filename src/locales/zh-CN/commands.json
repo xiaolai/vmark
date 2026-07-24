@@ -1,7 +1,8 @@
 {
   "app": {
     "preferences": "偏好设置",
-    "commandPalette": "命令面板"
+    "commandPalette": "命令面板",
+    "quickOpen": "快速打开"
   },
   "history": {
     "clearAll": "清空所有历史记录",

@@ -1,7 +1,8 @@
 {
   "app": {
     "preferences": "Préférences",
-    "commandPalette": "Palette de commandes"
+    "commandPalette": "Palette de commandes",
+    "quickOpen": "Ouverture rapide"
   },
   "history": {
     "clearAll": "Effacer tout l'historique",
