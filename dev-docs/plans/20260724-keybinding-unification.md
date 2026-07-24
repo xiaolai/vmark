@@ -234,6 +234,38 @@ its TS/docs definition.
 browser-first-responder. 6. **multi-window sync integration** — Phase 7. No DoD claims a
 guarantee its category can't establish (no synthetic event proving native behavior).
 
+## Build log — completed slices + discovered decisions (2026-07-24)
+
+**Landed on `refactor/vmark-core` (all green, behavior-neutral):**
+- Phase 0/1: `utils/keybinding/canonicalChord.ts` (identity contract, 15-case
+  corpus), `services/keybinding/bindingRegistry.ts` (resolver, ~12 tests),
+  `keybindingRegistry.ts` (live service + rebind reactivity), ADR-018.
+- Phase 3: `hooks/useKeybindingRouter.ts` (window capture adapter) +
+  `bindingContext.ts` + `keybindingDefinitions.ts`; **3 shortcuts migrated**
+  (command palette, find-in-files, quick-open). Two misfiled UI stores
+  (`commandPaletteStore`, `quickOpenStore`) relocated to `stores/`.
+- Phase 2: WI-2.3 mount-time menu duplicate rejection. `view.toggleSidebar`
+  command registered (the one view action lacking a bus command).
+
+**Two decisions discovered mid-build — resolve BEFORE the next slices:**
+1. **Router mounting scope (blocks the remaining Phase-3 migrations).** The
+   router mounts main-window-only (`MainWindowRunners`), but `useViewShortcuts`
+   (and tabs/file hooks) mount per-document-window (`useEditorLifecycle`).
+   Migrating a per-window hook onto the main-only router would double-fire in the
+   main window and break secondary windows. Decision needed: move the router to
+   `useEditorLifecycle` (all document windows) — which changes palette/quick-open/
+   find-in-files from main-only to all-windows (a behavior change that interacts
+   with where those overlays render), OR give bindings a window-scope axis. The
+   18 `useViewShortcuts` bindings are already authored + verified 1:1 against the
+   command set (in a reverted commit) — ready to re-apply once this is decided.
+2. **Menu-dispatch gate policy (blocks the Phase-2 full merge, sharpens WI-2.1).**
+   Routing the 87 editor `menu:{id}` events through `executeCommand(editor.*)`
+   applies the palette's stricter `actionAvailability` `when()` instead of the
+   executor's looser `isActionExecutable` gate the menu path intentionally uses —
+   a real behavior change. The unified dispatcher's policy object must route
+   editor actions via the executor gate (not the palette `when`), while other
+   commands go through `executeCommand`.
+
 ## Out of scope
 
 - MCP-bridge routing (next unit); `Contribution.commands` (ADR-015).
