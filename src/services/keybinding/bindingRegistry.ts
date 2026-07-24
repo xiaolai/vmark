@@ -75,6 +75,10 @@ interface Policies {
   repeat: Repeat;
   reentrancy?: Reentrancy;
   ime: Ime;
+  /** DOM listener phase for the `window` capture owner. Default is bubble; a few
+   * bindings (browser-default containment, file-explorer pre-emption) must run in
+   * the capture phase to beat other handlers. Ignored for editor/native owners. */
+  windowPhase?: "capture" | "bubble";
 }
 
 /**

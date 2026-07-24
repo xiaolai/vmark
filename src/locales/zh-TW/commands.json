@@ -213,5 +213,9 @@
     "undo": "復原",
     "unnestBlockquote": "取消巢狀引用區塊",
     "wikiLink": "Wiki 連結"
+  },
+  "explorer": {
+    "toggleHiddenFiles": "切換隱藏檔案",
+    "toggleAllFiles": "切換所有檔案"
   }
 }

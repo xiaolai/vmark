@@ -213,5 +213,9 @@
     "undo": "Undo",
     "unnestBlockquote": "Unnest Blockquote",
     "wikiLink": "Wiki Link"
+  },
+  "explorer": {
+    "toggleHiddenFiles": "Toggle Hidden Files",
+    "toggleAllFiles": "Toggle All Files"
   }
 }

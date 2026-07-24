@@ -213,5 +213,9 @@
     "undo": "撤销",
     "unnestBlockquote": "取消嵌套引用",
     "wikiLink": "Wiki 链接"
+  },
+  "explorer": {
+    "toggleHiddenFiles": "切换隐藏文件",
+    "toggleAllFiles": "切换所有文件"
   }
 }

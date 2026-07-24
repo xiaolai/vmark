@@ -213,5 +213,9 @@
     "undo": "Annulla",
     "unnestBlockquote": "Rimuovi annidamento citazione",
     "wikiLink": "Collegamento wiki"
+  },
+  "explorer": {
+    "toggleHiddenFiles": "Attiva/disattiva file nascosti",
+    "toggleAllFiles": "Attiva/disattiva tutti i file"
   }
 }

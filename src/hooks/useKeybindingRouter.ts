@@ -40,7 +40,10 @@ export function useKeybindingRouter(): void {
   useEffect(() => {
     const dispose = installBindings(KEYBINDINGS);
 
-    const onKeyDown = (event: KeyboardEvent) => {
+    // One handler for each DOM phase. The winning binding's `windowPhase`
+    // decides which phase acts on it (default bubble), so a chord fires exactly
+    // once — the other phase resolves the same winner and skips it.
+    const handle = (phase: "capture" | "bubble") => (event: KeyboardEvent) => {
       const ctx = resolveBindingContext(windowLabel);
       let resolved;
       try {
@@ -55,6 +58,7 @@ export function useKeybindingRouter(): void {
       if (!resolved) return;
 
       const binding = resolved.binding;
+      if ((binding.windowPhase ?? "bubble") !== phase) return; // other phase owns it
       if (skipForIme(event, binding.ime)) return;
       if (binding.repeat === "deny" && event.repeat) return;
 
@@ -69,9 +73,13 @@ export function useKeybindingRouter(): void {
       // containment: consumed, nothing to execute.
     };
 
-    window.addEventListener("keydown", onKeyDown);
+    const onBubble = handle("bubble");
+    const onCapture = handle("capture");
+    window.addEventListener("keydown", onBubble);
+    window.addEventListener("keydown", onCapture, { capture: true });
     return () => {
-      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keydown", onBubble);
+      window.removeEventListener("keydown", onCapture, { capture: true });
       dispose();
     };
   }, [windowLabel]);
