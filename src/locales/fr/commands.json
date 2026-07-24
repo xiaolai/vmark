@@ -213,5 +213,9 @@
     "undo": "Annuler",
     "unnestBlockquote": "Désimbriquer la citation",
     "wikiLink": "Lien wiki"
+  },
+  "explorer": {
+    "toggleHiddenFiles": "Basculer les fichiers cachés",
+    "toggleAllFiles": "Basculer tous les fichiers"
   }
 }

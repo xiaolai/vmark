@@ -70,6 +70,6 @@ describe("KEYBINDINGS — view shortcut migration (WI-3.2)", () => {
   });
 
   it("has exactly the 3 global + 18 view bindings", () => {
-    expect(KEYBINDINGS).toHaveLength(21);
+    expect(KEYBINDINGS).toHaveLength(23);
   });
 });
