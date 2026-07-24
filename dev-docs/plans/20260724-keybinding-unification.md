@@ -334,6 +334,32 @@ manifest), Phase 4 (editor keymaps through the bus), Phase 5 (native/WKWebView
 exactly-once — E2E), Phase 6 (KeyCapture UX + ~105-entry cleanup), Phase 7
 (cross-window — E2E), Phase 8 (manifest codegen + docs).
 
+## Build log v4 (2026-07-24) — Phase 4 complete (editor keymaps through the executor)
+
+- **WI-4.1 (mechanic gate):** `services/keybinding/editorMechanics.ts` — the
+  approved-mechanic allowlist + gate; rejects a "mechanic" that collides with a
+  registered command, shortcut, or menu id. Additive, tested vs the real registries.
+- **WI-4.3 (undo/redo single source):** `services/keybinding/undoRedoChords.ts` —
+  both editor keymaps bind Mod-z / Mod-Shift-z / Mod-y from one place;
+  `redoChords(isMac)` gates Mod-y off-mac (macOS reserves Cmd+Y for `aiPrompts`).
+- **WI-4.2 (executor routing):** the ~76 WYSIWYG + Source formatting/editing
+  keybindings now run through **`runEditorAction`** (the menu's executor path), NOT
+  `executeCommand`. **Key finding (E2E-caught):** routing keyboard through
+  `executeCommand("editor.X")` applies the palette `actionAvailability` gate
+  (requires `ctx.editorAvailable` + node/selection context) — stricter than the
+  executor's `isActionExecutable` — and **silently dropped keyboard formatting**.
+  Unit tests (which mock the dispatch) passed; only the live-app E2E (Cmd+B
+  no-opped while `menu:bold` worked) surfaced it. The executor path is the correct
+  one and matches Phase 2's editor-menu gate decision. Also broke the import cycle
+  the reroute introduced (adapter chain's `expandedToggleMark` now imports the
+  original module, not the `editorPlugins.tiptap` re-export barrel).
+  **Lesson:** mock-based unit tests cannot verify gate behavior; editor-facing
+  keybinding changes need live E2E.
+
+**Remaining:** Phase 1 tail (WI-1.3/1.4/1.5), Phase 5 (native/WKWebView
+exactly-once — E2E), Phase 6 (KeyCapture UX + ~105-entry cleanup), Phase 7
+(cross-window — E2E), Phase 8 (manifest codegen + docs). Then 3 audit-fix rounds.
+
 ## Out of scope
 
 - MCP-bridge routing (next unit); `Contribution.commands` (ADR-015).
