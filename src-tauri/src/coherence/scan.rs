@@ -29,6 +29,18 @@ pub(super) const IGNORED_DIRS: [&str; 8] = [
     ".Trash",
 ];
 
+/// Workspace-relative directory PATHS never scanned. Unlike `IGNORED_DIRS`
+/// (bare names, matched at any depth) these are anchored at the workspace
+/// root, so the rest of `.claude/` stays ordinary scannable content.
+///
+/// A git worktree checked out inside the repo is a second checkout of the
+/// SAME tracked files, so every doc in it carries its main-checkout twin's
+/// `vmark.id`: scanning both emits a `duplicate-id` diagnostic per doc and
+/// registers phantom objects at paths that exist on one machine only. The
+/// prefix is anchored rather than name-based for the same reason
+/// `CACHEDIR.TAG` is exact — no guessing at directories called "worktrees".
+pub(super) const IGNORED_REL_PREFIXES: [&str; 1] = [".claude/worktrees"];
+
 /// DoS guards for kernels opened on arbitrary roots (MCP surface): a walk
 /// that trips either cap is INCOMPLETE — reported, and deletion
 /// reconciliation is skipped.
@@ -262,7 +274,8 @@ pub fn scan_workspace(kernel: &mut WorkspaceKernel) -> Result<ScanReport, String
 }
 
 pub(super) use super::scan_diagnostics::{
-    emit_diagnostic, existing_diagnostic_keys, path_under_ignored_dir,
+    emit_diagnostic, existing_diagnostic_keys, path_at_or_under_ignored_prefix,
+    path_under_ignored_dir,
 };
 pub(super) use super::scan_walk::walk_markdown;
 
