@@ -33,6 +33,9 @@ export const recentWarn = createWarnLogger("[Recent]");
 /** Warn logger for Shortcuts store. */
 export const shortcutsWarn = createWarnLogger("[Shortcuts]");
 
+/** Warn logger for the keybinding registry (ADR-018). */
+export const keybindingWarn = createWarnLogger("[Keybinding]");
+
 /** Warn logger for the content server (KB / Slidev). */
 export const contentServerWarn = createWarnLogger("[ContentServer]");
 
