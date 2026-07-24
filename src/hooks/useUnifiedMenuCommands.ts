@@ -10,7 +10,10 @@
  *   run an action identically.
  *
  * Pipeline: Rust menu event → Tauri `listen("menu:{id}")` → window filter →
- *   focus gate → `runEditorAction(actionId, { windowLabel, params })`.
+ *   focus gate → `dispatchMenuAction(mapping, windowLabel)` →
+ *   `runEditorAction(actionId, { windowLabel, params })`. `dispatchMenuAction`
+ *   is the exported one-line dispatch primitive, shared with the Phase-5
+ *   bus↔menu differential gate so the test exercises the real menu dispatch.
  *
  * Key decisions:
  *   - Mount ONCE at the EditorHost level, not per-editor.
@@ -30,12 +33,22 @@ import { useEffect, useRef } from "react";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { MENU_TO_ACTION } from "@/plugins/actions/actionRegistry";
-import type { MenuEventId } from "@/plugins/actions/types";
+import type { MenuActionMapping, MenuEventId } from "@/plugins/actions/types";
 import { shouldBlockMenuAction } from "@/utils/focusGuard";
 import { safeUnlistenAll } from "@/utils/safeUnlisten";
 import { menuError } from "@/utils/debug";
 import { runEditorAction } from "@/services/editor/runEditorAction";
 import { disposeEditorActionOwner } from "@/services/editor/editorActionOwner";
+
+/**
+ * Dispatch one menu-action mapping through the shared executor. This is the exact
+ * line the listener runs once a menu event passes the window filter + focus gate;
+ * it is extracted (and exported) so the Phase-5 bus↔menu differential exercises
+ * the REAL menu dispatch, not a re-derivation of it.
+ */
+export function dispatchMenuAction(mapping: MenuActionMapping, windowLabel: string): void {
+  runEditorAction(mapping.actionId, { windowLabel, params: mapping.params });
+}
 
 /**
  * Unified menu command dispatcher.
@@ -75,8 +88,7 @@ export function useUnifiedMenuCommands(): void {
             return;
           }
 
-          const { actionId, params } = mapping;
-          runEditorAction(actionId, { windowLabel, params });
+          dispatchMenuAction(mapping, windowLabel);
         });
 
         listenerPromises.push(promise);
