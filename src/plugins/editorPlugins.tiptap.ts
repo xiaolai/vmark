@@ -26,6 +26,7 @@ import { useSourcePeekStore } from "@/stores/sourcePeekStore";
 import { openSourcePeekInline, revertAndCloseSourcePeek } from "@/plugins/sourcePeekInline";
 import { guardProseMirrorCommand } from "@/utils/imeGuard";
 import { isMacPlatform } from "@/utils/shortcutMatch";
+import { UNDO_CHORD, redoChords } from "@/services/keybinding/undoRedoChords";
 import { expandedToggleMark } from "@/plugins/editorPlugins/expandedToggleMark";
 import { triggerPastePlainText } from "@/plugins/markdownPaste/tiptap";
 import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
@@ -331,17 +332,14 @@ export function buildEditorKeymapBindings(): Record<string, Command> {
   });
 
   // --- Unified Undo/Redo ---
-  // Uses unified history that works across mode switches.
-  // First tries native undo/redo, then falls back to checkpoint-based undo/redo.
-  bindings["Mod-z"] = guardProseMirrorCommand(() => {
+  // Uses unified history that works across mode switches. Chords come from the
+  // single source of truth (undoRedoChords.ts) so WYSIWYG + Source can't drift;
+  // Mod-y is added off-mac only (macOS reserves Cmd+Y for the AI genie picker).
+  bindings[UNDO_CHORD] = guardProseMirrorCommand(() => {
     return performUnifiedUndo(getCurrentWindowLabel());
   });
-  bindings["Mod-Shift-z"] = guardProseMirrorCommand(() => {
-    return performUnifiedRedo(getCurrentWindowLabel());
-  });
-  // Windows/Linux convention: Ctrl+Y for redo (skip on macOS where Cmd+Y = AI Genies)
-  if (!isMacPlatform()) {
-    bindings["Mod-y"] = guardProseMirrorCommand(() => {
+  for (const chord of redoChords(isMacPlatform())) {
+    bindings[chord] = guardProseMirrorCommand(() => {
       return performUnifiedRedo(getCurrentWindowLabel());
     });
   }

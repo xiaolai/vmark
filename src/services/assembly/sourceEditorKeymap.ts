@@ -23,6 +23,7 @@ import { markdownPairBackspace, tabEscapeKeymap, tabIndentFallbackKeymap, shiftT
 import { toggleTaskList } from "@/plugins/sourceContextDetection/taskListActions";
 import { guardCodeMirrorKeyBinding } from "@/utils/imeGuard";
 import { isMacPlatform } from "@/utils/shortcutMatch";
+import { UNDO_CHORD, redoChords } from "@/services/keybinding/undoRedoChords";
 
 /** The source editor's keybindings, in precedence order. */
 export function buildSourceKeymapEntries(): Parameters<typeof keymap.of>[0] {
@@ -95,26 +96,21 @@ export function buildSourceKeymapEntries(): Parameters<typeof keymap.of>[0] {
       }),
       ...closeBracketsKeymap,
       ...defaultKeymap,
-      // Unified undo/redo that works across mode switches
+      // Unified undo/redo that works across mode switches. Chords come from the
+      // single source of truth (undoRedoChords.ts) so WYSIWYG + Source can't
+      // drift; Mod-y is added off-mac only (macOS reserves Cmd+Y for AI Genies).
       guardCodeMirrorKeyBinding({
-        key: "Mod-z",
+        key: UNDO_CHORD,
         run: () => performUnifiedUndo(getCurrentWindowLabel()),
         preventDefault: true,
       }),
-      guardCodeMirrorKeyBinding({
-        key: "Mod-Shift-z",
-        run: () => performUnifiedRedo(getCurrentWindowLabel()),
-        preventDefault: true,
-      }),
-      // Windows/Linux convention: Ctrl+Y for redo (skip on macOS where Cmd+Y = AI Genies)
-      /* v8 ignore next 7 -- @preserve reason: isMacPlatform() compile-time constant; only one branch is taken per test run */
-      ...(isMacPlatform() ? [] : [
+      ...redoChords(isMacPlatform()).map((key) =>
         guardCodeMirrorKeyBinding({
-          key: "Mod-y",
+          key,
           run: () => performUnifiedRedo(getCurrentWindowLabel()),
           preventDefault: true,
         }),
-      ]),
+      ),
       // Fallback Tab handlers: insert spaces if Tab/Shift-Tab not handled above
       tabIndentFallbackKeymap,
       shiftTabIndentFallbackKeymap,
