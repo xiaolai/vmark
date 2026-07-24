@@ -1,7 +1,15 @@
 # Tier Boundary Restoration (H4 burn-down)
 
 **Status:** Phase 1 complete (+ WI-3.1, and 8 of 14 exemptions retired).
-Phase 2 next. `pnpm check:all` green as of 2026-07-22.
+Phase 2 (React-out-of-services) is the remaining **design-bearing** work — the 6
+resilience internals need the H4 *inversion* (extract the hook shell, keep logic
+React-free), not a blind move to `hooks/` that would scatter the persistence
+feature. Tracked here; not yet started.
+**Ratchet hardening (2026-07-24):** the two `_crashRecovery.*` / `_hotExit.*`
+**wildcard** `pathNot` entries were replaced with the exact 6 React-importing file
+paths, so a new same-prefix file can no longer be silently exempted
+(`_hotExitCaptureConvert.ts`, being React-free, was dropped from the list).
+`pnpm check:all` green as of 2026-07-24.
 **Branch:** `refactor/vmark-core`
 **Supersedes:** the frozen `services-no-upward` exemption list in `.dependency-cruiser.cjs`
 **Closes:** H4 from `dev-docs/audit/20260612-full-improvement-audit.md`
@@ -145,12 +153,15 @@ they use single quotes. Tier assessment goes through the gate, not through grep.
 | WI | Change |
 |---|---|
 | WI-3.1 | `components/Terminal/terminalGate.ts` → `services/` (no React; `viewCommands.ts` reaches up for it) |
-| WI-3.2 | Delete all 12 debt entries from `services-no-upward` `pathNot`, keeping only the `*.test.*` exemption and the sanctioned `assembly/tiptapExtensions.ts` wiring seam |
+| WI-3.2 | Delete the DEBT entries from `services-no-upward` `pathNot` as each file's React usage is inverted/moved, keeping the **three sanctioned** exemptions: the `*.test.*` rule, the `assembly/tiptapExtensions.ts` wiring seam, and `imeToastPinAction.tsx` (type-only React import; moving it to `components/` would be worse — WI-2.3) |
 | WI-3.3 | Correct `dev-docs/architecture.md` — it claims the services tier rule is "enforced via dep-cruiser", which was false when written and should now be made true |
 | WI-3.4 | Mark H4 resolved in `dev-docs/audit/20260612-full-improvement-audit.md` |
 
 **DoD:**
-- `services-no-upward` `pathNot` contains at most 2 entries
+- `services-no-upward` `pathNot` contains at most **3 sanctioned entries** (test,
+  `tiptapExtensions`, `imeToastPinAction`); every debt entry is gone. (Reconciled
+  2026-07-24: the earlier "at most 2" contradicted WI-2.3, which sanctions
+  `imeToastPinAction` as a permanent exemption rather than a debt entry.)
 - Re-adding any deleted path to a `services/` file fails `pnpm lint:deps`
 - `pnpm check:all` green
 - `bash scripts/check-wi-linkage.sh dev-docs/plans/20260722-tier-boundary-restoration.md`

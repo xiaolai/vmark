@@ -76,7 +76,7 @@ export function proseMirrorToMdast(
 class PMToMdastConverter {
   private context: PmToMdastContext;
 
-  /** Registry 2 (ADR-015 D2). Migrated types resolve here; the rest fall through. */
+  /** Registry 2 (ADR-015 D2). All node types resolve here — pure registry dispatch, no switch. */
   private readonly registry: PmTier1Registry = createTier1Registry();
 
   constructor(

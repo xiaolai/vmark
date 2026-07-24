@@ -52,10 +52,12 @@ const MULTI_SELECT_GATE_BYPASS: ReadonlySet<ActionId> = new Set([
  *  - the bypass actions above are never hidden.
  *
  * Two residual approximations remain, both requiring the FULL per-cursor
- * multi-selection context that the flattened palette context does not carry, and
- * both deferred to Phase 3 (per-spec projection + reactive context). Neither is a
- * correctness risk — the adapters' `canRunActionInMultiSelection` is the final
- * boundary, so a shown-but-rejected action is a harmless no-op, never a wrong edit:
+ * multi-selection context that the flattened command context does not carry.
+ * They are deferred to a later consumer unit (keybinding / MCP), NOT to the
+ * already-shipped Phase 3 — the bridge landed without a per-cursor projection or
+ * reactive context by design. Neither is a correctness risk — the adapters'
+ * `canRunActionInMultiSelection` is the final boundary, so a shown-but-rejected
+ * action is a harmless no-op, never a wrong edit:
  *  1. "conditional" actions (lists, blockquote nesting) are shown even though the
  *     adapter rejects them unless all cursors share a structural context;
  *  2. `canRunActionInMultiSelection` also vetoes EVERY multi-selection action

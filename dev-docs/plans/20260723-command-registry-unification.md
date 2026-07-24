@@ -166,14 +166,19 @@ palette's discoverability concern, deliberately NOT enforced by the executor.
 reuses the adapters' own `getMultiSelectionPolicyForAction` (default-disallow for
 unlisted) + a gate-BYPASS set {undo, redo, setHeading, paragraph}; link-in-link
 reuses `LINK_DISABLED_ACTIONS`; tests strengthened to real per-axis expectations.
-**Two residuals are consciously DEFERRED to Phase 3** (both need the full per-cursor
-multi-selection context / per-spec projection the flattened palette context lacks;
+**Two residuals are consciously DEFERRED to a LATER CONSUMER UNIT (keybinding /
+MCP), not to the already-shipped Phase 3** (both need the full per-cursor
+multi-selection context / per-spec projection the flattened command context lacks;
 neither is a correctness risk — the adapter is the final boundary): (a) the palette
 does not reproduce `canRunActionInMultiSelection`'s "all cursors share a structural
 context" conditional check, nor (b) its universal vetoes (any range in code/table/
-link/image/math/footnote disables every multi-selection action); and the palette
-context is resolved per-query, not yet reactive to cursor/editor changes while open
-(surfaces only once editor commands are registered).
+link/image/math/footnote disables every multi-selection action). Separately, the
+palette context is resolved per-query, not fully store-reactive while open on an
+unchanged query (a mid-open editor mount / tab change self-corrects on the next
+keystroke; execution re-resolves fresh, so worst case is a stale-shown no-op). Both
+are tracked here as backlog for the keybinding unit, whose keypress-time resolution
+exercises the same resolver — see `actionAvailability.ts` + `CommandPalette.tsx`
+header comments. (Phase 4's audit closed the language-reactivity slice.)
 
 | WI | Change |
 |---|---|
@@ -241,8 +246,8 @@ no id collides with the 66 existing bus ids (preflight test).
 
 ## Phase 4 — Localization + palette UX (core, not deferred)
 
-**Status: ✅ COMPLETE (2026-07-24)** — `pnpm check:all` green. WI-4.1: the 25
-palette categories now have localized `commands:category.*` labels in `en`, and
+**Status: ✅ COMPLETE (2026-07-24)** — `pnpm check:all` green. WI-4.1: the 26
+palette categories (25 + `other`) now have localized `commands:category.*` labels in `en`, and
 all 9 non-English locales have their `editor.*` command labels (88 values each,
 incl. `setHeading.1..6`) and the new `category.*` block **fully translated** (was
 English placeholders since Phase 3) — `pnpm lint:i18n` confirms key parity across

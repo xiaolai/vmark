@@ -116,9 +116,10 @@ export function createMdastRegistry(): MdastRegistry {
 /**
  * Consult the registry for one mdast node.
  *
- * Returns `{ handled: false }` for an unmigrated type so the caller can fall
- * through; an ambiguous match is reported and yields nothing, because ordering
- * must not decide ownership.
+ * Returns `{ handled: false }` for a type no converter claims. Dispatch is now
+ * total (the legacy switch is gone) — the caller warns and yields nothing rather
+ * than falling through; an ambiguous match is reported and yields nothing,
+ * because ordering must not decide ownership.
  */
 export function tryMdastRegistry(
   registry: MdastRegistry,
