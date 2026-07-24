@@ -26,13 +26,12 @@
  * forcing a conscious "wire it through `getShortcut` / KEYBINDINGS, or remove it"
  * decision instead of letting dead rows accumulate silently.
  *
- * KNOWN_UNBOUND (all four: multi-cursor commands whose chords are HARDCODED in
- * `src/plugins/multiCursor/keymap.ts` instead of resolved via `getShortcut`, so
- * their Settings rows do nothing):
- *   - addCursorAbove  → keymap hardcodes "Mod-Alt-ArrowUp"
- *   - addCursorBelow  → keymap hardcodes "Mod-Alt-ArrowDown"
- *   - skipOccurrence  → keymap hardcodes "Mod-Shift-d"
- *   - softUndoCursor  → keymap hardcodes "Mod-Alt-z"
+ * KNOWN_UNBOUND is now EMPTY: the debt is fully paid down. The four multi-cursor
+ * commands whose chords were previously HARDCODED in
+ * `src/plugins/multiCursor/keymap.ts` (addCursorAbove, addCursorBelow,
+ * skipOccurrence, softUndoCursor) now resolve their chords via `getShortcut`
+ * (consumer class 3), so their Settings rows rebind live. The gate therefore
+ * asserts ZERO dead definitions — every DEFAULT_SHORTCUTS row has a consumer.
  *
  * Paying down an entry = route its chord through `getShortcut` (or KEYBINDINGS)
  * and delete it here; the equality assertion then keeps the debt list honest.
@@ -48,12 +47,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const SRC_ROOT = join(HERE, "..", ".."); // .../src
 
 /** Curated dead set — see the module header for the debt rationale. */
-const KNOWN_UNBOUND = [
-  "addCursorAbove",
-  "addCursorBelow",
-  "skipOccurrence",
-  "softUndoCursor",
-] as const;
+const KNOWN_UNBOUND = [] as const;
 
 /** Collect every non-test `.ts`/`.tsx` file under `dir`. */
 function collectSourceFiles(dir: string, acc: string[] = []): string[] {
