@@ -247,18 +247,28 @@ work in secondary windows. Several misfiled modules relocated to their tiers
 along the way (`commandPaletteStore`, `quickOpenStore` → `stores/`;
 `workspaceConfig` → `services/workspaces/`).
 
-**Remaining Phase-3 hooks — each needs a data-loss-adjacent tier relocation:**
-- `useTabShortcuts`: new/next/prev/close/status commands don't exist; `tab.close`
-  needs `closeTabWithDirtyCheck` (unsaved-changes prompt) which lives in
-  `hooks/useTabOperations` (6 consumers) → relocate to `services/` first. Also
-  make the hardcoded `Mod+W` configurable (WI-3.3).
-- `useFileShortcuts`: menu-tangled (new/open/save/save-all-quit listeners); needs
-  `file.save`/`file.saveAs` commands + Phase-2 menu policy.
-- `useGenieShortcuts`: carries `menu:invoke-genie`/`search-genies`/`reload-genies`
-  listeners → needs the Phase-2 menu policy.
+**`useTabShortcuts`: DONE** (2026-07-24). Registered tab.new/next/prev/close +
+view.toggleStatusBar from the **hooks tier** (`hooks/tabCommands.ts`, called by
+`useCommandBootstrap`) — this sidesteps the deep save/cleanup cascade
+(`useTabOperations`→`closeSave`→`useDefaultSaveFolder`; `tabCleanup`→
+`contentSearchNav`): hooks→hooks is tier-valid and the commands call the exact
+existing functions, so `closeTabWithDirtyCheck` is behavior-neutral. `closeTab`
+now a real rebindable binding (WI-3.3). **The hooks-tier command-registration
+pattern is the key that unblocks the last two hooks.**
 
-These touch save / dirty-close logic (data-loss-adjacent), so they warrant a
-fresh, careful pass — not a fatigued rush.
+**Remaining Phase-3 hooks (2 of 9) — the hardest, each a real refactor:**
+- `useFileShortcuts`: menu-heavy — keyboard save/saveAs PLUS `menu:new/open/save/
+  save-as/move-to/save-all-quit` listeners (save-all-quit is quit-adjacent). Needs
+  `file.save`/`file.saveAs`/… commands (register from hooks tier per the pattern
+  above) and the menu events routed to them. All-or-nothing (one hook), so it's a
+  whole-file-menu slice.
+- `useGenieShortcuts`: **React-coupled** — the `aiPrompts` handler invokes a genie
+  via `useGenieInvocation()` (a hook returning `invokeGenie`). A bus command's
+  `run()` can't call a hook, so this needs the genie-invocation logic extracted to
+  a plain function FIRST. Also carries `menu:search-genies`/`reload-genies`.
+
+These two warrant a fresh, careful pass (quit-adjacent save + a genie-invocation
+extraction) — not a fatigued rush.
 
 ## Build log — completed slices + discovered decisions (2026-07-24)
 
