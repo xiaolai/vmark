@@ -16,9 +16,13 @@
 import { Selection, TextSelection, type Command } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
 import { guardProseMirrorCommand } from "@/utils/imeGuard";
+import { toProseMirrorKey } from "@/utils/keybinding/proseMirrorKey";
 import { canRunActionInMultiSelection } from "@/plugins/toolbarActions/multiSelectionPolicy";
 import { getWysiwygMultiSelectionContext } from "@/plugins/toolbarActions/multiSelectionContext";
 import { findAnyMarkRangeAtCursor } from "@/plugins/syntaxReveal/marks";
+
+// Re-exported so existing importers (and keymapUtils.test) keep their entry point.
+export { toProseMirrorKey };
 
 export function escapeMarkBoundary(view: EditorView): boolean {
   const { state, dispatch } = view;
@@ -97,19 +101,6 @@ export function collapseNonEmptySelection(view: EditorView): boolean {
   );
   dispatch(tr);
   return true;
-}
-
-/**
- * Convert shortcut key format to ProseMirror keymap format.
- * Shortcuts store uses normalized format (Up, Down, Left, Right)
- * but ProseMirror keydownHandler expects browser key names (ArrowUp, ArrowDown, etc.)
- */
-export function toProseMirrorKey(key: string): string {
-  return key
-    .replace(/\bUp\b/g, "ArrowUp")
-    .replace(/\bDown\b/g, "ArrowDown")
-    .replace(/\bLeft\b/g, "ArrowLeft")
-    .replace(/\bRight\b/g, "ArrowRight");
 }
 
 export function bindIfKey(binds: Record<string, Command>, key: string, command: Command) {
