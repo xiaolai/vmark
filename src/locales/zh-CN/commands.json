@@ -62,7 +62,8 @@
     "toggleShowInvisibles": "切换不可见字符",
     "toggleWindowStatus": "窗口状态",
     "toggleBreakdown": "一致性明细",
-    "toggleClaims": "正典设定"
+    "toggleClaims": "正典设定",
+    "contentSearch": "在文件中查找"
   },
   "lint": {
     "check": "检查 Markdown",

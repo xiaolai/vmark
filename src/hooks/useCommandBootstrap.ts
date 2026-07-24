@@ -67,6 +67,7 @@ const RECENT_WORKSPACES_BINDINGS: MenuCommandBinding[] = [
 ];
 
 const VIEW_BINDINGS: MenuCommandBinding[] = [
+  { menuEvent: "menu:find-in-files", commandId: "view.contentSearch" },
   { menuEvent: "menu:wysiwyg-mode", commandId: "view.setWysiwygMode" },
   { menuEvent: "menu:source-mode", commandId: "view.toggleSourceMode" },
   { menuEvent: "menu:markdown-split", commandId: "view.toggleMarkdownSplit" },

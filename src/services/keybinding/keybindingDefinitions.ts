@@ -25,4 +25,17 @@ export const KEYBINDINGS: readonly Binding[] = [
     ime: "block",
     consumption: "preventDefault",
   },
+  // Find in Files (migrated from useContentSearchShortcuts). Global open; the
+  // menu:find-in-files event routes to the same command via useCommandBootstrap.
+  {
+    kind: "command",
+    commandId: "view.contentSearch",
+    shortcutId: "contentSearch",
+    scope: "window",
+    priority: 0,
+    captureOwner: "window",
+    repeat: "deny",
+    ime: "block",
+    consumption: "preventDefault",
+  },
 ];

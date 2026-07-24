@@ -62,7 +62,8 @@
     "toggleShowInvisibles": "Alternar caracteres invisibles",
     "toggleWindowStatus": "Estado de ventanas",
     "toggleBreakdown": "Desglose de coherencia",
-    "toggleClaims": "Afirmaciones canónicas"
+    "toggleClaims": "Afirmaciones canónicas",
+    "contentSearch": "Buscar en archivos"
   },
   "lint": {
     "check": "Revisar Markdown",
