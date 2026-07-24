@@ -40,6 +40,8 @@ export function resolveShortcutChord(shortcutId: string): CanonicalChord | null 
 let declaredBindings: readonly Binding[] = [];
 let index: BindingIndex = new Map();
 let unsubscribe: (() => void) | null = null;
+/** Monotonic id of the current installation; guards disposer identity. */
+let installToken = 0;
 
 function rebuild(): void {
   index = buildIndex(declaredBindings, resolveShortcutChord, (binding, reason) => {
@@ -54,6 +56,10 @@ function rebuild(): void {
  * calling again replaces the binding set (HMR / test-safe).
  */
 export function installBindings(bindings: readonly Binding[]): () => void {
+  // Identity guard: if two installations ever overlap (double-mount / HMR without
+  // an intervening dispose), the STALE disposer must not tear down the newer
+  // installation's subscription + index. Only the current owner may clean up.
+  const token = ++installToken;
   declaredBindings = bindings;
   rebuild();
   unsubscribe?.();
@@ -62,6 +68,7 @@ export function installBindings(bindings: readonly Binding[]): () => void {
   // change, so a coarse subscription is correct and simple.
   unsubscribe = useShortcutsStore.subscribe(() => rebuild());
   return () => {
+    if (token !== installToken) return; // a newer installation owns the state
     unsubscribe?.();
     unsubscribe = null;
     declaredBindings = [];
