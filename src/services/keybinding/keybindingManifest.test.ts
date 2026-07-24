@@ -1,7 +1,9 @@
 // WI-1.5 — keybinding manifest is the single source of truth for the
 // cross-source-synced shortcut subset; the drift gate
 // (scripts/check-keybinding-manifest.mjs) enforces it against
-// shortcutDefinitions.ts and the Rust accelerator contract.
+// shortcutDefinitions.ts, the REAL Rust menu builder (localized/*.rs accel(...)
+// call sites, not just the contract mirror), and the website docs table
+// (website/guide/shortcuts.md) — all four surfaces, fail-closed.
 
 import { describe, expect, it } from "vitest";
 import { DEFAULT_SHORTCUTS } from "@/stores/settingsStore/shortcutDefinitions";
