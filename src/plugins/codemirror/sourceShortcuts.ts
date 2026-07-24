@@ -8,16 +8,17 @@
  *
  * Key decisions:
  *   - Shortcuts are resolved lazily from the store so user customizations take effect immediately
- *   - Some actions delegate to the sourceAdapter for cross-mode consistency
- *   - Text transformation shortcuts (uppercase, titlecase, etc.) operate directly on CM6 state
- *   - CJK formatting is done in-place on the markdown buffer
+ *   - Formatting/editing shortcuts route through the shared executor
+ *     (runEditorAction, the menu's path — NOT executeCommand; WI-4.2)
+ *   - View-only actions and executor gaps (unlink, copyAsHTML) keep direct handlers
  *   - Helper functions are extracted to sourceShortcutsHelpers.ts to keep this file focused
  *
  * Known limitations:
  *   - Some shortcuts overlap with system keybindings on different platforms
  *
  * @coordinates-with stores/shortcutsStore.ts — source of shortcut key definitions
- * @coordinates-with toolbarActions/sourceAdapter.ts — action execution for format operations
+ * @coordinates-with services/editor/runEditorAction.ts — executor for editor.* actions
+ * @coordinates-with toolbarActions/sourceAdapter.ts — unlink (gap) action execution
  * @coordinates-with plugins/codemirror/sourceShortcutsHelpers.ts — helper functions
  * @module plugins/codemirror/sourceShortcuts
  */
@@ -28,35 +29,34 @@ import { toggleBlockComment, selectLine } from "@codemirror/commands";
 import { useUIStore } from "@/stores/uiStore";
 import { useShortcutsStore } from "@/stores/settingsStore";
 import { guardCodeMirrorKeyBinding } from "@/utils/imeGuard";
+import { runEditorAction } from "@/services/editor/runEditorAction";
+import type { ActionId } from "@/plugins/actions/types";
+import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import { getCodeFenceInfo } from "@/plugins/sourceContextDetection/codeFenceDetection";
 import { getSourceTableInfo } from "@/plugins/sourceContextDetection/tableDetection";
 import { getBlockquoteInfo } from "@/plugins/sourceContextDetection/blockquoteDetection";
 import { getListBlockBounds } from "@/plugins/sourceContextDetection/listDetection";
 import {
   runSourceAction,
-  setHeading,
-  increaseHeadingLevel,
-  decreaseHeadingLevel,
-  toggleBlockquote,
-  toggleList,
   openFindBar,
   findNextMatch,
   findPreviousMatch,
-  formatCJKSelection,
-  formatCJKFile,
   copySelectionAsHtml,
-  doTransformUppercase,
-  doTransformLowercase,
-  doTransformTitleCase,
-  doTransformToggleCase,
-  doMoveLineUp,
-  doMoveLineDown,
-  doDuplicateLine,
-  doDeleteLine,
-  doJoinLines,
-  doSortLinesAsc,
-  doSortLinesDesc,
 } from "./sourceShortcutsHelpers";
+
+/** CodeMirror command running `editor.<actionId>` via the shared executor
+ * (runEditorAction, the menu's path — NOT executeCommand, whose stricter palette
+ * gate would drop keyboard formatting; WI-4.2). `setHeading.N` → level param. */
+function runCommand(commandId: string): (view: EditorView) => boolean {
+  const rest = commandId.replace(/^editor\./, "");
+  const heading = rest.match(/^setHeading\.([1-6])$/);
+  return () => {
+    const windowLabel = getCurrentWindowLabel();
+    if (heading) runEditorAction("setHeading", { windowLabel, params: { level: Number(heading[1]) } });
+    else runEditorAction(rest as ActionId, { windowLabel });
+    return true;
+  };
+}
 
 function bindIfKey(bindings: KeyBinding[], key: string, run: (view: EditorView) => boolean) {
   if (!key) return;
@@ -134,57 +134,59 @@ export function buildSourceShortcutKeymap(): KeyBinding[] {
     return true;
   });
 
-  // --- Inline formatting ---
-  bindIfKey(bindings, shortcuts.getShortcut("bold"), runSourceAction("bold"));
-  bindIfKey(bindings, shortcuts.getShortcut("italic"), runSourceAction("italic"));
-  bindIfKey(bindings, shortcuts.getShortcut("code"), runSourceAction("code"));
-  bindIfKey(bindings, shortcuts.getShortcut("strikethrough"), runSourceAction("strikethrough"));
-  bindIfKey(bindings, shortcuts.getShortcut("underline"), runSourceAction("underline"));
-  bindIfKey(bindings, shortcuts.getShortcut("link"), runSourceAction("link"));
+  // --- Inline formatting (routed through the executor; see runCommand) ---
+  bindIfKey(bindings, shortcuts.getShortcut("bold"), runCommand("editor.bold"));
+  bindIfKey(bindings, shortcuts.getShortcut("italic"), runCommand("editor.italic"));
+  bindIfKey(bindings, shortcuts.getShortcut("code"), runCommand("editor.code"));
+  bindIfKey(bindings, shortcuts.getShortcut("strikethrough"), runCommand("editor.strikethrough"));
+  bindIfKey(bindings, shortcuts.getShortcut("underline"), runCommand("editor.underline"));
+  bindIfKey(bindings, shortcuts.getShortcut("link"), runCommand("editor.link"));
+  // unlink has no editor.* command (executor gap) — keep the source adapter call.
   bindIfKey(bindings, shortcuts.getShortcut("unlink"), runSourceAction("unlink"));
-  bindIfKey(bindings, shortcuts.getShortcut("wikiLink"), runSourceAction("link:wiki"));
-  bindIfKey(bindings, shortcuts.getShortcut("bookmarkLink"), runSourceAction("link:bookmark"));
-  bindIfKey(bindings, shortcuts.getShortcut("highlight"), runSourceAction("highlight"));
-  bindIfKey(bindings, shortcuts.getShortcut("subscript"), runSourceAction("subscript"));
-  bindIfKey(bindings, shortcuts.getShortcut("superscript"), runSourceAction("superscript"));
-  bindIfKey(bindings, shortcuts.getShortcut("inlineMath"), runSourceAction("insertInlineMath"));
-  bindIfKey(bindings, shortcuts.getShortcut("clearFormat"), runSourceAction("clearFormatting"));
+  bindIfKey(bindings, shortcuts.getShortcut("wikiLink"), runCommand("editor.wikiLink"));
+  bindIfKey(bindings, shortcuts.getShortcut("bookmarkLink"), runCommand("editor.bookmark"));
+  bindIfKey(bindings, shortcuts.getShortcut("highlight"), runCommand("editor.highlight"));
+  bindIfKey(bindings, shortcuts.getShortcut("subscript"), runCommand("editor.subscript"));
+  bindIfKey(bindings, shortcuts.getShortcut("superscript"), runCommand("editor.superscript"));
+  bindIfKey(bindings, shortcuts.getShortcut("inlineMath"), runCommand("editor.insertInlineMath"));
+  bindIfKey(bindings, shortcuts.getShortcut("clearFormat"), runCommand("editor.clearFormatting"));
+  // toggleComment has no editor.* command — keep the CodeMirror command directly.
   bindIfKey(bindings, shortcuts.getShortcut("toggleComment"), (view) => toggleBlockComment(view));
 
   // --- Block formatting: Headings ---
-  bindIfKey(bindings, shortcuts.getShortcut("heading1"), setHeading(1));
-  bindIfKey(bindings, shortcuts.getShortcut("heading2"), setHeading(2));
-  bindIfKey(bindings, shortcuts.getShortcut("heading3"), setHeading(3));
-  bindIfKey(bindings, shortcuts.getShortcut("heading4"), setHeading(4));
-  bindIfKey(bindings, shortcuts.getShortcut("heading5"), setHeading(5));
-  bindIfKey(bindings, shortcuts.getShortcut("heading6"), setHeading(6));
-  bindIfKey(bindings, shortcuts.getShortcut("paragraph"), setHeading(0));
-  bindIfKey(bindings, shortcuts.getShortcut("increaseHeading"), increaseHeadingLevel);
-  bindIfKey(bindings, shortcuts.getShortcut("decreaseHeading"), decreaseHeadingLevel);
+  bindIfKey(bindings, shortcuts.getShortcut("heading1"), runCommand("editor.setHeading.1"));
+  bindIfKey(bindings, shortcuts.getShortcut("heading2"), runCommand("editor.setHeading.2"));
+  bindIfKey(bindings, shortcuts.getShortcut("heading3"), runCommand("editor.setHeading.3"));
+  bindIfKey(bindings, shortcuts.getShortcut("heading4"), runCommand("editor.setHeading.4"));
+  bindIfKey(bindings, shortcuts.getShortcut("heading5"), runCommand("editor.setHeading.5"));
+  bindIfKey(bindings, shortcuts.getShortcut("heading6"), runCommand("editor.setHeading.6"));
+  bindIfKey(bindings, shortcuts.getShortcut("paragraph"), runCommand("editor.paragraph"));
+  bindIfKey(bindings, shortcuts.getShortcut("increaseHeading"), runCommand("editor.increaseHeading"));
+  bindIfKey(bindings, shortcuts.getShortcut("decreaseHeading"), runCommand("editor.decreaseHeading"));
 
   // --- Block formatting: Lists ---
-  bindIfKey(bindings, shortcuts.getShortcut("bulletList"), (view) => toggleList(view, "bullet"));
-  bindIfKey(bindings, shortcuts.getShortcut("orderedList"), (view) => toggleList(view, "ordered"));
-  bindIfKey(bindings, shortcuts.getShortcut("taskList"), (view) => toggleList(view, "task"));
-  bindIfKey(bindings, shortcuts.getShortcut("indent"), runSourceAction("indent"));
-  bindIfKey(bindings, shortcuts.getShortcut("outdent"), runSourceAction("outdent"));
+  bindIfKey(bindings, shortcuts.getShortcut("bulletList"), runCommand("editor.bulletList"));
+  bindIfKey(bindings, shortcuts.getShortcut("orderedList"), runCommand("editor.orderedList"));
+  bindIfKey(bindings, shortcuts.getShortcut("taskList"), runCommand("editor.taskList"));
+  bindIfKey(bindings, shortcuts.getShortcut("indent"), runCommand("editor.indent"));
+  bindIfKey(bindings, shortcuts.getShortcut("outdent"), runCommand("editor.outdent"));
 
   // --- Block formatting: Other blocks ---
-  bindIfKey(bindings, shortcuts.getShortcut("blockquote"), toggleBlockquote);
-  bindIfKey(bindings, shortcuts.getShortcut("codeBlock"), runSourceAction("insertCodeBlock"));
-  bindIfKey(bindings, shortcuts.getShortcut("mathBlock"), runSourceAction("insertMath"));
-  bindIfKey(bindings, shortcuts.getShortcut("insertTable"), runSourceAction("insertTable"));
-  bindIfKey(bindings, shortcuts.getShortcut("formatTable"), runSourceAction("formatTable"));
-  bindIfKey(bindings, shortcuts.getShortcut("horizontalLine"), runSourceAction("insertDivider"));
-  bindIfKey(bindings, shortcuts.getShortcut("insertImage"), runSourceAction("insertImage"));
+  bindIfKey(bindings, shortcuts.getShortcut("blockquote"), runCommand("editor.blockquote"));
+  bindIfKey(bindings, shortcuts.getShortcut("codeBlock"), runCommand("editor.codeBlock"));
+  bindIfKey(bindings, shortcuts.getShortcut("mathBlock"), runCommand("editor.insertMath"));
+  bindIfKey(bindings, shortcuts.getShortcut("insertTable"), runCommand("editor.insertTable"));
+  bindIfKey(bindings, shortcuts.getShortcut("formatTable"), runCommand("editor.formatTable"));
+  bindIfKey(bindings, shortcuts.getShortcut("horizontalLine"), runCommand("editor.horizontalLine"));
+  bindIfKey(bindings, shortcuts.getShortcut("insertImage"), runCommand("editor.insertImage"));
 
   // --- Block formatting: Alerts and details ---
-  bindIfKey(bindings, shortcuts.getShortcut("insertNote"), runSourceAction("insertAlertNote"));
-  bindIfKey(bindings, shortcuts.getShortcut("insertTip"), runSourceAction("insertAlertTip"));
-  bindIfKey(bindings, shortcuts.getShortcut("insertWarning"), runSourceAction("insertAlertWarning"));
-  bindIfKey(bindings, shortcuts.getShortcut("insertImportant"), runSourceAction("insertAlertImportant"));
-  bindIfKey(bindings, shortcuts.getShortcut("insertCaution"), runSourceAction("insertAlertCaution"));
-  bindIfKey(bindings, shortcuts.getShortcut("insertCollapsible"), runSourceAction("insertDetails"));
+  bindIfKey(bindings, shortcuts.getShortcut("insertNote"), runCommand("editor.insertAlertNote"));
+  bindIfKey(bindings, shortcuts.getShortcut("insertTip"), runCommand("editor.insertAlertTip"));
+  bindIfKey(bindings, shortcuts.getShortcut("insertWarning"), runCommand("editor.insertAlertWarning"));
+  bindIfKey(bindings, shortcuts.getShortcut("insertImportant"), runCommand("editor.insertAlertImportant"));
+  bindIfKey(bindings, shortcuts.getShortcut("insertCaution"), runCommand("editor.insertAlertCaution"));
+  bindIfKey(bindings, shortcuts.getShortcut("insertCollapsible"), runCommand("editor.insertDetails"));
 
   // --- Navigation ---
   bindIfKey(bindings, shortcuts.getShortcut("selectLine"), (view) => selectLine(view));
@@ -193,24 +195,25 @@ export function buildSourceShortcutKeymap(): KeyBinding[] {
   bindIfKey(bindings, shortcuts.getShortcut("findPrevious"), findPreviousMatch);
 
   // --- Editing ---
-  bindIfKey(bindings, shortcuts.getShortcut("formatCJKSelection"), formatCJKSelection);
-  bindIfKey(bindings, shortcuts.getShortcut("formatCJKFile"), formatCJKFile);
+  bindIfKey(bindings, shortcuts.getShortcut("formatCJKSelection"), runCommand("editor.formatCJK"));
+  bindIfKey(bindings, shortcuts.getShortcut("formatCJKFile"), runCommand("editor.formatCJKFile"));
+  // copyAsHTML has no editor.* command — keep the source helper directly.
   bindIfKey(bindings, shortcuts.getShortcut("copyAsHTML"), copySelectionAsHtml);
 
   // --- Line operations ---
-  bindIfKey(bindings, shortcuts.getShortcut("moveLineUp"), doMoveLineUp);
-  bindIfKey(bindings, shortcuts.getShortcut("moveLineDown"), doMoveLineDown);
-  bindIfKey(bindings, shortcuts.getShortcut("duplicateLine"), doDuplicateLine);
-  bindIfKey(bindings, shortcuts.getShortcut("deleteLine"), doDeleteLine);
-  bindIfKey(bindings, shortcuts.getShortcut("joinLines"), doJoinLines);
-  bindIfKey(bindings, shortcuts.getShortcut("sortLinesAsc"), doSortLinesAsc);
-  bindIfKey(bindings, shortcuts.getShortcut("sortLinesDesc"), doSortLinesDesc);
+  bindIfKey(bindings, shortcuts.getShortcut("moveLineUp"), runCommand("editor.moveLineUp"));
+  bindIfKey(bindings, shortcuts.getShortcut("moveLineDown"), runCommand("editor.moveLineDown"));
+  bindIfKey(bindings, shortcuts.getShortcut("duplicateLine"), runCommand("editor.duplicateLine"));
+  bindIfKey(bindings, shortcuts.getShortcut("deleteLine"), runCommand("editor.deleteLine"));
+  bindIfKey(bindings, shortcuts.getShortcut("joinLines"), runCommand("editor.joinLines"));
+  bindIfKey(bindings, shortcuts.getShortcut("sortLinesAsc"), runCommand("editor.sortLinesAsc"));
+  bindIfKey(bindings, shortcuts.getShortcut("sortLinesDesc"), runCommand("editor.sortLinesDesc"));
 
   // --- Text transformations ---
-  bindIfKey(bindings, shortcuts.getShortcut("transformUppercase"), doTransformUppercase);
-  bindIfKey(bindings, shortcuts.getShortcut("transformLowercase"), doTransformLowercase);
-  bindIfKey(bindings, shortcuts.getShortcut("transformTitleCase"), doTransformTitleCase);
-  bindIfKey(bindings, shortcuts.getShortcut("transformToggleCase"), doTransformToggleCase);
+  bindIfKey(bindings, shortcuts.getShortcut("transformUppercase"), runCommand("editor.transformUppercase"));
+  bindIfKey(bindings, shortcuts.getShortcut("transformLowercase"), runCommand("editor.transformLowercase"));
+  bindIfKey(bindings, shortcuts.getShortcut("transformTitleCase"), runCommand("editor.transformTitleCase"));
+  bindIfKey(bindings, shortcuts.getShortcut("transformToggleCase"), runCommand("editor.transformToggleCase"));
 
   // --- Smart select-all: block-level expansion ---
   // Mod-a detects block context and selects block content first, then whole
