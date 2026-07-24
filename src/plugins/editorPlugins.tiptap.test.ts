@@ -4,6 +4,17 @@
 
 import { describe, it, expect, afterEach, vi } from "vitest";
 import { useShortcutsStore } from "@/stores/settingsStore";
+
+// Formatting/editing shortcuts now route through the shared editor executor; spy
+// on runEditorAction so tests can assert the shortcut dispatches the right action id.
+const { runEditorActionMock } = vi.hoisted(() => ({
+  runEditorActionMock: vi.fn(),
+}));
+vi.mock("@/services/editor/runEditorAction", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/services/editor/runEditorAction")>();
+  return { ...actual, runEditorAction: (...args: unknown[]) => runEditorActionMock(...args) };
+});
+
 import { buildEditorKeymapBindings, editorKeymapExtension, expandedToggleMarkTiptap } from "./editorPlugins.tiptap";
 
 function resetShortcuts() {
@@ -552,53 +563,36 @@ describe("buildEditorKeymapBindings handler execution", () => {
     }
   });
 
-  it("blockquote binding returns false when view has no editor", () => {
+  it("blockquote binding delegates to runEditorAction('blockquote') with a view", () => {
+    runEditorActionMock.mockClear();
     const bindings = buildEditorKeymapBindings();
     const shortcuts = useShortcutsStore.getState();
     const key = shortcuts.getShortcut("blockquote");
     if (key && bindings[key]) {
-      const mockDom = document.createElement("div");
-      // No editor on dom
-      const mockView = { dom: mockDom };
+      // Keymap no longer inspects the editor/schema — the adapter owns that. It
+      // just guards on view presence and dispatches the blockquote action.
+      const mockView = { dom: document.createElement("div") };
       const result = bindings[key]({} as never, vi.fn(), mockView);
-      expect(result).toBe(false);
+      expect(result).toBe(true);
+      expect(runEditorActionMock).toHaveBeenCalledWith(
+        "blockquote",
+        expect.objectContaining({ windowLabel: expect.any(String) })
+      );
     }
   });
 
-  it("blockquote binding returns false when no blockquote type in schema", () => {
+  it("blockquote binding delegates regardless of schema (adapter owns validation)", () => {
+    runEditorActionMock.mockClear();
     const bindings = buildEditorKeymapBindings();
     const shortcuts = useShortcutsStore.getState();
     const key = shortcuts.getShortcut("blockquote");
     if (key && bindings[key]) {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { Schema } = require("@tiptap/pm/model");
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { EditorState } = require("@tiptap/pm/state");
-      // Schema without blockquote node
-      const testSchema = new Schema({
-        nodes: {
-          doc: { content: "paragraph+" },
-          paragraph: { content: "text*" },
-          text: { inline: true },
-        },
-      });
-      const doc = testSchema.node("doc", null, [
-        testSchema.node("paragraph", null, [testSchema.text("hello")]),
-      ]);
-      const state = EditorState.create({ doc, schema: testSchema });
-
-      const mockEditor = { isActive: vi.fn(() => false) };
-      const mockDom = document.createElement("div");
-      (mockDom as unknown as Record<string, unknown>).editor = mockEditor;
-      const mockView = {
-        dom: mockDom,
-        state,
-        dispatch: vi.fn(),
-        focus: vi.fn(),
-      };
-
-      const result = bindings[key](state as never, vi.fn(), mockView);
-      expect(result).toBe(false);
+      // Even a schema without a blockquote node no longer changes keymap behavior:
+      // validation moved to runEditorAction's wysiwyg adapter.
+      const mockView = { dom: document.createElement("div") };
+      const result = bindings[key]({} as never, vi.fn(), mockView);
+      expect(result).toBe(true);
+      expect(runEditorActionMock).toHaveBeenCalledWith("blockquote", expect.any(Object));
     }
   });
 
@@ -673,55 +667,18 @@ describe("buildEditorKeymapBindings handler execution", () => {
     useSourcePeekStore.setState({ isOpen: false });
   });
 
-  it("blockquote binding wraps list inside blockquote", () => {
+  it("blockquote binding delegates to runEditorAction for list content", () => {
+    runEditorActionMock.mockClear();
     const bindings = buildEditorKeymapBindings();
     const shortcuts = useShortcutsStore.getState();
     const key = shortcuts.getShortcut("blockquote");
     if (key && bindings[key]) {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { Schema } = require("@tiptap/pm/model");
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { EditorState, TextSelection } = require("@tiptap/pm/state");
-      const testSchema = new Schema({
-        nodes: {
-          doc: { content: "block+" },
-          paragraph: { group: "block", content: "inline*" },
-          blockquote: { group: "block", content: "block+" },
-          bulletList: { group: "block", content: "listItem+" },
-          listItem: { content: "paragraph block*" },
-          text: { group: "inline" },
-        },
-      });
-      const doc = testSchema.node("doc", null, [
-        testSchema.node("bulletList", null, [
-          testSchema.node("listItem", null, [
-            testSchema.node("paragraph", null, [testSchema.text("item")]),
-          ]),
-        ]),
-      ]);
-      // Position cursor inside the list item paragraph
-      const state = EditorState.create({
-        doc,
-        schema: testSchema,
-        selection: TextSelection.create(doc, 4),
-      });
-
-      const mockEditor = {
-        isActive: vi.fn(() => false),
-      };
-      const mockDom = document.createElement("div");
-      (mockDom as unknown as Record<string, unknown>).editor = mockEditor;
-      const mockView = {
-        dom: mockDom,
-        state,
-        dispatch: vi.fn(),
-        focus: vi.fn(),
-      };
-
-      const result = bindings[key](state as never, vi.fn(), mockView);
+      // List-wrapping now lives in the wysiwyg adapter's toggleBlockquote (tested
+      // there). The keymap only forwards the blockquote action through the executor.
+      const mockView = { dom: document.createElement("div") };
+      const result = bindings[key]({} as never, vi.fn(), mockView);
       expect(result).toBe(true);
-      // dispatch should have been called (wrapping the list)
-      expect(mockView.dispatch).toHaveBeenCalled();
+      expect(runEditorActionMock).toHaveBeenCalledWith("blockquote", expect.any(Object));
     }
   });
 
@@ -1137,51 +1094,17 @@ describe("buildEditorKeymapBindings — inner callback coverage", () => {
     expect(typeof result).toBe("boolean");
   });
 
-  it("blockquote binding wraps orderedList inside blockquote", () => {
+  it("blockquote binding delegates only once per invocation", () => {
+    runEditorActionMock.mockClear();
     const bindings = buildEditorKeymapBindings();
     const shortcuts = useShortcutsStore.getState();
     const key = shortcuts.getShortcut("blockquote");
     if (key && bindings[key]) {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { Schema } = require("@tiptap/pm/model");
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { EditorState, TextSelection } = require("@tiptap/pm/state");
-      const testSchema = new Schema({
-        nodes: {
-          doc: { content: "block+" },
-          paragraph: { group: "block", content: "inline*" },
-          blockquote: { group: "block", content: "block+" },
-          orderedList: { group: "block", content: "listItem+" },
-          listItem: { content: "paragraph block*" },
-          text: { group: "inline" },
-        },
-      });
-      const doc = testSchema.node("doc", null, [
-        testSchema.node("orderedList", null, [
-          testSchema.node("listItem", null, [
-            testSchema.node("paragraph", null, [testSchema.text("item")]),
-          ]),
-        ]),
-      ]);
-      const state = EditorState.create({
-        doc,
-        schema: testSchema,
-        selection: TextSelection.create(doc, 4),
-      });
-
-      const mockEditor = { isActive: vi.fn(() => false) };
-      const mockDom = document.createElement("div");
-      (mockDom as unknown as Record<string, unknown>).editor = mockEditor;
-      const mockView = {
-        dom: mockDom,
-        state,
-        dispatch: vi.fn(),
-        focus: vi.fn(),
-      };
-
-      const result = bindings[key](state as never, vi.fn(), mockView);
+      const mockView = { dom: document.createElement("div") };
+      const result = bindings[key]({} as never, vi.fn(), mockView);
       expect(result).toBe(true);
-      expect(mockView.dispatch).toHaveBeenCalled();
+      expect(runEditorActionMock).toHaveBeenCalledTimes(1);
+      expect(runEditorActionMock).toHaveBeenCalledWith("blockquote", expect.any(Object));
     }
   });
 
@@ -1302,14 +1225,16 @@ describe("buildEditorKeymapBindings — transformToggleCase with custom key", ()
     expect(result).toBe(false);
   });
 
-  it("transformToggleCase calls doWysiwygTransformToggleCase when view is provided", () => {
+  it("transformToggleCase delegates to runEditorAction when view is provided", () => {
     useShortcutsStore.setState({ customBindings: { transformToggleCase: "Alt-Mod-t" } });
+    runEditorActionMock.mockClear();
     const bindings = buildEditorKeymapBindings();
     const mockView = makeMockViewForToggle();
 
-    // doWysiwygTransformToggleCase returns false when nothing is selected
+    // The keymap forwards the transformToggleCase action; selection handling lives in the adapter.
     const result = bindings["Alt-Mod-t"](mockView.state as never, vi.fn(), mockView as never);
-    expect(result).toBe(false);
+    expect(result).toBe(true);
+    expect(runEditorActionMock).toHaveBeenCalledWith("transformToggleCase", expect.any(Object));
   });
 });
 

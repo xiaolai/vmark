@@ -12,8 +12,8 @@ vi.mock("sonner", () => ({
     dismiss: vi.fn(),
   },
 }));
-vi.mock("@/plugins/editorPlugins.tiptap", () => ({
-  expandedToggleMarkTiptap: vi.fn(() => true),
+vi.mock("@/plugins/editorPlugins/expandedToggleMark", () => ({
+  expandedToggleMark: vi.fn(() => true),
 }));
 vi.mock("@/plugins/formatToolbar/nodeActions.tiptap", () => ({
   handleBlockquoteNest: vi.fn(),
