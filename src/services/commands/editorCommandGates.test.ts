@@ -171,7 +171,7 @@ describe("WI-5.3 — inapplicability gate", () => {
       editorAvailable: true,
       readOnly: false,
       hasSelection: false,
-      multiSelection: false,
+      multiSelection: null,
       inTable: false,
       inLink: false,
       inList: false,

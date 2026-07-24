@@ -166,19 +166,26 @@ palette's discoverability concern, deliberately NOT enforced by the executor.
 reuses the adapters' own `getMultiSelectionPolicyForAction` (default-disallow for
 unlisted) + a gate-BYPASS set {undo, redo, setHeading, paragraph}; link-in-link
 reuses `LINK_DISABLED_ACTIONS`; tests strengthened to real per-axis expectations.
-**Two residuals are consciously DEFERRED to a LATER CONSUMER UNIT (keybinding /
-MCP), not to the already-shipped Phase 3** (both need the full per-cursor
-multi-selection context / per-spec projection the flattened command context lacks;
-neither is a correctness risk — the adapter is the final boundary): (a) the palette
-does not reproduce `canRunActionInMultiSelection`'s "all cursors share a structural
-context" conditional check, nor (b) its universal vetoes (any range in code/table/
-link/image/math/footnote disables every multi-selection action). Separately, the
-palette context is resolved per-query, not fully store-reactive while open on an
-unchanged query (a mid-open editor mount / tab change self-corrects on the next
-keystroke; execution re-resolves fresh, so worst case is a stale-shown no-op). Both
-are tracked here as backlog for the keybinding unit, whose keypress-time resolution
-exercises the same resolver — see `actionAvailability.ts` + `CommandPalette.tsx`
-header comments. (Phase 4's audit closed the language-reactivity slice.)
+**Two residuals — now CLOSED (2026-07-25, post-keybinding `palette-multiselect-fidelity`
+unit).** They were deferred here because the flattened command context carried only a
+`multiSelection` boolean, discarding the per-cursor context the check needs. The fix:
+`resolveCommandContext` now stores the FULL `MultiSelectionContext` (the object it was
+already computing and throwing away) as `CommandContextResolved.multiSelection:
+MultiSelectionContext | null`, and `actionAvailability` delegates to the adapters' own
+`canRunActionInMultiSelection` instead of the static-policy approximation. That single
+call reproduces both previously-missing rules: (a) the "all cursors share a structural
+context" conditional (`sameBlockParent` + `inTextblock`) for headings/lists/blockquote
+nesting, and (b) the universal vetoes (any cursor in code/table/link/image/inline-math/
+footnote disables every multi-selection action, including policy-"allow" marks). The
+`setHeading`/`paragraph` gate-bypass is gone — they now evaluate as their `heading:N`
+conditional; only `undo`/`redo` still bypass (unified-history route). RED tests for
+both rules in `actionAvailability.test.ts`; neither was ever a correctness risk (the
+adapter is the final boundary — this only stops offering actions the adapter would
+no-op). **Remaining, still deferred:** the palette context is resolved per-query, not
+fully store-reactive while open on an unchanged query (a mid-open editor mount / tab
+change self-corrects on the next keystroke; execution re-resolves fresh, so worst case
+is a stale-shown no-op) — low value, no consumer demand. (Phase 4's audit closed the
+language-reactivity slice.)
 
 | WI | Change |
 |---|---|

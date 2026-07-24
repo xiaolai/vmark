@@ -28,6 +28,7 @@ import { isActionExecutable, actionAvailability, mutatesDocument } from "./actio
 import type { CommandContextResolved } from "./commandContext";
 import { ACTION_DEFINITIONS } from "@/plugins/actions/actionRegistry";
 import type { ActionId } from "@/plugins/actions/types";
+import type { MultiSelectionContext } from "@/plugins/toolbarActions/types";
 
 function ctx(overrides: Partial<CommandContextResolved> = {}): CommandContextResolved {
   return {
@@ -38,13 +39,39 @@ function ctx(overrides: Partial<CommandContextResolved> = {}): CommandContextRes
     editorAvailable: true,
     readOnly: false,
     hasSelection: false,
-    multiSelection: false,
+    multiSelection: null,
     inTable: false,
     inLink: false,
     inList: false,
     inBlockquote: false,
     inCodeBlock: false,
     inHeading: false,
+    ...overrides,
+  };
+}
+
+/**
+ * A multi-selection context. Defaults to the permissive case — >1 cursor, all in
+ * one shared textblock, no universal-veto node — so overrides target exactly the
+ * axis under test (`sameBlockParent`/`inTextblock` for the conditional rule; a
+ * veto flag for the universal rule).
+ */
+function ms(overrides: Partial<MultiSelectionContext> = {}): MultiSelectionContext {
+  return {
+    enabled: true,
+    reason: "multi",
+    inCodeBlock: false,
+    inTable: false,
+    inList: false,
+    inBlockquote: false,
+    inHeading: false,
+    inLink: false,
+    inInlineMath: false,
+    inFootnote: false,
+    inImage: false,
+    inTextblock: true,
+    sameBlockParent: true,
+    blockParentType: "paragraph",
     ...overrides,
   };
 }
@@ -141,10 +168,12 @@ describe("actionAvailability — the palette gate", () => {
   });
 });
 
-describe("multi-selection (reuses the adapters' getMultiSelectionPolicyForAction)", () => {
+describe("multi-selection (delegates to the adapters' canRunActionInMultiSelection)", () => {
   // Everything the adapters' multi-selection gate rejects (explicit "disallow"
   // OR the unlisted default: inserts, tables, links, code, selection, cjk,
   // cleanup, lines, transform, increase/decreaseHeading, blockquote toggle).
+  // The context is clean (shared textblock, no veto) so the "disallow" policy —
+  // not a context veto — is what hides them.
   it.each([
     "insertTable",
     "insertImage",
@@ -163,11 +192,11 @@ describe("multi-selection (reuses the adapters' getMultiSelectionPolicyForAction
     "formatCJK",
     "transformUppercase",
   ] as ActionId[])("%s is hidden under multi-selection", (id) => {
-    expect(actionAvailability(id, ctx({ multiSelection: true, inTable: true, inList: true }))).toBe(false);
+    expect(actionAvailability(id, ctx({ multiSelection: ms(), inTable: true, inList: true }))).toBe(false);
   });
 
-  // Bypass actions (history / heading:N conditional), policy-"allow" marks, and
-  // "conditional" structural actions remain available.
+  // Bypass actions (history), policy-"allow" marks, and "conditional" structural
+  // actions remain available in a CLEAN shared-context multi-selection.
   it.each([
     "undo", // routes through unified history, bypasses the gate
     "redo",
@@ -178,12 +207,60 @@ describe("multi-selection (reuses the adapters' getMultiSelectionPolicyForAction
     "bulletList", // policy "conditional"
     "indent",
     "nestBlockquote",
-  ] as ActionId[])("%s remains available under multi-selection", (id) => {
-    expect(actionAvailability(id, ctx({ multiSelection: true, inList: true, inBlockquote: true }))).toBe(true);
+  ] as ActionId[])("%s remains available under a clean shared multi-selection", (id) => {
+    expect(actionAvailability(id, ctx({ multiSelection: ms(), inList: true, inBlockquote: true }))).toBe(true);
   });
 
   it("clearFormatting is available under multi-selection even with a collapsed primary", () => {
-    expect(actionAvailability("clearFormatting", ctx({ multiSelection: true, hasSelection: false }))).toBe(true);
+    expect(actionAvailability("clearFormatting", ctx({ multiSelection: ms(), hasSelection: false }))).toBe(true);
+  });
+
+  // Residual (b) — command-registry WI-2.2: the universal context vetoes. Any
+  // cursor inside one of these nodes disables EVERY multi-selection action,
+  // including policy-"allow" marks. Previously the palette did not reproduce this.
+  it.each([
+    "inCodeBlock",
+    "inTable",
+    "inLink",
+    "inImage",
+    "inInlineMath",
+    "inFootnote",
+  ] as (keyof MultiSelectionContext)[])(
+    "universal veto: %s hides even policy-allow marks (bold) under multi-selection",
+    (flag) => {
+      expect(actionAvailability("bold", ctx({ multiSelection: ms({ [flag]: true }) }))).toBe(false);
+    },
+  );
+
+  it("policy-allow marks stay available under a clean (unvetoed) multi-selection", () => {
+    expect(actionAvailability("bold", ctx({ multiSelection: ms() }))).toBe(true);
+    expect(actionAvailability("italic", ctx({ multiSelection: ms() }))).toBe(true);
+  });
+
+  // Residual (a) — command-registry WI-2.2: "conditional" actions are gated on
+  // all cursors sharing a structural context. Previously the palette showed them
+  // (and bypassed setHeading/paragraph entirely) regardless of that condition.
+  it.each(["setHeading", "paragraph", "bulletList", "indent", "nestBlockquote"] as ActionId[])(
+    "conditional %s is hidden when cursors don't share a block parent",
+    (id) => {
+      expect(
+        actionAvailability(
+          id,
+          ctx({ multiSelection: ms({ sameBlockParent: false }), inList: true, inBlockquote: true }),
+        ),
+      ).toBe(false);
+    },
+  );
+
+  it("conditional actions are hidden when not every cursor is in a textblock", () => {
+    expect(
+      actionAvailability("bulletList", ctx({ multiSelection: ms({ inTextblock: false }), inList: true })),
+    ).toBe(false);
+  });
+
+  it("undo/redo bypass the gate even under a context veto", () => {
+    expect(actionAvailability("undo", ctx({ multiSelection: ms({ inCodeBlock: true }) }))).toBe(true);
+    expect(actionAvailability("redo", ctx({ multiSelection: ms({ inTable: true }) }))).toBe(true);
   });
 });
 
