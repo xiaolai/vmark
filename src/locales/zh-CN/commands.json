@@ -65,7 +65,8 @@
     "toggleBreakdown": "一致性明细",
     "toggleClaims": "正典设定",
     "contentSearch": "在文件中查找",
-    "toggleSidebar": "切换侧边栏"
+    "toggleSidebar": "切换侧边栏",
+    "toggleStatusBar": "切换状态栏"
   },
   "lint": {
     "check": "检查 Markdown",
@@ -217,5 +218,11 @@
   "explorer": {
     "toggleHiddenFiles": "切换隐藏文件",
     "toggleAllFiles": "切换所有文件"
+  },
+  "tab": {
+    "new": "新建标签页",
+    "next": "下一个标签页",
+    "prev": "上一个标签页",
+    "close": "关闭标签页"
   }
 }

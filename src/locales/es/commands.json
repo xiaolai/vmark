@@ -65,7 +65,8 @@
     "toggleBreakdown": "Desglose de coherencia",
     "toggleClaims": "Afirmaciones canónicas",
     "contentSearch": "Buscar en archivos",
-    "toggleSidebar": "Alternar barra lateral"
+    "toggleSidebar": "Alternar barra lateral",
+    "toggleStatusBar": "Alternar barra de estado"
   },
   "lint": {
     "check": "Revisar Markdown",
@@ -217,5 +218,11 @@
   "explorer": {
     "toggleHiddenFiles": "Alternar archivos ocultos",
     "toggleAllFiles": "Alternar todos los archivos"
+  },
+  "tab": {
+    "new": "Nueva pestaña",
+    "next": "Pestaña siguiente",
+    "prev": "Pestaña anterior",
+    "close": "Cerrar pestaña"
   }
 }

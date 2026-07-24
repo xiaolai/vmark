@@ -65,7 +65,8 @@
     "toggleBreakdown": "Kohärenz-Aufschlüsselung",
     "toggleClaims": "Kanon-Aussagen",
     "contentSearch": "In Dateien suchen",
-    "toggleSidebar": "Seitenleiste umschalten"
+    "toggleSidebar": "Seitenleiste umschalten",
+    "toggleStatusBar": "Statusleiste umschalten"
   },
   "lint": {
     "check": "Markdown prüfen",
@@ -217,5 +218,11 @@
   "explorer": {
     "toggleHiddenFiles": "Versteckte Dateien umschalten",
     "toggleAllFiles": "Alle Dateien umschalten"
+  },
+  "tab": {
+    "new": "Neuer Tab",
+    "next": "Nächster Tab",
+    "prev": "Vorheriger Tab",
+    "close": "Tab schließen"
   }
 }
