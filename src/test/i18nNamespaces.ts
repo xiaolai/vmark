@@ -4,6 +4,7 @@
  * starts using a new `useTranslation("<ns>")`.
  */
 import commonEn from "../locales/en/common.json";
+import commandsEn from "../locales/en/commands.json";
 import menuEn from "../locales/en/menu.json";
 import statusbarEn from "../locales/en/statusbar.json";
 import sidebarEn from "../locales/en/sidebar.json";
@@ -18,6 +19,7 @@ import claimsEn from "../locales/en/claims.json";
 
 export const localeMap: Record<string, Record<string, unknown>> = {
   common: commonEn as Record<string, unknown>,
+  commands: commandsEn as Record<string, unknown>,
   menu: menuEn as Record<string, unknown>,
   statusbar: statusbarEn as Record<string, unknown>,
   sidebar: sidebarEn as Record<string, unknown>,

@@ -44,6 +44,26 @@
   overflow-y: auto;
 }
 
+.command-palette__group {
+  display: block;
+}
+
+.command-palette__group-label {
+  display: block;
+  padding: var(--space-2) var(--space-3) var(--space-1);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-loose);
+}
+
+.command-palette__group-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
 .command-palette__row {
   display: flex;
   justify-content: space-between;
