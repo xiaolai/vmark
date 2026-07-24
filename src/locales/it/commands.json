@@ -64,7 +64,8 @@
     "toggleWindowStatus": "Stato finestre",
     "toggleBreakdown": "Dettaglio coerenza",
     "toggleClaims": "Affermazioni canoniche",
-    "contentSearch": "Cerca nei file"
+    "contentSearch": "Cerca nei file",
+    "toggleSidebar": "Attiva/disattiva barra laterale"
   },
   "lint": {
     "check": "Controlla Markdown",

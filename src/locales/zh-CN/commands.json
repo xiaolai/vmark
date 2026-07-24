@@ -64,7 +64,8 @@
     "toggleWindowStatus": "窗口状态",
     "toggleBreakdown": "一致性明细",
     "toggleClaims": "正典设定",
-    "contentSearch": "在文件中查找"
+    "contentSearch": "在文件中查找",
+    "toggleSidebar": "切换侧边栏"
   },
   "lint": {
     "check": "检查 Markdown",

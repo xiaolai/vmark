@@ -77,6 +77,13 @@ export function registerViewCommands(): void {
   });
 
   registerCommand({
+    id: "view.toggleSidebar",
+    title: () => i18n.t("commands:view.toggleSidebar"),
+    category: "view",
+    run: () => useUIStore.getState().toggleSidebar(),
+  });
+
+  registerCommand({
     id: "view.toggleFileExplorer",
     title: () => i18n.t("commands:view.toggleFileExplorer"),
     category: "view",
