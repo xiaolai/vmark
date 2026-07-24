@@ -419,11 +419,21 @@ Every phase is implemented, tested, and banked to `refactor/vmark-core` (green
   scope, disposer identity, keyboard link editing, plus the E2E-caught executeCommand
   gate + closeTab binding); round-3 atomic command registration applied.
 
-**Documented deferrals (latent / design, not blockers):** the deeper WI-6.1 (capture
-`event.code` for non-QWERTY physical fidelity — a storage-format change; the silent-fail
-is now blocked at capture time) and the drift-gate TS parser AST hardening (round-3 #5,
-fail-open only on reformatted defs). Non-QWERTY physical-vs-logical matching is a
-deliberate design choice. (Phase 7 GUI E2E — previously deferred — is now DONE, above.)
+**Follow-ups closed since v6:** Phase 7 GUI E2E (done, above); the drift-gate parser is
+now a fail-closed comment-aware lexer (audit round-3 #5) — which surfaced that the old
+regex silently parsed only 98 of 123 defs (comment apostrophe swallowed ~25), a real
+fail-open now fixed.
+
+**The one remaining item is a settled DESIGN choice, not a bug:** the "deeper WI-6.1"
+(capture `event.code` so custom rebinds store the physical position on non-QWERTY layouts)
+would relitigate the physical-vs-logical key-identity decision this plan deliberately
+settled on *physical* (`canonicalizeEvent` matches `event.code`). Codex round-1 #1 notes
+non-QWERTY users get physical-position mapping for logical-authored defaults — that is the
+chosen behavior, consistent with positional shortcuts, not a defect. The actual *bug* in
+that area (a shifted-symbol capture silently producing a dead binding, Codex round-2) is
+already fixed: KeyCapture validates against the runtime canonicalizer and refuses to assign
+an unmappable chord (WI-6.1). No further change is warranted without an explicit product
+decision to switch to logical matching.
 
 ## Out of scope
 
