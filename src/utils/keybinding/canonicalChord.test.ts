@@ -148,6 +148,32 @@ describe("canonicalizeEvent", () => {
     expect(canonicalizeEvent(evt("KeyE", { altKey: true }))).toBe("alt+KeyE");
   });
 
+  it("AltGr (ctrl+alt composite) does NOT match a Ctrl-Alt chord — it is a typing modifier", () => {
+    // ISO/international layouts: AltGr reports ctrlKey+altKey true, but
+    // getModifierState("AltGraph") is true → composing a char (e.g. AltGr+E → €),
+    // NOT invoking a Ctrl+Alt shortcut. Must resolve to null so no binding fires.
+    const altGr = {
+      code: "KeyE",
+      metaKey: false,
+      ctrlKey: true,
+      altKey: true,
+      shiftKey: false,
+      getModifierState: (k: string) => k === "AltGraph",
+    };
+    expect(canonicalizeEvent(altGr)).toBeNull();
+
+    // A genuine Ctrl+Alt press (AltGraph NOT active) still resolves as a chord.
+    const realCtrlAlt = {
+      code: "KeyE",
+      metaKey: false,
+      ctrlKey: true,
+      altKey: true,
+      shiftKey: false,
+      getModifierState: () => false,
+    };
+    expect(canonicalizeEvent(realCtrlAlt)).toBe("ctrl+alt+KeyE");
+  });
+
   it("empty/absent code yields null", () => {
     expect(canonicalizeEvent(evt("", { ctrlKey: true }))).toBeNull();
   });
