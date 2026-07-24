@@ -222,3 +222,50 @@ export function buildIndex(
   }
   return index;
 }
+
+/** A potential ambiguity in the binding set (would tie at resolve time). */
+export interface BindingConflict {
+  chord: CanonicalChord;
+  captureOwner: CaptureOwner;
+  scope: Scope;
+  priority: number;
+  /** How many bindings share this (chord, owner, scope, priority). */
+  count: number;
+}
+
+/**
+ * Scan the index for potential conflicts (WI-1.4). Within a single chord, two or
+ * more bindings that share the SAME capture owner, scope, AND priority would tie
+ * at resolve time (`AmbiguousBindingError`) for any context where their `when`
+ * predicates overlap. Cross-scope (specificity decides), cross-owner, and
+ * distinct-priority bindings coexist by design and are NOT conflicts.
+ *
+ * `when`-disjointness cannot be proven statically, so same-(owner, scope,
+ * priority) groups are surfaced as POTENTIAL conflicts — the Settings UI can
+ * present them and the "Assign Anyway" flow (D2) records an explicit override.
+ */
+export function detectConflicts(index: BindingIndex): BindingConflict[] {
+  const conflicts: BindingConflict[] = [];
+  for (const [chord, bucket] of index) {
+    if (bucket.length < 2) continue;
+    const groups = new Map<string, Binding[]>();
+    for (const b of bucket) {
+      const key = `${b.captureOwner}|${b.scope}|${b.priority}`;
+      const g = groups.get(key);
+      if (g) g.push(b);
+      else groups.set(key, [b]);
+    }
+    for (const g of groups.values()) {
+      if (g.length > 1) {
+        conflicts.push({
+          chord,
+          captureOwner: g[0].captureOwner,
+          scope: g[0].scope,
+          priority: g[0].priority,
+          count: g.length,
+        });
+      }
+    }
+  }
+  return conflicts;
+}
