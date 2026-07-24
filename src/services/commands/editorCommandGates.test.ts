@@ -39,7 +39,7 @@ vi.mock("@/lib/formats/registry", () => ({
 
 import { buildEditorCommandSpecs } from "./editorCommandBridge";
 import { runEditorAction } from "@/services/editor/runEditorAction";
-import { dispatchMenuAction } from "@/hooks/useUnifiedMenuCommands";
+import { dispatchMenuAction } from "@/services/commands/menuListener";
 import { actionAvailability, isActionExecutable } from "./actionAvailability";
 import type { CommandContextResolved } from "./commandContext";
 import { ACTION_DEFINITIONS, MENU_TO_ACTION } from "@/plugins/actions/actionRegistry";
