@@ -23,13 +23,12 @@
  * The scan reads source text (it does NOT execute the keymaps). Floor assertions
  * on each extracted set guard against a silently-broken regex vacuously passing.
  *
- * DELIBERATE EXCLUSION — `src/plugins/markInputRules/tiptap.ts` binds `Mod-b` /
- * `Mod-i` to Tiptap's built-in `toggleBold` / `toggleItalic`. Those duplicate the
- * rebindable `bold` / `italic` shortcuts but are neither a structural mechanic nor
- * a CommandBus command; they are a real consolidation finding (route them through
- * `getShortcut` + `editor.bold`/`editor.italic`), NOT a gate target. They invoke
- * no `getShortcut`/`runEditorAction`/`runCommand`/`executeCommand` id, so the
- * extraction assertions below never see them.
+ * CONSOLIDATED — `src/plugins/markInputRules/tiptap.ts` USED to bind `Mod-b` /
+ * `Mod-i` to Tiptap's built-in `toggleBold` / `toggleItalic`, duplicating (and
+ * shadowed by) the rebindable `bold` / `italic` keys the store-driven
+ * `editorKeymapExtension` owns. That gate-audit follow-up is now done: those
+ * `addKeyboardShortcuts` were removed, so `Mod-b`/`Mod-i` have exactly one
+ * authority (the rebindable path). markInputRules now adds no keyboard shortcuts.
  *
  * @coordinates-with services/keybinding/editorMechanics.ts — APPROVED_MECHANICS
  * @coordinates-with services/commands/editorCommandBridge.ts — editor.* surface
@@ -118,7 +117,6 @@ const EXPECTED_BESPOKE: ReadonlyArray<{ id: string; chord: string }> = [
   { id: "source.selectNextOccurrence", chord: "Mod-d" },
   { id: "source.selectAllOccurrences", chord: "Mod-Shift-l" },
   { id: "source.multiCursorEscape", chord: "Escape" },
-  { id: "source.wordWrapToggle", chord: "Mod-Alt-w" },
 ];
 
 /** Resolve a `runEditorAction` id to its registered command id (setHeading → .1). */

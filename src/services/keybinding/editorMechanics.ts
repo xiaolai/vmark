@@ -207,13 +207,6 @@ export const APPROVED_MECHANICS: readonly EditorMechanic[] = [
     keys: ["Escape"],
     rationale: "Collapses source multiple cursors back to a single cursor.",
   },
-  {
-    id: "source.wordWrapToggle",
-    surface: "source",
-    keys: ["Mod-Alt-w"],
-    rationale:
-      "Hardcoded source word-wrap toggle shadowing the rebindable `wordWrap` shortcut (Alt-z). LEGACY secondary binding — a consolidation follow-up should route it through getShortcut(\"wordWrap\") and drop this mechanic.",
-  },
 ] as const;
 
 /** The approved mechanic ids as a set (built once). */
