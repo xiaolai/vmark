@@ -9,17 +9,16 @@
  * remount key.
  *
  * Lives in services/formats/ (ADR-013): it orchestrates stores + registry with
- * no state of its own. The React `useFormatSettingsBridge` hook wrapper is a
- * known tier exemption pending the H4 inversion (dependency-cruiser
- * services-no-upward pathNot); the underlying subscription logic is React-free.
+ * no state of its own and is React-free. The `useFormatSettingsBridge` hook that
+ * mounts this subscription lives in `hooks/useFormatSettingsBridge.ts`.
  *
  * @coordinates-with stores/settingsStore.ts — reads `formats.*` toggles
  * @coordinates-with lib/formats/index.ts — calls rebootstrapFormats
  * @coordinates-with stores/tabStore.ts — calls recomputeAllFormatIds
+ * @coordinates-with hooks/useFormatSettingsBridge.ts — the React mount wrapper
  * @module services/formats/formatSettingsBridge
  */
 
-import { useEffect } from "react";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useTabStore } from "@/stores/tabStore";
 import { rebootstrapFormats, setFormatAssociationsProvider } from "@/lib/formats";
@@ -109,13 +108,4 @@ export function installFormatSettingsSubscription(): () => void {
     if (togglesChanged) rebootstrapFormats(nextToggles);
     useTabStore.getState().recomputeAllFormatIds();
   });
-}
-
-/**
- * React hook variant — mount inside document windows only (see
- * `DocumentWindowHooks` in App.tsx). Avoids paying the subscription
- * cost in Settings / PDF-export windows that never carry open tabs.
- */
-export function useFormatSettingsBridge(): void {
-  useEffect(() => installFormatSettingsSubscription(), []);
 }

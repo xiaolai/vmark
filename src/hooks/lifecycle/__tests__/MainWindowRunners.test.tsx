@@ -19,10 +19,10 @@ vi.mock("@/hooks/useUpdateSync", () => ({
   useUpdateBroadcast: () => calls.push("updateBroadcast"),
   useUpdateListener: () => calls.push("updateListener"),
 }));
-vi.mock("@/services/persistence/resilience", () => ({
+vi.mock("@/hooks/resilience", () => ({
   useResilienceStartup: () => calls.push("resilienceStartup"),
 }));
-vi.mock("@/services/persistence/hotExit/useHotExitCaptureWarning", () => ({
+vi.mock("@/hooks/useHotExitCaptureWarning", () => ({
   useHotExitCaptureWarning: () => calls.push("hotExitCaptureWarning"),
 }));
 vi.mock("@/hooks/useFinderFileOpen", () => ({

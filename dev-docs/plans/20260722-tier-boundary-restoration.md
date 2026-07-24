@@ -1,15 +1,26 @@
 # Tier Boundary Restoration (H4 burn-down)
 
-**Status:** Phase 1 complete (+ WI-3.1, and 8 of 14 exemptions retired).
-Phase 2 (React-out-of-services) is the remaining **design-bearing** work — the 6
-resilience internals need the H4 *inversion* (extract the hook shell, keep logic
-React-free), not a blind move to `hooks/` that would scatter the persistence
-feature. Tracked here; not yet started.
-**Ratchet hardening (2026-07-24):** the two `_crashRecovery.*` / `_hotExit.*`
-**wildcard** `pathNot` entries were replaced with the exact 6 React-importing file
-paths, so a new same-prefix file can no longer be silently exempted
-(`_hotExitCaptureConvert.ts`, being React-free, was dropped from the list).
-`pnpm check:all` green as of 2026-07-24.
+**Status:** ✅ **COMPLETE (2026-07-24).** Phases 1, 2, 3 done. The
+`services-no-upward` `pathNot` is down to **3 sanctioned entries** (test files,
+`imeToastPinAction`, `assembly/tiptapExtensions`) — every H4 debt exemption is
+gone. `pnpm check:all` green.
+
+**Phase 2 (React-out-of-services) — how it landed:**
+- WI-2.1 `useCommandBootstrap` → `hooks/` (whole move).
+- WI-2.2 `formatSettingsBridge` **split**: `installFormatSettingsSubscription`
+  stays React-free in `services/`; the `useFormatSettingsBridge` wrapper →
+  `hooks/useFormatSettingsBridge.ts`.
+- WI-2.3 `imeToastPinAction` reclassified **sanctioned** (not moved).
+- WI-2.4 `useHotExitCaptureWarning` → `hooks/` (whole move).
+- WI-2.5/2.6 the resilience cluster **inverted**, NOT blind-moved: the React
+  adapter layer (6 leaf hooks + `useDocumentResilience` + barrel) → `hooks/resilience/`;
+  the pure logic (`restoreMainWindowState`, `createWindowRestoreCoordinator`,
+  `machine`, `windowGeometry`, `_hotExitCaptureConvert`, `captureWindowState`)
+  stays in `services/persistence/resilience/`. `_hotExitRestore.ts` was **split**
+  because a service (`restartWithHotExit.ts`) consumes its pure
+  `restoreMainWindowState`; the module-level restore guard stays with the
+  coordinator in `services/`, so the hook is pure lifecycle wiring. All resilience
+  tests (incl. the reliability-critical restore suite) moved/adapted and stay green.
 **Branch:** `refactor/vmark-core`
 **Supersedes:** the frozen `services-no-upward` exemption list in `.dependency-cruiser.cjs`
 **Closes:** H4 from `dev-docs/audit/20260612-full-improvement-audit.md`
