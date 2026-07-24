@@ -1,6 +1,8 @@
 {
   "app": {
-    "preferences": "Preferencias"
+    "preferences": "Preferencias",
+    "commandPalette": "Paleta de comandos",
+    "quickOpen": "Apertura rápida"
   },
   "history": {
     "clearAll": "Borrar todo el historial",
@@ -61,7 +63,8 @@
     "toggleShowInvisibles": "Alternar caracteres invisibles",
     "toggleWindowStatus": "Estado de ventanas",
     "toggleBreakdown": "Desglose de coherencia",
-    "toggleClaims": "Afirmaciones canónicas"
+    "toggleClaims": "Afirmaciones canónicas",
+    "contentSearch": "Buscar en archivos"
   },
   "lint": {
     "check": "Revisar Markdown",

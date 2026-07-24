@@ -21,6 +21,8 @@ import { emitHistoryCleared } from "@/utils/historyTypes";
 import { withReentryGuard } from "@/utils/reentryGuard";
 import { runOrphanCleanup } from "@/services/media/orphanAssetCleanup";
 import { openSettingsWindow } from "@/services/navigation/settingsWindow";
+import { useCommandPaletteStore } from "@/stores/commandPaletteStore";
+import { useQuickOpenStore } from "@/stores/quickOpenStore";
 
 const HELP_URL = "https://vmark.app/guide/";
 const SHORTCUTS_URL = "https://vmark.app/guide/shortcuts";
@@ -40,6 +42,20 @@ export function registerMiscCommands(): void {
     run: async () => {
       await openSettingsWindow();
     },
+  });
+
+  registerCommand({
+    id: "app.commandPalette",
+    title: () => i18n.t("commands:app.commandPalette"),
+    category: "app",
+    run: () => useCommandPaletteStore.getState().toggle(),
+  });
+
+  registerCommand({
+    id: "app.quickOpen",
+    title: () => i18n.t("commands:app.quickOpen"),
+    category: "app",
+    run: () => useQuickOpenStore.getState().toggle(),
   });
 
   registerCommand({

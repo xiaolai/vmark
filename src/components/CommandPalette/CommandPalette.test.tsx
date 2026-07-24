@@ -47,7 +47,7 @@ vi.mock("@/contexts/WindowContext", () => ({
 }));
 
 import { CommandPalette } from "./CommandPalette";
-import { useCommandPaletteStore } from "./commandPaletteStore";
+import { useCommandPaletteStore } from "@/stores/commandPaletteStore";
 
 function makeCommand(id: string, title: string): RankedCommand {
   return { command: { id, title, run: vi.fn() }, score: 1 };

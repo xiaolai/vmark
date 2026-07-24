@@ -25,22 +25,42 @@ export interface MenuCommandBinding {
   commandId: string;
 }
 
+/** Normalize a menu event id to its `menu:`-prefixed form. */
+function normalizeMenuEvent(menuEvent: string): string {
+  return menuEvent.startsWith("menu:") ? menuEvent : `menu:${menuEvent}`;
+}
+
 /**
  * Mount listeners for a set of menu→command bindings on the current
  * window. Returns an unlisten function. Window-payload mismatch is
  * filtered automatically (events targeted at other windows are ignored).
+ *
+ * PREFLIGHT (WI-2.3): rejects the whole batch at mount time if two bindings
+ * claim the same normalized menu event — one `menu:{id}` must have exactly one
+ * dispatcher. This closes the ADR-012 hazard where two concurrent dispatchers
+ * could both bind an id, silently double-firing.
  */
 export async function mountMenuCommands(
   bindings: MenuCommandBinding[],
 ): Promise<UnlistenFn> {
+  const seen = new Set<string>();
+  for (const binding of bindings) {
+    const event = normalizeMenuEvent(binding.menuEvent);
+    if (seen.has(event)) {
+      throw new Error(
+        `Duplicate menu binding for "${event}" (→ ${binding.commandId}): ` +
+          `one menu event must have exactly one dispatcher.`,
+      );
+    }
+    seen.add(event);
+  }
+
   const currentWindow = getCurrentWebviewWindow();
   const windowLabel = currentWindow.label;
   const unlisteners: UnlistenFn[] = [];
 
   for (const binding of bindings) {
-    const event = binding.menuEvent.startsWith("menu:")
-      ? binding.menuEvent
-      : `menu:${binding.menuEvent}`;
+    const event = normalizeMenuEvent(binding.menuEvent);
     try {
       const off = await currentWindow.listen<string | [unknown, string]>(event, async (e) => {
         // Window-targeting filter — supports both string payload

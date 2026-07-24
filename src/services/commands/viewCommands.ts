@@ -56,6 +56,13 @@ export function registerViewCommands(): void {
   });
 
   registerCommand({
+    id: "view.contentSearch",
+    title: () => i18n.t("commands:view.contentSearch"),
+    category: "view",
+    run: () => useUIStore.getState().contentSearchOpen(),
+  });
+
+  registerCommand({
     id: "view.toggleTypewriterMode",
     title: () => i18n.t("commands:view.toggleTypewriterMode"),
     category: "view",

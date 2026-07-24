@@ -1,6 +1,8 @@
 {
   "app": {
-    "preferences": "Preferences"
+    "preferences": "Preferences",
+    "commandPalette": "Command Palette",
+    "quickOpen": "Quick Open"
   },
   "history": {
     "clearAll": "Clear All History",
@@ -61,7 +63,8 @@
     "toggleShowInvisibles": "Toggle Invisibles",
     "toggleWindowStatus": "Window Status",
     "toggleBreakdown": "Coherence Breakdown",
-    "toggleClaims": "Canon Claims"
+    "toggleClaims": "Canon Claims",
+    "contentSearch": "Find in Files"
   },
   "lint": {
     "check": "Check Markdown",
