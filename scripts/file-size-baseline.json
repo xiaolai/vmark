@@ -56,7 +56,6 @@
     "src/hooks/useFileSave.ts": 312,
     "src/hooks/useFinderFileOpen.ts": 402,
     "src/hooks/useTabDragOut.ts": 356,
-    "src/hooks/useUnifiedMenuCommands.ts": 468,
     "src/hooks/useUpdateChecker.ts": 407,
     "src/lib/cjkFormatter/markdownParser.ts": 321,
     "src/lib/cjkFormatter/quotePairing.ts": 464,

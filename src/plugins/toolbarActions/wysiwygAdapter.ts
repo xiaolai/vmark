@@ -24,7 +24,7 @@
  * @module plugins/toolbarActions/wysiwygAdapter
  */
 import type { AlertType } from "@/plugins/alertBlock/tiptap";
-import { expandedToggleMarkTiptap } from "@/plugins/editorPlugins.tiptap";
+import { expandedToggleMark as expandedToggleMarkTiptap } from "@/plugins/editorPlugins/expandedToggleMark";
 import { handleBlockquoteNest, handleBlockquoteUnnest, handleRemoveBlockquote, handleListIndent, handleListOutdent, handleRemoveList, handleToBulletList, handleToOrderedList } from "@/plugins/formatToolbar/nodeActions.tiptap";
 import { insertFootnoteAndOpenPopup } from "@/plugins/footnotePopup/tiptapInsertFootnote";
 import { toggleTaskList } from "@/plugins/taskToggle/tiptapTaskListUtils";
