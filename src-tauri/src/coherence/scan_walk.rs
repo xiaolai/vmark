@@ -84,7 +84,12 @@ pub(super) fn walk_markdown(
                 continue;
             }
             if meta.is_dir() {
-                if !IGNORED_DIRS.contains(&name.as_str()) {
+                // Two independent skips: a bare ignored NAME at any depth, and
+                // an anchored workspace-relative PATH prefix (nested git
+                // worktrees — see IGNORED_REL_PREFIXES).
+                if !IGNORED_DIRS.contains(&name.as_str())
+                    && !super::scan::path_at_or_under_ignored_prefix(&rel)
+                {
                     stack.push(path);
                 }
                 continue;
