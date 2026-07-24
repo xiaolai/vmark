@@ -65,7 +65,8 @@
     "toggleBreakdown": "Dettaglio coerenza",
     "toggleClaims": "Affermazioni canoniche",
     "contentSearch": "Cerca nei file",
-    "toggleSidebar": "Attiva/disattiva barra laterale"
+    "toggleSidebar": "Attiva/disattiva barra laterale",
+    "toggleStatusBar": "Attiva/disattiva barra di stato"
   },
   "lint": {
     "check": "Controlla Markdown",
@@ -217,5 +218,11 @@
   "explorer": {
     "toggleHiddenFiles": "Attiva/disattiva file nascosti",
     "toggleAllFiles": "Attiva/disattiva tutti i file"
+  },
+  "tab": {
+    "new": "Nuova scheda",
+    "next": "Scheda successiva",
+    "prev": "Scheda precedente",
+    "close": "Chiudi scheda"
   }
 }

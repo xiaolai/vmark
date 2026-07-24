@@ -65,7 +65,8 @@
     "toggleBreakdown": "Coherence Breakdown",
     "toggleClaims": "Canon Claims",
     "contentSearch": "Find in Files",
-    "toggleSidebar": "Toggle Sidebar"
+    "toggleSidebar": "Toggle Sidebar",
+    "toggleStatusBar": "Toggle Status Bar"
   },
   "lint": {
     "check": "Check Markdown",
@@ -217,5 +218,11 @@
   "explorer": {
     "toggleHiddenFiles": "Toggle Hidden Files",
     "toggleAllFiles": "Toggle All Files"
+  },
+  "tab": {
+    "new": "New Tab",
+    "next": "Next Tab",
+    "prev": "Previous Tab",
+    "close": "Close Tab"
   }
 }
