@@ -67,6 +67,19 @@ describe("canonicalizeChordString", () => {
     expect(canonicalizeChordString("Esc", "mac")).toBe("Escape"); // alias
   });
 
+  it("accepts already-normalized `Arrow*` names (case-insensitive), like the store / ProseMirror layers", () => {
+    // A chord authored/imported as `Mod-ArrowUp` must canonicalize to the SAME
+    // code as `Mod-Up` — otherwise it resolves to null and silently vanishes from
+    // the registry while `toProseMirrorKey` still accepts it (round-3 audit fix).
+    expect(canonicalizeChordString("ArrowUp", "mac")).toBe("ArrowUp");
+    expect(canonicalizeChordString("Mod-ArrowUp", "mac")).toBe(
+      canonicalizeChordString("Mod-Up", "mac"),
+    );
+    expect(canonicalizeChordString("arrowdown", "mac")).toBe("ArrowDown");
+    expect(canonicalizeChordString("Mod-Shift-ArrowLeft", "mac")).toBe("meta+shift+ArrowLeft");
+    expect(canonicalizeChordString("ARROWRIGHT", "mac")).toBe("ArrowRight");
+  });
+
   it("is deterministic in modifier order regardless of authored order", () => {
     expect(canonicalizeChordString("Shift-Alt-Mod-k", "mac")).toBe(
       canonicalizeChordString("Mod-Alt-Shift-k", "mac"),

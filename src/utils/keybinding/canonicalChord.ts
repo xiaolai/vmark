@@ -67,6 +67,14 @@ const TOKEN_TO_CODE: Record<string, string> = {
   down: "ArrowDown",
   left: "ArrowLeft",
   right: "ArrowRight",
+  // Already-normalized arrow names: the shortcut store and the ProseMirror key
+  // layer (`toProseMirrorKey`) both accept `ArrowUp`/`arrowup`, so a chord that
+  // uses that form must canonicalize too — otherwise the binding resolves to null
+  // and silently vanishes from the registry (audit-fix, round 3).
+  arrowup: "ArrowUp",
+  arrowdown: "ArrowDown",
+  arrowleft: "ArrowLeft",
+  arrowright: "ArrowRight",
 };
 
 /** `KeyboardEvent.code` values that are modifier keys — never a chord's base. */
