@@ -5,6 +5,8 @@
 import { beforeEach, describe, it, expect, vi } from "vitest";
 import {
   registerCommand,
+  registerCommands,
+  unregisterOwner,
   executeCommand,
   searchCommands,
   listCommands,
@@ -42,6 +44,66 @@ describe("CommandBus", () => {
       registerCommand(cmd("a", "Alpha"));
       registerCommand(cmd("b", "Beta"));
       expect(listCommands()).toHaveLength(2);
+    });
+  });
+
+  describe("owner-based batch registration (WI-3.3)", () => {
+    const OWNER = "editor-actions";
+
+    it("registers a batch and returns a working disposer", () => {
+      const dispose = registerCommands(OWNER, [cmd("editor.bold", "Bold"), cmd("editor.italic", "Italic")]);
+      expect(hasCommand("editor.bold")).toBe(true);
+      dispose();
+      expect(hasCommand("editor.bold")).toBe(false);
+      expect(hasCommand("editor.italic")).toBe(false);
+    });
+
+    it("double bootstrap is idempotent (replace-own, no throw)", () => {
+      registerCommands(OWNER, [cmd("editor.bold", "Bold")]);
+      expect(() => registerCommands(OWNER, [cmd("editor.bold", "Bold")])).not.toThrow();
+      expect(listCommands().filter((c) => c.id === "editor.bold")).toHaveLength(1);
+    });
+
+    it("HMR replacement swaps the owner's batch, removing stale ids", () => {
+      registerCommands(OWNER, [cmd("editor.bold", "Bold"), cmd("editor.strike", "Strike")]);
+      registerCommands(OWNER, [cmd("editor.bold", "Bold v2")]); // strike dropped
+      expect(getCommand("editor.bold")?.title).toBe("Bold v2");
+      expect(hasCommand("editor.strike")).toBe(false);
+    });
+
+    it("recovers from a partial prior batch (replace-own re-registers the full set)", () => {
+      registerCommands(OWNER, [cmd("editor.bold", "Bold")]); // pretend a prior partial batch
+      registerCommands(OWNER, [cmd("editor.bold", "Bold"), cmd("editor.italic", "Italic")]);
+      expect(hasCommand("editor.bold")).toBe(true);
+      expect(hasCommand("editor.italic")).toBe(true);
+    });
+
+    it("PREFLIGHTS a foreign collision and registers NOTHING", () => {
+      registerCommand(cmd("editor.bold", "Bold (plain)")); // a non-owned registrar
+      expect(() =>
+        registerCommands(OWNER, [cmd("editor.italic", "Italic"), cmd("editor.bold", "Bold")]),
+      ).toThrow(/already registered/);
+      // atomic: italic must NOT have been registered despite preceding the collision
+      expect(hasCommand("editor.italic")).toBe(false);
+    });
+
+    it("rejects a collision with another owner's id", () => {
+      registerCommands("other-owner", [cmd("editor.bold", "Bold")]);
+      expect(() => registerCommands(OWNER, [cmd("editor.bold", "Bold")])).toThrow(/already registered/);
+    });
+
+    it("survives _resetCommandBus (owners cleared, re-register works)", () => {
+      registerCommands(OWNER, [cmd("editor.bold", "Bold")]);
+      _resetCommandBus();
+      expect(() => registerCommands(OWNER, [cmd("editor.bold", "Bold")])).not.toThrow();
+      expect(hasCommand("editor.bold")).toBe(true);
+    });
+
+    it("unregisterOwner is idempotent", () => {
+      registerCommands(OWNER, [cmd("editor.bold", "Bold")]);
+      unregisterOwner(OWNER);
+      expect(() => unregisterOwner(OWNER)).not.toThrow();
+      expect(hasCommand("editor.bold")).toBe(false);
     });
 
     it("unregisterCommand removes the entry", () => {

@@ -75,6 +75,54 @@ export function unregisterCommand(id: string): void {
   REGISTRY.delete(id);
 }
 
+/**
+ * Owner token → set of command ids it registered. Owner-based registration
+ * (`registerCommands`) is the HMR-safe path for BATCH registrars like the
+ * editor-action bridge, where `hasCommand` is not enough: it can't tell an
+ * idempotent re-bootstrap from a foreign collision or recover a partial batch.
+ */
+const OWNERS = new Map<string, string>();
+
+/**
+ * Atomically (re)register a batch of commands under an `owner` token; returns a
+ * disposer. HMR-safe:
+ *  - PREFLIGHT: if ANY id is already registered by a DIFFERENT owner — or by a
+ *    plain `registerCommand` (no owner) — throw BEFORE registering anything, so a
+ *    foreign collision never leaves a partial batch.
+ *  - REPLACE-OWN: the owner's previous batch is removed first, so a double
+ *    bootstrap, an HMR reload, or a partial prior batch all converge to exactly
+ *    this batch.
+ */
+export function registerCommands(
+  owner: string,
+  commands: readonly CommandDefinition[],
+): () => void {
+  for (const command of commands) {
+    const existingOwner = OWNERS.get(command.id);
+    if (REGISTRY.has(command.id) && existingOwner !== owner) {
+      throw new Error(
+        `Command id "${command.id}" is already registered by ${existingOwner ?? "another registrar"}`,
+      );
+    }
+  }
+  unregisterOwner(owner);
+  for (const command of commands) {
+    REGISTRY.set(command.id, command);
+    OWNERS.set(command.id, owner);
+  }
+  return () => unregisterOwner(owner);
+}
+
+/** Remove every command registered under an `owner` token. Idempotent. */
+export function unregisterOwner(owner: string): void {
+  for (const [id, o] of OWNERS) {
+    if (o === owner) {
+      REGISTRY.delete(id);
+      OWNERS.delete(id);
+    }
+  }
+}
+
 /** Get a command definition. */
 export function getCommand(id: string): CommandDefinition | undefined {
   return REGISTRY.get(id);
@@ -151,4 +199,5 @@ export function searchCommands(query: string, ctx: CommandContext = {}): RankedC
 /** Test-only reset. */
 export function _resetCommandBus(): void {
   REGISTRY.clear();
+  OWNERS.clear();
 }
