@@ -21,7 +21,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
-import { useQuickOpenStore } from "./quickOpenStore";
+import { useQuickOpenStore } from "@/stores/quickOpenStore";
 import { useGeniePickerStore } from "@/stores/geniePickerStore";
 import { useActiveWorkspaceScope } from "@/workspace";
 import { useFileTree } from "@/components/Sidebar/FileExplorer/useFileTree";

@@ -1,7 +1,8 @@
 {
   "app": {
     "preferences": "설정",
-    "commandPalette": "명령 팔레트"
+    "commandPalette": "명령 팔레트",
+    "quickOpen": "빠른 열기"
   },
   "history": {
     "clearAll": "모든 기록 지우기",

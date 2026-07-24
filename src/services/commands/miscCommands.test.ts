@@ -42,11 +42,12 @@ beforeEach(() => {
 afterEach(() => _resetCommandBus());
 
 describe("registerMiscCommands", () => {
-  it("registers the 9 misc commands", () => {
+  it("registers the 10 misc commands", () => {
     const ids = listCommands().map((c) => c.id);
     expect(ids).toEqual([
       "app.preferences",
       "app.commandPalette",
+      "app.quickOpen",
       "history.clearAll",
       "history.clearWorkspace",
       "image.cleanupOrphans",

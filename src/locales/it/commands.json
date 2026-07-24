@@ -1,7 +1,8 @@
 {
   "app": {
     "preferences": "Preferenze",
-    "commandPalette": "Palette dei comandi"
+    "commandPalette": "Palette dei comandi",
+    "quickOpen": "Apertura rapida"
   },
   "history": {
     "clearAll": "Cancella tutta la cronologia",

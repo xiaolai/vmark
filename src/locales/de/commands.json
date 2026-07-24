@@ -1,7 +1,8 @@
 {
   "app": {
     "preferences": "Einstellungen",
-    "commandPalette": "Befehlspalette"
+    "commandPalette": "Befehlspalette",
+    "quickOpen": "Schnellöffnen"
   },
   "history": {
     "clearAll": "Gesamten Verlauf löschen",

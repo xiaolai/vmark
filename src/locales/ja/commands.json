@@ -1,7 +1,8 @@
 {
   "app": {
     "preferences": "環境設定",
-    "commandPalette": "コマンドパレット"
+    "commandPalette": "コマンドパレット",
+    "quickOpen": "クイックオープン"
   },
   "history": {
     "clearAll": "すべての履歴を消去",

@@ -87,7 +87,7 @@ vi.mock("@/stores/geniePickerStore", () => ({
 
 // --- Imports (after mocks) ---
 
-import { useQuickOpenStore } from "./quickOpenStore";
+import { useQuickOpenStore } from "@/stores/quickOpenStore";
 import { useGeniePickerStore } from "@/stores/geniePickerStore";
 import { QuickOpen } from "./QuickOpen";
 

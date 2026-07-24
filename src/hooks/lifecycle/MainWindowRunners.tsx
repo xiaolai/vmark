@@ -27,7 +27,6 @@ import { useResilienceStartup } from "@/hooks/resilience";
 import { useHotExitCaptureWarning } from "@/hooks/useHotExitCaptureWarning";
 import { useFinderFileOpen } from "@/hooks/useFinderFileOpen";
 import { useGenieShortcuts } from "@/hooks/useGenieShortcuts";
-import { useQuickOpenShortcuts } from "@/hooks/useQuickOpenShortcuts";
 import { useKeybindingRouter } from "@/hooks/useKeybindingRouter";
 
 function MainWindowLifecycle(): null {
@@ -50,11 +49,6 @@ function GenieShortcutsRunner(): null {
   return null;
 }
 
-function QuickOpenShortcutsRunner(): null {
-  useQuickOpenShortcuts();
-  return null;
-}
-
 /**
  * The window keybinding router — one adapter that resolves ALL migrated
  * window-scope shortcuts through the registry (command palette, find-in-files,
@@ -70,7 +64,6 @@ export function MainWindowRunners(): React.ReactElement {
     <>
       <MainWindowLifecycle />
       <GenieShortcutsRunner />
-      <QuickOpenShortcutsRunner />
       <KeybindingRouterRunner />
     </>
   );

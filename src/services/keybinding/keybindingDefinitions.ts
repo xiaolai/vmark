@@ -38,4 +38,18 @@ export const KEYBINDINGS: readonly Binding[] = [
     ime: "block",
     consumption: "preventDefault",
   },
+  // Quick Open (migrated from useQuickOpenShortcuts). Keyboard toggles; the
+  // menu:quick-open event routes to the same toggle command (the picker is modal,
+  // so toggle ≡ open from the menu in practice — behavior-neutral).
+  {
+    kind: "command",
+    commandId: "app.quickOpen",
+    shortcutId: "quickOpen",
+    scope: "window",
+    priority: 0,
+    captureOwner: "window",
+    repeat: "deny",
+    ime: "block",
+    consumption: "preventDefault",
+  },
 ];

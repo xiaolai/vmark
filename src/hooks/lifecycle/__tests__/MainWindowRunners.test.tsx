@@ -31,9 +31,6 @@ vi.mock("@/hooks/useFinderFileOpen", () => ({
 vi.mock("@/hooks/useGenieShortcuts", () => ({
   useGenieShortcuts: () => calls.push("genieShortcuts"),
 }));
-vi.mock("@/hooks/useQuickOpenShortcuts", () => ({
-  useQuickOpenShortcuts: () => calls.push("quickOpenShortcuts"),
-}));
 vi.mock("@/hooks/useKeybindingRouter", () => ({
   useKeybindingRouter: () => calls.push("keybindingRouter"),
 }));
@@ -57,12 +54,11 @@ describe("MainWindowRunners", () => {
         "hotExitCaptureWarning",
         "finderFileOpen",
         "genieShortcuts",
-        "quickOpenShortcuts",
         "keybindingRouter",
       ].sort(),
     );
     // Exactly once each — no duplicate mounts.
-    expect(calls).toHaveLength(10);
+    expect(calls).toHaveLength(9);
   });
 
   it("runs resilience startup before the Finder file-open handler (order contract)", () => {
