@@ -273,6 +273,18 @@ describe("multiCursorKeymap", () => {
       expect(b["Mod-Alt-ArrowUp"]).toBeUndefined();
     });
 
+    it("a rebind colliding with a fixed chord does NOT clobber it (audit-fix #1)", () => {
+      // Rebind skipOccurrence onto Mod-d, which the fixed selectNextOccurrence owns.
+      useShortcutsStore.setState({ customBindings: { skipOccurrence: "Mod-d" } });
+      const b = buildMultiCursorKeymapBindings();
+      // Fixed Mod-d (selectNextOccurrence) is preserved — bound FIRST, guard skips
+      // the colliding rebind rather than silently destroying the mechanic.
+      expect(b["Mod-d"]).toBeTypeOf("function");
+      // And skipOccurrence's default Mod-Shift-d is gone (it moved onto the guarded
+      // Mod-d), so the rebind is inert on that chord — no double-binding.
+      expect(b["Mod-Shift-d"]).toBeUndefined();
+    });
+
     it("skips a rebindable chord when getShortcut resolves to empty (unbound)", () => {
       const orig = useShortcutsStore.getState().getShortcut;
       vi.spyOn(useShortcutsStore.getState(), "getShortcut").mockImplementation((id) =>
@@ -302,6 +314,10 @@ describe("multiCursorKeymap", () => {
         dispatch: (tr: Transaction) => dispatched.push(tr),
       } as never;
 
+      // Start the per-view store subscription (it now lives in the plugin's
+      // view() lifecycle, not at plugin creation — audit-fix #2).
+      const pluginView = plugin.spec.view!(mockView);
+
       // F6 is not bound to skipOccurrence initially.
       expect(handleKeyDown!(mockView, new KeyboardEvent("keydown", { key: "F6" }))).toBe(false);
       expect(dispatched).toHaveLength(0);
@@ -311,6 +327,9 @@ describe("multiCursorKeymap", () => {
 
       expect(handleKeyDown!(mockView, new KeyboardEvent("keydown", { key: "F6" }))).toBe(true);
       expect(dispatched).toHaveLength(1);
+
+      // Destroying the view unsubscribes (no leak).
+      pluginView.destroy?.();
     });
   });
 

@@ -150,17 +150,40 @@ function readRustString(src, i, rel) {
 function scanAccelCalls(src, rel) {
   const calls = [];
   let i = 0;
-  while (true) {
-    const pos = src.indexOf("accel(", i);
-    if (pos === -1) break;
-    // Require a call boundary: the char before `accel` must not be an identifier
-    // char (so `AccelFn`, `my_accel(` etc. never match).
-    const prev = pos > 0 ? src[pos - 1] : " ";
-    if (/[A-Za-z0-9_]/.test(prev)) {
-      i = pos + "accel(".length;
+  while (i < src.length) {
+    const ch = src[i];
+    const nx = src[i + 1];
+    // Skip comments and string literals so an `accel(` token that lives INSIDE
+    // one (a commented-out call, or the substring in an unrelated string) is never
+    // mistaken for a real call site — the header promise the old outer scan didn't
+    // keep (audit-fix, round 3). The inner arg scanner below skips these too.
+    if (ch === "/" && nx === "/") {
+      const nl = src.indexOf("\n", i);
+      i = nl === -1 ? src.length : nl;
       continue;
     }
-    let j = pos + "accel(".length;
+    if (ch === "/" && nx === "*") {
+      const end = src.indexOf("*/", i + 2);
+      if (end === -1) fail(`${rel}: unterminated block comment while scanning for accel(...)`);
+      i = end + 2;
+      continue;
+    }
+    if (ch === '"') {
+      [, i] = readRustString(src, i, rel);
+      continue;
+    }
+    // Require a call boundary: the char before `accel` must not be an identifier
+    // char (so `AccelFn`, `my_accel(` etc. never match).
+    if (ch !== "a" || !src.startsWith("accel(", i)) {
+      i += 1;
+      continue;
+    }
+    const prev = i > 0 ? src[i - 1] : " ";
+    if (/[A-Za-z0-9_]/.test(prev)) {
+      i += 1;
+      continue;
+    }
+    let j = i + "accel(".length;
     let depth = 1;
     const lits = [];
     while (depth > 0) {
@@ -555,12 +578,21 @@ const defById = new Map(defs.map((d) => [d.id, d]));
 const rustSrc = readOrDie(RUST_PATH);
 const rustDefaultBody = arrayBody(rustSrc, "const DEFAULT_ACCELERATORS", RUST_PATH);
 const rustPlatformBody = arrayBody(rustSrc, "const PLATFORM_ACCELERATORS", RUST_PATH);
+// Duplicate ids in either contract table (or an id in BOTH) silently overwrote
+// earlier entries via Map.set — a wrong-then-right duplicate would let the gate
+// validate against the surviving tuple and pass. Fail closed on any duplicate
+// (audit-fix, round 3).
 const rustDefault = new Map();
 for (const m of rustDefaultBody.matchAll(/\("([a-z0-9-]+)",\s*"((?:[^"\\]|\\.)*)"\)/g)) {
+  if (rustDefault.has(m[1])) fail(`${RUST_PATH}: duplicate id "${m[1]}" in DEFAULT_ACCELERATORS`);
   rustDefault.set(m[1], unquote(m[2]));
 }
 const rustPlatform = new Map();
 for (const m of rustPlatformBody.matchAll(/\("([a-z0-9-]+)",\s*"((?:[^"\\]|\\.)*)",\s*"((?:[^"\\]|\\.)*)"\)/g)) {
+  if (rustPlatform.has(m[1])) fail(`${RUST_PATH}: duplicate id "${m[1]}" in PLATFORM_ACCELERATORS`);
+  if (rustDefault.has(m[1])) {
+    fail(`${RUST_PATH}: id "${m[1]}" appears in BOTH DEFAULT_ACCELERATORS and PLATFORM_ACCELERATORS`);
+  }
   rustPlatform.set(m[1], { mac: unquote(m[2]), other: unquote(m[3]) });
 }
 if (rustDefault.size === 0) fail(`${RUST_PATH}: parsed zero DEFAULT_ACCELERATORS entries`);
@@ -609,6 +641,20 @@ for (const entry of manifest) {
         `${DEFS_PATH} ${JSON.stringify(defOther)}`,
     );
   }
+  // `defaultKeyMac` is runtime-wired (settingsStore/shortcuts.ts resolves it on
+  // macOS) but no entry uses it yet. Still validate it so the day one appears, the
+  // gate compares the macOS surfaces against the override rather than defaultKey
+  // (audit-fix, round 3). `macKey`/`manMac` below feed the macOS Rust + real-menu
+  // checks; they collapse to `manKey` while defaultKeyMac is absent.
+  const defMac = def.defaultKeyMac;
+  const manMac = entry.defaultKeyMac;
+  if (defMac !== manMac) {
+    errors.push(
+      `"${id}": manifest defaultKeyMac ${JSON.stringify(manMac)} !== ` +
+        `${DEFS_PATH} ${JSON.stringify(defMac)}`,
+    );
+  }
+  const macKey = manMac ?? manKey;
   if ((def.menuId ?? "") !== menuId) {
     errors.push(`"${id}": manifest menuId "${menuId}" !== ${DEFS_PATH} "${def.menuId ?? ""}"`);
   }
@@ -616,7 +662,7 @@ for (const entry of manifest) {
   // 2. Matches the Rust menu accelerator contract.
   if (rustPlatform.has(menuId)) {
     const { mac, other } = rustPlatform.get(menuId);
-    const gotMac = prosemirrorToTauri(manKey);
+    const gotMac = prosemirrorToTauri(macKey);
     const gotOther = prosemirrorToTauri(manOther ?? "");
     if (gotMac !== mac) {
       errors.push(`"${id}" (${menuId}): macOS accel ${JSON.stringify(gotMac)} !== Rust ${JSON.stringify(mac)}`);
@@ -636,6 +682,7 @@ for (const entry of manifest) {
 
   // 3. Matches the REAL menu builder's accel(...) call site (not just the mirror).
   const wantAccel = prosemirrorToTauri(manKey);
+  const wantAccelMac = prosemirrorToTauri(macKey);
   if (manOther !== undefined) {
     const rp = realPlatform.get(menuId);
     if (!rp) {
@@ -645,8 +692,8 @@ for (const entry of manifest) {
       );
     } else {
       const wantOther = prosemirrorToTauri(manOther);
-      if (rp.mac !== wantAccel) {
-        errors.push(`"${id}" (${menuId}): real menu macOS accel ${JSON.stringify(rp.mac)} !== prosemirrorToTauri(defaultKey) ${JSON.stringify(wantAccel)}`);
+      if (rp.mac !== wantAccelMac) {
+        errors.push(`"${id}" (${menuId}): real menu macOS accel ${JSON.stringify(rp.mac)} !== prosemirrorToTauri(defaultKeyMac ?? defaultKey) ${JSON.stringify(wantAccelMac)}`);
       }
       if (rp.other !== wantOther) {
         errors.push(`"${id}" (${menuId}): real menu other accel ${JSON.stringify(rp.other)} !== prosemirrorToTauri(defaultKeyOther) ${JSON.stringify(wantOther)}`);

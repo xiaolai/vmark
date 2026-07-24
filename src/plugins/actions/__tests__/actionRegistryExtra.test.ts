@@ -168,9 +168,12 @@ describe("getHeadingLevelFromParams", () => {
     expect(getHeadingLevelFromParams({ level: "2" })).toBe(1);
   });
 
-  it("accepts float level within range (passes number check)", () => {
-    // 2.5 is a number between 1 and 6, so it passes the guard
-    expect(getHeadingLevelFromParams({ level: 2.5 })).toBe(2.5);
+  it("returns 1 for a fractional level within range (audit-fix #4)", () => {
+    // 2.5 is between 1 and 6 but not a whole heading level — reject it rather than
+    // casting a fractional value into HeadingLevel, which would produce a malformed
+    // heading in the setters.
+    expect(getHeadingLevelFromParams({ level: 2.5 })).toBe(1);
+    expect(getHeadingLevelFromParams({ level: 1.0001 })).toBe(1);
   });
 
   it("returns 1 for null level", () => {

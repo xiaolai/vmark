@@ -31,6 +31,10 @@ const fmt = vi.hoisted(() => ({
 const editors = vi.hoisted(() => ({
   wysiwyg: null as { view: object } | null,
   source: null as object | null,
+  // The tab each active editor belongs to — dispatch requires it to equal the
+  // action's origin tab (audit-fix #1). Defaults to the active tab "tab-a".
+  wysiwygTabId: "tab-a" as string | null,
+  sourceTabId: "tab-a" as string | null,
 }));
 
 vi.mock("@/utils/imeGuard", () => ({
@@ -65,7 +69,12 @@ vi.mock("@/lib/formats/registry", () => ({
 vi.mock("@/stores/editorStore", () => ({
   useEditorStore: {
     getState: () => ({
-      active: { activeWysiwygEditor: editors.wysiwyg, activeSourceView: editors.source },
+      active: {
+        activeWysiwygEditor: editors.wysiwyg,
+        activeWysiwygTabId: editors.wysiwygTabId,
+        activeSourceView: editors.source,
+        activeSourceTabId: editors.sourceTabId,
+      },
       tiptap: { context: null },
       source: { context: null },
     }),
@@ -95,8 +104,8 @@ vi.mock("@/plugins/toolbarActions/sourceAdapter", () => ({
   setSourceHeadingLevel: vi.fn(() => true),
 }));
 vi.mock("@/plugins/toolbarActions/multiSelectionContext", () => ({
-  getWysiwygMultiSelectionContext: () => ({ enabled: false }),
-  getSourceMultiSelectionContext: () => ({ enabled: false }),
+  getWysiwygMultiSelectionContext: vi.fn(() => ({ enabled: false })),
+  getSourceMultiSelectionContext: vi.fn(() => ({ enabled: false })),
 }));
 vi.mock("@/services/history/unifiedHistory", () => ({
   performUnifiedUndo: vi.fn(() => true),
@@ -119,6 +128,31 @@ import {
 } from "@/plugins/toolbarActions/wysiwygAdapter";
 import { performSourceToolbarAction } from "@/plugins/toolbarActions/sourceAdapter";
 import { performUnifiedUndo, performUnifiedRedo } from "@/services/history/unifiedHistory";
+import {
+  getWysiwygMultiSelectionContext,
+  getSourceMultiSelectionContext,
+} from "@/plugins/toolbarActions/multiSelectionContext";
+import type { MultiSelectionContext } from "@/plugins/toolbarActions/types";
+
+/** A full MultiSelectionContext, single- or multi-cursor, for mock return values. */
+function ms(enabled: boolean): MultiSelectionContext {
+  return {
+    enabled,
+    reason: enabled ? "multi" : "none",
+    inCodeBlock: false,
+    inTable: false,
+    inList: false,
+    inBlockquote: false,
+    inHeading: false,
+    inLink: false,
+    inInlineMath: false,
+    inFootnote: false,
+    inImage: false,
+    inTextblock: true,
+    sameBlockParent: false,
+    blockParentType: null,
+  };
+}
 
 function flushPm() {
   const q = [...ime.pmQueue];
@@ -151,6 +185,12 @@ beforeEach(() => {
   fmt.policy = { paragraphFormatting: true, insertBlockActions: true, cjkFormatActions: true };
   editors.wysiwyg = { view: VIEW };
   editors.source = VIEW;
+  editors.wysiwygTabId = "tab-a";
+  editors.sourceTabId = "tab-a";
+  // clearAllMocks keeps implementation overrides — restore the default single-cursor
+  // context so a per-test mockReturnValue can't leak into the next test.
+  vi.mocked(getWysiwygMultiSelectionContext).mockReturnValue(ms(false));
+  vi.mocked(getSourceMultiSelectionContext).mockReturnValue(ms(false));
   // A live document tab is required for any action to be allowed — the gate now
   // fails closed without one. (getFormatById is mocked to a permissive policy.)
   useTabStore.setState({ tabs: { main: [docTab("tab-a")] }, activeTabId: { main: "tab-a" } });
@@ -513,6 +553,107 @@ describe("per-window retry owner (hardening #3)", () => {
   });
 });
 
+describe("runEditorAction — active editor must belong to the origin tab (audit-fix #1)", () => {
+  it("does NOT dispatch WYSIWYG when the active editor belongs to a different tab", () => {
+    // Mid tab-switch: activeTabId is already tab-a (origin) but the active WYSIWYG
+    // editor still references the previous tab. Dispatching would mutate the wrong
+    // document, so the immediate dispatch is refused (falls to the retry path).
+    editors.wysiwygTabId = "tab-previous";
+    runEditorAction("bold", { windowLabel: "main" });
+    expect(performWysiwygToolbarAction).not.toHaveBeenCalled();
+  });
+
+  it("does NOT dispatch Source when the active view belongs to a different tab", () => {
+    ui.sourceMode = true;
+    editors.sourceTabId = "tab-previous";
+    runEditorAction("bold", { windowLabel: "main" });
+    expect(performSourceToolbarAction).not.toHaveBeenCalled();
+  });
+
+  it("dispatches once the active editor's tab matches the origin", () => {
+    editors.wysiwygTabId = "tab-a";
+    runEditorAction("bold", { windowLabel: "main" });
+    expect(performWysiwygToolbarAction).toHaveBeenCalledWith("bold", expect.anything());
+  });
+});
+
+describe("runEditorAction — selection context is built at flush, not enqueue (audit-fix #2)", () => {
+  it("hands the WYSIWYG adapter the selection context as of compositionend, not enqueue", () => {
+    // Selection is single-cursor when composition starts, multi-cursor when it ends.
+    // The adapter must receive the FLUSH-time context — a snapshot taken before the
+    // queue would gate the action on stale pre-composition selection state.
+    ime.pmComposing = true;
+    vi.mocked(getWysiwygMultiSelectionContext).mockReturnValue(ms(false));
+    runEditorAction("bold", { windowLabel: "main" });
+    vi.mocked(getWysiwygMultiSelectionContext).mockReturnValue(ms(true));
+    flushPm();
+    expect(performWysiwygToolbarAction).toHaveBeenCalledWith(
+      "bold",
+      expect.objectContaining({ multiSelection: expect.objectContaining({ enabled: true }) }),
+    );
+  });
+
+  it("hands the Source adapter the selection context as of compositionend, not enqueue", () => {
+    ui.sourceMode = true;
+    ime.cmComposing = true;
+    vi.mocked(getSourceMultiSelectionContext).mockReturnValue(ms(false));
+    runEditorAction("bold", { windowLabel: "main" });
+    vi.mocked(getSourceMultiSelectionContext).mockReturnValue(ms(true));
+    flushCm();
+    expect(performSourceToolbarAction).toHaveBeenCalledWith(
+      "bold",
+      expect.objectContaining({ multiSelection: expect.objectContaining({ enabled: true }) }),
+    );
+  });
+});
+
+describe("runEditorAction — undo/redo are IME-safe (audit-fix #3)", () => {
+  it("QUEUES undo while the WYSIWYG surface is composing, runs it on compositionend", () => {
+    ime.pmComposing = true;
+    runEditorAction("undo", { windowLabel: "main" });
+    expect(performUnifiedUndo).not.toHaveBeenCalled(); // deferred, not run mid-composition
+    flushPm();
+    expect(performUnifiedUndo).toHaveBeenCalledWith("main");
+  });
+
+  it("QUEUES redo while the Source surface is composing, runs it on compositionend", () => {
+    ui.sourceMode = true;
+    ime.cmComposing = true;
+    runEditorAction("redo", { windowLabel: "main" });
+    expect(performUnifiedRedo).not.toHaveBeenCalled();
+    flushCm();
+    expect(performUnifiedRedo).toHaveBeenCalledWith("main");
+  });
+
+  it("DROPS a queued undo when the tab changed before composition ended", () => {
+    ime.pmComposing = true;
+    runEditorAction("undo", { windowLabel: "main" }); // origin = tab-a
+    useTabStore.setState({ activeTabId: { main: "tab-b" } });
+    flushPm();
+    expect(performUnifiedUndo).not.toHaveBeenCalled();
+  });
+
+  it("DROPS a queued undo when the WYSIWYG editor remounted during composition", () => {
+    ime.pmComposing = true;
+    runEditorAction("undo", { windowLabel: "main" }); // captures editor instance A
+    editors.wysiwyg = { view: {} as object }; // same tab, editor remounted
+    flushPm();
+    expect(performUnifiedUndo).not.toHaveBeenCalled();
+  });
+
+  it("runs undo immediately when NOT composing (parity preserved)", () => {
+    ime.pmComposing = false;
+    runEditorAction("undo", { windowLabel: "main" });
+    expect(performUnifiedUndo).toHaveBeenCalledWith("main");
+  });
+
+  it("runs undo immediately when no editor is mounted (no composition to defer against)", () => {
+    editors.wysiwyg = null;
+    runEditorAction("undo", { windowLabel: "main" });
+    expect(performUnifiedUndo).toHaveBeenCalledWith("main");
+  });
+});
+
 describe("runEditorAction — cross-window retry isolation", () => {
   it("disposing one window's retries does not stop another window's", () => {
     vi.useFakeTimers();
@@ -524,6 +665,7 @@ describe("runEditorAction — cross-window retry isolation", () => {
     runEditorAction("bold", { windowLabel: "main" });
     runEditorAction("bold", { windowLabel: "win2" });
     editors.wysiwyg = { view: VIEW }; // editor mounts before the retries fire
+    editors.wysiwygTabId = "tab-2"; // the shared mock editor now belongs to win2's tab
     disposeEditorActionOwner("main"); // cancel only main's pending retry
     vi.advanceTimersByTime(60);
     // Only win2's retry survives → exactly one dispatch.
