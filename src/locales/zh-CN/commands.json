@@ -29,7 +29,13 @@
   },
   "file": {
     "clearRecent": "清空最近文件",
-    "openRecent": "打开最近文件"
+    "openRecent": "打开最近文件",
+    "save": "保存",
+    "saveAs": "另存为…",
+    "moveTo": "移动到…",
+    "saveAllQuit": "全部保存并退出",
+    "new": "新建文件",
+    "open": "打开…"
   },
   "workspace": {
     "openFolder": "打开工作区……",
