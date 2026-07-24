@@ -279,6 +279,26 @@ test asserts the active row scrolls into view on arrow navigation.
 
 ## Phase 5 — Gates (ADR-015 D6)
 
+**Status: ✅ COMPLETE (2026-07-24)** — `pnpm check:all` green. Additive gate suite
+`services/commands/editorCommandGates.test.ts` (no production change — the bridge,
+executor, and availability policy already exist; Phase 5 locks their contracts).
+WI-5.1 ADOPTION (structural, not "reaches the executor"): drives every built spec's
+`run` against a mocked `runEditorAction` and asserts (a) the set of covered
+ActionIds equals `Object.keys(ACTION_DEFINITIONS)`, (b) `setHeading` projects to
+EXACTLY `editor.setHeading.1..6` with no plain `editor.setHeading`, (c) each spec's
+run carries the right `(actionId, { windowLabel, params })` (heading rows → their
+level; others → `params: undefined`), (d) all spec ids are unique + `editor.*`.
+WI-5.2 DIFFERENTIAL: for `undo` / `paragraph` / `setHeading.2`, the bus path
+(`spec.run`) and the menu path (`MENU_TO_ACTION[event]` → `runEditorAction`, exactly
+what `useUnifiedMenuCommands` does) produce byte-identical executor calls — one
+execution path, two entry points. WI-5.3 INAPPLICABILITY: a non-document tab
+refuses (`isActionExecutable`) AND hides (`actionAvailability`) every editing
+action; Source mode refuses the WYSIWYG-only `toggleQuoteStyle` while WYSIWYG
+refuses the source-only `sortLinesAsc` (both cross-checked against the registry's
+`supports`); read-only refuses/hides mutating `bold` but leaves non-mutating
+`selectWord` executable. The executor mock is the ground truth, so the adoption
+map can't drift from what the bridge actually dispatches.
+
 | WI | Change |
 |---|---|
 | WI-5.1 | Adoption: every `ActionId` maps to ≥1 uniquely-registered `editor.*` command (NOT raw id-subset — heading maps only to `.1`…`.6`). **(Zed framing, sharpened by Codex review)** The gate is **structural**, not "reaches the executor" (too dynamic for a D6 gate — WI-5.2's runtime differential already covers heading-2 *execution*). Assert: (a) every `ActionId` has ≥1 projected `editor.*` spec; (b) `setHeading` projects to **exactly** levels 1–6, no gaps/dupes; (c) every projected spec's `run` invokes `runEditorAction("setHeading", { level: N })`; (d) no plain `editor.setHeading` registers. Keeps one identity without inverting into "six independent actions" |
