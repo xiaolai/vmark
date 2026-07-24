@@ -782,30 +782,41 @@ describe('WebSocketBridge', () => {
       await rateLimitedBridge.disconnect();
     });
 
-    it('should allow requests after rate limit window passes', async () => {
+    // Generous timeout: this exercises a real ~1s rate-limit refill window plus
+    // real socket round-trips, which slows down under the full parallel suite.
+    it('should allow requests after rate limit window passes', { timeout: 20000 }, async () => {
       const rateLimitedBridge = new WebSocketBridge({
         port: TEST_PORT,
         autoReconnect: false,
         maxRequestsPerSecond: 2,
       });
 
-      await rateLimitedBridge.connect();
+      // Capture the SERVER-side socket deterministically. `await connect()`
+      // resolves on the CLIENT 'open', which can beat the server's 'connection'
+      // event under load — so reading `serverConnections[0]` (populated by that
+      // event) raced, attaching the responder to the wrong/missing socket and
+      // leaving test3 with no reply (the ~11s hang this de-flakes).
+      const serverConn = await new Promise<WsWebSocket>((resolve) => {
+        server.once('connection', (ws) => resolve(ws));
+        void rateLimitedBridge.connect();
+      });
+      await rateLimitedBridge.connect(); // ensure the client side is also open
 
-      serverConnections[0].on('message', (data) => {
+      serverConn.on('message', (data) => {
         const message = JSON.parse(data.toString()) as WsMessage;
         const response: WsMessage = {
           id: message.id,
           type: 'response',
           payload: { success: true, data: 'ok' },
         };
-        serverConnections[0].send(JSON.stringify(response));
+        serverConn.send(JSON.stringify(response));
       });
 
       // Exhaust rate limit
       await rateLimitedBridge.send({ type: 'test1' });
       await rateLimitedBridge.send({ type: 'test2' });
 
-      // Wait for token refill
+      // Wait for token refill (real ~1s window + margin)
       await new Promise((resolve) => setTimeout(resolve, 1100));
 
       // Should work again
