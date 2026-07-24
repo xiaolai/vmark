@@ -459,10 +459,10 @@ exist and is not designed here.
 | WI | Change |
 |---|---|
 | WI-5.1 | ✅ **DONE** — `plugins/codePreview/fenceRegistry.ts` is the host-owned point; `builtinFenceRenderers.ts` registers the six first-party renderers through the same API a third party would use. Dispatch, empty-state labels and copy-support all resolve through it; `grep -c 'mermaid\|graphviz\|markmap\|svg'` in `previewDecorations.ts` → **0**. A sli.dev renderer is now a registration, not a patch |
-| WI-5.2 | Tier A declarative contributions (themes, snippets, keybindings) — **unsigned, first-party**; signing deferred to the package contract |
-| WI-5.3 | Generalize the existing browser capability broker (`origin_guard`/`one_shot`/`operation`) from `(origin × operation)` to `(plugin-principal × capability-scope)` |
-| WI-5.4 | Tier C: dynamic tool registration + prefix routing on the MCP bridge, replacing the 3 closed switches; arbitrate namespaces on the already-captured `ClientIdentity` |
-| WI-5.5 | Tier B: worker/WASM host + the safe editor subset (decorations, fence renderers, declarative input rules) |
+| WI-5.2 | ⏸️ **DEFERRED — do not build (ADR-016: no consumer).** Tier A declarative contributions (themes, snippets, keybindings) — **unsigned, first-party**; signing deferred to the package contract. Reopens only when a package contract creates a consumer |
+| WI-5.3 | ⏸️ **DEFERRED — do not build (ADR-016: needs a caller principal that cannot exist in a single JS context).** Generalize the existing browser capability broker (`origin_guard`/`one_shot`/`operation`) from `(origin × operation)` to `(plugin-principal × capability-scope)` |
+| WI-5.4 | ⏸️ **DEFERRED — do not build (ADR-016: needs the isolation boundary + caller principal first).** Tier C: dynamic tool registration + prefix routing on the MCP bridge, replacing the 3 closed switches; arbitrate namespaces on the already-captured `ClientIdentity` |
+| WI-5.5 | ⏸️ **DEFERRED — do not build (ADR-016: needs the isolation boundary first).** Tier B: worker/WASM host + the safe editor subset (decorations, fence renderers, declarative input rules) |
 | WI-5.6 | ✅ **DONE** — `registerFenceRenderer` returns an idempotent unregister that frees the language for another claimant. Designed in now precisely because retrofitting teardown after an ecosystem exists means every existing extension leaks |
 
 **DoD**
