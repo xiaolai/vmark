@@ -156,7 +156,7 @@ Both move here.
 | WI-1.1 | ✅ **DONE** — `src/lib/extensions/types.ts`. `Contribution` deliberately excludes commands (registry fork) and panels (ADR-007 seam absent) |
 | WI-1.2 | ✅ **DONE** — `src/lib/extensions/resolve.ts` + 24 tests. Stable topological sort: constraints hard, bucket-then-registration-order as tie-break; dangling refs are errors; cycles report the full path; **empty ordering on any error** so a partial composition can never look plausible. Duplicate Tiptap *name* detection (post-factory) is deferred to Phase 3, where factories actually run |
 | WI-1.3 | ✅ **DONE (protocol)** — `src/lib/extensions/claim.ts` + 15 tests: strength ranking, conflict-as-error, full bid trace, throwing recognizers degrade to declining. The **semantic mdast normalization** half (blockquote→alert, paragraph/image→video\|audio\|blockImage, html→video\|audio\|videoEmbed) lands in Phase 2 with the nodes it normalizes |
-| WI-1.4 | **Node-safe entrypoint rule** — `feature/markdown.ts` / `feature/prosemirror.ts` / `feature/index.ts`; dep-cruiser **import-graph gate** so registry 1 can never transitively reach editor code. `nodeSafe.ts:16`'s invariant becomes a lint rule, not a comment |
+| WI-1.4 | **Node-safe entrypoint rule.** ✅ **SHIPPED VIA A DIFFERENT MECHANISM than this row describes** — the `feature/markdown.ts` / `feature/prosemirror.ts` / `feature/index.ts` entrypoint files were NOT created. The invariant (`nodeSafe.ts:16`) is instead enforced as a dep-cruiser rule `node-safe-markdown-seam` (`.dependency-cruiser.cjs`, severity error) guarding `src/utils/markdownPipeline/{plugins,nodeSafe,types}`. Same guarantee (registry 1 can't transitively reach editor code), lint-enforced not comment — the file-structure approach was dropped. Row kept for history |
 | WI-1.5 | ✅ **DONE** — `src/bench/pipelinePerf.bench.ts` on the **production** schema (the existing `markdown.bench.ts` uses `getSchema([StarterKit])`, so it measures a pipeline the app never runs). Baseline below |
 | WI-1.6 | ✅ **DONE** — `scripts/pipeline-scope-inventory.mjs`. Result below, and materially better than the withdrawn premise |
 | WI-1.7 | ✅ **DONE** — `plugin-isolation` promoted `warn` → `error`; residual violations frozen via dependency-cruiser's own `--ignore-known` mechanism (the `.dependency-cruiser-known-violations.json` file existed but `lint:deps` never passed the flag, so it was dead) |
@@ -266,7 +266,7 @@ tree in `components/Editor/alignedTableNodes.ts`; `paragraph`/`heading`/
 
 | WI | Tier | Scope |
 |---|---|---|
-| WI-2.1 | 1 — mechanical | 🟡 **9 of 12 migrated** — `horizontalRule`, `frontmatter`, `link_definition`, `html_block`, `toc`, `hardBreak`, `image`, `math_inline`, `footnote_reference` are in `pmConverters.registry.ts`, each proven byte-identical to its switch arm. **Excluded:** `codeBlock` (ambiguous via the `MATH_BLOCK_LANGUAGE` sentinel — needs claim wiring, so it is not Tier 1 in practice), and `html_inline`/`text`, which are reached through the inline if-chain rather than the switch and move with Tier 2 |
+| WI-2.1 | 1 — mechanical | ✅ **COMPLETE (row text below is historical).** Phase 2 finished: the PM→mdast switch is deleted and `convertNode` is pure registry dispatch (24 entries incl. `codeBlock`, which is now registered — the earlier "excluded" note is stale). Historical mid-migration state: "9 of 12 migrated … excluded codeBlock (MATH_BLOCK_LANGUAGE sentinel), html_inline/text via the inline if-chain" |
 | WI-2.2 | 2 — marks | 9 marks. `bold`/`italic`/`strike`/`sub`/`super`/`highlight`/`underline` are 13-line clones; `link` adds `isSafeUrl` + nested-link replacement; `code` is the leaf, not a wrapper. **`groupInlineItems` mark-run factoring stays central** — it optimizes across all marks at once and cannot decompose |
 | WI-2.3 | 3 — local logic | `heading` (needs document-scoped `usedSlugs`), `paragraph` (minus media promotion), `blockquote`, lists (`bulletList`/`orderedList`/`listItem` invert together — spread heuristics couple parent and child), `footnote_definition` (currently an un-extracted private method) |
 | WI-2.4 | 4 — containers | `table` (whole-table: alignment lives on row-0 cells; cells cannot own serialization — assign the arm to one owner), `detailsBlock` (**unify** `src/plugins/detailsBlock/` with `markdownPipeline/plugins/detailsBlock.ts`, crossing the `nodeSafe.ts` Node boundary), `wikiLink` (4-place coupling + a lazy-load trigger that must move with it) |
@@ -356,7 +356,10 @@ rather than reasoning from array position.
 
 **DoD**
 - Contract test from WI-1.1 passes with the registry as the *only* composition path
-- Composition array is alphabetical; no ordering test depends on position
+- ⏸️ **NOT MET — tracked as WI-3.4 (open by design):** "Composition array is
+  alphabetical; no ordering test depends on position." Array position is still
+  load-bearing; alphabetization is only safe once ordering constraints are explicit.
+  Phase 3 is COMPLETE *except this bullet* — see the WI-3.4 row.
 - No `addFeature`-style side channel exists
 
 ## Phase 4A — Host normalization ✅ resolved
@@ -432,7 +435,12 @@ Only now is this expressible. Markdown stops being privileged:
 
 **DoD**
 - A format adapter can contribute parser, serializer, commands, and lint rules
-- No file outside a markdown extension imports `markdownPipeline`
+- ⏸️ **DEFERRED (tied to WI-4.1, not met today):** "No file outside a markdown
+  extension imports `markdownPipeline`." 34 files still import it (export surface,
+  MCP bridge, lint engine, link-check, TiptapEditor, …). This bullet requires the
+  parser/serializer *contribution* seam (WI-4.1, itself partial by design pending
+  the command-registry fork) before it can hold; it is NOT satisfied by Phase 4B as
+  shipped. Moved out of the "complete" set to stop the DoD contradicting the code.
 - Default format is `txt`; markdown is selected, never assumed
 - One CodeMirror host, one registry, one mermaid host
 

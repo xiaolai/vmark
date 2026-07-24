@@ -8,13 +8,15 @@
  * and newly-enabled formats remount via the Editor's `${tabId}-${formatId}`
  * remount key.
  *
- * Lives in utils/ rather than stores/ because it only orchestrates —
- * no state of its own.
+ * Lives in services/formats/ (ADR-013): it orchestrates stores + registry with
+ * no state of its own. The React `useFormatSettingsBridge` hook wrapper is a
+ * known tier exemption pending the H4 inversion (dependency-cruiser
+ * services-no-upward pathNot); the underlying subscription logic is React-free.
  *
  * @coordinates-with stores/settingsStore.ts — reads `formats.*` toggles
  * @coordinates-with lib/formats/index.ts — calls rebootstrapFormats
  * @coordinates-with stores/tabStore.ts — calls recomputeAllFormatIds
- * @module utils/formatSettingsBridge
+ * @module services/formats/formatSettingsBridge
  */
 
 import { useEffect } from "react";

@@ -104,8 +104,16 @@ module.exports = {
           "^src/services/formats/formatSettingsBridge\\.ts$",
           "^src/services/ime/imeToastPinAction\\.tsx$",
           "^src/services/persistence/hotExit/useHotExitCaptureWarning\\.ts$",
-          "^src/services/persistence/resilience/_crashRecovery.*\\.ts$",
-          "^src/services/persistence/resilience/_hotExit.*\\.ts$",
+          // Exact paths, NOT `_crashRecovery.*` / `_hotExit.*` globs: a wildcard
+          // silently exempts any future same-prefix file. These are the exact
+          // React-importing resilience internals pending the H4 inversion
+          // (`_hotExitCaptureConvert.ts` is React-free and intentionally absent).
+          "^src/services/persistence/resilience/_crashRecoveryCleanup\\.ts$",
+          "^src/services/persistence/resilience/_crashRecoveryStartup\\.ts$",
+          "^src/services/persistence/resilience/_crashRecoveryWriter\\.ts$",
+          "^src/services/persistence/resilience/_hotExitCapture\\.ts$",
+          "^src/services/persistence/resilience/_hotExitRestore\\.ts$",
+          "^src/services/persistence/resilience/_hotExitStartup\\.ts$",
           // Sanctioned wiring seam: assembly composes editor extensions
           // from plugins/components by design (de-facto wiring tier).
           "^src/services/assembly/tiptapExtensions\\.ts$",

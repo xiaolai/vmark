@@ -189,7 +189,15 @@ User triggers Genie (Cmd+G or menu)
 1. **No circular dependencies** (error)
 2. **Stores must not import components** (error)
 3. **Leaf utils must not import upward** (error, with exemptions for service utils)
-4. **Plugin isolation** (warn, with exemptions for coordination plugins)
+4. **`utils/` must not import platform APIs** (`utils-no-platform`, error) — leaf
+   utils stay Node-safe/platform-free (ADR-013)
+5. **`services/` must not import upward** (`services-no-upward`, error) — no
+   `hooks/`, `components/`, or React from `services/`, save 3 sanctioned exemptions
+   (test files, the `assembly/tiptapExtensions` wiring seam, `imeToastPinAction`)
+   plus the remaining H4-inversion debt entries
+6. **Node-safe markdown seam** (`node-safe-markdown-seam`, error) — registry 1 of
+   the markdown pipeline can't transitively reach editor code
+7. **Plugin isolation** (warn, with exemptions for coordination plugins)
 
 See `.dependency-cruiser-known-violations.json` for baselined exceptions.
 

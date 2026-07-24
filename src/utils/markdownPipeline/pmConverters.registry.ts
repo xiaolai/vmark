@@ -245,9 +245,10 @@ export function createTier1Registry(): PmTier1Registry {
 /**
  * Consult registry 2 for one node.
  *
- * Returns `{ handled: false }` when the type has not been migrated yet, so the
- * caller falls through to its remaining switch. An ambiguous match is reported
- * and treated as handled-with-nothing: ordering must not break the tie.
+ * Returns `{ handled: false }` for a node type no converter claims. Dispatch is
+ * now total (the legacy switch is gone) — the caller warns and emits nothing
+ * rather than falling through. An ambiguous match is reported and treated as
+ * handled-with-nothing: ordering must not break the tie.
  */
 export function tryRegistry(
   registry: PmTier1Registry,
