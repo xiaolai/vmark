@@ -8,7 +8,7 @@
  * @module components/CommandPalette/CommandPalette
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   executeCommand,
@@ -23,6 +23,7 @@ import "./command-palette.css";
 import { useBrowserOccluder } from "@/hooks/useBrowserOccluder";
 import { useWindowLabel } from "@/contexts/WindowContext";
 import { resolveCommandContext } from "@/services/commands/commandContext";
+import { buildPaletteSections, type PaletteSection } from "./paletteGrouping";
 
 /**
  * Run a command without swallowing its errors. Awaits the result and
@@ -44,6 +45,71 @@ async function runCommand(id: string, windowLabel: string): Promise<void> {
   }
 }
 
+/**
+ * Render the palette body. Browse-mode sections get a `role="group"` wrapper
+ * with an `aria-label` (screen readers announce the group on entry, WI-4.3);
+ * the search-mode section (label === null) renders flat options with no header.
+ * A single running index threads across all sections so `id`/`aria-selected`
+ * match the flattened order the parent selects into.
+ */
+function renderSections(
+  sections: PaletteSection[],
+  selectedIndex: number,
+  close: () => void,
+  windowLabel: string,
+  categoryLabel: (category: string) => string,
+): React.ReactNode {
+  let flatIndex = -1;
+  return sections.map((section) => {
+    const isSearchMode = section.label === null;
+    const rows = section.items.map((row) => {
+      flatIndex += 1;
+      const i = flatIndex;
+      return (
+        <li
+          key={row.command.id}
+          role="option"
+          id={`command-palette-item-${i}`}
+          aria-selected={i === selectedIndex}
+          className={`command-palette__row${i === selectedIndex ? " is-selected" : ""}`}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            close();
+            void runCommand(row.command.id, windowLabel);
+          }}
+        >
+          <span className="command-palette__title">
+            {resolveLocalizedString(row.command.title)}
+          </span>
+          {isSearchMode && row.command.category && (
+            <span className="command-palette__category">
+              {categoryLabel(row.command.category)}
+            </span>
+          )}
+        </li>
+      );
+    });
+
+    if (isSearchMode) return rows;
+
+    return (
+      <li
+        key={`group-${section.id}`}
+        role="group"
+        aria-label={section.label ?? undefined}
+        className="command-palette__group"
+      >
+        <span className="command-palette__group-label" aria-hidden="true">
+          {section.label}
+        </span>
+        <ul className="command-palette__group-items" role="presentation">
+          {rows}
+        </ul>
+      </li>
+    );
+  });
+}
+
 export function CommandPalette() {
   const { t } = useTranslation();
   const windowLabel = useWindowLabel();
@@ -56,6 +122,7 @@ export function CommandPalette() {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [prevQuery, setPrevQuery] = useState(query);
   const inputRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
   const previousFocusRef = useRef<Element | null>(null);
 
   // The context is resolved fresh on open AND on every query change (it's in the
@@ -64,10 +131,29 @@ export function CommandPalette() {
   // that mounts, or a tab that changes, while the palette sits open on an unchanged
   // query (self-corrects on the next keystroke). Execution re-resolves fresh, so a
   // stale-shown command would at worst no-op. Full store-reactive resolution is a
-  // Phase 4 (palette-UX) item.
+  // deferred palette-UX item.
   const ranked: RankedCommand[] = useMemo(
     () => (isOpen ? searchCommands(query, resolveCommandContext(windowLabel)) : []),
     [isOpen, query, windowLabel],
+  );
+
+  // Localized category label, with the raw id as a defensive fallback so an
+  // unlabeled category never renders blank (it degrades to its id).
+  const categoryLabel = useCallback(
+    (category: string) => t(`commands:category.${category}`, { defaultValue: category }),
+    [t],
+  );
+
+  // Browse (empty query) → labelled sections; search → one flat ranked section
+  // (WI-4.2). The sections' items, flattened in order, are the on-screen order —
+  // `flat` is what selection indexes into, so grouping never desyncs the caret.
+  const sections = useMemo(
+    () => buildPaletteSections(ranked, query, categoryLabel),
+    [ranked, query, categoryLabel],
+  );
+  const flat: RankedCommand[] = useMemo(
+    () => sections.flatMap((section) => section.items),
+    [sections],
   );
 
   // Reset the highlighted row to the top whenever the query changes — adjusted
@@ -98,6 +184,16 @@ export function CommandPalette() {
   }, [isOpen]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
+  // Keep the active row visible as the caret moves (WI-4.3) — without this,
+  // arrowing into a group below the fold leaves the selection off-screen. Runs
+  // on selection AND on `sections` changes (a new query re-lays-out the list).
+  useEffect(() => {
+    const active = listRef.current?.querySelector(
+      `#command-palette-item-${selectedIndex}`,
+    );
+    (active as HTMLElement | null)?.scrollIntoView?.({ block: "nearest" });
+  }, [selectedIndex, sections]);
+
   if (!isOpen) return null;
 
   const handleKeyDown = async (e: React.KeyboardEvent) => {
@@ -112,7 +208,7 @@ export function CommandPalette() {
     }
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      setSelectedIndex((i) => Math.min(i + 1, Math.max(0, ranked.length - 1)));
+      setSelectedIndex((i) => Math.min(i + 1, Math.max(0, flat.length - 1)));
       return;
     }
     if (e.key === "ArrowUp") {
@@ -122,7 +218,7 @@ export function CommandPalette() {
     }
     if (e.key === "Enter") {
       e.preventDefault();
-      const picked = ranked[selectedIndex]?.command;
+      const picked = flat[selectedIndex]?.command;
       if (picked) {
         close();
         await runCommand(picked.id, windowLabel);
@@ -153,39 +249,24 @@ export function CommandPalette() {
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}
           role="combobox"
-          aria-expanded={ranked.length > 0}
+          aria-expanded={flat.length > 0}
           aria-controls="command-palette-list"
           aria-activedescendant={
-            ranked.length > 0 ? `command-palette-item-${selectedIndex}` : undefined
+            flat.length > 0 ? `command-palette-item-${selectedIndex}` : undefined
           }
         />
-        <ul className="command-palette__list" id="command-palette-list" role="listbox">
-          {ranked.length === 0 ? (
+        <ul
+          ref={listRef}
+          className="command-palette__list"
+          id="command-palette-list"
+          role="listbox"
+        >
+          {flat.length === 0 ? (
             <li className="command-palette__empty">
               {t("commands:commandPalette.empty")}
             </li>
           ) : (
-            ranked.map((row, i) => (
-              <li
-                key={row.command.id}
-                role="option"
-                id={`command-palette-item-${i}`}
-                aria-selected={i === selectedIndex}
-                className={`command-palette__row${i === selectedIndex ? " is-selected" : ""}`}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  close();
-                  void runCommand(row.command.id, windowLabel);
-                }}
-              >
-                <span className="command-palette__title">
-                  {resolveLocalizedString(row.command.title)}
-                </span>
-                {row.command.category && (
-                  <span className="command-palette__category">{row.command.category}</span>
-                )}
-              </li>
-            ))
+            renderSections(sections, selectedIndex, close, windowLabel, categoryLabel)
           )}
         </ul>
       </div>

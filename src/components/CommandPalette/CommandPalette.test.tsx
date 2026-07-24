@@ -47,6 +47,10 @@ function makeCommand(id: string, title: string): RankedCommand {
   return { command: { id, title, run: vi.fn() }, score: 1 };
 }
 
+function makeCategorized(id: string, title: string, category: string): RankedCommand {
+  return { command: { id, title, category, run: vi.fn() }, score: 1 };
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   mockRanked = [
@@ -178,6 +182,68 @@ describe("CommandPalette", () => {
     // And search was performed with that same resolved context.
     expect(mockSearchCommands).toHaveBeenCalledWith(expect.any(String), SENTINEL_CTX);
     expect(useCommandPaletteStore.getState().isOpen).toBe(false);
+  });
+});
+
+// WI-4.2 / WI-4.3 — browse-mode grouping into localized labelled sections, and
+// the active row scrolling into view on keyboard navigation.
+describe("CommandPalette — grouping + a11y (Phase 4)", () => {
+  it("browse mode renders labelled groups with LOCALIZED category headers (not raw ids)", () => {
+    mockRanked = [
+      makeCategorized("view.a", "Toggle Source Mode", "view"),
+      makeCategorized("editor.bold", "Bold", "formatting"),
+      makeCategorized("editor.italic", "Italic", "formatting"),
+    ];
+    useCommandPaletteStore.setState({ isOpen: true });
+    render(<CommandPalette />);
+
+    const groups = screen.getAllByRole("group");
+    const labels = groups.map((g) => g.getAttribute("aria-label"));
+    // Localized labels from en/commands.json category.* — never the raw ids.
+    expect(labels).toEqual(["View", "Formatting"]);
+    expect(labels).not.toContain("view");
+    expect(labels).not.toContain("formatting");
+
+    // Options remain flat-indexed in visual order (view first per curated order).
+    const options = screen.getAllByRole("option");
+    expect(options.map((o) => o.id)).toEqual([
+      "command-palette-item-0",
+      "command-palette-item-1",
+      "command-palette-item-2",
+    ]);
+    expect(options[0]).toHaveTextContent("Toggle Source Mode");
+  });
+
+  it("search mode (non-empty query) renders a flat list with NO group wrappers", () => {
+    mockRanked = [
+      makeCategorized("view.a", "Toggle Source Mode", "view"),
+      makeCategorized("editor.bold", "Bold", "formatting"),
+    ];
+    useCommandPaletteStore.setState({ isOpen: true });
+    render(<CommandPalette />);
+    const input = screen.getByRole("combobox");
+
+    // Typing switches to search mode → flat ranked list, no sections.
+    fireEvent.change(input, { target: { value: "bo" } });
+    expect(screen.queryAllByRole("group")).toHaveLength(0);
+    expect(screen.getAllByRole("option")).toHaveLength(2);
+  });
+
+  it("scrolls the active row into view on ArrowDown (WI-4.3)", () => {
+    const scrollSpy = vi.fn();
+    // jsdom has no scrollIntoView — install a spy on the prototype.
+    Element.prototype.scrollIntoView = scrollSpy;
+    mockRanked = [
+      makeCategorized("view.a", "A", "view"),
+      makeCategorized("view.b", "B", "view"),
+    ];
+    useCommandPaletteStore.setState({ isOpen: true });
+    render(<CommandPalette />);
+    const input = screen.getByRole("combobox");
+
+    scrollSpy.mockClear(); // ignore the mount-time scroll of item 0
+    fireEvent.keyDown(input, { key: "ArrowDown" });
+    expect(scrollSpy).toHaveBeenCalledWith({ block: "nearest" });
   });
 });
 
