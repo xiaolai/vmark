@@ -17,7 +17,9 @@
     "reportIssue": "문제 신고"
   },
   "genies": {
-    "openFolder": "지니 폴더 열기"
+    "openFolder": "지니 폴더 열기",
+    "togglePicker": "Toggle Genie Picker",
+    "openPicker": "Search Genies"
   },
   "export": {
     "html": "HTML로 내보내기",

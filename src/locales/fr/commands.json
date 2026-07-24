@@ -17,7 +17,9 @@
     "reportIssue": "Signaler un problème"
   },
   "genies": {
-    "openFolder": "Ouvrir le dossier des génies"
+    "openFolder": "Ouvrir le dossier des génies",
+    "togglePicker": "Toggle Genie Picker",
+    "openPicker": "Search Genies"
   },
   "export": {
     "html": "Exporter en HTML",
