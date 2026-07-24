@@ -213,5 +213,9 @@
     "undo": "실행 취소",
     "unnestBlockquote": "인용구 중첩 해제",
     "wikiLink": "위키 링크"
+  },
+  "explorer": {
+    "toggleHiddenFiles": "숨김 파일 전환",
+    "toggleAllFiles": "모든 파일 전환"
   }
 }

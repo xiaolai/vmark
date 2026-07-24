@@ -20,9 +20,6 @@ vi.mock("@/hooks/useKeybindingRouter", () => ({
 vi.mock("@/hooks/useTabShortcuts", () => ({
   useTabShortcuts: () => calls.push("tabShortcuts"),
 }));
-vi.mock("@/hooks/useFileExplorerShortcuts", () => ({
-  useFileExplorerShortcuts: () => calls.push("fileExplorerShortcuts"),
-}));
 vi.mock("@/hooks/useUniversalToolbar", () => ({
   useUniversalToolbar: () => calls.push("universalToolbar"),
 }));
@@ -50,7 +47,6 @@ describe("useEditorLifecycle", () => {
       "searchCommands",
       "keybindingRouter",
       "tabShortcuts",
-      "fileExplorerShortcuts",
       "universalToolbar",
       "formatsUpgradeNudge",
       "markdownSplitDefault",
@@ -65,7 +61,6 @@ describe("useEditorLifecycle", () => {
       "searchCommands",
       "keybindingRouter",
       "tabShortcuts",
-      "fileExplorerShortcuts",
     ]) {
       expect(bootstrapIdx).toBeLessThan(calls.indexOf(shortcutHook));
     }

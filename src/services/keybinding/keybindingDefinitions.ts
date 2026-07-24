@@ -8,6 +8,7 @@
  * @module services/keybinding/keybindingDefinitions
  */
 
+import { useWorkspaceStore } from "@/stores/workspaceStore";
 import type { Binding, BindingContext } from "./bindingRegistry";
 
 /** View shortcuts are suppressed while a plain INPUT/TEXTAREA is focused (they
@@ -64,6 +65,26 @@ const VIEW_BINDINGS: Binding[] = [
   viewBinding("splitDocuments", "view.toggleSplitDocuments", { suppressInInput: true }),
 ];
 
+/**
+ * File-explorer shortcuts (migrated from useFileExplorerShortcuts): capture-phase
+ * (to pre-empt), workspace-mode only, input-suppressed. IME-blocked.
+ */
+function explorerBinding(shortcutId: string, commandId: string): Binding {
+  return {
+    kind: "command",
+    commandId,
+    shortcutId,
+    scope: "window",
+    when: (ctx) => notInInput(ctx) && !!useWorkspaceStore.getState().rootPath,
+    priority: 0,
+    captureOwner: "window",
+    windowPhase: "capture",
+    repeat: "deny",
+    ime: "block",
+    consumption: "preventDefault",
+  };
+}
+
 /** Build a global window-scope command binding (IME-blocked, no repeat). */
 function globalBinding(shortcutId: string, commandId: string): Binding {
   return {
@@ -88,4 +109,7 @@ export const KEYBINDINGS: readonly Binding[] = [
   globalBinding("contentSearch", "view.contentSearch"),
   globalBinding("quickOpen", "app.quickOpen"),
   ...VIEW_BINDINGS,
+  // File explorer (capture-phase, workspace-only).
+  explorerBinding("toggleHiddenFiles", "explorer.toggleHiddenFiles"),
+  explorerBinding("toggleAllFiles", "explorer.toggleAllFiles"),
 ];

@@ -213,5 +213,9 @@
     "undo": "Rückgängig",
     "unnestBlockquote": "Blockzitat-Verschachtelung aufheben",
     "wikiLink": "Wiki-Link"
+  },
+  "explorer": {
+    "toggleHiddenFiles": "Versteckte Dateien umschalten",
+    "toggleAllFiles": "Alle Dateien umschalten"
   }
 }
