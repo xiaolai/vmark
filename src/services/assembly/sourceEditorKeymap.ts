@@ -18,7 +18,6 @@ import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import { performUnifiedUndo, performUnifiedRedo } from "@/services/history/unifiedHistory";
 import { closeBracketsKeymap } from "@codemirror/autocomplete";
 import { selectNextOccurrenceSource, selectAllOccurrencesSource } from "@/plugins/codemirror/sourceSelectOccurrence";
-import { useUIStore } from "@/stores/uiStore";
 import { markdownPairBackspace, tabEscapeKeymap, tabIndentFallbackKeymap, shiftTabIndentFallbackKeymap, listContinuationKeymap, tableTabKeymap, tableShiftTabKeymap, tableModEnterKeymap, tableModShiftEnterKeymap, tableArrowUpKeymap, tableArrowDownKeymap, visualLineUpKeymap, visualLineDownKeymap, visualLineUpSelectKeymap, visualLineDownSelectKeymap, smartHomeKeymap, smartHomeSelectKeymap, structuralBackspaceKeymap, structuralDeleteKeymap, listSmartIndentKeymap, listSmartOutdentKeymap } from "@/plugins/codemirror";
 import { toggleTaskList } from "@/plugins/sourceContextDetection/taskListActions";
 import { guardCodeMirrorKeyBinding } from "@/utils/imeGuard";
@@ -85,15 +84,10 @@ export function buildSourceKeymapEntries(): Parameters<typeof keymap.of>[0] {
         },
         preventDefault: true,
       }),
-      // Cmd+Option+W: toggle word wrap
-      guardCodeMirrorKeyBinding({
-        key: "Mod-Alt-w",
-        run: () => {
-          useUIStore.getState().toggleWordWrap();
-          return true;
-        },
-        preventDefault: true,
-      }),
+      // Word wrap is owned by the rebindable `wordWrap` window binding (default Alt-z,
+      // view.toggleWordWrap), which resolves in editor-source context too — so the
+      // former hardcoded Mod-Alt-w here was a redundant second chord. Consolidated to
+      // one rebindable authority (gap audit follow-up).
       ...closeBracketsKeymap,
       ...defaultKeymap,
       // Unified undo/redo that works across mode switches. Chords come from the

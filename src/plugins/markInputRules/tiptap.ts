@@ -106,12 +106,10 @@ export const CJKBold = Mark.create({
     };
   },
 
-  addKeyboardShortcuts() {
-    return {
-      "Mod-b": () => this.editor.commands.toggleBold(),
-      "Mod-B": () => this.editor.commands.toggleBold(),
-    };
-  },
+  // No addKeyboardShortcuts: Mod-b is owned by the store-driven editorKeymapExtension
+  // (getShortcut("bold") → runEditorAction, the rebindable expanded-toggle path).
+  // A hardcoded Mod-b here only duplicated it (and was shadowed by the higher-priority
+  // keymap). Consolidated to one authority (gap audit follow-up).
 
   addInputRules() {
     return [
@@ -160,12 +158,8 @@ export const CJKItalic = Mark.create({
     };
   },
 
-  addKeyboardShortcuts() {
-    return {
-      "Mod-i": () => this.editor.commands.toggleItalic(),
-      "Mod-I": () => this.editor.commands.toggleItalic(),
-    };
-  },
+  // No addKeyboardShortcuts: Mod-i is owned by the store-driven editorKeymapExtension
+  // (getShortcut("italic") → runEditorAction). Consolidated to one authority.
 
   addInputRules() {
     return [
