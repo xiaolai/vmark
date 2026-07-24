@@ -70,6 +70,11 @@ function createMockView(opts?: {
       return { type: { name: "doc" } };
     }),
     before: vi.fn(() => 5),
+    // Real ProseMirror ResolvedPos exposes marks(); no link mark in these fixtures,
+    // so the executor-path link-info derivation (getLinkInfoAtCursor) yields null.
+    marks: vi.fn(() => []),
+    start: vi.fn(() => 0),
+    parent: { forEach: vi.fn() },
   };
 
   return {
