@@ -474,8 +474,15 @@ gates) are documented deviations. Net from the "fix everything" pass: 1 real UX 
 drift gate extended to all four surfaces, and — via a new **AppleScript CJK-IME +
 native-accelerator E2E harness** (`dev-docs/e2e-testing.md`) — the native/DOM exactly-once
 guarantee (#6) proven live and the real macOS IME driven end-to-end (typed 你 through
-Shuangpin). Full-chord-corpus IME regression suites and the two flagged consolidations
-(`markInputRules` bold/italic; `wordWrapToggle`) are the only remaining follow-ups.
+Shuangpin).
+
+**Both consolidations the extraction gate surfaced are now DONE:** `markInputRules`'
+duplicate `Mod-b`/`Mod-i` `addKeyboardShortcuts` were removed (owned solely by the
+store-driven `editorKeymapExtension`, which shadowed them); the hardcoded source
+`Mod-Alt-w` word-wrap toggle was removed (word wrap has one rebindable authority — the
+`wordWrap`/Alt-z window binding, now unit-proven to resolve in `editor-source` context);
+the stale `source.wordWrapToggle` mechanic was dropped from `APPROVED_MECHANICS`. Only
+optional full-chord-corpus IME regression suites remain as a nice-to-have.
 
 ## Out of scope
 
