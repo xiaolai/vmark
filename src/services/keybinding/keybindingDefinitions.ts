@@ -9,7 +9,18 @@
  */
 
 import { useWorkspaceStore } from "@/stores/workspaceStore";
-import type { Binding, BindingContext } from "./bindingRegistry";
+import { canonicalizeChordString } from "@/utils/keybinding/canonicalChord";
+import type { Binding, BindingContext, Scope } from "./bindingRegistry";
+
+/** Scopes where a text caret lives — Mod+A there is the editor's own select-all. */
+const TEXT_EDITABLE_SCOPES = new Set<Scope>([
+  "editor-wysiwyg",
+  "editor-source",
+  "input",
+  "terminal",
+]);
+const notTextEditable = (ctx: BindingContext): boolean =>
+  !ctx.activeScopes.some((s) => TEXT_EDITABLE_SCOPES.has(s));
 
 /** View shortcuts are suppressed while a plain INPUT/TEXTAREA is focused (they
  * fire in the editor — an editor focus yields an `editor-*` scope, not `input`).
@@ -112,4 +123,21 @@ export const KEYBINDINGS: readonly Binding[] = [
   // File explorer (capture-phase, workspace-only).
   explorerBinding("toggleHiddenFiles", "explorer.toggleHiddenFiles"),
   explorerBinding("toggleAllFiles", "explorer.toggleAllFiles"),
+  // Select-all containment (migrated from useSelectAllScope): capture-phase
+  // browser-default guard. When focus is NOT text-editable, block the browser's
+  // page-wide Cmd/Ctrl+A; when it IS (editor/input/terminal), do nothing so the
+  // editor's own select-all runs. No command, no stopPropagation. `fixedChord`
+  // (not a rebindable shortcut) — canonicalized for the host platform.
+  {
+    kind: "containment",
+    fixedChord: canonicalizeChordString("Mod-a") ?? "meta+KeyA",
+    scope: "window",
+    when: notTextEditable,
+    priority: 0,
+    captureOwner: "window",
+    windowPhase: "capture",
+    repeat: "allow",
+    ime: "chord-exempt",
+    consumption: "preventDefault",
+  },
 ];

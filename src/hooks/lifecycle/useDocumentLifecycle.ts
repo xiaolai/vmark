@@ -7,7 +7,7 @@
  *
  * Order contract (preserved from pre-T03 App.tsx + DocumentWindowHooks):
  *   useFileOperations → useAutoSave → useDragDropOpen
- *   → useExternalFileChanges → useReloadGuard → useSelectAllScope
+ *   → useExternalFileChanges → useReloadGuard (select-all containment now via the keybinding router)
  *   → useImagePasteToast
  *
  * Mount conditionally — React forbids conditional hook calls, so call
@@ -23,7 +23,6 @@ import { useAutoSave } from "@/hooks/useAutoSave";
 import { useDragDropOpen } from "@/hooks/useDragDropOpen";
 import { useExternalFileChanges } from "@/hooks/useExternalFileChanges";
 import { useReloadGuard } from "@/hooks/useReloadGuard";
-import { useSelectAllScope } from "@/hooks/useSelectAllScope";
 import { useImagePasteToast } from "@/hooks/useImagePasteToast";
 
 export function useDocumentLifecycle(): void {
@@ -32,6 +31,5 @@ export function useDocumentLifecycle(): void {
   useDragDropOpen();
   useExternalFileChanges();
   useReloadGuard();
-  useSelectAllScope();
   useImagePasteToast();
 }
