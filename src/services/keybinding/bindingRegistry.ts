@@ -250,7 +250,12 @@ export function detectConflicts(index: BindingIndex): BindingConflict[] {
     if (bucket.length < 2) continue;
     const groups = new Map<string, Binding[]>();
     for (const b of bucket) {
-      const key = `${b.captureOwner}|${b.scope}|${b.priority}`;
+      // Group by scope SPECIFICITY, not scope NAME: two distinct scopes with the
+      // SAME specificity (e.g. editor-wysiwyg / editor-source, both 40) tie at
+      // resolve time and would throw AmbiguousBindingError if a context ever
+      // carried both — so they must be reported as a potential conflict here
+      // (audit-fix #4). Distinct specificities are ranked, never a tie.
+      const key = `${b.captureOwner}|${SCOPE_SPECIFICITY[b.scope]}|${b.priority}`;
       const g = groups.get(key);
       if (g) g.push(b);
       else groups.set(key, [b]);

@@ -43,6 +43,20 @@ describe("detectConflicts (WI-1.4)", () => {
     expect(detectConflicts(index)).toEqual([]);
   });
 
+  it("FLAGS same chord across distinct scopes of EQUAL specificity (audit-fix #4)", () => {
+    // editor-wysiwyg and editor-source both have specificity 40 — they would TIE at
+    // resolve time (AmbiguousBindingError) if a context ever carried both, so the
+    // conflict must be reported even though the scope NAMES differ.
+    const index = buildIndex(
+      [
+        cmd({ fixedChord: "meta+KeyK", scope: "editor-wysiwyg" }),
+        cmd({ fixedChord: "meta+KeyK", scope: "editor-source" }),
+      ],
+      () => null,
+    );
+    expect(detectConflicts(index)).toHaveLength(1);
+  });
+
   it("does NOT flag same chord/scope with DISTINCT priorities", () => {
     const index = buildIndex(
       [cmd({ fixedChord: "meta+KeyK", priority: 0 }), cmd({ fixedChord: "meta+KeyK", priority: 1 })],
