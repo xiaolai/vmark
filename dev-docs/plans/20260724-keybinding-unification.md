@@ -360,6 +360,38 @@ exactly-once — E2E), Phase 6 (KeyCapture UX + ~105-entry cleanup), Phase 7
 exactly-once — E2E), Phase 6 (KeyCapture UX + ~105-entry cleanup), Phase 7
 (cross-window — E2E), Phase 8 (manifest codegen + docs). Then 3 audit-fix rounds.
 
+## Build log v5 (2026-07-24) — Phase 5, manifest, Phase 6 (6.2), 3 audit rounds
+
+**Banked since v4:** Phase 5 (native-only ownership + exactly-once rejection, WI-5.1/5.2),
+WI-1.5 + Phase 8 (keybinding manifest + `lint:keybinding-manifest` drift gate — the
+rule-41 three-file sync is now machine-enforced), WI-6.2 (canonicalization gate over
+all 123 shortcut defs), and WI-1.3/1.4 (referential-integrity + conflict detection).
+
+**Three cross-model audit rounds (Codex) — 5 active bugs found + fixed:**
+1. **Round 1** (registry/router/context): split-view editor scope read the global
+   `sourceMode` flag → mis-scoped the focused pane; now scoped by focused surface.
+   `installBindings` stale-disposer could tear down a newer installation → token guard.
+2. **Round 2** (editor keymaps → executor): **WI-4.2 regressed keyboard link editing** —
+   `runEditorAction` passes `context.context=null`, so `openLinkEditor` read
+   `inLink=false` and overwrote/toggled an existing link instead of editing it. Fixed by
+   deriving the link at the caret from the live view. (Plus earlier E2E-caught fixes: the
+   `executeCommand` palette-gate dropping keyboard formatting, and the `closeTab`→`closeFile`
+   broken Mod+W binding.)
+3. **Round 3** (command bootstrap / manifest): **no active bugs** (Codex confirmed no id
+   collisions, gate passes, windowLabel correct, no stale-window bug). 5 LATENT robustness
+   findings documented for a fresh-session fix: register* batches use a first-id guard +
+   non-atomic registration (a future id collision could leave a partial batch — convert
+   tab/file/genie to owner-based `registerCommands`); the drift-gate TS parser only matches
+   `id: "..."`-first object literals (reformatting a def could make it fail open — parse via
+   AST); and menu listeners wait on the lazy Pandoc import (pre-existing latency).
+
+**Remaining:** WI-6.1 (KeyCapture should capture `event.code`, not `event.key` — Codex flagged
+shifted-symbol custom rebinds silently failing), WI-8.2 (website `shortcuts.md` + rule-41
+rewrite around the manifest), Phase 7 (cross-window propagation — needs a stable multi-window
+E2E harness; the dev app must be relaunched from this worktree), and the round-3 latent
+robustness fixes. Non-QWERTY physical-vs-logical matching (Codex round 1 #1) is a deliberate
+design choice, not a bug.
+
 ## Out of scope
 
 - MCP-bridge routing (next unit); `Contribution.commands` (ADR-015).
