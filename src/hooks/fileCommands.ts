@@ -13,18 +13,19 @@
  * @module hooks/fileCommands
  */
 
-import { registerCommand, hasCommand } from "@/services/commands/CommandBus";
+import { registerCommands, type CommandDefinition } from "@/services/commands/CommandBus";
 import { handleSave, handleSaveAs, handleMoveTo, handleSaveAllQuit } from "@/hooks/useFileSave";
 import { handleNew, handleOpen } from "@/services/navigation/fileOpen";
 import i18n from "@/i18n";
 
+/** Owner token the whole file-command batch registers under (HMR-safe, atomic). */
+const FILE_COMMANDS_OWNER = "file-commands";
+
 type Ctx = { windowLabel?: string };
 const wl = (ctx: Ctx): string => ctx.windowLabel ?? "main";
 
-/** Register the file lifecycle commands (idempotent, HMR-safe). */
-export function registerFileCommands(): void {
-  if (hasCommand("file.save")) return;
-
+/** Build the file lifecycle command specs (pure — no registration). */
+function buildFileCommandSpecs(): CommandDefinition[] {
   const defs: Array<[string, (windowLabel: string) => void | Promise<void>]> = [
     ["file.save", handleSave],
     ["file.saveAs", handleSaveAs],
@@ -34,12 +35,20 @@ export function registerFileCommands(): void {
     ["file.open", handleOpen],
   ];
 
-  for (const [id, handler] of defs) {
-    registerCommand({
-      id,
-      title: () => i18n.t(`commands:${id}`),
-      category: "file",
-      run: (_a, ctx: Ctx) => handler(wl(ctx)),
-    });
-  }
+  return defs.map(([id, handler]) => ({
+    id,
+    title: () => i18n.t(`commands:${id}`),
+    category: "file",
+    run: (_a, ctx: Ctx) => handler(wl(ctx)),
+  }));
+}
+
+/**
+ * Register the file lifecycle commands as ONE atomic batch under the owner token.
+ * HMR-safe (replace-own) and partial-batch-proof: a mid-batch id collision throws
+ * before anything registers, and a re-mount replaces the whole batch rather than
+ * early-returning on a stale first-id guard.
+ */
+export function registerFileCommands(): void {
+  registerCommands(FILE_COMMANDS_OWNER, buildFileCommandSpecs());
 }
