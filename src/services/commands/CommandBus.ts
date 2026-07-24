@@ -86,9 +86,11 @@ export function unregisterCommand(id: string): void {
  * idempotent re-bootstrap from a foreign collision or recover a partial batch.
  */
 const OWNERS = new Map<string, string>();
-/** Monotonic generation per owner, so a STALE disposer (from a superseded batch)
- * cannot remove the owner's current live batch. */
-const OWNER_GENERATION = new Map<string, number>();
+/** Owner → its CURRENT registration token. A unique `Symbol` per register means a
+ * STALE disposer (from a superseded batch — or one retained across a reset) can
+ * never match the live token, so it cannot remove the owner's current batch. A
+ * numeric counter would be reused after `_resetCommandBus`; a Symbol never is. */
+const OWNER_GENERATION = new Map<string, symbol>();
 
 /**
  * Atomically (re)register a batch of commands under an `owner` token; returns a
@@ -99,9 +101,10 @@ const OWNER_GENERATION = new Map<string, number>();
  *  - REPLACE-OWN: the owner's previous batch is removed first, so a double
  *    bootstrap, an HMR reload, or a partial prior batch all converge to exactly
  *    this batch.
- *  - GENERATION-SCOPED DISPOSER: each register bumps the owner's generation; the
- *    returned disposer removes the batch ONLY while it is still current, so an
- *    out-of-order cleanup of a superseded batch can't tear down the live one.
+ *  - TOKEN-SCOPED DISPOSER: each register stamps the owner with a fresh Symbol;
+ *    the returned disposer removes the batch ONLY while its token is still the
+ *    owner's current one, so an out-of-order cleanup of a superseded batch (or a
+ *    disposer retained across `_resetCommandBus`) can't tear down the live one.
  */
 export function registerCommands(
   owner: string,
@@ -125,10 +128,10 @@ export function registerCommands(
     REGISTRY.set(command.id, command);
     OWNERS.set(command.id, owner);
   }
-  const generation = (OWNER_GENERATION.get(owner) ?? 0) + 1;
-  OWNER_GENERATION.set(owner, generation);
+  const token = Symbol(owner);
+  OWNER_GENERATION.set(owner, token);
   return () => {
-    if (OWNER_GENERATION.get(owner) === generation) unregisterOwner(owner);
+    if (OWNER_GENERATION.get(owner) === token) unregisterOwner(owner);
   };
 }
 

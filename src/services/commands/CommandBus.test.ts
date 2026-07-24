@@ -129,6 +129,40 @@ describe("CommandBus", () => {
       ).toThrow(/[Dd]uplicate/);
       expect(hasCommand("editor.bold")).toBe(false);
     });
+
+    it("a duplicate-id rejection leaves the owner's PRIOR live batch intact", () => {
+      registerCommands(OWNER, [cmd("editor.bold", "Bold")]);
+      expect(() =>
+        registerCommands(OWNER, [cmd("editor.x", "X"), cmd("editor.x", "X dup")]),
+      ).toThrow(/[Dd]uplicate/);
+      expect(hasCommand("editor.bold")).toBe(true); // prior batch untouched
+      expect(hasCommand("editor.x")).toBe(false);
+    });
+
+    it("a disposer captured before _resetCommandBus does not remove a same-owner re-register", () => {
+      const staleDispose = registerCommands(OWNER, [cmd("editor.bold", "Bold v1")]);
+      _resetCommandBus();
+      registerCommands(OWNER, [cmd("editor.bold", "Bold v2")]); // fresh token, not reused
+      staleDispose(); // token no longer current → no-op
+      expect(hasCommand("editor.bold")).toBe(true);
+      expect(getCommand("editor.bold")?.title).toBe("Bold v2");
+    });
+
+    it("one owner's disposer never removes another owner's commands (interleaving)", () => {
+      const disposeA = registerCommands("A", [cmd("a.one", "A1")]);
+      registerCommands("B", [cmd("b.one", "B1")]);
+      disposeA();
+      expect(hasCommand("a.one")).toBe(false);
+      expect(hasCommand("b.one")).toBe(true); // B untouched
+    });
+
+    it("unregisterOwner then re-register: the first disposer is a no-op", () => {
+      const firstDispose = registerCommands(OWNER, [cmd("editor.bold", "Bold")]);
+      unregisterOwner(OWNER);
+      registerCommands(OWNER, [cmd("editor.bold", "Bold v2")]); // fresh token
+      firstDispose();
+      expect(hasCommand("editor.bold")).toBe(true);
+    });
   });
 
   describe("resilient when() evaluation", () => {
@@ -140,9 +174,10 @@ describe("CommandBus", () => {
       expect(results.map((r) => r.command.id)).not.toContain("boom");
     });
 
-    it("a throwing when() makes executeCommand return false, not throw", async () => {
+    it("a throwing when() makes executeCommand return false and never runs the body", async () => {
       registerCommand(cmd("boom", "Boom", { when: () => { throw new Error("nope"); } }));
       await expect(executeCommand("boom")).resolves.toBe(false);
+      expect(noopRun).not.toHaveBeenCalled();
     });
 
     it("unregisterCommand removes the entry", () => {
