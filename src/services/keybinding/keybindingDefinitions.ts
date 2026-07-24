@@ -119,14 +119,15 @@ export const KEYBINDINGS: readonly Binding[] = [
   globalBinding("commandPalette", "app.commandPalette"),
   globalBinding("contentSearch", "view.contentSearch"),
   globalBinding("quickOpen", "app.quickOpen"),
-  // Tabs + status bar (migrated from useTabShortcuts). closeTab replaces the
-  // hardcoded Mod+W — now a real rebindable binding (WI-3.3). newBrowserTab drops
-  // out of the index automatically if unbound (referential integrity).
+  // Tabs + status bar (migrated from useTabShortcuts). closeFile is the Mod+W
+  // "Close" shortcut (the only Mod-w definition) — now a real rebindable binding
+  // driving tab.close (WI-3.3). newBrowserTab drops out of the index automatically
+  // if unbound (referential integrity).
   globalBinding("newTab", "tab.new"),
   globalBinding("newBrowserTab", "browser.newTab"),
   globalBinding("nextTab", "tab.next"),
   globalBinding("prevTab", "tab.prev"),
-  globalBinding("closeTab", "tab.close"),
+  globalBinding("closeFile", "tab.close"),
   globalBinding("toggleStatusBar", "view.toggleStatusBar"),
   // Save / Save As (migrated from useFileShortcuts). On the window listener
   // because menu accelerators are unreliable while Tiptap has focus; the menu
