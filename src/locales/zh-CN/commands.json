@@ -17,7 +17,9 @@
     "reportIssue": "反馈问题"
   },
   "genies": {
-    "openFolder": "打开 Genies 文件夹"
+    "openFolder": "打开 Genies 文件夹",
+    "togglePicker": "Toggle Genie Picker",
+    "openPicker": "Search Genies"
   },
   "export": {
     "html": "导出为 HTML",

@@ -31,6 +31,7 @@ import { registerBrowserCommands } from "@/services/commands/browserCommands";
 import { registerEditorCommands } from "@/services/commands/editorCommandBridge";
 import { registerTabCommands } from "@/hooks/tabCommands";
 import { registerFileCommands } from "@/hooks/fileCommands";
+import { registerGenieCommands } from "@/services/commands/genieCommands";
 import { invoke } from "@tauri-apps/api/core";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { startGrantSync } from "@/services/browser/grantSync";
@@ -63,6 +64,7 @@ const MISC_BINDINGS: MenuCommandBinding[] = [
   { menuEvent: "menu:keyboard-shortcuts", commandId: "help.keyboardShortcuts" },
   { menuEvent: "menu:report-issue", commandId: "help.reportIssue" },
   { menuEvent: "menu:open-genies-folder", commandId: "genies.openFolder" },
+  { menuEvent: "menu:search-genies", commandId: "genies.openPicker" },
 ];
 
 const RECENT_FILES_BINDINGS: MenuCommandBinding[] = [
@@ -121,6 +123,7 @@ export function useCommandBootstrap(): void {
     registerBrowserCommands();
     registerTabCommands();
     registerFileCommands();
+    registerGenieCommands();
     // Lift every editor ActionId into the bus so the palette can find them
     // (WI-3.4). Owner-based batch registration is HMR-safe (replace-own).
     const disposeEditorCommands = registerEditorCommands();
