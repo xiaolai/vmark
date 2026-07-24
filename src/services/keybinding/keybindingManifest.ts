@@ -5,9 +5,10 @@
  * Three files must historically stay in lockstep for every shortcut that has a
  * native menu accelerator (see `.claude/rules/41-keyboard-shortcuts.md`):
  *   1. Frontend defaults — `src/stores/settingsStore/shortcutDefinitions.ts`
- *   2. Rust menu accelerators — `src-tauri/src/menu/localized/*.rs`, contract-pinned
- *      in `src-tauri/src/menu/localized.test.rs` (`DEFAULT_ACCELERATORS` /
- *      `PLATFORM_ACCELERATORS`)
+ *   2. Rust menu accelerators — the REAL menu builder
+ *      `src-tauri/src/menu/localized/*.rs` (`accel("<menu-id>", "<accel>")` call
+ *      sites), contract-pinned in `src-tauri/src/menu/localized.test.rs`
+ *      (`DEFAULT_ACCELERATORS` / `PLATFORM_ACCELERATORS`)
  *   3. Docs table — `website/guide/shortcuts.md`
  *
  * This manifest names that synced subset in one place. Every entry is derived
@@ -15,12 +16,13 @@
  * native menu item). The drift gate `scripts/check-keybinding-manifest.mjs`
  * (wired into `pnpm check:all` as `lint:keybinding-manifest`) enforces, for each
  * entry, that:
- *   - `defaultKey` / `defaultKeyOther` match the `shortcutDefinitions.ts` entry, and
- *   - the entry's `menuId` accelerator in the Rust contract table equals
- *     `prosemirrorToTauri(defaultKey)` (and `prosemirrorToTauri(defaultKeyOther)`
- *     for platform-conditional entries).
+ *   - `defaultKey` / `defaultKeyOther` match the `shortcutDefinitions.ts` entry,
+ *   - the entry's `menuId` accelerator in BOTH the Rust contract mirror AND the
+ *     real `localized/*.rs` `accel(...)` call site equals `prosemirrorToTauri(defaultKey)`
+ *     (and `prosemirrorToTauri(defaultKeyOther)` for platform-conditional entries), and
+ *   - the accelerator is documented in `website/guide/shortcuts.md`.
  * The gate fails on any divergence, so this file cannot silently drift from the
- * other two sources.
+ * other three sources.
  *
  * Excluded on purpose: `aiPrompts` (`menuId: "search-genies"`). Its menu
  * accelerator is registered dynamically at runtime (`useGenieShortcuts`), so it
