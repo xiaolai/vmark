@@ -11,7 +11,7 @@
  * (visual toast).
  *
  *   useCommandBootstrap (menu→command) → useSearchCommands
- *   → useViewShortcuts → useTabShortcuts → useFileExplorerShortcuts
+ *   → useKeybindingRouter → useTabShortcuts → useFileExplorerShortcuts
  *   → useUniversalToolbar → useFormatsUpgradeNudge
  *
  * Called unconditionally from MainLayout.
@@ -21,7 +21,7 @@
 
 import { useCommandBootstrap } from "@/hooks/useCommandBootstrap";
 import { useSearchCommands } from "@/hooks/useSearchCommands";
-import { useViewShortcuts } from "@/hooks/useViewShortcuts";
+import { useKeybindingRouter } from "@/hooks/useKeybindingRouter";
 import { useTabShortcuts } from "@/hooks/useTabShortcuts";
 import { useFileExplorerShortcuts } from "@/hooks/useFileExplorerShortcuts";
 import { useUniversalToolbar } from "@/hooks/useUniversalToolbar";
@@ -32,7 +32,7 @@ import { useViewMenuStateSync } from "@/hooks/useViewMenuStateSync";
 export function useEditorLifecycle(): void {
   useCommandBootstrap();
   useSearchCommands();
-  useViewShortcuts();
+  useKeybindingRouter();
   useTabShortcuts();
   useFileExplorerShortcuts();
   useUniversalToolbar();
