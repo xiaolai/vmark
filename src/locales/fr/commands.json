@@ -29,7 +29,13 @@
   },
   "file": {
     "clearRecent": "Effacer les fichiers récents",
-    "openRecent": "Ouvrir un fichier récent"
+    "openRecent": "Ouvrir un fichier récent",
+    "save": "Enregistrer",
+    "saveAs": "Enregistrer sous…",
+    "moveTo": "Déplacer vers…",
+    "saveAllQuit": "Tout enregistrer et quitter",
+    "new": "Nouveau fichier",
+    "open": "Ouvrir…"
   },
   "workspace": {
     "openFolder": "Ouvrir un espace de travail…",

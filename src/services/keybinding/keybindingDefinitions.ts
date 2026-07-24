@@ -128,6 +128,11 @@ export const KEYBINDINGS: readonly Binding[] = [
   globalBinding("prevTab", "tab.prev"),
   globalBinding("closeTab", "tab.close"),
   globalBinding("toggleStatusBar", "view.toggleStatusBar"),
+  // Save / Save As (migrated from useFileShortcuts). On the window listener
+  // because menu accelerators are unreliable while Tiptap has focus; the menu
+  // events route to the same commands via useCommandBootstrap.
+  globalBinding("save", "file.save"),
+  globalBinding("saveAs", "file.saveAs"),
   ...VIEW_BINDINGS,
   // File explorer (capture-phase, workspace-only).
   explorerBinding("toggleHiddenFiles", "explorer.toggleHiddenFiles"),
