@@ -68,8 +68,12 @@ by-design blocked with no consumer.
 | 2 | Command-registry unification | `../20260723-command-registry-unification.md` | ✅ **COMPLETE** (2026-07-24) — Phases 0–5 |
 | 3 | Keybinding unification | `../20260724-keybinding-unification.md` | ✅ **COMPLETE** (2026-07-24) — 8 phases + 3 audit rounds (ADR-018) |
 | 4 | Palette multi-selection fidelity | `../20260723-command-registry-unification.md` §Phase 2 | ✅ **COMPLETE** (2026-07-25) — closed WI-2.2 residuals (a)(b): palette now delegates to the adapters' `canRunActionInMultiSelection` |
-| **5 — next** | **WI-3.4 explicit ordering constraints** (126 steps: 77 + 49) | `../20260722-extension-architecture.md` §WI-3.4 | ⏳ **The one buildable unit left.** Encode an explicit `Prec` bucket or named `before`/`after` on each order-sensitive extension entry across both composition roots (+ a test each), then alphabetize so array position is no longer load-bearing |
+| 5 | WI-3.4 explicit ordering constraints (total-order pin) | `../20260722-extension-architecture.md` §WI-3.4 | ✅ **COMPLETE** (2026-07-25) — both roots pin order via `after` constraints derived from `compositionOrder.ts` and sort their arrays alphabetically; array position no longer load-bearing (permutation-invariance + real-composition order tests) |
 | blocked | Extension Tier A–C + Phase 0B security residuals (WI-5.2–5.5, 0B.1/0B.3/0B.4) | `../20260722-extension-architecture.md` | ⏸️ **Not queued (ADR-016).** Need a caller principal / isolation boundary that cannot exist inside a single JS context, or a package contract that creates a consumer. Reopen only then |
+
+**The planned build sequence is complete** (2026-07-25). Every buildable unit is
+banked into `refactor/vmark-core`; only the ADR-016-blocked tiers remain, and they
+have no consumer. Next is the post-roadmap decision below, not more building.
 
 One refactor is completed and merged back before the next begins — the
 build-alongside discipline, just against the local integration branch instead of

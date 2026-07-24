@@ -182,6 +182,9 @@ import {
   readOnlyCompartment,
   showInvisiblesCompartment,
 } from "./sourceEditorExtensions";
+import { SOURCE_COMPOSITION_ORDER } from "./compositionOrder";
+import { resolveExtensions } from "@/lib/extensions/resolve";
+import { deriveAfterConstraints } from "./extensionOrdering";
 import { keymap } from "@codemirror/view";
 // selectNextOccurrenceSource and selectAllOccurrencesSource are hoisted mocks above
 
@@ -241,6 +244,36 @@ describe("createSourceEditorExtensions", () => {
     expect(exts).toContain("alertDecoration");
     expect(exts).toContain("detailsDecoration");
     expect(exts).toContain("mediaDecoration");
+  });
+});
+
+describe("WI-3.4 — source composition order is pinned, not positional", () => {
+  function resolveIds(ids: readonly string[]): string[] {
+    const after = deriveAfterConstraints(SOURCE_COMPOSITION_ORDER, ids);
+    const { ordered, errors } = resolveExtensions(
+      ids.map((id) => ({
+        id,
+        contributions: [{ kind: "codemirror", factory: () => id }],
+        ordering: after.has(id) ? { after: after.get(id) } : undefined,
+      })),
+    );
+    expect(errors).toEqual([]);
+    return ordered.map((d) => d.id);
+  }
+
+  it("has 49 unique canonical entries", () => {
+    expect(SOURCE_COMPOSITION_ORDER.length).toBe(49);
+    expect(new Set(SOURCE_COMPOSITION_ORDER).size).toBe(49);
+  });
+
+  it("alphabetical input resolves to the canonical order", () => {
+    expect(resolveIds([...SOURCE_COMPOSITION_ORDER].sort())).toEqual([...SOURCE_COMPOSITION_ORDER]);
+  });
+
+  it("reversed input resolves to the canonical order (position not load-bearing)", () => {
+    expect(resolveIds([...SOURCE_COMPOSITION_ORDER].reverse())).toEqual([
+      ...SOURCE_COMPOSITION_ORDER,
+    ]);
   });
 });
 

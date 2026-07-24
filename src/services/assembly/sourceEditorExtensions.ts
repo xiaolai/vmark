@@ -5,8 +5,11 @@
  *
  * Composition goes through `resolveExtensions` (ADR-015 D1): each entry carries
  * an explicit id, and the resolver — not array position — produces the final
- * order. The result is flattened one level so entries that were `...spread`
- * before keep their original shape. The keymap lives in sourceEditorKeymap.ts.
+ * order. WI-3.4: order is pinned by explicit `after` constraints derived from
+ * `SOURCE_COMPOSITION_ORDER` (`compositionOrder.ts`), so the `parts` array is
+ * sorted alphabetically before composition. The result is flattened one level so
+ * entries that were `...spread` before keep their original shape. The keymap
+ * lives in sourceEditorKeymap.ts.
  * markdown language support, custom keymaps, themes, decorations (media tags), and plugins.
  *
  * Key decisions:
@@ -71,6 +74,8 @@ import {
 } from "@/plugins/codemirror";
 import { buildSourceKeymapEntries } from "./sourceEditorKeymap";
 import { resolveExtensions } from "@/lib/extensions/resolve";
+import { deriveAfterConstraints, assertCanonicalCoverage } from "./extensionOrdering";
+import { SOURCE_COMPOSITION_ORDER } from "./compositionOrder";
 import type { VMarkExtension } from "@/lib/extensions/types";
 import { buildSourceShortcutKeymap } from "@/plugins/codemirror/sourceShortcuts";
 import { sourceEditorContextMenuExtension } from "@/plugins/codemirror/editorContextMenu";
@@ -278,10 +283,27 @@ export function createSourceEditorExtensions(config: ExtensionConfig): Extension
     },
   ];
 
-  const descriptors: VMarkExtension[] = parts.map(({ id, ext }) => ({
-    id,
-    contributions: [{ kind: "codemirror", factory: () => ext }],
-  }));
+  // WI-3.4: array position is no longer load-bearing. The order is declared once
+  // in SOURCE_COMPOSITION_ORDER and pinned via explicit `after` constraints, so
+  // the array is sorted alphabetically before composition and the resolver still
+  // reproduces the canonical order exactly. `assertCanonicalCoverage` fails loud
+  // if `parts` and the canonical list ever drift apart.
+  assertCanonicalCoverage(
+    "source",
+    SOURCE_COMPOSITION_ORDER,
+    parts.map((p) => p.id),
+  );
+  const after = deriveAfterConstraints(
+    SOURCE_COMPOSITION_ORDER,
+    parts.map((p) => p.id),
+  );
+  const descriptors: VMarkExtension[] = [...parts]
+    .sort((a, b) => a.id.localeCompare(b.id))
+    .map(({ id, ext }) => ({
+      id,
+      contributions: [{ kind: "codemirror", factory: () => ext }],
+      ordering: after.has(id) ? { after: after.get(id) } : undefined,
+    }));
 
   const { ordered, errors } = resolveExtensions(descriptors);
   if (errors.length > 0) {
