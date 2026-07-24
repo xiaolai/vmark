@@ -64,7 +64,8 @@
     "toggleWindowStatus": "창 상태",
     "toggleBreakdown": "정합성 내역",
     "toggleClaims": "캐논 설정",
-    "contentSearch": "파일에서 찾기"
+    "contentSearch": "파일에서 찾기",
+    "toggleSidebar": "사이드바 전환"
   },
   "lint": {
     "check": "Markdown 검사",
