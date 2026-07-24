@@ -17,7 +17,9 @@
     "reportIssue": "回報問題"
   },
   "genies": {
-    "openFolder": "開啟精靈資料夾"
+    "openFolder": "開啟精靈資料夾",
+    "togglePicker": "Toggle Genie Picker",
+    "openPicker": "Search Genies"
   },
   "export": {
     "html": "匯出為 HTML",

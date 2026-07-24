@@ -17,7 +17,9 @@
     "reportIssue": "Segnala un problema"
   },
   "genies": {
-    "openFolder": "Apri cartella dei geni"
+    "openFolder": "Apri cartella dei geni",
+    "togglePicker": "Toggle Genie Picker",
+    "openPicker": "Search Genies"
   },
   "export": {
     "html": "Esporta come HTML",

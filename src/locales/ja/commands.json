@@ -17,7 +17,9 @@
     "reportIssue": "問題を報告"
   },
   "genies": {
-    "openFolder": "ジーニーフォルダを開く"
+    "openFolder": "ジーニーフォルダを開く",
+    "togglePicker": "Toggle Genie Picker",
+    "openPicker": "Search Genies"
   },
   "export": {
     "html": "HTML として書き出し",

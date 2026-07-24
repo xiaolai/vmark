@@ -133,6 +133,10 @@ export const KEYBINDINGS: readonly Binding[] = [
   // events route to the same commands via useCommandBootstrap.
   globalBinding("save", "file.save"),
   globalBinding("saveAs", "file.saveAs"),
+  // AI genie picker (migrated from useGenieShortcuts' Cmd+Y keydown). Toggles
+  // the per-window picker; the "Search Genies…" menu event routes to the
+  // sibling genies.openPicker command via useCommandBootstrap.
+  globalBinding("aiPrompts", "genies.togglePicker"),
   ...VIEW_BINDINGS,
   // File explorer (capture-phase, workspace-only).
   explorerBinding("toggleHiddenFiles", "explorer.toggleHiddenFiles"),
