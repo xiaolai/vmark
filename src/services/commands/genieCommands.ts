@@ -14,11 +14,14 @@
  */
 
 import i18n from "@/i18n";
-import { hasCommand, registerCommand } from "./CommandBus";
+import { registerCommands, type CommandDefinition } from "./CommandBus";
 import { useGeniePickerStore } from "@/stores/geniePickerStore";
 import { useEditorStore } from "@/stores/editorStore";
 import { useUIStore } from "@/stores/uiStore";
 import type { GenieScope } from "@/types/aiGenies";
+
+/** Owner token the whole genie-command batch registers under (HMR-safe, atomic). */
+const GENIE_COMMANDS_OWNER = "genie-commands";
 
 /**
  * Detect the genie scope from the current editor selection. Source mode and the
@@ -32,25 +35,34 @@ export function detectScope(): GenieScope | undefined {
   return editor.state.selection.empty ? undefined : "selection";
 }
 
-/** Register the genie picker commands (idempotent, HMR-safe). */
-export function registerGenieCommands(): void {
-  if (hasCommand("genies.togglePicker")) return;
-
-  registerCommand({
-    id: "genies.togglePicker",
-    title: () => i18n.t("commands:genies.togglePicker"),
-    category: "ai",
-    run: () => {
-      const store = useGeniePickerStore.getState();
-      if (store.isOpen) store.closePicker();
-      else store.openPicker({ filterScope: detectScope() });
+/** Build the genie picker command specs (pure — no registration). */
+function buildGenieCommandSpecs(): CommandDefinition[] {
+  return [
+    {
+      id: "genies.togglePicker",
+      title: () => i18n.t("commands:genies.togglePicker"),
+      category: "ai",
+      run: () => {
+        const store = useGeniePickerStore.getState();
+        if (store.isOpen) store.closePicker();
+        else store.openPicker({ filterScope: detectScope() });
+      },
     },
-  });
+    {
+      id: "genies.openPicker",
+      title: () => i18n.t("commands:genies.openPicker"),
+      category: "ai",
+      run: () => useGeniePickerStore.getState().openPicker({ filterScope: detectScope() }),
+    },
+  ];
+}
 
-  registerCommand({
-    id: "genies.openPicker",
-    title: () => i18n.t("commands:genies.openPicker"),
-    category: "ai",
-    run: () => useGeniePickerStore.getState().openPicker({ filterScope: detectScope() }),
-  });
+/**
+ * Register the genie picker commands as ONE atomic batch under the owner token.
+ * HMR-safe (replace-own) and partial-batch-proof: a mid-batch id collision throws
+ * before anything registers, and a re-mount replaces the whole batch rather than
+ * early-returning on a stale first-id guard.
+ */
+export function registerGenieCommands(): void {
+  registerCommands(GENIE_COMMANDS_OWNER, buildGenieCommandSpecs());
 }

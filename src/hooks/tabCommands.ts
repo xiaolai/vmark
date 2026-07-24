@@ -12,7 +12,7 @@
  * @module hooks/tabCommands
  */
 
-import { registerCommand, hasCommand } from "@/services/commands/CommandBus";
+import { registerCommands, type CommandDefinition } from "@/services/commands/CommandBus";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useUIStore } from "@/stores/uiStore";
@@ -21,28 +21,31 @@ import { cycleTabId } from "@/utils/tabCycling";
 import { fileOpsError } from "@/utils/debug";
 import i18n from "@/i18n";
 
+/** Owner token the whole tab-command batch registers under (HMR-safe, atomic). */
+const TAB_COMMANDS_OWNER = "tab-commands";
+
 type Ctx = { windowLabel?: string };
 const wl = (ctx: Ctx): string => ctx.windowLabel ?? "main";
 
-/** Register the tab lifecycle + status-bar commands (idempotent, HMR-safe). */
-export function registerTabCommands(): void {
-  if (hasCommand("tab.new")) return;
-
-  registerCommand({
-    id: "tab.new",
-    title: () => i18n.t("commands:tab.new"),
-    category: "file",
-    run: (_a, ctx: Ctx) => {
-      const tabId = useTabStore.getState().createTab(wl(ctx), null);
-      useDocumentStore.getState().initDocument(tabId, "", null);
+/** Build the tab lifecycle + status-bar command specs (pure — no registration). */
+function buildTabCommandSpecs(): CommandDefinition[] {
+  const specs: CommandDefinition[] = [
+    {
+      id: "tab.new",
+      title: () => i18n.t("commands:tab.new"),
+      category: "file",
+      run: (_a, ctx: Ctx) => {
+        const tabId = useTabStore.getState().createTab(wl(ctx), null);
+        useDocumentStore.getState().initDocument(tabId, "", null);
+      },
     },
-  });
+  ];
 
   for (const [id, direction] of [
     ["tab.next", "next"],
     ["tab.prev", "previous"],
   ] as const) {
-    registerCommand({
+    specs.push({
       id,
       title: () => i18n.t(`commands:${id}`),
       category: "file",
@@ -56,7 +59,7 @@ export function registerTabCommands(): void {
     });
   }
 
-  registerCommand({
+  specs.push({
     id: "tab.close",
     title: () => i18n.t("commands:tab.close"),
     category: "file",
@@ -71,7 +74,7 @@ export function registerTabCommands(): void {
     },
   });
 
-  registerCommand({
+  specs.push({
     id: "view.toggleStatusBar",
     title: () => i18n.t("commands:view.toggleStatusBar"),
     category: "view",
@@ -86,4 +89,16 @@ export function registerTabCommands(): void {
       ui.setStatusBarVisible(!isCurrentlyVisible);
     },
   });
+
+  return specs;
+}
+
+/**
+ * Register the tab lifecycle + status-bar commands as ONE atomic batch under the
+ * owner token. HMR-safe (replace-own) and partial-batch-proof: a mid-batch id
+ * collision throws before anything registers, and a re-mount replaces the whole
+ * batch rather than early-returning on a stale first-id guard.
+ */
+export function registerTabCommands(): void {
+  registerCommands(TAB_COMMANDS_OWNER, buildTabCommandSpecs());
 }

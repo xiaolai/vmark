@@ -47,7 +47,7 @@ describe("registerTabCommands", () => {
     for (const id of ["tab.new", "tab.next", "tab.prev", "tab.close", "view.toggleStatusBar"]) {
       expect(getCommand(id)).toBeDefined();
     }
-    expect(() => registerTabCommands()).not.toThrow(); // hasCommand guard
+    expect(() => registerTabCommands()).not.toThrow(); // owner-based replace-own idempotency
   });
 
   it("tab.new creates a tab and inits an empty document", async () => {
