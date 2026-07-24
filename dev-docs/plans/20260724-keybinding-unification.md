@@ -407,8 +407,12 @@ Every phase is implemented, tested, and banked to `refactor/vmark-core` (green
   chords); 6.2 canonicalization gate over all 123 defs.
 - **Phase 7** — cross-window propagation, verified end-to-end
   (`crossWindowPropagation.test.ts`): a rebind arrives as a shared-localStorage
-  `storage` event → `useShortcutsSync` → store → registry rebuild. Satisfied by
-  construction (registry store-subscription + the existing sync bridge).
+  `storage` event → `useShortcutsSync` → store → registry rebuild. **Live two-window
+  GUI E2E confirmed** the platform half the integration test mocks: writing a rebind to
+  `localStorage` in one document window (`doc-1`) fired a `storage` event in the other
+  (`doc-0`) carrying the rebind payload, and both windows saw the shared value — Tauri v2
+  webviews share localStorage and propagate cross-window events. Satisfied by construction
+  (registry store-subscription + the existing sync bridge), integration- AND GUI-verified.
 - **Phase 8** — manifest + `lint:keybinding-manifest` drift gate; rule 41 rewritten
   around the manifest (WI-8.2).
 - **3 cross-model audit rounds (Codex)** — 5 active bugs found + fixed (split-view
@@ -417,11 +421,9 @@ Every phase is implemented, tested, and banked to `refactor/vmark-core` (green
 
 **Documented deferrals (latent / design, not blockers):** the deeper WI-6.1 (capture
 `event.code` for non-QWERTY physical fidelity — a storage-format change; the silent-fail
-is now blocked at capture time), the drift-gate TS parser AST hardening (round-3 #5,
-fail-open only on reformatted defs), and full multi-window GUI E2E for Phase 7 (the
-propagation chain is integration-verified; GUI E2E is additional confidence and needs a
-stable dev app relaunched from this worktree). Non-QWERTY physical-vs-logical matching is
-a deliberate design choice.
+is now blocked at capture time) and the drift-gate TS parser AST hardening (round-3 #5,
+fail-open only on reformatted defs). Non-QWERTY physical-vs-logical matching is a
+deliberate design choice. (Phase 7 GUI E2E — previously deferred — is now DONE, above.)
 
 ## Out of scope
 
