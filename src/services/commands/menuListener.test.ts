@@ -159,3 +159,29 @@ describe("mountMenuCommands — cleanup (#957)", () => {
     expect(safeUnlistenAllMock).toHaveBeenCalledWith(unlistenSpies);
   });
 });
+
+// WI-2.3 — one menu event, one dispatcher: duplicate bindings rejected at mount.
+describe("mountMenuCommands — duplicate rejection (WI-2.3)", () => {
+  it("throws on a duplicate normalized menu event, mounting nothing", async () => {
+    listenSpy.mockClear();
+    await expect(
+      mountMenuCommands([
+        { menuEvent: "menu:save", commandId: "file.save" },
+        { menuEvent: "save", commandId: "file.saveOther" }, // same event, un-prefixed
+      ]),
+    ).rejects.toThrow(/Duplicate menu binding for "menu:save"/);
+    expect(listenSpy).not.toHaveBeenCalled(); // preflight fails before any listen
+  });
+
+  it("accepts a batch with all-distinct events", async () => {
+    listenSpy.mockClear();
+    listenSpy.mockResolvedValue(vi.fn());
+    await expect(
+      mountMenuCommands([
+        { menuEvent: "menu:save", commandId: "file.save" },
+        { menuEvent: "menu:open", commandId: "file.open" },
+      ]),
+    ).resolves.toBeTypeOf("function");
+    expect(listenSpy).toHaveBeenCalledTimes(2);
+  });
+});
