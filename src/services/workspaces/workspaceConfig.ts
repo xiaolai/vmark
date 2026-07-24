@@ -5,7 +5,7 @@
  *   updates into the current config and persists via Rust command.
  *
  * @coordinates-with workspaceStore.ts — in-memory config state
- * @module hooks/workspaceConfig
+ * @module services/workspaces/workspaceConfig
  */
 
 import { invoke } from "@tauri-apps/api/core";

@@ -11,6 +11,7 @@
 import { hasCommand, registerCommand } from "./CommandBus";
 import { registerPaneCommands, __resetPaneCommandsRegistration } from "./paneCommands";
 import { useUIStore } from "@/stores/uiStore";
+import { toggleShowHiddenFiles, toggleShowAllFiles } from "@/services/workspaces/workspaceConfig";
 import { useContentServerStore } from "@/stores/contentServerStore";
 import { useWindowStatusStore } from "@/stores/windowStatusStore";
 import { useBreakdownStore } from "@/stores/breakdownStore";
@@ -60,6 +61,20 @@ export function registerViewCommands(): void {
     title: () => i18n.t("commands:view.contentSearch"),
     category: "view",
     run: () => useUIStore.getState().contentSearchOpen(),
+  });
+
+  registerCommand({
+    id: "explorer.toggleHiddenFiles",
+    title: () => i18n.t("commands:explorer.toggleHiddenFiles"),
+    category: "view",
+    run: () => toggleShowHiddenFiles(),
+  });
+
+  registerCommand({
+    id: "explorer.toggleAllFiles",
+    title: () => i18n.t("commands:explorer.toggleAllFiles"),
+    category: "view",
+    run: () => toggleShowAllFiles(),
   });
 
   registerCommand({

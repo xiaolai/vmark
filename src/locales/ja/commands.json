@@ -213,5 +213,9 @@
     "undo": "元に戻す",
     "unnestBlockquote": "引用のネストを解除",
     "wikiLink": "Wikiリンク"
+  },
+  "explorer": {
+    "toggleHiddenFiles": "隠しファイルを切り替え",
+    "toggleAllFiles": "すべてのファイルを切り替え"
   }
 }
