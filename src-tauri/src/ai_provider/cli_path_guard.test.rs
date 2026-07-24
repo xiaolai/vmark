@@ -70,7 +70,10 @@ fn rejects_parent_directory_traversal() {
 fn rejects_arbitrary_interpreter() {
     // The documented hole: cli_path="/bin/sh" turns an AI request into RCE.
     let err = validate_cli_path("claude", Some("/bin/sh")).unwrap_err();
-    assert!(err.contains("claude"), "error should name the expected binary: {err}");
+    assert!(
+        err.contains("claude"),
+        "error should name the expected binary: {err}"
+    );
 }
 
 #[test]

@@ -16,8 +16,8 @@
 //! - `rest_providers` -- REST provider prompt execution
 //! - `dispatch`       -- `ProviderRequest` + provider dispatch shared by both entry points
 
-mod cli_path_guard;
 mod cli;
+mod cli_path_guard;
 mod detection;
 mod dispatch;
 mod endpoint;
