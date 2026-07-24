@@ -302,6 +302,38 @@ extraction) — not a fatigued rush.
    editor actions via the executor gate (not the palette `when`), while other
    commands go through `executeCommand`.
 
+## Build log v3 (2026-07-24) — Phase 3 complete (9/9 hooks); Phase 2 merged
+
+**Phase 3 COMPLETE — all 9 window keydown hooks migrated + banked to vmark-core:**
+command-palette, content-search, quick-open, view-toggles (18), file-explorer (2),
+select-all containment, tabs (Mod+W now rebindable), **file save/open**, and
+**AI genie picker**. The registry holds **33 bindings** (12 global + 18 view + 2
+explorer + 1 containment). Both mid-build blockers are RESOLVED:
+1. **Router mounting scope** — router moved to `useEditorLifecycle` (per document
+   window). Palette/quick-open/content-search/genie became per-window; verified
+   safe because each Tauri window is a separate webview with its own Zustand store
+   instances, so the "global singleton" overlay stores are effectively per-window.
+   This lifted the former main-window-only limitation (a latent bug), not a
+   regression.
+2. **Menu-dispatch gate policy** — see Phase 2 below.
+
+**Phase 2 COMPLETE — one menu dispatcher (WI-2.1/2.2):** `useUnifiedMenuCommands`
+deleted; its 86 editor `menu:{id}` events folded into `mountMenuCommands` via a new
+`editorAction` binding kind. Source-aware dispatch: editor actions run
+`runEditorAction` (executor `isActionExecutable` gate) + the menu-only focus gate,
+NEVER `executeCommand`'s stricter palette `when()`; command bindings keep
+`executeCommand`. One mount-time duplicate-rejection pass now covers the whole
+menu space. `dispatchMenuAction` lives in `menuListener.ts` (separate from
+`runEditorAction` so the bus↔menu differential gate can mock the executor). The
+61-test hook suite migrated to `menuListener.editorActions.test.tsx`. **E2E-verified**
+against the running dev app (Tauri MCP): `menu:insert-table` → exactly one table;
+`menu:undo` → removed via unified history — behavior-neutral, exactly-once.
+
+**Remaining:** Phase 1 tail (WI-1.3 classification / WI-1.4 conflict model / WI-1.5
+manifest), Phase 4 (editor keymaps through the bus), Phase 5 (native/WKWebView
+exactly-once — E2E), Phase 6 (KeyCapture UX + ~105-entry cleanup), Phase 7
+(cross-window — E2E), Phase 8 (manifest codegen + docs).
+
 ## Out of scope
 
 - MCP-bridge routing (next unit); `Contribution.commands` (ADR-015).
