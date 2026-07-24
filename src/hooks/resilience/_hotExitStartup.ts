@@ -10,11 +10,11 @@
  */
 
 import { useEffect, useRef } from 'react';
-import { checkAndRestoreSession } from '../hotExit/restartWithHotExit';
+import { checkAndRestoreSession } from '@/services/persistence/hotExit/restartWithHotExit';
 import {
   setRestoreInProgress,
   notifyRestoreComplete,
-} from '../hotExit/hotExitCoordination';
+} from '@/services/persistence/hotExit/hotExitCoordination';
 import { hotExitLog } from '@/utils/debug';
 
 export function useHotExitStartup() {

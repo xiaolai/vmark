@@ -5,4 +5,4 @@
 export { executeCommand, searchCommands } from "./CommandBus";
 export type { RankedCommand, CommandContext } from "./CommandBus";
 export { resolveLocalizedString } from "./CommandBus";
-export { useCommandBootstrap } from "./useCommandBootstrap";
+// useCommandBootstrap is a React hook — it lives in hooks/ (ADR-013), not here.

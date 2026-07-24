@@ -31,28 +31,28 @@ const registerFormat = vi.fn();
 const disposeEditor = vi.fn();
 const registerEditor = vi.fn(() => disposeEditor);
 
-vi.mock("./menuListener", () => ({
+vi.mock("@/services/commands/menuListener", () => ({
   mountMenuCommands: (...args: unknown[]) => mountMenuCommandsMock(...args),
 }));
-vi.mock("./exportCommands", () => ({
+vi.mock("@/services/commands/exportCommands", () => ({
   registerExportCommands: () => registerExport(),
   registerPandocFormatCommands: () => registerPandocMock(),
 }));
-vi.mock("./miscCommands", () => ({ registerMiscCommands: () => registerMisc() }));
-vi.mock("./workspaceCommands", () => ({
+vi.mock("@/services/commands/miscCommands", () => ({ registerMiscCommands: () => registerMisc() }));
+vi.mock("@/services/commands/workspaceCommands", () => ({
   registerWorkspaceCommands: () => registerWorkspace(),
 }));
-vi.mock("./recentFilesCommands", () => ({
+vi.mock("@/services/commands/recentFilesCommands", () => ({
   registerRecentFilesCommands: () => registerRecentFiles(),
 }));
-vi.mock("./recentWorkspacesCommands", () => ({
+vi.mock("@/services/commands/recentWorkspacesCommands", () => ({
   registerRecentWorkspacesCommands: () => registerRecentWorkspaces(),
 }));
-vi.mock("./viewCommands", () => ({ registerViewCommands: () => registerView() }));
-vi.mock("./formatCommands", () => ({
+vi.mock("@/services/commands/viewCommands", () => ({ registerViewCommands: () => registerView() }));
+vi.mock("@/services/commands/formatCommands", () => ({
   registerFormatCommands: () => registerFormat(),
 }));
-vi.mock("./editorCommandBridge", () => ({ registerEditorCommands: () => registerEditor() }));
+vi.mock("@/services/commands/editorCommandBridge", () => ({ registerEditorCommands: () => registerEditor() }));
 vi.mock("@/utils/debug", () => ({ menuError: (...args: unknown[]) => menuErrorMock(...args) }));
 
 import { useCommandBootstrap } from "./useCommandBootstrap";

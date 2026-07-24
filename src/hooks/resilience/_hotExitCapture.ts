@@ -11,17 +11,17 @@ import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { useTabStore } from '@/stores/tabStore';
 import { useDocumentStore, useUnifiedHistoryStore } from '@/stores/documentStore';
 import { useUIStore } from '@/stores/uiStore';
-import type { WindowState, TabState, CaptureRequest, CaptureResponse } from '../hotExit/types';
-import { HOT_EXIT_EVENTS, MAIN_WINDOW_LABEL } from '../hotExit/types';
+import type { WindowState, TabState, CaptureRequest, CaptureResponse } from '@/services/persistence/hotExit/types';
+import { HOT_EXIT_EVENTS, MAIN_WINDOW_LABEL } from '@/services/persistence/hotExit/types';
 import { hotExitWarn, hotExitError } from '@/utils/debug';
-import { captureWindowWorkspaceInstances } from '../hotExit/workspaceInstances';
-import { captureWindowGeometry } from './windowGeometry';
+import { captureWindowWorkspaceInstances } from '@/services/persistence/hotExit/workspaceInstances';
+import { captureWindowGeometry } from '@/services/persistence/resilience/windowGeometry';
 import {
   extractUntitledNumber,
   toHotExitCheckpoint,
   toHotExitCursorInfo,
   toHotExitLineEnding,
-} from './_hotExitCaptureConvert';
+} from '@/services/persistence/resilience/_hotExitCaptureConvert';
 
 /**
  * Gather UI state from stores (safe - catches errors)
