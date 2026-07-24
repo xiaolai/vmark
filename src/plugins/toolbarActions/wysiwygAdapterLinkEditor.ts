@@ -12,7 +12,7 @@
  * @module plugins/toolbarActions/wysiwygAdapterLinkEditor
  */
 import type { EditorView } from "@tiptap/pm/view";
-import { expandedToggleMarkTiptap } from "@/plugins/editorPlugins.tiptap";
+import { expandedToggleMark as expandedToggleMarkTiptap } from "@/plugins/editorPlugins/expandedToggleMark";
 import { resolveLinkPopupPayload } from "@/plugins/formatToolbar/linkPopupUtils";
 import { findWordAtCursor } from "@/plugins/syntaxReveal/marks";
 import { useLinkPopupStore } from "@/stores/linkPopupStore";
