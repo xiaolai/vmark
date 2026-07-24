@@ -64,7 +64,8 @@
     "toggleWindowStatus": "Window Status",
     "toggleBreakdown": "Coherence Breakdown",
     "toggleClaims": "Canon Claims",
-    "contentSearch": "Find in Files"
+    "contentSearch": "Find in Files",
+    "toggleSidebar": "Toggle Sidebar"
   },
   "lint": {
     "check": "Check Markdown",

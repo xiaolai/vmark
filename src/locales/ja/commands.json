@@ -64,7 +64,8 @@
     "toggleWindowStatus": "ウィンドウの状態",
     "toggleBreakdown": "整合性の内訳",
     "toggleClaims": "カノン設定",
-    "contentSearch": "ファイル内を検索"
+    "contentSearch": "ファイル内を検索",
+    "toggleSidebar": "サイドバーを切り替え"
   },
   "lint": {
     "check": "Markdown をチェック",

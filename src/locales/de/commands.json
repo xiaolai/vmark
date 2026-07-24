@@ -64,7 +64,8 @@
     "toggleWindowStatus": "Fensterstatus",
     "toggleBreakdown": "Kohärenz-Aufschlüsselung",
     "toggleClaims": "Kanon-Aussagen",
-    "contentSearch": "In Dateien suchen"
+    "contentSearch": "In Dateien suchen",
+    "toggleSidebar": "Seitenleiste umschalten"
   },
   "lint": {
     "check": "Markdown prüfen",
