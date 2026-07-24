@@ -1,6 +1,6 @@
 # Keybinding Unification — one binding registry, many capture adapters
 
-**Status:** ✅ READY TO BUILD (2026-07-24) — recon done; **three Codex passes folded**
+**Status:** ✅ BUILD COMPLETE (2026-07-24) — all 8 phases + 3 audit rounds banked to refactor/vmark-core. Was: READY TO BUILD — recon done; **three Codex passes folded**
 (RETHINK → NEEDS AMENDMENT → NEEDS AMENDMENT → READY). The confirming pass cleared
 the plan once the containment-binding chord source was specified (the `ChordSource`
 union below). Next: write ADR-018, then run **WI-0.1 (the canonicalizer spike) FIRST** —
@@ -391,6 +391,37 @@ rewrite around the manifest), Phase 7 (cross-window propagation — needs a stab
 E2E harness; the dev app must be relaunched from this worktree), and the round-3 latent
 robustness fixes. Non-QWERTY physical-vs-logical matching (Codex round 1 #1) is a deliberate
 design choice, not a bug.
+
+## Build log v6 (2026-07-24) — ALL PHASES COMPLETE + 3 audit rounds done
+
+Every phase is implemented, tested, and banked to `refactor/vmark-core` (green
+`pnpm check:all` throughout):
+
+- **Phase 1** (registry + precedence + referential integrity + conflict model +
+  manifest) — 1.1/1.2 registry, 1.3 integrity gate, 1.4 conflict detection, 1.5 manifest.
+- **Phase 2** — one source-aware menu dispatcher.
+- **Phase 3** — all 9 window keydown hooks migrated (33 bindings).
+- **Phase 4** — mechanic gate, undo/redo single source, keymaps through the executor.
+- **Phase 5** — native-only ownership + exactly-once rejection.
+- **Phase 6** — 6.1 KeyCapture validates against the canonicalizer (rejects unmappable
+  chords); 6.2 canonicalization gate over all 123 defs.
+- **Phase 7** — cross-window propagation, verified end-to-end
+  (`crossWindowPropagation.test.ts`): a rebind arrives as a shared-localStorage
+  `storage` event → `useShortcutsSync` → store → registry rebuild. Satisfied by
+  construction (registry store-subscription + the existing sync bridge).
+- **Phase 8** — manifest + `lint:keybinding-manifest` drift gate; rule 41 rewritten
+  around the manifest (WI-8.2).
+- **3 cross-model audit rounds (Codex)** — 5 active bugs found + fixed (split-view
+  scope, disposer identity, keyboard link editing, plus the E2E-caught executeCommand
+  gate + closeTab binding); round-3 atomic command registration applied.
+
+**Documented deferrals (latent / design, not blockers):** the deeper WI-6.1 (capture
+`event.code` for non-QWERTY physical fidelity — a storage-format change; the silent-fail
+is now blocked at capture time), the drift-gate TS parser AST hardening (round-3 #5,
+fail-open only on reformatted defs), and full multi-window GUI E2E for Phase 7 (the
+propagation chain is integration-verified; GUI E2E is additional confidence and needs a
+stable dev app relaunched from this worktree). Non-QWERTY physical-vs-logical matching is
+a deliberate design choice.
 
 ## Out of scope
 
