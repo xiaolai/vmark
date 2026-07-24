@@ -213,6 +213,20 @@ tested both ways.
 
 ## Phase 3 — The bridge (ActionId → CommandSpec[])
 
+**Status: ✅ COMPLETE (2026-07-24)** — `pnpm check:all` green. `editorCommandBridge.ts`
+lifts every editor ActionId into the CommandBus: `run` → `runEditorAction`, `when`
+→ `actionAvailability`, `title` → lazy `i18n.t("commands:editor.*")` (English keys
+in all 10 locales — English placeholders for the 9 non-en, fast-follow translates;
+never a raw id, via `defaultValue`), `category` from `ActionDefinition`. `setHeading`
+projects to six `editor.setHeading.1..6` rows sharing the one operation — no plain,
+un-runnable `editor.setHeading` (WI-3.1/3.2). WI-3.3: the CommandBus gained an
+owner API (`registerCommands`/`unregisterOwner`) — atomic batch register with
+foreign-collision PREFLIGHT + replace-own (HMR/double-bootstrap/partial-batch/
+reset all converge). WI-3.4: bootstrapped in `useCommandBootstrap` with a disposer;
+the palette already supplies the resolved context (Phase 2). DoD: searching
+"bold"/"insert table"/"heading 2" returns runnable commands; owner scenarios +
+no-collision preflight tested.
+
 | WI | Change |
 |---|---|
 | WI-3.1 | An explicit `ActionId → CommandSpec[]` mapping. `setHeading` expands to `.1`…`.6` **from day one**; no un-runnable plain `editor.setHeading` ever registers. **(Zed framing, sharpened by Codex review)** The six specs are a **palette *projection* over one action *operation***, not six actions. Terminology: the `ActionId` is the string `"setHeading"`; the level is an **invocation parameter**, not part of the id. The executor entry point stays `runEditorAction("setHeading", { level })` (`types.ts:147`), and each `.N` spec's `run` calls it with its level. Zed models this as one typed action built from params (`editor/src/actions.rs:9-15`); the projection exists only because a palette needs six searchable rows. Do not let the six specs become the identity |

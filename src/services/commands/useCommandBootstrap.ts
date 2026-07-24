@@ -28,6 +28,7 @@ import { registerViewCommands } from "./viewCommands";
 import { registerWorkspaceCommands } from "./workspaceCommands";
 import { registerFormatCommands } from "./formatCommands";
 import { registerBrowserCommands } from "./browserCommands";
+import { registerEditorCommands } from "./editorCommandBridge";
 import { invoke } from "@tauri-apps/api/core";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { startGrantSync } from "@/services/browser/grantSync";
@@ -108,6 +109,9 @@ export function useCommandBootstrap(): void {
     registerClaimCommands();
     registerFormatCommands();
     registerBrowserCommands();
+    // Lift every editor ActionId into the bus so the palette can find them
+    // (WI-3.4). Owner-based batch registration is HMR-safe (replace-own).
+    const disposeEditorCommands = registerEditorCommands();
 
     // Mirror the user's standing browser grants into the Rust driver, which is the
     // authoritative gate for R4/R5/R7a (WI-2.1). Without this the driver stays
@@ -179,6 +183,7 @@ export function useCommandBootstrap(): void {
     return () => {
       cancelled = true;
       if (unlisten) unlisten();
+      disposeEditorCommands();
       stopGrantSync();
       stopCoherenceScan();
       stopWindowWorkspaceSync();
