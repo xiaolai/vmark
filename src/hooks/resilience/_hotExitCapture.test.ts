@@ -130,7 +130,7 @@ vi.mock("@tauri-apps/api/webviewWindow", () => ({
 
 import { renderHook } from "@testing-library/react";
 import { captureWindowState, useHotExitCapture } from "./_hotExitCapture";
-import { captureWindowGeometry } from "./windowGeometry";
+import { captureWindowGeometry } from "@/services/persistence/resilience/windowGeometry";
 
 function setTabs(windowLabel: string, tabs: StubTab[]) {
   tabsForWindow[windowLabel] = tabs;

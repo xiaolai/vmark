@@ -21,7 +21,7 @@ import { useEffect } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { imeToast as toast } from "@/services/ime/imeToast";
 import i18n from "@/i18n";
-import { HOT_EXIT_EVENTS } from "./types";
+import { HOT_EXIT_EVENTS } from "@/services/persistence/hotExit/types";
 
 interface PartialCapturePayload {
   captured?: number;
