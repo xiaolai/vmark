@@ -352,14 +352,11 @@ describe("createSourceEditorExtensions — keymap run() callbacks", () => {
     expect(result).toBe(true);
   });
 
-  it("Mod-Alt-w run: calls toggleWordWrap and returns true", () => {
-    editorStoreState.toggleWordWrap.mockClear();
+  it("no longer binds Mod-Alt-w — word wrap is the rebindable wordWrap (Alt-z) window binding", () => {
+    // Consolidated: the hardcoded source Mod-Alt-w was removed; word wrap now has a
+    // single rebindable authority (view.toggleWordWrap), which resolves in source mode.
     const bindings = getKeyBindings();
-    const binding = bindings.find((b) => b.key === "Mod-Alt-w");
-    expect(binding).toBeDefined();
-    const result = binding!.run({});
-    expect(editorStoreState.toggleWordWrap).toHaveBeenCalled();
-    expect(result).toBe(true);
+    expect(bindings.find((b) => b.key === "Mod-Alt-w")).toBeUndefined();
   });
 
   it("Mod-z run: calls performUnifiedUndo", () => {

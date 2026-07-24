@@ -15,6 +15,7 @@ function byShortcut(id: string): Binding {
 const inputCtx: BindingContext = { activeScopes: ["window", "input"] };
 const windowCtx: BindingContext = { activeScopes: ["window"] };
 const editorCtx: BindingContext = { activeScopes: ["window", "editor-wysiwyg"] };
+const sourceCtx: BindingContext = { activeScopes: ["window", "editor-source"] };
 
 // The exact useViewShortcuts action → command mapping (behavior contract).
 const VIEW_MAP: Array<[string, string]> = [
@@ -54,6 +55,16 @@ describe("KEYBINDINGS — view shortcut migration (WI-3.2)", () => {
     expect(b.when?.(inputCtx)).toBe(false); // suppressed while input focused
     expect(b.when?.(windowCtx)).toBe(true);
     expect(b.when?.(editorCtx)).toBe(true); // fires in the editor (editor scope, not input)
+  });
+
+  it("wordWrap resolves in SOURCE mode too — so it is the sole word-wrap authority", () => {
+    // The former hardcoded Mod-Alt-w in sourceEditorKeymap was removed; source
+    // word-wrap now relies entirely on this window-scoped rebindable binding
+    // firing while a CodeMirror (editor-source) surface is focused.
+    const b = byShortcut("wordWrap");
+    expect(b.when?.(sourceCtx)).toBe(true); // fires in source (editor-source, not input)
+    expect(b.when?.(editorCtx)).toBe(true);
+    expect(b.when?.(inputCtx)).toBe(false); // still suppressed in a plain input
   });
 
   it("the terminal toggle fires everywhere, including inputs (no suppression)", () => {
