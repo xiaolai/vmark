@@ -4,9 +4,11 @@
  * Purpose: the single synchronous snapshot of "where the user is" that the
  *   command-availability policy (`actionAvailability`) and the editor executor
  *   both consult. Reads the tab / editor / cursor stores once and normalises the
- *   two different `CursorContext` shapes (WYSIWYG vs Source) into flat booleans,
- *   so one availability predicate can serve both the Command Palette (what to
- *   show + enable) and `runEditorAction` (what to allow at execution time).
+ *   two different `CursorContext` shapes (WYSIWYG vs Source) into flat booleans —
+ *   plus the full `MultiSelectionContext` (or `null`) so the palette can apply the
+ *   adapters' exact multi-selection gate — so one availability predicate can serve
+ *   both the Command Palette (what to show + enable) and `runEditorAction` (what to
+ *   allow at execution time).
  *
  * Two-part effective read-only (Phase 2b) is resolved here; the `mutatesDocument`
  * gating that consumes it lives in `actionAvailability`.
@@ -26,6 +28,7 @@ import {
   getSourceMultiSelectionContext,
   getWysiwygMultiSelectionContext,
 } from "@/plugins/toolbarActions/multiSelectionContext";
+import type { MultiSelectionContext } from "@/plugins/toolbarActions/types";
 import type { CommandContext } from "./CommandBus";
 
 export type EditingSurface = "wysiwyg" | "source";
@@ -47,7 +50,16 @@ export interface CommandContextResolved extends CommandContext {
   /** True when the active document is read-only (mutating actions are hidden). */
   readOnly: boolean;
   hasSelection: boolean;
-  multiSelection: boolean;
+  /**
+   * The FULL multi-selection context when >1 cursor is active, else `null`.
+   * Carries the per-cursor structural axes (`sameBlockParent`, `inTextblock`)
+   * and the universal-veto flags (`inCodeBlock`/`inTable`/`inLink`/`inImage`/
+   * `inInlineMath`/`inFootnote`) that `canRunActionInMultiSelection` needs, so
+   * the palette reproduces the adapters' exact multi-selection gate rather than
+   * a static-policy approximation. `null` ⇔ not in multi-selection (falsy, so
+   * existing truthiness consumers are unaffected).
+   */
+  multiSelection: MultiSelectionContext | null;
   inTable: boolean;
   inLink: boolean;
   inList: boolean;
@@ -108,21 +120,22 @@ export function resolveCommandContext(windowLabel: string): CommandContextResolv
 
   let editorAvailable: boolean;
   let cursor: CursorAxes;
-  let multiSelection: boolean;
+  let multiCtx: MultiSelectionContext | null;
   if (mode === "source") {
     const view = editorState.active.activeSourceView;
     editorAvailable = !!view;
     cursor = editorState.source.context;
-    multiSelection = view
-      ? getSourceMultiSelectionContext(view, editorState.source.context).enabled
-      : false;
+    multiCtx = view ? getSourceMultiSelectionContext(view, editorState.source.context) : null;
   } else {
     const editor = editorState.active.activeWysiwygEditor;
     const view = editor?.view ?? null;
     editorAvailable = !!view;
     cursor = editorState.tiptap.context;
-    multiSelection = view ? getWysiwygMultiSelectionContext(view, null).enabled : false;
+    multiCtx = view ? getWysiwygMultiSelectionContext(view, null) : null;
   }
+  // Store the full context only while multi-selection is actually enabled; a
+  // disabled (single-cursor) context collapses to `null`.
+  const multiSelection = multiCtx?.enabled ? multiCtx : null;
 
   return {
     windowLabel,

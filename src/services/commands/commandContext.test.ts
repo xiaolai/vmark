@@ -223,16 +223,16 @@ describe("resolveCommandContext", () => {
     ms.enabled = true;
     ed.source = null; // no mounted source view → helper not consulted
     const c = resolveCommandContext("main");
-    expect(c.multiSelection).toBe(false);
+    expect(c.multiSelection).toBeNull();
     expect(c.editorAvailable).toBe(false);
     // A null Source context also flattens every axis to false.
     expect(c.hasSelection || c.inTable || c.inList || c.inCodeBlock).toBe(false);
   });
 
-  it("reports multiSelection from the helper, and false when no editor is mounted", () => {
+  it("reports multiSelection from the helper, and null when no editor is mounted", () => {
     ms.enabled = true;
-    expect(resolveCommandContext("main").multiSelection).toBe(true);
+    expect(resolveCommandContext("main").multiSelection?.enabled).toBe(true);
     ed.wysiwyg = null; // no mounted editor → the helper is not consulted
-    expect(resolveCommandContext("main").multiSelection).toBe(false);
+    expect(resolveCommandContext("main").multiSelection).toBeNull();
   });
 });
