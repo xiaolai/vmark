@@ -8,7 +8,7 @@
 | 0B security | ✅ **CLOSED** — WI-0B.2 done. The other three are **re-sequenced after WI-5.4/5.5 per ADR-016**: they need a caller principal, which cannot exist inside a single JS context. Phase 0B was mis-scoped as mechanical hardening |
 | 1 architecture contract | ✅ **COMPLETE** — descriptor, resolver, claim protocol, Node-safe gate, scope inventory, perf baseline, budget ratchet, doc corrections |
 | 2 serialization inversion | ✅ **COMPLETE** — both switches deleted (24 + 34 arms); both `convertNode`s pure dispatch; `convertParagraph`'s media fan-out now claim-driven with ordering-independence proven by test. `convertHtml`'s internal fan-out and mark-run factoring remain central **by design** (WI-1.6) |
-| 3 composition migration | ✅ **COMPLETE** — both roots resolve through `resolveExtensions`; **adoption gate 2 → 0**; ADR-011's registry and all 77 stub manifests deleted (80 files). WI-3.4 (alphabetical sort) stays open by design: it is only safe once ordering constraints are explicit |
+| 3 composition migration | ✅ **COMPLETE** — both roots resolve through `resolveExtensions`; **adoption gate 2 → 0**; ADR-011's registry and all 77 stub manifests deleted (80 files). WI-3.4 (total-order pinning + alphabetical arrays) **DONE 2026-07-25** — array position no longer load-bearing |
 | 4A host normalization | ✅ **RESOLVED via option 2** — `FormatConfig.language` gives bundled packs a synchronous path, so the source host is registry-driven with no flash on the primary path |
 | 4B markdown as extension | ✅ **COMPLETE** — 4.2-4.6 done; 4.1 partial by design (parser/serializer/command contribution belongs with the command-registry fork); 4.7 done for svg, mermaid's three hosts judged correct as-is |
 | 5 extension points | ✅ **CLOSED** — WI-5.1 + 5.6 built (they have consumers). WI-5.2-5.5 **deliberately not built** per ADR-016: with zero third-party plugins they would be unadopted foundations, which ADR-015 D6 forbids. Designed, evidenced, unbuilt — they reopen when a package contract creates a consumer |
@@ -343,23 +343,26 @@ syntax is a post-parse tree transform. There is no tokenizer layer to redistribu
 | WI | Change |
 |---|---|
 | WI-3.1 | Define `VMarkExtension = { extension } \| readonly VMarkExtension[]`; implement `resolve()` with value-identity dedup |
-| WI-3.2 | Convert the 78-entry `tiptapExtensions.ts` array into extension values, one entry at a time, replacing implicit array position with explicit `Prec` bucket or named `before`/`after` **plus a test per ordering-sensitive entry** |
+| WI-3.2 | ✅ **DONE (2026-07-25)** — subsumed by WI-3.4. Rather than 78 hand-authored per-entry buckets, the order is declared once per root in `compositionOrder.ts` (`WYSIWYG_COMPOSITION_ORDER`, `SOURCE_COMPOSITION_ORDER`) and turned into explicit `after` constraints by `extensionOrdering.deriveAfterConstraints` — equivalent to a total-order pin, evidenced by a real-composition order test rather than 78 separate ones |
 | WI-3.3 | ✅ **DONE** — `registry.ts`, `registry.test.ts`, `manifests.ts` and all 77 `manifest.ts` stubs deleted (80 files). Verified dead first: `listPlugins`/`getPlugin`/`pluginsFor` had zero production callers, every `PluginManifest` import was type-only, and the single test reading a manifest only asserted the stub's own shape |
-| WI-3.4 | ⏸️ **Deliberately open** — sorting is only safe after each order-sensitive entry carries an explicit `Prec` bucket or `before`/`after`. Both roots currently rely on the resolver's stable sort preserving declaration order, which is correct but means position is still load-bearing. Making constraints explicit is 126 independently testable steps (77 + 49) |
+| WI-3.4 | ✅ **DONE (2026-07-25)** — total-order pinning. Both roots derive explicit `after` constraints from a canonical order list (`compositionOrder.ts`) and sort their extension arrays alphabetically before composition, so **array position is no longer load-bearing**. Proven by permutation-invariance tests (`extensionOrdering.test.ts`) and real-composition order tests asserting `createTiptapExtensions`/source resolve to exactly the canonical order under alphabetical/reversed input; `assertCanonicalCoverage` fails composition loud on any list↔array drift. The pinned order equals the pre-change declaration order (verified against the running resolver + git), so behaviour is byte-identical — `pnpm check:all` green. Trade-off (accepted): incidental order (e.g. two independent marks) is now frozen too; loosen a specific pair later by editing its canonical neighbours |
 | WI-3.5 | ✅ **DONE** — `adoption.test.ts` asserts zero bypassing roots and ratchets down only, so a reintroduced hand-wired path fails CI |
 
-Note: Tiptap already treats array order as a stable-sort tiebreaker, so WI-3.2 is
-78 independent, individually verifiable steps — not a big-bang rewrite. Beware
-that `ExtensionManager.plugins` reverses the array before priority-sorting while
-`transformPastedHTML` does not; write a test per ordering-sensitive concern
-rather than reasoning from array position.
+Note: array order was a stable-sort tiebreaker, so the pin had to freeze the
+exact pre-change resolved order. The canonical lists in `compositionOrder.ts` were
+captured from the running resolver (WYSIWYG names) and the file's declaration order
+(source ids) and verified against git, so the total-order pin is behaviour-neutral.
+`ExtensionManager.plugins` reverses the array before priority-sorting while
+`transformPastedHTML` does not — which is exactly why freezing the resolved order,
+not reasoning from array position, is the safe move.
 
 **DoD**
 - Contract test from WI-1.1 passes with the registry as the *only* composition path
-- ⏸️ **NOT MET — tracked as WI-3.4 (open by design):** "Composition array is
-  alphabetical; no ordering test depends on position." Array position is still
-  load-bearing; alphabetization is only safe once ordering constraints are explicit.
-  Phase 3 is COMPLETE *except this bullet* — see the WI-3.4 row.
+- ✅ **MET (2026-07-25, WI-3.4):** "Composition array is alphabetical; no ordering
+  test depends on position." Both roots sort their arrays alphabetically before
+  composition and pin order via explicit `after` constraints; the ordering tests
+  assert permutation-invariance and resolution to the canonical order, never a
+  fixed array position.
 - No `addFeature`-style side channel exists
 
 ## Phase 4A — Host normalization ✅ resolved
