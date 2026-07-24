@@ -69,7 +69,28 @@ describe("KEYBINDINGS — view shortcut migration (WI-3.2)", () => {
     }
   });
 
-  it("has exactly the 3 global + 18 view bindings", () => {
-    expect(KEYBINDINGS).toHaveLength(23);
+  it("has the 3 global + 18 view + 2 explorer + 1 containment bindings", () => {
+    expect(KEYBINDINGS).toHaveLength(24);
+  });
+});
+
+describe("KEYBINDINGS — select-all containment (WI-3.5)", () => {
+  const containment = KEYBINDINGS.find((b) => b.kind === "containment")!;
+
+  it("is a capture-phase containment binding with no command", () => {
+    expect(containment).toBeDefined();
+    expect(containment.kind).toBe("containment");
+    expect(containment.windowPhase).toBe("capture");
+    expect("commandId" in containment).toBe(false);
+    expect(containment.consumption).toBe("preventDefault"); // NOT preventAndStop
+  });
+
+  it("fires (blocks browser select-all) ONLY when focus is not text-editable", () => {
+    // Bare window (nothing editable focused) → guard applies.
+    expect(containment.when?.({ activeScopes: ["window"] })).toBe(true);
+    // Editor / input / terminal focused → do nothing (editor's own select-all).
+    for (const s of ["editor-wysiwyg", "editor-source", "input", "terminal"] as const) {
+      expect(containment.when?.({ activeScopes: ["window", s] })).toBe(false);
+    }
   });
 });
