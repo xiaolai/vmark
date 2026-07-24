@@ -29,7 +29,13 @@
   },
   "file": {
     "clearRecent": "最近のファイルを消去",
-    "openRecent": "最近のファイルを開く"
+    "openRecent": "最近のファイルを開く",
+    "save": "保存",
+    "saveAs": "名前を付けて保存…",
+    "moveTo": "移動…",
+    "saveAllQuit": "すべて保存して終了",
+    "new": "新規ファイル",
+    "open": "開く…"
   },
   "workspace": {
     "openFolder": "ワークスペースを開く…",

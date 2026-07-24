@@ -30,6 +30,7 @@ import { registerFormatCommands } from "@/services/commands/formatCommands";
 import { registerBrowserCommands } from "@/services/commands/browserCommands";
 import { registerEditorCommands } from "@/services/commands/editorCommandBridge";
 import { registerTabCommands } from "@/hooks/tabCommands";
+import { registerFileCommands } from "@/hooks/fileCommands";
 import { invoke } from "@tauri-apps/api/core";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { startGrantSync } from "@/services/browser/grantSync";
@@ -46,6 +47,12 @@ const EXPORT_BINDINGS: MenuCommandBinding[] = [
 ];
 
 const MISC_BINDINGS: MenuCommandBinding[] = [
+  { menuEvent: "menu:new", commandId: "file.new" },
+  { menuEvent: "menu:open", commandId: "file.open" },
+  { menuEvent: "menu:save", commandId: "file.save" },
+  { menuEvent: "menu:save-as", commandId: "file.saveAs" },
+  { menuEvent: "menu:move-to", commandId: "file.moveTo" },
+  { menuEvent: "menu:save-all-quit", commandId: "file.saveAllQuit" },
   { menuEvent: "menu:quick-open", commandId: "app.quickOpen" },
   { menuEvent: "menu:new-browser-tab", commandId: "browser.newTab" },
   { menuEvent: "menu:preferences", commandId: "app.preferences" },
@@ -113,6 +120,7 @@ export function useCommandBootstrap(): void {
     registerFormatCommands();
     registerBrowserCommands();
     registerTabCommands();
+    registerFileCommands();
     // Lift every editor ActionId into the bus so the palette can find them
     // (WI-3.4). Owner-based batch registration is HMR-safe (replace-own).
     const disposeEditorCommands = registerEditorCommands();
