@@ -2,15 +2,32 @@
 
 Rules for adding, changing, or deleting keyboard shortcuts.
 
+## The manifest + drift gate (ADR-018, WI-1.5/Phase 8)
+
+For every shortcut that has a **native menu accelerator**, the frontend default and
+the Rust accelerator are now cross-checked automatically. The synced subset is
+named once in `src/services/keybinding/keybindingManifest.ts` (`KEYBINDING_MANIFEST`),
+and `scripts/check-keybinding-manifest.mjs` (`pnpm lint:keybinding-manifest`, wired
+into `pnpm check:all`) fails if `shortcutDefinitions.ts` and the Rust accelerator
+contract (`src-tauri/src/menu/localized.test.rs`) drift apart from it. So a
+frontend-vs-Rust accelerator mismatch is caught at gate time, not in review.
+
+**When you add or change a menu-backed shortcut**, update its `KEYBINDING_MANIFEST`
+entry too, then run `pnpm lint:keybinding-manifest`. The gate does NOT (yet) cover
+the website docs table — keep `website/guide/shortcuts.md` in sync by hand.
+(`aiPrompts`/`search-genies` is manifest-excluded: its accelerator is registered
+dynamically at runtime by `useGenieShortcuts`, not in the static Rust contract.)
+
 ## Files That Must Stay in Sync
 
 When modifying shortcuts, update ALL of these files:
 
 | File | Purpose | Format |
 |------|---------|--------|
+| `src/services/keybinding/keybindingManifest.ts` | Manifest entry (menu-backed shortcuts) — enforced by the drift gate | `{ id, defaultKey, menuId }` |
 | `src-tauri/src/menu/localized.rs` | Menu accelerators — single `create_localized_menu` function | `Some("Alt+CmdOrCtrl+L")` |
 | `src/stores/settingsStore/shortcuts.ts` | Frontend defaults | `defaultKey: "Alt-Mod-l"` |
-| `website/guide/shortcuts.md` | Documentation | `Alt + Mod + L` |
+| `website/guide/shortcuts.md` | Documentation (not covered by the gate) | `Alt + Mod + L` |
 
 ### Format Differences
 
