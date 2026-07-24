@@ -19,7 +19,7 @@
  * @module hooks/lifecycle/useEditorLifecycle
  */
 
-import { useCommandBootstrap } from "@/services/commands";
+import { useCommandBootstrap } from "@/hooks/useCommandBootstrap";
 import { useSearchCommands } from "@/hooks/useSearchCommands";
 import { useViewShortcuts } from "@/hooks/useViewShortcuts";
 import { useTabShortcuts } from "@/hooks/useTabShortcuts";

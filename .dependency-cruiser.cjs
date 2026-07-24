@@ -99,23 +99,12 @@ module.exports = {
         pathNot: [
           // Tests may import hooks/components to mock them
           "\\.test\\.(ts|tsx)$",
-          // Frozen H4 backlog — React adapters co-located in services
-          "^src/services/commands/useCommandBootstrap\\.ts$",
-          "^src/services/formats/formatSettingsBridge\\.ts$",
+          // Sanctioned (permanent) seams — NOT debt (the H4 inversion is done):
+          //  - imeToastPinAction builds a React.ReactNode toast label; moving it
+          //    to components/ would make a service import the UI tier (worse).
+          //  - assembly/tiptapExtensions composes editor extensions from
+          //    plugins/components by design (the de-facto wiring tier).
           "^src/services/ime/imeToastPinAction\\.tsx$",
-          "^src/services/persistence/hotExit/useHotExitCaptureWarning\\.ts$",
-          // Exact paths, NOT `_crashRecovery.*` / `_hotExit.*` globs: a wildcard
-          // silently exempts any future same-prefix file. These are the exact
-          // React-importing resilience internals pending the H4 inversion
-          // (`_hotExitCaptureConvert.ts` is React-free and intentionally absent).
-          "^src/services/persistence/resilience/_crashRecoveryCleanup\\.ts$",
-          "^src/services/persistence/resilience/_crashRecoveryStartup\\.ts$",
-          "^src/services/persistence/resilience/_crashRecoveryWriter\\.ts$",
-          "^src/services/persistence/resilience/_hotExitCapture\\.ts$",
-          "^src/services/persistence/resilience/_hotExitRestore\\.ts$",
-          "^src/services/persistence/resilience/_hotExitStartup\\.ts$",
-          // Sanctioned wiring seam: assembly composes editor extensions
-          // from plugins/components by design (de-facto wiring tier).
           "^src/services/assembly/tiptapExtensions\\.ts$",
         ],
       },

@@ -8,7 +8,7 @@ import { renderHook } from "@testing-library/react";
 
 const calls = vi.hoisted(() => [] as string[]);
 
-vi.mock("@/services/commands", () => ({
+vi.mock("@/hooks/useCommandBootstrap", () => ({
   useCommandBootstrap: () => calls.push("commandBootstrap"),
 }));
 vi.mock("@/hooks/useSearchCommands", () => ({

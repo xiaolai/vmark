@@ -46,13 +46,13 @@ Follow-up: re-run the four **Not covered** subsystem audits when API budget allo
 
 ## Remediation log (2026-06-12, branch `fix/audit-20260612-remediation`)
 
-All 28 confirmed high findings were addressed except H4 (deferred + frozen).
+All 28 confirmed high findings are now addressed (H4 resolved 2026-07-24).
 Per-finding status:
 
 | Status | Findings |
 |---|---|
-| **Fixed** | H1 menu contract (+rot-proof test), H2 utils migration, H3 dep-cruiser tier rules, H5 checkpoint append, H6 `&#x20;` corruption, H7 escape stripping (verify-by-reparse), H8 suggestion remap, H9 entry budget + eager gate, H10 coverage exclusion (12 modules renamed; thresholds re-baselined), H11 sidecar tests in check:all/CI, H12 hot-exit merge extraction + table tests, H13 prompt fencing, H14 undefined CSS vars (+lint), H15 dark hover emission, H16 plural keys, H17 toolbar t(), H18 diagnostics wiring + placeholder fix, H19 context menus translated (10 locales), H20 request dedup, H21 sidecar requestTimeout, H22 stale rule docs, H23 verdict-gated auto-merge, H25 SHA-pinned actions, H26 multi-manifest fail-closed dep gate, H27 tab keyboard nav + cycling shortcut, H28 workflow toggles wired |
-| **Deferred (frozen)** | H4 services→hooks inversion — the 15 known sites are frozen in `.dependency-cruiser.cjs`'s `services-no-upward` exemption list; new violations fail CI |
+| **Fixed** | H1 menu contract (+rot-proof test), H2 utils migration, H3 dep-cruiser tier rules, H4 services→hooks inversion (see below), H5 checkpoint append, H6 `&#x20;` corruption, H7 escape stripping (verify-by-reparse), H8 suggestion remap, H9 entry budget + eager gate, H10 coverage exclusion (12 modules renamed; thresholds re-baselined), H11 sidecar tests in check:all/CI, H12 hot-exit merge extraction + table tests, H13 prompt fencing, H14 undefined CSS vars (+lint), H15 dark hover emission, H16 plural keys, H17 toolbar t(), H18 diagnostics wiring + placeholder fix, H19 context menus translated (10 locales), H20 request dedup, H21 sidecar requestTimeout, H22 stale rule docs, H23 verdict-gated auto-merge, H25 SHA-pinned actions, H26 multi-manifest fail-closed dep gate, H27 tab keyboard nav + cycling shortcut, H28 workflow toggles wired |
+| **Resolved 2026-07-24** | H4 services→hooks inversion — completed per `dev-docs/plans/20260722-tier-boundary-restoration.md` (Phases 1–3). All React-in-`services/` sites were moved or inverted to `hooks/`; the `services-no-upward` `pathNot` is down to 3 sanctioned seams (test files, `imeToastPinAction`, `assembly/tiptapExtensions`). No frozen debt remains. |
 | **Blocked (needs owner)** | H24 branch protection — permission classifier denied repo-settings mutation. Run manually: disable force pushes, enable `enforce_admins`, set `required_status_checks.strict=true`, and add the new `rust` gate job to required checks once this branch is on main: `gh api -X PUT repos/xiaolai/vmark/branches/main/protection --input protection.json` with `checks: [{"context":"frontend"},{"context":"rust"}]` |
 
 Mediums/lows fixed in the same pass: scheme-allowlisted external link opener,
