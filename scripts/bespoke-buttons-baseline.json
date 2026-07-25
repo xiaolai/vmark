@@ -1,0 +1,4 @@
+{
+  "//": "Hand-rolled button classes in src/**/*.css, excluding the canonical .vm-btn / .popup-icon-btn / .universal-toolbar-btn. RATCHETS DOWN ONLY — never raise this number. To lower it, migrate a component to `.vm-btn` (src/styles/button-shared.css) and delete its bespoke class. Enforced by scripts/check-bespoke-buttons.mjs (pnpm lint:bespoke-buttons, in check:all).",
+  "maxBespokeButtonClasses": 88
+}

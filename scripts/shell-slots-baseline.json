@@ -1,0 +1,4 @@
+{
+  "//": "ADR-007 shell-slot budget. Top-level surface mounts (Overlay/Panel/Dialog/Picker/Modal/Toast) rendered directly in src/App.tsx. RATCHETS DOWN ONLY — never raise this number. To reduce it, bundle related surfaces behind one mount (see src/components/CoherenceOverlays.tsx) or give the surface a real shell slot. Enforced by scripts/check-shell-slots.mjs (pnpm lint:shell-slots, in check:all).",
+  "maxDirectSurfaceMounts": 8
+}
