@@ -394,6 +394,34 @@ export async function selectTextInEditor(client, needle) {
   if (!ok) throw new Error(`selectTextInEditor: "${needle}" not found in editor`);
 }
 
+/**
+ * Append `text` at the END of the active WYSIWYG document via the same
+ * beforeinput/execCommand path a real keystroke takes (the proven pattern from
+ * the save-to-disk journey). Use this to EDIT a loaded FILE-BACKED document —
+ * `setEditorContent`/`vmark.document.write` REPLACES the whole document, which
+ * would wipe the file's existing content. The caller must poll for the tab's
+ * dirty dot afterwards to confirm the edit synced to the store.
+ *
+ * Foreground-only, like all execCommand typing here: the editor→store flush is
+ * RAF-based and the OS throttles it when the app window is backgrounded (see the
+ * setEditorContent note). These journeys are headed runs, so the window is live.
+ */
+export function appendToActiveEditor(client, text) {
+  return evalJs(
+    client,
+    `(() => {
+       const el = document.querySelector('.ProseMirror');
+       if (!el) return false;
+       el.focus();
+       const sel = window.getSelection();
+       sel.selectAllChildren(el);
+       sel.collapseToEnd();
+       document.execCommand('insertText', false, ${JSON.stringify(text)});
+       return true;
+     })()`
+  );
+}
+
 /** Which editor surface is visible: "wysiwyg" | "source" | "none". */
 export function getEditorMode(client) {
   return evalJs(
