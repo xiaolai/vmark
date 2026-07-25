@@ -5,15 +5,14 @@
  * StarterKit overrides, custom marks/nodes, media extensions, and plugin registrations.
  *
  * Key decisions:
- *   - StarterKit is used as base but with several nodes overridden
- *     (heading, paragraph, codeBlock, etc.) to add sourceLine attributes
- *   - Extensions are loaded eagerly (not lazy) since WYSIWYG is the default mode
- *   - Link extension configured with openOnClick:false (we have custom popups)
- *   - Bold/Italic replaced with CJK-aware versions (lookbehind regexes)
- *   - Custom marks (highlight, underline, sub/superscript) registered here
- *   - Media extensions (block_video, block_audio, video_embed) with NodeViews
- *   - Media popup and handler extensions for editing and drag-drop
- *   - Table of contents (tocExtension) for [TOC] inline navigation
+ *   - StarterKit is the base, with several nodes overridden (heading, paragraph,
+ *     codeBlock, etc.) to add sourceLine attributes; loaded eagerly (WYSIWYG is
+ *     the default mode)
+ *   - Link uses openOnClick:false (custom popups); Bold/Italic replaced with
+ *     CJK-aware versions; custom marks (highlight, underline, sub/superscript)
+ *   - Media extensions (block_video, block_audio, video_embed) with NodeViews,
+ *     plus media popup/handler extensions; tocExtension for [TOC] navigation
+ *   - Composition order is pinned via WYSIWYG_COMPOSITION_ORDER (WI-3.4)
  *
  * @coordinates-with sourceEditorExtensions.ts — parallel config for CodeMirror source mode
  * @coordinates-with markdownPipeline/ — schema nodes must match pipeline converters
@@ -99,6 +98,10 @@ import { textDragDropExtension } from "@/plugins/textDragDrop/tiptap";
 import { tocExtension } from "@/plugins/tableOfContents/tiptap";
 import { LintExtension } from "@/plugins/lint/tiptap";
 import { inactiveSelectionExtension } from "@/plugins/inactiveSelection/tiptap";
+import { resolveExtensions } from "@/lib/extensions/resolve";
+import { deriveAfterConstraints, assertCanonicalCoverage } from "./extensionOrdering";
+import { WYSIWYG_COMPOSITION_ORDER, WYSIWYG_OPTIONAL_IDS } from "./compositionOrder";
+import type { VMarkExtension } from "@/lib/extensions/types";
 
 export interface TiptapExtensionConfig {
   /** Tab ID for lint diagnostics (lint extension is registered when present) */
@@ -106,10 +109,14 @@ export interface TiptapExtensionConfig {
 }
 
 /**
- * Creates the array of Tiptap extensions for the WYSIWYG editor.
- * This is a pure factory function with no React dependencies.
+ * The extension list. Not the composition path — `createTiptapExtensions` routes
+ * it through the resolver (ADR-015 D1). WI-3.4: array position is not load-bearing
+ * — order is declared once in `WYSIWYG_COMPOSITION_ORDER` and pinned via explicit
+ * `after` constraints, so this list is sorted alphabetically before composition
+ * yet resolves to the canonical order. Kept in logical/grouped order here for
+ * readability; the sort + constraints make its physical order cosmetic.
  */
-export function createTiptapExtensions(config: TiptapExtensionConfig = {}): Extensions {
+function buildExtensionList(config: TiptapExtensionConfig = {}): Extensions {
   const { tabId } = config;
   return [
     StarterKit.configure({
@@ -141,6 +148,14 @@ export function createTiptapExtensions(config: TiptapExtensionConfig = {}): Exte
     // Custom Link extension with excludes to prevent nested links and code inside links
     Link.extend({
       excludes: "link code",
+      // Markdown link titles (`[text](url "title")`) must survive a WYSIWYG
+      // round trip — the base Link mark has no title attribute, so add one.
+      addAttributes() {
+        return {
+          ...this.parent?.(),
+          title: { default: null },
+        };
+      },
     }).configure({
       openOnClick: false,
       // Don't add target="_blank" - it bypasses our click handling
@@ -234,4 +249,51 @@ export function createTiptapExtensions(config: TiptapExtensionConfig = {}): Exte
     // editor remount (mount-time gating left WYSIWYG stale until remount).
     ...(tabId ? [LintExtension.configure({ tabId })] : []),
   ];
+}
+
+/**
+ * Creates the array of Tiptap extensions for the WYSIWYG editor. Composition
+ * goes through `resolveExtensions` (ADR-015 D1): the registry IS the composition,
+ * so no second representation can drift from it.
+ *
+ * Each Tiptap extension becomes a descriptor keyed by its own `name` (unique
+ * across all 78). Order is pinned by explicit `after` constraints derived from
+ * `WYSIWYG_COMPOSITION_ORDER` (WI-3.4), so the descriptors are sorted
+ * alphabetically before resolution and the resolver reproduces the canonical
+ * order regardless of array position. Resolution errors throw rather than
+ * silently dropping an extension — a missing editor extension is a broken editor.
+ */
+export function createTiptapExtensions(config: TiptapExtensionConfig = {}): Extensions {
+  const list = buildExtensionList(config);
+  const presentIds = list.map((extension, index) => extension.name || `anonymous-${index}`);
+
+  // Fail loud if an extension was added/removed without updating the canonical
+  // order (WI-3.4), then pin each present entry after its canonical predecessor.
+  assertCanonicalCoverage("wysiwyg", WYSIWYG_COMPOSITION_ORDER, presentIds, WYSIWYG_OPTIONAL_IDS);
+  const after = deriveAfterConstraints(WYSIWYG_COMPOSITION_ORDER, presentIds);
+
+  const descriptors: VMarkExtension[] = list
+    .map((extension, index): VMarkExtension => {
+      const id = extension.name || `anonymous-${index}`;
+      return {
+        id,
+        contributions: [{ kind: "tiptap", factory: () => extension }],
+        ordering: after.has(id) ? { after: after.get(id) } : undefined,
+      };
+    })
+    .sort((a, b) => a.id.localeCompare(b.id));
+
+  const { ordered, errors } = resolveExtensions(descriptors);
+  if (errors.length > 0) {
+    throw new Error(
+      `Editor extension composition failed:\n${errors
+        .map((error) => `  - [${error.code}] ${error.message}`)
+        .join("\n")}`,
+    );
+  }
+
+  return ordered.map(
+    (descriptor) =>
+      (descriptor.contributions[0] as { factory: () => Extensions[number] }).factory(),
+  );
 }

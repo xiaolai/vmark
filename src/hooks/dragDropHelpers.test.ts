@@ -27,7 +27,7 @@ vi.mock("@tauri-apps/api/core", () => ({
 vi.mock("@tauri-apps/plugin-fs", () => ({
   readTextFile: (...args: unknown[]) => mockReadTextFile(...args),
 }));
-vi.mock("@/hooks/useReplaceableTab", () => ({
+vi.mock("@/services/tabs/replaceableTab", () => ({
   findExistingTabForPath: (...args: unknown[]) => mockFindExistingTabForPath(...args),
 }));
 vi.mock("@/services/navigation/largeFileRouting", () => ({

@@ -16,6 +16,7 @@ import { lintMarkdown, type LintDiagnostic } from "@/lib/lintEngine";
 import { lintYaml } from "@/lib/lintEngine/yaml";
 import { checkLocalLinks } from "@/lib/markdownLinkCheck/check";
 import { useSettingsStore } from "@/stores/settingsStore";
+import { dispatchEditor } from "@/lib/formats/registry";
 
 interface LintState {
   /** Diagnostics keyed by tabId */
@@ -49,6 +50,17 @@ interface LintActions {
    */
   runYamlLint: (tabId: string, source: string) => LintDiagnostic[];
   /**
+   * Lint using the linter the FILE'S FORMAT contributes (WI-4.3).
+   *
+   * Replaces choosing between `runLint` and `runYamlLint` at the call site,
+   * which hard-coded a two-format world into every caller.
+   */
+  runLintForFormat: (
+    tabId: string,
+    source: string,
+    filePath: string | null | undefined,
+  ) => LintDiagnostic[];
+  /**
    * Run async link-existence check for a specific tab. Append-only —
    * does NOT clear sync diagnostics; merges results in. Returns
    * the merged set. No-op when filePath is null (untitled).
@@ -80,6 +92,32 @@ export const useLintStore = create<LintState & LintActions>((set, get) => ({
       selectedIndexByTab: { ...state.selectedIndexByTab, [tabId]: 0 },
     }));
 
+    return diagnostics;
+  },
+
+  runLintForFormat: (tabId, source, filePath) => {
+    const format = (() => {
+      try {
+        return dispatchEditor(filePath ?? null);
+      } catch {
+        return undefined;
+      }
+    })();
+
+    // A format with no linter yields no diagnostics — that is a valid answer,
+    // not a fallback to markdown. Silently linting an unknown format AS
+    // markdown is exactly the failure-open behaviour Phase 4B removes.
+    const diagnostics = format?.lint?.(source) ?? [];
+
+    // Same invalidation as the YAML path: a link-check started while this tab
+    // was treated as markdown must not later overwrite these diagnostics.
+    linkCheckTokens.next++;
+    delete linkCheckTokens.byTab[tabId];
+
+    set((state) => ({
+      diagnosticsByTab: { ...state.diagnosticsByTab, [tabId]: diagnostics },
+      selectedIndexByTab: { ...state.selectedIndexByTab, [tabId]: 0 },
+    }));
     return diagnostics;
   },
 

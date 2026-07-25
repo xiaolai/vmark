@@ -132,7 +132,13 @@ async function main() {
       const ms = Date.now() - start;
       if (outcome?.skip) {
         console.error(`  SKIP  ${journey.name} (${ms}ms) — ${outcome.skip}`);
-        results.push({ name: journey.name, status: "skip", ms });
+        results.push({
+          name: journey.name,
+          status: "skip",
+          ms,
+          reason: outcome.skip,
+          coverageRequired: journey.coverageRequired === true,
+        });
       } else {
         console.error(`  PASS  ${journey.name} (${ms}ms)`);
         results.push({ name: journey.name, status: "pass", ms });
@@ -185,10 +191,26 @@ async function main() {
   const passed = results.filter((r) => r.status === "pass").length;
   const failed = results.filter((r) => r.status === "fail").length;
   const skipped = results.filter((r) => r.status === "skip").length;
+
+  // A skip is indistinguishable from coverage at a glance: the suite would print
+  // "JOURNEYS PASSED" while an invariant the matrix marks ✅ automated silently
+  // went unasserted. A journey that declares `coverageRequired` must therefore
+  // either assert or fail the run — coverage cannot quietly evaporate.
+  const lostCoverage = results.filter((r) => r.status === "skip" && r.coverageRequired);
+  for (const r of lostCoverage) {
+    console.error(
+      `\n  COVERAGE LOST — ${r.name} is marked coverageRequired (✅ automated in ` +
+        `dev-docs/e2e-tier0-matrix.md) but skipped: ${r.reason}\n` +
+        `  Fix the precondition or downgrade the row; do not leave it skipping.`
+    );
+  }
+
+  const red = failed > 0 || lostCoverage.length > 0;
   console.error(
-    `\n${failed === 0 ? "JOURNEYS PASSED" : "JOURNEYS FAILED"} — ${passed} passed, ${failed} failed, ${skipped} skipped.`
+    `\n${red ? "JOURNEYS FAILED" : "JOURNEYS PASSED"} — ${passed} passed, ${failed} failed, ` +
+      `${skipped} skipped${lostCoverage.length ? ` (${lostCoverage.length} REQUIRED)` : ""}.`
   );
-  process.exit(failed === 0 ? 0 : 1);
+  process.exit(red ? 1 : 0);
 }
 
 main().catch((err) => {

@@ -1,1 +1,122 @@
-[]
+[
+  {
+    "type": "dependency",
+    "from": "src/plugins/editorContextMenu/snapshot.ts",
+    "to": "src/plugins/formatToolbar/tiptapContext.ts",
+    "unresolvedTo": "@/plugins/formatToolbar/tiptapContext",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/editorContextMenu/snapshot.ts",
+    "to": "src/plugins/toolbarActions/dispatch.ts",
+    "unresolvedTo": "@/plugins/toolbarActions/dispatch",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/editorContextMenu/snapshot.ts",
+    "to": "src/plugins/toolbarActions/enableRules.ts",
+    "unresolvedTo": "@/plugins/toolbarActions/enableRules",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/editorContextMenu/snapshot.ts",
+    "to": "src/plugins/toolbarActions/multiSelectionContext.ts",
+    "unresolvedTo": "@/plugins/toolbarActions/multiSelectionContext",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/editorContextMenu/snapshot.ts",
+    "to": "src/plugins/toolbarActions/types.ts",
+    "unresolvedTo": "@/plugins/toolbarActions/types",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "type-only",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/sourceWikiLinkPopup/sourceWikiLinkActions.ts",
+    "to": "src/plugins/wikiLinkPopup/wikiLinkPaths.ts",
+    "unresolvedTo": "@/plugins/wikiLinkPopup/wikiLinkPaths",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/sourceWikiLinkPopup/SourceWikiLinkPopupView.ts",
+    "to": "src/plugins/wikiLinkPopup/wikiLinkPaths.ts",
+    "unresolvedTo": "@/plugins/wikiLinkPopup/wikiLinkPaths",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  }
+]

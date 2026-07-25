@@ -34,7 +34,8 @@
  *
  * @coordinates-with ../../adapter.ts — the parseMarkdown/serializeMarkdown
  *   entry points under test
- * @coordinates-with ../../testSchema.ts — the schema the round-trip uses
+ * @coordinates-with src/test/productionSchema.ts — the schema the round-trip
+ *   uses (a projection of the real editor composition, NOT a hand-kept mirror)
  * @module utils/markdownPipeline/__tests__/characterization
  */
 import { readFileSync, readdirSync } from "node:fs";
@@ -42,15 +43,24 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { describe, it, expect } from "vitest";
 import { parseMarkdown, serializeMarkdown } from "../../adapter";
-import { testSchema } from "../../testSchema";
+import { getProductionSchema } from "@/test/productionSchema";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const corpusDir = join(here, "corpus");
 const goldenDir = join(here, "__golden__");
 
-/** The pipeline's canonical operation: markdown → PM doc → markdown. */
+/**
+ * The pipeline's canonical operation: markdown → PM doc → markdown.
+ *
+ * Uses the PRODUCTION schema projection, not the hand-mirrored testSchema.
+ * testSchema lacks `toc`, `block_video`, `block_audio`, and `video_embed`, and
+ * the converters return `null` for absent node types — so those constructs
+ * round-trip to nothing and a golden would record the deletion as correct.
+ * See src/test/productionSchema.ts and ../../schemaCoverage.test.ts.
+ */
 function roundTrip(md: string): string {
-  return serializeMarkdown(testSchema, parseMarkdown(testSchema, md));
+  const schema = getProductionSchema();
+  return serializeMarkdown(schema, parseMarkdown(schema, md));
 }
 
 const corpus = readdirSync(corpusDir)

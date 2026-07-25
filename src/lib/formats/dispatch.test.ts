@@ -20,7 +20,7 @@ const baseAdapters: FormatConfig["adapters"] = {
   saveDialogFilters: [{ name: "Plain", extensions: ["txt"] }],
   untitledExtension: "txt",
   readOnlyDefault: false,
-  closeSavePolicy: "markdown-default",
+  closeSavePolicy: "prompt-on-close",
   menuPolicy: {
     sourceWysiwygToggle: false,
     cjkFormatActions: false,

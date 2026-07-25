@@ -138,7 +138,7 @@ vi.mock("../utils/paths", () => ({
   isWithinRoot: vi.fn(() => false),
 }));
 
-vi.mock("../hooks/openWorkspaceWithConfig", () => ({
+vi.mock("@/services/workspaces/openWorkspaceWithConfig", () => ({
   openWorkspaceWithConfig: vi.fn(() => Promise.resolve()),
 }));
 
@@ -559,7 +559,7 @@ describe("WindowContext", () => {
     });
 
     it("opens workspace from workspaceRoot URL param", async () => {
-      const { openWorkspaceWithConfig } = await import("../hooks/openWorkspaceWithConfig");
+      const { openWorkspaceWithConfig } = await import("@/services/workspaces/openWorkspaceWithConfig");
 
       Object.defineProperty(globalThis, "location", {
         value: { search: "?workspaceRoot=/projects/myapp&file=/projects/myapp/README.md" },
@@ -600,7 +600,7 @@ describe("WindowContext", () => {
       // file. The file explorer is the entry point; a forced blank tab
       // would feel orphaned. Hot-exit / lastOpenTabs restore can still
       // populate tabs after init.
-      const { openWorkspaceWithConfig } = await import("../hooks/openWorkspaceWithConfig");
+      const { openWorkspaceWithConfig } = await import("@/services/workspaces/openWorkspaceWithConfig");
 
       Object.defineProperty(globalThis, "location", {
         value: { search: "?workspaceRoot=/projects/myapp" },
@@ -984,7 +984,7 @@ describe("WindowContext", () => {
       const { invoke } = await import("@tauri-apps/api/core");
       const { resolveWorkspaceRootForExternalFile } = await import("../utils/openPolicy");
       vi.mocked(resolveWorkspaceRootForExternalFile).mockReturnValue("/docs");
-      const { openWorkspaceWithConfig } = await import("../hooks/openWorkspaceWithConfig");
+      const { openWorkspaceWithConfig } = await import("@/services/workspaces/openWorkspaceWithConfig");
 
       vi.mocked(invoke).mockResolvedValue({
         tabId: "t1",
@@ -1069,7 +1069,7 @@ describe("WindowContext", () => {
         configurable: true,
       });
 
-      const { openWorkspaceWithConfig } = await import("../hooks/openWorkspaceWithConfig");
+      const { openWorkspaceWithConfig } = await import("@/services/workspaces/openWorkspaceWithConfig");
 
       render(
         <WindowProvider>
@@ -1119,7 +1119,7 @@ describe("WindowContext", () => {
   describe("WindowProvider — openWorkspaceWithConfig failure", () => {
     it("continues when workspace config open fails for URL param", async () => {
       const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-      const { openWorkspaceWithConfig } = await import("../hooks/openWorkspaceWithConfig");
+      const { openWorkspaceWithConfig } = await import("@/services/workspaces/openWorkspaceWithConfig");
       vi.mocked(openWorkspaceWithConfig).mockRejectedValueOnce(new Error("config failed"));
 
       Object.defineProperty(globalThis, "location", {
@@ -1149,7 +1149,7 @@ describe("WindowContext", () => {
     it("derives workspace root from file path when no workspace is active", async () => {
       const { resolveWorkspaceRootForExternalFile } = await import("../utils/openPolicy");
       vi.mocked(resolveWorkspaceRootForExternalFile).mockReturnValue("/docs");
-      const { openWorkspaceWithConfig } = await import("../hooks/openWorkspaceWithConfig");
+      const { openWorkspaceWithConfig } = await import("@/services/workspaces/openWorkspaceWithConfig");
       const { readTextFile } = await import("@tauri-apps/plugin-fs");
       vi.mocked(readTextFile).mockResolvedValue("# content");
 

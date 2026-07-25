@@ -1,6 +1,8 @@
 {
   "app": {
-    "preferences": "Einstellungen"
+    "preferences": "Einstellungen",
+    "commandPalette": "Befehlspalette",
+    "quickOpen": "Schnellöffnen"
   },
   "history": {
     "clearAll": "Gesamten Verlauf löschen",
@@ -15,7 +17,9 @@
     "reportIssue": "Problem melden"
   },
   "genies": {
-    "openFolder": "Genies-Ordner öffnen"
+    "openFolder": "Genies-Ordner öffnen",
+    "togglePicker": "Toggle Genie Picker",
+    "openPicker": "Search Genies"
   },
   "export": {
     "html": "Als HTML exportieren",
@@ -27,7 +31,13 @@
   },
   "file": {
     "clearRecent": "Zuletzt geöffnete Dateien löschen",
-    "openRecent": "Zuletzt geöffnete Datei öffnen"
+    "openRecent": "Zuletzt geöffnete Datei öffnen",
+    "save": "Speichern",
+    "saveAs": "Speichern unter…",
+    "moveTo": "Verschieben nach…",
+    "saveAllQuit": "Alle speichern und beenden",
+    "new": "Neue Datei",
+    "open": "Öffnen…"
   },
   "workspace": {
     "openFolder": "Arbeitsbereich öffnen…",
@@ -61,7 +71,10 @@
     "toggleShowInvisibles": "Unsichtbare Zeichen umschalten",
     "toggleWindowStatus": "Fensterstatus",
     "toggleBreakdown": "Kohärenz-Aufschlüsselung",
-    "toggleClaims": "Kanon-Aussagen"
+    "toggleClaims": "Kanon-Aussagen",
+    "contentSearch": "In Dateien suchen",
+    "toggleSidebar": "Seitenleiste umschalten",
+    "toggleStatusBar": "Statusleiste umschalten"
   },
   "lint": {
     "check": "Markdown prüfen",
@@ -89,5 +102,135 @@
   },
   "claims": {
     "extractFromSelection": "Aussage aus Auswahl extrahieren"
+  },
+  "category": {
+    "app": "Anwendung",
+    "file": "Datei",
+    "workspace": "Arbeitsbereich",
+    "view": "Ansicht",
+    "export": "Exportieren",
+    "formatting": "Formatierung",
+    "headings": "Überschriften",
+    "lists": "Listen",
+    "blockquote": "Blockzitat",
+    "inserts": "Einfügen",
+    "links": "Links",
+    "tables": "Tabellen",
+    "lines": "Zeilen",
+    "selection": "Auswahl",
+    "transform": "Umwandeln",
+    "cjk": "CJK",
+    "cleanup": "Bereinigen",
+    "codeBlock": "Codeblock",
+    "edit": "Bearbeiten",
+    "lint": "Lint",
+    "image": "Bild",
+    "history": "Verlauf",
+    "format": "Dateityp",
+    "ai": "AI",
+    "help": "Hilfe",
+    "other": "Sonstiges"
+  },
+  "editor": {
+    "addColLeft": "Spalte links einfügen",
+    "addColRight": "Spalte rechts einfügen",
+    "addRowAbove": "Zeile darüber einfügen",
+    "addRowBelow": "Zeile darunter einfügen",
+    "alignAllCenter": "Alle zentrieren",
+    "alignAllLeft": "Alle linksbündig ausrichten",
+    "alignAllRight": "Alle rechtsbündig ausrichten",
+    "alignCenter": "Zentrieren",
+    "alignLeft": "Linksbündig ausrichten",
+    "alignRight": "Rechtsbündig ausrichten",
+    "blockquote": "Blockzitat",
+    "bold": "Fett",
+    "bookmark": "Lesezeichen",
+    "bulletList": "Aufzählungsliste",
+    "clearFormatting": "Formatierung entfernen",
+    "code": "Inline-Code",
+    "codeBlock": "Codeblock",
+    "collapseBlankLines": "Leerzeilen zusammenfassen",
+    "decreaseHeading": "Überschriftenebene verringern",
+    "deleteCol": "Spalte löschen",
+    "deleteLine": "Zeile löschen",
+    "deleteRow": "Zeile löschen",
+    "deleteTable": "Tabelle löschen",
+    "duplicateLine": "Zeile duplizieren",
+    "expandSelection": "Auswahl erweitern",
+    "formatCJK": "CJK-Auswahl formatieren",
+    "formatCJKFile": "CJK-Datei formatieren",
+    "formatTable": "Tabelle formatieren",
+    "highlight": "Hervorheben",
+    "horizontalLine": "Horizontale Linie",
+    "increaseHeading": "Überschriftenebene erhöhen",
+    "indent": "Einrücken",
+    "insertAlertCaution": "Vorsicht einfügen",
+    "insertAlertImportant": "Wichtig einfügen",
+    "insertAlertNote": "Notiz einfügen",
+    "insertAlertTip": "Tipp einfügen",
+    "insertAlertWarning": "Warnung einfügen",
+    "insertAudio": "Audio einfügen",
+    "insertDetails": "Einklappbaren Block einfügen",
+    "insertDiagram": "Diagramm einfügen",
+    "insertFootnote": "Fußnote einfügen",
+    "insertGraphvizDiagram": "Graphviz-Diagramm einfügen",
+    "insertImage": "Bild einfügen",
+    "insertInlineMath": "Inline-Formel einfügen",
+    "insertMarkmap": "Mindmap einfügen",
+    "insertMath": "Formelblock einfügen",
+    "insertTable": "Tabelle einfügen",
+    "insertVideo": "Video einfügen",
+    "italic": "Kursiv",
+    "joinLines": "Zeilen zusammenführen",
+    "lineEndingsCRLF": "In CRLF umwandeln",
+    "lineEndingsLF": "In LF umwandeln",
+    "link": "Link",
+    "moveLineDown": "Zeile nach unten verschieben",
+    "moveLineUp": "Zeile nach oben verschieben",
+    "nestBlockquote": "Blockzitat verschachteln",
+    "orderedList": "Nummerierte Liste",
+    "outdent": "Ausrücken",
+    "paragraph": "Absatz",
+    "redo": "Wiederholen",
+    "removeBlankLines": "Leerzeilen entfernen",
+    "removeBlockquote": "Blockzitat entfernen",
+    "removeList": "Liste entfernen",
+    "removeTrailingSpaces": "Nachstehende Leerzeichen entfernen",
+    "selectBlock": "Block auswählen",
+    "selectLine": "Zeile auswählen",
+    "selectWord": "Wort auswählen",
+    "setHeading": {
+      "1": "Überschrift 1",
+      "2": "Überschrift 2",
+      "3": "Überschrift 3",
+      "4": "Überschrift 4",
+      "5": "Überschrift 5",
+      "6": "Überschrift 6"
+    },
+    "sortLinesAsc": "Zeilen aufsteigend sortieren",
+    "sortLinesDesc": "Zeilen absteigend sortieren",
+    "strikethrough": "Durchgestrichen",
+    "subscript": "Tiefgestellt",
+    "superscript": "Hochgestellt",
+    "taskList": "Aufgabenliste",
+    "toggleQuoteStyle": "Anführungszeichenstil umschalten",
+    "transformLowercase": "In Kleinbuchstaben umwandeln",
+    "transformTitleCase": "In Titelschreibweise umwandeln",
+    "transformToggleCase": "Groß-/Kleinschreibung umschalten",
+    "transformUppercase": "In GROSSBUCHSTABEN umwandeln",
+    "underline": "Unterstrichen",
+    "undo": "Rückgängig",
+    "unnestBlockquote": "Blockzitat-Verschachtelung aufheben",
+    "wikiLink": "Wiki-Link"
+  },
+  "explorer": {
+    "toggleHiddenFiles": "Versteckte Dateien umschalten",
+    "toggleAllFiles": "Alle Dateien umschalten"
+  },
+  "tab": {
+    "new": "Neuer Tab",
+    "next": "Nächster Tab",
+    "prev": "Vorheriger Tab",
+    "close": "Tab schließen"
   }
 }

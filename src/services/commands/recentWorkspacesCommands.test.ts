@@ -22,10 +22,10 @@ vi.mock("@tauri-apps/plugin-dialog", () => ({
   open: (...a: unknown[]) => mockOpenPicker(...a),
 }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: (...a: unknown[]) => mockInvoke(...a) }));
-vi.mock("@/hooks/openWorkspaceWithConfig", () => ({
+vi.mock("@/services/workspaces/openWorkspaceWithConfig", () => ({
   openWorkspaceWithConfig: (...a: unknown[]) => mockOpenWorkspaceWithConfig(...a),
 }));
-vi.mock("@/hooks/workspaceSession", () => ({
+vi.mock("@/services/workspaces/workspaceSession", () => ({
   persistWorkspaceSession: (...a: unknown[]) => mockPersistWorkspaceSession(...a),
 }));
 vi.mock("@/services/navigation/restoreWorkspaceTabs", () => ({

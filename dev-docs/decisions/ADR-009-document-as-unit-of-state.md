@@ -1,6 +1,13 @@
 # ADR-009: Document as the unit of state
 
-> Status: **Accepted (per-doc mode representable)** | Date: 2026-05-24
+> Status: **Drifted (severe)** (2026-07-22 audit) — the data-model half holds
+> and has advanced past the ADR (per-doc `mode` is real). The API half never
+> existed (`useActiveDocument()` is absent), and the central deletion regressed:
+> `src/stores/editorStore.ts`, deleted by this ADR, was **re-created** by a
+> later refactor (`7e721384`) for a different concept and now has ~220
+> references, with nothing catching it. See the deleted-name CI gate added in
+> response (`scripts/check-deleted-names.mjs`).
+> Original status: **Accepted (per-doc mode representable)** | Date: 2026-05-24
 
 ## Context
 

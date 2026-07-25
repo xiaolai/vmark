@@ -30,7 +30,7 @@ vi.mock("@/utils/debug", () => ({
   mediaHandlerError: vi.fn(),
 }));
 
-vi.mock("@/hooks/useWindowFocus", () => ({
+vi.mock("@/services/navigation/windowFocus", () => ({
   getWindowLabel: vi.fn(() => "main"),
 }));
 
@@ -671,7 +671,7 @@ describe("handleDroppedMediaFile async flow", () => {
 
   it("handles getDocumentPath error (catch branch)", async () => {
     // Make getWindowLabel throw to trigger the catch in getDocumentPath
-    const { getWindowLabel } = await import("@/hooks/useWindowFocus");
+    const { getWindowLabel } = await import("@/services/navigation/windowFocus");
     (getWindowLabel as ReturnType<typeof vi.fn>).mockImplementationOnce(() => {
       throw new Error("no window");
     });

@@ -14,7 +14,7 @@
 import type { EditorView } from "@tiptap/pm/view";
 import { message } from "@tauri-apps/plugin-dialog";
 import i18n from "@/i18n";
-import { getWindowLabel } from "@/hooks/useWindowFocus";
+import { getWindowLabel } from "@/services/navigation/windowFocus";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
 import { hasImageExtension } from "@/utils/imagePathDetection";

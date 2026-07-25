@@ -85,7 +85,7 @@ vi.mock("@/utils/openPolicy", () => ({
   resolveMissingFileSaveAction: vi.fn(() => "save_allowed"),
 }));
 
-vi.mock("@/hooks/openWorkspaceWithConfig", () => ({
+vi.mock("@/services/workspaces/openWorkspaceWithConfig", () => ({
   openWorkspaceWithConfig: mockOpenWorkspaceWithConfig,
 }));
 

@@ -39,7 +39,7 @@ vi.mock("@/plugins/imageHandler/imageHandlerUtils", () => ({
   generateClipboardImageFilename: (...args: unknown[]) => mockGenerateClipboardImageFilename(...args),
 }));
 
-vi.mock("@/hooks/useWindowFocus", () => ({
+vi.mock("@/services/navigation/windowFocus", () => ({
   getWindowLabel: () => mockGetWindowLabel(),
 }));
 

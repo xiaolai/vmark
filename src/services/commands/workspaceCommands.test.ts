@@ -17,12 +17,12 @@ vi.mock("@tauri-apps/plugin-dialog", () => ({
 }));
 
 const mockOpenWorkspaceWithConfig = vi.fn();
-vi.mock("@/hooks/openWorkspaceWithConfig", () => ({
+vi.mock("@/services/workspaces/openWorkspaceWithConfig", () => ({
   openWorkspaceWithConfig: (...a: unknown[]) => mockOpenWorkspaceWithConfig(...a),
 }));
 
 const mockPersistWorkspaceSession = vi.fn();
-vi.mock("@/hooks/workspaceSession", () => ({
+vi.mock("@/services/workspaces/workspaceSession", () => ({
   persistWorkspaceSession: (...a: unknown[]) => mockPersistWorkspaceSession(...a),
 }));
 

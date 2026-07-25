@@ -34,7 +34,7 @@ import { useWindowLabel } from "@/contexts/WindowContext";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
 import { dispatchEditor } from "@/lib/formats/registry";
-import { isBinaryMediaPath } from "@/hooks/openMediaFile";
+import { isBinaryMediaPath } from "@/services/navigation/openMediaFile";
 import {
   reloadAllFromDisk,
   keepAllLocal,

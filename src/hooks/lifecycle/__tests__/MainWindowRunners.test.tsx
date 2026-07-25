@@ -19,10 +19,10 @@ vi.mock("@/hooks/useUpdateSync", () => ({
   useUpdateBroadcast: () => calls.push("updateBroadcast"),
   useUpdateListener: () => calls.push("updateListener"),
 }));
-vi.mock("@/services/persistence/resilience", () => ({
+vi.mock("@/hooks/resilience", () => ({
   useResilienceStartup: () => calls.push("resilienceStartup"),
 }));
-vi.mock("@/services/persistence/hotExit/useHotExitCaptureWarning", () => ({
+vi.mock("@/hooks/useHotExitCaptureWarning", () => ({
   useHotExitCaptureWarning: () => calls.push("hotExitCaptureWarning"),
 }));
 vi.mock("@/hooks/useFinderFileOpen", () => ({
@@ -30,15 +30,6 @@ vi.mock("@/hooks/useFinderFileOpen", () => ({
 }));
 vi.mock("@/hooks/useGenieShortcuts", () => ({
   useGenieShortcuts: () => calls.push("genieShortcuts"),
-}));
-vi.mock("@/hooks/useQuickOpenShortcuts", () => ({
-  useQuickOpenShortcuts: () => calls.push("quickOpenShortcuts"),
-}));
-vi.mock("@/components/ContentSearch/useContentSearchShortcuts", () => ({
-  useContentSearchShortcuts: () => calls.push("contentSearchShortcuts"),
-}));
-vi.mock("@/components/CommandPalette", () => ({
-  useCommandPaletteShortcut: () => calls.push("commandPaletteShortcut"),
 }));
 
 import { MainWindowRunners } from "../MainWindowRunners";
@@ -60,13 +51,10 @@ describe("MainWindowRunners", () => {
         "hotExitCaptureWarning",
         "finderFileOpen",
         "genieShortcuts",
-        "quickOpenShortcuts",
-        "contentSearchShortcuts",
-        "commandPaletteShortcut",
       ].sort(),
     );
     // Exactly once each — no duplicate mounts.
-    expect(calls).toHaveLength(11);
+    expect(calls).toHaveLength(8);
   });
 
   it("runs resilience startup before the Finder file-open handler (order contract)", () => {

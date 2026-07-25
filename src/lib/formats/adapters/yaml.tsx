@@ -22,6 +22,8 @@ import {
 import { parse as parseWorkflow } from "@/lib/ghaWorkflow/parser";
 import { WorkflowCanvas } from "@/components/Editor/WorkflowPanel/WorkflowCanvas";
 import { getFileName } from "@/utils/pathUtils";
+import { yaml } from "@codemirror/lang-yaml";
+import { lintYaml } from "@/lib/lintEngine/yaml";
 import { registerFormat } from "../registry";
 import type {
   FormatConfig,
@@ -183,6 +185,9 @@ export const yamlFormat: FormatConfig = {
   nameI18nKey: "format.yaml",
   extensions: ["yaml", "yml"],
   kind: "split-pane",
+  // Statically imported by the source-editor composition anyway.
+  language: () => yaml(),
+  lint: (source: string) => lintYaml(source),
   loadLanguage: async (): Promise<Extension> => {
     const { yaml } = await import("@codemirror/lang-yaml");
     return yaml();
@@ -207,7 +212,7 @@ export const yamlFormat: FormatConfig = {
       insertBlockActions: false,
       paragraphFormatting: false,
     },
-    closeSavePolicy: "markdown-default",
+    closeSavePolicy: "prompt-on-close",
   },
 };
 

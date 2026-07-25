@@ -28,7 +28,7 @@ import i18n from "@/i18n";
 import { AlertTriangle, Check, Code2, GitFork, Lock, LockOpen, Satellite, Save, Sparkles, Terminal, Type } from "lucide-react";
 import { useImagePasteToastStore } from "@/stores/imagePasteToastStore";
 import { flushActiveWysiwygNow } from "@/utils/wysiwygFlush";
-import { requestToggleTerminal } from "@/components/Terminal/terminalGate";
+import { requestToggleTerminal } from "@/services/terminal/terminalGate";
 import { formatExactTime } from "@/utils/dateUtils";
 import { formatKeyForDisplay } from "@/stores/settingsStore";
 import { UpdateIndicator } from "./UpdateIndicator";

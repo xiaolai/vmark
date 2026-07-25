@@ -10,17 +10,27 @@ architectural choice using the [MADR](https://adr.github.io/madr/) format.
 | [001](ADR-001-markdown-as-source-of-truth.md) | Markdown as source of truth | Accepted | 2026-01-09 |
 | [002](ADR-002-mcp-sidecar-architecture.md) | MCP sidecar architecture | Accepted | 2025-12-15 |
 | [003](ADR-003-tiptap-over-milkdown.md) | Tiptap over Milkdown | Accepted | 2025-11-20 |
-| [004](ADR-004-human-oriented-mcp-tools.md) | Human-oriented MCP tool design | Accepted | 2026-01-22 |
-| [005](ADR-005-cli-based-ai-provider-routing.md) | CLI-based AI provider routing | Accepted | 2026-01-10 |
-| [006](ADR-006-terminal-program-identity.md) | Terminal program identity | Accepted | — |
-| [007](ADR-007-shell-as-composition-root.md) | Shell as composition root | Accepted | 2026-05-24 |
-| [008](ADR-008-workspace-as-single-facade.md) | Workspace as single facade | Accepted (read-only) | 2026-05-24 |
-| [009](ADR-009-document-as-unit-of-state.md) | Document as the unit of state | Accepted (per-doc mode representable) | 2026-05-24 |
-| [010](ADR-010-editor-host-as-mode-agnostic-interface.md) | Editor host (per-feature operations) | Accepted (revised + first operations.ts) | 2026-05-24 |
-| [011](ADR-011-plugin-manifest-contract.md) | Plugin manifest contract | Accepted (manifests complete) | 2026-05-24 |
-| [012](ADR-012-command-bus-as-single-intent-path.md) | Command bus as single intent path | Accepted (all 6 hooks routed) | 2026-05-24 |
+| [004](ADR-004-human-oriented-mcp-tools.md) | Human-oriented MCP tool design | Superseded | 2026-01-22 |
+| [005](ADR-005-cli-based-ai-provider-routing.md) | CLI-based AI provider routing | Reversed in practice ⚠️ | 2026-01-10 |
+| [006](ADR-006-terminal-program-identity.md) | Terminal program identity | Accepted (test-guarded) | 2026-04-14 |
+| [007](ADR-007-shell-as-composition-root.md) | Shell as composition root | Accepted (drifted) | 2026-05-24 |
+| [008](ADR-008-workspace-as-single-facade.md) | Workspace as single facade | FALSE in practice ⚠️ | 2026-05-24 |
+| [009](ADR-009-document-as-unit-of-state.md) | Document as the unit of state | Drifted (severe) ⚠️ | 2026-05-24 |
+| [010](ADR-010-editor-host-as-mode-agnostic-interface.md) | Editor host (per-feature operations) | FALSE in practice ⚠️ | 2026-05-24 |
+| [011](ADR-011-plugin-manifest-contract.md) | Plugin manifest contract | Superseded by ADR-015 | 2026-05-24 |
+| [012](ADR-012-command-bus-as-single-intent-path.md) | Command bus as single intent path | Drifted (~15-20% adopted) ⚠️ | 2026-05-24 |
 | [013](ADR-013-service-tier-as-cross-cutting-seam.md) | Service tier as cross-cutting seam | Accepted | 2026-05-24 |
 | [014](ADR-014-theme-tokens-as-typed-data.md) | Theme tokens as typed data | Accepted (typed baseline) | 2026-05-24 |
+| [015](ADR-015-extension-model.md) | Extension model (flat peers, extension-owned conversion) | Proposed | 2026-07-22 |
+| [016](ADR-016-capability-broker-requires-isolation.md) | Capability broker requires isolation first | Accepted | 2026-07-23 |
+| [017](ADR-017-command-bus-absorbs-the-action-registry.md) | Command bus absorbs the action registry | Proposed | 2026-07-23 |
+| [018](ADR-018-keybinding-registry.md) | One binding registry, many capture adapters | Proposed | 2026-07-24 |
+| [019](ADR-019-extension-host-api.md) | Extension host API — the runtime contract | Proposed | 2026-07-25 |
+
+> **⚠️ marks ADRs the 2026-07-22 reality audit
+> (`dev-docs/audit/20260722-adr-reality-audit.md`) found no longer describe the
+> code.** Read those ADRs' own Status headers for the specifics before relying on
+> them. Verdict tally: 4 FALSE/reversed, 3 drifted, the rest hold.
 
 ### Reskin foundation set (ADR-007 to ADR-014)
 

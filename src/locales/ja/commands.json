@@ -1,6 +1,8 @@
 {
   "app": {
-    "preferences": "環境設定"
+    "preferences": "環境設定",
+    "commandPalette": "コマンドパレット",
+    "quickOpen": "クイックオープン"
   },
   "history": {
     "clearAll": "すべての履歴を消去",
@@ -15,7 +17,9 @@
     "reportIssue": "問題を報告"
   },
   "genies": {
-    "openFolder": "ジーニーフォルダを開く"
+    "openFolder": "ジーニーフォルダを開く",
+    "togglePicker": "Toggle Genie Picker",
+    "openPicker": "Search Genies"
   },
   "export": {
     "html": "HTML として書き出し",
@@ -27,7 +31,13 @@
   },
   "file": {
     "clearRecent": "最近のファイルを消去",
-    "openRecent": "最近のファイルを開く"
+    "openRecent": "最近のファイルを開く",
+    "save": "保存",
+    "saveAs": "名前を付けて保存…",
+    "moveTo": "移動…",
+    "saveAllQuit": "すべて保存して終了",
+    "new": "新規ファイル",
+    "open": "開く…"
   },
   "workspace": {
     "openFolder": "ワークスペースを開く…",
@@ -61,7 +71,10 @@
     "toggleShowInvisibles": "不可視文字を切り替え",
     "toggleWindowStatus": "ウィンドウの状態",
     "toggleBreakdown": "整合性の内訳",
-    "toggleClaims": "カノン設定"
+    "toggleClaims": "カノン設定",
+    "contentSearch": "ファイル内を検索",
+    "toggleSidebar": "サイドバーを切り替え",
+    "toggleStatusBar": "ステータスバーを切り替え"
   },
   "lint": {
     "check": "Markdown をチェック",
@@ -89,5 +102,135 @@
   },
   "claims": {
     "extractFromSelection": "選択範囲から設定を抽出"
+  },
+  "category": {
+    "app": "アプリケーション",
+    "file": "ファイル",
+    "workspace": "ワークスペース",
+    "view": "表示",
+    "export": "書き出し",
+    "formatting": "書式",
+    "headings": "見出し",
+    "lists": "リスト",
+    "blockquote": "引用",
+    "inserts": "挿入",
+    "links": "リンク",
+    "tables": "表",
+    "lines": "行",
+    "selection": "選択",
+    "transform": "変換",
+    "cjk": "CJK",
+    "cleanup": "クリーンアップ",
+    "codeBlock": "コードブロック",
+    "edit": "編集",
+    "lint": "Lint",
+    "image": "画像",
+    "history": "履歴",
+    "format": "ファイル形式",
+    "ai": "AI",
+    "help": "ヘルプ",
+    "other": "その他"
+  },
+  "editor": {
+    "addColLeft": "左に列を追加",
+    "addColRight": "右に列を追加",
+    "addRowAbove": "上に行を追加",
+    "addRowBelow": "下に行を追加",
+    "alignAllCenter": "すべて中央揃え",
+    "alignAllLeft": "すべて左揃え",
+    "alignAllRight": "すべて右揃え",
+    "alignCenter": "中央揃え",
+    "alignLeft": "左揃え",
+    "alignRight": "右揃え",
+    "blockquote": "引用",
+    "bold": "太字",
+    "bookmark": "ブックマーク",
+    "bulletList": "箇条書き",
+    "clearFormatting": "書式をクリア",
+    "code": "インラインコード",
+    "codeBlock": "コードブロック",
+    "collapseBlankLines": "空行をまとめる",
+    "decreaseHeading": "見出しレベルを下げる",
+    "deleteCol": "列を削除",
+    "deleteLine": "行を削除",
+    "deleteRow": "行を削除",
+    "deleteTable": "表を削除",
+    "duplicateLine": "行を複製",
+    "expandSelection": "選択範囲を拡張",
+    "formatCJK": "CJK選択範囲を整形",
+    "formatCJKFile": "CJKファイルを整形",
+    "formatTable": "表を整形",
+    "highlight": "ハイライト",
+    "horizontalLine": "水平線",
+    "increaseHeading": "見出しレベルを上げる",
+    "indent": "インデント",
+    "insertAlertCaution": "注意を挿入",
+    "insertAlertImportant": "重要を挿入",
+    "insertAlertNote": "ノートを挿入",
+    "insertAlertTip": "ヒントを挿入",
+    "insertAlertWarning": "警告を挿入",
+    "insertAudio": "オーディオを挿入",
+    "insertDetails": "折りたたみブロックを挿入",
+    "insertDiagram": "図を挿入",
+    "insertFootnote": "脚注を挿入",
+    "insertGraphvizDiagram": "Graphviz図を挿入",
+    "insertImage": "画像を挿入",
+    "insertInlineMath": "インライン数式を挿入",
+    "insertMarkmap": "マインドマップを挿入",
+    "insertMath": "数式ブロックを挿入",
+    "insertTable": "表を挿入",
+    "insertVideo": "ビデオを挿入",
+    "italic": "斜体",
+    "joinLines": "行を結合",
+    "lineEndingsCRLF": "CRLFに変換",
+    "lineEndingsLF": "LFに変換",
+    "link": "リンク",
+    "moveLineDown": "行を下に移動",
+    "moveLineUp": "行を上に移動",
+    "nestBlockquote": "引用をネスト",
+    "orderedList": "番号付きリスト",
+    "outdent": "アウトデント",
+    "paragraph": "段落",
+    "redo": "やり直し",
+    "removeBlankLines": "空行を削除",
+    "removeBlockquote": "引用を解除",
+    "removeList": "リストを解除",
+    "removeTrailingSpaces": "行末の空白を削除",
+    "selectBlock": "ブロックを選択",
+    "selectLine": "行を選択",
+    "selectWord": "単語を選択",
+    "setHeading": {
+      "1": "見出し1",
+      "2": "見出し2",
+      "3": "見出し3",
+      "4": "見出し4",
+      "5": "見出し5",
+      "6": "見出し6"
+    },
+    "sortLinesAsc": "行を昇順に並べ替え",
+    "sortLinesDesc": "行を降順に並べ替え",
+    "strikethrough": "取り消し線",
+    "subscript": "下付き文字",
+    "superscript": "上付き文字",
+    "taskList": "タスクリスト",
+    "toggleQuoteStyle": "引用符スタイルを切り替え",
+    "transformLowercase": "小文字に変換",
+    "transformTitleCase": "タイトルケースに変換",
+    "transformToggleCase": "大文字小文字を切り替え",
+    "transformUppercase": "大文字に変換",
+    "underline": "下線",
+    "undo": "元に戻す",
+    "unnestBlockquote": "引用のネストを解除",
+    "wikiLink": "Wikiリンク"
+  },
+  "explorer": {
+    "toggleHiddenFiles": "隠しファイルを切り替え",
+    "toggleAllFiles": "すべてのファイルを切り替え"
+  },
+  "tab": {
+    "new": "新しいタブ",
+    "next": "次のタブ",
+    "prev": "前のタブ",
+    "close": "タブを閉じる"
   }
 }

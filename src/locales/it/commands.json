@@ -1,6 +1,8 @@
 {
   "app": {
-    "preferences": "Preferenze"
+    "preferences": "Preferenze",
+    "commandPalette": "Palette dei comandi",
+    "quickOpen": "Apertura rapida"
   },
   "history": {
     "clearAll": "Cancella tutta la cronologia",
@@ -15,7 +17,9 @@
     "reportIssue": "Segnala un problema"
   },
   "genies": {
-    "openFolder": "Apri cartella dei geni"
+    "openFolder": "Apri cartella dei geni",
+    "togglePicker": "Toggle Genie Picker",
+    "openPicker": "Search Genies"
   },
   "export": {
     "html": "Esporta come HTML",
@@ -27,7 +31,13 @@
   },
   "file": {
     "clearRecent": "Cancella file recenti",
-    "openRecent": "Apri file recente"
+    "openRecent": "Apri file recente",
+    "save": "Salva",
+    "saveAs": "Salva con nome…",
+    "moveTo": "Sposta in…",
+    "saveAllQuit": "Salva tutto ed esci",
+    "new": "Nuovo file",
+    "open": "Apri…"
   },
   "workspace": {
     "openFolder": "Apri spazio di lavoro…",
@@ -61,7 +71,10 @@
     "toggleShowInvisibles": "Attiva/disattiva caratteri invisibili",
     "toggleWindowStatus": "Stato finestre",
     "toggleBreakdown": "Dettaglio coerenza",
-    "toggleClaims": "Affermazioni canoniche"
+    "toggleClaims": "Affermazioni canoniche",
+    "contentSearch": "Cerca nei file",
+    "toggleSidebar": "Attiva/disattiva barra laterale",
+    "toggleStatusBar": "Attiva/disattiva barra di stato"
   },
   "lint": {
     "check": "Controlla Markdown",
@@ -89,5 +102,135 @@
   },
   "claims": {
     "extractFromSelection": "Estrai affermazione dalla selezione"
+  },
+  "category": {
+    "app": "Applicazione",
+    "file": "File",
+    "workspace": "Spazio di lavoro",
+    "view": "Vista",
+    "export": "Esporta",
+    "formatting": "Formattazione",
+    "headings": "Titoli",
+    "lists": "Elenchi",
+    "blockquote": "Citazione",
+    "inserts": "Inserisci",
+    "links": "Collegamenti",
+    "tables": "Tabelle",
+    "lines": "Righe",
+    "selection": "Selezione",
+    "transform": "Trasforma",
+    "cjk": "CJK",
+    "cleanup": "Pulizia",
+    "codeBlock": "Blocco di codice",
+    "edit": "Modifica",
+    "lint": "Lint",
+    "image": "Immagine",
+    "history": "Cronologia",
+    "format": "Tipo di file",
+    "ai": "AI",
+    "help": "Aiuto",
+    "other": "Altro"
+  },
+  "editor": {
+    "addColLeft": "Aggiungi colonna a sinistra",
+    "addColRight": "Aggiungi colonna a destra",
+    "addRowAbove": "Aggiungi riga sopra",
+    "addRowBelow": "Aggiungi riga sotto",
+    "alignAllCenter": "Allinea tutto al centro",
+    "alignAllLeft": "Allinea tutto a sinistra",
+    "alignAllRight": "Allinea tutto a destra",
+    "alignCenter": "Allinea al centro",
+    "alignLeft": "Allinea a sinistra",
+    "alignRight": "Allinea a destra",
+    "blockquote": "Citazione",
+    "bold": "Grassetto",
+    "bookmark": "Segnalibro",
+    "bulletList": "Elenco puntato",
+    "clearFormatting": "Cancella formattazione",
+    "code": "Codice in linea",
+    "codeBlock": "Blocco di codice",
+    "collapseBlankLines": "Comprimi righe vuote",
+    "decreaseHeading": "Riduci livello titolo",
+    "deleteCol": "Elimina colonna",
+    "deleteLine": "Elimina riga",
+    "deleteRow": "Elimina riga",
+    "deleteTable": "Elimina tabella",
+    "duplicateLine": "Duplica riga",
+    "expandSelection": "Espandi selezione",
+    "formatCJK": "Formatta selezione CJK",
+    "formatCJKFile": "Formatta file CJK",
+    "formatTable": "Formatta tabella",
+    "highlight": "Evidenzia",
+    "horizontalLine": "Linea orizzontale",
+    "increaseHeading": "Aumenta livello titolo",
+    "indent": "Aumenta rientro",
+    "insertAlertCaution": "Inserisci Attenzione",
+    "insertAlertImportant": "Inserisci Importante",
+    "insertAlertNote": "Inserisci Nota",
+    "insertAlertTip": "Inserisci Suggerimento",
+    "insertAlertWarning": "Inserisci Avviso",
+    "insertAudio": "Inserisci audio",
+    "insertDetails": "Inserisci blocco comprimibile",
+    "insertDiagram": "Inserisci diagramma",
+    "insertFootnote": "Inserisci nota a piè di pagina",
+    "insertGraphvizDiagram": "Inserisci diagramma Graphviz",
+    "insertImage": "Inserisci immagine",
+    "insertInlineMath": "Inserisci formula in linea",
+    "insertMarkmap": "Inserisci mappa mentale",
+    "insertMath": "Inserisci blocco formula",
+    "insertTable": "Inserisci tabella",
+    "insertVideo": "Inserisci video",
+    "italic": "Corsivo",
+    "joinLines": "Unisci righe",
+    "lineEndingsCRLF": "Converti in CRLF",
+    "lineEndingsLF": "Converti in LF",
+    "link": "Collegamento",
+    "moveLineDown": "Sposta riga in basso",
+    "moveLineUp": "Sposta riga in alto",
+    "nestBlockquote": "Annida citazione",
+    "orderedList": "Elenco numerato",
+    "outdent": "Riduci rientro",
+    "paragraph": "Paragrafo",
+    "redo": "Ripeti",
+    "removeBlankLines": "Rimuovi righe vuote",
+    "removeBlockquote": "Rimuovi citazione",
+    "removeList": "Rimuovi elenco",
+    "removeTrailingSpaces": "Rimuovi spazi finali",
+    "selectBlock": "Seleziona blocco",
+    "selectLine": "Seleziona riga",
+    "selectWord": "Seleziona parola",
+    "setHeading": {
+      "1": "Titolo 1",
+      "2": "Titolo 2",
+      "3": "Titolo 3",
+      "4": "Titolo 4",
+      "5": "Titolo 5",
+      "6": "Titolo 6"
+    },
+    "sortLinesAsc": "Ordina righe in ordine crescente",
+    "sortLinesDesc": "Ordina righe in ordine decrescente",
+    "strikethrough": "Barrato",
+    "subscript": "Pedice",
+    "superscript": "Apice",
+    "taskList": "Elenco attività",
+    "toggleQuoteStyle": "Attiva/disattiva stile virgolette",
+    "transformLowercase": "Trasforma in minuscolo",
+    "transformTitleCase": "Trasforma in Maiuscole Iniziali",
+    "transformToggleCase": "Inverti maiuscole/minuscole",
+    "transformUppercase": "Trasforma in MAIUSCOLO",
+    "underline": "Sottolineato",
+    "undo": "Annulla",
+    "unnestBlockquote": "Rimuovi annidamento citazione",
+    "wikiLink": "Collegamento wiki"
+  },
+  "explorer": {
+    "toggleHiddenFiles": "Attiva/disattiva file nascosti",
+    "toggleAllFiles": "Attiva/disattiva tutti i file"
+  },
+  "tab": {
+    "new": "Nuova scheda",
+    "next": "Scheda successiva",
+    "prev": "Scheda precedente",
+    "close": "Chiudi scheda"
   }
 }

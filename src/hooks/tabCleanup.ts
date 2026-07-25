@@ -5,7 +5,7 @@ import { useRevisionStore } from "@/stores/documentStore";
 import { useAiSuggestionStore } from "@/stores/aiStore";
 import { useLargeFileSessionStore } from "@/stores/documentStore";
 import { clearPendingContentSearchNav } from "@/hooks/contentSearchNavigation";
-import { clearPendingLintScroll } from "@/hooks/lintNavigation";
+import { clearPendingLintScroll } from "@/services/lint/lintNavigation";
 
 /**
  * Clean up all per-tab state when a tab is closed or detached.

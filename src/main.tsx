@@ -3,7 +3,6 @@ import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import "./i18n";
 import "./services/menu/startupMenuSync";
-import { registerAllPlugins } from "./plugins/manifests";
 import { initSecureStorage } from "@/services/secrets/secureStorage";
 import { bootstrapFormats } from "./lib/formats";
 import { useSettingsStore } from "./stores/settingsStore";
@@ -34,7 +33,6 @@ async function bootstrap() {
 
   // ADR-011: register every plugin's manifest with the central registry
   // so palette / debug / dependency tooling sees the full plugin set.
-  registerAllPlugins();
 
   // Register every format adapter before App imports any store that
   // calls dispatchEditor() (e.g., tabStore.createTab). Honor the user's

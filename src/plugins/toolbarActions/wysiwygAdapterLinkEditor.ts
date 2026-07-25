@@ -12,9 +12,10 @@
  * @module plugins/toolbarActions/wysiwygAdapterLinkEditor
  */
 import type { EditorView } from "@tiptap/pm/view";
-import { expandedToggleMarkTiptap } from "@/plugins/editorPlugins.tiptap";
+import { expandedToggleMark as expandedToggleMarkTiptap } from "@/plugins/editorPlugins/expandedToggleMark";
 import { resolveLinkPopupPayload } from "@/plugins/formatToolbar/linkPopupUtils";
-import { findWordAtCursor } from "@/plugins/syntaxReveal/marks";
+import { findMarkRange, findWordAtCursor } from "@/plugins/syntaxReveal/marks";
+import type { LinkInfo } from "@/plugins/toolbarContext/types";
 import { useLinkPopupStore } from "@/stores/linkPopupStore";
 import { useWikiLinkPopupStore } from "@/stores/wikiLinkPopupStore";
 import { readClipboardUrl } from "@/services/editor/clipboardUrl";
@@ -115,6 +116,35 @@ async function trySmartLinkInsertion(view: EditorView, inLink: boolean): Promise
  * Open the link editor for the current cursor position.
  * Handles wiki links, smart clipboard insertion, and standard link popup.
  */
+/**
+ * The link at the caret, derived from the LIVE view. The keyboard + native-menu
+ * path runs through `runEditorAction`, which passes `context.context === null` —
+ * so `context.context?.inLink` is unavailable there. Without it an existing link
+ * under a collapsed caret would be misread as plain text: Mod-K would overwrite
+ * it (clipboard) or toggle it off instead of opening its editor. Deriving the
+ * link info from `view.state` makes the executor path match the toolbar path.
+ * Only `href`/`from`/`to` are consumed downstream; the rest mirror the range.
+ */
+function getLinkInfoAtCursor(view: EditorView): LinkInfo | null {
+  const linkType = view.state.schema.marks.link;
+  if (!linkType) return null;
+  const { $from } = view.state.selection;
+  const linkMark = $from.marks().find((m) => m.type === linkType);
+  if (!linkMark) return null;
+  const range = findMarkRange($from.pos, linkMark, $from.start(), $from.parent);
+  if (!range) return null;
+  const href = String(linkMark.attrs.href ?? "");
+  const text = view.state.doc.textBetween(range.from, range.to);
+  return {
+    href,
+    text,
+    from: range.from,
+    to: range.to,
+    contentFrom: range.from,
+    contentTo: range.to,
+  };
+}
+
 export function openLinkEditor(context: WysiwygToolbarContext): boolean {
   const view = context.view;
   if (!view) return false;
@@ -144,7 +174,10 @@ export function openLinkEditor(context: WysiwygToolbarContext): boolean {
     return true;
   }
 
-  const inLink = !!context.context?.inLink;
+  // Toolbar path supplies the LinkInfo; the executor/keyboard path passes null,
+  // so derive it from the live view. Only need truthiness for the clipboard gate.
+  const linkInfo = context.context?.inLink ?? getLinkInfoAtCursor(view);
+  const inLink = !!linkInfo;
 
   // Try smart link insertion first (async, fires and forgets)
   void trySmartLinkInsertion(view, inLink).then((handled) => {
@@ -160,7 +193,7 @@ export function openLinkEditor(context: WysiwygToolbarContext): boolean {
     const selection = view.state.selection;
     const payload = resolveLinkPopupPayload(
       { from: selection.from, to: selection.to },
-      context.context?.inLink ?? null
+      context.context?.inLink ?? linkInfo
     );
 
     if (!payload) {

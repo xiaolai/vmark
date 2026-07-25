@@ -1,6 +1,8 @@
 {
   "app": {
-    "preferences": "Préférences"
+    "preferences": "Préférences",
+    "commandPalette": "Palette de commandes",
+    "quickOpen": "Ouverture rapide"
   },
   "history": {
     "clearAll": "Effacer tout l'historique",
@@ -15,7 +17,9 @@
     "reportIssue": "Signaler un problème"
   },
   "genies": {
-    "openFolder": "Ouvrir le dossier des génies"
+    "openFolder": "Ouvrir le dossier des génies",
+    "togglePicker": "Toggle Genie Picker",
+    "openPicker": "Search Genies"
   },
   "export": {
     "html": "Exporter en HTML",
@@ -27,7 +31,13 @@
   },
   "file": {
     "clearRecent": "Effacer les fichiers récents",
-    "openRecent": "Ouvrir un fichier récent"
+    "openRecent": "Ouvrir un fichier récent",
+    "save": "Enregistrer",
+    "saveAs": "Enregistrer sous…",
+    "moveTo": "Déplacer vers…",
+    "saveAllQuit": "Tout enregistrer et quitter",
+    "new": "Nouveau fichier",
+    "open": "Ouvrir…"
   },
   "workspace": {
     "openFolder": "Ouvrir un espace de travail…",
@@ -61,7 +71,10 @@
     "toggleShowInvisibles": "Afficher/masquer les caractères invisibles",
     "toggleWindowStatus": "État des fenêtres",
     "toggleBreakdown": "Détail de cohérence",
-    "toggleClaims": "Affirmations canoniques"
+    "toggleClaims": "Affirmations canoniques",
+    "contentSearch": "Rechercher dans les fichiers",
+    "toggleSidebar": "Basculer la barre latérale",
+    "toggleStatusBar": "Basculer la barre d'état"
   },
   "lint": {
     "check": "Vérifier le Markdown",
@@ -89,5 +102,135 @@
   },
   "claims": {
     "extractFromSelection": "Extraire une affirmation de la sélection"
+  },
+  "category": {
+    "app": "Application",
+    "file": "Fichier",
+    "workspace": "Espace de travail",
+    "view": "Affichage",
+    "export": "Exportation",
+    "formatting": "Mise en forme",
+    "headings": "Titres",
+    "lists": "Listes",
+    "blockquote": "Citation",
+    "inserts": "Insertion",
+    "links": "Liens",
+    "tables": "Tableaux",
+    "lines": "Lignes",
+    "selection": "Sélection",
+    "transform": "Transformation",
+    "cjk": "CJK",
+    "cleanup": "Nettoyage",
+    "codeBlock": "Bloc de code",
+    "edit": "Édition",
+    "lint": "Lint",
+    "image": "Image",
+    "history": "Historique",
+    "format": "Type de fichier",
+    "ai": "AI",
+    "help": "Aide",
+    "other": "Autre"
+  },
+  "editor": {
+    "addColLeft": "Ajouter une colonne à gauche",
+    "addColRight": "Ajouter une colonne à droite",
+    "addRowAbove": "Ajouter une ligne au-dessus",
+    "addRowBelow": "Ajouter une ligne en dessous",
+    "alignAllCenter": "Tout centrer",
+    "alignAllLeft": "Tout aligner à gauche",
+    "alignAllRight": "Tout aligner à droite",
+    "alignCenter": "Centrer",
+    "alignLeft": "Aligner à gauche",
+    "alignRight": "Aligner à droite",
+    "blockquote": "Citation",
+    "bold": "Gras",
+    "bookmark": "Signet",
+    "bulletList": "Liste à puces",
+    "clearFormatting": "Effacer la mise en forme",
+    "code": "Code en ligne",
+    "codeBlock": "Bloc de code",
+    "collapseBlankLines": "Réduire les lignes vides",
+    "decreaseHeading": "Diminuer le niveau de titre",
+    "deleteCol": "Supprimer la colonne",
+    "deleteLine": "Supprimer la ligne",
+    "deleteRow": "Supprimer la ligne",
+    "deleteTable": "Supprimer le tableau",
+    "duplicateLine": "Dupliquer la ligne",
+    "expandSelection": "Étendre la sélection",
+    "formatCJK": "Formater la sélection CJK",
+    "formatCJKFile": "Formater le fichier CJK",
+    "formatTable": "Formater le tableau",
+    "highlight": "Surligner",
+    "horizontalLine": "Ligne horizontale",
+    "increaseHeading": "Augmenter le niveau de titre",
+    "indent": "Augmenter le retrait",
+    "insertAlertCaution": "Insérer une mise en garde",
+    "insertAlertImportant": "Insérer un point important",
+    "insertAlertNote": "Insérer une note",
+    "insertAlertTip": "Insérer une astuce",
+    "insertAlertWarning": "Insérer un avertissement",
+    "insertAudio": "Insérer un audio",
+    "insertDetails": "Insérer un bloc repliable",
+    "insertDiagram": "Insérer un diagramme",
+    "insertFootnote": "Insérer une note de bas de page",
+    "insertGraphvizDiagram": "Insérer un diagramme Graphviz",
+    "insertImage": "Insérer une image",
+    "insertInlineMath": "Insérer une formule en ligne",
+    "insertMarkmap": "Insérer une carte mentale",
+    "insertMath": "Insérer un bloc mathématique",
+    "insertTable": "Insérer un tableau",
+    "insertVideo": "Insérer une vidéo",
+    "italic": "Italique",
+    "joinLines": "Joindre les lignes",
+    "lineEndingsCRLF": "Convertir en CRLF",
+    "lineEndingsLF": "Convertir en LF",
+    "link": "Lien",
+    "moveLineDown": "Déplacer la ligne vers le bas",
+    "moveLineUp": "Déplacer la ligne vers le haut",
+    "nestBlockquote": "Imbriquer la citation",
+    "orderedList": "Liste ordonnée",
+    "outdent": "Réduire le retrait",
+    "paragraph": "Paragraphe",
+    "redo": "Rétablir",
+    "removeBlankLines": "Supprimer les lignes vides",
+    "removeBlockquote": "Supprimer la citation",
+    "removeList": "Supprimer la liste",
+    "removeTrailingSpaces": "Supprimer les espaces en fin de ligne",
+    "selectBlock": "Sélectionner le bloc",
+    "selectLine": "Sélectionner la ligne",
+    "selectWord": "Sélectionner le mot",
+    "setHeading": {
+      "1": "Titre 1",
+      "2": "Titre 2",
+      "3": "Titre 3",
+      "4": "Titre 4",
+      "5": "Titre 5",
+      "6": "Titre 6"
+    },
+    "sortLinesAsc": "Trier les lignes par ordre croissant",
+    "sortLinesDesc": "Trier les lignes par ordre décroissant",
+    "strikethrough": "Barré",
+    "subscript": "Indice",
+    "superscript": "Exposant",
+    "taskList": "Liste de tâches",
+    "toggleQuoteStyle": "Changer le style de guillemets",
+    "transformLowercase": "Convertir en minuscules",
+    "transformTitleCase": "Convertir en casse de titre",
+    "transformToggleCase": "Inverser la casse",
+    "transformUppercase": "Convertir en MAJUSCULES",
+    "underline": "Souligné",
+    "undo": "Annuler",
+    "unnestBlockquote": "Désimbriquer la citation",
+    "wikiLink": "Lien wiki"
+  },
+  "explorer": {
+    "toggleHiddenFiles": "Basculer les fichiers cachés",
+    "toggleAllFiles": "Basculer tous les fichiers"
+  },
+  "tab": {
+    "new": "Nouvel onglet",
+    "next": "Onglet suivant",
+    "prev": "Onglet précédent",
+    "close": "Fermer l'onglet"
   }
 }

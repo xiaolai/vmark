@@ -53,8 +53,8 @@ describe("markdown adapter", () => {
     expect(mdFilter).toBeDefined();
   });
 
-  it("uses markdown-default closeSavePolicy", () => {
-    expect(markdownFormat.adapters.closeSavePolicy).toBe("markdown-default");
+  it("uses prompt-on-close closeSavePolicy", () => {
+    expect(markdownFormat.adapters.closeSavePolicy).toBe("prompt-on-close");
   });
 
   it("registerMarkdownFormat installs into the registry", () => {
@@ -97,7 +97,7 @@ describe("markdown adapter", () => {
         saveDialogFilters: [{ name: "Plain", extensions: ["txt"] }],
         untitledExtension: "txt",
         readOnlyDefault: false,
-        closeSavePolicy: "markdown-default",
+        closeSavePolicy: "prompt-on-close",
         menuPolicy: {
           sourceWysiwygToggle: false,
           cjkFormatActions: false,

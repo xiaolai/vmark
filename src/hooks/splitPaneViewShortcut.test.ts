@@ -15,7 +15,7 @@ const adapters: FormatConfig["adapters"] = {
   saveDialogFilters: [{ name: "P", extensions: ["pfmt"] }],
   untitledExtension: "pfmt",
   readOnlyDefault: false,
-  closeSavePolicy: "markdown-default",
+  closeSavePolicy: "prompt-on-close",
   menuPolicy: {
     sourceWysiwygToggle: false,
     cjkFormatActions: false,

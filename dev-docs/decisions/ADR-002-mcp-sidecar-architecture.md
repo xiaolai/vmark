@@ -28,7 +28,7 @@ Architecture:
 - The MCP sidecar (`vmark-mcp-server`) handles stdio transport and tool
   registration per the MCP spec.
 - A WebSocket bridge connects the sidecar to the Tauri backend
-  (`mcp_bridge.rs`), which manages port discovery and connection lifecycle.
+  (`src-tauri/src/mcp_bridge/`, a module directory), which manages port discovery and connection lifecycle.
 - Read operations execute concurrently; write operations are serialized via a
   write lock to prevent race conditions.
 - Port discovery uses a file in Tauri's app data directory — the sidecar reads
@@ -42,6 +42,6 @@ Architecture:
 - Good: No Node.js runtime dependency in the main app — the sidecar is bundled
   as a Tauri sidecar binary.
 - Bad: Extra process to manage — startup ordering, health checks, and zombie
-  process cleanup (`mcp-troubleshooting.md`).
+  process cleanup (troubleshooting notes are inline in the module; the referenced `mcp-troubleshooting.md` was never written).
 - Bad: WebSocket adds a network hop for every tool call. Mitigated by localhost
   communication (sub-millisecond latency).

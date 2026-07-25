@@ -44,6 +44,29 @@ describe("TerminalTabBar", () => {
     expect(useUIStore.getState().terminal.sessions).toHaveLength(2);
   });
 
+  // The E2E journey suite (e2e/journeys/17-terminal-workspace-cwd.mjs) drives
+  // these buttons to create and dispose its OWN terminal session. Selecting them
+  // by DOM order is fragile and by aria-label breaks under any non-English
+  // locale, so `data-terminal-action` is a stable, locale-independent contract.
+  // Renaming or dropping one of these values breaks E2E, not just a unit test.
+  it("exposes stable data-terminal-action hooks for automation", () => {
+    const { container } = renderWithSession();
+    const actions = [...container.querySelectorAll("[data-terminal-action]")].map((el) =>
+      el.getAttribute("data-terminal-action"),
+    );
+    expect(actions).toEqual(expect.arrayContaining(["new", "swap", "close", "restart"]));
+  });
+
+  it("data-terminal-action hooks resolve to exactly one element each", () => {
+    const { container } = renderWithSession();
+    for (const action of ["new", "swap", "close", "restart"]) {
+      expect(
+        container.querySelectorAll(`[data-terminal-action="${action}"]`),
+        `expected exactly one [data-terminal-action="${action}"]`,
+      ).toHaveLength(1);
+    }
+  });
+
   it("switches active session on tab click", () => {
     useUIStore.getState().terminalCreateSession();
     useUIStore.getState().terminalCreateSession();

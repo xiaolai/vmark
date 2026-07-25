@@ -1,0 +1,194 @@
+/**
+ * Command availability policy
+ *
+ * Purpose: the single, typed predicate over the resolved command context that
+ *   decides whether an editor action may run / be offered. Two layers:
+ *
+ *   - `isActionExecutable` — the EXECUTOR's correctness gate: live document tab,
+ *     mode capability, and per-format policy. It deliberately omits
+ *     editor-mounted and node/selection checks: `runEditorAction`'s retry handles
+ *     a not-yet-mounted editor, and the adapters no-op node-specific ops, so
+ *     requiring node context here would fight the menu's own context gating.
+ *   - `actionAvailability` — the PALETTE's `when`: everything executable PLUS an
+ *     editor is mounted and the action's node / selection requirements are met.
+ *
+ * This is a closed structured record evaluated by one typed function — NOT a
+ * serialized predicate DSL: VMark's actions are first-party compiled TS, so a
+ * data DSL would add a parser and type-drift for zero current consumer
+ * (ADR-017 / command-registry WI-2.2, Zed-cross-checked).
+ *
+ * @coordinates-with commandContext.ts — the resolved context this reads
+ * @coordinates-with editor/editorActionGates.ts — per-format category policy
+ * @module services/commands/actionAvailability
+ */
+
+import type { ActionId } from "@/plugins/actions/types";
+import { ACTION_DEFINITIONS } from "@/plugins/actions/actionRegistry";
+import { isCategoryAllowedByFormat, mapActionIdToAdapterAction } from "@/services/editor/editorActionGates";
+import { LINK_DISABLED_ACTIONS } from "@/plugins/toolbarActions/enableRules";
+import { canRunActionInMultiSelection } from "@/plugins/toolbarActions/multiSelectionPolicy";
+import type { MultiSelectionContext } from "@/plugins/toolbarActions/types";
+import type { CommandContextResolved } from "./commandContext";
+
+/**
+ * Actions that BYPASS the adapters' multi-selection gate entirely: undo/redo
+ * route through unified history in `runEditorAction` BEFORE any adapter dispatch,
+ * so multi-selection can never disable them (unlike every other action, whose
+ * verdict comes from `canRunActionInMultiSelection`).
+ */
+const MULTI_SELECT_GATE_BYPASS: ReadonlySet<ActionId> = new Set(["undo", "redo"]);
+
+/**
+ * The adapter key that `canRunActionInMultiSelection` evaluates for a palette
+ * action. Most actions map 1:1 via `mapActionIdToAdapterAction`; the two
+ * parameterized heading actions carry no level at palette time, but every
+ * `heading:N` shares the "conditional" policy, so a representative level yields
+ * the correct yes/no verdict (`paragraph` == level 0, `setHeading` == a heading).
+ */
+function multiSelectionKeyFor(id: ActionId): string {
+  if (id === "setHeading") return "heading:1";
+  if (id === "paragraph") return "heading:0";
+  return mapActionIdToAdapterAction(id);
+}
+
+/**
+ * Whether an action survives the adapters' multi-selection gate for the given
+ * context. Delegates to the SAME `canRunActionInMultiSelection` the WYSIWYG and
+ * Source adapters call at execution time, so the palette offers exactly what the
+ * adapter would accept — including its two context-dependent rules that a static
+ * policy lookup cannot reproduce:
+ *  1. the "conditional" actions (headings, lists, blockquote nesting) are gated
+ *     on all cursors sharing a structural context (`sameBlockParent` +
+ *     `inTextblock`); and
+ *  2. the universal vetoes that disable EVERY multi-selection action (even
+ *     policy-"allow" marks) when any cursor is inside a code block, table, link,
+ *     image, inline math, or footnote.
+ * This is why the resolved context now carries the full `MultiSelectionContext`
+ * rather than a bare boolean (closes command-registry WI-2.2 residuals a/b).
+ */
+function isAvailableUnderMultiSelection(id: ActionId, multi: MultiSelectionContext): boolean {
+  if (MULTI_SELECT_GATE_BYPASS.has(id)) return true;
+  return canRunActionInMultiSelection(multiSelectionKeyFor(id), multi);
+}
+
+type NodeAxis = "table" | "link" | "list" | "blockquote" | "codeBlock" | "heading";
+
+interface AvailabilityDescriptor {
+  /** Cursor must be inside ANY of these node contexts. */
+  requiresNode?: readonly NodeAxis[];
+  /** A non-empty selection is required. */
+  requiresSelection?: boolean;
+}
+
+/**
+ * Actions with node / selection requirements. Everything NOT listed is available
+ * wherever its mode + format permit it (no positional requirement).
+ */
+const ACTION_AVAILABILITY: Partial<Record<ActionId, AvailabilityDescriptor>> = {
+  // Table-cell actions require the cursor to be inside a table (insertTable does
+  // not — it creates one).
+  addRowAbove: { requiresNode: ["table"] },
+  addRowBelow: { requiresNode: ["table"] },
+  addColLeft: { requiresNode: ["table"] },
+  addColRight: { requiresNode: ["table"] },
+  deleteRow: { requiresNode: ["table"] },
+  deleteCol: { requiresNode: ["table"] },
+  deleteTable: { requiresNode: ["table"] },
+  alignLeft: { requiresNode: ["table"] },
+  alignCenter: { requiresNode: ["table"] },
+  alignRight: { requiresNode: ["table"] },
+  alignAllLeft: { requiresNode: ["table"] },
+  alignAllCenter: { requiresNode: ["table"] },
+  alignAllRight: { requiresNode: ["table"] },
+  formatTable: { requiresNode: ["table"] },
+  // Blockquote nesting requires being inside a blockquote (the toggle does not).
+  nestBlockquote: { requiresNode: ["blockquote"] },
+  unnestBlockquote: { requiresNode: ["blockquote"] },
+  removeBlockquote: { requiresNode: ["blockquote"] },
+  // List indent/outdent + removal require being in a list (toolbar enabledIn).
+  indent: { requiresNode: ["list"] },
+  outdent: { requiresNode: ["list"] },
+  removeList: { requiresNode: ["list"] },
+  // Clearing formatting needs a selection to act on.
+  clearFormatting: { requiresSelection: true },
+};
+
+/**
+ * Selection / navigation actions that do NOT change document content. Phase 2b
+ * keeps these available under read-only while hiding the mutating ones.
+ */
+const NON_MUTATING: ReadonlySet<ActionId> = new Set<ActionId>([
+  "selectWord",
+  "selectLine",
+  "selectBlock",
+  "expandSelection",
+]);
+
+/** Whether an action changes document content (for the Phase 2b read-only gate). */
+export function mutatesDocument(id: ActionId): boolean {
+  return !NON_MUTATING.has(id);
+}
+
+function hasNode(ctx: CommandContextResolved, axis: NodeAxis): boolean {
+  switch (axis) {
+    case "table":
+      return ctx.inTable;
+    case "link":
+      return ctx.inLink;
+    case "list":
+      return ctx.inList;
+    case "blockquote":
+      return ctx.inBlockquote;
+    case "codeBlock":
+      return ctx.inCodeBlock;
+    case "heading":
+      return ctx.inHeading;
+  }
+}
+
+/**
+ * The executor's correctness gate: live document + mode capability + read-only +
+ * format policy. NO editor-mounted check (the retry handles that) and NO
+ * node/selection check (the adapters no-op those). This is the single source the
+ * executor and the palette availability both build on.
+ *
+ * Read-only IS enforced here, not just hidden in the palette: mutating actions
+ * must be refused for the MENU path too, and undo/redo bypass the editor entirely
+ * (unified history), so the read-only editor is not a sufficient boundary for
+ * them (Phase 2b). Non-mutating selection/navigation actions stay executable.
+ */
+export function isActionExecutable(id: ActionId, ctx: CommandContextResolved): boolean {
+  if (!ctx.isDocument) return false;
+  const def = ACTION_DEFINITIONS[id];
+  if (!def) return false;
+  if (ctx.mode === "source" ? !def.supports.source : !def.supports.wysiwyg) return false;
+  if (ctx.readOnly && mutatesDocument(id)) return false;
+  return isCategoryAllowedByFormat(def.category, ctx.formatId);
+}
+
+/**
+ * The palette's availability predicate (a command's `when`): everything
+ * `isActionExecutable` requires, plus a mounted editor and the action's node /
+ * selection requirements.
+ */
+export function actionAvailability(id: ActionId, ctx: CommandContextResolved): boolean {
+  // isActionExecutable already refuses mutating actions under read-only (Phase 2b).
+  if (!isActionExecutable(id, ctx)) return false;
+  if (!ctx.editorAvailable) return false;
+
+  // Link context: reuse the exact LINK_DISABLED_ACTIONS set (keyed by adapter
+  // name) so the palette matches the toolbar/keymap for in-link actions.
+  const adapterAction = mapActionIdToAdapterAction(id);
+  if (ctx.inLink && LINK_DISABLED_ACTIONS.has(adapterAction)) return false;
+  // Multi-selection: hide exactly what the adapters' own multi-selection gate
+  // would reject for this cursor set (universal vetoes + shared-context rule).
+  if (ctx.multiSelection && !isAvailableUnderMultiSelection(id, ctx.multiSelection)) return false;
+
+  const req = ACTION_AVAILABILITY[id];
+  if (!req) return true;
+  // A selection requirement is met by the primary selection OR any multi-cursor
+  // range (multi-selection actions such as clearFormatting are policy-"allow").
+  if (req.requiresSelection && !ctx.hasSelection && !ctx.multiSelection) return false;
+  if (req.requiresNode && !req.requiresNode.some((axis) => hasNode(ctx, axis))) return false;
+  return true;
+}

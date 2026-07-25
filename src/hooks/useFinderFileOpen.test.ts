@@ -133,7 +133,7 @@ vi.mock("@/stores/workspaceStore", () => ({
   },
 }));
 
-vi.mock("@/hooks/useReplaceableTab", () => ({
+vi.mock("@/services/tabs/replaceableTab", () => ({
   getReplaceableTab: (...args: unknown[]) => mockGetReplaceableTab(...args),
   findExistingTabForPath: (...args: unknown[]) => mockFindExistingTabForPath(...args),
 }));
@@ -142,7 +142,7 @@ vi.mock("@/utils/linebreakDetection", () => ({
   detectLinebreaks: vi.fn(() => ({ type: "lf", original: "lf" })),
 }));
 
-vi.mock("@/hooks/openWorkspaceWithConfig", () => ({
+vi.mock("@/services/workspaces/openWorkspaceWithConfig", () => ({
   openWorkspaceWithConfig: (...args: unknown[]) => mockOpenWorkspaceWithConfig(...args),
 }));
 

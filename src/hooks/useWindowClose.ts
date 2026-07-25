@@ -45,7 +45,7 @@ import {
   type CloseSaveContext,
 } from "@/hooks/closeSave";
 import { closeTabWithDirtyCheck } from "@/hooks/useTabOperations";
-import { persistWorkspaceSession } from "@/hooks/workspaceSession";
+import { persistWorkspaceSession } from "@/services/workspaces/workspaceSession";
 import { windowCloseLog, windowCloseWarn, windowCloseError } from "@/utils/debug";
 
 // Dev-only logging for debugging window close issues

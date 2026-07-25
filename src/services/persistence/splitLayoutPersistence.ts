@@ -8,7 +8,7 @@
  * whichever tab happens to be active after restore).
  *
  * @coordinates-with stores/paneStore.ts — split state
- * @coordinates-with hooks/workspaceSession.ts — saves on window close
+ * @coordinates-with services/workspaces/workspaceSession.ts — saves on window close
  * @coordinates-with services/navigation/restoreWorkspaceTabs.ts — restores on open
  * @module services/persistence/splitLayoutPersistence
  */

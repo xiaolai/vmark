@@ -45,7 +45,7 @@ import { useTabStore } from "../stores/tabStore";
 import { useRecentWorkspacesStore } from "../stores/workspaceStore";
 import { useWorkspaceStore } from "../stores/workspaceStore";
 import { useUIStore } from "../stores/uiStore";
-import { openWorkspaceWithConfig } from "../hooks/openWorkspaceWithConfig";
+import { openWorkspaceWithConfig } from "@/services/workspaces/openWorkspaceWithConfig";
 import { loadStartupFileIntoTab, createBlankStartupTab } from "./startupFileOpen";
 import {
   applyTabTransferData,

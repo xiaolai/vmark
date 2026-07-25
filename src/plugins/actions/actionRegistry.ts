@@ -64,7 +64,10 @@ export function actionSupportsMode(actionId: ActionId, mode: "wysiwyg" | "source
  */
 export function getHeadingLevelFromParams(params?: Record<string, unknown>): HeadingLevel {
   const level = params?.level;
-  if (typeof level === "number" && level >= 1 && level <= 6) {
+  // Require a whole number 1–6: HeadingLevel is the discrete set {1,2,3,4,5,6};
+  // a fractional value (e.g. 2.5) would be cast through and produce a malformed
+  // heading in the WYSIWYG/Source setters (audit-fix #4).
+  if (typeof level === "number" && Number.isInteger(level) && level >= 1 && level <= 6) {
     return level as HeadingLevel;
   }
   return 1;

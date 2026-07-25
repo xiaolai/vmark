@@ -34,7 +34,7 @@ vi.mock("@/stores/tabStore", () => ({
   },
 }));
 
-vi.mock("@/hooks/useWindowFocus", () => ({
+vi.mock("@/services/navigation/windowFocus", () => ({
   getWindowLabel: () => "main",
 }));
 

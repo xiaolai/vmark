@@ -17,7 +17,7 @@
  *     `largeFile.warn*` / `largeFile.refuse*`.
  *
  * @coordinates-with hooks/useFinderFileOpen.ts — calls confirmOpenHugeFile before readTextFile.
- * @coordinates-with hooks/useFileOpen.ts — same; routes all open paths through tier checks.
+ * @coordinates-with services/navigation/fileOpen.ts — same; routes all open paths through tier checks.
  * @coordinates-with utils/fileSizeThresholds.ts — provides the byte→tier classification.
  * @module services/dialogs/largeFilePrompts
  */

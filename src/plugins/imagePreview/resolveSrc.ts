@@ -13,7 +13,7 @@ import { dirname, join } from "@tauri-apps/api/path";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
 import { imagePreviewError } from "@/utils/debug";
-import { getWindowLabel } from "@/hooks/useWindowFocus";
+import { getWindowLabel } from "@/services/navigation/windowFocus";
 import { decodeMarkdownUrl } from "@/utils/markdownUrl";
 import { normalizePathForAsset } from "@/services/media/resolveMediaSrc";
 import {

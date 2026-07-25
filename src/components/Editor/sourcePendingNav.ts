@@ -9,13 +9,13 @@
  * hidden→visible paths.
  *
  * @coordinates-with SourceEditor.tsx — calls this after focus/cursor restore
- * @coordinates-with hooks/lintNavigation.ts — pending lint-scroll source
+ * @coordinates-with services/lint/lintNavigation.ts — pending lint-scroll source
  * @coordinates-with hooks/contentSearchNavigation.ts — pending search-nav source
  * @module components/Editor/sourcePendingNav
  */
 
 import { EditorView } from "@codemirror/view";
-import { consumePendingLintScroll } from "@/hooks/lintNavigation";
+import { consumePendingLintScroll } from "@/services/lint/lintNavigation";
 import {
   consumePendingContentSearchNav,
   openFindBarWithQuery,

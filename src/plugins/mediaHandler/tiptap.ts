@@ -20,7 +20,7 @@ import type { EditorView } from "@tiptap/pm/view";
 import { message } from "@tauri-apps/plugin-dialog";
 import i18n from "@/i18n";
 import { copyMediaToAssets, saveMediaToAssets, insertBlockVideoNode, insertBlockAudioNode } from "@/hooks/useMediaOperations";
-import { getWindowLabel } from "@/hooks/useWindowFocus";
+import { getWindowLabel } from "@/services/navigation/windowFocus";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
 import { hasVideoExtension, hasAudioExtension } from "@/utils/mediaPathDetection";

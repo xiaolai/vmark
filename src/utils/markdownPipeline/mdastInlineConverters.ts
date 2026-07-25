@@ -139,7 +139,7 @@ export function convertLink(
   }
   // Validate URL scheme to prevent XSS
   const href = isSafeUrl(node.url) ? node.url : "about:blank";
-  const linkMark = markType.create({ href });
+  const linkMark = markType.create({ href, title: node.title ?? null });
   // Unlike identical emphasis (where the duplicate is simply dropped), a
   // nested link carries data — and the inner link binds in CommonMark — so
   // replace an active link mark instead of keeping the outer href.

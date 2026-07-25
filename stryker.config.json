@@ -14,9 +14,12 @@
     "src/components/Terminal/resolveCommit.ts",
     "src/components/Terminal/terminalReadlineKeys.ts",
     "src/components/Terminal/imeCharClass.ts",
+    "src/lib/extensions/claim.ts",
+    "src/lib/extensions/resolve.ts",
     "!**/*.test.ts",
     "!**/__tests__/**"
   ],
+  "_scopeNotes": "extensions/claim.ts (90.8%) and extensions/resolve.ts (83.4%; 94% on logic once the error-message StringLiteral survivors are set aside) are the extension-registry core (ADR-015). resolve.ts's residual survivors are deliberate: ~2 dozen mutate exact error-message text (pinning those is brittle — the tests assert the error CODE + refused ordering instead), 2 are equivalent mutants on `byId.get(id)` undefined-guards (every ready/sorted id came from `order`, so the else-branch is unreachable), and the rest are cycle-detection DFS internals already covered behaviorally by the 6 `cycles` tests. Do NOT chase the 85% overall bar by asserting exact error strings.",
   "coverageAnalysis": "perTest",
   "reporters": ["clear-text", "progress", "html", "json"],
   "htmlReporter": {

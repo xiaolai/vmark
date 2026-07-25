@@ -1,6 +1,9 @@
 # ADR-011: Plugin manifest contract
 
-> Status: **Accepted (manifest exports complete)** | Date: 2026-05-24
+> Status: **Superseded by ADR-015** (2026-07-23) — the registry was never
+> load-bearing; composition stayed hand-wired, so 76 of 77 manifests remained
+> 3-field stubs and `pluginsFor()` never had a production caller. All 80 files
+> were deleted in Phase 3. Original status: **Accepted (manifest exports complete)** | Date: 2026-05-24
 
 ## Context
 

@@ -9,7 +9,7 @@ import { useTranslation } from "react-i18next";
 import { SettingRow, SettingsGroup, Toggle, Select } from "./components";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { useSettingsStore, type ImageAutoResizeOption } from "@/stores/settingsStore";
-import { updateWorkspaceConfig } from "@/hooks/workspaceConfig";
+import { updateWorkspaceConfig } from "@/services/workspaces/workspaceConfig";
 import { WorkspaceSettingsGroup } from "./WorkspaceSettingsGroup";
 import { DocumentToolsSettings } from "./DocumentToolsSettings";
 

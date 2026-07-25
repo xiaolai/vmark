@@ -2,15 +2,44 @@
 
 Rules for adding, changing, or deleting keyboard shortcuts.
 
+## The manifest + drift gate (ADR-018, WI-1.5/Phase 8)
+
+For every shortcut that has a **native menu accelerator**, the frontend default,
+the Rust accelerator, and the docs table are now cross-checked automatically. The
+synced subset is named once in `src/services/keybinding/keybindingManifest.ts`
+(`KEYBINDING_MANIFEST`), and `scripts/check-keybinding-manifest.mjs`
+(`pnpm lint:keybinding-manifest`, wired into `pnpm check:all`) fails if any of
+these **four** surfaces drift apart from it:
+
+1. `shortcutDefinitions.ts` — frontend defaults,
+2. the Rust accelerator contract mirror (`src-tauri/src/menu/localized.test.rs`),
+3. the **real** Rust menu builder (`src-tauri/src/menu/localized/*.rs` `accel(...)`
+   call sites — so a mirror-vs-real drift is caught here, not only in the
+   macOS-only Rust test), and
+4. the website docs table (`website/guide/shortcuts.md`, matched order-insensitively).
+
+So a frontend-vs-Rust, mirror-vs-real, or docs accelerator mismatch is caught at
+gate time, not in review.
+
+**When you add or change a menu-backed shortcut**, update its `KEYBINDING_MANIFEST`
+entry AND `website/guide/shortcuts.md`, then run `pnpm lint:keybinding-manifest`.
+Allowed exceptions the gate encodes (with reasons): `undo`/`redo`/`quit` bind real
+accelerators but are not customizable shortcuts (not in the manifest); headings 2–5
+are documented as the compressed range "Mod + 1 through Mod + 6" rather than
+individual rows. (`aiPrompts`/`search-genies` is manifest-excluded: its accelerator
+is registered dynamically at runtime by `useGenieShortcuts`, not in the static Rust
+contract.)
+
 ## Files That Must Stay in Sync
 
 When modifying shortcuts, update ALL of these files:
 
 | File | Purpose | Format |
 |------|---------|--------|
+| `src/services/keybinding/keybindingManifest.ts` | Manifest entry (menu-backed shortcuts) — enforced by the drift gate | `{ id, defaultKey, menuId }` |
 | `src-tauri/src/menu/localized.rs` | Menu accelerators — single `create_localized_menu` function | `Some("Alt+CmdOrCtrl+L")` |
 | `src/stores/settingsStore/shortcuts.ts` | Frontend defaults | `defaultKey: "Alt-Mod-l"` |
-| `website/guide/shortcuts.md` | Documentation | `Alt + Mod + L` |
+| `website/guide/shortcuts.md` | Documentation (now covered by the gate) | `Alt + Mod + L` |
 
 ### Format Differences
 

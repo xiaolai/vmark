@@ -93,7 +93,7 @@ vi.mock("@/stores/geniePickerStore", () => ({
   ),
 }));
 
-vi.mock("@/components/QuickOpen/quickOpenStore", () => ({
+vi.mock("@/stores/quickOpenStore", () => ({
   useQuickOpenStore: Object.assign(
     (selector: (s: Record<string, unknown>) => unknown) =>
       selector({ isOpen: false }),

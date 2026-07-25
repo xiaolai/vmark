@@ -11,7 +11,7 @@
  * @module plugins/toolbarActions/wysiwygAdapterUtils
  */
 import type { EditorView } from "@tiptap/pm/view";
-import { getWindowLabel } from "@/hooks/useWindowFocus";
+import { getWindowLabel } from "@/services/navigation/windowFocus";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useTabStore } from "@/stores/tabStore";

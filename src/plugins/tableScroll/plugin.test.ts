@@ -2,7 +2,6 @@ import { describe, it, expect } from "vitest";
 import type { Node as PMNode } from "@tiptap/pm/model";
 import type { NodeView, ViewMutationRecord } from "@tiptap/pm/view";
 import { TableWithScrollWrapper } from "./plugin";
-import { manifest } from "./manifest";
 
 /**
  * Walk the Tiptap extension `.parent` chain to find a config field.
@@ -205,15 +204,5 @@ describe("TableScrollNodeView ignoreMutation", () => {
 
     // Text nodes have no classList — optional chaining must handle this
     expect(view.ignoreMutation?.(mutation({ type: "characterData", target: text }))).toBe(false);
-  });
-});
-
-describe("tableScroll manifest", () => {
-  it("registers as a markdown wysiwyg plugin", () => {
-    expect(manifest).toEqual({
-      id: "tableScroll",
-      formats: ["markdown"],
-      modes: ["wysiwyg"],
-    });
   });
 });

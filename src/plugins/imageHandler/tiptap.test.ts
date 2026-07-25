@@ -26,7 +26,7 @@ vi.mock("@/hooks/useImageOperations", () => ({
 }));
 
 const mockGetWindowLabel = vi.fn(() => "main");
-vi.mock("@/hooks/useWindowFocus", () => ({
+vi.mock("@/services/navigation/windowFocus", () => ({
   getWindowLabel: () => mockGetWindowLabel(),
 }));
 

@@ -6,15 +6,26 @@
  * 2. wrapViewCommand: converts (state, view => Transaction|null) to ProseMirror Command
  * 3. multiCursorKeymap plugin creation and Escape binding
  */
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { Schema } from "@tiptap/pm/model";
 import { EditorState, TextSelection, SelectionRange } from "@tiptap/pm/state";
 import type { Transaction } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
-import { multiCursorKeymap, wrapCommand, wrapViewCommand } from "../keymap";
+import {
+  multiCursorKeymap,
+  buildMultiCursorKeymapBindings,
+  wrapCommand,
+  wrapViewCommand,
+} from "../keymap";
 import { MultiSelection } from "../MultiSelection";
 import { multiCursorPlugin } from "../multiCursorPlugin";
 import { collapseMultiSelection } from "../commands";
+import { useShortcutsStore } from "@/stores/settingsStore";
+
+afterEach(() => {
+  useShortcutsStore.setState({ customBindings: {} });
+  vi.restoreAllMocks();
+});
 
 const schema = new Schema({
   nodes: {
@@ -234,6 +245,91 @@ describe("multiCursorKeymap", () => {
       const event = new KeyboardEvent("keydown", { key: "Shift" });
       const result = handleKeyDown!(mockView, event);
       expect(result).toBe(false);
+    });
+  });
+
+  describe("buildMultiCursorKeymapBindings — store-driven chords", () => {
+    it("binds the four rebindable chords at their default keys", () => {
+      const b = buildMultiCursorKeymapBindings();
+      // addCursorAbove default "Mod-Alt-Up" → "Mod-Alt-ArrowUp"
+      expect(b["Mod-Alt-ArrowUp"]).toBeTypeOf("function");
+      // addCursorBelow default "Mod-Alt-Down" → "Mod-Alt-ArrowDown"
+      expect(b["Mod-Alt-ArrowDown"]).toBeTypeOf("function");
+      expect(b["Mod-Shift-d"]).toBeTypeOf("function"); // skipOccurrence
+      expect(b["Alt-Mod-z"]).toBeTypeOf("function"); // softUndoCursor
+    });
+
+    it("keeps the fixed (non-rebindable) chords bound", () => {
+      const b = buildMultiCursorKeymapBindings();
+      expect(b["Mod-d"]).toBeTypeOf("function"); // selectNextOccurrence
+      expect(b["Mod-Shift-l"]).toBeTypeOf("function"); // selectAllOccurrences
+      expect(b.Escape).toBeTypeOf("function");
+    });
+
+    it("resolves a rebound chord from the store and drops the old one", () => {
+      useShortcutsStore.setState({ customBindings: { addCursorAbove: "Mod-Alt-k" } });
+      const b = buildMultiCursorKeymapBindings();
+      expect(b["Mod-Alt-k"]).toBeTypeOf("function");
+      expect(b["Mod-Alt-ArrowUp"]).toBeUndefined();
+    });
+
+    it("a rebind colliding with a fixed chord does NOT clobber it (audit-fix #1)", () => {
+      // Rebind skipOccurrence onto Mod-d, which the fixed selectNextOccurrence owns.
+      useShortcutsStore.setState({ customBindings: { skipOccurrence: "Mod-d" } });
+      const b = buildMultiCursorKeymapBindings();
+      // Fixed Mod-d (selectNextOccurrence) is preserved — bound FIRST, guard skips
+      // the colliding rebind rather than silently destroying the mechanic.
+      expect(b["Mod-d"]).toBeTypeOf("function");
+      // And skipOccurrence's default Mod-Shift-d is gone (it moved onto the guarded
+      // Mod-d), so the rebind is inert on that chord — no double-binding.
+      expect(b["Mod-Shift-d"]).toBeUndefined();
+    });
+
+    it("skips a rebindable chord when getShortcut resolves to empty (unbound)", () => {
+      const orig = useShortcutsStore.getState().getShortcut;
+      vi.spyOn(useShortcutsStore.getState(), "getShortcut").mockImplementation((id) =>
+        id === "softUndoCursor" ? "" : orig(id)
+      );
+      const b = buildMultiCursorKeymapBindings();
+      expect(b["Alt-Mod-z"]).toBeUndefined();
+      // Fixed chords are unaffected by an unbound rebindable chord.
+      expect(b["Mod-d"]).toBeTypeOf("function");
+    });
+  });
+
+  describe("live rebuild on shortcuts-store change", () => {
+    it("rebuilds handleKeyDown when a rebindable chord is rebound", () => {
+      const plugin = multiCursorKeymap();
+      const handleKeyDown = plugin.props.handleKeyDown;
+      expect(handleKeyDown).toBeDefined();
+
+      // MultiSelection where skipOccurrence deterministically returns a tr.
+      const state = createMultiCursorState("hello world hello", [
+        { from: 1, to: 6 },
+        { from: 13, to: 18 },
+      ]);
+      const dispatched: Transaction[] = [];
+      const mockView = {
+        state,
+        dispatch: (tr: Transaction) => dispatched.push(tr),
+      } as never;
+
+      // Start the per-view store subscription (it now lives in the plugin's
+      // view() lifecycle, not at plugin creation — audit-fix #2).
+      const pluginView = plugin.spec.view!(mockView);
+
+      // F6 is not bound to skipOccurrence initially.
+      expect(handleKeyDown!(mockView, new KeyboardEvent("keydown", { key: "F6" }))).toBe(false);
+      expect(dispatched).toHaveLength(0);
+
+      // Rebind skipOccurrence → F6. The store subscription must rebuild the keymap.
+      useShortcutsStore.setState({ customBindings: { skipOccurrence: "F6" } });
+
+      expect(handleKeyDown!(mockView, new KeyboardEvent("keydown", { key: "F6" }))).toBe(true);
+      expect(dispatched).toHaveLength(1);
+
+      // Destroying the view unsubscribes (no leak).
+      pluginView.destroy?.();
     });
   });
 

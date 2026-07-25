@@ -31,7 +31,7 @@ vi.mock("@/hooks/useRecentFilesSync", () => ({
 vi.mock("@/hooks/useRecentWorkspacesSync", () => ({
   useRecentWorkspacesSync: () => calls.push("recentWorkspacesSync"),
 }));
-vi.mock("@/services/formats/formatSettingsBridge", () => ({
+vi.mock("@/hooks/useFormatSettingsBridge", () => ({
   useFormatSettingsBridge: () => calls.push("formatSettingsBridge"),
 }));
 

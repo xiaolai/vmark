@@ -1,12 +1,15 @@
 /**
- * Genie Shortcuts Hook
+ * Genie Lifecycle Hook
  *
- * Purpose: Keyboard shortcut (Cmd+Y) to toggle the genie picker, loads
- *   genie definitions on mount, syncs to native menu, and handles
- *   direct genie invocation from the Genies menu.
+ * Purpose: Loads genie definitions on mount, syncs them to the native menu,
+ *   and handles the payload-carrying genie menu events (direct invocation and
+ *   reload). The Cmd+Y picker toggle and the "Search Genies…" menu event now
+ *   flow through the CommandBus / keybinding registry (genies.togglePicker /
+ *   genies.openPicker) — see genieCommands.ts.
  *
- * @coordinates-with geniePickerStore.ts — opens/closes the genie picker
  * @coordinates-with geniesStore.ts — loads genie definitions
+ * @coordinates-with genieCommands.ts — picker toggle/open commands
+ * @coordinates-with useGenieInvocation.ts — invokeGenie for menu:invoke-genie
  * @module hooks/useGenieShortcuts
  */
 
@@ -15,16 +18,11 @@ import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import { safeUnlistenAsync } from "@/utils/safeUnlisten";
 import { useShortcutsStore, prosemirrorToTauri } from "@/stores/settingsStore";
-import { useGeniePickerStore } from "@/stores/geniePickerStore";
 import { useGeniesStore } from "@/stores/aiStore";
 import { useTabStore } from "@/stores/tabStore";
-import { useEditorStore } from "@/stores/editorStore";
-import { useUIStore } from "@/stores/uiStore";
 import { initSuggestionTabWatcher } from "@/stores/aiStore";
 import { useGenieInvocation } from "@/hooks/useGenieInvocation";
-import { matchesShortcutEvent } from "@/utils/shortcutMatch";
-import { isImeKeyEvent } from "@/utils/imeGuard";
-import type { GenieDefinition, GenieMetadata, GenieScope } from "@/types/aiGenies";
+import type { GenieDefinition, GenieMetadata } from "@/types/aiGenies";
 import { genieWarn, genieError } from "@/utils/debug";
 import { errorMessage } from "@/utils/errorMessage";
 
@@ -48,40 +46,9 @@ async function loadAndSyncMenu(): Promise<void> {
   await invoke("refresh_genies_menu", { shortcuts });
 }
 
-/** Detect scope from current editor selection state. */
-export function detectScope(): GenieScope | undefined {
-  if (useUIStore.getState().sourceMode) return undefined;
-  const editor = useEditorStore.getState().tiptap.editor;
-  if (!editor) return undefined;
-  return editor.state.selection.empty ? undefined : "selection";
-}
-
-/** Hook that manages the AI Genie keyboard shortcut, loads genie definitions, and handles direct genie invocation from the menu. */
+/** Hook that loads genie definitions, syncs the native menu, and handles the payload-carrying genie menu events. */
 export function useGenieShortcuts() {
   const { invokeGenie } = useGenieInvocation();
-
-  // Keyboard shortcut (Cmd+Y) — toggles the genie picker
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.repeat) return;
-      if (isImeKeyEvent(e)) return;
-
-      const aiGeniesKey = useShortcutsStore.getState().getShortcut("aiPrompts");
-      if (matchesShortcutEvent(e, aiGeniesKey)) {
-        e.preventDefault();
-        const store = useGeniePickerStore.getState();
-        if (store.isOpen) {
-          store.closePicker();
-        } else {
-          store.openPicker({ filterScope: detectScope() });
-        }
-      }
-    };
-
-    // Must fire before INPUT/TEXTAREA guard (global shortcut)
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
 
   // Load genies + sync menu on mount; init tab watcher.
   // Env API keys are loaded by aiProviderStore's onRehydrateStorage.
@@ -133,14 +100,6 @@ export function useGenieShortcuts() {
 
     return () => safeUnlistenAsync(unlisten);
   }, [invokeGenie]);
-
-  // "Search Genies…" menu item opens the picker (same as Cmd+Y)
-  useEffect(() => {
-    const unlisten = listen("menu:search-genies", () => {
-      useGeniePickerStore.getState().openPicker({ filterScope: detectScope() });
-    });
-    return () => safeUnlistenAsync(unlisten);
-  }, []);
 
   // "Reload Genies" menu item re-scans the genies folder
   useEffect(() => {

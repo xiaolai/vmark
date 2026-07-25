@@ -44,6 +44,20 @@ describe('WebSocketBridge', () => {
     });
   });
 
+  /**
+   * Connect a bridge AND return its SERVER-side socket deterministically.
+   * `await connect()` resolves on the CLIENT 'open', which can beat the server's
+   * 'connection' event under load — so reading `serverConnections[0]` right after
+   * connect() races and can attach a responder to a missing socket, leaving the
+   * request without a reply. Register the connection listener BEFORE connecting,
+   * then await it.
+   */
+  async function connectAndServerSocket(b: WebSocketBridge): Promise<WsWebSocket> {
+    const socket = new Promise<WsWebSocket>((resolve) => server.once('connection', resolve));
+    await b.connect();
+    return socket;
+  }
+
   describe('connect', () => {
     it('should connect to WebSocket server', async () => {
       await bridge.connect();
@@ -97,10 +111,10 @@ describe('WebSocketBridge', () => {
     });
 
     it('should reject pending requests on disconnect', async () => {
-      await bridge.connect();
+      const conn = await connectAndServerSocket(bridge);
 
       // Set up server to not respond
-      serverConnections[0].on('message', () => {
+      conn.on('message', () => {
         // Don't respond
       });
 
@@ -120,17 +134,17 @@ describe('WebSocketBridge', () => {
 
   describe('send', () => {
     it('should send request and receive response', async () => {
-      await bridge.connect();
+      const conn = await connectAndServerSocket(bridge);
 
       // Set up server to respond
-      serverConnections[0].on('message', (data) => {
+      conn.on('message', (data) => {
         const message = JSON.parse(data.toString()) as WsMessage;
         const response: WsMessage = {
           id: message.id,
           type: 'response',
           payload: { success: true, data: 'Hello World' },
         };
-        serverConnections[0].send(JSON.stringify(response));
+        conn.send(JSON.stringify(response));
       });
 
       const result = await bridge.send<string>({ type: 'document.getContent' });
@@ -140,16 +154,16 @@ describe('WebSocketBridge', () => {
     });
 
     it('should handle error responses', async () => {
-      await bridge.connect();
+      const conn = await connectAndServerSocket(bridge);
 
-      serverConnections[0].on('message', (data) => {
+      conn.on('message', (data) => {
         const message = JSON.parse(data.toString()) as WsMessage;
         const response: WsMessage = {
           id: message.id,
           type: 'response',
           payload: { success: false, error: 'Document not found' },
         };
-        serverConnections[0].send(JSON.stringify(response));
+        conn.send(JSON.stringify(response));
       });
 
       const result = await bridge.send({ type: 'document.getContent' });
@@ -167,10 +181,10 @@ describe('WebSocketBridge', () => {
         autoReconnect: false,
       });
 
-      await fastBridge.connect();
+      const conn = await connectAndServerSocket(fastBridge);
 
       // Server doesn't respond
-      serverConnections[0].on('message', () => {
+      conn.on('message', () => {
         // Intentionally don't respond
       });
 
@@ -188,10 +202,10 @@ describe('WebSocketBridge', () => {
     });
 
     it('should handle multiple concurrent requests', async () => {
-      await bridge.connect();
+      const conn = await connectAndServerSocket(bridge);
 
       const responses: Record<string, string> = {};
-      serverConnections[0].on('message', (data) => {
+      conn.on('message', (data) => {
         const message = JSON.parse(data.toString()) as WsMessage;
         const request = message.payload as BridgeRequest;
 
@@ -205,7 +219,7 @@ describe('WebSocketBridge', () => {
             type: 'response',
             payload: { success: true, data: request.type },
           };
-          serverConnections[0].send(JSON.stringify(response));
+          conn.send(JSON.stringify(response));
         }, delay);
       });
 
@@ -219,10 +233,10 @@ describe('WebSocketBridge', () => {
     });
 
     it('should pass request payload correctly', async () => {
-      await bridge.connect();
+      const conn = await connectAndServerSocket(bridge);
 
       let receivedRequest: BridgeRequest | null = null;
-      serverConnections[0].on('message', (data) => {
+      conn.on('message', (data) => {
         const message = JSON.parse(data.toString()) as WsMessage;
         receivedRequest = message.payload as BridgeRequest;
         const response: WsMessage = {
@@ -230,7 +244,7 @@ describe('WebSocketBridge', () => {
           type: 'response',
           payload: { success: true, data: null },
         };
-        serverConnections[0].send(JSON.stringify(response));
+        conn.send(JSON.stringify(response));
       });
 
       await bridge.send({
@@ -757,17 +771,17 @@ describe('WebSocketBridge', () => {
         maxRequestsPerSecond: 2,
       });
 
-      await rateLimitedBridge.connect();
+      const conn = await connectAndServerSocket(rateLimitedBridge);
 
       // Set up server to respond
-      serverConnections[0].on('message', (data) => {
+      conn.on('message', (data) => {
         const message = JSON.parse(data.toString()) as WsMessage;
         const response: WsMessage = {
           id: message.id,
           type: 'response',
           payload: { success: true, data: 'ok' },
         };
-        serverConnections[0].send(JSON.stringify(response));
+        conn.send(JSON.stringify(response));
       });
 
       // First 2 requests should succeed
@@ -782,30 +796,41 @@ describe('WebSocketBridge', () => {
       await rateLimitedBridge.disconnect();
     });
 
-    it('should allow requests after rate limit window passes', async () => {
+    // Generous timeout: this exercises a real ~1s rate-limit refill window plus
+    // real socket round-trips, which slows down under the full parallel suite.
+    it('should allow requests after rate limit window passes', { timeout: 20000 }, async () => {
       const rateLimitedBridge = new WebSocketBridge({
         port: TEST_PORT,
         autoReconnect: false,
         maxRequestsPerSecond: 2,
       });
 
-      await rateLimitedBridge.connect();
+      // Capture the SERVER-side socket deterministically. `await connect()`
+      // resolves on the CLIENT 'open', which can beat the server's 'connection'
+      // event under load — so reading `serverConnections[0]` (populated by that
+      // event) raced, attaching the responder to the wrong/missing socket and
+      // leaving test3 with no reply (the ~11s hang this de-flakes).
+      const serverConn = await new Promise<WsWebSocket>((resolve) => {
+        server.once('connection', (ws) => resolve(ws));
+        void rateLimitedBridge.connect();
+      });
+      await rateLimitedBridge.connect(); // ensure the client side is also open
 
-      serverConnections[0].on('message', (data) => {
+      serverConn.on('message', (data) => {
         const message = JSON.parse(data.toString()) as WsMessage;
         const response: WsMessage = {
           id: message.id,
           type: 'response',
           payload: { success: true, data: 'ok' },
         };
-        serverConnections[0].send(JSON.stringify(response));
+        serverConn.send(JSON.stringify(response));
       });
 
       // Exhaust rate limit
       await rateLimitedBridge.send({ type: 'test1' });
       await rateLimitedBridge.send({ type: 'test2' });
 
-      // Wait for token refill
+      // Wait for token refill (real ~1s window + margin)
       await new Promise((resolve) => setTimeout(resolve, 1100));
 
       // Should work again
@@ -822,16 +847,16 @@ describe('WebSocketBridge', () => {
         maxRequestsPerSecond: 0, // Unlimited
       });
 
-      await unlimitedBridge.connect();
+      const conn = await connectAndServerSocket(unlimitedBridge);
 
-      serverConnections[0].on('message', (data) => {
+      conn.on('message', (data) => {
         const message = JSON.parse(data.toString()) as WsMessage;
         const response: WsMessage = {
           id: message.id,
           type: 'response',
           payload: { success: true, data: 'ok' },
         };
-        serverConnections[0].send(JSON.stringify(response));
+        conn.send(JSON.stringify(response));
       });
 
       // Should not rate limit
