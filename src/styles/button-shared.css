@@ -1,0 +1,84 @@
+/**
+ * Shared button primitive.
+ *
+ * VMark had 90 bespoke button classes against 2 canonical ones
+ * (`.popup-icon-btn`, `.universal-toolbar-btn`), so every feature re-derived
+ * "a bordered secondary button" from the token catalogue by hand — and they
+ * disagreed. Four independent implementations of the same control used four
+ * different paddings, three radii, two font sizes, and three different ways to
+ * spell a 1px border (`--border-thin`, a literal `1px`, and `--space-px`, which
+ * is a SPACING token misused as a border width). The result is visible drift
+ * between panels that are supposed to look identical.
+ *
+ * `.vm-btn` is the canonical text button. Reach for it before writing a new
+ * `__btn` class; `scripts/check-bespoke-buttons.mjs` ratchets the bespoke count
+ * down so the sprawl cannot grow again.
+ *
+ * Not a replacement for the two existing canonical classes, which cover
+ * different shapes:
+ *   - `.popup-icon-btn`        icon-only square buttons inside popups
+ *   - `.universal-toolbar-btn` the editor toolbar's own button
+ *
+ * Focus follows rule 33's "standalone button" pattern (a visible outline),
+ * which is the sanctioned treatment for action buttons outside popups.
+ */
+
+.vm-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-1);
+  /* 6px 12px. The semantic scale has no 6px step, so the vertical value comes
+     from the primitive layer (rule 31 sanctions that when no semantic token
+     covers the case). 4px/8px reads as cramped at this font size. */
+  padding: var(--space-1-5) var(--space-3);
+  border: var(--border-thin) solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  color: var(--text-color);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-base);
+  cursor: pointer;
+  transition:
+    background var(--duration-fast),
+    color var(--duration-fast);
+}
+
+.vm-btn:hover:not(:disabled) {
+  background: var(--hover-bg);
+}
+
+.vm-btn:active:not(:disabled) {
+  background: var(--hover-bg-strong);
+}
+
+.vm-btn:disabled {
+  opacity: var(--opacity-disabled);
+  cursor: not-allowed;
+}
+
+.vm-btn:focus-visible {
+  outline: var(--border-medium) solid var(--primary-color);
+  outline-offset: var(--border-medium);
+}
+
+/* Emphasised action (confirm, start, submit). */
+.vm-btn--primary {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+.vm-btn--primary:hover:not(:disabled) {
+  background: var(--accent-bg);
+}
+
+/* Destructive action (delete, deny, stop). */
+.vm-btn--danger {
+  border-color: var(--error-color);
+  color: var(--error-color);
+}
+
+.vm-btn--danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--error-color) 10%, transparent);
+}
