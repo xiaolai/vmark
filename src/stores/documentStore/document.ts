@@ -16,6 +16,7 @@
 import { create } from "zustand";
 import type { CursorInfo } from "@/types/cursorSync";
 import type { HardBreakStyle, LineEnding } from "@/utils/linebreakDetection";
+import { softContentEquals } from "@/utils/linebreaks";
 
 // Re-export for backwards compatibility
 export type { CursorInfo } from "@/types/cursorSync";
@@ -158,15 +159,19 @@ function updateDoc(
 }
 
 /**
- * Compute post-save state. Compares written disk content against current editor
- * content to handle TOCTOU races (user edits during async save).
+ * Compute post-save state, comparing written disk content against current
+ * editor content to catch TOCTOU races (user edits during an async save).
+ * `softContentEquals` because `doc.content` is LF but `diskContent` is
+ * `saveToPath`'s EOL-normalized output — a strict compare never matched for a
+ * CRLF doc, leaving its tab dirty forever. `savedContent`/`lastDiskContent`
+ * keep the REAL bytes. See __tests__/postSaveDirtyState.test.ts.
  */
 function buildPostSaveState(doc: DocumentState, lastDiskContent: string | undefined) {
   const diskContent = lastDiskContent ?? doc.content;
   return {
     savedContent: diskContent,
     lastDiskContent: diskContent,
-    isDirty: doc.content !== diskContent,
+    isDirty: !softContentEquals(doc.content, diskContent),
     isDivergent: false,
   };
 }
