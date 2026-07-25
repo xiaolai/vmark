@@ -15,9 +15,16 @@
  *     unless the user manually renamed the session — user intent wins (G4).
  *   - Dead sessions (process exited) get a visual indicator via CSS class.
  *   - Uses getState() pattern for session creation to avoid stale closures.
+ *   - Every action button carries a stable `data-terminal-action`
+ *     (`new`/`close`/`restart`/`swap`). The E2E terminal journeys drive these to
+ *     create and dispose their OWN session, so the values are an automation
+ *     CONTRACT, not decoration: selecting by DOM order is fragile and by
+ *     aria-label breaks under any non-English locale. Renaming or dropping one
+ *     breaks E2E, not just a unit test — TerminalTabBar.test.tsx pins all four.
  *
  * @coordinates-with TerminalPanel.tsx — provides onClose and onRestart callbacks
  * @coordinates-with terminalSessionStore — reads sessions and activeSessionId
+ * @coordinates-with e2e/lib/terminal.mjs — drives the data-terminal-action hooks
  * @module components/Terminal/TerminalTabBar
  */
 import { useCallback } from "react";
