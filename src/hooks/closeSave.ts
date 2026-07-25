@@ -276,9 +276,28 @@ export async function promptSaveForMultipleDocuments(
     return { action: "cancelled" };
   }
 
-  // Save All: first save docs with existing paths
+  // Save All: existing-path docs, then untitled docs.
+  const cancelled = await persistDocumentBatch(savedDocs, untitledDocs, contexts.length, onProgress);
+  if (cancelled) return cancelled;
+
+  return { action: "saved-all" };
+}
+
+/**
+ * Persist a batch of documents: save every doc that already has a path, then
+ * handle untitled docs — a single Save-As dialog for one, or one folder picker
+ * for several. Returns a cancellation result to bubble up, or `null` on success.
+ *
+ * Shared by `promptSaveForMultipleDocuments` and `saveAllDocuments`, which held
+ * a verbatim ~80-line copy of this each (jscpd `pnpm dup`).
+ */
+async function persistDocumentBatch(
+  savedDocs: CloseSaveContext[],
+  untitledDocs: CloseSaveContext[],
+  total: number,
+  onProgress: MultiSaveOptions["onProgress"],
+): Promise<MultiSaveResult | null> {
   let current = 0;
-  const total = contexts.length;
 
   for (const context of savedDocs) {
     current++;
@@ -295,9 +314,8 @@ export async function promptSaveForMultipleDocuments(
     }
   }
 
-  // Batch Save As for untitled docs: choose folder once
+  // Untitled docs: choose the folder once.
   if (untitledDocs.length > 0) {
-    // Get default folder for the first untitled doc
     const defaultFolder = await getDefaultSaveFolderWithFallback(
       untitledDocs[0].windowLabel
     );
@@ -338,7 +356,6 @@ export async function promptSaveForMultipleDocuments(
         return { action: "cancelled" };
       }
 
-      // Save each untitled doc to the chosen folder
       for (const doc of untitledDocs) {
         current++;
         onProgress?.(current, total, doc.title);
@@ -357,7 +374,7 @@ export async function promptSaveForMultipleDocuments(
     }
   }
 
-  return { action: "saved-all" };
+  return null;
 }
 
 /**
@@ -379,82 +396,8 @@ export async function saveAllDocuments(
   const savedDocs = contexts.filter((c) => c.filePath);
   const untitledDocs = contexts.filter((c) => !c.filePath);
 
-  let current = 0;
-  const total = contexts.length;
-
-  // Save docs with existing paths
-  for (const context of savedDocs) {
-    current++;
-    onProgress?.(current, total, context.title);
-
-    const saved = await saveToPath(
-      context.tabId,
-      context.filePath!,
-      context.content,
-      "manual"
-    );
-    if (!saved) {
-      return { action: "cancelled" };
-    }
-  }
-
-  // Handle untitled docs
-  if (untitledDocs.length > 0) {
-    const defaultFolder = await getDefaultSaveFolderWithFallback(
-      untitledDocs[0].windowLabel
-    );
-
-    if (untitledDocs.length === 1) {
-      const doc = untitledDocs[0];
-      current++;
-      onProgress?.(current, total, doc.title);
-
-      const filename = ensureFormatExtension(
-        toSafeFilename(doc.title),
-        doc.filePath ?? null,
-      );
-      const defaultPath = joinPath(defaultFolder, filename);
-      const newPath = await save({
-        defaultPath,
-        filters: saveFiltersForFilePath(doc.filePath ?? null),
-      });
-      if (!newPath) {
-        return { action: "cancelled" };
-      }
-
-      const saved = await saveToPath(doc.tabId, newPath, doc.content, "manual");
-      if (!saved) {
-        return { action: "cancelled" };
-      }
-    } else {
-      const folderPath = await open({
-        directory: true,
-        multiple: false,
-        defaultPath: defaultFolder,
-        title: i18n.t("dialog:chooseFolderForDocs", { count: untitledDocs.length }),
-      });
-
-      if (!folderPath || typeof folderPath !== "string") {
-        return { action: "cancelled" };
-      }
-
-      for (const doc of untitledDocs) {
-        current++;
-        onProgress?.(current, total, doc.title);
-
-        const filename = ensureFormatExtension(
-          toSafeFilename(doc.title),
-          doc.filePath ?? null,
-        );
-        const path = joinPath(folderPath, filename);
-
-        const saved = await saveToPath(doc.tabId, path, doc.content, "manual");
-        if (!saved) {
-          return { action: "cancelled" };
-        }
-      }
-    }
-  }
+  const cancelled = await persistDocumentBatch(savedDocs, untitledDocs, contexts.length, onProgress);
+  if (cancelled) return cancelled;
 
   return { action: "saved-all" };
 }

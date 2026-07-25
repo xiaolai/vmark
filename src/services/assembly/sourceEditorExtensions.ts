@@ -2,6 +2,14 @@
  * CodeMirror Extensions Configuration
  *
  * Purpose: Assembles the CodeMirror extension stack for VMark's source editor —
+ *
+ * Composition goes through `resolveExtensions` (ADR-015 D1): each entry carries
+ * an explicit id, and the resolver — not array position — produces the final
+ * order. WI-3.4: order is pinned by explicit `after` constraints derived from
+ * `SOURCE_COMPOSITION_ORDER` (`compositionOrder.ts`), so the `parts` array is
+ * sorted alphabetically before composition. The result is flattened one level so
+ * entries that were `...spread` before keep their original shape. The keymap
+ * lives in sourceEditorKeymap.ts.
  * markdown language support, custom keymaps, themes, decorations (media tags), and plugins.
  *
  * Key decisions:
@@ -18,14 +26,13 @@
  */
 import { Compartment, EditorState, type Extension } from "@codemirror/state";
 import { EditorView, keymap, drawSelection, dropCursor, lineNumbers } from "@codemirror/view";
-import { defaultKeymap, history } from "@codemirror/commands";
+import { history } from "@codemirror/commands";
 import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import { workflowWarn } from "@/utils/debug";
-import { performUnifiedUndo, performUnifiedRedo } from "@/hooks/useUnifiedHistory";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
-import { yaml } from "@codemirror/lang-yaml";
 import { languages } from "@codemirror/language-data";
 import { isYamlFileName } from "@/utils/dropPaths";
+import { dispatchEditor } from "@/lib/formats/registry";
 import { sourceWorkflowPreviewExtensions } from "@/plugins/codemirror/sourceWorkflowPreview";
 // WI-2.4 — sourceGhaWorkflowPreview retired. Standalone workflow YAML
 // files now route through the YAML adapter's schemaRenderer
@@ -37,10 +44,8 @@ import { gotoExtension } from "@/plugins/codemirror/sourceWorkflowGoto";
 import { yamlLintExtension } from "@/plugins/codemirror/sourceYamlLint";
 import { isWorkflowEnabled } from "@/services/featureFlags/workflowFeatureFlag";
 import { syntaxHighlighting } from "@codemirror/language";
-import { closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
+import { closeBrackets } from "@codemirror/autocomplete";
 import { search } from "@codemirror/search";
-import { selectNextOccurrenceSource, selectAllOccurrencesSource } from "@/plugins/codemirror/sourceSelectOccurrence";
-import { useUIStore } from "@/stores/uiStore";
 import {
   sourceEditorTheme,
   codeHighlightStyle,
@@ -49,17 +54,6 @@ import {
   showInvisiblesTheme,
   createListBlankLinePlugin,
   createMarkdownAutoPairPlugin,
-  markdownPairBackspace,
-  tabEscapeKeymap,
-  tabIndentFallbackKeymap,
-  shiftTabIndentFallbackKeymap,
-  listContinuationKeymap,
-  tableTabKeymap,
-  tableShiftTabKeymap,
-  tableModEnterKeymap,
-  tableModShiftEnterKeymap,
-  tableArrowUpKeymap,
-  tableArrowDownKeymap,
   createSmartPastePlugin,
   createSourceCopyOnSelectPlugin,
   createSourceFocusModePlugin,
@@ -77,22 +71,14 @@ import {
   sourceAlertDecorationExtensions,
   sourceDetailsDecorationExtensions,
   sourceMediaDecorationExtensions,
-  visualLineUpKeymap,
-  visualLineDownKeymap,
-  visualLineUpSelectKeymap,
-  visualLineDownSelectKeymap,
-  smartHomeKeymap,
-  smartHomeSelectKeymap,
-  structuralBackspaceKeymap,
-  structuralDeleteKeymap,
-  listSmartIndentKeymap,
-  listSmartOutdentKeymap,
 } from "@/plugins/codemirror";
+import { buildSourceKeymapEntries } from "./sourceEditorKeymap";
+import { resolveExtensions } from "@/lib/extensions/resolve";
+import { deriveAfterConstraints, assertCanonicalCoverage } from "./extensionOrdering";
+import { SOURCE_COMPOSITION_ORDER } from "./compositionOrder";
+import type { VMarkExtension } from "@/lib/extensions/types";
 import { buildSourceShortcutKeymap } from "@/plugins/codemirror/sourceShortcuts";
 import { sourceEditorContextMenuExtension } from "@/plugins/codemirror/editorContextMenu";
-import { toggleTaskList } from "@/plugins/sourceContextDetection/taskListActions";
-import { guardCodeMirrorKeyBinding } from "@/utils/imeGuard";
-import { isMacPlatform } from "@/utils/shortcutMatch";
 import { createSourceImagePopupPlugin } from "@/plugins/sourceImagePopup";
 import { createSourceLinkPopupPlugin } from "@/plugins/sourceLinkPopup";
 import { createSourceLinkCreatePopupPlugin } from "@/plugins/sourceLinkCreatePopup";
@@ -135,6 +121,27 @@ interface ExtensionConfig {
 /**
  * Creates the array of CodeMirror extensions for the source editor.
  */
+/**
+ * The CodeMirror language pack for `filePath`, from the format registry.
+ *
+ * Formats that bundle their pack anyway expose it synchronously via
+ * `FormatConfig.language`, so the primary path never mounts unhighlighted
+ * (ADR-015 Phase 4A, option 2).
+ *
+ * Falls back to markdown when the registry is unavailable — `dispatchEditor`
+ * throws if no format has been registered, which happens in unit tests that
+ * build extensions without bootstrapping. A source editor with the wrong
+ * highlighting is recoverable; one that throws on construction is not.
+ */
+function resolveLanguage(filePath: string | null | undefined): Extension {
+  const fallback = () => markdown({ codeLanguages: languages });
+  try {
+    return dispatchEditor(filePath ?? null).language?.() ?? fallback();
+  } catch {
+    return fallback();
+  }
+}
+
 export function createSourceEditorExtensions(config: ExtensionConfig): Extension[] {
   const { initialWordWrap, initialShowBrTags, initialAutoPair, initialShowLineNumbers, initialShowInvisibles = false, updateListener, tabId, lintEnabled, filePath } = config;
   // YAML detection ignores the workflow feature flag — every YAML file gets
@@ -145,162 +152,80 @@ export function createSourceEditorExtensions(config: ExtensionConfig): Extension
     : false;
   const workflowFeatures = isYaml && isWorkflowEnabled();
 
-  return [
+  const parts: Array<{ id: string; ext: Extension }> = [
     // Line wrapping (dynamic via compartment)
-    lineWrapCompartment.of(initialWordWrap ? EditorView.lineWrapping : []),
+    { id: "source.lineWrapCompartment", ext: lineWrapCompartment.of(initialWordWrap ? EditorView.lineWrapping : []) },
     // BR visibility (dynamic via compartment) - hide when showBrTags is false
-    brVisibilityCompartment.of(createBrHidingPlugin(!initialShowBrTags)),
+    { id: "source.brVisibilityCompartment", ext: brVisibilityCompartment.of(createBrHidingPlugin(!initialShowBrTags)) },
     // Show invisible characters (dynamic via compartment)
-    showInvisiblesCompartment.of([
+    {
+      id: "source.showInvisiblesCompartment",
+      ext: showInvisiblesCompartment.of([
       createShowInvisiblesPlugin(initialShowInvisibles),
       showInvisiblesTheme,
     ]),
+    },
     // Auto-pair brackets (dynamic via compartment)
-    autoPairCompartment.of(initialAutoPair ? closeBrackets() : []),
+    { id: "source.autoPairCompartment", ext: autoPairCompartment.of(initialAutoPair ? closeBrackets() : []) },
     // Line numbers (dynamic via compartment)
-    lineNumbersCompartment.of(initialShowLineNumbers ? lineNumbers() : []),
+    { id: "source.lineNumbersCompartment", ext: lineNumbersCompartment.of(initialShowLineNumbers ? lineNumbers() : []) },
     // Custom markdown brackets config (^, ==, standard brackets)
-    markdownCloseBrackets,
+    { id: "source.markdownCloseBrackets", ext: markdownCloseBrackets },
     // Markdown auto-pair with delay judgment (*, _, ~) and code fence
-    createMarkdownAutoPairPlugin(),
+    { id: "source.markdownAutoPairPlugin", ext: createMarkdownAutoPairPlugin() },
     // Hide blank lines between list items
-    createListBlankLinePlugin(),
+    { id: "source.listBlankLinePlugin", ext: createListBlankLinePlugin() },
     // Smart paste: URL on selection creates markdown link
-    createSmartPastePlugin(),
+    { id: "source.smartPastePlugin", ext: createSmartPastePlugin() },
     // Copy on select: auto-copy selected text to clipboard on mouseup
-    createSourceCopyOnSelectPlugin(),
+    { id: "source.sourceCopyOnSelectPlugin", ext: createSourceCopyOnSelectPlugin() },
     // IME guard: flush queued work after composition ends
-    createImeGuardPlugin(),
+    { id: "source.imeGuardPlugin", ext: createImeGuardPlugin() },
     // Strip scrollIntoView from IME compose transactions to avoid viewport jitter (#814)
-    imeScrollGuard,
+    { id: "source.imeScrollGuard", ext: imeScrollGuard },
     // Focus mode: dim non-current paragraph
-    createSourceFocusModePlugin(),
+    { id: "source.sourceFocusModePlugin", ext: createSourceFocusModePlugin() },
     // Typewriter mode: keep cursor centered
-    createSourceTypewriterPlugin(),
+    { id: "source.sourceTypewriterPlugin", ext: createSourceTypewriterPlugin() },
     // Multi-cursor support
-    drawSelection(),
-    dropCursor(),
-    ...sourceMultiCursorExtensions,
+    { id: "source.drawSelection", ext: drawSelection() },
+    { id: "source.dropCursor", ext: dropCursor() },
+    { id: "source.multiCursorExtensions", ext: sourceMultiCursorExtensions },
     // Allow multiple selections
-    EditorState.allowMultipleSelections.of(true),
+    { id: "source.editorState", ext: EditorState.allowMultipleSelections.of(true) },
     // Dimmed selection overlay while the editor is blurred (e.g. in the terminal).
-    ...sourceInactiveSelectionExtensions,
+    { id: "source.inactiveSelectionExtensions", ext: sourceInactiveSelectionExtensions },
     // History (undo/redo)
-    history(),
+    { id: "source.history", ext: history() },
     // Shortcuts from settings (dynamic via compartment)
-    shortcutKeymapCompartment.of(keymap.of(buildSourceShortcutKeymap())),
+    { id: "source.shortcutKeymapCompartment", ext: shortcutKeymapCompartment.of(keymap.of(buildSourceShortcutKeymap())) },
     // Read-only mode (dynamic via compartment)
-    readOnlyCompartment.of(EditorState.readOnly.of(config.initialReadOnly ?? false)),
+    { id: "source.readOnlyCompartment", ext: readOnlyCompartment.of(EditorState.readOnly.of(config.initialReadOnly ?? false)) },
     // Keymaps (no searchKeymap - we use our unified FindBar)
-    keymap.of([
-      // Visual line navigation (must be before default keymap to override)
-      visualLineUpKeymap,
-      visualLineDownKeymap,
-      visualLineUpSelectKeymap,
-      visualLineDownSelectKeymap,
-      // Smart Home key (toggles between first non-whitespace and line start)
-      smartHomeKeymap,
-      smartHomeSelectKeymap,
-      // Structural character protection (table pipes, list markers, blockquote markers)
-      structuralBackspaceKeymap,
-      structuralDeleteKeymap,
-      // Smart list continuation (must be before default keymap)
-      listContinuationKeymap,
-      // Table Tab navigation (must be before tabEscape)
-      tableTabKeymap,
-      tableShiftTabKeymap,
-      // List smart indent/outdent (must be before tabEscape to take priority on list lines)
-      listSmartIndentKeymap,
-      listSmartOutdentKeymap,
-      // Table arrow escape (first/last block handling)
-      tableArrowUpKeymap,
-      tableArrowDownKeymap,
-      // Table Mod-Enter shortcuts (must be before task list toggle)
-      tableModEnterKeymap,
-      tableModShiftEnterKeymap,
-      // Tab to jump over closing brackets (must be before default keymap)
-      tabEscapeKeymap,
-      // Backspace to delete both halves of markdown pairs
-      markdownPairBackspace,
-      // Mod+Shift+Enter: toggle task list checkbox
-      guardCodeMirrorKeyBinding({
-        key: "Mod-Shift-Enter",
-        run: (view) => toggleTaskList(view),
-        preventDefault: true,
-      }),
-      // Cmd+D: select next occurrence (custom — CJK-aware, code fence boundary-aware)
-      guardCodeMirrorKeyBinding({
-        key: "Mod-d",
-        run: (view) => {
-          const spec = selectNextOccurrenceSource(view.state);
-          if (!spec) return false;
-          view.dispatch(spec);
-          return true;
-        },
-        preventDefault: true,
-      }),
-      // Cmd+Shift+L: select all occurrences (custom — code fence boundary-aware)
-      guardCodeMirrorKeyBinding({
-        key: "Mod-Shift-l",
-        run: (view) => {
-          const spec = selectAllOccurrencesSource(view.state);
-          if (!spec) return false;
-          view.dispatch(spec);
-          return true;
-        },
-        preventDefault: true,
-      }),
-      // Cmd+Option+W: toggle word wrap
-      guardCodeMirrorKeyBinding({
-        key: "Mod-Alt-w",
-        run: () => {
-          useUIStore.getState().toggleWordWrap();
-          return true;
-        },
-        preventDefault: true,
-      }),
-      ...closeBracketsKeymap,
-      ...defaultKeymap,
-      // Unified undo/redo that works across mode switches
-      guardCodeMirrorKeyBinding({
-        key: "Mod-z",
-        run: () => performUnifiedUndo(getCurrentWindowLabel()),
-        preventDefault: true,
-      }),
-      guardCodeMirrorKeyBinding({
-        key: "Mod-Shift-z",
-        run: () => performUnifiedRedo(getCurrentWindowLabel()),
-        preventDefault: true,
-      }),
-      // Windows/Linux convention: Ctrl+Y for redo (skip on macOS where Cmd+Y = AI Genies)
-      /* v8 ignore next 7 -- @preserve reason: isMacPlatform() compile-time constant; only one branch is taken per test run */
-      ...(isMacPlatform() ? [] : [
-        guardCodeMirrorKeyBinding({
-          key: "Mod-y",
-          run: () => performUnifiedRedo(getCurrentWindowLabel()),
-          preventDefault: true,
-        }),
-      ]),
-      // Fallback Tab handlers: insert spaces if Tab/Shift-Tab not handled above
-      tabIndentFallbackKeymap,
-      shiftTabIndentFallbackKeymap,
-    ]),
+    { id: "source.keymap", ext: keymap.of(buildSourceKeymapEntries()) },
     // Search extension (programmatic control only, no panel)
-    search(),
+    { id: "source.search", ext: search() },
     // Language mode: YAML for .yml/.yaml files, markdown for everything else
-    isYaml ? yaml() : markdown({ codeLanguages: languages }),
+    // Language comes from the format registry, not a hard-coded branch. Formats
+    // that bundle their pack anyway expose it synchronously via
+    // `FormatConfig.language`, so the primary path never mounts unhighlighted;
+    // anything else falls back to the statically imported markdown pack until
+    // the async `loadLanguage` path is wired (ADR-015 Phase 4A).
+    { id: "source.language", ext: resolveLanguage(filePath) },
     // Workflow preview plugin for YAML files (parses YAML → workflowPreviewStore)
-    ...(workflowFeatures ? sourceWorkflowPreviewExtensions : []),
+    { id: "source.workflowPreview", ext: (workflowFeatures ? sourceWorkflowPreviewExtensions : []) },
     // YAML parse-error linter (every YAML file, regardless of workflow
     // flag). Surfaces duplicate keys, unterminated strings, indentation
     // breaks via the CodeMirror gutter.
-    ...(isYaml ? [yamlLintExtension()] : []),
+    { id: "source.yamlLint", ext: (isYaml ? [yamlLintExtension()] : []) },
     // Workflow expression autocomplete inside ${{ }} (WI-A.1).
-    ...(workflowFeatures ? [workflowCompletionExtension()] : []),
+    { id: "source.workflowCompletion", ext: (workflowFeatures ? [workflowCompletionExtension()] : []) },
     // Source cursor → canvas job selection (WI-B.3).
-    ...(workflowFeatures ? [workflowCursorSyncExtension()] : []),
+    { id: "source.workflowCursorSync", ext: (workflowFeatures ? [workflowCursorSyncExtension()] : []) },
     // Cmd/Ctrl-Click on `uses:` opens local target (WI-B.2).
-    ...(workflowFeatures && filePath
+    {
+      id: "source.gotoExtension",
+      ext: (workflowFeatures && filePath
       ? [
           gotoExtension({
             filePath,
@@ -313,44 +238,89 @@ export function createSourceEditorExtensions(config: ExtensionConfig): Extension
           }),
         ]
       : []),
+    },
     // Syntax highlighting for code blocks
-    syntaxHighlighting(codeHighlightStyle, { fallback: true }),
+    { id: "source.syntaxHighlighting", ext: syntaxHighlighting(codeHighlightStyle, { fallback: true }) },
     // Listen for changes
-    updateListener,
+    { id: "source.updateListener", ext: updateListener },
     // Theme/styling
-    sourceEditorTheme,
+    { id: "source.editorTheme", ext: sourceEditorTheme },
     // Source cursor context for toolbar actions
-    createSourceCursorContextPlugin(),
+    { id: "source.sourceCursorContextPlugin", ext: createSourceCursorContextPlugin() },
     // Inline math preview
-    createSourceMathPreviewPlugin(),
+    { id: "source.sourceMathPreviewPlugin", ext: createSourceMathPreviewPlugin() },
     // Inline image preview
-    createSourceImagePreviewPlugin(),
+    { id: "source.sourceImagePreviewPlugin", ext: createSourceImagePreviewPlugin() },
     // Image popup editor
-    createSourceImagePopupPlugin(),
+    { id: "source.sourceImagePopupPlugin", ext: createSourceImagePopupPlugin() },
     // Link popup editor (click to edit, Cmd+Click to open)
-    createSourceLinkPopupPlugin(),
+    { id: "source.sourceLinkPopupPlugin", ext: createSourceLinkPopupPlugin() },
     // Link create popup (Cmd+K when no link, no clipboard URL)
-    createSourceLinkCreatePopupPlugin(),
+    { id: "source.sourceLinkCreatePopupPlugin", ext: createSourceLinkCreatePopupPlugin() },
     // Wiki link popup editor
-    createSourceWikiLinkPopupPlugin(),
+    { id: "source.sourceWikiLinkPopupPlugin", ext: createSourceWikiLinkPopupPlugin() },
     // Footnote popup editor
-    createSourceFootnotePopupPlugin(),
+    { id: "source.sourceFootnotePopupPlugin", ext: createSourceFootnotePopupPlugin() },
     // Table context menu
-    ...sourceTableContextMenuExtensions,
+    { id: "source.tableContextMenuExtensions", ext: sourceTableContextMenuExtensions },
     // Generic editor context menu — after the table menu, which owns tables (ADR-5)
-    sourceEditorContextMenuExtension,
+    { id: "source.editorContextMenuExtension", ext: sourceEditorContextMenuExtension },
     // Table cell highlight
-    ...sourceTableCellHighlightExtensions,
+    { id: "source.tableCellHighlightExtensions", ext: sourceTableCellHighlightExtensions },
     // Diagram preview (mermaid + SVG)
-    ...sourceDiagramPreviewExtensions,
+    { id: "source.diagramPreviewExtensions", ext: sourceDiagramPreviewExtensions },
     // Alert block decorations (colored left border)
-    ...sourceAlertDecorationExtensions,
+    { id: "source.alertDecorationExtensions", ext: sourceAlertDecorationExtensions },
     // Details block decorations
-    ...sourceDetailsDecorationExtensions,
+    { id: "source.detailsDecorationExtensions", ext: sourceDetailsDecorationExtensions },
     // Media tag decorations (video, audio, YouTube iframe)
-    ...sourceMediaDecorationExtensions,
+    { id: "source.mediaDecorationExtensions", ext: sourceMediaDecorationExtensions },
     // Lint annotations (gated by lintEnabled setting and tabId availability)
-    /* v8 ignore next -- @preserve reason: extension config branch; depends on runtime settings and tab state */
-    ...(lintEnabled && tabId ? createSourceLintExtension(tabId) : []),
+    {
+      id: "source.lint",
+      /* v8 ignore next -- @preserve reason: extension config branch; depends on runtime settings and tab state */
+      ext: lintEnabled && tabId ? createSourceLintExtension(tabId) : [],
+    },
   ];
+
+  // WI-3.4: array position is no longer load-bearing. The order is declared once
+  // in SOURCE_COMPOSITION_ORDER and pinned via explicit `after` constraints, so
+  // the array is sorted alphabetically before composition and the resolver still
+  // reproduces the canonical order exactly. `assertCanonicalCoverage` fails loud
+  // if `parts` and the canonical list ever drift apart.
+  assertCanonicalCoverage(
+    "source",
+    SOURCE_COMPOSITION_ORDER,
+    parts.map((p) => p.id),
+  );
+  const after = deriveAfterConstraints(
+    SOURCE_COMPOSITION_ORDER,
+    parts.map((p) => p.id),
+  );
+  const descriptors: VMarkExtension[] = [...parts]
+    .sort((a, b) => a.id.localeCompare(b.id))
+    .map(({ id, ext }) => ({
+      id,
+      contributions: [{ kind: "codemirror", factory: () => ext }],
+      ordering: after.has(id) ? { after: after.get(id) } : undefined,
+    }));
+
+  const { ordered, errors } = resolveExtensions(descriptors);
+  if (errors.length > 0) {
+    throw new Error(
+      `Source editor composition failed:\n${errors
+        .map((error) => `  - [${error.code}] ${error.message}`)
+        .join("\n")}`,
+    );
+  }
+
+  // Flatten one level: entries that were `...spread` before are now a single
+  // nested array. CodeMirror flattens nested Extensions itself, but restoring
+  // the original shape keeps composition output byte-identical to pre-migration.
+  return ordered
+    .map(
+      (descriptor) =>
+        (descriptor.contributions[0] as { factory: () => Extension }).factory(),
+    )
+    .flat() as Extension[];
 }

@@ -23,7 +23,7 @@
 import { useWindowClose } from "@/hooks/useWindowClose";
 import { useWindowTitle } from "@/hooks/useWindowTitle";
 import { useWindowFileWatcher } from "@/hooks/useWindowFileWatcher";
-import { useDocumentResilience } from "@/services/persistence/resilience";
+import { useDocumentResilience } from "@/hooks/resilience";
 import { useMcpBridge } from "@/hooks/useMcpBridge";
 
 export function useWindowLifecycle(): void {

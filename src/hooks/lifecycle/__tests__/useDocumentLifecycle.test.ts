@@ -23,9 +23,6 @@ vi.mock("@/hooks/useExternalFileChanges", () => ({
 vi.mock("@/hooks/useReloadGuard", () => ({
   useReloadGuard: () => calls.push("reloadGuard"),
 }));
-vi.mock("@/hooks/useSelectAllScope", () => ({
-  useSelectAllScope: () => calls.push("selectAllScope"),
-}));
 vi.mock("@/hooks/useImagePasteToast", () => ({
   useImagePasteToast: () => calls.push("imagePasteToast"),
 }));
@@ -45,7 +42,6 @@ describe("useDocumentLifecycle", () => {
       "dragDropOpen",
       "externalFileChanges",
       "reloadGuard",
-      "selectAllScope",
       "imagePasteToast",
     ]);
   });

@@ -32,7 +32,7 @@ vi.mock("@/utils/reentryGuard", () => ({
   ),
 }));
 
-vi.mock("@/hooks/useWindowFocus", () => ({
+vi.mock("@/services/navigation/windowFocus", () => ({
   getWindowLabel: () => "main",
 }));
 

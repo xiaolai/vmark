@@ -15,7 +15,7 @@ import { useTabStore } from "@/stores/tabStore";
 import { useMediaPopupStore } from "@/stores/mediaPopupStore";
 import { copyImageToAssets } from "@/hooks/useImageOperations";
 import { withReentryGuard } from "@/utils/reentryGuard";
-import { getWindowLabel } from "@/hooks/useWindowFocus";
+import { getWindowLabel } from "@/services/navigation/windowFocus";
 import { sourceActionError } from "@/utils/debug";
 import { runOrQueueCodeMirrorAction } from "@/utils/imeGuard";
 import { IMAGE_EXTENSIONS } from "@/utils/mediaExtensions";

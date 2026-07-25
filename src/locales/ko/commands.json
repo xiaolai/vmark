@@ -1,6 +1,8 @@
 {
   "app": {
-    "preferences": "설정"
+    "preferences": "설정",
+    "commandPalette": "명령 팔레트",
+    "quickOpen": "빠른 열기"
   },
   "history": {
     "clearAll": "모든 기록 지우기",
@@ -15,7 +17,9 @@
     "reportIssue": "문제 신고"
   },
   "genies": {
-    "openFolder": "지니 폴더 열기"
+    "openFolder": "지니 폴더 열기",
+    "togglePicker": "Toggle Genie Picker",
+    "openPicker": "Search Genies"
   },
   "export": {
     "html": "HTML로 내보내기",
@@ -27,7 +31,13 @@
   },
   "file": {
     "clearRecent": "최근 파일 지우기",
-    "openRecent": "최근 파일 열기"
+    "openRecent": "최근 파일 열기",
+    "save": "저장",
+    "saveAs": "다른 이름으로 저장…",
+    "moveTo": "이동…",
+    "saveAllQuit": "모두 저장 후 종료",
+    "new": "새 파일",
+    "open": "열기…"
   },
   "workspace": {
     "openFolder": "워크스페이스 열기…",
@@ -61,7 +71,10 @@
     "toggleShowInvisibles": "숨은 문자 전환",
     "toggleWindowStatus": "창 상태",
     "toggleBreakdown": "정합성 내역",
-    "toggleClaims": "캐논 설정"
+    "toggleClaims": "캐논 설정",
+    "contentSearch": "파일에서 찾기",
+    "toggleSidebar": "사이드바 전환",
+    "toggleStatusBar": "상태 표시줄 전환"
   },
   "lint": {
     "check": "Markdown 검사",
@@ -89,5 +102,135 @@
   },
   "claims": {
     "extractFromSelection": "선택 영역에서 설정 추출"
+  },
+  "category": {
+    "app": "애플리케이션",
+    "file": "파일",
+    "workspace": "워크스페이스",
+    "view": "보기",
+    "export": "내보내기",
+    "formatting": "서식",
+    "headings": "제목",
+    "lists": "목록",
+    "blockquote": "인용구",
+    "inserts": "삽입",
+    "links": "링크",
+    "tables": "표",
+    "lines": "줄",
+    "selection": "선택",
+    "transform": "변환",
+    "cjk": "CJK",
+    "cleanup": "정리",
+    "codeBlock": "코드 블록",
+    "edit": "편집",
+    "lint": "Lint",
+    "image": "이미지",
+    "history": "기록",
+    "format": "파일 형식",
+    "ai": "AI",
+    "help": "도움말",
+    "other": "기타"
+  },
+  "editor": {
+    "addColLeft": "왼쪽에 열 추가",
+    "addColRight": "오른쪽에 열 추가",
+    "addRowAbove": "위에 행 추가",
+    "addRowBelow": "아래에 행 추가",
+    "alignAllCenter": "모두 가운데 정렬",
+    "alignAllLeft": "모두 왼쪽 정렬",
+    "alignAllRight": "모두 오른쪽 정렬",
+    "alignCenter": "가운데 정렬",
+    "alignLeft": "왼쪽 정렬",
+    "alignRight": "오른쪽 정렬",
+    "blockquote": "인용구",
+    "bold": "굵게",
+    "bookmark": "북마크",
+    "bulletList": "글머리 기호 목록",
+    "clearFormatting": "서식 지우기",
+    "code": "인라인 코드",
+    "codeBlock": "코드 블록",
+    "collapseBlankLines": "빈 줄 축소",
+    "decreaseHeading": "제목 수준 낮추기",
+    "deleteCol": "열 삭제",
+    "deleteLine": "줄 삭제",
+    "deleteRow": "행 삭제",
+    "deleteTable": "표 삭제",
+    "duplicateLine": "줄 복제",
+    "expandSelection": "선택 영역 확장",
+    "formatCJK": "CJK 선택 영역 서식",
+    "formatCJKFile": "CJK 파일 서식",
+    "formatTable": "표 서식",
+    "highlight": "형광펜",
+    "horizontalLine": "수평선",
+    "increaseHeading": "제목 수준 높이기",
+    "indent": "들여쓰기",
+    "insertAlertCaution": "주의 삽입",
+    "insertAlertImportant": "중요 삽입",
+    "insertAlertNote": "노트 삽입",
+    "insertAlertTip": "팁 삽입",
+    "insertAlertWarning": "경고 삽입",
+    "insertAudio": "오디오 삽입",
+    "insertDetails": "접이식 블록 삽입",
+    "insertDiagram": "다이어그램 삽입",
+    "insertFootnote": "각주 삽입",
+    "insertGraphvizDiagram": "Graphviz 다이어그램 삽입",
+    "insertImage": "이미지 삽입",
+    "insertInlineMath": "인라인 수식 삽입",
+    "insertMarkmap": "마인드맵 삽입",
+    "insertMath": "수식 블록 삽입",
+    "insertTable": "표 삽입",
+    "insertVideo": "비디오 삽입",
+    "italic": "기울임",
+    "joinLines": "줄 합치기",
+    "lineEndingsCRLF": "CRLF로 변환",
+    "lineEndingsLF": "LF로 변환",
+    "link": "링크",
+    "moveLineDown": "줄 아래로 이동",
+    "moveLineUp": "줄 위로 이동",
+    "nestBlockquote": "인용구 중첩",
+    "orderedList": "번호 매기기 목록",
+    "outdent": "내어쓰기",
+    "paragraph": "단락",
+    "redo": "다시 실행",
+    "removeBlankLines": "빈 줄 제거",
+    "removeBlockquote": "인용구 제거",
+    "removeList": "목록 제거",
+    "removeTrailingSpaces": "줄 끝 공백 제거",
+    "selectBlock": "블록 선택",
+    "selectLine": "줄 선택",
+    "selectWord": "단어 선택",
+    "setHeading": {
+      "1": "제목 1",
+      "2": "제목 2",
+      "3": "제목 3",
+      "4": "제목 4",
+      "5": "제목 5",
+      "6": "제목 6"
+    },
+    "sortLinesAsc": "줄 오름차순 정렬",
+    "sortLinesDesc": "줄 내림차순 정렬",
+    "strikethrough": "취소선",
+    "subscript": "아래 첨자",
+    "superscript": "위 첨자",
+    "taskList": "작업 목록",
+    "toggleQuoteStyle": "따옴표 스타일 전환",
+    "transformLowercase": "소문자로 변환",
+    "transformTitleCase": "단어별 첫 글자 대문자로 변환",
+    "transformToggleCase": "대소문자 전환",
+    "transformUppercase": "대문자로 변환",
+    "underline": "밑줄",
+    "undo": "실행 취소",
+    "unnestBlockquote": "인용구 중첩 해제",
+    "wikiLink": "위키 링크"
+  },
+  "explorer": {
+    "toggleHiddenFiles": "숨김 파일 전환",
+    "toggleAllFiles": "모든 파일 전환"
+  },
+  "tab": {
+    "new": "새 탭",
+    "next": "다음 탭",
+    "prev": "이전 탭",
+    "close": "탭 닫기"
   }
 }

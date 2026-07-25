@@ -99,29 +99,50 @@ module.exports = {
         pathNot: [
           // Tests may import hooks/components to mock them
           "\\.test\\.(ts|tsx)$",
-          // Frozen H4 backlog — services importing business logic from hooks
-          "^src/services/assembly/sourceEditorExtensions\\.ts$",
-          "^src/services/commands/miscCommands\\.ts$",
-          "^src/services/commands/recentFilesCommands\\.ts$",
-          "^src/services/commands/recentWorkspacesCommands\\.ts$",
-          "^src/services/commands/viewCommands\\.ts$",
-          "^src/services/commands/workspaceCommands\\.ts$",
-          "^src/services/media/resolveMediaSrc\\.ts$",
-          "^src/services/persistence/saveToPath\\.ts$",
-          // Frozen H4 backlog — React adapters co-located in services
-          "^src/services/commands/useCommandBootstrap\\.ts$",
-          "^src/services/formats/formatSettingsBridge\\.ts$",
+          // Sanctioned (permanent) seams — NOT debt (the H4 inversion is done):
+          //  - imeToastPinAction builds a React.ReactNode toast label; moving it
+          //    to components/ would make a service import the UI tier (worse).
+          //  - assembly/tiptapExtensions composes editor extensions from
+          //    plugins/components by design (the de-facto wiring tier).
           "^src/services/ime/imeToastPinAction\\.tsx$",
-          "^src/services/persistence/hotExit/useHotExitCaptureWarning\\.ts$",
-          "^src/services/persistence/resilience/_crashRecovery.*\\.ts$",
-          "^src/services/persistence/resilience/_hotExit.*\\.ts$",
-          // Sanctioned wiring seam: assembly composes editor extensions
-          // from plugins/components by design (de-facto wiring tier).
           "^src/services/assembly/tiptapExtensions\\.ts$",
         ],
       },
       to: {
         path: ["^src/hooks/", "^src/components/", "node_modules/react"],
+      },
+    },
+
+    // Rule 5: the Node-safe markdown seam stays Node-safe (ADR-015 D2, WI-1.4).
+    //
+    // `nodeSafe.ts` re-exports the remark plugins to `vmark-content-server`,
+    // which runs in plain Node. Its header states the invariant — no `@/`
+    // aliases, no DOM globals, no editor/ProseMirror imports — but until now
+    // only a smoke test guarded it, and only at runtime.
+    //
+    // ADR-015 splits conversion into an engine-independent markdown layer
+    // (registry 1, here) and a ProseMirror-coupled adapter layer (registry 2).
+    // The audit found ADR-003's "framework-independent pipeline" was never
+    // fully realized — 11 of 19 pipeline files import `@tiptap/pm/model` — so
+    // this boundary is being CREATED, not merely preserved. It needs a gate
+    // from day one, or it will drift like every seam before it.
+    {
+      name: "node-safe-markdown-seam",
+      severity: "error",
+      comment:
+        "src/utils/markdownPipeline/{plugins,nodeSafe,types} must stay importable " +
+        "from plain Node: no ProseMirror, no React, no @/ aliases, no editor code.",
+      from: {
+        path: "^src/utils/markdownPipeline/(plugins/|nodeSafe\\.ts|types\\.ts)",
+        pathNot: ["\\.test\\.(ts|tsx)$"],
+      },
+      to: {
+        path: [
+          "@tiptap",
+          "prosemirror",
+          "node_modules/react",
+          "^src/(components|plugins|stores|hooks|services)/",
+        ],
       },
     },
 
@@ -132,7 +153,7 @@ module.exports = {
     // into other plugins' internals.
     {
       name: "plugin-isolation",
-      severity: "warn",
+      severity: "error",
       comment:
         "Plugins should be self-contained. Cross-plugin imports are allowed only through shared/, sourcePopup/, or coordination plugins.",
       from: {

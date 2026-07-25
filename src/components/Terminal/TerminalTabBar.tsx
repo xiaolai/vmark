@@ -15,9 +15,16 @@
  *     unless the user manually renamed the session — user intent wins (G4).
  *   - Dead sessions (process exited) get a visual indicator via CSS class.
  *   - Uses getState() pattern for session creation to avoid stale closures.
+ *   - Every action button carries a stable `data-terminal-action`
+ *     (`new`/`close`/`restart`/`swap`). The E2E terminal journeys drive these to
+ *     create and dispose their OWN session, so the values are an automation
+ *     CONTRACT, not decoration: selecting by DOM order is fragile and by
+ *     aria-label breaks under any non-English locale. Renaming or dropping one
+ *     breaks E2E, not just a unit test — TerminalTabBar.test.tsx pins all four.
  *
  * @coordinates-with TerminalPanel.tsx — provides onClose and onRestart callbacks
  * @coordinates-with terminalSessionStore — reads sessions and activeSessionId
+ * @coordinates-with e2e/lib/terminal.mjs — drives the data-terminal-action hooks
  * @module components/Terminal/TerminalTabBar
  */
 import { useCallback } from "react";
@@ -97,8 +104,12 @@ export function TerminalTabBar({ onClose, onRestart, orientation = "vertical", p
           );
         })}
 
+        {/* data-terminal-action: stable automation hook (locale-independent,
+            order-independent) — see TerminalTabBar.test.tsx and the E2E terminal
+            journey. Do not rename these values. */}
         <button
           className="terminal-tab-bar-btn"
+          data-terminal-action="new"
           onClick={handleCreate}
           disabled={isMaxed}
           title={isMaxed ? t("terminal.maxSessions") : t("terminal.newSession")}
@@ -109,13 +120,13 @@ export function TerminalTabBar({ onClose, onRestart, orientation = "vertical", p
       </div>
 
       <div className="terminal-tab-bar-actions">
-        <button className="terminal-tab-bar-btn" onClick={handleSwap} title={t("terminal.swapPosition")} aria-label={t("terminal.swapPosition")}>
+        <button className="terminal-tab-bar-btn" data-terminal-action="swap" onClick={handleSwap} title={t("terminal.swapPosition")} aria-label={t("terminal.swapPosition")}>
           <SwapIcon size={12} />
         </button>
-        <button className="terminal-tab-bar-btn" onClick={onClose} title={t("terminal.closeSession")} aria-label={t("terminal.closeSession")}>
+        <button className="terminal-tab-bar-btn" data-terminal-action="close" onClick={onClose} title={t("terminal.closeSession")} aria-label={t("terminal.closeSession")}>
           <Trash2 size={12} />
         </button>
-        <button className="terminal-tab-bar-btn" onClick={onRestart} title={t("terminal.restartSession")} aria-label={t("terminal.restartSession")}>
+        <button className="terminal-tab-bar-btn" data-terminal-action="restart" onClick={onRestart} title={t("terminal.restartSession")} aria-label={t("terminal.restartSession")}>
           <RotateCcw size={12} />
         </button>
       </div>

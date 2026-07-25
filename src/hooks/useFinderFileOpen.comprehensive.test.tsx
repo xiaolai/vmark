@@ -44,13 +44,13 @@ vi.mock("@/contexts/WindowContext", () => ({
 
 const mockFindExistingTabForPath = vi.fn(() => null);
 const mockGetReplaceableTab = vi.fn(() => null);
-vi.mock("@/hooks/useReplaceableTab", () => ({
+vi.mock("@/services/tabs/replaceableTab", () => ({
   getReplaceableTab: (...args: unknown[]) => mockGetReplaceableTab(...args),
   findExistingTabForPath: (...args: unknown[]) => mockFindExistingTabForPath(...args),
 }));
 
 const mockOpenWorkspaceWithConfig = vi.fn(() => Promise.resolve());
-vi.mock("@/hooks/openWorkspaceWithConfig", () => ({
+vi.mock("@/services/workspaces/openWorkspaceWithConfig", () => ({
   openWorkspaceWithConfig: (...args: unknown[]) => mockOpenWorkspaceWithConfig(...args),
 }));
 

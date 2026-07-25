@@ -53,3 +53,32 @@ it exactly (or the diff must be consciously approved).
 Drop a `.md` file into `corpus/`. No code change — the harness discovers it on
 the next run and generates its golden. To characterize a real bug or document
 class before touching the pipeline, add the offending document here first.
+
+## Known defects encoded in the goldens (2026-07-23)
+
+A golden records what the pipeline **does**, not what it **should** do. Phase 0A
+(`dev-docs/plans/20260722-extension-architecture.md`) widened the corpus from 12
+to 22 fixtures and switched the harness from the hand-mirrored `testSchema` to a
+projection of the real editor schema (`src/test/productionSchema.ts`). That
+immediately surfaced four **pre-existing** round-trip defects. Their goldens
+encode the broken output deliberately, so a future fix shows up as a reviewable
+diff rather than passing unnoticed.
+
+**Do not treat these four goldens as correct output.**
+
+| # | Fixture | Input | Round-trips to | Cause |
+|---|---|---|---|---|
+| ~~D1~~ | `14-media.md` | `![A short clip](clip.mp4)` | ✅ **FIXED** | `alt` added to `block_video`/`block_audio`; carried through promote + `tryMediaImageSyntax`. Golden re-approved |
+| ~~D2~~ | `16-inline-marks.md` | `[link with title](url "Title")` | ✅ **FIXED** | `title` added to the `Link` mark; captured on parse, emitted on serialize. Golden re-approved |
+| ~~D3~~ | `16-inline-marks.md` | `==highlight with **bold**==` | ✅ **FIXED** | The pair was split across sibling nodes by remark parsing `**bold**` first; a cross-node marker pass in `customInline.ts` (`parseMarksAcrossChildren`) now wraps split spans. Golden re-approved |
+| ~~D4~~ | `17-escaped-markers.md` | `x\^2\^` (literal) | ✅ **FIXED** | The serializer had no `unsafe` rule to re-escape a literal `^` (single-char marker), unlike `~`/`=`/`+`. Added one mirroring the `~` rule. Golden re-approved |
+
+D1 and D2 are silent data loss. D3 and D4 are silent semantic corruption: the
+output re-parses to a *different document* than the input. All four are
+autosave-persisted, since `useTiptapFlush` serializes on every edit.
+
+Changes that are **cosmetic normalization**, not defects: table cell padding and
+alignment (`22`), blank-line collapsing inside `<details>` and lists (`18`, `19`)
+— blank-line preservation is opt-in — `>` continuation lines added inside alerts
+(`21`), and `youtube.com` → `youtube-nocookie.com` plus default `width`/`height`
+on provider embeds (`15`), which is the deliberate privacy-enhanced path.

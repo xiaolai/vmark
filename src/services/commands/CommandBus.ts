@@ -15,6 +15,8 @@
  * @module services/commands/CommandBus
  */
 
+import { menuError } from "@/utils/debug";
+
 type CommandScope = "global" | "editor" | "panel";
 
 export interface CommandContext {
@@ -70,9 +72,92 @@ export function registerCommand(command: CommandDefinition): void {
   REGISTRY.set(command.id, command);
 }
 
-/** Unregister a command (e.g., on plugin teardown). */
+/** Unregister a command (e.g., on plugin teardown). Also clears any owner claim
+ * so a later registration of the same id is not mistaken for the stale owner. */
 export function unregisterCommand(id: string): void {
   REGISTRY.delete(id);
+  OWNERS.delete(id);
+}
+
+/**
+ * Owner token → set of command ids it registered. Owner-based registration
+ * (`registerCommands`) is the HMR-safe path for BATCH registrars like the
+ * editor-action bridge, where `hasCommand` is not enough: it can't tell an
+ * idempotent re-bootstrap from a foreign collision or recover a partial batch.
+ */
+const OWNERS = new Map<string, string>();
+/** Owner → its CURRENT registration token. A unique `Symbol` per register means a
+ * STALE disposer (from a superseded batch — or one retained across a reset) can
+ * never match the live token, so it cannot remove the owner's current batch. A
+ * numeric counter would be reused after `_resetCommandBus`; a Symbol never is. */
+const OWNER_GENERATION = new Map<string, symbol>();
+
+/**
+ * Atomically (re)register a batch of commands under an `owner` token; returns a
+ * disposer. HMR-safe:
+ *  - PREFLIGHT: throw BEFORE registering anything (so a rejected batch never
+ *    leaves a partial state) if the batch contains a DUPLICATE id, or an id
+ *    already registered by a DIFFERENT owner (or by a plain `registerCommand`).
+ *  - REPLACE-OWN: the owner's previous batch is removed first, so a double
+ *    bootstrap, an HMR reload, or a partial prior batch all converge to exactly
+ *    this batch.
+ *  - TOKEN-SCOPED DISPOSER: each register stamps the owner with a fresh Symbol;
+ *    the returned disposer removes the batch ONLY while its token is still the
+ *    owner's current one, so an out-of-order cleanup of a superseded batch (or a
+ *    disposer retained across `_resetCommandBus`) can't tear down the live one.
+ */
+export function registerCommands(
+  owner: string,
+  commands: readonly CommandDefinition[],
+): () => void {
+  const seen = new Set<string>();
+  for (const command of commands) {
+    if (seen.has(command.id)) {
+      throw new Error(`Duplicate command id "${command.id}" within the same batch`);
+    }
+    seen.add(command.id);
+    const existingOwner = OWNERS.get(command.id);
+    if (REGISTRY.has(command.id) && existingOwner !== owner) {
+      throw new Error(
+        `Command id "${command.id}" is already registered by ${existingOwner ?? "another registrar"}`,
+      );
+    }
+  }
+  unregisterOwner(owner);
+  for (const command of commands) {
+    REGISTRY.set(command.id, command);
+    OWNERS.set(command.id, owner);
+  }
+  const token = Symbol(owner);
+  OWNER_GENERATION.set(owner, token);
+  return () => {
+    if (OWNER_GENERATION.get(owner) === token) unregisterOwner(owner);
+  };
+}
+
+/** Remove every command registered under an `owner` token. Idempotent. */
+export function unregisterOwner(owner: string): void {
+  for (const [id, o] of OWNERS) {
+    if (o === owner) {
+      REGISTRY.delete(id);
+      OWNERS.delete(id);
+    }
+  }
+}
+
+/**
+ * Evaluate a command's `when` predicate defensively: a throwing predicate must
+ * NOT crash palette search/render. Treat a failure as "unavailable" and log it
+ * with the command id, so one faulty command disables only itself.
+ */
+function isCommandAvailable(command: CommandDefinition, ctx: CommandContext): boolean {
+  if (!command.when) return true;
+  try {
+    return command.when(ctx);
+  } catch (err) {
+    menuError(`Command "${command.id}" when() threw; treating as unavailable:`, err);
+    return false;
+  }
 }
 
 /** Get a command definition. */
@@ -108,7 +193,7 @@ export async function executeCommand(
 ): Promise<boolean> {
   const command = REGISTRY.get(id);
   if (!command) return false;
-  if (command.when && !command.when(ctx)) return false;
+  if (!isCommandAvailable(command, ctx)) return false;
   await command.run(args, ctx);
   return true;
 }
@@ -126,7 +211,7 @@ export function searchCommands(query: string, ctx: CommandContext = {}): RankedC
   const results: RankedCommand[] = [];
 
   for (const command of REGISTRY.values()) {
-    if (command.when && !command.when(ctx)) continue;
+    if (!isCommandAvailable(command, ctx)) continue;
     if (!q) {
       results.push({ command, score: 0 });
       continue;
@@ -151,4 +236,6 @@ export function searchCommands(query: string, ctx: CommandContext = {}): RankedC
 /** Test-only reset. */
 export function _resetCommandBus(): void {
   REGISTRY.clear();
+  OWNERS.clear();
+  OWNER_GENERATION.clear();
 }

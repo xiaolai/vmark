@@ -175,6 +175,7 @@ export function wrapWithMark(content: PhrasingContent[], mark: Mark): PhrasingCo
         {
           type: "link",
           url: mark.attrs.href as string,
+          title: (mark.attrs.title as string | null) ?? undefined,
           children: content,
         } as Link,
       ];

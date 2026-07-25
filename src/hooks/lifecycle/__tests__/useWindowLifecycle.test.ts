@@ -16,7 +16,7 @@ vi.mock("@/hooks/useWindowTitle", () => ({
 vi.mock("@/hooks/useWindowFileWatcher", () => ({
   useWindowFileWatcher: () => calls.push("windowFileWatcher"),
 }));
-vi.mock("@/services/persistence/resilience", () => ({
+vi.mock("@/hooks/resilience", () => ({
   useDocumentResilience: () => calls.push("documentResilience"),
 }));
 vi.mock("@/hooks/useMcpBridge", () => ({

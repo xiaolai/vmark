@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("@/plugins/editorPlugins.tiptap", () => ({
-  expandedToggleMarkTiptap: vi.fn(),
+vi.mock("@/plugins/editorPlugins/expandedToggleMark", () => ({
+  expandedToggleMark: vi.fn(),
 }));
 
 vi.mock("@/plugins/formatToolbar/linkPopupUtils", () => ({
@@ -45,7 +45,7 @@ import { openLinkEditor } from "./wysiwygAdapterLinkEditor";
 import { useWikiLinkPopupStore } from "@/stores/wikiLinkPopupStore";
 import { readClipboardUrl } from "@/services/editor/clipboardUrl";
 import { resolveLinkPopupPayload } from "@/plugins/formatToolbar/linkPopupUtils";
-import { expandedToggleMarkTiptap } from "@/plugins/editorPlugins.tiptap";
+import { expandedToggleMark as expandedToggleMarkTiptap } from "@/plugins/editorPlugins/expandedToggleMark";
 import { useLinkPopupStore } from "@/stores/linkPopupStore";
 import { isViewConnected } from "./wysiwygAdapterUtils";
 import type { WysiwygToolbarContext } from "./types";
@@ -70,6 +70,11 @@ function createMockView(opts?: {
       return { type: { name: "doc" } };
     }),
     before: vi.fn(() => 5),
+    // Real ProseMirror ResolvedPos exposes marks(); no link mark in these fixtures,
+    // so the executor-path link-info derivation (getLinkInfoAtCursor) yields null.
+    marks: vi.fn(() => []),
+    start: vi.fn(() => 0),
+    parent: { forEach: vi.fn() },
   };
 
   return {

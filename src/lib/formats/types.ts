@@ -5,6 +5,7 @@
 // dev-docs/plans/20260506-multi-format-rebrand.md § Format registry contract.
 
 import type { Extension } from "@codemirror/state";
+import type { LintDiagnostic } from "@/lib/lintEngine";
 import type { ComponentType } from "react";
 
 type FormatKind =
@@ -51,6 +52,13 @@ export type Validator = (
   path?: string,
 ) => ValidationDiagnostic[];
 
+/** One heading in a document outline. `line` is 0-based. */
+export interface OutlineHeading {
+  level: number;
+  text: string;
+  line: number;
+}
+
 export type SchemaDetector = (path: string, content: string) => string | null;
 
 export interface PreviewRendererProps {
@@ -80,7 +88,15 @@ interface FormatAdapters {
     insertBlockActions: boolean;
     paragraphFormatting: boolean;
   };
-  closeSavePolicy: "markdown-default" | "save-as-only";
+  /**
+   * What closing a dirty tab does.
+   *
+   * `prompt-on-close` was named `markdown-default` — a format's own name inside
+   * a format-neutral contract, which every adapter had to set including `txt`
+   * and the read-only code viewers. The value describes a BEHAVIOUR, not a
+   * format (ADR-015 Phase 4B, WI-4.2).
+   */
+  closeSavePolicy: "prompt-on-close" | "save-as-only";
 }
 
 export interface FormatConfig {
@@ -89,8 +105,54 @@ export interface FormatConfig {
   extensions: string[];
   kind: FormatKind;
   wysiwygComponent?: ComponentType<{ tabId: string }>;
+  /**
+   * Synchronous CodeMirror language, for packs the app bundles anyway.
+   *
+   * `loadLanguage` is the general path and is async, which means a host must
+   * mount with no language and reconfigure a Compartment when the promise
+   * resolves. For markdown — the primary format, opened constantly — that would
+   * put a frame of unhighlighted text on the most-used path.
+   *
+   * A format that is statically imported regardless (markdown, yaml) may expose
+   * it synchronously here instead. Hosts prefer `language` when present and fall
+   * back to `loadLanguage`, so one host serves every format without the common
+   * case paying for the general one. ADR-015 Phase 4A, option 2.
+   */
+  language?: () => Extension;
   loadLanguage?: () => Promise<Extension>;
   loadExtraExtensions?: () => Promise<Extension[]>;
+  /**
+   * The format's linter, contributed rather than hard-coded.
+   *
+   * `useLintStore` previously carried a two-format branch — a `runLint` action
+   * wired to `lintMarkdown` and a `runYamlLint` action wired to `lintYaml` —
+   * so adding a third linted format meant editing the store. A format now
+   * supplies its own (ADR-015 Phase 4B, WI-4.3).
+   *
+   * Distinct from `validator`: that produces `ValidationDiagnostic[]` for the
+   * split-pane gutter, this produces the richer `LintDiagnostic[]` the lint
+   * panel and source-mode annotations consume.
+   */
+  lint?: (source: string) => LintDiagnostic[];
+  /**
+   * Document outline, contributed by the format (WI-4.4).
+   *
+   * `extractHeadings` is a markdown ATX scanner with fence handling, and it ran
+   * for EVERY format — a YAML or JSON tab was scanned for `#` headings. A format
+   * that has no outline simply omits this and gets an empty one.
+   */
+  outline?: (content: string) => OutlineHeading[];
+
+  /**
+   * Plain-text projection for status-bar word/character counts (WI-4.4).
+   *
+   * `stripMarkdown` runs 13 markdown regexes and ran for every format, so a
+   * `.json` tab paid markdown's cost and had its braces treated as syntax.
+   * Omitting this means the raw content is counted, which is correct for
+   * plain-text-ish formats.
+   */
+  toPlainText?: (content: string) => string;
+
   validator?: Validator;
   genericPreview?: PreviewRenderer;
   schemaDetector?: SchemaDetector;

@@ -28,7 +28,7 @@ import {
   type FileSearchResult,
   type LineMatch,
 } from "@/stores/uiStore";
-import { openFileInNewTabCore } from "@/hooks/useFileOpen";
+import { openFileInNewTabCore } from "@/services/navigation/fileOpen";
 import { setPendingContentSearchNav } from "@/hooks/contentSearchNavigation";
 import { useActiveWorkspaceScope } from "@/hooks/useActiveWorkspaceScope";
 import { isImeKeyEvent } from "@/utils/imeGuard";

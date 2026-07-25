@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const mockOpenFileInNewTabCore = vi.fn(async () => {});
-vi.mock("@/hooks/useFileOpen", () => ({
+vi.mock("@/services/navigation/fileOpen", () => ({
   openFileInNewTabCore: (...args: unknown[]) => mockOpenFileInNewTabCore(...args),
 }));
 

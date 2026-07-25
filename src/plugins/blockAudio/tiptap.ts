@@ -36,6 +36,7 @@ export const blockAudioExtension = Node.create({
     return {
       ...sourceLineAttr,
       src: { default: "" },
+      alt: { default: "" },
       title: { default: "" },
       controls: { default: true },
       preload: { default: "metadata" },

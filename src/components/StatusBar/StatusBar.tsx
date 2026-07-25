@@ -41,7 +41,7 @@ import { useBrowserWorkspaceState } from "@/components/Browser/useBrowserWorkspa
 import { useDocumentStore, useLargeFileSessionStore } from "@/stores/documentStore";
 import { closeTabWithDirtyCheck } from "@/hooks/useTabOperations";
 import { activateTabInFocusedPane } from "@/services/navigation/activateTabInFocusedPane";
-import { toggleSourceModeWithCheckpoint } from "@/hooks/useUnifiedHistory";
+import { toggleSourceModeWithCheckpoint } from "@/services/history/unifiedHistory";
 import { toggleDocumentReadOnlyWithOwnership } from "@/services/workspaces/fileOwnership";
 import {
   useDocumentLastAutoSave,

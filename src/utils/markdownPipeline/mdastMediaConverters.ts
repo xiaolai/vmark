@@ -5,6 +5,10 @@
  * promotion of media content to native block nodes. Split from mdastBlockConverters.ts
  * for size.
  *
+ * Paragraph ownership is decided by the claim protocol (ADR-015 D2b), not by
+ * `if`-order: see mdastParagraphClaims.ts. Strengths encode why each claim is
+ * made, so reordering recognizers cannot change which converter wins.
+ *
  * Key decisions:
  *   - Paragraphs with a single image child are promoted to block_image nodes;
  *     video/audio extensions promote to block_video/block_audio instead
@@ -25,6 +29,12 @@ import * as inlineConverters from "./mdastInlineConverters";
 import { hasVideoExtension, hasAudioExtension } from "@/utils/mediaPathDetection";
 import { detectProviderFromIframeSrc, extractVideoIdFromSrc, getProviderConfig } from "@/utils/videoProviderRegistry";
 import { getSourceLine, type MdastToPmContext } from "./mdastConverterHelpers";
+import { resolveClaim } from "@/lib/extensions/claim";
+import { mdPipelineWarn } from "@/utils/debug";
+import {
+  PARAGRAPH_RECOGNIZERS,
+  type ParagraphClaimInput,
+} from "./mdastParagraphClaims";
 
 export function convertParagraph(
   context: MdastToPmContext,
@@ -35,38 +45,58 @@ export function convertParagraph(
   if (!type) return null;
   const sourceLine = getSourceLine(node);
 
-  // Promote single image child to block_image, block_video, or block_audio based on extension
-  if (node.children.length === 1 && node.children[0]?.type === "image") {
-    const imgChild = node.children[0] as import("mdast").Image;
-    const src = imgChild.url ?? "";
+  const onlyChild =
+    node.children.length === 1
+      ? (node.children[0] as import("mdast").Image | import("mdast").Html | undefined) ?? null
+      : null;
 
-    // Check for video/audio extension first, then fall back to block_image
-    const mediaNode = promoteImageToMediaNode(context, src, imgChild.title ?? "", sourceLine);
-    if (mediaNode) return mediaNode;
+  const input: ParagraphClaimInput = {
+    node,
+    onlyChild: onlyChild?.type === "image" || onlyChild?.type === "html" ? onlyChild : null,
+    promoteMedia: () => {
+      const img = onlyChild as import("mdast").Image;
+      return promoteImageToMediaNode(
+        context,
+        img.url ?? "",
+        img.alt ?? "",
+        img.title ?? "",
+        sourceLine,
+      );
+    },
+    promoteHtml: () =>
+      tryPromoteMediaHtml(context, (onlyChild as import("mdast").Html).value ?? "", sourceLine),
+    buildBlockImage: () => {
+      const blockImageType = context.schema.nodes.block_image;
+      if (!blockImageType) return null;
+      const imageNode = inlineConverters.convertImage(
+        context.schema,
+        onlyChild as import("mdast").Image,
+      );
+      if (!imageNode) return null;
+      return blockImageType.create({
+        /* v8 ignore next -- @preserve reason: convertImage always returns a node with a string src (isSafeUrl returns a string); the ?? "" fallback is unreachable */
+        src: imageNode.attrs.src ?? "",
+        alt: imageNode.attrs.alt ?? "",
+        title: imageNode.attrs.title ?? "",
+        sourceLine,
+      });
+    },
+    buildParagraph: () =>
+      type.create(
+        { sourceLine },
+        context.convertChildren(node.children as Content[], marks, "inline"),
+      ),
+  };
 
-    const blockImageType = context.schema.nodes.block_image;
-    if (blockImageType) {
-      const imageNode = inlineConverters.convertImage(context.schema, imgChild);
-      if (imageNode) {
-        return blockImageType.create({
-          /* v8 ignore next -- @preserve reason: convertImage always returns a node with a string src (isSafeUrl returns a string); the ?? "" fallback is unreachable */
-          src: imageNode.attrs.src ?? "",
-          alt: imageNode.attrs.alt ?? "",
-          title: imageNode.attrs.title ?? "",
-          sourceLine,
-        });
-      }
-    }
+  const resolution = resolveClaim(PARAGRAPH_RECOGNIZERS, input, "paragraph");
+  if (resolution.error !== null) {
+    mdPipelineWarn(`[MdastToPM] ${resolution.error.message}`);
+    return input.buildParagraph();
   }
-  // Safety net: promote single inline-html child containing <video>/<audio>
-  if (node.children.length === 1 && node.children[0]?.type === "html") {
-    const htmlChild = node.children[0] as import("mdast").Html;
-    const promoted = tryPromoteMediaHtml(context, htmlChild.value ?? "", sourceLine);
-    if (promoted) return promoted;
-  }
-
-  const children = context.convertChildren(node.children as Content[], marks, "inline");
-  return type.create({ sourceLine }, children);
+  const built = resolution.winner?.claim.value();
+  // A winning claim may still decline to build (schema lacks the node type);
+  // preserving the paragraph is always safe.
+  return built ?? input.buildParagraph();
 }
 
 export function convertHtml(
@@ -96,6 +126,7 @@ export function convertHtml(
 function promoteImageToMediaNode(
   context: MdastToPmContext,
   src: string,
+  alt: string,
   title: string,
   sourceLine: number | null
 ): PMNode | null {
@@ -107,7 +138,7 @@ function promoteImageToMediaNode(
   if (!nodeName) return null;
   const type = context.schema.nodes[nodeName];
   if (!type) return null;
-  return type.create({ src, title, controls: true, preload: "metadata", sourceLine });
+  return type.create({ src, alt, title, controls: true, preload: "metadata", sourceLine });
 }
 
 /**

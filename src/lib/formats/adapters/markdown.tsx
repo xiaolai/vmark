@@ -20,6 +20,11 @@ import { MarkdownSplitView } from "@/components/Editor/MarkdownSplitView";
 import { HeadingPicker } from "@/components/Editor/HeadingPicker";
 import { DropZoneIndicator } from "@/components/Editor/DropZoneIndicator";
 import { GhaWorkflowSidePanel } from "@/plugins/ghaWorkflowPreview/GhaWorkflowSidePanel";
+import { markdown } from "@codemirror/lang-markdown";
+import { languages } from "@codemirror/language-data";
+import { lintMarkdown } from "@/lib/lintEngine";
+import { extractHeadings } from "@/components/Sidebar/outlineUtils";
+import { stripMarkdown } from "@/components/StatusBar/statusTextMetrics";
 import { registerFormat } from "../registry";
 import type { FormatConfig } from "../types";
 
@@ -128,6 +133,12 @@ export const markdownFormat: FormatConfig = {
   nameI18nKey: "format.markdown",
   extensions: ["md", "markdown", "mdown", "mkd", "mdx"],
   kind: "wysiwyg",
+  lint: (source: string) => lintMarkdown(source),
+  outline: (content: string) => extractHeadings(content),
+  toPlainText: (content: string) => stripMarkdown(content),
+  // Bundled regardless — the WYSIWYG surface imports it — so expose it
+  // synchronously and keep the primary format's source mode flash-free.
+  language: () => markdown({ codeLanguages: languages }),
   wysiwygComponent: MarkdownEditorSurface,
   adapters: {
     saveDialogFilters: [
@@ -145,7 +156,7 @@ export const markdownFormat: FormatConfig = {
       insertBlockActions: true,
       paragraphFormatting: true,
     },
-    closeSavePolicy: "markdown-default",
+    closeSavePolicy: "prompt-on-close",
   },
 };
 

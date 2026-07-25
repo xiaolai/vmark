@@ -8,20 +8,14 @@ import { renderHook } from "@testing-library/react";
 
 const calls = vi.hoisted(() => [] as string[]);
 
-vi.mock("@/services/commands", () => ({
+vi.mock("@/hooks/useCommandBootstrap", () => ({
   useCommandBootstrap: () => calls.push("commandBootstrap"),
 }));
 vi.mock("@/hooks/useSearchCommands", () => ({
   useSearchCommands: () => calls.push("searchCommands"),
 }));
-vi.mock("@/hooks/useViewShortcuts", () => ({
-  useViewShortcuts: () => calls.push("viewShortcuts"),
-}));
-vi.mock("@/hooks/useTabShortcuts", () => ({
-  useTabShortcuts: () => calls.push("tabShortcuts"),
-}));
-vi.mock("@/hooks/useFileExplorerShortcuts", () => ({
-  useFileExplorerShortcuts: () => calls.push("fileExplorerShortcuts"),
+vi.mock("@/hooks/useKeybindingRouter", () => ({
+  useKeybindingRouter: () => calls.push("keybindingRouter"),
 }));
 vi.mock("@/hooks/useUniversalToolbar", () => ({
   useUniversalToolbar: () => calls.push("universalToolbar"),
@@ -48,9 +42,7 @@ describe("useEditorLifecycle", () => {
     expect(calls).toEqual([
       "commandBootstrap",
       "searchCommands",
-      "viewShortcuts",
-      "tabShortcuts",
-      "fileExplorerShortcuts",
+      "keybindingRouter",
       "universalToolbar",
       "formatsUpgradeNudge",
       "markdownSplitDefault",
@@ -63,9 +55,7 @@ describe("useEditorLifecycle", () => {
     const bootstrapIdx = calls.indexOf("commandBootstrap");
     for (const shortcutHook of [
       "searchCommands",
-      "viewShortcuts",
-      "tabShortcuts",
-      "fileExplorerShortcuts",
+      "keybindingRouter",
     ]) {
       expect(bootstrapIdx).toBeLessThan(calls.indexOf(shortcutHook));
     }

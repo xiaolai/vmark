@@ -15,6 +15,7 @@ vi.mock("react-i18next", () => ({
 
 vi.mock("@/hooks/useDocumentState", () => ({
   useDocumentContent: () => "# Alpha\n\n## Beta\n\n## Gamma\n\n# Delta\n",
+  useDocumentFilePath: () => null,
 }));
 
 vi.mock("@tauri-apps/api/event", () => ({

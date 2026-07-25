@@ -25,7 +25,9 @@ vi.mock("@/hooks/useDocumentState", async () => {
     return () => docState.listeners.delete(cb);
   };
   return {
-    useDocumentContent: () => useSyncExternalStore(subscribe, () => docState.content),
+    useDocumentContent: () =>
+      useSyncExternalStore(subscribe, () => docState.content),
+    useDocumentFilePath: () => null,
     useDocumentSelectedText: () =>
       useSyncExternalStore(subscribe, () => docState.selectedText),
   };

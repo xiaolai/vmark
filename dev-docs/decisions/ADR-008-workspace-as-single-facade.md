@@ -1,6 +1,11 @@
 # ADR-008: Workspace as single facade
 
-> Status: **Accepted (read-only facade)** | Date: 2026-05-24
+> Status: **FALSE in practice** (2026-07-22 audit) — `useWorkspace()` has
+> **zero** production imports; the UI reads the private tab/workspace/recents
+> stores directly (105 non-test references). The facade is dead code, the same
+> foundation-shaped-but-unadopted pattern as ADR-010/ADR-011. A reskin built
+> against it would build against a hook nothing calls.
+> Original status: **Accepted (read-only facade)** | Date: 2026-05-24
 
 ## Context
 

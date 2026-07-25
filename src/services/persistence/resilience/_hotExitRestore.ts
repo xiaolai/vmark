@@ -1,5 +1,5 @@
 /**
- * Hot Exit Restore Hook
+ * Hot Exit Restore — React-free restore logic + coordinator.
  *
  * Restores window state after hot restart. Uses a pull-based approach
  * for reliability — windows pull their state from Rust coordinator
@@ -9,19 +9,18 @@
  *   checkAndRestoreSession() after Rust invoke returns (bypasses event race).
  * For secondary windows: Pulls pending state via invoke on mount.
  *
- * The RESTORE_START listener in the hook is kept as a fallback but
- * is guarded against double-restore.
- *
  * The restore state machine (concurrency guard + per-window coordination)
  * lives in `createWindowRestoreCoordinator` so it can be unit-tested without
- * React render timing. `useHotExitRestore` is pure lifecycle wiring around it.
+ * React render timing. The React lifecycle wiring (`useHotExitRestore`) lives in
+ * `hooks/resilience/_hotExitRestore.ts` (ADR-013) — this module is React-free.
  *
  * @coordinates-with restoreHelpers.ts — all restore logic lives there
+ * @coordinates-with hooks/resilience/_hotExitRestore.ts — the mount wrapper
+ * @module services/persistence/resilience/_hotExitRestore
  */
 
-import { useEffect, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { emit, listen } from '@tauri-apps/api/event';
+import { emit } from '@tauri-apps/api/event';
 import { hotExitLog, hotExitWarn } from '@/utils/debug';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { HOT_EXIT_EVENTS } from '../hotExit/types';
@@ -208,32 +207,4 @@ export function createWindowRestoreCoordinator(
     checkPending,
     onRestoreStart,
   };
-}
-
-export function useHotExitRestore() {
-  // The coordinator is created once per mount and holds the restore state
-  // machine; the hook only wires it to mount/unmount lifecycle.
-  const coordinatorRef = useRef<WindowRestoreCoordinator | null>(null);
-
-  useEffect(() => {
-    const windowLabel = getCurrentWebviewWindow().label;
-    const coordinator =
-      coordinatorRef.current ?? createWindowRestoreCoordinator(windowLabel);
-    coordinatorRef.current = coordinator;
-
-    void coordinator.checkPending();
-
-    // Listen for RESTORE_START signal (fallback for main window). Primary
-    // restore is triggered directly by checkAndRestoreSession(); this listener
-    // is guarded against double-restore.
-    const unlistenPromise = listen(HOT_EXIT_EVENTS.RESTORE_START, () =>
-      coordinator.onRestoreStart(),
-    );
-
-    return () => {
-      void unlistenPromise.then((unlisten) => unlisten()).catch((e) => {
-        hotExitLog('Cleanup error (expected during unmount):', e);
-      });
-    };
-  }, []);
 }

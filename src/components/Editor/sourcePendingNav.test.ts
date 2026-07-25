@@ -17,7 +17,7 @@ const lintMock = vi.hoisted(() => ({
   consumePendingLintScroll: vi.fn<(tabId: string) => number | undefined>(() => undefined),
 }));
 
-vi.mock("@/hooks/lintNavigation", () => lintMock);
+vi.mock("@/services/lint/lintNavigation", () => lintMock);
 
 function makeView(doc: string): EditorView {
   return new EditorView({ state: EditorState.create({ doc }) });

@@ -18,7 +18,7 @@ import { useTabStore } from "@/stores/tabStore";
 import { saveImageToAssets } from "@/hooks/useImageOperations";
 import { generateClipboardImageFilename } from "@/plugins/imageHandler/imageHandlerUtils";
 import { encodeMarkdownUrl } from "@/utils/markdownUrl";
-import { getWindowLabel } from "@/hooks/useWindowFocus";
+import { getWindowLabel } from "@/services/navigation/windowFocus";
 import { smartPasteWarn } from "@/utils/debug";
 import { isViewConnected } from "./smartPasteUtils";
 import { errorMessage } from "@/utils/errorMessage";

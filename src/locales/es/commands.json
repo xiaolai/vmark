@@ -1,6 +1,8 @@
 {
   "app": {
-    "preferences": "Preferencias"
+    "preferences": "Preferencias",
+    "commandPalette": "Paleta de comandos",
+    "quickOpen": "Apertura rápida"
   },
   "history": {
     "clearAll": "Borrar todo el historial",
@@ -15,7 +17,9 @@
     "reportIssue": "Informar de un problema"
   },
   "genies": {
-    "openFolder": "Abrir carpeta de genios"
+    "openFolder": "Abrir carpeta de genios",
+    "togglePicker": "Toggle Genie Picker",
+    "openPicker": "Search Genies"
   },
   "export": {
     "html": "Exportar como HTML",
@@ -27,7 +31,13 @@
   },
   "file": {
     "clearRecent": "Borrar archivos recientes",
-    "openRecent": "Abrir archivo reciente"
+    "openRecent": "Abrir archivo reciente",
+    "save": "Guardar",
+    "saveAs": "Guardar como…",
+    "moveTo": "Mover a…",
+    "saveAllQuit": "Guardar todo y salir",
+    "new": "Nuevo archivo",
+    "open": "Abrir…"
   },
   "workspace": {
     "openFolder": "Abrir espacio de trabajo…",
@@ -61,7 +71,10 @@
     "toggleShowInvisibles": "Alternar caracteres invisibles",
     "toggleWindowStatus": "Estado de ventanas",
     "toggleBreakdown": "Desglose de coherencia",
-    "toggleClaims": "Afirmaciones canónicas"
+    "toggleClaims": "Afirmaciones canónicas",
+    "contentSearch": "Buscar en archivos",
+    "toggleSidebar": "Alternar barra lateral",
+    "toggleStatusBar": "Alternar barra de estado"
   },
   "lint": {
     "check": "Revisar Markdown",
@@ -89,5 +102,135 @@
   },
   "claims": {
     "extractFromSelection": "Extraer afirmación de la selección"
+  },
+  "category": {
+    "app": "Aplicación",
+    "file": "Archivo",
+    "workspace": "Espacio de trabajo",
+    "view": "Ver",
+    "export": "Exportar",
+    "formatting": "Formato",
+    "headings": "Encabezados",
+    "lists": "Listas",
+    "blockquote": "Cita",
+    "inserts": "Insertar",
+    "links": "Enlaces",
+    "tables": "Tablas",
+    "lines": "Líneas",
+    "selection": "Selección",
+    "transform": "Transformar",
+    "cjk": "CJK",
+    "cleanup": "Limpieza",
+    "codeBlock": "Bloque de código",
+    "edit": "Editar",
+    "lint": "Lint",
+    "image": "Imagen",
+    "history": "Historial",
+    "format": "Tipo de archivo",
+    "ai": "AI",
+    "help": "Ayuda",
+    "other": "Otros"
+  },
+  "editor": {
+    "addColLeft": "Añadir columna a la izquierda",
+    "addColRight": "Añadir columna a la derecha",
+    "addRowAbove": "Añadir fila arriba",
+    "addRowBelow": "Añadir fila abajo",
+    "alignAllCenter": "Centrar todo",
+    "alignAllLeft": "Alinear todo a la izquierda",
+    "alignAllRight": "Alinear todo a la derecha",
+    "alignCenter": "Centrar",
+    "alignLeft": "Alinear a la izquierda",
+    "alignRight": "Alinear a la derecha",
+    "blockquote": "Cita",
+    "bold": "Negrita",
+    "bookmark": "Marcador",
+    "bulletList": "Lista con viñetas",
+    "clearFormatting": "Borrar formato",
+    "code": "Código en línea",
+    "codeBlock": "Bloque de código",
+    "collapseBlankLines": "Contraer líneas en blanco",
+    "decreaseHeading": "Disminuir nivel de encabezado",
+    "deleteCol": "Eliminar columna",
+    "deleteLine": "Eliminar línea",
+    "deleteRow": "Eliminar fila",
+    "deleteTable": "Eliminar tabla",
+    "duplicateLine": "Duplicar línea",
+    "expandSelection": "Ampliar selección",
+    "formatCJK": "Formatear selección CJK",
+    "formatCJKFile": "Formatear archivo CJK",
+    "formatTable": "Formatear tabla",
+    "highlight": "Resaltar",
+    "horizontalLine": "Línea horizontal",
+    "increaseHeading": "Aumentar nivel de encabezado",
+    "indent": "Aumentar sangría",
+    "insertAlertCaution": "Insertar precaución",
+    "insertAlertImportant": "Insertar importante",
+    "insertAlertNote": "Insertar nota",
+    "insertAlertTip": "Insertar consejo",
+    "insertAlertWarning": "Insertar advertencia",
+    "insertAudio": "Insertar audio",
+    "insertDetails": "Insertar bloque plegable",
+    "insertDiagram": "Insertar diagrama",
+    "insertFootnote": "Insertar nota al pie",
+    "insertGraphvizDiagram": "Insertar diagrama Graphviz",
+    "insertImage": "Insertar imagen",
+    "insertInlineMath": "Insertar fórmula en línea",
+    "insertMarkmap": "Insertar mapa mental",
+    "insertMath": "Insertar bloque de fórmula",
+    "insertTable": "Insertar tabla",
+    "insertVideo": "Insertar vídeo",
+    "italic": "Cursiva",
+    "joinLines": "Unir líneas",
+    "lineEndingsCRLF": "Convertir a CRLF",
+    "lineEndingsLF": "Convertir a LF",
+    "link": "Enlace",
+    "moveLineDown": "Mover línea abajo",
+    "moveLineUp": "Mover línea arriba",
+    "nestBlockquote": "Anidar cita",
+    "orderedList": "Lista ordenada",
+    "outdent": "Reducir sangría",
+    "paragraph": "Párrafo",
+    "redo": "Rehacer",
+    "removeBlankLines": "Eliminar líneas en blanco",
+    "removeBlockquote": "Eliminar cita",
+    "removeList": "Eliminar lista",
+    "removeTrailingSpaces": "Eliminar espacios finales",
+    "selectBlock": "Seleccionar bloque",
+    "selectLine": "Seleccionar línea",
+    "selectWord": "Seleccionar palabra",
+    "setHeading": {
+      "1": "Encabezado 1",
+      "2": "Encabezado 2",
+      "3": "Encabezado 3",
+      "4": "Encabezado 4",
+      "5": "Encabezado 5",
+      "6": "Encabezado 6"
+    },
+    "sortLinesAsc": "Ordenar líneas de forma ascendente",
+    "sortLinesDesc": "Ordenar líneas de forma descendente",
+    "strikethrough": "Tachado",
+    "subscript": "Subíndice",
+    "superscript": "Superíndice",
+    "taskList": "Lista de tareas",
+    "toggleQuoteStyle": "Alternar estilo de comillas",
+    "transformLowercase": "Convertir a minúsculas",
+    "transformTitleCase": "Convertir a Mayúsculas Iniciales",
+    "transformToggleCase": "Alternar mayúsculas y minúsculas",
+    "transformUppercase": "Convertir a MAYÚSCULAS",
+    "underline": "Subrayado",
+    "undo": "Deshacer",
+    "unnestBlockquote": "Desanidar cita",
+    "wikiLink": "Enlace wiki"
+  },
+  "explorer": {
+    "toggleHiddenFiles": "Alternar archivos ocultos",
+    "toggleAllFiles": "Alternar todos los archivos"
+  },
+  "tab": {
+    "new": "Nueva pestaña",
+    "next": "Pestaña siguiente",
+    "prev": "Pestaña anterior",
+    "close": "Cerrar pestaña"
   }
 }

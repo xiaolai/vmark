@@ -27,22 +27,18 @@ import { Decoration } from "@tiptap/pm/view";
 import { useBlockMathEditingStore } from "@/stores/blockMathEditingStore";
 import i18n from "@/i18n";
 import {
-  isLatexLanguage,
   createPreviewElement,
   createPreviewPlaceholder,
   createLivePreview,
   createEditHeader,
   copyTextToClipboard,
 } from "./previewHelpers";
-import { isGraphvizLanguage } from "@/plugins/graphviz";
-import { createLatexPreviewWidget } from "./renderers/renderLatex";
-import { createMermaidPreviewWidget } from "./renderers/renderMermaidPreview";
-import { createGraphvizPreviewWidget } from "./renderers/renderGraphvizPreview";
-import { createMarkmapPreviewWidget } from "./renderers/renderMarkmapPreview";
-import { createSvgPreviewWidget } from "./renderers/renderSvgPreview";
-import { createWorkflowPreviewWidget } from "./renderers/renderWorkflowPreview";
 import { updateLivePreview, exitEditMode } from "./editMode";
 import { isPreviewable } from "./transactionScan";
+import { resolveFenceRenderer } from "./fenceRegistry";
+import { registerBuiltinFenceRenderers } from "./builtinFenceRenderers";
+
+registerBuiltinFenceRenderers();
 import {
   codePreviewPluginKey,
   previewCache,
@@ -122,7 +118,7 @@ export function buildCodePreviewDecorations(
       const headerWidget = Decoration.widget(
         nodeStart,
         (widgetView) => {
-          const onCopy = (language === "mermaid" || language === "markmap" || language === "svg" || isGraphvizLanguage(language))
+          const onCopy = (resolveFenceRenderer(language)?.copyable ?? false)
             ? async () => {
                 const node = widgetView?.state.doc.nodeAt(nodeStart);
                 if (!node) return false;
@@ -200,15 +196,9 @@ export function buildCodePreviewDecorations(
     );
 
     if (!content.trim()) {
-      const placeholderLabel = (language === "mermaid" || isGraphvizLanguage(language))
-        ? i18n.t("editor:preview.emptyDiagram")
-        : language === "markmap"
-        ? i18n.t("editor:preview.emptyMindmap")
-        : language === "svg"
-        ? i18n.t("editor:preview.emptySvg")
-        : (language === "yaml" || language === "yml")
-        ? i18n.t("editor:preview.emptyWorkflow")
-        : i18n.t("editor:preview.emptyMath");
+      const placeholderLabel = i18n.t(
+        resolveFenceRenderer(language)?.emptyLabelKey ?? "editor:preview.emptyMath",
+      );
       const widget = Decoration.widget(
         nodeEnd,
         (view) => createPreviewPlaceholder(language, placeholderLabel, () => handleEnterEdit(view)),
@@ -231,55 +221,19 @@ export function buildCodePreviewDecorations(
       return;
     }
 
-    // Markmap renders to live DOM — skip cache, always create fresh
-    if (language === "markmap") {
+    // Fence dispatch goes through the extension point markdown owns
+    // (fenceRegistry.ts, ADR-015 D3). Renderers are peers that register a
+    // language; markdown does not name them.
+    const renderer = resolveFenceRenderer(language);
+    if (renderer !== null) {
       newDecorations.push(
-        createMarkmapPreviewWidget(nodeEnd, content, cacheKey, handleEnterEdit)
-      );
-      return;
-    }
-
-    // LaTeX (async rendering with placeholder)
-    if (isLatexLanguage(language)) {
-      newDecorations.push(
-        createLatexPreviewWidget(nodeEnd, content, cacheKey, previewCache, handleEnterEdit)
-      );
-      return;
-    }
-
-    // SVG (synchronous rendering)
-    if (language === "svg") {
-      newDecorations.push(
-        createSvgPreviewWidget(nodeEnd, content, cacheKey, previewCache, handleEnterEdit)
-      );
-      return;
-    }
-
-    // Mermaid (async rendering with placeholder)
-    if (language === "mermaid") {
-      newDecorations.push(
-        createMermaidPreviewWidget(nodeEnd, content, cacheKey, previewCache, handleEnterEdit)
-      );
-      return;
-    }
-
-    // Graphviz / DOT (async rendering with placeholder)
-    if (isGraphvizLanguage(language)) {
-      newDecorations.push(
-        createGraphvizPreviewWidget(nodeEnd, content, cacheKey, previewCache, handleEnterEdit)
-      );
-      return;
-    }
-
-    // GitHub Actions workflow YAML (async via xyflow snapshot
-    // pipeline). Pipes IR → toGraph + applyLayout → hidden
-    // ReactFlow root → html-to-image.toSvg → cached SVG.
-    // Visual parity with the side-panel JobNode by sharing
-    // the same React subtree. See
-    // dev-docs/plans/20260504-workflow-fence-snapshot.md.
-    if (language === "yaml" || language === "yml") {
-      newDecorations.push(
-        createWorkflowPreviewWidget(nodeEnd, content, cacheKey, previewCache, handleEnterEdit)
+        renderer.create({
+          nodeEnd,
+          content,
+          cacheKey,
+          previewCache,
+          onEnterEdit: handleEnterEdit,
+        }),
       );
     }
   });

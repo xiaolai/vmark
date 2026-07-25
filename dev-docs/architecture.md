@@ -67,12 +67,20 @@ flowchart TB
 | `lib/`             | 8 sub-dirs     | CJK formatter, ghaWorkflow, workflow routing, formats, lintEngine, etc.   |
 | `theme/`           | 4 files        | Typed `ThemeTokens` + `cssVars` accessor + `applyTheme()`                  |
 | `shell/`           | 6 files        | Pure layout primitives — AppShell, EditorArea (no store imports)           |
-| `workspace/`       | 2 files        | `useWorkspace()` facade over tab/workspace/recent stores                   |
+| `workspace/`       | 2 files        | `useWorkspace()` facade — **zero production imports**; UI reads the private stores directly (ADR-008 is FALSE, see `dev-docs/audit/20260722-adr-reality-audit.md`) |
 | `hooks/mcpBridge/` | (subdir)       | Frontend handlers for MCP tool calls                                       |
 
-**Tier rule** (enforced via dep-cruiser): `utils` → leaf-pure, no stores;
-`services` → may import stores + Tauri APIs but no React; `hooks` → may
-import services and stores and React APIs.
+**Tier rule** (ADR-013): `utils` → leaf-pure, no stores; `services` → may
+import stores + Tauri APIs but no React; `hooks` → may import services, stores
+and React APIs.
+
+Enforcement, precisely — when this said "enforced via dep-cruiser" it was
+false: the config only forbade `utils|types|lib → plugins|components|stores`
+and had no rule touching `services/` at all (audit 2026-06-12, finding H4).
+Rules now exist (`utils-no-platform`, `services-no-upward`), but
+`services-no-upward` still carries 6 `pathNot` exemptions for React adapters
+sitting in the services tier, so the boundary is greener than it is clean. See
+`dev-docs/plans/20260722-tier-boundary-restoration.md`.
 
 last-counted: 2026-05-25
 
@@ -181,7 +189,15 @@ User triggers Genie (Cmd+G or menu)
 1. **No circular dependencies** (error)
 2. **Stores must not import components** (error)
 3. **Leaf utils must not import upward** (error, with exemptions for service utils)
-4. **Plugin isolation** (warn, with exemptions for coordination plugins)
+4. **`utils/` must not import platform APIs** (`utils-no-platform`, error) — leaf
+   utils stay Node-safe/platform-free (ADR-013)
+5. **`services/` must not import upward** (`services-no-upward`, error) — no
+   `hooks/`, `components/`, or React from `services/`, save 3 sanctioned exemptions
+   (test files, the `assembly/tiptapExtensions` wiring seam, `imeToastPinAction`)
+   plus the remaining H4-inversion debt entries
+6. **Node-safe markdown seam** (`node-safe-markdown-seam`, error) — registry 1 of
+   the markdown pipeline can't transitively reach editor code
+7. **Plugin isolation** (warn, with exemptions for coordination plugins)
 
 See `.dependency-cruiser-known-violations.json` for baselined exceptions.
 

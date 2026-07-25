@@ -17,7 +17,7 @@ vi.mock("@/contexts/WindowContext", () => ({
   useWindowLabel: () => "main",
 }));
 
-vi.mock("@/hooks/useFileOpen", () => ({
+vi.mock("@/services/navigation/fileOpen", () => ({
   handleNew: mocks.handleNew,
   handleOpen: mocks.handleOpen,
 }));

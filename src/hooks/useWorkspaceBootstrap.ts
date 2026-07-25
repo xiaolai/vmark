@@ -25,7 +25,7 @@ import { needsBootstrap } from "@/services/persistence/workspaceBootstrap";
 import { documentPathsForRestore } from "@/services/persistence/sessionTabs";
 import { detectLinebreaks } from "@/utils/linebreakDetection";
 import { waitForRestoreComplete, RESTORE_WAIT_TIMEOUT_MS } from "@/services/persistence/hotExit/hotExitCoordination";
-import { findExistingTabForPath } from "@/hooks/useReplaceableTab";
+import { findExistingTabForPath } from "@/services/tabs/replaceableTab";
 import { workspaceWarn, workspaceError } from "@/utils/debug";
 
 /**

@@ -20,7 +20,7 @@ vi.mock("@/hooks/useMediaOperations", () => ({
   insertBlockAudioNode: vi.fn(),
 }));
 
-vi.mock("@/hooks/useWindowFocus", () => ({
+vi.mock("@/services/navigation/windowFocus", () => ({
   getWindowLabel: vi.fn(() => "main"),
 }));
 

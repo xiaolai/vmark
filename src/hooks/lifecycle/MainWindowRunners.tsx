@@ -23,13 +23,10 @@
 import { useMcpAutoStart } from "@/hooks/useMcpAutoStart";
 import { useUpdateChecker } from "@/hooks/useUpdateChecker";
 import { useUpdateBroadcast, useUpdateListener } from "@/hooks/useUpdateSync";
-import { useResilienceStartup } from "@/services/persistence/resilience";
-import { useHotExitCaptureWarning } from "@/services/persistence/hotExit/useHotExitCaptureWarning";
+import { useResilienceStartup } from "@/hooks/resilience";
+import { useHotExitCaptureWarning } from "@/hooks/useHotExitCaptureWarning";
 import { useFinderFileOpen } from "@/hooks/useFinderFileOpen";
 import { useGenieShortcuts } from "@/hooks/useGenieShortcuts";
-import { useQuickOpenShortcuts } from "@/hooks/useQuickOpenShortcuts";
-import { useContentSearchShortcuts } from "@/components/ContentSearch/useContentSearchShortcuts";
-import { useCommandPaletteShortcut } from "@/components/CommandPalette";
 
 function MainWindowLifecycle(): null {
   useMcpAutoStart();
@@ -51,29 +48,11 @@ function GenieShortcutsRunner(): null {
   return null;
 }
 
-function QuickOpenShortcutsRunner(): null {
-  useQuickOpenShortcuts();
-  return null;
-}
-
-function ContentSearchShortcutsRunner(): null {
-  useContentSearchShortcuts();
-  return null;
-}
-
-function CommandPaletteShortcutRunner(): null {
-  useCommandPaletteShortcut();
-  return null;
-}
-
 export function MainWindowRunners(): React.ReactElement {
   return (
     <>
       <MainWindowLifecycle />
       <GenieShortcutsRunner />
-      <QuickOpenShortcutsRunner />
-      <ContentSearchShortcutsRunner />
-      <CommandPaletteShortcutRunner />
     </>
   );
 }

@@ -6,7 +6,7 @@ its Tauri MCP automation bridge (`ws://127.0.0.1:9323`):
 | Harness | Command | Scope |
 |---------|---------|-------|
 | Smoke | `pnpm e2e:smoke` | Minimal happy path: connect → scratch tab → type → round-trip → screenshot → discard |
-| Journeys | `pnpm e2e:journeys` | 10 user journeys covering jsdom-unreachable flows: tabs, mode switches, formatting, undo/redo, find bar, outline, open-from-disk, save-to-disk |
+| Journeys | `pnpm e2e:journeys` | 16 user journeys covering jsdom-unreachable flows: tabs, mode switches, formatting, undo/redo, find bar, outline, open/save-to-disk, D1-D4 round-trip, non-markdown format dispatch, workflow split-pane, and the Tier-0 data-integrity set (multi-doc save isolation, dirty-file close guard, autosave-to-disk) |
 
 Shared bridge client: `e2e/lib/bridge.mjs`. App-level driving/observation
 helpers: `e2e/lib/vmark.mjs`. Disk fixtures: `e2e/lib/fixtures.mjs`.
@@ -41,9 +41,22 @@ node e2e/run-journeys.mjs --only save    # name-substring filter
 | `outline-toggle` | Real `<h1>` via `menu:heading-1`; `menu:outline` shows the panel listing the heading; visibility restored to initial |
 | `open-from-disk` | Fixture file → `app:open-file` (Finder-open pipeline) → new tab, correct content, loads clean |
 | `save-to-disk` | Open fixture → edit in live editor → `menu:save` → dirty clears → **Node reads the file from disk** and asserts the edit landed |
+| `d1-d4-roundtrip-preserved` | Media alt / link title / nested highlight / escaped `^` set in WYSIWYG → `menu:source-mode` serializes → all four D1-D4 fixes preserved in the live serializer (not just the jsdom unit/property tests) |
+| `nonmd-format-dispatch` | A `.json` fixture opened via the Finder-open pipeline mounts the CodeMirror **source** surface (no `.ProseMirror`) with its bytes — the format registry (WI-4A) routes non-markdown to the source host, not the markdown WYSIWYG editor |
+| `workflow-split-pane` | A workflow-shaped YAML fixture opens the split-pane surface; the source pane edits and the preview/validation behave |
+| `multi-doc-save-integrity` **(Tier-0)** | Two file-backed docs edited with distinct markers and saved; Node reads BOTH from disk and asserts each holds ONLY its own marker — no cross-tab write bleed |
+| `dirty-file-close-guard` **(Tier-0)** | A dirty file tab REFUSES a non-force close (`{closed:false, reason:"DIRTY"}`, no dialog); after `menu:save` the clean tab closes on a non-force close |
+| `autosave-persists-to-disk` **(Tier-0)** | Edit a file-backed doc, then WITHOUT an explicit save, wait for the real autosave interval and read the bytes back from disk. Slowest journey; SKIPs if autosave is off or its interval is too large |
 
 The runner appends a suite-level `state-restoration` check: the tab bar must
 be byte-identical to the pre-suite snapshot.
+
+**Tier-0 (data integrity)** journeys guard the unrecoverable failure class —
+silently losing or corrupting a user's document. They are the ones where unit
+coverage is structurally a lie (they need real tabs, real files, the real
+save/autosave pipeline). See `dev-docs/e2e-tier0-matrix.md` for the full
+invariant × journey matrix, including the data-integrity invariants that stay
+manual-only and why.
 
 ## Driving mechanisms (discovered + verified live)
 
@@ -56,8 +69,13 @@ be byte-identical to the pre-suite snapshot.
   `vmark.workspace.new` / `close {tabId, force}` / `switch_tab`. Responses go
   to Rust (`__TAURI_INTERNALS__.invoke` is non-writable, so they can't be
   intercepted from injected JS); every effect is asserted via the DOM instead.
-- **Typing**: `document.execCommand("insertText")` on the focused ProseMirror
-  contenteditable (real beforeinput/input path).
+- **Content**: `setEditorContent` fires the app's own `vmark.document.write`
+  handler via `mcp-bridge:request` (the synchronous-flush path the shipping MCP
+  surface uses). DOM `execCommand` typing was abandoned here: the small-doc
+  editor→store flush uses `requestAnimationFrame` (`useTiptapFlush.ts`), which
+  the OS throttles when the automated window is backgrounded, so typed content
+  lands in the editor DOM but never syncs to the store (the tab never dirties).
+  `document.write` flushes synchronously and is focus-independent.
 - **Observation**: tab bar `[role="tab"][data-tab-id]` (title / `aria-selected`
   / `.tab-dirty-dot`), `.ProseMirror` / `.cm-editor` surfaces, `.find-bar`,
   `.outline-view`.

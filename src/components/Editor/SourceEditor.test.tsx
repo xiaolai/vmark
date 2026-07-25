@@ -121,7 +121,7 @@ vi.mock("@/hooks/useSourceOutlineSync", () => ({
   useSourceOutlineSync: vi.fn(),
 }));
 
-vi.mock("@/hooks/lintNavigation", () => ({
+vi.mock("@/services/lint/lintNavigation", () => ({
   consumePendingLintScroll: vi.fn(() => undefined),
 }));
 

@@ -310,53 +310,60 @@ export function getEditorText(client) {
 }
 
 /**
- * Type text into the ACTIVE editor at the end of the document via
- * execCommand("insertText") — real beforeinput/input events.
+ * Establish document content in the ACTIVE tab via the app's own
+ * `vmark.document.write` handler (the same synchronous-flush path the shipping
+ * MCP/AI surface uses). This is the RELIABLE way to put content into the editor
+ * under automation.
  *
- * - `mustBeEmpty`: refuse to type unless the document is empty (the safety
- *   check that proves we are in a fresh scratch tab).
- * - `waitForDirty` (default true): after typing, wait until the ACTIVE tab
- *   shows the dirty dot. The WYSIWYG surface syncs editor → documentStore on
- *   a debounce, and that flush targets the tab that is active AT FLUSH TIME —
- *   creating/switching tabs before the flush lands moves the typed content
- *   into the WRONG tab's document (observed live; reported as an app bug).
- *   Waiting for the dirty dot proves the sync landed before we move on.
+ * Why not DOM typing: the WYSIWYG editor→documentStore flush for small docs uses
+ * `requestAnimationFrame` (`src/components/Editor/useTiptapFlush.ts`), which the
+ * OS THROTTLES when the automated app window is backgrounded. So `execCommand`
+ * typing lands in the editor DOM but the RAF flush never fires — the store never
+ * syncs and the tab never goes dirty (verified: the identical content set via
+ * `vmark.document.write` flushes synchronously and dirties the tab immediately).
+ * `document.write` REPLACES the full document, so this is for establishing
+ * content in a fresh (empty) scratch tab, not for appending.
+ *
+ * - `mustBeEmpty`: refuse unless the active WYSIWYG document is empty (the
+ *   fresh-scratch-tab safety check).
+ * - `waitForDirty` (default true): wait until the ACTIVE tab shows the dirty dot,
+ *   proving the store sync landed before moving on.
  */
-export async function typeInActiveEditor(
+export async function setEditorContent(
   client,
-  text,
+  content,
   { mustBeEmpty = false, waitForDirty = true } = {}
 ) {
-  const result = await evalJs(
-    client,
-    `(() => {
-       const el = document.querySelector('.ProseMirror');
-       if (!el) return { ok: false, reason: 'no .ProseMirror editor' };
-       if (el.__e2eStaleInstance) {
-         return { ok: false, reason: 'editor instance is stale (pre-switch tab still mounted)' };
-       }
-       const pre = (el.textContent || '').trim();
-       if (${JSON.stringify(mustBeEmpty)} && pre !== '') {
-         return { ok: false, reason: 'editor not empty: ' + pre.slice(0, 60) };
-       }
-       el.focus();
-       const sel = window.getSelection();
-       if (!sel) return { ok: false, reason: 'window.getSelection() returned null' };
-       sel.selectAllChildren(el);
-       sel.collapseToEnd();
-       document.execCommand('insertText', false, ${JSON.stringify(text)});
-       return { ok: true, text: el.textContent || '' };
-     })()`
-  );
-  if (!result?.ok) throw new Error(`typeInActiveEditor failed: ${result?.reason}`);
+  if (mustBeEmpty) {
+    const pre = await getEditorText(client);
+    if (typeof pre !== "string") {
+      throw new Error(`setEditorContent: no WYSIWYG editor mounted (got ${pre})`);
+    }
+    if (pre.trim() !== "") {
+      throw new Error(`setEditorContent: active editor not empty: ${pre.slice(0, 60)}`);
+    }
+  }
+  await mcpFire(client, "vmark.document.write", { content, save: false });
   if (waitForDirty) {
     await poll(
       () => getActiveTab(client),
       (tab) => tab?.dirty === true,
-      "typed content to sync into the active tab's document (dirty dot)"
+      "document.write content to sync into the active tab (dirty dot)"
     );
   }
-  return result.text;
+  return content;
+}
+
+/**
+ * Put `text` into the ACTIVE (empty scratch) tab. Historically this typed via
+ * `execCommand`, but that is unreliable under automation (see setEditorContent:
+ * the RAF editor→store flush is throttled when the window is backgrounded, so
+ * typed content never syncs). It now delegates to setEditorContent, which uses
+ * the app's synchronous `vmark.document.write` path. Same signature; `text`
+ * becomes the full document body (equivalent to typing into an empty tab).
+ */
+export async function typeInActiveEditor(client, text, opts = {}) {
+  return setEditorContent(client, text, opts);
 }
 
 /** Select the first occurrence of `needle` in the active WYSIWYG editor. */
@@ -385,6 +392,34 @@ export async function selectTextInEditor(client, needle) {
      })()`
   );
   if (!ok) throw new Error(`selectTextInEditor: "${needle}" not found in editor`);
+}
+
+/**
+ * Append `text` at the END of the active WYSIWYG document via the same
+ * beforeinput/execCommand path a real keystroke takes (the proven pattern from
+ * the save-to-disk journey). Use this to EDIT a loaded FILE-BACKED document —
+ * `setEditorContent`/`vmark.document.write` REPLACES the whole document, which
+ * would wipe the file's existing content. The caller must poll for the tab's
+ * dirty dot afterwards to confirm the edit synced to the store.
+ *
+ * Foreground-only, like all execCommand typing here: the editor→store flush is
+ * RAF-based and the OS throttles it when the app window is backgrounded (see the
+ * setEditorContent note). These journeys are headed runs, so the window is live.
+ */
+export function appendToActiveEditor(client, text) {
+  return evalJs(
+    client,
+    `(() => {
+       const el = document.querySelector('.ProseMirror');
+       if (!el) return false;
+       el.focus();
+       const sel = window.getSelection();
+       sel.selectAllChildren(el);
+       sel.collapseToEnd();
+       document.execCommand('insertText', false, ${JSON.stringify(text)});
+       return true;
+     })()`
+  );
 }
 
 /** Which editor surface is visible: "wysiwyg" | "source" | "none". */

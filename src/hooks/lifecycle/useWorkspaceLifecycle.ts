@@ -26,7 +26,7 @@ import { useAiProviderSync } from "@/hooks/useAiProviderSync";
 import { useConfirmQuitSync } from "@/hooks/useConfirmQuitSync";
 import { useRecentFilesSync } from "@/hooks/useRecentFilesSync";
 import { useRecentWorkspacesSync } from "@/hooks/useRecentWorkspacesSync";
-import { useFormatSettingsBridge } from "@/services/formats/formatSettingsBridge";
+import { useFormatSettingsBridge } from "@/hooks/useFormatSettingsBridge";
 
 export function useWorkspaceLifecycle(): void {
   useWorkspaceBootstrap();

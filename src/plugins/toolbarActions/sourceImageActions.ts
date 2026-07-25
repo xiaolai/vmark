@@ -17,7 +17,7 @@ import { useDocumentStore } from "@/stores/documentStore";
 import { useMediaPopupStore, type MediaNodeType } from "@/stores/mediaPopupStore";
 import { hasVideoExtension, hasAudioExtension } from "@/utils/mediaPathDetection";
 import { useTabStore } from "@/stores/tabStore";
-import { getWindowLabel } from "@/hooks/useWindowFocus";
+import { getWindowLabel } from "@/services/navigation/windowFocus";
 import { sourceActionError } from "@/utils/debug";
 import { insertText } from "./sourceAdapterHelpers";
 import { findWordAtCursorSource } from "./sourceAdapterLinks";

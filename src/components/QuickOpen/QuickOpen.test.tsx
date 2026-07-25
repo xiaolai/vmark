@@ -17,7 +17,7 @@ vi.mock("@/components/Sidebar/FileExplorer/useFileTree", () => ({
 
 const mockOpenFileInNewTabCore = vi.fn();
 const mockHandleOpen = vi.fn();
-vi.mock("@/hooks/useFileOpen", () => ({
+vi.mock("@/services/navigation/fileOpen", () => ({
   openFileInNewTabCore: (...args: unknown[]) => mockOpenFileInNewTabCore(...args),
   handleOpen: (...args: unknown[]) => mockHandleOpen(...args),
 }));
@@ -87,7 +87,7 @@ vi.mock("@/stores/geniePickerStore", () => ({
 
 // --- Imports (after mocks) ---
 
-import { useQuickOpenStore } from "./quickOpenStore";
+import { useQuickOpenStore } from "@/stores/quickOpenStore";
 import { useGeniePickerStore } from "@/stores/geniePickerStore";
 import { QuickOpen } from "./QuickOpen";
 

@@ -50,7 +50,7 @@ function makeCodeFormat(
       readOnlyDefault: true,
       reloadPolicy: "reload",
       menuPolicy: codeMenuPolicy,
-      closeSavePolicy: "markdown-default",
+      closeSavePolicy: "prompt-on-close",
     },
   };
 }

@@ -1,0 +1,1336 @@
+import { waitFor } from "@testing-library/react";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { mountMenuCommands } from "./menuListener";
+import { MENU_TO_ACTION } from "@/plugins/actions/actionRegistry";
+import { performWysiwygToolbarAction } from "@/plugins/toolbarActions/wysiwygAdapter";
+import { performSourceToolbarAction } from "@/plugins/toolbarActions/sourceAdapter";
+import { performUnifiedUndo, performUnifiedRedo } from "@/services/history/unifiedHistory";
+import { useTabStore } from "@/stores/tabStore";
+import {
+  __resetRegistry,
+  registerFormat,
+} from "@/lib/formats/registry";
+import { registerMarkdownFormat } from "@/lib/formats/adapters/markdown";
+
+type MenuEventHandler = (event: { payload: string }) => void;
+
+const listeners = new Map<string, MenuEventHandler>();
+
+// Hoisted mock factory so individual tests can override listen behavior
+const { mockListenImpl } = vi.hoisted(() => {
+  const defaultFn = (_eventName: string, _handler: unknown) => {
+    return Promise.resolve(() => {});
+  };
+  const mockListenImpl = { fn: defaultFn };
+  return { mockListenImpl };
+});
+
+vi.mock("@tauri-apps/api/webviewWindow", () => ({
+  getCurrentWebviewWindow: () => ({
+    label: "main",
+    listen: (eventName: string, handler: MenuEventHandler) =>
+      mockListenImpl.fn(eventName, handler),
+  }),
+}));
+
+let sourceMode = false;
+vi.mock("@/stores/uiStore", () => {
+  const useUIStore = (selector?: (state: { sourceMode: boolean }) => unknown) => {
+    const state = { sourceMode };
+    return selector ? selector(state) : state;
+  };
+  useUIStore.getState = () => ({ sourceMode });
+  return { useUIStore };
+});
+
+let activeWysiwygEditor: { view: object } | null = null;
+let activeSourceView: object | null = null;
+vi.mock("@/stores/editorStore", () => ({
+  useEditorStore: {
+    getState: () => {
+      // The active editor belongs to the window's active tab — mirror that so the
+      // executor's tab-identity guard (audit-fix #1) sees a matching tab. Resolved
+      // lazily from the real tab store at call time.
+      const activeTab = useTabStore.getState().activeTabId["main"] ?? null;
+      return {
+        active: {
+          activeWysiwygEditor,
+          activeWysiwygTabId: activeWysiwygEditor ? activeTab : null,
+          activeSourceView,
+          activeSourceTabId: activeSourceView ? activeTab : null,
+        },
+        tiptap: { editor: null, editorView: null, context: null },
+        source: { context: null, editorView: null },
+      };
+    },
+  },
+}));
+
+vi.mock("@/plugins/toolbarActions/multiSelectionContext", () => ({
+  getWysiwygMultiSelectionContext: () => ({ enabled: false }),
+  getSourceMultiSelectionContext: () => ({ enabled: false }),
+}));
+
+const { mockShouldBlockMenuAction } = vi.hoisted(() => ({
+  mockShouldBlockMenuAction: vi.fn(() => false),
+}));
+vi.mock("@/utils/focusGuard", () => ({
+  shouldBlockMenuAction: mockShouldBlockMenuAction,
+}));
+
+const { mockRunOrQueueProseMirrorAction } = vi.hoisted(() => ({
+  mockRunOrQueueProseMirrorAction: vi.fn((_view: unknown, fn: () => void) => fn()),
+}));
+vi.mock("@/utils/imeGuard", () => ({
+  runOrQueueCodeMirrorAction: (_view: unknown, fn: () => void) => fn(),
+  runOrQueueProseMirrorAction: mockRunOrQueueProseMirrorAction,
+  // Markdown adapter pulls in CodeMirror plugins that wrap their bindings
+  // with this guard. Pass-through identity is fine for tests.
+  guardCodeMirrorKeyBinding: (binding: unknown) => binding,
+}));
+
+vi.mock("@/plugins/toolbarActions/wysiwygAdapter", () => ({
+  performWysiwygToolbarAction: vi.fn(() => true),
+  setWysiwygHeadingLevel: vi.fn(() => true),
+}));
+
+vi.mock("@/plugins/toolbarActions/sourceAdapter", () => ({
+  performSourceToolbarAction: vi.fn(() => true),
+  setSourceHeadingLevel: vi.fn(() => true),
+}));
+
+vi.mock("@/services/history/unifiedHistory", () => ({
+  performUnifiedUndo: vi.fn(() => true),
+  performUnifiedRedo: vi.fn(() => true),
+}));
+
+vi.mock("@/plugins/actions/actionRegistry", () => ({
+  MENU_TO_ACTION: {
+    "menu:bold": { actionId: "bold" },
+    "menu:italic": { actionId: "italic" },
+    "menu:undo": { actionId: "undo" },
+    "menu:redo": { actionId: "redo" },
+    "menu:heading-1": { actionId: "setHeading", params: { level: 1 } },
+    "menu:paragraph": { actionId: "paragraph" },
+    "menu:increaseHeading": { actionId: "increaseHeading" },
+    "menu:codeBlock": { actionId: "codeBlock" },
+    "menu:blockquote": { actionId: "blockquote" },
+    "menu:horizontalLine": { actionId: "horizontalLine" },
+    "menu:addRowBelow": { actionId: "addRowBelow" },
+    "menu:addColRight": { actionId: "addColRight" },
+    "menu:wikiLink": { actionId: "wikiLink" },
+    "menu:bookmark": { actionId: "bookmark" },
+    "menu:unknown-action": { actionId: "nonexistent" },
+    "menu:wysiwyg-only": { actionId: "wysiwygOnly" },
+    "menu:source-only": { actionId: "sourceOnly" },
+  },
+  ACTION_DEFINITIONS: {
+    wysiwygOnly: {
+      id: "wysiwygOnly",
+      label: "WYSIWYG Only",
+      category: "formatting",
+      supports: { wysiwyg: true, source: false },
+    },
+    sourceOnly: {
+      id: "sourceOnly",
+      label: "Source Only",
+      category: "formatting",
+      supports: { wysiwyg: false, source: true },
+    },
+    bold: {
+      id: "bold",
+      label: "Bold",
+      category: "formatting",
+      supports: { wysiwyg: false, source: true },
+    },
+    italic: {
+      id: "italic",
+      label: "Italic",
+      category: "formatting",
+      supports: { wysiwyg: true, source: true },
+    },
+    undo: {
+      id: "undo",
+      label: "Undo",
+      category: "edit",
+      supports: { wysiwyg: true, source: true },
+    },
+    redo: {
+      id: "redo",
+      label: "Redo",
+      category: "edit",
+      supports: { wysiwyg: true, source: true },
+    },
+    setHeading: {
+      id: "setHeading",
+      label: "Heading",
+      category: "formatting",
+      supports: { wysiwyg: true, source: true },
+    },
+    paragraph: {
+      id: "paragraph",
+      label: "Paragraph",
+      category: "formatting",
+      supports: { wysiwyg: true, source: true },
+    },
+    increaseHeading: {
+      id: "increaseHeading",
+      label: "Increase Heading",
+      category: "formatting",
+      supports: { wysiwyg: true, source: true },
+    },
+    codeBlock: {
+      id: "codeBlock",
+      label: "Code Block",
+      category: "insert",
+      supports: { wysiwyg: true, source: true },
+    },
+    blockquote: {
+      id: "blockquote",
+      label: "Blockquote",
+      category: "insert",
+      supports: { wysiwyg: true, source: true },
+    },
+    horizontalLine: {
+      id: "horizontalLine",
+      label: "Divider",
+      category: "insert",
+      supports: { wysiwyg: true, source: true },
+    },
+    addRowBelow: {
+      id: "addRowBelow",
+      label: "Add Row",
+      category: "table",
+      supports: { wysiwyg: true, source: true },
+    },
+    addColRight: {
+      id: "addColRight",
+      label: "Add Column",
+      category: "table",
+      supports: { wysiwyg: true, source: true },
+    },
+    wikiLink: {
+      id: "wikiLink",
+      label: "Wiki Link",
+      category: "insert",
+      supports: { wysiwyg: true, source: true },
+    },
+    bookmark: {
+      id: "bookmark",
+      label: "Bookmark",
+      category: "insert",
+      supports: { wysiwyg: true, source: true },
+    },
+  },
+  getHeadingLevelFromParams: (params?: Record<string, unknown>) => (params as { level?: number })?.level ?? 1,
+}));
+
+const EDITOR_ACTION_BINDINGS = Object.entries(MENU_TO_ACTION).map(
+  ([menuEvent, mapping]) => ({ kind: "editorAction" as const, menuEvent, mapping }),
+);
+
+let activeUnlisten: (() => void) | null = null;
+
+// Mounts the merged dispatcher's editor-action listeners against the mocked
+// Tauri `listen` (captured into `listeners`). Awaiting it guarantees
+// `activeUnlisten` is set before the test proceeds.
+async function mountEditorActions(): Promise<void> {
+  activeUnlisten = await mountMenuCommands(EDITOR_ACTION_BINDINGS as never);
+}
+
+describe("mountMenuCommands — editor-action dispatch", () => {
+  afterEach(() => {
+    activeUnlisten?.();
+    activeUnlisten = null;
+    vi.useRealTimers();
+  });
+
+  beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    listeners.clear();
+    vi.clearAllMocks();
+    sourceMode = false;
+    activeWysiwygEditor = null;
+    activeSourceView = null;
+    // The executor's gate fails closed without a live document tab, so every
+    // test starts with one active (sub-describes that need a different tab —
+    // browser, non-markdown, no-tab — override it).
+    useTabStore.setState({ tabs: {}, activeTabId: {}, untitledCounter: 0, closedTabs: {} });
+    __resetRegistry();
+    registerMarkdownFormat();
+    useTabStore.getState().createTab("main", "/doc.md");
+    // Restore default listen implementation
+    mockListenImpl.fn = (eventName: string, handler: MenuEventHandler) => {
+      listeners.set(eventName, handler);
+      return Promise.resolve(() => {});
+    };
+  });
+
+  it("routes menu actions to WYSIWYG adapter when in WYSIWYG mode", async () => {
+    sourceMode = false;
+    activeWysiwygEditor = { view: {} };
+
+    await mountEditorActions();
+    await waitFor(() => expect(listeners.has("menu:italic")).toBe(true));
+
+    listeners.get("menu:italic")?.({ payload: "main" });
+
+    expect(performWysiwygToolbarAction).toHaveBeenCalledWith(
+      "italic",
+      expect.objectContaining({ surface: "wysiwyg" })
+    );
+    expect(performSourceToolbarAction).not.toHaveBeenCalled();
+  });
+
+  it("routes menu actions to Source adapter when in Source mode", async () => {
+    sourceMode = true;
+    activeSourceView = {};
+
+    await mountEditorActions();
+    await waitFor(() => expect(listeners.has("menu:italic")).toBe(true));
+
+    listeners.get("menu:italic")?.({ payload: "main" });
+
+    expect(performSourceToolbarAction).toHaveBeenCalledWith(
+      "italic",
+      expect.objectContaining({ surface: "source" })
+    );
+    expect(performWysiwygToolbarAction).not.toHaveBeenCalled();
+  });
+
+  it("routes undo through unified history, not adapters", async () => {
+    sourceMode = false;
+    activeWysiwygEditor = { view: {} };
+
+    await mountEditorActions();
+    await waitFor(() => expect(listeners.has("menu:undo")).toBe(true));
+
+    listeners.get("menu:undo")?.({ payload: "main" });
+
+    expect(performUnifiedUndo).toHaveBeenCalledWith("main");
+    expect(performWysiwygToolbarAction).not.toHaveBeenCalled();
+    expect(performSourceToolbarAction).not.toHaveBeenCalled();
+  });
+
+  it("routes redo through unified history, not adapters", async () => {
+    sourceMode = true;
+    activeSourceView = {};
+
+    await mountEditorActions();
+    await waitFor(() => expect(listeners.has("menu:redo")).toBe(true));
+
+    listeners.get("menu:redo")?.({ payload: "main" });
+
+    expect(performUnifiedRedo).toHaveBeenCalledWith("main");
+    expect(performWysiwygToolbarAction).not.toHaveBeenCalled();
+    expect(performSourceToolbarAction).not.toHaveBeenCalled();
+  });
+
+  it("blocks actions that are unsupported for the current mode", async () => {
+    sourceMode = false;
+    activeWysiwygEditor = { view: {} };
+
+    await mountEditorActions();
+    await waitFor(() => expect(listeners.has("menu:bold")).toBe(true));
+
+    listeners.get("menu:bold")?.({ payload: "main" });
+
+    expect(performWysiwygToolbarAction).not.toHaveBeenCalled();
+    expect(performSourceToolbarAction).not.toHaveBeenCalled();
+  });
+
+  it("ignores events targeted at a different window", async () => {
+    sourceMode = false;
+    activeWysiwygEditor = { view: {} };
+
+    await mountEditorActions();
+    await waitFor(() => expect(listeners.has("menu:italic")).toBe(true));
+
+    // Payload is a different window label
+    listeners.get("menu:italic")?.({ payload: "other-window" });
+
+    expect(performWysiwygToolbarAction).not.toHaveBeenCalled();
+    expect(performSourceToolbarAction).not.toHaveBeenCalled();
+  });
+
+  it("ignores events with non-string payload", async () => {
+    sourceMode = false;
+    activeWysiwygEditor = { view: {} };
+
+    await mountEditorActions();
+    await waitFor(() => expect(listeners.has("menu:italic")).toBe(true));
+
+    // Payload is not a string
+    listeners.get("menu:italic")?.({ payload: 123 as unknown as string });
+
+    expect(performWysiwygToolbarAction).not.toHaveBeenCalled();
+  });
+
+  it("registers listeners for all menu events in the registry", async () => {
+    await mountEditorActions();
+    await waitFor(() => expect(listeners.size).toBeGreaterThan(0));
+
+    // Should have listeners for all events in our mock MENU_TO_ACTION
+    expect(listeners.has("menu:bold")).toBe(true);
+    expect(listeners.has("menu:italic")).toBe(true);
+    expect(listeners.has("menu:undo")).toBe(true);
+    expect(listeners.has("menu:redo")).toBe(true);
+    expect(listeners.has("menu:heading-1")).toBe(true);
+    expect(listeners.has("menu:paragraph")).toBe(true);
+  });
+
+  it("dispatches setHeading to WYSIWYG adapter with level", async () => {
+    sourceMode = false;
+    activeWysiwygEditor = { view: {} };
+
+    await mountEditorActions();
+    await waitFor(() => expect(listeners.has("menu:heading-1")).toBe(true));
+
+    listeners.get("menu:heading-1")?.({ payload: "main" });
+
+    // setHeading goes through setWysiwygHeadingLevel, not performWysiwygToolbarAction
+    const { setWysiwygHeadingLevel } = await import("@/plugins/toolbarActions/wysiwygAdapter");
+    expect(setWysiwygHeadingLevel).toHaveBeenCalled();
+  });
+
+  it("dispatches paragraph (heading level 0) to WYSIWYG", async () => {
+    sourceMode = false;
+    activeWysiwygEditor = { view: {} };
+
+    await mountEditorActions();
+    await waitFor(() => expect(listeners.has("menu:paragraph")).toBe(true));
+
+    listeners.get("menu:paragraph")?.({ payload: "main" });
+
+    const { setWysiwygHeadingLevel } = await import("@/plugins/toolbarActions/wysiwygAdapter");
+    expect(setWysiwygHeadingLevel).toHaveBeenCalled();
+  });
+
+  it("dispatches increaseHeading through performWysiwygToolbarAction", async () => {
+    sourceMode = false;
+    activeWysiwygEditor = { view: {} };
+
+    await mountEditorActions();
+    await waitFor(() => expect(listeners.has("menu:increaseHeading")).toBe(true));
+
+    listeners.get("menu:increaseHeading")?.({ payload: "main" });
+
+    expect(performWysiwygToolbarAction).toHaveBeenCalledWith(
+      "increaseHeading",
+      expect.objectContaining({ surface: "wysiwyg" })
+    );
+  });
+
+  it("maps codeBlock to insertCodeBlock action name", async () => {
+    sourceMode = false;
+    activeWysiwygEditor = { view: {} };
+
+    await mountEditorActions();
+    await waitFor(() => expect(listeners.has("menu:codeBlock")).toBe(true));
+
+    listeners.get("menu:codeBlock")?.({ payload: "main" });
+
+    expect(performWysiwygToolbarAction).toHaveBeenCalledWith(
+      "insertCodeBlock",
+      expect.any(Object)
+    );
+  });
+
+  it("maps blockquote to insertBlockquote action name", async () => {
+    sourceMode = false;
+    activeWysiwygEditor = { view: {} };
+
+    await mountEditorActions();
+    await waitFor(() => expect(listeners.has("menu:blockquote")).toBe(true));
+
+    listeners.get("menu:blockquote")?.({ payload: "main" });
+
+    expect(performWysiwygToolbarAction).toHaveBeenCalledWith(
+      "insertBlockquote",
+      expect.any(Object)
+    );
+  });
+
+  it("maps horizontalLine to insertDivider", async () => {
+    sourceMode = false;
+    activeWysiwygEditor = { view: {} };
+
+    await mountEditorActions();
+    await waitFor(() => expect(listeners.has("menu:horizontalLine")).toBe(true));
+
+    listeners.get("menu:horizontalLine")?.({ payload: "main" });
+
+    expect(performWysiwygToolbarAction).toHaveBeenCalledWith(
+      "insertDivider",
+      expect.any(Object)
+    );
+  });
+
+  it("maps wikiLink to link:wiki", async () => {
+    sourceMode = false;
+    activeWysiwygEditor = { view: {} };
+
+    await mountEditorActions();
+    await waitFor(() => expect(listeners.has("menu:wikiLink")).toBe(true));
+
+    listeners.get("menu:wikiLink")?.({ payload: "main" });
+
+    expect(performWysiwygToolbarAction).toHaveBeenCalledWith(
+      "link:wiki",
+      expect.any(Object)
+    );
+  });
+
+  it("dispatches to Source adapter in source mode for codeBlock", async () => {
+    sourceMode = true;
+    activeSourceView = {};
+
+    await mountEditorActions();
+    await waitFor(() => expect(listeners.has("menu:codeBlock")).toBe(true));
+
+    listeners.get("menu:codeBlock")?.({ payload: "main" });
+
+    expect(performSourceToolbarAction).toHaveBeenCalledWith(
+      "insertCodeBlock",
+      expect.objectContaining({ surface: "source" })
+    );
+  });
+
+  it("dispatches setHeading to Source adapter in source mode", async () => {
+    sourceMode = true;
+    activeSourceView = {};
+
+    await mountEditorActions();
+    await waitFor(() => expect(listeners.has("menu:heading-1")).toBe(true));
+
+    listeners.get("menu:heading-1")?.({ payload: "main" });
+
+    const { setSourceHeadingLevel } = await import("@/plugins/toolbarActions/sourceAdapter");
+    expect(setSourceHeadingLevel).toHaveBeenCalled();
+  });
+
+  it("dispatches paragraph to Source adapter in source mode", async () => {
+    sourceMode = true;
+    activeSourceView = {};
+
+    await mountEditorActions();
+    await waitFor(() => expect(listeners.has("menu:paragraph")).toBe(true));
+
+    listeners.get("menu:paragraph")?.({ payload: "main" });
+
+    const { setSourceHeadingLevel } = await import("@/plugins/toolbarActions/sourceAdapter");
+    expect(setSourceHeadingLevel).toHaveBeenCalled();
+  });
+
+  it("silently skips unknown action definitions", async () => {
+    sourceMode = false;
+    activeWysiwygEditor = { view: {} };
+
+    await mountEditorActions();
+    await waitFor(() => expect(listeners.has("menu:unknown-action")).toBe(true));
+
+    // Should not throw — action definition lookup fails gracefully
+    expect(() => {
+      listeners.get("menu:unknown-action")?.({ payload: "main" });
+    }).not.toThrow();
+
+    expect(performWysiwygToolbarAction).not.toHaveBeenCalled();
+  });
+
+  it("maps addRowBelow to addRow in WYSIWYG mode", async () => {
+    sourceMode = false;
+    activeWysiwygEditor = { view: {} };
+
+    await mountEditorActions();
+    await waitFor(() => expect(listeners.has("menu:addRowBelow")).toBe(true));
+
+    listeners.get("menu:addRowBelow")?.({ payload: "main" });
+
+    expect(performWysiwygToolbarAction).toHaveBeenCalledWith(
+      "addRow",
+      expect.any(Object)
+    );
+  });
+
+  it("maps addColRight to addCol in WYSIWYG mode", async () => {
+    sourceMode = false;
+    activeWysiwygEditor = { view: {} };
+
+    await mountEditorActions();
+    await waitFor(() => expect(listeners.has("menu:addColRight")).toBe(true));
+
+    listeners.get("menu:addColRight")?.({ payload: "main" });
+
+    expect(performWysiwygToolbarAction).toHaveBeenCalledWith(
+      "addCol",
+      expect.any(Object)
+    );
+  });
+
+  it("maps bookmark to link:bookmark in WYSIWYG mode", async () => {
+    sourceMode = false;
+    activeWysiwygEditor = { view: {} };
+
+    await mountEditorActions();
+    await waitFor(() => expect(listeners.has("menu:bookmark")).toBe(true));
+
+    listeners.get("menu:bookmark")?.({ payload: "main" });
+
+    expect(performWysiwygToolbarAction).toHaveBeenCalledWith(
+      "link:bookmark",
+      expect.any(Object)
+    );
+  });
+
+  it("dispatches increaseHeading to source adapter in source mode", async () => {
+    sourceMode = true;
+    activeSourceView = {};
+
+    await mountEditorActions();
+    await waitFor(() => expect(listeners.has("menu:increaseHeading")).toBe(true));
+
+    listeners.get("menu:increaseHeading")?.({ payload: "main" });
+
+    expect(performSourceToolbarAction).toHaveBeenCalledWith(
+      "increaseHeading",
+      expect.objectContaining({ surface: "source" })
+    );
+  });
+
+  it("does not dispatch to WYSIWYG when editor view is null", async () => {
+    sourceMode = false;
+    activeWysiwygEditor = { view: null };
+
+    await mountEditorActions();
+    await waitFor(() => expect(listeners.has("menu:italic")).toBe(true));
+
+    listeners.get("menu:italic")?.({ payload: "main" });
+
+    // Editor exists but view is null — should not dispatch
+    expect(performWysiwygToolbarAction).not.toHaveBeenCalled();
+  });
+
+  it("does not dispatch to source when view is null", async () => {
+    sourceMode = true;
+    activeSourceView = null;
+
+    await mountEditorActions();
+    await waitFor(() => expect(listeners.has("menu:italic")).toBe(true));
+
+    listeners.get("menu:italic")?.({ payload: "main" });
+
+    // Source view is null — should not dispatch (will trigger retry)
+    expect(performSourceToolbarAction).not.toHaveBeenCalled();
+  });
+
+  it("dispatches bold in source mode (source-supported)", async () => {
+    sourceMode = true;
+    activeSourceView = {};
+
+    // In our mock, bold: supports { wysiwyg: false, source: true }
+    await mountEditorActions();
+    await waitFor(() => expect(listeners.has("menu:bold")).toBe(true));
+
+    listeners.get("menu:bold")?.({ payload: "main" });
+
+    // Bold is only supported in source mode in our mock
+    expect(performSourceToolbarAction).toHaveBeenCalledWith(
+      "bold",
+      expect.objectContaining({ surface: "source" })
+    );
+    expect(performWysiwygToolbarAction).not.toHaveBeenCalled();
+  });
+
+  it("blocks actions when focus guard says to block", async () => {
+    sourceMode = false;
+    activeWysiwygEditor = { view: {} };
+
+    mockShouldBlockMenuAction.mockReturnValue(true);
+
+    await mountEditorActions();
+    await waitFor(() => expect(listeners.has("menu:italic")).toBe(true));
+
+    listeners.get("menu:italic")?.({ payload: "main" });
+
+    expect(performWysiwygToolbarAction).not.toHaveBeenCalled();
+    expect(performSourceToolbarAction).not.toHaveBeenCalled();
+
+    // Restore
+    mockShouldBlockMenuAction.mockReturnValue(false);
+  });
+
+  it("retries WYSIWYG dispatch when editor becomes available after delay", async () => {
+    sourceMode = false;
+    activeWysiwygEditor = null; // not available initially
+
+    await mountEditorActions();
+    await vi.waitFor(() => expect(listeners.has("menu:italic")).toBe(true));
+
+    listeners.get("menu:italic")?.({ payload: "main" });
+
+    // Not dispatched yet (editor is null)
+    expect(performWysiwygToolbarAction).not.toHaveBeenCalled();
+
+    // Make editor available and advance past retry delay
+    activeWysiwygEditor = { view: {} };
+    await vi.advanceTimersByTimeAsync(60);
+
+    expect(performWysiwygToolbarAction).toHaveBeenCalledWith(
+      "italic",
+      expect.objectContaining({ surface: "wysiwyg" })
+    );
+  });
+
+  it("gives up after max retries for WYSIWYG", async () => {
+    sourceMode = false;
+    activeWysiwygEditor = null; // never available
+
+    await mountEditorActions();
+    await vi.waitFor(() => expect(listeners.has("menu:italic")).toBe(true));
+
+    listeners.get("menu:italic")?.({ payload: "main" });
+
+    // Advance past all retries (3 retries * 50ms each + initial 50ms)
+    await vi.advanceTimersByTimeAsync(250);
+
+    // Should not have dispatched (editor never became available)
+    expect(performWysiwygToolbarAction).not.toHaveBeenCalled();
+  });
+
+  it("retries source dispatch when view becomes available after delay", async () => {
+    sourceMode = true;
+    activeSourceView = null; // not available initially
+
+    await mountEditorActions();
+    await vi.waitFor(() => expect(listeners.has("menu:italic")).toBe(true));
+
+    listeners.get("menu:italic")?.({ payload: "main" });
+
+    expect(performSourceToolbarAction).not.toHaveBeenCalled();
+
+    // Make view available
+    activeSourceView = {};
+    await vi.advanceTimersByTimeAsync(60);
+
+    expect(performSourceToolbarAction).toHaveBeenCalled();
+  });
+
+  it("gives up after max retries for source", async () => {
+    sourceMode = true;
+    activeSourceView = null; // never available
+
+    await mountEditorActions();
+    await vi.waitFor(() => expect(listeners.has("menu:italic")).toBe(true));
+
+    listeners.get("menu:italic")?.({ payload: "main" });
+
+    await vi.advanceTimersByTimeAsync(250);
+
+    expect(performSourceToolbarAction).not.toHaveBeenCalled();
+  });
+
+  it("blocks source-unsupported action in WYSIWYG mode", async () => {
+    // bold has supports: { wysiwyg: false, source: true }
+    // In WYSIWYG mode, bold should be blocked
+    sourceMode = false;
+    activeWysiwygEditor = { view: {} };
+
+    await mountEditorActions();
+    await waitFor(() => expect(listeners.has("menu:bold")).toBe(true));
+
+    // Clear any stale calls from listener setup before asserting
+    vi.mocked(performWysiwygToolbarAction).mockClear();
+
+    listeners.get("menu:bold")?.({ payload: "main" });
+
+    expect(performWysiwygToolbarAction).not.toHaveBeenCalled();
+  });
+
+  it("dispatches heading in source mode with setSourceHeadingLevel", async () => {
+    sourceMode = true;
+    activeSourceView = {};
+
+    await mountEditorActions();
+    await waitFor(() => expect(listeners.has("menu:heading-1")).toBe(true));
+
+    listeners.get("menu:heading-1")?.({ payload: "main" });
+
+    const { setSourceHeadingLevel } = await import("@/plugins/toolbarActions/sourceAdapter");
+    expect(setSourceHeadingLevel).toHaveBeenCalledWith(
+      expect.objectContaining({ surface: "source" }),
+      1
+    );
+  });
+
+  it("blocks source-only unsupported action in WYSIWYG mode (L327 branch)", async () => {
+    // sourceOnly has supports: { wysiwyg: false, source: true }
+    // In WYSIWYG mode, !actionDef.supports.wysiwyg → should be blocked
+    sourceMode = false;
+    activeWysiwygEditor = { view: {} };
+
+    await mountEditorActions();
+    await waitFor(() => expect(listeners.has("menu:source-only")).toBe(true));
+
+    // Clear any stale calls from listener setup before asserting
+    vi.mocked(performWysiwygToolbarAction).mockClear();
+    vi.mocked(performSourceToolbarAction).mockClear();
+
+    listeners.get("menu:source-only")?.({ payload: "main" });
+
+    expect(performWysiwygToolbarAction).not.toHaveBeenCalled();
+    expect(performSourceToolbarAction).not.toHaveBeenCalled();
+  });
+
+  it("blocks wysiwyg-only unsupported action in source mode (L322-325 branch)", async () => {
+    // wysiwygOnly has supports: { wysiwyg: true, source: false }
+    // In source mode, !actionDef.supports.source → should be blocked
+    sourceMode = true;
+    activeSourceView = {};
+
+    await mountEditorActions();
+    await waitFor(() => expect(listeners.has("menu:wysiwyg-only")).toBe(true));
+
+    // Clear any stale calls from listener setup before asserting
+    vi.mocked(performSourceToolbarAction).mockClear();
+    vi.mocked(performWysiwygToolbarAction).mockClear();
+
+    listeners.get("menu:wysiwyg-only")?.({ payload: "main" });
+
+    expect(performSourceToolbarAction).not.toHaveBeenCalled();
+    expect(performWysiwygToolbarAction).not.toHaveBeenCalled();
+  });
+
+  // (disposed-during-setup race moved to useCommandBootstrap; see its test)
+
+  it("logs error when a listener registration fails (L375 rejected path)", async () => {
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    mockListenImpl.fn = () => Promise.reject(new Error("registration failed"));
+
+    await mountEditorActions();
+
+    await waitFor(() => {
+      expect(consoleSpy).toHaveBeenCalledWith(
+        "[Menu]",
+        expect.stringContaining("Failed to mount listener for"),
+        expect.any(Error),
+      );
+    });
+
+    consoleSpy.mockRestore();
+  });
+
+  describe("retry lifecycle and IME safety", () => {
+    afterEach(() => {
+      useTabStore.setState({
+        tabs: {},
+        activeTabId: {},
+        untitledCounter: 0,
+        closedTabs: {},
+      });
+    });
+
+    it("routes WYSIWYG menu actions through the ProseMirror IME guard", async () => {
+      sourceMode = false;
+      const view = {};
+      activeWysiwygEditor = { view };
+
+      await mountEditorActions();
+      await waitFor(() => expect(listeners.has("menu:italic")).toBe(true));
+
+      listeners.get("menu:italic")?.({ payload: "main" });
+
+      // A menu accelerator can fire mid-CJK-composition; the action must be
+      // queued behind the composition instead of dispatching into it.
+      expect(mockRunOrQueueProseMirrorAction).toHaveBeenCalledWith(
+        view,
+        expect.any(Function),
+      );
+      expect(performWysiwygToolbarAction).toHaveBeenCalledWith(
+        "italic",
+        expect.objectContaining({ surface: "wysiwyg" }),
+      );
+    });
+
+    it("drops a pending WYSIWYG retry when the active tab changes", async () => {
+      sourceMode = false;
+      activeWysiwygEditor = null; // forces the retry path
+      // The live document tab from beforeEach is the origin.
+
+      await mountEditorActions();
+      await vi.waitFor(() => expect(listeners.has("menu:italic")).toBe(true));
+
+      listeners.get("menu:italic")?.({ payload: "main" });
+
+      // Editor mounts, but the user has switched to another tab meanwhile —
+      // the queued action belongs to the origin tab, not the new one.
+      activeWysiwygEditor = { view: {} };
+      useTabStore.setState({ activeTabId: { main: "other-tab" } });
+      await vi.advanceTimersByTimeAsync(250);
+
+      expect(performWysiwygToolbarAction).not.toHaveBeenCalled();
+    });
+
+    it("drops a pending Source retry when the active tab changes", async () => {
+      sourceMode = true;
+      activeSourceView = null;
+      // The live document tab from beforeEach is the origin.
+
+      await mountEditorActions();
+      await vi.waitFor(() => expect(listeners.has("menu:italic")).toBe(true));
+
+      listeners.get("menu:italic")?.({ payload: "main" });
+
+      activeSourceView = {};
+      useTabStore.setState({ activeTabId: { main: "other-tab" } });
+      await vi.advanceTimersByTimeAsync(250);
+
+      expect(performSourceToolbarAction).not.toHaveBeenCalled();
+    });
+
+    it("cancels pending retries when the dispatcher unmounts", async () => {
+      sourceMode = false;
+      activeWysiwygEditor = null;
+
+      await mountEditorActions();
+      await vi.waitFor(() => expect(listeners.has("menu:italic")).toBe(true));
+
+      listeners.get("menu:italic")?.({ payload: "main" });
+      activeUnlisten?.();
+
+      // Editor becomes available after disposal — the retry must not fire.
+      activeWysiwygEditor = { view: {} };
+      await vi.advanceTimersByTimeAsync(250);
+
+      expect(performWysiwygToolbarAction).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("non-document (browser) active tab", () => {
+    afterEach(() => {
+      useTabStore.setState({
+        tabs: {},
+        activeTabId: {},
+        untitledCounter: 0,
+        closedTabs: {},
+      });
+    });
+
+    it("blocks editor actions while a browser tab is active", async () => {
+      // A browser tab has no document. The editor store can still hold the
+      // editor of the tab the user came from (unmount is async), so failing
+      // OPEN here would silently mutate a hidden document.
+      const tabId = useTabStore.getState().createBrowserTab("main", "https://example.com");
+      useTabStore.setState({ activeTabId: { main: tabId } });
+
+      sourceMode = false;
+      activeWysiwygEditor = { view: {} }; // stale editor from the previous tab
+
+      await mountEditorActions();
+      await waitFor(() => expect(listeners.has("menu:italic")).toBe(true));
+
+      vi.mocked(performWysiwygToolbarAction).mockClear();
+      listeners.get("menu:italic")?.({ payload: "main" });
+      await vi.advanceTimersByTimeAsync(250);
+
+      expect(performWysiwygToolbarAction).not.toHaveBeenCalled();
+      expect(performSourceToolbarAction).not.toHaveBeenCalled();
+    });
+
+    it("blocks undo/redo while a browser tab is active", async () => {
+      const tabId = useTabStore.getState().createBrowserTab("main", "https://example.com");
+      useTabStore.setState({ activeTabId: { main: tabId } });
+
+      sourceMode = false;
+      activeWysiwygEditor = { view: {} };
+
+      await mountEditorActions();
+      await waitFor(() => expect(listeners.has("menu:undo")).toBe(true));
+
+      listeners.get("menu:undo")?.({ payload: "main" });
+
+      // Unified undo would rewind the last document's history invisibly.
+      expect(performUnifiedUndo).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("WI-1A.7 — per-format menuPolicy gating", () => {
+    afterEach(() => {
+      __resetRegistry();
+      useTabStore.setState({
+        tabs: {},
+        activeTabId: {},
+        untitledCounter: 0,
+        closedTabs: {},
+      });
+    });
+
+    function registerNonMarkdownTxt(): void {
+      registerFormat({
+        id: "txt",
+        nameI18nKey: "format.txt",
+        extensions: ["txt"],
+        kind: "split-pane",
+        adapters: {
+          saveDialogFilters: [{ name: "Plain", extensions: ["txt"] }],
+          untitledExtension: "txt",
+          readOnlyDefault: false,
+          closeSavePolicy: "prompt-on-close",
+          menuPolicy: {
+            sourceWysiwygToggle: false,
+            cjkFormatActions: false,
+            insertBlockActions: false,
+            paragraphFormatting: false,
+          },
+        },
+      });
+    }
+
+    it("permits formatting actions when active tab is markdown", async () => {
+      __resetRegistry();
+      registerMarkdownFormat();
+      registerNonMarkdownTxt();
+      // Active tab on /foo.md → markdown adapter, paragraphFormatting=true
+      const tabId = useTabStore.getState().createTab("main", "/foo.md");
+      expect(useTabStore.getState().findTabById(tabId)?.formatId).toBe(
+        "markdown",
+      );
+
+      sourceMode = false;
+      activeWysiwygEditor = { view: {} };
+
+      await mountEditorActions();
+      await waitFor(() => expect(listeners.has("menu:italic")).toBe(true));
+
+      listeners.get("menu:italic")?.({ payload: "main" });
+
+      expect(performWysiwygToolbarAction).toHaveBeenCalledWith(
+        "italic",
+        expect.objectContaining({ surface: "wysiwyg" }),
+      );
+    });
+
+    it("blocks formatting actions when active tab is non-markdown (paragraphFormatting=false)", async () => {
+      __resetRegistry();
+      registerMarkdownFormat();
+      registerNonMarkdownTxt();
+      const tabId = useTabStore.getState().createTab("main", "/foo.txt");
+      expect(useTabStore.getState().findTabById(tabId)?.formatId).toBe("txt");
+
+      sourceMode = false;
+      activeWysiwygEditor = { view: {} };
+
+      await mountEditorActions();
+      await waitFor(() => expect(listeners.has("menu:italic")).toBe(true));
+
+      vi.mocked(performWysiwygToolbarAction).mockClear();
+      listeners.get("menu:italic")?.({ payload: "main" });
+
+      expect(performWysiwygToolbarAction).not.toHaveBeenCalled();
+      expect(performSourceToolbarAction).not.toHaveBeenCalled();
+    });
+
+    it("permits edit-category actions (undo/redo) regardless of active format", async () => {
+      __resetRegistry();
+      registerMarkdownFormat();
+      registerNonMarkdownTxt();
+      useTabStore.getState().createTab("main", "/foo.txt");
+
+      sourceMode = false;
+      activeWysiwygEditor = { view: {} };
+
+      await mountEditorActions();
+      await waitFor(() => expect(listeners.has("menu:undo")).toBe(true));
+
+      listeners.get("menu:undo")?.({ payload: "main" });
+
+      expect(performUnifiedUndo).toHaveBeenCalledWith("main");
+    });
+
+    it("fails closed when no active tab is set (no live document)", async () => {
+      __resetRegistry();
+      registerMarkdownFormat();
+      registerNonMarkdownTxt();
+      // No active tab — a retained editor must not be mutated with no document.
+      useTabStore.setState({ tabs: {}, activeTabId: {} });
+
+      sourceMode = false;
+      activeWysiwygEditor = { view: {} };
+
+      await mountEditorActions();
+      await waitFor(() => expect(listeners.has("menu:italic")).toBe(true));
+
+      listeners.get("menu:italic")?.({ payload: "main" });
+
+      expect(performWysiwygToolbarAction).not.toHaveBeenCalled();
+    });
+
+    it("permits actions with unknown category (failure-open for forward-compat)", async () => {
+      // The mock ACTION_DEFINITIONS uses category "insert"/"table" which are
+      // not in the gating switch. They should always be permitted.
+      __resetRegistry();
+      registerMarkdownFormat();
+      registerNonMarkdownTxt();
+      useTabStore.getState().createTab("main", "/foo.txt");
+
+      sourceMode = false;
+      activeWysiwygEditor = { view: {} };
+
+      await mountEditorActions();
+      await waitFor(() => expect(listeners.has("menu:wikiLink")).toBe(true));
+
+      vi.mocked(performWysiwygToolbarAction).mockClear();
+      listeners.get("menu:wikiLink")?.({ payload: "main" });
+
+      // wikiLink in the test mock has category "insert" (singular, unknown to
+      // the gating switch) — defaults to allowed, so it dispatches.
+      expect(performWysiwygToolbarAction).toHaveBeenCalledWith(
+        "link:wiki",
+        expect.any(Object),
+      );
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // WI-1A.14 — Cross-format menu regression matrix (rev 6).
+  //
+  // Iterates over every FormatKind × every menu-action category and asserts
+  // dispatch behavior against the format's menuPolicy. This is a structural
+  // gate: adding a new FormatKind without specifying its menu behavior fails
+  // here, not in production.
+  //
+  // Plan reference:
+  //   dev-docs/plans/20260506-multi-format-rebrand.md § Phase 1A WI-1A.14
+  //   dev-docs/plans/20260523-grill-followup.md § WI-1.3
+  // ─────────────────────────────────────────────────────────────────────────
+  describe("WI-1A.14 — cross-format menu regression matrix", () => {
+    type FormatKindFixture = {
+      kind: import("@/lib/formats/types").FormatKind;
+      formatId: string;
+      filePath: string;
+      menuPolicy: {
+        sourceWysiwygToggle: boolean;
+        cjkFormatActions: boolean;
+        insertBlockActions: boolean;
+        paragraphFormatting: boolean;
+      };
+      /** Whether formatting-category actions (bold, setHeading) should dispatch.
+       *  These are gated by menuPolicy.paragraphFormatting. */
+      expectFormattingDispatch: boolean;
+      /** readOnlyDefault format (Phase 2b): mutating actions — incl. undo/redo —
+       *  are refused by the executor's read-only gate. */
+      readOnly: boolean;
+    };
+
+    // One fixture per FormatKind. Add a row when a new FormatKind lands.
+    //
+    // Action category gating in useUnifiedMenuCommands.ts:
+    //   "edit"       — always allowed (universal early-out)
+    //   "formatting" — gated by menuPolicy.paragraphFormatting
+    //   "headings"   — gated by menuPolicy.paragraphFormatting
+    //   "inserts"    — gated by menuPolicy.insertBlockActions
+    //   "cjk"        — gated by menuPolicy.cjkFormatActions
+    //
+    // The matrix proves dispatch behavior for the two extremes (edit always
+    // allowed; formatting gated by policy) across all three FormatKinds.
+    // Adding a new FormatKind without a fixture row fails the structural
+    // guard test below.
+    //
+    // Fixtures use unique extensions so each fixture genuinely owns the path.
+    const fixtures: FormatKindFixture[] = [
+      {
+        kind: "wysiwyg",
+        formatId: "matrix-wsy",
+        filePath: "/sample.wsymtx",
+        menuPolicy: {
+          sourceWysiwygToggle: true,
+          cjkFormatActions: true,
+          insertBlockActions: true,
+          paragraphFormatting: true,
+        },
+        expectFormattingDispatch: true,
+        readOnly: false,
+      },
+      {
+        kind: "split-pane",
+        formatId: "matrix-split",
+        filePath: "/sample.spmtx",
+        menuPolicy: {
+          sourceWysiwygToggle: false,
+          cjkFormatActions: false,
+          insertBlockActions: false,
+          paragraphFormatting: false,
+        },
+        expectFormattingDispatch: false,
+        readOnly: false,
+      },
+      {
+        kind: "viewer",
+        formatId: "matrix-viewer",
+        filePath: "/sample.vwmtx",
+        menuPolicy: {
+          sourceWysiwygToggle: false,
+          cjkFormatActions: false,
+          insertBlockActions: false,
+          paragraphFormatting: false,
+        },
+        expectFormattingDispatch: false,
+        readOnly: true,
+      },
+    ];
+
+    // Minimal wysiwyg stub so registry validation accepts kind="wysiwyg".
+    // The dispatcher never renders this — it only inspects FormatConfig.
+    const WysiwygStub = () => null;
+
+    function registerFixture(f: FormatKindFixture): void {
+      const ext = f.filePath.split(".").pop()!;
+      registerFormat({
+        id: f.formatId,
+        nameI18nKey: `format.${f.formatId}`,
+        extensions: [ext],
+        kind: f.kind,
+        ...(f.kind === "wysiwyg" ? { wysiwygComponent: WysiwygStub } : {}),
+        ...(f.kind !== "wysiwyg"
+          ? { loadLanguage: async () => [] as never }
+          : {}),
+        adapters: {
+          saveDialogFilters: [{ name: f.formatId, extensions: [ext] }],
+          untitledExtension: ext,
+          readOnlyDefault: f.readOnly,
+          closeSavePolicy: "prompt-on-close",
+          menuPolicy: f.menuPolicy,
+        },
+      });
+    }
+
+    describe.each(fixtures)(
+      "FormatKind=$kind ($formatId)",
+      ({ formatId, filePath, expectFormattingDispatch, readOnly }) => {
+        beforeEach(() => {
+          __resetRegistry();
+          // Markdown must be registered first so the registry has a default
+          // for tabs that don't match any other extension.
+          registerMarkdownFormat();
+          // Register all three fixtures so registry shape is constant.
+          fixtures.forEach(registerFixture);
+          sourceMode = false;
+          activeWysiwygEditor = { view: {} };
+        });
+
+        it(`undo ${readOnly ? "is blocked (read-only)" : "dispatches"} — edit-category bypasses menuPolicy, not read-only`, async () => {
+          const tabId = useTabStore.getState().createTab("main", filePath);
+          expect(useTabStore.getState().findTabById(tabId)?.formatId).toBe(
+            formatId,
+          );
+
+          await mountEditorActions();
+          await waitFor(() => expect(listeners.has("menu:undo")).toBe(true));
+
+          listeners.get("menu:undo")?.({ payload: "main" });
+
+          // Undo is edit-category (bypasses the format menuPolicy gate) but still
+          // mutates the document, so the Phase 2b read-only gate refuses it on a
+          // readOnlyDefault (viewer) format.
+          if (readOnly) {
+            expect(performUnifiedUndo).not.toHaveBeenCalled();
+          } else {
+            expect(performUnifiedUndo).toHaveBeenCalledWith("main");
+          }
+        });
+
+        it(`formatting (italic) ${expectFormattingDispatch ? "dispatches" : "is blocked"}`, async () => {
+          useTabStore.getState().createTab("main", filePath);
+
+          await mountEditorActions();
+          await waitFor(() => expect(listeners.has("menu:italic")).toBe(true));
+
+          vi.mocked(performWysiwygToolbarAction).mockClear();
+          listeners.get("menu:italic")?.({ payload: "main" });
+
+          if (expectFormattingDispatch) {
+            expect(performWysiwygToolbarAction).toHaveBeenCalled();
+          } else {
+            expect(performWysiwygToolbarAction).not.toHaveBeenCalled();
+          }
+        });
+
+        it(`heading-1 ${expectFormattingDispatch ? "dispatches" : "is blocked"} (category formatting → paragraphFormatting)`, async () => {
+          // heading-1 → setHeading takes a special code path through
+          // setWysiwygHeadingLevel rather than performWysiwygToolbarAction.
+          const { setWysiwygHeadingLevel } = await import(
+            "@/plugins/toolbarActions/wysiwygAdapter"
+          );
+
+          useTabStore.getState().createTab("main", filePath);
+
+          await mountEditorActions();
+          await waitFor(() =>
+            expect(listeners.has("menu:heading-1")).toBe(true),
+          );
+
+          vi.mocked(setWysiwygHeadingLevel).mockClear();
+          listeners.get("menu:heading-1")?.({ payload: "main" });
+
+          if (expectFormattingDispatch) {
+            expect(setWysiwygHeadingLevel).toHaveBeenCalled();
+          } else {
+            expect(setWysiwygHeadingLevel).not.toHaveBeenCalled();
+          }
+        });
+
+        it(`paragraph ${expectFormattingDispatch ? "dispatches" : "is blocked"} (category formatting → paragraphFormatting)`, async () => {
+          // paragraph → setWysiwygHeadingLevel(level=0).
+          const { setWysiwygHeadingLevel } = await import(
+            "@/plugins/toolbarActions/wysiwygAdapter"
+          );
+
+          useTabStore.getState().createTab("main", filePath);
+
+          await mountEditorActions();
+          await waitFor(() =>
+            expect(listeners.has("menu:paragraph")).toBe(true),
+          );
+
+          vi.mocked(setWysiwygHeadingLevel).mockClear();
+          listeners.get("menu:paragraph")?.({ payload: "main" });
+
+          if (expectFormattingDispatch) {
+            expect(setWysiwygHeadingLevel).toHaveBeenCalled();
+          } else {
+            expect(setWysiwygHeadingLevel).not.toHaveBeenCalled();
+          }
+        });
+
+        it(`redo ${readOnly ? "is blocked (read-only)" : "dispatches"} — edit-category bypasses menuPolicy, not read-only`, async () => {
+          useTabStore.getState().createTab("main", filePath);
+
+          await mountEditorActions();
+          await waitFor(() => expect(listeners.has("menu:redo")).toBe(true));
+
+          listeners.get("menu:redo")?.({ payload: "main" });
+
+          if (readOnly) {
+            expect(performUnifiedRedo).not.toHaveBeenCalled();
+          } else {
+            expect(performUnifiedRedo).toHaveBeenCalledWith("main");
+          }
+        });
+      },
+    );
+
+    it("structural guard: every FormatKind has a matrix fixture", () => {
+      const declared = new Set(fixtures.map((f) => f.kind));
+      // Compile-time exhaustiveness aid: enumerate every FormatKind here.
+      // Adding a new kind without a fixture flags here.
+      const all: import("@/lib/formats/types").FormatKind[] = [
+        "wysiwyg",
+        "split-pane",
+        "viewer",
+      ];
+      for (const k of all) {
+        expect(declared.has(k)).toBe(true);
+      }
+    });
+  });
+});

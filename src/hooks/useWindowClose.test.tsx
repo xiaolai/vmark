@@ -30,7 +30,7 @@ vi.mock("@/hooks/closeSave", () => ({
   promptSaveForMultipleDocuments: vi.fn(),
 }));
 
-vi.mock("@/hooks/workspaceSession", () => ({
+vi.mock("@/services/workspaces/workspaceSession", () => ({
   persistWorkspaceSession: vi.fn(() => Promise.resolve()),
 }));
 

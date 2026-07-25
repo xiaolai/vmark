@@ -10,7 +10,7 @@ vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(),
 }));
 
-vi.mock("@/hooks/useHistoryOperations", () => ({
+vi.mock("@/services/history/historyOperations", () => ({
   createSnapshot: vi.fn(),
 }));
 
@@ -81,7 +81,7 @@ vi.mock("@/i18n", () => ({
 }));
 
 import { invoke } from "@tauri-apps/api/core";
-import { createSnapshot } from "@/hooks/useHistoryOperations";
+import { createSnapshot } from "@/services/history/historyOperations";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useRecentFilesStore } from "@/stores/workspaceStore";
