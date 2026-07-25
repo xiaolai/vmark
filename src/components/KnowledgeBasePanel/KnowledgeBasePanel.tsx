@@ -60,7 +60,7 @@ export function KnowledgeBasePanel({
       {status === "stopped" && (
         <div className="kb-panel__empty">
           <p>{t("contentServer.empty")}</p>
-          <button type="button" className="kb-panel__btn" onClick={onStart}>
+          <button type="button" className="vm-btn" onClick={onStart}>
             {t("contentServer.action.start")}
           </button>
         </div>
@@ -87,7 +87,7 @@ export function KnowledgeBasePanel({
       {status === "error" && (
         <div className="kb-panel__error" role="alert">
           <p>{error}</p>
-          <button type="button" className="kb-panel__btn" onClick={onStart}>
+          <button type="button" className="vm-btn" onClick={onStart}>
             {t("contentServer.action.retry")}
           </button>
         </div>
@@ -98,7 +98,7 @@ export function KnowledgeBasePanel({
           <div className="kb-panel__toolbar">
             <button
               type="button"
-              className="kb-panel__btn"
+              className="vm-btn"
               aria-pressed={viewMode === "site"}
               onClick={() => useContentServerStore.getState().setViewMode("site")}
             >
@@ -106,23 +106,23 @@ export function KnowledgeBasePanel({
             </button>
             <button
               type="button"
-              className="kb-panel__btn"
+              className="vm-btn"
               aria-pressed={viewMode === "graph"}
               onClick={() => useContentServerStore.getState().setViewMode("graph")}
             >
               {t("contentServer.view.graph")}
             </button>
             <span className="kb-panel__spacer" />
-            <button type="button" className="kb-panel__btn" onClick={onPreviewSlides}>
+            <button type="button" className="vm-btn" onClick={onPreviewSlides}>
               {t("contentServer.slidev.preview")}
             </button>
-            <button type="button" className="kb-panel__btn" onClick={onExportSlides}>
+            <button type="button" className="vm-btn" onClick={onExportSlides}>
               {t("contentServer.slidev.export")}
             </button>
-            <button type="button" className="kb-panel__btn" onClick={onOpenInBrowser}>
+            <button type="button" className="vm-btn" onClick={onOpenInBrowser}>
               {t("contentServer.action.openInBrowser")}
             </button>
-            <button type="button" className="kb-panel__btn" onClick={onStop}>
+            <button type="button" className="vm-btn" onClick={onStop}>
               {t("contentServer.action.stop")}
             </button>
           </div>
