@@ -33,40 +33,63 @@ MCP bridge — see "AI-surface data integrity" below for that separate lane.
 | I10 | Hot-exit: unsaved edits restored after app **restart** | Crash/quit loses in-flight work | — | 🔴 manual — the single-connection harness cannot restart the app |
 | I11 | External file change detected; no silent overwrite | App overwrites an edit made outside VMark | — | 🔴 manual — file-watch scope + reload policy (may surface an in-app dialog) need live discovery |
 | I12 | Cross-tab **debounce** bleed does NOT occur | Type in A, switch to B before flush → A's content lands in B | — | 🔴 manual/irreducible — reproducing the race needs `execCommand` timing, which RAF-throttles when the window is backgrounded (documented in `e2e/README.md`) |
-| I13 | Terminal **spawns in the workspace root** | The shell silently lands in `$HOME`; every relative path — including destructive ones (`rm -rf *`) — resolves against the wrong tree | **`terminal-workspace-cwd`** (new) | ✅ automated (fresh app launch only) |
+| I13 | Terminal **spawns in the workspace root** | The shell silently lands in `$HOME`; every relative path — including destructive ones (`rm -rf *`) — resolves against the wrong tree | **`terminal-workspace-cwd`** (new) | ✅ automated · `coverageRequired` |
 | I14 | Terminal `VMARK_WORKSPACE` env matches the workspace | Shell scripts keyed to the env var operate on the wrong tree | — | 🔴 manual — macOS SIP blocks reading another process's environment (`ps eww` returns nothing), so this half of the spawn contract is unobservable from the harness |
+| I15 | A **running** shell follows a workspace **switch** | Shell keeps operating in the previous project's tree while the UI shows the new one — commands land where the user is not looking | **`terminal-workspace-cd-sync`** (new) | ✅ automated (skips only if a workspace is already open) |
 
 Legend: ✅ automated in the journey suite · 🟡 partially covered · 🔴 manual-only
 (with the reason it cannot be automated in this harness).
 
-## I13 — two traps that make a terminal journey lie
+## I13/I15 — what makes a terminal journey lie, and how these avoid it
 
-Both were hit while building `terminal-workspace-cwd`; both produce a **passing
-test that proves nothing**. Read before touching terminal E2E.
+Everything below was hit while building these journeys. Read before touching
+terminal E2E; each item produced, at some point, a **passing test that proved
+nothing**.
 
-1. **A pre-existing session makes the assertion pass through the wrong code
-   path.** VMark reaches "shell cwd == workspace root" two independent ways:
-   `spawnPty.ts` sets the CWD when a session is *created*, and
-   `terminalSessionStoreSync.ts` writes a `cd` into *already-running* sessions
-   when the root changes. A surviving shell satisfies the assertion via the
-   second path even if the first is completely broken — the journey was observed
-   passing exactly that way. The fix is the **new-pid** requirement: snapshot the
-   shell PIDs before opening the terminal and demand one that was not there
-   before. The `cd`-sync path cannot forge a new pid.
-2. **"Panel closed" does not mean "no session."** `TerminalPanel` latches xterm
+1. **The terminal cannot open without a workspace.**
+   `terminalGate.canOpenTerminal()` requires workspace mode *or* an active tab
+   with a saved file, and otherwise refuses the toggle with a toast. This is a
+   product gate, not a harness quirk: any terminal journey must establish a
+   workspace *first*, and a journey that toggles the terminal beforehand fails
+   with a bare "panel never mounted" that looks like a bug in the harness.
+
+2. **Two independent code paths produce the same observable.** VMark reaches
+   "shell cwd == workspace root" both by `spawnPty.ts` (create-time CWD) and by
+   `terminalSessionStoreSync.ts`, which writes a `cd` into *already-running*
+   sessions when the root changes. A surviving shell satisfies a naive cwd check
+   even if the other path is completely broken — I13 was observed passing that
+   way. The rule this yields: **assert an identity only the intended path can
+   produce.** I13 demands a shell PID that did not exist before (a `cd` cannot
+   forge one); I15 demands the *same* PID moved (a respawn cannot forge that).
+   The two are complements and neither can pass through the other's mechanism.
+
+3. **"Panel closed" does not mean "no session."** `TerminalPanel` latches xterm
    on first show and thereafter hides with `display: none` rather than
-   unmounting, so `.terminal-container` stays in the DOM forever and a session
-   survives every toggle. Worse, a session whose shell has *exited* still
-   suppresses auto-create and only respawns on the next keypress
-   (`terminalSessionInputWiring.ts`) — so killing a shell to "get a clean slate"
-   produces a state where opening the terminal spawns nothing at all. The journey
-   therefore skips whenever any session or shell exists, which in practice means
-   it asserts once per app launch and skips on re-runs.
+   unmounting, so `.terminal-container` is permanently present once the terminal
+   has ever been opened — presence is not a visibility signal (use the panel's
+   computed `display`). A session also survives every toggle, and one whose shell
+   has *exited* still suppresses auto-create while only respawning on the next
+   keypress (`terminalSessionInputWiring.ts`). So killing a shell to "get a clean
+   slate" yields a state where opening the terminal spawns nothing at all.
+
+   The resolution is to stop depending on ambient state: both journeys **create
+   their own session** through the tab bar's `data-terminal-action="new"` hook
+   and dispose it with `close`. That makes them repeatable on every run and
+   leaves any session the user already had untouched. Counting sessions is
+   alive-aware (`terminal-tab-dead`), because "no sessions" and "one dead
+   session" imply opposite spawn behaviour.
+
+4. **A skip looks exactly like coverage.** The suite prints `JOURNEYS PASSED`
+   with skips in the count, so an invariant marked ✅ here can silently stop
+   being asserted. A journey may now declare `coverageRequired: true`; the runner
+   fails the run if such a journey skips. I13 carries it (it has no
+   environmental reason to skip); I15 does not, because it legitimately skips
+   when a workspace is already open.
 
 Terminal output itself is **not readable from the harness**: the WebGL renderer
 paints to a canvas (no `.xterm-rows`), the helper textarea ignores
 `execCommand("insertText")`, and the PTY handle lives in a React ref. That is why
-I13 asserts against the OS process table instead of the terminal's own output.
+both journeys assert against the OS process table instead of terminal output.
 
 ## Why I10–I12 stay manual (and where they live)
 

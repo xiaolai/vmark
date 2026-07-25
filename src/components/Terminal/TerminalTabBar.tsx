@@ -97,8 +97,12 @@ export function TerminalTabBar({ onClose, onRestart, orientation = "vertical", p
           );
         })}
 
+        {/* data-terminal-action: stable automation hook (locale-independent,
+            order-independent) — see TerminalTabBar.test.tsx and the E2E terminal
+            journey. Do not rename these values. */}
         <button
           className="terminal-tab-bar-btn"
+          data-terminal-action="new"
           onClick={handleCreate}
           disabled={isMaxed}
           title={isMaxed ? t("terminal.maxSessions") : t("terminal.newSession")}
@@ -109,13 +113,13 @@ export function TerminalTabBar({ onClose, onRestart, orientation = "vertical", p
       </div>
 
       <div className="terminal-tab-bar-actions">
-        <button className="terminal-tab-bar-btn" onClick={handleSwap} title={t("terminal.swapPosition")} aria-label={t("terminal.swapPosition")}>
+        <button className="terminal-tab-bar-btn" data-terminal-action="swap" onClick={handleSwap} title={t("terminal.swapPosition")} aria-label={t("terminal.swapPosition")}>
           <SwapIcon size={12} />
         </button>
-        <button className="terminal-tab-bar-btn" onClick={onClose} title={t("terminal.closeSession")} aria-label={t("terminal.closeSession")}>
+        <button className="terminal-tab-bar-btn" data-terminal-action="close" onClick={onClose} title={t("terminal.closeSession")} aria-label={t("terminal.closeSession")}>
           <Trash2 size={12} />
         </button>
-        <button className="terminal-tab-bar-btn" onClick={onRestart} title={t("terminal.restartSession")} aria-label={t("terminal.restartSession")}>
+        <button className="terminal-tab-bar-btn" data-terminal-action="restart" onClick={onRestart} title={t("terminal.restartSession")} aria-label={t("terminal.restartSession")}>
           <RotateCcw size={12} />
         </button>
       </div>
