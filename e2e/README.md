@@ -6,7 +6,7 @@ its Tauri MCP automation bridge (`ws://127.0.0.1:9323`):
 | Harness | Command | Scope |
 |---------|---------|-------|
 | Smoke | `pnpm e2e:smoke` | Minimal happy path: connect → scratch tab → type → round-trip → screenshot → discard |
-| Journeys | `pnpm e2e:journeys` | 16 user journeys covering jsdom-unreachable flows: tabs, mode switches, formatting, undo/redo, find bar, outline, open/save-to-disk, D1-D4 round-trip, non-markdown format dispatch, workflow split-pane, and the Tier-0 data-integrity set (multi-doc save isolation, dirty-file close guard, autosave-to-disk) |
+| Journeys | `pnpm e2e:journeys` | 21 user journeys covering jsdom-unreachable flows: tabs, mode switches, formatting, undo/redo, find bar, outline, open/save-to-disk, D1-D4 round-trip, non-markdown format dispatch, workflow split-pane, terminal workspace cwd/cd-sync, and the Tier-0 data-integrity set (multi-doc save isolation, dirty-file close guard, autosave-to-disk, line-ending preservation, failed-save document preservation, external-change auto-reload) |
 
 Shared bridge client: `e2e/lib/bridge.mjs`. App-level driving/observation
 helpers: `e2e/lib/vmark.mjs`. Disk fixtures: `e2e/lib/fixtures.mjs`.
@@ -47,9 +47,43 @@ node e2e/run-journeys.mjs --only save    # name-substring filter
 | `multi-doc-save-integrity` **(Tier-0)** | Two file-backed docs edited with distinct markers and saved; Node reads BOTH from disk and asserts each holds ONLY its own marker — no cross-tab write bleed |
 | `dirty-file-close-guard` **(Tier-0)** | A dirty file tab REFUSES a non-force close (`{closed:false, reason:"DIRTY"}`, no dialog); after `menu:save` the clean tab closes on a non-force close |
 | `autosave-persists-to-disk` **(Tier-0)** | Edit a file-backed doc, then WITHOUT an explicit save, wait for the real autosave interval and read the bytes back from disk. Slowest journey; SKIPs if autosave is off or its interval is too large |
+| `line-ending-preservation` **(Tier-0)** | A CRLF document edited and saved comes back off disk still CRLF. Reads the live `lineEndingsOnSave` preference and derives the expectation from it (`preserve`/`lf`/`crlf`), so it asserts the real contract under the user's actual configuration |
+| `failed-save-preserves-document` **(Tier-0)** | A save that FAILS (parent directory made read-only) must leave the original bytes untouched AND the tab dirty — no false success. Then proves recovery: restoring writability makes the same save succeed with exact bytes |
+| `external-change-reloads-clean-doc` **(Tier-0 · I11)** | A clean document rewritten on disk by another process auto-reloads: new content present, old content gone (replace, not merge), tab still clean. The dirty branch stays manual — it raises a native dialog |
 
 The runner appends a suite-level `state-restoration` check: the tab bar must
 be byte-identical to the pre-suite snapshot.
+
+**Assertion strength.** The **explicit-save integrity** journeys
+(`save-to-disk`, `multi-doc-save-integrity`, `line-ending-preservation`,
+`failed-save-preserves-document`) compare the **whole expected buffer**, not
+`includes(marker)`. A substring oracle passes on a file that was truncated,
+half-overwritten, BOM-prefixed, line-ending-converted, or contaminated with
+another document's text — i.e. on most of the corruption modes they exist to
+catch. `autosave-persists-to-disk` still uses a substring probe (upgrading it
+needs the settings-profile work below), and the open/format-dispatch journeys
+assert surface routing rather than saved bytes.
+
+Expected buffers derive their EOL from the live `lineEndingsOnSave` preference
+via `expectedEol()` — hardcoding `\n` would fail on **correct** output whenever
+a user has chosen `crlf`.
+
+**`coverageRequired`.** A journey declares it only when *every* skip it can take
+is genuinely lost coverage — then a skip turns the run RED instead of printing
+`JOURNEYS PASSED` with the invariant unasserted. The disk journeys skip when a
+workspace is open, so **running the suite with a workspace open now fails the
+run by design**: close the workspace (or use a disposable profile) before a
+coverage-bearing run. Skips encoding valid *user state* are excluded —
+`autosave-persists-to-disk` (autosave may be off) and `terminal-workspace-cd-sync`
+(pre-existing workspace / session cap) are deliberately NOT required; see the
+matrix note.
+
+**Fixed sleeps.** Waits should be `poll()` against an observable signal. Beyond
+the 400 ms teardown settle, the suite has no fixed sleeps: `failed-save-…` polls
+for the error toast that marks an observed failure (a bare sleep could not tell
+"failed" from "not started yet"), and `external-change-…` re-writes with a fresh
+sequence marker until a reload is observed rather than guessing a
+watcher-registration delay.
 
 **Tier-0 (data integrity)** journeys guard the unrecoverable failure class —
 silently losing or corrupting a user's document. They are the ones where unit

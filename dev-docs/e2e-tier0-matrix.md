@@ -31,14 +31,25 @@ MCP bridge — see "AI-surface data integrity" below for that separate lane.
 | I8 | Non-markdown routes to the source editor (right surface) | A non-md file edited through the md WYSIWYG editor → corruption on save | `nonmd-format-dispatch` | ✅ automated |
 | I9 | Multi-tab **close-all** persists every open document | Bulk close loses docs whose flush didn't land | — | 🟡 partial — I4 proves per-file save isolation; full close-all persistence needs hot-exit (I10) |
 | I10 | Hot-exit: unsaved edits restored after app **restart** | Crash/quit loses in-flight work | — | 🔴 manual — the single-connection harness cannot restart the app |
-| I11 | External file change detected; no silent overwrite | App overwrites an edit made outside VMark | — | 🔴 manual — file-watch scope + reload policy (may surface an in-app dialog) need live discovery |
+| I11 | External file change detected; no silent overwrite | App overwrites an edit made outside VMark | **`external-change-reloads-clean-doc`** (new, clean branch) | 🟡 partial — CLEAN branch ✅ automated · `coverageRequired`; DIRTY branch stays 🔴 manual (it raises a native Tauri dialog, which this runner must not trigger). The live discovery is done: outside a workspace the watcher covers the active document's PARENT DIRECTORY (`useWindowFileWatcher.ts`), and clean docs auto-reload silently (`useExternalFileChanges.ts`) |
 | I12 | Cross-tab **debounce** bleed does NOT occur | Type in A, switch to B before flush → A's content lands in B | — | 🔴 manual/irreducible — reproducing the race needs `execCommand` timing, which RAF-throttles when the window is backgrounded (documented in `e2e/README.md`) |
 | I13 | Terminal **spawns in the workspace root** | The shell silently lands in `$HOME`; every relative path — including destructive ones (`rm -rf *`) — resolves against the wrong tree | **`terminal-workspace-cwd`** (new) | ✅ automated · `coverageRequired` |
 | I14 | Terminal `VMARK_WORKSPACE` env matches the workspace | Shell scripts keyed to the env var operate on the wrong tree | — | 🔴 manual — macOS SIP blocks reading another process's environment (`ps eww` returns nothing), so this half of the spawn contract is unobservable from the harness |
 | I15 | A **running** shell follows a workspace **switch** | Shell keeps operating in the previous project's tree while the UI shows the new one — commands land where the user is not looking | **`terminal-workspace-cd-sync`** (new) | ✅ automated (skips only if a workspace is already open) |
+| I16 | Line endings survive a save (a CRLF document stays CRLF) | Every line of a Windows-authored file changes on first save: the whole file reads as rewritten in any diff, burying the user's actual edit | **`line-ending-preservation`** (new) | ✅ automated · `coverageRequired` — **found a real product bug on its first run**: bytes were written correctly, but `buildPostSaveState` compared LF `doc.content` against the CRLF-normalized output, so a CRLF document's tab never cleared its dirty flag (permanent unsaved dot, spurious close prompt, close guard refusing an already-saved file). Fixed by comparing with `softContentEquals`; regression-guarded by `documentStore/__tests__/postSaveDirtyState.test.ts` |
+| I17 | A FAILED save preserves the document and reports honestly | The dirty dot clears on a failed write; the user closes the tab believing it saved. The edit is gone from disk AND memory — unrecoverable | **`failed-save-preserves-document`** (new) | ✅ automated · `coverageRequired` — asserts an observed failure (error toast), untouched bytes, still-dirty tab, and that recovery works. Injects an unwritable parent dir, NOT a deleted one (deletion routes to Save As, a native dialog) |
 
 Legend: ✅ automated in the journey suite · 🟡 partially covered · 🔴 manual-only
 (with the reason it cannot be automated in this harness).
+
+**`coverageRequired` and legitimate skips.** A journey carries
+`coverageRequired: true` only when every one of its skips represents genuinely
+lost coverage. Workspace-open skips qualify (the precondition is fixable — close
+the workspace). Skips that encode valid *user state* do not: I6 is not required
+because autosave may legitimately be disabled, and I15 is not required because a
+pre-existing workspace and a full terminal-session cap are safety refusals.
+Enforcing those unconditionally needs an isolated profile that pins the settings,
+not a flag that reddens a healthy run.
 
 ## I13/I15 — what makes a terminal journey lie, and how these avoid it
 
