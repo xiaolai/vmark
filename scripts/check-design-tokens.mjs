@@ -96,7 +96,14 @@ for (const file of files) {
   for (const file of globSync("src/**/*.{ts,tsx}")) {
     const content = readFileSync(file, "utf8");
     for (const m of content.matchAll(/setProperty\(\s*["'`](--[A-Za-z0-9-]+)/g)) definedVars.add(m[1]);
-    for (const m of content.matchAll(/["'`](--[A-Za-z0-9-]+)["'`]\s*[:,]/g)) definedVars.add(m[1]);
+    // Object-literal keys ONLY (`"--x": value`). A trailing COMMA must not
+    // count: `"--x",` is an ARRAY ELEMENT, i.e. a var being *read*, not
+    // defined. Accepting it made this check miss the real thing it exists to
+    // catch — src/export/themeSnapshot.ts lists "--spacing-1/2/3" among the
+    // vars it snapshots via getPropertyValue, which marked that whole family
+    // "defined" while nothing declared it. 133 padding/margin/gap rules across
+    // 13 components were silently dropped, and this gate stayed green.
+    for (const m of content.matchAll(/["'`](--[A-Za-z0-9-]+)["'`]\s*:/g)) definedVars.add(m[1]);
   }
   const useRe = /var\(\s*(--[A-Za-z0-9-]+)\s*\)/g; // no-fallback uses only
   for (const file of files) {
