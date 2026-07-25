@@ -48,8 +48,9 @@
     "mutation:ts": "stryker run",
     "test:sidecar": "pnpm --dir vmark-mcp-server test",
     "test:content-server": "pnpm --dir vmark-content-server build && pnpm --dir vmark-content-server smoke && pnpm --dir vmark-content-server test:coverage",
-    "check:all": "pnpm lint && pnpm lint:console && pnpm lint:selection-styles && pnpm lint:design-tokens && pnpm lint:emdash && pnpm lint:deps && pnpm lint:extension-budget && pnpm lint:deleted-names && pnpm lint:tauri-versions && pnpm lint:i18n && pnpm lint:themes && pnpm lint:keybinding-manifest && pnpm lint:file-size && pnpm lint:barrels && pnpm knip && pnpm test:coverage && pnpm test:sidecar && pnpm test:content-server && pnpm build && pnpm lint:eager && pnpm size",
+    "check:all": "pnpm lint && pnpm lint:console && pnpm lint:selection-styles && pnpm lint:design-tokens && pnpm lint:emdash && pnpm lint:deps && pnpm lint:extension-budget && pnpm lint:store-coupling && pnpm lint:deleted-names && pnpm lint:tauri-versions && pnpm lint:i18n && pnpm lint:themes && pnpm lint:keybinding-manifest && pnpm lint:file-size && pnpm lint:barrels && pnpm knip && pnpm test:coverage && pnpm test:sidecar && pnpm test:content-server && pnpm build && pnpm lint:eager && pnpm size",
     "lint:extension-budget": "node scripts/check-extension-budget.mjs",
+    "lint:store-coupling": "node scripts/check-plugin-store-coupling.mjs",
     "lint:deleted-names": "node scripts/check-deleted-names.mjs"
   },
   "dependencies": {

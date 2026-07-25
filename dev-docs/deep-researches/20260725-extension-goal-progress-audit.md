@@ -123,13 +123,31 @@ correctly says so rather than pretending otherwise.
   reading. Use `git show "${BASE}:path"`. One delta line in this audit was
   initially wrong for this reason before being caught and re-measured.
 
-## Recommended next slice
+## Recommended next slice — ✅ SHIPPED 2026-07-25
 
-A ratcheting gate on plugin→store imports, mirroring
-`scripts/check-extension-budget.mjs`, baselined at the current **98**. This makes
-the goal's binding constraint visible for the first time; today nothing prevents
-it from growing, and it did grow (97 → 98) across a 192-commit refactor whose
-stated purpose was decoupling.
+A ratcheting gate on plugin→store imports, baselined at the current **98**.
+This makes the goal's binding constraint visible for the first time; nothing
+prevented it from growing, and it did grow (97 → 98) across a 192-commit
+refactor whose stated purpose was decoupling.
+
+Implemented as `scripts/check-plugin-store-coupling.mjs` +
+`scripts/plugin-store-coupling-baseline.json`, wired into `check:all` as
+`lint:store-coupling`. Baseline captured at **98 coupled files across 46 units**
+— independently reproduced by the `git grep` command below, which is why the
+scanner's definition of "coupled" can be trusted.
+
+It freezes **per unit**, not as one global number, deliberately: a bare count
+lets a decoupled plugin pay for a newly-coupled one, so a net-zero swap would
+pass while nothing got closer to extractable. `findCouplingViolations` fails on
+both halves of that swap (test: *"catches a net-zero swap"*).
+
+It also fails on **improvements** (`stale`/`fixed`), forcing a win to be locked
+into the baseline rather than left as silent headroom for the next regression —
+the same discipline as `scripts/file-size-baseline.json`.
+
+Per ADR-015 D6 the gate was proven able to fail, not merely to exist: adding one
+store import to `plugins/underline/` (a currently-clean plugin) turns it red with
+`underline — is NEW to the baseline`, exit 1; removing the file returns green.
 
 ## Reproduction
 
