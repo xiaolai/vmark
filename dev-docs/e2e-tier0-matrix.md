@@ -33,9 +33,40 @@ MCP bridge — see "AI-surface data integrity" below for that separate lane.
 | I10 | Hot-exit: unsaved edits restored after app **restart** | Crash/quit loses in-flight work | — | 🔴 manual — the single-connection harness cannot restart the app |
 | I11 | External file change detected; no silent overwrite | App overwrites an edit made outside VMark | — | 🔴 manual — file-watch scope + reload policy (may surface an in-app dialog) need live discovery |
 | I12 | Cross-tab **debounce** bleed does NOT occur | Type in A, switch to B before flush → A's content lands in B | — | 🔴 manual/irreducible — reproducing the race needs `execCommand` timing, which RAF-throttles when the window is backgrounded (documented in `e2e/README.md`) |
+| I13 | Terminal **spawns in the workspace root** | The shell silently lands in `$HOME`; every relative path — including destructive ones (`rm -rf *`) — resolves against the wrong tree | **`terminal-workspace-cwd`** (new) | ✅ automated (fresh app launch only) |
+| I14 | Terminal `VMARK_WORKSPACE` env matches the workspace | Shell scripts keyed to the env var operate on the wrong tree | — | 🔴 manual — macOS SIP blocks reading another process's environment (`ps eww` returns nothing), so this half of the spawn contract is unobservable from the harness |
 
 Legend: ✅ automated in the journey suite · 🟡 partially covered · 🔴 manual-only
 (with the reason it cannot be automated in this harness).
+
+## I13 — two traps that make a terminal journey lie
+
+Both were hit while building `terminal-workspace-cwd`; both produce a **passing
+test that proves nothing**. Read before touching terminal E2E.
+
+1. **A pre-existing session makes the assertion pass through the wrong code
+   path.** VMark reaches "shell cwd == workspace root" two independent ways:
+   `spawnPty.ts` sets the CWD when a session is *created*, and
+   `terminalSessionStoreSync.ts` writes a `cd` into *already-running* sessions
+   when the root changes. A surviving shell satisfies the assertion via the
+   second path even if the first is completely broken — the journey was observed
+   passing exactly that way. The fix is the **new-pid** requirement: snapshot the
+   shell PIDs before opening the terminal and demand one that was not there
+   before. The `cd`-sync path cannot forge a new pid.
+2. **"Panel closed" does not mean "no session."** `TerminalPanel` latches xterm
+   on first show and thereafter hides with `display: none` rather than
+   unmounting, so `.terminal-container` stays in the DOM forever and a session
+   survives every toggle. Worse, a session whose shell has *exited* still
+   suppresses auto-create and only respawns on the next keypress
+   (`terminalSessionInputWiring.ts`) — so killing a shell to "get a clean slate"
+   produces a state where opening the terminal spawns nothing at all. The journey
+   therefore skips whenever any session or shell exists, which in practice means
+   it asserts once per app launch and skips on re-runs.
+
+Terminal output itself is **not readable from the harness**: the WebGL renderer
+paints to a canvas (no `.xterm-rows`), the helper textarea ignores
+`execCommand("insertText")`, and the PTY handle lives in a React ref. That is why
+I13 asserts against the OS process table instead of the terminal's own output.
 
 ## Why I10–I12 stay manual (and where they live)
 
