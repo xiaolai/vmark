@@ -2,6 +2,40 @@
 
 Standard patterns for UI components. Follow these for consistency.
 
+## Use the canonical components before writing a new class
+
+| Need | Use | Defined in |
+|---|---|---|
+| Text button (start, stop, confirm, cancel) | `.vm-btn` (+ `--primary`, `--danger`) | `src/styles/button-shared.css` |
+| Icon-only square button inside a popup | `.popup-icon-btn` (+ `--primary`, `--danger`) | `src/styles/popup-shared.css` |
+| Editor toolbar button | `.universal-toolbar-btn` | `universal-toolbar.css` |
+| Popup surface | `.popup-container` | `src/styles/popup-shared.css` |
+
+Writing a new `*-btn` class is a **gate failure** — `pnpm lint:bespoke-buttons`
+(`scripts/check-bespoke-buttons.mjs`) ratchets the bespoke count down only.
+The count exists because 88 hand-rolled button classes drifted apart: four
+implementations of one control used four paddings, three radii, two font sizes,
+and three spellings of a 1px border — including `--space-px`, a *spacing* token
+misused as a border width. Passing the token gate is not the same as matching
+the design system.
+
+## Panels: dock in-flow, don't float over the editor
+
+A full-height side panel must **displace** the editor, not occlude it. Render it
+into `EditorArea`'s `sidePanel` slot (right dock) or its `panel` slot
+(`panelPosition` top/bottom/left/right, the terminal's mechanism). A
+`position: fixed` panel hides the document underneath and never reflows — the
+Knowledge Base panel shipped that way and text simply vanished behind it.
+
+`position: fixed` is correct only for **floating cards and modals** that are
+deliberately transient and small: breakdown, window-status, quick-look, context
+menus, inline popups.
+
+New top-level surfaces are slot registrations, not edits to `App.tsx`
+(ADR-007) — enforced by `pnpm lint:shell-slots`. When it fires, bundle related
+surfaces behind one mount (see `src/components/CoherenceOverlays.tsx`) rather
+than raising the budget.
+
 ## Single Source of Truth
 
 Each component's styles must live in ONE file only. Duplicating styles across files causes cascade hazards.
