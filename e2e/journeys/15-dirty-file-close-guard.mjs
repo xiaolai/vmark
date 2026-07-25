@@ -37,6 +37,7 @@ import {
 
 export default {
   name: "dirty-file-close-guard",
+  coverageRequired: true,
 
   async run(client, ctx) {
     const root = await getPersistedWorkspaceRoot(client, ctx.windowLabel);

@@ -53,6 +53,11 @@ async function makeWorkspace() {
 
 export default {
   name: "terminal-workspace-cd-sync",
+  // NOT coverageRequired: dev-docs/e2e-tier0-matrix.md marks I13 explicitly as
+  // "✅ automated · coverageRequired" but I15 as plain "✅ automated (skips only
+  // if a workspace is already open)" — a deliberate distinction, because this
+  // journey's skips (a pre-existing user workspace, a full terminal-session
+  // cap) are safety-required rather than coverage loss.
 
   async run(client, ctx) {
     const existingRoot = await getPersistedWorkspaceRoot(client, ctx.windowLabel);

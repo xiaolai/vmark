@@ -484,3 +484,36 @@ export async function getPersistedWorkspaceRoot(client, windowLabel = "main") {
      })()`
   );
 }
+
+/**
+ * Read the persisted `lineEndingsOnSave` preference (default-safe).
+ *
+ * Every save runs the document through `resolveLineEndingOnSave` +
+ * `normalizeLineEndings` (services/persistence/saveToPath.ts), so the bytes a
+ * journey should expect on disk depend on this LIVE setting. A journey that
+ * hardcodes `\n` silently asserts the wrong thing whenever the user has chosen
+ * "crlf" — it fails on correct output. Bind the oracle to the config instead.
+ */
+export async function readLineEndingPreference(client) {
+  const raw = await evalJs(client, `localStorage.getItem("vmark-settings")`);
+  try {
+    return JSON.parse(raw)?.state?.general?.lineEndingsOnSave ?? "preserve";
+  } catch {
+    return "preserve";
+  }
+}
+
+/**
+ * The EOL a document will be saved with. Mirror of `resolveLineEndingOnSave`
+ * (src/utils/linebreaks.ts): an explicit preference wins; "preserve" keeps
+ * whatever the document was opened as.
+ *
+ * @param {"lf"|"crlf"} docEnding  the fixture's own line-ending style
+ * @param {string} preference      the live lineEndingsOnSave setting
+ * @returns {"\n"|"\r\n"}
+ */
+export function expectedEol(docEnding, preference) {
+  if (preference === "lf") return "\n";
+  if (preference === "crlf") return "\r\n";
+  return docEnding === "crlf" ? "\r\n" : "\n";
+}

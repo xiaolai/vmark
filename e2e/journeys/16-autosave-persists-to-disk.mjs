@@ -54,6 +54,14 @@ const MAX_AUTOMATED_INTERVAL_S = 40;
 
 export default {
   name: "autosave-persists-to-disk",
+  // NOT coverageRequired: this journey's skips are legitimate USER STATE, not
+  // lost coverage. It skips when autosave is disabled or its interval exceeds
+  // what an automated run can wait for — both valid configurations the harness
+  // deliberately refuses to mutate. Making them fatal would turn a healthy run
+  // red for a setting the user is entitled to choose. (The workspace-open skip
+  // it shares with the other disk journeys is a different matter, but the flag
+  // is per-journey, so the weaker constraint wins.) Enforcing I6 unconditionally
+  // needs an isolated profile with autosave pinned on — see e2e/README.md.
 
   async run(client, ctx) {
     const root = await getPersistedWorkspaceRoot(client, ctx.windowLabel);
