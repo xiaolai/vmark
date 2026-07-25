@@ -217,6 +217,7 @@ function MainLayout() {
             </FeatureErrorBoundary>
           }
           panelPosition={terminalPosition}
+          sidePanel={<KnowledgeBaseOverlay />}
         />
       }
       overlays={
@@ -228,7 +229,6 @@ function MainLayout() {
           <QuickOpen windowLabel={windowLabel} />
           <ContentSearch windowLabel={windowLabel} />
           <QuickLookOverlay />
-          <KnowledgeBaseOverlay />
           <WindowStatusOverlay />
           <CoherenceOverlays />
           <GeniePickerOverlay />
