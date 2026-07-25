@@ -168,3 +168,39 @@ integration gap invisible to unit tests.
 and for Phase 3 overall. Next step: a larger longitudinal O2 measurement
 focused on newly-introduced dependencies before reducing human review or
 enabling LLM inference.
+
+## Session 5 — 2026-07-25 (incidental, real merge)
+
+Not a metric session. Recording one operational finding hit during the
+`refactor/vmark-core` integration merge (196 commits, 539 files).
+
+**Finding F8 (design gap, not a defect):** `git merge` **aborted** with
+"untracked working tree files would be overwritten by merge" on
+`.vmark/ledger/<writer>.jsonl`. The same writer segment was *untracked* in
+the primary worktree (the live session had appended to it there) and
+*tracked* on the branch being merged (the branch's worktree had committed
+it). Both copies were byte-identical; the merge succeeded once the
+untracked copy was removed, and the segment verified intact afterwards
+(27 lines, 0 unparseable).
+
+`merge=union` cannot help here: git refuses **before** running any merge
+driver when an untracked file would be clobbered. Spike S1 finding 6
+covers the adjacent case (branch switch *deletes* a segment, writer must
+`mkdir -p` before every append) but not this one.
+
+Trigger condition is narrow but reproducible: **one logical writer
+appending in two worktrees of the same repo**, where one worktree commits
+the segment and the other does not. That is the standard
+`.claude/worktrees/*` layout, so it will recur.
+
+Candidate mitigations (none implemented — needs an owner decision):
+1. Commit the segment in the target worktree before merging (what
+   happened here, manually).
+2. Have the writer derive a per-worktree segment suffix, so two worktrees
+   of one session never contend for the same path.
+3. Accept and document — the collision is loud, safe (git refuses rather
+   than clobbers), and resolvable by deleting a file that is by
+   construction identical or unioned.
+
+Option 2 is the only one that removes the class; option 3 matches the
+current cost (one manual step, no data at risk).
