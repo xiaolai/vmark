@@ -193,14 +193,27 @@ appending in two worktrees of the same repo**, where one worktree commits
 the segment and the other does not. That is the standard
 `.claude/worktrees/*` layout, so it will recur.
 
-Candidate mitigations (none implemented — needs an owner decision):
-1. Commit the segment in the target worktree before merging (what
-   happened here, manually).
-2. Have the writer derive a per-worktree segment suffix, so two worktrees
-   of one session never contend for the same path.
-3. Accept and document — the collision is loud, safe (git refuses rather
-   than clobbers), and resolvable by deleting a file that is by
-   construction identical or unioned.
+Why it is inherent, not a defect: the writer id is **per-installation**
+(spec §2.2 — `app_data_dir/coherence-writer-id`, not per-session or
+per-workspace), and the ledger lives **inside the repo**. One installation
+working in two checkouts of one repo therefore appends to the same segment
+path in both. Any per-installation-identified, in-repo, append-only file
+has this property.
 
-Option 2 is the only one that removes the class; option 3 matches the
-current cost (one manual step, no data at risk).
+Candidate mitigations, assessed:
+1. **Commit the segment before merging** — what happened here. Zero code,
+   already the natural path since ledgers are committed by design.
+2. **Per-worktree segment suffix.** Mechanically possible: `read_all`
+   globs the directory and the writer is carried in each entry's `writer`
+   field, so the filename is not identity-bearing. But the suffix slot
+   already means *rotation counter* (`{stem}-{n:03}.jsonl`); overloading
+   it with worktree identity puts two meanings in one field, in the path
+   the audit chain depends on.
+3. **Accept and document.** The collision is loud and fail-safe — git
+   refuses rather than clobbers — and the two copies are by construction
+   either identical or unionable.
+
+**Assessment: option 3, with option 1 as the routine path.** Option 2 buys
+prevention of a merge-time speed bump at the cost of a second meaning in
+an audit-critical filename; the failure it prevents costs one `rm` of a
+provably-identical file and risks no data.
