@@ -24,6 +24,8 @@ architectural choice using the [MADR](https://adr.github.io/madr/) format.
 | [015](ADR-015-extension-model.md) | Extension model (flat peers, extension-owned conversion) | Proposed | 2026-07-22 |
 | [016](ADR-016-capability-broker-requires-isolation.md) | Capability broker requires isolation first | Accepted | 2026-07-23 |
 | [017](ADR-017-command-bus-absorbs-the-action-registry.md) | Command bus absorbs the action registry | Proposed | 2026-07-23 |
+| [018](ADR-018-keybinding-registry.md) | One binding registry, many capture adapters | Proposed | 2026-07-24 |
+| [019](ADR-019-extension-host-api.md) | Extension host API — the runtime contract | Proposed | 2026-07-25 |
 
 > **⚠️ marks ADRs the 2026-07-22 reality audit
 > (`dev-docs/audit/20260722-adr-reality-audit.md`) found no longer describe the
