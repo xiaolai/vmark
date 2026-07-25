@@ -30,6 +30,7 @@ import {
 
 export default {
   name: "nonmd-format-dispatch",
+  coverageRequired: true,
 
   async run(client, ctx) {
     const root = await getPersistedWorkspaceRoot(client, ctx.windowLabel);

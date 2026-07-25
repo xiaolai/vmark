@@ -32,6 +32,8 @@ import {
   getPersistedWorkspaceRoot,
   readLocalStorage,
   restoreLocalStorage,
+  readLineEndingPreference,
+  expectedEol,
   poll,
 } from "../lib/vmark.mjs";
 
@@ -52,6 +54,7 @@ async function editAndSave(client, ctx, fileTab, marker) {
 
 export default {
   name: "multi-doc-save-integrity",
+  coverageRequired: true,
 
   async run(client, ctx) {
     const root = await getPersistedWorkspaceRoot(client, ctx.windowLabel);
@@ -103,22 +106,38 @@ export default {
         );
         await editAndSave(client, ctx, tabB, markerB);
 
-        // Ground truth: read BOTH files from disk in this process.
+        // Ground truth: read BOTH files from disk in this process and compare
+        // each WHOLE file to its exact expected serialization.
+        //
+        // Marker inclusion/exclusion is too weak an oracle here: it proves the
+        // other document's marker is absent, but would still pass if a save
+        // truncated a file, dropped its heading, doubled its body, or converted
+        // its line endings. Exact equality subsumes the contamination check
+        // (B's marker cannot be present in a buffer that equals A's expectation)
+        // AND catches every partial-write mode alongside it.
+        // EOL comes from the live `lineEndingsOnSave` preference — hardcoding
+        // "\n" would fail on CORRECT output under a "crlf" setting.
+        const preference = await readLineEndingPreference(client);
+        const EOL = expectedEol("lf", preference);
+        const expectedA = `# Doc A${EOL}${EOL}alpha body ${fixture.stamp} ${markerA}${EOL}`;
+        const expectedB = `# Doc B${EOL}${EOL}beta body ${fixture.stamp} ${markerB}${EOL}`;
         const onDiskA = await readFile(fileA, "utf8");
         const onDiskB = await readFile(fileB, "utf8");
-        if (!onDiskA.includes(markerA)) {
-          throw new Error(`Doc A missing its marker on disk: ${JSON.stringify(onDiskA.slice(0, 200))}`);
+        if (onDiskA !== expectedA) {
+          throw new Error(
+            `Doc A bytes wrong (corruption or cross-tab write bleed, lineEndingsOnSave="${preference}").\n` +
+              `  expected: ${JSON.stringify(expectedA)}\n` +
+              `  on disk : ${JSON.stringify(onDiskA)}`
+          );
         }
-        if (onDiskA.includes(markerB)) {
-          throw new Error(`Doc A CONTAMINATED with Doc B's marker (cross-tab write bleed): ${JSON.stringify(onDiskA.slice(0, 200))}`);
+        if (onDiskB !== expectedB) {
+          throw new Error(
+            `Doc B bytes wrong (corruption or cross-tab write bleed, lineEndingsOnSave="${preference}").\n` +
+              `  expected: ${JSON.stringify(expectedB)}\n` +
+              `  on disk : ${JSON.stringify(onDiskB)}`
+          );
         }
-        if (!onDiskB.includes(markerB)) {
-          throw new Error(`Doc B missing its marker on disk: ${JSON.stringify(onDiskB.slice(0, 200))}`);
-        }
-        if (onDiskB.includes(markerA)) {
-          throw new Error(`Doc B CONTAMINATED with Doc A's marker (cross-tab write bleed): ${JSON.stringify(onDiskB.slice(0, 200))}`);
-        }
-        ctx.log(`both docs saved to their own files, no cross-tab bleed (A=${onDiskA.length}b, B=${onDiskB.length}b)`);
+        ctx.log(`both docs exact-byte verified, no cross-tab bleed (A=${onDiskA.length}b, B=${onDiskB.length}b)`);
       });
     } finally {
       await restoreLocalStorage(client, "vmark-recent-files", recentsBefore);
