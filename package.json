@@ -1,7 +1,7 @@
 {
   "name": "vmark",
   "private": true,
-  "version": "0.9.7",
+  "version": "0.9.9",
   "license": "ISC",
   "description": "The plain-text workspace where humans and AI collaborate",
   "type": "module",
@@ -151,7 +151,10 @@
   },
   "pnpm": {
     "overrides": {
-      "tar": ">=7.5.11",
+      "tar": ">=7.5.19",
+      "linkify-it": ">=5.0.2",
+      "ws": ">=8.21.0",
+      "fast-uri": ">=3.1.4",
       "@modelcontextprotocol/sdk": ">=1.27.1",
       "hono": ">=4.12.7",
       "@hono/node-server": ">=1.19.10",

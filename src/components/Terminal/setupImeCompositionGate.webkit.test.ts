@@ -73,7 +73,6 @@ describe("gate path (real WebKit) — single writer", () => {
     await userEvent.keyboard("。");
     await new Promise((r) => setTimeout(r, 20));
     // Record what actually happened, then assert single-occurrence.
-    // eslint-disable-next-line no-console
     console.log("[GATE] direct non-ASCII writes:", JSON.stringify(h.ptyWrites));
     expect(h.ptyWrites.filter((w) => w.includes("。")).join("")).toBe("。");
     expect(h.ptyWrites.join("").match(/。/g)?.length ?? 0).toBe(1);
