@@ -248,6 +248,20 @@ must have ≥1 consumer.
 4. **Multi-window.** Each document window has its own context today
    (`WindowContext`). Is an extension activated per-window or per-app, and where
    does per-window state live?
+5. **Native surfaces break D4, and the browser proves it.** D4 assumes surfaces
+   are `ReactNode`s composited by the DOM. The embedded browser's native
+   `WKWebView` is layered **above** the Tauri webview and paints over all React
+   DOM in its rect — *z-index cannot reach it* (`hooks/useBrowserOccluder.ts`).
+   So it is not a slot contribution, and its coupling is **inverted**: every
+   other overlay must know the browser exists, declare a policy in
+   `services/browser/overlayPolicies.ts`, and call the occluder — enforced by a
+   build-failing test. That is why browser has **15** external importers against
+   terminal's 3.
+   The host therefore needs a surface *kind* (`dom` vs `native`) with
+   host-mediated occlusion, generalising `overlayPolicies` inward — or the
+   browser stays core. **Unresolved.** Either way the browser is the LAST
+   migration, not the first: it is 78% Rust (9,100 of 11,703 lines), so D6's
+   non-composing half dominates it.
 
 ## Verification
 
