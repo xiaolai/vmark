@@ -48,18 +48,76 @@ export function isTerminalOpen(client) {
 }
 
 /**
- * How many terminal sessions exist (each renders one `.terminal-container`).
+ * Snapshot the session tabs: `{total, alive, dead}`.
  *
- * Counts sessions, NOT running shells: a session whose shell has exited stays in
- * the registry and only respawns on the next keypress
- * (`terminalSessionInputWiring.ts`), and the panel auto-creates a session only
- * when NONE exists. So a lingering dead session silently prevents the fresh
- * spawn that the cwd journey needs to observe.
+ * Session ≠ running shell. A session whose shell exited stays in the registry
+ * (rendered with `terminal-tab-dead`) and respawns only on the next keypress
+ * (`terminalSessionInputWiring.ts`), while still suppressing the panel's
+ * auto-create. Counting `.terminal-container` alone is alive-BLIND and cannot
+ * tell "no sessions" from "one dead session" — a distinction that decides
+ * whether opening the terminal will spawn anything at all.
  */
-export function getTerminalSessionCount(client) {
+export function getTerminalSessions(client) {
   return evalJs(
     client,
-    `(() => document.querySelectorAll(".terminal-sessions-container .terminal-container").length)()`
+    `(() => {
+       const tabs = [...document.querySelectorAll(".terminal-tab-bar-tabs .terminal-tab")];
+       const dead = tabs.filter((t) => t.classList.contains("terminal-tab-dead")).length;
+       return { total: tabs.length, alive: tabs.length - dead, dead };
+     })()`
+  );
+}
+
+/** Is the "new session" button available (i.e. below MAX_TERMINAL_SESSIONS)? */
+export function canCreateSession(client) {
+  return evalJs(
+    client,
+    `(() => {
+       const b = document.querySelector('[data-terminal-action="new"]');
+       return !!b && !b.disabled;
+     })()`
+  );
+}
+
+/** Click one of the tab-bar's stable automation hooks. */
+function clickAction(client, action) {
+  return evalJs(
+    client,
+    `(() => {
+       const b = document.querySelector('[data-terminal-action=${JSON.stringify(action)}]');
+       if (!b) return false;
+       b.click();
+       return true;
+     })()`
+  );
+}
+
+/**
+ * Create a NEW terminal session and resolve once its tab exists. Returns the
+ * session count before creation so the caller can dispose exactly what it made.
+ */
+export async function createTerminalSession(client) {
+  const before = await getTerminalSessions(client);
+  if (!(await clickAction(client, "new"))) {
+    throw new Error('no [data-terminal-action="new"] button — terminal tab bar not rendered');
+  }
+  await poll(
+    () => getTerminalSessions(client),
+    (s) => s.total === before.total + 1,
+    `terminal session count to reach ${before.total + 1}`
+  );
+  return before.total;
+}
+
+/** Close the ACTIVE terminal session and wait for its tab to disappear. */
+export async function closeActiveTerminalSession(client) {
+  const before = await getTerminalSessions(client);
+  if (before.total === 0) return;
+  await clickAction(client, "close");
+  await poll(
+    () => getTerminalSessions(client),
+    (s) => s.total === before.total - 1,
+    `terminal session count to drop to ${before.total - 1}`
   );
 }
 
