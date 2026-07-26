@@ -302,3 +302,101 @@ fn a_profile_confined_read_on_the_approved_origin_is_allowed() {
     // Same origin as approved → the ordinary sandbox auto-read applies.
     assert!(authorize_driver_op(&surface, "t", 0, "read", None, None).is_ok());
 }
+
+// WI-1.4 / WI-1.8 — `command_still_fresh`, the post-authorization re-check. It had
+// no tests at all, despite being the only thing standing between a long-running
+// capture (or a main-thread eval dispatch) and a page that navigated underneath it.
+//
+// Its contract differs from `authorize_driver_op` in one critical way: it must
+// re-verify WITHOUT consuming a one-shot or an attachment. A re-check that spent
+// consent would burn the user's "Allow once" on the *second* half of an operation
+// they already approved — and then have nothing left for the retry.
+
+#[test]
+fn a_fresh_command_is_still_fresh() {
+    let surface = enabled_surface();
+    commit_tab(&surface, "t", "https://ex.com/", AutomationMode::AiSandbox);
+    assert!(command_still_fresh(&surface, "t", 0));
+}
+
+#[test]
+fn freshness_fails_once_the_page_navigates_under_a_running_command() {
+    // The WI-1.4 scenario: `takeSnapshot` pumps the run loop for up to ten seconds;
+    // pixels captured after a navigation belong to a page the caller was never
+    // authorized against.
+    let surface = enabled_surface();
+    commit_tab(&surface, "t", "https://ex.com/", AutomationMode::AiSandbox);
+    {
+        let mut reg = surface.registry.lock().unwrap();
+        reg.begin_navigation("t", "https://evil.com/").unwrap();
+        reg.bump_generation("t").unwrap();
+        reg.set_committed_url("t", "https://evil.com/").unwrap();
+    }
+    assert!(!command_still_fresh(&surface, "t", 0));
+}
+
+#[test]
+fn freshness_fails_when_the_browser_was_disabled_mid_command() {
+    let surface = enabled_surface();
+    commit_tab(&surface, "t", "https://ex.com/", AutomationMode::AiSandbox);
+    surface.ai_policy.lock().unwrap().enabled = false;
+    assert!(!command_still_fresh(&surface, "t", 0));
+}
+
+#[test]
+fn freshness_fails_for_an_unknown_or_destroyed_tab() {
+    let surface = enabled_surface();
+    assert!(!command_still_fresh(&surface, "ghost", 0));
+    commit_tab(&surface, "t", "https://ex.com/", AutomationMode::AiSandbox);
+    surface.forget_tab("t").unwrap();
+    assert!(!command_still_fresh(&surface, "t", 0));
+}
+
+#[test]
+fn an_ai_tab_goes_stale_when_the_policy_epoch_moves() {
+    // Posture changed under the command (sandbox↔shared, or the feature toggled):
+    // the authority it was granted under no longer exists.
+    let surface = enabled_surface();
+    commit_tab(&surface, "t", "https://ex.com/", AutomationMode::AiSandbox);
+    surface.ai_policy.lock().unwrap().epoch = 1;
+    assert!(!command_still_fresh(&surface, "t", 0));
+}
+
+#[test]
+fn a_human_tab_is_not_subject_to_the_policy_epoch() {
+    // Human tabs are not AI-posture-bound; only the AI lanes carry the epoch.
+    let surface = enabled_surface();
+    commit_tab(&surface, "h", "https://ex.com/", AutomationMode::Human);
+    surface.ai_policy.lock().unwrap().epoch = 7;
+    assert!(command_still_fresh(&surface, "h", 0));
+}
+
+#[test]
+fn the_freshness_recheck_consumes_neither_one_shot_nor_attachment() {
+    // The invariant that makes it safe to call twice per command.
+    let surface = enabled_surface();
+    commit_tab(&surface, "h", "https://ex.com/", AutomationMode::Human);
+    surface.attach_tab("h".into(), 0, true).unwrap(); // single-use
+    surface.one_shots.lock().unwrap().push(OneShot {
+        tab_id: "h".into(),
+        generation: 0,
+        origin_pattern: "https://ex.com".into(),
+        operation: "click".into(),
+        target: None,
+        payload_hash: None,
+    });
+
+    for _ in 0..5 {
+        assert!(command_still_fresh(&surface, "h", 0));
+    }
+
+    assert!(
+        surface.is_tab_attached("h", 0),
+        "a single-use attachment must survive repeated freshness checks"
+    );
+    assert_eq!(
+        surface.one_shots.lock().unwrap().len(),
+        1,
+        "a one-shot must survive repeated freshness checks"
+    );
+}

@@ -3,6 +3,7 @@
 //! struct + command-facing re-exports) to stay under the file-size limit.
 //! Included via `#[path]` from surface.rs; `super::` refers to that module.
 
+use crate::browser::surface::BrowserSurface;
 use objc2::rc::Retained;
 use objc2::runtime::AnyObject;
 use objc2::MainThreadMarker;
@@ -13,7 +14,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::mpsc;
 use std::time::Duration;
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 
 #[path = "nav_delegate_macos.rs"]
 mod nav_delegate;
@@ -201,8 +202,41 @@ fn eval_js(
 /// return its string result. The agent shares the page DOM (reads work) but
 /// is isolated from the page's own JS — the page can neither observe nor
 /// tamper with the agent. This is the driver's read/act primitive (WI-2.1).
-pub fn eval(app: &AppHandle, tab_id: String, script: String) -> Result<String, String> {
+/// Evaluate `script` in the driver's isolated world, re-verifying `expected_generation`
+/// **inside the main-thread closure** (WI-2.1/2.2).
+///
+/// The command thread already authorized and re-checked freshness, but there is a real
+/// window between that check and this closure actually running: `run_on_main_thread`
+/// enqueues, and the main thread may service a navigation first. An eval side effect
+/// cannot be undone by a post-check, so the last word has to be here — in the same
+/// main-thread turn as the dispatch, where nothing can interleave.
+///
+/// **Lock discipline (WI-2.2): no lock may be held across run-loop pumping.**
+/// `eval_js` pumps the main run loop while it waits for `callAsyncJavaScript`'s
+/// completion handler, and WebKit callbacks re-enter on this same thread and take the
+/// registry lock themselves (the nav delegate does exactly that). Holding the registry
+/// — or any `BrowserSurface` guard — across `eval_js` would deadlock immediately.
+/// `command_still_fresh` acquires and releases internally, so the guards are all gone
+/// before the dispatch below; keep it that way.
+pub fn eval(
+    app: &AppHandle,
+    tab_id: String,
+    script: String,
+    expected_generation: u64,
+) -> Result<String, String> {
+    let app_for_closure = app.clone();
     on_main(app, move |mtm| {
+        // Re-verify against live state, not a snapshot: a snapshot taken on the command
+        // thread is precisely what could not detect a navigation that landed since.
+        let state = app_for_closure
+            .try_state::<BrowserSurface>()
+            .ok_or_else(|| "browser state unavailable".to_string())?;
+        if !crate::browser::authorize::command_still_fresh(&state, &tab_id, expected_generation) {
+            return Err(format!(
+                "stale command: tab '{tab_id}' navigated or closed before the script could run"
+            ));
+        }
+        // Guards released by the call above. From here on, nothing is held.
         let webview = WEBVIEWS
             .with(|m| m.borrow().get(&tab_id).cloned())
             .ok_or_else(|| format!("no webview: {tab_id}"))?;

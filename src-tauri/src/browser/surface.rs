@@ -245,7 +245,12 @@ mod stub {
     pub fn assert_no_bridge(_a: &AppHandle, _t: String) -> Result<String, String> {
         Err(MSG.into())
     }
-    pub fn eval(_a: &AppHandle, _t: String, _s: String) -> Result<String, String> {
+    pub fn eval(
+        _a: &AppHandle,
+        _t: String,
+        _s: String,
+        _expected_generation: u64,
+    ) -> Result<String, String> {
         Err(MSG.into())
     }
     pub fn screenshot(_a: &AppHandle, _t: String) -> Result<String, String> {
