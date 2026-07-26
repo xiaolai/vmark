@@ -7,8 +7,6 @@
  * colliding initials) are unit-tested directly.
  */
 
-/** Longest glyph we will render — a 30px rail cannot show more legibly. */
-const MAX_GLYPH_LENGTH = 3;
 /** Shown when a name yields no usable character at all (e.g. "", "...", "   "). */
 const FALLBACK_GLYPH = "?";
 
@@ -24,11 +22,6 @@ const segmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" });
 
 function graphemes(value: string): string[] {
   return [...segmenter.segment(value)].map((s) => s.segment);
-}
-
-/** Grapheme count — what the user sees, unlike `String.length`. */
-export function workspaceRailGlyphLength(glyph: string): number {
-  return graphemes(glyph).length;
 }
 
 /**
@@ -59,22 +52,16 @@ function glyphSource(name: string): string[] {
  * identifier — was hidden in a `title` tooltip. These glyphs put identity in
  * the same 30px (the Slack / VS Code-profile pattern).
  *
- * Each glyph is the shortest prefix unique **among the workspaces it actually
- * collides with**: `alpha`/`apex`/`zulu` yields "AL"/"AP"/"Z", not
- * "AL"/"AP"/"ZU". An earlier version grew every glyph whenever any pair
- * collided, needlessly lengthening names that were already unambiguous — and a
- * longer glyph is less legible in a 30px rail.
+ * **Exactly one grapheme, always.** An earlier version grew colliding glyphs to
+ * the shortest unique prefix (`alpha`/`apex` → "AL"/"AP"). That was the wrong
+ * trade: a 30px rail has to shrink a 2- or 3-character glyph to fit, so every
+ * collision made the *colliding* entries harder to read in order to buy a
+ * uniqueness the rail never needed. Identity is already carried three other
+ * ways — the accent colour, the tooltip, and the accessible name — and each of
+ * those has the full workspace name, not an abbreviation of it. So colliding
+ * names simply share a letter, exactly as they do in Slack and VS Code profiles.
  *
- * KNOWN LIMIT: when names still collide at MAX_GLYPH_LENGTH — a strict prefix
- * (`app`/`apple`), a long shared prefix (`abcx`/`abcy`), or two identical names
- * — the colliding entries keep the same glyph. Forcing uniqueness would need a
- * suffix that neither fits nor reads in 30px. Those entries stay
- * distinguishable by their accent colour, their tooltip and their accessible
- * name, each of which carries the full workspace name.
- *
- * Loose instances get NO glyph: they are not workspaces and keep their own
- * icon, so they are also excluded from collision handling (a workspace named
- * "lima" must not be pushed to "LI" by "Loose Files").
+ * Loose instances get NO glyph: they are not workspaces and keep their own icon.
  */
 export function workspaceRailGlyphs(
   instances: Array<{
@@ -83,45 +70,11 @@ export function workspaceRailGlyphs(
     kind: string;
   }>
 ): Record<string, string> {
-  const workspaces = instances.filter((i) => i.kind !== "loose");
-  const sources = new Map(
-    workspaces.map((i) => [i.workspaceInstanceId, glyphSource(i.displayName)])
-  );
-
-  const glyphAt = (id: string, length: number): string => {
-    const src = sources.get(id) ?? [];
-    return src.length === 0 ? FALLBACK_GLYPH : src.slice(0, length).join("");
-  };
-
   const result: Record<string, string> = {};
-  // Start everyone at one grapheme, then extend ONLY the ids still sharing a
-  // glyph. Ids that became unique are settled and never grow again.
-  let pending = workspaces.map((i) => i.workspaceInstanceId);
-  for (let length = 1; length <= MAX_GLYPH_LENGTH && pending.length > 0; length++) {
-    const byGlyph = new Map<string, string[]>();
-    for (const id of pending) {
-      const glyph = glyphAt(id, length);
-      const bucket = byGlyph.get(glyph);
-      if (bucket) bucket.push(id);
-      else byGlyph.set(glyph, [id]);
-    }
-
-    const stillColliding: string[] = [];
-    for (const [glyph, ids] of byGlyph) {
-      // Settle when unique, or when no member has anything longer left to
-      // disambiguate with (a strict prefix cannot grow past its own length).
-      const canGrow = ids.some((id) => (sources.get(id)?.length ?? 0) > length);
-      if (ids.length === 1 || !canGrow) {
-        for (const id of ids) result[id] = glyph;
-      } else {
-        stillColliding.push(...ids);
-      }
-    }
-    pending = stillColliding;
+  for (const instance of instances) {
+    if (instance.kind === "loose") continue;
+    const [first] = glyphSource(instance.displayName);
+    result[instance.workspaceInstanceId] = first ?? FALLBACK_GLYPH;
   }
-
-  // Reached the cap while still colliding — accept the shared glyph (KNOWN LIMIT).
-  for (const id of pending) result[id] = glyphAt(id, MAX_GLYPH_LENGTH);
-
   return result;
 }

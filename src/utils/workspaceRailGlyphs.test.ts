@@ -2,7 +2,7 @@
  * Unit tests for workspace rail identity glyphs.
  */
 import { describe, it, expect } from "vitest";
-import { workspaceRailGlyphs, workspaceRailGlyphLength } from "./workspaceRailGlyphs";
+import { workspaceRailGlyphs } from "./workspaceRailGlyphs";
 
 describe("workspaceRailGlyphs", () => {
   /** Terse builder: the glyph logic only needs id + display name. */
@@ -24,26 +24,23 @@ describe("workspaceRailGlyphs", () => {
     expect(reordered).toEqual({ a: "A", b: "B" });
   });
 
-  it("extends to the shortest UNIQUE prefix when initials collide", () => {
+  it("uses ONE grapheme even when initials collide", () => {
+    // The rail is 30px. A second or third character makes the glyph smaller and
+    // harder to read to buy uniqueness the rail does not actually need — colour,
+    // tooltip and accessible name each already carry the full workspace name.
     expect(workspaceRailGlyphs([inst("a", "alpha"), inst("b", "apex")])).toEqual({
-      a: "AL",
-      b: "AP",
+      a: "A",
+      b: "A",
     });
   });
 
-  it("extends only the COLLIDING entries, not every entry", () => {
-    // `zulu` is already unique at one character; a collision between two OTHER
-    // workspaces must not lengthen it. Growing all glyphs together produced
-    // "ZU" here, which is longer than it needs to be and less legible at 30px.
+  it("never lengthens a glyph to disambiguate, at any collision depth", () => {
     expect(
       workspaceRailGlyphs([inst("z", "zulu"), inst("a", "alpha"), inst("b", "apex")]),
-    ).toEqual({ z: "Z", a: "AL", b: "AP" });
-  });
-
-  it("extends further when two characters still collide", () => {
+    ).toEqual({ z: "Z", a: "A", b: "A" });
     expect(workspaceRailGlyphs([inst("a", "abcx"), inst("b", "abcy")])).toEqual({
-      a: "ABC",
-      b: "ABC",
+      a: "A",
+      b: "A",
     });
   });
 
@@ -85,15 +82,6 @@ describe("workspaceRailGlyphs", () => {
     // assertion that catches it — an earlier `includes("�")` check was
     // vacuous, since a lone surrogate is not literally U+FFFD in a JS string.
     expect(workspaceRailGlyphs([inst("a", "🚀rocket")]).a).toBe("🚀");
-  });
-
-  it("reports the GRAPHEME count, so styling can size multi-code-point glyphs", () => {
-    // `"🚀".length` is 2 and a family emoji's is 11; using string length to pick
-    // a font size disagrees with what is actually displayed.
-    expect(workspaceRailGlyphLength("🚀")).toBe(1);
-    expect(workspaceRailGlyphLength("👨‍👩‍👧")).toBe(1);
-    expect(workspaceRailGlyphLength("AL")).toBe(2);
-    expect(workspaceRailGlyphLength("ABC")).toBe(3);
   });
 
   it("skips leading punctuation so dotfile-style roots stay meaningful", () => {
