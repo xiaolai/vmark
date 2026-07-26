@@ -88,7 +88,12 @@ export default {
           () => browserSurfaceCount(client),
           (n) => n === 0,
           "no browser surfaces left over from a previous journey",
-          { timeoutMs: 10000 }
+          // 20s, not 10: native view disposal after a heavy AI-lane journey has
+          // been observed taking longer than the shorter budget allowed, which
+          // showed up as an INTERMITTENT failure here — passing in isolation and
+          // failing in sequence. A too-tight teardown budget is indistinguishable
+          // from a real leak in the report, so give it room.
+          { timeoutMs: 20000 }
         );
 
         await openBrowserTabViaCommand(client);
