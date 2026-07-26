@@ -79,41 +79,61 @@ export async function withBrowserEnabled(client, opts, fn) {
     aiSession: before.aiSession ?? "sandbox",
     aiAllowLoopback: before.aiAllowLoopback ?? false,
   };
+  // Native tabs that existed BEFORE this journey. Anything not in this set at
+  // teardown was created by the journey and is ours to dispose — see the finally.
+  const preexistingNativeTabs = await nativeBrowserTabIds(client).catch(() => null);
   await patchBrowserSettings(client, {
     enabled: true,
     ...(opts?.allowLoopback === undefined ? {} : { aiAllowLoopback: opts.allowLoopback }),
     ...(opts?.aiSession === undefined ? {} : { aiSession: opts.aiSession }),
   });
+  let failed = false;
   try {
     return await fn();
+  } catch (error) {
+    failed = true;
+    throw error;
   } finally {
     // Restore the EXACT prior values — not "false". The user may legitimately have
     // had the feature on, and a journey must not turn it off behind them.
     await patchBrowserSettings(client, snapshot).catch(() => {});
 
-    // ...and WAIT for the disposal to finish. Turning the feature off disposes AI
-    // tabs and their native views ASYNCHRONOUSLY; returning before that completes
-    // leaves the next journey to compute its surface baseline while views are
-    // still being torn down underneath it. That is a genuine ordering bug and it
-    // showed up exactly that way: `browser-tab-lifecycle` passed alone and failed
-    // in sequence. A journey suite that only works in isolation is not a suite.
+    // Dispose the tabs THIS journey created, by identity, regardless of whether the
+    // feature ended up on or off.
     //
-    // KNOWN GAP [audit]: when the feature was ALREADY enabled before the journey,
-    // restoring the snapshot does not disable it, so nothing disposes the tabs the
-    // journey created — they leak into the next one. On this machine the feature
-    // is off by default so the path is not exercised, but a developer who has it
-    // on would see cross-journey interference. The real fix is to close
-    // journey-created tabs by ID rather than relying on the feature toggle as a
-    // teardown mechanism.
-    if (snapshot.enabled !== true) {
-      await poll(
-        () => browserSurfaceCount(client),
-        (n) => n === 0,
-        "browser surfaces disposed after the feature was turned back off",
-        { timeoutMs: 10000 },
-      ).catch(() => {
-        /* best-effort: never mask the journey's own failure with a teardown one */
-      });
+    // Relying on the toggle was a real gap: when the browser was ALREADY enabled,
+    // restoring the snapshot does not disable it, so nothing disposed the journey's
+    // tabs and they leaked into the next one. That path is invisible on a machine
+    // where the feature is off by default — which is exactly why it survived. The
+    // fix is to own what we created rather than to lean on a side effect of the
+    // toggle.
+    if (preexistingNativeTabs) {
+      const leaked = (await nativeBrowserTabIds(client).catch(() => [])).filter(
+        (id) => !preexistingNativeTabs.includes(id)
+      );
+      for (const id of leaked) {
+        await invokeBrowserCommand(client, "browser_destroy", id).catch(() => {});
+      }
+    }
+
+    // Then wait for disposal to actually COMPLETE. It is asynchronous, and
+    // returning early leaves the next journey computing its baseline while views
+    // are still being torn down underneath it — `browser-tab-lifecycle` passed
+    // alone and failed in sequence for exactly that reason. A suite that only
+    // works in isolation is not a suite.
+    const teardownErrors = [];
+    await poll(
+      () => nativeBrowserTabIds(client).then((ids) => ids.length),
+      (n) => n === (preexistingNativeTabs?.length ?? 0),
+      "native browser views disposed",
+      { timeoutMs: 20000 },
+    ).catch((e) => teardownErrors.push(String(e?.message ?? e)));
+
+    // Surface teardown failures instead of swallowing them. A journey that leaves
+    // the app dirty is not a pass — but never mask the journey's OWN error, which
+    // is the more informative one, so only throw when it succeeded.
+    if (teardownErrors.length && !failed) {
+      throw new Error(`journey passed but teardown failed: ${teardownErrors.join("; ")}`);
     }
   }
 }
@@ -245,4 +265,58 @@ export async function browserTabIds(client) {
   } catch {
     return [];
   }
+}
+
+/**
+ * Does the tab's native webview occlude a point in the window? (B14 oracle)
+ *
+ * Asks the app's debug `hitTest:` probe. This is deliberately NOT a read-back of
+ * the flag `browser_freeze` sets — `setHidden(true)` then `isHidden() === true`
+ * is a tautology and would be an assertion that cannot fail. `hitTest:` walks the
+ * real AppKit hierarchy and skips hidden views, which is the same visibility rule
+ * the compositor applies, so it answers through an independent path.
+ *
+ * Coordinates are FRACTIONS of the content view, so the caller needs no knowledge
+ * of window size or backing scale.
+ */
+export async function nativeOccludesPoint(client, tabId, fx = 0.5, fy = 0.55) {
+  const raw = await evalJs(
+    client,
+    `(async () => {
+       try {
+         const el = document.querySelector('.browser-surface, [data-browser-surface]')
+                 || document.documentElement;
+         const r = el.getBoundingClientRect();
+         // AppKit content-view coordinates are bottom-left origin; the DOM is
+         // top-left, so flip Y against the window's inner height.
+         const px = r.left + r.width * ${fx};
+         const domY = r.top + r.height * ${fy};
+         const py = window.innerHeight - domY;
+         const res = await window.__TAURI__.core.invoke('browser_debug_hit_test', {
+           tabId: ${JSON.stringify(tabId)},
+           windowLabel: 'main',
+           x: px, y: py,
+         });
+         return JSON.stringify(res);
+       } catch (e) { return "ERR " + (e && e.message ? e.message : String(e)); }
+     })()`
+  );
+  if (typeof raw === "string" && raw.startsWith("ERR ")) {
+    throw new Error(`browser_debug_hit_test unavailable (${raw}) — needs a DEBUG build`);
+  }
+  return JSON.parse(raw);
+}
+
+/** Invoke a Tauri browser command for a tab id. */
+export async function invokeBrowserCommand(client, command, tabId) {
+  const r = await evalJs(
+    client,
+    `(async () => {
+       try {
+         await window.__TAURI__.core.invoke(${JSON.stringify(command)}, { tabId: ${JSON.stringify(tabId)} });
+         return "OK";
+       } catch (e) { return "ERR " + (e && e.message ? e.message : String(e)); }
+     })()`
+  );
+  if (r !== "OK") throw new Error(`${command} failed: ${r}`);
 }
