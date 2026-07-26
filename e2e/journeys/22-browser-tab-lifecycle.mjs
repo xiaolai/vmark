@@ -40,6 +40,7 @@ import {
   openBrowserTabViaCommand,
   browserSurfaceCount,
   nativeBrowserTabIds,
+  attachedWebviewCount,
 } from "../lib/browser.mjs";
 import { startFixtureServer } from "../lib/fixtureServer.mjs";
 
@@ -98,6 +99,7 @@ export default {
         );
 
         const nativeBefore = await nativeBrowserTabIds(client);
+        const attachedBefore = await attachedWebviewCount(client);
 
         await openBrowserTabViaCommand(client);
         await poll(
@@ -158,10 +160,19 @@ export default {
         const closed = await closeActiveBrowserPage(client);
         if (closed !== "CLICKED") throw new Error(`could not close the browser page: ${closed}`);
 
-        // THE REAL ORACLE (B11). The DOM surface going away proves only that React
-        // unmounted; the sibling WKWebView could still be alive, loading, and
-        // holding a session. `browser_debug_native_tab_ids` reads the app's own
-        // native map, so a leak is observable instead of invisible.
+        // THE REAL ORACLE (B11) — the ATTACHED count, not the bookkeeping map.
+        // Teardown empties the map BEFORE calling removeFromSuperview(), so a
+        // map-based assertion stays green while AppKit still retains and DISPLAYS
+        // the webview. That is precisely the leak `surface_lifecycle_macos.rs`
+        // warns about ("map but never removed from its superview: a live page,
+        // invisible to us"), and an audit caught this journey being blind to it.
+        await poll(
+          () => attachedWebviewCount(client),
+          (n) => n === attachedBefore,
+          "native webview DETACHED from the window hierarchy",
+          { timeoutMs: 15000 }
+        );
+        // The map must also be clean — a stale entry is its own (lesser) bug.
         await poll(
           () => nativeBrowserTabIds(client),
           (ids) => ids.length === nativeBefore.length,
