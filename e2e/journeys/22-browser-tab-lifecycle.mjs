@@ -80,7 +80,16 @@ export default {
     const fx = await startFixtureServer();
     try {
       await withBrowserEnabled(client, { allowLoopback: true }, async () => {
-        const surfacesBefore = await browserSurfaceCount(client);
+        // Establish a QUIESCENT baseline rather than assuming one. A previous
+        // journey's AI tab may still be disposing when this starts, and a
+        // baseline captured mid-teardown drifts underneath the assertions —
+        // which is exactly how this journey passed alone and failed in sequence.
+        const surfacesBefore = await poll(
+          () => browserSurfaceCount(client),
+          (n) => n === 0,
+          "no browser surfaces left over from a previous journey",
+          { timeoutMs: 10000 }
+        );
 
         await openBrowserTabViaCommand(client);
         await poll(

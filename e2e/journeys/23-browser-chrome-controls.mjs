@@ -90,7 +90,13 @@ export default {
     const fx = await startFixtureServer();
     try {
       await withBrowserEnabled(client, { allowLoopback: true }, async () => {
-        const before = await browserSurfaceCount(client);
+        // Quiescent baseline — see the note in 22-browser-tab-lifecycle.
+        const before = await poll(
+          () => browserSurfaceCount(client),
+          (n) => n === 0,
+          "no browser surfaces left over from a previous journey",
+          { timeoutMs: 10000 }
+        );
         await openBrowserTabViaCommand(client);
         await poll(() => browserSurfaceCount(client), (n) => n > before, "browser surface", {
           timeoutMs: 10000,

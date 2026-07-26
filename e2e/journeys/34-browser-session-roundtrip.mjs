@@ -18,17 +18,19 @@
  * So the sequence is: seed → save → **CLEAR AND PROVE ABSENT** → load → prove
  * present. The clear step is what makes the final assertion meaningful.
  *
- * KNOWN LIMIT — read this before trusting the row. This journey proves that save
- * succeeds without leaking values, that the storage really was CLEARED (asserted,
- * not assumed), and that `session_load` is per-call approved and succeeds. It does
- * NOT yet prove the values came back: the fixture's `/session` page re-seeds its
- * own state on load, so its marker would read "seeded" whether the restore ran or
- * not — the same class of false oracle this journey was written to avoid, just one
- * step later. Closing it needs a read-only fixture endpoint that reports storage
- * WITHOUT writing it. Until then this row is 🟡 partial in the matrix, deliberately.
+ * TWO ORACLES, BOTH READ-ONLY. `/session` seeds on load, so it can never
+ * distinguish "restored" from "re-seeded" — asserting on it after the load would
+ * be the same false-oracle class, one step later. `/session-read` writes nothing
+ * and only REPORTS what storage holds, so:
  *
- * SEEN TO FAIL: skipping the clear step makes "cleared and proven absent" go red,
- * which is what stops the naive save→navigate→load shape from passing vacuously.
+ *   after clear → `ls=none;cookie=none`   (absence proven, not assumed)
+ *   after load  → the seeded values back  (presence can only mean the restore ran)
+ *
+ * SEEN TO FAIL — two ways, both observed: skipping the clear makes the absence
+ * assertion red (so the naive save→navigate→load shape cannot pass vacuously),
+ * and skipping the `session_load` call leaves `ls=none` and the final assertion
+ * goes red — which is precisely what the earlier version of this journey could
+ * not detect.
  *
  * Safety: uses a journey-unique handle so it cannot collide with, or overwrite, a
  * real saved session; local fixture only; AI tab disposed by restoring
@@ -74,6 +76,18 @@ export default {
       return retry;
     }
 
+    /** Navigate to the READ-ONLY report page and return its marker. */
+    async function gotoRead() {
+      const nav = await mcp.callTool("browser", {
+        action: "navigate",
+        url: fx.url("/session-read"),
+      });
+      if (nav.isError && !/supersed/i.test(nav.text)) {
+        throw new Error(`read navigation failed: ${nav.text.slice(0, 200)}`);
+      }
+      return marker();
+    }
+
     /** Read the fixture page's own marker, which reports what storage holds. */
     async function marker() {
       const read = await mcp.callTool("browser", { action: "query", selector: "#marker" });
@@ -115,14 +129,24 @@ export default {
         }
         ctx.log(`cleared and PROVEN absent: ${cleared}`);
 
-        // 4. Back to the origin, then restore.
-        const back = await mcp.callTool("browser", { action: "navigate", url: fx.url("/session") });
-        if (back.isError && !/supersed/i.test(back.text)) {
-          throw new Error(`return navigation failed: ${back.text.slice(0, 200)}`);
+        // 4. Same origin, READ-ONLY page. Confirms the clear really emptied the
+        //    store (the clear page writes, so it is not its own witness).
+        const readBefore = await gotoRead();
+        if (!readBefore.includes("ls=none") || !readBefore.includes("cookie=none")) {
+          throw new Error(`storage was not empty before the restore: ${readBefore}`);
         }
+
+        // 5. Restore, then read again on the SAME read-only page.
         await approvedSession("session_load");
-        ctx.log("restored");
         await drainPendingApprovals(client);
+
+        const readAfter = await gotoRead();
+        if (!readAfter.includes("ls=seeded")) {
+          throw new Error(
+            `session_load succeeded but localStorage was NOT restored: ${readAfter}`
+          );
+        }
+        ctx.log(`restored and verified: ${readAfter}`);
       });
     } finally {
       await mcp.close();
