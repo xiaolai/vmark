@@ -4,6 +4,10 @@
 landed, both verified falsifiable; see `dev-docs/e2e-browser-matrix.md` for the honest
 per-invariant status and the one unresolved blocker.**
 **Reviewed by Codex 2026-07-26 (thread `019f9d66-1194-7d13-994d-78a8bbd533ee`); corrections applied.**
+**WI linkage (rule 60 §2):** `bash scripts/check-wi-linkage.sh dev-docs/plans/20260726-browser-hardening-and-e2e.md`.
+WI-0.5 (macOS-only disclosure in the MCP tool description) and WI-6.3 (the
+local-gate decision) were implemented but initially shipped unlinked — a self-audit
+caught it; both are now carried in test headers.
 **Gates:** `bash scripts/check-browser-e2e-phase.sh <0..6>` (named to avoid colliding
 with `check-browser-phase.sh`, which gates the earlier 20260712 plan).
 **Scope:** the embedded browser (`src-tauri/src/browser/**`, `src/components/Browser/**`,
@@ -294,7 +298,7 @@ Tauri lane); rows in `e2e-browser-matrix.md`; `pnpm e2e:journeys` green on macOS
 | WI-6.1 | Create `dev-docs/e2e-browser-matrix.md` — UI, native security, and MCP automation invariants. **Do not add browser rows to `e2e-tier0-matrix.md`**, whose contract is document-corruption only and which already declares AI surfaces a separate lane (line 127). This plan builds that lane. |
 | WI-6.2 | Mark automated rows in `e2e-checklist.md`; list the still-manual ones **as still manual** rather than implying coverage. |
 | WI-6.3 | **Decide: local pre-release gate.** E2E needs a headed app and a human-launched `pnpm tauri:dev` (SIP). Absent a headed self-hosted runner, CI cannot run it. Record it as a release-checklist step, not an aspirational CI job. |
-| WI-6.4 | Automate the remaining high-value manual checklist rows: sandbox/human store isolation, ticket supersession + buffering, disabling an already-running browser, human-attachment expiry. |
+| WI-6.4 | DEFERRED — automate the remaining high-value manual rows (sandbox/human store isolation, ticket supersession + buffering, disabling an already-running browser, human-attachment expiry). **Every one needs a human browser tab**, which the harness cannot create (see the matrix's UI-lane diagnosis), so this is blocked on the same gap as Phase 4, not merely unstarted. |
 
 ---
 

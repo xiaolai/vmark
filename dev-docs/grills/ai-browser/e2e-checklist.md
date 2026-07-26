@@ -4,11 +4,19 @@ This checklist is the manual/native gate for the parts unit tests cannot prove. 
 against a packaged macOS build with the app's debug bridge enabled. Use the Tauri MCP
 driver on port `9323`; do not use Chrome DevTools MCP.
 
+> **Automation status (WI-6.2).** Some rows below are now covered by
+> `pnpm e2e:journeys` and are marked **[AUTOMATED]** with their journey. Everything
+> unmarked is **still manual** — the absence of a mark means no journey asserts it,
+> not that it is unimportant. Per-invariant detail lives in
+> `dev-docs/e2e-browser-matrix.md`. Do not delete an automated row: running it by
+> hand is still the only check on a *packaged* build, which the harness never uses.
+
 ## Session and feature gate
 
 1. Start a Tauri driver session with `tauri_driver_session` using `port: 9323`.
-2. Confirm `browser.enabled` is off. Send each of `read`, `act`, `open`, `navigate`, and
-   `wait`; each returns `BROWSER_DISABLED` and no browser view appears.
+2. **[AUTOMATED — `browser-disabled-refuses`]** Confirm `browser.enabled` is off. Send
+   each of `read`, `act`, `open`, `navigate`, and `wait`; each returns
+   `BROWSER_DISABLED` and no browser view appears.
 3. Enable the browser, create one human tab, and verify it is visible in
    `session.get_state` as `automationMode: human`.
 
@@ -25,12 +33,14 @@ driver on port `9323`; do not use Chrome DevTools MCP.
 
 ## Navigation and tickets
 
-1. Open a public fixture URL and record its `navigationId` from the result.
+1. **[PARTLY AUTOMATED — `browser-open-read-act` covers open + read + act-with-approval]**
+   Open a public fixture URL and record its `navigationId` from the result.
 2. Call `wait` with that ticket after load; it returns the buffered terminal result.
 3. Start two navigations quickly. The first waiter returns `NAVIGATION_SUPERSEDED`, and
    only the second ticket can return success.
 4. Exercise a failing URL and a timeout. Neither result claims `loading: false` success.
-5. Try loopback, private-LAN, metadata, alternate-IPv4, userinfo, and unsupported-scheme
+5. **[AUTOMATED — `browser-ssrf-policy`, 16 destinations + positive control]** Try
+   loopback, private-LAN, metadata, alternate-IPv4, userinfo, and unsupported-scheme
    fixtures. Each is rejected before a request starts.
 
 ## Shared and human approvals
