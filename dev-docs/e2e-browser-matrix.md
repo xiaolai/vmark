@@ -42,11 +42,11 @@ invariant is broken. `🟡 partial` — asserted, weaker oracle than desired.
 | B2 | `open` → `read` returns an ARIA snapshot naming real elements | The AI acts on a page it cannot actually see | `browser-open-read-act` | ✅ automated |
 | B3 | `act` click reaches the page (server-side hit counter, not `clicked:true`) | Actions silently no-op; the AI believes it acted | `browser-open-read-act` | ✅ automated |
 | B4 | SSRF: loopback, private-LAN, metadata, alternate IPv4, userinfo, `file:`/`data:` each refused **before** a request, with a positive control | The AI reaches internal infrastructure | `browser-ssrf-policy` (16 destinations) | ✅ automated |
-| B5 | A redirect into private space is refused at the redirect hop | Policy checks only the first URL | — | ⬜ not automated (fixture endpoint `/redirect-private` exists) |
+| B5 | A redirect into private space is refused at the redirect hop | Policy checks only the first URL | `browser-redirect-ssrf` | ✅ automated |
 | B6 | Session save/load round-trips **after proving the values absent**, and refuses cross-origin | A no-op restore passes; or credentials land under the wrong origin | — | ⬜ not automated |
 | B7 | Approve → retry succeeds (dialog clicked, not injected) | The human half of the security model is decorative | `browser-open-read-act` | 🟡 partial — the **deny** half is not yet asserted |
-| B8 | Allow-once is spent by the first retry; a second needs fresh approval | One approval becomes standing authority | — | ⬜ not automated |
-| B9 | A one-shot for element A cannot be spent on element B | Approval for a benign control authorizes a dangerous one | — | ⬜ not automated |
+| B8 | Allow-once is spent by the first retry; a second needs fresh approval | One approval becomes standing authority | `browser-approval-scoping` | ✅ automated |
+| B9 | A one-shot for element A cannot be spent on element B | Approval for a benign control authorizes a dangerous one | `browser-approval-scoping` | ✅ automated |
 | B10 | Navigation invalidates a pending prompt and unused authority | An approval follows the user to a page they never saw | — | ⬜ not automated |
 
 ## UI lane (Tauri MCP)
@@ -58,7 +58,7 @@ invariant is broken. `🟡 partial` — asserted, weaker oracle than desired.
 | B13 | Back / forward / reload / stop each produce a distinct observable effect | Chrome controls look enabled and do nothing | — | ⬜ not automated |
 | B14 | A DOM overlay actually occludes the native view (freeze/thaw) | Page content paints over app UI — the bug the occlusion service exists for | — | ⬜ not automated |
 | B15 | The approval dialog renders operation + origin, focuses Deny, and Escape denies | The user approves something they cannot read | — | ⬜ not automated |
-| B16 | `browser_assert_no_bridge` returns all-false on a live page | Tauri IPC leaked into a browsed page — any site gets a channel into the app | — | ⬜ not automated |
+| B16 | `browser_assert_no_bridge` returns all-false on a live page | Tauri IPC leaked into a browsed page — any site gets a channel into the app | `browser-no-bridge` | ✅ automated |
 
 > B16 is a **Tauri-lane** row deliberately: `browser_assert_no_bridge` is a Tauri
 > command, not an action in the MCP `browser` tool's enum, so it cannot be driven
@@ -66,7 +66,7 @@ invariant is broken. `🟡 partial` — asserted, weaker oracle than desired.
 
 ## Honest status
 
-**4 automated + 1 partial, of 16 rows.** All three journeys were watched failing:
+**10 automated + 1 partial, of 16 rows.** Every green row was watched failing:
 
 - `browser-disabled-refuses` (B1) — enabling the feature makes it red.
 - `browser-open-read-act` (B2/B3/B7) — skipping the approval click makes it red
@@ -82,8 +82,18 @@ app → Rust authorization gate → `WKWebView` → the page → back out to the
 server's request counter. It also confirms ADR-BR2 in practice — the approval really
 is sequential (refuse, approve, retry), not a held-open request.
 
-**The AI-automation lane is unblocked**; B4–B6 and B8–B10 are ordinary work now that
-`open`/`read`/`act`/approve are proven from the harness.
+Later additions, each with the same discipline:
+
+- `browser-no-bridge` (B16) — the R3/SPIKE-1 privacy claim, which had **never run**.
+  It was resting on a spike report and a code comment. Runs in the PAGE world,
+  since the isolated world would report "clean" regardless.
+- `browser-approval-scoping` (B8/B9) — an approval for one element cannot be spent
+  on another, a refused action does not burn the approval, and allow-once really is
+  once. The substituted target is a REAL element on the fixture, or the refusal
+  would be "no such node" rather than a scoping decision.
+- `browser-redirect-ssrf` (B5) — the first version passed on `NAVIGATION_SUPERSEDED`,
+  a ticket race rather than a policy decision. It now asserts the committed URL
+  unconditionally, so an error alone can no longer stand in for a block.
 
 ### The UI lane — was blocked, now open (WI-4.0)
 
