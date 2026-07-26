@@ -37,8 +37,25 @@
   background: var(--hover-bg);
 }
 
+/* Active state carries BOTH colour and shape. Colour alone fails the same test
+   rule 33 applies to focus ("focus must work without colour alone" — shape
+   change helps colour-blind users), and with six hash-assigned rail colours two
+   workspaces can share one, leaving colour ambiguous even for users who see it.
+   The left bar is the VS Code activity-bar pattern. */
 .workspace-rail__item[aria-pressed="true"] {
   color: var(--workspace-rail-color, var(--accent-primary));
+  background: var(--accent-bg);
+}
+
+.workspace-rail__item[aria-pressed="true"]::before {
+  content: "";
+  position: absolute;
+  top: var(--space-1);
+  bottom: var(--space-1);
+  left: calc(-1 * var(--space-1));
+  width: var(--border-medium);
+  border-radius: var(--radius-pill);
+  background: var(--workspace-rail-color, var(--accent-primary));
 }
 
 .workspace-rail__item:focus-visible {
@@ -56,7 +73,6 @@
   background: var(--workspace-rail-color, var(--accent-primary));
 }
 
-.workspace-rail__folder,
 .workspace-rail__loose {
   position: relative;
   display: inline-flex;
@@ -66,27 +82,33 @@
   justify-content: center;
 }
 
-.workspace-rail__index {
-  position: absolute;
-  right: -3px;
-  bottom: -3px;
-  display: flex;
-  min-width: 10px;
-  height: 10px;
+/* Name-derived identity glyph (replaces the old `index + 1` badge, which was
+   positional and told you nothing the layout didn't already show). It fills the
+   button rather than sitting in the corner, which also resolves the collision
+   with `.workspace-rail__duplicate` — both used to occupy right/bottom -3px, so
+   hovering an entry covered its own number. */
+.workspace-rail__glyph {
+  display: inline-flex;
+  width: 100%;
+  height: 100%;
   align-items: center;
   justify-content: center;
-  padding: 0 2px;
-  border: 1px solid var(--sidebar-bg);
-  border-radius: var(--radius-pill);
-  color: var(--sidebar-bg);
-  background: var(--text-secondary);
-  font-size: 7px;
-  font-weight: 700;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
   line-height: 1;
+  letter-spacing: var(--letter-spacing-tight);
 }
 
-.workspace-rail__item[aria-pressed="true"] .workspace-rail__index {
-  background: var(--workspace-rail-color, var(--accent-primary));
+/* Two- and three-character glyphs only appear when initials collide; step the
+   size down so they stay inside the 30px rail. */
+.workspace-rail__glyph[data-glyph-length="2"] {
+  font-size: var(--font-size-xs);
+}
+
+.workspace-rail__glyph[data-glyph-length="3"] {
+  font-size: var(--font-size-2xs);
+  letter-spacing: 0;
 }
 
 .workspace-rail__duplicate {
