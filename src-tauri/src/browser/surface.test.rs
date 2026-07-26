@@ -105,7 +105,11 @@ mod unsupported_platform {
             let _: fn(&tauri::AppHandle, String, String) -> Result<(), String> =
                 super::super::navigate;
             let _: fn(&tauri::AppHandle, String) -> Result<(), String> = super::super::destroy;
-            let _: fn(&tauri::AppHandle, String, String) -> Result<String, String> =
+            // 4 args: eval gained `expected_generation` in WI-2.1. A stale
+            // signature here compiles fine on macOS (where this module is cfg'd
+            // out) and breaks the Windows/Linux build — the one thing this test
+            // exists to protect.
+            let _: fn(&tauri::AppHandle, String, String, u64) -> Result<String, String> =
                 super::super::eval;
             let _: fn(&tauri::AppHandle, String) -> Result<String, String> =
                 super::super::screenshot;

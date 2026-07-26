@@ -61,9 +61,22 @@ describe("workspaceRailGlyphs", () => {
     expect(workspaceRailGlyphs([inst("a", "école")]).a).toBe("É");
   });
 
-  it("caps the glyph length so it cannot overflow the 30px rail", () => {
-    const glyphs = workspaceRailGlyphs([inst("a", "abcdefgh"), inst("b", "abcdefgi")]);
-    for (const g of Object.values(glyphs)) expect(g.length).toBeLessThanOrEqual(3);
+  it("emits exactly ONE grapheme, not one UTF-16 unit", () => {
+    // The old assertion was `g.length <= 3`, a leftover from when glyphs grew to
+    // disambiguate. It measured UTF-16 units, so it passed trivially for ASCII
+    // and would have MIS-described a ZWJ emoji (length 11) as over-long while
+    // calling a 3-letter glyph acceptable. Grapheme count is what the rail shows.
+    const seg = new Intl.Segmenter(undefined, { granularity: "grapheme" });
+    const glyphs = workspaceRailGlyphs([
+      inst("a", "alpha"),
+      inst("b", "🚀 rocket"),
+      inst("c", "👨‍👩‍👧 family"),
+      inst("d", "école"),
+      inst("e", "日本語"),
+    ]);
+    for (const g of Object.values(glyphs)) {
+      expect([...seg.segment(g)]).toHaveLength(1);
+    }
   });
 
   it("keeps a single character when names do not collide", () => {

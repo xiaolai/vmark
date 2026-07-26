@@ -59,9 +59,11 @@ export function registerBrowserTool(server: VMarkMcpServer): void {
       name: 'browser',
       description:
         'Read and act on the embedded browser tab.\n\n' +
-        'PLATFORM: macOS only. On Windows and Linux the native surface is not implemented ' +
-        'and every action fails with UNSUPPORTED_PLATFORM — that is a build limitation, ' +
-        'not a permission problem, so do not retry or ask the user to approve anything.\n\n' +
+        'PLATFORM: macOS only. On Windows and Linux the native browser surface is not ' +
+        'implemented, so no action can succeed there (an `open` reports ' +
+        'UNSUPPORTED_PLATFORM; other actions may fail earlier with a validation or ' +
+        'no-tab error). Whatever the message, it is a build limitation rather than a ' +
+        'permission problem — do not retry, and do not ask the user to approve anything.\n\n' +
         'Actions:\n' +
         "- read: Return {url, snapshot} where snapshot is a flat ARIA tree [{role,name}] of the page's interactive/structural elements. Pass `tabId` to target a specific browser tab; omit to use the focused tab. Read before acting so you target elements by their real accessible name.\n" +
         '- act: Interact with the page. operation "click"|"type" target a stable {ref} from a prior read (precise) or ARIA {role, name} — a ref is only honored for an already-granted operation; if it may need approval use role+name so the user sees what they approve. operation "scroll" takes {ref} (scroll it into view) or {dy} (a pixel delta). operation "key" takes {key} (e.g. "Enter", "Escape", "Tab"), optional {ref} to target, and optional {modifiers:{ctrl,shift,alt,meta}}. scroll/key dispatch SYNTHETIC events, so a site gating on event.isTrusted may ignore them. All actions are gated by the user\'s standing grants: an un-granted operation returns success:false with data.needsApproval:true — surface that and wait rather than retrying. Upload is never permitted (an AI-chosen file upload is an exfiltration path).\n' +

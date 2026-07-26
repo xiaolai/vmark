@@ -57,11 +57,20 @@ export default {
         if (open.isError) throw new Error(`open failed: ${open.text.slice(0, 250)}`);
         if (fx.hits("/") < 1) throw new Error("the fixture page was never requested");
 
+        // [Audit High] Assert against the tab WE opened, matched on its committed
+        // fixture URL. Taking "the first browser tab" would happily verify a clean
+        // pre-existing page while the newly opened one leaked the bridge.
         const state = await mcp.callTool("session", { action: "get_state" });
-        const tab = (state.json?.windows ?? [])
+        const ours = (state.json?.windows ?? [])
           .flatMap((w) => w.tabs ?? [])
-          .find((t) => t.kind === "browser");
-        if (!tab?.id) throw new Error("no browser tab found in session state");
+          .filter((t) => t.kind === "browser")
+          .find((t) => typeof t.url === "string" && t.url.includes(fx.origin));
+        if (!ours?.id) {
+          throw new Error(
+            `could not find the browser tab we opened at ${fx.origin} in session state`
+          );
+        }
+        const tab = ours;
 
         const raw = await evalJs(
           client,
