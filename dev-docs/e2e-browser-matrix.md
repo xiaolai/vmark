@@ -146,9 +146,12 @@ directly, so it returns magenta whether or not the view is composited into the
 window. Neither available capture observes the compositing state that B14 is
 about.
 
-The PNG reader written for the attempt (`e2e/lib/png.mjs`, Node built-ins only)
-is kept: it is correct — it decoded both captures faithfully, which is how the
-discrepancy was found — and any future pixel oracle needs it.
+The PNG reader written for the attempt was **removed** rather than parked. It was
+correct — it decoded both captures faithfully, which is how the discrepancy above
+was found — but with the occlusion journey gone nothing imports it, and dead code
+kept because it "might be useful later" is a liability, not an asset. Git history
+has it: `git show 97042ab5 -- e2e/lib/png.mjs`. Recover it if a window-capture API
+that composites native subviews ever lands.
 
 Unblocking B14 needs a window capture that composites native subviews (an
 `CGWindowListCreateImage`-style grab rather than a webview snapshot). Until then

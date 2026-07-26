@@ -37,6 +37,7 @@
  * `browser.enabled`.
  */
 
+import { evalJs } from "../lib/bridge.mjs";
 import { startVmarkMcp, bridgeReady } from "../lib/vmarkMcp.mjs";
 import { withBrowserEnabled } from "../lib/browser.mjs";
 import { startFixtureServer } from "../lib/fixtureServer.mjs";
@@ -149,6 +150,25 @@ export default {
         ctx.log(`restored and verified: ${readAfter}`);
       });
     } finally {
+      // The saved blob lives in the OS KEYCHAIN, which outlives the app, the
+      // suite, and the machine reboot. Without this every run leaves another
+      // entry behind — a test that quietly accumulates credentials-shaped state
+      // in the user's keychain is not acceptable, even when the values are
+      // fixture junk. `browser_forget_storage_state` is user-cleanup, so it
+      // carries no driver gate and needs no approval.
+      await evalJs(
+        client,
+        `(async () => {
+           try {
+             await window.__TAURI__.core.invoke('browser_forget_storage_state', {
+               handle: ${JSON.stringify(HANDLE)},
+             });
+             return "OK";
+           } catch (e) { return "ERR " + (e && e.message ? e.message : String(e)); }
+         })()`
+      ).catch(() => {
+        /* best-effort: never mask the journey's own failure with a cleanup one */
+      });
       await mcp.close();
       await fx.close();
     }

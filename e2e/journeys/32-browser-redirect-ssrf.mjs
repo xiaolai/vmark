@@ -87,12 +87,15 @@ export default {
           throw new Error(`the browser FOLLOWED the redirect into private space: ${landed}`);
         }
 
-        // And the private host must never have been contacted. The fixture only
-        // sees its own requests, so this is asserted via the committed URL above
-        // plus the absence of any further fixture hit for the destination.
-        if (fx.hits("/redirected") !== 0) {
-          throw new Error("the redirect chain continued past the blocked hop");
-        }
+        // NOTE — there is deliberately no fixture-counter assertion for the
+        // destination. `/redirect-private` redirects to 192.168.0.1, a host the
+        // fixture server does not serve, so it can never register a hit: a
+        // counter check here would be an assertion that CANNOT FAIL. (An earlier
+        // version of this journey checked `hits("/redirected")`, an endpoint not
+        // in this chain at all — vacuous, and exactly the failure this suite
+        // exists to prevent.) The committed-URL check above is the real oracle:
+        // it is the only observable that distinguishes "hop refused" from "hop
+        // followed", because the destination is by design unreachable to us.
 
         ctx.log(
           res.isError
