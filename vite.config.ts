@@ -83,6 +83,19 @@ export default defineConfig(async () => ({
         // glob — hash-pinned `index-<hash>*` globs silently rotted and the
         // 1.2 MB entry chunk went unbudgeted (audit 20260612 H9).
         entryFileNames: "assets/entry-[hash].js",
+        // The Settings page emits as `Settings-<hash>.js`, and the i18n locale
+        // chunks built from src/locales/<lang>/settings.json emit as
+        // `settings-<hash>.js` — differing ONLY by case. size-limit 13 matches
+        // globs case-insensitively (12 did not), so the page's 101 kB budget
+        // silently swept in ten ~45 kB locale chunks and reported 541 kB
+        // against a healthy 99.6 kB bundle. Glob negation cannot separate them
+        // (the exclude matches both cases), and pinning the page in
+        // manualChunks drags its transitive deps in (2.8 MB), so rename the
+        // EMITTED FILE only — chunk membership is untouched.
+        chunkFileNames: (chunk) =>
+          chunk.name === "Settings"
+            ? "assets/SettingsPage-[hash].js"
+            : "assets/[name]-[hash].js",
         // Chunk policy lives in scripts/manualChunks.ts so it is
         // unit-tested (scripts/manualChunks.test.ts — characterization
         // cases lock every branch). Keep it in lockstep with
