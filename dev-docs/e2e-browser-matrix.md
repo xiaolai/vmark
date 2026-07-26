@@ -43,7 +43,7 @@ invariant is broken. `🟡 partial` — asserted, weaker oracle than desired.
 | B3 | `act` click reaches the page (server-side hit counter, not `clicked:true`) | Actions silently no-op; the AI believes it acted | `browser-open-read-act` | ✅ automated |
 | B4 | SSRF: loopback, private-LAN, metadata, alternate IPv4, userinfo, `file:`/`data:` each refused **before** a request, with a positive control | The AI reaches internal infrastructure | `browser-ssrf-policy` (16 destinations) | ✅ automated |
 | B5 | A redirect into private space is refused at the redirect hop | Policy checks only the first URL | `browser-redirect-ssrf` | ✅ automated |
-| B6 | Session save/load round-trips **after proving the values absent**, and refuses cross-origin | A no-op restore passes; or credentials land under the wrong origin | `browser-session-roundtrip` | 🟡 partial — save + clear-and-prove-absent + approved load all asserted; the **restore itself** is not yet verified (the fixture re-seeds on load, so its marker cannot distinguish). Cross-origin refusal not asserted. |
+| B6 | Session save/load round-trips **after proving the values absent** | A no-op restore passes — the single easiest way for this row to prove nothing | `browser-session-roundtrip` | ✅ automated — localStorage **and cookies** verified restored via a read-only endpoint; cross-origin refusal still unasserted |
 | B7 | Approve → retry succeeds; **deny** → the action does not land | The human half of the security model is decorative | `browser-open-read-act`, `browser-approval-scoping` | ✅ automated |
 | B8 | Allow-once is spent by the first retry; a second needs fresh approval | One approval becomes standing authority | `browser-approval-scoping` | ✅ automated |
 | B9 | A one-shot for element A cannot be spent on element B | Approval for a benign control authorizes a dangerous one | `browser-approval-scoping` | ✅ automated |
@@ -56,7 +56,7 @@ invariant is broken. `🟡 partial` — asserted, weaker oracle than desired.
 | B11 | Closing a browser tab tears down the **native** view | `WKWebView` leak; a live page keeps running invisibly | `browser-tab-lifecycle` | ✅ automated |
 | B12 | The omnibox shows the **committed** URL after a redirect, not the typed one | The user is told they are somewhere they are not | `browser-tab-lifecycle` | ✅ automated |
 | B13 | Back / forward / reload each produce a distinct observable effect | Chrome controls look enabled and do nothing | `browser-chrome-controls` | 🟡 partial — `stop` not asserted |
-| B14 | A DOM overlay actually occludes the native view (freeze/thaw) | Page content paints over app UI — the bug the occlusion service exists for | — | ⬜ not automated |
+| B14 | A DOM overlay actually occludes the native view (freeze/thaw) | Page content paints over app UI — the bug the occlusion service exists for | — | ⬜ **not automatable with current tooling** — see below |
 | B15 | The approval dialog renders operation + origin, focuses Deny, and Escape denies | The user approves something they cannot read | — | ⬜ not automated |
 | B16 | `browser_assert_no_bridge` returns all-false on a live page | Tauri IPC leaked into a browsed page — any site gets a channel into the app | `browser-no-bridge` | ✅ automated |
 
@@ -66,7 +66,7 @@ invariant is broken. `🟡 partial` — asserted, weaker oracle than desired.
 
 ## Honest status
 
-**12 automated + 2 partial, of 16 rows.** Every green row was watched failing:
+**14 automated + 1 partial, of 16 rows.** Every green row was watched failing:
 
 - `browser-disabled-refuses` (B1) — enabling the feature makes it red.
 - `browser-open-read-act` (B2/B3/B7) — skipping the approval click makes it red
@@ -127,6 +127,33 @@ flake. Publication now merges.
 B13 and B16 followed on this seam. `browser-chrome-controls` asserts back /
 forward / reload against the COMMITTED url and, for reload, a server-side re-fetch
 — not button enablement, which is a store flag a dead chrome would also flip.
+
+### B14 (occlusion) — not automatable, and this is now evidenced
+
+The pixel oracle was attempted and abandoned on evidence, not on difficulty. A
+full-bleed magenta fixture (`/solid`) was loaded into a browser tab and captured
+two ways at the same moment:
+
+| Capture path | Result |
+|---|---|
+| VMark's own `browser.screenshot` (WKWebView `takeSnapshot`) | **pure magenta** — the page renders correctly |
+| Debug bridge `capture_native_screenshot` (window) | **blank white** in that region |
+
+So the bridge's window capture **does not include the sibling native
+`WKWebView`**, and therefore cannot distinguish frozen from thawed. The other
+path cannot either, for the opposite reason: `takeSnapshot` renders the webview
+directly, so it returns magenta whether or not the view is composited into the
+window. Neither available capture observes the compositing state that B14 is
+about.
+
+The PNG reader written for the attempt (`e2e/lib/png.mjs`, Node built-ins only)
+is kept: it is correct — it decoded both captures faithfully, which is how the
+discrepancy was found — and any future pixel oracle needs it.
+
+Unblocking B14 needs a window capture that composites native subviews (an
+`CGWindowListCreateImage`-style grab rather than a webview snapshot). Until then
+this row stays manual, and a state-based substitute would be an assertion that
+cannot fail.
 
 Do **not** mark a row ✅ before its journey has been watched failing.
 

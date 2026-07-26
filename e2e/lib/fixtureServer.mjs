@@ -35,6 +35,17 @@ const PAGES = {
 <input id="field" aria-label="Search field" type="text">
 </body></html>`,
 
+  /** A full-bleed SOLID colour, for the occlusion pixel oracle (B14).
+   *
+   *  Magenta because nothing in VMark's chrome or any theme is near it: if this
+   *  colour is on screen, the native webview is painting; if it is not, it is
+   *  hidden. A page that shared a colour with the app UI could not distinguish
+   *  those two states. */
+  "/solid": `<!doctype html><html lang="en"><head><meta charset="utf-8">
+<title>VMark fixture — solid</title>
+<style>html,body{margin:0;padding:0;width:100%;height:100%;background:#ff00ff}</style>
+</head><body><div id="marker" style="display:none">solid-loaded</div></body></html>`,
+
   /** Second page — history depth for back/forward. */
   "/second": `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <title>VMark fixture — second</title></head><body>
@@ -47,6 +58,24 @@ const PAGES = {
   "/redirected": `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <title>VMark fixture — redirected</title></head><body>
 <h1>Redirect Destination</h1><p id="marker">redirect-destination-loaded</p>
+</body></html>`,
+
+  /** READ-ONLY storage report — writes NOTHING.
+   *
+   *  This is what makes the session round-trip provable. `/session` seeds its own
+   *  state on load, so its marker reads "seeded" whether a restore ran or not —
+   *  a false oracle one step past the one the journey was written to avoid. This
+   *  page only reports, so "present after a proven-empty clear" can mean exactly
+   *  one thing: the restore put it back. */
+  "/session-read": `<!doctype html><html lang="en"><head><meta charset="utf-8">
+<title>VMark fixture — session read</title></head><body>
+<h1>Session Read</h1><p id="marker">reading</p>
+<script>
+  var ls = localStorage.getItem("vmark_fixture_key");
+  var ck = /(?:^|;\\s*)vmark_fixture_session=([^;]*)/.exec(document.cookie);
+  document.getElementById("marker").textContent =
+    "read:ls=" + (ls || "none") + ";cookie=" + (ck ? ck[1] : "none");
+</script>
 </body></html>`,
 
   /** Writes cookie + localStorage so a session round-trip has something real to
