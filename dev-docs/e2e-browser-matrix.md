@@ -76,7 +76,7 @@ invariant is broken. `🟡 partial` — asserted, weaker oracle than desired.
 | B11 | Closing a browser tab tears down the **native** view | `WKWebView` leak; a live page keeps running invisibly | `browser-tab-lifecycle` | ✅ automated — asserts the app's own **native webview map** (`browser_debug_native_tab_ids`), not a DOM proxy |
 | B12 | The omnibox shows the **committed** URL after a redirect, not the typed one | The user is told they are somewhere they are not | `browser-tab-lifecycle` | ✅ automated |
 | B13 | Back / forward / reload each produce a distinct observable effect | Chrome controls look enabled and do nothing | `browser-chrome-controls` | 🟡 partial — `stop` not asserted |
-| B14 | A DOM overlay actually occludes the native view (freeze/thaw) | Page content paints over app UI — the bug the occlusion service exists for | `browser-occlusion` | 🟡 partial — the freeze **primitive** is proven via an AppKit `hitTest:` oracle across three states, but the journey calls `browser_freeze` directly and never opens a real overlay, so `services/browser/occlusion` is unexercised |
+| B14 | A DOM overlay actually occludes the native view (freeze/thaw) | Page content paints over app UI — the bug the occlusion service exists for | `browser-occlusion` | ✅ automated — a **real overlay** (breakdown panel, via `useBrowserOccluder`) drives it, asserted with an AppKit `hitTest:` oracle across three states |
 | B15 | The approval dialog renders operation + origin, focuses Deny, and Escape denies | The user approves something they cannot read | — | ⬜ not automated |
 | B16 | `browser_assert_no_bridge` returns all-false on a live page | Tauri IPC leaked into a browsed page — any site gets a channel into the app | `browser-no-bridge` | ✅ automated |
 
@@ -86,7 +86,7 @@ invariant is broken. `🟡 partial` — asserted, weaker oracle than desired.
 
 ## Honest status
 
-**13 automated, 2 partial, 1 manual — of 16 rows.** (An earlier revision claimed "16 automated of 16", which is arithmetically impossible alongside a partial and a manual row; an audit caught it after the wrong figure had already been reported.) Every green row was watched failing:
+**14 automated, 1 partial, 1 manual — of 16 rows.** (An earlier revision claimed "16 automated of 16", which is arithmetically impossible alongside a partial and a manual row; an audit caught it after the wrong figure had already been reported.) Every green row was watched failing:
 
 - `browser-disabled-refuses` (B1) — enabling the feature makes it red.
 - `browser-open-read-act` (B2/B3/B7) — skipping the approval click makes it red

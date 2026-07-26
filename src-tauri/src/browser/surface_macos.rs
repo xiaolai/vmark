@@ -3,18 +3,15 @@
 //! struct + command-facing re-exports) to stay under the file-size limit.
 //! Included via `#[path]` from surface.rs; `super::` refers to that module.
 
-use crate::browser::surface::BrowserSurface;
 use objc2::rc::Retained;
-use objc2::runtime::AnyObject;
 use objc2::MainThreadMarker;
-use objc2_foundation::{NSError, NSRunLoop, NSString, NSURLRequest};
+use objc2_foundation::{NSRunLoop, NSURLRequest};
 use objc2_web_kit::{WKContentWorld, WKWebView};
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::rc::Rc;
 use std::sync::mpsc;
 use std::time::Duration;
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
 
 #[path = "nav_delegate_macos.rs"]
 mod nav_delegate;
@@ -73,6 +70,11 @@ where
         .map_err(|_| "main-thread op timed out".to_string())?
 }
 
+#[path = "eval_macos.rs"]
+mod eval_impl;
+pub use eval_impl::eval;
+use eval_impl::eval_js;
+
 #[cfg(debug_assertions)]
 #[path = "debug_probe_macos.rs"]
 mod debug_probe;
@@ -81,7 +83,7 @@ pub use debug_probe::{debug_attached_webviews, debug_hit_test, debug_native_tab_
 
 #[path = "surface_view_macos.rs"]
 pub(super) mod view;
-use view::{content_view, frame_for_dom_rect, js_result_to_string, ns_url};
+use view::{content_view, frame_for_dom_rect, ns_url};
 
 /// Release the sandbox profile after AI views are torn down or posture changes.
 pub fn clear_ai_sandbox_store(app: &AppHandle) -> Result<(), String> {
@@ -175,94 +177,10 @@ pub fn set_hidden(app: &AppHandle, tab_id: String, hidden: bool) -> Result<(), S
 /// Evaluate `script` in `world`, pumping the run loop until the async result
 /// arrives (capped). Scripts should `return` a JSON-serializable value;
 /// the string result (or "<null>"/"<timeout>") is returned as-is.
-fn eval_js(
-    webview: &WKWebView,
-    script: &str,
-    world: &WKContentWorld,
-    run_loop: &NSRunLoop,
-) -> String {
-    let out: Rc<RefCell<Option<String>>> = Rc::new(RefCell::new(None));
-    let body = NSString::from_str(script);
-    let sink = out.clone();
-    let handler = block2::RcBlock::new(move |value: *mut AnyObject, _e: *mut NSError| {
-        *sink.borrow_mut() = Some(js_result_to_string(value));
-    });
-    unsafe {
-        webview.callAsyncJavaScript_arguments_inFrame_inContentWorld_completionHandler(
-            &body,
-            None,
-            None,
-            world,
-            Some(&handler),
-        );
-    }
-    // Real elapsed time, not a count of intended sleeps (see driver_loop).
-    pump_until(run_loop, Duration::from_secs(5), 0.05, || {
-        out.borrow().is_some()
-    });
-    let result = out.borrow_mut().take();
-    result.unwrap_or_else(|| "<timeout>".into())
-}
-
 /// Evaluate `script` in the driver's ISOLATED content world (R10/I2) and
 /// return its string result. The agent shares the page DOM (reads work) but
 /// is isolated from the page's own JS — the page can neither observe nor
 /// tamper with the agent. This is the driver's read/act primitive (WI-2.1).
-/// Evaluate `script` in the driver's isolated world, re-verifying `expected_generation`
-/// **inside the main-thread closure** (WI-2.1/2.2).
-///
-/// The command thread already authorized and re-checked freshness, but there is a real
-/// window between that check and this closure actually running: `run_on_main_thread`
-/// enqueues, and the main thread may service a navigation first. An eval side effect
-/// cannot be undone by a post-check, so the last word has to be here.
-///
-/// SCOPE OF THE GUARANTEE — stated precisely, because an earlier version of this
-/// comment overclaimed. No main-thread work can interleave between the check and
-/// `callAsyncJavaScript`: both run in one main-thread turn. What CAN still interleave
-/// is another **thread** — a Tauri command thread marking the tab destroyed, beginning
-/// a navigation, or bumping the policy epoch in that same window. So this narrows the
-/// race from "any main-thread event" to "a cross-thread state change inside one
-/// synchronous turn", which is far tighter than the command-thread check alone, but it
-/// is not zero. Closing it entirely means holding the registry guard across
-/// `callAsyncJavaScript` and releasing it before `pump_until` — deliberately not done
-/// here, because it puts a lock on the main thread's path with WebKit re-entrancy
-/// nearby, and that trade needs its own review rather than being smuggled into this fix.
-///
-/// **Lock discipline (WI-2.2): no lock may be held across run-loop pumping.**
-/// `eval_js` pumps the main run loop while it waits for `callAsyncJavaScript`'s
-/// completion handler, and WebKit callbacks re-enter on this same thread and take the
-/// registry lock themselves (the nav delegate does exactly that). Holding the registry
-/// — or any `BrowserSurface` guard — across `eval_js` would deadlock immediately.
-/// `command_still_fresh` acquires and releases internally, so the guards are all gone
-/// before the dispatch below; keep it that way.
-pub fn eval(
-    app: &AppHandle,
-    tab_id: String,
-    script: String,
-    expected_generation: u64,
-) -> Result<String, String> {
-    let app_for_closure = app.clone();
-    on_main(app, move |mtm| {
-        // Re-verify against live state, not a snapshot: a snapshot taken on the command
-        // thread is precisely what could not detect a navigation that landed since.
-        let state = app_for_closure
-            .try_state::<BrowserSurface>()
-            .ok_or_else(|| "browser state unavailable".to_string())?;
-        // The verify-then-dispatch ordering lives in `authorize::dispatch_if_fresh`
-        // so it is unit-testable; this closure supplies only the native call. When
-        // it was inline here, deleting the check left every test green.
-        let webview = WEBVIEWS
-            .with(|m| m.borrow().get(&tab_id).cloned())
-            .ok_or_else(|| format!("no webview: {tab_id}"))?;
-        let run_loop = NSRunLoop::mainRunLoop();
-        let world =
-            unsafe { WKContentWorld::worldWithName(&NSString::from_str("vmark-agent"), mtm) };
-        crate::browser::authorize::dispatch_if_fresh(&state, &tab_id, expected_generation, || {
-            eval_js(&webview, &script, &world, &run_loop)
-        })
-    })
-}
-
 /// Run the no-bridge assertion in the PAGE world (R3/SPIKE-1) and return its
 /// JSON result — page world (not isolated) so it inspects the page's own
 /// globals, proving no Tauri bridge leaked in.

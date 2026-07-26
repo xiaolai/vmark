@@ -190,7 +190,7 @@ phase2() {
   # of this check grepped surface.rs, which held only the STUB — so it would have
   # passed on a stub-only signature while the real macOS eval had none. Signature
   # PARITY is the invariant; a drift compiles on macOS and breaks Windows/Linux.
-  for f in surface_macos.rs surface_stub.rs; do
+  for f in eval_macos.rs surface_stub.rs; do
     if grep -qE "expected_generation" "src-tauri/src/browser/$f"; then
       pass "WI-2.1 eval takes an expected generation ($f)"
     else
@@ -199,23 +199,27 @@ phase2() {
   done
   # ...and the ordering must live in the TESTABLE seam, not inline in the closure
   # where deleting it left every test green (audit).
-  if grep -q "dispatch_if_fresh" src-tauri/src/browser/surface_macos.rs \
-     && grep -q "pub(crate) fn dispatch_if_fresh" src-tauri/src/browser/authorize.rs; then
-    pass "WI-2.2 verify-then-dispatch lives in the unit-tested seam"
+  # Scoped to the `eval` BODY, not the whole file. [Audit Medium] A bare grep
+  # matches the explanatory comment above the call, so the actual call could be
+  # replaced with a direct unguarded `submit_js` and the gate would stay green.
+  if awk '/^pub fn eval\(/,/^\}/' src-tauri/src/browser/eval_macos.rs \
+       | grep -q "submit_if_fresh(" \
+     && grep -q "pub(crate) fn submit_if_fresh" src-tauri/src/browser/authorize.rs; then
+    pass "WI-2.2 eval() actually routes through the guarded seam"
   else
-    fail "WI-2.2 dispatch ordering is not routed through authorize::dispatch_if_fresh"
+    fail "WI-2.2 eval() bypasses authorize::submit_if_fresh"
   fi
   # The ordering invariant, proved by behaviour: the dispatch must NEVER RUN on a
-  # stale command. A grep for `dispatch_if_fresh` would match the comment above it.
+  # stale command. A grep for `submit_if_fresh` would match the comment above it.
   echo "  … running the named WI tests"
-  run_test browser::authorize::tests::a_stale_generation_never_reaches_the_dispatch \
+  run_test browser::authorize::tests::a_stale_generation_never_reaches_the_enqueue \
     "WI-2.1 stale generation never reaches the dispatch"
-  run_test browser::authorize::tests::a_destroyed_tab_never_reaches_the_dispatch \
+  run_test browser::authorize::tests::a_destroyed_tab_never_reaches_the_enqueue \
     "WI-2.2 destroyed tab never reaches the dispatch"
-  run_test browser::authorize::tests::a_policy_epoch_change_never_reaches_the_dispatch \
+  run_test browser::authorize::tests::a_policy_epoch_change_never_reaches_the_enqueue \
     "WI-2.2 superseded policy never reaches the dispatch"
-  run_test browser::authorize::tests::no_lock_is_held_across_the_dispatch \
-    "WI-2.2 no guard held across dispatch (deadlock hazard)"
+  run_test browser::authorize::tests::a_concurrent_mutation_cannot_land_between_the_check_and_the_submit \
+    "WI-2.2 concurrent mutation cannot interleave (the real race)"
 }
 
 phase3() {

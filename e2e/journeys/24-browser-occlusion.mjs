@@ -23,6 +23,13 @@
  * whether or not the view is composited. Neither observes compositing state. Hit
  * testing is the strongest oracle actually reachable from inside the process.
  *
+ * DRIVEN THROUGH A REAL OVERLAY. An earlier version called `browser_freeze`
+ * directly, which proved the primitive and left `services/browser/occlusion` —
+ * the layer that DECIDES when to freeze — entirely unexercised. An audit was right
+ * that B14 was overmarked on that basis. It now toggles the breakdown panel, a
+ * genuine overlay wired through `useBrowserOccluder`, so the whole path from UI
+ * intent to native hide is under test.
+ *
  * THREE STATES, because two would not be enough: a freeze that DESTROYED the view
  * would satisfy "occludes" then "does not occlude" and still be a serious bug.
  *
@@ -113,8 +120,21 @@ export default {
         );
         ctx.log(`thawed: occluded by ${thawed.found}`);
 
-        // --- frozen: it must stop occluding -------------------------------
-        await invokeBrowserCommand(client, "browser_freeze", tabId);
+        // --- frozen VIA A REAL OVERLAY ------------------------------------
+        // [Audit Medium] Calling browser_freeze directly proves the PRIMITIVE and
+        // leaves `services/browser/occlusion` — the thing that decides when to
+        // freeze — completely unexercised. The breakdown panel is a real overlay
+        // wired through `useBrowserOccluder`, so toggling it drives the actual
+        // production path from UI intent to native hide.
+        await evalJs(
+          client,
+          `(async () => {
+             const run = window.__VMARK_DEBUG__ && window.__VMARK_DEBUG__.runCommand;
+             if (typeof run !== "function") return "NO_SEAM";
+             await run("view.toggleBreakdown");
+             return "OK";
+           })()`
+        );
         const frozen = await poll(
           () => nativeOccludesPoint(client, tabId),
           (r) => r.occludes === false,
@@ -123,8 +143,15 @@ export default {
         );
         ctx.log(`frozen: point resolves to ${frozen.found} instead`);
 
-        // --- thawed again: reversible, not destroyed ----------------------
-        await invokeBrowserCommand(client, "browser_thaw", tabId);
+        // --- thawed again by DISMISSING the overlay -----------------------
+        await evalJs(
+          client,
+          `(async () => {
+             const run = window.__VMARK_DEBUG__ && window.__VMARK_DEBUG__.runCommand;
+             await run("view.toggleBreakdown");
+             return "OK";
+           })()`
+        );
         const rethawed = await poll(
           () => nativeOccludesPoint(client, tabId),
           (r) => r.occludes === true,
