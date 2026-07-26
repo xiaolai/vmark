@@ -41,8 +41,8 @@ invariant is broken. `🟡 partial` — asserted, weaker oracle than desired.
 | B1 | Every action refuses with `BROWSER_DISABLED` while the feature is off, and creates no native view | An opt-in AI surface drives pages for a user who never enabled it | `browser-disabled-refuses` | ✅ automated |
 | B2 | `open` → `read` returns an ARIA snapshot naming real elements | The AI acts on a page it cannot actually see | `browser-open-read-act` | ✅ automated |
 | B3 | `act` click reaches the page (server-side hit counter, not `clicked:true`) | Actions silently no-op; the AI believes it acted | `browser-open-read-act` | ✅ automated |
-| B4 | SSRF: loopback, private-LAN, metadata, alternate IPv4, userinfo, `file:`/`data:` each refused **before** a request, with a positive control | The AI reaches internal infrastructure | — | ⬜ not automated |
-| B5 | A redirect into private space is refused at the redirect hop | Policy checks only the first URL | — | ⬜ not automated |
+| B4 | SSRF: loopback, private-LAN, metadata, alternate IPv4, userinfo, `file:`/`data:` each refused **before** a request, with a positive control | The AI reaches internal infrastructure | `browser-ssrf-policy` (16 destinations) | ✅ automated |
+| B5 | A redirect into private space is refused at the redirect hop | Policy checks only the first URL | — | ⬜ not automated (fixture endpoint `/redirect-private` exists) |
 | B6 | Session save/load round-trips **after proving the values absent**, and refuses cross-origin | A no-op restore passes; or credentials land under the wrong origin | — | ⬜ not automated |
 | B7 | Approve → retry succeeds (dialog clicked, not injected) | The human half of the security model is decorative | `browser-open-read-act` | 🟡 partial — the **deny** half is not yet asserted |
 | B8 | Allow-once is spent by the first retry; a second needs fresh approval | One approval becomes standing authority | — | ⬜ not automated |
@@ -66,12 +66,16 @@ invariant is broken. `🟡 partial` — asserted, weaker oracle than desired.
 
 ## Honest status
 
-**3 automated + 1 partial, of 16 rows.** Both journeys were watched failing:
+**4 automated + 1 partial, of 16 rows.** All three journeys were watched failing:
 
 - `browser-disabled-refuses` (B1) — enabling the feature makes it red.
 - `browser-open-read-act` (B2/B3/B7) — skipping the approval click makes it red
   ("click still refused after approval"), proving the dialog is load-bearing and
   not decorative.
+- `browser-ssrf-policy` (B4) — 16 destinations, with a **positive control** that
+  runs first so a clean sweep of refusals can never be environmental. Flipping the
+  loopback opt-in on makes it red, proving the assertions track policy state rather
+  than merely observing failure.
 
 The second exercises the whole stack in one pass: sidecar MCP → WebSocket bridge →
 app → Rust authorization gate → `WKWebView` → the page → back out to the fixture
@@ -81,14 +85,27 @@ is sequential (refuse, approve, retry), not a held-open request.
 **The AI-automation lane is unblocked**; B4–B6 and B8–B10 are ordinary work now that
 `open`/`read`/`act`/approve are proven from the harness.
 
-**The UI lane (B11–B16) is blocked on one unresolved mechanic:** creating a *human*
-browser tab from the harness. Emitting `menu:new-browser-tab` through the webview's
-Tauri global produces no tab, even with `browser.enabled` true in both the persisted
-settings and the live store (the Rust policy updates through the store subscription,
-so the store demonstrably synced). Whether that is a harness limitation or a real
-defect in the menu→command route is **not yet determined** — and until it is, those
-journeys would rest on an unverified assumption, which is the failure this plan
-exists to prevent.
+### The UI lane (B11–B16) is blocked — diagnosed, not guessed
+
+Every UI row needs a *human* browser tab, and the harness cannot create one. Three
+independent routes were tried and all fail, so this is a **harness capability gap,
+not a browser bug**:
+
+| Route | Result |
+|---|---|
+| `window.__TAURI__.event.emit('menu:new-browser-tab')` from the webview | no tab — and the **control** (`menu:new-tab`, not browser-gated) also does nothing, so the webview→`listen()` loopback is what is broken, not the browser gate |
+| `emit_event` over the debug bridge | `Unknown command` — this plugin build exposes only `list_windows`, `execute_js`, `capture_native_screenshot` |
+| `ipc_emit_event` via the Tauri MCP server | reports "emitted successfully", tab count unchanged |
+| Synthetic `Mod+Shift+P` to open the command palette | palette never opens; synthetic key events do not reach the keybinding layer |
+
+The control experiment is the important one: a **non-browser** menu event fails
+identically, which rules out the browser feature gate as the cause.
+
+Unblocking needs one of: a bridge command that injects real input, a window-scoped
+emit that matches how the frontend registers its listener, or a debug-only test hook
+that invokes `browser.newTab` on the CommandBus directly. Until then these rows stay
+manual — writing them now would mean asserting against an unverified assumption,
+which is the failure this plan exists to prevent.
 
 Do **not** mark a row ✅ before its journey has been watched failing.
 
