@@ -115,9 +115,12 @@ describe("WorkspaceRail", () => {
     );
     const entries = [...container.querySelectorAll<HTMLElement>(".workspace-rail__entry")];
     expect(glyphs).toEqual(["A", "B"]);
-    // The colour seeding this test also guarded must survive the change.
-    expect(entries[0]?.style.getPropertyValue("--workspace-rail-color")).toMatch(/^var\(--/);
-    expect(entries[1]?.style.getPropertyValue("--workspace-rail-color")).toMatch(/^var\(--/);
+    // The colour seeding this test also guarded must survive the change. A
+    // `/^var\(--/` match would pass even if BOTH entries got the same token, so
+    // assert they are distinct as well as well-formed.
+    const colors = entries.map((e) => e.style.getPropertyValue("--workspace-rail-color"));
+    for (const color of colors) expect(color).toMatch(/^var\(--[a-z-]+\)$/);
+    expect(new Set(colors).size).toBe(2);
   });
 
   it("keeps glyphs stable when entries are reordered", () => {
@@ -125,10 +128,14 @@ describe("WorkspaceRail", () => {
     addInstance("main", "wsi-a", "/Users/xiaolai/alpha");
     addInstance("main", "wsi-b", "/Users/xiaolai/beta");
 
-    const { container, rerender } = render(<WorkspaceRail windowLabel="main" />);
-    const before = [...container.querySelectorAll(".workspace-rail__glyph")].map(
-      (g) => g.textContent,
-    );
+    const { rerender } = render(<WorkspaceRail windowLabel="main" />);
+    // Query by accessible name, so the assertion survives a CSS-class rename
+    // and states the real contract: THIS workspace shows THIS glyph.
+    const glyphOf = (name: string) =>
+      screen.getByRole("button", { name: `Activate ${name}` }).textContent;
+
+    expect(glyphOf("alpha")).toBe("A");
+    expect(glyphOf("beta")).toBe("B");
 
     act(() => {
       useWorkspaceInstancesStore
@@ -137,13 +144,10 @@ describe("WorkspaceRail", () => {
     });
     rerender(<WorkspaceRail windowLabel="main" />);
 
-    const after = [...container.querySelectorAll(".workspace-rail__glyph")].map(
-      (g) => g.textContent,
-    );
-    // A positional index would read ["1","2"] both times while pointing at
-    // different workspaces. Name-derived glyphs travel with their workspace.
-    expect(before).toEqual(["A", "B"]);
-    expect(after).toEqual(["B", "A"]);
+    // A positional index would still read "1","2" after the swap while pointing
+    // at different workspaces. Name-derived glyphs travel with their workspace.
+    expect(glyphOf("alpha")).toBe("A");
+    expect(glyphOf("beta")).toBe("B");
   });
 
   it("gives colliding initials distinct glyphs", () => {
@@ -151,11 +155,24 @@ describe("WorkspaceRail", () => {
     addInstance("main", "wsi-a", "/Users/xiaolai/alpha");
     addInstance("main", "wsi-b", "/Users/xiaolai/apex");
 
-    const { container } = render(<WorkspaceRail windowLabel="main" />);
+    render(<WorkspaceRail windowLabel="main" />);
 
-    expect(
-      [...container.querySelectorAll(".workspace-rail__glyph")].map((g) => g.textContent),
-    ).toEqual(["AL", "AP"]);
+    expect(screen.getByRole("button", { name: "Activate alpha" })).toHaveTextContent("AL");
+    expect(screen.getByRole("button", { name: "Activate apex" })).toHaveTextContent("AP");
+  });
+
+  it("leaves a non-colliding workspace at one character", () => {
+    setRailMode(true);
+    addInstance("main", "wsi-z", "/Users/xiaolai/zulu");
+    addInstance("main", "wsi-a", "/Users/xiaolai/alpha");
+    addInstance("main", "wsi-b", "/Users/xiaolai/apex");
+
+    render(<WorkspaceRail windowLabel="main" />);
+
+    // Only alpha/apex collide; zulu must not be lengthened on their account.
+    expect(screen.getByRole("button", { name: "Activate zulu" })).toHaveTextContent("Z");
+    expect(screen.getByRole("button", { name: "Activate alpha" })).toHaveTextContent("AL");
+    expect(screen.getByRole("button", { name: "Activate apex" })).toHaveTextContent("AP");
   });
 
   it("keeps the full workspace name as the accessible name, not the glyph", () => {

@@ -47,7 +47,7 @@ Deferred, with reasoning recorded on the issue.
 
 | WI | Change | Files |
 |---|---|---|
-| WI-1.1 | `workspaceRailGlyphs()` — pure fn, shortest unique prefix per instance | `src/utils/workspaceIdentity.ts` (+ test) |
+| WI-1.1 | `workspaceRailGlyphs()` — pure fn, shortest unique prefix per instance | `src/utils/workspaceRailGlyphs.ts` (+ `.test.ts`) |
 | WI-1.2 | Render the glyph instead of `Folder` + index badge | `WorkspaceRail.tsx` |
 | WI-1.3 | Active state gains a shape cue (not colour alone) | `WorkspaceRail.css` |
 | WI-1.4 | Update the characterization test that pins `["1","2"]` | `WorkspaceRail.test.tsx` |
@@ -73,9 +73,16 @@ Each is covered by a test unless marked otherwise.
 ## Definition of done
 
 - `pnpm check:all` green (includes the token, shell-slot and bespoke-button gates).
-- Glyphs stable across reorder; unique among open instances.
+- Glyphs stable across reorder.
+- Glyphs unique among open instances **up to 3 graphemes**. Names that still
+  collide at the cap (strict prefixes like `app`/`apple`, or identical names)
+  share a glyph by design — see KNOWN LIMIT in `workspaceRailGlyphs.ts`. The
+  accent colour, tooltip and accessible name continue to distinguish them.
 - Accessible names unchanged (full workspace name, not the glyph).
 - Loose Files still renders its icon and no glyph.
+- The active indicator is actually PAINTED, not merely styled — it sits inside
+  the button, because `.app-shell` clips overflow and a negative offset would
+  put it outside the window.
 
 ## Outcome
 
@@ -89,6 +96,33 @@ two workspaces whose names collide (`alpha`, `apex`) plus Loose Files:
 | Active background (F6) | active `rgba(0,102,204,0.1)` (`--accent-bg`), inactive transparent |
 | Active shape cue (F6) | active `::before` renders a 2px bar in the workspace colour; inactive `content: none` |
 | Loose Files (F4) | keeps `FileStack`, no glyph |
+
+### Post-implementation audit (cross-model)
+
+A Codex audit of the three commits found 12 issues; all were fixed. Three were
+substantive and none were caught by the plan's own failure modes:
+
+- **The active indicator was never painted.** It sat at `left: -4px` on a 28px
+  item inside a 30px rail, and `.app-shell` sets `overflow: clip` — so the
+  shape cue landed outside the window and active state silently degraded back
+  to colour-alone, exactly the defect it was added to fix. My live check had
+  read `getComputedStyle(...,"::before")`, which **returns values even when the
+  element is clipped** — it proved the rule applied, not that pixels were drawn.
+  Moved inside the button.
+- **Glyph text inherited the workspace colour**, which is fine for a decorative
+  icon but not for 11–12px TEXT needing 4.5:1 (e.g. `--success-color` is ~3.3:1
+  on white). The glyph now uses `--accent-primary`; the workspace colour stays
+  on the decorative indicator.
+- **`Array.from` is code-point-safe but not grapheme-safe**, so ZWJ emoji
+  (👨‍👩‍👧 → 👨) and skin-tone modifiers were split, and `data-glyph-length`
+  used `String.length` (2 for "🚀", 11 for a family emoji) to pick a font size.
+  Both now use `Intl.Segmenter` grapheme counting.
+
+Also corrected: the glyph algorithm grew EVERY glyph on any collision
+(`zulu` became "ZU" because `alpha`/`apex` clashed) — it now extends only the
+colliding group; a vacuous `includes("�")` assertion; colour assertions that
+passed if both entries shared a token; class-name queries replaced with
+accessible-name queries.
 
 Two failure modes fired during implementation and were handled rather than
 worked around:

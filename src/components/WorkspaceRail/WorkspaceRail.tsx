@@ -11,7 +11,7 @@ import type { WorkspaceWindowActionResult } from "@/types/workspaceTransfer";
 import { imeToast as toast } from "@/services/ime/imeToast";
 import { cleanupTabState } from "@/hooks/tabCleanup";
 import { disambiguateWorkspaceDisplayNames } from "@/utils/workspaceIdentity";
-import { workspaceRailGlyphs } from "@/utils/workspaceRailGlyphs";
+import { workspaceRailGlyphs, workspaceRailGlyphLength } from "@/utils/workspaceRailGlyphs";
 import "./WorkspaceRail.css";
 
 export const WORKSPACE_RAIL_WIDTH = 30;
@@ -149,7 +149,10 @@ export function WorkspaceRail({ windowLabel }: { windowLabel: string }) {
                   // the one-letter glyph as well.
                   <span
                     className="workspace-rail__glyph"
-                    data-glyph-length={glyphs[instanceId]?.length ?? 1}
+                    // GRAPHEME count, not String.length: "🚀".length is 2 and a
+                    // family emoji's is 11, so string length would pick a font
+                    // size for a width the glyph does not actually occupy.
+                    data-glyph-length={workspaceRailGlyphLength(glyphs[instanceId] ?? "")}
                     aria-hidden="true"
                   >
                     {glyphs[instanceId]}
