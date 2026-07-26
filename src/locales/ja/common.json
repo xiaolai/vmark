@@ -177,5 +177,8 @@
   "browser.profiles.label": "名前付きプロファイル",
   "browser.profiles.remove": "削除",
   "browser.profiles.removeLabel": "プロファイル {{name}} を削除",
-  "browser.profiles.removeFailed": "「{{name}}」を削除できませんでした。ログイン情報がまだディスクに残っている可能性があります。もう一度お試しください。"
+  "browser.profiles.removeFailed": "「{{name}}」を削除できませんでした。ログイン情報がまだディスクに残っている可能性があります。もう一度お試しください。",
+  "workspaceRail.menu.close": "閉じる",
+  "workspaceRail.menu.duplicate": "複製",
+  "workspaceRail.menu.moveToNewWindow": "新しいウィンドウに移動"
 }

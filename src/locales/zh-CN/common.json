@@ -177,5 +177,8 @@
   "browser.profiles.label": "命名配置文件",
   "browser.profiles.remove": "移除",
   "browser.profiles.removeLabel": "移除配置文件 {{name}}",
-  "browser.profiles.removeFailed": "无法移除“{{name}}”，登录信息可能仍在磁盘上。请重试。"
+  "browser.profiles.removeFailed": "无法移除“{{name}}”，登录信息可能仍在磁盘上。请重试。",
+  "workspaceRail.menu.close": "关闭",
+  "workspaceRail.menu.duplicate": "复制",
+  "workspaceRail.menu.moveToNewWindow": "移到新窗口"
 }

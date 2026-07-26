@@ -1,5 +1,5 @@
 import { CopyPlus, FileStack } from "lucide-react";
-import { useRef, type CSSProperties } from "react";
+import { useRef, useState, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useWorkspaceInstancesStore } from "@/stores/workspaceInstancesStore";
@@ -10,8 +10,14 @@ import {
 import type { WorkspaceWindowActionResult } from "@/types/workspaceTransfer";
 import { imeToast as toast } from "@/services/ime/imeToast";
 import { cleanupTabState } from "@/hooks/tabCleanup";
+import { closeTabsWithDirtyCheck } from "@/hooks/useTabOperations";
 import { disambiguateWorkspaceDisplayNames } from "@/utils/workspaceIdentity";
 import { workspaceRailGlyphs, workspaceRailGlyphLength } from "@/utils/workspaceRailGlyphs";
+import { closeWorkspaceInstance } from "@/services/workspaces/closeWorkspaceInstance";
+import {
+  WorkspaceRailContextMenu,
+  type WorkspaceRailMenuPosition,
+} from "./WorkspaceRailContextMenu";
 import "./WorkspaceRail.css";
 
 export const WORKSPACE_RAIL_WIDTH = 30;
@@ -44,6 +50,9 @@ export function WorkspaceRail({ windowLabel }: { windowLabel: string }) {
   // follows doesn't ALSO treat the gesture as a move-to-new-window. Reset at
   // the start of each drag and consumed in dragend.
   const droppedInternallyRef = useRef(false);
+  const [menu, setMenu] = useState<
+    { instanceId: string; name: string; position: WorkspaceRailMenuPosition } | null
+  >(null);
 
   if (!enabled) return null;
 
@@ -138,6 +147,14 @@ export function WorkspaceRail({ windowLabel }: { windowLabel: string }) {
                     .getState()
                     .activateWorkspaceInstance(windowLabel, instanceId)
                 }
+                onContextMenu={(event) => {
+                  event.preventDefault();
+                  setMenu({
+                    instanceId,
+                    name: displayLabel,
+                    position: { x: event.clientX, y: event.clientY },
+                  });
+                }}
               >
                 {instance.kind === "loose" ? (
                   <span className="workspace-rail__loose" aria-hidden="true">
@@ -174,6 +191,24 @@ export function WorkspaceRail({ windowLabel }: { windowLabel: string }) {
           );
         })}
       </div>
+      {menu && (
+        <WorkspaceRailContextMenu
+          position={menu.position}
+          workspaceName={menu.name}
+          onClose={() => setMenu(null)}
+          onCloseWorkspace={() => {
+            void closeWorkspaceInstance(windowLabel, menu.instanceId, {
+              closeTabs: closeTabsWithDirtyCheck,
+            });
+          }}
+          onDuplicate={() => {
+            void handleDuplicateWorkspace(windowLabel, menu.instanceId, t);
+          }}
+          onMoveToNewWindow={() => {
+            void handleMoveWorkspace(windowLabel, menu.instanceId, t);
+          }}
+        />
+      )}
     </nav>
   );
 }

@@ -177,5 +177,8 @@
   "browser.profiles.label": "Perfil nomeado",
   "browser.profiles.remove": "Remover",
   "browser.profiles.removeLabel": "Remover o perfil {{name}}",
-  "browser.profiles.removeFailed": "Não foi possível remover \"{{name}}\" — o login pode ainda estar no disco. Tente novamente."
+  "browser.profiles.removeFailed": "Não foi possível remover \"{{name}}\" — o login pode ainda estar no disco. Tente novamente.",
+  "workspaceRail.menu.close": "Fechar",
+  "workspaceRail.menu.duplicate": "Duplicar",
+  "workspaceRail.menu.moveToNewWindow": "Mover para nova janela"
 }

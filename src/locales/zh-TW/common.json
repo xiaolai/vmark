@@ -177,5 +177,8 @@
   "browser.profiles.label": "具名設定檔",
   "browser.profiles.remove": "移除",
   "browser.profiles.removeLabel": "移除設定檔 {{name}}",
-  "browser.profiles.removeFailed": "無法移除「{{name}}」，登入資訊可能仍在磁碟上。請重試。"
+  "browser.profiles.removeFailed": "無法移除「{{name}}」，登入資訊可能仍在磁碟上。請重試。",
+  "workspaceRail.menu.close": "關閉",
+  "workspaceRail.menu.duplicate": "複製",
+  "workspaceRail.menu.moveToNewWindow": "移至新視窗"
 }

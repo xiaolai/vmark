@@ -177,5 +177,8 @@
   "browser.profiles.label": "Benanntes Profil",
   "browser.profiles.remove": "Entfernen",
   "browser.profiles.removeLabel": "Profil {{name}} entfernen",
-  "browser.profiles.removeFailed": "„{{name}}“ konnte nicht entfernt werden — die Anmeldung ist möglicherweise noch auf der Festplatte. Versuchen Sie es erneut."
+  "browser.profiles.removeFailed": "„{{name}}“ konnte nicht entfernt werden — die Anmeldung ist möglicherweise noch auf der Festplatte. Versuchen Sie es erneut.",
+  "workspaceRail.menu.close": "Schließen",
+  "workspaceRail.menu.duplicate": "Duplizieren",
+  "workspaceRail.menu.moveToNewWindow": "In neues Fenster verschieben"
 }

@@ -177,5 +177,8 @@
   "browser.profiles.label": "Profil nommé",
   "browser.profiles.remove": "Supprimer",
   "browser.profiles.removeLabel": "Supprimer le profil {{name}}",
-  "browser.profiles.removeFailed": "Impossible de supprimer « {{name}} » — la connexion est peut-être toujours sur le disque. Réessayez."
+  "browser.profiles.removeFailed": "Impossible de supprimer « {{name}} » — la connexion est peut-être toujours sur le disque. Réessayez.",
+  "workspaceRail.menu.close": "Fermer",
+  "workspaceRail.menu.duplicate": "Dupliquer",
+  "workspaceRail.menu.moveToNewWindow": "Déplacer vers une nouvelle fenêtre"
 }
