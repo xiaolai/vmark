@@ -45,6 +45,7 @@ pub mod commands;
 pub mod commands_auth;
 pub mod geometry;
 pub mod mint;
+pub mod no_bridge;
 pub mod one_shot;
 pub mod operation;
 pub mod origin_guard;

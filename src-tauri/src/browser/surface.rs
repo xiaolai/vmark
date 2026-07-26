@@ -168,15 +168,6 @@ pub(crate) fn consume_attachment_in(
     true
 }
 
-/// The read-only JS that asserts no Tauri bridge leaked into the browsed page
-/// (R3 / SPIKE-1). Returns a JSON object of booleans; all must be false.
-pub const NO_BRIDGE_ASSERTION: &str = "return JSON.stringify({\
-    hasTauriInternals: typeof window.__TAURI_INTERNALS__ !== 'undefined',\
-    hasTauri: typeof window.__TAURI__ !== 'undefined',\
-    hasIpc: typeof window.ipc !== 'undefined',\
-    invokeReachable: (function(){try{return typeof window.__TAURI_INTERNALS__.invoke==='function';}catch(e){return false;}})()\
-});";
-
 #[cfg(target_os = "macos")]
 #[path = "surface_macos.rs"]
 mod imp;
@@ -278,10 +269,10 @@ mod stub {
     pub fn set_hidden(_a: &AppHandle, _t: String, _h: bool) -> Result<(), String> {
         Err(MSG.into())
     }
+    /// No native surface on this platform, so no live views — an empty list is the
+    /// truthful answer, not an error.
     #[cfg(debug_assertions)]
     pub fn debug_native_tab_ids(_a: &AppHandle) -> Result<Vec<String>, String> {
-        // No native surface on this platform, so no live views — an empty list is
-        // the truthful answer, not an error.
         Ok(Vec::new())
     }
 }
