@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 // --- Hoisted mocks (available before vi.mock factories execute) ---
 
-const { mockOpenUrl, mockTerminalLog, MockWebLinksAddon, mockWriteText, mockClipboardWarn, mockReadTextFile, mockStat, mockCreateTab, mockInitDocument, mockSettingsGetState, terminalFlags } = vi.hoisted(() => ({
+const { mockOpenUrl, mockTerminalLog, MockWebLinksAddon, mockWriteText, mockClipboardWarn, mockReadTextFile, mockStat, mockCreateTab, mockInitDocument, mockSettingsGetState, terminalFlags, webglFlags } = vi.hoisted(() => ({
   mockOpenUrl: vi.fn<(url: string) => Promise<void>>(),
   mockTerminalLog: vi.fn(),
   MockWebLinksAddon: vi.fn(),
@@ -19,9 +19,28 @@ const { mockOpenUrl, mockTerminalLog, MockWebLinksAddon, mockWriteText, mockClip
   // Default true — a real xterm always creates the helper textarea in open().
   // The `false` case is used only by the deliberate fail-loud test.
   terminalFlags: { createsTextarea: true },
+  // WebGL addon behaviour, chosen per test. Two `vi.mock("@xterm/addon-webgl")`
+  // calls used to sit INSIDE separate `it()` blocks; Vitest hoists them both to
+  // module scope, so only one factory could ever win and the other test was not
+  // exercising the path its name claimed. One top-level mock reading a mutable
+  // flag makes each test's intent explicit and real.
+  webglFlags: { throwOnConstruct: false },
 }));
 
 // --- Module mocks ---
+
+vi.mock("@xterm/addon-webgl", () => ({
+  WebglAddon: class {
+    constructor() {
+      if (webglFlags.throwOnConstruct) throw new Error("WebGL not supported");
+    }
+    onContextLoss = vi.fn((cb: () => void) => cb);
+    onAddTextureAtlasCanvas = vi.fn();
+    onRemoveTextureAtlasCanvas = vi.fn();
+    clearTextureAtlas = vi.fn();
+    dispose = vi.fn();
+  },
+}));
 
 vi.mock("@tauri-apps/plugin-opener", () => ({
   openUrl: (...args: unknown[]) => mockOpenUrl(...(args as [string])),
@@ -294,15 +313,7 @@ describe("createTerminalInstance composing property", () => {
 
 describe("createTerminalInstance with WebGL", () => {
   it("does not throw when WebGL is enabled", () => {
-    vi.mock("@xterm/addon-webgl", () => ({
-      WebglAddon: class {
-        onContextLoss = vi.fn((cb: () => void) => cb);
-        onAddTextureAtlasCanvas = vi.fn();
-        onRemoveTextureAtlasCanvas = vi.fn();
-        clearTextureAtlas = vi.fn();
-        dispose = vi.fn();
-      },
-    }));
+    webglFlags.throwOnConstruct = false;
 
     const parentEl = document.createElement("div");
     expect(() =>
@@ -866,13 +877,7 @@ describe("createTerminalInstance — WebGL failure fallback", () => {
   });
 
   it("falls back silently when WebGL addon throws on load", () => {
-    vi.mock("@xterm/addon-webgl", () => ({
-      WebglAddon: class {
-        constructor() {
-          throw new Error("WebGL not supported");
-        }
-      },
-    }));
+    webglFlags.throwOnConstruct = true;
 
     const parentEl = document.createElement("div");
     expect(() =>
