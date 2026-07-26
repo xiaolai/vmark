@@ -97,6 +97,14 @@ export async function withBrowserEnabled(client, opts, fn) {
     // still being torn down underneath it. That is a genuine ordering bug and it
     // showed up exactly that way: `browser-tab-lifecycle` passed alone and failed
     // in sequence. A journey suite that only works in isolation is not a suite.
+    //
+    // KNOWN GAP [audit]: when the feature was ALREADY enabled before the journey,
+    // restoring the snapshot does not disable it, so nothing disposes the tabs the
+    // journey created — they leak into the next one. On this machine the feature
+    // is off by default so the path is not exercised, but a developer who has it
+    // on would see cross-journey interference. The real fix is to close
+    // journey-created tabs by ID rather than relying on the feature toggle as a
+    // teardown mechanism.
     if (snapshot.enabled !== true) {
       await poll(
         () => browserSurfaceCount(client),

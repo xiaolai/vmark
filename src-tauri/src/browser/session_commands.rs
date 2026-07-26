@@ -141,6 +141,7 @@ fn apply(
     committed: &str,
     state: &StorageState,
     generation: u64,
+    state_handle: &BrowserSurface,
 ) -> Result<(), String> {
     // Defence in depth: refuse a cross-origin blob on the COMMAND thread before we
     // even dispatch. But the authoritative check is IN the replay script below —
@@ -151,6 +152,18 @@ fn apply(
     // host (apply_cookies drops any cookie whose domain doesn't cover it), so a saved
     // session's cookies can never be planted under an unrelated origin.
     if !state.cookies.is_empty() {
+        // [Audit High] `apply_cookies` re-checks the ORIGIN inside its main-thread
+        // closure, which is the right granularity for a cookie (cookies are
+        // origin-scoped, so a same-origin navigation lands them exactly where the
+        // approval intended). But a COOKIES-ONLY blob returns before the
+        // generation-bound eval below, so nothing on this path ever consulted the
+        // generation the approval was minted against. Check it here, so a stale
+        // command cannot restore cookies at all.
+        if !command_still_fresh(state_handle, tab_id, generation) {
+            return Err(format!(
+                "stale command: tab '{tab_id}' navigated or closed before the cookies could be restored"
+            ));
+        }
         let host = host_of(committed)
             .ok_or_else(|| "current page has no host for cookie replay".to_string())?;
         let origin = url::Url::parse(committed)
@@ -252,7 +265,7 @@ pub async fn browser_load_storage_state(
         ));
     }
     let committed = committed_origin(&state, &tab_id)?;
-    apply(&app, &tab_id, &committed, &blob, generation)
+    apply(&app, &tab_id, &committed, &blob, generation, &state)
 }
 
 /// Delete a saved session. User-initiated cleanup (the profile UI / data

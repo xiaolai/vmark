@@ -47,9 +47,18 @@ const PAGES = {
 </head><body><div id="marker" style="display:none">solid-loaded</div></body></html>`,
 
   /** Second page — history depth for back/forward. */
+  /** Second page — history depth, AND a same-named actionable target.
+   *
+   *  The button is deliberately identical in role+name to the one on `/`. A
+   *  journey that navigates here and retries an approved click must be refused
+   *  because the CONSENT was invalidated, not because the element vanished — a
+   *  destination without the target refuses for the wrong reason and can never
+   *  detect the invariant breaking. Its counter is separate so "did the click
+   *  land HERE" is answerable. */
   "/second": `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <title>VMark fixture — second</title></head><body>
 <h1>Second Page</h1><p id="marker">second-loaded</p>
+<button id="act-target" onclick="fetch('/hit/clicked-second').then(()=>{document.getElementById('marker').textContent='second-clicked';})">Press Me</button>
 <a id="to-home" href="/">Back home</a>
 </body></html>`,
 

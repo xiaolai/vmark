@@ -193,28 +193,37 @@ phase3() {
   fi
 }
 
+# An explicit manifest, not a count. Counting filenames let a rename silently
+# change what the gate measured — and because phases 4/5 were never actually run,
+# the drift went unnoticed while the other phases were reported green.
+UI_JOURNEYS="browser-tab-lifecycle browser-chrome-controls browser-no-bridge"
+AUTOMATION_JOURNEYS="browser-disabled-refuses browser-open-read-act browser-ssrf-policy \
+browser-approval-scoping browser-redirect-ssrf browser-approval-invalidation \
+browser-session-roundtrip"
+
+# A journey must exist, export the name it claims, and be coverageRequired —
+# otherwise it can silently skip and still count as coverage.
+assert_journey() {
+  local name="$1"
+  local file
+  file=$(grep -rl "name: \"$name\"" e2e/journeys/ 2>/dev/null | head -1)
+  if [ -z "$file" ]; then fail "journey '$name' not found"; return; fi
+  if ! grep -q "coverageRequired: true" "$file"; then
+    fail "journey '$name' is not coverageRequired — it could skip and still read as covered"
+    return
+  fi
+  pass "journey '$name' present and coverageRequired"
+}
+
 phase4() {
   echo "Phase 4 — browser UI E2E (Tauri bridge)"
-  local n
-  n=$(ls e2e/journeys/ 2>/dev/null \
-      | grep -cE "browser-(tab-lifecycle|omnibox|chrome|occlusion|approval-dialog|no-bridge)")
-  if [ "$n" -ge 6 ]; then
-    pass "WI-4.x six UI journeys present ($n)"
-  else
-    fail "WI-4.x expected 6 UI journeys, found $n"
-  fi
+  for j in $UI_JOURNEYS; do assert_journey "$j"; done
+  echo "  note: B13 partial (stop not asserted); B14 not automatable — see the matrix"
 }
 
 phase5() {
   echo "Phase 5 — browser automation E2E (sidecar)"
-  local n
-  n=$(ls e2e/journeys/ 2>/dev/null \
-      | grep -cE "browser-(disabled|open-read-act|ssrf|session-roundtrip|approval-deny|approval-allow-once|one-shot-scoping|approval-invalidation)")
-  if [ "$n" -ge 8 ]; then
-    pass "WI-5.x eight automation journeys present ($n)"
-  else
-    fail "WI-5.x expected 8 automation journeys, found $n"
-  fi
+  for j in $AUTOMATION_JOURNEYS; do assert_journey "$j"; done
 }
 
 phase6() {

@@ -27,9 +27,16 @@
  * ai_policy.rs: `printer.local` then navigates instead of being refused and the
  * journey goes red on that case alone.
  *
- * Safety: every destination is either a local fixture or an address that is
- * REFUSED before a request is made, so nothing leaves the machine. Restores all
- * browser settings, including on failure.
+ * SAFETY — stated honestly, because the obvious claim is circular. "Nothing
+ * leaves the machine" is only true IF the policy under test works; under the exact
+ * regression this journey exists to catch, it would contact the LAN, a router,
+ * link-local metadata, and an internal DNS name, and the userinfo case could put
+ * Basic credentials on the wire. That is a real hazard of testing egress policy
+ * from a machine with egress. Running this inside an egress-denied sandbox (or
+ * behind an intercepting proxy) is the correct environment and is NOT yet set up —
+ * treat a failure of this journey as potentially having emitted those requests.
+ *
+ * Restores all browser settings, including on failure.
  */
 
 import { startVmarkMcp, bridgeReady } from "../lib/vmarkMcp.mjs";
@@ -99,22 +106,23 @@ export default {
           if (/BROWSER_DISABLED/.test(res.text)) {
             throw new Error(`${label}: refused because the browser was disabled, not by policy`);
           }
-          if (!/blocked|refus|not permitted|invalid|policy/i.test(res.text)) {
+          // Narrow: the policy's own vocabulary, not any error that mentions
+          // "invalid". A malformed-URL rejection is a DIFFERENT bug class and must
+          // not be able to stand in for an SSRF block.
+          if (!/SSRF_BLOCKED|blocked|not permitted|refused by policy/i.test(res.text)) {
             throw new Error(
-              `${label} refused for an unrecognised reason: ${res.text.slice(0, 200)}`
+              `${label} refused for an unrecognised reason — expected a policy block, got: ${res.text.slice(0, 200)}`
             );
           }
         }
         ctx.log(`${BLOCKED.length} destinations refused before any request`);
 
-        // Nothing may have reached even our own fixture during phase 2 — the
-        // loopback cases target 127.0.0.1 and must not have been issued.
-        const total = Object.values(fx.allHits()).reduce((a, b) => a + b, 0);
-        if (total !== 0) {
-          throw new Error(
-            `a blocked destination produced ${total} actual request(s) — policy ran too late`
-          );
-        }
+        // NOTE — there is deliberately no request-counter assertion here. The
+        // fixture server observes ONLY its own ephemeral port, and not one blocked
+        // URL above targets it, so `allHits() === 0` is structurally always true:
+        // an assertion that cannot fail. (It was one, until this audit.) Proving
+        // "no packet left the machine" needs an egress-denied sandbox or a local
+        // intercepting proxy — see the safety note in the header.
       });
     } finally {
       await mcp.close();

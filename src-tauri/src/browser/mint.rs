@@ -88,6 +88,16 @@ pub(crate) fn mint_one_shot(
     if !operation::is_known_operation(operation_name) {
         return Err(format!("not a browser operation: '{operation_name}'"));
     }
+    // [Audit Medium] Refuse what consumption can never honour. `upload` is
+    // NEVER_AUTOMATED, so a one-shot for it is inert authority — it occupies a slot
+    // against MAX_ONE_SHOTS and shows the user an approval that could never fire.
+    // The module's stated principle is "never store authority the guard cannot
+    // enforce"; accepting `upload` here violated it.
+    if operation::NEVER_AUTOMATED.contains(&operation_name) {
+        return Err(format!(
+            "operation '{operation_name}' is never automated and cannot be authorized"
+        ));
+    }
     let payload_hash = if operation::operation_binds_payload(operation_name) {
         let script = eval_script.ok_or_else(|| {
             format!(
@@ -98,17 +108,20 @@ pub(crate) fn mint_one_shot(
     } else {
         None
     };
-    {
-        let reg = state.registry.lock().map_err(|e| e.to_string())?;
-        let current = reg
-            .generation(tab_id)
-            .ok_or_else(|| format!("unknown tab '{tab_id}'"))?;
-        if current != generation {
-            return Err(format!(
-                "stale approval: tab '{tab_id}' navigated since this was authorized \
-                 (approved gen {generation}, now {current})"
-            ));
-        }
+    // [Audit Medium] The generation check and the insertion must be ATOMIC. With the
+    // registry guard released in between, a navigation could clear this tab's
+    // one-shots after the check and before the push — leaving a permanently stale
+    // entry that can never be consumed but still counts against the cap. Hold the
+    // registry guard across both, in the established registry → one_shots order.
+    let reg = state.registry.lock().map_err(|e| e.to_string())?;
+    let current = reg
+        .generation(tab_id)
+        .ok_or_else(|| format!("unknown tab '{tab_id}'"))?;
+    if current != generation {
+        return Err(format!(
+            "stale approval: tab '{tab_id}' navigated since this was authorized \
+             (approved gen {generation}, now {current})"
+        ));
     }
     let mut shots = state.one_shots.lock().map_err(|e| e.to_string())?;
     if shots.len() >= MAX_ONE_SHOTS {
@@ -122,6 +135,8 @@ pub(crate) fn mint_one_shot(
         target,
         payload_hash,
     });
+    drop(shots);
+    drop(reg);
     Ok(())
 }
 
@@ -153,33 +168,62 @@ pub(crate) fn attach_ai_tab(
 ///
 /// **Validated as strictly as a one-shot is (WI-1.6).** Previously this accepted the
 /// vector verbatim, so a malformed pattern was stored as authority the guard could
-/// never match: not exploitable (default-deny holds) but invisible — the user sees a
-/// grant that does nothing. Validation is all-or-nothing: the store is authority, and
-/// a rejected sync must not leave it half-written. Revocation (an empty or smaller
-/// vector of valid grants) always applies, so the safe direction is never blocked.
+/// never match: invisible to the user, who sees a grant that does nothing.
+///
+/// **On a rejected batch the store is CLEARED, not left alone.** [Audit Medium] An
+/// earlier comment here claimed a revocation "always applies"; that was wrong. This is
+/// a REPLACEMENT sync, so a batch that revokes origin A while carrying one malformed
+/// unrelated entry would, under retain-on-error, leave A authorized indefinitely — the
+/// user revokes access and it silently does not take. Clearing fails CLOSED: the worst
+/// case is the user re-approves, versus authority outliving its revocation.
 pub(crate) fn set_standing_grants(
     state: &BrowserSurface,
     grants: Vec<StandingGrant>,
 ) -> Result<(), String> {
-    if grants.len() > MAX_GRANTS {
-        return Err(format!("too many grants (max {MAX_GRANTS})"));
-    }
-    for g in &grants {
-        if !origin_guard::is_origin_pattern(&g.origin_pattern) {
-            return Err(format!(
-                "not a valid origin pattern: '{}'",
-                g.origin_pattern
-            ));
+    let validated = (|| -> Result<(), String> {
+        if grants.len() > MAX_GRANTS {
+            return Err(format!("too many grants (max {MAX_GRANTS})"));
         }
-        for op in &g.operations {
-            if !operation::is_known_operation(op) {
-                return Err(format!("not a browser operation: '{op}'"));
+        for g in &grants {
+            if !origin_guard::is_origin_pattern(&g.origin_pattern) {
+                return Err(format!(
+                    "not a valid origin pattern: '{}'",
+                    g.origin_pattern
+                ));
+            }
+            for op in &g.operations {
+                if !operation::is_known_operation(op) {
+                    return Err(format!("not a browser operation: '{op}'"));
+                }
+                // Refuse authority a standing grant can never confer: `upload` is
+                // NEVER_AUTOMATED and `eval`/`session` are NEVER_GRANTABLE, so the
+                // guard rejects them regardless. Storing them is inert state that
+                // misrepresents what the user has allowed.
+                if operation::NEVER_AUTOMATED.contains(&op.as_str())
+                    || operation::NEVER_GRANTABLE.contains(&op.as_str())
+                {
+                    return Err(format!(
+                        "operation '{op}' can never be granted standing authority"
+                    ));
+                }
             }
         }
-    }
+        Ok(())
+    })();
+
     let mut current = state.grants.lock().map_err(|e| e.to_string())?;
-    *current = grants;
-    Ok(())
+    match validated {
+        Ok(()) => {
+            *current = grants;
+            Ok(())
+        }
+        Err(reason) => {
+            // Fail CLOSED — see the doc comment. Never retain prior authority past a
+            // failed replacement.
+            current.clear();
+            Err(reason)
+        }
+    }
 }
 
 #[cfg(test)]

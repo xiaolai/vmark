@@ -208,8 +208,19 @@ fn eval_js(
 /// The command thread already authorized and re-checked freshness, but there is a real
 /// window between that check and this closure actually running: `run_on_main_thread`
 /// enqueues, and the main thread may service a navigation first. An eval side effect
-/// cannot be undone by a post-check, so the last word has to be here — in the same
-/// main-thread turn as the dispatch, where nothing can interleave.
+/// cannot be undone by a post-check, so the last word has to be here.
+///
+/// SCOPE OF THE GUARANTEE — stated precisely, because an earlier version of this
+/// comment overclaimed. No main-thread work can interleave between the check and
+/// `callAsyncJavaScript`: both run in one main-thread turn. What CAN still interleave
+/// is another **thread** — a Tauri command thread marking the tab destroyed, beginning
+/// a navigation, or bumping the policy epoch in that same window. So this narrows the
+/// race from "any main-thread event" to "a cross-thread state change inside one
+/// synchronous turn", which is far tighter than the command-thread check alone, but it
+/// is not zero. Closing it entirely means holding the registry guard across
+/// `callAsyncJavaScript` and releasing it before `pump_until` — deliberately not done
+/// here, because it puts a lock on the main thread's path with WebKit re-entrancy
+/// nearby, and that trade needs its own review rather than being smuggled into this fix.
 ///
 /// **Lock discipline (WI-2.2): no lock may be held across run-loop pumping.**
 /// `eval_js` pumps the main run loop while it waits for `callAsyncJavaScript`'s

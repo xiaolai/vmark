@@ -27,6 +27,7 @@
  * Safety: local fixture; AI tab disposed by restoring `browser.enabled`.
  */
 
+import { poll } from "../lib/vmark.mjs";
 import { startVmarkMcp, bridgeReady } from "../lib/vmarkMcp.mjs";
 import { withBrowserEnabled } from "../lib/browser.mjs";
 import { startFixtureServer } from "../lib/fixtureServer.mjs";
@@ -62,8 +63,18 @@ export default {
         if (nav.isError && !/supersed/i.test(nav.text)) {
           throw new Error(`navigation failed unexpectedly: ${nav.text.slice(0, 200)}`);
         }
-        await new Promise((r) => setTimeout(r, 1200));
-        ctx.log("tab navigated while the prompt was pending");
+        // [Audit High] The destination MUST carry the same role+name target.
+        // Without it the final retry is refused because the element is absent,
+        // and this journey could never detect consent surviving a navigation —
+        // it would pass with B10 completely broken. `/second` now serves an
+        // identical "Press Me" with its OWN counter.
+        await poll(
+          () => Promise.resolve(fx.hits("/second")),
+          (n) => n >= 1,
+          "destination page actually fetched",
+          { timeoutMs: 12000 }
+        );
+        ctx.log("tab navigated to a page carrying the SAME target");
 
         // Try to answer it late. Either the prompt is already gone (dismissed on
         // navigation) or the mint is refused as stale — both are correct, and
@@ -87,8 +98,15 @@ export default {
               "consent travelled across pages"
           );
         }
+        // Neither page may have been clicked — the destination counter is the one
+        // that matters, since that is where a surviving consent would have landed.
+        if (fx.hits("/hit/clicked-second") !== 0) {
+          throw new Error(
+            "consent TRAVELLED: the click landed on the page navigated to after approval"
+          );
+        }
         if (fx.hits("/hit/clicked") !== 0) {
-          throw new Error("the page was clicked despite the approval being invalidated");
+          throw new Error("the origin page was clicked despite the approval being invalidated");
         }
         ctx.log("post-navigation click refused; consent did not travel");
       });

@@ -47,8 +47,13 @@ import {
   drainPendingApprovals,
 } from "../lib/browserApproval.mjs";
 
-/** Unique per run so a real user session can never be overwritten. */
-const HANDLE = "vmark-e2e-fixture-session";
+/** Genuinely unique per run.
+ *
+ *  This was previously a CONSTANT with a comment claiming it was unique — the
+ *  comment was simply false, so every run overwrote the same keychain entry and
+ *  could collide with a real user session of that plausible name. Randomised, and
+ *  deleted in teardown. */
+const HANDLE = `vmark-e2e-${process.pid}-${Math.random().toString(36).slice(2, 10)}`;
 
 export default {
   name: "browser-session-roundtrip",
@@ -66,7 +71,14 @@ export default {
     /** Run a per-call-approved session action: call, approve, retry. */
     async function approvedSession(action) {
       const first = await mcp.callTool("browser", { action, handle: HANDLE });
-      if (!first.isError) return first; // already authorised (should not happen)
+      if (!first.isError) {
+        // `session` is NEVER_GRANTABLE: it can never be satisfied by a standing
+        // grant, so an un-approved first call MUST be refused. Silently accepting
+        // success here (what this did before) meant broken enforcement passed.
+        throw new Error(
+          `${action} succeeded WITHOUT approval — 'session' must never be grantable`
+        );
+      }
       if (!/approval/i.test(first.text)) {
         throw new Error(`${action} failed for a non-approval reason: ${first.text.slice(0, 200)}`);
       }
@@ -142,10 +154,14 @@ export default {
         await drainPendingApprovals(client);
 
         const readAfter = await gotoRead();
+        // BOTH halves. Asserting only localStorage let a completely broken cookie
+        // replay pass while the matrix claimed cookies were verified — the row
+        // would have been overclaiming on the strength of a partial check.
         if (!readAfter.includes("ls=seeded")) {
-          throw new Error(
-            `session_load succeeded but localStorage was NOT restored: ${readAfter}`
-          );
+          throw new Error(`session_load succeeded but localStorage was NOT restored: ${readAfter}`);
+        }
+        if (!readAfter.includes("cookie=seeded")) {
+          throw new Error(`session_load succeeded but the COOKIE was NOT restored: ${readAfter}`);
         }
         ctx.log(`restored and verified: ${readAfter}`);
       });

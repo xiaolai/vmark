@@ -273,15 +273,29 @@ fn an_unenforceable_grant_pattern_is_refused_like_a_one_shot_is() {
 }
 
 #[test]
-fn a_refused_batch_leaves_the_previous_grants_untouched() {
-    // No partial application: the store is authority, so a rejected sync must not
-    // leave it half-written.
+fn a_refused_batch_clears_rather_than_retaining_prior_authority() {
+    // [Audit Medium] This previously asserted the opposite — that a rejected batch
+    // leaves the old grants in place — and a comment claimed revocation "always
+    // applies". Both were wrong. `set_standing_grants` is a REPLACEMENT sync, so a
+    // batch that revokes A while carrying one malformed unrelated entry would, under
+    // retain-on-error, leave A authorized indefinitely: the user revokes access and
+    // it silently does not take. Failing CLOSED costs a re-approval; failing open
+    // outlives a revocation.
     let surface = enabled_surface();
     set_standing_grants(&surface, vec![grant("https://ex.com", &["click"])]).unwrap();
-    let _ = set_standing_grants(&surface, vec![grant("bogus", &["click"])]);
-    let current = surface.grants.lock().unwrap();
-    assert_eq!(current.len(), 1);
-    assert_eq!(current[0].origin_pattern, "https://ex.com");
+    let err = set_standing_grants(
+        &surface,
+        vec![
+            grant("https://ex.com", &["click"]),
+            grant("bogus", &["click"]),
+        ],
+    )
+    .unwrap_err();
+    assert!(err.contains("not a valid origin pattern"), "got: {err}");
+    assert!(
+        surface.grants.lock().unwrap().is_empty(),
+        "a rejected replacement must not leave prior authority standing"
+    );
 }
 
 #[test]
@@ -338,17 +352,41 @@ fn every_pattern_shape_the_frontend_emits_is_accepted() {
 }
 
 #[test]
-fn every_operation_the_vocabulary_defines_is_accepted_in_a_grant() {
-    // A grant may legally carry any KNOWN operation. The guard separately refuses
-    // never-grantable ones (`eval`, `session`) at decision time — that is the right
-    // layer for it, and duplicating the rule here would let the two drift.
+fn a_grant_refuses_operations_that_can_never_be_granted() {
+    // [Audit Medium] This test used to assert that EVERY known operation is
+    // acceptable in a grant — locking in exactly the behaviour the module's own
+    // principle forbids. `upload` is NEVER_AUTOMATED and `eval`/`session` are
+    // NEVER_GRANTABLE, so the guard refuses all three regardless; storing them is
+    // inert state that misrepresents to the user what they have allowed.
     let surface = enabled_surface();
-    let all = [
-        "read", "attach", "click", "type", "scroll", "key", "style", "navigate", "publish",
-        "upload", "eval", "session",
-    ];
-    for op in all {
-        set_standing_grants(&surface, vec![grant("https://ex.com:443", &[op])])
-            .unwrap_or_else(|e| panic!("known operation '{op}' rejected: {e}"));
+    for op in ["upload", "eval", "session"] {
+        let err =
+            set_standing_grants(&surface, vec![grant("https://ex.com:443", &[op])]).unwrap_err();
+        assert!(
+            err.contains("can never be granted"),
+            "{op} should be refused at the storage boundary, got: {err}"
+        );
     }
+}
+
+#[test]
+fn a_grant_accepts_every_operation_that_is_actually_grantable() {
+    let surface = enabled_surface();
+    for op in [
+        "read", "attach", "click", "type", "scroll", "key", "style", "navigate", "publish",
+    ] {
+        set_standing_grants(&surface, vec![grant("https://ex.com:443", &[op])])
+            .unwrap_or_else(|e| panic!("grantable operation '{op}' rejected: {e}"));
+    }
+}
+
+#[test]
+fn a_one_shot_refuses_a_never_automated_operation() {
+    // Same principle on the one-shot side: `upload` can never be consumed, so
+    // minting it occupies a slot and shows an approval that could never fire.
+    let surface = enabled_surface();
+    commit_tab(&surface, "t", "https://ex.com/", AutomationMode::AiSandbox);
+    let err = mint_one_shot(&surface, "t", 0, "https://ex.com", "upload", None, None).unwrap_err();
+    assert!(err.contains("never automated"), "got: {err}");
+    assert!(surface.one_shots.lock().unwrap().is_empty());
 }
