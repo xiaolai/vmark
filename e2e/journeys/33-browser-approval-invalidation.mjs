@@ -1,6 +1,8 @@
 /**
  * Journey: browser-approval-invalidation  (WI-5.10 · B10 — consent does not travel)
  *
+ * WI-5.10 — navigation invalidates a pending prompt and unspent authority.
+ *
  * An approval is bound to the page the user was LOOKING AT. If it survived a
  * navigation, the sequence "AI asks to click Buy on shop.example → page navigates
  * → user clicks Allow" would authorise a click on a page they never saw. The

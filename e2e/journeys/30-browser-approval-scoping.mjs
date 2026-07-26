@@ -1,5 +1,7 @@
 /**
- * Journey: browser-approval-scoping  (WI-5.8/5.9 · B8/B9 — what an approval buys)
+ * Journey: browser-approval-scoping  (WI-5.7/5.8/5.9 · B7/B8/B9 — what an approval buys)
+ *
+ * WI-5.7 — deny withholds. WI-5.8 — allow-once is once. WI-5.9 — target scoping.
  *
  * An approval is not a mood, it is a bounded grant. Two bounds, both of which
  * would be invisible if broken:
@@ -33,7 +35,11 @@
 import { startVmarkMcp, bridgeReady } from "../lib/vmarkMcp.mjs";
 import { withBrowserEnabled } from "../lib/browser.mjs";
 import { startFixtureServer } from "../lib/fixtureServer.mjs";
-import { waitForApprovalDialog, resolveApprovalViaUi } from "../lib/browserApproval.mjs";
+import {
+  waitForApprovalDialog,
+  resolveApprovalViaUi,
+  drainPendingApprovals,
+} from "../lib/browserApproval.mjs";
 
 const BUTTON = { role: "button", name: "Press Me" };
 const LINK = { role: "link", name: "Go to second" };
@@ -57,6 +63,29 @@ export default {
       await withBrowserEnabled(client, { allowLoopback: true }, async () => {
         const open = await mcp.callTool("browser", { action: "open", url: fx.url("/") });
         if (open.isError) throw new Error(`open failed: ${open.text.slice(0, 250)}`);
+
+        // --- WI-5.7 / B7: DENY withholds -----------------------------------
+        // Only the approve half was ever tested. A Deny button that resolved the
+        // prompt but minted authority anyway would have gone unnoticed.
+        const denied = await click(BUTTON);
+        if (!denied.isError) throw new Error("an ungranted click succeeded with no approval");
+        await waitForApprovalDialog(client);
+        await resolveApprovalViaUi(client, "deny");
+        const afterDeny = await click(BUTTON);
+        if (!afterDeny.isError) {
+          throw new Error("a click was authorised after the user pressed DENY");
+        }
+        if (fx.hits("/hit/clicked") !== 0) {
+          throw new Error("the page was clicked despite the user denying the request");
+        }
+        ctx.log("B7: deny withheld authority; the page was not clicked");
+
+        // The `afterDeny` probe was itself an ungranted action, so it queued a
+        // SECOND prompt. Approvals are a queue (`MAX_PENDING_APPROVALS`), and the
+        // next one renders the instant the current is resolved — so leaving this
+        // one pending makes the later "dialog dismissed" wait hang forever
+        // against a dialog that is real but is a different request. Drain it.
+        await drainPendingApprovals(client);
 
         // Raise and approve an "Allow once" bound to the BUTTON.
         const first = await click(BUTTON);

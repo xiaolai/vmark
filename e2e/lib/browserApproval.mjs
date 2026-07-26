@@ -139,3 +139,25 @@ export async function dismissApprovalWithEscape(client) {
     { timeoutMs: 5000 }
   );
 }
+
+/**
+ * Deny every currently-queued approval until none remains.
+ *
+ * Approvals are a QUEUE (`MAX_PENDING_APPROVALS` in browserApprovalStore), and
+ * the next prompt renders the instant the current one is resolved. A journey that
+ * probes a refusal has, by doing so, queued another prompt — so "wait for the
+ * dialog to disappear" can hang against a dialog that is genuinely there but is a
+ * *different* request. Draining makes the queue state explicit instead of leaving
+ * a later wait to discover it.
+ *
+ * Denies rather than allows: this is cleanup, and cleanup must never mint
+ * authority a subsequent assertion could then spend by accident.
+ */
+export async function drainPendingApprovals(client, max = 8) {
+  for (let i = 0; i < max; i++) {
+    const dialog = await readApprovalDialog(client);
+    if (dialog === null) return i;
+    await resolveApprovalViaUi(client, "deny").catch(() => {});
+  }
+  throw new Error(`approval queue did not drain after ${max} denials`);
+}
