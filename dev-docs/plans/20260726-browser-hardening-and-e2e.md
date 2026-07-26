@@ -227,7 +227,7 @@ generation N is refused when the closure observes N+1.
 | WI-3.3 | `e2e/lib/browserApproval.mjs` — drive `BrowserApprovalDialog` by **clicking real DOM** (allow / allow-once / deny). |
 | WI-3.4 | `e2e/lib/browser.mjs` — full state save/restore: `enabled`, AI posture, `allowLoopback`, grants, pending approvals, open tabs, named profiles. |
 
-**DoD:** `bash scripts/check-browser-e2e-phase.sh 3` — the five modules exist, the sidecar
+**DoD:** `bash scripts/check-browser-e2e-phase.sh 3` — the four `e2e/lib` modules exist, the sidecar
 rebuild step is wired, and WI-3.0's `platforms` field is honoured by the runner. *(The
 first draft's DoD depended on Phase 5 imports, so it could not gate Phase 3.)*
 
@@ -273,9 +273,9 @@ on review — the originals could pass with the feature broken.
 | WI-5.1 | `27-browser-disabled-refuses` | Every action returns `BROWSER_DISABLED` **with valid arguments**, so validation cannot mask the feature gate; and no native view is created (compare native identity before/after). |
 | WI-5.2 | `28-browser-open-read-act` | Not `clicked:true` — that means `.click()` returned. Assert a **server hit counter** or a subsequent page-state marker. |
 | WI-5.3 | `29-browser-ssrf-policy` | Exact `SSRF_BLOCKED` per case (loopback, private-LAN, metadata, `2130706433`, `127.1`, userinfo, `file:`/`data:`), exact redirect-policy error, **zero request counters** where observable, and a **positive control** proving the path works when policy permits. |
-| WI-5.4 | *removed* | The MCP `act` never accepts a generation — it resolves the current one internally (`browserAct.ts:174`), so this could only ever test stale **refs**, not the Rust generation gate. Moved to **WI-1.8** where it is reachable. |
+| WI-5.4 | *RETIRED — not pending work* | The MCP `act` never accepts a generation — it resolves the current one internally (`browserAct.ts:174`), so this could only ever test stale **refs**, not the Rust generation gate. Moved to **WI-1.8** where it is reachable. |
 | WI-5.5 | `30-browser-session-roundtrip` | Not navigate-away-and-back — cookies/localStorage survive in the same store, so a **no-op load passes**. Explicitly clear both, prove absent, load, prove restored. Plus cross-origin load refused (`STORAGE_STATE_ORIGIN_MISMATCH`). |
-| WI-5.6 | *moved to Phase 4* | `browser_assert_no_bridge` is a **Tauri command**, not an action in the MCP tool enum (`tools/browser.ts:79`). It cannot be driven through the sidecar. Becomes `31-browser-no-bridge` on the Tauri lane. |
+| WI-5.6 | *RETIRED here — relocated to the Tauri lane* | `browser_assert_no_bridge` is a **Tauri command**, not an action in the MCP tool enum (`tools/browser.ts:79`). It cannot be driven through the sidecar. Becomes `31-browser-no-bridge` on the Tauri lane. |
 | WI-5.7 | `32-browser-approval-deny` | Deny → the action does **not** land (assert the fixture oracle, not the error). |
 | WI-5.8 | `33-browser-approval-allow-once` | Allow-once → first retry lands; **second** retry needs approval again. |
 | WI-5.9 | `34-browser-one-shot-scoping` | A one-shot minted for role/name A **cannot** be spent on B; a standing grant is scoped to operation *and* origin. |
