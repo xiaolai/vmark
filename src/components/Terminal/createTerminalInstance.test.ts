@@ -24,7 +24,7 @@ const { mockOpenUrl, mockTerminalLog, MockWebLinksAddon, mockWriteText, mockClip
   // module scope, so only one factory could ever win and the other test was not
   // exercising the path its name claimed. One top-level mock reading a mutable
   // flag makes each test's intent explicit and real.
-  webglFlags: { throwOnConstruct: false },
+  webglFlags: { throwOnConstruct: false, constructCount: 0 },
 }));
 
 // --- Module mocks ---
@@ -32,6 +32,7 @@ const { mockOpenUrl, mockTerminalLog, MockWebLinksAddon, mockWriteText, mockClip
 vi.mock("@xterm/addon-webgl", () => ({
   WebglAddon: class {
     constructor() {
+      webglFlags.constructCount += 1;
       if (webglFlags.throwOnConstruct) throw new Error("WebGL not supported");
     }
     onContextLoss = vi.fn((cb: () => void) => cb);
@@ -311,9 +312,18 @@ describe("createTerminalInstance composing property", () => {
   });
 });
 
+// Mutable module-scope test state shared by every WebGL describe.
+// vi.clearAllMocks() does NOT reset it, so without a TOP-LEVEL reset the
+// failure test leaves throwOnConstruct=true and constructCount accumulating,
+// making later WebGL tests order-dependent — the same "test that lies" class
+// this mock consolidation set out to fix.
+beforeEach(() => {
+  webglFlags.throwOnConstruct = false;
+  webglFlags.constructCount = 0;
+});
+
 describe("createTerminalInstance with WebGL", () => {
   it("does not throw when WebGL is enabled", () => {
-    webglFlags.throwOnConstruct = false;
 
     const parentEl = document.createElement("div");
     expect(() =>
@@ -880,6 +890,8 @@ describe("createTerminalInstance — WebGL failure fallback", () => {
     webglFlags.throwOnConstruct = true;
 
     const parentEl = document.createElement("div");
+    // "does not throw" alone would also pass if the addon were never
+    // constructed at all, so assert below that the throwing path really ran.
     expect(() =>
       createTerminalInstance({
         parentEl,
@@ -895,6 +907,9 @@ describe("createTerminalInstance — WebGL failure fallback", () => {
         onSearch: vi.fn(),
       })
     ).not.toThrow();
+    // Proves the fallback was exercised, not skipped: the addon really was
+    // constructed and really did throw.
+    expect(webglFlags.constructCount).toBe(1);
   });
 });
 

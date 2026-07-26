@@ -501,6 +501,37 @@ describe("WorkspaceRail", () => {
       expect(mockMoveWorkspace).toHaveBeenCalledWith("main", "wsi-a", expect.anything());
     });
 
+    it("focuses the first item and roves with arrow keys", async () => {
+      setRailMode(true);
+      addInstance("main", "wsi-a", "/Users/xiaolai/alpha");
+      render(<WorkspaceRail windowLabel="main" />);
+      await openMenu("alpha");
+
+      // Focus lands on an ITEM, not the container — the container's outline is
+      // suppressed, so focusing it would show nothing.
+      expect(screen.getByRole("menuitem", { name: "Close" })).toHaveFocus();
+
+      await userEvent.keyboard("{ArrowDown}");
+      expect(screen.getByRole("menuitem", { name: "Duplicate" })).toHaveFocus();
+      await userEvent.keyboard("{End}");
+      expect(screen.getByRole("menuitem", { name: "Move to New Window" })).toHaveFocus();
+      await userEvent.keyboard("{ArrowDown}");
+      expect(screen.getByRole("menuitem", { name: "Close" })).toHaveFocus();
+    });
+
+    it("returns focus to the rail entry when dismissed", async () => {
+      setRailMode(true);
+      addInstance("main", "wsi-a", "/Users/xiaolai/alpha");
+      render(<WorkspaceRail windowLabel="main" />);
+      const trigger = screen.getByRole("button", { name: "Activate alpha" });
+      await openMenu("alpha");
+
+      await userEvent.keyboard("{Escape}");
+
+      // Without this a keyboard user is dumped on <body>, losing their place.
+      expect(trigger).toHaveFocus();
+    });
+
     it("dismisses on Escape without running an action", async () => {
       setRailMode(true);
       addInstance("main", "wsi-a", "/Users/xiaolai/alpha");

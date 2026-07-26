@@ -93,7 +93,7 @@ export function resolveTransferActiveTab(
  *
  * Path classification decides only for tabs no instance has explicitly claimed.
  */
-function tabBelongsToWorkspace(
+export function tabBelongsToWorkspace(
   tab: DocumentTab,
   instance: WorkspaceInstanceRecord,
   activeInstanceId: string | null,

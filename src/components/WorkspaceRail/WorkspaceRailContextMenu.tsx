@@ -16,9 +16,12 @@
  * @module components/WorkspaceRail/WorkspaceRailContextMenu
  */
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import "./WorkspaceRailContextMenu.css";
+
+/** Keep the menu this far from the viewport edge when clamping. */
+const VIEWPORT_MARGIN = 8;
 
 export interface WorkspaceRailMenuPosition {
   x: number;
@@ -45,33 +48,76 @@ export function WorkspaceRailContextMenu({
 }: WorkspaceRailContextMenuProps) {
   const { t } = useTranslation("common");
   const menuRef = useRef<HTMLDivElement>(null);
+  const itemRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const [focused, setFocused] = useState(0);
+  const [clamped, setClamped] = useState(position);
+  // Restore focus here on dismiss — otherwise Escape leaves focus on <body>
+  // and a keyboard user loses their place in the rail.
+  const invokerRef = useRef<Element | null>(
+    typeof document === "undefined" ? null : document.activeElement,
+  );
 
+  const items = [
+    { label: t("workspaceRail.menu.close"), run: onCloseWorkspace },
+    { label: t("workspaceRail.menu.duplicate"), run: onDuplicate },
+    { label: t("workspaceRail.menu.moveToNewWindow"), run: onMoveToNewWindow },
+  ];
+
+  // Clamp against the viewport before paint. Raw clientX/clientY puts a menu
+  // opened near the bottom or right edge partly off-screen.
+  useLayoutEffect(() => {
+    const el = menuRef.current;
+    if (!el) return;
+    const { width, height } = el.getBoundingClientRect();
+    const maxX = globalThis.innerWidth - width - VIEWPORT_MARGIN;
+    const maxY = globalThis.innerHeight - height - VIEWPORT_MARGIN;
+    setClamped({
+      x: Math.max(VIEWPORT_MARGIN, Math.min(position.x, maxX)),
+      y: Math.max(VIEWPORT_MARGIN, Math.min(position.y, maxY)),
+    });
+  }, [position]);
+
+  // Focus the first ITEM, not the container: the container's outline is
+  // suppressed, so focusing it would leave no visible focus at all.
   useEffect(() => {
-    // Focus the menu so Escape works immediately and focus is never left on
-    // the rail button behind an open menu.
-    menuRef.current?.focus();
+    itemRefs.current[0]?.focus();
   }, []);
+
+  const dismiss = useCallback(() => {
+    const invoker = invokerRef.current;
+    onClose();
+    if (invoker instanceof HTMLElement && invoker.isConnected) invoker.focus();
+  }, [onClose]);
 
   useEffect(() => {
     const onPointerDown = (event: MouseEvent) => {
-      if (!menuRef.current?.contains(event.target as Node)) onClose();
-    };
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.stopPropagation();
-        onClose();
-      }
+      if (!menuRef.current?.contains(event.target as Node)) dismiss();
     };
     document.addEventListener("mousedown", onPointerDown);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("mousedown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("mousedown", onPointerDown);
+  }, [dismiss]);
+
+  const onKeyDown = (event: React.KeyboardEvent) => {
+    if (event.key === "Escape") {
+      event.stopPropagation();
+      dismiss();
+      return;
+    }
+    // Roving focus — the keyboard contract a role="menu" is expected to honour.
+    const move = (next: number) => {
+      event.preventDefault();
+      setFocused(next);
+      itemRefs.current[next]?.focus();
     };
-  }, [onClose]);
+    if (event.key === "ArrowDown") move((focused + 1) % items.length);
+    else if (event.key === "ArrowUp") move((focused - 1 + items.length) % items.length);
+    else if (event.key === "Home") move(0);
+    else if (event.key === "End") move(items.length - 1);
+  };
 
   const run = (action: () => void) => () => {
-    onClose();
+    // Dismiss first so focus returns to the rail before the action mutates it.
+    dismiss();
     action();
   };
 
@@ -80,34 +126,26 @@ export function WorkspaceRailContextMenu({
       ref={menuRef}
       className="workspace-rail-menu"
       role="menu"
-      tabIndex={-1}
       aria-label={workspaceName}
-      style={{ top: position.y, left: position.x }}
+      onKeyDown={onKeyDown}
+      style={{ top: clamped.y, left: clamped.x }}
     >
-      <button
-        type="button"
-        role="menuitem"
-        className="workspace-rail-menu__item"
-        onClick={run(onCloseWorkspace)}
-      >
-        {t("workspaceRail.menu.close")}
-      </button>
-      <button
-        type="button"
-        role="menuitem"
-        className="workspace-rail-menu__item"
-        onClick={run(onDuplicate)}
-      >
-        {t("workspaceRail.menu.duplicate")}
-      </button>
-      <button
-        type="button"
-        role="menuitem"
-        className="workspace-rail-menu__item"
-        onClick={run(onMoveToNewWindow)}
-      >
-        {t("workspaceRail.menu.moveToNewWindow")}
-      </button>
+      {items.map((item, index) => (
+        <button
+          key={item.label}
+          ref={(el) => {
+            itemRefs.current[index] = el;
+          }}
+          type="button"
+          role="menuitem"
+          className="workspace-rail-menu__item"
+          tabIndex={index === focused ? 0 : -1}
+          onFocus={() => setFocused(index)}
+          onClick={run(item.run)}
+        >
+          {item.label}
+        </button>
+      ))}
     </div>
   );
 }
