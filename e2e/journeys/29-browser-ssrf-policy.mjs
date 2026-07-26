@@ -32,21 +32,24 @@
  * worked. Under the regression this journey detects, it would have contacted the
  * user's LAN and router and put Basic credentials on the wire.
  *
- * Destinations are now chosen to bound the damage, and the honest description is
- * REDUCED risk, not zero. One case is genuinely OBSERVABLE (loopback — the fixture
- * server is the packet oracle). The RFC 5737 TEST-NET addresses are reserved for
- * documentation and route nowhere.
+ * SAFETY — closed by REMOVING the hazard, not by sandboxing it.
  *
- * BUT — and an audit was right to press on this — the remaining cases are NOT
- * harmless: `169.254.169.254` is a real metadata endpoint ON A CLOUD VM, and
- * `printer.local` / `router.home.arpa` / `db.internal` CAN resolve on a real
- * corporate or home network. RFC 3927 link-local is link-scoped, not "unrouted".
- * On a developer laptop these resolve to nothing; on other machines they may not.
+ * Two earlier versions of this list could, under the exact regression they detect,
+ * have contacted real infrastructure: a router, RFC1918 space, `169.254.169.254`
+ * (a live metadata endpoint on a cloud VM), and mDNS/`.internal` names that resolve
+ * on real corporate networks. Calling those "reserved and unrouted" was wrong.
  *
- * So: do not run this suite on a cloud instance or a managed corporate network
- * until it is behind an egress-denying proxy with fixture-controlled DNS. That
- * sandbox is the correct fix and is not built. Until it is, this journey trades a
- * bounded, stated risk for coverage of a policy whose failure is worse.
+ * The reflex is to build an egress sandbox so the risky cases can stay. That is the
+ * wrong trade here, because those cases were carrying NO COVERAGE the suite did not
+ * already have: `ai_policy.test.rs` exercises every one of them — the LAN suffixes,
+ * the metadata names, link-local — exhaustively and with zero network. The E2E's job
+ * is narrower: prove the policy is actually WIRED into navigation. One observable
+ * case does that, and the loopback packet oracle below is observable.
+ *
+ * So what remains is destinations that cannot reach anything: loopback (which the
+ * fixture server observes directly), RFC 5737 documentation ranges, and schemes with
+ * no network step at all. A total policy failure here emits nothing that can leave
+ * the machine — a property of the list, not a claim about the code under test.
  *
  * Restores all browser settings, including on failure.
  */
@@ -71,20 +74,18 @@ import { startFixtureServer } from "../lib/fixtureServer.mjs";
  * ranges, so these exercise genuine policy branches rather than being placeholders.
  */
 const BLOCKED = [
+  // Loopback — the observable class. Every spelling the policy must normalise.
   ["loopback by name", "http://localhost:9/"],
   ["loopback literal", "http://127.0.0.1:9/"],
   ["loopback shorthand", "http://127.1:9/"],
   ["loopback as integer", "http://2130706433:9/"],
   ["loopback as hex", "http://0x7f000001:9/"],
+  // RFC 5737 documentation ranges — reserved, and route nowhere by definition.
   ["TEST-NET-1 (RFC 5737)", "http://192.0.2.1/"],
   ["TEST-NET-2 (RFC 5737)", "http://198.51.100.1/"],
   ["TEST-NET-3 (RFC 5737)", "http://203.0.113.1/"],
-  ["link-local / metadata (RFC 3927, unrouted)", "http://169.254.169.254/"],
-  ["cloud metadata by name", "http://metadata.google.internal/"],
-  ["mDNS LAN peer", "http://printer.local/"],
-  ["home network", "http://router.home.arpa/"],
-  ["cloud instance name", "http://db.internal/"],
   ["userinfo in authority", "http://user:pass@192.0.2.2/"],
+  // Schemes the policy refuses outright — no network involved either way.
   ["file scheme", "file:///etc/passwd"],
   ["data scheme", "data:text/html,<h1>x</h1>"],
 ];

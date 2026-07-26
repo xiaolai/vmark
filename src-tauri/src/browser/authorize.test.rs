@@ -401,7 +401,7 @@ fn the_freshness_recheck_consumes_neither_one_shot_nor_attachment() {
     );
 }
 
-// WI-2.1/2.2 — `dispatch_if_fresh`, the verify-then-dispatch ordering.
+// WI-2.1/2.2 — `submit_if_fresh`, the verify-then-enqueue ordering.
 //
 // This is the test the audit said was missing. The check used to live inline in
 // the macOS main-thread closure, which needs a real WKWebView on a real main
@@ -413,21 +413,21 @@ fn the_freshness_recheck_consumes_neither_one_shot_nor_attachment() {
 use std::cell::Cell;
 
 #[test]
-fn a_fresh_command_dispatches() {
+fn a_fresh_command_submits() {
     let surface = enabled_surface();
     commit_tab(&surface, "t", "https://ex.com/", AutomationMode::AiSandbox);
     let ran = Cell::new(false);
-    let out = dispatch_if_fresh(&surface, "t", 0, || {
+    let out = submit_if_fresh(&surface, "t", 0, || {
         ran.set(true);
         "result"
     })
     .unwrap();
-    assert!(ran.get(), "a fresh command must reach its dispatch");
+    assert!(ran.get(), "a fresh command must reach its enqueue");
     assert_eq!(out, "result");
 }
 
 #[test]
-fn a_stale_generation_never_reaches_the_dispatch() {
+fn a_stale_generation_never_reaches_the_enqueue() {
     // The invariant: not merely that the call returns Err, but that the side
     // effect NEVER HAPPENS. An eval cannot be undone by a post-check, which is the
     // entire reason the check moved inside the closure.
@@ -440,7 +440,7 @@ fn a_stale_generation_never_reaches_the_dispatch() {
         reg.set_committed_url("t", "https://evil.com/").unwrap();
     }
     let ran = Cell::new(false);
-    let err = dispatch_if_fresh(&surface, "t", 0, || ran.set(true)).unwrap_err();
+    let err = submit_if_fresh(&surface, "t", 0, || ran.set(true)).unwrap_err();
     assert!(err.contains("stale command"), "got: {err}");
     assert!(
         !ran.get(),
@@ -449,7 +449,7 @@ fn a_stale_generation_never_reaches_the_dispatch() {
 }
 
 #[test]
-fn a_destroyed_tab_never_reaches_the_dispatch() {
+fn a_destroyed_tab_never_reaches_the_enqueue() {
     // [Audit High] SCOPE — an earlier comment here claimed this covered "the
     // cross-thread case". It does not. This arranges stale state BEFORE the call;
     // it never interleaves a mutation between the check and the dispatch, which is
@@ -461,44 +461,132 @@ fn a_destroyed_tab_never_reaches_the_dispatch() {
     commit_tab(&surface, "t", "https://ex.com/", AutomationMode::AiSandbox);
     surface.forget_tab("t").unwrap();
     let ran = Cell::new(false);
-    assert!(dispatch_if_fresh(&surface, "t", 0, || ran.set(true)).is_err());
+    assert!(submit_if_fresh(&surface, "t", 0, || ran.set(true)).is_err());
     assert!(!ran.get(), "dispatched against a destroyed tab");
 }
 
 #[test]
-fn a_disabled_browser_never_reaches_the_dispatch() {
+fn a_disabled_browser_never_reaches_the_enqueue() {
     let surface = enabled_surface();
     commit_tab(&surface, "t", "https://ex.com/", AutomationMode::AiSandbox);
     surface.ai_policy.lock().unwrap().enabled = false;
     let ran = Cell::new(false);
-    assert!(dispatch_if_fresh(&surface, "t", 0, || ran.set(true)).is_err());
+    assert!(submit_if_fresh(&surface, "t", 0, || ran.set(true)).is_err());
     assert!(!ran.get(), "dispatched with the browser switched off");
 }
 
 #[test]
-fn a_policy_epoch_change_never_reaches_the_dispatch() {
+fn a_policy_epoch_change_never_reaches_the_enqueue() {
     // Posture changed under the command: the authority it was granted under is gone.
     let surface = enabled_surface();
     commit_tab(&surface, "t", "https://ex.com/", AutomationMode::AiSandbox);
     surface.ai_policy.lock().unwrap().epoch = 1;
     let ran = Cell::new(false);
-    assert!(dispatch_if_fresh(&surface, "t", 0, || ran.set(true)).is_err());
+    assert!(submit_if_fresh(&surface, "t", 0, || ran.set(true)).is_err());
     assert!(!ran.get(), "dispatched under a superseded AI posture");
 }
 
 #[test]
-fn no_lock_is_held_across_the_dispatch() {
-    // The deadlock hazard the module doc names: `eval_js` pumps the main run loop,
-    // and WebKit callbacks re-enter and take the registry lock. If any guard were
-    // still held here, this re-entrant acquire would hang instead of returning.
+fn the_registry_guard_is_released_before_the_caller_awaits() {
+    // The guard MUST span the check and the enqueue (see the barrier test), and MUST
+    // be gone by the time `submit_if_fresh` returns — because the caller then pumps
+    // the run loop, and WebKit callbacks re-enter on the main thread and take this
+    // same lock. Holding it across the pump would deadlock.
+    //
+    // An earlier test here asserted no lock was held DURING dispatch, which was the
+    // right property for the old (racy) design and the wrong one for this.
     let surface = enabled_surface();
     commit_tab(&surface, "t", "https://ex.com/", AutomationMode::AiSandbox);
-    let reentered = dispatch_if_fresh(&surface, "t", 0, || {
-        surface.registry.try_lock().is_ok() && surface.ai_policy.try_lock().is_ok()
-    })
-    .unwrap();
+    submit_if_fresh(&surface, "t", 0, || ()).unwrap();
     assert!(
-        reentered,
-        "a guard was still held during dispatch — a re-entrant WebKit callback would deadlock"
+        surface.registry.try_lock().is_ok(),
+        "the registry guard outlived submit_if_fresh — the caller's pump would deadlock"
     );
+    assert!(
+        surface.ai_policy.try_lock().is_ok(),
+        "the policy guard outlived submit"
+    );
+}
+
+// WI-2 (audit round 3) — `submit_if_fresh`: the check and the enqueue are ATOMIC
+// against other threads.
+//
+// The earlier `dispatch_if_fresh` released the registry guard before dispatching,
+// so a Tauri command thread could navigate, destroy the tab, or bump the policy
+// epoch in the gap. Those tests arranged stale state BEFORE the call and so could
+// never observe that window — an audit was right to call the "cross-thread case"
+// claim wrong. These use a real second thread and a barrier.
+
+use std::sync::mpsc;
+use std::sync::Arc;
+
+#[test]
+fn a_concurrent_mutation_cannot_land_between_the_check_and_the_submit() {
+    let surface = Arc::new(enabled_surface());
+    commit_tab(&surface, "t", "https://ex.com/", AutomationMode::AiSandbox);
+
+    // `inside` fires once submit begins; `release` unblocks it. Between those two
+    // points a second thread tries to invalidate the command.
+    let (inside_tx, inside_rx) = mpsc::channel::<()>();
+    let (release_tx, release_rx) = mpsc::channel::<()>();
+
+    let mutator = {
+        let surface = Arc::clone(&surface);
+        std::thread::spawn(move || {
+            // Wait until the submit is genuinely in flight.
+            inside_rx.recv().expect("submit never started");
+            // Try to invalidate. This BLOCKS on the registry lock the submitter
+            // holds — which is the property under test. If the lock were released
+            // before submit (the old behaviour), this would succeed mid-flight.
+            {
+                let mut reg = surface.registry.lock().unwrap();
+                reg.bump_generation("t").unwrap();
+            }
+            release_tx.send(()).ok();
+        })
+    };
+
+    let observed_generation = submit_if_fresh(&surface, "t", 0, || {
+        inside_tx.send(()).ok();
+        // Give the mutator a real chance to interleave. If it could, the registry
+        // would show generation 1 by the time we read it here.
+        std::thread::sleep(std::time::Duration::from_millis(150));
+        surface.registry.try_lock().map(|r| r.generation("t")).ok()
+    })
+    .expect("a fresh command must submit");
+
+    let _ = release_rx.recv_timeout(std::time::Duration::from_secs(5));
+    mutator.join().unwrap();
+
+    // Inside the submit, the registry lock is HELD by us — so a try_lock from the
+    // same thread fails, proving the guard spans the enqueue. (A re-entrant lock
+    // would be a different bug; std Mutex is not reentrant, so try_lock failing is
+    // exactly the evidence we want.)
+    assert!(
+        observed_generation.is_none(),
+        "the registry guard was NOT held across submit — a concurrent thread could \
+         have invalidated the command between the freshness check and the enqueue"
+    );
+
+    // And the mutation did land afterwards, proving the mutator really ran rather
+    // than the test passing because nothing happened.
+    assert_eq!(
+        surface.registry.lock().unwrap().generation("t"),
+        Some(1),
+        "the concurrent mutation never applied — the barrier did not exercise the race"
+    );
+}
+
+#[test]
+fn submit_if_fresh_refuses_a_stale_command_without_submitting() {
+    let surface = enabled_surface();
+    commit_tab(&surface, "t", "https://ex.com/", AutomationMode::AiSandbox);
+    {
+        let mut reg = surface.registry.lock().unwrap();
+        reg.bump_generation("t").unwrap();
+    }
+    let submitted = Cell::new(false);
+    let err = submit_if_fresh(&surface, "t", 0, || submitted.set(true)).unwrap_err();
+    assert!(err.contains("stale command"), "got: {err}");
+    assert!(!submitted.get(), "a stale command reached the enqueue");
 }

@@ -116,11 +116,14 @@ mutate src-tauri/src/browser/mint.rs \
 echo
 echo "Phase 2 — the eval race"
 mutate src-tauri/src/browser/authorize.rs \
-  "s = s.replace('    if !command_still_fresh(state, tab_id, generation) {\n        return Err(format!(\n            \"stale command: tab \'{tab_id}\' navigated or closed before the script could run\"\n        ));\n    }', '')" \
-  2 "WI-2.1 notices the in-dispatch freshness check being deleted"
-mutate src-tauri/src/browser/surface_macos.rs \
+  "s = s.replace('if !fresh_under_guard(&reg, &policy, tab_id, generation) {', 'if false {')" \
+  2 "WI-2.1" "WI-2.1 notices the in-submit freshness check being disabled"
+mutate src-tauri/src/browser/eval_macos.rs \
   "s = s.replace('expected_generation', 'unused_generation')" \
-  2 "WI-2.1 notices the macOS eval losing its generation parameter"
+  2 "WI-2.1" "WI-2.1 notices the macOS eval losing its generation parameter"
+mutate src-tauri/src/browser/eval_macos.rs \
+  "s = re.sub(r'let sink = crate::browser::authorize::submit_if_fresh\\(.*?\\)\\?;', 'let sink = submit_js(&webview, &script, &world);', s, flags=re.S)" \
+  2 "WI-2.2" "WI-2.2 notices the eval path bypassing the guarded seam"
 
 # ---------------------------------------------------------------- phase 3
 echo
