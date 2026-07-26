@@ -128,6 +128,8 @@ macro_rules! all_commands {
             webview_edit::trigger_webview_edit,
             #[cfg(debug_assertions)]
             browser::commands::browser_debug_native_tab_ids,
+            #[cfg(debug_assertions)]
+            browser::commands::browser_debug_hit_test,
             browser::commands::browser_create,
             browser::commands::browser_navigate,
             browser::ai_commands::browser_ai_policy,

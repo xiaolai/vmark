@@ -200,6 +200,24 @@ pub async fn browser_debug_native_tab_ids(app: AppHandle) -> Result<Vec<String>,
     surface::debug_native_tab_ids(&app)
 }
 
+/// Does the tab's native webview occlude a window point? (debug builds only)
+///
+/// The occlusion oracle for E2E (matrix B14). Not a read-back of the freeze flag —
+/// it asks AppKit's `hitTest:`, which walks the real hierarchy and skips hidden
+/// views, so it answers through a path independent of the one that set the flag.
+#[cfg(debug_assertions)]
+#[tauri::command]
+pub async fn browser_debug_hit_test(
+    app: AppHandle,
+    tab_id: String,
+    window_label: String,
+    x: f64,
+    y: f64,
+) -> Result<serde_json::Value, String> {
+    let (occludes, found) = surface::debug_hit_test(&app, tab_id, window_label, x, y)?;
+    Ok(serde_json::json!({ "occludes": occludes, "found": found }))
+}
+
 /// Freeze the browser tab — hide the native view so a DOM overlay paints over
 /// the rect instead of the live page (R2/WI-1.4 occlusion).
 #[tauri::command]

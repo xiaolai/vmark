@@ -152,10 +152,24 @@ phase2() {
   else
     pass "WI-2.3 no orphaned follow-up claim in browser/"
   fi
-  if grep -qE "expected_generation" src-tauri/src/browser/surface.rs; then
-    pass "WI-2.1 surface::eval takes an expected generation"
+  # Both sides of the platform split must carry the parameter. The earlier version
+  # of this check grepped surface.rs, which held only the STUB — so it would have
+  # passed on a stub-only signature while the real macOS eval had none. Signature
+  # PARITY is the invariant; a drift compiles on macOS and breaks Windows/Linux.
+  for f in surface_macos.rs surface_stub.rs; do
+    if grep -qE "expected_generation" "src-tauri/src/browser/$f"; then
+      pass "WI-2.1 eval takes an expected generation ($f)"
+    else
+      fail "WI-2.1 eval has no generation parameter in $f"
+    fi
+  done
+  # ...and the ordering must live in the TESTABLE seam, not inline in the closure
+  # where deleting it left every test green (audit).
+  if grep -q "dispatch_if_fresh" src-tauri/src/browser/surface_macos.rs \
+     && grep -q "pub(crate) fn dispatch_if_fresh" src-tauri/src/browser/authorize.rs; then
+    pass "WI-2.2 verify-then-dispatch lives in the unit-tested seam"
   else
-    fail "WI-2.1 surface::eval still has no generation parameter"
+    fail "WI-2.2 dispatch ordering is not routed through authorize::dispatch_if_fresh"
   fi
   present src-tauri/src/browser/surface_macos.rs \
     "no lock is held across|MUST NOT hold|lock .* across run-loop" \

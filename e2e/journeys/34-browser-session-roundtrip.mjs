@@ -38,6 +38,7 @@
  */
 
 import { evalJs } from "../lib/bridge.mjs";
+import { poll } from "../lib/vmark.mjs";
 import { startVmarkMcp, bridgeReady } from "../lib/vmarkMcp.mjs";
 import { withBrowserEnabled } from "../lib/browser.mjs";
 import { startFixtureServer } from "../lib/fixtureServer.mjs";
@@ -164,6 +165,67 @@ export default {
           throw new Error(`session_load succeeded but the COOKIE was NOT restored: ${readAfter}`);
         }
         ctx.log(`restored and verified: ${readAfter}`);
+
+        // --- cross-origin refusal (WI-5.5 / B6 negative case) --------------
+        // A saved session must NEVER be replayed into a different origin — that is
+        // the credential-release guard (STORAGE_STATE_ORIGIN_MISMATCH). A second
+        // fixture server on its own ephemeral port IS a different origin (same
+        // host, different port), which is exactly the case a host-only comparison
+        // would wrongly allow.
+        const other = await startFixtureServer();
+        try {
+          const nav = await mcp.callTool("browser", {
+            action: "navigate",
+            url: other.url("/session-read"),
+          });
+          if (nav.isError && !/supersed/i.test(nav.text)) {
+            throw new Error(`could not reach the second origin: ${nav.text.slice(0, 200)}`);
+          }
+          await poll(
+            () => Promise.resolve(other.hits("/session-read")),
+            (n) => n >= 1,
+            "second origin actually loaded",
+            { timeoutMs: 12000 }
+          );
+
+          const cross = await mcp.callTool("browser", { action: "session_load", handle: HANDLE });
+          if (!cross.isError) {
+            throw new Error(
+              "a saved session was loaded into a DIFFERENT origin — credentials released cross-origin"
+            );
+          }
+          // It must be refused for the ORIGIN, not merely for want of approval:
+          // approve it, retry, and require the origin guard to still say no.
+          if (/approval/i.test(cross.text)) {
+            await waitForApprovalDialog(client);
+            await resolveApprovalViaUi(client, "allow-once");
+            const approved = await mcp.callTool("browser", {
+              action: "session_load",
+              handle: HANDLE,
+            });
+            if (!approved.isError) {
+              throw new Error(
+                "an APPROVED session_load crossed origins — approval is not authority to " +
+                  "release credentials into a different origin"
+              );
+            }
+            if (!/ORIGIN_MISMATCH|different origin/i.test(approved.text)) {
+              throw new Error(
+                `cross-origin load refused for the wrong reason: ${approved.text.slice(0, 220)}`
+              );
+            }
+          }
+          ctx.log("cross-origin load refused even WITH approval");
+          await drainPendingApprovals(client);
+
+          // And nothing may have been written to the other origin.
+          const otherState = await marker();
+          if (otherState.includes("ls=seeded")) {
+            throw new Error(`credentials landed on the second origin: ${otherState}`);
+          }
+        } finally {
+          await other.close();
+        }
       });
     } finally {
       // The saved blob lives in the OS KEYCHAIN, which outlives the app, the
