@@ -210,7 +210,7 @@ module.exports = [
     // keep EditorSettings.tsx under its file-size baseline) pushed this ~98 B
     // over the old 99 kB ceiling; +2 kB restores headroom.
     name: "LAZY: Settings page",
-    path: "dist/assets/Settings-*.js",
+    path: "dist/assets/SettingsPage-*.js",
     limit: "101 kB",
     brotli: false,
   },
