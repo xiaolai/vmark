@@ -1,4 +1,4 @@
-import { CopyPlus, FileStack, Folder } from "lucide-react";
+import { CopyPlus, FileStack } from "lucide-react";
 import { useRef, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import { useSettingsStore } from "@/stores/settingsStore";
@@ -11,6 +11,7 @@ import type { WorkspaceWindowActionResult } from "@/types/workspaceTransfer";
 import { imeToast as toast } from "@/services/ime/imeToast";
 import { cleanupTabState } from "@/hooks/tabCleanup";
 import { disambiguateWorkspaceDisplayNames } from "@/utils/workspaceIdentity";
+import { workspaceRailGlyphs } from "@/utils/workspaceRailGlyphs";
 import "./WorkspaceRail.css";
 
 export const WORKSPACE_RAIL_WIDTH = 30;
@@ -50,11 +51,23 @@ export function WorkspaceRail({ windowLabel }: { windowLabel: string }) {
     .map((id) => instancesById[id])
     .filter((instance) => instance !== undefined);
   const labels = disambiguateWorkspaceDisplayNames(instances);
+  // Identity, not position: the glyph is derived from the workspace NAME, so it
+  // survives reordering. The badge it replaces showed `index + 1`, which
+  // changed on reorder and told you only what the layout already showed.
+  const glyphs = workspaceRailGlyphs(
+    instances.map((instance) => ({
+      workspaceInstanceId: instance.workspaceInstanceId,
+      displayName: instance.displayNameKey
+        ? t(instance.displayNameKey)
+        : (labels[instance.workspaceInstanceId] ?? instance.displayName),
+      kind: instance.kind,
+    })),
+  );
 
   return (
     <nav className="workspace-rail" aria-label={t("workspaceRail.label")}>
       <div className="workspace-rail__list" role="list">
-        {instances.map((instance, index) => {
+        {instances.map((instance) => {
           const label = labels[instance.workspaceInstanceId] ?? instance.displayName;
           // Synthetic instances (loose/placeholder) carry a translation key —
           // prefer it over the stored English fallback so the label is localized.
@@ -131,9 +144,15 @@ export function WorkspaceRail({ windowLabel }: { windowLabel: string }) {
                     <FileStack size={14} />
                   </span>
                 ) : (
-                  <span className="workspace-rail__folder" aria-hidden="true">
-                    <Folder size={14} />
-                    <span className="workspace-rail__index">{index + 1}</span>
+                  // aria-hidden: the button's aria-label already carries the
+                  // FULL workspace name, so a screen reader must not announce
+                  // the one-letter glyph as well.
+                  <span
+                    className="workspace-rail__glyph"
+                    data-glyph-length={glyphs[instanceId]?.length ?? 1}
+                    aria-hidden="true"
+                  >
+                    {glyphs[instanceId]}
                   </span>
                 )}
               </button>

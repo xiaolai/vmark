@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createEvent, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, createEvent, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useSettingsStore } from "@/stores/settingsStore";
 import {
@@ -101,23 +101,75 @@ describe("WorkspaceRail", () => {
     expect(screen.getByRole("button", { name: "Activate a" })).toHaveAttribute("aria-pressed", "false");
   });
 
-  it("renders numbered folder indicators with stable workspace colors", () => {
+  it("renders name-derived glyphs with stable workspace colors", () => {
     setRailMode(true);
     addInstance("main", "wsi-a", "/Users/xiaolai/a");
     addInstance("main", "wsi-b", "/Users/xiaolai/b");
 
     const { container } = render(<WorkspaceRail windowLabel="main" />);
 
-    const indicators = [...container.querySelectorAll(".workspace-rail__index")].map(
-      (indicator) => indicator.textContent,
+    // Was `index + 1` ("1", "2") — a POSITIONAL number that changed on reorder
+    // and identified nothing. Now the first character of the workspace name.
+    const glyphs = [...container.querySelectorAll(".workspace-rail__glyph")].map(
+      (glyph) => glyph.textContent,
     );
     const entries = [...container.querySelectorAll<HTMLElement>(".workspace-rail__entry")];
-    const folderIcon = container.querySelector(".workspace-rail__folder svg");
-    expect(indicators).toEqual(["1", "2"]);
-    expect(folderIcon).toHaveAttribute("width", "14");
-    expect(folderIcon).toHaveAttribute("height", "14");
+    expect(glyphs).toEqual(["A", "B"]);
+    // The colour seeding this test also guarded must survive the change.
     expect(entries[0]?.style.getPropertyValue("--workspace-rail-color")).toMatch(/^var\(--/);
     expect(entries[1]?.style.getPropertyValue("--workspace-rail-color")).toMatch(/^var\(--/);
+  });
+
+  it("keeps glyphs stable when entries are reordered", () => {
+    setRailMode(true);
+    addInstance("main", "wsi-a", "/Users/xiaolai/alpha");
+    addInstance("main", "wsi-b", "/Users/xiaolai/beta");
+
+    const { container, rerender } = render(<WorkspaceRail windowLabel="main" />);
+    const before = [...container.querySelectorAll(".workspace-rail__glyph")].map(
+      (g) => g.textContent,
+    );
+
+    act(() => {
+      useWorkspaceInstancesStore
+        .getState()
+        .reorderWorkspaceInstances("main", ["wsi-b", "wsi-a"]);
+    });
+    rerender(<WorkspaceRail windowLabel="main" />);
+
+    const after = [...container.querySelectorAll(".workspace-rail__glyph")].map(
+      (g) => g.textContent,
+    );
+    // A positional index would read ["1","2"] both times while pointing at
+    // different workspaces. Name-derived glyphs travel with their workspace.
+    expect(before).toEqual(["A", "B"]);
+    expect(after).toEqual(["B", "A"]);
+  });
+
+  it("gives colliding initials distinct glyphs", () => {
+    setRailMode(true);
+    addInstance("main", "wsi-a", "/Users/xiaolai/alpha");
+    addInstance("main", "wsi-b", "/Users/xiaolai/apex");
+
+    const { container } = render(<WorkspaceRail windowLabel="main" />);
+
+    expect(
+      [...container.querySelectorAll(".workspace-rail__glyph")].map((g) => g.textContent),
+    ).toEqual(["AL", "AP"]);
+  });
+
+  it("keeps the full workspace name as the accessible name, not the glyph", () => {
+    setRailMode(true);
+    addInstance("main", "wsi-a", "/Users/xiaolai/alpha");
+
+    const { container } = render(<WorkspaceRail windowLabel="main" />);
+
+    // Screen readers must announce the workspace, never the one-letter glyph.
+    expect(screen.getByRole("button", { name: "Activate alpha" })).toBeInTheDocument();
+    expect(container.querySelector(".workspace-rail__glyph")).toHaveAttribute(
+      "aria-hidden",
+      "true",
+    );
   });
 
   it("renders loose files as a non-folder rail entry", () => {
@@ -129,7 +181,9 @@ describe("WorkspaceRail", () => {
     expect(screen.getByRole("button", { name: "Activate Loose Files" }))
       .toBeInTheDocument();
     expect(container.querySelector(".workspace-rail__loose svg")).toBeInTheDocument();
-    expect(container.querySelector(".workspace-rail__folder")).not.toBeInTheDocument();
+    // Loose Files is not a workspace: it keeps its own icon and must never be
+    // given an identity glyph (which would make it read as another workspace).
+    expect(container.querySelector(".workspace-rail__glyph")).not.toBeInTheDocument();
   });
 
   it("activates the clicked workspace instance", async () => {
