@@ -2,7 +2,7 @@
  * Unit tests for workspace rail identity glyphs.
  */
 import { describe, it, expect } from "vitest";
-import { workspaceRailGlyphs } from "./workspaceRailGlyphs";
+import { workspaceRailGlyphs, workspaceRailGlyphLength } from "./workspaceRailGlyphs";
 
 describe("workspaceRailGlyphs", () => {
   /** Terse builder: the glyph logic only needs id + display name. */
@@ -31,11 +31,37 @@ describe("workspaceRailGlyphs", () => {
     });
   });
 
+  it("extends only the COLLIDING entries, not every entry", () => {
+    // `zulu` is already unique at one character; a collision between two OTHER
+    // workspaces must not lengthen it. Growing all glyphs together produced
+    // "ZU" here, which is longer than it needs to be and less legible at 30px.
+    expect(
+      workspaceRailGlyphs([inst("z", "zulu"), inst("a", "alpha"), inst("b", "apex")]),
+    ).toEqual({ z: "Z", a: "AL", b: "AP" });
+  });
+
   it("extends further when two characters still collide", () => {
     expect(workspaceRailGlyphs([inst("a", "abcx"), inst("b", "abcy")])).toEqual({
       a: "ABC",
       b: "ABC",
     });
+  });
+
+  it("keeps a ZWJ emoji sequence whole instead of splitting it", () => {
+    // Array.from() is code-point-safe but NOT grapheme-safe: it would take the
+    // first code point of 👨‍👩‍👧 and render a lone 👨, silently showing a
+    // different emoji than the folder name has.
+    expect(workspaceRailGlyphs([inst("a", "👨‍👩‍👧 family")]).a).toBe("👨‍👩‍👧");
+  });
+
+  it("keeps a skin-tone modifier attached to its base emoji", () => {
+    expect(workspaceRailGlyphs([inst("a", "👍🏽 approved")]).a).toBe("👍🏽");
+  });
+
+  it("keeps a decomposed accent attached to its base letter", () => {
+    // "e" + U+0301 combining acute — splitting these renders a bare "E" plus a
+    // stray floating accent.
+    expect(workspaceRailGlyphs([inst("a", "école")]).a).toBe("É");
   });
 
   it("caps the glyph length so it cannot overflow the 30px rail", () => {
@@ -55,10 +81,19 @@ describe("workspaceRailGlyphs", () => {
   });
 
   it("handles emoji without splitting a surrogate pair", () => {
-    const glyph = workspaceRailGlyphs([inst("a", "🚀rocket")]).a;
-    expect(glyph).toBe("🚀");
-    // A naive name[0] would yield a lone high surrogate that renders as U+FFFD.
-    expect(glyph.includes("�")).toBe(false);
+    // A naive `name[0]` yields a lone high surrogate here. Exact equality is the
+    // assertion that catches it — an earlier `includes("�")` check was
+    // vacuous, since a lone surrogate is not literally U+FFFD in a JS string.
+    expect(workspaceRailGlyphs([inst("a", "🚀rocket")]).a).toBe("🚀");
+  });
+
+  it("reports the GRAPHEME count, so styling can size multi-code-point glyphs", () => {
+    // `"🚀".length` is 2 and a family emoji's is 11; using string length to pick
+    // a font size disagrees with what is actually displayed.
+    expect(workspaceRailGlyphLength("🚀")).toBe(1);
+    expect(workspaceRailGlyphLength("👨‍👩‍👧")).toBe(1);
+    expect(workspaceRailGlyphLength("AL")).toBe(2);
+    expect(workspaceRailGlyphLength("ABC")).toBe(3);
   });
 
   it("skips leading punctuation so dotfile-style roots stay meaningful", () => {
