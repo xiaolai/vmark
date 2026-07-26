@@ -45,6 +45,34 @@ absent() {
   fi
 }
 
+# Run ONE named test and require it to actually execute AND pass.
+#
+# This is the strongest assertion available to a shell gate, and it replaces most
+# of the greps this script used to rely on. Two failure modes it closes:
+#
+#   1. A grep for an identifier matches COMMENTS. `grep local ai_policy.rs`
+#      matched `localhost`, and `grep internal` matched
+#      `metadata.google.internal` — so deleting the entire `lan_facing_suffix`
+#      function left two of three WI-1.7 assertions green.
+#   2. `cargo test <name>` EXITS 0 WHEN NOTHING MATCHES. A renamed or deleted
+#      test therefore reads as success. So the run count is parsed and a zero is
+#      a failure, not a pass.
+run_test() {
+  local filter="$1" label="$2" out
+  out=$(cargo test --manifest-path src-tauri/Cargo.toml "$filter" -- --exact 2>&1)
+  local ran
+  ran=$(printf '%s' "$out" | grep -cE "^test $filter \.\.\. ok$")
+  if [ "$ran" -eq 0 ]; then
+    fail "$label — test '$filter' did not run (renamed or deleted?)"
+    return
+  fi
+  if printf '%s' "$out" | grep -q "test result: FAILED"; then
+    fail "$label — test '$filter' FAILED"
+    return
+  fi
+  pass "$label"
+}
+
 # Assert a regex is PRESENT in a file (corrected claim stated).
 present() {
   local file="$1" pattern="$2" label="$3"
@@ -120,24 +148,30 @@ phase1() {
     fi
   done
 
-  # WI-1.6: standing grants validated the way one-shots already are.
-  if awk '/pub\(crate\) fn set_standing_grants/,/^}/' src-tauri/src/browser/mint.rs \
-      | grep -q "is_origin_pattern"; then
-    pass "WI-1.6 standing grants validate origin patterns"
-  else
-    fail "WI-1.6 standing grants still stored unvalidated (inert)"
-  fi
+  # Behaviour, not text. Each WI names the test that proves it; the test must run
+  # AND pass, so deleting the production code fails the gate rather than leaving a
+  # grep to match a comment.
+  echo "  … running the named WI tests"
+  run_test browser::mint::tests::a_half_specified_target_is_refused_not_treated_as_targetless \
+    "WI-1.1 half-specified act target refused"
+  run_test browser::mint::tests::minting_binds_the_approved_generation_not_the_current_one \
+    "WI-1.2 one-shot binds the APPROVED generation"
+  run_test browser::mint::tests::attaching_a_non_human_tab_is_refused \
+    "WI-1.3 attach refuses a non-human tab"
+  run_test browser::authorize::tests::freshness_fails_once_the_page_navigates_under_a_running_command \
+    "WI-1.4 post-capture freshness re-check"
+  run_test browser::mint::tests::an_approved_payload_cannot_be_spent_on_a_substituted_one \
+    "WI-1.5 approved payload cannot be substituted"
+  run_test browser::mint::tests::an_unenforceable_grant_pattern_is_refused_like_a_one_shot_is \
+    "WI-1.6 standing grants validate origin patterns"
+  run_test browser::mint::tests::a_refused_batch_clears_rather_than_retaining_prior_authority \
+    "WI-1.6 a rejected grant batch fails CLOSED"
+  run_test browser::ai_policy::tests::rejects_lan_facing_name_suffixes_regardless_of_loopback_opt_in \
+    "WI-1.7 LAN-facing suffixes blocked"
+  run_test browser::ai_policy::tests::public_hostnames_that_merely_contain_the_suffixes_are_still_allowed \
+    "WI-1.7 public look-alikes still navigable"
 
-  # WI-1.7: LAN-facing suffixes blocked for AI navigation.
-  for name in "internal" "local" "home.arpa"; do
-    if grep -qF "$name" src-tauri/src/browser/ai_policy.rs; then
-      pass "WI-1.7 blocked_hostname covers .$name"
-    else
-      fail "WI-1.7 blocked_hostname missing .$name"
-    fi
-  done
-
-  echo "  … running browser unit tests (no root workspace — manifest path required)"
+  echo "  … running the whole browser suite"
   if cargo test --manifest-path src-tauri/Cargo.toml browser:: --quiet >/dev/null 2>&1; then
     pass "cargo test browser:: green"
   else
@@ -171,15 +205,17 @@ phase2() {
   else
     fail "WI-2.2 dispatch ordering is not routed through authorize::dispatch_if_fresh"
   fi
-  present src-tauri/src/browser/surface_macos.rs \
-    "no lock is held across|MUST NOT hold|lock .* across run-loop" \
-    "WI-2.2 lock-ordering rule stated in the native module"
-  echo "  … running browser unit tests"
-  if cargo test --manifest-path src-tauri/Cargo.toml browser:: --quiet >/dev/null 2>&1; then
-    pass "cargo test browser:: green"
-  else
-    fail "cargo test browser:: RED"
-  fi
+  # The ordering invariant, proved by behaviour: the dispatch must NEVER RUN on a
+  # stale command. A grep for `dispatch_if_fresh` would match the comment above it.
+  echo "  … running the named WI tests"
+  run_test browser::authorize::tests::a_stale_generation_never_reaches_the_dispatch \
+    "WI-2.1 stale generation never reaches the dispatch"
+  run_test browser::authorize::tests::a_destroyed_tab_never_reaches_the_dispatch \
+    "WI-2.2 destroyed tab never reaches the dispatch"
+  run_test browser::authorize::tests::a_policy_epoch_change_never_reaches_the_dispatch \
+    "WI-2.2 superseded policy never reaches the dispatch"
+  run_test browser::authorize::tests::no_lock_is_held_across_the_dispatch \
+    "WI-2.2 no guard held across dispatch (deadlock hazard)"
 }
 
 phase3() {
@@ -266,8 +302,13 @@ phase6() {
     "still manual" "WI-6.2 unmarked rows stated to be still manual"
 
   # WI-6.3 must be a decision, not an open question.
+  # ONE canonical phrase, not an alternation. An alternation is structurally weak
+  # in a gate: every branch independently keeps it green, so deleting half the
+  # claim still passes. The self-test caught exactly that here — removing "local
+  # pre-release gate" left "not a CI gate" matching, and the assertion stayed green
+  # while the decision it guards was half-erased.
   present dev-docs/e2e-browser-matrix.md \
-    "local pre-release gate|not a CI gate" "WI-6.3 CI/local decision recorded"
+    "local pre-release gate, not a CI gate" "WI-6.3 CI/local decision recorded verbatim"
 
   # Rule 20: one source of truth per topic, linked from the dev-docs index.
   present dev-docs/README.md \
