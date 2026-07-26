@@ -47,7 +47,7 @@ invariant is broken. `🟡 partial` — asserted, weaker oracle than desired.
 | B7 | Approve → retry succeeds (dialog clicked, not injected) | The human half of the security model is decorative | `browser-open-read-act` | 🟡 partial — the **deny** half is not yet asserted |
 | B8 | Allow-once is spent by the first retry; a second needs fresh approval | One approval becomes standing authority | `browser-approval-scoping` | ✅ automated |
 | B9 | A one-shot for element A cannot be spent on element B | Approval for a benign control authorizes a dangerous one | `browser-approval-scoping` | ✅ automated |
-| B10 | Navigation invalidates a pending prompt and unused authority | An approval follows the user to a page they never saw | — | ⬜ not automated |
+| B10 | Navigation invalidates a pending prompt and unused authority | An approval follows the user to a page they never saw | `browser-approval-invalidation` | ✅ automated |
 
 ## UI lane (Tauri MCP)
 
@@ -55,7 +55,7 @@ invariant is broken. `🟡 partial` — asserted, weaker oracle than desired.
 |---|---|---|---|---|
 | B11 | Closing a browser tab tears down the **native** view | `WKWebView` leak; a live page keeps running invisibly | `browser-tab-lifecycle` | ✅ automated |
 | B12 | The omnibox shows the **committed** URL after a redirect, not the typed one | The user is told they are somewhere they are not | `browser-tab-lifecycle` | ✅ automated |
-| B13 | Back / forward / reload / stop each produce a distinct observable effect | Chrome controls look enabled and do nothing | — | ⬜ not automated |
+| B13 | Back / forward / reload each produce a distinct observable effect | Chrome controls look enabled and do nothing | `browser-chrome-controls` | 🟡 partial — `stop` not asserted |
 | B14 | A DOM overlay actually occludes the native view (freeze/thaw) | Page content paints over app UI — the bug the occlusion service exists for | — | ⬜ not automated |
 | B15 | The approval dialog renders operation + origin, focuses Deny, and Escape denies | The user approves something they cannot read | — | ⬜ not automated |
 | B16 | `browser_assert_no_bridge` returns all-false on a live page | Tauri IPC leaked into a browsed page — any site gets a channel into the app | `browser-no-bridge` | ✅ automated |
@@ -66,7 +66,7 @@ invariant is broken. `🟡 partial` — asserted, weaker oracle than desired.
 
 ## Honest status
 
-**10 automated + 1 partial, of 16 rows.** Every green row was watched failing:
+**11 automated + 2 partial, of 16 rows.** Every green row was watched failing:
 
 - `browser-disabled-refuses` (B1) — enabling the feature makes it red.
 - `browser-open-read-act` (B2/B3/B7) — skipping the approval click makes it red
@@ -124,7 +124,9 @@ the whole object, so a second publisher would have silently erased `editorView` 
 the next editor change — an intermittent failure that would have read as harness
 flake. Publication now merges.
 
-Remaining UI rows (B13, B14, B16) are ordinary work on this seam.
+B13 and B16 followed on this seam. `browser-chrome-controls` asserts back /
+forward / reload against the COMMITTED url and, for reload, a server-side re-fetch
+— not button enablement, which is a store flag a dead chrome would also flip.
 
 Do **not** mark a row ✅ before its journey has been watched failing.
 
