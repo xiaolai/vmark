@@ -114,17 +114,6 @@
   letter-spacing: var(--letter-spacing-tight);
 }
 
-/* Two- and three-character glyphs only appear when initials collide; step the
-   size down so they stay inside the 30px rail. */
-.workspace-rail__glyph[data-glyph-length="2"] {
-  font-size: var(--font-size-xs);
-}
-
-.workspace-rail__glyph[data-glyph-length="3"] {
-  font-size: var(--font-size-2xs);
-  letter-spacing: 0;
-}
-
 .workspace-rail__duplicate {
   position: absolute;
   right: -3px;
