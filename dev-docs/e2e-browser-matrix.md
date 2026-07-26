@@ -28,6 +28,26 @@ releases unless someone runs them.** Run `pnpm e2e:journeys` before cutting a re
 This is recorded as a decision so it does not resolve by default a second time — the
 `browser_eval` race became an orphan exactly that way.
 
+## The gates are themselves tested
+
+`bash scripts/check-browser-e2e-phase.selftest.sh` mutates real production code —
+deleting `lan_facing_suffix`, disabling grant validation, removing the in-dispatch
+freshness check — and requires the gate to go **red** for each. An assertion that
+survives its own mutation is reported `BLIND`, not as a pass.
+
+This exists because the "seen to fail" standard was applied to journeys and never
+to the gates, which are mostly shell greps. Three gate bugs had already shipped:
+
+| Bug | How it passed while the work was undone |
+|---|---|
+| Phase 2 generation parameter | Grepped `surface.rs`, which held only the non-macOS **stub** — a stub-only signature would have passed with the real macOS `eval` unguarded. Found by accident when a file split moved the stub. |
+| Phase 1 LAN suffixes | Grepped for `local` and `internal`. `localhost` contains one, `metadata.google.internal` the other — deleting the whole function left 2 of 3 assertions green. |
+| Phase 6 CI decision | An **alternation** (`A|B`): deleting half the claim left the other half matching. |
+
+Phases 1 and 2 now run **named tests** instead of grepping, and `run_test` fails
+when a test does not execute at all — `cargo test <name>` exits 0 when nothing
+matches, so a renamed or deleted test would otherwise read as success.
+
 ## Status legend
 
 `✅ automated` — a journey asserts it AND the journey has been *seen to fail* when the
