@@ -77,6 +77,27 @@ where
 mod view;
 use view::{content_view, frame_for_dom_rect, js_result_to_string, ns_url};
 
+/// The tab ids that currently hold a LIVE native webview (debug builds only).
+///
+/// This is the only way a test can observe the thing that actually matters for
+/// teardown. The `WKWebView` is a sibling native view, so it appears in no DOM
+/// snapshot: an E2E assertion on the React surface element proves the DOM tab went
+/// away and says nothing about whether the native view is still alive, still
+/// loading, still holding a session. That is precisely the false oracle the
+/// browser E2E matrix (B11) was written to avoid and could not, until this existed.
+///
+/// Debug-only: it enumerates internal state and has no product use.
+#[cfg(debug_assertions)]
+pub fn debug_native_tab_ids(app: &AppHandle) -> Result<Vec<String>, String> {
+    on_main(app, move |_mtm| {
+        Ok(WEBVIEWS.with(|m| {
+            let mut ids: Vec<String> = m.borrow().keys().cloned().collect();
+            ids.sort();
+            ids
+        }))
+    })
+}
+
 /// Release the sandbox profile after AI views are torn down or posture changes.
 pub fn clear_ai_sandbox_store(app: &AppHandle) -> Result<(), String> {
     on_main(app, move |_mtm| {
@@ -242,19 +263,18 @@ pub fn eval(
         let state = app_for_closure
             .try_state::<BrowserSurface>()
             .ok_or_else(|| "browser state unavailable".to_string())?;
-        if !crate::browser::authorize::command_still_fresh(&state, &tab_id, expected_generation) {
-            return Err(format!(
-                "stale command: tab '{tab_id}' navigated or closed before the script could run"
-            ));
-        }
-        // Guards released by the call above. From here on, nothing is held.
+        // The verify-then-dispatch ordering lives in `authorize::dispatch_if_fresh`
+        // so it is unit-testable; this closure supplies only the native call. When
+        // it was inline here, deleting the check left every test green.
         let webview = WEBVIEWS
             .with(|m| m.borrow().get(&tab_id).cloned())
             .ok_or_else(|| format!("no webview: {tab_id}"))?;
         let run_loop = NSRunLoop::mainRunLoop();
         let world =
             unsafe { WKContentWorld::worldWithName(&NSString::from_str("vmark-agent"), mtm) };
-        Ok(eval_js(&webview, &script, &world, &run_loop))
+        crate::browser::authorize::dispatch_if_fresh(&state, &tab_id, expected_generation, || {
+            eval_js(&webview, &script, &world, &run_loop)
+        })
     })
 }
 

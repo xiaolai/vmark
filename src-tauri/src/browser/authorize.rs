@@ -209,6 +209,37 @@ pub(crate) fn command_still_fresh(state: &BrowserSurface, tab_id: &str, generati
     }
 }
 
+/// Run `dispatch` ONLY if the command is still fresh — the platform-independent
+/// core of the WI-2.1/2.2 in-closure re-check.
+///
+/// WHY THIS IS A SEPARATE FUNCTION. The check used to be written inline inside the
+/// macOS main-thread closure, where nothing could test it: the closure needs a real
+/// `WKWebView` on a real main thread, so an audit correctly observed that DELETING
+/// the check would leave every test green. The ordering — verify, then dispatch,
+/// never the reverse — is the whole invariant, and it is pure. Extracting it makes
+/// it directly testable, and leaves the closure with nothing but the native call.
+///
+/// The dispatch closure is `FnOnce` and is simply never invoked on a stale command,
+/// so a test can assert on whether it ran rather than on its side effects.
+pub(crate) fn dispatch_if_fresh<F, T>(
+    state: &BrowserSurface,
+    tab_id: &str,
+    generation: u64,
+    dispatch: F,
+) -> Result<T, String>
+where
+    F: FnOnce() -> T,
+{
+    if !command_still_fresh(state, tab_id, generation) {
+        return Err(format!(
+            "stale command: tab '{tab_id}' navigated or closed before the script could run"
+        ));
+    }
+    // No guard is held here — `command_still_fresh` acquires and releases
+    // internally — so the dispatch below may safely pump the main run loop.
+    Ok(dispatch())
+}
+
 #[cfg(test)]
 #[path = "authorize.test.rs"]
 mod tests;

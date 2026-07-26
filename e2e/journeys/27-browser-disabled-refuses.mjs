@@ -26,7 +26,7 @@
  */
 
 import { startVmarkMcp, bridgeReady } from "../lib/vmarkMcp.mjs";
-import { readBrowserSettings, browserSurfaceCount } from "../lib/browser.mjs";
+import { readBrowserSettings, nativeBrowserTabIds } from "../lib/browser.mjs";
 
 export default {
   name: "browser-disabled-refuses",
@@ -49,7 +49,9 @@ export default {
       return { skip: "browser.enabled is ON; this journey asserts the default-off gate" };
     }
 
-    const surfacesBefore = await browserSurfaceCount(client);
+    // Native map, not the DOM surface: a leaked or replaced WKWebView with an
+    // unchanged DOM count would otherwise pass (audit).
+    const nativeBefore = await nativeBrowserTabIds(client);
     const mcp = await startVmarkMcp();
     try {
       // Every call is fully-formed: valid URL, valid operation, valid target.
@@ -77,10 +79,11 @@ export default {
       }
 
       // A refused action must not have constructed a native view on the way out.
-      const surfacesAfter = await browserSurfaceCount(client);
-      if (surfacesAfter !== surfacesBefore) {
+      const nativeAfter = await nativeBrowserTabIds(client);
+      const created = nativeAfter.filter((id) => !nativeBefore.includes(id));
+      if (created.length) {
         throw new Error(
-          `native browser surfaces changed while disabled: ${surfacesBefore} → ${surfacesAfter}`
+          `a native WKWebView was constructed while the browser is disabled: ${created.join(", ")}`
         );
       }
     } finally {
