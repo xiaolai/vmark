@@ -79,6 +79,26 @@ for (const file of files) {
   }
 }
 
+
+/**
+ * CSS custom properties DEFINED from JS in `source`: `setProperty("--x", …)`
+ * and object-literal keys (`"--x": value`).
+ *
+ * The object-key pattern requires a COLON. A trailing COMMA must not count:
+ * `"--x",` is an ARRAY ELEMENT — a var being *read*, not defined. Accepting it
+ * made this gate miss the exact thing it exists to catch: export/themeSnapshot.ts
+ * lists "--spacing-1/2/3" among the vars it snapshots via getPropertyValue,
+ * which marked that whole family "defined" while nothing declared it, and 133
+ * padding/margin/gap declarations across 13 components were silently dropped
+ * while this check stayed green.
+ */
+export function collectJsDefinedVars(source) {
+  const names = new Set();
+  for (const m of source.matchAll(/setProperty\(\s*["'`](--[A-Za-z0-9-]+)/g)) names.add(m[1]);
+  for (const m of source.matchAll(/["'`](--[A-Za-z0-9-]+)["'`]\s*:/g)) names.add(m[1]);
+  return names;
+}
+
 // ── Undefined CSS custom property check (audit 20260612 H14) ────────────
 // A var(--x) with no definition anywhere and no fallback is
 // invalid-at-computed-value-time: the declaration silently becomes
@@ -95,15 +115,7 @@ for (const file of files) {
   // JS-emitted tokens: setProperty("--x", ...) and "--x": value maps
   for (const file of globSync("src/**/*.{ts,tsx}")) {
     const content = readFileSync(file, "utf8");
-    for (const m of content.matchAll(/setProperty\(\s*["'`](--[A-Za-z0-9-]+)/g)) definedVars.add(m[1]);
-    // Object-literal keys ONLY (`"--x": value`). A trailing COMMA must not
-    // count: `"--x",` is an ARRAY ELEMENT, i.e. a var being *read*, not
-    // defined. Accepting it made this check miss the real thing it exists to
-    // catch — src/export/themeSnapshot.ts lists "--spacing-1/2/3" among the
-    // vars it snapshots via getPropertyValue, which marked that whole family
-    // "defined" while nothing declared it. 133 padding/margin/gap rules across
-    // 13 components were silently dropped, and this gate stayed green.
-    for (const m of content.matchAll(/["'`](--[A-Za-z0-9-]+)["'`]\s*:/g)) definedVars.add(m[1]);
+    for (const name of collectJsDefinedVars(content)) definedVars.add(name);
   }
   const useRe = /var\(\s*(--[A-Za-z0-9-]+)\s*\)/g; // no-fallback uses only
   for (const file of files) {
