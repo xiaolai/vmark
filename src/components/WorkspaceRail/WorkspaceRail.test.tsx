@@ -9,11 +9,15 @@ import {
 import { createWorkspaceInstance, createWorkspaceRootIdentity } from "@/utils/workspaceIdentity";
 import { WorkspaceRail, WORKSPACE_RAIL_WIDTH } from "./WorkspaceRail";
 
-const { mockMoveWorkspace, mockDuplicateWorkspace, mockToastError, mockToastMessage } = vi.hoisted(() => ({
+const { mockMoveWorkspace, mockDuplicateWorkspace, mockCloseWorkspace, mockToastError, mockToastMessage } = vi.hoisted(() => ({
   mockMoveWorkspace: vi.fn(),
   mockDuplicateWorkspace: vi.fn(),
+  mockCloseWorkspace: vi.fn(),
   mockToastError: vi.fn(),
   mockToastMessage: vi.fn(),
+}));
+vi.mock("@/services/workspaces/closeWorkspaceInstance", () => ({
+  closeWorkspaceInstance: mockCloseWorkspace,
 }));
 
 vi.mock("@/services/workspaces/workspaceWindowActions", () => ({
@@ -60,6 +64,7 @@ beforeEach(() => {
   useWorkspaceInstancesStore.getState().resetWorkspaceInstances();
   mockMoveWorkspace.mockReset();
   mockDuplicateWorkspace.mockReset();
+  mockCloseWorkspace.mockReset();
   mockToastError.mockReset();
   mockToastMessage.mockReset();
 });
@@ -438,5 +443,89 @@ describe("WorkspaceRail", () => {
     await user.click(screen.getByRole("button", { name: "Duplicate a" }));
 
     expect(mockToastMessage).not.toHaveBeenCalled();
+  });
+
+  describe("context menu", () => {
+    /** Right-click the rail entry for `name` and return its menu. */
+    async function openMenu(name: string) {
+      const user = userEvent.setup();
+      await user.pointer({
+        keys: "[MouseRight]",
+        target: screen.getByRole("button", { name: `Activate ${name}` }),
+      });
+      return screen.getByRole("menu");
+    }
+
+    it("opens on right-click with the three workspace actions", async () => {
+      setRailMode(true);
+      addInstance("main", "wsi-a", "/Users/xiaolai/alpha");
+      render(<WorkspaceRail windowLabel="main" />);
+
+      const menu = await openMenu("alpha");
+
+      // Close and Move were previously unreachable from the rail: there was no
+      // close affordance at all, and moving required dragging the icon outside
+      // the window — undiscoverable and easy to trigger by accident.
+      expect(menu).toHaveAccessibleName("alpha");
+      expect(screen.getByRole("menuitem", { name: "Close" })).toBeInTheDocument();
+      expect(screen.getByRole("menuitem", { name: "Duplicate" })).toBeInTheDocument();
+      expect(screen.getByRole("menuitem", { name: "Move to New Window" })).toBeInTheDocument();
+    });
+
+    it("closes the workspace through the dirty-checked path", async () => {
+      setRailMode(true);
+      addInstance("main", "wsi-a", "/Users/xiaolai/alpha");
+      render(<WorkspaceRail windowLabel="main" />);
+      await openMenu("alpha");
+
+      await userEvent.click(screen.getByRole("menuitem", { name: "Close" }));
+
+      // The tab-closing function is INJECTED: services/ may not import hooks/
+      // (ADR-013 tiering), so the component bridges the two tiers.
+      expect(mockCloseWorkspace).toHaveBeenCalledWith("main", "wsi-a", {
+        closeTabs: expect.any(Function),
+      });
+    });
+
+    it("duplicates and moves through the existing actions", async () => {
+      setRailMode(true);
+      addInstance("main", "wsi-a", "/Users/xiaolai/alpha");
+      render(<WorkspaceRail windowLabel="main" />);
+
+      await openMenu("alpha");
+      await userEvent.click(screen.getByRole("menuitem", { name: "Duplicate" }));
+      expect(mockDuplicateWorkspace).toHaveBeenCalledWith("main", "wsi-a");
+
+      await openMenu("alpha");
+      await userEvent.click(screen.getByRole("menuitem", { name: "Move to New Window" }));
+      expect(mockMoveWorkspace).toHaveBeenCalledWith("main", "wsi-a", expect.anything());
+    });
+
+    it("dismisses on Escape without running an action", async () => {
+      setRailMode(true);
+      addInstance("main", "wsi-a", "/Users/xiaolai/alpha");
+      render(<WorkspaceRail windowLabel="main" />);
+      await openMenu("alpha");
+
+      await userEvent.keyboard("{Escape}");
+
+      expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+      expect(mockCloseWorkspace).not.toHaveBeenCalled();
+    });
+
+    it("does not activate the workspace when right-clicked", async () => {
+      setRailMode(true);
+      addInstance("main", "wsi-a", "/Users/xiaolai/alpha");
+      addInstance("main", "wsi-b", "/Users/xiaolai/beta");
+      useWorkspaceInstancesStore.getState().activateWorkspaceInstance("main", "wsi-b");
+      render(<WorkspaceRail windowLabel="main" />);
+
+      await openMenu("alpha");
+
+      // Opening a menu is not a selection gesture.
+      expect(
+        useWorkspaceInstancesStore.getState().windows["main"]?.activeWorkspaceInstanceId,
+      ).toBe("wsi-b");
+    });
   });
 });

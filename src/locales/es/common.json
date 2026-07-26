@@ -177,5 +177,8 @@
   "browser.profiles.label": "Perfil con nombre",
   "browser.profiles.remove": "Eliminar",
   "browser.profiles.removeLabel": "Eliminar el perfil {{name}}",
-  "browser.profiles.removeFailed": "No se pudo eliminar «{{name}}»: el inicio de sesión puede seguir en el disco. Inténtalo de nuevo."
+  "browser.profiles.removeFailed": "No se pudo eliminar «{{name}}»: el inicio de sesión puede seguir en el disco. Inténtalo de nuevo.",
+  "workspaceRail.menu.close": "Cerrar",
+  "workspaceRail.menu.duplicate": "Duplicar",
+  "workspaceRail.menu.moveToNewWindow": "Mover a una ventana nueva"
 }

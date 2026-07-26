@@ -177,5 +177,8 @@
   "browser.profiles.label": "Profilo con nome",
   "browser.profiles.remove": "Rimuovi",
   "browser.profiles.removeLabel": "Rimuovi il profilo {{name}}",
-  "browser.profiles.removeFailed": "Impossibile rimuovere «{{name}}» — l'accesso potrebbe essere ancora sul disco. Riprova."
+  "browser.profiles.removeFailed": "Impossibile rimuovere «{{name}}» — l'accesso potrebbe essere ancora sul disco. Riprova.",
+  "workspaceRail.menu.close": "Chiudi",
+  "workspaceRail.menu.duplicate": "Duplica",
+  "workspaceRail.menu.moveToNewWindow": "Sposta in una nuova finestra"
 }

@@ -173,5 +173,8 @@
   "browser.bookmarks.empty": "No bookmarks yet.",
   "browser.bookmarks.removeLabel": "Remove {{title}}",
   "browser.bookmarks.add": "Bookmark this page",
-  "browser.bookmarks.remove": "Remove bookmark"
+  "browser.bookmarks.remove": "Remove bookmark",
+  "workspaceRail.menu.close": "Close",
+  "workspaceRail.menu.duplicate": "Duplicate",
+  "workspaceRail.menu.moveToNewWindow": "Move to New Window"
 }

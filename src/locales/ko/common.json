@@ -177,5 +177,8 @@
   "browser.profiles.label": "이름이 지정된 프로필",
   "browser.profiles.remove": "제거",
   "browser.profiles.removeLabel": "프로필 {{name}} 제거",
-  "browser.profiles.removeFailed": "\"{{name}}\"을(를) 제거하지 못했습니다. 로그인이 디스크에 남아 있을 수 있습니다. 다시 시도하세요."
+  "browser.profiles.removeFailed": "\"{{name}}\"을(를) 제거하지 못했습니다. 로그인이 디스크에 남아 있을 수 있습니다. 다시 시도하세요.",
+  "workspaceRail.menu.close": "닫기",
+  "workspaceRail.menu.duplicate": "복제",
+  "workspaceRail.menu.moveToNewWindow": "새 창으로 이동"
 }
