@@ -447,3 +447,47 @@ describe('registerBrowserTools — approval handling', () => {
     expect(server.sendBridgeRequest).not.toHaveBeenCalled();
   });
 });
+
+// WI-0.5 — the tool DESCRIPTION is the AI's only contract, and it is a shipped
+// string with no other test. Two facts about it were wrong or missing on the
+// surface users actually reach:
+//
+//   1. It claimed cookie capture was "not yet implemented" for ~5 releases after
+//      it shipped, so an AI reading it would tell the user a working feature does
+//      not work — and would not reach for it.
+//   2. It never said the feature is macOS-only, so a Windows user's AI met an
+//      opaque UNSUPPORTED_PLATFORM with nothing in its contract explaining it, and
+//      would reasonably retry or ask for an approval that could never help.
+//
+// Asserting on prose is unusual; it is justified here because this prose is an
+// interface. Both checks are anchored on the specific claim, not on wording, so
+// ordinary editing does not break them.
+describe('browser tool description — the AI-facing contract (WI-0.5)', () => {
+  async function browserToolDescription(): Promise<string> {
+    const { registerBrowserTool } = await import('../../../src/tools/browser.js');
+    let description = '';
+    const server = {
+      registerTool: (definition: { name: string; description: string }) => {
+        if (definition.name === 'browser') description = definition.description;
+      },
+    };
+    registerBrowserTool(server as never);
+    return description;
+  }
+
+  it('discloses that the embedded browser is macOS-only', async () => {
+    const description = await browserToolDescription();
+    expect(description).toMatch(/macOS only/i);
+    // And says WHY it fails elsewhere, so the AI does not treat a platform limit
+    // as a permission problem it can resolve by asking for approval.
+    expect(description).toMatch(/UNSUPPORTED_PLATFORM/);
+  });
+
+  it('does not claim cookie capture is unimplemented', async () => {
+    const description = await browserToolDescription();
+    expect(description).not.toMatch(/cookie capture is not yet implemented/i);
+    // The positive half: deleting the false claim without stating the real scope
+    // would leave the AI with no idea what session_save actually captures.
+    expect(description).toMatch(/localStorage AND cookies/);
+  });
+});

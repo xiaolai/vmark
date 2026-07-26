@@ -231,9 +231,29 @@ phase6() {
   else
     pass "WI-6.1 Tier-0 matrix scope preserved"
   fi
+  # WI-6.2 — automated rows marked in the manual checklist, so a reader can tell
+  # which lines still need a human. This was MISSED on the first pass: the gate
+  # asserted only WI-6.1 and WI-6.3 and therefore reported Phase 6 PASS while two
+  # of its four work items were untouched. A phase gate that checks a subset of its
+  # own phase is the exact failure rule 60 §10 describes — a green signal standing
+  # in for work that never happened.
+  present dev-docs/grills/ai-browser/e2e-checklist.md \
+    "\[AUTOMATED" "WI-6.2 automated checklist rows marked"
+  present dev-docs/grills/ai-browser/e2e-checklist.md \
+    "still manual" "WI-6.2 unmarked rows stated to be still manual"
+
   # WI-6.3 must be a decision, not an open question.
   present dev-docs/e2e-browser-matrix.md \
     "local pre-release gate|not a CI gate" "WI-6.3 CI/local decision recorded"
+
+  # Rule 20: one source of truth per topic, linked from the dev-docs index.
+  present dev-docs/README.md \
+    "e2e-browser-matrix" "matrix linked from dev-docs/README.md"
+
+  # WI-6.4 is NOT done. It is asserted as explicitly deferred rather than silently
+  # skipped, so the phase cannot read as complete while it is outstanding.
+  present dev-docs/plans/20260726-browser-hardening-and-e2e.md \
+    "WI-6.4 \| DEFERRED" "WI-6.4 status is explicit (deferred, not silently dropped)"
 }
 
 case "$PHASE" in
