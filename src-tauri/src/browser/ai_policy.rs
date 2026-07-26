@@ -99,6 +99,35 @@ fn blocked_hostname(host: &str, allow_loopback: bool) -> bool {
         || matches!(host, "metadata" | "instance-data")
         || host == "metadata.google.internal"
         || host.ends_with(".metadata.google.internal")
+        || lan_facing_suffix(host)
+}
+
+/// LAN-facing name suffixes (WI-1.7).
+///
+/// These never reach the IP-literal blocks: they parse as `Host::Domain`, so
+/// `blocked_ip` is not consulted at all and the request leaves the machine to
+/// whatever mDNS/DNS returns — typically a router, NAS, printer, or cloud instance
+/// on the same network. Blocking by NAME is the only point at which that can be
+/// refused before WebKit resolves the host.
+///
+/// **Not** gated behind `allow_loopback`, deliberately. That toggle means "my own
+/// machine"; these are LAN *peers*, so folding them in would silently widen a
+/// single-host opt-in to an entire network.
+///
+/// Suffix-anchored on a label boundary, never substring: `notlocal.com` and
+/// `internal.example.com` are ordinary public names and stay navigable.
+fn lan_facing_suffix(host: &str) -> bool {
+    const SUFFIXES: &[&str] = &[
+        // RFC 6762 multicast DNS — resolves to peers on the local link.
+        "local",
+        // RFC 8375 — the reserved name for home networks.
+        "home.arpa",
+        // AWS (`*.compute.internal`) / GCP (`*.internal`) instance and metadata names.
+        "internal",
+    ];
+    SUFFIXES.iter().any(|suffix| {
+        host == *suffix || host.len() > suffix.len() && host.ends_with(&format!(".{suffix}"))
+    })
 }
 
 fn blocked_ip(address: IpAddr, allow_loopback: bool) -> bool {

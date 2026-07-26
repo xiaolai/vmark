@@ -13,9 +13,9 @@
 //!   - The blob lives in the OS keychain (session_state.rs), not a plaintext file.
 //!
 //! Capture/replay scope: `localStorage` is captured and replayed through the
-//! isolated-world eval (per-origin storage is shared across content worlds). Cookie
-//! capture via `WKHTTPCookieStore` is the remaining NATIVE piece and is verified by
-//! live E2E — a `StorageState` already carries a `cookies` vec for when it lands.
+//! isolated-world eval (per-origin storage is shared across content worlds); cookies
+//! are captured and replayed natively via `WKHTTPCookieStore` (session_cookies_macos.rs),
+//! DOMAIN-SCOPED to the committed host in both directions — never the whole store.
 //!
 //! @coordinates-with browser/session_state.rs — keychain persistence + the model
 //! @coordinates-with browser/authorize.rs — the shared driver-authorization gate
@@ -51,9 +51,14 @@ fn committed_origin(state: &BrowserSurface, tab_id: &str) -> Result<String, Stri
 /// result is an error, NEVER an empty blob — so a capture that could not read the
 /// page cannot silently overwrite a good saved session with nothing. (Sec review
 /// P6, Medium.)
-fn capture(app: &AppHandle, tab_id: &str, origin: &str) -> Result<StorageState, String> {
+fn capture(
+    app: &AppHandle,
+    tab_id: &str,
+    origin: &str,
+    generation: u64,
+) -> Result<StorageState, String> {
     let script = "return JSON.stringify(Object.keys(localStorage).map(function(k){return [k, localStorage.getItem(k)];}));";
-    let raw = surface::eval(app, tab_id.to_string(), script.to_string())?;
+    let raw = surface::eval(app, tab_id.to_string(), script.to_string(), generation)?;
     if raw == "<null>" || raw == "<timeout>" || raw.is_empty() {
         return Err("capture failed: could not read the page's storage".into());
     }
@@ -135,6 +140,7 @@ fn apply(
     tab_id: &str,
     committed: &str,
     state: &StorageState,
+    generation: u64,
 ) -> Result<(), String> {
     // Defence in depth: refuse a cross-origin blob on the COMMAND thread before we
     // even dispatch. But the authoritative check is IN the replay script below —
@@ -169,7 +175,7 @@ fn apply(
         "if(new URL({expected}).origin!==location.origin){{return JSON.stringify({{applied:false,reason:'origin-changed'}});}}\
          var d={pairs};for(var i=0;i<d.length;i++){{try{{localStorage.setItem(d[i][0],d[i][1]);}}catch(e){{}}}}return JSON.stringify({{applied:true}});"
     );
-    let raw = surface::eval(app, tab_id.to_string(), script)?;
+    let raw = surface::eval(app, tab_id.to_string(), script, generation)?;
     if raw.contains("origin-changed") {
         return Err(
             "stale command: the page's origin changed before the session could be restored \
@@ -200,7 +206,7 @@ pub async fn browser_save_storage_state(
         Some(&payload_hash),
     )?;
     let origin = committed_origin(&state, &tab_id)?;
-    let captured = capture(&app, &tab_id, &origin)?;
+    let captured = capture(&app, &tab_id, &origin, generation)?;
     // The capture eval could have raced a navigation, leaving `captured` labelled
     // with `origin` but read from a different page. Re-check freshness before
     // persisting so a mislabelled blob never overwrites a good saved session.
@@ -246,7 +252,7 @@ pub async fn browser_load_storage_state(
         ));
     }
     let committed = committed_origin(&state, &tab_id)?;
-    apply(&app, &tab_id, &committed, &blob)
+    apply(&app, &tab_id, &committed, &blob, generation)
 }
 
 /// Delete a saved session. User-initiated cleanup (the profile UI / data

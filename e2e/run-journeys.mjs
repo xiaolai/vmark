@@ -127,6 +127,26 @@ async function main() {
       log: (msg) => console.error(`          · ${msg}`),
     };
     const start = Date.now();
+
+    // A journey may declare the platforms it can run on (e.g. the embedded browser
+    // is macOS-only — every other target compiles to an explicit "unsupported"
+    // stub). This is a DIFFERENT thing from a skip: a skipped journey means a
+    // precondition was not met and coverage was LOST, which is why
+    // `coverageRequired` fails the suite. A journey that cannot exist on this
+    // platform lost nothing — there is nothing here to cover. Conflating the two
+    // would either make the suite permanently red off-macOS or force us to drop
+    // `coverageRequired` from the browser rows, which is the coverage-theatre we
+    // are trying to avoid.
+    const platforms = journey.platforms;
+    if (Array.isArray(platforms) && !platforms.includes(process.platform)) {
+      console.error(
+        `  N/A   ${journey.name} — not applicable on ${process.platform} ` +
+          `(runs on: ${platforms.join(", ")})`
+      );
+      results.push({ name: journey.name, status: "na", ms: 0, platforms });
+      continue;
+    }
+
     try {
       const outcome = await withCap(journey.run(client, ctx), JOURNEY_CAP_MS, journey.name);
       const ms = Date.now() - start;
@@ -205,10 +225,16 @@ async function main() {
     );
   }
 
+  // Not-applicable is reported separately from skipped and NEVER counts as lost
+  // coverage — but it is printed, because a run where half the suite silently did
+  // not apply should not read the same as a run where everything asserted.
+  const notApplicable = results.filter((r) => r.status === "na").length;
+
   const red = failed > 0 || lostCoverage.length > 0;
   console.error(
     `\n${red ? "JOURNEYS FAILED" : "JOURNEYS PASSED"} — ${passed} passed, ${failed} failed, ` +
-      `${skipped} skipped${lostCoverage.length ? ` (${lostCoverage.length} REQUIRED)` : ""}.`
+      `${skipped} skipped${lostCoverage.length ? ` (${lostCoverage.length} REQUIRED)` : ""}` +
+      `${notApplicable ? `, ${notApplicable} n/a on ${process.platform}` : ""}.`
   );
   process.exit(red ? 1 : 0);
 }
