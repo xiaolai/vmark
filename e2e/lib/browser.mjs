@@ -90,6 +90,23 @@ export async function withBrowserEnabled(client, opts, fn) {
     // Restore the EXACT prior values — not "false". The user may legitimately have
     // had the feature on, and a journey must not turn it off behind them.
     await patchBrowserSettings(client, snapshot).catch(() => {});
+
+    // ...and WAIT for the disposal to finish. Turning the feature off disposes AI
+    // tabs and their native views ASYNCHRONOUSLY; returning before that completes
+    // leaves the next journey to compute its surface baseline while views are
+    // still being torn down underneath it. That is a genuine ordering bug and it
+    // showed up exactly that way: `browser-tab-lifecycle` passed alone and failed
+    // in sequence. A journey suite that only works in isolation is not a suite.
+    if (snapshot.enabled !== true) {
+      await poll(
+        () => browserSurfaceCount(client),
+        (n) => n === 0,
+        "browser surfaces disposed after the feature was turned back off",
+        { timeoutMs: 10000 },
+      ).catch(() => {
+        /* best-effort: never mask the journey's own failure with a teardown one */
+      });
+    }
   }
 }
 

@@ -1,7 +1,9 @@
 /**
  * Journey: browser-approval-scoping  (WI-5.7/5.8/5.9 · B7/B8/B9 — what an approval buys)
  *
- * WI-5.7 — deny withholds. WI-5.8 — allow-once is once. WI-5.9 — target scoping.
+ * WI-5.7 — deny withholds authority.
+ * WI-5.8 — allow-once is spent by the first successful action.
+ * WI-5.9 — a one-shot for element A cannot be spent on element B.
  *
  * An approval is not a mood, it is a bounded grant. Two bounds, both of which
  * would be invisible if broken:
