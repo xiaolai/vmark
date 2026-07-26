@@ -1,6 +1,8 @@
 /**
  * Journey: browser-no-bridge  (WI-5.6 · B16 — the R3/SPIKE-1 regression check)
  *
+ * WI-5.6 — the no-bridge assertion, relocated from the MCP lane to the Tauri lane.
+ *
  * VMark constructs its own `WKWebView` rather than asking Tauri for one, so
  * Tauri's IPC bridge is never injected into a browsed page (ADR-B2). That is the
  * single load-bearing privacy claim of the embedded browser: without it, ANY site

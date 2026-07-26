@@ -44,7 +44,7 @@ invariant is broken. `🟡 partial` — asserted, weaker oracle than desired.
 | B4 | SSRF: loopback, private-LAN, metadata, alternate IPv4, userinfo, `file:`/`data:` each refused **before** a request, with a positive control | The AI reaches internal infrastructure | `browser-ssrf-policy` (16 destinations) | ✅ automated |
 | B5 | A redirect into private space is refused at the redirect hop | Policy checks only the first URL | `browser-redirect-ssrf` | ✅ automated |
 | B6 | Session save/load round-trips **after proving the values absent**, and refuses cross-origin | A no-op restore passes; or credentials land under the wrong origin | — | ⬜ not automated |
-| B7 | Approve → retry succeeds (dialog clicked, not injected) | The human half of the security model is decorative | `browser-open-read-act` | 🟡 partial — the **deny** half is not yet asserted |
+| B7 | Approve → retry succeeds; **deny** → the action does not land | The human half of the security model is decorative | `browser-open-read-act`, `browser-approval-scoping` | ✅ automated |
 | B8 | Allow-once is spent by the first retry; a second needs fresh approval | One approval becomes standing authority | `browser-approval-scoping` | ✅ automated |
 | B9 | A one-shot for element A cannot be spent on element B | Approval for a benign control authorizes a dangerous one | `browser-approval-scoping` | ✅ automated |
 | B10 | Navigation invalidates a pending prompt and unused authority | An approval follows the user to a page they never saw | `browser-approval-invalidation` | ✅ automated |
@@ -66,7 +66,7 @@ invariant is broken. `🟡 partial` — asserted, weaker oracle than desired.
 
 ## Honest status
 
-**11 automated + 2 partial, of 16 rows.** Every green row was watched failing:
+**12 automated + 1 partial, of 16 rows.** Every green row was watched failing:
 
 - `browser-disabled-refuses` (B1) — enabling the feature makes it red.
 - `browser-open-read-act` (B2/B3/B7) — skipping the approval click makes it red
