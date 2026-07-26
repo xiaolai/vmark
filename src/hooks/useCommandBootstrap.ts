@@ -39,6 +39,8 @@ import { startGrantSync } from "@/services/browser/grantSync";
 import { startCoherenceScanOnChange } from "@/services/coherence/scanOnChange";
 import { startWindowWorkspaceSync } from "@/services/mcpBridge/windowWorkspaceSync";
 import { startBrowserAiPolicySync } from "@/services/browser/browserAiPolicySync";
+import { publishDebugHandle } from "@/utils/devDebugHandle";
+import { executeCommand } from "@/services/commands/CommandBus";
 
 const EXPORT_BINDINGS: MenuCommandBinding[] = [
   { menuEvent: "menu:export-html", commandId: "export.html" },
@@ -136,6 +138,22 @@ export function useCommandBootstrap(): void {
     // Lift every editor ActionId into the bus so the palette can find them
     // (WI-3.4). Owner-based batch registration is HMR-safe (replace-own).
     const disposeEditorCommands = registerEditorCommands();
+
+    // DEV-only harness seam (WI-4.0). The E2E journeys have no other way to
+    // invoke a command: the debug bridge offers only execute_js, a Tauri event
+    // emitted inside the webview never reaches the app's own listeners (verified
+    // with a non-browser control event), and synthetic key events do not reach
+    // the keybinding layer. Publishing `executeCommand` — the SAME function the
+    // menu route calls (menuListener.ts) — means a journey exercises the real
+    // dispatch path rather than a test-only shortcut past it.
+    //
+    // Compiled out of production: `publishDebugHandle` is DEV-gated, so this
+    // cannot become a way for page script in the app webview to run commands.
+    publishDebugHandle(
+      "runCommand",
+      (commandId: string, payload?: unknown, windowLabel?: string) =>
+        executeCommand(commandId, payload, { windowLabel: windowLabel ?? "main" }),
+    );
 
     // Mirror the user's standing browser grants into the Rust driver, which is the
     // authoritative gate for R4/R5/R7a (WI-2.1). Without this the driver stays

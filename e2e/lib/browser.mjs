@@ -138,3 +138,52 @@ export async function waitForBrowserTabs(client, expected, timeoutMs = 8000) {
     { timeoutMs }
   );
 }
+
+/**
+ * Create a HUMAN browser tab through the app's own command dispatch (WI-4.0).
+ *
+ * This goes through `executeCommand("browser.newTab")` — the exact function the
+ * native menu route calls (`menuListener.ts`) — so a journey exercises the real
+ * path rather than a shortcut past it.
+ *
+ * It needs the DEV-only `__VMARK_DEBUG__.runCommand` seam because nothing else
+ * reaches the app: the debug bridge exposes only execute_js, a Tauri event
+ * emitted inside the webview never arrives at the app's own listeners (confirmed
+ * with a non-browser control event), and synthetic key events never reach the
+ * keybinding layer. Against a non-DEV build the seam is absent and this throws
+ * rather than silently doing nothing.
+ */
+export async function openBrowserTabViaCommand(client) {
+  const result = await evalJs(
+    client,
+    `(async () => {
+       const run = window.__VMARK_DEBUG__ && window.__VMARK_DEBUG__.runCommand;
+       if (typeof run !== "function") return "NO_SEAM";
+       try { await run("browser.newTab"); return "OK"; }
+       catch (e) { return "ERR " + (e && e.message ? e.message : String(e)); }
+     })()`
+  );
+  if (result === "NO_SEAM") {
+    throw new Error(
+      "__VMARK_DEBUG__.runCommand is absent — the app is not a DEV build, so UI-lane " +
+        "journeys cannot create a browser tab. Run `pnpm tauri:dev`."
+    );
+  }
+  if (result !== "OK") throw new Error(`browser.newTab failed: ${result}`);
+}
+
+/** Browser tabs as the app itself models them (kind === "browser"). */
+export async function browserTabIds(client) {
+  const raw = await evalJs(
+    client,
+    `(() => {
+       const els = [...document.querySelectorAll('[data-tab-id]')];
+       return JSON.stringify(els.map((e) => e.getAttribute('data-tab-id')));
+     })()`
+  );
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return [];
+  }
+}
