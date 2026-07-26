@@ -73,30 +73,15 @@ where
         .map_err(|_| "main-thread op timed out".to_string())?
 }
 
+#[cfg(debug_assertions)]
+#[path = "debug_probe_macos.rs"]
+mod debug_probe;
+#[cfg(debug_assertions)]
+pub use debug_probe::debug_native_tab_ids;
+
 #[path = "surface_view_macos.rs"]
 mod view;
 use view::{content_view, frame_for_dom_rect, js_result_to_string, ns_url};
-
-/// The tab ids that currently hold a LIVE native webview (debug builds only).
-///
-/// This is the only way a test can observe the thing that actually matters for
-/// teardown. The `WKWebView` is a sibling native view, so it appears in no DOM
-/// snapshot: an E2E assertion on the React surface element proves the DOM tab went
-/// away and says nothing about whether the native view is still alive, still
-/// loading, still holding a session. That is precisely the false oracle the
-/// browser E2E matrix (B11) was written to avoid and could not, until this existed.
-///
-/// Debug-only: it enumerates internal state and has no product use.
-#[cfg(debug_assertions)]
-pub fn debug_native_tab_ids(app: &AppHandle) -> Result<Vec<String>, String> {
-    on_main(app, move |_mtm| {
-        Ok(WEBVIEWS.with(|m| {
-            let mut ids: Vec<String> = m.borrow().keys().cloned().collect();
-            ids.sort();
-            ids
-        }))
-    })
-}
 
 /// Release the sandbox profile after AI views are torn down or posture changes.
 pub fn clear_ai_sandbox_store(app: &AppHandle) -> Result<(), String> {
@@ -290,7 +275,7 @@ pub fn assert_no_bridge(app: &AppHandle, tab_id: String) -> Result<String, Strin
         let page_world = unsafe { WKContentWorld::pageWorld(mtm) };
         Ok(eval_js(
             &webview,
-            super::NO_BRIDGE_ASSERTION,
+            crate::browser::no_bridge::NO_BRIDGE_ASSERTION,
             &page_world,
             &run_loop,
         ))
