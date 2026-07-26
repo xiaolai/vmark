@@ -53,7 +53,7 @@ invariant is broken. `🟡 partial` — asserted, weaker oracle than desired.
 
 | # | Invariant | Failure mode if it breaks | Journey | Status |
 |---|---|---|---|---|
-| B11 | Closing a browser tab tears down the **native** view | `WKWebView` leak; a live page keeps running invisibly | `browser-tab-lifecycle` | ✅ automated |
+| B11 | Closing a browser tab tears down the **native** view | `WKWebView` leak; a live page keeps running invisibly | `browser-tab-lifecycle` | ✅ automated — asserts the app's own **native webview map** (`browser_debug_native_tab_ids`), not a DOM proxy |
 | B12 | The omnibox shows the **committed** URL after a redirect, not the typed one | The user is told they are somewhere they are not | `browser-tab-lifecycle` | ✅ automated |
 | B13 | Back / forward / reload each produce a distinct observable effect | Chrome controls look enabled and do nothing | `browser-chrome-controls` | 🟡 partial — `stop` not asserted |
 | B14 | A DOM overlay actually occludes the native view (freeze/thaw) | Page content paints over app UI — the bug the occlusion service exists for | — | ⬜ **not automatable with current tooling** — see below |
@@ -127,6 +127,17 @@ flake. Publication now merges.
 B13 and B16 followed on this seam. `browser-chrome-controls` asserts back /
 forward / reload against the COMMITTED url and, for reload, a server-side re-fetch
 — not button enablement, which is a store flag a dead chrome would also flip.
+
+### Capabilities built to close audit findings
+
+Three findings could not be fixed by editing a test; they needed capability that
+did not exist. All three now do:
+
+| Capability | What it unblocked |
+|---|---|
+| `browser_debug_native_tab_ids` — debug-only Tauri command over the native webview map | B11/B27 asserted a **DOM proxy**, so removing the React surface while leaking the `WKWebView` passed. Falsified: skipping the close now reports the leaked tab id. |
+| `authorize::dispatch_if_fresh` — the verify-then-dispatch ordering, extracted from the macOS closure | The WI-2 race fix had **no test**: it lived where a real webview and main thread were required, so deleting it left every test green. Now pure and unit-tested; deleting the check kills **5** tests. |
+| Packet oracle + reserved-address destinations in `29-browser-ssrf-policy` | The counter assertion could not fail (it watched a port no blocked URL targeted), and the journey was **unsafe under its own regression** — it would have contacted the user's LAN and put Basic credentials on the wire. The fixture is now itself a blocked loopback destination, so a leaked packet is observable; every other target is RFC 5737 TEST-NET or RFC 3927 link-local. |
 
 ### B14 (occlusion) — not automatable, and this is now evidenced
 

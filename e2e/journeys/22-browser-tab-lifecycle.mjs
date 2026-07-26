@@ -39,6 +39,7 @@ import {
   withBrowserEnabled,
   openBrowserTabViaCommand,
   browserSurfaceCount,
+  nativeBrowserTabIds,
 } from "../lib/browser.mjs";
 import { startFixtureServer } from "../lib/fixtureServer.mjs";
 
@@ -96,6 +97,8 @@ export default {
           { timeoutMs: 20000 }
         );
 
+        const nativeBefore = await nativeBrowserTabIds(client);
+
         await openBrowserTabViaCommand(client);
         await poll(
           () => browserSurfaceCount(client),
@@ -103,7 +106,13 @@ export default {
           "browser surface created",
           { timeoutMs: 10000 }
         );
-        ctx.log("browser page opened");
+        await poll(
+          () => nativeBrowserTabIds(client),
+          (ids) => ids.length > nativeBefore.length,
+          "NATIVE webview actually constructed",
+          { timeoutMs: 15000 }
+        );
+        ctx.log("browser page opened (native webview confirmed)");
 
         // --- B12: committed URL, not the typed one -------------------------
         const typed = fx.url("/redirect");
@@ -149,13 +158,28 @@ export default {
         const closed = await closeActiveBrowserPage(client);
         if (closed !== "CLICKED") throw new Error(`could not close the browser page: ${closed}`);
 
+        // THE REAL ORACLE (B11). The DOM surface going away proves only that React
+        // unmounted; the sibling WKWebView could still be alive, loading, and
+        // holding a session. `browser_debug_native_tab_ids` reads the app's own
+        // native map, so a leak is observable instead of invisible.
+        await poll(
+          () => nativeBrowserTabIds(client),
+          (ids) => ids.length === nativeBefore.length,
+          "NATIVE webview released (not merely the DOM surface)",
+          { timeoutMs: 15000 }
+        );
+        const nativeAfter = await nativeBrowserTabIds(client);
+        const leaked = nativeAfter.filter((id) => !nativeBefore.includes(id));
+        if (leaked.length) {
+          throw new Error(`native WKWebView LEAKED after close: ${leaked.join(", ")}`);
+        }
         await poll(
           () => browserSurfaceCount(client),
           (n) => n === surfacesBefore,
-          "native browser surface torn down",
+          "browser surface removed from the DOM",
           { timeoutMs: 10000 }
         );
-        ctx.log("browser surface torn down");
+        ctx.log(`browser torn down; native map back to ${nativeAfter.length} entries`);
       });
     } finally {
       await fx.close();

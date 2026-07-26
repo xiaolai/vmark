@@ -400,3 +400,100 @@ fn the_freshness_recheck_consumes_neither_one_shot_nor_attachment() {
         "a one-shot must survive repeated freshness checks"
     );
 }
+
+// WI-2.1/2.2 — `dispatch_if_fresh`, the verify-then-dispatch ordering.
+//
+// This is the test the audit said was missing. The check used to live inline in
+// the macOS main-thread closure, which needs a real WKWebView on a real main
+// thread — so DELETING it left every test green and the plan's DoD ("a test proves
+// the closure observes N+1") was not actually met. Extracting the ordering into a
+// pure function makes it provable: these assert on whether the dispatch RAN, so
+// removing the freshness check from `dispatch_if_fresh` fails them immediately.
+
+use std::cell::Cell;
+
+#[test]
+fn a_fresh_command_dispatches() {
+    let surface = enabled_surface();
+    commit_tab(&surface, "t", "https://ex.com/", AutomationMode::AiSandbox);
+    let ran = Cell::new(false);
+    let out = dispatch_if_fresh(&surface, "t", 0, || {
+        ran.set(true);
+        "result"
+    })
+    .unwrap();
+    assert!(ran.get(), "a fresh command must reach its dispatch");
+    assert_eq!(out, "result");
+}
+
+#[test]
+fn a_stale_generation_never_reaches_the_dispatch() {
+    // The invariant: not merely that the call returns Err, but that the side
+    // effect NEVER HAPPENS. An eval cannot be undone by a post-check, which is the
+    // entire reason the check moved inside the closure.
+    let surface = enabled_surface();
+    commit_tab(&surface, "t", "https://ex.com/", AutomationMode::AiSandbox);
+    {
+        let mut reg = surface.registry.lock().unwrap();
+        reg.begin_navigation("t", "https://evil.com/").unwrap();
+        reg.bump_generation("t").unwrap();
+        reg.set_committed_url("t", "https://evil.com/").unwrap();
+    }
+    let ran = Cell::new(false);
+    let err = dispatch_if_fresh(&surface, "t", 0, || ran.set(true)).unwrap_err();
+    assert!(err.contains("stale command"), "got: {err}");
+    assert!(
+        !ran.get(),
+        "the script ran against a page the command was never authorized for"
+    );
+}
+
+#[test]
+fn a_destroyed_tab_never_reaches_the_dispatch() {
+    // The cross-thread case the surface_macos comment calls out: another thread can
+    // reserve the terminal state between authorization and dispatch.
+    let surface = enabled_surface();
+    commit_tab(&surface, "t", "https://ex.com/", AutomationMode::AiSandbox);
+    surface.forget_tab("t").unwrap();
+    let ran = Cell::new(false);
+    assert!(dispatch_if_fresh(&surface, "t", 0, || ran.set(true)).is_err());
+    assert!(!ran.get(), "dispatched against a destroyed tab");
+}
+
+#[test]
+fn a_disabled_browser_never_reaches_the_dispatch() {
+    let surface = enabled_surface();
+    commit_tab(&surface, "t", "https://ex.com/", AutomationMode::AiSandbox);
+    surface.ai_policy.lock().unwrap().enabled = false;
+    let ran = Cell::new(false);
+    assert!(dispatch_if_fresh(&surface, "t", 0, || ran.set(true)).is_err());
+    assert!(!ran.get(), "dispatched with the browser switched off");
+}
+
+#[test]
+fn a_policy_epoch_change_never_reaches_the_dispatch() {
+    // Posture changed under the command: the authority it was granted under is gone.
+    let surface = enabled_surface();
+    commit_tab(&surface, "t", "https://ex.com/", AutomationMode::AiSandbox);
+    surface.ai_policy.lock().unwrap().epoch = 1;
+    let ran = Cell::new(false);
+    assert!(dispatch_if_fresh(&surface, "t", 0, || ran.set(true)).is_err());
+    assert!(!ran.get(), "dispatched under a superseded AI posture");
+}
+
+#[test]
+fn no_lock_is_held_across_the_dispatch() {
+    // The deadlock hazard the module doc names: `eval_js` pumps the main run loop,
+    // and WebKit callbacks re-enter and take the registry lock. If any guard were
+    // still held here, this re-entrant acquire would hang instead of returning.
+    let surface = enabled_surface();
+    commit_tab(&surface, "t", "https://ex.com/", AutomationMode::AiSandbox);
+    let reentered = dispatch_if_fresh(&surface, "t", 0, || {
+        surface.registry.try_lock().is_ok() && surface.ai_policy.try_lock().is_ok()
+    })
+    .unwrap();
+    assert!(
+        reentered,
+        "a guard was still held during dispatch — a re-entrant WebKit callback would deadlock"
+    );
+}

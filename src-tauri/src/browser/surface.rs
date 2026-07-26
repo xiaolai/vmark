@@ -185,6 +185,9 @@ mod imp;
 // macOS delegates to `imp`; other platforms return an explicit "unsupported"
 // (their native backends land in WI-5.1 / WI-5.2).
 
+#[cfg(all(target_os = "macos", debug_assertions))]
+pub use imp::debug_native_tab_ids;
+
 #[cfg(target_os = "macos")]
 pub use imp::{
     assert_no_bridge, clear_ai_sandbox_store, create, create_with_mode, destroy, dialog_respond,
@@ -275,7 +278,16 @@ mod stub {
     pub fn set_hidden(_a: &AppHandle, _t: String, _h: bool) -> Result<(), String> {
         Err(MSG.into())
     }
+    #[cfg(debug_assertions)]
+    pub fn debug_native_tab_ids(_a: &AppHandle) -> Result<Vec<String>, String> {
+        // No native surface on this platform, so no live views — an empty list is
+        // the truthful answer, not an error.
+        Ok(Vec::new())
+    }
 }
+
+#[cfg(all(not(target_os = "macos"), debug_assertions))]
+pub use stub::debug_native_tab_ids;
 
 #[cfg(not(target_os = "macos"))]
 pub use stub::{

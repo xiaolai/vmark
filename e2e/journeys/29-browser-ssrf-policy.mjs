@@ -27,14 +27,17 @@
  * ai_policy.rs: `printer.local` then navigates instead of being refused and the
  * journey goes red on that case alone.
  *
- * SAFETY — stated honestly, because the obvious claim is circular. "Nothing
- * leaves the machine" is only true IF the policy under test works; under the exact
- * regression this journey exists to catch, it would contact the LAN, a router,
- * link-local metadata, and an internal DNS name, and the userinfo case could put
- * Basic credentials on the wire. That is a real hazard of testing egress policy
- * from a machine with egress. Running this inside an egress-denied sandbox (or
- * behind an intercepting proxy) is the correct environment and is NOT yet set up —
- * treat a failure of this journey as potentially having emitted those requests.
+ * SAFETY — engineered, not asserted. An earlier version claimed "nothing leaves
+ * the machine", which was circular: it was true only if the policy under test
+ * worked. Under the regression this journey detects, it would have contacted the
+ * user's LAN and router and put Basic credentials on the wire.
+ *
+ * Every destination is now either OBSERVABLE (loopback — the fixture server is the
+ * packet oracle) or RESERVED AND UNROUTED (RFC 5737 TEST-NET, RFC 3927 link-local).
+ * A total policy failure therefore emits packets that cannot reach anything real,
+ * and the one case that CAN be observed proves whether a packet was emitted at all.
+ * The hostname cases (mDNS/.internal/home.arpa) resolve to nothing on a normal
+ * machine and are refused before resolution regardless.
  *
  * Restores all browser settings, including on failure.
  */
@@ -43,22 +46,36 @@ import { startVmarkMcp, bridgeReady } from "../lib/vmarkMcp.mjs";
 import { withBrowserEnabled } from "../lib/browser.mjs";
 import { startFixtureServer } from "../lib/fixtureServer.mjs";
 
-/** Destinations the AI navigation policy must refuse before issuing a request. */
+/**
+ * Destinations the AI navigation policy must refuse before issuing a request.
+ *
+ * CHOSEN FOR SAFETY UNDER FAILURE. The earlier list pointed at a real router
+ * (192.168.0.1), real RFC1918 space, and `example.com` with Basic credentials in
+ * the authority — so under the exact regression this journey exists to detect, it
+ * would have put those requests, and those credentials, on the wire. A test whose
+ * failure mode is "contact the user's LAN" is not an acceptable test.
+ *
+ * Everything here is now either OBSERVABLE (loopback, where the fixture server
+ * itself is the packet oracle — see the phase 2 assertion) or RESERVED-AND-UNROUTED
+ * (RFC 5737 TEST-NET blocks, RFC 3927 link-local), so a policy failure cannot reach
+ * anything real. `ai_policy.rs` blocks TEST-NET as part of its special-purpose
+ * ranges, so these exercise genuine policy branches rather than being placeholders.
+ */
 const BLOCKED = [
   ["loopback by name", "http://localhost:9/"],
   ["loopback literal", "http://127.0.0.1:9/"],
   ["loopback shorthand", "http://127.1:9/"],
   ["loopback as integer", "http://2130706433:9/"],
   ["loopback as hex", "http://0x7f000001:9/"],
-  ["private 10/8", "http://10.0.0.1/"],
-  ["private 172.16/12", "http://172.16.0.1/"],
-  ["private 192.168/16", "http://192.168.0.1/"],
-  ["link-local", "http://169.254.169.254/"],
-  ["cloud metadata", "http://metadata.google.internal/"],
+  ["TEST-NET-1 (RFC 5737)", "http://192.0.2.1/"],
+  ["TEST-NET-2 (RFC 5737)", "http://198.51.100.1/"],
+  ["TEST-NET-3 (RFC 5737)", "http://203.0.113.1/"],
+  ["link-local / metadata (RFC 3927, unrouted)", "http://169.254.169.254/"],
+  ["cloud metadata by name", "http://metadata.google.internal/"],
   ["mDNS LAN peer", "http://printer.local/"],
   ["home network", "http://router.home.arpa/"],
   ["cloud instance name", "http://db.internal/"],
-  ["userinfo in authority", "http://user:pass@example.com/"],
+  ["userinfo in authority", "http://user:pass@192.0.2.2/"],
   ["file scheme", "file:///etc/passwd"],
   ["data scheme", "data:text/html,<h1>x</h1>"],
 ];
@@ -96,6 +113,26 @@ export default {
       // --- Phase 2: everything above must be refused, opt-in OFF ------------
       await withBrowserEnabled(client, { allowLoopback: false }, async () => {
         fx.resetHits();
+
+        // THE PACKET ORACLE. With `allowLoopback` off, the fixture's own URL is a
+        // blocked destination — and it is the one blocked destination whose server
+        // we control, so its request counter is direct evidence of whether a packet
+        // was actually emitted. Every other case can only be observed through the
+        // returned error; this one is observed on the wire.
+        const oracleUrl = fx.url("/");
+        const oracle = await mcp.callTool("browser", { action: "open", url: oracleUrl });
+        if (!oracle.isError) {
+          throw new Error("a loopback URL was navigated with the loopback opt-in OFF");
+        }
+        // Give a leaked request time to land before declaring none was made.
+        await new Promise((r) => setTimeout(r, 1500));
+        if (fx.hits("/") !== 0) {
+          throw new Error(
+            `POLICY RAN TOO LATE — the blocked loopback destination received ` +
+              `${fx.hits("/")} real request(s). The refusal above happened after the wire.`
+          );
+        }
+        ctx.log("packet oracle: blocked loopback destination received zero requests");
         for (const [label, url] of BLOCKED) {
           const res = await mcp.callTool("browser", { action: "open", url });
           if (!res.isError) {
@@ -117,12 +154,11 @@ export default {
         }
         ctx.log(`${BLOCKED.length} destinations refused before any request`);
 
-        // NOTE — there is deliberately no request-counter assertion here. The
-        // fixture server observes ONLY its own ephemeral port, and not one blocked
-        // URL above targets it, so `allHits() === 0` is structurally always true:
-        // an assertion that cannot fail. (It was one, until this audit.) Proving
-        // "no packet left the machine" needs an egress-denied sandbox or a local
-        // intercepting proxy — see the safety note in the header.
+        // The `BLOCKED` list above has no counter assertion, and that is correct:
+        // the fixture observes only its own port, which none of those target, so a
+        // counter check there could never fail. The packet oracle at the top of
+        // this phase is the observable case; the rest are observed through their
+        // refusal, with `ai_policy.test.rs` covering the decision exhaustively.
       });
     } finally {
       await mcp.close();

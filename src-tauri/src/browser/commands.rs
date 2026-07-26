@@ -189,6 +189,17 @@ pub async fn browser_assert_no_bridge(app: AppHandle, tab_id: String) -> Result<
     surface::assert_no_bridge(&app, tab_id)
 }
 
+/// Tab ids holding a live native webview (debug builds only).
+///
+/// Exists for E2E: the native view is a sibling of the Tauri webview and shows up
+/// in no DOM snapshot, so without this an E2E teardown assertion can only observe
+/// the React surface and would pass while the `WKWebView` leaked (matrix B11).
+#[cfg(debug_assertions)]
+#[tauri::command]
+pub async fn browser_debug_native_tab_ids(app: AppHandle) -> Result<Vec<String>, String> {
+    surface::debug_native_tab_ids(&app)
+}
+
 /// Freeze the browser tab — hide the native view so a DOM overlay paints over
 /// the rect instead of the live page (R2/WI-1.4 occlusion).
 #[tauri::command]

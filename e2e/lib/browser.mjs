@@ -139,13 +139,47 @@ export async function listBrowserTabs(client) {
 }
 
 /**
+ * Tab ids holding a LIVE NATIVE webview, straight from the app's own map.
+ *
+ * This is the real teardown oracle. `browserSurfaceCount` below reads the React
+ * surface element, which is a DOM stand-in — removing it while leaking the sibling
+ * `WKWebView` looks identical, and an audit correctly flagged the DOM check as a
+ * false oracle for B11. `browser_debug_native_tab_ids` is a debug-only Tauri
+ * command that enumerates the native map itself, so "the native view is gone" is
+ * observable rather than inferred.
+ *
+ * Throws against a release build, where the command is compiled out — better than
+ * silently degrading to the weaker check.
+ */
+export async function nativeBrowserTabIds(client) {
+  const raw = await evalJs(
+    client,
+    `(async () => {
+       try {
+         const ids = await window.__TAURI__.core.invoke('browser_debug_native_tab_ids');
+         return JSON.stringify(ids);
+       } catch (e) { return "ERR " + (e && e.message ? e.message : String(e)); }
+     })()`
+  );
+  if (typeof raw === "string" && raw.startsWith("ERR ")) {
+    throw new Error(
+      `browser_debug_native_tab_ids unavailable (${raw}) — this needs a DEBUG build; ` +
+        "a release build compiles the probe out."
+    );
+  }
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return [];
+  }
+}
+
+/**
  * Is a native browser view attached to this window?
  *
- * The native `WKWebView` is a SIBLING of the Tauri webview, so it never appears in
- * a DOM snapshot — which is exactly why "the DOM tab is gone" proves nothing about
- * teardown. The browser surface element is the DOM stand-in the app positions the
- * native view against; its presence/absence is the closest in-webview proxy, and
- * journeys that need real proof pair it with a native screenshot.
+ * DOM proxy — prefer `nativeBrowserTabIds` for teardown assertions. Kept for
+ * "has the surface appeared yet" waits, where the DOM element is the thing being
+ * waited on.
  */
 export async function browserSurfaceCount(client) {
   return evalJs(
