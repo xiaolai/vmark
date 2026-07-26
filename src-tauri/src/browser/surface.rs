@@ -177,7 +177,7 @@ mod imp;
 // (their native backends land in WI-5.1 / WI-5.2).
 
 #[cfg(all(target_os = "macos", debug_assertions))]
-pub use imp::{debug_hit_test, debug_native_tab_ids};
+pub use imp::{debug_attached_webviews, debug_hit_test, debug_native_tab_ids};
 
 #[cfg(target_os = "macos")]
 pub use imp::{
@@ -193,7 +193,7 @@ pub use imp::{
 mod stub;
 
 #[cfg(all(not(target_os = "macos"), debug_assertions))]
-pub use stub::{debug_hit_test, debug_native_tab_ids};
+pub use stub::{debug_attached_webviews, debug_hit_test, debug_native_tab_ids};
 
 #[cfg(not(target_os = "macos"))]
 pub use stub::{

@@ -77,7 +77,7 @@ where
 #[path = "debug_probe_macos.rs"]
 mod debug_probe;
 #[cfg(debug_assertions)]
-pub use debug_probe::{debug_hit_test, debug_native_tab_ids};
+pub use debug_probe::{debug_attached_webviews, debug_hit_test, debug_native_tab_ids};
 
 #[path = "surface_view_macos.rs"]
 pub(super) mod view;

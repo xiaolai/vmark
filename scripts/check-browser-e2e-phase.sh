@@ -246,7 +246,7 @@ phase3() {
 # An explicit manifest, not a count. Counting filenames let a rename silently
 # change what the gate measured — and because phases 4/5 were never actually run,
 # the drift went unnoticed while the other phases were reported green.
-UI_JOURNEYS="browser-tab-lifecycle browser-chrome-controls browser-no-bridge"
+UI_JOURNEYS="browser-tab-lifecycle browser-chrome-controls browser-no-bridge browser-occlusion"
 AUTOMATION_JOURNEYS="browser-disabled-refuses browser-open-read-act browser-ssrf-policy \
 browser-approval-scoping browser-redirect-ssrf browser-approval-invalidation \
 browser-session-roundtrip"
@@ -268,7 +268,7 @@ assert_journey() {
 phase4() {
   echo "Phase 4 — browser UI E2E (Tauri bridge)"
   for j in $UI_JOURNEYS; do assert_journey "$j"; done
-  echo "  note: B13 partial (stop not asserted); B14 not automatable — see the matrix"
+  echo "  note: B13 partial (stop unasserted); B14 covers the freeze PRIMITIVE, not the overlay path"
 }
 
 phase5() {

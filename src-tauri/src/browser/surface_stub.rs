@@ -95,6 +95,10 @@ pub fn debug_native_tab_ids(_a: &AppHandle) -> Result<Vec<String>, String> {
     Ok(Vec::new())
 }
 #[cfg(debug_assertions)]
+pub fn debug_attached_webviews(_a: &AppHandle, _w: String) -> Result<usize, String> {
+    Ok(0)
+}
+#[cfg(debug_assertions)]
 pub fn debug_hit_test(
     _a: &AppHandle,
     _t: String,

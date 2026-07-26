@@ -17,7 +17,37 @@ use objc2_app_kit::NSView;
 use objc2_foundation::NSPoint;
 use tauri::AppHandle;
 
-/// Tab ids that currently hold a LIVE native webview, sorted for stable diffing.
+/// How many `WKWebView`s are ATTACHED to the window's view hierarchy.
+///
+/// [Audit High] This exists because `debug_native_tab_ids` is NOT a release
+/// oracle. Teardown removes the entry from `WEBVIEWS` and only *then* calls
+/// `removeFromSuperview()` (`surface_lifecycle_macos.rs`), so deleting that call
+/// leaves the map empty while AppKit's superview still retains and DISPLAYS the
+/// webview — exactly the leak the lifecycle module's own doc warns about ("map but
+/// never removed from its superview: a live page, invisible to us"). A map-based
+/// assertion is blind to it.
+///
+/// This counts the real hierarchy instead, so it sees a view that outlived its
+/// bookkeeping.
+pub fn debug_attached_webviews(app: &AppHandle, window_label: String) -> Result<usize, String> {
+    let app_for_closure = app.clone();
+    super::on_main(app, move |mtm| {
+        let content = super::view::content_view(&app_for_closure, &window_label, mtm)?;
+        let subviews = content.subviews();
+        let mut n = 0usize;
+        for v in subviews.iter() {
+            if class_name(&v).contains("WKWebView") {
+                n += 1;
+            }
+        }
+        Ok(n)
+    })
+}
+
+/// Tab ids the bookkeeping map still holds.
+///
+/// Useful for identifying WHICH tab is which, but do NOT use it as the teardown
+/// oracle — see `debug_attached_webviews` for why the map is blind to a leak.
 pub fn debug_native_tab_ids(app: &AppHandle) -> Result<Vec<String>, String> {
     super::on_main(app, move |_mtm| {
         Ok(super::WEBVIEWS.with(|m| {

@@ -450,8 +450,13 @@ fn a_stale_generation_never_reaches_the_dispatch() {
 
 #[test]
 fn a_destroyed_tab_never_reaches_the_dispatch() {
-    // The cross-thread case the surface_macos comment calls out: another thread can
-    // reserve the terminal state between authorization and dispatch.
+    // [Audit High] SCOPE — an earlier comment here claimed this covered "the
+    // cross-thread case". It does not. This arranges stale state BEFORE the call;
+    // it never interleaves a mutation between the check and the dispatch, which is
+    // the actual race. What these tests prove is that `dispatch_if_fresh` refuses
+    // every stale STATE it is given. The residual cross-thread window is documented
+    // in `surface_macos::eval` and is NOT covered by any test; closing it needs a
+    // barrier-based harness that can mutate state mid-call.
     let surface = enabled_surface();
     commit_tab(&surface, "t", "https://ex.com/", AutomationMode::AiSandbox);
     surface.forget_tab("t").unwrap();

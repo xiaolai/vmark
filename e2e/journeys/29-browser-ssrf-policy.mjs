@@ -32,12 +32,21 @@
  * worked. Under the regression this journey detects, it would have contacted the
  * user's LAN and router and put Basic credentials on the wire.
  *
- * Every destination is now either OBSERVABLE (loopback — the fixture server is the
- * packet oracle) or RESERVED AND UNROUTED (RFC 5737 TEST-NET, RFC 3927 link-local).
- * A total policy failure therefore emits packets that cannot reach anything real,
- * and the one case that CAN be observed proves whether a packet was emitted at all.
- * The hostname cases (mDNS/.internal/home.arpa) resolve to nothing on a normal
- * machine and are refused before resolution regardless.
+ * Destinations are now chosen to bound the damage, and the honest description is
+ * REDUCED risk, not zero. One case is genuinely OBSERVABLE (loopback — the fixture
+ * server is the packet oracle). The RFC 5737 TEST-NET addresses are reserved for
+ * documentation and route nowhere.
+ *
+ * BUT — and an audit was right to press on this — the remaining cases are NOT
+ * harmless: `169.254.169.254` is a real metadata endpoint ON A CLOUD VM, and
+ * `printer.local` / `router.home.arpa` / `db.internal` CAN resolve on a real
+ * corporate or home network. RFC 3927 link-local is link-scoped, not "unrouted".
+ * On a developer laptop these resolve to nothing; on other machines they may not.
+ *
+ * So: do not run this suite on a cloud instance or a managed corporate network
+ * until it is behind an egress-denying proxy with fixture-controlled DNS. That
+ * sandbox is the correct fix and is not built. Until it is, this journey trades a
+ * bounded, stated risk for coverage of a policy whose failure is worse.
  *
  * Restores all browser settings, including on failure.
  */

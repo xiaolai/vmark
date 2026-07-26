@@ -196,7 +196,12 @@ export default {
           }
           // It must be refused for the ORIGIN, not merely for want of approval:
           // approve it, retry, and require the origin guard to still say no.
-          if (/approval/i.test(cross.text)) {
+          // [Audit Medium] The approved-path claim only holds if the approval branch
+          // actually runs. If the first call is refused immediately on origin, the
+          // branch is skipped — and logging "refused even WITH approval" would then
+          // be a claim about a path that never executed.
+          const approvalPathRan = /approval/i.test(cross.text);
+          if (approvalPathRan) {
             await waitForApprovalDialog(client);
             await resolveApprovalViaUi(client, "allow-once");
             const approved = await mcp.callTool("browser", {
@@ -215,7 +220,11 @@ export default {
               );
             }
           }
-          ctx.log("cross-origin load refused even WITH approval");
+          ctx.log(
+            approvalPathRan
+              ? "cross-origin load refused even WITH approval"
+              : "cross-origin load refused on origin before approval was reached"
+          );
           await drainPendingApprovals(client);
 
           // And nothing may have been written to the other origin.

@@ -81,7 +81,11 @@ export async function withBrowserEnabled(client, opts, fn) {
   };
   // Native tabs that existed BEFORE this journey. Anything not in this set at
   // teardown was created by the journey and is ours to dispose — see the finally.
-  const preexistingNativeTabs = await nativeBrowserTabIds(client).catch(() => null);
+  // NOT caught. [Audit Medium] Swallowing this into `null` silently disabled
+  // identity-based cleanup and then made teardown poll an unavailable command for
+  // 20s — while the helper's own docs claimed a release build fails immediately.
+  // Fail here, before any setting is changed or the journey body runs.
+  const preexistingNativeTabs = await nativeBrowserTabIds(client);
   await patchBrowserSettings(client, {
     enabled: true,
     ...(opts?.allowLoopback === undefined ? {} : { aiAllowLoopback: opts.allowLoopback }),
@@ -305,6 +309,32 @@ export async function nativeOccludesPoint(client, tabId, fx = 0.5, fy = 0.55) {
     throw new Error(`browser_debug_hit_test unavailable (${raw}) — needs a DEBUG build`);
   }
   return JSON.parse(raw);
+}
+
+/**
+ * How many native `WKWebView`s are ATTACHED to the window hierarchy.
+ *
+ * The real teardown oracle. `nativeBrowserTabIds` reads the bookkeeping map, which
+ * teardown empties BEFORE calling `removeFromSuperview()` — so deleting that call
+ * leaves the map clean while the view stays attached and displayed. An audit caught
+ * B11 asserting the map and therefore being blind to exactly the leak the lifecycle
+ * module's own doc warns about.
+ */
+export async function attachedWebviewCount(client, windowLabel = "main") {
+  const raw = await evalJs(
+    client,
+    `(async () => {
+       try {
+         return await window.__TAURI__.core.invoke('browser_debug_attached_webviews', {
+           windowLabel: ${JSON.stringify(windowLabel)},
+         });
+       } catch (e) { return "ERR " + (e && e.message ? e.message : String(e)); }
+     })()`
+  );
+  if (typeof raw === "string") {
+    throw new Error(`browser_debug_attached_webviews unavailable (${raw}) — needs a DEBUG build`);
+  }
+  return raw;
 }
 
 /** Invoke a Tauri browser command for a tab id. */

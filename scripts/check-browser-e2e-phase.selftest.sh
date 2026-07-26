@@ -38,7 +38,23 @@ cd "$(dirname "$0")/.."
 GATE="scripts/check-browser-e2e-phase.sh"
 FAILED=0
 TMP="$(mktemp -d)"
-trap 'rm -rf "$TMP"' EXIT
+
+# [Audit High] Restore MUST survive interruption. The trap used to remove $TMP
+# only, and restoration happened inline afterwards — so a Ctrl-C while the gate was
+# running (which takes minutes: it compiles and runs the Rust suite) deleted the
+# backup and left PRODUCTION CODE MUTATED. That is not hypothetical: an auditor
+# observed the workspace mutated by an interrupted run of this very script.
+#
+# The active target is tracked globally and restored FIRST, on EXIT/INT/TERM.
+ACTIVE_FILE=""
+restore_and_clean() {
+  if [ -n "$ACTIVE_FILE" ] && [ -f "$TMP/backup" ]; then
+    cp "$TMP/backup" "$ACTIVE_FILE"
+    printf "\n  restored %s after interruption\n" "$ACTIVE_FILE" >&2
+  fi
+  rm -rf "$TMP"
+}
+trap restore_and_clean EXIT INT TERM
 
 pass() { printf "  \033[32mDETECTS\033[0m  %s\n" "$1"; }
 fail() { printf "  \033[31mBLIND  \033[0m  %s\n" "$1"; FAILED=1; }

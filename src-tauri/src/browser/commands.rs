@@ -200,6 +200,20 @@ pub async fn browser_debug_native_tab_ids(app: AppHandle) -> Result<Vec<String>,
     surface::debug_native_tab_ids(&app)
 }
 
+/// How many `WKWebView`s are attached to the window hierarchy (debug builds only).
+///
+/// The real teardown oracle: the bookkeeping map is emptied BEFORE
+/// `removeFromSuperview()`, so a map-based check cannot see a view that outlived
+/// its entry. This walks the hierarchy.
+#[cfg(debug_assertions)]
+#[tauri::command]
+pub async fn browser_debug_attached_webviews(
+    app: AppHandle,
+    window_label: String,
+) -> Result<usize, String> {
+    surface::debug_attached_webviews(&app, window_label)
+}
+
 /// Does the tab's native webview occlude a window point? (debug builds only)
 ///
 /// The occlusion oracle for E2E (matrix B14). Not a read-back of the freeze flag —
