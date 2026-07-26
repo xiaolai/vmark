@@ -24,6 +24,7 @@ import {
 } from "@/types/cursorContext";
 import type { CursorContext as TiptapCursorContext } from "@/plugins/toolbarContext/types";
 import { structuralEqual } from "@/utils/structuralEqual";
+import { publishDebugHandle } from "@/utils/devDebugHandle";
 
 /* ────────────────────────────── slices ────────────────────────────────── */
 
@@ -109,13 +110,16 @@ export type EditorStore = EditorStoreState & EditorStoreActions;
 
 /* ───────────────────────── dev helper ─────────────────────────────────── */
 
-type VMarkDebug = { editorView: TiptapEditorView | null };
-
+/**
+ * Publish the live editor view for DEV tooling.
+ *
+ * Routed through `publishDebugHandle` so it MERGES: this runs on every editor
+ * change, and assigning the whole object (what it used to do) erased any other
+ * debug handle — intermittently, which would read as harness flake rather than
+ * as this.
+ */
 function publishDebugEditorView(view: TiptapEditorView | null): void {
-  if (!import.meta.env.DEV || typeof window === "undefined") return;
-  (window as unknown as { __VMARK_DEBUG__?: VMarkDebug }).__VMARK_DEBUG__ = {
-    editorView: view,
-  };
+  publishDebugHandle("editorView", view);
 }
 
 /* ───────────────────────── factory ────────────────────────────────────── */

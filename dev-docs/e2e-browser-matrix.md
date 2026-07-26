@@ -53,8 +53,8 @@ invariant is broken. `🟡 partial` — asserted, weaker oracle than desired.
 
 | # | Invariant | Failure mode if it breaks | Journey | Status |
 |---|---|---|---|---|
-| B11 | Closing a browser tab tears down the **native** view | `WKWebView` leak; a live page keeps running invisibly | — | ⬜ not automated |
-| B12 | The omnibox shows the **committed** URL after a redirect, not the typed one | The user is told they are somewhere they are not | — | ⬜ not automated |
+| B11 | Closing a browser tab tears down the **native** view | `WKWebView` leak; a live page keeps running invisibly | `browser-tab-lifecycle` | ✅ automated |
+| B12 | The omnibox shows the **committed** URL after a redirect, not the typed one | The user is told they are somewhere they are not | `browser-tab-lifecycle` | ✅ automated |
 | B13 | Back / forward / reload / stop each produce a distinct observable effect | Chrome controls look enabled and do nothing | — | ⬜ not automated |
 | B14 | A DOM overlay actually occludes the native view (freeze/thaw) | Page content paints over app UI — the bug the occlusion service exists for | — | ⬜ not automated |
 | B15 | The approval dialog renders operation + origin, focuses Deny, and Escape denies | The user approves something they cannot read | — | ⬜ not automated |
@@ -85,11 +85,11 @@ is sequential (refuse, approve, retry), not a held-open request.
 **The AI-automation lane is unblocked**; B4–B6 and B8–B10 are ordinary work now that
 `open`/`read`/`act`/approve are proven from the harness.
 
-### The UI lane (B11–B16) is blocked — diagnosed, not guessed
+### The UI lane — was blocked, now open (WI-4.0)
 
-Every UI row needs a *human* browser tab, and the harness cannot create one. Three
-independent routes were tried and all fail, so this is a **harness capability gap,
-not a browser bug**:
+Every UI row needs a *human* browser tab. Four independent routes to creating one
+all failed, which established this as a **harness capability gap, not a browser
+bug**:
 
 | Route | Result |
 |---|---|
@@ -101,11 +101,20 @@ not a browser bug**:
 The control experiment is the important one: a **non-browser** menu event fails
 identically, which rules out the browser feature gate as the cause.
 
-Unblocking needs one of: a bridge command that injects real input, a window-scoped
-emit that matches how the frontend registers its listener, or a debug-only test hook
-that invokes `browser.newTab` on the CommandBus directly. Until then these rows stay
-manual — writing them now would mean asserting against an unverified assumption,
-which is the failure this plan exists to prevent.
+**Resolved by the third option: a DEV-only seam** (`src/utils/devDebugHandle.ts`).
+The app publishes `executeCommand` on `window.__VMARK_DEBUG__` in DEV builds only,
+and the harness calls `browser.newTab` through it. That is the *same* function the
+native menu route calls (`menuListener.ts`), so a journey travels the real dispatch
+path rather than a test-only shortcut past it. It is `import.meta.env.DEV`-gated, so
+it is dropped from production rather than merely unused — shipping it would let any
+script in the app webview run arbitrary commands.
+
+One bug found while adding it: the pre-existing `__VMARK_DEBUG__` publisher assigned
+the whole object, so a second publisher would have silently erased `editorView` on
+the next editor change — an intermittent failure that would have read as harness
+flake. Publication now merges.
+
+Remaining UI rows (B13, B14, B16) are ordinary work on this seam.
 
 Do **not** mark a row ✅ before its journey has been watched failing.
 
