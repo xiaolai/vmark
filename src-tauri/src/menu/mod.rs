@@ -94,6 +94,9 @@ pub use dynamic::*;
 // Wildcard re-export required: `#[tauri::command]` generates hidden `__cmd__*`
 // items that `generate_handler!` in `lib.rs` must resolve.
 pub use menu_state::*;
+
+pub mod browser_menu_item;
+pub use browser_menu_item::*;
 // Wildcard re-export required: `#[tauri::command]` generates hidden `__cmd__*` items
 // that `generate_handler!` in `lib.rs` must resolve.
 pub use localized::*;
