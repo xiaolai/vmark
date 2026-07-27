@@ -1,9 +1,13 @@
 //! Tauri command wrappers for menu operations.
 //!
 //! Purpose: Thin `#[tauri::command]` shims that delegate to the real
-//! implementations in `dynamic.rs`, `localized.rs`, and `accelerators.rs`
-//! (differential accelerator updates for Issue #825). Keeps command
-//! registration in `lib.rs` simple.
+//! implementations in `dynamic.rs`, `localized.rs`, `accelerators.rs`
+//! (differential accelerator updates for Issue #825), and `browser_menu_item.rs`.
+//! Keeps command registration in `lib.rs` simple.
+//!
+//! `rebuild_menu` is not purely a shim: it must re-apply browser-item visibility
+//! after `set_menu`, because a rebuild replaces the tree and strands any handle
+//! into the old one.
 //!
 //! @coordinates-with `lib.rs` (registers these commands in `generate_handler!`)
 

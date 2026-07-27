@@ -4,6 +4,9 @@
 //! keyboard accelerators, using `rust-i18n` for translation.
 //!
 //! Pipeline: `app_setup::setup_app` -> `localized::create_localized_menu()` -> Tauri `app.set_menu()`.
+//! Items whose presence depends on a setting are adjusted after that:
+//! `browser_menu_item` shows/hides "New Browser Tab" and re-applies itself after
+//! every rebuild.
 //! When user changes locale (label change): frontend invokes `rebuild_menu`
 //!   -> `localized::create_localized_menu()` with custom shortcuts.
 //! When user edits a keyboard shortcut (accelerator-only change): frontend
