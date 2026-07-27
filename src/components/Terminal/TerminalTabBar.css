@@ -56,6 +56,30 @@
   transition: background-color var(--duration-base) ease, color var(--duration-base) ease;
 }
 
+/* Inline rename box (WI-4.1). It occupies the tab's slot, so it inherits the
+   tab metrics and only overrides what a text field needs. Wider than a tab so
+   a name is actually legible while typing. */
+.terminal-tab-rename {
+  width: auto;
+  min-width: calc(var(--tab-size) * 4);
+  padding: 0 var(--space-1);
+  text-align: center;
+  font-family: var(--font-sans);
+  color: var(--text-color);
+  background: var(--bg-color);
+  border: var(--border-thin) solid var(--accent-primary);
+  outline: none;
+}
+
+/* Focus indicator (rule 33): the box is autofocused and unmounts on blur, so
+   it is effectively always focused — the persistent accent border above IS the
+   indicator, reinforced here with the selection background so the state is
+   carried by more than colour alone. */
+.terminal-tab-rename:focus {
+  background: var(--accent-bg);
+  border-color: var(--accent-primary);
+}
+
 .terminal-tab:hover {
   background: var(--hover-bg);
   color: var(--text-color);
