@@ -19,6 +19,17 @@ pub fn open_settings_window(app: AppHandle, section: Option<String>) -> Result<S
         .map_err(|e| e.to_string())
 }
 
+/// Build the Settings window URL for an optional section.
+///
+/// The section is percent-encoded so a value containing reserved characters
+/// (`&`, `?`, `#`) cannot corrupt the query or append a fragment.
+fn settings_url(section: Option<&str>) -> String {
+    match section {
+        Some(s) => format!("/settings?section={}", urlencoding::encode(s)),
+        None => "/settings".to_string(),
+    }
+}
+
 /// Create or focus the settings window, optionally navigating to a specific section.
 /// If settings window exists, focuses it and navigates to the section.
 /// Otherwise creates a new one with the section in the URL.
@@ -54,12 +65,7 @@ pub fn show_settings_window_section(
 
     log::debug!("[window_manager] Creating new settings window");
 
-    // Build URL with optional section query param. Percent-encode the section
-    // so a value containing reserved chars (&, ?, #) can't corrupt the query.
-    let url = match section {
-        Some(s) => format!("/settings?section={}", urlencoding::encode(s)),
-        None => "/settings".to_string(),
-    };
+    let url = settings_url(section);
 
     // Create new settings window.
     //
@@ -74,6 +80,10 @@ pub fn show_settings_window_section(
         .inner_size(SETTINGS_WIDTH, SETTINGS_HEIGHT)
         .min_inner_size(SETTINGS_MIN_WIDTH, SETTINGS_MIN_HEIGHT)
         .resizable(true)
+        // Match the OS-drawn title bar to the in-app theme from the first
+        // frame. Setting it after build would flash a light title bar on a
+        // dark theme; on macOS this is a no-op (overlay title bar).
+        .theme(Some(super::current_theme()))
         .focused(true);
 
     #[cfg(target_os = "macos")]
@@ -107,3 +117,7 @@ pub fn show_settings_window_section(
 
     Ok(SETTINGS_LABEL.to_string())
 }
+
+#[cfg(test)]
+#[path = "settings_window.test.rs"]
+mod tests;

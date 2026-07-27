@@ -14,6 +14,8 @@ import {
   type FocusModeDim,
 } from "@/stores/settingsStore";
 import { SettingRow, SettingsGroup, Toggle, Select } from "./components";
+import { selectableThemeIds } from "@/theme/themeAvailability";
+import { isMacPlatform } from "@/utils/platform";
 
 /** One row of theme swatches. `selected` gets the ring indicator. */
 function ThemeSwatchRow({
@@ -24,9 +26,12 @@ function ThemeSwatchRow({
   onSelect: (id: ThemeId) => void;
 }) {
   const { t } = useTranslation("settings");
+  // Windows/Linux offer only the light/dark pair their native chrome can
+  // actually match — see theme/themeAvailability.ts.
+  const available = selectableThemeIds(isMacPlatform());
   return (
     <div className="flex items-center gap-4 pb-3">
-      {(Object.keys(themes) as ThemeId[]).map((id) => (
+      {available.map((id) => (
         <button
           key={id}
           type="button"

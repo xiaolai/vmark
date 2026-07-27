@@ -1,8 +1,22 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { AppearanceSettings } from "./AppearanceSettings";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { FOCUS_DIM_OPACITY } from "@/hooks/useTheme";
+
+// The swatch row only offers themes whose native chrome the platform can
+// match (theme/themeAvailability.ts), so the platform is pinned rather than
+// inherited from jsdom. Defaults to macOS — the full catalog — with the
+// narrowed Windows/Linux picker covered in its own describe below.
+const platform = vi.hoisted(() => ({ isMac: true }));
+vi.mock("@/utils/platform", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/utils/platform")>()),
+  isMacPlatform: () => platform.isMac,
+}));
+
+beforeEach(() => {
+  platform.isMac = true;
+});
 
 describe("AppearanceSettings — focus mode dim (WI-10)", () => {
   beforeEach(() => {
@@ -127,5 +141,51 @@ describe("FOCUS_DIM_OPACITY map", () => {
   it("dims progressively for stronger levels", () => {
     expect(Number(FOCUS_DIM_OPACITY.strong)).toBeLessThan(1);
     expect(Number(FOCUS_DIM_OPACITY.stronger)).toBeLessThan(Number(FOCUS_DIM_OPACITY.strong));
+  });
+});
+
+describe("AppearanceSettings — theme picker narrowing (Windows/Linux)", () => {
+  beforeEach(() => {
+    platform.isMac = false;
+    useSettingsStore.setState({
+      appearance: {
+        ...useSettingsStore.getState().appearance,
+        followSystemAppearance: false,
+        theme: "white",
+      },
+    });
+  });
+
+  it("offers only the two themes whose chrome the OS can match", () => {
+    render(<AppearanceSettings />);
+    expect(screen.getByRole("button", { name: /white/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /night/i })).toBeInTheDocument();
+  });
+
+  it("hides the themes that could never have matching chrome", () => {
+    render(<AppearanceSettings />);
+    for (const hidden of [/paper/i, /mint/i, /sepia/i, /solarized/i]) {
+      expect(screen.queryByRole("button", { name: hidden })).toBeNull();
+    }
+  });
+
+  it("still narrows both rows when following the system", () => {
+    useSettingsStore.setState({
+      appearance: {
+        ...useSettingsStore.getState().appearance,
+        followSystemAppearance: true,
+      },
+    });
+    render(<AppearanceSettings />);
+    // One swatch per row, two rows — light and dark.
+    expect(screen.getAllByRole("button", { name: /white/i })).toHaveLength(2);
+    expect(screen.getAllByRole("button", { name: /night/i })).toHaveLength(2);
+    expect(screen.queryByRole("button", { name: /sepia/i })).toBeNull();
+  });
+
+  it("selecting a narrowed theme still writes to the store", () => {
+    render(<AppearanceSettings />);
+    fireEvent.click(screen.getByRole("button", { name: /night/i }));
+    expect(useSettingsStore.getState().appearance.theme).toBe("night");
   });
 });

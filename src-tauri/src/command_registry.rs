@@ -59,6 +59,7 @@ macro_rules! all_commands {
             window_manager::open_workspace_in_new_window,
             window_manager::open_workspace_with_files_in_new_window,
             window_manager::open_settings_window,
+            window_manager::set_native_theme,
             window_manager::close_window,
             window_manager::force_quit,
             window_manager::request_quit,

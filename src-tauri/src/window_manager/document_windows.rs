@@ -99,6 +99,9 @@ fn build_document_window(
         .min_inner_size(800.0, 600.0)
         .resizable(true)
         .fullscreen(false)
+        // Match OS-drawn chrome (title bar, and the Windows menu bar) to the
+        // in-app theme from the first frame — see native_theme.rs.
+        .theme(Some(super::current_theme()))
         .focused(true);
 
     if let Some((x, y)) = position {
