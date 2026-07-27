@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
-import { resolveLoginShellPath, buildShellEnv } from "./terminalSpawnEnv";
+import { resolveLoginShellPath, buildShellSpawnConfig } from "./terminalSpawnEnv";
 
 const mockInvoke = vi.mocked(invoke);
 
@@ -56,42 +56,61 @@ describe("resolveLoginShellPath", () => {
   });
 });
 
-describe("buildShellEnv", () => {
+describe("buildShellSpawnConfig (WI-3.3)", () => {
   beforeEach(() => {
     mockInvoke.mockReset();
   });
 
-  it("returns a fresh copy of the base env when integration is disabled", async () => {
+  it("returns a fresh copy of the base env and no args when integration is disabled", async () => {
     const base = { PATH: "/usr/bin", HOME: "/home/me" };
-    const result = await buildShellEnv(base, "/bin/zsh", false);
+    const result = await buildShellSpawnConfig(base, "/bin/zsh", false);
 
-    expect(result).toEqual(base);
-    expect(result).not.toBe(base); // must be a copy, not the same reference
+    expect(result.env).toEqual(base);
+    expect(result.env).not.toBe(base); // must be a copy, not the same reference
+    expect(result.args).toEqual([]);
     expect(mockInvoke).not.toHaveBeenCalled();
   });
 
-  it("merges shell-integration overrides onto the base env when enabled", async () => {
-    mockInvoke.mockResolvedValue({ ZDOTDIR: "/tmp/zsh-integration" });
+  it("merges shell-integration env onto the base env when enabled", async () => {
+    mockInvoke.mockResolvedValue({ env: { ZDOTDIR: "/tmp/zsh-integration" }, args: [] });
     const base = { PATH: "/usr/bin" };
 
-    const result = await buildShellEnv(base, "/bin/zsh", true);
+    const result = await buildShellSpawnConfig(base, "/bin/zsh", true);
 
-    expect(result).toEqual({
+    expect(result.env).toEqual({
       PATH: "/usr/bin",
       ZDOTDIR: "/tmp/zsh-integration",
     });
+    expect(result.args).toEqual([]);
     expect(mockInvoke).toHaveBeenCalledWith("prepare_shell_integration", {
       shell: "/bin/zsh",
     });
     expect(base).toEqual({ PATH: "/usr/bin" }); // base untouched
   });
 
-  it("returns the base env unchanged when overrides are null", async () => {
+  it("carries bash's --rcfile arg through without touching the env", async () => {
+    mockInvoke.mockResolvedValue({
+      env: {},
+      args: ["--rcfile", "/data/shell-integration/bash/vmark.bash"],
+    });
+    const base = { PATH: "/usr/bin" };
+
+    const result = await buildShellSpawnConfig(base, "/bin/bash", true);
+
+    expect(result.args).toEqual([
+      "--rcfile",
+      "/data/shell-integration/bash/vmark.bash",
+    ]);
+    expect(result.env).toEqual({ PATH: "/usr/bin" });
+  });
+
+  it("returns the base env and no args when the shell has no integration", async () => {
     mockInvoke.mockResolvedValue(null);
     const base = { PATH: "/usr/bin" };
 
-    await expect(buildShellEnv(base, "/bin/bash", true)).resolves.toEqual({
-      PATH: "/usr/bin",
+    await expect(buildShellSpawnConfig(base, "/usr/bin/fish", true)).resolves.toEqual({
+      env: { PATH: "/usr/bin" },
+      args: [],
     });
   });
 
@@ -99,8 +118,37 @@ describe("buildShellEnv", () => {
     mockInvoke.mockRejectedValue(new Error("integration unavailable"));
     const base = { PATH: "/usr/bin" };
 
-    await expect(buildShellEnv(base, "/bin/fish", true)).resolves.toEqual({
-      PATH: "/usr/bin",
+    await expect(buildShellSpawnConfig(base, "/bin/fish", true)).resolves.toEqual({
+      env: { PATH: "/usr/bin" },
+      args: [],
     });
+  });
+
+  it("tolerates a payload missing either field", async () => {
+    // Zero-trust at the IPC boundary — a partial payload must not become
+    // `spawn(shell, undefined)`.
+    mockInvoke.mockResolvedValue({ env: { A: "1" } });
+    await expect(buildShellSpawnConfig({}, "/bin/zsh", true)).resolves.toEqual({
+      env: { A: "1" },
+      args: [],
+    });
+
+    mockInvoke.mockResolvedValue({ args: ["--rcfile", "/x"] });
+    await expect(buildShellSpawnConfig({}, "/bin/bash", true)).resolves.toEqual({
+      env: {},
+      args: ["--rcfile", "/x"],
+    });
+  });
+
+  it("drops non-string entries from a malformed args array", async () => {
+    mockInvoke.mockResolvedValue({ env: {}, args: ["--rcfile", 42, null, "/x"] });
+    const result = await buildShellSpawnConfig({}, "/bin/bash", true);
+    expect(result.args).toEqual(["--rcfile", "/x"]);
+  });
+
+  it("ignores a non-array args value entirely", async () => {
+    mockInvoke.mockResolvedValue({ env: {}, args: "--rcfile /x" });
+    const result = await buildShellSpawnConfig({}, "/bin/bash", true);
+    expect(result.args).toEqual([]);
   });
 });
