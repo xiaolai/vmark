@@ -8,6 +8,11 @@ vi.mock("@/utils/imeGuard", () => ({
 }));
 
 import { ContextMenu, type ContextMenuType } from "./ContextMenu";
+import {
+  useUIStore,
+  resetTerminalSessionStore,
+  MAX_TERMINAL_SESSIONS,
+} from "@/stores/uiStore";
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
@@ -25,6 +30,8 @@ vi.mock("react-i18next", () => ({
         "contextMenu.ariaLabel": "File actions",
         newFile: "New File",
         newFolder: "New Folder",
+        "contextMenu.openTerminalHere": "Open Terminal Here",
+        "contextMenu.openTerminalHereMax": "Open Terminal Here (max 5 sessions)",
       };
       return map[key] ?? key;
     },
@@ -186,7 +193,45 @@ describe("ContextMenu ARIA and keyboard", () => {
   it("renders folder menu items correctly", () => {
     renderMenu("folder");
     const items = screen.getAllByRole("menuitem");
-    expect(items.length).toBe(6); // folder menu has 6 items
+    // 6 file-management actions + "Open Terminal Here" (WI-4.2).
+    expect(items.length).toBe(7);
+  });
+
+  describe("Open Terminal Here (WI-4.2)", () => {
+    beforeEach(() => {
+      resetTerminalSessionStore();
+    });
+
+    it("appears for a folder", () => {
+      renderMenu("folder");
+      expect(
+        screen.getByRole("menuitem", { name: /open terminal here/i }),
+      ).toBeInTheDocument();
+    });
+
+    it.each(["file", "empty"] as const)("does not appear for %s", (type) => {
+      renderMenu(type);
+      expect(
+        screen.queryByRole("menuitem", { name: /open terminal here/i }),
+      ).not.toBeInTheDocument();
+    });
+
+    it("dispatches the openTerminalHere action on click", () => {
+      const { onAction } = renderMenu("folder");
+      fireEvent.click(screen.getByRole("menuitem", { name: /open terminal here/i }));
+      expect(onAction).toHaveBeenCalledWith("openTerminalHere");
+    });
+
+    it("is disabled at the session cap, and clicking it does nothing", () => {
+      for (let i = 0; i < MAX_TERMINAL_SESSIONS; i++) {
+        useUIStore.getState().terminalCreateSession();
+      }
+      const { onAction } = renderMenu("folder");
+      const item = screen.getByRole("menuitem", { name: /max 5 sessions/i });
+      expect(item).toBeDisabled();
+      fireEvent.click(item);
+      expect(onAction).not.toHaveBeenCalled();
+    });
   });
 
   it("closes on Escape (owned by the roving hook)", () => {
