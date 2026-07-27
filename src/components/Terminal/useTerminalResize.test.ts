@@ -11,11 +11,24 @@ import { useTerminalResize } from "./useTerminalResize";
 import { useUIStore } from "@/stores/uiStore";
 import type { EffectiveTerminalPosition } from "@/stores/uiStore";
 
-// Persisting the ratio on mouseup is a side effect we don't care about here.
+// Persisting the ratio on mouseup is a side effect the drag tests don't care
+// about; the maximize tests DO need to read panelRatio, so the mock is stateful.
+const { settingsState } = vi.hoisted(() => {
+  const state = {
+    terminal: { panelRatio: 0.4 },
+    // currentShellSideWidth() reads the rail setting (audit fix).
+    general: { workspaceRailMode: false },
+    // Writes through, so a test that persists a ratio really changes what a
+    // later read sees — otherwise "restore" would pass even while the stored
+    // ratio was being clobbered.
+    updateTerminalSetting: vi.fn((key: string, value: unknown) => {
+      if (key === "panelRatio") state.terminal.panelRatio = value as number;
+    }),
+  };
+  return { settingsState: state };
+});
 vi.mock("@/stores/settingsStore", () => ({
-  useSettingsStore: {
-    getState: () => ({ updateTerminalSetting: vi.fn() }),
-  },
+  useSettingsStore: { getState: () => settingsState },
 }));
 
 function mouseEvent(type: string, x: number, y: number) {
@@ -30,7 +43,11 @@ function drag(
   read: () => number
 ) {
   const { result } = renderHook(() => useTerminalResize(position));
-  result.current({ preventDefault() {}, clientX: start[0], clientY: start[1] } as React.MouseEvent);
+  result.current.handleResizeStart({
+    preventDefault() {},
+    clientX: start[0],
+    clientY: start[1],
+  } as React.MouseEvent);
   document.dispatchEvent(mouseEvent("mousemove", end[0], end[1]));
   const size = read();
   document.dispatchEvent(mouseEvent("mouseup", end[0], end[1]));
@@ -66,5 +83,206 @@ describe("useTerminalResize grow direction", () => {
     useUIStore.getState().setEffectiveTerminalPosition("left");
     const size = drag("left", [500, 0], [460, 0], () => useUIStore.getState().terminalWidth);
     expect(size).toBeLessThan(300);
+  });
+});
+
+describe("toggleMaximize (WI-4.5 / F6)", () => {
+  const WINDOW_H = 1000;
+  const WINDOW_W = 1600;
+  // getAvailableDimension subtracts the 40px titlebar + 40px statusbar on the
+  // vertical axis, and the sidebar width on the horizontal axis.
+  const AVAILABLE_V = WINDOW_H - 80;
+  const AVAILABLE_H = WINDOW_W;
+
+  beforeEach(() => {
+    settingsState.terminal.panelRatio = 0.4;
+    settingsState.updateTerminalSetting.mockClear();
+    window.innerWidth = WINDOW_W;
+    window.innerHeight = WINDOW_H;
+    useUIStore.setState({ sidebarVisible: false, sidebarWidth: 0 });
+  });
+
+  function mount(position: EffectiveTerminalPosition) {
+    useUIStore.getState().setEffectiveTerminalPosition(position);
+    return renderHook(() => useTerminalResize(position));
+  }
+
+  it("snaps a bottom panel to the cap", () => {
+    useUIStore.getState().setTerminalHeight(Math.round(AVAILABLE_V * 0.4));
+    const { result } = mount("bottom");
+
+    result.current.toggleMaximize();
+
+    expect(useUIStore.getState().terminalHeight).toBe(Math.round(AVAILABLE_V * 0.5));
+  });
+
+  it("restores the STORED ratio on a second toggle", () => {
+    useUIStore.getState().setTerminalHeight(Math.round(AVAILABLE_V * 0.4));
+    const { result } = mount("bottom");
+
+    result.current.toggleMaximize();
+    result.current.toggleMaximize();
+
+    expect(useUIStore.getState().terminalHeight).toBe(Math.round(AVAILABLE_V * 0.4));
+  });
+
+  it("restores the stored ratio even when the pre-toggle size differed from it", () => {
+    // A drag that was never persisted must not become the restore target —
+    // the persisted ratio is the source of truth.
+    settingsState.terminal.panelRatio = 0.25;
+    useUIStore.getState().setTerminalHeight(Math.round(AVAILABLE_V * 0.33));
+    const { result } = mount("bottom");
+
+    result.current.toggleMaximize();
+    result.current.toggleMaximize();
+
+    expect(useUIStore.getState().terminalHeight).toBe(Math.round(AVAILABLE_V * 0.25));
+  });
+
+  it("never rewrites the persisted panelRatio", () => {
+    // The whole point of a toggle rather than a setting (D2): maximizing is
+    // temporary and must not become the user's new default.
+    useUIStore.getState().setTerminalHeight(Math.round(AVAILABLE_V * 0.4));
+    const { result } = mount("bottom");
+
+    result.current.toggleMaximize();
+    result.current.toggleMaximize();
+
+    expect(settingsState.updateTerminalSetting).not.toHaveBeenCalled();
+    expect(settingsState.terminal.panelRatio).toBe(0.4);
+  });
+
+  it("works on the horizontal axis (right panel resizes width)", () => {
+    useUIStore.getState().setTerminalWidth(Math.round(AVAILABLE_H * 0.4));
+    const { result } = mount("right");
+
+    result.current.toggleMaximize();
+    expect(useUIStore.getState().terminalWidth).toBe(Math.round(AVAILABLE_H * 0.5));
+
+    result.current.toggleMaximize();
+    expect(useUIStore.getState().terminalWidth).toBe(Math.round(AVAILABLE_H * 0.4));
+  });
+
+  it("does not touch the other axis's dimension", () => {
+    useUIStore.getState().setTerminalHeight(Math.round(AVAILABLE_V * 0.4));
+    useUIStore.getState().setTerminalWidth(400);
+    const { result } = mount("bottom");
+
+    result.current.toggleMaximize();
+
+    expect(useUIStore.getState().terminalWidth).toBe(400);
+  });
+
+  it("does NOT call onResize — the store write already drives the refit", () => {
+    // Calling it too would schedule the same fit twice for one toggle: once
+    // here and once from TerminalPanel's width/height effect.
+    const onResize = vi.fn();
+    // Set the starting size explicitly: leaving it to whatever a previous test
+    // left behind decides whether this toggle maximizes or restores.
+    useUIStore.getState().setTerminalHeight(Math.round(AVAILABLE_V * 0.4));
+    useUIStore.getState().setEffectiveTerminalPosition("bottom");
+    const { result } = renderHook(() => useTerminalResize("bottom", onResize));
+
+    result.current.toggleMaximize();
+
+    expect(onResize).not.toHaveBeenCalled();
+    // …but the geometry really did change, so the effect has something to react to.
+    expect(useUIStore.getState().terminalHeight).toBe(Math.round(AVAILABLE_V * 0.5));
+  });
+
+  it("clamps a legacy over-cap stored ratio when restoring", () => {
+    // A ratio persisted before WI-1.2 could be 0.8; restoring to it would
+    // exceed the cap the layout enforces everywhere else.
+    settingsState.terminal.panelRatio = 0.8;
+    useUIStore.getState().setTerminalHeight(Math.round(AVAILABLE_V * 0.5));
+    const { result } = mount("bottom");
+
+    // Already at the cap → this toggle RESTORES.
+    result.current.toggleMaximize();
+
+    expect(useUIStore.getState().terminalHeight).toBe(Math.round(AVAILABLE_V * 0.5));
+  });
+
+  it("does nothing when the available dimension is zero", () => {
+    window.innerHeight = 0;
+    useUIStore.getState().setTerminalHeight(250);
+    const { result } = mount("bottom");
+
+    result.current.toggleMaximize();
+
+    expect(useUIStore.getState().terminalHeight).toBe(250);
+  });
+});
+
+describe("double-click maximize through the real DOM event sequence (WI-4.5)", () => {
+  // REGRESSION (Codex audit): a double-click delivers TWO complete
+  // mousedown/mouseup pairs. While mouseup persisted the ratio
+  // unconditionally, the second double-click's clicks wrote the maximized 0.5
+  // back as the stored ratio BEFORE toggleMaximize() read it — so "restore"
+  // restored to the maximized size and the toggle became one-way.
+  const WINDOW_H = 1000;
+  const AVAILABLE_V = WINDOW_H - 80;
+
+  beforeEach(() => {
+    settingsState.terminal.panelRatio = 0.4;
+    settingsState.updateTerminalSetting.mockClear();
+    window.innerWidth = 1600;
+    window.innerHeight = WINDOW_H;
+    useUIStore.setState({ sidebarVisible: false, sidebarWidth: 0 });
+    useUIStore.getState().setEffectiveTerminalPosition("bottom");
+    useUIStore.getState().setTerminalHeight(Math.round(AVAILABLE_V * 0.4));
+  });
+
+  /** One full click: mousedown on the handle, then a document mouseup. */
+  function click(result: { current: { handleResizeStart: (e: React.MouseEvent) => void } }) {
+    result.current.handleResizeStart({
+      preventDefault() {},
+      clientX: 0,
+      clientY: 500,
+    } as React.MouseEvent);
+    document.dispatchEvent(mouseEvent("mouseup", 0, 500));
+  }
+
+  it("a click with no movement never rewrites the persisted ratio", () => {
+    const { result } = renderHook(() => useTerminalResize("bottom"));
+    click(result);
+    expect(settingsState.updateTerminalSetting).not.toHaveBeenCalled();
+  });
+
+  it("survives a full double-click → maximize → double-click → restore cycle", () => {
+    const { result } = renderHook(() => useTerminalResize("bottom"));
+    const stored = Math.round(AVAILABLE_V * 0.4);
+    const capped = Math.round(AVAILABLE_V * 0.5);
+
+    // First double-click: two clicks, then the dblclick handler.
+    click(result);
+    click(result);
+    result.current.toggleMaximize();
+    expect(useUIStore.getState().terminalHeight).toBe(capped);
+
+    // Second double-click: its two clicks must NOT persist the maximized size.
+    click(result);
+    click(result);
+    result.current.toggleMaximize();
+
+    expect(useUIStore.getState().terminalHeight).toBe(stored);
+    expect(settingsState.terminal.panelRatio).toBe(0.4);
+    expect(settingsState.updateTerminalSetting).not.toHaveBeenCalled();
+  });
+
+  it("a real drag still persists the ratio", () => {
+    const { result } = renderHook(() => useTerminalResize("bottom"));
+    result.current.handleResizeStart({
+      preventDefault() {},
+      clientX: 0,
+      clientY: 500,
+    } as React.MouseEvent);
+    document.dispatchEvent(mouseEvent("mousemove", 0, 450));
+    document.dispatchEvent(mouseEvent("mouseup", 0, 450));
+
+    expect(settingsState.updateTerminalSetting).toHaveBeenCalledWith(
+      "panelRatio",
+      expect.any(Number),
+    );
   });
 });
