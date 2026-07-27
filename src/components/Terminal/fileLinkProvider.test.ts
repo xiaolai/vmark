@@ -8,7 +8,7 @@ vi.mock("@/stores/workspaceStore", () => ({
   useWorkspaceStore: { getState: mockGetState },
 }));
 
-import { createFileLinkProvider } from "./fileLinkProvider";
+import { createFileLinkProvider, resolvePath, normalizeBase } from "./fileLinkProvider";
 import type { Terminal, IBufferLine } from "@xterm/xterm";
 
 function makeTerm(lineText: string): Terminal {
@@ -23,6 +23,89 @@ function makeTerm(lineText: string): Terminal {
     },
   } as unknown as Terminal;
 }
+
+describe("normalizeBase (WI-1.5)", () => {
+  it.each([
+    ["/", "/"],
+    ["//", "/"],
+    ["/w", "/w"],
+    ["/w/", "/w"],
+    ["/w///", "/w"],
+    ["/a/b/", "/a/b"],
+    ["C:/Users/me/", "C:/Users/me"],
+  ])("normalizes %s → %s", (input, expected) => {
+    expect(normalizeBase(input)).toBe(expected);
+  });
+});
+
+describe("resolvePath (WI-1.5 — root-cwd containment)", () => {
+  // Table-driven: base, raw path, expected resolution (null = must not link).
+  // The `..` rows are the security contract — they must stay in this table.
+  it.each([
+    // T6: at the filesystem root the old containment check compared against
+    // "//" and rejected EVERY relative path. `cd /` then `ls` produced no
+    // working links at all.
+    ["/", "src/a.ts", "/src/a.ts"],
+    ["/", "./src/a.ts", "/src/a.ts"],
+    ["/", "a.ts", "/a.ts"],
+    // …but the traversal guard must survive the fix. At the root, URL-style
+    // normalization silently CLAMPS `../etc/passwd` to `/etc/passwd`, which a
+    // naive containment check would then wave through. Net ascent above the
+    // base is refused regardless of whether the filesystem could honor it.
+    ["/", "../etc/passwd", null],
+    ["/", "../../etc/passwd", null],
+    ["/", "a/../../etc/passwd", null],
+    // A trailing-slash base behaves exactly as the bare one.
+    ["/w/", "src/a.ts", "/w/src/a.ts"],
+    ["/w/", "../etc/passwd", null],
+    // Unchanged pre-existing behavior.
+    ["/w", "src/a.ts", "/w/src/a.ts"],
+    ["/w", "./src/a.ts", "/w/src/a.ts"],
+    ["/w", "../etc/passwd", null],
+    ["/w", "../../../../etc/secrets.env", null],
+    // Net-zero traversal stays inside and is allowed.
+    ["/w", "a/../b.ts", "/w/b.ts"],
+    ["/w", "./a/./b.ts", "/w/a/b.ts"],
+    // One `..` too many escapes and is refused.
+    ["/w", "a/../../b.ts", null],
+    // "." resolves to the base itself.
+    ["/w", ".", "/w"],
+    ["/w", "./", "/w"],
+    // Bases with URL-syntactic or whitespace characters resolve literally —
+    // a path is bytes, not a URL.
+    ["/tmp/a#b", "./x.ts", "/tmp/a#b/x.ts"],
+    ["/tmp/a?b", "./x.ts", "/tmp/a?b/x.ts"],
+    ["/Users/me/My Project", "./build/x.ts", "/Users/me/My Project/build/x.ts"],
+    ["/w", "a%20b.ts", "/w/a%20b.ts"],
+    ["/w", "%zz.ts", "/w/%zz.ts"],
+    // CJK survives round-tripping.
+    ["/用户/项目", "./文件.ts", "/用户/项目/文件.ts"],
+    // Redundant separators collapse.
+    ["/w", "a//b.ts", "/w/a/b.ts"],
+  ])("base %s + %s → %s", (base, raw, expected) => {
+    expect(resolvePath(raw, () => base)).toBe(expected);
+  });
+
+  it("returns an absolute path unchanged, ignoring the base", () => {
+    expect(resolvePath("/etc/hosts", () => "/w")).toBe("/etc/hosts");
+    expect(resolvePath("/etc/hosts", () => null)).toBe("/etc/hosts");
+  });
+
+  it("returns null for a relative path with no base at all", () => {
+    mockGetState.mockReturnValueOnce({ rootPath: null });
+    expect(resolvePath("src/a.ts", () => null)).toBeNull();
+  });
+
+  it("falls back to the workspace root when the live cwd is null", () => {
+    expect(resolvePath("src/a.ts", () => null)).toBe("/workspace/src/a.ts");
+  });
+
+  it("resolves relative paths when the base is the filesystem root", () => {
+    // The named acceptance case for T6.
+    expect(resolvePath("src/a.ts", () => "/")).toBe("/src/a.ts");
+    expect(resolvePath("../etc/passwd", () => "/")).toBeNull();
+  });
+});
 
 describe("createFileLinkProvider", () => {
   let onActivate: (filePath: string) => void;
