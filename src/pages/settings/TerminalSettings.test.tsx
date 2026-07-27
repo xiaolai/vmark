@@ -90,3 +90,90 @@ describe("TerminalSettings accessibility controls (WI-11)", () => {
     }).not.toThrow();
   });
 });
+
+describe("TerminalSettings font size (WI-1.3)", () => {
+  /** The <select> whose options are px labels. */
+  function fontSizeSelect(): HTMLSelectElement {
+    const select = Array.from(document.querySelectorAll("select")).find((s) =>
+      Array.from(s.options).some((o) => /^\d+(\.\d+)?px$/.test(o.textContent ?? "")),
+    );
+    if (!select) throw new Error("font-size select not found");
+    return select;
+  }
+
+  function setFontSize(fontSize: number) {
+    useSettingsStore.setState({
+      terminal: { ...useSettingsStore.getState().terminal, fontSize },
+    });
+  }
+
+  afterEach(() => setFontSize(13));
+
+  it("shows a zoomed font size not in the preset list", () => {
+    // `Mod +` steps by 2 from the default 13 → 15, which is absent from the
+    // presets. A native <select> with an unmatched value falls back to its
+    // FIRST option ("10px"), and the next interaction writes 10 — silently
+    // discarding the zoom.
+    setFontSize(15);
+    render(<TerminalSettings />);
+    const select = fontSizeSelect();
+    expect(select.value).toBe("15");
+    expect(
+      Array.from(select.options).map((o) => o.textContent),
+    ).toContain("15px");
+  });
+
+  it("does not duplicate a preset value", () => {
+    setFontSize(14);
+    render(<TerminalSettings />);
+    const values = Array.from(fontSizeSelect().options).map((o) => o.value);
+    expect(new Set(values).size).toBe(values.length);
+    expect(values.filter((v) => v === "14")).toHaveLength(1);
+  });
+
+  it("renders both clamp edges (8 and 32) rather than falling back to 10px", () => {
+    setFontSize(8);
+    const { unmount } = render(<TerminalSettings />);
+    expect(fontSizeSelect().value).toBe("8");
+    unmount();
+
+    setFontSize(32);
+    render(<TerminalSettings />);
+    expect(fontSizeSelect().value).toBe("32");
+  });
+});
+
+describe("TerminalSettings panel size (WI-1.2)", () => {
+  /** The <select> whose options are whole-percent labels. */
+  function panelSizeSelect(): HTMLSelectElement {
+    const select = Array.from(document.querySelectorAll("select")).find((s) =>
+      Array.from(s.options).every((o) => /^\d+%$/.test(o.textContent ?? "")),
+    );
+    if (!select) throw new Error("panel-size select not found");
+    return select;
+  }
+
+  afterEach(() => {
+    useSettingsStore.setState({
+      terminal: { ...useSettingsStore.getState().terminal, panelRatio: 0.4 },
+    });
+  });
+
+  it("offers nothing above 50%", () => {
+    render(<TerminalSettings />);
+    const labels = Array.from(panelSizeSelect().options).map((o) => o.textContent);
+    expect(labels).not.toContain("60%");
+    expect(labels).not.toContain("70%");
+    expect(labels).not.toContain("80%");
+    expect(labels).toContain("50%");
+  });
+
+  it("displays a legacy over-cap ratio as the cap, not as the stored number", () => {
+    useSettingsStore.setState({
+      terminal: { ...useSettingsStore.getState().terminal, panelRatio: 0.8 },
+    });
+    render(<TerminalSettings />);
+    // The panel was already rendering at 50%; the dropdown now agrees.
+    expect(panelSizeSelect().value).toBe("0.5");
+  });
+});

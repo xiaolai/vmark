@@ -27,6 +27,8 @@
     "moveTo": "移動先...",
     "delete": "削除",
     "copyPath": "パスをコピー",
+    "openTerminalHere": "ここでターミナルを開く",
+    "openTerminalHereMax": "ここでターミナルを開く（最大 5 セッション）",
     "revealInFinder": "Finderで表示",
     "showInExplorer": "エクスプローラーで表示",
     "showInFileManager": "ファイルマネージャーで表示",

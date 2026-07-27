@@ -25,6 +25,10 @@
  *   - resetDisplay is exposed via getActiveTerminal() so the context menu's
  *     "Reset Display" action can clear the WebGL atlas and re-paint (#856).
  *
+ * Also publishes a per-session terminal resolver (services/terminal/
+ * activeTerminal) so non-React callers — "Run in Terminal" from a code block —
+ * can reach a live xterm without a ref threaded through the tree.
+ *
  * @coordinates-with TerminalPanel.tsx — provides fit(), getActiveTerminal, getActiveSearchAddon
  * @coordinates-with createTerminalInstance.ts — factory for xterm + addons
  * @coordinates-with terminalSessionStoreSync.ts — theme / workspace / settings sync effects
@@ -44,6 +48,7 @@ import { maybeNotifyTerminalBell, flagWindowAttentionOnBell } from "@/services/t
 import { useUIStoreSync } from "./terminalSessionStoreSync";
 import { useTerminalShellLifecycle } from "./useTerminalShellLifecycle";
 import { removeSessionEntry, switchVisibility, disposeAllSessions } from "./terminalSessionRegistry";
+import { registerTerminalResolver } from "@/services/terminal/activeTerminal";
 import { wireSessionInput } from "./terminalSessionInputWiring";
 import type { SearchAddon } from "@xterm/addon-search";
 import type { SessionEntry } from "./terminalSessionTypes";
@@ -100,8 +105,25 @@ export function useTerminalSessions(
       term: entry.instance.term,
       ptyRef: entry.ptyRefForKeys,
       resetDisplay: entry.instance.resetDisplay,
+      // OSC 133 marks for "Copy Command Output" (WI-4.4). Empty without
+      // shell integration, which hides the menu item.
+      getCommands: entry.instance.getCommands,
     };
   }, []);
+
+  // Publish a per-SESSION terminal resolver for non-React callers (WI-4.3
+  // "Run in Terminal"). Keyed by id rather than "the active one" so a deferred
+  // delivery lands in the session it was requested for, even if the user
+  // switched tabs meanwhile. Registered per window; cleared on unmount so a
+  // torn-down panel cannot hand out a disposed instance.
+  useEffect(
+    () =>
+      registerTerminalResolver((sessionId) => {
+        const entry = sessionsRef.current.get(sessionId);
+        return entry && !entry.disposed ? entry.instance.term : null;
+      }),
+    [],
+  );
 
   // Shell spawn / exit / restart lifecycle (with localized status lines).
   const { startShell, restartActiveSession } =
@@ -126,6 +148,7 @@ export function useTerminalSessions(
       const screenReaderMode = termSettings?.screenReaderMode ?? false;
       const minimumContrastRatio = termSettings?.minimumContrastRatio ?? 4.5;
       const scrollback = termSettings?.scrollback ?? 5000;
+      const osc52Clipboard = termSettings?.osc52Clipboard ?? true;
       const themeId = getEffectiveThemeId();
 
       // Create a shared ptyRef that we'll update as the pty changes
@@ -133,7 +156,7 @@ export function useTerminalSessions(
 
       const instance = createTerminalInstance({
         parentEl: parent,
-        settings: { fontSize, lineHeight, cursorStyle, cursorBlink, useWebGL, macOptionIsMeta, screenReaderMode, minimumContrastRatio, scrollback, themeId },
+        settings: { fontSize, lineHeight, cursorStyle, cursorBlink, useWebGL, macOptionIsMeta, screenReaderMode, minimumContrastRatio, scrollback, osc52Clipboard, themeId },
         ptyRef: ptyRefForKeys,
         onSearch: () => callbacksRef.current?.onSearch?.(),
         onBell: () => {

@@ -27,6 +27,8 @@
     "moveTo": "移動至...",
     "delete": "刪除",
     "copyPath": "複製路徑",
+    "openTerminalHere": "在此開啟終端機",
+    "openTerminalHereMax": "在此開啟終端機（最多 5 個工作階段）",
     "revealInFinder": "在 Finder 中顯示",
     "showInExplorer": "在檔案總管中顯示",
     "showInFileManager": "在檔案管理員中顯示",

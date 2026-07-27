@@ -27,6 +27,8 @@
     "moveTo": "Mover para...",
     "delete": "Excluir",
     "copyPath": "Copiar caminho",
+    "openTerminalHere": "Abrir terminal aqui",
+    "openTerminalHereMax": "Abrir terminal aqui (máx. 5 sessões)",
     "revealInFinder": "Mostrar no Finder",
     "showInExplorer": "Mostrar no Explorador",
     "showInFileManager": "Mostrar no gerenciador de arquivos",

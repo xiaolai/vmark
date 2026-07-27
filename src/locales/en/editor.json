@@ -239,6 +239,7 @@
   "plugin.resetZoom": "Reset zoom",
   "plugin.fitToView": "Fit to view",
   "plugin.copySource": "Copy source code",
+  "plugin.runInTerminal": "Run in Terminal",
   "plugin.searchLanguages": "Search languages...",
   "plugin.cancel": "Cancel (Esc)",
   "plugin.save": "Save",

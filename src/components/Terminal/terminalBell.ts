@@ -6,11 +6,67 @@
  *   live on each bell (in useTerminalSessions), so changing the setting takes
  *   effect on running sessions without re-creating the terminal.
  *
+ * Key decisions:
+ *   - ONE process-wide AudioContext, created lazily and never closed. Contexts
+ *     are a capped resource; one per bell exhausted the pool during a burst and
+ *     killed the audible bell for the rest of the session.
+ *
  * @coordinates-with useTerminalSessions.ts — calls these from onBell
  * @module components/Terminal/terminalBell
  */
 
 import type { TerminalBellMode } from "@/stores/settingsStore";
+import { terminalLog } from "@/utils/debug";
+
+/**
+ * The one AudioContext the bell ever creates (WI-1.4).
+ *
+ * An AudioContext is a capped process resource — WebKit refuses to hand out
+ * more than a handful concurrently. Constructing one per BEL and closing it in
+ * `onended` meant a burst (a script printing 20 bells) exhausted the pool, the
+ * constructor threw, and the audible bell went permanently dead with the
+ * failure swallowed. One context, created lazily on the first bell, reused
+ * forever, and never closed — a closed context cannot create nodes, so closing
+ * it would silence every later bell.
+ */
+let sharedAudioContext: AudioContext | null = null;
+/** Guard so an unavailable-audio diagnostic is logged once, not once per bell. */
+let audioUnavailableLogged = false;
+
+/** Log the "no audible bell" reason exactly once per session. */
+function logAudioUnavailableOnce(reason: string): void {
+  if (audioUnavailableLogged) return;
+  audioUnavailableLogged = true;
+  terminalLog(`audible bell unavailable: ${reason}`);
+}
+
+/**
+ * Return the shared context, creating it on first use. Returns null when the
+ * platform has no AudioContext or construction fails — the caller then does
+ * nothing. Construction is retried on a later bell, since the failure may be a
+ * transient resource cap that clears.
+ */
+function getSharedAudioContext(): AudioContext | null {
+  if (sharedAudioContext) return sharedAudioContext;
+  const g = globalThis as unknown as {
+    AudioContext?: typeof AudioContext;
+    webkitAudioContext?: typeof AudioContext;
+  };
+  const Ctx = g.AudioContext || g.webkitAudioContext;
+  if (!Ctx) {
+    logAudioUnavailableOnce("this platform has no AudioContext");
+    return null;
+  }
+  try {
+    sharedAudioContext = new Ctx();
+  } catch (err) {
+    logAudioUnavailableOnce(
+      `AudioContext construction failed (${err instanceof Error ? err.message : String(err)})`,
+    );
+    return null;
+  }
+  return sharedAudioContext;
+}
 
 /** What an incoming bell should trigger. Both flags can be true: an audible
  *  bell from a *background* session both beeps and flags activity on its tab,
@@ -43,17 +99,16 @@ export function resolveBellAction(
 /**
  * Play a short, quiet beep via the Web Audio API. No-op (swallowed) if the
  * browser has no AudioContext or creation fails — the bell must never throw
- * into the terminal data path.
+ * into the terminal data path. Uses one process-wide context (see above).
  */
 export function playTerminalBell(): void {
   try {
-    const g = globalThis as unknown as {
-      AudioContext?: typeof AudioContext;
-      webkitAudioContext?: typeof AudioContext;
-    };
-    const Ctx = g.AudioContext || g.webkitAudioContext;
-    if (!Ctx) return;
-    const ctx = new Ctx();
+    const ctx = getSharedAudioContext();
+    if (!ctx) return;
+    // Autoplay policy: a context created before any user gesture starts
+    // "suspended", and nodes scheduled on it are silent until it resumes.
+    // Best-effort — a rejection just means the beep stays inaudible.
+    if (ctx.state === "suspended") void ctx.resume().catch(() => {});
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.type = "sine";
@@ -67,14 +122,12 @@ export function playTerminalBell(): void {
     gain.gain.setValueAtTime(0.05, now);
     gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.15);
     osc.stop(now + 0.16);
-    osc.onended = () => {
-      try {
-        void ctx.close();
-      } catch {
-        /* already closed */
-      }
-    };
-  } catch {
-    /* Audio unavailable — bell is best-effort. */
+    // No `onended` teardown: the oscillator is garbage once stopped, and the
+    // context is deliberately kept alive for the next bell.
+  } catch (err) {
+    // Audio is best-effort, but a silent bell should still be explainable.
+    logAudioUnavailableOnce(
+      `bell playback failed (${err instanceof Error ? err.message : String(err)})`,
+    );
   }
 }

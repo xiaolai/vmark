@@ -27,6 +27,8 @@
     "moveTo": "Verschieben nach...",
     "delete": "Löschen",
     "copyPath": "Pfad kopieren",
+    "openTerminalHere": "Terminal hier öffnen",
+    "openTerminalHereMax": "Terminal hier öffnen (max. 5 Sitzungen)",
     "revealInFinder": "Im Finder anzeigen",
     "showInExplorer": "Im Explorer anzeigen",
     "showInFileManager": "Im Dateimanager anzeigen",

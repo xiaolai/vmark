@@ -6,6 +6,12 @@
  * plus OSC handlers (cwd) and custom key handling.
  *
  * Key decisions:
+ *   - Construction is TRANSACTIONAL (see resourceStack): every acquisition
+ *     registers its release, and a throw part-way unwinds them in reverse.
+ *     `dispose()` is that same unwind, so normal teardown and failure
+ *     rollback cannot drift apart.
+ *   - Option normalization lives in terminalOptions.ts, so this file reads as
+ *     a lifecycle (acquire → wire → release) rather than option tuning.
  *   - Each instance gets its own child div inside the parent container,
  *     initially hidden; the caller (useTerminalSessions) toggles visibility
  *     when switching sessions.
@@ -26,6 +32,7 @@
  *       * setupFileLinks       — file-link click handler with size guard
  *       * setupOsc7            — OSC 7 cwd tracking (exposes getCwd)
  *       * setupCopyOnSelect    — debounced clipboard write on selection
+ *       * setupOsc52           — OSC 52 clipboard, WRITE-ONLY (reads denied)
  *
  * @coordinates-with useTerminalSessions.ts — caller that manages instance lifecycle
  * @coordinates-with terminalTheme.ts — per-theme ANSI color palettes for xterm.js
@@ -38,15 +45,28 @@ import { FitAddon } from "@xterm/addon-fit";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { SearchAddon } from "@xterm/addon-search";
 import { createTerminalKeyHandler } from "./terminalKeyHandler";
-import { buildXtermThemeForId } from "@/theme";
 import { setupWebglRenderer } from "./setupWebglRenderer";
-import { setupImeCompositionGate, createNoopImeHandle } from "./setupImeCompositionGate";
+import {
+  setupImeCompositionGate,
+  createNoopImeHandle,
+} from "./setupImeCompositionGate";
 import { setupWebLinks } from "./setupWebLinks";
 import { setupFileLinks } from "./setupFileLinks";
 import { setupCopyOnSelect } from "./setupCopyOnSelect";
-import { setupOsc7, setupOsc133, scrollToAdjacentCommand, type CommandMark } from "./setupOsc";
+import { setupOsc52 } from "./setupOsc52";
+import {
+  setupOsc7,
+  setupOsc133,
+  scrollToAdjacentCommand,
+  type CommandMark,
+} from "./setupOsc";
 import { resolveHelperTextarea } from "./resolveHelperTextarea";
 import { maybeInstallDevInputTrace } from "./terminalInputTrace";
+import { createResourceStack } from "./resourceStack";
+import {
+  buildTerminalOptions,
+  type TerminalInstanceSettings,
+} from "./terminalOptions";
 
 import "@xterm/xterm/css/xterm.css";
 
@@ -100,28 +120,6 @@ export interface TerminalInstance {
   dispose: () => void;
 }
 
-/** User-configurable settings for creating a terminal instance. */
-interface TerminalInstanceSettings {
-  fontSize: number;
-  lineHeight: number;
-  cursorStyle: "block" | "underline" | "bar";
-  cursorBlink: boolean;
-  useWebGL: boolean;
-  macOptionIsMeta: boolean;
-  /** Expose terminal output to assistive tech (VoiceOver). Off by default for
-   *  performance; live-settable (G3/WI-3.1). */
-  screenReaderMode: boolean;
-  /** xterm foreground-lift floor (WCAG): 1 = off … 4.5 = AA … 21 = max.
-   *  Live-settable. */
-  minimumContrastRatio: number;
-  /** Number of scrollback lines retained (G7/WI-4.2). */
-  scrollback: number;
-  /** Active app theme — used to compose the xterm ITheme. The factory
-   *  no longer reads settingsStore directly to keep the @/theme module
-   *  free of a back-edge into stores (avoids a dep-cruiser cycle). */
-  themeId: import("@/theme").ThemeId;
-}
-
 interface CreateOptions {
   parentEl: HTMLElement;
   settings: TerminalInstanceSettings;
@@ -136,8 +134,17 @@ interface CreateOptions {
  * Create a terminal instance with all addons loaded.
  * Appends a child div to parentEl and opens xterm in it.
  */
-export function createTerminalInstance(options: CreateOptions): TerminalInstance {
+export function createTerminalInstance(
+  options: CreateOptions,
+): TerminalInstance {
   const { parentEl, settings, ptyRef, onSearch, onBell } = options;
+
+  // Rollback stack (audit): several steps below can throw, and without
+  // unwinding, the container stays in the DOM and the xterm instance stays
+  // alive — a leak per failed session. Normal teardown uses the SAME stack, so
+  // the success and failure paths cannot drift apart.
+  const resources = createResourceStack("terminal setup");
+  const release = resources.releaseAll;
 
   // Create child container
   const container = document.createElement("div");
@@ -145,127 +152,118 @@ export function createTerminalInstance(options: CreateOptions): TerminalInstance
   container.style.height = "100%";
   container.style.display = "none"; // Hidden initially; caller shows it
   parentEl.appendChild(container);
+  resources.acquire(() => container.parentElement?.removeChild(container));
 
-  // Create terminal
-  const term = new Terminal({
-    theme: buildXtermThemeForId(settings.themeId),
-    fontFamily: resolveMonoFont(),
-    fontSize: settings.fontSize,
-    lineHeight: settings.lineHeight,
-    cursorStyle: settings.cursorStyle,
-    cursorBlink: settings.cursorBlink,
-    macOptionIsMeta: settings.macOptionIsMeta,
-    screenReaderMode: settings.screenReaderMode,
-    // Per-cell foreground lift when an app paints a filled tag
-    // (e.g. Claude Code statusline: `chalk.bgCyan.black`). Light-theme ANSI
-    // palettes are tuned for colors-as-foreground, so a dark cyan bg paired
-    // with a dark-charcoal fg leaves text unreadable. xterm dynamically lifts
-    // the foreground to meet the configured ratio against the actual
-    // background color (default 4.5 = WCAG AA; user-adjustable for a11y).
-    // Fall back to 4.5 when unset; clamp to xterm's valid 1–21 range.
-    minimumContrastRatio: Math.min(
-      Math.max(
-        Number.isFinite(settings.minimumContrastRatio) ? settings.minimumContrastRatio : 4.5,
-        1
-      ),
-      21
-    ),
-    allowProposedApi: true,
-    // Clamp defensively: the settings UI offers bounded presets, but corrupt
-    // persisted state could carry an extreme value that bloats memory (Codex audit).
-    scrollback: Math.min(Math.max(settings.scrollback, 100), 200_000),
-  });
+  try {
+    // Create terminal
+    const term = new Terminal(
+      buildTerminalOptions(settings, resolveMonoFont()),
+    );
+    resources.acquire(() => term.dispose());
 
-  // Built-in addons
-  const fitAddon = new FitAddon();
-  term.loadAddon(fitAddon);
-  const searchAddon = new SearchAddon();
-  term.loadAddon(searchAddon);
+    // Built-in addons
+    const fitAddon = new FitAddon();
+    term.loadAddon(fitAddon);
+    const searchAddon = new SearchAddon();
+    term.loadAddon(searchAddon);
 
-  // Open terminal — must come before the helpers that query DOM children
-  // (IME textarea, WebGL canvases).
-  term.open(container);
+    // Open terminal — must come before the helpers that query DOM children
+    // (IME textarea, WebGL canvases).
+    term.open(container);
 
-  // Resolve + validate the helper textarea via the public getter, failing loud
-  // (WI-1.1/1.2). Dev throws on a missing/misplaced textarea; prod logs and
-  // returns undefined, in which case we install a no-op IME handle so the
-  // terminal still works (the old `textarea!` path crashed on addEventListener).
-  const textarea = resolveHelperTextarea(term, container);
-  // Channel Ownership is the only input path (WI-4b removed the legacy dual-writer
-  // path). A missing textarea (prod fail-loud) → inert no-op handle.
-  const ime = textarea
-    ? setupImeCompositionGate({ container, textarea })
-    : createNoopImeHandle();
+    // Resolve + validate the helper textarea via the public getter, failing loud
+    // (WI-1.1/1.2). Dev throws on a missing/misplaced textarea; prod logs and
+    // returns undefined, in which case we install a no-op IME handle so the
+    // terminal still works (the old `textarea!` path crashed on addEventListener).
+    const textarea = resolveHelperTextarea(term, container);
+    // Channel Ownership is the only input path (WI-4b removed the legacy dual-writer
+    // path). A missing textarea (prod fail-loud) → inert no-op handle.
+    const ime = textarea
+      ? setupImeCompositionGate({ container, textarea })
+      : createNoopImeHandle();
+    resources.acquire(() => ime.cleanup());
 
-  // Dev-only input-trace recorder (no-op in prod / unless the localStorage flag
-  // is set). Lets a human capture real IME traces by typing — plan WI-0.1.
-  const detachInputTrace = textarea
-    ? maybeInstallDevInputTrace(textarea)
-    : () => {};
+    // Dev-only input-trace recorder (no-op in prod / unless the localStorage flag
+    // is set). Lets a human capture real IME traces by typing — plan WI-0.1.
+    const detachInputTrace = textarea
+      ? maybeInstallDevInputTrace(textarea)
+      : () => {};
+    resources.acquire(() => detachInputTrace());
 
-  // Unicode 11 must be loaded before any heavy text rendering.
-  const unicode11 = new Unicode11Addon();
-  term.loadAddon(unicode11);
-  term.unicode.activeVersion = "11";
+    // Unicode 11 must be loaded before any heavy text rendering.
+    const unicode11 = new Unicode11Addon();
+    term.loadAddon(unicode11);
+    term.unicode.activeVersion = "11";
 
-  const webgl = setupWebglRenderer({
-    term,
-    container,
-    enabled: !!settings.useWebGL,
-  });
+    const webgl = setupWebglRenderer({
+      term,
+      container,
+      enabled: !!settings.useWebGL,
+    });
+    resources.acquire(() => webgl.cleanup());
 
-  // OSC 7 cwd tracking — feeds relative file-link resolution (WI-2.1/2.3).
-  const osc = setupOsc7(term);
-  // OSC 133 command boundaries — prompt nav + exit-status decorations (WI-3.2).
-  const osc133 = setupOsc133(term);
+    // OSC 7 cwd tracking — feeds relative file-link resolution (WI-2.1/2.3).
+    const osc = setupOsc7(term);
+    // OSC 133 command boundaries — prompt nav + exit-status decorations (WI-3.2).
+    const osc133 = setupOsc133(term);
 
-  // Bell → background-activity indicator (WI-4.3).
-  if (onBell) term.onBell(() => onBell());
+    // Bell → background-activity indicator (WI-4.3).
+    if (onBell) term.onBell(() => onBell());
 
-  setupWebLinks(term);
-  setupFileLinks(term, osc.getCwd);
+    setupWebLinks(term);
+    setupFileLinks(term, osc.getCwd);
 
-  term.attachCustomKeyEventHandler(
-    createTerminalKeyHandler(term, ptyRef, {
-      onSearch,
-      onPromptNav: (dir) => scrollToAdjacentCommand(term, osc133.getCommands(), dir),
-      // Live getter so the key handler sees the composition state; without it,
-      // Shift+Enter / Cmd+C / etc. right after a CJK commit would leak past T2.
+    term.attachCustomKeyEventHandler(
+      createTerminalKeyHandler(term, ptyRef, {
+        onSearch,
+        onPromptNav: (dir) =>
+          scrollToAdjacentCommand(term, osc133.getCommands(), dir),
+        // Live getter so the key handler sees the composition state; without it,
+        // Shift+Enter / Cmd+C / etc. right after a CJK commit would leak past T2.
+        isComposing: () => ime.composing,
+      }),
+    );
+
+    const cleanupCopyOnSelect = setupCopyOnSelect({
+      term,
       isComposing: () => ime.composing,
-    }),
-  );
+    });
+    resources.acquire(() => cleanupCopyOnSelect());
 
-  const cleanupCopyOnSelect = setupCopyOnSelect({
-    term,
-    isComposing: () => ime.composing,
-  });
+    // OSC 52 clipboard (WI-3.5): write-only by design — see setupOsc52 for why
+    // read is denied even when this setting is on.
+    const cleanupOsc52 = setupOsc52(term, settings.osc52Clipboard);
+    resources.acquire(() => cleanupOsc52());
 
-  const dispose = () => {
-    detachInputTrace();
-    cleanupCopyOnSelect();
-    ime.cleanup();
-    webgl.cleanup();
-    term.dispose();
-    if (container.parentElement) {
-      container.parentElement.removeChild(container);
-    }
-  };
+    // Normal teardown IS the rollback stack, so the success and failure paths
+    // can never drift apart (they used to be two hand-maintained lists).
+    const dispose = release;
 
-  return {
-    term,
-    fitAddon,
-    searchAddon,
-    container,
-    dispose,
-    resetDisplay: webgl.resetDisplay,
-    getCwd: osc.getCwd,
-    getCommands: osc133.getCommands,
-    isShellBusy: osc133.isRunning,
-    setOnShellIdle: osc133.setOnIdle,
-    get composing() { return ime.composing; },
-    get onCompositionCommit() { return ime.onCompositionCommit; },
-    set onCompositionCommit(cb: ((text: string) => void) | null) {
-      ime.onCompositionCommit = cb;
-    },
-  };
+    return {
+      term,
+      fitAddon,
+      searchAddon,
+      container,
+      dispose,
+      resetDisplay: webgl.resetDisplay,
+      getCwd: osc.getCwd,
+      getCommands: osc133.getCommands,
+      isShellBusy: osc133.isRunning,
+      setOnShellIdle: osc133.setOnIdle,
+      get composing() {
+        return ime.composing;
+      },
+      get onCompositionCommit() {
+        return ime.onCompositionCommit;
+      },
+      set onCompositionCommit(cb: ((text: string) => void) | null) {
+        ime.onCompositionCommit = cb;
+      },
+    };
+  } catch (error) {
+    // Partial construction must not leak: unwind what was acquired, then let
+    // the caller see the real failure.
+    release();
+    throw error;
+  }
 }
