@@ -31,13 +31,32 @@ import {
   Copy,
   FolderOpen,
   FolderInput,
+  SquareTerminal,
 } from "lucide-react";
 import { useDismissOnOutsideOrEscape } from "@/hooks/useDismissOnOutsideOrEscape";
 import { useMenuRovingFocus } from "@/hooks/useMenuRovingFocus";
+import { canOpenTerminalHere } from "@/services/terminal/openTerminalHere";
 import "./ContextMenu.css";
 
 /** Determines which menu items are shown: file actions, folder actions, or empty-area actions. */
 export type ContextMenuType = "file" | "folder" | "empty";
+
+/**
+ * Every action id this menu can emit. Shared with contextMenuActions.ts so a
+ * new item cannot ship without a handler (and vice versa) — an unhandled id
+ * would render as a menu entry that silently does nothing.
+ */
+export type ContextMenuActionId =
+  | "open"
+  | "rename"
+  | "duplicate"
+  | "moveTo"
+  | "delete"
+  | "copyPath"
+  | "revealInFinder"
+  | "newFile"
+  | "newFolder"
+  | "openTerminalHere";
 
 /** Viewport coordinates for context menu placement. */
 export interface ContextMenuPosition {
@@ -46,12 +65,12 @@ export interface ContextMenuPosition {
 }
 
 interface MenuItem {
-  id: string;
+  id: ContextMenuActionId;
   label: string;
   icon: React.ReactNode;
   shortcut?: string;
   separator?: boolean;
-  /** Unused today, but the shared roving-focus hook skips disabled items. */
+  /** Skipped by the roving-focus hook and rendered non-interactive. */
   disabled?: boolean;
 }
 
@@ -68,7 +87,10 @@ function buildFileMenuItems(labels: Record<string, string>): MenuItem[] {
   ];
 }
 
-function buildFolderMenuItems(labels: Record<string, string>): MenuItem[] {
+function buildFolderMenuItems(
+  labels: Record<string, string>,
+  opts: { terminalAtCapacity: boolean },
+): MenuItem[] {
   return [
     { id: "newFile", label: labels.newFile, icon: <FilePlus size={14} /> },
     { id: "newFolder", label: labels.newFolder, icon: <FolderPlus size={14} />, separator: true },
@@ -76,6 +98,15 @@ function buildFolderMenuItems(labels: Record<string, string>): MenuItem[] {
     { id: "delete", label: labels.delete, icon: <Trash2 size={14} />, separator: true },
     { id: "copyPath", label: labels.copyPath, icon: <Copy size={14} /> },
     { id: "revealInFinder", label: labels.revealLabel, icon: <FolderOpen size={14} /> },
+    // Folders only (WI-4.2) — "here" has no meaning for a file, and offering
+    // it on one would just open the parent, which is not what was clicked.
+    {
+      id: "openTerminalHere",
+      label: opts.terminalAtCapacity ? labels.terminalMaxSessions : labels.openTerminalHere,
+      icon: <SquareTerminal size={14} />,
+      separator: true,
+      disabled: opts.terminalAtCapacity,
+    },
   ];
 }
 
@@ -86,12 +117,16 @@ function buildEmptyMenuItems(labels: Record<string, string>): MenuItem[] {
   ];
 }
 
-function getMenuItems(type: ContextMenuType, labels: Record<string, string>): MenuItem[] {
+function getMenuItems(
+  type: ContextMenuType,
+  labels: Record<string, string>,
+  opts: { terminalAtCapacity: boolean },
+): MenuItem[] {
   switch (type) {
     case "file":
       return buildFileMenuItems(labels);
     case "folder":
-      return buildFolderMenuItems(labels);
+      return buildFolderMenuItems(labels, opts);
     case "empty":
       return buildEmptyMenuItems(labels);
   }
@@ -108,7 +143,8 @@ function revealLabelKey(): string {
 interface ContextMenuProps {
   type: ContextMenuType;
   position: ContextMenuPosition;
-  onAction: (action: string) => void;
+  /** Typed, so a menu item id with no handler is a compile error. */
+  onAction: (action: ContextMenuActionId) => void;
   onClose: () => void;
 }
 
@@ -131,10 +167,16 @@ export function ContextMenu({ type, position, onAction, onClose }: ContextMenuPr
     copyPath: t("contextMenu.copyPath"),
     newFile: t("newFile"),
     newFolder: t("newFolder"),
+    openTerminalHere: t("contextMenu.openTerminalHere"),
+    terminalMaxSessions: t("contextMenu.openTerminalHereMax"),
     revealLabel,
   }), [t, revealLabel]);
 
-  const items = getMenuItems(type, menuLabels);
+  // Read at menu-open time (the menu is mounted per right-click), so the
+  // disabled state reflects the session count the user is about to hit.
+  const items = getMenuItems(type, menuLabels, {
+    terminalAtCapacity: !canOpenTerminalHere(),
+  });
 
   // Click-outside only; Escape/Tab are owned by the roving hook.
   useDismissOnOutsideOrEscape(true, menuRef, onClose, { escape: false });
@@ -166,7 +208,7 @@ export function ContextMenu({ type, position, onAction, onClose }: ContextMenuPr
   }, [position]);
 
   const handleItemClick = useCallback(
-    (id: string) => {
+    (id: ContextMenuActionId) => {
       onAction(id);
       onClose();
     },
@@ -200,6 +242,11 @@ export function ContextMenu({ type, position, onAction, onClose }: ContextMenuPr
             type="button"
             role="menuitem"
             className="context-menu-item"
+            // The roving-focus hook already SKIPS disabled items; the
+            // attribute is what stops a mouse click from firing the action
+            // anyway (WI-4.2 — "Open Terminal Here" at the session cap).
+            disabled={item.disabled}
+            aria-disabled={item.disabled}
             onClick={() => handleItemClick(item.id)}
             {...itemProps(index)}
           >
