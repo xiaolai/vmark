@@ -15,6 +15,7 @@
 //! | `path_validation` | Security gates for frontend-supplied paths / workspace roots |
 //! | `commands` | `open_*_in_new_window`, `close_window`, quit commands |
 //! | `settings_window` | Settings window singleton (create / focus / navigate) |
+//! | `native_theme` | Keeps OS-drawn chrome (title bar, Windows menu bar) on the in-app theme |
 //!
 //! Everything is re-exported here so call sites keep using
 //! `crate::window_manager::...` (and `lib.rs`'s `generate_handler!` paths
@@ -30,10 +31,16 @@
 mod commands;
 mod document_windows;
 mod file_open_state;
+mod native_theme;
 mod path_validation;
 mod settings_window;
 
 pub use commands::*;
 pub use document_windows::*;
 pub use file_open_state::*;
+pub use native_theme::*;
 pub use settings_window::*;
+
+#[cfg(test)]
+#[path = "mod.test.rs"]
+mod tests;

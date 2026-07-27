@@ -14,6 +14,16 @@ import {
   type SyncableSessionEntry,
 } from "./terminalSessionStoreSync";
 
+// Terminal retheming resolves through getEffectiveThemeId, which narrows the
+// theme to the light/dark pair Windows and Linux can draw chrome for
+// (theme/themeAvailability.ts). These cases are about *retheming*, so they pin
+// macOS — the full catalog — instead of inheriting jsdom's platform. The
+// narrowing itself is covered in useEffectiveTheme.test.ts.
+vi.mock("@/utils/platform", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/utils/platform")>()),
+  isMacPlatform: () => true,
+}));
+
 vi.mock("@/services/persistence/workspaceStorage", () => ({
   getCurrentWindowLabel: () => "main",
 }));
