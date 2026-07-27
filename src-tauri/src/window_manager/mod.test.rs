@@ -13,25 +13,23 @@
 
 use super::*;
 
-/// Every `#[tauri::command]` in this module that `lib.rs` registers must be
-/// nameable as `crate::window_manager::<name>`. Taking a function pointer is
-/// what forces that resolution — if a submodule stops being re-exported, or a
-/// command is renamed without updating `generate_handler!`, this stops
-/// compiling.
-#[test]
-fn registered_commands_resolve_through_the_facade() {
-    let _open_settings: fn(tauri::AppHandle, Option<String>) -> Result<String, String> =
-        open_settings_window;
-    let _set_theme: fn(tauri::AppHandle, bool) -> Result<(), String> = set_native_theme;
-}
-
-/// The window builders call these unqualified through the facade rather than
-/// reaching into `native_theme::`, so the re-export has to carry them too.
-#[test]
-fn theme_helpers_resolve_through_the_facade() {
-    let _current: fn() -> tauri::Theme = current_theme;
-    let _remember: fn(bool) = remember;
-    let _prefers: fn() -> bool = prefers_dark;
+/// Every `#[tauri::command]` in this module that `lib.rs` registers, plus the
+/// helpers the window builders call unqualified, must be nameable as
+/// `crate::window_manager::<name>`. Importing them is what asserts that: if a
+/// submodule stops being re-exported, or a command is renamed without updating
+/// `generate_handler!`, this module stops compiling.
+///
+/// Deliberately `use` rather than function pointers. Binding a pointer to a
+/// command emits a runtime symbol reference, which drags WebView2 loader
+/// entry points into the lib test binary and makes it fail to start on
+/// Windows with STATUS_ENTRYPOINT_NOT_FOUND (0xc0000139) — the same class
+/// `Cargo.toml` already documents for `tauri::test`. A `use` binds a name at
+/// compile time and emits nothing, so the contract is still checked, and it is
+/// checked on every platform rather than being cfg'd off on the one where it
+/// broke.
+#[allow(unused_imports)]
+mod facade_exports {
+    use super::{current_theme, open_settings_window, prefers_dark, remember, set_native_theme};
 }
 
 /// Guards against the facade re-exporting two different things under one
