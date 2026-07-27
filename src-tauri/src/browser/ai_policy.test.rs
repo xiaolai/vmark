@@ -81,3 +81,53 @@ fn rejects_metadata_and_special_hostnames() {
         );
     }
 }
+
+// WI-1.7 — LAN-facing name suffixes. The IP-literal blocks never fire for these:
+// they are `Host::Domain`, so the private-range checks are simply not reached and
+// the request leaves the machine to whatever mDNS/DNS returns. Blocking them by
+// NAME is the only place this can be caught before WebKit resolves.
+//
+// Deliberately NOT gated behind `allow_loopback`. That toggle means "my own
+// machine"; `.local` and `home.arpa` resolve to LAN PEERS — routers, NAS boxes,
+// printers, other people's laptops. Folding them into a loopback opt-in would
+// silently widen it from one host to an entire network.
+#[test]
+fn rejects_lan_facing_name_suffixes_regardless_of_loopback_opt_in() {
+    for host in [
+        "printer.local",
+        "NAS.LOCAL",
+        "router.home.arpa",
+        "db.internal",
+        "instance.compute.internal",
+        "foo.bar.internal",
+    ] {
+        let url = format!("https://{host}/");
+        for allow_loopback in [false, true] {
+            assert_eq!(
+                validate_ai_navigation_url(&url, allow_loopback),
+                Err(AiUrlError::Blocked),
+                "{host} must be blocked with allow_loopback={allow_loopback}"
+            );
+        }
+    }
+}
+
+#[test]
+fn public_hostnames_that_merely_contain_the_suffixes_are_still_allowed() {
+    // The block is on the SUFFIX, not a substring: `notlocal.com` and
+    // `internal.example.com` are ordinary public names and must still work, or the
+    // fix would break real navigation.
+    for host in [
+        "notlocal.com",
+        "local.example.com",
+        "internal.example.com",
+        "myinternal.com",
+        "home.arpa.example.com",
+    ] {
+        let url = format!("https://{host}/");
+        assert!(
+            validate_ai_navigation_url(&url, false).is_ok(),
+            "{host} must remain navigable"
+        );
+    }
+}

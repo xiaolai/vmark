@@ -52,6 +52,8 @@ macro_rules! all_commands {
             menu::update_menu_accelerators,
             menu::sync_view_menu_state,
             menu::set_browser_menu_enabled,
+            #[cfg(debug_assertions)]
+            menu::debug_file_menu_item_ids,
             menu::set_locale,
             window_manager::open_file_in_new_window,
             window_manager::open_workspace_in_new_window,
@@ -126,6 +128,12 @@ macro_rules! all_commands {
             temp_html::write_temp_html,
             file_write::atomic_write_file,
             webview_edit::trigger_webview_edit,
+            #[cfg(debug_assertions)]
+            browser::commands::browser_debug_native_tab_ids,
+            #[cfg(debug_assertions)]
+            browser::commands::browser_debug_hit_test,
+            #[cfg(debug_assertions)]
+            browser::commands::browser_debug_attached_webviews,
             browser::commands::browser_create,
             browser::commands::browser_navigate,
             browser::ai_commands::browser_ai_policy,
