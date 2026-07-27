@@ -9,7 +9,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { useTerminalShellLifecycle } from "./useTerminalShellLifecycle";
-import { useUIStore } from "@/stores/uiStore";
+import { useUIStore, resetTerminalSessionStore } from "@/stores/uiStore";
 import { spawnPty } from "./spawnPty";
 import type { SessionEntry } from "./terminalSessionTypes";
 import type { TerminalInstance } from "./createTerminalInstance";
@@ -181,5 +181,101 @@ describe("useTerminalShellLifecycle — shell exit (#1103)", () => {
     act(() => onExit(0));
 
     expect(useUIStore.getState().terminal.sessions).toHaveLength(1);
+  });
+});
+
+describe("restart during an in-flight spawn (audit fix)", () => {
+  // The bug: restarting while the first shell was still starting did NOTHING.
+  // There was no PTY to kill yet, and startShell returned immediately on the
+  // `shellSpawning` re-entrance guard — so the user's restart was swallowed
+  // and the original spawn carried on.
+  beforeEach(() => {
+    resetTerminalSessionStore();
+    vi.clearAllMocks();
+  });
+
+  /** A spawnPty that never settles until the returned resolver is called. */
+  function deferredSpawn() {
+    let settle!: (pty: IPty) => void;
+    const promise = new Promise<IPty>((res) => {
+      settle = res;
+    });
+    return { promise, settle };
+  }
+
+  function makePty() {
+    return {
+      kill: vi.fn(),
+      write: vi.fn(),
+      onExit: vi.fn(),
+      onData: vi.fn(),
+      resize: vi.fn(),
+    } as unknown as IPty;
+  }
+
+  it("supersedes the in-flight spawn instead of silently doing nothing", async () => {
+    const { entry } = makeEntry();
+    const sessions = new Map([["term-1", entry]]);
+    const sessionsRef = { current: sessions };
+    useUIStore.setState({
+      terminal: { sessions: [{ id: "term-1", label: "Terminal 1", ordinal: 1, isAlive: true }], activeSessionId: "term-1" },
+    });
+
+    const first = deferredSpawn();
+    const secondPty = makePty();
+    vi.mocked(spawnPty)
+      .mockReturnValueOnce(first.promise)
+      .mockResolvedValueOnce(secondPty);
+
+    const { result } = renderHook(() => useTerminalShellLifecycle(sessionsRef));
+
+    // Start a spawn that has not settled yet.
+    act(() => {
+      void result.current.startShell("term-1");
+    });
+    expect(entry.shellSpawning).toBe(true);
+    const genBefore = entry.spawnGen;
+
+    // Restart while it is still in flight.
+    await act(async () => {
+      result.current.restartActiveSession();
+    });
+
+    // A NEW spawn was actually issued — this is the whole fix.
+    expect(vi.mocked(spawnPty)).toHaveBeenCalledTimes(2);
+    expect(entry.spawnGen).toBeGreaterThan(genBefore);
+  });
+
+  it("kills the superseded PTY when it finally arrives, rather than installing it", async () => {
+    const { entry } = makeEntry();
+    const sessionsRef = { current: new Map([["term-1", entry]]) };
+    useUIStore.setState({
+      terminal: { sessions: [{ id: "term-1", label: "Terminal 1", ordinal: 1, isAlive: true }], activeSessionId: "term-1" },
+    });
+
+    const first = deferredSpawn();
+    const orphan = makePty();
+    const keeper = makePty();
+    vi.mocked(spawnPty)
+      .mockReturnValueOnce(first.promise)
+      .mockResolvedValueOnce(keeper);
+
+    const { result } = renderHook(() => useTerminalShellLifecycle(sessionsRef));
+    act(() => {
+      void result.current.startShell("term-1");
+    });
+    await act(async () => {
+      result.current.restartActiveSession();
+    });
+
+    // The first spawn now settles, long after being superseded.
+    await act(async () => {
+      first.settle(orphan);
+      await first.promise;
+    });
+
+    // It must dispose of itself rather than overwrite the restart's PTY.
+    expect(orphan.kill).toHaveBeenCalled();
+    expect(entry.pty).toBe(keeper);
   });
 });
