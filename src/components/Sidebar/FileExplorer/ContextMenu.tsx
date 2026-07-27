@@ -13,6 +13,8 @@
  *
  * @coordinates-with FileExplorer.tsx — rendered as a child when contextMenu.visible is true
  * @coordinates-with useExplorerOperations.ts — file operations triggered by menu actions
+ * @coordinates-with contextMenuActions.ts — shares the ContextMenuActionId union,
+ *   so an item id with no handler is a compile error rather than a dead entry
  * @module components/Sidebar/FileExplorer/ContextMenu
  */
 import {

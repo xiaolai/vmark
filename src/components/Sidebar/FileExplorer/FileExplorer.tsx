@@ -31,6 +31,7 @@
  * @coordinates-with useExplorerOperations.ts — CRUD operations on files and folders
  * @coordinates-with useFileExplorerOpenState.ts — persists folder open state across remounts
  * @coordinates-with Sidebar.tsx — parent component that provides the ref
+ * @coordinates-with contextMenuActions.ts — owns the id → operation mapping
  * @module components/Sidebar/FileExplorer/FileExplorer
  */
 import { useState, useCallback, useRef, useEffect, forwardRef, useImperativeHandle } from "react";
