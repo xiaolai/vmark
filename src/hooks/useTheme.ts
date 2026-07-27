@@ -7,7 +7,8 @@
  *
  * Pipeline: settingsStore.appearance changes (or an OS light/dark flip while
  *   follow-system-appearance is on) → this hook recomputes → sets CSS vars on
- *   document.documentElement → all components react via CSS
+ *   document.documentElement → all components react via CSS, and the resolved
+ *   light/dark state is reported to Rust so OS-drawn chrome follows it too
  *
  * Key decisions:
  *   - Font stacks live in `@/utils/fontStacks` (leaf-pure); this hook composes
@@ -22,6 +23,7 @@
  *
  * @coordinates-with settingsStore.ts — reads appearance settings
  * @coordinates-with useEffectiveTheme.ts — resolves manual vs follow-system theme id
+ * @coordinates-with services/theme/nativeTheme.ts — reports light/dark to native chrome
  * @coordinates-with useSystemAppearanceWatcher.ts — mounted here to track the OS preference
  * @coordinates-with index.css — static token defaults (overridden here)
  * @coordinates-with theme/legacyModeColors.ts — derived legacy color sets + pure color-var computation
@@ -38,6 +40,7 @@ import { refreshPreviews } from "@/plugins/codePreview/tiptap";
 import { applyTheme, themes as themeTokensCatalog } from "@/theme";
 import { computeCoreColorVars, computeModeColorVars } from "@/theme/legacyModeColors";
 import { buildFontStack } from "@/utils/fontStacks";
+import { syncNativeTheme } from "@/services/theme/nativeTheme";
 
 // Pure color computation moved to @/theme/legacyModeColors (ADR-014 home for
 // color values; keeps this file under the size gate). Re-exported here so
@@ -184,6 +187,10 @@ export function useTheme() {
 
     applyCoreColors(root, themeColors);
     applyModeColors(root, themeColors, isDark);
+    // Keep OS-drawn chrome (title bar; the menu bar on Windows) in step with
+    // the theme we just applied. Fire-and-forget: it self-dedupes, and a
+    // failure must not abort the rest of this effect.
+    void syncNativeTheme(isDark);
     applyTypography(
       root,
       appearance.latinFont,
