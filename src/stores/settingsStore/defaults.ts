@@ -126,6 +126,7 @@ export const initialState: SettingsState = {
     useWebGL: true,
     macOptionIsMeta: true,
     shellIntegration: true,
+    osc52Clipboard: true,
     screenReaderMode: false,
     bellMode: "visual",
     notifyOnBell: true,

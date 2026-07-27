@@ -31,6 +31,43 @@
   opacity: var(--opacity-muted);
 }
 
+/* No matches for a non-empty query (WI-3.1). Colour alone is not the signal —
+   the adjacent result text says "No results" — but it makes the dead-end
+   obvious while typing. */
+.terminal-search-input--no-match {
+  color: var(--error-color);
+}
+
+.terminal-search-input--no-match::placeholder {
+  color: var(--error-color);
+}
+
+/* Match count / no-match summary. Fixed width would truncate "5000 matches";
+   instead it sits between the input and the buttons and shrinks last. */
+.terminal-search-results {
+  flex: 0 0 auto;
+  padding: 0 var(--space-1);
+  color: var(--text-secondary);
+  font-size: var(--terminal-search-font-size);
+  font-family: var(--font-sans);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* An engaged modifier (case / word / regex). Driven by `aria-pressed` so the
+   visual state cannot disagree with what assistive tech is told, and so no
+   second button class is introduced. Uses the selection tokens, matching every
+   other active control in the app. */
+.terminal-search-btn[aria-pressed="true"] {
+  background: var(--accent-bg);
+  color: var(--accent-primary);
+}
+
+.terminal-search-btn[aria-pressed="true"]:hover:not(:disabled) {
+  background: var(--accent-bg);
+  color: var(--accent-primary);
+}
+
 .terminal-search-btn {
   display: flex;
   align-items: center;

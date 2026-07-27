@@ -195,6 +195,7 @@
   "plugin.resetZoom": "Reset zoom",
   "plugin.fitToView": "Fit to view",
   "plugin.copySource": "Copy source code",
+  "plugin.runInTerminal": "在終端機中執行",
   "plugin.searchLanguages": "搜尋語言...",
   "plugin.cancel": "Cancel (Esc)",
   "plugin.save": "Save",

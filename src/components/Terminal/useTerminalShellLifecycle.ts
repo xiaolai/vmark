@@ -15,6 +15,12 @@
  *   - A new terminal inherits a live sibling's cwd (OSC 7), else falls back
  *     to workspace-or-file resolution.
  *   - Spawn failures mark the session dead and prompt "press any key".
+ *   - A restart during an IN-FLIGHT spawn supersedes it: restartActiveSession
+ *     bumps spawnGen and clears shellSpawning, and the older attempt disowns
+ *     its PTY on arrival. Without that, restarting before the first shell
+ *     appeared did nothing at all.
+ *   - An explicit "Open Terminal Here" cwd outranks sibling inheritance and is
+ *     released only once a spawn using it succeeds.
  *
  * @coordinates-with useTerminalSessions.ts — sole caller
  * @coordinates-with spawnPty.ts — shell process creation
@@ -101,19 +107,34 @@ export function useTerminalShellLifecycle(
       // fires asynchronously and could otherwise mark a freshly-restarted
       // session dead — the guard below ignores exits from a superseded gen.
       const gen = ++entry.spawnGen;
-      // WI-2.2: a new terminal inherits a live sibling's cwd (OSC 7) so it
-      // starts where the user is; first terminal / no sibling →
+      // WI-4.2: an EXPLICIT request ("Open Terminal Here") outranks
+      // everything below. Without this the sibling-cwd inheritance would win
+      // and the new terminal would silently open in some other directory —
+      // exactly the one thing the user did not ask for. PEEKED, not consumed:
+      // it is cleared only once the spawn succeeds, so a failed first spawn
+      // can still be retried in the directory the user actually asked for.
+      const requestedCwd = useUIStore.getState().terminalPeekRequestedCwd(sessionId);
+      // WI-2.2: otherwise a new terminal inherits a live sibling's cwd (OSC 7)
+      // so it starts where the user is; first terminal / no sibling →
       // workspace-or-file resolution.
       let inheritedCwd: string | undefined;
-      for (const [id, sib] of sessionsRef.current) {
-        if (id === sessionId || sib.disposed || !sib.pty || sib.shellExited) continue;
-        const live = sib.instance.getCwd();
-        if (live) {
-          inheritedCwd = live;
-          break;
+      if (!requestedCwd) {
+        for (const [id, sib] of sessionsRef.current) {
+          if (id === sessionId || sib.disposed || !sib.pty || sib.shellExited) continue;
+          const live = sib.instance.getCwd();
+          if (live) {
+            inheritedCwd = live;
+            break;
+          }
         }
       }
-      const cwd = inheritedCwd ?? resolveTerminalCwd();
+      const cwd = requestedCwd ?? inheritedCwd ?? resolveTerminalCwd();
+      // Captured BEFORE the await so the post-spawn check can tell "the
+      // workspace changed while we were spawning" from "this session simply
+      // starts somewhere other than the workspace root". Comparing the root
+      // against `cwd` conflated the two and immediately cd'd a sibling-
+      // inheriting terminal back to the root, undoing WI-2.2 (Codex audit).
+      const rootBeforeSpawn = resolveTerminalWorkspaceRoot();
 
       try {
         const pty = await spawnPty({
@@ -137,13 +158,21 @@ export function useTerminalShellLifecycle(
         });
 
         const currentEntry = sessionsRef.current.get(sessionId);
-        if (!currentEntry || currentEntry.disposed) {
+        // Superseded by a restart while this spawn was in flight? Then this
+        // PTY is an orphan: installing it would overwrite the restart's PTY
+        // and leak a live shell. The generation check is what makes a restart
+        // during spawn actually restart (audit).
+        if (!currentEntry || currentEntry.disposed || currentEntry.spawnGen !== gen) {
           try {
             pty.kill();
           } catch {
             /* ignore */
           }
-          if (currentEntry) currentEntry.shellSpawning = false;
+          // Only the CURRENT generation owns the spawning flag; clearing it
+          // from a superseded attempt would unlock a spawn still running.
+          if (currentEntry && currentEntry.spawnGen === gen) {
+            currentEntry.shellSpawning = false;
+          }
           return;
         }
         currentEntry.pty = pty;
@@ -151,16 +180,25 @@ export function useTerminalShellLifecycle(
         currentEntry.spawnedCwd = cwd;
         currentEntry.shellSpawning = false;
         useUIStore.getState().terminalMarkSessionAlive(sessionId);
+        // The requested directory has now been honored — release it so a later
+        // restart resolves normally instead of re-anchoring to a stale request.
+        if (requestedCwd) useUIStore.getState().terminalClearRequestedCwd(sessionId);
 
-        // If workspace changed while spawning, cd to the current root.
+        // If the workspace changed WHILE spawning, cd to the new root — but
+        // NOT when the user explicitly asked for a directory (WI-4.2). That
+        // catch-up `cd` would otherwise walk the shell straight back out of
+        // the folder they right-clicked, which looks like the feature is
+        // broken rather than like a workspace sync.
         const currentRoot = resolveTerminalWorkspaceRoot();
-        if (currentRoot && currentRoot !== cwd) {
+        if (!requestedCwd && currentRoot && currentRoot !== rootBeforeSpawn) {
           pty.write(buildCdCommand(currentRoot));
           currentEntry.spawnedCwd = currentRoot;
         }
       } catch (err) {
         const e = sessionsRef.current.get(sessionId);
-        if (e && !e.disposed) {
+        // Same generation guard: a superseded attempt must not mark the
+        // session dead or unlock the spawn that replaced it.
+        if (e && !e.disposed && e.spawnGen === gen) {
           e.shellSpawning = false;
           e.instance.term.write(failedToStartLine(errorMessage(err)));
           e.instance.term.write(pressAnyKeyToRetryLine());
@@ -187,6 +225,17 @@ export function useTerminalShellLifecycle(
       }
       entry.pty = null;
       entry.ptyRefForKeys.current = null;
+    }
+
+    // Supersede any spawn still in flight (audit). Without this, restarting
+    // while the first shell was still starting did NOTHING: there was no PTY
+    // to kill, and startShell returned immediately on the `shellSpawning`
+    // re-entrance guard. Bumping the generation makes the in-flight attempt
+    // disown its result (it kills its own PTY on arrival), and clearing the
+    // flag lets the new spawn through.
+    if (entry.shellSpawning) {
+      entry.spawnGen++;
+      entry.shellSpawning = false;
     }
 
     entry.shellExited = false;

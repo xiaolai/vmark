@@ -195,6 +195,7 @@
   "plugin.resetZoom": "Reset zoom",
   "plugin.fitToView": "Fit to view",
   "plugin.copySource": "Copy source code",
+  "plugin.runInTerminal": "Exécuter dans le terminal",
   "plugin.searchLanguages": "Rechercher des langages...",
   "plugin.cancel": "Cancel (Esc)",
   "plugin.save": "Save",

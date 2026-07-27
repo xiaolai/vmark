@@ -8,6 +8,7 @@ import { DocumentSplitContainer } from "@/components/Editor";
 import { Sidebar } from "@/components/Sidebar";
 import { SidebarResizeHandle } from "@/components/Sidebar/SidebarResizeHandle";
 import { WorkspaceRail, WORKSPACE_RAIL_WIDTH } from "@/components/WorkspaceRail";
+import { shellSideWidth } from "@/shell/shellChrome";
 import { BottomBar } from "@/components/BottomBar/BottomBar";
 import { AppShell, EditorArea } from "@/shell";
 import { appShellClassName } from "@/shell/appShellClassName";
@@ -162,7 +163,8 @@ function MainLayout() {
   const browserWorkspaceActive = useBrowserWorkspaceActive();
   const workspaceRailMode = useSettingsStore((state) => state.general.workspaceRailMode);
   const showWorkspaceRail = isDocumentWindow && workspaceRailMode;
-  const sideWidth = (showWorkspaceRail ? WORKSPACE_RAIL_WIDTH : 0) + (sidebarVisible ? sidebarWidth : 0);
+  // One definition, shared with the terminal's layout maths (see shellChrome).
+  const sideWidth = shellSideWidth({ workspaceRailVisible: showWorkspaceRail, sidebarVisible, sidebarWidth });
 
   // T03 lifecycle composites — every per-document/per-window hook now
   // lives in src/hooks/lifecycle/. Adding a shortcut or sync hook

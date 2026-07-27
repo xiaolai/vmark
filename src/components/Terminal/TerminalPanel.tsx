@@ -10,7 +10,9 @@
  *
  * User interactions:
  *   - Drag the resize handle to adjust panel height (top/bottom) or width (left/right)
- *   - Right-click for copy / paste / select-all / clear / reset-display menu
+ *   - Double-click the resize handle to maximize the panel and back (WI-4.5)
+ *   - Right-click for copy / paste / select-all / clear / reset-display /
+ *     copy-command-output menu (the last needs shell integration)
  *   - Use the tab bar to create/switch/close sessions and swap the panel side
  *   - Cmd+F within terminal opens the inline search bar
  *
@@ -46,6 +48,7 @@ import { isHorizontalTerminalAxis } from "./useTerminalPosition";
 import { TerminalTabBar } from "./TerminalTabBar";
 import { TerminalContextMenu } from "./TerminalContextMenu";
 import { TerminalSearchBar } from "./TerminalSearchBar";
+import { resolveBufferLineFromEvent } from "./resolveBufferLine";
 import "./terminal-panel.css";
 
 const NULL_REF: RefObject<HTMLDivElement | null> = { current: null };
@@ -103,14 +106,28 @@ export function TerminalPanel() {
   const [isResizing, setIsResizing] = useState(false);
   const resizeCleanupRef: MutableRefObject<(() => void) | null> = useRef(null);
 
-  const handleResize = useTerminalResize(position, () => {
-    if (!isResizing) setIsResizing(true);
-    requestAnimationFrame(() => fit());
-  });
+  // `onResize` fires during a DRAG only — a maximize writes the store
+  // dimension and lets the width/height effect above refit, so calling it
+  // there too would schedule the same fit twice. It must therefore mean
+  // "geometry changed — refit", never "a drag is in progress": setting drag
+  // state here would leave `terminal-resizing` stuck.
+  const { handleResizeStart: handleResize, toggleMaximize } = useTerminalResize(
+    position,
+    () => requestAnimationFrame(() => fit()),
+  );
+
+  // Double-clicking the handle maximizes the panel to its cap and back
+  // (WI-4.5/F6) — the honest answer to "I wanted 80%", which the persisted
+  // ratio deliberately cannot give.
+  const handleHandleDoubleClick = useCallback(() => {
+    toggleMaximize();
+  }, [toggleMaximize]);
 
   // Wrap handleResize to manage resizing state with proper cleanup
   const handleResizeStart = useCallback(
     (e: React.MouseEvent) => {
+      // Drag state is owned here (it only suppresses CSS transitions); the
+      // hook owns the geometry.
       setIsResizing(true);
 
       const cleanupResize = () => {
@@ -133,13 +150,23 @@ export function TerminalPanel() {
     return () => resizeCleanupRef.current?.();
   }, []);
 
-  // Context menu state
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+  // Context menu state. `line` is the buffer row under the pointer, used by
+  // "Copy Command Output" to pick which command's output to copy (WI-4.4).
+  const [contextMenu, setContextMenu] = useState<
+    { x: number; y: number; line?: number } | null
+  >(null);
 
-  const handleContextMenu = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    setContextMenu({ x: e.clientX, y: e.clientY });
-  }, []);
+  const handleContextMenu = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      setContextMenu({
+        x: e.clientX,
+        y: e.clientY,
+        line: resolveBufferLineFromEvent(getActiveTerminal()?.term, e),
+      });
+    },
+    [getActiveTerminal],
+  );
 
   const closeContextMenu = useCallback(() => {
     setContextMenu(null);
@@ -187,7 +214,12 @@ export function TerminalPanel() {
 
   return (
     <div className={panelClassName} style={panelStyle} role="region" aria-label={t("terminal.ariaLabel")}>
-      <div className={handleClassName} onMouseDown={handleResizeStart} />
+      <div
+        className={handleClassName}
+        onMouseDown={handleResizeStart}
+        onDoubleClick={handleHandleDoubleClick}
+        title={t("terminal.maximizeHint")}
+      />
       <div className={`terminal-body ${isHorizontal ? "terminal-body--column" : ""}`}>
         <div className="terminal-sessions-container">
           <div
@@ -216,6 +248,8 @@ export function TerminalPanel() {
           position={contextMenu}
           term={active.term}
           onResetDisplay={active.resetDisplay}
+          getCommands={active.getCommands}
+          clickLine={contextMenu.line}
           onClose={closeContextMenu}
         />
       )}

@@ -425,6 +425,137 @@ describe("spawnPty shell selection", () => {
     expect(spawnCallEnv.env.TERM_PROGRAM).toBe("WezTerm");
   });
 
+  it("does not set EDITOR (T1) — the vmark shim is opt-in, macOS-only, and non-blocking", async () => {
+    // `EDITOR=vmark` was set unconditionally on every OS. The shim is opt-in
+    // and admin-gated, so the default state is `vmark: command not found` —
+    // and even when installed, `open -b app.vmark` returns immediately, so
+    // `git commit` aborts with "empty commit message". Setting nothing lets
+    // the user's real $EDITOR (inherited from their login shell rc) win.
+    vi.mocked(useSettingsStore.getState).mockReturnValue({
+      terminal: { shell: "" },
+    } as ReturnType<typeof useSettingsStore.getState>);
+
+    await spawnPty({ term: mockTerm, onExit: vi.fn(), disposed: () => false });
+
+    const spawnCallEnv = vi.mocked(spawn).mock.calls[0][2] as { env: Record<string, string> };
+    expect(spawnCallEnv.env).not.toHaveProperty("EDITOR");
+  });
+
+  it("preserves the WezTerm impersonation and the rest of the env contract after dropping EDITOR", async () => {
+    // Regression guard for WI-1.1: removing EDITOR must not disturb any other
+    // key. ADR-006's TERM_PROGRAM impersonation is the one that matters most.
+    vi.mocked(useSettingsStore.getState).mockReturnValue({
+      terminal: { shell: "" },
+    } as ReturnType<typeof useSettingsStore.getState>);
+    vi.mocked(useWorkspaceStore.getState).mockReturnValue({
+      rootPath: "/my/workspace",
+    } as ReturnType<typeof useWorkspaceStore.getState>);
+    vi.mocked(invoke).mockImplementation((cmd: string) => {
+      if (cmd === "get_default_shell") return Promise.resolve("/bin/zsh");
+      if (cmd === "get_login_shell_path") return Promise.resolve("/usr/local/bin:/bin");
+      return Promise.resolve(null);
+    });
+
+    await spawnPty({ term: mockTerm, onExit: vi.fn(), disposed: () => false });
+
+    const spawnCallEnv = vi.mocked(spawn).mock.calls[0][2] as { env: Record<string, string> };
+    expect(spawnCallEnv.env).toEqual({
+      TERM: "xterm-256color",
+      TERM_PROGRAM: "WezTerm",
+      LC_CTYPE: "UTF-8",
+      PATH: "/usr/local/bin:/bin",
+      VMARK_WORKSPACE: "/my/workspace",
+    });
+  });
+
+  it("forwards integration args to spawn (WI-3.3)", async () => {
+    // bash cannot be hooked through the environment, so integration returns
+    // `--rcfile <path>`. Before WI-3.3 the args list was hardcoded to [] and
+    // there was nowhere for it to go.
+    vi.mocked(useSettingsStore.getState).mockReturnValue({
+      terminal: { shell: "/bin/bash", shellIntegration: true },
+    } as ReturnType<typeof useSettingsStore.getState>);
+    vi.mocked(invoke).mockImplementation((cmd: string) => {
+      if (cmd === "get_login_shell_path") return Promise.resolve("/usr/bin");
+      if (cmd === "get_default_shell") return Promise.resolve("/bin/bash");
+      if (cmd === "prepare_shell_integration")
+        return Promise.resolve({ env: {}, args: ["--rcfile", "/data/vmark.bash"] });
+      return Promise.resolve(null);
+    });
+
+    await spawnPty({ term: mockTerm, onExit: vi.fn(), disposed: () => false });
+
+    expect(spawn).toHaveBeenCalledWith(
+      "/bin/bash",
+      ["--rcfile", "/data/vmark.bash"],
+      expect.any(Object),
+    );
+  });
+
+  it("passes no args for a shell whose integration returns none (zsh unchanged)", async () => {
+    // WI-3.3's byte-identical guarantee for existing zsh users.
+    vi.mocked(useSettingsStore.getState).mockReturnValue({
+      terminal: { shell: "/bin/zsh", shellIntegration: true },
+    } as ReturnType<typeof useSettingsStore.getState>);
+    vi.mocked(invoke).mockImplementation((cmd: string) => {
+      if (cmd === "get_login_shell_path") return Promise.resolve("/usr/bin");
+      if (cmd === "prepare_shell_integration")
+        return Promise.resolve({ env: { ZDOTDIR: "/data/zsh" }, args: [] });
+      return Promise.resolve(null);
+    });
+
+    await spawnPty({ term: mockTerm, onExit: vi.fn(), disposed: () => false });
+
+    expect(spawn).toHaveBeenCalledWith("/bin/zsh", [], expect.any(Object));
+    const env = (vi.mocked(spawn).mock.calls[0][2] as { env: Record<string, string> }).env;
+    expect(env.ZDOTDIR).toBe("/data/zsh");
+  });
+
+  it("fallback recomputes args, never reusing the failed shell's (WI-3.3)", async () => {
+    // Handing bash's `--rcfile <path>` to a fallback zsh would make zsh treat
+    // the path as a script argument, not a config file.
+    vi.mocked(useSettingsStore.getState).mockReturnValue({
+      terminal: { shell: "/bin/bash", shellIntegration: true },
+    } as ReturnType<typeof useSettingsStore.getState>);
+    vi.mocked(invoke).mockImplementation((cmd: string, args?: unknown) => {
+      if (cmd === "get_login_shell_path") return Promise.resolve("/usr/bin");
+      if (cmd === "get_default_shell") return Promise.resolve("/bin/zsh");
+      if (cmd === "prepare_shell_integration") {
+        const shell = (args as { shell: string }).shell;
+        return Promise.resolve(
+          shell === "/bin/bash"
+            ? { env: {}, args: ["--rcfile", "/data/vmark.bash"] }
+            : { env: { ZDOTDIR: "/data/zsh" }, args: [] },
+        );
+      }
+      return Promise.resolve(null);
+    });
+
+    let spawnCount = 0;
+    vi.mocked(spawn).mockImplementation((() => {
+      spawnCount++;
+      if (spawnCount === 1) throw new Error("spawn failed");
+      return {
+        onData: vi.fn(),
+        onExit: vi.fn(),
+        write: vi.fn(),
+        resize: vi.fn(),
+        kill: vi.fn(),
+      } as unknown as ReturnType<typeof spawn>;
+    }) as unknown as typeof spawn);
+
+    await spawnPty({ term: mockTerm, onExit: vi.fn(), disposed: () => false });
+
+    expect(vi.mocked(spawn).mock.calls[0][1]).toEqual(["--rcfile", "/data/vmark.bash"]);
+    // The fallback gets ITS own args (none) and its own env.
+    expect(vi.mocked(spawn).mock.calls[1][0]).toBe("/bin/zsh");
+    expect(vi.mocked(spawn).mock.calls[1][1]).toEqual([]);
+    const fallbackEnv = (
+      vi.mocked(spawn).mock.calls[1][2] as { env: Record<string, string> }
+    ).env;
+    expect(fallbackEnv.ZDOTDIR).toBe("/data/zsh");
+  });
+
   it("throws original error when spawn fails and no configured shell", async () => {
     vi.mocked(useSettingsStore.getState).mockReturnValue({
       terminal: { shell: "" },
@@ -608,7 +739,7 @@ describe("spawnPty shell selection", () => {
         const shell = (args as { shell: string }).shell;
         integrationCalls.push(shell);
         // Return a shell-specific override keyed by the shell path.
-        return Promise.resolve({ VMARK_SHELL_RC: shell });
+        return Promise.resolve({ env: { VMARK_SHELL_RC: shell }, args: [] });
       }
       return Promise.resolve(null);
     });

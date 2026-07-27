@@ -115,6 +115,14 @@ export interface ContentSearchActions {
 export interface TerminalSession {
   id: string;
   label: string;
+  /**
+   * Stable 1-based display number, allocated on create and reused when a
+   * session closes. The tab's compact glyph comes from THIS, never from
+   * parsing the label — the label is a display string that translation (or a
+   * rename) is free to change, and parsing it made every tab show the same
+   * character the moment it was not English.
+   */
+  ordinal: number;
   isAlive: boolean;
   /** A bell rang while this session was in the background (WI-4.3). Cleared
    *  when the session becomes active. Drives the tab activity indicator. */
@@ -125,6 +133,11 @@ export interface TerminalSession {
   /** True once the user manually renamed the session — program titles then
    *  no longer override the user-chosen label (G4/WI-3.2). */
   isUserRenamed?: boolean;
+  /** A directory the session was explicitly asked to start in ("Open Terminal
+   *  Here", WI-4.2). Consumed once by the spawn path, which must prefer it
+   *  over the sibling-cwd inheritance that otherwise wins. Cleared on spawn so
+   *  a later restart does not silently re-anchor the shell. */
+  requestedCwd?: string;
 }
 
 export interface TerminalSlice {
@@ -133,7 +146,10 @@ export interface TerminalSlice {
 }
 
 export interface TerminalActions {
-  terminalCreateSession: () => TerminalSession | null;
+  /** Create a session. `requestedCwd` pins its starting directory (WI-4.2);
+   *  without it the spawn path inherits a sibling's cwd or resolves the
+   *  workspace/file default. Returns null at MAX_TERMINAL_SESSIONS. */
+  terminalCreateSession: (options?: { requestedCwd?: string }) => TerminalSession | null;
   terminalRemoveSession: (id: string) => void;
   terminalSetActiveSession: (id: string) => void;
   terminalMarkSessionDead: (id: string) => void;
@@ -141,6 +157,11 @@ export interface TerminalActions {
   terminalMarkActivity: (id: string) => void;
   terminalRenameSession: (id: string, label: string) => void;
   terminalSetProgramTitle: (id: string, title: string) => void;
+  /** The explicit start directory for a session, without consuming it (WI-4.2). */
+  terminalPeekRequestedCwd: (id: string) => string | undefined;
+  /** Clear it — only after the spawn that used it actually succeeded, so a
+   *  failed spawn can still be retried in the directory the user asked for. */
+  terminalClearRequestedCwd: (id: string) => void;
 }
 
 /* ──────────────────────────── ui slice shape ──────────────────────────── */

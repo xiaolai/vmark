@@ -2,10 +2,13 @@
  * CodeBlockNodeView — ProseMirror NodeView for the WYSIWYG code block.
  *
  * Owns the DOM scaffolding (wrapper, gutter, pre/code, language chip, copy
- * button) and delegates the dropdown lifecycle to {@link LanguageDropdown}.
+ * button, run button) and delegates the dropdown lifecycle to
+ * {@link LanguageDropdown}.
  *
  * Behavior the class is responsible for:
- *   - Mounting the gutter, copy button, and language chip.
+ *   - Mounting the gutter, copy button, run button, and language chip.
+ *   - Showing the run button ONLY for shell-language fences (WI-4.3), and
+ *     re-evaluating that on every language change.
  *   - Recounting line numbers on every relevant mutation.
  *   - Driving the copy button: async writeText with success/error feedback.
  *   - Triggering ProseMirror language attribute updates when the dropdown
@@ -19,7 +22,8 @@ import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import type { NodeView, ViewMutationRecord } from "@tiptap/pm/view";
 import type { Editor } from "@tiptap/core";
 import i18n from "@/i18n";
-import { COPY_ICON_SVG, CHECK_ICON_SVG, X_ICON_SVG } from "./icons";
+import { COPY_ICON_SVG, CHECK_ICON_SVG, X_ICON_SVG, RUN_ICON_SVG } from "./icons";
+import { isShellLanguage, runInTerminal } from "@/services/terminal/runInTerminal";
 import { LANGUAGES } from "./languages";
 import { LanguageDropdown } from "./dropdown";
 
@@ -30,6 +34,7 @@ export class CodeBlockNodeView implements NodeView {
   private codeElement: HTMLElement;
   private langSelector: HTMLElement;
   private copyBtn: HTMLButtonElement;
+  private runBtn: HTMLButtonElement;
   private actionsContainer: HTMLElement;
   private dropdownController: LanguageDropdown;
   private node: ProseMirrorNode;
@@ -69,6 +74,7 @@ export class CodeBlockNodeView implements NodeView {
 
     this.copyBtn = document.createElement("button");
     this.copyBtn.className = "code-copy-btn";
+    this.copyBtn.dataset.codeAction = "copy";
     this.copyBtn.innerHTML = COPY_ICON_SVG;
     const copyLabel = i18n.t("editor:plugin.copySource");
     this.copyBtn.title = copyLabel;
@@ -76,12 +82,34 @@ export class CodeBlockNodeView implements NodeView {
     this.copyBtn.addEventListener("mousedown", this.handleCopyMouseDown);
     this.copyBtn.addEventListener("click", this.handleCopyClick);
 
+    // Run in Terminal (WI-4.3) — only meaningful for a shell fence, so its
+    // visibility follows the language attribute (see updateRunButton).
+    this.runBtn = document.createElement("button");
+    // Shares the copy button's class deliberately: they are the same control
+    // (icon-only square action in the code-block chrome), and a second class
+    // would be a fourth spelling of the same button — the exact drift
+    // `pnpm lint:bespoke-buttons` exists to stop. `data-code-action`
+    // distinguishes them for the one rule that differs (hover colour) and for
+    // test selection.
+    this.runBtn.className = "code-copy-btn";
+    this.runBtn.dataset.codeAction = "run";
+    this.runBtn.innerHTML = RUN_ICON_SVG;
+    const runLabel = i18n.t("editor:plugin.runInTerminal");
+    this.runBtn.title = runLabel;
+    this.runBtn.setAttribute("aria-label", runLabel);
+    this.runBtn.addEventListener("mousedown", this.handleCopyMouseDown);
+    this.runBtn.addEventListener("click", this.handleRunClick);
+
     this.actionsContainer = document.createElement("div");
     this.actionsContainer.className = "code-block-actions";
     this.actionsContainer.contentEditable = "false";
+    // Copy first: it is the older, more-used action, and existing tests
+    // select the copy button as the first `.code-copy-btn` in the container.
     this.actionsContainer.appendChild(this.copyBtn);
+    this.actionsContainer.appendChild(this.runBtn);
     this.actionsContainer.appendChild(this.langSelector);
     this.dom.appendChild(this.actionsContainer);
+    this.updateRunButton();
 
     this.dropdownController = new LanguageDropdown({
       anchor: this.langSelector,
@@ -103,6 +131,7 @@ export class CodeBlockNodeView implements NodeView {
     }
 
     this.updateLangSelectorText();
+    this.updateRunButton();
     this.updateLineNumbers();
     return true;
   }
@@ -112,7 +141,29 @@ export class CodeBlockNodeView implements NodeView {
     this.langSelector.removeEventListener("mousedown", this.handleLangClick, { capture: true });
     this.copyBtn.removeEventListener("mousedown", this.handleCopyMouseDown);
     this.copyBtn.removeEventListener("click", this.handleCopyClick);
+    this.runBtn.removeEventListener("mousedown", this.handleCopyMouseDown);
+    this.runBtn.removeEventListener("click", this.handleRunClick);
   }
+
+  /** Show the run button only for shell fences (WI-4.3). */
+  private updateRunButton(): void {
+    const isShell = isShellLanguage(this.node.attrs.language);
+    this.runBtn.hidden = !isShell;
+    // `hidden` alone loses to the flex display rule, so drop it from layout too.
+    this.runBtn.style.display = isShell ? "" : "none";
+  }
+
+  /**
+   * Paste the block into the terminal. It is NOT executed — see the security
+   * note in services/terminal/runInTerminal.
+   */
+  private handleRunClick = (e: MouseEvent): void => {
+    e.preventDefault();
+    e.stopPropagation();
+    // Fire-and-forget: the promise reports delivery, but a click handler has
+    // nowhere useful to surface it — runInTerminal logs every failure path.
+    void runInTerminal(this.node.textContent, this.node.attrs.language || "");
+  };
 
   private updateLangSelectorText(): void {
     const lang = this.node.attrs.language || "plaintext";

@@ -72,7 +72,11 @@
   user-select: none;
 }
 
-/* Copy button — hidden by default, appears on code block hover */
+/* Code-block action button — hidden by default, appears on code block hover.
+   Despite the historical name, this class styles BOTH chrome actions: Copy and
+   Run in Terminal (WI-4.3), which are distinguished by `data-code-action`.
+   They deliberately share one rule set so they cannot drift apart. Migration
+   target for both is `.popup-icon-btn` (see .claude/rules/32-component-patterns). */
 .tiptap-editor .code-copy-btn {
   display: flex;
   align-items: center;
@@ -97,6 +101,30 @@
   opacity: 1;
   background: var(--hover-bg);
   color: var(--text-secondary);
+}
+
+/* Run in Terminal (WI-4.3) — same button, one distinguishing hover colour. */
+.tiptap-editor .code-copy-btn[data-code-action="run"]:hover {
+  color: var(--success-color);
+}
+
+/* Keyboard focus must be visible even before hover reveals the button
+   (rule 33). U-shaped underline, matching the app's button convention. */
+.tiptap-editor .code-copy-btn:focus-visible {
+  opacity: 1;
+  outline: none;
+  position: relative;
+}
+
+.tiptap-editor .code-copy-btn:focus-visible::after {
+  content: "";
+  position: absolute;
+  bottom: 1px;
+  left: 3px;
+  right: 3px;
+  height: 2px;
+  background: var(--accent-primary);
+  border-radius: 1px;
 }
 
 /* Success state after copying — must override wrapper:hover opacity */
