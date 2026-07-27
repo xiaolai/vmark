@@ -247,8 +247,11 @@ Icon SVG sizes (conventions, not tokens):
 
 **`--workspace-rail-width` has two writers.** The `:root` value is a static
 default; `App.tsx` overrides it on the shell root from `WORKSPACE_RAIL_WIDTH`
-(`components/WorkspaceRail`), which stays the source of truth because the same
-number also feeds layout arithmetic in TS. Change the TS constant, not the CSS.
+(`src/shell/shellChrome.ts`, re-exported by `components/WorkspaceRail`), which
+stays the source of truth because the same number also feeds layout arithmetic
+in TS — `shellSideWidth()` in that module is the one definition of the chrome
+left of the editor, shared by `App.tsx` and the terminal's sizing.
+Change the TS constant, not the CSS.
 The `:root` declaration exists so consumers that use the var **without a
 fallback** — `title-bar.css` does — still resolve if the shell root has not
 applied its override yet.
