@@ -68,10 +68,18 @@ any `cargo build --locked` / `--frozen` (release + CI).
    git commit -m "chore: bump version to 0.4.0"
    ```
 
-4. **Tag and push**:
+4. **Open a PR, then tag** (`main` requires one since 2026-07-27 — see
+   `60-ai-governance.md` §10; a direct push of a new commit is rejected because
+   the required checks cannot have run on it yet):
    ```bash
+   git checkout -b bump-v0.4.0        # from the bump commit
+   git push origin bump-v0.4.0
+   gh pr create --fill
+   gh pr checks --watch               # frontend + rust must be green
+   gh pr merge --merge                # or --squash
+   git checkout main && git pull
    git tag v0.4.0
-   git push origin main v0.4.0
+   git push origin v0.4.0             # tags are NOT gated by branch protection
    ```
 
    **CRITICAL: Never use `git push --tags`** — it pushes ALL local tags, including
