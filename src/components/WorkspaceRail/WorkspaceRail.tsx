@@ -20,7 +20,9 @@ import {
 } from "./WorkspaceRailContextMenu";
 import "./WorkspaceRail.css";
 
-export const WORKSPACE_RAIL_WIDTH = 30;
+// Defined in the shell layout module (with the maths that consume it) and
+// re-exported here so existing importers are unaffected.
+export { WORKSPACE_RAIL_WIDTH } from "@/shell/shellChrome";
 
 const EMPTY_IDS: string[] = [];
 const WORKSPACE_RAIL_COLORS = [
