@@ -75,10 +75,18 @@ fn bash_script_preserves_existing_prompt_command() {
 fn bash_env_returns_rcfile_arg() {
     let dir = Path::new("/vmark/bash");
     let integration = build_integration(ShellKind::Bash, dir, None);
-    assert_eq!(
-        integration.args,
-        vec!["--rcfile".to_string(), "/vmark/bash/vmark.bash".to_string()]
-    );
+
+    // Asserted as a PATH, not as a literal string: `Path::join` uses `\` on
+    // Windows, so comparing against "/vmark/bash/vmark.bash" fails there even
+    // though the behavior is correct. (Windows never reaches this code —
+    // `bash.exe` does not match the `bash` basename — but the builder is
+    // compiled and tested on every platform.)
+    assert_eq!(integration.args.len(), 2);
+    assert_eq!(integration.args[0], "--rcfile");
+    let rc = Path::new(&integration.args[1]);
+    assert_eq!(rc.file_name().and_then(|s| s.to_str()), Some("vmark.bash"));
+    assert_eq!(rc.parent(), Some(dir));
+
     // bash is hooked entirely through the arg — no env override at all.
     assert!(integration.env.is_empty());
 }
@@ -107,10 +115,14 @@ fn shell_integration_serializes_env_and_args() {
     ))
     .unwrap();
     assert!(json.get("env").is_some(), "env key missing: {json}");
-    assert!(json.get("args").is_some(), "args key missing: {json}");
+    let args = json.get("args").expect("args key missing: {json}");
+    // Separator-agnostic (see bash_env_returns_rcfile_arg): the point is that
+    // both fields survive serialization with the flag and rc path intact.
+    assert_eq!(args[0], serde_json::json!("--rcfile"));
+    let rc = args[1].as_str().expect("rcfile path should be a string");
     assert_eq!(
-        json["args"],
-        serde_json::json!(["--rcfile", "/vmark/bash/vmark.bash"])
+        Path::new(rc).file_name().and_then(|s| s.to_str()),
+        Some("vmark.bash")
     );
 }
 
