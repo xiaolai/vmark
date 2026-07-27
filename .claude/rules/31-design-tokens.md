@@ -243,6 +243,15 @@ Icon SVG sizes (conventions, not tokens):
 |-------|---------|---------|
 | `--sidebar-bg` | Sidebar background | `#e5e4e4` |
 | `--sidebar-width` | Sidebar width | `260px` |
+| `--workspace-rail-width` | Workspace rail column width | `30px` |
+
+**`--workspace-rail-width` has two writers.** The `:root` value is a static
+default; `App.tsx` overrides it on the shell root from `WORKSPACE_RAIL_WIDTH`
+(`components/WorkspaceRail`), which stays the source of truth because the same
+number also feeds layout arithmetic in TS. Change the TS constant, not the CSS.
+The `:root` declaration exists so consumers that use the var **without a
+fallback** — `title-bar.css` does — still resolve if the shell root has not
+applied its override yet.
 | `--outline-width` | Outline panel width | `200px` |
 | `--table-border-color` | Table borders | `#d5d4d4` |
 

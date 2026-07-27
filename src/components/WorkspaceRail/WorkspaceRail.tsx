@@ -12,7 +12,7 @@ import { imeToast as toast } from "@/services/ime/imeToast";
 import { cleanupTabState } from "@/hooks/tabCleanup";
 import { closeTabsWithDirtyCheck } from "@/hooks/useTabOperations";
 import { disambiguateWorkspaceDisplayNames } from "@/utils/workspaceIdentity";
-import { workspaceRailGlyphs, workspaceRailGlyphLength } from "@/utils/workspaceRailGlyphs";
+import { workspaceRailGlyphs } from "@/utils/workspaceRailGlyphs";
 import { closeWorkspaceInstance } from "@/services/workspaces/closeWorkspaceInstance";
 import {
   WorkspaceRailContextMenu,
@@ -164,14 +164,7 @@ export function WorkspaceRail({ windowLabel }: { windowLabel: string }) {
                   // aria-hidden: the button's aria-label already carries the
                   // FULL workspace name, so a screen reader must not announce
                   // the one-letter glyph as well.
-                  <span
-                    className="workspace-rail__glyph"
-                    // GRAPHEME count, not String.length: "🚀".length is 2 and a
-                    // family emoji's is 11, so string length would pick a font
-                    // size for a width the glyph does not actually occupy.
-                    data-glyph-length={workspaceRailGlyphLength(glyphs[instanceId] ?? "")}
-                    aria-hidden="true"
-                  >
+                  <span className="workspace-rail__glyph" aria-hidden="true">
                     {glyphs[instanceId]}
                   </span>
                 )}

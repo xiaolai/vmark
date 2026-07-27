@@ -63,8 +63,11 @@ An AI assistant connected over [MCP](./mcp-tools) can operate the browser tab:
 - **Session save / load** — save the tab's current session under a **handle** (a name you approve), and later restore it so a flow starts already-signed-in — *without the AI ever seeing your cookies or tokens*. The values are stored in the **OS keychain** (encrypted at rest), and the AI receives only the handle and a count summary. Both save and load are **approved per call**, and an approval for one handle can't be spent on another. A restore only applies to a page on the **same origin** it was saved from. This is credential-**by-reference**: the AI names a session, VMark holds the secret.
 - **Console** — read the page's captured `console.*` output (log/warn/error…) so the AI can debug a page it's driving. Read-only, and the output is treated as **untrusted** page data. This is built to preserve the private-by-design guarantee: the capture writes into the page's own DOM and VMark reads it from there, so no messaging channel is opened back into the app.
 
-::: warning Session save/load — what ships today
-The credential-by-reference model — the `session` permission, keychain storage, per-call approval, and handle-only responses — is in place and covers **`localStorage`**. Capturing **cookies** (the part most logins actually use) via the native cookie store, plus named persistent profiles and the profile-management UI, are the remaining pieces and land with live testing. Until then, session save/load round-trips app-local `localStorage` state, not cookie-based logins.
+::: tip Session save/load — scope
+A saved session covers **`localStorage` and cookies**, both scoped to the origin the
+page was committed to when you saved it. Cookies are read and replayed through the
+native cookie store and are **domain-scoped in both directions** — saving never copies
+your whole cookie jar, and restoring never plants a cookie under an unrelated site.
 :::
 - **Open** — create an AI-owned tab and load an HTTP(S) URL.
 - **Navigate** — navigate an AI-owned tab and wait for its navigation ticket.

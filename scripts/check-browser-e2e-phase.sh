@@ -1,0 +1,344 @@
+#!/usr/bin/env bash
+#
+# DoD checker for the Browser Hardening + E2E Verification plan.
+# Plan: dev-docs/plans/20260726-browser-hardening-and-e2e.md
+#
+# NOT to be confused with `scripts/check-browser-phase.sh`, which gates the
+# earlier Embedded Browser / Site Plugins plan (20260712) and has its own,
+# differently-numbered phases. Two plans touch the same subsystem; each keeps
+# its own gate rather than overloading one script with colliding phase numbers.
+#
+# Usage: bash scripts/check-browser-e2e-phase.sh <0..6>
+#
+# Exit codes:
+#   0  every assertion for the phase passed
+#   1  one or more assertions failed
+#   2  bad usage
+#
+# Governance: .claude/rules/60-ai-governance.md §3 — a phase gate must be
+# machine-checkable. Two rules this script honours:
+#
+#   1. Phase 0 is BIDIRECTIONAL. A documentation fix is only done when the
+#      stale claim is gone AND the corrected claim is stated. Asserting only
+#      the absence would pass for a doc that says nothing at all — which is how
+#      the drift being fixed here survived four releases.
+#   2. A gate asserts BEHAVIOUR where it can. "A file exists" proves nothing
+#      about whether it works, so test-bearing phases run the tests.
+
+set -uo pipefail
+cd "$(dirname "$0")/.."
+
+PHASE="${1:-}"
+FAILED=0
+
+pass() { printf "  \033[32mPASS\033[0m  %s\n" "$1"; }
+fail() { printf "  \033[31mFAIL\033[0m  %s\n" "$1"; FAILED=1; }
+
+# Assert a regex is ABSENT from a file (stale claim removed).
+absent() {
+  local file="$1" pattern="$2" label="$3"
+  if [ ! -f "$file" ]; then fail "$label — missing file: $file"; return; fi
+  if grep -qiE "$pattern" "$file"; then
+    fail "$label — stale text still present in $file"
+  else
+    pass "$label"
+  fi
+}
+
+# Run ONE named test and require it to actually execute AND pass.
+#
+# This is the strongest assertion available to a shell gate, and it replaces most
+# of the greps this script used to rely on. Two failure modes it closes:
+#
+#   1. A grep for an identifier matches COMMENTS. `grep local ai_policy.rs`
+#      matched `localhost`, and `grep internal` matched
+#      `metadata.google.internal` — so deleting the entire `lan_facing_suffix`
+#      function left two of three WI-1.7 assertions green.
+#   2. `cargo test <name>` EXITS 0 WHEN NOTHING MATCHES. A renamed or deleted
+#      test therefore reads as success. So the run count is parsed and a zero is
+#      a failure, not a pass.
+run_test() {
+  local filter="$1" label="$2" out
+  out=$(cargo test --manifest-path src-tauri/Cargo.toml "$filter" -- --exact 2>&1)
+  local ran
+  ran=$(printf '%s' "$out" | grep -cE "^test $filter \.\.\. ok$")
+  if [ "$ran" -eq 0 ]; then
+    fail "$label — test '$filter' did not run (renamed or deleted?)"
+    return
+  fi
+  if printf '%s' "$out" | grep -q "test result: FAILED"; then
+    fail "$label — test '$filter' FAILED"
+    return
+  fi
+  pass "$label"
+}
+
+# Assert a regex is PRESENT in a file (corrected claim stated).
+present() {
+  local file="$1" pattern="$2" label="$3"
+  if [ ! -f "$file" ]; then fail "$label — missing file: $file"; return; fi
+  if grep -qiE "$pattern" "$file"; then
+    pass "$label"
+  else
+    fail "$label — expected text not found in $file"
+  fi
+}
+
+phase0() {
+  echo "Phase 0 — documentation reconciled with shipped reality"
+  # Stale claims gone (WI-0.1 / 0.2 / 0.3 / 0.4)...
+  absent vmark-mcp-server/src/tools/browser.ts \
+    "cookie capture is not yet implemented" "WI-0.1 MCP tool: false cookie claim removed"
+  absent src-tauri/src/browser/session_commands.rs \
+    "remaining NATIVE piece" "WI-0.3 Rust module doc: false cookie claim removed"
+  absent website/guide/browser.md \
+    "are the remaining pieces" "WI-0.2 guide: stale warning removed"
+  absent dev-docs/grills/ai-browser/limitations.md \
+    "all AI approvals are transient" "WI-0.4 limitations: blanket transience claim split"
+
+  # ...and the corrected claims actually stated (the half that stops a doc
+  # passing by saying nothing).
+  present vmark-mcp-server/src/tools/browser.ts \
+    "localStorage AND cookies" "WI-0.1 MCP tool: states real capture scope"
+  present src-tauri/src/browser/session_commands.rs \
+    "WKHTTPCookieStore" "WI-0.3 Rust module doc: states real capture scope"
+  present website/guide/browser.md \
+    "domain-scoped" "WI-0.2 guide: states real capture scope"
+  present dev-docs/grills/ai-browser/limitations.md \
+    "NAMED profile" "WI-0.4 limitations: names the persistent case"
+
+  # WI-0.5: the AI's contract must disclose the platform limit.
+  present vmark-mcp-server/src/tools/browser.ts \
+    "PLATFORM: macOS only" "WI-0.5 MCP tool: declares macOS-only"
+
+  # The sidecar description is a shipped string; it must still compile+typecheck.
+  echo "  … typechecking the sidecar"
+  if (cd vmark-mcp-server && pnpm exec tsc --noEmit >/dev/null 2>&1); then
+    pass "sidecar typechecks"
+  else
+    fail "sidecar tsc FAILED"
+  fi
+}
+
+phase1() {
+  echo "Phase 1 — regression net for the command layer"
+  # The command layer's decisions live in `mint.rs` (authorization INPUTS), extracted
+  # from `commands_auth.rs` for the same reason `authorize.rs` was: a
+  # `#[tauri::command]` takes `State<'_, _>` and cannot be unit-tested without a Tauri
+  # harness, which is cfg-gated off Windows entirely. The DoD is "these decisions are
+  # tested", not "a file with a particular name exists".
+  if [ -f src-tauri/src/browser/mint.test.rs ]; then
+    pass "WI-1.x mint.test.rs exists"
+  else
+    fail "WI-1.x mint.test.rs missing"
+  fi
+  present src-tauri/src/browser/mint.rs "mod tests" "WI-1.x mint.rs wires its test module"
+
+  # ...and the commands must actually DELEGATE to it, or the tested logic is a
+  # second copy that the shipping path never runs.
+  for fn_pair in "browser_set_grants:set_standing_grants" \
+                 "browser_add_one_shot:mint_one_shot" \
+                 "browser_ai_attach:attach_ai_tab"; do
+    cmd="${fn_pair%%:*}"; delegate="${fn_pair##*:}"
+    if awk "/pub async fn $cmd/,/^}/" src-tauri/src/browser/commands_auth.rs \
+        | grep -q "$delegate"; then
+      pass "WI-1.x $cmd delegates to $delegate"
+    else
+      fail "WI-1.x $cmd does not delegate to $delegate — tested logic is not the shipping path"
+    fi
+  done
+
+  # Behaviour, not text. Each WI names the test that proves it; the test must run
+  # AND pass, so deleting the production code fails the gate rather than leaving a
+  # grep to match a comment.
+  echo "  … running the named WI tests"
+  run_test browser::mint::tests::a_half_specified_target_is_refused_not_treated_as_targetless \
+    "WI-1.1 half-specified act target refused"
+  run_test browser::mint::tests::minting_binds_the_approved_generation_not_the_current_one \
+    "WI-1.2 one-shot binds the APPROVED generation"
+  run_test browser::mint::tests::attaching_a_non_human_tab_is_refused \
+    "WI-1.3 attach refuses a non-human tab"
+  run_test browser::authorize::tests::freshness_fails_once_the_page_navigates_under_a_running_command \
+    "WI-1.4 post-capture freshness re-check"
+  run_test browser::mint::tests::an_approved_payload_cannot_be_spent_on_a_substituted_one \
+    "WI-1.5 approved payload cannot be substituted"
+  run_test browser::mint::tests::an_unenforceable_grant_pattern_is_refused_like_a_one_shot_is \
+    "WI-1.6 standing grants validate origin patterns"
+  run_test browser::mint::tests::a_refused_batch_clears_rather_than_retaining_prior_authority \
+    "WI-1.6 a rejected grant batch fails CLOSED"
+  run_test browser::ai_policy::tests::rejects_lan_facing_name_suffixes_regardless_of_loopback_opt_in \
+    "WI-1.7 LAN-facing suffixes blocked"
+  run_test browser::ai_policy::tests::public_hostnames_that_merely_contain_the_suffixes_are_still_allowed \
+    "WI-1.7 public look-alikes still navigable"
+
+  echo "  … running the whole browser suite"
+  if cargo test --manifest-path src-tauri/Cargo.toml browser:: --quiet >/dev/null 2>&1; then
+    pass "cargo test browser:: green"
+  else
+    fail "cargo test browser:: RED"
+  fi
+}
+
+phase2() {
+  echo "Phase 2 — browser_eval residual race resolved"
+  if grep -rqF "tracked as a follow-up" src-tauri/src/browser/; then
+    fail "WI-2.3 'tracked as a follow-up' still present — race neither fixed nor accepted"
+  else
+    pass "WI-2.3 no orphaned follow-up claim in browser/"
+  fi
+  # Both sides of the platform split must carry the parameter. The earlier version
+  # of this check grepped surface.rs, which held only the STUB — so it would have
+  # passed on a stub-only signature while the real macOS eval had none. Signature
+  # PARITY is the invariant; a drift compiles on macOS and breaks Windows/Linux.
+  for f in eval_macos.rs surface_stub.rs; do
+    if grep -qE "expected_generation" "src-tauri/src/browser/$f"; then
+      pass "WI-2.1 eval takes an expected generation ($f)"
+    else
+      fail "WI-2.1 eval has no generation parameter in $f"
+    fi
+  done
+  # ...and the ordering must live in the TESTABLE seam, not inline in the closure
+  # where deleting it left every test green (audit).
+  # Scoped to the `eval` BODY, not the whole file. [Audit Medium] A bare grep
+  # matches the explanatory comment above the call, so the actual call could be
+  # replaced with a direct unguarded `submit_js` and the gate would stay green.
+  if awk '/^pub fn eval\(/,/^\}/' src-tauri/src/browser/eval_macos.rs \
+       | grep -q "submit_if_fresh(" \
+     && grep -q "pub(crate) fn submit_if_fresh" src-tauri/src/browser/authorize.rs; then
+    pass "WI-2.2 eval() actually routes through the guarded seam"
+  else
+    fail "WI-2.2 eval() bypasses authorize::submit_if_fresh"
+  fi
+  # The ordering invariant, proved by behaviour: the dispatch must NEVER RUN on a
+  # stale command. A grep for `submit_if_fresh` would match the comment above it.
+  echo "  … running the named WI tests"
+  run_test browser::authorize::tests::a_stale_generation_never_reaches_the_enqueue \
+    "WI-2.1 stale generation never reaches the dispatch"
+  run_test browser::authorize::tests::a_destroyed_tab_never_reaches_the_enqueue \
+    "WI-2.2 destroyed tab never reaches the dispatch"
+  run_test browser::authorize::tests::a_policy_epoch_change_never_reaches_the_enqueue \
+    "WI-2.2 superseded policy never reaches the dispatch"
+  run_test browser::authorize::tests::a_concurrent_mutation_cannot_land_between_the_check_and_the_submit \
+    "WI-2.2 concurrent mutation cannot interleave (the real race)"
+}
+
+phase3() {
+  echo "Phase 3 — E2E harness capability"
+  for m in fixtureServer vmarkMcp browserApproval browser; do
+    if [ -f "e2e/lib/$m.mjs" ]; then pass "WI-3.x e2e/lib/$m.mjs"; else fail "WI-3.x e2e/lib/$m.mjs missing"; fi
+  done
+  # WI-3.0: platform-aware skips, so a macOS-only journey is not read as lost coverage.
+  if grep -q "platforms" e2e/run-journeys.mjs; then
+    pass "WI-3.0 runner honours a journey 'platforms' field"
+  else
+    fail "WI-3.0 runner has no 'platforms' field — macOS-only journeys would fail the suite off-macOS"
+  fi
+  # ADR-BR1: rebuild, don't merely locate, the sidecar.
+  if grep -qE "build:sidecar|buildSidecar|tsc" e2e/lib/vmarkMcp.mjs 2>/dev/null; then
+    pass "ADR-BR1 harness rebuilds the sidecar from the working tree"
+  else
+    fail "ADR-BR1 harness does not rebuild the sidecar — would silently test a stale dist/"
+  fi
+  # The fixture server must ship oracles, not just pages.
+  if grep -qE "count|hits" e2e/lib/fixtureServer.mjs 2>/dev/null; then
+    pass "ADR-BR3 fixture server exposes request counters"
+  else
+    fail "ADR-BR3 fixture server has no request counters — SSRF/act oracles would be unfalsifiable"
+  fi
+}
+
+# An explicit manifest, not a count. Counting filenames let a rename silently
+# change what the gate measured — and because phases 4/5 were never actually run,
+# the drift went unnoticed while the other phases were reported green.
+UI_JOURNEYS="browser-tab-lifecycle browser-chrome-controls browser-no-bridge browser-occlusion"
+AUTOMATION_JOURNEYS="browser-disabled-refuses browser-open-read-act browser-ssrf-policy \
+browser-approval-scoping browser-redirect-ssrf browser-approval-invalidation \
+browser-session-roundtrip"
+
+# A journey must exist, export the name it claims, and be coverageRequired —
+# otherwise it can silently skip and still count as coverage.
+assert_journey() {
+  local name="$1"
+  local file
+  file=$(grep -rl "name: \"$name\"" e2e/journeys/ 2>/dev/null | head -1)
+  if [ -z "$file" ]; then fail "journey '$name' not found"; return; fi
+  if ! grep -q "coverageRequired: true" "$file"; then
+    fail "journey '$name' is not coverageRequired — it could skip and still read as covered"
+    return
+  fi
+  pass "journey '$name' present and coverageRequired"
+}
+
+phase4() {
+  echo "Phase 4 — browser UI E2E (Tauri bridge)"
+  for j in $UI_JOURNEYS; do assert_journey "$j"; done
+  echo "  note: B13 partial (stop unasserted); B14 covers the freeze PRIMITIVE, not the overlay path"
+}
+
+phase5() {
+  echo "Phase 5 — browser automation E2E (sidecar)"
+  for j in $AUTOMATION_JOURNEYS; do assert_journey "$j"; done
+}
+
+phase6() {
+  echo "Phase 6 — gate wired"
+  if [ -f dev-docs/e2e-browser-matrix.md ]; then
+    pass "WI-6.1 e2e-browser-matrix.md exists"
+  else
+    fail "WI-6.1 e2e-browser-matrix.md missing"
+  fi
+  # The Tier-0 matrix's contract is document corruption only; browser rows must
+  # NOT land there (it declares AI surfaces a separate lane).
+  if grep -qiE "^\| I[0-9]+ \|.*browser" dev-docs/e2e-tier0-matrix.md; then
+    fail "WI-6.1 browser rows added to the Tier-0 matrix — violates its stated scope"
+  else
+    pass "WI-6.1 Tier-0 matrix scope preserved"
+  fi
+  # WI-6.2 — automated rows marked in the manual checklist, so a reader can tell
+  # which lines still need a human. This was MISSED on the first pass: the gate
+  # asserted only WI-6.1 and WI-6.3 and therefore reported Phase 6 PASS while two
+  # of its four work items were untouched. A phase gate that checks a subset of its
+  # own phase is the exact failure rule 60 §10 describes — a green signal standing
+  # in for work that never happened.
+  present dev-docs/grills/ai-browser/e2e-checklist.md \
+    "\[AUTOMATED" "WI-6.2 automated checklist rows marked"
+  present dev-docs/grills/ai-browser/e2e-checklist.md \
+    "still manual" "WI-6.2 unmarked rows stated to be still manual"
+
+  # WI-6.3 must be a decision, not an open question.
+  # ONE canonical phrase, not an alternation. An alternation is structurally weak
+  # in a gate: every branch independently keeps it green, so deleting half the
+  # claim still passes. The self-test caught exactly that here — removing "local
+  # pre-release gate" left "not a CI gate" matching, and the assertion stayed green
+  # while the decision it guards was half-erased.
+  present dev-docs/e2e-browser-matrix.md \
+    "local pre-release gate, not a CI gate" "WI-6.3 CI/local decision recorded verbatim"
+
+  # Rule 20: one source of truth per topic, linked from the dev-docs index.
+  present dev-docs/README.md \
+    "e2e-browser-matrix" "matrix linked from dev-docs/README.md"
+
+  # WI-6.4 is NOT done. It is asserted as explicitly deferred rather than silently
+  # skipped, so the phase cannot read as complete while it is outstanding.
+  present dev-docs/plans/20260726-browser-hardening-and-e2e.md \
+    "WI-6.4 \| DEFERRED" "WI-6.4 status is explicit (deferred, not silently dropped)"
+}
+
+case "$PHASE" in
+  0) phase0 ;;
+  1) phase1 ;;
+  2) phase2 ;;
+  3) phase3 ;;
+  4) phase4 ;;
+  5) phase5 ;;
+  6) phase6 ;;
+  *) echo "usage: bash scripts/check-browser-e2e-phase.sh <0..6>"; exit 2 ;;
+esac
+
+echo
+if [ "$FAILED" -eq 0 ]; then
+  echo "Phase $PHASE: PASS"
+else
+  echo "Phase $PHASE: FAIL"
+fi
+exit "$FAILED"

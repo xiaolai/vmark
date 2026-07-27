@@ -155,18 +155,18 @@ describe("WorkspaceRail", () => {
     expect(glyphOf("beta")).toBe("B");
   });
 
-  it("gives colliding initials distinct glyphs", () => {
+  it("keeps colliding initials at one character each", () => {
     setRailMode(true);
     addInstance("main", "wsi-a", "/Users/xiaolai/alpha");
     addInstance("main", "wsi-b", "/Users/xiaolai/apex");
 
     render(<WorkspaceRail windowLabel="main" />);
 
-    expect(screen.getByRole("button", { name: "Activate alpha" })).toHaveTextContent("AL");
-    expect(screen.getByRole("button", { name: "Activate apex" })).toHaveTextContent("AP");
+    expect(screen.getByRole("button", { name: "Activate alpha" })).toHaveTextContent("A");
+    expect(screen.getByRole("button", { name: "Activate apex" })).toHaveTextContent("A");
   });
 
-  it("leaves a non-colliding workspace at one character", () => {
+  it("leaves every workspace at one character, colliding or not", () => {
     setRailMode(true);
     addInstance("main", "wsi-z", "/Users/xiaolai/zulu");
     addInstance("main", "wsi-a", "/Users/xiaolai/alpha");
@@ -174,10 +174,11 @@ describe("WorkspaceRail", () => {
 
     render(<WorkspaceRail windowLabel="main" />);
 
-    // Only alpha/apex collide; zulu must not be lengthened on their account.
+    // No glyph is ever lengthened, even when two collide: the full name is
+    // already carried by the accessible name, the tooltip and the accent colour.
     expect(screen.getByRole("button", { name: "Activate zulu" })).toHaveTextContent("Z");
-    expect(screen.getByRole("button", { name: "Activate alpha" })).toHaveTextContent("AL");
-    expect(screen.getByRole("button", { name: "Activate apex" })).toHaveTextContent("AP");
+    expect(screen.getByRole("button", { name: "Activate alpha" })).toHaveTextContent("A");
+    expect(screen.getByRole("button", { name: "Activate apex" })).toHaveTextContent("A");
   });
 
   it("keeps the full workspace name as the accessible name, not the glyph", () => {
