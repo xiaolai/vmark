@@ -143,9 +143,30 @@ The hook is enabled by `git config core.hooksPath .githooks`, which the root
 `package.json` `prepare` script applies on `pnpm install` (no husky
 dependency). Overriding it (`git push --no-verify`) falls under §9.
 
-**Residual control (owner-only, GitHub settings — not enforceable from the
-repo):** to close the bypass entirely, enable branch protection on `main`
-with *Require a pull request before merging*, *Require status checks to pass*
-(`frontend`, `rust`), and *Do not allow bypassing the above settings* / no
-direct-push allowance for admins. Until that is set, the `pre-push` hook is
-the only thing standing between a red local gate and `origin/main`.
+**Residual control — ENABLED 2026-07-27.** The hook was never the whole story:
+`main` had required status checks (`frontend`, `rust`) but `enforce_admins:
+false`, so an owner push sailed past them with
+`remote: Bypassed rule violations for refs/heads/main`. The v0.9.15 push did
+exactly that, and CI then went red on a Windows-only test assertion the local
+gate cannot see (`check-cross-target.sh` COMPILES for Windows; it does not run
+the suite there).
+
+`main` now carries:
+- required status checks `frontend` + `rust`,
+- `enforce_admins: true` — admins are subject to them,
+- a pull request required before merging, with
+  `required_approving_review_count: 0` so a solo maintainer can self-merge once
+  the checks are green,
+- deletions blocked, and force-push blocked by the separate `main-no-force-push`
+  ruleset (`bypass_actors: []`, `current_user_can_bypass: "never"`).
+
+**Consequence for releases:** a direct `git push origin main` of a new commit is
+now REJECTED — required checks cannot have passed on a commit the remote has
+never seen. The bump must go through a PR; see `40-version-bump.md`. Tag pushes
+are unaffected, so the release trigger is unchanged.
+
+To inspect or revert:
+```bash
+gh api repos/xiaolai/vmark/branches/main/protection
+gh api -X DELETE repos/xiaolai/vmark/branches/main/protection   # removes it entirely
+```
