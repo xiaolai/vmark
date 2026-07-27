@@ -27,6 +27,8 @@
     "moveTo": "移至...",
     "delete": "删除",
     "copyPath": "复制路径",
+    "openTerminalHere": "在此处打开终端",
+    "openTerminalHereMax": "在此处打开终端（最多 5 个会话）",
     "revealInFinder": "在 Finder 中显示",
     "showInExplorer": "在文件管理器中显示",
     "showInFileManager": "在文件管理器中显示",

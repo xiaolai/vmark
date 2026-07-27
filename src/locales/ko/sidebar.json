@@ -27,6 +27,8 @@
     "moveTo": "이동...",
     "delete": "삭제",
     "copyPath": "경로 복사",
+    "openTerminalHere": "여기서 터미널 열기",
+    "openTerminalHereMax": "여기서 터미널 열기 (최대 5개 세션)",
     "revealInFinder": "Finder에서 보기",
     "showInExplorer": "탐색기에서 보기",
     "showInFileManager": "파일 관리자에서 보기",

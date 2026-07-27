@@ -85,6 +85,7 @@
     "fileMovedCantDeleteOriginal": "檔案已儲存至新位置，但無法刪除原始檔案",
     "failedToOpenFile": "無法開啟檔案：{{error}}",
     "failedToOpen": "無法開啟 {{filename}}",
+    "operationFailed": "無法完成此操作",
     "quarantineCleared_one": "已清除此工作區中 1 個 Markdown 檔案的 macOS 隔離標記。",
     "quarantineCleared_other": "已清除此工作區中 {{count}} 個 Markdown 檔案的 macOS 隔離標記。",
     "quarantineClearedDesc": "macOS 會在某些應用程式下載的檔案上加上一個標記，導致 VMark 執行時 Finder 雙擊開啟會被靜默攔截。VMark 已為你清除該標記，讓這些檔案可以正常開啟。可在設定 → 進階中關閉。",

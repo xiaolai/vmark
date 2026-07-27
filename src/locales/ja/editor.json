@@ -195,6 +195,7 @@
   "plugin.resetZoom": "Reset zoom",
   "plugin.fitToView": "Fit to view",
   "plugin.copySource": "Copy source code",
+  "plugin.runInTerminal": "ターミナルで実行",
   "plugin.searchLanguages": "言語を検索...",
   "plugin.cancel": "Cancel (Esc)",
   "plugin.save": "Save",
