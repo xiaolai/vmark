@@ -28,6 +28,8 @@
     "moveToTitle": "Move \"{{name}}\" to...",
     "delete": "Delete",
     "copyPath": "Copy Path",
+    "openTerminalHere": "Open Terminal Here",
+    "openTerminalHereMax": "Open Terminal Here (max 5 sessions)",
     "revealInFinder": "Reveal in Finder",
     "showInExplorer": "Show in Explorer",
     "showInFileManager": "Show in File Manager",
