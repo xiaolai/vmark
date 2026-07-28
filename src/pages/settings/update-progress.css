@@ -1,0 +1,32 @@
+/**
+ * Update download progress bar.
+ *
+ * The indeterminate state is a travelling sliver rather than a full-width
+ * fill. A 100%-wide bar reads as "finished", and the download genuinely passes
+ * through an indeterminate window: `useUpdateOperations` writes
+ * `{ downloaded: 0, total: null }` before Tauri's `Started` event delivers
+ * Content-Length, so the bar showed full and then snapped back to 0%.
+ */
+
+.update-progress-fill--indeterminate {
+  /* Narrow enough to read as "in progress", not "complete". */
+  width: 40%;
+  animation: update-progress-slide var(--duration-1-5s) ease-in-out infinite;
+}
+
+@keyframes update-progress-slide {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    /* Container width / sliver width = 100 / 40 = 250% carries it fully across. */
+    transform: translateX(250%);
+  }
+}
+
+/* Honour reduced-motion: keep the sliver visible but stop it travelling. */
+@media (prefers-reduced-motion: reduce) {
+  .update-progress-fill--indeterminate {
+    animation: none;
+  }
+}
