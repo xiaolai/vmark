@@ -20,8 +20,10 @@ vi.mock("@/services/persistence/workspaceStorage", () => ({
 const writeMock = vi.fn<(path: string, content: string) => Promise<void>>(
   async () => undefined,
 );
+const existsMock = vi.fn<(path: string) => Promise<boolean>>(async () => false);
 vi.mock("@tauri-apps/plugin-fs", () => ({
   writeTextFile: (path: string, content: string) => writeMock(path, content),
+  exists: (path: string) => existsMock(path),
 }));
 
 const registerPendingSaveMock = vi.fn(() => 7);
@@ -81,6 +83,7 @@ beforeEach(() => {
   });
   useDocumentStore.setState({ documents: {} });
   checkBridgePathMock.mockResolvedValue({ allowed: true });
+  existsMock.mockResolvedValue(false);
   const s = useSettingsStore.getState();
   useSettingsStore.setState({
     advanced: {
@@ -202,5 +205,110 @@ describe("save_as write failure and success contract", () => {
     expect(doc.filePath).toBe("/tmp/renamed.md");
     expect(doc.isDirty).toBe(false);
     expect(writeMock).toHaveBeenCalledWith("/tmp/renamed.md", "edited");
+  });
+});
+
+// WI-5 — `autoApproveEdits` authorises saving to a NEW location. It must not
+// authorise destroying an EXISTING distinct file: the bridge's allowed roots
+// include the parent directory of every open document, so an auto-approved
+// save_as could silently overwrite any sibling of any open file.
+describe("save_as overwrite protection", () => {
+  it("refuses to clobber an existing distinct file even when autoApproveEdits is on", async () => {
+    seedTab("tab-1", "/ws/original.md");
+    useDocumentStore.getState().initDocument("tab-1", "body", "/ws/original.md");
+    existsMock.mockResolvedValue(true);
+
+    await handleWorkspaceSaveAs("req-clobber", { filePath: "/ws/victim.md" });
+
+    const r = lastRespond();
+    expect(r.success).toBe(false);
+    expect(structuredError()).toMatchObject({ error: "APPROVAL_REQUIRED" });
+    expect(writeMock).not.toHaveBeenCalled();
+  });
+
+  it("names the file that would be destroyed so the agent can report it", async () => {
+    seedTab("tab-1", "/ws/original.md");
+    useDocumentStore.getState().initDocument("tab-1", "body", "/ws/original.md");
+    existsMock.mockResolvedValue(true);
+
+    await handleWorkspaceSaveAs("req-msg", { filePath: "/ws/victim.md" });
+
+    expect(structuredError().message).toContain("victim.md");
+  });
+
+  it("still allows save_as to the tab's own path when the file exists", async () => {
+    // Saving over yourself is a save, not a clobber.
+    seedTab("tab-1", "/ws/original.md");
+    useDocumentStore.getState().initDocument("tab-1", "body", "/ws/original.md");
+    existsMock.mockResolvedValue(true);
+
+    await handleWorkspaceSaveAs("req-self", { filePath: "/ws/original.md" });
+
+    expect(lastRespond().success).toBe(true);
+    expect(writeMock).toHaveBeenCalledWith("/ws/original.md", "body");
+  });
+
+  it("allows save_as to a genuinely new path", async () => {
+    seedTab("tab-1", "/ws/original.md");
+    useDocumentStore.getState().initDocument("tab-1", "body", "/ws/original.md");
+    existsMock.mockResolvedValue(false);
+
+    await handleWorkspaceSaveAs("req-new", { filePath: "/ws/fresh.md" });
+
+    expect(lastRespond().success).toBe(true);
+    expect(writeMock).toHaveBeenCalledWith("/ws/fresh.md", "body");
+  });
+
+  it("checks existence only after the path guard admits the target", async () => {
+    seedTab("tab-1", "/ws/original.md");
+    useDocumentStore.getState().initDocument("tab-1", "body", "/ws/original.md");
+    checkBridgePathMock.mockResolvedValue({ allowed: false, reason: "outside roots" });
+
+    await handleWorkspaceSaveAs("req-order", { filePath: "/etc/passwd" });
+
+    expect(existsMock).not.toHaveBeenCalled();
+    expect(writeMock).not.toHaveBeenCalled();
+  });
+});
+
+// `getFileName(path) || fallback` appears three times — in the approval toast,
+// in the overwrite refusal, and in the tab title. A path with no basename is
+// the only input that exercises the right-hand side, and it must not produce
+// an empty toast or a blank tab.
+describe("save_as with a path that has no filename component", () => {
+  it("names the whole path in the overwrite refusal", async () => {
+    seedTab("tab-1", "/ws/original.md");
+    useDocumentStore.getState().initDocument("tab-1", "body", "/ws/original.md");
+    existsMock.mockResolvedValue(true);
+
+    await handleWorkspaceSaveAs("req-noname", { filePath: "/" });
+
+    expect(lastRespond().success).toBe(false);
+    expect(structuredError().message).toContain("/");
+  });
+
+  it("falls back to Untitled for the tab title", async () => {
+    seedTab("tab-1", null);
+    useDocumentStore.getState().initDocument("tab-1", "body", null);
+    existsMock.mockResolvedValue(false);
+
+    await handleWorkspaceSaveAs("req-title", { filePath: "/" });
+
+    expect(lastRespond().success).toBe(true);
+    expect(useTabStore.getState().tabs.main[0].title).toBe("Untitled");
+  });
+
+  it("names the whole path in the approval toast when auto-approve is off", async () => {
+    const s = useSettingsStore.getState();
+    useSettingsStore.setState({
+      advanced: { ...s.advanced, mcpServer: { ...s.advanced.mcpServer, autoApproveEdits: false } },
+    });
+    seedTab("tab-1", "/ws/original.md");
+    useDocumentStore.getState().initDocument("tab-1", "body", "/ws/original.md");
+
+    await handleWorkspaceSaveAs("req-toast", { filePath: "/" });
+
+    expect(structuredError()).toMatchObject({ error: "APPROVAL_REQUIRED" });
+    expect(warningToastMock).toHaveBeenCalled();
   });
 });

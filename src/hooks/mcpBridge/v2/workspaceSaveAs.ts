@@ -2,10 +2,15 @@
  * Purpose: `vmark.workspace.save_as` handler.
  *
  * Kept separate from `workspace.ts` because save-as carries the bridge's
- * approval and path-boundary policy.
+ * approval, path-boundary and overwrite policy.
+ *
+ * Key decision: `autoApproveEdits` authorises saving to a NEW location, never
+ * destroying an existing one. The allowed roots include the parent directory
+ * of every open document, so without that split an auto-approved save_as
+ * could silently overwrite any sibling of any open file (audit 20260728 §1.5).
  */
 
-import { writeTextFile } from "@tauri-apps/plugin-fs";
+import { exists, writeTextFile } from "@tauri-apps/plugin-fs";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore, useRevisionStore } from "@/stores/documentStore";
 import { useSettingsStore } from "@/stores/settingsStore";
@@ -91,6 +96,26 @@ export async function handleWorkspaceSaveAs(
         error: "APPROVAL_REQUIRED",
         message:
           "Saving to a new location requires user approval (autoApproveEdits is off)",
+      });
+      return;
+    }
+
+    // WI-5: `autoApproveEdits` authorises saving to a NEW location — it does
+    // not authorise destroying an existing one. The bridge's allowed roots
+    // include the parent directory of every open document, so without this an
+    // auto-approved save_as could silently overwrite any sibling of any open
+    // file. Saving over the tab's own path is a save, not a clobber.
+    if (!sameOpenPath && (await exists(filePath))) {
+      const name = getFileName(filePath) || filePath;
+      imeToast.warning(
+        i18n.t("dialog:toast.mcpApprovalRequired", { filename: name }),
+      );
+      await structuredError(id, {
+        error: "APPROVAL_REQUIRED",
+        message:
+          `Refusing to overwrite the existing file ${name}. ` +
+          `save_as will not replace a file that is not the tab's own path. ` +
+          `Choose a different filePath, or have the user open ${name} and save over it deliberately.`,
       });
       return;
     }

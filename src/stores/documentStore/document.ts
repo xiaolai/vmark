@@ -16,42 +16,17 @@
 import { create } from "zustand";
 import type { CursorInfo } from "@/types/cursorSync";
 import type { HardBreakStyle, LineEnding } from "@/utils/linebreakDetection";
-import { softContentEquals } from "@/utils/linebreaks";
+import type { DocumentState } from "./documentState";
+import {
+  buildPostSaveState,
+  createInitialDocument,
+  updateDoc,
+} from "./documentState";
+import { useRevisionStore } from "./revision";
 
 // Re-export for backwards compatibility
 export type { CursorInfo } from "@/types/cursorSync";
-
-/** Per-tab document state — content snapshots, dirty tracking, file path, and external-change flags. */
-export interface DocumentState {
-  content: string;
-  savedContent: string;
-  /** Content as written to disk (post-normalization). Used for external-change detection. */
-  lastDiskContent: string;
-  filePath: string | null;
-  isDirty: boolean;
-  documentId: number;
-  cursorInfo: CursorInfo | null;
-  /** Currently selected text in the active editor; empty when no selection. */
-  selectedText: string;
-  lastAutoSave: number | null;
-  /** True when the file was deleted externally - show warning UI */
-  isMissing: boolean;
-  /** True when user chose "Keep my changes" after external modification - local differs from disk */
-  isDivergent: boolean;
-  /** True when document is in read-only mode — blocks new edits but allows save */
-  readOnly: boolean;
-  lineEnding: LineEnding;
-  hardBreakStyle: HardBreakStyle;
-  /**
-   * Per-document editor mode (ADR-009). Defaults to "wysiwyg"; the
-   * window-scoped `useUIStore.sourceMode` is the public toggle and is
-   * mirrored into the active document's mode on toggle. Persisting
-   * per-doc mode makes "two tabs in one window, different modes" a
-   * representable state; selectors layered on top of this enable
-   * future per-tab mode switching without further schema changes.
-   */
-  mode: "wysiwyg" | "source";
-}
+export type { DocumentState } from "./documentState";
 
 interface DocumentStore {
   // Documents keyed by tab ID (changed from window label)
@@ -121,59 +96,31 @@ export function setTabExistenceGuard(fn: ((tabId: string) => boolean) | null): v
   tabExistsGuard = fn;
 }
 
-const createInitialDocument = (content = "", filePath: string | null = null): DocumentState => ({
-  content,
-  savedContent: content,
-  lastDiskContent: content,
-  filePath,
-  isDirty: false,
-  documentId: 0,
-  cursorInfo: null,
-  selectedText: "",
-  lastAutoSave: null,
-  isMissing: false,
-  isDivergent: false,
-  readOnly: false,
-  lineEnding: "unknown",
-  hardBreakStyle: "unknown",
-  mode: "wysiwyg",
-});
-
 /**
- * Helper to update a document by tabId. Returns unchanged state if the
- * document doesn't exist.
+ * WI-1: invalidate the MCP revision whenever a tab's content actually changes.
+ *
+ * This is the single choke point every content writer passes through. Wiring
+ * the bump into the Tiptap transaction listener alone left CodeMirror source
+ * mode, the split-pane source editor, the workflow side panel, external-file
+ * reloads and history restore able to change content while an already-read
+ * revision stayed valid — so an AI write carrying it passed the STALE check
+ * and clobbered the user's edits.
+ *
+ * Both `setContent` and `loadContent` route through here: they replace content
+ * for different reasons (edit vs. reload) but have identical revision
+ * semantics, and keeping one primitive is what stops them drifting apart
+ * again. Guarded on a real change so a no-op write — the RAF-debounced Tiptap
+ * flush re-serializes and re-sets identical content on every update — cannot
+ * manufacture a false STALE.
  */
-function updateDoc(
-  state: { documents: Record<string, DocumentState> },
+function bumpRevisionIfContentChanged(
   tabId: string,
-  updater: (doc: DocumentState) => Partial<DocumentState>
-): { documents: Record<string, DocumentState> } {
-  const doc = state.documents[tabId];
-  if (!doc) return state;
-  return {
-    documents: {
-      ...state.documents,
-      [tabId]: { ...doc, ...updater(doc) },
-    },
-  };
-}
-
-/**
- * Compute post-save state, comparing written disk content against current
- * editor content to catch TOCTOU races (user edits during an async save).
- * `softContentEquals` because `doc.content` is LF but `diskContent` is
- * `saveToPath`'s EOL-normalized output — a strict compare never matched for a
- * CRLF doc, leaving its tab dirty forever. `savedContent`/`lastDiskContent`
- * keep the REAL bytes. See __tests__/postSaveDirtyState.test.ts.
- */
-function buildPostSaveState(doc: DocumentState, lastDiskContent: string | undefined) {
-  const diskContent = lastDiskContent ?? doc.content;
-  return {
-    savedContent: diskContent,
-    lastDiskContent: diskContent,
-    isDirty: !softContentEquals(doc.content, diskContent),
-    isDivergent: false,
-  };
+  previous: string | undefined,
+  next: string
+): void {
+  if (previous !== undefined && previous !== next) {
+    useRevisionStore.getState().updateRevision(tabId);
+  }
 }
 
 /** Manages per-tab document content, dirty tracking, and external-change detection. Use selectors, not destructuring. */
@@ -198,15 +145,19 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
     }));
   },
 
-  setContent: (tabId, content) =>
+  setContent: (tabId, content) => {
+    const previous = get().documents[tabId]?.content;
     set((state) =>
       updateDoc(state, tabId, (doc) => ({
         content,
         isDirty: doc.savedContent !== content,
       }))
-    ),
+    );
+    bumpRevisionIfContentChanged(tabId, previous, content);
+  },
 
-  loadContent: (tabId, content, filePath, meta) =>
+  loadContent: (tabId, content, filePath, meta) => {
+    const previous = get().documents[tabId]?.content;
     set((state) =>
       updateDoc(state, tabId, (doc) => ({
         content,
@@ -220,7 +171,9 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
         lineEnding: meta?.lineEnding ?? doc.lineEnding,
         hardBreakStyle: meta?.hardBreakStyle ?? doc.hardBreakStyle,
       }))
-    ),
+    );
+    bumpRevisionIfContentChanged(tabId, previous, content);
+  },
 
   setFilePath: (tabId, path) =>
     set((state) => updateDoc(state, tabId, () => ({ filePath: path }))),
