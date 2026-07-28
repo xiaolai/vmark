@@ -268,6 +268,46 @@ errors:
   mcp.spawnInProgress: "MCP サイドカーの起動がすでに進行中です"
   mcp.configMismatch: "設定の検証に失敗しました: 書き込まれた内容が想定と一致しません"
 
+  # MCP client config — provider and sidecar binary resolution
+  mcp.unknownProvider: "不明なプロバイダーです: %{provider}"
+  mcp.noHomeDir: "ホームディレクトリを特定できません"
+  mcp.exePathFailed: "実行ファイルのパスを取得できません: %{detail}"
+  mcp.exeDirFailed: "実行ファイルのディレクトリを取得できません"
+  mcp.binaryNotFound: "MCP サーバーのバイナリが見つかりません: %{name}。VMark を再インストールしてください。"
+
+  # MCP client config — parsing and structure
+  mcp.invalidJson: "JSON が無効です: %{detail}"
+  mcp.invalidToml: "TOML が無効です: %{detail}"
+  mcp.jsonSerializeFailed: "JSON のシリアライズエラー: %{detail}"
+  mcp.invalidJsonStructure: "JSON の構造が無効です"
+  mcp.serversNotObject: "mcpServers がオブジェクトではありません"
+  mcp.serversNotTable: "mcp_servers がテーブルではありません"
+  mcp.vmarkEntryNotObject: "mcpServers.vmark がオブジェクトではありません"
+  mcp.vmarkEntryNotTable: "mcp_servers.vmark がテーブルではありません"
+  mcp.envNotObject: "mcpServers.vmark.env がオブジェクトではありません"
+  mcp.envNotTable: "mcp_servers.vmark.env がテーブルではありません"
+
+  # MCP ブリッジ — 認可プリンシパルが結び付くクライアント資格情報
+  mcp.principalMissing: "この AI クライアントは VMark の資格情報を提示しなかったため、委任された操作を拒否しました。「設定 > 連携」を開いてインストールを実行し、クライアントを再起動してください。"
+  mcp.principalUnknown: "この AI クライアントが提示した資格情報は VMark に登録されていないため、委任された操作を拒否しました。「設定 > 連携」を開いてインストールを実行し、クライアントを再起動してください。"
+  mcp.principalAmbiguous: "この AI クライアントが提示した資格情報は複数のクライアント（%{detail}）に設定されているため、VMark は区別できません。「設定 > 連携」を開いてそれぞれにインストールを実行し、再起動してください。"
+
+  # MCP client config — reading, backing up and writing
+  mcp.readFailed: "%{path} の読み込みに失敗しました: %{detail}"
+  mcp.createDirFailed: "ディレクトリ %{path} の作成に失敗しました: %{detail}"
+  mcp.configChangedOnDisk: "VMark が更新している間に %{path} がディスク上で変更されました。書き込んでいるクライアントを終了してから再試行してください。"
+  mcp.backupWriteFailed: "バックアップ %{path} の書き込みに失敗しました: %{detail}"
+  mcp.backupFlushFailed: "バックアップ %{path} のフラッシュに失敗しました: %{detail}"
+  mcp.backupSyncFailed: "バックアップ %{path} の同期に失敗しました: %{detail}"
+  mcp.backupCreateFailed: "バックアップ %{path} の作成に失敗しました: %{detail}"
+  mcp.backupVariantsExhausted: "バックアップを作成できません: %{path} のバリアントがすでに %{count} 個存在します"
+  mcp.stageConfigFailed: "%{dir} での設定の一時ファイル作成に失敗しました: %{detail}"
+  mcp.restrictStagedConfigFailed: "一時設定ファイル %{path} の権限を制限できませんでした: %{detail}"
+  mcp.writeStagedConfigFailed: "%{path} 用の一時設定ファイルの書き込みに失敗しました: %{detail}"
+  mcp.createConfigFailed: "%{path} を作成できません: 一時コピーをハードリンクで配置できず（%{link_detail}）、ファイルを直接作成することもできませんでした（%{open_detail}）。"
+  mcp.writeConfigPartialRemoved: "%{path} の書き込みに失敗しました: %{detail}（不完全なファイルは削除されました）"
+  mcp.writeConfigPartialOrphaned: "%{path} の書き込みに失敗しました: %{detail}。不完全なファイルも削除できませんでした（%{cleanup_detail}）。再試行する前に手動で削除してください。そのままでは次回のインストールで破損した設定として読み込まれます。"
+
 window:
   settings.title: "設定"
 

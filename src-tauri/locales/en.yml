@@ -269,6 +269,46 @@ errors:
   mcp.spawnInProgress: "MCP sidecar spawn already in progress"
   mcp.configMismatch: "Config validation failed: written content does not match"
 
+  # MCP client config — provider and sidecar binary resolution
+  mcp.unknownProvider: "Unknown provider: %{provider}"
+  mcp.noHomeDir: "Cannot determine home directory"
+  mcp.exePathFailed: "Cannot get executable path: %{detail}"
+  mcp.exeDirFailed: "Cannot get executable directory"
+  mcp.binaryNotFound: "MCP server binary not found: %{name}. Please reinstall VMark."
+
+  # MCP client config — parsing and structure
+  mcp.invalidJson: "Invalid JSON: %{detail}"
+  mcp.invalidToml: "Invalid TOML: %{detail}"
+  mcp.jsonSerializeFailed: "JSON serialization error: %{detail}"
+  mcp.invalidJsonStructure: "Invalid JSON structure"
+  mcp.serversNotObject: "mcpServers is not an object"
+  mcp.serversNotTable: "mcp_servers is not a table"
+  mcp.vmarkEntryNotObject: "mcpServers.vmark is not an object"
+  mcp.vmarkEntryNotTable: "mcp_servers.vmark is not a table"
+  mcp.envNotObject: "mcpServers.vmark.env is not an object"
+  mcp.envNotTable: "mcp_servers.vmark.env is not a table"
+
+  # MCP bridge — the per-client credential the authorization principal binds to
+  mcp.principalMissing: "This AI client did not present a VMark credential, so delegated actions are refused. Open Settings > Integrations, run Install for it, then restart the client."
+  mcp.principalUnknown: "The credential this AI client presented is not one VMark has on file, so delegated actions are refused. Open Settings > Integrations, run Install for it, then restart the client."
+  mcp.principalAmbiguous: "The credential this AI client presented is configured for more than one client (%{detail}), so VMark cannot tell them apart. Open Settings > Integrations, run Install for each of them, then restart them."
+
+  # MCP client config — reading, backing up and writing
+  mcp.readFailed: "Failed to read %{path}: %{detail}"
+  mcp.createDirFailed: "Failed to create directory %{path}: %{detail}"
+  mcp.configChangedOnDisk: "%{path} changed on disk while VMark was updating it. Close the client that is writing it and retry."
+  mcp.backupWriteFailed: "Failed to write backup %{path}: %{detail}"
+  mcp.backupFlushFailed: "Failed to flush backup %{path}: %{detail}"
+  mcp.backupSyncFailed: "Failed to sync backup %{path}: %{detail}"
+  mcp.backupCreateFailed: "Failed to create backup %{path}: %{detail}"
+  mcp.backupVariantsExhausted: "Failed to create backup: %{count} variants of %{path} already exist"
+  mcp.stageConfigFailed: "Failed to stage config in %{dir}: %{detail}"
+  mcp.restrictStagedConfigFailed: "Failed to restrict staged config %{path}: %{detail}"
+  mcp.writeStagedConfigFailed: "Failed to write staged config for %{path}: %{detail}"
+  mcp.createConfigFailed: "Failed to create %{path}: could not hard-link a staged copy into place (%{link_detail}), and could not create the file directly either (%{open_detail})."
+  mcp.writeConfigPartialRemoved: "Failed to write %{path}: %{detail} (the partial file was removed)"
+  mcp.writeConfigPartialOrphaned: "Failed to write %{path}: %{detail}. The partial file could not be removed either (%{cleanup_detail}) — delete it by hand before retrying, or the next install will read it as a corrupt config."
+
 window:
   settings.title: "Settings"
 
