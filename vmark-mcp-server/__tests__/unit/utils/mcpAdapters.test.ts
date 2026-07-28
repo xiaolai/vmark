@@ -1,15 +1,15 @@
 /**
  * Tests for MCP adapter utilities.
  *
- * Covers toMcpContent, toMcpContents, createToolHandler, and createResourceHandler.
+ * Covers toMcpContent and createToolHandler — the whole adapter surface since
+ * the resources half (toMcpContents / createResourceHandler) was deleted with
+ * the empty resource capability (audit 20260728 §4).
  */
 
 import { describe, it, expect, vi } from 'vitest';
 import {
   toMcpContent,
-  toMcpContents,
   createToolHandler,
-  createResourceHandler,
 } from '../../../src/utils/mcpAdapters.js';
 
 describe('toMcpContent', () => {
@@ -96,53 +96,11 @@ describe('toMcpContent', () => {
     ];
     const result = toMcpContent(items);
     expect(result).toHaveLength(1);
-    expect(result[0].text).toBe('valid');
+    expect(result[0]).toEqual({ type: 'text', text: 'valid' });
   });
 
   it('should return empty array for empty input', () => {
     expect(toMcpContent([])).toEqual([]);
-  });
-});
-
-describe('toMcpContents', () => {
-  it('should convert resource items', () => {
-    const items = [{ uri: 'vmark://doc', text: 'content', mimeType: 'text/markdown' }];
-    expect(toMcpContents(items)).toEqual([
-      { uri: 'vmark://doc', text: 'content', mimeType: 'text/markdown' },
-    ]);
-  });
-
-  it('should filter out items without text', () => {
-    const items = [
-      { uri: 'vmark://a', text: 'keep' },
-      { uri: 'vmark://b' },
-    ];
-    const result = toMcpContents(items as Array<{ uri: string; text?: string }>);
-    expect(result).toHaveLength(1);
-    expect(result[0].uri).toBe('vmark://a');
-  });
-
-  it('should pass through blob resource contents (base64 blob field, MCP spec)', () => {
-    const items = [{ uri: 'vmark://blob/1', blob: 'QUJD', mimeType: 'image/png' }];
-    expect(toMcpContents(items)).toEqual([
-      { uri: 'vmark://blob/1', blob: 'QUJD', mimeType: 'image/png' },
-    ]);
-  });
-
-  it('should keep text and blob items while dropping items with neither', () => {
-    const items = [
-      { uri: 'vmark://a', text: 'textual' },
-      { uri: 'vmark://b', blob: 'AAAA' },
-      { uri: 'vmark://c' },
-    ];
-    const result = toMcpContents(items);
-    expect(result).toHaveLength(2);
-    expect(result[0]).toMatchObject({ uri: 'vmark://a', text: 'textual' });
-    expect(result[1]).toMatchObject({ uri: 'vmark://b', blob: 'AAAA' });
-  });
-
-  it('should return empty array for empty input', () => {
-    expect(toMcpContents([])).toEqual([]);
   });
 });
 
@@ -213,7 +171,7 @@ describe('createToolHandler', () => {
     expect(result.isError).toBe(true);
     expect(result.content).toHaveLength(1);
     expect(result.content[0].type).toBe('text');
-    expect(result.content[0].text).toContain('Bridge disconnected');
+    expect(result.content[0]).toMatchObject({ type: 'text', text: expect.stringContaining('Bridge disconnected') });
   });
 
   it('should catch non-Error thrown values', async () => {
@@ -223,7 +181,7 @@ describe('createToolHandler', () => {
     const result = await handler({});
 
     expect(result.isError).toBe(true);
-    expect(result.content[0].text).toContain('string error');
+    expect(result.content[0]).toMatchObject({ type: 'text', text: expect.stringContaining('string error') });
   });
 
   it('should catch errors from toMcpContent conversion', async () => {
@@ -238,58 +196,5 @@ describe('createToolHandler', () => {
 
     expect(result.isError).toBe(true);
     expect(result.content[0].type).toBe('text');
-  });
-});
-
-describe('createResourceHandler', () => {
-  it('should return resource contents on success', async () => {
-    const readResource = vi.fn().mockResolvedValue({
-      contents: [{ uri: 'vmark://doc', text: 'content' }],
-    });
-
-    const handler = createResourceHandler('vmark://doc', readResource);
-    const result = await handler();
-
-    expect(readResource).toHaveBeenCalledWith('vmark://doc');
-    expect(result.contents).toEqual([{ uri: 'vmark://doc', text: 'content' }]);
-  });
-
-  it('should round-trip blob resource contents through the resource handler', async () => {
-    const readResource = vi.fn().mockResolvedValue({
-      contents: [{ uri: 'vmark://blob/1', blob: 'AAAA', mimeType: 'image/png' }],
-    });
-
-    const handler = createResourceHandler('vmark://blob/1', readResource);
-    const result = await handler();
-
-    expect(result.contents).toEqual([
-      { uri: 'vmark://blob/1', blob: 'AAAA', mimeType: 'image/png' },
-    ]);
-  });
-
-  it('should wrap Error and re-throw with context', async () => {
-    const readResource = vi.fn().mockRejectedValue(new Error('Connection lost'));
-
-    const handler = createResourceHandler('vmark://doc', readResource);
-
-    await expect(handler()).rejects.toThrow('Resource read failed: Connection lost');
-  });
-
-  it('should wrap non-Error thrown values and re-throw', async () => {
-    const readResource = vi.fn().mockRejectedValue(42);
-
-    const handler = createResourceHandler('vmark://doc', readResource);
-
-    await expect(handler()).rejects.toThrow('Resource read failed: 42');
-  });
-
-  it('should catch errors from toMcpContents conversion', async () => {
-    const readResource = vi.fn().mockResolvedValue({
-      contents: null, // null will cause .filter() to throw
-    });
-
-    const handler = createResourceHandler('vmark://doc', readResource);
-
-    await expect(handler()).rejects.toThrow('Resource read failed:');
   });
 });

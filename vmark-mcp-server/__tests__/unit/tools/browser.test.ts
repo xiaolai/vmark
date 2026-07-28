@@ -12,6 +12,7 @@ import { isNeedsApproval, type BridgeResponse } from '../../../src/bridge/core-t
 import { VMarkMcpServer } from '../../../src/server.js';
 import { registerBrowserTool } from '../../../src/tools/browser.js';
 import { MockBridge } from '../../mocks/mockBridge.js';
+import { toolJson, toolText } from '../../utils/toolResult.js';
 
 describe('isNeedsApproval', () => {
   it('recognizes the approval envelope', () => {
@@ -67,7 +68,7 @@ describe('browser tool — integration via server.callTool', () => {
     expect(req).toHaveLength(1);
     expect(req[0].request).toEqual({ type: 'vmark.browser.read', tabId: 'tab-2' });
     expect(result.isError).toBeUndefined();
-    expect(JSON.parse(result.content[0].text)).toEqual(snapshot);
+    expect(toolJson(result)).toEqual(snapshot);
   });
 
   it('click: forwards operation/role/name and no text field', async () => {
@@ -235,7 +236,7 @@ describe('browser tool — integration via server.callTool', () => {
     expect(bridge.getRequestsOfType('vmark.browser.open')[0].request).toEqual({
       type: 'vmark.browser.open', url: 'https://example.com', timeoutMs: 5000,
     });
-    expect(JSON.parse(result.content[0].text)).toMatchObject({ tabId: 'ai-1' });
+    expect(toolJson(result)).toMatchObject({ tabId: 'ai-1' });
   });
 
   it('navigate: rejects an invalid timeout before touching the bridge', async () => {
@@ -385,6 +386,100 @@ describe('browser tool — integration via server.callTool', () => {
     expect((await server.callTool('browser', { action: 'session_load', handle: '../secrets' })).isError).toBe(true);
     expect(bridge.getRequestsOfType('vmark.browser.session.load')).toHaveLength(1);
   });
+
+  // Refusal branches. The SDK now rejects an out-of-range `timeoutMs` against
+  // the declared Zod bounds before the handler runs, but a direct `callTool`
+  // (this suite, and any non-validating client) still reaches these guards —
+  // they are the last line before a malformed act touches a live page.
+  it('act: refuses an unknown operation before reaching the bridge', async () => {
+    const { server, bridge } = harness({});
+
+    const result = await server.callTool('browser', {
+      action: 'act', operation: 'drag', role: 'button', name: 'Go',
+    });
+
+    expect(result.isError).toBe(true);
+    expect(toolText(result)).toContain("must be 'click', 'type', 'scroll', or 'key'");
+    expect(bridge.requests).toHaveLength(0);
+  });
+
+  it.each([
+    ['open', { action: 'open' }],
+    ['open (blank)', { action: 'open', url: '   ' }],
+    ['navigate', { action: 'navigate' }],
+    ['navigate (blank)', { action: 'navigate', url: '' }],
+  ])('%s: refuses a missing or blank url', async (_label, args) => {
+    const { server, bridge } = harness({});
+
+    const result = await server.callTool('browser', args);
+
+    expect(result.isError).toBe(true);
+    expect(toolText(result)).toContain('url must be a non-empty string');
+    expect(bridge.requests).toHaveLength(0);
+  });
+
+  it.each([
+    ['open', { action: 'open', url: 'https://x.com' }],
+    ['navigate', { action: 'navigate', url: 'https://x.com' }],
+    ['wait', { action: 'wait' }],
+    ['wait_for', { action: 'wait_for', text: 'Done' }],
+  ])('%s: refuses an out-of-range timeoutMs', async (_label, args) => {
+    const { server, bridge } = harness({});
+
+    for (const timeoutMs of [0, 12_001, 1.5, 'soon']) {
+      const result = await server.callTool('browser', { ...args, timeoutMs });
+      expect(result.isError, String(timeoutMs)).toBe(true);
+      expect(toolText(result)).toContain('timeoutMs must be an integer from 1 to 12000');
+    }
+    expect(bridge.requests).toHaveLength(0);
+  });
+
+  it('navigate: forwards tabId, url, and a valid timeoutMs', async () => {
+    const { server, bridge } = harness({
+      'vmark.browser.navigate': () => ({ success: true, data: { navigationId: 'nav-1' } }),
+    });
+
+    const result = await server.callTool('browser', {
+      action: 'navigate', tabId: 'ai-1', url: 'https://x.com', timeoutMs: 3000,
+    });
+
+    expect(bridge.getRequestsOfType('vmark.browser.navigate')[0].request).toEqual({
+      type: 'vmark.browser.navigate', tabId: 'ai-1', url: 'https://x.com', timeoutMs: 3000,
+    });
+    expect(toolJson(result)).toEqual({ navigationId: 'nav-1' });
+  });
+
+  it('wait: refuses a blank navigationId rather than waiting on the wrong ticket', async () => {
+    const { server, bridge } = harness({});
+
+    const result = await server.callTool('browser', { action: 'wait', navigationId: '  ' });
+
+    expect(result.isError).toBe(true);
+    expect(toolText(result)).toContain('navigationId');
+    expect(bridge.requests).toHaveLength(0);
+  });
+
+  it('style: refuses an injectCss payload over the byte cap', async () => {
+    const { server, bridge } = harness({});
+
+    const result = await server.callTool('browser', {
+      action: 'style', selector: 'body', injectCss: 'a'.repeat(64 * 1024 + 1),
+    });
+
+    expect(result.isError).toBe(true);
+    expect(toolText(result)).toContain('byte limit');
+    expect(bridge.requests).toHaveLength(0);
+  });
+
+  it('refuses an unknown action', async () => {
+    const { server, bridge } = harness({});
+
+    const result = await server.callTool('browser', { action: 'teleport' });
+
+    expect(result.isError).toBe(true);
+    expect(toolText(result)).toContain('unknown action: teleport');
+    expect(bridge.requests).toHaveLength(0);
+  });
 });
 
 describe('registerBrowserTools — approval handling', () => {
@@ -489,5 +584,87 @@ describe('browser tool description — the AI-facing contract (WI-0.5)', () => {
     // The positive half: deleting the false claim without stating the real scope
     // would leave the AI with no idea what session_save actually captures.
     expect(description).toMatch(/localStorage AND cookies/);
+  });
+});
+
+describe('browser — byte-accurate payload cap (round-2 audit finding 5)', () => {
+  function guard() {
+    const bridge = new MockBridge();
+    const server = new VMarkMcpServer({ bridge });
+    registerBrowserTool(server);
+    return { server, bridge };
+  }
+
+  // `.length` counts UTF-16 code units. A 30,000-character CJK script is
+  // 90,000 UTF-8 BYTES — well past the 64 KiB cap the tool advertises and the
+  // app renders verbatim in its approval dialog.
+  const CJK_OVER_CAP = '汉'.repeat(30_000);
+
+  it('execute_js: rejects a multi-byte script over the BYTE cap', async () => {
+    const { server, bridge } = guard();
+
+    const result = await server.callTool('browser', { action: 'execute_js', script: CJK_OVER_CAP });
+
+    expect(CJK_OVER_CAP.length).toBeLessThan(64 * 1024); // passes a .length check
+    expect(Buffer.byteLength(CJK_OVER_CAP, 'utf8')).toBeGreaterThan(64 * 1024);
+    expect(result.isError).toBe(true);
+    expect(toolText(result)).toContain('byte limit');
+    expect(bridge.requests).toHaveLength(0);
+  });
+
+  it('style: rejects multi-byte injectCss over the BYTE cap', async () => {
+    const { server, bridge } = guard();
+
+    const result = await server.callTool('browser', {
+      action: 'style', selector: 'body', injectCss: CJK_OVER_CAP,
+    });
+
+    expect(result.isError).toBe(true);
+    expect(toolText(result)).toContain('byte limit');
+    expect(bridge.requests).toHaveLength(0);
+  });
+
+  it('still accepts a multi-byte payload that fits in bytes', async () => {
+    const { server, bridge } = guard();
+    bridge.setResponseHandler('vmark.browser.execute_js', () => ({ success: true, data: { ok: 1 } }));
+
+    const script = '汉'.repeat(1_000);
+    const result = await server.callTool('browser', { action: 'execute_js', script });
+
+    expect(result.isError).toBeUndefined();
+    expect(bridge.getRequestsOfType('vmark.browser.execute_js')[0].request).toMatchObject({ script });
+  });
+});
+
+describe('browser.open — invalid profile (round-2 audit finding 6)', () => {
+  it('refuses a malformed profile instead of opening an anonymous tab', async () => {
+    // Coercing it to `undefined` proceeded WITHOUT the persistent context the
+    // caller asked for: the agent believes it is reusing a login and is not.
+    const bridge = new MockBridge();
+    bridge.setResponseHandler('vmark.browser.open', () => ({ success: true, data: { tabId: 'ai-1' } }));
+    const server = new VMarkMcpServer({ bridge });
+    registerBrowserTool(server);
+
+    for (const profile of ['has space', 'bad/slash', '', '  ', 'x'.repeat(65), 42]) {
+      const result = await server.callTool('browser', {
+        action: 'open', url: 'https://x.com', profile,
+      });
+      expect(result.isError, String(profile)).toBe(true);
+      expect(toolText(result)).toContain('profile');
+    }
+    expect(bridge.requests).toHaveLength(0);
+  });
+
+  it('still forwards a valid profile', async () => {
+    const bridge = new MockBridge();
+    bridge.setResponseHandler('vmark.browser.open', () => ({ success: true, data: { tabId: 'ai-1' } }));
+    const server = new VMarkMcpServer({ bridge });
+    registerBrowserTool(server);
+
+    await server.callTool('browser', { action: 'open', url: 'https://x.com', profile: ' work-1 ' });
+
+    expect(bridge.getRequestsOfType('vmark.browser.open')[0].request).toMatchObject({
+      profile: 'work-1',
+    });
   });
 });

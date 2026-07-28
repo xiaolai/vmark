@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { VMarkMcpServer, resolveWindowId } from '../../src/server.js';
+import { VMarkMcpServer } from '../../src/server.js';
 import { createVMarkMcpServer } from '../../src/index.js';
 import { MockBridge } from '../mocks/mockBridge.js';
 
@@ -55,7 +55,7 @@ describe('VMarkMcpServer', () => {
         {
           name: 'test_tool',
           description: 'A test tool',
-          inputSchema: { type: 'object', properties: {} },
+          inputSchema: {},
         },
         async () => ({ success: true, content: [] })
       );
@@ -69,7 +69,7 @@ describe('VMarkMcpServer', () => {
         {
           name: 'test_tool',
           description: 'First version',
-          inputSchema: { type: 'object', properties: {} },
+          inputSchema: {},
         },
         async () => ({ success: true, content: [] })
       );
@@ -78,29 +78,13 @@ describe('VMarkMcpServer', () => {
         {
           name: 'test_tool',
           description: 'Second version',
-          inputSchema: { type: 'object', properties: {} },
+          inputSchema: {},
         },
         async () => ({ success: false, content: [] })
       );
 
       const tool = server.tools.get('test_tool');
       expect(tool?.definition.description).toBe('Second version');
-    });
-  });
-
-  describe('registerResource', () => {
-    it('should register a resource', () => {
-      server.registerResource(
-        {
-          uri: 'vmark://test',
-          name: 'Test',
-          description: 'A test resource',
-        },
-        async () => ({ contents: [] })
-      );
-
-      expect(server.resources.has('vmark://test')).toBe(true);
-      expect(server.listResources()).toHaveLength(1);
     });
   });
 
@@ -114,7 +98,7 @@ describe('VMarkMcpServer', () => {
         {
           name: 'tool1',
           description: 'Tool 1',
-          inputSchema: { type: 'object', properties: {} },
+          inputSchema: {},
         },
         async () => ({ success: true, content: [] })
       );
@@ -123,7 +107,7 @@ describe('VMarkMcpServer', () => {
         {
           name: 'tool2',
           description: 'Tool 2',
-          inputSchema: { type: 'object', properties: {} },
+          inputSchema: {},
         },
         async () => ({ success: true, content: [] })
       );
@@ -132,26 +116,6 @@ describe('VMarkMcpServer', () => {
       expect(tools).toHaveLength(2);
       expect(tools.map(t => t.name)).toContain('tool1');
       expect(tools.map(t => t.name)).toContain('tool2');
-    });
-  });
-
-  describe('listResources', () => {
-    it('should return empty array when no resources registered', () => {
-      expect(server.listResources()).toEqual([]);
-    });
-
-    it('should return all resource definitions', () => {
-      server.registerResource(
-        { uri: 'vmark://a', name: 'A', description: 'Resource A' },
-        async () => ({ contents: [] })
-      );
-      server.registerResource(
-        { uri: 'vmark://b', name: 'B', description: 'Resource B' },
-        async () => ({ contents: [] })
-      );
-
-      const resources = server.listResources();
-      expect(resources).toHaveLength(2);
     });
   });
 
@@ -166,7 +130,7 @@ describe('VMarkMcpServer', () => {
         {
           name: 'my_tool',
           description: 'My tool',
-          inputSchema: { type: 'object', properties: {} },
+          inputSchema: {},
         },
         handler
       );
@@ -181,7 +145,7 @@ describe('VMarkMcpServer', () => {
         {
           name: 'my_tool',
           description: 'My tool',
-          inputSchema: { type: 'object', properties: {} },
+          inputSchema: {},
         },
         async () => ({
           success: true,
@@ -208,7 +172,7 @@ describe('VMarkMcpServer', () => {
         {
           name: 'failing_tool',
           description: 'A failing tool',
-          inputSchema: { type: 'object', properties: {} },
+          inputSchema: {},
         },
         async () => {
           throw new Error('Handler exploded');
@@ -227,7 +191,7 @@ describe('VMarkMcpServer', () => {
         {
           name: 'weird_tool',
           description: 'A weird tool',
-          inputSchema: { type: 'object', properties: {} },
+          inputSchema: {},
         },
         async () => {
           throw 'String error';
@@ -241,88 +205,29 @@ describe('VMarkMcpServer', () => {
     });
   });
 
-  describe('readResource', () => {
-    it('should call resource handler', async () => {
-      const handler = vi.fn().mockResolvedValue({
-        contents: [{ uri: 'vmark://test', text: 'content' }],
-      });
-
-      server.registerResource(
-        { uri: 'vmark://test', name: 'Test', description: 'Test' },
-        handler
-      );
-
-      await server.readResource('vmark://test');
-
-      expect(handler).toHaveBeenCalledWith('vmark://test');
-    });
-
-    it('should return result from handler', async () => {
-      server.registerResource(
-        { uri: 'vmark://test', name: 'Test', description: 'Test' },
-        async () => ({
-          contents: [{ uri: 'vmark://test', text: 'hello world' }],
-        })
-      );
-
-      const result = await server.readResource('vmark://test');
-
-      expect(result.contents[0].text).toBe('hello world');
-    });
-
-    it('should throw for unknown resource', async () => {
-      await expect(server.readResource('vmark://unknown')).rejects.toThrow(
-        'Unknown resource'
-      );
-    });
-
-    it('should wrap handler errors with resource URI context', async () => {
-      server.registerResource(
-        { uri: 'vmark://failing', name: 'Failing', description: 'Fails' },
-        async () => {
-          throw new Error('Handler exploded');
-        }
-      );
-
-      await expect(server.readResource('vmark://failing')).rejects.toThrow(
-        'Resource error (vmark://failing): Handler exploded'
-      );
-    });
-
-    it('should handle non-Error thrown values in handler', async () => {
-      server.registerResource(
-        { uri: 'vmark://weird', name: 'Weird', description: 'Throws string' },
-        async () => {
-          throw 'String error';
-        }
-      );
-
-      await expect(server.readResource('vmark://weird')).rejects.toThrow(
-        'Resource error (vmark://weird): String error'
-      );
-    });
-  });
-
   describe('sendBridgeRequest', () => {
     it('should send request through bridge', async () => {
-      bridge.setContent('Hello');
+      bridge.setResponseHandler('vmark.document.read', () => ({
+        success: true,
+        data: 'Hello',
+      }));
 
       const result = await server.sendBridgeRequest<string>({
-        type: 'document.getContent',
+        type: 'vmark.document.read',
       });
 
       expect(result).toBe('Hello');
     });
 
     it('should throw on bridge error', async () => {
-      bridge.setResponseHandler('document.getContent', () => ({
+      bridge.setResponseHandler('vmark.document.read', () => ({
         success: false,
         error: 'Bridge error',
         data: null,
       }));
 
       await expect(
-        server.sendBridgeRequest({ type: 'document.getContent' })
+        server.sendBridgeRequest({ type: 'vmark.document.read' })
       ).rejects.toThrow('Bridge error');
     });
 
@@ -345,13 +250,13 @@ describe('VMarkMcpServer', () => {
 
     it('should give a non-empty message when the failure omits `error`', async () => {
       // A failure with no `error` field previously produced `new Error(undefined)`.
-      bridge.setResponseHandler('document.getContent', () => ({
+      bridge.setResponseHandler('vmark.document.read', () => ({
         success: false,
         error: '',
       }));
 
       await expect(
-        server.sendBridgeRequest({ type: 'document.getContent' })
+        server.sendBridgeRequest({ type: 'vmark.document.read' })
       ).rejects.toThrow('VMark rejected the request');
     });
   });
@@ -392,45 +297,5 @@ describe('VMarkMcpServer', () => {
         expect(result.content[0].text).toBe('Something went wrong');
       });
     });
-
-    describe('resourceResult', () => {
-      it('should create resource result', () => {
-        const result = VMarkMcpServer.resourceResult(
-          'vmark://doc',
-          'content',
-          'text/markdown'
-        );
-
-        expect(result.contents).toHaveLength(1);
-        expect(result.contents[0].uri).toBe('vmark://doc');
-        expect(result.contents[0].text).toBe('content');
-        expect(result.contents[0].mimeType).toBe('text/markdown');
-      });
-
-      it('should work without mimeType', () => {
-        const result = VMarkMcpServer.resourceResult('vmark://doc', 'content');
-
-        expect(result.contents[0].mimeType).toBeUndefined();
-      });
-    });
-  });
-});
-
-describe('resolveWindowId', () => {
-  it('should return "focused" when undefined', () => {
-    expect(resolveWindowId(undefined)).toBe('focused');
-  });
-
-  it('should return "focused" when not provided', () => {
-    expect(resolveWindowId()).toBe('focused');
-  });
-
-  it('should return provided windowId', () => {
-    expect(resolveWindowId('main')).toBe('main');
-    expect(resolveWindowId('secondary')).toBe('secondary');
-  });
-
-  it('should return "focused" string as-is', () => {
-    expect(resolveWindowId('focused')).toBe('focused');
   });
 });
