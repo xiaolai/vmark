@@ -15,7 +15,7 @@
  *   1  One or more translation files have missing keys
  */
 
-import { readFileSync, readdirSync, existsSync } from "node:fs";
+import { readFileSync, readdirSync, existsSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -95,6 +95,47 @@ function flattenYaml(content: string): string[] {
   }
 
   return keys;
+}
+
+/**
+ * Flatten a YAML locale to key → value, mirroring `flattenYaml`'s key logic.
+ *
+ * Separate from `flattenYaml` rather than replacing it because the key check
+ * wants every key including mapping heads, while a value check wants leaves
+ * only. Quotes are stripped so `"a"` and `a` compare equal — the two locale
+ * files do not always agree on quoting style for the same string.
+ */
+function flattenYamlValues(content: string): Map<string, string> {
+  const values = new Map<string, string>();
+  const stack: Array<{ indent: number; key: string }> = [];
+
+  for (const rawLine of content.split("\n")) {
+    const trimmed = rawLine.trimEnd();
+    if (!trimmed || /^\s*#/.test(trimmed)) continue;
+
+    const indent = trimmed.length - trimmed.trimStart().length;
+    const line = trimmed.trimStart();
+    const match = line.match(/^([A-Za-z0-9_.[\]-]+)\s*:(.*)$/);
+    if (!match) continue;
+
+    const rawKey = match[1];
+    const valuePart = match[2].trim();
+
+    while (stack.length > 0 && stack[stack.length - 1].indent >= indent) {
+      stack.pop();
+    }
+
+    const prefix = stack.map((s) => s.key).join(".");
+    const fullKey = prefix ? `${prefix}.${rawKey}` : rawKey;
+
+    if (valuePart === "" || valuePart.startsWith("#")) {
+      stack.push({ indent, key: rawKey });
+    } else {
+      values.set(fullKey, valuePart.replace(/^["']|["']$/g, ""));
+    }
+  }
+
+  return values;
 }
 
 function loadJsonKeys(filePath: string): string[] {
@@ -359,17 +400,141 @@ function checkYamlLocales(): boolean {
   return allOk;
 }
 
+// ─── Untranslated values ─────────────────────────────────────────────────────
+//
+// The checks above prove a key EXISTS in every locale. They cannot tell whether
+// anyone translated it: a key copied over with its English value passes, and
+// ~1,160 of them currently do. This check finds values byte-identical to
+// English and ratchets that debt down, in the same shape as
+// `scripts/file-size-baseline.json`.
+//
+// The heuristic matters more than the comparison. Of ~3,000 identical pairs,
+// most are SUPPOSED to be identical — `JSON`, `YAML`, `CLI`, `Markdown`,
+// `TypeScript`, `VMark`. Requiring three words and fifteen characters keeps
+// proper nouns, format names and acronyms out while still catching real
+// sentences like "Application title bar". It is deliberately conservative:
+// a missed untranslated string is a cosmetic bug, whereas a false positive
+// would train people to edit the baseline instead of the translation.
+
+const UNTRANSLATED_BASELINE = join(ROOT, "scripts/i18n-untranslated-baseline.json");
+const MIN_WORDS = 3;
+const MIN_CHARS = 15;
+
+/** Is this value substantial enough that leaving it in English is a real gap? */
+function looksTranslatable(value: string): boolean {
+  return value.trim().split(/\s+/).length >= MIN_WORDS && value.length >= MIN_CHARS;
+}
+
+function collectUntranslated(): string[] {
+  const found: string[] = [];
+
+  const enDir = join(ROOT, "src/locales/en");
+  if (existsSync(enDir)) {
+    const namespaces = readdirSync(enDir).filter((f) => f.endsWith(".json"));
+    const langs = readdirSync(join(ROOT, "src/locales"), { withFileTypes: true })
+      .filter((d) => d.isDirectory() && d.name !== "en" && d.name !== "__tests__")
+      .map((d) => d.name);
+
+    for (const ns of namespaces.sort()) {
+      const en = flattenJsonValues(
+        JSON.parse(readFileSync(join(enDir, ns), "utf-8")) as unknown
+      );
+      for (const lang of langs.sort()) {
+        const path = join(ROOT, "src/locales", lang, ns);
+        if (!existsSync(path)) continue;
+        const target = flattenJsonValues(JSON.parse(readFileSync(path, "utf-8")) as unknown);
+        for (const [key, value] of en) {
+          if (target.get(key) === value && looksTranslatable(value)) {
+            found.push(`src/locales/${lang}/${ns}:${key}`);
+          }
+        }
+      }
+    }
+  }
+
+  const yamlDir = join(ROOT, "src-tauri/locales");
+  if (existsSync(join(yamlDir, "en.yml"))) {
+    const en = flattenYamlValues(readFileSync(join(yamlDir, "en.yml"), "utf-8"));
+    for (const file of readdirSync(yamlDir).filter((f) => f.endsWith(".yml") && f !== "en.yml").sort()) {
+      const target = flattenYamlValues(readFileSync(join(yamlDir, file), "utf-8"));
+      for (const [key, value] of en) {
+        if (target.get(key) === value && looksTranslatable(value)) {
+          found.push(`src-tauri/locales/${file}:${key}`);
+        }
+      }
+    }
+  }
+
+  return found.sort();
+}
+
+function checkUntranslatedValues(update: boolean): boolean {
+  const found = collectUntranslated();
+
+  if (update) {
+    writeFileSync(
+      UNTRANSLATED_BASELINE,
+      `${JSON.stringify({ _comment: BASELINE_COMMENT, minWords: MIN_WORDS, minChars: MIN_CHARS, entries: found }, null, 2)}\n`
+    );
+    console.log(`\n[UPDATED] ${UNTRANSLATED_BASELINE} — ${found.length} entries`);
+    return true;
+  }
+
+  if (!existsSync(UNTRANSLATED_BASELINE)) {
+    console.error(
+      `\n[ERROR] ${UNTRANSLATED_BASELINE} missing — run: pnpm lint:i18n --update-untranslated`
+    );
+    return false;
+  }
+
+  const baseline = new Set<string>(
+    (JSON.parse(readFileSync(UNTRANSLATED_BASELINE, "utf-8")) as { entries: string[] }).entries
+  );
+  const added = found.filter((e) => !baseline.has(e));
+  const fixed = [...baseline].filter((e) => !found.includes(e));
+
+  console.log("\nChecking for untranslated values (copied English)...\n");
+
+  if (added.length > 0) {
+    console.error(`[ERROR] ${added.length} value(s) left in English:`);
+    for (const e of added.slice(0, 20)) console.error(`          ${e}`);
+    if (added.length > 20) console.error(`          … and ${added.length - 20} more`);
+    console.error("        Translate them. Do not add them to the baseline.");
+  }
+
+  if (fixed.length > 0) {
+    console.error(`\n[ERROR] ${fixed.length} baselined value(s) now translated — record the win:`);
+    console.error("          pnpm lint:i18n --update-untranslated");
+  }
+
+  if (added.length === 0 && fixed.length === 0) {
+    console.log(`[OK]    ${found.length} known-untranslated value(s), none new.`);
+    return true;
+  }
+  return false;
+}
+
+const BASELINE_COMMENT =
+  "Frozen baseline of locale values still identical to English (i.e. never translated). " +
+  "scripts/check-i18n-keys.ts fails on any NEW entry, and on a baselined entry that has since " +
+  "been translated (record the win by re-running with --update-untranslated). Ratchets down only. " +
+  "A value counts only if it has >= minWords words and >= minChars characters — shorter or " +
+  "single-token values (JSON, CLI, Markdown, VMark) are overwhelmingly meant to stay identical.";
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 console.log("Checking i18n key completeness...\n");
 
+const updateUntranslated = process.argv.includes("--update-untranslated");
+
 const jsonOk = checkJsonLocales();
 const yamlOk = checkYamlLocales();
+const valuesOk = checkUntranslatedValues(updateUntranslated);
 
-if (jsonOk && yamlOk) {
+if (jsonOk && yamlOk && valuesOk) {
   console.log("\nAll i18n checks passed.");
   process.exit(0);
 } else {
-  console.error("\ni18n check FAILED — missing keys detected.");
+  console.error("\ni18n check FAILED.");
   process.exit(1);
 }

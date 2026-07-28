@@ -14,7 +14,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "lint": "eslint src",
+    "typecheck": "tsc --noEmit -p tsconfig.test.json",
+    "lint": "eslint src __tests__ && pnpm typecheck",
     "prepublishOnly": "pnpm build",
     "build:sidecar": "pnpm build && node scripts/build-sidecar.js"
   },

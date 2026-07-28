@@ -17,7 +17,12 @@
  *   vmark-mcp-server --health-check # Run self-test and exit
  */
 
-// Package version (injected at build time or read from package.json)
+/**
+ * Package version — a hand-maintained literal, NOT injected. `pnpm build` is
+ * plain `tsc` and `build:sidecar` only bundles its output; what keeps this in
+ * lockstep with the app is the five-file `sed` in the bump procedure
+ * (`.claude/rules/40-version-bump.md`). Edit it only through that procedure.
+ */
 const VERSION = '0.9.17';
 
 /**
@@ -57,7 +62,6 @@ async function runHealthCheck(): Promise<void> {
     // 2. Can we instantiate the server and list tools?
     const server = createVMarkMcpServer(mockBridge, { version: VERSION });
     const allTools = server.listTools();
-    const resources = server.listResources();
 
     // 3. Validate we have the expected number of tools
     if (allTools.length === 0) {
@@ -77,12 +81,15 @@ async function runHealthCheck(): Promise<void> {
       }
     }
 
-    // Success - output structured result
+    // Success - output structured result. `resourceCount` is a constant 0 (the
+    // pruned surface exposes no MCP resources); the field stays because the
+    // app's health check declares it required and renders it in Settings →
+    // Integrations (src/hooks/useMcpHealthCheck.ts).
     const result = {
       status: 'ok',
       version: VERSION,
       toolCount: allTools.length,
-      resourceCount: resources.length,
+      resourceCount: 0,
       tools: allTools.map((t) => t.name),
     };
 
@@ -101,14 +108,13 @@ async function runHealthCheck(): Promise<void> {
 }
 
 import { createVMarkMcpServer, EXPECTED_TOOL_COUNT } from './index.js';
-import { WebSocketBridge, ClientIdentity } from './bridge/websocket.js';
+import { WebSocketBridge } from './bridge/websocket.js';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { getParentProcessName } from './utils/parentProcess.js';
-import { createToolHandler, createResourceHandler } from './utils/mcpAdapters.js';
+import { detectClientIdentity, readClientToken } from './utils/clientIdentity.js';
+import { createToolHandler } from './utils/mcpAdapters.js';
 import { readPortFromFile, createAuthTokenResolver, parsePort } from './utils/portFile.js';
 import { createShutdownHandler, registerShutdownTriggers } from './utils/shutdown.js';
-import { jsonSchemaToZod, JsonSchemaInput } from './utils/jsonSchemaToZod.js';
 
 /**
  * Parse command line arguments.
@@ -136,59 +142,6 @@ function parseArgs(): { port: number | undefined } {
   }
 
   return { port: cliPort };
-}
-
-/**
- * Detect client identity based on environment and parent process.
- */
-function detectClientIdentity(): ClientIdentity {
-  const pid = process.pid;
-  const parentProcess = getParentProcessName();
-
-  // Check for Claude Code (sets CLAUDE_CODE_VERSION or similar env vars)
-  if (process.env.CLAUDE_CODE_ENTRYPOINT || parentProcess?.includes('claude')) {
-    return {
-      name: 'claude-code',
-      version: process.env.CLAUDE_CODE_VERSION,
-      pid,
-      parentProcess,
-    };
-  }
-
-  // Check for Codex CLI
-  if (process.env.CODEX_HOME || parentProcess?.includes('codex')) {
-    return {
-      name: 'codex-cli',
-      version: process.env.CODEX_VERSION,
-      pid,
-      parentProcess,
-    };
-  }
-
-  // Check for Cursor
-  if (parentProcess?.toLowerCase().includes('cursor')) {
-    return {
-      name: 'cursor',
-      pid,
-      parentProcess,
-    };
-  }
-
-  // Check for Windsurf
-  if (parentProcess?.toLowerCase().includes('windsurf')) {
-    return {
-      name: 'windsurf',
-      pid,
-      parentProcess,
-    };
-  }
-
-  // Unknown client - use parent process name if available
-  return {
-    name: parentProcess || 'unknown',
-    pid,
-    parentProcess,
-  };
 }
 
 /**
@@ -221,6 +174,11 @@ async function main(): Promise<void> {
     port, // Static override from --port only — undefined means resolver discovery
     portResolver: readPortFromFile, // Re-read port file on each connection attempt
     authTokenResolver: createAuthTokenResolver(port, logger.warn), // Auth token from port file
+    // The credential VMark issued to THIS AI client, from the `env` block
+    // Install wrote into its MCP config. Absent on installs that predate the
+    // mechanism — the bridge then connects us unidentified rather than
+    // refusing, and only delegated actions are affected.
+    clientTokenResolver: () => readClientToken(process.env),
     autoReconnect: true,
     maxReconnectAttempts: 30, // Reasonable limit to avoid infinite reconnection storms
     reconnectDelay: 2000, // Start with 2 second delay
@@ -233,9 +191,8 @@ async function main(): Promise<void> {
   // EOF/close means the parent AI client exited; an orphaned sidecar must
   // exit instead of running forever on reconnect timers. Registered BEFORE
   // any await so an EOF arriving during the startup window (bridge connect,
-  // MCP transport setup) cannot be missed; registerShutdownTriggers also
-  // handles stdin that already ended. Double-invocation safe via
-  // createShutdownHandler.
+  // MCP transport setup) cannot be missed; registerShutdownTriggers also handles
+  // stdin that already ended. Double-invocation safe via createShutdownHandler.
   const shutdown = createShutdownHandler(
     () => bridge.disconnect(),
     (code) => process.exit(code),
@@ -246,8 +203,10 @@ async function main(): Promise<void> {
   const vmarkServer = createVMarkMcpServer(bridge, { version: VERSION });
   const allTools = vmarkServer.listTools();
 
-  // Create high-level MCP server. Metadata version is the real sidecar
-  // VERSION — clients previously saw a stale hardcoded '0.1.0'.
+  // High-level MCP server. Metadata version is the real sidecar VERSION —
+  // clients previously saw a stale hardcoded '0.1.0'.
+  // `tools` only. Declaring `resources: {}` advertised resources/list and
+  // resources/read on a server that registers none (audit 20260728 §4).
   const mcpServer = new McpServer(
     {
       name: 'vmark-mcp-server',
@@ -256,36 +215,24 @@ async function main(): Promise<void> {
     {
       capabilities: {
         tools: {},
-        resources: {},
       },
     }
   );
 
-  // Register all tools
+  // Register all tools. Schemas are authored in Zod (src/types.ts ToolShape) and
+  // handed to the SDK unchanged — it derives the client-visible JSON Schema, so
+  // every constraint a tool declares reaches the client.
   for (const tool of allTools) {
-    // Convert JSON Schema to Zod schema for proper parameter exposure
-    const zodSchema = jsonSchemaToZod(tool.inputSchema as JsonSchemaInput);
-
     mcpServer.registerTool(
       tool.name,
       {
+        title: tool.title,
         description: tool.description,
-        inputSchema: zodSchema,
+        inputSchema: tool.inputSchema,
+        ...(tool.outputSchema ? { outputSchema: tool.outputSchema } : {}),
+        annotations: tool.annotations,
       },
       createToolHandler(tool.name, (name, args) => vmarkServer.callTool(name, args))
-    );
-  }
-
-  // Register all resources from the VMark server
-  for (const resource of vmarkServer.listResources()) {
-    mcpServer.registerResource(
-      resource.name,
-      resource.uri,
-      {
-        description: resource.description,
-        mimeType: resource.mimeType,
-      },
-      createResourceHandler(resource.uri, (uri) => vmarkServer.readResource(uri))
     );
   }
 

@@ -26,6 +26,7 @@ import { SettingsGroup, Button } from "./components";
 import { useMcpStore } from "@/stores/mcpStore";
 import { useUpdateOperations } from "@/hooks/useUpdateOperations";
 import { safeUnlistenAsync } from "@/utils/safeUnlisten";
+import "./update-progress.css";
 
 /** Download/install progress bar. Determinate, indeterminate, and installing. */
 function DownloadProgress() {
@@ -78,11 +79,19 @@ function DownloadProgress() {
         aria-valuetext={indeterminate ? downloadedText : undefined}
         className="h-1.5 bg-[var(--bg-tertiary)] rounded-full overflow-hidden"
       >
+        {/* Indeterminate is a travelling sliver, never a full fill: the
+            download opens with `{downloaded: 0, total: null}` before Tauri's
+            `Started` event supplies Content-Length, and a 100%-wide bar in
+            that window read as "finished" and then snapped back to 0%.
+            The transition is also disabled while indeterminate so the
+            hand-off to a real percentage doesn't animate backwards. */}
         <div
-          className={`h-full bg-[var(--primary-color)] transition-all duration-300 ${
-            indeterminate ? "animate-pulse" : ""
+          className={`h-full bg-[var(--primary-color)] update-progress-fill ${
+            indeterminate
+              ? "update-progress-fill--indeterminate"
+              : "transition-all duration-300"
           }`}
-          style={{ width: indeterminate ? "100%" : `${valueNow ?? 0}%` }}
+          style={{ width: indeterminate ? undefined : `${valueNow ?? 0}%` }}
         />
       </div>
     </div>

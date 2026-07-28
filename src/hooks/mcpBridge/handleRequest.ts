@@ -18,7 +18,7 @@
 
 import type { McpRequestEvent } from "./types";
 import { respond } from "./utils";
-import { isActiveDocReadOnly } from "@/services/editor/readOnlyGuard";
+import { isTargetDocReadOnly } from "@/services/editor/readOnlyGuard";
 import { dispatchV2, SUPPORTED_TOOL_PREFIXES } from "./v2/dispatch";
 import { v2ErrorString } from "./v2/types";
 import { errorMessage } from "@/utils/errorMessage";
@@ -34,7 +34,11 @@ const READ_ONLY_BLOCKED = new Set<string>([
 export async function handleRequest(event: McpRequestEvent): Promise<void> {
   const { id, type } = event;
 
-  if (READ_ONLY_BLOCKED.has(type) && isActiveDocReadOnly()) {
+  // WI-4: gate on the tab the mutation TARGETS, not the active one. These
+  // request types accept a `tabId`, so an active-tab check let writes to
+  // read-only background tabs through and refused writes to writable ones.
+  // `selection.set` carries no tabId and correctly falls back to the active tab.
+  if (READ_ONLY_BLOCKED.has(type) && isTargetDocReadOnly(event.args?.tabId)) {
     await respond({
       id,
       success: false,

@@ -4,7 +4,8 @@
 //! a bridge request, waking a suspended webview, and answering requests that
 //! Rust can handle natively without involving the webview.
 
-use super::delivery::send_error_response;
+use super::delivery::fail_pending;
+use super::principal::BridgePrincipal;
 use super::state::get_bridge_state;
 use super::types::{McpRequest, McpRequestEvent, McpResponse};
 use crate::coherence::commands::CoherenceState;
@@ -72,12 +73,7 @@ pub(super) async fn emit_to_window_or_reply<R: Runtime>(
         None => Err(format!("Target window '{target_label}' not found")),
     };
     if let Err(err) = outcome {
-        let state = get_bridge_state();
-        let mut guard = state.lock().await;
-        guard.pending.remove(request_id);
-        drop(guard);
-        log::warn!("[MCP Bridge] Client {client_id} request failed: {err}");
-        send_error_response(client_id, client_tx, msg_id, &err).await;
+        fail_pending(request_id, client_id, client_tx, msg_id, &err).await;
         return false;
     }
     true
@@ -103,12 +99,7 @@ pub(super) async fn route_target_or_reply<R: Runtime>(
     match resolve_target_window(&request.args, app, &window_workspaces) {
         Ok(label) => Some(label),
         Err(err) => {
-            let state = get_bridge_state();
-            let mut guard = state.lock().await;
-            guard.pending.remove(request_id);
-            drop(guard);
-            log::warn!("[MCP Bridge] Client {client_id} routing refused: {err}");
-            send_error_response(client_id, client_tx, msg_id, &err).await;
+            fail_pending(request_id, client_id, client_tx, msg_id, &err).await;
             None
         }
     }
@@ -148,7 +139,7 @@ pub(super) fn resolve_target_window<R: Runtime>(
 pub(super) fn handle_rust_side<R: Runtime>(
     request: &McpRequest,
     app: &AppHandle<R>,
-    principal: Option<String>,
+    principal: &BridgePrincipal,
 ) -> Option<McpResponse> {
     match request.request_type.as_str() {
         "windows.list" => {
@@ -231,37 +222,39 @@ pub(super) fn handle_rust_side<R: Runtime>(
                 &state,
                 &request.request_type,
                 &request.args,
-                principal.as_deref(),
+                principal,
             ))
         }
         _ => None,
     }
 }
 
-/// Async dispatch for coherence requests (audit C2/C3/C5): `edges` runs
-/// scan reconciliation, so it takes the bridge WRITE lock (serializing
-/// with document writes) and both actions run on a blocking thread so
-/// the WebSocket receive loop keeps serving other clients.
-/// The server's single Rust-terminal entry: coherence requests take the
-/// off-loop path (write lock for `edges`); everything else stays the
-/// synchronous `handle_rust_side` dispatch.
 pub(super) use super::coherence_answers::answer_coherence;
 
+/// The server's single Rust-terminal entry: coherence requests take the
+/// off-loop path below; everything else stays the synchronous
+/// `handle_rust_side` dispatch.
 pub(super) async fn answer_rust_side<R: Runtime>(
     request: &McpRequest,
     app: &tauri::AppHandle<R>,
-    principal: Option<String>,
+    principal: BridgePrincipal,
 ) -> Option<McpResponse> {
     if request.request_type.starts_with("vmark.coherence.") {
         return Some(answer_coherence_async(request, app, principal).await);
     }
-    handle_rust_side(request, app, principal)
+    handle_rust_side(request, app, &principal)
 }
 
+/// Async dispatch for coherence requests (audit C2/C3/C5).
+///
+/// The two that WRITE take the bridge write lock, serializing them with
+/// document writes: `edges` (its scan reconciliation appends provenance to
+/// the ledger) and `resolve` (it appends a receipt). All of them run on a
+/// blocking thread so the WebSocket receive loop keeps serving other clients.
 async fn answer_coherence_async<R: Runtime>(
     request: &McpRequest,
     app: &tauri::AppHandle<R>,
-    principal: Option<String>,
+    principal: BridgePrincipal,
 ) -> McpResponse {
     let write_lock = super::state::get_write_lock();
     // Mutations (resolve) serialize with document writes, like edges.
@@ -275,7 +268,7 @@ async fn answer_coherence_async<R: Runtime>(
     let app_clone = app.clone();
     let request_clone = request.clone();
     tauri::async_runtime::spawn_blocking(move || {
-        handle_rust_side(&request_clone, &app_clone, principal)
+        handle_rust_side(&request_clone, &app_clone, &principal)
     })
     .await
     .ok()

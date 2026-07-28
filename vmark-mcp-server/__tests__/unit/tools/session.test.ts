@@ -6,6 +6,7 @@ import { MCP_PROTOCOL_VERSION } from '../../../src/bridge/core-types.js';
 import { VMarkMcpServer } from '../../../src/server.js';
 import { registerSessionTool } from '../../../src/tools/session.js';
 import { MockBridge } from '../../mocks/mockBridge.js';
+import { toolJson } from '../../utils/toolResult.js';
 
 describe('session tool — get_state via server.callTool', () => {
   function harness(handler: () => BridgeResponse) {
@@ -29,7 +30,7 @@ describe('session tool — get_state via server.callTool', () => {
       clientProtocol: MCP_PROTOCOL_VERSION,
     });
     expect(result.isError).toBeUndefined();
-    expect(JSON.parse(result.content[0].text)).toEqual(state);
+    expect(toolJson(result)).toEqual(state);
   });
 
   it('rejects an unknown action without touching the bridge', async () => {

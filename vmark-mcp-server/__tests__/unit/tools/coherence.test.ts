@@ -7,6 +7,7 @@ import { createVMarkMcpServer, EXPECTED_TOOL_COUNT } from '../../../src/index.js
 import { VMarkMcpServer } from '../../../src/server.js';
 import { registerCoherenceTool } from '../../../src/tools/coherence.js';
 import { MockBridge } from '../../mocks/mockBridge.js';
+import { toolJson } from '../../utils/toolResult.js';
 
 const ROOT = '/workspace/novel';
 
@@ -47,7 +48,7 @@ describe('coherence tool — status/edges via server.callTool', () => {
       workspace_root: ROOT,
     });
     expect(result.isError).toBeUndefined();
-    expect(JSON.parse(result.content[0].text)).toEqual(status);
+    expect(toolJson(result)).toEqual(status);
   });
 
   it('edges forwards vmark.coherence.edges with workspace_root and passes rows through', async () => {
@@ -81,7 +82,7 @@ describe('coherence tool — status/edges via server.callTool', () => {
       workspace_root: ROOT,
     });
     expect(result.isError).toBeUndefined();
-    expect(JSON.parse(result.content[0].text)).toEqual(rows);
+    expect(toolJson(result)).toEqual(rows);
   });
 
   it('surfaces a bridge error (invalid workspace) as a tool error', async () => {

@@ -160,3 +160,44 @@ describe("handleBrowserExecuteJs (eval — per-call approval only)", () => {
     expect((lastResponse().data as { needsApproval?: boolean }).needsApproval).toBe(true);
   });
 });
+
+// Round-1 audit finding (browserPower.ts, Medium): MAX_SCRIPT_BYTES names BYTES
+// but was enforced with String.length, which counts UTF-16 code units. A CJK or
+// emoji payload therefore passed at up to ~3x the stated cap. This is the only
+// size gate that exists — the Rust `browser_eval` command takes an unbounded
+// String — so it has to measure the unit it claims to.
+describe("script size cap is measured in UTF-8 bytes", () => {
+  // 30,000 code units (under the 65536 .length check) but 90,000 UTF-8 bytes.
+  const CJK_OVER_CAP = "\u6c49".repeat(30_000);
+
+  it("the fixture really is under the cap in code units and over it in bytes", () => {
+    expect(CJK_OVER_CAP.length).toBeLessThan(64 * 1024);
+    expect(new TextEncoder().encode(CJK_OVER_CAP).length).toBeGreaterThan(64 * 1024);
+  });
+
+  it("refuses a CJK execute_js script that only a byte measurement catches", async () => {
+    const id = seed();
+    grant("eval");
+    await handleBrowserExecuteJs("cjk-js", { tabId: id, script: CJK_OVER_CAP });
+    expect(invoke).not.toHaveBeenCalled();
+    expect(lastResponse()).toMatchObject({ success: false });
+  });
+
+  it("refuses a CJK injectCss payload on the same basis", async () => {
+    const id = seed();
+    grant("style");
+    await handleBrowserStyle("cjk-css", { tabId: id, injectCss: CJK_OVER_CAP });
+    expect(invoke).not.toHaveBeenCalled();
+    expect(lastResponse()).toMatchObject({ success: false });
+  });
+
+  it("still accepts an ASCII payload just under the byte cap", async () => {
+    const id = seed();
+    grant("style");
+    await handleBrowserStyle("ascii-ok", {
+      tabId: id,
+      injectCss: "a".repeat(64 * 1024 - 10),
+    });
+    expect(invoke).toHaveBeenCalled();
+  });
+});

@@ -9,7 +9,15 @@
  * Plan: dev-docs/plans/20260504-mcp-pruning.md WI-1.2.
  */
 
+import { z } from 'zod';
 import { VMarkMcpServer } from '../server.js';
+import {
+  optionalIdSchema,
+  optionalPathSchema,
+  readOptionalId,
+  readRequiredId,
+  readRequiredPath,
+} from './toolArgs.js';
 
 /** The `open_workspace` approval envelope, attached to a bridge failure's
  *  `data`. Distinct from the browser envelope (no operation/url): opening a
@@ -30,6 +38,17 @@ export function registerWorkspaceTool(server: VMarkMcpServer): void {
   server.registerTool(
     {
       name: 'workspace',
+      title: 'VMark Workspace and Files',
+      // `close` with force:true discards unsaved work and `save_as` writes to a
+      // caller-chosen path, so this is the most dangerous non-browser tool in
+      // the surface. Open-world because `open` / `open_workspace` / `save_as`
+      // reach arbitrary local filesystem paths, not just buffers VMark owns.
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+        openWorldHint: true,
+      },
       description:
         'File and window lifecycle. Use these for everything that is not in-document mutation: creating, opening, saving, closing files; switching tabs; focusing windows.\n\n' +
         'Actions:\n' +
@@ -42,48 +61,50 @@ export function registerWorkspaceTool(server: VMarkMcpServer): void {
         '- switch_tab: Activate a tab. Args: {tabId}.\n' +
         '- focus_window: Focus a specific window. Args: {windowLabel}.',
       inputSchema: {
-        type: 'object',
-        properties: {
-          action: {
-            type: 'string',
-            enum: [
-              'new',
-              'open',
-              'open_workspace',
-              'save',
-              'save_as',
-              'close',
-              'switch_tab',
-              'focus_window',
-            ],
-            description: 'The action to perform',
-          },
-          tabId: { type: 'string' },
-          filePath: { type: 'string' },
-          folderPath: {
-            type: 'string',
-            description: '`open_workspace` only — the folder to open as a workspace.',
-          },
-          windowLabel: { type: 'string' },
-          kind: {
-            type: 'string',
-            enum: ['markdown', 'yaml-workflow'],
-            description: 'Hint for `new` (default: markdown).',
-          },
-          force: {
-            type: 'boolean',
-            description:
-              '`close` only — discard a dirty tab without saving.',
-          },
-        },
-        required: ['action'],
+        action: z
+          .enum([
+            'new',
+            'open',
+            'open_workspace',
+            'save',
+            'save_as',
+            'close',
+            'switch_tab',
+            'focus_window',
+          ])
+          .describe('The action to perform'),
+        tabId: optionalIdSchema('Target tab id (from session.get_state).'),
+        // Paths are validated non-blank but NEVER trimmed: a trailing space is
+        // a legal character in a POSIX filename, so trimming would retarget
+        // the write — the same class of bug as a blank tabId.
+        filePath: optionalPathSchema('`open` / `save_as` only — the file path to open or write.'),
+        folderPath: optionalPathSchema(
+          '`open_workspace` only — the folder to open as a workspace.',
+        ),
+        windowLabel: optionalIdSchema(
+          'Target window (from session.get_state). Omit for the focused window.',
+        ),
+        kind: z
+          .enum(['markdown', 'yaml-workflow'])
+          .optional()
+          .describe('Hint for `new` (default: markdown).'),
+        force: z
+          .boolean()
+          .optional()
+          .describe('`close` only — discard a dirty tab without saving.'),
       },
     },
     async (args) => {
       const action = args.action;
-      const tabId = typeof args.tabId === 'string' ? args.tabId : undefined;
-      const windowLabel =
-        typeof args.windowLabel === 'string' ? args.windowLabel : undefined;
+      // Blank ids are falsy in the app's resolvers, where that reads as "the
+      // focused tab/window" — `close` or `save_as` against a blank id acted on
+      // whatever the user had in front of them, not on the named target.
+      const tab = readOptionalId(args.tabId, 'tabId');
+      if (!tab.ok) return VMarkMcpServer.errorResult(tab.error);
+      const win = readOptionalId(args.windowLabel, 'windowLabel');
+      if (!win.ok) return VMarkMcpServer.errorResult(win.error);
+      const tabId = tab.value;
+      const windowLabel = win.value;
       const kind = typeof args.kind === 'string' ? args.kind : undefined;
 
       switch (action) {
@@ -96,24 +117,22 @@ export function registerWorkspaceTool(server: VMarkMcpServer): void {
           return VMarkMcpServer.successJsonResult(data);
         }
         case 'open': {
-          if (typeof args.filePath !== 'string') {
-            return VMarkMcpServer.errorResult('filePath (string) is required');
-          }
+          const path = readRequiredPath(args.filePath, 'filePath');
+          if (!path.ok) return VMarkMcpServer.errorResult(path.error);
           const data = await server.sendBridgeRequest({
             type: 'vmark.workspace.open',
-            filePath: args.filePath,
+            filePath: path.value,
             windowLabel,
           });
           return VMarkMcpServer.successJsonResult(data);
         }
         case 'open_workspace': {
-          if (typeof args.folderPath !== 'string') {
-            return VMarkMcpServer.errorResult('folderPath (string) is required');
-          }
+          const folder = readRequiredPath(args.folderPath, 'folderPath');
+          if (!folder.ok) return VMarkMcpServer.errorResult(folder.error);
           try {
             const data = await server.sendBridgeRequest({
               type: 'vmark.workspace.open_workspace',
-              folderPath: args.folderPath,
+              folderPath: folder.value,
               windowLabel,
             });
             return VMarkMcpServer.successJsonResult(data);
@@ -143,46 +162,40 @@ export function registerWorkspaceTool(server: VMarkMcpServer): void {
           return VMarkMcpServer.successJsonResult(data);
         }
         case 'save_as': {
-          if (typeof args.filePath !== 'string') {
-            return VMarkMcpServer.errorResult('filePath (string) is required');
-          }
+          const target = readRequiredPath(args.filePath, 'filePath');
+          if (!target.ok) return VMarkMcpServer.errorResult(target.error);
           const data = await server.sendBridgeRequest({
             type: 'vmark.workspace.save_as',
             tabId,
-            filePath: args.filePath,
+            filePath: target.value,
           });
           return VMarkMcpServer.successJsonResult(data);
         }
         case 'close': {
-          if (typeof args.tabId !== 'string') {
-            return VMarkMcpServer.errorResult('tabId (string) is required');
-          }
+          const target = readRequiredId(args.tabId, 'tabId');
+          if (!target.ok) return VMarkMcpServer.errorResult(target.error);
           const data = await server.sendBridgeRequest({
             type: 'vmark.workspace.close',
-            tabId: args.tabId,
+            tabId: target.value,
             force: args.force === true,
           });
           return VMarkMcpServer.successJsonResult(data);
         }
         case 'switch_tab': {
-          if (typeof args.tabId !== 'string') {
-            return VMarkMcpServer.errorResult('tabId (string) is required');
-          }
+          const target = readRequiredId(args.tabId, 'tabId');
+          if (!target.ok) return VMarkMcpServer.errorResult(target.error);
           const data = await server.sendBridgeRequest({
             type: 'vmark.workspace.switch_tab',
-            tabId: args.tabId,
+            tabId: target.value,
           });
           return VMarkMcpServer.successJsonResult(data);
         }
         case 'focus_window': {
-          if (typeof args.windowLabel !== 'string') {
-            return VMarkMcpServer.errorResult(
-              'windowLabel (string) is required',
-            );
-          }
+          const target = readRequiredId(args.windowLabel, 'windowLabel');
+          if (!target.ok) return VMarkMcpServer.errorResult(target.error);
           const data = await server.sendBridgeRequest({
             type: 'vmark.workspace.focus_window',
-            windowLabel: args.windowLabel,
+            windowLabel: target.value,
           });
           return VMarkMcpServer.successJsonResult(data);
         }

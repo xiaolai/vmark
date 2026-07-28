@@ -16,6 +16,19 @@ interface WsMessage {
   payload: BridgeRequest | BridgeResponse;
 }
 
+/**
+ * Build a request envelope carrying an opaque label.
+ *
+ * The transport correlates strictly by envelope `id` and never inspects
+ * `payload.type`, so the rate-limit and queueing tests below only need labels
+ * distinct enough to tell concurrent requests apart. This helper is the single
+ * place that fiction is admitted, instead of scattering casts across ~15 call
+ * sites. Tests that DO care about a real request use the real union member.
+ */
+function probe(type: string): BridgeRequest {
+  return { type } as unknown as BridgeRequest;
+}
+
 describe('WebSocketBridge', () => {
   let server: WebSocketServer;
   let bridge: WebSocketBridge;
@@ -118,7 +131,7 @@ describe('WebSocketBridge', () => {
         // Don't respond
       });
 
-      const sendPromise = bridge.send({ type: 'document.getContent' });
+      const sendPromise = bridge.send({ type: 'vmark.document.read' });
 
       // Disconnect while request is pending
       await bridge.disconnect();
@@ -147,7 +160,7 @@ describe('WebSocketBridge', () => {
         conn.send(JSON.stringify(response));
       });
 
-      const result = await bridge.send<string>({ type: 'document.getContent' });
+      const result = await bridge.send<string>({ type: 'vmark.document.read' });
 
       expect(result.success).toBe(true);
       expect(result.data).toBe('Hello World');
@@ -166,7 +179,7 @@ describe('WebSocketBridge', () => {
         conn.send(JSON.stringify(response));
       });
 
-      const result = await bridge.send({ type: 'document.getContent' });
+      const result = await bridge.send({ type: 'vmark.document.read' });
 
       expect(result.success).toBe(false);
       if (!result.success) {
@@ -189,14 +202,14 @@ describe('WebSocketBridge', () => {
       });
 
       await expect(
-        fastBridge.send({ type: 'document.getContent' })
+        fastBridge.send({ type: 'vmark.document.read' })
       ).rejects.toThrow('Request timeout');
 
       await fastBridge.disconnect();
     });
 
     it('should reject if not connected', async () => {
-      await expect(bridge.send({ type: 'document.getContent' })).rejects.toThrow(
+      await expect(bridge.send({ type: 'vmark.document.read' })).rejects.toThrow(
         'Not connected'
       );
     });
@@ -210,7 +223,7 @@ describe('WebSocketBridge', () => {
         const request = message.payload as BridgeRequest;
 
         // Simulate async processing with different delays
-        const delay = request.type === 'document.getContent' ? 50 : 10;
+        const delay = request.type === 'vmark.document.read' ? 50 : 10;
         responses[message.id] = request.type;
 
         setTimeout(() => {
@@ -224,12 +237,12 @@ describe('WebSocketBridge', () => {
       });
 
       const [result1, result2] = await Promise.all([
-        bridge.send<string>({ type: 'document.getContent' }),
-        bridge.send<string>({ type: 'selection.get' }),
+        bridge.send<string>({ type: 'vmark.document.read' }),
+        bridge.send<string>({ type: 'vmark.selection.get' }),
       ]);
 
-      expect(result1.data).toBe('document.getContent');
-      expect(result2.data).toBe('selection.get');
+      expect(result1.data).toBe('vmark.document.read');
+      expect(result2.data).toBe('vmark.selection.get');
     });
 
     it('should pass request payload correctly', async () => {
@@ -248,15 +261,15 @@ describe('WebSocketBridge', () => {
       });
 
       await bridge.send({
-        type: 'document.setContent',
+        type: 'vmark.document.write',
         content: 'Test content',
-        windowId: 'main',
+        tabId: 'main',
       });
 
       expect(receivedRequest).toMatchObject({
-        type: 'document.setContent',
+        type: 'vmark.document.write',
         content: 'Test content',
-        windowId: 'main',
+        tabId: 'main',
       });
     });
   });
@@ -552,7 +565,7 @@ describe('WebSocketBridge', () => {
       // The send itself still fails (no queueing) but must kick a fresh
       // connect() instead of leaving the bridge dead forever.
       await expect(
-        revivalBridge.send({ type: 'document.getContent' })
+        revivalBridge.send({ type: 'vmark.document.read' })
       ).rejects.toThrow('Not connected');
       expect(internal.reconnectAttempts).toBe(0);
 
@@ -560,7 +573,7 @@ describe('WebSocketBridge', () => {
         expect(revivalBridge.isConnected()).toBe(true);
       });
 
-      const result = await revivalBridge.send<string>({ type: 'document.getContent' });
+      const result = await revivalBridge.send<string>({ type: 'vmark.document.read' });
       expect(result.success).toBe(true);
       expect(result.data).toBe('revived');
 
@@ -582,11 +595,112 @@ describe('WebSocketBridge', () => {
 
       restartServer();
 
-      const result = await queueRevivalBridge.send<string>({ type: 'document.getContent' });
+      const result = await queueRevivalBridge.send<string>({ type: 'vmark.document.read' });
       expect(result.success).toBe(true);
       expect(result.data).toBe('revived');
 
       await queueRevivalBridge.disconnect();
+    });
+  });
+
+  /**
+   * The per-client credential (audit 20260728 §2.1).
+   *
+   * The bridge's authorization principal is bound to what arrives in the auth
+   * frame's `client_token`, so what matters on this side is that the sidecar
+   * puts it there when it holds one — and omits the field entirely when it
+   * does not, which is the pre-upgrade state and must still connect.
+   */
+  describe('per-client credential in the auth frame', () => {
+    /** The first frame a bridge sends, parsed. */
+    async function firstFrame(b: WebSocketBridge): Promise<Record<string, unknown>> {
+      const frame = new Promise<Record<string, unknown>>((resolve) => {
+        server.once('connection', (ws) => {
+          ws.once('message', (data: Buffer) => {
+            const message = JSON.parse(data.toString()) as Record<string, unknown>;
+            ws.send(
+              JSON.stringify({ id: 'auth', type: 'auth_result', payload: { success: true } })
+            );
+            resolve(message);
+          });
+        });
+      });
+      await b.connect();
+      return frame;
+    }
+
+    it('sends the credential alongside the shared bridge token', async () => {
+      const credentialed = new WebSocketBridge({
+        port: TEST_PORT,
+        timeout: 5000,
+        autoReconnect: false,
+        authTokenResolver: () => 'shared-token',
+        clientTokenResolver: () => 'cred-codex',
+      });
+
+      const frame = await firstFrame(credentialed);
+
+      expect(frame.type).toBe('auth');
+      expect(frame.payload).toEqual({ token: 'shared-token', client_token: 'cred-codex' });
+      await credentialed.disconnect();
+    });
+
+    it('omits the field entirely when no credential is configured', async () => {
+      const plain = new WebSocketBridge({
+        port: TEST_PORT,
+        timeout: 5000,
+        autoReconnect: false,
+        authTokenResolver: () => 'shared-token',
+      });
+
+      const frame = await firstFrame(plain);
+
+      expect(frame.payload).toEqual({ token: 'shared-token' });
+      expect(frame.payload).not.toHaveProperty('client_token');
+      await plain.disconnect();
+    });
+
+    /**
+     * A blank credential must not become `client_token: ""` on the wire — an
+     * empty credential is "no credential", and VMark refuses to match one.
+     */
+    it('omits the field when the resolver returns a blank credential', async () => {
+      const blank = new WebSocketBridge({
+        port: TEST_PORT,
+        timeout: 5000,
+        autoReconnect: false,
+        authTokenResolver: () => 'shared-token',
+        clientTokenResolver: () => '',
+      });
+
+      const frame = await firstFrame(blank);
+
+      expect(frame.payload).toEqual({ token: 'shared-token' });
+      await blank.disconnect();
+    });
+
+    /**
+     * Resolved at 'open', not at construction: a credential rewritten by an
+     * Install while the sidecar runs is picked up by the next attempt.
+     */
+    it('re-resolves the credential on every connection attempt', async () => {
+      let current = 'cred-first';
+      const rotating = new WebSocketBridge({
+        port: TEST_PORT,
+        timeout: 5000,
+        autoReconnect: false,
+        authTokenResolver: () => 'shared-token',
+        clientTokenResolver: () => current,
+      });
+
+      const first = await firstFrame(rotating);
+      expect((first.payload as { client_token: string }).client_token).toBe('cred-first');
+      await rotating.disconnect();
+
+      current = 'cred-second';
+      const second = await firstFrame(rotating);
+      expect((second.payload as { client_token: string }).client_token).toBe('cred-second');
+      await rotating.disconnect();
     });
   });
 
@@ -754,7 +868,7 @@ describe('WebSocketBridge', () => {
     it('should reject request when connection is lost', async () => {
       await bridge.connect();
 
-      const sendPromise = bridge.send({ type: 'document.getContent' });
+      const sendPromise = bridge.send({ type: 'vmark.document.read' });
 
       // Close connection from server side
       serverConnections[0].close();
@@ -785,11 +899,11 @@ describe('WebSocketBridge', () => {
       });
 
       // First 2 requests should succeed
-      await rateLimitedBridge.send({ type: 'test1' });
-      await rateLimitedBridge.send({ type: 'test2' });
+      await rateLimitedBridge.send(probe('test1'));
+      await rateLimitedBridge.send(probe('test2'));
 
       // Third request should be rate limited
-      await expect(rateLimitedBridge.send({ type: 'test3' })).rejects.toThrow(
+      await expect(rateLimitedBridge.send(probe('test3'))).rejects.toThrow(
         'Rate limit exceeded'
       );
 
@@ -827,14 +941,14 @@ describe('WebSocketBridge', () => {
       });
 
       // Exhaust rate limit
-      await rateLimitedBridge.send({ type: 'test1' });
-      await rateLimitedBridge.send({ type: 'test2' });
+      await rateLimitedBridge.send(probe('test1'));
+      await rateLimitedBridge.send(probe('test2'));
 
       // Wait for token refill (real ~1s window + margin)
       await new Promise((resolve) => setTimeout(resolve, 1100));
 
       // Should work again
-      const result = await rateLimitedBridge.send({ type: 'test3' });
+      const result = await rateLimitedBridge.send(probe('test3'));
       expect(result.success).toBe(true);
 
       await rateLimitedBridge.disconnect();
@@ -861,7 +975,7 @@ describe('WebSocketBridge', () => {
 
       // Should not rate limit
       for (let i = 0; i < 10; i++) {
-        const result = await unlimitedBridge.send({ type: `test${i}` });
+        const result = await unlimitedBridge.send(probe(`test${i}`));
         expect(result.success).toBe(true);
       }
 
@@ -901,7 +1015,7 @@ describe('WebSocketBridge', () => {
       await new Promise((resolve) => setTimeout(resolve, 50));
 
       // Send while disconnected - should queue
-      const sendPromise = queueBridge.send<string>({ type: 'queued.request' });
+      const sendPromise = queueBridge.send<string>(probe('queued.request'));
 
       // Wait for reconnection and queue flush
       const result = await sendPromise;
@@ -930,12 +1044,12 @@ describe('WebSocketBridge', () => {
       await new Promise((resolve) => setTimeout(resolve, 50));
 
       // Fill the queue to capacity (maxQueueSize = 2).
-      const p1 = queueBridge.send({ type: 'queued1' });
-      const p2 = queueBridge.send({ type: 'queued2' }).catch(() => {});
+      const p1 = queueBridge.send(probe('queued1'));
+      const p2 = queueBridge.send(probe('queued2')).catch(() => {});
 
       // Third send overflows: the oldest queued request (p1) is evicted and
       // rejected, while queued3 is accepted into the queue.
-      const p3 = queueBridge.send({ type: 'queued3' }).catch(() => {});
+      const p3 = queueBridge.send(probe('queued3')).catch(() => {});
       await expect(p1).rejects.toThrow('queue overflow');
 
       // queued3 was queued (not rejected on arrival) — it rejects only once the
@@ -960,7 +1074,7 @@ describe('WebSocketBridge', () => {
       await new Promise((resolve) => setTimeout(resolve, 50));
 
       // Queue a request (don't await)
-      const sendPromise = queueBridge.send({ type: 'queued.request' });
+      const sendPromise = queueBridge.send(probe('queued.request'));
 
       // Give it a moment to queue
       await new Promise((resolve) => setTimeout(resolve, 10));
@@ -985,7 +1099,7 @@ describe('WebSocketBridge', () => {
       await new Promise((resolve) => setTimeout(resolve, 50));
 
       // Should reject immediately
-      await expect(noQueueBridge.send({ type: 'test' })).rejects.toThrow('Not connected');
+      await expect(noQueueBridge.send(probe('test'))).rejects.toThrow('Not connected');
 
       await noQueueBridge.disconnect();
     });

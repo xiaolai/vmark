@@ -533,7 +533,25 @@ phase_3() {
   echo "— WI-3.5 (resolve): delegated MCP resolution —"
   assert_grep "vmark.coherence.resolve" src-tauri/src/mcp_bridge/coherence_answers.rs "resolve arm, principal-bound"
   assert_grep "perform_resolve_as" src-tauri/src/coherence/commands.rs "actor-generic resolve with audit ref"
-  assert_grep "authenticated_principal" src-tauri/src/mcp_bridge/server.rs "authenticated principal plumbed from the bridge"
+  # Symbol history (audit 20260728 §2.1). It was `authenticated_principal`,
+  # which named an authentication property the bridge did not provide; WI-6
+  # renamed it `asserted_principal` to match what it actually was — the
+  # client's own re-sendable `identify` name. The mechanism has since been
+  # replaced: the principal is now fixed at auth time from the per-client
+  # credential VMark issued (`principal.rs`), so `identify` reaches no
+  # authorization decision at all. This asserts the plumbing AND that the old
+  # name is gone, because reintroducing it would mean reintroducing the defect.
+  assert_grep "connection_principal" src-tauri/src/mcp_bridge/server.rs "authenticated principal plumbed from the connection"
+  assert_file src-tauri/src/mcp_bridge/principal.rs "principal derived from a verified credential"
+  # Matched as a definition or a call, never as a bare mention: `state.rs`
+  # documents the old name to explain why the mechanism changed, and a gate
+  # that forbids naming a defect in the comment describing that defect would
+  # buy its assertion by deleting the reason for it.
+  if grep -qE "fn +asserted_principal|asserted_principal *\(" src-tauri/src/mcp_bridge/*.rs; then
+    fail "asserted_principal is back — the principal must come from a credential, not from identify"
+  else
+    ok "no asserted_principal: identify cannot reach an authorization decision"
+  fi
   if [[ "${SKIP_TESTS:-}" != "1" ]]; then
     if cargo test --manifest-path src-tauri/Cargo.toml --lib mcp_bridge::routing --quiet >/dev/null 2>&1; then
       ok "WI-3.5 delegated-resolve suite green"

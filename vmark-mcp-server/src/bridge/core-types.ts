@@ -11,12 +11,6 @@
  */
 
 /**
- * Window labels are still string identifiers; kept here so callers can
- * import the type without dragging in the deleted legacy bundles.
- */
-export type WindowId = string;
-
-/**
  * MCP bridge protocol version this server speaks. Sent to VMark on
  * `session.get_state` so the app can gate protocol-versioned data (browser tabs
  * arrived at 0.3.0). Bump in lockstep with the app's MCP_PROTOCOL_VERSION.

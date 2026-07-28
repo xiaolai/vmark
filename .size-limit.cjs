@@ -209,9 +209,17 @@ module.exports = [
     // plus the WhitespaceSettings extraction (a new module boundary, added to
     // keep EditorSettings.tsx under its file-size baseline) pushed this ~98 B
     // over the old 99 kB ceiling; +2 kB restores headroom.
+    // Bumped 101 → 103 kB: the `ConfigUnreadable` diagnostic state (a config
+    // VMark cannot parse is no longer reported as "not installed", so the row
+    // gains an icon arm, a Recheck action and its strings) plus the
+    // mcpConfigMessages extraction — a new module boundary added to keep
+    // McpConfigInstaller.tsx under its file-size baseline — pushed this ~53 B
+    // over the old 101 kB ceiling. Same shape as the 99 → 101 bump above, and
+    // the same trade: a size-limit byte cost paid to satisfy the file-size
+    // gate. +2 kB restores headroom.
     name: "LAZY: Settings page",
     path: "dist/assets/SettingsPage-*.js",
-    limit: "101 kB",
+    limit: "103 kB",
     brotli: false,
   },
   {

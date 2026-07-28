@@ -51,11 +51,11 @@ pub(crate) fn get_provider_config(provider: &str) -> Result<&'static ProviderCon
     PROVIDERS
         .iter()
         .find(|p| p.id == provider)
-        .ok_or_else(|| format!("Unknown provider: {}", provider))
+        .ok_or_else(|| rust_i18n::t!("errors.mcp.unknownProvider", provider = provider).to_string())
 }
 
 pub(crate) fn get_config_path(provider: &ProviderConfig) -> Result<PathBuf, String> {
-    let home = dirs::home_dir().ok_or("Cannot determine home directory")?;
+    let home = dirs::home_dir().ok_or_else(|| rust_i18n::t!("errors.mcp.noHomeDir").to_string())?;
     Ok(home.join(provider.relative_path))
 }
 
@@ -104,8 +104,12 @@ pub(crate) fn get_mcp_binary_path() -> Result<String, String> {
     }
 
     // Production: next to main executable
-    let exe = std::env::current_exe().map_err(|e| format!("Cannot get executable path: {}", e))?;
-    let exe_dir = exe.parent().ok_or("Cannot get executable directory")?;
+    let exe = std::env::current_exe().map_err(|e| {
+        rust_i18n::t!("errors.mcp.exePathFailed", detail = e.to_string()).to_string()
+    })?;
+    let exe_dir = exe
+        .parent()
+        .ok_or_else(|| rust_i18n::t!("errors.mcp.exeDirFailed").to_string())?;
 
     // Cross-platform: try simple name first (Tauri bundles without target suffix)
     // On Windows the binary has .exe extension
@@ -142,8 +146,5 @@ pub(crate) fn get_mcp_binary_path() -> Result<String, String> {
         return Ok(prod_path.to_string_lossy().to_string());
     }
 
-    Err(format!(
-        "MCP server binary not found: {}. Please reinstall VMark.",
-        binary_name_simple
-    ))
+    Err(rust_i18n::t!("errors.mcp.binaryNotFound", name = binary_name_simple).to_string())
 }

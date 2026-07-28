@@ -54,6 +54,7 @@ Each provider shows a status indicator:
 | ✓ Green | Valid | Configuration is correct and working |
 | ⚠ Amber | Path Mismatch | VMark was moved — click **Repair** |
 | ✗ Red | Binary Missing | MCP binary not found — reinstall VMark |
+| 🗎 Red | Config Unreadable | VMark cannot read or parse the config file, so whether it holds a VMark entry is unknown. The message names the file and the reason. Fix or move it, then click **Recheck** — install and repair are withheld until it parses, because writing to a file VMark cannot read would risk destroying its contents |
 | ○ Gray | Not Configured | Not installed — click **Install** |
 
 ::: tip VMark Moved?

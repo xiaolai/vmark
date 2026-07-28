@@ -18,6 +18,14 @@
  *   - `new` and `open` accept an optional `windowLabel` so a
  *     multi-window workflow can target a specific window; default is
  *     focused.
+ *   - `open` never reloads a tab that holds local content. `createTab`
+ *     dedupes by path, so re-opening an already-open file returns the
+ *     EXISTING tab; re-initialising it there discarded unsaved edits. Both
+ *     `isDirty` and `isDivergent` count as local content — divergent is
+ *     clean but deliberately kept after "Keep my changes". A clean reload
+ *     goes through `loadContent` (mutates in place, keeps `readOnly`,
+ *     increments `documentId`) plus `clearMissing`, not `initDocument`
+ *     (audit 20260728 §1.3).
  *
  * @coordinates-with stores/tabStore.ts — createTab, closeTab, setActiveTab
  * @coordinates-with stores/documentStore.ts — initDocument, markSaved
@@ -109,11 +117,63 @@ export async function handleWorkspaceOpen(
     const docStore = useDocumentStore.getState();
     const windowLabel = getWindowLabel(args);
     const tabId = tabStore.createTab(windowLabel, filePath);
-    // WI-2.6 — registry handles YAML routing; the force-source
-    // bandaid is retired. .yaml/.yml files now route to the YAML
-    // adapter (kind: split-pane), bypassing the markdown surface.
-    docStore.initDocument(tabId, content, filePath);
-    await respond({ id, success: true, data: { tabId } });
+    // `createTab` dedupes by path, so this may be a tab that is ALREADY open.
+    const existing = docStore.documents[tabId];
+
+    // WI-3: re-initialising an already-open tab replaces the whole document
+    // entry (savedContent, isDirty, documentId), so an open file with local
+    // content would be silently reset to disk content with no checkpoint.
+    // Focus it instead and tell the caller why nothing was reloaded.
+    //
+    // `isDivergent` counts as unsaved just as much as `isDirty` does: it marks
+    // a document where the user answered "Keep my changes" to an external
+    // modification, so the buffer is deliberately-retained local content even
+    // though the dirty flag is clear.
+    if (existing && (existing.isDirty || existing.isDivergent)) {
+      // `createTab` already focused the deduped tab.
+      const why = existing.isDirty
+        ? "unsaved changes"
+        : "local content deliberately kept after an external modification";
+      await respond({
+        id,
+        success: true,
+        data: {
+          tabId,
+          alreadyOpen: true,
+          reloaded: false,
+          reason: `Tab is already open with ${why}; it was focused rather than reloaded from disk, which would have discarded them.`,
+        },
+      });
+      return;
+    }
+
+    if (existing) {
+      // Reload a clean already-open tab through `loadContent`, not
+      // `initDocument`. `initDocument` builds a fresh entry, which resets
+      // `readOnly` (silently disabling write protection), the per-document
+      // editor mode, and `documentId` — and a first-open document sits at
+      // `documentId === 0`, so rebuilding it there leaves the counter
+      // unchanged and the editor may never remount on the new content.
+      // `loadContent` mutates in place, increments `documentId`, and bumps
+      // the revision itself when the content actually moved.
+      docStore.loadContent(tabId, content, filePath);
+      // `loadContent` deliberately does NOT clear `isMissing` — hot-exit
+      // restore replays saved content for a file that may genuinely be gone.
+      // Here the read above just succeeded, so the file demonstrably exists:
+      // pair the two exactly as `services/persistence/reloadFromDisk.ts` does,
+      // or a deleted-then-recreated file stays flagged as missing forever.
+      docStore.clearMissing(tabId);
+    } else {
+      // WI-2.6 — registry handles YAML routing; the force-source
+      // bandaid is retired. .yaml/.yml files now route to the YAML
+      // adapter (kind: split-pane), bypassing the markdown surface.
+      docStore.initDocument(tabId, content, filePath);
+    }
+    await respond({
+      id,
+      success: true,
+      data: { tabId, alreadyOpen: existing !== undefined, reloaded: true },
+    });
   });
 }
 export { handleWorkspaceSave } from "./workspaceSave";

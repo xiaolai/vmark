@@ -268,6 +268,46 @@ errors:
   mcp.spawnInProgress: "MCP 侧载进程正在启动中"
   mcp.configMismatch: "配置校验失败：写入内容与预期不符"
 
+  # MCP client config — provider and sidecar binary resolution
+  mcp.unknownProvider: "未知的提供商：%{provider}"
+  mcp.noHomeDir: "无法确定用户主目录"
+  mcp.exePathFailed: "无法获取可执行文件路径：%{detail}"
+  mcp.exeDirFailed: "无法获取可执行文件所在目录"
+  mcp.binaryNotFound: "未找到 MCP 服务器二进制文件：%{name}。请重新安装 VMark。"
+
+  # MCP client config — parsing and structure
+  mcp.invalidJson: "JSON 无效：%{detail}"
+  mcp.invalidToml: "TOML 无效：%{detail}"
+  mcp.jsonSerializeFailed: "JSON 序列化错误：%{detail}"
+  mcp.invalidJsonStructure: "JSON 结构无效"
+  mcp.serversNotObject: "mcpServers 不是对象"
+  mcp.serversNotTable: "mcp_servers 不是表"
+  mcp.vmarkEntryNotObject: "mcpServers.vmark 不是对象"
+  mcp.vmarkEntryNotTable: "mcp_servers.vmark 不是表"
+  mcp.envNotObject: "mcpServers.vmark.env 不是对象"
+  mcp.envNotTable: "mcp_servers.vmark.env 不是表"
+
+  # MCP 桥接 —— 授权主体所绑定的客户端凭据
+  mcp.principalMissing: "该 AI 客户端未提供 VMark 凭据，因此已拒绝其委派操作。请打开“设置 > 集成”，为它执行“安装”，然后重启该客户端。"
+  mcp.principalUnknown: "该 AI 客户端提供的凭据不在 VMark 的记录中，因此已拒绝其委派操作。请打开“设置 > 集成”，为它执行“安装”，然后重启该客户端。"
+  mcp.principalAmbiguous: "该 AI 客户端提供的凭据同时配置给了多个客户端（%{detail}），VMark 无法区分它们。请打开“设置 > 集成”，为每一个都执行“安装”，然后分别重启。"
+
+  # MCP client config — reading, backing up and writing
+  mcp.readFailed: "读取 %{path} 失败：%{detail}"
+  mcp.createDirFailed: "创建目录 %{path} 失败：%{detail}"
+  mcp.configChangedOnDisk: "VMark 更新期间 %{path} 在磁盘上发生了变化。请关闭正在写入该文件的客户端后重试。"
+  mcp.backupWriteFailed: "写入备份 %{path} 失败：%{detail}"
+  mcp.backupFlushFailed: "刷新备份 %{path} 的缓冲区失败：%{detail}"
+  mcp.backupSyncFailed: "同步备份 %{path} 失败：%{detail}"
+  mcp.backupCreateFailed: "创建备份 %{path} 失败：%{detail}"
+  mcp.backupVariantsExhausted: "创建备份失败：%{path} 已存在 %{count} 个变体"
+  mcp.stageConfigFailed: "在 %{dir} 中暂存配置失败：%{detail}"
+  mcp.restrictStagedConfigFailed: "限制暂存配置 %{path} 的权限失败：%{detail}"
+  mcp.writeStagedConfigFailed: "写入 %{path} 的暂存配置失败：%{detail}"
+  mcp.createConfigFailed: "创建 %{path} 失败：无法将暂存副本硬链接到目标位置（%{link_detail}），也无法直接创建该文件（%{open_detail}）。"
+  mcp.writeConfigPartialRemoved: "写入 %{path} 失败：%{detail}（已删除不完整的文件）"
+  mcp.writeConfigPartialOrphaned: "写入 %{path} 失败：%{detail}。不完整的文件也无法删除（%{cleanup_detail}）。请在重试前手动删除它，否则下次安装会把它当作损坏的配置读取。"
+
 window:
   settings.title: "设置"
 
