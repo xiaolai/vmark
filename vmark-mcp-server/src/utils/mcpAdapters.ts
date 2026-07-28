@@ -4,6 +4,11 @@
  * Purpose: Convert between VMark server types and MCP SDK types,
  * with proper error wrapping per project conventions.
  *
+ * Tool results only. `toMcpContents` / `createResourceHandler` — the
+ * `resources/read` half — were deleted with the resource capability itself
+ * (audit 20260728 §4): `cli.ts` looped over an always-empty resource registry,
+ * so nothing but their own tests ever reached them.
+ *
  * @coordinates-with cli.ts (consumer of these adapters)
  */
 
@@ -22,17 +27,6 @@ interface VMarkContentItem {
     blob?: string;
     mimeType?: string;
   };
-}
-
-/**
- * Resource content item from VMark server resource results.
- * Mirrors ResourceReadResult['contents'][number] in src/types.ts — keep in sync.
- */
-interface VMarkResourceItem {
-  uri: string;
-  text?: string;
-  blob?: string;
-  mimeType?: string;
 }
 
 /**
@@ -68,30 +62,19 @@ interface McpEmbeddedResource {
 type McpContentItem = McpTextContent | McpImageContent | McpEmbeddedResource;
 
 /**
- * MCP SDK resource content format (text or base64 blob variant).
- * Index signature required for compatibility with MCP SDK's ReadResourceCallback.
- */
-type McpResourceContent =
-  | { [key: string]: unknown; uri: string; text: string; mimeType?: string }
-  | { [key: string]: unknown; uri: string; blob: string; mimeType?: string };
-
-/**
  * MCP SDK tool call result.
  * Index signature required for compatibility with MCP SDK's CallToolCallback.
  */
 interface McpToolResult {
   [key: string]: unknown;
   content: McpContentItem[];
+  /**
+   * Machine-readable payload for tools that declare an `outputSchema`. The SDK
+   * validates it against that schema and REJECTS a non-error result that omits
+   * it, so this must be forwarded, not dropped.
+   */
+  structuredContent?: Record<string, unknown>;
   isError?: boolean;
-}
-
-/**
- * MCP SDK resource read result.
- * Index signature required for compatibility with MCP SDK's ReadResourceCallback.
- */
-interface McpResourceResult {
-  [key: string]: unknown;
-  contents: McpResourceContent[];
 }
 
 /**
@@ -100,14 +83,11 @@ interface McpResourceResult {
 type CallToolFn = (
   name: string,
   args: Record<string, unknown>
-) => Promise<{ content: VMarkContentItem[]; isError?: boolean }>;
-
-/**
- * Resource read function signature (matches VMarkMcpServer.readResource).
- */
-type ReadResourceFn = (
-  uri: string
-) => Promise<{ contents: VMarkResourceItem[] }>;
+) => Promise<{
+  content: VMarkContentItem[];
+  structuredContent?: Record<string, unknown>;
+  isError?: boolean;
+}>;
 
 /**
  * Convert VMark content items to MCP SDK content format.
@@ -144,25 +124,6 @@ export function toMcpContent(
 }
 
 /**
- * Convert VMark resource contents to MCP SDK format.
- * Keeps text items and blob items (base64 binary contents per the MCP spec);
- * drops items carrying neither.
- */
-export function toMcpContents(
-  items: VMarkResourceItem[]
-): McpResourceContent[] {
-  const result: McpResourceContent[] = [];
-  for (const item of items) {
-    if (typeof item.text === 'string') {
-      result.push({ uri: item.uri, text: item.text, mimeType: item.mimeType });
-    } else if (typeof item.blob === 'string') {
-      result.push({ uri: item.uri, blob: item.blob, mimeType: item.mimeType });
-    }
-  }
-  return result;
-}
-
-/**
  * Create an error-wrapped tool handler callback for MCP SDK registration.
  *
  * Wraps the VMark server's callTool + toMcpContent pipeline in try/catch.
@@ -177,6 +138,9 @@ export function createToolHandler(
       const result = await callTool(toolName, args);
       return {
         content: toMcpContent(result.content),
+        ...(result.structuredContent !== undefined
+          ? { structuredContent: result.structuredContent }
+          : {}),
         isError: result.isError,
       };
     } catch (error) {
@@ -189,29 +153,6 @@ export function createToolHandler(
         ],
         isError: true,
       };
-    }
-  };
-}
-
-/**
- * Create an error-wrapped resource handler callback for MCP SDK registration.
- *
- * Wraps the VMark server's readResource + toMcpContents pipeline in try/catch.
- * On error, re-throws with descriptive context.
- */
-export function createResourceHandler(
-  resourceUri: string,
-  readResource: ReadResourceFn
-): () => Promise<McpResourceResult> {
-  return async () => {
-    try {
-      const result = await readResource(resourceUri);
-      return { contents: toMcpContents(result.contents) };
-    } catch (error) {
-      throw new Error(
-        `Resource read failed: ${error instanceof Error ? error.message : String(error)}`,
-        { cause: error }
-      );
     }
   };
 }

@@ -1,0 +1,15 @@
+{
+  // Type-check the test tree. The build tsconfig deliberately excludes
+  // `__tests__` (it must not be emitted into dist/ and `rootDir` is `src`), and
+  // vitest transpiles without type-checking — so for years nothing type-checked
+  // the tests at all. A 930-line mock importing twelve non-existent types
+  // survived in that blind spot. `pnpm typecheck` closes it.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "rootDir": ".",
+    "types": ["node"]
+  },
+  "include": ["src/**/*", "__tests__/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

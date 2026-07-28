@@ -10,13 +10,28 @@
  * Plan: dev-docs/plans/20260718-coherence-layer.md WI-1.10.
  */
 
+import { z } from 'zod';
 import type { BridgeRequest } from '../bridge/core-types.js';
 import { VMarkMcpServer } from '../server.js';
+import { RECOVERY } from '../utils/toolOutput.js';
 
 export function registerCoherenceTool(server: VMarkMcpServer): void {
   server.registerTool(
     {
       name: 'coherence',
+      title: 'VMark Workspace Coherence',
+      // Four of the five actions are pure reads, but `resolve` writes an
+      // audit-logged, non-undoable entry to the workspace ledger. The header
+      // comment below still says "READ-ONLY" because that was the tool's
+      // original shape; the annotation must describe what it can do TODAY, so
+      // it declares the mutating value. Closed-world: the ledger lives inside
+      // the workspace's own `.vmark/` directory.
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
       description:
         'READ-ONLY view of the workspace coherence layer — which derived documents are stale against their upstreams. Never modifies anything.\n\n' +
         'Actions:\n' +
@@ -27,37 +42,31 @@ export function registerCoherenceTool(server: VMarkMcpServer): void {
         '- resolve: THE one mutating action — resolve a live stale edge as an explicitly delegated agent. Args {workspace_root, txf, input, resolution: "accept-newer"|"waive", reason? (required for waive)}. Authorization is fail-closed: the workspace owner must have granted YOUR authenticated bridge identity a live, unexpired delegation covering the resolution kind (granted in-app); the edge must be live. Every delegated resolution is audit-logged against the grant.\n\n' +
         'All actions require `workspace_root`: the absolute path of the workspace to query (learn it from the workspace/session tools).',
       inputSchema: {
-        type: 'object',
-        properties: {
-          action: {
-            type: 'string',
-            enum: ['status', 'edges', 'claims', 'contexts', 'resolve'],
-            description: 'The action to perform',
-          },
-          workspace_root: {
-            type: 'string',
-            description:
-              'Absolute path of the workspace to query. Required for every action.',
-          },
-          txf: {
-            type: 'string',
-            description: 'resolve only: the edge transformation id (from edges rows).',
-          },
-          input: {
-            type: 'number',
-            description: 'resolve only: the edge input index.',
-          },
-          resolution: {
-            type: 'string',
-            enum: ['accept-newer', 'waive'],
-            description: 'resolve only: the resolution kind.',
-          },
-          reason: {
-            type: 'string',
-            description: 'resolve only: required when resolution is waive.',
-          },
-        },
-        required: ['action', 'workspace_root'],
+        action: z
+          .enum(['status', 'edges', 'claims', 'contexts', 'resolve'])
+          .describe('The action to perform'),
+        workspace_root: z
+          .string()
+          .min(1)
+          .describe('Absolute path of the workspace to query. Required for every action.'),
+        txf: z
+          .string()
+          .optional()
+          .describe('resolve only: the edge transformation id (from edges rows).'),
+        input: z
+          .number()
+          .int()
+          .nonnegative()
+          .optional()
+          .describe('resolve only: the edge input index.'),
+        resolution: z
+          .enum(['accept-newer', 'waive'])
+          .optional()
+          .describe('resolve only: the resolution kind.'),
+        reason: z
+          .string()
+          .optional()
+          .describe('resolve only: required when resolution is waive.'),
       },
     },
     async (args) => {
@@ -97,7 +106,10 @@ export function registerCoherenceTool(server: VMarkMcpServer): void {
               workspace_root: args.workspace_root,
             };
       const data = await server.sendBridgeRequest(request);
-      return VMarkMcpServer.successJsonResult(data);
+      return VMarkMcpServer.successJsonResult(
+        data,
+        action === 'edges' ? RECOVERY.coherenceEdges : RECOVERY.default,
+      );
     },
   );
 }

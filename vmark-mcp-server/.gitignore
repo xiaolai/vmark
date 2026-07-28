@@ -1,0 +1,6 @@
+# Compiled output emitted next to a TypeScript source. Two stale copies of
+# __tests__/utils/McpTestClient.ts (`.js` + `.js.map`) were committed this way
+# and then drifted from their source. Vitest transpiles the `.ts` directly, so
+# nothing ever needs the emitted sibling; `pnpm build` writes to dist/.
+__tests__/**/*.js
+__tests__/**/*.js.map

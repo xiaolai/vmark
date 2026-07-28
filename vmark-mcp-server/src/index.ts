@@ -1,13 +1,18 @@
 #!/usr/bin/env node
 /**
- * VMark MCP Server — pruned tool surface (5 editor tools + browser).
+ * VMark MCP Server — pruned tool surface (5 editor tools + browser + coherence).
  *
- * Exposes VMark to AI assistants via the MCP protocol with seven
- * composite tools: `session`, `workspace`, `document`, `workflow`,
- * `selection`, `browser`, and `coherence`. The legacy 12-tool surface (format/structure/media/table/etc.)
- * was removed in WI-1.5; `selection.{get,set}` was re-added per ADR-7
- * after the round-trip cost on large documents proved a real burden.
+ * Exposes VMark to AI assistants via the MCP protocol with seven composite
+ * tools — `session`, `workspace`, `document`, `workflow`, `selection`,
+ * `browser`, `coherence` — multiplexing 34 actions behind their `action`
+ * enums. The legacy 60-tool surface was pruned in WI-1.5;
+ * `selection.{get,set}` was re-added per ADR-7 after the round-trip cost on
+ * large documents proved a real burden.
  * See dev-docs/plans/20260504-mcp-pruning.md for the full rationale.
+ *
+ * No MCP *resources* are exposed: `session.get_state` returns in one
+ * round-trip everything the deleted `vmark://document/*` and
+ * `vmark://windows/*` URIs used to provide.
  *
  * Usage:
  *   npx @vmark/mcp-server
@@ -18,18 +23,8 @@
  */
 
 // Re-export public API
-export {
-  VMarkMcpServer,
-  resolveWindowId,
-  validateNonNegativeInteger,
-  getStringArg,
-  requireStringArg,
-  getNumberArg,
-  requireNumberArg,
-  getBooleanArg,
-  getWindowIdArg,
-} from './server.js';
-export type { VMarkMcpServerConfig, ToolArgs } from './server.js';
+export { VMarkMcpServer } from './server.js';
+export type { VMarkMcpServerConfig } from './server.js';
 
 // Bridge implementations
 export { WebSocketBridge } from './bridge/websocket.js';
@@ -48,16 +43,12 @@ export type {
   Bridge,
   BridgeRequest,
   BridgeResponse,
-  WindowId,
 } from './bridge/types.js';
 
 export type {
   ToolDefinition,
   ToolHandler,
-  ResourceDefinition,
-  ResourceHandler,
   ToolCallResult,
-  ResourceReadResult,
   McpServerInterface,
 } from './types.js';
 
@@ -84,13 +75,15 @@ export function createVMarkMcpServer(
 ): VMarkMcpServer {
   const server = new VMarkMcpServer({ bridge, version: options?.version });
 
+  // Action counts here mirror each tool's `action` enum. Keep them in step —
+  // they drifted to 7/5/2 against a real 8/13/5 before the 20260728 audit.
   registerSessionTool(server);   // session (1 action)
-  registerWorkspaceTool(server); // workspace (7 actions)
+  registerWorkspaceTool(server); // workspace (8 actions)
   registerDocumentTool(server);  // document (3 actions)
   registerWorkflowTool(server);  // workflow (2 actions)
   registerSelectionTool(server); // selection (2 actions)
-  registerBrowserTool(server);   // browser (5 actions: read, act, open, navigate, wait)
-  registerCoherenceTool(server); // coherence (2 read-only actions: status, edges)
+  registerBrowserTool(server);   // browser (13 actions)
+  registerCoherenceTool(server); // coherence (5 actions, 1 mutating: resolve)
 
   return server;
 }
@@ -108,7 +101,7 @@ export const TOOL_CATEGORIES = [
   {
     name: 'Workspace',
     description:
-      'File and window lifecycle: new, open, save, save_as, close, switch_tab, focus_window (7 actions)',
+      'File and window lifecycle: new, open, open_workspace, save, save_as, close, switch_tab, focus_window (8 actions)',
     tools: ['workspace'],
   },
   {
@@ -132,13 +125,13 @@ export const TOOL_CATEGORIES = [
   {
     name: 'Browser',
     description:
-      'Read, act, open, navigate, and wait on the embedded browser tab; actions are approval-gated (5 actions)',
+      'Drive the embedded browser tab: read, act, open, navigate, wait, wait_for, screenshot, query, style, execute_js, session_save, session_load, console; write-class actions are approval-gated (13 actions)',
     tools: ['browser'],
   },
   {
     name: 'Coherence',
     description:
-      'Read-only workspace coherence view: kernel status counters and the stale/diverged edge breakdown (2 actions)',
+      'Workspace coherence: kernel status, the stale/diverged edge breakdown, claims and contexts are reads; resolve WRITES an audit-logged ledger entry and requires a live delegation grant (5 actions, 1 mutating)',
     tools: ['coherence'],
   },
 ] as const;
@@ -151,11 +144,3 @@ export const EXPECTED_TOOL_COUNT = TOOL_CATEGORIES.reduce(
   (sum, cat) => sum + cat.tools.length,
   0,
 );
-
-/**
- * No resources are exposed in the pruned surface. All discovery flows
- * through `vmark.session.get_state`, which gives the AI everything the
- * deleted vmark://document/* and vmark://windows/* resources used to
- * provide — in a single round-trip.
- */
-export const RESOURCES = [] as const;
