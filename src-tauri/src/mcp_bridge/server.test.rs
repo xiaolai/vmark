@@ -1,9 +1,12 @@
 //! Tests for `server.rs` (moved from the inline `#[cfg(test)]` module;
 //! included via `#[path]`).
 
+// Not Windows-gated: `an_unknown_client_id_has_no_principal` needs no mock
+// runtime and runs everywhere.
+use super::super::principal::BridgePrincipal;
 // Used only by the MockRuntime tests below, which are gated off Windows.
 #[cfg(not(target_os = "windows"))]
-use super::super::state::MAX_PENDING_REQUESTS;
+use super::super::state::{ClientConnection, MAX_PENDING_REQUESTS};
 use super::super::types::McpResponsePayload;
 use super::*;
 
@@ -48,6 +51,15 @@ fn global_state_test_lock() -> &'static tokio::sync::Mutex<()> {
 /// MockRuntime tests use this.
 #[cfg(not(target_os = "windows"))]
 async fn register_test_client(client_id: u64) -> mpsc::Receiver<String> {
+    register_test_client_as(client_id, BridgePrincipal::Anonymous).await
+}
+
+/// The same, with an explicit authenticated principal.
+#[cfg(not(target_os = "windows"))]
+async fn register_test_client_as(
+    client_id: u64,
+    principal: BridgePrincipal,
+) -> mpsc::Receiver<String> {
     let (tx, rx) = mpsc::channel::<String>(8);
     let state = get_bridge_state();
     let mut guard = state.lock().await;
@@ -57,6 +69,7 @@ async fn register_test_client(client_id: u64) -> mpsc::Receiver<String> {
             tx,
             shutdown: None,
             identity: None,
+            principal,
         },
     );
     rx
@@ -84,6 +97,44 @@ fn mock_app() -> tauri::App<tauri::test::MockRuntime> {
     tauri::test::mock_builder()
         .build(tauri::test::mock_context(tauri::test::noop_assets()))
         .expect("build mock app")
+}
+
+// -- the write lock is not held across delivery -------------------------------
+
+/// Audit round 1, finding 8: the guard was declared with `let _write_guard`
+/// and therefore lived to the end of `handle_message` — across the final
+/// `deliver_response(...).await` — even though a comment above that call
+/// claimed the lock had already been released. Delivery can force-disconnect
+/// a backpressured peer (which takes the bridge state lock), so every other
+/// write op queued behind one slow client's teardown.
+///
+/// `without_write_lock` takes the guard by value and drops it before awaiting,
+/// which makes the ordering observable: the delivery future here reads the
+/// lock at the moment it runs.
+#[tokio::test]
+async fn the_write_lock_is_released_before_the_delivery_future_runs() {
+    let lock = get_write_lock();
+    let guard = lock.lock().await;
+    let probe = lock.clone();
+
+    let free_during_delivery =
+        without_write_lock(Some(guard), async move { probe.try_lock().is_ok() }).await;
+
+    assert!(
+        free_during_delivery,
+        "delivery must not run while the global write lock is held"
+    );
+}
+
+/// The read path passes `None` — nothing to release, and delivery still runs.
+#[tokio::test]
+async fn a_read_request_delivers_without_a_guard() {
+    let lock = get_write_lock();
+    let probe = lock.clone();
+
+    let free = without_write_lock(None, async move { probe.try_lock().is_ok() }).await;
+
+    assert!(free);
 }
 
 // -- payload parse failures answer the client (Codex audit 20260718) --------
@@ -362,4 +413,92 @@ async fn disconnect_preserves_window_workspaces() {
     let state = get_bridge_state();
     let mut guard = state.lock().await;
     guard.window_workspaces.remove("doc-0");
+}
+
+// -- `identify` is informational; the principal is the credential -----------
+//
+// THE regression test for audit 20260728 §2.1. Before per-client credentials
+// the authorization principal WAS `identity.name`, so this exact sequence —
+// connect, then say "I am codex-cli" — was all it took to exercise a
+// delegation a human granted to Codex CLI and to have the ratification receipt
+// record Codex CLI as the actor. There was no once-only guard either: a client
+// could re-`identify` and change principal mid-connection.
+//
+// Driven through the real `handle_message` path rather than `handle_identify`
+// directly, so it covers the dispatch too.
+
+/// A client that authenticated with NO credential cannot name itself into one.
+#[cfg(not(target_os = "windows"))]
+#[tokio::test]
+async fn identify_cannot_promote_an_unidentified_client_to_a_provider() {
+    let _guard = global_state_test_lock().lock().await;
+    let app = mock_app();
+    let _rx = register_test_client_as(9301, BridgePrincipal::Anonymous).await;
+
+    let claim = serde_json::json!({
+        "id": "identify",
+        "type": "identify",
+        "payload": { "name": "codex-cli", "version": "1.2.3" },
+    })
+    .to_string();
+    handle_message(&claim, 9301, app.handle())
+        .await
+        .expect("identify is accepted");
+
+    assert_eq!(
+        connection_principal(9301).await,
+        BridgePrincipal::Anonymous,
+        "a self-declared name must not become a principal"
+    );
+    // It is still recorded as a LABEL — that is all identify is for.
+    let state = get_bridge_state();
+    let guard = state.lock().await;
+    assert_eq!(
+        guard.clients[&9301]
+            .identity
+            .as_ref()
+            .map(|i| i.name.clone()),
+        Some("codex-cli".to_string()),
+        "identify still labels the connection for the UI and logs"
+    );
+    drop(guard);
+    remove_test_client(9301).await;
+}
+
+/// A client that authenticated as `claude` cannot re-label itself into
+/// `codex-cli`'s grants, and repeated `identify` frames cannot either.
+#[cfg(not(target_os = "windows"))]
+#[tokio::test]
+async fn identify_cannot_move_a_client_to_another_providers_principal() {
+    let _guard = global_state_test_lock().lock().await;
+    let app = mock_app();
+    let _rx = register_test_client_as(9302, BridgePrincipal::Provider("claude".into())).await;
+
+    for name in ["codex-cli", "cursor", "claude"] {
+        let claim = serde_json::json!({
+            "id": "identify",
+            "type": "identify",
+            "payload": { "name": name },
+        })
+        .to_string();
+        handle_message(&claim, 9302, app.handle())
+            .await
+            .expect("identify is accepted");
+        assert_eq!(
+            connection_principal(9302).await,
+            BridgePrincipal::Provider("claude".into()),
+            "re-identifying as {name} must not change who the connection is"
+        );
+    }
+
+    remove_test_client(9302).await;
+}
+
+/// A client id with no live connection authorizes nothing.
+#[tokio::test]
+async fn an_unknown_client_id_has_no_principal() {
+    assert_eq!(
+        connection_principal(u64::MAX).await,
+        BridgePrincipal::Anonymous
+    );
 }

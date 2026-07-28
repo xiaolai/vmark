@@ -42,6 +42,7 @@ mod pandoc;
 mod pty;
 mod quarantine;
 mod quit;
+mod secret_token;
 mod secure_store;
 mod shell_env;
 mod shell_integration;

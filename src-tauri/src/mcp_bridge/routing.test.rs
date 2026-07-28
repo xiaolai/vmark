@@ -16,6 +16,14 @@ fn coherence_state() -> CoherenceState {
     }
 }
 
+/// A connection that authenticated with the credential VMark issued to Codex
+/// CLI. Constructed here rather than asserted over the wire — `identify` no
+/// longer produces a principal, so the only way to be `codex-cli` is to have
+/// held its credential (`principal.test.rs` pins that resolution).
+fn codex() -> BridgePrincipal {
+    BridgePrincipal::Provider("codex-cli".to_string())
+}
+
 // -- answer_coherence: success paths ----------------------------------------
 
 #[test]
@@ -24,7 +32,12 @@ fn status_on_uninitialized_workspace_reports_defaults() {
     let state = coherence_state();
     let args = serde_json::json!({ "workspace_root": dir.path() });
 
-    let response = answer_coherence(&state, "vmark.coherence.status", &args, None);
+    let response = answer_coherence(
+        &state,
+        "vmark.coherence.status",
+        &args,
+        &BridgePrincipal::Anonymous,
+    );
 
     assert!(response.success, "error: {:?}", response.error);
     assert!(response.error.is_none());
@@ -46,7 +59,12 @@ fn edges_on_uninitialized_workspace_returns_empty_array() {
     let state = coherence_state();
     let args = serde_json::json!({ "workspace_root": dir.path() });
 
-    let response = answer_coherence(&state, "vmark.coherence.edges", &args, None);
+    let response = answer_coherence(
+        &state,
+        "vmark.coherence.edges",
+        &args,
+        &BridgePrincipal::Anonymous,
+    );
 
     assert!(response.success, "error: {:?}", response.error);
     assert_eq!(response.data, Some(serde_json::json!([])));
@@ -62,7 +80,12 @@ fn missing_workspace_root_is_clean_error() {
         serde_json::json!({ "workspace_root": 42 }), // wrong type
         serde_json::json!({ "workspace_root": null }),
     ] {
-        let response = answer_coherence(&state, "vmark.coherence.status", &args, None);
+        let response = answer_coherence(
+            &state,
+            "vmark.coherence.status",
+            &args,
+            &BridgePrincipal::Anonymous,
+        );
         assert!(!response.success);
         assert!(response.data.is_none());
         assert!(
@@ -91,7 +114,12 @@ fn nonexistent_workspace_root_is_clean_error() {
         .into_owned();
     let args = serde_json::json!({ "workspace_root": missing });
 
-    let response = answer_coherence(&state, "vmark.coherence.edges", &args, None);
+    let response = answer_coherence(
+        &state,
+        "vmark.coherence.edges",
+        &args,
+        &BridgePrincipal::Anonymous,
+    );
 
     assert!(!response.success);
     assert!(
@@ -114,7 +142,12 @@ fn file_workspace_root_is_clean_error() {
     let state = coherence_state();
     let args = serde_json::json!({ "workspace_root": file });
 
-    let response = answer_coherence(&state, "vmark.coherence.status", &args, None);
+    let response = answer_coherence(
+        &state,
+        "vmark.coherence.status",
+        &args,
+        &BridgePrincipal::Anonymous,
+    );
 
     assert!(!response.success);
     assert!(response
@@ -132,7 +165,12 @@ fn unknown_coherence_request_type_is_clean_error() {
     let state = coherence_state();
     let args = serde_json::json!({ "workspace_root": dir.path() });
 
-    let response = answer_coherence(&state, "vmark.coherence.delete_all", &args, None);
+    let response = answer_coherence(
+        &state,
+        "vmark.coherence.delete_all",
+        &args,
+        &BridgePrincipal::Anonymous,
+    );
 
     assert!(!response.success);
     assert!(response
@@ -162,7 +200,8 @@ fn handle_rust_side_answers_coherence_status() {
         args: serde_json::json!({ "workspace_root": dir.path() }),
     };
 
-    let response = handle_rust_side(&request, app.handle(), None).expect("answered in Rust");
+    let response = handle_rust_side(&request, app.handle(), &BridgePrincipal::Anonymous)
+        .expect("answered in Rust");
 
     // Audit C1: arbitrary roots are refused — only workspaces this
     // installation has opened (config marker present) are queryable. The
@@ -189,7 +228,8 @@ fn handle_rust_side_answers_coherence_edges() {
         args: serde_json::json!({ "workspace_root": dir.path() }),
     };
 
-    let response = handle_rust_side(&request, app.handle(), None).expect("answered in Rust");
+    let response = handle_rust_side(&request, app.handle(), &BridgePrincipal::Anonymous)
+        .expect("answered in Rust");
 
     assert!(!response.success, "unknown roots are refused (audit C1)");
 }
@@ -207,7 +247,8 @@ fn handle_rust_side_without_managed_state_errors_instead_of_panicking() {
         args: serde_json::json!({ "workspace_root": "/tmp" }),
     };
 
-    let response = handle_rust_side(&request, app.handle(), None).expect("still answered in Rust");
+    let response = handle_rust_side(&request, app.handle(), &BridgePrincipal::Anonymous)
+        .expect("still answered in Rust");
 
     assert!(!response.success);
     assert!(response
@@ -226,7 +267,7 @@ fn handle_rust_side_falls_through_for_unrelated_types() {
         args: serde_json::json!({}),
     };
 
-    assert!(handle_rust_side(&request, app.handle(), None).is_none());
+    assert!(handle_rust_side(&request, app.handle(), &BridgePrincipal::Anonymous).is_none());
 }
 
 // WI-2b.8 — the read-only semantic-layer views over MCP.
@@ -237,11 +278,21 @@ fn claims_and_contexts_answer_read_only() {
     let root = td.path().to_string_lossy().into_owned();
     let args = serde_json::json!({ "workspace_root": root });
 
-    let claims = answer_coherence(&state, "vmark.coherence.claims", &args, None);
+    let claims = answer_coherence(
+        &state,
+        "vmark.coherence.claims",
+        &args,
+        &BridgePrincipal::Anonymous,
+    );
     assert!(claims.success, "{:?}", claims.error);
     assert_eq!(claims.data.unwrap(), serde_json::json!([]));
 
-    let contexts = answer_coherence(&state, "vmark.coherence.contexts", &args, None);
+    let contexts = answer_coherence(
+        &state,
+        "vmark.coherence.contexts",
+        &args,
+        &BridgePrincipal::Anonymous,
+    );
     assert!(contexts.success, "{:?}", contexts.error);
     let rows = contexts.data.unwrap();
     let rows = rows.as_array().unwrap();
@@ -329,24 +380,32 @@ fn delegated_resolve_requires_principal_grant_and_live_edge() {
         "resolution": "accept-newer",
     });
 
-    // No identity → refused.
-    let r = answer_coherence(&state, "vmark.coherence.resolve", &args, None);
+    // No credential → refused, with the remedy in the message rather than an
+    // unactionable "no live delegation authorizes …" (audit 20260728 §2.1).
+    let r = answer_coherence(
+        &state,
+        "vmark.coherence.resolve",
+        &args,
+        &BridgePrincipal::Anonymous,
+    );
     assert!(!r.success);
-    assert!(r.error.unwrap().contains("unidentified"));
+    let err = r.error.unwrap();
+    assert!(err.contains("did not present"), "{err}");
+    assert!(err.contains("Install"), "{err}");
 
     // Identified but no grant → refused.
-    let r = answer_coherence(&state, "vmark.coherence.resolve", &args, Some("codex-cli"));
+    let r = answer_coherence(&state, "vmark.coherence.resolve", &args, &codex());
     assert!(!r.success);
     assert!(r.error.unwrap().contains("no live delegation"));
 
     // Granted for the OTHER scope → still refused.
     grant_for(&td, &state, "codex-cli", "resolve.waive");
-    let r = answer_coherence(&state, "vmark.coherence.resolve", &args, Some("codex-cli"));
+    let r = answer_coherence(&state, "vmark.coherence.resolve", &args, &codex());
     assert!(!r.success);
 
     // Proper grant → the resolution lands with agent actor + audit ref.
     grant_for(&td, &state, "codex-cli", "resolve.accept-newer");
-    let r = answer_coherence(&state, "vmark.coherence.resolve", &args, Some("codex-cli"));
+    let r = answer_coherence(&state, "vmark.coherence.resolve", &args, &codex());
     assert!(r.success, "{:?}", r.error);
     let kernel = state.registry.kernel_for(td.path(), state.writer).unwrap();
     let kernel = kernel.lock().unwrap();
@@ -361,7 +420,7 @@ fn delegated_resolve_requires_principal_grant_and_live_edge() {
 
     // The edge is now resolved — a second delegated resolve fails (not live).
     drop(kernel);
-    let r = answer_coherence(&state, "vmark.coherence.resolve", &args, Some("codex-cli"));
+    let r = answer_coherence(&state, "vmark.coherence.resolve", &args, &codex());
     assert!(!r.success);
     assert!(r.error.unwrap().contains("not live"));
 }
@@ -386,7 +445,7 @@ fn resolve_input_must_be_a_u32_number() {
             "workspace_root": root, "txf": txf.to_string(),
             "input": bad, "resolution": "accept-newer",
         });
-        let r = answer_coherence(&state, "vmark.coherence.resolve", &args, Some("codex-cli"));
+        let r = answer_coherence(&state, "vmark.coherence.resolve", &args, &codex());
         assert!(!r.success, "input {bad} must be refused");
         assert!(
             r.error.unwrap().contains("input must be a number"),
@@ -430,7 +489,7 @@ fn resolve_audit_reference_is_the_stable_grant_id() {
         "workspace_root": root, "txf": txf.to_string(), "input": input,
         "resolution": "accept-newer",
     });
-    let r = answer_coherence(&state, "vmark.coherence.resolve", &args, Some("codex-cli"));
+    let r = answer_coherence(&state, "vmark.coherence.resolve", &args, &codex());
     assert!(r.success, "{:?}", r.error);
 
     let kernel = state.registry.kernel_for(td.path(), state.writer).unwrap();
@@ -460,7 +519,7 @@ fn delegated_waive_still_requires_a_reason() {
         "workspace_root": root, "txf": txf.to_string(), "input": input,
         "resolution": "waive",
     });
-    let r = answer_coherence(&state, "vmark.coherence.resolve", &args, Some("codex-cli"));
+    let r = answer_coherence(&state, "vmark.coherence.resolve", &args, &codex());
     assert!(!r.success, "waiver without reason must be refused");
 }
 
@@ -488,7 +547,7 @@ fn resolve_is_reachable_through_handle_rust_side_dispatch() {
             "resolution": "accept-newer",
         }),
     };
-    let response = handle_rust_side(&req, app.handle(), Some("codex-cli".into()));
+    let response = handle_rust_side(&req, app.handle(), &codex());
     assert!(
         response.is_some(),
         "resolve must be dispatched, not fall through to None"

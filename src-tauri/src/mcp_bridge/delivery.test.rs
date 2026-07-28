@@ -67,3 +67,63 @@ fn enqueue_reports_closed_receiver() {
         EnqueueOutcome::Closed
     );
 }
+
+// --- fail_pending: one cleanup policy, not five copies ----------------------
+
+/// Audit round 1, finding 7: `fail_pending` lived in `server.rs` as a private
+/// helper, so `routing.rs` kept its own copies of the same remove-unlock-send
+/// sequence and cleanup policy was split across modules. It lives here now,
+/// next to the delivery it performs, and both modules call it.
+#[tokio::test]
+async fn fail_pending_drops_the_entry_and_answers_the_client() {
+    let (tx, mut rx) = mpsc::channel::<String>(4);
+    let request_id = "__fail_pending_test__";
+    let (response_tx, response_rx) = tokio::sync::oneshot::channel();
+    {
+        let state = get_bridge_state();
+        let mut guard = state.lock().await;
+        guard.pending.insert(
+            request_id.to_string(),
+            crate::mcp_bridge::state::PendingRequest {
+                response_tx,
+                created_at: std::time::Instant::now(),
+            },
+        );
+    }
+
+    fail_pending(request_id, 7, &tx, "msg-9", "window vanished").await;
+
+    {
+        let state = get_bridge_state();
+        let guard = state.lock().await;
+        assert!(
+            !guard.pending.contains_key(request_id),
+            "the pending entry must be gone before the client is answered"
+        );
+    }
+    // Dropping the pending entry drops its oneshot sender.
+    assert!(response_rx.await.is_err());
+
+    let raw = rx
+        .try_recv()
+        .expect("client must receive the failure reply");
+    let envelope: WsMessage = serde_json::from_str(&raw).expect("valid envelope JSON");
+    assert_eq!(envelope.id, "msg-9");
+    let response: McpResponse =
+        serde_json::from_value(envelope.payload).expect("valid response payload");
+    assert!(!response.success);
+    assert_eq!(response.error.as_deref(), Some("window vanished"));
+}
+
+/// Failing an id that was never registered must still answer the client —
+/// the retry paths call this after the entry may already have been swept.
+#[tokio::test]
+async fn fail_pending_answers_even_when_there_is_nothing_to_remove() {
+    let (tx, mut rx) = mpsc::channel::<String>(4);
+
+    fail_pending("__never_registered__", 8, &tx, "msg-10", "timeout").await;
+
+    let raw = rx.try_recv().expect("client must still be answered");
+    let envelope: WsMessage = serde_json::from_str(&raw).expect("valid envelope JSON");
+    assert_eq!(envelope.id, "msg-10");
+}

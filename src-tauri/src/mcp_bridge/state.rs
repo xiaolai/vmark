@@ -1,15 +1,20 @@
-//! MCP Bridge shared state and port-file management.
+//! MCP Bridge shared state.
 //!
-//! Holds the global bridge state (connected clients, pending requests)
-//! and utilities for the port discovery file.
+//! Holds the process-global bridge state — connected clients, pending
+//! requests, the window→workspace map, the shutdown signal and the write
+//! lock — plus the small helpers that operate on it (pending-request
+//! registration and TTL sweep, auth-token generation, the read-only
+//! operation list).
+//!
+//! The port discovery file and its permission contract live in
+//! `token_file.rs`; this module has not owned them since WI-9.
 
+use super::principal::BridgePrincipal;
 use super::types::{ClientIdentity, McpResponse};
-use crate::app_paths;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
-use tauri::AppHandle;
 use tokio::sync::{mpsc, oneshot, Mutex, RwLock};
 
 /// Tracks whether the frontend webview is alive and responsive.
@@ -41,8 +46,18 @@ const _: () = assert!(CLIENT_TX_CAPACITY > 0 && CLIENT_TX_CAPACITY <= 65_536);
 pub(crate) struct ClientConnection {
     pub tx: mpsc::Sender<String>,
     pub shutdown: Option<oneshot::Sender<()>>,
-    /// Client identity (set after identify message)
+    /// What the client SAYS it is, from its `identify` message.
+    ///
+    /// Display only — the Integrations panel's connected-clients list and the
+    /// connect/disconnect log lines. It reaches no authorization decision and
+    /// must not start to: it is caller-supplied and re-sendable, which is
+    /// exactly the defect fixed by binding `principal` to a credential instead
+    /// (audit 20260728 §2.1). See `principal.rs`.
     pub identity: Option<ClientIdentity>,
+    /// Who the client PROVED it is, fixed at authentication time from the
+    /// per-client credential it presented. Immutable for the life of the
+    /// connection — nothing the client sends afterwards can change it.
+    pub principal: BridgePrincipal,
 }
 
 /// Bridge state shared across connections.
@@ -128,17 +143,28 @@ static SHUTDOWN_TX: std::sync::OnceLock<Arc<RwLock<Option<oneshot::Sender<()>>>>
 /// All clients can read simultaneously, but writes are serialized.
 static WRITE_LOCK: std::sync::OnceLock<Arc<tokio::sync::Mutex<()>>> = std::sync::OnceLock::new();
 
-/// WI-3.5 (D2.3): the authenticated identity name of a connected client,
-/// or None if unidentified. The only principal delegated authority binds
-/// to — never a caller-supplied argument.
-pub(crate) async fn authenticated_principal(client_id: u64) -> Option<String> {
+/// The principal a connected client authenticated as.
+///
+/// This is the ONLY input to an authorization decision on the bridge, and it
+/// is read from the connection record written at auth time — never from
+/// anything the client sends afterwards. Its predecessor
+/// (`asserted_principal`) returned `identity.name` from the client's own
+/// `identify` message, so any token-holder could claim another client's grants
+/// and have the ratification receipt record that client as the actor
+/// (audit 20260728 §2.1). See `principal.rs` for the mechanism and its honest
+/// boundary.
+///
+/// A client id with no live connection resolves to
+/// [`BridgePrincipal::Anonymous`]: it authorizes nothing, which is the correct
+/// answer for a peer that is not there.
+pub(crate) async fn connection_principal(client_id: u64) -> BridgePrincipal {
     let state = get_bridge_state();
     let guard = state.lock().await;
     guard
         .clients
         .get(&client_id)
-        .and_then(|c| c.identity.as_ref())
-        .map(|i| i.name.clone())
+        .map(|c| c.principal.clone())
+        .unwrap_or(BridgePrincipal::Anonymous)
 }
 
 pub(crate) fn get_bridge_state() -> Arc<Mutex<BridgeState>> {
@@ -166,63 +192,13 @@ pub(crate) fn get_write_lock() -> Arc<tokio::sync::Mutex<()>> {
         .clone()
 }
 
-/// Generate a random hex auth token for MCP bridge authentication.
-/// 32 bytes of CSPRNG entropy via two v4 UUIDs (uuid -> getrandom) —
-/// SipHash/RandomState is not a cryptographic RNG and an auth token is a
-/// cryptographic secret (audit 20260612).
+/// Generate the ephemeral shared bridge token written to the port file.
+///
+/// 32 bytes of CSPRNG entropy — see `crate::secret_token`, which is also where
+/// the per-client credentials in `mcp_config::client_tokens` come from, so the
+/// two cannot drift on the property that matters.
 pub(crate) fn generate_auth_token() -> String {
-    let a = uuid::Uuid::new_v4();
-    let b = uuid::Uuid::new_v4();
-    format!("{}{}", a.simple(), b.simple())
-}
-
-/// Write the port and auth token to the port file for MCP sidecar discovery.
-/// Format: `{port}:{token}` — sidecar must send token in auth handshake.
-/// Uses atomic write to prevent partial reads by the sidecar.
-pub(crate) fn write_port_file(app: &AppHandle, port: u16, token: &str) -> Result<(), String> {
-    let path = app_paths::get_port_file_path(app)?;
-
-    // Create app data directory if it doesn't exist
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)
-            .map_err(|e| format!("Failed to create app data directory {:?}: {}", parent, e))?;
-    }
-
-    // Write port:token atomically to prevent partial reads
-    let content = format!("{}:{}", port, token);
-    app_paths::atomic_write_file(&path, content.as_bytes())?;
-
-    log::debug!(
-        "[MCP Bridge] Port {} written to {:?} (with auth token)",
-        port,
-        path
-    );
-
-    Ok(())
-}
-
-/// Remove the port file when bridge stops.
-/// Logs errors for non-NotFound failures (permission issues, etc.)
-pub fn remove_port_file(app: &AppHandle) {
-    match app_paths::get_port_file_path(app) {
-        Ok(path) => {
-            match std::fs::remove_file(&path) {
-                Ok(()) => {
-                    log::debug!("[MCP Bridge] Port file removed: {:?}", path);
-                }
-                Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-                    // Already removed - not an error
-                }
-                Err(e) => {
-                    // Real error - log it
-                    log::warn!("[MCP Bridge] Failed to remove port file {:?}: {}", path, e);
-                }
-            }
-        }
-        Err(e) => {
-            log::warn!("[MCP Bridge] Cannot determine port file path: {}", e);
-        }
-    }
+    crate::secret_token::generate_secret_token()
 }
 
 /// Check if an operation is read-only.
