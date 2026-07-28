@@ -143,6 +143,33 @@ pub(super) async fn deliver_response(
     }
 }
 
+/// Drop a pending request and answer its client with `error`.
+///
+/// The one cleanup policy for "this request will never be answered by the
+/// frontend", shared by every caller: the timeout and retry paths in
+/// `server.rs` and the routing/emit refusals in `routing.rs`. It lived as a
+/// private helper in `server.rs`, so `routing.rs` carried its own copies of
+/// the same remove-unlock-send sequence and the policy was split across
+/// modules (audit round 1, finding 7).
+///
+/// The state lock is released before answering: `send_error_response` may
+/// force-disconnect, which re-locks it.
+pub(super) async fn fail_pending(
+    request_id: &str,
+    client_id: u64,
+    client_tx: &mpsc::Sender<String>,
+    msg_id: &str,
+    error: &str,
+) {
+    {
+        let state = get_bridge_state();
+        let mut guard = state.lock().await;
+        guard.pending.remove(request_id);
+    }
+    log::warn!("[MCP Bridge] Client {client_id} request failed: {error}");
+    send_error_response(client_id, client_tx, msg_id, error).await;
+}
+
 #[cfg(test)]
 #[path = "delivery.test.rs"]
 mod tests;

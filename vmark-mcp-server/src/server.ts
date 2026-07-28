@@ -2,16 +2,14 @@
  * VMark MCP Server - Exposes Tiptap editor APIs to AI assistants.
  */
 
-import type { Bridge, BridgeRequest, WindowId } from './bridge/types.js';
+import type { Bridge, BridgeRequest } from './bridge/types.js';
 import type {
   ToolDefinition,
   ToolHandler,
-  ResourceDefinition,
-  ResourceHandler,
   ToolCallResult,
-  ResourceReadResult,
   McpServerInterface,
 } from './types.js';
+import { jsonResult } from './utils/toolOutput.js';
 
 /**
  * Tool registration info.
@@ -19,14 +17,6 @@ import type {
 interface ToolRegistration {
   definition: ToolDefinition;
   handler: ToolHandler;
-}
-
-/**
- * Resource registration info.
- */
-interface ResourceRegistration {
-  definition: ResourceDefinition;
-  handler: ResourceHandler;
 }
 
 /**
@@ -44,10 +34,15 @@ export interface VMarkMcpServerConfig {
 /**
  * VMark MCP Server - Main server class.
  * Implements McpServerInterface for testability.
+ *
+ * Tools only. The pruned surface exposes no MCP *resources* — `session.get_state`
+ * replaced the `vmark://document/*` and `vmark://windows/*` URIs with a single
+ * round-trip — so the registry, the `resources/*` handlers, and the capability
+ * declaration that advertised them were removed rather than left asserting a
+ * capability the server could not honour (audit 20260728 §4).
  */
 export class VMarkMcpServer implements McpServerInterface {
   public readonly tools: Map<string, ToolRegistration> = new Map();
-  public readonly resources: Map<string, ResourceRegistration> = new Map();
 
   private bridge: Bridge;
   private serverName: string;
@@ -86,24 +81,10 @@ export class VMarkMcpServer implements McpServerInterface {
   }
 
   /**
-   * Register a resource.
-   */
-  registerResource(definition: ResourceDefinition, handler: ResourceHandler): void {
-    this.resources.set(definition.uri, { definition, handler });
-  }
-
-  /**
    * List all registered tools.
    */
   listTools(): ToolDefinition[] {
     return Array.from(this.tools.values()).map((t) => t.definition);
-  }
-
-  /**
-   * List all registered resources.
-   */
-  listResources(): ResourceDefinition[] {
-    return Array.from(this.resources.values()).map((r) => r.definition);
   }
 
   /**
@@ -124,24 +105,6 @@ export class VMarkMcpServer implements McpServerInterface {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       return VMarkMcpServer.errorResult(`Tool error: ${message}`);
-    }
-  }
-
-  /**
-   * Read a resource by URI.
-   */
-  async readResource(uri: string): Promise<ResourceReadResult> {
-    const resource = this.resources.get(uri);
-    if (!resource) {
-      throw new Error(`Unknown resource: ${uri}`);
-    }
-
-    try {
-      return await resource.handler(uri);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      // Preserve the original cause/stack for diagnosis, not just the message.
-      throw new Error(`Resource error (${uri}): ${message}`, { cause: error });
     }
   }
 
@@ -177,13 +140,11 @@ export class VMarkMcpServer implements McpServerInterface {
   }
 
   /**
-   * Helper to create a successful tool result with JSON content.
+   * Successful tool result with JSON content, bounded — see `utils/toolOutput`.
+   * `recovery` is the instruction shown when the payload exceeds the budget.
    */
-  static successJsonResult(data: unknown): ToolCallResult {
-    return {
-      success: true,
-      content: [{ type: 'text', text: JSON.stringify(data, null, 2) }],
-    };
+  static successJsonResult(data: unknown, recovery?: string): ToolCallResult {
+    return jsonResult(data, recovery);
   }
 
   /**
@@ -196,108 +157,4 @@ export class VMarkMcpServer implements McpServerInterface {
       isError: true,
     };
   }
-
-  /**
-   * Helper to create a resource result.
-   */
-  static resourceResult(uri: string, text: string, mimeType?: string): ResourceReadResult {
-    return {
-      contents: [{ uri, text, mimeType }],
-    };
-  }
-}
-
-/**
- * Resolve windowId parameter, defaulting to 'focused'.
- */
-export function resolveWindowId(windowId?: string): WindowId {
-  return windowId ?? 'focused';
-}
-
-/**
- * Validate that a value is a non-negative integer.
- * Returns an error message if invalid, or null if valid.
- */
-export function validateNonNegativeInteger(
-  value: unknown,
-  fieldName: string
-): string | null {
-  if (typeof value !== 'number') {
-    return `${fieldName} must be a number`;
-  }
-  if (!Number.isFinite(value)) {
-    return `${fieldName} must be a finite number`;
-  }
-  if (!Number.isInteger(value)) {
-    return `${fieldName} must be an integer`;
-  }
-  if (value < 0) {
-    return `${fieldName} must be non-negative`;
-  }
-  return null;
-}
-
-// ============ Typed Arg Extractors ============
-
-/**
- * Tool arguments record type.
- */
-export type ToolArgs = Record<string, unknown>;
-
-/**
- * Extract a string argument, returning undefined if not present or not a string.
- */
-export function getStringArg(args: ToolArgs, key: string): string | undefined {
-  const value = args[key];
-  return typeof value === 'string' ? value : undefined;
-}
-
-/**
- * Extract a required string argument.
- * Throws if not present or empty.
- */
-export function requireStringArg(args: ToolArgs, key: string): string {
-  const value = getStringArg(args, key);
-  if (value === undefined || value.length === 0) {
-    throw new Error(`${key} must be a non-empty string`);
-  }
-  return value;
-}
-
-
-/**
- * Extract a number argument, returning undefined if not present or not a number.
- */
-export function getNumberArg(args: ToolArgs, key: string): number | undefined {
-  const value = args[key];
-  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
-}
-
-/**
- * Extract a required number argument.
- * Throws if not present.
- */
-export function requireNumberArg(args: ToolArgs, key: string): number {
-  const value = getNumberArg(args, key);
-  if (value === undefined) {
-    throw new Error(`${key} must be a number`);
-  }
-  return value;
-}
-
-
-
-/**
- * Extract a boolean argument, returning undefined if not present or not a boolean.
- */
-export function getBooleanArg(args: ToolArgs, key: string): boolean | undefined {
-  const value = args[key];
-  return typeof value === 'boolean' ? value : undefined;
-}
-
-/**
- * Extract windowId argument with 'focused' as default.
- */
-export function getWindowIdArg(args: ToolArgs): WindowId {
-  return resolveWindowId(getStringArg(args, 'windowId'));
 }

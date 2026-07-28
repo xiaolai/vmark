@@ -166,3 +166,39 @@ src/**/__screenshots__/
 
 # jscpd duplication reports (run with `pnpm dup`)
 reports/duplication/
+
+# >>> cc-suite >>>
+# cc-suite-schema: 6
+# AI assistant local state
+.claude/settings.local.json
+.claude/CLAUDE.local.md
+.claude/*.local.*
+CLAUDE.local.md
+
+# Codex CLI — local files, keep checked-in subdirs
+.codex/*
+!.codex/skills/
+!.codex/prompts/
+!.codex/hooks.json
+!.codex/hooks.cc-suite.json
+!.codex/config.toml
+
+# cc-suite-managed symlinks (created by bridge_skills.sh) — derived, not authored
+.claude/skills/cc-suite
+.agents/skills
+
+# Antigravity workspace MCP config is generated from .mcp.json and may contain
+# credentials or machine-specific paths.
+.agents/mcp_config.json
+.agents/.cc-suite-mcp.provenance.json
+
+# cc-suite tool-profile bridge (grok/opencode/qwen) — derived provenance
+# sidecars tracking which MCP servers cc-suite owns. Not authored.
+.cc-suite-*.provenance.json
+
+# cc-suite local state — what init created, and the pre-bridge CLAUDE.md backup.
+# Machine-local bookkeeping, not shared. Listed file-by-file on purpose:
+# .cc-suite/agents/ holds declared advisors and IS meant to be committed.
+.cc-suite/provenance
+.cc-suite/original-claude.md
+# <<< cc-suite <<<

@@ -36,6 +36,13 @@ pub struct InstallResult {
 pub struct UninstallResult {
     pub success: bool,
     pub message: String,
+    /// Whether an entry was actually removed, as opposed to there having been
+    /// nothing to remove.
+    ///
+    /// `message` already encodes this, but only in prose — the settings panel
+    /// needs it as data so it can render the outcome in the user's language
+    /// instead of echoing an English sentence from the backend.
+    pub changed: bool,
 }
 
 /// Diagnostic status for MCP configuration
@@ -49,6 +56,14 @@ pub enum DiagnosticStatus {
     BinaryMissing,
     /// No vmark entry in config
     NotConfigured,
+    /// The config file is there, but VMark cannot read or parse it — so
+    /// whether it holds a vmark entry is unknown, not "no".
+    ///
+    /// Distinct from `NotConfigured` because the two need opposite advice.
+    /// `NotConfigured` means "click Install"; this means "your file is
+    /// broken, fix it first" — and the install path will (correctly) refuse
+    /// it, so offering Install here walks the user into a dead end.
+    ConfigUnreadable,
 }
 
 /// Detailed diagnostic information for a provider

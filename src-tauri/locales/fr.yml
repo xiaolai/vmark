@@ -268,6 +268,46 @@ errors:
   mcp.spawnInProgress: "Démarrage du sidecar MCP déjà en cours"
   mcp.configMismatch: "Échec de validation de la configuration : le contenu écrit ne correspond pas"
 
+  # MCP client config — provider and sidecar binary resolution
+  mcp.unknownProvider: "Fournisseur inconnu : %{provider}"
+  mcp.noHomeDir: "Impossible de déterminer le répertoire personnel"
+  mcp.exePathFailed: "Impossible d'obtenir le chemin de l'exécutable : %{detail}"
+  mcp.exeDirFailed: "Impossible d'obtenir le répertoire de l'exécutable"
+  mcp.binaryNotFound: "Binaire du serveur MCP introuvable : %{name}. Veuillez réinstaller VMark."
+
+  # MCP client config — parsing and structure
+  mcp.invalidJson: "JSON invalide : %{detail}"
+  mcp.invalidToml: "TOML invalide : %{detail}"
+  mcp.jsonSerializeFailed: "Erreur de sérialisation JSON : %{detail}"
+  mcp.invalidJsonStructure: "Structure JSON invalide"
+  mcp.serversNotObject: "mcpServers n'est pas un objet"
+  mcp.serversNotTable: "mcp_servers n'est pas une table"
+  mcp.vmarkEntryNotObject: "mcpServers.vmark n'est pas un objet"
+  mcp.vmarkEntryNotTable: "mcp_servers.vmark n'est pas une table"
+  mcp.envNotObject: "mcpServers.vmark.env n'est pas un objet"
+  mcp.envNotTable: "mcp_servers.vmark.env n'est pas une table"
+
+  # Passerelle MCP — les identifiants client auxquels le principal d'autorisation est lié
+  mcp.principalMissing: "Ce client IA n'a présenté aucun identifiant VMark ; les actions déléguées sont donc refusées. Ouvrez Réglages > Intégrations, lancez Installer pour ce client, puis redémarrez-le."
+  mcp.principalUnknown: "L'identifiant présenté par ce client IA n'est pas connu de VMark ; les actions déléguées sont donc refusées. Ouvrez Réglages > Intégrations, lancez Installer pour ce client, puis redémarrez-le."
+  mcp.principalAmbiguous: "L'identifiant présenté par ce client IA est configuré pour plusieurs clients (%{detail}) ; VMark ne peut donc pas les distinguer. Ouvrez Réglages > Intégrations, lancez Installer pour chacun d'eux, puis redémarrez-les."
+
+  # MCP client config — reading, backing up and writing
+  mcp.readFailed: "Échec de la lecture de %{path} : %{detail}"
+  mcp.createDirFailed: "Échec de la création du répertoire %{path} : %{detail}"
+  mcp.configChangedOnDisk: "%{path} a changé sur le disque pendant que VMark le mettait à jour. Fermez le client qui l'écrit et réessayez."
+  mcp.backupWriteFailed: "Échec de l'écriture de la sauvegarde %{path} : %{detail}"
+  mcp.backupFlushFailed: "Échec du vidage du tampon de la sauvegarde %{path} : %{detail}"
+  mcp.backupSyncFailed: "Échec de la synchronisation de la sauvegarde %{path} : %{detail}"
+  mcp.backupCreateFailed: "Échec de la création de la sauvegarde %{path} : %{detail}"
+  mcp.backupVariantsExhausted: "Échec de la création de la sauvegarde : %{count} variantes de %{path} existent déjà"
+  mcp.stageConfigFailed: "Échec de la préparation de la configuration dans %{dir} : %{detail}"
+  mcp.restrictStagedConfigFailed: "Échec de la restriction des permissions de la configuration préparée %{path} : %{detail}"
+  mcp.writeStagedConfigFailed: "Échec de l'écriture de la configuration préparée pour %{path} : %{detail}"
+  mcp.createConfigFailed: "Échec de la création de %{path} : impossible de mettre en place une copie préparée par lien physique (%{link_detail}), et impossible de créer le fichier directement (%{open_detail})."
+  mcp.writeConfigPartialRemoved: "Échec de l'écriture de %{path} : %{detail} (le fichier incomplet a été supprimé)"
+  mcp.writeConfigPartialOrphaned: "Échec de l'écriture de %{path} : %{detail}. Le fichier incomplet n'a pas pu être supprimé non plus (%{cleanup_detail}) — supprimez-le à la main avant de réessayer, sinon la prochaine installation le lira comme une configuration corrompue."
+
 window:
   settings.title: "Réglages"
 

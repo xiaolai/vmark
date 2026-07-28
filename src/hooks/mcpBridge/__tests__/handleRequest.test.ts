@@ -8,9 +8,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { handleRequest } from "../handleRequest";
 
-const mockIsActiveDocReadOnly = vi.fn(() => false);
+const mockIsTargetDocReadOnly = vi.fn((_tabId?: unknown) => false);
 vi.mock("@/services/editor/readOnlyGuard", () => ({
-  isActiveDocReadOnly: () => mockIsActiveDocReadOnly(),
+  isTargetDocReadOnly: (tabId: unknown) => mockIsTargetDocReadOnly(tabId),
 }));
 
 vi.mock("../utils", () => ({
@@ -49,7 +49,7 @@ function parseStructuredError(s: string | undefined) {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockIsActiveDocReadOnly.mockReturnValue(false);
+  mockIsTargetDocReadOnly.mockReturnValue(false);
   mockDispatchV2.mockResolvedValue(false);
 });
 
@@ -60,7 +60,7 @@ describe("handleRequest — READ_ONLY envelope", () => {
     "vmark.workflow.apply_patch",
     "vmark.selection.set",
   ])("rejects %s with a structured READ_ONLY envelope on read-only docs", async (type) => {
-    mockIsActiveDocReadOnly.mockReturnValue(true);
+    mockIsTargetDocReadOnly.mockReturnValue(true);
 
     await handleRequest({ id: "req-ro", type, args: {} });
 
@@ -75,8 +75,27 @@ describe("handleRequest — READ_ONLY envelope", () => {
     expect(mockDispatchV2).not.toHaveBeenCalled();
   });
 
+  // WI-4 — the guard must receive the tab the request TARGETS. Passing nothing
+  // (the old behaviour) silently gated every mutation on the active tab.
+  it("passes the request's tabId to the guard", async () => {
+    await handleRequest({
+      id: "req-tab",
+      type: "vmark.document.write",
+      args: { tabId: "tab-background", content: "x" },
+    });
+
+    expect(mockIsTargetDocReadOnly).toHaveBeenCalledWith("tab-background");
+  });
+
+  it("passes undefined to the guard when the request carries no tabId", async () => {
+    // selection.set operates on the focused tab; the guard falls back itself.
+    await handleRequest({ id: "req-sel", type: "vmark.selection.set", args: {} });
+
+    expect(mockIsTargetDocReadOnly).toHaveBeenCalledWith(undefined);
+  });
+
   it("does not block reads on read-only docs (read still routes through dispatchV2)", async () => {
-    mockIsActiveDocReadOnly.mockReturnValue(true);
+    mockIsTargetDocReadOnly.mockReturnValue(true);
     mockDispatchV2.mockResolvedValue(true); // the dispatcher would handle it
 
     await handleRequest({ id: "req-read", type: "vmark.document.read", args: {} });
@@ -87,7 +106,7 @@ describe("handleRequest — READ_ONLY envelope", () => {
   });
 
   it("does not block selection.get on read-only docs", async () => {
-    mockIsActiveDocReadOnly.mockReturnValue(true);
+    mockIsTargetDocReadOnly.mockReturnValue(true);
     mockDispatchV2.mockResolvedValue(true);
 
     await handleRequest({ id: "req-sg", type: "vmark.selection.get", args: {} });

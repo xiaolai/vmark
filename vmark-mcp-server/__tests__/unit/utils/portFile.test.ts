@@ -223,3 +223,115 @@ describe('createAuthTokenResolver', () => {
     expect(resolver()).toBe('tok2');
   });
 });
+
+describe('getAppDataDir — per-platform port file location', () => {
+  // The sidecar must land on the SAME path Tauri's app_data_dir() writes to,
+  // or discovery silently fails on that OS and the AI client sees a sidecar
+  // that never connects. Only the host platform's arm runs in the suite
+  // above, so the other three are exercised here with `os` re-mocked.
+  //
+  // Re-imported per case because HOME_DIR is captured at module load.
+  async function pathOn(
+    os: string,
+    env: Record<string, string | undefined> = {},
+  ): Promise<string> {
+    const saved = { ...process.env };
+    Object.assign(process.env, env);
+    for (const [k, v] of Object.entries(env)) if (v === undefined) delete process.env[k];
+    try {
+      vi.resetModules();
+      vi.doMock('os', () => ({ homedir: () => '/home/u', platform: () => os }));
+      const mod = await import('../../../src/utils/portFile.js');
+      return mod.getPortFilePath();
+    } finally {
+      vi.doUnmock('os');
+      vi.resetModules();
+      process.env = saved;
+    }
+  }
+
+  it('uses ~/Library/Application Support on macOS', async () => {
+    expect(await pathOn('darwin')).toBe(
+      '/home/u/Library/Application Support/app.vmark/mcp-port',
+    );
+  });
+
+  it('honours XDG_DATA_HOME on Linux', async () => {
+    expect(await pathOn('linux', { XDG_DATA_HOME: '/xdg' })).toBe('/xdg/app.vmark/mcp-port');
+  });
+
+  it('falls back to ~/.local/share on Linux without XDG_DATA_HOME', async () => {
+    expect(await pathOn('linux', { XDG_DATA_HOME: undefined })).toBe(
+      '/home/u/.local/share/app.vmark/mcp-port',
+    );
+  });
+
+  it('honours APPDATA on Windows', async () => {
+    expect(await pathOn('win32', { APPDATA: 'C:\\Roaming' })).toBe(
+      'C:\\Roaming/app.vmark/mcp-port',
+    );
+  });
+
+  it('falls back to ~/AppData/Roaming on Windows without APPDATA', async () => {
+    expect(await pathOn('win32', { APPDATA: undefined })).toBe(
+      '/home/u/AppData/Roaming/app.vmark/mcp-port',
+    );
+  });
+
+  it('best-guesses the XDG layout on an unrecognised platform', async () => {
+    // Not a supported target, but returning something plausible beats
+    // throwing inside the reconnect loop.
+    expect(await pathOn('freebsd')).toBe('/home/u/.local/share/app.vmark/mcp-port');
+  });
+});
+
+describe('readPortFromFile — non-ENOENT failures', () => {
+  it('stays silent about a permission error unless VMARK_DEBUG is set', () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const saved = process.env.VMARK_DEBUG;
+    delete process.env.VMARK_DEBUG;
+    mockReadFileSync.mockImplementation(() => {
+      const err = new Error('EACCES: permission denied') as NodeJS.ErrnoException;
+      err.code = 'EACCES';
+      throw err;
+    });
+
+    expect(readPortFromFile()).toBeUndefined();
+    expect(spy).not.toHaveBeenCalled();
+
+    // stdio is the MCP transport, so diagnostics are opt-in and go to stderr.
+    process.env.VMARK_DEBUG = '1';
+    expect(readPortFromFile()).toBeUndefined();
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy.mock.calls[0][0]).toContain('Failed to read port file');
+
+    if (saved === undefined) delete process.env.VMARK_DEBUG;
+    else process.env.VMARK_DEBUG = saved;
+    spy.mockRestore();
+  });
+
+  it('clears a cached auth token when a later read fails', () => {
+    mockReadFileSync.mockReturnValue('4123:tok');
+    expect(readPortFromFile()).toBe(4123);
+    expect(getAuthToken()).toBe('tok');
+
+    mockEnoent();
+    expect(readPortFromFile()).toBeUndefined();
+    expect(getAuthToken()).toBeUndefined();
+  });
+});
+
+describe('createAuthTokenResolver — default warn', () => {
+  it('swallows the mismatch warning when no warn callback is supplied', () => {
+    // stdout is the MCP transport and stderr is prefixed "[MCP Server Error]"
+    // by Claude Code, so the default must be a silent no-op, not console.warn.
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const resolver = createAuthTokenResolver(5000);
+
+    mockReadFileSync.mockReturnValue('4123:tok');
+    expect(resolver()).toBeUndefined();
+    expect(spy).not.toHaveBeenCalled();
+
+    spy.mockRestore();
+  });
+});

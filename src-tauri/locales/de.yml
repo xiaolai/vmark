@@ -268,6 +268,46 @@ errors:
   mcp.spawnInProgress: "MCP-Sidecar-Start bereits in Arbeit"
   mcp.configMismatch: "Konfigurationsvalidierung fehlgeschlagen: geschriebener Inhalt stimmt nicht überein"
 
+  # MCP client config — provider and sidecar binary resolution
+  mcp.unknownProvider: "Unbekannter Anbieter: %{provider}"
+  mcp.noHomeDir: "Home-Verzeichnis konnte nicht ermittelt werden"
+  mcp.exePathFailed: "Pfad der ausführbaren Datei konnte nicht ermittelt werden: %{detail}"
+  mcp.exeDirFailed: "Verzeichnis der ausführbaren Datei konnte nicht ermittelt werden"
+  mcp.binaryNotFound: "MCP-Server-Binärdatei nicht gefunden: %{name}. Bitte installieren Sie VMark neu."
+
+  # MCP client config — parsing and structure
+  mcp.invalidJson: "Ungültiges JSON: %{detail}"
+  mcp.invalidToml: "Ungültiges TOML: %{detail}"
+  mcp.jsonSerializeFailed: "JSON-Serialisierungsfehler: %{detail}"
+  mcp.invalidJsonStructure: "Ungültige JSON-Struktur"
+  mcp.serversNotObject: "mcpServers ist kein Objekt"
+  mcp.serversNotTable: "mcp_servers ist keine Tabelle"
+  mcp.vmarkEntryNotObject: "mcpServers.vmark ist kein Objekt"
+  mcp.vmarkEntryNotTable: "mcp_servers.vmark ist keine Tabelle"
+  mcp.envNotObject: "mcpServers.vmark.env ist kein Objekt"
+  mcp.envNotTable: "mcp_servers.vmark.env ist keine Tabelle"
+
+  # MCP-Bridge — die Client-Anmeldedaten, an die der Autorisierungsprincipal gebunden ist
+  mcp.principalMissing: "Dieser KI-Client hat keine VMark-Anmeldedaten vorgelegt, daher werden delegierte Aktionen abgelehnt. Öffnen Sie Einstellungen > Integrationen, führen Sie dort Installieren aus und starten Sie den Client neu."
+  mcp.principalUnknown: "Die von diesem KI-Client vorgelegten Anmeldedaten sind VMark nicht bekannt, daher werden delegierte Aktionen abgelehnt. Öffnen Sie Einstellungen > Integrationen, führen Sie dort Installieren aus und starten Sie den Client neu."
+  mcp.principalAmbiguous: "Die von diesem KI-Client vorgelegten Anmeldedaten sind für mehrere Clients (%{detail}) konfiguriert, daher kann VMark sie nicht unterscheiden. Öffnen Sie Einstellungen > Integrationen, führen Sie Installieren für jeden davon aus und starten Sie sie neu."
+
+  # MCP client config — reading, backing up and writing
+  mcp.readFailed: "%{path} konnte nicht gelesen werden: %{detail}"
+  mcp.createDirFailed: "Verzeichnis %{path} konnte nicht erstellt werden: %{detail}"
+  mcp.configChangedOnDisk: "%{path} wurde auf der Festplatte geändert, während VMark die Datei aktualisiert hat. Schließen Sie den Client, der sie schreibt, und versuchen Sie es erneut."
+  mcp.backupWriteFailed: "Backup %{path} konnte nicht geschrieben werden: %{detail}"
+  mcp.backupFlushFailed: "Puffer des Backups %{path} konnte nicht geleert werden: %{detail}"
+  mcp.backupSyncFailed: "Backup %{path} konnte nicht synchronisiert werden: %{detail}"
+  mcp.backupCreateFailed: "Backup %{path} konnte nicht erstellt werden: %{detail}"
+  mcp.backupVariantsExhausted: "Backup konnte nicht erstellt werden: %{count} Varianten von %{path} existieren bereits"
+  mcp.stageConfigFailed: "Zwischendatei für die Konfiguration konnte in %{dir} nicht angelegt werden: %{detail}"
+  mcp.restrictStagedConfigFailed: "Berechtigungen der Zwischendatei %{path} konnten nicht eingeschränkt werden: %{detail}"
+  mcp.writeStagedConfigFailed: "Zwischendatei der Konfiguration für %{path} konnte nicht geschrieben werden: %{detail}"
+  mcp.createConfigFailed: "%{path} konnte nicht erstellt werden: Eine vorbereitete Kopie ließ sich nicht per Hardlink an ihren Platz bringen (%{link_detail}), und die Datei ließ sich auch nicht direkt erstellen (%{open_detail})."
+  mcp.writeConfigPartialRemoved: "%{path} konnte nicht geschrieben werden: %{detail} (die unvollständige Datei wurde entfernt)"
+  mcp.writeConfigPartialOrphaned: "%{path} konnte nicht geschrieben werden: %{detail}. Die unvollständige Datei ließ sich ebenfalls nicht entfernen (%{cleanup_detail}) — löschen Sie sie von Hand, bevor Sie es erneut versuchen, sonst liest die nächste Installation sie als beschädigte Konfiguration."
+
 window:
   settings.title: "Einstellungen"
 

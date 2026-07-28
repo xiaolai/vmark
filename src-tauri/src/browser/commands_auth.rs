@@ -6,6 +6,11 @@
 //! `#[tauri::command]` entry points, plus `browser_set_grants` /
 //! `browser_add_one_shot`, how the frontend mirrors the user's approvals into
 //! the driver — the sole authority (a caller that never syncs gets default-deny).
+//!
+//! The two commands here that accept caller-supplied script text (`browser_eval`,
+//! `browser_add_one_shot`) also apply the authoritative size bound from
+//! `script_limit.rs` — a resource guard orthogonal to authorization, and the only
+//! copy of that bound below the Tauri command boundary.
 
 use crate::browser::authorize::{authorize_driver_op, command_still_fresh};
 use crate::browser::mint::{
@@ -15,6 +20,7 @@ use crate::browser::one_shot::OneShotTarget;
 use crate::browser::operation;
 use crate::browser::origin_guard::{self, StandingGrant};
 use crate::browser::profile_open::{self, ProfileOpen};
+use crate::browser::script_limit::ensure_script_within_limit;
 use crate::browser::surface::{self, BrowserSurface};
 use tauri::{AppHandle, State};
 
@@ -51,6 +57,13 @@ pub async fn browser_add_one_shot(
     // the retry. (Security review P5, High #1.)
     eval_script: Option<String>,
 ) -> Result<(), String> {
+    // Bound the payload before any authority is minted from it. A one-shot bound to
+    // a script `browser_eval` would refuse is authority the guard can never spend —
+    // "never store authority the guard cannot enforce" (`mint.rs`). `None` is passed
+    // through untouched: a missing script is `mint_one_shot`'s call to make.
+    if let Some(script) = eval_script.as_deref() {
+        ensure_script_within_limit("one-shot eval_script", script)?;
+    }
     mint_one_shot(
         &state,
         &tab_id,
@@ -97,6 +110,12 @@ pub async fn browser_eval(
     if !state.ai_policy.lock().map_err(|e| e.to_string())?.enabled {
         return Err("BROWSER_DISABLED".into());
     }
+    // THE authoritative script-size bound. The 64 KiB cap also exists in the sidecar
+    // and the webview handler, but both sit above this boundary and are therefore
+    // advisory — a caller that invokes the command directly was previously handed an
+    // unbounded `String`. Bound the payload before interpreting anything else about
+    // it; `BROWSER_DISABLED` still outranks it. (Audit 2026-07-28.)
+    ensure_script_within_limit("script", &script)?;
     // A target is both halves or neither — see `mint::parse_act_target` (Audit, High).
     let target = parse_act_target(role, name)?;
     // A `style`/`eval` one-shot is bound to the EXACT script; hash it so the gate can

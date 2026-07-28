@@ -268,6 +268,46 @@ errors:
   mcp.spawnInProgress: "A inicialização do sidecar MCP já está em andamento"
   mcp.configMismatch: "Falha na validação da configuração: o conteúdo gravado não corresponde"
 
+  # MCP client config — provider and sidecar binary resolution
+  mcp.unknownProvider: "Provedor desconhecido: %{provider}"
+  mcp.noHomeDir: "Não foi possível determinar o diretório inicial"
+  mcp.exePathFailed: "Não foi possível obter o caminho do executável: %{detail}"
+  mcp.exeDirFailed: "Não foi possível obter o diretório do executável"
+  mcp.binaryNotFound: "Binário do servidor MCP não encontrado: %{name}. Reinstale o VMark."
+
+  # MCP client config — parsing and structure
+  mcp.invalidJson: "JSON inválido: %{detail}"
+  mcp.invalidToml: "TOML inválido: %{detail}"
+  mcp.jsonSerializeFailed: "Erro de serialização JSON: %{detail}"
+  mcp.invalidJsonStructure: "Estrutura JSON inválida"
+  mcp.serversNotObject: "mcpServers não é um objeto"
+  mcp.serversNotTable: "mcp_servers não é uma tabela"
+  mcp.vmarkEntryNotObject: "mcpServers.vmark não é um objeto"
+  mcp.vmarkEntryNotTable: "mcp_servers.vmark não é uma tabela"
+  mcp.envNotObject: "mcpServers.vmark.env não é um objeto"
+  mcp.envNotTable: "mcp_servers.vmark.env não é uma tabela"
+
+  # Ponte MCP: as credenciais de cliente às quais o principal de autorização é vinculado
+  mcp.principalMissing: "Este cliente de IA não apresentou nenhuma credencial do VMark, portanto as ações delegadas foram recusadas. Abra Configurações > Integrações, execute Instalar para esse cliente e reinicie-o."
+  mcp.principalUnknown: "A credencial apresentada por este cliente de IA não consta no VMark, portanto as ações delegadas foram recusadas. Abra Configurações > Integrações, execute Instalar para esse cliente e reinicie-o."
+  mcp.principalAmbiguous: "A credencial apresentada por este cliente de IA está configurada para mais de um cliente (%{detail}), então o VMark não consegue distingui-los. Abra Configurações > Integrações, execute Instalar para cada um deles e reinicie-os."
+
+  # MCP client config — reading, backing up and writing
+  mcp.readFailed: "Falha ao ler %{path}: %{detail}"
+  mcp.createDirFailed: "Falha ao criar o diretório %{path}: %{detail}"
+  mcp.configChangedOnDisk: "%{path} foi alterado no disco enquanto o VMark o atualizava. Feche o cliente que está gravando o arquivo e tente novamente."
+  mcp.backupWriteFailed: "Falha ao gravar o backup %{path}: %{detail}"
+  mcp.backupFlushFailed: "Falha ao descarregar o buffer do backup %{path}: %{detail}"
+  mcp.backupSyncFailed: "Falha ao sincronizar o backup %{path}: %{detail}"
+  mcp.backupCreateFailed: "Falha ao criar o backup %{path}: %{detail}"
+  mcp.backupVariantsExhausted: "Falha ao criar o backup: já existem %{count} variantes de %{path}"
+  mcp.stageConfigFailed: "Falha ao preparar a configuração em %{dir}: %{detail}"
+  mcp.restrictStagedConfigFailed: "Falha ao restringir as permissões da configuração preparada %{path}: %{detail}"
+  mcp.writeStagedConfigFailed: "Falha ao gravar a configuração preparada para %{path}: %{detail}"
+  mcp.createConfigFailed: "Falha ao criar %{path}: não foi possível colocar uma cópia preparada no destino por hard link (%{link_detail}) nem criar o arquivo diretamente (%{open_detail})."
+  mcp.writeConfigPartialRemoved: "Falha ao gravar %{path}: %{detail} (o arquivo incompleto foi removido)"
+  mcp.writeConfigPartialOrphaned: "Falha ao gravar %{path}: %{detail}. Também não foi possível remover o arquivo incompleto (%{cleanup_detail}) — exclua-o manualmente antes de tentar de novo, ou a próxima instalação vai lê-lo como uma configuração corrompida."
+
 window:
   settings.title: "Configurações"
 

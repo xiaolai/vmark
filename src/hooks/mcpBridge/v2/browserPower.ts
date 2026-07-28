@@ -37,6 +37,18 @@ import { requireHumanAttachment, runReadClass, parseEvalResult } from "./browser
  */
 const MAX_SCRIPT_BYTES = 64 * 1024;
 
+/**
+ * Measure a string in UTF-8 BYTES, which is what `MAX_SCRIPT_BYTES` names.
+ *
+ * `String.length` counts UTF-16 code units, so a CJK or emoji payload passes a
+ * `.length` check at up to ~3x the stated byte cap. This is the only gate on
+ * script size that exists — `browser_eval` on the Rust side takes an unbounded
+ * `String` — so the check has to measure the unit it claims to.
+ */
+function utf8ByteLength(value: string): number {
+  return new TextEncoder().encode(value).length;
+}
+
 function readFields(f: unknown): QueryFields | undefined {
   if (typeof f !== "object" || f === null) return undefined;
   const o = f as Record<string, unknown>;
@@ -164,7 +176,7 @@ export async function handleBrowserStyle(id: string, args: Record<string, unknow
       await respond({ id, success: false, error: "style requires a {ref} or {selector} (injectCss needs neither)" });
       return;
     }
-    if (ops.injectCss && ops.injectCss.length > MAX_SCRIPT_BYTES) {
+    if (ops.injectCss && utf8ByteLength(ops.injectCss) > MAX_SCRIPT_BYTES) {
       await respond({ id, success: false, error: `style injectCss exceeds the ${MAX_SCRIPT_BYTES}-byte limit` });
       return;
     }
@@ -199,7 +211,7 @@ export async function handleBrowserExecuteJs(id: string, args: Record<string, un
       await respond({ id, success: false, error: "execute_js requires a non-empty 'script' string" });
       return;
     }
-    if (script.length > MAX_SCRIPT_BYTES) {
+    if (utf8ByteLength(script) > MAX_SCRIPT_BYTES) {
       await respond({ id, success: false, error: `execute_js script exceeds the ${MAX_SCRIPT_BYTES}-byte limit` });
       return;
     }

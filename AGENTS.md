@@ -87,6 +87,17 @@ Shared instructions for all AI agents (Claude, Codex, etc.).
 
     - **Never use Chrome DevTools MCP** — VMark is a Tauri app, not a browser app.
 
+  - **i18n gate has two halves.** `pnpm lint:i18n` checks that every key exists in
+    every locale AND that values were actually translated. The second half exists
+    because the first cannot see a key copied over with its English value — ~1,160
+    of them had accumulated invisibly. It works off
+    `scripts/i18n-untranslated-baseline.json`, which **ratchets down only**: a new
+    English-looking value fails, and so does a baselined entry you have since
+    translated (record the win with `pnpm lint:i18n --update-untranslated`). A value
+    counts only at ≥3 words and ≥15 characters, so `JSON`, `CLI`, `Markdown` and
+    `VMark` are not flagged. **Never add a new entry to the baseline** — translate
+    the string instead.
+
   - **Internationalization (i18n)**: All user-facing strings must use `t()` (React) or `t!()` (Rust).
     Never hardcode English strings in UI code. Translation keys use flat dot-separated camelCase
     (e.g., `sidebar.newFile`, `dialog.save.title`). New strings require adding keys to

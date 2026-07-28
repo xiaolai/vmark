@@ -72,6 +72,18 @@ const document = fc
   .array(block, { minLength: 1, maxLength: 6 })
   .map((blocks) => blocks.join("\n\n"));
 
+/**
+ * These properties are CPU-bound and run 200–300 generated cases each. The file
+ * completes in well under a second on an idle machine, but vitest's default 5 s
+ * timeout is wall-clock: when the suite runs at full worker parallelism on a
+ * loaded box, contention alone pushed the idempotence property past it and
+ * failed `check:all` on a green tree (2026-07-28). The generous ceiling below
+ * removes that false signal while staying far short of anything that would hide
+ * a genuine hang — a real regression here fails on an assertion in
+ * milliseconds, not by running long.
+ */
+const PROPERTY_TEST_TIMEOUT_MS = 30_000;
+
 describe("markdown pipeline — round-trip properties", () => {
   it("is idempotent: a second round-trip does not change the first's output", () => {
     fc.assert(
@@ -82,7 +94,7 @@ describe("markdown pipeline — round-trip properties", () => {
       }),
       { numRuns: 300 },
     );
-  });
+  }, PROPERTY_TEST_TIMEOUT_MS);
 
   // ---- D1: block media alt text survives (was dropped: ![](clip.mp4)) -------
   it("D1: preserves media alt text through the round-trip", () => {
@@ -94,7 +106,7 @@ describe("markdown pipeline — round-trip properties", () => {
       }),
       { numRuns: 200 },
     );
-  });
+  }, PROPERTY_TEST_TIMEOUT_MS);
 
   // ---- D2: link title survives (was dropped: [t](url)) ---------------------
   it("D2: preserves link titles through the round-trip", () => {
@@ -105,7 +117,7 @@ describe("markdown pipeline — round-trip properties", () => {
       }),
       { numRuns: 200 },
     );
-  });
+  }, PROPERTY_TEST_TIMEOUT_MS);
 
   // ---- D3: highlight (incl. nested mark) is not corrupted / escaped --------
   it("D3: preserves highlight marks (including nested bold) without escaping", () => {
@@ -119,7 +131,7 @@ describe("markdown pipeline — round-trip properties", () => {
       }),
       { numRuns: 200 },
     );
-  });
+  }, PROPERTY_TEST_TIMEOUT_MS);
 
   // ---- D4: escaped superscript markers stay escaped (were lost) ------------
   it("D4: keeps escaped ^ markers escaped through the round-trip", () => {
@@ -132,5 +144,5 @@ describe("markdown pipeline — round-trip properties", () => {
       }),
       { numRuns: 200 },
     );
-  });
+  }, PROPERTY_TEST_TIMEOUT_MS);
 });

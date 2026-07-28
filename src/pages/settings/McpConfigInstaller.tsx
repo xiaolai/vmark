@@ -11,21 +11,18 @@ import { useTranslation } from "react-i18next";
 import { SettingsGroup, Button, CopyButton } from "./components";
 import { McpConfigPreviewDialog } from "./McpConfigPreviewDialog";
 import { CcSwitchImportRow } from "./CcSwitchImportRow";
-import { getFileName, normalizePath } from "@/utils/paths";
-import { DiagnosticIcon, type DiagnosticStatus } from "./DiagnosticIcon";
-
-interface ProviderDiagnostic {
-  provider: string;
-  name: string;
-  configPath: string;
-  configExists: boolean;
-  hasVmark: boolean;
-  expectedBinaryPath: string | null;
-  configuredBinaryPath: string | null;
-  binaryExists: boolean;
-  status: DiagnosticStatus;
-  message: string;
-}
+import { getFileName } from "@/utils/paths";
+import { DiagnosticIcon } from "./DiagnosticIcon";
+import {
+  diagnosticMessage,
+  formatPath,
+  installMessage,
+  rowActions,
+  uninstallMessage,
+  type InstallResult,
+  type ProviderDiagnostic,
+  type UninstallResult,
+} from "./mcpConfigMessages";
 
 interface ConfigPreview {
   provider: string;
@@ -37,30 +34,9 @@ interface ConfigPreview {
   backupPath: string;
 }
 
-interface InstallResult {
-  success: boolean;
-  message: string;
-  backupPath: string | null;
-}
-
-interface UninstallResult {
-  success: boolean;
-  message: string;
-}
-
 /** Shorten path to just filename for display */
 function shortenPath(path: string): string {
   return getFileName(path) || path;
-}
-
-/** Format path for tooltip (replace home with ~) */
-function formatPath(path: string): string {
-  const normalized = normalizePath(path);
-  // Shorten home paths: macOS /Users/x, Windows C:/Users/x, Linux /home/x → ~
-  return normalized
-    .replace(/^\/Users\/[^/]+/, "~")
-    .replace(/^[A-Za-z]:\/Users\/[^/]+/, "~")
-    .replace(/^\/home\/[^/]+/, "~");
 }
 
 interface ProviderRowProps {
@@ -68,14 +44,17 @@ interface ProviderRowProps {
   onPreview: () => void;
   onRepair: () => void;
   onUninstall: () => void;
+  onRecheck: () => void;
   loading: boolean;
 }
 
-function ProviderRow({ diagnostic, onPreview, onRepair, onUninstall, loading }: ProviderRowProps) {
+function ProviderRow(props: ProviderRowProps) {
+  const { diagnostic, onPreview, onRepair, onUninstall, onRecheck, loading } = props;
   const { t } = useTranslation("settings");
-  const showRepairButton = diagnostic.status === "PathMismatch";
-  const showUpdateRemove = diagnostic.hasVmark && diagnostic.status !== "PathMismatch";
-  const showInstall = !diagnostic.hasVmark;
+  const actions = rowActions(diagnostic);
+  const broken = diagnostic.status === "ConfigUnreadable";
+
+  const diagnosticText = diagnosticMessage(diagnostic, t);
 
   return (
     <div className="flex flex-col py-2.5">
@@ -98,39 +77,40 @@ function ProviderRow({ diagnostic, onPreview, onRepair, onUninstall, loading }: 
           </div>
         </div>
         <div className="flex items-center gap-2 ml-3">
-          {showRepairButton && (
-            <>
-              <Button size="sm" variant="warning" onClick={onRepair} disabled={loading}>
-                {t("integrations.installMcp.repair")}
-              </Button>
-              <Button size="sm" onClick={onPreview} disabled={loading}>
-                {t("integrations.installMcp.update")}
-              </Button>
-              <Button size="sm" variant="danger" onClick={onUninstall} disabled={loading}>
-                {t("integrations.installMcp.remove")}
-              </Button>
-            </>
+          {actions.repair && (
+            <Button size="sm" variant="warning" onClick={onRepair} disabled={loading}>
+              {t("integrations.installMcp.repair")}
+            </Button>
           )}
-          {showUpdateRemove && (
-            <>
-              <Button size="sm" onClick={onPreview} disabled={loading}>
-                {t("integrations.installMcp.update")}
-              </Button>
-              <Button size="sm" variant="danger" onClick={onUninstall} disabled={loading}>
-                {t("integrations.installMcp.remove")}
-              </Button>
-            </>
+          {actions.update && (
+            <Button size="sm" onClick={onPreview} disabled={loading}>
+              {t("integrations.installMcp.update")}
+            </Button>
           )}
-          {showInstall && (
+          {actions.remove && (
+            <Button size="sm" variant="danger" onClick={onUninstall} disabled={loading}>
+              {t("integrations.installMcp.remove")}
+            </Button>
+          )}
+          {actions.install && (
             <Button size="sm" variant="primary" onClick={onPreview} disabled={loading}>
               {t("integrations.installMcp.install")}
             </Button>
           )}
+          {actions.recheck && (
+            <Button size="sm" onClick={onRecheck} disabled={loading}>
+              {t("integrations.installMcp.recheck")}
+            </Button>
+          )}
         </div>
       </div>
-      {diagnostic.message && (
-        <div className="mt-1 ml-6.5 text-xs text-[var(--warning-color)]">
-          {diagnostic.message}
+      {diagnosticText && (
+        <div
+          className={`mt-1 ml-6.5 text-xs ${
+            broken ? "text-[var(--error-color)]" : "text-[var(--warning-color)]"
+          }`}
+        >
+          {diagnosticText}
         </div>
       )}
     </div>
@@ -192,7 +172,7 @@ export function McpConfigInstaller({ onInstallSuccess }: McpConfigInstallerProps
         provider: preview.provider,
       });
       if (result.success) {
-        setSuccessMessage(result.message);
+        setSuccessMessage(installMessage(preview.provider, t));
         setShowRestartHint(true);
         setPreview(null);
         await loadDiagnostics();
@@ -245,7 +225,7 @@ export function McpConfigInstaller({ onInstallSuccess }: McpConfigInstallerProps
         provider: providerId,
       });
       if (result.success) {
-        setSuccessMessage(result.message);
+        setSuccessMessage(uninstallMessage(result.changed, t));
         await loadDiagnostics();
       } else {
         setError(result.message);
@@ -271,6 +251,7 @@ export function McpConfigInstaller({ onInstallSuccess }: McpConfigInstallerProps
             onPreview={() => handlePreview(diagnostic.provider)}
             onRepair={() => handleRepair(diagnostic.provider)}
             onUninstall={() => handleUninstall(diagnostic.provider)}
+            onRecheck={loadDiagnostics}
             loading={loading}
           />
         ))}
