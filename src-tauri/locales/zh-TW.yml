@@ -268,6 +268,46 @@ errors:
   mcp.spawnInProgress: "MCP 側載程序正在啟動中"
   mcp.configMismatch: "設定校驗失敗：寫入內容與預期不符"
 
+  # MCP client config — provider and sidecar binary resolution
+  mcp.unknownProvider: "未知的服務商：%{provider}"
+  mcp.noHomeDir: "無法確定使用者家目錄"
+  mcp.exePathFailed: "無法取得可執行檔路徑：%{detail}"
+  mcp.exeDirFailed: "無法取得可執行檔所在目錄"
+  mcp.binaryNotFound: "找不到 MCP 伺服器執行檔：%{name}。請重新安裝 VMark。"
+
+  # MCP client config — parsing and structure
+  mcp.invalidJson: "JSON 無效：%{detail}"
+  mcp.invalidToml: "TOML 無效：%{detail}"
+  mcp.jsonSerializeFailed: "JSON 序列化錯誤：%{detail}"
+  mcp.invalidJsonStructure: "JSON 結構無效"
+  mcp.serversNotObject: "mcpServers 不是物件"
+  mcp.serversNotTable: "mcp_servers 不是表"
+  mcp.vmarkEntryNotObject: "mcpServers.vmark 不是物件"
+  mcp.vmarkEntryNotTable: "mcp_servers.vmark 不是表"
+  mcp.envNotObject: "mcpServers.vmark.env 不是物件"
+  mcp.envNotTable: "mcp_servers.vmark.env 不是資料表"
+
+  # MCP 橋接 —— 授權主體所綁定的用戶端憑證
+  mcp.principalMissing: "此 AI 用戶端未提供 VMark 憑證，因此已拒絕其委派操作。請開啟「設定 > 整合」，為它執行「安裝」，然後重新啟動該用戶端。"
+  mcp.principalUnknown: "此 AI 用戶端提供的憑證不在 VMark 的記錄中，因此已拒絕其委派操作。請開啟「設定 > 整合」，為它執行「安裝」，然後重新啟動該用戶端。"
+  mcp.principalAmbiguous: "此 AI 用戶端提供的憑證同時設定給多個用戶端（%{detail}），VMark 無法分辨它們。請開啟「設定 > 整合」，為每一個都執行「安裝」，然後分別重新啟動。"
+
+  # MCP client config — reading, backing up and writing
+  mcp.readFailed: "讀取 %{path} 失敗：%{detail}"
+  mcp.createDirFailed: "建立目錄 %{path} 失敗：%{detail}"
+  mcp.configChangedOnDisk: "VMark 更新期間 %{path} 在磁碟上發生變更。請關閉正在寫入該檔案的用戶端後重試。"
+  mcp.backupWriteFailed: "寫入備份 %{path} 失敗：%{detail}"
+  mcp.backupFlushFailed: "清空備份 %{path} 的緩衝區失敗：%{detail}"
+  mcp.backupSyncFailed: "同步備份 %{path} 失敗：%{detail}"
+  mcp.backupCreateFailed: "建立備份 %{path} 失敗：%{detail}"
+  mcp.backupVariantsExhausted: "建立備份失敗：%{path} 已存在 %{count} 個變體"
+  mcp.stageConfigFailed: "在 %{dir} 中暫存設定失敗：%{detail}"
+  mcp.restrictStagedConfigFailed: "限制暫存設定 %{path} 的權限失敗：%{detail}"
+  mcp.writeStagedConfigFailed: "寫入 %{path} 的暫存設定失敗：%{detail}"
+  mcp.createConfigFailed: "建立 %{path} 失敗：無法將暫存副本硬連結到目標位置（%{link_detail}），也無法直接建立該檔案（%{open_detail}）。"
+  mcp.writeConfigPartialRemoved: "寫入 %{path} 失敗：%{detail}（已刪除不完整的檔案）"
+  mcp.writeConfigPartialOrphaned: "寫入 %{path} 失敗：%{detail}。不完整的檔案也無法刪除（%{cleanup_detail}）。請在重試前手動刪除，否則下次安裝會把它當成損毀的設定讀取。"
+
 window:
   settings.title: "設定"
 

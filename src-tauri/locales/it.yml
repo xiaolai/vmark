@@ -268,6 +268,46 @@ errors:
   mcp.spawnInProgress: "L'avvio del sidecar MCP è già in corso"
   mcp.configMismatch: "Convalida della configurazione non riuscita: il contenuto scritto non corrisponde"
 
+  # MCP client config — provider and sidecar binary resolution
+  mcp.unknownProvider: "Provider sconosciuto: %{provider}"
+  mcp.noHomeDir: "Impossibile determinare la directory home"
+  mcp.exePathFailed: "Impossibile ottenere il percorso dell'eseguibile: %{detail}"
+  mcp.exeDirFailed: "Impossibile ottenere la directory dell'eseguibile"
+  mcp.binaryNotFound: "Binario del server MCP non trovato: %{name}. Reinstallare VMark."
+
+  # MCP client config — parsing and structure
+  mcp.invalidJson: "JSON non valido: %{detail}"
+  mcp.invalidToml: "TOML non valido: %{detail}"
+  mcp.jsonSerializeFailed: "Errore di serializzazione JSON: %{detail}"
+  mcp.invalidJsonStructure: "Struttura JSON non valida"
+  mcp.serversNotObject: "mcpServers non è un oggetto"
+  mcp.serversNotTable: "mcp_servers non è una tabella"
+  mcp.vmarkEntryNotObject: "mcpServers.vmark non è un oggetto"
+  mcp.vmarkEntryNotTable: "mcp_servers.vmark non è una tabella"
+  mcp.envNotObject: "mcpServers.vmark.env non è un oggetto"
+  mcp.envNotTable: "mcp_servers.vmark.env non è una tabella"
+
+  # Bridge MCP: le credenziali del client a cui è associato il principal di autorizzazione
+  mcp.principalMissing: "Questo client IA non ha presentato alcuna credenziale VMark, quindi le azioni delegate vengono rifiutate. Apri Impostazioni > Integrazioni, esegui Installa per quel client e riavvialo."
+  mcp.principalUnknown: "La credenziale presentata da questo client IA non risulta a VMark, quindi le azioni delegate vengono rifiutate. Apri Impostazioni > Integrazioni, esegui Installa per quel client e riavvialo."
+  mcp.principalAmbiguous: "La credenziale presentata da questo client IA è configurata per più client (%{detail}), quindi VMark non riesce a distinguerli. Apri Impostazioni > Integrazioni, esegui Installa per ciascuno di essi e riavviali."
+
+  # MCP client config — reading, backing up and writing
+  mcp.readFailed: "Impossibile leggere %{path}: %{detail}"
+  mcp.createDirFailed: "Impossibile creare la directory %{path}: %{detail}"
+  mcp.configChangedOnDisk: "%{path} è cambiato su disco mentre VMark lo stava aggiornando. Chiudere il client che lo sta scrivendo e riprovare."
+  mcp.backupWriteFailed: "Impossibile scrivere il backup %{path}: %{detail}"
+  mcp.backupFlushFailed: "Impossibile svuotare il buffer del backup %{path}: %{detail}"
+  mcp.backupSyncFailed: "Impossibile sincronizzare il backup %{path}: %{detail}"
+  mcp.backupCreateFailed: "Impossibile creare il backup %{path}: %{detail}"
+  mcp.backupVariantsExhausted: "Impossibile creare il backup: esistono già %{count} varianti di %{path}"
+  mcp.stageConfigFailed: "Impossibile preparare la configurazione in %{dir}: %{detail}"
+  mcp.restrictStagedConfigFailed: "Impossibile limitare i permessi della configurazione preparata %{path}: %{detail}"
+  mcp.writeStagedConfigFailed: "Impossibile scrivere la configurazione preparata per %{path}: %{detail}"
+  mcp.createConfigFailed: "Impossibile creare %{path}: non è stato possibile collocare una copia preparata tramite hard link (%{link_detail}) né creare il file direttamente (%{open_detail})."
+  mcp.writeConfigPartialRemoved: "Impossibile scrivere %{path}: %{detail} (il file incompleto è stato rimosso)"
+  mcp.writeConfigPartialOrphaned: "Impossibile scrivere %{path}: %{detail}. Non è stato possibile rimuovere nemmeno il file incompleto (%{cleanup_detail}): eliminarlo a mano prima di riprovare, altrimenti la prossima installazione lo leggerà come una configurazione danneggiata."
+
 window:
   settings.title: "Impostazioni"
 
