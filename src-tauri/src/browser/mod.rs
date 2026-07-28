@@ -53,6 +53,7 @@ pub mod profile_open;
 pub mod recovery;
 pub mod redact;
 pub mod registry;
+pub mod script_limit;
 pub mod session_commands;
 pub mod session_state;
 pub mod surface;

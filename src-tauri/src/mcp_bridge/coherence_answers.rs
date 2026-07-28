@@ -1,7 +1,23 @@
-//! The `vmark.coherence.*` Rust-terminal answers (WI-1.10 + WI-2b.8),
-//! split from `routing.rs` for the file-size gate. Read-only: status,
-//! edges, claims, contexts — all answered from the managed kernel.
+//! The `vmark.coherence.*` Rust-terminal answers (WI-1.10 + WI-2b.8 + WI-3.5),
+//! split from `routing.rs` for the file-size gate. All are answered from the
+//! managed kernel with no webview hop.
+//!
+//! Three are pure reads — `status`, `claims`, `contexts`. The other two
+//! **write**:
+//!
+//! * `edges` reconciles a scan before projecting, and that scan appends
+//!   navigation, absence and diagnostic entries to the ledger. The *answer*
+//!   is a projection; obtaining it mutates durable state, which is why
+//!   `routing.rs` takes the bridge write lock for it.
+//! * `resolve` appends a resolution receipt, gated on a live delegation for
+//!   the principal the caller's CONNECTION authenticated as.
+//!
+//! Calling this module read-only was true before WI-3.5 and stopped being
+//! true with it; calling `edges` read-only while admitting in the same breath
+//! that it appends provenance was never true (audit rounds 1 and 2,
+//! finding 10).
 
+use super::principal::BridgePrincipal;
 use super::types::McpResponse;
 use crate::coherence::claim_commands::perform_claims_list;
 use crate::coherence::commands::{
@@ -11,12 +27,6 @@ use crate::coherence::context_commands::perform_contexts_list;
 use crate::coherence::delegation::DelegationStore;
 use tauri::Runtime;
 
-/// Answer a `vmark.coherence.*` read request from the managed kernel state.
-///
-/// Factored out of `handle_rust_side` so it can be tested without a mock
-/// Tauri app. Never panics: every failure (missing/invalid workspace_root,
-/// kernel open failure, poisoned lock) becomes `success: false` with the
-/// error string.
 /// Whether `root` is a workspace this installation has opened (its config
 /// marker exists) — the coherence tool's root allow-list (audit C1).
 pub(super) fn is_known_workspace<R: Runtime>(app: &tauri::AppHandle<R>, root: &str) -> bool {
@@ -35,11 +45,22 @@ pub(super) fn is_known_workspace<R: Runtime>(app: &tauri::AppHandle<R>, root: &s
             .exists()
 }
 
+/// Answer a `vmark.coherence.*` request from the managed kernel state.
+///
+/// "Answer" is not "read": `status`, `claims` and `contexts` are pure
+/// projections, but `edges` appends scan provenance and `resolve` appends a
+/// receipt. Callers must hold the bridge write lock for those two — see
+/// `routing::answer_coherence_async`.
+///
+/// Factored out of `handle_rust_side` so it can be tested without a mock
+/// Tauri app. Never panics: every failure (missing/invalid workspace_root,
+/// kernel open failure, poisoned lock) becomes `success: false` with the
+/// error string.
 pub(super) fn answer_coherence(
     state: &CoherenceState,
     request_type: &str,
     args: &serde_json::Value,
-    principal: Option<&str>,
+    principal: &BridgePrincipal,
 ) -> McpResponse {
     match answer_coherence_inner(state, request_type, args, principal) {
         Ok(data) => McpResponse {
@@ -59,7 +80,7 @@ fn answer_coherence_inner(
     state: &CoherenceState,
     request_type: &str,
     args: &serde_json::Value,
-    principal: Option<&str>,
+    principal: &BridgePrincipal,
 ) -> Result<serde_json::Value, String> {
     let root = args.get("workspace_root").and_then(|v| v.as_str()).ok_or(
         "workspace_root (string) is required — the absolute path of the workspace to query",
@@ -84,6 +105,9 @@ fn answer_coherence_inner(
             let status = perform_status(&mut kernel)?;
             serde_json::to_value(status).map_err(|e| format!("serialize status: {e}"))
         }
+        // WRITES: `perform_breakdown` scans first, appending navigation,
+        // absence and diagnostic entries to the ledger. Held under the bridge
+        // write lock by `routing::answer_coherence_async`.
         "vmark.coherence.edges" => {
             let rows = perform_breakdown(&mut kernel)?;
             serde_json::to_value(rows).map_err(|e| format!("serialize edges: {e}"))
@@ -99,11 +123,20 @@ fn answer_coherence_inner(
             serde_json::to_value(rows).map_err(|e| format!("serialize contexts: {e}"))
         }
         // WI-3.5 (D2.4): the ONE mutating action — authorized by a live
-        // delegation bound to the AUTHENTICATED bridge principal, never
-        // a caller-supplied identity. Fail closed on everything.
+        // delegation bound to the principal the CONNECTION authenticated as.
+        // Fail closed on everything.
+        //
+        // Honest scope of that principal (audit 20260728 §2.1): it is the AI
+        // client whose VMark-issued credential arrived in the auth frame, not
+        // a name the client asserted about itself — `identify` reaches no
+        // decision here. The credential lives in that client's own MCP config,
+        // so a same-UID process that can read `~/.claude.json` can still
+        // obtain it; what this rules out is the free impersonation that a
+        // re-sendable self-declared name allowed, and the honest
+        // misattribution that the sidecar's parent-process-name guess caused.
+        // See `principal.rs`.
         "vmark.coherence.resolve" => {
-            let principal =
-                principal.ok_or("unidentified client — identify to the bridge before resolving")?;
+            let principal = principal.authorized_id()?;
             let txf = args
                 .get("txf")
                 .and_then(|v| v.as_str())
