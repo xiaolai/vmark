@@ -16,7 +16,10 @@
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 
-const ROOTS = ["src", "src-tauri/src"];
+// `vmark-mcp-server/src` was invisible to this gate until the 2026-07-28 MCP
+// audit named it (§4): the sidecar ships as its own workspace package and was
+// simply never listed here, so its four >300-line files never had to ratchet.
+const ROOTS = ["src", "src-tauri/src", "vmark-mcp-server/src"];
 const EXTS = [".ts", ".tsx", ".rs"];
 const BASELINE_PATH = "scripts/file-size-baseline.json";
 
