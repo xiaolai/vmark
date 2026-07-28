@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { useTabStore } from "@/stores/tabStore";
-import { useDocumentStore } from "@/stores/documentStore";
+import { useDocumentStore, useRevisionStore } from "@/stores/documentStore";
 
 const setFocusMock = vi.fn(async () => {});
 const getByLabelMock = vi.fn(async (label: string) => {
@@ -27,9 +27,13 @@ const writeMock = vi.fn<(path: string, content: string) => Promise<void>>(
   async () => undefined,
 );
 const readMock = vi.fn<(path: string) => Promise<string>>(async () => "");
+// WI-5: save_as consults `exists` before overwriting. These suites cover the
+// save-to-a-new-location paths, so the target is absent by default.
+const existsMock = vi.fn<(path: string) => Promise<boolean>>(async () => false);
 vi.mock("@tauri-apps/plugin-fs", () => ({
   readTextFile: (path: string) => readMock(path),
   writeTextFile: (path: string, content: string) => writeMock(path, content),
+  exists: (path: string) => existsMock(path),
 }));
 
 const registerPendingSaveMock = vi.fn(() => 1);
@@ -92,6 +96,8 @@ function resetStores() {
     closedTabs: {},
   });
   useDocumentStore.setState({ documents: {} });
+  useRevisionStore.setState({ revisions: {} });
+  existsMock.mockResolvedValue(false);
 }
 
 function lastRespond() {
@@ -156,6 +162,134 @@ describe("vmark.workspace.open — YAML routing", () => {
     expect(r.success).toBe(true);
     const tabId = (r.data as { tabId: string }).tabId;
     expect(useDocumentStore.getState().documents[tabId]).toBeDefined();
+  });
+});
+
+// WI-3 — `createTab` dedupes by normalized path, so opening a file that is
+// already open returns the EXISTING tab id. The handler then re-initialised
+// that tab unconditionally, replacing content/savedContent/isDirty and
+// discarding unsaved user edits with no checkpoint and no revision bump.
+describe("vmark.workspace.open — already-open tabs", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    resetStores();
+    readMock.mockResolvedValue("# on disk\n");
+  });
+
+  it("does not discard unsaved edits when the file is already open and dirty", async () => {
+    await handleWorkspaceOpen("req-first", { filePath: "/repo/notes.md" });
+    const tabId = (lastRespond().data as { tabId: string }).tabId;
+
+    // The user edits the open document without saving.
+    useDocumentStore.getState().setContent(tabId, "# my unsaved work");
+    expect(useDocumentStore.getState().documents[tabId].isDirty).toBe(true);
+
+    await handleWorkspaceOpen("req-second", { filePath: "/repo/notes.md" });
+
+    const r = lastRespond();
+    expect(r.success).toBe(true);
+    expect(r.data).toMatchObject({ tabId, alreadyOpen: true, reloaded: false });
+    // The buffer survived.
+    const doc = useDocumentStore.getState().documents[tabId];
+    expect(doc.content).toBe("# my unsaved work");
+    expect(doc.isDirty).toBe(true);
+  });
+
+  it("explains why nothing was reloaded so the agent does not silently assume fresh content", async () => {
+    await handleWorkspaceOpen("req-a", { filePath: "/repo/notes.md" });
+    const tabId = (lastRespond().data as { tabId: string }).tabId;
+    useDocumentStore.getState().setContent(tabId, "dirty");
+
+    await handleWorkspaceOpen("req-b", { filePath: "/repo/notes.md" });
+
+    expect((lastRespond().data as { reason: string }).reason).toMatch(/unsaved/i);
+  });
+
+  it("still reloads a clean already-open tab and bumps the revision when disk content moved on", async () => {
+    await handleWorkspaceOpen("req-c1", { filePath: "/repo/notes.md" });
+    const tabId = (lastRespond().data as { tabId: string }).tabId;
+    const before = useRevisionStore.getState().getRevision(tabId);
+
+    readMock.mockResolvedValue("# changed on disk\n");
+    await handleWorkspaceOpen("req-c2", { filePath: "/repo/notes.md" });
+
+    const r = lastRespond();
+    expect(r.data).toMatchObject({ tabId, alreadyOpen: true, reloaded: true });
+    expect(useDocumentStore.getState().documents[tabId].content).toBe(
+      "# changed on disk\n",
+    );
+    // A stale revision must not survive a content change.
+    expect(useRevisionStore.getState().isCurrentRevision(tabId, before)).toBe(false);
+  });
+
+  // Round-1 audit finding (workspace.ts:119, High): only `isDirty` protected the
+  // buffer. An `isDivergent` document is CLEAN but holds content the user
+  // deliberately kept after answering "Keep my changes" to an external edit.
+  it("does not discard content kept after an external modification (isDivergent, not dirty)", async () => {
+    await handleWorkspaceOpen("req-div1", { filePath: "/repo/notes.md" });
+    const tabId = (lastRespond().data as { tabId: string }).tabId;
+
+    useDocumentStore.getState().markDivergent(tabId);
+    const kept = useDocumentStore.getState().documents[tabId].content;
+    expect(useDocumentStore.getState().documents[tabId].isDirty).toBe(false);
+
+    readMock.mockResolvedValue("# whatever is on disk now\n");
+    await handleWorkspaceOpen("req-div2", { filePath: "/repo/notes.md" });
+
+    expect(lastRespond().data).toMatchObject({ reloaded: false });
+    expect(useDocumentStore.getState().documents[tabId].content).toBe(kept);
+  });
+
+  // Round-1 audit finding (workspace.ts:138, High): reloading via initDocument
+  // rebuilt the entry from scratch, silently clearing readOnly and leaving
+  // documentId at 0 for a first-open doc so the editor might never remount.
+  it("preserves read-only protection when reloading a clean already-open tab", async () => {
+    await handleWorkspaceOpen("req-ro1", { filePath: "/repo/notes.md" });
+    const tabId = (lastRespond().data as { tabId: string }).tabId;
+    useDocumentStore.getState().setReadOnly(tabId, true);
+
+    readMock.mockResolvedValue("# new disk content\n");
+    await handleWorkspaceOpen("req-ro2", { filePath: "/repo/notes.md" });
+
+    expect(useDocumentStore.getState().documents[tabId].readOnly).toBe(true);
+  });
+
+  it("increments documentId on reload so the editor remounts", async () => {
+    await handleWorkspaceOpen("req-id1", { filePath: "/repo/notes.md" });
+    const tabId = (lastRespond().data as { tabId: string }).tabId;
+    const idBefore = useDocumentStore.getState().documents[tabId].documentId;
+
+    readMock.mockResolvedValue("# new disk content\n");
+    await handleWorkspaceOpen("req-id2", { filePath: "/repo/notes.md" });
+
+    expect(useDocumentStore.getState().documents[tabId].documentId).toBe(idBefore + 1);
+  });
+
+  // Round-1 VERIFICATION finding (REGRESSED): switching the reload path to
+  // `loadContent` dropped the `clearMissing` that every other disk-reload site
+  // pairs with it (see services/persistence/reloadFromDisk.ts), so a file that
+  // was deleted and then recreated stayed flagged as missing forever.
+  it("clears the missing flag when a deleted file is reopened after being recreated", async () => {
+    await handleWorkspaceOpen("req-miss1", { filePath: "/repo/notes.md" });
+    const tabId = (lastRespond().data as { tabId: string }).tabId;
+
+    // The file is deleted on disk; the watcher flags the tab.
+    useDocumentStore.getState().markMissing(tabId);
+    expect(useDocumentStore.getState().documents[tabId].isMissing).toBe(true);
+
+    // The user recreates it and the agent reopens it — the read succeeds, so
+    // the file demonstrably exists again.
+    readMock.mockResolvedValue("# recreated\n");
+    await handleWorkspaceOpen("req-miss2", { filePath: "/repo/notes.md" });
+
+    const doc = useDocumentStore.getState().documents[tabId];
+    expect(doc.isMissing).toBe(false);
+    expect(doc.content).toBe("# recreated\n");
+  });
+
+  it("reports a first-time open as not already-open", async () => {
+    await handleWorkspaceOpen("req-fresh", { filePath: "/repo/fresh.md" });
+    expect(lastRespond().data).toMatchObject({ alreadyOpen: false, reloaded: true });
   });
 });
 
@@ -677,5 +811,31 @@ describe("vmark.workspace.save_as — auto-approve gate", () => {
     const r = lastRespond();
     expect(r.success).toBe(true);
     expect(writeMock).toHaveBeenCalledWith("/ws/new.md", "hello");
+  });
+});
+
+// `getWindowLabel` prefers an explicit `windowLabel` arg over the current
+// window. Every existing test omits it, so the explicit branch was never taken.
+describe("vmark.workspace — explicit windowLabel", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    resetStores();
+  });
+
+  it("creates the tab in the window the caller names, not the current one", async () => {
+    await handleWorkspaceNew("req-wl", { windowLabel: "doc-2" });
+
+    const r = lastRespond();
+    expect(r.success).toBe(true);
+    const tabId = (r.data as { tabId: string }).tabId;
+    expect(useTabStore.getState().tabs["doc-2"]?.[0]?.id).toBe(tabId);
+    expect(useTabStore.getState().tabs.main).toBeUndefined();
+  });
+
+  it("ignores an empty windowLabel and falls back to the current window", async () => {
+    await handleWorkspaceNew("req-wl-empty", { windowLabel: "" });
+
+    const tabId = (lastRespond().data as { tabId: string }).tabId;
+    expect(useTabStore.getState().tabs.main?.[0]?.id).toBe(tabId);
   });
 });
