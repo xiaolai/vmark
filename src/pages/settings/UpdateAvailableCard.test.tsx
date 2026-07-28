@@ -73,8 +73,46 @@ describe("UpdateAvailableCard", () => {
     expect(bar).not.toHaveAttribute("aria-valuenow");
     expect(bar).toHaveAttribute("aria-valuetext", "3.0 MB downloaded");
     expect(screen.getByText("3.0 MB downloaded")).toBeInTheDocument();
-    // Not frozen at 0%: the fill is animated, full-width.
-    expect(bar.querySelector(".animate-pulse")).not.toBeNull();
+    // Animated rather than frozen at 0% — but NOT a full-width fill, which
+    // reads as "finished".
+    const fill = bar.querySelector<HTMLElement>(".update-progress-fill");
+    expect(fill).not.toBeNull();
+    expect(fill!.style.width).not.toBe("100%");
+  });
+
+  // Regression: the download begins with `{ downloaded: 0, total: null }`,
+  // written before Tauri's `Started` event carries Content-Length. That state
+  // is indistinguishable from "no Content-Length", so the bar rendered a
+  // full-width fill and then snapped back to 0% once `Started` arrived —
+  // reported as "the progress bar is 100% first, then starts from 0%".
+  it("does not show a full bar before the download has started", () => {
+    mockUpdateState.status = "downloading";
+    mockUpdateState.downloadProgress = { downloaded: 0, total: null };
+    render(<UpdateAvailableCard />);
+
+    const fill = screen
+      .getByRole("progressbar")
+      .querySelector<HTMLElement>(".update-progress-fill");
+    expect(fill).not.toBeNull();
+    expect(fill!.style.width).not.toBe("100%");
+  });
+
+  it("never renders a full fill until the download is actually complete", () => {
+    for (const progress of [
+      { downloaded: 0, total: null },
+      { downloaded: 3 * MB, total: null },
+      { downloaded: 0, total: 10 * MB },
+      { downloaded: 5 * MB, total: 10 * MB },
+    ]) {
+      mockUpdateState.status = "downloading";
+      mockUpdateState.downloadProgress = progress;
+      const { unmount } = render(<UpdateAvailableCard />);
+      const fill = screen
+        .getByRole("progressbar")
+        .querySelector<HTMLElement>(".update-progress-fill");
+      expect(fill!.style.width, JSON.stringify(progress)).not.toBe("100%");
+      unmount();
+    }
   });
 
   it("shows an Installing state at 100% after the download finishes", () => {
