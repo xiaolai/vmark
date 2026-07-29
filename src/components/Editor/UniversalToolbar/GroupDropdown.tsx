@@ -16,6 +16,8 @@ import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { isSeparator, type ToolbarMenuItem, type ToolbarActionItem } from "./toolbarGroups";
 import { toolbarItemLabel } from "./toolbarI18n";
+import { useShortcutsStore } from "@/stores/settingsStore/shortcuts";
+import { formatKeyForDisplay } from "@/stores/settingsStore/keyFormatting";
 import type { ToolbarItemState } from "@/plugins/toolbarActions/enableRules";
 
 interface GroupDropdownItem {
@@ -60,6 +62,9 @@ function getItemRole(action: string, groupId: string): "menuitemcheckbox" | "men
 const GroupDropdown = forwardRef<HTMLDivElement, GroupDropdownProps>(
   ({ anchorRect, items, groupId, onSelect, onClose, onNavigateOut, onTabOut }, ref) => {
     const { t } = useTranslation("editor");
+    // Subscribe so shortcut hints re-render when the user rebinds a key.
+    useShortcutsStore((s) => s.customBindings);
+    const getShortcut = useShortcutsStore((s) => s.getShortcut);
     const containerRef = useRef<HTMLDivElement>(null);
 
     // Track if this is the initial mount (to avoid stealing focus on re-renders)
@@ -277,8 +282,10 @@ const GroupDropdown = forwardRef<HTMLDivElement, GroupDropdownProps>(
                 dangerouslySetInnerHTML={{ __html: actionItem.icon }}
               />
               <span className="universal-toolbar-dropdown-label">{toolbarItemLabel(t, actionItem)}</span>
-              {actionItem.shortcut && (
-                <span className="universal-toolbar-dropdown-shortcut">{actionItem.shortcut}</span>
+              {actionItem.shortcutId && (
+                <span className="universal-toolbar-dropdown-shortcut">
+                  {formatKeyForDisplay(getShortcut(actionItem.shortcutId))}
+                </span>
               )}
             </button>
           );

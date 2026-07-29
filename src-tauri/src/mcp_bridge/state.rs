@@ -12,13 +12,17 @@
 use super::principal::BridgePrincipal;
 use super::types::{ClientIdentity, McpResponse};
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
-use tokio::sync::{mpsc, oneshot, Mutex, RwLock};
+use tokio::sync::{mpsc, oneshot, Mutex};
 
-/// Tracks whether the frontend webview is alive and responsive.
-/// Updated by periodic heartbeat pings from the frontend.
+/// Coarse process-global webview liveness flag, DIAGNOSTIC ONLY: set false
+/// when a bridge request times out, set true by the frontend heartbeat
+/// command. It feeds the wake-retry log line in `server.rs` and gates no
+/// authorization or routing decision. It deliberately does not expire on its
+/// own and does not distinguish windows — a per-window freshness model would
+/// be required before using it for anything load-bearing.
 static WEBVIEW_ALIVE: AtomicBool = AtomicBool::new(true);
 
 /// Mark the webview as alive or not.
@@ -122,21 +126,31 @@ pub(crate) fn try_register_pending(
             MAX_PENDING_REQUESTS
         ));
     }
-    state.pending.insert(
-        request_id,
-        PendingRequest {
-            response_tx,
-            created_at: Instant::now(),
-        },
-    );
-    Ok(())
+    // Bridge-internal ids are generated from a monotonic counter, so a
+    // duplicate indicates a bug — reject it loudly instead of silently
+    // replacing (and thereby stranding) the original request's channel.
+    match state.pending.entry(request_id) {
+        std::collections::hash_map::Entry::Occupied(entry) => Err(format!(
+            "MCP bridge internal error: duplicate pending request id {}",
+            entry.key()
+        )),
+        std::collections::hash_map::Entry::Vacant(entry) => {
+            entry.insert(PendingRequest {
+                response_tx,
+                created_at: Instant::now(),
+            });
+            Ok(())
+        }
+    }
 }
 
 /// Global bridge state.
 static BRIDGE_STATE: std::sync::OnceLock<Arc<Mutex<BridgeState>>> = std::sync::OnceLock::new();
 
-/// Server shutdown signal.
-static SHUTDOWN_TX: std::sync::OnceLock<Arc<RwLock<Option<oneshot::Sender<()>>>>> =
+/// Server shutdown signal. Every access is exclusive (install / take), so a
+/// plain `Mutex` is the honest primitive — the previous `RwLock` had no
+/// read-lock path.
+static SHUTDOWN_TX: std::sync::OnceLock<Arc<Mutex<Option<oneshot::Sender<()>>>>> =
     std::sync::OnceLock::new();
 
 /// Write lock for serializing write operations.
@@ -180,9 +194,9 @@ pub(crate) fn get_bridge_state() -> Arc<Mutex<BridgeState>> {
         .clone()
 }
 
-pub(crate) fn get_shutdown_holder() -> Arc<RwLock<Option<oneshot::Sender<()>>>> {
+pub(crate) fn get_shutdown_holder() -> Arc<Mutex<Option<oneshot::Sender<()>>>> {
     SHUTDOWN_TX
-        .get_or_init(|| Arc::new(RwLock::new(None)))
+        .get_or_init(|| Arc::new(Mutex::new(None)))
         .clone()
 }
 
@@ -202,50 +216,21 @@ pub(crate) fn generate_auth_token() -> String {
 }
 
 /// Check if an operation is read-only.
+///
+/// ONLY current `vmark.*` operations are classified (the pruned 5-tool
+/// surface; wire types in server/mcp/src/bridge/core-types.ts). Everything
+/// else — including the pre-pruning legacy names (`document.getContent`,
+/// `tabs.list`, …) — falls through to write-class (fail closed): the
+/// frontend dispatcher only accepts `vmark.*` and rejects the rest as
+/// unknown, and the Rust-answered ops (`windows.list`, `windows.getFocused`)
+/// are answered in routing BEFORE this classifier runs, so legacy entries
+/// here were unreachable dead weight (audit 20260729 C4).
 pub(crate) fn is_read_only_operation(request_type: &str) -> bool {
     matches!(
         request_type,
-        // Document read operations
-        "document.getContent"
-            | "document.search"
-            // Selection/cursor read operations
-            | "selection.get"
-            | "cursor.getContext"
-            // Metadata operations
-            | "outline.get"
-            | "metadata.get"
-            // Window/workspace read operations
-            | "windows.list"
-            | "windows.getFocused"
-            | "workspace.getDocumentInfo"
-            | "workspace.listRecentFiles"
-            | "workspace.getInfo"
-            // Tab read operations
-            | "tabs.list"
-            | "tabs.getActive"
-            | "tabs.getInfo"
-            // Editor state operations
-            | "editor.getUndoState"
-            // Suggestion read operations
-            | "suggestion.list"
-            // Paragraph read operations
-            | "paragraph.read"
-            // Protocol/structure read operations
-            | "protocol.getCapabilities"
-            | "protocol.getRevision"
-            | "structure.getAst"
-            | "structure.getDigest"
-            | "structure.listBlocks"
-            | "structure.resolveTargets"
-            | "structure.getSection"
-            // Genie read operations
-            | "genies.list"
-            | "genies.read"
-            // Pruned 5-tool surface (vmark.* prefix) — read operations.
-            // Wire types defined in server/mcp/src/bridge/core-types.ts.
-            // Missing entries here forced every concurrent AI client read
-            // (Claude Code + Codex + Cursor) to serialize through WRITE_LOCK.
-            | "vmark.session.get_state"
+        // Missing entries here forced every concurrent AI client read
+        // (Claude Code + Codex + Cursor) to serialize through WRITE_LOCK.
+        "vmark.session.get_state"
             | "vmark.document.read"
             | "vmark.selection.get"
             | "vmark.workflow.validate"
@@ -256,19 +241,60 @@ pub(crate) fn is_read_only_operation(request_type: &str) -> bool {
             // browser ops (act, open, navigate, style, execute_js,
             // session.save/load, console with its buffer drain) stay
             // serialized through WRITE_LOCK.
+            //
+            // `vmark.browser.wait` is deliberately NOT here (audit 20260729):
+            // unlike its read-class siblings, its frontend handler activates
+            // the target window and creates/attaches the native browser view
+            // (`activateBrowserTarget` + `ensureBrowserNativeView` in
+            // src/hooks/mcpBridge/v2/browserNavigation.ts) — real mutations
+            // that must serialize through WRITE_LOCK.
             | "vmark.browser.read"
-            | "vmark.browser.wait"
             | "vmark.browser.wait_for"
             | "vmark.browser.query"
-            | "vmark.browser.screenshot"
-            // Coherence status (WI-1.10) is a pure projection. `edges` is
-            // deliberately NOT here: it runs scan reconciliation, which
-            // appends provenance records — server.rs takes the write lock
-            // for it (audit C4/C5).
-            | "vmark.coherence.status"
+            | "vmark.browser.screenshot" // Coherence ops are deliberately ABSENT: they are Rust-answered in
+                                         // `answer_rust_side` BEFORE this classifier runs, and
+                                         // `routing::answer_coherence_async` applies its own lock policy
+                                         // (edges/resolve take the write lock; status/claims/contexts do not).
+                                         // An entry here would be unreachable dead weight (WI-1 manifest
+                                         // parity: src/hooks/mcpBridge/v2/operationManifest.ts).
     )
 }
 
 #[cfg(test)]
 #[path = "state.test.rs"]
 mod tests;
+
+/// Generation of the bridge for CONNECTION ADMISSION. `stop_bridge` bumps it
+/// (while holding the bridge state lock) before draining clients, and a
+/// connection task re-checks it at registration time — an in-flight handshake
+/// that authenticates after the drain must not register into a stopped (or
+/// restarted) bridge and survive shutdown.
+static CONNECTION_GENERATION: AtomicU64 = AtomicU64::new(0);
+
+/// Current admission generation (captured by the accept loop per connection).
+pub(super) fn connection_generation() -> u64 {
+    CONNECTION_GENERATION.load(Ordering::SeqCst)
+}
+
+/// Invalidate every connection admitted before this call (see above).
+pub(super) fn bump_connection_generation() {
+    CONNECTION_GENERATION.fetch_add(1, Ordering::SeqCst);
+}
+
+/// Register an authenticated client, unless the bridge generation moved on
+/// while the peer was mid-handshake. `stop_bridge` bumps the generation UNDER
+/// the state lock before draining, so either this registration lands first
+/// (and is drained) or the stale generation is visible here and refused.
+pub(super) async fn try_register_client(
+    client_id: u64,
+    connection: ClientConnection,
+    admitted_generation: u64,
+) -> bool {
+    let state = get_bridge_state();
+    let mut guard = state.lock().await;
+    if connection_generation() != admitted_generation {
+        return false;
+    }
+    guard.clients.insert(client_id, connection);
+    true
+}

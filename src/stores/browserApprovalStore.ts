@@ -33,6 +33,10 @@ export type {
   ProfileOpenApproval,
 } from "./browserApprovalStore.types";
 
+/** requestApproval outcome: queued / already-pending id / unknown operation
+ *  (`rejected`) / queue full (`overloaded` — untrusted-client flooding). */
+export type BrowserRequestApprovalResult = "queued" | "existing" | "rejected" | "overloaded";
+
 /** Closed operation vocabulary; upload is intentionally never grantable. */
 const KNOWN_OPERATIONS = new Set(["read", "attach", "click", "type", "scroll", "key", "style", "navigate", "publish", "eval", "session"]);
 
@@ -66,8 +70,8 @@ interface BrowserApprovalActions {
   grant: (originPattern: string, operations: string[]) => boolean;
   /** Revoke all grants for an origin pattern. */
   revoke: (originPattern: string) => void;
-  /** Queue a pending approval request for the UI to resolve. Ignores an unknown
-   *  operation and a duplicate id (one id must map to exactly one action). */
+  /** Queue a pending approval request. Callers MUST NOT advertise
+   *  `needsApproval` on `rejected`/`overloaded` — no prompt exists then. */
   requestApproval: (
     id: string,
     targetUrl: string,
@@ -80,7 +84,7 @@ interface BrowserApprovalActions {
     /** The exact script (for `style`/`eval`) the user is approving — shown in the
      *  prompt and bound into the one-shot. Omit for target-based ops. */
     script?: string,
-  ) => void;
+  ) => BrowserRequestApprovalResult;
   /** Resolve a pending request: `remember` promotes it to a standing grant scoped
    *  to the target's origin; `once` mints a single-use authorization for that
    *  (origin, operation); `deny` just clears it. No-op if the id is unknown. */
@@ -158,19 +162,16 @@ export const useBrowserApprovalStore = create<BrowserApprovalState & BrowserAppr
     },
 
     requestApproval: (id, targetUrl, operation, target, tabId, generation, script) => {
-      if (!KNOWN_OPERATIONS.has(operation)) return;
-      set((state) =>
-        // A duplicate id would let `resolveApproval` authorize one action while
-        // dropping the other — keep the first, ignore the collision. And the AI
-        // client is UNTRUSTED: cap the queue so a flood of unique requests cannot
-        // grow the store without bound (each pending may retain a full script).
-        // (Security review P5 re-verify — High #1 availability.)
-        state.pending.some((p) => p.id === id) || state.pending.length >= MAX_PENDING_APPROVALS
-          ? state
-          : {
-              pending: [...state.pending, { id, targetUrl, operation, target, tabId, generation, script }],
-            },
-      );
+      if (!KNOWN_OPERATIONS.has(operation)) return "rejected";
+      // Duplicate ids would let `resolveApproval` authorize one action while
+      // dropping the other; and the UNTRUSTED client must not grow the queue
+      // unboundedly (each pending may retain a full script). (Sec review P5.)
+      if (get().pending.some((p) => p.id === id)) return "existing";
+      if (get().pending.length >= MAX_PENDING_APPROVALS) return "overloaded";
+      set((state) => ({
+        pending: [...state.pending, { id, targetUrl, operation, target, tabId, generation, script }],
+      }));
+      return "queued";
     },
 
     resolveApproval: (id, outcome) => {

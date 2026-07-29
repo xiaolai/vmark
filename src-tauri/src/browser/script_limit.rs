@@ -39,7 +39,12 @@ pub(crate) const MAX_SCRIPT_BYTES: usize = 64 * 1024;
 /// makes no judgement about content, and accepts empty input unchanged — emptiness
 /// is the client's business and refusing it here would quietly turn a resource
 /// bound into a content check. The comparison is `>`, not `>=`, matching both
-/// client-side mirrors, so a payload the sidecar admits is not refused here.
+/// client-side mirrors. Note two honest boundaries: (1) the check runs AFTER
+/// Tauri/Serde has deserialized the argument, so it bounds what commands
+/// accept, not what IPC allocates — a transport-level cap would be a framework
+/// concern; (2) for `style` ops the payload measured here is the BUILT wrapper
+/// script, so the webview mirror measures that same built script (not the raw
+/// CSS) to stay in agreement.
 pub(crate) fn ensure_script_within_limit(what: &str, script: &str) -> Result<(), String> {
     let bytes = script.len();
     if bytes > MAX_SCRIPT_BYTES {

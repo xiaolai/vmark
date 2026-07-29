@@ -33,6 +33,11 @@ export const resolveMediaError = isDev
   ? (...args: unknown[]) => console.error("[ResolveMedia]", ...args)
   : (...args: unknown[]) => prodError("[ResolveMedia]", ...args);
 
+/** Error logger for the video embed NodeView. */
+export const videoEmbedError = isDev
+  ? (...args: unknown[]) => console.error("[VideoEmbed]", ...args)
+  : (...args: unknown[]) => prodError("[VideoEmbed]", ...args);
+
 /** Error logger for the Media View render surface. */
 export const mediaViewError = isDev
   ? (...args: unknown[]) => console.error("[MediaView]", ...args)
@@ -62,6 +67,11 @@ export const imageHashError = isDev
 export const wysiwygAdapterError = isDev
   ? (...args: unknown[]) => console.error("[wysiwygAdapter]", ...args)
   : (...args: unknown[]) => prodError("[wysiwygAdapter]", ...args);
+
+/** Error logger for the code block node view. */
+export const codeBlockError = isDev
+  ? (...args: unknown[]) => console.error("[CodeBlock]", ...args)
+  : (...args: unknown[]) => prodError("[CodeBlock]", ...args);
 
 /** Error logger for Link Popup. */
 export const linkPopupError = isDev

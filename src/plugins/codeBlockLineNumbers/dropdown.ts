@@ -24,6 +24,8 @@ export interface LanguageDropdownDeps {
   getCurrentLanguage: () => string;
   /** Invoked when the user picks a language. */
   onSelect: (langId: string) => void;
+  /** Open/close notifications (aria-expanded on the anchor tracks these). */
+  onOpenChange?: (open: boolean) => void;
 }
 
 export class LanguageDropdown {
@@ -56,6 +58,7 @@ export class LanguageDropdown {
       this.dropdownHost = null;
       document.removeEventListener("mousedown", this.handleOutsideClick);
       window.removeEventListener("scroll", this.positionDropdown, true);
+      this.deps.onOpenChange?.(false);
     }
   }
 
@@ -66,6 +69,7 @@ export class LanguageDropdown {
   private open(): void {
     /* v8 ignore next -- @preserve Defensive guard: toggle calls close when dropdown exists, so open is only called when dropdown is null */
     if (this.dropdown) return;
+    this.deps.onOpenChange?.(true);
 
     const dropdown = document.createElement("div");
     dropdown.className = "code-lang-dropdown";

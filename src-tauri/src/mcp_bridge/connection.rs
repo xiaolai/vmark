@@ -13,8 +13,8 @@ use super::handshake::{
     await_auth, check_upgrade_request, AuthOutcome, ConnectionSlot, AUTH_DEADLINE,
     MAX_CONCURRENT_CONNECTIONS,
 };
+use super::message_loop::run_message_loop;
 use super::principal::BridgePrincipal;
-use super::server::handle_message;
 use super::state::{get_bridge_state, ClientConnection, CLIENT_TX_CAPACITY};
 use crate::mcp_config::client_tokens;
 use futures_util::{FutureExt, SinkExt, StreamExt};
@@ -52,9 +52,20 @@ pub(super) fn admit_connection<R: tauri::Runtime>(
         );
         return false;
     };
+    // Captured at admission: if the bridge stops (or restarts) while this
+    // connection is mid-handshake, registration re-checks the generation and
+    // refuses — an authenticated stray must not outlive its bridge.
+    let admitted_generation = super::state::connection_generation();
     crate::task::spawn_logged(
         "mcp-bridge-connection",
-        handle_connection(stream, addr, app.clone(), expected_token.to_string(), slot),
+        handle_connection(
+            stream,
+            addr,
+            app.clone(),
+            expected_token.to_string(),
+            slot,
+            admitted_generation,
+        ),
     );
     true
 }
@@ -85,6 +96,7 @@ async fn handle_connection<R: tauri::Runtime>(
     app: AppHandle<R>,
     expected_token: String,
     _slot: ConnectionSlot,
+    admitted_generation: u64,
 ) {
     let ws_stream = match accept_hdr_async_with_config(
         stream,
@@ -146,7 +158,15 @@ async fn handle_connection<R: tauri::Runtime>(
         }
     };
 
-    serve_authenticated(ws_sender, &mut ws_receiver, client_id, principal, &app).await;
+    serve_authenticated(
+        ws_sender,
+        &mut ws_receiver,
+        client_id,
+        principal,
+        &app,
+        admitted_generation,
+    )
+    .await;
 }
 
 /// Register the authenticated peer, pump its frames, and always tear it down.
@@ -160,24 +180,25 @@ async fn serve_authenticated<R: tauri::Runtime, S>(
     client_id: u64,
     principal: BridgePrincipal,
     app: &AppHandle<R>,
+    admitted_generation: u64,
 ) where
     S: futures_util::Stream<Item = Result<Message, tokio_tungstenite::tungstenite::Error>> + Unpin,
 {
     // --- Authenticated: only now does this peer cost us anything ---
     let (tx, mut rx) = mpsc::channel::<String>(CLIENT_TX_CAPACITY);
     let (shutdown_tx, mut shutdown_rx) = oneshot::channel::<()>();
-    {
-        let state = get_bridge_state();
-        let mut guard = state.lock().await;
-        guard.clients.insert(
-            client_id,
-            ClientConnection {
-                tx,
-                shutdown: Some(shutdown_tx),
-                identity: None,
-                principal,
-            },
+    let connection = ClientConnection {
+        tx,
+        shutdown: Some(shutdown_tx),
+        identity: None,
+        principal,
+    };
+    if !super::state::try_register_client(client_id, connection, admitted_generation).await {
+        log::warn!(
+            "[MCP Bridge] Client {client_id} authenticated during bridge shutdown — refused"
         );
+        let _ = ws_sender.close().await;
+        return;
     }
 
     let send_task = tauri::async_runtime::spawn(async move {
@@ -247,47 +268,6 @@ async fn unregister_after<R: tauri::Runtime, F: Future<Output = ()>>(
     }
 
     send_task.abort();
-}
-
-/// Pump authenticated frames until the peer or the bridge closes.
-async fn run_message_loop<S, R: tauri::Runtime>(
-    ws_receiver: &mut S,
-    shutdown_rx: &mut oneshot::Receiver<()>,
-    client_id: u64,
-    app: &AppHandle<R>,
-) where
-    S: futures_util::Stream<Item = Result<Message, tokio_tungstenite::tungstenite::Error>> + Unpin,
-{
-    loop {
-        tokio::select! {
-            _ = &mut *shutdown_rx => {
-                log::debug!("[MCP Bridge] Client {client_id} closing due to shutdown");
-                return;
-            }
-            result = ws_receiver.next() => {
-                match result {
-                    Some(Ok(Message::Text(text))) => {
-                        if let Err(e) = handle_message(&text, client_id, app).await {
-                            log::error!("[MCP Bridge] Error handling message from client {client_id}: {e}");
-                        }
-                    }
-                    Some(Ok(Message::Close(_))) => {
-                        log::debug!("[MCP Bridge] Client {client_id} disconnected");
-                        return;
-                    }
-                    Some(Err(e)) => {
-                        log::error!("[MCP Bridge] WebSocket error from client {client_id}: {e}");
-                        return;
-                    }
-                    None => {
-                        log::debug!("[MCP Bridge] Client {client_id} stream ended");
-                        return;
-                    }
-                    _ => {}
-                }
-            }
-        }
-    }
 }
 
 #[cfg(test)]

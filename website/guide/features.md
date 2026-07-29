@@ -146,6 +146,8 @@ Quickly change text case via Format → Transform:
 - Code blocks with syntax highlighting
 - Ordered, unordered, and task lists
 - Cycle list type: convert a paragraph to bullet, ordered, or task list in sequence
+- Toggle a list off: clicking the active list type again removes the list formatting
+- Convert to code: the Code Block action turns the whole list at the cursor — or any multi-block selection (paragraphs, headings, lists) — into a single code block, one line per block or list item
 - Horizontal rules
 - Tables with full editing support
 

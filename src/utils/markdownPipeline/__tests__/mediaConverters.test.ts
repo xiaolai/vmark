@@ -88,6 +88,18 @@ describe("media pipeline converters", () => {
       expect(result!.attrs.controls).toBe(true);
     });
 
+    it("drops an unsafe-scheme poster while keeping the safe src", () => {
+      const html: Html = {
+        type: "html",
+        value: '<video src="clip.mp4" poster="javascript:alert(1)" controls></video>',
+      };
+      const result = convertHtml(context, html, false);
+      expect(result).not.toBeNull();
+      expect(result!.type.name).toBe("block_video");
+      expect(result!.attrs.src).toBe("clip.mp4");
+      expect(result!.attrs.poster).toBe("");
+    });
+
     it("promotes <video> with poster and title", () => {
       const htmlNode: Html = {
         type: "html",
@@ -196,25 +208,80 @@ describe("media pipeline converters", () => {
       expect(result!.attrs.src).toBe("clip.mp4");
     });
 
-    it("uses the first nested <source> when several are present", () => {
+    it("keeps multi-<source> markup as html_block (promotion would drop formats)", () => {
       const htmlNode: Html = {
         type: "html",
         value:
           '<video controls><source src="clip.webm" type="video/webm"><source src="clip.mp4"></video>',
       };
       const result = convertHtml(context, htmlNode, false);
-      expect(result!.type.name).toBe("block_video");
-      expect(result!.attrs.src).toBe("clip.webm");
+      expect(result!.type.name).toBe("html_block");
+      expect(result!.attrs.value).toContain("clip.mp4");
     });
 
-    it("prefers the <video> src attr over a nested <source>", () => {
+    it("keeps <track> captions as html_block (promotion would drop them)", () => {
+      const htmlNode: Html = {
+        type: "html",
+        value: '<video src="clip.mp4"><track kind="captions" src="cap.vtt"></video>',
+      };
+      const result = convertHtml(context, htmlNode, false);
+      expect(result!.type.name).toBe("html_block");
+    });
+
+    it("keeps sibling <video> tags as html_block (greedy match would swallow one)", () => {
+      const htmlNode: Html = {
+        type: "html",
+        value: '<video src="a.mp4"></video><video src="b.mp4"></video>',
+      };
+      const result = convertHtml(context, htmlNode, false);
+      expect(result!.type.name).toBe("html_block");
+    });
+
+    it("rejects unit-suffixed and negative iframe dimensions (provider defaults win)", () => {
+      // Needs a schema WITH video_embed — the shared one omits it.
+      const embedSchema = new Schema({
+        nodes: {
+          doc: { content: "block+" },
+          paragraph: { content: "inline*", group: "block" },
+          text: { group: "inline", inline: true },
+          html_block: {
+            group: "block",
+            atom: true,
+            attrs: { value: { default: "" }, sourceLine: { default: null } },
+          },
+          video_embed: {
+            group: "block",
+            atom: true,
+            attrs: {
+              provider: { default: "youtube" },
+              videoId: { default: "" },
+              privacyHash: { default: null },
+              width: { default: 560 },
+              height: { default: 315 },
+              sourceLine: { default: null },
+            },
+          },
+        },
+      });
+      const htmlNode: Html = {
+        type: "html",
+        value:
+          '<iframe src="https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ" width="50%" height="-99"></iframe>',
+      };
+      const result = convertHtml(createContext(embedSchema), htmlNode, false);
+      expect(result!.type.name).toBe("video_embed");
+      expect(result!.attrs.width).toBe(560);
+      expect(result!.attrs.height).toBe(315);
+    });
+
+    it("keeps src attr + <source> fallback as html_block (fallback would be dropped)", () => {
       const htmlNode: Html = {
         type: "html",
         value: '<video src="main.mp4" controls><source src="fallback.mp4"></video>',
       };
       const result = convertHtml(context, htmlNode, false);
-      expect(result!.type.name).toBe("block_video");
-      expect(result!.attrs.src).toBe("main.mp4");
+      expect(result!.type.name).toBe("html_block");
+      expect(result!.attrs.value).toContain("fallback.mp4");
     });
 
     it("falls back to a nested <source> src when <audio> has no src attr", () => {
@@ -260,6 +327,26 @@ describe("media pipeline converters", () => {
       expect(result!.type.name).toBe("block_video");
       expect(result!.attrs.src).toBe("./assets/clip.mp4");
       expect(result!.attrs.title).toBe("My Video");
+    });
+
+    it("does NOT promote an unsafe-scheme src despite a video extension", () => {
+      // javascript:payload.mp4 has a video extension but must never become a
+      // block_video src — it falls through to the sanitizing image path.
+      const paragraph: Paragraph = {
+        type: "paragraph",
+        children: [
+          {
+            type: "image",
+            url: "javascript:alert(1)//.mp4",
+            alt: "evil",
+            title: "",
+          } as Image,
+        ],
+      };
+      const result = convertParagraph(context, paragraph, []);
+      expect(result).not.toBeNull();
+      expect(result!.type.name).not.toBe("block_video");
+      expect(result!.type.name).not.toBe("block_audio");
     });
 
     it("promotes image-syntax audio to block_audio", () => {

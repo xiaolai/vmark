@@ -28,24 +28,21 @@ import { isCategoryAllowedByFormat, mapActionIdToAdapterAction } from "@/service
 import { LINK_DISABLED_ACTIONS } from "@/plugins/toolbarActions/enableRules";
 import { canRunActionInMultiSelection } from "@/plugins/toolbarActions/multiSelectionPolicy";
 import type { MultiSelectionContext } from "@/plugins/toolbarActions/types";
+import {
+  paletteRequirementFor,
+  type NodeAxis,
+} from "@/plugins/toolbarActions/actionApplicability";
 import type { CommandContextResolved } from "./commandContext";
 
 /**
- * Actions that BYPASS the adapters' multi-selection gate entirely: undo/redo
- * route through unified history in `runEditorAction` BEFORE any adapter dispatch,
- * so multi-selection can never disable them (unlike every other action, whose
- * verdict comes from `canRunActionInMultiSelection`).
+ * The adapter key evaluated for a palette action (multi-selection policy and
+ * the in-link disabled set alike). Most actions map 1:1 via
+ * `mapActionIdToAdapterAction`; the two parameterized heading actions carry
+ * no level at palette time, but every `heading:N` shares one policy, so a
+ * representative level yields the correct yes/no verdict (`paragraph` ==
+ * level 0, `setHeading` == a heading).
  */
-const MULTI_SELECT_GATE_BYPASS: ReadonlySet<ActionId> = new Set(["undo", "redo"]);
-
-/**
- * The adapter key that `canRunActionInMultiSelection` evaluates for a palette
- * action. Most actions map 1:1 via `mapActionIdToAdapterAction`; the two
- * parameterized heading actions carry no level at palette time, but every
- * `heading:N` shares the "conditional" policy, so a representative level yields
- * the correct yes/no verdict (`paragraph` == level 0, `setHeading` == a heading).
- */
-function multiSelectionKeyFor(id: ActionId): string {
+function adapterKeyFor(id: ActionId): string {
   if (id === "setHeading") return "heading:1";
   if (id === "paragraph") return "heading:0";
   return mapActionIdToAdapterAction(id);
@@ -67,51 +64,10 @@ function multiSelectionKeyFor(id: ActionId): string {
  * rather than a bare boolean (closes command-registry WI-2.2 residuals a/b).
  */
 function isAvailableUnderMultiSelection(id: ActionId, multi: MultiSelectionContext): boolean {
-  if (MULTI_SELECT_GATE_BYPASS.has(id)) return true;
-  return canRunActionInMultiSelection(multiSelectionKeyFor(id), multi);
+  // undo/redo need no local bypass: the shared gate itself always allows
+  // history under multi-selection — ONE policy, not two that can drift.
+  return canRunActionInMultiSelection(adapterKeyFor(id), multi);
 }
-
-type NodeAxis = "table" | "link" | "list" | "blockquote" | "codeBlock" | "heading";
-
-interface AvailabilityDescriptor {
-  /** Cursor must be inside ANY of these node contexts. */
-  requiresNode?: readonly NodeAxis[];
-  /** A non-empty selection is required. */
-  requiresSelection?: boolean;
-}
-
-/**
- * Actions with node / selection requirements. Everything NOT listed is available
- * wherever its mode + format permit it (no positional requirement).
- */
-const ACTION_AVAILABILITY: Partial<Record<ActionId, AvailabilityDescriptor>> = {
-  // Table-cell actions require the cursor to be inside a table (insertTable does
-  // not — it creates one).
-  addRowAbove: { requiresNode: ["table"] },
-  addRowBelow: { requiresNode: ["table"] },
-  addColLeft: { requiresNode: ["table"] },
-  addColRight: { requiresNode: ["table"] },
-  deleteRow: { requiresNode: ["table"] },
-  deleteCol: { requiresNode: ["table"] },
-  deleteTable: { requiresNode: ["table"] },
-  alignLeft: { requiresNode: ["table"] },
-  alignCenter: { requiresNode: ["table"] },
-  alignRight: { requiresNode: ["table"] },
-  alignAllLeft: { requiresNode: ["table"] },
-  alignAllCenter: { requiresNode: ["table"] },
-  alignAllRight: { requiresNode: ["table"] },
-  formatTable: { requiresNode: ["table"] },
-  // Blockquote nesting requires being inside a blockquote (the toggle does not).
-  nestBlockquote: { requiresNode: ["blockquote"] },
-  unnestBlockquote: { requiresNode: ["blockquote"] },
-  removeBlockquote: { requiresNode: ["blockquote"] },
-  // List indent/outdent + removal require being in a list (toolbar enabledIn).
-  indent: { requiresNode: ["list"] },
-  outdent: { requiresNode: ["list"] },
-  removeList: { requiresNode: ["list"] },
-  // Clearing formatting needs a selection to act on.
-  clearFormatting: { requiresSelection: true },
-};
 
 /**
  * Selection / navigation actions that do NOT change document content. Phase 2b
@@ -129,6 +85,15 @@ export function mutatesDocument(id: ActionId): boolean {
   return !NON_MUTATING.has(id);
 }
 
+/**
+ * Adapter-vocabulary twin of `mutatesDocument`: the four non-mutating ids map
+ * 1:1 through `mapActionIdToAdapterAction` (identity cases), so ONE set backs
+ * both vocabularies.
+ */
+export function adapterActionMutates(action: string): boolean {
+  return !NON_MUTATING.has(action as ActionId);
+}
+
 function hasNode(ctx: CommandContextResolved, axis: NodeAxis): boolean {
   switch (axis) {
     case "table":
@@ -142,7 +107,7 @@ function hasNode(ctx: CommandContextResolved, axis: NodeAxis): boolean {
     case "codeBlock":
       return ctx.inCodeBlock;
     case "heading":
-      return ctx.inHeading;
+      return ctx.inHeading || Boolean(ctx.multiSelection?.inHeading);
   }
 }
 
@@ -178,17 +143,28 @@ export function actionAvailability(id: ActionId, ctx: CommandContextResolved): b
 
   // Link context: reuse the exact LINK_DISABLED_ACTIONS set (keyed by adapter
   // name) so the palette matches the toolbar/keymap for in-link actions.
-  const adapterAction = mapActionIdToAdapterAction(id);
+  const adapterAction = adapterKeyFor(id);
   if (ctx.inLink && LINK_DISABLED_ACTIONS.has(adapterAction)) return false;
   // Multi-selection: hide exactly what the adapters' own multi-selection gate
   // would reject for this cursor set (universal vetoes + shared-context rule).
   if (ctx.multiSelection && !isAvailableUnderMultiSelection(id, ctx.multiSelection)) return false;
 
-  const req = ACTION_AVAILABILITY[id];
+  // Node/selection requirements derive from the SAME applicability table the
+  // toolbar's enable rules use (single source; palette overrides documented
+  // in actionApplicability.ts).
+  const req = paletteRequirementFor(adapterAction);
   if (!req) return true;
-  // A selection requirement is met by the primary selection OR any multi-cursor
-  // range (multi-selection actions such as clearFormatting are policy-"allow").
-  if (req.requiresSelection && !ctx.hasSelection && !ctx.multiSelection) return false;
+  // A selection requirement is met by the primary selection OR a multi-cursor
+  // set with at least one NON-EMPTY range — all-collapsed cursors would no-op.
+  // hasNonEmptyRange missing means the builder predates the field — err
+  // toward available (the real builders always set it).
+  if (
+    req.requiresSelection &&
+    !ctx.hasSelection &&
+    !(ctx.multiSelection && (ctx.multiSelection.hasNonEmptyRange ?? true))
+  ) {
+    return false;
+  }
   if (req.requiresNode && !req.requiresNode.some((axis) => hasNode(ctx, axis))) return false;
   return true;
 }

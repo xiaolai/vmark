@@ -36,6 +36,20 @@ const LANGUAGES = [
   { id: "go", name: "Go" },
 ];
 
+/** Chain surface the mirror uses — matches production applyLanguage's chain. */
+interface MockChain {
+  focus: () => MockChain;
+  command: (
+    fn: (props: {
+      tr: { setNodeMarkup: (pos: number, type: undefined, attrs: Record<string, unknown>) => void };
+    }) => boolean
+  ) => MockChain;
+  run: () => void;
+}
+interface MockEditorSurface {
+  chain: () => MockChain;
+}
+
 /**
  * Test version of CodeBlockNodeView that mirrors the production implementation.
  */
@@ -50,12 +64,12 @@ class TestCodeBlockNodeView {
   private dropdown: HTMLElement | null = null;
   private dropdownHost: HTMLElement | null = null;
   private node: ProseMirrorNode;
-  private editor: { chain: () => { focus: () => { updateAttributes: (type: string, attrs: Record<string, string>) => { run: () => void } } } };
+  private editor: MockEditorSurface;
   private getPos: () => number | undefined;
 
   constructor(
     node: ProseMirrorNode,
-    editor: { chain: () => { focus: () => { updateAttributes: (type: string, attrs: Record<string, string>) => { run: () => void } } } },
+    editor: MockEditorSurface,
     getPos: () => number | undefined
   ) {
     this.node = node;
@@ -384,7 +398,17 @@ class TestCodeBlockNodeView {
     const pos = this.getPos();
     if (pos === undefined) return;
 
-    this.editor.chain().focus().updateAttributes("codeBlock", { language: langId }).run();
+    // Mirrors production applyLanguage: target THIS block by position, not
+    // the selection (updateAttributes would hit whichever code block the
+    // cursor happens to be in).
+    this.editor
+      .chain()
+      .command(({ tr }) => {
+        tr.setNodeMarkup(pos, undefined, { ...this.node.attrs, language: langId });
+        return true;
+      })
+      .focus()
+      .run();
     this.closeDropdown();
   }
 
@@ -416,14 +440,21 @@ function createMockNode(attrs: { language?: string } = {}, textContent = "line 1
 
 // Helper to create mock editor
 function createMockEditor() {
-  const chainMock = {
+  const setNodeMarkup = vi.fn();
+  const chainMock: MockChain & { command: ReturnType<typeof vi.fn> } = {
     focus: vi.fn().mockReturnThis(),
-    updateAttributes: vi.fn().mockReturnThis(),
+    // Invoke the command callback with a recording tr so tests can assert
+    // which position/attrs the language change targeted.
+    command: vi.fn((fn: Parameters<MockChain["command"]>[0]) => {
+      fn({ tr: { setNodeMarkup } });
+      return chainMock;
+    }),
     run: vi.fn(),
   };
   return {
     chain: vi.fn().mockReturnValue(chainMock),
     _chainMock: chainMock,
+    _setNodeMarkup: setNodeMarkup,
   };
 }
 
@@ -747,7 +778,11 @@ describe("CodeBlockNodeView", () => {
       searchInput.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
 
       expect(mockEditor.chain).toHaveBeenCalled();
-      expect(mockEditor._chainMock.updateAttributes).toHaveBeenCalledWith("codeBlock", { language: "python" });
+      expect(mockEditor._setNodeMarkup).toHaveBeenCalledWith(
+        expect.any(Number),
+        undefined,
+        expect.objectContaining({ language: "python" })
+      );
     });
 
     it("Escape closes dropdown", () => {

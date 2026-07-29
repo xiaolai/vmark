@@ -83,18 +83,20 @@ describe("code block run button (WI-4.3)", () => {
     expect(isOffered(view.dom.querySelector('.code-copy-btn[data-code-action="run"]'))).toBe(false);
   });
 
-  it("sends the block's text and language on click", () => {
+  it("sends the block's text and language on click", async () => {
     const { runBtn } = mountView("bash", "make build\nmake test");
     runBtn!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await Promise.resolve(); // call is deferred one microtask (sync-throw safety)
     expect(mockRunInTerminal).toHaveBeenCalledWith("make build\nmake test", "bash");
   });
 
-  it("sends the CURRENT text after an update, not the mounted text", () => {
+  it("sends the CURRENT text after an update, not the mounted text", async () => {
     const { view } = mountView("bash", "old");
     view.update(makeNode("bash", "new"));
     view.dom
       .querySelector<HTMLButtonElement>('.code-copy-btn[data-code-action="run"]')!
       .dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await Promise.resolve(); // call is deferred one microtask (sync-throw safety)
     expect(mockRunInTerminal).toHaveBeenCalledWith("new", "bash");
   });
 
@@ -118,5 +120,68 @@ describe("code block run button (WI-4.3)", () => {
     view.destroy();
     runBtn!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     expect(mockRunInTerminal).not.toHaveBeenCalled();
+  });
+});
+
+describe("run failure feedback (audit FIX_NOW round)", () => {
+  async function flushMicrotasks() {
+    // The run handler defers the call itself (Promise.resolve().then(run))
+    // so sync throws are caught — flush enough turns for call + result.
+    for (let i = 0; i < 6; i++) await Promise.resolve();
+  }
+
+  it("shows the error state when delivery fails with {ok:false}", async () => {
+    mockRunInTerminal.mockResolvedValue({ ok: false, reason: "timeout" });
+    const { runBtn } = mountView("bash");
+
+    runBtn!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await flushMicrotasks();
+
+    expect(runBtn!.classList.contains("code-copy-btn--error")).toBe(true);
+  });
+
+  it("shows no feedback state on successful delivery", async () => {
+    mockRunInTerminal.mockResolvedValue({ ok: true });
+    const { runBtn } = mountView("bash");
+
+    runBtn!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await flushMicrotasks();
+
+    expect(runBtn!.classList.contains("code-copy-btn--error")).toBe(false);
+    expect(runBtn!.classList.contains("code-copy-btn--success")).toBe(false);
+  });
+
+  it("shows the error state when the promise rejects unexpectedly", async () => {
+    mockRunInTerminal.mockRejectedValue(new Error("boom"));
+    const { runBtn } = mountView("bash");
+
+    runBtn!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await flushMicrotasks();
+
+    expect(runBtn!.classList.contains("code-copy-btn--error")).toBe(true);
+  });
+
+  it("delivers ONCE for rapid repeated clicks while a run is in flight", async () => {
+    mockRunInTerminal.mockClear();
+    let resolveRun: (v: { ok: boolean }) => void = () => {};
+    mockRunInTerminal.mockImplementation(
+      () => new Promise((resolve) => (resolveRun = resolve))
+    );
+    const { runBtn } = mountView("bash");
+
+    runBtn!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    runBtn!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    runBtn!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await flushMicrotasks();
+
+    expect(mockRunInTerminal).toHaveBeenCalledTimes(1);
+
+    resolveRun({ ok: true });
+    await flushMicrotasks();
+
+    // After settlement the button works again.
+    runBtn!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await flushMicrotasks();
+    expect(mockRunInTerminal).toHaveBeenCalledTimes(2);
   });
 });

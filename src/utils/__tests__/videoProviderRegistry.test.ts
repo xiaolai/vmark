@@ -56,9 +56,24 @@ describe("parseVideoUrl", () => {
       expect(result).toEqual({ provider: "vimeo", videoId: "123456789" });
     });
 
-    it("parses vimeo.com/{id} with query params", () => {
+    it("parses vimeo.com/{id} with query params (h= is the privacy hash, WI-6)", () => {
       const result = parseVideoUrl("https://vimeo.com/123456789?h=abc123");
-      expect(result).toEqual({ provider: "vimeo", videoId: "123456789" });
+      expect(result).toEqual({
+        provider: "vimeo",
+        videoId: "123456789",
+        privacyHash: "abc123",
+      });
+    });
+
+    it("accepts an ALL-NUMERIC privacy hash in the /{id}/{hash} path form", () => {
+      // vimeo.com/{id}/{segment} has no other meaning; dropping a numeric
+      // hash makes the unlisted video unplayable.
+      const result = parseVideoUrl("https://vimeo.com/123456789/9876543210");
+      expect(result).toEqual({
+        provider: "vimeo",
+        videoId: "123456789",
+        privacyHash: "9876543210",
+      });
     });
 
     it("returns null for vimeo channel URLs", () => {
