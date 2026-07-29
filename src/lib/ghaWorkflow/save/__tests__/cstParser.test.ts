@@ -18,7 +18,7 @@ import {
   semanticEqual,
 } from "../cstParser";
 
-const FIXTURE_ROOT = "dev-docs/fixtures/gha-workflows";
+const FIXTURE_ROOT = "src/test/fixtures/gha-workflows";
 
 function walk(dir: string): string[] {
   const out: string[] = [];

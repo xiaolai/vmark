@@ -1,7 +1,7 @@
 // WI-1.2 — parser orchestrator integration tests.
 //
 // Verifies the orchestrator wires every subparser correctly and that
-// ALL 22 fixtures in dev-docs/fixtures/gha-workflows/ produce a
+// ALL 22 fixtures in src/test/fixtures/gha-workflows/ produce a
 // reasonable IR with no thrown exceptions.
 
 import { describe, expect, it } from "vitest";
@@ -9,7 +9,7 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { parse } from "../index";
 
-const FIXTURE_ROOT = "dev-docs/fixtures/gha-workflows";
+const FIXTURE_ROOT = "src/test/fixtures/gha-workflows";
 
 function walk(dir: string): string[] {
   const out: string[] = [];
