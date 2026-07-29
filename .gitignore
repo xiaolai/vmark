@@ -4,6 +4,10 @@
 docs/
 logs_llm/
 vectors.d*
+# Maintainer-local knowledge base (plans, ADRs, research) — not part of the public source
+dev-docs/
+# VMark app workspace state (coherence contexts/ledger/snapshots) — user data, not source
+.vmark/
 
 # =============================================================================
 # AI Assistant Config & Artifacts (local only)
@@ -149,9 +153,6 @@ temp/
 *.temp
 *.bak
 .worktrees
-
-# Theme-unification screenshot baselines (regenerate with scripts/screenshot-themes.mjs)
-dev-docs/baselines/*.png
 
 # E2E smoke harness screenshot artifacts (regenerate with `pnpm e2e:smoke`)
 e2e/artifacts/
