@@ -18,8 +18,8 @@
   },
   "genies": {
     "openFolder": "打开 Genies 文件夹",
-    "togglePicker": "Toggle Genie Picker",
-    "openPicker": "Search Genies"
+    "togglePicker": "切换 Genies 选择器",
+    "openPicker": "搜索 Genies"
   },
   "export": {
     "html": "导出为 HTML",
