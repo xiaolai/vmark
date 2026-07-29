@@ -9,7 +9,9 @@ use super::super::principal::BridgePrincipal;
 use super::super::state::{ClientConnection, MAX_PENDING_REQUESTS};
 use super::super::types::McpResponsePayload;
 use super::*;
+#[cfg(not(target_os = "windows"))]
 use crate::mcp_bridge::state::PendingRequest;
+#[cfg(not(target_os = "windows"))]
 use std::time::Instant;
 
 /// Bridge-internal ids must be unique even when minted concurrently —
