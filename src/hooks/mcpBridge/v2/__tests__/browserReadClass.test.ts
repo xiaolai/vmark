@@ -56,6 +56,20 @@ describe("requireHumanAttachment", () => {
     expect(useBrowserApprovalStore.getState().pending[0]).toMatchObject({ operation: "attach", tabId: id });
   });
 
+  it("responds queue-full (NOT needsApproval) when the attach queue is at capacity", async () => {
+    const { MAX_PENDING_APPROVALS } = await import("@/stores/browserApprovalStore");
+    const id = seed("human");
+    const store = useBrowserApprovalStore.getState();
+    for (let i = 0; i < MAX_PENDING_APPROVALS; i++) {
+      store.requestApproval(`fill-${i}`, SITE, "click", { role: "button", name: `b${i}` } as never, id, 1);
+    }
+    const tab = resolveBrowserTab(id);
+    expect(await requireHumanAttachment("r-full", tab)).toBe(false);
+    const res = lastResponse();
+    expect(String(res.error)).toContain("approval queue is full");
+    expect((res.data as { needsApproval?: boolean } | undefined)?.needsApproval).toBeUndefined();
+  });
+
   it("allows an attached human tab", async () => {
     const id = seed("human");
     useBrowserApprovalStore.setState({
