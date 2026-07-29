@@ -150,10 +150,9 @@ describe("convertSelectionToTaskList", () => {
     const stateWithCursor = setCursor(state, 4);
     const editor = createMockEditor(stateWithCursor);
 
-    convertSelectionToTaskList(editor as never);
-
-    // Should dispatch but not change checked from true to false
-    expect(editor.view.dispatch).toHaveBeenCalled();
+    // Nothing to change — honest no-op: no dispatch, returns false.
+    expect(convertSelectionToTaskList(editor as never)).toBe(false);
+    expect(editor.view.dispatch).not.toHaveBeenCalled();
     // Verify the item still has checked: true (not reset to false)
     const listItem = editor.view.state.doc.child(0).child(0);
     expect(listItem.attrs.checked).toBe(true);
@@ -218,10 +217,9 @@ describe("convertSelectionToTaskList", () => {
     const stateWithCursor = setCursor(state, 4);
     const editor = createMockEditor(stateWithCursor);
 
-    convertSelectionToTaskList(editor as never);
-
-    // Should dispatch but the item stays checked: false
-    expect(editor.view.dispatch).toHaveBeenCalled();
+    // Fully initialized already — honest no-op: no dispatch, returns false.
+    expect(convertSelectionToTaskList(editor as never)).toBe(false);
+    expect(editor.view.dispatch).not.toHaveBeenCalled();
     const listItem = editor.view.state.doc.child(0).child(0);
     expect(listItem.attrs.checked).toBe(false);
   });

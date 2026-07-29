@@ -27,61 +27,35 @@ async fn client_tx_overflow_returns_full_not_blocking() {
 // -- is_read_only_operation ------------------------------------------------
 
 #[test]
-fn read_only_document_operations() {
-    assert!(is_read_only_operation("document.getContent"));
-    assert!(is_read_only_operation("document.search"));
-}
-
-#[test]
-fn read_only_selection_operations() {
-    assert!(is_read_only_operation("selection.get"));
-    assert!(is_read_only_operation("cursor.getContext"));
-}
-
-#[test]
-fn read_only_metadata_operations() {
-    assert!(is_read_only_operation("outline.get"));
-    assert!(is_read_only_operation("metadata.get"));
-}
-
-#[test]
-fn read_only_window_workspace_operations() {
-    assert!(is_read_only_operation("windows.list"));
-    assert!(is_read_only_operation("windows.getFocused"));
-    assert!(is_read_only_operation("workspace.getDocumentInfo"));
-    assert!(is_read_only_operation("workspace.listRecentFiles"));
-    assert!(is_read_only_operation("workspace.getInfo"));
-}
-
-#[test]
-fn read_only_tab_operations() {
-    assert!(is_read_only_operation("tabs.list"));
-    assert!(is_read_only_operation("tabs.getActive"));
-    assert!(is_read_only_operation("tabs.getInfo"));
-}
-
-#[test]
-fn read_only_structure_operations() {
-    assert!(is_read_only_operation("protocol.getCapabilities"));
-    assert!(is_read_only_operation("protocol.getRevision"));
-    assert!(is_read_only_operation("structure.getAst"));
-    assert!(is_read_only_operation("structure.getDigest"));
-    assert!(is_read_only_operation("structure.listBlocks"));
-    assert!(is_read_only_operation("structure.resolveTargets"));
-    assert!(is_read_only_operation("structure.getSection"));
-}
-
-#[test]
-fn read_only_other_operations() {
-    assert!(is_read_only_operation("editor.getUndoState"));
-    assert!(is_read_only_operation("suggestion.list"));
-    assert!(is_read_only_operation("paragraph.read"));
-}
-
-#[test]
-fn read_only_genie_operations() {
-    assert!(is_read_only_operation("genies.list"));
-    assert!(is_read_only_operation("genies.read"));
+fn legacy_operations_are_write_class_fail_closed() {
+    // Audit 20260729 C4: the pre-pruning legacy names are unreachable here —
+    // the frontend dispatcher accepts only vmark.*, and windows.list /
+    // windows.getFocused are Rust-answered in routing BEFORE this classifier
+    // runs. They must fall through to write-class (fail closed), not carry a
+    // dead read-only allowlist.
+    for legacy in [
+        "document.getContent",
+        "document.search",
+        "selection.get",
+        "cursor.getContext",
+        "outline.get",
+        "metadata.get",
+        "windows.list",
+        "windows.getFocused",
+        "workspace.getDocumentInfo",
+        "tabs.list",
+        "editor.getUndoState",
+        "suggestion.list",
+        "paragraph.read",
+        "protocol.getCapabilities",
+        "structure.getAst",
+        "genies.list",
+    ] {
+        assert!(
+            !is_read_only_operation(legacy),
+            "legacy op {legacy} must be write-class (fail closed)"
+        );
+    }
 }
 
 #[test]
@@ -102,19 +76,45 @@ fn read_only_browser_operations() {
     // classified as writes they would hold the global write lock for up to
     // their full 12s timeout, stalling every concurrent writer.
     assert!(is_read_only_operation("vmark.browser.read"));
-    assert!(is_read_only_operation("vmark.browser.wait"));
     assert!(is_read_only_operation("vmark.browser.wait_for"));
     assert!(is_read_only_operation("vmark.browser.query"));
     assert!(is_read_only_operation("vmark.browser.screenshot"));
+    // `vmark.browser.wait` is write-class (audit 20260729): its frontend
+    // handler activates the target window and creates/attaches the native
+    // browser view — real mutations that must serialize.
+    assert!(!is_read_only_operation("vmark.browser.wait"));
 }
 
 #[test]
-fn read_only_coherence_operations() {
-    // WI-1.10 / audit C4-C5 — status is a pure projection (read); edges
-    // runs scan reconciliation, which APPENDS provenance records, so it
-    // must be classified as a write and serialize with document writes.
-    assert!(is_read_only_operation("vmark.coherence.status"));
+fn duplicate_pending_request_id_is_rejected() {
+    let mut state = BridgeState {
+        clients: HashMap::new(),
+        pending: HashMap::new(),
+        next_client_id: 1,
+        window_workspaces: HashMap::new(),
+    };
+    let (tx1, _rx1) = tokio::sync::oneshot::channel();
+    let (tx2, _rx2) = tokio::sync::oneshot::channel();
+
+    assert!(try_register_pending(&mut state, "req-1".into(), tx1).is_ok());
+    // Same id again: must be rejected, NOT silently replace (and strand)
+    // the original request's response channel.
+    let err = try_register_pending(&mut state, "req-1".into(), tx2).unwrap_err();
+    assert!(err.contains("duplicate pending request id"));
+    assert_eq!(state.pending.len(), 1);
+}
+
+#[test]
+fn coherence_operations_never_reach_this_classifier() {
+    // WI-1 (audit-followups 20260729): coherence ops are Rust-answered in
+    // `answer_rust_side` BEFORE the lock decision consults this classifier;
+    // their lock policy lives in `routing::answer_coherence_async`. Entries
+    // here would be unreachable — they must all fall through (fail closed).
+    assert!(!is_read_only_operation("vmark.coherence.status"));
+    assert!(!is_read_only_operation("vmark.coherence.claims"));
+    assert!(!is_read_only_operation("vmark.coherence.contexts"));
     assert!(!is_read_only_operation("vmark.coherence.edges"));
+    assert!(!is_read_only_operation("vmark.coherence.resolve"));
 }
 
 #[test]
@@ -591,13 +591,13 @@ async fn shutdown_holder_store_take_fire() {
 
     let (tx, rx) = oneshot::channel::<()>();
     {
-        let mut guard = holder.write().await;
+        let mut guard = holder.lock().await;
         *guard = Some(tx);
     }
 
     // Take and fire
     {
-        let mut guard = holder.write().await;
+        let mut guard = holder.lock().await;
         let tx = guard.take();
         assert!(tx.is_some());
         assert!(guard.is_none()); // gone after take

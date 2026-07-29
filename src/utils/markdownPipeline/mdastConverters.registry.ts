@@ -10,7 +10,8 @@
  * They do — but **not in the dispatch**. Every arm here is keyed on a distinct
  * `node.type`; the fan-out (a `paragraph` becoming `block_image`/`block_video`/
  * `block_audio`, an `html` becoming any of four things) happens *inside*
- * `convertParagraph` and `convertHtml` in `mdastMediaConverters.ts`. So this
+ * `convertParagraph` (mdastParagraphConverter.ts) and `convertHtml`
+ * (mdastMediaConverters.ts). So this
  * migration is mechanical, and the claim protocol is needed one level deeper,
  * to decompose those two converters. That is a separate, later step.
  *
@@ -31,6 +32,7 @@ import * as inlineConverters from "./mdastInlineConverters";
 import * as blockConverters from "./mdastBlockConverters";
 import * as containerConverters from "./mdastContainerConverters";
 import * as mediaConverters from "./mdastMediaConverters";
+import { convertParagraph } from "./mdastParagraphConverter";
 import type { MdastToPmContext } from "./mdastConverterHelpers";
 
 /** Everything an mdast → PM converter may need. */
@@ -61,7 +63,7 @@ type A = MdastConvertArgs;
 /** `[mdastType, extensionId, convert]` for every migrated arm. */
 const ENTRIES: ReadonlyArray<[string, string, (a: A) => MdastToPmResult]> = [
   // ---- blocks ----
-  ["paragraph", "vmark.paragraph", (a) => mediaConverters.convertParagraph(a.ctx, a.node as any, a.marks)],
+  ["paragraph", "vmark.paragraph", (a) => convertParagraph(a.ctx, a.node as any, a.marks)],
   ["heading", "vmark.heading", (a) => blockConverters.convertHeading(a.ctx, a.node as any, a.marks)],
   ["code", "vmark.codeBlock", (a) => blockConverters.convertCode(a.ctx, a.node as any)],
   ["blockquote", "vmark.blockquote", (a) => containerConverters.convertBlockquote(a.ctx, a.node as any, a.marks)],

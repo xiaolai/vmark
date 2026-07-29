@@ -22,10 +22,19 @@ import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import type { NodeView, ViewMutationRecord } from "@tiptap/pm/view";
 import type { Editor } from "@tiptap/core";
 import i18n from "@/i18n";
-import { COPY_ICON_SVG, CHECK_ICON_SVG, X_ICON_SVG, RUN_ICON_SVG } from "./icons";
+import { CHECK_ICON_SVG, X_ICON_SVG } from "./icons";
 import { isShellLanguage, runInTerminal } from "@/services/terminal/runInTerminal";
 import { LANGUAGES } from "./languages";
 import { LanguageDropdown } from "./dropdown";
+import {
+  applyActionLabel,
+  buildCodeBlockActions,
+  createGutter,
+  createLanguageChip,
+  renderLineNumbers,
+  type CopyFeedback,
+} from "./nodeViewActions";
+import { codeBlockError } from "@/utils/debug";
 
 export class CodeBlockNodeView implements NodeView {
   dom: HTMLElement;
@@ -33,13 +42,18 @@ export class CodeBlockNodeView implements NodeView {
   private gutter: HTMLElement;
   private codeElement: HTMLElement;
   private langSelector: HTMLElement;
-  private copyBtn: HTMLButtonElement;
-  private runBtn: HTMLButtonElement;
-  private actionsContainer: HTMLElement;
+  private copyBtn!: HTMLButtonElement;
+  private runBtn!: HTMLButtonElement;
+  private actionsContainer!: HTMLElement;
   private dropdownController: LanguageDropdown;
   private node: ProseMirrorNode;
   private editor: Editor;
   private getPos: () => number | undefined;
+  private renderedLineCount = -1;
+  private copyFeedback!: CopyFeedback;
+  private runFeedback!: CopyFeedback;
+  private destroyed = false;
+  private readonly handleLanguageChanged = (): void => this.refreshLabels();
 
   constructor(node: ProseMirrorNode, editor: Editor, getPos: () => number | undefined) {
     this.node = node;
@@ -48,76 +62,66 @@ export class CodeBlockNodeView implements NodeView {
 
     this.dom = document.createElement("div");
     this.dom.className = "code-block-wrapper";
-
-    this.gutter = document.createElement("div");
-    this.gutter.className = "code-line-numbers";
-    this.gutter.setAttribute("aria-hidden", "true");
-    this.gutter.contentEditable = "false";
+    this.gutter = createGutter();
     this.dom.appendChild(this.gutter);
-
-    const pre = document.createElement("pre");
-    this.dom.appendChild(pre);
-
-    this.codeElement = document.createElement("code");
-    if (node.attrs.language) {
-      this.codeElement.className = `language-${node.attrs.language}`;
-    }
-    pre.appendChild(this.codeElement);
+    this.codeElement = this.buildCodeContent(node);
     this.contentDOM = this.codeElement;
-
-    this.langSelector = document.createElement("div");
-    this.langSelector.className = "code-lang-selector";
-    this.langSelector.contentEditable = "false";
+    this.langSelector = createLanguageChip({
+      onMouseDown: this.handleLangClick,
+      onKeyDown: this.handleLangKeydown,
+    });
     this.updateLangSelectorText();
-    // mousedown with capture so we get the event before ProseMirror does
-    this.langSelector.addEventListener("mousedown", this.handleLangClick, { capture: true });
-
-    this.copyBtn = document.createElement("button");
-    this.copyBtn.className = "code-copy-btn";
-    this.copyBtn.dataset.codeAction = "copy";
-    this.copyBtn.innerHTML = COPY_ICON_SVG;
-    const copyLabel = i18n.t("editor:plugin.copySource");
-    this.copyBtn.title = copyLabel;
-    this.copyBtn.setAttribute("aria-label", copyLabel);
-    this.copyBtn.addEventListener("mousedown", this.handleCopyMouseDown);
-    this.copyBtn.addEventListener("click", this.handleCopyClick);
-
-    // Run in Terminal (WI-4.3) — only meaningful for a shell fence, so its
-    // visibility follows the language attribute (see updateRunButton).
-    this.runBtn = document.createElement("button");
-    // Shares the copy button's class deliberately: they are the same control
-    // (icon-only square action in the code-block chrome), and a second class
-    // would be a fourth spelling of the same button — the exact drift
-    // `pnpm lint:bespoke-buttons` exists to stop. `data-code-action`
-    // distinguishes them for the one rule that differs (hover colour) and for
-    // test selection.
-    this.runBtn.className = "code-copy-btn";
-    this.runBtn.dataset.codeAction = "run";
-    this.runBtn.innerHTML = RUN_ICON_SVG;
-    const runLabel = i18n.t("editor:plugin.runInTerminal");
-    this.runBtn.title = runLabel;
-    this.runBtn.setAttribute("aria-label", runLabel);
-    this.runBtn.addEventListener("mousedown", this.handleCopyMouseDown);
-    this.runBtn.addEventListener("click", this.handleRunClick);
-
-    this.actionsContainer = document.createElement("div");
-    this.actionsContainer.className = "code-block-actions";
-    this.actionsContainer.contentEditable = "false";
-    // Copy first: it is the older, more-used action, and existing tests
-    // select the copy button as the first `.code-copy-btn` in the container.
-    this.actionsContainer.appendChild(this.copyBtn);
-    this.actionsContainer.appendChild(this.runBtn);
-    this.actionsContainer.appendChild(this.langSelector);
-    this.dom.appendChild(this.actionsContainer);
-    this.updateRunButton();
+    this.buildActions();
 
     this.dropdownController = new LanguageDropdown({
       anchor: this.langSelector,
       getCurrentLanguage: () => this.node.attrs.language || "plaintext",
       onSelect: (langId) => this.applyLanguage(langId),
+      // Assistive tech must be able to tell whether the listbox is open —
+      // including when an outside click closed it.
+      onOpenChange: (open) => this.langSelector.setAttribute("aria-expanded", String(open)),
     });
 
+    // Titles/aria-labels are translated at construction; refresh them when
+    // the UI language changes at runtime.
+    i18n.on("languageChanged", this.handleLanguageChanged);
+
     this.updateLineNumbers();
+  }
+
+  /** The pre/code pair ProseMirror renders the fence content into. */
+  private buildCodeContent(node: ProseMirrorNode): HTMLElement {
+    const pre = document.createElement("pre");
+    this.dom.appendChild(pre);
+    const code = document.createElement("code");
+    if (node.attrs.language) {
+      code.className = `language-${node.attrs.language}`;
+    }
+    pre.appendChild(code);
+    return code;
+  }
+
+  /** Copy + run buttons and the language chip, mounted in one container. */
+  private buildActions(): void {
+    const actions = buildCodeBlockActions({
+      chip: this.langSelector,
+      onActionMouseDown: this.handleCopyMouseDown,
+      onCopyClick: this.handleCopyClick,
+      onRunClick: this.handleRunClick,
+    });
+    this.copyBtn = actions.copyBtn;
+    this.runBtn = actions.runBtn;
+    this.copyFeedback = actions.copyFeedback;
+    this.runFeedback = actions.runFeedback;
+    this.actionsContainer = actions.container;
+    this.dom.appendChild(this.actionsContainer);
+    this.updateRunButton();
+  }
+
+  /** Re-translate the button labels after a runtime language switch. */
+  private refreshLabels(): void {
+    applyActionLabel(this.copyBtn, "editor:plugin.copySource");
+    applyActionLabel(this.runBtn, "editor:plugin.runInTerminal");
   }
 
   update(node: ProseMirrorNode): boolean {
@@ -137,8 +141,13 @@ export class CodeBlockNodeView implements NodeView {
   }
 
   destroy(): void {
+    this.destroyed = true;
+    this.copyFeedback.dispose();
+    this.runFeedback.dispose();
+    i18n.off("languageChanged", this.handleLanguageChanged);
     this.dropdownController.destroy();
     this.langSelector.removeEventListener("mousedown", this.handleLangClick, { capture: true });
+    this.langSelector.removeEventListener("keydown", this.handleLangKeydown);
     this.copyBtn.removeEventListener("mousedown", this.handleCopyMouseDown);
     this.copyBtn.removeEventListener("click", this.handleCopyClick);
     this.runBtn.removeEventListener("mousedown", this.handleCopyMouseDown);
@@ -148,21 +157,43 @@ export class CodeBlockNodeView implements NodeView {
   /** Show the run button only for shell fences (WI-4.3). */
   private updateRunButton(): void {
     const isShell = isShellLanguage(this.node.attrs.language);
+    // The stylesheet's `.code-copy-btn[hidden] { display: none; }` rule makes
+    // `hidden` the single source of truth for visibility.
     this.runBtn.hidden = !isShell;
-    // `hidden` alone loses to the flex display rule, so drop it from layout too.
-    this.runBtn.style.display = isShell ? "" : "none";
   }
 
   /**
    * Paste the block into the terminal. It is NOT executed — see the security
    * note in services/terminal/runInTerminal.
    */
+  private runInFlight = false;
+
   private handleRunClick = (e: MouseEvent): void => {
     e.preventDefault();
     e.stopPropagation();
-    // Fire-and-forget: the promise reports delivery, but a click handler has
-    // nowhere useful to surface it — runInTerminal logs every failure path.
-    void runInTerminal(this.node.textContent, this.node.attrs.language || "");
+    // One delivery at a time: rapid re-clicks while the terminal is opening
+    // would paste the command once per click.
+    if (this.runInFlight) return;
+    this.runInFlight = true;
+    // runInTerminal resolves ordinary failures as {ok:false, reason} — show
+    // the error state on the button itself (the same transient feedback the
+    // copy button uses); the catch keeps an unexpected rejection from
+    // becoming an unhandled one.
+    // .then(() => …) (not Promise.resolve(call)) so a SYNCHRONOUS throw from
+    // runInTerminal is also captured by the catch below.
+    void Promise.resolve()
+      .then(() => runInTerminal(this.node.textContent, this.node.attrs.language || ""))
+      .then((result) => {
+        if (this.destroyed || result.ok) return;
+        this.runFeedback.show(X_ICON_SVG, "error");
+      })
+      .catch((error) => {
+        codeBlockError("run in terminal failed:", error);
+        if (!this.destroyed) this.runFeedback.show(X_ICON_SVG, "error");
+      })
+      .finally(() => {
+        this.runInFlight = false;
+      });
   };
 
   private updateLangSelectorText(): void {
@@ -175,14 +206,11 @@ export class CodeBlockNodeView implements NodeView {
     const text = this.node.textContent;
     const lineCount = text.split("\n").length;
 
-    this.gutter.innerHTML = "";
-
-    for (let i = 1; i <= lineCount; i++) {
-      const lineNum = document.createElement("div");
-      lineNum.className = "line-num";
-      lineNum.textContent = String(i);
-      this.gutter.appendChild(lineNum);
-    }
+    // Most updates (language changes, same-line typing) keep the line count —
+    // skip the gutter rebuild on the editor's hot path in that case.
+    if (lineCount === this.renderedLineCount) return;
+    this.renderedLineCount = lineCount;
+    renderLineNumbers(this.gutter, lineCount);
   }
 
   private handleCopyMouseDown = (e: MouseEvent): void => {
@@ -190,28 +218,31 @@ export class CodeBlockNodeView implements NodeView {
     e.stopPropagation();
   };
 
+  private copyInFlight = false;
+
   private handleCopyClick = async (e: MouseEvent): Promise<void> => {
     e.preventDefault();
     e.stopPropagation();
 
-    const showState = (icon: string, modifier: "success" | "error"): void => {
-      this.copyBtn.innerHTML = icon;
-      this.copyBtn.classList.add(`code-copy-btn--${modifier}`);
-      setTimeout(() => {
-        this.copyBtn.innerHTML = COPY_ICON_SVG;
-        this.copyBtn.classList.remove(`code-copy-btn--${modifier}`);
-      }, 1500);
-    };
-
     if (!navigator.clipboard?.writeText) {
-      showState(X_ICON_SVG, "error");
+      this.copyFeedback.show(X_ICON_SVG, "error");
       return;
     }
+    // One write at a time: concurrent writes can resolve out of order,
+    // letting an older request overwrite newer feedback.
+    if (this.copyInFlight) return;
+    this.copyInFlight = true;
     try {
       await navigator.clipboard.writeText(this.node.textContent);
-      showState(CHECK_ICON_SVG, "success");
+      // The clipboard write may resolve after the node view is torn down;
+      // don't mutate the detached button then.
+      if (this.destroyed) return;
+      this.copyFeedback.show(CHECK_ICON_SVG, "success");
     } catch {
-      showState(X_ICON_SVG, "error");
+      if (this.destroyed) return;
+      this.copyFeedback.show(X_ICON_SVG, "error");
+    } finally {
+      this.copyInFlight = false;
     }
   };
 
@@ -222,10 +253,27 @@ export class CodeBlockNodeView implements NodeView {
     this.dropdownController.toggle();
   };
 
+  private handleLangKeydown = (e: KeyboardEvent): void => {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    e.preventDefault();
+    e.stopPropagation();
+    this.dropdownController.toggle();
+  };
+
   private applyLanguage(langId: string): void {
     const pos = this.getPos();
     if (pos === undefined) return;
-    this.editor.chain().focus().updateAttributes("codeBlock", { language: langId }).run();
+    // Target THIS block by position — updateAttributes would target the code
+    // block at the selection, which is not necessarily the one whose chip was
+    // clicked (the chip's mousedown is prevented and never moves the cursor).
+    this.editor
+      .chain()
+      .command(({ tr }) => {
+        tr.setNodeMarkup(pos, undefined, { ...this.node.attrs, language: langId });
+        return true;
+      })
+      .focus()
+      .run();
   }
 
   ignoreMutation(mutation: ViewMutationRecord): boolean {

@@ -2,16 +2,28 @@
  * Multi-Selection Policy
  *
  * Purpose: Defines per-action rules for what toolbar actions are allowed when
- * multiple cursors are active. "allow" = always works, "deny" = disabled,
- * "conditional" = depends on whether all cursors share the same structural context.
+ * multiple cursors are active. "disallow" = disabled outright; "allow" and
+ * "conditional" both still pass through the structural vetoes in
+ * `canRunActionInMultiSelection` (code block, table, link, …) — only history
+ * (undo/redo) bypasses those. "conditional" additionally requires every
+ * cursor to sit in a textblock with the same block parent.
  *
  * @coordinates-with enableRules.ts — calls canRunActionInMultiSelection
  * @coordinates-with multiSelectionContext.ts — provides the context for conditional checks
  * @module plugins/toolbarActions/multiSelectionPolicy
  */
 import type { MultiSelectionContext, MultiSelectionPolicy } from "./types";
+import { isAdapterAction, type AdapterAction } from "./adapterActions";
 
-const MULTI_SELECTION_POLICY: Record<string, MultiSelectionPolicy> = {
+// TOTAL over the adapter action vocabulary (`satisfies` below): adding an
+// action id without deciding its multi-selection policy is a compile error,
+// not a silent "disallow" discovered in production (that drift is exactly
+// how undo/redo went missing here once).
+const MULTI_SELECTION_POLICY = {
+  // History must stay reachable under multi-selection — an unlisted action
+  // defaults to "disallow", which silently killed undo/redo here.
+  undo: "allow",
+  redo: "allow",
   bold: "allow",
   italic: "allow",
   underline: "allow",
@@ -21,7 +33,9 @@ const MULTI_SELECTION_POLICY: Record<string, MultiSelectionPolicy> = {
   subscript: "allow",
   code: "allow",
   clearFormatting: "allow",
-  heading: "conditional",
+  // Heading policy is keyed by level — every caller passes `heading:N`
+  // (adapters build the string explicitly; toolbar items carry it literally),
+  // so no bare "heading" entry exists.
   "heading:0": "conditional",
   "heading:1": "conditional",
   "heading:2": "conditional",
@@ -69,10 +83,49 @@ const MULTI_SELECTION_POLICY: Record<string, MultiSelectionPolicy> = {
   alignAllLeft: "disallow",
   alignAllCenter: "disallow",
   alignAllRight: "disallow",
-};
+  // Line/selection utilities and per-line transforms operate on one primary
+  // selection; none are multi-cursor aware yet.
+  collapseBlankLines: "disallow",
+  decreaseHeading: "disallow",
+  deleteLine: "disallow",
+  duplicateLine: "disallow",
+  expandSelection: "disallow",
+  formatCJK: "disallow",
+  formatCJKFile: "disallow",
+  formatTable: "disallow",
+  increaseHeading: "disallow",
+  insertAudio: "disallow",
+  insertDiagram: "disallow",
+  insertGraphvizDiagram: "disallow",
+  insertInlineMath: "disallow",
+  insertMarkmap: "disallow",
+  insertVideo: "disallow",
+  joinLines: "disallow",
+  lineEndingsCRLF: "disallow",
+  lineEndingsLF: "disallow",
+  "link:bookmark": "disallow",
+  "link:wiki": "disallow",
+  moveLineDown: "disallow",
+  moveLineUp: "disallow",
+  removeBlankLines: "disallow",
+  removeTrailingSpaces: "disallow",
+  selectBlock: "disallow",
+  selectLine: "disallow",
+  selectWord: "disallow",
+  sortLinesAsc: "disallow",
+  sortLinesDesc: "disallow",
+  toggleQuoteStyle: "conditional",
+  transformLowercase: "disallow",
+  transformTitleCase: "disallow",
+  transformToggleCase: "disallow",
+  transformUppercase: "disallow",
+  unlink: "disallow",
+} satisfies Record<AdapterAction, MultiSelectionPolicy>;
 
 export function getMultiSelectionPolicyForAction(action: string): MultiSelectionPolicy {
-  return MULTI_SELECTION_POLICY[action] ?? "disallow";
+  // Boundary-validating lookup: unknown strings are not adapter actions and
+  // get the fail-safe policy.
+  return isAdapterAction(action) ? MULTI_SELECTION_POLICY[action] : "disallow";
 }
 
 export function canRunActionInMultiSelection(
@@ -80,6 +133,13 @@ export function canRunActionInMultiSelection(
   multi: MultiSelectionContext | undefined
 ): boolean {
   if (!multi?.enabled) return true;
+
+  // History must survive EVERY multi-selection context: the structural
+  // vetoes below (code block, table, link, …) exist to stop content edits
+  // from mangling those nodes, but undo/redo restore prior states and are
+  // always safe. Without this early return they were policy-allowed yet
+  // still structurally vetoed.
+  if (action === "undo" || action === "redo") return true;
 
   const policy = getMultiSelectionPolicyForAction(action);
   if (policy === "disallow") return false;

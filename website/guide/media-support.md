@@ -70,6 +70,8 @@ Use Vimeo player iframes:
 
 You can also paste a Vimeo URL directly (e.g., `https://vimeo.com/123456789`) and VMark will automatically convert it to an embed.
 
+Unlisted Vimeo videos are supported too: paste the unlisted share link (`https://vimeo.com/123456789/abcdef1234` or a URL with `?h=…`) and VMark preserves the privacy hash the embed needs to play.
+
 ### Bilibili Embeds
 
 Use the Bilibili player iframe with a BV ID:

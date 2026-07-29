@@ -47,7 +47,16 @@ export async function requireHumanAttachment(
   if (!tab || tab.automationMode !== "human") return true;
   const approvals = useBrowserApprovalStore.getState();
   if (approvals.isHumanTabAttached(tab.tabId, tab.generation)) return true;
-  approvals.requestApproval(id, tab.url, "attach", undefined, tab.tabId, tab.generation);
+  const queued = approvals.requestApproval(id, tab.url, "attach", undefined, tab.tabId, tab.generation);
+  // No prompt exists to approve: a needsApproval envelope would be a lie.
+  if (queued === "overloaded" || queued === "rejected") {
+    await respond({
+      id,
+      success: false,
+      error: "approval queue is full — resolve or deny pending approvals, then retry",
+    });
+    return false;
+  }
   // Await the refusal: fire-and-forget let a handler resolve before the response
   // was actually delivered, which every other response path avoids.
   await respond({

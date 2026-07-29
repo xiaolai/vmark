@@ -96,3 +96,10 @@ describe("multi-selection policy", () => {
     ).toBe(true);
   });
 });
+
+describe("history actions under multi-selection", () => {
+  it("allows undo and redo (previously fell to the disallow default)", () => {
+    expect(canRunActionInMultiSelection("undo", baseContext)).toBe(true);
+    expect(canRunActionInMultiSelection("redo", baseContext)).toBe(true);
+  });
+});
