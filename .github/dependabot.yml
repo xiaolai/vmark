@@ -29,7 +29,20 @@ updates:
         update-types: ["version-update:semver-major"]
 
   - package-ecosystem: npm
-    directory: /vmark-mcp-server
+    directory: /server/mcp
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      npm-minor-patch:
+        update-types: ["minor", "patch"]
+    ignore:
+      # Same @types/node policy as the root manifest above.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: npm
+    directory: /server/content
     schedule:
       interval: weekly
     open-pull-requests-limit: 5

@@ -36,7 +36,7 @@
         "smoke"
       ]
     },
-    "vmark-content-server": {
+    "server/content": {
       "entry": [
         "src/**/*.{test,spec}.ts",
         "src/**/*.bench.ts"
@@ -52,7 +52,7 @@
         "mdast-util-find-and-replace"
       ]
     },
-    "vmark-mcp-server": {
+    "server/mcp": {
       "project": [
         "src/**/*.ts"
       ],

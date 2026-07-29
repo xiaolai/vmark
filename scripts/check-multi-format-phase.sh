@@ -467,7 +467,7 @@ case "$PHASE" in
     else
       fail "package.json description not updated"
     fi
-    if grep -q "plain-text workspace where humans and AI collaborate" vmark-mcp-server/package.json; then
+    if grep -q "plain-text workspace where humans and AI collaborate" server/mcp/package.json; then
       ok "vmark-mcp-server package.json description updated"
     else
       fail "vmark-mcp-server description not updated"

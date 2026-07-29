@@ -1,7 +1,7 @@
 //! The server-side bound on caller-supplied script/CSS text (audit 2026-07-28).
 //!
 //! The same 64 KiB number lives in two CLIENT-side places —
-//! `vmark-mcp-server/src/tools/browser.ts` (the MCP sidecar) and
+//! `server/mcp/src/tools/browser.ts` (the MCP sidecar) and
 //! `src/hooks/mcpBridge/v2/browserPower.ts` (the webview handler) — and both
 //! measure it in UTF-8 bytes. Those two are **advisory**: they sit ABOVE the
 //! Tauri command boundary, so anything that invokes a browser command directly
@@ -18,7 +18,7 @@
 //! actually enforces.
 //!
 //! @coordinates-with browser/commands_auth.rs — the command entry points that call this
-//! @coordinates-with vmark-mcp-server/src/tools/browser.ts — advisory client-side mirror
+//! @coordinates-with server/mcp/src/tools/browser.ts — advisory client-side mirror
 //! @coordinates-with src/hooks/mcpBridge/v2/browserPower.ts — advisory client-side mirror
 
 /// 64 KiB, measured in UTF-8 **bytes**.

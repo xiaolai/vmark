@@ -29,7 +29,7 @@ use toml_edit::{Item as TomlItem, TableLike};
 
 /// The environment variable the sidecar reads its credential from.
 ///
-/// Mirrored in `vmark-mcp-server/src/utils/clientIdentity.ts`.
+/// Mirrored in `server/mcp/src/utils/clientIdentity.ts`.
 pub(crate) const TOKEN_ENV_KEY: &str = "VMARK_MCP_TOKEN";
 
 /// Rendered in the install PREVIEW in place of a credential that does not

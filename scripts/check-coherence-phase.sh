@@ -207,12 +207,12 @@ phase_1() {
   assert_file "src/components/BreakdownPanel/BreakdownPanel.test.tsx" "WI-1.9b panel tests"
 
   # WI-1.10 — read-only MCP tools.
-  assert_file "vmark-mcp-server/src/tools/coherence.ts" "WI-1.10 sidecar tool"
+  assert_file "server/mcp/src/tools/coherence.ts" "WI-1.10 sidecar tool"
   # The sidecar follows the repo's composite-tool convention: one
   # `coherence` tool with status/edges actions emitting
   # vmark.coherence.status / vmark.coherence.edges bridge requests.
-  assert_grep "vmark.coherence.status" "vmark-mcp-server/src/tools/coherence.ts" "WI-1.10 status action"
-  assert_grep "vmark.coherence.edges"  "vmark-mcp-server/src/tools/coherence.ts" "WI-1.10 edges action"
+  assert_grep "vmark.coherence.status" "server/mcp/src/tools/coherence.ts" "WI-1.10 status action"
+  assert_grep "vmark.coherence.edges"  "server/mcp/src/tools/coherence.ts" "WI-1.10 edges action"
 
   # WI-1.11 — docs.
   assert_file "website/guide/coherence.md"          "WI-1.11 website guide page"
@@ -379,7 +379,7 @@ phase_2() {
   echo "— WI-2b.8: read-only MCP claims/contexts (R23 intact) —"
   assert_grep "vmark.coherence.claims" src-tauri/src/mcp_bridge/routing.rs "claims answered Rust-side"
   assert_grep "vmark.coherence.contexts" src-tauri/src/mcp_bridge/routing.rs "contexts answered Rust-side"
-  assert_grep "'claims', 'contexts'" vmark-mcp-server/src/tools/coherence.ts "sidecar actions extended"
+  assert_grep "'claims', 'contexts'" server/mcp/src/tools/coherence.ts "sidecar actions extended"
   if [[ "${SKIP_TESTS:-}" != "1" ]]; then
     if cargo test --manifest-path src-tauri/Cargo.toml --lib mcp_bridge::routing --quiet >/dev/null 2>&1; then
       ok "WI-2b.8 routing suite green"

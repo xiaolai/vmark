@@ -85,7 +85,7 @@ Shared instructions for all AI agents (Claude, Codex, etc.).
     - The VMark bridge port is **dynamic** (OS-assigned) — never point at a fixed port
       (9223 is discarded); the sidecar auto-discovers it from
       `~/Library/Application Support/app.vmark/mcp-port`. In dev, **rebuild the sidecar**
-      (`pnpm --dir vmark-mcp-server build:sidecar`), reconfigure the client to the dev
+      (`pnpm --dir server/mcp build:sidecar`), reconfigure the client to the dev
       binary (Integrations settings / `mcp_config_install`), then **restart the AI
       client** — MCP servers bind at startup.
 
