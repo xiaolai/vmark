@@ -5,27 +5,21 @@
   "loading": "読み込み中…",
   "error": "設定を読み込めませんでした",
   "empty": "設定はまだありません — ドキュメント内のテキストを選択して「設定を抽出」を使用してください",
-  "maturity": {
-    "draft": "下書き",
-    "established": "確立済み"
-  },
+  "maturity.draft": "下書き",
+  "maturity.established": "確立済み",
   "ended": "終了済み",
   "hidden": "このコンテキストでは非表示",
-  "actions": {
-    "promote": "確立",
-    "correct": "修正",
-    "retire": "終了",
-    "hide": "非表示",
-    "show": "表示"
-  },
+  "actions.promote": "確立",
+  "actions.correct": "修正",
+  "actions.retire": "終了",
+  "actions.hide": "非表示",
+  "actions.show": "表示",
   "promoteTitle": "確立済みに昇格 — 制約になれるのは確立済みの設定のみです（D4）",
   "correctPlaceholder": "修正後の記述",
   "correctConfirm": "修正を確定",
-  "create": {
-    "heading": "選択範囲から新しい設定",
-    "source": "出典：{{path}}",
-    "statementPlaceholder": "設定の記述",
-    "confirm": "下書き設定を作成",
-    "cancel": "キャンセル"
-  }
+  "create.heading": "選択範囲から新しい設定",
+  "create.source": "出典：{{path}}",
+  "create.statementPlaceholder": "設定の記述",
+  "create.confirm": "下書き設定を作成",
+  "create.cancel": "キャンセル"
 }

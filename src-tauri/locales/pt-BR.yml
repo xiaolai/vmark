@@ -33,7 +33,7 @@ menu:
   file.export.pandocEpub: "EPUB (.epub)..."
   file.export.pandocLatex: "LaTeX (.tex)..."
   file.export.pandocOdt: "OpenDocument (.odt)..."
-  file.export.pandocRtf: "Rich Text (.rtf)..."
+  file.export.pandocRtf: "Texto formatado (.rtf)..."
   file.export.pandocTxt: "Texto simples (.txt)..."
   file.export.pandocHint: "Instale o Pandoc para exportar para Word, EPUB, LaTeX…"
   file.export.copyHtml: "Copiar como HTML"

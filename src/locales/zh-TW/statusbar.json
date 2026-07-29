@@ -12,14 +12,14 @@
   "mcpStopped": "MCP 已停止 · 點擊以啟動",
   "mcpNoClients": "MCP 已就緒 · 無 AI 連線",
   "mcpConnected": "已連線：{{clients}}",
-  "mcpHistoryTitle": "MCP write history ({{count}})",
-  "mcpHistoryEmpty": "No MCP writes recorded for this tab",
-  "mcpHistoryClear": "Clear history for this tab",
-  "mcpHistoryRestore": "Restore to before this write",
-  "mcpHistoryRestored": "Restored to before {{tool}}",
-  "mcpHistoryRestoreNoop": "Document already matches checkpoint",
-  "mcpHistoryCleared": "Cleared MCP history for this tab",
-  "yamlWysiwygBlocked": "WYSIWYG mode would corrupt YAML indentation. Edit YAML in source mode.",
+  "mcpHistoryTitle": "MCP 寫入歷史({{count}})",
+  "mcpHistoryEmpty": "此分頁沒有記錄任何 MCP 寫入",
+  "mcpHistoryClear": "清除此分頁的歷史記錄",
+  "mcpHistoryRestore": "還原到此次寫入之前",
+  "mcpHistoryRestored": "已還原到 {{tool}} 之前",
+  "mcpHistoryRestoreNoop": "文件已與檢查點一致",
+  "mcpHistoryCleared": "已清除此分頁的 MCP 歷史記錄",
+  "yamlWysiwygBlocked": "WYSIWYG 模式會破壞 YAML 縮排。請在原始碼模式下編輯 YAML。",
   "toggleTerminal": "切換終端機（{{shortcut}}）",
   "readOnlyTitle": "唯讀模式（{{shortcut}}）",
   "editableTitle": "可編輯（{{shortcut}}）",
@@ -69,6 +69,7 @@
   "terminal.search.wholeWord": "全字符合",
   "terminal.search.regex": "使用正規表示式",
   "terminal.search.close": "關閉（Escape）",
+  "terminal.ariaLabel": "終端機",
   "terminal.newSession": "新增終端機",
   "terminal.maxSessions": "最多 5 個工作階段",
   "terminal.closeSession": "關閉",
@@ -85,24 +86,11 @@
   "terminal.contextMenu.selectAll": "全選",
   "terminal.contextMenu.clear": "清空",
   "terminal.contextMenu.resetDisplay": "重設顯示",
-  "lint.badge.tooltip": "{{count}} issue(s) — click to go to next",
-  "lint.badge.tooltipSingle": "1 issue — click to go to next",
-  "lint.clean.toast": "No markdown issues found",
+  "lint.badge.tooltip": "{{count}} 個問題 —— 點擊跳至下一個",
+  "lint.badge.tooltipSingle": "1 個問題 —— 點擊跳至下一個",
+  "lint.clean.toast": "未發現 markdown 問題",
   "largeFile.opening": "正在開啟大型檔案（{{size}}）…",
   "largeFile.openedInSourceMode": "已以原始碼模式開啟（大型檔案）。",
   "largeFile.switchToWysiwyg": "切換為所見即所得",
-  "largeFile.switchToWysiwygAria": "將目前文件由原始碼模式切換為所見即所得",
-  "terminal.ariaLabel": "Terminal",
-  "terminal": {
-    "ariaLabel": "終端機"
-  },
-  "lint": {
-    "badge": {
-      "tooltip": "{{count}} 個問題 —— 點擊跳至下一個",
-      "tooltipSingle": "1 個問題 —— 點擊跳至下一個"
-    },
-    "clean": {
-      "toast": "未發現 markdown 問題"
-    }
-  }
+  "largeFile.switchToWysiwygAria": "將目前文件由原始碼模式切換為所見即所得"
 }

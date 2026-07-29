@@ -20,7 +20,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
-import { createVMarkMcpServer } from '../../src/index.js';
+import { createVMarkMcpServer, EXPECTED_TOOL_COUNT } from '../../src/index.js';
 import { createToolHandler } from '../../src/utils/mcpAdapters.js';
 import type { BridgeRequest, BridgeResponse } from '../../src/bridge/core-types.js';
 import { MockBridge } from '../mocks/mockBridge.js';
@@ -95,8 +95,13 @@ describe('MCP SDK round trip (in-process transport pair)', () => {
   });
 
   it('accepts every tool the sidecar registers', async () => {
+    // Against EXPECTED_TOOL_COUNT rather than a literal: that constant is
+    // derived from TOOL_CATEGORIES (what --health-check reports) while
+    // listTools reports what was actually registered, so this catches a tool
+    // that ships without a category descriptor. toolContract.test.ts pins the
+    // exact names.
     const { tools } = await client.listTools();
-    expect(tools).toHaveLength(7);
+    expect(tools).toHaveLength(EXPECTED_TOOL_COUNT);
   });
 
   it('returns structuredContent alongside the text block for document.write', async () => {
@@ -155,7 +160,7 @@ describe('MCP SDK round trip (in-process transport pair)', () => {
 
   it('omits structuredContent for tools that declare no outputSchema', async () => {
     const result = await client.callTool({
-      name: 'browser',
+      name: 'browser_read',
       arguments: { action: 'read' },
     });
 

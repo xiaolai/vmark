@@ -31,24 +31,5 @@
   "pdf.progress.rendering": "Génération du PDF…",
   "pdf.progress.done": "Terminé",
   "pdf.saveDialog.title": "Exporter en PDF",
-  "pdf.defaultTitle": "Document",
-  "pdf": {
-    "preset": {
-      "compact": "Compact"
-    },
-    "pageSetup": {
-      "orientation": {
-        "portrait": "Portrait"
-      },
-      "marginUnit": "mm"
-    },
-    "headersFooters": {
-      "date": "Date"
-    },
-    "preview": {
-      "pageCount": "{{count}} page",
-      "pageCount_other": "{{count}} pages"
-    },
-    "defaultTitle": "Document"
-  }
+  "pdf.defaultTitle": "Document"
 }

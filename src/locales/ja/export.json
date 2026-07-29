@@ -31,10 +31,5 @@
   "pdf.progress.rendering": "PDF を生成中…",
   "pdf.progress.done": "完了",
   "pdf.saveDialog.title": "PDF をエクスポート",
-  "pdf.defaultTitle": "ドキュメント",
-  "pdf": {
-    "pageSetup": {
-      "marginUnit": "mm"
-    }
-  }
+  "pdf.defaultTitle": "ドキュメント"
 }

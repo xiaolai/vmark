@@ -1,6 +1,8 @@
-// Coherence tool (WI-1.10) — verifies both read-only actions forward the
+// Coherence tool (WI-1.10) — verifies the read-only actions forward the
 // right Rust-terminal bridge request with workspace_root, pass results and
 // bridge errors through, and reject bad input without touching the bridge.
+// The mutating `resolve` action moved to coherence_resolve; see
+// coherenceResolve.test.ts and the refusal case below.
 import { describe, it, expect } from 'vitest';
 import type { BridgeRequest, BridgeResponse } from '../../../src/bridge/core-types.js';
 import { createVMarkMcpServer, EXPECTED_TOOL_COUNT } from '../../../src/index.js';
@@ -116,11 +118,15 @@ describe('coherence tool — status/edges via server.callTool', () => {
     expect(bridge.requests).toHaveLength(0);
   });
 
-  it('forwards resolve to the bridge as vmark.coherence.resolve', async () => {
+  it('refuses resolve — the mutating action lives on coherence_resolve', async () => {
+    // The split is what lets this tool declare readOnlyHint:true. If `resolve`
+    // ever came back here, the annotation would become a lie and a client that
+    // auto-approves reads would silently gain a non-undoable ledger write.
     const { server, bridge } = harness('vmark.coherence.resolve', () => ({
       success: true,
       data: { entryId: 'e', kind: 'ratification' },
     }));
+
     const result = await server.callTool('coherence', {
       action: 'resolve',
       workspace_root: ROOT,
@@ -128,8 +134,10 @@ describe('coherence tool — status/edges via server.callTool', () => {
       input: 0,
       resolution: 'accept-newer',
     });
-    expect(result.isError).toBeUndefined();
-    expect(bridge.getRequestsOfType('vmark.coherence.resolve')).toHaveLength(1);
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain('Invalid action');
+    expect(bridge.requests).toHaveLength(0);
   });
 
   it('rejects a missing or empty workspace_root without touching the bridge', async () => {

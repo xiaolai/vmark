@@ -5,27 +5,21 @@
   "loading": "Carregando…",
   "error": "Não foi possível carregar as afirmações",
   "empty": "Nenhuma afirmação ainda — selecione texto em um documento e use “Extrair afirmação”",
-  "maturity": {
-    "draft": "Rascunho",
-    "established": "Estabelecida"
-  },
+  "maturity.draft": "Rascunho",
+  "maturity.established": "Estabelecida",
   "ended": "Encerrada",
   "hidden": "Oculta neste contexto",
-  "actions": {
-    "promote": "Estabelecer",
-    "correct": "Corrigir",
-    "retire": "Encerrar",
-    "hide": "Ocultar",
-    "show": "Mostrar"
-  },
+  "actions.promote": "Estabelecer",
+  "actions.correct": "Corrigir",
+  "actions.retire": "Encerrar",
+  "actions.hide": "Ocultar",
+  "actions.show": "Mostrar",
   "promoteTitle": "Promover a estabelecida — apenas afirmações estabelecidas podem restringir (D4)",
   "correctPlaceholder": "Afirmação corrigida",
   "correctConfirm": "Confirmar correção",
-  "create": {
-    "heading": "Nova afirmação a partir da seleção",
-    "source": "Fonte: {{path}}",
-    "statementPlaceholder": "Enunciado da afirmação",
-    "confirm": "Criar afirmação em rascunho",
-    "cancel": "Cancelar"
-  }
+  "create.heading": "Nova afirmação a partir da seleção",
+  "create.source": "Fonte: {{path}}",
+  "create.statementPlaceholder": "Enunciado da afirmação",
+  "create.confirm": "Criar afirmação em rascunho",
+  "create.cancel": "Cancelar"
 }

@@ -1,14 +1,10 @@
 {
-  "approval": {
-    "title": "Workflow-Schritt genehmigen?",
-    "step": "Schritt",
-    "model": "Modell",
-    "preview": "Prompt-Vorschau",
-    "approve": "Genehmigen",
-    "deny": "Ablehnen"
-  },
-  "run": {
-    "start": "Workflow ausführen",
-    "cancel": "Workflow abbrechen"
-  }
+  "approval.title": "Workflow-Schritt genehmigen?",
+  "approval.step": "Schritt",
+  "approval.model": "Modell",
+  "approval.preview": "Prompt-Vorschau",
+  "approval.approve": "Genehmigen",
+  "approval.deny": "Ablehnen",
+  "run.start": "Workflow ausführen",
+  "run.cancel": "Workflow abbrechen"
 }

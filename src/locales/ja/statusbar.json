@@ -12,14 +12,14 @@
   "mcpStopped": "MCP停止中 · クリックして起動",
   "mcpNoClients": "MCP準備完了 · AI未接続",
   "mcpConnected": "接続中: {{clients}}",
-  "mcpHistoryTitle": "MCP write history ({{count}})",
-  "mcpHistoryEmpty": "No MCP writes recorded for this tab",
-  "mcpHistoryClear": "Clear history for this tab",
-  "mcpHistoryRestore": "Restore to before this write",
-  "mcpHistoryRestored": "Restored to before {{tool}}",
-  "mcpHistoryRestoreNoop": "Document already matches checkpoint",
-  "mcpHistoryCleared": "Cleared MCP history for this tab",
-  "yamlWysiwygBlocked": "WYSIWYG mode would corrupt YAML indentation. Edit YAML in source mode.",
+  "mcpHistoryTitle": "MCP 書き込み履歴 ({{count}})",
+  "mcpHistoryEmpty": "このタブに記録された MCP 書き込みはありません",
+  "mcpHistoryClear": "このタブの履歴を消去",
+  "mcpHistoryRestore": "この書き込み前の状態に復元",
+  "mcpHistoryRestored": "{{tool}} の前の状態に復元しました",
+  "mcpHistoryRestoreNoop": "ドキュメントはすでにチェックポイントと一致しています",
+  "mcpHistoryCleared": "このタブの MCP 履歴を消去しました",
+  "yamlWysiwygBlocked": "WYSIWYG モードでは YAML のインデントが壊れます。YAML はソースモードで編集してください。",
   "toggleTerminal": "ターミナルの表示切替 ({{shortcut}})",
   "readOnlyTitle": "読み取り専用モード ({{shortcut}})",
   "editableTitle": "編集可能 ({{shortcut}})",
@@ -69,6 +69,7 @@
   "terminal.search.wholeWord": "単語単位で一致",
   "terminal.search.regex": "正規表現を使用",
   "terminal.search.close": "閉じる (Escape)",
+  "terminal.ariaLabel": "ターミナル",
   "terminal.newSession": "新しいターミナル",
   "terminal.maxSessions": "最大5セッション",
   "terminal.closeSession": "閉じる",
@@ -85,24 +86,11 @@
   "terminal.contextMenu.selectAll": "すべて選択",
   "terminal.contextMenu.clear": "クリア",
   "terminal.contextMenu.resetDisplay": "表示をリセット",
-  "lint.badge.tooltip": "{{count}} issue(s) — click to go to next",
-  "lint.badge.tooltipSingle": "1 issue — click to go to next",
-  "lint.clean.toast": "No markdown issues found",
+  "lint.badge.tooltip": "{{count}} 件の問題 — クリックで次へ",
+  "lint.badge.tooltipSingle": "1 件の問題 — クリックで次へ",
+  "lint.clean.toast": "Markdown の問題は見つかりませんでした",
   "largeFile.opening": "大きなファイルを開いています（{{size}}）…",
   "largeFile.openedInSourceMode": "ソースモードで開きました（大きなファイル）。",
   "largeFile.switchToWysiwyg": "WYSIWYG に切り替え",
-  "largeFile.switchToWysiwygAria": "このドキュメントをソースモードから WYSIWYG に切り替える",
-  "terminal.ariaLabel": "Terminal",
-  "terminal": {
-    "ariaLabel": "ターミナル"
-  },
-  "lint": {
-    "badge": {
-      "tooltip": "{{count}} 件の問題 — クリックで次へ",
-      "tooltipSingle": "1 件の問題 — クリックで次へ"
-    },
-    "clean": {
-      "toast": "Markdown の問題は見つかりませんでした"
-    }
-  }
+  "largeFile.switchToWysiwygAria": "このドキュメントをソースモードから WYSIWYG に切り替える"
 }

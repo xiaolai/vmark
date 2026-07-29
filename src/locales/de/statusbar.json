@@ -12,14 +12,14 @@
   "mcpStopped": "MCP gestoppt · Klicken zum Starten",
   "mcpNoClients": "MCP bereit · Keine KI verbunden",
   "mcpConnected": "Verbunden: {{clients}}",
-  "mcpHistoryTitle": "MCP write history ({{count}})",
-  "mcpHistoryEmpty": "No MCP writes recorded for this tab",
-  "mcpHistoryClear": "Clear history for this tab",
-  "mcpHistoryRestore": "Restore to before this write",
-  "mcpHistoryRestored": "Restored to before {{tool}}",
-  "mcpHistoryRestoreNoop": "Document already matches checkpoint",
-  "mcpHistoryCleared": "Cleared MCP history for this tab",
-  "yamlWysiwygBlocked": "WYSIWYG mode would corrupt YAML indentation. Edit YAML in source mode.",
+  "mcpHistoryTitle": "MCP-Schreibverlauf ({{count}})",
+  "mcpHistoryEmpty": "Keine MCP-Schreibvorgänge für diesen Tab aufgezeichnet",
+  "mcpHistoryClear": "Verlauf für diesen Tab löschen",
+  "mcpHistoryRestore": "Auf den Stand vor diesem Schreibvorgang zurücksetzen",
+  "mcpHistoryRestored": "Auf den Stand vor {{tool}} zurückgesetzt",
+  "mcpHistoryRestoreNoop": "Dokument entspricht bereits dem Prüfpunkt",
+  "mcpHistoryCleared": "MCP-Verlauf für diesen Tab gelöscht",
+  "yamlWysiwygBlocked": "Der WYSIWYG-Modus würde die YAML-Einrückung beschädigen. Bearbeiten Sie YAML im Quelltextmodus.",
   "toggleTerminal": "Terminal umschalten ({{shortcut}})",
   "readOnlyTitle": "Nur-Lesen-Modus ({{shortcut}})",
   "editableTitle": "Bearbeitbar ({{shortcut}})",
@@ -69,6 +69,7 @@
   "terminal.search.wholeWord": "Nur ganze Wörter",
   "terminal.search.regex": "Regulären Ausdruck verwenden",
   "terminal.search.close": "Schließen (Escape)",
+  "terminal.ariaLabel": "Terminal",
   "terminal.newSession": "Neues Terminal",
   "terminal.maxSessions": "Maximal 5 Sitzungen",
   "terminal.closeSession": "Schließen",
@@ -85,24 +86,11 @@
   "terminal.contextMenu.selectAll": "Alles auswählen",
   "terminal.contextMenu.clear": "Löschen",
   "terminal.contextMenu.resetDisplay": "Anzeige zurücksetzen",
-  "lint.badge.tooltip": "{{count}} issue(s) — click to go to next",
-  "lint.badge.tooltipSingle": "1 issue — click to go to next",
-  "lint.clean.toast": "No markdown issues found",
+  "lint.badge.tooltip": "{{count}} Probleme — klicken Sie, um zum nächsten zu gelangen",
+  "lint.badge.tooltipSingle": "1 Problem — klicken Sie, um zum nächsten zu gelangen",
+  "lint.clean.toast": "Keine Markdown-Probleme gefunden",
   "largeFile.opening": "Große Datei wird geöffnet ({{size}})…",
   "largeFile.openedInSourceMode": "Im Quelltextmodus geöffnet (große Datei).",
   "largeFile.switchToWysiwyg": "Zu WYSIWYG wechseln",
-  "largeFile.switchToWysiwygAria": "Dieses Dokument vom Quelltextmodus zu WYSIWYG wechseln",
-  "terminal.ariaLabel": "Terminal",
-  "terminal": {
-    "ariaLabel": "Terminal"
-  },
-  "lint": {
-    "badge": {
-      "tooltip": "{{count}} Probleme — klicken Sie, um zum nächsten zu gelangen",
-      "tooltipSingle": "1 Problem — klicken Sie, um zum nächsten zu gelangen"
-    },
-    "clean": {
-      "toast": "Keine Markdown-Probleme gefunden"
-    }
-  }
+  "largeFile.switchToWysiwygAria": "Dieses Dokument vom Quelltextmodus zu WYSIWYG wechseln"
 }

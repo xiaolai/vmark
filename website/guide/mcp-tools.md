@@ -4,7 +4,9 @@ vmark:
 ---
 # MCP Tools Reference
 
-VMark exposes **seven composite MCP tools** to AI assistants: `session`, `workspace`, `document`, `workflow`, `selection`, `browser`, and `coherence`. Together they cover the editor spine, file/window lifecycle, CST-safe workflow edits, targeted selection edits, bounded browser navigation, and a read-only view of the workspace coherence layer.
+VMark exposes **nine composite MCP tools** to AI assistants: `session`, `workspace`, `document`, `workflow`, `selection`, `browser`, `browser_read`, `coherence`, and `coherence_resolve`. Together they cover the editor spine, file/window lifecycle, CST-safe workflow edits, targeted selection edits, bounded browser navigation, and a view of the workspace coherence layer.
+
+Three of the nine — `session`, `browser_read`, and `coherence` — declare `readOnlyHint: true`, so an MCP client can auto-approve them. That is why `browser`/`browser_read` and `coherence`/`coherence_resolve` are separate tools at all: annotations are **per tool**, not per action, so a tool that bundles an ARIA snapshot with `execute_js` has to advertise the danger of `execute_js`. Splitting along "does this modify anything?" lets each half state the truth, and keeps the surface's genuinely destructive actions conspicuous in the tool list.
 
 The previous 12-tool / 76-action surface was pruned because in-document formatting tools (bold, headings, tables, etc.) duplicate work that AI agents already do trivially via Markdown round-trip. `selection` was kept (per ADR-7 of the pruning plan) because the full-doc round-trip is uneconomical on large files — every edit pays the whole document in input tokens, the whole document in output tokens (~5× input price), and a longer write window that widens the stale-revision retry loop. See [the MCP pruning plan](https://github.com/xiaolai/vmark/blob/main/dev-docs/plans/20260504-mcp-pruning.md) for the full rationale.
 
@@ -317,15 +319,16 @@ Returns `{revision, replaced_chars}` on success. `replaced_chars` is the length 
 
 ## `browser`
 
-The browser tool is available only when **Settings → Advanced → Embedded browser** is
-enabled. All six actions fail with `BROWSER_DISABLED` while it is off. URLs returned to
+The **mutating** half of the embedded browser surface — everything that changes the page,
+the tab, or a stored login. Read the page first with [`browser_read`](#browser-read):
+every targeting mode here refers to what a read returned.
+
+The browser tools are available only when **Settings → Advanced → Embedded browser** is
+enabled. Every action fails with `BROWSER_DISABLED` while it is off. URLs returned to
 MCP are redacted through the same boundary used by the app's browser session state.
 
-### `read`
-
-Returns `{url, snapshot}` for the focused browser tab, or the tab named by `tabId`.
-`snapshot` is an ARIA-oriented list of `{role, name, ref}` — each `ref` (e.g. `"e5"`) is a
-stable handle for that element, valid for the life of the current view.
+Annotated `readOnlyHint: false, destructiveHint: true` — accurate rather than merely
+conservative, because every action here mutates something.
 
 ### `act`
 
@@ -356,27 +359,6 @@ Arguments: `tabId?`, `url`, and optional `timeoutMs`. Navigates an AI-owned tab 
 the navigation ticket result. A timeout still returns the ticket so a later `wait` can
 retrieve the terminal result.
 
-### `wait`
-
-Arguments: `tabId?`, optional `navigationId`, and optional `timeoutMs`. It never starts a
-navigation. It returns a buffered load/failure result, `NAVIGATION_SUPERSEDED`, or
-`TIMEOUT` when the ticket does not finish within the bound.
-
-### `wait_for`
-
-Arguments: `tabId?`, exactly one of `ref` (from a read), `role` (+ optional `name`), or
-`text` (a substring of visible text), and optional `timeoutMs` (1–12,000 ms). Polls until
-the condition holds or the timeout elapses and returns `{matched: true|false}` (plus the
-matched element's `ref` for a ref/role condition) — so you can tell "found" from "timed
-out". Read-class. Use it to make a flow deterministic: act, `wait_for` the result, then
-read.
-
-### `query`
-
-Arguments: `tabId?`, `selector` (CSS), and optional `fields: {attributes, box, styles:[...]}`.
-Returns `{count, elements: [{ref, tag, text, …}]}` — structured DOM data the ARIA snapshot
-cannot name (tables, computed values). **Read-class.** Runs in the isolated content world.
-
 ### `style`
 
 Arguments: `tabId?`, a target (`ref` **or** `selector`), and one of `set: {prop: value}`,
@@ -405,14 +387,35 @@ cookie/token values, which are never logged. Both are the `session` permission �
 be spent on another. *Today this covers `localStorage`; cookie capture is a
 live-testing follow-up.*
 
-### `console`
+### `console_clear`
 
-Arguments: `tabId?`, `clear?`. Returns `{entries: [{level, text}], url}` — the page's
-captured `console.*` output. **Read-class**, sandbox-tabs only. The capture works by a
-page-world shim that writes into a hidden DOM buffer which the driver reads from the
-isolated world — so **no messaging channel** is opened back into VMark (the no-bridge
-guarantee holds). The output is page-controlled and **untrusted** — treat it like a
-`read`, never as an `act` target. Pass `clear: true` to drain the buffer as you read it.
+Arguments: `tabId?`. Returns `{entries: [{level, text}], url}` exactly like
+[`browser_read`](#browser-read)'s `console`, **and drains the buffer** so the next read
+sees only new output. It lives here rather than with the other console read because
+draining evaluates `element.textContent = "[]"` in the page — a DOM write.
+
+Shared posture asks for destination approval for every new origin unless a matching
+`navigate` grant exists. A human-created tab requires an ephemeral attachment approval
+before AI read/act. Sandbox tabs use a separate non-persistent AI cookie store.
+
+---
+
+## `browser_read`
+
+The **read-only** half: observe the tab without changing it. Annotated
+`readOnlyHint: true`, so an MCP client may auto-approve it — which is the point of the
+split. These actions used to live on `browser`, where one tool-level annotation had to
+describe `execute_js` as well, so taking an ARIA snapshot cost a human approval.
+
+`openWorldHint` stays `true`: read-only describes what the tool *changes*, not whether
+the bytes can be trusted. Everything returned is page-controlled and **untrusted** —
+never feed a result straight back as a `browser` act target.
+
+### `read`
+
+Returns `{url, snapshot}` for the focused browser tab, or the tab named by `tabId`.
+`snapshot` is an ARIA-oriented list of `{role, name, ref}` — each `ref` (e.g. `"e5"`) is a
+stable handle for that element, valid for the life of the current view.
 
 ### `screenshot`
 
@@ -422,24 +425,51 @@ layout and rendered state the ARIA snapshot cannot describe. It is captured nati
 (`takeSnapshot`) and reads no page DOM or JavaScript. Read-class: authorized exactly like
 `read` (allowed on an AI-owned tab; a human tab needs an attachment, consumed on capture).
 
-Shared posture asks for destination approval for every new origin unless a matching
-`navigate` grant exists. A human-created tab requires an ephemeral attachment approval
-before AI read/act. Sandbox tabs use a separate non-persistent AI cookie store.
+### `query`
+
+Arguments: `tabId?`, `selector` (CSS), and optional `fields: {attributes, box, styles:[...]}`.
+Returns `{count, elements: [{ref, tag, text, …}]}` — structured DOM data the ARIA snapshot
+cannot name (tables, computed values). **Read-class.** Runs in the isolated content world.
+
+### `console`
+
+Arguments: `tabId?`. Returns `{entries: [{level, text}], url}` — the page's captured
+`console.*` output. Sandbox-tabs only. The capture works by a page-world shim that writes
+into a hidden DOM buffer which the driver reads from the isolated world — so **no
+messaging channel** is opened back into VMark (the no-bridge guarantee holds). The output
+is page-controlled and **untrusted** — treat it like a `read`, never as an `act` target.
+
+The buffer is a bounded ring, so consecutive reads overlap. To drain it as you read, use
+[`browser`](#browser)'s `console_clear` — draining writes `[]` into the page's buffer
+element, which is a DOM write and therefore cannot live under `readOnlyHint: true`.
+
+### `wait`
+
+Arguments: `tabId?`, optional `navigationId`, and optional `timeoutMs`. It never starts a
+navigation. It returns a buffered load/failure result, `NAVIGATION_SUPERSEDED`, or
+`TIMEOUT` when the ticket does not finish within the bound.
+
+### `wait_for`
+
+Arguments: `tabId?`, exactly one of `ref` (from a read), `role` (+ optional `name`), or
+`text` (a substring of visible text), and optional `timeoutMs` (1–12,000 ms). Polls until
+the condition holds or the timeout elapses and returns `{matched: true|false}` (plus the
+matched element's `ref` for a ref/role condition) — so you can tell "found" from "timed
+out". Read-class. Use it to make a flow deterministic: act, `wait_for` the result, then
+read.
 
 ---
 
 ## `coherence`
 
-A **read-only** view of the workspace coherence layer — which derived documents are stale against the upstreams they were generated from. Neither action modifies documents or editor state. `status` is read-only; `edges` reconciles first and may append provenance records to the workspace ledger, but never changes document content. Both are answered entirely by the Rust backend from the per-workspace kernel, so they work even when no editor window is in the foreground.
+A **read-only** view of the workspace coherence layer — which derived documents are stale against the upstreams they were generated from. No action modifies documents or editor state. `status` is read-only; `edges` reconciles first and may append provenance records to the workspace ledger, but never changes document content. All are answered entirely by the Rust backend from the per-workspace kernel, so they work even when no editor window is in the foreground.
 
 Two further read-only actions expose the semantic layer:
 
 - `claims` — the current canon claims: `{claim, entryId, statement, maturity, invalidAt, visible}`. Only `established` claims constrain semantic checks; `visible` reflects the default context.
 - `contexts` — the context set (the implicit `default` is always present): `{id, name, parent, enforcement, visibleClaims, errors}`.
 
-One mutating action, gated by delegation:
-
-- `resolve` — resolve a live stale edge as an explicitly delegated agent: `{workspace_root, txf, input, resolution: "accept-newer" | "waive", reason? (required for waive)}`. Authorization is fail-closed: the workspace owner must have granted **your authenticated bridge identity** a live, unexpired delegation covering the resolution kind (granted in-app, from the Breakdown), and the edge must be live. Every delegated resolution is audit-logged against the grant. Claim and context mutation are never exposed — canon stays human-controlled.
+Annotated `readOnlyHint: true`. The one mutating action, `resolve`, lives in its own tool — see [`coherence_resolve`](#coherence-resolve) — which is what lets this one be auto-approvable. Claim and context mutation are never exposed at all: canon stays human-controlled.
 
 All actions require `workspace_root`: the absolute path of the workspace to query. Learn it from `session.get_state` (open tabs' `filePath`) or the workspace tool. A path that is missing, not absolute, or not a directory is refused with a plain-string error.
 
@@ -505,7 +535,31 @@ The breakdown: every live dependency edge whose upstream has moved. Runs a scan-
 | `downstream` / `downstream_path` / `downstream_rev` | The derived object, its path, and its current revision. |
 | `state` | `"version-stale"`, `"stale-valid"`, `"stale-contradicted"`, `"stale-unknown"`, `"waived"`, `"diverged"`, `"diverged-multi-head"`, or `"unpinnable"`. |
 
-Resolving an edge (accept-newer / waive) is a human action performed in VMark's breakdown view — it is deliberately not exposed over MCP.
+Resolving an edge (accept-newer / waive) is normally a human action performed in VMark's breakdown view. An AI can do it only through [`coherence_resolve`](#coherence-resolve), and only when the workspace owner has explicitly delegated that to it.
+
+---
+
+## `coherence_resolve`
+
+The **one mutating action** on the coherence layer, in its own tool so that
+[`coherence`](#coherence) can stay auto-approvable — and so that something non-undoable is
+conspicuous in the tool list rather than buried as one enum value among five. Annotated
+`readOnlyHint: false, destructiveHint: true`.
+
+### `resolve`
+
+Arguments: `{workspace_root, txf, input, resolution: "accept-newer" | "waive", reason? (required for waive)}`.
+`txf` and `input` come from a `coherence` → `edges` row.
+
+Resolve a live stale edge as an explicitly delegated agent. Authorization is **fail-closed**:
+the workspace owner must have granted **your authenticated bridge identity** a live,
+unexpired delegation covering the resolution kind (granted in-app, from the Breakdown), and
+the edge must still be live. Every delegated resolution is audit-logged against the grant,
+and the entry cannot be undone.
+
+A refusal means the grant is missing or expired — ask the user to grant it rather than
+retrying. Splitting this out of `coherence` changed no security property: authorization has
+always keyed off the authenticated bridge principal, never off anything the client asserts.
 
 ---
 
