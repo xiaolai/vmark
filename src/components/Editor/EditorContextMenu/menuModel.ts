@@ -21,11 +21,12 @@
  * @module components/Editor/EditorContextMenu/menuModel
  */
 
+import type { AdapterAction } from "@/plugins/toolbarActions/adapterActions";
 import type { EditorContextMenuSnapshot } from "@/types/editorContextMenu";
 
 /** How an activated item executes. */
 export type EditorMenuRun =
-  | { type: "adapter"; action: string }
+  | { type: "adapter"; action: AdapterAction }
   | { type: "clipboard"; command: "cut" | "copy" | "paste" | "selectAll" }
   | { type: "link"; command: "editLink" | "copyLink" | "removeLink" };
 
@@ -77,6 +78,12 @@ export interface ContextMenuItemDescriptor {
   checkable?: boolean;
 }
 
+/** Descriptor whose run is adapter-dispatched — the rules helpers need the
+ * action id, so they accept ONLY this narrowing (no runtime fallback). */
+export type AdapterMenuDescriptor = ContextMenuItemDescriptor & {
+  run: { type: "adapter"; action: AdapterAction };
+};
+
 const CLIPBOARD_ITEMS: ContextMenuItemDescriptor[] = [
   { id: "cut", labelKey: "contextMenu.cut", run: { type: "clipboard", command: "cut" }, iconId: "cut", shortcutKey: "Mod-x" },
   { id: "copy", labelKey: "contextMenu.copy", run: { type: "clipboard", command: "copy" }, iconId: "copy", shortcutKey: "Mod-c" },
@@ -87,14 +94,14 @@ const SELECT_ALL_ITEM: ContextMenuItemDescriptor = {
   id: "selectAll", labelKey: "contextMenu.selectAll", run: { type: "clipboard", command: "selectAll" }, iconId: "selectAll", shortcutKey: "Mod-a",
 };
 
-const INLINE_ITEMS: ContextMenuItemDescriptor[] = [
+const INLINE_ITEMS: AdapterMenuDescriptor[] = [
   { id: "bold", labelKey: "contextMenu.bold", run: { type: "adapter", action: "bold" }, iconId: "bold", shortcutId: "bold", checkable: true },
   { id: "italic", labelKey: "contextMenu.italic", run: { type: "adapter", action: "italic" }, iconId: "italic", shortcutId: "italic", checkable: true },
   { id: "strikethrough", labelKey: "contextMenu.strikethrough", run: { type: "adapter", action: "strikethrough" }, iconId: "strikethrough", shortcutId: "strikethrough", checkable: true },
   { id: "code", labelKey: "contextMenu.inlineCode", run: { type: "adapter", action: "code" }, iconId: "code", shortcutId: "code", checkable: true },
 ];
 
-const HEADING_CHILDREN: ContextMenuItemDescriptor[] = [
+const HEADING_CHILDREN: AdapterMenuDescriptor[] = [
   { id: "paragraph", labelKey: "contextMenu.paragraph", run: { type: "adapter", action: "heading:0" }, shortcutId: "paragraph", checkable: true },
   { id: "heading1", labelKey: "contextMenu.heading1", run: { type: "adapter", action: "heading:1" }, shortcutId: "heading1", checkable: true },
   { id: "heading2", labelKey: "contextMenu.heading2", run: { type: "adapter", action: "heading:2" }, shortcutId: "heading2", checkable: true },
@@ -104,21 +111,21 @@ const HEADING_CHILDREN: ContextMenuItemDescriptor[] = [
   { id: "heading6", labelKey: "contextMenu.heading6", run: { type: "adapter", action: "heading:6" }, shortcutId: "heading6", checkable: true },
 ];
 
-const LIST_CHILDREN: ContextMenuItemDescriptor[] = [
+const LIST_CHILDREN: AdapterMenuDescriptor[] = [
   { id: "bulletList", labelKey: "contextMenu.bulletList", run: { type: "adapter", action: "bulletList" }, shortcutId: "bulletList", checkable: true },
   { id: "orderedList", labelKey: "contextMenu.orderedList", run: { type: "adapter", action: "orderedList" }, shortcutId: "orderedList", checkable: true },
   { id: "taskList", labelKey: "contextMenu.taskList", run: { type: "adapter", action: "taskList" }, shortcutId: "taskList", checkable: true },
 ];
 
-const BLOCKQUOTE_ITEM: ContextMenuItemDescriptor = {
+const BLOCKQUOTE_ITEM: AdapterMenuDescriptor = {
   id: "blockquote", labelKey: "contextMenu.blockquote", run: { type: "adapter", action: "insertBlockquote" }, iconId: "blockquote", shortcutId: "blockquote", checkable: true,
 };
 
-const CODE_BLOCK_ITEM: ContextMenuItemDescriptor = {
+const CODE_BLOCK_ITEM: AdapterMenuDescriptor = {
   id: "codeBlock", labelKey: "contextMenu.codeBlock", run: { type: "adapter", action: "insertCodeBlock" }, iconId: "codeBlock", shortcutId: "codeBlock",
 };
 
-const INSERT_LINK_ITEM: ContextMenuItemDescriptor = {
+const INSERT_LINK_ITEM: AdapterMenuDescriptor = {
   id: "insertLink", labelKey: "contextMenu.insertLink", run: { type: "adapter", action: "link" }, iconId: "link", shortcutId: "link",
 };
 
@@ -165,25 +172,20 @@ function toAction(
   };
 }
 
-function adapterAction(d: ContextMenuItemDescriptor): string {
-  /* v8 ignore next -- @preserve all callers pass adapter-run descriptors; guard keeps the cast honest */
-  return d.run.type === "adapter" ? d.run.action : "";
-}
-
 function fromRules(
-  d: ContextMenuItemDescriptor,
+  d: AdapterMenuDescriptor,
   snapshot: EditorContextMenuSnapshot,
   checked: boolean
 ): EditorMenuAction {
   return toAction(d, {
     checked,
-    disabled: snapshot.disabledActions.includes(adapterAction(d)),
+    disabled: snapshot.disabledActions.includes(d.run.action),
   });
 }
 
 function buildHeadingSubmenu(snapshot: EditorContextMenuSnapshot): EditorMenuSubmenu {
   const items = HEADING_CHILDREN.map((d) => {
-    const level = Number(adapterAction(d).split(":")[1]);
+    const level = Number(d.run.action.split(":")[1]);
     const checked = level === 0 ? snapshot.headingLevel === null : snapshot.headingLevel === level;
     return fromRules(d, snapshot, checked);
   });
@@ -204,7 +206,7 @@ function buildListSubmenu(snapshot: EditorContextMenuSnapshot): EditorMenuSubmen
     taskList: snapshot.listType === "task",
   };
   const items = LIST_CHILDREN.map((d) =>
-    fromRules(d, snapshot, checkedByAction[adapterAction(d)] ?? false)
+    fromRules(d, snapshot, checkedByAction[d.run.action] ?? false)
   );
   return {
     kind: "submenu",
@@ -263,7 +265,7 @@ export function buildEditorContextMenu(
     sections.push({
       id: "inline",
       items: INLINE_ITEMS.map((d) =>
-        fromRules(d, snapshot, snapshot.activeActions.includes(adapterAction(d)))
+        fromRules(d, snapshot, snapshot.activeActions.includes(d.run.action))
       ),
     });
 

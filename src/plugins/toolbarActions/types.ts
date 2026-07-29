@@ -31,6 +31,10 @@ export interface MultiSelectionContext {
   inTextblock: boolean;
   sameBlockParent: boolean;
   blockParentType: string | null;
+  /** At least one cursor carries a NON-EMPTY range. Selection-requiring
+   *  actions (clearFormatting, text transforms) no-op on all-collapsed
+   *  cursors, so availability must check this, not mere multi-ness. */
+  hasNonEmptyRange?: boolean;
 }
 
 /** Toolbar context for WYSIWYG mode with Tiptap editor and ProseMirror view. */

@@ -4,7 +4,6 @@
   "description": "VMark content server — serves a workspace as a cross-linked knowledge base and hosts Slidev. Runs in the bundled Node runtime.",
   "type": "module",
   "main": "dist/index.js",
-  "types": "dist/index.d.ts",
   "bin": {
     "vmark-content-server": "./dist/cli.js"
   },

@@ -9,6 +9,9 @@
  * its return value is flagged untrusted and never auto-fed into a later act
  * (ADR-A6). The Rust driver (browser/authorize.rs) is the authoritative gate.
  *
+ * Ordering rule: payload validation runs BEFORE the human-attachment gate, so
+ * malformed or oversized requests can never queue an attachment prompt.
+ *
  * @coordinates-with src-tauri browser/authorize.rs — the authoritative gate
  * @coordinates-with lib/browser/agent/powerScript.ts — the query/style scripts
  * @module hooks/mcpBridge/v2/browserPower
@@ -22,10 +25,10 @@ import {
   buildQueryScript,
   buildStyleScript,
   type QueryFields,
-  type StyleOps,
 } from "@/lib/browser/agent/powerScript";
 import { urlForAgent, originForAgent } from "@/lib/browser/url";
 import { browserEnabled, readTabIdArg, resolveBrowserTab, type BrowserTarget } from "./browserHelpers";
+import { readStyleOps } from "./browserStyleOps";
 import { requireHumanAttachment, runReadClass, parseEvalResult } from "./browserReadClass";
 
 /**
@@ -41,9 +44,10 @@ const MAX_SCRIPT_BYTES = 64 * 1024;
  * Measure a string in UTF-8 BYTES, which is what `MAX_SCRIPT_BYTES` names.
  *
  * `String.length` counts UTF-16 code units, so a CJK or emoji payload passes a
- * `.length` check at up to ~3x the stated byte cap. This is the only gate on
- * script size that exists — `browser_eval` on the Rust side takes an unbounded
- * `String` — so the check has to measure the unit it claims to.
+ * `.length` check at up to ~3x the stated byte cap. Rust's `browser_eval` has
+ * the authoritative limit (browser/script_limit.rs); this check exists so a
+ * near-limit payload fails HERE with a clear client-side error instead of an
+ * opaque driver rejection.
  */
 function utf8ByteLength(value: string): number {
   return new TextEncoder().encode(value).length;
@@ -78,16 +82,20 @@ export async function handleBrowserQuery(id: string, args: Record<string, unknow
         }),
       data: (tab, raw) => {
         const r = parseEvalResult(raw);
+        // A script-level failure (invalid selector, …) must be a FAILED
+        // response, not a success envelope with an `error` field inside.
+        if (typeof r === "object" && r !== null && "error" in r) {
+          throw new Error(String((r as { error: unknown }).error));
+        }
         return { url: urlForAgent(tab.url), ...(typeof r === "object" && r !== null ? r : { result: r }) };
       },
     });
   });
 }
 
-/** Common preamble for the two write-class power tools: feature gate, tab
- *  resolution, and the human-attachment gate. Returns the tab, or null (the
- *  refusal has already been sent). */
-async function resolveForWrite(id: string, args: Record<string, unknown>): Promise<BrowserTarget | null> {
+/** Feature gate + tab resolution for the write-class tools. Payload validation
+ *  and the attachment gate come AFTER this (see runWriteOp's ordering rule). */
+async function resolveWriteTab(id: string, args: Record<string, unknown>): Promise<BrowserTarget | null> {
   if (!browserEnabled()) {
     await respond({ id, success: false, error: "BROWSER_DISABLED" });
     return null;
@@ -102,7 +110,6 @@ async function resolveForWrite(id: string, args: Record<string, unknown>): Promi
     await respond({ id, success: false, error: "no active browser tab" });
     return null;
   }
-  if (!(await requireHumanAttachment(id, tab))) return null;
   return tab;
 }
 
@@ -127,9 +134,22 @@ async function approveOp(
       .getState()
       .consumeOneShot(tab.url, operation, undefined, tab.tabId, script);
     if (!ok) {
-      useBrowserApprovalStore
+      const queued = useBrowserApprovalStore
         .getState()
         .requestApproval(id, tab.url, operation, undefined, tab.tabId, tab.generation, script);
+      // No prompt was queued: advertising `needsApproval` would point the
+      // client at an approval that does not exist and can never resolve.
+      if (queued === "overloaded" || queued === "rejected") {
+        await respond({
+          id,
+          success: false,
+          error:
+            queued === "overloaded"
+              ? "approval queue is full — resolve or deny pending approvals, then retry"
+              : `operation '${operation}' cannot be approved`,
+        });
+        return false;
+      }
       // Origin-only in the pre-authorization envelope — the path can carry a token.
       const origin = originForAgent(tab.url);
       await respond({
@@ -144,34 +164,57 @@ async function approveOp(
   return true;
 }
 
-function readStyleOps(args: Record<string, unknown>): StyleOps | null {
-  const ops: StyleOps = {};
-  if (typeof args.set === "object" && args.set !== null) {
-    ops.set = {};
-    for (const [k, v] of Object.entries(args.set as Record<string, unknown>)) {
-      if (typeof v === "string") ops.set[k] = v;
+/**
+ * The shared tail of both write-class tools: attachment gate → approval →
+ * native invoke → response. The frontend's one-use attachment mirror is
+ * consumed in `finally`: Rust consumes ITS attachment during authorization,
+ * so a post-authorization failure must still spend the mirror — otherwise the
+ * two layers drift permanently out of sync (frontend says attached, Rust
+ * refuses).
+ */
+async function runWriteOp(
+  id: string,
+  tab: BrowserTarget,
+  operation: "style" | "eval",
+  script: string,
+  extraEnvelope: Record<string, unknown> | undefined,
+  data: (raw: string) => Record<string, unknown>,
+): Promise<void> {
+  if (!(await requireHumanAttachment(id, tab))) return;
+  if (!(await approveOp(id, tab, operation, script, extraEnvelope))) return;
+  try {
+    const raw = await invoke<string>("browser_eval", {
+      tabId: tab.tabId,
+      script,
+      operation,
+      generation: tab.generation,
+    });
+    await respond({ id, success: true, data: data(raw) });
+  } finally {
+    const approvals = useBrowserApprovalStore.getState();
+    if (tab.automationMode === "human" && approvals.isHumanTabAttached(tab.tabId, tab.generation)) {
+      approvals.consumeHumanTabAttachment(tab.tabId, tab.generation);
     }
   }
-  if (Array.isArray(args.addClasses)) ops.addClasses = args.addClasses.filter((s): s is string => typeof s === "string");
-  if (Array.isArray(args.removeClasses)) ops.removeClasses = args.removeClasses.filter((s): s is string => typeof s === "string");
-  if (typeof args.injectCss === "string" && args.injectCss.length > 0) ops.injectCss = args.injectCss;
-  const hasOp =
-    (ops.set && Object.keys(ops.set).length) || ops.addClasses?.length || ops.removeClasses?.length || ops.injectCss;
-  return hasOp ? ops : null;
 }
 
 /** `vmark.browser.style` — isolated-world CSS manipulation (act-class, op `style`). */
 export async function handleBrowserStyle(id: string, args: Record<string, unknown>): Promise<void> {
   return wrapHandler(id, async () => {
-    const tab = await resolveForWrite(id, args);
+    const tab = await resolveWriteTab(id, args);
     if (!tab) return;
     const ref = typeof args.ref === "string" && args.ref.trim() ? args.ref : undefined;
     const selector = typeof args.selector === "string" && args.selector.trim() ? args.selector : undefined;
-    const ops = readStyleOps(args);
-    if (!ops) {
-      await respond({ id, success: false, error: "style requires one of: set, addClasses, removeClasses, or injectCss" });
+    if (ref && selector) {
+      await respond({ id, success: false, error: "style takes {ref} OR {selector}, not both" });
       return;
     }
+    const parsed = readStyleOps(args);
+    if ("error" in parsed) {
+      await respond({ id, success: false, error: parsed.error });
+      return;
+    }
+    const ops = parsed.ops;
     if (!ref && !selector && !ops.injectCss) {
       await respond({ id, success: false, error: "style requires a {ref} or {selector} (injectCss needs neither)" });
       return;
@@ -184,18 +227,14 @@ export async function handleBrowserStyle(id: string, args: Record<string, unknow
     // later retry with different ops rebuilds a different script and is refused rather
     // than riding the prior approval. (Security review P5, High #1 / Medium #4.)
     const script = buildStyleScript({ ref, selector }, tab.generation, ops);
-    if (!(await approveOp(id, tab, "style", script))) return;
-    const raw = await invoke<string>("browser_eval", {
-      tabId: tab.tabId,
-      script,
-      operation: "style",
-      generation: tab.generation,
-    });
-    const approvals = useBrowserApprovalStore.getState();
-    if (tab.automationMode === "human" && approvals.isHumanTabAttached(tab.tabId, tab.generation)) {
-      approvals.consumeHumanTabAttachment(tab.tabId, tab.generation);
+    // Rust's authoritative gate measures the BUILT script, not the raw CSS —
+    // check the same thing here so near-limit CSS is refused with a clear
+    // client-side error instead of an opaque rejection after wrapping.
+    if (utf8ByteLength(script) > MAX_SCRIPT_BYTES) {
+      await respond({ id, success: false, error: `style script (wrapped CSS) exceeds the ${MAX_SCRIPT_BYTES}-byte limit` });
+      return;
     }
-    await respond({ id, success: true, data: { result: parseEvalResult(raw) } });
+    await runWriteOp(id, tab, "style", script, undefined, (raw) => ({ result: parseEvalResult(raw) }));
   });
 }
 
@@ -204,7 +243,7 @@ export async function handleBrowserStyle(id: string, args: Record<string, unknow
  *  script shown in the approval envelope, the result flagged untrusted (ADR-A6). */
 export async function handleBrowserExecuteJs(id: string, args: Record<string, unknown>): Promise<void> {
   return wrapHandler(id, async () => {
-    const tab = await resolveForWrite(id, args);
+    const tab = await resolveWriteTab(id, args);
     if (!tab) return;
     const script = typeof args.script === "string" && args.script.trim() ? args.script : "";
     if (!script) {
@@ -219,18 +258,10 @@ export async function handleBrowserExecuteJs(id: string, args: Record<string, un
     // what they authorize — and the FULL script is bound into the one-shot, so an
     // approved script cannot be swapped for another on the retry. `eval` is never
     // grantable, so this is always per-call. (Security review P5, High #1.)
-    if (!(await approveOp(id, tab, "eval", script, { script: script.slice(0, 2000) }))) return;
-    const raw = await invoke<string>("browser_eval", {
-      tabId: tab.tabId,
-      script,
-      operation: "eval",
-      generation: tab.generation,
-    });
-    const approvals = useBrowserApprovalStore.getState();
-    if (tab.automationMode === "human" && approvals.isHumanTabAttached(tab.tabId, tab.generation)) {
-      approvals.consumeHumanTabAttachment(tab.tabId, tab.generation);
-    }
     // The result is page-derived and UNTRUSTED — never auto-feed it into a later act.
-    await respond({ id, success: true, data: { result: parseEvalResult(raw), untrusted: true } });
+    await runWriteOp(id, tab, "eval", script, { script: script.slice(0, 2000) }, (raw) => ({
+      result: parseEvalResult(raw),
+      untrusted: true,
+    }));
   });
 }

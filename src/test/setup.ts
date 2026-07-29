@@ -128,7 +128,9 @@ vi.mock("@/i18n", () => {
   const t = (key: string, opts?: Record<string, unknown>) =>
     resolveKey(key, "common", opts);
   return {
-    default: { t, language: "en" },
+    // `on`/`off` mirror the real i18next event emitter surface (used by
+    // node views to refresh labels on languageChanged).
+    default: { t, language: "en", on: () => {}, off: () => {} },
     // Ensure the default export and named exports both work
     __esModule: true,
   };

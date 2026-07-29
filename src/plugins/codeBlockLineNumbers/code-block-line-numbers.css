@@ -93,6 +93,12 @@
   transition: opacity var(--duration-base), color var(--duration-base), background var(--duration-base);
 }
 
+/* `hidden` is the single visibility source of truth (run button on non-shell
+   fences); the flex rule above would otherwise win over the attribute. */
+.tiptap-editor .code-copy-btn[hidden] {
+  display: none;
+}
+
 .tiptap-editor .code-block-wrapper:hover .code-copy-btn {
   opacity: var(--opacity-half-faded);
 }

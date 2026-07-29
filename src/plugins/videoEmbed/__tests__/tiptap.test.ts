@@ -7,7 +7,6 @@ import { describe, it, expect, vi } from "vitest";
 import { getSchema } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import { DOMSerializer, DOMParser as PMDOMParser } from "@tiptap/pm/model";
-import { EditorState } from "@tiptap/pm/state";
 
 // Mock the VideoEmbedNodeView to avoid DOM complexity
 vi.mock("../VideoEmbedNodeView", () => ({
@@ -156,14 +155,14 @@ describe("videoEmbed parseHTML", () => {
     const schema = createSchema();
     // Browsers may wrap standalone iframes; test via figure wrapper which is more reliable
     const html = `<figure data-type="video_embed" data-provider="youtube">
-      <iframe src="https://www.youtube-nocookie.com/embed/abc123test" width="640" height="360" data-video-id="abc123test"></iframe>
+      <iframe src="https://www.youtube-nocookie.com/embed/abc123test9" width="640" height="360" data-video-id="abc123test9"></iframe>
     </figure>`;
     const dom = new DOMParser().parseFromString(html, "text/html").body;
     const doc = PMDOMParser.fromSchema(schema).parse(dom);
     const node = doc.firstChild!;
     expect(node.type.name).toBe("video_embed");
     expect(node.attrs.provider).toBe("youtube");
-    expect(node.attrs.videoId).toBe("abc123test");
+    expect(node.attrs.videoId).toBe("abc123test9");
     expect(node.attrs.width).toBe(640);
     expect(node.attrs.height).toBe(360);
   });
@@ -193,13 +192,41 @@ describe("videoEmbed parseHTML", () => {
   it("defaults width/height for invalid values in figure", () => {
     const schema = createSchema();
     const html = `<figure data-type="video_embed" data-provider="youtube">
-      <iframe src="https://www.youtube-nocookie.com/embed/test123" width="invalid" height="-10" data-video-id="test123"></iframe>
+      <iframe src="https://www.youtube-nocookie.com/embed/test123" width="invalid" height="-10" data-video-id="test1234567"></iframe>
     </figure>`;
     const dom = new DOMParser().parseFromString(html, "text/html").body;
     const doc = PMDOMParser.fromSchema(schema).parse(dom);
     const node = doc.firstChild!;
     expect(node.attrs.width).toBe(560);  // NaN from "invalid" falls back to 560
     expect(node.attrs.height).toBe(315); // -10 is not > 0, falls back to 315
+  });
+
+  it("does not turn an iframe-less figure into an empty embed", () => {
+    // A figure carrying the data-type but no iframe (and no data-video-id)
+    // has no derivable video — it must not swallow its content as an empty
+    // youtube embed.
+    const schema = createSchema();
+    const html = '<figure data-type="video_embed"><p>caption only</p></figure>';
+    const dom = new DOMParser().parseFromString(html, "text/html").body;
+    const doc = PMDOMParser.fromSchema(schema).parse(dom);
+    let embeds = 0;
+    doc.descendants((node) => {
+      if (node.type.name === "video_embed") embeds++;
+    });
+    expect(embeds).toBe(0);
+    expect(doc.textContent).toContain("caption only");
+  });
+
+  it("uses the provider's default height for a Bilibili figure without dimensions", () => {
+    const schema = createSchema();
+    const html = `<figure data-type="video_embed" data-provider="bilibili">
+      <iframe src="https://player.bilibili.com/player.html?bvid=BV1234567890" data-video-id="BV1234567890"></iframe>
+    </figure>`;
+    const dom = new DOMParser().parseFromString(html, "text/html").body;
+    const doc = PMDOMParser.fromSchema(schema).parse(dom);
+    const node = doc.firstChild!;
+    expect(node.type.name).toBe("video_embed");
+    expect(node.attrs.height).toBe(350);
   });
 
   it("skips unrecognized iframe src", () => {
@@ -258,7 +285,7 @@ describe("videoEmbed renderHTML", () => {
   });
 
   it("renders iframe with correct src for YouTube", () => {
-    const { doc, schema } = createVideoDoc({ provider: "youtube", videoId: "abc123" });
+    const { doc, schema } = createVideoDoc({ provider: "youtube", videoId: "abc12345678" });
     const serializer = DOMSerializer.fromSchema(schema);
     const fragment = serializer.serializeFragment(doc.content);
     const container = document.createElement("div");
@@ -266,7 +293,7 @@ describe("videoEmbed renderHTML", () => {
 
     const iframe = container.querySelector("iframe");
     expect(iframe).not.toBeNull();
-    expect(iframe!.getAttribute("src")).toContain("youtube-nocookie.com/embed/abc123");
+    expect(iframe!.getAttribute("src")).toContain("youtube-nocookie.com/embed/abc12345678");
   });
 
   it("renders iframe with correct src for Vimeo", () => {
@@ -347,146 +374,6 @@ describe("videoEmbed renderHTML", () => {
 
 // ---------------------------------------------------------------------------
 // Paste handler plugin
-// ---------------------------------------------------------------------------
-
-describe("videoEmbed paste handler", () => {
-  function getPasteHandler() {
-    const schema = createSchema();
-    const nodeType = schema.nodes.video_embed;
-    const plugins = videoEmbedExtension.config.addProseMirrorPlugins!.call({
-      editor: {},
-      name: "video_embed",
-      options: {},
-      storage: {},
-      type: nodeType,
-      parent: undefined,
-    } as never);
-    // The paste handler plugin is the one returned by addProseMirrorPlugins
-    return (plugins[0] as { props: { handlePaste: (view: unknown, event: unknown) => boolean } }).props.handlePaste;
-  }
-
-  it("returns false when clipboardData is null", () => {
-    const handlePaste = getPasteHandler();
-    const result = handlePaste({}, { clipboardData: null });
-    expect(result).toBe(false);
-  });
-
-  it("returns false when clipboard has HTML content", () => {
-    const handlePaste = getPasteHandler();
-    const result = handlePaste({}, {
-      clipboardData: {
-        getData: (type: string) => type === "text/html" ? "<p>html</p>" : "",
-      },
-    });
-    expect(result).toBe(false);
-  });
-
-  it("returns false when clipboard has no text", () => {
-    const handlePaste = getPasteHandler();
-    const result = handlePaste({}, {
-      clipboardData: {
-        getData: (type: string) => type === "text/html" ? "" : "",
-      },
-    });
-    expect(result).toBe(false);
-  });
-
-  it("returns false for non-video URL", () => {
-    const handlePaste = getPasteHandler();
-    const result = handlePaste({}, {
-      clipboardData: {
-        getData: (type: string) => type === "text/plain" ? "https://example.com" : "",
-      },
-    });
-    expect(result).toBe(false);
-  });
-
-  it("returns true and dispatches for YouTube URL", () => {
-    const handlePaste = getPasteHandler();
-    const schema = createSchema();
-    const doc = schema.nodes.doc.create(null, [schema.nodes.paragraph.create()]);
-    const state = EditorState.create({ doc });
-
-    const mockDispatch = vi.fn();
-    const mockView = {
-      state,
-      dispatch: mockDispatch,
-    };
-
-    const result = handlePaste(mockView, {
-      clipboardData: {
-        getData: (type: string) => type === "text/plain" ? "https://www.youtube.com/watch?v=dQw4w9WgXcQ" : "",
-      },
-    });
-    expect(result).toBe(true);
-    expect(mockDispatch).toHaveBeenCalled();
-  });
-
-  it("returns true and dispatches for Vimeo URL", () => {
-    const handlePaste = getPasteHandler();
-    const schema = createSchema();
-    const doc = schema.nodes.doc.create(null, [schema.nodes.paragraph.create()]);
-    const state = EditorState.create({ doc });
-
-    const mockDispatch = vi.fn();
-    const mockView = {
-      state,
-      dispatch: mockDispatch,
-    };
-
-    const result = handlePaste(mockView, {
-      clipboardData: {
-        getData: (type: string) => type === "text/plain" ? "https://vimeo.com/123456789" : "",
-      },
-    });
-    expect(result).toBe(true);
-    expect(mockDispatch).toHaveBeenCalled();
-  });
-
-  it("returns true and dispatches for Bilibili URL", () => {
-    const handlePaste = getPasteHandler();
-    const schema = createSchema();
-    const doc = schema.nodes.doc.create(null, [schema.nodes.paragraph.create()]);
-    const state = EditorState.create({ doc });
-
-    const mockDispatch = vi.fn();
-    const mockView = {
-      state,
-      dispatch: mockDispatch,
-    };
-
-    const result = handlePaste(mockView, {
-      clipboardData: {
-        getData: (type: string) => type === "text/plain" ? "https://www.bilibili.com/video/BV1234567890" : "",
-      },
-    });
-    expect(result).toBe(true);
-    expect(mockDispatch).toHaveBeenCalled();
-  });
-
-  it("handles YouTube URL with extra whitespace", () => {
-    const handlePaste = getPasteHandler();
-    const schema = createSchema();
-    const doc = schema.nodes.doc.create(null, [schema.nodes.paragraph.create()]);
-    const state = EditorState.create({ doc });
-
-    const mockDispatch = vi.fn();
-    const mockView = {
-      state,
-      dispatch: mockDispatch,
-    };
-
-    const result = handlePaste(mockView, {
-      clipboardData: {
-        getData: (type: string) => type === "text/plain" ? "  https://youtu.be/dQw4w9WgXcQ  " : "",
-      },
-    });
-    expect(result).toBe(true);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Other plugin specs
 // ---------------------------------------------------------------------------
 
 describe("videoEmbed other plugin specs", () => {
@@ -672,19 +559,16 @@ describe("videoEmbed parseHTML — iframe getAttrs branch coverage (lines 83-89)
 // ---------------------------------------------------------------------------
 
 describe("videoEmbed parseHTML — figure getAttrs branch coverage (lines 58-71)", () => {
-  it("returns empty videoId and defaults when figure has no iframe", () => {
+  it("REFUSES the match when figure has no iframe (no derivable video)", () => {
     const parseRules = videoEmbedExtension.config.parseHTML!.call({} as never);
     const getAttrs = parseRules![0].getAttrs!;
 
     const figure = document.createElement("figure");
     figure.setAttribute("data-type", "video_embed");
     figure.setAttribute("data-provider", "vimeo");
-    // No iframe child
-    const result = getAttrs(figure as never) as Record<string, unknown>;
-    expect(result.videoId).toBe("");       // No iframe → "" fallback
-    expect(result.provider).toBe("vimeo");
-    expect(result.width).toBe(560);        // NaN from null → fallback
-    expect(result.height).toBe(315);
+    // No iframe child → no video ID → rule must decline, not build an
+    // empty embed that swallows the figure content.
+    expect(getAttrs(figure as never)).toBe(false);
   });
 
   it("defaults provider to youtube when figure has no data-provider", () => {
@@ -695,14 +579,14 @@ describe("videoEmbed parseHTML — figure getAttrs branch coverage (lines 58-71)
     figure.setAttribute("data-type", "video_embed");
     // No data-provider
     const iframe = document.createElement("iframe");
-    iframe.setAttribute("data-video-id", "xyz");
+    iframe.setAttribute("data-video-id", "xyzXYZ12345");
     iframe.setAttribute("width", "400");
     iframe.setAttribute("height", "300");
     figure.appendChild(iframe);
 
     const result = getAttrs(figure as never) as Record<string, unknown>;
     expect(result.provider).toBe("youtube"); // ?? "youtube" fallback
-    expect(result.videoId).toBe("xyz");
+    expect(result.videoId).toBe("xyzXYZ12345");
     expect(result.width).toBe(400);
     expect(result.height).toBe(300);
   });
@@ -715,7 +599,7 @@ describe("videoEmbed parseHTML — figure getAttrs branch coverage (lines 58-71)
     figure.setAttribute("data-type", "video_embed");
     figure.setAttribute("data-provider", "youtube");
     const iframe = document.createElement("iframe");
-    iframe.setAttribute("data-video-id", "test");
+    iframe.setAttribute("data-video-id", "test1234567");
     iframe.setAttribute("width", "invalid");
     iframe.setAttribute("height", "-10");
     figure.appendChild(iframe);
@@ -723,6 +607,37 @@ describe("videoEmbed parseHTML — figure getAttrs branch coverage (lines 58-71)
     const result = getAttrs(figure as never) as Record<string, unknown>;
     expect(result.width).toBe(560);   // NaN → fallback
     expect(result.height).toBe(315);  // -10 not > 0 → fallback
+  });
+
+  it("a valid src OVERRIDES disagreeing data-* metadata (src is authoritative)", () => {
+    const parseRules = videoEmbedExtension.config.parseHTML!.call({} as never);
+    const getAttrs = parseRules![0].getAttrs!;
+
+    const figure = document.createElement("figure");
+    figure.setAttribute("data-type", "video_embed");
+    figure.setAttribute("data-provider", "youtube"); // stale/hostile metadata
+    const iframe = document.createElement("iframe");
+    iframe.setAttribute("src", "https://player.vimeo.com/video/123456789");
+    iframe.setAttribute("data-video-id", "dQw4w9WgXcQ");
+    figure.appendChild(iframe);
+
+    const result = getAttrs(figure as never) as Record<string, unknown>;
+    expect(result.provider).toBe("vimeo");
+    expect(result.videoId).toBe("123456789");
+  });
+
+  it("refuses a garbage declared ID instead of building a broken embed", () => {
+    const parseRules = videoEmbedExtension.config.parseHTML!.call({} as never);
+    const getAttrs = parseRules![0].getAttrs!;
+
+    const figure = document.createElement("figure");
+    figure.setAttribute("data-type", "video_embed");
+    figure.setAttribute("data-provider", "youtube");
+    const iframe = document.createElement("iframe");
+    iframe.setAttribute("data-video-id", "short"); // not the 11-char format
+    figure.appendChild(iframe);
+
+    expect(getAttrs(figure as never)).toBe(false);
   });
 });
 
@@ -781,49 +696,6 @@ describe("videoEmbed renderHTML — null/undefined attrs fallback (lines 97-98, 
 // getProviderConfig returns null/undefined → uses ?? 560 / ?? 315 defaults
 // ---------------------------------------------------------------------------
 
-describe("videoEmbed paste handler — getProviderConfig returns null (lines 158-159)", () => {
-  it("falls back to 560x315 when getProviderConfig returns null for the pasted provider", () => {
-    // Override getProviderConfig to return null for this one call
-    mockGetProviderConfig.mockReturnValueOnce(null);
-
-    const schema = createSchema();
-    const nodeType = schema.nodes.video_embed;
-    const plugins = videoEmbedExtension.config.addProseMirrorPlugins!.call({
-      editor: {},
-      name: "video_embed",
-      options: {},
-      storage: {},
-      type: nodeType,
-      parent: undefined,
-    } as never);
-    const handlePaste = (plugins[0] as { props: { handlePaste: (view: unknown, event: unknown) => boolean } }).props.handlePaste;
-
-    const doc = schema.nodes.doc.create(null, [schema.nodes.paragraph.create()]);
-    const state = EditorState.create({ schema, doc });
-    const mockDispatch = vi.fn();
-
-    const result = handlePaste(
-      { state, dispatch: mockDispatch },
-      {
-        clipboardData: {
-          getData: (type: string) => type === "text/plain" ? "https://www.youtube.com/watch?v=dQw4w9WgXcQ" : "",
-        },
-      },
-    );
-
-    // Should still succeed — the node is created with fallback dimensions
-    expect(result).toBe(true);
-    expect(mockDispatch).toHaveBeenCalled();
-    // Verify the dispatched transaction inserted a video_embed node with defaults
-    const tr = mockDispatch.mock.calls[0][0] as { doc: { firstChild: { attrs: Record<string, unknown> } } };
-    const node = tr.doc?.firstChild;
-    if (node && node.attrs) {
-      expect(node.attrs.width).toBe(560);
-      expect(node.attrs.height).toBe(315);
-    }
-  });
-});
-
 describe("videoEmbed parseHTML — iframe with no src attribute (line 78)", () => {
   it("returns false for iframe with no src attribute", () => {
     const parseRules = videoEmbedExtension.config.parseHTML!.call({} as never);
@@ -838,54 +710,32 @@ describe("videoEmbed parseHTML — iframe with no src attribute (line 78)", () =
   });
 });
 
-describe("videoEmbed paste handler — config defaults coverage (lines 154-159)", () => {
-  function getPasteHandlerWithSchema() {
+describe("renderHTML — unlisted Vimeo privacy hash (audit round)", () => {
+  it("carries the hash into the serialized iframe src", () => {
     const schema = createSchema();
-    const nodeType = schema.nodes.video_embed;
-    const plugins = videoEmbedExtension.config.addProseMirrorPlugins!.call({
-      editor: {},
-      name: "video_embed",
-      options: {},
-      storage: {},
-      type: nodeType,
-      parent: undefined,
-    } as never);
-    const handlePaste = (plugins[0] as { props: { handlePaste: (view: unknown, event: unknown) => boolean } }).props.handlePaste;
-    return { schema, handlePaste };
-  }
-
-  it("creates node with provider config defaults when pasting a YouTube URL", () => {
-    const { schema, handlePaste } = getPasteHandlerWithSchema();
-    const doc = schema.nodes.doc.create(null, [schema.nodes.paragraph.create()]);
-    const state = EditorState.create({ schema, doc });
-
-    const mockDispatch = vi.fn();
-    const mockView = { state, dispatch: mockDispatch };
-
-    // Use a valid 11-char YouTube video ID
-    const result = handlePaste(mockView, {
-      clipboardData: {
-        getData: (type: string) => type === "text/plain" ? "https://www.youtube.com/watch?v=dQw4w9WgXcQ" : "",
-      },
+    const node = schema.nodes.video_embed.create({
+      provider: "vimeo",
+      videoId: "123456789",
+      privacyHash: "abcDEF123",
     });
-    expect(result).toBe(true);
-    expect(mockDispatch).toHaveBeenCalled();
+    const spec = videoEmbedExtension.config.renderHTML!.call(
+      { options: {}, editor: {} } as never,
+      { node, HTMLAttributes: {} } as never
+    ) as [string, Record<string, unknown>, [string, Record<string, string>]];
+    expect(spec[2][1].src).toBe("https://player.vimeo.com/video/123456789?h=abcDEF123");
   });
 
-  it("creates node with Bilibili provider config defaults when pasting a Bilibili URL", () => {
-    const { schema, handlePaste } = getPasteHandlerWithSchema();
-    const doc = schema.nodes.doc.create(null, [schema.nodes.paragraph.create()]);
-    const state = EditorState.create({ schema, doc });
-
-    const mockDispatch = vi.fn();
-    const mockView = { state, dispatch: mockDispatch };
-
-    const result = handlePaste(mockView, {
-      clipboardData: {
-        getData: (type: string) => type === "text/plain" ? "https://www.bilibili.com/video/BV1234567890" : "",
-      },
+  it("figure parse without data attrs derives everything from the iframe src", () => {
+    const rules = videoEmbedExtension.config.parseHTML!.call({} as never);
+    const figureRule = rules[0] as { getAttrs: (el: HTMLElement) => Record<string, unknown> | false };
+    const el = document.createElement("figure");
+    el.setAttribute("data-type", "video_embed");
+    el.innerHTML = '<iframe src="https://player.vimeo.com/video/123456789?h=beef1234"></iframe>';
+    const attrs = figureRule.getAttrs(el);
+    expect(attrs).toMatchObject({
+      provider: "vimeo",
+      videoId: "123456789",
+      privacyHash: "beef1234",
     });
-    expect(result).toBe(true);
-    expect(mockDispatch).toHaveBeenCalled();
   });
 });

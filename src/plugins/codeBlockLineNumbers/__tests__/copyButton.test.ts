@@ -171,4 +171,33 @@ describe("copy button", () => {
 
     view.destroy();
   });
+
+  it("writes ONCE for rapid repeated clicks while a write is pending", async () => {
+    let resolveWrite: () => void = () => {};
+    const writeText = vi.fn(
+      () => new Promise<void>((resolve) => (resolveWrite = resolve))
+    );
+    setClipboard({ writeText });
+    const view = createView("hello world");
+    const btn = getCopyButton(view);
+
+    btn.click();
+    btn.click();
+    btn.click();
+    await Promise.resolve();
+
+    expect(writeText).toHaveBeenCalledTimes(1);
+
+    resolveWrite();
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    // After settlement the button copies again.
+    btn.click();
+    await Promise.resolve();
+    expect(writeText).toHaveBeenCalledTimes(2);
+
+    view.destroy();
+  });
 });

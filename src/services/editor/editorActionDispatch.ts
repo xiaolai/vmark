@@ -36,16 +36,16 @@ import {
   getSourceMultiSelectionContext,
   getWysiwygMultiSelectionContext,
 } from "@/plugins/toolbarActions/multiSelectionContext";
-import { performUnifiedUndo, performUnifiedRedo } from "@/services/history/unifiedHistory";
 import {
   runOrQueueCodeMirrorAction,
   runOrQueueProseMirrorAction,
 } from "@/utils/imeGuard";
 import { menuDispatcherLog } from "@/utils/debug";
 import { isEffectiveSourceMode, mapActionIdToAdapterAction } from "./editorActionGates";
-import { getEditorActionOwner, type EditorActionOwner } from "./editorActionOwner";
+import type { EditorActionOwner } from "./editorActionOwner";
 import { isWindowReadOnly } from "@/services/commands/commandContext";
-import { mutatesDocument } from "@/services/commands/actionAvailability";
+import { adapterActionMutates } from "@/services/commands/actionAvailability";
+import type { AdapterAction } from "@/plugins/toolbarActions/adapterActions";
 
 /** The tab + surface an action is bound to — captured when it is invoked. */
 export interface EditorActionOrigin {
@@ -67,7 +67,7 @@ export function captureOrigin(windowLabel: string, sourceMode: boolean): EditorA
  * toggle during the retry/IME window must not dispatch to the surface that was
  * selected when the event fired (the retry path keeps the original surface).
  */
-function isOriginValid(origin: EditorActionOrigin): boolean {
+export function isOriginValid(origin: EditorActionOrigin): boolean {
   const tabId = useTabStore.getState().activeTabId[origin.windowLabel] ?? null;
   return tabId === origin.tabId && isEffectiveSourceMode(origin.windowLabel) === origin.sourceMode;
 }
@@ -76,14 +76,27 @@ function isOriginValid(origin: EditorActionOrigin): boolean {
 const MAX_EDITOR_RETRIES = 3;
 
 /**
- * Dispatch to the WYSIWYG editor. Returns true if the editor was available and
- * the action was run/queued. The action runs behind the ProseMirror IME guard;
- * when composing it is queued and executed later on `compositionend`, so
- * ownership is re-validated inside the deferred callback.
+ * The adapter-vocabulary form of an ActionId invocation. Heading actions
+ * carry their level in the adapter string (`heading:N`), which is what the
+ * shared adapter dispatchers below execute.
  */
-export function dispatchToWysiwyg(
-  actionId: ActionId,
-  params: Record<string, unknown> | undefined,
+function adapterFormOf(actionId: ActionId, params: Record<string, unknown> | undefined): AdapterAction {
+  if (actionId === "setHeading") return `heading:${getHeadingLevelFromParams(params)}` as AdapterAction;
+  if (actionId === "paragraph") return "heading:0";
+  return mapActionIdToAdapterAction(actionId);
+}
+
+/**
+ * Dispatch one ADAPTER action ("bold", "heading:2", …) to the WYSIWYG editor
+ * with the executor's full guard set. Returns true if the editor was
+ * available and the action was run/queued. The action runs behind the
+ * ProseMirror IME guard; when composing it is queued and executed later on
+ * `compositionend`, so ownership is re-validated inside the deferred
+ * callback. This is the ONE mutation path — the ActionId executor and the
+ * toolbar/context-menu dispatcher both end here.
+ */
+export function dispatchAdapterToWysiwyg(
+  action: AdapterAction,
   origin: EditorActionOrigin,
   owner: EditorActionOwner,
 ): boolean {
@@ -98,7 +111,7 @@ export function dispatchToWysiwyg(
 
   const view = editor.view;
   if (!view) {
-    menuDispatcherLog(`WYSIWYG editor view not available for ${actionId}`);
+    menuDispatcherLog(`WYSIWYG editor view not available for ${action}`);
     return false;
   }
 
@@ -111,9 +124,9 @@ export function dispatchToWysiwyg(
       owner.isDisposed() ||
       !isOriginValid(origin) ||
       useEditorStore.getState().active.activeWysiwygEditor !== editor ||
-      (mutatesDocument(actionId) && isWindowReadOnly(origin.windowLabel))
+      (adapterActionMutates(action) && isWindowReadOnly(origin.windowLabel))
     ) {
-      menuDispatcherLog(`${actionId} dropped — origin no longer valid at deferred dispatch`);
+      menuDispatcherLog(`${action} dropped — origin no longer valid at deferred dispatch`);
       return;
     }
     // Build the multi-selection context from the CURRENT view state, inside the
@@ -122,47 +135,52 @@ export function dispatchToWysiwyg(
     // (audit-fix #2).
     const multiSelection = getWysiwygMultiSelectionContext(view, null);
     const context = { surface: "wysiwyg", view, editor, context: null, multiSelection } as const;
-    if (actionId === "setHeading") {
-      setWysiwygHeadingLevel(context, getHeadingLevelFromParams(params));
+    if (action.startsWith("heading:")) {
+      setWysiwygHeadingLevel(context, Number(action.split(":")[1]));
       return;
     }
-    if (actionId === "paragraph") {
-      setWysiwygHeadingLevel(context, 0);
-      return;
-    }
-    performWysiwygToolbarAction(mapActionIdToAdapterAction(actionId), context);
+    performWysiwygToolbarAction(action, context);
   });
 
   return true;
 }
 
-/**
- * Dispatch to the Source (CodeMirror) editor. Returns true if the view was
- * available and the action was run/queued. Ownership is re-validated inside the
- * IME-deferred callback, as for WYSIWYG.
- */
-export function dispatchToSource(
+/** ActionId layer over `dispatchAdapterToWysiwyg` (the executor's entry). */
+export function dispatchToWysiwyg(
   actionId: ActionId,
   params: Record<string, unknown> | undefined,
+  origin: EditorActionOrigin,
+  owner: EditorActionOwner,
+): boolean {
+  return dispatchAdapterToWysiwyg(adapterFormOf(actionId, params), origin, owner);
+}
+
+/**
+ * Dispatch one ADAPTER action to the Source (CodeMirror) editor with the
+ * executor's full guard set — see `dispatchAdapterToWysiwyg`. Ownership is
+ * re-validated inside the IME-deferred callback.
+ */
+export function dispatchAdapterToSource(
+  action: AdapterAction,
   origin: EditorActionOrigin,
   owner: EditorActionOwner,
 ): boolean {
   const active = useEditorStore.getState().active;
   const view = active.activeSourceView;
   // The globally-active Source view must belong to the ORIGIN tab — see
-  // dispatchToWysiwyg: guards the same tab-switch race for CodeMirror (audit-fix #1).
+  // dispatchAdapterToWysiwyg: guards the same tab-switch race for CodeMirror (audit-fix #1).
   if (!view || active.activeSourceTabId !== origin.tabId) return false;
 
   runOrQueueCodeMirrorAction(view, () => {
-    // See dispatchToWysiwyg: same deferred-boundary re-validation for the
+    // See dispatchAdapterToWysiwyg: same deferred-boundary re-validation for the
     // Source (CodeMirror) surface — owner alive, same tab, same view instance.
     if (
       owner.isDisposed() ||
       !isOriginValid(origin) ||
       useEditorStore.getState().active.activeSourceView !== view ||
-      (mutatesDocument(actionId) && isWindowReadOnly(origin.windowLabel))
+      (adapterActionMutates(action) && isWindowReadOnly(origin.windowLabel))
     ) {
-      menuDispatcherLog(`${actionId} dropped — origin no longer valid at deferred dispatch`);
+      menuDispatcherLog(`${action} dropped — origin no longer valid at deferred dispatch`);
       return;
     }
     // Read the cursor context and build the multi-selection context from CURRENT
@@ -172,18 +190,24 @@ export function dispatchToSource(
     const cursorContext = useEditorStore.getState().source.context;
     const multiSelection = getSourceMultiSelectionContext(view, cursorContext);
     const context = { surface: "source", view, context: cursorContext, multiSelection } as const;
-    if (actionId === "setHeading") {
-      setSourceHeadingLevel(context, getHeadingLevelFromParams(params));
+    if (action.startsWith("heading:")) {
+      setSourceHeadingLevel(context, Number(action.split(":")[1]));
       return;
     }
-    if (actionId === "paragraph") {
-      setSourceHeadingLevel(context, 0);
-      return;
-    }
-    performSourceToolbarAction(mapActionIdToAdapterAction(actionId), context);
+    performSourceToolbarAction(action, context);
   });
 
   return true;
+}
+
+/** ActionId layer over `dispatchAdapterToSource` (the executor's entry). */
+export function dispatchToSource(
+  actionId: ActionId,
+  params: Record<string, unknown> | undefined,
+  origin: EditorActionOrigin,
+  owner: EditorActionOwner,
+): boolean {
+  return dispatchAdapterToSource(adapterFormOf(actionId, params), origin, owner);
 }
 
 /**
@@ -219,65 +243,4 @@ export function dispatchWithRetry(
   };
 
   owner.scheduleRetry(retry);
-}
-
-/**
- * Run cross-mode undo/redo behind the active surface's IME guard. When the
- * surface is composing the call is queued and runs on `compositionend`; at that
- * (possibly deferred) boundary the origin is re-validated — owner alive, same
- * tab + surface, same active view, and not read-only — exactly as the editor
- * dispatchers do, so a deferred history op can't fire against a stale, hidden,
- * torn-down, or read-only editor. No editor-mount retry: unified history is
- * per-window and needs no tab-bound remount wait (audit-fix #3).
- */
-export function runUnifiedHistoryImeSafe(
-  actionId: "undo" | "redo",
-  windowLabel: string,
-  sourceMode: boolean,
-): void {
-  const origin = captureOrigin(windowLabel, sourceMode);
-  const owner = getEditorActionOwner(windowLabel);
-  const run = () =>
-    actionId === "undo" ? performUnifiedUndo(windowLabel) : performUnifiedRedo(windowLabel);
-
-  const active = useEditorStore.getState().active;
-  if (sourceMode) {
-    const view = active.activeSourceView;
-    if (!view || active.activeSourceTabId !== origin.tabId) {
-      run();
-      return;
-    }
-    runOrQueueCodeMirrorAction(view, () => {
-      if (
-        owner.isDisposed() ||
-        !isOriginValid(origin) ||
-        useEditorStore.getState().active.activeSourceView !== view ||
-        isWindowReadOnly(origin.windowLabel)
-      ) {
-        menuDispatcherLog(`${actionId} dropped — origin no longer valid at deferred dispatch`);
-        return;
-      }
-      run();
-    });
-    return;
-  }
-
-  const editor = active.activeWysiwygEditor;
-  const view = editor?.view;
-  if (!editor || !view || active.activeWysiwygTabId !== origin.tabId) {
-    run();
-    return;
-  }
-  runOrQueueProseMirrorAction(view, () => {
-    if (
-      owner.isDisposed() ||
-      !isOriginValid(origin) ||
-      useEditorStore.getState().active.activeWysiwygEditor !== editor ||
-      isWindowReadOnly(origin.windowLabel)
-    ) {
-      menuDispatcherLog(`${actionId} dropped — origin no longer valid at deferred dispatch`);
-      return;
-    }
-    run();
-  });
 }

@@ -86,7 +86,7 @@ pub async fn mcp_bridge_start(app: AppHandle, port: u16) -> Result<McpServerStat
     // The on_exit callback resets state if the server loop exits unexpectedly
     // — but only if this instance is still the current generation.
     let app_for_cleanup = app.clone();
-    let actual_port = match mcp_bridge::start_bridge(app.clone(), port, move || {
+    let actual_port = match mcp_bridge::start_bridge(app.clone(), move || {
         if BRIDGE_GENERATION.load(Ordering::SeqCst) != generation {
             log::debug!(
                 "[MCP] Stale bridge loop exited (gen {}) — state untouched",

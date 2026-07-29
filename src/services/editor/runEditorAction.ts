@@ -35,8 +35,8 @@ import {
   dispatchToSource,
   dispatchToWysiwyg,
   dispatchWithRetry,
-  runUnifiedHistoryImeSafe,
 } from "./editorActionDispatch";
+import { runUnifiedHistoryImeSafe } from "./unifiedHistoryDispatch";
 import { resolveCommandContext } from "@/services/commands/commandContext";
 import { isActionExecutable } from "@/services/commands/actionAvailability";
 
