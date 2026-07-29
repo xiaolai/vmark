@@ -90,13 +90,41 @@ Shared instructions for all AI agents (Claude, Codex, etc.).
   - **i18n gate has two halves.** `pnpm lint:i18n` checks that every key exists in
     every locale AND that values were actually translated. The second half exists
     because the first cannot see a key copied over with its English value — ~1,160
-    of them had accumulated invisibly. It works off
-    `scripts/i18n-untranslated-baseline.json`, which **ratchets down only**: a new
-    English-looking value fails, and so does a baselined entry you have since
-    translated (record the win with `pnpm lint:i18n --update-untranslated`). A value
-    counts only at ≥3 words and ≥15 characters, so `JSON`, `CLI`, `Markdown` and
-    `VMark` are not flagged. **Never add a new entry to the baseline** — translate
-    the string instead.
+    of them had accumulated invisibly. That debt is now **paid: the baseline
+    (`scripts/i18n-untranslated-baseline.json`) is empty.** Keep it empty — a new
+    entry means a real regression, so translate the string instead of re-adding a
+    line. It still ratchets: a new English-looking value fails, and so does a
+    baselined entry you have since translated (record a win with
+    `pnpm lint:i18n --update-untranslated`). A value counts only at ≥3 words and
+    ≥15 characters, so `JSON`, `CLI`, `Markdown` and `VMark` are not flagged.
+
+    Strings that can **never** be translated — a literal path, GitHub Actions
+    runner labels, a bare `{{index}} / {{count}}` — do not belong in the baseline
+    either. They go in `scripts/i18nIdenticalAllowlist.ts` **with a stated
+    reason**, and are checked for staleness in both directions: translating an
+    exempted string fails the gate until its dead exemption is deleted. Adding an
+    entry there is a claim that the string is untranslatable, not that
+    translating it is inconvenient.
+
+  - **Locale bundles are FLAT — no nested objects, ever.** Every key in every
+    `src/locales/*/*.json` is a flat literal containing dots
+    (`"terminal.maxSessions": "…"`), never `{"terminal": {"maxSessions": …}}`.
+    `src/locales/__tests__/localeShape.test.ts` fails on any nested object, on a
+    key stored at two paths, and on a path English does not use.
+
+    This is not a style preference. i18next resolves the **nested** form before
+    a flat literal, so a bundle carrying both spellings of one key silently
+    serves the nested one — a translation written to the flat key is dead and
+    the user still sees English, while every key-presence check passes because
+    flattening the two produces the same name. 747 such duplicates had
+    accumulated, 14 actively hiding a translation. Banning nesting outright kills
+    the bug class rather than detecting it: with no objects in the bundle,
+    i18next's nested branch cannot match. Converging the other way would not
+    have worked — a flat key added later would still be shadowed.
+
+    The jsdom test mock (`src/test/setup.ts`) resolves flat-before-nested, the
+    opposite of real i18next. That disagreement is only harmless while bundles
+    stay flat, which is what the test enforces.
 
   - **Internationalization (i18n)**: All user-facing strings must use `t()` (React) or `t!()` (Rust).
     Never hardcode English strings in UI code. Translation keys use flat dot-separated camelCase

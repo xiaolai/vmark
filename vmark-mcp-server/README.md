@@ -43,8 +43,14 @@ await bridge.connect();
 const server = createVMarkMcpServer(bridge);
 ```
 
-`createVMarkMcpServer` registers all seven tools. `new VMarkMcpServer({ bridge })`
+`createVMarkMcpServer` registers all nine tools. `new VMarkMcpServer({ bridge })`
 gives you an empty server if you want to register a subset yourself.
+
+Nine rather than seven because `browser` and `coherence` are each split into a
+read-only tool and a mutating one. MCP annotations are per tool, so a tool that
+bundles an ARIA snapshot with `execute_js` has to advertise the danger of
+`execute_js`; splitting lets `browser_read` and `coherence` declare
+`readOnlyHint: true` and be auto-approved.
 
 A static `port` pins the bridge to one port for its lifetime. The CLI instead
 passes `portResolver`/`authTokenResolver` so a VMark restart — which reassigns

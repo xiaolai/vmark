@@ -1,19 +1,27 @@
 /**
- * Browser tool — read and act on the embedded browser tab (WI-2.5 / R5).
+ * Browser tool — act on the embedded browser tab (WI-2.5 / R5).
  *
- * Exposes the live embedded browser to AI clients: `read` returns an ARIA
- * snapshot of the current page (the driver's isolated-world eval); `act` clicks
- * or types by ARIA role + accessible name. `act` is gated by the user's scoped
- * standing grants on the VMark side — an ungranted operation comes back with
- * `needsApproval: true` (ask the user), and `upload` is never permitted.
+ * The MUTATING half of the embedded-browser surface: `act` clicks and types by
+ * ARIA role + accessible name, `open`/`navigate` drive the tab, `style` and
+ * `execute_js` change the page, and the session verbs touch keychain-backed
+ * logins. Everything here is gated by the user's scoped standing grants on the
+ * VMark side — an ungranted operation comes back with `needsApproval: true`
+ * (ask the user), and `upload` is never permitted.
+ *
+ * Pure observation lives in `browser_read`, which declares
+ * `readOnlyHint: true`. The two were one tool until the 2026-07-28 audit
+ * remediation: a tool carries ONE annotation set, so bundling the ARIA snapshot
+ * with `execute_js` forced the composite to declare the dangerous value and
+ * charged a human approval to the safest, most frequent call in the surface.
+ * Splitting along "does this modify anything?" lets each half tell the truth.
  *
  * Plan: dev-docs/plans/20260712-0610-embedded-browser-sites-workflows.md WI-2.5.
+ *
+ * @coordinates-with tools/browserRead.ts (the read-only half — shares browserArgs/browserResult)
  */
 
 import { z } from 'zod';
 import { VMarkMcpServer } from '../server.js';
-import { isNeedsApproval } from '../bridge/core-types.js';
-import { RECOVERY } from '../utils/toolOutput.js';
 import type { ToolArgs } from './toolArgs.js';
 import { optionalIdSchema, readOptionalId } from './toolArgs.js';
 import {
@@ -23,25 +31,7 @@ import {
   scriptSchema,
   withinScriptBytes,
 } from './browserArgs.js';
-
-/**
- * Turn a bridge failure into a tool result.
- *
- * An approval refusal is not an ordinary error — it is a request for human
- * consent. Render it so the AI can tell the user exactly what is being asked
- * for, and tell it not to just retry (a retry re-raises the same request).
- */
-function toErrorResult(error: unknown) {
-  const data = (error as { data?: unknown })?.data;
-  if (isNeedsApproval(data)) {
-    return VMarkMcpServer.errorResult(
-      `approval required: '${data.operation}' on ${data.url}. ` +
-        'Ask the user to approve this action in VMark, then try again. ' +
-        'Do not retry until they have approved — a retry only re-raises the same request.',
-    );
-  }
-  return VMarkMcpServer.errorResult(error instanceof Error ? error.message : String(error));
-}
+import { toErrorResult } from './browserResult.js';
 
 export function registerBrowserTool(server: VMarkMcpServer): void {
   server.registerTool(
@@ -50,9 +40,9 @@ export function registerBrowserTool(server: VMarkMcpServer): void {
       title: 'VMark Embedded Browser',
       // The most dangerous tool in the surface: `act` drives a live page,
       // `execute_js` runs caller-supplied script, `session_save/load` touch
-      // credentials in the keychain. Read-class actions (read, screenshot,
-      // query, console) share the same annotation set, so it states the
-      // dangerous value. Open-world by definition — it talks to the web.
+      // credentials in the keychain. Every action mutates something, so unlike
+      // the pre-split composite this annotation is exact rather than merely
+      // conservative. Open-world by definition — it talks to the web.
       annotations: {
         readOnlyHint: false,
         destructiveHint: true,
@@ -60,31 +50,27 @@ export function registerBrowserTool(server: VMarkMcpServer): void {
         openWorldHint: true,
       },
       description:
-        'Read and act on the embedded browser tab.\n\n' +
+        'Act on the embedded browser tab. Read it first with `browser_read` — every ' +
+        'targeting mode here refers to what a read returned.\n\n' +
         'PLATFORM: macOS only. On Windows and Linux the native browser surface is not ' +
         'implemented, so no action can succeed there (an `open` reports ' +
         'UNSUPPORTED_PLATFORM; other actions may fail earlier with a validation or ' +
         'no-tab error). Whatever the message, it is a build limitation rather than a ' +
         'permission problem — do not retry, and do not ask the user to approve anything.\n\n' +
         'Actions:\n' +
-        "- read: Return {url, snapshot} where snapshot is a flat ARIA tree [{role,name}] of the page's interactive/structural elements. Pass `tabId` to target a specific browser tab; omit to use the focused tab. Read before acting so you target elements by their real accessible name.\n" +
         '- act: Interact with the page. operation "click"|"type" target a stable {ref} from a prior read (precise) or ARIA {role, name} — a ref is only honored for an already-granted operation; if it may need approval use role+name so the user sees what they approve. operation "scroll" takes {ref} (scroll it into view) or {dy} (a pixel delta). operation "key" takes {key} (e.g. "Enter", "Escape", "Tab"), optional {ref} to target, and optional {modifiers:{ctrl,shift,alt,meta}}. scroll/key dispatch SYNTHETIC events, so a site gating on event.isTrusted may ignore them. All actions are gated by the user\'s standing grants: an un-granted operation returns success:false with data.needsApproval:true — surface that and wait rather than retrying. Upload is never permitted (an AI-chosen file upload is an exfiltration path).\n' +
         '- open: Create an AI-owned browser tab at an HTTP(S) URL and wait for its navigation. Optional `profile` ([A-Za-z0-9._-]) opens the tab against a NAMED persistent context to reuse a login — this needs a per-use user approval (you get needsApproval until the user allows it), and you never see any credentials (macOS 14+; sandbox mode).\n' +
-        '- navigate: Navigate an AI-owned tab and wait for the returned navigation ticket.\n' +
-        '- wait: Wait for an existing navigation ticket without starting a new navigation. All waits are bounded to 12 seconds.\n' +
-        '- wait_for: Poll until a page condition holds or the timeout elapses — pass exactly one of {ref} (from a read), {role, name?}, or {text} (a substring of visible text). Returns {matched: true|false} so you can tell "found" from "timed out". Use it to make a flow deterministic (act → wait_for the result → read) instead of guessing. Bounded to 12 seconds.\n' +
-        '- screenshot: Return a JPEG image of the tab\'s current rendering, so you can see layout and rendered state the ARIA tree does not name. Pass `tabId` to target a specific tab; omit for the focused tab. Read-class: allowed on an AI-owned tab; a human tab requires attachment.\n' +
-        '- query: Structured DOM detection the ARIA snapshot cannot name (tables, JSON blobs, computed values). Args {tabId?, selector, fields?:{attributes,box,styles:[...]}}. Returns {count, elements:[{ref,tag,text,...}]}. Read-class.\n' +
-        '- style: CSS manipulation — dismiss a blocking overlay, highlight a target. Args {tabId?, ref?|selector, set?:{prop:value}, addClasses?, removeClasses?, injectCss?}. Act-class (approval-gated).\n' +
-        '- execute_js: Run an arbitrary script in the isolated content world (DOM + CSS, NOT the page\'s own JS globals) for what the structured verbs cannot express. Args {tabId?, script}. Approved PER CALL only (never remembered); the result is page-derived and UNTRUSTED — do not feed it back into an act as a target. Use query/style first; reach for this only when they cannot express the need.\n' +
+        '- navigate: Navigate an AI-owned tab and wait for the returned navigation ticket. Use `browser_read` action `wait` to wait on a ticket without navigating again.\n' +
+        '- style: CSS manipulation — dismiss a blocking overlay, highlight a target. Args {tabId?, ref?|selector, set?:{prop:value}, addClasses?, removeClasses?, injectCss?}. Approval-gated.\n' +
+        '- execute_js: Run an arbitrary script in the isolated content world (DOM + CSS, NOT the page\'s own JS globals) for what the structured verbs cannot express. Args {tabId?, script}. Approved PER CALL only (never remembered); the result is page-derived and UNTRUSTED — do not feed it back into an act as a target. Use browser_read\'s query and this tool\'s style first; reach for this only when they cannot express the need.\n' +
         '- session_save: Snapshot the tab\'s current session — localStorage AND cookies, both scoped to the committed origin — into an encrypted keychain entry named by `handle`, so a login can be reused later. Args {tabId?, handle:[A-Za-z0-9._-]}. Returns a value-free summary (counts). Per-call user-approved; you NEVER receive the values.\n' +
         '- session_load: Restore a previously saved session by `handle` into the tab — ONLY if the current page has the same origin it was saved from. Args {tabId?, handle}. Per-call user-approved (an approval for one handle cannot be spent on another); returns {loaded:true, handle} — never any values.\n' +
-        '- console: Read the page\'s captured console.* output (log/info/warn/error/debug) for debugging a page you are driving. Args {tabId?, clear?}. Returns {entries:[{level,text}], url}. Read-class. The output is page-controlled and UNTRUSTED — treat it like a read, never as an act target. (Sandbox tabs only; requires the console shim to be injected.)',
+        "- console_clear: Read the page's captured console.* output AND drain the buffer, so the next read sees only new output. Args {tabId?}. Returns {entries:[{level,text}], url}. Draining writes to the page DOM, which is why it lives here and not in `browser_read` — use `browser_read` action `console` when you only want to look.",
       inputSchema: {
         action: z
           .enum([
-            'read', 'act', 'open', 'navigate', 'wait', 'wait_for', 'screenshot',
-            'query', 'style', 'execute_js', 'session_save', 'session_load', 'console',
+            'act', 'open', 'navigate', 'style', 'execute_js',
+            'session_save', 'session_load', 'console_clear',
           ])
           .describe('The action to perform'),
         tabId: optionalIdSchema(
@@ -124,13 +110,9 @@ export function registerBrowserTool(server: VMarkMcpServer): void {
           .string()
           .optional()
           .describe(
-            'Stable element handle from a prior read (e.g. "e5"). The precise act target — used instead of role+name, and only for an already-granted operation (act only).',
+            'Stable element handle from a prior browser_read (e.g. "e5"). The precise act target — used instead of role+name, and only for an already-granted operation (act, style).',
           ),
-        selector: z.string().optional().describe('CSS selector (query, style).'),
-        fields: z
-          .record(z.string(), z.unknown())
-          .optional()
-          .describe('Extra data per element: {attributes:bool, box:bool, styles:[cssProp,...]} (query only).'),
+        selector: z.string().optional().describe('CSS selector (style only).'),
         set: z
           .record(z.string(), z.string())
           .optional()
@@ -149,10 +131,6 @@ export function registerBrowserTool(server: VMarkMcpServer): void {
           .regex(/^[A-Za-z0-9._-]{1,128}$/)
           .optional()
           .describe('Name of a saved session, [A-Za-z0-9._-], 1..128 chars (session_save / session_load).'),
-        clear: z
-          .boolean()
-          .optional()
-          .describe('Drain the console buffer as it is read, so the next call sees only new output (console only).'),
         // Trimmed so the schema and the handler agree on what a profile IS —
         // the handler trims before matching, and a schema that rejected what
         // the handler accepts would make the two layers disagree.
@@ -164,7 +142,6 @@ export function registerBrowserTool(server: VMarkMcpServer): void {
           .describe('Named persistent context [A-Za-z0-9._-] to reuse a saved login (open only; per-use approved; macOS 14+).'),
         text: z.string().optional().describe('Text to type into the target (act, operation=type).'),
         url: z.string().optional().describe('HTTP(S) destination (open/navigate only).'),
-        navigationId: z.string().optional().describe('Existing navigation ticket (wait only).'),
         // The bounds that the old JSON-Schema → Zod converter silently dropped:
         // the client-visible schema advertised neither `minimum` nor `maximum`.
         timeoutMs: z
@@ -179,16 +156,12 @@ export function registerBrowserTool(server: VMarkMcpServer): void {
     async (args: ToolArgs) => {
       // tabId: omit → focused tab. If explicitly provided it must be a
       // non-blank string; a blank/garbled id must not silently fall through to
-      // the active tab and read or mutate the wrong one.
+      // the active tab and mutate the wrong one.
       const tab = readOptionalId(args.tabId, 'tabId');
       if (!tab.ok) return VMarkMcpServer.errorResult(tab.error);
       const tabId = tab.value;
 
       try {
-        if (args.action === 'read') {
-          const data = await server.sendBridgeRequest({ type: 'vmark.browser.read', tabId });
-          return VMarkMcpServer.successJsonResult(data, RECOVERY.browserRead);
-        }
         if (args.action === 'act') {
           const operation = typeof args.operation === 'string' ? args.operation : '';
           const role = typeof args.role === 'string' ? args.role : '';
@@ -295,64 +268,6 @@ export function registerBrowserTool(server: VMarkMcpServer): void {
           });
           return VMarkMcpServer.successJsonResult(data);
         }
-        if (args.action === 'wait') {
-          const ticket = readOptionalId(args.navigationId, 'navigationId');
-          if (!ticket.ok) return VMarkMcpServer.errorResult(ticket.error);
-          const navigationId = ticket.value;
-          const wait = boundedTimeout(args.timeoutMs);
-          if (args.timeoutMs !== undefined && wait === undefined) {
-            return VMarkMcpServer.errorResult('timeoutMs must be an integer from 1 to 12000');
-          }
-          const data = await server.sendBridgeRequest({
-            type: 'vmark.browser.wait',
-            ...(tabId === undefined ? {} : { tabId }),
-            ...(navigationId === undefined ? {} : { navigationId }),
-            ...(wait === undefined ? {} : { timeoutMs: wait }),
-          });
-          return VMarkMcpServer.successJsonResult(data);
-        }
-        if (args.action === 'wait_for') {
-          const wait = boundedTimeout(args.timeoutMs);
-          if (args.timeoutMs !== undefined && wait === undefined) {
-            return VMarkMcpServer.errorResult('timeoutMs must be an integer from 1 to 12000');
-          }
-          const ref = typeof args.ref === 'string' && args.ref.trim() ? args.ref : undefined;
-          const role = typeof args.role === 'string' && args.role.trim() ? args.role : undefined;
-          const text = typeof args.text === 'string' && args.text.length > 0 ? args.text : undefined;
-          const modes = [ref, role, text].filter((v) => v !== undefined).length;
-          if (modes !== 1) {
-            return VMarkMcpServer.errorResult(
-              'wait_for needs exactly one of: ref, role (+optional name), or text',
-            );
-          }
-          const name = typeof args.name === 'string' ? args.name : undefined;
-          const condition =
-            ref !== undefined
-              ? { ref }
-              : role !== undefined
-                ? { role, ...(name !== undefined ? { name } : {}) }
-                : { text };
-          const data = await server.sendBridgeRequest({
-            type: 'vmark.browser.wait_for',
-            ...(tabId === undefined ? {} : { tabId }),
-            ...condition,
-            ...(wait === undefined ? {} : { timeoutMs: wait }),
-          });
-          return VMarkMcpServer.successJsonResult(data);
-        }
-        if (args.action === 'query') {
-          const selector = typeof args.selector === 'string' && args.selector.trim() ? args.selector : '';
-          if (!selector) {
-            return VMarkMcpServer.errorResult('query requires a non-empty CSS `selector`');
-          }
-          const data = await server.sendBridgeRequest({
-            type: 'vmark.browser.query',
-            ...(tabId === undefined ? {} : { tabId }),
-            selector,
-            ...(typeof args.fields === 'object' && args.fields !== null ? { fields: args.fields } : {}),
-          });
-          return VMarkMcpServer.successJsonResult(data, RECOVERY.browserQuery);
-        }
         if (args.action === 'style') {
           const ref = typeof args.ref === 'string' && args.ref.trim() ? args.ref : undefined;
           const selector = typeof args.selector === 'string' && args.selector.trim() ? args.selector : undefined;
@@ -404,33 +319,13 @@ export function registerBrowserTool(server: VMarkMcpServer): void {
           });
           return VMarkMcpServer.successJsonResult(data);
         }
-        if (args.action === 'console') {
+        if (args.action === 'console_clear') {
           const data = await server.sendBridgeRequest({
             type: 'vmark.browser.console',
             ...(tabId === undefined ? {} : { tabId }),
-            ...(args.clear === true ? { clear: true } : {}),
+            clear: true,
           });
-          return VMarkMcpServer.successJsonResult(data, RECOVERY.browserConsole);
-        }
-        if (args.action === 'screenshot') {
-          const data = await server.sendBridgeRequest<{ url?: unknown; image?: unknown }>({
-            type: 'vmark.browser.screenshot',
-            ...(tabId === undefined ? {} : { tabId }),
-          });
-          // The bridge returns { url, image } where image is a base64 JPEG. Guard
-          // the shape: a missing image would otherwise become an image content
-          // block with `data: undefined`, which the client renders as broken.
-          if (typeof data?.image !== 'string' || data.image.length === 0) {
-            return VMarkMcpServer.errorResult('screenshot returned no image data');
-          }
-          const url = typeof data.url === 'string' ? data.url : 'the current page';
-          return {
-            success: true,
-            content: [
-              { type: 'text', text: `Screenshot of ${url}` },
-              { type: 'image', data: data.image, mimeType: 'image/jpeg' },
-            ],
-          };
+          return VMarkMcpServer.successJsonResult(data);
         }
         return VMarkMcpServer.errorResult(`unknown action: ${String(args.action)}`);
       } catch (error) {

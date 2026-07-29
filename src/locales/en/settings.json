@@ -694,17 +694,9 @@
   "integrations.ccSwitch.add": "Add to CC-Switch",
   "integrations.ccSwitch.opened": "Opened CC-Switch import link.",
   "integrations.ccSwitch.binaryMissing": "Build VMark's MCP server binary first.",
-  "advanced": {
-    "embeddedBrowser": {
-      "label": "Embedded browser",
-      "description": "Enable the experimental in-app web browser. Adds “New Browser Tab” to the command palette."
-    }
-  },
-  "files": {
-    "coherenceCapture": {
-      "label": "Track document provenance",
-      "description": "Record how documents change over time (the coherence layer). Turning this on lets VMark add a `vmark:` id block to a file's frontmatter when it is first tracked, and create a .vmark folder in the workspace."
-    }
-  },
+  "advanced.embeddedBrowser.label": "Embedded browser",
+  "advanced.embeddedBrowser.description": "Enable the experimental in-app web browser. Adds “New Browser Tab” to the command palette.",
+  "files.coherenceCapture.label": "Track document provenance",
+  "files.coherenceCapture.description": "Record how documents change over time (the coherence layer). Turning this on lets VMark add a `vmark:` id block to a file's frontmatter when it is first tracked, and create a .vmark folder in the workspace.",
   "shortcuts.capture.unsupported": "This key combination isn't supported. Try another."
 }

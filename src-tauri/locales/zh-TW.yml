@@ -33,7 +33,7 @@ menu:
   file.export.pandocEpub: "EPUB (.epub)..."
   file.export.pandocLatex: "LaTeX (.tex)..."
   file.export.pandocOdt: "OpenDocument (.odt)..."
-  file.export.pandocRtf: "Rich Text (.rtf)..."
+  file.export.pandocRtf: "格式化文字 (.rtf)..."
   file.export.pandocTxt: "純文字 (.txt)..."
   file.export.pandocHint: "安裝 Pandoc 以匯出 Word、EPUB、LaTeX…"
   file.export.copyHtml: "複製為 HTML"

@@ -123,9 +123,11 @@ const ALLOWED_IDENTICAL: Array<{
   {
     ns: "statusbar",
     key: "terminal.ariaLabel",
-    locales: ["de", "es", "fr", "it", "ja", "ko", "pt-BR", "zh-CN", "zh-TW"],
+    locales: ["de", "es", "fr", "pt-BR"],
     reason:
-      "The accessible name of the terminal panel; every locale uses the product-neutral term.",
+      '"Terminal" is the native word in these languages. The other five locales ' +
+      "have real words for it (Terminale / ターミナル / 터미널 / 终端 / 終端機) and were " +
+      "translated, so their exemptions were deleted rather than left as dead weight.",
   },
 ];
 

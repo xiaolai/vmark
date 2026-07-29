@@ -1,14 +1,10 @@
 {
-  "approval": {
-    "title": "¿Aprobar paso del flujo de trabajo?",
-    "step": "Paso",
-    "model": "Modelo",
-    "preview": "Vista previa del prompt",
-    "approve": "Aprobar",
-    "deny": "Denegar"
-  },
-  "run": {
-    "start": "Ejecutar flujo de trabajo",
-    "cancel": "Cancelar flujo de trabajo"
-  }
+  "approval.title": "¿Aprobar paso del flujo de trabajo?",
+  "approval.step": "Paso",
+  "approval.model": "Modelo",
+  "approval.preview": "Vista previa del prompt",
+  "approval.approve": "Aprobar",
+  "approval.deny": "Denegar",
+  "run.start": "Ejecutar flujo de trabajo",
+  "run.cancel": "Cancelar flujo de trabajo"
 }

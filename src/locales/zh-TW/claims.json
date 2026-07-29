@@ -5,27 +5,21 @@
   "loading": "載入中…",
   "error": "無法載入設定",
   "empty": "尚無設定 — 在文件中選取文字並使用「擷取設定」",
-  "maturity": {
-    "draft": "草稿",
-    "established": "已確立"
-  },
+  "maturity.draft": "草稿",
+  "maturity.established": "已確立",
   "ended": "已終止",
   "hidden": "在目前情境中已隱藏",
-  "actions": {
-    "promote": "確立",
-    "correct": "修正",
-    "retire": "終止",
-    "hide": "隱藏",
-    "show": "顯示"
-  },
+  "actions.promote": "確立",
+  "actions.correct": "修正",
+  "actions.retire": "終止",
+  "actions.hide": "隱藏",
+  "actions.show": "顯示",
   "promoteTitle": "提升為已確立 — 只有已確立的設定才能作為約束（D4）",
   "correctPlaceholder": "修正後的敘述",
   "correctConfirm": "確認修正",
-  "create": {
-    "heading": "從選取內容新增設定",
-    "source": "來源：{{path}}",
-    "statementPlaceholder": "設定敘述",
-    "confirm": "建立草稿設定",
-    "cancel": "取消"
-  }
+  "create.heading": "從選取內容新增設定",
+  "create.source": "來源：{{path}}",
+  "create.statementPlaceholder": "設定敘述",
+  "create.confirm": "建立草稿設定",
+  "create.cancel": "取消"
 }

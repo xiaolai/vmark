@@ -1056,7 +1056,8 @@ What remains is genuinely mechanical — ~30 keys under `errors.mcp.*` in
 
 | Item | Why it was left | Where it belongs |
 |---|---|---|
-| ~~Splitting `browser`/`coherence` for honest annotations~~ — **CLOSED, no change: the item was mis-stated.** Audited the shipped annotations from code (an earlier grep matched a *comment* reading "never `readOnlyHint: true`" and nearly produced a false bug report). Only `session` declares `readOnlyHint: true`, and its sole action is `get_state`, a pure read. Every tool with a mutating action declares `readOnlyHint: false, destructiveHint: true`. So the annotations **over-declare** danger — the safe direction — and no false safety claim exists. Splitting would take the surface 7 → 8+ tools against `20260504-mcp-pruning.md`'s ADR, whose reasoning (context cost, tool-selection accuracy degrading on crowded surfaces) still holds, to buy only client-side auto-approval of reads. Bad trade | — | Closed |
+| ~~Splitting `browser`/`coherence` for honest annotations~~ — **REOPENED BY THE USER AND DONE (2026-07-28).** The close below stands on its facts and was wrong on the trade. No false safety claim existed, correct; but "the annotations over-declare danger — the safe direction" understated the cost. Over-declaring is safe for the *user* and expensive for the *agent*: it charges a human approval to the ARIA snapshot, the highest-frequency and lowest-risk call in the surface, which is exactly the tax that pushes an operator toward blanket-approving the tool that also carries `execute_js`. Split along one line — does the action modify anything? `browser_read` (read, screenshot, query, console, wait, wait_for) and `coherence` (status, edges, claims, contexts) now declare `readOnlyHint: true`; `browser` (8 mutating actions) and `coherence_resolve` keep the destructive annotation, and `coherence`'s header comment says READ-ONLY truthfully again. Surface 7 → 9, accepted against `20260504-mcp-pruning.md`'s ADR: that ADR's cost is *action* count and description bytes, both unchanged — the same 34 actions, re-partitioned. One capability moved rather than split: `console`'s `clear` evaluates `e.textContent = "[]"` in the page, a DOM write, so it is `console_clear` on the mutating tool. Nothing else changed — bridge request types are identical, and `coherence.resolve` authorization was always keyed on the authenticated bridge principal, so no security property moved. Two doc bugs fell out: `mcp-tools.md` still said resolution was "deliberately not exposed over MCP", and `mcp-setup.md` advertised a 12-tool count | — | Closed |
+| ~~*(original close, retained for the record)*~~ — **the item was mis-stated.** Audited the shipped annotations from code (an earlier grep matched a *comment* reading "never `readOnlyHint: true`" and nearly produced a false bug report). Only `session` declares `readOnlyHint: true`, and its sole action is `get_state`, a pure read. Every tool with a mutating action declares `readOnlyHint: false, destructiveHint: true`. So the annotations **over-declare** danger — the safe direction — and no false safety claim exists. Splitting would take the surface 7 → 8+ tools against `20260504-mcp-pruning.md`'s ADR, whose reasoning (context cost, tool-selection accuracy degrading on crowded surfaces) still holds, to buy only client-side auto-approval of reads. Bad trade | — | Closed |
 | ~~`roundtrip.property.test.ts` load-sensitive flake~~ — **DONE.** Root cause was the *implicit* timeout, not a slow test: the file executes in 289 ms but inherited vitest's 5 s wall-clock default, which CPU contention at full worker parallelism can exhaust. Each property test now carries an explicit `PROPERTY_TEST_TIMEOUT_MS = 30_000` with the incident and the reasoning recorded at the constant. Generous enough to remove the false signal, far short of hiding a genuine hang — a real regression here fails on an assertion in milliseconds, not by running long | — | Closed |
 | ~~`lint:i18n` cannot see untranslated values~~ — **DONE**, see below | — | Closed |
 | **superseded — see the two rows above** — 300 fast-check iterations on vitest's default 5 s timeout. Solo the file runs in 634 ms (≈8× headroom); it timed out during a `check:all` whose wall clock was 747 s vs a 232 s baseline, and passed 3/3 in isolation immediately after. Wants an explicit `testTimeout`. Plausibly the same class as the unreproduced `1676 passed; 1 failed` seen during the browser-cap work | Unrelated to the MCP surface; fixing it would not trace to this plan | Follow-up WI (CI reliability) |
@@ -1073,6 +1074,95 @@ What remains is genuinely mechanical — ~30 keys under `errors.mcp.*` in
 | ~~i18n for `mcp_config` error strings~~ — **DONE**, see below | — | Closed |
 | ~~`browser_eval` has **no** script size cap in Rust~~ — **DONE**, see below | — | Closed |
 | ~~`selection.set` declares no `outputSchema`~~ — **DONE**, see below | — | Closed |
+
+## Translation debt paid (2026-07-28)
+
+The follow-up recorded as "~1,167 baselined untranslated locale values" is
+closed: the baseline is **1,167 → 40**, and 2,253 English values across nine
+locales now carry real translations. Three things surfaced that the original
+item did not anticipate.
+
+**The 1,167 was an undercount, not the debt.** `lint:i18n` only flags a value at
+≥3 words AND ≥15 characters — the threshold that keeps `JSON`, `CLI` and
+`Markdown` from being reported. Below it sat **1,869 more** English-identical
+values (`Malformed YAML`, `Export failed`, `Resize panes`, …), invisible to the
+gate and sitting in the same menus as the flagged ones. Paying only the
+baselined set would have shipped half-translated menu groups, so all 403
+distinct strings were done, not the 136 the gate could see.
+
+**A flat/nested key collision was silently killing translations.** English
+bundles store some keys as flat literals (`"terminal.maxSessions"`); several
+locale bundles carry BOTH that flat key and a nested `terminal: { maxSessions }`.
+i18next resolves the **nested** one (verified against the installed version, not
+assumed), so a translation written to the flat key is dead and the user still
+sees English. 731 such duplicated keys already existed at HEAD; writing to the
+English file's path alone produced 14 dead translations before this was caught.
+
+**Resolved, not just worked around.** All 747 duplicates are collapsed: every
+locale bundle is rebuilt to mirror English's exact structure, keeping the value
+that resolved before (nested-preferred, translation-preferred so a collapse can
+never lose one). English itself had zero duplicates and used the flat path for
+all 747, which made the canonical form unambiguous. Verified end to end — 2,253
+values changed from English to a translation, **0 regressions and 0 lost keys**
+against HEAD, measured on what i18next actually resolves rather than on file
+contents.
+
+**Then the mixed shape itself was removed.** Parity with English still left
+English free to mix 1,535 flat keys with 496 nested ones, so the hazard was
+contained rather than eliminated — a flat key added under a nested twin would be
+shadowed again. All 4,960 nested keys across all ten locales are now flattened:
+**20,310 flat keys, zero nested objects.** The asymmetry decided the direction —
+with no objects in a bundle, i18next's nested branch *cannot* match, so flat
+kills the bug class outright, whereas converging on nested would only have
+re-armed it. Flat is also what `AGENTS.md` already documented and what 75% of
+English already used.
+
+Equivalence was proved against real i18next rather than by reasoning about file
+contents: two instances loaded with the pre- and post-flattening bundles
+resolved all **20,310 keys identically, 0 differences**.
+`src/locales/__tests__/localeShape.test.ts` now fails on any nested object, any
+key at two paths, and any path English does not use — and pins the two i18next
+behaviours the rule rests on (a flat literal key resolves; nested wins when both
+exist) so an upgrade that changes either surfaces here.
+
+One residual noted in code rather than left implicit: the jsdom test mock
+(`src/test/setup.ts`) resolves flat-before-nested, the opposite of real i18next.
+That disagreement is what let a shadowed translation pass tests and ship as
+English; it is harmless only while bundles stay flat, which the test now
+guarantees.
+
+**A bulk pass overwrites good translations if it is not conditioned on the
+value.** The first run wrote every locale for every key it touched and clobbered
+91 existing translations — French decimal commas (`1,6` → `1.6`), Japanese
+full-width parentheses, a `ギュメ` → `ギユメ` typo, Korean `아니요` → `아니오`.
+All 91 were restored; the rule is that a locale is only written when its current
+value is byte-identical to English.
+
+**The baseline is now EMPTY (1,167 → 0).** 40 values are legitimately identical
+and can never be paid down: a literal path (`/Applications/Visual Studio
+Code.app`), literal GitHub Actions runner labels (`ubuntu-latest / self-hosted /
+linux / x64`), a bare interpolation (`{{index}} / {{count}}`), `1920px (Full
+HD)`, and four cases where the target language's word IS the English one
+(`Guillemets` in de/fr, `Double` in fr, `Test (test) -> Test (test)` in it).
+Leaving them in a file whose contract is "translate these, count only goes down"
+meant the baseline could never reach zero and a real regression had to be spotted
+among permanent residents.
+
+They now live in `scripts/i18nIdenticalAllowlist.ts`, each with a stated reason,
+generalising the pattern `terminalI18nCoverage.test.ts` pioneered for the
+`terminal.*` subtree. The list is checked in both directions — translating an
+exempted string fails the gate until its dead exemption is deleted — and both
+directions were mutation-tested (translate an exemption → stale error; revert a
+translation → new-untranslated error). Pure logic is unit-tested in
+`scripts/__tests__/i18nIdenticalAllowlist.test.ts`.
+
+So the gate now says one thing per mechanism: **baseline = not translated yet,
+must stay zero; allow-list = untranslatable, must stay justified.**
+
+Also fixed: `src/locales/fr/export.json` carried three keys absent from English
+and from every other locale (`pdf.headersFooters.date`, `pdf.preview.pageCount`,
+`pdf.preview.pageCount_other`) with no code referencing them — dead keys from a
+removed feature, dropped by the shape normalization.
 
 ## Definition of Done (plan)
 

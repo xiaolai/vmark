@@ -31,13 +31,5 @@
   "pdf.progress.rendering": "Gerando PDF…",
   "pdf.progress.done": "Concluído",
   "pdf.saveDialog.title": "Exportar PDF",
-  "pdf.defaultTitle": "Documento",
-  "pdf": {
-    "pageSetup": {
-      "margins": {
-        "normal": "Normal"
-      },
-      "marginUnit": "mm"
-    }
-  }
+  "pdf.defaultTitle": "Documento"
 }
