@@ -364,7 +364,7 @@ describe("applyPatch — gate compliance over a representative fixture", () => {
   it("3-edit sequence preserves all original comments + anchors", async () => {
     const { readFileSync } = await import("node:fs");
     const yaml = readFileSync(
-      "dev-docs/fixtures/gha-workflows/vmark/ci.yml",
+      "src/test/fixtures/gha-workflows/vmark/ci.yml",
       "utf8",
     );
     const orig = commentSet(yaml);

@@ -5,12 +5,12 @@
 # documented inline. Run once; check in the result.
 #
 # Usage: bash scripts/fetch-gha-fixtures.sh
-# Output: dev-docs/fixtures/gha-workflows/<repo-slug>/<workflow>.yml
+# Output: src/test/fixtures/gha-workflows/<repo-slug>/<workflow>.yml
 
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-OUT="dev-docs/fixtures/gha-workflows"
+OUT="src/test/fixtures/gha-workflows"
 
 # Each line: <subdir> <local-name> <raw-url>
 # Pinned to specific commits so the corpus is reproducible.

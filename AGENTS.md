@@ -33,6 +33,10 @@ Shared instructions for all AI agents (Claude, Codex, etc.).
     `dev-docs/deep-researches/YYYYMMDD-topic.md` and link it from `dev-docs/README.md`.  
     Don't leave finished research only in chat transcripts or task output files.
 
+  - **`dev-docs/` and `.vmark/` are maintainer-local (gitignored)**: they exist on  
+    maintainer machines, not in the public repo. References to `dev-docs/` in these  
+    rules apply when the folder is present; skip them otherwise.
+
   - **Edge cases are not optional**: Brainstorm as many edge cases as possible — empty input,  
     null/undefined, max values, concurrent access, Unicode/CJK, RTL text, rapid repeated  
     actions, network failures, permission denials. Write tests for every one.
