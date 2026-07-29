@@ -35,7 +35,9 @@ describe('tool annotations and titles', () => {
   it('registers exactly the declared tool surface', () => {
     expect(tools().map((t) => t.name).sort()).toEqual([
       'browser',
+      'browser_read',
       'coherence',
+      'coherence_resolve',
       'document',
       'selection',
       'session',
@@ -70,22 +72,41 @@ describe('tool annotations and titles', () => {
     expect(tool('session').annotations).toEqual(expected);
   });
 
+  it('claims read-only for every tool whose every action is a pure read', () => {
+    // The point of the browser/coherence split: a tool that only reads gets to
+    // SAY so, which is what lets a client auto-approve it. Before the split
+    // these actions were bundled with mutating siblings, so the composite had
+    // to declare the dangerous value and an agent's every page read needed a
+    // human. `browser_read` stays open-world — it reads the live web.
+    for (const name of ['session', 'coherence', 'browser_read']) {
+      expect(tool(name).annotations?.readOnlyHint, name).toBe(true);
+      expect(tool(name).annotations?.destructiveHint, name).toBe(false);
+      expect(tool(name).annotations?.idempotentHint, name).toBe(true);
+    }
+  });
+
   it('never claims read-only for a tool that can mutate', () => {
     // A composite tool cannot be both readOnlyHint:true and destructiveHint:true.
     // Each of these carries at least one mutating action, so the honest
     // annotation is the DANGEROUS one, even where most actions only read.
-    for (const name of ['document', 'selection', 'workspace', 'workflow', 'browser', 'coherence']) {
+    for (const name of [
+      'document', 'selection', 'workspace', 'workflow', 'browser', 'coherence_resolve',
+    ]) {
       expect(tool(name).annotations?.readOnlyHint, name).toBe(false);
       expect(tool(name).annotations?.destructiveHint, name).toBe(true);
     }
   });
 
-  it('marks the two tools that reach outside VMark as open-world', () => {
-    // browser drives arbitrary web pages; workspace opens arbitrary local paths.
-    expect(tool('browser').annotations?.openWorldHint).toBe(true);
-    expect(tool('workspace').annotations?.openWorldHint).toBe(true);
+  it('marks the tools that reach outside VMark as open-world', () => {
+    // browser drives arbitrary web pages (and browser_read reads them);
+    // workspace opens arbitrary local paths.
+    for (const name of ['browser', 'browser_read', 'workspace']) {
+      expect(tool(name).annotations?.openWorldHint, name).toBe(true);
+    }
     // The rest operate only on buffers VMark already owns.
-    for (const name of ['session', 'document', 'selection', 'workflow', 'coherence']) {
+    for (const name of [
+      'session', 'document', 'selection', 'workflow', 'coherence', 'coherence_resolve',
+    ]) {
       expect(tool(name).annotations?.openWorldHint, name).toBe(false);
     }
   });
@@ -116,8 +137,10 @@ describe('client-visible input schemas', () => {
       const schema = toolInputJsonSchema(t) as { required?: string[] };
       expect(schema.required, t.name).toContain('action');
     }
-    const coherence = toolInputJsonSchema(tool('coherence')) as { required?: string[] };
-    expect(coherence.required).toContain('workspace_root');
+    for (const name of ['coherence', 'coherence_resolve']) {
+      const schema = toolInputJsonSchema(tool(name)) as { required?: string[] };
+      expect(schema.required, name).toContain('workspace_root');
+    }
   });
 
   it('advertises each tool action enum verbatim (no surface drift)', () => {
@@ -131,14 +154,30 @@ describe('client-visible input schemas', () => {
     expect(actions('document')).toEqual(['read', 'write', 'transform']);
     expect(actions('selection')).toEqual(['get', 'set']);
     expect(actions('workflow')).toEqual(['apply_patch', 'validate']);
-    expect(actions('coherence')).toEqual(['status', 'edges', 'claims', 'contexts', 'resolve']);
+    expect(actions('coherence')).toEqual(['status', 'edges', 'claims', 'contexts']);
+    expect(actions('coherence_resolve')).toEqual(['resolve']);
     expect(actions('workspace')).toEqual([
       'new', 'open', 'open_workspace', 'save', 'save_as', 'close', 'switch_tab', 'focus_window',
     ]);
-    expect(actions('browser')).toEqual([
-      'read', 'act', 'open', 'navigate', 'wait', 'wait_for', 'screenshot',
-      'query', 'style', 'execute_js', 'session_save', 'session_load', 'console',
+    // The split runs along one line: does the action modify anything?
+    expect(actions('browser_read')).toEqual([
+      'read', 'screenshot', 'query', 'console', 'wait', 'wait_for',
     ]);
+    expect(actions('browser')).toEqual([
+      'act', 'open', 'navigate', 'style', 'execute_js',
+      'session_save', 'session_load', 'console_clear',
+    ]);
+  });
+
+  it('keeps the console DRAIN out of the read-only tool', () => {
+    // `console` with clear:true evaluates `e.textContent = "[]"` in the page —
+    // it writes to the DOM. Leaving that under readOnlyHint:true would put a
+    // false claim back into the surface the split exists to make honest, so
+    // draining is a separate action on the mutating tool.
+    const read = toolInputJsonSchema(tool('browser_read')) as {
+      properties: Record<string, unknown>;
+    };
+    expect(read.properties.clear).toBeUndefined();
   });
 
   it('rejects an out-of-range timeoutMs at the schema layer, not only in the handler', () => {
@@ -189,7 +228,9 @@ describe('declared output schemas', () => {
     // payloads. For those, a schema that failed to anticipate a payload would
     // report a completed mutation as a protocol error — a worse failure than
     // an undeclared shape.
-    for (const name of ['workspace', 'workflow', 'browser', 'coherence']) {
+    for (const name of [
+      'workspace', 'workflow', 'browser', 'browser_read', 'coherence', 'coherence_resolve',
+    ]) {
       expect(toolOutputJsonSchema(tool(name)), name).toBeUndefined();
     }
   });
@@ -211,7 +252,9 @@ describe('round-2 audit: schema-layer guards', () => {
   it('advertises every optional tabId as non-blank (finding 4)', () => {
     // The SDK validates input against this schema before the handler runs, so
     // the blank-id refusal has to live here as well as in the handler.
-    for (const name of ['document', 'selection', 'workflow', 'workspace', 'browser']) {
+    for (const name of [
+      'document', 'selection', 'workflow', 'workspace', 'browser', 'browser_read',
+    ]) {
       const schema = toolInputJsonSchema(tool(name)) as {
         properties: Record<string, { minLength?: number }>;
       };
