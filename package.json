@@ -203,7 +203,7 @@
     "fast-check": "^4.9.0",
     "globals": "^17.7.0",
     "jscpd": "^5.0.12",
-    "jsdom": "^29.1.1",
+    "jsdom": "^30.0.0",
     "knip": "6.29.0",
     "markdownlint-cli2": "^0.23.1",
     "mdast-util-math": "^3.0.0",
