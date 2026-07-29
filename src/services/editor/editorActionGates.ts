@@ -20,6 +20,7 @@ import { selectSourceEditing } from "@/stores/selectSourceEditing";
 import { useLargeFileSessionStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
 import type { ActionCategory, ActionId } from "@/plugins/actions/types";
+import type { AdapterAction } from "@/plugins/toolbarActions/adapterActions";
 import { getFormatById } from "@/lib/formats/registry";
 import type { FormatConfig } from "@/lib/formats/types";
 
@@ -80,8 +81,16 @@ export function isEffectiveSourceMode(windowLabel: string): boolean {
   return selectSourceEditing(useUIStore.getState()) || forcedTabSource;
 }
 
-/** Map action IDs to the internal adapter action names where they differ. */
-export function mapActionIdToAdapterAction(actionId: ActionId): string {
+/**
+ * Map action IDs to the internal adapter action names where they differ.
+ * The two parameterized heading actions are excluded from the domain: they
+ * carry a level and are dispatched through `setWysiwygHeadingLevel` BEFORE
+ * any adapter mapping (both dispatch paths branch on them first, which is
+ * exactly the control-flow narrowing this signature encodes).
+ */
+export function mapActionIdToAdapterAction(
+  actionId: Exclude<ActionId, "setHeading" | "paragraph">
+): AdapterAction {
   switch (actionId) {
     case "codeBlock":
       return "insertCodeBlock";

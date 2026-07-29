@@ -16,6 +16,7 @@ mod connection;
 mod delivery;
 mod frames;
 mod handshake;
+mod message_loop;
 mod principal;
 mod routing;
 mod server;
@@ -24,6 +25,7 @@ mod token_compare;
 mod token_dir;
 mod token_file;
 mod types;
+mod wake_retry;
 mod window_routing;
 
 // Re-export public API used by other modules (mcp_server.rs, lib.rs)

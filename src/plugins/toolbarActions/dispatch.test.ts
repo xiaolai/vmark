@@ -1,93 +1,119 @@
-// WI-1.5 — shared mode-branching dispatch helper. Verifies routing to the
-// correct adapter per surface, the heading:N special case, context
-// construction from editorStore, and the malformed-action guard.
+// WI-1.5 — shared toolbar/context-menu dispatch. After the structural merge
+// this is a THIN layer over the executor's guarded mechanics
+// (editorActionDispatch): these tests verify the delegation — origin capture
+// for the requested surface, per-surface adapter routing, retry wiring, and
+// the malformed-action boundary guard. The mechanics themselves (IME guard,
+// tab ownership, read-only, deferred re-validation) are covered by
+// runEditorAction.test.ts against the same shared dispatchers.
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  performWysiwygToolbarAction: vi.fn(() => true),
-  performSourceToolbarAction: vi.fn(() => true),
-  setWysiwygHeadingLevel: vi.fn(() => true),
-  setSourceHeadingLevel: vi.fn(() => true),
-  getWysiwygMultiSelectionContext: vi.fn(() => undefined),
-  getSourceMultiSelectionContext: vi.fn(() => undefined),
+  captureOrigin: vi.fn((windowLabel: string, sourceMode: boolean) => ({
+    windowLabel,
+    tabId: "tab-1",
+    sourceMode,
+  })),
+  dispatchAdapterToWysiwyg: vi.fn(() => true),
+  dispatchAdapterToSource: vi.fn(() => true),
+  dispatchWithRetry: vi.fn(
+    (_label: string, _origin: unknown, _owner: unknown, dispatch: () => boolean) => {
+      dispatch();
+    },
+  ),
+  getEditorActionOwner: vi.fn(() => ({ owner: true })),
+  getCurrentWindowLabel: vi.fn(() => "main"),
 }));
 
-vi.mock("./wysiwygAdapter", () => ({
-  performWysiwygToolbarAction: mocks.performWysiwygToolbarAction,
-  setWysiwygHeadingLevel: mocks.setWysiwygHeadingLevel,
+vi.mock("@/services/editor/editorActionDispatch", () => ({
+  captureOrigin: mocks.captureOrigin,
+  dispatchAdapterToWysiwyg: mocks.dispatchAdapterToWysiwyg,
+  dispatchAdapterToSource: mocks.dispatchAdapterToSource,
+  dispatchWithRetry: mocks.dispatchWithRetry,
 }));
-vi.mock("./sourceAdapter", () => ({
-  performSourceToolbarAction: mocks.performSourceToolbarAction,
-  setSourceHeadingLevel: mocks.setSourceHeadingLevel,
+vi.mock("@/services/editor/editorActionOwner", () => ({
+  getEditorActionOwner: mocks.getEditorActionOwner,
 }));
-vi.mock("./multiSelectionContext", () => ({
-  getWysiwygMultiSelectionContext: mocks.getWysiwygMultiSelectionContext,
-  getSourceMultiSelectionContext: mocks.getSourceMultiSelectionContext,
+vi.mock("@/services/persistence/workspaceStorage", () => ({
+  getCurrentWindowLabel: mocks.getCurrentWindowLabel,
 }));
 
-import { dispatchEditorAction } from "./dispatch";
+import { dispatchEditorAction, buildSourceContext, buildWysiwygContext } from "./dispatch";
 import { useEditorStore } from "@/stores/editorStore";
 
 beforeEach(() => {
   vi.clearAllMocks();
 });
 
-describe("dispatchEditorAction", () => {
-  it("routes plain actions to the WYSIWYG adapter with a wysiwyg context", () => {
-    const result = dispatchEditorAction("bold", "wysiwyg");
-    expect(result).toBe(true);
-    expect(mocks.performWysiwygToolbarAction).toHaveBeenCalledWith(
+describe("dispatchEditorAction (guarded delegation)", () => {
+  it("routes a plain action to the WYSIWYG guarded dispatcher via retry", () => {
+    expect(dispatchEditorAction("bold", "wysiwyg")).toBe(true);
+    expect(mocks.captureOrigin).toHaveBeenCalledWith("main", false);
+    expect(mocks.dispatchWithRetry).toHaveBeenCalledWith(
+      "bold (wysiwyg)",
+      expect.objectContaining({ sourceMode: false }),
+      expect.anything(),
+      expect.any(Function),
+    );
+    expect(mocks.dispatchAdapterToWysiwyg).toHaveBeenCalledWith(
       "bold",
-      expect.objectContaining({ surface: "wysiwyg" })
+      expect.objectContaining({ windowLabel: "main", sourceMode: false }),
+      expect.anything(),
     );
-    expect(mocks.performSourceToolbarAction).not.toHaveBeenCalled();
+    expect(mocks.dispatchAdapterToSource).not.toHaveBeenCalled();
   });
 
-  it("routes plain actions to the source adapter with a source context", () => {
+  it("routes a source-surface action with a source-mode origin", () => {
     dispatchEditorAction("italic", "source");
-    expect(mocks.performSourceToolbarAction).toHaveBeenCalledWith(
+    expect(mocks.captureOrigin).toHaveBeenCalledWith("main", true);
+    expect(mocks.dispatchAdapterToSource).toHaveBeenCalledWith(
       "italic",
-      expect.objectContaining({ surface: "source" })
+      expect.objectContaining({ sourceMode: true }),
+      expect.anything(),
     );
-    expect(mocks.performWysiwygToolbarAction).not.toHaveBeenCalled();
+    expect(mocks.dispatchAdapterToWysiwyg).not.toHaveBeenCalled();
   });
 
-  it("routes heading:N to the per-surface heading setter with the parsed level", () => {
+  it("passes heading:N through as the adapter action (level travels in the id)", () => {
     dispatchEditorAction("heading:3", "wysiwyg");
-    expect(mocks.setWysiwygHeadingLevel).toHaveBeenCalledWith(
-      expect.objectContaining({ surface: "wysiwyg" }),
-      3
-    );
-
-    dispatchEditorAction("heading:0", "source");
-    expect(mocks.setSourceHeadingLevel).toHaveBeenCalledWith(
-      expect.objectContaining({ surface: "source" }),
-      0
+    expect(mocks.dispatchAdapterToWysiwyg).toHaveBeenCalledWith(
+      "heading:3",
+      expect.anything(),
+      expect.anything(),
     );
   });
 
   it("rejects malformed heading actions without dispatching", () => {
     expect(dispatchEditorAction("heading:x", "wysiwyg")).toBe(false);
-    expect(mocks.setWysiwygHeadingLevel).not.toHaveBeenCalled();
-    expect(mocks.performWysiwygToolbarAction).not.toHaveBeenCalled();
+    expect(mocks.dispatchWithRetry).not.toHaveBeenCalled();
   });
 
-  it("builds the context from the current editorStore state", () => {
-    const fakeView = { fake: true };
+  it("rejects unknown action ids at the boundary", () => {
+    expect(dispatchEditorAction("mystery", "wysiwyg")).toBe(false);
+    expect(mocks.dispatchWithRetry).not.toHaveBeenCalled();
+  });
+});
+
+describe("context builders (snapshot providers)", () => {
+  it("buildSourceContext reads the live editorStore state", () => {
+    const fakeView = { state: { selection: { ranges: [] } } };
     const fakeContext = { hasSelection: true };
     useEditorStore.setState((s) => ({
       source: { ...s.source, editorView: fakeView as never, context: fakeContext as never },
     }));
-    dispatchEditorAction("bold", "source");
-    expect(mocks.performSourceToolbarAction).toHaveBeenCalledWith(
-      "bold",
-      expect.objectContaining({ view: fakeView, context: fakeContext })
-    );
+    const ctx = buildSourceContext();
+    expect(ctx.surface).toBe("source");
+    expect(ctx.view).toBe(fakeView);
+    expect(ctx.context).toBe(fakeContext);
   });
 
-  it("returns the adapter's result", () => {
-    mocks.performWysiwygToolbarAction.mockReturnValueOnce(false);
-    expect(dispatchEditorAction("bold", "wysiwyg")).toBe(false);
+  it("buildWysiwygContext reads the live editorStore state", () => {
+    const fakeEditor = { fake: true };
+    useEditorStore.setState((s) => ({
+      tiptap: { ...s.tiptap, editor: fakeEditor as never },
+    }));
+    const ctx = buildWysiwygContext();
+    expect(ctx.surface).toBe("wysiwyg");
+    expect(ctx.editor).toBe(fakeEditor);
   });
 });

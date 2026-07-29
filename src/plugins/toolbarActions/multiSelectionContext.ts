@@ -214,6 +214,7 @@ export function getWysiwygMultiSelectionContext(
     inTextblock: flags.every((flag) => flag.inTextblock),
     sameBlockParent,
     blockParentType,
+    hasNonEmptyRange: ranges.some((range) => range.$from.pos !== range.$to.pos),
   };
 }
 
@@ -259,5 +260,6 @@ export function getSourceMultiSelectionContext(
     inTextblock,
     sameBlockParent,
     blockParentType,
+    hasNonEmptyRange: ranges.some((range) => !range.empty),
   };
 }

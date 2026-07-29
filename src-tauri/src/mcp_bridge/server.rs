@@ -5,21 +5,18 @@
 
 use super::connection::admit_connection;
 use super::delivery::{deliver_response, fail_pending, send_error_response};
-use super::routing::{
-    answer_rust_side, emit_to_window_or_reply, route_target_or_reply, wake_webview,
-};
+use super::routing::{answer_rust_side, emit_to_window_or_reply, route_target_or_reply};
 use super::state::{
     connection_principal, generate_auth_token, get_bridge_state, get_shutdown_holder,
-    get_write_lock, is_read_only_operation, is_webview_alive, set_webview_alive,
-    try_register_pending, PendingRequest,
+    get_write_lock, is_read_only_operation, try_register_pending,
 };
 use super::token_file::{remove_port_file, write_port_file};
 use super::types::{ClientIdentity, McpRequest, McpRequestEvent, McpResponse, WsMessage};
+use super::wake_retry::wake_retry_after_timeout;
 use std::future::Future;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 use tauri::AppHandle;
 use tauri::Emitter;
-use tauri::Manager;
 use tokio::net::TcpListener;
 use tokio::sync::{mpsc, oneshot};
 
@@ -50,7 +47,6 @@ fn next_bridge_request_id() -> String {
 /// `BRIDGE_RUNNING`.
 pub async fn start_bridge(
     app: AppHandle,
-    _port: u16,
     on_exit: impl FnOnce() + Send + 'static,
 ) -> Result<u16, String> {
     // Always bind to port 0 to let OS assign an available port
@@ -76,14 +72,13 @@ pub async fn start_bridge(
     // third-party config is skipped with a log line, and its client simply
     // connects unidentified.
     //
-    // Synchronous, and BEFORE the accept loop is spawned, on purpose. It parses
-    // up to four config files — `~/.claude.json` can reach tens of MB — so it
-    // is not free; deferring it to `spawn_blocking` would let a sidecar that
-    // reconnects in the first few hundred milliseconds authenticate against an
-    // empty registry and be misidentified as unknown. A bounded startup cost
-    // buys "no connection is ever judged against a registry that has not been
-    // built yet".
-    crate::mcp_config::client_tokens::refresh();
+    // AWAITED before the accept loop is spawned, on purpose: no connection is
+    // ever judged against a registry that has not been built yet. It parses up
+    // to four config files — `~/.claude.json` can reach tens of MB — so it runs
+    // on the blocking pool rather than stalling this async worker thread.
+    if let Err(e) = tokio::task::spawn_blocking(crate::mcp_config::client_tokens::refresh).await {
+        log::warn!("[MCP Bridge] client-token refresh task failed: {e}");
+    }
 
     log::info!(
         "[MCP Bridge] WebSocket server listening on 127.0.0.1:{} (auth required)",
@@ -93,13 +88,19 @@ pub async fn start_bridge(
     let (shutdown_tx, mut shutdown_rx) = oneshot::channel::<()>();
     {
         let holder = get_shutdown_holder();
-        let mut guard = holder.write().await;
+        let mut guard = holder.lock().await;
         *guard = Some(shutdown_tx);
     }
 
     let app_handle = app.clone();
 
     crate::task::spawn_logged("mcp-bridge-accept-loop", async move {
+        // Backoff on accept errors: an immediate retry turns a persistent
+        // failure (fd exhaustion, listener teardown) into a CPU-pinned log
+        // loop. Repeated failures terminate the loop so `on_exit` can reset
+        // the bridge state instead of spinning forever.
+        const MAX_CONSECUTIVE_ACCEPT_ERRORS: u32 = 30;
+        let mut consecutive_errors: u32 = 0;
         loop {
             tokio::select! {
                 _ = &mut shutdown_rx => {
@@ -109,13 +110,27 @@ pub async fn start_bridge(
                 result = listener.accept() => {
                     match result {
                         Ok((stream, addr)) => {
+                            consecutive_errors = 0;
                             // Admission (the connection-slot reservation) is
                             // decided HERE, synchronously, before anything is
                             // spawned or cloned — see `admit_connection`.
                             admit_connection(stream, addr, &app_handle, &auth_token);
                         }
                         Err(e) => {
-                            log::error!("[MCP Bridge] Accept error: {}", e);
+                            consecutive_errors += 1;
+                            log::error!(
+                                "[MCP Bridge] Accept error ({consecutive_errors} consecutive): {e}"
+                            );
+                            if consecutive_errors >= MAX_CONSECUTIVE_ACCEPT_ERRORS {
+                                log::error!(
+                                    "[MCP Bridge] Accept failing persistently — stopping bridge loop"
+                                );
+                                break;
+                            }
+                            let backoff = Duration::from_millis(
+                                (100u64 * u64::from(consecutive_errors)).min(1_000),
+                            );
+                            tokio::time::sleep(backoff).await;
                         }
                     }
                 }
@@ -136,7 +151,7 @@ pub async fn stop_bridge(app: &AppHandle) {
 
     // Send shutdown signal to server loop
     let holder = get_shutdown_holder();
-    let mut guard = holder.write().await;
+    let mut guard = holder.lock().await;
     if let Some(tx) = guard.take() {
         let _ = tx.send(());
     }
@@ -145,6 +160,11 @@ pub async fn stop_bridge(app: &AppHandle) {
     // Close all client connections
     let state = get_bridge_state();
     let mut guard = state.lock().await;
+
+    // Invalidate in-flight handshakes FIRST (same lock the registration path
+    // takes): a connection that authenticates after this drain re-checks the
+    // generation and refuses to register — it must not survive shutdown.
+    super::state::bump_connection_generation();
 
     // Shutdown all clients
     for (_, mut client) in guard.clients.drain() {
@@ -250,10 +270,16 @@ pub(super) async fn handle_message<R: tauri::Runtime>(
     client_id: u64,
     app: &AppHandle<R>,
 ) -> Result<(), String> {
-    // Debug: Log raw WebSocket message to trace markdown escaping (dev only — may contain user content)
+    // Debug: Log a bounded prefix to trace markdown escaping (dev only). Even
+    // dev logs must not persist whole documents or anything secret-shaped —
+    // 256 chars shows the envelope and the escaping without the payload.
     #[cfg(debug_assertions)]
     if text.contains("insert") {
-        log::debug!("[MCP Bridge DEBUG] Raw WebSocket message: {}", text);
+        let prefix: String = text.chars().take(256).collect();
+        log::debug!(
+            "[MCP Bridge DEBUG] Raw WebSocket message ({} bytes): {prefix}…",
+            text.len()
+        );
     }
 
     let msg: WsMessage =
@@ -266,6 +292,22 @@ pub(super) async fn handle_message<R: tauri::Runtime>(
     }
 
     if msg.msg_type != "request" {
+        // A mistyped envelope must not hang the client until its own timeout —
+        // answer with a correlated protocol error when a reply channel exists.
+        let client_tx = {
+            let state = get_bridge_state();
+            let guard = state.lock().await;
+            guard.clients.get(&client_id).map(|c| c.tx.clone())
+        };
+        if let Some(tx) = client_tx {
+            send_error_response(
+                client_id,
+                &tx,
+                &msg.id,
+                &format!("Unsupported message type: {}", msg.msg_type),
+            )
+            .await;
+        }
         return Ok(());
     }
 
@@ -284,15 +326,17 @@ pub(super) async fn handle_message<R: tauri::Runtime>(
         return Ok(());
     };
 
-    // Debug: Log request args to trace markdown escaping issues (dev only — may contain user content)
+    // Debug: bounded arg prefix only (dev only) — see the raw-message note.
     #[cfg(debug_assertions)]
     if request.request_type.starts_with("document.insert")
         || request.request_type == "selection.replace"
     {
-        log::debug!("[MCP Bridge DEBUG] Request type: {}", request.request_type);
+        let args = serde_json::to_string(&request.args).unwrap_or_default();
+        let prefix: String = args.chars().take(256).collect();
         log::debug!(
-            "[MCP Bridge DEBUG] Args: {}",
-            serde_json::to_string_pretty(&request.args).unwrap_or_default()
+            "[MCP Bridge DEBUG] Request type: {} args ({} bytes): {prefix}…",
+            request.request_type,
+            args.len()
         );
     }
 
@@ -408,119 +452,20 @@ pub(super) async fn handle_message<R: tauri::Runtime>(
             return Ok(());
         }
         Err(_) => {
-            // First timeout — try to wake the webview and retry once.
-            // macOS App Nap or display sleep can suspend JS execution,
-            // causing the frontend to miss emitted events.
-            let webview_was_alive = is_webview_alive();
-            set_webview_alive(false);
-            log::warn!(
-                "[MCP Bridge] Client {} request {} timed out after 10s (webview_alive={}), attempting wake + retry",
-                client_id, request_type_for_log, webview_was_alive
-            );
-
-            // Install the retry channel BEFORE waking: once the webview
-            // resumes, the QUEUED original event may execute immediately and
-            // its response must land in this channel rather than the
-            // already-abandoned first oneshot — otherwise a successful wake
-            // recovery turns into a client timeout (cross-model review,
-            // audit 20260612 remediation).
-            let (retry_tx, retry_rx) = oneshot::channel();
+            match wake_retry_after_timeout(
+                app,
+                &target_label,
+                &event,
+                &request_id,
+                client_id,
+                &client_tx,
+                &msg.id,
+                &request_type_for_log,
+            )
+            .await
             {
-                let state = get_bridge_state();
-                let mut guard = state.lock().await;
-                // Replace the pending request with the new channel
-                guard.pending.insert(
-                    request_id.clone(),
-                    PendingRequest {
-                        response_tx: retry_tx,
-                        created_at: Instant::now(),
-                    },
-                );
-            }
-
-            wake_webview(app, &target_label).await;
-
-            // Re-emit the event to the target window (not broadcast)
-            if let Some(window) = app.get_webview_window(&target_label) {
-                if let Err(e) = window.emit("mcp-bridge:request", &event) {
-                    log::warn!(
-                        "[MCP Bridge] Retry emit to window '{}' failed: {}",
-                        target_label,
-                        e
-                    );
-                    fail_pending(
-                        &request_id,
-                        client_id,
-                        &client_tx,
-                        &msg.id,
-                        &format!(
-                            "Failed to re-emit to window '{}' on retry: {}",
-                            target_label, e
-                        ),
-                    )
-                    .await;
-                    return Ok(());
-                }
-            } else {
-                log::warn!(
-                    "[MCP Bridge] Target window '{}' no longer exists for retry",
-                    target_label
-                );
-                fail_pending(
-                    &request_id,
-                    client_id,
-                    &client_tx,
-                    &msg.id,
-                    &format!("Target window '{}' was closed during retry", target_label),
-                )
-                .await;
-                return Ok(());
-            }
-
-            // Wait another 10 seconds for the retry
-            match tokio::time::timeout(Duration::from_secs(10), retry_rx).await {
-                Ok(Ok(response)) => {
-                    log::info!(
-                        "[MCP Bridge] Retry succeeded for client {} request {}",
-                        client_id,
-                        request_type_for_log
-                    );
-                    response
-                }
-                Ok(Err(_)) => {
-                    // Retry channel closed
-                    log::warn!(
-                        "[MCP Bridge] Client {} request {} retry channel closed",
-                        client_id,
-                        request_type_for_log
-                    );
-                    fail_pending(
-                        &request_id,
-                        client_id,
-                        &client_tx,
-                        &msg.id,
-                        "Response channel closed on retry",
-                    )
-                    .await;
-                    return Ok(());
-                }
-                Err(_) => {
-                    // Final timeout after retry — give up
-                    log::warn!(
-                        "[MCP Bridge] Client {} request {} timed out after retry (20s total)",
-                        client_id,
-                        request_type_for_log
-                    );
-                    fail_pending(
-                        &request_id,
-                        client_id,
-                        &client_tx,
-                        &msg.id,
-                        "Request timeout after 20s (including retry with webview wake)",
-                    )
-                    .await;
-                    return Ok(());
-                }
+                Some(response) => response,
+                None => return Ok(()),
             }
         }
     };

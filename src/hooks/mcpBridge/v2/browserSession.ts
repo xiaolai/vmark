@@ -60,7 +60,16 @@ async function approveSession(id: string, tab: BrowserTarget, action: string, ha
   const store = useBrowserApprovalStore.getState();
   const ok = store.consumeOneShot(tab.url, "session", undefined, tab.tabId, payload);
   if (!ok) {
-    store.requestApproval(id, tab.url, "session", undefined, tab.tabId, tab.generation, payload);
+    const queued = store.requestApproval(id, tab.url, "session", undefined, tab.tabId, tab.generation, payload);
+    // No prompt exists to approve: a needsApproval envelope would be a lie.
+    if (queued === "overloaded" || queued === "rejected") {
+      await respond({
+        id,
+        success: false,
+        error: "approval queue is full — resolve or deny pending approvals, then retry",
+      });
+      return false;
+    }
     // Origin-only in the pre-authorization envelope — the path can carry a token.
     const origin = originForAgent(tab.url);
     await respond({
