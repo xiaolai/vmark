@@ -12,14 +12,14 @@
   "mcpStopped": "MCP arrestato · Clicca per avviare",
   "mcpNoClients": "MCP pronto · Nessuna IA connessa",
   "mcpConnected": "Connesso: {{clients}}",
-  "mcpHistoryTitle": "MCP write history ({{count}})",
-  "mcpHistoryEmpty": "No MCP writes recorded for this tab",
-  "mcpHistoryClear": "Clear history for this tab",
-  "mcpHistoryRestore": "Restore to before this write",
-  "mcpHistoryRestored": "Restored to before {{tool}}",
-  "mcpHistoryRestoreNoop": "Document already matches checkpoint",
-  "mcpHistoryCleared": "Cleared MCP history for this tab",
-  "yamlWysiwygBlocked": "WYSIWYG mode would corrupt YAML indentation. Edit YAML in source mode.",
+  "mcpHistoryTitle": "Cronologia scritture MCP ({{count}})",
+  "mcpHistoryEmpty": "Nessuna scrittura MCP registrata per questa scheda",
+  "mcpHistoryClear": "Cancella la cronologia di questa scheda",
+  "mcpHistoryRestore": "Ripristina allo stato precedente a questa scrittura",
+  "mcpHistoryRestored": "Ripristinato allo stato precedente a {{tool}}",
+  "mcpHistoryRestoreNoop": "Il documento corrisponde già al checkpoint",
+  "mcpHistoryCleared": "Cronologia MCP di questa scheda cancellata",
+  "yamlWysiwygBlocked": "La modalità WYSIWYG danneggerebbe l'indentazione YAML. Modifica lo YAML in modalità sorgente.",
   "toggleTerminal": "Mostra/Nascondi terminale ({{shortcut}})",
   "readOnlyTitle": "Modalità sola lettura ({{shortcut}})",
   "editableTitle": "Modificabile ({{shortcut}})",
@@ -92,9 +92,9 @@
   "largeFile.openedInSourceMode": "Aperto in modalità Sorgente (file di grandi dimensioni).",
   "largeFile.switchToWysiwyg": "Passa al WYSIWYG",
   "largeFile.switchToWysiwygAria": "Passa questo documento dalla modalità Sorgente al WYSIWYG",
-  "terminal.ariaLabel": "Terminal",
+  "terminal.ariaLabel": "Terminale",
   "terminal": {
-    "ariaLabel": "Terminal"
+    "ariaLabel": "Terminale"
   },
   "lint": {
     "badge": {

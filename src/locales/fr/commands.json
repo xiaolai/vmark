@@ -18,8 +18,8 @@
   },
   "genies": {
     "openFolder": "Ouvrir le dossier des génies",
-    "togglePicker": "Toggle Genie Picker",
-    "openPicker": "Search Genies"
+    "togglePicker": "Basculer le sélecteur de génies",
+    "openPicker": "Rechercher des génies"
   },
   "export": {
     "html": "Exporter en HTML",

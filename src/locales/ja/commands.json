@@ -18,8 +18,8 @@
   },
   "genies": {
     "openFolder": "ジーニーフォルダを開く",
-    "togglePicker": "Toggle Genie Picker",
-    "openPicker": "Search Genies"
+    "togglePicker": "ジーニーピッカーを切り替え",
+    "openPicker": "ジーニーを検索"
   },
   "export": {
     "html": "HTML として書き出し",

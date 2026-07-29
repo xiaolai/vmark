@@ -18,8 +18,8 @@
   },
   "genies": {
     "openFolder": "Abrir pasta de assistentes",
-    "togglePicker": "Toggle Genie Picker",
-    "openPicker": "Search Genies"
+    "togglePicker": "Alternar seletor de assistentes",
+    "openPicker": "Buscar assistentes"
   },
   "export": {
     "html": "Exportar como HTML",

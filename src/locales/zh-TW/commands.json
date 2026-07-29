@@ -18,8 +18,8 @@
   },
   "genies": {
     "openFolder": "開啟精靈資料夾",
-    "togglePicker": "Toggle Genie Picker",
-    "openPicker": "Search Genies"
+    "togglePicker": "切換精靈選擇器",
+    "openPicker": "搜尋精靈"
   },
   "export": {
     "html": "匯出為 HTML",

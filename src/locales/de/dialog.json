@@ -90,11 +90,11 @@
     "quarantineCleared_other": "macOS-Quarantäne für {{count}} Markdown-Dateien in diesem Arbeitsbereich entfernt.",
     "quarantineClearedDesc": "macOS markiert Dateien, die von bestimmten Apps heruntergeladen wurden, mit einem Attribut, das den Finder-Doppelklick stillschweigend blockiert, während VMark läuft. VMark hat es entfernt, damit diese Dateien geöffnet werden können. Unter Einstellungen → Erweitert deaktivierbar.",
     "failedToOpenFilesInNewWindow": "Dateien konnten nicht in neuem Fenster geöffnet werden",
-    "workspaceMoveFailed": "Failed to move workspace to a new window",
-    "workspaceDuplicateFailed": "Failed to duplicate workspace",
-    "workspaceDuplicateSkipped_one": "Duplicated workspace and skipped 1 dirty, untitled, or missing tab.",
-    "workspaceDuplicateSkipped_other": "Duplicated workspace and skipped {{count}} dirty, untitled, or missing tabs.",
-    "sameFileDirtyConflict": "Cannot save \"{{file}}\" because another workspace window has unsaved changes for the same file ({{workspace}}).",
+    "workspaceMoveFailed": "Arbeitsbereich konnte nicht in ein neues Fenster verschoben werden",
+    "workspaceDuplicateFailed": "Arbeitsbereich konnte nicht dupliziert werden",
+    "workspaceDuplicateSkipped_one": "Arbeitsbereich dupliziert; 1 ungespeicherter, unbenannter oder fehlender Tab wurde übersprungen.",
+    "workspaceDuplicateSkipped_other": "Arbeitsbereich dupliziert; {{count}} ungespeicherte, unbenannte oder fehlende Tabs wurden übersprungen.",
+    "sameFileDirtyConflict": "„{{file}}“ kann nicht gespeichert werden, weil ein anderes Arbeitsbereichsfenster ungespeicherte Änderungen an derselben Datei hat ({{workspace}}).",
     "onlyMarkdownViaDropDrop": "Nur Markdown-Dateien können per Drag-and-Drop geöffnet werden",
     "restored": "Wiederhergestellt: {{filename}}",
     "reloaded": "Neu geladen: {{filename}}",
@@ -201,8 +201,8 @@
     "exportRenderTimedOut": "Export-Rendering hat das Zeitlimit überschritten — Editor konnte nicht initialisiert werden",
     "exportHtmlDialogTitle": "HTML exportieren",
     "exportFormatDialogTitle": "{{name}} exportieren",
-    "tabFormatChanged": "Editor switched to {{format}}.",
-    "unsupportedFileViaDropDrop": "This file type is not supported by VMark."
+    "tabFormatChanged": "Editor wurde zu {{format}} gewechselt.",
+    "unsupportedFileViaDropDrop": "Dieser Dateityp wird von VMark nicht unterstützt."
   },
   "saveRequired": {
     "title": "Speichern erforderlich"
@@ -250,8 +250,8 @@
   "openWorkspaceFolder": {
     "title": "Arbeitsbereichsordner öffnen"
   },
-  "openWorkspace.approval.title": "Open folder as workspace?",
-  "openWorkspace.approval.body": "The AI assistant is asking to open this folder as a workspace, which grants it access to the folder's file tree:",
-  "openWorkspace.approval.approve": "Open workspace",
-  "openWorkspace.approval.deny": "Deny"
+  "openWorkspace.approval.title": "Ordner als Arbeitsbereich öffnen?",
+  "openWorkspace.approval.body": "Der KI-Assistent möchte diesen Ordner als Arbeitsbereich öffnen. Damit erhält er Zugriff auf den Dateibaum des Ordners:",
+  "openWorkspace.approval.approve": "Arbeitsbereich öffnen",
+  "openWorkspace.approval.deny": "Ablehnen"
 }

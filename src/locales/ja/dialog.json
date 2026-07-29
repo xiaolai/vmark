@@ -90,11 +90,11 @@
     "quarantineCleared_other": "このワークスペース内の {{count}} 個の Markdown ファイルから macOS の隔離属性を削除しました。",
     "quarantineClearedDesc": "macOS では、一部のアプリでダウンロードしたファイルにフラグが付けられ、VMark の実行中に Finder のダブルクリックが密かにブロックされます。VMark がそのフラグを削除したため、これらのファイルが開けるようになりました。設定 → 詳細で無効にできます。",
     "failedToOpenFilesInNewWindow": "新しいウィンドウでファイルを開けませんでした",
-    "workspaceMoveFailed": "Failed to move workspace to a new window",
-    "workspaceDuplicateFailed": "Failed to duplicate workspace",
-    "workspaceDuplicateSkipped_one": "Duplicated workspace and skipped 1 dirty, untitled, or missing tab.",
-    "workspaceDuplicateSkipped_other": "Duplicated workspace and skipped {{count}} dirty, untitled, or missing tabs.",
-    "sameFileDirtyConflict": "Cannot save \"{{file}}\" because another workspace window has unsaved changes for the same file ({{workspace}}).",
+    "workspaceMoveFailed": "ワークスペースを新しいウィンドウに移動できませんでした",
+    "workspaceDuplicateFailed": "ワークスペースを複製できませんでした",
+    "workspaceDuplicateSkipped_one": "ワークスペースを複製し、未保存・無題・欠落しているタブを 1 個スキップしました。",
+    "workspaceDuplicateSkipped_other": "ワークスペースを複製し、未保存・無題・欠落しているタブを {{count}} 個スキップしました。",
+    "sameFileDirtyConflict": "別のワークスペースウィンドウが同じファイルの未保存の変更を保持しているため、「{{file}}」を保存できません ({{workspace}})。",
     "onlyMarkdownViaDropDrop": "ドラッグ＆ドロップで開けるのはMarkdownファイルのみです",
     "restored": "復元しました: {{filename}}",
     "reloaded": "再読み込みしました: {{filename}}",
@@ -201,8 +201,8 @@
     "exportRenderTimedOut": "エクスポートのレンダリングがタイムアウトしました — エディタを初期化できませんでした",
     "exportHtmlDialogTitle": "HTMLをエクスポート",
     "exportFormatDialogTitle": "{{name}}をエクスポート",
-    "tabFormatChanged": "Editor switched to {{format}}.",
-    "unsupportedFileViaDropDrop": "This file type is not supported by VMark."
+    "tabFormatChanged": "エディタが {{format}} に切り替わりました。",
+    "unsupportedFileViaDropDrop": "このファイル形式は VMark でサポートされていません。"
   },
   "saveRequired": {
     "title": "保存が必要"
@@ -250,8 +250,8 @@
   "openWorkspaceFolder": {
     "title": "ワークスペースフォルダーを開く"
   },
-  "openWorkspace.approval.title": "Open folder as workspace?",
-  "openWorkspace.approval.body": "The AI assistant is asking to open this folder as a workspace, which grants it access to the folder's file tree:",
-  "openWorkspace.approval.approve": "Open workspace",
-  "openWorkspace.approval.deny": "Deny"
+  "openWorkspace.approval.title": "フォルダをワークスペースとして開きますか?",
+  "openWorkspace.approval.body": "AI アシスタントがこのフォルダをワークスペースとして開く許可を求めています。許可するとフォルダのファイルツリーへのアクセスを与えることになります:",
+  "openWorkspace.approval.approve": "ワークスペースを開く",
+  "openWorkspace.approval.deny": "拒否"
 }

@@ -90,11 +90,11 @@
     "quarantineCleared_other": "已清除此工作區中 {{count}} 個 Markdown 檔案的 macOS 隔離標記。",
     "quarantineClearedDesc": "macOS 會在某些應用程式下載的檔案上加上一個標記，導致 VMark 執行時 Finder 雙擊開啟會被靜默攔截。VMark 已為你清除該標記，讓這些檔案可以正常開啟。可在設定 → 進階中關閉。",
     "failedToOpenFilesInNewWindow": "無法在新視窗開啟檔案",
-    "workspaceMoveFailed": "Failed to move workspace to a new window",
-    "workspaceDuplicateFailed": "Failed to duplicate workspace",
-    "workspaceDuplicateSkipped_one": "Duplicated workspace and skipped 1 dirty, untitled, or missing tab.",
-    "workspaceDuplicateSkipped_other": "Duplicated workspace and skipped {{count}} dirty, untitled, or missing tabs.",
-    "sameFileDirtyConflict": "Cannot save \"{{file}}\" because another workspace window has unsaved changes for the same file ({{workspace}}).",
+    "workspaceMoveFailed": "將工作區移動到新視窗失敗",
+    "workspaceDuplicateFailed": "複製工作區失敗",
+    "workspaceDuplicateSkipped_one": "已複製工作區,並略過 1 個未儲存、未命名或遺失的分頁。",
+    "workspaceDuplicateSkipped_other": "已複製工作區,並略過 {{count}} 個未儲存、未命名或遺失的分頁。",
+    "sameFileDirtyConflict": "無法儲存「{{file}}」,因為另一個工作區視窗對同一檔案有未儲存的變更({{workspace}})。",
     "onlyMarkdownViaDropDrop": "拖曳放置只能開啟 Markdown 檔案",
     "restored": "已還原：{{filename}}",
     "reloaded": "已重新載入：{{filename}}",
@@ -201,8 +201,8 @@
     "exportRenderTimedOut": "匯出渲染逾時 — 編輯器未能初始化",
     "exportHtmlDialogTitle": "匯出 HTML",
     "exportFormatDialogTitle": "匯出 {{name}}",
-    "tabFormatChanged": "Editor switched to {{format}}.",
-    "unsupportedFileViaDropDrop": "This file type is not supported by VMark."
+    "tabFormatChanged": "編輯器已切換為 {{format}}。",
+    "unsupportedFileViaDropDrop": "VMark 不支援此檔案類型。"
   },
   "saveRequired": {
     "title": "需要儲存"
@@ -250,8 +250,8 @@
   "openWorkspaceFolder": {
     "title": "開啟工作區資料夾"
   },
-  "openWorkspace.approval.title": "Open folder as workspace?",
-  "openWorkspace.approval.body": "The AI assistant is asking to open this folder as a workspace, which grants it access to the folder's file tree:",
-  "openWorkspace.approval.approve": "Open workspace",
-  "openWorkspace.approval.deny": "Deny"
+  "openWorkspace.approval.title": "將資料夾作為工作區開啟?",
+  "openWorkspace.approval.body": "AI 助理請求將此資料夾作為工作區開啟,這將授予它存取該資料夾檔案樹的權限:",
+  "openWorkspace.approval.approve": "開啟工作區",
+  "openWorkspace.approval.deny": "拒絕"
 }

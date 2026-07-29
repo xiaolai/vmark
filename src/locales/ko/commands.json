@@ -18,8 +18,8 @@
   },
   "genies": {
     "openFolder": "지니 폴더 열기",
-    "togglePicker": "Toggle Genie Picker",
-    "openPicker": "Search Genies"
+    "togglePicker": "지니 선택기 전환",
+    "openPicker": "지니 검색"
   },
   "export": {
     "html": "HTML로 내보내기",

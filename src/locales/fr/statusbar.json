@@ -12,14 +12,14 @@
   "mcpStopped": "MCP arrêté · Cliquez pour démarrer",
   "mcpNoClients": "MCP prêt · Aucune IA connectée",
   "mcpConnected": "Connecté : {{clients}}",
-  "mcpHistoryTitle": "MCP write history ({{count}})",
-  "mcpHistoryEmpty": "No MCP writes recorded for this tab",
-  "mcpHistoryClear": "Clear history for this tab",
-  "mcpHistoryRestore": "Restore to before this write",
-  "mcpHistoryRestored": "Restored to before {{tool}}",
-  "mcpHistoryRestoreNoop": "Document already matches checkpoint",
-  "mcpHistoryCleared": "Cleared MCP history for this tab",
-  "yamlWysiwygBlocked": "WYSIWYG mode would corrupt YAML indentation. Edit YAML in source mode.",
+  "mcpHistoryTitle": "Historique des écritures MCP ({{count}})",
+  "mcpHistoryEmpty": "Aucune écriture MCP enregistrée pour cet onglet",
+  "mcpHistoryClear": "Effacer l'historique de cet onglet",
+  "mcpHistoryRestore": "Restaurer l'état d'avant cette écriture",
+  "mcpHistoryRestored": "Restauré à l'état d'avant {{tool}}",
+  "mcpHistoryRestoreNoop": "Le document correspond déjà au point de contrôle",
+  "mcpHistoryCleared": "Historique MCP de cet onglet effacé",
+  "yamlWysiwygBlocked": "Le mode WYSIWYG corromprait l'indentation YAML. Modifiez le YAML en mode source.",
   "toggleTerminal": "Afficher/masquer le terminal ({{shortcut}})",
   "readOnlyTitle": "Mode lecture seule ({{shortcut}})",
   "editableTitle": "Modifiable ({{shortcut}})",
@@ -95,7 +95,7 @@
   "terminal.ariaLabel": "Terminal",
   "terminal": {
     "ariaLabel": "Terminal",
-    "maxSessions": "Maximum 5 sessions"
+    "maxSessions": "5 sessions maximum"
   },
   "lint": {
     "badge": {
