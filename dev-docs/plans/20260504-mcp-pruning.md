@@ -230,6 +230,33 @@ at write time. New unit test guards against regression.
 
 If real usage demands any of these, add them as a Phase 2 amendment.
 
+## Amendment (2026-07-28) — read/write splits take the surface to nine tools
+
+`browser` and `coherence` were each split into a read-only tool and a mutating
+one: `browser`/`browser_read` and `coherence`/`coherence_resolve`. Seven tools
+became nine.
+
+This does not relax the ADR. The cost this plan set out to control is **action
+count and description bytes** — the context an agent pays on every request, and
+the tool-selection accuracy that degrades on a crowded surface. Neither moved:
+the same 34 actions are simply re-partitioned across two more names, and the
+descriptions got shorter, because each half only has to explain its own risk
+class instead of hedging across both.
+
+What it buys is a property no amount of prose could: MCP annotations are **per
+tool**, not per action. A tool that bundles an ARIA snapshot with `execute_js`
+must advertise `destructiveHint: true`, so a client cannot auto-approve the
+snapshot. That charged a human approval to the cheapest, safest, most frequent
+call in the surface — and an approval tax on the safe path is what pushes an
+operator into blanket-approving the tool that also runs arbitrary script.
+`browser_read` and `coherence` now declare `readOnlyHint: true` truthfully, and
+the two genuinely destructive surfaces are conspicuous by name.
+
+The split line is mechanical: **does the action modify anything?** One
+capability moved rather than split on that test — `console`'s `clear` option
+evaluates `element.textContent = "[]"` in the page, which is a DOM write, so
+draining is `console_clear` on the mutating tool.
+
 ## References
 
 - `.claude/rules/60-ai-governance.md` — plan-doc contract, WI linkage, dependency review

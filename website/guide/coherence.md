@@ -112,7 +112,7 @@ there is nothing to recover and nothing to nag about.
 
 **Agent delegation.** By default only you can resolve stale edges. If
 you want an AI agent to accept-newer or waive on your behalf (through
-the read-only-plus-`resolve` MCP surface), grant it a **time-limited
+the `coherence_resolve` MCP tool), grant it a **time-limited
 delegation** from the Breakdown: name the agent, choose the scope
 (accept-newer and/or waive), set an expiry (7 days by default, never
 "forever"). Every delegated resolution is recorded against the grant, so
@@ -162,9 +162,19 @@ provenance* off — that is the default.
 ## For AI agents (MCP)
 
 External agents can query coherence state through the
-[`coherence` MCP tool](/guide/mcp-tools#coherence) (`status` and `edges`
-actions), for workspaces you have opened in VMark. `status` is a pure
-read; `edges` reconciles first — it may append provenance records to the
-workspace's own ledger, but never touches your documents. Resolution
-(ratify/waive) is deliberately *not* exposed over MCP in this version —
-decisions stay with the human in the app.
+[`coherence` MCP tool](/guide/mcp-tools#coherence) (`status`, `edges`,
+`claims`, and `contexts` actions), for workspaces you have opened in
+VMark. `status` is a pure read; `edges` reconciles first — it may append
+provenance records to the workspace's own ledger, but never touches your
+documents. The tool declares `readOnlyHint: true`, so a client may
+auto-approve it.
+
+Resolution (ratify/waive) lives in a **separate** tool,
+[`coherence_resolve`](/guide/mcp-tools#coherence-resolve), and stays with
+the human by default: an agent can only call it after you grant that
+specific agent a time-limited delegation, and every resolution is
+audit-logged against the grant. Keeping it out of `coherence` is what
+lets the read tool be auto-approved without an agent silently acquiring
+the ability to write to your ledger.
+
+Canon claims and contexts are never mutable over MCP at all.
