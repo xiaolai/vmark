@@ -220,7 +220,7 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Install cargo-audit
-        uses: taiki-e/install-action@3d7d7cd5ac7f994c1892ae0c06165095b9139094 # v2.85.1
+        uses: taiki-e/install-action@18b1216eba7f8039b0f8d131d5473787f0edce68 # v2.85.3
         with:
           tool: cargo-audit
 
