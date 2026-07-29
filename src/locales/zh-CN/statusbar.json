@@ -69,6 +69,7 @@
   "terminal.search.wholeWord": "全字匹配",
   "terminal.search.regex": "使用正则表达式",
   "terminal.search.close": "关闭 (Escape)",
+  "terminal.ariaLabel": "终端",
   "terminal.newSession": "新建终端",
   "terminal.maxSessions": "最多 5 个会话",
   "terminal.closeSession": "关闭",
@@ -85,24 +86,11 @@
   "terminal.contextMenu.selectAll": "全选",
   "terminal.contextMenu.clear": "清空",
   "terminal.contextMenu.resetDisplay": "重置显示",
-  "lint.badge.tooltip": "{{count}} issue(s) — click to go to next",
-  "lint.badge.tooltipSingle": "1 issue — click to go to next",
-  "lint.clean.toast": "No markdown issues found",
+  "lint.badge.tooltip": "{{count}} 个问题 —— 点击跳到下一个",
+  "lint.badge.tooltipSingle": "1 个问题 —— 点击跳到下一个",
+  "lint.clean.toast": "未发现 Markdown 问题",
   "largeFile.opening": "正在打开大文件（{{size}}）…",
   "largeFile.openedInSourceMode": "已以源码模式打开（大文件）。",
   "largeFile.switchToWysiwyg": "切换到富文本模式",
-  "largeFile.switchToWysiwygAria": "将当前文档从源码模式切换到富文本模式",
-  "terminal.ariaLabel": "Terminal",
-  "terminal": {
-    "ariaLabel": "终端"
-  },
-  "lint": {
-    "badge": {
-      "tooltip": "{{count}} 个问题 —— 点击跳到下一个",
-      "tooltipSingle": "1 个问题 —— 点击跳到下一个"
-    },
-    "clean": {
-      "toast": "未发现 Markdown 问题"
-    }
-  }
+  "largeFile.switchToWysiwygAria": "将当前文档从源码模式切换到富文本模式"
 }

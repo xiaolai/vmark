@@ -5,27 +5,21 @@
   "loading": "Wird geladen…",
   "error": "Aussagen konnten nicht geladen werden",
   "empty": "Noch keine Aussagen — Text in einem Dokument auswählen und „Aussage extrahieren“ verwenden",
-  "maturity": {
-    "draft": "Entwurf",
-    "established": "Etabliert"
-  },
+  "maturity.draft": "Entwurf",
+  "maturity.established": "Etabliert",
   "ended": "Beendet",
   "hidden": "In diesem Kontext ausgeblendet",
-  "actions": {
-    "promote": "Etablieren",
-    "correct": "Korrigieren",
-    "retire": "Beenden",
-    "hide": "Ausblenden",
-    "show": "Einblenden"
-  },
+  "actions.promote": "Etablieren",
+  "actions.correct": "Korrigieren",
+  "actions.retire": "Beenden",
+  "actions.hide": "Ausblenden",
+  "actions.show": "Einblenden",
   "promoteTitle": "Als etabliert hochstufen — nur etablierte Aussagen können einschränken (D4)",
   "correctPlaceholder": "Korrigierte Aussage",
   "correctConfirm": "Korrektur bestätigen",
-  "create": {
-    "heading": "Neue Aussage aus Auswahl",
-    "source": "Quelle: {{path}}",
-    "statementPlaceholder": "Aussagetext",
-    "confirm": "Aussage als Entwurf erstellen",
-    "cancel": "Abbrechen"
-  }
+  "create.heading": "Neue Aussage aus Auswahl",
+  "create.source": "Quelle: {{path}}",
+  "create.statementPlaceholder": "Aussagetext",
+  "create.confirm": "Aussage als Entwurf erstellen",
+  "create.cancel": "Abbrechen"
 }

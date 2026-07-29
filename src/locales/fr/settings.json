@@ -1,8 +1,11 @@
 {
   "title": "Paramètres",
+  "search.placeholder": "Rechercher dans les paramètres…",
+  "search.noResults": "Aucun paramètre ne correspond à « {{query}} ».",
   "nav.appearance": "Apparence",
   "nav.editor": "Éditeur",
   "nav.files": "Fichiers et images",
+  "nav.formats": "Formats",
   "nav.integrations": "Intégrations",
   "nav.language": "Langue",
   "nav.markdown": "Markdown",
@@ -10,7 +13,6 @@
   "nav.terminal": "Terminal",
   "nav.about": "À propos",
   "nav.advanced": "Avancé",
-  "nav.formats": "Formats",
   "formats.group.support": "Prise en charge des formats",
   "formats.group.supportDescription": "Markdown, texte brut et YAML s'ouvrent toujours dans leurs éditeurs complets. Activez les catégories ci-dessous pour que VMark prenne aussi en charge d'autres formats en texte brut.",
   "formats.dataFormats.label": "Formats de données (JSON, TOML)",
@@ -26,6 +28,11 @@
   "formats.defaultViewMode.source": "Source",
   "formats.defaultViewMode.split": "Divisé",
   "formats.defaultViewMode.preview": "Aperçu",
+  "formats.associations.group": "Remplacements par type de fichier",
+  "formats.associations.description": "Remplacements manuels par type de fichier définis avec « Définir le type de fichier » dans la palette de commandes. Supprimez une entrée pour revenir à la règle intégrée.",
+  "formats.associations.empty": "Aucun remplacement pour l'instant.",
+  "formats.associations.clearAll": "Tout effacer",
+  "formats.associations.remove": "Supprimer le remplacement pour {{key}}",
   "formats.group.tooling": "Outils externes",
   "formats.group.toolingDescription": "Choisissez l'éditeur qui s'ouvre lorsque vous cliquez sur « Ouvrir dans un éditeur externe » depuis un onglet de code en lecture seule. Laissez vide pour utiliser $VMARK_EXTERNAL_EDITOR / $VISUAL / $EDITOR / la valeur par défaut de votre plateforme.",
   "formats.externalEditor.label": "Éditeur externe",
@@ -33,6 +40,9 @@
   "formats.externalEditor.placeholder": "/Applications/Visual Studio Code.app",
   "formats.externalEditor.browse": "Parcourir…",
   "formats.externalEditor.dialogTitle": "Choisir un éditeur externe",
+  "formats.nudge.title": "VMark ouvre désormais plus que le Markdown",
+  "formats.nudge.description": "JSON, TOML, Mermaid, l'aperçu HTML et 12 visionneuses de code sont disponibles — activez-les quand vous le souhaitez.",
+  "formats.nudge.openSettings": "Ouvrir les réglages",
   "appearance.group.theme": "Thème",
   "appearance.theme.white": "Blanc",
   "appearance.theme.paper": "Papier",
@@ -49,6 +59,12 @@
   "appearance.showFilenameInTitlebar.description": "Afficher le nom du fichier courant dans le titre de la fenêtre",
   "appearance.autoHideStatusBar.label": "Masquer automatiquement la barre d'état",
   "appearance.autoHideStatusBar.description": "Masquer la barre d'état en l'absence d'interaction",
+  "appearance.group.focusMode": "Mode focus",
+  "appearance.focusModeDim.label": "Niveau d'atténuation",
+  "appearance.focusModeDim.description": "Intensité de l'atténuation du contenu non focalisé en mode focus",
+  "appearance.focusModeDim.standard": "Standard",
+  "appearance.focusModeDim.strong": "Forte",
+  "appearance.focusModeDim.stronger": "Plus forte",
   "editor.group.typography": "Typographie",
   "editor.latinFont.label": "Police latine",
   "editor.cjkFont.label": "Police CJK",
@@ -108,6 +124,8 @@
   "editor.lineEndings.crlf": "CRLF (\\r\\n)",
   "editor.preserveLineBreaks.label": "Conserver les sauts de ligne consécutifs",
   "editor.preserveLineBreaks.description": "Garder plusieurs lignes vides telles quelles (sans les fusionner)",
+  "editor.preserveBlankLines.label": "Conserver les lignes vides",
+  "editor.preserveBlankLines.description": "Conserve les suites de plusieurs lignes vides entre les blocs au lieu de les réduire (s'applique aux lignes vides déjà présentes dans le fichier)",
   "editor.hardBreakStyle.label": "Style de saut de ligne forcé à l'enregistrement",
   "editor.hardBreakStyle.description": "Deux espaces fonctionnent partout. La barre oblique inversée peut échouer sur Reddit/Jekyll.",
   "editor.hardBreakStyle.twoSpaces": "Deux espaces (recommandé)",
@@ -167,6 +185,12 @@
   "language.cjkCornerQuotes.description": "“Chinois” → 「Chinois」 (chinois traditionnel/japonais)",
   "language.cjkNestedQuotes.label": "Guillemets angulaires imbriqués",
   "language.cjkNestedQuotes.description": "'' imbriqués → 『』 dans 「」",
+  "language.contextualQuotes.label": "Guillemets contextuels",
+  "language.contextualQuotes.description": "Guillemets courbés autour du texte CJK, guillemets droits dans le texte purement latin",
+  "language.quoteToggleMode.label": "Comportement du basculement des guillemets",
+  "language.quoteToggleMode.description": "Façon dont la commande de basculement du style de guillemets alterne entre les styles",
+  "language.quoteToggleMode.simple": "Simple (droits ↔ préférés)",
+  "language.quoteToggleMode.fullCycle": "Cycle complet (tous les styles)",
   "language.group.cleanup": "Nettoyage",
   "language.consecutivePunctuation.label": "Limiter la ponctuation consécutive",
   "language.consecutivePunctuation.description": "Limiter les !?. répétés",
@@ -179,6 +203,9 @@
   "language.ellipsisNormalization.description": ". . . -> ...",
   "language.newlineCollapsing.label": "Fusionner les sauts de ligne",
   "language.newlineCollapsing.description": "3+ sauts de ligne -> 2",
+  "language.group.sectionHandling": "Traitement des sections",
+  "language.skipReferenceSections.label": "Ignorer les sections de références",
+  "language.skipReferenceSections.description": "Laisser les sections « Références » et « Pour aller plus loin » non mises en forme",
   "markdown.group.pasteInput": "Coller et saisie",
   "markdown.enableRegexSearch.label": "Activer les expressions régulières dans la recherche",
   "markdown.enableRegexSearch.description": "Afficher le bouton de bascule regex dans la barre Rechercher et remplacer",
@@ -186,6 +213,11 @@
   "markdown.smartPaste.description": "Convertir le texte Markdown collé en contenu riche en mode WYSIWYG",
   "markdown.smartPaste.auto": "Auto (détecter Markdown)",
   "markdown.smartPaste.off": "Désactivé",
+  "markdown.pasteMode.label": "Traitement du collage depuis le presse-papiers",
+  "markdown.pasteMode.description": "Façon dont le contenu du presse-papiers est traité lors du collage",
+  "markdown.pasteMode.smart": "Intelligent (convertir le HTML, détecter le Markdown)",
+  "markdown.pasteMode.plain": "Texte brut",
+  "markdown.pasteMode.rich": "Enrichi (conserver la mise en forme d'origine)",
   "markdown.group.layout": "Mise en page",
   "markdown.blockFontSize.label": "Taille de police des éléments de bloc",
   "markdown.splitView.label": "Diviser source/aperçu par défaut",
@@ -225,9 +257,9 @@
   "markdown.htmlAllowlistCustom.label": "Autoriser aussi ces balises",
   "markdown.htmlAllowlistCustom.description": "Balises supplémentaires en plus du niveau (séparées par des virgules). Les balises dangereuses comme script ou iframe sont toujours bloquées.",
   "markdown.htmlAllowlistCustom.placeholder": "ex. kbd, samp, var",
-  "markdown.group.lint": "Markdown Lint",
-  "markdown.lintEnabled.label": "Enable markdown lint",
-  "markdown.lintEnabled.description": "Check for common markdown issues (broken links, missing alt text, heading increments, etc.)",
+  "markdown.group.lint": "Analyse Markdown",
+  "markdown.lintEnabled.label": "Activer l'analyse Markdown",
+  "markdown.lintEnabled.description": "Détecter les problèmes Markdown courants (liens brisés, texte alternatif manquant, progression des titres, etc.)",
   "files.group.workspace": "Espace de travail",
   "files.workspaceRailMode.label": "Barre d'espaces de travail",
   "files.workspaceRailMode.description": "Affiche la barre d'espaces de travail à gauche et regroupe plusieurs espaces de travail et fichiers isolés dans une seule fenêtre",
@@ -281,6 +313,11 @@
   "files.group.images": "Images",
   "files.autoResize.label": "Redimensionner automatiquement au collage",
   "files.autoResize.description": "Redimensionner automatiquement les grandes images avant de les enregistrer dans les ressources",
+  "files.autoResize.off": "Désactivé",
+  "files.autoResize.800": "800px",
+  "files.autoResize.1200": "1200px",
+  "files.autoResize.1920": "1920px (Full HD)",
+  "files.autoResize.2560": "2560px (2K)",
   "files.copyToAssets.label": "Copier dans le dossier des ressources",
   "files.copyToAssets.description": "Copier les images collées/déposées dans le dossier des ressources du document",
   "files.cleanupOrphans.label": "Nettoyer les images inutilisées à la fermeture",
@@ -317,19 +354,19 @@
   "integrations.mcpDiag.sidecarInfo": "Sidecar v{{version}} • {{count}} outils",
   "integrations.group.installMcp": "Installer la configuration MCP",
   "integrations.installMcp.hint": "Configurer les assistants IA pour se connecter au serveur MCP de VMark.",
-  "integrations.installMcp.previewAriaLabel": "MCP Config Preview",
-  "integrations.installMcp.previewTitle": "Install MCP Config for {{provider}}",
-  "integrations.installMcp.configFile": "Config File",
-  "integrations.installMcp.binaryPath": "Binary Path",
-  "integrations.installMcp.backup": "Backup",
-  "integrations.installMcp.proposedConfig": "Proposed Configuration",
-  "integrations.installMcp.currentConfig": "Current Configuration",
-  "integrations.installMcp.safetyBackup": "A backup will be created before modifying the existing configuration.",
-  "integrations.installMcp.safetyNew": "A new configuration file will be created.",
-  "integrations.installMcp.cancel": "Cancel",
-  "integrations.installMcp.installing": "Installing...",
-  "integrations.installMcp.installButton": "Install",
-  "integrations.installMcp.devBadge": "Development",
+  "integrations.installMcp.previewAriaLabel": "Aperçu de la configuration MCP",
+  "integrations.installMcp.previewTitle": "Installer la configuration MCP pour {{provider}}",
+  "integrations.installMcp.configFile": "Fichier de configuration",
+  "integrations.installMcp.binaryPath": "Chemin du binaire",
+  "integrations.installMcp.backup": "Sauvegarde",
+  "integrations.installMcp.proposedConfig": "Configuration proposée",
+  "integrations.installMcp.currentConfig": "Configuration actuelle",
+  "integrations.installMcp.safetyBackup": "Une sauvegarde sera créée avant de modifier la configuration existante.",
+  "integrations.installMcp.safetyNew": "Un nouveau fichier de configuration sera créé.",
+  "integrations.installMcp.cancel": "Annuler",
+  "integrations.installMcp.installing": "Installation...",
+  "integrations.installMcp.installButton": "Installer",
+  "integrations.installMcp.devBadge": "Développement",
   "integrations.installMcp.loadingProviders": "Chargement des fournisseurs...",
   "integrations.installMcp.repairSuccess": "Configuration réparée avec succès",
   "integrations.installMcp.statusBinaryMissing": "Binaire du serveur MCP introuvable — réinstallez VMark",
@@ -416,6 +453,20 @@
   "terminal.osc52Clipboard.description": "Autoriser les programmes exécutés dans le terminal — via ssh, dans tmux — à copier vers le presse-papiers du système. La lecture du presse-papiers est toujours refusée, car n'importe quelle sortie affichée dans le terminal pourrait la demander.",
   "terminal.scrollback.label": "Historique de défilement",
   "terminal.scrollback.description": "Nombre de lignes de sortie que le terminal conserve dans son historique de défilement. Des valeurs plus élevées consomment plus de mémoire.",
+  "terminal.group.accessibility": "Accessibilité",
+  "terminal.bellMode.label": "Cloche du terminal",
+  "terminal.bellMode.description": "Façon de signaler une cloche du terminal (BEL)",
+  "terminal.bellMode.off": "Désactivée",
+  "terminal.bellMode.visual": "Visuelle (activité en arrière-plan)",
+  "terminal.bellMode.audible": "Sonore (bip)",
+  "terminal.notifyOnBell.label": "Notifier quand non focalisée",
+  "terminal.notifyOnBell.description": "Afficher une notification système quand le terminal d'une fenêtre en arrière-plan déclenche la cloche (p. ex. Claude Code termine un tour)",
+  "terminal.contrast.label": "Contraste minimum",
+  "terminal.contrast.description": "Rehausser le texte pâle jusqu'à un rapport de contraste minimum par rapport à son arrière-plan",
+  "terminal.contrast.off": "Désactivé",
+  "terminal.contrast.aa": "Niveau WCAG AA (4,5:1)",
+  "terminal.contrast.aaa": "Niveau WCAG AAA (7:1)",
+  "terminal.contrast.max": "Maximum",
   "terminal.screenReaderMode.label": "Mode lecteur d'écran",
   "terminal.screenReaderMode.description": "Exposer la sortie du terminal aux technologies d'assistance (VoiceOver). Désactivé par défaut pour des raisons de performance.",
   "about.version": "Version {{version}}",
@@ -441,6 +492,19 @@
   "about.restarting": "Redémarrage...",
   "about.autoUpdates.label": "Mises à jour automatiques",
   "about.autoUpdates.description": "Vérifier périodiquement les nouvelles versions",
+  "about.checkFrequency.label": "Fréquence de vérification",
+  "about.checkFrequency.description": "Fréquence de vérification des mises à jour",
+  "about.checkFrequency.startup": "Au démarrage",
+  "about.checkFrequency.daily": "Quotidienne",
+  "about.checkFrequency.weekly": "Hebdomadaire",
+  "about.checkFrequency.manual": "Manuelle uniquement",
+  "about.autoDownload.label": "Télécharger les mises à jour automatiquement",
+  "about.autoDownload.description": "Télécharger les nouvelles versions en arrière-plan lorsqu'elles sont disponibles",
+  "about.group.reset": "Réinitialisation",
+  "about.resetSettings.label": "Réinitialiser tous les paramètres",
+  "about.resetSettings.description": "Restaurer chaque paramètre à sa valeur par défaut",
+  "about.resetSettings.button": "Rétablir les valeurs par défaut",
+  "about.resetSettings.confirm": "Réinitialiser tous les paramètres à leurs valeurs par défaut ? Cette action est irréversible.",
   "about.checkForUpdates.label": "Vérifier les mises à jour",
   "about.checkNow": "Vérifier maintenant",
   "about.checking": "Vérification...",
@@ -595,6 +659,17 @@
   "advanced.group.macos": "macOS",
   "advanced.clearMacQuarantine.label": "Retirer la quarantaine de téléchargement à l'ouverture de l'espace de travail",
   "advanced.clearMacQuarantine.description": "Supprime l'attribut macOS « com.apple.quarantine » des fichiers Markdown à la racine de l'espace de travail afin qu'ils s'ouvrent par double-clic dans le Finder lorsque VMark est en cours d'exécution. Recommandé.",
+  "advanced.group.experimental": "Fonctionnalités expérimentales",
+  "advanced.workflowEngine.label": "Moteur de workflow",
+  "advanced.workflowEngine.description": "Activer les fichiers de workflow YAML avec visualisation React Flow (expérimental)",
+  "advanced.browserAiSession.label": "Session de navigateur de l'IA",
+  "advanced.browserAiSession.description": "Le mode Bac à sable garde les cookies de l'IA séparés des onglets humains ; le mode Partagé utilise le profil de navigateur de l'utilisateur et demande avant de changer de destination.",
+  "advanced.browserAiSession.sandbox": "Bac à sable (recommandé)",
+  "advanced.browserAiSession.shared": "Profil partagé",
+  "advanced.browserAiAllowLoopback.label": "Autoriser l'accès en bouclage pour l'IA",
+  "advanced.browserAiAllowLoopback.description": "Autorise l'IA à naviguer vers localhost et les adresses de bouclage. Les plages LAN privées, de métadonnées et link-local restent bloquées.",
+  "advanced.workflowEditorPreserveYamlFormatting.label": "Conserver la mise en forme YAML à l'enregistrement",
+  "advanced.workflowEditorPreserveYamlFormatting.description": "Lorsque l'éditeur structuré enregistre des modifications, conserve les commentaires, les ancres et la mise en forme existante via un aller-retour CST. Désactivez cette option pour reformater avec un simple yaml.stringify à chaque enregistrement (les commentaires sont perdus).",
   "advanced.group.hotExitDevTools": "Outils dev Hot Exit",
   "advanced.hotExit.hint": "Tester la capture et la restauration de session hot exit sans mises à jour réelles.",
   "advanced.hotExit.testCapture": "Tester la capture",
@@ -614,197 +689,14 @@
   "advanced.hotExit.restoreSuccess": "Session restaurée avec succès",
   "advanced.hotExit.noSessionToRestore": "Aucune session sauvegardée à restaurer",
   "advanced.hotExit.sessionCleared": "Session effacée",
-  "advanced.group.experimental": "Experimental Features",
-  "advanced.workflowEngine.label": "Workflow Engine",
-  "advanced.workflowEngine.description": "Enable YAML workflow files with React Flow visualization (experimental)",
-  "advanced.browserAiSession.label": "Session de navigateur de l'IA",
-  "advanced.browserAiSession.description": "Le mode Bac à sable garde les cookies de l'IA séparés des onglets humains ; le mode Partagé utilise le profil de navigateur de l'utilisateur et demande avant de changer de destination.",
-  "advanced.browserAiSession.sandbox": "Bac à sable (recommandé)",
-  "advanced.browserAiSession.shared": "Profil partagé",
-  "advanced.browserAiAllowLoopback.label": "Autoriser l'accès en bouclage pour l'IA",
-  "advanced.browserAiAllowLoopback.description": "Autorise l'IA à naviguer vers localhost et les adresses de bouclage. Les plages LAN privées, de métadonnées et link-local restent bloquées.",
-  "nav": {
-    "terminal": "Terminal"
-  },
-  "editor": {
-    "blockSpacing": {
-      "normal": "1× (Normal)"
-    },
-    "editorWidth": {
-      "compact": "36em (Compact)"
-    },
-    "cjkBrackets": {
-      "auto": "Automatique"
-    },
-    "lineEndings": {
-      "lf": "LF (\\n)",
-      "crlf": "CRLF (\\r\\n)"
-    }
-  },
-  "language": {
-    "currencySpacing": {
-      "description": "$ 100 -> $100"
-    },
-    "quoteStyle": {
-      "guillemets": "Guillemets «» ‹›"
-    },
-    "consecutivePunctuation": {
-      "double": "Double (!!! → !!)"
-    }
-  },
-  "markdown": {
-    "group": {
-      "lint": "Analyse Markdown"
-    },
-    "lintEnabled": {
-      "label": "Activer l'analyse Markdown",
-      "description": "Détecter les problèmes Markdown courants (liens brisés, texte alternatif manquant, progression des titres, etc.)"
-    }
-  },
-  "files": {
-    "saveInterval": {
-      "1m": "1 minute",
-      "2m": "2 minutes",
-      "5m": "5 minutes"
-    },
-    "maxVersions": {
-      "10": "10 versions",
-      "25": "25 versions",
-      "50": "50 versions",
-      "100": "100 versions"
-    },
-    "mergeWindow": {
-      "1m": "1 minute",
-      "2m": "2 minutes"
-    },
-    "group": {
-      "images": "Images"
-    },
-    "coherenceCapture": {
-      "label": "Suivre la provenance des documents",
-      "description": "Enregistrer l'évolution des documents (couche de cohérence). Une fois activé, VMark ajoute un bloc d'id `vmark:` au frontmatter du fichier lors du premier suivi et crée un dossier .vmark dans l'espace de travail."
-    }
-  },
-  "integrations": {
-    "mcpInfo": {
-      "version": "Version"
-    },
-    "installMcp": {
-      "previewAriaLabel": "Aperçu de la configuration MCP",
-      "previewTitle": "Installer la configuration MCP pour {{provider}}",
-      "configFile": "Fichier de configuration",
-      "binaryPath": "Chemin du binaire",
-      "backup": "Sauvegarde",
-      "proposedConfig": "Configuration proposée",
-      "currentConfig": "Configuration actuelle",
-      "safetyBackup": "Une sauvegarde sera créée avant de modifier la configuration existante.",
-      "safetyNew": "Un nouveau fichier de configuration sera créé.",
-      "cancel": "Annuler",
-      "installing": "Installation...",
-      "installButton": "Installer",
-      "devBadge": "Développement"
-    }
-  },
-  "terminal": {
-    "group": {
-      "terminal": "Terminal"
-    },
-    "shell": {
-      "label": "Shell"
-    }
-  },
-  "about": {
-    "version": "Version {{version}}",
-    "github": "GitHub"
-  },
-  "shortcuts": {
-    "category": {
-      "navigation": "Navigation"
-    }
-  },
-  "advanced": {
-    "group": {
-      "experimental": "Fonctionnalités expérimentales"
-    },
-    "workflowEngine": {
-      "label": "Moteur de workflow",
-      "description": "Activer les fichiers de workflow YAML avec visualisation React Flow (expérimental)"
-    },
-    "embeddedBrowser": {
-      "label": "Navigateur intégré",
-      "description": "Active le navigateur web expérimental intégré. Ajoute « Nouvel onglet de navigateur » à la palette de commandes."
-    }
-  },
-  "advanced.workflowEditorPreserveYamlFormatting.label": "Conserver la mise en forme YAML à l'enregistrement",
-  "advanced.workflowEditorPreserveYamlFormatting.description": "Lorsque l'éditeur structuré enregistre des modifications, conserve les commentaires, les ancres et la mise en forme existante via un aller-retour CST. Désactivez cette option pour reformater avec un simple yaml.stringify à chaque enregistrement (les commentaires sont perdus).",
-  "formats.nudge.title": "VMark ouvre désormais plus que le Markdown",
-  "formats.nudge.description": "JSON, TOML, Mermaid, l'aperçu HTML et 12 visionneuses de code sont disponibles — activez-les quand vous le souhaitez.",
-  "formats.nudge.openSettings": "Ouvrir les réglages",
-  "search.placeholder": "Rechercher dans les paramètres…",
-  "search.noResults": "Aucun paramètre ne correspond à « {{query}} ».",
-  "formats.associations.group": "Remplacements par type de fichier",
-  "formats.associations.description": "Remplacements manuels par type de fichier définis avec « Définir le type de fichier » dans la palette de commandes. Supprimez une entrée pour revenir à la règle intégrée.",
-  "formats.associations.empty": "Aucun remplacement pour l'instant.",
-  "formats.associations.clearAll": "Tout effacer",
-  "formats.associations.remove": "Supprimer le remplacement pour {{key}}",
-  "appearance.group.focusMode": "Mode focus",
-  "appearance.focusModeDim.label": "Niveau d'atténuation",
-  "appearance.focusModeDim.description": "Intensité de l'atténuation du contenu non focalisé en mode focus",
-  "appearance.focusModeDim.standard": "Standard",
-  "appearance.focusModeDim.strong": "Forte",
-  "appearance.focusModeDim.stronger": "Plus forte",
-  "language.contextualQuotes.label": "Guillemets contextuels",
-  "language.contextualQuotes.description": "Guillemets courbés autour du texte CJK, guillemets droits dans le texte purement latin",
-  "language.quoteToggleMode.label": "Comportement du basculement des guillemets",
-  "language.quoteToggleMode.description": "Façon dont la commande de basculement du style de guillemets alterne entre les styles",
-  "language.quoteToggleMode.simple": "Simple (droits ↔ préférés)",
-  "language.quoteToggleMode.fullCycle": "Cycle complet (tous les styles)",
-  "language.group.sectionHandling": "Traitement des sections",
-  "language.skipReferenceSections.label": "Ignorer les sections de références",
-  "language.skipReferenceSections.description": "Laisser les sections « Références » et « Pour aller plus loin » non mises en forme",
-  "markdown.pasteMode.label": "Traitement du collage depuis le presse-papiers",
-  "markdown.pasteMode.description": "Façon dont le contenu du presse-papiers est traité lors du collage",
-  "markdown.pasteMode.smart": "Intelligent (convertir le HTML, détecter le Markdown)",
-  "markdown.pasteMode.plain": "Texte brut",
-  "markdown.pasteMode.rich": "Enrichi (conserver la mise en forme d'origine)",
-  "terminal.group.accessibility": "Accessibilité",
-  "terminal.bellMode.label": "Cloche du terminal",
-  "terminal.bellMode.description": "Façon de signaler une cloche du terminal (BEL)",
-  "terminal.bellMode.off": "Désactivée",
-  "terminal.bellMode.visual": "Visuelle (activité en arrière-plan)",
-  "terminal.bellMode.audible": "Sonore (bip)",
-  "terminal.notifyOnBell.label": "Notifier quand non focalisée",
-  "terminal.notifyOnBell.description": "Afficher une notification système quand le terminal d'une fenêtre en arrière-plan déclenche la cloche (p. ex. Claude Code termine un tour)",
-  "terminal.contrast.label": "Contraste minimum",
-  "terminal.contrast.description": "Rehausser le texte pâle jusqu'à un rapport de contraste minimum par rapport à son arrière-plan",
-  "terminal.contrast.off": "Désactivé",
-  "terminal.contrast.aa": "Niveau WCAG AA (4,5:1)",
-  "terminal.contrast.aaa": "Niveau WCAG AAA (7:1)",
-  "terminal.contrast.max": "Maximum",
-  "about.checkFrequency.label": "Fréquence de vérification",
-  "about.checkFrequency.description": "Fréquence de vérification des mises à jour",
-  "about.checkFrequency.startup": "Au démarrage",
-  "about.checkFrequency.daily": "Quotidienne",
-  "about.checkFrequency.weekly": "Hebdomadaire",
-  "about.checkFrequency.manual": "Manuelle uniquement",
-  "about.autoDownload.label": "Télécharger les mises à jour automatiquement",
-  "about.autoDownload.description": "Télécharger les nouvelles versions en arrière-plan lorsqu'elles sont disponibles",
-  "about.group.reset": "Réinitialisation",
-  "about.resetSettings.label": "Réinitialiser tous les paramètres",
-  "about.resetSettings.description": "Restaurer chaque paramètre à sa valeur par défaut",
-  "about.resetSettings.button": "Rétablir les valeurs par défaut",
-  "about.resetSettings.confirm": "Réinitialiser tous les paramètres à leurs valeurs par défaut ? Cette action est irréversible.",
   "integrations.ccSwitch.label": "CC-Switch",
   "integrations.ccSwitch.description": "Transmettez le serveur MCP de VMark à CC-Switch, qui le synchronise avec les CLI d'IA que vous y gérez.",
   "integrations.ccSwitch.add": "Ajouter à CC-Switch",
   "integrations.ccSwitch.opened": "Lien d'import CC-Switch ouvert.",
   "integrations.ccSwitch.binaryMissing": "Compilez d'abord le binaire du serveur MCP de VMark.",
-  "files.autoResize.off": "Désactivé",
-  "files.autoResize.800": "800px",
-  "files.autoResize.1200": "1200px",
-  "files.autoResize.1920": "1920px (Full HD)",
-  "files.autoResize.2560": "2560px (2K)",
-  "editor.preserveBlankLines.label": "Conserver les lignes vides",
-  "editor.preserveBlankLines.description": "Conserve les suites de plusieurs lignes vides entre les blocs au lieu de les réduire (s'applique aux lignes vides déjà présentes dans le fichier)",
+  "advanced.embeddedBrowser.label": "Navigateur intégré",
+  "advanced.embeddedBrowser.description": "Active le navigateur web expérimental intégré. Ajoute « Nouvel onglet de navigateur » à la palette de commandes.",
+  "files.coherenceCapture.label": "Suivre la provenance des documents",
+  "files.coherenceCapture.description": "Enregistrer l'évolution des documents (couche de cohérence). Une fois activé, VMark ajoute un bloc d'id `vmark:` au frontmatter du fichier lors du premier suivi et crée un dossier .vmark dans l'espace de travail.",
   "shortcuts.capture.unsupported": "Cette combinaison de touches n'est pas prise en charge. Essayez-en une autre."
 }
