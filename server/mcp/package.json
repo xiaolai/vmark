@@ -31,7 +31,7 @@
   "author": "VMark",
   "license": "MIT",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "ws": "^8.21.1",
     "zod": "^4.4.3"
   },
