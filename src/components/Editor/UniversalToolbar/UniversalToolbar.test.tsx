@@ -103,6 +103,14 @@ const mockEnableRules = vi.hoisted(() => ({
 
 vi.mock("@/plugins/toolbarActions/enableRules", () => mockEnableRules);
 
+// After the structural merge the toolbar's responsibility ends at calling the
+// shared guarded dispatcher with (action, surface) — mock that boundary; the
+// dispatcher's own tests cover adapter routing and the guard mechanics.
+const mockDispatchEditorAction = vi.fn(() => true);
+vi.mock("@/plugins/toolbarActions/dispatch", () => ({
+  dispatchEditorAction: (...args: unknown[]) => mockDispatchEditorAction(...args),
+}));
+
 vi.mock("@/stores/geniePickerStore", () => {
   const store = (() => null) as unknown as { getState: () => { openPicker: typeof mockAdapters.mockOpenPicker } };
   store.getState = () => ({ openPicker: mockAdapters.mockOpenPicker });
@@ -1057,10 +1065,7 @@ describe("UniversalToolbar", () => {
       const h1Item = Array.from(menuItems).find(el => el.textContent?.includes("Heading 1"));
       if (h1Item) {
         fireEvent.click(h1Item);
-        expect(mockAdapters.setSourceHeadingLevel).toHaveBeenCalledWith(
-          expect.objectContaining({ surface: "source" }),
-          1
-        );
+        expect(mockDispatchEditorAction).toHaveBeenCalledWith("heading:1", "source");
       }
     });
 
@@ -1091,10 +1096,7 @@ describe("UniversalToolbar", () => {
       const h2Item = Array.from(menuItems).find(el => el.textContent?.includes("Heading 2"));
       if (h2Item) {
         fireEvent.click(h2Item);
-        expect(mockAdapters.setWysiwygHeadingLevel).toHaveBeenCalledWith(
-          expect.objectContaining({ surface: "wysiwyg" }),
-          2
-        );
+        expect(mockDispatchEditorAction).toHaveBeenCalledWith("heading:2", "wysiwyg");
       }
     });
 
@@ -1141,10 +1143,7 @@ describe("UniversalToolbar", () => {
       const menuItems = menu.querySelectorAll(".universal-toolbar-dropdown-item:not(.disabled)");
       if (menuItems.length > 0) {
         fireEvent.click(menuItems[0]);
-        expect(mockAdapters.performSourceToolbarAction).toHaveBeenCalledWith(
-          expect.any(String),
-          expect.objectContaining({ surface: "source" })
-        );
+        expect(mockDispatchEditorAction).toHaveBeenCalledWith(expect.any(String), "source");
       }
     });
 
@@ -1174,10 +1173,7 @@ describe("UniversalToolbar", () => {
       const menuItems = menu.querySelectorAll(".universal-toolbar-dropdown-item:not(.disabled)");
       if (menuItems.length > 0) {
         fireEvent.click(menuItems[0]);
-        expect(mockAdapters.performWysiwygToolbarAction).toHaveBeenCalledWith(
-          expect.any(String),
-          expect.objectContaining({ surface: "wysiwyg" })
-        );
+        expect(mockDispatchEditorAction).toHaveBeenCalledWith(expect.any(String), "wysiwyg");
       }
     });
   });

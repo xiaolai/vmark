@@ -533,12 +533,22 @@ describe("CodeBlockWithLineNumbers", () => {
         throw new Error("addNodeView callback was not captured");
       }
       const node = createMockNode(text, language);
+      // Chain surface matching production applyLanguage:
+      // chain().command(fn).focus().run() — command invokes fn with a stub tr.
+      const chainApi = {
+        focus: vi.fn(),
+        command: vi.fn(),
+        run: vi.fn(),
+      };
+      chainApi.focus.mockReturnValue(chainApi);
+      chainApi.command.mockImplementation(
+        (fn: (props: { tr: { setNodeMarkup: () => void } }) => boolean) => {
+          fn({ tr: { setNodeMarkup: vi.fn() } });
+          return chainApi;
+        }
+      );
       const mockEditor = {
-        chain: vi.fn().mockReturnValue({
-          focus: vi.fn().mockReturnThis(),
-          updateAttributes: vi.fn().mockReturnThis(),
-          run: vi.fn().mockReturnThis(),
-        }),
+        chain: vi.fn().mockReturnValue(chainApi),
       };
       const getPos = vi.fn(() => 0);
       const factory = capturedConfig.addNodeView.call({});

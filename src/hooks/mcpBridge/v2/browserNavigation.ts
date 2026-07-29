@@ -37,9 +37,13 @@ function requestNavigationApproval(
   url: string,
   generation: number,
 ): Promise<void> {
-  useBrowserApprovalStore
+  const queued = useBrowserApprovalStore
     .getState()
     .requestApproval(id, url, "navigate", undefined, tabId, generation);
+  // No prompt exists to approve: a needsApproval envelope would be a lie.
+  if (queued === "overloaded" || queued === "rejected") {
+    return failure(id, "approval queue is full — resolve or deny pending approvals, then retry");
+  }
   return failure(id, "APPROVAL_REQUIRED", {
     needsApproval: true,
     operation: "navigate",

@@ -101,7 +101,18 @@ async function approveAndAct(
   if (decision === "needs-approval") {
     const authorizedOnce = useBrowserApprovalStore.getState().consumeOneShot(tab.url, operation, target, tab.tabId);
     if (!authorizedOnce) {
-      useBrowserApprovalStore.getState().requestApproval(id, tab.url, operation, target, tab.tabId, tab.generation);
+      const queued = useBrowserApprovalStore
+        .getState()
+        .requestApproval(id, tab.url, operation, target, tab.tabId, tab.generation);
+      // No prompt exists to approve: a needsApproval envelope would be a lie.
+      if (queued === "overloaded" || queued === "rejected") {
+        await respond({
+          id,
+          success: false,
+          error: "approval queue is full — resolve or deny pending approvals, then retry",
+        });
+        return;
+      }
       await respond({
         id,
         success: false,

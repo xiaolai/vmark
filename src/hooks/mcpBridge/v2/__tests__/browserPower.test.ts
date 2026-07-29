@@ -75,6 +75,70 @@ describe("handleBrowserStyle (act-class, op=style)", () => {
     expect(useBrowserApprovalStore.getState().pending[0]).toMatchObject({ operation: "style" });
   });
 
+  it("responds queue-full (NOT needsApproval) when the approval queue is at capacity", async () => {
+    const { MAX_PENDING_APPROVALS } = await import("@/stores/browserApprovalStore");
+    const id = seed();
+    // Fill the queue with unrelated pending prompts.
+    const store = useBrowserApprovalStore.getState();
+    for (let i = 0; i < MAX_PENDING_APPROVALS; i++) {
+      store.requestApproval(`fill-${i}`, BLOG, "click", { role: "button", name: `b${i}` } as never, id, 1);
+    }
+    await handleBrowserStyle("s-full", { tabId: id, selector: ".x", set: { color: "red" } });
+    expect(invoke).not.toHaveBeenCalled();
+    const res = lastResponse();
+    expect(res.success).toBe(false);
+    expect(String(res.error)).toContain("approval queue is full");
+    expect((res.data as { needsApproval?: boolean } | undefined)?.needsApproval).toBeUndefined();
+  });
+
+  it("rejects invalid class tokens atomically", async () => {
+    const id = seed();
+    grant("style");
+    await handleBrowserStyle("s-cls", { tabId: id, selector: ".x", addClasses: ["ok", "bad token"] });
+    expect(invoke).not.toHaveBeenCalled();
+    expect(String(lastResponse().error)).toContain("single class tokens");
+  });
+
+  it("rejects a non-object 'set' payload", async () => {
+    const id = seed();
+    grant("style");
+    await handleBrowserStyle("s-set", { tabId: id, selector: ".x", set: 5 });
+    expect(invoke).not.toHaveBeenCalled();
+    expect(String(lastResponse().error)).toContain("must be an object");
+  });
+
+  it("rejects a non-string 'set' value with the field name", async () => {
+    const id = seed();
+    grant("style");
+    await handleBrowserStyle("s-setv", { tabId: id, selector: ".x", set: { color: 7 } });
+    expect(invoke).not.toHaveBeenCalled();
+    expect(String(lastResponse().error)).toContain("set['color']");
+  });
+
+  it("rejects a non-array class list", async () => {
+    const id = seed();
+    grant("style");
+    await handleBrowserStyle("s-arr", { tabId: id, selector: ".x", removeClasses: "x" });
+    expect(invoke).not.toHaveBeenCalled();
+    expect(String(lastResponse().error)).toContain("must be an array");
+  });
+
+  it("rejects ref AND selector together", async () => {
+    const id = seed();
+    grant("style");
+    await handleBrowserStyle("s-both", { tabId: id, ref: "r1", selector: ".x", set: { color: "red" } });
+    expect(invoke).not.toHaveBeenCalled();
+    expect(String(lastResponse().error)).toContain("not both");
+  });
+
+  it("rejects injectCss combined with element ops", async () => {
+    const id = seed();
+    grant("style");
+    await handleBrowserStyle("s-mix", { tabId: id, selector: ".x", set: { color: "red" }, injectCss: "body{}" });
+    expect(invoke).not.toHaveBeenCalled();
+    expect(String(lastResponse().error)).toContain("cannot be combined");
+  });
+
   it("refuses when neither a target nor an operation is given", async () => {
     const id = seed();
     grant("style");
@@ -191,13 +255,37 @@ describe("script size cap is measured in UTF-8 bytes", () => {
     expect(lastResponse()).toMatchObject({ success: false });
   });
 
-  it("still accepts an ASCII payload just under the byte cap", async () => {
+  it("accepts an ASCII payload whose BUILT script stays under the byte cap", async () => {
+    const { buildStyleScript } = await import("@/lib/browser/agent/powerScript");
+    // The cap is measured on the built script (matching Rust's authoritative
+    // gate), so derive the wrapper overhead from the real builder.
+    const overhead = new TextEncoder().encode(
+      buildStyleScript({}, 1, { injectCss: "" })
+    ).length;
     const id = seed();
     grant("style");
     await handleBrowserStyle("ascii-ok", {
       tabId: id,
-      injectCss: "a".repeat(64 * 1024 - 10),
+      injectCss: "a".repeat(64 * 1024 - overhead - 64),
     });
     expect(invoke).toHaveBeenCalled();
+  });
+
+  it("refuses raw CSS just under the cap whose wrapped script exceeds it", async () => {
+    const id = seed();
+    grant("style");
+    // Previously this passed the client mirror (raw CSS measured) and was
+    // rejected only by Rust AFTER wrapping — an opaque late failure. The
+    // mirror now measures the built script, so the refusal is client-side
+    // and names the real cause.
+    await handleBrowserStyle("ascii-wrapped-over", {
+      tabId: id,
+      injectCss: "a".repeat(64 * 1024 - 10),
+    });
+    expect(invoke).not.toHaveBeenCalled();
+    expect(lastResponse()).toMatchObject({
+      success: false,
+      error: expect.stringContaining("wrapped CSS"),
+    });
   });
 });

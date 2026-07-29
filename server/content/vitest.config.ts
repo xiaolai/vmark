@@ -20,8 +20,10 @@ export default defineConfig({
       provider: "v8",
       include: ["src/**/*.ts"],
       exclude: ["src/**/*.test.ts", "src/**/*.bench.ts", "src/cli.ts", "src/index.ts"],
-      // Ratcheted gate (grill H3). Seeded just below measured coverage; raise
-      // as M13 adds direct tests for watch/extract/resolve/search.
+      // Ratcheted gate (grill H3). Thresholds sit just below measured
+      // coverage — raise them when coverage rises, never lower them.
+      // (cli.ts/index.ts stay excluded as MINIMAL process wrappers; all CLI
+      // behavior lives in cliMain.ts, which IS covered.)
       thresholds: {
         statements: 85,
         branches: 70,

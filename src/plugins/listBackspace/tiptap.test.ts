@@ -226,6 +226,154 @@ describe("listBackspaceExtension", () => {
     });
   });
 
+  describe("sole empty list item", () => {
+    it("unwraps the list instead of jumping into a previous code block", () => {
+      // Reported bug: `codeBlock` followed by `- |` (sole empty item).
+      // Backspace left the list in place (ProseMirror refills a sole deleted
+      // listItem because bulletList requires `listItem+`) and teleported the
+      // cursor to the end of the code block. Expected: the item lifts to an
+      // empty paragraph — the list disappears, the cursor stays put.
+      const editor = createEditor(
+        "<pre><code>mkdir foo\ncd foo\nclaude</code></pre><ul><li></li></ul>"
+      );
+
+      editor.commands.focus("end"); // inside the sole empty item
+      pressBackspace(editor);
+
+      const html = editor.getHTML();
+      expect(html).not.toContain("<ul>");
+      expect(html).toContain("claude"); // code block untouched
+      // Cursor must NOT have jumped into the code block.
+      expect(editor.state.selection.$from.parent.type.name).toBe("paragraph");
+
+      editor.destroy();
+    });
+
+    it("unwraps a sole empty item when the list is the whole document", () => {
+      const editor = createEditor("<ul><li></li></ul>");
+
+      editor.commands.focus("start");
+      pressBackspace(editor);
+
+      expect(editor.getHTML()).not.toContain("<ul>");
+
+      editor.destroy();
+    });
+
+    it("lifts a sole empty NESTED item into the parent list", () => {
+      const editor = createEditor(
+        "<ul><li><p>Parent</p><ul><li></li></ul></li></ul>"
+      );
+
+      editor.commands.focus("end"); // inside the nested empty item
+      pressBackspace(editor);
+
+      const html = editor.getHTML();
+      // The nested list is gone; the outer list survives.
+      expect((html.match(/<ul>/g) ?? []).length).toBe(1);
+      expect(html).toContain("Parent");
+
+      editor.destroy();
+    });
+  });
+
+  describe("IME safety", () => {
+    it("does not intercept a keyCode-229 Backspace (CJK IME key event)", async () => {
+      const { handleBackspaceKeydown } = await import("./tiptap");
+      const editor = createEditor("<ul><li>First</li><li></li></ul>");
+      editor.commands.focus("end");
+
+      const imeEvent = new KeyboardEvent("keydown", {
+        key: "Backspace",
+        keyCode: 229,
+        cancelable: true,
+      } as KeyboardEventInit);
+      // Our handler must step aside for IME-synthesized keys…
+      expect(handleBackspaceKeydown(editor.view, imeEvent)).toBe(false);
+
+      // …while intercepting the identical real Backspace on the same doc.
+      const realEvent = new KeyboardEvent("keydown", {
+        key: "Backspace",
+        cancelable: true,
+      });
+      expect(handleBackspaceKeydown(editor.view, realEvent)).toBe(true);
+      editor.destroy();
+    });
+  });
+
+  describe("structural emptiness", () => {
+    it("does not delete an item whose only content is a hard break", () => {
+      const editor = createEditor("<ul><li>First</li><li><br></li></ul>");
+
+      // Cursor at the start of the second item (before the hard break)
+      const doc = editor.state.doc;
+      let itemPos = 0;
+      doc.descendants((node, pos) => {
+        if (node.type.name === "listItem" && node.textContent === "" && itemPos === 0) {
+          itemPos = pos + 2; // inside the paragraph, before <br>
+          return false;
+        }
+      });
+      editor.commands.setTextSelection(itemPos);
+      pressBackspace(editor);
+
+      // The hard break must survive (lifted out, not deleted with the item).
+      expect(editor.getHTML()).toContain("<br");
+      editor.destroy();
+    });
+  });
+
+  describe("multi-block list items", () => {
+    it("does not intercept at the start of a second paragraph inside an item", async () => {
+      const { handleBackspaceKeydown } = await import("./tiptap");
+      const editor = createEditor("<ul><li><p>one</p><p>two</p></li></ul>");
+
+      const doc = editor.state.doc;
+      let twoStart = 0;
+      doc.descendants((node, pos) => {
+        if (node.isText && node.text === "two") {
+          twoStart = pos;
+          return false;
+        }
+      });
+      editor.commands.setTextSelection(twoStart);
+
+      const event = new KeyboardEvent("keydown", {
+        key: "Backspace",
+        cancelable: true,
+      });
+      // Default block joining (not our item-lift) must own this position.
+      expect(handleBackspaceKeydown(editor.view, event)).toBe(false);
+      editor.destroy();
+    });
+  });
+
+  describe("first empty item with siblings", () => {
+    it("deletes the item and keeps the cursor out of the list", () => {
+      const editor = createEditor(
+        "<p>before</p><ul><li></li><li>Second</li></ul>"
+      );
+
+      const doc = editor.state.doc;
+      let emptyItemPos = 0;
+      doc.descendants((node, pos) => {
+        if (node.type.name === "listItem" && node.textContent === "" && emptyItemPos === 0) {
+          emptyItemPos = pos + 2;
+          return false;
+        }
+      });
+      editor.commands.setTextSelection(emptyItemPos);
+      pressBackspace(editor);
+
+      const html = editor.getHTML();
+      expect((html.match(/<li>/g) ?? []).length).toBe(1);
+      expect(html).toContain("Second");
+      // Backspace moves backward: cursor lands at the end of the previous block.
+      expect(editor.state.selection.$from.parent.textContent).toBe("before");
+      editor.destroy();
+    });
+  });
+
   describe("ordered list backspace", () => {
     it("lifts ordered list item to paragraph on Backspace", () => {
       const editor = createEditor(

@@ -44,7 +44,8 @@ import {
 } from "./mdastConverterHelpers";
 
 export type { ContentContext, MdastToPmContext } from "./mdastConverterHelpers";
-export { convertParagraph, convertHtml } from "./mdastMediaConverters";
+export { convertParagraph } from "./mdastParagraphConverter";
+export { convertHtml } from "./mdastMediaConverters";
 export {
   convertBlockquote,
   convertDetails,
