@@ -23,7 +23,7 @@
  * lockstep with the app is the five-file `sed` in the bump procedure
  * (`.claude/rules/40-version-bump.md`). Edit it only through that procedure.
  */
-const VERSION = '0.9.19';
+const VERSION = '0.9.20';
 
 /**
  * Handle --version flag.
