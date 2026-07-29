@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
-# Slopsquatting gate: scan ALL npm manifests (root, vmark-mcp-server,
-# website) for newly-added dependencies and report metadata (creation
+# Slopsquatting gate: scan ALL npm manifests (root, server/mcp,
+# server/content, website) for newly-added dependencies and report metadata (creation
 # date, weekly downloads). Fails CLOSED on any metadata failure. Flags
 # any package that's:
 #   - non-existent on npm or unqueryable (likely hallucinated)
@@ -51,7 +51,7 @@ fi
 # in either is just as dangerous as in the root (audit 20260612 H26).
 # Rust deps are covered separately: cargo-audit in CI + Dependabot's
 # cargo ecosystem (see .claude/rules/60-ai-governance.md §4).
-MANIFESTS=("package.json" "vmark-mcp-server/package.json" "website/package.json")
+MANIFESTS=("package.json" "server/mcp/package.json" "server/content/package.json" "website/package.json")
 
 # Diff dependency OBJECTS via JSON parsing, not grep over diff lines —
 # the old grep matched script entries like "e2e:smoke" and fed npm

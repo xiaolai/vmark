@@ -181,7 +181,7 @@ jobs:
       # NOTE: pkg binaries cannot be combined with lipo, so we build arch-specific binaries
       - name: Build MCP server sidecar (macOS)
         if: matrix.platform == 'macos-latest'
-        working-directory: vmark-mcp-server
+        working-directory: server/mcp
         env:
           SIDECAR_TARGET: ${{ matrix.sidecar_target }}
         run: |
@@ -250,7 +250,7 @@ jobs:
 
       - name: Build MCP server sidecar (Windows)
         if: matrix.platform == 'windows-latest'
-        working-directory: vmark-mcp-server
+        working-directory: server/mcp
         run: |
           pnpm install --frozen-lockfile
           pnpm build
@@ -276,7 +276,7 @@ jobs:
 
       - name: Build MCP server sidecar (Linux)
         if: matrix.platform == 'ubuntu-22.04'
-        working-directory: vmark-mcp-server
+        working-directory: server/mcp
         run: |
           pnpm install --frozen-lockfile
           pnpm build

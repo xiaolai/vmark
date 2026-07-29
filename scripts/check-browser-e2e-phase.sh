@@ -87,7 +87,7 @@ present() {
 phase0() {
   echo "Phase 0 — documentation reconciled with shipped reality"
   # Stale claims gone (WI-0.1 / 0.2 / 0.3 / 0.4)...
-  absent vmark-mcp-server/src/tools/browser.ts \
+  absent server/mcp/src/tools/browser.ts \
     "cookie capture is not yet implemented" "WI-0.1 MCP tool: false cookie claim removed"
   absent src-tauri/src/browser/session_commands.rs \
     "remaining NATIVE piece" "WI-0.3 Rust module doc: false cookie claim removed"
@@ -98,7 +98,7 @@ phase0() {
 
   # ...and the corrected claims actually stated (the half that stops a doc
   # passing by saying nothing).
-  present vmark-mcp-server/src/tools/browser.ts \
+  present server/mcp/src/tools/browser.ts \
     "localStorage AND cookies" "WI-0.1 MCP tool: states real capture scope"
   present src-tauri/src/browser/session_commands.rs \
     "WKHTTPCookieStore" "WI-0.3 Rust module doc: states real capture scope"
@@ -108,12 +108,12 @@ phase0() {
     "NAMED profile" "WI-0.4 limitations: names the persistent case"
 
   # WI-0.5: the AI's contract must disclose the platform limit.
-  present vmark-mcp-server/src/tools/browser.ts \
+  present server/mcp/src/tools/browser.ts \
     "PLATFORM: macOS only" "WI-0.5 MCP tool: declares macOS-only"
 
   # The sidecar description is a shipped string; it must still compile+typecheck.
   echo "  … typechecking the sidecar"
-  if (cd vmark-mcp-server && pnpm exec tsc --noEmit >/dev/null 2>&1); then
+  if (cd server/mcp && pnpm exec tsc --noEmit >/dev/null 2>&1); then
     pass "sidecar typechecks"
   else
     fail "sidecar tsc FAILED"

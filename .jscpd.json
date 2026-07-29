@@ -4,8 +4,8 @@
   "path": [
     "src",
     "src-tauri/src",
-    "vmark-mcp-server/src",
-    "vmark-content-server/src"
+    "server/mcp/src",
+    "server/content/src"
   ],
   "format": ["typescript", "tsx", "jsx", "javascript", "rust", "css"],
   "ignore": [

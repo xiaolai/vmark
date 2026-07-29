@@ -1,7 +1,7 @@
 // The server-side script-size cap (audit 2026-07-28).
 //
 // Before this module the 64 KiB bound lived in TWO client-side places only —
-// `vmark-mcp-server/src/tools/browser.ts` and `src/hooks/mcpBridge/v2/browserPower.ts` —
+// `server/mcp/src/tools/browser.ts` and `src/hooks/mcpBridge/v2/browserPower.ts` —
 // both ABOVE the Tauri command boundary. `browser_eval` took `script: String` with no
 // bound at all, so anything invoking the command directly (a compromised webview, a bug
 // in the bridge dispatch, a future caller that forgets the check) reached an unbounded

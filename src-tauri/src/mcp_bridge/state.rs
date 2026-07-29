@@ -242,7 +242,7 @@ pub(crate) fn is_read_only_operation(request_type: &str) -> bool {
             | "genies.list"
             | "genies.read"
             // Pruned 5-tool surface (vmark.* prefix) — read operations.
-            // Wire types defined in vmark-mcp-server/src/bridge/core-types.ts.
+            // Wire types defined in server/mcp/src/bridge/core-types.ts.
             // Missing entries here forced every concurrent AI client read
             // (Claude Code + Codex + Cursor) to serialize through WRITE_LOCK.
             | "vmark.session.get_state"
@@ -250,7 +250,7 @@ pub(crate) fn is_read_only_operation(request_type: &str) -> bool {
             | "vmark.selection.get"
             | "vmark.workflow.validate"
             // Embedded-browser read-class ops (Codex audit 20260718). Wire
-            // types in vmark-mcp-server/src/tools/browser.ts. These mutate
+            // types in server/mcp/src/tools/browser.ts. These mutate
             // nothing; the bounded waits especially must not hold the global
             // write lock for up to their full 12s timeout. Write-class
             // browser ops (act, open, navigate, style, execute_js,
