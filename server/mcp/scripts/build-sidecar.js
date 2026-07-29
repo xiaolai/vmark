@@ -23,7 +23,7 @@ const execAsync = promisify(exec);
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = join(__dirname, '..');
-const TAURI_BINARIES_DIR = join(PROJECT_ROOT, '..', 'src-tauri', 'binaries');
+const TAURI_BINARIES_DIR = join(PROJECT_ROOT, '..', '..', 'src-tauri', 'binaries');
 const BUNDLE_OUTPUT = join(PROJECT_ROOT, 'dist', 'cli.bundle.cjs');
 
 /**

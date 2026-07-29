@@ -235,7 +235,7 @@ fn exhaustive_write_operations_not_read_only() {
         "vmark.workflow.apply_patch",
         "vmark.selection.set",
         // Embedded-browser write-class ops (wire types in
-        // vmark-mcp-server/src/tools/browser.ts). `console` counts as a
+        // server/mcp/src/tools/browser.ts). `console` counts as a
         // write because `clear: true` drains the page's console buffer.
         "vmark.browser.act",
         "vmark.browser.open",

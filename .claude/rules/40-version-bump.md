@@ -12,8 +12,8 @@ any `cargo build --locked` / `--frozen` (release + CI).
 | `package.json` | `"version"` | Frontend/npm |
 | `src-tauri/tauri.conf.json` | `"version"` | Bundle (CFBundleShortVersionString) |
 | `src-tauri/Cargo.toml` | `version` | Rust (`env!("CARGO_PKG_VERSION")`) |
-| `vmark-mcp-server/package.json` | `"version"` | MCP sidecar npm |
-| `vmark-mcp-server/src/cli.ts` | `VERSION` | MCP sidecar health check |
+| `server/mcp/package.json` | `"version"` | MCP sidecar npm |
+| `server/mcp/src/cli.ts` | `VERSION` | MCP sidecar health check |
 
 ## Why All Five Matter
 
@@ -44,8 +44,8 @@ any `cargo build --locked` / `--frozen` (release + CI).
    sed -i '' 's/^version = "[^"]*"/version = "'$VERSION'"/' src-tauri/Cargo.toml
 
    # MCP server files
-   sed -i '' 's/"version": "[^"]*"/"version": "'$VERSION'"/' vmark-mcp-server/package.json
-   sed -i '' 's/const VERSION = "[^"]*"/const VERSION = "'$VERSION'"/' vmark-mcp-server/src/cli.ts
+   sed -i '' 's/"version": "[^"]*"/"version": "'$VERSION'"/' server/mcp/package.json
+   sed -i '' 's/const VERSION = "[^"]*"/const VERSION = "'$VERSION'"/' server/mcp/src/cli.ts
 
    # Sync the derived lockfile so src-tauri/Cargo.lock's `vmark` entry matches
    # Cargo.toml. Locks 0 other packages; any cargo invocation against the
@@ -55,16 +55,16 @@ any `cargo build --locked` / `--frozen` (release + CI).
 
 2. **Verify all match**:
    ```bash
-   grep '"version"' package.json src-tauri/tauri.conf.json vmark-mcp-server/package.json
+   grep '"version"' package.json src-tauri/tauri.conf.json server/mcp/package.json
    grep '^version' src-tauri/Cargo.toml
-   grep 'const VERSION' vmark-mcp-server/src/cli.ts
+   grep 'const VERSION' server/mcp/src/cli.ts
    ```
 
 3. **Commit together**:
    ```bash
    git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml \
            src-tauri/Cargo.lock \
-           vmark-mcp-server/package.json vmark-mcp-server/src/cli.ts
+           server/mcp/package.json server/mcp/src/cli.ts
    git commit -m "chore: bump version to 0.4.0"
    ```
 

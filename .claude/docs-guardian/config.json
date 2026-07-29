@@ -13,7 +13,7 @@
     { "code": "src-tauri/src/mcp_config", "doc": "website/guide/mcp-tools.md" },
     { "code": "src-tauri/src/mcp_server.rs", "doc": "website/guide/mcp-tools.md" },
     { "code": "src/hooks/mcpBridge", "doc": "website/guide/mcp-tools.md" },
-    { "code": "vmark-mcp-server/src", "doc": "website/guide/mcp-setup.md" },
+    { "code": "server/mcp/src", "doc": "website/guide/mcp-setup.md" },
     { "code": "src/plugins/mermaid*", "doc": "website/guide/mermaid.md" },
     { "code": "src/lib/cjkFormatter", "doc": "website/guide/cjk-formatting.md" },
     { "code": "src/plugins/cjkLetterSpacing", "doc": "website/guide/cjk-formatting.md" },

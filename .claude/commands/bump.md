@@ -57,8 +57,8 @@ All five files must be updated — see `.claude/rules/40-version-bump.md`.
 | `package.json` | `"version"` |
 | `src-tauri/tauri.conf.json` | `"version"` |
 | `src-tauri/Cargo.toml` | `version` |
-| `vmark-mcp-server/package.json` | `"version"` |
-| `vmark-mcp-server/src/cli.ts` | `const VERSION` |
+| `server/mcp/package.json` | `"version"` |
+| `server/mcp/src/cli.ts` | `const VERSION` |
 
 Use the Edit tool for each file — not sed.
 
@@ -79,9 +79,9 @@ run.
 Read back all 5 files, plus the lockfile, and confirm the version matches:
 
 ```bash
-grep '"version"' package.json src-tauri/tauri.conf.json vmark-mcp-server/package.json
+grep '"version"' package.json src-tauri/tauri.conf.json server/mcp/package.json
 grep '^version' src-tauri/Cargo.toml
-grep 'const VERSION' vmark-mcp-server/src/cli.ts
+grep 'const VERSION' server/mcp/src/cli.ts
 git diff --stat src-tauri/Cargo.lock     # must show 1 changed line
 ```
 
@@ -93,7 +93,7 @@ If any mismatch: fix before proceeding.
 git checkout -b bump-v{version}
 git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml \
         src-tauri/Cargo.lock \
-        vmark-mcp-server/package.json vmark-mcp-server/src/cli.ts
+        server/mcp/package.json server/mcp/src/cli.ts
 git commit -m "chore: bump version to {version}"
 git push -u origin bump-v{version}
 gh pr create --fill

@@ -86,7 +86,7 @@ jobs:
             Check `batchOpHandlers.ts` (660 LoC) and `sectionHandlers.ts` (564 LoC) especially.
 
             ### 5. MCP sidecar reliability
-            `vmark-mcp-server/src/`. Check for:
+            `server/mcp/src/`. Check for:
             - WebSocket reconnection handling in `bridge/websocket.ts` (648 LoC)
             - Unhandled promise rejections in tool handlers
             - Message protocol type mismatches between `protocol-types.ts` and Rust bridge

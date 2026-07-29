@@ -24,7 +24,7 @@ export default defineConfig({
   esbuildOptions(options) {
     options.alias = {
       "@vmark/markdown-plugins": fileURLToPath(
-        new URL("../src/utils/markdownPipeline/nodeSafe.ts", import.meta.url)
+        new URL("../../src/utils/markdownPipeline/nodeSafe.ts", import.meta.url)
       ),
     };
   },
