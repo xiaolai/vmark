@@ -8,7 +8,7 @@
  *
  * Why the sidecar and not a raw WebSocket to VMark's own bridge: a raw client would
  * skip MCP initialize, tool discovery, and — most importantly — the ~455 lines of
- * argument validation and error transformation in `vmark-mcp-server/src/tools/
+ * argument validation and error transformation in `server/mcp/src/tools/
  * browser.ts`. That layer ships. A test that bypasses it tests a path no user takes.
  *
  * HONEST SCOPE LIMIT: this runs `dist/cli.js` under the local Node, not the
@@ -21,8 +21,8 @@
  * So `startVmarkMcp()` REBUILDS from the working tree every run, and refuses to
  * start if the build fails.
  *
- * @coordinates-with vmark-mcp-server/src/cli.ts — the process spawned here
- * @coordinates-with vmark-mcp-server/src/utils/portFile.ts — how it finds VMark
+ * @coordinates-with server/mcp/src/cli.ts — the process spawned here
+ * @coordinates-with server/mcp/src/utils/portFile.ts — how it finds VMark
  */
 
 import { spawn } from "node:child_process";
@@ -33,7 +33,7 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const REPO_ROOT = resolve(fileURLToPath(new URL("../..", import.meta.url)));
-const SIDECAR_DIR = join(REPO_ROOT, "vmark-mcp-server");
+const SIDECAR_DIR = join(REPO_ROOT, "server/mcp");
 const SIDECAR_ENTRY = join(SIDECAR_DIR, "dist", "cli.js");
 
 /** MCP protocol version the SDK server in this repo speaks. */

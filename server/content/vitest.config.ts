@@ -9,7 +9,7 @@ export default defineConfig({
       // here we resolve them straight from the app source so tests and the
       // editor stay in lockstep (single source of truth, no fork).
       "@vmark/markdown-plugins": fileURLToPath(
-        new URL("../src/utils/markdownPipeline/nodeSafe.ts", import.meta.url)
+        new URL("../../src/utils/markdownPipeline/nodeSafe.ts", import.meta.url)
       ),
     },
   },

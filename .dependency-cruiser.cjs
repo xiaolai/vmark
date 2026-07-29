@@ -115,7 +115,7 @@ module.exports = {
 
     // Rule 5: the Node-safe markdown seam stays Node-safe (ADR-015 D2, WI-1.4).
     //
-    // `nodeSafe.ts` re-exports the remark plugins to `vmark-content-server`,
+    // `nodeSafe.ts` re-exports the remark plugins to `server/content`,
     // which runs in plain Node. Its header states the invariant — no `@/`
     // aliases, no DOM globals, no editor/ProseMirror imports — but until now
     // only a smoke test guarded it, and only at runtime.
@@ -213,7 +213,7 @@ module.exports = {
         "node_modules",
         "dist",
         "target",
-        "vmark-mcp-server",
+        "server/mcp",
         "website",
         "coverage",
       ],

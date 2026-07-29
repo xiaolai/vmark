@@ -13,7 +13,7 @@
  * @coordinates-with youtubeUrlParser.ts — reuses YouTube URL parsing
  * @coordinates-with plugins/videoEmbed/tiptap.ts — uses registry for paste + parseHTML
  * @coordinates-with utils/sanitize.ts — domain whitelist mirrors registry providers
- * @coordinates-with vmark-mcp-server/src/tools/media.ts — duplicates provider IDs/URLs (separate process, can't import)
+ * @coordinates-with server/mcp/src/tools/media.ts — duplicates provider IDs/URLs (separate process, can't import)
  * @module utils/videoProviderRegistry
  */
 

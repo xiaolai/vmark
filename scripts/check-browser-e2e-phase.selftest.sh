@@ -86,10 +86,10 @@ echo
 
 # ---------------------------------------------------------------- phase 0
 echo "Phase 0 — documentation reconciliation"
-mutate vmark-mcp-server/src/tools/browser.ts \
+mutate server/mcp/src/tools/browser.ts \
   "s = s.replace('PLATFORM: macOS only', 'PLATFORM: everywhere')" \
   0 "WI-0.5 notices the macOS-only disclosure disappearing"
-mutate vmark-mcp-server/src/tools/browser.ts \
+mutate server/mcp/src/tools/browser.ts \
   "s = s.replace('localStorage AND cookies', 'localStorage')" \
   0 "WI-0.1 notices the capture-scope claim being narrowed"
 mutate dev-docs/grills/ai-browser/limitations.md \

@@ -37,7 +37,7 @@ as a template and fill in per-phase assertions.
 
 LLMs hallucinate package names at 5-22% rate (USENIX 2025), with active
 slopsquatting attacks. Every PR that adds an npm dependency to ANY
-manifest (root, `vmark-mcp-server/`, `website/`) runs
+manifest (root, `server/mcp/`, `website/`) runs
 `scripts/check-new-deps.sh` in CI. The script parses the dependency
 objects (not diff lines), fails closed on metadata errors, and flags
 packages that:

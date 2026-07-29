@@ -6,7 +6,7 @@
     "lib": ["ES2022", "DOM"],
     "outDir": "./dist",
     "paths": {
-      "@vmark/markdown-plugins": ["../src/utils/markdownPipeline/nodeSafe.ts"]
+      "@vmark/markdown-plugins": ["../../src/utils/markdownPipeline/nodeSafe.ts"]
     },
     "strict": true,
     "esModuleInterop": true,
