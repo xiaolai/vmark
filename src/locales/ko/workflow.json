@@ -1,14 +1,10 @@
 {
-  "approval": {
-    "title": "워크플로 단계를 승인하시겠습니까?",
-    "step": "단계",
-    "model": "모델",
-    "preview": "프롬프트 미리보기",
-    "approve": "승인",
-    "deny": "거부"
-  },
-  "run": {
-    "start": "워크플로 실행",
-    "cancel": "워크플로 취소"
-  }
+  "approval.title": "워크플로 단계를 승인하시겠습니까?",
+  "approval.step": "단계",
+  "approval.model": "모델",
+  "approval.preview": "프롬프트 미리보기",
+  "approval.approve": "승인",
+  "approval.deny": "거부",
+  "run.start": "워크플로 실행",
+  "run.cancel": "워크플로 취소"
 }

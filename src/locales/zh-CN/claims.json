@@ -5,27 +5,21 @@
   "loading": "加载中…",
   "error": "无法加载设定",
   "empty": "暂无设定 — 在文档中选中文本并使用“提取设定”",
-  "maturity": {
-    "draft": "草稿",
-    "established": "已确立"
-  },
+  "maturity.draft": "草稿",
+  "maturity.established": "已确立",
   "ended": "已终止",
   "hidden": "在当前上下文中已隐藏",
-  "actions": {
-    "promote": "确立",
-    "correct": "修正",
-    "retire": "终止",
-    "hide": "隐藏",
-    "show": "显示"
-  },
+  "actions.promote": "确立",
+  "actions.correct": "修正",
+  "actions.retire": "终止",
+  "actions.hide": "隐藏",
+  "actions.show": "显示",
   "promoteTitle": "提升为已确立 — 只有已确立的设定才能作为约束（D4）",
   "correctPlaceholder": "修正后的表述",
   "correctConfirm": "确认修正",
-  "create": {
-    "heading": "从选中内容新建设定",
-    "source": "来源：{{path}}",
-    "statementPlaceholder": "设定表述",
-    "confirm": "创建草稿设定",
-    "cancel": "取消"
-  }
+  "create.heading": "从选中内容新建设定",
+  "create.source": "来源：{{path}}",
+  "create.statementPlaceholder": "设定表述",
+  "create.confirm": "创建草稿设定",
+  "create.cancel": "取消"
 }

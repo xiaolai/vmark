@@ -69,6 +69,7 @@
   "terminal.search.wholeWord": "Solo parole intere",
   "terminal.search.regex": "Usa espressione regolare",
   "terminal.search.close": "Chiudi (Esc)",
+  "terminal.ariaLabel": "Terminale",
   "terminal.newSession": "Nuovo terminale",
   "terminal.maxSessions": "Massimo 5 sessioni",
   "terminal.closeSession": "Chiudi",
@@ -85,24 +86,11 @@
   "terminal.contextMenu.selectAll": "Seleziona tutto",
   "terminal.contextMenu.clear": "Cancella",
   "terminal.contextMenu.resetDisplay": "Reimposta visualizzazione",
-  "lint.badge.tooltip": "{{count}} issue(s) — click to go to next",
-  "lint.badge.tooltipSingle": "1 issue — click to go to next",
-  "lint.clean.toast": "No markdown issues found",
+  "lint.badge.tooltip": "{{count}} problema/i — fai clic per passare al successivo",
+  "lint.badge.tooltipSingle": "1 problema — fai clic per passare al successivo",
+  "lint.clean.toast": "Nessun problema di Markdown rilevato",
   "largeFile.opening": "Apertura di un file di grandi dimensioni ({{size}})…",
   "largeFile.openedInSourceMode": "Aperto in modalità Sorgente (file di grandi dimensioni).",
   "largeFile.switchToWysiwyg": "Passa al WYSIWYG",
-  "largeFile.switchToWysiwygAria": "Passa questo documento dalla modalità Sorgente al WYSIWYG",
-  "terminal.ariaLabel": "Terminale",
-  "terminal": {
-    "ariaLabel": "Terminale"
-  },
-  "lint": {
-    "badge": {
-      "tooltip": "{{count}} problema/i — fai clic per passare al successivo",
-      "tooltipSingle": "1 problema — fai clic per passare al successivo"
-    },
-    "clean": {
-      "toast": "Nessun problema di Markdown rilevato"
-    }
-  }
+  "largeFile.switchToWysiwygAria": "Passa questo documento dalla modalità Sorgente al WYSIWYG"
 }
