@@ -37,7 +37,9 @@ export { registerDocumentTool } from './tools/document.js';
 export { registerWorkflowTool } from './tools/workflow.js';
 export { registerSelectionTool } from './tools/selection.js';
 export { registerBrowserTool } from './tools/browser.js';
+export { registerBrowserReadTool } from './tools/browserRead.js';
 export { registerCoherenceTool } from './tools/coherence.js';
+export { registerCoherenceResolveTool } from './tools/coherenceResolve.js';
 
 export type {
   Bridge,
@@ -59,7 +61,9 @@ import { registerDocumentTool } from './tools/document.js';
 import { registerWorkflowTool } from './tools/workflow.js';
 import { registerSelectionTool } from './tools/selection.js';
 import { registerBrowserTool } from './tools/browser.js';
+import { registerBrowserReadTool } from './tools/browserRead.js';
 import { registerCoherenceTool } from './tools/coherence.js';
+import { registerCoherenceResolveTool } from './tools/coherenceResolve.js';
 import type { Bridge } from './bridge/types.js';
 
 /**
@@ -82,8 +86,10 @@ export function createVMarkMcpServer(
   registerDocumentTool(server);  // document (3 actions)
   registerWorkflowTool(server);  // workflow (2 actions)
   registerSelectionTool(server); // selection (2 actions)
-  registerBrowserTool(server);   // browser (13 actions)
-  registerCoherenceTool(server); // coherence (5 actions, 1 mutating: resolve)
+  registerBrowserTool(server);          // browser (8 actions, all mutating)
+  registerBrowserReadTool(server);       // browser_read (6 actions, all reads)
+  registerCoherenceTool(server);         // coherence (4 actions, all reads)
+  registerCoherenceResolveTool(server);  // coherence_resolve (1 action, mutating)
 
   return server;
 }
@@ -125,14 +131,26 @@ export const TOOL_CATEGORIES = [
   {
     name: 'Browser',
     description:
-      'Drive the embedded browser tab: read, act, open, navigate, wait, wait_for, screenshot, query, style, execute_js, session_save, session_load, console; write-class actions are approval-gated (13 actions)',
+      'Act on the embedded browser tab: act, open, navigate, style, execute_js, session_save, session_load, console_clear — every action mutates and is approval-gated (8 actions)',
     tools: ['browser'],
+  },
+  {
+    name: 'Browser (read-only)',
+    description:
+      'Observe the embedded browser tab: read, screenshot, query, console, wait, wait_for — nothing is modified, so a client may auto-approve (6 actions)',
+    tools: ['browser_read'],
   },
   {
     name: 'Coherence',
     description:
-      'Workspace coherence: kernel status, the stale/diverged edge breakdown, claims and contexts are reads; resolve WRITES an audit-logged ledger entry and requires a live delegation grant (5 actions, 1 mutating)',
+      'Workspace coherence reads: kernel status, the stale/diverged edge breakdown, claims and contexts (4 actions)',
     tools: ['coherence'],
+  },
+  {
+    name: 'Coherence (resolve)',
+    description:
+      'Resolve a live stale edge — WRITES an audit-logged, non-undoable ledger entry and requires a live delegation grant (1 action)',
+    tools: ['coherence_resolve'],
   },
 ] as const;
 
