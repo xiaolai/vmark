@@ -30,7 +30,7 @@
  * @coordinates-with @/utils/markdownPipeline/__tests__/fidelity/docFingerprint — equivalence
  * @module plugins/toolbarActions/__tests__/parity/behavioralParity.test
  */
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect, afterAll } from "vitest";
 import { parseMarkdown } from "@/utils/markdownPipeline";
 import { getProductionSchema } from "@/test/productionSchema";
 import { docFingerprint } from "@/utils/markdownPipeline/__tests__/fidelity/docFingerprint";
@@ -62,48 +62,46 @@ interface Comparison {
 }
 
 /**
- * The full result matrix, computed ONCE in `beforeAll`.
+ * Each cell is computed ONCE, on first use, and memoised.
  *
- * Computed once for CORRECTNESS: the per-case assertions and the staleness
- * check must agree, and when each computed its own results they ran against a
- * shared editor whose accumulated state could in principle make them disagree
- * about the same cell. Reading one matrix removes that possibility.
+ * Once, for CORRECTNESS: the per-case assertions and the staleness check must
+ * agree about a cell, and when each computed its own results they ran against a
+ * shared editor whose accumulated state could in principle make them disagree.
  *
- * Built in `beforeAll` rather than at module scope because it boots a real
- * Tiptap editor and runs ~750 surface pairs. At import time that work blocks the
- * worker while OTHER test files are still resolving their own dynamic imports,
- * and it pushed `actionApplicability.test.ts` past vitest's 5s default — a
- * timeout in an unrelated file, caused entirely by this one's import cost.
- *
- * The hook needs an explicit timeout because the build takes roughly twice
- * vitest's 10s default. Blowing it fails the FILE (so CI still catches it), but
- * the per-test line reads "skipped" rather than "failed", which is easy to skim
- * past — hence the generous ceiling.
+ * LAZILY, because computing all ~750 cells up front was the wrong shape twice
+ * over. At module scope the work blocked the worker while other files were still
+ * resolving dynamic imports, pushing `actionApplicability.test.ts` past vitest's
+ * 5s default — a timeout in an unrelated file caused entirely by this one. Moved
+ * into `beforeAll` it stopped blocking imports but became a single ~25s hook,
+ * which then needed a raised `hookTimeout`; a hook that overruns fails the file
+ * but reports every test inside it as "skipped", which reads like a pass at a
+ * glance. Spreading the cost across the tests that actually need each cell
+ * removes both problems rather than trading one for the other: no hook, no
+ * import cost, and each case stays far inside the default per-test timeout.
  */
-const HOOK_TIMEOUT_MS = 120_000;
-
 const RESULTS = new Map<string, Comparison>();
 const key = (action: string, docLabel: string, shape: string): string => `${action}|${docLabel}|${shape}`;
 
-beforeAll(() => {
-  for (const action of ACTIONS) {
-    for (const doc of DOCS) {
-      for (const shape of SHAPES) {
-        const target: Target = shape === "range" ? { select: doc.needle } : { caret: doc.needle };
-        const w = runOnWysiwyg(doc.markdown, target, action);
-        const s = runOnSource(doc.markdown, target, action);
-        RESULTS.set(key(action, doc.label, shape), {
-          agree: meaning(w.markdown) === meaning(s.markdown),
-          wysiwyg: w.markdown,
-          source: s.markdown,
-          wysiwygError: w.error,
-          sourceError: s.error,
-        });
-      }
-    }
-  }
-  disposeSurfaces();
-}, HOOK_TIMEOUT_MS);
+function compare(action: string, doc: (typeof DOCS)[number], shape: (typeof SHAPES)[number]): Comparison {
+  const cacheKey = key(action, doc.label, shape);
+  const cached = RESULTS.get(cacheKey);
+  if (cached) return cached;
+
+  const target: Target = shape === "range" ? { select: doc.needle } : { caret: doc.needle };
+  const w = runOnWysiwyg(doc.markdown, target, action);
+  const s = runOnSource(doc.markdown, target, action);
+  const result: Comparison = {
+    agree: meaning(w.markdown) === meaning(s.markdown),
+    wysiwyg: w.markdown,
+    source: s.markdown,
+    wysiwygError: w.error,
+    sourceError: s.error,
+  };
+  RESULTS.set(cacheKey, result);
+  return result;
+}
+
+afterAll(disposeSurfaces);
 
 describe("toolbar adapter behavioral parity", () => {
   for (const action of ACTIONS) {
@@ -113,9 +111,7 @@ describe("toolbar adapter behavioral parity", () => {
       for (const doc of DOCS) {
         for (const shape of SHAPES) {
           it(`agrees on ${doc.label} [${shape}]`, () => {
-            const r = RESULTS.get(key(action, doc.label, shape));
-            expect(r, "result matrix is missing this case").toBeDefined();
-            if (!r) return;
+            const r = compare(action, doc, shape);
 
             // A declared divergence is allowed to disagree, but never to throw.
             expect(r.wysiwygError ?? "", `wysiwyg threw on ${action}`).toBe("");
@@ -137,7 +133,7 @@ describe("toolbar adapter behavioral parity", () => {
 
   it("declares no divergence that has been converged", () => {
     const fixed = Object.keys(PARITY_DIVERGENCES).filter((action) =>
-      DOCS.every((doc) => SHAPES.every((shape) => RESULTS.get(key(action, doc.label, shape))?.agree !== false)),
+      DOCS.every((doc) => SHAPES.every((shape) => compare(action, doc, shape).agree)),
     );
     expect(
       fixed.length === 0
