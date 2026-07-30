@@ -38,7 +38,8 @@ import { getWindowLabel } from "@/services/navigation/windowFocus";
 import { exportError } from "@/utils/debug";
 import { setHeadingLevel, convertToHeading } from "@/plugins/sourceContextDetection/headingDetection";
 import { getHeadingInfo } from "@/plugins/sourceContextDetection/headingDetection";
-import { getListItemInfo, toBulletList, toOrderedList, toTaskList, removeList } from "@/plugins/sourceContextDetection/listDetection";
+import { getListItemInfo, removeList } from "@/plugins/sourceContextDetection/listDetection";
+import { convertListBlock } from "@/plugins/sourceContextDetection/listBlockConversion";
 import { toggleBlockquote as toggleBlockquoteAction } from "@/plugins/sourceContextDetection/blockquoteActions";
 
 // --- Source context builder ---
@@ -117,18 +118,10 @@ export function toggleList(view: EditorView, type: "bullet" | "ordered" | "task"
     return true;
   }
   if (info) {
-    // In a different list type - convert it
-    switch (type) {
-      case "bullet":
-        toBulletList(view, info);
-        break;
-      case "ordered":
-        toOrderedList(view, info);
-        break;
-      case "task":
-        toTaskList(view, info);
-        break;
-    }
+    // In a different list type - convert the WHOLE list, exactly as the toolbar
+    // button does. Rewriting only the cursor's marker split one list into three,
+    // and having the shortcut and the button disagree is its own bug.
+    convertListBlock(view, type);
     return true;
   }
   // Not in a list - insert list marker

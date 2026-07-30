@@ -212,7 +212,7 @@ export function toTaskList(view: EditorView, info: ListItemInfo): void {
  * Pattern matching any list item line (bullet, ordered, or task).
  * Used by getListBlockBounds to detect contiguous list regions.
  */
-const LIST_LINE_PATTERN = /^(\s*)([-*+]\s*\[[ xX]\]\s|[-*+]\s|\d+\.\s)/;
+export const LIST_LINE_PATTERN = /^(\s*)([-*+]\s*\[[ xX]\]\s|[-*+]\s|\d+\.\s)/;
 
 /** Check if a line of text is a list item (any type). */
 function isListLine(text: string): boolean {
@@ -222,7 +222,7 @@ function isListLine(text: string): boolean {
 /**
  * Check if a line looks like a horizontal rule (---, ***, ___) rather than a list marker.
  */
-function isHorizontalRule(text: string): boolean {
+export function isHorizontalRuleLine(text: string): boolean {
   const trimmed = text.trim();
   return /^[-*_]{3,}$/.test(trimmed);
 }
@@ -241,7 +241,7 @@ export function getListBlockBounds(view: EditorView): { from: number; to: number
   const currentLine = doc.lineAt(from);
 
   // Cursor must be on a list line
-  if (!isListLine(currentLine.text) || isHorizontalRule(currentLine.text)) {
+  if (!isListLine(currentLine.text) || isHorizontalRuleLine(currentLine.text)) {
     return null;
   }
 
@@ -252,7 +252,7 @@ export function getListBlockBounds(view: EditorView): { from: number; to: number
   // Scan upward
   for (let lineNum = currentLine.number - 1; lineNum >= 1; lineNum--) {
     const line = doc.line(lineNum);
-    if (isListLine(line.text) && !isHorizontalRule(line.text)) {
+    if (isListLine(line.text) && !isHorizontalRuleLine(line.text)) {
       startLineNum = lineNum;
       continue;
     }
@@ -263,7 +263,7 @@ export function getListBlockBounds(view: EditorView): { from: number; to: number
       for (let above = lineNum - 1; above >= 1; above--) {
         const aboveLine = doc.line(above);
         if (aboveLine.text.trim() === "") continue;
-        if (isListLine(aboveLine.text) && !isHorizontalRule(aboveLine.text)) {
+        if (isListLine(aboveLine.text) && !isHorizontalRuleLine(aboveLine.text)) {
           foundList = true;
         }
         break;
@@ -279,7 +279,7 @@ export function getListBlockBounds(view: EditorView): { from: number; to: number
   // Scan downward
   for (let lineNum = currentLine.number + 1; lineNum <= totalLines; lineNum++) {
     const line = doc.line(lineNum);
-    if (isListLine(line.text) && !isHorizontalRule(line.text)) {
+    if (isListLine(line.text) && !isHorizontalRuleLine(line.text)) {
       endLineNum = lineNum;
       continue;
     }
@@ -289,7 +289,7 @@ export function getListBlockBounds(view: EditorView): { from: number; to: number
       for (let below = lineNum + 1; below <= totalLines; below++) {
         const belowLine = doc.line(below);
         if (belowLine.text.trim() === "") continue;
-        if (isListLine(belowLine.text) && !isHorizontalRule(belowLine.text)) {
+        if (isListLine(belowLine.text) && !isHorizontalRuleLine(belowLine.text)) {
           foundList = true;
         }
         break;

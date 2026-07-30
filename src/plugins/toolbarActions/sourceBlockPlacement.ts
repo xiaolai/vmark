@@ -92,12 +92,20 @@ function continuationPrefix(lineText: string): string {
   return `${quote}${" ".repeat(listMarker.length)}`;
 }
 
-/** Apply a continuation prefix to every line of a block, leaving blanks bare. */
+/**
+ * Apply a continuation prefix to every line of a block.
+ *
+ * A BLANK line gets the prefix too, trimmed of its trailing space. That trim is
+ * the whole point: inside a blockquote the blank line must still carry `>` or it
+ * terminates the quote — a details block dropped into a quote came out as quote,
+ * then loose HTML, then quote again. Inside a list the prefix is only spaces, so
+ * trimming leaves the line properly empty rather than whitespace-padded.
+ */
 function indentBlock(text: string, prefix: string): string {
   if (!prefix) return text;
   return text
     .split("\n")
-    .map((l) => (l === "" ? l : `${prefix}${l}`))
+    .map((l) => (l === "" ? prefix.trimEnd() : `${prefix}${l}`))
     .join("\n");
 }
 
@@ -110,15 +118,22 @@ function indentBlock(text: string, prefix: string): string {
  * and duplicate it inside the block. Expanding to whole lines keeps the block
  * from starting mid-sentence.
  */
-export function replaceLinesWithBlock(view: EditorView, text: string, cursorOffset?: number): void {
+export function replaceLinesWithBlock(
+  view: EditorView,
+  text: string,
+  cursorOffset?: number,
+  range?: { from: number; to: number },
+): void {
   const { state } = view;
   const { from, to } = state.selection.main;
-  const first = state.doc.lineAt(from);
-  const last = state.doc.lineAt(to);
+  // The caller may have widened the selection to whole blocks; when it has, that
+  // widened range is what the block contains and so what it must replace.
+  const start = range?.from ?? state.doc.lineAt(from).from;
+  const stop = range?.to ?? state.doc.lineAt(to).to;
 
   view.dispatch({
-    changes: { from: first.from, to: last.to, insert: text },
-    selection: { anchor: first.from + (typeof cursorOffset === "number" ? cursorOffset : text.length) },
+    changes: { from: start, to: stop, insert: text },
+    selection: { anchor: start + (typeof cursorOffset === "number" ? cursorOffset : text.length) },
   });
   view.focus();
 }
