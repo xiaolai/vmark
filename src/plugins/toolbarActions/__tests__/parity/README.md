@@ -61,30 +61,33 @@ structural reason, that no excuse names a covered or non-existent action, and
 that the per-surface exclusives match reality. A newly added action that lands in
 neither list fails the gate.
 
-**63 of 83 compared; 20 excused.** The excused set is structural, not
+**64 of 83 compared; 19 excused.** The excused set is structural, not
 convenience: selection-only actions (`selectWord`/`selectLine`/`selectBlock`/
 `expandSelection`) change no document, so a document-outcome gate cannot tell
 agreement from mutual no-op; `undo`/`redo` need per-case history isolation;
 thirteen popup-driven actions (`link*`, media, math, diagram, footnote inserts)
-complete asynchronously through a store; `formatCJKFile` acts on the file, not the
-buffer. `MAX_UNCOVERED_ACTIONS` ratchets down.
+complete asynchronously through a store. `MAX_UNCOVERED_ACTIONS` ratchets down.
 
-## Current standing: 31 divergences across 9 root causes
+An excuse is a claim about the code, and claims rot. `formatCJKFile` was excused
+as "a whole-FILE operation routed through persistence, not a buffer edit" — which
+was simply false: both adapters call `formatMarkdown` on the open buffer and
+neither touches the filesystem. Covering it cost nothing and it agrees on all 18
+cases. Re-read an excuse before trusting it.
 
-31 entries is far fewer than 31 fixes.
+## Current standing: 18 divergences across 6 root causes
 
-| Root cause | Actions | Verdict | Substance |
+18 entries is far fewer than 18 fixes — most entries are the *residue* of a
+root cause whose worst half is already fixed, and each `reason` records which
+half.
+
+| Root cause | Actions | Verdict | What remains |
 |---|---|---|---|
-| `source-inserts-block-at-caret` | 12 — `insertDivider`, `insertBulletList`/`OrderedList`/`TaskList`, 5× `insertAlert*`, `insertDetails`, `insertTable`, `insertTableBlock` | `source-bug` | block markdown is spliced in **at the caret**, so a divider gives `The quick ---` (a paragraph ending in hyphens), an alert splits the sentence, a table opens inside a paragraph |
-| `source-list-marker-at-caret` | 3 — `bulletList`, `orderedList`, `taskList` | `source-bug` | marker at the cursor: `The quick - brown fox` |
-| `source-heading-keeps-block-marker` | 3 — `heading:1/3/6` | `source-bug` | list item → `# - text`; blockquote → `# > text`, **destroying the quote** |
-| `inverted-heading-direction` | 2 — `increaseHeading`, `decreaseHeading` | `both-defensible` | opposite readings of "increase". From H3 the same button gives **H2 in one mode, H4 in the other** |
-| `source-line-ops-table-unaware` | 3 — `moveLineUp`/`Down`, `joinLines` | `source-bug` | rows hoisted above the `\| --- \|` delimiter, or two rows fused into one line |
-| `wysiwyg-deleteline-deletes-table` | 1 — `deleteLine` | `wysiwyg-bug` | **the worst one**: caret in a table cell → the entire table is deleted, and `useTiptapFlush` persists it |
-| `source-alignleft-omits-colon` | 2 — `alignLeft`, `alignAllLeft` | `source-bug` | no `:` written, so the column carries no explicit alignment (center/right agree) |
-| `source-formatcjk-noop-on-range` | 1 — `formatCJK` | `source-bug` | WYSIWYG inserts CJK/Latin boundary spaces; source does nothing |
-| `blockquote-in-table-unhandled` | 1 — `insertBlockquote` | `both-wrong` | WYSIWYG clears the cell text; source breaks the table. Should be disabled there — an `enableRules.ts` fix |
-| independent | 3 — `duplicateLine`, `insertCodeBlock`, `outdent` | mixed | block-vs-line duplication; convert-vs-insert; outdent at the outermost level |
+| `block-insert-template-content` | 11 — `insertBulletList`/`OrderedList`/`TaskList`, 5× `insertAlert*`, `insertDetails`, `insertTable`, `insertTableBlock` | `source-bug` | placement is FIXED (three rounds); what is left is **template content** — an empty 2×2 table vs `Header 1`/`Cell 1` placeholders |
+| `source-list-toggle-off-scope` | 3 — `bulletList`, `orderedList`, `taskList` | `source-bug` | marker placement, quote nesting and heading replacement all FIXED; what is left is the **scope** of toggling a list off — one item vs the whole block |
+| `source-blockquote-quotes-one-line` | 1 — `insertBlockquote` | `source-bug` | the table-cell half is FIXED (both refuse); source still quotes one line of a list, shattering it into three structures |
+| `source-removelist-leaves-continuation` | 1 — `removeList` | `source-bug` | stripping a middle item's marker leaves a **lazy continuation** — the text never leaves the list |
+| `formatcjk-selection-granularity` | 1 — `formatCJK` | `both-defensible` | the original claim was wrong in both directions; the real defect (WYSIWYG reformatting the whole document on any selection) is FIXED. Character vs block granularity remains |
+| `codeblock-conversion-scope` | 1 — `insertCodeBlock` | `source-bug` | convert-vs-insert RESOLVED; WYSIWYG still folds a multi-block selection into one fence where source converts one paragraph |
 
 ## Both directions ratchet
 
@@ -97,4 +100,22 @@ excusing it, and excusing an action that is covered.
 `MAX_PARITY_DIVERGENCES` may only **rise** in a change that also **lowers**
 `MAX_UNCOVERED_ACTIONS` — that is, when newly measured ground reveals pre-existing
 divergence. At fixed coverage it ratchets down only. It went 12 → 31 when coverage
-went 33 → 63 and the uncovered ceiling went 50 → 20.
+went 33 → 63 and the uncovered ceiling went 50 → 20, then 31 → 18 as root causes
+were fixed.
+
+## What this gate does NOT catch
+
+Stated so nobody reads a green run as a stronger claim than it is.
+
+| Blind spot | Consequence |
+|---|---|
+| **The `accepted` return value is discarded.** Only the resulting document is compared. | Two mutual **no-ops** are indistinguishable from two correct agreeing edits. If one surface silently declines an action and the other does nothing visible, this gate passes. |
+| **Selection and caret position after the action are not compared.** | A surface that produces the right document but leaves the caret somewhere useless passes. |
+| **One selection per fixture** (`doc.needle`), in two shapes. | A divergence that appears only at a block boundary, across three blocks, or on an empty selection is unmeasured. |
+| **Undo granularity is not compared.** | One surface may need three undos where the other needs one. |
+| **62 cases are skipped, not passed** — table fixtures for actions the availability policy blocks in a cell. | That policy is asserted in `actionAvailability.test.ts`; if it were wrong, this file would not notice. |
+| **Equivalence is judged on `docFingerprint`**, which strips `sourceLine` and `blankLinesBefore`. | Differences the fingerprint deliberately ignores cannot fail this gate. |
+
+The first row is the largest one. Closing it means declaring an expected
+`accepted` per action per fixture, which is a bigger contract than "same
+document" — it is the natural next ratchet, not a defect in this one.
