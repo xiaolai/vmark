@@ -120,17 +120,7 @@ export const PARITY_DIVERGENCES: Record<string, ParityDivergence> = {
       "Stripping the marker from a middle item turns that line into a lazy continuation of the item above, so `- one` / `two brown` / `- three` re-parses as a two-item list whose first item is 'one two brown'. The text never leaves the list, which is the one thing the action promises. WYSIWYG lifts it out correctly. Surfaced only after the fixtures grew a multi-item list — a single-item list cannot tell the two apart.",
   },
 
-  // ---- Root cause 6: source alignLeft omits the alignment colon -------------
-  ...family(["alignLeft", "alignAllLeft"], {
-    verdict: "source-bug",
-    wysiwyg: "writes an explicit `:---` marker",
-    source: "rewrites the dash run but adds no colon, leaving `---`",
-    rootCause: "source-alignleft-omits-colon",
-    reason:
-      "Left is markdown's default alignment, so source treats 'align left' as 'remove alignment'. The result is that the column carries no explicit alignment, the toolbar's active state disagrees between modes, and a later alignment change starts from a different place. alignCenter and alignRight agree in both surfaces, which is why this shows up only on the left variants.",
-  }),
-
-  // ---- Root cause 7: source formatCJK does nothing on a range --------------
+  // ---- Root cause 6: source formatCJK does nothing on a range --------------
   formatCJK: {
     action: "formatCJK",
     verdict: "source-bug",
@@ -193,9 +183,12 @@ export const PARITY_DIVERGENCES: Record<string, ParityDivergence> = {
  *        `increaseHeading` stayed, reclassified — its direction is fixed too,
  *        and what remains is the source-side marker damage it shares with
  *        `heading:N`.
+ *   28 — `alignLeft` and `alignAllLeft` CONVERGED: source now writes an
+ *        explicit `:---` when left alignment is REQUESTED, while table
+ *        re-formatting still leaves an unaligned column alone.
  *
  * 31 entries is far fewer than 31 fixes — they collapse into 9 root causes, and
  * the largest (`source-inserts-block-at-caret`, 12 actions) is one insertion
  * helper.
  */
-export const MAX_PARITY_DIVERGENCES = 30;
+export const MAX_PARITY_DIVERGENCES = 28;
