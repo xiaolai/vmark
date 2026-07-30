@@ -74,20 +74,37 @@ was simply false: both adapters call `formatMarkdown` on the open buffer and
 neither touches the filesystem. Covering it cost nothing and it agrees on all 18
 cases. Re-read an excuse before trusting it.
 
-## Current standing: 18 divergences across 6 root causes
+## Current standing: 8 divergences across 5 root causes
 
-18 entries is far fewer than 18 fixes — most entries are the *residue* of a
-root cause whose worst half is already fixed, and each `reason` records which
-half.
+Down from 31 across 9. Most of that came from writing down one rule neither
+surface had: **a block-level action operates on the whole top-level blocks the
+selection touches.** Neither surface had *chosen* its reach — each inherited
+whatever its substrate made convenient, ProseMirror addressing the enclosing
+node and CodeMirror the selected characters. Three shared modules now hold what
+was implicit: `shared/blockTemplates` (what a new block contains),
+`shared/blockSpan` and `shared/wrapBlocks` (how far a block action reaches).
 
 | Root cause | Actions | Verdict | What remains |
 |---|---|---|---|
-| `block-insert-template-content` | 11 — `insertBulletList`/`OrderedList`/`TaskList`, 5× `insertAlert*`, `insertDetails`, `insertTable`, `insertTableBlock` | `source-bug` | placement is FIXED (three rounds); what is left is **template content** — an empty 2×2 table vs `Header 1`/`Cell 1` placeholders |
-| `source-list-toggle-off-scope` | 3 — `bulletList`, `orderedList`, `taskList` | `source-bug` | marker placement, quote nesting and heading replacement all FIXED; what is left is the **scope** of toggling a list off — one item vs the whole block |
-| `source-blockquote-quotes-one-line` | 1 — `insertBlockquote` | `source-bug` | the table-cell half is FIXED (both refuse); source still quotes one line of a list, shattering it into three structures |
+| `list-toggle-nesting-scope` | 4 — `bulletList`/`insertBulletList`, `orderedList`/`insertOrderedList` | `both-wrong` | one edge per surface, opposite directions: WYSIWYG's range path converts the whole outer list when one WORD inside a nested item is selected (disagreeing with its own caret behaviour); source's toggle-OFF unlists a nested item where WYSIWYG outdents it one level |
+| `source-blockquote-quotes-one-line` | 1 — `insertBlockquote` | `source-bug` | source still quotes one line of a list, shattering it into three structures |
 | `source-removelist-leaves-continuation` | 1 — `removeList` | `source-bug` | stripping a middle item's marker leaves a **lazy continuation** — the text never leaves the list |
-| `formatcjk-selection-granularity` | 1 — `formatCJK` | `both-defensible` | the original claim was wrong in both directions; the real defect (WYSIWYG reformatting the whole document on any selection) is FIXED. Character vs block granularity remains |
-| `codeblock-conversion-scope` | 1 — `insertCodeBlock` | `source-bug` | convert-vs-insert RESOLVED; WYSIWYG still folds a multi-block selection into one fence where source converts one paragraph |
+| `formatcjk-selection-granularity` | 1 — `formatCJK` | `both-defensible` | character vs block granularity |
+| `codeblock-conversion-scope` | 1 — `insertCodeBlock` | `source-bug` | WYSIWYG folds a multi-block selection into one fence; source converts one paragraph |
+
+### What this round found that the ledger had mis-described
+
+The old root cause 1 claimed the only thing left was "template content". It was
+not. Behind it sat a **data-loss bug**: selecting `brown` in
+`The quick brown fox` and inserting a note produced `> [!NOTE]\n> brown` and
+deleted the rest of the line, because the builders folded in the selected
+CHARACTERS while the insertion replaced whole LINES. The existing "no data loss"
+test selects the entire document, where those two ranges coincide, so it could
+not see it. A ledger entry is a claim, and claims need re-reading.
+
+Also behind it: source's `insert*` list actions were a second, dumber
+implementation of the toggles that prepended a marker without checking for one
+already there — `- - two`, `1. - two`, `- [ ] - text`.
 
 ## Both directions ratchet
 
@@ -100,8 +117,8 @@ excusing it, and excusing an action that is covered.
 `MAX_PARITY_DIVERGENCES` may only **rise** in a change that also **lowers**
 `MAX_UNCOVERED_ACTIONS` — that is, when newly measured ground reveals pre-existing
 divergence. At fixed coverage it ratchets down only. It went 12 → 31 when coverage
-went 33 → 63 and the uncovered ceiling went 50 → 20, then 31 → 18 as root causes
-were fixed.
+went 33 → 63 and the uncovered ceiling went 50 → 20, then 31 → 18 → 8 as root
+causes were fixed.
 
 ## What this gate does NOT catch
 
