@@ -99,4 +99,41 @@ describe("useVisibleWindowTabs (WI-8.1/4R)", () => {
     expect(allWindowTabs(W)).toHaveLength(2);
     expect(result.current).toHaveLength(1);
   });
+
+  it("unknown window: every projection returns empty, never throws", () => {
+    expect(visibleWindowTabs("ghost")).toEqual([]);
+    expect(allWindowTabs("ghost")).toEqual([]);
+    const { result } = renderHook(() => useVisibleWindowTabs("ghost"));
+    expect(result.current).toEqual([]);
+  });
+
+  it("tolerates partial store shapes (pre-init settings, mock without tabs)", () => {
+    const savedGeneral = useSettingsStore.getState().general;
+    const savedTabs = useTabStore.getState().tabs;
+    useSettingsStore.setState({ general: undefined as never });
+    useTabStore.setState({ tabs: undefined as never });
+    try {
+      expect(visibleWindowTabs(W)).toEqual([]);
+      expect(allWindowTabs(W)).toEqual([]);
+      const { result } = renderHook(() => useVisibleWindowTabs(W));
+      expect(result.current).toEqual([]);
+    } finally {
+      useSettingsStore.setState({ general: savedGeneral });
+      useTabStore.setState({ tabs: savedTabs });
+    }
+  });
+
+  it("window record lacking instanceIds still shows browser tabs (window-global)", () => {
+    const idWeb = useTabStore.getState().createBrowserTab(W, "https://example.com/");
+    useWorkspaceInstancesStore.setState((s) => ({
+      windows: {
+        ...s.windows,
+        [W]: { ...s.windows[W], workspaceInstanceIds: undefined as never },
+      },
+    }));
+
+    const { result } = renderHook(() => useVisibleWindowTabs(W));
+
+    expect(result.current.map((t) => t.id)).toEqual([idWeb]);
+  });
 });

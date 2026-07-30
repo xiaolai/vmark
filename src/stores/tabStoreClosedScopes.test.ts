@@ -221,4 +221,48 @@ describe("hydrateWindowClosedScopes hardening (R2-F13/F14/F15)", () => {
 
     expect(ids(WINDOW_ALL_SCOPE)).toEqual([]);
   });
+
+  it("drops non-object entries and unknown tab kinds", () => {
+    hydrate({
+      "wsi-a": [
+        "garbage",
+        { tab: { id: "t-weird", kind: "weird" }, closedSeq: 1 },
+        docEntry("t-ok", 2),
+      ],
+    });
+    expect(ids("wsi-a")).toEqual(["t-ok"]);
+  });
+
+  it("skips scope values that are not arrays, keeping valid siblings", () => {
+    hydrate({ "wsi-a": { not: "an array" }, "wsi-b": [docEntry("t-b", 1)] });
+    expect(ids("wsi-a")).toEqual([]);
+    expect(ids("wsi-b")).toEqual(["t-b"]);
+  });
+});
+
+describe("closed-scope guards on unknown state", () => {
+  it("takeClosedTab from an unknown window returns null", () => {
+    expect(
+      useClosedTabScopesStore.getState().takeClosedTab("ghost", WINDOW_ALL_SCOPE, "t-x"),
+    ).toBeNull();
+  });
+
+  it("removeWindowClosedScopes on an unknown window is a no-op", () => {
+    const before = useClosedTabScopesStore.getState().scopesByWindow;
+    useClosedTabScopesStore.getState().removeWindowClosedScopes("ghost");
+    expect(useClosedTabScopesStore.getState().scopesByWindow).toBe(before);
+  });
+
+  it("tolerates a partial settings store — closes land in window-all", () => {
+    const saved = useSettingsStore.getState().general;
+    useSettingsStore.setState({ general: undefined as never });
+    try {
+      useClosedTabScopesStore.getState().recordClosedTab("main", doc("t-ps", "/a.md"));
+      expect(
+        useClosedTabScopesStore.getState().closedIdsForScope("main", WINDOW_ALL_SCOPE),
+      ).toEqual(["t-ps"]);
+    } finally {
+      useSettingsStore.setState({ general: saved });
+    }
+  });
 });
