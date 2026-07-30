@@ -9,8 +9,14 @@
  * @coordinates-with wysiwygAdapter.ts — main dispatcher delegates CJK/cleanup actions here
  * @coordinates-with wysiwygAdapterUtils.ts — uses applyFullDocumentTransform, getSerializeOptions
  * @coordinates-with cjkFormatter — formatting logic
+ * Key decisions:
+ *   - Formatting reaches only the top-level blocks the selection SPANS. The
+ *     markdown round-trip is what preserves marks, not the scope; escalating a
+ *     selection to the whole document reformatted the user's entire file.
+ *
  * @module plugins/toolbarActions/wysiwygAdapterCjk
  */
+import type { Node as PMNode } from "@tiptap/pm/model";
 import { getWindowLabel } from "@/services/navigation/windowFocus";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useSettingsStore } from "@/stores/settingsStore";
@@ -36,19 +42,18 @@ export function handleFormatCJK(context: WysiwygToolbarContext): boolean {
   const { view, editor } = context;
   if (!view || !editor) return false;
 
-  // Selection exists → use full-document markdown roundtrip to preserve marks.
-  // The old schema.text() path destroyed all inline marks (bold, italic, links).
-  if (!editor.state.selection.empty) {
-    return handleFormatCJKFile(context);
-  }
-
-  // No selection — format current block (paragraph, list, or table)
+  // One path for both cases: round-trip the top-level blocks the selection
+  // SPANS. A markdown round-trip is what preserves marks — the old
+  // schema.text() path destroyed bold, italic and links — but escalating to the
+  // whole document to get it meant selecting a single word reformatted the
+  // entire file, a side effect no other formatting action has. A collapsed
+  // cursor spans exactly one block, so the no-selection case is the same code.
   return handleFormatCJKBlock(context);
 }
 
 /**
- * Format CJK text in the current top-level block (no selection needed).
- * Serializes the block to markdown, formats, and parses back.
+ * Format CJK text across the top-level blocks the selection spans.
+ * Serializes them to markdown, formats, and parses back so marks survive.
  */
 function handleFormatCJKBlock(context: WysiwygToolbarContext): boolean {
   const { editor, view } = context;
@@ -56,21 +61,27 @@ function handleFormatCJKBlock(context: WysiwygToolbarContext): boolean {
   if (!editor || !view) return false;
   /* v8 ignore stop */
 
-  const { $from } = editor.state.selection;
-  if ($from.depth < 1) return false;
+  const { $from, $to } = editor.state.selection;
+  // An AllSelection or a NodeSelection on the doc resolves at depth 0, where
+  // there is no top-level block to span; the whole-document path handles it.
+  if ($from.depth < 1 || $to.depth < 1) return handleFormatCJKFile(context);
 
   const config = useSettingsStore.getState().cjkFormatting;
   const preserveTwoSpaceHardBreaks = shouldPreserveTwoSpaceBreaks();
   const serializeOpts = getSerializeOptions();
 
-  // Find top-level block (direct child of doc)
-  const blockNode = $from.node(1);
+  // The span of top-level blocks the selection touches — one block for a
+  // collapsed cursor, several when the selection crosses block boundaries.
   const blockStart = $from.before(1);
-  const blockEnd = $from.after(1);
+  const blockEnd = $to.after(1);
+  const blockNodes: PMNode[] = [];
+  editor.state.doc.forEach((node, offset) => {
+    if (offset >= blockStart && offset < blockEnd) blockNodes.push(node);
+  });
 
   try {
     // Wrap in a temporary doc for serialization
-    const tempDoc = editor.schema.nodes.doc.create(null, blockNode);
+    const tempDoc = editor.schema.nodes.doc.create(null, blockNodes);
     const blockMarkdown = serializeMarkdown(editor.schema, tempDoc, serializeOpts);
 
     const formatted = formatMarkdown(blockMarkdown, config, { preserveTwoSpaceHardBreaks });
