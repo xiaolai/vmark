@@ -45,14 +45,20 @@ import {
  * is handled via remarkCustomInline plugin (always loaded, lightweight).
  */
 function buildProcessor(analysis: ContentAnalysis, preserveLineBreaks: boolean) {
+  // Setext parsing is disabled ONLY for documents carrying the line it would
+  // misread — an indented lone list marker. Disabling it everywhere destroyed
+  // every authored setext heading to protect against that one shape.
   const processor = unified()
     .use(remarkParse)
-    .use(remarkDisableSetextHeadings)
     .use(remarkGfm, {
       // Disable single tilde strikethrough to avoid conflict with subscript
       // GFM strikethrough uses ~~double tilde~~
       singleTilde: false,
     });
+
+  if (analysis.hasAmbiguousListUnderline) {
+    processor.use(remarkDisableSetextHeadings);
+  }
 
   // Conditionally add math support
   if (analysis.hasMath) {
@@ -91,13 +97,21 @@ function buildProcessor(analysis: ContentAnalysis, preserveLineBreaks: boolean) 
   return processor;
 }
 
-/** Stable cache key combining the four analysis flags with the line-break option. */
+/**
+ * Stable cache key combining every analysis flag with the line-break option.
+ *
+ * EVERY flag that changes the plugin stack must appear here. Adding
+ * `hasAmbiguousListUnderline` to the stack without adding it to the key meant a
+ * processor built for a document that needed setext disabled was reused for one
+ * that did not, and the reverse — the flag looked ignored at random.
+ */
 function processorCacheKey(analysis: ContentAnalysis, preserveLineBreaks: boolean): string {
   return (
     (analysis.hasMath ? "M" : "-") +
     (analysis.hasFrontmatter ? "F" : "-") +
     (analysis.hasWikiLinks ? "W" : "-") +
     (analysis.hasDetails ? "D" : "-") +
+    (analysis.hasAmbiguousListUnderline ? "S" : "-") +
     (preserveLineBreaks ? "B" : "-")
   );
 }
@@ -143,7 +157,6 @@ export function createProcessor(markdown: string, options: MarkdownPipelineOptio
 export function createMarkdownProcessor() {
   const processor = unified()
     .use(remarkParse)
-    .use(remarkDisableSetextHeadings)
     .use(remarkGfm, { singleTilde: false })
     .use(remarkMath)
     .use(remarkValidateMath)

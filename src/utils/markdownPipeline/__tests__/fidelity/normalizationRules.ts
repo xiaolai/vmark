@@ -35,7 +35,7 @@ export type RuleName =
   | "markerReEscaped"
   | "codeSpanPaddingNormalized"
   | "orderedListRenumbered"
-  | "setextHeadingLost";
+  | "setextNormalisedToAtx";
 
 const isBlank = (l: string): boolean => l.trim() === "";
 const isTableRow = (l: string): boolean => /^\s*\|/.test(l);
@@ -140,25 +140,21 @@ export const RULES: Record<RuleName, (hunk: Hunk) => boolean> = {
   },
 
   /**
-   * KNOWN DEFECT — an authored setext heading is not parsed as a heading.
+   * A setext heading is READ as a heading and re-emitted as ATX.
    *
-   * `remarkDisableSetextHeadings` turns off `setextUnderline` so that an empty
-   * nested list item (`  -`) cannot misparse as a heading underline. That cure
-   * is unmitigated in the other direction: an authored setext heading becomes a
-   * paragraph whose `===` is escaped to `\===`, or a paragraph plus a thematic
-   * break — and `useTiptapFlush` writes that back to the author's file on the
-   * next keystroke. The fingerprint check independently reports the drift.
+   * VMark serializes every heading as `#`, so `Title` over `=====` comes back
+   * as `# Title`. That is a spelling change, not a loss — and it is the whole
+   * point of the fix: setext used to be DESTROYED on read, becoming a paragraph
+   * whose underline was escaped to `\=====`, or a paragraph plus a thematic
+   * break, with `useTiptapFlush` writing the damage back on the next keystroke.
    */
-  setextHeadingLost: (h) => {
-    const meaningful = (ls: readonly string[]): string[] => ls.filter((l) => !isBlank(l));
-    const before = meaningful(h.before);
-    const after = meaningful(h.after);
-    // `Title\n===` → the underline survives as escaped literal text.
-    if (after.some((l) => /^\\=+\s*$/.test(l))) return true;
-    // `Title\n---` → the underline is dropped here and re-emitted as a
-    // thematic break, which the differ reports as two adjacent hunks.
-    if (before.every((l) => /^-{3,}\s*$/.test(l)) && before.length > 0 && after.length === 0) return true;
-    if (before.length === 0 && after.length > 0 && after.every((l) => /^-{3,}\s*$/.test(l))) return true;
-    return false;
+  setextNormalisedToAtx: (h) => {
+    const before = h.before.filter((l) => !isBlank(l));
+    const after = h.after.filter((l) => !isBlank(l));
+    if (before.length !== 2 || after.length !== 1) return false;
+    const [title, underline] = before;
+    if (!/^\s*(?:=+|-{2,})\s*$/.test(underline)) return false;
+    const atx = /^(#{1,6})\s+(.*)$/.exec(after[0]);
+    return atx !== null && atx[2].trim() === title.trim();
   },
 };

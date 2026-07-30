@@ -1,13 +1,10 @@
-Setext Level One
-\================
+# Setext Level One
 
 Markdown written by hand or emitted by older tooling commonly uses
 underline-style headings. VMark must be able to open such a file without
 rewriting it.
 
-Setext Level Two
-
----
+## Setext Level Two
 
 A paragraph under the level-two heading.
 
@@ -15,12 +12,10 @@ A paragraph under the level-two heading.
 
 ATX headings are the style VMark emits, and they round-trip cleanly.
 
-Short Underline
-\===
+# Short Underline
 
 A level-one underline may be shorter than its title.
 
-Trailing Spaces
-\===============
+# Trailing Spaces
 
 The final paragraph, so the last heading is not also the last line.
