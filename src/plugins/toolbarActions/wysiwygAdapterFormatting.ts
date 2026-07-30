@@ -5,8 +5,16 @@
  * clear formatting for WYSIWYG mode. These are inline/block-level formatting
  * operations triggered by toolbar buttons.
  *
+ * Key decisions:
+ *   - "Heading level" is NUMERIC: increase means paragraph → H1 → … → H6 and
+ *     decrease is its exact inverse, matching the command's label, the `]`/`[`
+ *     accelerators, and Source mode. Both directions clamp rather than wrap, so
+ *     repeated presses cannot cycle H6 back into a paragraph. The pair must
+ *     always be changed together or the operation stops being reversible.
+ *
  * @coordinates-with wysiwygAdapter.ts — main dispatcher delegates formatting actions here
  * @coordinates-with enableRules.ts — decides which formatting actions are enabled
+ * @coordinates-with sourceBlockActions.ts — the Source pair this mirrors
  * @module plugins/toolbarActions/wysiwygAdapterFormatting
  */
 import type { Editor as TiptapEditor } from "@tiptap/core";
@@ -70,29 +78,47 @@ export function getCurrentHeadingLevel(editor: TiptapEditor): number | null {
 }
 
 /**
- * Increase heading level (e.g., H3 -> H2, or paragraph -> H6).
+ * Increase heading LEVEL — paragraph -> H1, H1 -> H2, … H6 clamps.
+ *
+ * "Level" is a number, and increasing it adds a `#`. The two surfaces used to
+ * read this word in opposite directions: Source incremented the level while
+ * WYSIWYG made the heading more prominent, so from an H3 the same toolbar button
+ * gave H4 in one mode and H2 in the other. Each was self-consistent, which is
+ * why no single-surface test caught it.
+ *
+ * The numeric reading wins on three counts, and WYSIWYG is the side that moved:
+ * the label says "Heading Level"; the accelerator is `Mod-Alt-]`, matching the
+ * indent metaphor `]` already carries elsewhere; and Source's convention is
+ * implemented twice (here and in `codemirror/sourceShortcutsHelpers`) against
+ * WYSIWYG's once.
+ *
+ * Never wraps — repeated presses must not silently destroy or recreate
+ * structure by cycling H6 back to a paragraph.
  */
 export function increaseHeadingLevel(editor: TiptapEditor): boolean {
   const currentLevel = getCurrentHeadingLevel(editor);
   if (currentLevel === null) {
-    editor.chain().focus().setHeading({ level: 6 }).run();
+    editor.chain().focus().setHeading({ level: 1 }).run();
     return true;
   }
-  if (currentLevel > 1) {
-    editor.chain().focus().setHeading({ level: (currentLevel - 1) as 1 | 2 | 3 | 4 | 5 }).run();
+  if (currentLevel < 6) {
+    editor.chain().focus().setHeading({ level: (currentLevel + 1) as 2 | 3 | 4 | 5 | 6 }).run();
     return true;
   }
   return false;
 }
 
 /**
- * Decrease heading level (e.g., H2 -> H3, or H6 -> paragraph).
+ * Decrease heading LEVEL — H6 -> H5, … H1 -> paragraph, paragraph clamps.
+ *
+ * The exact inverse of `increaseHeadingLevel`; the pair must always be flipped
+ * together or the operation stops being reversible.
  */
 export function decreaseHeadingLevel(editor: TiptapEditor): boolean {
   const currentLevel = getCurrentHeadingLevel(editor);
   if (currentLevel === null) return false;
-  if (currentLevel < 6) {
-    editor.chain().focus().setHeading({ level: (currentLevel + 1) as 2 | 3 | 4 | 5 | 6 }).run();
+  if (currentLevel > 1) {
+    editor.chain().focus().setHeading({ level: (currentLevel - 1) as 1 | 2 | 3 | 4 | 5 }).run();
     return true;
   }
   editor.chain().focus().setParagraph().run();
