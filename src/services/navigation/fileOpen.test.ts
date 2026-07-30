@@ -438,6 +438,16 @@ describe("handleOpen — dialog and routing", () => {
   it("activates existing tab when action is activate_tab", async () => {
     mockOpen.mockResolvedValue("/docs/existing.md");
     mockResolveOpenAction.mockReturnValue({ action: "activate_tab", tabId: "tab-42" });
+    // WI-12.2: activation is ownership-aware and requires a REAL tab — seed it.
+    useTabStore.setState((state) => ({
+      tabs: {
+        ...state.tabs,
+        [WINDOW]: [
+          ...(state.tabs[WINDOW] ?? []),
+          { id: "tab-42", kind: "document", filePath: "/docs/existing.md", title: "existing", isPinned: false },
+        ],
+      },
+    }) as never);
     const setActiveSpy = vi.spyOn(useTabStore.getState(), "setActiveTab");
 
     const { handleOpen } = await import("./fileOpen");

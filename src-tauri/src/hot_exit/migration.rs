@@ -211,3 +211,7 @@ mod v4_tests;
 #[cfg(test)]
 #[path = "migration_v5_tests.rs"]
 mod v5_tests;
+
+#[cfg(test)]
+#[path = "path_containment_tests.rs"]
+mod path_containment_tests;

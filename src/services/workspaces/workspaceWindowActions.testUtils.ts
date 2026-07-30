@@ -38,7 +38,7 @@ export function resetWorkspaceActionTestState(): void {
   mockListen.mockResolvedValue(vi.fn());
   mockOpenWorkspaceWithConfig.mockResolvedValue(null);
   useWorkspaceInstancesStore.getState().resetWorkspaceInstances();
-  useTabStore.setState({ tabs: {}, activeTabId: {}, closedTabs: {}, untitledCounter: 0 });
+  useTabStore.setState({ tabs: {}, activeTabId: {}, untitledCounter: 0 });
   useDocumentStore.setState({ documents: {} });
 }
 

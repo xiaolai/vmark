@@ -3,39 +3,31 @@ import {
   type WorkspaceInstanceRecord,
 } from "@/stores/workspaceInstancesStore";
 import { isWorkspaceRailEnabled } from "@/services/featureFlags/workspaceRailFeatureFlag";
-import { isWithinRoot, normalizePath } from "@/utils/paths";
+import { isWithinRootForCompare } from "@/utils/paths/pathComparison";
+import { getRuntimePlatform, type RuntimePlatform } from "@/utils/platform";
+import { classifyOwnerInstance } from "@/services/workspaces/workspaceOwnershipKernel";
 
 export interface WorkspaceContextClassificationInput {
   filePath: string | null;
   instances: WorkspaceInstanceRecord[];
   activeWorkspaceInstanceId: string | null;
+  /** Comparison platform; defaults to the runtime OS. Injectable for tests. */
+  platform?: RuntimePlatform;
 }
 
+/**
+ * Path classification — delegates to the pure ownership kernel (WI-1R) so
+ * classification, visibility, capture, and persistence share ONE rule.
+ */
 export function classifyWorkspaceContextForTab(
   input: WorkspaceContextClassificationInput,
 ): WorkspaceInstanceRecord | null {
-  const loose = input.instances.find((instance) => contextKind(instance) === "loose") ?? null;
-  if (!input.filePath) return loose;
-
-  const workspaceMatches = input.instances
-    .filter((instance) => contextKind(instance) === "workspace" && instance.rootPath)
-    .filter((instance) => isWithinRoot(instance.rootPath!, input.filePath!));
-
-  if (workspaceMatches.length === 0) return loose;
-
-  const longestRoot = Math.max(
-    ...workspaceMatches.map((instance) => normalizePath(instance.rootPath!).length),
-  );
-  const mostSpecific = workspaceMatches.filter(
-    (instance) => normalizePath(instance.rootPath!).length === longestRoot,
-  );
-  return (
-    mostSpecific.find(
-      (instance) => instance.workspaceInstanceId === input.activeWorkspaceInstanceId,
-    )
-    ?? mostSpecific[0]
-    ?? null
-  );
+  return classifyOwnerInstance(
+    input.filePath,
+    input.instances,
+    input.activeWorkspaceInstanceId,
+    input.platform ?? getRuntimePlatform(),
+  ) as WorkspaceInstanceRecord | null;
 }
 
 export function claimTabForWorkspaceContext(
@@ -91,9 +83,14 @@ function resolveTabOwner(
     instances,
     activeWorkspaceInstanceId,
   });
+  const platform = getRuntimePlatform();
   const noContainingRoot =
     !filePath
-    || instances.every((instance) => !instance.rootPath || !isWithinRoot(instance.rootPath, filePath));
+    || instances.every(
+      (instance) =>
+        !instance.rootPath
+        || !isWithinRootForCompare(instance.rootPath, filePath, platform),
+    );
   if (!owner && noContainingRoot) {
     owner = useWorkspaceInstancesStore.getState().ensureLooseInstance(windowLabel);
     instances = orderedWindowInstances(windowLabel);
@@ -126,10 +123,4 @@ export function orderedWindowInstances(windowLabel: string): WorkspaceInstanceRe
   return ids
     .map((id) => state.instances[id])
     .filter((instance): instance is WorkspaceInstanceRecord => Boolean(instance));
-}
-
-function contextKind(instance: WorkspaceInstanceRecord): WorkspaceInstanceRecord["kind"] {
-  if (instance.kind) return instance.kind;
-  if (instance.rootPath) return "workspace";
-  return instance.createdFrom === "placeholder" ? "placeholder" : "loose";
 }

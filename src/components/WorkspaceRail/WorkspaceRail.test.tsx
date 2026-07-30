@@ -1,7 +1,9 @@
+// WI-3R — rail click performs the full context switch (tests)
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { act, createEvent, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useSettingsStore } from "@/stores/settingsStore";
+import { useTabStore } from "@/stores/tabStore";
 import {
   selectWindowWorkspaceState,
   useWorkspaceInstancesStore,
@@ -26,6 +28,9 @@ vi.mock("@/services/workspaces/workspaceWindowActions", () => ({
 }));
 vi.mock("@/services/ime/imeToast", () => ({
   imeToast: { error: mockToastError, message: mockToastMessage },
+}));
+vi.mock("@tauri-apps/api/core", () => ({
+  invoke: vi.fn(() => Promise.resolve(null)),
 }));
 
 function setRailMode(enabled: boolean): void {
@@ -62,6 +67,7 @@ function addLooseInstance(windowLabel: string, id = "wsi-loose"): void {
 beforeEach(() => {
   setRailMode(false);
   useWorkspaceInstancesStore.getState().resetWorkspaceInstances();
+  useTabStore.setState({ tabs: {}, activeTabId: {}, untitledCounter: 0 });
   mockMoveWorkspace.mockReset();
   mockDuplicateWorkspace.mockReset();
   mockCloseWorkspace.mockReset();
@@ -209,11 +215,14 @@ describe("WorkspaceRail", () => {
     expect(container.querySelector(".workspace-rail__glyph")).not.toBeInTheDocument();
   });
 
-  it("activates the clicked workspace instance", async () => {
+  it("performs the FULL context switch on click: activation + outgoing stash (WI-3R)", async () => {
     const user = userEvent.setup();
     setRailMode(true);
     addInstance("main", "wsi-a", "/Users/xiaolai/a");
     addInstance("main", "wsi-b", "/Users/xiaolai/b");
+    useWorkspaceInstancesStore.getState().activateWorkspaceInstance("main", "wsi-a");
+    const tabId = useTabStore.getState().createTab("main", "/Users/xiaolai/a/doc.md");
+    useTabStore.getState().setActiveTab("main", tabId);
 
     render(<WorkspaceRail windowLabel="main" />);
     await user.click(screen.getByRole("button", { name: "Activate b" }));
@@ -222,6 +231,29 @@ describe("WorkspaceRail", () => {
       selectWindowWorkspaceState(useWorkspaceInstancesStore.getState(), "main")
         ?.activeWorkspaceInstanceId,
     ).toBe("wsi-b");
+    // The outgoing instance stashed its live context — the full switch ran,
+    // not a raw activation flip.
+    const outgoing = useWorkspaceInstancesStore.getState().instances["wsi-a"];
+    expect(outgoing.tabIds).toEqual([tabId]);
+    expect(outgoing.activeTabId).toBe(tabId);
+    // aria-pressed follows the new active instance.
+    expect(screen.getByRole("button", { name: "Activate b" }))
+      .toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Activate a" }))
+      .toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("clicking the ACTIVE entry is a strict no-op", async () => {
+    const user = userEvent.setup();
+    setRailMode(true);
+    addInstance("main", "wsi-a", "/Users/xiaolai/a");
+    useWorkspaceInstancesStore.getState().activateWorkspaceInstance("main", "wsi-a");
+    const before = useWorkspaceInstancesStore.getState().instances;
+
+    render(<WorkspaceRail windowLabel="main" />);
+    await user.click(screen.getByRole("button", { name: "Activate a" }));
+
+    expect(useWorkspaceInstancesStore.getState().instances).toEqual(before);
   });
 
   it("moves a workspace when its icon is dragged outside the viewport", () => {

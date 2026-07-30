@@ -1,5 +1,6 @@
 import { useIsDocumentWindow, useWindowLabel } from "@/contexts/WindowContext";
 import { useTabStore } from "@/stores/tabStore";
+import { useVisibleWindowTabs } from "@/hooks/useVisibleWindowTabs";
 import { getBrowserWorkspaceView } from "./browserWorkspace";
 
 const EMPTY_TABS: never[] = [];
@@ -8,9 +9,10 @@ const EMPTY_TABS: never[] = [];
 export function useBrowserWorkspaceState() {
   const isDocumentWindow = useIsDocumentWindow();
   const windowLabel = useWindowLabel();
-  const tabs = useTabStore((state) =>
-    isDocumentWindow ? state.tabs[windowLabel] ?? EMPTY_TABS : EMPTY_TABS,
-  );
+  // WI-8.1/4R: render surfaces see the VISIBLE projection — active-instance
+  // documents + ALL browser tabs (window-global, plan D1). Rail off = raw list.
+  const visibleTabs = useVisibleWindowTabs(windowLabel);
+  const tabs = isDocumentWindow ? visibleTabs : EMPTY_TABS;
   const activeTabId = useTabStore((state) =>
     isDocumentWindow ? state.activeTabId[windowLabel] ?? null : null,
   );

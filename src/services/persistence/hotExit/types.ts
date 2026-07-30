@@ -39,6 +39,12 @@ export interface WindowState {
   workspace_instance_ids?: string[];
   active_workspace_instance_id?: string | null;
   workspace_instances?: HotExitWorkspaceInstanceState[];
+  /** WI-9.4: per-instance UI state (opaque to Rust). */
+  ui_state_by_instance?: Record<string, unknown>;
+  /** WI-9.4: scoped closed-tab reopen history for this window. */
+  closed_tab_scopes?: Record<string, unknown>;
+  /** WI-9.4/8.2: window-global human browser records. */
+  browser_session?: unknown;
 }
 
 export interface HotExitWorkspaceInstanceState {
