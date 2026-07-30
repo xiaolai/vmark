@@ -12,12 +12,17 @@
  *     the only item of a list removes the list rather than leaving a bare `-`.
  *   - Row moves refuse to displace a table's header, because markdown's
  *     delimiter row must stay directly beneath it.
+ *   - Duplicating a PARAGRAPH inserts a hard break rather than cloning the
+ *     node, so the copy is a second line of one block instead of a second
+ *     paragraph. Headings and structural units duplicate as siblings — a
+ *     heading cannot hold a break, and the copies would run together.
  *
  * @coordinates-with wysiwygAdapter.ts — main dispatcher delegates line operations here
  * @coordinates-with wysiwygLineUnit.ts — resolves which node is "the line"
  * @coordinates-with sourceAdapter.ts — the line-oriented surface this mirrors
  * @module plugins/toolbarActions/wysiwygAdapterBlockOps
  */
+import { Fragment } from "@tiptap/pm/model";
 import { Selection } from "@tiptap/pm/state";
 import type { WysiwygToolbarContext } from "./types";
 import { collapseEmptyAncestors, isTableHeaderRow, lineUnitDepth } from "./wysiwygLineUnit";
@@ -126,13 +131,26 @@ export function handleWysiwygDuplicateBlock(context: WysiwygToolbarContext): boo
 
   const tr = state.tr;
   const blockEnd = $from.after(blockDepth);
+  const hardBreak = state.schema.nodes.hardBreak;
 
-  // Insert copy after current block
-  tr.insert(blockEnd, currentBlock.copy(currentBlock.content));
-
-  // Move selection to duplicated block
-  const newPos = blockEnd + 1;
-  tr.setSelection(Selection.near(tr.doc.resolve(newPos)));
+  // Only a PARAGRAPH takes the hard-break path. A heading cannot contain one —
+  // the break collapses and the two copies run together on one line — so a
+  // heading duplicates as a sibling heading, like every structural unit.
+  if (currentBlock.type.name === "paragraph" && hardBreak) {
+    // A paragraph duplicated as a second PARAGRAPH is not the same action:
+    // "duplicate line" should leave one block with two visible lines, which in
+    // markdown means a hard break. Cloning the node produced two paragraphs
+    // where Source produced two lines, and the documents genuinely differed.
+    const doubled = currentBlock.content
+      .append(Fragment.from(hardBreak.create()))
+      .append(currentBlock.content);
+    tr.replaceWith($from.before(blockDepth), blockEnd, currentBlock.copy(doubled));
+    tr.setSelection(Selection.near(tr.doc.resolve(Math.min($from.pos, tr.doc.content.size))));
+  } else {
+    // Structural units — a table row, a list item — duplicate as siblings.
+    tr.insert(blockEnd, currentBlock.copy(currentBlock.content));
+    tr.setSelection(Selection.near(tr.doc.resolve(blockEnd + 1)));
+  }
 
   dispatch(tr);
   editor.commands.focus();

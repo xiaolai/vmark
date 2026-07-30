@@ -123,15 +123,6 @@ export const PARITY_DIVERGENCES: Record<string, ParityDivergence> = {
   },
 
   // ---- Independent divergences ---------------------------------------------
-  duplicateLine: {
-    action: "duplicateLine",
-    verdict: "both-defensible",
-    wysiwyg: "two PARAGRAPHS — a blank line separates the copies",
-    source: "two LINES within one paragraph, joined by a soft break",
-    rootCause: "duplicateline-block-vs-softbreak",
-    reason:
-      "Now confined to plain paragraphs: the table, list and blockquote cases converged once WYSIWYG stopped operating on the top-level container. What remains is a real representational gap rather than a bug — a markdown soft line break is a LINE in source mode but not a BLOCK in WYSIWYG, so 'duplicate this line' has no single meaning for a soft-wrapped paragraph. Converging means deciding whether WYSIWYG should insert a hard break instead of a paragraph split.",
-  },
   insertCodeBlock: {
     action: "insertCodeBlock",
     verdict: "source-bug",
@@ -170,6 +161,11 @@ export const PARITY_DIVERGENCES: Record<string, ParityDivergence> = {
  *        re-formatting still leaves an unaligned column alone.
  *   27 — `outdent` CONVERGED: WYSIWYG stopped lifting a TOP-LEVEL item out of
  *        its list, which is what Remove List and the toggles are for.
+ *   18 — `duplicateLine` CONVERGED: a plain paragraph now duplicates with an
+ *        explicit HARD BREAK on both surfaces, so one block shows two lines
+ *        rather than WYSIWYG making a second paragraph and Source a soft break
+ *        that renders as one. Headings, list items and table rows keep
+ *        duplicating as siblings.
  *   19 — `moveLineUp`, `moveLineDown` and `joinLines` CONVERGED: source line
  *        operations now treat a blank line as a block separator rather than
  *        something to swap with, refuse to hoist a nested item past its
@@ -187,4 +183,4 @@ export const PARITY_DIVERGENCES: Record<string, ParityDivergence> = {
  * the largest (`source-inserts-block-at-caret`, 12 actions) is one insertion
  * helper.
  */
-export const MAX_PARITY_DIVERGENCES = 19;
+export const MAX_PARITY_DIVERGENCES = 18;

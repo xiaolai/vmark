@@ -1,5 +1,5 @@
 /**
- * Blank-line-aware line movement for source mode.
+ * Structure-aware line operations for source mode.
  *
  * Purpose: decide what "move this line" moves when blank lines are in play.
  *
@@ -14,6 +14,12 @@
  * agreed: WITHIN a block (no blank between) lines swap individually, so list
  * items reorder one at a time; ACROSS a blank separator whole blocks swap, so
  * paragraphs reorder as paragraphs and the separators stay put.
+ *
+ * The same module also answers two neighbouring questions that need the same
+ * structural view: whether a JOIN would fuse two blocks (across a blank line,
+ * or two list items into one), and whether a DUPLICATE needs an explicit hard
+ * break — a plain paragraph line does, since a bare newline is a soft break and
+ * renders as one continued line; a heading, list item or table row does not.
  *
  * These are deliberately NOT changes to the shared `textTransformations`
  * helpers, which other callers use on plain text where the text-editor reading
@@ -124,4 +130,24 @@ export function joinWouldFuseBlocks(
   if (next === undefined) return true; // nothing below to join with
   if (isBlank(lines[startLine] ?? "") || isBlank(next)) return true;
   return listIndent(next) !== null;
+}
+
+/**
+ * Whether duplicating `lineIndex` should join the copies with a HARD BREAK.
+ *
+ * Duplicating a plain paragraph line should leave one paragraph showing two
+ * lines, which in markdown needs an explicit break — a bare newline is a SOFT
+ * break and renders as a single line, so the two surfaces produced different
+ * documents. Structural lines (list items, table rows, headings) duplicate as
+ * siblings and need no marker.
+ */
+export function duplicateNeedsHardBreak(lines: readonly string[], lineIndex: number): boolean {
+  const raw = lines[lineIndex] ?? "";
+  if (isBlank(raw)) return false;
+  // A QUOTED paragraph is still a paragraph, so the quote marker is peeled
+  // before deciding — `> text` needs the break just as `text` does.
+  const line = raw.replace(/^\s*(?:>\s?)+/, "");
+  if (isBlank(line)) return false;
+  if (listIndent(line) !== null) return false;
+  return !/^\s*(?:#{1,6}\s|\|)/.test(line);
 }
