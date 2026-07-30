@@ -23,26 +23,24 @@ function parseAlignment(cell: string): TableAlignment {
 }
 
 /**
- * Format a separator cell with alignment.
- * Ensures total width matches the requested width.
+ * Format a separator cell with alignment, to the requested total width.
+ *
+ * `explicitLeft` separates SETTING left alignment (a request, written `:---`)
+ * from RE-FORMATTING a table (which must leave an unaligned column alone).
+ * `parseAlignment` reports both spellings as "left", so without the flag one
+ * caller is always wrong: bare dashes made "align left" do nothing visible,
+ * an unconditional colon made "format table" stamp alignment everywhere.
  */
-function formatAlignmentCell(alignment: TableAlignment, width = 5): string {
-  // Calculate dash count based on alignment markers
-  // center: 2 colons, right: 1 colon, left: 0 colons
+function formatAlignmentCell(alignment: TableAlignment, width = 5, explicitLeft = false): string {
   const minDashes = 3;
+  const dashes = (pad: number): string => "-".repeat(Math.max(minDashes, width - pad));
   switch (alignment) {
-    case "center": {
-      const dashes = "-".repeat(Math.max(minDashes, width - 2));
-      return `:${dashes}:`;
-    }
-    case "right": {
-      const dashes = "-".repeat(Math.max(minDashes, width - 1));
-      return `${dashes}:`;
-    }
-    default: {
-      const dashes = "-".repeat(Math.max(minDashes, width));
-      return dashes;
-    }
+    case "center":
+      return `:${dashes(2)}:`;
+    case "right":
+      return `${dashes(1)}:`;
+    default:
+      return explicitLeft ? `:${dashes(1)}` : dashes(0);
   }
 }
 
@@ -268,7 +266,7 @@ export function setColumnAlignment(
 
   const cells = parseTableRow(info.lines[1]);
   if (info.colIndex < cells.length) {
-    cells[info.colIndex] = formatAlignmentCell(alignment);
+    cells[info.colIndex] = formatAlignmentCell(alignment, 5, true);
   }
 
   const newLine = `| ${cells.join(" | ")} |`;
@@ -292,7 +290,7 @@ export function setAllColumnsAlignment(
   const separatorLine = doc.line(separatorLineNum);
 
   const cells = parseTableRow(info.lines[1]);
-  const newCells = cells.map(() => formatAlignmentCell(alignment));
+  const newCells = cells.map(() => formatAlignmentCell(alignment, 5, true));
 
   const newLine = `| ${newCells.join(" | ")} |`;
   view.dispatch({
