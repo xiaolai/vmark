@@ -98,18 +98,28 @@ export function replaceLinesWithBlock(view: EditorView, text: string, cursorOffs
  * The caret keeps its position in the text, shifting by the marker's width so it
  * stays on the same character the user was editing.
  */
-export function prependLineMarker(view: EditorView, marker: string): void {
+export function prependLineMarker(view: EditorView, marker: string): boolean {
   const { state } = view;
   const { from } = state.selection.main;
   const line = state.doc.lineAt(from);
-  const indent = /^\s*/.exec(line.text)?.[0] ?? "";
-  const at = line.from + indent.length;
+
+  // Go INSIDE any blockquote wrapper: the list belongs to the quoted content,
+  // so `> text` becomes `> - text`. Writing the marker before the `>` produced
+  // `- > text`, a list item containing a quote — the opposite nesting.
+  const wrapper = /^\s*(?:>\s?)*\s*/.exec(line.text)?.[0] ?? "";
+  const at = line.from + wrapper.length;
+
+  // A heading run is REPLACED, not kept: a line cannot be a heading and a list
+  // item at once, and WYSIWYG drops the heading when converting. Keeping it
+  // produced `- ### text`, a bullet whose content is a heading.
+  const headingRun = /^#{1,6}(?:\s+|$)/.exec(line.text.slice(wrapper.length))?.[0] ?? "";
 
   view.dispatch({
-    changes: { from: at, to: at, insert: marker },
-    selection: { anchor: from + marker.length },
+    changes: { from: at, to: at + headingRun.length, insert: marker },
+    selection: { anchor: Math.max(at, from - headingRun.length) + marker.length },
   });
   view.focus();
+  return true;
 }
 
 /**
