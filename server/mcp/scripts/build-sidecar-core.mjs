@@ -210,7 +210,14 @@ export async function buildForTarget(targetKey, deps) {
   const ext = target.ext || '';
   const outputName = `vmark-mcp-server-${target.triple}${ext}`;
   const outputPath = join(deps.binariesDir, outputName);
-  const stagingPath = `${outputPath}.staging-${deps.runId ?? 'local'}`;
+  // The staging suffix goes BEFORE the extension: pkg normalizes Windows
+  // output to end in `.exe`, so `foo.exe.staging-N` would be written as
+  // `foo.exe.staging-N.exe` and the verify/rename step would miss it
+  // (v0.9.19 release failure, windows-latest).
+  const stagingPath = join(
+    deps.binariesDir,
+    `vmark-mcp-server-${target.triple}.staging-${deps.runId ?? 'local'}${ext}`
+  );
 
   deps.log(`Building for ${targetKey} -> ${outputName}`);
 

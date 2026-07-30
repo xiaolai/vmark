@@ -225,6 +225,22 @@ describe("navigate", () => {
     expect(mocks.invoke).not.toHaveBeenCalledWith("browser_ai_navigate", expect.anything());
   });
 
+  it("responds queue-full (NOT needsApproval) when the approval queue is at capacity", async () => {
+    const { MAX_PENDING_APPROVALS } = await import("@/stores/browserApprovalStore");
+    const tabId = seed("ai-shared");
+    const store = useBrowserApprovalStore.getState();
+    for (let i = 0; i < MAX_PENDING_APPROVALS; i++) {
+      store.requestApproval(`fill-${i}`, URL, "click", { role: "button", name: `b${i}` } as never, tabId, 1);
+    }
+    mocks.ensureNative.mockRejectedValueOnce("APPROVAL_REQUIRED");
+
+    await handleBrowserNavigate("nav-full", { tabId, url: URL });
+
+    const res = lastResponse();
+    expect(String(res.error)).toContain("approval queue is full");
+    expect((res.data as { needsApproval?: boolean } | undefined)?.needsApproval).toBeUndefined();
+  });
+
   it("queues approval when Rust rejects the destination", async () => {
     const tabId = seed("ai-shared");
     mocks.ensureNative.mockRejectedValueOnce("APPROVAL_REQUIRED");
