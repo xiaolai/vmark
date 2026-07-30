@@ -24,6 +24,15 @@ export const DOCS: Array<{ label: string; markdown: string; needle: string }> = 
     needle: "brown",
   },
   { label: "cjk", markdown: "中文段落brown混排English文本\n", needle: "brown" },
+
+  // Multi-line structures. Single-line fixtures cannot distinguish "operate on
+  // this line" from "operate on the whole container" — they made WYSIWYG's line
+  // operations look correct while `deleteLine` inside a table was deleting the
+  // ENTIRE TABLE. Any fixture used to justify a line-operation fix must have
+  // more than one line in the container.
+  { label: "multi-para", markdown: "First para\n\nSecond brown para\n\nThird para\n", needle: "brown" },
+  { label: "multi-item-list", markdown: "- one\n- two brown\n- three\n", needle: "brown" },
+  { label: "nested-list", markdown: "- outer\n  - inner brown\n- last\n", needle: "brown" },
 ];
 
 /**

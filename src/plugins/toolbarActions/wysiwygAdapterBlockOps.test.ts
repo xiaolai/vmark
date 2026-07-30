@@ -32,6 +32,11 @@ function createMockResolved(opts: {
 
   const parent = {
     childCount: opts.parentChildCount,
+    // The container above the line unit. `doc` is deliberately NOT one of the
+    // wrappers `lineUnitDepth` climbs through, so the resolved line unit stays
+    // at `opts.depth` and these tests keep exercising the same code path.
+    type: { name: "doc" },
+    isTextblock: false,
     child: vi.fn((i: number) => {
       const c = children[i] ?? children[0];
       return {
@@ -45,11 +50,15 @@ function createMockResolved(opts: {
     }),
   };
 
+  // The line unit itself — `lineUnitDepth` walks up from `$from.depth` looking
+  // for the innermost textblock, so the node AT that depth must report as one.
+  const lineUnit = { type: { name: "paragraph" }, isTextblock: true, childCount: 1 };
+
   return {
     depth: opts.depth,
     pos: 15,
     index: vi.fn(() => opts.blockIndex),
-    node: vi.fn(() => parent),
+    node: vi.fn((d: number) => (d === opts.depth ? lineUnit : parent)),
     before: vi.fn(() => 10),
     after: vi.fn(() => 22),
     start: vi.fn(() => 11),
