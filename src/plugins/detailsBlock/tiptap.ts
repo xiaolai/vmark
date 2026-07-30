@@ -9,7 +9,7 @@
  *   - Input rule triggers on `<details>` or `:::details` at line start
  *   - Click on summary toggles the open/closed state via node attribute
  *   - Default summary text for new blocks comes from the
- *     "editor:plugin.detailsDefaultSummary" locale key ("Click to expand" in English)
+ *     shared `blockTemplates` module, so both surfaces insert the same block
  *
  * @coordinates-with codemirror/sourceDetailsDecoration.ts — Source mode visual markers
  * @coordinates-with shared/sourceLineAttr.ts — source line tracking for cursor sync
@@ -21,8 +21,9 @@ import { InputRule, Node } from "@tiptap/core";
 import type { EditorState } from "@tiptap/pm/state";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { TextSelection } from "@tiptap/pm/state";
-import i18n from "@/i18n";
+import { newDetailsSummary, NEW_DETAILS_OPEN } from "@/plugins/shared/blockTemplates";
 import { blockInsertPos } from "../shared/blockInsertPos";
+import { wrapSpannedBlocks } from "../shared/wrapBlocks";
 import { sourceLineAttr } from "../shared/sourceLineAttr";
 import "./details-block.css";
 
@@ -45,7 +46,7 @@ function createDetailsBlockNode(state: EditorState, open: boolean) {
 
   const summaryNode = summaryType.create(
     null,
-    state.schema.text(i18n.t("editor:plugin.detailsDefaultSummary")),
+    state.schema.text(newDetailsSummary()),
   );
   const contentNode = paragraphType.create();
   return detailsType.create({ open }, [summaryNode, contentNode]);
@@ -104,7 +105,25 @@ export const detailsBlockExtension = Node.create({
       insertDetailsBlock:
         () =>
         ({ state, dispatch }) => {
-          const detailsNode = createDetailsBlockNode(state, true);
+          // A selection is WRAPPED, not ignored — see alertBlock for the same
+          // rule and `shared/blockSpan` for why it is whole blocks.
+          const detailsType = state.schema.nodes.detailsBlock;
+          const summaryType = state.schema.nodes.detailsSummary;
+          const wrapping =
+            detailsType && summaryType
+              ? wrapSpannedBlocks(state, (content) =>
+                  detailsType.create({ open: NEW_DETAILS_OPEN }, [
+                    summaryType.create(null, state.schema.text(newDetailsSummary())),
+                    ...content.content,
+                  ]),
+                )
+              : null;
+          if (wrapping) {
+            if (dispatch) dispatch(wrapping);
+            return true;
+          }
+
+          const detailsNode = createDetailsBlockNode(state, NEW_DETAILS_OPEN);
           if (!detailsNode) return false;
 
           const insertPos = blockInsertPos(state.selection);
@@ -126,7 +145,7 @@ export const detailsBlockExtension = Node.create({
       new InputRule({
         find: DETAILS_INPUT_PATTERN,
         handler: ({ state, range, commands }) => {
-          const detailsNode = createDetailsBlockNode(state, true);
+          const detailsNode = createDetailsBlockNode(state, NEW_DETAILS_OPEN);
           if (!detailsNode) return null;
 
           const $start = state.doc.resolve(range.from);

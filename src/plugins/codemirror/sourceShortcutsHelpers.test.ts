@@ -98,16 +98,15 @@ vi.mock("@/plugins/sourceContextDetection/headingDetection", () => ({
 }));
 
 const mockGetListItemInfo = vi.fn(() => null);
-const mockToBulletList = vi.fn();
-const mockToOrderedList = vi.fn();
-const mockToTaskList = vi.fn();
+const mockConvertListBlock = vi.fn();
 const mockRemoveList = vi.fn();
+
+vi.mock("@/plugins/sourceContextDetection/listBlockConversion", () => ({
+  convertListBlock: (...args: unknown[]) => mockConvertListBlock(...args),
+}));
 
 vi.mock("@/plugins/sourceContextDetection/listDetection", () => ({
   getListItemInfo: (...args: unknown[]) => mockGetListItemInfo(...args),
-  toBulletList: (...args: unknown[]) => mockToBulletList(...args),
-  toOrderedList: (...args: unknown[]) => mockToOrderedList(...args),
-  toTaskList: (...args: unknown[]) => mockToTaskList(...args),
   removeList: (...args: unknown[]) => mockRemoveList(...args),
 }));
 
@@ -324,7 +323,7 @@ describe("toggleList", () => {
     mockGetListItemInfo.mockReturnValueOnce({ type: "ordered" });
     const result = toggleList(view, "bullet");
     expect(result).toBe(true);
-    expect(mockToBulletList).toHaveBeenCalled();
+    expect(mockConvertListBlock).toHaveBeenCalledWith(expect.anything(), "bullet");
   });
 
   it("converts to ordered list from bullet", () => {
@@ -332,7 +331,7 @@ describe("toggleList", () => {
     mockGetListItemInfo.mockReturnValueOnce({ type: "bullet" });
     const result = toggleList(view, "ordered");
     expect(result).toBe(true);
-    expect(mockToOrderedList).toHaveBeenCalled();
+    expect(mockConvertListBlock).toHaveBeenCalledWith(expect.anything(), "ordered");
   });
 
   it("converts to task list from bullet", () => {
@@ -340,7 +339,7 @@ describe("toggleList", () => {
     mockGetListItemInfo.mockReturnValueOnce({ type: "bullet" });
     const result = toggleList(view, "task");
     expect(result).toBe(true);
-    expect(mockToTaskList).toHaveBeenCalled();
+    expect(mockConvertListBlock).toHaveBeenCalledWith(expect.anything(), "task");
   });
 
   it("inserts bullet marker when not in list", () => {

@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { newDetailsMarkdown, newDetailsCursorOffset } from "@/plugins/shared/blockTemplates";
 import {
   buildDetailsBlock,
   buildAlertBlock,
@@ -12,19 +13,19 @@ import {
 describe("buildDetailsBlock", () => {
   it("creates details block without selection", () => {
     const result = buildDetailsBlock("");
-    expect(result.text).toBe("<details>\n<summary>Details</summary>\n\n</details>");
-    expect(result.cursorOffset).toBe("<details>\n<summary>Details</summary>\n".length);
+    expect(result.text).toBe(newDetailsMarkdown(""));
+    expect(result.cursorOffset).toBe(newDetailsCursorOffset());
   });
 
   it("wraps selection in details block", () => {
     const result = buildDetailsBlock("Some content");
-    expect(result.text).toBe("<details>\n<summary>Details</summary>\n\nSome content\n</details>");
-    expect(result.cursorOffset).toBe("<details>\n<summary>Details</summary>\n\n".length);
+    expect(result.text).toBe(newDetailsMarkdown("Some content"));
+    expect(result.cursorOffset).toBe(newDetailsCursorOffset());
   });
 
   it("handles multiline selection", () => {
     const result = buildDetailsBlock("Line 1\nLine 2");
-    expect(result.text).toBe("<details>\n<summary>Details</summary>\n\nLine 1\nLine 2\n</details>");
+    expect(result.text).toBe(newDetailsMarkdown("Line 1\nLine 2"));
   });
 });
 

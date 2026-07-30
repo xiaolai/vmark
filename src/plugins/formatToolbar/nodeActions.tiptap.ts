@@ -26,6 +26,7 @@ import type { EditorView } from "@tiptap/pm/view";
 import { liftTarget } from "@tiptap/pm/transform";
 import { liftListItem, sinkListItem, wrapInList } from "@tiptap/pm/schema-list";
 import { liftSelectionOutOfLists } from "@/plugins/shared/listHelpers";
+import { flattenHeadingForList } from "./headingToList";
 import {
   convertListNode,
   convertRangeToListType,
@@ -139,7 +140,17 @@ function toggleListType(view: EditorView, target: ListTypeName): boolean {
 
   const listType = state.schema.nodes[target];
   if (!listType) return false;
-  const wrapped = wrapInList(listType, target === "orderedList" ? { start: 1 } : undefined)(state, dispatch);
+
+  // A HEADING becomes a paragraph first. A line cannot be a heading and a list
+  // item at once, and `wrapInList` will not wrap one — so the button silently
+  // did nothing on a heading, while Source mode replaced the `#` run and made
+  // the list. Flattening first makes both surfaces do what Source did.
+  const flattened = flattenHeadingForList(view);
+  const base = flattened ?? state;
+  const wrapped = wrapInList(listType, target === "orderedList" ? { start: 1 } : undefined)(
+    base,
+    dispatch,
+  );
   view.focus();
   return wrapped;
 }

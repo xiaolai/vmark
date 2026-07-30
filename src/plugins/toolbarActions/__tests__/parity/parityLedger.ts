@@ -61,32 +61,14 @@ function family(
  * false claim behind.
  */
 export const PARITY_DIVERGENCES: Record<string, ParityDivergence> = {
-  // ---- Root cause 1: where a newly inserted block goes ---------------------
-  ...family(
-    [
-      "insertBulletList", "insertOrderedList", "insertTaskList",
-      "insertAlertNote", "insertAlertTip", "insertAlertImportant",
-      "insertAlertWarning", "insertAlertCaution",
-      "insertDetails", "insertTable", "insertTableBlock",
-    ],
-    {
-      verdict: "source-bug",
-      wysiwyg: "inserts an empty 2x2 table; `<details open>` + 'Click to expand'",
-      source: "inserts `Header 1`/`Cell 1` placeholders; `<details>` + 'Details'",
-      rootCause: "block-insert-template-content",
-      reason:
-        "Three rounds of fixes landed here and none of the original claim survives. Source stopped splicing block markdown at the caret, which used to yield a paragraph ending in hyphens instead of a thematic break, and an alert that cut a sentence in half. WYSIWYG stopped SPLITTING the paragraph for dividers and tables, and now appends after the current block via blockInsertPos, the helper alerts and details already used. And source stopped inserting at the TOP level: a block now inherits the enclosing structure's continuation prefix, so a divider inside a list item or a quote stays inside it rather than ending it. insertDivider CONVERGED on all of that. What is left for the rest is TEMPLATE CONTENT — WYSIWYG inserts an empty 2x2 table where source inserts Header 1 / Cell 1 placeholders, and the details defaults differ — plus the alert builders folding a RANGE selection into the block in source but not in WYSIWYG. Both are content choices someone should make, not defects.",
-    },
-  ),
-
-  // ---- Root cause 2: toggling a list off across several items ---------------
-  ...family(["bulletList", "orderedList", "taskList"], {
-    verdict: "source-bug",
-    wysiwyg: "lifts just the item under the cursor out of a multi-item list",
-    source: "`removeList` acts on the whole list block",
-    rootCause: "source-list-toggle-off-scope",
+  // ---- Root cause 2: how far a list toggle reaches ------------------------
+  ...family(["bulletList", "insertBulletList", "orderedList", "insertOrderedList"], {
+    verdict: "both-wrong",
+    wysiwyg: "a RANGE inside one nested item converts the whole outer list",
+    source: "toggling a nested item off unlists it instead of outdenting it",
+    rootCause: "list-toggle-nesting-scope",
     reason:
-      "Four separate defects lived here and three are FIXED. The marker used to land at the caret (`The quick - brown fox`); it now goes after the line's indentation. It used to sit OUTSIDE a blockquote (`- > text`, a list containing a quote); it now nests inside (`> - text`). A heading kept its `#` run, giving `- ### text`, a bullet whose content is a heading; the run is now replaced. And re-applying the same list type did nothing, so the button was one-way in Source mode alone; it now turns the list off, as WYSIWYG does. What remains is the SCOPE of that turn-off: on a multi-item or nested list WYSIWYG lifts only the item under the cursor, while source's `removeList` unwraps the whole block. Same underlying helper as root cause 5.",
+      "Most of this root cause is FIXED and what is left is one disagreement per surface, in opposite directions. Source's `insert*` names were a second, dumber implementation that prepended a marker without checking for one already there, giving `- - two` / `1. - two`; they are now aliases of the toggles, as they always were in WYSIWYG, and taskList converged outright. Changing a list's TYPE now converts the whole list in both surfaces rather than rewriting the cursor's own marker and splitting one list into three, and it converts the INNERMOST enclosing list so a caret in a nested item leaves its siblings alone. Two edges remain. WYSIWYG's range path (`convertRangeToListType`) over-reaches: selecting one WORD inside a nested item converts the entire outer structure, while a caret in the same position converts only the sub-list — the same surface disagreeing with itself. And source's toggle-OFF unlists a nested item entirely where WYSIWYG outdents it one level into the parent list, which is the behaviour VMark documents (`nodeActions.tiptap.ts`: full removal is the Remove List action).",
   }),
 
   // ---- Root cause 3: quoting one line of a multi-line structure -------------
@@ -183,4 +165,4 @@ export const PARITY_DIVERGENCES: Record<string, ParityDivergence> = {
  * the largest (`source-inserts-block-at-caret`, 12 actions) is one insertion
  * helper.
  */
-export const MAX_PARITY_DIVERGENCES = 18;
+export const MAX_PARITY_DIVERGENCES = 8;

@@ -27,6 +27,7 @@ import {
   formatTable,
 } from "@/plugins/tableUI/tableActions.tiptap";
 import { blockInsertPos } from "@/plugins/shared/blockInsertPos";
+import { NEW_TABLE } from "@/plugins/shared/blockTemplates";
 import type { WysiwygToolbarContext } from "./types";
 
 /** Table-related action IDs handled in WYSIWYG mode. */
@@ -65,7 +66,7 @@ export function performWysiwygTableAction(
         .chain()
         .focus()
         .setTextSelection(blockInsertPos(context.editor.state.selection))
-        .insertTable({ rows: 2, cols: 2, withHeaderRow: true })
+        .insertTable({ ...NEW_TABLE })
         .run();
       return true;
     case "addRowAbove":

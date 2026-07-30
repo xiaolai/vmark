@@ -35,10 +35,8 @@ import {
   indentListItem,
   outdentListItem,
   removeList,
-  toBulletList,
-  toOrderedList,
-  toTaskList,
 } from "@/plugins/sourceContextDetection/listDetection";
+import { convertListBlock } from "@/plugins/sourceContextDetection/listBlockConversion";
 import {
   applyMultiSelectionBlockquoteAction,
   applyMultiSelectionListAction,
@@ -97,16 +95,18 @@ export function handleListAction(view: EditorView, action: SourceListAction): bo
       case "bulletList":
         // Re-applying the SAME list type turns the list off, as WYSIWYG does.
         // Source used to no-op, so the button was one-way in Source mode only.
+        // Changing to a DIFFERENT type converts the whole list, not the cursor's
+        // line — rewriting one marker turned one list into three.
         if (info.type === "bullet") removeList(view, info);
-        else toBulletList(view, info);
+        else convertListBlock(view, "bullet");
         return true;
       case "orderedList":
         if (info.type === "ordered") removeList(view, info);
-        else toOrderedList(view, info);
+        else convertListBlock(view, "ordered");
         return true;
       case "taskList":
         if (info.type === "task") removeList(view, info);
-        else toTaskList(view, info);
+        else convertListBlock(view, "task");
         return true;
       case "indent":
         indentListItem(view, info);

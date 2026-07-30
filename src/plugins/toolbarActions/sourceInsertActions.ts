@@ -24,10 +24,13 @@ import {
   type InsertionResult,
 } from "@/plugins/sourceContextDetection/sourceInsertions";
 import { toggleBlockquote } from "@/plugins/sourceContextDetection/blockquoteActions";
+import { newTableMarkdown } from "@/plugins/shared/blockTemplates";
 import { applyInlineFormat } from "./sourceAdapterHelpers";
 import { insertBlockText, prependLineMarker, replaceLinesWithBlock } from "./sourceBlockPlacement";
+import { sourceBlockSpan } from "@/plugins/shared/blockSpan";
 
-const TABLE_TEMPLATE = "| Header 1 | Header 2 |\n| --- | --- |\n| Cell 1 | Cell 2 |\n";
+/** Caret lands inside the first header cell: `| ` is two characters. */
+const FIRST_CELL_OFFSET = 2;
 
 /** Alert insert action IDs handled in source mode. */
 type SourceAlertAction =
@@ -104,7 +107,7 @@ export function insertDivider(view: EditorView): boolean {
 }
 
 export function insertTable(view: EditorView): boolean {
-  insertBlockText(view, TABLE_TEMPLATE, 2);
+  insertBlockText(view, newTableMarkdown(), FIRST_CELL_OFFSET);
   return true;
 }
 
@@ -112,19 +115,45 @@ export function insertListMarker(view: EditorView, marker: string): boolean {
   return prependLineMarker(view, marker);
 }
 
-/** Insert a block built from the current selection (details/math/diagram fences). */
+/**
+ * Insert a block built from the current selection (details/math/diagram fences).
+ *
+ * The builder folds the selection INTO the block, so a non-empty selection has
+ * to be REPLACED — inserting below would leave the original behind and duplicate
+ * it inside the block.
+ *
+ * What gets folded in is the whole top-level BLOCKS the selection spans — see
+ * `shared/blockSpan` for why that, and not lines or characters. Folding in just
+ * the selected characters while replacing whole lines made the two disagree and
+ * silently deleted the rest of the line: selecting `brown` in
+ * `The quick brown fox` and inserting a note left `> [!NOTE]\n> brown` and
+ * nothing else.
+ */
 export function handleBuildInsert(
   view: EditorView,
   build: (selection: string) => InsertionResult,
 ): boolean {
-  const { from, to } = view.state.selection.main;
-  const selection = from === to ? "" : view.state.doc.sliceString(from, to);
-  const { text, cursorOffset } = build(selection);
-  // The builder folds the selection INTO the block, so a non-empty selection
-  // must be replaced; inserting below it would leave the original behind and
-  // duplicate it inside the block.
-  if (from === to) insertBlockText(view, text, cursorOffset);
-  else replaceLinesWithBlock(view, text, cursorOffset);
+  const { doc, selection } = view.state;
+  const { from, to } = selection.main;
+
+  if (from === to) {
+    const { text, cursorOffset } = build("");
+    insertBlockText(view, text, cursorOffset);
+    return true;
+  }
+
+  // Whole top-level blocks, not merely whole lines: wrapping one item of a list
+  // shatters it into list / wrapped-item / list. `blockSpan` is the one place
+  // that decides this, shared with the WYSIWYG side.
+  const all = Array.from({ length: doc.lines }, (_, i) => doc.line(i + 1).text);
+  const span = sourceBlockSpan(all, doc.lineAt(from).number - 1, doc.lineAt(to).number - 1);
+  const spanned = doc.sliceString(doc.line(span.start + 1).from, doc.line(span.end + 1).to);
+
+  const { text, cursorOffset } = build(spanned);
+  replaceLinesWithBlock(view, text, cursorOffset, {
+    from: doc.line(span.start + 1).from,
+    to: doc.line(span.end + 1).to,
+  });
   return true;
 }
 
