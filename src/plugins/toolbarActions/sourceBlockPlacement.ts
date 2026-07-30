@@ -10,6 +10,9 @@
  *   - A block opens a line BELOW the cursor's line rather than splitting it.
  *   - It inherits the enclosing structure's continuation prefix, so a divider
  *     inside a list item or a blockquote stays inside it instead of ending it.
+ *   - An underline-shaped block (`---`, `===`) gets a separator line above it,
+ *     or the line before would read it as a SETEXT UNDERLINE and become a
+ *     heading. Inside a quote that separator is itself quoted.
  *   - The selection-consuming builders REPLACE the selected lines, because they
  *     fold that selection into the block they return; inserting below would
  *     leave the original behind and duplicate it.
@@ -48,14 +51,25 @@ export function insertBlockText(view: EditorView, text: string, cursorOffset?: n
   // a list item belongs to that item, and one inside a blockquote belongs to
   // the quote. Inserting at the top level instead silently ended the list or
   // quote at the cursor — WYSIWYG nests, because it inserts into the node tree.
-  const body = indentBlock(text, continuationPrefix(line.text));
+  const prefix = continuationPrefix(line.text);
+  const body = indentBlock(text, prefix);
+
+  // A block whose first line is a run of `-` or `=` reads as a SETEXT UNDERLINE
+  // for the line above it, so `text` + `---` becomes a heading rather than a
+  // paragraph and a rule. A separator line between them is what keeps the
+  // divider a divider — and inside a quote that line must itself be quoted, or
+  // it ends the quote instead of continuing it. Checked on the RAW text, since
+  // the indented body no longer starts with the run.
+  const underlineShaped = /^\s*(?:=+|-+)\s*$/.test(text.split("\n")[0] ?? "");
+  const separator = underlineShaped && !onEmptyLine ? `\n${prefix.trimEnd()}` : "";
+  const lead = onEmptyLine ? "" : `\n${separator ? `${separator.slice(1)}\n` : ""}`;
 
   // Opening a new line below is enough to give the block its own line — the
   // remainder of the document already begins with the next line break, so no
   // trailing newline is added here.
   const from = onEmptyLine ? line.from : line.to;
-  const insert = onEmptyLine ? body : `\n${body}`;
-  const blockStart = onEmptyLine ? from : from + 1;
+  const insert = onEmptyLine ? body : `${lead}${body}`;
+  const blockStart = from + lead.length;
 
   view.dispatch({
     changes: { from, to: onEmptyLine ? line.to : from, insert },
