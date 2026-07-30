@@ -54,3 +54,17 @@ export async function loadStartupFileIntoTab(
 export function createBlankStartupTab(windowLabel: string): void {
   ensureBlankTab(windowLabel);
 }
+
+/** Parse the `files` URL param (JSON string array) defensively. */
+export function parseStartupFilesParam(filesParam: string | null): string[] | null {
+  if (!filesParam) return null;
+  try {
+    const parsed = JSON.parse(filesParam);
+    if (Array.isArray(parsed)) {
+      return parsed.filter((value): value is string => typeof value === "string");
+    }
+  } catch {
+    // Malformed param — treated as absent.
+  }
+  return null;
+}

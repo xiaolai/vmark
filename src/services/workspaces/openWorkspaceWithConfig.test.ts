@@ -1,3 +1,5 @@
+// WI-13.3 — open-path coordinator integration tests
+// WI-17.2 — stable-root config addressing tests
 /**
  * Tests for openWorkspaceWithConfig — workspace opening with config loading
  *
@@ -132,6 +134,15 @@ describe("openWorkspaceWithConfig", () => {
 });
 
 describe("isValidWorkspaceConfig (T1/ADR-2 boundary guard)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockInvoke.mockResolvedValue(null);
+    useWorkspaceInstancesStore.getState().resetWorkspaceInstances();
+    useSettingsStore.setState({
+      general: { ...useSettingsStore.getState().general, workspaceRailMode: false },
+    });
+  });
+
   const valid = {
     version: 1,
     excludeFolders: [".git"],
@@ -181,5 +192,49 @@ describe("isValidWorkspaceConfig (T1/ADR-2 boundary guard)", () => {
     expect(mockInvoke).toHaveBeenCalledWith("read_workspace_config", {
       rootPath: "/Users/test/My Documents/project (v2)",
     });
+  });
+
+  // WI-13.3 — File > Open Workspace of an already-railed root performs ONE
+  // full context transition, with no duplicate config read by the coordinator.
+  it("re-opening a railed root switches context with exactly one read per open", async () => {
+    useSettingsStore.setState({
+      general: { ...useSettingsStore.getState().general, workspaceRailMode: true },
+    });
+    mockInvoke.mockResolvedValue(null);
+
+    await openWorkspaceWithConfig("/repo-a", { windowLabel: "main" });
+    await openWorkspaceWithConfig("/repo-b", { windowLabel: "main" });
+    const idA = selectWindowWorkspaceState(useWorkspaceInstancesStore.getState(), "main")!
+      .workspaceInstanceIds[0];
+
+    await openWorkspaceWithConfig("/repo-a", { windowLabel: "main" });
+
+    const windowState = selectWindowWorkspaceState(useWorkspaceInstancesStore.getState(), "main")!;
+    expect(windowState.activeWorkspaceInstanceId).toBe(idA);
+    expect(windowState.workspaceInstanceIds).toHaveLength(2);
+    // 3 opens → exactly 3 read_workspace_config calls (no coordinator re-read).
+    expect(
+      mockInvoke.mock.calls.filter(([cmd]) => cmd === "read_workspace_config"),
+    ).toHaveLength(3);
+  });
+
+  // WI-17.2 — a variant spelling of an already-railed Windows root must read
+  // the SAME config file (workspace.rs hashes the exact path string).
+  it("resolves a variant spelling to the stored root before reading config", async () => {
+    useSettingsStore.setState({
+      general: { ...useSettingsStore.getState().general, workspaceRailMode: true },
+    });
+    mockInvoke.mockResolvedValue(null);
+    await openWorkspaceWithConfig("C:\\Repo", { windowLabel: "main", platform: "windows" });
+
+    await openWorkspaceWithConfig("c:/repo", { windowLabel: "main", platform: "windows" });
+
+    expect(mockInvoke).toHaveBeenLastCalledWith("read_workspace_config", {
+      rootPath: "C:\\Repo",
+    });
+    expect(
+      selectWindowWorkspaceState(useWorkspaceInstancesStore.getState(), "main")
+        ?.workspaceInstanceIds.length,
+    ).toBe(1);
   });
 });

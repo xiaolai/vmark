@@ -33,6 +33,12 @@ import {
   reconcileRestoredWindowWorkspaceInstances,
   restoreWindowWorkspaceInstances,
 } from '../hotExit/workspaceInstances';
+import {
+  beginWindowContextRestore,
+  endWindowContextRestore,
+} from '@/services/workspaces/switchWorkspaceInstance';
+import { hydrateWorkspaceInstanceContext } from '@/services/workspaces/hydrateWorkspaceInstanceContext';
+import { restoreInstanceContextState } from '@/services/persistence/hotExit/instanceContextState';
 import { errorMessage } from "@/utils/errorMessage";
 
 /** Module-level flag to prevent double-restore of main window */
@@ -59,9 +65,21 @@ async function pullAndRestore(windowLabel: string): Promise<boolean> {
   }
 
   hotExitLog(`Window '${windowLabel}' found pending state, restoring...`);
-  restoreWindowWorkspaceInstances(windowLabel, windowState);
-  const tabIdMap = await restoreWindowState(windowLabel, windowState);
-  reconcileRestoredWindowWorkspaceInstances(windowLabel, windowState, tabIdMap);
+  // WI-13.2 ordering: instances → tabs → reconcile ids → ONE final hydrate.
+  // Rail clicks are declined while the context is half-built; the guard is
+  // released in `finally` so a failed restore can never wedge switching.
+  beginWindowContextRestore(windowLabel);
+  try {
+    restoreWindowWorkspaceInstances(windowLabel, windowState);
+    const tabIdMap = await restoreWindowState(windowLabel, windowState);
+    reconcileRestoredWindowWorkspaceInstances(windowLabel, windowState, tabIdMap);
+    // WI-9.4: per-instance UI state (outline ids remapped), reopen history,
+    // and browser records — after reconcile, before the final hydrate.
+    restoreInstanceContextState(windowLabel, windowState, tabIdMap);
+  } finally {
+    endWindowContextRestore(windowLabel);
+  }
+  await hydrateWorkspaceInstanceContext(windowLabel);
 
   // Signal completion for this window and check if all windows done
   const allDone = await invoke<boolean>('hot_exit_window_restore_complete', { windowLabel });

@@ -13,6 +13,11 @@ vi.mock("react-i18next", () => ({
   },
 }));
 
+// OutlineView reads the window label for per-instance outline state (WI-9.3).
+vi.mock("@/contexts/WindowContext", () => ({
+  useWindowLabel: () => "main",
+}));
+
 vi.mock("@/hooks/useDocumentState", () => ({
   useDocumentContent: () => "# Alpha\n\n## Beta\n\n## Gamma\n\n# Delta\n",
   useDocumentFilePath: () => null,

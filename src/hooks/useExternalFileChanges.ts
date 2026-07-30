@@ -33,6 +33,7 @@ import i18n from "@/i18n";
 import { useWindowLabel } from "@/contexts/WindowContext";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
+import { applyExternalRename } from "@/services/workspaces/reassignTabOwnershipForPath";
 import { dispatchEditor } from "@/lib/formats/registry";
 import { isBinaryMediaPath } from "@/services/navigation/openMediaFile";
 import {
@@ -195,12 +196,11 @@ export function useExternalFileChanges(): void {
     useDocumentStore.getState().markMissing(targetTabId);
   }, []);
 
-  // Re-point a renamed tab + its document at the new path (clears missing).
-  const applyRename = useCallback((tabId: string, newPath: string) => {
-    useTabStore.getState().updateTabPath(tabId, newPath);
-    useDocumentStore.getState().setFilePath(tabId, newPath);
-    useDocumentStore.getState().clearMissing(tabId);
-  }, []);
+  // Re-point a renamed tab + document; ownership follows the path (WI-13.4).
+  const applyRename = useCallback(
+    (tabId: string, newPath: string) => applyExternalRename(windowLabel, tabId, newPath),
+    [windowLabel],
+  );
 
   // Process batched dirty file changes with a single dialog
   const processBatchedChanges = useCallback(async () => {

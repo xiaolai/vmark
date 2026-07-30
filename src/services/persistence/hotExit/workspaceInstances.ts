@@ -4,7 +4,9 @@ import {
   type WorkspaceInstanceRecord,
 } from "@/stores/workspaceInstancesStore";
 import { uniqueIds } from "@/stores/workspaceInstancesStore/helpers";
-import { useTabStore, type Tab, tabFilePath } from "@/stores/tabStore";
+import { useTabStore, tabFilePath } from "@/stores/tabStore";
+import { useClosedTabScopesStore } from "@/stores/tabStoreClosedScopes";
+import { partitionWindowTabs } from "@/services/workspaces/workspaceOwnershipKernel";
 import type {
   HotExitWindowWorkspaceState,
   HotExitWorkspaceInstanceState,
@@ -204,19 +206,22 @@ function ensureLooseInstanceForUnownedTabs(windowLabel: string): void {
   if (instances.length === 0) return;
   const activeId =
     useWorkspaceInstancesStore.getState().windows[windowLabel]?.activeWorkspaceInstanceId ?? null;
-  const needsLoose = useTabStore.getState().getTabsByWindow(windowLabel).some((tab) =>
-    classifyWorkspaceContextForTab({ filePath: tabFilePath(tab), instances, activeWorkspaceInstanceId: activeId }) === null
+  // Only DOCUMENT tabs need a loose owner — browser tabs are window-global
+  // (D1) and never demand an instance.
+  const needsLoose = useTabStore.getState().getTabsByWindow(windowLabel).some(
+    (tab) =>
+      tab.kind === "document" &&
+      classifyWorkspaceContextForTab({
+        filePath: tabFilePath(tab),
+        instances,
+        activeWorkspaceInstanceId: activeId,
+      }) === null,
   );
   if (!needsLoose) return;
 
-  const loose = useWorkspaceInstancesStore.getState().ensureLooseInstance(windowLabel);
-  // `ensureLooseInstance` ACTIVATES the loose instance. Capture is a read of
-  // live state (it runs on quit): repairing ownership must not switch the
-  // workspace the user had active — that would both flip the live rail and
-  // persist the wrong active context for the next launch.
-  if (activeId && activeId !== loose.workspaceInstanceId) {
-    useWorkspaceInstancesStore.getState().activateWorkspaceInstance(windowLabel, activeId);
-  }
+  // Structural since WI-13.1: ensureLooseInstance preserves a valid current
+  // activation, so capture-time ownership repair cannot flip the live rail.
+  useWorkspaceInstancesStore.getState().ensureLooseInstance(windowLabel);
 }
 
 function serializeInstancesWithCurrentTabs(
@@ -226,20 +231,21 @@ function serializeInstancesWithCurrentTabs(
 ): HotExitWorkspaceInstanceState[] {
   const instances = orderedWindowInstances(windowLabel);
   const tabs = useTabStore.getState().getTabsByWindow(windowLabel);
-  const closedTabs = useTabStore.getState().closedTabs[windowLabel] ?? [];
   const activeTabId = useTabStore.getState().activeTabId[windowLabel] ?? null;
 
-  // Classify each tab exactly once into its owning instance, then read the
-  // per-instance lists from those maps. This keeps capture O(tabs) instead of
-  // O(instances * tabs) and guarantees a single, consistent ownership decision
-  // per tab regardless of how active-instance ties resolve.
-  const ownedTabIds = assignTabsToInstances(tabs, instances, activeInstanceId);
-  const ownedClosedTabIds = assignTabsToInstances(closedTabs, instances, activeInstanceId);
+  // Partition each tab exactly once through the shared ownership kernel
+  // (WI-1R). Browser tabs land in the window-global BROWSER_SCOPE (D1) and are
+  // therefore never serialized into any instance's tabIds/closedTabIds — their
+  // persistence is the window session (WI-8.2), not workspace instances.
+  // Closed-tab ids project straight from the SCOPED history (WI-11.1), which
+  // is already keyed by instance.
+  const ownedTabIds = partitionWindowTabs(tabs, instances, activeInstanceId).byScope;
+  const closedScopes = useClosedTabScopesStore.getState();
 
   return ids.map((id) => {
     const instance = useWorkspaceInstancesStore.getState().instances[id];
     const tabIds = ownedTabIds.get(id) ?? [];
-    const closedTabIds = ownedClosedTabIds.get(id) ?? [];
+    const closedTabIds = closedScopes.closedIdsForScope(windowLabel, id);
     return {
       ...instance,
       tabIds,
@@ -248,30 +254,6 @@ function serializeInstancesWithCurrentTabs(
       closedTabIds,
     };
   });
-}
-
-/**
- * Classify each tab once into its owning instance id, returning an
- * instanceId -> tabIds map that preserves the input tab order.
- */
-function assignTabsToInstances(
-  tabs: Tab[],
-  instances: WorkspaceInstanceRecord[],
-  activeWorkspaceInstanceId: string | null,
-): Map<string, string[]> {
-  const owned = new Map<string, string[]>();
-  for (const tab of tabs) {
-    const owner = classifyWorkspaceContextForTab({
-      filePath: tabFilePath(tab),
-      instances,
-      activeWorkspaceInstanceId,
-    });
-    if (!owner) continue;
-    const list = owned.get(owner.workspaceInstanceId) ?? [];
-    list.push(tab.id);
-    owned.set(owner.workspaceInstanceId, list);
-  }
-  return owned;
 }
 
 function chooseActiveInstanceAfterReconcile(

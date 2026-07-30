@@ -1,3 +1,4 @@
+// WI-10.1 — atomic pane replacement (replaceWindowSplit) tests
 import { describe, it, expect, beforeEach } from "vitest";
 import { usePaneStore, DEFAULT_SPLIT, MIN_PANE_FRACTION, MAX_PANE_FRACTION } from "./paneStore";
 import { useTabStore } from "./tabStore";
@@ -144,5 +145,128 @@ describe("paneStore (#1081)", () => {
     usePaneStore.getState().removeWindow(W);
     expect(usePaneStore.getState().byWindow[W]).toBeUndefined();
     expect(() => usePaneStore.getState().removeWindow("ghost")).not.toThrow();
+  });
+});
+
+// WI-10.1 — atomic pane replacement: the ONE validated action that applies a
+// (possibly stashed) split and performs the single final activeTabId sync
+// (ADR-1 alias invariant). Used by the rail-switch coordinator (WI-2R/10.2).
+describe("replaceWindowSplit (WI-10.1)", () => {
+  function split(over: Partial<typeof DEFAULT_SPLIT>) {
+    return { ...DEFAULT_SPLIT, ...over };
+  }
+
+  it("restores a valid two-pane split and aliases the focused pane's tab", () => {
+    usePaneStore.getState().replaceWindowSplit(
+      W,
+      split({
+        enabled: true,
+        primaryTabId: "primary-tab",
+        secondaryTabId: "secondary-tab",
+        focusedPane: "secondary",
+        fraction: 0.3,
+      }),
+      "other-tab",
+    );
+
+    const applied = usePaneStore.getState().getSplit(W);
+    expect(applied).toMatchObject({
+      enabled: true,
+      primaryTabId: "primary-tab",
+      secondaryTabId: "secondary-tab",
+      focusedPane: "secondary",
+      fraction: 0.3,
+    });
+    expect(activeTab()).toBe("secondary-tab");
+  });
+
+  it("collapses to the surviving pane when the other tab is gone", () => {
+    usePaneStore.getState().replaceWindowSplit(
+      W,
+      split({
+        enabled: true,
+        primaryTabId: "gone-tab",
+        secondaryTabId: "secondary-tab",
+        focusedPane: "primary",
+      }),
+      "other-tab",
+    );
+
+    const applied = usePaneStore.getState().getSplit(W);
+    expect(applied.enabled).toBe(false);
+    expect(activeTab()).toBe("secondary-tab");
+  });
+
+  it("falls back to the provided active tab when no pane tab survives", () => {
+    usePaneStore.getState().replaceWindowSplit(
+      W,
+      split({ enabled: true, primaryTabId: "gone-1", secondaryTabId: "gone-2" }),
+      "other-tab",
+    );
+
+    expect(usePaneStore.getState().getSplit(W).enabled).toBe(false);
+    expect(activeTab()).toBe("other-tab");
+  });
+
+  it("null split applies single pane with the fallback tab", () => {
+    usePaneStore.getState().openSplit(W, "secondary-tab");
+    usePaneStore.getState().replaceWindowSplit(W, null, "other-tab");
+
+    expect(usePaneStore.getState().getSplit(W).enabled).toBe(false);
+    expect(activeTab()).toBe("other-tab");
+  });
+
+  it("null fallback with no surviving panes clears the active tab", () => {
+    usePaneStore.getState().replaceWindowSplit(W, null, null);
+    expect(activeTab()).toBeNull();
+  });
+
+  it("rejects a duplicate pane id (collapses to that single tab)", () => {
+    usePaneStore.getState().replaceWindowSplit(
+      W,
+      split({ enabled: true, primaryTabId: "primary-tab", secondaryTabId: "primary-tab" }),
+      "other-tab",
+    );
+
+    const applied = usePaneStore.getState().getSplit(W);
+    expect(applied.enabled).toBe(false);
+    expect(activeTab()).toBe("primary-tab");
+  });
+
+  it("rejects a browser tab in a pane (documents only)", () => {
+    useTabStore.setState((state) => ({
+      tabs: {
+        ...state.tabs,
+        [W]: [
+          ...(state.tabs[W] ?? []),
+          { id: "web-tab", kind: "browser", title: "w", isPinned: false } as never,
+        ],
+      },
+    }));
+
+    usePaneStore.getState().replaceWindowSplit(
+      W,
+      split({ enabled: true, primaryTabId: "primary-tab", secondaryTabId: "web-tab" }),
+      "other-tab",
+    );
+
+    const applied = usePaneStore.getState().getSplit(W);
+    expect(applied.enabled).toBe(false);
+    expect(activeTab()).toBe("primary-tab");
+  });
+
+  it("clamps an out-of-range fraction", () => {
+    usePaneStore.getState().replaceWindowSplit(
+      W,
+      split({
+        enabled: true,
+        primaryTabId: "primary-tab",
+        secondaryTabId: "secondary-tab",
+        fraction: 0.05,
+      }),
+      null,
+    );
+
+    expect(usePaneStore.getState().getSplit(W).fraction).toBe(MIN_PANE_FRACTION);
   });
 });

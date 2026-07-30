@@ -37,6 +37,8 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { useTabStore } from "@/stores/tabStore";
+import { useWorkspaceInstanceUiStore } from "@/stores/workspaceInstanceUiStore";
+import { useWorkspacePaneLayoutsStore } from "@/stores/workspacePaneLayoutsStore";
 import { useWorkspaceInstancesStore } from "@/stores/workspaceInstancesStore";
 import { generateUUID } from "@/utils/workspaceIdentity";
 import { workspaceError } from "@/utils/debug";
@@ -118,6 +120,10 @@ export async function closeWorkspaceInstance(
 
     const store = useWorkspaceInstancesStore.getState();
     store.removeWorkspaceInstance(windowLabel, workspaceInstanceId);
+    // WI-9.1/10.2 lifecycle: a closed instance's parallel per-instance state
+    // (UI, pane snapshot) must not linger as orphans.
+    useWorkspaceInstanceUiStore.getState().removeInstanceUiState(workspaceInstanceId);
+    useWorkspacePaneLayoutsStore.getState().removePaneLayout(workspaceInstanceId);
 
     if (windowLabel === "main") {
       // main is never closed, so it must never be left with an empty rail.

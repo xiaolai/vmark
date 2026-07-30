@@ -15,6 +15,7 @@ import type { WindowState, TabState, CaptureRequest, CaptureResponse } from '@/s
 import { HOT_EXIT_EVENTS, MAIN_WINDOW_LABEL } from '@/services/persistence/hotExit/types';
 import { hotExitWarn, hotExitError } from '@/utils/debug';
 import { captureWindowWorkspaceInstances } from '@/services/persistence/hotExit/workspaceInstances';
+import { captureInstanceContextState } from '@/services/persistence/hotExit/instanceContextState';
 import { captureWindowGeometry } from '@/services/persistence/resilience/windowGeometry';
 import {
   extractUntitledNumber,
@@ -186,6 +187,9 @@ export function captureWindowState(windowLabel: string, isMainWindow: boolean): 
     ui_state: getUiStateSafe(),
     geometry: captureWindowGeometry(),
     ...captureWindowWorkspaceInstances(windowLabel),
+    // WI-9.4: per-instance UI state, scoped reopen history, and window
+    // browser records — optional additive fields, opaque to Rust.
+    ...captureInstanceContextState(windowLabel),
   };
 }
 

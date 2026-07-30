@@ -1,6 +1,8 @@
 // WI-1.1 — browser tab support in tabStore: create/dedupe/coexist/restore/update
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { useTabStore } from "../tabStore";
+import { reopenClosedTabForActiveContext } from "@/services/workspaces/reopenClosedTab";
+import { useClosedTabScopesStore } from "../tabStoreClosedScopes";
 import { isBrowserTab, isDocumentTab } from "../tabStoreTypes";
 import { __resetRegistry } from "@/lib/formats/registry";
 import { registerMarkdownFormat } from "@/lib/formats/adapters/markdown";
@@ -17,8 +19,8 @@ function resetTabStore() {
     activeTabId: {},
     lastActiveBrowserPageId: {},
     untitledCounter: 0,
-    closedTabs: {},
   });
+  useClosedTabScopesStore.getState().resetClosedScopes();
 }
 
 beforeEach(() => {
@@ -184,8 +186,8 @@ describe("browser + document tabs coexist", () => {
     // close a
     useTabStore.getState().closeTab(W, a);
     expect(useTabStore.getState().getTabsByWindow(W).map((t) => t.id)).toEqual([b]);
-    // reopen
-    const reopened = useTabStore.getState().reopenClosedTab(W);
+    // reopen (browser history is window-global — WI-11.1/11.2)
+    const reopened = reopenClosedTabForActiveContext(W);
     expect(reopened?.id).toBe(a);
   });
 

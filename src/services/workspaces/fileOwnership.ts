@@ -10,10 +10,10 @@ import i18n from "@/i18n";
 import { getRuntimePlatform } from "@/utils/platform";
 import { normalizeWorkspacePathForIdentity } from "@/utils/workspaceIdentity";
 import {
-  claimTabForWorkspaceContext,
   classifyWorkspaceContextForTab,
   orderedWindowInstances,
 } from "./workspaceContextOwnership";
+import { reassignTabOwnershipForPath } from "./reassignTabOwnershipForPath";
 
 type FileOwnershipPlatform = "macos" | "windows" | "linux";
 
@@ -89,7 +89,11 @@ export function applyFileOwnershipAfterOpen(
   const resolution = resolveFileOpenOwnership(filePath, { ...options, currentTabId: tabId });
   const windowLabel = findWindowLabelForTab(tabId);
   if (windowLabel) {
-    claimTabForWorkspaceContext(windowLabel, tabId, filePath);
+    // WI-12.2: every USER-facing open lands here (fileOpen, Finder, media,
+    // replace-tab). The claim is atomic and, when this tab is the ACTIVE one,
+    // the visible workspace follows its owner — an active tab must never be
+    // hidden by the projection. MCP opens use their own background path (D10).
+    reassignTabOwnershipForPath(windowLabel, tabId, filePath);
   }
   if (resolution.mode === "readonlyDuplicate" || resolution.mode === "readonlyConflict") {
     useDocumentStore.getState().setReadOnly(tabId, true);

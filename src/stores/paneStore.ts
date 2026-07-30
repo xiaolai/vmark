@@ -74,6 +74,18 @@ interface PaneState {
   toggleSyncScroll: (windowLabel: string) => void;
   /** Reconcile when a tab closes: collapse the split if it held the tab (#1081 H1). */
   handleTabClosed: (windowLabel: string, closedTabId: string) => void;
+  /**
+   * WI-10.1 — atomically replace the window's split with a validated layout
+   * and perform the ONE final activeTabId sync (ADR-1). Pane tab ids that are
+   * not live DOCUMENT tabs of the window are dropped: both survive → split;
+   * one survives → single pane on it; none (or `split` null/disabled) →
+   * single pane with `fallbackActiveTabId` as the alias.
+   */
+  replaceWindowSplit: (
+    windowLabel: string,
+    split: WindowSplit | null,
+    fallbackActiveTabId: string | null,
+  ) => void;
   /** Drop all state for a window (window closed). */
   removeWindow: (windowLabel: string) => void;
 }
@@ -178,6 +190,34 @@ export const usePaneStore = create<PaneState>((set, get) => ({
         focusedPane: "primary",
       })),
     );
+  },
+
+  replaceWindowSplit: (windowLabel, split, fallbackActiveTabId) => {
+    const liveDocIds = new Set(
+      (useTabStore.getState().tabs[windowLabel] ?? [])
+        .filter((tab) => tab.kind === "document")
+        .map((tab) => tab.id),
+    );
+    const validPane = (tabId: string | null): string | null =>
+      tabId && liveDocIds.has(tabId) ? tabId : null;
+
+    const primary = validPane(split?.primaryTabId ?? null);
+    const secondary = validPane(split?.secondaryTabId ?? null);
+    const bothValid =
+      Boolean(split?.enabled) && primary !== null && secondary !== null && primary !== secondary;
+
+    let applied: WindowSplit;
+    if (split && bothValid) {
+      applied = { ...split, fraction: clampFraction(split.fraction), primaryTabId: primary, secondaryTabId: secondary };
+    } else {
+      // One survivor collapses to it; none uses the caller's fallback.
+      const survivor = primary ?? secondary ?? validPane(fallbackActiveTabId);
+      applied = { ...DEFAULT_SPLIT, primaryTabId: survivor };
+    }
+    set((s) => ({ byWindow: { ...s.byWindow, [windowLabel]: applied } }));
+    // The single alias write (ADR-1): the focused pane's tab, or the collapsed
+    // survivor/fallback (possibly null — an empty incoming workspace).
+    syncActiveTab(windowLabel, applied);
   },
 
   removeWindow: (windowLabel) =>
