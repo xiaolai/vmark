@@ -64,18 +64,18 @@ export const PARITY_DIVERGENCES: Record<string, ParityDivergence> = {
   // ---- Root cause 1: where a newly inserted block goes ---------------------
   ...family(
     [
-      "insertDivider", "insertBulletList", "insertOrderedList", "insertTaskList",
+      "insertBulletList", "insertOrderedList", "insertTaskList",
       "insertAlertNote", "insertAlertTip", "insertAlertImportant",
       "insertAlertWarning", "insertAlertCaution",
       "insertDetails", "insertTable", "insertTableBlock",
     ],
     {
       verdict: "source-bug",
-      wysiwyg: "appends after the current block; nests the new block where the cursor is",
-      source: "appends on the next line, always at the TOP level, with different templates",
-      rootCause: "block-insert-template-and-nesting",
+      wysiwyg: "inserts an empty 2x2 table; `<details open>` + 'Click to expand'",
+      source: "inserts `Header 1`/`Cell 1` placeholders; `<details>` + 'Details'",
+      rootCause: "block-insert-template-content",
       reason:
-        "Two rounds of fixes landed here and neither claim below is the original one. First, source stopped splicing block markdown at the caret — it used to yield `The quick ---` (a paragraph ending in hyphens, not a thematic break) and `The quick > [!NOTE]` splitting a sentence. Then WYSIWYG's divider and table stopped SPLITTING the paragraph; both now append after the current block via `blockInsertPos`, the helper alerts and details already used. Placement in a plain paragraph therefore agrees. Three differences remain, all narrower than what they replaced: templates differ (WYSIWYG inserts an empty 2x2 table, source inserts `Header 1`/`Cell 1` placeholders; `<details open>` + 'Click to expand' versus `<details>` + 'Details'); source always inserts at the TOP level while WYSIWYG nests the new block inside the list item or quote the cursor sits in; and for a RANGE selection the alert builders fold the selection into the block in source but not in WYSIWYG. The nesting one is the real bug — inserting a divider inside a list item should stay in that item.",
+        "Three rounds of fixes landed here and none of the original claim survives. Source stopped splicing block markdown at the caret, which used to yield a paragraph ending in hyphens instead of a thematic break, and an alert that cut a sentence in half. WYSIWYG stopped SPLITTING the paragraph for dividers and tables, and now appends after the current block via blockInsertPos, the helper alerts and details already used. And source stopped inserting at the TOP level: a block now inherits the enclosing structure's continuation prefix, so a divider inside a list item or a quote stays inside it rather than ending it. insertDivider CONVERGED on all of that. What is left for the rest is TEMPLATE CONTENT — WYSIWYG inserts an empty 2x2 table where source inserts Header 1 / Cell 1 placeholders, and the details defaults differ — plus the alert builders folding a RANGE selection into the block in source but not in WYSIWYG. Both are content choices someone should make, not defects.",
     },
   ),
 
@@ -180,6 +180,9 @@ export const PARITY_DIVERGENCES: Record<string, ParityDivergence> = {
  *        re-formatting still leaves an unaligned column alone.
  *   27 — `outdent` CONVERGED: WYSIWYG stopped lifting a TOP-LEVEL item out of
  *        its list, which is what Remove List and the toggles are for.
+ *   22 — `insertDivider` CONVERGED once source blocks inherited the enclosing
+ *        structure's continuation prefix, so one dropped inside a list item or
+ *        a quote stays there instead of ending it.
  *   23 — the `block-conversion-inside-table-cell` family CONVERGED:
  *        `heading:1/3/6` and `increaseHeading` are refused inside a cell by
  *        the shared availability policy, so there is no outcome left to
@@ -190,4 +193,4 @@ export const PARITY_DIVERGENCES: Record<string, ParityDivergence> = {
  * the largest (`source-inserts-block-at-caret`, 12 actions) is one insertion
  * helper.
  */
-export const MAX_PARITY_DIVERGENCES = 23;
+export const MAX_PARITY_DIVERGENCES = 22;
