@@ -30,11 +30,12 @@
  * @coordinates-with @/utils/markdownPipeline/__tests__/fidelity/docFingerprint — equivalence
  * @module plugins/toolbarActions/__tests__/parity/behavioralParity.test
  */
-import { describe, it, expect, afterAll } from "vitest";
+import { describe, it, expect } from "vitest";
 import { parseMarkdown } from "@/utils/markdownPipeline";
 import { getProductionSchema } from "@/test/productionSchema";
 import { docFingerprint } from "@/utils/markdownPipeline/__tests__/fidelity/docFingerprint";
 import { runOnWysiwyg, runOnSource, disposeSurfaces, type Target } from "./surfaces";
+import { COVERED_ACTIONS, DOCS } from "./parityFixtures";
 import { PARITY_DIVERGENCES, MAX_PARITY_DIVERGENCES } from "./parityLedger";
 
 const schema = getProductionSchema();
@@ -48,33 +49,50 @@ function meaning(md: string): string {
   }
 }
 
+const ACTIONS = COVERED_ACTIONS;
+
+const SHAPES = ["range", "caret"] as const;
+
+interface Comparison {
+  agree: boolean;
+  wysiwyg: string;
+  source: string;
+  wysiwygError?: string;
+  sourceError?: string;
+}
+
 /**
- * Actions covered here: those that mutate the document without opening a popup,
- * touching the clipboard, or needing a table/async context. The uncovered
- * remainder is pinned by `UNCOVERED_ACTIONS` below so coverage cannot silently
- * shrink.
+ * The full result matrix, computed ONCE.
+ *
+ * This is a CORRECTNESS measure, not a speed one — measured, it is slightly
+ * slower overall (~19s versus ~15.6s), because the work moves from `tests` into
+ * module `import` rather than disappearing. It is kept because the per-case
+ * assertions and the staleness check must agree: when each computed its own
+ * results, the two passes ran against a shared editor whose accumulated state
+ * (notably undo history) could in principle make them disagree about the same
+ * cell. Reading one matrix removes that possibility.
  */
-const ACTIONS = [
-  "bold", "italic", "strikethrough", "code", "highlight", "underline",
-  "superscript", "subscript", "clearFormatting",
-  "heading:1", "heading:3", "heading:6", "increaseHeading", "decreaseHeading",
-  "bulletList", "orderedList", "taskList",
-  "insertBlockquote", "removeBlockquote", "nestBlockquote", "unnestBlockquote",
-  "insertDivider", "insertCodeBlock",
-  "transformUppercase", "transformLowercase", "transformTitleCase", "transformToggleCase",
-  "duplicateLine", "moveLineUp", "moveLineDown", "deleteLine", "joinLines",
-  "indent", "outdent", "removeTrailingSpaces", "collapseBlankLines",
-];
+const RESULTS = new Map<string, Comparison>();
+const key = (action: string, docLabel: string, shape: string): string => `${action}|${docLabel}|${shape}`;
 
-/** Documents chosen so block actions start from different existing structures. */
-const DOCS: Array<{ label: string; markdown: string; needle: string }> = [
-  { label: "paragraph", markdown: "The quick brown fox\n", needle: "brown" },
-  { label: "heading-h3", markdown: "### The quick brown fox\n", needle: "brown" },
-  { label: "list-item", markdown: "- The quick brown fox\n", needle: "brown" },
-  { label: "blockquote", markdown: "> The quick brown fox\n", needle: "brown" },
-];
+for (const action of ACTIONS) {
+  for (const doc of DOCS) {
+    for (const shape of SHAPES) {
+      const target: Target = shape === "range" ? { select: doc.needle } : { caret: doc.needle };
+      const w = runOnWysiwyg(doc.markdown, target, action);
+      const s = runOnSource(doc.markdown, target, action);
+      RESULTS.set(key(action, doc.label, shape), {
+        agree: meaning(w.markdown) === meaning(s.markdown),
+        wysiwyg: w.markdown,
+        source: s.markdown,
+        wysiwygError: w.error,
+        sourceError: s.error,
+      });
+    }
+  }
+}
 
-afterAll(disposeSurfaces);
+disposeSurfaces();
 
 describe("toolbar adapter behavioral parity", () => {
   for (const action of ACTIONS) {
@@ -82,24 +100,22 @@ describe("toolbar adapter behavioral parity", () => {
       const declared = PARITY_DIVERGENCES[action];
 
       for (const doc of DOCS) {
-        for (const shape of ["range", "caret"] as const) {
-          const target: Target = shape === "range" ? { select: doc.needle } : { caret: doc.needle };
-
+        for (const shape of SHAPES) {
           it(`agrees on ${doc.label} [${shape}]`, () => {
-            const w = runOnWysiwyg(doc.markdown, target, action);
-            const s = runOnSource(doc.markdown, target, action);
-            const agree = meaning(w.markdown) === meaning(s.markdown);
+            const r = RESULTS.get(key(action, doc.label, shape));
+            expect(r, "result matrix is missing this case").toBeDefined();
+            if (!r) return;
 
             // A declared divergence is allowed to disagree, but never to throw.
-            expect(w.error ?? "", `wysiwyg threw on ${action}`).toBe("");
-            expect(s.error ?? "", `source threw on ${action}`).toBe("");
+            expect(r.wysiwygError ?? "", `wysiwyg threw on ${action}`).toBe("");
+            expect(r.sourceError ?? "", `source threw on ${action}`).toBe("");
 
             expect(
-              agree || declared
+              r.agree || declared
                 ? ""
                 : `\n  ${action} on ${doc.label} [${shape}]: the surfaces produced different documents.\n` +
-                  `  wysiwyg: ${JSON.stringify(w.markdown)}\n` +
-                  `  source:  ${JSON.stringify(s.markdown)}\n` +
+                  `  wysiwyg: ${JSON.stringify(r.wysiwyg)}\n` +
+                  `  source:  ${JSON.stringify(r.source)}\n` +
                   `  Converge them, or declare the divergence in PARITY_DIVERGENCES with a verdict.\n`,
             ).toBe("");
           });
@@ -109,18 +125,9 @@ describe("toolbar adapter behavioral parity", () => {
   }
 
   it("declares no divergence that has been converged", () => {
-    const fixed: string[] = [];
-    for (const action of Object.keys(PARITY_DIVERGENCES)) {
-      const stillDiverges = DOCS.some((doc) =>
-        (["range", "caret"] as const).some((shape) => {
-          const target: Target = shape === "range" ? { select: doc.needle } : { caret: doc.needle };
-          const w = runOnWysiwyg(doc.markdown, target, action);
-          const s = runOnSource(doc.markdown, target, action);
-          return meaning(w.markdown) !== meaning(s.markdown);
-        }),
-      );
-      if (!stillDiverges) fixed.push(action);
-    }
+    const fixed = Object.keys(PARITY_DIVERGENCES).filter((action) =>
+      DOCS.every((doc) => SHAPES.every((shape) => RESULTS.get(key(action, doc.label, shape))?.agree !== false)),
+    );
     expect(
       fixed.length === 0
         ? ""
