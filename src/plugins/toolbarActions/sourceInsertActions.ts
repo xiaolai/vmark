@@ -33,6 +33,7 @@ import { newTableMarkdown } from "@/plugins/shared/blockTemplates";
 import { applyInlineFormat } from "./sourceAdapterHelpers";
 import { insertBlockText, prependLineMarker, replaceLinesWithBlock } from "./sourceBlockPlacement";
 import { sourceBlockSpan } from "@/plugins/shared/blockSpan";
+import { stripBlockMarkup } from "@/plugins/shared/lineContent";
 
 /** Caret lands inside the first header cell: `| ` is two characters. */
 const FIRST_CELL_OFFSET = 2;
@@ -80,21 +81,27 @@ export function insertCodeBlock(view: EditorView): boolean {
   const { doc, selection } = view.state;
   const { from, to } = selection.main;
 
-  let firstLine = doc.lineAt(from).number;
-  let lastLine = doc.lineAt(to).number;
-  if (from === to) {
-    while (firstLine > 1 && doc.line(firstLine - 1).text.trim() !== "") firstLine -= 1;
-    while (lastLine < doc.lines && doc.line(lastLine + 1).text.trim() !== "") lastLine += 1;
-  }
+  const all = Array.from({ length: doc.lines }, (_, i) => doc.line(i + 1).text);
+  const span = sourceBlockSpan(all, doc.lineAt(from).number - 1, doc.lineAt(to).number - 1);
+  const blockFrom = doc.line(span.start + 1).from;
+  const blockTo = doc.line(span.end + 1).to;
 
-  const blockFrom = doc.line(firstLine).from;
-  const blockTo = doc.line(lastLine).to;
-  const fenced = `\`\`\`plaintext\n${doc.sliceString(blockFrom, blockTo)}\n\`\`\``;
+  // A code block holds the block's TEXT, not the markup that made it a heading
+  // or a list item — `### Title` becomes a fence containing `Title`, which is
+  // what WYSIWYG produces because it fences the node's content. Indentation
+  // survives, since with the markers gone it is all that shows the nesting.
+  const parts = all.slice(span.start, span.end + 1).map(stripBlockMarkup);
+  const quote = parts[0]?.quote ?? "";
+  const body = parts.map((p) => `${p.indent}${p.content}`).join(`\n${quote}`);
+
+  // The quote wrapper stays OUTSIDE the fence: a block converted inside a
+  // blockquote is still inside it. Source used to replace the quote outright.
+  const fenced = `${quote}\`\`\`plaintext\n${quote}${body}\n${quote}\`\`\``;
 
   view.dispatch({
     changes: { from: blockFrom, to: blockTo, insert: fenced },
     // Caret onto the first line of the converted content.
-    selection: { anchor: blockFrom + "```plaintext\n".length },
+    selection: { anchor: blockFrom + `${quote}\`\`\`plaintext\n${quote}`.length },
   });
   view.focus();
   return true;

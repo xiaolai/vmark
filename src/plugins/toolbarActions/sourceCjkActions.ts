@@ -14,6 +14,7 @@ import { useSettingsStore, type CJKFormattingSettings } from "@/stores/settingsS
 import { useTabStore } from "@/stores/tabStore";
 import { getWindowLabel } from "@/services/navigation/windowFocus";
 import { collapseNewlines, formatMarkdown, formatSelection, removeTrailingSpaces } from "@/lib/cjkFormatter";
+import { sourceBlockSpan } from "@/plugins/shared/blockSpan";
 import { normalizeLineEndings, resolveHardBreakStyle } from "@/utils/linebreaks";
 import { getSourceBlockRange } from "@/utils/sourceSelection";
 
@@ -39,13 +40,24 @@ export function handleFormatCJK(view: EditorView): boolean {
   const { from, to } = view.state.selection.main;
 
   if (from !== to) {
-    // Format selection
-    const selectedText = view.state.doc.sliceString(from, to);
+    // The BLOCKS the selection spans, not the selected characters. CJK spacing
+    // is a property of the boundary BETWEEN two adjacent characters, and a
+    // sub-word selection cannot express one — selecting the Latin word in
+    // `中文段落brown混排English文本` contains no boundary at all, so source did
+    // nothing while WYSIWYG spaced the whole line. Widening makes the selection
+    // name a region to fix rather than the exact text to rewrite.
+    const doc = view.state.doc;
+    const all = Array.from({ length: doc.lines }, (_, i) => doc.line(i + 1).text);
+    const span = sourceBlockSpan(all, doc.lineAt(from).number - 1, doc.lineAt(to).number - 1);
+    const blockFrom = doc.line(span.start + 1).from;
+    const blockTo = doc.line(span.end + 1).to;
+
+    const selectedText = doc.sliceString(blockFrom, blockTo);
     const formatted = formatSelection(selectedText, config, { preserveTwoSpaceHardBreaks });
     if (formatted !== selectedText) {
       view.dispatch({
-        changes: { from, to, insert: formatted },
-        selection: { anchor: from, head: from + formatted.length },
+        changes: { from: blockFrom, to: blockTo, insert: formatted },
+        selection: { anchor: blockFrom, head: blockFrom + formatted.length },
       });
     }
     return true;

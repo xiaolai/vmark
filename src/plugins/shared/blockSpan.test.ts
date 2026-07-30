@@ -55,6 +55,11 @@ describe("sourceBlockSpan", () => {
     expect(sourceBlockSpan(l, -5, 99)).toEqual({ start: 0, end: 1 });
   });
 
+  it("accepts a REVERSED range, since a selection can be dragged upward", () => {
+    const l = lines("a\n\nb\nc");
+    expect(sourceBlockSpan(l, 3, 2)).toEqual({ start: 2, end: 3 });
+  });
+
   it("handles an empty document", () => {
     expect(sourceBlockSpan([""], 0, 0)).toEqual({ start: 0, end: 0 });
   });

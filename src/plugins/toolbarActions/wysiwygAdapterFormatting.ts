@@ -76,13 +76,16 @@ export function toggleBlockquote(editor: TiptapEditor): boolean {
   const blockquoteType = state.schema.nodes.blockquote;
   if (!blockquoteType) return false;
 
-  // Find if we're inside a list - if so, wrap the entire list
+  // Inside a list, wrap the OUTERMOST list — the whole structure, not the
+  // sub-list the cursor happens to sit in. Breaking at the innermost one quoted
+  // a single nested item and left its siblings outside, so `- outer` /
+  // `  - inner` / `- last` came apart into a list, a quoted list, and a list.
+  // The loop descends, so dropping the `break` leaves the shallowest match.
   let wrapDepth = -1;
   for (let d = $from.depth; d > 0; d--) {
     const node = $from.node(d);
     if (node.type.name === "bulletList" || node.type.name === "orderedList") {
       wrapDepth = d;
-      break;
     }
   }
 

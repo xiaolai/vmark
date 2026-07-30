@@ -74,37 +74,54 @@ was simply false: both adapters call `formatMarkdown` on the open buffer and
 neither touches the filesystem. Covering it cost nothing and it agrees on all 18
 cases. Re-read an excuse before trusting it.
 
-## Current standing: 8 divergences across 5 root causes
+## Current standing: ZERO divergences
 
-Down from 31 across 9. Most of that came from writing down one rule neither
-surface had: **a block-level action operates on the whole top-level blocks the
-selection touches.** Neither surface had *chosen* its reach — each inherited
-whatever its substrate made convenient, ProseMirror addressing the enclosing
-node and CodeMirror the selected characters. Three shared modules now hold what
-was implicit: `shared/blockTemplates` (what a new block contains),
-`shared/blockSpan` and `shared/wrapBlocks` (how far a block action reaches).
+Every one of the 64 compared actions produces the same document in both
+surfaces, across all nine fixtures and both selection shapes. It started at
+**31 declared divergences across 9 root causes**.
 
-| Root cause | Actions | Verdict | What remains |
-|---|---|---|---|
-| `list-toggle-nesting-scope` | 4 — `bulletList`/`insertBulletList`, `orderedList`/`insertOrderedList` | `both-wrong` | one edge per surface, opposite directions: WYSIWYG's range path converts the whole outer list when one WORD inside a nested item is selected (disagreeing with its own caret behaviour); source's toggle-OFF unlists a nested item where WYSIWYG outdents it one level |
-| `source-blockquote-quotes-one-line` | 1 — `insertBlockquote` | `source-bug` | source still quotes one line of a list, shattering it into three structures |
-| `source-removelist-leaves-continuation` | 1 — `removeList` | `source-bug` | stripping a middle item's marker leaves a **lazy continuation** — the text never leaves the list |
-| `formatcjk-selection-granularity` | 1 — `formatCJK` | `both-defensible` | character vs block granularity |
-| `codeblock-conversion-scope` | 1 — `insertCodeBlock` | `source-bug` | WYSIWYG folds a multi-block selection into one fence; source converts one paragraph |
+`MAX_PARITY_DIVERGENCES` is now **0**, which is the point of the mechanism
+rather than the end of it: the next divergence cannot be declared away. It has
+to be fixed, or the ceiling raised in a commit that argues for it.
 
-### What this round found that the ledger had mis-described
+### What actually closed them
 
-The old root cause 1 claimed the only thing left was "template content". It was
-not. Behind it sat a **data-loss bug**: selecting `brown` in
+Almost none of it was per-action patching. Neither surface had ever *chosen*
+how far an action reaches — each inherited whatever its substrate made
+convenient, ProseMirror addressing the enclosing node and CodeMirror the
+selected characters. Writing that rule down retired most of the ledger:
+
+> A block-level action operates on **the whole top-level blocks the selection
+> touches** — never a fragment of one, never a single item of a structure.
+
+| Shared module | Decides |
+|---|---|
+| `shared/blockTemplates` | what a new block contains |
+| `shared/blockSpan` | how far a block action reaches (line side) |
+| `shared/wrapBlocks` | the same rule, node side |
+| `shared/lineContent` | which characters are markup and which are content |
+
+The remaining fixes were each a surface disagreeing with **itself**: WYSIWYG's
+range path converted the whole outer list when one word inside a nested item was
+selected, though its caret path in the same position converted only the
+sub-list; its blockquote wrapped the innermost list and shattered the outer one;
+source's toggle-off unlisted a nested item where its own docs said outdent.
+
+### What this work found that the ledger had mis-described
+
+The ledger claimed the block-insert family had nothing left in it but "template
+content". Behind that sat a **data-loss bug**: selecting `brown` in
 `The quick brown fox` and inserting a note produced `> [!NOTE]\n> brown` and
 deleted the rest of the line, because the builders folded in the selected
 CHARACTERS while the insertion replaced whole LINES. The existing "no data loss"
-test selects the entire document, where those two ranges coincide, so it could
-not see it. A ledger entry is a claim, and claims need re-reading.
+test selects the entire document, where those two ranges coincide, so it was
+structurally incapable of seeing it.
 
 Also behind it: source's `insert*` list actions were a second, dumber
 implementation of the toggles that prepended a marker without checking for one
 already there — `- - two`, `1. - two`, `- [ ] - text`.
+
+A ledger entry is a claim. Claims rot, and this file is where they rot quietly.
 
 ## Both directions ratchet
 
@@ -117,8 +134,8 @@ excusing it, and excusing an action that is covered.
 `MAX_PARITY_DIVERGENCES` may only **rise** in a change that also **lowers**
 `MAX_UNCOVERED_ACTIONS` — that is, when newly measured ground reveals pre-existing
 divergence. At fixed coverage it ratchets down only. It went 12 → 31 when coverage
-went 33 → 63 and the uncovered ceiling went 50 → 20, then 31 → 18 → 8 as root
-causes were fixed.
+went 33 → 63 and the uncovered ceiling went 50 → 20, then 31 → 18 → 8 → 0 as
+root causes were fixed.
 
 ## What this gate does NOT catch
 

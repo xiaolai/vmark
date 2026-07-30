@@ -28,7 +28,7 @@
 import type { EditorView } from "@tiptap/pm/view";
 import { liftTarget } from "@tiptap/pm/transform";
 import { liftListItem, sinkListItem, wrapInList } from "@tiptap/pm/schema-list";
-import { liftSelectionOutOfLists } from "@/plugins/shared/listHelpers";
+import { liftSelectionOutOfLists, selectionWithinOneListItem } from "@/plugins/shared/listHelpers";
 import { flattenHeadingForList } from "./headingToList";
 import {
   convertListNode,
@@ -107,14 +107,13 @@ function toggleListType(view: EditorView, target: ListTypeName): boolean {
   const { $from } = state.selection;
   const other: ListTypeName = target === "bulletList" ? "orderedList" : "bulletList";
 
-  // Range selections honor the FULL range: every intersecting list converts,
-  // covered paragraphs wrap, adjacent same-type lists join (WI-3). When the
-  // range changes nothing (already the plain target type), fall through to
-  // the cursor semantics below — toggle-off still works on a full-list
-  // selection.
-  if (!state.selection.empty && convertRangeToListType(view, target)) {
-    return true;
-  }
+  // A range spanning SEVERAL items honours the full range: every intersecting
+  // list converts, covered paragraphs wrap, adjacent same-type lists join
+  // (WI-3). A range inside ONE item falls through to the cursor semantics
+  // below, which handle that position correctly — as does a range that changes
+  // nothing because it is already the target type.
+  const spansItems = !state.selection.empty && !selectionWithinOneListItem(state);
+  if (spansItems && convertRangeToListType(view, target)) return true;
 
   for (let d = $from.depth; d > 0; d--) {
     const node = $from.node(d);
@@ -144,10 +143,8 @@ function toggleListType(view: EditorView, target: ListTypeName): boolean {
   const listType = state.schema.nodes[target];
   if (!listType) return false;
 
-  // A HEADING becomes a paragraph first. A line cannot be a heading and a list
-  // item at once, and `wrapInList` will not wrap one — so the button silently
-  // did nothing on a heading, while Source mode replaced the `#` run and made
-  // the list. Flattening first makes both surfaces do what Source did.
+  // A HEADING is flattened first: `wrapInList` refuses one, so the button did
+  // nothing at all on `### Title`. See `headingToList`.
   const flattened = flattenHeadingForList(view);
   const base = flattened ?? state;
   const wrapped = wrapInList(listType, target === "orderedList" ? { start: 1 } : undefined)(
@@ -179,9 +176,8 @@ export function handleToOrderedList(view: EditorView): boolean {
 export function handleRemoveList(view: EditorView): boolean {
   // A range can span SEPARATE lists, which the single-range lift below
   // cannot cross — unlist every covered list (nested levels flattened too).
-  if (!view.state.selection.empty && unlistCoveredLists(view, true)) {
-    return true;
-  }
+  const spansItems = !view.state.selection.empty && !selectionWithinOneListItem(view.state);
+  if (spansItems && unlistCoveredLists(view, true)) return true;
   const lifted = liftSelectionOutOfLists(view);
   view.focus();
   return lifted;

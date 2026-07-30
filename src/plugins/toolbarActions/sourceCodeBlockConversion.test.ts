@@ -92,10 +92,20 @@ describe("source code-block conversion", () => {
     expect(view.state.doc.toString()).toBe("before\n\n```plaintext\ntarget para\n```\n\nafter");
   });
 
-  it("converts the selected lines when there is a selection", () => {
+  // `keep / alpha / beta / keep too` with no blank lines is ONE paragraph, so
+  // fencing part of it would leave a paragraph, a code block, and a paragraph
+  // where there had been a single block. Conversion reaches whole blocks —
+  // WYSIWYG's `setCodeBlock` is a block command and does the same.
+  it("converts the whole block a selection sits in", () => {
     const view = createView("keep\nalpha\nbeta\nkeep too", 5, 15);
     convert(view);
-    expect(view.state.doc.toString()).toBe("keep\n```plaintext\nalpha\nbeta\n```\nkeep too");
+    expect(view.state.doc.toString()).toBe("```plaintext\nkeep\nalpha\nbeta\nkeep too\n```");
+  });
+
+  it("converts only the block the selection touches, not its neighbours", () => {
+    const view = createView("first\n\nalpha\nbeta\n\nlast", 7, 12);
+    convert(view);
+    expect(view.state.doc.toString()).toBe("first\n\n```plaintext\nalpha\nbeta\n```\n\nlast");
   });
 
   it("expands a partial selection to whole lines", () => {
