@@ -5,17 +5,26 @@
  * and Source mode, with what each surface does and an assessment of which is
  * wrong.
  *
- * Why a ledger rather than fixes: these are user-visible behavior changes, and
- * choosing the right behavior for each is a product decision, not a mechanical
- * one. Recording them makes the set finite, countable and ratcheted, so it
- * shrinks instead of drifting. `adapterActionParity.test.ts` already pins the two
- * switches to one action VOCABULARY; nothing until now compared what the actions
- * DO, which is how `wysiwygAdapter.ts` could take fixes through 2026-07-30 while
- * `sourceAdapter.ts` sat untouched since 2026-02-10 with no gate ever firing.
+ * THE LEDGER IS EMPTY. Every one of the 64 compared actions now produces the
+ * same document in both surfaces, across all nine fixtures and both selection
+ * shapes. It started at 31 declared divergences across 9 root causes.
  *
- * Entries are grouped by ROOT CAUSE. Most of the count is a handful of defects
- * repeated across an action family, so the number of entries is much larger than
- * the number of fixes needed.
+ * An empty ledger is not the end of the mechanism, it is the point of it: with
+ * `MAX_PARITY_DIVERGENCES` at 0, the NEXT divergence cannot be declared away. It
+ * has to be fixed, or the ceiling has to be raised in a commit that says why.
+ *
+ * A ledger existed at all because these are user-visible behaviour changes and
+ * choosing the right one per action is a product decision, not a mechanical one.
+ * Recording them made the set finite, countable and ratcheted, so it shrank
+ * instead of drifting. `adapterActionParity.test.ts` already pins the two
+ * switches to one action VOCABULARY; nothing before this compared what the
+ * actions DO, which is how `wysiwygAdapter.ts` could take fixes through
+ * 2026-07-30 while `sourceAdapter.ts` sat untouched since 2026-02-10 with no
+ * gate ever firing.
+ *
+ * If you need to add an entry back, group by ROOT CAUSE: historically most of
+ * the count was a handful of defects repeated across an action family, so the
+ * number of entries ran far ahead of the number of fixes needed.
  *
  * @coordinates-with surfaces.ts — runs both real surfaces
  * @coordinates-with behavioralParity.test.ts — the gate
@@ -45,76 +54,14 @@ export interface ParityDivergence {
   reason: string;
 }
 
-/** Build one entry per action in a family that shares a single root cause. */
-function family(
-  actions: string[],
-  spec: Omit<ParityDivergence, "action">,
-): Record<string, ParityDivergence> {
-  return Object.fromEntries(actions.map((action) => [action, { action, ...spec }]));
-}
-
 /**
- * Every known outcome divergence, keyed by action.
+ * Every known outcome divergence, keyed by action. Currently none.
  *
  * A divergence NOT listed here fails the gate. A listed divergence that stops
  * occurring also fails, so a fix forces the entry's removal rather than leaving a
  * false claim behind.
  */
-export const PARITY_DIVERGENCES: Record<string, ParityDivergence> = {
-  // ---- Root cause 2: how far a list toggle reaches ------------------------
-  ...family(["bulletList", "insertBulletList", "orderedList", "insertOrderedList"], {
-    verdict: "both-wrong",
-    wysiwyg: "a RANGE inside one nested item converts the whole outer list",
-    source: "toggling a nested item off unlists it instead of outdenting it",
-    rootCause: "list-toggle-nesting-scope",
-    reason:
-      "Most of this root cause is FIXED and what is left is one disagreement per surface, in opposite directions. Source's `insert*` names were a second, dumber implementation that prepended a marker without checking for one already there, giving `- - two` / `1. - two`; they are now aliases of the toggles, as they always were in WYSIWYG, and taskList converged outright. Changing a list's TYPE now converts the whole list in both surfaces rather than rewriting the cursor's own marker and splitting one list into three, and it converts the INNERMOST enclosing list so a caret in a nested item leaves its siblings alone. Two edges remain. WYSIWYG's range path (`convertRangeToListType`) over-reaches: selecting one WORD inside a nested item converts the entire outer structure, while a caret in the same position converts only the sub-list — the same surface disagreeing with itself. And source's toggle-OFF unlists a nested item entirely where WYSIWYG outdents it one level into the parent list, which is the behaviour VMark documents (`nodeActions.tiptap.ts`: full removal is the Remove List action).",
-  }),
-
-  // ---- Root cause 3: quoting one line of a multi-line structure -------------
-  insertBlockquote: {
-    action: "insertBlockquote",
-    verdict: "source-bug",
-    wysiwyg: "wraps the WHOLE list — `> - one` / `> - two` / `> - three`",
-    source: "quotes only the cursor's line, shattering the list into three structures",
-    rootCause: "source-blockquote-quotes-one-line",
-    reason:
-      "The table-cell half of this action is FIXED — both surfaces now refuse to quote a cell, because a markdown cell cannot hold a block. What is left is a list: source prefixes `> ` to the one line under the cursor, so `- one` / `- two` / `- three` becomes a list, then a quoted list, then another list. WYSIWYG wraps the enclosing list as a unit, which is the coherent reading. Source needs the block bounds the toggle already computes for a paragraph.",
-  },
-
-  // ---- Root cause 4: source removeList leaves a lazy continuation ----------
-  removeList: {
-    action: "removeList",
-    verdict: "source-bug",
-    wysiwyg: "the item is lifted out of the list and becomes its own paragraph",
-    source: "only the `- ` marker is stripped, leaving the text INSIDE the list",
-    rootCause: "source-removelist-leaves-continuation",
-    reason:
-      "Stripping the marker from a middle item turns that line into a lazy continuation of the item above, so `- one` / `two brown` / `- three` re-parses as a two-item list whose first item is 'one two brown'. The text never leaves the list, which is the one thing the action promises. WYSIWYG lifts it out correctly. Surfaced only after the fixtures grew a multi-item list — a single-item list cannot tell the two apart.",
-  },
-
-  // ---- Root cause 5: how far a CJK format reaches ---------------------------
-  formatCJK: {
-    action: "formatCJK",
-    verdict: "both-defensible",
-    wysiwyg: "formats the top-level blocks the selection SPANS",
-    source: "formats exactly the selected characters",
-    rootCause: "formatcjk-selection-granularity",
-    reason:
-      "This entry used to call source a no-op on a range, which was wrong — source honours the selection, and the fixture selects a Latin word, which has no CJK boundary to fix. Checking that first is what found the real defect, on the other side: WYSIWYG escalated ANY selection to a whole-DOCUMENT round-trip, so selecting one word reformatted the entire file. The round-trip was there to preserve marks, not to widen the scope, and it now covers only the blocks the selection spans. What remains is granularity: source formats the selected characters, WYSIWYG the enclosing blocks. Block granularity is arguably the better reading, since CJK spacing is about boundaries BETWEEN adjacent characters and a sub-word selection cannot express one.",
-  },
-
-  // ---- Independent divergences ---------------------------------------------
-  insertCodeBlock: {
-    action: "insertCodeBlock",
-    verdict: "source-bug",
-    wysiwyg: "folds a whole list or a multi-block selection into ONE fence",
-    source: "converts the paragraph, or the selected lines, that the cursor is in",
-    rootCause: "codeblock-conversion-scope",
-    reason:
-      "The convert-versus-insert disagreement is RESOLVED, and it was never really ambiguous: the public action id is `codeBlock`, a block toggle; the command registry routes it here; and the user guide promises 'Convert to code'. Only this adapter's internal name said 'insert'. Source now converts the current block, or the selected lines, and emits `plaintext` to match WYSIWYG's `defaultLanguage` — which exists to stop `lowlight.highlightAuto()` mis-detecting, so omitting it would leave the two surfaces producing different documents. What remains is scope: WYSIWYG folds a whole list or a multi-block selection into ONE fence, source converts the paragraph it is in.",
-  },
-};
+export const PARITY_DIVERGENCES: Record<string, ParityDivergence> = {};
 
 /**
  * Ceiling on known parity divergences.
@@ -161,8 +108,23 @@ export const PARITY_DIVERGENCES: Record<string, ParityDivergence> = {
  *        disagree about. `insertBlockquote` stayed, reclassified — its table
  *        half is gone and a separate list-scope defect remains.
  *
- * 31 entries is far fewer than 31 fixes — they collapse into 9 root causes, and
- * the largest (`source-inserts-block-at-caret`, 12 actions) is one insertion
- * helper.
+ *   24 — the block-INSERT family CONVERGED, and the ledger had mis-described
+ *        what was left in it. The stated remainder was "template content";
+ *        behind that sat a DATA-LOSS bug (the builders folded in the selected
+ *        characters while replacing whole lines, deleting the rest of the
+ *        line) and a duplicate implementation of the list toggles that
+ *        prepended a second marker. Shared `blockTemplates`, `blockSpan` and
+ *        `wrapBlocks` retired the family.
+ *   25 — the LAST eight CONVERGED, on one rule per surface. Source's code
+ *        block, blockquote and CJK actions now reach whole blocks and strip
+ *        block markup, so fencing `### Title` yields `Title` and quoting a
+ *        list keeps it one list. WYSIWYG's range path stopped over-reaching
+ *        when the selection sits inside a single list item, and its blockquote
+ *        wraps the outermost list instead of shattering one. Source's
+ *        toggle-off now outdents a nested item by one level, as WYSIWYG and
+ *        VMark's own docs say it should.
+ *
+ * 0 entries. The ceiling is 0, so the next divergence must be FIXED rather than
+ * declared — or the ceiling raised in a commit that argues for it.
  */
-export const MAX_PARITY_DIVERGENCES = 8;
+export const MAX_PARITY_DIVERGENCES = 0;

@@ -58,3 +58,26 @@ describe("list conversion from a heading", () => {
     expect(hasHeading).toBe(false);
   });
 });
+
+describe("flattenHeadingForList guards", () => {
+  it("declines when the schema has no paragraph type", async () => {
+    const { flattenHeadingForList } = await import("./headingToList");
+    const noParagraph = new Schema({
+      nodes: { doc: { content: "heading+" }, heading: { content: "text*" }, text: {} },
+    });
+    const state = EditorState.create({
+      doc: noParagraph.node("doc", null, [noParagraph.node("heading", null, [noParagraph.text("x")])]),
+    });
+    const view = { state, dispatch: vi.fn(), focus: vi.fn() } as unknown as import("@tiptap/pm/view").EditorView;
+    expect(flattenHeadingForList(view)).toBeNull();
+  });
+
+  it("declines when the cursor is not in a heading", async () => {
+    const { flattenHeadingForList } = await import("./headingToList");
+    const state = EditorState.create({
+      doc: testSchema.node("doc", null, [testSchema.node("paragraph", null, [testSchema.text("x")])]),
+    });
+    const view = { state, dispatch: vi.fn(), focus: vi.fn() } as unknown as import("@tiptap/pm/view").EditorView;
+    expect(flattenHeadingForList(view)).toBeNull();
+  });
+});

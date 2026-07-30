@@ -37,6 +37,7 @@ import {
 } from "@/plugins/sourceContextDetection/headingDetection";
 import {
   getListItemInfo,
+  type ListItemInfo,
   indentListItem,
   outdentListItem,
   removeList,
@@ -102,15 +103,15 @@ export function handleListAction(view: EditorView, action: SourceListAction): bo
         // Source used to no-op, so the button was one-way in Source mode only.
         // Changing to a DIFFERENT type converts the whole list, not the cursor's
         // line — rewriting one marker turned one list into three.
-        if (info.type === "bullet") removeList(view, info);
+        if (info.type === "bullet") toggleListOff(view, info);
         else convertListBlock(view, "bullet");
         return true;
       case "orderedList":
-        if (info.type === "ordered") removeList(view, info);
+        if (info.type === "ordered") toggleListOff(view, info);
         else convertListBlock(view, "ordered");
         return true;
       case "taskList":
-        if (info.type === "task") removeList(view, info);
+        if (info.type === "task") toggleListOff(view, info);
         else convertListBlock(view, "task");
         return true;
       case "indent":
@@ -161,4 +162,19 @@ export function handleBlockquoteAction(
       removeBlockquote(view, info);
       return true;
   }
+}
+
+/**
+ * Turn the list off by ONE level.
+ *
+ * A NESTED item outdents into its parent list; only a top-level item leaves the
+ * list altogether. That is what WYSIWYG does and what VMark documents — full
+ * removal is the separate Remove List action. Unlisting a nested item outright
+ * lost the nesting and split the parent list around the freed line.
+ *
+ * `outdentListItem` reports false at the outermost level, which is exactly the
+ * "nothing left to outdent, so unlist" case.
+ */
+function toggleListOff(view: EditorView, info: ListItemInfo): void {
+  if (!outdentListItem(view, info)) removeList(view, info);
 }

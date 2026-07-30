@@ -175,3 +175,26 @@ describe("insert* list actions are aliases of the toggles", () => {
     expect("- two brown").not.toMatch(DOUBLED_MARKER);
   });
 });
+
+/**
+ * Toggling a list off removes ONE level of nesting.
+ *
+ * A nested item outdents into its parent list; only a top-level item leaves the
+ * list altogether. VMark documents this on the WYSIWYG side
+ * (`nodeActions.tiptap.ts`: "full removal is the remove list action"), but
+ * source unlisted a nested item outright, which both lost the nesting and split
+ * the parent list around the freed line.
+ */
+describe("list toggle-off outdents a nested item", () => {
+  it.each(["bulletList", "insertBulletList"])("%s outdents rather than unlisting", (action) => {
+    const view = createView("- outer\n  - inner\n- last", 12);
+    toggle(view, action);
+    expect(view.state.doc.toString()).toBe("- outer\n- inner\n- last");
+  });
+
+  it.each(["bulletList", "insertBulletList"])("%s unlists a TOP-LEVEL item", (action) => {
+    const view = createView("- one\n- two\n- three", 8);
+    toggle(view, action);
+    expect(view.state.doc.toString()).not.toMatch(/^- two/m);
+  });
+});

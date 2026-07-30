@@ -102,14 +102,17 @@ describe("toggleBlockquote", () => {
     expect(changes[1].insert).toBe("line two");
   });
 
-  it("preserves indentation when adding blockquote", () => {
+  it("keeps indentation inside the quote, with the marker leading", () => {
     const view = createMockView("  indented text", 3);
     toggleBlockquote(view);
 
     expect(view.dispatch).toHaveBeenCalled();
     const call = (view.dispatch as ReturnType<typeof vi.fn>).mock.calls[0][0];
     const changes = Array.isArray(call.changes) ? call.changes : [call.changes];
-    expect(changes[0].insert).toBe("  > indented text");
+    // The `>` leads, and the indentation is preserved INSIDE the quote. Putting
+    // the marker after the indent reads as a quote nested in a list item, which
+    // is the opposite structure — `  > - inner` instead of `>   - inner`.
+    expect(changes[0].insert).toBe(">   indented text");
   });
 
   it("preserves indentation when removing blockquote", () => {
