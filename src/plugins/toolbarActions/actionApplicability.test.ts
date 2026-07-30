@@ -11,6 +11,9 @@ import {
 } from "./actionApplicability";
 import { isAdapterAction } from "./adapterActions";
 import { TOOLBAR_GROUPS, isSeparator } from "@/components/Editor/UniversalToolbar/toolbarGroups";
+// Statically imported: nothing here mocks this module, and resolving it INSIDE
+// the test made a 5s-default assertion depend on how loaded the worker was.
+import { adapterActionMutates } from "@/services/commands/actionAvailability";
 
 describe("table integrity", () => {
   it("every key is a real adapter action", () => {
@@ -71,8 +74,7 @@ describe("enabledInFor fallback", () => {
 });
 
 describe("adapterActionMutates (shared read-only gate vocabulary)", () => {
-  it("classifies mutating vs selection-only actions", async () => {
-    const { adapterActionMutates } = await import("@/services/commands/actionAvailability");
+  it("classifies mutating vs selection-only actions", () => {
     expect(adapterActionMutates("bold")).toBe(true);
     expect(adapterActionMutates("heading:2")).toBe(true);
     expect(adapterActionMutates("selectWord")).toBe(false);

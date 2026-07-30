@@ -121,15 +121,15 @@ export const PARITY_DIVERGENCES: Record<string, ParityDivergence> = {
       "Stripping the marker from a middle item turns that line into a lazy continuation of the item above, so `- one` / `two brown` / `- three` re-parses as a two-item list whose first item is 'one two brown'. The text never leaves the list, which is the one thing the action promises. WYSIWYG lifts it out correctly. Surfaced only after the fixtures grew a multi-item list — a single-item list cannot tell the two apart.",
   },
 
-  // ---- Root cause 6: source formatCJK does nothing on a range --------------
+  // ---- Root cause 6: how far a CJK format reaches ---------------------------
   formatCJK: {
     action: "formatCJK",
-    verdict: "source-bug",
-    wysiwyg: "`中文段落 brown 混排 English 文本` — spaces inserted at CJK/Latin boundaries",
-    source: "unchanged",
-    rootCause: "source-formatcjk-noop-on-range",
+    verdict: "both-defensible",
+    wysiwyg: "formats the top-level blocks the selection SPANS",
+    source: "formats exactly the selected characters",
+    rootCause: "formatcjk-selection-granularity",
     reason:
-      "CJK formatting is a headline feature, and in source mode the toolbar action is a no-op on a range selection while WYSIWYG applies it. Whatever the intended scope is (selection, line, or document), both surfaces must agree.",
+      "This entry used to call source a no-op on a range, which was wrong — source honours the selection, and the fixture selects a Latin word, which has no CJK boundary to fix. Checking that first is what found the real defect, on the other side: WYSIWYG escalated ANY selection to a whole-DOCUMENT round-trip, so selecting one word reformatted the entire file. The round-trip was there to preserve marks, not to widen the scope, and it now covers only the blocks the selection spans. What remains is granularity: source formats the selected characters, WYSIWYG the enclosing blocks. Block granularity is arguably the better reading, since CJK spacing is about boundaries BETWEEN adjacent characters and a sub-word selection cannot express one.",
   },
 
   // ---- Independent divergences ---------------------------------------------

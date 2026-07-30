@@ -103,6 +103,10 @@ function createMockContext(opts?: {
     before: vi.fn(() => 5),
     after: vi.fn(() => 25),
   };
+  // Formatting spans the top-level blocks from $from to $to, so both ends of
+  // the selection resolve, and the doc can be walked to collect them.
+  const $to = $from;
+  const walkTopLevel = vi.fn((cb: (node: unknown, offset: number) => void) => cb(blockNode, 5));
 
   return {
     surface: "wysiwyg",
@@ -110,6 +114,7 @@ function createMockContext(opts?: {
       state: {
         selection: {
           $from,
+          $to,
           from: 10,
           to: selectionEmpty ? 10 : 20,
           empty: selectionEmpty,
@@ -118,6 +123,7 @@ function createMockContext(opts?: {
           textBetween: vi.fn(() => selectedText),
           content: { size: 100 },
           nodesBetween: vi.fn(),
+          forEach: walkTopLevel,
         },
         tr,
         schema,
@@ -130,11 +136,12 @@ function createMockContext(opts?: {
       state: {
         selection: {
           $from,
+          $to,
           from: 10,
           to: selectionEmpty ? 10 : 20,
           empty: selectionEmpty,
         },
-        doc: { content: { size: 100 } },
+        doc: { content: { size: 100 }, forEach: walkTopLevel },
       },
       commands: { focus },
     } as never,
@@ -198,9 +205,14 @@ describe("handleFormatCJK", () => {
     expect(result).toBe(true);
   });
 
-  it("returns false for block formatting when depth < 1", () => {
+  it("falls back to whole-document formatting at depth 0 (select-all)", () => {
+    // Depth 0 means an AllSelection or a NodeSelection on the doc: there is no
+    // top-level block to span, and "format everything" is what the user asked
+    // for anyway.
     const ctx = createMockContext({ selectionEmpty: true, depth: 0 });
-    expect(handleFormatCJK(ctx)).toBe(false);
+    vi.mocked(serializeMarkdown).mockReturnValue("doc content");
+    vi.mocked(parseMarkdown).mockReturnValue({ content: "parsed" } as never);
+    expect(handleFormatCJK(ctx)).toBe(true);
   });
 
   it("returns false and logs error when block serialization throws", async () => {
