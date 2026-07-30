@@ -65,6 +65,7 @@ export const COVERED_ACTIONS: string[] = [
   // text transforms
   "transformUppercase", "transformLowercase", "transformTitleCase", "transformToggleCase",
   "formatCJK",
+  "formatCJKFile",
   // line operations
   "duplicateLine", "moveLineUp", "moveLineDown", "deleteLine", "joinLines",
   "indent", "outdent",
@@ -110,8 +111,6 @@ export const UNCOVERED_ACTIONS: Record<string, string> = {
   insertGraphvizDiagram: "Opens the diagram editor.",
   insertMarkmap: "Opens the diagram editor.",
 
-  // --- whole-file scope: acts on the file on disk rather than the open buffer.
-  formatCJKFile: "Whole-FILE operation routed through persistence, not a buffer edit.",
 };
 
 /**
@@ -122,7 +121,7 @@ export const UNCOVERED_ACTIONS: Record<string, string> = {
  * this number. Never raise it — a new uncompared action means the harness fell
  * behind the adapters, which the contract test exists to catch.
  */
-export const MAX_UNCOVERED_ACTIONS = 20;
+export const MAX_UNCOVERED_ACTIONS = 19;
 
 /**
  * Actions only one surface routes, so parity is undefined for them by

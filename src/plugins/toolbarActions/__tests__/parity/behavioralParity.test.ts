@@ -111,15 +111,21 @@ describe("toolbar adapter behavioral parity", () => {
 
       for (const doc of DOCS) {
         for (const shape of SHAPES) {
-          it(`agrees on ${doc.label} [${shape}]`, () => {
-            // Actions the availability policy forbids in a table cell are
-            // unreachable in the app, so comparing what the raw adapters would
-            // do to one is meaningless — the harness calls them directly, below
-            // that gate. Assert the policy instead of the outcome.
-            if (doc.label === "table" && isBlockedInTableCell(action)) {
-              expect(isBlockedInTableCell(action)).toBe(true);
-              return;
-            }
+          // Actions the availability policy forbids in a table cell are
+          // unreachable in the app, so comparing what the raw adapters would do
+          // to one is meaningless — this harness calls them directly, below that
+          // gate. These cases are SKIPPED, visibly, rather than passed: the real
+          // assertion that the executor refuses them lives in
+          // `services/commands/actionAvailability.test.ts`.
+          //
+          // An earlier version "asserted the policy" here with
+          // `if (blocked) expect(isBlockedInTableCell(action)).toBe(true)` — a
+          // tautology that re-checked the condition the branch had just tested,
+          // and so could never fail. It read as ~30 passing cases that verified
+          // nothing.
+          const unreachableHere = doc.label === "table" && isBlockedInTableCell(action);
+
+          it.skipIf(unreachableHere)(`agrees on ${doc.label} [${shape}]`, () => {
             const r = compare(action, doc, shape);
 
             // A declared divergence is allowed to disagree, but never to throw.
