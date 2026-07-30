@@ -165,4 +165,61 @@ describe("reassignTabOwnershipForPath (WI-13.4)", () => {
 
     expect(result.workspaceSwitched).toBe(false);
   });
+
+  it("unknown tab id: path still classifies, but the visible context never moves", () => {
+    const result = reassignTabOwnershipForPath(W, "tab-ghost", "/repo-b/x.md");
+    expect(result.workspaceSwitched).toBe(false);
+    expect(result.workspaceInstanceId).toBe("wsi-b");
+    expect(
+      useWorkspaceInstancesStore.getState().windows[W].activeWorkspaceInstanceId,
+    ).toBe("wsi-a");
+  });
+
+  it("declined switch (restore in flight): ownership moves, context does not", async () => {
+    const { beginWindowContextRestore, endWindowContextRestore } = await import(
+      "./switchWorkspaceInstance"
+    );
+    const id = useTabStore.getState().createTab(W, "/repo-a/draft.md");
+    useTabStore.getState().setActiveTab(W, id);
+    useTabStore.getState().updateTabPath(id, "/repo-b/final.md");
+
+    beginWindowContextRestore(W);
+    try {
+      const result = reassignTabOwnershipForPath(W, id, "/repo-b/final.md");
+      expect(result.workspaceSwitched).toBe(false);
+    } finally {
+      endWindowContextRestore(W);
+    }
+
+    expect(
+      useWorkspaceInstancesStore.getState().instances["wsi-b"].tabIds,
+    ).toContain(id);
+    expect(
+      useWorkspaceInstancesStore.getState().windows[W].activeWorkspaceInstanceId,
+    ).toBe("wsi-a");
+  });
+
+  it("MCP no-switch under a SPLIT re-coheres via the focused pane (R2-F7)", async () => {
+    const { usePaneStore } = await import("@/stores/paneStore");
+    const idKeep = useTabStore.getState().createTab(W, "/repo-a/keep.md");
+    const idMove = useTabStore.getState().createTab(W, "/repo-a/move.md");
+    useTabStore.getState().setActiveTab(W, idKeep);
+    usePaneStore.getState().openSplit(W, idMove);
+    // The focused pane's tab is the alias — that's the one we move away.
+    const activeNow = useTabStore.getState().activeTabId[W]!;
+    useTabStore.getState().updateTabPath(activeNow, "/repo-b/moved.md");
+
+    const result = reassignTabOwnershipForPath(W, activeNow, "/repo-b/moved.md", {
+      allowVisibleSwitch: false,
+    });
+
+    expect(result.workspaceSwitched).toBe(false);
+    // Alias re-cohered to wsi-a's remaining tab, written through the pane.
+    const remaining = activeNow === idKeep ? idMove : idKeep;
+    expect(useTabStore.getState().activeTabId[W]).toBe(remaining);
+    const split = usePaneStore.getState().getSplit(W);
+    const focusedTab =
+      split.focusedPane === "primary" ? split.primaryTabId : split.secondaryTabId;
+    expect(focusedTab).toBe(remaining);
+  });
 });
