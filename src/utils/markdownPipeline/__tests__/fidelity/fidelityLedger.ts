@@ -114,9 +114,9 @@ export const FIDELITY_LEDGER: Record<string, LedgerEntry[]> = {
   ],
   "23-setext-headings.md": [
     {
-      rule: "setextHeadingLost",
+      rule: "setextNormalisedToAtx",
       reason:
-        "DEFECT, not an approval. The loss happens at PARSE time, so this gate sees only its shadow — the round-trip is perfectly stable because both sides are equally damaged. The defect itself is owned by referenceConformance.test.ts, which measures against an independent CommonMark parser. This rule exists so the resulting text churn is reported once and precisely, instead of as unclassified diff noise that would mask a future regression in the same file.",
+        "Setext headings are now READ as headings and re-emitted as ATX, which is VMark's single heading spelling. Previously they were destroyed at parse time — a paragraph with an escaped `\\=====`, or a paragraph plus a thematic break — and this entry recorded that damage. The remaining deviation is a spelling change with no loss of structure.",
     },
   ],
 };

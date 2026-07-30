@@ -8,19 +8,21 @@
  * VMark's parse of the output. That is the right question for serializer bugs,
  * but it is blind by construction to anything the PARSER drops: if a construct
  * is destroyed on the way in, both sides are equally destroyed and the
- * round-trip looks perfectly stable. The setext-heading defect is exactly that
- * shape — `remarkDisableSetextHeadings` removes the heading before the
- * serializer is ever involved, so the fingerprint, the golden and the
- * idempotence property all agree that nothing is wrong.
+ * round-trip looks perfectly stable. The setext-heading defect was exactly that
+ * shape — `remarkDisableSetextHeadings` removed the heading before the
+ * serializer was ever involved, so the fingerprint, the golden and the
+ * idempotence property all agreed that nothing was wrong. This gate is what
+ * caught it, and what confirmed the fix.
  *
  * The only way to see it is an INDEPENDENT ruler. This gate parses the same
  * corpus with stock `remark-parse` + `remark-gfm` — a CommonMark/GFM baseline
  * with none of VMark's plugins — and compares the top-level block structure.
  *
  * A divergence is not automatically a bug: VMark deliberately extends markdown
- * (alerts, details, wiki links, math, TOC) and deliberately narrows it in one
- * place. So every divergence must be DECLARED with a reason, and a declaration
- * that stops firing fails, the same ratchet the rest of the pipeline gates use.
+ * (alerts, details, wiki links, math, TOC). So every divergence must be DECLARED
+ * with a reason and a verdict, and a declaration that stops firing fails — the
+ * same ratchet the rest of the pipeline gates use. Every remaining entry is an
+ * `extension`; the defect ceiling is 0.
  *
  * @coordinates-with ../characterization/corpus — the shared fixtures
  * @coordinates-with ../../parser.ts — VMark's configured MDAST parse
@@ -86,11 +88,6 @@ const DECLARED_DIVERGENCES: Record<string, Divergence> = {
     verdict: "extension",
     reason: "As 10-details.md, with nesting: several html/paragraph pairs fold into one `details` tree.",
   },
-  "23-setext-headings.md": {
-    verdict: "defect",
-    reason:
-      "The baseline reads setext headings; VMark reads paragraphs and a thematic break. `remarkDisableSetextHeadings` turns off micromark's `setextUnderline` so an empty nested list item (`  -`) cannot misparse as a heading underline — a real corruption it prevents. But the cure was never mitigated in the other direction, and only the first corruption was measured. The damage is invisible to every other gate: the round-trip is stable, so the golden, the idempotence property and the fidelity fingerprint all pass. `useTiptapFlush` then persists it to the author's file on the next keystroke. Fixing it means keeping setext on read (special-casing the `  -` misparse) while continuing to emit ATX on write.",
-  },
 };
 
 /**
@@ -98,7 +95,7 @@ const DECLARED_DIVERGENCES: Record<string, Divergence> = {
  *
  * Ratchets DOWN only. Fix one, lower this number. Never raise it.
  */
-const MAX_CONFORMANCE_DEFECTS = 1;
+const MAX_CONFORMANCE_DEFECTS = 0;
 
 const corpus = readdirSync(corpusDir)
   .filter((f) => f.endsWith(".md"))

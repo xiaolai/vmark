@@ -64,11 +64,15 @@ function visitAndFixMath(node: Root | Parent): void {
  * parsing prevents a common misparse: an empty nested list item (`  -`) being
  * interpreted as a setext heading underline for the preceding paragraph.
  *
- * This is an intentional compatibility trade-off for VMark:
- * - VMark's serializer never produces setext headings (always ATX `#`)
- * - Setext input (`Heading\n---`) is rare in practice and can always be
- *   written as `## Heading` instead
- * - The misparse of `  -` as heading underline causes data corruption
+ * Applied ONLY to documents that contain the ambiguous line — see
+ * `hasAmbiguousListUnderline`. Disabling it unconditionally traded one
+ * corruption for another: an authored setext heading became a paragraph whose
+ * underline was escaped to `\=====`, or a paragraph plus a thematic break, and
+ * `useTiptapFlush` wrote that back to the file on the next keystroke. Only the
+ * first corruption had been measured.
+ *
+ * VMark still SERIALIZES headings as ATX, so a setext document is normalised on
+ * write — but it is read as headings first, rather than destroyed.
  */
 export const remarkDisableSetextHeadings: Plugin<[], Root> = function () {
   const data = this.data();
@@ -85,7 +89,20 @@ export interface ContentAnalysis {
   hasFrontmatter: boolean;
   hasWikiLinks: boolean;
   hasDetails: boolean;
+  /** An INDENTED lone list marker, the line that misparses as a setext underline. */
+  hasAmbiguousListUnderline: boolean;
 }
+
+/**
+ * A line that is nothing but an indented list marker — `  -`, `\t*`, `   +`.
+ *
+ * This is the exact shape `remarkDisableSetextHeadings` exists to protect: an
+ * empty nested list item directly under a paragraph, which CommonMark reads as
+ * a setext underline for that paragraph. Detecting it lets the protection apply
+ * only to documents that need it, instead of costing every document its setext
+ * headings.
+ */
+const AMBIGUOUS_LIST_UNDERLINE = /^[ \t]+[-*+][ \t]*$/m;
 
 /**
  * Analyze markdown content to determine which plugins are needed.
@@ -101,5 +118,6 @@ export function analyzeContent(markdown: string): ContentAnalysis {
     hasWikiLinks: markdown.includes("[["),
     // Details block: look for <details pattern
     hasDetails: markdown.includes("<details"),
+    hasAmbiguousListUnderline: AMBIGUOUS_LIST_UNDERLINE.test(markdown),
   };
 }
