@@ -64,12 +64,14 @@ export default defineConfig({
         // justification in the commit message. The per-relaxation history
         // that used to live here (2026-04 → 2026-07, ~290 lines) is in git
         // history. Per-file gaps: pnpm test:coverage, then coverage/index.html.
-        // Actuals at last ratchet (2026-07-04): st 93.63, br 90.33,
-        // fn 93.35, ln 94.32.
-        statements: 93.55,
-        branches: 90.25,
-        functions: 93.3,
-        lines: 94.25,
+        // Actuals at last ratchet (2026-07-30): st 93.97, br 90.42,
+        // fn 93.45, ln 94.77. The branches buffer is ~0.07 pp (not 0.05):
+        // the suite had drifted to EXACTLY the old floor and CI's ±2-3
+        // branch run-to-run variance flaked unrelated PRs red.
+        statements: 93.9,
+        branches: 90.35,
+        functions: 93.4,
+        lines: 94.7,
       },
     },
   },

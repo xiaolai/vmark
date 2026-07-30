@@ -237,7 +237,7 @@ describe("getAdaptiveDebounceDelay — via onUpdate", () => {
 
     const timeoutSpy = vi.spyOn(window, "setTimeout");
     render(<TiptapEditorInner hidden={false} />);
-    const config = mocks.useEditor.mock.calls[0][0];
+    const config = mocks.useEditor.mock.calls[mocks.useEditor.mock.calls.length - 1][0];
 
     config.onUpdate({ editor });
     const call500 = timeoutSpy.mock.calls.find(
@@ -254,7 +254,7 @@ describe("getAdaptiveDebounceDelay — via onUpdate", () => {
 
     const timeoutSpy = vi.spyOn(window, "setTimeout");
     render(<TiptapEditorInner hidden={false} />);
-    const config = mocks.useEditor.mock.calls[0][0];
+    const config = mocks.useEditor.mock.calls[mocks.useEditor.mock.calls.length - 1][0];
 
     config.onUpdate({ editor });
     const call1000 = timeoutSpy.mock.calls.find(
@@ -271,7 +271,7 @@ describe("getAdaptiveDebounceDelay — via onUpdate", () => {
 
     const timeoutSpy = vi.spyOn(window, "setTimeout");
     render(<TiptapEditorInner hidden={false} />);
-    const config = mocks.useEditor.mock.calls[0][0];
+    const config = mocks.useEditor.mock.calls[mocks.useEditor.mock.calls.length - 1][0];
 
     config.onUpdate({ editor });
     const call2000 = timeoutSpy.mock.calls.find(
@@ -288,7 +288,7 @@ describe("getAdaptiveDebounceDelay — via onUpdate", () => {
 
     const timeoutSpy = vi.spyOn(window, "setTimeout");
     render(<TiptapEditorInner hidden={false} />);
-    const config = mocks.useEditor.mock.calls[0][0];
+    const config = mocks.useEditor.mock.calls[mocks.useEditor.mock.calls.length - 1][0];
 
     config.onUpdate({ editor });
     const call5000 = timeoutSpy.mock.calls.find(
@@ -324,7 +324,7 @@ describe("setContentWithoutHistory — via onCreate with view", () => {
     mocks.parseMarkdown.mockReturnValue({ type: "doc", content: [{ type: "paragraph" }] });
 
     render(<TiptapEditorInner hidden={false} />);
-    const config = mocks.useEditor.mock.calls[0][0];
+    const config = mocks.useEditor.mock.calls[mocks.useEditor.mock.calls.length - 1][0];
 
     // PM dispatch happens inside the deferred parse setTimeout
     vi.useFakeTimers();
@@ -346,7 +346,7 @@ describe("setContentWithoutHistory — via onCreate with view", () => {
     mocks.parseMarkdown.mockReturnValue({ type: "doc", content: [] });
 
     render(<TiptapEditorInner hidden={false} />);
-    const config = mocks.useEditor.mock.calls[0][0];
+    const config = mocks.useEditor.mock.calls[mocks.useEditor.mock.calls.length - 1][0];
 
     // setContent happens inside the deferred parse setTimeout
     vi.useFakeTimers();
@@ -384,7 +384,7 @@ describe("syncMarkdownToEditor — via onCreate", () => {
     mocks.parseMarkdown.mockReturnValue({ type: "doc", content: [] });
 
     render(<TiptapEditorInner hidden={false} />);
-    const config = mocks.useEditor.mock.calls[0][0];
+    const config = mocks.useEditor.mock.calls[mocks.useEditor.mock.calls.length - 1][0];
 
     // Parse is deferred — advance timers so the deferred work runs
     vi.useFakeTimers();
@@ -413,7 +413,7 @@ describe("syncMarkdownToEditor — via onCreate", () => {
     mocks.parseMarkdown.mockImplementation(() => { throw new Error("parse fail"); });
 
     render(<TiptapEditorInner hidden={false} />);
-    const config = mocks.useEditor.mock.calls[0][0];
+    const config = mocks.useEditor.mock.calls[mocks.useEditor.mock.calls.length - 1][0];
 
     // onCreate schedules deferred work — should not throw synchronously
     vi.useFakeTimers();
@@ -439,7 +439,7 @@ describe("flushToStore — via onUpdate RAF callback", () => {
     });
 
     render(<TiptapEditorInner hidden={false} />);
-    const config = mocks.useEditor.mock.calls[0][0];
+    const config = mocks.useEditor.mock.calls[mocks.useEditor.mock.calls.length - 1][0];
 
     config.onUpdate({ editor });
 
@@ -466,7 +466,7 @@ describe("flushToStore — via onUpdate RAF callback", () => {
     const cancelSpy = vi.spyOn(window, "cancelAnimationFrame");
 
     render(<TiptapEditorInner hidden={false} />);
-    const config = mocks.useEditor.mock.calls[0][0];
+    const config = mocks.useEditor.mock.calls[mocks.useEditor.mock.calls.length - 1][0];
 
     // Trigger flush once — the RAF schedules internalChangeRaf inside flushToStore
     config.onUpdate({ editor });
@@ -491,7 +491,7 @@ describe("flushToStore — via onUpdate RAF callback", () => {
     });
 
     render(<TiptapEditorInner hidden={false} />);
-    const config = mocks.useEditor.mock.calls[0][0];
+    const config = mocks.useEditor.mock.calls[mocks.useEditor.mock.calls.length - 1][0];
 
     config.onUpdate({ editor });
     rafCallback!(0);
@@ -511,7 +511,7 @@ describe("scheduleCursorUpdate — via onSelectionUpdate", () => {
     mocks.useEditor.mockReturnValue(editor);
 
     render(<TiptapEditorInner hidden={false} />);
-    const config = mocks.useEditor.mock.calls[0][0];
+    const config = mocks.useEditor.mock.calls[mocks.useEditor.mock.calls.length - 1][0];
 
     expect(config.onSelectionUpdate).toBeInstanceOf(Function);
   });
@@ -522,7 +522,7 @@ describe("scheduleCursorUpdate — via onSelectionUpdate", () => {
     mocks.getTiptapEditorView.mockReturnValue(null);
 
     render(<TiptapEditorInner hidden={false} />);
-    const config = mocks.useEditor.mock.calls[0][0];
+    const config = mocks.useEditor.mock.calls[mocks.useEditor.mock.calls.length - 1][0];
 
     // Initialize editor to set cursorTrackingEnabled after timeout
     config.onCreate({ editor });
@@ -552,7 +552,7 @@ describe("onUpdate — debounce timeout path", () => {
     );
 
     render(<TiptapEditorInner hidden={false} />);
-    const config = mocks.useEditor.mock.calls[0][0];
+    const config = mocks.useEditor.mock.calls[mocks.useEditor.mock.calls.length - 1][0];
 
     config.onUpdate({ editor });
 
@@ -570,7 +570,7 @@ describe("onUpdate — debounce timeout path", () => {
     const clearSpy = vi.spyOn(window, "clearTimeout");
 
     render(<TiptapEditorInner hidden={false} />);
-    const config = mocks.useEditor.mock.calls[0][0];
+    const config = mocks.useEditor.mock.calls[mocks.useEditor.mock.calls.length - 1][0];
 
     config.onUpdate({ editor });
     config.onUpdate({ editor });
