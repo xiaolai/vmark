@@ -52,6 +52,7 @@ export const en = {
             { text: "Embedded Browser", link: "/guide/browser" },
             { text: "Knowledge Base & Slidev", link: "/guide/knowledge-base" },
             { text: "Workspace Management", link: "/guide/workspace-management" },
+            { text: "Workspace Rail", link: "/guide/workspace-rail" },
             { text: "CJK Formatting", link: "/guide/cjk-formatting" },
             { text: "AI Genies", link: "/guide/ai-genies" },
             { text: "Coherence & Breakdown View", link: "/guide/coherence" },

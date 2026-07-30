@@ -6,6 +6,10 @@ VMark can host a real web browser **inside** a document window — a web page be
 The embedded browser is an early, opt-in feature and is **macOS-only** in this build. Windows and Linux support comes later.
 :::
 
+::: info Workspace rail
+With the experimental [workspace rail](/guide/workspace-rail) enabled, browser pages are **window-global**: they stay reachable from every workspace in the window and are never tied to a single workspace's tabs.
+:::
+
 ## Enabling it
 
 The browser is off by default. To turn it on:
