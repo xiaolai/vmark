@@ -21,7 +21,7 @@ import {
   sortLinesAscending,
   sortLinesDescending,
 } from "@/utils/textTransformations";
-import { moveBlockAware, joinWouldFuseBlocks } from "./sourceBlockMove";
+import { moveBlockAware, joinWouldFuseBlocks, duplicateNeedsHardBreak } from "./sourceBlockMove";
 
 // --- Line operations ---
 
@@ -68,9 +68,21 @@ export function handleMoveLineDown(view: EditorView): boolean {
 
 /** Duplicates the current line (or selected lines) below the original in source mode. */
 export function handleDuplicateLine(view: EditorView): boolean {
-  const { from, to } = view.state.selection.main;
-  const text = view.state.doc.toString();
+  const { state } = view;
+  const { from, to } = state.selection.main;
+  const text = state.doc.toString();
   const result = duplicateLines(text, from, to);
+
+  // A plain paragraph line needs an explicit hard break between the copies, or
+  // the duplicate renders as a continuation of the same line. Structural lines
+  // duplicate as siblings and need nothing.
+  const lineIndex = state.doc.lineAt(to).number - 1;
+  if (duplicateNeedsHardBreak(text.split("\n"), lineIndex)) {
+    const lines = result.newText.split("\n");
+    // The marker goes at the end of the FIRST copy, inside any quote prefix.
+    if (lines[lineIndex] !== undefined) lines[lineIndex] += "\\";
+    result.newText = lines.join("\n");
+  }
 
   view.dispatch({
     changes: { from: 0, to: text.length, insert: result.newText },

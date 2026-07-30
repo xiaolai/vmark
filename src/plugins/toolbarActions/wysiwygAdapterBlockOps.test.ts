@@ -41,6 +41,7 @@ function createMockResolved(opts: {
       const c = children[i] ?? children[0];
       return {
         nodeSize: c.nodeSize,
+        type: { name: "paragraph" },
         textContent: c.textContent ?? "",
         isBlock: c.isBlock ?? false,
         isTextblock: c.isTextblock ?? true,
@@ -80,6 +81,10 @@ function createMockTr() {
   };
 }
 
+/** Schema stub with no `hardBreak`, so duplication takes the structural-unit
+ *  path; the textblock/hard-break path is covered by the parity harness. */
+const MOCK_SCHEMA = { nodes: {} };
+
 function createContext(overrides?: Partial<WysiwygToolbarContext>): WysiwygToolbarContext {
   const tr = createMockTr();
   const $from = createMockResolved({ depth: 1, blockIndex: 1, parentChildCount: 3 });
@@ -92,6 +97,7 @@ function createContext(overrides?: Partial<WysiwygToolbarContext>): WysiwygToolb
       state: {
         selection: { $from, from: 10, to: 22, empty: false },
         tr,
+        schema: MOCK_SCHEMA,
         doc: {
           nodesBetween: vi.fn(),
           content: { size: 50 },
