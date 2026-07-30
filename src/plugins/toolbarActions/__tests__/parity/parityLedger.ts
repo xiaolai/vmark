@@ -61,7 +61,7 @@ function family(
  * false claim behind.
  */
 export const PARITY_DIVERGENCES: Record<string, ParityDivergence> = {
-  // ---- Root cause 1: source mode inserts BLOCK constructs at the caret -------
+  // ---- Root cause 1: where a newly inserted block goes ---------------------
   ...family(
     [
       "insertDivider", "insertBulletList", "insertOrderedList", "insertTaskList",
@@ -89,17 +89,17 @@ export const PARITY_DIVERGENCES: Record<string, ParityDivergence> = {
       "These three TOGGLES still route through `handleListAction`, which writes the marker at the cursor rather than at the start of the line, so toggling mid-sentence corrupts the sentence and a range selection replaces the selected word outright. The INSERT variants (`insertBulletList`/`insertOrderedList`/`insertTaskList`) were the same defect on a different path and are fixed — `prependLineMarker` puts the marker after the line's indentation, and both surfaces now produce `- The quick brown fox` on a paragraph. Pointing the toggles at the same helper is the remaining work; WYSIWYG is correct.",
   }),
 
-  // ---- Root cause 3: source heading run added over an existing marker -------
-  ...family(["heading:1", "heading:3", "heading:6", "increaseHeading"], {
-    verdict: "source-bug",
-    wysiwyg: "list item → `# text`; blockquote → `> # text` (quote preserved)",
-    source: "list item → `# - text`; blockquote → `# > text` (quote destroyed)",
-    rootCause: "source-heading-keeps-block-marker",
+  // ---- Root cause 3: block conversions with the caret inside a table cell ---
+  ...family(["heading:1", "heading:3", "heading:6", "increaseHeading", "insertBlockquote"], {
+    verdict: "both-wrong",
+    wysiwyg: "clears the cell's text, leaving an empty cell",
+    source: "prefixes the ROW line, so `# | brown cell | other |` — the table stops parsing",
+    rootCause: "block-conversion-inside-table-cell",
     reason:
-      "The source heading helpers prepend the `#` run to the raw line without stripping the block marker already there. A list item becomes a heading whose text begins `- `, and a blockquote becomes a HEADING CONTAINING a literal `>` — the quote is gone. WYSIWYG converts the block and keeps the quote wrapper. `increaseHeading` joined this family once the direction disagreement was resolved: the two surfaces now step the same way, and what remains is only the marker damage. One fix retires all four entries.",
+      "The marker damage is FIXED: source used to emit `# - text` for a list item and `# > text` for a blockquote, destroying the quote, and the heading helpers now peel the quote wrapper, the list marker and any existing `#` run before rebuilding — keeping the quote and replacing the marker, as WYSIWYG does. Detection also sees through a quote now, so `> ## text` reads as level 2. Each heading action fell from ten diverging fixtures to two, and both are the SAME case: the caret inside a table cell. Neither surface handles it — WYSIWYG destroys the cell's text, source destroys the table. A cell cannot hold a heading or a blockquote in markdown, so the fix is an availability rule in `enableRules.ts` rather than either adapter, which also needs a row in the toolbar-state tests. Every action that converts a whole block needs the same rule.",
   }),
 
-  // ---- Root cause 5: source line operations are structure-unaware -----------
+  // ---- Root cause 4: source line operations are structure-unaware -----------
   ...family(["moveLineUp", "moveLineDown", "joinLines"], {
     verdict: "source-bug",
     wysiwyg: "preserves the structure — declines a move that would break a table",
@@ -109,7 +109,7 @@ export const PARITY_DIVERGENCES: Record<string, ParityDivergence> = {
       "In source mode a table is just lines, so moveLineUp hoists a body row above the `| --- |` delimiter and joinLines fuses two rows into `| a | b | | c | d |` — neither result parses as a table. The same blindness mangles blank-line separators between paragraphs. WYSIWYG now operates on the real line unit and explicitly refuses to displace a table's header row, so it is the correct side; source needs to learn the structure or decline inside one.",
   }),
 
-  // ---- Root cause 6: WYSIWYG removeList leaves a lazy continuation ----------
+  // ---- Root cause 5: source removeList leaves a lazy continuation ----------
   removeList: {
     action: "removeList",
     verdict: "source-bug",
@@ -120,7 +120,7 @@ export const PARITY_DIVERGENCES: Record<string, ParityDivergence> = {
       "Stripping the marker from a middle item turns that line into a lazy continuation of the item above, so `- one` / `two brown` / `- three` re-parses as a two-item list whose first item is 'one two brown'. The text never leaves the list, which is the one thing the action promises. WYSIWYG lifts it out correctly. Surfaced only after the fixtures grew a multi-item list — a single-item list cannot tell the two apart.",
   },
 
-  // ---- Root cause 7: source alignLeft omits the alignment colon -------------
+  // ---- Root cause 6: source alignLeft omits the alignment colon -------------
   ...family(["alignLeft", "alignAllLeft"], {
     verdict: "source-bug",
     wysiwyg: "writes an explicit `:---` marker",
@@ -130,7 +130,7 @@ export const PARITY_DIVERGENCES: Record<string, ParityDivergence> = {
       "Left is markdown's default alignment, so source treats 'align left' as 'remove alignment'. The result is that the column carries no explicit alignment, the toolbar's active state disagrees between modes, and a later alignment change starts from a different place. alignCenter and alignRight agree in both surfaces, which is why this shows up only on the left variants.",
   }),
 
-  // ---- Root cause 8: source formatCJK does nothing on a range --------------
+  // ---- Root cause 7: source formatCJK does nothing on a range --------------
   formatCJK: {
     action: "formatCJK",
     verdict: "source-bug",
@@ -139,17 +139,6 @@ export const PARITY_DIVERGENCES: Record<string, ParityDivergence> = {
     rootCause: "source-formatcjk-noop-on-range",
     reason:
       "CJK formatting is a headline feature, and in source mode the toolbar action is a no-op on a range selection while WYSIWYG applies it. Whatever the intended scope is (selection, line, or document), both surfaces must agree.",
-  },
-
-  // ---- Root cause 9: blockquote-inside-table mishandled by both ------------
-  insertBlockquote: {
-    action: "insertBlockquote",
-    verdict: "both-wrong",
-    wysiwyg: "clears the cell's content, leaving an empty cell",
-    source: "prepends `> ` to the row line, breaking the table",
-    rootCause: "blockquote-in-table-unhandled",
-    reason:
-      "Neither surface handles 'quote this' with the caret inside a table cell: WYSIWYG destroys the cell text, source destroys the table. The action should be unavailable there — which is an enable-rule fix in `enableRules.ts` rather than an adapter fix, so it also needs a row in the toolbar-state tests.",
   },
 
   // ---- Independent divergences ---------------------------------------------

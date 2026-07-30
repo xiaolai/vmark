@@ -159,3 +159,71 @@ describe("convertToHeading", () => {
     view.destroy();
   });
 });
+
+// ---------- block markers already on the line ----------
+
+/**
+ * Converting a line to a heading has to reckon with what is already at its
+ * start. The helpers used to strip only an existing `#` run, so a list item
+ * became `# - text` — a heading whose text begins with a bullet — and a
+ * blockquote became `# > text`, a heading CONTAINING a literal `>`, destroying
+ * the quote. WYSIWYG replaces the list marker and keeps the quote wrapper;
+ * these cases pin that contract for Source.
+ */
+describe("heading conversion over existing block markers", () => {
+  function convert(doc: string, cursor: number, level: number): string {
+    const view = createView(doc, cursor);
+    convertToHeading(view, level);
+    const out = view.state.doc.toString();
+    view.destroy();
+    return out;
+  }
+
+  it.each([
+    { name: "bullet item", doc: "- The quick brown fox", expected: "# The quick brown fox" },
+    { name: "star bullet", doc: "* The quick brown fox", expected: "# The quick brown fox" },
+    { name: "ordered item", doc: "1. The quick brown fox", expected: "# The quick brown fox" },
+    { name: "ordered paren", doc: "1) The quick brown fox", expected: "# The quick brown fox" },
+    { name: "task item", doc: "- [ ] The quick brown fox", expected: "# The quick brown fox" },
+    { name: "checked task", doc: "- [x] The quick brown fox", expected: "# The quick brown fox" },
+    { name: "indented item", doc: "  - The quick brown fox", expected: "# The quick brown fox" },
+  ])("replaces a $name marker rather than heading it", ({ doc, expected }) => {
+    expect(convert(doc, doc.length - 1, 1)).toBe(expected);
+  });
+
+  it.each([
+    { name: "blockquote", doc: "> The quick brown fox", expected: "> # The quick brown fox" },
+    { name: "nested blockquote", doc: "> > The quick brown fox", expected: "> > # The quick brown fox" },
+    { name: "quoted list item", doc: "> - The quick brown fox", expected: "> # The quick brown fox" },
+  ])("keeps the $name wrapper and puts the heading inside", ({ doc, expected }) => {
+    expect(convert(doc, doc.length - 1, 1)).toBe(expected);
+  });
+
+  it("still replaces an existing heading run", () => {
+    expect(convert("### The quick brown fox", 8, 1)).toBe("# The quick brown fox");
+  });
+
+  it("detects a heading nested inside a blockquote", () => {
+    const view = createView("> ## Quoted heading", 10);
+    const info = getHeadingInfo(view);
+    expect(info).not.toBeNull();
+    expect(info!.level).toBe(2);
+    view.destroy();
+  });
+
+  it("steps a quoted heading without losing the quote", () => {
+    const view = createView("> ## Quoted heading", 10);
+    const info = getHeadingInfo(view);
+    setHeadingLevel(view, info!, 3);
+    expect(view.state.doc.toString()).toBe("> ### Quoted heading");
+    view.destroy();
+  });
+
+  it("returns a quoted heading to a paragraph inside its quote", () => {
+    const view = createView("> # Quoted heading", 10);
+    const info = getHeadingInfo(view);
+    setHeadingLevel(view, info!, 0);
+    expect(view.state.doc.toString()).toBe("> Quoted heading");
+    view.destroy();
+  });
+});
