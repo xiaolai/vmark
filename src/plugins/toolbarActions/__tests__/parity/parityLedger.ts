@@ -109,25 +109,25 @@ export const PARITY_DIVERGENCES: Record<string, ParityDivergence> = {
       "wysiwygAdapterFormatting and sourceBlockActions read the word 'increase' in opposite directions. Each is internally coherent and each pairs correctly with its own inverse, so neither is wrong in isolation — which is exactly why no single-surface test could catch it. From an H3 the same toolbar button gives H2 in one mode and H4 in the other. Decide which reading the menu label means, then flip one pair; the two entries must move together.",
   }),
 
-  // ---- Root cause 5: source line operations are table-unaware ---------------
+  // ---- Root cause 5: source line operations are structure-unaware -----------
   ...family(["moveLineUp", "moveLineDown", "joinLines"], {
     verdict: "source-bug",
-    wysiwyg: "no-op inside a table — the structure is preserved",
-    source: "rows are reordered or merged across the delimiter row, breaking the table",
-    rootCause: "source-line-ops-table-unaware",
+    wysiwyg: "preserves the structure — declines a move that would break a table",
+    source: "rows reordered across the delimiter, rows fused, blank-line separators mangled",
+    rootCause: "source-line-ops-structure-unaware",
     reason:
-      "In source mode a table is just lines, so moveLineUp can hoist a body row above the `| --- |` delimiter and joinLines can fuse two rows into `| a | b | | c | d |`. Both leave markdown that no longer parses as a table. WYSIWYG declines the operation instead. Either teach the source line ops about table structure or decline inside one.",
+      "In source mode a table is just lines, so moveLineUp hoists a body row above the `| --- |` delimiter and joinLines fuses two rows into `| a | b | | c | d |` — neither result parses as a table. The same blindness mangles blank-line separators between paragraphs. WYSIWYG now operates on the real line unit and explicitly refuses to displace a table's header row, so it is the correct side; source needs to learn the structure or decline inside one.",
   }),
 
-  // ---- Root cause 6: WYSIWYG deleteLine deletes the whole table -------------
-  deleteLine: {
-    action: "deleteLine",
-    verdict: "wysiwyg-bug",
-    wysiwyg: "with the caret in a table cell, the ENTIRE TABLE is deleted",
-    source: "only the current row is deleted, leaving a valid table",
-    rootCause: "wysiwyg-deleteline-deletes-table",
+  // ---- Root cause 6: WYSIWYG removeList leaves a lazy continuation ----------
+  removeList: {
+    action: "removeList",
+    verdict: "source-bug",
+    wysiwyg: "the item is lifted out of the list and becomes its own paragraph",
+    source: "only the `- ` marker is stripped, leaving the text INSIDE the list",
+    rootCause: "source-removelist-leaves-continuation",
     reason:
-      "The worst divergence found: deleteLine with the cursor in a table cell empties the document in WYSIWYG mode, and useTiptapFlush persists that on the next edit. Source deletes one row, which is what the action name implies. Source is correct.",
+      "Stripping the marker from a middle item turns that line into a lazy continuation of the item above, so `- one` / `two brown` / `- three` re-parses as a two-item list whose first item is 'one two brown'. The text never leaves the list, which is the one thing the action promises. WYSIWYG lifts it out correctly. Surfaced only after the fixtures grew a multi-item list — a single-item list cannot tell the two apart.",
   },
 
   // ---- Root cause 7: source alignLeft omits the alignment colon -------------
@@ -165,12 +165,12 @@ export const PARITY_DIVERGENCES: Record<string, ParityDivergence> = {
   // ---- Independent divergences ---------------------------------------------
   duplicateLine: {
     action: "duplicateLine",
-    verdict: "wysiwyg-bug",
+    verdict: "both-defensible",
     wysiwyg: "two PARAGRAPHS — a blank line separates the copies",
-    source: "two LINES within one paragraph",
-    rootCause: "duplicateline-block-vs-line",
+    source: "two LINES within one paragraph, joined by a soft break",
+    rootCause: "duplicateline-block-vs-softbreak",
     reason:
-      "The action is named duplicateLine and source duplicates a line. WYSIWYG duplicates the whole block and produces a second paragraph, so the documents genuinely differ — one block versus two. Source matches the name.",
+      "Now confined to plain paragraphs: the table, list and blockquote cases converged once WYSIWYG stopped operating on the top-level container. What remains is a real representational gap rather than a bug — a markdown soft line break is a LINE in source mode but not a BLOCK in WYSIWYG, so 'duplicate this line' has no single meaning for a soft-wrapped paragraph. Converging means deciding whether WYSIWYG should insert a hard break instead of a paragraph split.",
   },
   insertCodeBlock: {
     action: "insertCodeBlock",
@@ -202,8 +202,13 @@ export const PARITY_DIVERGENCES: Record<string, ParityDivergence> = {
  * expansion means the two surfaces drifted apart again, which is what this gate
  * exists to catch.
  *
- * History: 12 at 33 actions compared; 31 at 63, after coverage expanded from 33
- * to 63 and `MAX_UNCOVERED_ACTIONS` fell from 50 to 20.
+ * History:
+ *   12 — at 33 actions compared.
+ *   31 — at 63 actions, after `MAX_UNCOVERED_ACTIONS` fell from 50 to 20.
+ *   31 — `deleteLine` CONVERGED (the WYSIWYG line operations now resolve the
+ *        real line unit instead of the top-level block, so deleting a table row
+ *        no longer deletes the table); `removeList` newly surfaced once the
+ *        fixtures grew multi-line structures. One out, one in.
  *
  * 31 entries is far fewer than 31 fixes — they collapse into 9 root causes, and
  * the largest (`source-inserts-block-at-caret`, 12 actions) is one insertion

@@ -1,19 +1,29 @@
 /**
- * WYSIWYG Adapter - Block Operations
+ * WYSIWYG Adapter - Line Operations
  *
- * Purpose: Block-level editing operations for WYSIWYG mode — the ProseMirror
- * equivalents of source-mode line operations. Includes move up/down, duplicate,
- * delete, join, and remove blank lines.
+ * Purpose: the ProseMirror equivalents of Source mode's line operations — move
+ * up/down, duplicate, delete, join, and remove blank lines.
  *
- * @coordinates-with wysiwygAdapter.ts — main dispatcher delegates block operations here
- * @coordinates-with sourceAdapter.ts — parallel line operations for Source mode
+ * Key decisions:
+ *   - The target is the LINE UNIT at the cursor, resolved by `wysiwygLineUnit`,
+ *     not the top-level block. Hardcoding the top-level block is what made
+ *     `deleteLine` in a table cell delete the entire table.
+ *   - A deletion widens outward past ancestors it would leave empty, so removing
+ *     the only item of a list removes the list rather than leaving a bare `-`.
+ *   - Row moves refuse to displace a table's header, because markdown's
+ *     delimiter row must stay directly beneath it.
+ *
+ * @coordinates-with wysiwygAdapter.ts — main dispatcher delegates line operations here
+ * @coordinates-with wysiwygLineUnit.ts — resolves which node is "the line"
+ * @coordinates-with sourceAdapter.ts — the line-oriented surface this mirrors
  * @module plugins/toolbarActions/wysiwygAdapterBlockOps
  */
 import { Selection } from "@tiptap/pm/state";
 import type { WysiwygToolbarContext } from "./types";
+import { collapseEmptyAncestors, isTableHeaderRow, lineUnitDepth } from "./wysiwygLineUnit";
 
 /**
- * Move the current top-level block up (swap with previous sibling).
+ * Move the line unit at the cursor up (swap with its previous sibling).
  */
 export function handleWysiwygMoveBlockUp(context: WysiwygToolbarContext): boolean {
   const { view, editor } = context;
@@ -23,7 +33,7 @@ export function handleWysiwygMoveBlockUp(context: WysiwygToolbarContext): boolea
   const { $from } = state.selection;
 
   // Find current block's position in doc
-  const blockDepth = $from.depth > 0 ? 1 : 0;
+  const blockDepth = lineUnitDepth($from);
   if (blockDepth === 0) return false;
 
   const blockIndex = $from.index(blockDepth - 1);
@@ -32,6 +42,7 @@ export function handleWysiwygMoveBlockUp(context: WysiwygToolbarContext): boolea
 
   // Get parent and swap with previous sibling
   const parent = $from.node(blockDepth - 1);
+  if (isTableHeaderRow(parent, blockIndex - 1)) return false; // never displace the header
   const prevBlock = parent.child(blockIndex - 1);
   const currentBlock = parent.child(blockIndex);
 
@@ -64,13 +75,14 @@ export function handleWysiwygMoveBlockDown(context: WysiwygToolbarContext): bool
   const { state, dispatch } = view;
   const { $from } = state.selection;
 
-  const blockDepth = $from.depth > 0 ? 1 : 0;
+  const blockDepth = lineUnitDepth($from);
   if (blockDepth === 0) return false;
 
   const blockIndex = $from.index(blockDepth - 1);
   const parent = $from.node(blockDepth - 1);
 
   if (blockIndex >= parent.childCount - 1) return false; // Already at bottom
+  if (isTableHeaderRow(parent, blockIndex)) return false; // the header stays first
 
   const currentBlock = parent.child(blockIndex);
   const nextBlock = parent.child(blockIndex + 1);
@@ -105,7 +117,7 @@ export function handleWysiwygDuplicateBlock(context: WysiwygToolbarContext): boo
   const { state, dispatch } = view;
   const { $from } = state.selection;
 
-  const blockDepth = $from.depth > 0 ? 1 : 0;
+  const blockDepth = lineUnitDepth($from);
   if (blockDepth === 0) return false;
 
   const blockIndex = $from.index(blockDepth - 1);
@@ -137,11 +149,12 @@ export function handleWysiwygDeleteBlock(context: WysiwygToolbarContext): boolea
   const { state, dispatch } = view;
   const { $from } = state.selection;
 
-  const blockDepth = $from.depth > 0 ? 1 : 0;
+  const blockDepth = lineUnitDepth($from);
   if (blockDepth === 0) return false;
 
-  const blockStart = $from.before(blockDepth);
-  const blockEnd = $from.after(blockDepth);
+  const deleteDepth = collapseEmptyAncestors($from, blockDepth);
+  const blockStart = $from.before(deleteDepth);
+  const blockEnd = $from.after(deleteDepth);
 
   const tr = state.tr;
   tr.delete(blockStart, blockEnd);
