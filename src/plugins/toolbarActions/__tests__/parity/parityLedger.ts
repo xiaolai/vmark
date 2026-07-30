@@ -150,15 +150,6 @@ export const PARITY_DIVERGENCES: Record<string, ParityDivergence> = {
     reason:
       "The convert-versus-insert disagreement is RESOLVED, and it was never really ambiguous: the public action id is `codeBlock`, a block toggle; the command registry routes it here; and the user guide promises 'Convert to code'. Only this adapter's internal name said 'insert'. Source now converts the current block, or the selected lines, and emits `plaintext` to match WYSIWYG's `defaultLanguage` — which exists to stop `lowlight.highlightAuto()` mis-detecting, so omitting it would leave the two surfaces producing different documents. What remains is scope: WYSIWYG folds a whole list or a multi-block selection into ONE fence, source converts the paragraph it is in.",
   },
-  outdent: {
-    action: "outdent",
-    verdict: "both-defensible",
-    wysiwyg: "a top-level list item is lifted OUT of the list, becoming a paragraph",
-    source: "a top-level list item is left unchanged",
-    rootCause: "outdent-at-outermost-level",
-    reason:
-      "Disagreement about what outdent means at the outermost level: WYSIWYG treats it as 'remove one level of structure', source as 'no level left to remove'. Both are common editor conventions, so this needs a decision rather than a fix.",
-  },
 };
 
 /**
@@ -186,9 +177,11 @@ export const PARITY_DIVERGENCES: Record<string, ParityDivergence> = {
  *   28 — `alignLeft` and `alignAllLeft` CONVERGED: source now writes an
  *        explicit `:---` when left alignment is REQUESTED, while table
  *        re-formatting still leaves an unaligned column alone.
+ *   27 — `outdent` CONVERGED: WYSIWYG stopped lifting a TOP-LEVEL item out of
+ *        its list, which is what Remove List and the toggles are for.
  *
  * 31 entries is far fewer than 31 fixes — they collapse into 9 root causes, and
  * the largest (`source-inserts-block-at-caret`, 12 actions) is one insertion
  * helper.
  */
-export const MAX_PARITY_DIVERGENCES = 28;
+export const MAX_PARITY_DIVERGENCES = 27;

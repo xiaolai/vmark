@@ -93,7 +93,7 @@ describe("list operation functions", () => {
     expect(view.focus).toHaveBeenCalled();
   });
 
-  it("handleListOutdent lifts list item when in a list (lines 94-95)", async () => {
+  it("handleListOutdent declines at the OUTERMOST list level", async () => {
     const { handleListOutdent } = await import("./nodeActions.tiptap");
 
     const li = testSchema.node("listItem", null, [p("Item")]);
@@ -119,8 +119,8 @@ describe("list operation functions", () => {
       dispatch: vi.fn(),
     } as unknown as import("@tiptap/pm/view").EditorView;
 
-    handleListOutdent(view);
-    expect(view.focus).toHaveBeenCalled();
+    expect(handleListOutdent(view)).toBe(false);
+    expect(view.dispatch).not.toHaveBeenCalled();
   });
 
   it("handleListOutdent does nothing without listItem type", async () => {

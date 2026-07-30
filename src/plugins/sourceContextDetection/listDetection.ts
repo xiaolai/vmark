@@ -115,10 +115,8 @@ export function indentListItem(view: EditorView, info: ListItemInfo): void {
   view.focus();
 }
 
-/**
- * Outdent a list item by removing up to tabSize spaces.
- */
-export function outdentListItem(view: EditorView, info: ListItemInfo): void {
+/** Outdent by up to tabSize spaces. False at the outermost level. */
+export function outdentListItem(view: EditorView, info: ListItemInfo): boolean {
   const { state, dispatch } = view;
   const line = state.doc.lineAt(info.lineStart);
   const lineText = line.text;
@@ -126,12 +124,13 @@ export function outdentListItem(view: EditorView, info: ListItemInfo): void {
 
   // Find leading spaces (up to tabSize)
   const match = lineText.match(new RegExp(`^(\\s{1,${tabSize}})`));
-  if (!match) return; // No indentation to remove
+  if (!match) return false; // Outermost level — nothing to remove
 
   const spacesToRemove = match[1].length;
   const changes = { from: info.lineStart, to: info.lineStart + spacesToRemove };
   dispatch(state.update({ changes, scrollIntoView: true }));
   view.focus();
+  return true;
 }
 
 /**

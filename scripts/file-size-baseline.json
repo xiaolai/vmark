@@ -89,7 +89,7 @@
     "src/plugins/search/tiptap.ts": 337,
     "src/plugins/sourceContextDetection/cursorContext.ts": 310,
     "src/plugins/sourceContextDetection/footnoteActions.ts": 436,
-    "src/plugins/sourceContextDetection/listDetection.ts": 339,
+    "src/plugins/sourceContextDetection/listDetection.ts": 338,
     "src/plugins/sourceContextDetection/tableActions.ts": 381,
     "src/plugins/sourcePopup/SourcePopupView.ts": 358,
     "src/plugins/sourcePopup/createSourcePopupPlugin.ts": 344,
