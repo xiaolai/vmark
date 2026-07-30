@@ -10,7 +10,7 @@ vi.mock("sonner", () => ({
 }));
 
 beforeEach(() => {
-  useTabStore.setState({ tabs: {}, activeTabId: {}, untitledCounter: 0, closedTabs: {} });
+  useTabStore.setState({ tabs: {}, activeTabId: {}, untitledCounter: 0 });
 });
 
 describe("browser automation provenance", () => {

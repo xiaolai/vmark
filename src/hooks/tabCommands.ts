@@ -18,6 +18,7 @@ import { useDocumentStore } from "@/stores/documentStore";
 import { useUIStore } from "@/stores/uiStore";
 import { closeTabWithDirtyCheck } from "@/hooks/useTabOperations";
 import { cycleTabId } from "@/utils/tabCycling";
+import { visibleWindowTabs } from "@/hooks/useVisibleWindowTabs";
 import { fileOpsError } from "@/utils/debug";
 import i18n from "@/i18n";
 
@@ -52,7 +53,9 @@ function buildTabCommandSpecs(): CommandDefinition[] {
       run: (_a, ctx: Ctx) => {
         const windowLabel = wl(ctx);
         const tabState = useTabStore.getState();
-        const ids = (tabState.tabs[windowLabel] ?? []).map((t) => t.id);
+        // WI-4R: cycle only the VISIBLE projection — hidden instances' tabs
+        // are unreachable by next/prev (rail off = full list, unchanged).
+        const ids = visibleWindowTabs(windowLabel).map((t) => t.id);
         const target = cycleTabId(ids, tabState.activeTabId[windowLabel] ?? null, direction);
         if (target) tabState.setActiveTab(windowLabel, target);
       },

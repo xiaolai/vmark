@@ -53,12 +53,12 @@ export function registerWorkspaceTool(server: VMarkMcpServer): void {
         'File and window lifecycle. Use these for everything that is not in-document mutation: creating, opening, saving, closing files; switching tabs; focusing windows.\n\n' +
         'Actions:\n' +
         '- new: Create a new untitled tab. Args: {kind?, windowLabel?}. Returns {tabId}.\n' +
-        '- open: Open a FILE from disk into a tab. Args: {filePath, windowLabel?}. Returns {tabId}.\n' +
+        '- open: Open a FILE from disk into a BACKGROUND tab — the user\'s visible tab and workspace do not change. Args: {filePath, windowLabel?}. Returns {tabId, workspaceInstanceId, activationChanged, workspaceSwitched}. Chain the returned tabId into document/selection calls; use switch_tab only when the user should SEE the tab.\n' +
         '- open_workspace: Open a FOLDER as the active workspace (grants access to its file tree). Args: {folderPath, windowLabel?}. REQUIRES USER APPROVAL: the first call returns {needsApproval: true}; ask the user, then retry the SAME call to proceed. A denied request keeps failing until re-approved.\n' +
         '- save: Save a tab to its existing path. Args: {tabId?}. Returns {filePath, revision}.\n' +
         '- save_as: Save a tab to a new path. Args: {tabId?, filePath}. Returns {revision}.\n' +
         '- close: Close a tab. Args: {tabId, force?}. Refuses to close a dirty tab unless `force: true`; returns {closed: false, reason: "DIRTY"} in that case.\n' +
-        '- switch_tab: Activate a tab. Args: {tabId}.\n' +
+        '- switch_tab: Activate a tab and make it VISIBLE — this may switch the user\'s active workspace context (disclosed via workspaceSwitched: true in the result; tell the user when it happens). Args: {tabId}. Returns {activated, workspaceSwitched, workspaceInstanceId, activeTabId}.\n' +
         '- focus_window: Focus a specific window. Args: {windowLabel}.',
       inputSchema: {
         action: z

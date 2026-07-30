@@ -37,11 +37,11 @@
 import { useState, useCallback, useRef, useEffect, forwardRef, useImperativeHandle } from "react";
 import { useTranslation } from "react-i18next";
 import { Tree, type TreeApi } from "react-arborist";
-import { Folder } from "lucide-react";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { useFileTree } from "./useFileTree";
 import { useExplorerOperations } from "./useExplorerOperations";
-import { useFileExplorerOpenState } from "./useFileExplorerOpenState";
+import { useFileExplorerOpenState, useExplorerWorkspaceInstance } from "./useFileExplorerOpenState";
+import { FileExplorerEmptyState, FileExplorerWorkspaceHeader } from "./FileExplorerEmptyState";
 import { FileNode } from "./FileNode";
 import {
   ContextMenu,
@@ -118,10 +118,14 @@ export const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(
   // Workspace-only: no inferred root from file path
   const rootPath = isWorkspaceMode ? workspaceRootPath : null;
 
+  // WI-9.2: with the rail on, folder/scroll state is per workspace instance.
+  const workspaceInstanceId = useExplorerWorkspaceInstance(windowLabel);
+  const treeElRef = useRef<HTMLDivElement | null>(null);
+
   // Persisted folder open state — preserved across sidebar view-mode switches
   // (react-arborist unmounts on viewMode change, losing internal state otherwise).
-  const { initialOpenState, handleToggle, collapseAll, expandAll } =
-    useFileExplorerOpenState(treeRef);
+  const { initialOpenState, handleToggle, collapseAll, expandAll, handleTreeScroll, restoreScroll } =
+    useFileExplorerOpenState(treeRef, workspaceInstanceId);
 
   // Path of a just-created entry awaiting inline rename; see createEntryAndEdit.
   const [pendingEditPath, setPendingEditPath] = useState<string | null>(null);
@@ -132,6 +136,10 @@ export const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(
     showAllFiles,
     watchId: windowLabel,
   });
+
+  // WI-9.2: restore the incoming instance's saved scroll once tree data is in.
+  useEffect(() => { if (!isLoading) restoreScroll(treeElRef.current); },
+    [workspaceInstanceId, isLoading, restoreScroll]);
   const {
     createFile,
     createFolder,
@@ -355,36 +363,26 @@ export const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(
     ? getFileName(workspaceRootPath) || t("workspaceFallback")
     : null;
 
-  // Show empty state if no workspace is open
+  // Show empty state if no workspace is open (or while the tree first loads).
   if (!rootPath) {
-    return (
-      <div className="file-explorer" role="navigation" aria-label={t("aria.fileExplorer")}>
-        <div className="file-explorer-empty">
-          {t("noWorkspace")}
-        </div>
-      </div>
-    );
+    return <FileExplorerEmptyState label={t("noWorkspace")} ariaLabel={t("aria.fileExplorer")} />;
   }
-
   if (isLoading && tree.length === 0) {
-    return (
-      <div className="file-explorer" role="navigation" aria-label={t("aria.fileExplorer")}>
-        <div className="file-explorer-empty">{t("loading")}</div>
-      </div>
-    );
+    return <FileExplorerEmptyState label={t("loading")} ariaLabel={t("aria.fileExplorer")} />;
   }
 
   return (
     <div className="file-explorer" role="navigation" aria-label={t("aria.fileExplorer")}>
-      {/* Workspace header when in workspace mode */}
-      {isWorkspaceMode && workspaceName && (
-        <div className="file-explorer-workspace-header">
-          <Folder size={14} />
-          <span className="file-explorer-workspace-name">{workspaceName}</span>
-        </div>
-      )}
-      <div className="file-explorer-tree" ref={treeContainerRef} onContextMenu={handleContextMenu} onKeyDown={handleQuickLookKeyDown}>
+      <FileExplorerWorkspaceHeader name={isWorkspaceMode ? workspaceName : null} />
+      <div
+        className="file-explorer-tree"
+        ref={(el) => { treeContainerRef(el); treeElRef.current = el; }}
+        onContextMenu={handleContextMenu}
+        onKeyDown={handleQuickLookKeyDown}
+        onScrollCapture={(e) => handleTreeScroll((e.target as HTMLElement).scrollTop)}
+      >
         <Tree<FileNodeType>
+          key={workspaceInstanceId ?? "window"}
           ref={treeRef}
           data={tree}
           openByDefault={false}

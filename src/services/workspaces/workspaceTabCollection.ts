@@ -19,10 +19,8 @@ import type {
   WorkspaceTransferTabPayload,
   WorkspaceWindowOperation,
 } from "@/types/workspaceTransfer";
-import {
-  classifyWorkspaceContextForTab,
-  orderedWindowInstances,
-} from "./workspaceContextOwnership";
+import { orderedWindowInstances } from "./workspaceContextOwnership";
+import { partitionWindowTabs } from "./workspaceOwnershipKernel";
 
 export interface CollectedWorkspaceTabs {
   tabs: WorkspaceTransferTabPayload[];
@@ -98,17 +96,12 @@ export function tabBelongsToWorkspace(
   instance: WorkspaceInstanceRecord,
   activeInstanceId: string | null,
 ): boolean {
+  // Thin store-reading wrapper over the pure ownership kernel (WI-1R) — the
+  // partition rule (explicit-claim-wins across all instances, then path
+  // classification) lives in ONE place.
   const instances = orderedWindowInstances(instance.ownerWindowLabel);
-  const explicitOwner = instances.find((candidate) => candidate.tabIds.includes(tab.id));
-  if (explicitOwner) {
-    return explicitOwner.workspaceInstanceId === instance.workspaceInstanceId;
-  }
-  const owner = classifyWorkspaceContextForTab({
-    filePath: tab.filePath,
-    instances,
-    activeWorkspaceInstanceId: activeInstanceId,
-  });
-  return owner?.workspaceInstanceId === instance.workspaceInstanceId;
+  const { ownerOf } = partitionWindowTabs([tab], instances, activeInstanceId);
+  return ownerOf.get(tab.id) === instance.workspaceInstanceId;
 }
 
 /** Collect every tab owned by `instance` in `windowLabel` into a transfer payload. */

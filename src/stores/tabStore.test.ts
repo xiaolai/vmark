@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { useTabStore } from "./tabStore";
+import { WINDOW_ALL_SCOPE, useClosedTabScopesStore } from "./tabStoreClosedScopes";
+import { reopenClosedTabForActiveContext } from "@/services/workspaces/reopenClosedTab";
 import { __resetRegistry, registerFormat } from "@/lib/formats/registry";
 import { registerMarkdownFormat } from "@/lib/formats/adapters/markdown";
 import { toast } from "sonner";
@@ -34,8 +36,8 @@ function resetTabStore() {
     tabs: {},
     activeTabId: {},
     untitledCounter: 0,
-    closedTabs: {},
   });
+  useClosedTabScopesStore.getState().resetClosedScopes();
 }
 
 beforeEach(() => {
@@ -240,19 +242,19 @@ describe("tabStore", () => {
       expect(store.getActiveTab("main")?.id).toBe(id2);
     });
 
-    it("adds to closed tabs history", () => {
+    it("records the close into the scoped reopen history (WI-11.1)", () => {
       const store = useTabStore.getState();
 
       const id = store.createTab("main", "/file.md");
       store.createTab("main", "/file2.md"); // Need another tab to close first one
       store.closeTab("main", id);
 
-      const state = useTabStore.getState();
-      expect(state.closedTabs["main"]).toHaveLength(1);
-      expect(state.closedTabs["main"][0].filePath).toBe("/file.md");
+      expect(
+        useClosedTabScopesStore.getState().closedIdsForScope("main", WINDOW_ALL_SCOPE),
+      ).toEqual([id]);
     });
 
-    it("limits closed history to 10 items", () => {
+    it("limits the scoped history to 10 items", () => {
       const store = useTabStore.getState();
 
       // Create 12 tabs
@@ -266,8 +268,9 @@ describe("tabStore", () => {
         store.closeTab("main", tabs[i].id);
       }
 
-      const state = useTabStore.getState();
-      expect(state.closedTabs["main"]).toHaveLength(10);
+      expect(
+        useClosedTabScopesStore.getState().closedIdsForScope("main", WINDOW_ALL_SCOPE),
+      ).toHaveLength(10);
     });
 
     it("sets active to null when closing last tab", () => {
@@ -355,7 +358,7 @@ describe("tabStore", () => {
     });
   });
 
-  describe("reopenClosedTab", () => {
+  describe("reopenClosedTabForActiveContext (WI-11.2)", () => {
     it("reopens most recently closed tab", () => {
       const store = useTabStore.getState();
 
@@ -363,30 +366,27 @@ describe("tabStore", () => {
       store.createTab("main", "/file2.md");
       store.closeTab("main", id1);
 
-      const reopened = store.reopenClosedTab("main");
+      const reopened = reopenClosedTabForActiveContext("main");
 
-      expect(reopened?.filePath).toBe("/file1.md");
+      expect((reopened as { filePath: string | null } | null)?.filePath).toBe("/file1.md");
     });
 
-    it("removes from closed history", () => {
+    it("removes the reopened entry from the scoped history", () => {
       const store = useTabStore.getState();
 
       const id1 = store.createTab("main", "/file1.md");
       store.createTab("main", "/file2.md");
       store.closeTab("main", id1);
 
-      store.reopenClosedTab("main");
+      reopenClosedTabForActiveContext("main");
 
-      const state = useTabStore.getState();
-      expect(state.closedTabs["main"]).toHaveLength(0);
+      expect(
+        useClosedTabScopesStore.getState().closedIdsForScope("main", WINDOW_ALL_SCOPE),
+      ).toHaveLength(0);
     });
 
     it("returns null when history empty", () => {
-      const store = useTabStore.getState();
-
-      const result = store.reopenClosedTab("main");
-
-      expect(result).toBeNull();
+      expect(reopenClosedTabForActiveContext("main")).toBeNull();
     });
 
     it("activates reopened tab", () => {
@@ -396,7 +396,7 @@ describe("tabStore", () => {
       store.createTab("main", "/file2.md");
       store.closeTab("main", id1);
 
-      const reopened = store.reopenClosedTab("main");
+      const reopened = reopenClosedTabForActiveContext("main");
 
       expect(store.getActiveTab("main")?.id).toBe(reopened?.id);
     });
@@ -411,11 +411,11 @@ describe("tabStore", () => {
       store.closeTab("main", id1);
       store.closeTab("main", id2);
 
-      const first = store.reopenClosedTab("main");
-      const second = store.reopenClosedTab("main");
+      const first = reopenClosedTabForActiveContext("main");
+      const second = reopenClosedTabForActiveContext("main");
 
-      expect(first?.filePath).toBe("/file2.md");
-      expect(second?.filePath).toBe("/file1.md");
+      expect((first as { filePath: string | null } | null)?.filePath).toBe("/file2.md");
+      expect((second as { filePath: string | null } | null)?.filePath).toBe("/file1.md");
     });
   });
 
@@ -537,7 +537,6 @@ describe("tabStore", () => {
       const state = useTabStore.getState();
       expect(state.tabs["main"]).toBeUndefined();
       expect(state.activeTabId["main"]).toBeUndefined();
-      expect(state.closedTabs["main"]).toBeUndefined();
     });
 
     it("does not affect other windows", () => {
@@ -713,8 +712,9 @@ describe("tabStore", () => {
       store.detachTab("main", id1);
 
       expect(store.getTabsByWindow("main")).toHaveLength(1);
-      const state = useTabStore.getState();
-      expect(state.closedTabs["main"] ?? []).toHaveLength(0);
+      expect(
+        useClosedTabScopesStore.getState().closedIdsForScope("main", WINDOW_ALL_SCOPE),
+      ).toHaveLength(0);
     });
 
     it("activates adjacent tab when detaching active tab", () => {
