@@ -6,23 +6,13 @@
  * selection-aware block builders (details, alerts, math, diagram fences).
  *
  * Key decisions:
- *   - BLOCK content never goes in at the caret. `insertBlockText` opens a line
- *     below the cursor's line, because splicing at the caret produced
- *     `The quick ---` and alerts that split a sentence in half.
- *   - The selection-consuming builders are the exception: they fold the
- *     selection into the block, so they must REPLACE it via
- *     `replaceLinesWithBlock` or the original text is left behind and
- *     duplicated inside the block.
- *   - A list marker belongs to the line, not the cursor, so it is prepended
- *     after the line's indentation — and INSIDE any blockquote wrapper, since
- *     the list belongs to the quoted content. A heading run is replaced,
- *     because a line cannot be a heading and a list item at once.
+ *   - WHERE a block lands is `sourceBlockPlacement`'s concern, not this file's.
  *   - `insertCodeBlock` CONVERTS the current block rather than inserting an
  *     empty fence: the public action is the `codeBlock` toggle and the guide
  *     promises "Convert to code". Only the name here says insert.
  *
  * @coordinates-with sourceAdapter.ts — dispatcher routes insert actions here
- * @coordinates-with sourceAdapterHelpers.ts — the three placement helpers
+ * @coordinates-with sourceBlockPlacement.ts — the placement helpers
  * @coordinates-with sourceInsertions.ts — pure block builders (selection-preserving)
  * @module plugins/toolbarActions/sourceInsertActions
  */
@@ -34,7 +24,8 @@ import {
   type InsertionResult,
 } from "@/plugins/sourceContextDetection/sourceInsertions";
 import { toggleBlockquote } from "@/plugins/sourceContextDetection/blockquoteActions";
-import { insertBlockText, prependLineMarker, replaceLinesWithBlock, applyInlineFormat } from "./sourceAdapterHelpers";
+import { applyInlineFormat } from "./sourceAdapterHelpers";
+import { insertBlockText, prependLineMarker, replaceLinesWithBlock } from "./sourceBlockPlacement";
 
 const TABLE_TEMPLATE = "| Header 1 | Header 2 |\n| --- | --- |\n| Cell 1 | Cell 2 |\n";
 
