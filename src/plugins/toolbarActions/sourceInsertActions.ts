@@ -14,7 +14,9 @@
  *     `replaceLinesWithBlock` or the original text is left behind and
  *     duplicated inside the block.
  *   - A list marker belongs to the line, not the cursor, so it is prepended
- *     after the line's indentation.
+ *     after the line's indentation — and INSIDE any blockquote wrapper, since
+ *     the list belongs to the quoted content. A heading run is replaced,
+ *     because a line cannot be a heading and a list item at once.
  *   - `insertCodeBlock` CONVERTS the current block rather than inserting an
  *     empty fence: the public action is the `codeBlock` toggle and the guide
  *     promises "Convert to code". Only the name here says insert.
@@ -116,8 +118,7 @@ export function insertTable(view: EditorView): boolean {
 }
 
 export function insertListMarker(view: EditorView, marker: string): boolean {
-  prependLineMarker(view, marker);
-  return true;
+  return prependLineMarker(view, marker);
 }
 
 /** Insert a block built from the current selection (details/math/diagram fences). */

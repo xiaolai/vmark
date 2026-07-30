@@ -5,6 +5,11 @@
  * mode toolbar actions. Action IDs are typed unions so the switches are
  * exhaustive — no defensive default branches.
  *
+ * Key decisions:
+ *   - A list action re-applied to its OWN type turns the list off, matching
+ *     WYSIWYG. Without that branch the toolbar button was one-way in Source
+ *     mode alone.
+ *
  * @coordinates-with sourceAdapter.ts — dispatcher narrows action IDs and routes here
  * @coordinates-with sourceMultiSelection.ts — multi-cursor variants short-circuit first
  * @module plugins/toolbarActions/sourceBlockActions
@@ -87,13 +92,18 @@ export function handleListAction(view: EditorView, action: SourceListAction): bo
   if (info) {
     switch (action) {
       case "bulletList":
-        toBulletList(view, info);
+        // Re-applying the SAME list type turns the list off, as WYSIWYG does.
+        // Source used to no-op, so the button was one-way in Source mode only.
+        if (info.type === "bullet") removeList(view, info);
+        else toBulletList(view, info);
         return true;
       case "orderedList":
-        toOrderedList(view, info);
+        if (info.type === "ordered") removeList(view, info);
+        else toOrderedList(view, info);
         return true;
       case "taskList":
-        toTaskList(view, info);
+        if (info.type === "task") removeList(view, info);
+        else toTaskList(view, info);
         return true;
       case "indent":
         indentListItem(view, info);

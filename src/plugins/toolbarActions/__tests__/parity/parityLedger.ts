@@ -79,14 +79,14 @@ export const PARITY_DIVERGENCES: Record<string, ParityDivergence> = {
     },
   ),
 
-  // ---- Root cause 2: list markers and the line they belong to ---------------
+  // ---- Root cause 2: toggling a list off across several items ---------------
   ...family(["bulletList", "orderedList", "taskList"], {
     verdict: "source-bug",
-    wysiwyg: "the line becomes a list item — `- The quick brown fox`",
-    source: "the marker lands at the caret — `The quick - brown fox`",
-    rootCause: "source-list-marker-at-caret",
+    wysiwyg: "lifts just the item under the cursor out of a multi-item list",
+    source: "`removeList` acts on the whole list block",
+    rootCause: "source-list-toggle-off-scope",
     reason:
-      "These three TOGGLES still route through `handleListAction`, which writes the marker at the cursor rather than at the start of the line, so toggling mid-sentence corrupts the sentence and a range selection replaces the selected word outright. The INSERT variants (`insertBulletList`/`insertOrderedList`/`insertTaskList`) were the same defect on a different path and are fixed — `prependLineMarker` puts the marker after the line's indentation, and both surfaces now produce `- The quick brown fox` on a paragraph. Pointing the toggles at the same helper is the remaining work; WYSIWYG is correct.",
+      "Four separate defects lived here and three are FIXED. The marker used to land at the caret (`The quick - brown fox`); it now goes after the line's indentation. It used to sit OUTSIDE a blockquote (`- > text`, a list containing a quote); it now nests inside (`> - text`). A heading kept its `#` run, giving `- ### text`, a bullet whose content is a heading; the run is now replaced. And re-applying the same list type did nothing, so the button was one-way in Source mode alone; it now turns the list off, as WYSIWYG does. What remains is the SCOPE of that turn-off: on a multi-item or nested list WYSIWYG lifts only the item under the cursor, while source's `removeList` unwraps the whole block. Same underlying helper as root cause 5.",
   }),
 
   // ---- Root cause 3: block conversions with the caret inside a table cell ---
