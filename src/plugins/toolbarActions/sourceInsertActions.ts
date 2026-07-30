@@ -10,6 +10,11 @@
  *   - `insertCodeBlock` CONVERTS the current block rather than inserting an
  *     empty fence: the public action is the `codeBlock` toggle and the guide
  *     promises "Convert to code". Only the name here says insert.
+ *   - The selection-consuming builders fold in the whole top-level BLOCKS the
+ *     selection spans (`shared/blockSpan`), because whole blocks are what the
+ *     insertion replaces. Folding in only the selected characters silently
+ *     deleted the rest of the line.
+ *   - Block CONTENT comes from `shared/blockTemplates`, not from literals here.
  *
  * @coordinates-with sourceAdapter.ts — dispatcher routes insert actions here
  * @coordinates-with sourceBlockPlacement.ts — the placement helpers

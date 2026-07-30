@@ -8,12 +8,16 @@
  *   - Two node types: detailsBlock (wrapper) and detailsSummary (clickable header)
  *   - Input rule triggers on `<details>` or `:::details` at line start
  *   - Click on summary toggles the open/closed state via node attribute
+ *   - A SELECTION is wrapped: the whole top-level blocks it spans become the
+ *     body. Only an empty selection inserts a blank details block.
  *   - Default summary text for new blocks comes from the
  *     shared `blockTemplates` module, so both surfaces insert the same block
  *
  * @coordinates-with codemirror/sourceDetailsDecoration.ts — Source mode visual markers
  * @coordinates-with shared/sourceLineAttr.ts — source line tracking for cursor sync
  * @coordinates-with shared/blockInsertPos.ts — depth-aware insert position
+ * @coordinates-with shared/blockTemplates.ts — summary text and open state
+ * @coordinates-with shared/wrapBlocks.ts — how far the wrap reaches
  * @module plugins/detailsBlock/tiptap
  */
 

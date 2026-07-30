@@ -15,6 +15,11 @@
  *
  * @coordinates-with sourceAdapter.ts — dispatcher narrows action IDs and routes here
  * @coordinates-with sourceMultiSelection.ts — multi-cursor variants short-circuit first
+ * Changing a list's TYPE goes through `listBlockConversion.convertListBlock`,
+ * which rewrites the whole innermost list — rewriting only the cursor's marker
+ * turned one list into three.
+ *
+ * @coordinates-with sourceContextDetection/listBlockConversion.ts — whole-list conversion
  * @module plugins/toolbarActions/sourceBlockActions
  */
 

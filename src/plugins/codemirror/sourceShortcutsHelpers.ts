@@ -8,6 +8,7 @@
  * @coordinates-with plugins/codemirror/sourceShortcuts.ts — consumes these helpers
  * @coordinates-with stores/shortcutsStore.ts — source of shortcut key definitions
  * @coordinates-with toolbarActions/sourceAdapter.ts — action execution for format operations
+ * @coordinates-with sourceContextDetection/listBlockConversion.ts — list type changes
  * @module plugins/codemirror/sourceShortcutsHelpers
  */
 
@@ -118,9 +119,8 @@ export function toggleList(view: EditorView, type: "bullet" | "ordered" | "task"
     return true;
   }
   if (info) {
-    // In a different list type - convert the WHOLE list, exactly as the toolbar
-    // button does. Rewriting only the cursor's marker split one list into three,
-    // and having the shortcut and the button disagree is its own bug.
+    // The WHOLE list, via the same helper the toolbar button uses: rewriting
+    // only the cursor's marker split one list into three.
     convertListBlock(view, type);
     return true;
   }

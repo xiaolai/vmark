@@ -7,8 +7,12 @@
  * Key decisions:
  *   - alertType attribute is validated/normalized on both parse and render to prevent
  *     invalid values from persisting (e.g., from manual HTML edits or corrupted paste)
- *   - Insertion always creates a new block after the current position with an empty paragraph
+ *   - A SELECTION is wrapped: the whole top-level blocks it spans become the
+ *     alert's content. Only an empty selection inserts a blank alert after the
+ *     current position. Ignoring the selection made this button mean one thing
+ *     in WYSIWYG and another in Source mode.
  *
+ * @coordinates-with shared/wrapBlocks.ts — how far the wrap reaches
  * @coordinates-with codemirror/sourceAlertDecoration.ts — Source mode alert rendering
  * @coordinates-with shared/sourceLineAttr.ts — source line tracking for cursor sync
  * @coordinates-with shared/blockInsertPos.ts — depth-aware insert position
