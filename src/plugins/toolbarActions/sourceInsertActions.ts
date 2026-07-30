@@ -15,6 +15,9 @@
  *     duplicated inside the block.
  *   - A list marker belongs to the line, not the cursor, so it is prepended
  *     after the line's indentation.
+ *   - `insertCodeBlock` CONVERTS the current block rather than inserting an
+ *     empty fence: the public action is the `codeBlock` toggle and the guide
+ *     promises "Convert to code". Only the name here says insert.
  *
  * @coordinates-with sourceAdapter.ts — dispatcher routes insert actions here
  * @coordinates-with sourceAdapterHelpers.ts — the three placement helpers
@@ -53,8 +56,46 @@ export function insertFootnote(view: EditorView): boolean {
   return applyInlineFormat(view, "footnote");
 }
 
+/**
+ * Convert the current block — or the selected lines — into one code block.
+ *
+ * This action is a block TOGGLE, not an insertion: the public id is `codeBlock`,
+ * the command registry maps it here, and the user guide promises "Convert to
+ * code". Only this adapter's internal name says "insert". Source used to open an
+ * empty fence and leave the paragraph alone, contradicting all three, while
+ * WYSIWYG converted.
+ *
+ * A caret expands to the surrounding block (the contiguous run of non-blank
+ * lines), matching what `setCodeBlock` converts in WYSIWYG. An empty paragraph
+ * naturally yields an empty fence, which is what the old behavior produced and
+ * why that case is unchanged.
+ *
+ * The `plaintext` language is deliberate, not noise: the WYSIWYG code-block
+ * extension is configured with `defaultLanguage: "plaintext"` to stop
+ * `lowlight.highlightAuto()` mis-detecting, so omitting it here would leave the
+ * two surfaces producing different documents for the same action.
+ */
 export function insertCodeBlock(view: EditorView): boolean {
-  insertBlockText(view, "```\n\n```", 4);
+  const { doc, selection } = view.state;
+  const { from, to } = selection.main;
+
+  let firstLine = doc.lineAt(from).number;
+  let lastLine = doc.lineAt(to).number;
+  if (from === to) {
+    while (firstLine > 1 && doc.line(firstLine - 1).text.trim() !== "") firstLine -= 1;
+    while (lastLine < doc.lines && doc.line(lastLine + 1).text.trim() !== "") lastLine += 1;
+  }
+
+  const blockFrom = doc.line(firstLine).from;
+  const blockTo = doc.line(lastLine).to;
+  const fenced = `\`\`\`plaintext\n${doc.sliceString(blockFrom, blockTo)}\n\`\`\``;
+
+  view.dispatch({
+    changes: { from: blockFrom, to: blockTo, insert: fenced },
+    // Caret onto the first line of the converted content.
+    selection: { anchor: blockFrom + "```plaintext\n".length },
+  });
+  view.focus();
   return true;
 }
 

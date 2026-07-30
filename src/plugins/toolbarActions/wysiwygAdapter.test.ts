@@ -111,6 +111,9 @@ const baseContext: WysiwygToolbarContext = {
   context: null,
 };
 
+/** A chainable editor-command stub. */
+const link = () => vi.fn().mockReturnThis();
+
 function createMockEditor(overrides?: Record<string, unknown>) {
   return {
     commands: {
@@ -119,13 +122,10 @@ function createMockEditor(overrides?: Record<string, unknown>) {
       insertAlertBlock: vi.fn(() => true),
       insertDetailsBlock: vi.fn(() => true),
     },
-    chain: vi.fn().mockReturnThis(),
-    focus: vi.fn().mockReturnThis(),
-    setParagraph: vi.fn().mockReturnThis(),
-    setHeading: vi.fn().mockReturnThis(),
-    setCodeBlock: vi.fn().mockReturnThis(),
-    setHorizontalRule: vi.fn().mockReturnThis(),
-    insertTable: vi.fn().mockReturnThis(),
+    chain: link(), focus: link(), setParagraph: link(), setHeading: link(), setCodeBlock: link(),
+    setHorizontalRule: link(), insertTable: link(), insertContentAt: link(), setTextSelection: link(),
+    // Divider/table read the selection to place the block AFTER the current one.
+    state: { selection: { $from: { depth: 0 }, $to: { pos: 0 } } },
     run: vi.fn(() => true),
     ...overrides,
   } as unknown as TiptapEditor;

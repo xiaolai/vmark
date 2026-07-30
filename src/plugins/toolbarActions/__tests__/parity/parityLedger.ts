@@ -70,12 +70,12 @@ export const PARITY_DIVERGENCES: Record<string, ParityDivergence> = {
       "insertDetails", "insertTable", "insertTableBlock",
     ],
     {
-      verdict: "both-defensible",
-      wysiwyg: "splits the current block and puts the new one between the halves",
-      source: "opens the new block on the line BELOW the cursor's line",
-      rootCause: "block-insert-placement",
+      verdict: "source-bug",
+      wysiwyg: "appends after the current block; nests the new block where the cursor is",
+      source: "appends on the next line, always at the TOP level, with different templates",
+      rootCause: "block-insert-template-and-nesting",
       reason:
-        "The corruption here is FIXED — source used to splice block markdown at the caret, yielding `The quick ---` (a paragraph ending in hyphens, not a thematic break), `The quick > [!NOTE]` splitting a sentence, and tables and <details> opening inside a paragraph. `insertBlockText` now opens a fresh line, so both surfaces emit valid markdown. What remains is a placement disagreement: WYSIWYG splits the paragraph at the cursor, source appends below it. Appending is the less destructive reading and is what WYSIWYG itself already does for alerts, so converging most likely means changing WYSIWYG's divider and table paths. Two smaller content differences ride along: `insertDetails` defaults differ (`<details open>` + 'Click to expand' versus `<details>` + 'Details'), and `insertCodeBlock` wraps the block in WYSIWYG but inserts an empty fence in source.",
+        "Two rounds of fixes landed here and neither claim below is the original one. First, source stopped splicing block markdown at the caret — it used to yield `The quick ---` (a paragraph ending in hyphens, not a thematic break) and `The quick > [!NOTE]` splitting a sentence. Then WYSIWYG's divider and table stopped SPLITTING the paragraph; both now append after the current block via `blockInsertPos`, the helper alerts and details already used. Placement in a plain paragraph therefore agrees. Three differences remain, all narrower than what they replaced: templates differ (WYSIWYG inserts an empty 2x2 table, source inserts `Header 1`/`Cell 1` placeholders; `<details open>` + 'Click to expand' versus `<details>` + 'Details'); source always inserts at the TOP level while WYSIWYG nests the new block inside the list item or quote the cursor sits in; and for a RANGE selection the alert builders fold the selection into the block in source but not in WYSIWYG. The nesting one is the real bug — inserting a divider inside a list item should stay in that item.",
     },
   ),
 
@@ -153,12 +153,12 @@ export const PARITY_DIVERGENCES: Record<string, ParityDivergence> = {
   },
   insertCodeBlock: {
     action: "insertCodeBlock",
-    verdict: "both-defensible",
-    wysiwyg: "wraps the current block: ```` ```plaintext\\n…\\n``` ````",
-    source: "inserts an EMPTY fence at the caret, splitting the line",
-    rootCause: "insertcodeblock-convert-vs-insert",
+    verdict: "source-bug",
+    wysiwyg: "folds a whole list or a multi-block selection into ONE fence",
+    source: "converts the paragraph, or the selected lines, that the cursor is in",
+    rootCause: "codeblock-conversion-scope",
     reason:
-      "Two readings: WYSIWYG converts the block to code, source inserts a new empty code block. Source's output is broken markdown when the caret is mid-line (root cause 1 again), but which reading the shared button should mean is a product decision.",
+      "The convert-versus-insert disagreement is RESOLVED, and it was never really ambiguous: the public action id is `codeBlock`, a block toggle; the command registry routes it here; and the user guide promises 'Convert to code'. Only this adapter's internal name said 'insert'. Source now converts the current block, or the selected lines, and emits `plaintext` to match WYSIWYG's `defaultLanguage` — which exists to stop `lowlight.highlightAuto()` mis-detecting, so omitting it would leave the two surfaces producing different documents. What remains is scope: WYSIWYG folds a whole list or a multi-block selection into ONE fence, source converts the paragraph it is in.",
   },
   outdent: {
     action: "outdent",
