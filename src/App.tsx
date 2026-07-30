@@ -3,7 +3,7 @@ import { FeatureErrorBoundary } from "@/components/FeatureErrorBoundary";
 import { useTranslation, withTranslation, type WithTranslation } from "react-i18next";
 import { Routes, Route } from "react-router-dom";
 import { Toaster } from "sonner";
-import { CheckCircle, XCircle, Info, AlertTriangle, Loader2 } from "lucide-react";
+import { CheckCircle, AlertCircle, Info, AlertTriangle, Loader2 } from "lucide-react";
 import { DocumentSplitContainer } from "@/components/Editor";
 import { Sidebar } from "@/components/Sidebar";
 import { SidebarResizeHandle } from "@/components/Sidebar/SidebarResizeHandle";
@@ -284,7 +284,10 @@ function App() {
           closeButton
           icons={{
             success: <CheckCircle size={16} />,
-            error: <XCircle size={16} />,
+            // AlertCircle, not XCircle: an X-in-a-circle reads as a second
+            // (bigger) close button next to sonner's own closeButton. Keeping
+            // the severity ramp as i / ! / ⚠ leaves the X unique to dismissal.
+            error: <AlertCircle size={16} />,
             info: <Info size={16} />,
             warning: <AlertTriangle size={16} />,
             loading: <Loader2 size={16} className="animate-spin" />,
