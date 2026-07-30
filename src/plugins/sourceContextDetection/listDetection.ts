@@ -214,9 +214,7 @@ export function toTaskList(view: EditorView, info: ListItemInfo): void {
  */
 const LIST_LINE_PATTERN = /^(\s*)([-*+]\s*\[[ xX]\]\s|[-*+]\s|\d+\.\s)/;
 
-/**
- * Check if a line of text is a list item (any type).
- */
+/** Check if a line of text is a list item (any type). */
 function isListLine(text: string): boolean {
   return LIST_LINE_PATTERN.test(text);
 }
@@ -326,13 +324,14 @@ export function getListBlockBounds(view: EditorView): { from: number; to: number
  */
 export function removeList(view: EditorView, info: ListItemInfo): void {
   const { state, dispatch } = view;
-  const line = state.doc.lineAt(info.lineStart);
-  const lineText = line.text;
-
-  // Get content after marker (no indentation for paragraph)
-  const content = lineText.slice(info.marker.length);
-
-  const changes = { from: info.lineStart, to: info.lineEnd, insert: content };
+  const { doc } = state;
+  const line = doc.lineAt(info.lineStart);
+  // Stripping the marker alone leaves a LAZY CONTINUATION of the item above;
+  // a blank line beside each list neighbour is what lifts the text out.
+  const pad = (n: number): string =>
+    n >= 1 && n <= doc.lines && isListLine(doc.line(n).text) ? "\n" : "";
+  const insert = `${pad(line.number - 1)}${line.text.slice(info.marker.length)}${pad(line.number + 1)}`;
+  const changes = { from: line.from, to: line.to, insert };
   dispatch(state.update({ changes, scrollIntoView: true }));
   view.focus();
 }
