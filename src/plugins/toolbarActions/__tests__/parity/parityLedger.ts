@@ -89,15 +89,16 @@ export const PARITY_DIVERGENCES: Record<string, ParityDivergence> = {
       "Four separate defects lived here and three are FIXED. The marker used to land at the caret (`The quick - brown fox`); it now goes after the line's indentation. It used to sit OUTSIDE a blockquote (`- > text`, a list containing a quote); it now nests inside (`> - text`). A heading kept its `#` run, giving `- ### text`, a bullet whose content is a heading; the run is now replaced. And re-applying the same list type did nothing, so the button was one-way in Source mode alone; it now turns the list off, as WYSIWYG does. What remains is the SCOPE of that turn-off: on a multi-item or nested list WYSIWYG lifts only the item under the cursor, while source's `removeList` unwraps the whole block. Same underlying helper as root cause 5.",
   }),
 
-  // ---- Root cause 3: block conversions with the caret inside a table cell ---
-  ...family(["heading:1", "heading:3", "heading:6", "increaseHeading", "insertBlockquote"], {
-    verdict: "both-wrong",
-    wysiwyg: "clears the cell's text, leaving an empty cell",
-    source: "prefixes the ROW line, so `# | brown cell | other |` — the table stops parsing",
-    rootCause: "block-conversion-inside-table-cell",
+  // ---- Root cause 3: quoting one line of a multi-line structure -------------
+  insertBlockquote: {
+    action: "insertBlockquote",
+    verdict: "source-bug",
+    wysiwyg: "wraps the WHOLE list — `> - one` / `> - two` / `> - three`",
+    source: "quotes only the cursor's line, shattering the list into three structures",
+    rootCause: "source-blockquote-quotes-one-line",
     reason:
-      "The marker damage is FIXED: source used to emit `# - text` for a list item and `# > text` for a blockquote, destroying the quote, and the heading helpers now peel the quote wrapper, the list marker and any existing `#` run before rebuilding — keeping the quote and replacing the marker, as WYSIWYG does. Detection also sees through a quote now, so `> ## text` reads as level 2. Each heading action fell from ten diverging fixtures to two, and both are the SAME case: the caret inside a table cell. Neither surface handles it — WYSIWYG destroys the cell's text, source destroys the table. A cell cannot hold a heading or a blockquote in markdown, so the fix is an availability rule in `enableRules.ts` rather than either adapter, which also needs a row in the toolbar-state tests. Every action that converts a whole block needs the same rule.",
-  }),
+      "The table-cell half of this action is FIXED — both surfaces now refuse to quote a cell, because a markdown cell cannot hold a block. What is left is a list: source prefixes `> ` to the one line under the cursor, so `- one` / `- two` / `- three` becomes a list, then a quoted list, then another list. WYSIWYG wraps the enclosing list as a unit, which is the coherent reading. Source needs the block bounds the toggle already computes for a paragraph.",
+  },
 
   // ---- Root cause 4: source line operations are structure-unaware -----------
   ...family(["moveLineUp", "moveLineDown", "joinLines"], {
@@ -179,9 +180,14 @@ export const PARITY_DIVERGENCES: Record<string, ParityDivergence> = {
  *        re-formatting still leaves an unaligned column alone.
  *   27 — `outdent` CONVERGED: WYSIWYG stopped lifting a TOP-LEVEL item out of
  *        its list, which is what Remove List and the toggles are for.
+ *   23 — the `block-conversion-inside-table-cell` family CONVERGED:
+ *        `heading:1/3/6` and `increaseHeading` are refused inside a cell by
+ *        the shared availability policy, so there is no outcome left to
+ *        disagree about. `insertBlockquote` stayed, reclassified — its table
+ *        half is gone and a separate list-scope defect remains.
  *
  * 31 entries is far fewer than 31 fixes — they collapse into 9 root causes, and
  * the largest (`source-inserts-block-at-caret`, 12 actions) is one insertion
  * helper.
  */
-export const MAX_PARITY_DIVERGENCES = 27;
+export const MAX_PARITY_DIVERGENCES = 23;

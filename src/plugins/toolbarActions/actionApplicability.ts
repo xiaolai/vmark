@@ -141,6 +141,55 @@ export function enabledInFor(action: AdapterAction): readonly EnableContext[] {
   return ACTION_APPLICABILITY[action] ?? ["always"];
 }
 
+/**
+ * Actions that must NOT run with the caret inside a table cell.
+ *
+ * This is a data-safety boundary, not a discoverability preference. A markdown
+ * table row is one line, and a cell holds inline content only:
+ * `pmBlockConverters.ts` emits a cell's PARAGRAPH children and silently skips
+ * every other block child, so a heading or a blockquote created inside a cell
+ * is dropped on save without a word. The two surfaces failed differently and
+ * both destructively — WYSIWYG cleared the cell's text, Source prefixed the row
+ * line and the table stopped parsing.
+ *
+ * Anything that converts or inserts a BLOCK belongs here. Inline marks, links,
+ * footnotes, inline math, text and CJK transforms, selection and navigation,
+ * undo/redo and the table's own row/column/alignment operations stay enabled —
+ * they all keep the cell's content inline.
+ *
+ * `moveLineUp`/`moveLineDown`/`joinLines` are here because Source treats rows
+ * as plain lines and reorders them across the `| --- |` delimiter.
+ * `duplicateLine` and `deleteLine` are NOT: both surfaces now agree on row
+ * semantics for them.
+ */
+export const TABLE_CELL_BLOCKED_ACTIONS: ReadonlySet<string> = new Set<string>([
+  // Headings — a cell cannot contain one.
+  "increaseHeading", "decreaseHeading",
+  ...Array.from({ length: 7 }, (_, level) => `heading:${level}`),
+  // Lists and their structural operations.
+  "bulletList", "orderedList", "taskList",
+  "insertBulletList", "insertOrderedList", "insertTaskList",
+  "indent", "outdent", "removeList",
+  // Blockquotes.
+  "insertBlockquote", "nestBlockquote", "unnestBlockquote", "removeBlockquote",
+  // Block insertions.
+  "insertCodeBlock", "insertDivider", "insertTable", "insertTableBlock", "insertDetails",
+  "insertAlertNote", "insertAlertTip", "insertAlertImportant",
+  "insertAlertWarning", "insertAlertCaution",
+  "insertMath", "insertDiagram", "insertGraphvizDiagram", "insertMarkmap",
+  // Block media — the WYSIWYG pickers can produce block nodes the cell
+  // serializer skips, so they are blocked until table-aware inline insertion
+  // exists.
+  "insertImage", "insertVideo", "insertAudio",
+  // Line operations that reorder or fuse rows.
+  "moveLineUp", "moveLineDown", "joinLines", "sortLinesAsc", "sortLinesDesc",
+]);
+
+/** Whether `action` must be refused with the caret inside a table cell. */
+export function isBlockedInTableCell(action: string): boolean {
+  return TABLE_CELL_BLOCKED_ACTIONS.has(action);
+}
+
 /** EnableContext values that name a cursor-position node axis. */
 const NODE_CONTEXT_TO_AXIS: Partial<Record<EnableContext, NodeAxis>> = {
   table: "table",

@@ -168,6 +168,63 @@ describe("actionAvailability — the palette gate", () => {
   });
 });
 
+describe("table cells forbid block actions (data-safety, not discoverability)", () => {
+  // A markdown cell holds inline content only, and pmBlockConverters emits a
+  // cell's paragraph children while silently DROPPING any other block child —
+  // so a heading or quote made inside a cell is lost on save. The gate lives in
+  // isActionExecutable rather than only in the palette, because the native
+  // accelerator does not consult palette availability.
+  const inCell = ctx({ inTable: true, hasSelection: true });
+
+  it.each([
+    "setHeading",
+    "paragraph",
+    "increaseHeading",
+    "decreaseHeading",
+    "bulletList",
+    "orderedList",
+    "taskList",
+    "indent",
+    "outdent",
+    "removeList",
+    "blockquote",
+    "codeBlock",
+    "horizontalLine",
+    "insertDetails",
+    "insertImage",
+    "moveLineUp",
+    "joinLines",
+  ] as ActionId[])("%s is refused by the EXECUTOR inside a cell", (id) => {
+    expect(isActionExecutable(id, inCell)).toBe(false);
+    expect(isActionExecutable(id, ctx({ hasSelection: true }))).toBe(true);
+  });
+
+  it.each([
+    "bold",
+    "italic",
+    "code",
+    "strikethrough",
+    "clearFormatting",
+    "transformUppercase",
+    "selectWord",
+    "undo",
+  ] as ActionId[])("%s stays available inside a cell — it keeps content inline", (id) => {
+    expect(isActionExecutable(id, inCell)).toBe(true);
+  });
+
+  it.each(["addRowBelow", "deleteRow", "deleteTable", "alignCenter"] as ActionId[])(
+    "%s stays available — it is a table operation",
+    (id) => {
+      expect(isActionExecutable(id, inCell)).toBe(true);
+    },
+  );
+
+  it("hides the blocked actions from the palette too", () => {
+    expect(actionAvailability("blockquote", inCell)).toBe(false);
+    expect(actionAvailability("bold", inCell)).toBe(true);
+  });
+});
+
 describe("multi-selection (delegates to the adapters' canRunActionInMultiSelection)", () => {
   // Everything the adapters' multi-selection gate rejects (explicit "disallow"
   // OR the unlisted default: inserts, tables, links, code, selection, cjk,
@@ -284,26 +341,36 @@ describe("list indent/outdent require a list", () => {
 describe("completeness — nothing is accidentally always-false", () => {
   // A single rich selection (NOT multi) with every node axis satisfied: every
   // action that supports WYSIWYG must be reachable somewhere.
-  const rich = ctx({
+  // No SINGLE context can make every action reachable: the table's own
+  // row/column operations require a cell, while every block conversion is
+  // forbidden inside one, because a cell holds inline content only and the
+  // serializer drops block children. So the sweep asks whether each action is
+  // reachable in EITHER context — which is what "not accidentally always-false"
+  // actually means. `inLink` stays off in both: a link context forbids the link
+  // actions for the same kind of reason.
+  const axes = {
     hasSelection: true,
-    inTable: true,
-    inLink: false, // link context forbids link actions; keep it off here
+    inLink: false,
     inList: true,
     inBlockquote: true,
     inCodeBlock: true,
     inHeading: true,
-  });
+  };
+  const outsideTable = ctx({ ...axes, inTable: false });
+  const insideTable = ctx({ ...axes, inTable: true });
 
-  it.each(ALL_IDS)("%s is available in a rich single-selection iff it supports WYSIWYG", (id) => {
-    expect(actionAvailability(id, rich)).toBe(ACTION_DEFINITIONS[id].supports.wysiwyg);
+  it.each(ALL_IDS)("%s is reachable in some rich single-selection iff it supports WYSIWYG", (id) => {
+    const reachable =
+      actionAvailability(id, outsideTable) || actionAvailability(id, insideTable);
+    expect(reachable).toBe(ACTION_DEFINITIONS[id].supports.wysiwyg);
   });
 
   it.each(ALL_IDS)("%s is unavailable with no document", (id) => {
-    expect(actionAvailability(id, { ...rich, isDocument: false })).toBe(false);
+    expect(actionAvailability(id, { ...outsideTable, isDocument: false })).toBe(false);
   });
 
   it.each(ALL_IDS)("%s is unavailable with no editor mounted", (id) => {
-    expect(actionAvailability(id, { ...rich, editorAvailable: false })).toBe(false);
+    expect(actionAvailability(id, { ...outsideTable, editorAvailable: false })).toBe(false);
   });
 });
 

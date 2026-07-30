@@ -37,6 +37,7 @@ import { docFingerprint } from "@/utils/markdownPipeline/__tests__/fidelity/docF
 import { runOnWysiwyg, runOnSource, disposeSurfaces, type Target } from "./surfaces";
 import { COVERED_ACTIONS, DOCS } from "./parityFixtures";
 import { PARITY_DIVERGENCES, MAX_PARITY_DIVERGENCES } from "./parityLedger";
+import { isBlockedInTableCell } from "../../actionApplicability";
 
 const schema = getProductionSchema();
 
@@ -111,6 +112,14 @@ describe("toolbar adapter behavioral parity", () => {
       for (const doc of DOCS) {
         for (const shape of SHAPES) {
           it(`agrees on ${doc.label} [${shape}]`, () => {
+            // Actions the availability policy forbids in a table cell are
+            // unreachable in the app, so comparing what the raw adapters would
+            // do to one is meaningless — the harness calls them directly, below
+            // that gate. Assert the policy instead of the outcome.
+            if (doc.label === "table" && isBlockedInTableCell(action)) {
+              expect(isBlockedInTableCell(action)).toBe(true);
+              return;
+            }
             const r = compare(action, doc, shape);
 
             // A declared divergence is allowed to disagree, but never to throw.
@@ -133,7 +142,11 @@ describe("toolbar adapter behavioral parity", () => {
 
   it("declares no divergence that has been converged", () => {
     const fixed = Object.keys(PARITY_DIVERGENCES).filter((action) =>
-      DOCS.every((doc) => SHAPES.every((shape) => compare(action, doc, shape).agree)),
+      DOCS.every((doc) =>
+        doc.label === "table" && isBlockedInTableCell(action)
+          ? true // unreachable in a cell, so it cannot diverge there
+          : SHAPES.every((shape) => compare(action, doc, shape).agree),
+      ),
     );
     expect(
       fixed.length === 0

@@ -9,7 +9,8 @@
  *           disabled/active flags → toolbar renders accordingly
  *
  * Key decisions:
- *   - Block-level actions (heading, list, table) are disabled inside code blocks
+ *   - Block-level actions are disabled inside code blocks and table cells
+ *     (cell set in actionApplicability.ts, shared with the executor gate)
  *   - Multi-selection has per-action policies (allow/deny/conditional)
  *   - Source mode tracks its own unimplemented set (currently empty)
  *
@@ -24,6 +25,7 @@ import type { CursorContext as WysiwygContext } from "@/plugins/toolbarContext/t
 import type { CursorContext as SourceContext } from "@/types/cursorContext";
 import type { ToolbarContext } from "./types";
 import { canRunActionInMultiSelection } from "./multiSelectionPolicy";
+import { isBlockedInTableCell } from "./actionApplicability";
 
 export interface ToolbarItemState {
   disabled: boolean;
@@ -61,11 +63,8 @@ export const LINK_DISABLED_ACTIONS = new Set<string>([
 
 function isDisabledInLink(action: string, ctx: WysiwygContext | SourceContext | null): boolean {
   /* v8 ignore next -- @preserve ctx is always non-null at call sites; null branch is defensive */
-  if (!ctx) return false;
-  if (!ctx.inLink) return false;
-  return LINK_DISABLED_ACTIONS.has(action);
+  return ctx?.inLink ? LINK_DISABLED_ACTIONS.has(action) : false;
 }
-
 
 function isWysiwygMarkActive(view: TiptapEditorView, markName: string): boolean {
   const { state } = view;
@@ -301,7 +300,8 @@ export function getToolbarItemState(
   const enabled = matchesEnabledContext(actionItem.enabledIn, ctx) &&
     (!shouldRequireSelection(actionItem.action, surface) || ctx.hasSelection) &&
     canRunActionInMultiSelection(actionItem.action, context.multiSelection) &&
-    !isDisabledInLink(actionItem.action, ctx);
+    !isDisabledInLink(actionItem.action, ctx) &&
+    !(ctx.inTable && isBlockedInTableCell(actionItem.action));
 
   const active = surface === "wysiwyg"
     ? isWysiwygActionActive(
