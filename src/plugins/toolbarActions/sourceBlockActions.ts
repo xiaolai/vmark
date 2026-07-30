@@ -19,6 +19,9 @@
  * which rewrites the whole innermost list — rewriting only the cursor's marker
  * turned one list into three.
  *
+ * Toggling a list OFF removes one level: a nested item outdents into its parent,
+ * only a top-level item leaves the list. Full removal is the Remove List action.
+ *
  * @coordinates-with sourceContextDetection/listBlockConversion.ts — whole-list conversion
  * @module plugins/toolbarActions/sourceBlockActions
  */

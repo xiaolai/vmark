@@ -7,6 +7,11 @@
  *
  * Heading-level stepping lives in `wysiwygHeadingLevel.ts`.
  *
+ * Key decisions:
+ *   - Blockquote wraps the OUTERMOST enclosing list, not the sub-list the cursor
+ *     is in: quoting one nested item left its siblings outside and split the
+ *     structure into list / quoted list / list.
+ *
  * @coordinates-with wysiwygAdapter.ts — main dispatcher delegates formatting actions here
  * @coordinates-with enableRules.ts — decides which formatting actions are enabled
  * @coordinates-with wysiwygHeadingLevel.ts — the heading pair split out of here
