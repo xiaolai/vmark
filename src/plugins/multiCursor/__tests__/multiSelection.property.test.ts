@@ -162,25 +162,20 @@ describe("MultiSelection — construction invariants (property-based)", () => {
   });
 
   /**
-   * KNOWN DEFECT, pinned rather than asserted away.
+   * Guards the primary against the ambiguity of position containment.
    *
-   * `normalizeRangesWithPrimary` re-locates the primary by POSITION CONTAINMENT
-   * — it takes `ranges[primaryIndex].$from.pos` and picks the FIRST range
-   * containing that position. When ranges overlap (which the constructor
-   * permits, since it does not merge), several can contain it, so rebuilding a
-   * selection from its own ranges silently moves the primary to an earlier one.
-   *
-   * That matters because the primary supplies `$anchor`/`$head`, which drive
-   * stored marks and toolbar state: the user's active cursor changes with no
-   * edit. Same family as the 2026-03-12 "multi-cursor primary tracking" fix.
-   * Narrow — it needs overlapping ranges — but reachable wherever a
-   * MultiSelection is rebuilt from another's ranges before a pre-merge.
-   *
-   * When the primary is tracked by identity rather than position, this test
-   * fails and should be deleted.
+   * `normalizeRangesWithPrimary` used to re-locate the primary by taking
+   * `ranges[primaryIndex].$from.pos` and picking the FIRST range containing it.
+   * When ranges overlap — which the constructor permits, since it does not
+   * merge — several can contain that position, so rebuilding a selection from
+   * its own ranges silently moved the primary to an earlier one. The primary
+   * supplies `$anchor`/`$head`, which drive stored marks and toolbar state, so
+   * the user's active cursor changed with no edit. Matching the range's full
+   * extent first removes the ambiguity.
    */
-  it("KNOWN DEFECT: primaryIndex is not stable under reconstruction when ranges overlap", () => {
+  it("keeps the primary on the same range when rebuilt from overlapping ranges", () => {
     const doc = makeDoc(2, 3);
+    // [2,2] is contained by [1,2]; after sorting, both precede it.
     const first = build(
       [
         new SelectionRange(doc.resolve(2), doc.resolve(2)),
@@ -199,7 +194,32 @@ describe("MultiSelection — construction invariants (property-based)", () => {
     expect(rebuilt.ranges.map((r) => [r.$from.pos, r.$to.pos])).toEqual(
       first.ranges.map((r) => [r.$from.pos, r.$to.pos]),
     );
-    // The defect: identical ranges, different primary.
-    expect(rebuilt.primaryIndex).not.toBe(first.primaryIndex);
+    expect(rebuilt.primaryIndex).toBe(first.primaryIndex);
+    // …and it is still the range the caller nominated.
+    const primary = rebuilt.ranges[rebuilt.primaryIndex];
+    expect([primary.$from.pos, primary.$to.pos]).toEqual([2, 2]);
+  });
+
+  it("keeps the primary stable across REPEATED rebuilds", () => {
+    const doc = makeDoc(2, 4);
+    let selection = build(
+      [
+        new SelectionRange(doc.resolve(3), doc.resolve(3)),
+        new SelectionRange(doc.resolve(1), doc.resolve(3)),
+        new SelectionRange(doc.resolve(1), doc.resolve(1)),
+      ],
+      0,
+    );
+    if (selection instanceof Error) throw selection;
+    const shape = (s: MultiSelection): string =>
+      `${s.primaryIndex}|${s.ranges.map((r) => `${r.$from.pos}-${r.$to.pos}`).join(",")}`;
+    const first = shape(selection);
+
+    for (let i = 0; i < 5; i += 1) {
+      const next = build([...selection.ranges], selection.primaryIndex);
+      if (next instanceof Error) throw next;
+      selection = next;
+      expect(shape(selection)).toBe(first);
+    }
   });
 });
