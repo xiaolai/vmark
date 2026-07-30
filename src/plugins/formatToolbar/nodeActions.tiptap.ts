@@ -16,6 +16,9 @@
  *     no-op as handled
  *   - Blockquote nest/unnest are symmetric: both operate on the WHOLE nearest
  *     quote's inner range, never just the block under the cursor
+ *   - A HEADING is flattened to a paragraph before being wrapped in a list:
+ *     `wrapInList` refuses a heading outright, so the button silently did
+ *     nothing while Source mode replaced the `#` run and made the list
  *
  * @coordinates-with tiptapContext.ts — format toolbar context building
  * @coordinates-with shared/listHelpers.ts — shared repeated-lift primitive

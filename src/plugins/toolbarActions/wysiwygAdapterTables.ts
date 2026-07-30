@@ -5,12 +5,16 @@
  * add/delete, per-column and whole-table alignment, and table formatting
  * (with success/no-op toast).
  *
- * @coordinates-with wysiwygAdapter.ts — main dispatcher narrows table action IDs and routes here
- * @coordinates-with tableUI/tableActions.tiptap.ts — underlying table commands
  * Key decisions:
  *   - Table insertion is placed AFTER the current block via `blockInsertPos`;
  *     `insertTable` alone splits the paragraph at the caret.
+ *   - The inserted table's SHAPE comes from `shared/blockTemplates`, the same
+ *     definition the Source adapter renders to markdown, so the two surfaces
+ *     cannot describe different tables.
  *
+ * @coordinates-with wysiwygAdapter.ts — main dispatcher narrows table action IDs and routes here
+ * @coordinates-with tableUI/tableActions.tiptap.ts — underlying table commands
+ * @coordinates-with shared/blockTemplates.ts — NEW_TABLE
  * @module plugins/toolbarActions/wysiwygAdapterTables
  */
 import { imeToast as toast } from "@/services/ime/imeToast";

@@ -18,6 +18,10 @@
  *     leave the original behind and duplicate it.
  *   - A line marker belongs to the line, so it is prepended after any
  *     indentation and inside any quote wrapper.
+ *   - A BLANK line in an indented block still carries the (trimmed) prefix: a
+ *     bare blank line inside a blockquote terminates the quote.
+ *   - `replaceLinesWithBlock` accepts an explicit range, so a caller that has
+ *     widened the selection to whole blocks replaces exactly what it folded in.
  *
  * @coordinates-with sourceInsertActions.ts — the insert handlers
  * @coordinates-with sourceAdapterHelpers.ts — inline formatting counterpart
