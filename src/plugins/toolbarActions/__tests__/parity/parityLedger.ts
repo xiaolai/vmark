@@ -90,23 +90,13 @@ export const PARITY_DIVERGENCES: Record<string, ParityDivergence> = {
   }),
 
   // ---- Root cause 3: source heading run added over an existing marker -------
-  ...family(["heading:1", "heading:3", "heading:6"], {
+  ...family(["heading:1", "heading:3", "heading:6", "increaseHeading"], {
     verdict: "source-bug",
     wysiwyg: "list item → `# text`; blockquote → `> # text` (quote preserved)",
     source: "list item → `# - text`; blockquote → `# > text` (quote destroyed)",
     rootCause: "source-heading-keeps-block-marker",
     reason:
-      "setSourceHeadingLevel prepends the `#` run to the raw line without stripping the block marker already there. A list item becomes a heading whose text begins `- `, and a blockquote becomes a HEADING CONTAINING a literal `>` — the quote is gone. WYSIWYG converts the block and keeps the quote wrapper. One fix retires all three entries.",
-  }),
-
-  // ---- Root cause 4: the two surfaces invert the heading direction ----------
-  ...family(["increaseHeading", "decreaseHeading"], {
-    verdict: "both-defensible",
-    wysiwyg: "increase → more prominent (`level - 1`): paragraph → H6, H3 → H2",
-    source: "increase → higher number (`level + 1`): paragraph → H1, H3 → H4",
-    rootCause: "inverted-heading-direction",
-    reason:
-      "wysiwygAdapterFormatting and sourceBlockActions read the word 'increase' in opposite directions. Each is internally coherent and each pairs correctly with its own inverse, so neither is wrong in isolation — which is exactly why no single-surface test could catch it. From an H3 the same toolbar button gives H2 in one mode and H4 in the other. Decide which reading the menu label means, then flip one pair; the two entries must move together.",
+      "The source heading helpers prepend the `#` run to the raw line without stripping the block marker already there. A list item becomes a heading whose text begins `- `, and a blockquote becomes a HEADING CONTAINING a literal `>` — the quote is gone. WYSIWYG converts the block and keeps the quote wrapper. `increaseHeading` joined this family once the direction disagreement was resolved: the two surfaces now step the same way, and what remains is only the marker damage. One fix retires all four entries.",
   }),
 
   // ---- Root cause 5: source line operations are structure-unaware -----------
@@ -209,9 +199,14 @@ export const PARITY_DIVERGENCES: Record<string, ParityDivergence> = {
  *        real line unit instead of the top-level block, so deleting a table row
  *        no longer deletes the table); `removeList` newly surfaced once the
  *        fixtures grew multi-line structures. One out, one in.
+ *   30 — `decreaseHeading` CONVERGED: WYSIWYG adopted the numeric reading of
+ *        "heading level", so both surfaces now step the same direction.
+ *        `increaseHeading` stayed, reclassified — its direction is fixed too,
+ *        and what remains is the source-side marker damage it shares with
+ *        `heading:N`.
  *
  * 31 entries is far fewer than 31 fixes — they collapse into 9 root causes, and
  * the largest (`source-inserts-block-at-caret`, 12 actions) is one insertion
  * helper.
  */
-export const MAX_PARITY_DIVERGENCES = 31;
+export const MAX_PARITY_DIVERGENCES = 30;
