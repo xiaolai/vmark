@@ -180,7 +180,7 @@
     "src/plugins/toolbarActions/enableRules.test.ts": 1251,
     "src/plugins/toolbarActions/sourceAdapter.test.ts": 1218,
     "src/plugins/toolbarActions/tiptapSelectionActions.test.ts": 895,
-    "src/plugins/toolbarActions/wysiwygAdapter.test.ts": 928,
+    "src/plugins/toolbarActions/wysiwygAdapter.test.ts": 927,
     "src/plugins/toolbarActions/wysiwygAdapterInsert.test.ts": 1688,
     "src/plugins/wikiLinkPopup/__tests__/WikiLinkPopupView.test.ts": 1371,
     "src/services/commands/menuListener.editorActions.test.tsx": 1336,

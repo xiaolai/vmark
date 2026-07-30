@@ -5,7 +5,19 @@
  * simple insertions (footnote, code block, divider, table, list markers) and
  * selection-aware block builders (details, alerts, math, diagram fences).
  *
+ * Key decisions:
+ *   - BLOCK content never goes in at the caret. `insertBlockText` opens a line
+ *     below the cursor's line, because splicing at the caret produced
+ *     `The quick ---` and alerts that split a sentence in half.
+ *   - The selection-consuming builders are the exception: they fold the
+ *     selection into the block, so they must REPLACE it via
+ *     `replaceLinesWithBlock` or the original text is left behind and
+ *     duplicated inside the block.
+ *   - A list marker belongs to the line, not the cursor, so it is prepended
+ *     after the line's indentation.
+ *
  * @coordinates-with sourceAdapter.ts — dispatcher routes insert actions here
+ * @coordinates-with sourceAdapterHelpers.ts — the three placement helpers
  * @coordinates-with sourceInsertions.ts — pure block builders (selection-preserving)
  * @module plugins/toolbarActions/sourceInsertActions
  */
@@ -17,7 +29,7 @@ import {
   type InsertionResult,
 } from "@/plugins/sourceContextDetection/sourceInsertions";
 import { toggleBlockquote } from "@/plugins/sourceContextDetection/blockquoteActions";
-import { insertText, applyInlineFormat } from "./sourceAdapterHelpers";
+import { insertBlockText, prependLineMarker, replaceLinesWithBlock, applyInlineFormat } from "./sourceAdapterHelpers";
 
 const TABLE_TEMPLATE = "| Header 1 | Header 2 |\n| --- | --- |\n| Cell 1 | Cell 2 |\n";
 
@@ -42,7 +54,7 @@ export function insertFootnote(view: EditorView): boolean {
 }
 
 export function insertCodeBlock(view: EditorView): boolean {
-  insertText(view, "```\n\n```", 4);
+  insertBlockText(view, "```\n\n```", 4);
   return true;
 }
 
@@ -53,17 +65,17 @@ export function insertOrToggleBlockquote(view: EditorView): boolean {
 }
 
 export function insertDivider(view: EditorView): boolean {
-  insertText(view, "---\n");
+  insertBlockText(view, "---\n");
   return true;
 }
 
 export function insertTable(view: EditorView): boolean {
-  insertText(view, TABLE_TEMPLATE, 2);
+  insertBlockText(view, TABLE_TEMPLATE, 2);
   return true;
 }
 
 export function insertListMarker(view: EditorView, marker: string): boolean {
-  insertText(view, marker);
+  prependLineMarker(view, marker);
   return true;
 }
 
@@ -75,7 +87,11 @@ export function handleBuildInsert(
   const { from, to } = view.state.selection.main;
   const selection = from === to ? "" : view.state.doc.sliceString(from, to);
   const { text, cursorOffset } = build(selection);
-  insertText(view, text, cursorOffset);
+  // The builder folds the selection INTO the block, so a non-empty selection
+  // must be replaced; inserting below it would leave the original behind and
+  // duplicate it inside the block.
+  if (from === to) insertBlockText(view, text, cursorOffset);
+  else replaceLinesWithBlock(view, text, cursorOffset);
   return true;
 }
 
