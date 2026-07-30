@@ -16,8 +16,9 @@ function workspaceInstance(
   workspaceInstanceId: string,
   rootPath: string,
   ownerWindowLabel = "main",
+  platform: "macos" | "windows" | "linux" = "macos",
 ): WorkspaceInstanceRecord {
-  const root = createWorkspaceRootIdentity(rootPath, { platform: "macos" });
+  const root = createWorkspaceRootIdentity(rootPath, { platform });
   if (!root.ok) throw new Error("test root should be valid");
   return createWorkspaceInstance({
     workspaceInstanceId,
@@ -115,6 +116,48 @@ describe("classifyWorkspaceContextForTab", () => {
         activeWorkspaceInstanceId: "wsi-placeholder",
       }),
     ).toBeNull();
+  });
+
+  // WI-17.1 — platform-aware containment: Windows folds full path case;
+  // macOS/Linux stay byte-exact.
+  it("windows: component-case variant of the root still owns the file", () => {
+    expect(
+      classifyWorkspaceContextForTab({
+        filePath: "c:/repo/a.md",
+        instances: [
+          workspaceInstance("wsi-win", "C:\\Repo", "main", "windows"),
+          looseInstance(),
+        ],
+        activeWorkspaceInstanceId: "wsi-win",
+        platform: "windows",
+      })?.workspaceInstanceId,
+    ).toBe("wsi-win");
+  });
+
+  it("windows: nested-root specificity works across case variants", () => {
+    expect(
+      classifyWorkspaceContextForTab({
+        filePath: "c:/repo/docs/n.md",
+        instances: [
+          workspaceInstance("wsi-root", "C:\\Repo", "main", "windows"),
+          workspaceInstance("wsi-docs", "C:\\Repo\\Docs", "main", "windows"),
+          looseInstance(),
+        ],
+        activeWorkspaceInstanceId: "wsi-root",
+        platform: "windows",
+      })?.workspaceInstanceId,
+    ).toBe("wsi-docs");
+  });
+
+  it("macos: alternate casing does NOT own the file (byte-exact)", () => {
+    expect(
+      classifyWorkspaceContextForTab({
+        filePath: "/Repo/a.md",
+        instances: [workspaceInstance("wsi-repo", "/repo"), looseInstance()],
+        activeWorkspaceInstanceId: "wsi-repo",
+        platform: "macos",
+      })?.workspaceInstanceId,
+    ).toBe("wsi-loose");
   });
 
   it("falls back to rail order when same-root contexts are not active", () => {

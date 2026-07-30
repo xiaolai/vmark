@@ -95,14 +95,16 @@ Returns `{tabId}`.
 
 ### `open`
 
-Open a **file** from disk into a tab.
+Open a **file** from disk into a **background** tab — the user's visible tab
+and workspace do not change. Chain the returned `tabId` into `document` /
+`selection` calls; use `switch_tab` only when the user should *see* the tab.
 
 | Parameter | Type | Required |
 |-----------|------|----------|
 | `filePath` | string | Yes |
 | `windowLabel` | string | No |
 
-Returns `{tabId}`.
+Returns `{tabId, workspaceInstanceId, activationChanged, workspaceSwitched}`.
 
 ### `open_workspace`
 
@@ -161,11 +163,16 @@ Returns `{closed: true}` on success, `{closed: false, reason: "DIRTY"}` if the t
 
 ### `switch_tab`
 
-Activate a tab.
+Activate a tab and make it **visible**. With the [workspace rail](/guide/workspace-rail)
+enabled this may switch the user's active workspace context — the response
+reports `workspaceSwitched: true` when it does, so the assistant should tell
+the user.
 
 | Parameter | Type | Required |
 |-----------|------|----------|
 | `tabId` | string | Yes |
+
+Returns `{activated, workspaceSwitched, workspaceInstanceId, activeTabId}`.
 
 ### `focus_window`
 

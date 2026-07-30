@@ -104,7 +104,7 @@ export interface ContentSearchActions {
   contentSearchSetWholeWord: (value: boolean) => void;
   contentSearchSetUseRegex: (value: boolean) => void;
   contentSearchSetMarkdownOnly: (value: boolean) => void;
-  contentSearchRun: (rootPath: string, excludeFolders: string[]) => Promise<void>;
+  contentSearchRun: (rootPath: string, excludeFolders: string[], windowLabel?: string) => Promise<void>;
   contentSearchSelectNext: () => void;
   contentSearchSelectPrev: () => void;
   contentSearchClearResults: () => void;

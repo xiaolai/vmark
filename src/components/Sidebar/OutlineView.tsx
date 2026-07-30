@@ -4,13 +4,17 @@
  * Displays document heading structure as a tree with a substring filter.
  */
 
-import { memo, useState, useDeferredValue, useMemo, useCallback } from "react";
+import { memo, useDeferredValue, useEffect, useMemo, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronRight, ChevronDown, Search, X } from "lucide-react";
 import { emitTo } from "@tauri-apps/api/event";
 import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import { useUIStore } from "@/stores/uiStore";
+import { useTabStore } from "@/stores/tabStore";
+import { useWindowLabel } from "@/contexts/WindowContext";
 import { useDocumentContent, useDocumentFilePath } from "@/hooks/useDocumentState";
+import { useExplorerWorkspaceInstance } from "./FileExplorer/useFileExplorerOpenState";
+import { useOutlineInstanceState } from "./useOutlineInstanceState";
 import { perfStart, perfEnd } from "@/utils/perfLog";
 import {
   extractHeadings,
@@ -106,6 +110,21 @@ export function OutlineView() {
   const content = useDocumentContent();
   const filePath = useDocumentFilePath();
   const deferredContent = useDeferredValue(content);
+  // WI-9.3: outline presentation state is per (workspace instance, tab) when
+  // the rail is on; the adapter falls back to local state otherwise.
+  const windowLabel = useWindowLabel();
+  const workspaceInstanceId = useExplorerWorkspaceInstance(windowLabel);
+  const activeTabId = useTabStore((s) => s.activeTabId[windowLabel] ?? null);
+  const {
+    filterQuery,
+    setFilterQuery,
+    collapsedKeys,
+    toggleCollapsedKey,
+    pruneCollapsedKeys,
+    handleScroll,
+    restoreScrollTo,
+  } = useOutlineInstanceState(workspaceInstanceId, activeTabId);
+  const scrollElRef = useRef<HTMLDivElement | null>(null);
   // NOTE: active-heading state is intentionally NOT subscribed here — each
   // OutlineItem self-subscribes, so a cursor move doesn't re-render the whole
   // OutlineView and its tree (O5 / WI-2.4).
@@ -154,7 +173,6 @@ export function OutlineView() {
   }, [headings, isTooLarge]);
 
   // Filter state — defer to keep typing responsive on large outlines.
-  const [filterQuery, setFilterQuery] = useState("");
   const deferredFilterQuery = useDeferredValue(filterQuery);
   const isFilterActive = deferredFilterQuery.trim().length > 0;
 
@@ -163,9 +181,18 @@ export function OutlineView() {
     [tree, deferredFilterQuery]
   );
 
-  // Track collapsed state by heading identity (level:line:text).
-  // Including line number prevents duplicate headings from collapsing together.
-  const [collapsedKeys, setCollapsedKeys] = useState<Set<string>>(new Set());
+  // Collapsed state is keyed by heading identity (level:line:text) — line
+  // number included so duplicate headings don't collapse together. Keys the
+  // document no longer produces are pruned (WI-9.3).
+  useEffect(() => {
+    pruneCollapsedKeys(new Set(headings.map((h) => `${h.level}:${h.line}:${h.text}`)));
+  }, [headings, pruneCollapsedKeys]);
+
+  // WI-9.3: restore the persisted outline scroll when the (instance, tab)
+  // context changes and headings are available.
+  useEffect(() => {
+    if (headings.length > 0) restoreScrollTo(scrollElRef.current);
+  }, [workspaceInstanceId, activeTabId, headings.length, restoreScrollTo]);
 
   // Convert key-based collapsed state to index-based for rendering
   const collapsedSet = useMemo(() => {
@@ -183,19 +210,9 @@ export function OutlineView() {
     (index: number) => {
       const heading = headings[index];
       if (!heading) return;
-
-      const key = `${heading.level}:${heading.line}:${heading.text}`;
-      setCollapsedKeys((prev) => {
-        const next = new Set(prev);
-        if (next.has(key)) {
-          next.delete(key);
-        } else {
-          next.add(key);
-        }
-        return next;
-      });
+      toggleCollapsedKey(`${heading.level}:${heading.line}:${heading.text}`);
     },
-    [headings]
+    [headings, toggleCollapsedKey]
   );
 
   const handleClick = useCallback((headingIndex: number) => {
@@ -210,7 +227,7 @@ export function OutlineView() {
       e.preventDefault();
       setFilterQuery("");
     }
-  }, [filterQuery]);
+  }, [filterQuery, setFilterQuery]);
 
   // Skip outline for very large documents to prevent performance issues
   if (isTooLarge) {
@@ -231,7 +248,13 @@ export function OutlineView() {
   }
 
   return (
-    <div className="sidebar-view outline-view" role="complementary" aria-label={t("outline.documentOutline")}>
+    <div
+      className="sidebar-view outline-view"
+      role="complementary"
+      aria-label={t("outline.documentOutline")}
+      ref={scrollElRef}
+      onScrollCapture={(e) => handleScroll((e.target as HTMLElement).scrollTop)}
+    >
       <div className="outline-filter">
         <Search size={12} className="outline-filter-icon" aria-hidden="true" />
         <input

@@ -34,18 +34,17 @@
  * @module hooks/mcpBridge/v2/workspace
  */
 
-import { readTextFile } from "@tauri-apps/plugin-fs";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
-import { checkBridgePath } from "@/services/mcpBridge/bridgePathGuard";
 import { respond } from "../utils";
+import { activateTabWithWorkspaceContext } from "@/services/workspaces/activateTabWithWorkspaceContext";
 import { wrapHandler } from "./wrapHandler";
 import { v2ErrorString } from "./types";
 import type { V2Error } from "./types";
-import { errorMessage } from "@/utils/errorMessage";
 
 export { handleWorkspaceSaveAs } from "./workspaceSaveAs";
+export { handleWorkspaceOpen } from "./workspaceOpen";
 
 function structuredError(id: string, err: V2Error): Promise<void> {
   return respond({ id, success: false, error: v2ErrorString(err) });
@@ -75,107 +74,6 @@ export async function handleWorkspaceNew(
   });
 }
 
-/**
- * Handle `vmark.workspace.open`. Reads `filePath` from disk and opens
- * it in a new tab. Args: `{filePath: string, windowLabel?: string}`.
- */
-export async function handleWorkspaceOpen(
-  id: string,
-  args: Record<string, unknown>,
-): Promise<void> {
-  return wrapHandler(id, async () => {
-    const filePath = args.filePath;
-    if (typeof filePath !== "string" || filePath.length === 0) {
-      await structuredError(id, {
-        error: "INVALID_PATH",
-        message: "filePath must be a non-empty string",
-      });
-      return;
-    }
-    // Confine the read to the workspace + open-document tree. Without this,
-    // a prompt-injected agent could read any file the fs capability reaches
-    // ($HOME/**, incl. dotfiles like ~/.ssh/id_rsa).
-    const openDecision = await checkBridgePath(filePath);
-    if (!openDecision.allowed) {
-      await structuredError(id, {
-        error: "INVALID_PATH",
-        message: openDecision.reason,
-      });
-      return;
-    }
-    let content: string;
-    try {
-      content = await readTextFile(filePath);
-    } catch (e) {
-      await structuredError(id, {
-        error: "INVALID_PATH",
-        message: `Failed to read ${filePath}: ${errorMessage(e)}`,
-      });
-      return;
-    }
-    const tabStore = useTabStore.getState();
-    const docStore = useDocumentStore.getState();
-    const windowLabel = getWindowLabel(args);
-    const tabId = tabStore.createTab(windowLabel, filePath);
-    // `createTab` dedupes by path, so this may be a tab that is ALREADY open.
-    const existing = docStore.documents[tabId];
-
-    // WI-3: re-initialising an already-open tab replaces the whole document
-    // entry (savedContent, isDirty, documentId), so an open file with local
-    // content would be silently reset to disk content with no checkpoint.
-    // Focus it instead and tell the caller why nothing was reloaded.
-    //
-    // `isDivergent` counts as unsaved just as much as `isDirty` does: it marks
-    // a document where the user answered "Keep my changes" to an external
-    // modification, so the buffer is deliberately-retained local content even
-    // though the dirty flag is clear.
-    if (existing && (existing.isDirty || existing.isDivergent)) {
-      // `createTab` already focused the deduped tab.
-      const why = existing.isDirty
-        ? "unsaved changes"
-        : "local content deliberately kept after an external modification";
-      await respond({
-        id,
-        success: true,
-        data: {
-          tabId,
-          alreadyOpen: true,
-          reloaded: false,
-          reason: `Tab is already open with ${why}; it was focused rather than reloaded from disk, which would have discarded them.`,
-        },
-      });
-      return;
-    }
-
-    if (existing) {
-      // Reload a clean already-open tab through `loadContent`, not
-      // `initDocument`. `initDocument` builds a fresh entry, which resets
-      // `readOnly` (silently disabling write protection), the per-document
-      // editor mode, and `documentId` — and a first-open document sits at
-      // `documentId === 0`, so rebuilding it there leaves the counter
-      // unchanged and the editor may never remount on the new content.
-      // `loadContent` mutates in place, increments `documentId`, and bumps
-      // the revision itself when the content actually moved.
-      docStore.loadContent(tabId, content, filePath);
-      // `loadContent` deliberately does NOT clear `isMissing` — hot-exit
-      // restore replays saved content for a file that may genuinely be gone.
-      // Here the read above just succeeded, so the file demonstrably exists:
-      // pair the two exactly as `services/persistence/reloadFromDisk.ts` does,
-      // or a deleted-then-recreated file stays flagged as missing forever.
-      docStore.clearMissing(tabId);
-    } else {
-      // WI-2.6 — registry handles YAML routing; the force-source
-      // bandaid is retired. .yaml/.yml files now route to the YAML
-      // adapter (kind: split-pane), bypassing the markdown surface.
-      docStore.initDocument(tabId, content, filePath);
-    }
-    await respond({
-      id,
-      success: true,
-      data: { tabId, alreadyOpen: existing !== undefined, reloaded: true },
-    });
-  });
-}
 export { handleWorkspaceSave } from "./workspaceSave";
 
 /**
@@ -254,8 +152,20 @@ export async function handleWorkspaceSwitchTab(
       });
       return;
     }
-    tabState.setActiveTab(owner[0], tabIdArg);
-    await respond({ id, success: true, data: {} });
+    // WI-14 (plan D10): the ONE MCP action allowed to change the visible
+    // context — full workspace switch when the tab's owner is hidden, with
+    // the change disclosed so the AI client can inform the user.
+    const result = activateTabWithWorkspaceContext(owner[0], tabIdArg);
+    await respond({
+      id,
+      success: true,
+      data: {
+        activated: result.activated,
+        workspaceSwitched: result.workspaceSwitched,
+        workspaceInstanceId: result.workspaceInstanceId,
+        activeTabId: useTabStore.getState().activeTabId[owner[0]] ?? null,
+      },
+    });
   });
 }
 

@@ -1,9 +1,11 @@
+// WI-9.2 — per-instance file-tree state adapter tests
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { RefObject } from "react";
 import { renderHook, act } from "@testing-library/react";
 import type { TreeApi } from "react-arborist";
 import { useFileExplorerOpenState, __ARBORIST_ROOT_ID } from "./useFileExplorerOpenState";
 import { useUIStore } from "@/stores/uiStore";
+import { useWorkspaceInstanceUiStore } from "@/stores/workspaceInstanceUiStore";
 import type { FileNode as FileNodeType } from "./types";
 
 /** Minimal TreeApi stand-in — only the surface the hook actually calls. */
@@ -208,5 +210,141 @@ describe("useFileExplorerOpenState", () => {
 
       expect(useUIStore.getState().fileExplorerOpenState).toEqual({});
     });
+  });
+});
+
+// WI-9.2 — per-instance file-tree state: with a workspaceInstanceId the hook
+// reads/writes workspaceInstanceUiStore instead of the window-global uiStore,
+// so folder state and scroll offset switch with the rail.
+describe("useFileExplorerOpenState per-instance (WI-9.2)", () => {
+  beforeEach(() => {
+    useWorkspaceInstanceUiStore.getState().resetInstanceUiStates();
+  });
+
+  it("reads initial open state from the instance's UI state", () => {
+    useWorkspaceInstanceUiStore.getState().updateInstanceUiState("wsi-a", {
+      fileExplorerOpenState: { "/a": true },
+    });
+    const ref = makeRef(makeTreeStub());
+
+    const { result } = renderHook(() => useFileExplorerOpenState(ref, "wsi-a"));
+
+    expect(result.current.initialOpenState).toEqual({ "/a": true });
+  });
+
+  it("seeds a fresh instance from the window-global map (continuity)", () => {
+    useUIStore.setState({ fileExplorerOpenState: { "/seed": true } });
+    const ref = makeRef(makeTreeStub());
+
+    const { result } = renderHook(() => useFileExplorerOpenState(ref, "wsi-new"));
+
+    expect(result.current.initialOpenState).toEqual({ "/seed": true });
+  });
+
+  it("mirrors single toggles into the instance store, not the window store", () => {
+    useUIStore.setState({ fileExplorerOpenState: {} });
+    const tree = makeTreeStub({ "/docs": true });
+    const { result } = renderHook(() => useFileExplorerOpenState(makeRef(tree), "wsi-a"));
+
+    act(() => result.current.handleToggle("/docs"));
+
+    expect(
+      useWorkspaceInstanceUiStore.getState().getInstanceUiState("wsi-a").fileExplorerOpenState,
+    ).toEqual({ "/docs": true });
+    expect(useUIStore.getState().fileExplorerOpenState).toEqual({});
+  });
+
+  it("bulk expand/collapse writes the instance store once", () => {
+    const tree = makeTreeStub({ "/a": false, "/b": false });
+    const { result } = renderHook(() => useFileExplorerOpenState(makeRef(tree), "wsi-a"));
+
+    act(() => result.current.expandAll());
+
+    expect(
+      useWorkspaceInstanceUiStore.getState().getInstanceUiState("wsi-a").fileExplorerOpenState,
+    ).toEqual({ "/a": true, "/b": true });
+    expect(useUIStore.getState().fileExplorerOpenState).toEqual({});
+  });
+
+  it("null instance id keeps the window-global behavior (rail-off parity)", () => {
+    const tree = makeTreeStub({ "/x": true });
+    const { result } = renderHook(() => useFileExplorerOpenState(makeRef(tree), null));
+
+    act(() => result.current.handleToggle("/x"));
+
+    expect(useUIStore.getState().fileExplorerOpenState).toEqual({ "/x": true });
+    expect(useWorkspaceInstanceUiStore.getState().instanceUiStates).toEqual({});
+  });
+
+  it("captures throttled scroll offsets into the instance store", () => {
+    vi.useFakeTimers();
+    try {
+      const { result } = renderHook(() =>
+        useFileExplorerOpenState(makeRef(makeTreeStub()), "wsi-a"),
+      );
+
+      act(() => {
+        result.current.handleTreeScroll(40);
+        result.current.handleTreeScroll(80);
+        result.current.handleTreeScroll(120);
+      });
+      // Trailing throttle: only the LAST offset lands, after the window.
+      expect(
+        useWorkspaceInstanceUiStore.getState().getInstanceUiState("wsi-a").fileTreeScrollOffset,
+      ).toBeNull();
+
+      act(() => {
+        vi.runAllTimers();
+      });
+      expect(
+        useWorkspaceInstanceUiStore.getState().getInstanceUiState("wsi-a").fileTreeScrollOffset,
+      ).toBe(120);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("ignores scroll capture without an instance id", () => {
+    vi.useFakeTimers();
+    try {
+      const { result } = renderHook(() => useFileExplorerOpenState(makeRef(makeTreeStub()), null));
+
+      act(() => {
+        result.current.handleTreeScroll(40);
+        vi.runAllTimers();
+      });
+
+      expect(useWorkspaceInstanceUiStore.getState().instanceUiStates).toEqual({});
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("restoreScroll sets scrollTop on the tree's scroller element", () => {
+    useWorkspaceInstanceUiStore.getState().updateInstanceUiState("wsi-a", {
+      fileTreeScrollOffset: 77,
+    });
+    const { result } = renderHook(() =>
+      useFileExplorerOpenState(makeRef(makeTreeStub()), "wsi-a"),
+    );
+
+    const container = document.createElement("div");
+    const scroller = document.createElement("div");
+    scroller.setAttribute("role", "tree");
+    container.appendChild(scroller);
+
+    act(() => result.current.restoreScroll(container));
+
+    expect(scroller.scrollTop).toBe(77);
+  });
+
+  it("restoreScroll is a no-op with no offset or no scroller", () => {
+    const { result } = renderHook(() =>
+      useFileExplorerOpenState(makeRef(makeTreeStub()), "wsi-a"),
+    );
+
+    expect(() => act(() => result.current.restoreScroll(null))).not.toThrow();
+    const empty = document.createElement("div");
+    expect(() => act(() => result.current.restoreScroll(empty))).not.toThrow();
   });
 });

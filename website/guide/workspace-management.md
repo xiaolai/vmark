@@ -4,6 +4,10 @@ A workspace in VMark is a folder opened as the root of your project. When you op
 
 Without a workspace you can still open individual files, but you lose the file explorer, in-project search, and session restore.
 
+::: tip Multiple workspaces in one window
+The experimental [workspace rail](/guide/workspace-rail) lets a single window hold several workspaces and switch between them — each with its own tabs, file tree, and layout.
+:::
+
 ## Opening a Workspace
 
 | Method | How |

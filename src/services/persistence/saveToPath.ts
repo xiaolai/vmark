@@ -31,6 +31,10 @@ import { imeToast as toast } from "@/services/ime/imeToast";
 import i18n from "@/i18n";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
+import {
+  reassignTabOwnershipForPath,
+  windowLabelForTab,
+} from "@/services/workspaces/reassignTabOwnershipForPath";
 import { useRecentFilesStore } from "@/stores/workspaceStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { createSnapshot } from "@/services/history/historyOperations";
@@ -184,6 +188,12 @@ function applyPostSaveState(
 
   // Update tab path for title sync
   useTabStore.getState().updateTabPath(tabId, path);
+  // WI-13.4: Save As across a workspace boundary reassigns ownership; the
+  // visible context follows when this is the active tab.
+  {
+    const ownerWindow = windowLabelForTab(tabId);
+    if (ownerWindow) reassignTabOwnershipForPath(ownerWindow, tabId, path);
+  }
 
   // Add to recent files (skip for auto-save to avoid noise)
   if (saveType === "manual") {

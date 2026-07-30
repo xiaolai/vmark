@@ -15,6 +15,10 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { listFormats } from "@/lib/formats/registry";
+import {
+  currentContextGeneration,
+  isCurrentContextGeneration,
+} from "@/services/workspaces/workspaceContextGeneration";
 import { errorMessage } from "@/utils/errorMessage";
 import type {
   ContentSearchActions,
@@ -90,9 +94,19 @@ export function createContentSearchActions(
       set((s) => ({
         contentSearch: { ...s.contentSearch, markdownOnly: value },
       })),
-    contentSearchRun: async (rootPath, excludeFolders) => {
+    contentSearchRun: async (rootPath, excludeFolders, windowLabel) => {
       const { query, caseSensitive, wholeWord, useRegex, markdownOnly } =
         get().contentSearch;
+      // WI-12.3: bind the request to the window's workspace-context
+      // generation — a rail switch mid-flight supersedes this search, and a
+      // stale completion from the OLD root must not repopulate results for
+      // the new one. `contentSearchRequestId` still orders same-context runs.
+      const startGeneration =
+        windowLabel !== undefined ? currentContextGeneration(windowLabel) : null;
+      const contextIsCurrent = () =>
+        windowLabel === undefined ||
+        startGeneration === null ||
+        isCurrentContextGeneration(windowLabel, startGeneration);
 
       if (query.trim().length < 3) {
         // Bump the request id so an older in-flight search can't land
@@ -138,6 +152,7 @@ export function createContentSearchActions(
         );
 
         if (requestId !== contentSearchRequestId) return;
+        if (!contextIsCurrent()) return;
 
         const totalMatches = results.reduce(
           (sum, f) =>
@@ -158,6 +173,7 @@ export function createContentSearchActions(
         }));
       } catch (error) {
         if (requestId !== contentSearchRequestId) return;
+        if (!contextIsCurrent()) return;
         set((s) => ({
           contentSearch: {
             ...s.contentSearch,

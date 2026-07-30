@@ -12,6 +12,10 @@
  */
 
 import { useTabStore } from "@/stores/tabStore";
+import {
+  reassignTabOwnershipForPath,
+  windowLabelForTab,
+} from "@/services/workspaces/reassignTabOwnershipForPath";
 import { useDocumentStore } from "@/stores/documentStore";
 import type { ReconcileResult } from "@/utils/pathReconciliation";
 import { normalizePath } from "@/utils/paths";
@@ -43,6 +47,9 @@ export function applyPathReconciliation(results: ReconcileResult[]): void {
         useTabStore.getState().updateTabPath(tabId, newPath);
         useDocumentStore.getState().setFilePath(tabId, newPath);
         useDocumentStore.getState().clearMissing(tabId);
+        // WI-13.4: a reconciled rename may cross a workspace boundary.
+        const ownerWindow = windowLabelForTab(tabId);
+        if (ownerWindow) reassignTabOwnershipForPath(ownerWindow, tabId, newPath);
       }
     } else {
       for (const tabId of tabIds) {

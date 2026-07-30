@@ -9,7 +9,8 @@
  *   - State is keyed by window label to support multi-window (each window
  *     has its own independent tab list).
  *   - Pinned tabs cannot be closed without explicit unpin (user safety).
- *   - Closing a tab records it in closedTabs (max 10) for Cmd+Shift+T reopen.
+ *   - Closing a tab records it in the SCOPED reopen history (WI-11.1):
+ *     tabStoreClosedScopes, fed via the removal bus with the full tab payload.
  *   - Tab activation after close prefers the tab to the right, then left.
  *   - Tab IDs use timestamp + random suffix — unique but not globally sortable.
  *   - No persistence middleware: tab state is restored from workspace config
@@ -18,7 +19,7 @@
  *     updateTabPath; kind changes fire a one-time toast (ADR-10 / WI-1A.12).
  *
  * Known limitations:
- *   - closedTabs only stores tab metadata, not document content — reopening
+ *   - Closed-tab history stores tab metadata, not document content — reopening
  *     an unsaved tab will lose edits.
  *   - No cross-window tab deduplication — the same file can be open in
  *     multiple windows.
@@ -72,7 +73,6 @@ interface TabState {
   // Counter for untitled tabs
   untitledCounter: number;
   // Recently closed tabs for reopen (per window, max 10)
-  closedTabs: Record<string, Tab[]>;
 }
 
 interface TabActions {
@@ -116,14 +116,16 @@ interface TabActions {
   /** Re-resolve document format ids after the format registry changes. */
   recomputeAllFormatIds: () => void;
 
-  // Detach (drag-out) — remove without adding to closedTabs
+  // Detach (drag-out) — removal reason "detach": NOT reopen history
   detachTab: (windowLabel: string, tabId: string) => void;
+  /** Re-insert a previously closed tab (WI-11.2 reopen). Appends WITHOUT
+   *  activating — the reopen service owns activation (pane-aware). */
+  restoreTab: (windowLabel: string, tab: Tab) => void;
 
   // Tab order
   reorderTabs: (windowLabel: string, fromIndex: number, toIndex: number) => void;
 
   // Session
-  reopenClosedTab: (windowLabel: string) => Tab | null;
   getTabsByWindow: (windowLabel: string) => Tab[];
   getActiveTab: (windowLabel: string) => Tab | null;
   findTabByPath: (windowLabel: string, filePath: string) => Tab | null;
@@ -140,7 +142,6 @@ export const useTabStore = create<TabState & TabActions>((set, get) => ({
   activeTabId: {},
   lastActiveBrowserPageId: {},
   untitledCounter: 0,
-  closedTabs: {},
 
   createTab: (windowLabel, filePath = null) => {
     // Pre-generate ID outside set() — deterministic and side-effect-free
@@ -244,6 +245,7 @@ export const useTabStore = create<TabState & TabActions>((set, get) => ({
     // #1081: notify ONLY on a real removal. A pinned (refused) or unknown tab
     // removes nothing, and paneStore would collapse a split for no reason.
     let removed = false;
+    let removedTab: Tab | null = null;
     set((state) => {
       const windowTabs = state.tabs[windowLabel] || [];
       const tabIndex = windowTabs.findIndex((t) => t.id === tabId);
@@ -258,30 +260,41 @@ export const useTabStore = create<TabState & TabActions>((set, get) => ({
         return state;
       }
 
-      // Add to closed tabs for reopen
-      const closed = state.closedTabs[windowLabel] || [];
       removed = true;
+      removedTab = tab;
 
-      return {
-        ...removeTabAt(state, windowLabel, tabIndex),
-        closedTabs: { ...state.closedTabs, [windowLabel]: [tab, ...closed].slice(0, 10) },
-      };
+      return removeTabAt(state, windowLabel, tabIndex);
     });
-    // #1081: paneStore collapses a split whose pane held the tab.
-    if (removed) notifyTabRemoved(windowLabel, tabId);
+    // #1081: paneStore collapses a split whose pane held the tab. WI-11.1:
+    // the payload feeds the scoped reopen history (reason "close").
+    if (removed && removedTab) {
+      notifyTabRemoved(windowLabel, tabId, { tab: removedTab, reason: "close" });
+    }
   },
 
   detachTab: (windowLabel, tabId) => {
     let removed = false;
+    let removedTab: Tab | null = null;
     set((state) => {
       const windowTabs = state.tabs[windowLabel] || [];
       const tabIndex = windowTabs.findIndex((t) => t.id === tabId);
       if (tabIndex === -1) return state;
       removed = true;
+      removedTab = windowTabs[tabIndex];
       return removeTabAt(state, windowLabel, tabIndex);
     });
     // #1081: detaching removes the tab here too — collapse a split that held it.
-    if (removed) notifyTabRemoved(windowLabel, tabId);
+    if (removed && removedTab) {
+      notifyTabRemoved(windowLabel, tabId, { tab: removedTab, reason: "detach" });
+    }
+  },
+
+  restoreTab: (windowLabel, tab) => {
+    set((state) => {
+      const windowTabs = state.tabs[windowLabel] || [];
+      if (windowTabs.some((t) => t.id === tab.id)) return state;
+      return { tabs: { ...state.tabs, [windowLabel]: [...windowTabs, tab] } };
+    });
   },
 
   setActiveTab: (windowLabel, tabId) => {
@@ -377,27 +390,6 @@ export const useTabStore = create<TabState & TabActions>((set, get) => ({
     });
   },
 
-  reopenClosedTab: (windowLabel) => {
-    let reopened: Tab | null = null;
-
-    set((state) => {
-      const closed = state.closedTabs[windowLabel] || [];
-      if (closed.length === 0) return state;
-
-      const [tab, ...rest] = closed;
-      reopened = tab;
-      const windowTabs = state.tabs[windowLabel] || [];
-
-      return {
-        tabs: { ...state.tabs, [windowLabel]: [...windowTabs, tab] },
-        activeTabId: { ...state.activeTabId, [windowLabel]: tab.id },
-        closedTabs: { ...state.closedTabs, [windowLabel]: rest },
-      };
-    });
-
-    return reopened;
-  },
-
   getTabsByWindow: (windowLabel) => {
     return get().tabs[windowLabel] || [];
   },
@@ -465,11 +457,9 @@ export const useTabStore = create<TabState & TabActions>((set, get) => ({
     set((state) => {
       const { [windowLabel]: _tabs, ...restTabs } = state.tabs;
       const { [windowLabel]: _activeId, ...restActiveId } = state.activeTabId;
-      const { [windowLabel]: _closed, ...restClosed } = state.closedTabs;
       return {
         tabs: restTabs,
         activeTabId: restActiveId,
-        closedTabs: restClosed,
       };
     });
   },
