@@ -9,6 +9,8 @@
  *   - All list types (bullet, ordered, task) share the same indent/outdent logic
  *   - Toggling the active list type lifts ONE level (nested lists outdent, not flatten);
  *     full unlisting is the explicit "remove list" action
+ *   - Outdent removes one level of NESTING and declines at the outermost level,
+ *     matching Source mode; leaving a list is Remove List or a toggle
  *   - Every handler returns whether it changed the document, and the value is
  *     the underlying ProseMirror command result — callers must not report a
  *     no-op as handled
@@ -39,12 +41,33 @@ export function handleListIndent(view: EditorView): boolean {
   return sinkListItem(listItemType)(view.state, view.dispatch);
 }
 
-/** Outdents (lifts) the current list item one level up. */
+/**
+ * Outdents the current list item one nesting level.
+ *
+ * Refuses at the OUTERMOST level rather than lifting the item out of the list
+ * entirely. "Outdent" means remove one level of nesting, and at the top there is
+ * none to remove; VMark already has Remove List and the list toggles for leaving
+ * a list, so using this command as a third, implicit unlist blurs the action
+ * model. Source mode has always declined here — `liftListItem` was the only
+ * reason the two surfaces disagreed.
+ */
 export function handleListOutdent(view: EditorView): boolean {
   const listItemType = view.state.schema.nodes.listItem;
   if (!listItemType) return false;
+  if (!isNestedListItem(view)) return false;
   view.focus();
   return liftListItem(listItemType)(view.state, view.dispatch);
+}
+
+/** Whether the cursor's list item sits inside another list item. */
+function isNestedListItem(view: EditorView): boolean {
+  const { $from } = view.state.selection;
+  for (let depth = $from.depth; depth > 0; depth -= 1) {
+    if ($from.node(depth).type.name !== "listItem") continue;
+    // depth-1 is the enclosing list; depth-2 is what that list sits in.
+    return depth >= 3 && $from.node(depth - 2).type.name === "listItem";
+  }
+  return false;
 }
 
 type ListTypeName = "bulletList" | "orderedList";

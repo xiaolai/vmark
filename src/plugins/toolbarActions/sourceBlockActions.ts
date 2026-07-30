@@ -9,6 +9,9 @@
  *   - A list action re-applied to its OWN type turns the list off, matching
  *     WYSIWYG. Without that branch the toolbar button was one-way in Source
  *     mode alone.
+ *   - Handlers propagate whether they actually changed the document. Reporting
+ *     success unconditionally told the toolbar an outdent had happened at the
+ *     outermost level, where nothing had.
  *
  * @coordinates-with sourceAdapter.ts — dispatcher narrows action IDs and routes here
  * @coordinates-with sourceMultiSelection.ts — multi-cursor variants short-circuit first
@@ -109,8 +112,9 @@ export function handleListAction(view: EditorView, action: SourceListAction): bo
         indentListItem(view, info);
         return true;
       case "outdent":
-        outdentListItem(view, info);
-        return true;
+        // Propagate: at the outermost level nothing happens, and reporting
+        // success there told the toolbar an outdent had occurred.
+        return outdentListItem(view, info);
       case "removeList":
         removeList(view, info);
         return true;
