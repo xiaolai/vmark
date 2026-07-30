@@ -30,6 +30,89 @@ export function insertText(view: EditorView, text: string, cursorOffset?: number
 }
 
 /**
+ * Insert BLOCK-level markdown on its own line, below the line the cursor is on.
+ *
+ * `insertText` splices at the caret, which is right for inline content and
+ * wrong for every block: with the cursor mid-sentence it produced
+ * `The quick ---` (a paragraph ending in hyphens, not a thematic break),
+ * `The quick > [!NOTE]` splitting the sentence, and tables and `<details>`
+ * opening inside a paragraph. None of those mean what the user asked for.
+ *
+ * Inserting BELOW the current line rather than splitting it is the
+ * non-destructive reading, and the one WYSIWYG already uses for alerts: the
+ * sentence being typed stays intact. An empty line hosts the block directly
+ * instead of leaving a stray blank above it.
+ *
+ * @param cursorOffset - caret position within the inserted block; defaults to
+ *   its end.
+ */
+export function insertBlockText(view: EditorView, text: string, cursorOffset?: number): void {
+  const { state } = view;
+  const line = state.doc.lineAt(state.selection.main.from);
+  const onEmptyLine = line.text.trim() === "";
+
+  // Opening a new line below is enough to give the block its own line — the
+  // remainder of the document already begins with the next line break, so no
+  // trailing newline is added here.
+  const from = onEmptyLine ? line.from : line.to;
+  const insert = onEmptyLine ? text : `\n${text}`;
+  const blockStart = onEmptyLine ? from : from + 1;
+
+  view.dispatch({
+    changes: { from, to: onEmptyLine ? line.to : from, insert },
+    selection: { anchor: blockStart + (typeof cursorOffset === "number" ? cursorOffset : text.length) },
+  });
+  view.focus();
+}
+
+/**
+ * Replace the SELECTED LINES with a block that already contains their text.
+ *
+ * The selection-consuming builders (alerts, details, math and diagram fences)
+ * fold the selection into the block they return, so the insertion has to take
+ * the selection's place — inserting below would leave the original text behind
+ * and duplicate it inside the block. Expanding to whole lines keeps the block
+ * from starting mid-sentence.
+ */
+export function replaceLinesWithBlock(view: EditorView, text: string, cursorOffset?: number): void {
+  const { state } = view;
+  const { from, to } = state.selection.main;
+  const first = state.doc.lineAt(from);
+  const last = state.doc.lineAt(to);
+
+  view.dispatch({
+    changes: { from: first.from, to: last.to, insert: text },
+    selection: { anchor: first.from + (typeof cursorOffset === "number" ? cursorOffset : text.length) },
+  });
+  view.focus();
+}
+
+/**
+ * Put a line-level marker (`- `, `1. `, `- [ ] `) at the START of the current
+ * line, after any existing indentation.
+ *
+ * Inserting it at the caret instead produced `The quick - brown fox`, and with a
+ * range selection it replaced the selected word outright. A list marker is a
+ * property of the line, not of the cursor position within it.
+ *
+ * The caret keeps its position in the text, shifting by the marker's width so it
+ * stays on the same character the user was editing.
+ */
+export function prependLineMarker(view: EditorView, marker: string): void {
+  const { state } = view;
+  const { from } = state.selection.main;
+  const line = state.doc.lineAt(from);
+  const indent = /^\s*/.exec(line.text)?.[0] ?? "";
+  const at = line.from + indent.length;
+
+  view.dispatch({
+    changes: { from: at, to: at, insert: marker },
+    selection: { anchor: from + marker.length },
+  });
+  view.focus();
+}
+
+/**
  * Apply inline format to selection. Handles multi-selection.
  * When no selection, expands to word at cursor (matches WYSIWYG behavior).
  * Returns false if format not applicable.

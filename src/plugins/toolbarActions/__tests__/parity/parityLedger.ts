@@ -70,23 +70,23 @@ export const PARITY_DIVERGENCES: Record<string, ParityDivergence> = {
       "insertDetails", "insertTable", "insertTableBlock",
     ],
     {
-      verdict: "source-bug",
-      wysiwyg: "the block is inserted as its own node, after the current block",
-      source: "the block's markdown is spliced in AT THE CARET, mid-sentence",
-      rootCause: "source-inserts-block-at-caret",
+      verdict: "both-defensible",
+      wysiwyg: "splits the current block and puts the new one between the halves",
+      source: "opens the new block on the line BELOW the cursor's line",
+      rootCause: "block-insert-placement",
       reason:
-        "Source mode writes block markdown at the cursor instead of at a block boundary, so inserting a divider mid-sentence yields `The quick ---` (a paragraph ending in hyphens, not a thematic break), an alert yields `The quick > [!NOTE]` splitting the sentence, and a table or <details> opens inside a paragraph. Every one produces markdown that does not mean what the user asked for. The fix is one insertion helper that moves to a block boundary first; WYSIWYG is correct throughout. `insertDetails` additionally differs in default content (`<details open>` + 'Click to expand' versus `<details>` + 'Details'), which is a separate, smaller decision.",
+        "The corruption here is FIXED — source used to splice block markdown at the caret, yielding `The quick ---` (a paragraph ending in hyphens, not a thematic break), `The quick > [!NOTE]` splitting a sentence, and tables and <details> opening inside a paragraph. `insertBlockText` now opens a fresh line, so both surfaces emit valid markdown. What remains is a placement disagreement: WYSIWYG splits the paragraph at the cursor, source appends below it. Appending is the less destructive reading and is what WYSIWYG itself already does for alerts, so converging most likely means changing WYSIWYG's divider and table paths. Two smaller content differences ride along: `insertDetails` defaults differ (`<details open>` + 'Click to expand' versus `<details>` + 'Details'), and `insertCodeBlock` wraps the block in WYSIWYG but inserts an empty fence in source.",
     },
   ),
 
-  // ---- Root cause 2: source mode writes LIST markers at the caret -----------
+  // ---- Root cause 2: list markers and the line they belong to ---------------
   ...family(["bulletList", "orderedList", "taskList"], {
     verdict: "source-bug",
     wysiwyg: "the line becomes a list item — `- The quick brown fox`",
     source: "the marker lands at the caret — `The quick - brown fox`",
     rootCause: "source-list-marker-at-caret",
     reason:
-      "The list toggle inserts its marker at the cursor rather than at the start of the line, so toggling a list mid-sentence corrupts the sentence; with a range selection it replaces the selected word outright. Closely related to root cause 1 but a different call path. WYSIWYG is correct.",
+      "These three TOGGLES still route through `handleListAction`, which writes the marker at the cursor rather than at the start of the line, so toggling mid-sentence corrupts the sentence and a range selection replaces the selected word outright. The INSERT variants (`insertBulletList`/`insertOrderedList`/`insertTaskList`) were the same defect on a different path and are fixed — `prependLineMarker` puts the marker after the line's indentation, and both surfaces now produce `- The quick brown fox` on a paragraph. Pointing the toggles at the same helper is the remaining work; WYSIWYG is correct.",
   }),
 
   // ---- Root cause 3: source heading run added over an existing marker -------

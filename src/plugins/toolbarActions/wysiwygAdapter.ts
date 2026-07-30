@@ -10,13 +10,15 @@
  *   - Single giant switch for action routing (simple, greppable, no abstraction overhead)
  *   - Multi-selection actions delegate to wysiwygMultiSelection.ts for per-range handling
  *   - Handler implementations split by category (links: wysiwygAdapterLinks.ts):
- *     - wysiwygAdapterFormatting.ts — text formatting, headings, blockquote
+ *     - wysiwygAdapterFormatting.ts — text formatting, blockquote, case transforms
+ *     - wysiwygHeadingLevel.ts — heading-level stepping (numeric: H1 → … → H6)
  *     - wysiwygAdapterInsert.ts — images, video, audio, YouTube, math, diagrams
  *     - wysiwygAdapterCodeBlock.ts — code block insertion / list-to-code conversion
  *     - wysiwygAdapterTables.ts — table insert/row/column/alignment/format operations
  *     - wysiwygAdapterLinkEditor.ts — link/wiki-link editing with smart clipboard
  *     - wysiwygAdapterCjk.ts — CJK formatting, trailing spaces, line endings
- *     - wysiwygAdapterBlockOps.ts — block move/duplicate/delete/join
+ *     - wysiwygAdapterBlockOps.ts — line move/duplicate/delete/join
+ *     - wysiwygLineUnit.ts — resolves which node is "the line" for those
  *     - wysiwygAdapterUtils.ts — shared helpers (view checks, file paths, transforms)
  *
  * @coordinates-with sourceAdapter.ts — parallel implementation for Source mode
@@ -33,7 +35,8 @@ import { expandSelectionInView, selectBlockInView, selectLineInView, selectWordI
 import { canRunActionInMultiSelection } from "./multiSelectionPolicy";
 import { applyMultiSelectionBlockquoteAction, applyMultiSelectionHeading, applyMultiSelectionListAction } from "./wysiwygMultiSelection";
 import { insertWikiLink, insertBookmarkLink, removeLinkAtCursor } from "./wysiwygAdapterLinks";
-import { clearFormattingInView, increaseHeadingLevel, decreaseHeadingLevel, toggleBlockquote, handleWysiwygTransformCase, toggleQuoteStyleAtCursor } from "./wysiwygAdapterFormatting";
+import { clearFormattingInView, toggleBlockquote, handleWysiwygTransformCase, toggleQuoteStyleAtCursor } from "./wysiwygAdapterFormatting";
+import { increaseHeadingLevel, decreaseHeadingLevel } from "./wysiwygHeadingLevel";
 import { handleInsertImage, handleInsertVideo, handleInsertAudio, insertMathBlock, insertDiagramBlock, insertGraphvizBlock, insertMarkmapBlock, insertInlineMath } from "./wysiwygAdapterInsert";
 import { handleInsertCodeBlock } from "./wysiwygAdapterCodeBlock";
 import { openLinkEditor } from "./wysiwygAdapterLinkEditor";

@@ -34,13 +34,11 @@ vi.mock("@/stores/settingsStore", () => ({
 
 import {
   clearFormattingInView,
-  getCurrentHeadingLevel,
-  increaseHeadingLevel,
-  decreaseHeadingLevel,
   toggleBlockquote,
   handleWysiwygTransformCase,
   toggleQuoteStyleAtCursor,
 } from "./wysiwygAdapterFormatting";
+import { getCurrentHeadingLevel, increaseHeadingLevel, decreaseHeadingLevel } from "./wysiwygHeadingLevel";
 import { handleRemoveBlockquote } from "@/plugins/formatToolbar/nodeActions.tiptap";
 import { computeQuoteToggle } from "@/lib/cjkFormatter/quoteToggle";
 import { MultiSelection } from "@/plugins/multiCursor";

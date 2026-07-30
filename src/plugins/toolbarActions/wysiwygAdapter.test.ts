@@ -63,12 +63,11 @@ vi.mock("./wysiwygAdapterLinks", () => ({
 }));
 vi.mock("./wysiwygAdapterFormatting", () => ({
   clearFormattingInView: vi.fn(() => true),
-  increaseHeadingLevel: vi.fn(() => true),
-  decreaseHeadingLevel: vi.fn(() => true),
   toggleBlockquote: vi.fn(() => true),
   handleWysiwygTransformCase: vi.fn(() => true),
   toggleQuoteStyleAtCursor: vi.fn(() => true),
 }));
+vi.mock("./wysiwygHeadingLevel", () => ({ increaseHeadingLevel: vi.fn(() => true), decreaseHeadingLevel: vi.fn(() => true) }));
 vi.mock("./wysiwygAdapterInsert", () => ({
   handleInsertImage: vi.fn(() => true),
   handleInsertVideo: vi.fn(() => true),
