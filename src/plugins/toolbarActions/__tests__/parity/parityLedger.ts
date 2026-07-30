@@ -100,17 +100,7 @@ export const PARITY_DIVERGENCES: Record<string, ParityDivergence> = {
       "The table-cell half of this action is FIXED — both surfaces now refuse to quote a cell, because a markdown cell cannot hold a block. What is left is a list: source prefixes `> ` to the one line under the cursor, so `- one` / `- two` / `- three` becomes a list, then a quoted list, then another list. WYSIWYG wraps the enclosing list as a unit, which is the coherent reading. Source needs the block bounds the toggle already computes for a paragraph.",
   },
 
-  // ---- Root cause 4: source line operations are structure-unaware -----------
-  ...family(["moveLineUp", "moveLineDown", "joinLines"], {
-    verdict: "source-bug",
-    wysiwyg: "preserves the structure — declines a move that would break a table",
-    source: "rows reordered across the delimiter, rows fused, blank-line separators mangled",
-    rootCause: "source-line-ops-structure-unaware",
-    reason:
-      "In source mode a table is just lines, so moveLineUp hoists a body row above the `| --- |` delimiter and joinLines fuses two rows into `| a | b | | c | d |` — neither result parses as a table. The same blindness mangles blank-line separators between paragraphs. WYSIWYG now operates on the real line unit and explicitly refuses to displace a table's header row, so it is the correct side; source needs to learn the structure or decline inside one.",
-  }),
-
-  // ---- Root cause 5: source removeList leaves a lazy continuation ----------
+  // ---- Root cause 4: source removeList leaves a lazy continuation ----------
   removeList: {
     action: "removeList",
     verdict: "source-bug",
@@ -121,7 +111,7 @@ export const PARITY_DIVERGENCES: Record<string, ParityDivergence> = {
       "Stripping the marker from a middle item turns that line into a lazy continuation of the item above, so `- one` / `two brown` / `- three` re-parses as a two-item list whose first item is 'one two brown'. The text never leaves the list, which is the one thing the action promises. WYSIWYG lifts it out correctly. Surfaced only after the fixtures grew a multi-item list — a single-item list cannot tell the two apart.",
   },
 
-  // ---- Root cause 6: how far a CJK format reaches ---------------------------
+  // ---- Root cause 5: how far a CJK format reaches ---------------------------
   formatCJK: {
     action: "formatCJK",
     verdict: "both-defensible",
@@ -180,6 +170,10 @@ export const PARITY_DIVERGENCES: Record<string, ParityDivergence> = {
  *        re-formatting still leaves an unaligned column alone.
  *   27 — `outdent` CONVERGED: WYSIWYG stopped lifting a TOP-LEVEL item out of
  *        its list, which is what Remove List and the toggles are for.
+ *   19 — `moveLineUp`, `moveLineDown` and `joinLines` CONVERGED: source line
+ *        operations now treat a blank line as a block separator rather than
+ *        something to swap with, refuse to hoist a nested item past its
+ *        parent, and decline a join that would fuse two blocks.
  *   22 — `insertDivider` CONVERGED once source blocks inherited the enclosing
  *        structure's continuation prefix, so one dropped inside a list item or
  *        a quote stays there instead of ending it.
@@ -193,4 +187,4 @@ export const PARITY_DIVERGENCES: Record<string, ParityDivergence> = {
  * the largest (`source-inserts-block-at-caret`, 12 actions) is one insertion
  * helper.
  */
-export const MAX_PARITY_DIVERGENCES = 22;
+export const MAX_PARITY_DIVERGENCES = 19;

@@ -15,28 +15,47 @@ import {
   toTitleCase,
   toggleCase,
   removeBlankLines,
-  moveLinesUp,
-  moveLinesDown,
   duplicateLines,
   deleteLines,
   joinLines,
   sortLinesAscending,
   sortLinesDescending,
 } from "@/utils/textTransformations";
+import { moveBlockAware, joinWouldFuseBlocks } from "./sourceBlockMove";
 
 // --- Line operations ---
 
 /** Moves the current line (or selected lines) up by one position in source mode. */
 export function handleMoveLineUp(view: EditorView): boolean {
-  const { from, to } = view.state.selection.main;
-  const text = view.state.doc.toString();
-  const result = moveLinesUp(text, from, to);
+  return moveLines(view, "up");
+}
 
-  if (!result) return false;
+/**
+ * Move the selected lines, treating a blank line as a block separator rather
+ * than as something to swap with — swapping across one merges two paragraphs.
+ */
+function moveLines(view: EditorView, direction: "up" | "down"): boolean {
+  const { state } = view;
+  const { from, to } = state.selection.main;
+  const text = state.doc.toString();
+  const lines = text.split("\n");
+  const selection = {
+    start: state.doc.lineAt(from).number - 1,
+    end: state.doc.lineAt(to).number - 1,
+  };
+
+  const moved = moveBlockAware(lines, selection, direction);
+  if (!moved) return false;
+
+  const newText = moved.join("\n");
+  // Re-anchor on the moved text rather than on an offset arithmetic that the
+  // block case would get wrong.
+  const movedText = lines.slice(selection.start, selection.end + 1).join("\n");
+  const anchor = Math.max(0, newText.indexOf(movedText));
 
   view.dispatch({
-    changes: { from: 0, to: text.length, insert: result.newText },
-    selection: { anchor: result.newFrom, head: result.newTo },
+    changes: { from: 0, to: text.length, insert: newText },
+    selection: { anchor, head: anchor + movedText.length },
   });
   view.focus();
   return true;
@@ -44,18 +63,7 @@ export function handleMoveLineUp(view: EditorView): boolean {
 
 /** Moves the current line (or selected lines) down by one position in source mode. */
 export function handleMoveLineDown(view: EditorView): boolean {
-  const { from, to } = view.state.selection.main;
-  const text = view.state.doc.toString();
-  const result = moveLinesDown(text, from, to);
-
-  if (!result) return false;
-
-  view.dispatch({
-    changes: { from: 0, to: text.length, insert: result.newText },
-    selection: { anchor: result.newFrom, head: result.newTo },
-  });
-  view.focus();
-  return true;
+  return moveLines(view, "down");
 }
 
 /** Duplicates the current line (or selected lines) below the original in source mode. */
@@ -88,8 +96,16 @@ export function handleDeleteLine(view: EditorView): boolean {
 
 /** Joins the current line with the next line (or all selected lines) in source mode. */
 export function handleJoinLines(view: EditorView): boolean {
-  const { from, to } = view.state.selection.main;
-  const text = view.state.doc.toString();
+  const { state } = view;
+  const { from, to } = state.selection.main;
+  const text = state.doc.toString();
+
+  // Decline rather than fuse two separate blocks — joining across a blank line
+  // merges paragraphs, and joining two list items collapses them into one.
+  const startLine = state.doc.lineAt(from).number - 1;
+  const endLine = state.doc.lineAt(to).number - 1;
+  if (joinWouldFuseBlocks(text.split("\n"), startLine, endLine)) return false;
+
   const result = joinLines(text, from, to);
 
   view.dispatch({
