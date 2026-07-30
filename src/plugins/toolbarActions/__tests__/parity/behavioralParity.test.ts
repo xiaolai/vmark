@@ -30,7 +30,7 @@
  * @coordinates-with @/utils/markdownPipeline/__tests__/fidelity/docFingerprint — equivalence
  * @module plugins/toolbarActions/__tests__/parity/behavioralParity.test
  */
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeAll } from "vitest";
 import { parseMarkdown } from "@/utils/markdownPipeline";
 import { getProductionSchema } from "@/test/productionSchema";
 import { docFingerprint } from "@/utils/markdownPipeline/__tests__/fidelity/docFingerprint";
@@ -62,37 +62,48 @@ interface Comparison {
 }
 
 /**
- * The full result matrix, computed ONCE.
+ * The full result matrix, computed ONCE in `beforeAll`.
  *
- * This is a CORRECTNESS measure, not a speed one — measured, it is slightly
- * slower overall (~19s versus ~15.6s), because the work moves from `tests` into
- * module `import` rather than disappearing. It is kept because the per-case
- * assertions and the staleness check must agree: when each computed its own
- * results, the two passes ran against a shared editor whose accumulated state
- * (notably undo history) could in principle make them disagree about the same
- * cell. Reading one matrix removes that possibility.
+ * Computed once for CORRECTNESS: the per-case assertions and the staleness
+ * check must agree, and when each computed its own results they ran against a
+ * shared editor whose accumulated state could in principle make them disagree
+ * about the same cell. Reading one matrix removes that possibility.
+ *
+ * Built in `beforeAll` rather than at module scope because it boots a real
+ * Tiptap editor and runs ~750 surface pairs. At import time that work blocks the
+ * worker while OTHER test files are still resolving their own dynamic imports,
+ * and it pushed `actionApplicability.test.ts` past vitest's 5s default — a
+ * timeout in an unrelated file, caused entirely by this one's import cost.
+ *
+ * The hook needs an explicit timeout because the build takes roughly twice
+ * vitest's 10s default. Blowing it fails the FILE (so CI still catches it), but
+ * the per-test line reads "skipped" rather than "failed", which is easy to skim
+ * past — hence the generous ceiling.
  */
+const HOOK_TIMEOUT_MS = 120_000;
+
 const RESULTS = new Map<string, Comparison>();
 const key = (action: string, docLabel: string, shape: string): string => `${action}|${docLabel}|${shape}`;
 
-for (const action of ACTIONS) {
-  for (const doc of DOCS) {
-    for (const shape of SHAPES) {
-      const target: Target = shape === "range" ? { select: doc.needle } : { caret: doc.needle };
-      const w = runOnWysiwyg(doc.markdown, target, action);
-      const s = runOnSource(doc.markdown, target, action);
-      RESULTS.set(key(action, doc.label, shape), {
-        agree: meaning(w.markdown) === meaning(s.markdown),
-        wysiwyg: w.markdown,
-        source: s.markdown,
-        wysiwygError: w.error,
-        sourceError: s.error,
-      });
+beforeAll(() => {
+  for (const action of ACTIONS) {
+    for (const doc of DOCS) {
+      for (const shape of SHAPES) {
+        const target: Target = shape === "range" ? { select: doc.needle } : { caret: doc.needle };
+        const w = runOnWysiwyg(doc.markdown, target, action);
+        const s = runOnSource(doc.markdown, target, action);
+        RESULTS.set(key(action, doc.label, shape), {
+          agree: meaning(w.markdown) === meaning(s.markdown),
+          wysiwyg: w.markdown,
+          source: s.markdown,
+          wysiwygError: w.error,
+          sourceError: s.error,
+        });
+      }
     }
   }
-}
-
-disposeSurfaces();
+  disposeSurfaces();
+}, HOOK_TIMEOUT_MS);
 
 describe("toolbar adapter behavioral parity", () => {
   for (const action of ACTIONS) {

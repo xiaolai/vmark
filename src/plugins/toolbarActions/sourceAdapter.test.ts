@@ -258,7 +258,7 @@ describe("performSourceToolbarAction", () => {
     view.destroy();
   });
 
-  it("inserts code block", () => {
+  it("converts an empty paragraph into an empty code block", () => {
     const view = createView("", [{ from: 0, to: 0 }]);
     const applied = performSourceToolbarAction("insertCodeBlock", {
       surface: "source",
@@ -267,7 +267,7 @@ describe("performSourceToolbarAction", () => {
       multiSelection: singleSelection,
     });
     expect(applied).toBe(true);
-    expect(view.state.doc.toString()).toBe("```\n\n```");
+    expect(view.state.doc.toString()).toBe("```plaintext\n\n```");
     view.destroy();
   });
 

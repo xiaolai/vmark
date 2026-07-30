@@ -8,6 +8,8 @@
  * Pipeline: toolbar click -> runToolbarAction(id) -> switch(id) -> handler module
  * Key decisions:
  *   - Single giant switch for action routing (simple, greppable, no abstraction overhead)
+ *   - True block insertions go AFTER the current block via `blockInsertPos`,
+ *     never split it at the caret — the contract alerts and details already used
  *   - Multi-selection actions delegate to wysiwygMultiSelection.ts for per-range handling
  *   - Handler implementations split by category (links: wysiwygAdapterLinks.ts):
  *     - wysiwygAdapterFormatting.ts — text formatting, blockquote, case transforms
@@ -41,6 +43,7 @@ import { handleInsertImage, handleInsertVideo, handleInsertAudio, insertMathBloc
 import { handleInsertCodeBlock } from "./wysiwygAdapterCodeBlock";
 import { openLinkEditor } from "./wysiwygAdapterLinkEditor";
 import { handleFormatCJK, handleFormatCJKFile, handleRemoveTrailingSpaces, handleCollapseBlankLines, handleLineEndings } from "./wysiwygAdapterCjk";
+import { blockInsertPos } from "@/plugins/shared/blockInsertPos";
 import { handleWysiwygMoveBlockUp, handleWysiwygMoveBlockDown, handleWysiwygDuplicateBlock, handleWysiwygDeleteBlock, handleWysiwygJoinBlocks, handleWysiwygRemoveBlankLines } from "./wysiwygAdapterBlockOps";
 import { performWysiwygTableAction } from "./wysiwygAdapterTables";
 import type { WysiwygToolbarContext } from "./types";
@@ -188,7 +191,15 @@ export function performWysiwygToolbarAction(action: string, context: WysiwygTool
       return handleInsertCodeBlock(context);
     case "insertDivider":
       if (!context.editor) return false;
-      return context.editor.chain().focus().setHorizontalRule().run();
+      // Placed AFTER the current block, not at the caret. `setHorizontalRule`
+      // splits the paragraph, so a rule dropped mid-sentence cut the sentence in
+      // half. Alerts and details already use `blockInsertPos`; this is the same
+      // contract for every true block insertion.
+      return context.editor
+        .chain()
+        .focus()
+        .insertContentAt(blockInsertPos(context.editor.state.selection), { type: "horizontalRule" })
+        .run();
     case "insertMath":
       return insertMathBlock(context);
     case "insertDiagram":
