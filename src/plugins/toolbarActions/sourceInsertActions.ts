@@ -15,6 +15,9 @@
  *     insertion replaces. Folding in only the selected characters silently
  *     deleted the rest of the line.
  *   - Block CONTENT comes from `shared/blockTemplates`, not from literals here.
+ *   - `insertCodeBlock` fences the block's CONTENT, not its markup: `### Title`
+ *     yields a fence containing `Title`. An enclosing blockquote stays OUTSIDE
+ *     the fence, because a block converted inside a quote is still inside it.
  *
  * @coordinates-with sourceAdapter.ts — dispatcher routes insert actions here
  * @coordinates-with sourceBlockPlacement.ts — the placement helpers

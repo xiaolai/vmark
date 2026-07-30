@@ -11,6 +11,9 @@
  *     full unlisting is the explicit "remove list" action
  *   - Outdent removes one level of NESTING and declines at the outermost level,
  *     matching Source mode; leaving a list is Remove List or a toggle
+ *   - The RANGE paths handle selections spanning several items. A selection
+ *     confined to one item falls through to the cursor path, which already
+ *     handles that position — running the range path there over-reached
  *   - Every handler returns whether it changed the document, and the value is
  *     the underlying ProseMirror command result — callers must not report a
  *     no-op as handled
