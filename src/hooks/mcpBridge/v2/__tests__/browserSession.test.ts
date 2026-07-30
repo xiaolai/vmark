@@ -44,6 +44,20 @@ describe("handleBrowserSessionSave (op=session, never grantable)", () => {
     void id;
   });
 
+  it("responds queue-full (NOT needsApproval) when the approval queue is at capacity", async () => {
+    const { MAX_PENDING_APPROVALS } = await import("@/stores/browserApprovalStore");
+    const id = seed();
+    const store = useBrowserApprovalStore.getState();
+    for (let i = 0; i < MAX_PENDING_APPROVALS; i++) {
+      store.requestApproval(`fill-${i}`, "https://blog.example.com/", "click", { role: "button", name: `b${i}` } as never, id, 1);
+    }
+    await handleBrowserSessionSave("sv-full", { tabId: id, handle: "work_login" });
+    expect(invoke).not.toHaveBeenCalled();
+    const res = lastResponse();
+    expect(String(res.error)).toContain("approval queue is full");
+    expect((res.data as { needsApproval?: boolean } | undefined)?.needsApproval).toBeUndefined();
+  });
+
   it("raises approval, then saves and returns a handle + summary (no values)", async () => {
     const id = seed();
     await handleBrowserSessionSave("sv-a", { tabId: id, handle: "work_login" });

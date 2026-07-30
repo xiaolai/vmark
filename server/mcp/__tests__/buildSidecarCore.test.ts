@@ -151,6 +151,22 @@ describe("buildForTarget", () => {
     expect(await buildForTarget("darwin-arm64", deps)).toBe(false);
   });
 
+  it("keeps the .exe extension TERMINAL on the Windows staging path", async () => {
+    // pkg appends .exe to extensionless Windows outputs; a suffix after the
+    // extension made pkg write a different file than verify checked.
+    const { deps } = makeDeps();
+    expect(await buildForTarget("win32-x64", deps)).toBe(true);
+    const pkgArgs = (deps.runTool as ReturnType<typeof vi.fn>).mock.calls.find(
+      (c) => (c[0] as string[])[0] === "@yao-pkg/pkg"
+    )?.[0] as string[];
+    const out = pkgArgs[pkgArgs.indexOf("--output") + 1];
+    expect(out).toMatch(/vmark-mcp-server-x86_64-pc-windows-msvc\.staging-[^.]+\.exe$/);
+    expect(deps.rename).toHaveBeenCalledWith(
+      expect.stringMatching(/\.staging-[^.]+\.exe$/),
+      expect.stringMatching(/vmark-mcp-server-x86_64-pc-windows-msvc\.exe$/)
+    );
+  });
+
   it("returns false when the artifact is missing after pkg", async () => {
     const { deps } = makeDeps({
       access: vi.fn(async () => {
