@@ -20,10 +20,8 @@
  *     the next one and wrapped a paragraph the user never selected — the same
  *     off-by-one `selectionBlockSpan` corrects for the line-oriented surface.
  *
- * Known limitations:
- *   - An AllSelection or a top-level NodeSelection has depth-0 endpoints and is
- *     rejected, so the caller falls back to inserting an empty block. Wrapping
- *     a whole-document selection is not supported.
+ *   - Depth-0 selections (AllSelection, top-level NodeSelection) wrap their
+ *     exact from/to — those ARE block boundaries, no widening needed.
  *
  * @coordinates-with blockSpan.ts — the same rule for the line-oriented surface
  * @coordinates-with alertBlock/tiptap.ts — insertAlertBlock
@@ -41,7 +39,15 @@ import type { Fragment, Node as PMNode } from "@tiptap/pm/model";
 export function spannedBlockRange(state: EditorState): { from: number; to: number } | null {
   const { $from, $to, empty } = state.selection;
   if (empty) return null;
-  if ($from.depth === 0 || $to.depth === 0) return null;
+
+  // Depth-0 endpoints mean the selection addresses WHOLE top-level blocks
+  // already: an AllSelection (Cmd+A) or a NodeSelection on a top-level node.
+  // Its from/to ARE block boundaries, so use them directly — rejecting these
+  // made the caller fall back to inserting an empty block, ignoring a
+  // non-empty selection the user explicitly made.
+  if ($from.depth === 0 || $to.depth === 0) {
+    return { from: state.selection.from, to: state.selection.to };
+  }
 
   // ProseMirror's `to` is EXCLUSIVE, so a selection ending at the START of the
   // next block (parentOffset 0) already resolves INTO that block, and
