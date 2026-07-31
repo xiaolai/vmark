@@ -82,6 +82,11 @@ export function wireSessionInput({ sessionId, getEntry, startShell }: WireOption
       startShell(sessionId);
       return;
     }
-    if (e.pty) e.pty.write(data);
+    if (e.pty) {
+      e.pty.write(data);
+      // An ACCEPTED write — the gate keys insert ownership off this, so a
+      // suppressed onData (the composing check above) never counts (WI-13).
+      instance.noteExternalWrite(data);
+    }
   });
 }

@@ -31,8 +31,12 @@ function makeGateTerminal(): Harness {
   const gate = setupImeCompositionGate({ container, textarea });
   // Single writer: commits go straight to the "PTY".
   gate.onCompositionCommit = (t) => ptyWrites.push(t);
-  // xterm's own onData (ASCII via keydown) is the other legitimate producer.
-  term.onData((d) => ptyWrites.push(d));
+  // xterm's own onData (ASCII via keydown) is the other legitimate producer —
+  // and, as in the real wiring, every forwarded write is reported to the gate.
+  term.onData((d) => {
+    ptyWrites.push(d);
+    gate.noteExternalWrite(d);
+  });
 
   return {
     term,

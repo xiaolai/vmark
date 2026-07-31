@@ -66,11 +66,16 @@ function makeWiring() {
     isComposing: () => gate.composing,
   });
 
-  // xterm's own keydown listener, in the position xterm installs it.
+  // xterm's own keydown listener, in the position xterm installs it. Writes
+  // report themselves to the gate, exactly as the real wiring does — INCLUDING
+  // the wiring's composing suppression: an onData produced mid-composition is
+  // dropped and therefore never reported (WI-13).
   textarea.addEventListener("keydown", (e) => {
     if (!keyHandler(e)) return; // handler consumed it — xterm writes nothing
     if (e.key.length === 1 && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      if (gate.composing) return; // wiring drops onData while composing
       ptyWrites.push(e.key);
+      gate.noteExternalWrite(e.key);
     }
   });
 
@@ -263,5 +268,45 @@ describe("a keydown that writes nothing does not steal the next insert", () => {
     w.ptyWrites.length = 0;
     typeWithIme(w.textarea, "1"); // a later insert must not inherit that keydown
     expect(w.ptyWrites.join("")).toBe("1");
+  });
+});
+
+// WI-13 — a real printable keydown DURING a composition. The key handler lets
+// xterm process it, the wiring suppresses the resulting onData, and the old
+// keydown-shaped ownership then marked the keystroke as written when nothing
+// was: the character reached nobody.
+describe("a keystroke whose onData was suppressed mid-composition (WI-13)", () => {
+  let w: ReturnType<typeof makeWiring>;
+  beforeEach(() => {
+    vi.useFakeTimers();
+    document.body.innerHTML = "";
+    w = makeWiring();
+  });
+  afterEach(() => {
+    w.cleanup();
+    vi.useRealTimers();
+  });
+
+  it("still delivers the character exactly once", () => {
+    const ta = w.textarea;
+    ta.dispatchEvent(new CompositionEvent("compositionstart", { bubbles: true }));
+    // A real printable keydown lands mid-composition; its onData is suppressed.
+    ta.dispatchEvent(new KeyboardEvent("keydown", { key: "a", keyCode: 65, bubbles: true }));
+    ta.value = "你";
+    ta.dispatchEvent(new CompositionEvent("compositionend", { data: "你", bubbles: true }));
+    vi.advanceTimersByTime(1);
+    // The character's insert arrives after the composition settles.
+    ta.value = "a";
+    ta.dispatchEvent(
+      new InputEvent("input", { data: "a", inputType: "insertText", isComposing: false, bubbles: true }),
+    );
+    expect(w.ptyWrites.join("")).toBe("你a");
+  });
+
+  it("does not double a character whose onData WAS forwarded", () => {
+    // Control: outside composition the same keydown writes via onData and its
+    // insert is the echo to drop.
+    typeWithoutIme(w.textarea, "a", 65);
+    expect(w.ptyWrites.join("")).toBe("a");
   });
 });

@@ -13,6 +13,7 @@ function makeEntry() {
   let onCommit: ((text: string) => void) | null = null;
   const writeMock = vi.fn();
   const clearMock = vi.fn();
+  const noteMock = vi.fn();
   const pty = { write: writeMock } as unknown as SessionInputState["pty"];
   const instance = {
     term: {
@@ -25,12 +26,14 @@ function makeEntry() {
     composing: false,
     get onCompositionCommit() { return onCommit; },
     set onCompositionCommit(v: ((text: string) => void) | null) { onCommit = v; },
+    noteExternalWrite: noteMock,
   } as unknown as TerminalInstance;
   const entry: SessionInputState = { instance, pty, shellExited: false };
   return {
     entry,
     writeMock,
     clearMock,
+    noteMock,
     fireOnData: (data: string) => onDataCb?.(data),
     fireCommit: (text: string) => onCommit?.(text),
   };
@@ -96,5 +99,35 @@ describe("wireSessionInput — single-writer contract", () => {
       expect(entry.shellExited).toBe(false);
       expect(writeMock).not.toHaveBeenCalled();
     });
+  });
+});
+
+// WI-13 — the gate's insert ownership derives from writes the wiring ACTUALLY
+// forwarded. A suppressed onData (mid-composition) must not be reported, or a
+// keystroke xterm never delivered would be treated as already written.
+describe("wireSessionInput — write reporting (WI-13)", () => {
+  it("reports a forwarded onData to the gate", () => {
+    const { entry, fireOnData, noteMock, writeMock } = makeEntry();
+    wireSessionInput({ sessionId: "s", getEntry: () => entry, startShell: vi.fn() });
+    fireOnData("a");
+    expect(writeMock).toHaveBeenCalledWith("a");
+    expect(noteMock).toHaveBeenCalledWith("a");
+  });
+
+  it("does NOT report an onData suppressed by an active composition", () => {
+    const { entry, fireOnData, noteMock, writeMock } = makeEntry();
+    (entry.instance as { composing: boolean }).composing = true;
+    wireSessionInput({ sessionId: "s", getEntry: () => entry, startShell: vi.fn() });
+    fireOnData("a");
+    expect(writeMock).not.toHaveBeenCalled();
+    expect(noteMock).not.toHaveBeenCalled();
+  });
+
+  it("does not report when there is no PTY to write to", () => {
+    const { entry, fireOnData, noteMock } = makeEntry();
+    entry.pty = null;
+    wireSessionInput({ sessionId: "s", getEntry: () => entry, startShell: vi.fn() });
+    fireOnData("a");
+    expect(noteMock).not.toHaveBeenCalled();
   });
 });

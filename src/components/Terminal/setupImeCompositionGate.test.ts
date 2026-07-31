@@ -33,7 +33,8 @@ function fireInput(ta: HTMLTextAreaElement, data: string, inputType = "insertTex
 function fireImeKeydown(ta: HTMLTextAreaElement) {
   ta.dispatchEvent(new KeyboardEvent("keydown", { keyCode: 229, bubbles: true }));
 }
-/** A keydown carrying a real keyCode — xterm's keydown path writes this one. */
+/** A keydown carrying a real keyCode. Ownership no longer derives from
+ *  keydowns at all — pair with `noteWrite` to simulate xterm having written. */
 function firePlainKeydown(ta: HTMLTextAreaElement, key: string, keyCode: number) {
   ta.dispatchEvent(new KeyboardEvent("keydown", { key, keyCode, bubbles: true }));
 }
@@ -117,8 +118,9 @@ describe("setupImeCompositionGate — commit decisions", () => {
   });
 
   it("ignores plain ASCII inserts (xterm keydown owns ASCII)", () => {
-    const { textarea, commits } = makeHarness();
+    const { textarea, handle, commits } = makeHarness();
     firePlainKeydown(textarea, "a", 65);
+    handle.noteExternalWrite("a"); // xterm forwarded it to the PTY
     fireInput(textarea, "a");
     expect(commits).toEqual([]);
   });
@@ -133,8 +135,9 @@ describe("setupImeCompositionGate — commit decisions", () => {
   });
 
   it("still drops the insert that follows a real keydown", () => {
-    const { textarea, commits } = makeHarness();
+    const { textarea, handle, commits } = makeHarness();
     firePlainKeydown(textarea, "a", 65); // xterm wrote it here
+    handle.noteExternalWrite("a");
     fireInput(textarea, "a");
     expect(commits).toEqual([]);
   });
@@ -172,8 +175,9 @@ describe("setupImeCompositionGate — ASCII claimed by an IME keydown (#1176)", 
   });
 
   it("does NOT double-write when xterm's keydown path already owns the key", () => {
-    const { textarea, commits } = makeHarness();
+    const { textarea, handle, commits } = makeHarness();
     firePlainKeydown(textarea, "/", 191);
+    handle.noteExternalWrite("/");
     fireInput(textarea, "/");
     expect(commits).toEqual([]);
   });
@@ -332,19 +336,21 @@ describe("setupImeCompositionGate — insert ownership (#1176 follow-ups)", () =
   });
 
   it("leaves IME mode when a real keyCode returns", () => {
-    const { textarea, commits } = makeHarness();
+    const { textarea, handle, commits } = makeHarness();
     fireImeKeydown(textarea);
     fireInput(textarea, "1");
     vi.advanceTimersByTime(1);
     firePlainKeydown(textarea, "a", 65); // IME switched off
+    handle.noteExternalWrite("a"); // xterm wrote again
     fireInput(textarea, "a"); // xterm owns it again
     expect(commits).toEqual(["1"]);
   });
 
   it("a real non-IME keydown keeps its own insert away from us", () => {
-    const { textarea, commits } = makeHarness();
+    const { textarea, handle, commits } = makeHarness();
     fireImeKeydown(textarea); // produced no insert
     firePlainKeydown(textarea, "a", 65); // takes ownership back
+    handle.noteExternalWrite("a");
     fireInput(textarea, "a");
     expect(commits).toEqual([]);
   });
@@ -497,8 +503,9 @@ describe("setupImeCompositionGate — audit findings", () => {
 
   // A layout that types non-ASCII directly is xterm's to write.
   it("does not double a non-ASCII character typed on a normal layout", () => {
-    const { textarea, commits } = makeHarness();
+    const { textarea, handle, commits } = makeHarness();
     firePlainKeydown(textarea, "é", 50); // AZERTY — xterm writes it
+    handle.noteExternalWrite("é");
     fireInput(textarea, "é");
     expect(commits).toEqual([]);
   });
