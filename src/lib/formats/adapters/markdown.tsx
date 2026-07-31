@@ -20,7 +20,7 @@ import { MarkdownSplitView } from "@/components/Editor/MarkdownSplitView";
 import { HeadingPicker } from "@/components/Editor/HeadingPicker";
 import { DropZoneIndicator } from "@/components/Editor/DropZoneIndicator";
 import { GhaWorkflowSidePanel } from "@/plugins/ghaWorkflowPreview/GhaWorkflowSidePanel";
-import { markdown } from "@codemirror/lang-markdown";
+import { markdownLanguageSupport } from "@/lib/formats/markdownLanguageSupport";
 import { languages } from "@codemirror/language-data";
 import { lintMarkdown } from "@/lib/lintEngine";
 import { extractHeadings } from "@/components/Sidebar/outlineUtils";
@@ -138,7 +138,7 @@ export const markdownFormat: FormatConfig = {
   toPlainText: (content: string) => stripMarkdown(content),
   // Bundled regardless — the WYSIWYG surface imports it — so expose it
   // synchronously and keep the primary format's source mode flash-free.
-  language: () => markdown({ codeLanguages: languages }),
+  language: () => markdownLanguageSupport(languages),
   wysiwygComponent: MarkdownEditorSurface,
   adapters: {
     saveDialogFilters: [

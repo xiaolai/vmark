@@ -29,7 +29,8 @@ import { EditorView, keymap, drawSelection, dropCursor, lineNumbers } from "@cod
 import { history } from "@codemirror/commands";
 import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import { workflowWarn } from "@/utils/debug";
-import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
+import { markdownLanguage } from "@codemirror/lang-markdown";
+import { markdownLanguageSupport } from "@/lib/formats/markdownLanguageSupport";
 import { languages } from "@codemirror/language-data";
 import { isYamlFileName } from "@/utils/dropPaths";
 import { dispatchEditor } from "@/lib/formats/registry";
@@ -97,9 +98,7 @@ export const showInvisiblesCompartment = new Compartment();
 
 // Custom brackets config for markdown (^, standard brackets)
 const markdownCloseBrackets = markdownLanguage.data.of({
-  closeBrackets: {
-    brackets: ["(", "[", "{", '"', "'", "^"],
-  },
+  closeBrackets: { brackets: ["(", "[", "{", '"', "'", "^"] },
 });
 
 interface ExtensionConfig {
@@ -134,7 +133,7 @@ interface ExtensionConfig {
  * highlighting is recoverable; one that throws on construction is not.
  */
 function resolveLanguage(filePath: string | null | undefined): Extension {
-  const fallback = () => markdown({ codeLanguages: languages });
+  const fallback = () => markdownLanguageSupport(languages);
   try {
     return dispatchEditor(filePath ?? null).language?.() ?? fallback();
   } catch {
