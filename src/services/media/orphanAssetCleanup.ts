@@ -31,11 +31,14 @@
  * @module services/media/orphanAssetCleanup
  */
 
-import { readDir, readTextFile, remove, exists } from "@tauri-apps/plugin-fs";
+import { readDir, readTextFile, exists } from "@tauri-apps/plugin-fs";
+import { invoke } from "@tauri-apps/api/core";
 import { dirname, join } from "@tauri-apps/api/path";
 import { ASSETS_FOLDER, isImageFile } from "@/utils/imageUtils";
 import { isMarkdownFileName } from "@/utils/dropPaths";
 import { assetKey, extractImageReferenceKeys } from "@/utils/imageReferences";
+import { unregisterImageFilenames } from "@/services/media/imageHashRegistry";
+import { canonicalPathKey } from "@/utils/paths/pathComparison";
 import { orphanCleanupError } from "@/utils/debug";
 
 export interface OrphanedImage {
@@ -150,8 +153,12 @@ async function collectSiblingReferences(
   // An open document that readDir did NOT return still holds references — it may
   // have been deleted or moved externally while its buffer stays on screen.
   // Missing it deletes an image that document still displays.
+  const onDiskKeys = new Set(onDisk.map(canonicalPathKey));
   const buffered = [...knownContents.keys()].filter(
-    (path) => path !== documentPath && !onDisk.includes(path) && isSameDirectory(path, docDir)
+    (path) =>
+      canonicalPathKey(path) !== canonicalPathKey(documentPath) &&
+      !onDiskKeys.has(canonicalPathKey(path)) &&
+      isSameDirectory(canonicalPathKey(path), canonicalPathKey(docDir))
   );
 
   const keys = new Set<string>();
@@ -159,13 +166,14 @@ async function collectSiblingReferences(
   const add = (content: string) =>
     extractImageReferenceKeys(content).forEach((key) => keys.add(key));
 
+  const subjectKey = canonicalPathKey(documentPath);
   await mapWithConcurrency([...onDisk, ...buffered], SIBLING_READ_CONCURRENCY, async (fullPath) => {
     // The subject document's authoritative content is the caller's argument;
     // the on-disk copy may be stale (unsaved edits) and would resurrect the
-    // very images the user just removed.
-    if (fullPath === documentPath) return;
+    // very images the user just removed. Compared canonically (WI-8c).
+    if (canonicalPathKey(fullPath) === subjectKey) return;
 
-    const known = knownContents.get(fullPath);
+    const known = knownContents.get(canonicalPathKey(fullPath));
     if (known !== undefined) add(known);
 
     // Read the file EVEN WHEN a buffer exists, and union both. The buffer can be
@@ -253,23 +261,60 @@ export interface DeleteOutcome {
   failed: string[];
 }
 
+/** Shape returned by the Rust `move_paths_to_trash` command. */
+interface TrashOutcome {
+  trashed: string[];
+  failed: Array<{ path: string; error: string }>;
+}
+
 /**
- * Delete orphaned images from the assets folder. Never throws: a file that
- * disappeared or is locked is reported, not escalated.
+ * Remove orphaned images by moving them to the SYSTEM TRASH (WI-12), never by
+ * unlinking. This code deletes files on INFERENCE — a scan concluding "nothing
+ * references this" — and the trash turns every wrong conclusion from data loss
+ * into an undo. A path the OS cannot trash is reported as failed and KEPT;
+ * falling back to permanent deletion would defeat the point.
+ *
+ * Also reconciles the shared image-hash registry (WI-8a): entries for removed
+ * files would otherwise "dedup" a future identical paste onto a path that no
+ * longer exists.
+ *
+ * Never throws: a file that disappeared or is locked is reported, not
+ * escalated.
  */
 export async function deleteOrphanedImages(images: OrphanedImage[]): Promise<DeleteOutcome> {
-  let deleted = 0;
-  const failed: string[] = [];
+  if (images.length === 0) return { deleted: 0, failed: [] };
 
-  for (const image of images) {
+  let outcome: TrashOutcome;
+  try {
+    outcome = await invoke<TrashOutcome>("move_paths_to_trash", {
+      paths: images.map((img) => img.fullPath),
+    });
+  } catch (error) {
+    orphanCleanupError(" Trash command failed:", error);
+    return { deleted: 0, failed: images.map((img) => img.filename) };
+  }
+
+  const trashedPaths = new Set(outcome.trashed);
+  const trashed = images.filter((img) => trashedPaths.has(img.fullPath));
+  for (const failure of outcome.failed) {
+    orphanCleanupError(` Failed to trash ${failure.path}:`, failure.error);
+  }
+
+  // Registry reconciliation is per assets folder; every image in one batch
+  // shares the folder, so any member's path locates the registry. Best-effort:
+  // a failure here leaves stale hashes, not lost files.
+  if (trashed.length > 0) {
     try {
-      await remove(image.fullPath);
-      deleted++;
+      const anchor = trashed[0].fullPath;
+      const documentPath = anchor.slice(0, anchor.indexOf(`/${ASSETS_FOLDER}/`)) + "/anchor.md";
+      await unregisterImageFilenames(documentPath, trashed.map((img) => img.filename));
     } catch (error) {
-      orphanCleanupError(` Failed to delete ${image.filename}:`, error);
-      failed.push(image.filename);
+      orphanCleanupError(" Hash-registry reconciliation failed:", error);
     }
   }
 
-  return { deleted, failed };
+  return {
+    deleted: trashed.length,
+    failed: images.filter((img) => !trashedPaths.has(img.fullPath)).map((img) => img.filename),
+  };
 }

@@ -67,3 +67,36 @@ describe("liveContentsExcluding", () => {
     expect(liveContentsExcluding().get("/tmp/a.md")).toBe("![](./assets/images/pasted.png)");
   });
 });
+
+// WI-10 — the editor syncs to the store on a DEBOUNCE. Reading before it
+// settles misses the reference of a just-pasted image, exactly when a
+// brand-new file has a single reference.
+describe("liveContentsExcluding — flushes pending editor state first", () => {
+  beforeEach(reset);
+
+  it("sees an edit that was still in the editor's debounce window", async () => {
+    const { registerWysiwygFlusher } = await import("@/utils/wysiwygFlush");
+    useDocumentStore.getState().initDocument("t1", "old", "/tmp/a.md");
+    // The mounted editor holds newer content than the store.
+    registerWysiwygFlusher("t1", () => {
+      useDocumentStore.getState().setContent("t1", "![](./assets/images/pasted.png)");
+    });
+
+    const live = liveContentsExcluding();
+
+    expect(live.get("/tmp/a.md")).toBe("![](./assets/images/pasted.png)");
+    registerWysiwygFlusher("t1", null);
+  });
+
+  it("survives a throwing flusher", async () => {
+    const { registerWysiwygFlusher } = await import("@/utils/wysiwygFlush");
+    useDocumentStore.getState().initDocument("t1", "content", "/tmp/a.md");
+    registerWysiwygFlusher("t1", () => {
+      throw new Error("editor already unmounted");
+    });
+
+    expect(() => liveContentsExcluding()).not.toThrow();
+    expect(liveContentsExcluding().get("/tmp/a.md")).toBe("content");
+    registerWysiwygFlusher("t1", null);
+  });
+});

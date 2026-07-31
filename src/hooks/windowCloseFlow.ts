@@ -44,6 +44,7 @@ import {
 } from "@/hooks/closeSave";
 import { cleanupOrphansForClosingTabs } from "@/services/media/closeCleanup";
 import { persistWorkspaceSession } from "@/services/workspaces/workspaceSession";
+import { flushAllWysiwygNow } from "@/utils/wysiwygFlush";
 import type { Tab } from "@/stores/tabStoreTypes";
 
 export type CloseLog = (label: string, ...args: unknown[]) => void;
@@ -130,6 +131,9 @@ export async function runWindowCloseFlow(
   let promptedForDirty = false;
 
   for (let attempt = 0; attempt < MAX_RESOLUTION_ATTEMPTS; attempt++) {
+    // WI-10: sync every mounted editor before judging dirtiness — an edit
+    // still in the debounce window is otherwise invisible to the check.
+    flushAllWysiwygNow();
     const tabs = useTabStore.getState().tabs[windowLabel] ?? [];
     log(windowLabel, "tabs state:", {
       windowLabel,

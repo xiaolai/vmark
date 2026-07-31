@@ -270,9 +270,14 @@ describe("deleteOrphanedImages", () => {
     vi.clearAllMocks();
   });
 
-  it("deletes all provided orphaned images and reports the count", async () => {
-    const { remove } = await import("@tauri-apps/plugin-fs");
-    vi.mocked(remove).mockResolvedValue(undefined);
+  // WI-12: removal goes through the SYSTEM TRASH (Rust command), never unlink.
+  // A wrong scan conclusion is then an undo, not data loss.
+  it("moves every image to the trash and reports the count", async () => {
+    const { invoke } = await import("@tauri-apps/api/core");
+    vi.mocked(invoke).mockResolvedValue({
+      trashed: ["/doc/assets/images/a.png", "/doc/assets/images/b.png"],
+      failed: [],
+    });
 
     const { deleteOrphanedImages } = await import("./orphanAssetCleanup");
     const outcome = await deleteOrphanedImages([
@@ -280,46 +285,71 @@ describe("deleteOrphanedImages", () => {
       { filename: "b.png", fullPath: "/doc/assets/images/b.png" },
     ]);
     expect(outcome).toEqual({ deleted: 2, failed: [] });
-    expect(remove).toHaveBeenCalledTimes(2);
+    expect(invoke).toHaveBeenCalledWith("move_paths_to_trash", {
+      paths: ["/doc/assets/images/a.png", "/doc/assets/images/b.png"],
+    });
   });
 
-  it("reports nothing for an empty array", async () => {
+  it("reports nothing for an empty array without invoking", async () => {
+    const { invoke } = await import("@tauri-apps/api/core");
     const { deleteOrphanedImages } = await import("./orphanAssetCleanup");
     expect(await deleteOrphanedImages([])).toEqual({ deleted: 0, failed: [] });
+    expect(invoke).not.toHaveBeenCalled();
   });
 
-  // A locked or already-removed file must be NAMED, not folded into a success
-  // count — the prompt reports "Cleanup Complete" off this value.
-  it("names the files it could not delete and keeps going", async () => {
-    const { remove } = await import("@tauri-apps/plugin-fs");
-    vi.mocked(remove)
-      .mockRejectedValueOnce(new Error("permission denied"))
-      .mockResolvedValueOnce(undefined);
-
+  // A file the OS cannot trash must be NAMED and KEPT — never permanently
+  // deleted as a fallback, and never folded into a success count.
+  it("names the files that could not be trashed", async () => {
+    const { invoke } = await import("@tauri-apps/api/core");
+    vi.mocked(invoke).mockResolvedValue({
+      trashed: ["/doc/assets/images/ok.png"],
+      failed: [{ path: "/doc/assets/images/fail.png", error: "no trash on this volume" }],
+    });
     const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     const { deleteOrphanedImages } = await import("./orphanAssetCleanup");
 
     const outcome = await deleteOrphanedImages([
-      { filename: "fail.png", fullPath: "/fail.png" },
-      { filename: "ok.png", fullPath: "/ok.png" },
+      { filename: "fail.png", fullPath: "/doc/assets/images/fail.png" },
+      { filename: "ok.png", fullPath: "/doc/assets/images/ok.png" },
     ]);
     expect(outcome).toEqual({ deleted: 1, failed: ["fail.png"] });
-    expect(consoleSpy).toHaveBeenCalledTimes(1);
     consoleSpy.mockRestore();
   });
 
-  it("reports every failure when nothing can be deleted", async () => {
-    const { remove } = await import("@tauri-apps/plugin-fs");
-    vi.mocked(remove).mockRejectedValue(new Error("EACCES"));
+  it("keeps every file when the trash command itself fails", async () => {
+    const { invoke } = await import("@tauri-apps/api/core");
+    vi.mocked(invoke).mockRejectedValue(new Error("command missing"));
     const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     const { deleteOrphanedImages } = await import("./orphanAssetCleanup");
 
     const outcome = await deleteOrphanedImages([
-      { filename: "a.png", fullPath: "/a.png" },
-      { filename: "b.png", fullPath: "/b.png" },
+      { filename: "a.png", fullPath: "/doc/assets/images/a.png" },
     ]);
-    expect(outcome).toEqual({ deleted: 0, failed: ["a.png", "b.png"] });
+    expect(outcome).toEqual({ deleted: 0, failed: ["a.png"] });
     consoleSpy.mockRestore();
+  });
+
+  // WI-8a: the shared hash registry drops entries for removed files, or a
+  // future identical paste would "dedup" onto a path that no longer exists.
+  it("reconciles the hash registry for the trashed files", async () => {
+    const { invoke } = await import("@tauri-apps/api/core");
+    const { readTextFile, writeTextFile, exists } = await import("@tauri-apps/plugin-fs");
+    vi.mocked(invoke).mockResolvedValue({
+      trashed: ["/doc/assets/images/gone.png"],
+      failed: [],
+    });
+    vi.mocked(exists).mockResolvedValue(true);
+    vi.mocked(readTextFile).mockResolvedValue(
+      JSON.stringify({ version: 1, hashes: { h1: "gone.png", h2: "kept.png" } }),
+    );
+
+    const { deleteOrphanedImages } = await import("./orphanAssetCleanup");
+    await deleteOrphanedImages([{ filename: "gone.png", fullPath: "/doc/assets/images/gone.png" }]);
+
+    expect(writeTextFile).toHaveBeenCalledWith(
+      expect.stringContaining("image-hashes.json"),
+      expect.not.stringContaining("gone.png"),
+    );
   });
 });
 

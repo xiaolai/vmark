@@ -21,6 +21,8 @@
  */
 
 import { useDocumentStore } from "@/stores/documentStore";
+import { flushAllWysiwygNow } from "@/utils/wysiwygFlush";
+import { canonicalPathKey } from "@/utils/paths/pathComparison";
 
 /**
  * In-memory content of every open document except those in `excludedTabIds`,
@@ -32,12 +34,20 @@ import { useDocumentStore } from "@/stores/documentStore";
 export function liveContentsExcluding(
   excludedTabIds: ReadonlySet<string> = new Set()
 ): Map<string, string> {
+  // WI-10: the WYSIWYG editor syncs into the store on a debounce. Right after
+  // a paste — exactly when a brand-new image has a single reference — that
+  // reference exists in NEITHER the store nor the file. Flush every mounted
+  // editor first, or cleanup deletes the image out of the settling window.
+  flushAllWysiwygNow();
   const live = new Map<string, string>();
   const { documents } = useDocumentStore.getState();
   for (const [tabId, doc] of Object.entries(documents)) {
     if (excludedTabIds.has(tabId) || !doc.filePath) continue;
-    if (live.has(doc.filePath) && !doc.isDirty) continue;
-    live.set(doc.filePath, doc.content);
+    // WI-8c: two spellings of one path must land on ONE key, or a lookup
+    // misses the buffer and the scan falls back to a stale file.
+    const key = canonicalPathKey(doc.filePath);
+    if (live.has(key) && !doc.isDirty) continue;
+    live.set(key, doc.content);
   }
   return live;
 }

@@ -19,6 +19,9 @@
  *     shared by the whole directory.
  *   - Every open document's live buffer travels with the scan, so closing one
  *     tab cannot delete an image a sibling tab references but has not saved.
+ *   - Deletion is decided by TWO scans and their intersection (WI-8b): the
+ *     first scan does file IO, and an edit landing during it must not be
+ *     judged by a stale snapshot. Files go to the system trash, not unlink.
  *   - Never rejects: a cleanup failure must not strand a window the user asked
  *     to close.
  *
@@ -39,6 +42,8 @@ import {
   deleteOrphanedImages,
 } from "@/services/media/orphanAssetCleanup";
 import { liveContentsExcluding } from "@/services/media/liveDocumentContents";
+import { canonicalPathKey } from "@/utils/paths/pathComparison";
+import { withoutWorkspaceReferenced } from "@/services/media/workspaceReferenceCheck";
 
 /** A closing document and the content it will leave behind on disk. */
 interface ClosingDocument {
@@ -90,7 +95,7 @@ export async function cleanupOrphansForClosingTabs(tabIds: string[]): Promise<vo
       );
       if (content === null) continue;
       subjects.push({ filePath: doc.filePath, content });
-      knownContents.set(doc.filePath, content);
+      knownContents.set(canonicalPathKey(doc.filePath), content);
     } catch (error) {
       fileOpsError("OrphanCleanup could not resolve closing content:", error);
     }
@@ -103,11 +108,28 @@ export async function cleanupOrphansForClosingTabs(tabIds: string[]): Promise<vo
       if (scannedDirs.has(dir)) continue;
       scannedDirs.add(dir);
 
-      const result = await findOrphanedImages(subject.filePath, subject.content, {
+      const first = await findOrphanedImages(subject.filePath, subject.content, {
         knownContents,
       });
-      if (result.orphanedImages.length > 0) {
-        await deleteOrphanedImages(result.orphanedImages);
+      if (first.orphanedImages.length === 0) continue;
+
+      // WI-8b: re-snapshot the world and scan again, then remove only the
+      // INTERSECTION. The first scan does file IO; an edit landing during it
+      // (a paste into a sibling tab) must not be judged by the stale snapshot.
+      // The manual prompt already re-scans before deleting — the automatic
+      // path was the inconsistent one.
+      const fresh = liveContentsExcluding(closing);
+      for (const s of subjects) fresh.set(canonicalPathKey(s.filePath), s.content);
+      const second = await findOrphanedImages(subject.filePath, subject.content, {
+        knownContents: fresh,
+      });
+      const stillOrphaned = new Set(second.orphanedImages.map((img) => img.fullPath));
+      const confirmed = first.orphanedImages.filter((img) => stillOrphaned.has(img.fullPath));
+      // WI-11: a document ANYWHERE in the workspace can reference this asset
+      // by absolute or ../ path — documents the directory scan never reads.
+      const cleared = await withoutWorkspaceReferenced(confirmed);
+      if (cleared.length > 0) {
+        await deleteOrphanedImages(cleared);
       }
     } catch (error) {
       // Silent failure — don't block close for cleanup errors.
