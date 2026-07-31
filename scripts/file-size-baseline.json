@@ -99,7 +99,7 @@
     "src/plugins/toolbarActions/sourceAdapterLinks.ts": 370,
     "src/plugins/toolbarActions/sourceImageActions.ts": 333,
     "src/plugins/toolbarActions/wysiwygAdapterInsert.ts": 317,
-    "src/services/assembly/sourceEditorExtensions.ts": 326,
+    "src/services/assembly/sourceEditorExtensions.ts": 325,
     "src/services/history/historyOperations.ts": 369,
     "src/services/history/unifiedHistory.ts": 305,
     "src/services/navigation/fileOpen.ts": 309,
