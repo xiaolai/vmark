@@ -20,8 +20,10 @@
  *     indentation and inside any quote wrapper.
  *   - A BLANK line in an indented block still carries the (trimmed) prefix: a
  *     bare blank line inside a blockquote terminates the quote.
- *   - `replaceLinesWithBlock` accepts an explicit range, so a caller that has
+ *   - `replaceLinesWithBlock` requires an explicit range, so the caller that has
  *     widened the selection to whole blocks replaces exactly what it folded in.
+ *   - A template's `cursorOffset` is measured against the UNINDENTED text, so it
+ *     is mapped through the prefix transformation before it becomes an anchor.
  *
  * @coordinates-with sourceInsertActions.ts — the insert handlers
  * @coordinates-with sourceAdapterHelpers.ts — inline formatting counterpart
@@ -77,9 +79,37 @@ export function insertBlockText(view: EditorView, text: string, cursorOffset?: n
 
   view.dispatch({
     changes: { from, to: onEmptyLine ? line.to : from, insert },
-    selection: { anchor: blockStart + (typeof cursorOffset === "number" ? cursorOffset : body.length) },
+    selection: {
+      anchor:
+        blockStart +
+        (typeof cursorOffset === "number" ? mapOffsetThroughPrefix(text, prefix, cursorOffset) : body.length),
+    },
   });
   view.focus();
+}
+
+/**
+ * Map a caret offset in the RAW block template onto the prefixed body.
+ *
+ * A template's `cursorOffset` is measured against the unindented text, but
+ * `indentBlock` puts the continuation prefix in front of every line — so inside
+ * a list or quote the raw offset landed the caret short by one prefix per line,
+ * in the markup instead of a table's first cell. Each line adds exactly what
+ * `indentBlock` gave it, which for a BLANK line is the trimmed prefix.
+ */
+function mapOffsetThroughPrefix(text: string, prefix: string, offset: number): number {
+  if (!prefix) return offset;
+  let mapped = 0;
+  let remaining = offset;
+  for (const line of text.split("\n")) {
+    const added = line === "" ? prefix.trimEnd() : prefix;
+    if (remaining <= line.length) return mapped + added.length + remaining;
+    mapped += added.length + line.length + 1;
+    remaining -= line.length + 1;
+  }
+  // An offset past the template's end clamps to the body's end; the loop has
+  // counted one newline the body does not have.
+  return mapped - 1;
 }
 
 /**
@@ -119,25 +149,22 @@ function indentBlock(text: string, prefix: string): string {
  * The selection-consuming builders (alerts, details, math and diagram fences)
  * fold the selection into the block they return, so the insertion has to take
  * the selection's place — inserting below would leave the original text behind
- * and duplicate it inside the block. Expanding to whole lines keeps the block
- * from starting mid-sentence.
+ * and duplicate it inside the block.
+ *
+ * The range is REQUIRED: the caller has widened the selection to whole blocks,
+ * and that widened range is what the block contains and so what it must
+ * replace. A fallback that re-derived lines from the raw selection here could
+ * only disagree with what was folded in.
  */
 export function replaceLinesWithBlock(
   view: EditorView,
   text: string,
-  cursorOffset?: number,
-  range?: { from: number; to: number },
+  cursorOffset: number | undefined,
+  range: { from: number; to: number },
 ): void {
-  const { state } = view;
-  const { from, to } = state.selection.main;
-  // The caller may have widened the selection to whole blocks; when it has, that
-  // widened range is what the block contains and so what it must replace.
-  const start = range?.from ?? state.doc.lineAt(from).from;
-  const stop = range?.to ?? state.doc.lineAt(to).to;
-
   view.dispatch({
-    changes: { from: start, to: stop, insert: text },
-    selection: { anchor: start + (typeof cursorOffset === "number" ? cursorOffset : text.length) },
+    changes: { from: range.from, to: range.to, insert: text },
+    selection: { anchor: range.from + (typeof cursorOffset === "number" ? cursorOffset : text.length) },
   });
   view.focus();
 }
@@ -152,10 +179,15 @@ export function replaceLinesWithBlock(
  *
  * The caret keeps its position in the text, shifting by the marker's width so it
  * stays on the same character the user was editing.
+ *
+ * @param pos - line to mark, instead of the main selection's. A multi-cursor
+ *   caller supplies it and keeps its other cursors: setting a single anchor
+ *   would dissolve the multi-selection mid-loop, and the default change mapping
+ *   already carries every caret across the inserted marker.
  */
-export function prependLineMarker(view: EditorView, marker: string): boolean {
+export function prependLineMarker(view: EditorView, marker: string, pos?: number): boolean {
   const { state } = view;
-  const { from } = state.selection.main;
+  const from = typeof pos === "number" ? pos : state.selection.main.from;
   const line = state.doc.lineAt(from);
 
   // Go INSIDE any blockquote wrapper: the list belongs to the quoted content,
@@ -169,10 +201,12 @@ export function prependLineMarker(view: EditorView, marker: string): boolean {
   // produced `- ### text`, a bullet whose content is a heading.
   const headingRun = /^#{1,6}(?:\s+|$)/.exec(line.text.slice(wrapper.length))?.[0] ?? "";
 
-  view.dispatch({
-    changes: { from: at, to: at + headingRun.length, insert: marker },
-    selection: { anchor: Math.max(at, from - headingRun.length) + marker.length },
-  });
+  const changes = { from: at, to: at + headingRun.length, insert: marker };
+  view.dispatch(
+    typeof pos === "number"
+      ? { changes }
+      : { changes, selection: { anchor: Math.max(at, from - headingRun.length) + marker.length } },
+  );
   view.focus();
   return true;
 }
