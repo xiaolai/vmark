@@ -25,12 +25,32 @@ import { errorMessage } from "./errorMessage";
 export function safeUnlisten(unlisten: (() => void) | null | undefined): void {
   if (!unlisten) return;
   try {
-    unlisten();
+    const result: unknown = unlisten();
+    // Tauri types UnlistenFn as `() => void`, but the implementation is async —
+    // so a failing unlisten hands back a REJECTED PROMISE, which a synchronous
+    // try/catch cannot see. Swallow it here or it surfaces as an unhandled
+    // rejection, which is the very thing this module exists to prevent.
+    // Observed live as `listeners[eventId].handlerId` on an inconsistent
+    // registry. Deliberately not awaited: cleanup must not block unmount.
+    if (isThenable(result)) {
+      result.catch(() => {
+        // Same reasons as the sync branch below.
+      });
+    }
   } catch {
     // Ignore errors from Tauri's internal listener cleanup
     // These occur when the listener was never fully registered
     // or was already cleaned up
   }
+}
+
+/** True for anything with a `.catch` — covers real Promises and Tauri's thenables. */
+function isThenable(value: unknown): value is Promise<unknown> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof (value as Promise<unknown>).catch === "function"
+  );
 }
 
 /**
