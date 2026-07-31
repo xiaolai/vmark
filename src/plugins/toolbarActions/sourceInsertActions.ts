@@ -96,8 +96,16 @@ export function insertCodeBlock(view: EditorView): boolean {
   // what WYSIWYG produces because it fences the node's content. Indentation
   // survives, since with the markers gone it is all that shows the nesting.
   const parts = all.slice(span.start, span.end + 1).map(stripBlockMarkup);
-  const quote = parts[0]?.quote ?? "";
-  const body = parts.map((p) => `${p.indent}${p.content}`).join(`\n${quote}`);
+
+  // The fence's wrapper is the COMMON enclosing quote depth; whatever depth a
+  // line carries beyond it is that line's own content and is re-emitted in
+  // front of it. Keeping only the first line's quote silently normalized every
+  // line to that depth: `> outer` + `> > inner` lost the inner `>` entirely.
+  const commonDepth = Math.min(...parts.map((p) => quoteDepth(p.quote)));
+  const quote = "> ".repeat(commonDepth);
+  const body = parts
+    .map((p) => `${"> ".repeat(quoteDepth(p.quote) - commonDepth)}${p.indent}${p.content}`)
+    .join(`\n${quote}`);
 
   // The fence must be LONGER than any backtick run it contains, or content
   // holding a ``` line closes the block early and spills the rest outside it.
@@ -133,8 +141,8 @@ export function insertTable(view: EditorView): boolean {
   return true;
 }
 
-export function insertListMarker(view: EditorView, marker: string): boolean {
-  return prependLineMarker(view, marker);
+export function insertListMarker(view: EditorView, marker: string, pos?: number): boolean {
+  return prependLineMarker(view, marker, pos);
 }
 
 /**
@@ -216,6 +224,11 @@ function unfence(view: EditorView, all: string[], fence: EnclosingFence): boolea
 /** Longest run of consecutive backticks anywhere in `text`. */
 function longestBacktickRun(text: string): number {
   return (text.match(/`+/g) ?? []).reduce((max, run) => Math.max(max, run.length), 0);
+}
+
+/** Nesting depth of a `stripBlockMarkup` quote wrapper — one per `>` marker. */
+function quoteDepth(quote: string): number {
+  return (quote.match(/>/g) ?? []).length;
 }
 
 /**

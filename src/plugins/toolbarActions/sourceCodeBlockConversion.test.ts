@@ -153,6 +153,40 @@ describe("fence length adapts to the content", () => {
 });
 
 /**
+ * Mixed quote depths inside one converted block.
+ *
+ * The fence's wrapper is the COMMON enclosing quote prefix, and whatever quote
+ * depth a line carries beyond it is that line's own content. Keeping only the
+ * FIRST line's quote silently normalized every line to that depth: converting
+ * `> outer` + `> > inner` dropped the inner `>` entirely.
+ */
+describe("code-block conversion preserves mixed quote depths", () => {
+  it("keeps a nested quote level as fence content", () => {
+    const view = createView("> outer\n> > inner", 3);
+    convert(view);
+    expect(view.state.doc.toString()).toBe("> ```plaintext\n> outer\n> > inner\n> ```");
+  });
+
+  it("keeps a quoted line's marker when the block starts unquoted", () => {
+    const view = createView("plain\n> quoted", 2);
+    convert(view);
+    expect(view.state.doc.toString()).toBe("```plaintext\nplain\n> quoted\n```");
+  });
+
+  it("still hoists a UNIFORM quote outside the fence", () => {
+    const view = createView("> a\n> b", 2);
+    convert(view);
+    expect(view.state.doc.toString()).toBe("> ```plaintext\n> a\n> b\n> ```");
+  });
+
+  it("hoists the common depth of a uniformly DOUBLE-quoted block", () => {
+    const view = createView("> > a\n> > b", 4);
+    convert(view);
+    expect(view.state.doc.toString()).toBe("> > ```plaintext\n> > a\n> > b\n> > ```");
+  });
+});
+
+/**
  * The code-block action is a TOGGLE, and inside a fence it is the only action
  * still permitted (`CODE_BLOCK_SAFE_ACTIONS`) — so it has to be the way out.
  * It previously always wrapped, nesting a fence inside a fence and leaving the
