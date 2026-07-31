@@ -19,7 +19,7 @@
  * @module plugins/toolbarActions/actionApplicability
  */
 
-import type { AdapterAction } from "./adapterActions";
+import type { AdapterAction, HeadingAdapterAction } from "./adapterActions";
 
 /** Contexts where an action is enabled (toolbar/menu vocabulary). */
 export type EnableContext =
@@ -152,20 +152,26 @@ export function enabledInFor(action: AdapterAction): readonly EnableContext[] {
  * both destructively — WYSIWYG cleared the cell's text, Source prefixed the row
  * line and the table stopped parsing.
  *
- * Anything that converts or inserts a BLOCK belongs here. Inline marks, links,
- * footnotes, inline math, text and CJK transforms, selection and navigation,
- * undo/redo and the table's own row/column/alignment operations stay enabled —
- * they all keep the cell's content inline.
- *
- * `moveLineUp`/`moveLineDown`/`joinLines` are here because Source treats rows
- * as plain lines and reorders them across the `| --- |` delimiter.
- * `duplicateLine` and `deleteLine` are NOT: both surfaces now agree on row
- * semantics for them.
+ * Anything that converts or inserts a BLOCK belongs here; inline marks, text
+ * transforms, navigation, undo/redo and the table's own operations stay
+ * enabled — they keep the cell's content inline. `moveLineUp`/`moveLineDown`/
+ * `joinLines` are here because Source reorders rows across the `| --- |`
+ * delimiter; `duplicateLine`/`deleteLine` are not (both surfaces agree).
  */
-export const TABLE_CELL_BLOCKED_ACTIONS: ReadonlySet<string> = new Set<string>([
+const ALL_HEADING_ACTIONS: readonly AdapterAction[] = [
+  "heading:0", "heading:1", "heading:2", "heading:3", "heading:4", "heading:5", "heading:6",
+] satisfies readonly HeadingAdapterAction[];
+
+/**
+ * Typed as `readonly AdapterAction[]` so a typo or a stale ID is a COMPILE
+ * error, not a policy hole: a bad entry in the table block-list fails OPEN
+ * (the action runs in a cell), one in the code-block allow-list fails CLOSED
+ * (the action is refused wherever a fence is). Both were `Set<string>`.
+ */
+const TABLE_CELL_BLOCKED: readonly AdapterAction[] = [
   // Headings — a cell cannot contain one.
   "increaseHeading", "decreaseHeading",
-  ...Array.from({ length: 7 }, (_, level) => `heading:${level}`),
+  ...ALL_HEADING_ACTIONS,
   // Lists and their structural operations.
   "bulletList", "orderedList", "taskList",
   "insertBulletList", "insertOrderedList", "insertTaskList",
@@ -183,7 +189,11 @@ export const TABLE_CELL_BLOCKED_ACTIONS: ReadonlySet<string> = new Set<string>([
   "insertImage", "insertVideo", "insertAudio",
   // Line operations that reorder or fuse rows.
   "moveLineUp", "moveLineDown", "joinLines", "sortLinesAsc", "sortLinesDesc",
-]);
+];
+
+export const TABLE_CELL_BLOCKED_ACTIONS: ReadonlySet<string> = new Set<string>(
+  TABLE_CELL_BLOCKED,
+);
 
 /**
  * Actions that stay available with the caret inside a CODE BLOCK.
@@ -206,7 +216,7 @@ export const TABLE_CELL_BLOCKED_ACTIONS: ReadonlySet<string> = new Set<string>([
  *   - line operations with literal-text semantics, which manipulate lines
  *     without introducing markdown syntax.
  */
-export const CODE_BLOCK_SAFE_ACTIONS: ReadonlySet<string> = new Set<string>([
+const CODE_BLOCK_SAFE: readonly AdapterAction[] = [
   // History — bypasses the editor entirely (unified history).
   "undo", "redo",
   // The way OUT of the block. Refusing this would trap the caret.
@@ -222,7 +232,9 @@ export const CODE_BLOCK_SAFE_ACTIONS: ReadonlySet<string> = new Set<string>([
   // Whole-document utilities. These are not scoped to the cursor, so gating them
   // on it would be meaningless; each must preserve fence content itself.
   "formatCJKFile", "removeTrailingSpaces", "lineEndingsLF", "lineEndingsCRLF",
-]);
+];
+
+export const CODE_BLOCK_SAFE_ACTIONS: ReadonlySet<string> = new Set<string>(CODE_BLOCK_SAFE);
 
 /**
  * Whether `action` must be refused with the caret inside a code block.

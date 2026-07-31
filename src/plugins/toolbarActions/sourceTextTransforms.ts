@@ -21,10 +21,29 @@ import {
   sortLinesAscending,
   sortLinesDescending,
 } from "@/utils/textTransformations";
-import { moveBlockAware, joinWouldFuseBlocks, duplicateNeedsHardBreak } from "./sourceBlockMove";
-import { fenceRanges } from "@/plugins/shared/lineContent";
+import { moveBlockAware } from "./sourceBlockMove";
+import { joinWouldFuseBlocks, duplicateNeedsHardBreak } from "./sourceLineClassifier";
+import { fenceRanges, isDelimiterLine } from "@/plugins/shared/lineContent";
 
 // --- Line operations ---
+
+/**
+ * Line indices `[first, last]` covered by the main selection, honouring
+ * CodeMirror's EXCLUSIVE `to`: a selection ending at a line's start merely
+ * touches that line and must not include it. `lineAt(to)` read the NEXT line
+ * in three handlers while the shared utils correctly excluded it — so a move
+ * dragged an untouched line, duplicate classified the wrong line for its hard
+ * break, and join refused valid operations.
+ */
+function selectedLineRange(view: EditorView): { first: number; last: number } {
+  const { doc, selection } = view.state;
+  const { from, to } = selection.main;
+  const lastOffset = to > from ? to - 1 : to;
+  return {
+    first: doc.lineAt(from).number - 1,
+    last: doc.lineAt(lastOffset).number - 1,
+  };
+}
 
 /** Moves the current line (or selected lines) up by one position in source mode. */
 export function handleMoveLineUp(view: EditorView): boolean {
@@ -37,22 +56,20 @@ export function handleMoveLineUp(view: EditorView): boolean {
  */
 function moveLines(view: EditorView, direction: "up" | "down"): boolean {
   const { state } = view;
-  const { from, to } = state.selection.main;
   const text = state.doc.toString();
   const lines = text.split("\n");
-  const selection = {
-    start: state.doc.lineAt(from).number - 1,
-    end: state.doc.lineAt(to).number - 1,
-  };
+  const { first, last } = selectedLineRange(view);
 
-  const moved = moveBlockAware(lines, selection, direction);
+  const moved = moveBlockAware(lines, { start: first, end: last }, direction);
   if (!moved) return false;
 
-  const newText = moved.join("\n");
-  // Re-anchor on the moved text rather than on an offset arithmetic that the
-  // block case would get wrong.
-  const movedText = lines.slice(selection.start, selection.end + 1).join("\n");
-  const anchor = Math.max(0, newText.indexOf(movedText));
+  const newText = moved.lines.join("\n");
+  // The move reports where the selection landed. Searching the new text for the
+  // moved lines warped the selection to the FIRST identical text in the file.
+  const movedText = lines.slice(first, last + 1).join("\n");
+  const anchor = moved.lines
+    .slice(0, moved.selectionStart)
+    .reduce((offset, line) => offset + line.length + 1, 0);
 
   view.dispatch({
     changes: { from: 0, to: text.length, insert: newText },
@@ -75,15 +92,12 @@ export function handleMoveLineDown(view: EditorView): boolean {
  * make it a fence.
  */
 function touchesFenceDelimiter(view: EditorView): boolean {
-  const { doc, selection } = view.state;
-  const lines = doc.toString().split("\n");
-  const first = doc.lineAt(selection.main.from).number - 1;
-  const lastOffset = selection.main.to > selection.main.from ? selection.main.to - 1 : selection.main.to;
-  const last = doc.lineAt(lastOffset).number - 1;
+  const lines = view.state.doc.toString().split("\n");
+  const { first, last } = selectedLineRange(view);
   // Scanned once, not once per selected line.
   const fences = fenceRanges(lines);
   for (let i = first; i <= last; i += 1) {
-    if (fences.some((f) => i === f.open || (f.closed && i === f.close))) return true;
+    if (isDelimiterLine(fences, i)) return true;
   }
   return false;
 }
@@ -101,8 +115,10 @@ export function handleDuplicateLine(view: EditorView): boolean {
 
   // A plain paragraph line needs an explicit hard break between the copies, or
   // the duplicate renders as a continuation of the same line. Structural lines
-  // duplicate as siblings and need nothing.
-  const lineIndex = state.doc.lineAt(to).number - 1;
+  // duplicate as siblings and need nothing. The classified line must be the
+  // LAST SELECTED one — the same exclusive-`to` rule `duplicateLines` itself
+  // applies — or a selection ending at a line start classifies its neighbour.
+  const lineIndex = selectedLineRange(view).last;
   if (duplicateNeedsHardBreak(text.split("\n"), lineIndex)) {
     const lines = result.newText.split("\n");
     // The marker goes at the end of the FIRST copy, inside any quote prefix.
@@ -143,9 +159,8 @@ export function handleJoinLines(view: EditorView): boolean {
 
   // Decline rather than fuse two separate blocks — joining across a blank line
   // merges paragraphs, and joining two list items collapses them into one.
-  const startLine = state.doc.lineAt(from).number - 1;
-  const endLine = state.doc.lineAt(to).number - 1;
-  if (joinWouldFuseBlocks(text.split("\n"), startLine, endLine)) return false;
+  const { first, last } = selectedLineRange(view);
+  if (joinWouldFuseBlocks(text.split("\n"), first, last)) return false;
 
   const result = joinLines(text, from, to);
 
@@ -157,11 +172,20 @@ export function handleJoinLines(view: EditorView): boolean {
   return true;
 }
 
-/** Sorts selected lines in ascending alphabetical order in source mode. */
-export function handleSortLinesAsc(view: EditorView): boolean {
+/**
+ * Sort the selected lines. Refuses a selection touching a fence DELIMITER —
+ * sorting an opener into its own content destroys the fence and exposes the
+ * rest of the file as code. Content-only sorting inside a fence stays allowed;
+ * literal-line semantics are why sort is on the code-block allow-list at all.
+ */
+function handleSortLines(
+  view: EditorView,
+  sorter: (text: string, from: number, to: number) => { newText: string; newFrom: number; newTo: number },
+): boolean {
+  if (touchesFenceDelimiter(view)) return false;
   const { from, to } = view.state.selection.main;
   const text = view.state.doc.toString();
-  const result = sortLinesAscending(text, from, to);
+  const result = sorter(text, from, to);
 
   view.dispatch({
     changes: { from: 0, to: text.length, insert: result.newText },
@@ -169,49 +193,27 @@ export function handleSortLinesAsc(view: EditorView): boolean {
   });
   view.focus();
   return true;
+}
+
+/** Sorts selected lines in ascending alphabetical order in source mode. */
+export function handleSortLinesAsc(view: EditorView): boolean {
+  return handleSortLines(view, sortLinesAscending);
 }
 
 /** Sorts selected lines in descending alphabetical order in source mode. */
 export function handleSortLinesDesc(view: EditorView): boolean {
-  const { from, to } = view.state.selection.main;
-  const text = view.state.doc.toString();
-  const result = sortLinesDescending(text, from, to);
-
-  view.dispatch({
-    changes: { from: 0, to: text.length, insert: result.newText },
-    selection: { anchor: result.newFrom, head: result.newTo },
-  });
-  view.focus();
-  return true;
+  return handleSortLines(view, sortLinesDescending);
 }
 
-/** Removes blank lines from the selected text in source mode. Requires a selection. */
-export function handleRemoveBlankLines(view: EditorView): boolean {
-  const { from, to } = view.state.selection.main;
-
-  if (from === to) {
-    return false; // No selection
-  }
-
-  const selectedText = view.state.doc.sliceString(from, to);
-  const transformed = removeBlankLines(selectedText);
-
-  if (transformed === selectedText) {
-    return true; // No change needed
-  }
-
-  view.dispatch({
-    changes: { from, to, insert: transformed },
-    selection: { anchor: from, head: from + transformed.length },
-  });
-  view.focus();
-  return true;
-}
-
-// --- Text transformations ---
-
-/** Applies a text case transformation function to the selected text in source mode. */
-export function handleTransformCase(view: EditorView, transform: (text: string) => string): boolean {
+/**
+ * Replace the selection with `transform(selection)`, keeping the selection on
+ * the result. The one implementation behind remove-blank-lines and every case
+ * transform — the two used to be copy-paste twins.
+ */
+function applySelectedTextTransform(
+  view: EditorView,
+  transform: (text: string) => string,
+): boolean {
   const { from, to } = view.state.selection.main;
 
   if (from === to) {
@@ -231,6 +233,18 @@ export function handleTransformCase(view: EditorView, transform: (text: string) 
   });
   view.focus();
   return true;
+}
+
+/** Removes blank lines from the selected text in source mode. Requires a selection. */
+export function handleRemoveBlankLines(view: EditorView): boolean {
+  return applySelectedTextTransform(view, removeBlankLines);
+}
+
+// --- Text transformations ---
+
+/** Applies a text case transformation function to the selected text in source mode. */
+export function handleTransformCase(view: EditorView, transform: (text: string) => string): boolean {
+  return applySelectedTextTransform(view, transform);
 }
 
 // Re-export transform functions for use in the dispatcher switch

@@ -14,6 +14,9 @@
  *     H6 back into a paragraph and silently destroy structure.
  *   - The pair must always be changed together or the operation stops being
  *     reversible.
+ *   - Both functions return ProseMirror's `.run()` verdict — a schema can
+ *     reject the conversion, and claiming success for a no-op misinformed the
+ *     dispatcher.
  *
  * @coordinates-with wysiwygAdapter.ts — dispatches the two actions here
  * @coordinates-with sourceBlockActions.ts — the Source pair this mirrors
@@ -53,13 +56,13 @@ export function getCurrentHeadingLevel(editor: TiptapEditor): number | null {
  */
 export function increaseHeadingLevel(editor: TiptapEditor): boolean {
   const currentLevel = getCurrentHeadingLevel(editor);
+  // `.run()` is ProseMirror's verdict on whether the conversion applied — a
+  // schema can reject it. Discarding it reported success for a no-op.
   if (currentLevel === null) {
-    editor.chain().focus().setHeading({ level: 1 }).run();
-    return true;
+    return editor.chain().focus().setHeading({ level: 1 }).run();
   }
   if (currentLevel < 6) {
-    editor.chain().focus().setHeading({ level: (currentLevel + 1) as 2 | 3 | 4 | 5 | 6 }).run();
-    return true;
+    return editor.chain().focus().setHeading({ level: (currentLevel + 1) as 2 | 3 | 4 | 5 | 6 }).run();
   }
   return false;
 }
@@ -74,9 +77,7 @@ export function decreaseHeadingLevel(editor: TiptapEditor): boolean {
   const currentLevel = getCurrentHeadingLevel(editor);
   if (currentLevel === null) return false;
   if (currentLevel > 1) {
-    editor.chain().focus().setHeading({ level: (currentLevel - 1) as 1 | 2 | 3 | 4 | 5 }).run();
-    return true;
+    return editor.chain().focus().setHeading({ level: (currentLevel - 1) as 1 | 2 | 3 | 4 | 5 }).run();
   }
-  editor.chain().focus().setParagraph().run();
-  return true;
+  return editor.chain().focus().setParagraph().run();
 }

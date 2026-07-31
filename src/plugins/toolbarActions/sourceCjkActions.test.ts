@@ -193,22 +193,39 @@ describe("handleCollapseBlankLines", () => {
   });
 });
 
-describe("handleLineEndings", () => {
-  it("converts LF to CRLF (CodeMirror normalizes \\r\\n to \\n internally)", () => {
-    const view = createView("hello\nworld", 0);
+describe("handleLineEndings is METADATA-ONLY (WI-1.7)", () => {
+  // Line endings are METADATA in this app — the buffer is LF-canonical and the
+  // convention is applied at save time. The old implementation round-tripped
+  // the whole document through normalizeLineEndings anyway, which on Source was
+  // a pure waste (CodeMirror normalises CRLF back to LF on insert) with two
+  // real side effects: an undo entry that restores nothing, and a collapsed
+  // selection. On WYSIWYG it was worse — the CR survived into PM text nodes.
+
+  it("does not touch the buffer, the undo history, or the selection", async () => {
+    const { history, undoDepth } = await import("@codemirror/commands");
+    const parent = document.createElement("div");
+    const state = EditorState.create({
+      doc: "hello\nworld",
+      selection: EditorSelection.single(2, 8),
+      extensions: [history()],
+    });
+    const view = new EditorView({ state, parent });
+
     const result = handleLineEndings(view, "crlf");
+
     expect(result).toBe(true);
-    // CodeMirror internally normalizes \r\n to \n, so we verify the
-    // normalizeLineEndings mock was called with the right target
-    expect(normalizeLineEndings).toHaveBeenCalledWith("hello\nworld", "crlf");
+    expect(view.state.doc.toString()).toBe("hello\nworld");
+    expect(undoDepth(view.state)).toBe(0);
+    const range = view.state.selection.main;
+    expect([range.from, range.to]).toEqual([2, 8]);
     view.destroy();
   });
 
-  it("converts CRLF to LF", () => {
+  it("does not call normalizeLineEndings at all — there is no text transform", () => {
+    vi.mocked(normalizeLineEndings).mockClear();
     const view = createView("hello\r\nworld", 0);
-    const result = handleLineEndings(view, "lf");
-    expect(result).toBe(true);
-    expect(view.state.doc.toString()).toBe("hello\nworld");
+    handleLineEndings(view, "lf");
+    expect(normalizeLineEndings).not.toHaveBeenCalled();
     view.destroy();
   });
 
@@ -225,7 +242,7 @@ describe("handleLineEndings", () => {
     view.destroy();
   });
 
-  it("does not update metadata when no active tab", () => {
+  it("returns false when no active tab — nothing happened, so say so", () => {
     vi.mocked(useTabStore.getState).mockReturnValue({
       activeTabId: { main: null },
     } as never);
@@ -237,7 +254,7 @@ describe("handleLineEndings", () => {
     } as never);
 
     const view = createView("hello\nworld", 0);
-    handleLineEndings(view, "lf");
+    expect(handleLineEndings(view, "lf")).toBe(false);
     expect(setLineMetadata).not.toHaveBeenCalled();
     view.destroy();
   });
